@@ -96,3 +96,53 @@ export async function importerCle(brutBase64: string): Promise<CryptoKey> {
     ['decrypt'],
   );
 }
+
+// --- Rubrique Actualités : déchiffrement de l'enveloppe RSA ----------------
+//
+// Les actualités ne sont pas chiffrées avec la clé du site : les routines qui
+// les écrivent n'ont pas le mot de passe. Elles utilisent une clé publique
+// publiée dans « actualites-data/cle-publique.json ». La clé privée
+// correspondante n'arrive ici que déchiffrée depuis « data/actualites-cle.json »,
+// donc après saisie du mot de passe.
+
+export interface Enveloppe {
+  v: number;
+  alg: string;
+  /** Clé AES du contenu, chiffrée avec la clé publique. */
+  cle: string;
+  iv: string;
+  ct: string;
+}
+
+export function importerPriveeActualites(jwk: JsonWebKey): Promise<CryptoKey> {
+  return crypto.subtle.importKey('jwk', jwk, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, [
+    'decrypt',
+  ]);
+}
+
+/** Ouvre une enveloppe : déballe la clé AES, puis déchiffre le contenu. */
+export async function ouvrirEnveloppe<T>(privee: CryptoKey, enveloppe: Enveloppe): Promise<T> {
+  const brute = await crypto.subtle.decrypt(
+    { name: 'RSA-OAEP' },
+    privee,
+    base64VersOctets(enveloppe.cle) as BufferSource,
+  );
+  const cleContenu = await crypto.subtle.importKey('raw', brute, { name: 'AES-GCM' }, false, [
+    'decrypt',
+  ]);
+  const clair = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: base64VersOctets(enveloppe.iv) as BufferSource },
+    cleContenu,
+    base64VersOctets(enveloppe.ct) as BufferSource,
+  );
+  return JSON.parse(decodeur.decode(clair)) as T;
+}
+
+/** Empreinte tronquée, identique à « idStable » du build : nomme les fichiers publiés. */
+export async function idStable(texte: string, longueur = 16): Promise<string> {
+  const digest = await crypto.subtle.digest('SHA-256', encodeur.encode(texte));
+  return [...new Uint8Array(digest)]
+    .map((o) => o.toString(16).padStart(2, '0'))
+    .join('')
+    .slice(0, longueur);
+}

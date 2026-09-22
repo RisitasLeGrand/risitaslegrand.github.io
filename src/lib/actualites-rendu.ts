@@ -5,8 +5,19 @@
  * de fichiers JSON écrits par une routine automatisée, elles ne sont jamais
  * injectées telles quelles dans du HTML.
  */
-import { echapper, formaterDate } from './ui';
+import { echapper, formaterDate, lien } from './ui';
 import { etiquetteTheme, type FicheActu, type ItemActu, type Source } from './actualites';
+import { rattacher, type IndexTexte } from './rattachement';
+import type { FicheAplatie } from './contenu';
+
+/**
+ * Index du corps des fiches, alimenté après coup : il pèse plus d'un mégaoctet
+ * et n'est chargé que si des actualités sont restées sans rattachement.
+ */
+let indexTexte: IndexTexte | null = null;
+export function definirIndexTexte(index: IndexTexte) {
+  indexTexte = index;
+}
 
 function listeSources(sources?: Source[]): string {
   if (!sources?.length) return '';
@@ -22,15 +33,43 @@ function listeSources(sources?: Source[]): string {
   return `<p class="mt-3 text-xs text-slate-500 dark:text-slate-400">Source${liens.length > 1 ? 's' : ''} : ${liens.join(' · ')}</p>`;
 }
 
-function blocLienCours(texte?: string): string {
-  if (!texte?.trim()) return '';
-  return `<p class="mt-3 rounded-lg border-l-2 border-indigo-300 bg-indigo-50/60 px-3 py-2 text-sm text-slate-700 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-slate-300">
-            <span class="font-medium text-indigo-700 dark:text-indigo-300">Lien avec le programme —</span> ${echapper(texte)}
-          </p>`;
+/**
+ * Bloc « Lien avec le programme » : le commentaire rédigé par la veille, suivi
+ * des fiches de cours réellement rattachées. Les liens sont calculés ici et non
+ * par la routine, qui ne connaît pas le plan du site (il est chiffré).
+ */
+function blocLienCours(
+  actualite: { titre?: string; mots_cles?: string[]; lien_cours?: string },
+  fiches: FicheAplatie[],
+): string {
+  const rattachees = fiches.length
+    ? rattacher({ titre: actualite.titre ?? '', mots_cles: actualite.mots_cles }, fiches, indexTexte)
+    : [];
+  if (!actualite.lien_cours?.trim() && !rattachees.length) return '';
+
+  const commentaire = actualite.lien_cours?.trim()
+    ? `<span class="font-medium text-indigo-700 dark:text-indigo-300">Lien avec le programme —</span> ${echapper(actualite.lien_cours)}`
+    : '<span class="font-medium text-indigo-700 dark:text-indigo-300">À réviser avec</span>';
+
+  const puces = rattachees
+    .map(
+      ({ fiche }) =>
+        `<a href="${lien('/fiche/')}?id=${encodeURIComponent(fiche.id)}"
+            title="${echapper(fiche.matiere)} · ${echapper(fiche.fascicule)}"
+            class="inline-flex max-w-full items-center gap-1 rounded-full bg-white px-2.5 py-1 text-xs font-medium text-indigo-700 ring-1 ring-indigo-200 transition hover:bg-indigo-100 dark:bg-slate-900 dark:text-indigo-300 dark:ring-indigo-800 dark:hover:bg-slate-800">
+           <span aria-hidden="true">📄</span><span class="truncate">${echapper(fiche.titre)}</span>
+         </a>`,
+    )
+    .join('');
+
+  return `<div class="mt-3 rounded-lg border-l-2 border-indigo-300 bg-indigo-50/60 px-3 py-2 text-sm text-slate-700 dark:border-indigo-700 dark:bg-indigo-950/40 dark:text-slate-300">
+            <p>${commentaire}</p>
+            ${puces ? `<div class="mt-2 flex flex-wrap gap-1.5">${puces}</div>` : ''}
+          </div>`;
 }
 
 /** Carte d'une fiche suivie en continu (Premier ministre, chiffres clés…). */
-export function carteFiche(fiche: FicheActu): HTMLElement {
+export function carteFiche(fiche: FicheActu, fichesCours: FicheAplatie[] = []): HTMLElement {
   const element = document.createElement('article');
   element.className =
     'rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900';
@@ -44,13 +83,19 @@ export function carteFiche(fiche: FicheActu): HTMLElement {
       }
     </div>
     <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">${echapper(fiche.resume ?? '')}</p>
-    ${blocLienCours(fiche.lien_cours)}
+    ${blocLienCours(fiche, fichesCours)}
     ${listeSources(fiche.sources)}`;
+  marquerRattachement(element);
   return element;
 }
 
+/** Note sur la carte si elle a trouvé des fiches de cours, pour un repêchage éventuel. */
+function marquerRattachement(element: HTMLElement) {
+  element.dataset.rattachements = String(element.querySelectorAll('a[href*="/fiche/"]').length);
+}
+
 /** Carte d'une actualité datée (entrée hebdomadaire, trimestrielle ou annuelle). */
-export function carteItem(item: ItemActu): HTMLElement {
+export function carteItem(item: ItemActu, fichesCours: FicheAplatie[] = []): HTMLElement {
   const theme = etiquetteTheme(item.theme);
   const element = document.createElement('article');
   element.dataset.theme = (item.theme ?? '').toLowerCase();
@@ -78,8 +123,9 @@ export function carteItem(item: ItemActu): HTMLElement {
       <span class="shrink-0 rounded-full px-2 py-0.5 text-xs font-medium ${theme.classe}">${echapper(theme.libelle)}</span>
     </div>
     <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">${echapper(item.resume ?? '')}</p>
-    ${blocLienCours(item.lien_cours)}
+    ${blocLienCours(item, fichesCours)}
     ${listeSources(item.sources)}`;
+  marquerRattachement(element);
   return element;
 }
 

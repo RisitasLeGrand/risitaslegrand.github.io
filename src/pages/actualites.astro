@@ -51,7 +51,9 @@ import Base from '../layouts/Base.astro';
     titrePeriode,
     type PeriodeActu,
   } from '../lib/actualites';
-  import { carteItem, messageVide } from '../lib/actualites-rendu';
+  import { carteItem, definirIndexTexte, messageVide } from '../lib/actualites-rendu';
+  import { aplatirFiches, chargerIndexRecherche, chargerManifeste, type FicheAplatie } from '../lib/contenu';
+  import { construireIndexTexte } from '../lib/rattachement';
   import { lien, parametreUrl } from '../lib/ui';
 
   const ACTIF_ONGLET = 'bg-white text-indigo-700 shadow-sm dark:bg-slate-900 dark:text-indigo-300';
@@ -68,6 +70,7 @@ import Base from '../layouts/Base.astro';
   document.getElementById('retour')!.setAttribute('href', lien('/'));
 
   const donnees: Record<string, PeriodeActu[] | undefined> = {};
+  let fichesCours: FicheAplatie[] = [];
   let vue = 'semaines';
   let theme = '';
 
@@ -113,13 +116,32 @@ import Base from '../layouts/Base.astro';
 
       const grille = document.createElement('div');
       grille.className = 'grid gap-3 md:grid-cols-2';
-      for (const item of items) grille.appendChild(carteItem(item));
+      for (const item of items) grille.appendChild(carteItem(item, fichesCours));
       section.appendChild(grille);
       archive.appendChild(section);
     }
 
     if (!affichees) {
       archive.appendChild(messageVide('Aucune actualité ne correspond à ce thème sur la période disponible.'));
+    }
+    void repecher();
+  }
+
+  /**
+   * Si des actualités sont restées sans fiche de cours rattachée, charge
+   * l'index de recherche (plus d'un mégaoctet, d'où le chargement différé) et
+   * redessine une fois.
+   */
+  let repechageFait = false;
+  async function repecher() {
+    if (repechageFait || !fichesCours.length) return;
+    if (!archive.querySelector('[data-rattachements="0"]')) return;
+    repechageFait = true;
+    try {
+      definirIndexTexte(construireIndexTexte(await chargerIndexRecherche()));
+      peindreArchive();
+    } catch (e) {
+      console.warn('Index de recherche indisponible pour le rattachement :', e);
     }
   }
 
@@ -156,6 +178,14 @@ import Base from '../layouts/Base.astro';
 
   document.addEventListener('revinsp:deverrouille', () => {
     theme = parametreUrl('theme') ?? '';
+    // Le manifeste alimente le rattachement des actualités aux fiches de cours ;
+    // son absence ne doit pas empêcher l'affichage des actualités.
+    chargerManifeste()
+      .then((m) => {
+        fichesCours = aplatirFiches(m);
+        if (!archive.classList.contains('hidden')) peindreArchive();
+      })
+      .catch((e) => console.warn('Rattachement aux fiches indisponible :', e));
     void basculer(parametreUrl('vue') ?? 'semaines');
   });
 </script>

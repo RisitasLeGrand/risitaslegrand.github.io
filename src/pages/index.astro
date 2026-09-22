@@ -111,7 +111,9 @@ import Base from '../layouts/Base.astro';
   import { BADGES, calculerNiveau, statutStreak } from '../lib/gamification';
   import { formaterDuree, lien, pluriel } from '../lib/ui';
   import { chargerFiches, chargerSemaine, idSemaine } from '../lib/actualites';
-  import { carteFiche, carteItem } from '../lib/actualites-rendu';
+  import { carteFiche, carteItem, definirIndexTexte } from '../lib/actualites-rendu';
+  import { aplatirFiches, chargerIndexRecherche, chargerManifeste } from '../lib/contenu';
+  import { construireIndexTexte } from '../lib/rattachement';
 
   async function afficher() {
     const [vue, profil, streak, jours] = await Promise.all([
@@ -242,26 +244,55 @@ import Base from '../layouts/Base.astro';
   async function afficherActualites() {
     document.getElementById('lien-actualites')!.setAttribute('href', lien('/actualites/'));
 
-    const [fiches, semaine] = await Promise.all([
+    const [fiches, semaine, manifeste] = await Promise.all([
       chargerFiches(),
       chargerSemaine(idSemaine(new Date())),
+      chargerManifeste(),
     ]);
     if (!fiches.length && !semaine?.items?.length) return;
 
+    // Les fiches de cours servent à rattacher chaque actualité au programme.
+    const fichesCours = aplatirFiches(manifeste);
+
     const zoneFiches = document.getElementById('fiches-actu')!;
-    for (const fiche of fiches) zoneFiches.appendChild(carteFiche(fiche));
+    for (const fiche of fiches) zoneFiches.appendChild(carteFiche(fiche, fichesCours));
 
     const blocSemaine = document.getElementById('semaine-actu')!;
     if (semaine?.items?.length) {
       document.getElementById('titre-semaine-actu')!.textContent =
         `Cette semaine · ${semaine.periode ?? semaine.semaine ?? ''}`.trim();
       const zoneItems = document.getElementById('items-semaine-actu')!;
-      for (const item of semaine.items.slice(0, 4)) zoneItems.appendChild(carteItem(item));
+      for (const item of semaine.items.slice(0, 4)) zoneItems.appendChild(carteItem(item, fichesCours));
     } else {
       blocSemaine.classList.add('hidden');
     }
 
     document.getElementById('bloc-actualites')!.classList.remove('hidden');
+
+    // Repêchage : si une actualité n'a trouvé aucune fiche par les titres et
+    // les tags, on charge l'index de recherche (lourd) et on refait le rendu.
+    await repecherRattachements(() => {
+      const zone = document.getElementById('fiches-actu')!;
+      zone.innerHTML = '';
+      for (const fiche of fiches) zone.appendChild(carteFiche(fiche, fichesCours));
+      const zoneItems = document.getElementById('items-semaine-actu');
+      if (zoneItems && semaine?.items?.length) {
+        zoneItems.innerHTML = '';
+        for (const item of semaine.items.slice(0, 4)) zoneItems.appendChild(carteItem(item, fichesCours));
+      }
+    });
+  }
+
+  /** Charge l'index de recherche et redessine, si des cartes sont restées sans lien. */
+  async function repecherRattachements(redessiner: () => void) {
+    const orphelines = document.querySelectorAll('#bloc-actualites [data-rattachements="0"]').length;
+    if (!orphelines) return;
+    try {
+      definirIndexTexte(construireIndexTexte(await chargerIndexRecherche()));
+      redessiner();
+    } catch (e) {
+      console.warn('Index de recherche indisponible pour le rattachement :', e);
+    }
   }
 
   document.addEventListener('revinsp:deverrouille', () => {

@@ -10,6 +10,7 @@
     "preview": "astro preview",
     "deploy": "npm run build && node scripts/deploy.mjs",
     "hash": "node scripts/hash.mjs",
+    "actualites:cles": "node scripts/actualites-cles.mjs",
     "actualites:local": "node scripts/actualites-local.mjs",
     "verifier": "astro check"
   },

@@ -345,6 +345,25 @@ async function main() {
     ),
   );
 
+  // Clé privée de la rubrique Actualités : publiée uniquement sous forme
+  // chiffrée, pour que le navigateur puisse déchiffrer les actualités écrites
+  // par les routines. Voir scripts/actualites-cles.mjs.
+  const cheminClePrivee = path.join(dossierContenu, 'actualites-cle-privee.json');
+  if (existsSync(cheminClePrivee)) {
+    const paire = JSON.parse(await readFile(cheminClePrivee, 'utf8'));
+    await writeFile(
+      path.join(dossierSortie, 'actualites-cle.json'),
+      JSON.stringify(
+        await chiffrerJson(cle, { empreinte: paire.empreinte, privee: paire.privee }, tailleIvOctets),
+      ),
+    );
+  } else {
+    avertissements.push(
+      'Aucune clé d\'actualités (content/actualites-cle-privee.json) : la rubrique Actualités ' +
+        'restera masquée. Lancez « npm run actualites:cles » pour l\'activer.',
+    );
+  }
+
   await writeFile(
     path.join(dossierSortie, 'manifeste.json'),
     JSON.stringify(await chiffrerJson(cle, manifeste, tailleIvOctets)),

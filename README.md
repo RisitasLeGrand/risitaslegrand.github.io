@@ -34,7 +34,8 @@ Trois commandes suffisent au quotidien :
 | `npm run dev` | Chiffre le contenu puis ouvre le site en local pour le tester |
 | `npm run deploy` | Chiffre, construit et publie le site sur GitHub Pages |
 | `npm run hash` | Affiche l'empreinte SHA-256 du mot de passe (voir plus bas) |
-| `npm run actualites:local` | Copie les exemples d'actualités pour les voir en mode dev |
+| `npm run actualites:cles` | Crée la paire de clés de la rubrique Actualités (une seule fois) |
+| `npm run actualites:local` | Fabrique des actualités de démonstration pour le mode dev |
 
 **Règle de sécurité fondamentale :** le dossier `content/` (vos fiches en clair)
 et le fichier `.env.local` (votre mot de passe) ne sont **jamais** envoyés sur
@@ -341,66 +342,93 @@ en cours, et un bouton **« Voir les actualités passées »** qui mène à
 trimestrielles et annuelles, avec filtre par thème — n'est volontairement pas
 dans la navigation globale : on n'y accède que par ce bouton.
 
-### Un écart assumé par rapport au reste du site
+Chaque actualité affiche, sous son résumé, les **fiches de cours auxquelles la
+rattacher** : ce sont de vrais liens, calculés dans le navigateur à partir des
+mots-clés de l'actualité et des titres, tags puis corps des fiches.
 
-Les cours, flashcards et quiz sont chiffrés localement avec un mot de passe qui
-ne quitte jamais votre machine. Les **actualités, elles, ne sont pas chiffrées**.
+### Les actualités sont chiffrées, comme le reste
 
-La raison est pratique : ces fichiers sont destinés à être écrits par des
-routines automatisées qui tournent dans le nuage et n'ont donc accès ni à votre
-machine ni à votre mot de passe. Le compromis est acceptable ici — il s'agit
-d'informations déjà publiques (institutions, presse économique), pas de votre
-travail personnel de révision. Elles restent malgré tout derrière l'écran de
-connexion et hors des moteurs de recherche, comme le reste du site.
+Rien n'est publié en clair sur GitHub Pages — ni le contenu des actualités, ni
+même les dates : les noms de fichiers sont des empreintes.
 
-Si ce compromis ne vous convient pas, supprimez le dossier `actualites-data/` :
-la section reste alors simplement masquée sur le tableau de bord.
+Le chiffrement ne peut cependant pas utiliser la clé du site : les routines de
+veille tournent dans le nuage et n'ont pas le mot de passe. Le site emploie
+donc pour elles une **paire de clés** :
+
+| Clé | Où elle vit | Ce qu'elle permet |
+|---|---|---|
+| **Publique** | `actualites-data/cle-publique.json`, commitée, publiée en clair | chiffrer une actualité |
+| **Privée** | `content/actualites-cle-privee.json`, jamais commitée ; republiée chiffrée par le build | déchiffrer, dans le navigateur, après saisie du mot de passe |
+
+Une routine peut donc **écrire** une actualité sans jamais pouvoir **relire**
+celles qui existent.
+
+### Activer la rubrique
+
+```bash
+npm run actualites:cles          # crée la paire de clés (une seule fois)
+git add actualites-data/cle-publique.json
+git commit -m "Active la rubrique Actualités"
+npm run deploy
+```
+
+Tant que cette étape n'est pas faite, la rubrique reste masquée et le build
+vous le rappelle par un avertissement.
+
+> **Sauvegardez `content/actualites-cle-privee.json`.** C'est le seul élément
+> non reconstructible du dispositif : sans lui, les actualités déjà chiffrées
+> restent illisibles même avec le bon mot de passe. Le regénérer
+> (`npm run actualites:cles -- --forcer`) invalide tout l'historique publié.
 
 ### Où vivent les données
 
-Les données ne passent **pas** par le build Astro : elles sont récupérées par
-`fetch` au moment de l'affichage, depuis la branche publiée.
-
 ```
 actualites-data/
-  fiches/       premier-ministre.json · ministres-finances.json
-                chiffres-economie.json · legislation.json
-  semaines/     2026-W39.json  (numéro de semaine ISO)
-  trimestres/   2026-T3.json
-  annees/       2026.json
+  cle-publique.json     en clair, c'est son rôle
+  fiches/               premier-ministre, ministres-finances,
+                        chiffres-economie, legislation
+  semaines/             une entrée par semaine ISO
+  trimestres/           une par trimestre civil
+  annees/               une par année
 ```
 
-Conséquence utile : **publier une actualité ne demande aucun build**, et
-**publier une nouvelle version du site n'efface pas les actualités**. Avant
-chaque `npm run deploy`, le script récupère `actualites-data/` depuis la version
-en ligne et le réintègre tel quel ; si le dossier n'existe pas encore en ligne,
-il est initialisé à partir des fichiers d'exemple du dépôt. Une éventuelle copie
-présente dans `dist/` est systématiquement écartée.
+Les fichiers portent un nom d'empreinte, pas leur identifiant. Ils sont
+versionnés dans le dépôt — c'est sans risque, ils sont chiffrés — et
+`npm run deploy` les publie tels quels. Le script **refuse de publier** un
+fichier de ce dossier qui ne serait pas chiffré.
 
-Le dépôt contient un fichier d'exemple par sous-dossier : ils servent de modèle
-de schéma et sont destinés à être remplacés à la première vraie mise à jour.
+### Ajouter une actualité à la main
+
+```bash
+node scripts/chiffrer-actualite.mjs --modele semaines > /tmp/semaine.json
+$EDITOR /tmp/semaine.json
+node scripts/chiffrer-actualite.mjs semaines 2026-W40 /tmp/semaine.json
+npm run deploy
+```
+
+Le fichier en clair reste dans `/tmp` : ne le déplacez pas dans le dépôt.
 
 ### Voir la rubrique en développement local
 
-En local, rien ne répond au `fetch` puisque les données vivent sur la branche
-publiée. Pour afficher les exemples pendant le développement :
-
 ```bash
-npm run actualites:local   # copie actualites-data/ dans public/ (ignoré par Git)
+npm run actualites:local   # entrées de démonstration chiffrées, dans public/
 npm run dev
 ```
 
+Ce dossier local est ignoré par Git, et `npm run deploy` l'écarte d'office : la
+démonstration ne peut jamais atteindre le site en ligne.
+
 ### Alimenter la rubrique automatiquement
 
-Trois routines programmées peuvent tenir la rubrique à jour depuis
-`claude.ai/code/routines`, en ouvrant une pull request à chaque passage :
-hebdomadaire (lundi matin), trimestrielle (1er janvier, avril, juillet,
-octobre) et annuelle (5 janvier). Leurs consignes sont reproduites dans
-`docs/routines-actualites.md`.
+Trois routines programmées tiennent la rubrique à jour et ouvrent une pull
+request à chaque passage : hebdomadaire (lundi matin), trimestrielle (1er
+janvier, avril, juillet, octobre) et annuelle (5 janvier). Une actualité
+n'apparaît en ligne qu'après **fusion de la pull request et republication**.
+Voir `docs/routines-actualites.md`.
 
-Aucune image n'est jamais hébergée dans le dépôt : seule l'URL d'origine de
-l'illustration et son crédit sont conservés. Si l'URL cesse de répondre, le
-bloc image disparaît de lui-même.
+Aucune image n'est jamais hébergée dans le dépôt : seule l'URL d'origine et son
+crédit sont conservés. Si l'URL cesse de répondre, le bloc image disparaît de
+lui-même.
 
 ---
 
@@ -614,9 +642,9 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 
 ```
 .
-├── content/                 # VOS FICHES EN CLAIR — jamais commité
+├── content/                 # VOS FICHES EN CLAIR + clé privée — jamais commité
 ├── content-exemple/         # Exemples fournis, copiés par « npm run init:contenu »
-├── actualites-data/         # Rubrique Actualités — NON chiffrée, commitée (voir plus haut)
+├── actualites-data/         # Rubrique Actualités — entrées chiffrées + clé publique
 ├── docs/                    # Consignes des routines de veille
 ├── .env.local               # VOTRE MOT DE PASSE — jamais commité
 ├── site.config.mjs          # Réglages : mot de passe (empreinte), base, XP, glossaire
@@ -626,7 +654,9 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 │   ├── deploy.mjs           # Reconstruit et publie la branche gh-pages
 │   ├── hash.mjs             # Calcule l'empreinte SHA-256 d'un mot de passe
 │   ├── init-contenu.mjs     # Crée content/ à partir des exemples
-│   ├── actualites-local.mjs # Copie les exemples d'actualités pour le mode dev
+│   ├── actualites-cles.mjs  # Crée la paire de clés de la rubrique Actualités
+│   ├── actualites-local.mjs # Actualités de démonstration pour le mode dev
+│   ├── chiffrer-actualite.mjs   # Chiffre une actualité (utilisé par les routines)
 │   └── lib/
 │       ├── schema.mjs       # Validation du format des fiches (Zod)
 │       ├── markdown.mjs     # Découpage en sections et rendu HTML
@@ -653,13 +683,14 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 │       ├── agregats.ts      # Calculs de maîtrise et file du jour
 │       ├── glossaire.ts     # Bulles de définition
 │       ├── temps.ts         # Mesure du temps de révision
-│       ├── actualites.ts    # Chargement des actualités (fetch, non chiffré)
+│       ├── actualites.ts    # Chargement et déchiffrement des actualités
 │       ├── actualites-rendu.ts  # Fabrique les cartes d'actualité
+│       ├── rattachement.ts  # Relie une actualité aux fiches de cours
 │       └── ui.ts            # Utilitaires d'affichage
 │
 └── public/                  # Fichiers copiés tels quels (robots.txt, favicon)
     ├── data/                # Contenu chiffré produit par le build — non commité
-    └── actualites-data/     # Copie locale des exemples (npm run actualites:local) — non commité
+    └── actualites-data/     # Démonstration locale (npm run actualites:local) — non commité
 ```
 
 ### Note sur la validation du contenu

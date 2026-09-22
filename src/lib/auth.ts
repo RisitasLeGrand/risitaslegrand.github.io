@@ -20,6 +20,7 @@ import {
   type ParametresCle,
 } from './crypto';
 import { chargerParametresCle, viderCache } from './contenu';
+import { oublierCleActualites } from './actualites';
 
 const CLE_STOCKAGE = 'revinsp.cle';
 const HASH_ATTENDU = (config as { motDePasseHash: string }).motDePasseHash.toLowerCase();
@@ -111,6 +112,7 @@ export function verrouiller() {
   cleMemoire = null;
   effacerStockage();
   viderCache();
+  oublierCleActualites();
   abonnes.forEach((f) => f(false));
 }
 

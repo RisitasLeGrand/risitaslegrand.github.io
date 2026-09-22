@@ -10,16 +10,15 @@
  * résidu d'une publication précédente. Son historique n'a aucune valeur — tout
  * y est régénérable —, d'où le « push --force ».
  *
- * UNE SEULE EXCEPTION : le dossier « actualites-data/ ». Il est alimenté par des
- * routines qui écrivent directement sur la branche publiée, sans passer par un
- * build local. Comme la publication écrase la branche, ce dossier est récupéré
- * depuis la version en ligne AVANT le push, puis réintégré tel quel. Publier une
- * nouvelle version du site ne doit jamais effacer la veille accumulée.
- * S'il est absent en ligne (toute première publication), il est initialisé à
- * partir des fichiers d'exemple du dépôt.
+ * UNE EXCEPTION : le dossier « actualites-data/ », qui ne vient pas du build
+ * mais du dépôt lui-même. Ses entrées sont chiffrées avec la clé publique de la
+ * rubrique — les routines de veille peuvent donc les écrire sans détenir le mot
+ * de passe du site, et elles restent illisibles sur GitHub Pages. Le script
+ * refuse de publier un fichier de ce dossier qui ne serait pas une enveloppe
+ * chiffrée : c'est le garde-fou qui empêche une actualité de partir en clair.
  */
 import { execFileSync } from 'node:child_process';
-import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -32,8 +31,8 @@ const branche = config.brancheDeploiement;
 
 /** Dossier de la rubrique Actualités, hors du périmètre du build (voir en-tête). */
 const DOSSIER_ACTUALITES = 'actualites-data';
-/** Fichiers d'exemple servant d'amorce lors de la toute première publication. */
-const amorceActualites = path.join(racine, DOSSIER_ACTUALITES);
+/** Source de vérité de la rubrique : le dossier versionné du dépôt. */
+const actualitesDepot = path.join(racine, DOSSIER_ACTUALITES);
 
 function echouer(message) {
   console.error(`\n\x1b[31m✖ ${message}\x1b[0m\n`);
@@ -43,6 +42,40 @@ function echouer(message) {
 /** Exécute une commande git et retourne sa sortie. */
 function git(dossier, ...args) {
   return execFileSync('git', ['-C', dossier, ...args], { encoding: 'utf8' }).trim();
+}
+
+/**
+ * Vérifie que chaque entrée de la rubrique Actualités est bien une enveloppe
+ * chiffrée. Seule « cle-publique.json » est publiée en clair, par définition.
+ */
+async function verifierActualitesChiffrees(dossier) {
+  if (!existsSync(dossier)) return;
+  let verifiees = 0;
+  for (const sousDossier of await readdir(dossier, { withFileTypes: true })) {
+    if (!sousDossier.isDirectory()) continue;
+    const chemin = path.join(dossier, sousDossier.name);
+    for (const fichier of await readdir(chemin)) {
+      const brut = await readFile(path.join(chemin, fichier), 'utf8');
+      let contenu;
+      try {
+        contenu = JSON.parse(brut);
+      } catch {
+        echouer(`« ${DOSSIER_ACTUALITES}/${sousDossier.name}/${fichier} » n'est pas un JSON valide.`);
+      }
+      if (!contenu?.ct || !contenu?.cle || !contenu?.iv) {
+        echouer(
+          `« ${DOSSIER_ACTUALITES}/${sousDossier.name}/${fichier} » n'est pas chiffré : publication annulée.\n` +
+            '  Chiffrez-le avec « node scripts/chiffrer-actualite.mjs ».',
+        );
+      }
+      verifiees++;
+    }
+  }
+  console.log(
+    verifiees
+      ? `› ${DOSSIER_ACTUALITES}/ : ${verifiees} actualité(s) publiée(s), toutes chiffrées.`
+      : `› ${DOSSIER_ACTUALITES}/ : aucune actualité à publier pour l'instant.`,
+  );
 }
 
 // --- Vérifications préalables --------------------------------------------
@@ -78,41 +111,19 @@ try {
   // par « _ », comme _astro, seraient ignorés).
   await writeFile(path.join(temporaire, '.nojekyll'), '');
 
-  // --- Rubrique Actualités : la version en ligne fait foi ------------------
-  // Le build ne produit pas ce dossier ; s'il s'en trouvait une copie dans
-  // « dist/ » (prévisualisation locale), elle est écartée pour que la version
-  // publiée ne puisse jamais écraser celle qu'alimentent les routines.
+  // --- Rubrique Actualités -------------------------------------------------
+  // Le dossier vient du dépôt, jamais du build : une copie locale de
+  // démonstration éventuellement présente dans « dist/ » est écartée d'office.
   const actualitesDansTemp = path.join(temporaire, DOSSIER_ACTUALITES);
   await rm(actualitesDansTemp, { recursive: true, force: true });
 
-  const miroir = await mkdtemp(path.join(tmpdir(), 'actualites-'));
-  let origineActualites = null;
-  try {
-    // Clone minimal : ni historique, ni blobs hors du dossier visé.
-    execFileSync(
-      'git',
-      ['clone', '--depth', '1', '--single-branch', '--branch', branche,
-       '--filter=blob:none', '--sparse', depot, miroir],
-      { stdio: 'pipe' },
+  if (existsSync(actualitesDepot)) {
+    await cp(actualitesDepot, actualitesDansTemp, { recursive: true });
+    await verifierActualitesChiffrees(actualitesDansTemp);
+  } else {
+    console.log(
+      `› « ${DOSSIER_ACTUALITES}/ » absent du dépôt : la rubrique Actualités restera masquée.`,
     );
-    git(miroir, 'sparse-checkout', 'set', DOSSIER_ACTUALITES);
-    if (existsSync(path.join(miroir, DOSSIER_ACTUALITES))) {
-      await cp(path.join(miroir, DOSSIER_ACTUALITES), actualitesDansTemp, { recursive: true });
-      origineActualites = 'en ligne';
-    }
-  } catch {
-    // Branche inexistante, dépôt vide ou réseau indisponible : on retombe sur
-    // l'amorce locale plutôt que de publier une rubrique vide.
-  } finally {
-    await rm(miroir, { recursive: true, force: true });
-  }
-
-  if (!origineActualites && existsSync(amorceActualites)) {
-    await cp(amorceActualites, actualitesDansTemp, { recursive: true });
-    origineActualites = 'fichiers d\'exemple du dépôt';
-  }
-  if (origineActualites) {
-    console.log(`› « ${DOSSIER_ACTUALITES}/ » repris depuis : ${origineActualites}.`);
   }
 
   git(temporaire, 'init', '-q', '-b', branche);

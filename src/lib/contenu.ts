@@ -145,6 +145,14 @@ export const chargerFiche = (id: string) => charger<Fiche>(`fiches/${id}.json`);
 export const chargerGlossaire = () => charger<TermeGlossaire[]>('glossaire.json');
 export const chargerIndexRecherche = () => charger<EntreeRecherche[]>('recherche.json');
 
+/**
+ * Clé privée de la rubrique Actualités, publiée chiffrée par le build.
+ * Absente si « npm run actualites:cles » n'a jamais été lancé : la rubrique
+ * reste alors simplement masquée.
+ */
+export const chargerCleActualites = () =>
+  charger<{ empreinte: string; privee: JsonWebKey }>('actualites-cle.json');
+
 /** Vide le cache mémoire (au verrouillage de la session). */
 export function viderCache() {
   cache.clear();

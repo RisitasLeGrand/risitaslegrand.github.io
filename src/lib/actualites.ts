@@ -1,17 +1,21 @@
 /**
- * Rubrique « Actualités » : chargement des données depuis la branche publiée.
+ * Rubrique « Actualités » : chargement et déchiffrement.
  *
- * Écart assumé par rapport au reste du site : ces fichiers ne sont PAS chiffrés.
- * Ils sont écrits directement sur la branche « gh-pages » par des routines qui
- * tournent dans le nuage et n'ont donc pas accès au mot de passe local. Il ne
- * s'agit que d'actualités déjà publiques ; elles restent néanmoins derrière
- * l'écran de connexion et hors des moteurs de recherche, comme le reste du site.
+ * Les actualités sont écrites directement sur la branche publiée par des
+ * routines qui tournent dans le nuage. Elles n'ont pas le mot de passe du
+ * site : elles chiffrent avec une CLÉ PUBLIQUE publiée à côté des données
+ * (« actualites-data/cle-publique.json »). Une routine peut donc publier une
+ * actualité, mais jamais relire celles qui existent.
  *
- * Conséquence technique : les données sont récupérées par « fetch » au moment
- * de l'affichage, jamais intégrées au build Astro. Publier une nouvelle version
- * du site ne les touche pas ; publier une actualité ne demande aucun build.
+ * La clé privée correspondante est publiée par le build, chiffrée avec le mot
+ * de passe du site (« data/actualites-cle.json ») : elle n'est disponible ici
+ * qu'après déverrouillage de la session. Rien n'est lisible sur GitHub Pages
+ * sans le mot de passe — ni le contenu, ni même les dates, les noms de
+ * fichiers étant des empreintes.
  */
 import { lien } from './ui';
+import { idStable, importerPriveeActualites, ouvrirEnveloppe, type Enveloppe } from './crypto';
+import { chargerCleActualites } from './contenu';
 
 export const RACINE_ACTUALITES = lien('/actualites-data');
 
@@ -34,6 +38,8 @@ export interface FicheActu {
   resume: string;
   sources?: Source[];
   lien_cours?: string;
+  /** Termes servant à rattacher l'actualité aux fiches de cours. */
+  mots_cles?: string[];
   derniere_maj?: string;
 }
 
@@ -44,6 +50,8 @@ export interface ItemActu {
   sources?: Source[];
   image?: ImageActu;
   lien_cours?: string;
+  /** Termes servant à rattacher l'actualité aux fiches de cours. */
+  mots_cles?: string[];
 }
 
 export interface PeriodeActu {
@@ -88,24 +96,60 @@ export function etiquetteTheme(theme?: string) {
   );
 }
 
+let promesseClePrivee: Promise<CryptoKey | null> | null = null;
+
 /**
- * Récupère un fichier JSON de la rubrique.
- * Retourne « null » si le fichier n'existe pas encore (première utilisation,
- * avant le premier passage des routines) ou s'il est illisible : l'absence de
- * données n'est jamais une erreur bloquante pour la page.
+ * Clé privée de déchiffrement des actualités.
+ * Retourne « null » si la rubrique n'a pas été activée sur ce site
+ * (« npm run actualites:cles » jamais lancé) : ce n'est pas une erreur.
  */
-export async function chargerJson<T>(chemin: string): Promise<T | null> {
+export function clePriveeActualites(): Promise<CryptoKey | null> {
+  promesseClePrivee ??= (async () => {
+    try {
+      const { privee } = await chargerCleActualites();
+      return await importerPriveeActualites(privee);
+    } catch {
+      return null;
+    }
+  })();
+  return promesseClePrivee;
+}
+
+/** Oublie la clé en mémoire : appelé au verrouillage de la session. */
+export function oublierCleActualites() {
+  promesseClePrivee = null;
+}
+
+/**
+ * Récupère et déchiffre une entrée de la rubrique.
+ *
+ * Le nom du fichier publié est l'empreinte de « <dossier>/<id> », calculée de
+ * la même façon par le script de chiffrement et par le navigateur : la liste
+ * des fichiers en ligne ne révèle donc ni les dates ni les thèmes suivis.
+ *
+ * Retourne « null » si l'entrée n'existe pas encore (avant le premier passage
+ * d'une routine) ou si elle est illisible : l'absence de données n'est jamais
+ * une erreur bloquante pour la page.
+ */
+export async function chargerEntree<T>(dossier: string, id: string): Promise<T | null> {
+  const privee = await clePriveeActualites();
+  if (!privee) return null;
+
+  const nom = await idStable(`${dossier}/${id}`);
   let reponse: Response;
   try {
-    reponse = await fetch(`${RACINE_ACTUALITES}/${chemin}`, { cache: 'no-cache' });
+    reponse = await fetch(`${RACINE_ACTUALITES}/${dossier}/${nom}.json`, { cache: 'no-cache' });
   } catch {
     return null; // hors ligne, ou fichier absent en développement local
   }
   if (!reponse.ok) return null;
+
   try {
-    return (await reponse.json()) as T;
+    const enveloppe = (await reponse.json()) as Enveloppe;
+    return await ouvrirEnveloppe<T>(privee, enveloppe);
   } catch {
-    console.warn(`Actualités : « ${chemin} » n'est pas un JSON valide.`);
+    // Entrée chiffrée avec une autre paire de clés, ou fichier corrompu.
+    console.warn(`Actualités : « ${dossier}/${id} » est illisible avec la clé actuelle.`);
     return null;
   }
 }
@@ -174,7 +218,7 @@ export function dernieresAnnees(nombre: number, depuis = new Date()): string[] {
 
 export async function chargerFiches(): Promise<FicheActu[]> {
   const fiches = await Promise.all(
-    FICHES_SUIVIES.map((f) => chargerJson<FicheActu>(`fiches/${f.id}.json`)),
+    FICHES_SUIVIES.map((f) => chargerEntree<FicheActu>('fiches', f.id)),
   );
   return fiches
     .map((fiche, i) => (fiche ? { ...FICHES_SUIVIES[i], ...fiche } : null))
@@ -182,7 +226,7 @@ export async function chargerFiches(): Promise<FicheActu[]> {
 }
 
 export async function chargerSemaine(id: string): Promise<PeriodeActu | null> {
-  return chargerJson<PeriodeActu>(`semaines/${id}.json`);
+  return chargerEntree<PeriodeActu>('semaines', id);
 }
 
 /**
@@ -229,7 +273,7 @@ async function chargerPeriodes(
   ids: string[],
   cle: 'trimestre' | 'annee',
 ): Promise<PeriodeActu[]> {
-  const resultats = await Promise.all(ids.map((id) => chargerJson<PeriodeActu>(`${dossier}/${id}.json`)));
+  const resultats = await Promise.all(ids.map((id) => chargerEntree<PeriodeActu>(dossier, id)));
   const entrees: PeriodeActu[] = [];
   for (const [i, entree] of resultats.entries()) {
     if (entree) entrees.push({ [cle]: ids[i], ...entree });

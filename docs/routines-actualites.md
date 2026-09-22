@@ -1,67 +1,99 @@
 # Routines de veille — rubrique Actualités
 
-Ces trois routines alimentent le dossier `actualites-data/` de la branche
-`gh-pages`. Elles tournent sur l'infrastructure Claude : elles n'ont accès ni à
-la machine locale, ni au mot de passe de chiffrement — seulement au dépôt
-GitHub. C'est la raison pour laquelle la rubrique Actualités n'est pas chiffrée
-(voir la section « La rubrique Actualités » du README).
+Trois routines alimentent le dossier `actualites-data/` du dépôt : une veille
+hebdomadaire, une synthèse trimestrielle et une synthèse annuelle. Chacune
+ouvre une pull request ; rien n'est publié sans relecture.
 
-Par défaut, chaque routine **ouvre une pull request** plutôt que de publier
-directement : cela laisse un point de relecture, au moins le temps de vérifier
-la qualité et l'exactitude des résumés. Le passage en publication directe peut
-être envisagé ensuite.
+## Le principe : elles chiffrent sans pouvoir déchiffrer
 
-Elles se créent depuis `claude.ai/code/routines` (dépôt GitHub connecté,
-déclencheur programmé, connecteur GitHub actif). Les prompts ci-dessous sont à
-coller tels quels.
+Ces routines tournent sur l'infrastructure Claude. Elles n'ont accès ni à la
+machine du propriétaire du site, ni au mot de passe de chiffrement. Elles ne
+peuvent donc pas utiliser la clé symétrique qui protège les cours.
 
----
+Le site utilise pour elles une **paire de clés** :
 
-## 1. Routine hebdomadaire — chaque lundi matin
+| Clé | Où elle vit | Ce qu'elle permet |
+|---|---|---|
+| **Publique** | `actualites-data/cle-publique.json`, commitée et publiée en clair | chiffrer une actualité |
+| **Privée** | `content/actualites-cle-privee.json`, jamais commitée ; republiée par le build sous forme chiffrée dans `data/actualites-cle.json` | déchiffrer, dans le navigateur, après saisie du mot de passe |
 
-```
-Tu interviens sur le dépôt GitHub du site RevINSP, sur la branche gh-pages, dossier actualites-data/. Chaque semaine, mets à jour la rubrique Actualités du site :
+Conséquences, qui expliquent la forme des consignes ci-dessous :
 
-1. Recherche sur le web les actualités des 7 derniers jours en droit public, économie et finances publiques, et relations internationales, en priorité auprès de sources fiables (Légifrance, Journal officiel, Vie publique, INSEE, Banque de France, presse économique de référence, sites institutionnels des ministères concernés).
-2. Sélectionne 5 à 10 actualités marquantes. Pour chacune, rédige : un titre court, un résumé de quelques phrases dans tes propres mots (jamais une copie du texte source), le thème (juridique, économique ou international), les sources (nom + URL), et un bref paragraphe reliant l'actualité au programme de révision du concours INSP. Si une image pertinente illustre un article source, note son URL d'origine et son crédit — ne télécharge et n'héberge jamais l'image toi-même.
-3. Vérifie si l'un de ces thèmes doit être mis à jour (remplace entièrement le fichier existant, ne garde que la version la plus récente) : Premier ministre ; ministres des ministères économiques et financiers et Directeur général des Finances publiques ; chiffres clés de l'économie française ; changements législatifs majeurs récents. Ne touche qu'aux fiches réellement concernées par un changement.
-4. Avant d'écrire, lis un fichier existant dans actualites-data/semaines/ et dans actualites-data/fiches/ pour respecter exactement le même schéma JSON.
-5. Écris l'entrée de la semaine dans actualites-data/semaines/AAAA-Wnn.json (numéro de semaine ISO) et les fiches mises à jour dans actualites-data/fiches/<id>.json.
-6. Commite ces changements sur une branche dédiée et ouvre une pull request avec, en description, un résumé des actualités de la semaine.
-```
+- une routine peut **écrire** une actualité, jamais **relire** celles qui
+  existent — d'où les synthèses reconstruites par recherche web plutôt que par
+  lecture des entrées précédentes ;
+- le schéma JSON ne peut pas être déduit d'un fichier existant : il est fourni
+  par `node scripts/chiffrer-actualite.mjs --modele <dossier>` ;
+- les descriptions de pull request restent **neutres** : le dépôt est public,
+  et y recopier les résumés annulerait le bénéfice du chiffrement ;
+- le nom de chaque fichier publié est une **empreinte** de `<dossier>/<id>` :
+  la liste des fichiers en ligne ne révèle ni les dates ni les thèmes suivis.
 
-## 2. Routine trimestrielle — 1er janvier, 1er avril, 1er juillet, 1er octobre
+## Activation (une fois, sur la machine du propriétaire)
 
-```
-Tu interviens sur le dépôt GitHub du site RevINSP, sur la branche gh-pages, dossier actualites-data/. Chaque trimestre, réalise la synthèse trimestrielle de la rubrique Actualités :
-
-1. Lis l'ensemble des fichiers actualites-data/semaines/AAAA-Wnn.json publiés au cours des trois derniers mois.
-2. Identifie les actualités les plus importantes de la période pour la préparation du concours INSP (réformes structurantes, évolutions institutionnelles majeures, chiffres économiques significatifs, événements internationaux notables) — une sélection resserrée, pas une recopie de toutes les entrées hebdomadaires.
-3. Avant d'écrire, lis un fichier existant dans actualites-data/trimestres/ pour respecter exactement le même schéma JSON que les entrées hebdomadaires (mêmes champs : titre, thème, résumé, sources, lien avec le cours).
-4. Écris le résultat dans actualites-data/trimestres/AAAA-Tn.json (ex. 2026-T3.json).
-5. Commite ces changements sur une branche dédiée et ouvre une pull request avec un résumé de la synthèse trimestrielle.
+```bash
+npm run actualites:cles      # crée la paire de clés
+git add actualites-data/cle-publique.json && git commit -m "Active la rubrique Actualités"
+npm run deploy               # publie la clé privée chiffrée avec le contenu
 ```
 
-## 3. Routine annuelle — 5 janvier
+Tant que `actualites-data/cle-publique.json` n'existe pas, les routines ne
+publient rien : elles ouvrent une issue le signalant, et la rubrique reste
+masquée sur le site.
+
+> La clé privée est le seul élément non reconstructible du dispositif.
+> Sauvegardez `content/actualites-cle-privee.json` : sans elle, les actualités
+> déjà chiffrées restent illisibles, même avec le bon mot de passe.
+
+## Le circuit d'une actualité
 
 ```
-Tu interviens sur le dépôt GitHub du site RevINSP, sur la branche gh-pages, dossier actualites-data/. Une fois par an, réalise la synthèse annuelle de la rubrique Actualités :
-
-1. Lis les quatre fichiers actualites-data/trimestres/AAAA-Tn.json de l'année écoulée.
-2. Identifie les actualités les plus structurantes de l'année pour la préparation du concours INSP.
-3. Avant d'écrire, lis un fichier existant dans actualites-data/annees/ pour respecter exactement le même schéma JSON.
-4. Écris le résultat dans actualites-data/annees/AAAA.json.
-5. Commite ces changements sur une branche dédiée et ouvre une pull request avec un résumé de la synthèse annuelle.
+routine (nuage)                     propriétaire (machine locale)
+───────────────                     ─────────────────────────────
+recherche web
+  ↓
+JSON en clair dans /tmp
+  ↓  node scripts/chiffrer-actualite.mjs
+enveloppe chiffrée
+  ↓  commit + pull request
+          ──────────── relecture, fusion ────────────→
+                                     npm run deploy
+                                       ↓
+                                     site à jour
 ```
 
----
+Une actualité n'apparaît donc en ligne qu'après fusion de la pull request
+**et** republication du site.
 
-## Schéma des fichiers
+## Les trois routines
 
-**Fiche suivie** — `actualites-data/fiches/<id>.json`. Les quatre identifiants
-attendus par le site sont `premier-ministre`, `ministres-finances`,
-`chiffres-economie` et `legislation` ; un autre identifiant ne serait pas
-affiché.
+Elles existent déjà sur le compte et sont actives. Chacune crée une session
+neuve à son déclenchement.
+
+| Routine | Identifiant | Cron (UTC) | Prochain passage |
+|---|---|---|---|
+| Veille hebdomadaire | `trig_01KJ1XtUse66nHRoMWL74LtE` | `0 5 * * 1` | lundi 28 septembre 2026 |
+| Synthèse trimestrielle | `trig_015hD9sdSbmvoVvxpDxg5U1B` | `0 5 1 1,4,7,10 *` | 1er octobre 2026 |
+| Synthèse annuelle | `trig_01NCNPZK25f6E2MsfN4TZUC6` | `0 5 5 1 *` | 5 janvier 2027 |
+
+5 h UTC correspond à 7 h à Paris en heure d'été, 6 h en heure d'hiver. Le
+texte exact de chaque consigne se consulte et se modifie sur
+`claude.ai/code/routines`.
+
+**À vérifier avant le premier passage.** Ces routines ont été créées depuis une
+session Claude Code, qui n'a pas pu leur transmettre de connecteur : les
+sessions qu'elles déclenchent risquent de démarrer sans les outils GitHub, et
+donc de ne pas pouvoir ouvrir de pull request. Ouvrez `claude.ai/code/routines`
+et vérifiez que le connecteur GitHub est actif sur chacune ; sinon, recréez-les
+depuis cette page.
+
+## Schéma des données
+
+Obtenu par `node scripts/chiffrer-actualite.mjs --modele semaines` (ou
+`fiches`, `trimestres`, `annees`).
+
+**Fiche suivie.** Quatre identifiants seulement sont affichés par le site :
+`premier-ministre`, `ministres-finances`, `chiffres-economie`, `legislation`.
 
 ```json
 {
@@ -70,18 +102,18 @@ affiché.
   "resume": "…",
   "sources": [{ "nom": "…", "url": "…" }],
   "lien_cours": "…",
+  "mots_cles": ["gouvernance", "souveraineté"],
   "derniere_maj": "2026-09-22"
 }
 ```
 
-**Entrée datée** — `semaines/AAAA-Wnn.json`, `trimestres/AAAA-Tn.json`,
-`annees/AAAA.json`. Le champ d'identifiant prend le nom du dossier
-(`semaine`, `trimestre` ou `annee`).
+**Entrée datée.** Le champ d'identifiant prend le nom du dossier : `semaine`,
+`trimestre` ou `annee`.
 
 ```json
 {
-  "semaine": "2026-W39",
-  "periode": "21–27 septembre 2026",
+  "semaine": "2026-W40",
+  "periode": "28 septembre – 4 octobre 2026",
   "items": [
     {
       "titre": "…",
@@ -89,51 +121,43 @@ affiché.
       "resume": "…",
       "sources": [{ "nom": "…", "url": "…" }],
       "image": { "url": "…", "credit": "…" },
-      "lien_cours": "…"
+      "lien_cours": "…",
+      "mots_cles": ["déficit public", "Pacte de stabilité"]
     }
   ]
 }
 ```
 
-Les trois valeurs admises pour `theme` sont `juridique`, `economique` et
-`international` : ce sont elles qui alimentent le filtre de la page d'archive.
-`image` est facultatif et ne contient jamais qu'une URL distante.
+`theme` n'admet que `juridique`, `economique` et `international`, sans accent :
+ce sont les valeurs du filtre de la page d'archive.
+
+## Le champ « mots_cles » : c'est lui qui fait le lien avec les cours
+
+Une routine ne connaît pas le plan du site — le manifeste est chiffré. Le
+rattachement d'une actualité aux fiches de cours se fait donc **dans le
+navigateur**, après déchiffrement, en rapprochant `mots_cles` des titres, des
+tags puis du corps des fiches (`src/lib/rattachement.ts`).
+
+Il faut donc choisir des **termes du programme**, pas des mots de l'actualité :
+
+| À écrire | Plutôt que |
+|---|---|
+| `déficit public`, `Pacte de stabilité` | `budget 2027` |
+| `citoyenneté européenne`, `article 20 TFUE` | `Bruxelles` |
+| `multilatéralisme`, `Conseil de sécurité` | `sommet de New York` |
+
+Les termes du glossaire du site (`content/glossaire.yml`) sont les meilleurs
+candidats : ils sont repris tels quels dans les tags des fiches.
 
 ## Points de vigilance
 
-- **Ne jamais héberger d'image dans le dépôt** — seulement son URL d'origine et
-  son crédit.
+- **Ne jamais commiter de JSON en clair.** Le contenu s'écrit dans `/tmp`, puis
+  se chiffre ; seul le fichier chiffré entre dans le dépôt. `npm run deploy`
+  refuse de publier un fichier de `actualites-data/` qui ne serait pas chiffré.
+- **Ne jamais héberger d'image** : seulement son URL d'origine et son crédit.
 - **Ne jamais recopier le texte d'un article** : les résumés sont rédigés dans
   les propres mots de la routine, avec la source citée.
-- **Les fiches suivies sont remplacées, pas accumulées** : l'historique Git
-  suffit à retrouver une version antérieure.
-- **Ne toucher qu'aux fiches réellement concernées** par un changement, pour
-  que `derniere_maj` reste une information utile.
-- Le site n'a pas d'index de dossier : il sonde les identifiants de période en
-  remontant le temps. Une interruption de plus de vingt semaines masque donc les
-  entrées antérieures dans la page d'archive.
-
----
-
-## Les trois routines créées
-
-Elles existent déjà sur le compte et sont actives. Elles créent une session
-neuve à chaque déclenchement.
-
-| Routine | Identifiant | Cron (UTC) | Prochain passage |
-|---|---|---|---|
-| Veille hebdomadaire | `trig_01KJ1XtUse66nHRoMWL74LtE` | `0 5 * * 1` | lundi 28 septembre 2026 |
-| Synthèse trimestrielle | `trig_015hD9sdSbmvoVvxpDxg5U1B` | `0 5 1 1,4,7,10 *` | 1er octobre 2026 |
-| Synthèse annuelle | `trig_01NCNPZK25f6E2MsfN4TZUC6` | `0 5 5 1 *` | 5 janvier 2027 |
-
-**Heure.** Les crons sont exprimés en UTC : 5 h UTC correspond à 7 h à Paris en
-heure d'été et à 6 h en heure d'hiver. Si cet écart gêne, ajustez l'heure sur
-`claude.ai/code/routines`.
-
-**À vérifier avant le premier passage.** Ces routines ont été créées depuis une
-session Claude Code, qui n'a pas pu leur transmettre de connecteur : les
-sessions qu'elles déclenchent risquent de démarrer **sans les outils GitHub**,
-et donc de ne pas pouvoir ouvrir de pull request. Ouvrez
-`claude.ai/code/routines`, vérifiez que le connecteur GitHub est bien actif sur
-chacune et que le dépôt est rattaché ; si ce n'est pas le cas, recréez-les
-depuis cette page à partir des prompts ci-dessus.
+- **Les fiches suivies sont remplacées, pas complétées** ; l'historique Git
+  conserve les versions antérieures.
+- **Ne toucher qu'aux fiches réellement concernées**, pour que `derniere_maj`
+  reste une information utile.
