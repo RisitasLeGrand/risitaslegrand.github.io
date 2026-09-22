@@ -12,9 +12,10 @@ export default {
    *
    *   Adresse visée                                        base
    *   ---------------------------------------------------  --------------------
-   *   https://revinsp.github.io/            (recommandé)    '/'
-   *   https://risitaslegrand.github.io/                     '/'
-   *   https://risitaslegrand.github.io/revinsp.github.io/   '/revinsp.github.io'
+   *   https://risitaslegrand.github.io/     (configuration   '/'
+   *                                          actuelle)
+   *   https://revinsp.github.io/                             '/'
+   *   https://risitaslegrand.github.io/un-depot/             '/un-depot'
    *
    * Rappel : l'adresse « https://<nom>.github.io/ » n'est servie que si le
    * dépôt « <nom>.github.io » appartient au compte (ou à l'organisation)

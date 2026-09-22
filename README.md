@@ -256,9 +256,13 @@ sous-dossier : `https://<compte>.github.io/<depot>/`.
 
 | Dépôt | Propriétaire | Adresse publique | `base` |
 |---|---|---|---|
-| `risitaslegrand.github.io` | `RisitasLeGrand` | `https://risitaslegrand.github.io/` | `'/'` |
+| **`risitaslegrand.github.io`** | **`RisitasLeGrand`** | **`https://risitaslegrand.github.io/`** | **`'/'`** |
 | `revinsp.github.io` | organisation `revinsp` | `https://revinsp.github.io/` | `'/'` |
-| `revinsp.github.io` | `RisitasLeGrand` | `https://risitaslegrand.github.io/revinsp.github.io/` | `'/revinsp.github.io'` |
+| `un-depot` | `RisitasLeGrand` | `https://risitaslegrand.github.io/un-depot/` | `'/un-depot'` |
+
+**Configuration actuelle : la première ligne** (en gras). Le dépôt porte le nom
+du compte suivi de `.github.io`, il est donc servi directement à la racine du
+domaine, sans sous-dossier.
 
 Un nom de dépôt qui ne correspond pas au propriétaire ne donne donc pas
 l'adresse courte : il produit seulement une URL à rallonge.
