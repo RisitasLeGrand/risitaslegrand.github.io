@@ -1,7 +1,9 @@
 {
   "extends": "astro/tsconfigs/strict",
   "include": [".astro/types.d.ts", "**/*.ts", "**/*.astro", "src/env.d.ts"],
-  "exclude": ["dist", "node_modules"],
+  // « apps/ » contient l'application Angular vendorisée : elle a sa propre
+  // configuration TypeScript et ne doit pas être vérifiée par Astro.
+  "exclude": ["dist", "node_modules", "apps"],
   "compilerOptions": {
     "allowJs": true,
     "strictNullChecks": true

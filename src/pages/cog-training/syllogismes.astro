@@ -1,0 +1,96 @@
+---
+/**
+ * Exercice Syllogismes.
+ *
+ * L'application est une adaptation française de Syllogimous v4, construite
+ * séparément (Angular) et publiée comme sous-site statique à « /syllogismes/ ».
+ * Elle est affichée ici dans une iframe : voir scripts/build-syllogismes.mjs
+ * pour la raison de ce choix.
+ *
+ * Comme le Quad N-Back, l'exercice ne contient aucune donnée du concours et
+ * n'est donc pas chiffré, mais cette page reste derrière l'écran de connexion.
+ */
+import Base from '../../layouts/Base.astro';
+---
+
+<Base titre="Syllogismes" actif="cog-training">
+  <header class="mb-4">
+    <a
+      id="retour"
+      href="../"
+      class="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+      >← Cog-Training</a
+    >
+    <div class="mt-1 flex flex-wrap items-baseline justify-between gap-2">
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Syllogismes</h1>
+      <a
+        id="plein-ecran"
+        href="#"
+        target="_blank"
+        rel="noopener"
+        class="text-sm font-medium text-slate-500 hover:text-indigo-600 hover:underline dark:text-slate-400 dark:hover:text-indigo-400"
+        >Ouvrir en plein écran ↗</a
+      >
+    </div>
+    <p class="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+      Des prémisses vous sont données, une conclusion vous est proposée : décidez si elle en
+      découle <strong>nécessairement</strong>. La difficulté monte par paliers, des relations
+      simples aux raisonnements spatiaux, temporels et analogiques.
+    </p>
+  </header>
+
+  <div id="chargement" class="py-20 text-center text-slate-400">Chargement de l'exercice…</div>
+
+  <div id="exercice" class="hidden">
+    <div
+      class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
+    >
+      <iframe
+        id="cadre"
+        title="Exercice de syllogismes"
+        class="block h-[calc(100vh-18rem)] min-h-[32rem] w-full border-0"
+        loading="lazy"
+      ></iframe>
+    </div>
+
+    <!--
+      Attribution requise par la licence du projet d'origine (CC BY-NC 3.0) :
+      crédit de l'auteur, lien vers la licence, mention des modifications.
+    -->
+    <footer
+      class="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs leading-relaxed text-slate-500 dark:border-slate-800 dark:bg-slate-900/60 dark:text-slate-400"
+    >
+      Exercice adapté de <a
+        href="https://github.com/4skinSkywalker/Syllogimous-v4"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="underline decoration-dotted underline-offset-2 hover:text-indigo-600 dark:hover:text-indigo-400"
+        >Syllogimous v4</a
+      >, créé par <strong>4skinSkywalker</strong>, sous licence <a
+        href="https://creativecommons.org/licenses/by-nc/3.0/"
+        target="_blank"
+        rel="noopener noreferrer"
+        class="underline decoration-dotted underline-offset-2 hover:text-indigo-600 dark:hover:text-indigo-400"
+        >CC BY-NC 3.0</a
+      >. <strong>Modifications apportées</strong> : traduction intégrale en français, y compris
+      les modèles de phrases servant à engendrer les énoncés. Usage non commercial.
+    </footer>
+  </div>
+</Base>
+
+<script>
+  import { lien } from '../../lib/ui';
+
+  // L'application est publiée à la racine du site, hors du build Astro.
+  const url = lien('/syllogismes/');
+  document.getElementById('retour')!.setAttribute('href', lien('/cog-training/'));
+  document.getElementById('plein-ecran')!.setAttribute('href', url);
+
+  document.addEventListener('revinsp:deverrouille', () => {
+    // L'iframe n'est chargée qu'une fois la session ouverte : inutile de
+    // télécharger l'application tant que l'écran de connexion est affiché.
+    (document.getElementById('cadre') as HTMLIFrameElement).src = url;
+    document.getElementById('chargement')!.classList.add('hidden');
+    document.getElementById('exercice')!.classList.remove('hidden');
+  });
+</script>

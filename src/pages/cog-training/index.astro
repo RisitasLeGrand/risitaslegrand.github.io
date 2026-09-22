@@ -1,0 +1,99 @@
+---
+/**
+ * Accueil de la rubrique Cog-Training : deux exercices distincts.
+ *
+ * Les exercices ne contiennent aucune donnée du concours et ne sont donc pas
+ * chiffrés, mais ils restent derrière l'écran de connexion comme le reste.
+ */
+import Base from '../../layouts/Base.astro';
+
+const exercices = [
+  {
+    id: 'quad-n-back',
+    icone: '🧩',
+    titre: 'Quad N-Back',
+    accroche: 'Mémoire de travail',
+    description:
+      'Quatre flux de stimuli défilent en parallèle — position, couleur, forme et son. ' +
+      'Signalez à chaque épreuve les dimensions identiques à celles vues n épreuves plus tôt.',
+    utilite: 'Tenir une note de synthèse, garder le fil d\'un oral.',
+    href: 'quad-n-back/',
+  },
+  {
+    id: 'syllogismes',
+    icone: '🧠',
+    titre: 'Syllogismes',
+    accroche: 'Raisonnement déductif',
+    description:
+      'Des prémisses vous sont données, une conclusion vous est proposée : ' +
+      'décidez si elle en découle nécessairement. Difficulté progressive, ' +
+      'des relations simples aux raisonnements spatiaux et temporels.',
+    utilite: 'Repérer un sophisme, construire un plan qui tient.',
+    href: 'syllogismes/',
+  },
+];
+---
+
+<Base titre="Cog-Training" actif="cog-training">
+  <header class="mb-6">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Cog-Training</h1>
+    <p class="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+      Deux exercices d'entraînement cognitif, indépendants du programme du concours. Ils
+      travaillent des aptitudes que les épreuves sollicitent sans jamais les évaluer
+      directement : tenir plusieurs informations en mémoire, et conduire une déduction sans
+      se laisser prendre par une conclusion plausible mais invalide.
+    </p>
+  </header>
+
+  <div id="chargement" class="py-20 text-center text-slate-400">Chargement…</div>
+
+  <div id="exercices" class="hidden grid gap-4 sm:grid-cols-2">
+    {
+      exercices.map((exercice) => (
+        <a
+          href={exercice.href}
+          data-exercice={exercice.id}
+          class="group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-indigo-300 hover:shadow dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700"
+        >
+          <div class="flex items-start gap-3">
+            <span class="text-3xl" aria-hidden="true">
+              {exercice.icone}
+            </span>
+            <div class="min-w-0">
+              <h2 class="font-semibold text-slate-900 dark:text-white">{exercice.titre}</h2>
+              <p class="text-xs font-medium tracking-wide text-indigo-600 uppercase dark:text-indigo-400">
+                {exercice.accroche}
+              </p>
+            </div>
+          </div>
+
+          <p class="mt-3 flex-1 text-sm text-slate-600 dark:text-slate-300">
+            {exercice.description}
+          </p>
+
+          <p class="mt-3 border-t border-slate-100 pt-3 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400">
+            <span class="font-medium">Utile pour</span> — {exercice.utilite}
+          </p>
+
+          <span class="mt-3 text-sm font-medium text-indigo-600 group-hover:underline dark:text-indigo-400">
+            Commencer →
+          </span>
+        </a>
+      ))
+    }
+  </div>
+</Base>
+
+<script>
+  import { lien } from '../../lib/ui';
+
+  // Les liens sont réécrits avec le chemin de base du site, comme ailleurs.
+  for (const carte of document.querySelectorAll<HTMLAnchorElement>('[data-exercice]')) {
+    carte.href = lien(`/cog-training/${carte.dataset.exercice}/`);
+  }
+
+  document.addEventListener('revinsp:deverrouille', () => {
+    document.getElementById('chargement')!.classList.add('hidden');
+    document.getElementById('exercices')!.classList.remove('hidden');
+  });
+</script>

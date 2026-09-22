@@ -14,6 +14,10 @@ public/actualites-data/
 node_modules/
 dist/
 .astro/
+# Application Syllogismes (Angular) : sources versionnées, build et
+# dépendances régénérables par « npm run syllogismes:build ».
+apps/syllogismes/node_modules/
+apps/syllogismes/dist/
 
 # --- Divers ---
 .DS_Store

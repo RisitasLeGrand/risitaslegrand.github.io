@@ -1,0 +1,31 @@
+<app-card>
+    <div body class="py-3 px-md-3">
+        <h1>Welcome to Syllogimous!</h1>
+        <p>Syllogimous v4 takes classic logic challenges and turns them into a brain workout. This latest version introduces new features designed to enhance your brain training experience.</p>
+        <p>Syllogimous is based on <a href="https://en.wikipedia.org/wiki/Relational_frame_theory" target="_blank">Relational Frame Theory (RFT)</a>, a psychological theory that suggests that the fundamental process of human thought involves forming relationships between concepts. Studies indicate that training in relational skills can significantly enhance cognitive functions.</p>
+        <p>Therefore, by playing Syllogimous, you're boosting your problem-solving skills, hopefully while having fun.</p>
+
+        <h2>Useful Links</h2>
+        <div class="d-grid justify-content-start gap-1">
+            <a href="https://groups.google.com/g/brain-training" target="_blank">Brain Training Google Groups</a>
+            <a href="https://t.me/brain_training" target="_blank">Brain Training Telegram</a>
+        </div>
+    </div>
+    
+    <div footer class="playcard-toolbar">
+        <div>
+            <div class="form-check">
+                <input #dontShowAnymore class="form-check-input" type="checkbox" value="" id="dontShowAnymore">
+                <label class="form-check-label" for="dontShowAnymore">
+                    Don't show anymore
+                </label>
+            </div>
+        </div>
+        <div>
+            <button
+                class="btn btn-outline-primary"
+                (click)="game.skipIntro(dontShowAnymore.checked)"
+            >Skip Intro</button>
+        </div>
+    </div>
+</app-card>

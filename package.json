@@ -10,6 +10,8 @@
     "preview": "astro preview",
     "deploy": "npm run build && node scripts/deploy.mjs",
     "hash": "node scripts/hash.mjs",
+    "syllogismes:install": "npm --prefix apps/syllogismes install --no-audit --no-fund",
+    "syllogismes:build": "node scripts/build-syllogismes.mjs",
     "actualites:cles": "node scripts/actualites-cles.mjs",
     "actualites:local": "node scripts/actualites-local.mjs",
     "actualites:lire": "node scripts/dechiffrer-actualite.mjs",

@@ -12,6 +12,12 @@ export default defineConfig({
 
   trailingSlash: 'ignore',
 
+  // L'ancienne rubrique « Entraînement » est devenue « Cog-Training » : on
+  // conserve une redirection pour les favoris et les liens déjà partagés.
+  redirects: {
+    '/entrainement': '/cog-training',
+  },
+
   build: {
     // Un dossier par page : les URL restent propres sur GitHub Pages.
     format: 'directory',
