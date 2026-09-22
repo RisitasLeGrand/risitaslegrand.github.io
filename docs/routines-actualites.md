@@ -16,12 +16,27 @@ Le site utilise pour elles une **paire de clés** :
 |---|---|---|
 | **Publique** | `actualites-data/cle-publique.json`, commitée et publiée en clair | chiffrer une actualité |
 | **Privée** | `content/actualites-cle-privee.json`, jamais commitée ; republiée par le build sous forme chiffrée dans `data/actualites-cle.json` | déchiffrer, dans le navigateur, après saisie du mot de passe |
+| **Privée, copie chiffrée** | `actualites-data/cle-privee-chiffree.json`, commitée, protégée par le mot de passe du site | déchiffrer en ligne de commande, pour qui détient le mot de passe |
+
+**La veille hebdomadaire ne reçoit pas le mot de passe** : elle ne détient que
+la clé publique, elle écrit sans pouvoir relire. **Les synthèses trimestrielle
+et annuelle le reçoivent**, parce qu'il leur faut relire la période pour la
+résumer ; elles l'écrivent dans `.env.local`, qui est ignoré par Git, et le
+suppriment avant de committer.
+
+```bash
+node scripts/dechiffrer-actualite.mjs semaines 2026-W38
+node scripts/dechiffrer-actualite.mjs --depuis semaines 2026-W27 2026-W39
+node scripts/dechiffrer-actualite.mjs --lister
+```
+
+La sortie est du JSON en clair sur la sortie standard : elle ne doit jamais
+être redirigée vers un fichier du dépôt.
 
 Conséquences, qui expliquent la forme des consignes ci-dessous :
 
-- une routine peut **écrire** une actualité, jamais **relire** celles qui
-  existent — d'où les synthèses reconstruites par recherche web plutôt que par
-  lecture des entrées précédentes ;
+- la veille hebdomadaire peut **écrire** une actualité, jamais **relire** celles
+  qui existent ;
 - le schéma JSON ne peut pas être déduit d'un fichier existant : il est fourni
   par `node scripts/chiffrer-actualite.mjs --modele <dossier>` ;
 - les descriptions de pull request restent **neutres** : le dépôt est public,
@@ -33,17 +48,24 @@ Conséquences, qui expliquent la forme des consignes ci-dessous :
 
 ```bash
 npm run actualites:cles      # crée la paire de clés
-git add actualites-data/cle-publique.json && git commit -m "Active la rubrique Actualités"
+git add actualites-data/cle-publique.json actualites-data/cle-privee-chiffree.json
+git commit -m "Active la rubrique Actualités"
 npm run deploy               # publie la clé privée chiffrée avec le contenu
+```
+
+Après un changement de mot de passe du site, réécrire la copie chiffrée :
+
+```bash
+npm run actualites:cles -- --resynchroniser
 ```
 
 Tant que `actualites-data/cle-publique.json` n'existe pas, les routines ne
 publient rien : elles ouvrent une issue le signalant, et la rubrique reste
 masquée sur le site.
 
-> La clé privée est le seul élément non reconstructible du dispositif.
-> Sauvegardez `content/actualites-cle-privee.json` : sans elle, les actualités
-> déjà chiffrées restent illisibles, même avec le bon mot de passe.
+> La copie chiffrée versionnée rend la clé privée récupérable après un clone :
+> le build la restaure automatiquement dans `content/` si elle y manque. Elle
+> n'est donc perdue que si le mot de passe l'est aussi.
 
 ## Le circuit d'une actualité
 

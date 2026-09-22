@@ -36,6 +36,7 @@ Trois commandes suffisent au quotidien :
 | `npm run hash` | Affiche l'empreinte SHA-256 du mot de passe (voir plus bas) |
 | `npm run actualites:cles` | Crée la paire de clés de la rubrique Actualités (une seule fois) |
 | `npm run actualites:local` | Fabrique des actualités de démonstration pour le mode dev |
+| `npm run actualites:lire` | Relit une actualité chiffrée (nécessite le mot de passe) |
 
 **Règle de sécurité fondamentale :** le dossier `content/` (vos fiches en clair)
 et le fichier `.env.local` (votre mot de passe) ne sont **jamais** envoyés sur
@@ -359,15 +360,23 @@ donc pour elles une **paire de clés** :
 |---|---|---|
 | **Publique** | `actualites-data/cle-publique.json`, commitée, publiée en clair | chiffrer une actualité |
 | **Privée** | `content/actualites-cle-privee.json`, jamais commitée ; republiée chiffrée par le build | déchiffrer, dans le navigateur, après saisie du mot de passe |
+| **Privée, copie chiffrée** | `actualites-data/cle-privee-chiffree.json`, commitée, protégée par le mot de passe | relire une actualité en ligne de commande |
 
-Une routine peut donc **écrire** une actualité sans jamais pouvoir **relire**
-celles qui existent.
+La veille hebdomadaire ne détient que la clé publique : elle **écrit** sans
+pouvoir **relire**. Les synthèses trimestrielle et annuelle reçoivent, elles, le
+mot de passe, parce qu'il leur faut relire la période pour la résumer :
+
+```bash
+npm run actualites:lire -- semaines 2026-W38
+npm run actualites:lire -- --depuis semaines 2026-W27 2026-W39
+npm run actualites:lire -- --lister
+```
 
 ### Activer la rubrique
 
 ```bash
 npm run actualites:cles          # crée la paire de clés (une seule fois)
-git add actualites-data/cle-publique.json
+git add actualites-data/cle-publique.json actualites-data/cle-privee-chiffree.json
 git commit -m "Active la rubrique Actualités"
 npm run deploy
 ```
@@ -375,10 +384,11 @@ npm run deploy
 Tant que cette étape n'est pas faite, la rubrique reste masquée et le build
 vous le rappelle par un avertissement.
 
-> **Sauvegardez `content/actualites-cle-privee.json`.** C'est le seul élément
-> non reconstructible du dispositif : sans lui, les actualités déjà chiffrées
-> restent illisibles même avec le bon mot de passe. Le regénérer
-> (`npm run actualites:cles -- --forcer`) invalide tout l'historique publié.
+> La clé privée est aussi conservée dans le dépôt sous forme chiffrée par le
+> mot de passe : elle survit donc à un clone, et le build la restaure dans
+> `content/` si elle y manque. Après un changement de mot de passe, réécrivez
+> cette copie avec `npm run actualites:cles -- --resynchroniser`. Regénérer la
+> paire (`--forcer`) invalide en revanche tout l'historique publié.
 
 ### Où vivent les données
 
@@ -656,12 +666,15 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 │   ├── init-contenu.mjs     # Crée content/ à partir des exemples
 │   ├── actualites-cles.mjs  # Crée la paire de clés de la rubrique Actualités
 │   ├── actualites-local.mjs # Actualités de démonstration pour le mode dev
-│   ├── chiffrer-actualite.mjs   # Chiffre une actualité (utilisé par les routines)
+│   ├── chiffrer-actualite.mjs   # Chiffre une actualité (veille hebdomadaire)
+│   ├── dechiffrer-actualite.mjs # Relit une actualité (synthèses périodiques)
 │   └── lib/
 │       ├── schema.mjs       # Validation du format des fiches (Zod)
 │       ├── markdown.mjs     # Découpage en sections et rendu HTML
 │       ├── glossaire.mjs    # Détection automatique des termes (plugin remark)
-│       └── crypto.mjs       # PBKDF2 + AES-GCM côté build
+│       ├── crypto.mjs       # PBKDF2 + AES-GCM côté build
+│       ├── secret.mjs       # Chiffrement d'un secret par mot de passe
+│       └── motdepasse.mjs   # Lecture du mot de passe (env ou .env.local)
 │
 ├── src/
 │   ├── features/
