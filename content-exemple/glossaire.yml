@@ -1,0 +1,29 @@
+# Glossaire transversal : chaque terme listé ici est automatiquement souligné
+# dans les cours et les fiches simplifiées, avec sa définition au clic/survol.
+#
+#   terme      : la forme principale (celle affichée dans la page Glossaire)
+#   formes     : variantes à détecter aussi (pluriels, féminins, sigles…)
+#   definition : texte affiché dans la bulle
+- terme: "gouvernance"
+  formes: ["gouvernances"]
+  definition: "Ensemble des règles et processus de pilotage et de décision d'une organisation ou d'un système."
+- terme: "multilatéralisme"
+  formes: ["multilatéral", "multilatérale", "multilatéraux"]
+  definition: "Mode de coopération internationale associant au moins trois États autour de règles communes, par opposition au bilatéralisme."
+- terme: "droit international"
+  formes: ["droit international public"]
+  definition: "Ensemble des règles régissant les relations entre sujets de la société internationale, principalement les États et les organisations internationales."
+- terme: "subsidiarité"
+  definition: "Principe selon lequel une décision est prise au niveau le plus proche possible des citoyens, l'échelon supérieur n'intervenant que si son action est plus efficace."
+- terme: "bloc de constitutionnalité"
+  definition: "Ensemble des normes de valeur constitutionnelle au regard desquelles le Conseil constitutionnel contrôle les lois : Constitution de 1958, Déclaration de 1789, Préambule de 1946, Charte de l'environnement et principes fondamentaux reconnus par les lois de la République."
+- terme: "question prioritaire de constitutionnalité"
+  formes: ["QPC"]
+  definition: "Procédure permettant, depuis 2010, à tout justiciable de contester la conformité d'une disposition législative déjà en vigueur aux droits et libertés garantis par la Constitution."
+- terme: "règlement sanitaire international"
+  formes: ["RSI"]
+  definition: "Instrument juridique adopté sous l'égide de l'OMS, contraignant pour ses États parties, qui organise la détection, la notification et la riposte aux urgences de santé publique de portée internationale."
+- terme: "soft power"
+  definition: "Capacité d'un acteur international à obtenir ce qu'il souhaite par l'attraction et la persuasion plutôt que par la contrainte militaire ou économique."
+- terme: "hiérarchie des normes"
+  definition: "Principe d'organisation de l'ordre juridique selon lequel chaque norme doit être conforme à celles qui lui sont supérieures."

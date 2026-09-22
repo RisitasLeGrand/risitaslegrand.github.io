@@ -1,0 +1,164 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base titre="Bibliothèque" actif="bibliotheque">
+  <div class="mb-5 flex flex-wrap items-center gap-3">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Bibliothèque</h1>
+    <div class="ml-auto flex flex-wrap items-center gap-2">
+      <label class="sr-only" for="filtre-matiere">Filtrer par matière</label>
+      <select
+        id="filtre-matiere"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+      >
+        <option value="">Toutes les matières</option>
+      </select>
+      <label class="sr-only" for="filtre-statut">Filtrer par statut</label>
+      <select
+        id="filtre-statut"
+        class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+      >
+        <option value="">Tous les statuts</option>
+        <option value="non-lu">Non lues</option>
+        <option value="lu">Lues</option>
+        <option value="dues">Cartes à réviser</option>
+        <option value="faible">Maîtrise &lt; 50 %</option>
+        <option value="acquis">Maîtrise ≥ 80 %</option>
+      </select>
+    </div>
+  </div>
+
+  <div id="chargement" class="py-20 text-center text-slate-400">Déchiffrement du contenu…</div>
+  <div id="liste" class="hidden space-y-6"></div>
+  <p id="vide" class="hidden py-10 text-center text-sm text-slate-500">Aucune fiche ne correspond à ces filtres.</p>
+</Base>
+
+<script>
+  import { construireVue, type Vue } from '../lib/agregats';
+  import { lien, parametreUrl, pluriel } from '../lib/ui';
+
+  let vue: Vue;
+
+  function barre(pourcent: number, couleur = 'bg-indigo-500') {
+    return `<div class="h-1.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+      <div class="h-full rounded-full ${couleur} transition-all duration-500" style="width:${pourcent}%"></div>
+    </div>`;
+  }
+
+  /** Construit la ligne d'une fiche (DOM, pour insérer les titres sans risque). */
+  function ligneFiche(f: Vue['fiches'][number]) {
+    const pourcent = Math.round(f.maitrise * 100);
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <a class="flex items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-indigo-300 hover:shadow-sm dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700">
+        <div class="min-w-0 flex-1">
+          <p class="truncate font-medium text-slate-900 dark:text-white" data-titre></p>
+          <div class="mt-1.5 flex flex-wrap items-center gap-1.5" data-etiquettes></div>
+        </div>
+        <div class="w-24 shrink-0 text-right">
+          <span class="text-sm font-semibold text-slate-500 dark:text-slate-400">${pourcent} %</span>
+          <div class="mt-1">${barre(pourcent, pourcent >= 80 ? 'bg-emerald-500' : 'bg-indigo-500')}</div>
+        </div>
+      </a>`;
+    li.querySelector('a')!.href = `${lien('/fiche/')}?id=${encodeURIComponent(f.fiche.id)}`;
+    li.querySelector('[data-titre]')!.textContent = f.fiche.titre;
+
+    const etiquettes = li.querySelector('[data-etiquettes]')!;
+    const ajouter = (texte: string, classes: string) => {
+      const span = document.createElement('span');
+      span.className = `rounded-full px-2 py-0.5 text-[11px] font-medium ${classes}`;
+      span.textContent = texte;
+      etiquettes.appendChild(span);
+    };
+    if (f.lu) ajouter('lue', 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300');
+    if (f.cartesDues)
+      ajouter(`${f.cartesDues} à réviser`, 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300');
+    if (f.fiche.nbQuiz)
+      ajouter(pluriel(f.fiche.nbQuiz, 'question'), 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300');
+    return li;
+  }
+
+  function filtrer(f: Vue['fiches'][number], statut: string) {
+    if (statut === 'non-lu') return !f.lu;
+    if (statut === 'lu') return f.lu;
+    if (statut === 'dues') return f.cartesDues > 0;
+    if (statut === 'faible') return f.maitrise < 0.5;
+    if (statut === 'acquis') return f.maitrise >= 0.8;
+    return true;
+  }
+
+  function rendre() {
+    const matiereChoisie = (document.getElementById('filtre-matiere') as HTMLSelectElement).value;
+    const statut = (document.getElementById('filtre-statut') as HTMLSelectElement).value;
+    const liste = document.getElementById('liste')!;
+    liste.innerHTML = '';
+    let compteur = 0;
+
+    for (const matiere of vue.matieres) {
+      if (matiereChoisie && matiere.nom !== matiereChoisie) continue;
+
+      const blocsFascicules: HTMLElement[] = [];
+      for (const fascicule of matiere.fascicules) {
+        const fiches = fascicule.fiches.filter((f) => filtrer(f, statut));
+        if (!fiches.length) continue;
+        compteur += fiches.length;
+
+        const bloc = document.createElement('div');
+        bloc.className = 'mt-4';
+        bloc.innerHTML = `
+          <div class="mb-2 flex items-center gap-3">
+            <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300" data-fascicule></h3>
+            <span class="text-xs text-slate-400">${Math.round(fascicule.maitrise * 100)} %</span>
+          </div>
+          <ul class="space-y-2"></ul>`;
+        bloc.querySelector('[data-fascicule]')!.textContent = fascicule.nom;
+        const ul = bloc.querySelector('ul')!;
+        for (const f of fiches) ul.appendChild(ligneFiche(f));
+        blocsFascicules.push(bloc);
+      }
+
+      if (!blocsFascicules.length) continue;
+
+      const section = document.createElement('section');
+      section.className =
+        'rounded-2xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/40';
+      section.innerHTML = `
+        <div class="flex items-center justify-between gap-3">
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white" data-matiere></h2>
+          <span class="text-sm text-slate-500 dark:text-slate-400">${Math.round(matiere.maitrise * 100)} %</span>
+        </div>`;
+      section.querySelector('[data-matiere]')!.textContent = matiere.nom;
+      for (const bloc of blocsFascicules) section.appendChild(bloc);
+      liste.appendChild(section);
+    }
+
+    document.getElementById('vide')!.classList.toggle('hidden', compteur > 0);
+  }
+
+  async function initialiser() {
+    vue = await construireVue();
+
+    const selectMatiere = document.getElementById('filtre-matiere') as HTMLSelectElement;
+    for (const matiere of vue.matieres) {
+      const option = document.createElement('option');
+      option.value = matiere.nom;
+      option.textContent = matiere.nom;
+      selectMatiere.appendChild(option);
+    }
+    const depuisUrl = parametreUrl('matiere');
+    if (depuisUrl) selectMatiere.value = depuisUrl;
+
+    selectMatiere.addEventListener('change', rendre);
+    document.getElementById('filtre-statut')!.addEventListener('change', rendre);
+
+    rendre();
+    document.getElementById('chargement')!.classList.add('hidden');
+    document.getElementById('liste')!.classList.remove('hidden');
+  }
+
+  document.addEventListener('revinsp:deverrouille', () => {
+    initialiser().catch((e) => {
+      document.getElementById('chargement')!.textContent = `Erreur : ${e.message}`;
+    });
+  });
+</script>

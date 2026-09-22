@@ -1,0 +1,19 @@
+# --- CONTENU EN CLAIR : NE JAMAIS COMMITER ---
+# Les fiches, le glossaire et le mot de passe restent sur la machine locale.
+content/
+.env.local
+.env
+
+# --- Données générées par le build (contenu chiffré, régénérable) ---
+public/data/
+
+# --- Dépendances et artefacts de build ---
+node_modules/
+dist/
+.astro/
+
+# --- Divers ---
+.DS_Store
+*.log
+npm-debug.log*
+.cache/

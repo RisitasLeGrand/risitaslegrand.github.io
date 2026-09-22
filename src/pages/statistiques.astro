@@ -1,0 +1,225 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+<Base titre="Statistiques" actif="statistiques">
+  <h1 class="mb-5 text-2xl font-bold text-slate-900 dark:text-white">Statistiques</h1>
+  <div id="chargement" class="py-20 text-center text-slate-400">Calcul en cours…</div>
+
+  <div id="stats" class="hidden space-y-8">
+    <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-sm text-slate-500 dark:text-slate-400">Temps total</p>
+        <p id="temps-total" class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">—</p>
+        <p id="temps-moyen" class="mt-1 text-xs text-slate-400"></p>
+      </div>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-sm text-slate-500 dark:text-slate-400">Révisions de cartes</p>
+        <p id="total-revisions" class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">—</p>
+        <p id="detail-cartes" class="mt-1 text-xs text-slate-400"></p>
+      </div>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-sm text-slate-500 dark:text-slate-400">Taux de réussite aux quiz</p>
+        <p id="taux-quiz" class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">—</p>
+        <p id="detail-quiz" class="mt-1 text-xs text-slate-400"></p>
+      </div>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-sm text-slate-500 dark:text-slate-400">Jours de révision</p>
+        <p id="jours-actifs" class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">—</p>
+        <p id="detail-jours" class="mt-1 text-xs text-slate-400"></p>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Temps de révision par semaine</h2>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <div id="histogramme" class="flex h-40 items-end gap-2"></div>
+        <p class="mt-3 text-xs text-slate-400">
+          Objectif indicatif : 10 à 15 h par semaine (ligne pointillée à 10 h).
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Par matière</h2>
+      <div class="overflow-x-auto rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <table class="w-full text-sm">
+          <thead class="border-b border-slate-200 text-left text-xs text-slate-500 uppercase dark:border-slate-800 dark:text-slate-400">
+            <tr>
+              <th class="px-4 py-3 font-medium">Matière</th>
+              <th class="px-4 py-3 text-right font-medium">Fiches lues</th>
+              <th class="px-4 py-3 text-right font-medium">Cartes acquises</th>
+              <th class="px-4 py-3 text-right font-medium">Quiz</th>
+              <th class="px-4 py-3 text-right font-medium">Maîtrise</th>
+            </tr>
+          </thead>
+          <tbody id="tableau-matieres" class="divide-y divide-slate-100 dark:divide-slate-800"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Échéancier des flashcards</h2>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <div id="echeancier" class="flex h-32 items-end gap-1"></div>
+        <p class="mt-3 text-xs text-slate-400">Nombre de cartes à réviser sur les 30 prochains jours.</p>
+      </div>
+    </section>
+
+    <section>
+      <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Fiches les plus fragiles</h2>
+      <div id="fragiles" class="space-y-2"></div>
+    </section>
+  </div>
+</Base>
+
+<script>
+  import { construireVue } from '../lib/agregats';
+  import { ajouterJours, jourISO, tousLesJours, tousLesResultatsQuiz, toutesLesCartes } from '../lib/db';
+  import { formaterDuree, lien, pluriel } from '../lib/ui';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  async function afficher() {
+    const [vue, jours, cartes, quiz] = await Promise.all([
+      construireVue(),
+      tousLesJours(),
+      toutesLesCartes(),
+      tousLesResultatsQuiz(),
+    ]);
+
+    // --- Indicateurs globaux ---
+    const secondes = jours.reduce((n, j) => n + j.secondes, 0);
+    const joursActifs = jours.filter((j) => j.xp > 0 || j.secondes > 60);
+    $('temps-total').textContent = formaterDuree(secondes);
+    $('temps-moyen').textContent = joursActifs.length
+      ? `${formaterDuree(secondes / joursActifs.length)} par jour travaillé`
+      : 'Aucune session enregistrée';
+
+    const revisions = cartes.reduce((n, c) => n + c.revisions, 0);
+    $('total-revisions').textContent = String(revisions);
+    $('detail-cartes').textContent =
+      `${cartes.filter((c) => c.intervalle >= 21).length} acquise(s) · ${cartes.reduce((n, c) => n + c.oublis, 0)} oubli(s)`;
+
+    const totalQuestions = quiz.reduce((n, q) => n + q.total, 0);
+    const totalBonnes = quiz.reduce((n, q) => n + q.bonnes, 0);
+    $('taux-quiz').textContent = totalQuestions ? `${Math.round((totalBonnes / totalQuestions) * 100)} %` : '—';
+    $('detail-quiz').textContent = totalQuestions
+      ? `${totalBonnes} bonne(s) réponse(s) sur ${totalQuestions}`
+      : 'Aucun quiz passé';
+
+    $('jours-actifs').textContent = String(joursActifs.length);
+    $('detail-jours').textContent = jours.length
+      ? `depuis le ${new Date(jours[0].jour).toLocaleDateString('fr-FR')}`
+      : '';
+
+    // --- Histogramme hebdomadaire (12 semaines) ---
+    const semaines: { libelle: string; secondes: number }[] = [];
+    const aujourdhui = jourISO();
+    for (let i = 11; i >= 0; i--) {
+      const fin = ajouterJours(aujourdhui, -i * 7);
+      const debut = ajouterJours(fin, -6);
+      const total = jours.filter((j) => j.jour >= debut && j.jour <= fin).reduce((n, j) => n + j.secondes, 0);
+      semaines.push({ libelle: new Date(debut).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }), secondes: total });
+    }
+    const maxSecondes = Math.max(10 * 3600, ...semaines.map((s) => s.secondes));
+    const histogramme = $('histogramme');
+    histogramme.innerHTML = '';
+    for (const semaine of semaines) {
+      const heures = semaine.secondes / 3600;
+      const colonne = document.createElement('div');
+      colonne.className = 'flex flex-1 flex-col items-center justify-end gap-1';
+      colonne.title = `Semaine du ${semaine.libelle} — ${formaterDuree(semaine.secondes)}`;
+      const barre = document.createElement('div');
+      barre.className = `w-full rounded-t ${heures >= 10 ? 'bg-emerald-500' : heures >= 5 ? 'bg-indigo-500' : 'bg-indigo-300 dark:bg-indigo-800'}`;
+      barre.style.height = `${Math.max(2, (semaine.secondes / maxSecondes) * 100)}%`;
+      const etiquette = document.createElement('span');
+      etiquette.className = 'text-[10px] text-slate-400';
+      etiquette.textContent = semaine.libelle;
+      colonne.append(barre, etiquette);
+      histogramme.appendChild(colonne);
+    }
+
+    // --- Tableau par matière ---
+    const corps = $('tableau-matieres');
+    corps.innerHTML = '';
+    for (const matiere of vue.matieres) {
+      const cartesMatiere = cartes.filter((c) => c.matiere === matiere.nom);
+      const quizMatiere = quiz.filter((q) => q.matiere === matiere.nom);
+      const questionsMatiere = quizMatiere.reduce((n, q) => n + q.total, 0);
+      const bonnesMatiere = quizMatiere.reduce((n, q) => n + q.bonnes, 0);
+      const pourcent = Math.round(matiere.maitrise * 100);
+
+      const ligne = document.createElement('tr');
+      ligne.innerHTML = `
+        <td class="px-4 py-3 font-medium text-slate-800 dark:text-slate-100" data-nom></td>
+        <td class="px-4 py-3 text-right text-slate-600 dark:text-slate-300">${matiere.fichesLues}/${matiere.fiches.length}</td>
+        <td class="px-4 py-3 text-right text-slate-600 dark:text-slate-300">${cartesMatiere.filter((c) => c.intervalle >= 21).length}/${matiere.fiches.reduce((n, f) => n + f.cartesTotal, 0)}</td>
+        <td class="px-4 py-3 text-right text-slate-600 dark:text-slate-300">${questionsMatiere ? `${Math.round((bonnesMatiere / questionsMatiere) * 100)} %` : '—'}</td>
+        <td class="px-4 py-3 text-right">
+          <span class="font-semibold ${pourcent >= 80 ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-700 dark:text-slate-200'}">${pourcent} %</span>
+        </td>`;
+      ligne.querySelector('[data-nom]')!.textContent = matiere.nom;
+      corps.appendChild(ligne);
+    }
+
+    // --- Échéancier des 30 prochains jours ---
+    const echeancier = $('echeancier');
+    echeancier.innerHTML = '';
+    const compteParJour: number[] = Array.from({ length: 30 }, () => 0);
+    for (const carte of cartes) {
+      const ecart = Math.round(
+        (new Date(`${carte.du}T12:00:00`).getTime() - new Date(`${aujourdhui}T12:00:00`).getTime()) / 86400000,
+      );
+      if (ecart < 0) compteParJour[0] += 1;
+      else if (ecart < 30) compteParJour[ecart] += 1;
+    }
+    const maxJour = Math.max(1, ...compteParJour);
+    compteParJour.forEach((nombre, i) => {
+      const colonne = document.createElement('div');
+      colonne.className = 'flex flex-1 flex-col justify-end';
+      colonne.title = `${ajouterJours(aujourdhui, i)} — ${pluriel(nombre, 'carte')}`;
+      const barre = document.createElement('div');
+      barre.className = `w-full rounded-t ${i === 0 ? 'bg-amber-500' : 'bg-indigo-400 dark:bg-indigo-600'}`;
+      barre.style.height = `${Math.max(2, (nombre / maxJour) * 100)}%`;
+      colonne.appendChild(barre);
+      echeancier.appendChild(colonne);
+    });
+
+    // --- Fiches les plus fragiles (déjà travaillées mais peu maîtrisées) ---
+    const fragiles = vue.fiches
+      .filter((f) => f.lu || f.cartesVues > 0 || f.meilleurQuiz !== null)
+      .sort((a, b) => a.maitrise - b.maitrise)
+      .slice(0, 8);
+    const zone = $('fragiles');
+    zone.innerHTML = '';
+    if (!fragiles.length) {
+      zone.innerHTML = '<p class="text-sm text-slate-500">Commencez à réviser pour voir apparaître vos points faibles.</p>';
+    }
+    for (const f of fragiles) {
+      const pourcent = Math.round(f.maitrise * 100);
+      const carte = document.createElement('a');
+      carte.href = `${lien('/fiche/')}?id=${encodeURIComponent(f.fiche.id)}`;
+      carte.className =
+        'flex items-center gap-4 rounded-xl border border-slate-200 bg-white px-4 py-3 transition hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900';
+      carte.innerHTML = `
+        <div class="min-w-0 flex-1">
+          <p class="truncate font-medium text-slate-900 dark:text-white" data-titre></p>
+          <p class="text-xs text-slate-400" data-matiere></p>
+        </div>
+        <span class="shrink-0 text-sm font-semibold text-amber-600 dark:text-amber-400">${pourcent} %</span>`;
+      carte.querySelector('[data-titre]')!.textContent = f.fiche.titre;
+      carte.querySelector('[data-matiere]')!.textContent = f.fiche.matiere;
+      zone.appendChild(carte);
+    }
+
+    $('chargement').classList.add('hidden');
+    $('stats').classList.remove('hidden');
+  }
+
+  document.addEventListener('revinsp:deverrouille', () => {
+    afficher().catch((e) => {
+      $('chargement').textContent = `Erreur : ${e.message}`;
+    });
+  });
+</script>

@@ -1,0 +1,80 @@
+@import 'tailwindcss';
+@plugin '@tailwindcss/typography';
+
+/* Le thème sombre est piloté par l'attribut data-theme posé sur <html>. */
+@custom-variant dark (&:where([data-theme='sombre'], [data-theme='sombre'] *));
+
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-serif: 'Iowan Old Style', 'Palatino Linotype', Georgia, serif;
+}
+
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  @apply bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200;
+}
+
+/* --- Termes du glossaire ------------------------------------------------- */
+/* Soulignement discret + curseur « aide » : se distingue nettement d'un lien. */
+dfn.terme-glossaire {
+  font-style: inherit;
+  text-decoration: underline;
+  text-decoration-style: dotted;
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 3px;
+  cursor: help;
+  @apply decoration-indigo-400 dark:decoration-indigo-400/70;
+}
+
+dfn.terme-glossaire:hover,
+dfn.terme-glossaire[data-ouvert],
+dfn.terme-glossaire:focus-visible {
+  @apply rounded bg-indigo-50 outline-none ring-2 ring-indigo-300 dark:bg-indigo-950/60 dark:ring-indigo-500/60;
+}
+
+#bulle-glossaire {
+  margin: 0;
+  inset: auto;
+}
+
+/* --- Contenu de cours ---------------------------------------------------- */
+.contenu {
+  @apply prose prose-slate max-w-none dark:prose-invert
+         prose-headings:scroll-mt-24 prose-headings:font-semibold
+         prose-a:text-indigo-600 dark:prose-a:text-indigo-400
+         prose-table:text-sm;
+}
+
+/* Animation de retournement des flashcards. */
+.carte-3d {
+  perspective: 1400px;
+}
+.carte-face {
+  backface-visibility: hidden;
+  transform-style: preserve-3d;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html {
+    scroll-behavior: auto;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Barre de défilement discrète sur les listes longues. */
+.defilement-fin::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+.defilement-fin::-webkit-scrollbar-thumb {
+  @apply rounded-full bg-slate-300 dark:bg-slate-700;
+}
