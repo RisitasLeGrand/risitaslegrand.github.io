@@ -1,0 +1,15 @@
+{
+  "trimestre": "2026-T3",
+  "periode": "juillet – septembre 2026",
+  "items": [
+    {
+      "titre": "EXEMPLE — Synthèse trimestrielle",
+      "theme": "juridique",
+      "resume": "Ce fichier sert de modèle de schéma pour la routine trimestrielle. Une synthèse trimestrielle reprend le même format qu'une entrée hebdomadaire, mais sur une sélection resserrée : uniquement les actualités structurantes du trimestre, pas la recopie de toutes les entrées de la période.",
+      "sources": [
+        { "nom": "Vie publique", "url": "https://www.vie-publique.fr/" }
+      ],
+      "lien_cours": "Rattachement attendu ici : la réforme ou l'évolution institutionnelle marquante du trimestre et son usage en copie."
+    }
+  ]
+}

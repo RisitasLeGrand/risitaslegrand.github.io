@@ -1,0 +1,11 @@
+{
+  "id": "chiffres-economie",
+  "titre": "Chiffres clés de l'économie française",
+  "resume": "EXEMPLE — Ce fichier sert de modèle de schéma : remplacez-le entièrement à la première mise à jour. Le résumé rassemble ici les derniers chiffres publiés : croissance du PIB, inflation en glissement annuel, taux de chômage au sens du BIT, déficit public et dette publique en points de PIB, solde de la balance commerciale.",
+  "sources": [
+    { "nom": "INSEE — Conjoncture", "url": "https://www.insee.fr/fr/statistiques" },
+    { "nom": "Banque de France", "url": "https://www.banque-france.fr/fr/publications-et-statistiques" }
+  ],
+  "lien_cours": "Ces chiffres sont directement mobilisables en économie et en finances publiques : toute copie gagne à dater ses données et à citer la source. Ils servent aussi d'ancrage pour discuter la soutenabilité de la dette, les critères de Maastricht et la position de la France dans la zone euro.",
+  "derniere_maj": "2026-09-22"
+}

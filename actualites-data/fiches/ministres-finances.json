@@ -1,0 +1,11 @@
+{
+  "id": "ministres-finances",
+  "titre": "Ministres économiques et financiers, et DGFiP",
+  "resume": "EXEMPLE — Ce fichier sert de modèle de schéma : remplacez-le entièrement à la première mise à jour. Le résumé recense ici les titulaires des portefeuilles de Bercy (économie et finances, comptes publics, budget) ainsi que le Directeur général des Finances publiques, avec leurs dates de nomination.",
+  "sources": [
+    { "nom": "economie.gouv.fr", "url": "https://www.economie.gouv.fr/" },
+    { "nom": "DGFiP", "url": "https://www.economie.gouv.fr/dgfip" }
+  ],
+  "lien_cours": "Le concours interne de l'INSP recrute majoritairement des agents des ministères économiques et financiers : connaître l'organigramme politique et administratif de Bercy, et la place de la DGFiP dans la chaîne de la dépense et du recouvrement, est attendu en entretien comme en finances publiques.",
+  "derniere_maj": "2026-09-22"
+}

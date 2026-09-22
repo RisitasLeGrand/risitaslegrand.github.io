@@ -1,0 +1,161 @@
+---
+/**
+ * Archive des actualités.
+ *
+ * Page volontairement absente de la navigation globale : on n'y accède que par
+ * le bouton « Voir les actualités passées » du tableau de bord. Comme toutes
+ * les pages du site, elle est derrière l'écran de connexion (gabarit « Base »).
+ */
+import Base from '../layouts/Base.astro';
+---
+
+<Base titre="Actualités passées">
+  <div class="mb-6 flex flex-wrap items-center justify-between gap-3">
+    <div>
+      <a
+        id="retour"
+        href="./"
+        class="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+        >← Tableau de bord</a
+      >
+      <h1 class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">Actualités passées</h1>
+      <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+        Veille hebdomadaire, synthèses trimestrielles et annuelles.
+      </p>
+    </div>
+
+    <div class="flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800" role="tablist" aria-label="Périodicité">
+      <button type="button" data-vue="semaines" class="onglet-vue rounded-lg px-3 py-1.5 text-sm font-medium">Semaines</button>
+      <button type="button" data-vue="trimestres" class="onglet-vue rounded-lg px-3 py-1.5 text-sm font-medium">Trimestres</button>
+      <button type="button" data-vue="annees" class="onglet-vue rounded-lg px-3 py-1.5 text-sm font-medium">Années</button>
+    </div>
+  </div>
+
+  <div id="filtres" class="mb-6 flex flex-wrap items-center gap-2">
+    <span class="text-sm text-slate-500 dark:text-slate-400">Thème :</span>
+    <button type="button" data-theme="" class="filtre-theme rounded-full px-3 py-1 text-sm font-medium">Tous</button>
+    <button type="button" data-theme="juridique" class="filtre-theme rounded-full px-3 py-1 text-sm font-medium">Juridique</button>
+    <button type="button" data-theme="economique" class="filtre-theme rounded-full px-3 py-1 text-sm font-medium">Économique</button>
+    <button type="button" data-theme="international" class="filtre-theme rounded-full px-3 py-1 text-sm font-medium">International</button>
+  </div>
+
+  <div id="chargement-actu" class="py-16 text-center text-slate-400">Chargement des actualités…</div>
+  <div id="archive" class="hidden space-y-8"></div>
+</Base>
+
+<script>
+  import {
+    chargerSemaines,
+    chargerTrimestres,
+    chargerAnnees,
+    titrePeriode,
+    type PeriodeActu,
+  } from '../lib/actualites';
+  import { carteItem, messageVide } from '../lib/actualites-rendu';
+  import { lien, parametreUrl } from '../lib/ui';
+
+  const ACTIF_ONGLET = 'bg-white text-indigo-700 shadow-sm dark:bg-slate-900 dark:text-indigo-300';
+  const INACTIF_ONGLET = 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white';
+  const ACTIF_FILTRE = 'bg-indigo-600 text-white';
+  const INACTIF_FILTRE =
+    'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-slate-700';
+
+  const archive = document.getElementById('archive')!;
+  const chargement = document.getElementById('chargement-actu')!;
+  const onglets = [...document.querySelectorAll<HTMLButtonElement>('.onglet-vue')];
+  const filtres = [...document.querySelectorAll<HTMLButtonElement>('.filtre-theme')];
+
+  document.getElementById('retour')!.setAttribute('href', lien('/'));
+
+  const donnees: Record<string, PeriodeActu[] | undefined> = {};
+  let vue = 'semaines';
+  let theme = '';
+
+  function peindreBoutons() {
+    for (const bouton of onglets) {
+      const actif = bouton.dataset.vue === vue;
+      bouton.className = `onglet-vue rounded-lg px-3 py-1.5 text-sm font-medium transition ${actif ? ACTIF_ONGLET : INACTIF_ONGLET}`;
+      bouton.setAttribute('aria-selected', String(actif));
+    }
+    for (const bouton of filtres) {
+      const actif = (bouton.dataset.theme ?? '') === theme;
+      bouton.className = `filtre-theme rounded-full px-3 py-1 text-sm font-medium transition ${actif ? ACTIF_FILTRE : INACTIF_FILTRE}`;
+      bouton.setAttribute('aria-pressed', String(actif));
+    }
+  }
+
+  function peindreArchive() {
+    peindreBoutons();
+    archive.innerHTML = '';
+
+    const entrees = donnees[vue] ?? [];
+    if (!entrees.length) {
+      archive.appendChild(
+        messageVide(
+          "Aucune actualité n'a encore été publiée pour cette période. Les routines de veille alimenteront cette page automatiquement.",
+        ),
+      );
+      return;
+    }
+
+    let affichees = 0;
+    for (const entree of entrees) {
+      const items = (entree.items ?? []).filter((i) => !theme || (i.theme ?? '').toLowerCase() === theme);
+      if (!items.length) continue;
+      affichees += items.length;
+
+      const section = document.createElement('section');
+      const titre = document.createElement('h2');
+      titre.className =
+        'mb-3 border-b border-slate-200 pb-2 text-lg font-semibold text-slate-900 dark:border-slate-800 dark:text-white';
+      titre.textContent = titrePeriode(entree);
+      section.appendChild(titre);
+
+      const grille = document.createElement('div');
+      grille.className = 'grid gap-3 md:grid-cols-2';
+      for (const item of items) grille.appendChild(carteItem(item));
+      section.appendChild(grille);
+      archive.appendChild(section);
+    }
+
+    if (!affichees) {
+      archive.appendChild(messageVide('Aucune actualité ne correspond à ce thème sur la période disponible.'));
+    }
+  }
+
+  async function charger(cible: string) {
+    if (donnees[cible]) return;
+    if (cible === 'semaines') donnees[cible] = await chargerSemaines();
+    else if (cible === 'trimestres') donnees[cible] = await chargerTrimestres();
+    else donnees[cible] = await chargerAnnees();
+  }
+
+  async function basculer(cible: string) {
+    vue = cible;
+    peindreBoutons();
+    if (!donnees[cible]) {
+      archive.classList.add('hidden');
+      chargement.classList.remove('hidden');
+      chargement.textContent = 'Chargement des actualités…';
+      await charger(cible);
+      chargement.classList.add('hidden');
+      archive.classList.remove('hidden');
+    }
+    peindreArchive();
+  }
+
+  for (const bouton of onglets) {
+    bouton.addEventListener('click', () => void basculer(bouton.dataset.vue!));
+  }
+  for (const bouton of filtres) {
+    bouton.addEventListener('click', () => {
+      theme = bouton.dataset.theme ?? '';
+      peindreArchive();
+    });
+  }
+
+  document.addEventListener('revinsp:deverrouille', () => {
+    theme = parametreUrl('theme') ?? '';
+    void basculer(parametreUrl('vue') ?? 'semaines');
+  });
+</script>

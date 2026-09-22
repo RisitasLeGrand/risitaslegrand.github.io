@@ -15,12 +15,13 @@ et suivi de progression — le tout dans le navigateur, sans serveur ni compte.
 5. [Le glossaire](#le-glossaire)
 6. [Travailler en local](#travailler-en-local)
 7. [Publier sur GitHub Pages](#publier-sur-github-pages)
-8. [Changer le mot de passe](#changer-le-mot-de-passe)
-9. [Comment fonctionne la protection](#comment-fonctionne-la-protection)
-10. [Sauvegarder et synchroniser la progression](#sauvegarder-et-synchroniser-la-progression)
-11. [Entraînement cognitif (Quad N-Back)](#entraînement-cognitif-quad-n-back)
-12. [Organisation du projet](#organisation-du-projet)
-13. [En cas de problème](#en-cas-de-problème)
+8. [La rubrique Actualités](#la-rubrique-actualités)
+9. [Changer le mot de passe](#changer-le-mot-de-passe)
+10. [Comment fonctionne la protection](#comment-fonctionne-la-protection)
+11. [Sauvegarder et synchroniser la progression](#sauvegarder-et-synchroniser-la-progression)
+12. [Entraînement cognitif (Quad N-Back)](#entraînement-cognitif-quad-n-back)
+13. [Organisation du projet](#organisation-du-projet)
+14. [En cas de problème](#en-cas-de-problème)
 
 ---
 
@@ -33,6 +34,7 @@ Trois commandes suffisent au quotidien :
 | `npm run dev` | Chiffre le contenu puis ouvre le site en local pour le tester |
 | `npm run deploy` | Chiffre, construit et publie le site sur GitHub Pages |
 | `npm run hash` | Affiche l'empreinte SHA-256 du mot de passe (voir plus bas) |
+| `npm run actualites:local` | Copie les exemples d'actualités pour les voir en mode dev |
 
 **Règle de sécurité fondamentale :** le dossier `content/` (vos fiches en clair)
 et le fichier `.env.local` (votre mot de passe) ne sont **jamais** envoyés sur
@@ -329,6 +331,79 @@ redirige automatiquement l'ancienne adresse, mais pensez à :
 2. mettre à jour le remote local (`git remote set-url origin …`) ;
 3. republier (`npm run deploy`).
 
+## La rubrique Actualités
+
+Une rubrique **Actualités** apparaît en bas du tableau de bord : quatre fiches
+suivies en continu (Premier ministre ; ministres de Bercy et DGFiP ; chiffres
+clés de l'économie ; changements législatifs récents), un aperçu de la semaine
+en cours, et un bouton **« Voir les actualités passées »** qui mène à
+`/actualites/`. Cette page d'archive — veille hebdomadaire, synthèses
+trimestrielles et annuelles, avec filtre par thème — n'est volontairement pas
+dans la navigation globale : on n'y accède que par ce bouton.
+
+### Un écart assumé par rapport au reste du site
+
+Les cours, flashcards et quiz sont chiffrés localement avec un mot de passe qui
+ne quitte jamais votre machine. Les **actualités, elles, ne sont pas chiffrées**.
+
+La raison est pratique : ces fichiers sont destinés à être écrits par des
+routines automatisées qui tournent dans le nuage et n'ont donc accès ni à votre
+machine ni à votre mot de passe. Le compromis est acceptable ici — il s'agit
+d'informations déjà publiques (institutions, presse économique), pas de votre
+travail personnel de révision. Elles restent malgré tout derrière l'écran de
+connexion et hors des moteurs de recherche, comme le reste du site.
+
+Si ce compromis ne vous convient pas, supprimez le dossier `actualites-data/` :
+la section reste alors simplement masquée sur le tableau de bord.
+
+### Où vivent les données
+
+Les données ne passent **pas** par le build Astro : elles sont récupérées par
+`fetch` au moment de l'affichage, depuis la branche publiée.
+
+```
+actualites-data/
+  fiches/       premier-ministre.json · ministres-finances.json
+                chiffres-economie.json · legislation.json
+  semaines/     2026-W39.json  (numéro de semaine ISO)
+  trimestres/   2026-T3.json
+  annees/       2026.json
+```
+
+Conséquence utile : **publier une actualité ne demande aucun build**, et
+**publier une nouvelle version du site n'efface pas les actualités**. Avant
+chaque `npm run deploy`, le script récupère `actualites-data/` depuis la version
+en ligne et le réintègre tel quel ; si le dossier n'existe pas encore en ligne,
+il est initialisé à partir des fichiers d'exemple du dépôt. Une éventuelle copie
+présente dans `dist/` est systématiquement écartée.
+
+Le dépôt contient un fichier d'exemple par sous-dossier : ils servent de modèle
+de schéma et sont destinés à être remplacés à la première vraie mise à jour.
+
+### Voir la rubrique en développement local
+
+En local, rien ne répond au `fetch` puisque les données vivent sur la branche
+publiée. Pour afficher les exemples pendant le développement :
+
+```bash
+npm run actualites:local   # copie actualites-data/ dans public/ (ignoré par Git)
+npm run dev
+```
+
+### Alimenter la rubrique automatiquement
+
+Trois routines programmées peuvent tenir la rubrique à jour depuis
+`claude.ai/code/routines`, en ouvrant une pull request à chaque passage :
+hebdomadaire (lundi matin), trimestrielle (1er janvier, avril, juillet,
+octobre) et annuelle (5 janvier). Leurs consignes sont reproduites dans
+`docs/routines-actualites.md`.
+
+Aucune image n'est jamais hébergée dans le dépôt : seule l'URL d'origine de
+l'illustration et son crédit sont conservés. Si l'URL cesse de répondre, le
+bloc image disparaît de lui-même.
+
+---
+
 ## Changer le mot de passe
 
 Le mot de passe apparaît à deux endroits : dans `.env.local` (le mot de passe
@@ -541,6 +616,8 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 .
 ├── content/                 # VOS FICHES EN CLAIR — jamais commité
 ├── content-exemple/         # Exemples fournis, copiés par « npm run init:contenu »
+├── actualites-data/         # Rubrique Actualités — NON chiffrée, commitée (voir plus haut)
+├── docs/                    # Consignes des routines de veille
 ├── .env.local               # VOTRE MOT DE PASSE — jamais commité
 ├── site.config.mjs          # Réglages : mot de passe (empreinte), base, XP, glossaire
 │
@@ -549,6 +626,7 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 │   ├── deploy.mjs           # Reconstruit et publie la branche gh-pages
 │   ├── hash.mjs             # Calcule l'empreinte SHA-256 d'un mot de passe
 │   ├── init-contenu.mjs     # Crée content/ à partir des exemples
+│   ├── actualites-local.mjs # Copie les exemples d'actualités pour le mode dev
 │   └── lib/
 │       ├── schema.mjs       # Validation du format des fiches (Zod)
 │       ├── markdown.mjs     # Découpage en sections et rendu HTML
@@ -575,10 +653,13 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 │       ├── agregats.ts      # Calculs de maîtrise et file du jour
 │       ├── glossaire.ts     # Bulles de définition
 │       ├── temps.ts         # Mesure du temps de révision
+│       ├── actualites.ts    # Chargement des actualités (fetch, non chiffré)
+│       ├── actualites-rendu.ts  # Fabrique les cartes d'actualité
 │       └── ui.ts            # Utilitaires d'affichage
 │
 └── public/                  # Fichiers copiés tels quels (robots.txt, favicon)
-    └── data/                # Contenu chiffré produit par le build — non commité
+    ├── data/                # Contenu chiffré produit par le build — non commité
+    └── actualites-data/     # Copie locale des exemples (npm run actualites:local) — non commité
 ```
 
 ### Note sur la validation du contenu

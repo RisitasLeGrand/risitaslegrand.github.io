@@ -58,6 +58,32 @@ import Base from '../layouts/Base.astro';
       <div id="matieres" class="grid gap-3 sm:grid-cols-2"></div>
     </section>
 
+    <!-- Actualités : données non chiffrées, chargées à la volée depuis
+         « actualites-data/ » sur la branche publiée (voir src/lib/actualites.ts). -->
+    <section id="bloc-actualites" class="hidden">
+      <div class="mb-3 flex items-center justify-between gap-3">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Actualités</h2>
+        <a
+          id="lien-actualites"
+          href="actualites/"
+          class="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600 dark:border-slate-700 dark:text-slate-300 dark:hover:border-indigo-700 dark:hover:text-indigo-400"
+        >
+          Voir les actualités passées →
+        </a>
+      </div>
+
+      <div id="fiches-actu" class="grid gap-3 md:grid-cols-2"></div>
+
+      <div id="semaine-actu" class="mt-4">
+        <h3
+          id="titre-semaine-actu"
+          class="mb-2 text-sm font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+        >
+        </h3>
+        <div id="items-semaine-actu" class="grid gap-3 md:grid-cols-2"></div>
+      </div>
+    </section>
+
     <div class="grid gap-6 lg:grid-cols-2">
       <!-- Activité des 8 dernières semaines -->
       <section>
@@ -84,6 +110,8 @@ import Base from '../layouts/Base.astro';
   import { lireProfil, tousLesJours, jourISO, ajouterJours } from '../lib/db';
   import { BADGES, calculerNiveau, statutStreak } from '../lib/gamification';
   import { formaterDuree, lien, pluriel } from '../lib/ui';
+  import { chargerFiches, chargerSemaine, idSemaine } from '../lib/actualites';
+  import { carteFiche, carteItem } from '../lib/actualites-rendu';
 
   async function afficher() {
     const [vue, profil, streak, jours] = await Promise.all([
@@ -206,9 +234,41 @@ import Base from '../layouts/Base.astro';
     document.getElementById('tableau')!.classList.remove('hidden');
   }
 
+  /**
+   * Rubrique Actualités : chargée indépendamment du tableau de bord.
+   * Les fichiers peuvent ne pas exister encore (avant le premier passage des
+   * routines) : dans ce cas la section reste simplement masquée.
+   */
+  async function afficherActualites() {
+    document.getElementById('lien-actualites')!.setAttribute('href', lien('/actualites/'));
+
+    const [fiches, semaine] = await Promise.all([
+      chargerFiches(),
+      chargerSemaine(idSemaine(new Date())),
+    ]);
+    if (!fiches.length && !semaine?.items?.length) return;
+
+    const zoneFiches = document.getElementById('fiches-actu')!;
+    for (const fiche of fiches) zoneFiches.appendChild(carteFiche(fiche));
+
+    const blocSemaine = document.getElementById('semaine-actu')!;
+    if (semaine?.items?.length) {
+      document.getElementById('titre-semaine-actu')!.textContent =
+        `Cette semaine · ${semaine.periode ?? semaine.semaine ?? ''}`.trim();
+      const zoneItems = document.getElementById('items-semaine-actu')!;
+      for (const item of semaine.items.slice(0, 4)) zoneItems.appendChild(carteItem(item));
+    } else {
+      blocSemaine.classList.add('hidden');
+    }
+
+    document.getElementById('bloc-actualites')!.classList.remove('hidden');
+  }
+
   document.addEventListener('revinsp:deverrouille', () => {
     afficher().catch((e) => {
       document.getElementById('chargement')!.textContent = `Erreur : ${e.message}`;
     });
+    // Un échec de la veille ne doit jamais empêcher l'affichage du tableau de bord.
+    afficherActualites().catch((e) => console.warn('Actualités indisponibles :', e));
   });
 </script>

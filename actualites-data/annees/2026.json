@@ -1,0 +1,15 @@
+{
+  "annee": "2026",
+  "periode": "année 2026",
+  "items": [
+    {
+      "titre": "EXEMPLE — Synthèse annuelle",
+      "theme": "economique",
+      "resume": "Ce fichier sert de modèle de schéma pour la routine annuelle. La synthèse annuelle est construite à partir des quatre fichiers trimestriels de l'année et ne retient que les évolutions les plus structurantes pour la préparation du concours.",
+      "sources": [
+        { "nom": "INSEE", "url": "https://www.insee.fr/" }
+      ],
+      "lien_cours": "Rattachement attendu ici : la tendance de fond de l'année et les points de programme qu'elle éclaire."
+    }
+  ]
+}

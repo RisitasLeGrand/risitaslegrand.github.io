@@ -6,6 +6,9 @@ content/
 
 # --- Données générées par le build (contenu chiffré, régénérable) ---
 public/data/
+# Copie locale des exemples d'actualités (npm run actualites:local).
+# La source versionnée est « actualites-data/ » à la racine.
+public/actualites-data/
 
 # --- Dépendances et artefacts de build ---
 node_modules/

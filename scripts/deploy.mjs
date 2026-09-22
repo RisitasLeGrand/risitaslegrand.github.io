@@ -9,6 +9,14 @@
  * dossier temporaire : son contenu est donc exactement celui de « dist/ », sans
  * résidu d'une publication précédente. Son historique n'a aucune valeur — tout
  * y est régénérable —, d'où le « push --force ».
+ *
+ * UNE SEULE EXCEPTION : le dossier « actualites-data/ ». Il est alimenté par des
+ * routines qui écrivent directement sur la branche publiée, sans passer par un
+ * build local. Comme la publication écrase la branche, ce dossier est récupéré
+ * depuis la version en ligne AVANT le push, puis réintégré tel quel. Publier une
+ * nouvelle version du site ne doit jamais effacer la veille accumulée.
+ * S'il est absent en ligne (toute première publication), il est initialisé à
+ * partir des fichiers d'exemple du dépôt.
  */
 import { execFileSync } from 'node:child_process';
 import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
@@ -21,6 +29,11 @@ import config from '../site.config.mjs';
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dist = path.join(racine, 'dist');
 const branche = config.brancheDeploiement;
+
+/** Dossier de la rubrique Actualités, hors du périmètre du build (voir en-tête). */
+const DOSSIER_ACTUALITES = 'actualites-data';
+/** Fichiers d'exemple servant d'amorce lors de la toute première publication. */
+const amorceActualites = path.join(racine, DOSSIER_ACTUALITES);
 
 function echouer(message) {
   console.error(`\n\x1b[31m✖ ${message}\x1b[0m\n`);
@@ -64,6 +77,43 @@ try {
   // Désactive la construction Jekyll de GitHub (sinon les dossiers commençant
   // par « _ », comme _astro, seraient ignorés).
   await writeFile(path.join(temporaire, '.nojekyll'), '');
+
+  // --- Rubrique Actualités : la version en ligne fait foi ------------------
+  // Le build ne produit pas ce dossier ; s'il s'en trouvait une copie dans
+  // « dist/ » (prévisualisation locale), elle est écartée pour que la version
+  // publiée ne puisse jamais écraser celle qu'alimentent les routines.
+  const actualitesDansTemp = path.join(temporaire, DOSSIER_ACTUALITES);
+  await rm(actualitesDansTemp, { recursive: true, force: true });
+
+  const miroir = await mkdtemp(path.join(tmpdir(), 'actualites-'));
+  let origineActualites = null;
+  try {
+    // Clone minimal : ni historique, ni blobs hors du dossier visé.
+    execFileSync(
+      'git',
+      ['clone', '--depth', '1', '--single-branch', '--branch', branche,
+       '--filter=blob:none', '--sparse', depot, miroir],
+      { stdio: 'pipe' },
+    );
+    git(miroir, 'sparse-checkout', 'set', DOSSIER_ACTUALITES);
+    if (existsSync(path.join(miroir, DOSSIER_ACTUALITES))) {
+      await cp(path.join(miroir, DOSSIER_ACTUALITES), actualitesDansTemp, { recursive: true });
+      origineActualites = 'en ligne';
+    }
+  } catch {
+    // Branche inexistante, dépôt vide ou réseau indisponible : on retombe sur
+    // l'amorce locale plutôt que de publier une rubrique vide.
+  } finally {
+    await rm(miroir, { recursive: true, force: true });
+  }
+
+  if (!origineActualites && existsSync(amorceActualites)) {
+    await cp(amorceActualites, actualitesDansTemp, { recursive: true });
+    origineActualites = 'fichiers d\'exemple du dépôt';
+  }
+  if (origineActualites) {
+    console.log(`› « ${DOSSIER_ACTUALITES}/ » repris depuis : ${origineActualites}.`);
+  }
 
   git(temporaire, 'init', '-q', '-b', branche);
   git(temporaire, 'remote', 'add', 'origin', depot);

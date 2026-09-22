@@ -1,0 +1,11 @@
+{
+  "id": "premier-ministre",
+  "titre": "Premier ministre",
+  "resume": "EXEMPLE — Ce fichier sert de modèle de schéma : remplacez-le entièrement à la première mise à jour. Le résumé indique ici qui occupe la fonction, depuis quelle date, la composition générale du gouvernement et les priorités annoncées.",
+  "sources": [
+    { "nom": "Gouvernement.fr", "url": "https://www.gouvernement.fr/composition-du-gouvernement" },
+    { "nom": "Vie publique", "url": "https://www.vie-publique.fr/" }
+  ],
+  "lien_cours": "Connaître l'identité et la trajectoire du Premier ministre en exercice est attendu à l'oral comme en questions sociales : c'est le point d'ancrage de toute question sur l'organisation de l'exécutif, la responsabilité gouvernementale et la conduite de la politique de la Nation (art. 20 et 21 de la Constitution).",
+  "derniere_maj": "2026-09-22"
+}
