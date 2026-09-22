@@ -299,7 +299,12 @@ Cette commande, exécutée **sur votre machine** :
 1. lit le mot de passe dans `.env.local` et vérifie son empreinte ;
 2. valide et chiffre tout le contenu de `content/` ;
 3. construit le site statique dans `dist/` ;
-4. pousse `dist/` sur la branche `gh-pages`.
+4. reconstruit entièrement la branche `gh-pages` à partir de `dist/`.
+
+La branche de publication est régénérée depuis zéro à chaque fois : son
+contenu est donc exactement celui de `dist/`, sans résidu d'une publication
+précédente. Son historique est écrasé (`push --force`), ce qui est sans
+conséquence — tout y est régénérable à partir de `content/`.
 
 Aucun secret GitHub Actions n'est nécessaire, et **le déploiement ne peut pas
 être automatisé côté serveur** : le chiffrement exige le mot de passe en clair,
@@ -419,7 +424,7 @@ La page **Sauvegarde** permet de :
 │
 ├── scripts/
 │   ├── build-content.mjs    # Valide, transforme en HTML et chiffre le contenu
-│   ├── deploy.mjs           # Publie dist/ sur la branche gh-pages
+│   ├── deploy.mjs           # Reconstruit et publie la branche gh-pages
 │   ├── hash.mjs             # Calcule l'empreinte SHA-256 d'un mot de passe
 │   ├── init-contenu.mjs     # Crée content/ à partir des exemples
 │   └── lib/
