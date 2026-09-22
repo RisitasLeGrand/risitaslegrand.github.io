@@ -57,5 +57,9 @@ export default {
     quizTermine: 10,
     quizBonneReponse: 2,
     ficheTerminee: 20,
+    /** Quad N-Back : base par session terminée, puis bonus selon n et réussite. */
+    nbackSession: 8,
+    nbackParNiveau: 4,
+    nbackBonusReussite: 10,
   },
 };

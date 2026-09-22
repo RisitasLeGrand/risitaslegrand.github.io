@@ -42,6 +42,22 @@ export interface EtatFiche {
   secondes: number;
 }
 
+export interface SessionNBack {
+  id?: number;
+  le: string;
+  /** Profondeur jouée (n-back). */
+  n: number;
+  /** Dimensions actives lors de la partie. */
+  dimensions: string[];
+  nombreEpreuves: number;
+  /** Précision équilibrée, de 0 à 1. */
+  taux: number;
+  reperees: number;
+  aReperer: number;
+  erreurs: number;
+  secondes: number;
+}
+
 export interface Jour {
   jour: string;
   xp: number;
@@ -67,24 +83,35 @@ interface SchemaRevinsp extends DBSchema {
   fiches: { key: string; value: EtatFiche };
   quiz: { key: number; value: ResultatQuiz; indexes: { le: string } };
   jours: { key: string; value: Jour };
+  nback: { key: number; value: SessionNBack; indexes: { le: string } };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 1;
+const VERSION = 2;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
 export function db() {
   promesse ??= openDB<SchemaRevinsp>(NOM_BASE, VERSION, {
-    upgrade(base) {
-      base.createObjectStore('etat');
-      const cartes = base.createObjectStore('cartes', { keyPath: 'id' });
-      cartes.createIndex('du', 'du');
-      cartes.createIndex('matiere', 'matiere');
-      base.createObjectStore('fiches', { keyPath: 'id' });
-      const quiz = base.createObjectStore('quiz', { keyPath: 'id', autoIncrement: true });
-      quiz.createIndex('le', 'le');
-      base.createObjectStore('jours', { keyPath: 'jour' });
+    // « ancienneVersion » vaut 0 pour une base neuve. Chaque bloc est donc
+    // écrit pour s'appliquer aussi bien à une création qu'à une mise à niveau,
+    // sans jamais toucher aux données déjà enregistrées.
+    upgrade(base, ancienneVersion) {
+      if (ancienneVersion < 1) {
+        base.createObjectStore('etat');
+        const cartes = base.createObjectStore('cartes', { keyPath: 'id' });
+        cartes.createIndex('du', 'du');
+        cartes.createIndex('matiere', 'matiere');
+        base.createObjectStore('fiches', { keyPath: 'id' });
+        const quiz = base.createObjectStore('quiz', { keyPath: 'id', autoIncrement: true });
+        quiz.createIndex('le', 'le');
+        base.createObjectStore('jours', { keyPath: 'jour' });
+      }
+      if (ancienneVersion < 2) {
+        // Sessions d'entraînement cognitif (Quad N-Back).
+        const nback = base.createObjectStore('nback', { keyPath: 'id', autoIncrement: true });
+        nback.createIndex('le', 'le');
+      }
     },
   });
   return promesse;
@@ -193,6 +220,14 @@ export async function tousLesResultatsQuiz(): Promise<ResultatQuiz[]> {
   return (await db()).getAll('quiz');
 }
 
+export async function ajouterSessionNBack(session: SessionNBack) {
+  await (await db()).add('nback', session);
+}
+
+export async function toutesLesSessionsNBack(): Promise<SessionNBack[]> {
+  return (await db()).getAll('nback');
+}
+
 /** Sérialise l'intégralité de la progression (export JSON). */
 export async function exporterTout() {
   const base = await db();
@@ -205,6 +240,7 @@ export async function exporterTout() {
     fiches: await base.getAll('fiches'),
     quiz: await base.getAll('quiz'),
     jours: await base.getAll('jours'),
+    nback: await base.getAll('nback'),
   };
 }
 
@@ -282,6 +318,12 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
       const { id: _ignore, ...sansId } = q;
       await base.add('quiz', sansId as ResultatQuiz);
     }
+    const sessionsExistantes = new Set((await base.getAll('nback')).map((s) => s.le));
+    for (const session of donnees.nback ?? []) {
+      if (sessionsExistantes.has(session.le)) continue;
+      const { id: _ignore, ...sansId } = session;
+      await base.add('nback', sansId as SessionNBack);
+    }
     for (const j of donnees.jours ?? []) {
       const local = await base.get('jours', j.jour);
       await base.put('jours', {
@@ -300,19 +342,24 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
       await base.add('quiz', sansId as ResultatQuiz);
     }
     for (const j of donnees.jours ?? []) await base.put('jours', j);
+    for (const session of donnees.nback ?? []) {
+      const { id: _ignore, ...sansId } = session;
+      await base.add('nback', sansId as SessionNBack);
+    }
   }
 }
 
 /** Efface toute la progression locale (bouton « tout réinitialiser »). */
 export async function toutEffacer() {
   const base = await db();
-  const tx = base.transaction(['etat', 'cartes', 'fiches', 'quiz', 'jours'], 'readwrite');
+  const tx = base.transaction(['etat', 'cartes', 'fiches', 'quiz', 'jours', 'nback'], 'readwrite');
   await Promise.all([
     tx.objectStore('etat').clear(),
     tx.objectStore('cartes').clear(),
     tx.objectStore('fiches').clear(),
     tx.objectStore('quiz').clear(),
     tx.objectStore('jours').clear(),
+    tx.objectStore('nback').clear(),
   ]);
   await tx.done;
 }

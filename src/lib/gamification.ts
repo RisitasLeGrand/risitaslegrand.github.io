@@ -14,6 +14,7 @@ import {
   toutesLesCartes,
   tousLesEtatsFiches,
   tousLesResultatsQuiz,
+  toutesLesSessionsNBack,
   type Profil,
 } from './db';
 
@@ -105,6 +106,15 @@ export const xpFlashcard = (difficulte: 'difficile' | 'moyen' | 'facile') =>
 export const xpQuiz = (bonnes: number) => XP.quizTermine + bonnes * XP.quizBonneReponse;
 export const xpFiche = () => XP.ficheTerminee;
 
+/**
+ * XP d'une session de Quad N-Back.
+ * La récompense croît avec la profondeur (n) et n'accorde le bonus de
+ * réussite qu'au-delà du seuil de montée de niveau : une session bâclée
+ * rapporte peu, mais rapporte quand même — la régularité prime.
+ */
+export const xpNBack = (n: number, taux: number) =>
+  XP.nbackSession + n * XP.nbackParNiveau + (taux >= 0.85 ? XP.nbackBonusReussite : 0);
+
 // --- Badges ---------------------------------------------------------------
 
 export interface Badge {
@@ -128,6 +138,9 @@ interface ContexteBadges {
   joursEtudies: number;
   secondesTotales: number;
   matieresTerminees: number;
+  sessionsNBack: number;
+  /** Plus haut n validé (précision équilibrée ≥ 85 %). */
+  meilleurNBack: number;
 }
 
 export const BADGES: DefinitionBadge[] = [
@@ -216,6 +229,34 @@ export const BADGES: DefinitionBadge[] = [
     obtenu: (c) => c.secondesTotales >= 100 * 3600,
   },
   {
+    id: 'nback-premier',
+    nom: 'Premier Quad N-Back',
+    description: 'Terminer une session d\'entraînement cognitif.',
+    icone: '🧩',
+    obtenu: (c) => c.sessionsNBack >= 1,
+  },
+  {
+    id: 'nback-niveau-3',
+    nom: 'Niveau 3 atteint',
+    description: 'Réussir une session de Quad N-Back en n = 3.',
+    icone: '🎲',
+    obtenu: (c) => c.meilleurNBack >= 3,
+  },
+  {
+    id: 'nback-niveau-5',
+    nom: 'Niveau 5 atteint',
+    description: 'Réussir une session de Quad N-Back en n = 5.',
+    icone: '🛰️',
+    obtenu: (c) => c.meilleurNBack >= 5,
+  },
+  {
+    id: 'nback-assidu',
+    nom: 'Entraînement assidu',
+    description: 'Cumuler 50 sessions de Quad N-Back.',
+    icone: '🔁',
+    obtenu: (c) => c.sessionsNBack >= 50,
+  },
+  {
     id: 'cinquante-acquises',
     nom: 'Mémoire longue',
     description: 'Avoir 50 flashcards à plus de 21 jours d\'intervalle.',
@@ -226,12 +267,13 @@ export const BADGES: DefinitionBadge[] = [
 
 /** Construit le contexte d'évaluation des badges à partir de la base locale. */
 export async function contexteBadges(profil?: Profil): Promise<ContexteBadges> {
-  const [p, cartes, fiches, quiz, jours] = await Promise.all([
+  const [p, cartes, fiches, quiz, jours, sessions] = await Promise.all([
     profil ? Promise.resolve(profil) : lireProfil(),
     toutesLesCartes(),
     tousLesEtatsFiches(),
     tousLesResultatsQuiz(),
     tousLesJours(),
+    toutesLesSessionsNBack(),
   ]);
 
   // Une matière est « terminée » quand toutes ses cartes connues sont acquises.
@@ -254,6 +296,8 @@ export async function contexteBadges(profil?: Profil): Promise<ContexteBadges> {
     secondesTotales: jours.reduce((n, j) => n + j.secondes, 0),
     matieresTerminees: [...parMatiere.values()].filter((m) => m.total >= 5 && m.acquises === m.total)
       .length,
+    sessionsNBack: sessions.length,
+    meilleurNBack: sessions.reduce((n, s) => (s.taux >= 0.85 ? Math.max(n, s.n) : n), 0),
   };
 }
 

@@ -56,6 +56,30 @@ illisible sans le mot de passe. Tout le reste en dépend.
 - README couvrant installation, format des fiches, glossaire, publication,
   changement de mot de passe, sauvegarde et dépannage.
 
+## Phase 7 — Entraînement cognitif (Quad N-Back) ✅
+
+Ajout demandé après coup, sur la base du dépôt `quad-box` (licence MIT).
+
+**Deux stratégies possibles, comparées avant d'écrire du code :**
+
+| | Portage dans le site | Intégration par `<iframe>` |
+|---|---|---|
+| Thème | partagé | deux styles côte à côte |
+| Progression | même base, même XP, même série | base séparée, pont `postMessage` à écrire |
+| Poids | 196 Ko de sons, 0 dépendance ajoutée | 6,3 Mo d'assets, daisyui + chart.js + d3 |
+| Chemin de base | géré par Astro | à recâbler à la main |
+| Effort initial | moyen | faible |
+
+**Retenu : le portage.** Le coût réel s'est avéré modéré parce que les parties
+les plus liées à daisyui (réglages, graphiques, tiroirs) sont précisément
+celles qu'il fallait remplacer par l'existant du site. L'iframe aurait été plus
+rapide à poser mais aurait créé un second système de progression — exactement
+ce que le cahier des charges demandait d'éviter.
+
+Réalisé : moteur de stimuli porté et vérifié, grille 3D, touches
+personnalisables, enregistrement dans la base commune, XP et badges dédiés,
+chargement différé sur la seule page concernée.
+
 ## Pistes pour la suite
 
 Prévues par l'architecture, non réalisées à ce stade :
@@ -66,3 +90,5 @@ Prévues par l'architecture, non réalisées à ce stade :
 - Objectif hebdomadaire paramétrable (actuellement fixé à 10 h dans les
   statistiques).
 - Révision ciblée sur les seules fiches marquées fragiles.
+- Quad N-Back : courbe de progression du niveau n dans la page Statistiques,
+  et modes supplémentaires du dépôt d'origine (tally, N variable).

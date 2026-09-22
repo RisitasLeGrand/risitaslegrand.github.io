@@ -1,0 +1,34 @@
+---
+import Base from '../layouts/Base.astro';
+import QuadNBack from '../features/quad-n-back/composants/QuadNBack.svelte';
+---
+
+<Base titre="Entraînement cognitif" actif="entrainement">
+  <header class="mb-5">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Entraînement cognitif</h1>
+    <p class="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+      Quad N-Back : quatre flux de stimuli défilent en parallèle — position, couleur, forme et son.
+      Signalez à chaque épreuve les dimensions identiques à celles vues <strong>n</strong> épreuves plus tôt.
+      L'exercice entraîne la mémoire de travail, utile pour tenir une note de synthèse ou un oral.
+    </p>
+  </header>
+
+  <div id="chargement" class="py-20 text-center text-slate-400">Chargement de l'exercice…</div>
+
+  <div id="exercice" class="hidden">
+    <!--
+      client:only : le composant, ses sons et son moteur ne sont chargés que
+      sur cette page, jamais au chargement des autres pages du site.
+    -->
+    <QuadNBack client:only="svelte" />
+  </div>
+</Base>
+
+<script>
+  // L'exercice ne contient aucune donnée du concours et n'est donc pas
+  // chiffré, mais il reste derrière l'écran de connexion comme le reste du site.
+  document.addEventListener('revinsp:deverrouille', () => {
+    document.getElementById('chargement')!.classList.add('hidden');
+    document.getElementById('exercice')!.classList.remove('hidden');
+  });
+</script>

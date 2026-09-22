@@ -21,9 +21,11 @@
   },
   "homepage": "https://github.com/RisitasLeGrand/revinsp#readme",
   "dependencies": {
+    "@astrojs/svelte": "^9.0.1",
     "@tailwindcss/vite": "^4.3.3",
     "astro": "^7.3.3",
     "idb": "^8.0.3",
+    "svelte": "^5.57.1",
     "tailwindcss": "^4.3.3"
   },
   "devDependencies": {

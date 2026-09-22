@@ -18,8 +18,9 @@ et suivi de progression — le tout dans le navigateur, sans serveur ni compte.
 8. [Changer le mot de passe](#changer-le-mot-de-passe)
 9. [Comment fonctionne la protection](#comment-fonctionne-la-protection)
 10. [Sauvegarder et synchroniser la progression](#sauvegarder-et-synchroniser-la-progression)
-11. [Organisation du projet](#organisation-du-projet)
-12. [En cas de problème](#en-cas-de-problème)
+11. [Entraînement cognitif (Quad N-Back)](#entraînement-cognitif-quad-n-back)
+12. [Organisation du projet](#organisation-du-projet)
+13. [En cas de problème](#en-cas-de-problème)
 
 ---
 
@@ -243,6 +244,12 @@ npm run preview    # prévisualise le contenu de dist/
 npm run verifier   # contrôle des types (utile après une modification du code)
 ```
 
+L'exercice d'entraînement cognitif est écrit en **Svelte** (intégration
+`@astrojs/svelte`, installée avec le reste par `npm install`). Pour le tester :
+`npm run dev`, puis onglet **Mémoire** — ou directement
+`http://localhost:4321/entrainement/`. Le son nécessite une première
+interaction avec la page, ce que fait le bouton « Commencer la session ».
+
 ---
 
 ## Publier sur GitHub Pages
@@ -413,6 +420,74 @@ La page **Sauvegarde** permet de :
 
 ---
 
+## Entraînement cognitif (Quad N-Back)
+
+L'onglet **Mémoire** propose un exercice de mémoire de travail : quatre flux de
+stimuli défilent en parallèle — position dans une grille 3×3×3, couleur, forme
+et lettre prononcée. À chaque épreuve, il faut signaler les dimensions
+identiques à celles vues *n* épreuves plus tôt.
+
+### Utilisation
+
+- **Réglages** : profondeur *n*, nombre d'épreuves, rythme, grille 3D ou 2D,
+  et dimensions suivies (désactivez-en pour travailler en Dual ou Tri N-Back).
+- **Touches personnalisables** : chaque dimension a sa touche (A, S, D, F par
+  défaut). Cliquez sur « Touche : … » puis appuyez sur la touche voulue.
+  Si elle sert déjà à une autre dimension, les deux sont échangées — aucune
+  dimension ne peut se retrouver sans touche. `Échap` annule la saisie.
+- **Tout au clavier** : `Entrée` lance une session, les touches configurées
+  signalent les correspondances, `Échap` interrompt.
+- **Progression automatique** : le niveau *n* monte au-delà de 85 % de réussite
+  et redescend sous 60 %.
+
+### Comment le score est calculé
+
+Le taux affiché est une **précision équilibrée** : la moyenne de la part des
+correspondances repérées et de la part des non-correspondances correctement
+ignorées. C'est nécessaire parce que les correspondances sont rares (~25 %) :
+avec une simple proportion de bonnes décisions, ne jamais rien signaler
+donnerait près de 80 %. Ici, l'inaction comme le matraquage valent 50 %.
+
+### Intégration au reste du site
+
+- Les sessions sont enregistrées dans la **même base IndexedDB** que le reste
+  de la progression, et incluses dans l'export/import JSON.
+- Elles rapportent de l'XP et débloquent des badges dédiés (« Premier Quad
+  N-Back », « Niveau 3 atteint »…), et alimentent **la même série de jours**
+  que les fiches et les flashcards — il n'y a pas deux systèmes de streak.
+- Une session interrompue n'est pas enregistrée.
+- Le code du jeu et ses sons ne sont chargés **que sur cette page** : les
+  autres pages du site n'en téléchargent rien.
+- L'exercice ne contient aucune donnée du concours : il n'est donc pas chiffré,
+  mais reste derrière l'écran de connexion comme le reste du site.
+
+### Origine du code et licence
+
+La logique de génération des stimuli et le principe du rendu 3D sont repris du
+projet **quad-box** :
+
+> https://github.com/scottshadow56/quad-box (fork de `soamsy/quad-box`)
+> Licence **MIT** — Copyright (c) 2025 The Quad Box Project Contributors
+
+Le texte complet de la licence est conservé dans
+`src/features/quad-n-back/LICENCE-quad-box.txt`, et chaque fichier portant du
+code repris le mentionne en en-tête, comme la licence MIT l'exige.
+
+Adaptations par rapport au dépôt d'origine :
+
+| Élément | quad-box | Ici |
+|---|---|---|
+| Interface | daisyui | Tailwind, au style du site |
+| Stockage | base IndexedDB séparée | base commune du site |
+| Audio | `howler` | API `Audio` native (une dépendance de moins) |
+| Sons embarqués | 6 jeux, 6,3 Mo | 1 jeu de lettres, 196 Ko |
+| Graphiques | `chart.js`, `d3` | page « Statistiques » du site |
+| Régularité | `@mariohamann/activity-graph` | calendrier déjà présent au tableau de bord |
+| Modes | tally, N variable, motifs génératifs | les quatre dimensions du Quad N-Back |
+
+Ces retraits évitent d'ajouter six dépendances pour des fonctions que le site
+assure déjà, dans un projet destiné à rester simple à maintenir.
+
 ## Organisation du projet
 
 ```
@@ -434,6 +509,11 @@ La page **Sauvegarde** permet de :
 │       └── crypto.mjs       # PBKDF2 + AES-GCM côté build
 │
 ├── src/
+│   ├── features/
+│   │   └── quad-n-back/     # Exercice de mémoire de travail (code Svelte)
+│   │       ├── moteur/      # Génération des stimuli, score, audio
+│   │       ├── composants/  # Grille 3D, cellule, écrans de jeu
+│   │       └── LICENCE-quad-box.txt
 │   ├── pages/               # Une page par écran du site
 │   ├── layouts/Base.astro   # En-tête, navigation, thème
 │   ├── components/Verrou.astro  # Écran de connexion
