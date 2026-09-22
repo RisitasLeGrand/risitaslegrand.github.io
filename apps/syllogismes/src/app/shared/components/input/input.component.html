@@ -8,10 +8,10 @@
                 Maximum {{ ngControl.errors?.max.max }}
             </div>
             <div *ngIf="ngControl.errors?.required">
-                Required
+                Champ obligatoire
             </div>
             <div *ngIf="ngControl.errors?.email">
-                Invalid email
+                Adresse électronique invalide
             </div>
             <div *ngIf="ngControl.errors?.minlength">
                 Minimum length {{ ngControl.errors?.minlength.requiredLength }}
@@ -20,7 +20,7 @@
                 Maximum length {{ ngControl.errors?.maxlength.requiredLength }}
             </div>
             <div *ngIf="ngControl.errors?.pattern">
-                Invalid format
+                Format invalide
             </div>
         </ng-container>
         <ng-content select="[customErrors]"></ng-content>

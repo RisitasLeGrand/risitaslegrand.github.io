@@ -1,4 +1,16 @@
-@import url('https://fonts.googleapis.com/css2?family=Playpen+Sans:wght@100..800&display=swap');
+/*
+ * MODIFICATION (adaptation française) : l'import Google Fonts d'origine a été
+ * retiré. Il faisait contacter fonts.googleapis.com à chaque ouverture de
+ * l'exercice, ce qui expose l'adresse IP du visiteur à un tiers — incompatible
+ * avec un site dont tout le contenu est par ailleurs chiffré.
+ *
+ * Import d'origine :
+ * @import url('https://fonts.googleapis.com/css2?family=Playpen+Sans:wght@100..800&display=swap');
+ *
+ * La pile de polices ci-dessous retombe sur les polices du système. Pour
+ * retrouver la typographie d'origine, héberger « Playpen Sans » localement
+ * plutôt que de rétablir l'import.
+ */
 
 :root {
     /* PALETTE */

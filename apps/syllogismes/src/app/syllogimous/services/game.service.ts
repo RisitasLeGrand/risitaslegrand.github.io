@@ -234,7 +234,7 @@ export class GameService {
                     if (premises > minNumOfPremises) {
                         this.gameTimerService.stop();
                         const modalRef = this.modalService.open(ModalLevelChangeComponent, { centered: true });
-                        modalRef.componentInstance.title = "Number of Premises Decreased";
+                        modalRef.componentInstance.title = "Nombre de prémisses réduit";
                         modalRef.componentInstance.content = `Your last <b>${trainingUnitLength}</b> answers for<br><b class="modal-level-type">${type}</b><br>have yielded this results:<div class="d-flex flex-row justify-content-center my-3"><span class="p-2"><b>${right}</b> right</span><span class="p-2 border-start border-end"><b>${timeout}</b> timeout</span><span class="p-2"><b>${wrong}</b> wrong</span></div>The number of premises for<br><b class="modal-level-type">${type}</b><br>has <b>decreased</b> to ${premises - 1}.`;
                         await modalRef.result;
                     }
@@ -243,7 +243,7 @@ export class GameService {
                     if (premises < maxNumOfPremises) {
                         this.gameTimerService.stop();
                         const modalRef = this.modalService.open(ModalLevelChangeComponent, { centered: true });
-                        modalRef.componentInstance.title = "Number of Premises Increased";
+                        modalRef.componentInstance.title = "Nombre de prémisses augmenté";
                         modalRef.componentInstance.content = `Your last <b>${trainingUnitLength}</b> answers for<br><b class="modal-level-type">${type}</b><br>have yielded this results:<div class="d-flex flex-row justify-content-center my-3"><span class="p-2"><b>${right}</b> right</span><span class="p-2 border-start border-end"><b>${timeout}</b> timeout</span><span class="p-2"><b>${wrong}</b> wrong</span></div>The number of premises for<br><b class="modal-level-type">${type}</b><br>has <b>increased</b> to ${premises + 1}.`;
                         await modalRef.result;
                     }
@@ -275,10 +275,10 @@ export class GameService {
                 const modalRef = this.modalService.open(ModalLevelChangeComponent, { centered: true });
 
                 if (ds > 0) {
-                    modalRef.componentInstance.title = "Level Up";
+                    modalRef.componentInstance.title = "Niveau supérieur";
                     modalRef.componentInstance.content = "Your hard work is paying off.<br>Keep going to unlock more question types and points!";
                 } else if (ds < 0) {
-                    modalRef.componentInstance.title = "Level Down";
+                    modalRef.componentInstance.title = "Niveau inférieur";
                     modalRef.componentInstance.content = "Take this as a learning step.<br>Refocus your efforts and you’ll be back on top in no time!";
                 }
             }
@@ -326,7 +326,7 @@ export class GameService {
                 const isSameAs = coinFlip();
                 const relation = getRelation(settings, type, isSameAs);
 
-                question.premises.push(`<span class="subject">${prev}</span> is ${relation} <span class="subject">${curr}</span>`);
+                question.premises.push(`<span class="subject">${prev}</span> est ${relation} <span class="subject">${curr}</span>`);
 
                 if (!isSameAs) {
                     prevBucket = (prevBucket + 1) % 2;
@@ -347,7 +347,7 @@ export class GameService {
             const isSameAs = coinFlip();
             const relation = getRelation(settings, type, isSameAs);
 
-            question.conclusion = `<span class="subject">${first}</span> is ${relation} <span class="subject">${curr}</span>`;
+            question.conclusion = `<span class="subject">${first}</span> est ${relation} <span class="subject">${curr}</span>`;
             question.isValid = isSameAs
                 ? question.buckets[0].includes(curr)
                 : question.buckets[1].includes(curr);
@@ -385,7 +385,7 @@ export class GameService {
                 const [first, last] = ((sign === 1) === isMoreOrAfter) ? [next, curr] : [curr, next];
                 const relation = getRelation(settings, type, isMoreOrAfter);
 
-                question.premises.push(`<span class="subject">${first}</span> is ${relation} <span class="subject">${last}</span>`);
+                question.premises.push(`<span class="subject">${first}</span> est ${relation} <span class="subject">${last}</span>`);
             }
 
             createMetaRelationships(settings, question, length);
@@ -399,7 +399,7 @@ export class GameService {
             const isMoreOrAfter = coinFlip();
             const relation = getRelation(settings, type, isMoreOrAfter);
 
-            question.conclusion = `<span class="subject">${question.bucket[a]}</span> is ${relation} <span class="subject">${question.bucket[b]}</span>`;
+            question.conclusion = `<span class="subject">${question.bucket[a]}</span> est ${relation} <span class="subject">${question.bucket[b]}</span>`;
             question.isValid = isMoreOrAfter
                 ? sign === 1 && a > b || sign === -1 && a < b
                 : sign === 1 && a < b || sign === -1 && a > b;
@@ -426,7 +426,7 @@ export class GameService {
         const words = pickUniqueItems(symbols, numOfEls).picked;
         const question = new Question(type);
         question.instructions = [];
-        question.instructions.push(`There are <b>${NUMBER_WORDS[numOfEls] || numOfEls} subjects</b> along a <b>${isLinear ? "linear" : "circular"}</b> path.`);
+        question.instructions.push(`Il y a <b>${NUMBER_WORDS[numOfEls] || numOfEls} sujets</b> disposés le long d'un parcours <b>${isLinear ? "linéaire" : "circulaire"}</b>.`);
 
         const relationshipAlreadyExistent = (a: string, b: string) =>
             premises.find(({ a: pA, b: pB }) => (pA === a && pB === b) || (pA === b && pB === a));
@@ -516,7 +516,7 @@ export class GameService {
             if (settings.enabled.meta && coinFlip() && metaRelationships.length && !metaRelationshipLookupMap[uid]) {
                 const premise = pickUniqueItems(metaRelationships, 1).picked[0];
                 metaRelationshipLookupMap[premise.uid] = true;
-                return `<span class="subject">${a}</span> to <span class="subject">${b}</span> has the same relation as <span class="subject">${premise.a}</span> to <span class="subject">${premise.b}</span>`;
+                return `La relation de <span class="subject">${a}</span> à <span class="subject">${b}</span> est la même que celle de <span class="subject">${premise.a}</span> à <span class="subject">${premise.b}</span>`;
             }
 
             const { description, steps } = relationship;
@@ -545,10 +545,10 @@ export class GameService {
         const sideSize = 1 + Math.round(Math.sqrt(numOfEls));
 
         const cardinalOppositeMap: Record<string, string> = {
-            "North": "South",
-            "South": "North",
-            "East": "West",
-            "West": "East"
+            "nord": "sud",
+            "sud": "nord",
+            "est": "ouest",
+            "ouest": "est"
         };
 
         // Give random coords to each subject
@@ -615,22 +615,28 @@ export class GameService {
         // Calculate cardinals and relationship of each pair
         const premises: IDirectionProposition[] = [];
 
+        // TRADUCTION FR : voir auCardinal dans createDirection3D — même règle.
+        const auCardinal2D = (c: string) => (/^(est|ouest)/.test(c) ? `à l'${c}` : `au ${c}`);
+
         const getRelationship = (cardinals: [string, number][], tweaked = false) => {
             let relationship = "";
 
             if (!tweaked && cardinals.every(c => c[1] === 1)) {
-                relationship = "adjacent and " + cardinals[0][0];
-
-                if (cardinals.length === 2) {
-                    relationship += "-" + cardinals[1][0];
-                }
+                // TRADUCTION FR : « au nord-est » — la forme composée commence
+                // toujours par le cardinal vertical, la préposition est donc
+                // celle de « nord » ou « sud ».
+                const compose = cardinals.length === 2
+                    ? cardinals[0][0] + "-" + cardinals[1][0]
+                    : cardinals[0][0];
+                relationship = "immédiatement " + auCardinal2D(compose);
             } else {
                 const numStepsVertical = NUMBER_WORDS[cardinals[0][1]] || cardinals[0][1];
-                relationship = numStepsVertical + " step" + (cardinals[0][1] > 1 ? "s" : "") + " " + cardinals[0][0];
+                // « pas » est invariable.
+                relationship = "à " + numStepsVertical + " pas " + auCardinal2D(cardinals[0][0]);
 
                 if (cardinals.length === 2) {
                     const numStepsHorizontal = NUMBER_WORDS[cardinals[1][1]] || cardinals[1][1];
-                    relationship += " and " + numStepsHorizontal + " step" + (cardinals[1][1] > 1 ? "s" : "") + " " + cardinals[1][0];
+                    relationship += " et à " + numStepsHorizontal + " pas " + auCardinal2D(cardinals[1][0]);
                 }
             }
 
@@ -649,15 +655,15 @@ export class GameService {
             const absdiffx = Math.abs(diffx);
 
             if (diffy > 0) {
-                cardinals.push(["North", absdiffy]);
+                cardinals.push(["nord", absdiffy]);
             } else if (diffy < 0) {
-                cardinals.push(["South", absdiffy]);
+                cardinals.push(["sud", absdiffy]);
             }
 
             if (diffx > 0) {
-                cardinals.push(["East", absdiffx]);
+                cardinals.push(["est", absdiffx]);
             } else if (diffx < 0) {
-                cardinals.push(["West", absdiffx]);
+                cardinals.push(["ouest", absdiffx]);
             }
 
             premises.push({
@@ -699,7 +705,7 @@ export class GameService {
         this.logger.info("Conclusion", conclusion);
 
         const negateRelationship = (relationship: string) => {
-            return relationship.replaceAll(/(north|south|east|west)/gi, substr => {
+            return relationship.replaceAll(/(nord|sud|est|ouest)/gi, substr => {
                 if (coinFlip()) {
                     question.negations++;
                     return `<span class="is-negated">${cardinalOppositeMap[substr]}</span>`;
@@ -710,7 +716,7 @@ export class GameService {
 
         const stringifyProposition = (p: IDirectionProposition) => {
             const relationship = settings.enabled.negation ? negateRelationship(p.relationship) : p.relationship;
-            return `<span class="subject">${p.pair[0][0]}</span> is ${relationship} of <span class="subject">${p.pair[1][0]}</span>`;
+            return `<span class="subject">${p.pair[0][0]}</span> est ${relationship} de <span class="subject">${p.pair[1][0]}</span>`;
         };
 
         shuffle(premises);
@@ -718,7 +724,7 @@ export class GameService {
         question.premises = premises.map(stringifyProposition);
         question.conclusion = stringifyProposition(conclusion);
         question.notes = [
-            "Cardinal directions are strict and direct (e.g., \"north\" means exactly north, not \"north-east\" or \"north-west\")"
+            "Les points cardinaux sont stricts et directs : « nord » signifie exactement nord, et non « nord-est » ou « nord-ouest »."
         ];
 
         // TODO: Create meta relationship
@@ -743,17 +749,19 @@ export class GameService {
 
         const sideSize = 1 + Math.round(Math.cbrt(numOfEls));
 
+        // TRADUCTION FR : clés et valeurs traduites de concert — la négation
+        // remplace le fragment trouvé dans le texte par son opposé.
         const trasversalOpposite: Record<string, string> = {
-            "before": "after",
-            "after": "before",
-            "below": "above",
-            "above": "below"
+            "avant": "après",
+            "après": "avant",
+            "plus bas": "plus haut",
+            "plus haut": "plus bas"
         };
         const cardinalOppositeMap: Record<string, string> = {
-            "North": "South",
-            "South": "North",
-            "East": "West",
-            "West": "East"
+            "nord": "sud",
+            "sud": "nord",
+            "est": "ouest",
+            "ouest": "est"
         };
 
         // Give random coords to each subject
@@ -828,30 +836,41 @@ export class GameService {
         // Calculate relationship of each pair
         const premises: IDirection3DProposition[] = [];
 
+        // TRADUCTION FR : « nord » et « sud » se construisent avec « au »,
+        // « est » et « ouest » avec « à l' ». Les deux formes composées
+        // commencent toujours par le point cardinal vertical, d'où « au
+        // nord-est ». La négation remplaçant le mot nu, la préposition reste
+        // correcte : « au nord » → « au sud », « à l'est » → « à l'ouest ».
+        const auCardinal = (c: string) => (/^(est|ouest)/.test(c) ? `à l'${c}` : `au ${c}`);
+
         const getTrasversalRelationship = (tdiff: number) => {
             const absdiff = Math.abs(tdiff);
+            // « niveau » prend un « x » au pluriel, « heure » un « s ».
             const s = (absdiff > 1) ? "s" : "";
+            const x = (absdiff > 1) ? "x" : "";
             const n = NUMBER_WORDS[absdiff] || absdiff;
             if (isSpatial) {
                 if (tdiff === 0) {
-                    return "on the same level";
+                    return "au même niveau";
                 } else if (tdiff < 0) {
-                    return `${n} level${s} below`;
+                    return `${n} niveau${x} plus bas`;
                 } else {
-                    return `${n} level${s} above`;
+                    return `${n} niveau${x} plus haut`;
                 }
             } else {
+                // « heure » est féminin : « une heure », et non « un heure ».
+                const nf = (absdiff === 1) ? "une" : n;
                 if (tdiff === 0) {
-                    return "at the same time";
+                    return "au même moment";
                 } else if (tdiff < 0) {
-                    return `${n} hour${s} before`;
+                    return `${nf} heure${s} avant`;
                 } else {
-                    return `${n} hour${s} after`;
+                    return `${nf} heure${s} après`;
                 }
             }
         };
 
-        const SAME_CARDINAL_DIRECTION = "in the same cardinal position";
+        const SAME_CARDINAL_DIRECTION = "dans la même direction cardinale";
         const getCardinalRelationship = (_cardinals: [string, number][]) => {
             if (_cardinals.every(c => c[1] === 0)) {
                 return SAME_CARDINAL_DIRECTION;
@@ -863,13 +882,13 @@ export class GameService {
             const numStepsVertical = NUMBER_WORDS[cardinals[0][1]] || cardinals[0][1];
             const s = cardinals[0][1] > 1 ? "s" : "";
 
-            relationship = `${numStepsVertical} step${s} ${cardinals[0][0]}`;
+            // « pas » est invariable : pas de marque de pluriel.
+            relationship = `à ${numStepsVertical} pas ${auCardinal(cardinals[0][0])}`;
 
             if (cardinals.length === 2) {
                 const numStepsHorizontal = NUMBER_WORDS[cardinals[1][1]] || cardinals[1][1];
-                const s = cardinals[1][1] > 1 ? "s" : "";
 
-                relationship += ` and ${numStepsHorizontal} step${s} ${cardinals[1][0]}`;
+                relationship += ` et à ${numStepsHorizontal} pas ${auCardinal(cardinals[1][0])}`;
             }
 
             return relationship;
@@ -889,24 +908,24 @@ export class GameService {
             const absdiffx = Math.abs(diffx);
 
             if (diffy > 0) {
-                cardinals.push(["North", absdiffy]);
+                cardinals.push(["nord", absdiffy]);
             } else if (diffy < 0) {
-                cardinals.push(["South", absdiffy]);
+                cardinals.push(["sud", absdiffy]);
             } else {
                 cardinals.push(["!", 0]);
             }
 
             if (diffx > 0) {
-                cardinals.push(["East", absdiffx]);
+                cardinals.push(["est", absdiffx]);
             } else if (diffx < 0) {
-                cardinals.push(["West", absdiffx]);
+                cardinals.push(["ouest", absdiffx]);
             } else {
                 cardinals.push(["!", 0]);
             }
 
             const trasversalRelationship = getTrasversalRelationship(trasversalDifference);
             const cardinalRelationship = getCardinalRelationship(cardinals);
-            const connector = (cardinalRelationship === SAME_CARDINAL_DIRECTION) ? " and " : (cardinalRelationship.indexOf(" and ") > -1) ? ", " : " and ";
+            const connector = (cardinalRelationship === SAME_CARDINAL_DIRECTION) ? " et " : (cardinalRelationship.indexOf(" et ") > -1) ? ", " : " et ";
             const relationship = trasversalRelationship + connector + cardinalRelationship;
 
             premises.push({
@@ -958,20 +977,20 @@ export class GameService {
         conclusion.trasversalDifference = conclusion.pair[0][3] - conclusion.pair[1][3];
         const trasversalRelationship = getTrasversalRelationship(conclusion.trasversalDifference);
         const cardinalRelationship = getCardinalRelationship(conclusion.cardinals);
-        const connector = (cardinalRelationship === SAME_CARDINAL_DIRECTION) ? " and " : (cardinalRelationship.indexOf(" and ") > -1) ? ", " : " and ";
+        const connector = (cardinalRelationship === SAME_CARDINAL_DIRECTION) ? " et " : (cardinalRelationship.indexOf(" et ") > -1) ? ", " : " et ";
         conclusion.relationship = trasversalRelationship + connector + cardinalRelationship;
         this.logger.info("Conclusion", conclusion);
 
         const negateRelationship = (relationship: string) => {
             return relationship
-                .replaceAll(/(before|after|below|above)/gi, substr => {
+                .replaceAll(/(avant|après|plus bas|plus haut)/gi, substr => {
                     if (coinFlip()) {
                         question.negations++;
                         return `<span class="is-negated">${trasversalOpposite[substr]}</span>`;
                     }
                     return substr;
                 })
-                .replaceAll(/(north|south|east|west)/gi, substr => {
+                .replaceAll(/(nord|sud|est|ouest)/gi, substr => {
                     if (coinFlip()) {
                         question.negations++;
                         return `<span class="is-negated">${cardinalOppositeMap[substr]}</span>`;
@@ -982,7 +1001,9 @@ export class GameService {
 
         const stringifyProposition = (p: IDirection3DProposition) => {
             const relationship = settings.enabled.negation ? negateRelationship(p.relationship) : p.relationship;
-            return `<span class="subject">${p.pair[0][0]}</span> is ${relationship} of <span class="subject">${p.pair[1][0]}</span>`;
+            // « par rapport à » et non « de » : le complément peut être
+            // « dans la même direction cardinale », qui n'accepte pas « de ».
+            return `<span class="subject">${p.pair[0][0]}</span> est ${relationship} par rapport à <span class="subject">${p.pair[1][0]}</span>`;
         };
 
         shuffle(premises);
@@ -990,7 +1011,7 @@ export class GameService {
         question.premises = premises.map(stringifyProposition);
         question.conclusion = stringifyProposition(conclusion);
         question.notes = [
-            "Cardinal directions are strict and direct (e.g., \"north\" means exactly north, not \"north-east\" or \"north-west\")"
+            "Les points cardinaux sont stricts et directs : « nord » signifie exactement nord, et non « nord-est » ou « nord-ouest »."
         ];
 
         // TODO: Create meta relationship
@@ -1118,9 +1139,9 @@ export class GameService {
         const readable = (edges: typeof edgeList, edge: typeof edgeList[0], negated = false, meta = false) => {
             const getSubject = (subject: string) => `<span class="subject">${subject}</span>`;
             const readMap = {
-                "→": "goes to",
-                "←": "comes from",
-                "↔": "is connected to"
+                "→": "mène à",
+                "←": "provient de",
+                "↔": "est relié à"
             };
             let relationship = readMap[edge[1]];
             let isMetaRelated = false;
@@ -1137,9 +1158,9 @@ export class GameService {
                     usedEdges.add(edgeKey);
                     usedEdges.add(pickedEdgeKey);
                     if (coinFlip() && edge[1] !== "↔") {
-                        relationship = `the inverse of ${getSubject(pickedEdge[2])} to ${getSubject(pickedEdge[0])}`;
+                        relationship = `l'inverse de celle de ${getSubject(pickedEdge[2])} à ${getSubject(pickedEdge[0])}`;
                     } else {
-                        relationship = `${getSubject(pickedEdge[0])} is to ${getSubject(pickedEdge[2])}`;
+                        relationship = `celle de ${getSubject(pickedEdge[0])} à ${getSubject(pickedEdge[2])}`;
                     }
                     isMetaRelated = true;
                     this.logger.info("Metarelated");
@@ -1151,7 +1172,7 @@ export class GameService {
                 relationship = `<span class="is-negated">${readMap[inverseMap[edge[1]]]}</span>`;
             }
             return isMetaRelated
-                ? `${getSubject(edge[0])} is to ${getSubject(edge[2])} as ${relationship}`
+                ? `La relation de ${getSubject(edge[0])} à ${getSubject(edge[2])} est la même que ${relationship}`
                 : `${getSubject(edge[0])} ${relationship} ${getSubject(edge[2])}`;
         };
 
@@ -1248,7 +1269,7 @@ export class GameService {
                 question.conclusion = "";
 
                 [a, b, c, d] = pickUniqueItems([...question.buckets[0], ...question.buckets[1]], 4).picked;
-                question.conclusion += `<span class="subject">${a}</span> to <span class="subject">${b}</span>`;
+                question.conclusion += `La relation de <span class="subject">${a}</span> à <span class="subject">${b}</span>`;
 
                 [
                     indexOfA,
@@ -1273,7 +1294,7 @@ export class GameService {
                 question.conclusion = "";
 
                 [a, b, c, d] = pickUniqueItems(question.bucket, 4).picked;
-                question.conclusion += `<span class="subject">${a}</span> to <span class="subject">${b}</span>`;
+                question.conclusion += `La relation de <span class="subject">${a}</span> à <span class="subject">${b}</span>`;
 
                 [indexOfA, indexOfB] = [question.bucket.indexOf(a), question.bucket.indexOf(b)];
                 [indexOfC, indexOfD] = [question.bucket.indexOf(c), question.bucket.indexOf(d)];
@@ -1287,7 +1308,7 @@ export class GameService {
 
                     const [coordsa, coordsb, coordsc, coordsd] = pickUniqueItems(question.coords, 4).picked;
                     [a, b, c, d] = [coordsa[0], coordsb[0], coordsc[0], coordsd[0]];
-                    question.conclusion += `<span class="subject">${a}</span> to <span class="subject">${b}</span>`;
+                    question.conclusion += `La relation de <span class="subject">${a}</span> à <span class="subject">${b}</span>`;
 
                     const dxatob = coordsa[1] - coordsb[1];
                     const dyatob = coordsa[2] - coordsb[2];
@@ -1310,7 +1331,7 @@ export class GameService {
 
                     const [coordsa, coordsb, coordsc, coordsd] = pickUniqueItems(question.coords3D, 4).picked;
                     [a, b, c, d] = [coordsa[0], coordsb[0], coordsc[0], coordsd[0]];
-                    question.conclusion += `<span class="subject">${a}</span> to <span class="subject">${b}</span>`;
+                    question.conclusion += `La relation de <span class="subject">${a}</span> à <span class="subject">${b}</span>`;
 
                     const dxatob = coordsa[1] - coordsb[1];
                     const dyatob = coordsa[2] - coordsb[2];
@@ -1335,14 +1356,14 @@ export class GameService {
                 question.conclusion = "";
                 question.notes = [];
                 if (isLinear) {
-                    question.notes.push("Proximity makes the relationship alike.");
+                    question.notes.push("La proximité rend la relation semblable.");
                 } else {
-                    question.notes.push("Proximity and diametrical opposition makes the relationship alike.");
+                    question.notes.push("La proximité et l'opposition diamétrale rendent la relation semblable.");
                 }
 
                 const subjects = question.rule.split(", ");
                 [a, b, c, d] = pickUniqueItems(subjects, 4).picked;
-                question.conclusion += `<span class="subject">${a}</span> to <span class="subject">${b}</span>`;
+                question.conclusion += `La relation de <span class="subject">${a}</span> à <span class="subject">${b}</span>`;
 
                 const [idxA, idxB, idxC, idxD] = [
                     subjects.indexOf(a),
@@ -1380,12 +1401,12 @@ export class GameService {
 
         if (settings.enabled.negation && coinFlip()) {
             question.negations++;
-            question.conclusion += `<div class="analogy-conclusion is-negated">is ${isSameRelationship ? 'unlike' : 'alike'}</div>`;
+            question.conclusion += `<div class="analogy-conclusion is-negated">est ${isSameRelationship ? 'différente de' : 'semblable à'}</div>`;
         } else {
-            question.conclusion += `<div class="analogy-conclusion">is ${isSameRelationship ? 'alike' : 'unlike'}</div>`;
+            question.conclusion += `<div class="analogy-conclusion">est ${isSameRelationship ? 'semblable à' : 'différente de'}</div>`;
         }
 
-        question.conclusion += `<span class="subject">${c}</span> to <span class="subject">${d}</span>`;
+        question.conclusion += `celle de <span class="subject">${c}</span> à <span class="subject">${d}</span>`;
 
         return question;
     }
@@ -1407,32 +1428,32 @@ export class GameService {
         if (settings.enabled.binary.and) {
             operands.push("a&&b");
             operandNames.push("AND");
-            operandTemplates.push('$a <div class="is-connector">and</div> $b');
+            operandTemplates.push('$a <div class="is-connector">et</div> $b');
         }
         if (settings.enabled.binary.nand) {
             operands.push("!(a&&b)");
             operandNames.push("NAND");
-            operandTemplates.push('$a <div class="is-connector">and</div> $b <div class="is-connector">are not both true</div>');
+            operandTemplates.push('$a <div class="is-connector">et</div> $b <div class="is-connector">ne sont pas vrais tous les deux</div>');
         }
         if (settings.enabled.binary.or) {
             operands.push("a||b");
             operandNames.push("OR");
-            operandTemplates.push('$a <div class="is-connector">or</div> $b');
+            operandTemplates.push('$a <div class="is-connector">ou</div> $b');
         }
         if (settings.enabled.binary.nor) {
             operands.push("!(a||b)");
             operandNames.push("NOR");
-            operandTemplates.push('$a <div class="is-connector">and</div> $b <div class="is-connector">are both false</div>');
+            operandTemplates.push('$a <div class="is-connector">et</div> $b <div class="is-connector">sont faux tous les deux</div>');
         }
         if (settings.enabled.binary.xor) {
             operands.push("!(a&&b)&&(a||b)");
             operandNames.push("XOR");
-            operandTemplates.push('$a <div class="is-connector">differs from</div> $b');
+            operandTemplates.push('$a <div class="is-connector">diffère de</div> $b');
         }
         if (settings.enabled.binary.xnor) {
             operands.push("!(!(a&&b)&&(a||b))");
             operandNames.push("XNOR");
-            operandTemplates.push('$a <div class="is-connector">is equal to</div> $b');
+            operandTemplates.push('$a <div class="is-connector">équivaut à</div> $b');
         }
 
         const question = new Question(topType);

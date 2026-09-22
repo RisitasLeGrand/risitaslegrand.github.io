@@ -16,7 +16,7 @@
             [class.feedback-incorrect]="!d.timeout && !d.validity"
         >
             <div class="fs-1 fw-bold text-uppercase">
-                {{ d.timeout ? "Timeout" : d.validity ? "Correct": "Incorrect" }}
+                {{ d.timeout ? "Temps écoulé" : d.validity ? "Correct" : "Incorrect" }}
             </div>
         </div>
     </div>
@@ -27,12 +27,12 @@
                 class="btn btn-outline-primary"
                 (click)="router.navigate([EnumScreens.Start]);"
             >
-                <i class="bi bi-arrow-left"></i> Start
+                <i class="bi bi-arrow-left"></i> Accueil
             </button>
         </div>
         <div>
             <button class="btn btn-primary" (click)="game.play()">
-                Play <i class="bi bi-play-fill"></i>
+                Jouer <i class="bi bi-play-fill"></i>
             </button>
         </div>
     </div>

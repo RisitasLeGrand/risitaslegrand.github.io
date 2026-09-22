@@ -19,7 +19,7 @@ et suivi de progression — le tout dans le navigateur, sans serveur ni compte.
 9. [Changer le mot de passe](#changer-le-mot-de-passe)
 10. [Comment fonctionne la protection](#comment-fonctionne-la-protection)
 11. [Sauvegarder et synchroniser la progression](#sauvegarder-et-synchroniser-la-progression)
-12. [Entraînement cognitif (Quad N-Back)](#entraînement-cognitif-quad-n-back)
+12. [Cog-Training : Quad N-Back et Syllogismes](#cog-training--quad-n-back-et-syllogismes)
 13. [Organisation du projet](#organisation-du-projet)
 14. [En cas de problème](#en-cas-de-problème)
 
@@ -37,6 +37,8 @@ Trois commandes suffisent au quotidien :
 | `npm run actualites:cles` | Crée la paire de clés de la rubrique Actualités (une seule fois) |
 | `npm run actualites:local` | Fabrique des actualités de démonstration pour le mode dev |
 | `npm run actualites:lire` | Relit une actualité chiffrée (nécessite le mot de passe) |
+| `npm run syllogismes:install` | Installe les dépendances Angular de l'exercice Syllogismes (une fois) |
+| `npm run syllogismes:build` | Construit l'exercice Syllogismes |
 
 **Règle de sécurité fondamentale :** le dossier `content/` (vos fiches en clair)
 et le fichier `.env.local` (votre mot de passe) ne sont **jamais** envoyés sur
@@ -250,8 +252,8 @@ npm run verifier   # contrôle des types (utile après une modification du code)
 
 L'exercice d'entraînement cognitif est écrit en **Svelte** (intégration
 `@astrojs/svelte`, installée avec le reste par `npm install`). Pour le tester :
-`npm run dev`, puis onglet **Mémoire** — ou directement
-`http://localhost:4321/entrainement/`. Le son nécessite une première
+`npm run dev`, puis onglet **Cog-Training** — ou directement
+`http://localhost:4321/cog-training/quad-n-back/`. Le son nécessite une première
 interaction avec la page, ce que fait le bouton « Commencer la session ».
 
 ---
@@ -533,9 +535,63 @@ La page **Sauvegarde** permet de :
 
 ---
 
-## Entraînement cognitif (Quad N-Back)
+## Cog-Training : Quad N-Back et Syllogismes
 
-L'onglet **Mémoire** propose un exercice de mémoire de travail : quatre flux de
+La rubrique **Cog-Training** (`/cog-training/`) réunit deux exercices
+indépendants du programme du concours. L'ancienne adresse `/entrainement/`
+redirige vers elle.
+
+| Exercice | Adresse | Aptitude travaillée |
+|---|---|---|
+| **Quad N-Back** | `/cog-training/quad-n-back/` | Mémoire de travail |
+| **Syllogismes** | `/cog-training/syllogismes/` | Raisonnement déductif |
+
+Aucun des deux ne contient de données du concours : ils ne sont pas chiffrés,
+mais restent derrière l'écran de connexion.
+
+### Syllogismes — construction et licence
+
+L'exercice est une adaptation française de
+[Syllogimous v4](https://github.com/4skinSkywalker/Syllogimous-v4), créé par
+**4skinSkywalker** et distribué sous licence
+[CC BY-NC 3.0](https://creativecommons.org/licenses/by-nc/3.0/) — attribution
+obligatoire, **usage non commercial**. La seule modification apportée est la
+traduction intégrale en français, y compris les modèles de phrases qui
+engendrent les énoncés ; `apps/syllogismes/TRADUCTION.md` en détaille les
+écarts, pour permettre une resynchronisation ultérieure avec le projet source.
+
+Le code source est vendorisé dans `apps/syllogismes/` avec sa **propre chaîne
+de build Angular**, indépendante d'Astro :
+
+```bash
+npm run syllogismes:install   # une seule fois — dépendances Angular (~500 Mo)
+npm run syllogismes:build     # produit apps/syllogismes/dist/
+npm run deploy                # publie le résultat à /syllogismes/
+```
+
+L'application a été expurgée de ses appels à des tiers : la balise Google
+Analytics de l'auteur amont, le CDN Font Awesome et l'import Google Fonts ont
+été retirés. **L'exercice n'émet plus aucune requête externe**, ce qui le met en
+cohérence avec le reste du site. Le détail figure dans `TRADUCTION.md`.
+
+Angular 15 se construit sans difficulté sur Node 20 ou 22. Le build produit un
+sous-site statique servi à `/syllogismes/`, affiché dans une `<iframe>` par la
+page Astro. `404.html` est une copie d'`index.html` pour que le routeur Angular
+reprenne la main sur GitHub Pages.
+
+> Pourquoi une iframe plutôt qu'un composant intégré : Angular n'a pas
+> d'intégration Astro, et l'empaqueter en composant web natif imposerait
+> d'isoler Zone.js et de cloisonner Bootstrap pour qu'il ne déborde pas sur
+> Tailwind. Le coût dépasse le bénéfice tant que les résultats de séance ne
+> remontent pas dans l'XP du site.
+>
+> Conséquence à connaître : `/syllogismes/` est un sous-site statique, donc
+> accessible directement par son adresse. Seule la page qui l'englobe est
+> derrière l'écran de connexion.
+
+### Quad N-Back
+
+Le Quad N-Back est un exercice de mémoire de travail : quatre flux de
 stimuli défilent en parallèle — position dans une grille 3×3×3, couleur, forme
 et lettre prononcée. À chaque épreuve, il faut signaler les dimensions
 identiques à celles vues *n* épreuves plus tôt.
@@ -655,6 +711,8 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 ├── content/                 # VOS FICHES EN CLAIR + clé privée — jamais commité
 ├── content-exemple/         # Exemples fournis, copiés par « npm run init:contenu »
 ├── actualites-data/         # Rubrique Actualités — entrées chiffrées + clé publique
+├── apps/
+│   └── syllogismes/         # Syllogimous v4 traduit (Angular, build indépendant)
 ├── docs/                    # Consignes des routines de veille
 ├── .env.local               # VOTRE MOT DE PASSE — jamais commité
 ├── site.config.mjs          # Réglages : mot de passe (empreinte), base, XP, glossaire
@@ -668,6 +726,7 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 │   ├── actualites-local.mjs # Actualités de démonstration pour le mode dev
 │   ├── chiffrer-actualite.mjs   # Chiffre une actualité (veille hebdomadaire)
 │   ├── dechiffrer-actualite.mjs # Relit une actualité (synthèses périodiques)
+│   ├── build-syllogismes.mjs    # Construit l'exercice Syllogismes
 │   └── lib/
 │       ├── schema.mjs       # Validation du format des fiches (Zod)
 │       ├── markdown.mjs     # Découpage en sections et rendu HTML

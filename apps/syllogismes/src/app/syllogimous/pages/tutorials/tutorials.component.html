@@ -1,14 +1,14 @@
 <app-card>
     <div body class="py-3 px-md-3">
         <div class="text-center" *ngIf="!questions.length">
-            <h3 class="mb-3">Play to discover question types</h3>
+            <h3 class="mb-3">Jouez pour découvrir les types de questions</h3>
             <button class="btn btn-lg btn-primary" (click)="game.playArcadeMode()">
-                Play <i class="bi bi-play-fill"></i>
+                Jouer <i class="bi bi-play-fill"></i>
             </button>
         </div>
 
         <div *ngIf="questions.length">
-            <p class="text-center lead" style="margin-bottom: 2rem;">If you need a refresher tutorial, just click any of the items below to navigate to the tutorial page.</p>
+            <p class="text-center lead" style="margin-bottom: 2rem;">Pour revoir un tutoriel, appuyez sur l’un des éléments ci-dessous.</p>
 
             <div class="d-grid gap-2">
                 <button
@@ -27,7 +27,7 @@
                 class="btn btn-outline-primary"
                 (click)="router.navigate([EnumScreens.Start])"
             >
-                <i class="bi bi-arrow-left"></i> Start
+                <i class="bi bi-arrow-left"></i> Accueil
             </button>
         </div>
     </div>

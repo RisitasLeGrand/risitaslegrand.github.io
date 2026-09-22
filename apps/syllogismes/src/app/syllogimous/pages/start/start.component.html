@@ -4,49 +4,49 @@
         
         <ul class="list-group mb-4">
             <li class="list-group-item flex-between">
-                <b>Tier</b>
-                <div>{{ game.tier }} {{ game.score }} pts <small class="text-muted">(next {{nextTier}}<i [ngbTooltip]="pointsRemaining + ' pts left to this next level'" class="bi bi-info-circle ms-1"></i>)</small></div>
+                <b>Palier</b>
+                <div>{{ game.tier }} {{ game.score }} pts <small class="text-muted">(suivant : {{nextTier}}<i [ngbTooltip]="pointsRemaining + ' points avant ce palier'" class="bi bi-info-circle ms-1"></i>)</small></div>
             </li>
     
             <li class="list-group-item flex-between">
-                <b>Correct</b>
+                <b>Bonnes réponses</b>
                 <div>{{ correctQs.length }}</div>
             </li>
 
             <li class="list-group-item flex-between">
-                <b>Timeout</b>
+                <b>Temps écoulé</b>
                 <div>{{ unansweredQs.length }}</div>
             </li>
 
             <li class="list-group-item flex-between">
-                <b>Incorrect</b>
+                <b>Erreurs</b>
                 <div>{{ incorrectQs.length }}</div>
             </li>
 
             <li class="list-group-item flex-between">
-                <b>Longest Streak</b>
+                <b>Meilleure série</b>
                 <div>{{ longestStreak.length }}</div>
             </li>
         
             <li class="list-group-item flex-between">
-                <b>Current Streak</b>
+                <b>Série en cours</b>
                 <div>{{ currentStreak.length }}</div>
             </li>
         
             <li class="list-group-item flex-between">
-                <b>Playtime Today</b>
+                <b>Temps de jeu aujourd'hui</b>
                 <div>{{ formatTime(timePlayedToday) }}</div>
             </li>
 
             <li class="list-group-item flex-between">
-                <b>Playtime This Week</b>
+                <b>Temps de jeu cette semaine</b>
                 <div>{{ formatTime(timePlayedThisWeek) }}</div>
             </li>
         </ul>
 
         <div class="text-center">
             <a class="btn btn-outline-primary" (click)="router.navigate([EnumScreens.Settings])">
-                <i class="bi bi-gear"></i> Settings
+                <i class="bi bi-gear"></i> Réglages
             </a>
         </div>
     </div>
@@ -56,11 +56,11 @@
             style="width: 150px;"
             class="btn btn-primary"
             (click)="game.playArcadeMode()"
-        >Arcade</button>
+        >Partie classée</button>
         <button
             style="width: 150px;"
             class="btn btn-outline-primary"
             (click)="router.navigate([EnumScreens.PlaygroundMode])"
-        >Playground</button>
+        >Bac à sable</button>
     </div>
 </app-card>

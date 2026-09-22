@@ -37,9 +37,9 @@
         <div id="start" [class.hidden]="base64">
 
             <i
-                class="fa fa-download"
-                [class.fa-download]="!disabled"
-                [class.fa-picture-o]="disabled"
+                class="bi"
+                [class.bi-download]="!disabled"
+                [class.bi-image]="disabled"
             ></i>
 
             <div>
@@ -55,7 +55,7 @@
                 id="file-upload-btn"
                 class="btn btn-primary"
             >
-                Select an image
+                Choisir une image
             </span>
         </div>
 
@@ -65,7 +65,7 @@
                 class="btn btn-danger"
                 (click)="reset($event)"
             >
-                Remove image
+                Retirer l'image
             </button>
         </div>
     </label>

@@ -1,23 +1,23 @@
-<h2 class="text-center">Time-Based</h2>
+<h2 class="text-center">Par période</h2>
 
 <ul class="list-group mb-3">
     <li class="list-group-item flex-between">
-        <b>Total Play Time</b>
+        <b>Temps de jeu total</b>
         <div>{{ formatTime(totalPlayTime) }}</div>
     </li>
 
     <li class="list-group-item flex-between">
-        <b>Average Time per Answer</b>
+        <b>Temps moyen par réponse</b>
         <div>{{ ((questions.length !== 0) ? (totalPlayTime / (1000 * questions.length)) : 0) | number:".1-1" }} s</div>
     </li>
 
     <li class="list-group-item flex-between">
-        <b>Fastest Answer</b>
+        <b>Réponse la plus rapide</b>
         <div>{{ ((fastestAnswer / 1000) || 0) | number:".1-1" }} s</div>
     </li>
 
     <li class="list-group-item flex-between">
-        <b>Slowest Answer</b>
+        <b>Réponse la plus lente</b>
         <div>{{ ((slowestAnswer / 1000) || 0) | number:".1-1" }} s</div>
     </li>
 </ul>
@@ -35,7 +35,7 @@
                 <ng-template ngbNavContent>
                     <ul class="list-group list-group-flush">
                         <li class="list-group-item flex-between">
-                            <b>Average Time per Answer</b>
+                            <b>Temps moyen par réponse</b>
                             <div>{{
                                 (timeBasedStats[ps]
                                     ? timeBasedStats[ps].sum / ((1000 * timeBasedStats[ps].count) || 0)
@@ -45,12 +45,12 @@
                         </li>
                 
                         <li class="list-group-item flex-between">
-                            <b>Fastest Answer</b>
+                            <b>Réponse la plus rapide</b>
                             <div>{{ ((timeBasedStats[ps]?.fastest / 1000) || 0) | number:".1-1" }} s</div>
                         </li>
                 
                         <li class="list-group-item flex-between">
-                            <b>Slowest Answer</b>
+                            <b>Réponse la plus lente</b>
                             <div>{{ ((timeBasedStats[ps]?.slowest / 1000) || 0) | number:".1-1" }} s</div>
                         </li>
                     </ul>

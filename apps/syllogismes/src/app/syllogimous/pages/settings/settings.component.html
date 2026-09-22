@@ -1,38 +1,38 @@
 <app-card>
     <div body class="d-grid py-3 px-md-3" style="gap: 2rem;">
         <div class="card shadow-sm">
-            <div class="card-header py-2 small">Game settings</div>
+            <div class="card-header py-2 small">Réglages de la partie</div>
             <div class="card-body">
                 <app-game-mode-choose></app-game-mode-choose>
             </div>
         </div>
 
         <div class="card shadow-sm">
-            <div class="card-header py-2 small">Timer mode</div>
+            <div class="card-header py-2 small">Minuterie</div>
             <div class="card-body">
                 <app-timer-choose></app-timer-choose>
             </div>
         </div>
 
         <div class="card shadow-sm">
-            <div class="card-header py-2 small">Accessibility</div>
+            <div class="card-header py-2 small">Accessibilité</div>
             <div class="card-body">
                 <div class="d-grid" style="gap: 0.75rem;">
                     <app-input
                         type="select"
                         name="colorBlindnessMode"
-                        label="Color blindness mode"
-                        placeholder="Color blindness mode"
+                        label="Mode daltonien"
+                        placeholder="Mode daltonien"
                         [ngControl]="colorBlindnessMode"
                         [options]="colorBlindnessChoices"
                     />
-                    <p class="text-muted small">This changes the color of the <span class="is-negated">inversion cue</span></p>
+                    <p class="text-muted small">Modifie la couleur du <span class="is-negated">marqueur d’inversion</span></p>
                 </div>
             </div>
         </div>
 
         <div class="card shadow-sm">
-            <div class="card-header py-2 small">Playtime settings</div>
+            <div class="card-header py-2 small">Temps de jeu</div>
             <div class="card-body">
                 <div class="d-grid" style="gap: 0.75rem;">
                     <app-input
@@ -61,7 +61,7 @@
         </div>
 
         <div class="card shadow-sm">
-            <div class="card-header py-2 small">Performance tracker</div>
+            <div class="card-header py-2 small">Suivi des performances</div>
             <div class="card-body">
                 <div class="d-grid" style="gap: 1rem;">
                     <app-input
@@ -80,7 +80,7 @@
                         min="0"
                         max="0.9"
                         step="0.1"
-                        helper="Percentage of incorrect answers at which premises will decrease"
+                        helper="Pourcentage de réponses fausses à partir duquel le nombre de prémisses diminue"
                         name="premisesDownThreshold"
                         [label]="'Premises decrease threshold: ' + Math.round((premisesDownThreshold.value || 0)*100) + '%'"
                         [ngControl]="premisesDownThreshold"
@@ -92,7 +92,7 @@
                         min="0.1"
                         max="1"
                         step="0.1"
-                        helper="Percentage of correct answers required for premises to increase"
+                        helper="Pourcentage de bonnes réponses à partir duquel le nombre de prémisses augmente"
                         name="premisesUpThreshold"
                         [label]="'Premises increase threshold: ' + Math.round((premisesUpThreshold.value || 0)*100) + '%'"
                         [ngControl]="premisesUpThreshold"
@@ -108,14 +108,14 @@
             class="btn btn-outline-primary"
             (click)="router.navigate([EnumScreens.Start])"
         >
-            <i class="bi bi-arrow-left"></i> Start
+            <i class="bi bi-arrow-left"></i> Accueil
         </button>
         <div>
             <button
                 class="btn btn-primary"
                 (click)="game.playArcadeMode()"
             >
-                Play <i class="bi bi-play-fill"></i>
+                Jouer <i class="bi bi-play-fill"></i>
             </button>
         </div>
     </div>

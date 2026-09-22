@@ -16,7 +16,7 @@
                     [style.width]="dailyProgressPercentage + '%'"
                 >
                     <span class="me-2">{{dailyProgressPercentage}} %</span>
-                    <span class="progress-label">Daily time goal</span>
+                    <span class="progress-label">Objectif quotidien</span>
                 </div>
             </div>
         </ng-container>
@@ -37,7 +37,7 @@
                     [style.width]="weeklyProgressPercentage + '%'"
                 >
                     <span class="me-2">{{weeklyProgressPercentage}} %</span>
-                    <span class="progress-label">Weekly time goal</span>
+                    <span class="progress-label">Objectif hebdomadaire</span>
                 </div>
             </div>
         </ng-container>
@@ -47,7 +47,7 @@
                 <div
                     class="progress-bar text-center"
                     [style.width]="trainingUnitPercentage.percentageRight + '%'"
-                    ngbTooltip="This section represents the percentage of questions you have answered correctly for this question type over the last 10 questions of the same type."
+                    ngbTooltip="Part de bonnes réponses pour ce type de question, sur les 10 dernières questions du même type."
                     container="body"
                 >
                     <span class="px-2">
@@ -58,7 +58,7 @@
                 <div
                     class="progress-bar text-center"
                     [style.width]="trainingUnitPercentage.percentageTimeout + '%'"
-                    ngbTooltip="This section shows the percentage of questions that timed out before you could answer for this question type over the last 10 questions of the same type."
+                    ngbTooltip="Part de questions dont le temps a expiré, sur les 10 dernières questions du même type."
                     container="body"
                 >
                     <span class="px-2">
@@ -69,7 +69,7 @@
                 <div
                     class="progress-bar text-center position-relative overflow-visible"
                     [style.width]="trainingUnitPercentage.percentageWrong + '%'"
-                    ngbTooltip="This section indicates the percentage of questions you answered incorrectly for this question type over the last 10 questions of the same type."
+                    ngbTooltip="Part de réponses fausses pour ce type de question, sur les 10 dernières questions du même type."
                     container="body"
                 >
                     <span class="px-2">

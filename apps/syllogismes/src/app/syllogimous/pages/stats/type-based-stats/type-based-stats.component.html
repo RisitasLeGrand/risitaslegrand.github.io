@@ -1,8 +1,8 @@
 <div class="card p-3 rounded text-center" *ngIf="!types.length">
-    <h2>Type-Based</h2>
-    <h4 class="my-3">Play to see something here</h4>
+    <h2>Par type</h2>
+    <h4 class="my-3">Jouez pour voir apparaître des données</h4>
     <button class="btn btn-lg btn-primary" (click)="game.playArcadeMode()">
-        Play <i class="bi bi-play-fill"></i>
+        Jouer <i class="bi bi-play-fill"></i>
     </button>
 </div>
 
@@ -12,12 +12,12 @@
     
         <ul class="list-group my-3">
             <li class="list-group-item flex-between">
-                <b>Completed Questions</b>
+                <b>Questions terminées</b>
                 <div>{{ typeBasedStats[type].completed }}</div>
             </li>
     
             <li class="list-group-item flex-between">
-                <b>Accuracy</b>
+                <b>Réussite</b>
                 <div>{{ typeBasedStats[type].accuracy | percent }}</div>
             </li>
         </ul>
@@ -30,7 +30,7 @@
                         <ng-template ngbNavContent>
                             <ul class="list-group list-group-flush">
                                 <li class="list-group-item flex-between">
-                                    <b>Average Time per Answer</b>
+                                    <b>Temps moyen par réponse</b>
                                     <div>{{
                                         ($any(typeBasedStats[type].stats)[ps]
                                             ? ($any(typeBasedStats[type].stats)[ps].sum / ((1000 * $any(typeBasedStats[type].stats)[ps].count)) || 0)
@@ -40,12 +40,12 @@
                                 </li>
                         
                                 <li class="list-group-item flex-between">
-                                    <b>Fastest Answer</b>
+                                    <b>Réponse la plus rapide</b>
                                     <div>{{ (($any(typeBasedStats[type].stats)[ps]?.fastest / 1000) || 0) | number:".1-1" }} s</div>
                                 </li>
                         
                                 <li class="list-group-item flex-between">
-                                    <b>Slowest Answer</b>
+                                    <b>Réponse la plus lente</b>
                                     <div>{{ (($any(typeBasedStats[type].stats)[ps]?.slowest / 1000) || 0) | number:".1-1" }} s</div>
                                 </li>
                             </ul>

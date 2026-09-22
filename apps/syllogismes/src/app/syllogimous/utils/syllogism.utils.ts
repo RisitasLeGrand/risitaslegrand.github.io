@@ -447,19 +447,33 @@ export function formatSylPremise([a, k, b]: SylPremise, negated = false): string
     const A = `<span class="subject">${a}</span>`;
     const B = `<span class="subject">${b}</span>`;
 
+    // TRADUCTION FR (ajout par rapport au dépôt d'origine).
+    //
+    // Les quatre propositions catégoriques d'Aristote. Deux points de grammaire
+    // que la traduction mot à mot manquerait :
+    //  - « Aucun … n'est » exige l'élision, absente de l'anglais « No … is » ;
+    //  - le sujet est traité comme un pluriel indéfini (« Tous les X sont
+    //    des Y »), ce qui suppose des sujets masculins : c'est la contrainte
+    //    imposée à la liste NOUNS.
+    // Les quatre propositions sont formulées au SINGULIER. C'est un choix de
+    // traduction, et non un calque de l'anglais : les sujets sont des noms
+    // singuliers (ou des émojis), et « Certains Emblème sont des Puzzle »
+    // serait fautif. « Au moins un » rend d'ailleurs exactement la lecture
+    // logique du quantificateur particulier.
     if (!negated) {
         switch (k) {
-            case "all":      return `All ${A} is ${B}`;
-            case "no":       return `No ${A} is ${B}`;
-            case "some":     return `Some ${A} is ${B}`;
-            case "some_not": return `Some ${A} is not ${B}`;
+            case "all":      return `Tout ${A} est un ${B}`;
+            case "no":       return `Aucun ${A} n'est un ${B}`;
+            case "some":     return `Au moins un ${A} est un ${B}`;
+            case "some_not": return `Au moins un ${A} n'est pas un ${B}`;
         }
     } else {
+        // La négation met en évidence le quantificateur ou la copule inversés.
         switch (k) {
-            case "all":      return `<span class="is-negated">No</span> ${A} is ${B}`;
-            case "no":       return `<span class="is-negated">All</span> ${A} is ${B}`;
-            case "some":     return `Some ${A} <span class="is-negated">is not</span> ${B}`;
-            case "some_not": return `Some ${A} <span class="is-negated">is</span> ${B}`;
+            case "all":      return `<span class="is-negated">Aucun</span> ${A} n'est un ${B}`;
+            case "no":       return `<span class="is-negated">Tout</span> ${A} est un ${B}`;
+            case "some":     return `Au moins un ${A} <span class="is-negated">n'est pas</span> un ${B}`;
+            case "some_not": return `Au moins un ${A} <span class="is-negated">est</span> un ${B}`;
         }
     }
 }

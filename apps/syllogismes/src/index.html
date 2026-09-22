@@ -1,17 +1,14 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
 <head>
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-XX6PV4G4TX"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-
-    gtag('config', 'G-XX6PV4G4TX');
-  </script>
+  <!--
+    MODIFICATION (adaptation française) : la balise Google Analytics du dépôt
+    d'origine a été retirée. Elle renvoyait les visites vers le compte de
+    l'auteur amont, ce qui est incompatible avec un site de révision privé.
+    Aucune mesure d'audience n'est installée en remplacement.
+  -->
   <meta charset="utf-8">
-  <title>Syllogimous v4</title>
+  <title>Syllogismes</title>
   <base href="/">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="mobile-web-app-capable" content="yes">
@@ -21,7 +18,11 @@
   <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
   <link rel="icon" type="image/png" sizes="192x192" href="android-chrome-192x192.png">
   <link rel="icon" type="image/png" sizes="512x512" href="android-chrome-512x512.png">
-  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/font-awesome/latest/css/font-awesome.min.css">
+  <!--
+    MODIFICATION : Font Awesome était chargé depuis un CDN tiers, ce qui expose
+    l'adresse IP du visiteur. Les deux seules icônes concernées ont été
+    remplacées par leurs équivalentes Bootstrap Icons, déjà empaquetées.
+  -->
 </head>
 <body>
   <app-root></app-root>

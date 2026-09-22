@@ -1,7 +1,7 @@
 <ng-template #content let-modal>
     <div class="modal-header">
-        <h4 class="modal-title" id="modal-basic-title">Error</h4>
-        <button class="btn-close" aria-label="Close" (click)="modal.dismiss()"></button>
+        <h4 class="modal-title" id="modal-basic-title">Erreur</h4>
+        <button class="btn-close" aria-label="Fermer" (click)="modal.dismiss()"></button>
     </div>
     <div class="modal-body">
         {{ validationError }}
@@ -13,24 +13,24 @@
 
 <app-card>
     <div body class="d-grid py-3 px-md-3" style="gap: 2rem;">
-        <div class="text-center lead">Playground is a freestyle mode where questions are just for practice, they don't count for points or stats.</div>
+        <div class="text-center lead">Le bac à sable est un mode libre : les questions servent à s'entraîner, sans compter pour les points ni les statistiques.</div>
 
         <div class="card shadow-sm">
-            <div class="card-header py-2 small">Game settings</div>
+            <div class="card-header py-2 small">Réglages de la partie</div>
             <div class="card-body">
                 <app-game-mode-choose></app-game-mode-choose>
             </div>
         </div>
 
         <div class="card shadow-sm">
-            <div class="card-header py-2 small">Timer mode</div>
+            <div class="card-header py-2 small">Minuterie</div>
             <div class="card-body">
                 <app-timer-choose></app-timer-choose>
             </div>
         </div>
 
         <div class="card shadow-sm">
-            <div class="card-header py-2 small">Questions and premises</div>
+            <div class="card-header py-2 small">Questions et prémisses</div>
             <div class="card-body">
                 <app-dynamic-form
                     gap="0.5rem"
@@ -48,7 +48,7 @@
                 class="btn btn-outline-primary"
                 (click)="router.navigate([ EnumScreens.Start ])"
             >
-                <i class="bi bi-arrow-left"></i> Start
+                <i class="bi bi-arrow-left"></i> Accueil
             </button>
         </div>
         <div>
@@ -56,7 +56,7 @@
                 class="btn btn-primary"
                 (click)="play(content)"
             >
-                Play <i class="bi bi-play-fill"></i>
+                Jouer <i class="bi bi-play-fill"></i>
             </button>
         </div>
     </div>

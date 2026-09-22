@@ -2,14 +2,14 @@
     <ng-container *ngIf="{ instructions: game.question.instructions, notes: game.question.notes } as info">
         <div *ngIf="info.instructions?.length || info.notes?.length">
             <div *ngIf="info.instructions?.length">
-                <div class="small text-muted">Instructions</div>
+                <div class="small text-muted">Consignes</div>
                 <div class="instructions">
-                    <div *ngFor="let instruction of info.instructions" [innerHTML]="instruction"></div>
+                    <div *ngFor="let instruction of info.instructions" [innerHTML]="instruction | elision"></div>
                 </div>
             </div>
     
             <div *ngIf="info.notes?.length" class="notes">
-                <div *ngFor="let note of info.notes" [innerHTML]="note"></div>
+                <div *ngFor="let note of info.notes" [innerHTML]="note | elision"></div>
             </div>
         </div>
     </ng-container>
@@ -40,8 +40,8 @@
                 <ng-template ngbSlide *ngFor="let p of game.question.premises; let i = index; let last = last;">
                     <div style="display: grid; place-items: center;">
                         <div>
-                            <small class="text-muted">{{last ? "Last premise" : "Premise " + (i + 1)}}</small>
-                            <div [innerHTML]="p"></div>
+                            <small class="text-muted">{{last ? "Dernière prémisse" : "Prémisse " + (i + 1)}}</small>
+                            <div [innerHTML]="p | elision"></div>
                         </div>
                     </div>
                 </ng-template>
@@ -50,8 +50,8 @@
                     <ng-template ngbSlide *ngFor="let c of game.question.conclusion; let i = index; let last = last;">
                         <div style="display: grid; place-items: center;">
                             <div>
-                                <small class="text-muted">{{last ? "Last conclusion" : "Conclusion " + (i + 1)}}</small>
-                                <div [innerHTML]="c"></div>
+                                <small class="text-muted">{{last ? "Dernière conclusion" : "Conclusion " + (i + 1)}}</small>
+                                <div [innerHTML]="c | elision"></div>
                             </div>
                         </div>
                     </ng-template>
@@ -61,7 +61,7 @@
                         <div style="display: grid; place-items: center;">
                             <div>
                                 <small class="text-muted">Conclusion</small>
-                                <div [innerHTML]="game.question.conclusion"></div>
+                                <div [innerHTML]="game.question.conclusion | elision"></div>
                             </div>
                         </div>
                     </ng-template>
@@ -74,10 +74,10 @@
                     (click)="carousel.prev()"
                     [disabled]="gameMode === '2'"
                 >
-                    <i class="bi bi-arrow-left"></i> Prev
+                    <i class="bi bi-arrow-left"></i> Précédent
                 </button>
                 <button class="btn border-0" style="box-shadow: none;" (click)="carousel.next()">
-                    Next <i class="bi bi-arrow-right"></i>
+                    Suivant <i class="bi bi-arrow-right"></i>
                 </button>
             </div>
         </div>
@@ -86,30 +86,30 @@
             <ng-container *ngTemplateOutlet="questionInstructionsAndNotes"></ng-container>
 
             <div>
-                <div class="small text-muted">Premises</div>
+                <div class="small text-muted">Prémisses</div>
                 <div class="premises" *ngIf="game.question.premises as premises">
-                    <div *ngFor="let p of premises" [innerHTML]="p"></div>
+                    <div *ngFor="let p of premises" [innerHTML]="p | elision"></div>
                 </div>
             </div>
 
             <div *ngIf="Array.isArray(game.question.conclusion); else conclusionIsStringTemplate">
                 <div class="small text-muted">Conclusion</div>
                 <div class="conclusions" *ngIf="game.question.conclusion as conclusions">
-                    <div *ngFor="let c of conclusions" [innerHTML]="c"></div>
+                    <div *ngFor="let c of conclusions" [innerHTML]="c | elision"></div>
                 </div>
             </div>
             <ng-template #conclusionIsStringTemplate>
                 <div>
                     <div class="small text-muted">Conclusion</div>
-                    <div [innerHTML]="game.question.conclusion"></div>
+                    <div [innerHTML]="game.question.conclusion | elision"></div>
                 </div>
             </ng-template>
         </div>
     </div>
 
     <div footer class="d-flex gap-3 justify-content-center">
-        <button *ngIf="!trueButtonToTheRight" class="btn btn-lg btn-success col-md-3 col-4" (click)="game.checkQuestion(true)">True</button>
-        <button class="btn btn-lg btn-danger col-md-3 col-4" (click)="game.checkQuestion(false)">False</button>
-        <button *ngIf="trueButtonToTheRight" class="btn btn-lg btn-success col-md-3 col-4" (click)="game.checkQuestion(true)">True</button>
+        <button *ngIf="!trueButtonToTheRight" class="btn btn-lg btn-success col-md-3 col-4" (click)="game.checkQuestion(true)">Vrai</button>
+        <button class="btn btn-lg btn-danger col-md-3 col-4" (click)="game.checkQuestion(false)">Faux</button>
+        <button *ngIf="trueButtonToTheRight" class="btn btn-lg btn-success col-md-3 col-4" (click)="game.checkQuestion(true)">Vrai</button>
     </div>
 </app-card>

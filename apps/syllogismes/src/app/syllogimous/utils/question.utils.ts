@@ -78,25 +78,29 @@ export function getMetaReplacer(settings: Settings, choosenPair: Picked<string>,
     const isSameAs = (relations[0] === relations[1]) === (negations[0] === negations[1]);
     const relation = getRelation(settings, EnumQuestionType.Distinction, isSameAs);
 
-    return `$1 ${relation} (<span class="subject">${a}</span> to <span class="subject">${b}</span>) to `;
+    // TRADUCTION FR — fonction non appelée dans la v4, traduite par cohérence.
+    return `$1 ${relation} (<span class="subject">${a}</span> par rapport à <span class="subject">${b}</span>) à `;
 }
 
 export function getRelation(settings: Settings, type: EnumQuestionType, isPositive: boolean) {
     let positive = "";
     let negative = "";
 
+    // TRADUCTION FR : ces fragments s'insèrent après « est » dans
+    // « <sujet> est <relation> <sujet> ». Les formes retenues évitent tout
+    // accord avec le sujet, qui peut être un émoji ou une suite de lettres.
     switch (type) {
         case EnumQuestionType.Distinction:
-            positive = "same as";
-            negative = "opposite of";
+            positive = "identique à";
+            negative = "l'opposé de";
             break;
         case EnumQuestionType.ComparisonNumerical:
-            positive = "more than";
-            negative = "less than";
+            positive = "plus grand que";
+            negative = "plus petit que";
             break;
         case EnumQuestionType.ComparisonChronological:
-            positive = "after";
-            negative = "before";
+            positive = "postérieur à";
+            negative = "antérieur à";
             break;
     }
 
@@ -156,15 +160,15 @@ export function createMetaRelationships(settings: Settings, question: Question, 
 
             if (isSame) { // Same
                 if (settings.enabled.negation && coinFlip()) {
-                    newPremises.push(`<span class="subject">${a.subject}</span> relates to <span class="subject">${b.subject}</span> in the <span class="is-negated">opposite</span> way that <span class="subject">${c.subject}</span> relates to <span class="subject">${d.subject}</span>`);
+                    newPremises.push(`<span class="subject">${a.subject}</span> se rapporte à <span class="subject">${b.subject}</span> de la façon <span class="is-negated">opposée</span> à celle dont <span class="subject">${c.subject}</span> se rapporte à <span class="subject">${d.subject}</span>`);
                 } else {
-                    newPremises.push(`<span class="subject">${a.subject}</span> relates to <span class="subject">${b.subject}</span> in the same way that <span class="subject">${c.subject}</span> relates to <span class="subject">${d.subject}</span>`);
+                    newPremises.push(`<span class="subject">${a.subject}</span> se rapporte à <span class="subject">${b.subject}</span> de la même façon que <span class="subject">${c.subject}</span> se rapporte à <span class="subject">${d.subject}</span>`);
                 }
             } else { // Different
                 if (settings.enabled.negation && coinFlip()) {
-                    newPremises.push(`<span class="subject">${a.subject}</span> relates to <span class="subject">${b.subject}</span> in the <span class="is-negated">same</span> way that <span class="subject">${c.subject}</span> relates to <span class="subject">${d.subject}</span>`);
+                    newPremises.push(`<span class="subject">${a.subject}</span> se rapporte à <span class="subject">${b.subject}</span> de la <span class="is-negated">même</span> façon que <span class="subject">${c.subject}</span> se rapporte à <span class="subject">${d.subject}</span>`);
                 } else {
-                    newPremises.push(`<span class="subject">${a.subject}</span> relates to <span class="subject">${b.subject}</span> in the opposite way that <span class="subject">${c.subject}</span> relates to <span class="subject">${d.subject}</span>`);
+                    newPremises.push(`<span class="subject">${a.subject}</span> se rapporte à <span class="subject">${b.subject}</span> de la façon opposée à celle dont <span class="subject">${c.subject}</span> se rapporte à <span class="subject">${d.subject}</span>`);
                 }
             }
         }
@@ -360,16 +364,19 @@ export function getCircularWays(
 export function interpolateArrangementRelationship(relationship: IArrangementRelationship, settings: Settings) {
     const numWord = NUMBER_WORDS[relationship.steps];
 
+    // TRADUCTION FR : « pas » est invariable, d'où l'absence de marque de
+    // pluriel. Le cas d'un seul pas se dit « immédiatement », sans préposition,
+    // c'est pourquoi le modèle porte « # steps » et non « à # steps ».
     const interpolatedWithSteps = relationship.description.replace(/# steps/, () =>
         relationship.steps === 1
-            ? " adjacent and"
-            : ((numWord || relationship.steps) + " steps")
+            ? "immédiatement"
+            : ("à " + (numWord || relationship.steps) + " pas")
     );
 
     if (settings.enabled.negation && coinFlip()) {
         // TODO: This method should return the number of negations applied
-        return interpolatedWithSteps.replaceAll(/(left|right)/gi, substr =>
-            `<span class="is-negated">${(substr === "left") ? "right" : "left"}</span>`
+        return interpolatedWithSteps.replaceAll(/(gauche|droite)/gi, substr =>
+            `<span class="is-negated">${(substr === "gauche") ? "droite" : "gauche"}</span>`
         );
     }
 
@@ -380,10 +387,10 @@ export function fixBinaryInstructions(q: Question) {
     const htmlify = (rule: string) => rule.split(", ").map(str => `<span class="subject">${str}</span>`).join(", ");
     switch (q.type) {
         case EnumQuestionType.LinearArrangement: {
-            return htmlify(q.rule) + " are arranged in a <b>linear</b> way.";
+            return htmlify(q.rule) + " sont disposés de façon <b>linéaire</b>.";
         }
         case EnumQuestionType.CircularArrangement: {
-            return htmlify(q.rule) + " are arranged in a <b>circular</b> way.";
+            return htmlify(q.rule) + " sont disposés de façon <b>circulaire</b>.";
         }
         default: {
             return "";
