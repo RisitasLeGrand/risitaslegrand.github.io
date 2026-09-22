@@ -318,6 +318,13 @@ async function main() {
   await rm(dossierSortie, { recursive: true, force: true });
   await mkdir(path.join(dossierSortie, 'fiches'), { recursive: true });
 
+  // Identifiant unique de cette publication. Il sert à versionner les URL du
+  // contenu : le sel étant régénéré à chaque build, tout est re-chiffré, et un
+  // fichier resservi depuis le cache du navigateur ne serait plus déchiffrable
+  // par la nouvelle clé. GitHub Pages ne permettant pas de fixer les en-têtes
+  // HTTP, c'est l'URL elle-même qui doit changer.
+  const version = await idStable(b64(sel) + manifeste.genereLe, 12);
+
   // Le fichier « cle.json » ne contient aucun secret : seulement les
   // paramètres publics de dérivation, plus un témoin chiffré qui permet au
   // navigateur de vérifier que la clé dérivée est la bonne.
@@ -326,6 +333,7 @@ async function main() {
     JSON.stringify(
       {
         v: 1,
+        version,
         kdf: 'PBKDF2-SHA256',
         iterations,
         sel: b64(sel),

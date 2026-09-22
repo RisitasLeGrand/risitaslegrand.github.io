@@ -578,6 +578,20 @@ contenu publié »**
 Le site en ligne a été construit avec un autre mot de passe. Relancez
 `npm run deploy`.
 
+**« Ce contenu ne correspond pas à la clé de la session »**
+Le navigateur a réutilisé un fichier mis en cache lors d'une publication
+précédente. Chaque `npm run deploy` régénère un sel aléatoire et rechiffre
+tout : un fichier ancien est illisible avec la nouvelle clé. Les URL du
+contenu portent un numéro de publication pour éviter cela, mais la page HTML
+elle-même peut rester en cache jusqu'à dix minutes — GitHub Pages ne permet
+pas de régler les en-têtes. Un rechargement forcé (`Ctrl+Maj+R`, ou `Cmd+Maj+R`
+sur Mac) résout le cas immédiatement.
+
+**Juste après un déploiement, le site s'affiche sans aucun style**
+Même cause : une page HTML en cache référence des fichiers de style de la
+publication précédente, qui n'existent plus. Rechargement forcé, ou attendre
+une dizaine de minutes.
+
 **La page reste bloquée sur « Déchiffrement du contenu… », ou le site s'affiche
 sans style**
 Dans les deux cas, `base` dans `site.config.mjs` ne correspond pas à l'adresse

@@ -52,6 +52,7 @@
   /** Dimension dont on attend la nouvelle touche, ou null. */
   let captureTouche = $state(null);
   let messageTouche = $state('');
+  let erreurHistorique = $state('');
 
   // --- Réglages mémorisés -------------------------------------------------
   function chargerReglages() {
@@ -99,8 +100,15 @@
   });
 
   async function rafraichirHistorique() {
-    const sessions = await toutesLesSessionsNBack();
-    historique = sessions.sort((a, b) => b.le.localeCompare(a.le)).slice(0, 8);
+    try {
+      const sessions = await toutesLesSessionsNBack();
+      historique = sessions.sort((a, b) => b.le.localeCompare(a.le)).slice(0, 8);
+    } catch (erreur) {
+      // Un échec de lecture ne doit pas rester muet : c'est ce qui avait rendu
+      // invisible une panne générale de la base sur cette page.
+      erreurHistorique = erreur instanceof Error ? erreur.message : String(erreur);
+      historique = [];
+    }
   }
 
   // --- Déroulement de la partie ------------------------------------------
@@ -454,6 +462,12 @@
         lance la session, <kbd class="rounded border border-slate-300 px-1 dark:border-slate-600">Échap</kbd> l'interrompt.
       </p>
     </section>
+
+    {#if erreurHistorique}
+      <p class="rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-200">
+        Historique indisponible : {erreurHistorique}
+      </p>
+    {/if}
 
     {#if historique.length}
       <section>

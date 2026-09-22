@@ -25,13 +25,11 @@ const CLE_STOCKAGE = 'revinsp.cle';
 const HASH_ATTENDU = (config as { motDePasseHash: string }).motDePasseHash.toLowerCase();
 
 let cleMemoire: CryptoKey | null = null;
-let parametres: ParametresCle | null = null;
 const abonnes = new Set<(deverrouille: boolean) => void>();
 
-async function params(): Promise<ParametresCle> {
-  parametres ??= await chargerParametresCle();
-  return parametres;
-}
+// La mise en cache est assurée par contenu.ts : une seule source de vérité
+// pour les paramètres publics et le numéro de publication.
+const params = (): Promise<ParametresCle> => chargerParametresCle();
 
 function lireStockage(): string | null {
   try {

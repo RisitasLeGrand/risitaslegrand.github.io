@@ -30,6 +30,11 @@ export interface Matiere {
   fascicules: Fascicule[];
 }
 
+export interface ParametresPublics extends ParametresCle {
+  /** Identifiant de la publication, utilisé pour versionner les URL. */
+  version?: string;
+}
+
 export interface Manifeste {
   genereLe: string;
   matieres: Matiere[];
@@ -83,21 +88,54 @@ export const urlData = (chemin: string) => `${base}/data/${chemin}`;
 
 const cache = new Map<string, unknown>();
 
-export async function chargerParametresCle(): Promise<ParametresCle> {
-  const reponse = await fetch(urlData('cle.json'), { cache: 'no-cache' });
-  if (!reponse.ok) throw new Error('Paramètres de chiffrement introuvables (data/cle.json).');
-  return reponse.json();
+let promesseParametres: Promise<ParametresPublics> | null = null;
+
+/**
+ * Charge les paramètres publics de chiffrement.
+ * Toujours revalidé auprès du serveur : c'est ce fichier qui porte le numéro
+ * de publication dont dépendent toutes les autres URL.
+ */
+export function chargerParametresCle(): Promise<ParametresPublics> {
+  promesseParametres ??= (async () => {
+    const reponse = await fetch(urlData('cle.json'), { cache: 'no-cache' });
+    if (!reponse.ok) throw new Error('Paramètres de chiffrement introuvables (data/cle.json).');
+    return reponse.json() as Promise<ParametresPublics>;
+  })().catch((erreur) => {
+    promesseParametres = null; // un échec réseau ne doit pas être mémorisé
+    throw erreur;
+  });
+  return promesseParametres;
 }
 
 /** Récupère un fichier chiffré et le déchiffre, avec cache mémoire. */
 async function charger<T>(chemin: string): Promise<T> {
   if (cache.has(chemin)) return cache.get(chemin) as T;
+
   const cle = await obtenirCle();
   if (!cle) throw new Error('Session verrouillée.');
-  const reponse = await fetch(urlData(chemin));
+
+  // La version en paramètre d'URL garantit qu'un fichier mis en cache par une
+  // publication précédente n'est jamais resservi : il aurait été chiffré avec
+  // une autre clé et serait illisible.
+  const { version } = await chargerParametresCle();
+  const url = version ? `${urlData(chemin)}?v=${encodeURIComponent(version)}` : urlData(chemin);
+
+  const reponse = await fetch(url);
   if (!reponse.ok) throw new Error(`Contenu introuvable : ${chemin}`);
   const blob: BlobChiffre = await reponse.json();
-  const valeur = await dechiffrerJson<T>(cle, blob);
+
+  let valeur: T;
+  try {
+    valeur = await dechiffrerJson<T>(cle, blob);
+  } catch {
+    // Seul cas plausible : le fichier vient d'une autre publication que la clé.
+    throw new Error(
+      'Ce contenu ne correspond pas à la clé de la session. ' +
+        'Le site a été republié entre-temps : rechargez la page (Ctrl+Maj+R), ' +
+        'puis ressaisissez le mot de passe si besoin.',
+    );
+  }
+
   cache.set(chemin, valeur);
   return valeur;
 }
@@ -110,6 +148,7 @@ export const chargerIndexRecherche = () => charger<EntreeRecherche[]>('recherche
 /** Vide le cache mémoire (au verrouillage de la session). */
 export function viderCache() {
   cache.clear();
+  promesseParametres = null;
 }
 
 /** Liste à plat de toutes les fiches, avec leur matière et leur fascicule. */
