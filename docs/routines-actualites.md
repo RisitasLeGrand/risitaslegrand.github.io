@@ -112,3 +112,28 @@ Les trois valeurs admises pour `theme` sont `juridique`, `economique` et
 - Le site n'a pas d'index de dossier : il sonde les identifiants de période en
   remontant le temps. Une interruption de plus de vingt semaines masque donc les
   entrées antérieures dans la page d'archive.
+
+---
+
+## Les trois routines créées
+
+Elles existent déjà sur le compte et sont actives. Elles créent une session
+neuve à chaque déclenchement.
+
+| Routine | Identifiant | Cron (UTC) | Prochain passage |
+|---|---|---|---|
+| Veille hebdomadaire | `trig_01KJ1XtUse66nHRoMWL74LtE` | `0 5 * * 1` | lundi 28 septembre 2026 |
+| Synthèse trimestrielle | `trig_015hD9sdSbmvoVvxpDxg5U1B` | `0 5 1 1,4,7,10 *` | 1er octobre 2026 |
+| Synthèse annuelle | `trig_01NCNPZK25f6E2MsfN4TZUC6` | `0 5 5 1 *` | 5 janvier 2027 |
+
+**Heure.** Les crons sont exprimés en UTC : 5 h UTC correspond à 7 h à Paris en
+heure d'été et à 6 h en heure d'hiver. Si cet écart gêne, ajustez l'heure sur
+`claude.ai/code/routines`.
+
+**À vérifier avant le premier passage.** Ces routines ont été créées depuis une
+session Claude Code, qui n'a pas pu leur transmettre de connecteur : les
+sessions qu'elles déclenchent risquent de démarrer **sans les outils GitHub**,
+et donc de ne pas pouvoir ouvrir de pull request. Ouvrez
+`claude.ai/code/routines`, vérifiez que le connecteur GitHub est bien actif sur
+chacune et que le dépôt est rattaché ; si ce n'est pas le cas, recréez-les
+depuis cette page à partir des prompts ci-dessus.
