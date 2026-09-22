@@ -129,7 +129,12 @@
     border-radius: 3px;
     background-position: center;
     background-repeat: no-repeat;
-    box-shadow: inset 0 0 0 1px rgb(0 0 0 / 0.25);
+    /*
+      Les faces reprennent le ton très clair de quad-box (#FAFAFA), proche du
+      fond de page du site : sans un contour franc, le cube disparaîtrait et
+      la dimension « position » deviendrait illisible.
+    */
+    box-shadow: inset 0 0 0 1.5px rgb(15 23 42 / 0.55);
   }
 
   /* Les six faces du cube, à une demi-arête du centre. */

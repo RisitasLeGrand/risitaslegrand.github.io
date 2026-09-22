@@ -445,6 +445,15 @@ identiques à celles vues *n* épreuves plus tôt.
   dimension ne peut se retrouver sans touche. `Échap` annule la saisie.
 - **Tout au clavier** : `Entrée` lance une session, les touches configurées
   signalent les correspondances, `Échap` interrompt.
+- **Retour immédiat** : chaque réponse est jugée sur-le-champ — bouton vert
+  avec ✓ si la correspondance était réelle, rouge avec ✗ sinon. En fin
+  d'épreuve, une correspondance qui n'a pas été signalée s'affiche en orange
+  avec ⌛ pendant une demi-seconde. Les états et leurs couleurs sont ceux de
+  quad-box. Le retour se désactive dans les réglages, pour s'entraîner en
+  conditions d'examen.
+- **Amorçage** : les *n* premières épreuves n'ont rien à quoi se comparer.
+  Elles sont signalées comme telles et les réponses qu'on y donne ne comptent
+  pas — c'est aussi le comportement du dépôt d'origine.
 ### Progression automatique du niveau
 
 Mécanisme repris de quad-box, avec ses réglages :

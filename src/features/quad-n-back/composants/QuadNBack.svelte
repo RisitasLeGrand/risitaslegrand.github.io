@@ -41,6 +41,7 @@
     dimensions: ['position', 'couleur', 'forme', 'son'],
     sourceMotif: 'voronoi',
     grille3D: true,
+    retourImmediat: true,
     progression: { ...PROGRESSION_DEFAUT },
     touches: { ...TOUCHES_DEFAUT },
   };
@@ -58,6 +59,14 @@
   let index = $state(-1);
   let visible = $state(false);
   let signalees = $state({});
+  /**
+   * Retour visuel par dimension pendant la partie :
+   * 'neutre' | 'reussite' | 'echec' | 'oubli'.
+   * Reprend les quatre états de quad-box (blank / success / failure /
+   * late-failure), y compris l'oubli signalé en fin d'épreuve.
+   */
+  let retours = $state({});
+  let minuteurOubli = null;
   let bilan = $state(null);
   let historique = $state([]);
   let compteAvant = $state(0);
@@ -134,16 +143,59 @@
   function nettoyerMinuteurs() {
     for (const m of minuteurs) clearTimeout(m);
     minuteurs = [];
+    if (minuteurOubli !== null) {
+      clearTimeout(minuteurOubli);
+      minuteurOubli = null;
+    }
+  }
+
+  const retoursNeutres = () =>
+    Object.fromEntries(reglages.dimensions.map((cle) => [cle, 'neutre']));
+
+  /**
+   * Fin d'une épreuve : les correspondances qui n'ont pas été signalées
+   * apparaissent en « oubli ». Comme dans quad-box, ce retour déborde
+   * volontairement sur le début de l'épreuve suivante, le temps d'être vu,
+   * puis s'efface au bout d'une demi-seconde.
+   */
+  function detecterOublis(indiceEpreuve) {
+    if (!reglages.retourImmediat || !partie || indiceEpreuve < 0) return;
+    const epreuve = partie.epreuves[indiceEpreuve];
+    if (!epreuve) return;
+
+    const suivants = {};
+    let oubliDetecte = false;
+    for (const cle of partie.meta.dimensions) {
+      const manquee = epreuve.correspondances.includes(cle) && !signalees[cle];
+      suivants[cle] = manquee ? 'oubli' : 'neutre';
+      if (manquee) oubliDetecte = true;
+    }
+    retours = suivants;
+
+    if (!oubliDetecte) return;
+    if (minuteurOubli !== null) clearTimeout(minuteurOubli);
+    minuteurOubli = window.setTimeout(() => {
+      retours = Object.fromEntries(
+        Object.entries(retours).map(([cle, etat]) => [cle, etat === 'oubli' ? 'neutre' : etat]),
+      );
+      minuteurOubli = null;
+    }, 500);
   }
 
   function planifier(fn, delai) {
     minuteurs.push(setTimeout(fn, delai));
   }
 
-  async function commencer() {
+  function commencer() {
     if (reglages.dimensions.length === 0) return;
     memoriserReglages();
-    await lecteurAudio.debloquer();
+
+    // Le déverrouillage audio part avec le geste de l'utilisateur — condition
+    // des navigateurs mobiles — mais on ne l'attend pas : la promesse peut
+    // mettre un temps indéterminé à se résoudre, et la partie resterait alors
+    // figée sur un écran inerte après le clic. Le premier son n'intervient
+    // qu'une seconde plus tard, au lancement de la première épreuve.
+    void lecteurAudio.debloquer();
 
     partie = genererPartie({
       n: reglages.n,
@@ -156,6 +208,7 @@
     });
     index = -1;
     signalees = {};
+    retours = retoursNeutres();
     bilan = null;
     debutSession = Date.now();
     ecran = 'jeu';
@@ -165,6 +218,9 @@
   }
 
   function epreuveSuivante() {
+    // L'épreuve qui s'achève livre d'abord son verdict sur les oublis.
+    detecterOublis(index);
+
     index += 1;
     if (!partie || index >= partie.epreuves.length) {
       void terminer('terminee');
@@ -184,10 +240,17 @@
 
   function signaler(dimension) {
     if (ecran !== 'jeu' || index < 0 || !partie) return;
-    if (!reglages.dimensions.includes(dimension)) return;
+    if (!partie.meta.dimensions.includes(dimension)) return;
     if (signalees[dimension]) return; // une seule réponse par épreuve
+
     signalees = { ...signalees, [dimension]: true };
     partie.epreuves[index].reponses[dimension] = true;
+
+    // Les n premières épreuves n'ont pas de point de comparaison : y répondre
+    // ne compte pas dans le score, le retour reste donc neutre.
+    if (!reglages.retourImmediat || index < partie.meta.n) return;
+    const juste = partie.epreuves[index].correspondances.includes(dimension);
+    retours = { ...retours, [dimension]: juste ? 'reussite' : 'echec' };
   }
 
   async function terminer(cause) {
@@ -393,6 +456,39 @@
 
   onDestroy(nettoyerMinuteurs);
 
+  /**
+   * Couleurs des retours, reprises telles quelles de quad-box (app.css).
+   * La couleur de texte est choisie pour rester lisible sur chaque fond.
+   */
+  const COULEURS_RETOUR = {
+    reussite: { clair: ['#93C82E', '#14290a'], sombre: ['#386D38', '#f8fafc'] },
+    echec: { clair: ['#EE3527', '#ffffff'], sombre: ['#9F2323', '#f8fafc'] },
+    oubli: { clair: ['#F49F31', '#2a1a05'], sombre: ['#a6712c', '#f8fafc'] },
+  };
+
+  /** Style en ligne d'un bouton de réponse selon son état. */
+  function styleRetour(cle) {
+    const etat = retours[cle];
+    const palette = COULEURS_RETOUR[etat];
+    if (!palette) return '';
+    const [fond, texte] = palette[sombre ? 'sombre' : 'clair'];
+    return `background-color:${fond};color:${texte};`;
+  }
+
+  /** Libellé annoncé aux lecteurs d'écran quand le retour change. */
+  const LIBELLES_RETOUR = {
+    reussite: 'correct',
+    echec: 'incorrect',
+    oubli: 'correspondance manquée',
+  };
+
+  const annonceRetour = $derived(
+    Object.entries(retours)
+      .filter(([, etat]) => etat !== 'neutre')
+      .map(([cle, etat]) => `${DIMENSIONS.find((d) => d.cle === cle)?.libelle} : ${LIBELLES_RETOUR[etat]}`)
+      .join(', '),
+  );
+
   const dimensionsActives = $derived(DIMENSIONS.filter((d) => reglages.dimensions.includes(d.cle)));
   const progression = $derived(
     partie && index >= 0 ? Math.min(100, Math.round((index / partie.epreuves.length) * 100)) : 0,
@@ -452,10 +548,16 @@
           </p>
         </div>
 
-        <label class="flex items-center gap-2 self-end text-sm text-slate-600 dark:text-slate-300">
-          <input type="checkbox" bind:checked={reglages.grille3D} class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
-          Grille 3D en rotation (27 positions)
-        </label>
+        <div class="flex flex-col justify-end gap-2">
+          <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <input type="checkbox" bind:checked={reglages.grille3D} class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
+            Grille 3D en rotation (27 positions)
+          </label>
+          <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+            <input type="checkbox" bind:checked={reglages.retourImmediat} class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
+            Retour immédiat sur chaque réponse
+          </label>
+        </div>
       </div>
 
       <fieldset class="mt-5">
@@ -634,6 +736,22 @@
       <span class="text-sm font-medium tabular-nums text-slate-500 dark:text-slate-400">
         {Math.max(0, index + 1)}/{partie?.epreuves.length ?? 0}
       </span>
+      {#if partie && index < 0}
+        <!-- Seconde de battement avant la première épreuve : sans indication,
+             ce temps mort passe pour un blocage. -->
+        <span class="rounded-full bg-slate-200 px-2.5 py-0.5 text-xs font-semibold text-slate-600 dark:bg-slate-700 dark:text-slate-200">
+          préparez-vous…
+        </span>
+      {:else if partie && index < partie.meta.n}
+        <!--
+          Les n premières épreuves servent d'amorçage : il n'y a rien à quoi
+          les comparer. Comme dans quad-box, aucune réponse n'y est comptée —
+          autant le dire, sinon l'absence de verdict passe pour une panne.
+        -->
+        <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
+          amorçage
+        </span>
+      {/if}
       <span class="rounded-full bg-slate-900 px-2.5 py-0.5 text-xs font-semibold text-white dark:bg-white dark:text-slate-900">
         n = {partie?.meta.n}
       </span>
@@ -656,20 +774,34 @@
 
     <div class="grid gap-2" style="grid-template-columns: repeat({dimensionsActives.length}, minmax(0, 1fr))">
       {#each dimensionsActives as dimension (dimension.cle)}
+        {@const etat = retours[dimension.cle] ?? 'neutre'}
         <button
           type="button"
           onclick={() => signaler(dimension.cle)}
-          class="rounded-xl px-2 py-4 text-sm font-medium transition {signalees[dimension.cle]
-            ? 'bg-indigo-600 text-white'
-            : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'}"
+          style={styleRetour(dimension.cle)}
+          class="rounded-xl px-2 py-4 text-sm font-medium transition duration-150 {etat !== 'neutre'
+            ? ''
+            : signalees[dimension.cle]
+              ? 'bg-indigo-600 text-white'
+              : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'}"
         >
           {dimension.libelle}
           <kbd class="mt-1 block text-[11px] font-normal opacity-60">
-            {libelleTouche(reglages.touches[dimension.cle])}
+            {etat === 'reussite' ? '✓' : etat === 'echec' ? '✗' : etat === 'oubli' ? '⌛' : libelleTouche(reglages.touches[dimension.cle])}
           </kbd>
         </button>
       {/each}
     </div>
+    <p class="sr-only" aria-live="polite">{annonceRetour}</p>
+
+    {#if reglages.retourImmediat}
+      <p class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center text-xs text-slate-400">
+        <span><span class="inline-block h-2.5 w-2.5 rounded-sm align-middle" style="background:#93C82E"></span> correct</span>
+        <span><span class="inline-block h-2.5 w-2.5 rounded-sm align-middle" style="background:#EE3527"></span> incorrect</span>
+        <span><span class="inline-block h-2.5 w-2.5 rounded-sm align-middle" style="background:#F49F31"></span> correspondance manquée</span>
+      </p>
+    {/if}
+
     <p class="text-center text-xs text-slate-400">
       Signalez une correspondance avec l'épreuve {partie?.meta.n} rangs plus tôt. Échap pour arrêter.
     </p>
