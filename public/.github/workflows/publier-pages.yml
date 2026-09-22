@@ -1,0 +1,62 @@
+# Publication du site sur GitHub Pages.
+#
+# Ce fichier est embarqué dans le site construit (il provient de « public/ ») :
+# il se retrouve donc sur la branche « gh-pages » à chaque « npm run deploy »,
+# et toute mise à jour de cette branche déclenche la publication.
+#
+# Il ne construit RIEN et n'a besoin d'aucun secret : le site est déjà
+# construit et chiffré sur la machine de l'utilisateur. Le workflow se contente
+# de servir le contenu de la branche.
+#
+# Deux jobs sont nécessaires : l'environnement « github-pages » n'autorise que
+# la branche déclarée dans les réglages Pages. Le premier job bascule donc la
+# source sur « GitHub Actions » (ce qui lève cette restriction) avant que le
+# second n'entre dans l'environnement pour publier.
+name: Publier le site
+
+on:
+  push:
+    branches: [gh-pages]
+  workflow_dispatch:
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  configurer:
+    runs-on: ubuntu-latest
+    steps:
+      # « enablement: true » active Pages si besoin et bascule la source
+      # sur « GitHub Actions ». Sans environnement déclaré, ce job n'est
+      # pas soumis à la règle de branche.
+      - name: Configurer Pages
+        uses: actions/configure-pages@v5
+        with:
+          enablement: true
+
+  publier:
+    needs: configurer
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deploiement.outputs.page_url }}
+    steps:
+      - name: Récupérer le contenu de la branche gh-pages
+        uses: actions/checkout@v4
+        with:
+          ref: gh-pages
+
+      - name: Préparer l'archive
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: .
+
+      - name: Publier
+        id: deploiement
+        uses: actions/deploy-pages@v4
