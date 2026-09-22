@@ -109,11 +109,11 @@ export const xpFiche = () => XP.ficheTerminee;
 /**
  * XP d'une session de Quad N-Back.
  * La récompense croît avec la profondeur (n) et n'accorde le bonus de
- * réussite qu'au-delà du seuil de montée de niveau : une session bâclée
- * rapporte peu, mais rapporte quand même — la régularité prime.
+ * réussite qu'à partir de 80 %, seuil de montée de niveau de quad-box : une
+ * session bâclée rapporte peu, mais rapporte quand même — la régularité prime.
  */
 export const xpNBack = (n: number, taux: number) =>
-  XP.nbackSession + n * XP.nbackParNiveau + (taux >= 0.85 ? XP.nbackBonusReussite : 0);
+  XP.nbackSession + n * XP.nbackParNiveau + (taux >= 0.8 ? XP.nbackBonusReussite : 0);
 
 // --- Badges ---------------------------------------------------------------
 
@@ -296,8 +296,13 @@ export async function contexteBadges(profil?: Profil): Promise<ContexteBadges> {
     secondesTotales: jours.reduce((n, j) => n + j.secondes, 0),
     matieresTerminees: [...parMatiere.values()].filter((m) => m.total >= 5 && m.acquises === m.total)
       .length,
-    sessionsNBack: sessions.length,
-    meilleurNBack: sessions.reduce((n, s) => (s.taux >= 0.85 ? Math.max(n, s.n) : n), 0),
+    // Les jalons de progression ne sont pas des parties : ils ne comptent ni
+    // dans le nombre de sessions, ni dans le meilleur niveau atteint.
+    sessionsNBack: sessions.filter((s) => s.statut !== 'jalon').length,
+    meilleurNBack: sessions.reduce(
+      (n, s) => (s.statut !== 'jalon' && s.taux >= 0.8 ? Math.max(n, s.n) : n),
+      0,
+    ),
   };
 }
 

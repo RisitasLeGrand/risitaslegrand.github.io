@@ -45,6 +45,13 @@ export interface EtatFiche {
 export interface SessionNBack {
   id?: number;
   le: string;
+  /** Identifiant du mode joué : sert à ne comparer que des parties similaires. */
+  titre?: string;
+  /**
+   * « terminee » pour une partie jouée, « jalon » pour la marque posée lors
+   * d'un changement de niveau — elle empêche de recompter les mêmes parties.
+   */
+  statut?: 'terminee' | 'jalon';
   /** Profondeur jouée (n-back). */
   n: number;
   /** Dimensions actives lors de la partie. */

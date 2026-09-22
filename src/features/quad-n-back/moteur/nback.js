@@ -15,6 +15,8 @@
  * dimensions.
  */
 import { COLOR_POOL, SHAPE_POOL, POSITION_POOL, POSITION_POOL_2D, AUDIO_POOL } from './constantes.js';
+import { createVoronoiPool } from './voronoi.js';
+import { createArtPool } from './generative.js';
 
 const tirer = (pool) => pool[Math.floor(Math.random() * pool.length)];
 
@@ -97,12 +99,28 @@ function remplirDimension(epreuves, dimensions, dimension, pool, n, tauxCorrespo
   }
 }
 
-/** Les quatre dimensions du Quad N-Back, dans l'ordre d'affichage des touches. */
+/**
+ * Dimensions disponibles.
+ *
+ * « motif » correspond au « Pattern » de quad-box : il remplace le couple
+ * couleur + forme par une image générée, et s'exclut donc mutuellement
+ * avec elles — comme dans le dépôt d'origine.
+ */
 export const DIMENSIONS = [
   { cle: 'position', libelle: 'Position', touche: 'a', description: 'La case occupée' },
   { cle: 'couleur', libelle: 'Couleur', touche: 's', description: 'La couleur du bloc' },
   { cle: 'forme', libelle: 'Forme', touche: 'd', description: 'La forme affichée' },
   { cle: 'son', libelle: 'Son', touche: 'f', description: 'La lettre prononcée' },
+  { cle: 'motif', libelle: 'Motif', touche: 'g', description: 'Le dessin affiché' },
+];
+
+/** Dimensions incompatibles entre elles (le motif porte déjà forme et couleur). */
+export const EXCLUSIONS = { motif: ['couleur', 'forme'], couleur: ['motif'], forme: ['motif'] };
+
+/** Sources de motifs, comme dans quad-box. */
+export const SOURCES_MOTIF = [
+  { cle: 'voronoi', libelle: 'Voronoï' },
+  { cle: 'generatif', libelle: 'Art génératif' },
 ];
 
 /**
@@ -123,7 +141,8 @@ export function genererPartie(reglages) {
     dimensions,
     grille3D = true,
     tauxCorrespondance = 25,
-    interference = 25,
+    interference = 20,
+    sourceMotif = 'voronoi',
   } = reglages;
 
   const epreuves = new Array(nombreEpreuves).fill(null).map(() => ({
@@ -136,6 +155,13 @@ export function genererPartie(reglages) {
     couleur: COLOR_POOL,
     forme: SHAPE_POOL,
     son: AUDIO_POOL,
+    // Le vivier de motifs est régénéré à chaque partie : les dessins ne se
+    // répètent pas d'une session à l'autre, ce qui empêche de les mémoriser.
+    motif: dimensions.includes('motif')
+      ? sourceMotif === 'generatif'
+        ? createArtPool()
+        : createVoronoiPool()
+      : [],
   };
 
   // La position n'entre pas en collision avec les autres dimensions : elle est
@@ -161,42 +187,52 @@ export function genererPartie(reglages) {
       grille3D,
       tauxCorrespondance,
       interference,
+      sourceMotif,
       titre: titrePartie(dimensions),
     },
     epreuves,
   };
 }
 
-function titrePartie(dimensions) {
+/**
+ * Identifiant du mode de jeu.
+ * Il sert à la progression automatique, qui ne compare entre elles que les
+ * parties de même mode : passer de Dual à Quad ne doit pas faire monter le
+ * niveau. La liste triée garantit un identifiant stable.
+ */
+export function titrePartie(dimensions) {
   const nombre = dimensions.length;
-  return { 1: 'Simple', 2: 'Dual', 3: 'Tri', 4: 'Quad' }[nombre] ?? `${nombre} dimensions`;
+  const nom = { 1: 'Simple', 2: 'Dual', 3: 'Tri', 4: 'Quad', 5: 'Penta' }[nombre] ?? `${nombre}D`;
+  return `${nom}:${[...dimensions].sort().join('+')}`;
 }
 
+/** Nom lisible d'un mode, sans la liste des dimensions. */
+export const nomMode = (titre) => String(titre ?? '').split(':')[0];
+
 /**
- * Calcule le score d'une partie terminée.
+ * Calcule le score d'une partie terminée, selon le barème de quad-box.
  *
- * Pour chaque dimension on compte : vrais positifs (correspondance signalée),
- * oublis (correspondance manquée), faux positifs (signalée à tort) et rejets
- * corrects (rien à signaler, rien signalé).
+ * Seules les décisions engageantes sont comptées :
+ *   - réussite  : une correspondance signalée à temps ;
+ *   - échec     : une fausse alerte, ou une correspondance manquée.
+ * Ne rien signaler quand il n'y avait rien à signaler n'entre pas dans le
+ * calcul. Le taux vaut donc réussites / (réussites + échecs) : rester passif
+ * donne 0 %, et signaler tout systématiquement s'effondre aussi, puisque
+ * chaque pression injustifiée compte comme un échec.
  *
- * Le taux retenu est la **précision équilibrée** : la moyenne de la
- * sensibilité (part des correspondances repérées) et de la spécificité (part
- * des non-correspondances correctement ignorées). C'est indispensable ici :
- * les correspondances sont rares (~25 %), donc une simple proportion de bonnes
- * décisions récompenserait la passivité — ne jamais rien signaler donnerait
- * près de 80 %. Avec la précision équilibrée, l'inaction vaut 50 % et seul un
- * joueur qui repère vraiment les correspondances dépasse ce seuil.
+ * C'est le barème auquel sont calibrés les seuils de progression (80 % / 50 %)
+ * repris du dépôt d'origine.
  */
 export function calculerScore(partie) {
   const { epreuves, meta } = partie;
   const parDimension = {};
-  const tauxParDimension = [];
+  let reussites = 0;
+  let echecs = 0;
 
   for (const dimension of meta.dimensions) {
     let vraisPositifs = 0;
     let fauxPositifs = 0;
     let oublis = 0;
-    let rejetsCorrects = 0;
 
     epreuves.forEach((epreuve, i) => {
       if (i < meta.n) return; // épreuves sans point de comparaison
@@ -205,51 +241,94 @@ export function calculerScore(partie) {
       if (attendu && signale) vraisPositifs++;
       else if (attendu && !signale) oublis++;
       else if (!attendu && signale) fauxPositifs++;
-      else rejetsCorrects++;
+      // sinon : rejet correct, non comptabilisé
     });
 
-    const positifs = vraisPositifs + oublis;
-    const negatifs = rejetsCorrects + fauxPositifs;
-    const sensibilite = positifs > 0 ? vraisPositifs / positifs : null;
-    const specificite = negatifs > 0 ? rejetsCorrects / negatifs : null;
-
-    // Si une dimension n'a comporté aucune correspondance (possible quand n
-    // est élevé et la partie courte), on se rabat sur la seule mesure définie.
-    const taux =
-      sensibilite !== null && specificite !== null
-        ? (sensibilite + specificite) / 2
-        : (sensibilite ?? specificite ?? 0);
-
+    const comptees = vraisPositifs + fauxPositifs + oublis;
     parDimension[dimension] = {
       vraisPositifs,
       fauxPositifs,
       oublis,
-      rejetsCorrects,
-      sensibilite,
-      specificite,
-      taux,
+      comptees,
+      taux: comptees > 0 ? vraisPositifs / comptees : 0,
     };
-    tauxParDimension.push(taux);
+    reussites += vraisPositifs;
+    echecs += fauxPositifs + oublis;
   }
 
-  const taux = tauxParDimension.length
-    ? tauxParDimension.reduce((a, b) => a + b, 0) / tauxParDimension.length
-    : 0;
-
-  const erreurs = Object.values(parDimension).reduce((n, d) => n + d.fauxPositifs + d.oublis, 0);
-  const reperees = Object.values(parDimension).reduce((n, d) => n + d.vraisPositifs, 0);
-  const aReperer = Object.values(parDimension).reduce((n, d) => n + d.vraisPositifs + d.oublis, 0);
-
-  return { parDimension, taux, erreurs, reperees, aReperer };
+  const comptees = reussites + echecs;
+  return {
+    parDimension,
+    taux: comptees > 0 ? reussites / comptees : 0,
+    reperees: reussites,
+    aReperer: reussites + Object.values(parDimension).reduce((n, d) => n + d.oublis, 0),
+    erreurs: echecs,
+  };
 }
 
-/** Seuils de progression automatique du niveau, d'après la précision équilibrée. */
-export const SEUIL_MONTEE = 0.85;
-export const SEUIL_DESCENTE = 0.6;
+// --- Progression automatique du niveau -------------------------------------
 
-/** Propose le niveau de la partie suivante : -1, 0 ou +1. */
-export function niveauSuivant(n, taux) {
-  if (taux >= SEUIL_MONTEE) return n + 1;
-  if (taux < SEUIL_DESCENTE && n > 1) return n - 1;
-  return n;
+/**
+ * Réglages de progression, repris tels quels de quad-box.
+ * Monter demande une seule partie au-dessus de 80 % ; redescendre en demande
+ * trois de suite sous 50 %, pour qu'une mauvaise session isolée ne fasse pas
+ * reculer.
+ */
+export const PROGRESSION_DEFAUT = {
+  active: true,
+  seuilMontee: 80,
+  partiesMontee: 1,
+  seuilDescente: 50,
+  partiesDescente: 3,
+};
+
+export const N_MAXIMAL = 12;
+
+/** Éléments du tableau jusqu'au premier qui vérifie la condition (exclu). */
+const jusqua = (tableau, condition) => {
+  const i = tableau.findIndex(condition);
+  return i === -1 ? tableau.slice() : tableau.slice(0, i);
+};
+
+/**
+ * Décide du niveau de la partie suivante.
+ *
+ * Reproduit `runAutoProgression` de quad-box : on ne compare entre elles que
+ * les parties récentes (48 h) du même mode et du même niveau, et on s'arrête
+ * au dernier « jalon » — la marque posée lors du précédent changement de
+ * niveau, qui empêche de recompter des parties déjà prises en compte.
+ *
+ * @param {object} partieCourante  { titre, n, taux }
+ * @param {Array}  sessions        sessions enregistrées, les plus récentes d'abord
+ * @param {object} reglages        PROGRESSION_DEFAUT ou équivalent
+ * @returns {{ n: number, decision: 'montee'|'descente'|'stable' }}
+ */
+export function progressionAutomatique(partieCourante, sessions, reglages = PROGRESSION_DEFAUT) {
+  const stable = { n: partieCourante.n, decision: 'stable' };
+  if (!reglages.active) return stable;
+
+  const limite = Date.now() - 48 * 60 * 60 * 1000;
+  const comparables = sessions
+    .filter((s) => new Date(s.le).getTime() >= limite)
+    .filter((s) => s.titre === partieCourante.titre && s.n === partieCourante.n);
+
+  const applicables = jusqua(comparables, (s) => s.statut === 'jalon');
+
+  const pourMontee = applicables.slice(0, reglages.partiesMontee);
+  if (
+    pourMontee.length >= reglages.partiesMontee &&
+    pourMontee.every((s) => s.taux * 100 >= reglages.seuilMontee)
+  ) {
+    return { n: Math.min(partieCourante.n + 1, N_MAXIMAL), decision: 'montee' };
+  }
+
+  const pourDescente = applicables.slice(0, reglages.partiesDescente);
+  if (
+    pourDescente.length >= reglages.partiesDescente &&
+    pourDescente.every((s) => s.taux * 100 < reglages.seuilDescente)
+  ) {
+    return { n: Math.max(partieCourante.n - 1, 1), decision: 'descente' };
+  }
+
+  return stable;
 }

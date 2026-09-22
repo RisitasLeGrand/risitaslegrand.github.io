@@ -429,24 +429,50 @@ identiques à celles vues *n* épreuves plus tôt.
 
 ### Utilisation
 
-- **Réglages** : profondeur *n*, nombre d'épreuves, rythme, grille 3D ou 2D,
-  et dimensions suivies (désactivez-en pour travailler en Dual ou Tri N-Back).
+- **Réglages** : profondeur *n*, nombre d'épreuves, rythme, taux de
+  correspondances, interférence, grille 3D ou 2D, et dimensions suivies
+  (désactivez-en pour travailler en Dual ou Tri N-Back). Les valeurs par
+  défaut sont celles de quad-box : 30 épreuves, 2,5 s, 25 % de
+  correspondances, 20 % d'interférence.
+- **Motifs** : la cinquième dimension « Motif » remplace la couleur et la
+  forme par un dessin généré — **Voronoï** ou **art génératif**, au choix,
+  comme dans le dépôt d'origine. Le vivier de motifs est régénéré à chaque
+  partie, ce qui empêche de les apprendre par cœur. Activer Motif désactive
+  Couleur et Forme, et réciproquement.
 - **Touches personnalisables** : chaque dimension a sa touche (A, S, D, F par
   défaut). Cliquez sur « Touche : … » puis appuyez sur la touche voulue.
   Si elle sert déjà à une autre dimension, les deux sont échangées — aucune
   dimension ne peut se retrouver sans touche. `Échap` annule la saisie.
 - **Tout au clavier** : `Entrée` lance une session, les touches configurées
   signalent les correspondances, `Échap` interrompt.
-- **Progression automatique** : le niveau *n* monte au-delà de 85 % de réussite
-  et redescend sous 60 %.
+### Progression automatique du niveau
+
+Mécanisme repris de quad-box, avec ses réglages :
+
+- **Monter** : par défaut **1 partie** à **80 %** ou plus.
+- **Descendre** : par défaut **3 parties consécutives** sous **50 %** — une
+  mauvaise session isolée ne fait donc pas reculer.
+- Seules sont comparées les parties des **48 dernières heures**, dans le
+  **même mode** et au **même niveau** : passer de Dual à Quad ne fait pas
+  monter, et changer de niveau ne recompte pas les parties précédentes.
+- Chaque changement de niveau pose un **jalon** dans l'historique, qui borne
+  les parties prises en compte par la décision suivante.
+- Le niveau est plafonné à *n* = 12, comme dans le dépôt d'origine.
+
+Les quatre seuils sont réglables dans l'écran de réglages, et la progression
+automatique peut être désactivée.
 
 ### Comment le score est calculé
 
-Le taux affiché est une **précision équilibrée** : la moyenne de la part des
-correspondances repérées et de la part des non-correspondances correctement
-ignorées. C'est nécessaire parce que les correspondances sont rares (~25 %) :
-avec une simple proportion de bonnes décisions, ne jamais rien signaler
-donnerait près de 80 %. Ici, l'inaction comme le matraquage valent 50 %.
+Barème de quad-box. Seules les décisions engageantes comptent :
+
+- **réussite** : une correspondance signalée à temps ;
+- **échec** : une fausse alerte, ou une correspondance manquée.
+
+Ne rien signaler quand il n'y avait rien à signaler n'entre pas dans le calcul.
+Le taux vaut donc réussites / (réussites + échecs). Rester passif donne **0 %**,
+et tout signaler s'effondre aussi puisque chaque pression injustifiée est un
+échec. C'est le barème auquel les seuils de 80 % et 50 % sont calibrés.
 
 ### Intégration au reste du site
 
@@ -475,18 +501,25 @@ code repris le mentionne en en-tête, comme la licence MIT l'exige.
 
 Adaptations par rapport au dépôt d'origine :
 
+Repris à l'identique : les tracés SVG des neuf formes, les deux palettes de
+huit couleurs, la règle d'affectation des couleurs (face claire + forme
+colorée), la génération des stimuli, les deux générateurs de motifs (Voronoï
+et art génératif) et le mécanisme de progression automatique.
+
 | Élément | quad-box | Ici |
 |---|---|---|
 | Interface | daisyui | Tailwind, au style du site |
 | Stockage | base IndexedDB séparée | base commune du site |
 | Audio | `howler` | API `Audio` native (une dépendance de moins) |
 | Sons embarqués | 6 jeux, 6,3 Mo | 1 jeu de lettres, 196 Ko |
-| Graphiques | `chart.js`, `d3` | page « Statistiques » du site |
+| Graphiques | `chart.js`, `d3` complet | page « Statistiques » du site |
 | Régularité | `@mariohamann/activity-graph` | calendrier déjà présent au tableau de bord |
-| Modes | tally, N variable, motifs génératifs | les quatre dimensions du Quad N-Back |
+| Modes | tally, N variable | les cinq dimensions et les motifs |
 
-Ces retraits évitent d'ajouter six dépendances pour des fonctions que le site
-assure déjà, dans un projet destiné à rester simple à maintenir.
+Les seules dépendances ajoutées sont `svelte`, `d3-delaunay` (motifs de
+Voronoï) et `d3-shape` (art génératif) — les deux modules précis dont les
+générateurs ont besoin, pas l'ensemble de `d3`. Les autres retraits évitent
+d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 
 ## Organisation du projet
 
@@ -511,7 +544,7 @@ assure déjà, dans un projet destiné à rester simple à maintenir.
 ├── src/
 │   ├── features/
 │   │   └── quad-n-back/     # Exercice de mémoire de travail (code Svelte)
-│   │       ├── moteur/      # Génération des stimuli, score, audio
+│   │       ├── moteur/      # Stimuli, score, progression, audio, motifs
 │   │       ├── composants/  # Grille 3D, cellule, écrans de jeu
 │   │       └── LICENCE-quad-box.txt
 │   ├── pages/               # Une page par écran du site

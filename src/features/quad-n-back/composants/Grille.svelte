@@ -16,12 +16,14 @@
     sombre = false,
     vitesseRotation = 60,
     dimensions = [],
+    sourceMotif = 'voronoi',
   } = $props();
 
   // Une dimension inactive ne doit pas transparaître dans l'affichage.
   const position = $derived(dimensions.includes('position') ? epreuve?.position : '1-1-1');
   const couleur = $derived(dimensions.includes('couleur') ? epreuve?.couleur : null);
   const forme = $derived(dimensions.includes('forme') ? epreuve?.forme : null);
+  const motif = $derived(dimensions.includes('motif') ? epreuve?.motif : null);
 
   // Quatre plans par axe délimitent les trois tranches de la grille.
   const plans = [-1.5, -0.5, 0.5, 1.5];
@@ -44,20 +46,34 @@
       <div class="cadre"></div>
     {/if}
 
-    <Cellule {position} {couleur} {forme} {visible} {sombre} {grille3D} />
+    <Cellule {position} {couleur} {forme} {motif} {sourceMotif} {visible} {sombre} {grille3D} />
   </div>
 </div>
 
 <style>
   .scene-hote {
+    /*
+      Une grille 3×3×3 en rotation balaie une sphère de rayon 0,87 × côté :
+      c'est la hauteur disponible, et non la largeur, qui dicte sa taille.
+    */
+    --taille: min(68vw, 30svh);
     display: grid;
     place-items: center;
     width: 100%;
-    /* La scène 3D a besoin de marge : un cube en rotation déborde de son cube englobant. */
     aspect-ratio: 1;
-    max-height: 60svh;
-    perspective: 120svmin;
+    max-height: 64svh;
+    /*
+      Perspective proportionnelle à la scène, et non en unités d'écran : en
+      svmin elle devenait trop courte sur mobile, où svmin vaut la largeur —
+      les cubes de la tranche avant grossissaient alors jusqu'à sortir du cadre.
+    */
+    perspective: calc(var(--taille) * 4);
     overflow: hidden;
+  }
+
+  /* En 2D, ni rotation ni perspective : la grille peut occuper bien plus de place. */
+  .scene-hote.plat {
+    --taille: min(86vw, 52svh);
   }
 
   .scene {
@@ -67,16 +83,12 @@
       transformation — les faces du cube se superposeraient au centre et la
       dimension « position » ne serait plus visible.
     */
-    --taille: min(50svmin, 84vw);
+    /* --taille est défini par le conteneur, qui en dérive aussi la perspective. */
     --pas: calc(var(--taille) / 3);
     position: relative;
     width: var(--taille);
     height: var(--taille);
     transform-style: preserve-3d;
-  }
-
-  .scene-hote.plat .scene {
-    --taille: min(64svmin, 88vw);
   }
 
   .tourne {

@@ -9,7 +9,17 @@
    */
   import { onMount, onDestroy } from 'svelte';
   import Grille from './Grille.svelte';
-  import { genererPartie, calculerScore, niveauSuivant, DIMENSIONS, SEUIL_MONTEE } from '../moteur/nback.js';
+  import {
+    genererPartie,
+    calculerScore,
+    progressionAutomatique,
+    titrePartie,
+    nomMode,
+    DIMENSIONS,
+    EXCLUSIONS,
+    SOURCES_MOTIF,
+    PROGRESSION_DEFAUT,
+  } from '../moteur/nback.js';
   import { lecteurAudio } from '../moteur/audio.js';
   import { ajouterSessionNBack, toutesLesSessionsNBack } from '../../../lib/db';
   import { gagnerXp, xpNBack } from '../../../lib/gamification';
@@ -21,12 +31,17 @@
   const TOUCHES_DEFAUT = Object.fromEntries(DIMENSIONS.map((d) => [d.cle, d.touche]));
 
   const REGLAGES_DEFAUT = {
+    // Valeurs par défaut de quad-box : 30 épreuves, 2,5 s, 25 % de
+    // correspondances, 20 % d'interférence.
     n: 2,
-    epreuves: 22,
-    dureeEpreuve: 3000,
-    dimensions: DIMENSIONS.map((d) => d.cle),
+    epreuves: 30,
+    dureeEpreuve: 2500,
+    tauxCorrespondance: 25,
+    interference: 20,
+    dimensions: ['position', 'couleur', 'forme', 'son'],
+    sourceMotif: 'voronoi',
     grille3D: true,
-    progressionAuto: true,
+    progression: { ...PROGRESSION_DEFAUT },
     touches: { ...TOUCHES_DEFAUT },
   };
 
@@ -66,6 +81,7 @@
           ...REGLAGES_DEFAUT,
           ...enregistre,
           touches: { ...TOUCHES_DEFAUT, ...(enregistre.touches ?? {}) },
+          progression: { ...PROGRESSION_DEFAUT, ...(enregistre.progression ?? {}) },
         };
       }
     } catch {
@@ -102,7 +118,10 @@
   async function rafraichirHistorique() {
     try {
       const sessions = await toutesLesSessionsNBack();
-      historique = sessions.sort((a, b) => b.le.localeCompare(a.le)).slice(0, 8);
+      historique = sessions
+        .filter((session) => session.statut !== 'jalon')
+        .sort((a, b) => b.le.localeCompare(a.le))
+        .slice(0, 8);
     } catch (erreur) {
       // Un échec de lecture ne doit pas rester muet : c'est ce qui avait rendu
       // invisible une panne générale de la base sur cette page.
@@ -129,8 +148,11 @@
     partie = genererPartie({
       n: reglages.n,
       epreuves: reglages.epreuves,
-      dimensions: reglages.dimensions,
+      dimensions: [...reglages.dimensions],
       grille3D: reglages.grille3D,
+      tauxCorrespondance: reglages.tauxCorrespondance,
+      interference: reglages.interference,
+      sourceMotif: reglages.sourceMotif,
     });
     index = -1;
     signalees = {};
@@ -175,7 +197,8 @@
 
     const score = calculerScore(partie);
     const secondes = Math.round((Date.now() - debutSession) / 1000);
-    bilan = { ...score, cause, n: partie.meta.n, suivant: niveauSuivant(partie.meta.n, score.taux) };
+    const titre = titrePartie(partie.meta.dimensions);
+    bilan = { ...score, cause, n: partie.meta.n, decision: 'stable', suivant: partie.meta.n };
     ecran = 'bilan';
 
     // Une partie abandonnée n'est pas enregistrée : elle fausserait
@@ -184,8 +207,9 @@
 
     await ajouterSessionNBack({
       le: new Date().toISOString(),
+      titre,
+      statut: 'terminee',
       n: partie.meta.n,
-      // Copie explicite : ce qui part en base doit être un objet simple.
       dimensions: [...partie.meta.dimensions],
       nombreEpreuves: partie.meta.nombreEpreuves,
       taux: score.taux,
@@ -200,7 +224,41 @@
     for (const badge of gain.nouveauxBadges) notifier(`${badge.icone} Succès : ${badge.nom}`, 'badge');
     if (gain.monteeDeNiveau) notifier(`🎉 Niveau ${gain.niveau.niveau} !`, 'succes');
 
-    if (reglages.progressionAuto) reglages.n = bilan.suivant;
+    // Progression automatique : on relit l'historique, la partie qui vient
+    // d'être jouée comprise, puis on pose un jalon si le niveau change — sans
+    // lui, les mêmes parties seraient recomptées à la session suivante.
+    const sessions = (await toutesLesSessionsNBack()).sort((a, b) => b.le.localeCompare(a.le));
+    const resultat = progressionAutomatique(
+      { titre, n: partie.meta.n, taux: score.taux },
+      sessions,
+      reglages.progression,
+    );
+
+    bilan = { ...bilan, decision: resultat.decision, suivant: resultat.n };
+
+    if (resultat.decision !== 'stable') {
+      await ajouterSessionNBack({
+        le: new Date().toISOString(),
+        titre,
+        statut: 'jalon',
+        n: partie.meta.n,
+        dimensions: [...partie.meta.dimensions],
+        nombreEpreuves: partie.meta.nombreEpreuves,
+        taux: score.taux,
+        reperees: score.reperees,
+        aReperer: score.aReperer,
+        erreurs: score.erreurs,
+        secondes: 0,
+      });
+      reglages.n = resultat.n;
+      notifier(
+        resultat.decision === 'montee'
+          ? `⬆ Niveau n = ${resultat.n}`
+          : `⬇ Niveau n = ${resultat.n}`,
+        resultat.decision === 'montee' ? 'succes' : 'info',
+      );
+    }
+
     memoriserReglages();
     await rafraichirHistorique();
   }
@@ -285,10 +343,18 @@
     return false;
   }
 
+  /**
+   * Active ou désactive une dimension, en respectant les exclusions :
+   * le motif porte déjà forme et couleur, il ne peut pas coexister avec elles
+   * (même règle que dans quad-box).
+   */
   function basculerDimension(cle) {
-    reglages.dimensions = reglages.dimensions.includes(cle)
-      ? reglages.dimensions.filter((d) => d !== cle)
-      : [...reglages.dimensions, cle];
+    if (reglages.dimensions.includes(cle)) {
+      reglages.dimensions = reglages.dimensions.filter((d) => d !== cle);
+      return;
+    }
+    const exclues = EXCLUSIONS[cle] ?? [];
+    reglages.dimensions = [...reglages.dimensions.filter((d) => !exclues.includes(d)), cle];
   }
 
   function surTouche(evenement) {
@@ -331,9 +397,7 @@
   const progression = $derived(
     partie && index >= 0 ? Math.min(100, Math.round((index / partie.epreuves.length) * 100)) : 0,
   );
-  const titreMode = $derived(
-    { 1: 'Simple', 2: 'Dual', 3: 'Tri', 4: 'Quad' }[reglages.dimensions.length] ?? 'Personnalisé',
-  );
+  const titreMode = $derived(nomMode(titrePartie(reglages.dimensions)));
 </script>
 
 <svelte:window on:keydown={surTouche} />
@@ -371,16 +435,27 @@
           <input id="duree" type="range" min="1500" max="5000" step="250" bind:value={reglages.dureeEpreuve} class="w-full accent-indigo-600" />
         </div>
 
-        <div class="space-y-2">
-          <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-            <input type="checkbox" bind:checked={reglages.grille3D} class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
-            Grille 3D en rotation (27 positions)
+        <div>
+          <label for="taux-corr" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
+            Correspondances visées : <strong>{reglages.tauxCorrespondance} %</strong>
           </label>
-          <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-            <input type="checkbox" bind:checked={reglages.progressionAuto} class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
-            Ajuster n automatiquement selon le résultat
-          </label>
+          <input id="taux-corr" type="range" min="10" max="50" step="5" bind:value={reglages.tauxCorrespondance} class="w-full accent-indigo-600" />
         </div>
+
+        <div>
+          <label for="interf" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
+            Interférence : <strong>{reglages.interference} %</strong>
+          </label>
+          <input id="interf" type="range" min="0" max="60" step="5" bind:value={reglages.interference} class="w-full accent-indigo-600" />
+          <p class="mt-1 text-xs text-slate-400">
+            Fréquence des leurres : un stimulus proche d'une correspondance, mais décalé d'un rang.
+          </p>
+        </div>
+
+        <label class="flex items-center gap-2 self-end text-sm text-slate-600 dark:text-slate-300">
+          <input type="checkbox" bind:checked={reglages.grille3D} class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
+          Grille 3D en rotation (27 positions)
+        </label>
       </div>
 
       <fieldset class="mt-5">
@@ -448,6 +523,58 @@
         {#if reglages.dimensions.length === 0}
           <p class="mt-2 text-sm text-red-600 dark:text-red-400">Activez au moins une dimension.</p>
         {/if}
+
+        {#if reglages.dimensions.includes('motif')}
+          <div class="mt-3 flex flex-wrap items-center gap-2">
+            <label for="source-motif" class="text-sm text-slate-600 dark:text-slate-300">Source des motifs :</label>
+            <select
+              id="source-motif"
+              bind:value={reglages.sourceMotif}
+              class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
+            >
+              {#each SOURCES_MOTIF as source (source.cle)}
+                <option value={source.cle}>{source.libelle}</option>
+              {/each}
+            </select>
+            <span class="text-xs text-slate-400">Le motif remplace la couleur et la forme.</span>
+          </div>
+        {/if}
+      </fieldset>
+
+      <fieldset class="mt-5 rounded-xl border border-slate-200 p-4 dark:border-slate-700">
+        <legend class="px-1 text-sm font-medium text-slate-600 dark:text-slate-300">
+          Progression automatique du niveau
+        </legend>
+
+        <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
+          <input type="checkbox" bind:checked={reglages.progression.active} class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
+          Ajuster n automatiquement d'après les parties récentes
+        </label>
+
+        {#if reglages.progression.active}
+          <div class="mt-3 grid gap-4 sm:grid-cols-2">
+            <div>
+              <label for="seuil-montee" class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                Monter après <strong>{reglages.progression.partiesMontee}</strong> partie(s) à
+                <strong>{reglages.progression.seuilMontee} %</strong> ou plus
+              </label>
+              <input id="seuil-montee" type="range" min="50" max="100" step="5" bind:value={reglages.progression.seuilMontee} class="w-full accent-emerald-600" />
+              <input aria-label="Nombre de parties requises pour monter" type="range" min="1" max="5" bind:value={reglages.progression.partiesMontee} class="mt-1 w-full accent-emerald-600" />
+            </div>
+            <div>
+              <label for="seuil-descente" class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
+                Descendre après <strong>{reglages.progression.partiesDescente}</strong> partie(s) sous
+                <strong>{reglages.progression.seuilDescente} %</strong>
+              </label>
+              <input id="seuil-descente" type="range" min="10" max="80" step="5" bind:value={reglages.progression.seuilDescente} class="w-full accent-amber-600" />
+              <input aria-label="Nombre de parties requises pour descendre" type="range" min="1" max="5" bind:value={reglages.progression.partiesDescente} class="mt-1 w-full accent-amber-600" />
+            </div>
+          </div>
+          <p class="mt-2 text-xs text-slate-400">
+            Seules les parties des 48 dernières heures, dans le même mode et au même niveau,
+            sont comparées ; un changement de niveau remet le compteur à zéro.
+          </p>
+        {/if}
       </fieldset>
 
       <button
@@ -477,17 +604,15 @@
             <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm dark:border-slate-800 dark:bg-slate-900">
               <span class="font-medium text-slate-800 dark:text-slate-100">
                 n = {session.n}
-                <span class="ml-1 font-normal text-slate-400">
-                  {{ 1: 'Simple', 2: 'Dual', 3: 'Tri', 4: 'Quad' }[session.dimensions.length] ?? session.dimensions.length + ' dim.'}
-                </span>
+                <span class="ml-1 font-normal text-slate-400">{nomMode(session.titre)}</span>
               </span>
               <span class="text-xs text-slate-400">
                 {new Date(session.le).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}
               </span>
               <span
-                class="font-semibold {session.taux >= SEUIL_MONTEE
+                class="font-semibold {session.taux * 100 >= reglages.progression.seuilMontee
                   ? 'text-emerald-600 dark:text-emerald-400'
-                  : session.taux >= 0.6
+                  : session.taux * 100 >= reglages.progression.seuilDescente
                     ? 'text-amber-600 dark:text-amber-400'
                     : 'text-red-600 dark:text-red-400'}"
               >
@@ -514,12 +639,19 @@
       </span>
     </div>
 
+    <!--
+      Les caractéristiques d'affichage viennent de la PARTIE en cours, pas des
+      réglages : ceux-ci peuvent changer pendant qu'une partie se joue, et le
+      vivier de motifs a été tiré au lancement. Dessiner des graines d'art
+      génératif avec le moteur Voronoï ne produirait rien.
+    -->
     <Grille
       epreuve={index >= 0 ? partie?.epreuves[index] : null}
       {visible}
-      grille3D={reglages.grille3D}
+      grille3D={partie?.meta.grille3D ?? reglages.grille3D}
       {sombre}
-      dimensions={reglages.dimensions}
+      dimensions={partie?.meta.dimensions ?? reglages.dimensions}
+      sourceMotif={partie?.meta.sourceMotif ?? reglages.sourceMotif}
     />
 
     <div class="grid gap-2" style="grid-template-columns: repeat({dimensionsActives.length}, minmax(0, 1fr))">
@@ -551,7 +683,13 @@
         Une session abandonnée n'est pas enregistrée.
       </p>
     {:else}
-      <p class="text-5xl">{bilan.taux >= SEUIL_MONTEE ? '🎯' : bilan.taux >= 0.6 ? '👍' : '💪'}</p>
+      <p class="text-5xl">
+        {bilan.taux * 100 >= reglages.progression.seuilMontee
+          ? '🎯'
+          : bilan.taux * 100 >= reglages.progression.seuilDescente
+            ? '👍'
+            : '💪'}
+      </p>
       <h2 class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">
         {Math.round(bilan.taux * 100)} % — n = {bilan.n}
       </h2>
@@ -574,10 +712,12 @@
         {/each}
       </div>
 
-      {#if reglages.progressionAuto && bilan.suivant !== bilan.n}
-        <p class="mt-5 text-sm font-medium {bilan.suivant > bilan.n ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">
-          {bilan.suivant > bilan.n ? '↑' : '↓'} Prochaine session en n = {bilan.suivant}
+      {#if bilan.decision !== 'stable'}
+        <p class="mt-5 text-sm font-medium {bilan.decision === 'montee' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">
+          {bilan.decision === 'montee' ? '↑' : '↓'} Prochaine session en n = {bilan.suivant}
         </p>
+      {:else if reglages.progression.active}
+        <p class="mt-5 text-xs text-slate-400">Niveau inchangé : n = {bilan.n}</p>
       {/if}
     {/if}
 
