@@ -8,11 +8,19 @@ export default {
   titre: 'Espace de révision',
 
   /**
-   * Chemin de base sur GitHub Pages.
-   * - Dépôt « https://github.com/<user>/<depot> »  ->  '/<depot>'
-   * - Dépôt « <user>.github.io »                   ->  '/'
+   * Chemin de base sur GitHub Pages — doit correspondre à l'adresse publique.
+   *
+   *   Adresse visée                                        base
+   *   ---------------------------------------------------  --------------------
+   *   https://revinsp.github.io/            (recommandé)    '/'
+   *   https://risitaslegrand.github.io/                     '/'
+   *   https://risitaslegrand.github.io/revinsp.github.io/   '/revinsp.github.io'
+   *
+   * Rappel : l'adresse « https://<nom>.github.io/ » n'est servie que si le
+   * dépôt « <nom>.github.io » appartient au compte (ou à l'organisation)
+   * « <nom> ». Voir la section « Publier sur GitHub Pages » du README.
    */
-  base: '/revinsp',
+  base: '/',
 
   /** Branche de publication utilisée par « npm run deploy ». */
   brancheDeploiement: 'gh-pages',

@@ -247,26 +247,42 @@ npm run verifier   # contrôle des types (utile après une modification du code)
 
 ## Publier sur GitHub Pages
 
+### La règle de nommage, à connaître avant tout
+
+GitHub Pages sert l'adresse courte `https://<nom>.github.io/` **uniquement**
+si le dépôt s'appelle exactement `<nom>.github.io` **et** appartient au compte
+(ou à l'organisation) `<nom>`. Tout autre dépôt est publié dans un
+sous-dossier : `https://<compte>.github.io/<depot>/`.
+
+| Dépôt | Propriétaire | Adresse publique | `base` |
+|---|---|---|---|
+| `risitaslegrand.github.io` | `RisitasLeGrand` | `https://risitaslegrand.github.io/` | `'/'` |
+| `revinsp.github.io` | organisation `revinsp` | `https://revinsp.github.io/` | `'/'` |
+| `revinsp.github.io` | `RisitasLeGrand` | `https://risitaslegrand.github.io/revinsp.github.io/` | `'/revinsp.github.io'` |
+
+Un nom de dépôt qui ne correspond pas au propriétaire ne donne donc pas
+l'adresse courte : il produit seulement une URL à rallonge.
+
 ### Configuration initiale (une seule fois)
 
-1. Créez un dépôt **public** sur GitHub. Un compte gratuit impose le public
-   pour utiliser Pages — c'est sans risque ici, puisque seul du contenu
-   **chiffré** y est publié.
-   Choisissez un nom neutre, qui ne laisse rien deviner du contenu.
-2. Renseignez le chemin de base dans `site.config.mjs` :
-
-   ```js
-   base: '/nom-du-depot',   // ou '/' si le dépôt s'appelle <compte>.github.io
-   ```
-
-3. Reliez le dépôt local :
+1. **Nommez le dépôt** selon l'adresse visée, d'après le tableau ci-dessus.
+   Le dépôt doit être **public** : un compte gratuit l'exige pour utiliser
+   Pages. C'est sans risque ici, puisque seul du contenu **chiffré** y est
+   publié.
+2. **Renseignez `base`** dans `site.config.mjs`, conformément au tableau.
+   C'est la seule ligne à changer si l'adresse évolue plus tard.
+3. **Reliez le dépôt local** (ou mettez l'URL à jour après un renommage) :
 
    ```bash
-   git remote add origin https://github.com/<compte>/<depot>.git
+   git remote set-url origin https://github.com/<compte>/<depot>.git
    ```
 
-4. Publiez une première fois (voir ci-dessous), puis dans les réglages GitHub
-   du dépôt : **Settings → Pages → Source : Deploy from a branch → `gh-pages` / `root`**.
+4. **Publiez une première fois** (voir ci-dessous), puis, dans le dépôt sur
+   GitHub : **Settings → Pages → Source : Deploy from a branch →
+   branche `gh-pages`, dossier `/ (root)`**.
+
+> La branche `gh-pages` n'existe qu'après le premier `npm run deploy` : c'est
+> pourquoi on publie avant de configurer Pages, et non l'inverse.
 
 ### À chaque mise à jour du contenu
 
@@ -281,13 +297,21 @@ Cette commande, exécutée **sur votre machine** :
 3. construit le site statique dans `dist/` ;
 4. pousse `dist/` sur la branche `gh-pages`.
 
-Aucun secret GitHub Actions n'est nécessaire : rien en clair ne transite jamais
-par GitHub.
+Aucun secret GitHub Actions n'est nécessaire, et **le déploiement ne peut pas
+être automatisé côté serveur** : le chiffrement exige le mot de passe en clair,
+qui ne doit jamais quitter votre machine. C'est une conséquence assumée du
+modèle de sécurité, pas une limitation technique.
 
-Le site est en ligne une minute plus tard à l'adresse
-`https://<compte>.github.io/<depot>/`.
+Le site est en ligne une minute plus tard.
 
----
+### Renommer le dépôt plus tard
+
+Le renommage se fait dans **Settings → General → Repository name**. GitHub
+redirige automatiquement l'ancienne adresse, mais pensez à :
+
+1. mettre à jour `base` dans `site.config.mjs` si l'adresse publique change ;
+2. mettre à jour le remote local (`git remote set-url origin …`) ;
+3. republier (`npm run deploy`).
 
 ## Changer le mot de passe
 
@@ -465,9 +489,16 @@ contenu publié »**
 Le site en ligne a été construit avec un autre mot de passe. Relancez
 `npm run deploy`.
 
-**La page reste bloquée sur « Déchiffrement du contenu… »**
-Vérifiez que `base` dans `site.config.mjs` correspond bien au nom du dépôt :
-les fichiers chiffrés sont cherchés à `<base>/data/`.
+**La page reste bloquée sur « Déchiffrement du contenu… », ou le site s'affiche
+sans style**
+Dans les deux cas, `base` dans `site.config.mjs` ne correspond pas à l'adresse
+publique réelle : les fichiers chiffrés sont cherchés à `<base>/data/` et les
+styles à `<base>/_astro/`. Reportez-vous au tableau de la section
+« Publier sur GitHub Pages ».
+
+**Je tape `<nom>.github.io` et je tombe sur une page 404 de GitHub**
+Aucun compte ni organisation ne porte ce nom, ou le dépôt `<nom>.github.io`
+ne lui appartient pas. Voir la règle de nommage ci-dessus.
 
 **Les termes du glossaire ne sont pas soulignés**
 Vérifiez que `content/glossaire.yml` existe (le build indique le nombre de
