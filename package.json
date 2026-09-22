@@ -12,6 +12,7 @@
     "hash": "node scripts/hash.mjs",
     "actualites:cles": "node scripts/actualites-cles.mjs",
     "actualites:local": "node scripts/actualites-local.mjs",
+    "actualites:lire": "node scripts/dechiffrer-actualite.mjs",
     "verifier": "astro check"
   },
   "repository": {

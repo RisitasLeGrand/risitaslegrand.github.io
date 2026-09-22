@@ -230,6 +230,22 @@ export async function chargerSemaine(id: string): Promise<PeriodeActu | null> {
 }
 
 /**
+ * Dernière veille hebdomadaire disponible, en remontant depuis la semaine en
+ * cours. Une routine qui n'a pas encore tourné, ou une semaine sans publication,
+ * ne doit pas laisser le tableau de bord vide.
+ */
+export async function chargerDerniereSemaine(
+  recul = 6,
+): Promise<{ entree: PeriodeActu; id: string; courante: boolean } | null> {
+  const ids = dernieresSemaines(recul);
+  for (const [rang, id] of ids.entries()) {
+    const entree = await chargerSemaine(id);
+    if (entree) return { entree, id, courante: rang === 0 };
+  }
+  return null;
+}
+
+/**
  * Récupère les entrées hebdomadaires existantes, de la plus récente à la plus
  * ancienne.
  *

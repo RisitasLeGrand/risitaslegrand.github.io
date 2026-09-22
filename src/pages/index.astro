@@ -110,7 +110,7 @@ import Base from '../layouts/Base.astro';
   import { lireProfil, tousLesJours, jourISO, ajouterJours } from '../lib/db';
   import { BADGES, calculerNiveau, statutStreak } from '../lib/gamification';
   import { formaterDuree, lien, pluriel } from '../lib/ui';
-  import { chargerFiches, chargerSemaine, idSemaine } from '../lib/actualites';
+  import { chargerDerniereSemaine, chargerFiches } from '../lib/actualites';
   import { carteFiche, carteItem, definirIndexTexte } from '../lib/actualites-rendu';
   import { aplatirFiches, chargerIndexRecherche, chargerManifeste } from '../lib/contenu';
   import { construireIndexTexte } from '../lib/rattachement';
@@ -244,11 +244,12 @@ import Base from '../layouts/Base.astro';
   async function afficherActualites() {
     document.getElementById('lien-actualites')!.setAttribute('href', lien('/actualites/'));
 
-    const [fiches, semaine, manifeste] = await Promise.all([
+    const [fiches, derniere, manifeste] = await Promise.all([
       chargerFiches(),
-      chargerSemaine(idSemaine(new Date())),
+      chargerDerniereSemaine(),
       chargerManifeste(),
     ]);
+    const semaine = derniere?.entree ?? null;
     if (!fiches.length && !semaine?.items?.length) return;
 
     // Les fiches de cours servent à rattacher chaque actualité au programme.
@@ -259,8 +260,9 @@ import Base from '../layouts/Base.astro';
 
     const blocSemaine = document.getElementById('semaine-actu')!;
     if (semaine?.items?.length) {
+      const intitule = semaine.periode ?? derniere?.id ?? '';
       document.getElementById('titre-semaine-actu')!.textContent =
-        `Cette semaine · ${semaine.periode ?? semaine.semaine ?? ''}`.trim();
+        `${derniere?.courante ? 'Cette semaine' : 'Dernière veille'} · ${intitule}`.trim();
       const zoneItems = document.getElementById('items-semaine-actu')!;
       for (const item of semaine.items.slice(0, 4)) zoneItems.appendChild(carteItem(item, fichesCours));
     } else {

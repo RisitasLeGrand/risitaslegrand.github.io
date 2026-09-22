@@ -14,6 +14,7 @@ import matter from 'gray-matter';
 import YAML from 'yaml';
 import config from '../site.config.mjs';
 import { frontMatterSchema, flashcardSchema, quizSchema, glossaireSchema } from './lib/schema.mjs';
+import { dechiffrerAvecMotDePasse } from './lib/secret.mjs';
 import { construireIndexGlossaire, idTerme } from './lib/glossaire.mjs';
 import { decouperSections, rendreHtml, texteBrut, extraireSommaire } from './lib/markdown.mjs';
 import { sha256Hex, deriverCle, selAleatoire, chiffrerJson, idStable, b64 } from './lib/crypto.mjs';
@@ -349,18 +350,43 @@ async function main() {
   // chiffrée, pour que le navigateur puisse déchiffrer les actualités écrites
   // par les routines. Voir scripts/actualites-cles.mjs.
   const cheminClePrivee = path.join(dossierContenu, 'actualites-cle-privee.json');
+  const cheminCleChiffree = path.join(racine, 'actualites-data', 'cle-privee-chiffree.json');
+  let paireActualites = null;
+
   if (existsSync(cheminClePrivee)) {
-    const paire = JSON.parse(await readFile(cheminClePrivee, 'utf8'));
+    paireActualites = JSON.parse(await readFile(cheminClePrivee, 'utf8'));
+  } else if (existsSync(cheminCleChiffree)) {
+    // Copie de travail absente (dépôt fraîchement cloné) : on la reconstitue
+    // depuis la copie chiffrée versionnée, que le mot de passe ouvre.
+    try {
+      paireActualites = await dechiffrerAvecMotDePasse(
+        motDePasse,
+        JSON.parse(await readFile(cheminCleChiffree, 'utf8')),
+      );
+      await writeFile(cheminClePrivee, JSON.stringify({ v: 1, ...paireActualites }, null, 2));
+      avertissements.push(
+        'Clé d\'actualités restaurée depuis « actualites-data/cle-privee-chiffree.json ».',
+      );
+    } catch (erreur) {
+      avertissements.push(`Clé d\'actualités illisible : ${erreur.message}`);
+    }
+  }
+
+  if (paireActualites) {
     await writeFile(
       path.join(dossierSortie, 'actualites-cle.json'),
       JSON.stringify(
-        await chiffrerJson(cle, { empreinte: paire.empreinte, privee: paire.privee }, tailleIvOctets),
+        await chiffrerJson(
+          cle,
+          { empreinte: paireActualites.empreinte, privee: paireActualites.privee },
+          tailleIvOctets,
+        ),
       ),
     );
   } else {
     avertissements.push(
-      'Aucune clé d\'actualités (content/actualites-cle-privee.json) : la rubrique Actualités ' +
-        'restera masquée. Lancez « npm run actualites:cles » pour l\'activer.',
+      'Aucune clé d\'actualités : la rubrique Actualités restera masquée. ' +
+        'Lancez « npm run actualites:cles » pour l\'activer.',
     );
   }
 
