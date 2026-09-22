@@ -451,6 +451,11 @@ identiques à celles vues *n* épreuves plus tôt.
   avec ⌛ pendant une demi-seconde. Les états et leurs couleurs sont ceux de
   quad-box. Le retour se désactive dans les réglages, pour s'entraîner en
   conditions d'examen.
+- **Recommencer** : le bouton « ↻ » de l'en-tête abandonne la partie en cours
+  et en relance aussitôt une autre avec les mêmes réglages, sans repasser par
+  le bilan ni par les réglages. La séquence de stimuli est régénérée — c'est
+  une nouvelle partie, pas une reprise — et la partie abandonnée n'est pas
+  enregistrée.
 - **Amorçage** : les *n* premières épreuves n'ont rien à quoi se comparer.
   Elles sont signalées comme telles et les réponses qu'on y donne ne comptent
   pas — c'est aussi le comportement du dépôt d'origine.

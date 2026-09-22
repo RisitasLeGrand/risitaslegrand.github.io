@@ -188,6 +188,10 @@
 
   function commencer() {
     if (reglages.dimensions.length === 0) return;
+    // Indispensable pour le redémarrage en cours de partie : sans cela, les
+    // minuteurs de la session abandonnée continueraient de faire défiler les
+    // épreuves de la nouvelle.
+    nettoyerMinuteurs();
     memoriserReglages();
 
     // Le déverrouillage audio part avec le geste de l'utilisateur — condition
@@ -328,6 +332,18 @@
 
   function abandonner() {
     void terminer('abandonnee');
+  }
+
+  /**
+   * Abandonne la partie en cours et en relance aussitôt une autre avec les
+   * mêmes réglages, sans repasser par l'écran de bilan ni par les réglages.
+   * La séquence de stimuli, elle, est régénérée : il s'agit bien d'une
+   * nouvelle partie, pas d'une reprise.
+   *
+   * La partie abandonnée n'est pas enregistrée, comme tout abandon.
+   */
+  function recommencer() {
+    commencer();
   }
 
   function retourAccueil() {
@@ -729,7 +745,19 @@
 {:else if ecran === 'jeu'}
   <div class="space-y-4">
     <div class="flex items-center gap-3">
-      <button onclick={abandonner} class="text-sm text-slate-500 hover:underline dark:text-slate-400">← Arrêter</button>
+      <button
+        onclick={abandonner}
+        class="shrink-0 text-sm text-slate-500 hover:underline dark:text-slate-400"
+      >
+        ← Arrêter
+      </button>
+      <button
+        onclick={recommencer}
+        title="Abandonner et relancer une partie avec les mêmes réglages"
+        class="shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+      >
+        ↻ <span class="hidden sm:inline">Recommencer</span>
+      </button>
       <div class="h-2 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
         <div class="h-full rounded-full bg-indigo-500 transition-all duration-200" style="width: {progression}%"></div>
       </div>
@@ -803,7 +831,8 @@
     {/if}
 
     <p class="text-center text-xs text-slate-400">
-      Signalez une correspondance avec l'épreuve {partie?.meta.n} rangs plus tôt. Échap pour arrêter.
+      Signalez une correspondance avec l'épreuve {partie?.meta.n} rangs plus tôt.
+      « ↻ » relance une partie identique, Échap arrête.
     </p>
   </div>
 {:else if ecran === 'bilan'}
