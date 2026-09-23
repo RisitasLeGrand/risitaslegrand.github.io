@@ -112,6 +112,46 @@ function coquilleCarte(options: {
   return element;
 }
 
+/**
+ * Dépliant « Voir plus / Voir moins », générique.
+ *
+ * Rend un bloc « details » stylé en bouton (voir « .depliant » dans
+ * global.css) : le contenu passé est masqué tant que le bloc n'est pas
+ * ouvert. Pensé pour être réutilisé par toute fiche du suivi permanent qui
+ * deviendrait trop longue, et pas seulement par les deux premières.
+ */
+export function depliant(options: {
+  /** Contenu masqué, déjà échappé. */
+  contenu: string;
+  ouvrir: string;
+  fermer: string;
+  /** Classes supplémentaires sur le bloc « details ». */
+  classe?: string;
+  /** false pour un texte, qui se poursuit sans zone de défilement propre. */
+  borner?: boolean;
+}): string {
+  const { contenu, ouvrir, fermer, classe = '', borner = true } = options;
+  return `<details class="depliant ${classe}">
+            <summary>
+              <span class="depliant-ouvrir">${echapper(ouvrir)}</span>
+              <span class="depliant-fermer">${echapper(fermer)}</span>
+            </summary>
+            <div class="${borner ? 'depliant-corps ' : ''}mt-2">${contenu}</div>
+          </details>`;
+}
+
+/**
+ * Coupe un texte long à la fin de la première phrase qui dépasse le seuil.
+ * Retourne l'extrait visible et la suite, vide si le texte est déjà court.
+ */
+function couperApresPhrase(texte: string, seuil = 180): [string, string] {
+  if (texte.length <= seuil * 1.4) return [texte, ''];
+  const fin = texte.slice(seuil).search(/[.!?]\s/);
+  if (fin === -1) return [texte, ''];
+  const coupe = seuil + fin + 1;
+  return [texte.slice(0, coupe).trim(), texte.slice(coupe).trim()];
+}
+
 /** Ordre d'affichage du tableau de bord économique, et intitulé de chaque tuile. */
 const INDICATEURS: { cle: string; libelle: string }[] = [
   { cle: 'pib', libelle: 'PIB' },
@@ -160,6 +200,15 @@ function tuilesIndicateurs(indicateurs?: Record<string, Indicateur>): string {
  * autres fiches de suivi, rien n'est écrasé — chaque changement s'ajoute, du
  * plus récent au plus ancien.
  */
+/**
+ * Nombre d'entrées d'historique affichées sans déplier.
+ *
+ * Trois plutôt que cinq : chaque entrée porte son résumé, son lien avec le
+ * programme et ses sources, et l'historique publié en compte justement cinq —
+ * s'arrêter à cinq ne replierait donc rien du tout.
+ */
+const HISTORIQUE_VISIBLE = 3;
+
 function listeHistorique(historique: ChangementLegislatif[] | undefined, fiches: FicheAplatie[]): string {
   if (!historique?.length) return '';
   const entrees = [...historique].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
@@ -173,7 +222,41 @@ function listeHistorique(historique: ChangementLegislatif[] | undefined, fiches:
         ${listeSources(entree.sources)}
       </li>`,
   );
-  return `<ol class="mt-3 space-y-4">${elements.join('')}</ol>`;
+  // Les plus récentes d'abord, le reste derrière un « Voir plus » : la liste
+  // est cumulative, elle n'est donc pas destinée à être lue d'un bloc.
+  const recentes = elements.slice(0, HISTORIQUE_VISIBLE);
+  const anciennes = elements.slice(HISTORIQUE_VISIBLE);
+  const liste = `<ol class="mt-3 space-y-4">${recentes.join('')}</ol>`;
+  if (!anciennes.length) return liste;
+
+  const reste = anciennes.length;
+  return (
+    liste +
+    depliant({
+      classe: 'mt-3',
+      ouvrir: `Voir plus (${reste} entrée${reste > 1 ? 's' : ''} plus ancienne${reste > 1 ? 's' : ''})`,
+      fermer: 'Voir moins',
+      contenu: `<ol class="space-y-4 pr-1">${anciennes.join('')}</ol>`,
+    })
+  );
+}
+
+/** Un paragraphe dont la suite, si elle existe, se déplie sous le texte. */
+function paragrapheDepliable(extrait: string, suite: string, marge: string): string {
+  if (!extrait) return '';
+  const classe = `texte-secable ${marge} text-sm text-slate-600 dark:text-slate-300`;
+  const debut = `<p class="${classe}">${echapper(extrait)}</p>`;
+  if (!suite) return debut;
+  return (
+    debut +
+    depliant({
+      classe: 'mt-1',
+      ouvrir: 'Voir plus',
+      fermer: 'Voir moins',
+      borner: false,
+      contenu: `<p class="${classe.replace(marge, 'mt-0')}">${echapper(suite)}</p>`,
+    })
+  );
 }
 
 /** Carte d'une fiche suivie en continu (Premier ministre, chiffres clés…). */
@@ -181,6 +264,10 @@ export function carteFiche(fiche: FicheActu, fichesCours: FicheAplatie[] = []): 
   const texte = fiche.resume ?? fiche.texte_contextuel ?? '';
   const contexte =
     fiche.texte_contextuel && fiche.resume ? fiche.texte_contextuel : '';
+  // Les tuiles d'indicateurs restent toujours visibles : c'est le texte qui
+  // les accompagne, lui seul, qui se replie.
+  const [extrait, suite] = couperApresPhrase(texte);
+  const [extraitContexte, suiteContexte] = couperApresPhrase(contexte);
   const element = coquilleCarte({
     etiquette: 'Suivi permanent',
     classeEtiquette: 'text-slate-500 dark:text-slate-400',
@@ -188,8 +275,8 @@ export function carteFiche(fiche: FicheActu, fichesCours: FicheAplatie[] = []): 
     mention: fiche.derniere_maj ? formaterDate(fiche.derniere_maj) : undefined,
     corps: `
       ${tuilesIndicateurs(fiche.indicateurs)}
-      ${texte ? `<p class="texte-secable mt-3 text-sm text-slate-600 dark:text-slate-300">${echapper(texte)}</p>` : ''}
-      ${contexte ? `<p class="texte-secable mt-2 text-sm text-slate-600 dark:text-slate-300">${echapper(contexte)}</p>` : ''}
+      ${paragrapheDepliable(extrait, suite, 'mt-3')}
+      ${paragrapheDepliable(extraitContexte, suiteContexte, 'mt-2')}
       ${listeHistorique(fiche.historique, fichesCours)}
       ${fiche.historique?.length ? '' : blocLienCours(fiche, fichesCours)}
       ${listeSources(fiche.sources)}`,

@@ -54,6 +54,59 @@ body {
   @apply inline-flex items-center gap-1 text-xs font-bold tracking-wide uppercase;
 }
 
+/* --- Dépliant « Voir plus / Voir moins » ---------------------------------- */
+/* Composant générique : une zone de contenu que l'on déplie, bâtie sur
+   « details/summary » plutôt que sur du JavaScript. L'élément natif apporte
+   gratuitement le clavier, le rôle et l'annonce d'état aux lecteurs d'écran ;
+   il ne reste qu'à remplacer le triangle du navigateur par un bouton aux
+   couleurs de la charte, et à intervertir les deux libellés à l'ouverture. */
+.depliant > summary {
+  @apply inline-flex min-h-11 cursor-pointer items-center gap-1.5 text-sm font-medium text-indigo-700 dark:text-indigo-300;
+  list-style: none;
+}
+
+/* Le triangle par défaut, dans ses deux écritures (Chrome/Safari et Firefox). */
+.depliant > summary::-webkit-details-marker {
+  display: none;
+}
+.depliant > summary::marker {
+  content: '';
+}
+
+.depliant > summary:hover {
+  @apply underline;
+}
+
+/* Chevron dessiné en CSS : il pivote vers le haut une fois le bloc ouvert. */
+.depliant > summary::after {
+  content: '';
+  width: 0.45rem;
+  height: 0.45rem;
+  margin-bottom: 0.15rem;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: rotate(45deg);
+  transition: transform 150ms ease;
+}
+.depliant[open] > summary::after {
+  transform: rotate(-135deg);
+  margin-bottom: -0.15rem;
+}
+
+/* Un seul des deux libellés est visible à la fois. */
+.depliant[open] > summary .depliant-ouvrir,
+.depliant:not([open]) > summary .depliant-fermer {
+  display: none;
+}
+
+/* La zone dépliée est bornée : un historique qui grandit ne doit pas
+   allonger la page indéfiniment, il défile sur lui-même. */
+.depliant-corps {
+  max-height: 22rem;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* --- Termes du glossaire ------------------------------------------------- */
 /* Soulignement discret + curseur « aide » : se distingue nettement d'un lien. */
 dfn.terme-glossaire {

@@ -137,6 +137,16 @@ const demonstration = [
         sources: [{ nom: 'Vie publique', url: 'https://www.vie-publique.fr/' }],
         mots_cles: ['LOLF', 'autorisation budgétaire'],
       },
+      // Au-delà de cinq entrées, la liste se replie derrière « Voir plus » :
+      // ces entrées de remplissage servent à voir le dépliant à l'œuvre.
+      ...Array.from({ length: 5 }, (_, i) => ({
+        titre: `DÉMONSTRATION — entrée d'historique n° ${i + 3}`,
+        date: jour(80 + i * 30),
+        resume:
+          "Entrée de remplissage : elle vérifie que l'historique cumulatif se condense aux cinq plus récentes, le reste étant accessible d'un clic.",
+        sources: [{ nom: 'Légifrance', url: 'https://www.legifrance.gouv.fr/' }],
+        mots_cles: ['hiérarchie des normes'],
+      })),
     ],
     derniere_maj: aujourdhui.toISOString().slice(0, 10),
   }],
