@@ -47,26 +47,31 @@ import Section from '../components/Section.astro';
       </div>
     </section>
 
-    <!-- Séance du jour : proposée automatiquement par la rotation. -->
-    <a
-      id="carte-seance"
-      href="planification/"
-      class="hidden rounded-xl border border-indigo-200 bg-indigo-50 p-5 transition hover:border-indigo-400 dark:border-indigo-800 dark:bg-indigo-950/40 dark:hover:border-indigo-600"
-    >
-      <div class="flex flex-wrap items-start justify-between gap-3">
-        <div class="min-w-0">
-          <p id="seance-etiquette" class="etiquette text-indigo-600 dark:text-indigo-400"></p>
-          <p id="seance-titre" class="mt-1 text-lg font-bold text-slate-900 dark:text-white"></p>
-          <p id="seance-detail" class="mt-1 text-sm text-slate-600 dark:text-slate-300"></p>
+    <!-- Séance du jour : proposée automatiquement par la rotation.
+         C'est la <section> qui porte « hidden », et non le lien : un <a> dont
+         on retire « hidden » repasserait en « display: inline », et la carte
+         perdrait son fond, sa bordure et ses marges intérieures. -->
+    <section id="bloc-seance" class="hidden">
+      <a
+        id="carte-seance"
+        href="planification/"
+        class="block rounded-xl border border-indigo-200 bg-indigo-50 p-5 transition hover:border-indigo-400 dark:border-indigo-800 dark:bg-indigo-950/40 dark:hover:border-indigo-600"
+      >
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div class="min-w-0">
+            <p id="seance-etiquette" class="etiquette text-indigo-600 dark:text-indigo-400"></p>
+            <p id="seance-titre" class="mt-1 text-lg font-bold text-slate-900 dark:text-white"></p>
+            <p id="seance-detail" class="mt-1 text-sm text-slate-600 dark:text-slate-300"></p>
+          </div>
+          <span
+            id="seance-badge"
+            class="hidden shrink-0 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 uppercase dark:bg-amber-950 dark:text-amber-300"
+          >
+            Révision du mois
+          </span>
         </div>
-        <span
-          id="seance-badge"
-          class="hidden shrink-0 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 uppercase dark:bg-amber-950 dark:text-amber-300"
-        >
-          Révision du mois
-        </span>
-      </div>
-    </a>
+      </a>
+    </section>
 
     <!-- Relance si la série est en péril -->
     <div id="alerte-streak" class="hidden rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-200"></div>
@@ -295,9 +300,14 @@ import Section from '../components/Section.astro';
         : `Restitution à blanc ${
             nombreRappels === 1 ? 'de la séance précédente' : `des ${nombreRappels} séances précédentes`
           }, puis contenu du jour et note de séance.`;
-    document.getElementById('seance-badge')!.classList.toggle('hidden', !seance.etendue);
+    // Un <span> réaffiché redevient « inline » : on bascule explicitement vers
+    // « inline-flex », sans quoi la pastille perdrait ses marges verticales.
+    const badge = document.getElementById('seance-badge')!;
+    badge.classList.toggle('hidden', !seance.etendue);
+    badge.classList.toggle('inline-flex', seance.etendue);
+
     document.getElementById('carte-seance')!.setAttribute('href', lien('/planification/'));
-    document.getElementById('carte-seance')!.classList.remove('hidden');
+    document.getElementById('bloc-seance')!.classList.remove('hidden');
   }
 
   /**

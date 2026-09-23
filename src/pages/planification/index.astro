@@ -79,13 +79,6 @@ import Section from '../../components/Section.astro';
           >
             Commencer la séance
           </a>
-          <a
-            id="lien-reprendre"
-            href="seance/"
-            class="hidden min-h-11 items-center rounded-lg border border-slate-300 px-5 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
-          >
-            Revoir la séance
-          </a>
         </div>
       </div>
     </section>
@@ -152,7 +145,9 @@ import Section from '../../components/Section.astro';
     $('date-du-jour').textContent = dateLongue.format(enDate(aujourdhui));
     $('etiquette-jour').textContent = seance.statut === 'terminee' ? 'Séance terminée' : 'Matière du jour';
     $('titre-jour').textContent = `${sujet?.icone ?? ''} ${sujet?.nom ?? seance.theme}`.trim();
+    // Comme sur le tableau de bord : un <span> réaffiché redevient « inline ».
     $('badge-etendue').classList.toggle('hidden', !seance.etendue);
+    $('badge-etendue').classList.toggle('inline-flex', seance.etendue);
 
     const nombreRappels = seance.etendue ? Math.min(4, passees.length) : Math.min(2, passees.length);
     $('resume-jour').textContent =
@@ -167,7 +162,6 @@ import Section from '../../components/Section.astro';
 
     const urlSeance = `${lien('/planification/seance/')}?jour=${aujourdhui}`;
     $('lien-seance').setAttribute('href', urlSeance);
-    $('lien-reprendre').setAttribute('href', urlSeance);
     $('lien-seance').textContent =
       seance.statut === 'terminee' ? 'Reprendre la séance' : seance.id ? 'Poursuivre la séance' : 'Commencer la séance';
 
