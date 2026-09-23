@@ -89,6 +89,14 @@ export interface Seance {
    * de la séance restituée.
    */
   restitutions?: Record<string, string>;
+  /**
+   * Identifiants des fiches réellement couvertes pendant la séance.
+   *
+   * C'est ce qui permet, aux séances suivantes, de proposer un rappel par
+   * flashcards et par QCM portant sur le contenu vraiment vu ce jour-là,
+   * et non sur la matière entière.
+   */
+  fiches?: string[];
   /** Séance étendue du 1er du mois : rappel n-1 à n-4. */
   etendue: boolean;
 }
@@ -291,6 +299,41 @@ export async function supprimerSeance(id: number) {
   await (await db()).delete('seances', id);
 }
 
+/* --- Réglages de session -------------------------------------------------- */
+
+/**
+ * Plafonds de session.
+ *
+ * Le site est dense : à ce jour plus de deux mille flashcards et neuf cents
+ * questions. Présenter d'un coup tout ce qui est « dû » rendrait la moindre
+ * reprise décourageante. On plafonne donc chaque session, en servant d'abord
+ * les éléments les plus en retard.
+ */
+export interface ReglagesSession {
+  plafondCartes: number;
+  plafondQuestions: number;
+}
+
+export const REGLAGES_SESSION_PAR_DEFAUT: ReglagesSession = {
+  plafondCartes: 25,
+  plafondQuestions: 20,
+};
+
+export async function lireReglagesSession(): Promise<ReglagesSession> {
+  const base = await db();
+  const stockes = (await base.get('etat', 'reglagesSession')) as Partial<ReglagesSession> | undefined;
+  const fusion = { ...REGLAGES_SESSION_PAR_DEFAUT, ...(stockes ?? {}) };
+  // Un réglage aberrant ne doit pas pouvoir vider ou saturer une session.
+  return {
+    plafondCartes: Math.min(200, Math.max(5, Math.round(fusion.plafondCartes))),
+    plafondQuestions: Math.min(200, Math.max(5, Math.round(fusion.plafondQuestions))),
+  };
+}
+
+export async function ecrireReglagesSession(reglages: ReglagesSession) {
+  await (await db()).put('etat', reglages, 'reglagesSession');
+}
+
 /* --- Réglages de planification -------------------------------------------- */
 
 export interface ReglagesPlanification {
@@ -324,6 +367,7 @@ export async function exporterTout() {
     nback: await base.getAll('nback'),
     seances: await base.getAll('seances'),
     planification: await lireReglagesPlanification(),
+    reglagesSession: (await base.get('etat', 'reglagesSession')) as ReglagesSession | undefined,
   };
 }
 
@@ -445,6 +489,7 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
   }
 
   if (donnees.planification) await ecrireReglagesPlanification(donnees.planification);
+  if (donnees.reglagesSession) await ecrireReglagesSession(donnees.reglagesSession);
 }
 
 /** Efface toute la progression locale (bouton « tout réinitialiser »). */

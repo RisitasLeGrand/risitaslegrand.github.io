@@ -14,7 +14,9 @@ import {
   toutesLesCartes,
   tousLesEtatsFiches,
   tousLesResultatsQuiz,
+  toutesLesSeances,
   toutesLesSessionsNBack,
+  type Jour,
   type Profil,
 } from './db';
 
@@ -141,6 +143,8 @@ interface ContexteBadges {
   sessionsNBack: number;
   /** Plus haut n validé (précision équilibrée ≥ 85 %). */
   meilleurNBack: number;
+  /** Jours écoulés depuis la toute première journée de révision (1 le jour même). */
+  joursDepuisDebut: number;
 }
 
 export const BADGES: DefinitionBadge[] = [
@@ -256,6 +260,44 @@ export const BADGES: DefinitionBadge[] = [
     icone: '🔁',
     obtenu: (c) => c.sessionsNBack >= 50,
   },
+  // Jalons de durée : le programme s'étale sur plusieurs années, et la série
+  // de jours consécutifs ne dit rien de cette profondeur — un an de révision
+  // entrecoupée de pauses reste un an de révision.
+  {
+    id: 'duree-3-mois',
+    nom: 'Trois mois de révision',
+    description: 'Trois mois écoulés depuis la première séance.',
+    icone: '🌱',
+    obtenu: (c) => c.joursDepuisDebut >= 91,
+  },
+  {
+    id: 'duree-6-mois',
+    nom: 'Six mois de révision',
+    description: 'Six mois écoulés depuis la première séance.',
+    icone: '🌿',
+    obtenu: (c) => c.joursDepuisDebut >= 182,
+  },
+  {
+    id: 'duree-1-an',
+    nom: 'Un an de révision',
+    description: 'Une année entière de préparation.',
+    icone: '🌳',
+    obtenu: (c) => c.joursDepuisDebut >= 365,
+  },
+  {
+    id: 'duree-2-ans',
+    nom: 'Deux ans de révision',
+    description: 'Deux années de préparation au concours.',
+    icone: '🏛️',
+    obtenu: (c) => c.joursDepuisDebut >= 730,
+  },
+  {
+    id: 'duree-3-ans',
+    nom: 'Trois ans de révision',
+    description: 'Trois années de préparation — la marque d\'un programme de fond.',
+    icone: '⛰️',
+    obtenu: (c) => c.joursDepuisDebut >= 1095,
+  },
   {
     id: 'cinquante-acquises',
     nom: 'Mémoire longue',
@@ -265,15 +307,137 @@ export const BADGES: DefinitionBadge[] = [
   },
 ];
 
+// --- Horizon pluriannuel --------------------------------------------------
+
+/**
+ * Premier jour de révision connu : la plus ancienne journée comptabilisée,
+ * ou la plus ancienne séance planifiée si elle la précède (une séance peut
+ * avoir été ouverte sans rapporter d'XP).
+ */
+function premierJour(jours: Jour[], seances: { jour: string }[]): string | null {
+  const candidats = [...jours.map((j) => j.jour), ...seances.map((s) => s.jour)].filter(Boolean);
+  return candidats.length ? candidats.reduce((a, b) => (a < b ? a : b)) : null;
+}
+
+/** Ancienneté du programme, en jours, le premier jour comptant pour 1. */
+function anciennete(debut: string | null, aujourdhui = jourISO()): number {
+  return debut ? Math.max(1, ecartJours(debut, aujourdhui) + 1) : 0;
+}
+
+export interface JalonDuree {
+  id: string;
+  libelle: string;
+  jours: number;
+  atteint: boolean;
+  /** Jours restants avant le jalon ; 0 s'il est déjà atteint. */
+  restant: number;
+}
+
+/** Les paliers de durée du programme, du premier mois à la troisième année. */
+export const JALONS_DUREE: { id: string; libelle: string; jours: number }[] = [
+  { id: 'duree-1-mois', libelle: '1 mois de révision', jours: 30 },
+  { id: 'duree-3-mois', libelle: '3 mois de révision', jours: 91 },
+  { id: 'duree-6-mois', libelle: '6 mois de révision', jours: 182 },
+  { id: 'duree-1-an', libelle: '1 an de révision', jours: 365 },
+  { id: 'duree-18-mois', libelle: '18 mois de révision', jours: 548 },
+  { id: 'duree-2-ans', libelle: '2 ans de révision', jours: 730 },
+  { id: 'duree-3-ans', libelle: '3 ans de révision', jours: 1095 },
+];
+
+export interface AnneeProgramme {
+  /** 1 pour la première année de préparation, 2 pour la suivante, etc. */
+  rang: number;
+  debut: string;
+  fin: string;
+  enCours: boolean;
+  joursEtudies: number;
+  xp: number;
+  secondes: number;
+  seances: number;
+}
+
+export interface VueLongTerme {
+  /** null tant qu'aucune journée n'a été enregistrée. */
+  debut: string | null;
+  /** Ancienneté du programme, en jours (le premier jour compte pour 1). */
+  joursDepuisDebut: number;
+  moisDepuisDebut: number;
+  joursEtudies: number;
+  /** Part des jours du programme réellement travaillés, 0 → 1. */
+  assiduite: number;
+  secondesTotales: number;
+  seancesTerminees: number;
+  annees: AnneeProgramme[];
+  jalons: JalonDuree[];
+  prochainJalon: JalonDuree | null;
+}
+
+/**
+ * Situe la progression dans le programme pluriannuel : ancienneté, assiduité
+ * et découpage par année de préparation. Complète — sans les remplacer — les
+ * indicateurs court terme (série en cours, cartes dues, XP du jour).
+ */
+export async function vueLongTerme(): Promise<VueLongTerme> {
+  const [jours, seances] = await Promise.all([tousLesJours(), toutesLesSeances()]);
+  const terminees = seances.filter((s) => s.statut === 'terminee');
+  const debut = premierJour(jours, seances);
+  const aujourdhui = jourISO();
+  const joursDepuisDebut = anciennete(debut, aujourdhui);
+
+  // Années « de préparation » glissantes : elles courent depuis la première
+  // journée, pas depuis le 1er janvier — c'est l'ancienneté qui fait sens ici.
+  const annees: AnneeProgramme[] = [];
+  if (debut) {
+    const nombre = Math.ceil(joursDepuisDebut / 365);
+    for (let rang = 1; rang <= nombre; rang++) {
+      const borneDebut = ajouterJours(debut, (rang - 1) * 365);
+      const borneFin = ajouterJours(debut, rang * 365 - 1);
+      const dans = (jour: string) => jour >= borneDebut && jour <= borneFin;
+      const joursAnnee = jours.filter((j) => dans(j.jour));
+      annees.push({
+        rang,
+        debut: borneDebut,
+        fin: borneFin,
+        enCours: aujourdhui <= borneFin,
+        joursEtudies: joursAnnee.filter((j) => j.xp > 0).length,
+        xp: joursAnnee.reduce((n, j) => n + j.xp, 0),
+        secondes: joursAnnee.reduce((n, j) => n + j.secondes, 0),
+        seances: terminees.filter((s) => dans(s.jour)).length,
+      });
+    }
+  }
+
+  const jalons: JalonDuree[] = JALONS_DUREE.map((jalon) => ({
+    ...jalon,
+    atteint: joursDepuisDebut >= jalon.jours,
+    restant: Math.max(0, jalon.jours - joursDepuisDebut),
+  }));
+
+  const joursEtudies = jours.filter((j) => j.xp > 0).length;
+  return {
+    debut,
+    joursDepuisDebut,
+    moisDepuisDebut: Math.floor(joursDepuisDebut / 30.44),
+    joursEtudies,
+    assiduite: joursDepuisDebut ? joursEtudies / joursDepuisDebut : 0,
+    secondesTotales: jours.reduce((n, j) => n + j.secondes, 0),
+    seancesTerminees: terminees.length,
+    annees,
+    jalons,
+    prochainJalon: jalons.find((j) => !j.atteint) ?? null,
+  };
+}
+
 /** Construit le contexte d'évaluation des badges à partir de la base locale. */
 export async function contexteBadges(profil?: Profil): Promise<ContexteBadges> {
-  const [p, cartes, fiches, quiz, jours, sessions] = await Promise.all([
+  const [p, cartes, fiches, quiz, jours, sessions, seances] = await Promise.all([
     profil ? Promise.resolve(profil) : lireProfil(),
     toutesLesCartes(),
     tousLesEtatsFiches(),
     tousLesResultatsQuiz(),
     tousLesJours(),
     toutesLesSessionsNBack(),
+    toutesLesSeances(),
   ]);
 
   // Une matière est « terminée » quand toutes ses cartes connues sont acquises.
@@ -296,6 +460,7 @@ export async function contexteBadges(profil?: Profil): Promise<ContexteBadges> {
     secondesTotales: jours.reduce((n, j) => n + j.secondes, 0),
     matieresTerminees: [...parMatiere.values()].filter((m) => m.total >= 5 && m.acquises === m.total)
       .length,
+    joursDepuisDebut: anciennete(premierJour(jours, seances)),
     // Les jalons de progression ne sont pas des parties : ils ne comptent ni
     // dans le nombre de sessions, ni dans le meilleur niveau atteint.
     sessionsNBack: sessions.filter((s) => s.statut !== 'jalon').length,

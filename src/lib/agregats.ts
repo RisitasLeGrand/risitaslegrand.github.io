@@ -11,6 +11,7 @@ import {
   type Manifeste,
 } from './contenu';
 import {
+  ecartJours,
   jourISO,
   toutesLesCartes,
   tousLesEtatsFiches,
@@ -158,6 +159,8 @@ export interface CarteAReviser {
   matiere: string;
   /** true si la carte n'a encore jamais été révisée. */
   neuve: boolean;
+  /** Nombre de jours de retard sur l'échéance ; 0 pour une carte neuve. */
+  retard: number;
 }
 
 /**
@@ -167,19 +170,29 @@ export interface CarteAReviser {
 export async function fileDuJour(options: {
   matiere?: string | null;
   ficheId?: string | null;
+  /** Restreint la file à un ensemble de fiches — rappel d'une séance passée. */
+  ficheIds?: string[] | null;
   limite?: number;
   inclureNonDues?: boolean;
 } = {}): Promise<CarteAReviser[]> {
-  const { matiere = null, ficheId = null, limite = 0, inclureNonDues = false } = options;
+  const {
+    matiere = null,
+    ficheId = null,
+    ficheIds = null,
+    limite = 0,
+    inclureNonDues = false,
+  } = options;
   const manifeste = await chargerManifeste();
   const cartes = new Map((await toutesLesCartes()).map((c) => [c.id, c]));
   const aujourdhui = jourISO();
+  const ensemble = ficheIds?.length ? new Set(ficheIds) : null;
 
   const candidates = aplatirFiches(manifeste).filter(
     (f) =>
       f.nbFlashcards > 0 &&
       (!matiere || f.matiere === matiere) &&
-      (!ficheId || f.id === ficheId),
+      (!ficheId || f.id === ficheId) &&
+      (!ensemble || ensemble.has(f.id)),
   );
 
   const file: CarteAReviser[] = [];
@@ -197,11 +210,15 @@ export async function fileDuJour(options: {
         ficheTitre: fiche.titre,
         matiere: fiche.matiere,
         neuve: !etat || etat.revisions === 0,
+        // Retard, en jours : sert à servir d'abord ce qui attend depuis le
+        // plus longtemps quand la session est plafonnée.
+        retard: etat ? Math.max(0, ecartJours(etat.du, aujourdhui)) : 0,
       });
     }
   }
 
-  // Cartes déjà vues d'abord (rappel avant découverte), puis cartes neuves.
-  file.sort((a, b) => Number(a.neuve) - Number(b.neuve));
+  // Cartes déjà vues d'abord (rappel avant découverte), les plus en retard
+  // en tête : c'est ce qui compte quand la file dépasse le plafond de session.
+  file.sort((a, b) => Number(a.neuve) - Number(b.neuve) || b.retard - a.retard);
   return limite > 0 ? file.slice(0, limite) : file;
 }

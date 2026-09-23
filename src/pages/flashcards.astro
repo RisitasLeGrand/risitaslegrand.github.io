@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import { base } from '../lib/ui';
 ---
 
 <Base titre="Flashcards" actif="flashcards">
@@ -8,9 +9,20 @@ import Base from '../layouts/Base.astro';
   <!-- Choix de la session -->
   <section id="accueil-session" class="hidden">
     <h1 class="mb-1 text-2xl font-bold text-slate-900 dark:text-white">Session de flashcards</h1>
-    <p class="mb-6 text-sm text-slate-500 dark:text-slate-400">
-      La file du jour est construite automatiquement par répétition espacée (SM-2).
+    <p class="mb-4 text-sm text-slate-500 dark:text-slate-400">
+      La file du jour est construite automatiquement par répétition espacée (SM-2). Chaque session
+      est plafonnée, les cartes les plus en retard servies en premier.
     </p>
+
+    <!-- Rappel ciblé : la session ne porte que sur les fiches d'une séance
+         passée, transmises par la page de planification. -->
+    <div
+      id="bandeau-rappel"
+      class="mb-5 hidden rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 dark:border-indigo-800 dark:bg-indigo-950/40"
+    >
+      <p class="etiquette text-indigo-600 dark:text-indigo-400">Rappel de séance</p>
+      <p id="texte-rappel" class="mt-1 text-sm text-slate-700 dark:text-slate-200"></p>
+    </div>
 
     <div class="grid gap-4 sm:grid-cols-3">
       <div class="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
@@ -37,11 +49,16 @@ import Base from '../layouts/Base.astro';
       <div>
         <label for="choix-taille" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Longueur</label>
         <select id="choix-taille" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+          <option value="10">10 cartes</option>
           <option value="20">20 cartes</option>
-          <option value="40">40 cartes</option>
-          <option value="0">Toute la file</option>
+          <option value="30">30 cartes</option>
+          <option value="50">50 cartes</option>
         </select>
       </div>
+      <p class="w-full text-xs text-slate-500 dark:text-slate-400">
+        La longueur proposée reprend votre plafond de session —
+        <a id="lien-reglages" href={`${base}/progression/#reglages`} class="font-medium text-indigo-600 underline dark:text-indigo-400">modifier ce plafond</a>.
+      </p>
       <button id="lancer" class="rounded-lg bg-indigo-600 px-5 py-2.5 font-medium text-white transition hover:bg-indigo-700">
         Commencer
       </button>
@@ -119,8 +136,14 @@ import Base from '../layouts/Base.astro';
 <script>
   import { auDeverrouillage } from '../lib/chargement';
   import { fileDuJour, type CarteAReviser } from '../lib/agregats';
-  import { chargerManifeste } from '../lib/contenu';
-  import { jourISO, lireCarte, toutesLesCartes, type Difficulte } from '../lib/db';
+  import { aplatirFiches, chargerManifeste } from '../lib/contenu';
+  import {
+    jourISO,
+    lireCarte,
+    lireReglagesSession,
+    toutesLesCartes,
+    type Difficulte,
+  } from '../lib/db';
   import { gagnerXp, xpFlashcard } from '../lib/gamification';
   import { noter, noterEtEnregistrer } from '../lib/srs';
   import { lien, melanger, notifier, parametreUrl, pluriel } from '../lib/ui';
@@ -213,12 +236,23 @@ import Base from '../layouts/Base.astro';
       `${compte.facile} facile(s), ${compte.moyen} moyen(s), ${compte.difficile} difficile(s)`;
   }
 
+  /** Fiches d'une séance passée, transmises sous la forme « ?fiches=a,b,c ». */
+  function fichesCiblees(): string[] | null {
+    const brut = parametreUrl('fiches');
+    if (!brut) return null;
+    const ids = brut.split(',').map((x) => x.trim()).filter(Boolean);
+    return ids.length ? ids : null;
+  }
+
   async function demarrer(inclureNonDues: boolean) {
     const matiere = ($('choix-matiere') as HTMLSelectElement).value || null;
     const taille = Number(($('choix-taille') as HTMLSelectElement).value);
     const ficheId = parametreUrl('fiche');
+    const ficheIds = fichesCiblees();
 
-    file = melanger(await fileDuJour({ matiere, ficheId, limite: taille, inclureNonDues }));
+    file = melanger(
+      await fileDuJour({ matiere, ficheId, ficheIds, limite: taille, inclureNonDues }),
+    );
     if (!file.length) {
       $('rien-a-faire').classList.remove('hidden');
       return;
@@ -235,7 +269,7 @@ import Base from '../layouts/Base.astro';
   async function rafraichirCompteurs() {
     const ficheId = parametreUrl('fiche');
     const cartes = await toutesLesCartes();
-    const dues = await fileDuJour({ ficheId });
+    const dues = await fileDuJour({ ficheId, ficheIds: fichesCiblees() });
     $('nb-dues').textContent = String(dues.length);
     $('nb-neuves').textContent = String(dues.filter((c) => c.neuve).length);
     $('nb-acquises').textContent = String(cartes.filter((c) => c.intervalle >= 21).length);
@@ -250,6 +284,33 @@ import Base from '../layouts/Base.astro';
       option.value = matiere.nom;
       option.textContent = matiere.nom;
       select.appendChild(option);
+    }
+
+    // Le plafond enregistré devient la longueur proposée par défaut ; s'il ne
+    // correspond à aucune option, on l'ajoute pour qu'il reste visible.
+    const { plafondCartes } = await lireReglagesSession();
+    const taille = $('choix-taille') as HTMLSelectElement;
+    if (![...taille.options].some((o) => Number(o.value) === plafondCartes)) {
+      const option = document.createElement('option');
+      option.value = String(plafondCartes);
+      option.textContent = `${plafondCartes} cartes`;
+      taille.appendChild(option);
+    }
+    taille.value = String(plafondCartes);
+
+    // Rappel ciblé sur les fiches d'une séance passée.
+    const ciblees = fichesCiblees();
+    if (ciblees) {
+      const titres = aplatirFiches(manifeste)
+        .filter((f) => ciblees.includes(f.id))
+        .map((f) => f.titre);
+      $('texte-rappel').textContent = titres.length
+        ? `Session limitée aux fiches travaillées lors d'une séance précédente : ${titres.join(' · ')}.`
+        : 'Session limitée aux fiches d\'une séance précédente.';
+      $('bandeau-rappel').classList.remove('hidden');
+      // Le filtre par matière n'a plus de sens quand les fiches sont imposées.
+      select.value = '';
+      select.disabled = true;
     }
 
     await rafraichirCompteurs();

@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import { base } from '../lib/ui';
 ---
 
 <Base titre="Quiz" actif="quiz">
@@ -8,8 +9,18 @@ import Base from '../layouts/Base.astro';
   <section id="accueil-quiz" class="hidden">
     <h1 class="mb-1 text-2xl font-bold text-slate-900 dark:text-white">Quiz d'auto-évaluation</h1>
     <p class="mb-6 text-sm text-slate-500 dark:text-slate-400">
-      Correction immédiate, score en fin de série.
+      Correction immédiate, score en fin de série. Chaque série est plafonnée pour rester tenable.
     </p>
+
+    <!-- Rappel ciblé : la série ne porte que sur les fiches d'une séance
+         passée, transmises par la page de planification. -->
+    <div
+      id="bandeau-rappel"
+      class="mb-5 hidden rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-3 dark:border-indigo-800 dark:bg-indigo-950/40"
+    >
+      <p class="etiquette text-indigo-600 dark:text-indigo-400">Rappel de séance</p>
+      <p id="texte-rappel" class="mt-1 text-sm text-slate-700 dark:text-slate-200"></p>
+    </div>
 
     <div class="flex flex-wrap items-end gap-3">
       <div>
@@ -29,9 +40,14 @@ import Base from '../layouts/Base.astro';
         <select id="quiz-taille" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
           <option value="10">10</option>
           <option value="20">20</option>
-          <option value="0">Toutes</option>
+          <option value="30">30</option>
+          <option value="50">50</option>
         </select>
       </div>
+      <p class="w-full text-xs text-slate-500 dark:text-slate-400">
+        Le nombre proposé reprend votre plafond de session —
+        <a id="lien-reglages" href={`${base}/progression/#reglages`} class="font-medium text-indigo-600 underline dark:text-indigo-400">modifier ce plafond</a>.
+      </p>
       <button id="lancer-quiz" class="rounded-lg bg-indigo-600 px-5 py-2.5 font-medium text-white transition hover:bg-indigo-700">
         Commencer
       </button>
@@ -85,7 +101,7 @@ import Base from '../layouts/Base.astro';
 <script>
   import { auDeverrouillage } from '../lib/chargement';
   import { aplatirFiches, chargerFiche, chargerManifeste, type QuestionQuiz } from '../lib/contenu';
-  import { ajouterResultatQuiz, tousLesResultatsQuiz } from '../lib/db';
+  import { ajouterResultatQuiz, lireReglagesSession, tousLesResultatsQuiz } from '../lib/db';
   import { gagnerXp, xpQuiz } from '../lib/gamification';
   import { formaterDate, lien, melanger, notifier, parametreUrl } from '../lib/ui';
 
@@ -111,11 +127,25 @@ import Base from '../layouts/Base.astro';
     }
   }
 
+  /** Fiches d'une séance passée, transmises sous la forme « ?fiches=a,b,c ». */
+  function fichesCiblees(): string[] | null {
+    const brut = parametreUrl('fiches');
+    if (!brut) return null;
+    const ids = brut.split(',').map((x) => x.trim()).filter(Boolean);
+    return ids.length ? ids : null;
+  }
+
   /** Rassemble les questions correspondant aux filtres choisis. */
   async function collecter(matiere: string, ficheId: string, limite: number): Promise<QuestionPosee[]> {
     const manifeste = await chargerManifeste();
+    const ciblees = fichesCiblees();
+    const ensemble = ciblees?.length ? new Set(ciblees) : null;
     const candidates = aplatirFiches(manifeste).filter(
-      (f) => f.nbQuiz > 0 && (!matiere || f.matiere === matiere) && (!ficheId || f.id === ficheId),
+      (f) =>
+        f.nbQuiz > 0 &&
+        (!matiere || f.matiere === matiere) &&
+        (!ficheId || f.id === ficheId) &&
+        (!ensemble || ensemble.has(f.id)),
     );
 
     const toutes: QuestionPosee[] = [];
@@ -337,8 +367,36 @@ import Base from '../layouts/Base.astro';
     }
     await majListeFiches();
 
+    // Le plafond enregistré devient la longueur proposée par défaut.
+    const { plafondQuestions } = await lireReglagesSession();
+    const taille = $('quiz-taille') as HTMLSelectElement;
+    if (![...taille.options].some((o) => Number(o.value) === plafondQuestions)) {
+      const option = document.createElement('option');
+      option.value = String(plafondQuestions);
+      option.textContent = String(plafondQuestions);
+      taille.appendChild(option);
+    }
+    taille.value = String(plafondQuestions);
+
     const ficheUrl = parametreUrl('fiche');
     if (ficheUrl) ($('quiz-fiche') as HTMLSelectElement).value = ficheUrl;
+
+    // Rappel ciblé sur les fiches d'une séance passée : les filtres manuels
+    // n'ont plus lieu d'être, le périmètre est imposé par la séance.
+    const ciblees = fichesCiblees();
+    if (ciblees) {
+      const titres = aplatirFiches(manifeste)
+        .filter((f) => ciblees.includes(f.id))
+        .map((f) => f.titre);
+      $('texte-rappel').textContent = titres.length
+        ? `Série limitée aux fiches travaillées lors d'une séance précédente : ${titres.join(' · ')}.`
+        : 'Série limitée aux fiches d\'une séance précédente.';
+      $('bandeau-rappel').classList.remove('hidden');
+      selectMatiere.value = '';
+      selectMatiere.disabled = true;
+      ($('quiz-fiche') as HTMLSelectElement).value = '';
+      ($('quiz-fiche') as HTMLSelectElement).disabled = true;
+    }
 
     selectMatiere.addEventListener('change', () => void majListeFiches());
     $('lancer-quiz').addEventListener('click', () => void demarrer());

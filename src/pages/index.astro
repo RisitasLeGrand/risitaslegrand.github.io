@@ -112,6 +112,30 @@ import Section from '../components/Section.astro';
       </div>
     </section>
 
+    <!-- Horizon pluriannuel : la série de jours dit la semaine en cours, pas
+         la profondeur d'un programme qui s'étale sur plusieurs années. -->
+    <Section titre="Programme pluriannuel" grille="">
+      <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p class="etiquette text-indigo-600 dark:text-indigo-400">Depuis le début</p>
+        <p id="horizon-duree" class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">—</p>
+        <p id="horizon-debut" class="mt-1 text-sm text-slate-500 dark:text-slate-400"></p>
+
+        <div id="horizon-jalon" class="mt-4 hidden">
+          <div class="flex flex-wrap items-baseline justify-between gap-2 text-xs text-slate-500 dark:text-slate-400">
+            <span id="horizon-jalon-libelle"></span>
+            <span id="horizon-jalon-restant"></span>
+          </div>
+          <div class="mt-1.5 h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+            <div id="horizon-jalon-barre" class="h-full rounded-full bg-indigo-600 transition-all duration-500" style="width:0%"></div>
+          </div>
+        </div>
+
+        <dl id="horizon-chiffres" class="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4"></dl>
+
+        <div id="horizon-annees" class="mt-5 space-y-2"></div>
+      </div>
+    </Section>
+
     <div class="grid gap-6 lg:grid-cols-2">
       <!-- Activité des 8 dernières semaines -->
       <Section titre="Régularité" grille="">
@@ -133,13 +157,19 @@ import Section from '../components/Section.astro';
   import { auDeverrouillage } from '../lib/chargement';
   import { construireVue } from '../lib/agregats';
   import { lireProfil, tousLesJours, jourISO, ajouterJours } from '../lib/db';
-  import { BADGES, calculerNiveau, statutStreak } from '../lib/gamification';
+  import { BADGES, calculerNiveau, statutStreak, vueLongTerme } from '../lib/gamification';
   import { formaterDuree, lien, pluriel } from '../lib/ui';
   import { chargerDerniereSemaine, chargerFiches } from '../lib/actualites';
   import { carteFiche, carteItem, definirIndexTexte } from '../lib/actualites-rendu';
   import { aplatirFiches, chargerIndexRecherche, chargerManifeste } from '../lib/contenu';
   import { construireIndexTexte } from '../lib/rattachement';
   import { historique, seanceDuJour, theme as themeParId } from '../lib/planification';
+
+  const dateLongue = new Intl.DateTimeFormat('fr-FR', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+  });
 
   async function afficher() {
     const [vue, profil, streak, jours] = await Promise.all([
@@ -268,6 +298,9 @@ import Section from '../components/Section.astro';
       zoneBadges.appendChild(element);
     }
 
+    // --- Horizon pluriannuel ---
+    await afficherHorizon();
+
     // --- Séance du jour ---
     await afficherSeanceDuJour();
 
@@ -280,6 +313,82 @@ import Section from '../components/Section.astro';
    * Le détail de la séance vit sur la page « Planification » : on se contente
    * ici d'annoncer ce qui est prévu et d'y conduire.
    */
+  /**
+   * Situe la progression dans le programme pluriannuel : ancienneté, prochain
+   * jalon de durée, assiduité et bilan par année de préparation.
+   */
+  async function afficherHorizon() {
+    const horizon = await vueLongTerme();
+    const $h = (id: string) => document.getElementById(id)!;
+
+    if (!horizon.debut) {
+      $h('horizon-duree').textContent = 'Le programme commence aujourd\'hui';
+      $h('horizon-debut').textContent =
+        'Dès la première séance, cette section suivra votre préparation année par année.';
+      return;
+    }
+
+    const mois = horizon.moisDepuisDebut;
+    const annees = Math.floor(mois / 12);
+    $h('horizon-duree').textContent =
+      annees >= 1
+        ? `${pluriel(annees, 'an')} et ${pluriel(mois - annees * 12, 'mois', 'mois')} de révision`
+        : mois >= 1
+          ? `${pluriel(mois, 'mois', 'mois')} de révision`
+          : `${pluriel(horizon.joursDepuisDebut, 'jour')} de révision`;
+    $h('horizon-debut').textContent =
+      `Première journée enregistrée le ${dateLongue.format(new Date(`${horizon.debut}T12:00:00`))}.`;
+
+    const jalon = horizon.prochainJalon;
+    if (jalon) {
+      $h('horizon-jalon').classList.remove('hidden');
+      $h('horizon-jalon-libelle').textContent = `Prochain jalon : ${jalon.libelle}`;
+      $h('horizon-jalon-restant').textContent = `encore ${pluriel(jalon.restant, 'jour')}`;
+      $h('horizon-jalon-barre').style.width =
+        `${Math.round((horizon.joursDepuisDebut / jalon.jours) * 100)}%`;
+    }
+
+    const chiffres: [string, string][] = [
+      ['Jours travaillés', String(horizon.joursEtudies)],
+      ['Assiduité', `${Math.round(horizon.assiduite * 100)} %`],
+      ['Temps cumulé', formaterDuree(horizon.secondesTotales)],
+      ['Séances tenues', String(horizon.seancesTerminees)],
+    ];
+    const zone = $h('horizon-chiffres');
+    zone.innerHTML = '';
+    for (const [libelle, valeur] of chiffres) {
+      const dt = document.createElement('dt');
+      dt.className = 'etiquette text-slate-500 dark:text-slate-400';
+      dt.textContent = libelle;
+      const dd = document.createElement('dd');
+      dd.className = 'mt-0.5 text-lg font-bold text-slate-900 dark:text-white';
+      dd.textContent = valeur;
+      const bloc = document.createElement('div');
+      bloc.append(dt, dd);
+      zone.appendChild(bloc);
+    }
+
+    // Années de préparation glissantes : elles partent de la première
+    // journée enregistrée, pas du 1er janvier.
+    const liste = $h('horizon-annees');
+    liste.innerHTML = '';
+    for (const annee of [...horizon.annees].reverse()) {
+      const ligne = document.createElement('div');
+      ligne.className = annee.enCours
+        ? 'flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm dark:border-indigo-800 dark:bg-indigo-950/40'
+        : 'flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 rounded-lg border border-slate-200 px-3 py-2 text-sm dark:border-slate-800';
+      const titre = document.createElement('span');
+      titre.className = 'font-semibold text-slate-900 dark:text-white';
+      titre.textContent = `Année ${annee.rang}${annee.enCours ? ' (en cours)' : ''}`;
+      const detail = document.createElement('span');
+      detail.className = 'text-xs text-slate-600 dark:text-slate-300';
+      detail.textContent =
+        `${pluriel(annee.joursEtudies, 'jour')} · ${formaterDuree(annee.secondes)} · ${pluriel(annee.seances, 'séance')} · ${annee.xp} XP`;
+      ligne.append(titre, detail);
+      liste.appendChild(ligne);
+    }
+  }
+
   async function afficherSeanceDuJour() {
     const seance = await seanceDuJour();
     const sujet = themeParId(seance.theme);

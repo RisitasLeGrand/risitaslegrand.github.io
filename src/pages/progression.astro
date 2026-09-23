@@ -10,6 +10,33 @@ import Base from '../layouts/Base.astro';
     JSON ici, puis importez-le sur l'autre appareil.
   </p>
 
+  <section id="reglages" class="mb-8 rounded-2xl border border-slate-200 bg-white p-5 target:ring-2 target:ring-indigo-400 dark:border-slate-800 dark:bg-slate-900">
+    <p class="etiquette text-indigo-600 dark:text-indigo-400">Rythme de travail</p>
+    <h2 class="mt-1 mb-2 text-lg font-semibold text-slate-900 dark:text-white">Taille des sessions</h2>
+    <p class="mb-4 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      Le site contient beaucoup plus de cartes et de questions qu'il n'est raisonnable d'en
+      traiter d'un coup. Ces plafonds limitent chaque session — les éléments les plus en retard
+      passent en premier, le reste revient à la session suivante.
+    </p>
+    <div class="grid gap-4 sm:grid-cols-2">
+      <label class="block">
+        <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Cartes par session de flashcards</span>
+        <input id="plafond-cartes" type="number" min="5" max="200" step="5"
+          class="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-indigo-900" />
+      </label>
+      <label class="block">
+        <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Questions par QCM</span>
+        <input id="plafond-questions" type="number" min="5" max="200" step="5"
+          class="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-indigo-900" />
+      </label>
+    </div>
+    <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+      Entre 5 et 200. Valeurs conseillées : 20 à 30. Ces plafonds servent de valeur par défaut au
+      démarrage d'une session ; ils restent modifiables au cas par cas depuis les pages Flashcards et Quiz.
+    </p>
+    <p id="message-reglages" class="mt-3 hidden text-sm text-emerald-600 dark:text-emerald-400"></p>
+  </section>
+
   <div class="grid gap-5 lg:grid-cols-2">
     <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
       <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">Exporter</h2>
@@ -69,7 +96,9 @@ import Base from '../layouts/Base.astro';
   import {
     exporterTout,
     importerTout,
+    ecrireReglagesSession,
     lireProfil,
+    lireReglagesSession,
     tousLesJours,
     tousLesResultatsQuiz,
     toutesLesCartes,
@@ -108,6 +137,31 @@ import Base from '../layouts/Base.astro';
     }
   }
 
+  async function brancherReglages() {
+    const reglages = await lireReglagesSession();
+    const cartes = $('plafond-cartes') as HTMLInputElement;
+    const questions = $('plafond-questions') as HTMLInputElement;
+    cartes.value = String(reglages.plafondCartes);
+    questions.value = String(reglages.plafondQuestions);
+
+    const enregistrer = async () => {
+      // db.ts borne les valeurs entre 5 et 200 ; on relit ce qui a réellement
+      // été retenu pour que les champs ne mentent pas sur l'état enregistré.
+      await ecrireReglagesSession({
+        plafondCartes: Number(cartes.value),
+        plafondQuestions: Number(questions.value),
+      });
+      const retenu = await lireReglagesSession();
+      cartes.value = String(retenu.plafondCartes);
+      questions.value = String(retenu.plafondQuestions);
+      const zone = $('message-reglages');
+      zone.textContent = `Enregistré : ${retenu.plafondCartes} cartes, ${retenu.plafondQuestions} questions par session.`;
+      zone.classList.remove('hidden');
+    };
+    cartes.addEventListener('change', () => void enregistrer());
+    questions.addEventListener('change', () => void enregistrer());
+  }
+
   function message(texte: string, succes: boolean) {
     const element = $('message-import');
     element.textContent = texte;
@@ -119,6 +173,7 @@ import Base from '../layouts/Base.astro';
   // exécution même si ce script arrive après l'ouverture de la session.
   auDeverrouillage(async () => {
     await afficherResume();
+    await brancherReglages();
 
     $('exporter').addEventListener('click', async () => {
       const donnees = await exporterTout();

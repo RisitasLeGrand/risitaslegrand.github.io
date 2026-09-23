@@ -191,10 +191,14 @@ import Base from '../../layouts/Base.astro';
     for (const zone of document.querySelectorAll<HTMLTextAreaElement>('[data-restitution]')) {
       restitutions[zone.dataset.restitution!] = zone.value;
     }
+    const fiches = [...document.querySelectorAll<HTMLInputElement>('[data-fiche]:checked')].map(
+      (c) => c.dataset.fiche!,
+    );
     return {
       ...seance,
       note: ($('note') as HTMLTextAreaElement).value,
       restitutions,
+      fiches,
       secondes: Math.max(seance.secondes, secondes),
     };
   }
@@ -266,13 +270,18 @@ import Base from '../../layouts/Base.astro';
       vide.textContent = "Aucune fiche publiée pour cette matière : la séance porte sur vos propres supports.";
       grille.appendChild(vide);
     }
+    const dejaCouvertes = new Set(seance.fiches ?? []);
     for (const fiche of fiches) {
       const proposee = proposees.has(fiche.id);
-      const carte = document.createElement('a');
-      carte.href = `${lien('/fiche/')}?id=${encodeURIComponent(fiche.id)}`;
+      const carte = document.createElement('div');
       carte.className = proposee
-        ? 'rounded-xl border border-indigo-300 bg-indigo-50 p-4 shadow-sm transition hover:border-indigo-500 dark:border-indigo-700 dark:bg-indigo-950/40 dark:hover:border-indigo-500'
-        : 'rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700';
+        ? 'flex flex-col rounded-xl border border-indigo-300 bg-indigo-50 p-4 shadow-sm dark:border-indigo-700 dark:bg-indigo-950/40'
+        : 'flex flex-col rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900';
+
+      const ouvrir = document.createElement('a');
+      ouvrir.href = `${lien('/fiche/')}?id=${encodeURIComponent(fiche.id)}`;
+      ouvrir.className = 'group flex-1 transition';
+
       const etiquette = document.createElement('p');
       etiquette.className = lues.has(fiche.id)
         ? 'etiquette text-emerald-700 dark:text-emerald-300'
@@ -285,12 +294,28 @@ import Base from '../../layouts/Base.astro';
           ? 'Proposée aujourd\'hui'
           : 'À lire';
       const titre = document.createElement('p');
-      titre.className = 'texte-secable mt-1.5 font-semibold text-slate-900 dark:text-white';
+      titre.className =
+        'texte-secable mt-1.5 font-semibold text-slate-900 group-hover:underline dark:text-white';
       titre.textContent = fiche.titre;
       const detail = document.createElement('p');
       detail.className = 'mt-1 text-xs text-slate-500 dark:text-slate-400';
       detail.textContent = fiche.fascicule;
-      carte.append(etiquette, titre, detail);
+      ouvrir.append(etiquette, titre, detail);
+
+      // C'est cette case qui rend possible le rappel ciblé des séances
+      // suivantes : sans elle, on ne saurait pas ce qui a été vu ce jour-là.
+      const marque = document.createElement('label');
+      marque.className =
+        'mt-3 flex min-h-11 cursor-pointer items-center gap-2 border-t border-slate-100 pt-3 text-xs font-medium text-slate-600 dark:border-slate-800 dark:text-slate-300';
+      const case_ = document.createElement('input');
+      case_.type = 'checkbox';
+      case_.dataset.fiche = fiche.id;
+      case_.checked = dejaCouvertes.has(fiche.id);
+      case_.className = 'h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500';
+      case_.addEventListener('change', () => void sauvegarderBientot());
+      marque.append(case_, document.createTextNode('Travaillée pendant cette séance'));
+
+      carte.append(ouvrir, marque);
       grille.appendChild(carte);
     }
 
@@ -355,6 +380,37 @@ import Base from '../../layouts/Base.astro';
     details.append(resume, contenu);
 
     bloc.append(entete, consigne, zone, details);
+
+    // Les deux modes déjà existants, mais restreints aux fiches réellement
+    // couvertes ce jour-là — pas à la matière entière. Sans fiches cochées à
+    // l'époque, il n'y a rien à cibler : seule la feuille blanche reste.
+    const ciblees = passee.fiches ?? [];
+    if (ciblees.length) {
+      const parametre = `?fiches=${ciblees.map(encodeURIComponent).join(',')}`;
+      const actions = document.createElement('div');
+      actions.className = 'mt-3 flex flex-wrap items-center gap-2';
+      const intro = document.createElement('span');
+      intro.className = 'text-xs text-slate-500 dark:text-slate-400';
+      intro.textContent = `Au choix, sur les ${ciblees.length} fiche(s) de ce jour-là :`;
+      actions.appendChild(intro);
+      for (const [etiquette, chemin] of [
+        ['Flashcards', '/flashcards/'],
+        ['QCM', '/quiz/'],
+      ] as const) {
+        const bouton = document.createElement('a');
+        bouton.href = `${lien(chemin)}${parametre}`;
+        bouton.className =
+          'inline-flex min-h-11 items-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 text-sm font-medium text-indigo-700 transition hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/50 dark:text-indigo-300 dark:hover:bg-indigo-900/60';
+        bouton.textContent = etiquette;
+        actions.appendChild(bouton);
+      }
+      const garde = document.createElement('p');
+      garde.className = 'mt-2 text-xs text-slate-500 dark:text-slate-400';
+      garde.textContent =
+        'Votre séance est enregistrée au fil de la saisie : vous pouvez revenir ici ensuite.';
+      bloc.append(actions, garde);
+    }
+
     return bloc;
   }
 
