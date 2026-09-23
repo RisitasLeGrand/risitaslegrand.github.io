@@ -392,12 +392,14 @@ export async function chargerDerniereSemaine(
  *    n'a encore été trouvé (rubrique vide, avant le premier passage d'une
  *    routine) ;
  *  - « tolerance » : nombre de semaines vides consécutives admises après une
- *    trouvaille, qui borne la taille d'une interruption de la veille.
+ *    trouvaille. Il est large (un an) parce que l'historique reconstitué est
+ *    troué : des mois entiers peuvent manquer entre deux périodes publiées,
+ *    et s'arrêter au premier trou masquerait tout ce qui le précède.
  * Les 404 correspondants sont attendus : ils sont traités comme « pas encore
  * publié », jamais comme une erreur.
  */
 export async function chargerSemaines(
-  { fenetre = 78, amorce = 16, tolerance = 20, lot = 8 } = {},
+  { fenetre = 78, amorce = 16, tolerance = 52, lot = 8 } = {},
 ): Promise<PeriodeActu[]> {
   const ids = dernieresSemaines(fenetre);
   const trouvees: PeriodeActu[] = [];
