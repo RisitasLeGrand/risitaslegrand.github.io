@@ -20,23 +20,27 @@ import Base from '../layouts/Base.astro';
       >
       <h1 class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">Actualités passées</h1>
       <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
-        Veille hebdomadaire, synthèses trimestrielles et annuelles.
+        Veille hebdomadaire, bilans mensuels, synthèses trimestrielles et annuelles.
       </p>
     </div>
 
     <div class="flex w-full flex-wrap gap-1 rounded-xl bg-slate-100 p-1 sm:w-auto dark:bg-slate-800" role="tablist" aria-label="Périodicité">
       <button type="button" data-vue="semaines" class="onglet-vue min-h-11 rounded-lg px-3.5 py-2 text-sm font-medium">Semaines</button>
+      <button type="button" data-vue="mois" class="onglet-vue min-h-11 rounded-lg px-3.5 py-2 text-sm font-medium">Mois</button>
       <button type="button" data-vue="trimestres" class="onglet-vue min-h-11 rounded-lg px-3.5 py-2 text-sm font-medium">Trimestres</button>
       <button type="button" data-vue="annees" class="onglet-vue min-h-11 rounded-lg px-3.5 py-2 text-sm font-medium">Années</button>
+      <button type="button" data-vue="syntheses" class="onglet-vue min-h-11 rounded-lg px-3.5 py-2 text-sm font-medium">Synthèses</button>
     </div>
   </div>
 
   <div id="filtres" class="mb-6 flex flex-wrap items-center gap-2">
-    <span class="text-sm text-slate-500 dark:text-slate-400">Thème :</span>
-    <button type="button" data-theme="" class="filtre-theme min-h-11 rounded-full px-4 py-2 text-sm font-medium">Tous</button>
-    <button type="button" data-theme="juridique" class="filtre-theme min-h-11 rounded-full px-4 py-2 text-sm font-medium">Juridique</button>
-    <button type="button" data-theme="economique" class="filtre-theme min-h-11 rounded-full px-4 py-2 text-sm font-medium">Économique</button>
-    <button type="button" data-theme="international" class="filtre-theme min-h-11 rounded-full px-4 py-2 text-sm font-medium">International</button>
+    <span class="text-sm text-slate-500 dark:text-slate-400">Domaine :</span>
+    <button type="button" data-domaine="" class="filtre-domaine min-h-11 rounded-full px-4 py-2 text-sm font-medium">Tous</button>
+    <button type="button" data-domaine="economie" class="filtre-domaine min-h-11 rounded-full px-4 py-2 text-sm font-medium">Économie</button>
+    <button type="button" data-domaine="finance" class="filtre-domaine min-h-11 rounded-full px-4 py-2 text-sm font-medium">Finances publiques</button>
+    <button type="button" data-domaine="social" class="filtre-domaine min-h-11 rounded-full px-4 py-2 text-sm font-medium">Social</button>
+    <button type="button" data-domaine="juridique" class="filtre-domaine min-h-11 rounded-full px-4 py-2 text-sm font-medium">Juridique</button>
+    <button type="button" data-domaine="international" class="filtre-domaine min-h-11 rounded-full px-4 py-2 text-sm font-medium">International</button>
   </div>
 
   <div id="chargement-actu" class="py-16 text-center text-slate-400">Chargement des actualités…</div>
@@ -47,12 +51,23 @@ import Base from '../layouts/Base.astro';
   import { auDeverrouillage } from '../lib/chargement';
   import {
     chargerSemaines,
+    chargerMois,
     chargerTrimestres,
     chargerAnnees,
+    domaineDe,
+    friseDe,
+    idPeriode,
     titrePeriode,
     type PeriodeActu,
   } from '../lib/actualites';
-  import { carteItem, definirIndexTexte, messageVide } from '../lib/actualites-rendu';
+  import {
+    blocTendances,
+    carteItem,
+    definirIndexTexte,
+    friseChronologique,
+    legendeDomaines,
+    messageVide,
+  } from '../lib/actualites-rendu';
   import { aplatirFiches, chargerIndexRecherche, chargerManifeste, type FicheAplatie } from '../lib/contenu';
   import { construireIndexTexte } from '../lib/rattachement';
   import { lien, parametreUrl } from '../lib/ui';
@@ -66,14 +81,15 @@ import Base from '../layouts/Base.astro';
   const archive = document.getElementById('archive')!;
   const chargement = document.getElementById('chargement-actu')!;
   const onglets = [...document.querySelectorAll<HTMLButtonElement>('.onglet-vue')];
-  const filtres = [...document.querySelectorAll<HTMLButtonElement>('.filtre-theme')];
+  const filtres = [...document.querySelectorAll<HTMLButtonElement>('.filtre-domaine')];
+  const zoneFiltres = document.getElementById('filtres')!;
 
   document.getElementById('retour')!.setAttribute('href', lien('/'));
 
   const donnees: Record<string, PeriodeActu[] | undefined> = {};
   let fichesCours: FicheAplatie[] = [];
   let vue = 'semaines';
-  let theme = '';
+  let domaine = '';
 
   function peindreBoutons() {
     for (const bouton of onglets) {
@@ -82,15 +98,89 @@ import Base from '../layouts/Base.astro';
       bouton.setAttribute('aria-selected', String(actif));
     }
     for (const bouton of filtres) {
-      const actif = (bouton.dataset.theme ?? '') === theme;
-      bouton.className = `filtre-theme min-h-11 rounded-full px-4 py-2 text-sm font-medium transition ${actif ? ACTIF_FILTRE : INACTIF_FILTRE}`;
+      const actif = (bouton.dataset.domaine ?? '') === domaine;
+      bouton.className = `filtre-domaine min-h-11 rounded-full px-4 py-2 text-sm font-medium transition ${actif ? ACTIF_FILTRE : INACTIF_FILTRE}`;
       bouton.setAttribute('aria-pressed', String(actif));
+    }
+    // Les frises se lisent par période, pas par domaine : le filtre n'y a pas
+    // de sens, la légende de couleurs le remplace.
+    zoneFiltres.classList.toggle('hidden', vue === 'syntheses');
+  }
+
+  /**
+   * Rubrique « Synthèses » : les frises chronologiques de toutes les périodes
+   * disponibles, de la plus large à la plus fine. Elles répondent à une autre
+   * question que l'archive — « qu'est-ce qui s'est passé, et dans quel ordre »
+   * plutôt que « qu'est-ce qu'il faut retenir ».
+   */
+  function peindreSyntheses() {
+    const groupes: { titre: string; entrees: PeriodeActu[] }[] = [
+      { titre: 'Années', entrees: donnees.annees ?? [] },
+      { titre: 'Trimestres', entrees: donnees.trimestres ?? [] },
+      { titre: 'Mois', entrees: donnees.mois ?? [] },
+      { titre: 'Semaines', entrees: donnees.semaines ?? [] },
+    ];
+
+    let affichees = 0;
+    for (const groupe of groupes) {
+      const avecFrise = groupe.entrees
+        .map((entree) => ({ entree, points: friseDe(entree) }))
+        .filter(({ points }) => points.length);
+      if (!avecFrise.length) continue;
+      affichees += avecFrise.length;
+
+      const section = document.createElement('section');
+      const titre = document.createElement('h2');
+      titre.className =
+        'mb-3 border-b border-slate-200 pb-2 text-lg font-semibold text-slate-900 dark:border-slate-800 dark:text-white';
+      titre.textContent = groupe.titre;
+      section.appendChild(titre);
+
+      const grille = document.createElement('div');
+      // Une frise seule occupe toute la largeur ; à partir de deux, elles se
+      // comparent mieux côte à côte.
+      grille.className = avecFrise.length > 1 ? 'grid gap-4 lg:grid-cols-2' : 'grid gap-4';
+      for (const { entree, points } of avecFrise) {
+        const carte = document.createElement('article');
+        carte.className =
+          'rounded-xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900';
+        const entete = document.createElement('div');
+        entete.className = 'mb-3 flex flex-wrap items-baseline justify-between gap-2';
+        const nom = document.createElement('h3');
+        nom.className = 'texte-secable font-semibold text-slate-900 dark:text-white';
+        nom.textContent = titrePeriode(entree);
+        const nombre = document.createElement('span');
+        nombre.className = 'text-xs text-slate-500 dark:text-slate-400';
+        nombre.textContent = `${points.length} repère(s)`;
+        entete.append(nom, nombre);
+        carte.append(entete, legendeDomaines(new Set(points.map((p) => p.domaine ?? ''))));
+        if (entree.tendances?.length) carte.appendChild(blocTendances(entree.tendances));
+        const frise = friseChronologique(points);
+        frise.classList.add('mt-4');
+        carte.appendChild(frise);
+        grille.appendChild(carte);
+      }
+      section.appendChild(grille);
+      archive.appendChild(section);
+    }
+
+    if (!affichees) {
+      archive.appendChild(
+        messageVide(
+          "Aucune frise chronologique n'est encore disponible : elles sont construites par les bilans mensuels, trimestriels et annuels.",
+        ),
+      );
     }
   }
 
   function peindreArchive() {
     peindreBoutons();
     archive.innerHTML = '';
+
+    if (vue === 'syntheses') {
+      peindreSyntheses();
+      return;
+    }
 
     const entrees = donnees[vue] ?? [];
     if (!entrees.length) {
@@ -104,9 +194,10 @@ import Base from '../layouts/Base.astro';
 
     let affichees = 0;
     for (const entree of entrees) {
-      const items = (entree.items ?? []).filter((i) => !theme || (i.theme ?? '').toLowerCase() === theme);
-      if (!items.length) continue;
-      affichees += items.length;
+      const items = (entree.items ?? []).filter((i) => !domaine || domaineDe(i) === domaine);
+      const tendances = domaine ? [] : (entree.tendances ?? []);
+      if (!items.length && !tendances.length) continue;
+      affichees += items.length + tendances.length;
 
       const section = document.createElement('section');
       const titre = document.createElement('h2');
@@ -115,15 +206,36 @@ import Base from '../layouts/Base.astro';
       titre.textContent = titrePeriode(entree);
       section.appendChild(titre);
 
-      const grille = document.createElement('div');
-      grille.className = 'grid gap-3 md:grid-cols-2';
-      for (const item of items) grille.appendChild(carteItem(item, fichesCours));
-      section.appendChild(grille);
+      // Les tendances de fond ouvrent le bilan : elles en donnent la lecture
+      // d'ensemble, avant la liste des actualités retenues.
+      if (tendances.length) {
+        const bloc = blocTendances(tendances);
+        bloc.classList.add('mb-4');
+        section.appendChild(bloc);
+      }
+
+      if (items.length) {
+        const grille = document.createElement('div');
+        grille.className = 'grid gap-3 md:grid-cols-2';
+        for (const item of items) grille.appendChild(carteItem(item, fichesCours));
+        section.appendChild(grille);
+      }
+
+      // Lien vers la frise de cette période, qui vit dans l'onglet Synthèses.
+      if (friseDe(entree).length) {
+        const vers = document.createElement('button');
+        vers.type = 'button';
+        vers.className =
+          'mt-3 inline-flex min-h-11 items-center text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400';
+        vers.textContent = `Voir la frise chronologique de ${idPeriode(entree)} →`;
+        vers.addEventListener('click', () => void basculer('syntheses'));
+        section.appendChild(vers);
+      }
       archive.appendChild(section);
     }
 
     if (!affichees) {
-      archive.appendChild(messageVide('Aucune actualité ne correspond à ce thème sur la période disponible.'));
+      archive.appendChild(messageVide('Aucune actualité ne correspond à ce domaine sur la période disponible.'));
     }
     void repecher();
   }
@@ -147,8 +259,15 @@ import Base from '../layouts/Base.astro';
   }
 
   async function charger(cible: string) {
+    // Les frises réunissent toutes les périodes : l'onglet Synthèses a besoin
+    // des quatre jeux de données, pas d'un seul.
+    if (cible === 'syntheses') {
+      await Promise.all(['annees', 'trimestres', 'mois', 'semaines'].map(charger));
+      return;
+    }
     if (donnees[cible]) return;
     if (cible === 'semaines') donnees[cible] = await chargerSemaines();
+    else if (cible === 'mois') donnees[cible] = await chargerMois();
     else if (cible === 'trimestres') donnees[cible] = await chargerTrimestres();
     else donnees[cible] = await chargerAnnees();
   }
@@ -156,7 +275,7 @@ import Base from '../layouts/Base.astro';
   async function basculer(cible: string) {
     vue = cible;
     peindreBoutons();
-    if (!donnees[cible]) {
+    if (cible === 'syntheses' || !donnees[cible]) {
       archive.classList.add('hidden');
       chargement.classList.remove('hidden');
       chargement.textContent = 'Chargement des actualités…';
@@ -172,7 +291,7 @@ import Base from '../layouts/Base.astro';
   }
   for (const bouton of filtres) {
     bouton.addEventListener('click', () => {
-      theme = bouton.dataset.theme ?? '';
+      domaine = bouton.dataset.domaine ?? '';
       peindreArchive();
     });
   }
@@ -180,7 +299,7 @@ import Base from '../layouts/Base.astro';
   // « auDeverrouillage » : barre de progression, garde-fou de 5 secondes et
   // exécution même si ce script arrive après l'ouverture de la session.
   auDeverrouillage(async () => {
-    theme = parametreUrl('theme') ?? '';
+    domaine = parametreUrl('domaine') ?? parametreUrl('theme') ?? '';
     // Le manifeste alimente le rattachement des actualités aux fiches de cours ;
     // son absence ne doit pas empêcher l'affichage des actualités.
     chargerManifeste()

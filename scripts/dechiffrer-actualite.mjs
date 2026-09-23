@@ -29,7 +29,7 @@ import { AIDE_MOT_DE_PASSE, lireMotDePasseEventuel } from './lib/motdepasse.mjs'
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dossierActualites = path.join(racine, 'actualites-data');
-const DOSSIERS = ['fiches', 'semaines', 'trimestres', 'annees'];
+const DOSSIERS = ['fiches', 'semaines', 'mois', 'trimestres', 'annees'];
 
 function echouer(message) {
   console.error(`\n✖ ${message}\n`);

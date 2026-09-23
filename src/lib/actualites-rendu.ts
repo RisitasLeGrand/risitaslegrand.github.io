@@ -6,7 +6,19 @@
  * injectées telles quelles dans du HTML.
  */
 import { echapper, formaterDate, lien } from './ui';
-import { etiquetteTheme, type FicheActu, type ItemActu, type Source } from './actualites';
+import {
+  domaineDe,
+  etiquetteDomaine,
+  ORDRE_DOMAINES,
+  DOMAINES,
+  type ChangementLegislatif,
+  type FicheActu,
+  type Indicateur,
+  type ItemActu,
+  type PointFrise,
+  type Source,
+  type Tendance,
+} from './actualites';
 import { rattacher, type IndexTexte } from './rattachement';
 import type { FicheAplatie } from './contenu';
 
@@ -100,20 +112,156 @@ function coquilleCarte(options: {
   return element;
 }
 
+/** Ordre d'affichage du tableau de bord économique, et intitulé de chaque tuile. */
+const INDICATEURS: { cle: string; libelle: string }[] = [
+  { cle: 'pib', libelle: 'PIB' },
+  { cle: 'dette', libelle: 'Dette publique' },
+  { cle: 'dette_pct_pib', libelle: 'Dette en % du PIB' },
+  { cle: 'deficit', libelle: 'Déficit public' },
+  { cle: 'inflation', libelle: 'Inflation' },
+];
+
+/**
+ * Tableau de bord des chiffres clés : une tuile par indicateur, valeur en
+ * gros, période de référence et source en petit. Les clés inconnues du
+ * barème ci-dessus sont affichées à la suite plutôt qu'ignorées.
+ */
+function tuilesIndicateurs(indicateurs?: Record<string, Indicateur>): string {
+  if (!indicateurs) return '';
+  const connues = INDICATEURS.filter((i) => indicateurs[i.cle]);
+  const autres = Object.keys(indicateurs)
+    .filter((cle) => !INDICATEURS.some((i) => i.cle === cle))
+    .map((cle) => ({ cle, libelle: cle.replace(/_/g, ' ') }));
+  const tuiles = [...connues, ...autres].map(({ cle, libelle }) => {
+    const indicateur = indicateurs[cle];
+    const source = indicateur.source?.nom
+      ? indicateur.source.url
+        ? `<a href="${echapper(indicateur.source.url)}" target="_blank" rel="noopener noreferrer nofollow"
+              class="underline decoration-dotted underline-offset-2">${echapper(indicateur.source.nom)}</a>`
+        : echapper(indicateur.source.nom)
+      : '';
+    return `<div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/50">
+              <p class="etiquette text-slate-500 dark:text-slate-400">${echapper(libelle)}</p>
+              <p class="texte-secable mt-1 text-xl font-bold text-slate-900 dark:text-white">${echapper(indicateur.valeur ?? '—')}</p>
+              ${
+                indicateur.periode_reference
+                  ? `<p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">${echapper(indicateur.periode_reference)}</p>`
+                  : ''
+              }
+              ${source ? `<p class="texte-secable mt-1 text-[11px] text-slate-400 dark:text-slate-500">${source}</p>` : ''}
+            </div>`;
+  });
+  if (!tuiles.length) return '';
+  return `<div class="mt-3 grid grid-cols-2 gap-2 lg:grid-cols-3">${tuiles.join('')}</div>`;
+}
+
+/**
+ * Historique cumulatif des changements législatifs : à la différence des
+ * autres fiches de suivi, rien n'est écrasé — chaque changement s'ajoute, du
+ * plus récent au plus ancien.
+ */
+function listeHistorique(historique: ChangementLegislatif[] | undefined, fiches: FicheAplatie[]): string {
+  if (!historique?.length) return '';
+  const entrees = [...historique].sort((a, b) => (b.date ?? '').localeCompare(a.date ?? ''));
+  const elements = entrees.map(
+    (entree) => `
+      <li class="border-l-2 border-slate-200 pl-3 dark:border-slate-700">
+        ${entree.date ? `<p class="text-xs font-medium text-slate-500 dark:text-slate-400">${echapper(formaterDate(entree.date))}</p>` : ''}
+        <p class="texte-secable font-medium text-slate-900 dark:text-white">${echapper(entree.titre)}</p>
+        <p class="texte-secable mt-0.5 text-sm text-slate-600 dark:text-slate-300">${echapper(entree.resume)}</p>
+        ${blocLienCours(entree, fiches)}
+        ${listeSources(entree.sources)}
+      </li>`,
+  );
+  return `<ol class="mt-3 space-y-4">${elements.join('')}</ol>`;
+}
+
 /** Carte d'une fiche suivie en continu (Premier ministre, chiffres clés…). */
 export function carteFiche(fiche: FicheActu, fichesCours: FicheAplatie[] = []): HTMLElement {
+  const texte = fiche.resume ?? fiche.texte_contextuel ?? '';
+  const contexte =
+    fiche.texte_contextuel && fiche.resume ? fiche.texte_contextuel : '';
   const element = coquilleCarte({
     etiquette: 'Suivi permanent',
     classeEtiquette: 'text-slate-500 dark:text-slate-400',
     titre: fiche.titre,
     mention: fiche.derniere_maj ? formaterDate(fiche.derniere_maj) : undefined,
     corps: `
-      <p class="texte-secable mt-2 text-sm text-slate-600 dark:text-slate-300">${echapper(fiche.resume ?? '')}</p>
-      ${blocLienCours(fiche, fichesCours)}
+      ${tuilesIndicateurs(fiche.indicateurs)}
+      ${texte ? `<p class="texte-secable mt-3 text-sm text-slate-600 dark:text-slate-300">${echapper(texte)}</p>` : ''}
+      ${contexte ? `<p class="texte-secable mt-2 text-sm text-slate-600 dark:text-slate-300">${echapper(contexte)}</p>` : ''}
+      ${listeHistorique(fiche.historique, fichesCours)}
+      ${fiche.historique?.length ? '' : blocLienCours(fiche, fichesCours)}
       ${listeSources(fiche.sources)}`,
   });
   marquerRattachement(element);
   return element;
+}
+
+/**
+ * Bloc « Tendances de fond » des bilans mensuel, trimestriel et annuel :
+ * quelques paragraphes de lecture d'ensemble, pas une liste d'actualités.
+ */
+export function blocTendances(tendances: Tendance[]): HTMLElement {
+  const bloc = document.createElement('section');
+  bloc.className =
+    'rounded-xl border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-900 dark:bg-indigo-950/30';
+  const paragraphes = tendances
+    .map((tendance) => {
+      const domaine = tendance.domaine ? etiquetteDomaine(tendance.domaine) : null;
+      return `<div>
+        ${domaine ? `<p class="etiquette ${domaine.classe}">${echapper(domaine.libelle)}</p>` : ''}
+        ${tendance.titre ? `<p class="texte-secable mt-0.5 font-semibold text-slate-900 dark:text-white">${echapper(tendance.titre)}</p>` : ''}
+        <p class="texte-secable mt-1 text-sm leading-relaxed text-slate-700 dark:text-slate-200">${echapper(tendance.texte)}</p>
+      </div>`;
+    })
+    .join('');
+  bloc.innerHTML = `
+    <p class="etiquette text-indigo-700 dark:text-indigo-300">Tendances de fond</p>
+    <div class="mt-2 space-y-3">${paragraphes}</div>`;
+  return bloc;
+}
+
+/** Légende des domaines, affichée au-dessus des frises chronologiques. */
+export function legendeDomaines(utilises?: Set<string>): HTMLElement {
+  const legende = document.createElement('ul');
+  legende.className = 'flex flex-wrap gap-x-4 gap-y-1.5';
+  const domaines = ORDRE_DOMAINES.filter((d) => !utilises || utilises.has(d));
+  legende.innerHTML = domaines
+    .map(
+      (d) =>
+        `<li class="flex items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+           <span class="h-2.5 w-2.5 shrink-0 rounded-full ${DOMAINES[d].pastille}" aria-hidden="true"></span>
+           ${echapper(DOMAINES[d].libelle)}
+         </li>`,
+    )
+    .join('');
+  return legende;
+}
+
+/**
+ * Frise chronologique d'une période : une colonne d'événements ordonnés,
+ * chacun portant la couleur de son domaine. Pas de rendu graphique à
+ * l'horizontale : à 360 px de large, une liste jalonnée reste lisible là où
+ * une frise horizontale imposerait un défilement latéral.
+ */
+export function friseChronologique(points: PointFrise[]): HTMLElement {
+  const frise = document.createElement('ol');
+  frise.className = 'relative ml-1 space-y-4 border-l border-slate-300 pl-5 dark:border-slate-700';
+  frise.innerHTML = points
+    .map((point) => {
+      const domaine = etiquetteDomaine(point.domaine);
+      const pastille = 'pastille' in domaine ? domaine.pastille : 'bg-slate-400';
+      return `<li class="relative">
+        <span class="absolute top-1.5 -left-[1.6rem] h-2.5 w-2.5 rounded-full ring-2 ring-white ${pastille} dark:ring-slate-900" aria-hidden="true"></span>
+        <p class="text-xs font-medium text-slate-500 dark:text-slate-400">${echapper(formaterDate(point.date) || point.date)}</p>
+        <p class="texte-secable font-medium text-slate-900 dark:text-white">${echapper(point.libelle)}</p>
+        ${point.detail ? `<p class="texte-secable mt-0.5 text-sm text-slate-600 dark:text-slate-300">${echapper(point.detail)}</p>` : ''}
+        <p class="etiquette mt-0.5 ${domaine.classe}">${echapper(domaine.libelle)}</p>
+      </li>`;
+    })
+    .join('');
+  return frise;
 }
 
 /** Note sur la carte si elle a trouvé des fiches de cours, pour un repêchage éventuel. */
@@ -123,7 +271,7 @@ function marquerRattachement(element: HTMLElement) {
 
 /** Carte d'une actualité datée (entrée hebdomadaire, trimestrielle ou annuelle). */
 export function carteItem(item: ItemActu, fichesCours: FicheAplatie[] = []): HTMLElement {
-  const theme = etiquetteTheme(item.theme);
+  const domaine = etiquetteDomaine(domaineDe(item));
 
   // L'image n'est jamais hébergée ici : on affiche l'URL d'origine, et on
   // masque le bloc si elle ne se charge pas (lien mort, hotlink refusé).
@@ -140,8 +288,8 @@ export function carteItem(item: ItemActu, fichesCours: FicheAplatie[] = []): HTM
     : '';
 
   const element = coquilleCarte({
-    etiquette: theme.libelle,
-    classeEtiquette: theme.classe,
+    etiquette: domaine.libelle,
+    classeEtiquette: domaine.classe,
     titre: item.titre ?? '',
     entete: image,
     corps: `
@@ -149,7 +297,7 @@ export function carteItem(item: ItemActu, fichesCours: FicheAplatie[] = []): HTM
       ${blocLienCours(item, fichesCours)}
       ${listeSources(item.sources)}`,
   });
-  element.dataset.theme = (item.theme ?? '').toLowerCase();
+  element.dataset.domaine = domaineDe(item);
   marquerRattachement(element);
   return element;
 }

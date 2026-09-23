@@ -19,7 +19,13 @@ import { chargerCleActualites } from './contenu';
 
 export const RACINE_ACTUALITES = lien('/actualites-data');
 
-export type Theme = 'juridique' | 'economique' | 'international';
+/**
+ * Les cinq domaines communs aux items et aux frises chronologiques.
+ * « economique », valeur de la taxonomie précédente, reste acceptée en
+ * lecture : les entrées déjà publiées ne sont pas réécrites.
+ */
+export type Domaine = 'economie' | 'finance' | 'social' | 'juridique' | 'international';
+
 
 export interface Source {
   nom: string;
@@ -35,7 +41,14 @@ export interface ImageActu {
 export interface FicheActu {
   id: string;
   titre: string;
-  resume: string;
+  /** Les fiches d'instantané ; absent des fiches « tableau de bord » et « historique ». */
+  resume?: string;
+  /** Tableau de bord économique : PIB, dette, dette en % du PIB, déficit, inflation. */
+  indicateurs?: Record<string, Indicateur>;
+  /** Texte de contexte conservé à côté des chiffres. */
+  texte_contextuel?: string;
+  /** Changements législatifs : liste cumulative, du plus récent au plus ancien. */
+  historique?: ChangementLegislatif[];
   sources?: Source[];
   lien_cours?: string;
   /** Termes servant à rattacher l'actualité aux fiches de cours. */
@@ -43,9 +56,46 @@ export interface FicheActu {
   derniere_maj?: string;
 }
 
+/** Un point de frise chronologique. */
+export interface PointFrise {
+  /** Date ou repère de période : « 2026-09-15 », « 2026-W38 », « 2026-05 »… */
+  date: string;
+  libelle: string;
+  domaine?: Domaine | string;
+  detail?: string;
+}
+
+/** Une dynamique de fond dégagée par un bilan mensuel, trimestriel ou annuel. */
+export interface Tendance {
+  titre?: string;
+  texte: string;
+  domaine?: Domaine | string;
+}
+
+/** Un indicateur du tableau de bord économique. */
+export interface Indicateur {
+  valeur: string;
+  periode_reference?: string;
+  source?: Source;
+}
+
+/** Une entrée de l'historique cumulatif des changements législatifs. */
+export interface ChangementLegislatif {
+  titre: string;
+  date?: string;
+  resume: string;
+  sources?: Source[];
+  lien_cours?: string;
+  mots_cles?: string[];
+}
+
 export interface ItemActu {
   titre: string;
-  theme?: Theme | string;
+  /** Domaine de l'actualité ; « theme » est l'ancien nom du même champ. */
+  domaine?: Domaine | string;
+  theme?: Domaine | string;
+  /** Date de l'événement, qui sert à placer l'item sur la frise de la période. */
+  date?: string;
   resume: string;
   sources?: Source[];
   image?: ImageActu;
@@ -55,19 +105,27 @@ export interface ItemActu {
 }
 
 export interface PeriodeActu {
-  /** Identifiant de période : « semaine », « trimestre » ou « annee » selon le dossier. */
+  /** Identifiant de période : « semaine », « mois », « trimestre » ou « annee ». */
   semaine?: string;
+  mois?: string;
   trimestre?: string;
   annee?: string;
   id?: string;
   periode?: string;
   items?: ItemActu[];
+  /** Bilans mensuel, trimestriel et annuel seulement : les dynamiques de fond. */
+  tendances?: Tendance[];
+  /** Frise chronologique de la période. */
+  frise?: PointFrise[];
 }
 
 /** Les quatre thèmes suivis en continu, dans l'ordre d'affichage. */
 export const FICHES_SUIVIES: { id: string; titre: string }[] = [
   { id: 'premier-ministre', titre: 'Premier ministre' },
-  { id: 'ministres-finances', titre: 'Ministres économiques et financiers' },
+  {
+    id: 'ministres-finances',
+    titre: "Ministres économiques et financiers, Action et Comptes publics, DGFiP",
+  },
   { id: 'chiffres-economie', titre: "Chiffres clés de l'économie française" },
   { id: 'legislation', titre: 'Changements législatifs majeurs' },
 ];
@@ -79,29 +137,85 @@ export const FICHES_SUIVIES: { id: string; titre: string }[] = [
  * carte, selon la convention de service-public.gouv.fr : un libellé court, en
  * capitales, coloré, sans pastille de fond qui viendrait concurrencer le titre.
  */
-export const THEMES: Record<string, { libelle: string; classe: string }> = {
+export const DOMAINES: Record<Domaine, { libelle: string; classe: string; pastille: string }> = {
+  economie: {
+    libelle: 'Économie',
+    classe: 'text-emerald-700 dark:text-emerald-300',
+    pastille: 'bg-emerald-500',
+  },
+  finance: {
+    libelle: 'Finances publiques',
+    classe: 'text-amber-700 dark:text-amber-300',
+    pastille: 'bg-amber-500',
+  },
+  social: {
+    libelle: 'Social',
+    classe: 'text-rose-700 dark:text-rose-300',
+    pastille: 'bg-rose-500',
+  },
   juridique: {
     libelle: 'Juridique',
     classe: 'text-indigo-700 dark:text-indigo-300',
+    pastille: 'bg-indigo-500',
   },
-  economique: {
-    libelle: 'Économique',
-    classe: 'text-emerald-700 dark:text-emerald-300',
-  },
+  // Cyan plutôt qu'un bleu : en thème clair, « indigo » est le Bleu France du
+  // site, et deux bleus voisins ne se distingueraient pas dans une légende.
   international: {
     libelle: 'International',
-    classe: 'text-amber-700 dark:text-amber-300',
+    classe: 'text-cyan-700 dark:text-cyan-300',
+    pastille: 'bg-cyan-600',
   },
 };
 
-export function etiquetteTheme(theme?: string) {
+/** Ordre d'affichage des filtres et des légendes de frise. */
+export const ORDRE_DOMAINES: Domaine[] = [
+  'economie',
+  'finance',
+  'social',
+  'juridique',
+  'international',
+];
+
+/**
+ * Ramène une valeur écrite par une routine au domaine correspondant.
+ * « economique » vient de la taxonomie à trois thèmes utilisée avant la
+ * refonte : les entrées déjà publiées restent lisibles sans être réécrites.
+ */
+export function normaliserDomaine(valeur?: string): Domaine | '' {
+  const brut = (valeur ?? '').toLowerCase().trim();
+  if (!brut) return '';
+  if (brut in DOMAINES) return brut as Domaine;
+  const equivalences: Record<string, Domaine> = {
+    economique: 'economie',
+    économie: 'economie',
+    économique: 'economie',
+    financier: 'finance',
+    finances: 'finance',
+    'finances-publiques': 'finance',
+    sociale: 'social',
+    droit: 'juridique',
+    europeen: 'international',
+    européen: 'international',
+  };
+  return equivalences[brut] ?? '';
+}
+
+/** Domaine d'un item, quel que soit le nom du champ utilisé par la routine. */
+export function domaineDe(item: { domaine?: string; theme?: string }): Domaine | '' {
+  return normaliserDomaine(item.domaine ?? item.theme);
+}
+
+export function etiquetteDomaine(valeur?: string) {
+  const domaine = normaliserDomaine(valeur);
   return (
-    THEMES[(theme ?? '').toLowerCase()] ?? {
-      libelle: theme || 'Divers',
+    (domaine && DOMAINES[domaine]) || {
+      libelle: valeur || 'Divers',
       classe: 'text-slate-500 dark:text-slate-400',
+      pastille: 'bg-slate-400',
     }
   );
 }
+
 
 let promesseClePrivee: Promise<CryptoKey | null> | null = null;
 
@@ -193,6 +307,21 @@ export function dernieresSemaines(nombre: number, depuis = new Date()): string[]
   for (let i = 0; i < nombre; i++) {
     ids.push(idSemaine(lundi));
     lundi.setDate(lundi.getDate() - 7);
+  }
+  return ids;
+}
+
+export function moisCourant(date = new Date()): string {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+}
+
+/** Identifiants des « nombre » derniers mois, du plus récent au plus ancien. */
+export function derniersMois(nombre: number, depuis = new Date()): string[] {
+  const ids: string[] = [];
+  const d = new Date(depuis.getFullYear(), depuis.getMonth(), 1);
+  for (let i = 0; i < nombre; i++) {
+    ids.push(moisCourant(d));
+    d.setMonth(d.getMonth() - 1);
   }
   return ids;
 }
@@ -294,7 +423,7 @@ export async function chargerSemaines(
 async function chargerPeriodes(
   dossier: string,
   ids: string[],
-  cle: 'trimestre' | 'annee',
+  cle: 'mois' | 'trimestre' | 'annee',
 ): Promise<PeriodeActu[]> {
   const resultats = await Promise.all(ids.map((id) => chargerEntree<PeriodeActu>(dossier, id)));
   const entrees: PeriodeActu[] = [];
@@ -302,6 +431,10 @@ async function chargerPeriodes(
     if (entree) entrees.push({ [cle]: ids[i], ...entree });
   }
   return entrees;
+}
+
+export async function chargerMois(nombre = 18): Promise<PeriodeActu[]> {
+  return chargerPeriodes('mois', derniersMois(nombre), 'mois');
 }
 
 export async function chargerTrimestres(nombre = 8): Promise<PeriodeActu[]> {
@@ -312,9 +445,37 @@ export async function chargerAnnees(nombre = 4): Promise<PeriodeActu[]> {
   return chargerPeriodes('annees', dernieresAnnees(nombre), 'annee');
 }
 
+/** Identifiant d'une période, quel que soit le dossier d'origine. */
+export function idPeriode(entree: PeriodeActu): string {
+  return entree.semaine ?? entree.mois ?? entree.trimestre ?? entree.annee ?? entree.id ?? '';
+}
+
 /** Étiquette lisible d'une période, quel que soit le dossier d'origine. */
 export function titrePeriode(entree: PeriodeActu): string {
-  const id = entree.semaine ?? entree.trimestre ?? entree.annee ?? entree.id ?? '';
+  const id = idPeriode(entree);
   if (entree.periode) return `${id} · ${entree.periode}`;
   return id;
+}
+
+/**
+ * Frise chronologique d'une période.
+ *
+ * Les bilans mensuels, trimestriels et annuels portent leur propre frise,
+ * rédigée par la routine qui les construit (elle regroupe pour rester lisible).
+ * Les bulletins hebdomadaires n'en ont pas besoin : la frise se déduit alors
+ * des items datés de la semaine.
+ */
+export function friseDe(entree: PeriodeActu): PointFrise[] {
+  if (entree.frise?.length) {
+    return [...entree.frise].sort((a, b) => a.date.localeCompare(b.date));
+  }
+  const points = (entree.items ?? [])
+    .filter((item) => item.date)
+    .map((item) => ({
+      date: item.date!,
+      libelle: item.titre,
+      domaine: domaineDe(item) || undefined,
+      detail: item.resume,
+    }));
+  return points.sort((a, b) => a.date.localeCompare(b.date));
 }

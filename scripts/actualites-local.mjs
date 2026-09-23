@@ -43,6 +43,37 @@ function idSemaine(date) {
 const aujourdhui = new Date();
 const annee = aujourdhui.getFullYear();
 const trimestre = `${annee}-T${Math.floor(aujourdhui.getMonth() / 3) + 1}`;
+const mois = `${annee}-${String(aujourdhui.getMonth() + 1).padStart(2, '0')}`;
+const jour = (recul) => {
+  const d = new Date(aujourdhui);
+  d.setDate(d.getDate() - recul);
+  return d.toISOString().slice(0, 10);
+};
+
+const tendancesDemonstration = [
+  {
+    titre: 'DÉMONSTRATION — une orientation qui se confirme',
+    domaine: 'finance',
+    texte:
+      "Bloc de démonstration : les bilans mensuels, trimestriels et annuels dégagent ici les " +
+      "dynamiques de fond de la période — une orientation de politique publique qui se confirme, " +
+      "un sujet qui revient, une évolution progressive — et non une nouvelle liste d'actualités.",
+  },
+  {
+    titre: 'DÉMONSTRATION — un sujet récurrent',
+    domaine: 'social',
+    texte:
+      "Deuxième paragraphe de démonstration, pour vérifier l'affichage de plusieurs tendances " +
+      'et la légende par domaine.',
+  },
+];
+
+const friseDemonstration = [
+  { date: jour(24), libelle: 'DÉMONSTRATION — repère juridique', domaine: 'juridique', detail: 'Une ligne de contexte.' },
+  { date: jour(17), libelle: 'DÉMONSTRATION — repère économique', domaine: 'economie' },
+  { date: jour(10), libelle: 'DÉMONSTRATION — repère social', domaine: 'social' },
+  { date: jour(3), libelle: 'DÉMONSTRATION — repère international', domaine: 'international' },
+];
 
 const demonstration = [
   ['fiches', 'premier-ministre', {
@@ -54,13 +85,59 @@ const demonstration = [
     mots_cles: ['gouvernance', 'souveraineté'],
     derniere_maj: aujourdhui.toISOString().slice(0, 10),
   }],
+  ['fiches', 'ministres-finances', {
+    id: 'ministres-finances',
+    titre: 'Ministres économiques et financiers, Action et Comptes publics, DGFiP',
+    resume:
+      "DÉMONSTRATION LOCALE — ministre de l'Économie et des Finances, ministre de l'Action et des " +
+      'Comptes publics lorsque ce poste existe dans le gouvernement en fonction, et directeur ' +
+      'général des Finances publiques.',
+    sources: [{ nom: 'Gouvernement.fr', url: 'https://www.gouvernement.fr/composition-du-gouvernement' }],
+    lien_cours: "Qui décide quoi à Bercy : utile en finances publiques comme en organisation administrative.",
+    mots_cles: ['DGFiP', 'ordonnateur', 'comptable public'],
+    derniere_maj: aujourdhui.toISOString().slice(0, 10),
+  }],
+  // Tableau de bord : cinq indicateurs chiffrés, et le texte de contexte qui
+  // les accompagne — il n'est pas remplacé par les chiffres.
   ['fiches', 'chiffres-economie', {
     id: 'chiffres-economie',
     titre: "Chiffres clés de l'économie française",
-    resume: "DÉMONSTRATION LOCALE — croissance du PIB, inflation, chômage au sens du BIT, déficit et dette publics en points de PIB.",
+    indicateurs: {
+      pib: { valeur: '2 900 Md€', periode_reference: 'DÉMO — 2025', source: { nom: 'INSEE', url: 'https://www.insee.fr/' } },
+      dette: { valeur: '3 300 Md€', periode_reference: 'DÉMO — T2 2026', source: { nom: 'INSEE', url: 'https://www.insee.fr/' } },
+      dette_pct_pib: { valeur: '113 %', periode_reference: 'DÉMO — T2 2026', source: { nom: 'INSEE', url: 'https://www.insee.fr/' } },
+      deficit: { valeur: '5,4 % du PIB', periode_reference: 'DÉMO — 2025', source: { nom: 'INSEE', url: 'https://www.insee.fr/' } },
+      inflation: { valeur: '1,2 % sur un an', periode_reference: 'DÉMO — mois en cours', source: { nom: 'INSEE', url: 'https://www.insee.fr/' } },
+    },
+    texte_contextuel:
+      "DÉMONSTRATION LOCALE — le texte de contexte reste affiché sous les chiffres : il situe les " +
+      'indicateurs les uns par rapport aux autres et par rapport à la trajectoire pluriannuelle.',
     sources: [{ nom: 'INSEE', url: 'https://www.insee.fr/fr/statistiques' }],
     lien_cours: "Données à dater et à sourcer en copie, mobilisables en économie comme en finances publiques.",
     mots_cles: ['produit intérieur brut', 'inflation', 'dette publique', 'déficit public'],
+    derniere_maj: aujourdhui.toISOString().slice(0, 10),
+  }],
+  // Historique cumulatif : chaque changement s'ajoute, rien n'est écrasé.
+  ['fiches', 'legislation', {
+    id: 'legislation',
+    titre: 'Changements législatifs majeurs récents',
+    historique: [
+      {
+        titre: 'DÉMONSTRATION — texte le plus récent',
+        date: jour(6),
+        resume: "Entrée de démonstration : la liste se complète à chaque passage de la veille, du plus récent au plus ancien.",
+        sources: [{ nom: 'Légifrance', url: 'https://www.legifrance.gouv.fr/' }],
+        lien_cours: 'Rattachement attendu : hiérarchie des normes.',
+        mots_cles: ['hiérarchie des normes', 'loi de finances'],
+      },
+      {
+        titre: 'DÉMONSTRATION — texte antérieur, conservé',
+        date: jour(48),
+        resume: "Cette entrée plus ancienne reste en place : c'est la différence avec les autres fiches de suivi, remplacées à chaque mise à jour.",
+        sources: [{ nom: 'Vie publique', url: 'https://www.vie-publique.fr/' }],
+        mots_cles: ['LOLF', 'autorisation budgétaire'],
+      },
+    ],
     derniere_maj: aujourdhui.toISOString().slice(0, 10),
   }],
   ['semaines', idSemaine(aujourdhui), {
@@ -69,7 +146,8 @@ const demonstration = [
     items: [
       {
         titre: 'DÉMONSTRATION — actualité juridique',
-        theme: 'juridique',
+        domaine: 'juridique',
+        date: jour(2),
         resume: "Entrée de démonstration produite en local. Elle vérifie le chiffrement, le déchiffrement dans le navigateur et le rattachement automatique aux fiches de cours.",
         sources: [{ nom: 'Légifrance', url: 'https://www.legifrance.gouv.fr/' }],
         lien_cours: "Les mots-clés ci-dessous déterminent les fiches proposées.",
@@ -77,21 +155,58 @@ const demonstration = [
       },
       {
         titre: 'DÉMONSTRATION — actualité économique',
-        theme: 'economique',
-        resume: "Deuxième entrée de démonstration, sur un autre thème, pour vérifier le filtre de la page d'archive.",
+        domaine: 'economie',
+        date: jour(3),
+        resume: "Deuxième entrée de démonstration, sur un autre domaine, pour vérifier le filtre de la page d'archive.",
         sources: [{ nom: 'Banque de France', url: 'https://www.banque-france.fr/' }],
         lien_cours: 'Rattachement attendu : politique monétaire et conjoncture.',
         mots_cles: ['politique monétaire', 'inflation'],
       },
       {
+        titre: 'DÉMONSTRATION — actualité de finances publiques',
+        domaine: 'finance',
+        date: jour(4),
+        resume: "Troisième entrée de démonstration, sur le domaine des finances publiques.",
+        sources: [{ nom: 'Cour des comptes', url: 'https://www.ccomptes.fr/' }],
+        lien_cours: 'Rattachement attendu : trajectoire des finances publiques.',
+        mots_cles: ['déficit public', 'dette publique'],
+      },
+      {
+        titre: 'DÉMONSTRATION — actualité sociale',
+        domaine: 'social',
+        date: jour(5),
+        resume: "Quatrième entrée de démonstration, sur le domaine social.",
+        sources: [{ nom: 'DREES', url: 'https://drees.solidarites-sante.gouv.fr/' }],
+        lien_cours: 'Rattachement attendu : protection sociale et assurance maladie.',
+        mots_cles: ['protection sociale', 'assurance maladie'],
+      },
+      {
         titre: 'DÉMONSTRATION — actualité internationale',
-        theme: 'international',
-        resume: "Troisième entrée de démonstration, pour le troisième thème.",
+        domaine: 'international',
+        date: jour(6),
+        resume: "Cinquième entrée de démonstration, pour le cinquième domaine.",
         sources: [{ nom: 'France Diplomatie', url: 'https://www.diplomatie.gouv.fr/' }],
         lien_cours: 'Rattachement attendu : gouvernance mondiale et multilatéralisme.',
         mots_cles: ['multilatéralisme', 'gouvernance mondiale'],
       },
     ],
+  }],
+  ['mois', mois, {
+    mois,
+    periode: 'mois en cours',
+    items: [
+      {
+        titre: 'DÉMONSTRATION — bilan mensuel',
+        domaine: 'finance',
+        date: jour(12),
+        resume: "Sélection resserrée des actualités du mois, construite à partir des bulletins hebdomadaires.",
+        sources: [{ nom: 'Vie publique', url: 'https://www.vie-publique.fr/' }],
+        lien_cours: 'Rattachement attendu : trajectoire des finances publiques.',
+        mots_cles: ['loi de finances', 'déficit public'],
+      },
+    ],
+    tendances: tendancesDemonstration,
+    frise: friseDemonstration,
   }],
   ['trimestres', trimestre, {
     trimestre,
@@ -99,13 +214,16 @@ const demonstration = [
     items: [
       {
         titre: 'DÉMONSTRATION — synthèse trimestrielle',
-        theme: 'juridique',
+        domaine: 'juridique',
+        date: jour(30),
         resume: "Sélection resserrée des actualités structurantes du trimestre.",
         sources: [{ nom: 'Vie publique', url: 'https://www.vie-publique.fr/' }],
         lien_cours: 'Rattachement attendu : réforme institutionnelle du trimestre.',
         mots_cles: ['subsidiarité', 'hiérarchie des normes'],
       },
     ],
+    tendances: tendancesDemonstration,
+    frise: friseDemonstration,
   }],
   ['annees', String(annee), {
     annee: String(annee),
@@ -113,13 +231,16 @@ const demonstration = [
     items: [
       {
         titre: 'DÉMONSTRATION — synthèse annuelle',
-        theme: 'economique',
+        domaine: 'economie',
+        date: jour(90),
         resume: "Évolutions les plus structurantes de l'année, construites à partir des quatre synthèses trimestrielles.",
         sources: [{ nom: 'INSEE', url: 'https://www.insee.fr/' }],
         lien_cours: "Rattachement attendu : tendance de fond de l'année.",
         mots_cles: ['croissance endogène', 'productivité'],
       },
     ],
+    tendances: tendancesDemonstration,
+    frise: friseDemonstration,
   }],
 ];
 

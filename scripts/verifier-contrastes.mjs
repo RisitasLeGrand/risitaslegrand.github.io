@@ -60,6 +60,18 @@ for (const [, nom, valeur] of bloc.matchAll(/--color-([a-z]+-\d+):\s*(#[0-9a-fA-
 clair.white = '#ffffff';
 clair.black = '#000000';
 
+/* Teintes Tailwind laissées telles quelles en thème clair : elles servent aux
+   domaines « social » et « international » de la rubrique Actualités, que la
+   charte de l'État ne couvre pas (elle n'a pas de palette de catégories). */
+const TAILWIND_CLAIR = {
+  'rose-500': '#f43f5e',
+  'rose-700': '#be123c',
+  'cyan-500': '#06b6d4',
+  'cyan-600': '#0891b2',
+  'cyan-700': '#0e7490',
+};
+for (const [nom, valeur] of Object.entries(TAILWIND_CLAIR)) clair[nom] ??= valeur;
+
 /* ── Palette sombre : valeurs Tailwind d'origine, inchangées ─────────────── */
 
 const sombre = {
@@ -78,8 +90,16 @@ const sombre = {
   'indigo-950': '#1e1b4b',
   'emerald-300': '#6ee7b7',
   'emerald-400': '#34d399',
+  'emerald-500': '#10b981',
   'amber-300': '#fcd34d',
   'amber-400': '#fbbf24',
+  'amber-500': '#f59e0b',
+  'rose-300': '#fda4af',
+  'rose-500': '#f43f5e',
+  'cyan-300': '#67e8f9',
+  'cyan-500': '#06b6d4',
+  'cyan-600': '#0891b2',
+  'indigo-500': '#6366f1',
   'red-400': '#f87171',
   'red-950': '#450a0a',
 };
@@ -96,9 +116,18 @@ const COMBINAISONS = [
   ['Lien (Bleu France) sur une carte', 'indigo-600', 'white', 4.5],
   ['Lien (Bleu France) sur le fond de page', 'indigo-600', 'slate-50', 4.5],
   ['Onglet actif : texte sur son fond', 'indigo-700', 'indigo-50', 4.5],
-  ['Étiquette « juridique »', 'indigo-700', 'white', 4.5],
-  ['Étiquette « économique »', 'emerald-700', 'white', 4.5],
-  ['Étiquette « international »', 'amber-700', 'white', 4.5],
+  // Les cinq domaines de la rubrique Actualités : étiquette de carte, puis
+  // pastille de légende des frises (seuil abaissé, élément non textuel).
+  ['Domaine « économie »', 'emerald-700', 'white', 4.5],
+  ['Domaine « finances publiques »', 'amber-700', 'white', 4.5],
+  ['Domaine « social »', 'rose-700', 'white', 4.5],
+  ['Domaine « juridique »', 'indigo-700', 'white', 4.5],
+  ['Domaine « international »', 'cyan-700', 'white', 4.5],
+  ['Pastille « économie »', 'emerald-500', 'white', 3],
+  ['Pastille « finances publiques »', 'amber-500', 'white', 3],
+  ['Pastille « social »', 'rose-500', 'white', 3],
+  ['Pastille « juridique »', 'indigo-500', 'white', 3],
+  ['Pastille « international »', 'cyan-600', 'white', 3],
   ['Alerte : texte sur fond d\'alerte', 'red-800', 'red-50', 4.5],
   ['Bouton primaire : texte sur Bleu France', 'white', 'indigo-600', 4.5],
   ['Bouton d\'alerte : texte sur rouge', 'white', 'red-600', 4.5],
@@ -115,9 +144,16 @@ const COMBINAISONS_SOMBRE = [
   ['Lien sur une carte', 'indigo-400', 'slate-900', 4.5],
   ['Lien sur le fond de page', 'indigo-400', 'slate-950', 4.5],
   ['Onglet actif : texte sur son fond', 'indigo-300', 'indigo-950', 4.5],
-  ['Étiquette « juridique »', 'indigo-300', 'slate-900', 4.5],
-  ['Étiquette « économique »', 'emerald-300', 'slate-900', 4.5],
-  ['Étiquette « international »', 'amber-300', 'slate-900', 4.5],
+  ['Domaine « économie »', 'emerald-300', 'slate-900', 4.5],
+  ['Domaine « finances publiques »', 'amber-300', 'slate-900', 4.5],
+  ['Domaine « social »', 'rose-300', 'slate-900', 4.5],
+  ['Domaine « juridique »', 'indigo-300', 'slate-900', 4.5],
+  ['Domaine « international »', 'cyan-300', 'slate-900', 4.5],
+  ['Pastille « économie »', 'emerald-500', 'slate-900', 3],
+  ['Pastille « finances publiques »', 'amber-500', 'slate-900', 3],
+  ['Pastille « social »', 'rose-500', 'slate-900', 3],
+  ['Pastille « juridique »', 'indigo-500', 'slate-900', 3],
+  ['Pastille « international »', 'cyan-600', 'slate-900', 3],
   ['Alerte : texte sur fond d\'alerte', 'red-400', 'red-950', 4.5],
   ['Barre de progression sur le fond de page', 'indigo-400', 'slate-950', 3],
   ['Bordure de carte sur le fond de page', 'slate-800', 'slate-950', 1.1],

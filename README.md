@@ -338,12 +338,22 @@ redirige automatiquement l'ancienne adresse, mais pensez à :
 ## La rubrique Actualités
 
 Une rubrique **Actualités** apparaît en bas du tableau de bord : quatre fiches
-suivies en continu (Premier ministre ; ministres de Bercy et DGFiP ; chiffres
-clés de l'économie ; changements législatifs récents), un aperçu de la semaine
-en cours, et un bouton **« Voir les actualités passées »** qui mène à
-`/actualites/`. Cette page d'archive — veille hebdomadaire, synthèses
-trimestrielles et annuelles, avec filtre par thème — n'est volontairement pas
-dans la navigation globale : on n'y accède que par ce bouton.
+suivies en continu (Premier ministre ; ministres de Bercy, Action et Comptes
+publics et DGFiP ; tableau de bord des chiffres clés de l'économie ; historique
+des changements législatifs), un aperçu de la semaine en cours, et un bouton
+**« Voir les actualités passées »** qui mène à `/actualites/`. Cette page
+d'archive n'est volontairement pas dans la navigation globale : on n'y accède
+que par ce bouton.
+
+Elle réunit cinq onglets : **Semaines**, **Mois**, **Trimestres**, **Années**
+— chacun filtrable par domaine — et **Synthèses**, qui rassemble les frises
+chronologiques de toutes les périodes, légendées par domaine. Les bilans
+mensuel, trimestriel et annuel s'ouvrent sur leurs **tendances de fond** :
+quelques paragraphes de lecture d'ensemble, avant la liste des actualités
+retenues.
+
+Un seul vocabulaire sert partout — cinq domaines : `economie`, `finance`,
+`social`, `juridique`, `international`.
 
 Chaque actualité affiche, sous son résumé, les **fiches de cours auxquelles la
 rattacher** : ce sont de vrais liens, calculés dans le navigateur à partir des
@@ -364,9 +374,9 @@ donc pour elles une **paire de clés** :
 | **Privée** | `content/actualites-cle-privee.json`, jamais commitée ; republiée chiffrée par le build | déchiffrer, dans le navigateur, après saisie du mot de passe |
 | **Privée, copie chiffrée** | `actualites-data/cle-privee-chiffree.json`, commitée, protégée par le mot de passe | relire une actualité en ligne de commande |
 
-La veille hebdomadaire ne détient que la clé publique : elle **écrit** sans
-pouvoir **relire**. Les synthèses trimestrielle et annuelle reçoivent, elles, le
-mot de passe, parce qu'il leur faut relire la période pour la résumer :
+Les quatre routines reçoivent le mot de passe : les bilans doivent relire la
+période qu'ils résument, et la veille hebdomadaire doit relire l'historique
+législatif, qu'elle complète au lieu de le remplacer.
 
 ```bash
 npm run actualites:lire -- semaines 2026-W38
@@ -400,6 +410,7 @@ actualites-data/
   fiches/               premier-ministre, ministres-finances,
                         chiffres-economie, legislation
   semaines/             une entrée par semaine ISO
+  mois/                 un bilan par mois civil
   trimestres/           une par trimestre civil
   annees/               une par année
 ```
@@ -418,6 +429,11 @@ node scripts/chiffrer-actualite.mjs semaines 2026-W40 /tmp/semaine.json
 npm run deploy
 ```
 
+Les gabarits disponibles : `fiches`, `chiffres-economie`, `legislation`,
+`semaines`, `mois`, `trimestres`, `annees`. Un bilan (`mois`, `trimestres`,
+`annees`) doit porter ses `tendances` et sa `frise` — le script refuse de
+chiffrer sans.
+
 Le fichier en clair reste dans `/tmp` : ne le déplacez pas dans le dépôt.
 
 ### Voir la rubrique en développement local
@@ -432,11 +448,12 @@ démonstration ne peut jamais atteindre le site en ligne.
 
 ### Alimenter la rubrique automatiquement
 
-Trois routines programmées tiennent la rubrique à jour et ouvrent une pull
-request à chaque passage : hebdomadaire (lundi matin), trimestrielle (1er
-janvier, avril, juillet, octobre) et annuelle (5 janvier). Une actualité
-n'apparaît en ligne qu'après **fusion de la pull request et republication**.
-Voir `docs/routines-actualites.md`.
+Quatre routines programmées tiennent la rubrique à jour et ouvrent une pull
+request à chaque passage : hebdomadaire (lundi matin), mensuelle (1er du mois),
+trimestrielle (2 janvier, avril, juillet, octobre) et annuelle (6 janvier).
+Les déclencheurs sont échelonnés parce que chaque niveau lit le niveau en
+dessous. Une actualité n'apparaît en ligne qu'après **fusion de la pull request
+et republication**. Voir `docs/routines-actualites.md`.
 
 Aucune image n'est jamais hébergée dans le dépôt : seule l'URL d'origine et son
 crédit sont conservés. Si l'URL cesse de répondre, le bloc image disparaît de
