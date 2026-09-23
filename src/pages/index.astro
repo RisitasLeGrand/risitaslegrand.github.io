@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import Section from '../components/Section.astro';
 ---
 
 <Base titre="Tableau de bord" actif="accueil">
@@ -8,8 +9,8 @@ import Base from '../layouts/Base.astro';
   <div id="tableau" class="hidden space-y-6">
     <!-- Bandeau niveau / XP / série -->
     <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-      <div class="rounded-2xl bg-gradient-to-br from-indigo-600 to-violet-600 p-5 text-white shadow-sm">
-        <p class="text-sm/5 opacity-80">Niveau</p>
+      <div class="rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 p-5 text-white shadow-sm">
+        <p class="etiquette opacity-80">Niveau</p>
         <p class="mt-1 flex items-baseline gap-2">
           <span id="niveau" class="text-3xl font-bold">—</span>
           <span id="xp-total" class="text-sm opacity-80"></span>
@@ -20,24 +21,24 @@ import Base from '../layouts/Base.astro';
         <p id="xp-restant" class="mt-2 text-xs opacity-80"></p>
       </div>
 
-      <div id="carte-streak" class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <p class="text-sm text-slate-500 dark:text-slate-400">Série en cours</p>
+      <div id="carte-streak" class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p class="etiquette text-slate-500 dark:text-slate-400">Série en cours</p>
         <p class="mt-1 text-3xl font-bold text-slate-900 dark:text-white">
           <span id="streak">—</span> <span class="text-xl">🔥</span>
         </p>
         <p id="streak-detail" class="mt-2 text-xs text-slate-500 dark:text-slate-400"></p>
       </div>
 
-      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <p class="text-sm text-slate-500 dark:text-slate-400">À réviser aujourd'hui</p>
+      <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p class="etiquette text-slate-500 dark:text-slate-400">À réviser aujourd'hui</p>
         <p class="mt-1 text-3xl font-bold text-slate-900 dark:text-white" id="dues">—</p>
         <a id="lien-reviser" href="#" class="mt-2 inline-block text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400">
           Lancer la session →
         </a>
       </div>
 
-      <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <p class="text-sm text-slate-500 dark:text-slate-400">Maîtrise globale</p>
+      <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p class="etiquette text-slate-500 dark:text-slate-400">Maîtrise globale</p>
         <p class="mt-1 text-3xl font-bold text-slate-900 dark:text-white" id="maitrise">—</p>
         <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
           <div id="barre-maitrise" class="h-full rounded-full bg-emerald-500 transition-all duration-500" style="width:0%"></div>
@@ -46,66 +47,85 @@ import Base from '../layouts/Base.astro';
       </div>
     </section>
 
+    <!-- Séance du jour : proposée automatiquement par la rotation. -->
+    <a
+      id="carte-seance"
+      href="planification/"
+      class="hidden rounded-xl border border-indigo-200 bg-indigo-50 p-5 transition hover:border-indigo-400 dark:border-indigo-800 dark:bg-indigo-950/40 dark:hover:border-indigo-600"
+    >
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div class="min-w-0">
+          <p id="seance-etiquette" class="etiquette text-indigo-600 dark:text-indigo-400"></p>
+          <p id="seance-titre" class="mt-1 text-lg font-bold text-slate-900 dark:text-white"></p>
+          <p id="seance-detail" class="mt-1 text-sm text-slate-600 dark:text-slate-300"></p>
+        </div>
+        <span
+          id="seance-badge"
+          class="hidden shrink-0 rounded-full bg-amber-100 px-3 py-1 text-xs font-bold text-amber-800 uppercase dark:bg-amber-950 dark:text-amber-300"
+        >
+          Révision du mois
+        </span>
+      </div>
+    </a>
+
     <!-- Relance si la série est en péril -->
     <div id="alerte-streak" class="hidden rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-200"></div>
 
     <!-- Progression par matière -->
-    <section>
-      <div class="mb-3 flex items-center justify-between">
-        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Progression par matière</h2>
-        <a href="bibliotheque/" id="lien-biblio" class="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400">Tout voir →</a>
-      </div>
-      <div id="matieres" class="grid gap-3 sm:grid-cols-2"></div>
-    </section>
+    <Section
+      titre="Progression par matière"
+      lienLibelle="Voir tout"
+      lienHref="bibliotheque/"
+      lienId="lien-biblio"
+      grilleId="matieres"
+      grille="grid gap-4 sm:grid-cols-2"
+    />
 
     <!-- Actualités : données non chiffrées, chargées à la volée depuis
          « actualites-data/ » sur la branche publiée (voir src/lib/actualites.ts). -->
     <section id="bloc-actualites" class="hidden">
-      <div class="mb-3 flex items-center justify-between gap-3">
-        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Actualités</h2>
+      <div class="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Actualités</h2>
         <a
           id="lien-actualites"
           href="actualites/"
-          class="shrink-0 rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-600 transition hover:border-indigo-300 hover:text-indigo-600 dark:border-slate-700 dark:text-slate-300 dark:hover:border-indigo-700 dark:hover:text-indigo-400"
+          class="inline-flex min-h-11 items-center text-sm font-medium text-indigo-600 underline-offset-4 hover:underline dark:text-indigo-400"
         >
-          Voir les actualités passées →
+          Voir les actualités passées <span aria-hidden="true">→</span>
         </a>
       </div>
 
-      <div id="fiches-actu" class="grid gap-3 md:grid-cols-2"></div>
+      <div id="fiches-actu" class="grid gap-4 md:grid-cols-2"></div>
 
-      <div id="semaine-actu" class="mt-4">
+      <div id="semaine-actu" class="mt-6">
         <h3
           id="titre-semaine-actu"
-          class="mb-2 text-sm font-semibold tracking-wide text-slate-500 uppercase dark:text-slate-400"
+          class="etiquette mb-3 text-slate-500 dark:text-slate-400"
         >
         </h3>
-        <div id="items-semaine-actu" class="grid gap-3 md:grid-cols-2"></div>
+        <div id="items-semaine-actu" class="grid gap-4 md:grid-cols-2"></div>
       </div>
     </section>
 
     <div class="grid gap-6 lg:grid-cols-2">
       <!-- Activité des 8 dernières semaines -->
-      <section>
-        <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Régularité</h2>
-        <div class="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <Section titre="Régularité" grille="">
+        <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
           <div id="calendrier" class="flex gap-1 overflow-x-auto"></div>
           <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
             Huit dernières semaines — l'intensité de la couleur reflète l'XP gagné dans la journée.
           </p>
         </div>
-      </section>
+      </Section>
 
       <!-- Badges -->
-      <section>
-        <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Succès</h2>
-        <div id="badges" class="grid grid-cols-2 gap-2 sm:grid-cols-3"></div>
-      </section>
+      <Section titre="Succès" grilleId="badges" grille="grid grid-cols-2 gap-2 sm:grid-cols-3" />
     </div>
   </div>
 </Base>
 
 <script>
+  import { auDeverrouillage } from '../lib/chargement';
   import { construireVue } from '../lib/agregats';
   import { lireProfil, tousLesJours, jourISO, ajouterJours } from '../lib/db';
   import { BADGES, calculerNiveau, statutStreak } from '../lib/gamification';
@@ -114,6 +134,7 @@ import Base from '../layouts/Base.astro';
   import { carteFiche, carteItem, definirIndexTexte } from '../lib/actualites-rendu';
   import { aplatirFiches, chargerIndexRecherche, chargerManifeste } from '../lib/contenu';
   import { construireIndexTexte } from '../lib/rattachement';
+  import { historique, seanceDuJour, theme as themeParId } from '../lib/planification';
 
   async function afficher() {
     const [vue, profil, streak, jours] = await Promise.all([
@@ -166,22 +187,32 @@ import Base from '../layouts/Base.astro';
     conteneur.innerHTML = '';
     for (const matiere of vue.matieres) {
       const pourcent = Math.round(matiere.maitrise * 100);
+      // Étiquette de catégorie au-dessus du titre : elle dit où en est la
+      // matière, ce qu'un pourcentage seul ne raconte pas d'un coup d'œil.
+      const etat =
+        pourcent === 0
+          ? { libelle: 'À découvrir', classe: 'text-slate-500 dark:text-slate-400' }
+          : pourcent >= 80
+            ? { libelle: 'Consolidé', classe: 'text-emerald-700 dark:text-emerald-300' }
+            : { libelle: 'En cours', classe: 'text-indigo-700 dark:text-indigo-300' };
+
       const carte = document.createElement('a');
       carte.href = `${lien('/bibliotheque/')}?matiere=${encodeURIComponent(matiere.nom)}`;
       carte.className =
-        'block rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-indigo-300 hover:shadow dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700';
+        'block rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-indigo-300 hover:shadow dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700';
       carte.innerHTML = `
-        <div class="flex items-start justify-between gap-3">
-          <p class="font-medium text-slate-900 dark:text-white"></p>
+        <div class="flex items-baseline justify-between gap-3">
+          <p class="etiquette ${etat.classe}">${etat.libelle}</p>
           <span class="shrink-0 text-sm font-semibold text-slate-500 dark:text-slate-400">${pourcent} %</span>
         </div>
+        <p class="mt-1.5 font-semibold text-slate-900 dark:text-white"></p>
         <div class="mt-3 h-2 overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
-          <div class="h-full rounded-full bg-indigo-500 transition-all duration-500" style="width:${pourcent}%"></div>
+          <div class="h-full rounded-full bg-indigo-600 transition-all duration-500" style="width:${pourcent}%"></div>
         </div>
         <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
           ${matiere.fichesLues}/${matiere.fiches.length} fiche(s) lue(s)${matiere.cartesDues ? ` · ${matiere.cartesDues} carte(s) à réviser` : ''}
         </p>`;
-      carte.querySelector('p')!.textContent = matiere.nom;
+      carte.querySelectorAll('p')[1]!.textContent = matiere.nom;
       conteneur.appendChild(carte);
     }
     if (!vue.matieres.length) {
@@ -232,8 +263,41 @@ import Base from '../layouts/Base.astro';
       zoneBadges.appendChild(element);
     }
 
+    // --- Séance du jour ---
+    await afficherSeanceDuJour();
+
     document.getElementById('chargement')!.classList.add('hidden');
     document.getElementById('tableau')!.classList.remove('hidden');
+  }
+
+  /**
+   * Rappel de la matière du jour, proposée par la rotation hebdomadaire.
+   * Le détail de la séance vit sur la page « Planification » : on se contente
+   * ici d'annoncer ce qui est prévu et d'y conduire.
+   */
+  async function afficherSeanceDuJour() {
+    const seance = await seanceDuJour();
+    const sujet = themeParId(seance.theme);
+    if (!sujet) return;
+
+    const passees = await historique(seance.theme);
+    const terminee = seance.statut === 'terminee';
+    const nombreRappels = seance.etendue ? Math.min(4, passees.length) : Math.min(2, passees.length);
+
+    document.getElementById('seance-etiquette')!.textContent = terminee
+      ? 'Séance du jour — terminée'
+      : 'Séance du jour';
+    document.getElementById('seance-titre')!.textContent = `${sujet.icone} ${sujet.nom}`;
+    document.getElementById('seance-detail')!.textContent = terminee
+      ? 'C\'est fait pour aujourd\'hui. Vous pouvez relire vos notes de séance.'
+      : nombreRappels === 0
+        ? 'Première séance sur cette matière : directement le contenu du jour, puis la note de séance.'
+        : `Restitution à blanc ${
+            nombreRappels === 1 ? 'de la séance précédente' : `des ${nombreRappels} séances précédentes`
+          }, puis contenu du jour et note de séance.`;
+    document.getElementById('seance-badge')!.classList.toggle('hidden', !seance.etendue);
+    document.getElementById('carte-seance')!.setAttribute('href', lien('/planification/'));
+    document.getElementById('carte-seance')!.classList.remove('hidden');
   }
 
   /**
@@ -297,10 +361,10 @@ import Base from '../layouts/Base.astro';
     }
   }
 
-  document.addEventListener('revinsp:deverrouille', () => {
-    afficher().catch((e) => {
-      document.getElementById('chargement')!.textContent = `Erreur : ${e.message}`;
-    });
+  // « auDeverrouillage » : barre de progression, garde-fou de 5 secondes et
+  // exécution même si ce script arrive après l'ouverture de la session.
+  auDeverrouillage(async () => {
+    await afficher();
     // Un échec de la veille ne doit jamais empêcher l'affichage du tableau de bord.
     afficherActualites().catch((e) => console.warn('Actualités indisponibles :', e));
   });

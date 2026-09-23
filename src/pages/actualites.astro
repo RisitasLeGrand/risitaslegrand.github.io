@@ -15,7 +15,7 @@ import Base from '../layouts/Base.astro';
       <a
         id="retour"
         href="./"
-        class="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+        class="inline-flex min-h-11 items-center text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
         >← Tableau de bord</a
       >
       <h1 class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">Actualités passées</h1>
@@ -24,19 +24,19 @@ import Base from '../layouts/Base.astro';
       </p>
     </div>
 
-    <div class="flex gap-1 rounded-xl bg-slate-100 p-1 dark:bg-slate-800" role="tablist" aria-label="Périodicité">
-      <button type="button" data-vue="semaines" class="onglet-vue rounded-lg px-3 py-1.5 text-sm font-medium">Semaines</button>
-      <button type="button" data-vue="trimestres" class="onglet-vue rounded-lg px-3 py-1.5 text-sm font-medium">Trimestres</button>
-      <button type="button" data-vue="annees" class="onglet-vue rounded-lg px-3 py-1.5 text-sm font-medium">Années</button>
+    <div class="flex w-full flex-wrap gap-1 rounded-xl bg-slate-100 p-1 sm:w-auto dark:bg-slate-800" role="tablist" aria-label="Périodicité">
+      <button type="button" data-vue="semaines" class="onglet-vue min-h-11 rounded-lg px-3.5 py-2 text-sm font-medium">Semaines</button>
+      <button type="button" data-vue="trimestres" class="onglet-vue min-h-11 rounded-lg px-3.5 py-2 text-sm font-medium">Trimestres</button>
+      <button type="button" data-vue="annees" class="onglet-vue min-h-11 rounded-lg px-3.5 py-2 text-sm font-medium">Années</button>
     </div>
   </div>
 
   <div id="filtres" class="mb-6 flex flex-wrap items-center gap-2">
     <span class="text-sm text-slate-500 dark:text-slate-400">Thème :</span>
-    <button type="button" data-theme="" class="filtre-theme rounded-full px-3 py-1 text-sm font-medium">Tous</button>
-    <button type="button" data-theme="juridique" class="filtre-theme rounded-full px-3 py-1 text-sm font-medium">Juridique</button>
-    <button type="button" data-theme="economique" class="filtre-theme rounded-full px-3 py-1 text-sm font-medium">Économique</button>
-    <button type="button" data-theme="international" class="filtre-theme rounded-full px-3 py-1 text-sm font-medium">International</button>
+    <button type="button" data-theme="" class="filtre-theme min-h-11 rounded-full px-4 py-2 text-sm font-medium">Tous</button>
+    <button type="button" data-theme="juridique" class="filtre-theme min-h-11 rounded-full px-4 py-2 text-sm font-medium">Juridique</button>
+    <button type="button" data-theme="economique" class="filtre-theme min-h-11 rounded-full px-4 py-2 text-sm font-medium">Économique</button>
+    <button type="button" data-theme="international" class="filtre-theme min-h-11 rounded-full px-4 py-2 text-sm font-medium">International</button>
   </div>
 
   <div id="chargement-actu" class="py-16 text-center text-slate-400">Chargement des actualités…</div>
@@ -44,6 +44,7 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
+  import { auDeverrouillage } from '../lib/chargement';
   import {
     chargerSemaines,
     chargerTrimestres,
@@ -77,12 +78,12 @@ import Base from '../layouts/Base.astro';
   function peindreBoutons() {
     for (const bouton of onglets) {
       const actif = bouton.dataset.vue === vue;
-      bouton.className = `onglet-vue rounded-lg px-3 py-1.5 text-sm font-medium transition ${actif ? ACTIF_ONGLET : INACTIF_ONGLET}`;
+      bouton.className = `onglet-vue min-h-11 rounded-lg px-3.5 py-2 text-sm font-medium transition ${actif ? ACTIF_ONGLET : INACTIF_ONGLET}`;
       bouton.setAttribute('aria-selected', String(actif));
     }
     for (const bouton of filtres) {
       const actif = (bouton.dataset.theme ?? '') === theme;
-      bouton.className = `filtre-theme rounded-full px-3 py-1 text-sm font-medium transition ${actif ? ACTIF_FILTRE : INACTIF_FILTRE}`;
+      bouton.className = `filtre-theme min-h-11 rounded-full px-4 py-2 text-sm font-medium transition ${actif ? ACTIF_FILTRE : INACTIF_FILTRE}`;
       bouton.setAttribute('aria-pressed', String(actif));
     }
   }
@@ -176,7 +177,9 @@ import Base from '../layouts/Base.astro';
     });
   }
 
-  document.addEventListener('revinsp:deverrouille', () => {
+  // « auDeverrouillage » : barre de progression, garde-fou de 5 secondes et
+  // exécution même si ce script arrive après l'ouverture de la session.
+  auDeverrouillage(async () => {
     theme = parametreUrl('theme') ?? '';
     // Le manifeste alimente le rattachement des actualités aux fiches de cours ;
     // son absence ne doit pas empêcher l'affichage des actualités.
@@ -186,6 +189,6 @@ import Base from '../layouts/Base.astro';
         if (!archive.classList.contains('hidden')) peindreArchive();
       })
       .catch((e) => console.warn('Rattachement aux fiches indisponible :', e));
-    void basculer(parametreUrl('vue') ?? 'semaines');
+    await basculer(parametreUrl('vue') ?? 'semaines');
   });
 </script>

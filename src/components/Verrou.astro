@@ -66,7 +66,8 @@
 </div>
 
 <script>
-  import { deverrouiller, estDeverrouille } from '../lib/auth';
+  import { deverrouiller, estDeverrouille, signalerDeverrouillage, signalerVerrouillage } from '../lib/auth';
+  import { demarrerChargement, echecChargement, terminerChargement } from '../lib/chargement';
 
   const ecran = document.getElementById('ecran-verrou')!;
   const application = document.getElementById('application')!;
@@ -77,6 +78,10 @@
   const bouton = document.getElementById('bouton-verrou') as HTMLButtonElement;
 
   function afficherVerrou() {
+    // Rien de plus à charger tant que le mot de passe n'est pas saisi : la
+    // barre se referme au lieu de tourner dans le vide.
+    terminerChargement();
+    signalerVerrouillage();
     ecran.classList.remove('hidden');
     ecran.classList.add('flex');
     application.classList.add('hidden');
@@ -88,7 +93,9 @@
     ecran.classList.remove('flex');
     application.classList.remove('hidden');
     // Signale aux pages qu'elles peuvent charger leur contenu déchiffré.
-    document.dispatchEvent(new CustomEvent('revinsp:deverrouille'));
+    // L'état est mémorisé sur <html> : une page dont le script arrive après
+    // ce moment le lira quand même (voir lib/auth.ts).
+    signalerDeverrouillage();
   }
 
   formulaire.addEventListener('submit', async (e) => {
@@ -96,6 +103,9 @@
     erreur.classList.add('hidden');
     bouton.disabled = true;
     bouton.textContent = 'Déchiffrement…';
+    // La dérivation PBKDF2 est longue : la barre de progression démarre ici,
+    // et non à l'affichage de la page, pour couvrir aussi cette attente.
+    demarrerChargement();
 
     // La dérivation PBKDF2 est volontairement lente : on laisse le navigateur
     // peindre l'état « en cours » avant de la lancer.
@@ -106,6 +116,7 @@
     bouton.textContent = 'Déverrouiller';
 
     if (message) {
+      echecChargement();
       erreur.textContent = message;
       erreur.classList.remove('hidden');
       champ.select();
@@ -116,7 +127,15 @@
   });
 
   // Au chargement : session déjà déverrouillée ?
-  estDeverrouille().then((ouvert) => (ouvert ? afficherApplication() : afficherVerrou()));
+  demarrerChargement();
+  estDeverrouille()
+    .then((ouvert) => (ouvert ? afficherApplication() : afficherVerrou()))
+    .catch((e) => {
+      // Une clé illisible ne doit pas laisser l'écran figé : on redemande
+      // simplement le mot de passe.
+      console.error('Vérification de la session impossible :', e);
+      afficherVerrou();
+    });
 
   document.addEventListener('revinsp:verrouille', afficherVerrou);
 </script>

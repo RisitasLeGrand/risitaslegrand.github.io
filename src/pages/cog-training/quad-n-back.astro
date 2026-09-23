@@ -31,13 +31,14 @@ import QuadNBack from '../../features/quad-n-back/composants/QuadNBack.svelte';
 </Base>
 
 <script>
+  import { auDeverrouillage } from '../../lib/chargement';
   import { lien } from '../../lib/ui';
 
   document.getElementById('retour')!.setAttribute('href', lien('/cog-training/'));
 
   // L'exercice ne contient aucune donnée du concours et n'est donc pas
   // chiffré, mais il reste derrière l'écran de connexion comme le reste du site.
-  document.addEventListener('revinsp:deverrouille', () => {
+  auDeverrouillage(() => {
     document.getElementById('chargement')!.classList.add('hidden');
     document.getElementById('exercice')!.classList.remove('hidden');
   });

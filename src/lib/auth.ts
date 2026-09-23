@@ -25,6 +25,9 @@ import { oublierCleActualites } from './actualites';
 const CLE_STOCKAGE = 'revinsp.cle';
 const HASH_ATTENDU = (config as { motDePasseHash: string }).motDePasseHash.toLowerCase();
 
+/** Nom de l'événement annonçant que le contenu peut être déchiffré. */
+export const EVENEMENT_DEVERROUILLE = 'revinsp:deverrouille';
+
 let cleMemoire: CryptoKey | null = null;
 const abonnes = new Set<(deverrouille: boolean) => void>();
 
@@ -119,4 +122,50 @@ export function verrouiller() {
 export function surChangementVerrou(callback: (deverrouille: boolean) => void) {
   abonnes.add(callback);
   return () => abonnes.delete(callback);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Signal de déverrouillage — verrou à bascule, et non événement fugace
+   ══════════════════════════════════════════════════════════════════════════
+
+   L'écran de connexion annonçait l'ouverture de la session par un simple
+   CustomEvent. Or les scripts de page sont des modules chargés séparément :
+   quand le paquet d'une page arrivait APRÈS l'envoi de l'événement — ce qui se
+   produit dès que « cle.json » est servi par le cache du navigateur, donc à
+   presque chaque navigation —, la page posait son écouteur trop tard,
+   n'apprenait jamais que la session était ouverte et restait indéfiniment sur
+   « Déchiffrement du contenu… ». Un rechargement manuel rejouait la séquence
+   avec un autre minutage et « corrigeait » le problème.
+
+   La correction consiste à mémoriser l'état sur <html> : l'information cesse
+   d'être un instant pour devenir une condition, qu'une page arrivée en retard
+   peut toujours lire. « quandDeverrouille » unifie les deux cas.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** Marque la session comme ouverte et prévient les pages déjà en écoute. */
+export function signalerDeverrouillage() {
+  document.documentElement.dataset.verrou = 'ouvert';
+  document.dispatchEvent(new CustomEvent(EVENEMENT_DEVERROUILLE));
+}
+
+/** Marque la session comme fermée. */
+export function signalerVerrouillage() {
+  delete document.documentElement.dataset.verrou;
+}
+
+/** Vrai si la session est ouverte, sans attendre de vérification asynchrone. */
+export function sessionOuverte(): boolean {
+  return document.documentElement.dataset.verrou === 'ouvert';
+}
+
+/**
+ * Exécute « callback » dès que la session est ouverte — immédiatement si elle
+ * l'est déjà. C'est le seul point d'entrée que les pages doivent utiliser.
+ */
+export function quandDeverrouille(callback: () => void): void {
+  if (sessionOuverte()) {
+    queueMicrotask(callback);
+    return;
+  }
+  document.addEventListener(EVENEMENT_DEVERROUILLE, callback, { once: true });
 }

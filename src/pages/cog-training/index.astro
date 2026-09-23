@@ -53,17 +53,17 @@ const exercices = [
         <a
           href={exercice.href}
           data-exercice={exercice.id}
-          class="group flex flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-indigo-300 hover:shadow dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700"
+          class="group flex flex-col rounded-xl border border-slate-200 bg-white p-5 shadow-sm transition hover:border-indigo-300 hover:shadow dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700"
         >
+          {/* Étiquette de catégorie au-dessus du titre, puis le titre : c'est
+              la convention de carte de service-public.gouv.fr. */}
           <div class="flex items-start gap-3">
-            <span class="text-3xl" aria-hidden="true">
+            <span class="text-3xl leading-none" aria-hidden="true">
               {exercice.icone}
             </span>
             <div class="min-w-0">
-              <h2 class="font-semibold text-slate-900 dark:text-white">{exercice.titre}</h2>
-              <p class="text-xs font-medium tracking-wide text-indigo-600 uppercase dark:text-indigo-400">
-                {exercice.accroche}
-              </p>
+              <p class="etiquette text-indigo-700 dark:text-indigo-300">{exercice.accroche}</p>
+              <h2 class="mt-1 font-semibold text-slate-900 dark:text-white">{exercice.titre}</h2>
             </div>
           </div>
 
@@ -85,6 +85,7 @@ const exercices = [
 </Base>
 
 <script>
+  import { auDeverrouillage } from '../../lib/chargement';
   import { lien } from '../../lib/ui';
 
   // Les liens sont réécrits avec le chemin de base du site, comme ailleurs.
@@ -92,7 +93,7 @@ const exercices = [
     carte.href = lien(`/cog-training/${carte.dataset.exercice}/`);
   }
 
-  document.addEventListener('revinsp:deverrouille', () => {
+  auDeverrouillage(() => {
     document.getElementById('chargement')!.classList.add('hidden');
     document.getElementById('exercices')!.classList.remove('hidden');
   });

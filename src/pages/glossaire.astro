@@ -21,6 +21,7 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
+  import { auDeverrouillage } from '../lib/chargement';
   import { chargerGlossaire, type TermeGlossaire } from '../lib/contenu';
   import { normaliser } from '../lib/ui';
 
@@ -91,18 +92,14 @@ import Base from '../layouts/Base.astro';
     lettres.classList.add('flex');
   }
 
-  document.addEventListener('revinsp:deverrouille', () => {
-    chargerGlossaire()
-      .then((donnees) => {
-        termes = donnees;
-        $('chargement').classList.add('hidden');
-        rendre();
-        $('filtre-glossaire').addEventListener('input', (e) =>
-          rendre((e.target as HTMLInputElement).value),
-        );
-      })
-      .catch((e) => {
-        $('chargement').textContent = `Erreur : ${e.message}`;
-      });
+  // « auDeverrouillage » : barre de progression, garde-fou de 5 secondes et
+  // exécution même si ce script arrive après l'ouverture de la session.
+  auDeverrouillage(async () => {
+    termes = await chargerGlossaire();
+    $('chargement').classList.add('hidden');
+    rendre();
+    $('filtre-glossaire').addEventListener('input', (e) =>
+      rendre((e.target as HTMLInputElement).value),
+    );
   });
 </script>

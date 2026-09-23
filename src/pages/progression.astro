@@ -65,6 +65,7 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
+  import { auDeverrouillage } from '../lib/chargement';
   import {
     exporterTout,
     importerTout,
@@ -114,8 +115,10 @@ import Base from '../layouts/Base.astro';
     element.classList.remove('hidden');
   }
 
-  document.addEventListener('revinsp:deverrouille', () => {
-    void afficherResume();
+  // « auDeverrouillage » : barre de progression, garde-fou de 5 secondes et
+  // exécution même si ce script arrive après l'ouverture de la session.
+  auDeverrouillage(async () => {
+    await afficherResume();
 
     $('exporter').addEventListener('click', async () => {
       const donnees = await exporterTout();

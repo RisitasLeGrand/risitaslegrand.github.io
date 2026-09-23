@@ -5,6 +5,9 @@
  */
 import '../styles/global.css';
 import Verrou from '../components/Verrou.astro';
+import CommutateurTheme from '../components/CommutateurTheme.astro';
+import BarreProgression from '../components/BarreProgression.astro';
+import PiedDePage from '../components/PiedDePage.astro';
 import config from '../../site.config.mjs';
 
 interface Props {
@@ -22,6 +25,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 // est la version affichée à côté de l'icône sur les grands écrans.
 const onglets = [
   { id: 'accueil', libelle: 'Tableau de bord', court: 'Accueil', href: `${base}/`, icone: '🏠' },
+  { id: 'planification', libelle: 'Planification des révisions', court: 'Planning', href: `${base}/planification/`, icone: '🗓️' },
   { id: 'bibliotheque', libelle: 'Bibliothèque', court: 'Cours', href: `${base}/bibliotheque/`, icone: '📚' },
   { id: 'flashcards', libelle: 'Flashcards', court: 'Cartes', href: `${base}/flashcards/`, icone: '🃏' },
   { id: 'quiz', libelle: 'Quiz', court: 'Quiz', href: `${base}/quiz/`, icone: '🎯' },
@@ -47,27 +51,42 @@ const onglets = [
     <link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
     <script is:inline>
       // Applique le thème avant le premier rendu pour éviter tout clignotement.
+      // Trois choix possibles : « clair », « sombre » et « systeme ». Seul le
+      // thème résolu (clair ou sombre) est écrit dans « data-theme » ; le choix
+      // d'origine est conservé dans « data-theme-choix » pour le commutateur.
+      // En l'absence de choix enregistré, on reste sur le thème sombre, qui est
+      // celui du site depuis toujours.
       (function () {
+        var choix = 'sombre';
         try {
-          var choix = localStorage.getItem('revinsp.theme');
-          var sombre =
-            choix === 'sombre' ||
-            (!choix && window.matchMedia('(prefers-color-scheme: dark)').matches);
-          document.documentElement.setAttribute('data-theme', sombre ? 'sombre' : 'clair');
+          var brut = localStorage.getItem('revinsp.theme');
+          if (brut === 'clair' || brut === 'sombre' || brut === 'systeme') choix = brut;
         } catch (e) {
-          document.documentElement.setAttribute('data-theme', 'clair');
+          /* navigation privée : on garde le défaut */
         }
+        var rendu =
+          choix === 'systeme'
+            ? window.matchMedia('(prefers-color-scheme: dark)').matches
+              ? 'sombre'
+              : 'clair'
+            : choix;
+        var racine = document.documentElement;
+        racine.setAttribute('data-theme', rendu);
+        racine.setAttribute('data-theme-choix', choix);
+        racine.style.colorScheme = rendu === 'sombre' ? 'dark' : 'light';
       })();
     </script>
   </head>
 
   <body>
+    <BarreProgression />
     <Verrou />
 
     <div id="application" class="hidden min-h-screen">
       {
         !sansNavigation && (
           <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+            <div class="bandeau-tricolore"></div>
             <div class="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
               <a
                 href={`${base}/`}
@@ -101,21 +120,13 @@ const onglets = [
               </nav>
 
               <div class="flex shrink-0 items-center gap-1">
-                <button
-                  id="bouton-theme"
-                  type="button"
-                  title="Changer de thème"
-                  aria-label="Changer de thème"
-                  class="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                >
-                  <span aria-hidden="true">🌓</span>
-                </button>
+                <CommutateurTheme />
                 <button
                   id="bouton-verrouiller"
                   type="button"
                   title="Verrouiller la session"
                   aria-label="Verrouiller la session"
-                  class="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                  class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
                 >
                   <span aria-hidden="true">🔒</span>
                 </button>
@@ -125,28 +136,21 @@ const onglets = [
         )
       }
 
-      <main class="mx-auto max-w-6xl px-4 py-6 pb-16">
+      <main class="mx-auto max-w-6xl px-4 py-8">
         <slot />
       </main>
+
+      {!sansNavigation && <PiedDePage />}
     </div>
 
     <script>
-      import { verrouiller } from '../lib/auth';
+      import { quandDeverrouille, verrouiller } from '../lib/auth';
       import { initGlossaireGlobal } from '../lib/glossaire';
       import { suivreTemps } from '../lib/temps';
 
       initGlossaireGlobal();
 
-      document.getElementById('bouton-theme')?.addEventListener('click', () => {
-        const actuel = document.documentElement.getAttribute('data-theme');
-        const suivant = actuel === 'sombre' ? 'clair' : 'sombre';
-        document.documentElement.setAttribute('data-theme', suivant);
-        try {
-          localStorage.setItem('revinsp.theme', suivant);
-        } catch {
-          /* navigation privée */
-        }
-      });
+      // Le choix du thème est géré par « components/CommutateurTheme.astro ».
 
       document.getElementById('bouton-verrouiller')?.addEventListener('click', () => {
         verrouiller();
@@ -155,7 +159,9 @@ const onglets = [
       });
 
       // Le temps n'est comptabilisé qu'une fois la session ouverte.
-      document.addEventListener('revinsp:deverrouille', () => suivreTemps(), { once: true });
+      // « quandDeverrouille » et non un écouteur nu : le paquet de cette page
+      // peut arriver après l'ouverture de la session (voir lib/auth.ts).
+      quandDeverrouille(() => suivreTemps());
     </script>
   </body>
 </html>

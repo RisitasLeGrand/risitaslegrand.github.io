@@ -117,6 +117,7 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
+  import { auDeverrouillage } from '../lib/chargement';
   import { fileDuJour, type CarteAReviser } from '../lib/agregats';
   import { chargerManifeste } from '../lib/contenu';
   import { jourISO, lireCarte, toutesLesCartes, type Difficulte } from '../lib/db';
@@ -286,9 +287,7 @@ import Base from '../layouts/Base.astro';
     afficherVue('accueil-session');
   }
 
-  document.addEventListener('revinsp:deverrouille', () => {
-    initialiser().catch((e) => {
-      $('chargement').textContent = `Erreur : ${e.message}`;
-    });
-  });
+  // « auDeverrouillage » : barre de progression, garde-fou de 5 secondes et
+  // exécution même si ce script arrive après l'ouverture de la session.
+  auDeverrouillage(initialiser);
 </script>

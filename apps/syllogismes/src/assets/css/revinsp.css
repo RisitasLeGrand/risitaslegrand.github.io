@@ -1,0 +1,308 @@
+/*
+ * ╔════════════════════════════════════════════════════════════════════════╗
+ * ║  Habillage RevINSP de Syllogismes                                      ║
+ * ╚════════════════════════════════════════════════════════════════════════╝
+ *
+ * AJOUT de l'adaptation française : ce fichier n'existe pas dans le projet
+ * amont. Il est chargé en DERNIER dans « angular.json » et ne fait que
+ * redéfinir des variables CSS — aucune logique de l'application n'est touchée.
+ *
+ * Objectif : que le passage du site à l'exercice ne donne pas l'impression de
+ * deux applications distinctes, dans le thème clair comme dans le sombre. Les
+ * valeurs reprennent celles de « src/styles/tokens.css » côté site.
+ *
+ * ── Comment le thème sombre est piloté ──────────────────────────────────────
+ * Le projet amont propose DEUX mécanismes :
+ *
+ *   1. « html[darkmode] » — une inversion globale : filter: invert(1)
+ *      hue-rotate(180deg). Simple, mais elle retourne aussi les images et les
+ *      graphiques, et rend toute palette choisie imprévisible.
+ *   2. « html[dark-mode] » — un vrai jeu de variables inversant la rampe de
+ *      gris, déjà présent dans « thickstrap.css » mais inutilisé.
+ *
+ * On garde l'attribut du premier, parce que c'est celui que le bouton interne
+ * de l'application écrit, mais on lui donne le comportement du second : le
+ * filtre est neutralisé et les variables sont redéfinies. Résultat, le bouton
+ * interne et le commutateur du site produisent exactement le même thème.
+ */
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/*  Polices — mêmes fichiers que le site, servis localement                 */
+/* ════════════════════════════════════════════════════════════════════════ */
+
+@font-face {
+    font-family: 'Public Sans';
+    font-style: normal;
+    font-weight: 300 800;
+    font-display: swap;
+    src: url('../polices/public-sans-300-800-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Public Sans';
+    font-style: normal;
+    font-weight: 300 800;
+    font-display: swap;
+    src: url('../polices/public-sans-300-800-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+@font-face {
+    font-family: 'Public Sans';
+    font-style: italic;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../polices/public-sans-400-italic-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Spectral';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../polices/spectral-400-latin.woff2') format('woff2');
+    unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+    font-family: 'Spectral';
+    font-style: normal;
+    font-weight: 400;
+    font-display: swap;
+    src: url('../polices/spectral-400-latin-ext.woff2') format('woff2');
+    unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/*  Thème clair — palette de l'État                                         */
+/* ════════════════════════════════════════════════════════════════════════ */
+
+:root {
+    /* --- Typographie ---------------------------------------------------- */
+    --bs-font-sans-serif: 'Public Sans', Arial, Helvetica, ui-sans-serif, system-ui, sans-serif;
+    --bs-body-font-family: var(--bs-font-sans-serif);
+
+    /* --- Gris neutres ---------------------------------------------------- */
+    --app-gray_0: 255, 255, 255;
+    --app-gray_50: 246, 246, 246;
+    --app-gray_100: 238, 238, 238;
+    --app-gray_200: 221, 221, 221;
+    --app-gray_300: 206, 206, 206;
+    --app-gray_400: 146, 146, 146;
+    --app-gray_500: 102, 102, 102;
+    --app-gray_600: 58, 58, 58;
+    --app-gray_700: 42, 42, 42;
+    --app-gray_800: 30, 30, 30;
+    --app-gray_900: 22, 22, 22;
+    --app-gray_1000: 0, 0, 0;
+
+    /* --- Bleu France — couleur primaire ---------------------------------- */
+    --app-blue_100: 236, 236, 254;
+    --app-blue_200: 202, 202, 251;
+    --app-blue_400: 133, 133, 246;
+    --app-blue_500: 0, 0, 145;
+    --app-blue_600: 0, 0, 116;
+    --app-blue_700: 0, 0, 92;
+    --app-blue_800: 0, 0, 69;
+
+    /* Indigo et violet tirent vers le bleu : le dégradé de la barre latérale
+       combine blue_400 et indigo_400, un violet franc y jurerait. */
+    --app-indigo_100: 236, 236, 254;
+    --app-indigo_200: 202, 202, 251;
+    --app-indigo_400: 113, 113, 240;
+    --app-indigo_500: 71, 71, 216;
+    --app-indigo_600: 35, 35, 168;
+    --app-indigo_700: 27, 27, 135;
+    --app-indigo_800: 20, 20, 102;
+    --app-purple_100: 236, 236, 254;
+    --app-purple_200: 202, 202, 251;
+    --app-purple_500: 71, 71, 216;
+    --app-purple_600: 35, 35, 168;
+    --app-purple_700: 27, 27, 135;
+    --app-purple_800: 20, 20, 102;
+
+    /* --- Rouge Marianne — erreurs et actions destructrices --------------- */
+    --app-red_100: 253, 222, 222;
+    --app-red_200: 252, 191, 191;
+    --app-red_500: 225, 0, 15;
+    --app-red_600: 182, 0, 16;
+    --app-red_700: 143, 0, 12;
+    --app-red_800: 107, 0, 9;
+    --app-pink_100: 253, 222, 222;
+    --app-pink_200: 252, 191, 191;
+    --app-pink_500: 225, 0, 15;
+    --app-pink_600: 182, 0, 16;
+    --app-pink_700: 143, 0, 12;
+    --app-pink_800: 107, 0, 9;
+
+    /* --- Vert « succès » de la charte ------------------------------------ */
+    --app-green_100: 201, 243, 217;
+    --app-green_200: 158, 229, 185;
+    --app-green_500: 52, 181, 109;
+    --app-green_600: 34, 154, 85;
+    --app-green_700: 24, 117, 60;
+    --app-green_800: 19, 94, 48;
+    --app-teal_100: 201, 243, 217;
+    --app-teal_200: 158, 229, 185;
+    --app-teal_500: 52, 181, 109;
+    --app-teal_600: 34, 154, 85;
+    --app-teal_700: 24, 117, 60;
+    --app-teal_800: 19, 94, 48;
+
+    /* --- Orange « avertissement » de la charte --------------------------- */
+    --app-yellow_100: 255, 226, 214;
+    --app-yellow_200: 255, 201, 179;
+    --app-yellow_500: 249, 124, 78;
+    --app-yellow_600: 224, 91, 38;
+    --app-yellow_700: 179, 64, 0;
+    --app-yellow_800: 144, 51, 0;
+    --app-orange_100: 255, 226, 214;
+    --app-orange_200: 255, 201, 179;
+    --app-orange_500: 249, 124, 78;
+    --app-orange_600: 224, 91, 38;
+    --app-orange_700: 179, 64, 0;
+    --app-orange_800: 144, 51, 0;
+
+    /* --- Bleu « information » de la charte ------------------------------- */
+    --app-cyan_100: 232, 237, 255;
+    --app-cyan_200: 189, 201, 250;
+    --app-cyan_500: 41, 101, 204;
+    --app-cyan_600: 0, 99, 203;
+    --app-cyan_700: 0, 78, 162;
+    --app-cyan_800: 0, 58, 121;
+
+    /* Le fond suit la carte qui accueille l'iframe côté site : blanc en clair. */
+    --app-body-background: var(--app-gray_0);
+
+    /* --- Dégradé de fond -------------------------------------------------
+       Le projet amont codait en dur un dégradé pastel bleu → lavande, dans
+       deux fichiers de composants. Ces teintes sont passées en variables
+       (voir les commentaires « habillage RevINSP » dans ces fichiers) pour
+       qu'elles suivent le thème. En clair, on reste dans la famille du
+       Bleu France. */
+    --revinsp-fond-general: #ececfe;
+    --revinsp-degrade-debut: rgba(202, 202, 251, 0.55);
+    --revinsp-degrade-fin: rgba(245, 245, 254, 0.55);
+    --revinsp-degrade-carte-debut: rgba(202, 202, 251, 0.22);
+    --revinsp-degrade-carte-fin: rgba(245, 245, 254, 0.22);
+
+    /* Coins arrondis discrets, alignés sur le site. */
+    --border-radius_sm: 0.25rem;
+    --border-radius_md: 0.375rem;
+    --border-radius_lg: 0.5rem;
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/*  Thème sombre — couleurs du thème sombre du site (rampe « slate »)       */
+/* ════════════════════════════════════════════════════════════════════════ */
+
+/* L'inversion globale du projet amont est neutralisée : elle retournerait
+   aussi les images et rendrait la palette ci-dessous illisible. */
+html[darkmode] {
+    filter: none;
+}
+
+html[darkmode],
+html[dark-mode] {
+    --app-gray_0: 2, 6, 23; /* slate-950 */
+    --app-gray_50: 15, 23, 42; /* slate-900 */
+    --app-gray_100: 30, 41, 59; /* slate-800 */
+    --app-gray_200: 51, 65, 85; /* slate-700 */
+    --app-gray_300: 71, 85, 105; /* slate-600 */
+    --app-gray_400: 100, 116, 139; /* slate-500 */
+    --app-gray_500: 148, 163, 184; /* slate-400 */
+    --app-gray_600: 148, 163, 184;
+    --app-gray_700: 203, 213, 225; /* slate-300 */
+    --app-gray_800: 226, 232, 240; /* slate-200 */
+    --app-gray_900: 226, 232, 240;
+    --app-gray_1000: 255, 255, 255;
+
+    /* Le Bleu France est trop sombre sur fond sombre : on prend la teinte
+       d'action du thème sombre du site (indigo-400 / indigo-300). */
+    --app-blue_100: 30, 27, 75; /* indigo-950 */
+    --app-blue_200: 49, 46, 129; /* indigo-900 */
+    --app-blue_400: 99, 102, 241; /* indigo-500 */
+    --app-blue_500: 129, 140, 248; /* indigo-400 */
+    --app-blue_600: 165, 180, 252; /* indigo-300 */
+    --app-blue_700: 199, 210, 254; /* indigo-200 */
+    --app-blue_800: 224, 231, 255; /* indigo-100 */
+    --app-indigo_100: 30, 27, 75;
+    --app-indigo_200: 49, 46, 129;
+    --app-indigo_400: 129, 140, 248;
+    --app-indigo_500: 129, 140, 248;
+    --app-indigo_600: 165, 180, 252;
+    --app-indigo_700: 199, 210, 254;
+    --app-indigo_800: 224, 231, 255;
+    --app-purple_100: 30, 27, 75;
+    --app-purple_200: 49, 46, 129;
+    --app-purple_500: 129, 140, 248;
+    --app-purple_600: 165, 180, 252;
+    --app-purple_700: 199, 210, 254;
+    --app-purple_800: 224, 231, 255;
+
+    --app-red_100: 69, 10, 10;
+    --app-red_200: 127, 29, 29;
+    --app-red_500: 248, 113, 113; /* red-400 */
+    --app-red_600: 252, 165, 165;
+    --app-red_700: 254, 202, 202;
+    --app-red_800: 254, 226, 226;
+    --app-pink_500: 248, 113, 113;
+    --app-pink_600: 252, 165, 165;
+
+    --app-green_100: 2, 44, 34;
+    --app-green_200: 6, 78, 59;
+    --app-green_500: 52, 211, 153; /* emerald-400 */
+    --app-green_600: 110, 231, 183;
+    --app-green_700: 167, 243, 208;
+    --app-green_800: 209, 250, 229;
+    --app-teal_100: 2, 44, 34;
+    --app-teal_200: 6, 78, 59;
+    --app-teal_500: 52, 211, 153;
+    --app-teal_600: 110, 231, 183;
+    --app-teal_700: 52, 211, 153;
+    --app-teal_800: 209, 250, 229;
+
+    --app-yellow_100: 69, 26, 3;
+    --app-yellow_200: 120, 53, 15;
+    --app-yellow_500: 251, 191, 36; /* amber-400 */
+    --app-yellow_600: 252, 211, 77;
+    --app-yellow_700: 253, 230, 138;
+    --app-yellow_800: 254, 243, 199;
+    --app-orange_500: 251, 191, 36;
+    --app-orange_600: 252, 211, 77;
+
+    --app-cyan_100: 30, 27, 75;
+    --app-cyan_200: 49, 46, 129;
+    --app-cyan_500: 129, 140, 248;
+    --app-cyan_600: 165, 180, 252;
+    --app-cyan_700: 199, 210, 254;
+    --app-cyan_800: 224, 231, 255;
+
+    /* Le fond suit la carte du site, qui est « slate-900 » en thème sombre. */
+    --app-body-background: var(--app-gray_50);
+
+    /* La texture de fond (« assets/images/bg.avif ») est claire : en thème
+       sombre le dégradé qui la recouvre doit être nettement plus opaque,
+       sinon le fond reste laiteux. */
+    --revinsp-fond-general: #0f172a; /* slate-900 */
+    --revinsp-degrade-debut: rgba(30, 27, 75, 0.94); /* indigo-950 */
+    --revinsp-degrade-fin: rgba(15, 23, 42, 0.94); /* slate-900 */
+    --revinsp-degrade-carte-debut: rgba(30, 27, 75, 0.45);
+    --revinsp-degrade-carte-fin: rgba(15, 23, 42, 0.45);
+
+    color-scheme: dark;
+}
+
+/* Les ombres portées de thickstrap sont des aplats de gris_900 : en thème
+   sombre, ce gris devient très clair et les ombres deviennent des halos. On
+   les ramène à une bordure sombre discrète. */
+html[darkmode] {
+    --shadow-xs: var(--shadow-size-xs) var(--shadow-size-xs) 0 0 rgba(2, 6, 23, 0.9);
+    --shadow-sm: var(--shadow-size-sm) var(--shadow-size-sm) 0 0 rgba(2, 6, 23, 0.9);
+    --shadow-md: var(--shadow-size-md) var(--shadow-size-md) 0 0 rgba(2, 6, 23, 0.9);
+    --shadow-lg: var(--shadow-size-lg) var(--shadow-size-lg) 0 0 rgba(2, 6, 23, 0.9);
+}
+
+/* L'exercice est affiché dans une iframe sans marge propre : on évite la
+   double gouttière avec la carte qui l'entoure côté site. */
+body {
+    background: rgba(var(--app-body-background), 1);
+}

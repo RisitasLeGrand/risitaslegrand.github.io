@@ -74,6 +74,7 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
+  import { auDeverrouillage } from '../lib/chargement';
   import { construireVue } from '../lib/agregats';
   import { ajouterJours, jourISO, tousLesJours, tousLesResultatsQuiz, toutesLesCartes } from '../lib/db';
   import { formaterDuree, lien, pluriel } from '../lib/ui';
@@ -217,9 +218,7 @@ import Base from '../layouts/Base.astro';
     $('stats').classList.remove('hidden');
   }
 
-  document.addEventListener('revinsp:deverrouille', () => {
-    afficher().catch((e) => {
-      $('chargement').textContent = `Erreur : ${e.message}`;
-    });
-  });
+  // « auDeverrouillage » : barre de progression, garde-fou de 5 secondes et
+  // exécution même si ce script arrive après l'ouverture de la session.
+  auDeverrouillage(afficher);
 </script>

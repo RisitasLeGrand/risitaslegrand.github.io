@@ -65,6 +65,34 @@ export interface SessionNBack {
   secondes: number;
 }
 
+/**
+ * Séance de révision planifiée.
+ *
+ * Une séance porte sur UN thème de planification et un jour donné. Les
+ * restitutions « feuille blanche » sont conservées avec la séance : ce sont
+ * elles, et non un décompte calendaire, qui servent à retrouver les séances
+ * n-1 et n-2 d'une matière (voir src/lib/planification.ts).
+ */
+export interface Seance {
+  id?: number;
+  /** Identifiant du thème de planification. */
+  theme: string;
+  /** Jour de la séance, au format AAAA-MM-JJ. */
+  jour: string;
+  statut: 'prevue' | 'terminee';
+  termineeLe?: string | null;
+  secondes: number;
+  /** Note de séance rédigée par la personne (1 à 2 pages visées). */
+  note: string;
+  /**
+   * Restitutions à blanc des séances antérieures, indexées par l'identifiant
+   * de la séance restituée.
+   */
+  restitutions?: Record<string, string>;
+  /** Séance étendue du 1er du mois : rappel n-1 à n-4. */
+  etendue: boolean;
+}
+
 export interface Jour {
   jour: string;
   xp: number;
@@ -91,10 +119,11 @@ interface SchemaRevinsp extends DBSchema {
   quiz: { key: number; value: ResultatQuiz; indexes: { le: string } };
   jours: { key: string; value: Jour };
   nback: { key: number; value: SessionNBack; indexes: { le: string } };
+  seances: { key: number; value: Seance; indexes: { jour: string; theme: string } };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 2;
+const VERSION = 3;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -118,6 +147,12 @@ export function db() {
         // Sessions d'entraînement cognitif (Quad N-Back).
         const nback = base.createObjectStore('nback', { keyPath: 'id', autoIncrement: true });
         nback.createIndex('le', 'le');
+      }
+      if (ancienneVersion < 3) {
+        // Séances de révision planifiées.
+        const seances = base.createObjectStore('seances', { keyPath: 'id', autoIncrement: true });
+        seances.createIndex('jour', 'jour');
+        seances.createIndex('theme', 'theme');
       }
     },
   });
@@ -235,6 +270,45 @@ export async function toutesLesSessionsNBack(): Promise<SessionNBack[]> {
   return (await db()).getAll('nback');
 }
 
+/* --- Séances de révision -------------------------------------------------- */
+
+export async function toutesLesSeances(): Promise<Seance[]> {
+  const seances = await (await db()).getAll('seances');
+  return seances.sort((a, b) => a.jour.localeCompare(b.jour) || (a.id ?? 0) - (b.id ?? 0));
+}
+
+export async function lireSeance(id: number): Promise<Seance | undefined> {
+  return (await db()).get('seances', id);
+}
+
+/** Crée ou met à jour une séance et retourne son identifiant. */
+export async function ecrireSeance(seance: Seance): Promise<number> {
+  const base = await db();
+  return (await base.put('seances', seance)) as number;
+}
+
+export async function supprimerSeance(id: number) {
+  await (await db()).delete('seances', id);
+}
+
+/* --- Réglages de planification -------------------------------------------- */
+
+export interface ReglagesPlanification {
+  /** Thème proposé pour chaque jour de la semaine, index 0 = dimanche. */
+  rotation: string[];
+  /** Dernier trimestre pour lequel la suggestion a été écartée (ex. « 2026-T1 »). */
+  trimestreEcarte: string | null;
+}
+
+export async function lireReglagesPlanification(): Promise<ReglagesPlanification | null> {
+  const base = await db();
+  return ((await base.get('etat', 'planification')) as ReglagesPlanification | undefined) ?? null;
+}
+
+export async function ecrireReglagesPlanification(reglages: ReglagesPlanification) {
+  await (await db()).put('etat', reglages, 'planification');
+}
+
 /** Sérialise l'intégralité de la progression (export JSON). */
 export async function exporterTout() {
   const base = await db();
@@ -248,6 +322,8 @@ export async function exporterTout() {
     quiz: await base.getAll('quiz'),
     jours: await base.getAll('jours'),
     nback: await base.getAll('nback'),
+    seances: await base.getAll('seances'),
+    planification: await lireReglagesPlanification(),
   };
 }
 
@@ -265,13 +341,14 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
   const base = await db();
 
   if (mode === 'remplacement') {
-    const tx = base.transaction(['etat', 'cartes', 'fiches', 'quiz', 'jours'], 'readwrite');
+    const tx = base.transaction(['etat', 'cartes', 'fiches', 'quiz', 'jours', 'seances'], 'readwrite');
     await Promise.all([
       tx.objectStore('etat').clear(),
       tx.objectStore('cartes').clear(),
       tx.objectStore('fiches').clear(),
       tx.objectStore('quiz').clear(),
       tx.objectStore('jours').clear(),
+      tx.objectStore('seances').clear(),
     ]);
     await tx.done;
   }
@@ -325,6 +402,14 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
       const { id: _ignore, ...sansId } = q;
       await base.add('quiz', sansId as ResultatQuiz);
     }
+    // Les séances sont identifiées par le couple (jour, thème) : deux séances
+    // du même thème le même jour sont forcément la même.
+    const seancesExistantes = new Set((await base.getAll('seances')).map((s) => `${s.jour}|${s.theme}`));
+    for (const seance of donnees.seances ?? []) {
+      if (seancesExistantes.has(`${seance.jour}|${seance.theme}`)) continue;
+      const { id: _ignore, ...sansId } = seance;
+      await base.add('seances', sansId as Seance);
+    }
     const sessionsExistantes = new Set((await base.getAll('nback')).map((s) => s.le));
     for (const session of donnees.nback ?? []) {
       if (sessionsExistantes.has(session.le)) continue;
@@ -353,13 +438,22 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
       const { id: _ignore, ...sansId } = session;
       await base.add('nback', sansId as SessionNBack);
     }
+    for (const seance of donnees.seances ?? []) {
+      const { id: _ignore, ...sansId } = seance;
+      await base.add('seances', sansId as Seance);
+    }
   }
+
+  if (donnees.planification) await ecrireReglagesPlanification(donnees.planification);
 }
 
 /** Efface toute la progression locale (bouton « tout réinitialiser »). */
 export async function toutEffacer() {
   const base = await db();
-  const tx = base.transaction(['etat', 'cartes', 'fiches', 'quiz', 'jours', 'nback'], 'readwrite');
+  const tx = base.transaction(
+    ['etat', 'cartes', 'fiches', 'quiz', 'jours', 'nback', 'seances'],
+    'readwrite',
+  );
   await Promise.all([
     tx.objectStore('etat').clear(),
     tx.objectStore('cartes').clear(),
@@ -367,6 +461,7 @@ export async function toutEffacer() {
     tx.objectStore('quiz').clear(),
     tx.objectStore('jours').clear(),
     tx.objectStore('nback').clear(),
+    tx.objectStore('seances').clear(),
   ]);
   await tx.done;
 }

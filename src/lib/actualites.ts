@@ -72,18 +72,25 @@ export const FICHES_SUIVIES: { id: string; titre: string }[] = [
   { id: 'legislation', titre: 'Changements législatifs majeurs' },
 ];
 
+/**
+ * Thèmes des actualités.
+ *
+ * « classe » habille l'étiquette de catégorie placée AU-DESSUS du titre de la
+ * carte, selon la convention de service-public.gouv.fr : un libellé court, en
+ * capitales, coloré, sans pastille de fond qui viendrait concurrencer le titre.
+ */
 export const THEMES: Record<string, { libelle: string; classe: string }> = {
   juridique: {
     libelle: 'Juridique',
-    classe: 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300',
+    classe: 'text-indigo-700 dark:text-indigo-300',
   },
   economique: {
     libelle: 'Économique',
-    classe: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300',
+    classe: 'text-emerald-700 dark:text-emerald-300',
   },
   international: {
     libelle: 'International',
-    classe: 'bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-300',
+    classe: 'text-amber-700 dark:text-amber-300',
   },
 };
 
@@ -91,7 +98,7 @@ export function etiquetteTheme(theme?: string) {
   return (
     THEMES[(theme ?? '').toLowerCase()] ?? {
       libelle: theme || 'Divers',
-      classe: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
+      classe: 'text-slate-500 dark:text-slate-400',
     }
   );
 }

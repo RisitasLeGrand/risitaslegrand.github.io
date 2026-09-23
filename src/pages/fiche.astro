@@ -62,6 +62,7 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
+  import { auDeverrouillage } from '../lib/chargement';
   import { aplatirFiches, chargerFiche, chargerManifeste, type Fiche } from '../lib/contenu';
   import { ecrireEtatFiche, lireEtatFiche } from '../lib/db';
   import { gagnerXp, xpFiche } from '../lib/gamification';
@@ -243,9 +244,7 @@ import Base from '../layouts/Base.astro';
     document.getElementById('fiche')!.classList.remove('hidden');
   }
 
-  document.addEventListener('revinsp:deverrouille', () => {
-    initialiser().catch((e) => {
-      document.getElementById('chargement')!.textContent = `Erreur : ${e.message}`;
-    });
-  });
+  // « auDeverrouillage » : barre de progression, garde-fou de 5 secondes et
+  // exécution même si ce script arrive après l'ouverture de la session.
+  auDeverrouillage(initialiser);
 </script>

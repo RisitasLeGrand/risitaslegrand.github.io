@@ -43,7 +43,7 @@ import Base from '../../layouts/Base.astro';
 
   <div id="exercice" class="hidden">
     <div
-      class="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
+      class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900"
     >
       <iframe
         id="cadre"
@@ -80,17 +80,66 @@ import Base from '../../layouts/Base.astro';
 </Base>
 
 <script>
+  import { auDeverrouillage } from '../../lib/chargement';
   import { lien } from '../../lib/ui';
 
   // L'application est publiée à la racine du site, hors du build Astro.
   const url = lien('/syllogismes/');
+  const cadre = document.getElementById('cadre') as HTMLIFrameElement;
   document.getElementById('retour')!.setAttribute('href', lien('/cog-training/'));
   document.getElementById('plein-ecran')!.setAttribute('href', url);
 
-  document.addEventListener('revinsp:deverrouille', () => {
+  /**
+   * Synchronisation du thème entre le site et l'exercice.
+   *
+   * L'application Syllogismes retient son mode sombre dans localStorage sous
+   * la clé « darkmode » et le reflète par un attribut du même nom sur <html>.
+   * Elle est servie depuis la même origine que le site : on peut donc écrire
+   * cette clé avant le chargement, et poser l'attribut ensuite à chaque
+   * changement — sans toucher au code de l'application.
+   *
+   * La feuille « assets/css/revinsp.css » de l'application donne à cet
+   * attribut la palette du thème sombre du site (voir son en-tête).
+   */
+  function themeCourant(): 'clair' | 'sombre' {
+    return document.documentElement.getAttribute('data-theme') === 'sombre' ? 'sombre' : 'clair';
+  }
+
+  function memoriserPourIframe(theme: 'clair' | 'sombre') {
+    try {
+      localStorage.setItem('darkmode', JSON.stringify(theme === 'sombre'));
+    } catch {
+      /* navigation privée : l'attribut posé ci-dessous suffit */
+    }
+  }
+
+  function appliquerDansIframe(theme: 'clair' | 'sombre') {
+    try {
+      const racine = cadre.contentDocument?.documentElement;
+      if (!racine) return; // pas encore chargée, ou origine différente
+      if (theme === 'sombre') racine.setAttribute('darkmode', '');
+      else racine.removeAttribute('darkmode');
+    } catch {
+      /* l'iframe n'est pas accessible : le localStorage prendra le relais
+         au prochain chargement */
+    }
+  }
+
+  // Le commutateur du gabarit émet cet événement à chaque changement.
+  document.addEventListener('revinsp:theme', (evenement) => {
+    const theme = (evenement as CustomEvent<{ theme: 'clair' | 'sombre' }>).detail.theme;
+    memoriserPourIframe(theme);
+    appliquerDansIframe(theme);
+  });
+
+  cadre.addEventListener('load', () => appliquerDansIframe(themeCourant()));
+
+  auDeverrouillage(() => {
     // L'iframe n'est chargée qu'une fois la session ouverte : inutile de
     // télécharger l'application tant que l'écran de connexion est affiché.
-    (document.getElementById('cadre') as HTMLIFrameElement).src = url;
+    // Le thème est écrit AVANT le chargement, pour éviter un clignotement.
+    memoriserPourIframe(themeCourant());
+    cadre.src = url;
     document.getElementById('chargement')!.classList.add('hidden');
     document.getElementById('exercice')!.classList.remove('hidden');
   });
