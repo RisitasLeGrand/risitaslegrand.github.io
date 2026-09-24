@@ -3,7 +3,7 @@
  * Rien n'est jamais écrit en clair sur le disque : tout reste en mémoire vive
  * pour la durée de l'onglet.
  */
-import { dechiffrerJson, type Blob as BlobChiffre, type ParametresCle } from './crypto';
+import { dechiffrerBinaire, dechiffrerJson, type Blob as BlobChiffre, type ParametresCle } from './crypto';
 import { obtenirCle } from './auth';
 
 export interface FicheResume {
@@ -16,6 +16,8 @@ export interface FicheResume {
   nbMots: number;
   aCours: boolean;
   aFiche: boolean;
+  /** Une fiche audio a-t-elle été synthétisée pour cette fiche ? */
+  aPodcast?: boolean;
 }
 
 export interface Fascicule {
@@ -38,7 +40,13 @@ export interface ParametresPublics extends ParametresCle {
 export interface Manifeste {
   genereLe: string;
   matieres: Matiere[];
-  totaux: { fiches: number; flashcards: number; quiz: number; termesGlossaire: number };
+  totaux: {
+    fiches: number;
+    flashcards: number;
+    quiz: number;
+    termesGlossaire: number;
+    podcasts?: number;
+  };
 }
 
 export interface Flashcard {
@@ -66,6 +74,8 @@ export interface Fiche {
   sommaire: { niveau: number; id: string; titre: string }[];
   flashcards: Flashcard[];
   quiz: QuestionQuiz[];
+  /** Durée et poids de la fiche audio, connus avant de la télécharger. */
+  podcast: { secondes: number | null; octets: number } | null;
 }
 
 export interface TermeGlossaire {
@@ -138,6 +148,31 @@ async function charger<T>(chemin: string): Promise<T> {
 
   cache.set(chemin, valeur);
   return valeur;
+}
+
+/**
+ * Récupère un fichier chiffré binaire (fiche audio) et le déchiffre.
+ *
+ * Volontairement hors du cache mémoire : un podcast pèse plusieurs
+ * mégaoctets, les garder tous ouverts remplirait l'onglet pour rien.
+ */
+export async function chargerBinaire(chemin: string): Promise<ArrayBuffer> {
+  const cle = await obtenirCle();
+  if (!cle) throw new Error('Session verrouillée.');
+
+  const { version } = await chargerParametresCle();
+  const url = version ? `${urlData(chemin)}?v=${encodeURIComponent(version)}` : urlData(chemin);
+
+  const reponse = await fetch(url);
+  if (!reponse.ok) throw new Error(`Contenu introuvable : ${chemin}`);
+  try {
+    return await dechiffrerBinaire(cle, await reponse.arrayBuffer());
+  } catch {
+    throw new Error(
+      'Ce contenu ne correspond pas à la clé de la session. ' +
+        'Le site a été republié entre-temps : rechargez la page (Ctrl+Maj+R).',
+    );
+  }
 }
 
 export const chargerManifeste = () => charger<Manifeste>('manifeste.json');

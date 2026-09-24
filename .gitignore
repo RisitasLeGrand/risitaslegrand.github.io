@@ -10,6 +10,10 @@ public/data/
 # La source versionnée est « actualites-data/ » à la racine.
 public/actualites-data/
 
+# Outillage local de la synthèse vocale (modèle de voix, ≈ 65 Mo) :
+# réinstallable par « npm run podcasts:installer ».
+outils/
+
 # --- Dépendances et artefacts de build ---
 node_modules/
 dist/

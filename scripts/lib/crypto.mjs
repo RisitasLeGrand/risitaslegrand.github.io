@@ -46,6 +46,19 @@ export async function chiffrerJson(cle, valeur, tailleIvOctets) {
   return { iv: b64(iv), ct: b64(new Uint8Array(chiffre)) };
 }
 
+/**
+ * Chiffre des octets bruts (fichier audio d'une fiche).
+ *
+ * Contrairement aux blocs JSON, le résultat n'est pas encodé en base64 : un
+ * podcast pèse quelques mégaoctets, et le base64 les gonflerait d'un tiers
+ * pour rien. Le fichier publié est donc binaire, l'IV en tête.
+ */
+export async function chiffrerBinaire(cle, octets, tailleIvOctets) {
+  const iv = crypto.getRandomValues(new Uint8Array(tailleIvOctets));
+  const chiffre = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, cle, octets);
+  return Buffer.concat([Buffer.from(iv), Buffer.from(chiffre)]);
+}
+
 /** Identifiant stable et opaque : ne révèle rien du contenu, ne change pas d'un build à l'autre. */
 export async function idStable(texte, longueur = 16) {
   const digest = await crypto.subtle.digest('SHA-256', encodeur.encode(texte));

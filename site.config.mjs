@@ -49,6 +49,44 @@ export default {
     longueurMinimale: 3,
   },
 
+  /**
+   * Fiches audio (« podcasts »).
+   *
+   * Le script parlé est produit à chaque build par « scripts/podcasts.mjs »,
+   * la voix par Piper, en local : aucune fiche n'est envoyée à un service
+   * tiers, et l'audio est chiffré comme le reste du contenu.
+   * Voir la section « Fiches audio » du README.
+   */
+  podcast: {
+    /**
+     * Moteur de synthèse, tous deux locaux et gratuits :
+     *   « kokoro » — diction nettement plus naturelle, environ cinq fois plus
+     *                lente à produire. C'est le choix par défaut ;
+     *   « piper »  — rapide, diction plus mécanique. Pour un essai, ou sur une
+     *                machine modeste.
+     */
+    moteur: 'kokoro',
+
+    /** Modèle multilingue Kokoro v1.0 ; « ff_siwis » est sa voix française. */
+    kokoro: { modele: 'kokoro-multi-lang-v1_0', voix: 'ff_siwis' },
+
+    /** Modèle Piper (une voix par modèle) : siwis et upmc sont féminines, tom masculine. */
+    piper: { voix: 'fr_FR-siwis-medium' },
+
+    /**
+     * Vitesse de diction, 1 = naturelle. En dessous, la lecture se fait plus
+     * lente et plus douce — ce qui convient mieux à un cours qu'à un roman.
+     */
+    vitesse: 0.95,
+
+    /** Silence entre deux paragraphes, puis entre deux phrases (millisecondes). */
+    silenceParagrapheMs: 560,
+    silencePhraseMs: 190,
+
+    /** Débit du MP3 : de la parole en mono, pas de la musique. */
+    bitrate: '32k',
+  },
+
   /** Points d'expérience attribués par action. */
   xp: {
     flashcardDifficile: 3,

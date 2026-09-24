@@ -71,6 +71,21 @@ export async function dechiffrerJson<T>(cle: CryptoKey, blob: Blob): Promise<T> 
   return JSON.parse(decodeur.decode(clair)) as T;
 }
 
+/**
+ * Déchiffre un fichier binaire (fiche audio), dont l'IV occupe les premiers
+ * octets. Les podcasts pèsent quelques mégaoctets : ils ne passent pas par le
+ * base64, qui les alourdirait d'un tiers.
+ */
+export async function dechiffrerBinaire(
+  cle: CryptoKey,
+  octets: ArrayBuffer,
+  tailleIvOctets = 12,
+): Promise<ArrayBuffer> {
+  const iv = new Uint8Array(octets, 0, tailleIvOctets);
+  const chiffre = new Uint8Array(octets, tailleIvOctets);
+  return crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv as BufferSource }, cle, chiffre as BufferSource);
+}
+
 /** Vérifie que la clé dérivée déchiffre bien le témoin publié. */
 export async function cleValide(cle: CryptoKey, params: ParametresCle): Promise<boolean> {
   try {

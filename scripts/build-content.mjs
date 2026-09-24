@@ -17,7 +17,8 @@ import { frontMatterSchema, flashcardSchema, quizSchema, glossaireSchema } from 
 import { dechiffrerAvecMotDePasse } from './lib/secret.mjs';
 import { construireIndexGlossaire, idTerme } from './lib/glossaire.mjs';
 import { decouperSections, rendreHtml, texteBrut, extraireSommaire } from './lib/markdown.mjs';
-import { sha256Hex, deriverCle, selAleatoire, chiffrerJson, idStable, b64 } from './lib/crypto.mjs';
+import { sha256Hex, deriverCle, selAleatoire, chiffrerJson, chiffrerBinaire, idStable, b64 } from './lib/crypto.mjs';
+import { audioDisponible, SUFFIXE_SCRIPT } from './podcasts.mjs';
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dossierContenu = path.join(racine, 'content');
@@ -76,15 +77,20 @@ async function lireMotDePasse() {
   return motDePasse;
 }
 
-/** Parcourt récursivement content/ et retourne la liste des fichiers .md. */
+/**
+ * Parcourt récursivement content/ et retourne la liste des fiches (.md).
+ * Les scripts parlés (« .podcast.md ») et les dossiers techniques (« .audio »)
+ * en sont exclus : ce ne sont pas des fiches.
+ */
 async function listerFiches(dossier, base = dossier) {
   const entrees = await readdir(dossier, { withFileTypes: true });
   const fichiers = [];
   for (const entree of entrees) {
+    if (entree.name.startsWith('.')) continue;
     const complet = path.join(dossier, entree.name);
     if (entree.isDirectory()) {
       fichiers.push(...(await listerFiches(complet, base)));
-    } else if (entree.isFile() && entree.name.endsWith('.md')) {
+    } else if (entree.isFile() && entree.name.endsWith('.md') && !entree.name.endsWith(SUFFIXE_SCRIPT)) {
       fichiers.push(path.relative(base, complet));
     }
   }
@@ -251,6 +257,8 @@ async function main() {
       quiz,
       texteRecherche,
       motsCours: texteBrut(sections.cours).split(/\s+/).filter(Boolean).length,
+      // Fiche audio, si « npm run podcasts » l'a déjà synthétisée.
+      podcast: await audioDisponible(ficheId),
     });
   }
 
@@ -288,6 +296,7 @@ async function main() {
           nbMots: f.motsCours,
           aCours: Boolean(f.coursHtml),
           aFiche: Boolean(f.ficheHtml),
+          aPodcast: Boolean(f.podcast),
         })),
       });
     }
@@ -308,6 +317,7 @@ async function main() {
       flashcards: fiches.reduce((n, f) => n + f.flashcards.length, 0),
       quiz: fiches.reduce((n, f) => n + f.quiz.length, 0),
       termesGlossaire: glossaire.length,
+      podcasts: fiches.filter((f) => f.podcast).length,
     },
   };
 
@@ -431,11 +441,26 @@ async function main() {
       sommaire: f.sommaire,
       flashcards: f.flashcards,
       quiz: f.quiz,
+      // Le lecteur a besoin de la durée et du poids AVANT de télécharger :
+      // c'est ce qui permet d'annoncer « 12 min, 3 Mo » sur le bouton.
+      podcast: f.podcast ? { secondes: f.podcast.secondes, octets: f.podcast.octets } : null,
     };
     await writeFile(
       path.join(dossierSortie, 'fiches', `${f.id}.json`),
       JSON.stringify(await chiffrerJson(cle, charge, tailleIvOctets)),
     );
+  }
+
+  // --- Fiches audio --------------------------------------------------------
+  // Même clé que le reste du contenu : le mot de passe ouvre tout, il n'y a
+  // pas de second secret à gérer. Le MP3 en clair reste dans « content/ ».
+  const avecAudio = fiches.filter((f) => f.podcast);
+  if (avecAudio.length) {
+    await mkdir(path.join(dossierSortie, 'audio'), { recursive: true });
+    for (const f of avecAudio) {
+      const chiffre = await chiffrerBinaire(cle, await readFile(f.podcast.chemin), tailleIvOctets);
+      await writeFile(path.join(dossierSortie, 'audio', `${f.id}.enc`), chiffre);
+    }
   }
 
   // --- Contrôle final : aucun texte en clair ne doit subsister -------------
@@ -445,7 +470,8 @@ async function main() {
   console.log(
     couleur.vert('✓') +
       ` ${fiches.length} fiche(s), ${manifeste.totaux.flashcards} flashcard(s), ` +
-      `${manifeste.totaux.quiz} question(s) de quiz, ${glossaire.length} terme(s) de glossaire` +
+      `${manifeste.totaux.quiz} question(s) de quiz, ${glossaire.length} terme(s) de glossaire, ` +
+      `${manifeste.totaux.podcasts} fiche(s) audio` +
       couleur.gris(` — ${(taille / 1024).toFixed(0)} Ko chiffrés en ${Date.now() - t0} ms`),
   );
   for (const a of avertissements) console.log(couleur.jaune('  ! ' + a));
@@ -457,16 +483,36 @@ async function main() {
  */
 async function verifierAucunClair(dossier, fiches) {
   const aVerifier = [];
+  const audios = [];
   const parcourir = async (d) => {
     for (const e of await readdir(d, { withFileTypes: true })) {
       const c = path.join(d, e.name);
       if (e.isDirectory()) await parcourir(c);
+      else if (c.endsWith('.enc')) audios.push(c);
       else aVerifier.push(c);
     }
   };
   await parcourir(dossier);
 
   const sondes = fiches.flatMap((f) => [f.titre, f.matiere]).filter((s) => s && s.length > 4);
+
+  // Les fiches audio pèsent des centaines de mégaoctets : les passer au crible
+  // de toutes les sondes coûterait plus que le reste du build. Chacune n'est
+  // confrontée qu'aux siennes — c'est ce qui détecterait un fichier publié
+  // par erreur en clair, seul scénario que ce garde-fou vise.
+  for (const chemin of audios) {
+    const fiche = fiches.find((f) => chemin.endsWith(`${f.id}.enc`));
+    if (!fiche) continue;
+    const octets = await readFile(chemin);
+    for (const sonde of [fiche.titre, fiche.matiere].filter((s) => s && s.length > 4)) {
+      if (octets.includes(sonde)) {
+        echouer(
+          `Fuite détectée : « ${sonde} » apparaît en clair dans ${path.relative(racine, chemin)}.`,
+        );
+      }
+    }
+  }
+
   for (const fichier of aVerifier) {
     const contenu = await readFile(fichier, 'utf8');
     for (const sonde of sondes) {

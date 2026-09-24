@@ -13,15 +13,16 @@ et suivi de progression — le tout dans le navigateur, sans serveur ni compte.
 3. [Déposer vos fiches](#déposer-vos-fiches)
 4. [Format d'une fiche](#format-dune-fiche)
 5. [Le glossaire](#le-glossaire)
-6. [Travailler en local](#travailler-en-local)
-7. [Publier sur GitHub Pages](#publier-sur-github-pages)
-8. [La rubrique Actualités](#la-rubrique-actualités)
-9. [Changer le mot de passe](#changer-le-mot-de-passe)
-10. [Comment fonctionne la protection](#comment-fonctionne-la-protection)
-11. [Sauvegarder et synchroniser la progression](#sauvegarder-et-synchroniser-la-progression)
-12. [Cog-Training : Quad N-Back et Syllogismes](#cog-training--quad-n-back-et-syllogismes)
-13. [Organisation du projet](#organisation-du-projet)
-14. [En cas de problème](#en-cas-de-problème)
+6. [Les fiches audio](#les-fiches-audio)
+7. [Travailler en local](#travailler-en-local)
+8. [Publier sur GitHub Pages](#publier-sur-github-pages)
+9. [La rubrique Actualités](#la-rubrique-actualités)
+10. [Changer le mot de passe](#changer-le-mot-de-passe)
+11. [Comment fonctionne la protection](#comment-fonctionne-la-protection)
+12. [Sauvegarder et synchroniser la progression](#sauvegarder-et-synchroniser-la-progression)
+13. [Cog-Training : Quad N-Back et Syllogismes](#cog-training--quad-n-back-et-syllogismes)
+14. [Organisation du projet](#organisation-du-projet)
+15. [En cas de problème](#en-cas-de-problème)
 
 ---
 
@@ -226,6 +227,123 @@ elle-même de support de révision.
 
 Pour ne souligner que la **première** occurrence de chaque terme dans une fiche,
 passez `premiereOccurrenceSeulement: true` dans `site.config.mjs`.
+
+---
+
+## Les fiches audio
+
+Chaque fiche dont le « Cours complet » est renseigné reçoit une **version
+parlée**, écoutable directement dans sa page : un bouton « ▶ Écouter la fiche »,
+sous le titre, et un lecteur audio ordinaire.
+
+Tout est produit **sur votre machine**. Aucune fiche n'est envoyée à un service
+de synthèse vocale, et le fichier audio est chiffré comme le reste du contenu :
+sur GitHub Pages, ce n'est qu'un flux d'octets illisible de plus.
+
+### Installer la chaîne de production (une seule fois)
+
+```bash
+npm run podcasts:installer
+```
+
+La commande installe le moteur de synthèse choisi dans `site.config.mjs`, un
+`ffmpeg` statique si la machine n'en a pas, et le modèle de voix française —
+déposé dans `outils/`, un dossier **non commité**. Python 3 est le seul
+prérequis.
+
+Deux moteurs, tous deux **locaux et gratuits** :
+
+| Moteur | Modèle | Diction | Vitesse de production |
+|---|---|---|---|
+| **`kokoro`** (par défaut) | [Kokoro v1.0](https://huggingface.co/hexgrad/Kokoro-82M) multilingue, voix `ff_siwis` — ≈ 390 Mo | Nettement plus naturelle | ≈ 25 min de calcul pour 10 min de parole (sur 4 cœurs) |
+| **`piper`** | [Piper](https://github.com/rhasspy/piper) `fr_FR-siwis-medium` — ≈ 65 Mo | Plus mécanique | ≈ 2 min de calcul pour 10 min de parole (sur 4 cœurs) |
+
+Une API de synthèse vocale du nuage (ElevenLabs, Google, Azure) donnerait une
+voix encore plus naturelle, mais elle est **payante au caractère** — de l'ordre
+de 30 à 300 $ pour regénérer l'ensemble des fiches — et chaque fiche serait
+envoyée à un tiers. Les deux moteurs ci-dessus ne coûtent rien et ne font sortir
+aucun texte de la machine.
+
+### Produire les fiches audio
+
+```bash
+npm run podcasts     # scripts parlés + synthèse des fiches nouvelles ou modifiées
+```
+
+Cette étape est **intégrée au flux de contenu** : `npm run contenu`,
+`npm run dev`, `npm run build` et `npm run deploy` la lancent d'eux-mêmes.
+Ajoutez une fiche, modifiez son cours : son podcast est régénéré au prochain
+build, sans rien demander. Les autres ne sont pas refaites — une empreinte du
+texte parlé sert de témoin.
+
+Pour travailler sans attendre la voix, `REVINSP_SANS_PODCAST=1 npm run dev`
+écrit les scripts et saute la synthèse.
+
+### Ce qui est produit, et où
+
+| Fichier | Contenu | Commité ? |
+|---|---|---|
+| `content/<matière>/<fascicule>/<fiche>.podcast.md` | le script parlé, relisible et corrigeable | non (`content/` est ignoré) |
+| `content/.audio/<id>.mp3` | l'audio en clair | non |
+| `public/data/audio/<id>.enc` | l'audio **chiffré**, publié | non (régénéré à chaque build) |
+
+Le script parlé n'est pas une lecture du cours : les titres deviennent des
+relances (« On passe à la suite… »), les listes des énumérations dites, les
+tableaux des phrases, les abréviations sont développées (« art. 55 » se dit
+« article 55 »), les phrases trop longues sont coupées, et **chaque notion du
+glossaire croisée en chemin est expliquée** à sa première occurrence. La
+réécriture est déterministe : le même cours donne toujours le même script.
+
+Pour corriger une tournure, modifiez la **fiche** (ou `scripts/lib/podcast.mjs`),
+jamais le `.podcast.md` : il est réécrit à chaque build.
+
+### Changer la voix ou le débit
+
+Dans `site.config.mjs`, section `podcast` :
+
+| Réglage | Effet |
+|---|---|
+| `moteur` | `'kokoro'` (naturel, lent) ou `'piper'` (mécanique, rapide) |
+| `kokoro.voix` | `ff_siwis` est la seule voix française du modèle |
+| `piper.voix` | `fr_FR-siwis-medium` et `fr_FR-upmc-medium` (féminines), `fr_FR-tom-medium` (masculine) |
+| `vitesse` | 1 = diction naturelle ; **en dessous, la lecture est plus lente et plus douce** |
+| `silenceParagrapheMs`, `silencePhraseMs` | les respirations |
+| `bitrate` | qualité et poids du MP3 |
+
+Après un changement de moteur, de voix ou de vitesse, relancez
+`npm run podcasts:installer` (si le modèle change) puis `npm run podcasts` :
+l'empreinte enregistrée ne correspond plus, **toutes** les fiches sont donc
+resynthétisées. Pour la centaine de fiches actuelle, comptez **une bonne nuit
+avec Kokoro**, **quelques heures avec Piper**. La génération est **reprenable** :
+interrompue, elle repart des fiches qui manquent.
+
+### Ce que cela ajoute au dépôt — à lire avant de publier
+
+C'est le seul vrai coût de cette fonctionnalité, et il n'est pas négligeable :
+
+- l'ensemble des fiches représente **plusieurs dizaines d'heures de parole**,
+  soit de l'ordre de **400 Mo** de MP3 chiffrés, là où le reste du site pèse
+  environ 10 Mo ;
+- ces fichiers partent sur la branche `gh-pages` à **chaque publication**. La
+  branche est reconstruite depuis zéro et poussée en force, son historique ne
+  s'accumule donc pas — mais chaque `npm run deploy` téléverse bien ces
+  centaines de mégaoctets, ce qui rallonge la publication de plusieurs minutes
+  selon la connexion ;
+- GitHub Pages recommande de rester **sous 1 Go** par site publié. La marge
+  existe, elle n'est pas infinie : surveillez-la si le nombre de fiches double.
+
+Trois leviers, si le poids devient gênant :
+
+1. baisser `bitrate` à `'24k'` — environ un quart de moins, la parole reste
+   intelligible ;
+2. ne synthétiser qu'une partie des fiches : supprimez les `.mp3` de
+   `content/.audio/` que vous ne voulez pas publier, les fiches concernées
+   afficheront simplement « Fiche audio pas encore disponible » ;
+3. renoncer à la fonctionnalité : videz `content/.audio/`, plus aucun fichier
+   audio n'est publié.
+
+**Coût récurrent : aucun.** Les deux moteurs sont locaux, libres et gratuits :
+la seule ressource consommée est du temps de calcul sur votre machine.
 
 ---
 
@@ -725,12 +843,13 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 
 ```
 .
-├── content/                 # VOS FICHES EN CLAIR + clé privée — jamais commité
+├── content/                 # VOS FICHES EN CLAIR + scripts parlés + audio — jamais commité
 ├── content-exemple/         # Exemples fournis, copiés par « npm run init:contenu »
 ├── actualites-data/         # Rubrique Actualités — entrées chiffrées + clé publique
 ├── apps/
 │   └── syllogismes/         # Syllogimous v4 traduit (Angular, build indépendant)
 ├── docs/                    # Consignes des routines de veille
+├── outils/                  # Modèles de synthèse vocale — jamais commité
 ├── .env.local               # VOTRE MOT DE PASSE — jamais commité
 ├── site.config.mjs          # Réglages : mot de passe (empreinte), base, XP, glossaire
 │
@@ -744,10 +863,15 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 │   ├── chiffrer-actualite.mjs   # Chiffre une actualité (veille hebdomadaire)
 │   ├── dechiffrer-actualite.mjs # Relit une actualité (synthèses périodiques)
 │   ├── build-syllogismes.mjs    # Construit l'exercice Syllogismes
+│   ├── podcasts.mjs         # Scripts parlés + synthèse vocale des fiches audio
+│   ├── synthese-voix.py     # Synthèse (Kokoro ou Piper) et encodage MP3
+│   ├── installer-voix.mjs   # Installe le moteur et la voix française
 │   └── lib/
 │       ├── schema.mjs       # Validation du format des fiches (Zod)
 │       ├── markdown.mjs     # Découpage en sections et rendu HTML
 │       ├── glossaire.mjs    # Détection automatique des termes (plugin remark)
+│       ├── podcast.mjs      # Réécriture d'un cours en script parlé
+│       ├── voix.mjs         # Moteurs de synthèse et emplacement des modèles
 │       ├── crypto.mjs       # PBKDF2 + AES-GCM côté build
 │       ├── secret.mjs       # Chiffrement d'un secret par mot de passe
 │       └── motdepasse.mjs   # Lecture du mot de passe (env ou .env.local)
@@ -764,6 +888,7 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 │   ├── styles/global.css    # Tailwind + styles du glossaire et des cours
 │   └── lib/
 │       ├── crypto.ts        # Déchiffrement côté navigateur
+│       ├── podcast.ts       # Lecteur de fiche audio (déchiffrement à la demande)
 │       ├── auth.ts          # Session et gestion de la clé
 │       ├── contenu.ts       # Chargement et cache du contenu déchiffré
 │       ├── db.ts            # IndexedDB : progression, export/import

@@ -17,6 +17,24 @@ import Base from '../layouts/Base.astro';
       <div id="tags" class="mt-2 flex flex-wrap gap-1.5"></div>
     </header>
 
+    <!-- Fiche audio : le cours dit à voix haute, déchiffré à la demande -->
+    <section
+      id="podcast"
+      class="mb-5 hidden rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900"
+      aria-label="Fiche audio"
+    >
+      <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
+        <span class="etiquette text-indigo-700 dark:text-indigo-300">🎧 Fiche audio</span>
+        <button
+          id="podcast-bouton"
+          type="button"
+          class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-60"
+        >▶ Écouter la fiche</button>
+        <p id="podcast-info" class="text-sm text-slate-500 dark:text-slate-400"></p>
+      </div>
+      <audio id="podcast-lecteur" class="mt-3 hidden w-full" controls preload="none"></audio>
+    </section>
+
     <!-- Bascule cours complet / fiche simplifiée -->
     <div class="sticky top-[57px] z-30 -mx-4 mb-5 border-b border-slate-200 bg-slate-50/95 px-4 py-2 backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
       <div class="flex flex-wrap items-center gap-2">
@@ -67,6 +85,7 @@ import Base from '../layouts/Base.astro';
   import { ecrireEtatFiche, lireEtatFiche } from '../lib/db';
   import { gagnerXp, xpFiche } from '../lib/gamification';
   import { activerGlossaire } from '../lib/glossaire';
+  import { installerLecteurPodcast } from '../lib/podcast';
   import { lien, notifier, parametreUrl } from '../lib/ui';
 
   let fiche: Fiche;
@@ -176,6 +195,9 @@ import Base from '../layouts/Base.astro';
       span.textContent = tag;
       zoneTags.appendChild(span);
     }
+
+    // Fiche audio (podcast), déchiffrée seulement si on la demande.
+    installerLecteurPodcast(fiche);
 
     // Boutons de révision contextuels.
     if (fiche.flashcards.length) {
