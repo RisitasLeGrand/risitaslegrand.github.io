@@ -22,12 +22,12 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/RisitasLeGrand/revinsp.git"
+    "url": "git+https://github.com/RisitasLeGrand/risitaslegrand.github.io.git"
   },
   "bugs": {
-    "url": "https://github.com/RisitasLeGrand/revinsp/issues"
+    "url": "https://github.com/RisitasLeGrand/risitaslegrand.github.io/issues"
   },
-  "homepage": "https://github.com/RisitasLeGrand/revinsp#readme",
+  "homepage": "https://github.com/RisitasLeGrand/risitaslegrand.github.io#readme",
   "dependencies": {
     "@astrojs/svelte": "^9.0.1",
     "@tailwindcss/vite": "^4.3.3",
