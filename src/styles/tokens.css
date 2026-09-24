@@ -85,6 +85,11 @@
   --etat-accent: #f87171; /* rouge lisible sur fond sombre */
   --etat-succes: #34d399; /* emerald-400 */
   --etat-alerte: #fbbf24; /* amber-400 */
+
+  /* Barre de défilement : un gris assez contrasté pour rester saisissable
+     à la souris, assez sourd pour ne pas concurrencer le contenu. */
+  --etat-defilement: #334155; /* slate-700 */
+  --etat-defilement-survol: #64748b; /* slate-500 */
 }
 
 /* ════════════════════════════════════════════════════════════════════════ */
@@ -107,6 +112,8 @@
   --etat-accent: #e1000f; /* Rouge Marianne */
   --etat-succes: #18753c;
   --etat-alerte: #b34000;
+  --etat-defilement: #cecece;
+  --etat-defilement-survol: #929292;
 
   /* --- Gris neutres : remplacent « slate-* » ------------------------------ */
   --color-slate-50: #f6f6f6;

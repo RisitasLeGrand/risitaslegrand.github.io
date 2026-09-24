@@ -209,11 +209,63 @@ dfn.terme-glossaire:focus-visible {
   }
 }
 
-/* Barre de défilement discrète sur les listes longues. */
+/* --- Barre de défilement -------------------------------------------------- */
+/* Discrète et accordée au thème, sur la page comme sur les zones défilantes.
+   Deux écritures pour deux familles de navigateurs, puisant dans les mêmes
+   tokens : la barre suit donc le thème clair ou sombre comme le reste.
+
+   Attention à l'ordre : Blink comprend « scrollbar-width » et
+   « scrollbar-color », mais dès que l'une des deux est posée il ignore les
+   pseudo-éléments ci-dessous et rend sa barre native, flèches comprises. Le
+   @supports réserve donc ces propriétés à Firefox, seul à ne pas reconnaître
+   le sélecteur ::-webkit-scrollbar. */
+@supports not selector(::-webkit-scrollbar) {
+  html {
+    scrollbar-width: thin;
+    scrollbar-color: var(--etat-defilement) transparent;
+  }
+}
+
+*::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+*::-webkit-scrollbar-thumb {
+  /* La bordure transparente, conjuguée au rognage sur la boîte de
+     remplissage, amincit le curseur sans réduire la cible de pointage :
+     on garde 10 px à saisir pour 4 px visibles. */
+  background-color: var(--etat-defilement);
+  background-clip: padding-box;
+  border: 3px solid transparent;
+  border-radius: 9999px;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background-color: var(--etat-defilement-survol);
+}
+*::-webkit-scrollbar-corner {
+  background: transparent;
+}
+/* Pas de flèches aux extrémités : elles alourdiraient une barre qu'on veut
+   oublier. */
+*::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* Sur les listes longues déjà marquées, le curseur s'efface encore un peu.
+   Il reste toujours visible, si ténu soit-il : le faire disparaître hors
+   survol priverait d'un repère les écrans tactiles, qui ne survolent pas. */
 .defilement-fin::-webkit-scrollbar {
   width: 8px;
   height: 8px;
 }
 .defilement-fin::-webkit-scrollbar-thumb {
-  @apply rounded-full bg-slate-300 dark:bg-slate-700;
+  background-color: color-mix(in srgb, var(--etat-defilement) 55%, transparent);
+  border-width: 2px;
+}
+.defilement-fin:hover::-webkit-scrollbar-thumb,
+.defilement-fin:focus-within::-webkit-scrollbar-thumb {
+  background-color: var(--etat-defilement);
 }
