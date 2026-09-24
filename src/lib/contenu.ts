@@ -74,8 +74,8 @@ export interface Fiche {
   sommaire: { niveau: number; id: string; titre: string }[];
   flashcards: Flashcard[];
   quiz: QuestionQuiz[];
-  /** Durée et poids de la fiche audio, connus avant de la télécharger. */
-  podcast: { secondes: number | null; octets: number } | null;
+  /** Durée, poids et format de la fiche audio, connus avant de la télécharger. */
+  podcast: { secondes: number | null; octets: number; type: string } | null;
 }
 
 export interface TermeGlossaire {

@@ -83,8 +83,14 @@ export default {
     silenceParagrapheMs: 560,
     silencePhraseMs: 190,
 
-    /** Débit du MP3 : de la parole en mono, pas de la musique. */
-    bitrate: '32k',
+    /**
+     * Encodage : « opus » (recommandé) ou « mp3 » pour un navigateur ancien.
+     * Opus à 16 kbit/s en mono reste net sur de la parole et pèse deux fois
+     * moins qu'un MP3 à 32 — ce qui compte, pour des dizaines d'heures.
+     * En dessous de 12k, la voix devient métallique.
+     */
+    format: 'opus',
+    bitrate: '16k',
   },
 
   /** Points d'expérience attribués par action. */

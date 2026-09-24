@@ -147,9 +147,20 @@ def synthetiser(moteur, paragraphes, args):
     return b"".join(morceaux)
 
 
-def encoder(ffmpeg: str, brut: bytes, taux: int, sortie: str, debit: str) -> None:
-    """WAV en mémoire -> MP3 mono. Passe par un fichier temporaire : le
-    fichier définitif n'apparaît qu'une fois complet."""
+# Réglages d'encodage, par format. Opus : le débit demandé est une moyenne
+# (VBR), les silences ne coûtent donc presque rien ; « compression_level 10 »
+# est le plus lent et le plus efficace, ce qui n'a pas d'importance à côté du
+# temps de synthèse.
+ENCODAGE = {
+    "opus": ["-c:a", "libopus", "-vbr", "on", "-compression_level", "10",
+             "-application", "audio", "-f", "ogg"],
+    "mp3": ["-c:a", "libmp3lame", "-f", "mp3"],
+}
+
+
+def encoder(ffmpeg: str, brut: bytes, taux: int, sortie: str, debit: str, format_: str) -> None:
+    """WAV en mémoire -> fichier compressé mono. Passe par un fichier
+    temporaire : le fichier définitif n'apparaît qu'une fois complet."""
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
         chemin_wav = tmp.name
     try:
@@ -161,7 +172,7 @@ def encoder(ffmpeg: str, brut: bytes, taux: int, sortie: str, debit: str) -> Non
         provisoire = sortie + ".part"
         subprocess.run(
             [ffmpeg, "-y", "-loglevel", "error", "-i", chemin_wav,
-             "-ac", "1", "-b:a", debit, "-codec:a", "libmp3lame", "-f", "mp3", provisoire],
+             "-ac", "1", "-b:a", debit, *ENCODAGE[format_], provisoire],
             check=True,
         )
         os.replace(provisoire, sortie)
@@ -180,7 +191,8 @@ def main() -> int:
     a.add_argument("--vitesse", type=float, default=1.0)
     a.add_argument("--silence-paragraphe", type=float, default=520)
     a.add_argument("--silence-phrase", type=float, default=170)
-    a.add_argument("--bitrate", default="32k")
+    a.add_argument("--bitrate", default="16k")
+    a.add_argument("--format", default="opus", choices=tuple(ENCODAGE))
     a.add_argument("--ffmpeg", default="ffmpeg")
     args = a.parse_args()
 
@@ -194,7 +206,7 @@ def main() -> int:
     for tache in taches:
         try:
             brut = synthetiser(moteur, lire_script(tache["script"]), args)
-            encoder(args.ffmpeg, brut, moteur.taux, tache["sortie"], args.bitrate)
+            encoder(args.ffmpeg, brut, moteur.taux, tache["sortie"], args.bitrate, args.format)
             print(json.dumps({
                 "id": tache["id"],
                 "secondes": round(len(brut) / 2 / moteur.taux, 1),

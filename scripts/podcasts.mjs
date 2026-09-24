@@ -29,7 +29,7 @@ import config from '../site.config.mjs';
 import { decouperSections } from './lib/markdown.mjs';
 import { ecrireScript, VERSION_SCRIPT } from './lib/podcast.mjs';
 import { idStable, sha256Hex } from './lib/crypto.mjs';
-import { cheminModele, MOTEURS } from './lib/voix.mjs';
+import { cheminModele, formatAudio, MOTEURS } from './lib/voix.mjs';
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dossierContenu = path.join(racine, 'content');
@@ -69,6 +69,10 @@ async function chargerGlossaire() {
 
 const moteur = MOTEURS[config.podcast.moteur];
 if (!moteur) throw new Error(`Moteur de synthèse inconnu : « ${config.podcast.moteur} ».`);
+const format = formatAudio(config.podcast);
+
+/** Fichier audio d'une fiche, dans le format actuellement configuré. */
+const cheminAudio = (ficheId) => path.join(dossierAudio, `${ficheId}.${format.extension}`);
 
 /** Chemin du modèle de voix installé localement. */
 const cheminVoix = () => cheminModele(racine, config.podcast);
@@ -120,12 +124,13 @@ async function lireMeta(id) {
  * Utilisé par le build pour savoir quoi chiffrer.
  */
 export async function audioDisponible(ficheId) {
-  const mp3 = path.join(dossierAudio, `${ficheId}.mp3`);
-  if (!existsSync(mp3)) return null;
+  const chemin = cheminAudio(ficheId);
+  if (!existsSync(chemin)) return null;
   const meta = await lireMeta(ficheId);
   return {
-    chemin: mp3,
-    octets: (await stat(mp3)).size,
+    chemin,
+    type: format.type,
+    octets: (await stat(chemin)).size,
     secondes: meta?.secondes ?? null,
     empreinte: meta?.empreinte ?? null,
   };
@@ -163,7 +168,7 @@ async function main() {
       // Fiche sans cours : ni script ni audio, et on efface ce qui traîne.
       sansCours++;
       await rm(cheminScript, { force: true });
-      await rm(path.join(dossierAudio, `${ficheId}.mp3`), { force: true });
+      await rm(cheminAudio(ficheId), { force: true });
       await rm(path.join(dossierAudio, `${ficheId}.json`), { force: true });
       continue;
     }
@@ -176,6 +181,8 @@ async function main() {
         config.podcast.moteur,
         JSON.stringify(config.podcast[config.podcast.moteur]),
         config.podcast.vitesse,
+        config.podcast.format,
+        config.podcast.bitrate,
         script.paragraphes.join('\n'),
       ].join('|'),
     );
@@ -196,7 +203,7 @@ async function main() {
     await writeFile(cheminScript, entete + script.paragraphes.join('\n\n') + '\n');
 
     const meta = await lireMeta(ficheId);
-    const dejaFait = meta?.empreinte === empreinte && existsSync(path.join(dossierAudio, `${ficheId}.mp3`));
+    const dejaFait = meta?.empreinte === empreinte && existsSync(cheminAudio(ficheId));
     if (dejaFait) {
       inchanges++;
       continue;
@@ -205,7 +212,7 @@ async function main() {
       id: ficheId,
       titre: data.titre,
       script: cheminScript,
-      sortie: path.join(dossierAudio, `${ficheId}.mp3`),
+      sortie: cheminAudio(ficheId),
       empreinte,
       minutes: Math.round(script.secondesEstimees / 60),
     });
@@ -280,6 +287,7 @@ async function synthetiser(taches, ffmpeg, t0) {
             '--silence-paragraphe', String(config.podcast.silenceParagrapheMs),
             '--silence-phrase', String(config.podcast.silencePhraseMs),
             '--bitrate', config.podcast.bitrate,
+            '--format', config.podcast.format,
             '--ffmpeg', ffmpeg,
           ],
           { env: { ...process.env, OMP_NUM_THREADS: '1' }, stdio: ['ignore', 'pipe', 'pipe'] },
@@ -322,12 +330,20 @@ async function synthetiser(taches, ffmpeg, t0) {
             );
           }
         });
+        // La sortie d'erreur est filtrée ligne par ligne, et non bloc par
+        // bloc : les phonémiseurs écrivent des messages longs, qu'un bloc
+        // peut couper en deux — le filtre ne les reconnaîtrait plus.
+        let resteErreur = '';
         processus.stderr.on('data', (bloc) => {
-          const texte = String(bloc);
-          // Bruit de fond des phonémiseurs : espeak signale les caractères
-          // qu'il ignore (tirets, ponctuation) à chaque phrase.
-          if (/Missing phoneme|Skip unknown phonemes|warn/i.test(texte)) return;
-          process.stderr.write(couleur.gris(texte));
+          resteErreur += bloc;
+          const lignes = resteErreur.split('\n');
+          resteErreur = lignes.pop() ?? '';
+          for (const ligne of lignes) {
+            // Bruit de fond : espeak signale les caractères qu'il ignore
+            // (tirets, ponctuation) à chaque phrase.
+            if (/Missing phoneme|Skip unknown|phonemize|warn/i.test(ligne)) continue;
+            if (ligne.trim()) process.stderr.write(couleur.gris(ligne + '\n'));
+          }
         });
         processus.on('error', rejeter);
         processus.on('close', () => resoudre());

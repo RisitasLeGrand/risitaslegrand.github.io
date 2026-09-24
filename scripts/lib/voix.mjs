@@ -36,6 +36,26 @@ export const MOTEURS = {
   },
 };
 
+/**
+ * Formats d'encodage proposés.
+ *
+ * Opus est le bon choix pour de la parole : à 16 kbit/s en mono, il reste
+ * parfaitement intelligible là où le MP3 devient pâteux, et divise le poids
+ * publié par deux. Le MP3 ne subsiste que pour un navigateur ancien qui ne
+ * saurait pas lire de l'Opus.
+ */
+export const FORMATS = {
+  opus: { extension: 'opus', type: 'audio/ogg; codecs=opus' },
+  mp3: { extension: 'mp3', type: 'audio/mpeg' },
+};
+
+/** Extension du fichier audio produit, et type MIME correspondant. */
+export function formatAudio(podcast) {
+  const format = FORMATS[podcast.format];
+  if (!format) throw new Error(`Format audio inconnu : « ${podcast.format} ».`);
+  return format;
+}
+
 /** Chemin du fichier de modèle attendu pour le moteur configuré. */
 export function cheminModele(racine, podcast) {
   const moteur = MOTEURS[podcast.moteur];

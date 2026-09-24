@@ -43,7 +43,7 @@ function ecrirePosition(id: string, secondes: number) {
   }
 }
 
-/** « 12 min · 3,0 Mo », pour annoncer le téléchargement avant de le lancer. */
+/** « 12 min · 1,5 Mo », pour annoncer le téléchargement avant de le lancer. */
 function calibre(podcast: { secondes: number | null; octets: number }): string {
   const poids = `${(podcast.octets / 1024 / 1024).toFixed(1).replace('.', ',')} Mo`;
   if (!podcast.secondes) return poids;
@@ -72,6 +72,16 @@ export function installerLecteurPodcast(fiche: Fiche): void {
     return;
   }
 
+  // Le format publié est choisi au build : si ce navigateur ne sait pas le
+  // lire, mieux vaut le dire que de laisser un bouton qui ne fera rien.
+  if (lecteur.canPlayType(fiche.podcast.type) === '') {
+    bouton.classList.add('hidden');
+    info.textContent =
+      'Ce navigateur ne sait pas lire le format audio publié. ' +
+      'Republiez le site avec « format: \'mp3\' » dans site.config.mjs.';
+    return;
+  }
+
   const reprise = lirePositions()[fiche.id] ?? 0;
   info.textContent = calibre(fiche.podcast);
   bouton.textContent = reprise ? '▶ Reprendre l’écoute' : '▶ Écouter la fiche';
@@ -82,7 +92,7 @@ export function installerLecteurPodcast(fiche: Fiche): void {
     try {
       const octets = await chargerBinaire(`audio/${fiche.id}.enc`);
       liberer();
-      urlCourante = URL.createObjectURL(new Blob([octets], { type: 'audio/mpeg' }));
+      urlCourante = URL.createObjectURL(new Blob([octets], { type: fiche.podcast!.type }));
       lecteur.src = urlCourante;
       lecteur.classList.remove('hidden');
       bouton.classList.add('hidden');

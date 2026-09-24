@@ -240,6 +240,11 @@ Tout est produit **sur votre machine**. Aucune fiche n'est envoyée à un servic
 de synthèse vocale, et le fichier audio est chiffré comme le reste du contenu :
 sur GitHub Pages, ce n'est qu'un flux d'octets illisible de plus.
 
+**Rien n'est téléchargé tant que vous ne le demandez pas** : ouvrir une fiche
+n'appelle que son texte. Le fichier audio n'est récupéré et déchiffré qu'au
+clic sur « Écouter la fiche », et le bouton annonce d'avance sa durée et son
+poids.
+
 ### Installer la chaîne de production (une seule fois)
 
 ```bash
@@ -284,7 +289,7 @@ Pour travailler sans attendre la voix, `REVINSP_SANS_PODCAST=1 npm run dev`
 | Fichier | Contenu | Commité ? |
 |---|---|---|
 | `content/<matière>/<fascicule>/<fiche>.podcast.md` | le script parlé, relisible et corrigeable | non (`content/` est ignoré) |
-| `content/.audio/<id>.mp3` | l'audio en clair | non |
+| `content/.audio/<id>.opus` | l'audio en clair | non |
 | `public/data/audio/<id>.enc` | l'audio **chiffré**, publié | non (régénéré à chaque build) |
 
 Le script parlé n'est pas une lecture du cours : les titres deviennent des
@@ -308,7 +313,8 @@ Dans `site.config.mjs`, section `podcast` :
 | `piper.voix` | `fr_FR-siwis-medium` et `fr_FR-upmc-medium` (féminines), `fr_FR-tom-medium` (masculine) |
 | `vitesse` | 1 = diction naturelle ; **en dessous, la lecture est plus lente et plus douce** |
 | `silenceParagrapheMs`, `silencePhraseMs` | les respirations |
-| `bitrate` | qualité et poids du MP3 |
+| `format` | `'opus'` (recommandé) ou `'mp3'` pour un navigateur ancien |
+| `bitrate` | qualité et poids du fichier : `'16k'` en Opus équivaut à `'32k'` en MP3 |
 
 Après un changement de moteur, de voix ou de vitesse, relancez
 `npm run podcasts:installer` (si le modèle change) puis `npm run podcasts` :
@@ -322,8 +328,9 @@ interrompue, elle repart des fiches qui manquent.
 C'est le seul vrai coût de cette fonctionnalité, et il n'est pas négligeable :
 
 - l'ensemble des fiches représente **plusieurs dizaines d'heures de parole**,
-  soit de l'ordre de **400 Mo** de MP3 chiffrés, là où le reste du site pèse
-  environ 10 Mo ;
+  soit de l'ordre de **200 Mo** d'Opus chiffré à 16 kbit/s, là où le reste du
+  site pèse environ 10 Mo. Le même contenu en MP3 à 32 kbit/s en pèserait le
+  double : c'est tout l'intérêt d'Opus sur de la parole ;
 - ces fichiers partent sur la branche `gh-pages` à **chaque publication**. La
   branche est reconstruite depuis zéro et poussée en force, son historique ne
   s'accumule donc pas — mais chaque `npm run deploy` téléverse bien ces
@@ -334,10 +341,10 @@ C'est le seul vrai coût de cette fonctionnalité, et il n'est pas négligeable 
 
 Trois leviers, si le poids devient gênant :
 
-1. baisser `bitrate` à `'24k'` — environ un quart de moins, la parole reste
-   intelligible ;
-2. ne synthétiser qu'une partie des fiches : supprimez les `.mp3` de
-   `content/.audio/` que vous ne voulez pas publier, les fiches concernées
+1. baisser `bitrate` à `'12k'` — un quart de moins encore, au prix d'une voix
+   plus métallique ;
+2. ne synthétiser qu'une partie des fiches : supprimez de `content/.audio/`
+   les fichiers que vous ne voulez pas publier, les fiches concernées
    afficheront simplement « Fiche audio pas encore disponible » ;
 3. renoncer à la fonctionnalité : videz `content/.audio/`, plus aucun fichier
    audio n'est publié.

@@ -443,7 +443,9 @@ async function main() {
       quiz: f.quiz,
       // Le lecteur a besoin de la durée et du poids AVANT de télécharger :
       // c'est ce qui permet d'annoncer « 12 min, 3 Mo » sur le bouton.
-      podcast: f.podcast ? { secondes: f.podcast.secondes, octets: f.podcast.octets } : null,
+      podcast: f.podcast
+        ? { secondes: f.podcast.secondes, octets: f.podcast.octets, type: f.podcast.type }
+        : null,
     };
     await writeFile(
       path.join(dossierSortie, 'fiches', `${f.id}.json`),
