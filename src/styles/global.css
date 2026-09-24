@@ -254,6 +254,44 @@ dfn.terme-glossaire:focus-visible {
   display: none;
 }
 
+/* --- Rubans défilants ------------------------------------------------------ */
+/* Une rangée d'icônes qui déborde n'a pas besoin d'une barre : elle lui prend
+   de la hauteur et tranche sur le fond. On la masque, et « lib/defilement.ts »
+   pose « data-deborde » pour estomper le bord — celui-là seulement — derrière
+   lequel il reste quelque chose à voir. Sans JavaScript, le ruban défile
+   toujours : il perd l'estompe, pas la fonction. */
+.defilement-masque {
+  scrollbar-width: none;
+}
+.defilement-masque::-webkit-scrollbar {
+  display: none;
+}
+
+.defilement-masque[data-deborde='fin'] {
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 2rem), transparent);
+}
+.defilement-masque[data-deborde='debut'] {
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 2rem);
+  mask-image: linear-gradient(to right, transparent, #000 2rem);
+}
+.defilement-masque[data-deborde='deux'] {
+  -webkit-mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 2rem,
+    #000 calc(100% - 2rem),
+    transparent
+  );
+  mask-image: linear-gradient(
+    to right,
+    transparent,
+    #000 2rem,
+    #000 calc(100% - 2rem),
+    transparent
+  );
+}
+
 /* Sur les listes longues déjà marquées, le curseur s'efface encore un peu.
    Il reste toujours visible, si ténu soit-il : le faire disparaître hors
    survol priverait d'un repère les écrans tactiles, qui ne survolent pas. */

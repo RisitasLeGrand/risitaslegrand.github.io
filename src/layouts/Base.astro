@@ -97,8 +97,9 @@ const onglets = [
               </a>
 
               <nav
+                id="navigation-principale"
                 aria-label="Navigation principale"
-                class="defilement-fin -mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto px-1"
+                class="defilement-masque -mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto px-1"
               >
                 {onglets.map((onglet) => (
                   <a
@@ -145,10 +146,16 @@ const onglets = [
 
     <script>
       import { quandDeverrouille, verrouiller } from '../lib/auth';
+      import { masquerDebordement } from '../lib/defilement';
       import { initGlossaireGlobal } from '../lib/glossaire';
       import { suivreTemps } from '../lib/temps';
 
       initGlossaireGlobal();
+
+      // Le ruban d'onglets déborde dès les écrans étroits : plutôt qu'une barre
+      // de défilement sous les icônes, on estompe le bord encore parcourable.
+      const rubanOnglets = document.getElementById('navigation-principale');
+      if (rubanOnglets) masquerDebordement(rubanOnglets);
 
       // Le choix du thème est géré par « components/CommutateurTheme.astro ».
 
