@@ -40,10 +40,22 @@ import { base } from '../lib/ui';
     </div>
 
     <div class="mt-6 flex flex-wrap items-end gap-3">
-      <div>
+      <div class="min-w-0 flex-1 basis-56">
         <label for="choix-matiere" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Matière</label>
-        <select id="choix-matiere" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
-          <option value="">Toutes</option>
+        <select id="choix-matiere" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+          <option value="">Toutes les matières</option>
+        </select>
+      </div>
+      <div class="min-w-0 flex-1 basis-56">
+        <label for="choix-fascicule" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Fascicule</label>
+        <select id="choix-fascicule" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+          <option value="">Tous les fascicules</option>
+        </select>
+      </div>
+      <div class="min-w-0 flex-1 basis-56">
+        <label for="choix-fiche" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Fiche</label>
+        <select id="choix-fiche" class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+          <option value="">Toutes les fiches</option>
         </select>
       </div>
       <div>
@@ -236,6 +248,79 @@ import { base } from '../lib/ui';
       `${compte.facile} facile(s), ${compte.moyen} moyen(s), ${compte.difficile} difficile(s)`;
   }
 
+  /**
+   * Trois menus en cascade — matière, fascicule, fiche — pour viser
+   * précisément la séance voulue. Chaque menu ne propose que ce que le
+   * précédent laisse ouvert, et seules les fiches porteuses de flashcards
+   * apparaissent : un choix affiché est toujours un choix jouable.
+   */
+  type FicheAplatie = ReturnType<typeof aplatirFiches>[number];
+  let fiches: FicheAplatie[] = [];
+
+  const selectMatiere = () => $('choix-matiere') as HTMLSelectElement;
+  const selectFascicule = () => $('choix-fascicule') as HTMLSelectElement;
+  const selectFiche = () => $('choix-fiche') as HTMLSelectElement;
+
+  /** Remplit un menu en conservant, si possible, la valeur déjà choisie. */
+  function remplir(select: HTMLSelectElement, libelleVide: string, valeurs: string[]) {
+    const precedent = select.value;
+    select.innerHTML = '';
+    const vide = document.createElement('option');
+    vide.value = '';
+    vide.textContent = libelleVide;
+    select.appendChild(vide);
+    for (const valeur of valeurs) {
+      const option = document.createElement('option');
+      option.value = valeur;
+      option.textContent = valeur;
+      select.appendChild(option);
+    }
+    select.value = valeurs.includes(precedent) ? precedent : '';
+  }
+
+  const uniques = (liste: string[]) => [...new Set(liste)];
+
+  function majFascicules() {
+    const matiere = selectMatiere().value;
+    remplir(
+      selectFascicule(),
+      'Tous les fascicules',
+      uniques(fiches.filter((f) => !matiere || f.matiere === matiere).map((f) => f.fascicule)),
+    );
+    majFiches();
+  }
+
+  function majFiches() {
+    const matiere = selectMatiere().value;
+    const fascicule = selectFascicule().value;
+    remplir(
+      selectFiche(),
+      'Toutes les fiches',
+      fiches
+        .filter((f) => (!matiere || f.matiere === matiere) && (!fascicule || f.fascicule === fascicule))
+        .map((f) => f.titre),
+    );
+  }
+
+  /**
+   * Traduit les trois menus en filtre pour la file du jour. Le titre suffit à
+   * désigner une fiche puisque le menu est déjà restreint à une matière et à
+   * un fascicule.
+   */
+  function selectionMenus(): { matiere: string | null; ficheIds: string[] | null } {
+    const matiere = selectMatiere().value || null;
+    const fascicule = selectFascicule().value;
+    const titre = selectFiche().value;
+    if (!fascicule && !titre) return { matiere, ficheIds: null };
+    const retenues = fiches.filter(
+      (f) =>
+        (!matiere || f.matiere === matiere) &&
+        (!fascicule || f.fascicule === fascicule) &&
+        (!titre || f.titre === titre),
+    );
+    return { matiere, ficheIds: retenues.map((f) => f.id) };
+  }
+
   /** Fiches d'une séance passée, transmises sous la forme « ?fiches=a,b,c ». */
   function fichesCiblees(): string[] | null {
     const brut = parametreUrl('fiches');
@@ -245,10 +330,13 @@ import { base } from '../lib/ui';
   }
 
   async function demarrer(inclureNonDues: boolean) {
-    const matiere = ($('choix-matiere') as HTMLSelectElement).value || null;
     const taille = Number(($('choix-taille') as HTMLSelectElement).value);
     const ficheId = parametreUrl('fiche');
-    const ficheIds = fichesCiblees();
+    const ciblees = fichesCiblees();
+    const menus = selectionMenus();
+    // Un rappel de séance impose ses fiches : les menus sont alors ignorés.
+    const matiere = ciblees ? null : menus.matiere;
+    const ficheIds = ciblees ?? menus.ficheIds;
 
     file = melanger(
       await fileDuJour({ matiere, ficheId, ficheIds, limite: taille, inclureNonDues }),
@@ -269,7 +357,13 @@ import { base } from '../lib/ui';
   async function rafraichirCompteurs() {
     const ficheId = parametreUrl('fiche');
     const cartes = await toutesLesCartes();
-    const dues = await fileDuJour({ ficheId, ficheIds: fichesCiblees() });
+    const ciblees = fichesCiblees();
+    const menus = selectionMenus();
+    const dues = await fileDuJour({
+      matiere: ciblees ? null : menus.matiere,
+      ficheId,
+      ficheIds: ciblees ?? menus.ficheIds,
+    });
     $('nb-dues').textContent = String(dues.length);
     $('nb-neuves').textContent = String(dues.filter((c) => c.neuve).length);
     $('nb-acquises').textContent = String(cartes.filter((c) => c.intervalle >= 21).length);
@@ -278,13 +372,9 @@ import { base } from '../lib/ui';
 
   async function initialiser() {
     const manifeste = await chargerManifeste();
-    const select = $('choix-matiere') as HTMLSelectElement;
-    for (const matiere of manifeste.matieres) {
-      const option = document.createElement('option');
-      option.value = matiere.nom;
-      option.textContent = matiere.nom;
-      select.appendChild(option);
-    }
+    fiches = aplatirFiches(manifeste).filter((f) => f.nbFlashcards > 0);
+    remplir(selectMatiere(), 'Toutes les matières', uniques(fiches.map((f) => f.matiere)));
+    majFascicules();
 
     // Le plafond enregistré devient la longueur proposée par défaut ; s'il ne
     // correspond à aucune option, on l'ajoute pour qu'il reste visible.
@@ -308,12 +398,24 @@ import { base } from '../lib/ui';
         ? `Session limitée aux fiches travaillées lors d'une séance précédente : ${titres.join(' · ')}.`
         : 'Session limitée aux fiches d\'une séance précédente.';
       $('bandeau-rappel').classList.remove('hidden');
-      // Le filtre par matière n'a plus de sens quand les fiches sont imposées.
-      select.value = '';
-      select.disabled = true;
+      // Les filtres n'ont plus de sens quand les fiches sont imposées.
+      for (const menu of [selectMatiere(), selectFascicule(), selectFiche()]) {
+        menu.value = '';
+        menu.disabled = true;
+      }
     }
 
     await rafraichirCompteurs();
+
+    selectMatiere().addEventListener('change', () => {
+      majFascicules();
+      void rafraichirCompteurs();
+    });
+    selectFascicule().addEventListener('change', () => {
+      majFiches();
+      void rafraichirCompteurs();
+    });
+    selectFiche().addEventListener('change', () => void rafraichirCompteurs());
 
     $('lancer').addEventListener('click', () => void demarrer(false));
     $('lancer-libre').addEventListener('click', () => void demarrer(true));

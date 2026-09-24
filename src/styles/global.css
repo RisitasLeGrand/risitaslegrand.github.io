@@ -99,6 +99,41 @@ body {
   display: none;
 }
 
+/* Variante « titre dépliant » : ce n'est plus un lien « Voir plus » mais la
+   ligne de titre elle-même qui ouvre et referme la section. Le chevron passe
+   devant le titre (« order: -1 ») pour se lire comme une arborescence, et la
+   couleur d'accent laisse la place à celle du texte courant. */
+.depliant-titre > summary {
+  @apply flex w-full gap-3 text-slate-900 dark:text-white;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.depliant-titre > summary:hover {
+  text-decoration: none;
+}
+
+.depliant-titre > summary:hover :is(h2, h3) {
+  @apply underline;
+}
+
+.depliant-titre > summary::after {
+  order: -1;
+  flex: none;
+  margin-bottom: 0;
+  @apply text-slate-400 dark:text-slate-500;
+}
+
+.depliant-titre[open] > summary::after {
+  margin-bottom: 0;
+}
+
+/* Le compteur de fiches n'a de sens qu'une fois la section refermée : ouverte,
+   la liste est sous les yeux. */
+.depliant-titre[open] > summary .depliant-compte {
+  display: none;
+}
+
 /* La zone dépliée est bornée : un historique qui grandit ne doit pas
    allonger la page indéfiniment, il défile sur lui-même. */
 .depliant-corps {

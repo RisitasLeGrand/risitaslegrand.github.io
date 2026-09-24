@@ -6,6 +6,13 @@ import Base from '../layouts/Base.astro';
   <div class="mb-5 flex flex-wrap items-center gap-3">
     <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Bibliothèque</h1>
     <div class="ml-auto flex flex-wrap items-center gap-2">
+      <button
+        id="tout-deplier"
+        type="button"
+        class="hidden rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm font-medium text-slate-700 transition hover:border-indigo-300 hover:text-indigo-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:border-indigo-700 dark:hover:text-indigo-300"
+      >
+        Tout déplier
+      </button>
       <label class="sr-only" for="filtre-matiere">Filtrer par matière</label>
       <select
         id="filtre-matiere"
@@ -88,9 +95,97 @@ import Base from '../layouts/Base.astro';
     return true;
   }
 
+  // --- Mémoire des sections ouvertes ---------------------------------------
+  // Le choix de l'utilisateur prime sur les valeurs par défaut, et il survit à
+  // la navigation. Le stockage peut échouer (navigation privée, cookies
+  // bloqués) : la page doit alors continuer de fonctionner sans mémoire.
+  const CLE_SECTIONS = 'revinsp.bibliotheque.sections';
+  let sections: Record<string, boolean> = {};
+
+  function lireSections() {
+    try {
+      const brut = localStorage.getItem(CLE_SECTIONS);
+      sections = brut ? (JSON.parse(brut) as Record<string, boolean>) : {};
+    } catch {
+      sections = {};
+    }
+  }
+
+  function ecrireSections() {
+    try {
+      localStorage.setItem(CLE_SECTIONS, JSON.stringify(sections));
+    } catch {
+      /* Pas de mémoire disponible : on s'en passe. */
+    }
+  }
+
+  /**
+   * Fabrique une section dépliable dont la ligne de titre entière est le
+   * bouton d'ouverture. « details » apporte nativement le clavier et
+   * l'annonce d'état aux lecteurs d'écran.
+   */
+  function sectionDepliante(options: {
+    cle: string;
+    niveau: 'matiere' | 'fascicule';
+    titre: string;
+    pourcent: number;
+    nbFiches: number;
+    ouvertParDefaut: boolean;
+  }) {
+    const { cle, niveau, titre, pourcent, nbFiches, ouvertParDefaut } = options;
+    const details = document.createElement('details');
+    details.className =
+      niveau === 'matiere'
+        ? 'depliant depliant-titre rounded-2xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/40'
+        : 'depliant depliant-titre mt-4';
+    details.open = sections[cle] ?? ouvertParDefaut;
+
+    const titreHtml =
+      niveau === 'matiere'
+        ? '<h2 class="min-w-0 flex-1 truncate text-lg font-semibold" data-titre></h2>'
+        : '<h3 class="min-w-0 flex-1 truncate text-sm font-semibold text-slate-600 dark:text-slate-300" data-titre></h3>';
+    const tailleMeta = niveau === 'matiere' ? 'text-sm' : 'text-xs';
+
+    const resume = document.createElement('summary');
+    resume.className = 'min-h-11 cursor-pointer items-center';
+    resume.innerHTML = `
+      ${titreHtml}
+      <span class="depliant-compte shrink-0 ${tailleMeta} text-slate-400">${pluriel(nbFiches, 'fiche')}</span>
+      <span class="shrink-0 ${tailleMeta} text-slate-500 dark:text-slate-400">${pourcent} %</span>`;
+    resume.querySelector('[data-titre]')!.textContent = titre;
+    details.appendChild(resume);
+
+    details.addEventListener('toggle', () => {
+      sections[cle] = details.open;
+      ecrireSections();
+      rafraichirBouton();
+    });
+    return details;
+  }
+
+  /** Le bouton bascule vers l'action inverse de l'état majoritaire. */
+  function rafraichirBouton() {
+    const bouton = document.getElementById('tout-deplier') as HTMLButtonElement | null;
+    if (!bouton) return;
+    const toutes = [...document.querySelectorAll<HTMLDetailsElement>('#liste details')];
+    bouton.classList.toggle('hidden', !toutes.length);
+    const replier = toutes.length > 0 && toutes.every((d) => d.open);
+    bouton.textContent = replier ? 'Tout replier' : 'Tout déplier';
+    bouton.dataset.action = replier ? 'replier' : 'deplier';
+  }
+
+  function basculerTout() {
+    const ouvrir = (document.getElementById('tout-deplier') as HTMLButtonElement).dataset.action !== 'replier';
+    for (const details of document.querySelectorAll<HTMLDetailsElement>('#liste details')) details.open = ouvrir;
+    rafraichirBouton();
+  }
+
   function rendre() {
     const matiereChoisie = (document.getElementById('filtre-matiere') as HTMLSelectElement).value;
     const statut = (document.getElementById('filtre-statut') as HTMLSelectElement).value;
+    // Filtrer, c'est chercher : on ouvre alors ce qui reste à l'écran plutôt
+    // que de laisser l'utilisateur déplier lui-même le résultat de sa recherche.
+    const filtreActif = Boolean(matiereChoisie || statut);
     const liste = document.getElementById('liste')!;
     liste.innerHTML = '';
     let compteur = 0;
@@ -99,45 +194,49 @@ import Base from '../layouts/Base.astro';
       if (matiereChoisie && matiere.nom !== matiereChoisie) continue;
 
       const blocsFascicules: HTMLElement[] = [];
+      let fichesMatiere = 0;
       for (const fascicule of matiere.fascicules) {
         const fiches = fascicule.fiches.filter((f) => filtrer(f, statut));
         if (!fiches.length) continue;
         compteur += fiches.length;
+        fichesMatiere += fiches.length;
 
-        const bloc = document.createElement('div');
-        bloc.className = 'mt-4';
-        bloc.innerHTML = `
-          <div class="mb-2 flex items-center gap-3">
-            <h3 class="text-sm font-semibold text-slate-600 dark:text-slate-300" data-fascicule></h3>
-            <span class="text-xs text-slate-400">${Math.round(fascicule.maitrise * 100)} %</span>
-          </div>
-          <ul class="space-y-2"></ul>`;
-        bloc.querySelector('[data-fascicule]')!.textContent = fascicule.nom;
-        const ul = bloc.querySelector('ul')!;
+        const bloc = sectionDepliante({
+          cle: `f:${matiere.nom}/${fascicule.nom}`,
+          niveau: 'fascicule',
+          titre: fascicule.nom,
+          pourcent: Math.round(fascicule.maitrise * 100),
+          nbFiches: fiches.length,
+          ouvertParDefaut: true,
+        });
+        const ul = document.createElement('ul');
+        ul.className = 'mt-2 space-y-2';
         for (const f of fiches) ul.appendChild(ligneFiche(f));
+        bloc.appendChild(ul);
         blocsFascicules.push(bloc);
       }
 
       if (!blocsFascicules.length) continue;
 
-      const section = document.createElement('section');
-      section.className =
-        'rounded-2xl border border-slate-200 bg-slate-50/50 p-4 dark:border-slate-800 dark:bg-slate-900/40';
-      section.innerHTML = `
-        <div class="flex items-center justify-between gap-3">
-          <h2 class="text-lg font-semibold text-slate-900 dark:text-white" data-matiere></h2>
-          <span class="text-sm text-slate-500 dark:text-slate-400">${Math.round(matiere.maitrise * 100)} %</span>
-        </div>`;
-      section.querySelector('[data-matiere]')!.textContent = matiere.nom;
+      const section = sectionDepliante({
+        cle: `m:${matiere.nom}`,
+        niveau: 'matiere',
+        titre: matiere.nom,
+        pourcent: Math.round(matiere.maitrise * 100),
+        nbFiches: fichesMatiere,
+        ouvertParDefaut: filtreActif,
+      });
       for (const bloc of blocsFascicules) section.appendChild(bloc);
       liste.appendChild(section);
     }
 
     document.getElementById('vide')!.classList.toggle('hidden', compteur > 0);
+    rafraichirBouton();
   }
 
   async function initialiser() {
     vue = await construireVue();
+    lireSections();
 
     const selectMatiere = document.getElementById('filtre-matiere') as HTMLSelectElement;
     for (const matiere of vue.matieres) {
@@ -149,6 +248,7 @@ import Base from '../layouts/Base.astro';
     const depuisUrl = parametreUrl('matiere');
     if (depuisUrl) selectMatiere.value = depuisUrl;
 
+    document.getElementById('tout-deplier')!.addEventListener('click', basculerTout);
     selectMatiere.addEventListener('change', rendre);
     document.getElementById('filtre-statut')!.addEventListener('change', rendre);
 
