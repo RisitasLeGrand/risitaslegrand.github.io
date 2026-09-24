@@ -18,7 +18,7 @@
  * « scripts/build-content.mjs » qui le chiffre vers « public/data/audio/ ».
  */
 import { readFile, readdir, writeFile, mkdir, stat, rm } from 'node:fs/promises';
-import { existsSync } from 'node:fs';
+import { existsSync, rmSync } from 'node:fs';
 import { spawn } from 'node:child_process';
 import { availableParallelism } from 'node:os';
 import path from 'node:path';
@@ -41,6 +41,27 @@ const couleur = {
   jaune: (t) => `\x1b[33m${t}\x1b[0m`,
   gris: (t) => `\x1b[90m${t}\x1b[0m`,
 };
+
+/**
+ * Témoin de synthèse en cours.
+ *
+ * Une synthèse dure des heures. Un « npm run dev » lancé pendant ce temps
+ * relancerait un second jeu de processus sur les mêmes fiches, qui se
+ * disputeraient les cœurs et s'écraseraient mutuellement. Le témoin porte le
+ * numéro du processus en cours : s'il vit encore, on le laisse travailler.
+ */
+const cheminVerrou = () => path.join(dossierAudio, '.synthese-en-cours');
+
+async function synthesePosee() {
+  if (!existsSync(cheminVerrou())) return false;
+  const pid = Number((await readFile(cheminVerrou(), 'utf8')).trim());
+  try {
+    process.kill(pid, 0); // ne tue rien : vérifie seulement que le processus existe
+    return pid;
+  } catch {
+    return false; // témoin laissé par une exécution interrompue
+  }
+}
 
 /** Suffixe des scripts parlés. Ils ne sont pas des fiches : le build les ignore. */
 export const SUFFIXE_SCRIPT = '.podcast.md';
@@ -226,6 +247,16 @@ async function main() {
   );
   if (!taches.length) return;
 
+  const enCours = await synthesePosee();
+  if (enCours) {
+    console.log(
+      couleur.jaune(
+        `  ! une synthèse tourne déjà (processus ${enCours}) : ${taches.length} fiche(s) lui restent à produire.`,
+      ),
+    );
+    return;
+  }
+
   // Pendant le développement, on peut vouloir les scripts sans attendre la
   // voix : « REVINSP_SANS_PODCAST=1 npm run dev ».
   if (process.env.REVINSP_SANS_PODCAST) {
@@ -262,6 +293,19 @@ async function synthetiser(taches, ffmpeg, t0) {
 
   const fichierTaches = path.join(dossierAudio, 'taches.json');
   await writeFile(fichierTaches, JSON.stringify(taches));
+  await writeFile(cheminVerrou(), String(process.pid));
+  const leverVerrou = () => {
+    try {
+      if (existsSync(cheminVerrou())) rmSync(cheminVerrou());
+    } catch {
+      /* rien à faire de plus */
+    }
+  };
+  process.once('exit', leverVerrou);
+  process.once('SIGINT', () => {
+    leverVerrou();
+    process.exit(130);
+  });
 
   // Un processus par cœur, chacun mono-thread : c'est le partage le plus
   // efficace pour une charge entièrement processeur.
@@ -352,6 +396,7 @@ async function synthetiser(taches, ffmpeg, t0) {
   );
 
   await rm(fichierTaches, { force: true });
+  leverVerrou();
   for (const echec of echecs) console.log(couleur.rouge(`  ✖ ${echec}`));
   console.log(
     couleur.vert('✓') +
