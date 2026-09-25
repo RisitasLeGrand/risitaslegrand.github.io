@@ -395,7 +395,7 @@ import Base from '../../layouts/Base.astro';
       actions.appendChild(intro);
       for (const [etiquette, chemin] of [
         ['Flashcards', '/flashcards/'],
-        ['QCM', '/quiz/'],
+        ['QCM', '/quiz/cours/'],
       ] as const) {
         const bouton = document.createElement('a');
         bouton.href = `${lien(chemin)}${parametre}`;

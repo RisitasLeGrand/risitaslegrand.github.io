@@ -357,9 +357,10 @@ la seule ressource consommée est du temps de calcul sur votre machine.
 
 ## La rubrique QCM — DGFiP
 
-Sous l'onglet **Quiz**, la rubrique « QCM — DGFiP » propose une **épreuve
-blanche** distincte des quiz tirés des fiches : une banque de questions
-autonome, un format d'épreuve et un barème qui sanctionne l'erreur.
+L'onglet **Quiz** ouvre sur un menu à deux entrées : le **quiz du cours**,
+tiré de vos fiches et corrigé au fil de l'eau, et le **QCM — DGFiP**, une
+**épreuve blanche** avec sa banque de questions autonome, son format d'épreuve
+et son barème qui sanctionne l'erreur.
 
 ### Écrire la banque
 

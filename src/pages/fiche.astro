@@ -213,7 +213,7 @@ import Base from '../layouts/Base.astro';
       bouton.classList.remove('hidden');
       document.getElementById('nb-quiz')!.textContent = String(fiche.quiz.length);
       bouton.addEventListener('click', () => {
-        location.href = `${lien('/quiz/')}?fiche=${encodeURIComponent(fiche.id)}`;
+        location.href = `${lien('/quiz/cours/')}?fiche=${encodeURIComponent(fiche.id)}`;
       });
     }
 
