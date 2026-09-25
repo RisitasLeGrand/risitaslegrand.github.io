@@ -111,6 +111,46 @@ export interface Jour {
   secondes: number;
 }
 
+/**
+ * Historique d'une question de la banque « QCM - DGFiP ».
+ * Sert à pondérer le tirage : une question ratée doit revenir plus vite
+ * qu'une question sue, sans jamais disparaître complètement du hasard.
+ */
+export interface EtatQuestionDgfip {
+  id: string;
+  rubriqueId: string;
+  vues: number;
+  bonnes: number;
+  mauvaises: number;
+  abstentions: number;
+  derniereLe: string;
+}
+
+/** Score par rubrique à l'intérieur d'une session. */
+export interface ScoreRubriqueDgfip {
+  rubriqueId: string;
+  rubrique: string;
+  posees: number;
+  bonnes: number;
+  mauvaises: number;
+  abstentions: number;
+  points: number;
+}
+
+export interface SessionDgfip {
+  id?: number;
+  le: string;
+  posees: number;
+  bonnes: number;
+  mauvaises: number;
+  abstentions: number;
+  /** Total au barème +1 / −0,5 / 0, arrondi au demi-point. */
+  points: number;
+  /** Maximum atteignable sur cette session (= nombre de questions posées). */
+  maximum: number;
+  parRubrique: ScoreRubriqueDgfip[];
+}
+
 export interface Profil {
   xp: number;
   streakCourante: number;
@@ -128,10 +168,12 @@ interface SchemaRevinsp extends DBSchema {
   jours: { key: string; value: Jour };
   nback: { key: number; value: SessionNBack; indexes: { le: string } };
   seances: { key: number; value: Seance; indexes: { jour: string; theme: string } };
+  qcmDgfip: { key: string; value: EtatQuestionDgfip; indexes: { rubriqueId: string } };
+  qcmSessions: { key: number; value: SessionDgfip; indexes: { le: string } };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 3;
+const VERSION = 4;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -161,6 +203,13 @@ export function db() {
         const seances = base.createObjectStore('seances', { keyPath: 'id', autoIncrement: true });
         seances.createIndex('jour', 'jour');
         seances.createIndex('theme', 'theme');
+      }
+      if (ancienneVersion < 4) {
+        // Banque « QCM - DGFiP » : historique par question et par session.
+        const dgfip = base.createObjectStore('qcmDgfip', { keyPath: 'id' });
+        dgfip.createIndex('rubriqueId', 'rubriqueId');
+        const sessions = base.createObjectStore('qcmSessions', { keyPath: 'id', autoIncrement: true });
+        sessions.createIndex('le', 'le');
       }
     },
   });
@@ -280,6 +329,52 @@ export async function toutesLesSessionsNBack(): Promise<SessionNBack[]> {
 
 /* --- Séances de révision -------------------------------------------------- */
 
+// --- Banque « QCM - DGFiP » -------------------------------------------------
+
+export async function etatsQuestionsDgfip(): Promise<EtatQuestionDgfip[]> {
+  return (await db()).getAll('qcmDgfip');
+}
+
+/**
+ * Enregistre en une transaction le passage d'une session : l'historique de
+ * chaque question posée, puis la session elle-même.
+ */
+export async function enregistrerSessionDgfip(
+  session: SessionDgfip,
+  reponses: { id: string; rubriqueId: string; issue: 'bonne' | 'mauvaise' | 'abstention' }[],
+): Promise<number> {
+  const base = await db();
+  const tx = base.transaction(['qcmDgfip', 'qcmSessions'], 'readwrite');
+  const magasin = tx.objectStore('qcmDgfip');
+  for (const reponse of reponses) {
+    const ancien = await magasin.get(reponse.id);
+    const etat: EtatQuestionDgfip = ancien ?? {
+      id: reponse.id,
+      rubriqueId: reponse.rubriqueId,
+      vues: 0,
+      bonnes: 0,
+      mauvaises: 0,
+      abstentions: 0,
+      derniereLe: session.le,
+    };
+    etat.rubriqueId = reponse.rubriqueId;
+    etat.vues += 1;
+    if (reponse.issue === 'bonne') etat.bonnes += 1;
+    else if (reponse.issue === 'mauvaise') etat.mauvaises += 1;
+    else etat.abstentions += 1;
+    etat.derniereLe = session.le;
+    await magasin.put(etat);
+  }
+  const { id: _ignore, ...sansId } = session;
+  const id = await tx.objectStore('qcmSessions').add(sansId as SessionDgfip);
+  await tx.done;
+  return id as number;
+}
+
+export async function toutesLesSessionsDgfip(): Promise<SessionDgfip[]> {
+  return (await db()).getAll('qcmSessions');
+}
+
 export async function toutesLesSeances(): Promise<Seance[]> {
   const seances = await (await db()).getAll('seances');
   return seances.sort((a, b) => a.jour.localeCompare(b.jour) || (a.id ?? 0) - (b.id ?? 0));
@@ -366,6 +461,8 @@ export async function exporterTout() {
     jours: await base.getAll('jours'),
     nback: await base.getAll('nback'),
     seances: await base.getAll('seances'),
+    qcmDgfip: await base.getAll('qcmDgfip'),
+    qcmSessions: await base.getAll('qcmSessions'),
     planification: await lireReglagesPlanification(),
     reglagesSession: (await base.get('etat', 'reglagesSession')) as ReglagesSession | undefined,
   };
@@ -385,7 +482,10 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
   const base = await db();
 
   if (mode === 'remplacement') {
-    const tx = base.transaction(['etat', 'cartes', 'fiches', 'quiz', 'jours', 'seances'], 'readwrite');
+    const tx = base.transaction(
+      ['etat', 'cartes', 'fiches', 'quiz', 'jours', 'seances', 'qcmDgfip', 'qcmSessions'],
+      'readwrite',
+    );
     await Promise.all([
       tx.objectStore('etat').clear(),
       tx.objectStore('cartes').clear(),
@@ -393,6 +493,8 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
       tx.objectStore('quiz').clear(),
       tx.objectStore('jours').clear(),
       tx.objectStore('seances').clear(),
+      tx.objectStore('qcmDgfip').clear(),
+      tx.objectStore('qcmSessions').clear(),
     ]);
     await tx.done;
   }
@@ -460,6 +562,27 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
       const { id: _ignore, ...sansId } = session;
       await base.add('nback', sansId as SessionNBack);
     }
+    // QCM DGFiP : les compteurs par question s'additionnent, l'appareil le
+    // plus avancé n'étant pas forcément le même selon la question.
+    for (const etat of donnees.qcmDgfip ?? []) {
+      const local = await base.get('qcmDgfip', etat.id);
+      await base.put('qcmDgfip', {
+        id: etat.id,
+        rubriqueId: etat.rubriqueId || local?.rubriqueId || '',
+        vues: Math.max(local?.vues ?? 0, etat.vues),
+        bonnes: Math.max(local?.bonnes ?? 0, etat.bonnes),
+        mauvaises: Math.max(local?.mauvaises ?? 0, etat.mauvaises),
+        abstentions: Math.max(local?.abstentions ?? 0, etat.abstentions),
+        derniereLe:
+          !local || etat.derniereLe > local.derniereLe ? etat.derniereLe : local.derniereLe,
+      });
+    }
+    const sessionsDgfipExistantes = new Set((await base.getAll('qcmSessions')).map((s) => s.le));
+    for (const session of donnees.qcmSessions ?? []) {
+      if (sessionsDgfipExistantes.has(session.le)) continue;
+      const { id: _ignore, ...sansId } = session;
+      await base.add('qcmSessions', sansId as SessionDgfip);
+    }
     for (const j of donnees.jours ?? []) {
       const local = await base.get('jours', j.jour);
       await base.put('jours', {
@@ -486,6 +609,11 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
       const { id: _ignore, ...sansId } = seance;
       await base.add('seances', sansId as Seance);
     }
+    for (const etat of donnees.qcmDgfip ?? []) await base.put('qcmDgfip', etat);
+    for (const session of donnees.qcmSessions ?? []) {
+      const { id: _ignore, ...sansId } = session;
+      await base.add('qcmSessions', sansId as SessionDgfip);
+    }
   }
 
   if (donnees.planification) await ecrireReglagesPlanification(donnees.planification);
@@ -496,7 +624,7 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
 export async function toutEffacer() {
   const base = await db();
   const tx = base.transaction(
-    ['etat', 'cartes', 'fiches', 'quiz', 'jours', 'nback', 'seances'],
+    ['etat', 'cartes', 'fiches', 'quiz', 'jours', 'nback', 'seances', 'qcmDgfip', 'qcmSessions'],
     'readwrite',
   );
   await Promise.all([
@@ -507,6 +635,8 @@ export async function toutEffacer() {
     tx.objectStore('jours').clear(),
     tx.objectStore('nback').clear(),
     tx.objectStore('seances').clear(),
+    tx.objectStore('qcmDgfip').clear(),
+    tx.objectStore('qcmSessions').clear(),
   ]);
   await tx.done;
 }

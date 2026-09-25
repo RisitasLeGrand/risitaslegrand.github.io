@@ -1,0 +1,473 @@
+---
+import Base from '../../layouts/Base.astro';
+import { base } from '../../lib/ui';
+---
+
+<Base titre="QCM — DGFiP" actif="quiz">
+  <div id="chargement" class="py-20 text-center text-slate-400">Préparation de la banque…</div>
+
+  <!-- ====================== Accueil de la rubrique ====================== -->
+  <section id="accueil-dgfip" class="hidden">
+    <p class="etiquette text-indigo-600 dark:text-indigo-400">
+      <a href={`${base}/quiz/`} class="hover:underline">Quiz</a> · rubrique
+    </p>
+    <h1 class="mt-1 mb-1 text-2xl font-bold text-slate-900 dark:text-white">QCM — DGFiP</h1>
+    <p class="mb-6 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      Épreuve blanche dans les conditions du concours : une seule série mêlant
+      toutes les rubriques, aucune correction avant la fin, et un barème qui
+      rend l'abstention préférable au hasard.
+    </p>
+
+    <div class="mb-6 grid gap-3 sm:grid-cols-3">
+      <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900 dark:bg-emerald-950/40">
+        <p class="text-lg font-bold text-emerald-700 tabular-nums dark:text-emerald-400">+1</p>
+        <p class="text-xs text-slate-600 dark:text-slate-300">par bonne réponse</p>
+      </div>
+      <div class="rounded-xl border border-red-200 bg-red-50 px-4 py-3 dark:border-red-900 dark:bg-red-950/40">
+        <p class="text-lg font-bold text-red-700 tabular-nums dark:text-red-400">−0,5</p>
+        <p class="text-xs text-slate-600 dark:text-slate-300">par mauvaise réponse</p>
+      </div>
+      <div class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 dark:border-slate-700 dark:bg-slate-900">
+        <p class="text-lg font-bold text-slate-700 tabular-nums dark:text-slate-200">0</p>
+        <p class="text-xs text-slate-600 dark:text-slate-300">en l'absence de réponse</p>
+      </div>
+    </div>
+
+    <h2 class="mb-2 text-sm font-semibold text-slate-900 dark:text-white">Banque de questions</h2>
+    <div id="rubriques-dgfip" class="mb-6 space-y-2"></div>
+
+    <div class="flex flex-wrap items-end gap-3">
+      <div>
+        <label for="format-dgfip" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
+          Format
+        </label>
+        <select
+          id="format-dgfip"
+          class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+        >
+          <option value="54">Épreuve complète — 54 questions</option>
+          <option value="27">Demi-épreuve — 27 questions</option>
+          <option value="12">Série courte — 12 questions</option>
+        </select>
+      </div>
+      <button
+        id="lancer-dgfip"
+        class="rounded-lg bg-indigo-600 px-5 py-2.5 font-medium text-white transition hover:bg-indigo-700"
+      >
+        Commencer
+      </button>
+      <p class="w-full text-xs text-slate-500 dark:text-slate-400">
+        Les questions sont tirées au hasard, en ramenant plus souvent celles que
+        vous avez ratées ou laissées de côté.
+      </p>
+    </div>
+
+    <p
+      id="dgfip-vide"
+      class="mt-6 hidden rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300"
+    >
+      La banque « QCM - DGFiP » est vide : ajoutez des questions dans
+      <code>content/qcm-dgfip/</code>, puis republiez le site.
+    </p>
+
+    <div id="historique-dgfip" class="mt-10"></div>
+  </section>
+
+  <!-- ========================== Épreuve en cours ========================= -->
+  <section id="epreuve" class="hidden">
+    <div class="mb-4 flex items-center gap-3">
+      <button id="quitter-dgfip" class="text-sm text-slate-500 hover:underline dark:text-slate-400">
+        ← Quitter
+      </button>
+      <div class="h-2 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+        <div id="barre-dgfip" class="h-full rounded-full bg-indigo-500 transition-all duration-300" style="width:0%"></div>
+      </div>
+      <span id="compteur-dgfip" class="text-sm font-medium text-slate-500 tabular-nums dark:text-slate-400"></span>
+    </div>
+
+    <div class="mx-auto max-w-2xl">
+      <p id="rubrique-courante" class="etiquette mb-2 text-indigo-600 dark:text-indigo-400"></p>
+      <h2 id="enonce-dgfip" class="mb-2 text-lg leading-relaxed font-medium text-slate-900 sm:text-xl dark:text-white"></h2>
+      <p id="consigne-dgfip" class="mb-5 text-xs text-slate-400"></p>
+      <div id="options-dgfip" class="space-y-2"></div>
+
+      <div class="mt-6 flex flex-wrap gap-3">
+        <button
+          id="precedent-dgfip"
+          class="rounded-lg border border-slate-300 px-4 py-2.5 text-sm font-medium transition hover:bg-slate-100 disabled:opacity-40 dark:border-slate-700 dark:hover:bg-slate-800"
+        >
+          Précédent
+        </button>
+        <button
+          id="suivant-dgfip"
+          class="flex-1 rounded-lg bg-slate-900 px-5 py-2.5 font-medium text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-900"
+        >
+          Suivant
+        </button>
+      </div>
+      <p class="mt-3 text-center text-xs text-slate-400">
+        Passer sans rien cocher ne coûte rien ; une case décochée redevient une
+        abstention.
+      </p>
+    </div>
+  </section>
+
+  <!-- ============================= Résultat ============================= -->
+  <section id="resultat-dgfip" class="hidden">
+    <div class="text-center">
+      <p id="resultat-emoji-dgfip" class="text-5xl"></p>
+      <h2 class="mt-4 text-3xl font-bold text-slate-900 tabular-nums dark:text-white">
+        <span id="resultat-points"></span>
+      </h2>
+      <p id="resultat-resume" class="mt-2 text-slate-500 dark:text-slate-400"></p>
+    </div>
+
+    <h3 class="mt-10 mb-2 text-sm font-semibold text-slate-900 dark:text-white">Détail par rubrique</h3>
+    <div class="defilement-fin overflow-x-auto">
+      <table class="w-full min-w-[34rem] border-collapse text-sm">
+        <thead>
+          <tr class="border-b border-slate-200 text-left text-xs text-slate-500 dark:border-slate-700 dark:text-slate-400">
+            <th class="py-2 pr-3 font-medium">Rubrique</th>
+            <th class="py-2 pr-3 text-right font-medium">Posées</th>
+            <th class="py-2 pr-3 text-right font-medium">Bonnes</th>
+            <th class="py-2 pr-3 text-right font-medium">Fausses</th>
+            <th class="py-2 pr-3 text-right font-medium">Sans réponse</th>
+            <th class="py-2 text-right font-medium">Points</th>
+          </tr>
+        </thead>
+        <tbody id="tableau-rubriques"></tbody>
+      </table>
+    </div>
+
+    <h3 id="titre-revoir" class="mt-10 mb-2 hidden text-sm font-semibold text-slate-900 dark:text-white">
+      À revoir
+    </h3>
+    <div id="revoir-dgfip" class="space-y-3"></div>
+
+    <div class="mt-10 flex flex-wrap justify-center gap-3">
+      <button id="rejouer-dgfip" class="rounded-lg bg-indigo-600 px-5 py-2.5 font-medium text-white transition hover:bg-indigo-700">
+        Nouvelle épreuve
+      </button>
+      <a
+        href={`${base}/quiz/`}
+        class="rounded-lg border border-slate-300 px-5 py-2.5 font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+      >
+        Retour aux quiz
+      </a>
+    </div>
+  </section>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { chargerBanqueDgfip, chargerManifeste, type BanqueDgfip } from '../../lib/contenu';
+  import {
+    enregistrerSessionDgfip,
+    etatsQuestionsDgfip,
+    toutesLesSessionsDgfip,
+    type SessionDgfip,
+  } from '../../lib/db';
+  import { gagnerXp, xpQuiz } from '../../lib/gamification';
+  import {
+    composerSession,
+    evaluer,
+    formaterPoints,
+    noter,
+    TAILLE_SESSION,
+    type QuestionTiree,
+    type ReponseSession,
+  } from '../../lib/qcm';
+  import { echapper, formaterDate, notifier, pluriel } from '../../lib/ui';
+
+  let banque: BanqueDgfip | null = null;
+  let questions: QuestionTiree[] = [];
+  /** Indices cochés pour chaque question, dans l'ordre du tirage. */
+  let choix: number[][] = [];
+  let position = 0;
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  function afficherVue(nom: 'accueil-dgfip' | 'epreuve' | 'resultat-dgfip') {
+    for (const section of ['accueil-dgfip', 'epreuve', 'resultat-dgfip']) {
+      $(section).classList.toggle('hidden', section !== nom);
+    }
+    window.scrollTo({ top: 0 });
+  }
+
+  // --- Accueil ---------------------------------------------------------------
+
+  function afficherRubriques() {
+    const zone = $('rubriques-dgfip');
+    zone.innerHTML = '';
+    for (const r of banque?.rubriques ?? []) {
+      const ligne = document.createElement('div');
+      ligne.className =
+        'flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm dark:border-slate-800 dark:bg-slate-900';
+      ligne.innerHTML =
+        `<span class="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">${echapper(r.nom)}</span>` +
+        `<span class="shrink-0 text-xs text-slate-400 tabular-nums">${pluriel(r.total, 'question')}</span>`;
+      zone.appendChild(ligne);
+    }
+  }
+
+  async function afficherHistorique() {
+    const sessions = (await toutesLesSessionsDgfip()).slice(-5).reverse();
+    const zone = $('historique-dgfip');
+    zone.innerHTML = '';
+    if (!sessions.length) return;
+
+    const titre = document.createElement('h2');
+    titre.className = 'mb-3 text-lg font-semibold text-slate-900 dark:text-white';
+    titre.textContent = 'Dernières épreuves';
+    zone.appendChild(titre);
+
+    const liste = document.createElement('div');
+    liste.className = 'space-y-2';
+    for (const s of sessions) {
+      // Le barème pouvant faire descendre sous zéro, on situe le score sur
+      // l'échelle réelle plutôt qu'en pourcentage de bonnes réponses.
+      const taux = s.maximum ? s.points / s.maximum : 0;
+      const couleur =
+        taux >= 0.7
+          ? 'text-emerald-600 dark:text-emerald-400'
+          : taux >= 0.4
+            ? 'text-amber-600 dark:text-amber-400'
+            : 'text-red-600 dark:text-red-400';
+      const ligne = document.createElement('div');
+      ligne.className =
+        'flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm dark:border-slate-800 dark:bg-slate-900';
+      ligne.innerHTML =
+        `<span class="min-w-0 flex-1 text-slate-700 dark:text-slate-200">` +
+        `${pluriel(s.bonnes, 'bonne')} · ${pluriel(s.mauvaises, 'erreur')} · ${s.abstentions} sans réponse</span>` +
+        `<span class="shrink-0 text-xs text-slate-400">${formaterDate(s.le)}</span>` +
+        `<span class="shrink-0 font-semibold tabular-nums ${couleur}">${formaterPoints(s.points)}/${s.maximum}</span>`;
+      liste.appendChild(ligne);
+    }
+    zone.appendChild(liste);
+  }
+
+  // --- Déroulé de l'épreuve --------------------------------------------------
+
+  async function demarrer() {
+    if (!banque?.questions.length) return;
+    const taille = Number(($('format-dgfip') as HTMLSelectElement).value) || TAILLE_SESSION;
+    questions = composerSession(banque, await etatsQuestionsDgfip(), taille);
+    if (!questions.length) return;
+    choix = questions.map(() => []);
+    position = 0;
+    afficherVue('epreuve');
+    afficherQuestion();
+  }
+
+  function afficherQuestion() {
+    const q = questions[position];
+    const multiple = q.bonnes.length > 1;
+
+    $('rubrique-courante').textContent = q.rubrique;
+    $('enonce-dgfip').textContent = q.question;
+    $('consigne-dgfip').textContent = multiple
+      ? 'Plusieurs réponses attendues — le point n’est acquis que si la sélection est exacte.'
+      : 'Une seule réponse attendue.';
+    $('compteur-dgfip').textContent = `${position + 1}/${questions.length}`;
+    $('barre-dgfip').style.width = `${Math.round((position / questions.length) * 100)}%`;
+    ($('precedent-dgfip') as HTMLButtonElement).disabled = position === 0;
+    $('suivant-dgfip').textContent =
+      position === questions.length - 1 ? 'Terminer l’épreuve' : 'Suivant';
+
+    const zone = $('options-dgfip');
+    zone.innerHTML = '';
+    for (const index of q.ordre) {
+      const bouton = document.createElement('button');
+      bouton.type = 'button';
+      bouton.dataset.index = String(index);
+      bouton.setAttribute('role', multiple ? 'checkbox' : 'radio');
+      bouton.textContent = q.options[index];
+      bouton.addEventListener('click', () => basculer(index, multiple));
+      zone.appendChild(bouton);
+    }
+    peindreOptions();
+  }
+
+  /** Coche ou décoche une option ; décocher revient à s'abstenir. */
+  function basculer(index: number, multiple: boolean) {
+    const actuels = choix[position];
+    if (multiple) {
+      choix[position] = actuels.includes(index)
+        ? actuels.filter((i) => i !== index)
+        : [...actuels, index];
+    } else {
+      choix[position] = actuels.includes(index) ? [] : [index];
+    }
+    peindreOptions();
+  }
+
+  function peindreOptions() {
+    const coches = new Set(choix[position]);
+    for (const bouton of $('options-dgfip').querySelectorAll<HTMLButtonElement>('button')) {
+      const actif = coches.has(Number(bouton.dataset.index));
+      bouton.setAttribute('aria-checked', String(actif));
+      bouton.className = actif
+        ? 'w-full rounded-xl border-2 border-indigo-500 bg-indigo-50 px-4 py-3 text-left font-medium text-indigo-900 transition dark:bg-indigo-950/60 dark:text-indigo-100'
+        : 'w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-left transition hover:border-indigo-400 hover:bg-indigo-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:border-indigo-600 dark:hover:bg-indigo-950/50';
+    }
+  }
+
+  function avancer() {
+    if (position < questions.length - 1) {
+      position += 1;
+      afficherQuestion();
+    } else {
+      void terminer();
+    }
+  }
+
+  function reculer() {
+    if (position === 0) return;
+    position -= 1;
+    afficherQuestion();
+  }
+
+  // --- Résultat --------------------------------------------------------------
+
+  async function terminer() {
+    const reponses: ReponseSession[] = questions.map((question, i) => ({
+      question,
+      choisis: choix[i],
+      issue: evaluer(question, choix[i]),
+    }));
+    const score = noter(reponses, banque?.rubriques ?? []);
+
+    const session: SessionDgfip = {
+      le: new Date().toISOString(),
+      posees: score.posees,
+      bonnes: score.bonnes,
+      mauvaises: score.mauvaises,
+      abstentions: score.abstentions,
+      points: score.points,
+      maximum: score.maximum,
+      parRubrique: score.parRubrique,
+    };
+    await enregistrerSessionDgfip(
+      session,
+      reponses.map((r) => ({
+        id: r.question.id,
+        rubriqueId: r.question.rubriqueId,
+        issue: r.issue,
+      })),
+    );
+
+    // Les XP récompensent les bonnes réponses, jamais le remplissage au hasard :
+    // le barème s'en charge déjà pour la note, autant rester cohérent.
+    const gain = await gagnerXp(xpQuiz(score.bonnes), {
+      quiz: 1,
+      bonnes: score.bonnes,
+      reponses: score.bonnes + score.mauvaises,
+    });
+    if (gain.monteeDeNiveau) notifier(`Niveau ${gain.niveau.niveau} atteint !`, 'badge');
+    for (const badge of gain.nouveauxBadges) notifier(`Badge obtenu : ${badge.nom}`, 'badge');
+
+    afficherResultat(score, reponses);
+  }
+
+  function afficherResultat(score: ReturnType<typeof noter>, reponses: ReponseSession[]) {
+    const taux = score.maximum ? score.points / score.maximum : 0;
+    $('resultat-emoji-dgfip').textContent = taux >= 0.7 ? '🎯' : taux >= 0.4 ? '💪' : '📚';
+    $('resultat-points').textContent = `${formaterPoints(score.points)} / ${score.maximum}`;
+    $('resultat-resume').textContent =
+      `${pluriel(score.bonnes, 'bonne réponse', 'bonnes réponses')}, ` +
+      `${pluriel(score.mauvaises, 'erreur')} ` +
+      `(${formaterPoints(score.mauvaises * -0.5)} ${score.mauvaises > 1 ? 'points' : 'point'}), ` +
+      `${score.abstentions} sans réponse.`;
+
+    const corps = $('tableau-rubriques');
+    corps.innerHTML = '';
+    for (const ligne of score.parRubrique) {
+      const tr = document.createElement('tr');
+      tr.className = 'border-b border-slate-100 dark:border-slate-800';
+      tr.innerHTML =
+        `<td class="py-2 pr-3 text-slate-700 dark:text-slate-200">${echapper(ligne.rubrique)}</td>` +
+        `<td class="py-2 pr-3 text-right tabular-nums text-slate-500 dark:text-slate-400">${ligne.posees}</td>` +
+        `<td class="py-2 pr-3 text-right tabular-nums text-emerald-600 dark:text-emerald-400">${ligne.bonnes}</td>` +
+        `<td class="py-2 pr-3 text-right tabular-nums text-red-600 dark:text-red-400">${ligne.mauvaises}</td>` +
+        `<td class="py-2 pr-3 text-right tabular-nums text-slate-500 dark:text-slate-400">${ligne.abstentions}</td>` +
+        `<td class="py-2 text-right font-semibold tabular-nums text-slate-900 dark:text-white">${formaterPoints(ligne.points)}</td>`;
+      corps.appendChild(tr);
+    }
+
+    // Les abstentions figurent à revoir au même titre que les erreurs : ne pas
+    // savoir et se tromper sont deux lacunes, seule la note les distingue.
+    const aRevoir = reponses.filter((r) => r.issue !== 'bonne');
+    $('titre-revoir').classList.toggle('hidden', aRevoir.length === 0);
+    const zone = $('revoir-dgfip');
+    zone.innerHTML = '';
+    for (const r of aRevoir) {
+      const bonnes = r.question.bonnes.map((i) => r.question.options[i]).join(' · ');
+      const donnee = r.choisis.length
+        ? r.choisis.map((i) => r.question.options[i]).join(' · ')
+        : null;
+      // La provenance n'est utile que lorsqu'elle renvoie à une annale : la
+      // mentionner pour les questions rédigées ici n'apprendrait rien.
+      const annale = r.question.source && !r.question.source.startsWith('RevINSP')
+        ? r.question.source
+        : null;
+      const carte = document.createElement('article');
+      carte.className =
+        'rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-900';
+      carte.innerHTML =
+        `<p class="etiquette text-slate-400">${echapper(r.question.rubrique)}` +
+        (annale ? ` · ${echapper(annale)}` : '') +
+        `</p>` +
+        `<p class="mt-1 font-medium text-slate-900 dark:text-white">${echapper(r.question.question)}</p>` +
+        (donnee
+          ? `<p class="mt-2 text-red-600 dark:text-red-400">Votre réponse : ${echapper(donnee)}</p>`
+          : `<p class="mt-2 text-slate-500 dark:text-slate-400">Sans réponse.</p>`) +
+        `<p class="mt-1 text-emerald-700 dark:text-emerald-400">Réponse attendue : ${echapper(bonnes)}</p>` +
+        `<p class="mt-2 text-slate-600 dark:text-slate-300">${echapper(r.question.explication)}</p>` +
+        (r.question.incertain
+          ? `<p class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">` +
+            `⚠ ${echapper(r.question.incertain)}</p>`
+          : '');
+      zone.appendChild(carte);
+    }
+
+    afficherVue('resultat-dgfip');
+  }
+
+  // --- Mise en route ---------------------------------------------------------
+
+  auDeverrouillage(async () => {
+    const manifeste = await chargerManifeste();
+    $('chargement').classList.add('hidden');
+    afficherVue('accueil-dgfip');
+
+    if (!manifeste.totaux.qcmDgfip) {
+      $('dgfip-vide').classList.remove('hidden');
+      ($('lancer-dgfip') as HTMLButtonElement).disabled = true;
+      return;
+    }
+
+    banque = await chargerBanqueDgfip();
+    afficherRubriques();
+    await afficherHistorique();
+
+    // Une banque encore courte ne permet pas l'épreuve complète : autant ne
+    // proposer que les formats réellement tirables.
+    const disponible = banque.questions.length;
+    const format = $('format-dgfip') as HTMLSelectElement;
+    for (const option of [...format.options]) {
+      if (Number(option.value) > disponible) option.remove();
+    }
+    if (!format.options.length) {
+      format.add(new Option(`Série courte — ${disponible} questions`, String(disponible)));
+    }
+
+    $('lancer-dgfip').addEventListener('click', () => void demarrer());
+    $('rejouer-dgfip').addEventListener('click', () => void demarrer());
+    $('suivant-dgfip').addEventListener('click', avancer);
+    $('precedent-dgfip').addEventListener('click', reculer);
+    $('quitter-dgfip').addEventListener('click', async () => {
+      afficherVue('accueil-dgfip');
+      await afficherHistorique();
+    });
+  });
+</script>

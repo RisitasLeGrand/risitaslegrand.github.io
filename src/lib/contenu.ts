@@ -46,7 +46,10 @@ export interface Manifeste {
     quiz: number;
     termesGlossaire: number;
     podcasts?: number;
+    qcmDgfip?: number;
   };
+  /** Rubriques de la banque « QCM - DGFiP », absentes si la banque est vide. */
+  rubriquesDgfip?: RubriqueDgfip[];
 }
 
 export interface Flashcard {
@@ -76,6 +79,34 @@ export interface Fiche {
   quiz: QuestionQuiz[];
   /** Durée, poids et format de la fiche audio, connus avant de la télécharger. */
   podcast: { secondes: number | null; octets: number; type: string } | null;
+}
+
+export interface RubriqueDgfip {
+  id: string;
+  nom: string;
+  ordre: number;
+  total: number;
+}
+
+export interface QuestionDgfip {
+  id: string;
+  rubrique: string;
+  rubriqueId: string;
+  question: string;
+  options: string[];
+  bonnes: number[];
+  explication: string;
+  /** Annale d'origine, ou mention de rédaction maison. */
+  source?: string;
+  /** Niveau de concours dont la question est issue. */
+  categorie?: 'A' | 'B';
+  /** Présent quand la bonne réponse ne peut pas être garantie. */
+  incertain?: string;
+}
+
+export interface BanqueDgfip {
+  rubriques: RubriqueDgfip[];
+  questions: QuestionDgfip[];
 }
 
 export interface TermeGlossaire {
@@ -179,6 +210,7 @@ export const chargerManifeste = () => charger<Manifeste>('manifeste.json');
 export const chargerFiche = (id: string) => charger<Fiche>(`fiches/${id}.json`);
 export const chargerGlossaire = () => charger<TermeGlossaire[]>('glossaire.json');
 export const chargerIndexRecherche = () => charger<EntreeRecherche[]>('recherche.json');
+export const chargerBanqueDgfip = () => charger<BanqueDgfip>('qcm-dgfip.json');
 
 /**
  * Clé privée de la rubrique Actualités, publiée chiffrée par le build.

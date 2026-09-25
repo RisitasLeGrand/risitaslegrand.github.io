@@ -86,3 +86,70 @@ export const glossaireSchema = z.array(
     definition: z.string().min(1),
   }),
 );
+
+/**
+ * Banque « QCM - DGFiP » (content/qcm-dgfip/*.yml).
+ *
+ * Même logique de réponse que « quizSchema » — par texte ou par index — mais
+ * avec ce qu'exige une banque d'annales : la provenance de la question, la
+ * catégorie du concours, et la possibilité de signaler une réponse discutable
+ * plutôt que de la présenter comme certaine.
+ */
+export const questionDgfipSchema = z
+  .object({
+    question: z.string().min(1, 'question vide'),
+    options: z.array(z.union([z.string(), z.number()])).min(2, 'un QCM a besoin d\'au moins 2 options'),
+    reponse: z.union([z.string(), z.number()]).optional(),
+    reponses: z.array(z.union([z.string(), z.number()])).optional(),
+    explication: z.string().min(1, 'chaque question doit porter sa correction'),
+    /** D'où vient la question : annale, sujet fourni, ou rédaction maison. */
+    source: z.string().optional(),
+    /** « A » ou « B » : la banque fusionne les deux niveaux de concours. */
+    categorie: z.enum(['A', 'B']).optional(),
+    /**
+     * Note affichée quand la bonne réponse n'est pas certaine — sujet sans
+     * corrigé, énoncé ambigu, état du droit ayant changé depuis l'annale.
+     */
+    incertain: z.string().optional(),
+  })
+  .transform((v, ctx) => {
+    const options = v.options.map((o) => String(o).trim());
+    const brutes = v.reponses ?? (v.reponse !== undefined ? [v.reponse] : []);
+    if (brutes.length === 0) {
+      ctx.addIssue({ code: 'custom', message: `question « ${v.question} » sans « reponse: »` });
+      return z.NEVER;
+    }
+    const indices = [];
+    for (const brute of brutes) {
+      if (typeof brute === 'number' && Number.isInteger(brute) && options[brute] !== undefined) {
+        indices.push(brute);
+        continue;
+      }
+      const texte = String(brute).trim();
+      const idx = options.findIndex((o) => o.toLowerCase() === texte.toLowerCase());
+      if (idx === -1) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `question « ${v.question} » : la réponse « ${texte} » ne figure pas dans les options`,
+        });
+        return z.NEVER;
+      }
+      indices.push(idx);
+    }
+    return {
+      question: v.question.trim(),
+      options,
+      bonnes: [...new Set(indices)].sort((a, b) => a - b),
+      explication: v.explication.trim(),
+      source: v.source?.trim(),
+      categorie: v.categorie,
+      incertain: v.incertain?.trim(),
+    };
+  });
+
+export const banqueDgfipSchema = z.object({
+  rubrique: z.string().min(1, 'le champ « rubrique » est obligatoire'),
+  /** Ordre d'affichage de la rubrique ; à défaut, ordre alphabétique. */
+  ordre: z.coerce.number().int().default(999),
+  questions: z.array(questionDgfipSchema).min(1, 'une rubrique sans question'),
+});

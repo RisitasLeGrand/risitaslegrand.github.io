@@ -14,15 +14,16 @@ et suivi de progression — le tout dans le navigateur, sans serveur ni compte.
 4. [Format d'une fiche](#format-dune-fiche)
 5. [Le glossaire](#le-glossaire)
 6. [Les fiches audio](#les-fiches-audio)
-7. [Travailler en local](#travailler-en-local)
-8. [Publier sur GitHub Pages](#publier-sur-github-pages)
-9. [La rubrique Actualités](#la-rubrique-actualités)
-10. [Changer le mot de passe](#changer-le-mot-de-passe)
-11. [Comment fonctionne la protection](#comment-fonctionne-la-protection)
-12. [Sauvegarder et synchroniser la progression](#sauvegarder-et-synchroniser-la-progression)
-13. [Cog-Training : Quad N-Back et Syllogismes](#cog-training--quad-n-back-et-syllogismes)
-14. [Organisation du projet](#organisation-du-projet)
-15. [En cas de problème](#en-cas-de-problème)
+7. [La rubrique QCM — DGFiP](#la-rubrique-qcm--dgfip)
+8. [Travailler en local](#travailler-en-local)
+9. [Publier sur GitHub Pages](#publier-sur-github-pages)
+10. [La rubrique Actualités](#la-rubrique-actualités)
+11. [Changer le mot de passe](#changer-le-mot-de-passe)
+12. [Comment fonctionne la protection](#comment-fonctionne-la-protection)
+13. [Sauvegarder et synchroniser la progression](#sauvegarder-et-synchroniser-la-progression)
+14. [Cog-Training : Quad N-Back et Syllogismes](#cog-training--quad-n-back-et-syllogismes)
+15. [Organisation du projet](#organisation-du-projet)
+16. [En cas de problème](#en-cas-de-problème)
 
 ---
 
@@ -351,6 +352,74 @@ Trois leviers, si le poids devient gênant :
 
 **Coût récurrent : aucun.** Les deux moteurs sont locaux, libres et gratuits :
 la seule ressource consommée est du temps de calcul sur votre machine.
+
+---
+
+## La rubrique QCM — DGFiP
+
+Sous l'onglet **Quiz**, la rubrique « QCM — DGFiP » propose une **épreuve
+blanche** distincte des quiz tirés des fiches : une banque de questions
+autonome, un format d'épreuve et un barème qui sanctionne l'erreur.
+
+### Écrire la banque
+
+Un fichier YAML par rubrique dans `content/qcm-dgfip/` — dossier ignoré par
+Git comme le reste de `content/` :
+
+```yaml
+rubrique: Français
+ordre: 1
+questions:
+  - question: Quelle phrase est correctement orthographiée ?
+    options:
+      - Les décisions qu'il a prises sont justifiées.
+      - Les décisions qu'il a pris sont justifiées.
+    reponse: Les décisions qu'il a prises sont justifiées.
+    explication: >-
+      Le participe passé employé avec « avoir » s'accorde avec le complément
+      d'objet direct lorsque celui-ci précède le verbe.
+    source: Annales contrôleur DGFiP 2011
+    categorie: B
+```
+
+| Champ | Rôle |
+| --- | --- |
+| `rubrique` | nom affiché ; un fichier par rubrique |
+| `ordre` | rang d'affichage de la rubrique |
+| `question`, `options` | l'énoncé et ses propositions (au moins deux) |
+| `reponse` / `reponses` | la ou les bonnes réponses, par leur texte exact ou par leur index |
+| `explication` | **obligatoire** : c'est la correction montrée en fin d'épreuve |
+| `source` | l'annale d'origine ; affichée seulement si elle ne commence pas par « RevINSP » |
+| `categorie` | `A` ou `B`, les deux niveaux étant fusionnés dans une banque unique |
+| `incertain` | note affichée en garde lorsque la bonne réponse ne peut pas être garantie |
+
+Deux règles tenues par le build : une réponse doit correspondre **exactement**
+à l'une des options, et deux questions identiques dans une même rubrique sont
+ramenées à une seule — un doublon pourrait sinon tomber deux fois dans la même
+épreuve.
+
+Les rubriques ne sont pas figées : si des sujets de catégorie A introduisent du
+droit ou des finances publiques, il suffit d'ajouter un fichier, la répartition
+s'ajuste seule.
+
+### Le déroulé d'une épreuve
+
+Une session compte **54 questions**, réparties au prorata des rubriques — sur
+les quatre rubriques historiques, cela donne 14/14/13/13, la répartition des
+annales. Deux formats plus courts, 27 et 12 questions, servent à réviser sans y
+passer l'heure.
+
+Le barème est celui du concours : **+1** par bonne réponse, **−0,5** par
+mauvaise, **0** en l'absence de réponse. C'est pourquoi l'épreuve n'oblige
+jamais à répondre : on passe une question sans rien cocher, et décocher une
+option ramène à l'abstention. Aucune correction n'est donnée en cours
+d'épreuve ; le résultat affiche le score, le détail par rubrique et la
+correction de chaque question ratée ou laissée de côté.
+
+Le tirage n'est pas purement aléatoire : chaque réponse est mémorisée dans le
+navigateur, et les questions ratées ou esquivées reviennent plus souvent que
+celles qui sont sues — sans jamais disparaître du hasard, faute de quoi les
+épreuves finiraient par se ressembler.
 
 ---
 
@@ -850,7 +919,7 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 
 ```
 .
-├── content/                 # VOS FICHES EN CLAIR + scripts parlés + audio — jamais commité
+├── content/                 # VOS FICHES EN CLAIR + scripts parlés + audio + banque QCM — jamais commité
 ├── content-exemple/         # Exemples fournis, copiés par « npm run init:contenu »
 ├── actualites-data/         # Rubrique Actualités — entrées chiffrées + clé publique
 ├── apps/
@@ -900,6 +969,7 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 │       ├── contenu.ts       # Chargement et cache du contenu déchiffré
 │       ├── db.ts            # IndexedDB : progression, export/import
 │       ├── srs.ts           # Répétition espacée (SM-2)
+│       ├── qcm.ts           # Épreuves « QCM - DGFiP » : tirage, barème, score
 │       ├── gamification.ts  # XP, niveaux, série, badges
 │       ├── agregats.ts      # Calculs de maîtrise et file du jour
 │       ├── glossaire.ts     # Bulles de définition
