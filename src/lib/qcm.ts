@@ -192,10 +192,22 @@ export function composerSession(
     retenues.push(...tirerPonderé(candidats, combien));
   }
 
-  return melanger(retenues).map((q) => ({
-    ...q,
-    ordre: melanger(q.options.map((_, i) => i)),
-  }));
+  return melanger(retenues).map((q) => ({ ...q, ordre: ordreOptions(q) }));
+}
+
+/**
+ * Mélange les propositions, en laissant « toutes » et « aucune » à leur place,
+ * tout en bas. Les annales les y placent toujours, et les voir surgir au milieu
+ * de la liste rendrait l'exercice trompeur.
+ */
+const META = /^(toutes les propositions|aucune des propositions)/i;
+
+function ordreOptions(question: QuestionDgfip): number[] {
+  const indices = question.options.map((_, i) => i);
+  const meta = indices.filter((i) => META.test(question.options[i]));
+  if (!meta.length) return melanger(indices);
+  const ordinaires = indices.filter((i) => !META.test(question.options[i]));
+  return [...melanger(ordinaires), ...meta];
 }
 
 /**
