@@ -15,6 +15,47 @@ import { melanger } from './ui';
 /** Nombre de questions d'une session complète, comme à l'épreuve. */
 export const TAILLE_SESSION = 54;
 
+export interface FormatEpreuve {
+  id: string;
+  libelle: string;
+  total: number;
+  /**
+   * Répartition imposée, par nom de rubrique. Absente, la session se répartit
+   * au prorata de ce que contient chaque rubrique.
+   */
+  repartition?: Record<string, number>;
+}
+
+/**
+ * Formats proposés. Les deux premiers reproduisent la structure réelle des
+ * sujets 2026 — 30 questions en catégorie B, 45 en catégorie A, chaque rubrique
+ * ayant son quota propre. Les autres servent à réviser sans refaire une épreuve
+ * entière.
+ */
+export const FORMATS: FormatEpreuve[] = [
+  {
+    id: 'cat-b-2026',
+    libelle: 'Catégorie B — 30 questions (sujet 2026)',
+    total: 30,
+    repartition: { 'Culture générale': 8, Français: 8, Maths: 8, Logique: 6 },
+  },
+  {
+    id: 'cat-a-2026',
+    libelle: 'Catégorie A — 45 questions (sujet 2026)',
+    total: 45,
+    repartition: {
+      'Environnement administratif et financier': 10,
+      'Union européenne': 10,
+      'Culture numérique': 10,
+      Logique: 10,
+      Anglais: 5,
+    },
+  },
+  { id: 'mixte-54', libelle: 'Épreuve blanche — 54 questions', total: TAILLE_SESSION },
+  { id: 'mixte-27', libelle: 'Demi-épreuve — 27 questions', total: 27 },
+  { id: 'mixte-12', libelle: 'Série courte — 12 questions', total: 12 },
+];
+
 /** Barème officiel : le hasard a un coût, l'abstention n'en a pas. */
 export const BAREME = { bonne: 1, mauvaise: -0.5, abstention: 0 } as const;
 
@@ -33,28 +74,42 @@ export interface ReponseSession {
 }
 
 /**
- * Répartit « total » questions entre les rubriques, au prorata de ce que
- * chacune contient, sans jamais demander plus de questions qu'il n'en existe.
+ * Répartit « total » questions entre les rubriques, sans jamais en demander
+ * plus qu'il n'en existe.
  *
- * Sur quatre rubriques de taille comparable et 54 questions, cela donne
- * 14/14/13/13 — la répartition observée dans les annales, où chaque rubrique
- * compte 13 ou 14 questions.
+ * Sans quota imposé, la répartition est égale puis le reliquat va aux rubriques
+ * les mieux pourvues : sur quatre rubriques et 54 questions, cela donne
+ * 14/14/13/13. Avec un quota — les formats reproduisant un sujet réel —, seules
+ * les rubriques nommées sont tirées, et ce qu'une rubrique trop courte ne peut
+ * fournir est repris par les autres du même format, pour que la session
+ * conserve sa longueur.
  */
-export function repartir(rubriques: RubriqueDgfip[], total = TAILLE_SESSION): Map<string, number> {
+export function repartir(
+  rubriques: RubriqueDgfip[],
+  total = TAILLE_SESSION,
+  quotas?: Record<string, number>,
+): Map<string, number> {
   const quota = new Map<string, number>();
-  const disponibles = rubriques.filter((r) => r.total > 0);
+  const disponibles = rubriques.filter(
+    (r) => r.total > 0 && (!quotas || quotas[r.nom] !== undefined),
+  );
   if (!disponibles.length) return quota;
 
-  const capacite = disponibles.reduce((n, r) => n + r.total, 0);
-  const vise = Math.min(total, capacite);
+  let restant = Math.min(total, disponibles.reduce((n, r) => n + r.total, 0));
 
-  // Premier tour : part entière égale pour toutes, plafonnée par le stock.
-  let restant = vise;
-  const part = Math.floor(vise / disponibles.length);
-  for (const r of disponibles) {
-    const n = Math.min(part, r.total);
-    quota.set(r.id, n);
-    restant -= n;
+  if (quotas) {
+    for (const r of disponibles) {
+      const n = Math.min(quotas[r.nom] ?? 0, r.total, restant);
+      quota.set(r.id, n);
+      restant -= n;
+    }
+  } else {
+    const part = Math.floor(restant / disponibles.length);
+    for (const r of disponibles) {
+      const n = Math.min(part, r.total);
+      quota.set(r.id, n);
+      restant -= n;
+    }
   }
 
   // Le reliquat va aux rubriques les mieux pourvues : c'est là qu'il coûte le
@@ -122,11 +177,11 @@ function tirerPonderé<T>(candidats: { valeur: T; poids: number }[], combien: nu
 export function composerSession(
   banque: BanqueDgfip,
   historique: EtatQuestionDgfip[],
-  total = TAILLE_SESSION,
+  format: FormatEpreuve,
 ): QuestionTiree[] {
   const parId = new Map(historique.map((e) => [e.id, e]));
   const aujourdhui = jourISO();
-  const quota = repartir(banque.rubriques, total);
+  const quota = repartir(banque.rubriques, format.total, format.repartition);
 
   const retenues: QuestionDgfip[] = [];
   for (const [rubriqueId, combien] of quota) {
@@ -141,6 +196,18 @@ export function composerSession(
     ...q,
     ordre: melanger(q.options.map((_, i) => i)),
   }));
+}
+
+/**
+ * Nombre de questions qu'un format peut réellement poser, la banque étant ce
+ * qu'elle est : sert à masquer les formats dont les rubriques manquent encore.
+ */
+export function tailleReelle(banque: BanqueDgfip, format: FormatEpreuve): number {
+  let n = 0;
+  for (const combien of repartir(banque.rubriques, format.total, format.repartition).values()) {
+    n += combien;
+  }
+  return n;
 }
 
 /** Une réponse est bonne si elle désigne exactement les bonnes options. */

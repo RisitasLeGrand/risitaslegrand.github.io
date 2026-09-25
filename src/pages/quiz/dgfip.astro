@@ -13,9 +13,10 @@ import { base } from '../../lib/ui';
     </p>
     <h1 class="mt-1 mb-1 text-2xl font-bold text-slate-900 dark:text-white">QCM — DGFiP</h1>
     <p class="mb-6 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-      Épreuve blanche dans les conditions du concours : une seule série mêlant
-      toutes les rubriques, aucune correction avant la fin, et un barème qui
-      rend l'abstention préférable au hasard.
+      Épreuve blanche dans les conditions du concours : les rubriques mêlées en
+      une seule série, aucune correction avant la fin, et un barème qui rend
+      l'abstention préférable au hasard. Deux formats reproduisent la structure
+      des sujets 2026, rubrique par rubrique.
     </p>
 
     <div class="mb-6 grid gap-3 sm:grid-cols-3">
@@ -41,14 +42,12 @@ import { base } from '../../lib/ui';
         <label for="format-dgfip" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
           Format
         </label>
+        <!-- Rempli au chargement : seuls les formats que la banque peut
+             réellement tirer sont proposés. -->
         <select
           id="format-dgfip"
-          class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
-        >
-          <option value="54">Épreuve complète — 54 questions</option>
-          <option value="27">Demi-épreuve — 27 questions</option>
-          <option value="12">Série courte — 12 questions</option>
-        </select>
+          class="max-w-[22rem] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+        ></select>
       </div>
       <button
         id="lancer-dgfip"
@@ -171,15 +170,19 @@ import { base } from '../../lib/ui';
   import {
     composerSession,
     evaluer,
+    FORMATS,
     formaterPoints,
     noter,
-    TAILLE_SESSION,
+    tailleReelle,
+    type FormatEpreuve,
     type QuestionTiree,
     type ReponseSession,
   } from '../../lib/qcm';
   import { echapper, formaterDate, notifier, pluriel } from '../../lib/ui';
 
   let banque: BanqueDgfip | null = null;
+  /** Formats effectivement proposés, la banque étant ce qu'elle est. */
+  let formats: FormatEpreuve[] = [];
   let questions: QuestionTiree[] = [];
   /** Indices cochés pour chaque question, dans l'ordre du tirage. */
   let choix: number[][] = [];
@@ -250,8 +253,10 @@ import { base } from '../../lib/ui';
 
   async function demarrer() {
     if (!banque?.questions.length) return;
-    const taille = Number(($('format-dgfip') as HTMLSelectElement).value) || TAILLE_SESSION;
-    questions = composerSession(banque, await etatsQuestionsDgfip(), taille);
+    const choisi = ($('format-dgfip') as HTMLSelectElement).value;
+    const format = formats.find((f) => f.id === choisi) ?? formats[0];
+    if (!format) return;
+    questions = composerSession(banque, await etatsQuestionsDgfip(), format);
     if (!questions.length) return;
     choix = questions.map(() => []);
     position = 0;
@@ -450,15 +455,25 @@ import { base } from '../../lib/ui';
     afficherRubriques();
     await afficherHistorique();
 
-    // Une banque encore courte ne permet pas l'épreuve complète : autant ne
-    // proposer que les formats réellement tirables.
-    const disponible = banque.questions.length;
-    const format = $('format-dgfip') as HTMLSelectElement;
-    for (const option of [...format.options]) {
-      if (Number(option.value) > disponible) option.remove();
+    // Un format dont les rubriques manquent encore ne doit pas être proposé ;
+    // un format que la banque ne peut remplir qu'à moitié le dit franchement.
+    const select = $('format-dgfip') as HTMLSelectElement;
+    select.innerHTML = '';
+    formats = [];
+    for (const format of FORMATS) {
+      const reelle = tailleReelle(banque, format);
+      if (reelle === 0) continue;
+      formats.push(format);
+      const libelle =
+        reelle < format.total
+          ? `${format.libelle} — ${reelle} disponibles`
+          : format.libelle;
+      select.add(new Option(libelle, format.id));
     }
-    if (!format.options.length) {
-      format.add(new Option(`Série courte — ${disponible} questions`, String(disponible)));
+    if (!formats.length) {
+      $('dgfip-vide').classList.remove('hidden');
+      ($('lancer-dgfip') as HTMLButtonElement).disabled = true;
+      return;
     }
 
     $('lancer-dgfip').addEventListener('click', () => void demarrer());

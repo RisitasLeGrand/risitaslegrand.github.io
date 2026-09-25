@@ -404,10 +404,21 @@ s'ajuste seule.
 
 ### Le déroulé d'une épreuve
 
-Une session compte **54 questions**, réparties au prorata des rubriques — sur
-les quatre rubriques historiques, cela donne 14/14/13/13, la répartition des
-annales. Deux formats plus courts, 27 et 12 questions, servent à réviser sans y
-passer l'heure.
+Cinq formats sont proposés. Les deux premiers reproduisent la structure réelle
+des sujets 2026, rubrique par rubrique :
+
+| Format | Questions | Répartition |
+| --- | --- | --- |
+| Catégorie B — sujet 2026 | 30 | Culture générale 8 · Français 8 · Maths 8 · Logique 6 |
+| Catégorie A — sujet 2026 | 45 | Environnement administratif et financier 10 · Union européenne 10 · Culture numérique 10 · Logique 10 · Anglais 5 |
+| Épreuve blanche | 54 | au prorata de toutes les rubriques |
+| Demi-épreuve | 27 | idem |
+| Série courte | 12 | idem |
+
+Sans quota imposé, la répartition est égale puis le reliquat va aux rubriques
+les mieux pourvues : sur quatre rubriques et 54 questions, cela donne
+14/14/13/13. Un format dont les rubriques manquent n'est pas proposé ; un
+format que la banque ne remplit qu'à moitié l'annonce dans son libellé.
 
 Le barème est celui du concours : **+1** par bonne réponse, **−0,5** par
 mauvaise, **0** en l'absence de réponse. C'est pourquoi l'épreuve n'oblige
