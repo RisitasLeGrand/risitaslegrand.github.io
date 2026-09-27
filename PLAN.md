@@ -251,8 +251,11 @@ personne. Mottron, Bouvet, Bonnel, Samson, Burack, Dawson et Heaton (2013),
 *Neuroscience & Biobehavioral Reviews*, 37(2), 209-228, est créditée comme
 source du cadre conceptuel — bidirectionnalité, redintégration — sans
 reproduction de son texte, sa licence étant CC BY-NC-ND 3.0. L'outil
-`kdevos-lab.vercel.app/tools/VMTrainer.html` est crédité comme source de
-l'architecture d'entraînement.
+`kdevos-lab.vercel.app/tools/VMTrainer.html` est crédité comme source
+d'inspiration de l'architecture d'entraînement, sans avoir pu être consulté : la
+politique réseau de l'environnement en interdit l'accès et n'a pas pu être
+ouverte. La mécanique ci-dessous est donc construite de première main, à partir
+du cahier des charges et de la pratique psychophysique établie.
 
 ### Le hub
 

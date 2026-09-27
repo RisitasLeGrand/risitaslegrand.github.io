@@ -21,7 +21,7 @@ et suivi de progression — le tout dans le navigateur, sans serveur ni compte.
 11. [Changer le mot de passe](#changer-le-mot-de-passe)
 12. [Comment fonctionne la protection](#comment-fonctionne-la-protection)
 13. [Sauvegarder et synchroniser la progression](#sauvegarder-et-synchroniser-la-progression)
-14. [Cog-Training : Quad N-Back et Syllogismes](#cog-training--quad-n-back-et-syllogismes)
+14. [Cog-Training : Quad N-Back et Relational Reasoning](#cog-training--quad-n-back-et-relational-reasoning)
 15. [Organisation du projet](#organisation-du-projet)
 16. [En cas de problème](#en-cas-de-problème)
 
@@ -39,8 +39,6 @@ Trois commandes suffisent au quotidien :
 | `npm run actualites:cles` | Crée la paire de clés de la rubrique Actualités (une seule fois) |
 | `npm run actualites:local` | Fabrique des actualités de démonstration pour le mode dev |
 | `npm run actualites:lire` | Relit une actualité chiffrée (nécessite le mot de passe) |
-| `npm run syllogismes:install` | Installe les dépendances Angular de l'exercice Syllogismes (une fois) |
-| `npm run syllogismes:build` | Construit l'exercice Syllogismes |
 
 **Règle de sécurité fondamentale :** le dossier `content/` (vos fiches en clair)
 et le fichier `.env.local` (votre mot de passe) ne sont **jamais** envoyés sur
@@ -758,59 +756,66 @@ La page **Sauvegarde** permet de :
 
 ---
 
-## Cog-Training : Quad N-Back et Syllogismes
+## Cog-Training : Quad N-Back et Relational Reasoning
 
-La rubrique **Cog-Training** (`/cog-training/`) réunit deux exercices
+La rubrique **Cog-Training** (`/cog-training/`) réunit des exercices
 indépendants du programme du concours. L'ancienne adresse `/entrainement/`
 redirige vers elle.
 
 | Exercice | Adresse | Aptitude travaillée |
 |---|---|---|
 | **Quad N-Back** | `/cog-training/quad-n-back/` | Mémoire de travail |
-| **Syllogismes** | `/cog-training/syllogismes/` | Raisonnement déductif |
+| **Relational Reasoning** | `/cog-training/relational-reasoning/` | Raisonnement relationnel |
 
-Aucun des deux ne contient de données du concours : ils ne sont pas chiffrés,
-mais restent derrière l'écran de connexion.
+Aucun ne contient de données du concours : ils ne sont pas chiffrés, mais
+restent derrière l'écran de connexion. Contrairement à l'exercice Syllogismes
+qu'il remplace, Relational Reasoning est écrit dans le site : il n'y a plus de
+sous-site statique atteignable par son adresse, et plus de seconde chaîne de
+build.
 
-### Syllogismes — construction et licence
+> **Ce que le retrait de Syllogismes a changé.** L'exercice était une adaptation
+> française de Syllogimous v4, vendorisée dans `apps/syllogismes/` avec sa propre
+> chaîne Angular et affichée dans une `<iframe>`. Son retrait supprime 52 626
+> lignes de code tierce, 730 Mo de dépendances, deux scripts npm et le pont de
+> thème `postMessage` — et referme la dernière brèche d'étanchéité du site, le
+> sous-site `/syllogismes/` étant atteignable directement alors que seule la page
+> qui l'englobait était derrière l'écran de connexion. Le code reste dans
+> l'historique Git si vous souhaitez y revenir.
 
-L'exercice est une adaptation française de
-[Syllogimous v4](https://github.com/4skinSkywalker/Syllogimous-v4), créé par
-**4skinSkywalker** et distribué sous licence
-[CC BY-NC 3.0](https://creativecommons.org/licenses/by-nc/3.0/) — attribution
-obligatoire, **usage non commercial**. La seule modification apportée est la
-traduction intégrale en français, y compris les modèles de phrases qui
-engendrent les énoncés ; `apps/syllogismes/TRADUCTION.md` en détaille les
-écarts, pour permettre une resynchronisation ultérieure avec le projet source.
+### Relational Reasoning — deux couches
 
-Le code source est vendorisé dans `apps/syllogismes/` avec sa **propre chaîne
-de build Angular**, indépendante d'Astro :
+L'exercice sépare **systèmes** et **moteurs**. Un système est un module de
+données : un ensemble d'entités, un vocabulaire de relations, et la table qui dit
+comment deux relations se composent. Un moteur est un générateur d'exercice qui
+reçoit un système en paramètre. Ajouter un système donne donc des exercices dans
+tous les moteurs compatibles, sans écrire de moteur ; ajouter un moteur le rend
+disponible sur tous les systèmes de son régime.
 
-```bash
-npm run syllogismes:install   # une seule fois — dépendances Angular (~500 Mo)
-npm run syllogismes:build     # produit apps/syllogismes/dist/
-npm run deploy                # publie le résultat à /syllogismes/
+Les fichiers vivent dans `src/features/relational-reasoning/` :
+
+```
+systemes/      # un module par système : line, plane, groups, …
+moteurs/       # un module par moteur d'exercice
+noyaux/        # les solveurs partagés (cohérence de chemin, isomorphisme, …)
+composants/    # l'interface Svelte de la session
 ```
 
-L'application a été expurgée de ses appels à des tiers : la balise Google
-Analytics de l'auteur amont, le CDN Font Awesome et l'import Google Fonts ont
-été retirés. **L'exercice n'émet plus aucune requête externe**, ce qui le met en
-cohérence avec le reste du site. Le détail figure dans `TRADUCTION.md`.
+**Trois régimes d'inférence** se partagent les systèmes, et un moteur ne
+fonctionne que dans le sien :
 
-Angular 15 se construit sans difficulté sur Node 20 ou 22. Le build produit un
-sous-site statique servi à `/syllogismes/`, affiché dans une `<iframe>` par la
-page Astro. `404.html` est une copie d'`index.html` pour que le routeur Angular
-reprenne la main sur GitHub Pages.
+| Régime | Systèmes | Inférence |
+|---|---|---|
+| Algèbre de relations | `line`, `poset`, `cyclic`, `groups`, `rcc8`, `allen` ; `plane` et `space` comme produits d'axes | cohérence de chemin sur la table de composition |
+| Monde clos | `digraph`, prédicats d'adjacence, `poset` en mode clos | requêtes de graphe, négation par échec |
+| Transformations | `plane`, `space`, `groups` | application de fonctions, composition non commutative |
 
-> Pourquoi une iframe plutôt qu'un composant intégré : Angular n'a pas
-> d'intégration Astro, et l'empaqueter en composant web natif imposerait
-> d'isoler Zone.js et de cloisonner Bootstrap pour qu'il ne déborde pas sur
-> Tailwind. Le coût dépasse le bénéfice tant que les résultats de séance ne
-> remontent pas dans l'XP du site.
->
-> Conséquence à connaître : `/syllogismes/` est un sous-site statique, donc
-> accessible directement par son adresse. Seule la page qui l'englobe est
-> derrière l'écran de connexion.
+`digraph` n'a **pas** de table de composition : « supervise » n'est ni
+transitive ni composable, et l'absence d'arête y est une négation, non une
+inconnue. Les moteurs qui reposent sur l'indétermination ne peuvent donc pas
+tourner dessus — le sélecteur de l'interface ne les propose pas ensemble.
+
+Le détail du découpage et les décisions de conception figurent dans `PLAN.md`,
+phase 8.
 
 ### Quad N-Back
 
@@ -934,8 +939,6 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 ├── content/                 # VOS FICHES EN CLAIR + scripts parlés + audio + banque QCM — jamais commité
 ├── content-exemple/         # Exemples fournis, copiés par « npm run init:contenu »
 ├── actualites-data/         # Rubrique Actualités — entrées chiffrées + clé publique
-├── apps/
-│   └── syllogismes/         # Syllogimous v4 traduit (Angular, build indépendant)
 ├── docs/                    # Consignes des routines de veille
 ├── outils/                  # Modèles de synthèse vocale — jamais commité
 ├── .env.local               # VOTRE MOT DE PASSE — jamais commité
@@ -950,7 +953,6 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 │   ├── actualites-local.mjs # Actualités de démonstration pour le mode dev
 │   ├── chiffrer-actualite.mjs   # Chiffre une actualité (veille hebdomadaire)
 │   ├── dechiffrer-actualite.mjs # Relit une actualité (synthèses périodiques)
-│   ├── build-syllogismes.mjs    # Construit l'exercice Syllogismes
 │   ├── podcasts.mjs         # Scripts parlés + synthèse vocale des fiches audio
 │   ├── synthese-voix.py     # Synthèse (Kokoro ou Piper) et encodage MP3
 │   ├── installer-voix.mjs   # Installe le moteur et la voix française

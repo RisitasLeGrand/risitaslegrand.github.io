@@ -12,9 +12,6 @@
  *
  * DEUX EXCEPTIONS, publiées à côté du build Astro sans jamais l'écraser :
  *
- *  - « syllogismes/ » : l'exercice Angular construit par
- *    « npm run syllogismes:build ». Il a sa propre chaîne de build et ne passe
- *    pas par Astro.
  *
  *  - le dossier « actualites-data/ », qui ne vient pas du build
  * mais du dépôt lui-même. Ses entrées sont chiffrées avec la clé publique de la
@@ -40,9 +37,6 @@ const DOSSIER_ACTUALITES = 'actualites-data';
 /** Source de vérité de la rubrique : le dossier versionné du dépôt. */
 const actualitesDepot = path.join(racine, DOSSIER_ACTUALITES);
 
-/** Sous-site de l'exercice Syllogismes, construit hors d'Astro. */
-const DOSSIER_SYLLOGISMES = 'syllogismes';
-const syllogismesBuild = path.join(racine, 'apps', 'syllogismes', 'dist');
 
 function echouer(message) {
   console.error(`\n\x1b[31m✖ ${message}\x1b[0m\n`);
@@ -136,18 +130,6 @@ try {
     );
   }
 
-  // --- Exercice Syllogismes -----------------------------------------------
-  // Sous-site statique construit séparément. Absent, il n'empêche pas la
-  // publication : seule la page qui l'affiche restera vide.
-  if (existsSync(path.join(syllogismesBuild, 'index.html'))) {
-    await cp(syllogismesBuild, path.join(temporaire, DOSSIER_SYLLOGISMES), { recursive: true });
-    console.log(`› « ${DOSSIER_SYLLOGISMES}/ » publié depuis apps/syllogismes/dist/.`);
-  } else {
-    console.log(
-      `› « ${DOSSIER_SYLLOGISMES}/ » absent : lancez « npm run syllogismes:build » ` +
-        'pour que l\'exercice soit publié.',
-    );
-  }
 
   git(temporaire, 'init', '-q', '-b', branche);
   git(temporaire, 'remote', 'add', 'origin', depot);

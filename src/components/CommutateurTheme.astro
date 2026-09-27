@@ -127,7 +127,9 @@
       }
     }
 
-    // L'exercice Syllogismes vit dans une iframe : il doit suivre le thème.
+    // Les exercices qui dessinent leurs propres stimuli (canevas, SVG) ont
+    // besoin de connaître le thème : la couleur du fond conditionne la
+    // luminosité et la teinte qu'ils peuvent rendre fidèlement.
     document.dispatchEvent(new CustomEvent('revinsp:theme', { detail: { theme: rendu } }));
   }
 
