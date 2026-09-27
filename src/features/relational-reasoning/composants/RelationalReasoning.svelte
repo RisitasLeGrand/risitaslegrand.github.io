@@ -17,6 +17,7 @@
   import { gagnerXp, xpRelationnel } from '../../../lib/gamification';
   import Bloc from './Bloc.svelte';
   import Comprendre from './Comprendre.svelte';
+  import Statistiques from './Statistiques.svelte';
   import type { Item, Reponse } from '../moteurs/types';
   import { moteurParId } from '../moteurs/index';
   import { noter, type Donnee } from '../noyaux/notation';
@@ -25,6 +26,7 @@
     etatDesMoteurs,
     itemsReussis,
     prochainPalierSystemes,
+    statistiques,
     type Trace,
   } from '../progression';
 
@@ -47,6 +49,7 @@
   let traces = $state<Trace[]>([]);
   let longueur = $state(12);
   let comprendreOuvert = $state(false);
+  let statsOuvert = $state(false);
   let tutoriels = $state(true);
 
   let questions = $state<Question[]>([]);
@@ -235,16 +238,28 @@
           entièrement réussi{itemsReussis(traces) > 1 ? 's' : ''} jusqu'ici.
         </p>
       </div>
-      <button
-        type="button"
-        onclick={() => (comprendreOuvert = !comprendreOuvert)}
-        class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700
-          hover:border-indigo-300 dark:border-slate-700 dark:text-slate-200"
-      >{comprendreOuvert ? 'Masquer' : 'Comprendre les exercices'}</button>
+      <div class="flex flex-wrap gap-2">
+        <button
+          type="button"
+          onclick={() => (comprendreOuvert = !comprendreOuvert)}
+          class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700
+            hover:border-indigo-300 dark:border-slate-700 dark:text-slate-200"
+        >{comprendreOuvert ? 'Masquer' : 'Comprendre les exercices'}</button>
+        <button
+          type="button"
+          onclick={() => (statsOuvert = !statsOuvert)}
+          class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700
+            hover:border-indigo-300 dark:border-slate-700 dark:text-slate-200"
+        >{statsOuvert ? 'Masquer' : 'Ma progression'}</button>
+      </div>
     </div>
 
     {#if comprendreOuvert}
       <Comprendre {etats} {tutoriels} onBasculerTutoriels={basculerTutoriels} />
+    {/if}
+
+    {#if statsOuvert}
+      <Statistiques stats={statistiques(traces)} />
     {/if}
 
     <fieldset class="mt-5">

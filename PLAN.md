@@ -297,10 +297,131 @@ Chaque sous-phase laisse le site utilisable, comme les précédentes.
   catégorie C et les moteurs d'induction manquants.
 - **8c** — systèmes space, cyclic ; applicateur géométrique et le reste de la
   catégorie D.
-- **8d** — systèmes rcc8, allen avec leurs tables de composition publiées,
-  reprises telles quelles ; analogies avancées ; Context Shifts.
+- **8d** — systèmes rcc8, allen ; analogies avancées ; Context Shifts.
 - **8e** — espace « Comprendre », réglage des tutoriels, courbe de progression
   dans les statistiques et badges de déblocage.
+
+
+### Ce que les phases 8b à 8e ont appris
+
+**Les tables de composition ne se recopient pas, elles se calculent.** RCC8 et
+Allen totalisent cent trente-trois entrées de composition. Le plan prévoyait de
+reprendre les tables publiées « telles quelles » ; c'était le meilleur moyen
+d'introduire une erreur indectable, un exercice faux sur une paire de relations
+sur cent soixante-neuf ne se remarquant pas. Les deux systèmes partagent donc un
+**modèle concret** — des segments sur une droite graduée — et leur table est
+**dérivée** par énumération exhaustive des triplets, ce qui est la définition même
+de la composition. Elle est correcte par construction, et un contrôle indépendant
+vérifie que le vocabulaire déclaré est exactement celui que le modèle réalise, que
+la converse est involutive et concorde avec lui, et que toute relation réalisée par
+un triplet est bien annoncée par la table.
+
+Le prix à payer est à dire clairement : la table obtenue est celle du **modèle des
+segments**, non celle de la théorie RCC8 abstraite, qui admet des régions
+quelconques du plan et dont certaines compositions sont plus larges. Les deux
+systèmes annoncent donc des segments et des intervalles, jamais des « régions » au
+sens général. Le bénéfice inattendu est que `rcc8` apparaît pour ce qu'il est : la
+version **grossière** d'`allen`, qui regroupe treize relations en huit. Et
+regrouper des relations **affaiblit** la composition, donc **augmente**
+l'indétermination : une algèbre plus grossière n'est pas une algèbre plus simple.
+
+**`cheminComplet: false` ne corrige rien sur les réseaux que la rubrique produit —
+et l'on sait pourquoi.** La raison d'être de RCC8 et d'Allen dans le catalogue était
+que la cohérence de chemin n'y suffit pas. C'est vrai des algèbres abstraites ; ce
+n'est pas observable ici. Un contrôle dédié a comparé `possibilitesParChemin` et
+`possibilitesExactes` sur des réseaux tirés au hasard — non pas les seules chaînes
+qu'engendrent les systèmes, mais des **sous-ensembles** de faits, qui laissent des
+paires entièrement ouvertes : **zéro écart sur 1 739 comparaisons pour `allen` et
+1 824 pour `rcc8`**.
+
+L'explication est précise et vaut d'être retenue, parce qu'elle contredit ce que le
+plan supposait. D'une part la table de composition employée ici est **exacte pour le
+modèle** dont elle est dérivée, là où les résultats classiques d'incomplétude portent
+sur la plus faible approximation saine. D'autre part, et surtout, le format des
+faits ne permet d'exprimer que deux sortes de contraintes : un **singleton**, quand
+un fait est énoncé, et la **relation universelle**, quand il ne l'est pas. Or les
+deux sont **convexes**, et la cohérence de chemin décide la satisfiabilité des
+réseaux d'Allen convexes — les contraintes d'intervalles convexes se ramènent à des
+contraintes sur les bornes, c'est-à-dire à une algèbre de points, où la propagation
+est complète. Tant qu'aucun moteur n'introduit de contrainte **disjonctive non
+convexe** — « A est avant **ou** après B, mais pas au contact » — l'énumération de
+scénarios ne trouvera jamais rien que la propagation n'ait déjà trouvé.
+
+La déclaration est néanmoins conservée. Elle est du bon côté de l'erreur, et le jour
+où un moteur posera une contrainte disjonctive, la réponse restera juste sans qu'on y
+pense. Mais son coût n'est pas nul : le solveur exact a **abandonné sur budget** dans
+261 cas sur `allen` et 161 sur `rcc8`, et il rend alors la réponse de la propagation
+— celle qui était de toute façon correcte. Autrement dit, le filet coûte du temps et
+n'a encore rien rattrapé : le dire vaut mieux que laisser croire à une précaution
+éprouvée.
+
+**La même faute, deux fois, à deux endroits différents.** `reetiqueter` copie une
+instance en changeant les noms de ses entités ; le modèle étant indexé par nom,
+tout champ oublié laisse la copie pointer vers les anciens noms. L'oubli s'est
+produit à l'ajout de `digraph` et `poset`, puis, après un commentaire
+d'avertissement explicite, à celui d'`allen` et `rcc8`. Le symptôme était à chaque
+fois trompeur — « l'appariement ne transporte pas la structure », alors que
+l'appariement était juste et la copie fausse. Un troisième commentaire n'aurait pas
+plus servi que le second : la fonction **échoue désormais bruyamment** sur un champ
+de modèle qu'elle ne traite pas. C'est la seule leçon généralisable de l'épisode :
+quand une convention a été violée deux fois, il faut la rendre mécanique.
+
+**« transmet à » n'est pas sa propre converse.** `digraph` la déclarait symétrique
+par facilité — deux relations plutôt que trois. L'erreur s'est manifestée très loin
+de sa cause : le dessin d'un motif ne traçant qu'un sens des relations symétriques,
+deux motifs pourtant distincts se dessinaient à l'identique, et Recherche de motif
+proposait deux options indiscernables. D'où une troisième relation, « reçoit de »,
+qui ne sert jamais à énoncer un fait mais sans laquelle on ne peut pas **lire** une
+paire dans l'autre sens.
+
+**Le contrôle des doublons d'options ne voyait pas les dessins.** Il comparait le
+seul texte des options ; celles de Recherche de motif sont des graphes, sans texte,
+et se signalaient donc toutes comme doublons. La correction porte sur le contrôle,
+non sur le moteur — mais l'alerte était fondée : tel qu'il était écrit, il n'aurait
+pas davantage détecté deux dessins réellement identiques, et c'est ainsi qu'il a
+fini par trouver le défaut de converse ci-dessus.
+
+**L'invariant anti-devinette doit être vérifié sur l'item, pas espéré du procédé.**
+Prémisses minimales ajoutait un nombre de faits inutiles réglé sur l'échelon ; sur
+les instances où le sous-ensemble suffisant était large, il y avait moins de leurres
+que de bonnes réponses, et « tout cocher » rapportait la moitié des points. La même
+remarque valait déjà pour Contradiction et Prémisses minimales sur l'unicité de la
+réponse : dans les trois cas, la garantie est maintenant **contrôlée sur l'item
+produit**, et le tirage rejeté sinon.
+
+### Ce que la phase 9d a appris
+
+**« La même valeur » ne veut rien dire sur un cercle.** La tâche modulaire devait
+être « la même tâche, sur une dimension qui reboucle ». C'est impossible : une
+teinte n'est pas « au rang trente » dans l'absolu, un cercle n'ayant pas d'origine.
+Ce qui se transporte d'une droite vers un cercle, c'est un **écart**. La tâche
+montre donc deux références et demande le couple qui reproduit leur intervalle, à un
+**décalage tiré au hasard** près — sans lequel la réponse se lirait sur la position
+du premier élément et la tâche redeviendrait celle du point. C'est la mise en
+correspondance d'une **structure** et non d'un point, et c'est plus fidèle à l'objet
+de la rubrique que ne l'était l'intention initiale.
+
+**Un leurre faux sur deux axes est plus facile, pas plus dur.** Dans la tâche
+« plan », où la référence porte deux valeurs superposées, un leurre qui se trompe
+sur les deux axes serait démasqué par la moindre des deux différences : la tâche se
+réduirait au **meilleur des deux seuils**. Le leurre ne se trompe donc que sur
+**un** axe, tiré au hasard — on ne sait pas lequel surveiller, il faut tenir les
+deux, et le niveau du hasard reste à **50 %**, donc le point de convergence de
+l'escalier et la comparabilité des seuils sont préservés.
+
+**Les seuils des trois tâches ne sont pas la même grandeur.** Les seuils étaient
+indexés par arête seule. Une session sur la tâche « plan » aurait donc poursuivi
+l'escalier de la tâche de base avec des réponses qui incorporent le coût de tenir
+deux axes, et les deux mesures auraient été perdues. La clef porte désormais la
+tâche — la tâche de base gardant la clef nue, de sorte qu'aucune migration de
+données ne soit nécessaire. Le poids de l'arbre couvrant est compté par tâche pour
+la même raison.
+
+**Un réglage sans effet est pire qu'un réglage absent.** La tâche modulaire suppose
+une dimension d'arrivée circulaire, et la seule qui le soit — la teinte — est
+métathétique : elle est donc indisponible en famille prothétique, sauf si les paires
+hors famille sont ouvertes. Plutôt que de la proposer et de retomber silencieusement
+sur la tâche de base, l'interface la **désactive** et dit pourquoi.
 
 ### Progression et données
 

@@ -203,3 +203,78 @@ export function couplesOuverts(
   }
   return resultat;
 }
+
+/** Le bilan d'un système : items joués et note moyenne, tous moteurs confondus. */
+export function bilanDeSysteme(traces: readonly Trace[], systemeId: string) {
+  const siennes = traces.filter((trace) => trace.systeme === systemeId);
+  const moyenne = siennes.length
+    ? siennes.reduce((somme, trace) => somme + trace.note, 0) / siennes.length
+    : 0;
+  return { items: siennes.length, moyenne, reussis: siennes.filter((t) => t.note >= 1).length };
+}
+
+/**
+ * Statistiques complètes, pour le panneau de progression.
+ *
+ * Deux vues, et elles ne disent pas la même chose. Par **moteur**, on lit où l'on
+ * en est d'une compétence : quel échelon, quel taux récent. Par **système**, on
+ * lit sur quel vocabulaire on se trompe — et c'est l'information la plus utile,
+ * parce qu'un taux qui s'effondre sur `allen` alors qu'il tient sur `line` ne
+ * signale pas une faiblesse de raisonnement mais une algèbre mal comprise.
+ *
+ * Le taux affiché est une **moyenne de notes**, non une proportion de réussites :
+ * sur les moteurs à sélection multiple, une réponse partielle vaut entre zéro et
+ * un, et l'écraser en « raté » perdrait précisément ce que le barème cherche à
+ * mesurer.
+ */
+export interface Statistiques {
+  items: number;
+  reussis: number;
+  moyenne: number;
+  /** Par moteur ouvert, dans l'ordre des familles. */
+  parMoteur: { moteur: Moteur; echelon: number; items: number; taux: number }[];
+  /** Par système rencontré, du plus joué au moins joué. */
+  parSysteme: { systeme: Systeme; items: number; reussis: number; moyenne: number }[];
+  /** Familles débloquées, et ce qu'il reste à faire pour les autres. */
+  parFamille: {
+    famille: Famille;
+    debloquee: boolean;
+    /** Items restants sur le moteur d'ouverture, et taux atteint. */
+    resteItems: number;
+    taux: number;
+  }[];
+}
+
+export function statistiques(traces: readonly Trace[]): Statistiques {
+  const etats = etatDesMoteurs(traces);
+  const ouverts = systemesOuverts(traces);
+
+  const parSysteme = SYSTEMES.filter((systeme) => ouverts.has(systeme.id))
+    .map((systeme) => ({ systeme, ...bilanDeSysteme(traces, systeme.id) }))
+    .filter((ligne) => ligne.items > 0)
+    .sort((a, b) => b.items - a.items);
+
+  const parFamille = FAMILLES.map((famille) => {
+    const bilan = bilanDeMoteur(traces, famille.ouverture);
+    return {
+      famille,
+      debloquee: familleDebloquee(traces, famille),
+      resteItems: Math.max(0, MAITRISE.items - bilan.items),
+      taux: bilan.taux,
+    };
+  });
+
+  return {
+    items: traces.length,
+    reussis: itemsReussis(traces),
+    moyenne: traces.length ? traces.reduce((s, t) => s + t.note, 0) / traces.length : 0,
+    parMoteur: etats
+      .filter((etat) => etat.ouvert && etat.items > 0)
+      .map(({ moteur, echelon, items, taux }) => ({ moteur, echelon, items, taux })),
+    parSysteme,
+    parFamille,
+  };
+}
+
+/** Les conditions de maîtrise, exposées pour que l'interface les annonce. */
+export const CONDITIONS_MAITRISE = MAITRISE;

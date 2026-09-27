@@ -116,6 +116,23 @@ export interface Modele {
   coordonnees?: Record<string, number[]>;
   /** Étiquette de groupe par entité, pour les systèmes à camps. */
   camps?: Record<string, number>;
+  /**
+   * Les arêtes elles-mêmes, pour les systèmes du régime clos : `digraph` n'a
+   * pas de structure sous-jacente dont les faits seraient une lecture
+   * partielle, les faits *sont* le modèle.
+   */
+  aretes?: Fait[];
+  /**
+   * Clôture transitive de la précédence, pour `poset` : `apres[a]` liste tout
+   * ce que `a` précède. La clôture est faite au tirage pour que la lecture
+   * d'une paire soit un simple test d'appartenance.
+   */
+  apres?: Record<string, string[]>;
+  /**
+   * Les segments de la droite graduée, pour `allen` et `rcc8` : début et fin
+   * par entité. Voir `noyaux/intervalles.ts`.
+   */
+  segments?: Record<string, { debut: number; fin: number }>;
 }
 
 export interface Systeme {

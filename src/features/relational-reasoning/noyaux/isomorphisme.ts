@@ -108,6 +108,16 @@ export function isomorphes(gauche: Matrice, droite: Matrice): boolean {
  * Les positions sont brouillées autant que les noms. Sans cela, un appariement
  * se lirait sur la disposition du dessin au lieu de la structure — ce que le
  * cahier des charges demande précisément d'empêcher pour Relational Web.
+ *
+ * **Toutes les formes de modèle doivent être réétiquetées, sans exception.** Le
+ * modèle est indexé par nom d'entité ; en oublier une forme laisse la copie
+ * pointer vers les anciens noms, et `matrice` lit alors une structure vide. Le
+ * symptôme est trompeur — « l'appariement ne transporte pas la structure » —
+ * parce que la faute n'est pas dans l'appariement mais dans la copie. C'est
+ * arrivé à l'ajout de `digraph` et de `poset`, dont les modèles portent des
+ * arêtes et une clôture transitive là où les systèmes-produits ne portaient que
+ * des coordonnées. D'où la règle : **un nouveau champ de `Modele` se
+ * réétiquette ici, dans la même modification qui l'introduit.**
  */
 export function reetiqueter(
   instance: Instance,
@@ -134,6 +144,45 @@ export function reetiqueter(
       modele.camps[correspondance[ancien]] = camp;
     }
   }
+  const aretes = instance.modele?.aretes;
+  if (aretes) {
+    modele.aretes = aretes.map((fait) => ({
+      sujet: correspondance[fait.sujet],
+      relation: fait.relation,
+      objet: correspondance[fait.objet],
+    }));
+  }
+  const apres = instance.modele?.apres;
+  if (apres) {
+    modele.apres = {};
+    for (const [ancien, suivants] of Object.entries(apres)) {
+      modele.apres[correspondance[ancien]] = suivants.map((nom) => correspondance[nom]);
+    }
+  }
+  const segments = instance.modele?.segments;
+  if (segments) {
+    modele.segments = {};
+    for (const [ancien, segment] of Object.entries(segments)) {
+      modele.segments[correspondance[ancien]] = segment;
+    }
+  }
+
+  // Garde-fou : un champ de modèle non traité ci-dessus produirait une copie
+  // pointant vers les anciens noms, et l'échec se manifesterait loin de sa cause
+  // — « l'appariement ne transporte pas la structure », alors que c'est la copie
+  // qui est fausse. L'omission s'est produite deux fois : à l'ajout de `digraph`
+  // et `poset`, puis à celui d'`allen` et `rcc8`. Plutôt qu'un troisième
+  // commentaire d'avertissement, une vérification qui **échoue bruyamment**.
+  if (instance.modele) {
+    const traites = new Set(['coordonnees', 'camps', 'aretes', 'apres', 'segments']);
+    const oublies = Object.keys(instance.modele).filter((cle) => !traites.has(cle));
+    if (oublies.length) {
+      throw new Error(
+        `reetiqueter : champ(s) de modèle non réétiqueté(s) : ${oublies.join(', ')}. ` +
+          'Ajoutez-les dans cette fonction, sinon la copie garde les anciens noms.',
+      );
+    }
+  }
 
   return {
     instance: {
@@ -148,4 +197,78 @@ export function reetiqueter(
     },
     correspondance,
   };
+}
+
+/**
+ * Les occurrences d'un motif dans un hôte : les injections du premier dans le
+ * second qui conservent les arêtes.
+ *
+ * `induit` commande la lecture de l'**absence** d'arête. Vrai — le défaut —, le
+ * motif doit apparaître exactement : deux sommets non reliés dans le motif ne
+ * peuvent pas l'être dans l'hôte. Faux, seules les arêtes énoncées doivent se
+ * retrouver, l'hôte pouvant en avoir davantage.
+ *
+ * La distinction n'est pas décorative, elle décide de la justesse de l'exercice.
+ * « Ce motif apparaît-il ? » n'a de réponse déterminée qu'en lecture induite :
+ * sans elle, un motif à deux arêtes se retrouve dans presque tout réseau dense,
+ * et les leurres cesseraient d'être faux. C'est aussi la lecture qui convient au
+ * régime clos, où l'absence d'arête est une négation et non une inconnue.
+ *
+ * Le parcours est un retour sur trace avec élagage : une image n'est étendue que
+ * si elle respecte déjà les arêtes entre les sommets placés. Pour des motifs de
+ * trois à quatre sommets dans des hôtes de sept, il n'explore que quelques
+ * centaines d'états.
+ */
+export function occurrences(motif: Matrice, hote: Matrice, induit = true): number[][] {
+  const k = motif.length;
+  const n = hote.length;
+  if (k > n) return [];
+
+  const trouvees: number[][] = [];
+  const image: number[] = [];
+  const pris = new Array<boolean>(n).fill(false);
+
+  /** L'ajout de `candidat` en position `place` respecte-t-il le motif ? */
+  const compatible = (place: number, candidat: number): boolean => {
+    for (let i = 0; i < place; i += 1) {
+      const attenduAller = motif[i][place];
+      const attenduRetour = motif[place][i];
+      const reelAller = hote[image[i]][candidat];
+      const reelRetour = hote[candidat][image[i]];
+      if (attenduAller) {
+        if (reelAller !== attenduAller) return false;
+      } else if (induit && reelAller) return false;
+      if (attenduRetour) {
+        if (reelRetour !== attenduRetour) return false;
+      } else if (induit && reelRetour) return false;
+    }
+    return true;
+  };
+
+  const parcourir = (place: number): void => {
+    if (place === k) {
+      trouvees.push([...image]);
+      return;
+    }
+    for (let candidat = 0; candidat < n; candidat += 1) {
+      if (pris[candidat] || !compatible(place, candidat)) continue;
+      pris[candidat] = true;
+      image[place] = candidat;
+      parcourir(place + 1);
+      pris[candidat] = false;
+    }
+  };
+
+  parcourir(0);
+  return trouvees;
+}
+
+/** Le motif apparaît-il dans l'hôte ? */
+export function apparait(motif: Matrice, hote: Matrice, induit = true): boolean {
+  return occurrences(motif, hote, induit).length > 0;
+}
+
+/** Extrait la sous-matrice induite par une liste d'indices. */
+export function sousMatrice(structure: Matrice, indices: readonly number[]): Matrice {
+  return indices.map((i) => indices.map((j) => structure[i][j]));
 }

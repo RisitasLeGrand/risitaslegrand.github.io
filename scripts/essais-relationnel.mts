@@ -193,8 +193,12 @@ for (const { moteur, systeme } of couples(MOTEURS, SYSTEMES)) {
     if (item.reponse.genre === 'unique') {
       const { options, bonne } = item.reponse;
       if (bonne < 0 || bonne >= options.length) griefs.push(`graine ${graine} : index de bonne réponse hors bornes`);
-      const textes = options.map((o) => o.texte ?? '');
-      if (new Set(textes).size !== textes.length) griefs.push(`graine ${graine} : options en doublon`);
+      // On compare l'option entière, texte **et** dessin. Ne comparer que le
+      // texte laisserait passer deux dessins identiques — et signalerait à
+      // tort comme doublons quatre options purement graphiques, dont le texte
+      // est vide par construction.
+      const empreintes = options.map((o) => JSON.stringify([o.texte ?? '', o.blocs ?? null]));
+      if (new Set(empreintes).size !== empreintes.length) griefs.push(`graine ${graine} : options en doublon`);
       if (options.length < 2) griefs.push(`graine ${graine} : moins de deux options`);
     }
     if (item.reponse.genre === 'appariement') {

@@ -26,6 +26,11 @@ import {
   statut,
   type EtatEscalier,
 } from '../src/features/veridical-mapping/escalier';
+import {
+  REGLAGES_PAR_DEFAUT,
+  tirerEssai,
+  vivierDAretes,
+} from '../src/features/veridical-mapping/session';
 
 let echecs = 0;
 function verifier(titre: string, obtenu: unknown, attendu: unknown) {
@@ -152,6 +157,93 @@ for (const seuilVrai of [3, 8, 20]) {
     true,
   );
   verifier(`seuil ${seuilVrai} : au moins 55 estimations sur 60`, estimations.length >= 55, true);
+}
+
+console.log('\nTÂCHES « PLAN » ET « MODULAIRE » — ce qui les rend mesurables');
+
+{
+  const hasard = { reel: () => Math.random(), entier: (b: number) => Math.floor(Math.random() * b) };
+  const aretes = vivierDAretes({ ...REGLAGES_PAR_DEFAUT, mode: 'exhaustif' }, () => 0);
+
+  // 1. Tâche « plan » : le niveau du hasard doit rester à 50 %, donc **deux**
+  //    candidats et un seul juste. C'est la condition de comparabilité des
+  //    seuils : ajouter un candidat déplacerait le point de convergence de
+  //    l'escalier et rendrait les seuils incomparables d'une tâche à l'autre.
+  let plans = 0;
+  let deuxCandidats = true;
+  let unSeulJuste = true;
+  let unSeulAxeFautif = true;
+  let coupleReel = true;
+  for (let i = 0; i < 400; i += 1) {
+    const arete = aretes[i % aretes.length];
+    const essai = tirerEssai(arete, 8, { ...REGLAGES_PAR_DEFAUT, mode: 'exhaustif', tache: 'plan' }, hasard);
+    if (essai.tache !== 'plan') continue;
+    plans += 1;
+    for (const sous of essai.sousEssais) {
+      if (sous.candidats.length !== 2) deuxCandidats = false;
+      if (sous.candidats.filter((c) => c.juste).length !== 1) unSeulJuste = false;
+      // Le leurre ne doit différer du juste que sur **un** attribut : c'est ce
+      // qui oblige à tenir les deux axes, sans quoi la tâche se réduirait au
+      // meilleur des deux seuils.
+      const [a, b] = sous.candidats;
+      const attributs = ['taillePx', 'clarte', 'teinte', 'positionPct', 'frequenceHz', 'niveauDb', 'dureeMs'] as const;
+      const differents = attributs.filter((cle) => a.stimulus[cle] !== b.stimulus[cle]);
+      if (differents.length !== 1) unSeulAxeFautif = false;
+      // Et la référence doit bien porter **deux** valeurs : son identifiant de
+      // dimension est composé.
+      if (!sous.reference.dimension.includes('+')) coupleReel = false;
+    }
+  }
+  verifier('plan : des essais sont produits', plans > 0, true);
+  verifier('plan : toujours deux candidats (hasard à 50 %)', deuxCandidats, true);
+  verifier('plan : un seul candidat juste', unSeulJuste, true);
+  verifier('plan : le leurre ne se trompe que sur un axe', unSeulAxeFautif, true);
+  verifier('plan : la référence porte bien un couple', coupleReel, true);
+
+  // 2. Tâche modulaire : le candidat juste reproduit l'intervalle, et le décalage
+  //    est arbitraire. Les deux propriétés ensemble sont ce qui en fait une mise
+  //    en correspondance de **structure** : si le décalage était constant, la
+  //    réponse se lirait sur la position et non sur l'écart.
+  // La tâche modulaire n'existe que sur les arêtes **arrivant** sur une
+  // dimension circulaire, et la seule qui le soit — la teinte — est
+  // métathétique. Le vivier prothétique par défaut n'en contient donc aucune :
+  // c'est une contrainte du catalogue de dimensions, pas un défaut du tirage, et
+  // l'interface doit ne proposer la tâche que là où elle a un sens.
+  const aretesMeta = vivierDAretes(
+    { ...REGLAGES_PAR_DEFAUT, famille: 'metathetique', mode: 'exhaustif' },
+    () => 0,
+  );
+  const versTeinte = aretesMeta.filter((a) => a.vers.circulaire);
+  verifier('modulaire : aucune arête prothétique n\u2019arrive sur une dimension circulaire',
+    aretes.some((a) => a.vers.circulaire), false);
+  let modulaires = 0;
+  let intervalleJuste = true;
+  let leurreFaux = true;
+  const decalages = new Set<number>();
+  for (let i = 0; i < 400 && versTeinte.length; i += 1) {
+    const arete = versTeinte[i % versTeinte.length];
+    const essai = tirerEssai(
+      arete,
+      6,
+      { ...REGLAGES_PAR_DEFAUT, famille: 'metathetique', mode: 'exhaustif', tache: 'modulaire' },
+      hasard,
+    );
+    if (essai.tache !== 'modulaire') continue;
+    modulaires += 1;
+    const sous = essai.sousEssais[0];
+    const attendu = essai.intervalle ?? -1;
+    for (const candidat of sous.candidats) {
+      if (candidat.ancre === undefined) { intervalleJuste = false; continue; }
+      decalages.add(candidat.ancre);
+      const obtenu = ecartEnPas(arete.vers, candidat.ancre, candidat.pas);
+      if (candidat.juste && obtenu !== attendu) intervalleJuste = false;
+      if (!candidat.juste && obtenu === attendu) leurreFaux = false;
+    }
+  }
+  verifier('modulaire : des essais sont produits', modulaires > 0, true);
+  verifier('modulaire : le candidat juste reproduit l\u2019intervalle', intervalleJuste, true);
+  verifier('modulaire : le leurre ne le reproduit pas', leurreFaux, true);
+  verifier('modulaire : le décalage est bien arbitraire', decalages.size > 20, true);
 }
 
 console.log(`\n${echecs ? `\x1b[31m✖ ${echecs} échec(s)\x1b[0m` : '\x1b[32m✓ tout passe\x1b[0m'}\n`);

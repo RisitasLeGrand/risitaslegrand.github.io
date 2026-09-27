@@ -22,6 +22,12 @@ import {
   type Jour,
   type Profil,
 } from './db';
+import {
+  echelonDeMoteur,
+  familleDebloquee,
+  FAMILLES,
+} from '../features/relational-reasoning/progression';
+import { MOTEURS as MOTEURS_RR } from '../features/relational-reasoning/moteurs/index';
 
 const XP = (config as { xp: Record<string, number> }).xp;
 
@@ -171,6 +177,15 @@ interface ContexteBadges {
   meilleurNBack: number;
   /** Items de Relational Reasoning entièrement réussis. */
   itemsRelationnels: number;
+  /**
+   * Familles d'exercices relationnels débloquées — c'est-à-dire dont le moteur
+   * d'ouverture est maîtrisé. C'est la mesure qui correspond au modèle de
+   * progression retenu : les paliers de systèmes se franchissent au compteur
+   * d'items, les familles à la maîtrise d'un exercice précis.
+   */
+  famillesRelationnelles: number;
+  /** Le plus haut échelon atteint sur un exercice relationnel, de 1 à 10. */
+  meilleurEchelonRelationnel: number;
   sessionsVeridical: number;
   /** Paires de Veridical Mapping dont le seuil s'est stabilisé. */
   seuilsStabilises: number;
@@ -323,6 +338,32 @@ export const BADGES: DefinitionBadge[] = [
     description: 'Ouvrir les algèbres topologiques et temporelles.',
     icone: '🌀',
     obtenu: (c) => c.itemsRelationnels >= 130,
+  },
+  // Les quatre badges ci-dessus suivent les **paliers de systèmes**, qui se
+  // franchissent au compteur d'items. Les deux suivants suivent le **déblocage
+  // des familles**, qui ne dépend pas d'un total mais de la maîtrise d'un
+  // exercice précis : ce sont deux progressions indépendantes, et il serait
+  // trompeur de n'en jalonner qu'une.
+  {
+    id: 'relationnel-famille',
+    nom: 'Une famille ouverte',
+    description: 'Maîtriser l’exercice d’ouverture d’une famille et débloquer les autres.',
+    icone: '🗝️',
+    obtenu: (c) => c.famillesRelationnelles >= 1,
+  },
+  {
+    id: 'relationnel-familles-toutes',
+    nom: 'Quatre familles',
+    description: 'Débloquer les quatre familles d’exercices relationnels.',
+    icone: '🌐',
+    obtenu: (c) => c.famillesRelationnelles >= 4,
+  },
+  {
+    id: 'relationnel-echelon',
+    nom: 'Haut de l’échelle',
+    description: 'Atteindre l’échelon 7 sur un exercice relationnel.',
+    icone: '🥼',
+    obtenu: (c) => c.meilleurEchelonRelationnel >= 7,
   },
   {
     id: 'vm-premiere',
@@ -545,6 +586,14 @@ export async function contexteBadges(profil?: Profil): Promise<ContexteBadges> {
     parMatiere.set(c.matiere, entree);
   }
 
+  // Les traces relationnelles, à plat et dans l'ordre : l'échelon comme le
+  // déblocage se **rejouent** depuis l'historique plutôt que d'être stockés,
+  // pour que la valeur se refasse à l'identique après un import de sauvegarde.
+  const tracesRR = relationnelles
+    .slice()
+    .sort((a, b) => a.le.localeCompare(b.le))
+    .flatMap((session) => session.items);
+
   return {
     profil: p,
     cartesRevisees: cartes.reduce((n, c) => n + c.revisions, 0),
@@ -565,6 +614,11 @@ export async function contexteBadges(profil?: Profil): Promise<ContexteBadges> {
       0,
     ),
     itemsRelationnels: relationnelles.reduce((n, s) => n + s.reussis, 0),
+    famillesRelationnelles: FAMILLES.filter((famille) => familleDebloquee(tracesRR, famille)).length,
+    meilleurEchelonRelationnel: MOTEURS_RR.reduce(
+      (haut, moteur) => Math.max(haut, echelonDeMoteur(tracesRR, moteur.id)),
+      1,
+    ),
     sessionsVeridical: vmSessions.length,
     seuilsStabilises: vmSeuils.filter((s) => s.statut === 'converge').length,
     seuilsTransmodaux: vmSeuils.filter((s) => s.statut === 'converge' && s.transmodale).length,

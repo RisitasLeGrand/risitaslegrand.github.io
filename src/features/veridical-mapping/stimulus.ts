@@ -60,3 +60,57 @@ export function stimulus(dimension: Dimension, pas: number): Stimulus {
       return base;
   }
 }
+
+/**
+ * Superpose deux stimulus visuels en un seul.
+ *
+ * C'est ce que demande la tâche « plan » : une référence n'y est pas une valeur
+ * sur une dimension mais un **couple** de valeurs sur deux dimensions, porté par
+ * un seul objet — un disque à la fois grand et clair, par exemple.
+ *
+ * La superposition n'est possible que parce que chaque dimension ne touche qu'un
+ * attribut de `Stimulus`. On part donc du premier et l'on n'écrase que l'attribut
+ * du second, ce qui rend l'opération sûre sans qu'il faille énumérer les couples.
+ * Deux dimensions qui se disputeraient le même attribut produiraient un stimulus
+ * où la seconde effacerait la première — d'où la vérification de `compatibles`,
+ * qui écarte ces couples au tirage plutôt que de les rendre indistinguables.
+ */
+export function superposer(premier: Stimulus, second: Stimulus): Stimulus {
+  const fusion: Stimulus = { ...premier };
+  const attributs: (keyof typeof FIXES)[] = [
+    'taillePx',
+    'clarte',
+    'teinte',
+    'positionPct',
+    'frequenceHz',
+    'niveauDb',
+    'dureeMs',
+  ];
+  for (const attribut of attributs) {
+    // Seul l'attribut que le second stimulus a fait varier est reporté.
+    if (second[attribut] !== FIXES[attribut]) fusion[attribut] = second[attribut];
+  }
+  fusion.dimension = `${premier.dimension}+${second.dimension}`;
+  // La modalité du couple est auditive dès qu'un des deux l'est : il faudra
+  // jouer un son, et l'interface doit le savoir.
+  fusion.modalite = premier.modalite === 'auditive' || second.modalite === 'auditive'
+    ? 'auditive'
+    : 'visuelle';
+  return fusion;
+}
+
+/**
+ * Deux dimensions peuvent-elles être superposées sans se recouvrir ?
+ *
+ * Elles ne peuvent pas si elles pilotent le même attribut — ce qui n'arrive pas
+ * dans le catalogue actuel, chaque dimension ayant le sien — ni si elles sont
+ * toutes deux auditives : deux sons superposés ne se distinguent pas à l'écoute
+ * comme deux attributs d'un même disque se distinguent à l'œil. La restriction
+ * est perceptive, non technique, et c'est la raison de la nommer ici plutôt que
+ * de la laisser se deviner à l'usage.
+ */
+export function superposables(a: Dimension, b: Dimension): boolean {
+  if (a.id === b.id) return false;
+  if (a.modalite === 'auditive' && b.modalite === 'auditive') return false;
+  return true;
+}

@@ -40,6 +40,7 @@
     type Reglages,
   } from '../session';
   import Stimulus from './Stimulus.svelte';
+  import { superposables } from '../stimulus';
   import TableauDeBord from './TableauDeBord.svelte';
 
   type Etape = 'accueil' | 'essai' | 'bilan';
@@ -81,11 +82,28 @@
   }
   charger();
 
+  /**
+   * La clef d'un seuil : l'arête, **et la tâche**.
+   *
+   * C'est une condition de validité, non un raffinement. Un seuil mesuré sur la
+   * tâche « un couple » n'est pas la même grandeur que celui de la tâche de
+   * base : il incorpore le coût de tenir deux axes à la fois. Les écrire sous la
+   * même clef ferait poursuivre un escalier avec les réponses d'un autre, et les
+   * deux mesures seraient perdues.
+   *
+   * La tâche de base garde la clef nue, de sorte que les seuils déjà mesurés
+   * restent les leurs : aucune migration de données n'est nécessaire.
+   */
+  function clefSeuil(arete: Arete, tache: Reglages['tache'] = reglages.tache): string {
+    return tache === 'point' ? arete.id : `${arete.id}|${tache}`;
+  }
+
   /** Le seuil d'une arête, créé à la volée s'il n'existe pas encore. */
   function seuilDArete(arete: Arete): SeuilVeridical {
+    const clef = clefSeuil(arete);
     return (
-      seuils[arete.id] ?? {
-        id: arete.id,
+      seuils[clef] ?? {
+        id: clef,
         famille: arete.de.famille,
         de: arete.de.id,
         vers: arete.vers.id,
@@ -99,10 +117,19 @@
     );
   }
 
-  /** Essais déjà faits sur une paire, dans les deux sens : poids de l'arbre couvrant. */
+  /**
+   * Essais déjà faits sur une paire, dans les deux sens : poids de l'arbre
+   * couvrant, qui fait passer en priorité par les paires les moins mesurées.
+   *
+   * Le décompte est propre à la **tâche** courante, comme les seuils eux-mêmes :
+   * une paire bien couverte sur la tâche de base ne l'est pas sur la tâche « un
+   * couple », et la faire passer en dernier reviendrait à ne jamais la mesurer.
+   */
   function essaisDeLaPaire(a: string, b: string): number {
-    const aller = seuils[idArete(a, b)]?.escalier.essais ?? 0;
-    const retourr = seuils[idArete(b, a)]?.escalier.essais ?? 0;
+    const cle = (de: string, vers: string) =>
+      reglages.tache === 'point' ? idArete(de, vers) : `${idArete(de, vers)}|${reglages.tache}`;
+    const aller = seuils[cle(a, b)]?.escalier.essais ?? 0;
+    const retourr = seuils[cle(b, a)]?.escalier.essais ?? 0;
     return aller + retourr;
   }
 
@@ -240,6 +267,70 @@
     return { aretes, parArete, suffisant: parArete >= 24 };
   });
   const chargeReelle = $derived(essai ? chargeAdmise(essai.arete, reglages.charge) : reglages.charge);
+
+  /**
+   * Les trois tâches, et celles qui sont réellement praticables dans la famille
+   * choisie.
+   *
+   * La tâche modulaire suppose une dimension d'arrivée qui **reboucle**, et la
+   * seule qui le fasse — la teinte — est métathétique. Elle est donc indisponible
+   * en famille prothétique, sauf si les paires hors famille sont ouvertes. Plutôt
+   * que de la proposer et de retomber silencieusement sur la tâche de base, on la
+   * désactive : un réglage qui n'a pas l'effet annoncé est pire qu'un réglage
+   * absent.
+   */
+  const taches = $derived.by(() => {
+    const vivier = vivierDAretes(reglages, () => 0);
+    const versCirculaire = vivier.some((arete) => arete.vers.circulaire);
+    const superposable = vivier.some((arete) =>
+      vivier.some(
+        (autre) =>
+          autre.de.id !== arete.de.id &&
+          autre.vers.id !== arete.vers.id &&
+          superposables(autre.de, arete.de) &&
+          superposables(autre.vers, arete.vers),
+      ),
+    );
+    return [
+      {
+        id: 'point' as const,
+        nom: 'Une valeur',
+        disponible: true,
+        explication:
+          'Une valeur sur la dimension de départ, une valeur au même niveau sur celle ' +
+          'd’arrivée. C’est la tâche de base, et celle dont les seuils servent de référence.',
+      },
+      {
+        id: 'plan' as const,
+        nom: 'Un couple',
+        disponible: superposable,
+        explication: superposable
+          ? 'La référence porte deux valeurs superposées. Le leurre ne se trompe que sur un ' +
+            'axe, et vous ne savez pas lequel : il faut tenir les deux. Le hasard reste à 50 %, ' +
+            'donc les seuils restent comparables à ceux de la tâche de base.'
+          : 'Indisponible : il n’y a pas ici deux paires de dimensions superposables.',
+      },
+      {
+        id: 'modulaire' as const,
+        nom: 'Un écart, sur un cercle',
+        disponible: versCirculaire,
+        explication: versCirculaire
+          ? 'La dimension d’arrivée reboucle : elle n’a pas d’origine, et « la même valeur » ' +
+            'n’y veut rien dire. On transporte donc un **écart** entre deux références, à un ' +
+            'décalage près — c’est la mise en correspondance d’une structure, non d’un point.'
+          : 'Indisponible : aucune dimension d’arrivée ne reboucle dans cette famille. La ' +
+            'teinte est la seule circulaire, et elle est métathétique.',
+      },
+    ];
+  });
+
+  const tacheCourante = $derived(taches.find((t) => t.id === reglages.tache));
+
+  // Un réglage devenu indisponible après un changement de famille est ramené à la
+  // tâche de base, plutôt que de rester sélectionné sans effet.
+  $effect(() => {
+    if (!taches.find((t) => t.id === reglages.tache)?.disponible) reglages.tache = 'point';
+  });
 </script>
 
 {#if chargement}
@@ -280,6 +371,27 @@
           </label>
         {/each}
       </div>
+    </fieldset>
+
+    <fieldset class="mt-4">
+      <legend class="text-sm font-medium text-slate-700 dark:text-slate-200">Tâche</legend>
+      <div class="mt-2 flex flex-wrap gap-2">
+        {#each taches as tache (tache.id)}
+          <button
+            type="button"
+            disabled={!tache.disponible}
+            onclick={() => (reglages.tache = tache.id)}
+            class="rounded-lg border px-3 py-2 text-sm font-medium disabled:cursor-not-allowed
+              disabled:opacity-40
+              {reglages.tache === tache.id
+                ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300'
+                : 'border-slate-200 text-slate-700 dark:border-slate-800 dark:text-slate-300'}"
+          >{tache.nom}</button>
+        {/each}
+      </div>
+      <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+        {tacheCourante?.explication}
+      </p>
     </fieldset>
 
     <div class="mt-4 grid gap-4 sm:grid-cols-2">
@@ -409,8 +521,18 @@
     {/if}
 
     <p class="mt-4 text-sm text-slate-600 dark:text-slate-300">
-      Lequel des deux {essai.arete.vers.nom.toLowerCase()} est au même niveau que
-      la référence en {essai.arete.de.nom.toLowerCase()} ?
+      {#if essai.tache === 'plan'}
+        La référence porte <strong class="font-medium">deux</strong> valeurs à la fois. Lequel
+        des deux candidats les reproduit toutes les deux ? L'autre n'en manque qu'une — et vous
+        ne savez pas laquelle.
+      {:else if essai.tache === 'modulaire'}
+        Deux références en {essai.arete.de.nom.toLowerCase()}, séparées d'un certain écart. Quel
+        couple de {essai.arete.vers.nom.toLowerCase()} reproduit <strong class="font-medium">le
+        même écart</strong> ? La position ne compte pas : seule compte la distance entre les deux.
+      {:else}
+        Lequel des deux {essai.arete.vers.nom.toLowerCase()} est au même niveau que
+        la référence en {essai.arete.de.nom.toLowerCase()} ?
+      {/if}
     </p>
 
     {#each essai.sousEssais as sousEssai, i (i)}
@@ -426,11 +548,39 @@
             <Stimulus
               stimulus={sousEssai.reference}
               partiel={essai.partiel}
-              libelle="la référence"
+              libelle="la première référence"
               auto={i === 0 && retour === 'attente'}
             />
+            {#if sousEssai.reference2}
+              <div class="mt-2">
+                <Stimulus
+                  stimulus={sousEssai.reference2}
+                  partiel={essai.partiel}
+                  libelle="la seconde référence"
+                />
+              </div>
+            {/if}
           </div>
           <div class="hidden text-center text-slate-300 sm:block" aria-hidden="true">→</div>
+          <div>
+            {#if sousEssai.candidats[0]?.ancreStimulus}
+              <!--
+                En tâche modulaire, les deux candidats partagent le même point de
+                départ : c'est l'écart qui les distingue. On ne le dessine donc
+                qu'une fois, au-dessus des deux — le répéter suggérerait qu'il fait
+                partie de ce qu'il faut comparer, alors que sa position est tirée
+                au hasard et ne dit rien de la réponse.
+              -->
+              <div class="mb-3 rounded-lg border border-dashed border-slate-300 p-2 dark:border-slate-700">
+                <p class="mb-1 text-center text-xs text-slate-500 dark:text-slate-400">
+                  Point de départ commun
+                </p>
+                <Stimulus
+                  stimulus={sousEssai.candidats[0].ancreStimulus}
+                  libelle="le point de départ"
+                />
+              </div>
+            {/if}
           <div class="grid grid-cols-2 gap-3">
             {#each sousEssai.candidats as candidat, j (j)}
               {@const cadre =
@@ -475,6 +625,7 @@
                 </button>
               {/if}
             {/each}
+          </div>
           </div>
         </div>
       </div>

@@ -87,7 +87,19 @@ const CARDINAUX_2D: Record<string, { libelle: string; bref: string }> = {
   ee: { libelle: 'occupe la même case que', bref: '=' },
 };
 
-/** Nommage compositionnel : un morceau par axe, l'égalité passée sous silence. */
+/**
+ * Nommage compositionnel : un morceau par axe, l'égalité passée sous silence.
+ *
+ * Exporté parce que les moteurs géométriques en ont besoin : Projection doit
+ * nommer un n-uplet dont un axe a été retiré, Échange d'axes un n-uplet dont
+ * deux composantes ont été permutées. Ces n-uplets n'appartiennent pas au
+ * vocabulaire du système courant — ils appartiennent à celui du système projeté
+ * ou transformé —, si bien qu'aucune relation déclarée ne porte leur libellé.
+ */
+export function nommerUplet(uplet: string, axes: AxeProduit[]): { libelle: string; bref: string } {
+  return nommer(uplet, axes);
+}
+
 function nommer(uplet: string, axes: AxeProduit[]): { libelle: string; bref: string } {
   if (axes.length === 2 && CARDINAUX_2D[uplet]) return CARDINAUX_2D[uplet];
 
