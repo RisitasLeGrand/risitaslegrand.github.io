@@ -17,6 +17,8 @@ import {
   toutesLesSeances,
   toutesLesSessionsNBack,
   toutesLesSessionsRelationnelles,
+  toutesLesSessionsVeridical,
+  tousLesSeuilsVeridical,
   type Jour,
   type Profil,
 } from './db';
@@ -127,6 +129,16 @@ export const xpNBack = (n: number, taux: number) =>
  * moitié. L'échelon moyen des moteurs joués majore l'ensemble, un item de haut
  * échelon demandant davantage.
  */
+/**
+ * XP d'une session de Veridical Mapping.
+ *
+ * Une prime est versée à chaque paire dont le seuil se **stabilise** pendant la
+ * session. C'est ce qui compte vraiment ici : un essai isolé ne dit rien, et
+ * seule la convergence de l'escalier signale qu'un seuil a été mesuré.
+ */
+export const xpVeridical = (reussis: number, convergences: number) =>
+  XP.veridicalSession + reussis * XP.veridicalParEssai + convergences * XP.veridicalConvergence;
+
 export const xpRelationnel = (reussis: number, echelonMoyen: number) =>
   XP.relationnelSession +
   reussis * (XP.relationnelParItem + Math.max(0, echelonMoyen - 1) * XP.relationnelParPhase);
@@ -159,6 +171,11 @@ interface ContexteBadges {
   meilleurNBack: number;
   /** Items de Relational Reasoning entièrement réussis. */
   itemsRelationnels: number;
+  sessionsVeridical: number;
+  /** Paires de Veridical Mapping dont le seuil s'est stabilisé. */
+  seuilsStabilises: number;
+  /** Parmi elles, celles qui relient la vision et l'audition. */
+  seuilsTransmodaux: number;
   /** Jours écoulés depuis la toute première journée de révision (1 le jour même). */
   joursDepuisDebut: number;
 }
@@ -306,6 +323,34 @@ export const BADGES: DefinitionBadge[] = [
     description: 'Ouvrir les algèbres topologiques et temporelles.',
     icone: '🌀',
     obtenu: (c) => c.itemsRelationnels >= 130,
+  },
+  {
+    id: 'vm-premiere',
+    nom: 'Première mise en correspondance',
+    description: 'Terminer une session de Veridical Mapping.',
+    icone: '🎚️',
+    obtenu: (c) => c.sessionsVeridical >= 1,
+  },
+  {
+    id: 'vm-trois-seuils',
+    nom: 'Trois seuils stabilisés',
+    description: 'Stabiliser le seuil de trois paires de dimensions.',
+    icone: '📶',
+    obtenu: (c) => c.seuilsStabilises >= 3,
+  },
+  {
+    id: 'vm-transmodal',
+    nom: 'Passage transmodal',
+    description: 'Stabiliser une paire reliant la vision et l\'audition.',
+    icone: '👁️',
+    obtenu: (c) => c.seuilsTransmodaux >= 1,
+  },
+  {
+    id: 'vm-hub',
+    nom: 'Hub complet',
+    description: 'Stabiliser douze paires de dimensions.',
+    icone: '🕸️',
+    obtenu: (c) => c.seuilsStabilises >= 12,
   },
   // Jalons de durée : le programme s'étale sur plusieurs années, et la série
   // de jours consécutifs ne dit rien de cette profondeur — un an de révision
@@ -477,7 +522,8 @@ export async function vueLongTerme(): Promise<VueLongTerme> {
 
 /** Construit le contexte d'évaluation des badges à partir de la base locale. */
 export async function contexteBadges(profil?: Profil): Promise<ContexteBadges> {
-  const [p, cartes, fiches, quiz, jours, sessions, seances, relationnelles] = await Promise.all([
+  const [p, cartes, fiches, quiz, jours, sessions, seances, relationnelles, vmSessions, vmSeuils] =
+    await Promise.all([
     profil ? Promise.resolve(profil) : lireProfil(),
     toutesLesCartes(),
     tousLesEtatsFiches(),
@@ -486,6 +532,8 @@ export async function contexteBadges(profil?: Profil): Promise<ContexteBadges> {
     toutesLesSessionsNBack(),
     toutesLesSeances(),
     toutesLesSessionsRelationnelles(),
+    toutesLesSessionsVeridical(),
+    tousLesSeuilsVeridical(),
   ]);
 
   // Une matière est « terminée » quand toutes ses cartes connues sont acquises.
@@ -517,6 +565,9 @@ export async function contexteBadges(profil?: Profil): Promise<ContexteBadges> {
       0,
     ),
     itemsRelationnels: relationnelles.reduce((n, s) => n + s.reussis, 0),
+    sessionsVeridical: vmSessions.length,
+    seuilsStabilises: vmSeuils.filter((s) => s.statut === 'converge').length,
+    seuilsTransmodaux: vmSeuils.filter((s) => s.statut === 'converge' && s.transmodale).length,
   };
 }
 

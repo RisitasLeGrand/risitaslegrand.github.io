@@ -21,7 +21,7 @@ et suivi de progression — le tout dans le navigateur, sans serveur ni compte.
 11. [Changer le mot de passe](#changer-le-mot-de-passe)
 12. [Comment fonctionne la protection](#comment-fonctionne-la-protection)
 13. [Sauvegarder et synchroniser la progression](#sauvegarder-et-synchroniser-la-progression)
-14. [Cog-Training : Quad N-Back et Relational Reasoning](#cog-training--quad-n-back-et-relational-reasoning)
+14. [Cog-Training](#cog-training--quad-n-back-relational-reasoning-et-veridical-mapping)
 15. [Organisation du projet](#organisation-du-projet)
 16. [En cas de problème](#en-cas-de-problème)
 
@@ -756,7 +756,7 @@ La page **Sauvegarde** permet de :
 
 ---
 
-## Cog-Training : Quad N-Back et Relational Reasoning
+## Cog-Training : Quad N-Back, Relational Reasoning et Veridical Mapping
 
 La rubrique **Cog-Training** (`/cog-training/`) réunit des exercices
 indépendants du programme du concours. L'ancienne adresse `/entrainement/`
@@ -766,6 +766,7 @@ redirige vers elle.
 |---|---|---|
 | **Quad N-Back** | `/cog-training/quad-n-back/` | Mémoire de travail |
 | **Relational Reasoning** | `/cog-training/relational-reasoning/` | Raisonnement relationnel |
+| **Veridical Mapping** | `/cog-training/veridical-mapping/` | Correspondance perceptive |
 
 Aucun ne contient de données du concours : ils ne sont pas chiffrés, mais
 restent derrière l'écran de connexion. Contrairement à l'exercice Syllogismes
@@ -859,6 +860,40 @@ c'est ce contrôle qui a pris le seul vrai défaut de la première version, un
 
 Le détail du découpage et les décisions de conception figurent dans `PLAN.md`,
 phase 8.
+
+### Veridical Mapping — seuils et comparabilité
+
+L'exercice mesure, pour chaque **paire de dimensions perceptives**, le plus petit
+écart encore distingué. Une référence est montrée sur une dimension, deux
+candidats sur l'autre, dont un seul est au même niveau relatif : après deux
+réussites l'écart se resserre, après une erreur il s'élargit. C'est une procédure
+**2-down-1-up**, qui converge vers le point où l'on réussit 70,7 % des essais.
+
+**La normalisation est dans le jeu de stimuli, pas dans le score.** Chaque
+dimension découpe sa plage en cent vingt pas perceptivement réguliers — géométriques
+là où la loi de Weber s'applique au stimulus physique (taille, durée, fréquence),
+linéaires là où l'échelle est déjà perceptive (décibels, clarté L*, degrés de
+teinte). Un seuil exprimé en pas est donc sans unité, et sept pas de taille se
+comparent directement à sept pas d'intensité sonore.
+
+Les deux sens de chaque paire sont suivis séparément : c'est la façon la plus
+directe de mesurer la **bidirectionnalité**, taille → intensité et
+intensité → taille se lisant côte à côte dans la matrice du hub.
+
+La règle de Stevens — on ne relie que deux dimensions de la même famille — est le
+réglage par défaut et non une impossibilité câblée. Elle écarte en effet
+précisément hauteur ↔ taille et hauteur ↔ luminosité, parmi les correspondances
+transmodales les mieux répliquées de la littérature. Un interrupteur les ouvre, et
+le tableau de bord les suit à part.
+
+```bash
+npm run essais:veridical
+```
+
+Vérifie les plages, le rebouclage de la teinte, le hub, l'arbre couvrant, puis
+fait tourner l'escalier contre un **observateur simulé de seuil connu**. Une
+procédure adaptative se relit mal : c'est en la faisant converger sur une valeur
+qu'on a fixée d'avance qu'on sait si elle mesure ce qu'on croit.
 
 ### Quad N-Back
 

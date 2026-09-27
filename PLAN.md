@@ -311,7 +311,7 @@ d'une famille que l'échelon courant d'un moteur, sans rien mémoriser qu'un imp
 de sauvegarde pourrait désynchroniser. Clés d'XP dans `site.config.mjs` sur le
 modèle de `nbackSession`, et des badges de déblocage par famille.
 
-## Phase 9 — Veridical Mapping 🔄
+## Phase 9 — Veridical Mapping 🔄 (v1 livrée)
 
 Troisième rubrique de Cog-Training : un entraînement de mise en correspondance
 perceptive entre dimensions, fondé sur la psychophysique de Stevens.
@@ -429,15 +429,48 @@ interrupteur « paires transmodales hors famille » permet d'ouvrir les six arê
 manquantes sans retoucher le code, et le tableau de bord les distingue pour que
 les deux régimes ne se mélangent pas dans les statistiques.
 
+### Ce que la mise en œuvre a appris
+
+**L'escalier retrouve exactement ce que la théorie prédit, et c'est ainsi qu'on
+le vérifie.** Une procédure adaptative se relit mal ; on la fait tourner contre
+un observateur simulé dont le seuil est connu. La règle 2-down-1-up converge vers
+le point à 70,7 % de la courbe psychométrique, qui pour une Weibull de pente 3
+vaut 0,812 fois le paramètre d'échelle — et l'escalier rend 0,77 à 0,80 sur trois
+seuils vrais différents. Un contrôle qui aurait simplement exigé « le bon ordre
+de grandeur » aurait laissé passer une erreur de règle ; celui-ci la prendrait.
+
+**La charge ajoute des sous-essais, pas des candidats.** C'est la décision qui
+sauve la comparabilité des seuils. Ajouter des candidats aurait changé le niveau
+du hasard — un sur trois au lieu d'un sur deux —, donc le point de convergence
+de l'escalier, donc la signification du seuil : une mesure à charge 3 n'aurait
+plus rien eu à voir avec une mesure à charge 1. Plusieurs sous-essais au même
+écart, chacun nourrissant l'escalier pour son compte, augmentent ce qu'il faut
+tenir à la fois sans toucher à la mesure — ce que le cahier des charges demandait
+précisément.
+
+**Un réglage plausible pouvait ne rien mesurer du tout.** Quarante-huit essais
+répartis sur les douze arêtes d'une famille en laissent quatre chacune, là où un
+seuil en demande une trentaine. La session aurait été agréable et parfaitement
+vaine. Les réglages affichent donc le nombre d'essais par arête qu'ils impliquent,
+et préviennent quand il est trop faible.
+
+**Les couleurs sont en `oklch`.** Quand une dimension perceptive *est* la mesure,
+la régularité de l'échelle de couleur n'est pas un agrément : en `hsl`, deux pas
+de clarté séparés par le même écart numérique ne se ressemblent pas selon la
+teinte, et le seuil mesuré ne voudrait plus rien dire.
+
 ### Découpage de la mise en œuvre
 
 - **9a** — chaîne Web Audio, les sept dimensions et leurs plages en pas
-  discriminables, la route vision → vision.
-- **9b** — escalier adaptatif, Δz, statuts, persistance v5, XP et badges.
-- **9c** — routes audition → audition et transmodales, arbre couvrant et
-  mélange exhaustif, longueurs de session.
-- **9d** — plans 2-D et modulaire, redintégration et résistance au bruit.
-- **9e** — tableau de bord complet, export JSON, texte « à propos » et crédits.
+  discriminables. ✅
+- **9b** — escalier adaptatif, seuil en pas, statuts, persistance v6, XP et
+  badges. ✅
+- **9c** — toutes les routes d'une famille, arbre couvrant et mélange exhaustif,
+  longueurs de session, charge. ✅
+- **9d** — redintégration et résistance au bruit comme variantes d'essai ✅ ;
+  plans 2-D et modulaire restent à faire.
+- **9e** — tableau de bord, export JSON, effacement, texte « à propos » et
+  crédits. ✅
 
 ## Pistes pour la suite
 

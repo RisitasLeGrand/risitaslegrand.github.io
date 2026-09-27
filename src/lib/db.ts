@@ -92,6 +92,54 @@ export interface SessionRelationnelle {
 }
 
 /**
+ * Seuil de discrimination d'une paire de dimensions, dans un sens donné.
+ *
+ * L'état complet de l'escalier est conservé, et pas seulement le seuil : une
+ * procédure adaptative se poursuit d'une session à l'autre, et repartir de
+ * l'écart initial à chaque session gâcherait la moitié des essais à redescendre
+ * vers un seuil déjà connu.
+ */
+export interface SeuilVeridical {
+  /** « taille>intensite » — la direction compte, la bidirectionnalité se mesure. */
+  id: string;
+  famille: string;
+  de: string;
+  vers: string;
+  /** La paire franchit la frontière des familles de Stevens. */
+  horsFamille: boolean;
+  /** Les deux dimensions n'ont pas la même modalité : vision ↔ audition. */
+  transmodale: boolean;
+  escalier: {
+    delta: number;
+    bonnesDeSuite: number;
+    inversions: number[];
+    derniereDirection: 'resserre' | 'elargit' | null;
+    essais: number;
+    reussis: number;
+  };
+  /** Seuil en pas, comparable d'une dimension à l'autre. Null tant qu'il manque des inversions. */
+  seuil: number | null;
+  statut: 'jamais' | 'en-cours' | 'converge';
+  majLe: string;
+}
+
+/** Une session de Veridical Mapping. */
+export interface SessionVeridical {
+  id?: number;
+  le: string;
+  famille: string;
+  mode: string;
+  charge: number;
+  essais: number;
+  reussis: number;
+  /** Les arêtes travaillées. */
+  paires: string[];
+  /** Seuil médian des arêtes travaillées, en pas. */
+  seuilMedian: number | null;
+  secondes: number;
+}
+
+/**
  * Séance de révision planifiée.
  *
  * Une séance porte sur UN thème de planification et un jour donné. Les
@@ -197,10 +245,12 @@ interface SchemaRevinsp extends DBSchema {
   qcmDgfip: { key: string; value: EtatQuestionDgfip; indexes: { rubriqueId: string } };
   qcmSessions: { key: number; value: SessionDgfip; indexes: { le: string } };
   relationnel: { key: number; value: SessionRelationnelle; indexes: { le: string } };
+  vmSeuils: { key: string; value: SeuilVeridical; indexes: { famille: string } };
+  vmSessions: { key: number; value: SessionVeridical; indexes: { le: string } };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 5;
+const VERSION = 6;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -245,6 +295,17 @@ export function db() {
           autoIncrement: true,
         });
         relationnel.createIndex('le', 'le');
+      }
+      if (ancienneVersion < 6) {
+        // Veridical Mapping : un seuil par arête du hub, et le journal des
+        // sessions.
+        const seuils = base.createObjectStore('vmSeuils', { keyPath: 'id' });
+        seuils.createIndex('famille', 'famille');
+        const sessions = base.createObjectStore('vmSessions', {
+          keyPath: 'id',
+          autoIncrement: true,
+        });
+        sessions.createIndex('le', 'le');
       }
     },
   });
@@ -368,6 +429,22 @@ export async function ajouterSessionRelationnelle(session: SessionRelationnelle)
 
 export async function toutesLesSessionsRelationnelles(): Promise<SessionRelationnelle[]> {
   return (await db()).getAll('relationnel');
+}
+
+export async function tousLesSeuilsVeridical(): Promise<SeuilVeridical[]> {
+  return (await db()).getAll('vmSeuils');
+}
+
+export async function ecrireSeuilVeridical(seuil: SeuilVeridical) {
+  await (await db()).put('vmSeuils', seuil);
+}
+
+export async function ajouterSessionVeridical(session: SessionVeridical) {
+  await (await db()).add('vmSessions', session);
+}
+
+export async function toutesLesSessionsVeridical(): Promise<SessionVeridical[]> {
+  return (await db()).getAll('vmSessions');
 }
 
 /* --- Séances de révision -------------------------------------------------- */
@@ -507,6 +584,8 @@ export async function exporterTout() {
     qcmDgfip: await base.getAll('qcmDgfip'),
     qcmSessions: await base.getAll('qcmSessions'),
     relationnel: await base.getAll('relationnel'),
+    vmSeuils: await base.getAll('vmSeuils'),
+    vmSessions: await base.getAll('vmSessions'),
     planification: await lireReglagesPlanification(),
     reglagesSession: (await base.get('etat', 'reglagesSession')) as ReglagesSession | undefined,
   };
@@ -612,6 +691,20 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
       const { id: _ignore, ...sansId } = session;
       await base.add('relationnel', sansId as SessionRelationnelle);
     }
+    // Les seuils ne s'additionnent pas : on garde celui dont l'escalier a vu le
+    // plus d'essais, puisque c'est lui le mieux estimé.
+    for (const seuil of donnees.vmSeuils ?? []) {
+      const local = await base.get('vmSeuils', seuil.id);
+      if (!local || seuil.escalier.essais > local.escalier.essais) {
+        await base.put('vmSeuils', seuil);
+      }
+    }
+    const vmExistantes = new Set((await base.getAll('vmSessions')).map((s) => s.le));
+    for (const session of donnees.vmSessions ?? []) {
+      if (vmExistantes.has(session.le)) continue;
+      const { id: _ignore, ...sansId } = session;
+      await base.add('vmSessions', sansId as SessionVeridical);
+    }
     // QCM DGFiP : les compteurs par question s'additionnent, l'appareil le
     // plus avancé n'étant pas forcément le même selon la question.
     for (const etat of donnees.qcmDgfip ?? []) {
@@ -668,10 +761,29 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
       const { id: _ignore, ...sansId } = session;
       await base.add('relationnel', sansId as SessionRelationnelle);
     }
+    for (const seuil of donnees.vmSeuils ?? []) await base.put('vmSeuils', seuil);
+    for (const session of donnees.vmSessions ?? []) {
+      const { id: _ignore, ...sansId } = session;
+      await base.add('vmSessions', sansId as SessionVeridical);
+    }
   }
 
   if (donnees.planification) await ecrireReglagesPlanification(donnees.planification);
   if (donnees.reglagesSession) await ecrireReglagesSession(donnees.reglagesSession);
+}
+
+/**
+ * Efface les seules données de Veridical Mapping.
+ *
+ * L'outil de référence prévoit un effacement manuel ; on le garde, mais borné à
+ * cette rubrique, pour qu'on puisse repartir de zéro sur les seuils sans perdre
+ * les fiches, les flashcards et le reste de la progression.
+ */
+export async function effacerVeridical() {
+  const base = await db();
+  const tx = base.transaction(['vmSeuils', 'vmSessions'], 'readwrite');
+  await Promise.all([tx.objectStore('vmSeuils').clear(), tx.objectStore('vmSessions').clear()]);
+  await tx.done;
 }
 
 /** Efface toute la progression locale (bouton « tout réinitialiser »). */
@@ -689,6 +801,8 @@ export async function toutEffacer() {
       'qcmDgfip',
       'qcmSessions',
       'relationnel',
+      'vmSeuils',
+      'vmSessions',
     ],
     'readwrite',
   );
@@ -703,6 +817,8 @@ export async function toutEffacer() {
     tx.objectStore('qcmDgfip').clear(),
     tx.objectStore('qcmSessions').clear(),
     tx.objectStore('relationnel').clear(),
+    tx.objectStore('vmSeuils').clear(),
+    tx.objectStore('vmSessions').clear(),
   ]);
   await tx.done;
 }

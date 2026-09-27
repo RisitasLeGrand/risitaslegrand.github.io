@@ -1,6 +1,6 @@
 ---
 /**
- * Accueil de la rubrique Cog-Training : deux exercices distincts.
+ * Accueil de la rubrique Cog-Training : trois exercices distincts.
  *
  * Les exercices ne contiennent aucune donnée du concours et ne sont donc pas
  * chiffrés, mais ils restent derrière l'écran de connexion comme le reste.
@@ -31,6 +31,18 @@ const exercices = [
     utilite: 'Repérer un sophisme, construire un plan qui tient — sans garantie de transfert.',
     href: 'relational-reasoning/',
   },
+  {
+    id: 'veridical-mapping',
+    icone: '🎚️',
+    titre: 'Veridical Mapping',
+    accroche: 'Correspondance perceptive',
+    description:
+      'Deux dimensions perceptives en vis-à-vis — une taille et une intensité sonore, ' +
+      'une position et une teinte. Il s\'agit d\'en établir la correspondance, de plus en ' +
+      'plus finement, jusqu\'au plus petit écart que vous distinguez encore.',
+    utilite: 'Lire une échelle d\'un coup d\'œil — sans garantie de transfert.',
+    href: 'veridical-mapping/',
+  },
 ];
 ---
 
@@ -38,16 +50,17 @@ const exercices = [
   <header class="mb-6">
     <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Cog-Training</h1>
     <p class="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
-      Deux exercices d'entraînement cognitif, indépendants du programme du concours. Ils
-      travaillent des aptitudes que les épreuves sollicitent sans jamais les évaluer
-      directement : tenir plusieurs informations en mémoire, et inférer une règle
-      relationnelle qu'aucun énoncé ne nomme.
+      Trois exercices d'entraînement, indépendants du programme du concours : tenir plusieurs
+      informations en mémoire, inférer une règle relationnelle qu'aucun énoncé ne nomme, et mettre
+      deux échelles perceptives en correspondance. Ils ne mesurent rien de clinique et ne
+      diagnostiquent personne, et rien ne garantit que s'y entraîner améliore quoi que ce soit
+      au-delà de la tâche elle-même.
     </p>
   </header>
 
   <div id="chargement" class="py-20 text-center text-slate-400">Chargement…</div>
 
-  <div id="exercices" class="hidden grid gap-4 sm:grid-cols-2">
+  <div id="exercices" class="hidden grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
     {
       exercices.map((exercice) => (
         <a

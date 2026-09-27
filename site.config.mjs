@@ -113,5 +113,13 @@ export default {
     relationnelSession: 8,
     relationnelParItem: 4,
     relationnelParPhase: 3,
+    /**
+     * Veridical Mapping : base par session, puis bonus par essai réussi et
+     * prime à chaque paire dont le seuil se stabilise. Un essai y est très
+     * court, d'où un rapport par essai bien plus faible qu'ailleurs.
+     */
+    veridicalSession: 6,
+    veridicalParEssai: 1,
+    veridicalConvergence: 25,
   },
 };

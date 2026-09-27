@@ -17,6 +17,7 @@
     "actualites:lire": "node scripts/dechiffrer-actualite.mjs",
     "verifier": "astro check",
     "essais:relationnel": "tsx scripts/essais-relationnel.mts",
+    "essais:veridical": "tsx scripts/essais-veridical.mts",
     "contrastes": "node scripts/verifier-contrastes.mjs"
   },
   "repository": {
