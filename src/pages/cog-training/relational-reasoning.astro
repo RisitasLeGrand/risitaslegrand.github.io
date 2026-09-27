@@ -1,0 +1,53 @@
+---
+/**
+ * Exercice Relational Reasoning.
+ *
+ * Il remplace Syllogismes et, contrairement à lui, vit dans le site : pas
+ * d'iframe, pas de sous-site statique atteignable par son adresse, une seule
+ * chaîne de build et une seule base de progression.
+ */
+import Base from '../../layouts/Base.astro';
+import RelationalReasoning from '../../features/relational-reasoning/composants/RelationalReasoning.svelte';
+---
+
+<Base titre="Relational Reasoning" actif="cog-training">
+  <header class="mb-5">
+    <a
+      id="retour"
+      href="../"
+      class="text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+      >← Cog-Training</a
+    >
+    <h1 class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">Relational Reasoning</h1>
+    <p class="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+      Un réseau de relations vous est montré sans que la règle qui le régit soit nommée : à vous de
+      l'inférer, puis de l'appliquer à un cas nouveau. La difficulté ne tient pas au vocabulaire
+      mais à la structure — un ordre, une équivalence, une opposition ne se comportent pas de la
+      même façon, et c'est cette différence que l'exercice travaille.
+    </p>
+  </header>
+
+  <div id="chargement" class="py-20 text-center text-slate-400">Chargement de l'exercice…</div>
+
+  <div id="exercice" class="hidden">
+    <!--
+      client:only : le moteur et ses solveurs ne sont chargés que sur cette
+      page, jamais au chargement des autres pages du site.
+    -->
+    <RelationalReasoning client:only="svelte" />
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { lien } from '../../lib/ui';
+
+  document.getElementById('retour')!.setAttribute('href', lien('/cog-training/'));
+
+  // L'exercice ne contient aucune donnée du concours et n'est donc pas chiffré,
+  // mais il reste derrière l'écran de connexion comme le reste du site.
+  auDeverrouillage(() => {
+    document.getElementById('chargement')!.classList.add('hidden');
+    document.getElementById('exercice')!.classList.remove('hidden');
+  });
+</script>

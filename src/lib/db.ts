@@ -66,6 +66,26 @@ export interface SessionNBack {
 }
 
 /**
+ * Session de Relational Reasoning.
+ *
+ * Le détail par item est conservé — un enregistrement par question, avec son
+ * moteur et son système — et non le seul total. C'est ce qui permet au tableau
+ * de bord de montrer la force par moteur, et surtout à la phase de progression
+ * de se **recalculer** au lieu d'être stockée : une phase mémorisée se
+ * désynchroniserait d'un import de sauvegarde, alors qu'un décompte se refait.
+ */
+export interface SessionRelationnelle {
+  id?: number;
+  le: string;
+  /** Phase de progression jouée, de 1 à 4. */
+  phase: number;
+  items: { moteur: string; systeme: string; reussi: boolean }[];
+  tentes: number;
+  reussis: number;
+  secondes: number;
+}
+
+/**
  * Séance de révision planifiée.
  *
  * Une séance porte sur UN thème de planification et un jour donné. Les
@@ -170,10 +190,11 @@ interface SchemaRevinsp extends DBSchema {
   seances: { key: number; value: Seance; indexes: { jour: string; theme: string } };
   qcmDgfip: { key: string; value: EtatQuestionDgfip; indexes: { rubriqueId: string } };
   qcmSessions: { key: number; value: SessionDgfip; indexes: { le: string } };
+  relationnel: { key: number; value: SessionRelationnelle; indexes: { le: string } };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 4;
+const VERSION = 5;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -210,6 +231,14 @@ export function db() {
         dgfip.createIndex('rubriqueId', 'rubriqueId');
         const sessions = base.createObjectStore('qcmSessions', { keyPath: 'id', autoIncrement: true });
         sessions.createIndex('le', 'le');
+      }
+      if (ancienneVersion < 5) {
+        // Sessions de Relational Reasoning, qui remplace Syllogismes.
+        const relationnel = base.createObjectStore('relationnel', {
+          keyPath: 'id',
+          autoIncrement: true,
+        });
+        relationnel.createIndex('le', 'le');
       }
     },
   });
@@ -325,6 +354,14 @@ export async function ajouterSessionNBack(session: SessionNBack) {
 
 export async function toutesLesSessionsNBack(): Promise<SessionNBack[]> {
   return (await db()).getAll('nback');
+}
+
+export async function ajouterSessionRelationnelle(session: SessionRelationnelle) {
+  await (await db()).add('relationnel', session);
+}
+
+export async function toutesLesSessionsRelationnelles(): Promise<SessionRelationnelle[]> {
+  return (await db()).getAll('relationnel');
 }
 
 /* --- Séances de révision -------------------------------------------------- */
@@ -463,6 +500,7 @@ export async function exporterTout() {
     seances: await base.getAll('seances'),
     qcmDgfip: await base.getAll('qcmDgfip'),
     qcmSessions: await base.getAll('qcmSessions'),
+    relationnel: await base.getAll('relationnel'),
     planification: await lireReglagesPlanification(),
     reglagesSession: (await base.get('etat', 'reglagesSession')) as ReglagesSession | undefined,
   };
@@ -562,6 +600,12 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
       const { id: _ignore, ...sansId } = session;
       await base.add('nback', sansId as SessionNBack);
     }
+    const relationnellesExistantes = new Set((await base.getAll('relationnel')).map((s) => s.le));
+    for (const session of donnees.relationnel ?? []) {
+      if (relationnellesExistantes.has(session.le)) continue;
+      const { id: _ignore, ...sansId } = session;
+      await base.add('relationnel', sansId as SessionRelationnelle);
+    }
     // QCM DGFiP : les compteurs par question s'additionnent, l'appareil le
     // plus avancé n'étant pas forcément le même selon la question.
     for (const etat of donnees.qcmDgfip ?? []) {
@@ -614,6 +658,10 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
       const { id: _ignore, ...sansId } = session;
       await base.add('qcmSessions', sansId as SessionDgfip);
     }
+    for (const session of donnees.relationnel ?? []) {
+      const { id: _ignore, ...sansId } = session;
+      await base.add('relationnel', sansId as SessionRelationnelle);
+    }
   }
 
   if (donnees.planification) await ecrireReglagesPlanification(donnees.planification);
@@ -624,7 +672,18 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
 export async function toutEffacer() {
   const base = await db();
   const tx = base.transaction(
-    ['etat', 'cartes', 'fiches', 'quiz', 'jours', 'nback', 'seances', 'qcmDgfip', 'qcmSessions'],
+    [
+      'etat',
+      'cartes',
+      'fiches',
+      'quiz',
+      'jours',
+      'nback',
+      'seances',
+      'qcmDgfip',
+      'qcmSessions',
+      'relationnel',
+    ],
     'readwrite',
   );
   await Promise.all([
@@ -637,6 +696,7 @@ export async function toutEffacer() {
     tx.objectStore('seances').clear(),
     tx.objectStore('qcmDgfip').clear(),
     tx.objectStore('qcmSessions').clear(),
+    tx.objectStore('relationnel').clear(),
   ]);
   await tx.done;
 }

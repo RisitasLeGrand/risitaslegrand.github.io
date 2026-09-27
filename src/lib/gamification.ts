@@ -16,6 +16,7 @@ import {
   tousLesResultatsQuiz,
   toutesLesSeances,
   toutesLesSessionsNBack,
+  toutesLesSessionsRelationnelles,
   type Jour,
   type Profil,
 } from './db';
@@ -117,6 +118,18 @@ export const xpFiche = () => XP.ficheTerminee;
 export const xpNBack = (n: number, taux: number) =>
   XP.nbackSession + n * XP.nbackParNiveau + (taux >= 0.8 ? XP.nbackBonusReussite : 0);
 
+/**
+ * XP d'une session de Relational Reasoning.
+ *
+ * Le décompte porte sur les items **réussis** et non sur la session : contrairement
+ * au Quad N-Back, où la partie entière forme un tout, une session relationnelle
+ * est une suite d'items indépendants, et une session à moitié juste vaut la
+ * moitié. La phase majore l'ensemble, un item de phase 4 demandant davantage
+ * qu'un item de phase 1.
+ */
+export const xpRelationnel = (reussis: number, phase: number) =>
+  XP.relationnelSession + reussis * (XP.relationnelParItem + (phase - 1) * XP.relationnelParPhase);
+
 // --- Badges ---------------------------------------------------------------
 
 export interface Badge {
@@ -143,6 +156,10 @@ interface ContexteBadges {
   sessionsNBack: number;
   /** Plus haut n validé (précision équilibrée ≥ 85 %). */
   meilleurNBack: number;
+  /** Items de Relational Reasoning réussis, toutes phases confondues. */
+  itemsRelationnels: number;
+  /** Plus haute phase de Relational Reasoning dans laquelle un item a été réussi. */
+  phaseRelationnelle: number;
   /** Jours écoulés depuis la toute première journée de révision (1 le jour même). */
   joursDepuisDebut: number;
 }
@@ -259,6 +276,37 @@ export const BADGES: DefinitionBadge[] = [
     description: 'Cumuler 50 sessions de Quad N-Back.',
     icone: '🔁',
     obtenu: (c) => c.sessionsNBack >= 50,
+  },
+  // Relational Reasoning : un jalon par phase de difficulté, plus un premier
+  // pas. Les seuils reprennent ceux qui ouvrent la phase suivante, de sorte
+  // qu'un badge tombe au moment où le palier s'ouvre.
+  {
+    id: 'relationnel-premier',
+    nom: 'Premier réseau',
+    description: 'Réussir un premier item de Relational Reasoning.',
+    icone: '🕸️',
+    obtenu: (c) => c.itemsRelationnels >= 1,
+  },
+  {
+    id: 'relationnel-phase-2',
+    nom: 'Mondes clos',
+    description: 'Ouvrir la phase 2 de Relational Reasoning.',
+    icone: '🧩',
+    obtenu: (c) => c.itemsRelationnels >= 30,
+  },
+  {
+    id: 'relationnel-phase-3',
+    nom: 'Espace et cycles',
+    description: 'Ouvrir la phase 3 de Relational Reasoning.',
+    icone: '🧊',
+    obtenu: (c) => c.itemsRelationnels >= 70,
+  },
+  {
+    id: 'relationnel-phase-4',
+    nom: 'Algèbres topologiques',
+    description: 'Ouvrir la phase 4 de Relational Reasoning.',
+    icone: '🌀',
+    obtenu: (c) => c.itemsRelationnels >= 130,
   },
   // Jalons de durée : le programme s'étale sur plusieurs années, et la série
   // de jours consécutifs ne dit rien de cette profondeur — un an de révision
@@ -430,7 +478,7 @@ export async function vueLongTerme(): Promise<VueLongTerme> {
 
 /** Construit le contexte d'évaluation des badges à partir de la base locale. */
 export async function contexteBadges(profil?: Profil): Promise<ContexteBadges> {
-  const [p, cartes, fiches, quiz, jours, sessions, seances] = await Promise.all([
+  const [p, cartes, fiches, quiz, jours, sessions, seances, relationnelles] = await Promise.all([
     profil ? Promise.resolve(profil) : lireProfil(),
     toutesLesCartes(),
     tousLesEtatsFiches(),
@@ -438,6 +486,7 @@ export async function contexteBadges(profil?: Profil): Promise<ContexteBadges> {
     tousLesJours(),
     toutesLesSessionsNBack(),
     toutesLesSeances(),
+    toutesLesSessionsRelationnelles(),
   ]);
 
   // Une matière est « terminée » quand toutes ses cartes connues sont acquises.
@@ -466,6 +515,11 @@ export async function contexteBadges(profil?: Profil): Promise<ContexteBadges> {
     sessionsNBack: sessions.filter((s) => s.statut !== 'jalon').length,
     meilleurNBack: sessions.reduce(
       (n, s) => (s.statut !== 'jalon' && s.taux >= 0.8 ? Math.max(n, s.n) : n),
+      0,
+    ),
+    itemsRelationnels: relationnelles.reduce((n, s) => n + s.reussis, 0),
+    phaseRelationnelle: relationnelles.reduce(
+      (n, s) => (s.reussis > 0 ? Math.max(n, s.phase) : n),
       0,
     ),
   };
