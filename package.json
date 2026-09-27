@@ -16,6 +16,7 @@
     "actualites:local": "node scripts/actualites-local.mjs",
     "actualites:lire": "node scripts/dechiffrer-actualite.mjs",
     "verifier": "astro check",
+    "essais:relationnel": "tsx scripts/essais-relationnel.mts",
     "contrastes": "node scripts/verifier-contrastes.mjs"
   },
   "repository": {
@@ -45,6 +46,7 @@
     "remark-gfm": "^4.0.1",
     "remark-parse": "^11.0.0",
     "remark-rehype": "^11.1.2",
+    "tsx": "^4.23.15",
     "typescript": "^6.0.3",
     "unified": "^11.0.5",
     "unist-util-visit": "^5.1.0",
