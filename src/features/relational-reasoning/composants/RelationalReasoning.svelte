@@ -1,21 +1,35 @@
 <script lang="ts">
   /**
-   * La session de Relational Reasoning : quelques items tirés dans la phase
-   * courante, correction immédiate, revue des manqués à la fin.
+   * La session de Relational Reasoning : quelques items tirés dans les moteurs
+   * ouverts, chacun à son propre échelon, correction immédiate, revue des
+   * manqués à la fin.
    *
    * Un item dont le générateur a prévu un second temps compte pour **deux**
    * questions : le second temps est posé après correction du premier, et noté
-   * séparément. Compter les deux comme une seule question aurait pénalisé les
-   * items les plus riches, qui sont précisément ceux qu'on veut voir.
+   * séparément. Les compter pour une seule aurait pénalisé les items les plus
+   * riches, qui sont précisément ceux qu'on veut voir revenir.
+   *
+   * L'espace « Comprendre » est consultable depuis l'accueil et n'interrompt
+   * jamais une session. Le rappel d'une ligne au-dessus de chaque question est
+   * le seul tutoriel en cours de session, et il se coupe.
    */
-  import { ajouterSessionRelationnelle } from '../../../lib/db';
+  import { ajouterSessionRelationnelle, toutesLesSessionsRelationnelles } from '../../../lib/db';
   import { gagnerXp, xpRelationnel } from '../../../lib/gamification';
   import Bloc from './Bloc.svelte';
+  import Comprendre from './Comprendre.svelte';
   import type { Item, Reponse } from '../moteurs/types';
+  import { moteurParId } from '../moteurs/index';
+  import { noter, type Donnee } from '../noyaux/notation';
   import { composerSession } from '../session';
-  import { phaseAtteinte, phasesJouables, prochainPalier, PHASES } from '../progression';
+  import {
+    etatDesMoteurs,
+    itemsReussis,
+    prochainPalierSystemes,
+    type Trace,
+  } from '../progression';
 
   type Etape = 'accueil' | 'question' | 'bilan';
+
   /** Une question posée : le temps principal d'un item, ou son second temps. */
   interface Question {
     item: Item;
@@ -26,28 +40,63 @@
     explication: string;
   }
 
-  let { itemsReussisInitial = 0 }: { itemsReussisInitial?: number } = $props();
-
-  const jouables = phasesJouables();
+  const CLE_TUTORIELS = 'revinsp:rr:tutoriels';
 
   let etape = $state<Etape>('accueil');
-  let phase = $state(Math.min(phaseAtteinte(itemsReussisInitial), Math.max(...jouables.map((p) => p.numero))));
+  let chargement = $state(true);
+  let traces = $state<Trace[]>([]);
   let longueur = $state(12);
+  let comprendreOuvert = $state(false);
+  let tutoriels = $state(true);
 
   let questions = $state<Question[]>([]);
   let rang = $state(0);
   let corrige = $state(false);
-  let resultats = $state<{ question: Question; juste: boolean }[]>([]);
+  let resultats = $state<{ question: Question; note: number }[]>([]);
   let debut = 0;
   let xpGagne = $state(0);
 
-  // La réponse en cours, dans la forme qu'impose le genre de la question.
   let choixUnique = $state<number | null>(null);
   let choixMultiples = $state<number[]>([]);
   let appariements = $state<Record<string, string>>({});
 
   const question = $derived(questions[rang]);
-  const palier = $derived(prochainPalier(itemsReussisInitial + resultats.filter((r) => r.juste).length));
+  const etats = $derived(etatDesMoteurs(traces));
+  const ouverts = $derived(etats.filter((etat) => etat.ouvert));
+  const palier = $derived(prochainPalierSystemes(traces));
+
+  $effect(() => {
+    // Le réglage des tutoriels est une commodité par appareil : il n'a pas sa
+    // place dans la base de progression, qui se synchronise entre appareils.
+    try {
+      tutoriels = localStorage.getItem(CLE_TUTORIELS) !== 'non';
+    } catch {
+      /* navigation privée : le réglage vaudra pour cette page seulement */
+    }
+  });
+
+  function basculerTutoriels() {
+    tutoriels = !tutoriels;
+    try {
+      localStorage.setItem(CLE_TUTORIELS, tutoriels ? 'oui' : 'non');
+    } catch {
+      /* sans stockage, le réglage ne survit pas au rechargement */
+    }
+  }
+
+  async function chargerTraces() {
+    try {
+      const sessions = await toutesLesSessionsRelationnelles();
+      traces = sessions
+        .slice()
+        .sort((a, b) => a.le.localeCompare(b.le))
+        .flatMap((session) => session.items);
+    } catch {
+      traces = [];
+    }
+    chargement = false;
+  }
+  chargerTraces();
 
   function questionsDe(item: Item): Question[] {
     const principale: Question = {
@@ -75,7 +124,7 @@
   }
 
   function commencer() {
-    const session = composerSession(phase, longueur);
+    const session = composerSession(traces, longueur);
     questions = session.items.flatMap(questionsDe);
     rang = 0;
     corrige = false;
@@ -99,20 +148,15 @@
     return question.reponse.gauche.every((clef) => appariements[clef]);
   });
 
-  function estJuste(): boolean {
-    const attendue = question.reponse;
-    if (attendue.genre === 'unique') return choixUnique === attendue.bonne;
-    if (attendue.genre === 'multiple') {
-      const donnees = [...choixMultiples].sort((a, b) => a - b);
-      const bonnes = [...attendue.bonnes].sort((a, b) => a - b);
-      return donnees.length === bonnes.length && donnees.every((v, i) => v === bonnes[i]);
-    }
-    return attendue.gauche.every((clef) => appariements[clef] === attendue.paires[clef]);
+  function donnee(): Donnee {
+    if (question.reponse.genre === 'unique') return { genre: 'unique', choix: choixUnique };
+    if (question.reponse.genre === 'multiple') return { genre: 'multiple', choix: choixMultiples };
+    return { genre: 'appariement', paires: appariements };
   }
 
   function valider() {
     if (!repondu || corrige) return;
-    resultats = [...resultats, { question, juste: estJuste() }];
+    resultats = [...resultats, { question, note: noter(question.reponse, donnee()) }];
     corrige = true;
   }
 
@@ -135,69 +179,75 @@
 
   async function terminer() {
     const secondes = Math.round((Date.now() - debut) / 1000);
-    const reussis = resultats.filter((r) => r.juste).length;
+    const reussis = resultats.filter((r) => r.note >= 1).length;
+    const echelons = resultats.map(
+      (r) => etats.find((e) => e.moteur.id === r.question.item.moteur)?.echelon ?? 1,
+    );
+    const echelonMoyen = echelons.length
+      ? echelons.reduce((somme, e) => somme + e, 0) / echelons.length
+      : 1;
     etape = 'bilan';
+
+    const nouvelles: Trace[] = resultats.map((r) => ({
+      moteur: r.question.item.moteur,
+      systeme: r.question.item.systeme,
+      note: r.note,
+    }));
 
     try {
       await ajouterSessionRelationnelle({
         le: new Date().toISOString(),
-        phase,
-        items: resultats.map((r) => ({
-          moteur: r.question.item.moteur,
-          systeme: r.question.item.systeme,
-          reussi: r.juste,
-        })),
+        items: nouvelles,
         tentes: resultats.length,
         reussis,
         secondes,
       });
-      const gain = await gagnerXp(xpRelationnel(reussis, phase), {
+      const gain = await gagnerXp(xpRelationnel(reussis, echelonMoyen), {
         reponses: resultats.length,
         bonnes: reussis,
         secondes,
       });
       xpGagne = gain.xpGagne;
     } catch {
-      // L'enregistrement peut échouer en navigation privée : la session reste
-      // jouable et le bilan s'affiche, seul le suivi est perdu.
+      // L'enregistrement peut échouer en navigation privée : le bilan
+      // s'affiche quand même, seul le suivi est perdu.
     }
+    traces = [...traces, ...nouvelles];
   }
 
-  const manques = $derived(resultats.filter((r) => !r.juste));
-  const nomDeMoteur = (id: string) => id;
+  const manques = $derived(resultats.filter((r) => r.note < 1));
+  const reussis = $derived(resultats.filter((r) => r.note >= 1).length);
+  const partielles = $derived(resultats.filter((r) => r.note > 0 && r.note < 1).length);
+  const nomMoteur = (id: string) => moteurParId(id)?.nom ?? id;
+  const resumeMoteur = (id: string) => moteurParId(id)?.resume ?? '';
 </script>
 
-{#if etape === 'accueil'}
+{#if chargement}
+  <p class="py-16 text-center text-sm text-slate-400">Lecture de votre progression…</p>
+{:else if etape === 'accueil'}
   <section class="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-    <h2 class="font-semibold text-slate-900 dark:text-white">Choisir une session</h2>
-
-    <fieldset class="mt-4">
-      <legend class="text-sm font-medium text-slate-700 dark:text-slate-200">Phase</legend>
-      <div class="mt-2 space-y-2">
-        {#each jouables as p (p.numero)}
-          <label class="flex cursor-pointer items-start gap-3 rounded-lg border p-3
-            {phase === p.numero
-              ? 'border-indigo-300 bg-indigo-50 dark:border-indigo-700 dark:bg-indigo-950/40'
-              : 'border-slate-200 dark:border-slate-800'}">
-            <input type="radio" bind:group={phase} value={p.numero} class="mt-1" />
-            <span class="min-w-0">
-              <span class="block text-sm font-medium text-slate-900 dark:text-white">
-                Phase {p.numero} — {p.nom}
-              </span>
-              <span class="block text-xs text-slate-500 dark:text-slate-400">{p.resume}</span>
-            </span>
-          </label>
-        {/each}
-      </div>
-      {#if jouables.length < PHASES.length}
-        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-          Les phases suivantes apparaîtront à mesure que leurs systèmes et leurs moteurs seront
-          écrits.
+    <div class="flex flex-wrap items-start justify-between gap-3">
+      <div>
+        <h2 class="font-semibold text-slate-900 dark:text-white">Commencer une session</h2>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          {ouverts.length} exercice{ouverts.length > 1 ? 's' : ''} ouvert{ouverts.length > 1 ? 's' : ''},
+          chacun à son propre niveau. {itemsReussis(traces)} item{itemsReussis(traces) > 1 ? 's' : ''}
+          entièrement réussi{itemsReussis(traces) > 1 ? 's' : ''} jusqu'ici.
         </p>
-      {/if}
-    </fieldset>
+      </div>
+      <button
+        type="button"
+        onclick={() => (comprendreOuvert = !comprendreOuvert)}
+        class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700
+          hover:border-indigo-300 dark:border-slate-700 dark:text-slate-200"
+      >{comprendreOuvert ? 'Masquer' : 'Comprendre les exercices'}</button>
+    </div>
 
-    <fieldset class="mt-4">
+    {#if comprendreOuvert}
+      <Comprendre {etats} {tutoriels} onBasculerTutoriels={basculerTutoriels} />
+    {/if}
+
+    <fieldset class="mt-5">
       <legend class="text-sm font-medium text-slate-700 dark:text-slate-200">Nombre d'items</legend>
       <div class="mt-2 flex gap-2">
         {#each [8, 12, 20] as n (n)}
@@ -215,8 +265,8 @@
 
     {#if palier}
       <p class="mt-4 text-xs text-slate-500 dark:text-slate-400">
-        Encore {palier.reste} item{palier.reste > 1 ? 's' : ''} réussi{palier.reste > 1 ? 's' : ''}
-        pour ouvrir la phase {palier.phase.numero} — {palier.phase.nom}.
+        Encore {palier.reste} item{palier.reste > 1 ? 's' : ''} entièrement réussi{palier.reste > 1 ? 's' : ''}
+        pour ouvrir les systèmes « {palier.palier.nom} ».
       </p>
     {/if}
 
@@ -230,16 +280,20 @@
   <section>
     <div class="mb-4 flex items-center justify-between gap-4">
       <p class="text-xs font-medium uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
-        {nomDeMoteur(question.item.moteur)}{question.second ? ' — second temps' : ''}
+        {nomMoteur(question.item.moteur)}{question.second ? ' — second temps' : ''}
       </p>
       <p class="text-xs text-slate-500 dark:text-slate-400">{rang + 1} / {questions.length}</p>
     </div>
 
     <div class="h-1 overflow-hidden rounded bg-slate-200 dark:bg-slate-800">
-      <div class="h-full bg-indigo-500 transition-all" style="width: {((rang) / questions.length) * 100}%"></div>
+      <div class="h-full bg-indigo-500 transition-all" style="width: {(rang / questions.length) * 100}%"></div>
     </div>
 
-    <h2 class="mt-5 font-semibold text-slate-900 dark:text-white">{question.consigne}</h2>
+    {#if tutoriels && !question.second}
+      <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">{resumeMoteur(question.item.moteur)}</p>
+    {/if}
+
+    <h2 class="mt-4 font-semibold text-slate-900 dark:text-white">{question.consigne}</h2>
 
     {#each question.enonce as bloc, i (i)}
       <Bloc {bloc} />
@@ -268,7 +322,8 @@
       </div>
     {:else if question.reponse.genre === 'multiple'}
       <p class="mt-4 text-xs text-slate-500 dark:text-slate-400">
-        Plusieurs réponses peuvent être correctes : cochez-les toutes.
+        Plusieurs réponses peuvent être correctes : cochez-les toutes. Une case juste rapporte, une
+        case fausse retire autant — tout cocher ne rapporte rien.
       </p>
       <div class="mt-2 space-y-2">
         {#each question.reponse.options as option, i (i)}
@@ -325,14 +380,23 @@
 
     {#if corrige}
       {@const dernier = resultats[resultats.length - 1]}
+      {@const note = dernier?.note ?? 0}
       <div class="mt-5 rounded-lg border p-4 text-sm
-        {dernier?.juste
+        {note >= 1
           ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/30'
-          : 'border-rose-300 bg-rose-50 dark:border-rose-700 dark:bg-rose-950/30'}">
-        <p class="font-semibold {dernier?.juste
+          : note > 0
+            ? 'border-amber-300 bg-amber-50 dark:border-amber-700 dark:bg-amber-950/30'
+            : 'border-rose-300 bg-rose-50 dark:border-rose-700 dark:bg-rose-950/30'}">
+        <p class="font-semibold {note >= 1
           ? 'text-emerald-800 dark:text-emerald-200'
-          : 'text-rose-800 dark:text-rose-200'}">
-          {dernier?.juste ? 'Juste.' : 'Pas tout à fait.'}
+          : note > 0
+            ? 'text-amber-800 dark:text-amber-200'
+            : 'text-rose-800 dark:text-rose-200'}">
+          {note >= 1
+            ? 'Juste.'
+            : note > 0
+              ? `En partie : ${Math.round(note * 100)} %.`
+              : 'Pas tout à fait.'}
         </p>
         <p class="mt-1 text-slate-700 dark:text-slate-300">{question.explication}</p>
       </div>
@@ -360,23 +424,24 @@
   <section>
     <h2 class="font-semibold text-slate-900 dark:text-white">Bilan de la session</h2>
     <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
-      {resultats.filter((r) => r.juste).length} réponse{resultats.filter((r) => r.juste).length > 1 ? 's' : ''}
-      juste{resultats.filter((r) => r.juste).length > 1 ? 's' : ''} sur {resultats.length}.
+      {reussis} réponse{reussis > 1 ? 's' : ''} exacte{reussis > 1 ? 's' : ''} sur {resultats.length}{#if partielles},
+      et {partielles} partiellement juste{partielles > 1 ? 's' : ''}{/if}.
       {#if xpGagne}<span class="font-medium text-indigo-700 dark:text-indigo-300">+{xpGagne} XP.</span>{/if}
     </p>
 
     {#if manques.length}
       <h3 class="mt-6 text-sm font-semibold text-slate-900 dark:text-white">
-        Les {manques.length} item{manques.length > 1 ? 's' : ''} manqué{manques.length > 1 ? 's' : ''}
+        Les {manques.length} item{manques.length > 1 ? 's' : ''} à revoir
       </h3>
       <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-        Revoir une explication juste après la session vaut mieux que la relire plus tard.
+        Relire une explication juste après la session vaut mieux que la remettre à plus tard.
       </p>
       <ul class="mt-3 space-y-3">
         {#each manques as manque, i (i)}
           <li class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
             <p class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
-              {manque.question.item.moteur} — {manque.question.item.systeme}
+              {nomMoteur(manque.question.item.moteur)}
+              {#if manque.note > 0}— {Math.round(manque.note * 100)} %{/if}
             </p>
             <p class="mt-1 text-sm font-medium text-slate-900 dark:text-white">{manque.question.consigne}</p>
             <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{manque.question.explication}</p>

@@ -242,6 +242,48 @@ masques et une composition mémoïsée. Le facteur cinquante ne se voit pas sur 
 item isolé, mais l'énumération de scénarios que réclameront RCC8 et Allen rappelle
 la propagation à chaque branchement.
 
+### Progression : déblocage par famille, échelle par moteur
+
+Le cahier des charges révisé abandonne le séquencement en quatre phases rigides
+au profit du modèle observé dans l'outil de référence, et c'est un meilleur
+dessin : les quatre phases faisaient dépendre l'accès à un moteur d'un compteur
+global, si bien qu'une personne à l'aise en analogie devait accumuler des items
+d'induction pour y accéder.
+
+- **Au départ, un moteur par famille** : Hidden Algebra (isomorphisme), Analogy
+  Completion (analogie), Possibility Sets (incomplétude), Betweenness (autres
+  algèbres), plus les moteurs d'induction en accompagnement.
+- **Les autres moteurs d'une famille se débloquent** sur la maîtrise du moteur
+  déjà ouvert de cette même famille, et non sur un calendrier ni sur un total
+  général.
+- **Chaque moteur monte sa propre échelle** de difficulté, réglée par sa propre
+  réussite : nombre d'entités, présence de leurres à ressemblance de surface,
+  taille de l'ensemble de réponses. Il n'y a pas de difficulté unique pour la
+  rubrique.
+- **L'ordre d'apparition des systèmes** reste celui des quatre paliers — line,
+  plane, groups, puis digraph et poset, puis space et cyclic, puis rcc8 et allen
+  — mais comme ordre par défaut à l'intérieur des moteurs, indépendamment du
+  déblocage.
+
+**Le barème crédite l'incertitude.** Sur les moteurs à sélection multiple, une
+réponse partiellement juste vaut plus qu'une réponse fausse et moins qu'une
+réponse exacte ; tout cocher ne rapporte rien. C'est la contrepartie du principe
+selon lequel « ça pourrait être l'un ou l'autre » est une réponse légitime quand
+c'est effectivement indéterminé : si l'indétermination est une réponse, la
+deviner ne doit pas payer.
+
+### Ce que la rubrique promet, et ce qu'elle ne promet pas
+
+Le texte de présentation reprend le cadrage de l'outil de référence : c'est un
+entraînement à une tâche difficile, non une promesse d'amélioration cognitive
+générale. Le transfert au-delà de la tâche elle-même n'est pas établi, et la page
+le dit. Le cadre théorique invoqué — la *Relational Frame Theory* — est cité
+comme principe unificateur, pas comme garantie de résultat.
+
+Un espace **« Comprendre »** décrit chaque moteur, ouvert ou non, consultable à
+tout moment et jamais imposé pendant une session, avec un réglage pour couper
+tout tutoriel.
+
 ### Découpage de la mise en œuvre
 
 Chaque sous-phase laisse le site utilisable, comme les précédentes.
@@ -249,26 +291,25 @@ Chaque sous-phase laisse le site utilisable, comme les précédentes.
 - **8a** — retrait de Syllogismes ; coquille de l'exercice (route
   `/cog-training/relational-reasoning/`, navigation, page de session, magasin
   IndexedDB v5, XP, badges) ; solveur de cohérence de chemin ; systèmes line,
-  plane, groups ; les cinq moteurs d'induction, Hidden Algebra, Structure Match,
-  Analogy Completion. Livre la **phase 1** de progression, jouable.
+  plane, groups ; les moteurs d'ouverture de chaque famille.
 - **8b** — systèmes digraph, poset (clos et ouvert) ; isomorphisme de
-  sous-graphe ; solveur de sous-ensemble insatisfiable minimal. Livre la
-  **phase 2** et la catégorie C de base.
-- **8c** — systèmes space, cyclic ; applicateur géométrique. Livre la
-  **phase 3**.
+  sous-graphe ; solveur de sous-ensemble insatisfiable minimal ; le reste de la
+  catégorie C et les moteurs d'induction manquants.
+- **8c** — systèmes space, cyclic ; applicateur géométrique et le reste de la
+  catégorie D.
 - **8d** — systèmes rcc8, allen avec leurs tables de composition publiées,
-  reprises telles quelles ; analogies avancées ; Context Shifts. Livre la
-  **phase 4**.
-- **8e** — courbe de progression dans les statistiques, jalons et badges des
-  quatre phases, revue de fin de session.
+  reprises telles quelles ; analogies avancées ; Context Shifts.
+- **8e** — espace « Comprendre », réglage des tutoriels, courbe de progression
+  dans les statistiques et badges de déblocage.
 
 ### Progression et données
 
 Le système existant est réutilisé, sans second dispositif : nouveau magasin
-`relationnel` en base v5 — une ligne par session, avec phase, moteur, système,
-items tentés, items réussis et durée —, clés d'XP dans `site.config.mjs` sur le
-modèle de `nbackSession`, et quatre badges de jalon correspondant aux quatre
-phases.
+`relationnel` en base v5 — une ligne par session, avec le **détail par item**
+(moteur, système, réussite), ce qui permet de recalculer aussi bien le déblocage
+d'une famille que l'échelon courant d'un moteur, sans rien mémoriser qu'un import
+de sauvegarde pourrait désynchroniser. Clés d'XP dans `site.config.mjs` sur le
+modèle de `nbackSession`, et des badges de déblocage par famille.
 
 ## Phase 9 — Veridical Mapping 🔄
 

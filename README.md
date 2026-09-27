@@ -814,6 +814,49 @@ transitive ni composable, et l'absence d'arête y est une négation, non une
 inconnue. Les moteurs qui reposent sur l'indétermination ne peuvent donc pas
 tourner dessus — le sélecteur de l'interface ne les propose pas ensemble.
 
+### Progression : par famille, et par exercice
+
+Les moteurs sont rangés en cinq familles. **Chaque famille s'ouvre par un
+exercice** ; les autres se débloquent quand celui-là est maîtrisé — douze items
+joués et 75 % de réussite sur les vingt derniers. L'induction est ouverte
+d'emblée. **Chaque exercice monte ensuite sa propre échelle** : trois réponses
+exactes d'affilée le font monter d'un cran, deux fautes consécutives le font
+redescendre, une réponse partielle maintient. Deux items de la même session
+peuvent donc être de niveaux très différents.
+
+Rien de tout cela n'est stocké : l'échelon et les déblocages se **recalculent**
+depuis l'historique des items, à chaque ouverture de l'exercice. Une valeur
+mémorisée se désynchroniserait d'un import de sauvegarde ; un rejeu se refait.
+
+Les systèmes, eux, apparaissent par paliers sur un compteur global — ligne, plan
+et équipes d'abord, puis réseaux dirigés et ordres partiels, puis espace et
+cycles, puis régions et intervalles. C'est le seul compteur resté général, parce
+qu'il porte sur le vocabulaire et non sur les exercices.
+
+### Le barème crédite l'incertitude
+
+Sur les exercices à sélection multiple, une case juste rapporte et une case
+fausse retire autant, le tout rapporté au nombre de bonnes réponses. Une réponse
+partielle vaut donc plus qu'une erreur et moins qu'une réponse exacte, et
+**tout cocher ne rapporte rien** — les générateurs garantissent qu'il y a au
+moins autant de leurres que de bonnes réponses, et `npm run essais:relationnel`
+le vérifie sur chaque item engendré. C'est la contrepartie du principe selon
+lequel « ça pourrait être l'un ou l'autre » est une réponse légitime : si
+l'indétermination est une réponse, la deviner ne doit pas payer.
+
+### Vérification
+
+```bash
+npm run essais:relationnel
+```
+
+Contrôle les tables de composition, la propagation, la détection d'incohérence,
+le barème, l'échelle de difficulté, puis deux cents items par couple exercice ×
+système. Les items sont validés **tels qu'ils s'affichent** — l'énoncé est
+reparsé et reclassé — et non sur la foi des étiquettes internes du générateur :
+c'est ce contrôle qui a pris le seul vrai défaut de la première version, un
+énoncé dont la réponse cochée était introuvable.
+
 Le détail du découpage et les décisions de conception figurent dans `PLAN.md`,
 phase 8.
 

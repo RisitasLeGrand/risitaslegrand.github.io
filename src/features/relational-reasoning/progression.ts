@@ -1,144 +1,205 @@
 /**
- * Les quatre phases de difficulté, et l'ouverture des suivantes.
+ * Déblocage par famille, et une échelle de difficulté par moteur.
  *
- * Chaque phase déclare les systèmes et les moteurs qu'elle rend disponibles,
- * **y compris ceux qui ne sont pas encore écrits** : les listes décrivent le
- * découpage du cahier des charges, et l'intersection avec les catalogues réels
- * fait le reste. Un moteur ajouté plus tard apparaît donc dans sa phase sans
- * qu'on touche à ce fichier.
+ * Le premier jet séquençait la rubrique en quatre phases, chacune ouverte par un
+ * total d'items réussis. Le défaut sautait aux yeux à l'usage : une personne à
+ * l'aise en analogie devait accumuler des items d'induction pour accéder aux
+ * analogies suivantes, puisque le compteur était global. Le modèle retenu
+ * découple les deux axes.
  *
- * La phase atteinte n'est pas stockée mais **recalculée** à partir des items
- * réussis. Une valeur mémorisée se désynchroniserait d'un import de sauvegarde ;
- * un décompte se refait.
+ *  - **Un moteur d'ouverture par famille** est accessible d'emblée ; les autres
+ *    moteurs de la famille se débloquent sur la maîtrise de celui-là, et de lui
+ *    seul.
+ *  - **Chaque moteur monte sa propre échelle**, réglée par sa propre réussite.
+ *  - **Les systèmes** apparaissent par paliers, selon l'ordre d'intuition du
+ *    cahier des charges — c'est le seul compteur resté global, parce qu'il porte
+ *    sur le vocabulaire et non sur les moteurs.
+ *
+ * Rien n'est mémorisé : tout se recalcule depuis l'historique des items. Une
+ * valeur stockée se désynchroniserait d'un import de sauvegarde.
  */
 import { accepte, MOTEURS, type Moteur } from './moteurs/index';
+import type { Categorie } from './moteurs/types';
+import { credit } from './noyaux/notation';
 import { SYSTEMES, type Systeme } from './systemes/index';
 
-export interface Phase {
-  numero: number;
-  nom: string;
-  resume: string;
-  systemes: string[];
-  moteurs: string[];
-  /** Items réussis cumulés nécessaires pour l'ouvrir. */
-  seuil: number;
+/** Un item déjà joué, tel que la base le conserve. */
+export interface Trace {
+  moteur: string;
+  systeme: string;
+  /** Note de 0 à 1 — voir noyaux/notation.ts. */
+  note: number;
 }
 
-export const PHASES: Phase[] = [
+export interface Famille {
+  id: Categorie;
+  nom: string;
+  resume: string;
+  /** Le moteur accessible d'emblée, et dont la maîtrise ouvre les autres. */
+  ouverture: string;
+}
+
+export const FAMILLES: Famille[] = [
   {
-    numero: 1,
-    nom: 'Structures simples',
-    resume: 'Une ligne, un plan, deux camps. Inférer une règle qu’aucun énoncé ne nomme.',
-    systemes: ['line', 'plane', 'groups'],
-    moteurs: [
-      'inferer-relation',
-      'reseau-relationnel',
-      'correspondance-transformation',
-      'cartes-axes',
-      'mouvements-mutuels',
-      'algebre-cachee',
-      'correspondance-structure',
-      'completion-analogie',
-    ],
-    seuil: 0,
+    id: 'isomorphisme',
+    nom: 'Isomorphisme et algèbre',
+    resume: 'Reconnaître qu’une structure est la même sous d’autres noms.',
+    ouverture: 'algebre-cachee',
   },
   {
-    numero: 2,
-    nom: 'Mondes clos et indétermination',
-    resume:
-      'Réseaux dirigés et ordres partiels. Ce qui n’est pas dit est parfois une négation, parfois une inconnue.',
-    systemes: ['line', 'plane', 'groups', 'digraph', 'poset', 'poset-ouvert'],
-    moteurs: [
-      'motif-recherche',
-      'projection',
-      'analogie-partielle',
-      'analogie-intruse',
-      'isomorphisme-partiel',
-      'ensembles-possibles',
-      'premisse-manquante',
-    ],
-    seuil: 30,
+    id: 'analogie',
+    nom: 'Analogie',
+    resume: 'Transporter une relation d’un couple à un autre.',
+    ouverture: 'completion-analogie',
   },
   {
-    numero: 3,
-    nom: 'Espace et cycles',
-    resume: 'Trois dimensions, dominance non transitive, cadres de référence propres à chacun.',
-    systemes: ['line', 'plane', 'groups', 'digraph', 'poset', 'poset-ouvert', 'space', 'cyclic'],
-    moteurs: [
-      'contradiction',
-      'premisses-minimales',
-      'entre-deux',
-      'pivots',
-      'dominance-cyclique',
-      'base-oblique',
-      'cadres',
-    ],
-    seuil: 70,
+    id: 'incompletude',
+    nom: 'Information incomplète',
+    resume: 'Dire ce qui reste possible quand l’énoncé ne tranche pas.',
+    ouverture: 'ensembles-possibles',
   },
   {
-    numero: 4,
-    nom: 'Algèbres topologiques et temporelles',
-    resume: 'Régions et intervalles, leurs tables de composition, et les analogies de second ordre.',
-    systemes: [
-      'line',
-      'plane',
-      'groups',
-      'digraph',
-      'poset',
-      'poset-ouvert',
-      'space',
-      'cyclic',
-      'rcc8',
-      'allen',
-    ],
-    moteurs: [
-      'analogie-transsysteme',
-      'analogie-second-ordre',
-      'conflit-correspondance',
-      'sous-systeme-commun',
-      'deplacements-de-contexte',
-    ],
-    seuil: 130,
+    id: 'algebres',
+    nom: 'Autres algèbres',
+    resume: 'Des relations qui ne se composent pas comme on s’y attend.',
+    ouverture: 'entre-deux',
   },
 ];
 
-/** La phase la plus avancée ouverte par un nombre d'items réussis. */
-export function phaseAtteinte(itemsReussis: number): number {
-  return PHASES.reduce((haute, phase) => (itemsReussis >= phase.seuil ? phase.numero : haute), 1);
-}
+/**
+ * Les moteurs d'induction accompagnent dès le départ. Ils sont plus simples et
+ * servent d'entrée en matière, sans condition de déblocage : c'est la place que
+ * leur donne le cahier des charges.
+ */
+const FAMILLE_LIBRE: Categorie = 'induction';
 
-/** Ce qu'il reste à réussir pour ouvrir la phase suivante, ou `null` à la dernière. */
-export function prochainPalier(itemsReussis: number): { phase: Phase; reste: number } | null {
-  const suivante = PHASES.find((phase) => itemsReussis < phase.seuil);
-  return suivante ? { phase: suivante, reste: suivante.seuil - itemsReussis } : null;
+/** Paliers d'apparition des systèmes, et items réussis nécessaires. */
+export const PALIERS_SYSTEMES: { systemes: string[]; seuil: number; nom: string }[] = [
+  { systemes: ['line', 'plane', 'groups'], seuil: 0, nom: 'Ligne, plan, équipes' },
+  { systemes: ['digraph', 'poset', 'poset-ouvert'], seuil: 30, nom: 'Réseaux dirigés et ordres partiels' },
+  { systemes: ['space', 'cyclic'], seuil: 70, nom: 'Espace et dominance cyclique' },
+  { systemes: ['rcc8', 'allen'], seuil: 130, nom: 'Régions et intervalles' },
+];
+
+/** Conditions de maîtrise du moteur d'ouverture d'une famille. */
+const MAITRISE = { items: 12, fenetre: 20, taux: 0.75 };
+
+export interface EtatMoteur {
+  moteur: Moteur;
+  ouvert: boolean;
+  /** Échelon courant, de 1 à 10. */
+  echelon: number;
+  items: number;
+  taux: number;
 }
 
 /**
- * Les couples praticables d'une phase : l'intersection de ce qu'elle déclare,
- * de ce qui est écrit, et de ce que le moteur accepte du système.
+ * L'échelon d'un moteur, rejoué depuis son historique.
  *
- * Une phase **cumule** les phases précédentes : ses moteurs tournent aussi sur
- * les systèmes déjà ouverts, et les moteurs déjà acquis sur ses systèmes neufs.
- * C'est ce cumul qui donne la variété, un moteur nouveau sur un système connu
- * étant un exercice nouveau.
+ * Trois réponses exactes d'affilée au même échelon le font monter d'un cran ;
+ * une réponse fausse retire un crédit, et deux fautes consécutives font
+ * redescendre. Une réponse partielle maintient — voir `credit`.
+ *
+ * Le rejeu plutôt qu'un compteur stocké : l'échelon se refait à l'identique
+ * après un import de sauvegarde, et un défaut de la règle se corrige sans avoir
+ * à réparer des données.
  */
-export function couplesDeLaPhase(numero: number): { moteur: Moteur; systeme: Systeme }[] {
-  const jusquIci = PHASES.filter((phase) => phase.numero <= numero);
-  const idsMoteurs = new Set(jusquIci.flatMap((phase) => phase.moteurs));
-  const idsSystemes = new Set(jusquIci.flatMap((phase) => phase.systemes));
+export function echelonDeMoteur(traces: readonly Trace[], moteurId: string): number {
+  let echelon = 1;
+  let credits = 0;
+  let fautesDeSuite = 0;
 
-  const resultat: { moteur: Moteur; systeme: Systeme }[] = [];
-  for (const moteur of MOTEURS) {
-    if (!idsMoteurs.has(moteur.id)) continue;
+  for (const trace of traces) {
+    if (trace.moteur !== moteurId) continue;
+    const valeur = credit(trace.note);
+    if (valeur > 0) {
+      fautesDeSuite = 0;
+      credits += 1;
+      if (credits >= 3) {
+        credits = 0;
+        echelon = Math.min(10, echelon + 1);
+      }
+    } else if (valeur < 0) {
+      credits = Math.max(0, credits - 1);
+      fautesDeSuite += 1;
+      if (fautesDeSuite >= 2) {
+        fautesDeSuite = 0;
+        echelon = Math.max(1, echelon - 1);
+      }
+    }
+  }
+  return echelon;
+}
+
+/** Nombre d'items joués sur un moteur, et taux de réussite sur les derniers. */
+export function bilanDeMoteur(traces: readonly Trace[], moteurId: string) {
+  const siennes = traces.filter((trace) => trace.moteur === moteurId);
+  const recentes = siennes.slice(-MAITRISE.fenetre);
+  const taux = recentes.length
+    ? recentes.reduce((somme, trace) => somme + trace.note, 0) / recentes.length
+    : 0;
+  return { items: siennes.length, taux };
+}
+
+/** Le moteur d'ouverture d'une famille est-il maîtrisé ? */
+export function familleDebloquee(traces: readonly Trace[], famille: Famille): boolean {
+  const bilan = bilanDeMoteur(traces, famille.ouverture);
+  return bilan.items >= MAITRISE.items && bilan.taux >= MAITRISE.taux;
+}
+
+/** Items entièrement réussis, tous moteurs confondus. */
+export function itemsReussis(traces: readonly Trace[]): number {
+  return traces.filter((trace) => trace.note >= 1).length;
+}
+
+/** Les systèmes dont le palier est atteint. */
+export function systemesOuverts(traces: readonly Trace[]): Set<string> {
+  const reussis = itemsReussis(traces);
+  return new Set(
+    PALIERS_SYSTEMES.filter((palier) => reussis >= palier.seuil).flatMap((p) => p.systemes),
+  );
+}
+
+/** Le prochain palier de systèmes, ou `null` si tous sont ouverts. */
+export function prochainPalierSystemes(traces: readonly Trace[]) {
+  const reussis = itemsReussis(traces);
+  const suivant = PALIERS_SYSTEMES.find((palier) => reussis < palier.seuil);
+  return suivant ? { palier: suivant, reste: suivant.seuil - reussis } : null;
+}
+
+/** L'état de chaque moteur écrit : ouvert ou non, échelon, historique. */
+export function etatDesMoteurs(traces: readonly Trace[]): EtatMoteur[] {
+  const debloquees = new Set(
+    FAMILLES.filter((famille) => familleDebloquee(traces, famille)).map((f) => f.id),
+  );
+
+  return MOTEURS.map((moteur) => {
+    const famille = FAMILLES.find((f) => f.id === moteur.categorie);
+    const ouvert =
+      moteur.categorie === FAMILLE_LIBRE ||
+      !famille ||
+      famille.ouverture === moteur.id ||
+      debloquees.has(moteur.categorie);
+    const bilan = bilanDeMoteur(traces, moteur.id);
+    return { moteur, ouvert, echelon: echelonDeMoteur(traces, moteur.id), ...bilan };
+  });
+}
+
+/** Les couples praticables : moteur ouvert, système au palier, et compatibles. */
+export function couplesOuverts(
+  traces: readonly Trace[],
+): { moteur: Moteur; systeme: Systeme; echelon: number }[] {
+  const ouverts = systemesOuverts(traces);
+  const resultat: { moteur: Moteur; systeme: Systeme; echelon: number }[] = [];
+
+  for (const etat of etatDesMoteurs(traces)) {
+    if (!etat.ouvert) continue;
     for (const systeme of SYSTEMES) {
-      if (!idsSystemes.has(systeme.id)) continue;
-      if (accepte(moteur, systeme)) resultat.push({ moteur, systeme });
+      if (!ouverts.has(systeme.id)) continue;
+      if (accepte(etat.moteur, systeme)) {
+        resultat.push({ moteur: etat.moteur, systeme, echelon: etat.echelon });
+      }
     }
   }
   return resultat;
-}
-
-/** Les phases dont au moins un couple est praticable aujourd'hui. */
-export function phasesJouables(): Phase[] {
-  return PHASES.filter((phase) => couplesDeLaPhase(phase.numero).length > 0);
 }

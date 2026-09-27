@@ -8,6 +8,8 @@ import type { Moteur } from './types';
 import { accepte } from './types';
 import type { Systeme } from '../systemes/types';
 import { algebreCachee } from './isomorphisme/algebre-cachee';
+import { ensemblesPossibles } from './incompletude/ensembles-possibles';
+import { entreDeux } from './algebres/entre-deux';
 import { completionAnalogie } from './analogie/completion';
 import { infererRelation } from './induction/inferer-relation';
 import { reseauRelationnel } from './induction/reseau-relationnel';
@@ -17,6 +19,8 @@ export const MOTEURS: Moteur[] = [
   reseauRelationnel,
   algebreCachee,
   completionAnalogie,
+  ensemblesPossibles,
+  entreDeux,
 ];
 
 export function moteurParId(id: string): Moteur | undefined {

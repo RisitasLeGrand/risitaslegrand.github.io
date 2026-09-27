@@ -107,7 +107,7 @@ export default {
     nbackBonusReussite: 10,
     /**
      * Relational Reasoning : base par session, puis bonus par item réussi et
-     * selon la phase de difficulté atteinte. Un item y demande plus de temps
+     * selon l'échelon de difficulté atteint. Un item y demande plus de temps
      * qu'une flashcard, d'où un rapport par item plus élevé.
      */
     relationnelSession: 8,

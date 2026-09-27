@@ -77,10 +77,16 @@ export interface SessionNBack {
 export interface SessionRelationnelle {
   id?: number;
   le: string;
-  /** Phase de progression jouée, de 1 à 4. */
-  phase: number;
-  items: { moteur: string; systeme: string; reussi: boolean }[];
+  /**
+   * Note de 0 à 1 par item, et non un booléen : les questions à sélection
+   * multiple admettent des réponses partiellement justes, qui valent plus
+   * qu'une erreur et moins qu'une réponse exacte. Un booléen aurait forcé à
+   * ranger ces réponses dans l'une des deux cases, et avec elles l'échelon de
+   * difficulté qui s'en déduit.
+   */
+  items: { moteur: string; systeme: string; note: number }[];
   tentes: number;
+  /** Items entièrement réussis — les notes intermédiaires n'y comptent pas. */
   reussis: number;
   secondes: number;
 }

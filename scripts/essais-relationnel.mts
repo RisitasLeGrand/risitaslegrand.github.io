@@ -23,6 +23,8 @@ import type { Systeme } from '../src/features/relational-reasoning/systemes/type
 import { SYSTEMES } from '../src/features/relational-reasoning/systemes/index';
 import { MOTEURS, couples } from '../src/features/relational-reasoning/moteurs/index';
 import { algebresCompatibles, INTITULES } from '../src/features/relational-reasoning/noyaux/proprietes';
+import { noter } from '../src/features/relational-reasoning/noyaux/notation';
+import { echelonDeMoteur } from '../src/features/relational-reasoning/progression';
 
 function algebreDe(s: Systeme) {
   return { relations: s.relations.map((r) => r.id), converse: s.converse, composer: s.composer! };
@@ -124,6 +126,50 @@ for (const systeme of [line, plane, groups]) {
 }
 
 
+console.log('\nBARÈME — il doit décourager la devinette');
+{
+  const reponse = {
+    genre: 'multiple' as const,
+    options: [{ texte: 'a' }, { texte: 'b' }, { texte: 'c' }, { texte: 'd' }],
+    bonnes: [0, 1],
+  };
+  verifier('réponse exacte', noter(reponse, { genre: 'multiple', choix: [0, 1] }), 1);
+  verifier('tout cocher', noter(reponse, { genre: 'multiple', choix: [0, 1, 2, 3] }), 0);
+  verifier('une bonne sur deux, sans faute', noter(reponse, { genre: 'multiple', choix: [0] }), 0.5);
+  verifier('une bonne et une fausse', noter(reponse, { genre: 'multiple', choix: [0, 2] }), 0);
+  verifier('rien de coché', noter(reponse, { genre: 'multiple', choix: [] }), 0);
+  const partielle = noter(reponse, { genre: 'multiple', choix: [0] });
+  const fausse = noter(reponse, { genre: 'multiple', choix: [2, 3] });
+  verifier('partielle > fausse', partielle > fausse, true);
+  verifier('partielle < exacte', partielle < 1, true);
+}
+
+console.log("\nÉCHELLE — chaque moteur monte pour son propre compte");
+{
+  const t = (moteur: string, note: number) => ({ moteur, systeme: 'line', note });
+  verifier('historique vide', echelonDeMoteur([], 'x'), 1);
+  verifier(
+    'trois réussites font monter d\'un cran',
+    echelonDeMoteur([t('x', 1), t('x', 1), t('x', 1)], 'x'),
+    2,
+  );
+  verifier(
+    'les réussites d\'un autre moteur ne comptent pas',
+    echelonDeMoteur([t('y', 1), t('y', 1), t('y', 1)], 'x'),
+    1,
+  );
+  verifier(
+    'deux fautes de suite font redescendre',
+    echelonDeMoteur([t('x', 1), t('x', 1), t('x', 1), t('x', 0), t('x', 0)], 'x'),
+    1,
+  );
+  verifier(
+    'une réponse partielle maintient',
+    echelonDeMoteur([t('x', 1), t('x', 1), t('x', 1), t('x', 0.5), t('x', 0.5)], 'x'),
+    2,
+  );
+}
+
 console.log('\nMOTEURS — deux cents items par couple moteur × système');
 
 /**
@@ -161,6 +207,27 @@ for (const { moteur, systeme } of couples(MOTEURS, SYSTEMES)) {
       if (new Set(Object.values(paires)).size !== Object.values(paires).length) {
         griefs.push(`graine ${graine} : deux entités appariées à la même`);
       }
+    }
+    if (item.reponse.genre === 'multiple') {
+      const { options, bonnes } = item.reponse;
+      if (!bonnes.length) griefs.push(`graine ${graine} : aucune bonne réponse`);
+      if (bonnes.some((i) => i < 0 || i >= options.length)) {
+        griefs.push(`graine ${graine} : index de bonne réponse hors bornes`);
+      }
+      if (new Set(bonnes).size !== bonnes.length) griefs.push(`graine ${graine} : bonne réponse en double`);
+      // L'invariant anti-devinette : autant de leurres que de bonnes réponses au
+      // moins, sans quoi tout cocher rapporterait des points.
+      const leurres = options.length - bonnes.length;
+      if (leurres < bonnes.length) {
+        griefs.push(`graine ${graine} : ${leurres} leurre(s) pour ${bonnes.length} bonne(s) réponse(s)`);
+      }
+      const toutCocher = noter(item.reponse, {
+        genre: 'multiple',
+        choix: options.map((_, i) => i),
+      });
+      if (toutCocher > 0) griefs.push(`graine ${graine} : tout cocher rapporte ${toutCocher}`);
+      const exact = noter(item.reponse, { genre: 'multiple', choix: bonnes });
+      if (exact !== 1) griefs.push(`graine ${graine} : la réponse exacte ne vaut pas 1`);
     }
     if (!item.explication.trim()) griefs.push(`graine ${graine} : explication vide`);
 

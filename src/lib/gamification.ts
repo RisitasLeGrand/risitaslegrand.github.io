@@ -124,11 +124,12 @@ export const xpNBack = (n: number, taux: number) =>
  * Le décompte porte sur les items **réussis** et non sur la session : contrairement
  * au Quad N-Back, où la partie entière forme un tout, une session relationnelle
  * est une suite d'items indépendants, et une session à moitié juste vaut la
- * moitié. La phase majore l'ensemble, un item de phase 4 demandant davantage
- * qu'un item de phase 1.
+ * moitié. L'échelon moyen des moteurs joués majore l'ensemble, un item de haut
+ * échelon demandant davantage.
  */
-export const xpRelationnel = (reussis: number, phase: number) =>
-  XP.relationnelSession + reussis * (XP.relationnelParItem + (phase - 1) * XP.relationnelParPhase);
+export const xpRelationnel = (reussis: number, echelonMoyen: number) =>
+  XP.relationnelSession +
+  reussis * (XP.relationnelParItem + Math.max(0, echelonMoyen - 1) * XP.relationnelParPhase);
 
 // --- Badges ---------------------------------------------------------------
 
@@ -156,10 +157,8 @@ interface ContexteBadges {
   sessionsNBack: number;
   /** Plus haut n validé (précision équilibrée ≥ 85 %). */
   meilleurNBack: number;
-  /** Items de Relational Reasoning réussis, toutes phases confondues. */
+  /** Items de Relational Reasoning entièrement réussis. */
   itemsRelationnels: number;
-  /** Plus haute phase de Relational Reasoning dans laquelle un item a été réussi. */
-  phaseRelationnelle: number;
   /** Jours écoulés depuis la toute première journée de révision (1 le jour même). */
   joursDepuisDebut: number;
 }
@@ -289,22 +288,22 @@ export const BADGES: DefinitionBadge[] = [
   },
   {
     id: 'relationnel-phase-2',
-    nom: 'Mondes clos',
-    description: 'Ouvrir la phase 2 de Relational Reasoning.',
+    nom: 'Réseaux et ordres partiels',
+    description: 'Ouvrir les systèmes dirigés et partiellement ordonnés.',
     icone: '🧩',
     obtenu: (c) => c.itemsRelationnels >= 30,
   },
   {
     id: 'relationnel-phase-3',
     nom: 'Espace et cycles',
-    description: 'Ouvrir la phase 3 de Relational Reasoning.',
+    description: 'Ouvrir les systèmes tridimensionnels et cycliques.',
     icone: '🧊',
     obtenu: (c) => c.itemsRelationnels >= 70,
   },
   {
     id: 'relationnel-phase-4',
-    nom: 'Algèbres topologiques',
-    description: 'Ouvrir la phase 4 de Relational Reasoning.',
+    nom: 'Régions et intervalles',
+    description: 'Ouvrir les algèbres topologiques et temporelles.',
     icone: '🌀',
     obtenu: (c) => c.itemsRelationnels >= 130,
   },
@@ -518,10 +517,6 @@ export async function contexteBadges(profil?: Profil): Promise<ContexteBadges> {
       0,
     ),
     itemsRelationnels: relationnelles.reduce((n, s) => n + s.reussis, 0),
-    phaseRelationnelle: relationnelles.reduce(
-      (n, s) => (s.reussis > 0 ? Math.max(n, s.phase) : n),
-      0,
-    ),
   };
 }
 
