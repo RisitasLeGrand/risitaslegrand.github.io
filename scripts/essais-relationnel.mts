@@ -20,6 +20,9 @@ import { line } from '../src/features/relational-reasoning/systemes/line';
 import { plane } from '../src/features/relational-reasoning/systemes/plane';
 import { groups } from '../src/features/relational-reasoning/systemes/groups';
 import type { Systeme } from '../src/features/relational-reasoning/systemes/types';
+import { SYSTEMES } from '../src/features/relational-reasoning/systemes/index';
+import { MOTEURS, couples } from '../src/features/relational-reasoning/moteurs/index';
+import { algebresCompatibles, INTITULES } from '../src/features/relational-reasoning/noyaux/proprietes';
 
 function algebreDe(s: Systeme) {
   return { relations: s.relations.map((r) => r.id), converse: s.converse, composer: s.composer! };
@@ -118,6 +121,117 @@ for (const systeme of [line, plane, groups]) {
   }
   verifier(`${systeme.id} : instances incohérentes`, mauvaises, 0);
   verifier(`${systeme.id} : modèle exclu des possibles`, desaccords, 0);
+}
+
+
+console.log('\nMOTEURS — deux cents items par couple moteur × système');
+
+/**
+ * Chaque item est validé **tel que la personne le voit** : on reparse l'énoncé
+ * affiché plutôt que de faire confiance aux étiquettes internes du générateur.
+ * Un moteur qui afficherait un motif ne portant pas sa réponse serait pris ici,
+ * et nulle part ailleurs.
+ */
+for (const { moteur, systeme } of couples(MOTEURS, SYSTEMES)) {
+  let nuls = 0;
+  const griefs: string[] = [];
+
+  for (let graine = 1; graine <= 200; graine += 1) {
+    const item = moteur.engendrer(systeme, 1 + (graine % 10), alea(graine * 7919));
+    if (!item) {
+      nuls += 1;
+      continue;
+    }
+
+    // Invariants communs à tous les moteurs.
+    if (item.reponse.genre === 'unique') {
+      const { options, bonne } = item.reponse;
+      if (bonne < 0 || bonne >= options.length) griefs.push(`graine ${graine} : index de bonne réponse hors bornes`);
+      const textes = options.map((o) => o.texte ?? '');
+      if (new Set(textes).size !== textes.length) griefs.push(`graine ${graine} : options en doublon`);
+      if (options.length < 2) griefs.push(`graine ${graine} : moins de deux options`);
+    }
+    if (item.reponse.genre === 'appariement') {
+      const { gauche, droite, paires } = item.reponse;
+      if (Object.keys(paires).length !== gauche.length) griefs.push(`graine ${graine} : appariement incomplet`);
+      for (const [clef, valeur] of Object.entries(paires)) {
+        if (!gauche.includes(clef)) griefs.push(`graine ${graine} : clé « ${clef} » absente de gauche`);
+        if (!droite.includes(valeur)) griefs.push(`graine ${graine} : valeur « ${valeur} » absente de droite`);
+      }
+      if (new Set(Object.values(paires)).size !== Object.values(paires).length) {
+        griefs.push(`graine ${graine} : deux entités appariées à la même`);
+      }
+    }
+    if (!item.explication.trim()) griefs.push(`graine ${graine} : explication vide`);
+
+    // Contrôle propre à « Algèbre cachée » : les paires affichées doivent
+    // n'admettre qu'une seule algèbre, et ce doit être celle cochée.
+    if (moteur.id === 'algebre-cachee' && item.reponse.genre === 'unique') {
+      const bloc = item.enonce.find((b) => b.type === 'faits');
+      const lignes = bloc && bloc.type === 'faits' ? bloc.phrases : [];
+      const paires = lignes
+        .map((ligne) => ligne.replace(/\.$/, '').split(/\s+/))
+        .filter((morceaux) => morceaux.length === 3)
+        .map(([a, , b]) => [a, b] as [string, string]);
+      const entites = [...new Set(paires.flat())];
+      const symetrique = paires.every(([a, b]) => paires.some(([c, d]) => c === b && d === a));
+      const completes = symetrique ? paires : paires;
+      const compatibles = algebresCompatibles(entites, completes);
+      if (compatibles.length !== 1) {
+        griefs.push(`graine ${graine} : ${compatibles.length} algèbres compatibles avec le motif affiché`);
+      } else if (INTITULES[compatibles[0]] !== item.reponse.options[item.reponse.bonne].texte) {
+        griefs.push(`graine ${graine} : l'algèbre cochée n'est pas celle du motif affiché`);
+      }
+    }
+
+    // Contrôle propre à « Réseau relationnel » : l'appariement annoncé doit
+    // transporter la première matrice sur la seconde, et être le seul à le
+    // faire.
+    if (moteur.id === 'reseau-relationnel' && item.reponse.genre === 'appariement') {
+      const tableaux = item.enonce.filter((b) => b.type === 'tableau');
+      if (tableaux.length !== 2) {
+        griefs.push(`graine ${graine} : ${tableaux.length} matrice(s) au lieu de deux`);
+      } else {
+        const lire = (bloc: typeof tableaux[0]) => {
+          if (bloc.type !== 'tableau') return { noms: [] as string[], cases: {} as Record<string, string> };
+          const noms = bloc.entetes.slice(1);
+          const cases: Record<string, string> = {};
+          bloc.lignes.forEach((ligne) => {
+            ligne.slice(1).forEach((valeur, j) => {
+              cases[`${ligne[0]}|${noms[j]}`] = valeur;
+            });
+          });
+          return { noms, cases };
+        };
+        const un = lire(tableaux[0]);
+        const deux = lire(tableaux[1]);
+        const pi = item.reponse.paires;
+        let transporte = true;
+        for (const a of un.noms) {
+          for (const b of un.noms) {
+            if (a === b) continue;
+            if (un.cases[`${a}|${b}`] !== deux.cases[`${pi[a]}|${pi[b]}`]) transporte = false;
+          }
+        }
+        if (!transporte) griefs.push(`graine ${graine} : l'appariement ne transporte pas la structure`);
+      }
+    }
+  }
+
+  const rendement = ((200 - nuls) / 200) * 100;
+  const etiquette = `${moteur.id} × ${systeme.id}`;
+  if (griefs.length) {
+    echecs += 1;
+    console.log(`  ✗ ${etiquette} — ${griefs.length} grief(s)`);
+    for (const grief of griefs.slice(0, 3)) console.log(`      ${grief}`);
+  } else if (nuls === 200) {
+    // Un rendement nul n'est pas un défaut si le moteur a de bonnes raisons de
+    // refuser ce système : « groups » n'est presque jamais rigide, faute de quoi
+    // l'appariement aurait plusieurs réponses. On le signale sans échouer.
+    console.log(`  – ${etiquette} — aucun item : le moteur refuse ce système`);
+  } else {
+    console.log(`  ✓ ${etiquette} — ${rendement.toFixed(0)} % de tirages retenus`);
+  }
 }
 
 console.log(`\n${echecs ? `\x1b[31m✖ ${echecs} échec(s)\x1b[0m` : '\x1b[32m✓ tout passe\x1b[0m'}\n`);

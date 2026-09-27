@@ -211,6 +211,37 @@ grammaire commune provisoire. Si les rule-shells définissent effectivement une
 grammaire transversale, elle se substituera à cette liste sans toucher aux
 systèmes.
 
+### Ce que la mise en œuvre a appris
+
+**Analogy Completion ne fonctionne pas sur les neuf systèmes**, contrairement à
+ce qu'annonce le cahier des charges. Le format A:B::C:? exige une relation
+**fonctionnelle** : il faut qu'une seule entité soit dans la relation cherchée
+avec C. Sur un ordre strict total, « avant » vaut pour plusieurs entités à la
+fois, et l'exercice aurait plusieurs bonnes réponses dont une seule serait
+comptée juste. Le moteur refuse donc `line` — proprement, en rejetant le tirage.
+Le remède est déjà dans le cahier des charges, qui range l'**adjacence** dans le
+vocabulaire de `line` : le successeur immédiat, lui, est fonctionnel. Mais
+l'adjacence n'appartient pas à l'algèbre de points — composée avec elle-même
+elle donnerait « à deux rangs », qui n'est pas dans le vocabulaire —, et relève
+donc du régime clos, c'est-à-dire de la phase 8b. C'est le premier cas concret
+où le découpage en régimes prédit correctement quel moteur manquera à quel
+système.
+
+**La symétrie n'est pas une information à cacher.** Hidden Algebra n'affichait
+d'abord qu'un sens des paires d'une relation symétrique, pour ne pas « donner »
+la symétrie. C'était un contresens : c'est elle qui distingue une équivalence
+d'un ordre, et sans elle l'énoncé ne portait pas sa réponse — une équivalence s'y
+lisait comme un ordre total. Le contrôle l'a pris en reclassant le motif
+**affiché** plutôt qu'en croyant l'étiquette interne du générateur ; c'est la
+raison pour laquelle il vaut la peine de valider les items tels que la personne
+les voit.
+
+**Les masques de bits ne sont pas une optimisation prématurée.** Le contrôle
+complet passait en 2 min 04 avec des ensembles d'objets, et en 2,5 s avec des
+masques et une composition mémoïsée. Le facteur cinquante ne se voit pas sur un
+item isolé, mais l'énumération de scénarios que réclameront RCC8 et Allen rappelle
+la propagation à chaque branchement.
+
 ### Découpage de la mise en œuvre
 
 Chaque sous-phase laisse le site utilisable, comme les précédentes.

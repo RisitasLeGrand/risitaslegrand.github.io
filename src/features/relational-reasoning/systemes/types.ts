@@ -15,6 +15,23 @@
  * l'un d'eux.
  */
 
+/**
+ * L'algèbre abstraite qu'une relation instancie.
+ *
+ * C'est ce que le moteur Hidden Algebra demande de reconnaître : le motif des
+ * arêtes suffit à distinguer un ordre d'une équivalence, sans que le verbe soit
+ * nommé. Une relation qui n'en déclare aucune est simplement écartée de ce
+ * moteur, plutôt que d'être rangée de force dans une case.
+ */
+export type AlgebreAbstraite =
+  | 'ordre'
+  | 'equivalence'
+  | 'opposition'
+  | 'cyclique'
+  | 'adjacence'
+  | 'succession'
+  | 'ascendance';
+
 /** Une relation du vocabulaire de surface d'un système. */
 export interface Relation {
   /** Identifiant stable, utilisé dans les tables de composition. */
@@ -23,6 +40,8 @@ export interface Relation {
   libelle: string;
   /** Forme courte pour les étiquettes de graphe et les cellules de tableau. */
   bref: string;
+  /** L'algèbre abstraite instanciée, quand la relation en instancie une. */
+  algebre?: AlgebreAbstraite;
 }
 
 /** Un fait énoncé : « sujet R objet ». */

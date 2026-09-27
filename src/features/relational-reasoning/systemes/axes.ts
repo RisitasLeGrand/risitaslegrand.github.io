@@ -132,6 +132,15 @@ export function systemeProduit(options: OptionsProduit): Systeme {
   const relations: Relation[] = uplets.map((uplet) => ({
     id: uplet,
     ...nommer(uplet, axes),
+    // Une relation qui ordonne tous les axes est un ordre ; une relation
+    // d'égalité sur tous les axes est une équivalence. Les relations mixtes,
+    // qui ordonnent un axe et égalisent l'autre, ne sont ni l'un ni l'autre
+    // et ne sont donc pas proposées à Hidden Algebra.
+    algebre: uplet.split('').every((r) => r !== EGAL)
+      ? ('ordre' as const)
+      : uplet.split('').every((r) => r === EGAL)
+        ? ('equivalence' as const)
+        : undefined,
   }));
 
   const converse = (uplet: string) =>

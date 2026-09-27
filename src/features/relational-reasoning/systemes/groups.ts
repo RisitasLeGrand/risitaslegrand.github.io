@@ -41,8 +41,8 @@ export const groups: Systeme = {
   resume: 'Des équipes liées par deux verbes : alliée de, rivale de.',
   regimes: ['algebre', 'transformation'],
   relations: [
-    { id: ALLIE, libelle: 'est alliée de', bref: 'allié' },
-    { id: RIVAL, libelle: 'est rivale de', bref: 'rival' },
+    { id: ALLIE, libelle: 'est alliée de', bref: 'allié', algebre: 'equivalence' },
+    { id: RIVAL, libelle: 'est rivale de', bref: 'rival', algebre: 'opposition' },
   ],
   monde: 'ouvert',
   // Les deux relations sont symétriques : chacune est sa propre converse.
