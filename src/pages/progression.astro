@@ -46,6 +46,12 @@ import Base from '../layouts/Base.astro';
       l'utiliser pour les mises à jour futures ; les données déjà enregistrées sont conservées.
     </p>
     <div id="sources" class="space-y-2"></div>
+
+    <h3 class="mt-6 mb-2 text-sm font-semibold text-slate-900 dark:text-white">Contenus écartés</h3>
+    <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      Certains contenus ne mesurent pas une connaissance de matière : les cocher les réintègre.
+    </p>
+    <div id="contenus" class="space-y-2"></div>
     <p id="message-sources" class="mt-3 hidden text-sm text-emerald-600 dark:text-emerald-400"></p>
   </section>
 
@@ -119,8 +125,11 @@ import Base from '../layouts/Base.astro';
   import { calculerNiveau } from '../lib/gamification';
   import { formaterDuree, notifier, pluriel } from '../lib/ui';
   import {
+    ecrireReglagesContenu,
     ecrireReglagesNiveau,
+    lireReglagesContenu,
     lireReglagesNiveau,
+    type ReglagesContenu,
     type ReglagesNiveau,
   } from '../lib/niveau';
 
@@ -146,6 +155,66 @@ import Base from '../layouts/Base.astro';
       detail: 'Hors programme du concours : décoché par défaut.',
     },
   ];
+
+  /**
+   * Les contenus écartés par défaut de l'estimation, et de la révision.
+   *
+   * Voir « ReglagesContenu » dans « lib/niveau.ts » pour le raisonnement : dans
+   * les deux cas, réussir ne dit rien de ce qu'on sait d'une matière.
+   */
+  const CONTENUS: { id: keyof ReglagesContenu; libelle: string; detail: string }[] = [
+    {
+      id: 'casPratique',
+      libelle: 'Résolution de cas pratique',
+      detail:
+        "L'épreuve s'évalue sur une note rédigée, pas sur des questions fermées : décoché par défaut.",
+    },
+    {
+      id: 'methodologie',
+      libelle: 'Fiches de méthodologie — estimation',
+      detail:
+        'Méthodes, devoirs et corrigés décrivent le déroulé d\'une épreuve : décoché par défaut.',
+    },
+    {
+      id: 'reviserMethodologie',
+      libelle: 'Fiches de méthodologie — révisions',
+      detail:
+        "Leurs cartes n'entrent pas dans les files de révision, sauf à ouvrir la fiche et à la réviser directement.",
+    },
+  ];
+
+  async function peindreContenus() {
+    const reglages = await lireReglagesContenu();
+    const zone = $('contenus');
+    zone.replaceChildren();
+    for (const contenu of CONTENUS) {
+      const etiquette = document.createElement('label');
+      etiquette.className = 'flex min-h-11 cursor-pointer items-start gap-3';
+      const case_ = document.createElement('input');
+      case_.type = 'checkbox';
+      case_.checked = reglages[contenu.id];
+      case_.className = 'mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500';
+      case_.addEventListener('change', () => {
+        void (async () => {
+          const courants = await lireReglagesContenu();
+          await ecrireReglagesContenu({ ...courants, [contenu.id]: case_.checked });
+          const message = $('message-sources');
+          message.textContent = `« ${contenu.libelle} » ${case_.checked ? 'est réintégré' : 'est écarté'}.`;
+          message.classList.remove('hidden');
+        })();
+      });
+      const texte = document.createElement('span');
+      const nom = document.createElement('span');
+      nom.className = 'block text-sm font-medium text-slate-700 dark:text-slate-200';
+      nom.textContent = contenu.libelle;
+      const detail = document.createElement('span');
+      detail.className = 'block text-xs text-slate-500 dark:text-slate-400';
+      detail.textContent = contenu.detail;
+      texte.append(nom, detail);
+      etiquette.append(case_, texte);
+      zone.appendChild(etiquette);
+    }
+  }
 
   async function peindreSources() {
     const reglages = await lireReglagesNiveau();
@@ -210,6 +279,7 @@ import Base from '../layouts/Base.astro';
 
   async function brancherReglages() {
     await peindreSources();
+    await peindreContenus();
 
     const reglages = await lireReglagesSession();
     const cartes = $('plafond-cartes') as HTMLInputElement;

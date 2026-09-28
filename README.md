@@ -183,6 +183,15 @@ La version condensée, à relire rapidement.
 | `ordre` | non | Position dans le fascicule (défaut : 999) |
 | `tags` | non | Mots-clés, utilisables comme filtres de recherche |
 
+Un tag a une conséquence : **`méthodologie`** écarte la fiche de l'estimation de
+niveau et des files de révision. Ces fiches — méthodes d'épreuve, devoirs,
+corrigés — enseignent comment traiter une épreuve, pas ce qu'il faut en savoir ;
+les réviser en répétition espacée reviendrait à mémoriser un mode d'emploi.
+Elles restent lisibles, et se révisent toujours en ouvrant la fiche. Le build
+**refuse** une fiche dont le titre annonce une méthode, un devoir ou un corrigé
+et qui n'a pas ce tag : c'est le genre d'oubli qui ne se voit jamais à l'usage.
+Le réglage se change dans Progression → « Contenus écartés ».
+
 ### Règles à connaître
 
 - Les cinq titres reconnus sont `## Prétest`, `## Cours complet`,
@@ -202,6 +211,10 @@ La version condensée, à relire rapidement.
   lecture, pas de la vérifier. N'y recopiez pas une question du quiz, sinon
   celle-ci ne mesurera plus rien lorsqu'elle reviendra corrigée — `npm run
   verifier:pretests` le contrôle.
+- La matière **« Cas pratique »** est elle aussi écartée de l'estimation par
+  défaut : l'épreuve s'évalue sur une note rédigée, pas sur des questions
+  fermées, et un « niveau en RCP » tiré de quelques QCM de vocabulaire ne
+  prédirait rien de la copie. Même réglage, même endroit.
 - Dans les flashcards, `q:`/`r:` peuvent aussi s'écrire `question:`/`reponse:`.
 - Dans les quiz, `reponse:` accepte le **texte exact** d'une option, ou son
   **numéro** (`0` pour la première). Pour plusieurs bonnes réponses, utilisez

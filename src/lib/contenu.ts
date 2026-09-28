@@ -252,3 +252,16 @@ export function aplatirFiches(manifeste: Manifeste) {
 }
 
 export type FicheAplatie = ReturnType<typeof aplatirFiches>[number];
+
+/*
+   Les étiquettes qui désignent un contenu écarté (matière de cas pratique, tag
+   de méthodologie) vivent dans « contenu-ecarte.ts » : ce module-ci tire le
+   chargement chiffré et l'environnement Astro derrière lui, et l'estimation de
+   niveau a besoin des étiquettes sans avoir besoin de tout cela. Réexportées
+   ici pour que l'import reste naturel depuis le contenu.
+*/
+export {
+  estMethodologique,
+  MATIERE_CAS_PRATIQUE,
+  TAG_METHODOLOGIE,
+} from './contenu-ecarte';

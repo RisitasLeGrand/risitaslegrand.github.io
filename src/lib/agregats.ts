@@ -7,9 +7,11 @@ import {
   aplatirFiches,
   chargerFiche,
   chargerManifeste,
+  estMethodologique,
   type FicheAplatie,
   type Manifeste,
 } from './contenu';
+import { lireReglagesContenu } from './niveau';
 import {
   ecartJours,
   jourISO,
@@ -26,7 +28,18 @@ export interface ProgressionFiche {
   cartesTotal: number;
   cartesVues: number;
   cartesAcquises: number;
+  /** Cartes exigibles, inédites comprises : ce que la file du jour peut servir. */
   cartesDues: number;
+  /**
+   * Cartes **déjà apprises** dont l'échéance est atteinte.
+   *
+   * C'est le seul des deux nombres qui décrive une charge de travail réelle.
+   * « Dues » compte aussi les cartes jamais vues : au démarrage, cela affichait
+   * les 7 475 cartes du site comme un retard à rattraper le jour même, ce qui
+   * n'annonce rien d'humainement faisable. Apprendre du neuf se décide ; revoir
+   * ce qu'on a déjà appris s'impose — seul le second se compte comme un dû.
+   */
+  cartesARevoir: number;
   meilleurQuiz: number | null;
   maitrise: number; // 0 → 1
 }
@@ -37,6 +50,7 @@ export interface ProgressionGroupe {
   fiches: ProgressionFiche[];
   maitrise: number;
   cartesDues: number;
+  cartesARevoir: number;
   fichesLues: number;
 }
 
@@ -45,6 +59,7 @@ export interface Vue {
   fiches: ProgressionFiche[];
   matieres: (ProgressionGroupe & { fascicules: ProgressionGroupe[] })[];
   cartesDues: number;
+  cartesARevoir: number;
   maitriseGlobale: number;
 }
 
@@ -55,6 +70,11 @@ function moyenne(valeurs: number[]): number {
 /** Construit la vue complète « contenu + progression ». */
 export async function construireVue(): Promise<Vue> {
   const manifeste = await chargerManifeste();
+  // Les fiches écartées des files ne pèsent pas dans les totaux : annoncer
+  // « à revoir » des cartes qu'aucune session ne servira serait un décompte
+  // qu'on ne peut pas faire descendre.
+  const { reviserMethodologie } = await lireReglagesContenu();
+  const revisable = (f: { tags?: string[] }) => reviserMethodologie || !estMethodologique(f);
   const [cartes, etatsFiches, resultats] = await Promise.all([
     toutesLesCartes(),
     tousLesEtatsFiches(),
@@ -86,8 +106,8 @@ export async function construireVue(): Promise<Vue> {
     // Les cartes jamais vues comptent comme dues et non maîtrisées.
     const cartesVues = etats.filter((e) => e.revisions > 0).length;
     const cartesAcquises = etats.filter((e) => e.intervalle >= 21).length;
-    const cartesDues =
-      fiche.nbFlashcards - cartesVues + etats.filter((e) => e.revisions > 0 && e.du <= aujourdhui).length;
+    const cartesARevoir = etats.filter((e) => e.revisions > 0 && e.du <= aujourdhui).length;
+    const cartesDues = fiche.nbFlashcards - cartesVues + cartesARevoir;
 
     const niveauxCartes: number[] = [];
     for (let i = 0; i < fiche.nbFlashcards; i++) niveauxCartes.push(0);
@@ -110,6 +130,7 @@ export async function construireVue(): Promise<Vue> {
       cartesVues,
       cartesAcquises,
       cartesDues: Math.max(0, cartesDues),
+      cartesARevoir,
       meilleurQuiz,
       maitrise: moyenne(composantes),
     };
@@ -125,7 +146,8 @@ export async function construireVue(): Promise<Vue> {
         nom: f.nom,
         fiches,
         maitrise: moyenne(fiches.map((x) => x.maitrise)),
-        cartesDues: fiches.reduce((n, x) => n + x.cartesDues, 0),
+        cartesDues: fiches.reduce((n, x) => n + (revisable(x.fiche) ? x.cartesDues : 0), 0),
+        cartesARevoir: fiches.reduce((n, x) => n + (revisable(x.fiche) ? x.cartesARevoir : 0), 0),
         fichesLues: fiches.filter((x) => x.lu).length,
       };
     });
@@ -136,7 +158,8 @@ export async function construireVue(): Promise<Vue> {
       fascicules,
       fiches,
       maitrise: moyenne(fiches.map((x) => x.maitrise)),
-      cartesDues: fiches.reduce((n, x) => n + x.cartesDues, 0),
+      cartesDues: fiches.reduce((n, x) => n + (revisable(x.fiche) ? x.cartesDues : 0), 0),
+      cartesARevoir: fiches.reduce((n, x) => n + (revisable(x.fiche) ? x.cartesARevoir : 0), 0),
       fichesLues: fiches.filter((x) => x.lu).length,
     };
   });
@@ -145,7 +168,11 @@ export async function construireVue(): Promise<Vue> {
     manifeste,
     fiches: progressions,
     matieres,
-    cartesDues: progressions.reduce((n, p) => n + p.cartesDues, 0),
+    cartesDues: progressions.reduce((n, p) => n + (revisable(p.fiche) ? p.cartesDues : 0), 0),
+    cartesARevoir: progressions.reduce(
+      (n, p) => n + (revisable(p.fiche) ? p.cartesARevoir : 0),
+      0,
+    ),
     maitriseGlobale: moyenne(progressions.map((p) => p.maitrise)),
   };
 }
@@ -174,9 +201,16 @@ interface PorteeFile {
 async function fichesEnPortee(portee: PorteeFile) {
   const { matiere = null, ficheId = null, ficheIds = null } = portee;
   const ensemble = ficheIds?.length ? new Set(ficheIds) : null;
+  // Les fiches de méthodologie restent hors des files par défaut : elles
+  // décrivent une épreuve, pas un savoir à retenir. Une fiche demandée
+  // nommément fait exception — le bouton « réviser cette fiche » est un choix
+  // explicite, là où une liste construite par une séance ne l'est pas.
+  const { reviserMethodologie } = await lireReglagesContenu();
+  const methodologieAdmise = reviserMethodologie || Boolean(ficheId);
   return aplatirFiches(await chargerManifeste()).filter(
     (f) =>
       f.nbFlashcards > 0 &&
+      (methodologieAdmise || !estMethodologique(f)) &&
       (!matiere || f.matiere === matiere) &&
       (!ficheId || f.id === ficheId) &&
       (!ensemble || ensemble.has(f.id)),

@@ -258,6 +258,21 @@ async function main() {
       avertissements.push(`${relatif} : ni « ## Cours complet » ni « ## Fiche simplifiée ».`);
     }
 
+    // Le tag « méthodologie » n'est pas décoratif : c'est lui qui écarte ces
+    // fiches de l'estimation de niveau et des révisions. Une fiche de méthode
+    // qui l'oublierait rentrerait silencieusement dans la file du jour, et la
+    // méthode d'une épreuve n'a pas à être révisée comme une fiche de fond.
+    const titreMethodologique = /^\s*(m[ée]thode|devoir|corrig[ée]|sujet corrig[ée])\b/i.test(
+      fm.data.titre,
+    );
+    if (titreMethodologique && !(fm.data.tags ?? []).includes('méthodologie')) {
+      erreurs.push(
+        `${relatif} : le titre annonce une fiche de méthode, d'entraînement ou de corrigé, ` +
+          'mais le tag « méthodologie » manque — sans lui, la fiche sera révisée comme une ' +
+          'fiche de fond et comptera dans l\'estimation de niveau.',
+      );
+    }
+
     // Identifiant opaque et stable : dérivé du chemin, il ne révèle rien
     // et survit aux rebuilds (la progression enregistrée reste valable).
     const ficheId = await idStable(relatif);

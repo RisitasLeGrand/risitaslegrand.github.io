@@ -22,99 +22,38 @@ import {
   ecrireReglagesPlanification,
   ecrireSeance,
   jourISO,
-  lireReglagesPlanification,
   toutesLesSeances,
-  type ReglagesPlanification,
   type Seance,
 } from './db';
 import { gagnerXp } from './gamification';
+import { jourDeLaSemaine, lireReglages, theme } from './rotation';
 import type { Manifeste } from './contenu';
 
-/* ══════════════════════════════════════════════════════════════════════════
-   Les sept thèmes de planification
-   ══════════════════════════════════════════════════════════════════════════
-
-   Chaque thème pointe vers les matières du contenu qui l'alimentent. Cette
-   table est le « tag thème de planification » demandé : elle est tenue ici
-   plutôt que recopiée dans le front-matter de chaque fiche, ce qui éviterait
-   d'avoir à retoucher une centaine de fichiers et de les désynchroniser au
-   premier renommage.
-
-   À ce jour, le contenu publié porte exactement ces sept matières : la
-   correspondance est donc de un à un. Les listes restent des tableaux pour
-   absorber sans douleur un regroupement futur (une matière « Économie et
-   finances publiques » qui couvrirait deux thèmes, par exemple).
+/*
+   Les thèmes, la rotation hebdomadaire et les jours de repos vivent dans
+   « rotation.ts » : la gamification en a besoin, et elle ne peut pas importer
+   ce module-ci sans créer un cycle. Ils sont réexportés ici pour que les pages
+   gardent une seule porte d'entrée.
 */
-export interface ThemePlanification {
-  id: string;
-  nom: string;
-  /** Nom court, pour les cases du calendrier. */
-  court: string;
-  icone: string;
-  /** Matières du contenu rattachées à ce thème. */
-  matieres: string[];
-}
-
-export const THEMES: ThemePlanification[] = [
-  { id: 'droit-public', nom: 'Droit public', court: 'Droit pub.', icone: '⚖️', matieres: ['Droit public'] },
-  { id: 'finances-publiques', nom: 'Finances publiques', court: 'Fin. pub.', icone: '💶', matieres: ['Finances publiques'] },
-  { id: 'economie', nom: 'Économie', court: 'Économie', icone: '📊', matieres: ['Économie'] },
-  { id: 'questions-europeennes', nom: 'Questions européennes', court: 'Q. europ.', icone: '🇪🇺', matieres: ['Questions européennes'] },
-  { id: 'questions-internationales', nom: 'Questions internationales', court: 'Q. inter.', icone: '🌍', matieres: ['Questions internationales'] },
-  { id: 'questions-sociales', nom: 'Questions sociales', court: 'Q. sociales', icone: '🤝', matieres: ['Questions sociales'] },
-  { id: 'cas-pratique', nom: 'Résolution de cas pratique', court: 'Cas prat.', icone: '🗂️', matieres: ['Cas pratique'] },
-];
-
-export const theme = (id: string) => THEMES.find((t) => t.id === id);
-
-/** Libellés des jours, index 0 = dimanche, comme « Date.getDay() ». */
-export const JOURS_SEMAINE = [
-  'Dimanche',
-  'Lundi',
-  'Mardi',
-  'Mercredi',
-  'Jeudi',
-  'Vendredi',
-  'Samedi',
-];
-
-/**
- * Rotation par défaut : la semaine de travail commence par le droit public et
- * se termine, le dimanche, par le cas pratique — l'exercice le plus long.
- * Entièrement reconfigurable depuis la page de planification.
- */
-export const ROTATION_PAR_DEFAUT: string[] = [
-  'cas-pratique', // dimanche
-  'droit-public', // lundi
-  'finances-publiques', // mardi
-  'economie', // mercredi
-  'questions-europeennes', // jeudi
-  'questions-internationales', // vendredi
-  'questions-sociales', // samedi
-];
-
-export async function lireReglages(): Promise<ReglagesPlanification> {
-  const stockes = await lireReglagesPlanification();
-  if (!stockes) return { rotation: [...ROTATION_PAR_DEFAUT], trimestreEcarte: null };
-  // Un thème supprimé ou un tableau tronqué ne doit pas casser la rotation.
-  const rotation = ROTATION_PAR_DEFAUT.map((defaut, i) =>
-    theme(stockes.rotation?.[i] ?? '') ? stockes.rotation[i] : defaut,
-  );
-  return { rotation, trimestreEcarte: stockes.trimestreEcarte ?? null };
-}
-
-export async function ecrireRotation(rotation: string[]) {
-  const actuels = await lireReglages();
-  await ecrireReglagesPlanification({ ...actuels, rotation });
-}
+export {
+  ecrireRotation,
+  estRepos,
+  JOURS_SEMAINE,
+  jourDeLaSemaine,
+  jourDeRepos,
+  lireReglages,
+  REPOS,
+  ROTATION_PAR_DEFAUT,
+  theme,
+  themeDuJour,
+  THEMES,
+  THEMES_ASSIGNABLES,
+  type ThemePlanification,
+} from './rotation';
 
 /* ══════════════════════════════════════════════════════════════════════════
    Calendrier
    ══════════════════════════════════════════════════════════════════════════ */
-
-export function jourDeLaSemaine(jour: string): number {
-  return new Date(`${jour}T12:00:00`).getDay();
-}
 
 /** Vrai le 1er du mois : la séance du jour devient une séance étendue. */
 export function estPremierDuMois(jour: string): boolean {

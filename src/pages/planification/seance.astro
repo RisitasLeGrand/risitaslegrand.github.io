@@ -55,6 +55,20 @@ import Base from '../../layouts/Base.astro';
           </p>
         </div>
       </div>
+
+      <!--
+        Jour de repos : la séance reste accessible — on peut toujours vouloir
+        travailler un jour prévu libre —, mais rien n'y est programmé, et la
+        page le dit plutôt que de laisser croire à une séance vide par erreur.
+      -->
+      <p
+        id="bandeau-repos"
+        class="mt-4 hidden rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-900 dark:bg-sky-950/40 dark:text-sky-200"
+      >
+        Aucune révision n'est programmée aujourd'hui : ce jour est réglé sur
+        « Repos ». Votre série de jours n'en sera pas rompue. Pour travailler
+        malgré tout, réassignez ce jour à une matière depuis la planification.
+      </p>
     </header>
 
     <!-- ── 1. Rappels ────────────────────────────────────────────────── -->
@@ -160,6 +174,7 @@ import Base from '../../layouts/Base.astro';
   import { chargerItems, montrer as montrerJournal } from '../../lib/journal-revision';
   import { formaterDuree, lien, parametreUrl } from '../../lib/ui';
   import {
+    estRepos,
     fichesDuTheme,
     rappels,
     sauvegarder,
@@ -248,8 +263,14 @@ import Base from '../../layouts/Base.astro';
     afficherMinuteur();
 
     const sujet = themeParId(seance.theme);
+    const repos = estRepos(seance.theme);
+    $('bandeau-repos').classList.toggle('hidden', !repos);
     $('retour').setAttribute('href', lien('/planification/'));
-    $('etiquette').textContent = seance.etendue ? 'Révision du mois' : 'Séance du jour';
+    $('etiquette').textContent = repos
+      ? 'Jour de repos'
+      : seance.etendue
+        ? 'Révision du mois'
+        : 'Séance du jour';
     $('titre').textContent = `${sujet?.icone ?? ''} ${sujet?.nom ?? seance.theme}`.trim();
 
     const anterieures = await rappels(seance.theme, seance.etendue, seance.id);

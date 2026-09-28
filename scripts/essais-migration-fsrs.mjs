@@ -124,8 +124,11 @@ const apres = await page.evaluate(async () => {
   };
 });
 
-verifier('la base est en version 7', apres.version, 7);
-verifier('aucun magasin perdu', apres.magasins.length, 12);
+// Le schéma a continué d'avancer depuis la migration FSRS : version 8 pour le
+// journal d'erreurs, version 9 pour les compétences et les difficultés d'items.
+// Ce que l'essai surveille reste le même — la base s'ouvre sans rien perdre.
+verifier('la base est à la version courante', apres.version, 9);
+verifier('aucun magasin perdu', apres.magasins.length >= 12, true);
 verifier('les autres magasins sont intacts', apres.nback, 1);
 
 console.log('\nCE QUE LA CARTE DEVIENT');

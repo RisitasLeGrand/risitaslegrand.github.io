@@ -59,6 +59,16 @@ console.log('\nUN QUIZ ALIMENTE LES TROIS GRANULARITÉS');
 await page.goto('http://localhost:4321/quiz/cours', { waitUntil: 'networkidle' });
 await connecter();
 await page.waitForTimeout(2000);
+// On fixe la matière : un tirage libre peut tomber sur le cas pratique ou sur
+// une fiche de méthodologie, que l'estimation écarte volontairement — l'essai
+// ne mesurerait alors plus rien, et échouerait sans qu'aucun défaut existe.
+await page.waitForFunction(
+  () => Boolean(document.querySelector('#quiz-matiere option[value="Économie"]')),
+  null,
+  { timeout: 30000 },
+);
+await page.selectOption('#quiz-matiere', 'Économie');
+await page.waitForTimeout(800);
 await page.locator('#lancer-quiz').click();
 await page.waitForTimeout(2500);
 for (let i = 0; i < 6; i += 1) {

@@ -87,7 +87,7 @@ import Section from '../../components/Section.astro';
     <Section
       titre="Planning"
       id="planning"
-      chapeau="Les séances à venir suivent la rotation. Un jour non encore tenu peut être réassigné à une autre matière, ou échangé avec le lendemain."
+      chapeau="Les séances à venir suivent la rotation. Un jour non encore tenu peut être réassigné à une autre matière, mis au repos, ou échangé avec le lendemain."
       grilleId="grille-planning"
       grille="grid gap-3 sm:grid-cols-2 lg:grid-cols-3"
     />
@@ -95,7 +95,7 @@ import Section from '../../components/Section.astro';
     <!-- ── Rotation ─────────────────────────────────────────────────── -->
     <Section
       titre="Rotation hebdomadaire"
-      chapeau="Une matière par jour : chaque matière revient ainsi une fois par semaine."
+      chapeau="Une matière par jour : chaque matière revient ainsi une fois par semaine. Un jour peut aussi être mis au repos — aucune révision n'y sera programmée, et la série de jours n'en souffre pas."
       grilleId="grille-rotation"
       grille="grid gap-3 sm:grid-cols-2 lg:grid-cols-4"
     />
@@ -110,7 +110,8 @@ import Section from '../../components/Section.astro';
   import { formaterDuree, lien, pluriel } from '../../lib/ui';
   import {
     JOURS_SEMAINE,
-    THEMES,
+    THEMES_ASSIGNABLES,
+    estRepos,
     ecarterSuggestionTrimestrielle,
     ecrireRotation,
     echanger,
@@ -142,16 +143,24 @@ import Section from '../../components/Section.astro';
     const sujet = themeParId(seance.theme);
     const passees = await historique(seance.theme);
 
+    const repos = estRepos(seance.theme);
+
     $('date-du-jour').textContent = dateLongue.format(enDate(aujourdhui));
-    $('etiquette-jour').textContent = seance.statut === 'terminee' ? 'Séance terminée' : 'Matière du jour';
+    $('etiquette-jour').textContent = repos
+      ? 'Aucune révision prévue'
+      : seance.statut === 'terminee'
+        ? 'Séance terminée'
+        : 'Matière du jour';
     $('titre-jour').textContent = `${sujet?.icone ?? ''} ${sujet?.nom ?? seance.theme}`.trim();
     // Comme sur le tableau de bord : un <span> réaffiché redevient « inline ».
     $('badge-etendue').classList.toggle('hidden', !seance.etendue);
     $('badge-etendue').classList.toggle('inline-flex', seance.etendue);
 
     const nombreRappels = seance.etendue ? Math.min(4, passees.length) : Math.min(2, passees.length);
-    $('resume-jour').textContent =
-      seance.statut === 'terminee'
+    $('resume-jour').textContent = repos
+      ? "Journée de repos : rien n'est programmé aujourd'hui, et la série de jours ne s'en trouve pas rompue. " +
+        'Vous pouvez tout de même ouvrir une séance si l\'envie vous en prend.'
+      : seance.statut === 'terminee'
         ? `Séance tenue${seance.secondes ? ` en ${formaterDuree(seance.secondes)}` : ''}. ` +
           `${passees.length} séance(s) de cette matière au total.`
         : passees.length === 0
@@ -162,8 +171,13 @@ import Section from '../../components/Section.astro';
 
     const urlSeance = `${lien('/planification/seance/')}?jour=${aujourdhui}`;
     $('lien-seance').setAttribute('href', urlSeance);
-    $('lien-seance').textContent =
-      seance.statut === 'terminee' ? 'Reprendre la séance' : seance.id ? 'Poursuivre la séance' : 'Commencer la séance';
+    $('lien-seance').textContent = repos
+      ? 'Réviser quand même'
+      : seance.statut === 'terminee'
+        ? 'Reprendre la séance'
+        : seance.id
+          ? 'Poursuivre la séance'
+          : 'Commencer la séance';
 
     /* ── Planning : une semaine derrière, deux devant ────────────────── */
     await peindrePlanning(aujourdhui);
@@ -251,6 +265,13 @@ import Section from '../../components/Section.astro';
         badge.textContent = 'Réassignée';
         marques.appendChild(badge);
       }
+      if (estRepos(entree.themeId)) {
+        const badge = document.createElement('span');
+        badge.className =
+          'rounded-full bg-sky-100 px-2 py-0.5 text-[11px] font-bold text-sky-800 uppercase dark:bg-sky-950 dark:text-sky-300';
+        badge.textContent = 'Aucune révision';
+        marques.appendChild(badge);
+      }
       if (marques.childElementCount) carte.appendChild(marques);
 
       // Un jour déjà tenu n'est plus modifiable : son thème fait partie de
@@ -263,10 +284,10 @@ import Section from '../../components/Section.astro';
         selecteur.className =
           'min-h-11 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100';
         selecteur.setAttribute('aria-label', `Matière du ${dateCourte.format(enDate(entree.jour))}`);
-        for (const t of THEMES) {
+        for (const t of THEMES_ASSIGNABLES) {
           const option = document.createElement('option');
           option.value = t.id;
-          option.textContent = t.nom;
+          option.textContent = t.id === 'repos' ? '— Repos, aucune révision —' : t.nom;
           option.selected = t.id === entree.themeId;
           selecteur.appendChild(option);
         }
@@ -323,10 +344,10 @@ import Section from '../../components/Section.astro';
       selecteur.id = `rotation-${index}`;
       selecteur.className =
         'mt-2 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100';
-      for (const t of THEMES) {
+      for (const t of THEMES_ASSIGNABLES) {
         const option = document.createElement('option');
         option.value = t.id;
-        option.textContent = t.nom;
+        option.textContent = t.id === 'repos' ? '— Repos, aucune révision —' : t.nom;
         option.selected = t.id === reglages.rotation[index];
         selecteur.appendChild(option);
       }

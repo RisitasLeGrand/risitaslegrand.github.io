@@ -35,6 +35,7 @@ import {
   type DifficulteItem,
 } from './db';
 import { db } from './db';
+import { estMethodologique, MATIERE_CAS_PRATIQUE } from './contenu-ecarte';
 
 /** Note de départ, pour une personne comme pour un item. */
 export const NOTE_INITIALE = 1200;
@@ -129,6 +130,49 @@ export const REGLAGES_NIVEAU_PAR_DEFAUT: ReglagesNiveau = {
 };
 
 export type Source = keyof ReglagesNiveau;
+
+/**
+ * Ce que l'estimation refuse de prendre pour une mesure de connaissance.
+ *
+ * Les deux exclusions sont de même nature : ce sont des contenus dont la
+ * réussite ne dit pas ce qu'on sait d'une matière.
+ *
+ * — **La résolution de cas pratique** n'est pas une matière de connaissances :
+ *   elle s'évalue sur une note rédigée, pas sur des questions fermées. Les
+ *   quelques flashcards et quiz de ses fiches portent sur du vocabulaire de
+ *   management ; les compter donnerait un « niveau en RCP » qui ne prédirait
+ *   rien de la copie.
+ * — **Les fiches de méthodologie** décrivent le déroulé d'une épreuve. Savoir
+ *   qu'une note fait huit pages est un fait vrai et parfaitement inutile pour
+ *   situer le niveau en économie.
+ *
+ * Les deux restent désactivables : ce sont des réglages, pas des interdits.
+ */
+export interface ReglagesContenu {
+  /** Les fiches de la matière « Cas pratique » alimentent-elles l'estimation ? */
+  casPratique: boolean;
+  /** Les fiches de méthodologie l'alimentent-elles ? */
+  methodologie: boolean;
+  /** Les fiches de méthodologie entrent-elles dans les files de révision ? */
+  reviserMethodologie: boolean;
+}
+
+export const REGLAGES_CONTENU_PAR_DEFAUT: ReglagesContenu = {
+  casPratique: false,
+  methodologie: false,
+  reviserMethodologie: false,
+};
+
+export async function lireReglagesContenu(): Promise<ReglagesContenu> {
+  const stockes = (await (await db()).get('etat', 'reglagesContenu')) as
+    | Partial<ReglagesContenu>
+    | undefined;
+  return { ...REGLAGES_CONTENU_PAR_DEFAUT, ...(stockes ?? {}) };
+}
+
+export async function ecrireReglagesContenu(reglages: ReglagesContenu) {
+  await (await db()).put('etat', reglages, 'reglagesContenu');
+}
 
 export async function lireReglagesNiveau(): Promise<ReglagesNiveau> {
   const stockes = (await (await db()).get('etat', 'reglagesNiveau')) as
@@ -252,6 +296,7 @@ export interface Reponse {
 export async function enregistrerReponse(reponse: Reponse, maintenant = new Date()): Promise<void> {
   const reglages = await lireReglagesNiveau();
   if (!reglages[reponse.source]) return;
+  if (!(await compteDansLeNiveau(reponse))) return;
 
   const quand = maintenant.toISOString();
   const difficultes = await lireDifficultes([reponse.itemId]);
@@ -290,6 +335,25 @@ export async function enregistrerReponse(reponse: Reponse, maintenant = new Date
     observations: item.observations + 1,
     majLe: quand,
   });
+}
+
+/**
+ * La réponse porte-t-elle sur un contenu que l'estimation accepte de mesurer ?
+ *
+ * Le manifeste est en cache : cette vérification ne déchiffre rien et ne coûte
+ * rien d'autre qu'une recherche en mémoire.
+ */
+export async function compteDansLeNiveau(
+  reponse: Pick<Reponse, 'matiere' | 'ficheId'>,
+): Promise<boolean> {
+  const reglages = await lireReglagesContenu();
+  if (!reglages.casPratique && reponse.matiere === MATIERE_CAS_PRATIQUE) return false;
+  if (reglages.methodologie || !reponse.ficheId) return true;
+  // Import différé : le manifeste vit dans la couche de contenu chiffré, que ce
+  // module n'a aucune raison de tirer tant qu'aucune réponse n'est enregistrée.
+  const { aplatirFiches, chargerManifeste } = await import('./contenu');
+  const fiche = aplatirFiches(await chargerManifeste()).find((f) => f.id === reponse.ficheId);
+  return !fiche || !estMethodologique(fiche);
 }
 
 export interface NiveauAffiche {

@@ -13,7 +13,30 @@
  * Playwright n'est pas une dépendance du projet : fournissez CHROMIUM et lancez
  * « astro preview » avant ce script.
  */
+import { readdir, readFile } from 'node:fs/promises';
+import path from 'node:path';
 import { chromium } from 'playwright-core';
+import { idStable } from './lib/crypto.mjs';
+
+/**
+ * Une fiche dépourvue de prétest, trouvée dans le contenu.
+ *
+ * Elle était figée en dur, et l'essai s'est mis à échouer le jour où cette
+ * fiche-là a reçu son prétest : le témoin ne témoignait plus de rien. On la
+ * cherche donc à chaque passage. Le jour où toutes les fiches en auront un,
+ * l'essai le dira franchement au lieu de tester une fiche au hasard.
+ */
+async function ficheSansPretest(racine = 'content') {
+  const entrees = await readdir(racine, { withFileTypes: true, recursive: true });
+  for (const e of entrees) {
+    if (!e.isFile() || !e.name.endsWith('.md') || e.name.endsWith('.podcast.md')) continue;
+    const complet = path.join(e.parentPath ?? e.path, e.name);
+    const texte = await readFile(complet, 'utf8');
+    if (texte.includes('## Prétest')) continue;
+    return await idStable(path.relative(racine, complet));
+  }
+  return null;
+}
 const nav = await chromium.launch({ executablePath: process.env.CHROMIUM, args: ['--no-sandbox'] });
 const ctx = await nav.newContext({ viewport: { width: 1100, height: 900 } });
 const page = await ctx.newPage();
@@ -30,7 +53,11 @@ await page.goto('http://localhost:4321/bibliotheque', { waitUntil: 'networkidle'
 if (await page.locator('#champ-mdp').isVisible().catch(()=>false)) { await page.fill('#champ-mdp','EFN67'); await page.click('#bouton-verrou'); await page.waitForTimeout(3000); }
 
 const AVEC = '/fiche/?id=d9cb5790881e26fa';   // Questions sociales F3, fiche 1 : a un prétest
-const SANS = '/fiche/?id=3a31ab3dd0df7c25';   // une fiche écrite avant la phase 10b
+const idSans = await ficheSansPretest();
+if (!idSans) {
+  console.log('\n\x1b[33m⚠ toutes les fiches ont un prétest : le témoin « sans prétest » est sans objet.\x1b[0m');
+}
+const SANS = `/fiche/?id=${idSans ?? ''}`;
 await page.goto('http://localhost:4321' + AVEC, { waitUntil: 'networkidle' });
 await page.waitForTimeout(2500);
 console.log('\nFICHE VISÉE :', await page.locator('#titre').textContent());
@@ -70,11 +97,13 @@ await page.waitForTimeout(2500);
 v('aucun prétest au rechargement', await page.locator('#pretest section').count(), 0);
 v('le cours est visible d’emblée', await page.locator('#contenu').isVisible(), true);
 
+if (idSans) {
 console.log('\nUNE FICHE SANS PRÉTEST N’EN AFFICHE PAS');
 await page.goto('http://localhost:4321' + SANS, { waitUntil: 'networkidle' });
 await page.waitForTimeout(2500);
 v('pas de panneau', await page.locator('#pretest section').count(), 0);
 v('le cours est visible', await page.locator('#contenu').isVisible(), true);
+}
 
 await nav.close();
 console.log(`\n${echecs ? `✖ ${echecs} échec(s)` : '✓ tout passe'}\n`);

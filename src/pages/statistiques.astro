@@ -94,11 +94,12 @@ import Base from '../layouts/Base.astro';
   import { construireVue } from '../lib/agregats';
   import { ajouterJours, jourISO, tousLesJours, tousLesResultatsQuiz, toutesLesCartes } from '../lib/db';
   import { formaterDuree, lien, pluriel } from '../lib/ui';
-  import { chargerManifeste } from '../lib/contenu';
+  import { chargerManifeste, MATIERE_CAS_PRATIQUE } from '../lib/contenu';
   import { comptesParMatiere } from '../lib/journal';
   import {
     AMORCES,
     calibrer,
+    lireReglagesContenu,
     OBSERVATIONS_MINIMALES,
     tableauDeNiveaux,
     zoneDeTravail,
@@ -256,11 +257,12 @@ import Base from '../layouts/Base.astro';
   async function peindreNiveaux() {
     $('lien-reglages-niveau').setAttribute('href', `${lien('/progression/')}#sources-niveau`);
 
-    const [manifeste, tableau, journal, zone] = await Promise.all([
+    const [manifeste, tableau, journal, zone, reglagesContenu] = await Promise.all([
       chargerManifeste(),
       tableauDeNiveaux(),
       comptesParMatiere(),
       zoneDeTravail(),
+      lireReglagesContenu(),
     ]);
 
     const banniere = $('zone-travail');
@@ -305,6 +307,7 @@ import Base from '../layouts/Base.astro';
 
       const corps = document.createElement('div');
       corps.className = 'mt-3 space-y-2 text-sm';
+      const ecartee = !reglagesContenu.casPratique && matiere.nom === MATIERE_CAS_PRATIQUE;
 
       const erreurs = erreursParMatiere.get(matiere.nom);
       if (erreurs) {
@@ -340,8 +343,18 @@ import Base from '../layouts/Base.astro';
       }
 
       // Auto-estimation : proposée seulement tant qu'aucune réponse réelle n'a
-      // été enregistrée, puisque les réponses en savent plus.
-      if (!niveau || niveau.observations === 0) {
+      // été enregistrée, puisque les réponses en savent plus — et seulement
+      // pour les matières dont l'estimation tient compte. Proposer de se situer
+      // en cas pratique donnerait une note que rien ne viendrait jamais
+      // confirmer, puisque aucune réponse de cette matière n'est comptée.
+      if (ecartee) {
+        const note = document.createElement('p');
+        note.className = 'mt-2 text-xs text-slate-500 dark:text-slate-400';
+        note.textContent =
+          "Cette matière est écartée de l'estimation de niveau : elle s'évalue sur une note " +
+          'rédigée, pas sur des questions fermées. Réglages dans Progression.';
+        corps.appendChild(note);
+      } else if (!niveau || niveau.observations === 0) {
         const invite = document.createElement('div');
         invite.className = 'mt-2 flex flex-wrap items-center gap-2';
         const texte = document.createElement('span');

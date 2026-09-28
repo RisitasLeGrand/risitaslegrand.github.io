@@ -30,7 +30,15 @@ import Section from '../components/Section.astro';
       </div>
 
       <div class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <p class="etiquette text-slate-500 dark:text-slate-400">À réviser aujourd'hui</p>
+        <!--
+          « À revoir », et non « à réviser » : ce compteur ne montre que les
+          cartes déjà apprises dont l'échéance est atteinte. Il comptait aussi
+          les cartes inédites, ce qui affichait les milliers de cartes du site
+          comme un retard du jour — un nombre que personne ne peut tenir, et
+          qui ne descend jamais. Les cartes neuves s'apprennent au rythme
+          qu'on choisit, depuis la session elle-même.
+        -->
+        <p class="etiquette text-slate-500 dark:text-slate-400">À revoir aujourd'hui</p>
         <p class="mt-1 text-3xl font-bold text-slate-900 dark:text-white" id="dues">—</p>
         <a id="lien-reviser" href="#" class="mt-2 inline-block text-xs font-medium text-indigo-600 hover:underline dark:text-indigo-400">
           Lancer la session →
@@ -232,6 +240,7 @@ import Section from '../components/Section.astro';
   import { aplatirFiches, chargerIndexRecherche, chargerManifeste } from '../lib/contenu';
   import { construireIndexTexte } from '../lib/rattachement';
   import {
+    estRepos,
     fichesDuTheme,
     historique,
     seanceDuJour,
@@ -283,7 +292,7 @@ import Section from '../components/Section.astro';
     }
 
     // --- File du jour et maîtrise ---
-    document.getElementById('dues')!.textContent = String(vue.cartesDues);
+    document.getElementById('dues')!.textContent = String(vue.cartesARevoir);
 
     // Zone de travail : le fascicule le plus bas parmi ceux qu'on connaît assez
     // pour l'affirmer. Rien ne s'affiche tant qu'aucun ne l'est.
@@ -343,7 +352,7 @@ import Section from '../components/Section.astro';
           <div class="h-full rounded-full bg-indigo-600 transition-all duration-500" style="width:${pourcent}%"></div>
         </div>
         <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-          ${matiere.fichesLues}/${matiere.fiches.length} fiche(s) lue(s)${matiere.cartesDues ? ` · ${matiere.cartesDues} carte(s) à réviser` : ''}
+          ${matiere.fichesLues}/${matiere.fiches.length} fiche(s) lue(s)${matiere.cartesARevoir ? ` · ${matiere.cartesARevoir} carte(s) à revoir` : ''}
         </p>`;
       carte.querySelectorAll('p')[1]!.textContent = matiere.nom;
       conteneur.appendChild(carte);
@@ -496,11 +505,16 @@ import Section from '../components/Section.astro';
     const terminee = seance.statut === 'terminee';
     const nombreRappels = seance.etendue ? Math.min(4, passees.length) : Math.min(2, passees.length);
 
-    document.getElementById('seance-etiquette')!.textContent = terminee
-      ? 'Séance du jour — terminée'
-      : 'Séance du jour';
+    const repos = estRepos(seance.theme);
+    document.getElementById('seance-etiquette')!.textContent = repos
+      ? 'Aucune révision prévue'
+      : terminee
+        ? 'Séance du jour — terminée'
+        : 'Séance du jour';
     document.getElementById('seance-titre')!.textContent = `${sujet.icone} ${sujet.nom}`;
-    document.getElementById('seance-detail')!.textContent = terminee
+    document.getElementById('seance-detail')!.textContent = repos
+      ? "Journée de repos : rien n'est programmé, et votre série reste intacte."
+      : terminee
       ? 'C\'est fait pour aujourd\'hui. Vous pouvez relire vos notes de séance.'
       : nombreRappels === 0
         ? 'Première séance sur cette matière : directement le contenu du jour, puis la note de séance.'
@@ -516,7 +530,7 @@ import Section from '../components/Section.astro';
     document.getElementById('carte-seance')!.setAttribute('href', lien('/planification/'));
     document.getElementById('bloc-seance')!.classList.remove('hidden');
 
-    if (!terminee) await proposerPretest(seance.theme);
+    if (!terminee && !repos) await proposerPretest(seance.theme);
   }
 
   /**

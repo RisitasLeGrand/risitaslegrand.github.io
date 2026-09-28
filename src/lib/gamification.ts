@@ -3,6 +3,7 @@
  * Toutes les données sont locales (IndexedDB) — voir src/lib/db.ts.
  */
 import config from '../../site.config.mjs';
+import { jourDeRepos } from './rotation';
 import {
   ajouterJours,
   ecartJours,
@@ -59,11 +60,29 @@ export function calculerNiveau(xpTotal: number): Niveau {
   return { niveau, xpDansNiveau: reste, xpRequisNiveau: requis, progression: reste / requis };
 }
 
+/**
+ * La série est-elle intacte entre deux jours ?
+ *
+ * Elle l'est si les jours sautés étaient tous des jours de repos : respecter
+ * son propre planning ne peut pas coûter une série. Le calcul est borné à une
+ * quinzaine — au-delà, ce n'est plus un repos, c'est une interruption.
+ */
+const ECART_MAXIMAL_RATTRAPABLE = 15;
+
+export async function serieContinuee(precedent: string, aujourdhui: string): Promise<boolean> {
+  const ecart = ecartJours(precedent, aujourdhui);
+  if (ecart <= 1) return ecart === 1;
+  if (ecart > ECART_MAXIMAL_RATTRAPABLE) return false;
+  for (let jour = ajouterJours(precedent, 1); jour < aujourdhui; jour = ajouterJours(jour, 1)) {
+    if (!(await jourDeRepos(jour))) return false;
+  }
+  return true;
+}
+
 /** Met à jour la série de jours consécutifs à partir du jour courant. */
-function majStreak(profil: Profil, aujourdhui: string): Profil {
+function majStreak(profil: Profil, aujourdhui: string, continuee: boolean): Profil {
   if (profil.dernierJourEtudie === aujourdhui) return profil;
-  const ecart = profil.dernierJourEtudie ? ecartJours(profil.dernierJourEtudie, aujourdhui) : null;
-  const courante = ecart === 1 ? profil.streakCourante + 1 : 1;
+  const courante = continuee ? profil.streakCourante + 1 : 1;
   return {
     ...profil,
     streakCourante: courante,
@@ -89,7 +108,10 @@ export async function gagnerXp(
   const avant = await lireProfil();
   const niveauAvant = calculerNiveau(avant.xp).niveau;
 
-  let profil: Profil = majStreak({ ...avant, xp: avant.xp + xpGagne }, aujourdhui);
+  const continuee =
+    avant.dernierJourEtudie !== null &&
+    (await serieContinuee(avant.dernierJourEtudie, aujourdhui));
+  let profil: Profil = majStreak({ ...avant, xp: avant.xp + xpGagne }, aujourdhui, continuee);
   await ecrireProfil(profil);
   await majJour(aujourdhui, { xp: xpGagne, ...delta });
 
@@ -671,11 +693,20 @@ export async function statutStreak() {
   const aujourdhui = jourISO();
   const hier = ajouterJours(aujourdhui, -1);
   const etudieAujourdhui = profil.dernierJourEtudie === aujourdhui;
-  const enPeril = !etudieAujourdhui && profil.dernierJourEtudie === hier && profil.streakCourante > 0;
+  // Un jour de repos ne met la série ni en péril ni en défaut : il n'y a rien
+  // à faire ce jour-là, et ne rien faire est précisément ce qui était prévu.
+  const reposAujourdhui = await jourDeRepos(aujourdhui);
+  const continuee =
+    profil.dernierJourEtudie !== null &&
+    (await serieContinuee(profil.dernierJourEtudie, aujourdhui));
+  const enPeril =
+    !etudieAujourdhui && !reposAujourdhui && continuee && profil.streakCourante > 0;
   const rompue =
     !etudieAujourdhui &&
+    !reposAujourdhui &&
     profil.dernierJourEtudie !== null &&
     profil.dernierJourEtudie < hier &&
+    !continuee &&
     profil.streakCourante > 0;
   return {
     courante: rompue ? 0 : profil.streakCourante,
