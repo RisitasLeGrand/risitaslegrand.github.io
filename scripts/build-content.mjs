@@ -20,6 +20,7 @@ import {
   glossaireSchema,
   banqueDgfipSchema,
 } from './lib/schema.mjs';
+import { motDeLEpreuve } from './lib/pretest.mjs';
 import { dechiffrerAvecMotDePasse } from './lib/secret.mjs';
 import { construireIndexGlossaire, idTerme } from './lib/glossaire.mjs';
 import { decouperSections, rendreHtml, texteBrut, extraireSommaire } from './lib/markdown.mjs';
@@ -331,6 +332,18 @@ async function main() {
       const r = quizSchema.safeParse(item);
       if (!r.success) {
         erreurs.push(`${relatif} (## Prétest) : ${r.error.issues.map((i) => i.message).join(' ; ')}`);
+        continue;
+      }
+      // Un prétest ouvre la lecture d'un sujet ; il ne révise pas le mode
+      // d'emploi du concours. Le contrôle vit dans « lib/pretest.mjs », partagé
+      // avec « npm run verifier:pretests » pour que les deux disent la même
+      // chose — et il refuse ici, sans quoi il resterait facultatif.
+      const mot = motDeLEpreuve(r.data.question);
+      if (mot) {
+        erreurs.push(
+          `${relatif} (## Prétest) : « ${r.data.question} » porte sur l'épreuve ` +
+            `(« ${mot} ») — les questions sur l'épreuve sont proscrites en prétest.`,
+        );
         continue;
       }
       pretest.push({

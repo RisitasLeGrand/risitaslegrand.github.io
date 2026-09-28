@@ -211,6 +211,15 @@ Le réglage se change dans Progression → « Contenus écartés ».
   lecture, pas de la vérifier. N'y recopiez pas une question du quiz, sinon
   celle-ci ne mesurera plus rien lorsqu'elle reviendra corrigée — `npm run
   verifier:pretests` le contrôle.
+- **Aucune question sur l'épreuve.** Sa durée, son coefficient, le plan attendu,
+  ce qu'en dit le jury : un prétest ouvre la lecture d'un sujet, il ne révise
+  pas le mode d'emploi du concours, et une telle question occupe la place de
+  celle qui, elle, aurait ouvert quelque chose. Le build **refuse** un prétest
+  contenant le vocabulaire de l'épreuve (liste dans `scripts/lib/pretest.mjs`).
+  C'est un filet, pas une preuve : il ne reconnaît pas toutes les tournures, et
+  la règle tient d'abord à ce qu'on écrit. Une fiche dont le sujet **est**
+  l'épreuve — méthode, devoir, corrigé, bibliographie — n'a donc pas de prétest
+  du tout.
 - La matière **« Cas pratique »** est elle aussi écartée de l'estimation par
   défaut : l'épreuve s'évalue sur une note rédigée, pas sur des questions
   fermées, et un « niveau en RCP » tiré de quelques QCM de vocabulaire ne

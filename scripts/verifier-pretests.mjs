@@ -5,10 +5,15 @@
  * passage : deux minutes pour savoir si une virgule manque. Ce script fait la
  * seule vérification utile pendant la rédaction, en une seconde.
  *
- * Il contrôle aussi ce que le schéma ne peut pas voir : qu'une question de
- * prétest ne recopie pas une question du quiz de la même fiche. Une question
- * vue corrigée en prétest ne mesure plus rien lorsqu'elle revient au quiz — et
- * le quiz alimente désormais l'estimation de niveau.
+ * Il contrôle aussi deux choses que le schéma ne peut pas voir.
+ *
+ * 1. Qu'une question de prétest ne recopie pas une question du quiz de la même
+ *    fiche. Une question vue corrigée en prétest ne mesure plus rien lorsqu'elle
+ *    revient au quiz — et le quiz alimente désormais l'estimation de niveau.
+ * 2. Qu'aucune question ne porte sur **l'épreuve** : sa durée, son coefficient,
+ *    le plan attendu, ce qu'en dit le jury. Un prétest sert à ouvrir la lecture
+ *    d'un sujet, pas à réviser le mode d'emploi du concours ; ces questions-là
+ *    sont à proscrire.
  */
 import { readFile } from 'node:fs/promises';
 import { readdirSync, statSync } from 'node:fs';
@@ -17,6 +22,7 @@ import matter from 'gray-matter';
 import YAML from 'yaml';
 import { decouperSections } from './lib/markdown.mjs';
 import { quizSchema } from './lib/schema.mjs';
+import { motDeLEpreuve } from './lib/pretest.mjs';
 
 /**
  * Même lecture que le build, en plus court : on n'a pas besoin de collecter les
@@ -99,6 +105,16 @@ for (const chemin of fiches.sort()) {
       console.log(`✗ ${chemin} : question de prétest en double — « ${q.question} »`);
     }
     vues.add(clef);
+  }
+
+  for (const q of valides) {
+    const mot = motDeLEpreuve(q.question);
+    if (mot) {
+      erreurs += 1;
+      console.log(
+        `✗ ${chemin} : « ${q.question} » porte sur l'épreuve (« ${mot} ») — proscrit en prétest`,
+      );
+    }
   }
 
   const duQuiz = new Set(
