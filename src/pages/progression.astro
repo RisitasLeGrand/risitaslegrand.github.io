@@ -37,6 +37,18 @@ import Base from '../layouts/Base.astro';
     <p id="message-reglages" class="mt-3 hidden text-sm text-emerald-600 dark:text-emerald-400"></p>
   </section>
 
+  <section id="sources-niveau" class="mb-8 rounded-2xl border border-slate-200 bg-white p-5 target:ring-2 target:ring-indigo-400 dark:border-slate-800 dark:bg-slate-900">
+    <p class="etiquette text-indigo-600 dark:text-indigo-400">Estimation de niveau</p>
+    <h2 class="mt-1 mb-2 text-lg font-semibold text-slate-900 dark:text-white">Ce qui alimente votre niveau</h2>
+    <p class="mb-4 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      Le niveau estimé par matière — et la sélection de contenu qui en découle — se nourrit des
+      réponses notées. Vous choisissez lesquelles comptent. Désactiver une source arrête de
+      l'utiliser pour les mises à jour futures ; les données déjà enregistrées sont conservées.
+    </p>
+    <div id="sources" class="space-y-2"></div>
+    <p id="message-sources" class="mt-3 hidden text-sm text-emerald-600 dark:text-emerald-400"></p>
+  </section>
+
   <div class="grid gap-5 lg:grid-cols-2">
     <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
       <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">Exporter</h2>
@@ -106,8 +118,67 @@ import Base from '../layouts/Base.astro';
   } from '../lib/db';
   import { calculerNiveau } from '../lib/gamification';
   import { formaterDuree, notifier, pluriel } from '../lib/ui';
+  import {
+    ecrireReglagesNiveau,
+    lireReglagesNiveau,
+    type ReglagesNiveau,
+  } from '../lib/niveau';
 
   const $ = (id: string) => document.getElementById(id)!;
+
+  /**
+   * Les quatre sources, et leur libellé. Le QCM-DGFiP est décoché par défaut :
+   * ses rubriques — Français, Culture générale, Logique, Maths — ne recouvrent
+   * pas les matières du concours, et les y mêler fausserait des niveaux qu'elles
+   * ne mesurent pas.
+   */
+  const SOURCES: { id: keyof ReglagesNiveau; libelle: string; detail: string }[] = [
+    { id: 'quiz', libelle: 'Quiz de cours', detail: 'Les QCM engendrés à partir de vos fiches.' },
+    { id: 'flashcards', libelle: 'Flashcards', detail: 'Chaque carte notée, quelle que soit la note.' },
+    {
+      id: 'rappels',
+      libelle: 'Rappels de séance',
+      detail: 'Les flashcards et QCM lancés depuis une séance de planification.',
+    },
+    {
+      id: 'dgfip',
+      libelle: 'QCM - DGFiP',
+      detail: 'Hors programme du concours : décoché par défaut.',
+    },
+  ];
+
+  async function peindreSources() {
+    const reglages = await lireReglagesNiveau();
+    const zone = $('sources');
+    zone.replaceChildren();
+    for (const source of SOURCES) {
+      const etiquette = document.createElement('label');
+      etiquette.className = 'flex min-h-11 cursor-pointer items-start gap-3';
+      const case_ = document.createElement('input');
+      case_.type = 'checkbox';
+      case_.checked = reglages[source.id];
+      case_.className = 'mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500';
+      case_.addEventListener('change', () => {
+        void (async () => {
+          const courants = await lireReglagesNiveau();
+          await ecrireReglagesNiveau({ ...courants, [source.id]: case_.checked });
+          const message = $('message-sources');
+          message.textContent = `« ${source.libelle} » ${case_.checked ? 'compte désormais' : 'ne compte plus'} dans l'estimation.`;
+          message.classList.remove('hidden');
+        })();
+      });
+      const texte = document.createElement('span');
+      const nom = document.createElement('span');
+      nom.className = 'block text-sm font-medium text-slate-700 dark:text-slate-200';
+      nom.textContent = source.libelle;
+      const detail = document.createElement('span');
+      detail.className = 'block text-xs text-slate-500 dark:text-slate-400';
+      detail.textContent = source.detail;
+      texte.append(nom, detail);
+      etiquette.append(case_, texte);
+      zone.appendChild(etiquette);
+    }
+  }
 
   async function afficherResume() {
     const [profil, cartes, quiz, jours] = await Promise.all([
@@ -138,6 +209,8 @@ import Base from '../layouts/Base.astro';
   }
 
   async function brancherReglages() {
+    await peindreSources();
+
     const reglages = await lireReglagesSession();
     const cartes = $('plafond-cartes') as HTMLInputElement;
     const questions = $('plafond-questions') as HTMLInputElement;

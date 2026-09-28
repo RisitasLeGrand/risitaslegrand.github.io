@@ -168,6 +168,7 @@ import { base } from '../lib/ui';
   import { gagnerXp, xpFlashcard } from '../lib/gamification';
   import { apercu, carteNeuve, delai, noterEtEnregistrer, NOTES } from '../lib/srs';
   import { signalerErreur } from '../lib/journal';
+  import { enregistrerReponse, ordonnerParZoneProximale } from '../lib/niveau';
   import { lien, melanger, notifier, parametreUrl, pluriel } from '../lib/ui';
 
   let file: CarteAReviser[] = [];
@@ -224,6 +225,20 @@ import { base } from '../lib/ui';
     if (!reponseVisible) return;
     const carte = file[position];
     await noterEtEnregistrer(carte.id, carte.ficheId, carte.matiere, note);
+
+    // Estimation de niveau. « Correct » et « Facile » comptent tous deux comme
+    // une réussite : ce qui les sépare est une affaire de calendrier, pas de
+    // compétence. « Difficile » est une réussite laborieuse, d'où le demi-point.
+    void enregistrerReponse({
+      itemId: carte.id,
+      resultat: { oublie: 0, difficile: 0.5, correct: 1, facile: 1 }[note],
+      matiere: carte.matiere,
+      ficheId: carte.ficheId,
+      ficheTitre: carte.ficheTitre,
+      // Une session lancée depuis une séance est un rappel, et la personne peut
+      // vouloir l'exclure séparément de ses révisions ordinaires.
+      source: parametreUrl('fiches') ? 'rappels' : 'flashcards',
+    });
 
     const xp = xpFlashcard(note);
     xpSession += xp;
@@ -336,6 +351,24 @@ import { base } from '../lib/ui';
     return { matiere, ficheIds: retenues.map((f) => f.id) };
   }
 
+  /**
+   * Le sujet sur lequel porte la session, s'il est unique — c'est la condition
+   * pour que la zone proximale veuille dire quelque chose.
+   */
+  function clefSujetDeSession(
+    matiere: string | null,
+    ficheId: string | null,
+    ficheIds: string[] | null,
+  ): string | null {
+    if (ficheId) return `fiche:${ficheId}`;
+    if (ficheIds?.length) {
+      const ensemble = new Set(ficheIds);
+      const matieres = new Set(fiches.filter((f) => ensemble.has(f.id)).map((f) => f.matiere));
+      return matieres.size === 1 ? `matiere:${[...matieres][0]}` : null;
+    }
+    return matiere ? `matiere:${matiere}` : null;
+  }
+
   /** Fiches d'une séance passée, transmises sous la forme « ?fiches=a,b,c ». */
   function fichesCiblees(): string[] | null {
     const brut = parametreUrl('fiches');
@@ -353,9 +386,15 @@ import { base } from '../lib/ui';
     const matiere = ciblees ? null : menus.matiere;
     const ficheIds = ciblees ?? menus.ficheIds;
 
-    file = melanger(
-      await fileDuJour({ matiere, ficheId, ficheIds, limite: taille, inclureNonDues }),
-    );
+    // La zone proximale n'a de sens **qu'à l'intérieur d'un sujet** : comparer
+    // la difficulté d'une carte de droit public à celle d'une carte d'économie
+    // reviendrait à comparer deux échelles qui n'ont jamais été mises en regard.
+    // Sans sujet unique, on garde l'ordre de la file — les plus en retard
+    // d'abord — et le plafond s'applique comme avant.
+    const brute = await fileDuJour({ matiere, ficheId, ficheIds, inclureNonDues });
+    const clefSujet = clefSujetDeSession(matiere, ficheId, ficheIds);
+    const priorisee = clefSujet ? await ordonnerParZoneProximale(brute, clefSujet) : brute;
+    file = melanger(taille > 0 ? priorisee.slice(0, taille) : priorisee);
     if (!file.length) {
       $('rien-a-faire').classList.remove('hidden');
       return;

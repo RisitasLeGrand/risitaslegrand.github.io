@@ -66,6 +66,22 @@ import Section from '../components/Section.astro';
       </p>
     </section>
 
+    <!-- Zone de travail : un repère lisible plutôt qu'un chiffre isolé. -->
+    <section
+      id="bloc-zone"
+      class="hidden rounded-xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-900 dark:bg-indigo-950/30"
+    >
+      <p class="text-sm text-slate-700 dark:text-slate-200">
+        <span class="font-semibold">Zone de travail actuelle :</span>
+        <span id="zone-libelle"></span>
+        <a
+          id="lien-niveaux"
+          href="#"
+          class="ml-1 font-medium text-indigo-700 hover:underline dark:text-indigo-300"
+        >Voir les niveaux →</a>
+      </p>
+    </section>
+
     <!-- Séance du jour : proposée automatiquement par la rotation.
          C'est la <section> qui porte « hidden », et non le lien : un <a> dont
          on retire « hidden » repasserait en « display: inline », et la carte
@@ -184,6 +200,7 @@ import Section from '../components/Section.astro';
   import { construireIndexTexte } from '../lib/rattachement';
   import { historique, seanceDuJour, theme as themeParId } from '../lib/planification';
   import { entreesOuvertes } from '../lib/journal';
+  import { zoneDeTravail } from '../lib/niveau';
 
   const dateLongue = new Intl.DateTimeFormat('fr-FR', {
     day: 'numeric',
@@ -227,6 +244,15 @@ import Section from '../components/Section.astro';
 
     // --- File du jour et maîtrise ---
     document.getElementById('dues')!.textContent = String(vue.cartesDues);
+
+    // Zone de travail : le fascicule le plus bas parmi ceux qu'on connaît assez
+    // pour l'affirmer. Rien ne s'affiche tant qu'aucun ne l'est.
+    const zone = await zoneDeTravail();
+    if (zone) {
+      document.getElementById('zone-libelle')!.textContent = `${zone.matiere} — ${zone.libelle}`;
+      document.getElementById('lien-niveaux')!.setAttribute('href', lien('/statistiques/'));
+      document.getElementById('bloc-zone')!.classList.remove('hidden');
+    }
 
     // Journal d'erreurs.
     const ouvertes = await entreesOuvertes();

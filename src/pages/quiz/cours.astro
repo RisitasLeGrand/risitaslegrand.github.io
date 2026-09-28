@@ -109,6 +109,7 @@ import { base } from '../../lib/ui';
   import { gagnerXp, xpQuiz } from '../../lib/gamification';
   import { formaterDate, lien, melanger, notifier, parametreUrl } from '../../lib/ui';
   import { signalerErreur } from '../../lib/journal';
+  import { enregistrerReponse, ordonnerParZoneProximale } from '../../lib/niveau';
 
   interface QuestionPosee extends QuestionQuiz {
     ficheId: string;
@@ -168,8 +169,20 @@ import { base } from '../../lib/ui';
         });
       }
     }
+    // Zone proximale : elle ne départage que des questions d'un même sujet.
+    // Sur un tirage qui mélange plusieurs matières, leurs difficultés estimées
+    // ne sont pas comparables, et le tirage reste aléatoire.
+    const sujets = new Set(toutes.map((q) => q.matiere));
+    const clefSujet = ficheId
+      ? `fiche:${ficheId}`
+      : sujets.size === 1
+        ? `matiere:${[...sujets][0]}`
+        : null;
     const melangees = melanger(toutes);
-    return limite > 0 ? melangees.slice(0, limite) : melangees;
+    const priorisees = clefSujet
+      ? await ordonnerParZoneProximale(melangees, clefSujet)
+      : melangees;
+    return limite > 0 ? priorisees.slice(0, limite) : priorisees;
   }
 
   function afficherQuestion() {
@@ -202,6 +215,15 @@ import { base } from '../../lib/ui';
     repondu = true;
     const q = questions[position];
     const correct = q.bonnes.includes(choisi);
+    void enregistrerReponse({
+      itemId: q.id,
+      resultat: correct ? 1 : 0,
+      matiere: q.matiere,
+      fascicule: q.fascicule,
+      ficheId: q.ficheId,
+      ficheTitre: q.ficheTitre,
+      source: parametreUrl('fiches') ? 'rappels' : 'quiz',
+    });
     if (correct) bonnes += 1;
     else {
       erreurs.push({ question: q, choisi });

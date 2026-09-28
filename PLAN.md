@@ -844,6 +844,57 @@ disparaîtrait simplement un peu trop tôt, et le point faible avec elle. Le
 parcours passe par une flashcard, seul item dont la reprise offre un bouton
 déterministe : un QCM demanderait de connaître la bonne option avant de cliquer.
 
+### 10d — Estimation de niveau et zone proximale ✅
+
+**Pourquoi Elo plutôt qu'une moyenne mobile.** On aurait pu suivre un taux de
+réussite glissant, croisé avec une difficulté déclarée sur chaque fiche. Mais
+cette difficulté déclarée n'existait pas, et l'inventer fiche par fiche aurait
+été long et arbitraire. Une notation de type Elo résout les deux problèmes d'un
+coup : la difficulté de chaque item **s'estime elle-même**, comme le classement
+d'un joueur, et la zone proximale s'en déduit sans réglage supplémentaire. Un
+taux brut, lui, ne dit rien : 80 % sur des questions faciles et 80 % sur des
+questions dures ne décrivent pas le même niveau, et c'est exactement ce que la
+note de l'adversaire apporte.
+
+**Trois granularités par réponse** — fiche, fascicule, matière. Un niveau global
+masquerait une faiblesse localisée sur un seul fascicule, et c'est précisément
+ce qu'on cherche à voir. La difficulté de l'item, elle, se confronte au niveau
+le plus **spécifique** disponible : c'est celui qui décrit le mieux la personne
+sur ce point précis.
+
+**La zone proximale ne vaut qu'à l'intérieur d'un sujet.** Comparer la
+difficulté estimée d'une carte de droit public à celle d'une carte d'économie
+reviendrait à comparer deux échelles qui n'ont jamais été mises en regard. Le
+tri par zone proximale ne s'applique donc qu'aux sessions portant sur un sujet
+unique — une fiche, une matière, un rappel de séance. Ailleurs, l'ordre reste
+celui de la file : les plus en retard d'abord. Et il s'applique **avant** le
+plafond, sans quoi il n'aurait réordonné qu'un ensemble déjà tronqué.
+
+**Rien n'est affiché sous cinq observations.** Montrer « 1187 » après deux
+réponses donnerait à du bruit l'allure d'une mesure.
+
+**La calibration initiale est une amorce, pas un test de placement.** Trois
+crans d'auto-estimation, espacés de 150 points — soit environ 30 points de
+probabilité de réussite face au même item : assez pour que le choix change le
+contenu proposé, pas assez pour qu'un mauvais choix enferme qui que ce soit.
+Elle ne compte aucune observation, n'affiche aucun chiffre, et la première
+réponse réelle l'efface en tant qu'amorce. On ne recalibre jamais par-dessus des
+observations : elles en savent plus que n'importe quelle impression.
+
+**Le QCM-DGFiP est exclu par défaut**, ses rubriques ne recouvrant pas les
+matières du concours. Une source désactivée cesse d'alimenter ; elle n'efface
+rien.
+
+**Ce que les essais éprouvent.** La formule d'ajustement a été extraite pour
+être simulée : des apprenants de niveau connu, et la vérification que
+l'estimation les retrouve à moins de 120 points — y compris un apprenant qui
+progresse, que seul un pas décroissant *sans jamais s'annuler* permet de suivre.
+Une formule qui dérive ne produirait ni erreur ni page blanche, seulement une
+sélection mal calibrée quelques semaines plus tard, impossible à relier à sa
+cause. L'essai en navigateur, lui, vérifie le raccord : qu'une réponse alimente
+bien les trois granularités, et que le réglage de source **coupe réellement**
+l'alimentation — un réglage sans effet serait pire que pas de réglage du tout.
+
 ## Pistes pour la suite
 
 Prévues par l'architecture, non réalisées à ce stade :

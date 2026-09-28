@@ -18,8 +18,10 @@
     "verifier": "astro check",
     "essais:relationnel": "tsx scripts/essais-relationnel.mts",
     "essais:srs": "tsx scripts/essais-srs.mts",
+    "essais:niveau": "tsx scripts/essais-niveau.mts",
     "essais:pretest": "node scripts/essais-pretest.mjs",
     "essais:journal": "node scripts/essais-journal.mjs",
+    "essais:niveau:navigateur": "node scripts/essais-niveau-navigateur.mjs",
     "essais:migration": "node scripts/essais-migration-fsrs.mjs",
     "essais:veridical": "tsx scripts/essais-veridical.mts",
     "contrastes": "node scripts/verifier-contrastes.mjs"

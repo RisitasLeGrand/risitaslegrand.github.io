@@ -180,6 +180,7 @@ import { base } from '../../lib/ui';
   } from '../../lib/qcm';
   import { echapper, formaterDate, notifier, pluriel } from '../../lib/ui';
   import { MATIERE_DGFIP, signalerErreur } from '../../lib/journal';
+  import { enregistrerReponse } from '../../lib/niveau';
 
   let banque: BanqueDgfip | null = null;
   /** Formats effectivement proposés, la banque étant ce qu'elle est. */
@@ -357,6 +358,16 @@ import { base } from '../../lib/ui';
     // abstentions n'en ouvrent pas : ne pas répondre n'est pas se tromper, et
     // le barème sanctionne déjà le remplissage au hasard.
     for (const r of reponses) {
+      // L'abstention ne dit rien du niveau : elle n'alimente pas l'estimation.
+      if (r.issue !== 'abstention') {
+        await enregistrerReponse({
+          itemId: r.question.id,
+          resultat: r.issue === 'bonne' ? 1 : 0,
+          matiere: MATIERE_DGFIP,
+          fascicule: r.question.rubrique,
+          source: 'dgfip',
+        });
+      }
       if (r.issue !== 'mauvaise') continue;
       await signalerErreur({
         id: r.question.id,

@@ -144,6 +144,48 @@ export interface EntreeJournal {
   fermeeLe?: string;
 }
 
+/**
+ * Le niveau estimé sur un sujet — matière, fascicule ou fiche.
+ *
+ * La note est une note de type Elo : elle monte quand on réussit ce qui était
+ * prévu difficile, et descend quand on échoue sur ce qui était prévu facile.
+ * Voir `src/lib/niveau.ts` pour le détail et les raisons.
+ */
+export interface Competence {
+  /** `matiere:<nom>`, `fascicule:<matiere>|<nom>` ou `fiche:<id>`. */
+  clef: string;
+  portee: 'matiere' | 'fascicule' | 'fiche';
+  /** Libellé lisible : nom de la matière, du fascicule ou de la fiche. */
+  libelle: string;
+  /** Matière de rattachement, pour regrouper à l'affichage. */
+  matiere: string;
+  note: number;
+  observations: number;
+  majLe: string;
+  /**
+   * Vraie lorsque la note vient d'une auto-estimation initiale et non encore
+   * d'observations. Elle sert d'amorce : la première réponse réelle la déplace
+   * comme n'importe quelle autre, et rien ne distingue plus ensuite une note
+   * amorcée d'une note gagnée.
+   */
+  calibree?: boolean;
+}
+
+/**
+ * La difficulté estimée d'un item — question de quiz, de QCM, ou flashcard.
+ *
+ * Elle bouge au même titre que le niveau de la personne : un item que tout le
+ * monde rate devient difficile, comme un joueur qui gagne monte au classement.
+ * C'est ce qui permet de parler de zone proximale sans avoir à étiqueter chaque
+ * question à la main.
+ */
+export interface DifficulteItem {
+  id: string;
+  note: number;
+  observations: number;
+  majLe: string;
+}
+
 export interface SessionNBack {
   id?: number;
   le: string;
@@ -341,6 +383,8 @@ interface SchemaRevinsp extends DBSchema {
   cartes: { key: string; value: EtatCarte; indexes: { du: string; matiere: string } };
   fiches: { key: string; value: EtatFiche };
   journal: { key: string; value: EntreeJournal; indexes: { matiere: string } };
+  competences: { key: string; value: Competence; indexes: { matiere: string } };
+  difficultes: { key: string; value: DifficulteItem };
   quiz: { key: number; value: ResultatQuiz; indexes: { le: string } };
   jours: { key: string; value: Jour };
   nback: { key: number; value: SessionNBack; indexes: { le: string } };
@@ -353,7 +397,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 8;
+const VERSION = 9;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -415,6 +459,13 @@ export function db() {
         // parce que c'est par matière que les séances viennent y puiser.
         const journal = base.createObjectStore('journal', { keyPath: 'id' });
         journal.createIndex('matiere', 'matiere');
+      }
+      if (ancienneVersion < 9) {
+        // Estimation de niveau : la note de la personne par sujet d'un côté,
+        // la difficulté des items de l'autre. Les deux bougent ensemble.
+        const competences = base.createObjectStore('competences', { keyPath: 'clef' });
+        competences.createIndex('matiere', 'matiere');
+        base.createObjectStore('difficultes', { keyPath: 'id' });
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -531,6 +582,37 @@ export async function lireCarte(id: string): Promise<EtatCarte | undefined> {
 
 export async function ecrireCarte(carte: EtatCarte) {
   await (await db()).put('cartes', carte);
+}
+
+export async function toutesLesCompetences(): Promise<Competence[]> {
+  return (await db()).getAll('competences');
+}
+
+export async function lireCompetence(clef: string): Promise<Competence | undefined> {
+  return (await db()).get('competences', clef);
+}
+
+export async function ecrireCompetence(competence: Competence) {
+  await (await db()).put('competences', competence);
+}
+
+export async function lireDifficultes(ids: readonly string[]): Promise<Map<string, DifficulteItem>> {
+  const base = await db();
+  const tx = base.transaction('difficultes');
+  const magasin = tx.objectStore('difficultes');
+  const trouvees = new Map<string, DifficulteItem>();
+  await Promise.all(
+    ids.map(async (id) => {
+      const valeur = await magasin.get(id);
+      if (valeur) trouvees.set(id, valeur);
+    }),
+  );
+  await tx.done;
+  return trouvees;
+}
+
+export async function ecrireDifficulte(item: DifficulteItem) {
+  await (await db()).put('difficultes', item);
 }
 
 export async function toutesLesEntreesJournal(): Promise<EntreeJournal[]> {
@@ -745,6 +827,8 @@ const MAGASINS_PROGRESSION = [
   'vmSeuils',
   'vmSessions',
   'journal',
+  'competences',
+  'difficultes',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */
@@ -774,6 +858,8 @@ export async function exporterTout() {
     vmSeuils: await base.getAll('vmSeuils'),
     vmSessions: await base.getAll('vmSessions'),
     journal: await base.getAll('journal'),
+    competences: await base.getAll('competences'),
+    difficultes: await base.getAll('difficultes'),
     planification: await lireReglagesPlanification(),
     reglagesSession: (await base.get('etat', 'reglagesSession')) as ReglagesSession | undefined,
   };
@@ -835,6 +921,21 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
         .sort()
         .pop() as string | null,
     });
+  }
+
+  // Niveaux et difficultés : en fusion, la mise à jour la plus récente gagne.
+  // Moyenner deux estimations indépendantes donnerait une note qu'aucune des
+  // deux histoires ne justifie.
+  for (const competence of donnees.competences ?? []) {
+    const locale = mode === 'fusion' ? await base.get('competences', competence.clef) : undefined;
+    await base.put(
+      'competences',
+      locale && locale.majLe > competence.majLe ? locale : competence,
+    );
+  }
+  for (const item of donnees.difficultes ?? []) {
+    const locale = mode === 'fusion' ? await base.get('difficultes', item.id) : undefined;
+    await base.put('difficultes', locale && locale.majLe > item.majLe ? locale : item);
   }
 
   for (const entree of donnees.journal ?? []) {
