@@ -1060,7 +1060,7 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 │       ├── auth.ts          # Session et gestion de la clé
 │       ├── contenu.ts       # Chargement et cache du contenu déchiffré
 │       ├── db.ts            # IndexedDB : progression, export/import
-│       ├── srs.ts           # Répétition espacée (SM-2)
+│       ├── srs.ts           # Répétition espacée (FSRS)
 │       ├── qcm.ts           # Épreuves « QCM - DGFiP » : tirage, barème, score
 │       ├── gamification.ts  # XP, niveaux, série, badges
 │       ├── agregats.ts      # Calculs de maîtrise et file du jour

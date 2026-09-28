@@ -20,6 +20,7 @@ import {
   toutesLesSessionsVeridical,
   tousLesSeuilsVeridical,
   type Jour,
+  type Note,
   type Profil,
 } from './db';
 import {
@@ -107,12 +108,13 @@ export async function gagnerXp(
   };
 }
 
-export const xpFlashcard = (difficulte: 'difficile' | 'moyen' | 'facile') =>
-  difficulte === 'facile'
-    ? XP.flashcardFacile
-    : difficulte === 'moyen'
-      ? XP.flashcardMoyen
-      : XP.flashcardDifficile;
+export const xpFlashcard = (note: Note) =>
+  ({
+    oublie: XP.flashcardOublie,
+    difficile: XP.flashcardDifficile,
+    correct: XP.flashcardCorrect,
+    facile: XP.flashcardFacile,
+  })[note];
 
 export const xpQuiz = (bonnes: number) => XP.quizTermine + bonnes * XP.quizBonneReponse;
 export const xpFiche = () => XP.ficheTerminee;

@@ -114,18 +114,28 @@ import { base } from '../lib/ui';
 
     <div id="notation" class="mx-auto mt-5 hidden max-w-2xl">
       <p class="mb-2 text-center text-sm text-slate-500 dark:text-slate-400">Avez-vous su répondre ?</p>
-      <div class="grid grid-cols-3 gap-2">
-        <button data-note="difficile" class="rounded-xl bg-red-100 px-3 py-4 font-medium text-red-700 transition hover:bg-red-200 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900">
-          Difficile<span class="mt-1 block text-xs font-normal opacity-70">à revoir aujourd'hui</span>
+      <!--
+        Quatre notes depuis le passage à FSRS : « Oublié » n'est pas un cran de
+        plus sur le même axe que les trois autres, c'est l'échec, et il alimente
+        une grandeur distincte du modèle. Deux colonnes sur téléphone, quatre
+        au-delà : quatre boutons côte à côte à 360 px tronqueraient leurs
+        libellés.
+      -->
+      <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <button data-note="oublie" class="rounded-xl bg-red-100 px-3 py-4 font-medium text-red-700 transition hover:bg-red-200 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900">
+          Oublié<span class="mt-1 block text-xs font-normal opacity-70" data-delai-oublie></span>
         </button>
-        <button data-note="moyen" class="rounded-xl bg-amber-100 px-3 py-4 font-medium text-amber-700 transition hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900">
-          Moyen<span class="mt-1 block text-xs font-normal opacity-70" data-delai-moyen></span>
+        <button data-note="difficile" class="rounded-xl bg-amber-100 px-3 py-4 font-medium text-amber-700 transition hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900">
+          Difficile<span class="mt-1 block text-xs font-normal opacity-70" data-delai-difficile></span>
+        </button>
+        <button data-note="correct" class="rounded-xl bg-sky-100 px-3 py-4 font-medium text-sky-800 transition hover:bg-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:hover:bg-sky-900">
+          Correct<span class="mt-1 block text-xs font-normal opacity-70" data-delai-correct></span>
         </button>
         <button data-note="facile" class="rounded-xl bg-emerald-100 px-3 py-4 font-medium text-emerald-700 transition hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900">
           Facile<span class="mt-1 block text-xs font-normal opacity-70" data-delai-facile></span>
         </button>
       </div>
-      <p class="mt-2 text-center text-xs text-slate-400">Raccourcis : 1 · 2 · 3</p>
+      <p class="mt-2 text-center text-xs text-slate-400">Raccourcis : 1 · 2 · 3 · 4</p>
     </div>
   </section>
 
@@ -150,14 +160,13 @@ import { base } from '../lib/ui';
   import { fileDuJour, type CarteAReviser } from '../lib/agregats';
   import { aplatirFiches, chargerManifeste } from '../lib/contenu';
   import {
-    jourISO,
     lireCarte,
     lireReglagesSession,
     toutesLesCartes,
-    type Difficulte,
+    type Note,
   } from '../lib/db';
   import { gagnerXp, xpFlashcard } from '../lib/gamification';
-  import { noter, noterEtEnregistrer } from '../lib/srs';
+  import { apercu, carteNeuve, delai, noterEtEnregistrer, NOTES } from '../lib/srs';
   import { lien, melanger, notifier, parametreUrl, pluriel } from '../lib/ui';
 
   let file: CarteAReviser[] = [];
@@ -165,7 +174,7 @@ import { base } from '../lib/ui';
   let reponseVisible = false;
   let notees = 0;
   let xpSession = 0;
-  const compte = { difficile: 0, moyen: 0, facile: 0 };
+  const compte: Record<Note, number> = { oublie: 0, difficile: 0, correct: 0, facile: 0 };
 
   const $ = (id: string) => document.getElementById(id)!;
 
@@ -177,22 +186,13 @@ import { base } from '../lib/ui';
 
   /** Aperçu du prochain intervalle, affiché sur les boutons de notation. */
   async function majDelais(carteId: string) {
-    const etat = await lireCarte(carteId);
-    const base = etat ?? {
-      id: carteId,
-      ficheId: '',
-      matiere: '',
-      repetitions: 0,
-      intervalle: 0,
-      facilite: 2.5,
-      du: jourISO(),
-      derniereRevision: null,
-      oublis: 0,
-      revisions: 0,
-    };
-    const texte = (jours: number) => (jours <= 1 ? 'demain' : `dans ${jours} j`);
-    document.querySelector('[data-delai-moyen]')!.textContent = texte(noter(base, 'moyen').intervalle);
-    document.querySelector('[data-delai-facile]')!.textContent = texte(noter(base, 'facile').intervalle);
+    const base = (await lireCarte(carteId)) ?? carteNeuve(carteId, '', '');
+    const maintenant = new Date();
+    const echeances = apercu(base, maintenant);
+    for (const note of NOTES) {
+      const cible = document.querySelector(`[data-delai-${note}]`);
+      if (cible) cible.textContent = delai(echeances[note], maintenant);
+    }
   }
 
   async function afficherCarte() {
@@ -219,22 +219,24 @@ import { base } from '../lib/ui';
     $('notation').classList.remove('hidden');
   }
 
-  async function annoter(difficulte: Difficulte) {
+  async function annoter(note: Note) {
     if (!reponseVisible) return;
     const carte = file[position];
-    await noterEtEnregistrer(carte.id, carte.ficheId, carte.matiere, difficulte);
+    await noterEtEnregistrer(carte.id, carte.ficheId, carte.matiere, note);
 
-    const xp = xpFlashcard(difficulte);
+    const xp = xpFlashcard(note);
     xpSession += xp;
     notees += 1;
-    compte[difficulte] += 1;
+    compte[note] += 1;
 
     const gain = await gagnerXp(xp, { cartes: 1 });
     for (const badge of gain.nouveauxBadges) notifier(`${badge.icone} Succès : ${badge.nom}`, 'badge');
     if (gain.monteeDeNiveau) notifier(`🎉 Niveau ${gain.niveau.niveau} !`, 'succes');
 
-    // Une carte « difficile » revient en fin de session.
-    if (difficulte === 'difficile') file.push({ ...carte, neuve: false });
+    // Une carte oubliée revient en fin de session. C'est « Oublié » et non
+    // « Difficile » qui la ramène : depuis FSRS, « Difficile » est une réussite
+    // à intervalle court, pas un échec.
+    if (note === 'oublie') file.push({ ...carte, neuve: false });
 
     position += 1;
     await afficherCarte();
@@ -245,7 +247,8 @@ import { base } from '../lib/ui';
     afficherVue('bilan');
     $('bilan-detail').textContent =
       `${pluriel(notees, 'carte révisée', 'cartes révisées')} · +${xpSession} XP · ` +
-      `${compte.facile} facile(s), ${compte.moyen} moyen(s), ${compte.difficile} difficile(s)`;
+      `${compte.facile} facile(s), ${compte.correct} correct(s), ` +
+      `${compte.difficile} difficile(s), ${compte.oublie} oublié(s)`;
   }
 
   /**
@@ -348,7 +351,7 @@ import { base } from '../lib/ui';
     position = 0;
     notees = 0;
     xpSession = 0;
-    compte.difficile = compte.moyen = compte.facile = 0;
+    for (const note of NOTES) compte[note] = 0;
     afficherVue('session');
     await afficherCarte();
   }
@@ -431,18 +434,18 @@ import { base } from '../lib/ui';
     $('carte').addEventListener('click', retourner);
 
     for (const bouton of document.querySelectorAll<HTMLButtonElement>('#notation [data-note]')) {
-      bouton.addEventListener('click', () => void annoter(bouton.dataset.note as Difficulte));
+      bouton.addEventListener('click', () => void annoter(bouton.dataset.note as Note));
     }
 
-    // Raccourcis clavier : Espace pour retourner, 1/2/3 pour noter.
+    // Raccourcis clavier : Espace pour retourner, 1 à 4 pour noter.
     document.addEventListener('keydown', (e) => {
       if ($('session').classList.contains('hidden')) return;
       if (e.key === ' ' || e.key === 'Enter') {
         e.preventDefault();
         retourner();
-      } else if (reponseVisible && ['1', '2', '3'].includes(e.key)) {
+      } else if (reponseVisible && ['1', '2', '3', '4'].includes(e.key)) {
         e.preventDefault();
-        void annoter((['difficile', 'moyen', 'facile'] as const)[Number(e.key) - 1]);
+        void annoter(NOTES[Number(e.key) - 1]);
       }
     });
 

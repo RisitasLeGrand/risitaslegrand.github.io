@@ -95,8 +95,15 @@ export default {
 
   /** Points d'expérience attribués par action. */
   xp: {
-    flashcardDifficile: 3,
-    flashcardMoyen: 5,
+    /**
+     * Quatre notes depuis le passage à FSRS. « Oublié » rapporte quelque chose :
+     * la tentative a eu lieu, et c'est elle qui fait progresser la trace — ne
+     * rien donner pousserait à cliquer « Difficile » sur une carte oubliée, ce
+     * qui fausserait l'ordonnanceur pour gagner trois points.
+     */
+    flashcardOublie: 3,
+    flashcardDifficile: 4,
+    flashcardCorrect: 5,
     flashcardFacile: 7,
     quizTermine: 10,
     quizBonneReponse: 2,

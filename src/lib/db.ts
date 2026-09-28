@@ -4,25 +4,82 @@
  * L'export/import JSON (page « Progression ») sert à synchroniser manuellement
  * plusieurs appareils.
  */
+import { createEmptyCard, type Card } from 'ts-fsrs';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 
-export type Difficulte = 'difficile' | 'moyen' | 'facile';
+/**
+ * Les quatre niveaux de notation d'une flashcard.
+ *
+ * FSRS attend Again / Hard / Good / Easy. « Oublié » n'est pas un quatrième cran
+ * ajouté au confort de l'interface : l'échec alimente une grandeur distincte du
+ * modèle — les rechutes —, là où les trois autres notes règlent la vitesse.
+ * C'est aussi le mot employé par le cahier des charges.
+ */
+export type Note = 'oublie' | 'difficile' | 'correct' | 'facile';
 
 export interface EtatCarte {
   id: string;
   ficheId: string;
   matiere: string;
-  /** Nombre de révisions réussies consécutives (SM-2). */
-  repetitions: number;
-  /** Intervalle courant, en jours. */
-  intervalle: number;
-  /** Facteur de facilité SM-2 (>= 1.3). */
-  facilite: number;
-  /** Prochaine échéance, au format AAAA-MM-JJ. */
+  /** Prochaine échéance, au format AAAA-MM-JJ : c'est la clé de l'index « du ». */
   du: string;
   derniereRevision: string | null;
-  oublis: number;
+  /** Intervalle courant, en jours. */
+  intervalle: number;
+  /** Nombre de notations reçues, toutes notes confondues. */
   revisions: number;
+  /** Nombre de fois où la carte a été notée « oublié ». */
+  oublis: number;
+  /** L'état du modèle FSRS. Voir `src/lib/srs.ts`. */
+  fsrs: CarteFsrs;
+}
+
+/**
+ * L'état FSRS tel qu'il est stocké : les champs de `Card` de la bibliothèque,
+ * dates au format ISO.
+ *
+ * Les noms restent ceux de `ts-fsrs`, sans traduction. Renommer en français
+ * aurait créé une table de correspondance à maintenir entre notre modèle et le
+ * sien, à chaque montée de version — et c'est là que les erreurs se logent. Les
+ * champs que le reste du site lit (`du`, `intervalle`, `revisions`, `oublis`)
+ * gardent en revanche leur nom et leur sens.
+ *
+ * Les dates sont des chaînes et non des `Date` pour que la sauvegarde JSON et la
+ * base rendent exactement la même forme : un `Date` stocké dans IndexedDB
+ * revient en `Date`, mais revient en chaîne après un export puis un import.
+ */
+export interface CarteFsrs {
+  due: string;
+  stability: number;
+  difficulty: number;
+  elapsed_days: number;
+  scheduled_days: number;
+  learning_steps: number;
+  reps: number;
+  lapses: number;
+  state: 0 | 1 | 2 | 3;
+  last_review?: string;
+}
+
+/** Met l'état rendu par la bibliothèque sous la forme que l'on stocke. */
+export function serialiserFsrs(carte: Card): CarteFsrs {
+  return {
+    due: carte.due.toISOString(),
+    stability: carte.stability,
+    difficulty: carte.difficulty,
+    elapsed_days: carte.elapsed_days,
+    scheduled_days: carte.scheduled_days,
+    learning_steps: carte.learning_steps,
+    reps: carte.reps,
+    lapses: carte.lapses,
+    state: carte.state as 0 | 1 | 2 | 3,
+    ...(carte.last_review ? { last_review: carte.last_review.toISOString() } : {}),
+  };
+}
+
+/** Un état FSRS neuf, celui d'une carte jamais vue. */
+export function fsrsNeuf(maintenant = new Date()): CarteFsrs {
+  return serialiserFsrs(createEmptyCard(maintenant));
 }
 
 export interface ResultatQuiz {
@@ -250,7 +307,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 6;
+const VERSION = 7;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -259,7 +316,7 @@ export function db() {
     // « ancienneVersion » vaut 0 pour une base neuve. Chaque bloc est donc
     // écrit pour s'appliquer aussi bien à une création qu'à une mise à niveau,
     // sans jamais toucher aux données déjà enregistrées.
-    upgrade(base, ancienneVersion) {
+    async upgrade(base, ancienneVersion, _nouvelle, transaction) {
       if (ancienneVersion < 1) {
         base.createObjectStore('etat');
         const cartes = base.createObjectStore('cartes', { keyPath: 'id' });
@@ -306,6 +363,35 @@ export function db() {
           autoIncrement: true,
         });
         sessions.createIndex('le', 'le');
+      }
+      if (ancienneVersion >= 1 && ancienneVersion < 7) {
+        // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
+        // modèle neuf : convertir un historique SM-2 en stabilité et difficulté
+        // FSRS aurait produit des nombres d'allure savante et sans contenu,
+        // puisque les deux algorithmes ne mesurent pas la même chose.
+        //
+        // Leur échéance, en revanche, est conservée. Une migration n'a pas à
+        // rendre sept mille cartes exigibles le même jour, et rien n'oblige à
+        // jeter ce qui a été acquis : le compte des révisions et des oublis est
+        // de l'histoire, pas de l'état du modèle.
+        const magasin = transaction.objectStore('cartes');
+        let curseur = await magasin.openCursor();
+        const maintenant = new Date();
+        while (curseur) {
+          const ancienne = curseur.value as unknown as Partial<EtatCarte> & { id: string };
+          await curseur.update({
+            id: ancienne.id,
+            ficheId: ancienne.ficheId ?? '',
+            matiere: ancienne.matiere ?? '',
+            du: ancienne.du ?? jourISO(maintenant),
+            derniereRevision: ancienne.derniereRevision ?? null,
+            intervalle: ancienne.intervalle ?? 0,
+            revisions: ancienne.revisions ?? 0,
+            oublis: ancienne.oublis ?? 0,
+            fsrs: fsrsNeuf(maintenant),
+          });
+          curseur = await curseur.continue();
+        }
       }
     },
   });

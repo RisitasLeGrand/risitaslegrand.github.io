@@ -1,83 +1,119 @@
 /**
- * Répétition espacée — algorithme SM-2 (SuperMemo 2), adapté à trois niveaux
- * de difficulté : difficile / moyen / facile.
+ * Répétition espacée — FSRS (Free Spaced Repetition Scheduler).
  *
- * Principe : chaque bonne réponse allonge l'intervalle avant la prochaine
- * révision ; une réponse « difficile » remet la carte dans la file du jour.
+ * FSRS modélise la mémoire par trois grandeurs ajustées sur des données réelles
+ * — la **difficulté** d'une carte, la **stabilité** de sa trace, et la
+ * **récupérabilité** qui décroît avec le temps écoulé —, là où SM-2, qui tenait
+ * cette place jusqu'ici, appliquait une formule fixe au facteur de facilité.
+ * L'ordonnanceur vient de `ts-fsrs`, l'implémentation de référence : réécrire
+ * l'algorithme à la main aurait été refaire un travail d'ajustement statistique
+ * dont nous n'avons pas les données.
+ *
+ * **Les paramètres sont ceux par défaut, à une exception documentée.** Les
+ * optimiser demande plusieurs centaines de révisions réelles ; ce sera une
+ * amélioration ultérieure, pas un prérequis. L'exception est
+ * `enable_short_term`, désactivé : il fait programmer des reprises à dix minutes
+ * dans la même journée, alors que tout l'ordonnancement du site est au jour
+ * — `du` est une date `AAAA-MM-JJ`, l'index l'est aussi, et les écrans comptent
+ * « les cartes dues aujourd'hui ». Stocker un état dont on jette la précision
+ * aurait fait diverger le modèle et sa représentation ; mieux vaut que
+ * l'ordonnanceur travaille dans l'unité que la base sait conserver.
+ *
+ * **La notation passe de trois à quatre niveaux**, et ce n'est pas un ajout
+ * cosmétique : voir `Note` dans `db.ts`.
  */
+import { fsrs, generatorParameters, Rating, type Grade } from 'ts-fsrs';
 import {
-  ajouterJours,
   ecrireCarte,
+  fsrsNeuf,
   jourISO,
   lireCarte,
-  type Difficulte,
+  serialiserFsrs,
   type EtatCarte,
+  type Note,
 } from './db';
 
-/** Qualité de rappel SM-2 associée à chaque bouton. */
-const QUALITE: Record<Difficulte, number> = { difficile: 2, moyen: 4, facile: 5 };
+const ordonnanceur = fsrs(generatorParameters({ enable_short_term: false }));
 
-export const FACILITE_INITIALE = 2.5;
-export const FACILITE_MINIMALE = 1.3;
+/** Les quatre notes, dans l'ordre où l'interface les présente. */
+export const NOTES: readonly Note[] = ['oublie', 'difficile', 'correct', 'facile'];
 
-export function carteNeuve(id: string, ficheId: string, matiere: string): EtatCarte {
+export const LIBELLES: Record<Note, string> = {
+  oublie: 'Oublié',
+  difficile: 'Difficile',
+  correct: 'Correct',
+  facile: 'Facile',
+};
+
+/** Correspondance avec les grades de la bibliothèque. */
+const GRADE: Record<Note, Grade> = {
+  oublie: Rating.Again,
+  difficile: Rating.Hard,
+  correct: Rating.Good,
+  facile: Rating.Easy,
+};
+
+export function carteNeuve(
+  id: string,
+  ficheId: string,
+  matiere: string,
+  maintenant = new Date(),
+): EtatCarte {
+  const fsrsCarte = fsrsNeuf(maintenant);
   return {
     id,
     ficheId,
     matiere,
-    repetitions: 0,
-    intervalle: 0,
-    facilite: FACILITE_INITIALE,
-    du: jourISO(),
+    du: jourISO(new Date(fsrsCarte.due)),
     derniereRevision: null,
-    oublis: 0,
+    intervalle: 0,
     revisions: 0,
+    oublis: 0,
+    fsrs: fsrsCarte,
   };
 }
 
 /** Applique une note à une carte et retourne son nouvel état (calcul pur). */
-export function noter(carte: EtatCarte, difficulte: Difficulte, aujourdhui = jourISO()): EtatCarte {
-  const q = QUALITE[difficulte];
-
-  // Mise à jour du facteur de facilité (formule SM-2).
-  const facilite = Math.max(
-    FACILITE_MINIMALE,
-    carte.facilite + (0.1 - (5 - q) * (0.08 + (5 - q) * 0.02)),
-  );
-
-  let repetitions = carte.repetitions;
-  let intervalle: number;
-  let oublis = carte.oublis;
-
-  if (q < 3) {
-    // Échec : la carte revient dans la file du jour.
-    repetitions = 0;
-    intervalle = 0;
-    oublis += 1;
-  } else {
-    repetitions += 1;
-    if (repetitions === 1) {
-      // Une carte neuve jugée « facile » n'a pas besoin de revenir dès demain.
-      intervalle = difficulte === 'facile' ? 3 : 1;
-    } else if (repetitions === 2) {
-      intervalle = difficulte === 'facile' ? 8 : 6;
-    } else {
-      intervalle = Math.max(1, Math.round(carte.intervalle * facilite));
-      // Une réponse « facile » sur une carte déjà connue accélère un peu plus.
-      if (difficulte === 'facile') intervalle = Math.round(intervalle * 1.15);
-    }
-  }
-
+export function noter(carte: EtatCarte, note: Note, maintenant = new Date()): EtatCarte {
+  const { card } = ordonnanceur.next(carte.fsrs, maintenant, GRADE[note]);
   return {
     ...carte,
-    facilite,
-    repetitions,
-    intervalle,
-    oublis,
+    du: jourISO(card.due),
+    intervalle: card.scheduled_days,
     revisions: carte.revisions + 1,
-    derniereRevision: new Date().toISOString(),
-    du: ajouterJours(aujourdhui, intervalle),
+    // Notre compteur, et non `card.lapses` : celui de la bibliothèque repart de
+    // zéro à la migration, alors que ce compte est de l'histoire.
+    oublis: carte.oublis + (note === 'oublie' ? 1 : 0),
+    derniereRevision: maintenant.toISOString(),
+    fsrs: serialiserFsrs(card),
   };
+}
+
+/**
+ * Les échéances que produirait chacun des quatre boutons.
+ *
+ * L'interface les affiche sous les boutons : savoir qu'un « Correct » renvoie la
+ * carte à trois semaines et un « Difficile » à quatre jours fait partie de la
+ * décision. La bibliothèque calcule les quatre en une passe.
+ */
+export function apercu(carte: EtatCarte, maintenant = new Date()): Record<Note, Date> {
+  const previsions = ordonnanceur.repeat(carte.fsrs, maintenant);
+  const resultat = {} as Record<Note, Date>;
+  for (const note of NOTES) resultat[note] = previsions[GRADE[note]].card.due;
+  return resultat;
+}
+
+/** « aujourd'hui », « demain », « dans 3 j », « dans 5 mois ». */
+export function delai(echeance: Date, maintenant = new Date()): string {
+  const jours = Math.round(
+    (new Date(jourISO(echeance)).getTime() - new Date(jourISO(maintenant)).getTime()) / 86_400_000,
+  );
+  if (jours <= 0) return "aujourd'hui";
+  if (jours === 1) return 'demain';
+  if (jours < 31) return `dans ${jours} j`;
+  if (jours < 365) return `dans ${Math.round(jours / 30)} mois`;
+  const ans = jours / 365;
+  return `dans ${ans < 2 ? '1 an' : `${Math.round(ans)} ans`}`;
 }
 
 /** Note une carte et enregistre le résultat. */
@@ -85,10 +121,10 @@ export async function noterEtEnregistrer(
   id: string,
   ficheId: string,
   matiere: string,
-  difficulte: Difficulte,
+  note: Note,
 ): Promise<EtatCarte> {
   const existante = (await lireCarte(id)) ?? carteNeuve(id, ficheId, matiere);
-  const misAJour = noter({ ...existante, ficheId, matiere }, difficulte);
+  const misAJour = noter({ ...existante, ficheId, matiere }, note);
   await ecrireCarte(misAJour);
   return misAJour;
 }
@@ -102,6 +138,8 @@ export function estDue(carte: EtatCarte | undefined, aujourdhui = jourISO()): bo
 /** Niveau de maîtrise d'une carte, de 0 à 1 : sert aux barres de progression. */
 export function maitrise(carte: EtatCarte | undefined): number {
   if (!carte || carte.revisions === 0) return 0;
-  // 21 jours d'intervalle = carte considérée comme acquise.
+  // 21 jours d'intervalle = carte considérée comme acquise. La convention est
+  // celle d'avant FSRS, et elle se transpose : l'intervalle programmé croît avec
+  // la stabilité de la trace.
   return Math.min(1, carte.intervalle / 21);
 }

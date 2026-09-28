@@ -30,7 +30,7 @@ illisible sans le mot de passe. Tout le reste en dépend.
 ## Phase 3 — Flashcards et persistance ✅
 
 - IndexedDB (`idb`) : cartes, fiches, quiz, agrégats journaliers, profil.
-- Algorithme SM-2 avec notation difficile / moyen / facile.
+- Répétition espacée : SM-2 à l'origine, FSRS depuis la phase 10a.
 - File « à réviser aujourd'hui » recalculée automatiquement, aperçu du
   prochain intervalle sur chaque bouton, raccourcis clavier.
 
@@ -716,6 +716,55 @@ teinte, et le seuil mesuré ne voudrait plus rien dire.
   plans 2-D et modulaire restent à faire.
 - **9e** — tableau de bord, export JSON, effacement, texte « à propos » et
   crédits. ✅
+
+## Phase 10 — FSRS, prétest, journal d'erreurs, zone proximale 🔄
+
+Quatre demandes complémentaires, dépendantes dans cet ordre : l'ordonnanceur
+fournit la note « oublié » dont le journal d'erreurs se nourrit, et le journal
+alimente à son tour le tableau de bord de niveau.
+
+### 10a — FSRS remplace SM-2 ✅
+
+**Pourquoi changer.** SM-2 applique une formule fixe à un « facteur de
+facilité ». FSRS modélise la mémoire par trois grandeurs ajustées sur des
+données réelles — difficulté, stabilité, récupérabilité — et prédit mieux le
+moment où une carte est sur le point d'être oubliée. L'implémentation vient de
+`ts-fsrs` : réécrire l'algorithme aurait été refaire un ajustement statistique
+sans les données pour le faire.
+
+**Quatre notes, pas trois.** FSRS attend Again / Hard / Good / Easy, d'où
+« Oublié / Difficile / Correct / Facile ». Ce n'est pas un cran de plus sur le
+même axe : l'échec alimente une grandeur distincte du modèle, les rechutes. Une
+conséquence discrète mais réelle dans l'interface : c'est désormais « Oublié »
+et non « Difficile » qui ramène la carte en fin de session, puisque
+« Difficile » est devenu une réussite à intervalle court. Le barème d'XP suit
+— « Oublié » rapporte quand même, sans quoi il serait tentant de cliquer
+« Difficile » sur une carte oubliée et de fausser l'ordonnanceur pour trois
+points.
+
+**Un paramètre par défaut a été écarté, et documenté.** `enable_short_term`
+fait programmer des reprises à dix minutes dans la même journée, alors que tout
+l'ordonnancement du site est au jour : `du` est une date `AAAA-MM-JJ`, l'index
+aussi, et les écrans comptent « les cartes dues aujourd'hui ». Stocker un état
+dont on jette la précision aurait fait diverger le modèle et sa représentation.
+
+**L'état FSRS est stocké sous les noms de la bibliothèque**, dates en ISO. Le
+traduire en français aurait créé une table de correspondance à maintenir à
+chaque montée de version, et c'est là que les erreurs se logent. Les champs que
+le reste du site lit — `du`, `intervalle`, `revisions`, `oublis` — gardent en
+revanche leur nom et leur sens. Les dates sont des chaînes et non des `Date`
+pour que la base et la sauvegarde JSON rendent la même forme.
+
+**La migration ne convertit pas, mais ne jette pas non plus.** Les cartes
+repartent d'un état de modèle neuf — convertir un historique SM-2 en stabilité
+et difficulté FSRS aurait produit des nombres d'allure savante et sans contenu.
+En revanche l'échéance déjà acquise, l'intervalle, le compte des révisions et
+des oublis sont conservés : une migration n'a pas à rendre sept mille cartes
+exigibles le même jour, et ces compteurs sont de l'histoire, pas de l'état du
+modèle. C'est le seul endroit de la phase où une erreur détruirait des données
+réelles, d'où un essai en navigateur (`scripts/essais-migration-fsrs.mjs`) qui
+fabrique une vraie base version 6, la fait ouvrir par l'application, et vérifie
+ce qui en ressort.
 
 ## Pistes pour la suite
 
