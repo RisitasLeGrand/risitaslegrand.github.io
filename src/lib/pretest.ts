@@ -23,6 +23,15 @@
  * rapide ne soit pas bloquée ; il met donc le prétest en sommeil pour la
  * journée, pas pour toujours. Le consommer définitivement sur un coup d'œil
  * reviendrait à le perdre pour la séance de travail qui vient.
+ *
+ * **La fiche porte un vivier, on en tire quelques questions.** Un prétest qui
+ * poserait toujours les mêmes questions cesserait d'en être un dès le second
+ * passage : la personne ne répondrait plus d'après ce qu'elle sait, mais
+ * d'après la correction qu'elle a déjà lue. Or un second passage arrive — une
+ * progression effacée par accident remet toutes les fiches à zéro. Le tirage
+ * privilégie les questions jamais servies, et retombe sur le hasard quand la
+ * mémoire de ce qui a été servi a disparu, ce qui est précisément le cas après
+ * une réinitialisation.
  */
 import type { Fiche, QuestionQuiz } from './contenu';
 import { ecrireEtatFiche, jourISO, lireEtatFiche } from './db';
@@ -30,6 +39,14 @@ import { gagnerXp, xpPretest } from './gamification';
 import { notifier } from './ui';
 
 export type Issue = 'tente' | 'passe';
+
+/**
+ * Combien de questions poser à la fois.
+ *
+ * Assez pour amorcer la lecture, trop peu pour ressembler à un examen d'entrée.
+ * Le reste du vivier attend un éventuel second passage.
+ */
+export const QUESTIONS_PAR_PRETEST = 3;
 
 /** La fiche propose-t-elle un prétest ? */
 export function aPretest(fiche: Pick<Fiche, 'pretest'>): boolean {
@@ -50,7 +67,34 @@ export async function aProposer(fiche: Pick<Fiche, 'id' | 'pretest'>): Promise<b
   return etat.pretestPasseLe !== jourISO();
 }
 
-async function enregistrer(fiche: Pick<Fiche, 'id' | 'matiere'>, issue: Issue): Promise<void> {
+/**
+ * Tire les questions à poser : d'abord celles jamais servies, puis, s'il en
+ * manque, les moins récemment servies — au hasard dans chaque groupe.
+ */
+export function tirer(
+  questions: readonly QuestionQuiz[],
+  dejaVues: readonly string[] = [],
+  combien = QUESTIONS_PAR_PRETEST,
+): QuestionQuiz[] {
+  const vues = new Set(dejaVues);
+  const melanger = (liste: QuestionQuiz[]) => {
+    const copie = [...liste];
+    for (let i = copie.length - 1; i > 0; i -= 1) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [copie[i], copie[j]] = [copie[j], copie[i]];
+    }
+    return copie;
+  };
+  const inedites = melanger(questions.filter((q) => !vues.has(q.id)));
+  const revues = melanger(questions.filter((q) => vues.has(q.id)));
+  return [...inedites, ...revues].slice(0, combien);
+}
+
+async function enregistrer(
+  fiche: Pick<Fiche, 'id' | 'matiere'>,
+  issue: Issue,
+  servies: readonly string[] = [],
+): Promise<void> {
   const etat = await lireEtatFiche(fiche.id);
   // L'étalement d'abord, pour ne rien effacer de ce que ce module ignore.
   await ecrireEtatFiche({
@@ -60,6 +104,9 @@ async function enregistrer(fiche: Pick<Fiche, 'id' | 'matiere'>, issue: Issue): 
     lu: etat?.lu ?? false,
     derniereOuverture: etat?.derniereOuverture ?? new Date().toISOString(),
     secondes: etat?.secondes ?? 0,
+    // Les questions servies sont retenues quelle que soit l'issue : les avoir
+    // vues suffit à les user, même sans y répondre.
+    pretestVues: [...new Set([...(etat?.pretestVues ?? []), ...servies])],
     ...(issue === 'tente'
       ? { pretesteeLe: new Date().toISOString() }
       : { pretestPasseLe: jourISO() }),
@@ -77,11 +124,16 @@ const CLASSE_CHOISIE =
  * Construit le prétest dans `hote` et rend la main quand la personne a tenté ou
  * passé. L'appelant affiche ensuite le cours.
  */
-export function montrer(
+export async function montrer(
   fiche: Pick<Fiche, 'id' | 'matiere' | 'titre' | 'pretest'>,
   hote: HTMLElement,
 ): Promise<Issue> {
-  const questions = fiche.pretest ?? [];
+  // L'état est lu ici plutôt que reçu en argument : un appelant qui oublierait
+  // de transmettre les questions déjà vues rejouerait exactement les mêmes, et
+  // rien ne le signalerait.
+  const etat = await lireEtatFiche(fiche.id);
+  const questions = tirer(fiche.pretest ?? [], etat?.pretestVues ?? []);
+  const servies = questions.map((q) => q.id);
   return new Promise<Issue>((terminer) => {
     const choix = questions.map(() => new Set<number>());
     let valide = false;
@@ -159,7 +211,7 @@ export function montrer(
     panneau.appendChild(actions);
 
     passer.addEventListener('click', () => {
-      void enregistrer(fiche, 'passe').then(() => {
+      void enregistrer(fiche, 'passe', servies).then(() => {
         panneau.remove();
         terminer('passe');
       });
@@ -204,7 +256,7 @@ export function montrer(
       panneau.insertBefore(bilan, actions);
 
       void (async () => {
-        await enregistrer(fiche, 'tente');
+        await enregistrer(fiche, 'tente', servies);
         if (tentees) {
           const gain = await gagnerXp(xpPretest());
           notifier(`+${gain.xpGagne} XP — prétest tenté`, 'succes');

@@ -306,6 +306,11 @@ async function main() {
     // Les fiches écrites avant cette phase n'en ont pas, et n'en affichent donc
     // aucun ; rien n'est dérivé du quiz à leur place, car une question de quiz
     // vue en prétest, corrigée, ne mesure plus rien lorsqu'elle revient au quiz.
+    //
+    // La section est un **vivier** : le site n'en affiche que quelques questions
+    // à la fois, tirées au sort. Un vivier fourni est ce qui permet à un prétest
+    // reproposé — après une progression effacée, par exemple — de rester un
+    // prétest, et non la répétition d'un exercice déjà corrigé.
     const pretest = [];
     for (const item of parserListeYaml(sections.pretest, `${relatif} (## Prétest)`)) {
       const r = quizSchema.safeParse(item);
@@ -318,10 +323,11 @@ async function main() {
         ...r.data,
       });
     }
-    if (sections.pretest.trim() && (pretest.length < 2 || pretest.length > 4)) {
+    if (sections.pretest.trim() && (pretest.length < 3 || pretest.length > 16)) {
       erreurs.push(
-        `${relatif} (## Prétest) : ${pretest.length} question(s). Le prétest en demande 2 à 4 — ` +
-          'assez pour amorcer la lecture, trop peu pour ressembler à un examen d\'entrée.',
+        `${relatif} (## Prétest) : ${pretest.length} question(s). Le vivier en demande 3 à 16 — ` +
+          'le site n\'en tire que quelques-unes à la fois, mais il lui en faut assez pour que ' +
+          'deux passages ne se ressemblent pas.',
       );
     }
 

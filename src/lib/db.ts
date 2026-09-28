@@ -110,6 +110,16 @@ export interface EtatFiche {
    * la vraie séance de travail.
    */
   pretestPasseLe?: string;
+  /**
+   * Identifiants des questions de prétest déjà servies pour cette fiche.
+   *
+   * Le prétest tire quelques questions d'un vivier : les retenir permet de
+   * servir des questions inédites si le prétest est reproposé. C'est aussi la
+   * raison d'être du vivier — une progression effacée par accident ne doit pas
+   * rejouer exactement les mêmes questions, faute de quoi la seconde amorce ne
+   * mesurerait plus qu'un souvenir de la première.
+   */
+  pretestVues?: string[];
 }
 
 /**

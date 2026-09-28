@@ -189,13 +189,19 @@ La version condensée, à relire rapidement.
   `## Fiche simplifiée`, `## Flashcards` et `## Quiz`. Un autre titre `##` est
   rattaché à la section en cours (utile pour un cours découpé en grandes
   parties).
-- Le `## Prétest` s'écrit au format du quiz, et compte **2 à 4 questions** : le
-  build refuse les autres nombres. Il s'affiche une seule fois, avant la
-  première lecture du cours, et n'est jamais noté — ni XP à la justesse, ni
-  entrée au journal d'erreurs. Écrivez-y des questions d'orientation, pas des
-  questions de contrôle : leur rôle est d'ouvrir la lecture, pas de la vérifier.
-  N'y recopiez pas une question du quiz, sinon celle-ci ne mesurera plus rien
-  lorsqu'elle reviendra corrigée.
+- Le `## Prétest` s'écrit au format du quiz. C'est un **vivier de 3 à 16
+  questions** — le build refuse les autres nombres —, dont le site n'affiche que
+  **trois** à la fois, tirées au sort en préférant celles jamais servies. Un
+  vivier fourni est ce qui permet à un prétest reproposé (après une progression
+  effacée, par exemple) de rester un prétest, et non la répétition d'un exercice
+  déjà corrigé. Visez une dizaine de questions.
+- Le prétest s'affiche avant la première lecture du cours — depuis la fiche,
+  depuis la séance, ou depuis le tableau de bord —, et n'est jamais noté : ni XP
+  à la justesse, ni entrée au journal d'erreurs. Écrivez-y des questions
+  d'orientation, pas des questions de contrôle : leur rôle est d'ouvrir la
+  lecture, pas de la vérifier. N'y recopiez pas une question du quiz, sinon
+  celle-ci ne mesurera plus rien lorsqu'elle reviendra corrigée — `npm run
+  verifier:pretests` le contrôle.
 - Dans les flashcards, `q:`/`r:` peuvent aussi s'écrire `question:`/`reponse:`.
 - Dans les quiz, `reponse:` accepte le **texte exact** d'une option, ou son
   **numéro** (`0` pour la première). Pour plusieurs bonnes réponses, utilisez
