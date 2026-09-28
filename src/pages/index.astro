@@ -47,6 +47,25 @@ import Section from '../components/Section.astro';
       </div>
     </section>
 
+    <!-- Journal d'erreurs : une ligne, et seulement quand il y a quelque chose
+         à reprendre. Le compteur est un signal, pas un reproche permanent. -->
+    <section
+      id="bloc-journal-accueil"
+      class="hidden rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900 dark:bg-amber-950/30"
+    >
+      <p class="text-sm text-slate-700 dark:text-slate-200">
+        <span id="journal-compte" class="font-semibold"></span>
+        <span class="text-slate-500 dark:text-slate-400">
+          — servies d'office au début de la prochaine séance de leur matière.
+        </span>
+        <a
+          id="lien-journal"
+          href="#"
+          class="ml-1 font-medium text-amber-800 hover:underline dark:text-amber-300"
+        >Voir le journal →</a>
+      </p>
+    </section>
+
     <!-- Séance du jour : proposée automatiquement par la rotation.
          C'est la <section> qui porte « hidden », et non le lien : un <a> dont
          on retire « hidden » repasserait en « display: inline », et la carte
@@ -164,6 +183,7 @@ import Section from '../components/Section.astro';
   import { aplatirFiches, chargerIndexRecherche, chargerManifeste } from '../lib/contenu';
   import { construireIndexTexte } from '../lib/rattachement';
   import { historique, seanceDuJour, theme as themeParId } from '../lib/planification';
+  import { entreesOuvertes } from '../lib/journal';
 
   const dateLongue = new Intl.DateTimeFormat('fr-FR', {
     day: 'numeric',
@@ -207,6 +227,18 @@ import Section from '../components/Section.astro';
 
     // --- File du jour et maîtrise ---
     document.getElementById('dues')!.textContent = String(vue.cartesDues);
+
+    // Journal d'erreurs.
+    const ouvertes = await entreesOuvertes();
+    if (ouvertes.length) {
+      document.getElementById('journal-compte')!.textContent = pluriel(
+        ouvertes.length,
+        'erreur à reprendre',
+        'erreurs à reprendre',
+      );
+      document.getElementById('lien-journal')!.setAttribute('href', lien('/journal/'));
+      document.getElementById('bloc-journal-accueil')!.classList.remove('hidden');
+    }
     document.getElementById('lien-reviser')!.setAttribute('href', lien('/flashcards/'));
     document.getElementById('lien-biblio')!.setAttribute('href', lien('/bibliotheque/'));
     document.getElementById('maitrise')!.textContent = `${Math.round(vue.maitriseGlobale * 100)} %`;

@@ -19,6 +19,7 @@ import {
   toutesLesSessionsRelationnelles,
   toutesLesSessionsVeridical,
   tousLesSeuilsVeridical,
+  toutesLesEntreesJournal,
   type Jour,
   type Note,
   type Profil,
@@ -189,6 +190,10 @@ interface ContexteBadges {
   famillesRelationnelles: number;
   /** Le plus haut échelon atteint sur un exercice relationnel, de 1 à 10. */
   meilleurEchelonRelationnel: number;
+  /** Entrées du journal d'erreurs encore ouvertes. */
+  journalOuvertes: number;
+  /** Entrées déjà refermées : le badge « à zéro » n'a de sens qu'après coup. */
+  journalFermees: number;
   sessionsVeridical: number;
   /** Paires de Veridical Mapping dont le seuil s'est stabilisé. */
   seuilsStabilises: number;
@@ -367,6 +372,15 @@ export const BADGES: DefinitionBadge[] = [
     description: 'Atteindre l’échelon 7 sur un exercice relationnel.',
     icone: '🥼',
     obtenu: (c) => c.meilleurEchelonRelationnel >= 7,
+  },
+  {
+    id: 'journal-a-zero',
+    nom: 'Journal à zéro',
+    description: 'Refermer toutes les entrées du journal d’erreurs.',
+    icone: '🩹',
+    // Il faut en avoir refermé au moins dix : un journal vide parce qu'on n'a
+    // jamais rien manqué n'est pas le même accomplissement.
+    obtenu: (c) => c.journalOuvertes === 0 && c.journalFermees >= 10,
   },
   {
     id: 'vm-premiere',
@@ -566,8 +580,19 @@ export async function vueLongTerme(): Promise<VueLongTerme> {
 
 /** Construit le contexte d'évaluation des badges à partir de la base locale. */
 export async function contexteBadges(profil?: Profil): Promise<ContexteBadges> {
-  const [p, cartes, fiches, quiz, jours, sessions, seances, relationnelles, vmSessions, vmSeuils] =
-    await Promise.all([
+  const [
+    p,
+    cartes,
+    fiches,
+    quiz,
+    jours,
+    sessions,
+    seances,
+    relationnelles,
+    vmSessions,
+    vmSeuils,
+    journal,
+  ] = await Promise.all([
     profil ? Promise.resolve(profil) : lireProfil(),
     toutesLesCartes(),
     tousLesEtatsFiches(),
@@ -578,6 +603,7 @@ export async function contexteBadges(profil?: Profil): Promise<ContexteBadges> {
     toutesLesSessionsRelationnelles(),
     toutesLesSessionsVeridical(),
     tousLesSeuilsVeridical(),
+    toutesLesEntreesJournal(),
   ]);
 
   // Une matière est « terminée » quand toutes ses cartes connues sont acquises.
@@ -622,6 +648,8 @@ export async function contexteBadges(profil?: Profil): Promise<ContexteBadges> {
       (haut, moteur) => Math.max(haut, echelonDeMoteur(tracesRR, moteur.id)),
       1,
     ),
+    journalOuvertes: journal.filter((e) => !e.fermeeLe).length,
+    journalFermees: journal.filter((e) => e.fermeeLe).length,
     sessionsVeridical: vmSessions.length,
     seuilsStabilises: vmSeuils.filter((s) => s.statut === 'converge').length,
     seuilsTransmodaux: vmSeuils.filter((s) => s.statut === 'converge' && s.transmodale).length,

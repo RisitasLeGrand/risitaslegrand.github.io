@@ -68,10 +68,22 @@ import Base from '../../layouts/Base.astro';
       <div id="rappels" class="space-y-4"></div>
     </section>
 
-    <!-- ── 2. Contenu du jour ────────────────────────────────────────── -->
+    <!-- ── 2. Reprise des erreurs ─────────────────────────────────────── -->
+    <section id="bloc-journal" class="mb-8 hidden">
+      <h2 class="mb-1 text-lg font-bold text-slate-900 dark:text-white">2. Reprise des erreurs</h2>
+      <p class="mb-4 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        Ce que vous avez manqué dans cette matière vous est servi ici, sans avoir à aller le
+        chercher — d'abord ce qui date de la séance précédente. Une entrée ne sort du journal
+        qu'après deux reprises réussies lors de séances différentes.
+      </p>
+      <p id="resume-journal" class="mb-3 text-sm font-medium text-slate-700 dark:text-slate-200"></p>
+      <div id="journal-seance"></div>
+    </section>
+
+    <!-- ── 3. Contenu du jour ────────────────────────────────────────── -->
     <section class="mb-8">
       <h2 id="titre-contenu" class="mb-1 text-lg font-bold text-slate-900 dark:text-white">
-        2. Contenu du jour
+        3. Contenu du jour
       </h2>
       <p class="mb-4 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
         Les fiches de cette matière, les non lues d'abord. Les deux premières sont la proposition
@@ -87,10 +99,10 @@ import Base from '../../layouts/Base.astro';
       <div id="fiches" class="grid gap-3 sm:grid-cols-2"></div>
     </section>
 
-    <!-- ── 3. Note de séance ─────────────────────────────────────────── -->
+    <!-- ── 4. Note de séance ─────────────────────────────────────────── -->
     <section class="mb-8">
       <h2 id="titre-note" class="mb-1 text-lg font-bold text-slate-900 dark:text-white">
-        3. Note de séance
+        4. Note de séance
       </h2>
       <p class="mb-3 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
         Une à deux pages, avec vos mots. Ce sont vos notes personnelles, distinctes des fiches de la
@@ -144,6 +156,8 @@ import Base from '../../layouts/Base.astro';
   import { jourISO, tousLesEtatsFiches, type Seance } from '../../lib/db';
   import { chargerFiche, chargerManifeste } from '../../lib/contenu';
   import { aProposer, montrer as montrerPretest } from '../../lib/pretest';
+  import { pourLaSeance } from '../../lib/journal';
+  import { chargerItems, montrer as montrerJournal } from '../../lib/journal-revision';
   import { formaterDuree, lien, parametreUrl } from '../../lib/ui';
   import {
     fichesDuTheme,
@@ -158,6 +172,12 @@ import Base from '../../layouts/Base.astro';
   const $ = (id: string) => document.getElementById(id)!;
   const dateCourte = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
   const enDate = (jour: string) => new Date(`${jour}T12:00:00`);
+  /**
+   * Plafond d'entrées reprises en séance. Le même principe que pour les cartes
+   * et les questions : une file de rattrapage qui en sert cinquante d'un coup
+   * n'est jamais reprise, et c'est le contenu du jour qui en pâtit.
+   */
+  const PLAFOND_JOURNAL = 12;
 
   let seance: Seance;
   let secondes = 0;
@@ -256,7 +276,35 @@ import Base from '../../layouts/Base.astro';
       });
     }
 
-    /* 2. Contenu du jour */
+    /* 2. Reprise des erreurs, avant tout contenu nouveau */
+    // « Depuis » vaut le jour de la dernière séance de cette matière : ce qui a
+    // été manqué depuis est né de cette séance-là, et passe donc devant.
+    const derniere = anterieures[anterieures.length - 1];
+    const entrees = await pourLaSeance(
+      sujet?.matieres ?? [],
+      derniere ? `${derniere.jour}T00:00:00.000Z` : null,
+      PLAFOND_JOURNAL,
+    );
+    if (entrees.length) {
+      $('bloc-journal').classList.remove('hidden');
+      const resume = $('resume-journal');
+      const dire = (restant: number) =>
+        restant
+          ? `${restant} entrée(s) à reprendre dans cette matière.`
+          : 'Toutes les entrées de cette matière ont été reprises.';
+      resume.textContent = dire(entrees.length);
+      const items = await chargerItems(entrees);
+      if (items.length) {
+        void montrerJournal(items, $('journal-seance'), (bilan) => {
+          resume.textContent = dire(items.length - bilan.vus);
+        });
+      } else {
+        resume.textContent =
+          'Des entrées existent, mais leurs questions ne sont plus dans le contenu publié.';
+      }
+    }
+
+    /* 3. Contenu du jour */
     const [manifeste, etats] = await Promise.all([chargerManifeste(), tousLesEtatsFiches()]);
     const lues = new Set(etats.filter((e) => e.lu).map((e) => e.id));
     // Les fiches non lues passent devant, dans l'ordre du programme : la
@@ -340,7 +388,7 @@ import Base from '../../layouts/Base.astro';
       break;
     }
 
-    /* 3. Note de séance */
+    /* 4. Note de séance */
     const note = $('note') as HTMLTextAreaElement;
     note.value = seance.note;
     majCompteur();

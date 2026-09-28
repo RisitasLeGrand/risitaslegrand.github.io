@@ -167,6 +167,7 @@ import { base } from '../lib/ui';
   } from '../lib/db';
   import { gagnerXp, xpFlashcard } from '../lib/gamification';
   import { apercu, carteNeuve, delai, noterEtEnregistrer, NOTES } from '../lib/srs';
+  import { signalerErreur } from '../lib/journal';
   import { lien, melanger, notifier, parametreUrl, pluriel } from '../lib/ui';
 
   let file: CarteAReviser[] = [];
@@ -236,7 +237,18 @@ import { base } from '../lib/ui';
     // Une carte oubliée revient en fin de session. C'est « Oublié » et non
     // « Difficile » qui la ramène : depuis FSRS, « Difficile » est une réussite
     // à intervalle court, pas un échec.
-    if (note === 'oublie') file.push({ ...carte, neuve: false });
+    if (note === 'oublie') {
+      file.push({ ...carte, neuve: false });
+      // Et elle ouvre une entrée au journal d'erreurs, qui la servira à la
+      // prochaine séance de sa matière — en plus de son échéance FSRS, que
+      // cette file ne remplace pas.
+      void signalerErreur({
+        id: carte.id,
+        genre: 'flashcard',
+        matiere: carte.matiere,
+        ficheId: carte.ficheId,
+      });
+    }
 
     position += 1;
     await afficherCarte();

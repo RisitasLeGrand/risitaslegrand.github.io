@@ -804,6 +804,46 @@ dérivé du quiz à leur place : une question de quiz vue en prétest, corrigée
 mesure plus rien lorsqu'elle revient au quiz — et elle alimentera l'estimation
 de niveau de la phase 10d.
 
+### 10c — Journal d'erreurs ✅
+
+**Une file qui s'ajoute, et ne remplace rien.** Toute réponse fausse en quiz ou
+en QCM-DGFiP, et tout « oublié » sur une flashcard, ouvrent une entrée. FSRS
+continue par ailleurs son travail : les deux mécanismes répondent à des
+questions différentes — « quand faut-il revoir cette carte ? » pour l'un,
+« qu'est-ce qui n'est pas passé ? » pour l'autre — et les confondre ferait
+avancer un calendrier que la reprise n'a pas vocation à régler. Une flashcard
+révisée dans le journal ne touche donc pas à son échéance.
+
+**La règle de sortie fait tout le travail.** Une entrée ne se referme qu'après
+deux réussites lors de **sessions distinctes**. Une seule réussite peut être un
+coup de chance, ou le souvenir tout frais de la correction qu'on vient de lire ;
+refermer là-dessus effacerait justement le signal qu'on voulait garder. Et une
+nouvelle erreur remet le compteur à zéro, pour la même raison — sans quoi une
+réussite ancienne et une réussite tardive suffiraient, en ayant manqué l'item
+entre les deux.
+
+**L'injection en séance est le mécanisme principal, la page n'est qu'une vue.**
+Les entrées de la matière du jour sont servies d'office en étape 2, avant tout
+contenu nouveau, les plus récentes d'abord — celles nées de la séance
+précédente. Rien ne dépend du fait que la personne pense à aller consulter une
+page séparée ; c'est ce qui distingue une file de rattrapage d'une liste de
+regrets. Le plafond de douze entrées par séance suit le même principe que celui
+des cartes : une file qui en sert cinquante d'un coup n'est jamais reprise.
+
+**Le QCM-DGFiP est sa propre matière.** Ses rubriques — Français, Culture
+générale, Logique, Maths — ne recouvrent aucune matière du concours ; répartir
+ses erreurs ailleurs les aurait attribuées à des matières auxquelles elles
+n'appartiennent pas. Les abstentions n'ouvrent rien : ne pas répondre n'est pas
+se tromper, et le barème sanctionne déjà le remplissage au hasard.
+
+**Le prétest n'y entre pas**, délibérément : s'y tromper est attendu, ce n'est
+pas un oubli à rattraper.
+
+**L'essai porte sur la règle, parce qu'une erreur y serait invisible** — l'entrée
+disparaîtrait simplement un peu trop tôt, et le point faible avec elle. Le
+parcours passe par une flashcard, seul item dont la reprise offre un bouton
+déterministe : un QCM demanderait de connaître la bonne option avant de cliquer.
+
 ## Pistes pour la suite
 
 Prévues par l'architecture, non réalisées à ce stade :

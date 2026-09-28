@@ -112,6 +112,38 @@ export interface EtatFiche {
   pretestPasseLe?: string;
 }
 
+/**
+ * Une entrée du journal d'erreurs.
+ *
+ * Toute réponse fausse en quiz ou en QCM-DGFiP, et tout « oublié » sur une
+ * flashcard, ouvre une entrée ici — une file de révision **séparée**, qui
+ * s'ajoute au passage normalement programmé de l'item et ne le remplace pas.
+ *
+ * L'entrée ne se referme qu'après **deux réussites lors de sessions
+ * distinctes** du journal : une seule réussite peut être un coup de chance, et
+ * la refermer là-dessus reviendrait à effacer le signal qu'on cherchait à
+ * garder. Une nouvelle erreur remet le compteur à zéro, pour la même raison.
+ */
+export interface EntreeJournal {
+  /** L'identifiant de l'item fautif : carte, question de quiz ou de QCM. */
+  id: string;
+  genre: 'flashcard' | 'quiz' | 'dgfip';
+  /** Matière de rattachement ; « QCM DGFiP » pour la banque, qui n'en a pas. */
+  matiere: string;
+  fascicule?: string;
+  ficheId?: string;
+  rubriqueId?: string;
+  ouverteLe: string;
+  derniereErreurLe: string;
+  erreurs: number;
+  /** Réussites comptées, chacune dans une session de journal différente. */
+  reussites: number;
+  /** Session où la dernière réussite a été comptée, pour les exiger séparées. */
+  derniereSession: string | null;
+  /** Renseignée à la fermeture ; l'entrée reste alors comme trace. */
+  fermeeLe?: string;
+}
+
 export interface SessionNBack {
   id?: number;
   le: string;
@@ -308,6 +340,7 @@ interface SchemaRevinsp extends DBSchema {
   etat: { key: string; value: unknown };
   cartes: { key: string; value: EtatCarte; indexes: { du: string; matiere: string } };
   fiches: { key: string; value: EtatFiche };
+  journal: { key: string; value: EntreeJournal; indexes: { matiere: string } };
   quiz: { key: number; value: ResultatQuiz; indexes: { le: string } };
   jours: { key: string; value: Jour };
   nback: { key: number; value: SessionNBack; indexes: { le: string } };
@@ -320,7 +353,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 7;
+const VERSION = 8;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -376,6 +409,12 @@ export function db() {
           autoIncrement: true,
         });
         sessions.createIndex('le', 'le');
+      }
+      if (ancienneVersion < 8) {
+        // Journal d'erreurs : une file de révision séparée, indexée par matière
+        // parce que c'est par matière que les séances viennent y puiser.
+        const journal = base.createObjectStore('journal', { keyPath: 'id' });
+        journal.createIndex('matiere', 'matiere');
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -492,6 +531,18 @@ export async function lireCarte(id: string): Promise<EtatCarte | undefined> {
 
 export async function ecrireCarte(carte: EtatCarte) {
   await (await db()).put('cartes', carte);
+}
+
+export async function toutesLesEntreesJournal(): Promise<EntreeJournal[]> {
+  return (await db()).getAll('journal');
+}
+
+export async function lireEntreeJournal(id: string): Promise<EntreeJournal | undefined> {
+  return (await db()).get('journal', id);
+}
+
+export async function ecrireEntreeJournal(entree: EntreeJournal) {
+  await (await db()).put('journal', entree);
 }
 
 export async function lireEtatFiche(id: string): Promise<EtatFiche | undefined> {
@@ -693,6 +744,7 @@ const MAGASINS_PROGRESSION = [
   'relationnel',
   'vmSeuils',
   'vmSessions',
+  'journal',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */
@@ -721,6 +773,7 @@ export async function exporterTout() {
     relationnel: await base.getAll('relationnel'),
     vmSeuils: await base.getAll('vmSeuils'),
     vmSessions: await base.getAll('vmSessions'),
+    journal: await base.getAll('journal'),
     planification: await lireReglagesPlanification(),
     reglagesSession: (await base.get('etat', 'reglagesSession')) as ReglagesSession | undefined,
   };
@@ -782,6 +835,21 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
         .sort()
         .pop() as string | null,
     });
+  }
+
+  for (const entree of donnees.journal ?? []) {
+    const locale = mode === 'fusion' ? await base.get('journal', entree.id) : undefined;
+    // En fusion, l'entrée la plus récemment fautive l'emporte — et une entrée
+    // encore ouverte d'un côté le reste : perdre un point faible à l'occasion
+    // d'une restauration serait perdre précisément ce que le journal garde.
+    const gagnante =
+      locale && (locale.derniereErreurLe ?? '') > (entree.derniereErreurLe ?? '') ? locale : entree;
+    if (locale && (!locale.fermeeLe || !entree.fermeeLe)) {
+      const { fermeeLe: _refermee, ...ouverte } = gagnante;
+      await base.put('journal', { ...ouverte, reussites: 0, derniereSession: null });
+    } else {
+      await base.put('journal', gagnante);
+    }
   }
 
   if (mode === 'fusion') {

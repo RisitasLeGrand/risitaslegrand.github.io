@@ -108,11 +108,13 @@ import { base } from '../../lib/ui';
   import { ajouterResultatQuiz, lireReglagesSession, tousLesResultatsQuiz } from '../../lib/db';
   import { gagnerXp, xpQuiz } from '../../lib/gamification';
   import { formaterDate, lien, melanger, notifier, parametreUrl } from '../../lib/ui';
+  import { signalerErreur } from '../../lib/journal';
 
   interface QuestionPosee extends QuestionQuiz {
     ficheId: string;
     ficheTitre: string;
     matiere: string;
+    fascicule: string;
     /** Ordre d'affichage mélangé des options. */
     ordre: number[];
   }
@@ -161,6 +163,7 @@ import { base } from '../../lib/ui';
           ficheId: fiche.id,
           ficheTitre: fiche.titre,
           matiere: fiche.matiere,
+          fascicule: fiche.fascicule,
           ordre: melanger(question.options.map((_, i) => i)),
         });
       }
@@ -200,7 +203,18 @@ import { base } from '../../lib/ui';
     const q = questions[position];
     const correct = q.bonnes.includes(choisi);
     if (correct) bonnes += 1;
-    else erreurs.push({ question: q, choisi });
+    else {
+      erreurs.push({ question: q, choisi });
+      // Une réponse fausse ouvre une entrée au journal d'erreurs : elle sera
+      // servie d'office à la prochaine séance de cette matière.
+      void signalerErreur({
+        id: q.id,
+        genre: 'quiz',
+        matiere: q.matiere,
+        fascicule: q.fascicule,
+        ficheId: q.ficheId,
+      });
+    }
 
     // Feedback visuel immédiat sur chaque option.
     for (const bouton of $('quiz-options').querySelectorAll<HTMLButtonElement>('button')) {
