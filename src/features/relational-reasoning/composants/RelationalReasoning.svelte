@@ -18,7 +18,7 @@
   import Bloc from './Bloc.svelte';
   import Comprendre from './Comprendre.svelte';
   import Statistiques from './Statistiques.svelte';
-  import type { Item, Reponse } from '../moteurs/types';
+  import type { Item, Option, Reponse } from '../moteurs/types';
   import { moteurParId } from '../moteurs/index';
   import { noter, type Donnee } from '../noyaux/notation';
   import { composerSession } from '../session';
@@ -58,6 +58,25 @@
   let resultats = $state<{ question: Question; note: number }[]>([]);
   let debut = 0;
   let xpGagne = $state(0);
+
+  /**
+   * Comment désigner une proposition dans le texte de la correction.
+   *
+   * Certaines propositions sont des dessins : elles n'ont pas de texte, et seul
+   * leur rang permet d'en parler. Le dire en toutes lettres importe — une
+   * correction qui ne tient qu'à la couleur des cases n'est lisible ni par tout
+   * le monde, ni dans toutes les conditions.
+   */
+  function nommerOption(options: Option[] | undefined, i: number | null): string {
+    if (i === null || i === undefined) return 'aucune';
+    const texte = options?.[i]?.texte?.trim();
+    return texte ? `« ${texte} »` : `la proposition ${i + 1}`;
+  }
+
+  function nommerPlusieurs(options: Option[] | undefined, indices: readonly number[]): string {
+    if (!indices.length) return 'aucune';
+    return indices.map((i) => nommerOption(options, i)).join(', ');
+  }
 
   let choixUnique = $state<number | null>(null);
   let choixMultiples = $state<number[]>([]);
@@ -413,6 +432,23 @@
               ? `En partie : ${Math.round(note * 100)} %.`
               : 'Pas tout à fait.'}
         </p>
+        <!--
+          L'explication dit pourquoi la bonne réponse est bonne. Quand la
+          réponse donnée ne l'était pas, elle laissait sans réponse la seule
+          question que l'on se pose alors : « et ce que j'ai répondu, alors ? ».
+          On nomme donc les deux, en toutes lettres.
+        -->
+        {#if note < 1 && question.reponse.genre === 'unique'}
+          <p class="mt-1 text-slate-700 dark:text-slate-300">
+            Vous avez répondu {nommerOption(question.reponse.options, choixUnique)} ; la réponse
+            attendue était {nommerOption(question.reponse.options, question.reponse.bonne)}.
+          </p>
+        {:else if note < 1 && question.reponse.genre === 'multiple'}
+          <p class="mt-1 text-slate-700 dark:text-slate-300">
+            Vous avez coché {nommerPlusieurs(question.reponse.options, choixMultiples)} ; l'ensemble
+            attendu était {nommerPlusieurs(question.reponse.options, question.reponse.bonnes)}.
+          </p>
+        {/if}
         <p class="mt-1 text-slate-700 dark:text-slate-300">{question.explication}</p>
       </div>
     {/if}

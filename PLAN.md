@@ -895,6 +895,46 @@ cause. L'essai en navigateur, lui, vérifie le raccord : qu'une réponse aliment
 bien les trois granularités, et que le réglage de source **coupe réellement**
 l'alimentation — un réglage sans effet serait pire que pas de réglage du tout.
 
+### Correctif : la rubrique Flashcards déchiffrait tout le site
+
+Ouvrir la page Flashcards déchiffrait les **262 fiches** du site — soit la
+totalité du contenu, près de 390 Mo en clair — avant d'afficher trois nombres.
+Changer un menu recommençait. C'était lent, et cela échouait souvent.
+
+**Rien dans les essais ne pouvait le voir**, parce que tout était juste : les
+bons nombres, les bonnes cartes. Le défaut portait sur le coût, pas sur le
+résultat. D'où un essai qui compte les fiches réellement téléchargées : c'est la
+seule grandeur qui distingue l'avant de l'après.
+
+**Les compteurs ne demandent aucun contenu.** L'état des cartes déjà vues vit en
+base, et le manifeste annonce combien de cartes porte chaque fiche : la
+différence donne les inédites. Construire la file entière pour afficher trois
+nombres revenait à payer au prix du contenu une information qui n'en avait
+aucun besoin.
+
+**La file se construit à hauteur de la session, plus du site.** Les cartes déjà
+vues sont choisies et ordonnées à partir de leur seul état ; on n'ouvre ensuite
+que les fiches dont une carte a été retenue. Les inédites, elles, demandent
+d'ouvrir leur fiche — mais on s'arrête dès le plafond atteint, et on saute les
+fiches dont le manifeste dit qu'elles n'ont plus rien d'inédit. Le tri par zone
+proximale est passé à l'intérieur de `fileDuJour` pour la même raison : ne
+portant que sur des identifiants, il permet d'appliquer le plafond **avant**
+d'ouvrir quoi que ce soit.
+
+**Mesuré** : 262 fiches → 0 à l'ouverture de la page, 2 au démarrage d'une
+session de vingt cartes, en 98 ms.
+
+### Correctif : la correction ne parlait pas de la réponse donnée
+
+En Relational Reasoning, l'explication était bien affichée à chaque correction,
+juste ou fausse — c'est vérifié, y compris à 360 px où le bloc reste entièrement
+visible. Mais elle disait pourquoi la bonne réponse était bonne, et laissait
+sans réponse la seule question qu'on se pose après une erreur : « et ce que j'ai
+répondu, alors ? ». La correction nomme désormais les deux en toutes lettres —
+et en toutes lettres justement, parce qu'une correction qui ne tient qu'à la
+couleur des cases n'est lisible ni par tout le monde, ni dans toutes les
+conditions.
+
 ## Pistes pour la suite
 
 Prévues par l'architecture, non réalisées à ce stade :

@@ -157,12 +157,11 @@ import { base } from '../lib/ui';
 
 <script>
   import { auDeverrouillage } from '../lib/chargement';
-  import { fileDuJour, type CarteAReviser } from '../lib/agregats';
+  import { comptesFlashcards, fileDuJour, type CarteAReviser } from '../lib/agregats';
   import { aplatirFiches, chargerManifeste } from '../lib/contenu';
   import {
     lireCarte,
     lireReglagesSession,
-    toutesLesCartes,
     type Note,
   } from '../lib/db';
   import { gagnerXp, xpFlashcard } from '../lib/gamification';
@@ -390,11 +389,33 @@ import { base } from '../lib/ui';
     // la difficulté d'une carte de droit public à celle d'une carte d'économie
     // reviendrait à comparer deux échelles qui n'ont jamais été mises en regard.
     // Sans sujet unique, on garde l'ordre de la file — les plus en retard
-    // d'abord — et le plafond s'applique comme avant.
-    const brute = await fileDuJour({ matiere, ficheId, ficheIds, inclureNonDues });
+    // d'abord.
+    //
+    // Le tri est confié à « fileDuJour » plutôt qu'appliqué après coup : il ne
+    // porte que sur des identifiants, et permet ainsi d'appliquer le plafond
+    // **avant** d'ouvrir la moindre fiche.
     const clefSujet = clefSujetDeSession(matiere, ficheId, ficheIds);
-    const priorisee = clefSujet ? await ordonnerParZoneProximale(brute, clefSujet) : brute;
-    file = melanger(taille > 0 ? priorisee.slice(0, taille) : priorisee);
+    const bouton = $('lancer') as HTMLButtonElement;
+    const libelle = bouton.textContent;
+    bouton.disabled = true;
+    bouton.textContent = 'Préparation…';
+    try {
+      file = melanger(
+        await fileDuJour({
+          matiere,
+          ficheId,
+          ficheIds,
+          limite: taille,
+          inclureNonDues,
+          prioriser: clefSujet
+            ? (cartes) => ordonnerParZoneProximale(cartes, clefSujet)
+            : undefined,
+        }),
+      );
+    } finally {
+      bouton.disabled = false;
+      bouton.textContent = libelle;
+    }
     if (!file.length) {
       $('rien-a-faire').classList.remove('hidden');
       return;
@@ -408,20 +429,27 @@ import { base } from '../lib/ui';
   }
 
   /** Recalcule les compteurs de l'écran d'accueil de session. */
+  /**
+   * Les trois compteurs de l'écran d'accueil.
+   *
+   * Ils se calculent sans ouvrir une seule fiche : l'état des cartes déjà vues
+   * est en base, et le manifeste dit combien chaque fiche en compte. Les
+   * construire à partir de la file entière revenait à déchiffrer tout le site à
+   * chaque changement de menu.
+   */
   async function rafraichirCompteurs() {
     const ficheId = parametreUrl('fiche');
-    const cartes = await toutesLesCartes();
     const ciblees = fichesCiblees();
     const menus = selectionMenus();
-    const dues = await fileDuJour({
+    const comptes = await comptesFlashcards({
       matiere: ciblees ? null : menus.matiere,
       ficheId,
       ficheIds: ciblees ?? menus.ficheIds,
     });
-    $('nb-dues').textContent = String(dues.length);
-    $('nb-neuves').textContent = String(dues.filter((c) => c.neuve).length);
-    $('nb-acquises').textContent = String(cartes.filter((c) => c.intervalle >= 21).length);
-    $('rien-a-faire').classList.toggle('hidden', dues.length > 0);
+    $('nb-dues').textContent = String(comptes.dues);
+    $('nb-neuves').textContent = String(comptes.neuves);
+    $('nb-acquises').textContent = String(comptes.acquises);
+    $('rien-a-faire').classList.toggle('hidden', comptes.dues > 0);
   }
 
   async function initialiser() {

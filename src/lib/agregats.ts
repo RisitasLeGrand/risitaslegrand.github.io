@@ -163,62 +163,166 @@ export interface CarteAReviser {
   retard: number;
 }
 
-/**
- * Construit la file de révision du jour.
- * Charge le détail des fiches concernées, puis retient les cartes dues.
- */
-export async function fileDuJour(options: {
+interface PorteeFile {
   matiere?: string | null;
   ficheId?: string | null;
   /** Restreint la file à un ensemble de fiches — rappel d'une séance passée. */
   ficheIds?: string[] | null;
-  limite?: number;
-  inclureNonDues?: boolean;
-} = {}): Promise<CarteAReviser[]> {
-  const {
-    matiere = null,
-    ficheId = null,
-    ficheIds = null,
-    limite = 0,
-    inclureNonDues = false,
-  } = options;
-  const manifeste = await chargerManifeste();
-  const cartes = new Map((await toutesLesCartes()).map((c) => [c.id, c]));
-  const aujourdhui = jourISO();
-  const ensemble = ficheIds?.length ? new Set(ficheIds) : null;
+}
 
-  const candidates = aplatirFiches(manifeste).filter(
+/** Les fiches du manifeste que la portée retient. */
+async function fichesEnPortee(portee: PorteeFile) {
+  const { matiere = null, ficheId = null, ficheIds = null } = portee;
+  const ensemble = ficheIds?.length ? new Set(ficheIds) : null;
+  return aplatirFiches(await chargerManifeste()).filter(
     (f) =>
       f.nbFlashcards > 0 &&
       (!matiere || f.matiere === matiere) &&
       (!ficheId || f.id === ficheId) &&
       (!ensemble || ensemble.has(f.id)),
   );
+}
+
+export interface ComptesFlashcards {
+  /** Cartes exigibles : celles dont l'échéance est atteinte, et les inédites. */
+  dues: number;
+  /** Parmi elles, celles jamais révisées. */
+  neuves: number;
+  /** Cartes acquises — plus de 21 jours d'intervalle —, toutes portées confondues. */
+  acquises: number;
+}
+
+/**
+ * Compte les cartes d'une portée **sans déchiffrer une seule fiche**.
+ *
+ * C'est ce que l'écran d'accueil de session a besoin de savoir, et il n'a aucune
+ * raison de le payer au prix du contenu : l'état des cartes déjà vues vit en
+ * base, et le manifeste annonce combien chaque fiche en compte. La différence
+ * donne les inédites. Construire la file entière pour afficher trois nombres
+ * revenait à déchiffrer les 262 fiches du site à chaque ouverture de page — ce
+ * qui la rendait lente, et bien souvent la faisait échouer.
+ */
+export async function comptesFlashcards(portee: PorteeFile = {}): Promise<ComptesFlashcards> {
+  const [candidates, etats] = await Promise.all([fichesEnPortee(portee), toutesLesCartes()]);
+  const aujourdhui = jourISO();
+  const retenues = new Set(candidates.map((f) => f.id));
+
+  const connuesParFiche = new Map<string, number>();
+  let dues = 0;
+  for (const etat of etats) {
+    if (!retenues.has(etat.ficheId)) continue;
+    connuesParFiche.set(etat.ficheId, (connuesParFiche.get(etat.ficheId) ?? 0) + 1);
+    if (etat.du <= aujourdhui) dues += 1;
+  }
+
+  let neuves = 0;
+  for (const fiche of candidates) {
+    neuves += Math.max(0, fiche.nbFlashcards - (connuesParFiche.get(fiche.id) ?? 0));
+  }
+
+  return {
+    dues: dues + neuves,
+    neuves,
+    acquises: etats.filter((e) => e.intervalle >= 21).length,
+  };
+}
+
+/**
+ * Construit la file de révision du jour.
+ *
+ * **Le déchiffrement est proportionnel à la session, pas au site.** Les cartes
+ * déjà vues sont choisies et ordonnées à partir de leur seul état en base ; on
+ * n'ouvre ensuite que les fiches dont une carte a effectivement été retenue. Les
+ * cartes inédites, elles, ne peuvent être connues qu'en ouvrant leur fiche, mais
+ * on s'arrête dès que le plafond est atteint. La version précédente ouvrait
+ * toutes les fiches de la portée avant de n'en garder que vingt.
+ *
+ * `prioriser` réordonne les cartes déjà vues **avant** l'application du plafond.
+ * Elle ne reçoit que des identifiants, et c'est le point : ce qu'on cherche à ne
+ * pas déchiffrer, c'est précisément le contenu qui n'a pas été retenu.
+ */
+export async function fileDuJour(
+  options: PorteeFile & {
+    limite?: number;
+    inclureNonDues?: boolean;
+    prioriser?: <T extends { id: string }>(cartes: T[]) => Promise<T[]>;
+  } = {},
+): Promise<CarteAReviser[]> {
+  const { limite = 0, inclureNonDues = false, prioriser } = options;
+  const [candidates, etats] = await Promise.all([fichesEnPortee(options), toutesLesCartes()]);
+  const aujourdhui = jourISO();
+  const retenues = new Set(candidates.map((f) => f.id));
+  const titres = new Map(candidates.map((f) => [f.id, f.titre]));
+  const matieres = new Map(candidates.map((f) => [f.id, f.matiere]));
+
+  // --- 1. Cartes déjà vues : choisies sans rien ouvrir ---------------------
+  const connuesParFiche = new Map<string, number>();
+  const connusIds = new Set<string>();
+  const exigibles: { id: string; ficheId: string; retard: number }[] = [];
+  for (const etat of etats) {
+    connusIds.add(etat.id);
+    if (!retenues.has(etat.ficheId)) continue;
+    connuesParFiche.set(etat.ficheId, (connuesParFiche.get(etat.ficheId) ?? 0) + 1);
+    if (!inclureNonDues && etat.du > aujourdhui) continue;
+    exigibles.push({
+      id: etat.id,
+      ficheId: etat.ficheId,
+      retard: Math.max(0, ecartJours(etat.du, aujourdhui)),
+    });
+  }
+  // Les plus en retard d'abord : c'est ce qui compte quand la file déborde.
+  exigibles.sort((a, b) => b.retard - a.retard);
+  const ordonnees = prioriser ? await prioriser(exigibles) : exigibles;
+  const servies = limite > 0 ? ordonnees.slice(0, limite) : ordonnees;
+
+  const ouvertes = new Map<string, Awaited<ReturnType<typeof chargerFiche>>>();
+  const ouvrir = async (id: string) => {
+    if (!ouvertes.has(id)) ouvertes.set(id, await chargerFiche(id));
+    return ouvertes.get(id)!;
+  };
 
   const file: CarteAReviser[] = [];
+  for (const choisie of servies) {
+    const fiche = await ouvrir(choisie.ficheId);
+    const carte = fiche.flashcards.find((c) => c.id === choisie.id);
+    // Une carte dont la question a été reformulée a changé d'identifiant : son
+    // ancien état survit sans contenu. On l'ignore plutôt que d'échouer.
+    if (!carte) continue;
+    file.push({
+      id: carte.id,
+      question: carte.question,
+      reponse: carte.reponse,
+      ficheId: fiche.id,
+      ficheTitre: titres.get(fiche.id) ?? fiche.titre,
+      matiere: matieres.get(fiche.id) ?? fiche.matiere,
+      neuve: false,
+      retard: choisie.retard,
+    });
+  }
+
+  // --- 2. Cartes inédites, pour compléter ---------------------------------
+  // Celles-là demandent d'ouvrir leur fiche : on n'ouvre donc que le nécessaire,
+  // et on saute les fiches dont le manifeste indique qu'elles n'ont plus rien
+  // d'inédit à offrir.
   for (const resume of candidates) {
-    const fiche = await chargerFiche(resume.id);
+    if (limite > 0 && file.length >= limite) break;
+    if ((connuesParFiche.get(resume.id) ?? 0) >= resume.nbFlashcards) continue;
+    const fiche = await ouvrir(resume.id);
     for (const carte of fiche.flashcards) {
-      const etat = cartes.get(carte.id);
-      const due = !etat || etat.du <= aujourdhui;
-      if (!due && !inclureNonDues) continue;
+      if (connusIds.has(carte.id)) continue;
       file.push({
         id: carte.id,
         question: carte.question,
         reponse: carte.reponse,
         ficheId: fiche.id,
-        ficheTitre: fiche.titre,
-        matiere: fiche.matiere,
-        neuve: !etat || etat.revisions === 0,
-        // Retard, en jours : sert à servir d'abord ce qui attend depuis le
-        // plus longtemps quand la session est plafonnée.
-        retard: etat ? Math.max(0, ecartJours(etat.du, aujourdhui)) : 0,
+        ficheTitre: resume.titre,
+        matiere: resume.matiere,
+        neuve: true,
+        retard: 0,
       });
+      if (limite > 0 && file.length >= limite) break;
     }
   }
 
-  // Cartes déjà vues d'abord (rappel avant découverte), les plus en retard
-  // en tête : c'est ce qui compte quand la file dépasse le plafond de session.
-  file.sort((a, b) => Number(a.neuve) - Number(b.neuve) || b.retard - a.retard);
-  return limite > 0 ? file.slice(0, limite) : file;
+  return file;
 }
