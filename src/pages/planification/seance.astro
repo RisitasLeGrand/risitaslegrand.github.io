@@ -77,6 +77,13 @@ import Base from '../../layouts/Base.astro';
         Les fiches de cette matière, les non lues d'abord. Les deux premières sont la proposition
         du jour — de quoi ficher une à deux pages, comme le veut la méthode.
       </p>
+      <!--
+        Prétest de la fiche proposée, avant la liste : s'essayer aux questions
+        d'une fiche qu'on n'a pas encore lue rend la lecture qui suit plus
+        efficace. Rempli par src/lib/pretest.ts, et masqué si la fiche du jour
+        n'a pas de prétest ou l'a déjà reçu.
+      -->
+      <div id="pretest-seance" class="mb-5 hidden"></div>
       <div id="fiches" class="grid gap-3 sm:grid-cols-2"></div>
     </section>
 
@@ -135,7 +142,8 @@ import Base from '../../layouts/Base.astro';
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
   import { jourISO, tousLesEtatsFiches, type Seance } from '../../lib/db';
-  import { chargerManifeste } from '../../lib/contenu';
+  import { chargerFiche, chargerManifeste } from '../../lib/contenu';
+  import { aProposer, montrer as montrerPretest } from '../../lib/pretest';
   import { formaterDuree, lien, parametreUrl } from '../../lib/ui';
   import {
     fichesDuTheme,
@@ -317,6 +325,19 @@ import Base from '../../layouts/Base.astro';
 
       carte.append(ouvrir, marque);
       grille.appendChild(carte);
+    }
+
+    // Prétest de la fiche du jour, en tête de cette étape. On ne le propose que
+    // pour la première fiche proposée qui en a un et ne l'a pas déjà reçu :
+    // enchaîner deux prétests avant d'avoir lu quoi que ce soit ferait une
+    // barrière là où l'on voulait une amorce. La fiche complète n'est
+    // déchiffrée que pour les candidates, pas pour toute la matière.
+    for (const legere of fiches.filter((f) => proposees.has(f.id) && f.aPretest)) {
+      const complete = await chargerFiche(legere.id).catch(() => null);
+      if (!complete || !(await aProposer(complete))) continue;
+      const hote = $('pretest-seance');
+      void montrerPretest(complete, hote).then(() => hote.classList.add('hidden'));
+      break;
     }
 
     /* 3. Note de séance */

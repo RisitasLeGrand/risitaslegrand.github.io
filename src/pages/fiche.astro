@@ -66,6 +66,8 @@ import Base from '../layouts/Base.astro';
       </aside>
 
       <div class="min-w-0 flex-1">
+        <!-- Prétest : rempli par src/lib/pretest.ts, avant la première lecture. -->
+        <div id="pretest" class="mb-6 hidden"></div>
         <div id="contenu" class="contenu"></div>
         <p id="section-vide" class="hidden rounded-xl bg-slate-100 px-4 py-6 text-center text-sm text-slate-500 dark:bg-slate-900 dark:text-slate-400"></p>
 
@@ -83,6 +85,7 @@ import Base from '../layouts/Base.astro';
   import { auDeverrouillage } from '../lib/chargement';
   import { aplatirFiches, chargerFiche, chargerManifeste, type Fiche } from '../lib/contenu';
   import { ecrireEtatFiche, lireEtatFiche } from '../lib/db';
+  import { aProposer, montrer as montrerPretest } from '../lib/pretest';
   import { gagnerXp, xpFiche } from '../lib/gamification';
   import { activerGlossaire } from '../lib/glossaire';
   import { installerLecteurPodcast } from '../lib/podcast';
@@ -147,7 +150,10 @@ import Base from '../layouts/Base.astro';
     const bouton = document.getElementById('bouton-lu') as HTMLButtonElement;
     const etat = await lireEtatFiche(fiche.id);
     if (etat?.lu) return;
+    // L'étalement d'abord : sans lui, chaque écriture effacerait les champs que
+    // cette fonction ne connaît pas — l'état du prétest, par exemple.
     await ecrireEtatFiche({
+      ...etat,
       id: fiche.id,
       matiere: fiche.matiere,
       lu: true,
@@ -221,6 +227,7 @@ import Base from '../layouts/Base.astro';
     const etat = await lireEtatFiche(fiche.id);
     majBoutonLu(etat?.lu ?? false);
     await ecrireEtatFiche({
+      ...etat,
       id: fiche.id,
       matiere: fiche.matiere,
       lu: etat?.lu ?? false,
@@ -264,6 +271,19 @@ import Base from '../layouts/Base.astro';
 
     document.getElementById('chargement')!.classList.add('hidden');
     document.getElementById('fiche')!.classList.remove('hidden');
+
+    // Prétest : avant la première lecture, et une seule fois. Le cours est masqué
+    // le temps des questions — le laisser visible derrière viderait l'exercice
+    // de son sens, puisqu'il suffirait de lire la réponse.
+    if (await aProposer(fiche)) {
+      const zoneContenu = document.getElementById('contenu')!;
+      const zoneSommaire = document.getElementById('sommaire')!.parentElement!;
+      zoneContenu.classList.add('hidden');
+      zoneSommaire.classList.add('invisible');
+      await montrerPretest(fiche, document.getElementById('pretest')!);
+      zoneContenu.classList.remove('hidden');
+      zoneSommaire.classList.remove('invisible');
+    }
   }
 
   // « auDeverrouillage » : barre de progression, garde-fou de 5 secondes et

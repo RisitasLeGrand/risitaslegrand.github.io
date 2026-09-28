@@ -118,6 +118,7 @@ export const xpFlashcard = (note: Note) =>
 
 export const xpQuiz = (bonnes: number) => XP.quizTermine + bonnes * XP.quizBonneReponse;
 export const xpFiche = () => XP.ficheTerminee;
+export const xpPretest = () => XP.pretestTente;
 
 /**
  * XP d'une session de Quad N-Back.

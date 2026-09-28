@@ -766,6 +766,44 @@ réelles, d'où un essai en navigateur (`scripts/essais-migration-fsrs.mjs`) qui
 fabrique une vraie base version 6, la fait ouvrir par l'application, et vérifie
 ce qui en ressort.
 
+### 10b — Prétest avant la première lecture ✅
+
+**L'effet.** Tenter de répondre à une question avant d'avoir reçu
+l'enseignement correspondant améliore la mémorisation de cet enseignement, y
+compris — et surtout — quand la tentative échoue : l'erreur creuse la place où
+la bonne réponse viendra se loger. La condition est qu'une vraie tentative ait
+lieu, d'où un bouton « Valider » plutôt qu'un simple « suivant », et d'où aussi
+l'absence totale d'enjeu.
+
+**Trois règles, plus importantes que le code.** Aucune pénalité : la justesse ne
+rapporte ni ne coûte rien, seule la tentative donne une récompense forfaitaire.
+Le prétest n'alimente pas le journal d'erreurs, parce que se tromper ici est
+attendu et non un oubli à rattraper. Et il ne s'affiche qu'une fois, avant la
+première lecture : après, la question ne précède plus rien.
+
+**« Passer » n'est pas « répondre ».** Le bouton existe pour qu'une consultation
+rapide ne soit pas bloquée ; il met donc le prétest en sommeil pour la journée,
+pas pour toujours. Le consommer définitivement sur un coup d'œil reviendrait à
+le perdre pour la séance de travail qui vient.
+
+**Un défaut trouvé en chemin, et rendu impossible.** Le prétest était produit,
+validé et chiffré — et n'arrivait jamais au navigateur : la charge utile envoyée
+au client est recopiée champ par champ, et le nouveau champ n'y figurait pas.
+C'était la troisième fois qu'une recopie explicite oubliait un champ ajouté
+depuis. Le build échoue désormais si une fiche porte un champ qui n'est ni
+transmis ni explicitement écarté — la convention est devenue mécanique, comme
+pour `reetiqueter` en phase 8.
+
+**Le manifeste annonce `aPretest`.** La séance peut ainsi savoir quelles fiches
+valent la peine d'être ouvertes sans déchiffrer toute la matière pour le
+découvrir.
+
+**Le contenu reste à écrire.** Trois fiches ont un prétest ; les 259 autres,
+écrites avant cette phase, n'en ont pas et n'en affichent donc aucun. Rien n'est
+dérivé du quiz à leur place : une question de quiz vue en prétest, corrigée, ne
+mesure plus rien lorsqu'elle revient au quiz — et elle alimentera l'estimation
+de niveau de la phase 10d.
+
 ## Pistes pour la suite
 
 Prévues par l'architecture, non réalisées à ce stade :

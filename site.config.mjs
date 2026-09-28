@@ -108,6 +108,13 @@ export default {
     quizTermine: 10,
     quizBonneReponse: 2,
     ficheTerminee: 20,
+    /**
+     * Prétest : récompense forfaitaire pour **avoir tenté**, jamais pour avoir
+     * bien répondu. Se tromper avant d'avoir lu est attendu, et c'est même ce
+     * qui fait l'effet ; récompenser la justesse installerait une anxiété
+     * exactement là où il ne faut pas.
+     */
+    pretestTente: 4,
     /** Quad N-Back : base par session terminée, puis bonus selon n et réussite. */
     nbackSession: 8,
     nbackParNiveau: 4,

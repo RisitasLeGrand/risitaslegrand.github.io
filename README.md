@@ -121,7 +121,7 @@ Matières suggérées pour le concours interne :
 ## Format d'une fiche
 
 Un fichier `.md` par fiche thématique, composé d'un **front-matter** (entre
-deux lignes `---`) et de quatre sections optionnelles.
+deux lignes `---`) et de cinq sections optionnelles.
 
 ```markdown
 ---
@@ -131,6 +131,17 @@ titre: "Pandémie et relations internationales"
 ordre: 1
 tags: [santé mondiale, gouvernance, OMS]
 ---
+
+## Prétest
+
+- question: "Une question posée AVANT la lecture ?"
+  options:
+    - "Première proposition"
+    - "Deuxième proposition"
+  reponse: "Deuxième proposition"
+- question: "Une deuxième, deux à quatre en tout ?"
+  options: ["Oui", "Non"]
+  reponse: "Oui"
 
 ## Cours complet
 
@@ -174,9 +185,17 @@ La version condensée, à relire rapidement.
 
 ### Règles à connaître
 
-- Les quatre titres reconnus sont `## Cours complet`, `## Fiche simplifiée`,
-  `## Flashcards` et `## Quiz`. Un autre titre `##` est rattaché à la section
-  en cours (utile pour un cours découpé en grandes parties).
+- Les cinq titres reconnus sont `## Prétest`, `## Cours complet`,
+  `## Fiche simplifiée`, `## Flashcards` et `## Quiz`. Un autre titre `##` est
+  rattaché à la section en cours (utile pour un cours découpé en grandes
+  parties).
+- Le `## Prétest` s'écrit au format du quiz, et compte **2 à 4 questions** : le
+  build refuse les autres nombres. Il s'affiche une seule fois, avant la
+  première lecture du cours, et n'est jamais noté — ni XP à la justesse, ni
+  entrée au journal d'erreurs. Écrivez-y des questions d'orientation, pas des
+  questions de contrôle : leur rôle est d'ouvrir la lecture, pas de la vérifier.
+  N'y recopiez pas une question du quiz, sinon celle-ci ne mesurera plus rien
+  lorsqu'elle reviendra corrigée.
 - Dans les flashcards, `q:`/`r:` peuvent aussi s'écrire `question:`/`reponse:`.
 - Dans les quiz, `reponse:` accepte le **texte exact** d'une option, ou son
   **numéro** (`0` pour la première). Pour plusieurs bonnes réponses, utilisez

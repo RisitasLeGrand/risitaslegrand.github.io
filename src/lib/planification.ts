@@ -315,6 +315,8 @@ export interface FicheProposee {
   titre: string;
   matiere: string;
   fascicule: string;
+  /** La fiche propose-t-elle un prétest ? Voir `src/lib/pretest.ts`. */
+  aPretest: boolean;
 }
 
 /**
@@ -334,6 +336,7 @@ export function fichesDuTheme(manifeste: Manifeste, themeId: string): FichePropo
           titre: fiche.titre,
           matiere: m.nom,
           fascicule: f.nom,
+          aPretest: fiche.aPretest ?? false,
         })),
       ),
     );

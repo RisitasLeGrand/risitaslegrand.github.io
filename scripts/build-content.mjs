@@ -300,6 +300,31 @@ async function main() {
       });
     }
 
+    // --- Prétest ---------------------------------------------------------
+    // Section facultative : répondre à quelques questions *avant* d'avoir lu
+    // améliore la mémorisation, même — et surtout — quand la tentative échoue.
+    // Les fiches écrites avant cette phase n'en ont pas, et n'en affichent donc
+    // aucun ; rien n'est dérivé du quiz à leur place, car une question de quiz
+    // vue en prétest, corrigée, ne mesure plus rien lorsqu'elle revient au quiz.
+    const pretest = [];
+    for (const item of parserListeYaml(sections.pretest, `${relatif} (## Prétest)`)) {
+      const r = quizSchema.safeParse(item);
+      if (!r.success) {
+        erreurs.push(`${relatif} (## Prétest) : ${r.error.issues.map((i) => i.message).join(' ; ')}`);
+        continue;
+      }
+      pretest.push({
+        id: `${ficheId}.p${await idStable(ficheId + '|' + r.data.question, 10)}`,
+        ...r.data,
+      });
+    }
+    if (sections.pretest.trim() && (pretest.length < 2 || pretest.length > 4)) {
+      erreurs.push(
+        `${relatif} (## Prétest) : ${pretest.length} question(s). Le prétest en demande 2 à 4 — ` +
+          'assez pour amorcer la lecture, trop peu pour ressembler à un examen d\'entrée.',
+      );
+    }
+
     const texteRecherche = [
       fm.data.titre,
       fm.data.tags.join(' '),
@@ -324,6 +349,7 @@ async function main() {
       sommaire: extraireSommaire(coursHtml || ficheHtml),
       flashcards,
       quiz,
+      pretest,
       texteRecherche,
       motsCours: texteBrut(sections.cours).split(/\s+/).filter(Boolean).length,
       // Fiche audio, si « npm run podcasts » l'a déjà synthétisée.
@@ -366,6 +392,9 @@ async function main() {
           aCours: Boolean(f.coursHtml),
           aFiche: Boolean(f.ficheHtml),
           aPodcast: Boolean(f.podcast),
+          // Annoncé ici pour que la séance sache, sans rien déchiffrer, quelles
+          // fiches valent la peine d'être ouvertes pour leur prétest.
+          aPretest: f.pretest.length > 0,
         })),
       });
     }
@@ -522,12 +551,33 @@ async function main() {
       sommaire: f.sommaire,
       flashcards: f.flashcards,
       quiz: f.quiz,
+      pretest: f.pretest,
       // Le lecteur a besoin de la durée et du poids AVANT de télécharger :
       // c'est ce qui permet d'annoncer « 12 min, 3 Mo » sur le bouton.
       podcast: f.podcast
         ? { secondes: f.podcast.secondes, octets: f.podcast.octets, type: f.podcast.type }
         : null,
     };
+
+    // Cette charge utile est recopiée champ par champ, et une recopie finit
+    // toujours par oublier le champ qu'on vient d'ajouter : le prétest a été
+    // produit, validé et chiffré sans jamais parvenir au navigateur. Tout champ
+    // d'une fiche doit donc être soit transmis, soit écarté explicitement.
+    const ECARTES_DU_CLIENT = new Set([
+      'chemin', // interne au build
+      'ordre', // porté par le manifeste
+      'texteRecherche', // porté par l'index de recherche
+      'motsCours', // porté par le manifeste
+    ]);
+    const oublies = Object.keys(f).filter((c) => !(c in charge) && !ECARTES_DU_CLIENT.has(c));
+    if (oublies.length) {
+      echouer(
+        `Champ(s) de fiche jamais transmis au navigateur : ${oublies.join(', ')}.\n` +
+          '  Ajoutez-les à « charge » dans scripts/build-content.mjs, ou inscrivez-les\n' +
+          '  dans ECARTES_DU_CLIENT si c\'est délibéré.',
+      );
+    }
+
     await writeFile(
       path.join(dossierSortie, 'fiches', `${f.id}.json`),
       JSON.stringify(await chiffrerJson(cle, charge, tailleIvOctets)),

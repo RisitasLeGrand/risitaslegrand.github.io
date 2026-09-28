@@ -18,6 +18,11 @@ export interface FicheResume {
   aFiche: boolean;
   /** Une fiche audio a-t-elle été synthétisée pour cette fiche ? */
   aPodcast?: boolean;
+  /**
+   * La fiche propose-t-elle un prétest ? Annoncé par le manifeste pour que la
+   * séance n'ait pas à déchiffrer une fiche entière afin de le découvrir.
+   */
+  aPretest?: boolean;
 }
 
 export interface Fascicule {
@@ -77,6 +82,11 @@ export interface Fiche {
   sommaire: { niveau: number; id: string; titre: string }[];
   flashcards: Flashcard[];
   quiz: QuestionQuiz[];
+  /**
+   * Questions posées **avant** la première lecture du cours. Facultatif : les
+   * fiches écrites avant la phase 10b n'en ont pas.
+   */
+  pretest?: QuestionQuiz[];
   /** Durée, poids et format de la fiche audio, connus avant de la télécharger. */
   podcast: { secondes: number | null; octets: number; type: string } | null;
 }

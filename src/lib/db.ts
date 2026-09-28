@@ -97,6 +97,19 @@ export interface EtatFiche {
   lu: boolean;
   derniereOuverture: string | null;
   secondes: number;
+  /**
+   * Date à laquelle le prétest de la fiche a été **tenté**. Il ne revient plus
+   * ensuite : son effet tient à ce qu'il précède la première lecture.
+   */
+  pretesteeLe?: string;
+  /**
+   * Jour où le prétest a été **passé** sans répondre. Il ne revient pas le même
+   * jour — le bouton « passer » existe pour qu'une consultation rapide ne soit
+   * pas bloquée —, mais il revient un autre jour : passer n'est pas répondre, et
+   * consommer définitivement le prétest pour un coup d'œil serait le perdre pour
+   * la vraie séance de travail.
+   */
+  pretestPasseLe?: string;
 }
 
 export interface SessionNBack {

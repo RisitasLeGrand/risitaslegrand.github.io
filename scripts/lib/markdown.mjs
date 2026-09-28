@@ -22,6 +22,10 @@ const SECTIONS = new Map([
   ['flashcard', 'flashcards'],
   ['quiz', 'quiz'],
   ['qcm', 'quiz'],
+  ['pretest', 'pretest'],
+  ['pre-test', 'pretest'],
+  ['pre test', 'pretest'],
+  ['auto-questionnement', 'pretest'],
 ]);
 
 /**
@@ -31,7 +35,7 @@ const SECTIONS = new Map([
  */
 export function decouperSections(corps) {
   const lignes = corps.split(/\r?\n/);
-  const sections = { cours: [], fiche: [], flashcards: [], quiz: [] };
+  const sections = { cours: [], fiche: [], flashcards: [], quiz: [], pretest: [] };
   const inconnues = [];
   let courante = null;
   let dansBlocCode = false;
