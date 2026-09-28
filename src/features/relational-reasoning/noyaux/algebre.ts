@@ -141,6 +141,17 @@ export function composerMasques(a: AlgebreCompilee, gauche: number, droite: numb
   return resultat;
 }
 
+/** Combien de relations un masque désigne-t-il ? */
+function nombreDeBits(masque: number): number {
+  let reste = masque;
+  let compte = 0;
+  while (reste) {
+    reste &= reste - 1;
+    compte += 1;
+  }
+  return compte;
+}
+
 export function masqueVers(a: AlgebreCompilee, masque: number): Set<string> {
   const resultat = new Set<string>();
   for (let r = 0; r < a.taille; r += 1) if (masque & (1 << r)) resultat.add(a.noms[r]);
@@ -315,6 +326,15 @@ const BUDGET_NOEUDS = 400_000;
  *
  * Rend `null` si le budget est épuisé — l'appelant se rabat alors sur la
  * cohérence par chemin plutôt que de rendre une réponse fausse.
+ *
+ * `arretDesQue` arrête le parcours dès que ce nombre de relations distinctes a
+ * été vu. Presque tous les appels du site ne veulent pas l'ensemble mais un
+ * booléen : « reste-t-il au moins un scénario ? » (1), « en reste-t-il plus
+ * d'un ? » (2). Les calculer en énumérant *tout* coûtait cher exactement là où
+ * la réponse était la plus facile : un réseau peu contraint admet une foule de
+ * scénarios, et la réponse tombe au deuxième. Le résultat est alors **tronqué**
+ * — il compte au moins `arretDesQue` relations, sans prétendre à l'exhaustivité.
+ * Il ne doit donc servir qu'à une comparaison au seuil demandé.
  */
 export function possibilitesExactes(
   algebre: Algebre,
@@ -322,6 +342,7 @@ export function possibilitesExactes(
   faits: readonly Fait[],
   a: string,
   b: string,
+  arretDesQue = Number.POSITIVE_INFINITY,
 ): Set<string> | null {
   const compilee = compiler(algebre);
   const n = entites.length;
@@ -348,11 +369,13 @@ export function possibilitesExactes(
   let trouvees = 0;
   let noeuds = 0;
   let deborde = false;
+  let assez = false;
 
   function explorer(reseau: Reseau, rang: number): void {
-    if (deborde) return;
+    if (deborde || assez) return;
     if (rang === paires.length) {
       trouvees |= reseau[ia * n + ib];
+      if (nombreDeBits(trouvees) >= arretDesQue) assez = true;
       return;
     }
     const arete = paires[rang];
@@ -371,7 +394,7 @@ export function possibilitesExactes(
       essai[arete] = bit;
       essai[j * n + i] = compilee.converseMasque[31 - Math.clz32(bit)];
       if (cohererParChemin(algebre, essai, n)) explorer(essai, rang + 1);
-      if (deborde) return;
+      if (deborde || assez) return;
     }
   }
 
@@ -390,9 +413,10 @@ export function possibilites(
   faits: readonly Fait[],
   a: string,
   b: string,
+  arretDesQue = Number.POSITIVE_INFINITY,
 ): Set<string> {
   if (cheminComplet) return possibilitesParChemin(algebre, entites, faits, a, b);
-  const exactes = possibilitesExactes(algebre, entites, faits, a, b);
+  const exactes = possibilitesExactes(algebre, entites, faits, a, b, arretDesQue);
   return exactes ?? possibilitesParChemin(algebre, entites, faits, a, b);
 }
 
@@ -407,7 +431,7 @@ export function coherent(
   if (!reseau || !cohererParChemin(algebre, reseau, entites.length)) return false;
   if (cheminComplet || entites.length < 2) return true;
   // Algèbre où la cohérence par chemin ne suffit pas : il faut exhiber un
-  // scénario, ce qu'une seule énumération suffit à établir.
-  const resultat = possibilitesExactes(algebre, entites, faits, entites[0], entites[1]);
+  // scénario — un seul, d'où l'arrêt au premier trouvé.
+  const resultat = possibilitesExactes(algebre, entites, faits, entites[0], entites[1], 1);
   return resultat === null || resultat.size > 0;
 }

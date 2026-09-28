@@ -25,6 +25,9 @@ import { MOTEURS, couples } from '../src/features/relational-reasoning/moteurs/i
 import { algebresCompatibles, INTITULES } from '../src/features/relational-reasoning/noyaux/proprietes';
 import { noter } from '../src/features/relational-reasoning/noyaux/notation';
 import { echelonDeMoteur } from '../src/features/relational-reasoning/progression';
+import { plusPetitSuffisant, type Contexte } from '../src/features/relational-reasoning/noyaux/mus';
+import { poset } from '../src/features/relational-reasoning/systemes/poset';
+import type { Fait } from '../src/features/relational-reasoning/systemes/types';
 
 function algebreDe(s: Systeme) {
   return { relations: s.relations.map((r) => r.id), converse: s.converse, composer: s.composer! };
@@ -168,6 +171,138 @@ console.log("\nÉCHELLE — chaque moteur monte pour son propre compte");
     echelonDeMoteur([t('x', 1), t('x', 1), t('x', 1), t('x', 0.5), t('x', 0.5)], 'x'),
     2,
   );
+}
+
+console.log('\nPRÉMISSES MINIMALES — la caractérisation linéaire égale l’énumération');
+// Le noyau ne cherche plus le plus petit sous-ensemble suffisant en parcourant
+// les 2^n sous-ensembles : il retient les faits *nécessaires* — ceux dont le
+// retrait à lui seul fait perdre la conclusion — et vérifie qu'ils suffisent
+// (la preuve est en tête de noyaux/mus.ts). Le nombre de tests passe de 4 096 à
+// treize ; encore faut-il que la réponse soit la même. On la compare donc à
+// l'énumération exhaustive, sur des ensembles assez petits pour qu'elle reste
+// abordable.
+// La référence n'appelle pas `entraine` : celui-ci prend trois raccourcis par
+// la cohérence par chemin, et une erreur commune aux deux passerait inaperçue.
+// Elle énumère les possibles sans aucun seuil d'arrêt.
+function suffitSansRaccourci(
+  contexte: Contexte,
+  faits: readonly Fait[],
+  a: string,
+  b: string,
+  relation: string,
+): boolean {
+  const restantes = possibilites(
+    contexte.algebre,
+    contexte.cheminComplet,
+    contexte.entites,
+    faits,
+    a,
+    b,
+  );
+  return restantes.size === 1 && restantes.has(relation);
+}
+
+function minimauxSuffisants(
+  contexte: Contexte,
+  faits: readonly Fait[],
+  a: string,
+  b: string,
+  relation: string,
+): Fait[][] {
+  const n = faits.length;
+  const suffisants: number[] = [];
+  for (let masque = 1; masque < 1 << n; masque += 1) {
+    const sous = faits.filter((_, i) => masque & (1 << i));
+    if (suffitSansRaccourci(contexte, sous, a, b, relation)) suffisants.push(masque);
+  }
+  return suffisants
+    .filter((m) => !suffisants.some((autre) => autre !== m && (autre & m) === autre))
+    .map((m) => faits.filter((_, i) => m & (1 << i)));
+}
+
+{
+  const MAXIMUM_FAITS = 8; // 256 sous-ensembles à énumérer, pas davantage
+  let compares = 0;
+  let desaccords = 0;
+  let uniques = 0;
+  for (const systeme of [line, plane, poset]) {
+    const contexteAlgebre = algebreDe(systeme);
+    for (let graine = 1; graine <= 120; graine += 1) {
+      const hasard = alea(7000 + graine);
+      const instance = systeme.engendrer(5, hasard);
+      if (!instance.modele) continue;
+      const entites = instance.entites;
+      if (entites.length < 4) continue;
+      const contexte: Contexte = {
+        algebre: contexteAlgebre,
+        cheminComplet: systeme.cheminComplet,
+        entites,
+      };
+      // Un vivier de faits vrais tirés du modèle, indépendant du moteur : on
+      // veut éprouver le noyau, pas reproduire la façon dont un moteur l'appelle.
+      const vivier: Fait[] = [];
+      for (let i = 0; i < entites.length; i += 1) {
+        for (let j = i + 1; j < entites.length; j += 1) {
+          vivier.push({
+            sujet: entites[i],
+            relation: systeme.relationDansModele(instance.modele, entites[i], entites[j]),
+            objet: entites[j],
+          });
+        }
+      }
+      const [a, b] = hasard.plusieurs(entites, 2);
+      const faitsTires = hasard
+        .melanger(vivier.filter((f) => !((f.sujet === a && f.objet === b) || (f.sujet === b && f.objet === a))))
+        .slice(0, MAXIMUM_FAITS);
+      if (faitsTires.length < 3) continue;
+      const conclusion = systeme.relationDansModele(instance.modele, a, b);
+      if (!suffitSansRaccourci(contexte, faitsTires, a, b, conclusion)) continue;
+
+      const obtenu = plusPetitSuffisant(contexte, faitsTires, a, b, conclusion);
+      const references = minimauxSuffisants(contexte, faitsTires, a, b, conclusion);
+      compares += 1;
+      const attenduUnique = references.length === 1;
+      if (attenduUnique) uniques += 1;
+      if (!obtenu || obtenu.unique !== attenduUnique) {
+        desaccords += 1;
+        continue;
+      }
+      // Le sous-ensemble rendu doit être minimal, et le plus petit quand il est unique.
+      const rendu = new Set(obtenu.faits);
+      const estMinimal = references.some(
+        (r) => r.length === rendu.size && r.every((f) => rendu.has(f)),
+      );
+      if (!estMinimal) desaccords += 1;
+      else if (attenduUnique && obtenu.faits.length !== Math.min(...references.map((r) => r.length))) {
+        desaccords += 1;
+      }
+    }
+  }
+  verifier('accord avec l’énumération exhaustive', desaccords, 0);
+  verifier('des cas à réponse unique ont été rencontrés', uniques > 0, true);
+  verifier('des cas à plusieurs minimaux aussi', compares - uniques > 0, true);
+}
+
+console.log('\nCOÛT — un item ne doit pas figer l’interface');
+// Un moteur qui met vingt secondes à rendre un item est un défaut, même si
+// l'item est juste : la session se fige au tirage, et rien dans les essais ne
+// le disait. C'est arrivé — « Prémisses minimales » sur RCC8 demandait 18,9 s,
+// parce qu'un test d'entraînement y coûte une énumération de scénarios et que
+// le noyau en faisait 4 096. Le budget est désormais gardé.
+{
+  const BUDGET_MS = 1500;
+  let pire = { couple: '—', ms: 0 };
+  for (const { moteur, systeme } of couples(MOTEURS, SYSTEMES)) {
+    const debut = Date.now();
+    for (let i = 0; i < 3; i += 1) moteur.engendrer(systeme, 6, alea(4000 + i));
+    const ms = (Date.now() - debut) / 3;
+    if (ms > pire.ms) pire = { couple: `${moteur.id} × ${systeme.id}`, ms };
+    if (ms > BUDGET_MS) {
+      echecs += 1;
+      console.log(`  ✗ ${moteur.id} × ${systeme.id} — ${Math.round(ms)} ms par item`);
+    }
+  }
+  console.log(`  ✓ le plus lent : ${pire.couple} — ${Math.round(pire.ms)} ms par item`);
 }
 
 console.log('\nMOTEURS — deux cents items par couple moteur × système');

@@ -432,6 +432,130 @@ d'une famille que l'échelon courant d'un moteur, sans rien mémoriser qu'un imp
 de sauvegarde pourrait désynchroniser. Clés d'XP dans `site.config.mjs` sur le
 modèle de `nbackSession`, et des badges de déblocage par famille.
 
+### Correctif : « Remplacer » n'effaçait pas tout
+
+Le mode « remplacement » de l'import annonce qu'il « **efface la progression
+locale puis restaure la sauvegarde** ». Il ne vidait que **huit magasins sur
+douze** : `nback`, `relationnel`, `vmSeuils` et `vmSessions` — les quatre ajoutés
+après lui — étaient oubliés. Comme les sessions y sont ensuite **ajoutées** et non
+écrasées, le défaut était cumulatif : restaurer deux fois la même sauvegarde
+triplait l'historique de Cog-Training. Mesuré avant correction, par l'interface
+réelle : **1 → 2 → 3** enregistrements pour `nback`, `relationnel` et `vmSessions`.
+
+Les conséquences dépassaient le doublon d'affichage. L'échelon des moteurs
+relationnels et le déblocage des familles se **rejouent depuis les traces** :
+des traces locales survivantes gonflaient la progression après une restauration
+censée repartir de la sauvegarde. Et un seuil de Veridical Mapping absent de la
+sauvegarde survivait à l'effacement, l'escalier reprenant depuis un état que
+l'utilisateur avait demandé à jeter — exactement la contamination contre laquelle
+les clefs de seuil par tâche avaient été introduites.
+
+Le remède n'est pas d'allonger la liste oubliée mais de n'en avoir **qu'une** :
+`MAGASINS_PROGRESSION` sert désormais à la fois à la remise à zéro complète et au
+mode remplacement, qui ne peuvent donc plus diverger. C'est la même leçon que le
+réétiquetage des modèles en phase 8 : quand deux listes doivent rester synchrones,
+il faut les remplacer par une seule.
+
+La vérification a suivi la discipline inverse de l'habituelle : **reproduire
+d'abord la panne**, en rétablissant temporairement l'ancienne liste, puis montrer
+le même contrôle passer. Un correctif dont on n'a pas vu le test échouer n'est pas
+un correctif vérifié.
+
+### Correctif : l'inventaire de la rubrique Actualités
+
+Un balayage des dix-huit routes a mis au jour un défaut que les contrôles
+statiques ne pouvaient pas voir : la page Actualités émettait **cinquante-cinq
+requêtes dont cinquante-quatre répondaient 404**, à chaque visite.
+
+Ce n'était pas une erreur de logique. GitHub Pages ne permet pas de lister un
+dossier, et les noms de fichiers sont des empreintes pour ne révéler ni les dates
+ni les thèmes : le navigateur n'avait donc aucun moyen de savoir ce qui existe, et
+**sondait** les identifiants de semaine en remontant le temps. Le code le
+documentait, et traitait correctement les 404 comme « pas encore publié ».
+
+C'était néanmoins un défaut, pour une raison que l'incident a rendue tangible :
+une console saturée de rouge **masque les vraies erreurs**. Elle me les a
+masquées pendant le balayage lui-même, où cent dix signalements de bruit
+noyaient tout le reste. Un diagnostic qu'on ne peut pas lire ne sert à rien.
+
+**Le correctif est un inventaire chiffré.** Le script de publication, qui parcourt
+déjà chaque entrée pour vérifier qu'elle est bien une enveloppe, collecte au
+passage les noms publiés et écrit un inventaire — **chiffré avec la même clé
+publique que les entrées**. Le navigateur le lit une fois, puis demande exactement
+les fichiers qui existent. Mesuré : **cinq requêtes au lieu de cinquante-cinq,
+zéro 404, zéro erreur de console**, les quatre onglets affichant toujours leurs
+entrées.
+
+Trois points de conception méritent d'être notés.
+
+**L'inventaire est chiffré, et il devait l'être.** Une liste d'empreintes en clair
+serait inversible : l'espace des identifiants de période est minuscule — quelques
+centaines de semaines plausibles — de sorte que n'importe qui pourrait
+précalculer les empreintes et lire dans l'inventaire les périodes couvertes.
+C'est une métadonnée sur les périodes de révision, aujourd'hui non énumérable
+précisément parce que le listage est impossible. Le correctif ne devait pas
+l'introduire.
+
+**Le sondage demeure, en voie de secours.** Un déploiement antérieur à
+l'inventaire continue de fonctionner à l'identique, ce qui a été vérifié en
+retirant le fichier : les entrées sont retrouvées et affichées comme avant.
+
+**Un bénéfice non cherché : la fenêtre peut s'élargir sans coût.** Les
+identifiants absents étant écartés localement, la profondeur d'historique n'est
+plus limitée par le nombre de requêtes qu'on accepte de perdre. Elle passe de
+dix-huit mois à six ans, et la « tolérance » d'un an qui compensait l'historique
+troué n'a plus d'objet.
+
+### Correctif : le noyau MUS, dix-neuf secondes pour un item
+
+Engendrer un item de « Prémisses minimales » sur RCC8 demandait **18,9 s**. Rien
+dans les essais ne le disait : ils vérifiaient que les items étaient justes, pas
+qu'ils arrivaient. Un moteur qui fige la page au tirage est pourtant un défaut,
+même quand sa réponse est bonne.
+
+**Le diagnostic a démenti le commentaire qui l'excusait.** Le noyau énumérait les
+2^n sous-ensembles de faits « parce qu'à cette échelle mille combinaisons ne
+coûtent rien ». Ce n'était pas le nombre de sous-ensembles qui avait été mal
+estimé, mais le prix d'un seul test : une propagation sur l'ensemble complet
+coûte 0,1 ms, mais sur un sous-ensemble *presque vide* — réseau non contraint,
+foule de scénarios — l'énumération exacte y brûlait son budget de 400 000 nœuds,
+soit près d'une seconde. Les sous-ensembles dont l'insuffisance est la plus
+évidente étaient les plus chers.
+
+**Trois corrections, dont une de fond.**
+
+1. *L'énumération est remplacée par une caractérisation exacte.* Un fait est
+   **nécessaire** lorsque l'ensemble entier privé de ce seul fait n'entraîne plus
+   la conclusion. Tout sous-ensemble suffisant contient l'ensemble N des faits
+   nécessaires ; donc si N suffit, c'est l'unique minimal, et s'il ne suffit pas,
+   il y en a au moins deux. L'unicité se décide en n+1 tests au lieu de 2^n. La
+   preuve est en tête de `noyaux/mus.ts`, et la suite d'essais vérifie l'accord
+   avec l'énumération exhaustive — sur une référence qui n'emprunte aucun des
+   raccourcis du noyau, sans quoi une erreur commune aux deux passerait inaperçue.
+2. *Les questions booléennes cessent de calculer des ensembles.* « Reste-t-il au
+   moins un scénario ? » et « en reste-t-il plus d'un ? » se répondent en
+   arrêtant le parcours au premier, respectivement au deuxième, résultat distinct.
+3. *La propagation tranche là où elle suffit.* La cohérence par chemin rend un
+   sur-ensemble des relations possibles, pour un dixième de milliseconde : si la
+   relation visée n'y figure pas, c'est « non » ; si le sur-ensemble est déjà
+   réduit à elle seule, la vraie liste y est incluse et ne peut être que vide ou
+   égale à elle, de sorte qu'exhiber **un** scénario conclut « oui ». Prouver
+   qu'une relation est forcée obligeait sinon à visiter tous les scénarios —
+   832 ms pour un test que la propagation avait déjà décidé.
+
+**Le même changement corrige une explication fausse.** L'ancienne version ne
+comptait les sous-ensembles concurrents qu'à taille égale : deux chaînes
+indépendantes de tailles 2 et 3 lui passaient pour « uniques ». L'explication
+affichée — « retirer l'un des faits qui comptent rend la conclusion
+indéterminée » — était alors mensongère, puisque la seconde chaîne la forçait
+toujours, et les faits présentés comme « inertes » ne l'étaient pas. La
+caractérisation par faits nécessaires *est* exactement l'énoncé que l'explication
+prétend faire. Les deux défauts avaient une seule cause.
+
+**Le coût est désormais un invariant surveillé.** Un bloc d'essais mesure le
+temps par item de chaque couple moteur × système et échoue au-delà de 1,5 s. Le
+plus lent est passé de 18 900 ms à 590 ms.
+
 ## Phase 9 — Veridical Mapping 🔄 (v1 livrée)
 
 Troisième rubrique de Cog-Training : un entraînement de mise en correspondance
