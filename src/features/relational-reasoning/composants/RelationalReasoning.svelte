@@ -244,13 +244,13 @@
           onclick={() => (comprendreOuvert = !comprendreOuvert)}
           class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700
             hover:border-indigo-300 dark:border-slate-700 dark:text-slate-200"
-        >{comprendreOuvert ? 'Masquer' : 'Comprendre les exercices'}</button>
+        >{comprendreOuvert ? 'Masquer les exercices' : 'Comprendre les exercices'}</button>
         <button
           type="button"
           onclick={() => (statsOuvert = !statsOuvert)}
           class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700
             hover:border-indigo-300 dark:border-slate-700 dark:text-slate-200"
-        >{statsOuvert ? 'Masquer' : 'Ma progression'}</button>
+        >{statsOuvert ? 'Masquer la progression' : 'Ma progression'}</button>
       </div>
     </div>
 

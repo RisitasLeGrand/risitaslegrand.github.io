@@ -567,6 +567,42 @@ export async function ecrireReglagesPlanification(reglages: ReglagesPlanificatio
   await (await db()).put('etat', reglages, 'planification');
 }
 
+/**
+ * Tous les magasins qui portent de la progression.
+ *
+ * **Une seule liste, deux usages** : la remise à zéro complète et le mode
+ * « remplacement » de l'import doivent effacer exactement la même chose. Ils
+ * avaient divergé — l'import oubliait `nback`, `relationnel`, `vmSeuils` et
+ * `vmSessions`, les quatre magasins ajoutés après lui. Comme les sessions y sont
+ * ensuite **ajoutées** et non écrasées, restaurer deux fois la même sauvegarde
+ * doublait l'historique de Cog-Training, et un seuil local absent de la
+ * sauvegarde survivait à un « effacer puis restaurer ».
+ *
+ * Le remède n'est pas d'allonger la seconde liste mais de n'en avoir qu'une :
+ * un magasin ajouté ici est pris en compte partout.
+ */
+const MAGASINS_PROGRESSION = [
+  'etat',
+  'cartes',
+  'fiches',
+  'quiz',
+  'jours',
+  'nback',
+  'seances',
+  'qcmDgfip',
+  'qcmSessions',
+  'relationnel',
+  'vmSeuils',
+  'vmSessions',
+] as const;
+
+/** Vide tous les magasins de progression, dans une seule transaction. */
+async function viderProgression(base: Awaited<ReturnType<typeof db>>) {
+  const tx = base.transaction(MAGASINS_PROGRESSION, 'readwrite');
+  await Promise.all(MAGASINS_PROGRESSION.map((nom) => tx.objectStore(nom).clear()));
+  await tx.done;
+}
+
 /** Sérialise l'intégralité de la progression (export JSON). */
 export async function exporterTout() {
   const base = await db();
@@ -604,23 +640,10 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
   }
   const base = await db();
 
-  if (mode === 'remplacement') {
-    const tx = base.transaction(
-      ['etat', 'cartes', 'fiches', 'quiz', 'jours', 'seances', 'qcmDgfip', 'qcmSessions'],
-      'readwrite',
-    );
-    await Promise.all([
-      tx.objectStore('etat').clear(),
-      tx.objectStore('cartes').clear(),
-      tx.objectStore('fiches').clear(),
-      tx.objectStore('quiz').clear(),
-      tx.objectStore('jours').clear(),
-      tx.objectStore('seances').clear(),
-      tx.objectStore('qcmDgfip').clear(),
-      tx.objectStore('qcmSessions').clear(),
-    ]);
-    await tx.done;
-  }
+  // « Remplacement » veut dire ce qu'il dit : on efface **toute** la progression
+  // locale avant de restaurer, sans quoi les magasins non vidés accumuleraient
+  // les enregistrements importés par-dessus les anciens.
+  if (mode === 'remplacement') await viderProgression(base);
 
   const profilLocal = await lireProfil();
   const profilImporte = { ...PROFIL_PAR_DEFAUT, ...(donnees.profil ?? {}) };
@@ -788,37 +811,5 @@ export async function effacerVeridical() {
 
 /** Efface toute la progression locale (bouton « tout réinitialiser »). */
 export async function toutEffacer() {
-  const base = await db();
-  const tx = base.transaction(
-    [
-      'etat',
-      'cartes',
-      'fiches',
-      'quiz',
-      'jours',
-      'nback',
-      'seances',
-      'qcmDgfip',
-      'qcmSessions',
-      'relationnel',
-      'vmSeuils',
-      'vmSessions',
-    ],
-    'readwrite',
-  );
-  await Promise.all([
-    tx.objectStore('etat').clear(),
-    tx.objectStore('cartes').clear(),
-    tx.objectStore('fiches').clear(),
-    tx.objectStore('quiz').clear(),
-    tx.objectStore('jours').clear(),
-    tx.objectStore('nback').clear(),
-    tx.objectStore('seances').clear(),
-    tx.objectStore('qcmDgfip').clear(),
-    tx.objectStore('qcmSessions').clear(),
-    tx.objectStore('relationnel').clear(),
-    tx.objectStore('vmSeuils').clear(),
-    tx.objectStore('vmSessions').clear(),
-  ]);
-  await tx.done;
+  await viderProgression(await db());
 }

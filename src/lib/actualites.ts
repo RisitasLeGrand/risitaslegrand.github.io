@@ -239,6 +239,65 @@ export function clePriveeActualites(): Promise<CryptoKey | null> {
 /** Oublie la clé en mémoire : appelé au verrouillage de la session. */
 export function oublierCleActualites() {
   promesseClePrivee = null;
+  promesseInventaire = null;
+}
+
+// --- Inventaire des entrées publiées --------------------------------------
+
+/**
+ * L'inventaire : pour chaque sous-dossier, les noms de fichiers réellement
+ * publiés.
+ *
+ * GitHub Pages ne permet pas de lister un dossier, et les noms de fichiers sont
+ * des empreintes : sans inventaire, le navigateur n'a aucun moyen de savoir ce
+ * qui existe et doit **sonder**. C'est ce que faisait `chargerSemaines`, au prix
+ * de plusieurs dizaines de requêtes dont presque toutes répondaient 404 — et
+ * d'une console saturée d'erreurs, qui masquait les vraies.
+ *
+ * L'inventaire est écrit par le script de publication, **chiffré avec la même
+ * clé publique que les entrées**. Une liste d'empreintes en clair serait
+ * inversible : l'espace des identifiants de période est minuscule, et n'importe
+ * qui pourrait précalculer les empreintes pour lire les dates couvertes.
+ */
+export type Inventaire = Record<string, string[]>;
+
+let promesseInventaire: Promise<Inventaire | null> | null = null;
+
+/**
+ * Charge l'inventaire, une seule fois par session.
+ *
+ * Rend `null` lorsqu'il est absent — déploiement antérieur à son introduction,
+ * ou rubrique jamais publiée. Les appelants retombent alors sur le sondage, de
+ * sorte que la rubrique continue de fonctionner sans lui.
+ */
+export function chargerInventaire(): Promise<Inventaire | null> {
+  promesseInventaire ??= (async () => {
+    const privee = await clePriveeActualites();
+    if (!privee) return null;
+    try {
+      const nom = await idStable('inventaire');
+      const reponse = await fetch(`${RACINE_ACTUALITES}/${nom}.json`, { cache: 'no-cache' });
+      if (!reponse.ok) return null;
+      const enveloppe = (await reponse.json()) as Enveloppe;
+      const contenu = await ouvrirEnveloppe<Inventaire>(privee, enveloppe);
+      // Un inventaire vide est une donnée valide — rubrique sans entrée — mais
+      // une forme inattendue ne doit pas faire croire que rien n'existe.
+      return contenu && typeof contenu === 'object' ? contenu : null;
+    } catch {
+      return null;
+    }
+  })();
+  return promesseInventaire;
+}
+
+/**
+ * Le fichier existe-t-il ? Rend `null` quand on ne peut pas le savoir — c'est
+ * alors à l'appelant de tenter la requête.
+ */
+async function publie(dossier: string, nom: string): Promise<boolean | null> {
+  const inventaire = await chargerInventaire();
+  if (!inventaire) return null;
+  return (inventaire[dossier] ?? []).includes(nom);
 }
 
 /**
@@ -257,6 +316,11 @@ export async function chargerEntree<T>(dossier: string, id: string): Promise<T |
   if (!privee) return null;
 
   const nom = await idStable(`${dossier}/${id}`);
+  // Avec un inventaire, on sait avant de demander : plus aucune requête vouée
+  // au 404, donc plus aucune erreur de console pour une entrée simplement
+  // absente.
+  if ((await publie(dossier, nom)) === false) return null;
+
   let reponse: Response;
   try {
     reponse = await fetch(`${RACINE_ACTUALITES}/${dossier}/${nom}.json`, { cache: 'no-cache' });
@@ -395,12 +459,42 @@ export async function chargerDerniereSemaine(
  *    trouvaille. Il est large (un an) parce que l'historique reconstitué est
  *    troué : des mois entiers peuvent manquer entre deux périodes publiées,
  *    et s'arrêter au premier trou masquerait tout ce qui le précède.
- * Les 404 correspondants sont attendus : ils sont traités comme « pas encore
- * publié », jamais comme une erreur.
+ *
+ * **Le sondage n'est plus que la voie de secours.** Quand l'inventaire est
+ * disponible, on sait exactement quelles semaines existent : on les demande, et
+ * rien d'autre. Deux bénéfices, dont le second n'était pas cherché :
+ *
+ *  - zéro requête vouée au 404, donc une console propre où une vraie erreur se
+ *    voit ;
+ *  - la **fenêtre peut s'élargir sans coût**, puisque les identifiants absents
+ *    sont écartés localement. La limitation des dix-huit mois tombe, et
+ *    l'historique troué qui justifiait la tolérance cesse d'être un problème.
  */
 export async function chargerSemaines(
-  { fenetre = 78, amorce = 16, tolerance = 52, lot = 8 } = {},
+  { fenetre = 78, amorce = 16, tolerance = 52, lot = 8, fenetreInventaire = 312 } = {},
 ): Promise<PeriodeActu[]> {
+  const inventaire = await chargerInventaire();
+
+  if (inventaire) {
+    // Les empreintes sont calculées localement : on ne demande que ce qui existe.
+    const candidats = dernieresSemaines(fenetreInventaire);
+    const noms = await Promise.all(candidats.map((id) => idStable(`semaines/${id}`)));
+    const publiees = new Set(inventaire.semaines ?? []);
+    const existants = candidats.filter((_, i) => publiees.has(noms[i]));
+
+    const trouvees: PeriodeActu[] = [];
+    for (let debut = 0; debut < existants.length; debut += lot) {
+      const tranche = existants.slice(debut, debut + lot);
+      const resultats = await Promise.all(tranche.map((id) => chargerSemaine(id)));
+      for (const [i, entree] of resultats.entries()) {
+        if (entree) trouvees.push({ semaine: tranche[i], ...entree });
+      }
+    }
+    return trouvees;
+  }
+
+  // Voie de secours : aucun inventaire publié. Les 404 sont alors attendus et
+  // traités comme « pas encore publié », jamais comme une erreur.
   const ids = dernieresSemaines(fenetre);
   const trouvees: PeriodeActu[] = [];
   let manquantesConsecutives = 0;

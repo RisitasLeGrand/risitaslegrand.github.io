@@ -27,6 +27,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import config from '../site.config.mjs';
+import { chiffrerPourActualites, idStable, importerPubliqueActualites } from './lib/crypto.mjs';
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dist = path.join(racine, 'dist');
@@ -53,11 +54,14 @@ function git(dossier, ...args) {
  * chiffrée. Seule « cle-publique.json » est publiée en clair, par définition.
  */
 async function verifierActualitesChiffrees(dossier) {
-  if (!existsSync(dossier)) return;
+  if (!existsSync(dossier)) return null;
   let verifiees = 0;
+  /** Les noms de fichiers publiés, par sous-dossier : c'est l'inventaire. */
+  const inventaire = {};
   for (const sousDossier of await readdir(dossier, { withFileTypes: true })) {
     if (!sousDossier.isDirectory()) continue;
     const chemin = path.join(dossier, sousDossier.name);
+    inventaire[sousDossier.name] = [];
     for (const fichier of await readdir(chemin)) {
       const brut = await readFile(path.join(chemin, fichier), 'utf8');
       let contenu;
@@ -72,6 +76,7 @@ async function verifierActualitesChiffrees(dossier) {
             '  Chiffrez-le avec « node scripts/chiffrer-actualite.mjs ».',
         );
       }
+      inventaire[sousDossier.name].push(fichier.replace(/\.json$/, ''));
       verifiees++;
     }
   }
@@ -79,6 +84,47 @@ async function verifierActualitesChiffrees(dossier) {
     verifiees
       ? `› ${DOSSIER_ACTUALITES}/ : ${verifiees} actualité(s) publiée(s), toutes chiffrées.`
       : `› ${DOSSIER_ACTUALITES}/ : aucune actualité à publier pour l'instant.`,
+  );
+  return inventaire;
+}
+
+/**
+ * Écrit l'inventaire chiffré des entrées publiées.
+ *
+ * **Pourquoi.** GitHub Pages ne permet pas de lister un dossier, et les noms de
+ * fichiers sont des empreintes : le navigateur n'a donc aucun moyen de savoir ce
+ * qui existe. Il sondait jusqu'ici les identifiants de semaine en remontant le
+ * temps, ce qui coûtait plusieurs dizaines de requêtes dont l'immense majorité
+ * répondaient 404 — et saturait la console d'erreurs, au point de masquer les
+ * vraies. L'inventaire supprime le sondage : une requête, puis exactement les
+ * fichiers qui existent.
+ *
+ * **Pourquoi chiffré.** Une liste d'empreintes en clair serait inversible :
+ * l'espace des identifiants de période est minuscule (quelques centaines de
+ * semaines plausibles), si bien que n'importe qui pourrait précalculer les
+ * empreintes et lire dans l'inventaire les dates couvertes. Ce serait une
+ * métadonnée sur les périodes de révision, aujourd'hui non énumérable faute de
+ * listage. L'inventaire est donc une enveloppe comme les autres : seul le
+ * détenteur de la clé privée le lit.
+ */
+async function ecrireInventaire(dossier, inventaire) {
+  if (!inventaire) return;
+  const cheminCle = path.join(dossier, 'cle-publique.json');
+  if (!existsSync(cheminCle)) {
+    console.log(`› ${DOSSIER_ACTUALITES}/ : clé publique absente, inventaire non écrit.`);
+    return;
+  }
+  const { jwk } = JSON.parse(await readFile(cheminCle, 'utf8'));
+  const clePublique = await importerPubliqueActualites(jwk);
+  const nom = await idStable('inventaire');
+  await writeFile(
+    path.join(dossier, `${nom}.json`),
+    JSON.stringify(await chiffrerPourActualites(clePublique, inventaire)),
+  );
+  const total = Object.values(inventaire).reduce((n, noms) => n + noms.length, 0);
+  console.log(
+    `› ${DOSSIER_ACTUALITES}/ : inventaire chiffré de ${total} entrée(s) — ` +
+      'le navigateur ne sondera plus les périodes absentes.',
   );
 }
 
@@ -123,7 +169,12 @@ try {
 
   if (existsSync(actualitesDepot)) {
     await cp(actualitesDepot, actualitesDansTemp, { recursive: true });
-    await verifierActualitesChiffrees(actualitesDansTemp);
+    const inventaire = await verifierActualitesChiffrees(actualitesDansTemp);
+    // L'inventaire est écrit **après** la vérification, et dans la copie
+    // temporaire seulement : il n'entre jamais dans le dépôt, et la
+    // vérification ne se prononce donc pas sur lui. Il est chiffré par
+    // construction, avec la même clé publique que les entrées.
+    await ecrireInventaire(actualitesDansTemp, inventaire);
   } else {
     console.log(
       `› « ${DOSSIER_ACTUALITES}/ » absent du dépôt : la rubrique Actualités restera masquée.`,

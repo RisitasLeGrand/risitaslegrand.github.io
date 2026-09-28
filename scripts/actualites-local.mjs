@@ -263,6 +263,9 @@ const { jwk } = JSON.parse(await import('node:fs/promises').then((f) => f.readFi
 const clePublique = await importerPubliqueActualites(jwk);
 execFileSync('cp', [cheminPublique, path.join(cible, 'cle-publique.json')]);
 
+/** Les noms publiés par sous-dossier : c'est l'inventaire, comme en production. */
+const inventaire = {};
+
 for (const [dossier, id, charge] of demonstration) {
   const nom = await idStable(`${dossier}/${id}`);
   await mkdir(path.join(cible, dossier), { recursive: true });
@@ -270,7 +273,17 @@ for (const [dossier, id, charge] of demonstration) {
     path.join(cible, dossier, `${nom}.json`),
     JSON.stringify(await chiffrerPourActualites(clePublique, charge)),
   );
+  (inventaire[dossier] ??= []).push(nom);
 }
+
+// L'inventaire est écrit ici aussi, et chiffré de la même façon : sans lui, le
+// développement local emprunterait la voie de secours — le sondage — et l'on ne
+// verrait pas le comportement réel du site publié. Un correctif qu'on ne peut pas
+// observer en local est un correctif qu'on ne peut pas vérifier.
+await writeFile(
+  path.join(cible, `${await idStable('inventaire')}.json`),
+  JSON.stringify(await chiffrerPourActualites(clePublique, inventaire)),
+);
 
 console.log(
   `✓ ${demonstration.length} actualité(s) de démonstration chiffrées dans « public/actualites-data/ ».`,
