@@ -1,0 +1,100 @@
+mkdir -p /home/user/revinsp/.github/workflows && cat > /home/user/revinsp/.github/workflows/publier-actualites.yml <<'FIN'
+# Met la rubrique Actualités en ligne dès qu'une actualité entre dans le dépôt.
+#
+# POURQUOI CE WORKFLOW. Les routines de veille produisent un bulletin, ouvrent
+# une pull request et la fusionnent. Restait la mise en ligne. Elle est confiée
+# ici à GitHub Actions plutôt qu'à la session de la routine : une session
+# d'agent n'a pas à détenir le droit de déployer en production. Le dépôt, lui,
+# l'a toujours eu — c'est son rôle. Le geste est versionné, visible dans
+# l'onglet Actions, et révocable en supprimant ce fichier.
+#
+# CE QU'IL NE FAIT PAS. Il ne reconstruit pas le site. Un changement dans
+# « src/ », « content/ » ou « scripts/ » exige toujours « npm run deploy »
+# depuis la machine du propriétaire, car chiffrer les fiches demande le mot de
+# passe. La rubrique Actualités y échappe : ses entrées sont déjà chiffrées avec
+# la clé *publique*, et la publication les recopie sans jamais les relire. Aucun
+# secret n'intervient ici — ni mot de passe, ni jeton personnel.
+name: Publier les actualités
+
+on:
+  push:
+    # Aucun filtre de branche : la condition « if » du job compare la branche
+    # poussée à la branche par défaut. Écrire son nom ici obligerait à modifier
+    # ce fichier à chaque renommage, et un nom périmé publierait depuis une
+    # branche de travail — exactement ce qu'il faut éviter.
+    paths:
+      - 'actualites-data/**'
+  workflow_dispatch:
+    inputs:
+      branche:
+        description: >
+          Branche visée. Vide = la branche de publication du site. Renseigner
+          une copie permet de répéter une publication sans toucher au site.
+        required: false
+        type: string
+
+# Quatre routines écrivent dans le même dossier et peuvent se suivre de près —
+# la mensuelle tire le 1er, la trimestrielle le 2. Les exécutions font la queue
+# au lieu de se disputer la branche. On n'annule pas la précédente : elle a du
+# contenu à mettre en ligne.
+concurrency:
+  group: publier-actualites
+  cancel-in-progress: false
+
+jobs:
+  publier:
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.ref_name == github.event.repository.default_branch
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write   # pousser la branche de publication
+      pages: write      # demander la reconstruction du site
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      # Pas de « npm ci » : le script n'utilise que les modules internes de
+      # Node. C'est voulu — aucune dépendance tierce n'intervient dans la
+      # chaîne qui écrit sur le site.
+
+      - name: Préparer git
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git config --global \
+            url."https://x-access-token:${GITHUB_TOKEN}@github.com/".insteadOf \
+            "https://github.com/"
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publier la rubrique
+        run: |
+          if [ -n "${BRANCHE}" ]; then
+            node scripts/publier-actualites.mjs --branche "${BRANCHE}"
+          else
+            node scripts/publier-actualites.mjs
+          fi
+        env:
+          BRANCHE: ${{ inputs.branche }}
+
+      # Pages se reconstruit normalement depuis la poussée. Mais une poussée
+      # faite avec le GITHUB_TOKEN ne déclenche pas toujours les traitements en
+      # aval : on demande la construction explicitement plutôt que de parier.
+      # Sauté quand on répète sur une branche d'essai : le site n'a pas changé.
+      - name: Demander la reconstruction du site
+        if: ${{ !inputs.branche }}
+        run: |
+          code=$(curl -sS -o /tmp/r.json -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer ${GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/pages/builds")
+          echo "HTTP ${code}"; cat /tmp/r.json
+          if [ "${code}" -ge 300 ]; then
+            echo "::warning::Reconstruction non demandée (HTTP ${code}) — la poussée a pu suffire."
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+FIN
