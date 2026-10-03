@@ -1,4 +1,3 @@
-mkdir -p /home/user/revinsp/.github/workflows && cat > /home/user/revinsp/.github/workflows/publier-actualites.yml <<'FIN'
 # Met la rubrique Actualités en ligne dès qu'une actualité entre dans le dépôt.
 #
 # POURQUOI CE WORKFLOW. Les routines de veille produisent un bulletin, ouvrent
@@ -97,4 +96,3 @@ jobs:
           fi
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-FIN
