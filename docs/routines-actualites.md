@@ -84,22 +84,40 @@ sur le site.
 ## Le circuit d'une actualité
 
 ```
-routine (nuage)                     propriétaire (machine locale)
-───────────────                     ─────────────────────────────
+routine (nuage)
+───────────────
 recherche web
   ↓
 JSON en clair dans /tmp
   ↓  node scripts/chiffrer-actualite.mjs
 enveloppe chiffrée
   ↓  commit + pull request
-          ──────────── relecture, fusion ────────────→
-                                     npm run deploy
-                                       ↓
-                                     site à jour
+  ↓  fusion (la routine fusionne la sienne)
+  ↓  git pull
+  ↓  npm run actualites:publier
+site à jour
 ```
 
-Une actualité n'apparaît donc en ligne qu'après fusion de la pull request
-**et** republication du site.
+La routine va donc jusqu'au bout : la pull request reste ouverte le temps d'un
+commit, puis elle la fusionne et republie la rubrique. Il n'y a plus d'étape
+manuelle. La pull request n'est pas pour autant inutile — elle garde la trace de
+ce qui a été ajouté, et permet de revenir en arrière.
+
+**Pourquoi la routine peut publier alors qu'elle n'a pas la clé du site.** Parce
+que publier la rubrique ne demande pas de reconstruire le site. Les entrées de
+`actualites-data/` sont déjà chiffrées avec la clé publique, et la publication
+les recopie telles quelles à côté du build existant, sans les relire. Seul
+l'inventaire est régénéré, avec cette même clé publique. Aucun secret n'entre
+donc dans l'opération : `npm run actualites:publier` ne saurait pas lire ce
+qu'il met en ligne. Reconstruire le site — les fiches, le glossaire, les
+podcasts — reste au contraire impossible sans le mot de passe, et donc réservé
+à `npm run deploy` sur la machine du propriétaire.
+
+**Si la publication échoue** (un refus de permission sur la poussée, par
+exemple), la routine le dit dans son verdict et le laisse en commentaire sur la
+pull request fusionnée. Le contenu n'est pas perdu, il est dans le dépôt : il
+suffit alors de lancer `npm run actualites:publier` depuis la machine du
+propriétaire — ou `npm run deploy` si le site a par ailleurs changé.
 
 ## Les quatre routines
 
@@ -307,5 +325,17 @@ jour et se mettent à jour indépendamment.
   les propres mots de la routine, avec la source citée.
 - **Les fiches d'instantané sont remplacées, l'historique législatif est
   complété** ; l'historique Git conserve les versions antérieures.
+- **Un bulletin de période déjà publié ne s'écrase pas par accident.** Le nom du
+  fichier étant une empreinte de son identifiant, réécrire `semaines/2026-W40`
+  effacerait l'entrée précédente sans laisser de trace. `chiffrer-actualite.mjs`
+  refuse donc, et exige `--remplacer` pour les dossiers `semaines`, `mois`,
+  `trimestres` et `annees`. Avant de passer le drapeau, relire l'entrée
+  existante : un bulletin complet qui succède à un bulletin partiel doit bien la
+  remplacer, un doublon non.
+- **Ne jamais publier depuis un clone en retard.** La publication *remplace* le
+  dossier en ligne par celui du clone local, au lieu de le compléter : depuis un
+  clone en retard, elle effacerait du site les actualités fusionnées entre-temps
+  par une autre routine. `npm run actualites:publier` et `npm run deploy`
+  refusent tous deux de le faire ; la réponse est toujours `git pull`.
 - **Ne toucher qu'aux fiches réellement concernées**, pour que `derniere_maj`
   reste une information utile.

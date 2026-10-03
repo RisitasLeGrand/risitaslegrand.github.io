@@ -39,6 +39,7 @@ Trois commandes suffisent au quotidien :
 | `npm run actualites:cles` | Crée la paire de clés de la rubrique Actualités (une seule fois) |
 | `npm run actualites:local` | Fabrique des actualités de démonstration pour le mode dev |
 | `npm run actualites:lire` | Relit une actualité chiffrée (nécessite le mot de passe) |
+| `npm run actualites:publier` | Met la rubrique Actualités en ligne sans reconstruire le site (aucun mot de passe) |
 
 **Règle de sécurité fondamentale :** le dossier `content/` (vos fiches en clair)
 et le fichier `.env.local` (votre mot de passe) ne sont **jamais** envoyés sur
@@ -570,10 +571,17 @@ contenu est donc exactement celui de `dist/`, sans résidu d'une publication
 précédente. Son historique est écrasé (`push --force`), ce qui est sans
 conséquence — tout y est régénérable à partir de `content/`.
 
-Aucun secret GitHub Actions n'est nécessaire, et **le déploiement ne peut pas
-être automatisé côté serveur** : le chiffrement exige le mot de passe en clair,
-qui ne doit jamais quitter votre machine. C'est une conséquence assumée du
-modèle de sécurité, pas une limitation technique.
+Aucun secret GitHub Actions n'est nécessaire, et **la construction du site ne
+peut pas être automatisée côté serveur** : chiffrer les fiches exige le mot de
+passe en clair, qui ne doit jamais quitter votre machine. C'est une conséquence
+assumée du modèle de sécurité, pas une limitation technique.
+
+La rubrique Actualités échappe à cette règle, et c'est voulu : ses entrées sont
+chiffrées avec une clé *publique*, et la publication les recopie telles quelles
+à côté du build sans jamais les relire. `npm run actualites:publier` met donc la
+rubrique en ligne sans mot de passe et sans rebuild — c'est ce qui permet aux
+routines de veille de publier seules. Voir « Alimenter la rubrique
+automatiquement ».
 
 Le site est en ligne une minute plus tard.
 
@@ -699,12 +707,20 @@ démonstration ne peut jamais atteindre le site en ligne.
 
 ### Alimenter la rubrique automatiquement
 
-Quatre routines programmées tiennent la rubrique à jour et ouvrent une pull
-request à chaque passage : hebdomadaire (lundi matin), mensuelle (1er du mois),
-trimestrielle (2 janvier, avril, juillet, octobre) et annuelle (6 janvier).
-Les déclencheurs sont échelonnés parce que chaque niveau lit le niveau en
-dessous. Une actualité n'apparaît en ligne qu'après **fusion de la pull request
-et republication**. Voir `docs/routines-actualites.md`.
+Quatre routines programmées tiennent la rubrique à jour : hebdomadaire (lundi
+matin), mensuelle (1er du mois), trimestrielle (2 janvier, avril, juillet,
+octobre) et annuelle (6 janvier). Les déclencheurs sont échelonnés parce que
+chaque niveau lit le niveau en dessous.
+
+Chacune va jusqu'au bout : elle ouvre une pull request, la fusionne, puis met la
+rubrique en ligne avec `npm run actualites:publier`. Aucune intervention n'est
+requise. Elle n'a pas besoin du mot de passe pour cela — les entrées sont
+chiffrées avec la clé publique, et la publication ne reconstruit pas le site.
+La pull request subsiste comme trace de ce qui a été ajouté, et permet de
+revenir en arrière. Si la publication échoue, la routine le dit dans son verdict
+et en commentaire sur la pull request : le contenu est alors dans le dépôt, et
+`npm run actualites:publier` suffit à le mettre en ligne.
+Voir `docs/routines-actualites.md`.
 
 Aucune image n'est jamais hébergée dans le dépôt : seule l'URL d'origine et son
 crédit sont conservés. Si l'URL cesse de répondre, le bloc image disparaît de
