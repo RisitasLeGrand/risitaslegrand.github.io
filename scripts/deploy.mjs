@@ -21,20 +21,24 @@
  * chiffrée : c'est le garde-fou qui empêche une actualité de partir en clair.
  */
 import { execFileSync } from 'node:child_process';
-import { cp, mkdtemp, readdir, readFile, rm, writeFile } from 'node:fs/promises';
+import { cp, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import config from '../site.config.mjs';
-import { chiffrerPourActualites, idStable, importerPubliqueActualites } from './lib/crypto.mjs';
+import {
+  brancheCourante,
+  commitsDeRetard,
+  DOSSIER_ACTUALITES,
+  ecrireInventaire,
+  verifierActualitesChiffrees,
+} from './lib/actualites-publication.mjs';
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dist = path.join(racine, 'dist');
 const branche = config.brancheDeploiement;
 
-/** Dossier de la rubrique Actualités, hors du périmètre du build (voir en-tête). */
-const DOSSIER_ACTUALITES = 'actualites-data';
 /** Source de vérité de la rubrique : le dossier versionné du dépôt. */
 const actualitesDepot = path.join(racine, DOSSIER_ACTUALITES);
 
@@ -47,85 +51,6 @@ function echouer(message) {
 /** Exécute une commande git et retourne sa sortie. */
 function git(dossier, ...args) {
   return execFileSync('git', ['-C', dossier, ...args], { encoding: 'utf8' }).trim();
-}
-
-/**
- * Vérifie que chaque entrée de la rubrique Actualités est bien une enveloppe
- * chiffrée. Seule « cle-publique.json » est publiée en clair, par définition.
- */
-async function verifierActualitesChiffrees(dossier) {
-  if (!existsSync(dossier)) return null;
-  let verifiees = 0;
-  /** Les noms de fichiers publiés, par sous-dossier : c'est l'inventaire. */
-  const inventaire = {};
-  for (const sousDossier of await readdir(dossier, { withFileTypes: true })) {
-    if (!sousDossier.isDirectory()) continue;
-    const chemin = path.join(dossier, sousDossier.name);
-    inventaire[sousDossier.name] = [];
-    for (const fichier of await readdir(chemin)) {
-      const brut = await readFile(path.join(chemin, fichier), 'utf8');
-      let contenu;
-      try {
-        contenu = JSON.parse(brut);
-      } catch {
-        echouer(`« ${DOSSIER_ACTUALITES}/${sousDossier.name}/${fichier} » n'est pas un JSON valide.`);
-      }
-      if (!contenu?.ct || !contenu?.cle || !contenu?.iv) {
-        echouer(
-          `« ${DOSSIER_ACTUALITES}/${sousDossier.name}/${fichier} » n'est pas chiffré : publication annulée.\n` +
-            '  Chiffrez-le avec « node scripts/chiffrer-actualite.mjs ».',
-        );
-      }
-      inventaire[sousDossier.name].push(fichier.replace(/\.json$/, ''));
-      verifiees++;
-    }
-  }
-  console.log(
-    verifiees
-      ? `› ${DOSSIER_ACTUALITES}/ : ${verifiees} actualité(s) publiée(s), toutes chiffrées.`
-      : `› ${DOSSIER_ACTUALITES}/ : aucune actualité à publier pour l'instant.`,
-  );
-  return inventaire;
-}
-
-/**
- * Écrit l'inventaire chiffré des entrées publiées.
- *
- * **Pourquoi.** GitHub Pages ne permet pas de lister un dossier, et les noms de
- * fichiers sont des empreintes : le navigateur n'a donc aucun moyen de savoir ce
- * qui existe. Il sondait jusqu'ici les identifiants de semaine en remontant le
- * temps, ce qui coûtait plusieurs dizaines de requêtes dont l'immense majorité
- * répondaient 404 — et saturait la console d'erreurs, au point de masquer les
- * vraies. L'inventaire supprime le sondage : une requête, puis exactement les
- * fichiers qui existent.
- *
- * **Pourquoi chiffré.** Une liste d'empreintes en clair serait inversible :
- * l'espace des identifiants de période est minuscule (quelques centaines de
- * semaines plausibles), si bien que n'importe qui pourrait précalculer les
- * empreintes et lire dans l'inventaire les dates couvertes. Ce serait une
- * métadonnée sur les périodes de révision, aujourd'hui non énumérable faute de
- * listage. L'inventaire est donc une enveloppe comme les autres : seul le
- * détenteur de la clé privée le lit.
- */
-async function ecrireInventaire(dossier, inventaire) {
-  if (!inventaire) return;
-  const cheminCle = path.join(dossier, 'cle-publique.json');
-  if (!existsSync(cheminCle)) {
-    console.log(`› ${DOSSIER_ACTUALITES}/ : clé publique absente, inventaire non écrit.`);
-    return;
-  }
-  const { jwk } = JSON.parse(await readFile(cheminCle, 'utf8'));
-  const clePublique = await importerPubliqueActualites(jwk);
-  const nom = await idStable('inventaire');
-  await writeFile(
-    path.join(dossier, `${nom}.json`),
-    JSON.stringify(await chiffrerPourActualites(clePublique, inventaire)),
-  );
-  const total = Object.values(inventaire).reduce((n, noms) => n + noms.length, 0);
-  console.log(
-    `› ${DOSSIER_ACTUALITES}/ : inventaire chiffré de ${total} entrée(s) — ` +
-      'le navigateur ne sondera plus les périodes absentes.',
-  );
 }
 
 // --- Vérifications préalables --------------------------------------------
@@ -150,6 +75,33 @@ try {
     'Aucun dépôt distant « origin » n\'est configuré.\n' +
       '  Ajoutez-le :  git remote add origin https://github.com/<compte>/<depot>.git',
   );
+}
+
+// --- Retard sur le dépôt distant -----------------------------------------
+// La branche de publication est reconstruite par « push --force ». Si le clone
+// local est en retard sur « origin », ce dossier « actualites-data/ » est plus
+// pauvre que celui du dépôt : la publication effacerait alors de GitHub Pages
+// des actualités déjà en ligne — celles qu'une routine de veille a fusionnées
+// depuis le dernier « git pull ». On refuse donc de publier un clone en retard.
+//
+// Un échec de « git fetch » n'est pas bloquant : hors ligne, on publie ce
+// qu'on a, en le disant.
+const brancheLocale = brancheCourante(racine);
+
+if (brancheLocale && !process.argv.includes('--forcer')) {
+  const enRetard = commitsDeRetard(racine, brancheLocale);
+  if (enRetard === null) {
+    console.log(
+      `› Dépôt distant injoignable : impossible de vérifier si « ${brancheLocale} » est à jour.`,
+    );
+  } else if (enRetard) {
+    echouer(
+      `Le clone local est en retard de ${enRetard} commit(s) sur « origin/${brancheLocale} ».\n` +
+        '  Publier maintenant effacerait de GitHub Pages les actualités fusionnées entre-temps.\n' +
+        `  Mettez à jour :  git pull origin ${brancheLocale}\n` +
+        '  Pour passer outre en connaissance de cause :  npm run deploy -- --forcer',
+    );
+  }
 }
 
 // --- Construction de la branche de publication ----------------------------
