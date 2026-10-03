@@ -39,7 +39,7 @@ Trois commandes suffisent au quotidien :
 | `npm run actualites:cles` | Crée la paire de clés de la rubrique Actualités (une seule fois) |
 | `npm run actualites:local` | Fabrique des actualités de démonstration pour le mode dev |
 | `npm run actualites:lire` | Relit une actualité chiffrée (nécessite le mot de passe) |
-| `npm run actualites:publier` | Met la rubrique Actualités en ligne sans reconstruire le site (aucun mot de passe) |
+| `npm run actualites:publier` | Met la rubrique Actualités en ligne sans reconstruire le site (aucun mot de passe ; normalement fait par GitHub Actions) |
 
 **Règle de sécurité fondamentale :** le dossier `content/` (vos fiches en clair)
 et le fichier `.env.local` (votre mot de passe) ne sont **jamais** envoyés sur
@@ -579,9 +579,10 @@ assumée du modèle de sécurité, pas une limitation technique.
 La rubrique Actualités échappe à cette règle, et c'est voulu : ses entrées sont
 chiffrées avec une clé *publique*, et la publication les recopie telles quelles
 à côté du build sans jamais les relire. `npm run actualites:publier` met donc la
-rubrique en ligne sans mot de passe et sans rebuild — c'est ce qui permet aux
-routines de veille de publier seules. Voir « Alimenter la rubrique
-automatiquement ».
+rubrique en ligne sans mot de passe et sans rebuild — c'est ce qui rend la
+publication des actualités automatisable côté serveur, et c'est le workflow
+`.github/workflows/publier-actualites.yml` qui s'en charge. Voir « Alimenter la
+rubrique automatiquement ».
 
 Le site est en ligne une minute plus tard.
 
@@ -712,15 +713,19 @@ matin), mensuelle (1er du mois), trimestrielle (2 janvier, avril, juillet,
 octobre) et annuelle (6 janvier). Les déclencheurs sont échelonnés parce que
 chaque niveau lit le niveau en dessous.
 
-Chacune va jusqu'au bout : elle ouvre une pull request, la fusionne, puis met la
-rubrique en ligne avec `npm run actualites:publier`. Aucune intervention n'est
-requise. Elle n'a pas besoin du mot de passe pour cela — les entrées sont
-chiffrées avec la clé publique, et la publication ne reconstruit pas le site.
+Chacune produit son bulletin, ouvre une pull request et la fusionne — puis
+s'arrête là. La mise en ligne est faite par le dépôt : la fusion déclenche le
+workflow `.github/workflows/publier-actualites.yml`, qui recopie
+`actualites-data/` dans la branche de publication, régénère l'inventaire chiffré
+et demande la reconstruction du site. Une ou deux minutes plus tard, l'actualité
+est visible. Aucune intervention n'est requise.
+
+Les routines n'ont volontairement pas le droit de déployer : leurs prompts le
+leur interdisent. Déployer en production n'a pas à faire partie des pouvoirs
+d'une session d'agent, alors que le dépôt a toujours eu ce rôle — et dans un
+workflow le geste est versionné, tracé et révocable en supprimant un fichier.
 La pull request subsiste comme trace de ce qui a été ajouté, et permet de
-revenir en arrière. Si la publication échoue, la routine le dit dans son verdict
-et en commentaire sur la pull request : le contenu est alors dans le dépôt, et
-`npm run actualites:publier` suffit à le mettre en ligne.
-Voir `docs/routines-actualites.md`.
+revenir en arrière. Voir `docs/routines-actualites.md`.
 
 Aucune image n'est jamais hébergée dans le dépôt : seule l'URL d'origine et son
 crédit sont conservés. Si l'URL cesse de répondre, le bloc image disparaît de

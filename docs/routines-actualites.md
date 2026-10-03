@@ -84,8 +84,8 @@ sur le site.
 ## Le circuit d'une actualité
 
 ```
-routine (nuage)
-───────────────
+routine (nuage)                     dépôt (GitHub Actions)
+───────────────                     ──────────────────────
 recherche web
   ↓
 JSON en clair dans /tmp
@@ -93,31 +93,40 @@ JSON en clair dans /tmp
 enveloppe chiffrée
   ↓  commit + pull request
   ↓  fusion (la routine fusionne la sienne)
-  ↓  git pull
-  ↓  npm run actualites:publier
-site à jour
+  ↓
+                        la fusion déclenche « Publier les actualités »
+                                      ↓
+                        actualites-data/ recopié dans la branche
+                        de publication, inventaire régénéré, poussée
+                                      ↓
+                                 site à jour
 ```
 
-La routine va donc jusqu'au bout : la pull request reste ouverte le temps d'un
-commit, puis elle la fusionne et republie la rubrique. Il n'y a plus d'étape
-manuelle. La pull request n'est pas pour autant inutile — elle garde la trace de
-ce qui a été ajouté, et permet de revenir en arrière.
+La routine s'arrête à la fusion. La mise en ligne est faite par le dépôt
+lui-même, dans `.github/workflows/publier-actualites.yml`, déclenché par la
+poussée que produit la fusion. Aucune intervention manuelle.
 
-**Pourquoi la routine peut publier alors qu'elle n'a pas la clé du site.** Parce
-que publier la rubrique ne demande pas de reconstruire le site. Les entrées de
-`actualites-data/` sont déjà chiffrées avec la clé publique, et la publication
-les recopie telles quelles à côté du build existant, sans les relire. Seul
-l'inventaire est régénéré, avec cette même clé publique. Aucun secret n'entre
-donc dans l'opération : `npm run actualites:publier` ne saurait pas lire ce
-qu'il met en ligne. Reconstruire le site — les fiches, le glossaire, les
-podcasts — reste au contraire impossible sans le mot de passe, et donc réservé
-à `npm run deploy` sur la machine du propriétaire.
+**Pourquoi ce n'est pas la routine qui publie.** Elle en serait techniquement
+capable — la publication ne demande aucun secret, voir ci-dessous. Mais déployer
+en production n'a pas à faire partie des pouvoirs d'une session d'agent : c'est
+un geste qui doit être inscrit quelque part, relisible et révocable. Dans un
+workflow, il l'est : il est versionné, chaque exécution est tracée dans l'onglet
+Actions, et supprimer le fichier suffit à tout arrêter. Les prompts des routines
+le leur interdisent donc explicitement.
 
-**Si la publication échoue** (un refus de permission sur la poussée, par
-exemple), la routine le dit dans son verdict et le laisse en commentaire sur la
-pull request fusionnée. Le contenu n'est pas perdu, il est dans le dépôt : il
-suffit alors de lancer `npm run actualites:publier` depuis la machine du
-propriétaire — ou `npm run deploy` si le site a par ailleurs changé.
+**Pourquoi la publication ne demande aucun secret.** Parce qu'elle ne
+reconstruit pas le site. Les entrées de `actualites-data/` sont déjà chiffrées
+avec la clé publique, et la publication les recopie telles quelles à côté du
+build existant, sans les relire. Seul l'inventaire est régénéré, avec cette même
+clé publique. `npm run actualites:publier` — que le workflow appelle, et qui
+reste utilisable à la main — ne saurait pas lire ce qu'il met en ligne.
+Reconstruire le site, en revanche, reste impossible sans le mot de passe : c'est
+`npm run deploy`, sur la machine du propriétaire.
+
+**Si le workflow échoue**, GitHub le signale au propriétaire et l'onglet Actions
+en garde la trace. Le contenu n'est pas perdu : il est fusionné dans le dépôt, et
+`npm run actualites:publier` depuis la machine du propriétaire suffit à le
+rattraper.
 
 ## Les quatre routines
 
