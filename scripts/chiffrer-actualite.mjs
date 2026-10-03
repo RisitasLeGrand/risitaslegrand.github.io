@@ -4,6 +4,7 @@
  * routines de veille, qui n'ont pas accès au mot de passe du site.
  *
  *   node scripts/chiffrer-actualite.mjs <dossier> <id> <fichier-clair.json>
+ *   node scripts/chiffrer-actualite.mjs <dossier> <id> <fichier.json> --remplacer
  *   node scripts/chiffrer-actualite.mjs --modele <dossier>
  *
  * Exemples :
@@ -33,6 +34,14 @@ const DOMAINES = ['economie', 'finance', 'social', 'juridique', 'international']
 
 /** Les bilans qui doivent porter tendances de fond et frise chronologique. */
 const BILANS = ['mois', 'trimestres', 'annees'];
+
+/**
+ * Les dossiers où une entrée vaut pour une période révolue : il y en a une par
+ * période, écrite une fois. « fiches » en est exclu, car les fiches de suivi
+ * permanent (premier-ministre, chiffres-economie, legislation) sont remplacées
+ * à chaque mise à jour — c'est leur contrat.
+ */
+const PERIODES = ['semaines', 'mois', 'trimestres', 'annees'];
 
 const ITEM_MODELE = {
   titre: 'Titre court',
@@ -168,7 +177,8 @@ if (process.argv[2] === '--modele') {
   process.exit(0);
 }
 
-const [dossier, id, fichier] = process.argv.slice(2);
+const remplacer = process.argv.includes('--remplacer');
+const [dossier, id, fichier] = process.argv.slice(2).filter((a) => a !== '--remplacer');
 if (!dossier || !id || !fichier) {
   echouer(
     'Usage : node scripts/chiffrer-actualite.mjs <dossier> <id> <fichier-clair.json>\n' +
@@ -179,6 +189,31 @@ if (!dossier || !id || !fichier) {
 }
 if (!DOSSIERS.includes(dossier)) echouer(`Dossier inconnu « ${dossier} ». Attendu : ${DOSSIERS.join(', ')}.`);
 if (!/^[A-Za-z0-9-]+$/.test(id)) echouer(`Identifiant invalide « ${id} » : lettres, chiffres et tirets seulement.`);
+// Le nom du fichier est une empreinte de « <dossier>/<id> » : réécrire le même
+// identifiant ÉCRASE l'entrée précédente, sans trace. Tant que la publication
+// passait par une relecture humaine de la pull request, l'accident se voyait.
+// Depuis que les routines de veille publient seules, il serait silencieux : une
+// erreur d'un jour sur le numéro de semaine suffirait à détruire un bulletin
+// déjà en ligne. On exige donc un geste explicite.
+//
+// Ce contrôle vient avant tous les autres : apprendre qu'une entrée existe déjà
+// est plus utile que d'apprendre, après validation, qu'on allait l'effacer.
+//
+// Les fiches de suivi permanent échappent à la règle : elles sont remplacées à
+// chaque mise à jour, c'est leur raison d'être.
+const nom = await idStable(`${dossier}/${id}`);
+const sortie = path.join(dossierActualites, dossier, `${nom}.json`);
+
+if (PERIODES.includes(dossier) && existsSync(sortie) && !remplacer) {
+  echouer(
+    `« ${dossier}/${id} » existe déjà : l'écrire effacerait l'entrée publiée.\n` +
+      `  Relisez-la d'abord :  node scripts/dechiffrer-actualite.mjs ${dossier} ${id}\n` +
+      '  Si la nouvelle version doit bien la remplacer — un bulletin complet qui\n' +
+      "  succède à un bulletin partiel, par exemple —, dites-le explicitement :\n" +
+      `     node scripts/chiffrer-actualite.mjs ${dossier} ${id} <fichier.json> --remplacer`,
+  );
+}
+
 if (!existsSync(fichier)) echouer(`Fichier introuvable : ${fichier}`);
 
 const cheminPublique = path.join(dossierActualites, 'cle-publique.json');
@@ -274,8 +309,6 @@ const { jwk } = JSON.parse(await readFile(cheminPublique, 'utf8'));
 const clePublique = await importerPubliqueActualites(jwk);
 const enveloppe = await chiffrerPourActualites(clePublique, charge);
 
-const nom = await idStable(`${dossier}/${id}`);
-const sortie = path.join(dossierActualites, dossier, `${nom}.json`);
 await mkdir(path.dirname(sortie), { recursive: true });
 await writeFile(sortie, JSON.stringify(enveloppe));
 

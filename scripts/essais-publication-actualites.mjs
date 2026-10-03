@@ -12,6 +12,8 @@
  * Aucun accès au réseau, aucun mot de passe : tout se joue sur un dossier
  * temporaire et une paire de clés jetable.
  */
+import { execFileSync } from 'node:child_process';
+import { existsSync, readdirSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -177,6 +179,64 @@ console.log('\nInventaire');
     !(await readFile(path.join(base, await nomFichierInventaire()), 'utf8').catch(() => null)),
   );
   await rm(base, { recursive: true, force: true });
+}
+
+console.log('\nÉcrasement d\'une entrée publiée');
+
+// Le nom d'un fichier d'actualité est une empreinte de son identifiant :
+// réécrire le même identifiant écrase l'entrée, sans trace. Depuis que les
+// routines publient sans relecture humaine, cet accident serait silencieux.
+// chiffrer-actualite.mjs doit donc refuser, et cet essai le vérifie sur une
+// entrée réellement publiée. Il n'écrit rien : la garde se déclenche avant.
+{
+  const dossierSemaines = 'actualites-data/semaines';
+  const publiees = existsSync(dossierSemaines) ? readdirSync(dossierSemaines) : [];
+  if (publiees.length === 0) {
+    console.log('  — aucune semaine publiée : essai sans objet ici');
+  } else {
+    // On retrouve l'identifiant d'une entrée publiée en cherchant l'empreinte.
+    const { idStable } = await import('./lib/crypto.mjs');
+    let idPublie = null;
+    for (let semaine = 1; semaine <= 53 && !idPublie; semaine++) {
+      for (const annee of [2026, 2025]) {
+        const id = `${annee}-W${String(semaine).padStart(2, '0')}`;
+        if (publiees.includes(`${await idStable(`semaines/${id}`)}.json`)) {
+          idPublie = id;
+          break;
+        }
+      }
+    }
+    if (!idPublie) {
+      console.log('  — aucun identifiant de semaine reconnu : essai sans objet ici');
+    } else {
+      const lancer = (args) => {
+        try {
+          execFileSync('node', ['scripts/chiffrer-actualite.mjs', ...args], {
+            encoding: 'utf8',
+            stdio: ['ignore', 'pipe', 'pipe'],
+          });
+          return { code: 0, sortie: '' };
+        } catch (erreur) {
+          return { code: erreur.status, sortie: `${erreur.stdout ?? ''}${erreur.stderr ?? ''}` };
+        }
+      };
+      // Le fichier source n'a pas besoin d'exister : la garde doit refuser avant
+      // de le lire. C'est précisément ce qui rend l'essai inoffensif.
+      const r = lancer(['semaines', idPublie, '/tmp/inexistant-pour-essai.json']);
+      verifier(`« semaines/${idPublie} » déjà publié : l'écrasement est refusé`, r.code === 1);
+      verifier(
+        'le refus explique comment relire et comment remplacer',
+        r.sortie.includes('existe déjà') && r.sortie.includes('--remplacer'),
+        r.sortie.split('\n')[1] ?? '',
+      );
+      const f = lancer(['fiches', 'premier-ministre', '/tmp/inexistant-pour-essai.json']);
+      verifier(
+        'une fiche de suivi permanent reste remplaçable sans drapeau',
+        !f.sortie.includes('existe déjà'),
+        f.sortie.split('\n')[1] ?? '',
+      );
+    }
+  }
 }
 
 console.log(`\n${echoues ? '✗' : '✓'} ${reussis} essai(s) réussi(s), ${echoues} échec(s)\n`);
