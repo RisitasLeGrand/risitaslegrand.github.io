@@ -31,7 +31,8 @@
     "essais:migration": "node scripts/essais-migration-fsrs.mjs",
     "essais:correctifs": "node scripts/essais-correctifs.mjs",
     "essais:veridical": "tsx scripts/essais-veridical.mts",
-    "contrastes": "node scripts/verifier-contrastes.mjs"
+    "contrastes": "node scripts/verifier-contrastes.mjs",
+    "essais:correction": "tsx scripts/essais-correction.mts"
   },
   "repository": {
     "type": "git",

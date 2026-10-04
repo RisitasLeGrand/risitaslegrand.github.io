@@ -8,6 +8,7 @@
  * variante de `Bloc`, jamais un composant de session.
  */
 import type { Alea, Axe, Regime, Systeme } from '../systemes/types';
+import type { EtiquetteErreur, TraceResolution } from '../../correction/trace';
 
 /** Un morceau affichable d'énoncé ou d'option. */
 export type Bloc =
@@ -36,6 +37,15 @@ export type Bloc =
 export interface Option {
   texte?: string;
   blocs?: Bloc[];
+  /**
+   * L'erreur type qu'incarne ce distracteur.
+   *
+   * C'est ce qui permet à la correction de commencer par « vous avez pris la
+   * relation inverse » plutôt que par « faux » : on nomme le geste à corriger.
+   * Absente sur la bonne réponse, et sur un distracteur qui n'illustre aucune
+   * erreur identifiable.
+   */
+  etiquette?: EtiquetteErreur;
 }
 
 export type Reponse =
@@ -64,6 +74,15 @@ export interface Item {
   /** Montrée après correction : le raisonnement, non le seul verdict. */
   explication: string;
   /**
+   * La trace de résolution, déposée par le solveur pendant qu'il calcule.
+   *
+   * Facultative le temps que les seize moteurs y passent : un moteur qui n'en
+   * fournit pas encore affiche son `explication` seule. L'essai
+   * `npm run essais:correction` liste ceux qui restent, et vérifie pour les
+   * autres que la trace conclut bien à la réponse attendue.
+   */
+  trace?: TraceResolution;
+  /**
    * Second temps facultatif, posé une fois le premier corrigé. Hidden Algebra
    * s'en sert pour demander de prédire une relation non montrée sous l'algèbre
    * qui vient d'être identifiée.
@@ -86,6 +105,14 @@ export interface Moteur {
   resume: string;
   /** Les régimes d'inférence dans lesquels le moteur sait travailler. */
   regimes: Regime[];
+  /**
+   * Ce moteur offre-t-il la correction détaillée ? Vrai par défaut.
+   *
+   * Déclaré ici pour qu'un moteur nouveau soit couvert sans qu'on ait à penser
+   * à l'inscrire ailleurs. Aucun moteur relationnel ne le met à faux : le seul
+   * exercice exclu de Cog-Training est Quad N-Back, qui n'a pas de moteurs.
+   */
+  correctionDetaillee?: boolean;
   /**
    * Filtre plus fin que le régime, quand il le faut. `groups` appartient au
    * régime algébrique mais sa composition est fonctionnelle : aucune paire n'y

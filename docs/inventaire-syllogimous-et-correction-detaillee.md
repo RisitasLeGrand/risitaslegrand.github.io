@@ -52,6 +52,23 @@ moteurs manquants de l'ancien cahier des charges, c'est un lot supplémentaire �
 
 ---
 
+# Décisions arrêtées (4 octobre 2026)
+
+Les quatre points laissés en suspens ont été tranchés ; ce document n'attend plus de validation.
+
+| Question | Décision |
+|---|---|
+| Seuil de montée en difficulté des moteurs vrai/faux | **7 justes sur 8**, descente à 4 ou moins sur 8. Les moteurs à choix multiple gardent leur règle. |
+| Moteurs nommés dans le prompt B mais absents du registre | **Erreur du prompt, confirmée.** Le périmètre est celui des **16 moteurs** existants, plus les 3 moteurs nouveaux de la famille « Chaînes de prémisses ». Aucun lot supplémentaire. |
+| Redintégration de Veridical Mapping | **Hors périmètre.** N'existe pas dans le code, n'est pas à créer. Les routes couvertes sont : valeur simple, plans 2-D, modulaire, et le bruit de surface. |
+| Choix des 150 questions du lot pilote | **Tirage par couverture des visuels** : au moins une occurrence de chacun des 8 types et un `aucun` justifié, par rubrique et par matière. |
+
+**Ordre d'exécution retenu** : B1 + C3 (socle visuel commun) → C1-C2 (schéma et contrôle de contenu)
+→ A1-A4 (systèmes et moteurs) → B2-B6 (traces et bouton) → C4-C7 (écrans et pilote)
+→ A5-A6 (écran « Mon entraînement » et attribution) → C8-C9 (rattrapage de la banque).
+
+---
+
 # Partie A — Inventaire Syllogimous v4 et comparaison
 
 ## A.1 Ce que contient Syllogimous v4 : 12 types de questions
@@ -503,3 +520,55 @@ aucun article ni chiffre cité sans vérification, et `confiance: moyenne` à d�
    qu'elle n'empêche rien d'autre.
 3. **Les 150 questions du pilote** : vous les choisissez, ou je les tire selon le critère de
    couverture des visuels donné en C.8 ?
+
+---
+
+# Avancement
+
+## Lot B1 + C3 — socle visuel commun : **livré**
+
+| Fichier | Rôle |
+|---|---|
+| `src/features/correction/trace.ts` | Le contrat : `Ref`, `EtiquetteErreur`, `DIAGNOSTIC`, `Etape`, `Conclusion`, `TraceResolution`, le **`Journal`** que le solveur alimente en calculant, `memeConclusion`, `conclusionAttendue`, `defautsDeLaTrace` |
+| `src/features/correction/vocabulaire.ts` | Les **7 marqueurs**, chacun avec sa forme propre, son glyphe de repli, son token de thème et son sens ; `legende()` et `alternative()` |
+| `src/features/correction/registre.ts` | `EXERCICES_COG` et `aCorrectionDetaillee()` — inclusion par défaut, **Quad N-Back seul exclu, avec sa raison écrite** |
+| `composants/Cadre.svelte` | L'enveloppe : `viewBox` adaptatif, `role="img"` et `aria-label` obligatoire, légende, trame de hachures partagée |
+| `composants/Marqueur.svelte` | Les 7 formes en SVG |
+| `composants/Legende.svelte` | La légende des seuls marqueurs employés, glyphe lisible par lecteur d'écran |
+| `composants/Deroule.svelte` | Le pas à pas, `aria-live` sur la légende d'étape, **lecture automatique refusée** sous `prefers-reduced-motion` |
+| `composants/SchemaLigne.svelte` | Ordres, comparaisons, frises, « entre » : arcs étagés, zones d'indétermination hachurées |
+| `composants/SchemaIntervalles.svelte` | Les 13 relations d'Allen, deux intervalles par option, verdict par la forme |
+| `composants/SchemaRegions.svelte` | Les 8 relations RCC8, deux disques par option |
+| `composants/SchemaCycle.svelte` | Dominance cyclique, avec **l'inférence transitive barrée là où elle échoue** |
+| `composants/SchemaEuler.svelte` | Classes quantifiées, avec **témoins** et zones vides marquées `∅` |
+| `composants/SchemaHasse.svelte` | Ordres partiels, relations de couverture seules, paire interrogée en pointillés |
+| `composants/SchemaAppariement.svelte` | Deux réseaux côte à côte, liens nœud à nœud, orphelins cerclés, paire fautive barrée |
+| `composants/SchemaEchelles.svelte` | Veridical Mapping : deux échelles parallèles, route, écart tracé |
+| `scripts/essais-correction.mts` | **38 assertions**, `npm run essais:correction` |
+
+**Ce que les essais garantissent.** Que `sceller` refuse une trace sans étape ; que les rangs
+se suivent ; qu'un élément qui a servi **cesse** d'être déclaré distracteur ; qu'une conclusion
+divergente, une légende vide ou un renvoi orphelin sont signalés ; que **les 7 marqueurs ont 7
+formes et 7 glyphes distincts** — l'invariant d'accessibilité, qu'aucun écran ne signalerait s'il
+tombait ; que toutes les couleurs passent par un token de thème ; que l'alternative textuelle
+accorde correctement ses énumérations ; et que Quad N-Back est le seul exercice exclu, un
+exercice inconnu étant **inclus** par défaut.
+
+Les essais engendrent par ailleurs plusieurs milliers d'items sur les 118 couples moteur ×
+système et vérifient la cohérence de toute trace rencontrée. Les 16 moteurs sont pour l'instant
+listés comme restant à migrer, ce qui est le lot B2 : `MOTEURS_TRACES` est écrit à la main
+exprès, pour que migrer un moteur oblige à l'y inscrire et rende l'avancement visible.
+
+**Correction de contenu au passage** : la page d'accueil de Cog-Training annonçait « neuf
+systèmes » pour Relational Reasoning ; il y en a **dix**. Corrigé.
+
+### Ce qui reste à faire sur ce socle
+
+- La **vue comparative « votre réponse / bonne réponse »** est outillée (les deux marqueurs
+  existent, et `SchemaEchelles` la met en œuvre), mais pour les autres schémas c'est l'appelant
+  qui passe les deux marqueurs : elle se vérifiera moteur par moteur au lot B2.
+- Les types de `Bloc` ne sont pas encore étendus : les schémas sont des composants autonomes,
+  et c'est le lot B5 qui les branchera dans l'énoncé pour la mise en évidence sur place.
+- `SchemaEuler` reçoit sa géométrie de l'appelant plutôt que de la calculer : la disposition
+  d'un diagramme d'Euler à partir de prémisses quantifiées relève du système `classes`, donc
+  du lot A2.
