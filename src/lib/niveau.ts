@@ -120,6 +120,11 @@ export interface ReglagesNiveau {
    * fausserait des niveaux qu'elles ne mesurent pas.
    */
   dgfip: boolean;
+  /**
+   * Prétests. Ils n'alimentent pas le niveau acquis mais la **note d'entrée**,
+   * qui sert à orienter vers les cours de la zone proximale. Voir plus bas.
+   */
+  pretest: boolean;
 }
 
 export const REGLAGES_NIVEAU_PAR_DEFAUT: ReglagesNiveau = {
@@ -127,9 +132,18 @@ export const REGLAGES_NIVEAU_PAR_DEFAUT: ReglagesNiveau = {
   flashcards: true,
   rappels: true,
   dgfip: false,
+  pretest: true,
 };
 
-export type Source = keyof ReglagesNiveau;
+/**
+ * Les sources qui alimentent le niveau **acquis**.
+ *
+ * Le prétest en est exclu par construction : il alimente la note d'entrée, qui
+ * se range ailleurs. Le dire dans le type évite de le découvrir à l'usage, le
+ * jour où une page appellerait `enregistrerReponse` avec « pretest » et
+ * déplacerait la difficulté d'un item au vu d'une réponse donnée avant le cours.
+ */
+export type Source = Exclude<keyof ReglagesNiveau, 'pretest'>;
 
 /**
  * Ce que l'estimation refuse de prendre pour une mesure de connaissance.
@@ -288,6 +302,27 @@ export interface Reponse {
 }
 
 /**
+ * Les clés des agrégats de difficulté touchés par une réponse.
+ *
+ * Un item porte sa propre difficulté, mais rien ne porterait celle d'un cours
+ * entier — et c'est pourtant ce qu'il faut pour dire par quelle fiche
+ * commencer. Reconstituer la moyenne des items d'une fiche obligerait à
+ * déchiffrer la fiche pour connaître la liste de leurs identifiants ; on tient
+ * donc l'agrégat au fil des réponses, dans le même magasin et par la même
+ * formule. Aucune collision possible avec un identifiant d'item : ceux-ci sont
+ * des empreintes hexadécimales, sans préfixe.
+ */
+export function clefsAgregatDifficulte(sujet: {
+  matiere: string;
+  fascicule?: string;
+  ficheId?: string;
+}): string[] {
+  return clefs(sujet)
+    .filter((s) => s.portee !== 'matiere')
+    .map((s) => s.clef);
+}
+
+/**
  * Enregistre une réponse notée et met à jour les estimations.
  *
  * Ne fait rien si la source est désactivée dans les réglages. Le réglage n'a
@@ -299,7 +334,8 @@ export async function enregistrerReponse(reponse: Reponse, maintenant = new Date
   if (!(await compteDansLeNiveau(reponse))) return;
 
   const quand = maintenant.toISOString();
-  const difficultes = await lireDifficultes([reponse.itemId]);
+  const agregats = clefsAgregatDifficulte(reponse);
+  const difficultes = await lireDifficultes([reponse.itemId, ...agregats]);
   const item: DifficulteItem = difficultes.get(reponse.itemId) ?? {
     id: reponse.itemId,
     note: NOTE_INITIALE,
@@ -335,6 +371,26 @@ export async function enregistrerReponse(reponse: Reponse, maintenant = new Date
     observations: item.observations + 1,
     majLe: quand,
   });
+
+  for (const clef of agregats) {
+    const agregat: DifficulteItem = difficultes.get(clef) ?? {
+      id: clef,
+      note: NOTE_INITIALE,
+      observations: 0,
+      majLe: quand,
+    };
+    await ecrireDifficulte({
+      ...agregat,
+      note: ajusterDifficulte(
+        agregat.note,
+        agregat.observations,
+        specifique.note,
+        reponse.resultat,
+      ),
+      observations: agregat.observations + 1,
+      majLe: quand,
+    });
+  }
 }
 
 /**
@@ -388,7 +444,9 @@ function afficher(c: Competence): NiveauAffiche {
 export async function tableauDeNiveaux(): Promise<
   { matiere: NiveauAffiche; fascicules: NiveauAffiche[] }[]
 > {
-  const toutes = await toutesLesCompetences();
+  // Les notes d'entrée sont écartées : le niveau affiché est celui que les
+  // observations post-cours ont mesuré, pas celui d'avant la lecture.
+  const toutes = (await toutesLesCompetences()).filter((c) => !estNoteDEntree(c.clef));
   const matieres = toutes.filter((c) => c.portee === 'matiere').map(afficher);
   return matieres
     .map((matiere) => ({
@@ -410,7 +468,12 @@ export async function tableauDeNiveaux(): Promise<
  */
 export async function zoneDeTravail(): Promise<NiveauAffiche | null> {
   const fiables = (await toutesLesCompetences())
-    .filter((c) => c.portee === 'fascicule' && c.observations >= OBSERVATIONS_MINIMALES)
+    .filter(
+      (c) =>
+        c.portee === 'fascicule' &&
+        c.observations >= OBSERVATIONS_MINIMALES &&
+        !estNoteDEntree(c.clef),
+    )
     .map(afficher);
   if (!fiables.length) return null;
   return fiables.reduce((bas, c) => (c.note < bas.note ? c : bas));
@@ -440,4 +503,234 @@ export async function ordonnerParZoneProximale<T extends { id: string }>(
     const dbb = difficultes.get(b.id)?.note ?? NOTE_INITIALE;
     return Math.abs(da - cible) - Math.abs(dbb - cible);
   });
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * La note d'entrée : ce que le prétest mesure, et pourquoi elle vit à part
+ * ───────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Préfixe des clés de note d'entrée.
+ *
+ * **Pourquoi deux notes et non une.** Un prétest se passe *avant* le cours ;
+ * un quiz se passe après. Les deux mesurent une réussite, mais pas la même
+ * chose : l'un dit ce qu'on savait en arrivant, l'autre ce qu'on a retenu. Les
+ * additionner dans une seule note donnerait une moyenne qui ne décrit ni l'un
+ * ni l'autre — et, comme les prétests échouent plus souvent par construction,
+ * elle tirerait mécaniquement le niveau acquis vers le bas à mesure qu'on
+ * ouvrirait des fiches neuves. On range donc les observations de prétest sous
+ * des clés préfixées, dans le même magasin et par la même formule, et le
+ * tableau des niveaux ne les regarde pas.
+ *
+ * **Ce que la note d'entrée sert à faire.** Une seule chose : situer les cours
+ * dans la zone proximale de développement, et orienter vers ceux qui y sont.
+ * Elle n'est ni affichée comme une performance, ni comptée dans la progression.
+ */
+export const PREFIXE_ENTREE = 'entree:';
+
+export function estNoteDEntree(clef: string): boolean {
+  return clef.startsWith(PREFIXE_ENTREE);
+}
+
+/** Les trois clés de note d'entrée touchées par une réponse de prétest. */
+export function clefsEntree(sujet: {
+  matiere: string;
+  fascicule?: string;
+  ficheId?: string;
+  ficheTitre?: string;
+}): { clef: string; portee: Competence['portee']; libelle: string }[] {
+  return clefs(sujet).map((s) => ({ ...s, clef: PREFIXE_ENTREE + s.clef }));
+}
+
+/** Une réponse donnée en prétest, avant toute lecture du cours. */
+export interface ReponsePretest {
+  itemId: string;
+  /** 1 pour juste, 0 pour faux ; les valeurs intermédiaires sont admises. */
+  resultat: number;
+  matiere: string;
+  fascicule?: string;
+  ficheId?: string;
+  ficheTitre?: string;
+}
+
+export interface NoteEntree {
+  clef: string;
+  portee: Competence['portee'];
+  libelle: string;
+  matiere: string;
+  note: number;
+  observations: number;
+  /** Assez d'observations pour montrer un chiffre plutôt qu'une tendance. */
+  fiable: boolean;
+}
+
+function afficherEntree(c: Competence): NoteEntree {
+  return {
+    clef: c.clef,
+    portee: c.portee,
+    libelle: c.libelle,
+    matiere: c.matiere,
+    note: Math.round(c.note),
+    observations: c.observations,
+    fiable: c.observations >= OBSERVATIONS_MINIMALES,
+  };
+}
+
+/**
+ * Enregistre les réponses d'un prétest et en déduit la note d'entrée.
+ *
+ * Trois choix méritent d'être dits, parce qu'ils ne se devinent pas à la
+ * lecture :
+ *
+ *  - **La difficulté des items n'est pas touchée.** Rater une question avant
+ *    d'avoir lu le cours ne dit rien de la difficulté de cette question pour
+ *    quelqu'un qui l'a lu. L'alimenter ici rendrait toutes les questions
+ *    artificiellement dures, et c'est précisément cette difficulté qui sert
+ *    ensuite à calibrer les exercices.
+ *  - **L'adversaire est la difficulté déjà estimée de l'item**, telle que les
+ *    quiz l'ont établie — faute de quoi on retombe sur la note initiale, ce qui
+ *    revient à mesurer une réussite brute. C'est pour cela qu'une note d'entrée
+ *    gagne en justesse avec l'usage du site : les items se situent eux-mêmes.
+ *  - **Le lot est traité en un passage**, note courante tenue en mémoire : les
+ *    trois réponses d'un prétest doivent s'enchaîner comme trois observations,
+ *    non s'écraser l'une l'autre.
+ *
+ * Rien n'est écrit si le réglage « pretest » est coupé, et une réponse portant
+ * sur un contenu écarté de l'estimation (cas pratique, méthodologie) est
+ * ignorée comme ailleurs.
+ */
+export async function enregistrerPretest(
+  reponses: readonly ReponsePretest[],
+  maintenant = new Date(),
+): Promise<NoteEntree[]> {
+  const reglages = await lireReglagesNiveau();
+  if (!reglages.pretest) return [];
+
+  const retenues: ReponsePretest[] = [];
+  for (const reponse of reponses) {
+    if (await compteDansLeNiveau(reponse)) retenues.push(reponse);
+  }
+  if (!retenues.length) return [];
+
+  const quand = maintenant.toISOString();
+  const difficultes = await lireDifficultes([...new Set(retenues.map((r) => r.itemId))]);
+  const encours = new Map<string, Competence>();
+
+  for (const reponse of retenues) {
+    const oppose = difficultes.get(reponse.itemId)?.note ?? NOTE_INITIALE;
+    for (const sujet of clefsEntree(reponse)) {
+      const courante =
+        encours.get(sujet.clef) ??
+        (await competenceOuNeuve(sujet.clef, sujet.portee, sujet.libelle, reponse.matiere));
+      encours.set(sujet.clef, {
+        ...courante,
+        libelle: sujet.libelle,
+        note: ajusterNiveau(courante.note, courante.observations, oppose, reponse.resultat),
+        observations: courante.observations + 1,
+        calibree: false,
+        majLe: quand,
+      });
+    }
+  }
+
+  const ecrites = [...encours.values()];
+  for (const competence of ecrites) await ecrireCompetence(competence);
+  return ecrites.map(afficherEntree);
+}
+
+/**
+ * La note d'entrée la plus pertinente pour un périmètre.
+ *
+ * Le fascicule d'abord : c'est l'échelle à laquelle on choisit un cours. La
+ * matière ensuite, qui vaut mieux que rien quand le fascicule est neuf.
+ */
+export async function niveauDEntree(
+  matiere: string,
+  fascicule?: string,
+): Promise<NoteEntree | null> {
+  const candidates = fascicule
+    ? [`${PREFIXE_ENTREE}fascicule:${matiere}|${fascicule}`, `${PREFIXE_ENTREE}matiere:${matiere}`]
+    : [`${PREFIXE_ENTREE}matiere:${matiere}`];
+  for (const clef of candidates) {
+    const competence = await lireCompetence(clef);
+    if (competence && competence.observations > 0) return afficherEntree(competence);
+  }
+  return null;
+}
+
+/* ───────────────────────────────────────────────────────────────────────────
+ * Orienter : situer les cours par rapport à la zone proximale
+ * ───────────────────────────────────────────────────────────────────────── */
+
+/**
+ * Les bornes de la zone proximale, en probabilité de réussite prédite.
+ *
+ * La cible reste `REUSSITE_VISEE` — 70 %. Ces deux bornes en font une bande
+ * plutôt qu'un point, parce qu'une orientation doit classer tout le catalogue
+ * et pas seulement désigner un optimum. Au-dessus de la borne haute, le cours
+ * n'apprendrait presque rien ; sous la borne basse, il échouerait plus souvent
+ * qu'il n'enseignerait, et l'échec répété décourage avant d'instruire.
+ *
+ * La borne basse est sous 0,5 à dessein : la zone proximale n'est pas la zone
+ * confortable. Un cours qu'on réussit une fois sur deux est exactement ce qu'il
+ * faut travailler — ce qui est exclu, c'est ce qui échoue presque à coup sûr.
+ */
+export const BANDE_ZPD = { bas: 0.45, haut: 0.85 } as const;
+
+export type Situation = 'au-dessus' | 'dans-la-zone' | 'en-dessous' | 'non-situee';
+
+export interface FicheSituee<T> {
+  fiche: T;
+  situation: Situation;
+  /** Réussite prédite, nulle quand la fiche n'a pas pu être située. */
+  chance: number | null;
+  /** Difficulté estimée de la fiche, nulle dans le même cas. */
+  difficulte: number | null;
+}
+
+/**
+ * Situe des fiches par rapport à la zone proximale d'une note donnée.
+ *
+ * **« Non située » est une réponse à part entière.** Une fiche sur laquelle
+ * personne n'a encore répondu n'a pas de difficulté estimée ; la supposer
+ * moyenne la classerait au hasard, et comme la note d'entrée est le plus
+ * souvent sous la note initiale, elle les rangerait toutes « hors de portée » —
+ * une orientation à la fois fausse et décourageante. On préfère dire qu'on ne
+ * sait pas, et laisser l'ordre du fascicule faire son travail : c'est lui, à
+ * défaut de mesure, qui porte la progression voulue par l'auteur du cours.
+ */
+export async function situerFiches<T extends { id: string }>(
+  fiches: readonly T[],
+  note: number,
+): Promise<FicheSituee<T>[]> {
+  const difficultes = await lireDifficultes(fiches.map((f) => `fiche:${f.id}`));
+  return fiches.map((fiche) => {
+    const agregat = difficultes.get(`fiche:${fiche.id}`);
+    if (!agregat || agregat.observations < OBSERVATIONS_MINIMALES) {
+      return { fiche, situation: 'non-situee' as Situation, chance: null, difficulte: null };
+    }
+    const chance = chanceDeReussite(note, agregat.note);
+    const situation: Situation =
+      chance >= BANDE_ZPD.haut
+        ? 'au-dessus'
+        : chance >= BANDE_ZPD.bas
+          ? 'dans-la-zone'
+          : 'en-dessous';
+    return { fiche, situation, chance, difficulte: Math.round(agregat.note) };
+  });
+}
+
+/**
+ * Du plus proche de la cible de 70 % au plus éloigné. Fonction pure.
+ *
+ * Une fiche non située passe **en dernier**, et c'est le point délicat : lui
+ * prêter la chance visée la placerait en tête, où elle se lirait comme la
+ * meilleure recommandation alors qu'elle n'en est pas une du tout. Entre elles,
+ * l'ordre d'entrée est conservé — soit l'ordre du fascicule, qui porte la
+ * progression voulue par le cours.
+ */
+export function ordonnerParCible<T>(situees: readonly FicheSituee<T>[]): FicheSituee<T>[] {
+  const ecart = (s: FicheSituee<T>) =>
+    s.chance === null ? Number.POSITIVE_INFINITY : Math.abs(s.chance - REUSSITE_VISEE);
+  return [...situees].sort((a, b) => ecart(a) - ecart(b));
 }

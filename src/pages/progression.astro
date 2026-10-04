@@ -136,10 +136,14 @@ import Base from '../layouts/Base.astro';
   const $ = (id: string) => document.getElementById(id)!;
 
   /**
-   * Les quatre sources, et leur libellé. Le QCM-DGFiP est décoché par défaut :
+   * Les cinq sources, et leur libellé. Le QCM-DGFiP est décoché par défaut :
    * ses rubriques — Français, Culture générale, Logique, Maths — ne recouvrent
    * pas les matières du concours, et les y mêler fausserait des niveaux qu'elles
    * ne mesurent pas.
+   *
+   * Le prétest est à part : il n'alimente pas le niveau acquis mais la note
+   * d'entrée, qui ne sert qu'à situer les cours dans la zone proximale. Le
+   * libellé le dit, pour qu'on ne croie pas le couper par prudence.
    */
   const SOURCES: { id: keyof ReglagesNiveau; libelle: string; detail: string }[] = [
     { id: 'quiz', libelle: 'Quiz de cours', detail: 'Les QCM engendrés à partir de vos fiches.' },
@@ -153,6 +157,14 @@ import Base from '../layouts/Base.astro';
       id: 'dgfip',
       libelle: 'QCM - DGFiP',
       detail: 'Hors programme du concours : décoché par défaut.',
+    },
+    {
+      id: 'pretest',
+      libelle: 'Prétests',
+      detail:
+        'Ils alimentent la note d’entrée, jamais le niveau acquis : elle sert seulement à ' +
+        'situer les cours dans votre zone proximale. Décocher éteint le prétest de ' +
+        'positionnement.',
     },
   ];
 

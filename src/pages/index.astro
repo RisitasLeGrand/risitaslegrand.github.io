@@ -88,7 +88,7 @@ import Section from '../components/Section.astro';
         <span id="pretest-titre" class="font-semibold"></span>
         <span class="text-slate-500 dark:text-slate-400">
           — quelques questions avant d'ouvrir la fiche. Se tromper est normal, et c'est même ce qui
-          rend la lecture plus efficace : rien n'est compté.
+          rend la lecture plus efficace : rien n'est compté comme une erreur.
         </span>
       </p>
       <div class="mt-3 flex flex-wrap gap-2">
@@ -107,6 +107,21 @@ import Section from '../components/Section.astro';
       <div id="pretest-hote" class="mt-4 hidden"></div>
     </section>
 
+    <!--
+      Entrée vers le positionnement. Toujours visible, et c'est voulu : le bloc
+      « zone de travail » ci-dessous reste muet tant qu'aucun fascicule n'a
+      assez d'observations — c'est-à-dire précisément quand on a le plus besoin
+      de savoir par où commencer.
+    -->
+    <p class="text-sm text-slate-500 dark:text-slate-400">
+      Vous ne savez pas par quel cours commencer dans un fascicule ?
+      <a
+        id="lien-positionnement"
+        href="#"
+        class="font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+      >Passez un prétest de positionnement →</a>
+    </p>
+
     <!-- Zone de travail : un repère lisible plutôt qu'un chiffre isolé. -->
     <section
       id="bloc-zone"
@@ -120,6 +135,11 @@ import Section from '../components/Section.astro';
           href="#"
           class="ml-1 font-medium text-indigo-700 hover:underline dark:text-indigo-300"
         >Voir les niveaux →</a>
+        <a
+          id="lien-situer"
+          href="#"
+          class="ml-1 font-medium text-indigo-700 hover:underline dark:text-indigo-300"
+        >Situer les cours →</a>
       </p>
     </section>
 
@@ -300,6 +320,13 @@ import Section from '../components/Section.astro';
     if (zone) {
       document.getElementById('zone-libelle')!.textContent = `${zone.matiere} — ${zone.libelle}`;
       document.getElementById('lien-niveaux')!.setAttribute('href', lien('/statistiques/'));
+      document
+        .getElementById('lien-situer')!
+        .setAttribute(
+          'href',
+          `${lien('/positionnement/')}?matiere=${encodeURIComponent(zone.matiere)}` +
+            `&fascicule=${encodeURIComponent(zone.libelle)}`,
+        );
       document.getElementById('bloc-zone')!.classList.remove('hidden');
     }
 
@@ -314,6 +341,7 @@ import Section from '../components/Section.astro';
       document.getElementById('lien-journal')!.setAttribute('href', lien('/journal/'));
       document.getElementById('bloc-journal-accueil')!.classList.remove('hidden');
     }
+    document.getElementById('lien-positionnement')!.setAttribute('href', lien('/positionnement/'));
     document.getElementById('lien-reviser')!.setAttribute('href', lien('/flashcards/'));
     document.getElementById('lien-biblio')!.setAttribute('href', lien('/bibliotheque/'));
     document.getElementById('maitrise')!.textContent = `${Math.round(vue.maitriseGlobale * 100)} %`;

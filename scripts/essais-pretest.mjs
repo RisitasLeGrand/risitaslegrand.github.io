@@ -74,17 +74,30 @@ console.log('\nUNE TENTATIVE');
 await page.locator('#pretest button').filter({ hasText: 'Le niveau de chômage réduit' }).first().click();
 await page.getByRole('button', { name: /Valider mes réponses/ }).click();
 await page.waitForTimeout(1200);
-v('la correction s’affiche', (await page.locator('#pretest p').last().textContent() ?? '').includes('Rien n’a été compté') || (await page.locator('#pretest').textContent() ?? '').includes('Rien n’a été compté'), true);
+v('la correction s’affiche', (await page.locator('#pretest').textContent() ?? '').includes('Rien n’est compté comme une erreur'), true);
 const etatApres = await page.evaluate(async () => {
+  const lireTout = (base, magasin) => new Promise((ok) => { const r = base.transaction(magasin).objectStore(magasin).getAll(); r.onsuccess = () => ok(r.result); });
   const base = await new Promise((ok) => { const r = indexedDB.open('revinsp'); r.onsuccess = () => ok(r.result); });
-  const fiches = await new Promise((ok) => { const r = base.transaction('fiches').objectStore('fiches').getAll(); r.onsuccess = () => ok(r.result); });
+  const fiches = await lireTout(base, 'fiches');
+  const competences = await lireTout(base, 'competences');
+  const difficultes = await lireTout(base, 'difficultes');
   const profil = await new Promise((ok) => { const r = base.transaction('etat').objectStore('etat').get('profil'); r.onsuccess = () => ok(r.result); });
-  return { fiche: fiches[0], xp: profil?.xp ?? 0 };
+  return { fiche: fiches[0], xp: profil?.xp ?? 0, competences, difficultes };
 });
 v('la fiche est marquée prétestée', typeof etatApres.fiche?.pretesteeLe, 'string');
 v('la fiche n’est pas marquée lue', etatApres.fiche?.lu, false);
 v('une récompense forfaitaire a été versée', etatApres.xp > 0, true);
 console.log(`      XP après prétest : ${etatApres.xp}`);
+
+// Le prétest mesure, mais il mesure **ailleurs**. Ces trois vérifications sont
+// l'invariant de la phase : une note d'entrée est écrite, le niveau acquis ne
+// bouge pas, et la difficulté des items reste intacte — une réponse donnée
+// avant le cours ne dit rien de la difficulté d'une question pour qui l'a lu.
+console.log('\nLA MESURE VA DANS LA NOTE D’ENTRÉE, PAS DANS LE NIVEAU ACQUIS');
+v('une note d’entrée a été écrite', etatApres.competences.some((c) => c.clef.startsWith('entree:')), true);
+v('aux trois portées', etatApres.competences.filter((c) => c.clef.startsWith('entree:')).length, 3);
+v('aucun niveau acquis n’a été créé', etatApres.competences.some((c) => !c.clef.startsWith('entree:')), false);
+v('aucune difficulté d’item n’a été touchée', etatApres.difficultes.length, 0);
 
 await page.getByRole('button', { name: /Lire le cours/ }).click();
 await page.waitForTimeout(600);

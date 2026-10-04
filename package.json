@@ -22,6 +22,8 @@
     "essais:niveau": "tsx scripts/essais-niveau.mts",
     "verifier:pretests": "node scripts/verifier-pretests.mjs",
     "essais:pretest": "node scripts/essais-pretest.mjs",
+    "essais:positionnement": "tsx scripts/essais-positionnement.mts",
+    "essais:positionnement:navigateur": "node scripts/essais-positionnement-navigateur.mjs",
     "essais:publication": "node scripts/essais-publication-actualites.mjs",
     "essais:journal": "node scripts/essais-journal.mjs",
     "essais:flashcards": "node scripts/essais-flashcards.mjs",

@@ -10,14 +10,25 @@
  *
  * Trois règles en découlent, et elles sont plus importantes que le code :
  *
- *  - **Aucune pénalité.** La justesse ne rapporte rien et ne coûte rien. Seule
- *    la tentative donne une petite récompense forfaitaire. Noter la justesse
- *    installerait de l'anxiété exactement là où il ne faut pas.
+ *  - **Aucune pénalité.** La justesse ne rapporte rien et ne coûte rien : les
+ *    XP sont forfaitaires, pour la tentative seule, et aucune statistique de
+ *    réussite n'est tenue. Récompenser la justesse installerait de l'anxiété
+ *    exactement là où il ne faut pas.
  *  - **Le prétest ne nourrit pas le journal d'erreurs.** Se tromper ici est
  *    attendu ; ce n'est pas un oubli à rattraper. Ce module n'appelle donc rien
  *    du journal, et c'est délibéré.
  *  - **Une seule fois**, avant la première lecture du cours. Ensuite l'effet
  *    n'existe plus : la question ne précède plus rien.
+ *
+ * **La justesse est en revanche mesurée, pour orienter.** Ce n'est pas une
+ * entorse à la première règle, c'en est l'autre face : ce qui est proscrit,
+ * c'est de *sanctionner* une erreur attendue, pas d'en tirer une information.
+ * Les réponses alimentent donc une **note d'entrée** — distincte du niveau
+ * acquis, et rangée à part pour cette raison : voir `PREFIXE_ENTREE` dans
+ * `src/lib/niveau.ts`. Elle sert à une seule chose, situer les cours dans la
+ * zone proximale de développement et orienter vers ceux qui y sont. Rien n'est
+ * affiché comme une performance, rien n'entre dans la progression, et le
+ * réglage « pretest » coupe la mesure sans toucher au reste.
  *
  * « Passer » n'est pas « répondre ». Le bouton existe pour qu'une consultation
  * rapide ne soit pas bloquée ; il met donc le prétest en sommeil pour la
@@ -34,83 +45,53 @@
  * une réinitialisation.
  */
 import type { Fiche, QuestionQuiz } from './contenu';
-import { ecrireEtatFiche, jourISO, lireEtatFiche } from './db';
+import { lireEtatFiche } from './db';
 import { gagnerXp, xpPretest } from './gamification';
-import { notifier } from './ui';
+import { enregistrerPretest, niveauDEntree, type ReponsePretest } from './niveau';
+import { enregistrerIssue, justesse, tirer, type Issue } from './pretest-noyau';
+import { lien, notifier, pluriel } from './ui';
 
-export type Issue = 'tente' | 'passe';
+// Le noyau porte les décisions (proposer, tirer, noter, consigner) ; il est
+// réexporté ici pour que les pages n'aient qu'un module à connaître.
+export {
+  QUESTIONS_PAR_PRETEST,
+  aPretest,
+  aProposer,
+  justesse,
+  melanger,
+  memoriserServies,
+  tirer,
+  type Issue,
+} from './pretest-noyau';
 
 /**
- * Combien de questions poser à la fois.
+ * Ajoute sous le bilan la note d'entrée et le lien d'orientation.
  *
- * Assez pour amorcer la lecture, trop peu pour ressembler à un examen d'entrée.
- * Le reste du vivier attend un éventuel second passage.
+ * Muet quand aucune note n'existe encore — mieux vaut ne rien dire qu'annoncer
+ * un niveau tiré d'une seule question écartée par les réglages.
  */
-export const QUESTIONS_PAR_PRETEST = 3;
-
-/** La fiche propose-t-elle un prétest ? */
-export function aPretest(fiche: Pick<Fiche, 'pretest'>): boolean {
-  return (fiche.pretest?.length ?? 0) > 0;
-}
-
-/**
- * Le prétest de cette fiche doit-il être proposé maintenant ?
- *
- * Non s'il a déjà été tenté, non s'il a été passé aujourd'hui, non si la fiche
- * a déjà été lue — après la lecture, il n'y a plus de « pré ».
- */
-export async function aProposer(fiche: Pick<Fiche, 'id' | 'pretest'>): Promise<boolean> {
-  if (!aPretest(fiche)) return false;
-  const etat = await lireEtatFiche(fiche.id);
-  if (!etat) return true;
-  if (etat.lu || etat.pretesteeLe) return false;
-  return etat.pretestPasseLe !== jourISO();
-}
-
-/**
- * Tire les questions à poser : d'abord celles jamais servies, puis, s'il en
- * manque, les moins récemment servies — au hasard dans chaque groupe.
- */
-export function tirer(
-  questions: readonly QuestionQuiz[],
-  dejaVues: readonly string[] = [],
-  combien = QUESTIONS_PAR_PRETEST,
-): QuestionQuiz[] {
-  const vues = new Set(dejaVues);
-  const melanger = (liste: QuestionQuiz[]) => {
-    const copie = [...liste];
-    for (let i = copie.length - 1; i > 0; i -= 1) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [copie[i], copie[j]] = [copie[j], copie[i]];
-    }
-    return copie;
-  };
-  const inedites = melanger(questions.filter((q) => !vues.has(q.id)));
-  const revues = melanger(questions.filter((q) => vues.has(q.id)));
-  return [...inedites, ...revues].slice(0, combien);
-}
-
-async function enregistrer(
-  fiche: Pick<Fiche, 'id' | 'matiere'>,
-  issue: Issue,
-  servies: readonly string[] = [],
+async function annoncerOrientation(
+  fiche: Pick<Fiche, 'matiere' | 'fascicule'>,
+  apres: HTMLElement,
 ): Promise<void> {
-  const etat = await lireEtatFiche(fiche.id);
-  // L'étalement d'abord, pour ne rien effacer de ce que ce module ignore.
-  await ecrireEtatFiche({
-    ...etat,
-    id: fiche.id,
-    matiere: fiche.matiere,
-    lu: etat?.lu ?? false,
-    derniereOuverture: etat?.derniereOuverture ?? new Date().toISOString(),
-    secondes: etat?.secondes ?? 0,
-    // Les questions servies sont retenues quelle que soit l'issue : les avoir
-    // vues suffit à les user, même sans y répondre.
-    pretestVues: [...new Set([...(etat?.pretestVues ?? []), ...servies])],
-    ...(issue === 'tente'
-      ? { pretesteeLe: new Date().toISOString() }
-      : { pretestPasseLe: jourISO() }),
-  });
+  const entree = await niveauDEntree(fiche.matiere, fiche.fascicule);
+  if (!entree) return;
+  const phrase = document.createElement('p');
+  phrase.className = 'mt-2 text-sm text-slate-600 dark:text-slate-300';
+  const posees = pluriel(entree.observations, 'question', 'questions');
+  phrase.textContent = entree.fiable
+    ? `Niveau d’entrée estimé sur ${entree.libelle} : ${entree.note}, d’après ${posees} ` +
+      'posées avant lecture. '
+    : `Niveau d’entrée encore indicatif sur ${entree.libelle} — ${posees} posées avant ` +
+      'lecture, il en faut quelques-unes de plus pour l’afficher. ';
+  const vers = document.createElement('a');
+  vers.className = 'font-medium text-indigo-600 hover:underline dark:text-indigo-400';
+  vers.href =
+    `${lien('/positionnement/')}?matiere=${encodeURIComponent(fiche.matiere)}` +
+    `&fascicule=${encodeURIComponent(fiche.fascicule)}`;
+  vers.textContent = 'Situer les cours de ce fascicule →';
+  phrase.appendChild(vers);
+  apres.insertAdjacentElement('afterend', phrase);
 }
 
 const CLASSE_OPTION =
@@ -125,7 +106,7 @@ const CLASSE_CHOISIE =
  * passé. L'appelant affiche ensuite le cours.
  */
 export async function montrer(
-  fiche: Pick<Fiche, 'id' | 'matiere' | 'titre' | 'pretest'>,
+  fiche: Pick<Fiche, 'id' | 'matiere' | 'fascicule' | 'titre' | 'pretest'>,
   hote: HTMLElement,
 ): Promise<Issue> {
   // L'état est lu ici plutôt que reçu en argument : un appelant qui oublierait
@@ -211,7 +192,7 @@ export async function montrer(
     panneau.appendChild(actions);
 
     passer.addEventListener('click', () => {
-      void enregistrer(fiche, 'passe', servies).then(() => {
+      void enregistrerIssue(fiche, 'passe', servies).then(() => {
         panneau.remove();
         terminer('passe');
       });
@@ -251,12 +232,32 @@ export async function montrer(
       const bilan = document.createElement('p');
       bilan.className = 'mt-4 text-sm text-slate-600 dark:text-slate-300';
       bilan.textContent = tentees
-        ? 'Gardez ces questions en tête : le cours y répond. Rien n’a été compté.'
+        ? 'Gardez ces questions en tête : le cours y répond. Rien n’est compté comme une ' +
+          'erreur, ni porté au journal — vos réponses servent seulement à situer les cours ' +
+          'qui vous sont utiles maintenant.'
         : 'Rien n’a été coché — le cours répond quand même à ces questions.';
       panneau.insertBefore(bilan, actions);
 
       void (async () => {
-        await enregistrer(fiche, 'tente', servies);
+        await enregistrerIssue(fiche, 'tente', servies);
+        // Les questions laissées vides ne sont pas des observations : ne rien
+        // cocher n'est pas se tromper, et le compter comme un échec ferait
+        // baisser la note d'entrée de qui survole plutôt que de qui ignore.
+        const reponses: ReponsePretest[] = questions
+          .map((question, i) => ({ question, choisies: choix[i] as ReadonlySet<number> }))
+          .filter(({ choisies }) => choisies.size > 0)
+          .map(({ question, choisies }) => ({
+            itemId: question.id,
+            resultat: justesse(question, choisies),
+            matiere: fiche.matiere,
+            fascicule: fiche.fascicule,
+            ficheId: fiche.id,
+            ficheTitre: fiche.titre,
+          }));
+        if (reponses.length) {
+          await enregistrerPretest(reponses);
+          await annoncerOrientation(fiche, bilan);
+        }
         if (tentees) {
           const gain = await gagnerXp(xpPretest());
           notifier(`+${gain.xpGagne} XP — prétest tenté`, 'succes');
