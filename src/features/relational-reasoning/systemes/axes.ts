@@ -100,6 +100,20 @@ export function nommerUplet(uplet: string, axes: AxeProduit[]): { libelle: strin
   return nommer(uplet, axes);
 }
 
+/**
+ * La composante d'un n-uplet sur **un seul** axe, en français.
+ *
+ * `nommerUplet` dit ce que vaut la relation entière ; les corrections des
+ * moteurs géométriques ont besoin de la dire axe par axe, puisque c'est ainsi
+ * que la projection et l'échange opèrent. Sans cela une correction dirait « il
+ * reste ‹ à l'est de › » sans jamais montrer d'où vient ce qui reste.
+ */
+export function nommerComposante(lettre: string, axe: AxeProduit): string {
+  if (lettre === APRES) return axe.versLeHaut;
+  if (lettre === AVANT) return axe.versLeBas;
+  return axe.egal;
+}
+
 function nommer(uplet: string, axes: AxeProduit[]): { libelle: string; bref: string } {
   if (axes.length === 2 && CARDINAUX_2D[uplet]) return CARDINAUX_2D[uplet];
 

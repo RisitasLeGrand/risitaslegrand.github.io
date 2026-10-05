@@ -49,7 +49,7 @@
 import { compiler, possibilites } from '../../noyaux/algebre';
 import { libelle, texte } from '../../noyaux/presentation';
 import { journal, ref, type Conclusion } from '../../../correction/trace';
-import { aretes, fonctionnel, meilleurChemin } from './chemin';
+import { aretes, fonctionnel, meilleurChemin, tracerChemin } from '../../noyaux/chemin';
 import type { Alea, Systeme } from '../../systemes/types';
 import type { Item, Moteur, Option } from '../types';
 
@@ -180,42 +180,10 @@ export const chaineConclusion: Moteur = {
       const bonne = binaire ? (verdict === 0 ? 0 : 1) : verdict;
 
       const conclusion = `${a} ${libelle(systeme, relationConclue)} ${b}`;
-      const surLeChemin = new Set(chemin.aretes.map((x) => x.indice));
 
       // ----- La trace, déposée en recomposant le chemin -------------------
       const carnet = journal();
-      faits.forEach((_, indice) => {
-        if (!surLeChemin.has(indice)) carnet.inutile(ref('premisse', indice));
-      });
-
-      let accumule = new Set<string>();
-      chemin.aretes.forEach((arete, rang) => {
-        const avant = accumule;
-        accumule =
-          avant.size === 0
-            ? new Set([arete.relation])
-            : new Set(
-                [...avant].flatMap((r) => [...systeme.composer!(r, arete.relation)]),
-              );
-        const mobilisees = chemin.aretes.slice(0, rang + 1).map((x) => ref('premisse', x.indice));
-        carnet.etape({
-          utilise: [ref('premisse', arete.indice)],
-          loi: rang === 0 ? undefined : 'composition',
-          produit:
-            accumule.size === 1
-              ? `${a} ${libelle(systeme, [...accumule][0])} ${arete.a}`
-              : `${a} et ${arete.a} : ${accumule.size} relations encore possibles`,
-          legende:
-            rang === 0
-              ? `La prémisse ${arete.indice + 1} relie ${arete.de} à ${arete.a}.`
-              : accumule.size === 1
-                ? `En composant avec la prémisse ${arete.indice + 1}, on obtient : ` +
-                  `${a} ${libelle(systeme, [...accumule][0])} ${arete.a}.`
-                : `En composant avec la prémisse ${arete.indice + 1}, ${accumule.size} relations ` +
-                  `restent possibles entre ${a} et ${arete.a}.`,
-          surbrillance: [...mobilisees, ref('entite', a), ref('entite', arete.a)],
-        });
-      });
+      tracerChemin(carnet, systeme, chemin, a, { inutilesParmi: faits.length });
 
       const nomsOuverts = [...ouvertes].map((r) => libelle(systeme, r));
       carnet.etape({

@@ -20,8 +20,9 @@
  * difficulté : la projection **perd** de l'information, et savoir laquelle est
  * précisément ce qu'on entraîne.
  */
-import { nommerUplet, type AxeProduit } from '../../systemes/axes';
+import { nommerComposante, nommerUplet, type AxeProduit } from '../../systemes/axes';
 import { blocModele, libelle, texte } from '../../noyaux/presentation';
+import { journal, ref } from '../../../correction/trace';
 import type { Alea, Systeme } from '../../systemes/types';
 import type { Item, Moteur, Option } from '../types';
 
@@ -76,12 +77,74 @@ export const projection: Moteur = {
         { uplet: projetee, bonne: true },
         ...leurres.map((uplet) => ({ uplet, bonne: false })),
       ]);
+      const bonne = melange.findIndex((entree) => entree.bonne);
+      const effondre = projetee.split('').every((r) => r === 'e');
+
+      /*
+       * L'étiquette distingue les deux erreurs que l'exercice provoque.
+       *
+       * Garder la composante du mauvais axe est l'erreur d'axe permuté : on a
+       * bien projeté, mais effacé le mauvais. Elle ne se reconnaît que sur les
+       * leurres qui coïncident avec la relation d'origine privée d'une **autre**
+       * composante — c'est calculable, et le dire au hasard serait pire que de
+       * ne rien dire.
+       */
+      const projeteesAutres = new Set(
+        axes
+          .map((_, i) =>
+            i === retire
+              ? null
+              : relation
+                  .split('')
+                  .filter((_, k) => k !== i)
+                  .join(''),
+          )
+          .filter((x): x is string => x !== null),
+      );
       const options: Option[] = melange.map((entree) => ({
         texte: `${a} ${nommerUplet(entree.uplet, axesRestants).libelle} ${b}`,
+        ...(entree.bonne
+          ? {}
+          : projeteesAutres.has(entree.uplet)
+            ? { etiquette: 'axe-permute' as const }
+            : {}),
       }));
-      const bonne = melange.findIndex((entree) => entree.bonne);
 
-      const effondre = projetee.split('').every((r) => r === 'e');
+      // ----- La trace : la relation décomposée, axe par axe --------------
+      const carnet = journal();
+      const lettres = relation.split('');
+      axes.forEach((axe, i) => {
+        const garde = i !== retire;
+        carnet.etape({
+          utilise: [ref('axe', axe.id)],
+          loi: garde ? 'composante conservée' : 'composante effacée',
+          produit: garde
+            ? `${axe.libelle} : ${nommerComposante(lettres[i], axe)}`
+            : `${axe.libelle} : effacé`,
+          legende: garde
+            ? `Sur l’axe « ${axe.libelle} », ${a} ${nommerComposante(lettres[i], axe)} ${b}. ` +
+              'Cet axe demeure : sa composante passe telle quelle dans la relation projetée.'
+            : `Sur l’axe « ${axe.libelle} », ${a} ${nommerComposante(lettres[i], axe)} ${b} — ` +
+              'et c’est précisément l’axe qu’on efface. Cette composante est donc perdue.',
+          surbrillance: [ref('axe', axe.id), ref('entite', a), ref('entite', b)],
+        });
+        if (!garde) carnet.inutile(ref('axe', axe.id));
+      });
+
+      carnet.etape({
+        utilise: [ref('option', bonne), ...axesRestants.map((axe) => ref('axe', axe.id))],
+        produit: `${a} ${nomProjete.libelle} ${b}`,
+        loi: 'recomposition sur les axes restants',
+        legende: effondre
+          ? `Il ne reste aucune composante : ${a} et ${b} ne se distinguaient que par l’axe ` +
+            `effacé, et deviennent indiscernables. C’est ce que dit ` +
+            `« ${nomProjete.libelle} » — la projection perd de l’information, et c’est bien ` +
+            'ce qu’elle est censée faire.'
+          : `En recomposant les composantes conservées, il reste : ${a} ` +
+            `${nomProjete.libelle} ${b}. Aucune n’a été déformée — projeter efface, ` +
+            'cela ne déplace rien.',
+        surbrillance: [ref('entite', a), ref('entite', b), ref('option', bonne)],
+      });
 
       return {
         moteur: 'projection',
@@ -106,6 +169,7 @@ export const projection: Moteur = {
               'et deviennent **indiscernables** une fois qu’il disparaît. La projection perd de ' +
               'l’information, et c’est bien ce qu’elle est censée faire.'
             : ' Les autres axes sont inchangés : projeter ne déforme rien, cela efface.'),
+        trace: carnet.sceller({ genre: 'unique', indice: bonne }),
       };
     }
     return null;

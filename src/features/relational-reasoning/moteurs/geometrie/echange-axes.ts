@@ -16,8 +16,9 @@
  * l'échange les modifie aussi. Le moteur les propose donc délibérément, une fois
  * sur trois environ, pour que la réponse « rien ne change » soit parfois la bonne.
  */
-import { nommerUplet, type AxeProduit } from '../../systemes/axes';
+import { nommerComposante, nommerUplet, type AxeProduit } from '../../systemes/axes';
 import { blocModele, libelle, texte } from '../../noyaux/presentation';
+import { journal, ref } from '../../../correction/trace';
 import type { Alea, Systeme } from '../../systemes/types';
 import type { Item, Moteur, Option } from '../types';
 
@@ -81,13 +82,63 @@ export const echangeAxes: Moteur = {
       );
 
       const melange = alea.melanger([image, ...obligatoire, ...complement]);
-      const options: Option[] = melange.map((uplet) => ({
-        texte: `${a} ${nommerUplet(uplet, axes).libelle} ${b}`,
-      }));
       const bonne = melange.indexOf(image);
       if (bonne < 0 || melange.length < 3) continue;
 
       const pointFixe = image === relation;
+
+      /*
+       * « Rien ne change » est le leurre central de cet exercice, et il n'est un
+       * leurre que lorsque la relation n'est **pas** diagonale : sur un point
+       * fixe, c'est la bonne réponse. L'étiquette ne se pose donc que dans le
+       * premier cas, et nomme ce qui s'est passé — l'échange a été lu comme
+       * n'affectant pas les axes.
+       */
+      const options: Option[] = melange.map((uplet) => ({
+        texte: `${a} ${nommerUplet(uplet, axes).libelle} ${b}`,
+        ...(uplet !== image && uplet === relation ? { etiquette: 'axe-permute' as const } : {}),
+      }));
+
+      // ----- La trace : les deux composantes, puis leur permutation ------
+      const carnet = journal();
+      for (const axe of axes) {
+        if (axe !== axes[i] && axe !== axes[j]) carnet.inutile(ref('axe', axe.id));
+      }
+      for (const [source, cible] of [
+        [i, j],
+        [j, i],
+      ]) {
+        carnet.etape({
+          utilise: [ref('axe', axes[source].id)],
+          loi: 'permutation des composantes',
+          produit: `${axes[cible].libelle} ← ${nommerComposante(lettres[source], axes[source])}`,
+          legende:
+            `Sur l’axe « ${axes[source].libelle} », ${a} ` +
+            `${nommerComposante(lettres[source], axes[source])} ${b}. Après l’échange, cet ` +
+            `écart se lit sur l’axe « ${axes[cible].libelle} » : il y devient ` +
+            `« ${nommerComposante(lettres[source], axes[cible])} ».`,
+          surbrillance: [
+            ref('axe', axes[source].id),
+            ref('axe', axes[cible].id),
+            ref('entite', a),
+            ref('entite', b),
+          ],
+        });
+      }
+
+      carnet.etape({
+        utilise: [ref('option', bonne), ref('axe', axes[i].id), ref('axe', axes[j].id)],
+        produit: `${a} ${nommerUplet(image, axes).libelle} ${b}`,
+        loi: 'recomposition',
+        legende: pointFixe
+          ? `Les deux composantes échangées étaient identiques : la permutation ne les ` +
+            `distingue pas, et la relation reste « ${nommerUplet(image, axes).libelle} ». ` +
+            'Les diagonales sont les points fixes de cette transformation — se demander si ' +
+            'l’échange les modifie est l’erreur caractéristique.'
+          : `En recomposant, ${a} ${nommerUplet(image, axes).libelle} ${b}. Aucune entité n’a ` +
+            'bougé : ce sont les mêmes écarts, lus sur des axes échangés.',
+        surbrillance: [ref('entite', a), ref('entite', b), ref('option', bonne)],
+      });
 
       return {
         moteur: 'echange-axes',
@@ -115,6 +166,7 @@ export const echangeAxes: Moteur = {
             : 'Notez qu’aucune entité n’a bougé : ce sont les mêmes écarts, lus sur des axes ' +
               'échangés. « Au nord de » et « à l’est de » ne sont pas deux faits mais deux ' +
               'lectures.'),
+        trace: carnet.sceller({ genre: 'unique', indice: bonne }),
       };
     }
     return null;

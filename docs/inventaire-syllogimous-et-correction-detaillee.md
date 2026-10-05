@@ -960,3 +960,56 @@ Quatre défauts de rédaction trouvés **en lisant les traces produites**, non e
 s'excluent mutuellement, donc un seul exemple fixe un symbole, et les autres ne font que
 confirmer. Les relations proposées à droite sans être en jeu sont marquées **inutiles**, pour
 qu'on ne les croie pas oubliées.
+
+### Familles Incomplétude et Géométrie — livrées
+
+`noyaux/chemin.ts` est remonté de `moteurs/chaines/` aux noyaux, et porte désormais
+`tracerChemin()` : la narration d'une composition le long d'une chaîne, qui était écrite dans
+`conclusion.ts`. Sept moteurs en ont besoin ; en recopier le récit aurait fait deux versions du
+même calcul, qui auraient fini par ne plus dire la même chose. Deux points d'extension suffisent
+à l'adapter : `refDe` (où surligner une prémisse quand l'énoncé l'affiche autrement — « Prémisse
+manquante » fait passer un **candidat** par le chemin, et c'est l'option qu'il faut surligner) et
+`nomDe` (comment la nommer dans la légende).
+
+| Moteur | Ce que la trace montre |
+|---|---|
+| `ensembles-possibles` | La chaîne, puis l'ensemble qu'elle laisse ouvert et ce qu'elle exclut |
+| `premisses-minimales` | La chaîne restreinte aux faits utiles, puis le compte utile / inerte |
+| `contradiction` | **Un** conflit, le long d'une chaîne entre les deux bouts du fait coupable |
+| `premisse-manquante` | La chaîne **avec le maillon à sa place** — on voit la composition se fermer |
+| `projection` | Une étape par axe : ce qui est conservé, ce qui est effacé, puis la recomposition |
+| `echange-axes` | Les deux composantes échangées, puis la recomposition |
+| `cadres` | L'écart absolu, la projection sur « devant », celle sur « droite », puis la réunion |
+
+#### Ce que la correction ne peut pas raconter, et ce qu'on en a fait
+
+La contrainte « la chaîne doit justifier exactement la réponse » faisait **disparaître trois
+couples** sur cent quatre-vingt-six — mesuré, non supposé. Les supprimer en silence aurait retiré
+des exercices qui marchaient ; raconter un calcul qu'on n'a pas fait aurait été pire. L'item est
+donc rendu **sans trace** dans ce cas, et montre son explication seule, comme les moteurs non
+encore migrés.
+
+| Cas | Pourquoi une chaîne n'y suffit pas |
+|---|---|
+| `ensembles-possibles` × `rang`, `anneau` | **Aucun** item retenu n'a de chaîne entre les deux entités interrogées : l'indétermination vient de ce qu'elles ne sont pas reliées, et les exclusions viennent du croisement des places que leurs propres chaînes laissent à chacune |
+| `premisses-minimales` × `poset` | La composition n'y est pas complète par chemin : le plus petit ensemble suffisant combine plusieurs chaînes dont c'est le croisement qui ferme la paire |
+
+Un plancher de couverture est vérifié dans `npm run essais:correction`, qui imprime la part des
+items tracés de chaque moteur et **échoue** sous 50 %. Mesuré : 82 % pour `ensembles-possibles`,
+89 % pour `premisses-minimales`, 100 % pour les dix autres. Sans ce plancher, une couverture qui
+s'effondrerait plus tard passerait inaperçue — la seule présence d'une trace sur un item ne le
+verrait pas.
+
+#### Défauts trouvés en lisant les traces
+
+| Défaut | Correction |
+|---|---|
+| `premisse-manquante` affichait des leurres **incohérents** avec les prémisses, en affirmant qu'aucune proposition n'est absurde | Les candidats affichés sont filtrés sur la cohérence, comme l'étaient déjà ceux du calcul de la réponse |
+| `contradiction` étiquetait `hors-zone` des faits qui appartiennent aux autres conflits | Une seule étiquette pour tous les distracteurs : `cycle-ignore` |
+| `premisse-manquante` étiquetait `relation-inverse` toute proposition sur la même paire — « est à la même place que » n'est pas l'inverse de « est plus petit que » | L'étiquette ne se pose que sur le vrai converse ; ailleurs le champ reste vide |
+| `cadres` demandait « B regarde nord de » — dans la **consigne**, visible à chaque item | La préposition finale est retirée avec la forme verbale : « B regarde au nord » |
+| `cadres` disait « A est à l'ouest de et est au sud de B » | Le second « est » est élidé |
+
+La nouvelle étiquette `cadre-inverse` nomme l'erreur propre aux cadres de référence : prendre sa
+propre droite pour celle de l'observateur. Elle ne se pose que sur le leurre exact obtenu par
+inversion gauche-droite, et jamais au hasard.

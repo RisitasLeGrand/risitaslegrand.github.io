@@ -6,10 +6,14 @@
  * dans un raisonnement relationnel, et c'est ce que la correction pas à pas doit
  * pouvoir dérouler : sans chemin, on ne peut que montrer le résultat.
  *
- * Extrait de `conclusion.ts` quand `composee.ts` en a eu besoin : les deux
- * moteurs cherchent le même objet, et une seconde copie aurait divergé.
+ * Extrait de `conclusion.ts` quand `composee.ts` en a eu besoin, puis remonté
+ * de la famille Chaînes aux noyaux quand les moteurs d'incomplétude ont eu
+ * besoin du même objet : les uns et les autres cherchent la même chose, et une
+ * seconde copie aurait divergé.
  */
-import type { Fait, Systeme } from '../../systemes/types';
+import { journal as _journal, ref, type Journal, type Ref } from '../../correction/trace';
+import { libelle } from './presentation';
+import type { Fait, Systeme } from '../systemes/types';
 
 export interface Arete {
   de: string;
@@ -130,3 +134,86 @@ export function fonctionnel(systeme: Systeme): boolean {
   memoFonctionnel.set(systeme, resultat);
   return resultat;
 }
+
+/** De quoi adapter la narration à l'énoncé qui l'affiche. */
+export interface OptionsNarration {
+  /**
+   * Le nombre de prémisses affichées. Les prémisses **hors du chemin** sont
+   * alors déclarées inutiles.
+   *
+   * Omis quand les prémisses hors du chemin servent ailleurs. C'est le cas de
+   * « Contradiction » : chaque fait entre dans un conflit, et en déclarer un
+   * inutile serait faux.
+   */
+  inutilesParmi?: number;
+  /**
+   * La référence d'une prémisse, quand l'énoncé ne l'affiche pas comme une
+   * prémisse. « Prémisse manquante » fait passer un candidat par le chemin : il
+   * est affiché comme une **option**, et c'est là qu'il faut le surligner.
+   */
+  refDe?: (indice: number) => Ref;
+  /** Le nom d'une prémisse dans les légendes — « la prémisse 2 » par défaut. */
+  nomDe?: (indice: number) => string;
+}
+
+/**
+ * Dépose dans le carnet la composition du chemin, étape par étape, et rend
+ * l'ensemble des relations qu'il laisse ouvertes entre ses deux bouts.
+ *
+ * C'est la narration commune de tous les moteurs qui justifient quelque chose
+ * par une chaîne de prémisses — ceux de la famille Chaînes comme ceux de
+ * l'incomplétude. Elle était écrite dans `conclusion.ts` ; la reprendre ailleurs
+ * aurait fait deux récits du même calcul, qui auraient fini par ne plus dire la
+ * même chose.
+ */
+export function tracerChemin(
+  carnet: Journal,
+  systeme: Systeme,
+  chemin: Chemin,
+  depart: string,
+  options: OptionsNarration = {},
+): Set<string> {
+  const refDe = options.refDe ?? ((indice: number) => ref('premisse', indice));
+  const nomDe = options.nomDe ?? ((indice: number) => `la prémisse ${indice + 1}`);
+
+  if (options.inutilesParmi !== undefined) {
+    const surLeChemin = new Set(chemin.aretes.map((arete) => arete.indice));
+    for (let indice = 0; indice < options.inutilesParmi; indice += 1) {
+      if (!surLeChemin.has(indice)) carnet.inutile(refDe(indice));
+    }
+  }
+
+  let accumule = new Set<string>();
+  chemin.aretes.forEach((arete, rang) => {
+    const avant = accumule;
+    accumule =
+      avant.size === 0
+        ? new Set([arete.relation])
+        : new Set([...avant].flatMap((r) => [...systeme.composer!(r, arete.relation)]));
+    const mobilisees = chemin.aretes.slice(0, rang + 1).map((x) => refDe(x.indice));
+    carnet.etape({
+      utilise: [refDe(arete.indice)],
+      loi: rang === 0 ? undefined : 'composition',
+      produit:
+        accumule.size === 1
+          ? `${depart} ${libelle(systeme, [...accumule][0])} ${arete.a}`
+          : `${depart} et ${arete.a} : ${accumule.size} relations encore possibles`,
+      legende:
+        rang === 0
+          ? `${majuscule(nomDe(arete.indice))} relie ${arete.de} à ${arete.a}.`
+          : accumule.size === 1
+            ? `En composant avec ${nomDe(arete.indice)}, on obtient : ` +
+              `${depart} ${libelle(systeme, [...accumule][0])} ${arete.a}.`
+            : `En composant avec ${nomDe(arete.indice)}, ${accumule.size} relations ` +
+              `restent possibles entre ${depart} et ${arete.a}.`,
+      surbrillance: [...mobilisees, ref('entite', depart), ref('entite', arete.a)],
+    });
+  });
+
+  return accumule;
+}
+
+const majuscule = (mots: string) => mots.charAt(0).toUpperCase() + mots.slice(1);
+
+/** Un carnet neuf — réexporté pour que l'appelant n'ait pas deux imports. */
+export const journal = _journal;

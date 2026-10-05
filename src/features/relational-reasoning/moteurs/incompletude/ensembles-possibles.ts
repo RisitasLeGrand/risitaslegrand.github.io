@@ -12,6 +12,22 @@
  * absurde, puisque la question porte précisément sur ce que les faits ne disent
  * pas. Montrer le modèle donnerait la réponse et supprimerait l'exercice.
  *
+ * **La correction pas à pas n'est offerte que si un chemin la porte.** Elle se
+ * déroule le long d'une chaîne de prémisses ; si cette chaîne laissait plus de
+ * relations ouvertes que la propagation complète n'en laisse, elle mentirait par
+ * omission — elle justifierait des cases qu'elle présente comme fausses. L'item
+ * est alors rendu **sans trace**, et montre son explication seule, comme le font
+ * les moteurs non encore migrés.
+ *
+ * Ce cas n'est pas marginal, et il est instructif : sur `rang` et sur `anneau`,
+ * mesuré, **aucun** item retenu n'a de chaîne entre les deux entités
+ * interrogées. L'indétermination y vient de ce que les deux ne sont pas reliées
+ * du tout, et les relations exclues le sont par la propagation sur tout le
+ * réseau — chacune des deux entités voit ses places restreintes par ses propres
+ * chaînes, et c'est le croisement de ces restrictions qui exclut. Une chaîne
+ * unique ne peut pas raconter cela. Le dire franchement valait mieux que
+ * supprimer l'exercice sur ces deux systèmes.
+ *
  * **Les leurres sont au moins aussi nombreux que les bonnes réponses.** C'est ce
  * qui donne son mordant au barème : tout cocher rapporte alors zéro, puisque la
  * note retranche les cases fausses des cases justes. Sans cette garantie, le
@@ -19,8 +35,11 @@
  * qu'il enseigne.
  */
 import { compiler, possibilites } from '../../noyaux/algebre';
+import { aretes, journal, meilleurChemin, tracerChemin } from '../../noyaux/chemin';
 import { blocFaits, libelle, texte } from '../../noyaux/presentation';
+import { ref } from '../../../correction/trace';
 import type { Alea, Systeme } from '../../systemes/types';
+import type { EtiquetteErreur } from '../../../correction/trace';
 import type { Item, Moteur, Option } from '../types';
 
 const TIRAGES = 60;
@@ -84,8 +103,55 @@ export const ensemblesPossibles: Moteur = {
         ...[...ouvertes].map((id) => ({ id, bonne: true })),
         ...leurres.map((r) => ({ id: r.id, bonne: false })),
       ]);
-      const options: Option[] = proposees.map((p) => ({ texte: `${a} ${libelle(systeme, p.id)} ${b}` }));
+      /*
+       * L'étiquette nomme le geste à corriger plutôt que de dire « faux ».
+       *
+       * Un leurre qui est le converse d'une relation ouverte est l'erreur la
+       * plus fréquente du raisonnement relationnel : on a bien trouvé la
+       * relation, et on l'a lue dans le mauvais sens. Les autres sont exclus par
+       * la composition elle-même.
+       */
+      const converses = new Set([...ouvertes].map((id) => systeme.converse(id)));
+      const options: Option[] = proposees.map((p) => ({
+        texte: `${a} ${libelle(systeme, p.id)} ${b}`,
+        ...(p.bonne
+          ? {}
+          : {
+              etiquette: (converses.has(p.id) ? 'relation-inverse' : 'hors-zone') as EtiquetteErreur,
+            }),
+      }));
       const bonnes = proposees.flatMap((p, i) => (p.bonne ? [i] : []));
+
+      // ----- La trace, quand un chemin la porte -------------------------
+      const chemin = meilleurChemin(
+        systeme,
+        aretes(systeme, faits),
+        a,
+        b,
+        Math.min(faits.length, 5),
+      );
+      const carnet = journal();
+      let tracable = false;
+      if (chemin) {
+        const obtenu = tracerChemin(carnet, systeme, chemin, a, { inutilesParmi: faits.length });
+        tracable = obtenu.size === ouvertes.size && [...obtenu].every((r) => ouvertes.has(r));
+      }
+
+      if (tracable) {
+        const nomsOuverts = [...ouvertes].map((id) => `« ${libelle(systeme, id)} »`);
+        const nomsExclus = leurres.map((r) => `« ${libelle(systeme, r.id)} »`);
+        carnet.etape({
+          utilise: bonnes.map((i) => ref('option', i)),
+          produit: `${ouvertes.size} relation${ouvertes.size > 1 ? 's' : ''} ouverte${ouvertes.size > 1 ? 's' : ''}`,
+          legende:
+            `Le chemin laisse exactement ${nomsOuverts.join(', ')} entre ${a} et ${b} : ` +
+            `${ouvertes.size > 1 ? 'ce sont les cases à cocher' : 'c’est la case à cocher'}. ` +
+            `${nomsExclus.join(', ')} ${nomsExclus.length > 1 ? 'sont exclues' : 'est exclue'} ` +
+            'par la composition — non parce que la situation tirée en décide, mais parce ' +
+            'qu’aucune situation compatible avec ces faits ne les réalise.',
+          surbrillance: [ref('entite', a), ref('entite', b), ...bonnes.map((i) => ref('option', i))],
+        });
+      }
 
       return {
         moteur: 'ensembles-possibles',
@@ -106,6 +172,7 @@ export const ensemblesPossibles: Moteur = {
           `. Les autres sont exclues par composition des faits énoncés — non parce qu’elles ` +
           'sont fausses dans une situation particulière, mais parce qu’aucune situation ' +
           'compatible avec ces faits ne les réalise.',
+        ...(tracable ? { trace: carnet.sceller({ genre: 'multiple', indices: bonnes }) } : {}),
       };
     }
     return null;

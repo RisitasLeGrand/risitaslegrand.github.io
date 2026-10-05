@@ -24,7 +24,8 @@
  * deviendrait illisible pour un gain nul.
  */
 import { blocModele, texte } from '../../noyaux/presentation';
-import type { AxeProduit } from '../../systemes/axes';
+import { journal, ref } from '../../../correction/trace';
+import { nommerComposante, type AxeProduit } from '../../systemes/axes';
 import type { Alea, Systeme } from '../../systemes/types';
 import type { Item, Moteur, Option } from '../types';
 
@@ -53,9 +54,12 @@ function orientation(axe: number, sens: 1 | -1): Orientation {
 function nommerOrientation(axes: AxeProduit[], o: Orientation): string {
   const axe = axes[o.axe];
   const libelle = o.sens === 1 ? axe.versLeHaut : axe.versLeBas;
-  // « est au nord de » → « vers le nord ». On retire la forme verbale pour
-  // obtenir une direction, et non une relation.
-  return libelle.replace(/^est (au |à l'|à la |aux |en )?/u, '');
+  /*
+   * « est au nord de » → « au nord ». On retire la forme verbale **et** la
+   * préposition finale : sans elle, la consigne disait « B regarde nord de »,
+   * que la première lecture à voix haute suffit à condamner.
+   */
+  return libelle.replace(/^est /u, '').replace(/\s+d(?:e|’|')$/u, '');
 }
 
 export const cadres: Moteur = {
@@ -121,11 +125,79 @@ export const cadres: Moteur = {
       );
 
       const melange = alea.melanger([juste, ...obligatoire, ...complement]);
-      const options: Option[] = melange.map((n) => ({ texte: `${cible} est ${n}` }));
       const bonne = melange.indexOf(juste);
       if (bonne < 0) continue;
 
+      /*
+       * Seule l'inversion gauche-droite reçoit une étiquette : c'est l'erreur
+       * que le moteur existe pour corriger, et la seule qu'on puisse nommer avec
+       * certitude en lisant la réponse. Les autres leurres mélangent l'avant et
+       * le côté sans qu'on sache lequel a dérapé.
+       */
+      const options: Option[] = melange.map((n) => ({
+        texte: `${cible} est ${n}`,
+        ...(n !== juste && n === inverse ? { etiquette: 'cadre-inverse' as const } : {}),
+      }));
+
       const direction = nommerOrientation(axes, o);
+
+      // ----- La trace : l'écart absolu, puis les deux projections --------
+      const carnet = journal();
+      // Les deux composantes de l'écart, en une seule phrase : la seconde perd
+      // son « est », sinon l'on obtient « A est à l'ouest de et est au sud de B ».
+      const ecarts = [0, 1]
+        .filter((k) => d[k] !== 0)
+        .map((k, rang) => {
+          const phrase = nommerComposante(d[k] > 0 ? 'p' : 'a', axes[k]);
+          return rang === 0 ? phrase : phrase.replace(/^est /u, '');
+        });
+      carnet.etape({
+        utilise: [ref('entite', observateur), ref('entite', cible)],
+        loi: 'écart absolu',
+        produit: `${cible} ${ecarts.join(' et ')} ${observateur}`,
+        legende:
+          `D’abord l’écart absolu, celui qui ne dépend de personne : ${cible} ` +
+          `${ecarts.join(' et ')} ${observateur}. C’est ce que la grille montre, et ce n’est ` +
+          'pas encore la réponse.',
+        surbrillance: [ref('entite', observateur), ref('entite', cible)],
+      });
+
+      carnet.etape({
+        utilise: [ref('entite', observateur)],
+        loi: 'cadre égocentrique',
+        produit: avant === 0 ? 'ni devant ni derrière' : avant > 0 ? 'devant' : 'derrière',
+        legende:
+          `${observateur} regarde ${direction} : son « devant » pointe dans cette direction. ` +
+          `L’écart projeté sur ce « devant » est ` +
+          `${avant === 0 ? 'nul' : avant > 0 ? 'positif' : 'négatif'} — ${cible} est donc ` +
+          `${avant === 0 ? 'ni devant ni derrière, mais sur sa ligne de côté' : avant > 0 ? 'devant' : 'derrière'}.`,
+        surbrillance: [ref('entite', observateur), ref('entite', cible)],
+      });
+
+      carnet.etape({
+        utilise: [ref('entite', observateur)],
+        loi: 'quart de tour horaire',
+        produit: cote === 0 ? 'ni à droite ni à gauche' : cote > 0 ? 'à sa droite' : 'à sa gauche',
+        legende:
+          'Sa « droite » est ce « devant » tourné d’un quart de tour vers la droite. L’écart ' +
+          `projeté sur elle est ${cote === 0 ? 'nul' : cote > 0 ? 'positif' : 'négatif'} : ` +
+          `${cible} est ${cote === 0 ? 'exactement dans son axe de regard' : cote > 0 ? 'à sa droite' : 'à sa gauche'}. ` +
+          'C’est ici que l’on se trompe — cette droite est la sienne, pas la vôtre.',
+        surbrillance: [ref('entite', observateur), ref('entite', cible)],
+      });
+
+      carnet.etape({
+        utilise: [ref('option', bonne)],
+        produit: `${cible} est ${juste}`,
+        loi: 'recomposition',
+        legende:
+          `En réunissant les deux projections : ${cible} est ${juste}, du point de vue de ` +
+          `${observateur}. ` +
+          (inverse !== juste
+            ? `Répondre « ${inverse} » revient à prendre votre propre droite pour la sienne.`
+            : 'L’alignement supprime ici toute ambiguïté gauche-droite.'),
+        surbrillance: [ref('option', bonne), ref('entite', observateur), ref('entite', cible)],
+      });
 
       return {
         moteur: 'cadres',
@@ -151,6 +223,7 @@ export const cadres: Moteur = {
             ? `L’erreur à éviter est de répondre « ${inverse} », ce qui revient à prendre votre ` +
               `propre droite pour celle de ${observateur}.`
             : 'Ici l’alignement supprime l’ambiguïté gauche-droite.'),
+        trace: carnet.sceller({ genre: 'unique', indice: bonne }),
       };
     }
     return null;

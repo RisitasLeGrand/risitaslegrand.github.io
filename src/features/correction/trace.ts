@@ -61,6 +61,7 @@ export type EtiquetteErreur =
   | 'axe-permute'
   | 'quantificateur-affaibli'
   | 'cycle-ignore'
+  | 'cadre-inverse'
   | 'hors-zone'
   | 'non-etiquete';
 
@@ -74,6 +75,9 @@ export const DIAGNOSTIC: Record<EtiquetteErreur, string> = {
   'axe-permute': 'les deux axes ont été échangés en route',
   'quantificateur-affaibli': 'le quantificateur a été affaibli : « certains » ne donne pas « tous »',
   'cycle-ignore': 'le cycle a été parcouru comme un ordre, alors qu’il revient sur lui-même',
+  'cadre-inverse':
+    'la gauche et la droite sont celles de l’observateur, pas les vôtres : c’est l’erreur ' +
+    'qu’on fait en indiquant un chemin à quelqu’un qui vient vers soi',
   'hors-zone': 'cette position est exclue par ce que les prémisses établissent déjà',
   'non-etiquete': '',
 };

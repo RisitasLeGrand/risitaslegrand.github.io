@@ -17,10 +17,24 @@
  * tirage — c'est la même exigence que pour Contradiction, et pour la même
  * raison : une question à deux réponses correctes dont une seule est comptée
  * juste est une faute, pas une difficulté.
+ *
+ * **La correction pas à pas n'est offerte que si le sous-ensemble utile est
+ * exactement un chemin.** Elle déroule la chaîne de composition ; si le
+ * sous-ensemble minimal contenait un fait hors de ce chemin, elle désignerait
+ * comme utile un fait qu'elle n'emploie jamais, et la personne aurait raison de
+ * ne pas la croire. L'item est alors rendu **sans trace**.
+ *
+ * Le cas se produit vraiment : sur `poset`, où la composition n'est pas complète
+ * par chemin, le plus petit ensemble suffisant combine plusieurs chaînes dont
+ * c'est le **croisement** qui ferme la paire. Une chaîne unique n'en rend pas
+ * compte. Rendre l'item sans correction pas à pas valait mieux que supprimer
+ * l'exercice sur ce système.
  */
 import { coherent } from '../../noyaux/algebre';
+import { aretes, journal, meilleurChemin, tracerChemin } from '../../noyaux/chemin';
 import { plusPetitSuffisant, FAITS_MAXIMUM } from '../../noyaux/mus';
 import { blocFaits, libelle, phrase, texte } from '../../noyaux/presentation';
+import { ref } from '../../../correction/trace';
 import type { Alea, Fait, Systeme } from '../../systemes/types';
 import type { Item, Moteur, Option } from '../types';
 
@@ -101,8 +115,62 @@ export const premissesMinimales: Moteur = {
       if (faits.length - suffisant.faits.length < suffisant.faits.length) continue;
 
       const utiles = new Set(suffisant.faits);
-      const options: Option[] = faits.map((fait) => ({ texte: phrase(systeme, fait) }));
       const bonnes = faits.flatMap((fait, i) => (utiles.has(fait) ? [i] : []));
+
+      // ----- La trace : la chaîne, et elle seule ------------------------
+      // Les arêtes sont construites sur la liste **affichée**, pour que les
+      // indices de la trace désignent les faits que la personne a sous les
+      // yeux ; on les restreint ensuite aux faits utiles.
+      const utilesParIndice = new Set(bonnes);
+      const chemin = meilleurChemin(
+        systeme,
+        aretes(systeme, faits).filter((arete) => utilesParIndice.has(arete.indice)),
+        a,
+        b,
+        suffisant.faits.length,
+      );
+      const carnet = journal();
+      let tracable = false;
+      if (chemin) {
+        // Le chemin doit employer tous les faits déclarés utiles, sans quoi la
+        // correction en désignerait un qu'elle n'emploie pas.
+        const employes = new Set(chemin.aretes.map((arete) => arete.indice));
+        if (employes.size === bonnes.length) {
+          const obtenu = tracerChemin(carnet, systeme, chemin, a, { inutilesParmi: faits.length });
+          tracable = obtenu.size === 1 && obtenu.has(conclusion);
+        }
+      }
+
+      if (tracable) {
+        const inertes = faits.length - suffisant.faits.length;
+        carnet.etape({
+          utilise: bonnes.map((i) => ref('option', i)),
+          produit: `${suffisant.faits.length} faits utiles sur ${faits.length}`,
+          legende:
+            `La chaîne est complète : ces ${suffisant.faits.length} faits forcent ` +
+            `« ${libelle(systeme, conclusion)} » entre ${a} et ${b}. Les ${inertes} autres sont ` +
+            'vrais, mais aucun n’entre dans la composition — les retirer ne changerait rien à la ' +
+            'conclusion, alors que retirer l’un de ceux-ci la rendrait indéterminée.',
+          surbrillance: [ref('entite', a), ref('entite', b), ...bonnes.map((i) => ref('option', i))],
+        });
+      }
+
+      /*
+       * Un fait inerte qui cite une entité de la conclusion est le leurre de
+       * surface même : il a l'air de parler du sujet. C'est précisément ce que
+       * le moteur fabrique, et la correction doit le nommer ainsi plutôt que de
+       * dire « faux » — ce fait est vrai.
+       */
+      const options: Option[] = faits.map((fait, i) => ({
+        texte: phrase(systeme, fait),
+        ...(utilesParIndice.has(i)
+          ? {}
+          : {
+              etiquette: [fait.sujet, fait.objet].some((e) => e === a || e === b)
+                ? ('leurre-de-surface' as const)
+                : ('option-redondante' as const),
+            }),
+      }));
 
       return {
         moteur: 'premisses-minimales',
@@ -126,6 +194,7 @@ export const premissesMinimales: Moteur = {
           'autres faits sont vrais mais inertes — les retirer ne change rien à la conclusion, ' +
           'alors que retirer l’un de ceux qui comptent la rend indéterminée. C’est toute la ' +
           'différence entre un fait **vrai** et un fait **utile**.',
+        ...(tracable ? { trace: carnet.sceller({ genre: 'multiple', indices: bonnes }) } : {}),
       };
     }
     return null;

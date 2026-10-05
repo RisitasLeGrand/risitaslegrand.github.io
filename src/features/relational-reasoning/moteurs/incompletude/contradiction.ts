@@ -22,10 +22,28 @@
  * C'est aussi pourquoi le fait ajouté n'est pas nécessairement la réponse : un
  * autre fait de l'instance peut être le seul rédempteur, si le conflit passe par
  * lui. La réponse est ce que le solveur trouve, pas ce que le générateur voulait.
+ *
+ * ## Ce que la correction peut montrer, et ce qu'elle ne peut pas
+ *
+ * La trace montre **un** conflit : la chaîne des autres faits qui, composée,
+ * exclut ce que le fait coupable affirme. C'est vérifiable à l'œil sur l'énoncé,
+ * et le tirage est rejeté si ce conflit n'a pas cette forme.
+ *
+ * Elle ne peut pas montrer les autres, et il y en a forcément. S'il n'y avait
+ * qu'un seul conflit, **chacun** de ses faits serait rédempteur — retirer
+ * n'importe quel maillon casse la boucle —, et le tirage aurait été rejeté pour
+ * pluralité de réponses. Un item retenu porte donc au moins deux conflits, dont
+ * le fait coupable est le seul membre commun. La dernière étape le dit, au lieu
+ * de laisser croire que le conflit montré est toute l'affaire.
+ *
+ * Les faits hors de la chaîne montrée **ne sont pas déclarés inutiles** : ils
+ * entrent dans les autres conflits. Les marquer comme tels serait faux.
  */
 import { coherent } from '../../noyaux/algebre';
+import { aretes, journal, meilleurChemin, tracerChemin } from '../../noyaux/chemin';
 import { faitsRedempteurs, FAITS_MAXIMUM } from '../../noyaux/mus';
 import { blocFaits, libelle, phrase, texte } from '../../noyaux/presentation';
+import { ref } from '../../../correction/trace';
 import type { Alea, Fait, Systeme } from '../../systemes/types';
 import type { Item, Moteur, Option } from '../types';
 
@@ -77,8 +95,54 @@ export const contradiction: Moteur = {
       if (redempteurs.length !== 1) continue;
 
       const coupable = redempteurs[0];
-      const options: Option[] = faits.map((fait) => ({ texte: phrase(systeme, fait) }));
       const bonne = faits.indexOf(coupable);
+
+      // ----- La trace : un conflit, montré le long d'une chaîne ----------
+      // On cherche un chemin entre les deux bouts du fait coupable, parmi les
+      // **autres** faits : sa composition doit exclure ce que le coupable
+      // affirme. C'est le conflit, sous sa forme la plus lisible.
+      const chemin = meilleurChemin(
+        systeme,
+        aretes(systeme, faits).filter((arete) => arete.indice !== bonne),
+        coupable.sujet,
+        coupable.objet,
+        Math.min(faits.length, 5),
+      );
+      if (!chemin) continue;
+      const carnet = journal();
+      const obtenu = tracerChemin(carnet, systeme, chemin, coupable.sujet);
+      if (obtenu.has(coupable.relation)) continue;
+
+      const nomsObtenus = [...obtenu].map((r) => `« ${libelle(systeme, r)} »`);
+      carnet.etape({
+        utilise: [ref('option', bonne)],
+        produit: `retirer : ${phrase(systeme, coupable)}`,
+        legende:
+          `Les autres faits imposent ${nomsObtenus.join(' ou ')} entre ${coupable.sujet} et ` +
+          `${coupable.objet}. Or le fait ${bonne + 1} affirme que ` +
+          `${coupable.sujet} ${libelle(systeme, coupable.relation)} ${coupable.objet} : ` +
+          'voilà la contradiction. Et c’est le seul fait dont le retrait suffise — il y a ' +
+          'd’autres conflits dans cet énoncé, et il est le seul qu’ils ont tous en commun. ' +
+          'C’est pourquoi retirer n’importe quel autre fait en laisserait un en place.',
+        surbrillance: [
+          ref('option', bonne),
+          ref('entite', coupable.sujet),
+          ref('entite', coupable.objet),
+        ],
+      });
+
+      /*
+       * Tous les distracteurs portent la **même** étiquette, et il faut résister
+       * à l'envie d'en distinguer deux sortes selon qu'ils sont sur la chaîne
+       * montrée ou non. Un fait hors de cette chaîne n'est pas « hors sujet » :
+       * il appartient à l'un des autres conflits, nécessairement, puisque son
+       * retrait ne rétablit pas la cohérence. L'erreur est la même dans les deux
+       * cas — avoir vu une boucle et pas les autres.
+       */
+      const options: Option[] = faits.map((fait, i) => ({
+        texte: phrase(systeme, fait),
+        ...(i === bonne ? {} : { etiquette: 'cycle-ignore' as const }),
+      }));
 
       return {
         moteur: 'contradiction',
@@ -101,6 +165,7 @@ export const contradiction: Moteur = {
           'un seul retrait la rétablit. Notez que ' +
           `« ${a} ${libelle(systeme, intrus.relation)} ${b} » n’est pas faux « en soi » : ` +
           'il l’est **relativement** aux autres faits énoncés, qui contraignent déjà cette paire.',
+        trace: carnet.sceller({ genre: 'unique', indice: bonne }),
       };
     }
     return null;

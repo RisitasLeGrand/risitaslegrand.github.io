@@ -52,6 +52,13 @@ const MOTEURS_TRACES: string[] = [
   'chaine-composee',
   'inferer-relation',
   'reseau-relationnel',
+  'ensembles-possibles',
+  'premisses-minimales',
+  'contradiction',
+  'premisse-manquante',
+  'projection',
+  'echange-axes',
+  'cadres',
 ];
 
 let echecs = 0;
@@ -317,15 +324,30 @@ console.log('\n\x1b[1mLES MOTEURS, ITEM PAR ITEM\x1b[0m\n');
   let defautsTotal = 0;
   let itemsVus = 0;
 
+  /**
+   * La couverture par moteur : combien de ses items portent une trace.
+   *
+   * Elle n'est pas toujours de 100 %, et c'est assumé — deux moteurs
+   * d'incomplétude rendent l'item sans trace quand aucune chaîne unique ne
+   * justifie la réponse, plutôt que de supprimer l'exercice ou de raconter un
+   * calcul qu'ils n'ont pas fait. Mais une couverture qui s'effondrerait en
+   * silence serait un défaut, d'où le plancher vérifié plus bas.
+   */
+  const couverture = new Map<string, { items: number; traces: number }>();
+
   for (const moteur of MOTEURS) {
     let aTrace = false;
+    const compte = { items: 0, traces: 0 };
+    couverture.set(moteur.id, compte);
     for (const systeme of SYSTEMES) {
       if (!accepte(moteur, systeme)) continue;
       for (let i = 0; i < TIRAGES; i += 1) {
         const item = moteur.engendrer(systeme, 1 + (i % 6), alea(i * 7919 + 13));
         if (!item) continue;
         itemsVus += 1;
+        compte.items += 1;
         if (!item.trace) continue;
+        compte.traces += 1;
         aTrace = true;
         const defauts = defautsDeLaTrace(item.trace, item.reponse);
         if (defauts.length > 0) {
@@ -351,6 +373,27 @@ console.log('\n\x1b[1mLES MOTEURS, ITEM PAR ITEM\x1b[0m\n');
     tracent.sort(),
     [...MOTEURS_TRACES].sort(),
   );
+
+  // Le plancher : un moteur déclaré traçant doit tracer la moitié de ses items
+  // au moins. Il attrape l'effondrement silencieux, que la seule présence d'une
+  // trace sur un item ne verrait pas.
+  const PLANCHER = 50;
+  const faibles = MOTEURS_TRACES.map((id) => {
+    const c = couverture.get(id) ?? { items: 0, traces: 0 };
+    return { id, part: c.items ? Math.round((c.traces / c.items) * 100) : 0 };
+  }).filter((x) => x.part < PLANCHER);
+  verifier(
+    `chaque moteur déclaré trace au moins ${PLANCHER} % de ses items`,
+    faibles.map((x) => `${x.id} (${x.part} %)`),
+    [],
+  );
+
+  console.log('\n  Couverture des traces, moteur par moteur :');
+  for (const id of MOTEURS_TRACES) {
+    const c = couverture.get(id) ?? { items: 0, traces: 0 };
+    const part = c.items ? Math.round((c.traces / c.items) * 100) : 0;
+    console.log(`    ${id.padEnd(22)} ${String(part).padStart(3)} %  (${c.traces}/${c.items})`);
+  }
 
   if (sans.length > 0) {
     console.log(

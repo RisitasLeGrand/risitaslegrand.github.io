@@ -31,7 +31,7 @@
 import { compiler, possibilites } from '../../noyaux/algebre';
 import { journal, ref } from '../../../correction/trace';
 import { libelle, que, texte } from '../../noyaux/presentation';
-import { aretes, fonctionnel, meilleurChemin, type Chemin } from './chemin';
+import { aretes, fonctionnel, meilleurChemin, type Chemin } from '../../noyaux/chemin';
 import type { Alea, Systeme } from '../../systemes/types';
 import type { Item, Moteur, Option } from '../types';
 
