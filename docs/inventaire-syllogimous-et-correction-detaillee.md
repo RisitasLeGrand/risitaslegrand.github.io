@@ -621,3 +621,53 @@ terminé passe de « inventaire » à « migré » en s'inscrivant dans
 **Note sur le prétest.** Il partage `quizSchema` avec le quiz, mais le contrôle ne l'inspecte
 pas : un prétest ne corrige rien par construction — « rien n'est compté comme une erreur » —,
 de sorte qu'y exiger une correction irait contre sa raison d'être.
+
+## Lot A1 — systèmes nouveaux : **livré**, et un défaut trouvé au passage
+
+| Fichier | Rôle |
+|---|---|
+| `systemes/grandeur.ts` | Comparaison de **magnitude** : « est plus grand que », axe non strict |
+| `systemes/rang.ts` | Places numérotées et **écart exact** : « est à deux places à gauche de » |
+| `systemes/anneau.ts` | Six places **en cercle**, avec « est diamétralement opposé à » |
+| `systemes/plan-temps.ts` | Un plan, et le **temps** comme troisième axe |
+| `noyaux/mots.ts` | Générateur de **mots-fantômes français** prononçables |
+
+Le registre passe de **10 à 14 systèmes**, et les couples praticables de **118 à 196** — sans
+qu'une ligne de moteur soit touchée. C'est ce que la séparation système / moteur devait rendre
+possible, et la preuve qu'elle tient.
+
+### Deux systèmes de l'inventaire écartés après lecture du code
+
+| Annoncé absent | En fait |
+|---|---|
+| `partition` (identique / opposé) | **C'est `groups`.** « Alliée de » / « rivale de » est exactement le Z₂ attendu, avec la composition fonctionnelle de l'équilibre structurel. Le créer aurait été le doublon que la consigne interdit. |
+| `frise` (comparaison chronologique) | **C'est `line`.** Son vocabulaire est déjà « est avant » / « est après ». Ce qui manquait n'était pas le temps mais la **magnitude**, d'où `grandeur`. |
+
+### Le défaut : une clef de mémo tronquée, qui faussait `space`
+
+En étendant la vérification « la relation du modèle doit figurer parmi les possibles » aux
+quatorze systèmes — elle ne portait que sur trois —, `space` a échoué. Cause :
+
+```js
+const clef = gauche * (1 << a.taille) + droite;   // taille = 27
+```
+
+À vingt-sept relations, les deux masques valent jusqu'à 2²⁷ et leur produit atteint **2⁵⁴**,
+au-delà des 2⁵³ que JavaScript représente exactement. Deux couples de masques distincts
+recevaient la même clef, et `composerMasques` rendait le résultat mémorisé **pour une autre
+paire** — sans erreur, sans avertissement.
+
+| Mesure sur mille instances de `space` | Avant | Après |
+|---|---|---|
+| Instances déclarées incohérentes alors qu'un modèle les satisfait | **88** | 0 |
+| Paires dont la relation réelle était exclue des possibles | **3 436** | 0 |
+
+**Portée.** `space` est en production et dix moteurs sur seize y tournent : tout item posé sur
+ce système pouvait porter une clef de réponse fausse. Le mémo passe à deux étages, exact pour
+tout vocabulaire que le solveur accepte (31 relations au plus).
+
+**Pourquoi il avait échappé.** La vérification qui l'attrape est la seule capable de détecter un
+générateur qui énonce un fait faux, et elle était restreinte à `line`, `plane` et `groups` —
+tous sous le seuil de 26 relations. Elle porte désormais sur les quatorze systèmes dotés d'une
+table de composition : mille tirages là où lire une paire est une propagation, quarante là où
+c'est une énumération de scénarios, `allen` coûtant près d'une seconde par instance.
