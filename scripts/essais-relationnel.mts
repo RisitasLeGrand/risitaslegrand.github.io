@@ -105,11 +105,34 @@ const triangleDesequilibre = [
 verifier('triangle déséquilibré impossible', coherent(ag, groups.cheminComplet, ['X', 'Y', 'Z'], triangleDesequilibre), false);
 
 console.log('\nGÉNÉRATEURS — cohérence de mille instances, tous paliers');
-for (const systeme of [line, plane, groups]) {
+/**
+ * Tous les systèmes y passent, et non trois d'entre eux.
+ *
+ * C'est la vérification la plus utile du script — elle attraperait un
+ * générateur qui énonce un fait faux, ce dont rien d'autre ne rend compte — et
+ * il n'y avait pas de raison de la réserver à `line`, `plane` et `groups`. Les
+ * systèmes du régime clos n'ont pas de table de composition et sont donc
+ * écartés : la question « cette relation reste-t-elle possible » ne s'y pose
+ * pas, l'absence d'arête y étant une négation.
+ */
+for (const systeme of SYSTEMES.filter((s) => s.composer)) {
   const a = algebreDe(systeme);
   let mauvaises = 0;
   let desaccords = 0;
-  for (let graine = 1; graine <= 1000; graine += 1) {
+  /**
+   * Mille instances là où la lecture d'une paire est une propagation, quarante
+   * là où elle est une énumération de scénarios.
+   *
+   * Le calibrage n'est pas une complaisance : pour `allen`, lire toutes les
+   * paires d'une instance coûte près d'une seconde, et mille instances
+   * demanderaient un quart d'heure. Un essai qu'on n'attend pas est un essai
+   * qu'on finit par ne plus lancer, ce qui le rend inutile. Quarante instances
+   * sur un système qui déclare `cheminComplet: false` attrapent déjà un
+   * générateur qui énonce un fait faux — le défaut visé —, puisqu'un tel
+   * générateur se trompe sur une bonne part de ses tirages, pas sur un sur mille.
+   */
+  const tirages = systeme.cheminComplet ? 1000 : 40;
+  for (let graine = 1; graine <= tirages; graine += 1) {
     const hasard = alea(graine);
     const difficulte = 1 + (graine % 10);
     const instance = systeme.engendrer(difficulte, hasard);
@@ -124,7 +147,7 @@ for (const systeme of [line, plane, groups]) {
       }
     }
   }
-  verifier(`${systeme.id} : instances incohérentes`, mauvaises, 0);
+  verifier(`${systeme.id} : instances incohérentes (${tirages} tirages)`, mauvaises, 0);
   verifier(`${systeme.id} : modèle exclu des possibles`, desaccords, 0);
 }
 

@@ -53,8 +53,18 @@ export interface AlgebreCompilee {
    * Mémo de la composition d'**ensembles**. Une table dense serait préférable
    * mais impraticable : pour les treize relations d'Allen elle compterait
    * soixante-sept millions d'entrées.
+   *
+   * Mémo **à deux étages**, et non une table plate indexée par
+   * `gauche * 2^taille + droite`. La clef plate paraît naturelle et elle est
+   * fausse dès vingt-sept relations : les deux masques valent alors jusqu'à
+   * 2^27, leur produit atteint 2^54, et un entier au-delà de 2^53 n'est plus
+   * représentable exactement en JavaScript. Deux couples distincts recevaient
+   * donc la même clef, et la composition rendait un résultat mémorisé pour une
+   * autre paire — en silence, sans jamais lever d'erreur. C'est ce qui rendait
+   * incohérentes près de neuf instances de `space` sur cent, et faisait exclure
+   * des possibles la relation même du modèle.
    */
-  memo: Map<number, number>;
+  memo: Map<number, Map<number, number>>;
 }
 
 const cache = new WeakMap<Algebre, AlgebreCompilee>();
@@ -120,9 +130,14 @@ export function converseDeMasque(a: AlgebreCompilee, masque: number): number {
 /** Composition de deux masques : l'union des compositions terme à terme. */
 export function composerMasques(a: AlgebreCompilee, gauche: number, droite: number): number {
   if (!gauche || !droite) return 0;
-  const clef = gauche * (1 << a.taille) + droite;
-  const connu = a.memo.get(clef);
-  if (connu !== undefined) return connu;
+  let parGauche = a.memo.get(gauche);
+  if (parGauche === undefined) {
+    parGauche = new Map();
+    a.memo.set(gauche, parGauche);
+  } else {
+    const connu = parGauche.get(droite);
+    if (connu !== undefined) return connu;
+  }
 
   let resultat = 0;
   let restantG = gauche;
@@ -137,7 +152,7 @@ export function composerMasques(a: AlgebreCompilee, gauche: number, droite: numb
       resultat |= a.composition[base + (31 - Math.clz32(bitD))];
     }
   }
-  a.memo.set(clef, resultat);
+  parGauche.set(droite, resultat);
   return resultat;
 }
 
