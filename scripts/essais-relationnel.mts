@@ -16,6 +16,7 @@
  */
 import { alea } from '../src/features/relational-reasoning/noyaux/aleatoire';
 import { composerSession } from '../src/features/relational-reasoning/session';
+import { eliminer, type Matrice } from '../src/features/relational-reasoning/noyaux/isomorphisme';
 import { composerChemin, possibilites, coherent } from '../src/features/relational-reasoning/noyaux/algebre';
 import { line } from '../src/features/relational-reasoning/systemes/line';
 import { plane } from '../src/features/relational-reasoning/systemes/plane';
@@ -226,6 +227,63 @@ console.log('\nÉCHELLE À FENÊTRE — ce que le hasard ne doit pas rapporter')
     ),
     2,
   );
+}
+
+console.log('\nÉLIMINATION — l’appariement doit se trouver sans fouiller les permutations');
+{
+  // Un ordre total sur quatre éléments : chaque sommet a un rang distinct, donc
+  // un profil distinct. Tout doit tomber au premier tour.
+  const ordre: Matrice = [
+    ['', 'a', 'a', 'a'],
+    ['b', '', 'a', 'a'],
+    ['b', 'b', '', 'a'],
+    ['b', 'b', 'b', ''],
+  ];
+  // La même structure, sommets permutés : 0→3, 1→2, 2→1, 3→0.
+  const pi = [3, 2, 1, 0];
+  const permutee: Matrice = ordre.map((_, i) => ordre.map((_, j) => ordre[pi.indexOf(i)][pi.indexOf(j)]));
+
+  const epinglages = eliminer(ordre, permutee);
+  verifier('tout est épinglé sur un ordre total', epinglages?.length, 4);
+  verifier(
+    'et sur les seuls profils, sans appui',
+    epinglages?.every((e) => e.motif === 'profil'),
+    true,
+  );
+  verifier(
+    'l’appariement trouvé est celui de la permutation',
+    epinglages?.map((e) => [e.gauche, e.droite]).sort((a, b) => a[0] - b[0]),
+    [0, 1, 2, 3].map((i) => [i, pi[i]]),
+  );
+
+  /**
+   * Le point qui justifie la fonction : l'appariement **transporte** la
+   * structure. Un appariement qui ne la transporte pas serait faux, et la trace
+   * de correction affirmerait alors une bêtise à chaque étape.
+   */
+  const image = new Map(epinglages?.map((e) => [e.gauche, e.droite]));
+  let transporte = true;
+  for (let i = 0; i < 4; i += 1) {
+    for (let j = 0; j < 4; j += 1) {
+      if (ordre[i][j] !== permutee[image.get(i)!][image.get(j)!]) transporte = false;
+    }
+  }
+  verifier('et il transporte toutes les relations', transporte, true);
+
+  /**
+   * Une structure symétrique : les deux premiers sommets sont interchangeables.
+   * L'élimination doit **caler** plutôt que trancher au hasard — deux
+   * appariements sont corrects, et en désigner un seul serait une faute.
+   */
+  const symetrique: Matrice = [
+    ['', 'a', 'a'],
+    ['a', '', 'a'],
+    ['a', 'a', ''],
+  ];
+  verifier('l’élimination cale sur une structure symétrique', eliminer(symetrique, symetrique), null);
+
+  // Deux tailles différentes : rien à apparier.
+  verifier('et refuse deux structures de tailles différentes', eliminer(ordre, symetrique), null);
 }
 
 console.log('\nMON ENTRAÎNEMENT — la session ne tire que ce qui est coché');

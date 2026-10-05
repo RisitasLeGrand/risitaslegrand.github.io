@@ -272,3 +272,124 @@ export function apparait(motif: Matrice, hote: Matrice, induit = true): boolean 
 export function sousMatrice(structure: Matrice, indices: readonly number[]): Matrice {
   return indices.map((i) => indices.map((j) => structure[i][j]));
 }
+
+/**
+ * Le profil d'un sommet : ses relations sortantes et entrantes, comptées.
+ *
+ * C'est le premier discriminant de l'appariement, et le seul qu'on puisse lire
+ * sans rien avoir encore épinglé. Il ne regarde pas *avec qui* le sommet est en
+ * relation, seulement *combien de fois* chaque relation apparaît sur lui — ce
+ * qui le rend invariant par réétiquetage, donc comparable d'un réseau à l'autre.
+ */
+export interface Profil {
+  sortantes: Record<string, number>;
+  entrantes: Record<string, number>;
+}
+
+export function profil(structure: Matrice, i: number): Profil {
+  const sortantes: Record<string, number> = {};
+  const entrantes: Record<string, number> = {};
+  for (let j = 0; j < structure.length; j += 1) {
+    if (j === i) continue;
+    const sortante = structure[i][j];
+    if (sortante) sortantes[sortante] = (sortantes[sortante] ?? 0) + 1;
+    const entrante = structure[j][i];
+    if (entrante) entrantes[entrante] = (entrantes[entrante] ?? 0) + 1;
+  }
+  return { sortantes, entrantes };
+}
+
+function clefDeProfil(p: Profil): string {
+  const trier = (compte: Record<string, number>) =>
+    Object.entries(compte)
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([relation, n]) => `${relation}×${n}`)
+      .join(',');
+  return `${trier(p.sortantes)}|${trier(p.entrantes)}`;
+}
+
+/** Une entité épinglée, et ce qui l'a épinglée. */
+export interface Epinglage {
+  /** L'indice dans la structure de gauche. */
+  gauche: number;
+  /** L'indice qui lui correspond dans celle de droite. */
+  droite: number;
+  /**
+   * Comment il a été épinglé. `profil` : son profil ne se retrouve qu'une fois
+   * en face. `appui` : ce sont ses relations aux entités déjà épinglées qui ont
+   * tranché, et `appuis` les nomme.
+   */
+  motif: 'profil' | 'appui';
+  /** Les indices de gauche déjà épinglés qui ont servi à écarter des candidats. */
+  appuis: number[];
+}
+
+/**
+ * L'appariement de deux structures, **par élimination progressive**.
+ *
+ * C'est le raisonnement qu'on attend de la personne, et non une recherche
+ * exhaustive : on commence par les sommets que leur profil suffit à distinguer,
+ * puis on se sert de ceux-là pour trancher les autres. La différence compte
+ * pour la correction détaillée — une permutation trouvée par force brute ne
+ * s'explique pas, une élimination s'explique étape par étape.
+ *
+ * Rend `null` quand l'élimination **cale** : il reste des sommets dont rien
+ * n'écarte les candidats. La structure peut rester rigide dans ce cas — un
+ * appariement unique existe, mais seule une recherche le trouve. Un moteur qui
+ * veut un exercice humainement résoluble refuse alors le tirage ; `isomorphisme`
+ * reste là pour qui veut l'appariement à tout prix.
+ */
+export function eliminer(gauche: Matrice, droite: Matrice): Epinglage[] | null {
+  const n = gauche.length;
+  if (droite.length !== n) return null;
+
+  const profilsGauche = Array.from({ length: n }, (_, i) => clefDeProfil(profil(gauche, i)));
+  const profilsDroite = Array.from({ length: n }, (_, j) => clefDeProfil(profil(droite, j)));
+
+  const candidats = profilsGauche.map(
+    (clef) => new Set(profilsDroite.map((autre, j) => (autre === clef ? j : -1)).filter((j) => j >= 0)),
+  );
+  // Les appuis qui ont servi à chaque sommet, dans l'ordre où ils ont servi.
+  const appuis = Array.from({ length: n }, () => [] as number[]);
+  const epingle = new Map<number, number>();
+  const epinglages: Epinglage[] = [];
+
+  let progresse = true;
+  while (epingle.size < n && progresse) {
+    progresse = false;
+
+    for (let i = 0; i < n; i += 1) {
+      if (epingle.has(i) || candidats[i].size !== 1) continue;
+      const j = [...candidats[i]][0];
+      epingle.set(i, j);
+      epinglages.push({
+        gauche: i,
+        droite: j,
+        motif: appuis[i].length ? 'appui' : 'profil',
+        appuis: [...appuis[i]],
+      });
+      progresse = true;
+
+      // Injectivité : l'entité épinglée n'est plus candidate ailleurs.
+      for (let k = 0; k < n; k += 1) {
+        if (k === i || epingle.has(k)) continue;
+        if (candidats[k].delete(j)) appuis[k].push(i);
+      }
+
+      // Et toute entité encore libre doit, face à `j`, porter les mêmes
+      // relations que `i` porte face à `i` — c'est ce que l'appui apporte.
+      for (let k = 0; k < n; k += 1) {
+        if (epingle.has(k)) continue;
+        for (const candidat of [...candidats[k]]) {
+          if (gauche[k][i] !== droite[candidat][j] || gauche[i][k] !== droite[j][candidat]) {
+            candidats[k].delete(candidat);
+            if (!appuis[k].includes(i)) appuis[k].push(i);
+          }
+        }
+        if (!candidats[k].size) return null;
+      }
+    }
+  }
+
+  return epingle.size === n ? epinglages : null;
+}

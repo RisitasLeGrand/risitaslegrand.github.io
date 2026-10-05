@@ -12,6 +12,7 @@
  * déterminée dès qu'un symbole a un exemple.
  */
 import { blocModele, libelle, texte } from '../../noyaux/presentation';
+import { journal, ref } from '../../../correction/trace';
 import type { Alea, Systeme } from '../../systemes/types';
 import type { Item, Moteur } from '../types';
 
@@ -70,9 +71,10 @@ export const infererRelation: Moteur = {
 
     // Les exemples sont mélangés entre symboles : sans cela, ils se liraient par
     // blocs et l'élimination n'aurait pas lieu.
+    const ligne = (a: string, symbole: string, b: string) => `${a}  ${symbole}  ${b}`;
     const lignes = alea.melanger(
       attribution.flatMap(({ symbole, exemples }) =>
-        exemples.map(([a, b]) => `${a}  ${symbole}  ${b}`),
+        exemples.map(([a, b]) => ligne(a, symbole, b)),
       ),
     );
 
@@ -87,6 +89,37 @@ export const infererRelation: Moteur = {
 
     const paires: Record<string, string> = {};
     for (const choix of attribution) paires[choix.symbole] = libelle(systeme, choix.relation);
+
+    // La trace suit le raisonnement qui fait tenir l'exercice : un symbole ne
+    // peut désigner qu'une relation, parce que les relations d'un système sont
+    // mutuellement exclusives. Un seul exemple suffit donc à le fixer, et les
+    // autres ne font que confirmer — c'est ce que l'étape dit.
+    const carnet = journal();
+    for (const choix of attribution) {
+      const [a, b] = choix.exemples[0];
+      const nom = libelle(systeme, choix.relation);
+      const confirment = choix.exemples
+        .slice(1)
+        .map(([x, y]) => `${x} ${nom} ${y}`)
+        .join(', ');
+
+      carnet.etape({
+        utilise: choix.exemples.map(([x, y]) => ref('premisse', ligne(x, choix.symbole, y))),
+        produit: `${choix.symbole} = « ${nom} »`,
+        loi: 'lecture dans la structure, puis exclusion mutuelle',
+        legende:
+          `Dans la structure montrée, ${a} ${nom} ${b}. L’exemple « ${ligne(a, choix.symbole, b)} » ` +
+          `fixe donc ${choix.symbole} sur cette relation, et aucune autre : les relations du ` +
+          `système s’excluent entre elles.` +
+          (confirment ? ` Les autres exemples le confirment — ${confirment}.` : ''),
+        surbrillance: choix.exemples.flatMap(([x, y]) => [ref('noeud', x), ref('noeud', y)]),
+      });
+    }
+    // Les relations proposées à droite sans être en jeu : des leurres, qu'aucun
+    // exemple ne soutient. Les nommer inutiles évite qu'on les croie oubliées.
+    for (const option of droite) {
+      if (!Object.values(paires).includes(option)) carnet.inutile(ref('option', option));
+    }
 
     return {
       moteur: 'inferer-relation',
@@ -113,6 +146,7 @@ export const infererRelation: Moteur = {
           )} ${b} dans la structure montrée.`;
         })
         .join(' '),
+      trace: carnet.sceller({ genre: 'appariement', paires }),
     };
   },
 };

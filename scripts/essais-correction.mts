@@ -50,6 +50,8 @@ const MOTEURS_TRACES: string[] = [
   'chaine-conclusion',
   'chaine-syllogisme',
   'chaine-composee',
+  'inferer-relation',
+  'reseau-relationnel',
 ];
 
 let echecs = 0;

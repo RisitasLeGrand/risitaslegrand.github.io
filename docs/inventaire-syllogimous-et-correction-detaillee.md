@@ -925,3 +925,38 @@ le mode libre ouvre au moins autant de couples et à l'échelon 1, un couple dé
 son échelon gagné, la session ne tire que les moteurs cochés, une sélection sans couple
 praticable rend **zéro** item, l'ordre groupé ne laisse qu'un bloc par moteur en gardant les
 mêmes items que l'ordre entrelacé, et la progression n'est pas modifiée par le mode libre.
+
+## Lot B2 — traces des seize moteurs : **en cours**
+
+Les moteurs migrés émettent leur trace depuis leur propre solveur, et l'essai
+`npm run essais:correction` vérifie pour chacun que la dernière étape conclut bien à la réponse
+de l'item. Il nomme aussi, à chaque exécution, ceux qui restent.
+
+### Famille Induction — livrée
+
+**`reseau-relationnel`.** Le moteur exigeait jusqu'ici que la structure soit **rigide**, ce qui
+garantit que l'appariement est unique. Il exige maintenant davantage : que l'appariement se
+**trouve par élimination**. La rigidité n'implique pas qu'on puisse le trouver sans fouiller les
+permutations — et un exercice dont la solution ne se trouve que par force brute n'est pas un
+exercice de raisonnement, en plus de n'avoir aucune correction présentable.
+
+D'où `eliminer()` dans `noyaux/isomorphisme.ts` : profils d'abord — ce qu'un sommet porte comme
+relations, compté, invariant par réétiquetage — puis appuis sur ce qui est déjà épinglé. La trace
+est l'exécution même de cette élimination. Mesuré sur 300 tirages par système : **au moins 99 %
+des structures rigides s'y plient**, et 100 % sur douze des quinze systèmes. La contrainte
+nouvelle ne coûte donc presque rien, et `digraph` exerce vraiment la seconde phase (76 % de ses
+items ont au moins un appui).
+
+Quatre défauts de rédaction trouvés **en lisant les traces produites**, non en relisant le code :
+
+| Défaut | Correction |
+|---|---|
+| Le profil entrant était écrit alors qu'il est, sur les quinze systèmes, le miroir exact du sortant | Omis, avec le test qui le dirait si un vocabulaire futur brisait le miroir |
+| L'étape d'appui disait « la seule qui convient » sans dire pourquoi | Elle nomme la relation : « Pôle E reçoit de Pôle D ; β est la seule entité qui reçoit de α » |
+| « précède 2 entités et **incomparable à** 1 entité » — l'auxiliaire était élidé là où il était le seul verbe | L'élision n'a lieu que si la première relation porte le même auxiliaire |
+| Les libellés de `classes` portent une virgule, et trois d'affilée devenaient indécoupables | Relations **citées** entre guillemets dans ce cas, pour tout le profil |
+
+**`inferer-relation`.** La trace dit ce qui fait tenir l'exercice : les relations d'un système
+s'excluent mutuellement, donc un seul exemple fixe un symbole, et les autres ne font que
+confirmer. Les relations proposées à droite sans être en jeu sont marquées **inutiles**, pour
+qu'on ne les croie pas oubliées.
