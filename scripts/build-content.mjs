@@ -20,6 +20,7 @@ import {
   glossaireSchema,
   banqueDgfipSchema,
 } from './lib/schema.mjs';
+import { indexerFichesParChemin, resoudreRappels } from './lib/rappels.mjs';
 import { motDeLEpreuve } from './lib/pretest.mjs';
 import { dechiffrerAvecMotDePasse } from './lib/secret.mjs';
 import { construireIndexGlossaire, idTerme } from './lib/glossaire.mjs';
@@ -389,6 +390,29 @@ async function main() {
       // Fiche audio, si « npm run podcasts » l'a déjà synthétisée.
       podcast: await audioDisponible(ficheId),
     });
+  }
+
+  /*
+   * --- Les « rappel de cours » d'une correction deviennent de vrais liens ---
+   *
+   * La mécanique vit dans « lib/rappels.mjs », avec ses raisons et ses essais :
+   * le contenu désigne une fiche par son chemin, le site a besoin de son
+   * identifiant et de son titre, et une référence qui ne désigne rien arrête le
+   * build plutôt que de donner un lien mort à qui vient de rater la question.
+   */
+  const indexFiches = indexerFichesParChemin(fiches);
+  for (const f of fiches) {
+    for (const q of f.quiz) {
+      erreurs.push(...resoudreRappels(q.correction, indexFiches, `${f.chemin} (## Quiz)`));
+    }
+    for (const q of f.pretest) {
+      erreurs.push(...resoudreRappels(q.correction, indexFiches, `${f.chemin} (## Prétest)`));
+    }
+  }
+  for (const q of banqueDgfip.questions) {
+    erreurs.push(
+      ...resoudreRappels(q.correction, indexFiches, `QCM DGFiP, rubrique « ${q.rubrique} »`),
+    );
   }
 
   if (erreurs.length) {

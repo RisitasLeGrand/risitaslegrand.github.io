@@ -7,6 +7,8 @@
    * `possible` ou `exclu` se lit alors comme une déduction en cours.
    */
   import { MARQUEURS } from '../vocabulaire';
+  import Legende from '../composants/Legende.svelte';
+  import { marqueursDuVisuel } from './types';
   import type { DonneesGrille } from './types';
 
   let { donnees, alt }: { donnees: DonneesGrille; alt: string } = $props();
@@ -62,3 +64,8 @@
     </tbody>
   </table>
 </div>
+
+<!-- Les visuels en HTML portent leur légende comme ceux en SVG : sans elle, les
+     glyphes « ▣ » et « ⇢ » restent sans clef, alors que tout l'intérêt du
+     vocabulaire commun est de s'apprendre une fois et de se relire partout. -->
+<Legende marqueurs={marqueursDuVisuel(donnees)} />

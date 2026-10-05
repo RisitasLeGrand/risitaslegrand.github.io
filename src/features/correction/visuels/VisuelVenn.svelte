@@ -84,14 +84,42 @@
     return { inclus, exclus };
   };
 
-  /** Le centre approximatif d'une zone, pour y poser son libellé. */
-  const centreZone = (inclus: number[]) => {
+  /**
+   * Où poser le libellé d'une zone.
+   *
+   * Le centre des cercles **inclus** ne suffit pas, et c'était le défaut de la
+   * première version : les cercles se recouvrant largement, le centre du cercle
+   * de gauche tombe dans l'intersection. Les trois libellés d'un Venn à deux
+   * ensembles — « Irlande, Chypre », « 25 États », « 4 associés » — se
+   * superposaient donc tous les trois au même endroit, et le schéma censé
+   * distinguer trois nombres les empilait.
+   *
+   * On s'écarte donc des cercles **exclus** : une direction, somme des vecteurs
+   * qui fuient chaque exclu, et un pas d'un demi-rayon. C'est approximatif —
+   * aucune formule simple ne donne le centre d'une lunule — mais cela place le
+   * texte dans sa zone pour les dispositions à deux et trois ensembles, qui
+   * sont les seules que le schéma autorise.
+   */
+  const centreZone = (inclus: number[], exclus: number[]) => {
     const pris = inclus.map((i) => centres[i]);
     if (!pris.length) return { x: LARGEUR / 2, y: 16 };
-    return {
-      x: pris.reduce((s, c) => s + c.x, 0) / pris.length,
-      y: pris.reduce((s, c) => s + c.y, 0) / pris.length,
-    };
+    let x = pris.reduce((s, c) => s + c.x, 0) / pris.length;
+    let y = pris.reduce((s, c) => s + c.y, 0) / pris.length;
+    let vx = 0;
+    let vy = 0;
+    for (const i of exclus) {
+      const dx = x - centres[i].x;
+      const dy = y - centres[i].y;
+      const n = Math.hypot(dx, dy) || 1;
+      vx += dx / n;
+      vy += dy / n;
+    }
+    const n = Math.hypot(vx, vy);
+    if (n > 0) {
+      x += (vx / n) * R * 0.5;
+      y += (vy / n) * R * 0.5;
+    }
+    return { x, y };
   };
 </script>
 
@@ -156,8 +184,8 @@
   <!-- Les libellés de zone, posés après les cercles pour rester lisibles. -->
   {#each zones as zone, z (z)}
     {#if zone.libelle}
-      {@const { inclus } = partition(zone.regions)}
-      {@const c = centreZone(inclus)}
+      {@const { inclus, exclus } = partition(zone.regions)}
+      {@const c = centreZone(inclus, exclus)}
       <text x={c.x} y={c.y + 4} text-anchor="middle"
         class="fill-slate-900 text-[11px] font-semibold dark:fill-white">{zone.libelle}</text>
     {/if}
@@ -165,7 +193,10 @@
 
   {#each donnees.ensembles as ensemble, i (ensemble.id)}
     {@const haut = donnees.ensembles.length === 3 && i === 2}
-    <text x={centres[i].x} y={haut ? centres[i].y + R + 16 : centres[i].y - R - 7}
+    <!-- Les noms des deux ensembles du haut sont écartés vers l'extérieur :
+         posés sur les centres, ils se touchaient, les cercles se recouvrant. -->
+    {@const ecart = haut ? 0 : centres[i].x < LARGEUR / 2 ? -26 : 26}
+    <text x={centres[i].x + ecart} y={haut ? centres[i].y + R + 16 : centres[i].y - R - 7}
       text-anchor="middle" class="fill-slate-800 text-[11px] font-semibold dark:fill-slate-100"
       >{ensemble.libelle}</text>
   {/each}

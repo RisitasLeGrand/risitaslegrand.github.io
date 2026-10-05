@@ -181,6 +181,7 @@ import { base } from '../../lib/ui';
   import { echapper, formaterDate, notifier, pluriel } from '../../lib/ui';
   import { MATIERE_DGFIP, signalerErreur } from '../../lib/journal';
   import { enregistrerReponse } from '../../lib/niveau';
+  import { demonterCorrection, monterCorrection } from '../../features/correction/qcm/monter';
 
   let banque: BanqueDgfip | null = null;
   /** Formats effectivement proposés, la banque étant ce qu'elle est. */
@@ -457,6 +458,49 @@ import { base } from '../../lib/ui';
           ? `<p class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">` +
             `⚠ ${echapper(r.question.incertain)}</p>`
           : '');
+
+      /*
+       * La correction détaillée n'existe **que sur cet écran**, et c'est une
+       * règle de l'épreuve, non une limite technique.
+       *
+       * Une session de QCM DGFiP est chronométrée et se joue au barème du
+       * concours. Y glisser une correction après chaque question changerait la
+       * nature de l'exercice : on ne mesurerait plus ce qu'on sait sous
+       * contrainte de temps, mais ce qu'on apprend en chemin. Les deux sont
+       * utiles ; les mélanger ne mesure plus rien.
+       */
+      if (r.question.correction) {
+        const bouton = document.createElement('button');
+        bouton.type = 'button';
+        bouton.className =
+          'mt-3 rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-xs font-medium ' +
+          'text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700 dark:bg-slate-900 ' +
+          'dark:text-indigo-300 dark:hover:bg-indigo-950/40';
+        bouton.textContent = 'Correction détaillée';
+        bouton.setAttribute('aria-expanded', 'false');
+        const panneau = document.createElement('div');
+        bouton.addEventListener('click', () => {
+          const ouvert = panneau.childElementCount === 0;
+          if (!ouvert) {
+            demonterCorrection(panneau);
+            bouton.setAttribute('aria-expanded', 'false');
+            bouton.textContent = 'Correction détaillée';
+            return;
+          }
+          bouton.setAttribute('aria-expanded', 'true');
+          bouton.textContent = 'Replier la correction détaillée';
+          monterCorrection(panneau, {
+            correction: r.question.correction!,
+            options: r.question.options,
+            bonnes: r.question.bonnes,
+            choisies: r.choisis,
+            fermer: () => bouton.click(),
+          });
+        });
+        carte.appendChild(bouton);
+        carte.appendChild(panneau);
+      }
+
       zone.appendChild(carte);
     }
 

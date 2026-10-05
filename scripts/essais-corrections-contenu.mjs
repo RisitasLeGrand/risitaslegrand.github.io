@@ -22,6 +22,7 @@ import {
 } from './lib/schema.mjs';
 import { MATIERES_MIGREES, RUBRIQUES_MIGREES, estMatiereMigree } from './lib/corrections-migrees.mjs';
 import { defautsDesDonnees, DONNEES_PAR_TYPE } from './lib/visuels.mjs';
+import { indexerFichesParChemin, resoudreRappels } from './lib/rappels.mjs';
 
 let echecs = 0;
 function verifier(titre, obtenu, attendu) {
@@ -440,6 +441,104 @@ console.log('\n\x1b[1mLES DONNÉES DES VISUELS\x1b[0m\n');
     'un champ inconnu est refusé',
     defautsDesDonnees('frise', { ...bonneFrise, jallons: [] }).length > 0,
     true,
+  );
+}
+
+/*
+ * --- La prose ne passe pas par Markdown ---------------------------------
+ *
+ * Elle est affichée telle quelle. Un « ** » écrit par réflexe reste visible à
+ * l'écran, et rien dans le YAML ne le signale à la relecture — le défaut est
+ * apparu dès la première correction écrite.
+ */
+{
+  const base = {
+    resume: 'Résumé.',
+    par_option: [
+      { verdict: 'juste', pourquoi: 'parce que' },
+      { verdict: 'faux', pourquoi: 'parce que non' },
+    ],
+    detail: 'Détail.',
+    confiance: 'haute',
+    visuel: { type: 'aucun', raison_aucun: 'Rien à dessiner ici.' },
+  };
+  verifier('une prose sans Markdown passe', correctionSchema.safeParse(base).success, true);
+  verifier(
+    'du gras Markdown dans « detail » est refusé',
+    correctionSchema.safeParse({ ...base, detail: 'leur **forme** compte' }).success,
+    false,
+  );
+  verifier(
+    'et dans le « pourquoi » d’une option aussi',
+    correctionSchema.safeParse({
+      ...base,
+      par_option: [
+        { verdict: 'juste', pourquoi: 'il dénonce **seul**' },
+        { verdict: 'faux', pourquoi: 'non' },
+      ],
+    }).success,
+    false,
+  );
+  verifier(
+    'et dans l’alternative textuelle d’un visuel aussi',
+    correctionSchema.safeParse({
+      ...base,
+      visuel: { type: 'aucun', raison_aucun: 'une `structure` à dessiner' },
+    }).success,
+    false,
+  );
+}
+
+/*
+ * --- Résolution des « rappel de cours » ---------------------------------
+ *
+ * Le contenu désigne une fiche par son chemin ; le site a besoin de son
+ * identifiant opaque et de son titre. Les deux cas qui comptent sont le chemin
+ * juste — qui doit donner un lien complet — et le chemin faux, qui doit arrêter
+ * le build plutôt que de produire un lien mort au moment où quelqu'un vient de
+ * rater la question et cherche le passage du cours.
+ */
+{
+  const fiches = [
+    { id: 'a1b2c3', chemin: 'droit-public/fascicule-2/fiche-05-conventionnalite.md', titre: 'Le contrôle de conventionnalité' },
+  ];
+  const index = indexerFichesParChemin(fiches);
+
+  const avecChemin = {
+    rappel_de_cours: ['droit-public/fascicule-2/fiche-05-conventionnalite'],
+  };
+  verifier(
+    'un chemin sans extension se résout en identifiant et titre',
+    [resoudreRappels(avecChemin, index, 'essai'), avecChemin.rappel_de_cours],
+    [[], [{ id: 'a1b2c3', titre: 'Le contrôle de conventionnalité' }]],
+  );
+
+  const avecExtension = {
+    rappel_de_cours: ['./droit-public/fascicule-2/fiche-05-conventionnalite.md'],
+  };
+  verifier(
+    'l’extension et le « ./ » de tête sont tolérés',
+    [resoudreRappels(avecExtension, index, 'essai'), avecExtension.rappel_de_cours[0].id],
+    [[], 'a1b2c3'],
+  );
+
+  verifier(
+    'un chemin qui ne désigne aucune fiche est un défaut',
+    resoudreRappels(
+      { rappel_de_cours: ['droit-public/fascicule-2/fiche-05-conventionalite'] },
+      index,
+      'essai',
+    ).length,
+    1,
+  );
+
+  // Rejouer la résolution — ce que ferait un build incrémental — ne doit pas
+  // transformer un rappel déjà résolu en référence introuvable.
+  const dejaResolu = { rappel_de_cours: [{ id: 'a1b2c3', titre: 'Le contrôle de conventionnalité' }] };
+  verifier(
+    'une résolution déjà faite est laissée intacte',
+    [resoudreRappels(dejaResolu, index, 'essai'), dejaResolu.rappel_de_cours[0].id],
+    [[], 'a1b2c3'],
   );
 }
 

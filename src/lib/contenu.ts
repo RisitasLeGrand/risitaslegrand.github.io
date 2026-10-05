@@ -63,12 +63,47 @@ export interface Flashcard {
   reponse: string;
 }
 
+/**
+ * La correction détaillée d'une question de QCM, telle que la banque la porte.
+ *
+ * Contrairement à celle des exercices de Cog-Training, qu'un solveur calcule,
+ * celle-ci est **rédigée et stockée** : la question vient d'une banque, il n'y a
+ * pas de dérivation à produire. Elle voyage donc dans le contenu chiffré, avec
+ * la question, et n'exige aucun chargement supplémentaire.
+ *
+ * Le miroir de `correctionSchema`, qui la valide au build.
+ */
+export interface Correction {
+  resume: string;
+  par_option: { verdict: 'juste' | 'faux'; pourquoi: string }[];
+  detail: string;
+  /**
+   * Les fiches à relire, **résolues au build**.
+   *
+   * Le contenu les écrit par chemin ; le build les remplace par l'identifiant
+   * de la fiche et son titre, et refuse un chemin qui ne désigne rien. Le site
+   * reçoit donc de quoi fabriquer un lien et de quoi le nommer — un condensat
+   * de chemin ne serait affichable ni l'un ni l'autre.
+   */
+  rappel_de_cours: { id: string; titre: string }[];
+  sources: { nom: string; url?: string }[];
+  confiance: 'haute' | 'moyenne';
+  visuel: {
+    type: string;
+    donnees?: unknown;
+    legende?: string;
+    alt?: string;
+    raison_aucun?: string;
+  };
+}
+
 export interface QuestionQuiz {
   id: string;
   question: string;
   options: string[];
   bonnes: number[];
   explication?: string;
+  correction?: Correction;
 }
 
 export interface Fiche {
@@ -112,6 +147,7 @@ export interface QuestionDgfip {
   categorie?: 'A' | 'B';
   /** Présent quand la bonne réponse ne peut pas être garantie. */
   incertain?: string;
+  correction?: Correction;
 }
 
 export interface BanqueDgfip {

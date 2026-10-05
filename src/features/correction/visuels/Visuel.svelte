@@ -95,7 +95,7 @@
   <VisuelFrise donnees={visuel.donnees as DonneesFrise} {alt} legende={visuel.legende} />
 {:else if visuel.type === 'tableau'}
   <VisuelTableau donnees={visuel.donnees as DonneesTableau} {alt} />
-  {#if visuel.legende}<p class="-mt-1 mb-3 text-sm text-slate-600 dark:text-slate-300">{visuel.legende}</p>{/if}
+  {#if visuel.legende}<p class="mt-1 mb-3 text-sm text-slate-600 dark:text-slate-300">{visuel.legende}</p>{/if}
 {:else if visuel.type === 'schema'}
   <VisuelSchema donnees={visuel.donnees as DonneesSchema} {alt} legende={visuel.legende} />
 {:else if visuel.type === 'courbe'}
@@ -106,8 +106,8 @@
   <VisuelFigure donnees={visuel.donnees as DonneesFigure} {alt} legende={visuel.legende} />
 {:else if visuel.type === 'grille'}
   <VisuelGrille donnees={visuel.donnees as DonneesGrille} {alt} />
-  {#if visuel.legende}<p class="-mt-1 mb-3 text-sm text-slate-600 dark:text-slate-300">{visuel.legende}</p>{/if}
+  {#if visuel.legende}<p class="mt-1 mb-3 text-sm text-slate-600 dark:text-slate-300">{visuel.legende}</p>{/if}
 {:else if visuel.type === 'texte_annote'}
   <VisuelTexteAnnote donnees={visuel.donnees as DonneesTexteAnnote} {alt} />
-  {#if visuel.legende}<p class="-mt-1 mb-3 text-sm text-slate-600 dark:text-slate-300">{visuel.legende}</p>{/if}
+  {#if visuel.legende}<p class="mt-1 mb-3 text-sm text-slate-600 dark:text-slate-300">{visuel.legende}</p>{/if}
 {/if}

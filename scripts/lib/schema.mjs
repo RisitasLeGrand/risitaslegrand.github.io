@@ -147,6 +147,33 @@ export const correctionSchema = z.object({
     message: '« confiance » vaut « haute » ou « moyenne »',
   }),
   visuel: visuelSchema,
+}).superRefine((v, ctx) => {
+  /*
+   * La prose d'une correction est affichée **telle quelle**, et non rendue en
+   * Markdown : les composants reçoivent du texte, pas du HTML. Un « **forme** »
+   * écrit par réflexe s'affiche donc avec ses astérisques, au milieu d'une
+   * phrase par ailleurs soignée — défaut invisible à la relecture du YAML, et
+   * parfaitement visible à l'écran. Il s'est produit dès la première correction
+   * écrite ; le refuser ici évite de le répéter quatre mille fois.
+   */
+  const prose = [
+    ['resume', v.resume],
+    ['detail', v.detail],
+    ...v.par_option.map((o, i) => [`par_option.${i + 1}.pourquoi`, o.pourquoi]),
+    ['visuel.legende', v.visuel?.legende],
+    ['visuel.alt', v.visuel?.alt],
+    ['visuel.raison_aucun', v.visuel?.raison_aucun],
+  ];
+  for (const [ou, texte] of prose) {
+    if (typeof texte === 'string' && /\*\*|`/.test(texte)) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          `« ${ou} » contient du Markdown (« ** » ou « \` ») : la prose des corrections ` +
+          'est affichée telle quelle, les marques resteraient visibles à l’écran.',
+      });
+    }
+  }
 });
 
 /**

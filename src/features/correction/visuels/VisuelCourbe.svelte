@@ -8,6 +8,15 @@
    * zoom. Le repère est celui qu'on a voulu, et les points qui en sortiraient
    * sont rognés par le cadre — ce qui se voit, et vaut mieux qu'un axe qui
    * ment.
+   *
+   * ## Les repères ne se marchent pas dessus
+   *
+   * Un repère pose son libellé juste au-dessus de son point. Deux repères
+   * voisins — « sans taxe » et « reçu : 4,5 », à un demi-pas l'un de l'autre —
+   * superposaient donc leurs textes, et la correction qui expliquait le partage
+   * de la taxe devenait illisible à l'endroit même du partage. Les libellés
+   * sont maintenant remontés d'un cran tant qu'ils en heurtent un autre, et
+   * basculés à gauche de leur point quand ils déborderaient du cadre à droite.
    */
   import Cadre from '../composants/Cadre.svelte';
   import { MARQUEURS } from '../vocabulaire';
@@ -35,6 +44,35 @@
 
   /** Une série sans marqueur reste lisible : on alterne plein et tirets. */
   const TIRETS_PAR_DEFAUT = [null, '6 4', '2 3', '8 3 2 3'];
+
+  /** Largeur d'un caractère à 10 points, pour estimer un libellé. */
+  const LARGEUR_CARACTERE = 5.1;
+
+  /** Les libellés de repères, remontés jusqu'à ne plus se heurter. */
+  const etiquettes = $derived.by(() => {
+    const prises: [number, number, number, number][] = [];
+    return (donnees.reperes ?? []).map((repere) => {
+      const largeur = repere.libelle.length * LARGEUR_CARACTERE;
+      const droite = px(repere.x) + 7;
+      const aGauche = droite + largeur > X1;
+      const ancre = aGauche ? 'end' : 'start';
+      const ax = aGauche ? px(repere.x) - 7 : droite;
+      let y = py(repere.y) - 6;
+      const boite = (): [number, number, number, number] => [
+        aGauche ? ax - largeur : ax,
+        aGauche ? ax : ax + largeur,
+        y - 9,
+        y + 2,
+      ];
+      for (let essai = 0; essai < 8; essai += 1) {
+        const [a, b, c, d] = boite();
+        if (!prises.some(([e, f, g, h]) => a < f && b > e && c < h && d > g)) break;
+        y -= 11;
+      }
+      prises.push(boite());
+      return { ancre, ax, y };
+    });
+  });
 </script>
 
 <Cadre largeur={LARGEUR} hauteur={HAUTEUR} {alt} titre={legende} marqueurs={marqueursDuVisuel(donnees)}>
@@ -44,8 +82,13 @@
        chevauchait la graduation maximale. -->
   <text x={(X0 + X1) / 2} y={Y0 + 26} text-anchor="middle"
     class="fill-slate-600 text-[10px] dark:fill-slate-300">{donnees.axeX.nom}</text>
-  <text x={X0 - 6} y={Y1 + 2} text-anchor="end" class="fill-slate-600 text-[10px] dark:fill-slate-300"
+  <!-- Le nom de l'axe des ordonnées passe au-dessus de son maximum : à la même
+       hauteur, les deux se chevauchaient dès que le maximum avait trois
+       chiffres. -->
+  <text x={X0 - 6} y={Y1 - 7} text-anchor="end" class="fill-slate-600 text-[10px] dark:fill-slate-300"
     >{donnees.axeY.nom}</text>
+  <text x={X0 - 6} y={Y1 + 3} text-anchor="end" class="fill-slate-500 text-[9px] dark:fill-slate-400"
+    >{donnees.axeY.max}</text>
   <text x={X0} y={Y0 + 14} text-anchor="middle" class="fill-slate-500 text-[9px] dark:fill-slate-400"
     >{donnees.axeX.min}</text>
   <text x={X1} y={Y0 + 14} text-anchor="middle" class="fill-slate-500 text-[9px] dark:fill-slate-400"
@@ -77,7 +120,14 @@
     <line x1={px(repere.x)} y1={Y0} x2={px(repere.x)} y2={py(repere.y)} stroke={couleur}
       stroke-width="1" stroke-dasharray="3 3" />
     <circle cx={px(repere.x)} cy={py(repere.y)} r="4.5" fill={couleur} />
-    <text x={px(repere.x) + 7} y={py(repere.y) - 6} class="fill-slate-700 text-[10px] font-medium dark:fill-slate-200"
-      >{repere.libelle}</text>
+    {@const place = etiquettes[i]}
+    <!-- Un trait de rappel dès que le libellé a dû être remonté : sans lui, on
+         ne saurait plus à quel point il se rapporte. -->
+    {#if place.y < py(repere.y) - 8}
+      <line x1={px(repere.x)} y1={py(repere.y) - 5} x2={px(repere.x)} y2={place.y + 2}
+        stroke={couleur} stroke-width="0.8" stroke-dasharray="2 2" />
+    {/if}
+    <text x={place.ax} y={place.y} text-anchor={place.ancre}
+      class="fill-slate-700 text-[10px] font-medium dark:fill-slate-200">{repere.libelle}</text>
   {/each}
 </Cadre>

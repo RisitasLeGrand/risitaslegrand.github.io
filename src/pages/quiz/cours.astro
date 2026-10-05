@@ -78,6 +78,12 @@ import { base } from '../../lib/ui';
       <h2 id="quiz-question" class="mb-5 text-lg leading-relaxed font-medium text-slate-900 sm:text-xl dark:text-white"></h2>
       <div id="quiz-options" class="space-y-2"></div>
       <div id="quiz-correction" class="mt-4 hidden rounded-xl px-4 py-3 text-sm"></div>
+      <!--
+        La correction détaillée vit dans son propre conteneur, hors du bandeau de
+        verdict : celui-ci change de couleur selon la justesse, et y loger un
+        panneau le teindrait entièrement en vert ou en rouge.
+      -->
+      <div id="quiz-correction-detaillee" class="hidden"></div>
       <button id="quiz-suivant" class="mt-5 hidden w-full rounded-lg bg-slate-900 px-5 py-3 font-medium text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-900">
         Question suivante
       </button>
@@ -110,6 +116,7 @@ import { base } from '../../lib/ui';
   import { formaterDate, lien, melanger, notifier, parametreUrl } from '../../lib/ui';
   import { signalerErreur } from '../../lib/journal';
   import { enregistrerReponse, ordonnerParZoneProximale } from '../../lib/niveau';
+  import { demonterCorrection, monterCorrection } from '../../features/correction/qcm/monter';
 
   interface QuestionPosee extends QuestionQuiz {
     ficheId: string;
@@ -195,6 +202,10 @@ import { base } from '../../lib/ui';
     $('score-courant').textContent = `${bonnes}/${position}`;
     $('barre-quiz').style.width = `${Math.round((position / questions.length) * 100)}%`;
     $('quiz-correction').classList.add('hidden');
+    // La correction de la question précédente est démontée, jamais seulement
+    // cachée : un composant caché garde ses effets et sa mémoire.
+    demonterCorrection($('quiz-correction-detaillee'));
+    $('quiz-correction-detaillee').classList.add('hidden');
     $('quiz-suivant').classList.add('hidden');
 
     const zone = $('quiz-options');
@@ -265,6 +276,46 @@ import { base } from '../../lib/ui';
       p.textContent = q.explication;
       correction.appendChild(p);
     }
+
+    /*
+     * Le bouton n'apparaît **qu'après validation**, et seulement si la question
+     * porte une correction rédigée. Le montrer avant donnerait la réponse ; le
+     * montrer sans correction ouvrirait un panneau vide.
+     */
+    if (q.correction) {
+      const bouton = document.createElement('button');
+      bouton.type = 'button';
+      bouton.className =
+        'mt-3 rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-sm font-medium ' +
+        'text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700 dark:bg-slate-900 ' +
+        'dark:text-indigo-300 dark:hover:bg-indigo-950/40';
+      bouton.textContent = 'Correction détaillée';
+      bouton.setAttribute('aria-expanded', 'false');
+      const panneau = $('quiz-correction-detaillee');
+      bouton.addEventListener('click', () => {
+        const ouvert = panneau.classList.contains('hidden');
+        if (!ouvert) {
+          demonterCorrection(panneau);
+          panneau.classList.add('hidden');
+          bouton.setAttribute('aria-expanded', 'false');
+          bouton.textContent = 'Correction détaillée';
+          return;
+        }
+        panneau.classList.remove('hidden');
+        bouton.setAttribute('aria-expanded', 'true');
+        bouton.textContent = 'Replier la correction détaillée';
+        monterCorrection(panneau, {
+          correction: q.correction!,
+          options: q.options,
+          bonnes: q.bonnes,
+          choisies: choisi === null ? [] : [choisi],
+          lienFiche: (id) => lien(`fiche?id=${encodeURIComponent(id)}`),
+          fermer: () => bouton.click(),
+        });
+      });
+      correction.appendChild(bouton);
+    }
+
     correction.classList.remove('hidden');
 
     $('score-courant').textContent = `${bonnes}/${position + 1}`;

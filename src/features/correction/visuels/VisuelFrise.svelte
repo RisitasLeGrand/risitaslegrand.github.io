@@ -9,15 +9,18 @@
    * numérique à l'échelle et le reste au jugé — donnerait une frise dont une
    * partie ment sur les distances, ce qui est pire qu'une frise sans échelle.
    *
-   * ## Les libellés sont décalés en quinconce
+   * ## Les libellés sont rangés par rangées, et non en quinconce
    *
-   * Deux jalons proches — 1958 et 1962 sur un siècle — voient leurs libellés se
-   * chevaucher au point d'être illisibles, et c'est le cas le plus fréquent
-   * d'une frise à l'échelle : les dates qui comptent se groupent. Les libellés
-   * alternent donc entre deux rangées, au-dessus pour la date, au-dessous pour
-   * le texte. Cela ne garantit pas l'absence de recouvrement — trois jalons
-   * collés se gêneront encore — mais cela écarte le cas courant sans rien coûter
-   * à la lecture.
+   * La première version alternait deux rangées, ce qui suffit à deux jalons
+   * voisins. Cinq jalons portant de vrais libellés — « CE refuse (Semoule) »,
+   * « Cass. accepte (Jacques Vabre) » — se chevauchaient encore, au point que
+   * trois textes n'en formaient plus qu'un seul illisible. Et rien ne le
+   * signalait : le SVG ne se plaint pas d'un recouvrement.
+   *
+   * Chaque libellé est donc **placé dans la première rangée où il ne heurte
+   * aucun de ceux qui y sont déjà**, sa largeur étant estimée d'après sa
+   * longueur. Le dessin gagne en hauteur quand il le faut, et seulement alors :
+   * une frise à deux jalons courts tient toujours sur une rangée.
    *
    * ## Et ancrés aux bords
    *
@@ -36,12 +39,12 @@
   const LARGEUR = 340;
   const X0 = 30;
   const X1 = LARGEUR - 30;
-  const Y_AXE = 62;
-  /** Le décalage de la seconde rangée, pour les jalons de rang impair. */
-  const QUINCONCE = 13;
+  /** Largeur d'un caractère à 10 points, et marge entre deux libellés. */
+  const LARGEUR_CARACTERE = 5.1;
+  const ECART_MINIMAL = 6;
+  const HAUTEUR_RANGEE = 12;
 
   const intervalles = $derived(donnees.intervalles ?? []);
-  const hauteur = $derived(Y_AXE + 46 + QUINCONCE + intervalles.length * 24 + 14);
 
   const valeurs = $derived(donnees.jalons.map((j) => Number(j.date)));
   const aLEchelle = $derived(valeurs.every((v) => Number.isFinite(v)));
@@ -56,35 +59,90 @@
     return X0 + ((Number(date) - min) / etendue) * (X1 - X0);
   };
 
+  /** L'ancrage d'un texte selon sa proximité d'un bord, et son abscisse. */
+  function ancrage(px: number) {
+    const part = (px - X0) / Math.max(1, X1 - X0);
+    const ancre = part < 0.12 ? 'start' : part > 0.88 ? 'end' : 'middle';
+    return { ancre, ax: ancre === 'start' ? X0 - 6 : ancre === 'end' ? X1 + 6 : px };
+  }
+
+  /**
+   * Range des textes en rangées où ils ne se heurtent pas.
+   *
+   * Glouton, et dans l'ordre des jalons : le premier jalon reste en rangée 0,
+   * ce qui garde la lecture naturelle quand rien ne se chevauche.
+   */
+  function ranger(textes: { ax: number; ancre: string; texte: string }[]): number[] {
+    const occupees: [number, number][][] = [];
+    return textes.map(({ ax, ancre, texte }) => {
+      const largeur = texte.length * LARGEUR_CARACTERE;
+      const debut = ancre === 'start' ? ax : ancre === 'end' ? ax - largeur : ax - largeur / 2;
+      const span: [number, number] = [debut - ECART_MINIMAL, debut + largeur + ECART_MINIMAL];
+      let rangee = 0;
+      while (
+        occupees[rangee]?.some(([a, b]) => span[0] < b && span[1] > a)
+      ) {
+        rangee += 1;
+      }
+      (occupees[rangee] ??= []).push(span);
+      return rangee;
+    });
+  }
+
+  const places = $derived(
+    donnees.jalons.map((jalon, i) => {
+      const px = x(jalon.date, i);
+      return { jalon, px, ...ancrage(px) };
+    }),
+  );
+
+  const rangeesDates = $derived(
+    ranger(places.map((p) => ({ ax: p.ax, ancre: p.ancre, texte: String(p.jalon.date) }))),
+  );
+  const rangeesLibelles = $derived(
+    ranger(places.map((p) => ({ ax: p.ax, ancre: p.ancre, texte: p.jalon.libelle }))),
+  );
+
+  const hautDesDates = $derived((Math.max(0, ...rangeesDates) + 1) * HAUTEUR_RANGEE + 10);
+  const basDesLibelles = $derived((Math.max(0, ...rangeesLibelles) + 1) * HAUTEUR_RANGEE + 10);
+
+  const Y_AXE = $derived(hautDesDates + 8);
+  /*
+   * Les intervalles commencent sous la dernière rangée de libellés, et non à
+   * son contact : la barre se posait sinon sur le texte de la rangée la plus
+   * basse, et son propre libellé s'y mêlait.
+   */
+  const Y_INTERVALLES = $derived(Y_AXE + basDesLibelles + 16);
+  const hauteur = $derived(Y_INTERVALLES + intervalles.length * 24 + 8);
+
   /** Le rang d'une date dans la liste des jalons, pour les intervalles. */
   const rangDe = (date: number | string) =>
     donnees.jalons.findIndex((j) => String(j.date) === String(date));
 </script>
 
-<Cadre largeur={LARGEUR} hauteur={hauteur} {alt} titre={legende} marqueurs={marqueursDuVisuel(donnees)}>
+<Cadre largeur={LARGEUR} {hauteur} {alt} titre={legende} marqueurs={marqueursDuVisuel(donnees)}>
   <line x1={X0} y1={Y_AXE} x2={X1} y2={Y_AXE} class="stroke-slate-400 dark:stroke-slate-500" stroke-width="1.5" />
 
-  {#each donnees.jalons as jalon, i (i)}
-    {@const px = x(jalon.date, i)}
-    {@const couleur = jalon.marqueur ? MARQUEURS[jalon.marqueur].couleur : 'var(--etat-texte-faible)'}
-    {@const decale = i % 2 === 1 ? QUINCONCE : 0}
-    {@const part = (px - X0) / Math.max(1, X1 - X0)}
-    {@const ancre = part < 0.12 ? 'start' : part > 0.88 ? 'end' : 'middle'}
-    {@const ancreX = ancre === 'start' ? X0 - 6 : ancre === 'end' ? X1 + 6 : px}
-    <line x1={px} y1={Y_AXE - 6} x2={px} y2={Y_AXE + 6} stroke={couleur} stroke-width="2" />
-    <circle cx={px} cy={Y_AXE} r={jalon.marqueur ? 5 : 3.5} fill={couleur} />
-    <!-- Le trait de rappel relie le jalon à son libellé décalé, sans quoi on ne
-         saurait pas lequel va avec lequel. -->
-    {#if decale}
-      <line x1={px} y1={Y_AXE + 8} x2={px} y2={Y_AXE + 14 + decale} stroke={couleur}
-        stroke-width="0.8" stroke-dasharray="2 2" />
-      <line x1={px} y1={Y_AXE - 8} x2={px} y2={Y_AXE - 16 - decale + 6} stroke={couleur}
+  {#each places as place, i (i)}
+    {@const couleur = place.jalon.marqueur ? MARQUEURS[place.jalon.marqueur].couleur : 'var(--etat-texte-faible)'}
+    {@const yDate = Y_AXE - 12 - rangeesDates[i] * HAUTEUR_RANGEE}
+    {@const yLibelle = Y_AXE + 20 + rangeesLibelles[i] * HAUTEUR_RANGEE}
+    <line x1={place.px} y1={Y_AXE - 6} x2={place.px} y2={Y_AXE + 6} stroke={couleur} stroke-width="2" />
+    <circle cx={place.px} cy={Y_AXE} r={place.jalon.marqueur ? 5 : 3.5} fill={couleur} />
+    <!-- Les traits de rappel relient le jalon à ses textes dès qu'ils sont
+         décalés d'une rangée : sans eux, on ne sait plus lequel va avec lequel. -->
+    {#if rangeesDates[i] > 0}
+      <line x1={place.px} y1={Y_AXE - 8} x2={place.px} y2={yDate + 2} stroke={couleur}
         stroke-width="0.8" stroke-dasharray="2 2" />
     {/if}
-    <text x={ancreX} y={Y_AXE - 14 - decale} text-anchor={ancre}
-      class="fill-slate-700 text-[10px] font-semibold dark:fill-slate-200">{jalon.date}</text>
-    <text x={ancreX} y={Y_AXE + 22 + decale} text-anchor={ancre}
-      class="fill-slate-600 text-[10px] dark:fill-slate-300">{jalon.libelle}</text>
+    {#if rangeesLibelles[i] > 0}
+      <line x1={place.px} y1={Y_AXE + 8} x2={place.px} y2={yLibelle - 8} stroke={couleur}
+        stroke-width="0.8" stroke-dasharray="2 2" />
+    {/if}
+    <text x={place.ax} y={yDate} text-anchor={place.ancre}
+      class="fill-slate-700 text-[10px] font-semibold dark:fill-slate-200">{place.jalon.date}</text>
+    <text x={place.ax} y={yLibelle} text-anchor={place.ancre}
+      class="fill-slate-600 text-[10px] dark:fill-slate-300">{place.jalon.libelle}</text>
   {/each}
 
   {#each intervalles as intervalle, i (i)}
@@ -92,7 +150,7 @@
     {@const rangB = rangDe(intervalle.a)}
     {@const xa = x(intervalle.de, rangA < 0 ? 0 : rangA)}
     {@const xb = x(intervalle.a, rangB < 0 ? donnees.jalons.length - 1 : rangB)}
-    {@const y = Y_AXE + 46 + QUINCONCE + i * 24}
+    {@const y = Y_INTERVALLES + i * 24}
     {@const couleur = intervalle.marqueur ? MARQUEURS[intervalle.marqueur].couleur : 'var(--etat-action)'}
     <line x1={xa} y1={y} x2={xb} y2={y} stroke={couleur} stroke-width="3" stroke-linecap="round" />
     <line x1={xa} y1={y - 4} x2={xa} y2={y + 4} stroke={couleur} stroke-width="1.5" />
