@@ -13,11 +13,22 @@
  * compatibles — au plus cinq mille quarante pour sept entités, ce qui est
  * immédiat et à l'abri d'une erreur de raisonnement.
  *
+ * ## La trace est l'énumération elle-même
+ *
+ * Puisque la réponse se calcule en énumérant les dispositions compatibles, la
+ * correction montre cette énumération **se resserrer** : chaque fait donné
+ * élimine des dispositions, et l'on voit le compte descendre. Puis elle exhibe
+ * des **témoins** — une disposition concrète qui vérifie l'énoncé, une qui ne le
+ * vérifie pas. C'est ce qui rend le verdict « reste ouvert » vérifiable à l'œil
+ * au lieu d'être affirmé : on peut lire les deux lignes et constater qu'elles
+ * satisfont toutes deux les faits donnés.
+ *
  * Restreint pour l'instant aux systèmes à un seul axe. Sur un plan ou dans
  * l'espace, l'entre-deux suppose la colinéarité et demande un autre générateur :
  * c'est prévu en phase 8c.
  */
 import { texte } from '../../noyaux/presentation';
+import { journal, ref } from '../../../correction/trace';
 import type { Alea, Systeme } from '../../systemes/types';
 import type { Item, Moteur, Option } from '../types';
 
@@ -90,9 +101,11 @@ export const entreDeux: Moteur = {
       const combien = Math.min(vrais.length - 1, 2 + Math.floor(echelon / 3));
       const donnes = alea.plusieurs(vrais, combien);
 
-      const compatibles = [...permutations(entites)].filter((ordre) =>
-        donnes.every((t) => entre(ordre, t)),
-      );
+      // Énumérées une seule fois : la trace les reparcourt fait par fait plus
+      // bas, et les réengendrer coûterait cinq mille permutations de plus par
+      // tirage, dans la boucle de génération.
+      const toutes = [...permutations(entites)];
+      const compatibles = toutes.filter((ordre) => donnes.every((t) => entre(ordre, t)));
       if (compatibles.length < 2) continue;
 
       const restants = tousLesTriplets.filter(
@@ -107,6 +120,52 @@ export const entreDeux: Moteur = {
       const options: Option[] = INTITULES.map((intitule) => ({ texte: intitule }));
 
       const phrase = (t: Triplet) => `${t[1]} est entre ${t[0]} et ${t[2]}.`;
+
+      // ----- La trace : l'énumération qui se resserre, puis les témoins ---
+      const carnet = journal();
+      let restantes: readonly (readonly string[])[] = toutes;
+      donnes.forEach((donne, indice) => {
+        const avant = restantes.length;
+        restantes = restantes.filter((ordre) => entre(ordre, donne));
+        carnet.etape({
+          utilise: [ref('premisse', indice)],
+          loi: indice === 0 ? 'énumération' : 'élimination',
+          produit: `${restantes.length} disposition${restantes.length > 1 ? 's' : ''} compatible${restantes.length > 1 ? 's' : ''}`,
+          legende:
+            `Le fait ${indice + 1} — ${phrase(donne).replace(/\.$/, '')} — élimine les ` +
+            `dispositions où ${donne[1]} n’est pas entre ${donne[0]} et ${donne[2]} : il en ` +
+            `reste ${restantes.length} sur ${avant}.`,
+          surbrillance: [
+            ref('premisse', indice),
+            ...donne.map((entite) => ref('entite', entite)),
+          ],
+        });
+      });
+
+      const pour = compatibles.find((ordre) => entre(ordre, question));
+      const contre = compatibles.find((ordre) => !entre(ordre, question));
+      const enLigne = (ordre: readonly string[]) => ordre.join(' – ');
+      carnet.etape({
+        utilise: [ref('option', verdict)],
+        produit: INTITULES[verdict],
+        legende:
+          `Parmi ces ${compatibles.length} dispositions, ${verifie} vérifie` +
+          `${verifie > 1 ? 'nt' : ''} l’énoncé. ` +
+          (verdict === 0
+            ? `Toutes, donc : l’énoncé découle des faits. Par exemple ${enLigne(pour!)} les ` +
+              'satisfait, et aucune disposition compatible ne le démentirait.'
+            : verdict === 1
+              ? `Aucune : l’énoncé les contredit. ${enLigne(contre!)} satisfait les faits ` +
+                `donnés et pourtant ${question[1]} n’y est pas entre ${question[0]} et ` +
+                `${question[2]}.`
+              : `Voici les deux témoins : ${enLigne(pour!)} satisfait les faits et l’énoncé ; ` +
+                `${enLigne(contre!)} satisfait les faits mais non l’énoncé. Les deux étant ` +
+                'compatibles, les faits ne tranchent pas.'),
+        surbrillance: [
+          ref('option', verdict),
+          ...question.map((entite) => ref('entite', entite)),
+        ],
+      });
 
       return {
         moteur: 'entre-deux',
@@ -130,6 +189,7 @@ export const entreDeux: Moteur = {
               ? 'Aucune ne le vérifie : il les contredit.'
               : 'Il reste donc ouvert — vrai dans certaines dispositions, faux dans d’autres, ' +
                 'et les faits donnés ne permettent pas de trancher.'),
+        trace: carnet.sceller({ genre: 'unique', indice: verdict }),
       };
     }
     return null;

@@ -926,7 +926,7 @@ son échelon gagné, la session ne tire que les moteurs cochés, une sélection 
 praticable rend **zéro** item, l'ordre groupé ne laisse qu'un bloc par moteur en gardant les
 mêmes items que l'ordre entrelacé, et la progression n'est pas modifiée par le mode libre.
 
-## Lot B2 — traces des seize moteurs : **en cours**
+## Lot B2 — traces des seize moteurs : **livré**
 
 Les moteurs migrés émettent leur trace depuis leur propre solveur, et l'essai
 `npm run essais:correction` vérifie pour chacun que la dernière étape conclut bien à la réponse
@@ -1013,3 +1013,117 @@ verrait pas.
 La nouvelle étiquette `cadre-inverse` nomme l'erreur propre aux cadres de référence : prendre sa
 propre droite pour celle de l'observateur. Elle ne se pose que sur le leurre exact obtenu par
 inversion gauche-droite, et jamais au hasard.
+
+### Familles Algèbres, Analogie et Isomorphisme — livrées
+
+Les **dix-neuf moteurs** émettent désormais leur trace depuis leur propre solveur. L'avertissement
+« Reste à migrer » de `npm run essais:correction` a disparu, et le tableau de couverture le
+remplace.
+
+| Moteur | Ce que la trace montre |
+|---|---|
+| `entre-deux` | L'énumération **se resserrer** fait par fait, puis deux **témoins** : une disposition concrète qui vérifie l'énoncé, une qui ne le vérifie pas |
+| `completion-analogie` | La relation lue sur la structure, puis son application à la seconde paire |
+| `analogie-intruse` | Les **quatre** lectures, une par paire, puis la comparaison |
+| `recherche-motif` | Le témoin d'apparition (P = telle entité, Q = telle autre), puis l'arête exacte qui recale chaque leurre |
+| `isomorphisme-partiel` | Le contre-exemple en deux lectures de matrice et un constat — c'est la forme d'une réfutation |
+| `sous-systeme-commun` | Le témoin, puis la **maximalité** : combien de groupes d'une entité de plus ont été essayés |
+| `algebre-cachee` | La symétrie et la transitivité, chacune avec le témoin qui tranche, puis les six autres algèbres écartées **chacune par l'exigence qui lui manque** |
+
+Deux refactorisations étaient nécessaires pour que ces traces ne mentent pas.
+
+**`noyaux/proprietes.ts` déclare maintenant `EXIGENCES`**, et les prédicats de classification en
+sont **dérivés**. La correction d'`algebre-cachee` doit pouvoir dire pourquoi une algèbre est
+écartée — « une équivalence exige d'être symétrique, et ce motif ne l'est pas » — et une seconde
+liste écrite à côté des prédicats aurait fini par ne plus concorder : la correction aurait alors
+expliqué un classement que le solveur ne faisait pas.
+
+**`noyaux/chemin.ts` porte `tracerChemin`**, partagé par sept moteurs (voir plus haut).
+
+#### Un défaut de fond trouvé en écrivant la trace de `sous-systeme-commun`
+
+Le moteur calculait le plus grand motif commun **portant au moins k − 1 relations**, mais son
+énoncé définissait « commun » sans ce seuil. Mesuré sur neuf cents tirages : **deux** rendaient
+une réponse que le solveur comptait juste alors que la définition affichée en rendait une autre
+vraie — sur `digraph`, dont les matrices portent des cases vides. La bonne réponse était donc
+comptée fausse, et le leurre juste au-dessus était en réalité le bon.
+
+Retirer le seuil n'était pas une option : sans lui, un groupe dont rien ne relie les entités se
+retrouve dans n'importe quel réseau, et la réponse serait toujours la taille du plus petit des
+deux — il n'y a plus d'exercice. C'est donc **l'énoncé qui a été aligné sur le calcul**, et une
+assertion de `npm run essais:correction` vérifie qu'il énonce bien ce seuil, pour qu'une
+reformulation ne le désaligne pas à nouveau.
+
+#### Et un second, plus grave : un plafond de recherche présenté comme un maximum
+
+En voulant vérifier que la correction peut **affirmer** la maximalité, un défaut plus sérieux est
+apparu : la recherche s'arrêtait à la taille cinq, et le moteur annonçait ce plafond comme « le
+plus grand motif commun ».
+
+Sur deux ordres totaux de sept entités, le plus grand motif commun vaut **sept** — un ordre total
+sur k éléments est unique à isomorphisme près, donc tout sous-ensemble de l'un se retrouve dans
+l'autre. Le moteur répondait cinq. Or les options proposées sont `taille − 1` à `taille + 2`,
+soit quatre à sept : **la bonne réponse figurait parmi les options et était comptée fausse.**
+
+La recherche va maintenant jusqu'à la taille du plus petit des deux réseaux. Elle est même plus
+**rapide** — 2 ms par tirage au lieu de davantage, parce qu'elle trouve un grand motif commun tout
+de suite et s'arrête. Et le refus « la réponse égale le plafond » qui existait déjà écarte alors
+d'eux-mêmes les tirages dégénérés.
+
+Reste que sur un ordre total la question n'a **aucune** réponse non dégénérée. Le moteur refuse
+donc explicitement les systèmes à un axe — exactement `line` et `grandeur` — par `compatible`,
+plutôt que de retirer quarante fois pour rien : le couple n'apparaît alors pas dans « Mon
+entraînement », et l'essai dit « le moteur refuse ce système » au lieu d'afficher un rendement nul
+qui ressemblerait à une panne. Deux couples de moins sur cent quatre-vingt-six, et ils ne
+produisaient que des items faux.
+
+#### Autres défauts trouvés en lisant les traces
+
+| Défaut | Correction |
+|---|---|
+| `recherche-motif` disait « Ce motif demande **que** Q transmet à R » — le subjonctif qu'exige « demander que » n'est pas conjugable depuis un libellé quelconque | « Ce motif **pose que** Q transmet à R », qui prend l'indicatif |
+| `sous-systeme-commun` disait « 1 **franchissent** le seuil » | Trois formulations selon le compte : aucun, un seul, plusieurs |
+| `sous-systeme-commun` étiquetait `transitivite-abusive` la valeur juste au-dessus | Aucune étiquette : aucune du vocabulaire ne nomme cette erreur, et en poser une de travers vaut moins que n'en poser aucune |
+| `completion-analogie` disait « aucune autre entité n'est dans cette relation **avec** C », dont le sens de lecture est ambigu | La condition est dite telle qu'elle est : s'il y avait deux réponses, le tirage serait rejeté |
+| `entre-deux` portait du gras Markdown dans une légende, qui s'affiche en texte brut | Retiré ; aucune légende de trace n'en porte plus, vérifié |
+
+#### Ce qui reste du lot B
+
+| Reste | État |
+|---|---|
+| Le second temps d'`algebre-cachee` | Le type `suite` ne porte pas de trace, et l'écran de correction n'existe pas encore. Noté plutôt que tu |
+| **B4** — Veridical Mapping | Trace perceptive et schémas, non commencés |
+| **B5** — le bouton « Correction détaillée » | L'écran lui-même : déroulé pas à pas, vue « ta réponse / bonne réponse », revue de fin de séance, surlignage dans l'énoncé |
+| **B6** — essais par moteur | Faits pour la cohérence trace / réponse et la couverture ; restent les essais de rendu |
+
+#### Le prix du lot B2, mesuré couple par couple
+
+Comparaison des rendements de `npm run essais:relationnel` avant et après le lot, sur les cent
+quatre-vingt-six couples :
+
+| Couple | Avant | Après | Cause |
+|---|---|---|---|
+| `premisse-manquante` × `rang` | 100 % | 29 % | Filtre de cohérence sur les leurres |
+| `premisse-manquante` × `anneau` | 100 % | 33 % | idem |
+| `premisse-manquante` × `poset` | 63 % | 50 % | idem |
+| `premisse-manquante` × `poset-ouvert` | 100 % | 90 % | idem |
+| `premisse-manquante` × `space`, `plan-temps` | 100 % | 93 % | idem |
+| `premisse-manquante` × `plane` | 100 % | 96 % | idem |
+| `premisse-manquante` × `grandeur` | 100 % | 99 % | idem |
+| `sous-systeme-commun` × `line`, `grandeur` | 70 % | **refusés** | Question dégénérée sur un ordre total |
+
+Aucun autre couple ne bouge, et aucun ne tombe à zéro sans être refusé explicitement. Les baisses
+de `premisse-manquante` sont le prix d'une correction qui dit vrai : les leurres affichés sont
+désormais tous compatibles avec les prémisses, ce que la correction affirmait sans que personne le
+vérifie. Le moteur retire plus souvent, et pose des questions honnêtes.
+
+### Tableau de couverture final du lot B2
+
+Dix-neuf moteurs sur dix-neuf tracent. `npm run essais:correction` l'imprime à chaque exécution,
+avec un plancher qui échoue sous 50 % :
+
+| Couverture | Moteurs |
+|---|---|
+| 100 % | les dix-sept autres |
+| 89 % | `premisses-minimales` |
+| 82 % | `ensembles-possibles` |

@@ -23,6 +23,7 @@
  */
 import { matrice, reetiqueter, rigide } from '../../noyaux/isomorphisme';
 import { blocMatrice, libelle, texte } from '../../noyaux/presentation';
+import { journal, ref } from '../../../correction/trace';
 import type { Alea, Systeme } from '../../systemes/types';
 import type { Item, Moteur, Option } from '../types';
 
@@ -102,6 +103,39 @@ export const isomorphismePartiel: Moteur = {
       // format « multiple » exprime exactement, et que le barème gère déjà.
       const bonnes = melange.flatMap((entite, i) => (fautives.includes(entite) ? [i] : []));
 
+      // ----- La trace : le contre-exemple, en deux lectures et un constat -
+      const carnet = journal();
+      carnet.etape({
+        utilise: [ref('entite', f), ref('entite', g)],
+        loi: 'lecture du premier réseau',
+        produit: `${f} ${libelle(systeme, relationOrigine)} ${g}`,
+        legende:
+          `Dans le premier réseau, ${f} ${libelle(systeme, relationOrigine)} ${g}. C’est la ` +
+          'case à l’intersection de leur ligne et de leur colonne.',
+        surbrillance: [ref('entite', f), ref('entite', g)],
+      });
+      carnet.etape({
+        utilise: [ref('noeud', propose[f]), ref('noeud', propose[g])],
+        loi: 'lecture du second réseau',
+        produit: `${propose[f]} ${libelle(systeme, relationImage)} ${propose[g]}`,
+        legende:
+          `L’appariement proposé envoie ${f} sur ${propose[f]} et ${g} sur ${propose[g]}. Or ` +
+          `dans le second réseau, ${propose[f]} ${libelle(systeme, relationImage)} ` +
+          `${propose[g]}.`,
+        surbrillance: [ref('noeud', propose[f]), ref('noeud', propose[g])],
+      });
+      carnet.etape({
+        utilise: bonnes.map((i) => ref('option', i)),
+        loi: 'contre-exemple',
+        produit: `${f} et ${g}`,
+        legende:
+          `Les deux relations diffèrent : un appariement correct les aurait conservées. ` +
+          `Ce seul contre-exemple suffit à réfuter les lignes ${f} → ${propose[f]} et ` +
+          `${g} → ${propose[g]}. Toutes les autres résistent au même test — c’est ce qui rend ` +
+          'la faute localisable au lieu d’être diffuse.',
+        surbrillance: [...bonnes.map((i) => ref('option', i)), ref('entite', f), ref('entite', g)],
+      });
+
       return {
         moteur: 'isomorphisme-partiel',
         systeme: systeme.id,
@@ -124,6 +158,7 @@ export const isomorphismePartiel: Moteur = {
           `, alors que leurs images proposées, ${propose[f]} et ${propose[g]}, sont dans la ` +
           `relation « ${libelle(systeme, relationImage)} ». Toutes les autres lignes sont ` +
           'correctes : c’est ce qui rend la faute localisable au lieu d’être diffuse.',
+        trace: carnet.sceller({ genre: 'multiple', indices: bonnes }),
       };
     }
     return null;

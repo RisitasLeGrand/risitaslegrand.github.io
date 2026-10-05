@@ -21,9 +21,21 @@
  * **Les entités du motif sont réétiquetées en lettres.** Sans cela le motif
  * porterait les noms de ses entités d'origine, et la réponse se lirait sans
  * regarder la structure.
+ *
+ * ## Ce que la trace montre
+ *
+ * Le témoin, d'abord : **quelle entité du réseau joue quelle lettre**. C'est la
+ * seule justification qui vaille — un motif « se trouve » dans un réseau si et
+ * seulement si une telle association existe, et la montrer permet de vérifier
+ * soi-même, arête par arête.
+ *
+ * Puis, pour chaque leurre, **l'arête exacte** qui le fait échouer. Dire « il
+ * diffère par au moins une arête » n'apprend rien ; dire « il demande que Q soit
+ * avant R là où le motif trouvé les laisse sans relation » se vérifie.
  */
 import { matrice, occurrences, sousMatrice } from '../../noyaux/isomorphisme';
 import { blocGraphe, libelle, texte } from '../../noyaux/presentation';
+import { journal, ref } from '../../../correction/trace';
 import type { Matrice } from '../../noyaux/isomorphisme';
 import type { Alea, Systeme } from '../../systemes/types';
 import type { Bloc, Item, Moteur, Option } from '../types';
@@ -132,8 +144,80 @@ export const rechercheMotif: Moteur = {
         { motif: juste, bonne: true },
         ...faux.map((motif) => ({ motif, bonne: false })),
       ]);
-      const options: Option[] = melange.map((entree) => ({ blocs: [blocMotif(systeme, entree.motif)] }));
       const bonne = melange.findIndex((entree) => entree.bonne);
+
+      /*
+       * L'étiquette d'un leurre nomme sa divergence : il ajoute une relation là
+       * où le motif trouvé n'en a pas (`option-redondante`), il en retire une
+       * (`option-oubliee`), ou il en met une autre à la place
+       * (`relation-inverse` si c'est le converse, sinon rien de nommable).
+       */
+      const divergence = (leurre: Matrice) => {
+        for (let x = 0; x < juste.length; x += 1) {
+          for (let y = 0; y < juste.length; y += 1) {
+            if (x === y || leurre[x][y] === juste[x][y]) continue;
+            return { x, y, attendu: juste[x][y], propose: leurre[x][y] };
+          }
+        }
+        return null;
+      };
+
+      const options: Option[] = melange.map((entree) => {
+        const blocs = [blocMotif(systeme, entree.motif)];
+        if (entree.bonne) return { blocs };
+        const d = divergence(entree.motif);
+        if (!d) return { blocs };
+        const etiquette = !d.attendu
+          ? ('option-redondante' as const)
+          : !d.propose
+            ? ('option-oubliee' as const)
+            : d.propose === systeme.converse(d.attendu)
+              ? ('relation-inverse' as const)
+              : undefined;
+        return { blocs, ...(etiquette ? { etiquette } : {}) };
+      });
+
+      // ----- La trace : le témoin, puis l'arête qui recale chaque leurre --
+      const carnet = journal();
+      const temoin = occurrences(juste, hote)[0];
+      const lettres = LETTRES.slice(0, taille);
+      carnet.etape({
+        utilise: [ref('option', bonne), ...lettres.map((l) => ref('noeud', l))],
+        loi: 'témoin d’apparition',
+        produit: lettres.map((l, k) => `${l} = ${instance.entites[temoin[k]]}`).join(', '),
+        legende:
+          'Un motif se trouve dans le réseau dès qu’on peut associer ses lettres à des ' +
+          `entités distinctes sans rien changer aux relations. Ici : ` +
+          `${lettres.map((l, k) => `${l} = ${instance.entites[temoin[k]]}`).join(', ')}. ` +
+          'Vous pouvez le vérifier arête par arête sur le réseau.',
+        surbrillance: [
+          ref('option', bonne),
+          ...temoin.map((i) => ref('entite', instance.entites[i])),
+        ],
+      });
+
+      melange.forEach((entree, indice) => {
+        if (entree.bonne) return;
+        const d = divergence(entree.motif);
+        if (!d) return;
+        const de = lettres[d.x];
+        const vers = lettres[d.y];
+        // « pose que » et non « demande que » : le second exigerait le
+        // subjonctif, qu'on ne peut pas conjuguer depuis un libellé quelconque.
+        const pose = d.propose
+          ? `${de} ${libelle(systeme, d.propose)} ${vers}`
+          : `aucune relation ne lie ${de} à ${vers}`;
+        carnet.etape({
+          utilise: [ref('option', indice)],
+          loi: 'aucune association possible',
+          produit: `écarté : ${de} → ${vers}`,
+          legende:
+            `Ce motif pose que ${pose}. Aucune association de ses lettres à des entités du ` +
+            'réseau ne le permet — c’est vérifié sur toutes les associations, pas seulement sur ' +
+            'celle du motif trouvé.',
+          surbrillance: [ref('option', indice), ref('noeud', de), ref('noeud', vers)],
+        });
+      });
 
       return {
         moteur: 'recherche-motif',
@@ -155,6 +239,7 @@ export const rechercheMotif: Moteur = {
           '. Les trois autres diffèrent du réseau par au moins une arête : soit une relation ' +
           'qui n’est pas celle qu’ils annoncent, soit un lien qu’ils ajoutent là où les ' +
           'entités ne sont pas liées.',
+        trace: carnet.sceller({ genre: 'unique', indice: bonne }),
       };
     }
     return null;

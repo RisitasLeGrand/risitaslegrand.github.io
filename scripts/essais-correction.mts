@@ -22,6 +22,12 @@ import { SYSTEMES } from '../src/features/relational-reasoning/systemes/index';
 import { accepte } from '../src/features/relational-reasoning/moteurs/types';
 import { alea } from '../src/features/relational-reasoning/noyaux/aleatoire';
 import {
+  EXIGENCES,
+  classer,
+  exigenceManquante,
+  proprietes,
+} from '../src/features/relational-reasoning/noyaux/proprietes';
+import {
   conclusionAttendue,
   defautsDeLaTrace,
   journal,
@@ -59,6 +65,13 @@ const MOTEURS_TRACES: string[] = [
   'projection',
   'echange-axes',
   'cadres',
+  'entre-deux',
+  'completion-analogie',
+  'recherche-motif',
+  'isomorphisme-partiel',
+  'sous-systeme-commun',
+  'algebre-cachee',
+  'analogie-intruse',
 ];
 
 let echecs = 0;
@@ -295,6 +308,76 @@ console.log('\n\x1b[1mLE VOCABULAIRE VISUEL\x1b[0m\n');
     'sans élément, l’alternative reste le sujet seul',
     alternative('Un graphe vide', []),
     'Un graphe vide',
+  );
+}
+
+console.log('\n\x1b[1mL’ÉNONCÉ DIT-IL CE QUE LE SOLVEUR CALCULE ?\x1b[0m\n');
+{
+  /**
+   * Le garde-fou d'un défaut trouvé au lot B2 : « Sous-système commun »
+   * calculait le plus grand motif commun **portant au moins k − 1 relations**,
+   * mais son énoncé définissait « commun » sans ce seuil. Mesuré sur neuf cents
+   * tirages, deux rendaient alors une réponse que le solveur comptait juste
+   * alors que la définition affichée en rendait une autre vraie.
+   *
+   * Sans ce seuil il n'y a plus d'exercice — un groupe sans relation se
+   * retrouve partout, et la réponse serait toujours la taille du plus petit
+   * réseau. C'est donc l'énoncé qui a été aligné, et cette assertion empêche
+   * qu'une reformulation le désaligne à nouveau.
+   */
+  const moteur = MOTEURS.find((m) => m.id === 'sous-systeme-commun');
+  let enonce = '';
+  for (const systeme of SYSTEMES) {
+    if (!moteur || !accepte(moteur, systeme) || enonce) continue;
+    for (let i = 0; i < 40 && !enonce; i += 1) {
+      const item = moteur.engendrer(systeme, 1 + (i % 6), alea(i * 7919 + 13));
+      const bloc = item?.enonce.find((b) => b.type === 'texte');
+      if (bloc && bloc.type === 'texte') enonce = bloc.texte;
+    }
+  }
+  verifier('un énoncé a bien été produit', enonce.length > 0, true);
+  verifier(
+    'il énonce le seuil de relations que le solveur applique',
+    enonce.includes('au moins une relation de moins'),
+    true,
+  );
+}
+
+console.log('\n\x1b[1mLES EXIGENCES DES ALGÈBRES\x1b[0m\n');
+{
+  /**
+   * Les prédicats de classification sont dérivés d'`EXIGENCES`, pour que la
+   * correction puisse dire *pourquoi* une algèbre est écartée sans qu'une
+   * seconde liste divergente s'installe. Ces assertions tiennent la dérivation.
+   */
+  const motifOrdre: [string, string][] = [
+    ['A', 'B'],
+    ['B', 'C'],
+    ['A', 'C'],
+  ];
+  verifier('une chaîne transitive de trois entités est un ordre', classer(['A', 'B', 'C'], motifOrdre), 'ordre');
+  const p = proprietes(['A', 'B', 'C'], motifOrdre);
+  verifier(
+    'et une équivalence y échoue sur la symétrie',
+    exigenceManquante('equivalence', p)?.cle,
+    'symetrique',
+  );
+  verifier(
+    'tandis que l’ordre ne manque d’aucune exigence',
+    exigenceManquante('ordre', p),
+    null,
+  );
+  verifier(
+    'chaque algèbre déclare au moins deux exigences',
+    (Object.keys(EXIGENCES) as (keyof typeof EXIGENCES)[]).filter((k) => EXIGENCES[k].length < 2),
+    [],
+  );
+  verifier(
+    'et chaque exigence porte un mot pour la correction',
+    Object.values(EXIGENCES)
+      .flat()
+      .filter((e) => !e.mot.trim()),
+    [],
   );
 }
 

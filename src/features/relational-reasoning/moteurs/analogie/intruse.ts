@@ -19,8 +19,18 @@
  * avec la bonne, quand le système a des axes. Sans cela, l'intruse se repérerait
  * à l'œil sans identifier la relation commune, ce qui est exactement ce que
  * l'exercice cherche à empêcher.
+ *
+ * ## La trace relit les quatre paires, une par une
+ *
+ * Il n'y a pas de calcul à dérouler ici : il y a quatre lectures à faire dans la
+ * situation montrée. La trace les fait donc toutes les quatre, en nommant la
+ * relation de chaque paire — ce qui rend le verdict vérifiable sans qu'on ait à
+ * croire la correction sur parole, et qui montre du même coup **en quoi**
+ * l'intruse diffère : pas « elle n'est pas comme les autres », mais « les trois
+ * sont ‹ au nord-est de ›, celle-ci est ‹ à l'est de › ».
  */
 import { libelle, texte } from '../../noyaux/presentation';
+import { journal, ref } from '../../../correction/trace';
 import type { Alea, Systeme } from '../../systemes/types';
 import type { Item, Moteur, Option } from '../types';
 
@@ -102,8 +112,46 @@ export const analogieIntruse: Moteur = {
       ]);
       if (melange.length !== PAIRES) continue;
 
-      const options: Option[] = melange.map((p) => ({ texte: `${p.a} et ${p.b}` }));
       const bonne = melange.findIndex((p) => p.coupable);
+
+      /*
+       * Les trois paires conformes ne sont pas de simples erreurs : ce sont
+       * celles qui portent la relation commune. L'étiquette `leurre-de-surface`
+       * leur irait mal — c'est l'intruse qui ressemble aux autres, pas
+       * l'inverse. On n'étiquette donc rien ici : l'erreur consiste à n'avoir
+       * pas lu la relation, et la trace la montre en la lisant.
+       */
+      const options: Option[] = melange.map((p) => ({ texte: `${p.a} et ${p.b}` }));
+
+      // ----- La trace : les quatre lectures, puis le verdict -------------
+      const carnet = journal();
+      melange.forEach((paire, indice) => {
+        carnet.etape({
+          utilise: [ref('option', indice), ref('entite', paire.a), ref('entite', paire.b)],
+          loi: 'lecture dans la situation',
+          produit: `${paire.a} ${libelle(systeme, paire.relation)} ${paire.b}`,
+          legende:
+            `Paire ${indice + 1} : dans la situation montrée, ${paire.a} ` +
+            `${libelle(systeme, paire.relation)} ${paire.b}.`,
+          surbrillance: [ref('entite', paire.a), ref('entite', paire.b), ref('option', indice)],
+        });
+      });
+
+      carnet.etape({
+        utilise: [ref('option', bonne)],
+        loi: 'comparaison',
+        produit: `${intruse.a} et ${intruse.b}`,
+        legende:
+          `Trois paires portent la même relation, « ${libelle(systeme, commune)} ». La ` +
+          `quatrième — ${intruse.a} et ${intruse.b} — porte ` +
+          `« ${libelle(systeme, intruse.relation)} »` +
+          (meilleure > 0
+            ? ', qui partage une partie de sa description avec la relation commune. C’est ce ' +
+              'qui la rend difficile à écarter, et c’est tout l’exercice : la ressemblance de ' +
+              'surface n’est pas l’identité de relation.'
+            : '.'),
+        surbrillance: [ref('option', bonne), ref('entite', intruse.a), ref('entite', intruse.b)],
+      });
 
       return {
         moteur: 'analogie-intruse',
@@ -150,6 +198,7 @@ export const analogieIntruse: Moteur = {
               'qui la rend difficile à écarter : la ressemblance de surface n’est pas ' +
               'l’identité de relation.'
             : '.'),
+        trace: carnet.sceller({ genre: 'unique', indice: bonne }),
       };
     }
     return null;

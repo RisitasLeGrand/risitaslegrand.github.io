@@ -11,7 +11,8 @@
  * tirage est alors rejeté, faute de quoi l'exercice aurait plusieurs bonnes
  * réponses dont une seule serait comptée juste.
  */
-import { blocModele, libelleNu, texte } from '../../noyaux/presentation';
+import { blocModele, libelle, libelleNu, texte } from '../../noyaux/presentation';
+import { journal, ref } from '../../../correction/trace';
 import type { Alea, Systeme } from '../../systemes/types';
 import type { Item, Moteur, Option } from '../types';
 
@@ -53,10 +54,45 @@ export const completionAnalogie: Moteur = {
       const leurres = instance.entites.filter((entite) => entite !== c && entite !== d);
       if (leurres.length < 2) continue;
 
+      const retenus = alea.plusieurs(leurres, Math.min(3, leurres.length));
+      /*
+       * Un leurre qui est dans la relation **converse** avec C est l'erreur de
+       * sens : on a lu la relation à l'envers. Les autres ne sont dans aucune
+       * relation remarquable avec C, et n'illustrent donc rien de nommable.
+       */
       const options: Option[] = alea.melanger([
         { texte: d },
-        ...alea.plusieurs(leurres, Math.min(3, leurres.length)).map((entite) => ({ texte: entite })),
+        ...retenus.map((entite) => {
+          // Lue à l'envers, l'analogie désigne l'entité qui est dans la relation
+          // **avec** C, au lieu de celle que C atteint.
+          const inverse = systeme.relationDansModele(modele, entite, c) === relation;
+          return { texte: entite, ...(inverse ? { etiquette: 'relation-inverse' as const } : {}) };
+        }),
       ]);
+      const bonne = options.findIndex((option) => option.texte === d);
+
+      // ----- La trace : lire la relation, puis l'appliquer ---------------
+      const carnet = journal();
+      carnet.etape({
+        utilise: [ref('entite', a), ref('entite', b)],
+        loi: 'lecture dans la structure',
+        produit: `${a} ${libelle(systeme, relation)} ${b}`,
+        legende:
+          `La relation n’est pas nommée dans l’énoncé : il faut la lire. Sur la structure, ` +
+          `${a} ${libelle(systeme, relation)} ${b} — c’est donc « ${libelleNu(systeme, relation)} » ` +
+          'que l’analogie met en jeu.',
+        surbrillance: [ref('entite', a), ref('entite', b)],
+      });
+      carnet.etape({
+        utilise: [ref('entite', c), ref('option', bonne)],
+        loi: 'application à la seconde paire',
+        produit: `${c} ${libelle(systeme, relation)} ${d}`,
+        legende:
+          `Appliquée à ${c}, cette relation désigne ${d} : sur la structure, ${c} ` +
+          `${libelle(systeme, relation)} ${d}. Et c’est la seule réponse possible — si une ` +
+          'autre entité convenait, l’analogie en aurait deux, et le tirage serait rejeté.',
+        surbrillance: [ref('entite', c), ref('entite', d), ref('option', bonne)],
+      });
 
       return {
         moteur: 'completion-analogie',
@@ -70,15 +106,12 @@ export const completionAnalogie: Moteur = {
               `structure, puis de l’appliquer à ${c}.`,
           ),
         ],
-        reponse: {
-          genre: 'unique',
-          options,
-          bonne: options.findIndex((option) => option.texte === d),
-        },
+        reponse: { genre: 'unique', options, bonne },
         explication:
           `La relation qui lie ${a} à ${b} est « ${libelleNu(systeme, relation)} ». Appliquée à ` +
           `${c}, elle désigne ${d}, et ${d} seul : aucune autre entité n’est ` +
           `${libelleNu(systeme, relation)} ${c}.`,
+        trace: carnet.sceller({ genre: 'unique', indice: bonne }),
       };
     }
     return null;

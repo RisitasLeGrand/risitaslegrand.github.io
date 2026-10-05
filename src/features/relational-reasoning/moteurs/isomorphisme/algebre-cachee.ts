@@ -20,13 +20,39 @@
  * réellement montré, exige qu'une seule algèbre le décrive, et rejette le
  * tirage si la classification s'écarte de l'algèbre déclarée.
  *
+ * ## La trace : deux propriétés, leurs témoins, puis l'élimination
+ *
+ * On ne classe pas un motif en le reconnaissant, on le classe en testant des
+ * propriétés. La trace fait donc exactement cela : elle teste la **symétrie**,
+ * puis la **transitivité**, en nommant chaque fois la paire ou l'enchaînement
+ * qui tranche — « Calix gorpe Brume est listé, Brume gorpe Calix ne l'est pas ».
+ * Un verdict qui se vérifie en relisant deux lignes de l'énoncé.
+ *
+ * Puis elle écarte les six autres algèbres, chacune par **l'exigence qu'elle ne
+ * satisfait pas**. Les exigences sont déclarées dans `noyaux/proprietes.ts`, et
+ * les prédicats de classification en sont dérivés : une seconde liste écrite à
+ * côté aurait fini par ne plus concorder, et la correction aurait alors expliqué
+ * un classement que le solveur ne faisait pas.
+ *
+ * Le second temps — la prédiction sous l'algèbre identifiée — n'a pas de trace :
+ * le type `suite` n'en porte pas, et l'écran de correction n'existe pas encore.
+ * C'est noté comme tel plutôt que tu.
+ *
  * Le second temps n'est posé que pour les algèbres **transitives**, où ce qui
  * découle d'un fait nouveau se calcule par simple clôture. Pour une opposition,
  * l'implication passe par la relation complémentaire et sortirait du verbe
  * montré : mieux vaut ne pas poser la question que la poser mal.
  */
-import { classer, INTITULES } from '../../noyaux/proprietes';
+import {
+  classer,
+  exigenceManquante,
+  INTITULES,
+  proprietes,
+  temoinAsymetrie,
+  temoinIntransitivite,
+} from '../../noyaux/proprietes';
 import { texte } from '../../noyaux/presentation';
+import { journal, ref } from '../../../correction/trace';
 import type { Alea, AlgebreAbstraite, Systeme } from '../../systemes/types';
 import type { Item, Moteur, Option } from '../types';
 
@@ -117,9 +143,81 @@ export const algebreCachee: Moteur = {
       );
       const bonne = options.findIndex((option) => option.texte === INTITULES[exhibee]);
 
+      // ----- La trace : les propriétés, puis l'élimination ---------------
+      const p = proprietes(enJeu, paires);
+      const carnet = journal();
+      const rang = (a: string, b: string) =>
+        paires.findIndex(([x, y]) => x === a && y === b);
+
+      const asym = temoinAsymetrie(paires);
+      carnet.etape({
+        utilise: asym
+          ? [ref('premisse', rang(asym[0], asym[1]))]
+          : paires.slice(0, 2).map((_, i) => ref('premisse', i)),
+        loi: 'symétrie',
+        produit: p.symetrique ? 'symétrique' : 'asymétrique',
+        legende: asym
+          ? `« ${asym[0]} ${verbe} ${asym[1]} » est listé, et « ${asym[1]} ${verbe} ` +
+            `${asym[0]} » ne l’est pas. Comme les paires listées sont les seules, la relation ` +
+            'ne joue que dans un sens : toutes les algèbres symétriques sont écartées.'
+          : `Chaque paire listée figure dans les deux sens — « ${paires[0][0]} ${verbe} ` +
+            `${paires[0][1]} » comme « ${paires[0][1]} ${verbe} ${paires[0][0]} ». La relation ` +
+            'est symétrique, ce qui écarte toutes les algèbres orientées.',
+        surbrillance: (asym ?? paires[0]).map((e) => ref('entite', e)),
+      });
+
+      const intrans = temoinIntransitivite(paires);
+      carnet.etape({
+        utilise: intrans
+          ? [ref('premisse', rang(intrans.x, intrans.y)), ref('premisse', rang(intrans.y, intrans.z))]
+          : paires.map((_, i) => ref('premisse', i)),
+        loi: 'transitivité',
+        produit: p.transitive ? 'transitive' : 'non transitive',
+        legende: intrans
+          ? `« ${intrans.x} ${verbe} ${intrans.y} » et « ${intrans.y} ${verbe} ${intrans.z} » ` +
+            `s’enchaînent, et pourtant « ${intrans.x} ${verbe} ${intrans.z} » n’est pas listé. ` +
+            'La relation n’est donc pas transitive — et c’est bien lisible ici, puisque les ' +
+            'paires listées sont les seules.'
+          : 'Chaque fois que deux paires s’enchaînent, la paire directe figure aussi dans la ' +
+            'liste : la relation est transitive.',
+        surbrillance: intrans
+          ? [intrans.x, intrans.y, intrans.z].map((e) => ref('entite', e))
+          : paires[0].map((e) => ref('entite', e)),
+      });
+
+      /*
+       * L'élimination, algèbre par algèbre, chacune par l'exigence qui lui
+       * manque. On ne dit pas « ce n'est pas une équivalence » mais « une
+       * équivalence exige d'être symétrique, et ce motif ne l'est pas » : la
+       * seconde se vérifie, la première s'accepte ou se refuse.
+       */
+      const ecartees = (Object.keys(INTITULES) as AlgebreAbstraite[])
+        .filter((nom) => nom !== exhibee)
+        .map((nom) => ({ nom, manque: exigenceManquante(nom, p) }))
+        .filter((x) => x.manque !== null);
+
+      carnet.etape({
+        utilise: [ref('option', bonne)],
+        loi: 'élimination',
+        produit: INTITULES[exhibee],
+        legende:
+          `Ces deux propriétés, avec la forme du motif, ne laissent qu’une algèbre : ` +
+          `${INTITULES[exhibee]}. Les autres tombent chacune sur une exigence — ` +
+          ecartees
+            .map(
+              ({ nom, manque }) =>
+                `${INTITULES[nom].split(' —')[0]} exige ` +
+                `${manque!.attendu ? 'd’être' : 'de ne pas être'} ${manque!.mot}`,
+            )
+            .join(' ; ') +
+          '.',
+        surbrillance: [ref('option', bonne)],
+      });
+
       const item: Item = {
         moteur: 'algebre-cachee',
         systeme: systeme.id,
+        trace: carnet.sceller({ genre: 'unique', indice: bonne }),
         consigne: `Quelle algèbre le verbe « ${verbe} » instancie-t-il ?`,
         enonce: [
           texte(

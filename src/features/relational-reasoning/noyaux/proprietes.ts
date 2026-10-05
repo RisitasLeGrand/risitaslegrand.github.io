@@ -212,15 +212,96 @@ function bipartiComplet(entites: readonly string[], aretes: readonly Arete[]): b
  * cette exclusion, une arborescence satisferait les deux, et l'exercice aurait
  * deux bonnes réponses.
  */
-const PREDICATS: Record<AlgebreAbstraite, (p: Proprietes) => boolean> = {
-  equivalence: (p) => p.symetrique && p.transitive,
-  opposition: (p) => p.symetrique && !p.transitive && p.bipartiComplet,
-  adjacence: (p) => p.symetrique && !p.transitive && p.cheminNonOriente,
-  cyclique: (p) => p.antisymetrique && !p.transitive && p.cycleCouvrant,
-  succession: (p) => p.antisymetrique && !p.transitive && p.cheminCouvrant,
-  ascendance: (p) => p.antisymetrique && p.transitive && p.arborescente && !p.totale,
-  ordre: (p) => p.antisymetrique && p.transitive && !p.arborescente,
+/**
+ * Ce qu'une algèbre exige du motif, propriété par propriété et **en mots**.
+ *
+ * Les prédicats de classification en sont dérivés, et non écrits à côté : la
+ * correction détaillée doit pouvoir dire *pourquoi* une algèbre est écartée —
+ * « une équivalence exige d'être transitive, et ce motif ne l'est pas » — et
+ * deux listes séparées auraient fini par ne plus concorder.
+ */
+export interface Exigence {
+  cle: keyof Proprietes;
+  attendu: boolean;
+  /** Le nom de la propriété, au féminin, tel qu'il s'insère après « être ». */
+  mot: string;
+}
+
+export const EXIGENCES: Record<AlgebreAbstraite, Exigence[]> = {
+  equivalence: [
+    { cle: 'symetrique', attendu: true, mot: 'symétrique' },
+    { cle: 'transitive', attendu: true, mot: 'transitive' },
+  ],
+  opposition: [
+    { cle: 'symetrique', attendu: true, mot: 'symétrique' },
+    { cle: 'transitive', attendu: false, mot: 'transitive' },
+    { cle: 'bipartiComplet', attendu: true, mot: 'partagée en deux camps dont tout est relié' },
+  ],
+  adjacence: [
+    { cle: 'symetrique', attendu: true, mot: 'symétrique' },
+    { cle: 'transitive', attendu: false, mot: 'transitive' },
+    { cle: 'cheminNonOriente', attendu: true, mot: 'rangée en une seule file, de proche en proche' },
+  ],
+  cyclique: [
+    { cle: 'antisymetrique', attendu: true, mot: 'asymétrique' },
+    { cle: 'transitive', attendu: false, mot: 'transitive' },
+    { cle: 'cycleCouvrant', attendu: true, mot: 'un cycle unique passant par toutes les entités' },
+  ],
+  succession: [
+    { cle: 'antisymetrique', attendu: true, mot: 'asymétrique' },
+    { cle: 'transitive', attendu: false, mot: 'transitive' },
+    { cle: 'cheminCouvrant', attendu: true, mot: 'une file orientée passant par toutes les entités' },
+  ],
+  ascendance: [
+    { cle: 'antisymetrique', attendu: true, mot: 'asymétrique' },
+    { cle: 'transitive', attendu: true, mot: 'transitive' },
+    { cle: 'arborescente', attendu: true, mot: 'arborescente — chacun issu d’un seul autre' },
+    { cle: 'totale', attendu: false, mot: 'totale' },
+  ],
+  ordre: [
+    { cle: 'antisymetrique', attendu: true, mot: 'asymétrique' },
+    { cle: 'transitive', attendu: true, mot: 'transitive' },
+    { cle: 'arborescente', attendu: false, mot: 'arborescente' },
+  ],
 };
+
+const PREDICATS: Record<AlgebreAbstraite, (p: Proprietes) => boolean> = Object.fromEntries(
+  (Object.keys(EXIGENCES) as AlgebreAbstraite[]).map((nom) => [
+    nom,
+    (p: Proprietes) => EXIGENCES[nom].every((e) => p[e.cle] === e.attendu),
+  ]),
+) as Record<AlgebreAbstraite, (p: Proprietes) => boolean>;
+
+/** La première exigence qu'un motif ne satisfait pas, ou `null` s'il les satisfait toutes. */
+export function exigenceManquante(nom: AlgebreAbstraite, p: Proprietes): Exigence | null {
+  return EXIGENCES[nom].find((e) => p[e.cle] !== e.attendu) ?? null;
+}
+
+/**
+ * Un témoin de non-symétrie : une paire présente dont l'inverse est absent.
+ * Rend `null` quand le motif est symétrique.
+ */
+export function temoinAsymetrie(aretes: readonly Arete[]): Arete | null {
+  const presentes = new Set(aretes.map(([a, b]) => `${a}|${b}`));
+  return aretes.find(([a, b]) => !presentes.has(`${b}|${a}`)) ?? null;
+}
+
+/**
+ * Un témoin de non-transitivité : deux paires qui s'enchaînent sans que la
+ * paire directe figure. Rend `null` quand le motif est transitif.
+ */
+export function temoinIntransitivite(
+  aretes: readonly Arete[],
+): { x: string; y: string; z: string } | null {
+  const presentes = new Set(aretes.map(([a, b]) => `${a}|${b}`));
+  for (const [x, y] of aretes) {
+    for (const [y2, z] of aretes) {
+      if (y !== y2 || x === z) continue;
+      if (!presentes.has(`${x}|${z}`)) return { x, y, z };
+    }
+  }
+  return null;
+}
 
 /** Toutes les algèbres compatibles avec un motif. */
 export function algebresCompatibles(
