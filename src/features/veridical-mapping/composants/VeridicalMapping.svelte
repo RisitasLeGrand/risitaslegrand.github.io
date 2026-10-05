@@ -31,6 +31,9 @@
   import { escalierNeuf, repondre, seuil as seuilDe, statut as statutDe } from '../escalier';
   import CorrectionPerceptive from '../../correction/composants/CorrectionPerceptive.svelte';
   import { aCorrectionDetaillee } from '../../correction/registre';
+  import { ouvrirAssistant } from '../../assistant/monter';
+  import { contexteCogTraining } from '../../assistant/fournisseurs';
+  import { corrigerEssai, phraseDEcart } from '../correction';
   import { idArete, type Arete } from '../hub';
   import {
     LONGUEURS,
@@ -105,6 +108,39 @@
    * La tâche de base garde la clef nue, de sorte que les seuils déjà mesurés
    * restent les leurs : aucune migration de données n'est nécessaire.
    */
+  /** Ouvre l'assistant sur l'essai qu'on vient de corriger. */
+  function demanderALIA() {
+    if (!essai) return;
+    const corriges = corrigerEssai(essai, choix);
+    const premier = corriges[0];
+    ouvrirAssistant({
+      titre: 'Demander à l’IA — Veridical Mapping',
+      matiere: 'Cog-Training',
+      construireContexte: async () =>
+        contexteCogTraining({
+          exercice: 'Veridical Mapping',
+          moteur: {
+            nom: `${essai!.arete.de.nom} → ${essai!.arete.vers.nom}`,
+            resume:
+              'Transporter une position d’une dimension sensorielle sur une autre : ' +
+              'ce que les deux échelles ont de commun est leur ordre, non leur unité.',
+            famille: essai!.arete.vers.famille,
+          },
+          consigne: `Tâche « ${essai!.tache} » : retrouver la correspondance de la référence sur l’échelle d’arrivée.`,
+          enonce:
+            `Dimension de départ : ${essai!.arete.de.nom} (en ${essai!.arete.de.unite}).\n` +
+            `Dimension d’arrivée : ${essai!.arete.vers.nom} (en ${essai!.arete.vers.unite}).\n` +
+            `Famille de la dimension d’arrivée : ${essai!.arete.vers.famille}.`,
+          maReponse: premier?.juste ? 'le bon candidat' : 'le mauvais candidat',
+          bonneReponse: premier ? premier.motsEntreCandidats : 'inconnue',
+          trace: premier ? phraseDEcart(premier) : undefined,
+          reglages:
+            `Mode ${reglages.mode}, tâche ${reglages.tache}, ` +
+            `${reglages.essais} essais, charge ${reglages.charge}.`,
+        }),
+    });
+  }
+
   function clefSeuil(arete: Arete, tache: Reglages['tache'] = reglages.tache): string {
     return tache === 'point' ? arete.id : `${arete.id}|${tache}`;
   }
@@ -667,6 +703,21 @@
               text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700 dark:bg-slate-900
               dark:text-indigo-300 dark:hover:bg-indigo-950/40"
           >{correctionOuverte ? 'Replier la correction détaillée' : 'Correction détaillée'}</button>
+          <!--
+            L'assistant est là aussi, et il n'y fait pas le même travail que la
+            correction : celle-ci montre l'écart, lui peut expliquer ce que la
+            dimension mesure et pourquoi deux échelles se transportent l'une
+            sur l'autre. La question « pourquoi est-ce la bonne réponse » reste
+            sans objet — la correction le dit, et le prompt le répète.
+          -->
+          <button
+            type="button"
+            onclick={demanderALIA}
+            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium
+              text-slate-700 hover:border-indigo-400 hover:text-indigo-700 dark:border-slate-700
+              dark:bg-slate-900 dark:text-slate-200 dark:hover:border-indigo-600
+              dark:hover:text-indigo-300"
+          >Demander à l’IA</button>
         {/if}
         <p class="text-sm text-slate-500 dark:text-slate-400">
           {reussis} bonne{reussis > 1 ? 's' : ''} sur {faits}

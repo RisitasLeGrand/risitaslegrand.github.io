@@ -9,6 +9,8 @@
  * repli en positionnement absolu classique sinon.
  */
 import { chargerGlossaire, type TermeGlossaire } from './contenu';
+import { boutonAssistant } from '../features/assistant/monter';
+import { contexteGlossaire } from '../features/assistant/fournisseurs';
 
 let definitions: Map<string, TermeGlossaire> | null = null;
 let bulle: HTMLElement | null = null;
@@ -78,6 +80,38 @@ function ouvrir(cible: HTMLElement) {
   const texte = document.createElement('p');
   texte.textContent = entree?.definition ?? 'Définition absente du glossaire.';
   bulle.append(titre, texte);
+
+  /*
+   * « Si la définition ne suffit pas ». C'est le seul emplacement du site où le
+   * contexte est assez court pour que le lien « Ouvrir dans Claude » tienne
+   * sous le plafond d'URL — un terme, sa définition, et la phrase où on l'a
+   * rencontré.
+   *
+   * La phrase vient du DOM environnant et non du glossaire : c'est elle qui
+   * fait la différence entre « qu'est-ce que la subsidiarité » et « pourquoi
+   * parle-t-on de subsidiarité ici ».
+   */
+  if (entree) {
+    const phrase = cible.closest('p, li, td, blockquote')?.textContent?.trim();
+    const aide = document.createElement('div');
+    aide.className = 'mt-2';
+    aide.appendChild(
+      boutonAssistant(
+        {
+          titre: `Demander à l’IA — ${entree.terme}`,
+          itemId: entree.id,
+          construireContexte: async () =>
+            contexteGlossaire({
+              terme: entree,
+              phrase: phrase && phrase.length < 600 ? phrase : undefined,
+              situation: ['Glossaire', entree.terme],
+            }),
+        },
+        'La définition ne suffit pas',
+      ),
+    );
+    bulle.append(aide);
+  }
 
   if (supportePopover()) {
     try {

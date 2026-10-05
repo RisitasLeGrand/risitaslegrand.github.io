@@ -172,12 +172,23 @@ URL cassant bien avant la fenêtre de contexte du modèle. Or le budget du promp
 **8 000 caractères**, et l'encodage les gonfle encore — les retours à la ligne deviennent `%0A`,
 chaque accent deux ou trois caractères.
 
-**Conséquence assumée** : le bouton n'est actif que si le `q` **encodé** tient sous
-2 000 caractères, ce qui ne se produira guère que pour un terme de glossaire ou une flashcard
-courte. Au-delà, il est **désactivé avec son motif affiché** — « prompt trop long pour un lien,
-utilisez Copier ». Le bouton **Copier** est le chemin garanti, et il est l'action principale.
-Aucun autre assistant ne sera ajouté sans que son paramètre de préremplissage ait été vérifié de
-la même façon.
+**Conséquence assumée** : le bouton n'est actif que si le `q` **encodé** tient sous le plafond.
+Au-delà, il est **désactivé avec son motif affiché** — « prompt trop long pour un lien, utilisez
+Copier ». Le bouton **Copier** est le chemin garanti, et il est l'action principale. Aucun autre
+assistant ne sera ajouté sans que son paramètre de préremplissage ait été vérifié de la même
+façon.
+
+> **Rectification après mesure (lot D).** Le plafond avait été fixé à 2 000 d'après la
+> recommandation d'usage citée plus haut. À l'implémentation, mesure faite sur le site : le
+> **plus court** prompt que le module sache produire — un terme de glossaire, sa définition, la
+> phrase où on l'a rencontré — pèse 1 300 caractères et près de 2 700 une fois encodé, le
+> français étant accentué et le prompt structuré en paragraphes. À 2 000, le lien n'aurait donc
+> **jamais** été offert, pas même dans le cas pour lequel il était prévu. Le plafond est porté à
+> **6 000 caractères encodés** : très en deçà de ce qu'un navigateur transporte (de l'ordre de
+> 32 000), assez pour le glossaire, une flashcard courte et les items de Cog-Training, et trop
+> peu pour les prompts de quiz et de fiche, qui dépassent 10 000 une fois encodés. Ce qui reste
+> non vérifié est ce que `claude.ai` accepte exactement — d'où le repli, qui n'en est pas un :
+> « Copier » est l'action principale.
 
 ## 5. Budget et troncature
 
@@ -217,3 +228,15 @@ du lot C portent un champ `confiance`, et celles marquées `moyenne` sont préci
 sache **où** il est permis de douter. C'est plus honnête que de tout présenter avec la même
 assurance, et cela donne au bouton une seconde utilité : relire les réponses incertaines de la
 banque.
+
+---
+
+## 8. Ce que la réalisation a changé au plan
+
+| Point du plan | Ce qui a été fait |
+|---|---|
+| § 4, plafond d'URL | Porté de 2 000 à 6 000 caractères encodés, après mesure (voir l'encadré ci-dessus) |
+| § 6, D2 — `blocVersTexte()` | Écrit sous le nom `enonceEnMots()` dans `src/features/assistant/blocs-en-mots.ts`, avec `reponseEnMots()` pour les options purement graphiques, que le plan n'avait pas vues |
+| § 6, D7 — événement « aide demandée » | Magasin `aides` en IndexedDB v10, exporté et importé avec la progression, effacé avec elle ; pastille sur la page du journal, sans effet sur le score, l'XP ni le niveau |
+| § 2.3, séance | Le bouton n'apparaît qu'une fois la note commencée (40 caractères) : sans note, il n'offrirait rien de plus que celui d'une fiche |
+| § 1, garantie de non-fuite | Vérifiée sur la **clôture des imports à l'exécution** : les `import type` sont effacés à la compilation et ne sont donc pas suivis, ce qui est précisément ce qui permet au module de connaître la *forme* d'une fiche sans pouvoir atteindre son déchiffrement |

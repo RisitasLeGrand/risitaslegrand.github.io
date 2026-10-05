@@ -21,6 +21,8 @@ import {
 } from './actualites';
 import { rattacher, type IndexTexte } from './rattachement';
 import type { FicheAplatie } from './contenu';
+import { boutonAssistant } from '../features/assistant/monter';
+import { contexteActualite } from '../features/assistant/fournisseurs';
 
 /**
  * Index du corps des fiches, alimenté après coup : il pèse plus d'un mégaoctet
@@ -386,6 +388,33 @@ export function carteItem(item: ItemActu, fichesCours: FicheAplatie[] = []): HTM
   });
   element.dataset.domaine = domaineDe(item);
   marquerRattachement(element);
+
+  /*
+   * Une actualité est le contexte où l'assistant sert le plus souvent : elle
+   * est courte par construction, et ce qu'on veut en savoir — pourquoi cela
+   * compte, à quoi le rattacher au programme — n'y est jamais écrit.
+   */
+  const aide = document.createElement('div');
+  aide.className = 'mt-3';
+  aide.appendChild(
+    boutonAssistant(
+      {
+        titre: 'Demander à l’IA — actualité',
+        construireContexte: async () =>
+          contexteActualite({
+            titre: item.titre ?? '',
+            resume: item.resume ?? '',
+            date: item.date ?? '',
+            domaine: etiquetteDomaine(domaineDe(item)).libelle,
+            sources: (item.sources ?? []).map((s) => ({ nom: s.nom ?? '', url: s.url })),
+            lienCours: item.lien_cours,
+            motsCles: item.mots_cles,
+          }),
+      },
+      'Demander à l’IA',
+    ),
+  );
+  element.appendChild(aide);
   return element;
 }
 

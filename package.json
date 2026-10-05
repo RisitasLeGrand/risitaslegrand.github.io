@@ -34,7 +34,9 @@
     "contrastes": "node scripts/verifier-contrastes.mjs",
     "essais:correction": "tsx scripts/essais-correction.mts",
     "check-content": "node scripts/verifier-corrections.mjs",
-    "essais:corrections": "node scripts/essais-corrections-contenu.mjs"
+    "essais:corrections": "node scripts/essais-corrections-contenu.mjs",
+    "essais:assistant": "tsx scripts/essais-assistant.mts",
+    "essais:assistant:reseau": "node scripts/essais-assistant-reseau.mjs"
   },
   "repository": {
     "type": "git",

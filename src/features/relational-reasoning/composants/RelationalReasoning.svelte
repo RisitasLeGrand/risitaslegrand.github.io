@@ -41,6 +41,9 @@
   } from '../progression';
   import CorrectionDetaillee from '../../correction/composants/CorrectionDetaillee.svelte';
   import { aCorrectionDetaillee } from '../../correction/registre';
+  import { ouvrirAssistant } from '../../assistant/monter';
+  import { contexteCogTraining } from '../../assistant/fournisseurs';
+  import { enonceEnMots, reponseEnMots } from '../../assistant/blocs-en-mots';
 
   type Etape = 'accueil' | 'question' | 'bilan';
 
@@ -394,6 +397,45 @@
   const reussis = $derived(resultats.filter((r) => r.note >= 1).length);
   const partielles = $derived(resultats.filter((r) => r.note > 0 && r.note < 1).length);
   const nomMoteur = (id: string) => moteurParId(id)?.nom ?? id;
+
+  /**
+   * Ouvre l'assistant sur l'item qu'on vient de corriger.
+   *
+   * L'énoncé passe par `enonceEnMots` : il est fait de grilles, de graphes et
+   * de tableaux, que l'œil lit et qu'un prompt ne peut pas recevoir tels
+   * quels. La trace, elle, est déjà en français — chaque étape porte sa
+   * légende —, et c'est elle qui dit le raisonnement attendu.
+   */
+  function demanderALIA() {
+    if (!question) return;
+    const item = question.item;
+    const partie = question.second ? item.suite : item;
+    if (!partie) return;
+    const moteur = moteurParId(item.moteur);
+    const { mienne, bonne } = reponseEnMots(
+      question.reponse,
+      resultats[resultats.length - 1]?.donnee ?? null,
+    );
+    ouvrirAssistant({
+      titre: 'Demander à l’IA — Relational Reasoning',
+      matiere: 'Cog-Training',
+      construireContexte: async () =>
+        contexteCogTraining({
+          exercice: 'Relational Reasoning',
+          moteur: moteur
+            ? { nom: moteur.nom, resume: moteur.resume, famille: moteur.categorie }
+            : undefined,
+          consigne: partie.consigne,
+          enonce: enonceEnMots(partie.enonce),
+          maReponse: mienne,
+          bonneReponse: bonne,
+          trace:
+            item.trace && !question.second
+              ? item.trace.etapes.map((e, i) => `${i + 1}. ${e.legende}`).join('\n')
+              : partie.explication,
+        }),
+    });
+  }
   const resumeMoteur = (id: string) => moteurParId(id)?.resume ?? '';
 </script>
 
@@ -643,6 +685,25 @@
               font-medium text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700
               dark:bg-slate-900 dark:text-indigo-300 dark:hover:bg-indigo-950/40"
           >{correctionOuverte ? 'Replier la correction détaillée' : 'Correction détaillée'}</button>
+        {/if}
+
+        <!--
+          « Demander à l'IA », sur la même règle que la correction détaillée :
+          après la validation, et sur les exercices que le registre y autorise.
+          Le second temps y a droit, lui — contrairement à la correction, qui
+          repose sur une trace conclue au premier temps : ici le contexte est
+          construit à partir de ce qu'on vient de répondre, quel que soit le
+          temps.
+        -->
+        {#if aCorrectionDetaillee('relational-reasoning')}
+          <button
+            type="button"
+            onclick={demanderALIA}
+            class="mt-3 ml-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm
+              font-medium text-slate-700 hover:border-indigo-400 hover:text-indigo-700
+              dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200
+              dark:hover:border-indigo-600 dark:hover:text-indigo-300"
+          >Demander à l’IA</button>
         {/if}
       </div>
     {/if}

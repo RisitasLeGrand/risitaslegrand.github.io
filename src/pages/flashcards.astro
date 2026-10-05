@@ -104,6 +104,10 @@ import { base } from '../lib/ui';
         <div id="zone-reponse" class="mt-6 hidden border-t border-slate-200 pt-5 dark:border-slate-800">
           <p class="mb-3 text-xs font-semibold tracking-wide text-slate-400 uppercase">Réponse</p>
           <p id="reponse" class="text-base leading-relaxed whitespace-pre-line text-slate-700 dark:text-slate-200"></p>
+          <!-- Le bouton d'assistance vit au verso, et nulle part ailleurs : le
+               prompt porte la réponse, et l'ouvrir au recto reviendrait à
+               retourner la carte sans l'avoir cherchée. -->
+          <div id="aide-carte" class="mt-5"></div>
         </div>
 
         <p id="indice-retourner" class="mt-8 text-center text-sm text-slate-400">
@@ -158,7 +162,7 @@ import { base } from '../lib/ui';
 <script>
   import { auDeverrouillage } from '../lib/chargement';
   import { comptesFlashcards, fileDuJour, type CarteAReviser } from '../lib/agregats';
-  import { aplatirFiches, chargerManifeste } from '../lib/contenu';
+  import { aplatirFiches, chargerFiche, chargerManifeste } from '../lib/contenu';
   import {
     lireCarte,
     lireReglagesSession,
@@ -169,6 +173,8 @@ import { base } from '../lib/ui';
   import { signalerErreur } from '../lib/journal';
   import { enregistrerReponse, ordonnerParZoneProximale } from '../lib/niveau';
   import { lien, melanger, notifier, parametreUrl, pluriel } from '../lib/ui';
+  import { boutonAssistant } from '../features/assistant/monter';
+  import { contexteFlashcard } from '../features/assistant/fournisseurs';
 
   let file: CarteAReviser[] = [];
   let position = 0;
@@ -196,6 +202,41 @@ import { base } from '../lib/ui';
     }
   }
 
+  /**
+   * Pose le bouton « Demander à l'IA » sur la carte retournée.
+   *
+   * Le bouton est recréé à chaque retournement plutôt que déplacé : le
+   * contexte qu'il capture est celui de la carte courante, et un bouton
+   * conservé d'une carte à l'autre poserait une question sur la précédente.
+   */
+  function poserBoutonAide() {
+    const zone = $('aide-carte');
+    zone.innerHTML = '';
+    const carte = file[position];
+    if (!carte) return;
+    zone.appendChild(
+      boutonAssistant(
+        {
+          titre: 'Demander à l’IA — flashcard',
+          itemId: carte.id,
+          matiere: carte.matiere,
+          construireContexte: async (options) => {
+            const etat = await lireCarte(carte.id);
+            return contexteFlashcard(
+              {
+                carte: { id: carte.id, question: carte.question, reponse: carte.reponse },
+                fiche: await chargerFiche(carte.ficheId).catch(() => null),
+                oublis: etat?.oublis,
+              },
+              options,
+            );
+          },
+        },
+        'Demander à l’IA',
+      ),
+    );
+  }
+
   async function afficherCarte() {
     if (position >= file.length) return terminer();
     const carte = file[position];
@@ -217,6 +258,7 @@ import { base } from '../lib/ui';
     reponseVisible = true;
     $('zone-reponse').classList.remove('hidden');
     $('indice-retourner').classList.add('hidden');
+    poserBoutonAide();
     $('notation').classList.remove('hidden');
   }
 

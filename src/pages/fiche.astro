@@ -90,6 +90,9 @@ import Base from '../layouts/Base.astro';
   import { activerGlossaire } from '../lib/glossaire';
   import { installerLecteurPodcast } from '../lib/podcast';
   import { lien, notifier, parametreUrl } from '../lib/ui';
+  import { boutonAssistant, ouvrirAssistant } from '../features/assistant/monter';
+  import { contexteFiche } from '../features/assistant/fournisseurs';
+  import { chargerGlossaire } from '../lib/contenu';
 
   let fiche: Fiche;
   let vue: 'cours' | 'simplifiee' = 'cours';
@@ -139,10 +142,85 @@ import Base from '../layouts/Base.astro';
         sommaire.appendChild(a);
       }
     }
+    poserBoutonsDeSection(conteneur);
+
     try {
       localStorage.setItem('revinsp.vue-fiche', vue);
     } catch {
       /* navigation privée */
+    }
+  }
+
+  /** Les fiches voisines du même fascicule, pour situer la demande. */
+  let voisines: string[] = [];
+
+  /**
+   * Un bouton d'assistance dans l'en-tête de chaque section.
+   *
+   * Posé à côté du titre et non en fin de section : c'est au moment où l'on
+   * bute sur un passage qu'on veut demander, et le titre est le point de repère
+   * le plus proche. Le bouton reste discret — bordure seule — parce qu'il
+   * accompagne la lecture au lieu de la commander.
+   */
+  function poserBoutonsDeSection(conteneur: HTMLElement) {
+    const titres = conteneur.querySelectorAll<HTMLElement>('h2, h3');
+    titres.forEach((titre, rang) => {
+      if (titre.dataset.aide) return;
+      titre.dataset.aide = 'oui';
+      const rangee = document.createElement('span');
+      rangee.className = 'ml-3 inline-block align-middle';
+      rangee.appendChild(
+        boutonAssistant(
+          {
+            titre: `Demander à l’IA — ${titre.textContent ?? fiche.titre}`,
+            matiere: fiche.matiere,
+            construireContexte: async (options) =>
+              contexteFiche(
+                {
+                  fiche,
+                  passage: passageDeLaSection(titre),
+                  section: { titre: titre.textContent ?? '', rang: rang + 1, total: titres.length },
+                  definitions: await definitionsDuPassage(passageDeLaSection(titre)),
+                  voisines,
+                },
+                options,
+              ),
+          },
+          'Demander à l’IA',
+        ),
+      );
+      titre.appendChild(rangee);
+    });
+  }
+
+  /** Le texte d'une section : du titre jusqu'au titre de même niveau suivant. */
+  function passageDeLaSection(titre: HTMLElement): string {
+    const morceaux: string[] = [];
+    let noeud = titre.nextElementSibling;
+    while (noeud && !/^H[1-3]$/.test(noeud.tagName)) {
+      morceaux.push(noeud.textContent?.trim() ?? '');
+      noeud = noeud.nextElementSibling;
+    }
+    return morceaux.filter(Boolean).join('\n\n');
+  }
+
+  /**
+   * Les termes du glossaire présents dans un passage.
+   *
+   * Recherche par forme exacte du terme, sans fléchissement : le build a déjà
+   * balisé les occurrences dans le HTML, mais on travaille ici sur du texte
+   * brut, et reproduire les règles de reconnaissance du build donnerait deux
+   * algorithmes à tenir d'accord. Quelques termes manqueront ; c'est un bloc de
+   * rang 4, qui tombe de toute façon le premier quand la place manque.
+   */
+  async function definitionsDuPassage(passage: string) {
+    if (!passage) return [];
+    try {
+      const glossaire = await chargerGlossaire();
+      const bas = passage.toLowerCase();
+      return glossaire.filter((t) => bas.includes(t.terme.toLowerCase())).slice(0, 8);
+    } catch {
+      return [];
     }
   }
 
@@ -177,6 +255,74 @@ import Base from '../layouts/Base.astro';
     bouton.disabled = lu;
   }
 
+  /**
+   * Un bouton flottant qui suit la sélection de texte.
+   *
+   * Posé près de la fin de la sélection, et **borné à la fiche** : une
+   * sélection prise dans le menu ou le sommaire n'ouvrirait rien d'utile. Il
+   * disparaît dès que la sélection se vide, sans quoi il resterait à flotter
+   * sur un passage qu'on ne désigne plus.
+   */
+  function installerBoutonDeSelection() {
+    const contenu = document.getElementById('contenu')!;
+    let flottant: HTMLElement | null = null;
+
+    const cacher = () => {
+      flottant?.remove();
+      flottant = null;
+    };
+
+    document.addEventListener('selectionchange', () => {
+      const selection = document.getSelection();
+      const passage = selection?.toString().trim() ?? '';
+      const dansLaFiche =
+        selection?.anchorNode && contenu.contains(selection.anchorNode) &&
+        selection.focusNode && contenu.contains(selection.focusNode);
+      // Moins de quelques mots : c'est un clic qui a glissé, pas une demande.
+      if (!passage || passage.length < 12 || !dansLaFiche) return cacher();
+
+      const rect = selection!.getRangeAt(0).getBoundingClientRect();
+      if (!flottant) {
+        flottant = document.createElement('div');
+        flottant.className = 'fixed z-40';
+        flottant.appendChild(
+          boutonAssistant(
+            {
+              titre: 'Demander à l’IA — passage sélectionné',
+              matiere: fiche.matiere,
+              construireContexte: async (options) => {
+                const choisi = document.getSelection()?.toString().trim() ?? passage;
+                return contexteFiche(
+                  {
+                    fiche,
+                    passage: choisi,
+                    definitions: await definitionsDuPassage(choisi),
+                    voisines,
+                  },
+                  options,
+                );
+              },
+            },
+            'Demander à l’IA sur ce passage',
+          ),
+        );
+        document.body.appendChild(flottant);
+      }
+      flottant.style.left = `${Math.max(8, Math.min(rect.left, window.innerWidth - 240))}px`;
+      flottant.style.top = `${Math.max(8, rect.bottom + 8)}px`;
+    });
+
+    // Un clic hors sélection referme : « selectionchange » ne se déclenche pas
+    // toujours quand on clique sur le bouton lui-même, et l'on veut que le
+    // bouton survive à son propre clic.
+    document.addEventListener('pointerdown', (e) => {
+      if (flottant && !flottant.contains(e.target as Node)) {
+        const encore = document.getSelection()?.toString().trim() ?? '';
+        if (!encore) cacher();
+      }
+    });
+  }
+
   async function initialiser() {
     const id = parametreUrl('id');
     if (!id) {
@@ -185,6 +331,17 @@ import Base from '../layouts/Base.astro';
     }
 
     fiche = await chargerFiche(id);
+    // Les titres des fiches voisines : un bloc de contexte peu coûteux qui
+    // dit à l'assistant ce que le fascicule traite ailleurs, et l'empêche de
+    // réexpliquer ce qui vient deux fiches plus loin.
+    try {
+      const manifeste = await chargerManifeste();
+      voisines = aplatirFiches(manifeste)
+        .filter((f) => f.matiere === fiche.matiere && f.fascicule === fiche.fascicule && f.id !== fiche.id)
+        .map((f) => f.titre);
+    } catch {
+      voisines = [];
+    }
     document.title = `${fiche.titre} · Révisions`;
     document.getElementById('titre')!.textContent = fiche.titre;
     document.getElementById('fil')!.textContent = `${fiche.matiere} · ${fiche.fascicule}`;
@@ -235,6 +392,7 @@ import Base from '../layouts/Base.astro';
       secondes: etat?.secondes ?? 0,
     });
     document.getElementById('bouton-lu')!.addEventListener('click', () => void marquerLue());
+    installerBoutonDeSelection();
 
     // Onglets cours / fiche simplifiée.
     let memorisee: string | null = null;

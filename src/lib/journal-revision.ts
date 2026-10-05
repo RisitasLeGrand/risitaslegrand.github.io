@@ -12,7 +12,19 @@
  * différentes, et les confondre ferait avancer un calendrier que cette session
  * n'a pas vocation à régler.
  */
-import { chargerBanqueDgfip, chargerFiche, type QuestionQuiz } from './contenu';
+import {
+  chargerBanqueDgfip,
+  chargerFiche,
+  type QuestionDgfip,
+  type QuestionQuiz,
+} from './contenu';
+import { boutonAssistant } from '../features/assistant/monter';
+import {
+  contexteDgfip,
+  contexteFlashcard,
+  contexteJournal,
+  contexteQuizCours,
+} from '../features/assistant/fournisseurs';
 import {
   nouvelleSession,
   signalerErreur,
@@ -22,6 +34,12 @@ import {
 
 export interface ItemJournal {
   entree: EntreeJournal;
+  /** La fiche d'où l'item est tiré, quand il en a une. */
+  fiche?: Awaited<ReturnType<typeof chargerFiche>> | null;
+  /** La question de QCM telle quelle, pour le contexte d'assistance. */
+  questionDgfip?: QuestionDgfip;
+  /** La question de quiz telle quelle, même raison. */
+  questionQuiz?: QuestionQuiz;
   /** L'énoncé, dans les deux cas. */
   question: string;
   /** Présent pour un QCM ; absent pour une flashcard. */
@@ -53,6 +71,7 @@ export async function chargerItems(entrees: readonly EntreeJournal[]): Promise<I
       if (!question) continue;
       items.push({
         entree,
+        questionDgfip: question,
         question: question.question,
         options: question.options,
         bonnes: question.bonnes,
@@ -74,6 +93,8 @@ export async function chargerItems(entrees: readonly EntreeJournal[]): Promise<I
       if (!question) continue;
       items.push({
         entree,
+        fiche,
+        questionQuiz: question,
         question: question.question,
         options: question.options,
         bonnes: question.bonnes,
@@ -83,7 +104,13 @@ export async function chargerItems(entrees: readonly EntreeJournal[]): Promise<I
     } else {
       const carte = fiche.flashcards.find((c) => c.id === entree.id);
       if (!carte) continue;
-      items.push({ entree, question: carte.question, reponse: carte.reponse, source: fiche.titre });
+      items.push({
+        entree,
+        fiche,
+        question: carte.question,
+        reponse: carte.reponse,
+        source: fiche.titre,
+      });
     }
   }
   return items;
@@ -179,6 +206,45 @@ export function montrer(
       const suite = document.createElement('div');
       suite.className = 'mt-4 flex flex-wrap items-center gap-2';
 
+      /*
+       * Le bouton d'assistance de la reprise.
+       *
+       * Le journal ne stocke pas le contenu, seulement de quoi le retrouver :
+       * le contexte est donc **délégué** au fournisseur de la provenance —
+       * quiz, QCM ou flashcard —, puis enrichi de ce que seul le journal
+       * connaît : depuis quand l'entrée est ouverte, combien de rechutes, et
+       * combien de reprises réussies il reste à acquérir.
+       */
+      const aide = boutonAssistant(
+        {
+          titre: 'Demander à l’IA — reprise du journal',
+          itemId: item.entree.id,
+          matiere: item.entree.matiere,
+          construireContexte: async (options) => {
+            const interne = item.questionDgfip
+              ? await contexteDgfip({ question: item.questionDgfip, choisies: [] }, options)
+              : item.questionQuiz
+                ? await contexteQuizCours(
+                    { question: item.questionQuiz, choisies: [], fiche: item.fiche },
+                    options,
+                  )
+                : await contexteFlashcard(
+                    {
+                      carte: {
+                        id: item.entree.id,
+                        question: item.question,
+                        reponse: item.reponse ?? '',
+                      },
+                      fiche: item.fiche,
+                    },
+                    options,
+                  );
+            return contexteJournal({ entree: item.entree, interne });
+          },
+        },
+        'Demander à l’IA',
+      );
+
       if (item.options && item.bonnes) {
         const bonnes = item.bonnes;
         item.options.forEach((texte, i) => {
@@ -214,7 +280,7 @@ export function montrer(
                 position += 1;
                 afficher();
               });
-              suite.replaceChildren(suivant);
+              suite.replaceChildren(suivant, aide);
             });
           });
           zone.appendChild(bouton);
@@ -255,7 +321,9 @@ export function montrer(
             });
           });
         }
-        suite.replaceChildren(su, pasSu);
+        // L'aide n'apparaît qu'une fois la réponse vue, comme partout
+        // ailleurs : le prompt la contient.
+        suite.replaceChildren(su, pasSu, aide);
       });
       suite.appendChild(montrerReponse);
       panneau.appendChild(suite);

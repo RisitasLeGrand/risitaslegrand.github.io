@@ -117,6 +117,8 @@ import { base } from '../../lib/ui';
   import { signalerErreur } from '../../lib/journal';
   import { enregistrerReponse, ordonnerParZoneProximale } from '../../lib/niveau';
   import { demonterCorrection, monterCorrection } from '../../features/correction/qcm/monter';
+  import { boutonAssistant } from '../../features/assistant/monter';
+  import { contexteQuizCours } from '../../features/assistant/fournisseurs';
 
   interface QuestionPosee extends QuestionQuiz {
     ficheId: string;
@@ -282,11 +284,18 @@ import { base } from '../../lib/ui';
      * porte une correction rédigée. Le montrer avant donnerait la réponse ; le
      * montrer sans correction ouvrirait un panneau vide.
      */
+    // Les deux boutons d'après-correction vivent dans la même rangée : posés
+    // l'un après l'autre dans le bandeau, ils se collaient sans espace et
+    // débordaient sur téléphone.
+    const actions = document.createElement('div');
+    actions.className = 'mt-3 flex flex-wrap gap-2';
+    correction.appendChild(actions);
+
     if (q.correction) {
       const bouton = document.createElement('button');
       bouton.type = 'button';
       bouton.className =
-        'mt-3 rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-sm font-medium ' +
+        'rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-sm font-medium ' +
         'text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700 dark:bg-slate-900 ' +
         'dark:text-indigo-300 dark:hover:bg-indigo-950/40';
       bouton.textContent = 'Correction détaillée';
@@ -313,8 +322,38 @@ import { base } from '../../lib/ui';
           fermer: () => bouton.click(),
         });
       });
-      correction.appendChild(bouton);
+      actions.appendChild(bouton);
     }
+
+    /*
+     * « Demander à l'IA », après validation elle aussi, et pour la même raison
+     * que la correction détaillée : le prompt contient la question et la bonne
+     * réponse, et l'ouvrir plus tôt la donnerait sans l'avoir cherchée.
+     *
+     * Le contexte est construit **à l'ouverture** et non maintenant : il lit la
+     * fiche, le journal et les compétences, et faire ces lectures à chaque
+     * question corrigée coûterait pour une fenêtre qu'on n'ouvre presque
+     * jamais.
+     */
+    actions.appendChild(
+      boutonAssistant({
+        titre: 'Demander à l’IA — question de quiz',
+        itemId: q.id,
+        matiere: q.matiere,
+        construireContexte: async (options) =>
+          contexteQuizCours(
+            {
+              question: q,
+              choisies: choisi === null ? [] : [choisi],
+              fiche: await chargerFiche(q.ficheId).catch(() => null),
+              matiere: q.matiere,
+              fascicule: q.fascicule,
+              ficheTitre: q.ficheTitre,
+            },
+            options,
+          ),
+      }),
+    );
 
     correction.classList.remove('hidden');
 

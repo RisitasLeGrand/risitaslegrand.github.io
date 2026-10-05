@@ -388,6 +388,29 @@ export interface Profil {
   creeLe: string;
 }
 
+/**
+ * Une demande d'aide à un assistant, enregistrée pour mémoire.
+ *
+ * Elle n'a **aucun effet** sur le score, l'XP, le niveau estimé ni la file de
+ * révision, et c'est délibéré : demander de l'aide n'est pas une faute, et le
+ * compter comme telle découragerait précisément le geste qu'on veut rendre
+ * facile. Elle sert à une seule chose — pouvoir se dire, en revoyant le
+ * journal, « sur celle-là j'avais déjà demandé », ce qui est une information
+ * utile et non une sanction.
+ */
+export interface AideDemandee {
+  id?: number;
+  /** Horodatage ISO. */
+  le: string;
+  /** L'écran d'où partait la demande. */
+  provenance: string;
+  /** L'item concerné, quand il en existe un : question, carte, terme. */
+  itemId?: string;
+  matiere?: string;
+  /** Le préréglage choisi. */
+  intention: string;
+}
+
 interface SchemaRevinsp extends DBSchema {
   etat: { key: string; value: unknown };
   cartes: { key: string; value: EtatCarte; indexes: { du: string; matiere: string } };
@@ -404,10 +427,11 @@ interface SchemaRevinsp extends DBSchema {
   relationnel: { key: number; value: SessionRelationnelle; indexes: { le: string } };
   vmSeuils: { key: string; value: SeuilVeridical; indexes: { famille: string } };
   vmSessions: { key: number; value: SessionVeridical; indexes: { le: string } };
+  aides: { key: number; value: AideDemandee; indexes: { le: string; itemId: string } };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 9;
+const VERSION = 10;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -476,6 +500,14 @@ export function db() {
         const competences = base.createObjectStore('competences', { keyPath: 'clef' });
         competences.createIndex('matiere', 'matiere');
         base.createObjectStore('difficultes', { keyPath: 'id' });
+      }
+      if (ancienneVersion < 10) {
+        // Demandes d'aide à un assistant. Indexées par item pour que le journal
+        // puisse dire « sur celle-là, tu avais déjà demandé » sans parcourir
+        // tout l'historique.
+        const aides = base.createObjectStore('aides', { keyPath: 'id', autoIncrement: true });
+        aides.createIndex('le', 'le');
+        aides.createIndex('itemId', 'itemId');
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -742,6 +774,42 @@ export async function toutesLesSeances(): Promise<Seance[]> {
   return seances.sort((a, b) => a.jour.localeCompare(b.jour) || (a.id ?? 0) - (b.id ?? 0));
 }
 
+/**
+ * Enregistre une demande d'aide.
+ *
+ * Volontairement silencieuse en cas d'échec : une base indisponible — mode
+ * privé, quota atteint — ne doit pas empêcher de copier un prompt. La trace est
+ * un confort, la copie est la fonction.
+ */
+export async function enregistrerAide(aide: AideDemandee): Promise<void> {
+  try {
+    await (await db()).add('aides', aide);
+  } catch {
+    /* La demande a lieu quand même. */
+  }
+}
+
+export async function toutesLesAides(): Promise<AideDemandee[]> {
+  try {
+    return await (await db()).getAll('aides');
+  } catch {
+    return [];
+  }
+}
+
+/** Combien de fois j'ai demandé de l'aide sur chacun de ces items. */
+export async function aidesParItem(ids: readonly string[]): Promise<Map<string, number>> {
+  const comptes = new Map<string, number>();
+  if (!ids.length) return comptes;
+  const voulus = new Set(ids);
+  for (const aide of await toutesLesAides()) {
+    if (aide.itemId && voulus.has(aide.itemId)) {
+      comptes.set(aide.itemId, (comptes.get(aide.itemId) ?? 0) + 1);
+    }
+  }
+  return comptes;
+}
+
 export async function lireSeance(id: number): Promise<Seance | undefined> {
   return (await db()).get('seances', id);
 }
@@ -902,6 +970,8 @@ const MAGASINS_PROGRESSION = [
   'journal',
   'competences',
   'difficultes',
+  // Les demandes d'aide annotent la progression : elles s'effacent avec elle.
+  'aides',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */
@@ -933,6 +1003,7 @@ export async function exporterTout() {
     journal: await base.getAll('journal'),
     competences: await base.getAll('competences'),
     difficultes: await base.getAll('difficultes'),
+    aides: await base.getAll('aides'),
     planification: await lireReglagesPlanification(),
     reglagesSession: (await base.get('etat', 'reglagesSession')) as ReglagesSession | undefined,
     // Les sélections d'entraînement, une par exercice. Ce sont des préférences
@@ -1143,6 +1214,17 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
       const { id: _ignore, ...sansId } = session;
       await base.add('vmSessions', sansId as SessionVeridical);
     }
+  }
+
+  // Les demandes d'aide, dans les deux modes : une trace ne se fusionne pas,
+  // elle s'ajoute, et le couple horodatage + item suffit à ne pas la doubler.
+  const aidesConnues = new Set(
+    (await base.getAll('aides')).map((a) => `${a.le}|${a.itemId ?? ''}`),
+  );
+  for (const aide of donnees.aides ?? []) {
+    if (aidesConnues.has(`${aide.le}|${aide.itemId ?? ''}`)) continue;
+    const { id: _ignore, ...sansId } = aide;
+    await base.add('aides', sansId as AideDemandee);
   }
 
   if (donnees.planification) await ecrireReglagesPlanification(donnees.planification);
