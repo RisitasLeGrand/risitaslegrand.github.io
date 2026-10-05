@@ -14,10 +14,18 @@ import { space } from './space';
 import { cyclic } from './cyclic';
 import { allen } from './allen';
 import { rcc8 } from './rcc8';
+import { grandeur } from './grandeur';
+import { planTemps } from './plan-temps';
+import { rang } from './rang';
+import { anneau } from './anneau';
 
 export const SYSTEMES: Systeme[] = [
   line,
+  grandeur,
+  rang,
+  anneau,
   plane,
+  planTemps,
   groups,
   digraph,
   poset,
