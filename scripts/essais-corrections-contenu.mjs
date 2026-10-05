@@ -21,6 +21,7 @@ import {
   visuelSchema,
 } from './lib/schema.mjs';
 import { MATIERES_MIGREES, RUBRIQUES_MIGREES, estMatiereMigree } from './lib/corrections-migrees.mjs';
+import { defautsDesDonnees, DONNEES_PAR_TYPE } from './lib/visuels.mjs';
 
 let echecs = 0;
 function verifier(titre, obtenu, attendu) {
@@ -35,11 +36,22 @@ function verifier(titre, obtenu, attendu) {
   }
 }
 
+/*
+ * Deux jalons, et non un seul comme à l'origine : depuis que `visuel.donnees`
+ * est validé contre le schéma de son type, une frise d'un seul jalon est
+ * refusée — une frise à un point ne montre aucun écart, donc rien. Le jeu
+ * d'essai datait de l'époque où `donnees` passait sans contrôle.
+ */
 const visuelValide = {
   type: 'frise',
-  donnees: { jalons: [{ date: '1958', libelle: 'Constitution' }] },
+  donnees: {
+    jalons: [
+      { date: '1958', libelle: 'Constitution' },
+      { date: '2008', libelle: 'Question prioritaire', marqueur: 'bonne-reponse' },
+    ],
+  },
   legende: 'Les dates clefs.',
-  alt: 'Une frise portant 1958, adoption de la Constitution.',
+  alt: 'Une frise portant 1958, adoption de la Constitution, et 2008, question prioritaire.',
 };
 
 function correction(par_option, extra = {}) {
@@ -143,6 +155,20 @@ console.log('\n\x1b[1mLA CORRECTION NE CONTREDIT PAS LA CLEF\x1b[0m\n');
 console.log('\n\x1b[1mLE BLOC COMPLET\x1b[0m\n');
 {
   verifier('une correction complète passe', correctionSchema.safeParse(correction(QUATRE)).success, true);
+  /*
+   * Le contrôle des données remonte jusqu'au bloc complet : une correction dont
+   * le visuel est bien formé mais dont les données ne le sont pas est refusée
+   * **au build**, et non au rendu devant la personne qui révise.
+   */
+  verifier(
+    'une correction dont les données de visuel sont fautives est refusée',
+    correctionSchema.safeParse(
+      correction(QUATRE, {
+        visuel: { ...visuelValide, donnees: { jalons: [{ date: '1958', libelle: 'seul' }] } },
+      }),
+    ).success,
+    false,
+  );
   verifier(
     'un résumé vide est refusé',
     correctionSchema.safeParse(correction(QUATRE, { resume: '' })).success,
@@ -245,6 +271,174 @@ console.log('\n\x1b[1mLE RÉGIME À DEUX VITESSES\x1b[0m\n');
   verifier(
     'les périmètres migrés sont des identifiants, non des objets',
     [...MATIERES_MIGREES, ...RUBRIQUES_MIGREES].every((x) => typeof x === 'string'),
+    true,
+  );
+}
+
+console.log('\n\x1b[1mLES DONNÉES DES VISUELS\x1b[0m\n');
+{
+  /**
+   * Ces assertions tiennent un trou refermé : `visuel.donnees` était déclaré
+   * `unknown`, et une frise sans jalons ou un schéma citant un nœud absent
+   * passaient le build pour n'échouer qu'au rendu — devant la personne qui
+   * révise, au moment où elle demande la correction d'une question ratée.
+   */
+  verifier('les huit types ont un schéma de données', Object.keys(DONNEES_PAR_TYPE).sort(), [
+    'courbe',
+    'figure',
+    'frise',
+    'grille',
+    'schema',
+    'tableau',
+    'texte_annote',
+    'venn',
+  ]);
+
+  const bonneFrise = {
+    jalons: [
+      { date: 1958, libelle: 'Constitution' },
+      { date: 2008, libelle: 'QPC', marqueur: 'bonne-reponse' },
+    ],
+  };
+  verifier('une frise correcte passe', defautsDesDonnees('frise', bonneFrise), []);
+  verifier(
+    'une frise d’un seul jalon est refusée',
+    defautsDesDonnees('frise', { jalons: [{ date: 1958, libelle: 'x' }] }).length > 0,
+    true,
+  );
+  verifier(
+    'un marqueur hors vocabulaire est refusé',
+    defautsDesDonnees('frise', {
+      jalons: [
+        { date: 1, libelle: 'a', marqueur: 'surligne' },
+        { date: 2, libelle: 'b' },
+      ],
+    }).length > 0,
+    true,
+  );
+
+  // Le défaut le plus silencieux d'un tableau : une ligne trop courte.
+  verifier(
+    'une ligne de tableau mal dimensionnée est refusée',
+    defautsDesDonnees('tableau', {
+      entetes: ['a', 'b', 'c'],
+      lignes: [['1', '2']],
+    }).some((m) => m.includes('cellule')),
+    true,
+  );
+  verifier(
+    'une marque hors du tableau est refusée',
+    defautsDesDonnees('tableau', {
+      entetes: ['a', 'b'],
+      lignes: [['1', '2']],
+      marques: [{ ligne: 5, colonne: 0, marqueur: 'exclu' }],
+    }).some((m) => m.includes('hors du tableau')),
+    true,
+  );
+
+  // Un lien vers un nœud absent ne se voit pas à la relecture, et casse le rendu.
+  verifier(
+    'un schéma citant un nœud inconnu est refusé',
+    defautsDesDonnees('schema', {
+      noeuds: [
+        { id: 'a', libelle: 'A', niveau: 0 },
+        { id: 'b', libelle: 'B', niveau: 1 },
+      ],
+      liens: [{ de: 'a', a: 'z' }],
+    }).some((m) => m.includes('nœud inconnu')),
+    true,
+  );
+  verifier(
+    'et deux nœuds de même identifiant aussi',
+    defautsDesDonnees('schema', {
+      noeuds: [
+        { id: 'a', libelle: 'A', niveau: 0 },
+        { id: 'a', libelle: 'bis', niveau: 1 },
+      ],
+    }).some((m) => m.includes('même identifiant')),
+    true,
+  );
+
+  verifier(
+    'un axe dont le maximum ne dépasse pas le minimum est refusé',
+    defautsDesDonnees('courbe', {
+      axeX: { nom: 'x', min: 0, max: 0 },
+      axeY: { nom: 'y', min: 0, max: 10 },
+      series: [{ nom: 's', points: [[0, 0], [1, 1]] }],
+    }).some((m) => m.includes('max doit dépasser min')),
+    true,
+  );
+
+  verifier(
+    'un Venn à quatre ensembles est refusé',
+    defautsDesDonnees('venn', {
+      ensembles: [
+        { id: 'a', libelle: 'A' },
+        { id: 'b', libelle: 'B' },
+        { id: 'c', libelle: 'C' },
+        { id: 'd', libelle: 'D' },
+      ],
+    }).length > 0,
+    true,
+  );
+  verifier(
+    'et une zone citant un ensemble inconnu aussi',
+    defautsDesDonnees('venn', {
+      ensembles: [
+        { id: 'a', libelle: 'A' },
+        { id: 'b', libelle: 'B' },
+      ],
+      zones: [{ regions: ['a', 'z'], marqueur: 'exclu' }],
+    }).some((m) => m.includes('ensemble inconnu')),
+    true,
+  );
+
+  verifier(
+    'une figure dont un segment cite un point absent est refusée',
+    defautsDesDonnees('figure', {
+      points: [
+        { id: 'A', x: 0, y: 0 },
+        { id: 'B', x: 1, y: 0 },
+      ],
+      segments: [{ de: 'A', a: 'C' }],
+    }).some((m) => m.includes('point inconnu')),
+    true,
+  );
+
+  verifier(
+    'une case hors grille est refusée',
+    defautsDesDonnees('grille', {
+      colonnes: 2,
+      lignes: 2,
+      cases: [{ x: 4, y: 0, valeur: 'x' }],
+    }).some((m) => m.includes('hors grille')),
+    true,
+  );
+
+  /**
+   * Un texte annoté dont aucun segment ne porte d'annotation n'apporte rien de
+   * plus que le texte : c'est un visuel vide, et le refuser évite d'en remplir
+   * la banque pour satisfaire l'obligation de visuel.
+   */
+  verifier(
+    'un texte annoté sans aucune annotation est refusé',
+    defautsDesDonnees('texte_annote', {
+      segments: [{ texte: 'le chat' }, { texte: 'dort' }],
+    }).some((m) => m.includes('aucun segment')),
+    true,
+  );
+  verifier(
+    'mais un segment étiqueté suffit',
+    defautsDesDonnees('texte_annote', {
+      segments: [{ texte: 'le chat', etiquette: 'sujet' }, { texte: 'dort' }],
+    }),
+    [],
+  );
+
+  // Un champ inconnu est refusé : c'est presque toujours une faute de frappe.
+  verifier(
+    'un champ inconnu est refusé',
+    defautsDesDonnees('frise', { ...bonneFrise, jallons: [] }).length > 0,
     true,
   );
 }

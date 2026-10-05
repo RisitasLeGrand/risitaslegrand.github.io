@@ -1247,3 +1247,48 @@ tâche modulaire.
 Le parcours a par ailleurs été joué dans un navigateur sur quatre essais consécutifs : les écarts
 annoncés par la correction concordent avec ceux de l'en-tête (36 pas, puis 60 après une erreur),
 et la conversion diffère bien par dimension — 25 L*, 28 px, 12 dB pour le même écart de 36 pas.
+
+## Lot C3 — les huit visuels déclaratifs : **livré**
+
+Les huit types annoncés en C.4 se dessinent. Le répartiteur `visuels/Visuel.svelte` est le seul
+endroit du site qui les connaisse ; un type nouveau s'ajoute en trois points — le schéma de
+validation, le type TypeScript, le composant — et le contrôle de contenu refuse ce que le rendu ne
+saurait pas dessiner.
+
+| Type | Rendu | Pourquoi ce support |
+|---|---|---|
+| `frise` | SVG | — |
+| `tableau` | `<table>` | Un tableau **est** un tableau : le dessiner lui ôterait sa structure, donc sa lecture au lecteur d'écran et la possibilité de le copier |
+| `schema` | SVG à niveaux | Le `niveau` décide de la rangée : une hiérarchie se lit de haut en bas, toujours au même endroit |
+| `courbe` | SVG | Les axes portent leurs bornes **déclarées**, jamais celles des points — une courbe qui se recadre sur ses données change de forme d'une question à l'autre |
+| `venn` | SVG, 2 ou 3 ensembles | Zones peintes par intersection puis soustraction, via des `clipPath` emboîtés |
+| `figure` | SVG | **Homothétie unique** sur les deux axes : mettre chaque axe à son échelle déformerait la figure, et un angle droit cesserait d'en être un |
+| `grille` | `<table>` | Comme le tableau, avec des cases souvent vides à trouver |
+| `texte_annote` | Texte courant | Ce qu'il faut voir est **le texte** : l'image le rendrait illisible aux lecteurs d'écran et flou à l'agrandissement |
+
+### Le trou refermé : `donnees` n'était pas validé
+
+`visuel.donnees` était déclaré `z.unknown()`. Une frise sans jalons, un tableau dont une ligne a
+trois cellules pour quatre colonnes, un schéma dont un lien pointe vers un nœud absent — tout cela
+passait le contrôle de contenu et n'échouait qu'**au rendu**, c'est-à-dire devant la personne qui
+révise, au moment où elle demande la correction d'une question ratée.
+
+`scripts/lib/visuels.mjs` porte maintenant un schéma par type, avec les contrôles croisés qu'un
+schéma de forme ne donne pas : lignes de la largeur des en-têtes, liens vers des nœuds existants,
+identifiants uniques, bornes d'axe ordonnées, cases dans la grille, zones citant des ensembles
+déclarés. Le jeu d'essai lui-même en portait un : sa frise n'avait **qu'un jalon**, ce qui ne
+montre aucun écart, donc rien.
+
+### Trois défauts trouvés en regardant les dessins
+
+| Défaut | Correction |
+|---|---|
+| **Deux Venn sur une page partageaient leurs identifiants SVG** : le second se dessinait avec les masques du premier, et peignait des cercles entiers au lieu de lunules — sans la moindre erreur de console | Un compteur de module donne à chaque instance son préfixe d'identifiant |
+| Les libellés d'une frise se chevauchaient dès que deux dates étaient proches — le cas le plus fréquent, les dates qui comptent se groupant | Libellés en quinconce sur deux rangées, avec trait de rappel, et ancrés au bord quand le jalon y est proche (« Élection au suffrage direct » devenait « ection au suffrage direct ») |
+| Un lien entre deux nœuds de **même niveau** traçait une diagonale à travers les deux boîtes, donnant à lire une hiérarchie là où il n'y en a pas | Branchement côté à côté |
+
+### Essais
+
+Dix-sept assertions sur les schémas de données, dont celles qui portent sur les contrôles croisés
+— c'est là que se logent les fautes qu'une relecture ne voit pas. Les huit types ont par ailleurs
+été rendus et regardés un par un dans un navigateur.

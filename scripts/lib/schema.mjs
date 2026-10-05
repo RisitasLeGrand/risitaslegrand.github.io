@@ -8,6 +8,7 @@
  * Le contenu en clair ne traverse donc jamais Astro.
  */
 import { z } from 'zod';
+import { defautsDesDonnees } from './visuels.mjs';
 
 export const frontMatterSchema = z.object({
   matiere: z.string().min(1, 'le champ « matiere » est obligatoire'),
@@ -86,6 +87,19 @@ export const visuelSchema = z
     }
     if (v.donnees === undefined || v.donnees === null) {
       ctx.addIssue({ code: 'custom', message: `« visuel.type: ${v.type} » sans « donnees »` });
+    } else {
+      /*
+       * `donnees` était déclaré `unknown`, et c'était un trou : une frise sans
+       * jalons, un tableau dont une ligne a trois cellules pour quatre
+       * colonnes, un schéma dont un lien pointe vers un nœud absent — tout cela
+       * passait le contrôle et n'échouait qu'**au rendu**, devant la personne
+       * qui révise, au moment où elle demande la correction d'une question
+       * ratée. La validation déplace la faute vers le build, seul endroit où
+       * elle peut encore être corrigée.
+       */
+      for (const message of defautsDesDonnees(v.type, v.donnees)) {
+        ctx.addIssue({ code: 'custom', message });
+      }
     }
     if (!v.alt?.trim()) {
       ctx.addIssue({
