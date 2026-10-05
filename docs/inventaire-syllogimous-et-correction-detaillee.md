@@ -1185,3 +1185,65 @@ des marqueurs présents.
 Le parcours complet a par ailleurs été joué dans un navigateur — déverrouillage, séance de douze
 questions, ouverture de la correction sur quatre moteurs, déroulé étape par étape, puis bilan —
 sans une seule erreur de console.
+
+## Lot B4 — la correction perceptive de Veridical Mapping : **livré**
+
+Le lot B est complet : **tous** les exercices de Cog-Training qui déclarent la correction
+détaillée l'offrent maintenant, et le seul exclu reste Quad N-Back, avec sa raison écrite.
+
+### Ce qu'une correction perceptive peut dire, et ce qu'elle doit taire
+
+Ici il n'y a **rien à déduire**. La bonne réponse ne se démontre pas, elle se perçoit, et quand on
+la manque c'est que l'écart était sous le seuil — non qu'on a mal raisonné. Une correction qui
+prétendrait expliquer *pourquoi* le bon candidat était le bon inventerait une raison qui n'existe
+pas. L'écran le dit en une phrase, en tête, pour que personne n'attende une démonstration qui ne
+viendra pas.
+
+Ce qu'elle montre, et qui est utile : **où** était la référence sur son échelle, **où** tombait sa
+correspondance, **où** l'on a répondu, et de combien les deux candidats différaient — en pas *et*
+dans l'unité de la dimension. Les deux ensemble : le pas est ce que l'escalier manipule, l'unité
+est ce que l'on perçoit, et une correction qui ne donnerait que l'un parlerait de l'algorithme ou
+empêcherait de comparer deux dimensions.
+
+### Trois formes, parce que les trois tâches posent trois questions
+
+| Tâche | Forme | Pourquoi pas la même |
+|---|---|---|
+| `point` | Deux échelles parallèles (`SchemaEchelles`) | — |
+| `plan` | Deux fois deux échelles, et la correction **nomme l'axe fautif** | Le leurre ne se trompe que sur un axe ; savoir lequel est tout ce que la tâche enseigne, et le taire reviendrait à répéter la question |
+| `modulaire` | Deux arcs sur un cercle (`SchemaIntervalleCirculaire`, nouveau) | Une échelle droite **mentirait** : la dimension reboucle, le pas 2 et le pas 118 sont voisins, et la réponse porte sur un **écart**, jamais sur une position |
+
+Pour que la tâche « plan » puisse nommer son axe fautif, `Candidat` porte désormais
+`pasSecondaire` et `Essai` porte `secondaireDimensions`. Le stimulus portait déjà les deux
+valeurs, superposées — mais un stimulus ne se relit pas.
+
+### Deux défauts, dont un qui bloquait l'exercice
+
+**La correction annonçait un écart faux.** Sur un essai réussi, elle disait « 1 pas, soit 0,3 dB »
+là où l'en-tête de l'essai annonçait « écart 36 pas » : la phrase mesurait la largeur d'**un** pas
+au lieu de l'écart entre les deux candidats. Un chiffre faux, contredit par l'écran même, sur la
+correction qui prétend expliquer la mesure. `SousEssaiCorrige` porte maintenant
+`ecartEntreCandidats`, lu sur les candidats eux-mêmes — et sur l'axe fautif en tâche « plan », où
+le delta nominal ne dirait pas lequel.
+
+**`jouerTon` pouvait ne jamais rendre la main.** Sa promesse n'était résolue que par
+`oscillateur.onended`. Or `onended` ne se déclenche pas toujours : contexte audio suspendu en
+cours de ton, onglet passé à l'arrière-plan, périphérique de sortie retiré. Le bouton d'écoute
+restait alors sur « 🔊 en cours… » **définitivement**, et l'essai devenait impossible à terminer
+autrement qu'en rechargeant la page. C'est un blocage complet de l'exercice, et il s'est montré
+dès la première exécution dans un navigateur sans sortie audio.
+
+Un délai de garde, calé sur la durée du ton plus 400 ms, résout la promesse quoi qu'il arrive :
+passé ce temps, le son est fini ou ne viendra pas, et dans les deux cas l'interface doit rendre la
+main. Le nettoyage n'a lieu qu'une fois, quelle que soit la voie qui l'emporte.
+
+### Essais
+
+Dix-neuf assertions sur `correction.ts` : l'écart dit en pas et en unité, le rebouclage pris en
+compte sur la teinte, l'essai réussi et l'essai manqué, le sous-essai **sans réponse** distingué
+d'une erreur, les deux axes de la tâche « plan » avec le fautif nommé, et les intervalles de la
+tâche modulaire.
+
+Le parcours a par ailleurs été joué dans un navigateur sur quatre essais consécutifs : les écarts
+annoncés par la correction concordent avec ceux de l'en-tête (36 pas, puis 60 après une erreur),
+et la conversion diffère bien par dimension — 25 L*, 28 px, 12 dB pour le même écart de 36 pas.

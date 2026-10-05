@@ -29,6 +29,8 @@
   import { debloquer, disponible } from '../audio';
   import { NOMS_FAMILLES, type Famille } from '../dimensions';
   import { escalierNeuf, repondre, seuil as seuilDe, statut as statutDe } from '../escalier';
+  import CorrectionPerceptive from '../../correction/composants/CorrectionPerceptive.svelte';
+  import { aCorrectionDetaillee } from '../../correction/registre';
   import { idArete, type Arete } from '../hub';
   import {
     LONGUEURS,
@@ -57,6 +59,15 @@
   let essai = $state<Essai | null>(null);
   let choix = $state<(number | null)[]>([]);
   let retour = $state<'attente' | 'corrige'>('attente');
+  /**
+   * La correction est dépliée à la demande, et refermée à l'essai suivant.
+   *
+   * Elle ne s'ouvre pas d'office, et pour une raison propre à cet exercice : une
+   * mesure de seuil demande du rythme. Interposer un schéma à chaque essai
+   * ralentirait l'escalier, donc la mesure elle-même. Le bouton la propose à qui
+   * veut comprendre ce qui vient de se jouer.
+   */
+  let correctionOuverte = $state(false);
   let faits = $state(0);
   let reussis = $state(0);
   let convergences = $state<string[]>([]);
@@ -196,6 +207,7 @@
     faits += courant.sousEssais.length;
     reussis += justes;
     retour = 'corrige';
+    correctionOuverte = false;
 
     try {
       await ecrireSeuilVeridical(ligne);
@@ -646,11 +658,25 @@
           onclick={suivant}
           class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
         >{faits >= reglages.essais ? 'Voir le bilan' : 'Essai suivant'}</button>
+        {#if aCorrectionDetaillee('veridical-mapping')}
+          <button
+            type="button"
+            onclick={() => (correctionOuverte = !correctionOuverte)}
+            aria-expanded={correctionOuverte}
+            class="rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-sm font-medium
+              text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700 dark:bg-slate-900
+              dark:text-indigo-300 dark:hover:bg-indigo-950/40"
+          >{correctionOuverte ? 'Replier la correction détaillée' : 'Correction détaillée'}</button>
+        {/if}
         <p class="text-sm text-slate-500 dark:text-slate-400">
           {reussis} bonne{reussis > 1 ? 's' : ''} sur {faits}
         </p>
       {/if}
     </div>
+
+    {#if retour === 'corrige' && correctionOuverte}
+      <CorrectionPerceptive {essai} {choix} fermer={() => (correctionOuverte = false)} />
+    {/if}
   </section>
 {:else}
   <section>

@@ -49,6 +49,12 @@ import {
   marqueursEmployes,
   reponseJuste,
 } from '../src/features/correction/annotations';
+import { DIMENSIONS } from '../src/features/veridical-mapping/dimensions';
+import {
+  corrigerEssai,
+  ecartEnMots,
+  phraseDEcart,
+} from '../src/features/veridical-mapping/correction';
 
 /**
  * Les moteurs dont le solveur dépose déjà une trace.
@@ -489,6 +495,155 @@ console.log('\n\x1b[1mLES EXIGENCES DES ALGÈBRES\x1b[0m\n');
       .flat()
       .filter((e) => !e.mot.trim()),
     [],
+  );
+}
+
+console.log('\n\x1b[1mLA CORRECTION PERCEPTIVE (VERIDICAL MAPPING)\x1b[0m\n');
+{
+  const taille = DIMENSIONS.find((d) => d.id === 'taille')!;
+  const teinte = DIMENSIONS.find((d) => d.id === 'teinte')!;
+
+  verifier('un écart nul se dit comme tel', ecartEnMots(taille, 40, 40), 'aucun écart');
+  verifier(
+    'un écart se dit en pas et dans l’unité',
+    /^3 pas, soit [\d,]+ px$/.test(ecartEnMots(taille, 40, 43)),
+    true,
+  );
+  /**
+   * Sur la teinte, qui reboucle, les pas 2 et 118 sont **voisins**. Un écart
+   * calculé sans le rebouclage dirait 116 et ferait croire à une erreur
+   * énorme là où il y en a une minuscule.
+   */
+  verifier(
+    'et il tient compte du rebouclage',
+    ecartEnMots(teinte, 2, 118).startsWith('4 pas'),
+    true,
+  );
+
+  // Un essai de tâche « point », corrigé dans les deux cas.
+  const arete = { de: taille, vers: DIMENSIONS.find((d) => d.id === 'luminosite')! };
+  const essai = {
+    arete,
+    delta: 5,
+    tache: 'point' as const,
+    partiel: false,
+    sousEssais: [
+      {
+        pasReference: 60,
+        reference: {} as never,
+        candidats: [
+          { pas: 60, stimulus: {} as never, juste: true },
+          { pas: 65, stimulus: {} as never, juste: false },
+        ],
+      },
+    ],
+  };
+
+  const rate = corrigerEssai(essai, [1]);
+  verifier('un essai raté est corrigé comme tel', rate[0].juste, false);
+  verifier('et l’écart vaut le delta de l’escalier', rate[0].axes[0].ecart, 5);
+  verifier(
+    'la phrase nomme l’écart sans prétendre expliquer la bonne réponse',
+    phraseDEcart(rate[0]).includes('5 pas'),
+    true,
+  );
+
+  const reussi = corrigerEssai(essai, [0]);
+  verifier('un essai réussi est corrigé comme tel', reussi[0].juste, true);
+  verifier('et sans écart entre la réponse et l’attendu', reussi[0].axes[0].ecart, 0);
+  /**
+   * L'écart **entre les deux candidats** vaut dans les deux cas, et c'est la
+   * seule grandeur que l'exercice mesure. Une version antérieure affichait la
+   * largeur d'un pas sur un essai réussi — « 1 pas » là où l'en-tête annonçait
+   * trente-six.
+   */
+  verifier('mais l’écart entre candidats reste celui de l’escalier', reussi[0].ecartEntreCandidats, 5);
+  verifier(
+    'et la phrase du succès l’annonce',
+    phraseDEcart(reussi[0]).includes('5 pas'),
+    true,
+  );
+
+  /**
+   * Le sous-essai sans réponse n'est pas une erreur : la correction le dit
+   * plutôt que de le compter comme un choix faux, ce qui laisserait croire
+   * qu'on s'est trompé.
+   */
+  const muet = corrigerEssai(essai, [null]);
+  verifier('un sous-essai sans réponse est distingué', muet[0].axes[0].pasDonne, null);
+  verifier('et sa phrase le dit', phraseDEcart(muet[0]).includes('Aucune réponse'), true);
+
+  // La tâche « plan » doit nommer l'axe fautif — c'est ce qu'elle enseigne.
+  const seconde = {
+    de: DIMENSIONS.find((d) => d.id === 'duree')!,
+    vers: DIMENSIONS.find((d) => d.id === 'hauteur')!,
+  };
+  const plan = {
+    arete,
+    delta: 4,
+    tache: 'plan' as const,
+    partiel: false,
+    secondaire: { de: seconde.de.id, vers: seconde.vers.id },
+    secondaireDimensions: seconde,
+    sousEssais: [
+      {
+        pasReference: 50,
+        pasReferenceSecondaire: 70,
+        reference: {} as never,
+        candidats: [
+          { pas: 50, pasSecondaire: 70, stimulus: {} as never, juste: true },
+          // Le leurre ne se trompe que sur le **second** axe.
+          { pas: 50, pasSecondaire: 74, stimulus: {} as never, juste: false },
+        ],
+      },
+    ],
+  };
+  const corrigePlan = corrigerEssai(plan, [1]);
+  verifier('la tâche « plan » corrige deux axes', corrigePlan[0].axes.length, 2);
+  verifier('et nomme celui qui était fautif', corrigePlan[0].axeFautif, seconde.vers.nom);
+  verifier(
+    'l’axe juste ne porte aucun écart',
+    corrigePlan[0].axes[0].ecart,
+    0,
+  );
+  verifier('tandis que le fautif en porte un', corrigePlan[0].axes[1].ecart, 4);
+  verifier(
+    'l’écart entre candidats se mesure sur l’axe fautif',
+    corrigePlan[0].ecartEntreCandidats,
+    4,
+  );
+
+  // La tâche modulaire compare des intervalles, jamais des positions.
+  const modulaire = {
+    arete: { de: taille, vers: teinte },
+    delta: 6,
+    tache: 'modulaire' as const,
+    partiel: false,
+    intervalle: 30,
+    sousEssais: [
+      {
+        pasReference: 10,
+        pasReference2: 40,
+        reference: {} as never,
+        reference2: {} as never,
+        candidats: [
+          { pas: 100, ancre: 70, stimulus: {} as never, juste: true },
+          { pas: 106, ancre: 70, stimulus: {} as never, juste: false },
+        ],
+      },
+    ],
+  };
+  const corrigeModulaire = corrigerEssai(modulaire, [1]);
+  verifier(
+    'la tâche modulaire compare les intervalles',
+    corrigeModulaire[0].intervalles?.reference,
+    30,
+  );
+  verifier('et celui qui a été choisi', corrigeModulaire[0].intervalles?.donne, 36);
+  verifier(
+    'sa phrase parle d’écart, non de position',
+    phraseDEcart(corrigeModulaire[0]).includes('c’est l’écart qui se transporte'),
+    true,
   );
 }
 

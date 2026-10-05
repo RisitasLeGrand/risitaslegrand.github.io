@@ -90,14 +90,48 @@ export function jouerTon({ frequenceHz, niveauDb, dureeMs }: Ton): Promise<void>
   oscillateur.start(depart);
   oscillateur.stop(fin + 0.02);
 
+  /*
+   * `onended` **et** un délai de garde, et non `onended` seul.
+   *
+   * Le bouton d'écoute se verrouille pendant la lecture pour qu'on ne déclenche
+   * pas deux tons superposés. Il se déverrouille quand cette promesse se
+   * résout — c'est-à-dire jamais, si `onended` ne se déclenche pas. Or il ne se
+   * déclenche pas toujours : un contexte audio suspendu en cours de ton, un
+   * onglet passé à l'arrière-plan, un périphérique de sortie retiré, et
+   * l'oscillateur s'arrête sans prévenir. Le bouton reste alors sur « en
+   * cours… », définitivement, et l'essai devient impossible à terminer
+   * autrement qu'en rechargeant la page.
+   *
+   * Le délai de garde est calé sur la durée du ton plus une marge : passé ce
+   * temps, le son est fini ou ne viendra pas, et dans les deux cas l'interface
+   * doit rendre la main. Le nettoyage est fait une seule fois, quelle que soit
+   * la voie qui l'emporte.
+   */
   return new Promise((resoudre) => {
-    oscillateur.onended = () => {
-      oscillateur.disconnect();
-      gain.disconnect();
+    let fini = false;
+    const terminer = () => {
+      if (fini) return;
+      fini = true;
+      clearTimeout(garde);
+      try {
+        oscillateur.disconnect();
+        gain.disconnect();
+      } catch {
+        /* déjà déconnecté : rien à faire */
+      }
       resoudre();
     };
+    const garde = setTimeout(terminer, (duree + 0.1) * 1000 + MARGE_MS);
+    oscillateur.onended = terminer;
   });
 }
+
+/**
+ * Marge du délai de garde, en millisecondes. Assez large pour qu'un `onended`
+ * normal arrive toujours le premier, assez courte pour qu'un blocage ne se
+ * remarque pas comme une attente.
+ */
+const MARGE_MS = 400;
 
 /** Un court silence, pour séparer deux stimuli sonores. */
 export function silence(ms: number): Promise<void> {

@@ -13,7 +13,7 @@
  * tête sans toucher à la mesure — ce que le cahier des charges demande
  * précisément : une difficulté indépendante du seuil perceptif.
  */
-import { PAS, borner, ecartEnPas, type Famille } from './dimensions';
+import { PAS, borner, ecartEnPas, type Dimension, type Famille } from './dimensions';
 import { arbreCouvrant, aretesDeFamille, aretesHorsFamille, idArete, type Arete } from './hub';
 import { stimulus, superposables, superposer, type Stimulus } from './stimulus';
 
@@ -81,6 +81,14 @@ export interface Candidat {
    */
   ancre?: number;
   ancreStimulus?: Stimulus;
+  /**
+   * En tâche « plan », le rang porté sur le **second** axe.
+   *
+   * Le stimulus le porte déjà, superposé, mais un stimulus ne se relit pas :
+   * sans ce rang, la correction ne pourrait pas dire lequel des deux axes le
+   * leurre manquait, ce qui est précisément ce que la tâche enseigne.
+   */
+  pasSecondaire?: number;
 }
 
 export interface SousEssai {
@@ -93,6 +101,8 @@ export interface SousEssai {
    */
   pasReference2?: number;
   reference2?: Stimulus;
+  /** En tâche « plan », le rang de la référence sur le second axe. */
+  pasReferenceSecondaire?: number;
 }
 
 export interface Essai {
@@ -107,6 +117,16 @@ export interface Essai {
    * déjà ; on la nomme ici pour la consigne et le tableau de bord.
    */
   secondaire?: { de: string; vers: string };
+  /**
+   * Les dimensions du second axe, et non leurs seuls identifiants.
+   *
+   * `secondaire` sert aux libellés ; la correction, elle, a besoin des unités et
+   * de la loi de valeur pour dire un écart en millimètres ou en décibels. Les
+   * rechercher par identifiant à l'affichage aurait marché, mais aurait laissé
+   * une recherche qui peut rendre `undefined` sur un chemin où elle ne le doit
+   * jamais.
+   */
+  secondaireDimensions?: { de: Dimension; vers: Dimension };
   /** L'écart à reproduire, en tâche modulaire. */
   intervalle?: number;
 }
@@ -297,11 +317,13 @@ function tirerPlan(arete: Arete, delta: number, reglages: Reglages, hasard: Hasa
   const candidats: Candidat[] = [
     {
       pas: pasA,
+      pasSecondaire: pasB,
       stimulus: superposer(stimulus(arete.vers, pasA), stimulus(seconde.vers, pasB)),
       juste: true,
     },
     {
       pas: leurreA,
+      pasSecondaire: leurreB,
       stimulus: superposer(stimulus(arete.vers, leurreA), stimulus(seconde.vers, leurreB)),
       juste: false,
     },
@@ -314,9 +336,11 @@ function tirerPlan(arete: Arete, delta: number, reglages: Reglages, hasard: Hasa
     partiel: reglages.partiel,
     tache: 'plan',
     secondaire: { de: seconde.de.id, vers: seconde.vers.id },
+    secondaireDimensions: { de: seconde.de, vers: seconde.vers },
     sousEssais: [
       {
         pasReference: pasA,
+        pasReferenceSecondaire: pasB,
         reference: superposer(stimulus(arete.de, pasA), stimulus(seconde.de, pasB)),
         candidats,
       },
