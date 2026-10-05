@@ -48,6 +48,33 @@
   /** Largeur d'un caractère à 10 points, pour estimer un libellé. */
   const LARGEUR_CARACTERE = 5.1;
 
+  /**
+   * Les noms de séries, écartés jusqu'à ne plus se heurter.
+   *
+   * Chaque nom se pose au bout de sa courbe. Deux courbes qui finissent au même
+   * niveau — un solde effectif qui a rejoint son solde structurel, deux parts
+   * de PIB qui se croisent — y écrivaient donc deux noms l'un sur l'autre, et
+   * c'est précisément quand les courbes se rejoignent qu'on a besoin de savoir
+   * laquelle est laquelle.
+   */
+  const nomsDeSeries = $derived.by(() => {
+    const prises: [number, number][] = [];
+    return donnees.series.map((serie) => {
+      const dernier = serie.points[serie.points.length - 1];
+      const largeur = serie.nom.length * LARGEUR_CARACTERE;
+      // Ancré par la fin : le nom s'écrit à gauche du dernier point, donc à
+      // l'intérieur du repère, et jamais au-delà du bord droit.
+      const ax = Math.max(X0 + largeur + 2, Math.min(px(dernier[0]) - 3, X1));
+      let y = py(dernier[1]) - 6;
+      for (let essai = 0; essai < 8; essai += 1) {
+        if (!prises.some(([a, b]) => y - 9 < b && y + 2 > a)) break;
+        y -= 11;
+      }
+      prises.push([y - 9, y + 2]);
+      return { ax, y };
+    });
+  });
+
   /** Les libellés de repères, remontés jusqu'à ne plus se heurter. */
   const etiquettes = $derived.by(() => {
     const prises: [number, number, number, number][] = [];
@@ -82,10 +109,11 @@
        chevauchait la graduation maximale. -->
   <text x={(X0 + X1) / 2} y={Y0 + 26} text-anchor="middle"
     class="fill-slate-600 text-[10px] dark:fill-slate-300">{donnees.axeX.nom}</text>
-  <!-- Le nom de l'axe des ordonnées passe au-dessus de son maximum : à la même
-       hauteur, les deux se chevauchaient dès que le maximum avait trois
-       chiffres. -->
-  <text x={X0 - 6} y={Y1 - 7} text-anchor="end" class="fill-slate-600 text-[10px] dark:fill-slate-300"
+  <!-- Le nom de l'axe des ordonnées est ancré au bord gauche du cadre, et non
+       à l'axe : ancré à l'axe, « Solde (% du PIB) » débordait du viewBox par la
+       gauche et s'affichait « du PIB) ». Il passe aussi au-dessus du maximum,
+       qu'il chevauchait dès que celui-ci avait trois chiffres. -->
+  <text x="2" y={Y1 - 7} text-anchor="start" class="fill-slate-600 text-[10px] dark:fill-slate-300"
     >{donnees.axeY.nom}</text>
   <text x={X0 - 6} y={Y1 + 3} text-anchor="end" class="fill-slate-500 text-[9px] dark:fill-slate-400"
     >{donnees.axeY.max}</text>
@@ -108,8 +136,8 @@
         : (TIRETS_PAR_DEFAUT[i % TIRETS_PAR_DEFAUT.length] ?? undefined)}
       stroke-linejoin="round"
     />
-    {@const dernier = serie.points[serie.points.length - 1]}
-    <text x={px(dernier[0]) - 3} y={py(dernier[1]) - 6} text-anchor="end"
+    {@const place = nomsDeSeries[i]}
+    <text x={place.ax} y={place.y} text-anchor="end"
       class="fill-slate-700 text-[10px] font-medium dark:fill-slate-200">{serie.nom}</text>
   {/each}
 

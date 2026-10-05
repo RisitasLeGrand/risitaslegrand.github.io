@@ -115,10 +115,19 @@
         style="color: {couleur}"
       />
       {#if lien.libelle}
-        <!-- Le libellé du lien se pose sur un fond opaque : au-dessus d'un
-             trait, un texte seul devient illisible là où ils se croisent. -->
-        {@const lx = (p.x + q.x) / 2}
-        {@const ly = (p.y + q.y) / 2 - 3}
+        <!--
+          Le libellé se pose au tiers du trait, côté source, et non en son
+          milieu : deux liens qui convergent vers le même nœud ont des milieux
+          voisins, et leurs libellés se chevauchaient — « écart de production »
+          et « en euros » n'en formaient plus qu'un. Pris près de leur source,
+          ils s'écartent autant que les sources elles-mêmes.
+
+          Et le texte se pose sur un fond opaque : au-dessus d'un trait, un
+          texte seul devient illisible là où ils se croisent.
+        -->
+        {@const t = 0.36}
+        {@const lx = p.x + (q.x - p.x) * t}
+        {@const ly = p.y + (q.y - p.y) * t - 3}
         <text
           x={lx}
           y={ly}
