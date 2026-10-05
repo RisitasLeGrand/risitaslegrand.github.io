@@ -632,7 +632,7 @@ de sorte qu'y exiger une correction irait contre sa raison d'être.
 | `systemes/plan-temps.ts` | Un plan, et le **temps** comme troisième axe |
 | `noyaux/mots.ts` | Générateur de **mots-fantômes français** prononçables |
 
-Le registre passe de **10 à 14 systèmes**, et les couples praticables de **118 à 196** — sans
+Le registre passe de **10 à 14 systèmes**, et les couples praticables de **118 à 169** — sans
 qu'une ligne de moteur soit touchée. C'est ce que la séparation système / moteur devait rendre
 possible, et la preuve qu'elle tient.
 
@@ -671,3 +671,62 @@ générateur qui énonce un fait faux, et elle était restreinte à `line`, `pla
 tous sous le seuil de 26 relations. Elle porte désormais sur les quatorze systèmes dotés d'une
 table de composition : mille tirages là où lire une paire est une propagation, quarante là où
 c'est une énumération de scénarios, `allen` coûtant près d'une seconde par instance.
+
+## Lot A2 — système `classes` : **livré**
+
+| Fichier | Rôle |
+|---|---|
+| `systemes/classes.ts` | Les **cinq relations d'ensembles** de RCC5 : confondues, l'une contenue dans l'autre, l'une contenant l'autre, en chevauchement, sans élément commun |
+
+Le registre passe à **15 systèmes** et **181 couples** praticables ; onze moteurs sur seize
+produisent des items sur `classes`, `contradiction` le refusant comme il refuse déjà `rcc8` et
+`allen`. Le plus lent coûte 209 ms par item, loin sous le budget de 1 500 ms.
+
+**Rectification d'un chiffre que j'avais donné.** Le lot A1 porte les couples de **118 à 169**,
+et non à 196 comme annoncé dans son message de commit et dans mon compte rendu. Le compte exact,
+vérifié : 118 avec dix systèmes, 169 avec quatorze, 181 avec quinze.
+
+### Pourquoi RCC5 et non RCC8
+
+On y oublie le **contact**, et ce n'est pas une simplification mais une conséquence du domaine :
+deux *régions* peuvent se toucher sans se recouvrir, deux *ensembles* ne peuvent pas. Le
+classifieur diffère donc de celui de RCC8 au premier test — deux segments qui ne partagent qu'une
+extrémité **se recoupent**, cette extrémité étant un élément commun.
+
+La table de composition, dérivée par énumération, donne les résultats attendus de la logique des
+classes :
+
+| Composition | Résultat | Ce que c'est |
+|---|---|---|
+| `contenu ∘ contenu` | `contenu` | La transitivité de l'inclusion |
+| `contenu ∘ disjoints` | `disjoints` | Le syllogisme **AEE**, valide |
+| `disjoints ∘ disjoints` | **les cinq** | Le sophisme classique : « aucun A n'est B, aucun B n'est C » ne conclut rien |
+| `contenu ∘ contient` | **les cinq** | L'autre sophisme : deux termes sous un même majeur ne se comparent pas |
+| `contient ∘ disjoints` | `contient`, `empiète`, `disjoints` | Un contenant peut dépasser là où son contenu est séparé |
+
+### Et pourquoi le syllogisme ne peut pas être un système
+
+Le point méritait d'être établi avant d'écrire du code, parce qu'il change le découpage du lot A3.
+
+Le contrat exige de chaque relation qu'elle soit une information **complète** sur une paire :
+`converse` rend **une** relation, et un `Fait` en énonce **une**. Or une prémisse quantifiée est
+une **disjonction** de relations :
+
+| Forme | Ce qu'elle dit des cinq relations |
+|---|---|
+| Tous les X sont Y | `identiques` **ou** `contenu` |
+| Aucun X n'est Y | `disjoints` |
+| Certains X sont Y | tout sauf `disjoints` |
+| Certains X ne sont pas Y | `contient`, `empiète` **ou** `disjoints` |
+
+Et la conversion ne s'écrit pas comme une fonction : « aucun X n'est Y » et « certains X sont Y »
+se renversent simplement, « tous les X sont Y » ne donne que « certains Y sont X », et
+« certains X ne sont pas Y » ne se renverse **pas du tout**. Un `converse` total et exact est donc
+impossible sur le vocabulaire quantifié.
+
+**D'où la répartition retenue**, qui n'était pas celle annoncée par l'inventaire : `classes`
+porte les cinq relations **exactes** et sert les seize moteurs — c'est déjà le raisonnement
+d'inclusion, celui des diagrammes d'Euler. Le **syllogisme proprement dit** devient un **moteur**
+de la famille des chaînes, qui lit le modèle de ce système, en tire des prémisses quantifiées, et
+les résout lui-même avec son propre solveur. `SchemaEuler`, livré au lot B1, l'attend déjà avec
+ses témoins et ses zones vides.

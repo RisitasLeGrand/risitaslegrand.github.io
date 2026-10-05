@@ -18,6 +18,7 @@ import { grandeur } from './grandeur';
 import { planTemps } from './plan-temps';
 import { rang } from './rang';
 import { anneau } from './anneau';
+import { classes } from './classes';
 
 export const SYSTEMES: Systeme[] = [
   line,
@@ -34,6 +35,7 @@ export const SYSTEMES: Systeme[] = [
   cyclic,
   rcc8,
   allen,
+  classes,
 ];
 
 export function systemeParId(id: string): Systeme | undefined {
