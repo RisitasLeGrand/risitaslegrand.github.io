@@ -14,10 +14,17 @@
     noeuds = [] as string[],
     aretes = [] as { de: string; a: string; libelle: string; sorte?: 'positif' | 'negatif' }[],
     manquante = undefined as { de: string; a: string } | undefined,
+    /**
+     * Les nœuds que la correction met en avant. Le cercle s'épaissit **et**
+     * double : la couleur seule ne suffirait pas, et un simple changement de
+     * teinte passerait inaperçu sur un petit disque.
+     */
+    enAvant = [] as string[],
   }: {
     noeuds: string[];
     aretes: { de: string; a: string; libelle: string; sorte?: 'positif' | 'negatif' }[];
     manquante?: { de: string; a: string };
+    enAvant?: string[];
   } = $props();
 
   const COTE = 300;
@@ -100,9 +107,17 @@
     {#each noeuds as nom (nom)}
       {@const p = positions.get(nom)}
       {#if p}
+        {@const avant = enAvant.includes(nom)}
+        {#if avant}
+          <circle cx={p.x} cy={p.y} r={RAYON_NOEUD + 4}
+            class="fill-none stroke-indigo-500 dark:stroke-indigo-400"
+            stroke-width="1.5" />
+        {/if}
         <circle cx={p.x} cy={p.y} r={RAYON_NOEUD}
-          class="fill-white stroke-slate-300 dark:fill-slate-900 dark:stroke-slate-700"
-          stroke-width="1.5" />
+          class="fill-white {avant
+            ? 'stroke-indigo-600 dark:stroke-indigo-300'
+            : 'stroke-slate-300 dark:stroke-slate-700'} dark:fill-slate-900"
+          stroke-width={avant ? 2.6 : 1.5} />
         <text x={p.x} y={p.y + 4} text-anchor="middle"
           class="fill-slate-900 text-[11px] font-semibold dark:fill-white">{nom}</text>
       {/if}

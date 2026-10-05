@@ -39,6 +39,8 @@
     statistiques,
     type Trace,
   } from '../progression';
+  import CorrectionDetaillee from '../../correction/composants/CorrectionDetaillee.svelte';
+  import { aCorrectionDetaillee } from '../../correction/registre';
 
   type Etape = 'accueil' | 'question' | 'bilan';
 
@@ -66,7 +68,7 @@
   let questions = $state<Question[]>([]);
   let rang = $state(0);
   let corrige = $state(false);
-  let resultats = $state<{ question: Question; note: number }[]>([]);
+  let resultats = $state<{ question: Question; note: number; donnee: Donnee }[]>([]);
   let debut = 0;
   let xpGagne = $state(0);
 
@@ -92,6 +94,33 @@
   let choixUnique = $state<number | null>(null);
   let choixMultiples = $state<number[]>([]);
   let appariements = $state<Record<string, string>>({});
+
+  /**
+   * La correction détaillée est **dépliée à la demande**, et refermée en passant
+   * à la question suivante.
+   *
+   * Elle n'est pas ouverte d'office : la première chose utile après une réponse
+   * est de savoir si elle était juste, et dérouler aussitôt six étapes de
+   * raisonnement par-dessus noierait ce verdict. Le bouton la propose, et la
+   * personne décide.
+   */
+  let correctionOuverte = $state(false);
+  /** Les items du bilan dont la correction est dépliée, par rang. */
+  let correctionsBilan = $state<number[]>([]);
+
+  /**
+   * La réponse donnée, dans la forme que la correction attend.
+   *
+   * Les deux formes existaient déjà — `donnee()` sert à la notation — mais la
+   * correction a besoin de la **relire après coup**, y compris dans le bilan où
+   * les choix du moment ne sont plus en mémoire. On la garde donc avec le
+   * résultat.
+   */
+  function donneePourCorrection(): Donnee {
+    if (question.reponse.genre === 'unique') return { genre: 'unique', choix: choixUnique };
+    if (question.reponse.genre === 'multiple') return { genre: 'multiple', choix: [...choixMultiples] };
+    return { genre: 'appariement', paires: { ...appariements } };
+  }
 
   const question = $derived(questions[rang]);
   const etats = $derived(etatDesMoteurs(traces));
@@ -141,22 +170,47 @@
    * premier jour. D'où l'amorçage : à la première ouverture, la sélection est
    * **tous les moteurs ouverts**. La règle vaut donc strictement sans jamais
    * bloquer personne.
+   *
+   * ## Le piège, qui s'est refermé une fois
+   *
+   * Une première version lisait, amorçait et **écrivait** dans un seul `try`,
+   * dont le `catch` reposait la sélection par défaut — qui est vide. Il suffisait
+   * donc que l'écriture échoue, ou qu'IndexedDB soit indisponible, pour que la
+   * sélection amorcée soit effacée juste après l'avoir été : « Commencer »
+   * restait désactivé, et la rubrique entière devenait inutilisable sans qu'un
+   * message l'explique. Le défaut ne s'est vu qu'en ouvrant le site dans un
+   * navigateur neuf — ni la vérification de types ni les essais ne pouvaient
+   * l'attraper.
+   *
+   * D'où la forme actuelle : l'amorce est calculée **avant** toute entrée-sortie,
+   * elle sert de repli à chaque échec, et la persistance est tentée à part. Sans
+   * stockage du tout, la rubrique fonctionne — la sélection ne survit
+   * simplement pas au rechargement.
    */
   async function chargerSelection() {
+    const amorce: SelectionEntrainement = {
+      ...SELECTION_PAR_DEFAUT,
+      unites: etatDesMoteurs(traces)
+        .filter((etat) => etat.ouvert)
+        .map((etat) => etat.moteur.id),
+    };
+
+    let lue: SelectionEntrainement | null = null;
     try {
-      const lue = await lireSelectionEntrainement('relational-reasoning');
-      if (lue.unites.length === 0) {
-        const ouvertes = etatDesMoteurs(traces)
-          .filter((etat) => etat.ouvert)
-          .map((etat) => etat.moteur.id);
-        selection = { ...lue, unites: ouvertes };
-        await ecrireSelectionEntrainement('relational-reasoning', selection);
-      } else {
-        selection = lue;
-      }
+      lue = await lireSelectionEntrainement('relational-reasoning');
     } catch {
-      /* sans stockage, la sélection reste celle de la session courante */
-      selection = { ...SELECTION_PAR_DEFAUT };
+      /* sans stockage, on part de l'amorce */
+    }
+
+    const aPersister = !lue || lue.unites.length === 0;
+    selection = aPersister ? (lue ? { ...lue, unites: amorce.unites } : amorce) : lue;
+
+    if (aPersister) {
+      try {
+        await ecrireSelectionEntrainement('relational-reasoning', selection);
+      } catch {
+        /* l'amorce vaut pour cette session, et c'est assez pour jouer */
+      }
     }
   }
 
@@ -272,8 +326,12 @@
 
   function valider() {
     if (!repondu || corrige) return;
-    resultats = [...resultats, { question, note: noter(question.reponse, donnee()) }];
+    resultats = [
+      ...resultats,
+      { question, note: noter(question.reponse, donnee()), donnee: donneePourCorrection() },
+    ];
     corrige = true;
+    correctionOuverte = false;
   }
 
   function basculerMultiple(index: number) {
@@ -287,6 +345,7 @@
     if (rang + 1 < questions.length) {
       rang += 1;
       corrige = false;
+      correctionOuverte = false;
       reinitialiserReponse();
       return;
     }
@@ -562,7 +621,40 @@
           </p>
         {/if}
         <p class="mt-1 text-slate-700 dark:text-slate-300">{question.explication}</p>
+
+        <!--
+          Trois conditions, et chacune pour sa raison. Le registre dit si
+          l'exercice offre la correction détaillée ; la trace dit si cet item-là
+          peut la tenir ; et le **second temps** en est exclu.
+
+          Ce dernier point n'est pas un oubli à rattraper : la trace d'un item
+          conclut à la réponse de son *premier* temps. L'afficher sur le second,
+          qui a sa propre question et sa propre réponse, montrerait un
+          raisonnement qui conclut à autre chose que ce qu'on vient de répondre.
+          Mieux vaut ne rien proposer que proposer cela — et c'est noté comme un
+          reste du lot B, non comme un choix définitif.
+        -->
+        {#if question.item.trace && !question.second && aCorrectionDetaillee('relational-reasoning')}
+          <button
+            type="button"
+            onclick={() => (correctionOuverte = !correctionOuverte)}
+            aria-expanded={correctionOuverte}
+            class="mt-3 rounded-lg border border-indigo-300 bg-white px-3 py-1.5 text-sm
+              font-medium text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700
+              dark:bg-slate-900 dark:text-indigo-300 dark:hover:bg-indigo-950/40"
+          >{correctionOuverte ? 'Replier la correction détaillée' : 'Correction détaillée'}</button>
+        {/if}
       </div>
+    {/if}
+
+    {#if corrige && correctionOuverte && question.item.trace && !question.second}
+      <CorrectionDetaillee
+        item={question.item}
+        reponse={question.reponse}
+        trace={question.item.trace}
+        donnee={resultats[resultats.length - 1]?.donnee ?? null}
+        fermer={() => (correctionOuverte = false)}
+      />
     {/if}
 
     <div class="mt-5 flex gap-3">
@@ -608,6 +700,35 @@
             </p>
             <p class="mt-1 text-sm font-medium text-slate-900 dark:text-white">{manque.question.consigne}</p>
             <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{manque.question.explication}</p>
+
+            <!--
+              La revue de fin de séance donne accès à la même correction, et non
+              à un résumé : c'est le moment où l'on a le temps de la lire, et un
+              second format aurait été un second raisonnement à tenir à jour.
+            -->
+            {#if manque.question.item.trace && !manque.question.second}
+              <button
+                type="button"
+                onclick={() =>
+                  (correctionsBilan = correctionsBilan.includes(i)
+                    ? correctionsBilan.filter((r) => r !== i)
+                    : [...correctionsBilan, i])}
+                aria-expanded={correctionsBilan.includes(i)}
+                class="mt-2 rounded-md border border-indigo-300 bg-white px-2.5 py-1 text-xs
+                  font-medium text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700
+                  dark:bg-slate-900 dark:text-indigo-300 dark:hover:bg-indigo-950/40"
+              >{correctionsBilan.includes(i) ? 'Replier' : 'Correction détaillée'}</button>
+
+              {#if correctionsBilan.includes(i)}
+                <CorrectionDetaillee
+                  item={manque.question.item}
+                  reponse={manque.question.reponse}
+                  trace={manque.question.item.trace}
+                  donnee={manque.donnee}
+                  fermer={() => (correctionsBilan = correctionsBilan.filter((r) => r !== i))}
+                />
+              {/if}
+            {/if}
           </li>
         {/each}
       </ul>

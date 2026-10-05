@@ -1127,3 +1127,61 @@ avec un plancher qui échoue sous 50 % :
 | 100 % | les dix-sept autres |
 | 89 % | `premisses-minimales` |
 | 82 % | `ensembles-possibles` |
+
+## Lot B5 — l'écran « Correction détaillée » : **livré**
+
+Le bouton apparaît sous le verdict, après validation, et la revue de fin de séance donne accès au
+**même** écran — pas à un résumé : c'est le moment où l'on a le temps de lire, et un second format
+aurait été un second raisonnement à tenir à jour.
+
+### Les trois parties, dans cet ordre
+
+**1. Votre réponse, en face de la bonne.** C'est la question qu'on se pose en premier ; commencer
+par un exposé fait relire l'exposé sans le lire. Quand la réponse donnée porte une **étiquette
+d'erreur**, son diagnostic s'affiche ici — « vous avez pris la relation inverse » apprend ce que
+« faux » n'apprend pas.
+
+**2. L'énoncé annoté, qui se construit pas à pas.** Le **même composant `Bloc`** que la question,
+avec les marqueurs de la trace. Un second composant « annoté » aurait divergé du premier au
+premier ajout de variante, et la correction aurait fini par porter sur autre chose que ce qu'on a
+vu. Les prémisses s'allument au fil des étapes, les inertes sont barrées dès le départ, les
+entités ressortent sur la grille, le graphe et désormais la **matrice** — ligne et colonne mises
+en avant, leur croisement plus fort : c'est ce qu'on parcourt du doigt pour vérifier une relation.
+
+**3. Le raisonnement en mots**, à côté du visuel, chaque étape à venir en pointillé.
+
+### Les clefs de prémisse : deux conventions, une règle
+
+Les moteurs ne désignent pas tous une prémisse de la même façon — la plupart par son **rang**,
+« Inférer la relation » par son **texte**, ses lignes étant mélangées entre symboles. Forcer une
+convention aurait abîmé un moteur pour arranger l'autre. La correspondance se fait donc à
+l'affichage, en une ligne : une phrase est marquée si la clef vaut son texte **ou** son rang.
+
+### Quatre défauts, dont trois invisibles à la vérification de types
+
+`npx astro check` rendait **0 erreur** sur les trois premiers. Ils ne se sont vus qu'en ouvrant le
+site dans un navigateur neuf.
+
+| Défaut | Ce qui le rendait grave |
+|---|---|
+| **« Commencer » restait désactivé sur une première visite.** `chargerSelection` lisait, amorçait et écrivait dans un seul `try` dont le `catch` reposait la sélection par défaut — qui est vide | La rubrique entière devenait inutilisable, **sans message**, dès que l'écriture échouait ou qu'IndexedDB était indisponible. L'amorce est maintenant calculée avant toute entrée-sortie, sert de repli à chaque échec, et la persistance est tentée à part |
+| `Donnee` était déclaré deux fois — `notation.ts` l'exportait déjà | Deux types jumeaux auraient divergé au premier format de réponse nouveau, et la correction aurait annoté autre chose que ce que le barème notait. La correction emploie maintenant le type de la notation |
+| Une prémisse portait le marqueur **`deduit`** (⇢), qui veut dire « établi par l'étape, et non donné par l'énoncé » | Un vocabulaire partagé ne vaut que si chaque marqueur garde son sens partout. L'étape courante marque `utilise` comme les autres ; dire où l'on en est est le travail de la légende d'étape |
+| « Inférer la relation » désignait des options par leur **libellé** | La clef devenait `NaN` : rien ne s'affichait, et « inutile » apparaissait pourtant dans la légende. Une légende qui annonce un marqueur absent apprend à ne plus lire la légende. Les clefs non numériques sont ignorées, et le moteur ne pose plus ces références |
+
+### Ce qui est délibérément exclu
+
+Le **second temps** d'un item n'ouvre pas la correction. Sa trace conclut à la réponse du
+*premier* temps : l'afficher montrerait un raisonnement qui conclut à autre chose que ce qu'on
+vient de répondre. C'est noté comme un reste du lot B, non comme un choix définitif.
+
+### Essais
+
+Dix-sept assertions nouvelles sur `annotations.ts`, la pièce testable de l'écran : l'ordre de pose
+des marqueurs, le fait qu'une réponse juste porte `bonne-reponse` et non `ta-reponse`, les deux
+conventions de clef, le rejet des clefs d'option non numériques, et la légende qui ne liste que
+des marqueurs présents.
+
+Le parcours complet a par ailleurs été joué dans un navigateur — déverrouillage, séance de douze
+questions, ouverture de la correction sur quatre moteurs, déroulé étape par étape, puis bilan —
+sans une seule erreur de console.

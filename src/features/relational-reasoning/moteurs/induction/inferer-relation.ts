@@ -115,11 +115,15 @@ export const infererRelation: Moteur = {
         surbrillance: choix.exemples.flatMap(([x, y]) => [ref('noeud', x), ref('noeud', y)]),
       });
     }
-    // Les relations proposées à droite sans être en jeu : des leurres, qu'aucun
-    // exemple ne soutient. Les nommer inutiles évite qu'on les croie oubliées.
-    for (const option of droite) {
-      if (!Object.values(paires).includes(option)) carnet.inutile(ref('option', option));
-    }
+    /*
+     * Les relations proposées à droite sans être en jeu sont des leurres, et il
+     * serait tentant de les déclarer inutiles. On ne le fait pas : la réponse
+     * est un **appariement**, et son énoncé n'affiche pas de liste d'options
+     * numérotées — la trace n'a donc aucun rang auquel les rattacher. Les
+     * désigner par leur libellé donnait une référence que l'affichage ne sait
+     * pas résoudre, et la légende annonçait « inutile » sans que rien ne le
+     * porte. L'explication les nomme, ce qui suffit.
+     */
 
     return {
       moteur: 'inferer-relation',

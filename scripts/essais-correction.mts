@@ -43,6 +43,12 @@ import {
   type Marqueur,
 } from '../src/features/correction/vocabulaire';
 import { EXERCICES_COG, aCorrectionDetaillee } from '../src/features/correction/registre';
+import {
+  annoter,
+  marqueurDePhrase,
+  marqueursEmployes,
+  reponseJuste,
+} from '../src/features/correction/annotations';
 
 /**
  * Les moteurs dont le solveur dépose déjà une trace.
@@ -308,6 +314,111 @@ console.log('\n\x1b[1mLE VOCABULAIRE VISUEL\x1b[0m\n');
     'sans élément, l’alternative reste le sujet seul',
     alternative('Un graphe vide', []),
     'Un graphe vide',
+  );
+}
+
+console.log('\n\x1b[1mLES ANNOTATIONS DE L’ÉNONCÉ\x1b[0m\n');
+{
+  const trace = (() => {
+    const carnet = journal();
+    carnet.inutile(ref('premisse', 2));
+    carnet.etape({
+      utilise: [ref('premisse', 0)],
+      produit: 'A avant B',
+      legende: 'première',
+      surbrillance: [ref('entite', 'A')],
+    });
+    carnet.etape({
+      utilise: [ref('premisse', 1)],
+      produit: 'A avant C',
+      legende: 'seconde',
+      surbrillance: [ref('entite', 'C')],
+    });
+    return carnet.sceller({ genre: 'unique', indice: 1 });
+  })();
+  const reponse = {
+    genre: 'unique' as const,
+    options: [{ texte: 'non' }, { texte: 'oui' }, { texte: 'peut-être' }],
+    bonne: 1,
+  };
+
+  const a1 = annoter(trace, reponse, { genre: 'unique', choix: 0 }, 1);
+  verifier('à l’étape 1, la prémisse de l’étape 1 est utilisée', a1.premisses.get('0'), 'utilise');
+  verifier('celle de l’étape 2 n’est pas encore marquée', a1.premisses.get('1'), undefined);
+  verifier('et l’inutile l’est dès le départ', a1.premisses.get('2'), 'inutile');
+
+  const a2 = annoter(trace, reponse, { genre: 'unique', choix: 0 }, 2);
+  verifier('à l’étape 2, les deux prémisses sont utilisées', [a2.premisses.get('0'), a2.premisses.get('1')], ['utilise', 'utilise']);
+  verifier('les entités surlignées suivent les étapes', [...a2.elements.keys()].sort(), ['A', 'C']);
+
+  verifier('la réponse donnée est marquée', a2.options.get(0), 'ta-reponse');
+  verifier('et la bonne aussi', a2.options.get(1), 'bonne-reponse');
+
+  /**
+   * Quand la réponse est juste, c'est `bonne-reponse` qui doit rester : afficher
+   * « votre réponse » sur une réponse juste, sans dire qu'elle l'était, serait
+   * le contraire de ce que la personne attend.
+   */
+  const juste = annoter(trace, reponse, { genre: 'unique', choix: 1 }, 2);
+  verifier('une réponse juste porte le marqueur de la bonne réponse', juste.options.get(1), 'bonne-reponse');
+  verifier('et `reponseJuste` le confirme', reponseJuste(reponse, { genre: 'unique', choix: 1 }), true);
+  verifier('tandis qu’une fausse est reconnue comme telle', reponseJuste(reponse, { genre: 'unique', choix: 0 }), false);
+
+  /**
+   * Le garde-fou des clefs d'option : une clef qui n'est pas un rang est
+   * ignorée. Sans lui, un `NaN` entrait dans la table, ne s'affichait nulle part
+   * et faisait pourtant apparaître son marqueur dans la légende.
+   */
+  const bancal = (() => {
+    const carnet = journal();
+    carnet.inutile(ref('option', 'est au nord de'));
+    carnet.etape({ utilise: [ref('premisse', 0)], produit: 'x', legende: 'y', surbrillance: [] });
+    return carnet.sceller({ genre: 'unique', indice: 1 });
+  })();
+  const ignore = annoter(bancal, reponse, null, 1);
+  verifier(
+    'une clef d’option non numérique est ignorée',
+    [...ignore.options.keys()].every((k) => Number.isInteger(k)),
+    true,
+  );
+  verifier(
+    'et la légende ne liste que des marqueurs présents',
+    marqueursEmployes(ignore).includes('inutile'),
+    false,
+  );
+
+  // Les deux conventions de clef de prémisse, acceptées à l'affichage seul.
+  const parTexte = (() => {
+    const carnet = journal();
+    carnet.etape({
+      utilise: [ref('premisse', 'A  ★  B')],
+      produit: 'x',
+      legende: 'y',
+      surbrillance: [],
+    });
+    return carnet.sceller({ genre: 'unique', indice: 1 });
+  })();
+  const t2 = annoter(parTexte, reponse, null, 1);
+  verifier('une prémisse désignée par son texte est retrouvée', marqueurDePhrase(t2, 'A  ★  B', 7), 'utilise');
+  verifier('une prémisse désignée par son rang aussi', marqueurDePhrase(a1, 'peu importe', 0), 'utilise');
+  verifier('et une phrase sans marqueur n’en reçoit pas', marqueurDePhrase(a1, 'rien', 5), undefined);
+
+  // L'appariement : juste seulement si toutes les paires attendues y sont.
+  const appariement = {
+    genre: 'appariement' as const,
+    gauche: ['★', '◆'],
+    droite: ['a', 'b'],
+    paires: { '★': 'a', '◆': 'b' },
+  };
+  verifier(
+    'un appariement complet est juste',
+    reponseJuste(appariement, { genre: 'appariement', paires: { '★': 'a', '◆': 'b' } }),
+    true,
+  );
+  verifier(
+    'un appariement partiel ne l’est pas',
+    reponseJuste(appariement, { genre: 'appariement', paires: { '★': 'a' } }),
+    false,
   );
 }
 
