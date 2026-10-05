@@ -38,6 +38,133 @@ export const flashcardSchema = z
     return { question: String(question).trim(), reponse: String(reponse).trim() };
   });
 
+/**
+ * Le visuel d'une correction, décrit en données et non en SVG.
+ *
+ * Pourquoi déclaratif : un SVG écrit à la main dans le contenu fige ses
+ * couleurs, et le site a deux thèmes. Il fige aussi sa largeur, et le site se
+ * lit sur téléphone. En décrivant le visuel par ses données, c'est un composant
+ * du site qui le dessine — avec les tokens du thème actif, un « viewBox » qui
+ * s'adapte, et l'alternative textuelle au bon endroit.
+ *
+ * Et `type: aucun` est une **décision**, pas une absence : il faut dire
+ * pourquoi aucun dessin n'aiderait. Sans cette obligation, « aucun » devient le
+ * choix par défaut de qui n'a pas réfléchi, et la règle « un visuel quand la
+ * question porte sur une structure qui se dessine » ne veut plus rien dire.
+ */
+export const TYPES_VISUEL = [
+  'frise',
+  'tableau',
+  'schema',
+  'courbe',
+  'venn',
+  'figure',
+  'grille',
+  'texte_annote',
+  'aucun',
+];
+
+export const visuelSchema = z
+  .object({
+    type: z.enum(TYPES_VISUEL, {
+      message: `« visuel.type » doit valoir l'un de : ${TYPES_VISUEL.join(', ')}`,
+    }),
+    donnees: z.unknown().optional(),
+    legende: z.string().optional(),
+    alt: z.string().optional(),
+    raison_aucun: z.string().optional(),
+  })
+  .superRefine((v, ctx) => {
+    if (v.type === 'aucun') {
+      if (!v.raison_aucun?.trim()) {
+        ctx.addIssue({
+          code: 'custom',
+          message: '« visuel.type: aucun » exige « raison_aucun » : dites pourquoi aucun dessin n’aiderait',
+        });
+      }
+      return;
+    }
+    if (v.donnees === undefined || v.donnees === null) {
+      ctx.addIssue({ code: 'custom', message: `« visuel.type: ${v.type} » sans « donnees »` });
+    }
+    if (!v.alt?.trim()) {
+      ctx.addIssue({
+        code: 'custom',
+        message: `« visuel.type: ${v.type} » sans « alt » : l’alternative textuelle est obligatoire`,
+      });
+    }
+  });
+
+/**
+ * La correction détaillée d'une question de QCM.
+ *
+ * Contrairement aux exercices de Cog-Training, dont la correction est calculée
+ * par un solveur, celle-ci est **rédigée et stockée** : la question vient d'une
+ * banque, il n'y a pas de dérivation à produire. Elle reste adaptée à la
+ * réponse donnée, mais c'est l'ordre d'affichage qui varie, pas le contenu.
+ *
+ * `par_option` porte un verdict **par option**, et la cohérence avec la clef de
+ * réponse est vérifiée dans les schémas qui connaissent les options : une
+ * correction qui déclarerait juste une option que la clef donne fausse est
+ * l'équivalent écrit d'une trace qui contredit sa conclusion, et aussi nuisible.
+ *
+ * `confiance: moyenne` s'affiche à la personne. C'est le cas des sujets sans
+ * corrigé officiel, dont la réponse a été établie par recherche et
+ * raisonnement : le dire vaut mieux que de présenter une déduction comme une
+ * certitude.
+ */
+export const correctionSchema = z.object({
+  resume: z.string().min(1, '« correction.resume » est obligatoire'),
+  par_option: z
+    .array(
+      z.object({
+        verdict: z.enum(['juste', 'faux'], { message: '« verdict » vaut « juste » ou « faux »' }),
+        pourquoi: z.string().min(1, 'chaque option doit dire pourquoi elle est juste ou fausse'),
+      }),
+    )
+    .min(2, '« par_option » a besoin d’une entrée par option'),
+  detail: z.string().min(1, '« correction.detail » est obligatoire'),
+  /** Identifiants de fiche, pour le lien « rappel de cours ». */
+  rappel_de_cours: z.array(z.string()).default([]),
+  sources: z
+    .array(z.object({ nom: z.string().min(1), url: z.string().optional() }))
+    .default([]),
+  confiance: z.enum(['haute', 'moyenne'], {
+    message: '« confiance » vaut « haute » ou « moyenne »',
+  }),
+  visuel: visuelSchema,
+});
+
+/**
+ * La correction contredit-elle la clef de réponse ?
+ *
+ * Appelé par les deux schémas de question, là où options et bonnes réponses
+ * sont connues. Trois façons de se tromper, et les trois sont silencieuses à
+ * la lecture : un nombre d'entrées qui ne correspond pas aux options, une
+ * option déclarée juste que la clef donne fausse, et l'inverse.
+ */
+export function defautsDeLaCorrection(correction, options, bonnes) {
+  if (!correction) return [];
+  const defauts = [];
+  if (correction.par_option.length !== options.length) {
+    defauts.push(
+      `« par_option » compte ${correction.par_option.length} entrée(s) pour ${options.length} option(s)`,
+    );
+    return defauts;
+  }
+  const cle = new Set(bonnes);
+  correction.par_option.forEach((entree, i) => {
+    const juste = entree.verdict === 'juste';
+    if (juste && !cle.has(i)) {
+      defauts.push(`option ${i + 1} (« ${options[i]} ») donnée juste par la correction, fausse par la clef`);
+    }
+    if (!juste && cle.has(i)) {
+      defauts.push(`option ${i + 1} (« ${options[i]} ») donnée fausse par la correction, juste par la clef`);
+    }
+  });
+  return defauts;
+}
+
 export const quizSchema = z
   .object({
     question: z.string().min(1, 'question de quiz vide'),
@@ -45,6 +172,7 @@ export const quizSchema = z
     reponse: z.union([z.string(), z.number()]).optional(),
     reponses: z.array(z.union([z.string(), z.number()])).optional(),
     explication: z.string().optional(),
+    correction: correctionSchema.optional(),
   })
   .transform((v, ctx) => {
     const options = v.options.map((o) => String(o).trim());
@@ -71,11 +199,16 @@ export const quizSchema = z
       }
       indices.push(idx);
     }
+    const bonnes = [...new Set(indices)].sort((a, b) => a - b);
+    for (const defaut of defautsDeLaCorrection(v.correction, options, bonnes)) {
+      ctx.addIssue({ code: 'custom', message: `quiz « ${v.question} » : ${defaut}` });
+    }
     return {
       question: v.question.trim(),
       options,
-      bonnes: [...new Set(indices)].sort((a, b) => a - b),
+      bonnes,
       explication: v.explication?.trim(),
+      correction: v.correction,
     };
   });
 
@@ -111,6 +244,7 @@ export const questionDgfipSchema = z
      * corrigé, énoncé ambigu, état du droit ayant changé depuis l'annale.
      */
     incertain: z.string().optional(),
+    correction: correctionSchema.optional(),
   })
   .transform((v, ctx) => {
     const options = v.options.map((o) => String(o).trim());
@@ -136,14 +270,19 @@ export const questionDgfipSchema = z
       }
       indices.push(idx);
     }
+    const bonnes = [...new Set(indices)].sort((a, b) => a - b);
+    for (const defaut of defautsDeLaCorrection(v.correction, options, bonnes)) {
+      ctx.addIssue({ code: 'custom', message: `question « ${v.question} » : ${defaut}` });
+    }
     return {
       question: v.question.trim(),
       options,
-      bonnes: [...new Set(indices)].sort((a, b) => a - b),
+      bonnes,
       explication: v.explication.trim(),
       source: v.source?.trim(),
       categorie: v.categorie,
       incertain: v.incertain?.trim(),
+      correction: v.correction,
     };
   });
 

@@ -572,3 +572,52 @@ systèmes » pour Relational Reasoning ; il y en a **dix**. Corrigé.
 - `SchemaEuler` reçoit sa géométrie de l'appelant plutôt que de la calculer : la disposition
   d'un diagramme d'Euler à partir de prémisses quantifiées relève du système `classes`, donc
   du lot A2.
+
+## Lot C1 + C2 — schéma « correction » et contrôle à deux régimes : **livré**
+
+| Fichier | Rôle |
+|---|---|
+| `scripts/lib/schema.mjs` | `TYPES_VISUEL` (9 types), `visuelSchema`, `correctionSchema`, **`defautsDeLaCorrection`**, et le bloc `correction` branché sur `quizSchema` **et** `questionDgfipSchema` |
+| `scripts/lib/corrections-migrees.mjs` | `MATIERES_MIGREES` et `RUBRIQUES_MIGREES` — vides au départ, la liste ne fait que croître |
+| `scripts/verifier-corrections.mjs` | `npm run check-content` : le tableau de couverture et les deux régimes |
+| `scripts/essais-corrections-contenu.mjs` | **37 assertions**, `npm run essais:corrections` |
+| `package.json` | `check-content` câblé dans `npm run contenu`, donc dans `npm run build` |
+
+**L'invariant que ce lot apporte** est le pendant écrit de celui de la partie B :
+`defautsDeLaCorrection` refuse une correction qui **contredit la clef de réponse** — une option
+donnée juste quand la clef la donne fausse, une bonne réponse oubliée, un nombre d'entrées qui
+ne correspond pas aux options. Et ce refus vaut **partout**, périmètre migré ou non : une
+correction incohérente est un bug, pas un retard.
+
+Le second contrôle porte sur le visuel. `type: aucun` exige `raison_aucun`, et tout type dessiné
+exige `donnees` **et** `alt`. Sans cette contrainte, « aucun » devient le réflexe de qui n'a pas
+réfléchi et l'alternative textuelle se perd une question à la fois.
+
+**Le tableau de couverture, imprimé à chaque build :**
+
+| Périmètre | Questions | Corrigées |
+|---|---|---|
+| questions-europeennes | 941 | 0 |
+| economie | 797 | 0 |
+| questions-internationales | 752 | 0 |
+| finances-publiques | 600 | 0 |
+| droit-public | 597 | 0 |
+| questions-sociales | 555 | 0 |
+| cas-pratique | 110 | 0 |
+| **quiz de cours** | **4 352** | **0** |
+| culture-generale | 225 | 0 |
+| maths | 134 | 0 |
+| francais | 82 | 0 |
+| logique | 64 | 0 |
+| culture-numerique, environnement-administratif, union-europeenne | 10 chacune | 0 |
+| anglais | 5 | 0 |
+| **QCM - DGFiP** | **540** | **0** |
+| **ensemble** | **4 892** | **0 (0 %)** |
+
+C'est le livrable C9 dans sa forme définitive : il se remplira lot par lot, et chaque périmètre
+terminé passe de « inventaire » à « migré » en s'inscrivant dans
+`scripts/lib/corrections-migrees.mjs`.
+
+**Note sur le prétest.** Il partage `quizSchema` avec le quiz, mais le contrôle ne l'inspecte
+pas : un prétest ne corrige rien par construction — « rien n'est compté comme une erreur » —,
+de sorte qu'y exiger une correction irait contre sa raison d'être.
