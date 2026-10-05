@@ -24,6 +24,8 @@ import { cadres } from './geometrie/cadres';
 import { echangeAxes } from './geometrie/echange-axes';
 import { analogieIntruse } from './analogie/intruse';
 import { chaineConclusion } from './chaines/conclusion';
+import { chaineSyllogisme } from './chaines/syllogisme';
+import { chaineComposee } from './chaines/composee';
 
 export const MOTEURS: Moteur[] = [
   infererRelation,
@@ -43,6 +45,8 @@ export const MOTEURS: Moteur[] = [
   echangeAxes,
   analogieIntruse,
   chaineConclusion,
+  chaineSyllogisme,
+  chaineComposee,
 ];
 
 export function moteurParId(id: string): Moteur | undefined {

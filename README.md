@@ -874,9 +874,13 @@ fonctionne que dans le sien :
 
 | Régime | Systèmes | Inférence |
 |---|---|---|
-| Algèbre de relations | `line`, `poset`, `cyclic`, `groups`, `rcc8`, `allen` ; `plane` et `space` comme produits d'axes | cohérence de chemin sur la table de composition |
+| Algèbre de relations | `line`, `grandeur`, `rang`, `anneau`, `poset`, `cyclic`, `groups`, `rcc8`, `allen`, `classes` ; `plane`, `plan-temps` et `space` comme produits d'axes | cohérence de chemin sur la table de composition |
 | Monde clos | `digraph`, prédicats d'adjacence, `poset` en mode clos | requêtes de graphe, négation par échec |
-| Transformations | `plane`, `space`, `groups` | application de fonctions, composition non commutative |
+| Transformations | `plane`, `plan-temps`, `space`, `groups` | application de fonctions, composition non commutative |
+
+Quinze systèmes et dix-neuf moteurs, soit **199 couples praticables**. Chaque
+système doit figurer dans un palier de `PALIERS_SYSTEMES`, sans quoi il ne sera
+jamais tiré : `systemesSansPalier()` et un essai l'imposent.
 
 `digraph` n'a **pas** de table de composition : « supervise » n'est ni
 transitive ni composable, et l'absence d'arête y est une négation, non une
@@ -885,13 +889,21 @@ tourner dessus — le sélecteur de l'interface ne les propose pas ensemble.
 
 ### Progression : par famille, et par exercice
 
-Les moteurs sont rangés en cinq familles. **Chaque famille s'ouvre par un
+Les moteurs sont rangés en **six familles**. **Chaque famille s'ouvre par un
 exercice** ; les autres se débloquent quand celui-là est maîtrisé — douze items
 joués et 75 % de réussite sur les vingt derniers. L'induction est ouverte
 d'emblée. **Chaque exercice monte ensuite sa propre échelle** : trois réponses
 exactes d'affilée le font monter d'un cran, deux fautes consécutives le font
 redescendre, une réponse partielle maintient. Deux items de la même session
 peuvent donc être de niveaux très différents.
+
+**Sauf pour les moteurs à peu d'options**, qui déclarent une règle à fenêtre.
+Trois réussites d'affilée sur une réponse à deux options arrivent une fois sur
+huit par pur hasard, et deux fautes de suite une fois sur quatre : l'échelle
+monterait et descendrait au bruit. Les trois moteurs de la famille *Chaînes de
+prémisses* exigent donc **sept réussites sur huit** pour monter, et redescendent
+à quatre réussites ou moins sur huit. La fenêtre se vide à chaque changement
+d'échelon.
 
 Rien de tout cela n'est stocké : l'échelon et les déblocages se **recalculent**
 depuis l'historique des items, à chaque ouverture de l'exercice. Une valeur
@@ -1043,6 +1055,30 @@ et tout signaler s'effondre aussi puisque chaque pression injustifiée est un
   autres pages du site n'en téléchargent rien.
 - L'exercice ne contient aucune donnée du concours : il n'est donc pas chiffré,
   mais reste derrière l'écran de connexion comme le reste du site.
+
+### Chaînes de prémisses : attribution
+
+Les trois moteurs de la famille *Chaînes de prémisses* — conclusion d'une
+chaîne, syllogisme, conclusion composée — s'inspirent des **mécaniques** de
+[Syllogimous v4](https://github.com/4skinSkywalker/Syllogimous-v4), de
+**4skinSkywalker**, diffusé sous licence
+[CC BY-NC 3.0](https://creativecommons.org/licenses/by-nc/3.0/).
+
+> **Aucun code d'origine n'est embarqué.** Le dépôt a été lu pour comprendre ses
+> douze types de questions et leurs réglages, puis les moteurs ont été écrits de
+> première main dans la pile du site. Il n'y a **aucune dépendance Angular,
+> Bootstrap ou ng-bootstrap**, aucune `<iframe>`, aucun sous-dossier vendorisé :
+> les énoncés sont rédigés en français, les relations viennent des systèmes
+> existants, et la progression est celle du site.
+>
+> Les mécaniques ont par ailleurs été **modifiées** sur un point de fond : le
+> format d'origine répond par vrai ou faux, ce qui n'est exact que sur un système
+> dont la composition est fonctionnelle. Partout ailleurs un troisième verdict —
+> « reste ouvert » — a été ajouté, faute de quoi l'exercice enseignerait à
+> conclure de ce qu'on ignore.
+>
+> Usage **strictement non commercial**, ce que la nature de ce site personnel
+> respecte. À reconsidérer si cet usage devait changer.
 
 ### Origine du code et licence
 

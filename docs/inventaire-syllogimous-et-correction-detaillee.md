@@ -804,3 +804,74 @@ Syllogimous — demandent que le solveur résolve une prémisse qui parle d'autr
 solveur de plus, non un réglage, et le faire à moitié aurait produit des traces inexactes. La
 **négation de surface** est dans le même cas : « A n'est pas après B » n'est univoque que sur un
 vocabulaire de **deux** relations complémentaires, soit `line` et `groups` seulement.
+
+## Lot A4 — syllogisme et conclusion composée : **livré en partie**
+
+| Fichier | Rôle |
+|---|---|
+| `moteurs/chaines/chemin.ts` | La machinerie de chemin, extraite de `conclusion.ts` quand le second moteur en a eu besoin |
+| `moteurs/chaines/syllogisme.ts` | Prémisses quantifiées, solveur par **énumération des régions de Venn** |
+| `moteurs/chaines/composee.ts` | Deux conclusions reliées par un connecteur logique, six connecteurs |
+| `noyaux/presentation.ts` | `que()` — l'élision, qu'aucun gabarit ne peut anticiper |
+
+**19 moteurs, 15 systèmes, 199 couples.** Tous deux : 100 % de tirages retenus, **0 trace
+fautive**, 72 ms et moins d'une milliseconde par item.
+
+### Le point qui décidait de la conception du syllogisme
+
+Un solveur fondé sur le modèle d'intervalles de `classes` aurait été **faux**. Les intervalles
+sont strictement moins expressifs que les ensembles : trois ensembles deux à deux sécants peuvent
+avoir une intersection triple vide, trois intervalles ne peuvent pas — en dimension un, si les
+trois intersections deux à deux sont non vides, la triple l'est aussi.
+
+Vérifié par énumération des 55³ triplets de segments : **aucun** ne réalise cette configuration.
+Un tel solveur aurait donc déclaré entraînées des conclusions que les ensembles réfutent, et posé
+des items à clef fausse. D'où l'énumération des **régions de Venn** : 2ⁿ−1 régions, un modèle
+étant le choix des régions non vides — 128 modèles à trois termes, 32 768 à quatre. Exact,
+complet, immédiat.
+
+**L'import existentiel est imposé et annoncé** : chaque catégorie compte au moins un élément,
+comme chez Aristote. Ce n'est pas neutre — cela rend valide « tous les X sont des Y, donc certains
+X sont des Y », que la logique moderne rejette. Choisir sans le dire aurait rendu une partie des
+clefs indéfendables ; l'énoncé le dit.
+
+### Trois défauts de production, trouvés en relisant les items engendrés
+
+| Défaut | Correction |
+|---|---|
+| Des prémisses **redondantes** : « Certains X sont des Y » suivi de « Certains Y sont des X ». I se renverse simplement, la trace affichait 92 → 92 — une étape sans effet | Chaque prémisse doit **restreindre strictement** ce qui reste possible. Exact, et attrape toutes les redondances, pas seulement la conversion |
+| **Presque aucune prémisse universelle** : un modèle de Venn tiré uniformément a la moitié de ses régions non vides, donc « certains » y est presque toujours vrai et « tous » presque jamais | Le modèle de référence est tiré **creux**, puis les termes vides sont habités. Résultat : A 20 %, E 18 %, I 31 %, O 30 % |
+| Des fautes de langue qu'on ne voit qu'à l'exécution : « **ni** Guvran **est** à gauche de… », « exige **que au** moins un » | Les membres sont **cités entre guillemets**, ce qui les nominalise et rend la construction indépendante de leur forme verbale ; et `que()` gère l'élision |
+
+### Pourquoi `chaine-composee` ne tourne que sur trois systèmes
+
+Un connecteur se calcule sur des valeurs de vérité, et il faut donc que chaque membre **en ait**
+une. C'est le cas sur `rang`, `anneau` et `cyclic`, dont la composition est fonctionnelle.
+Ailleurs un membre peut rester **ouvert**, et le connecteur cesse d'être une table de vérité :
+« A est avant B ou A est après B » découle des prémisses alors qu'aucun des deux membres n'en
+découle. C'est vrai, c'est instructif, et cela demande de raisonner sur les situations
+**conjointes** — un troisième solveur. Plutôt que de poser une question dont la réponse serait
+approximative, le moteur s'y refuse.
+
+`groups` est écarté pour une autre raison : deux relations seulement, de sorte qu'un membre faux
+se devine sans calcul.
+
+### Ce qui reste du lot A4
+
+| Reste | Pourquoi ce n'est pas fait |
+|---|---|
+| `analogie-inter-systemes` | Non commencé |
+| **Négation de surface** | N'est univoque que sur un vocabulaire de **deux** relations complémentaires — `line` et `groups` seulement |
+| **Prémisses du second ordre** | Demandent un solveur capable de résoudre une prémisse qui parle d'autres prémisses, non un réglage |
+
+## Lot A6 — attribution CC BY-NC 3.0 : **livré**
+
+Dans l'« à propos » de la rubrique (`src/pages/cog-training/relational-reasoning.astro`) et dans
+le README, avec le nom de l'auteur d'origine, le lien du dépôt, le lien de la licence, la mention
+que les exercices ont été **réécrits et modifiés**, et la mention d'usage **strictement non
+commercial**. Le README précise qu'aucune dépendance Angular, Bootstrap ou ng-bootstrap n'a été
+introduite, et nomme la modification de fond : le troisième verdict « reste ouvert », que le
+format d'origine ne connaît pas.
+
+Le README est par ailleurs corrigé — « cinq familles » devenait faux, le tableau des régimes ne
+listait que dix systèmes, et l'échelle à fenêtre n'y figurait pas.

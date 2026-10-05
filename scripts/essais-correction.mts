@@ -46,7 +46,11 @@ import { EXERCICES_COG, aCorrectionDetaillee } from '../src/features/correction/
  * laisser se deviner. L'essai échoue dans les deux sens — un moteur de la liste
  * qui ne trace pas, comme un moteur qui trace sans être inscrit.
  */
-const MOTEURS_TRACES: string[] = ['chaine-conclusion'];
+const MOTEURS_TRACES: string[] = [
+  'chaine-conclusion',
+  'chaine-syllogisme',
+  'chaine-composee',
+];
 
 let echecs = 0;
 function verifier(titre: string, obtenu: unknown, attendu: unknown) {

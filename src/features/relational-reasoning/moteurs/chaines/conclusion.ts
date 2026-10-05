@@ -49,7 +49,8 @@
 import { compiler, possibilites } from '../../noyaux/algebre';
 import { libelle, texte } from '../../noyaux/presentation';
 import { journal, ref, type Conclusion } from '../../../correction/trace';
-import type { Alea, Fait, Systeme } from '../../systemes/types';
+import { aretes, fonctionnel, meilleurChemin } from './chemin';
+import type { Alea, Systeme } from '../../systemes/types';
 import type { Item, Moteur, Option } from '../types';
 
 const TIRAGES = 70;
@@ -63,121 +64,6 @@ const VERDICTS = [
 
 /** Les deux verdicts du mode binaire. */
 const BINAIRES = ['il découle nécessairement des prémisses', 'il n’en découle pas'];
-
-/**
- * Un système dont deux relations ne se composent jamais en plusieurs.
- *
- * Mémoïsé, parce que le test parcourt le carré du vocabulaire et que `plan-temps`
- * en compte sept cent vingt-neuf cases.
- */
-const memoFonctionnel = new WeakMap<Systeme, boolean>();
-function fonctionnel(systeme: Systeme): boolean {
-  const connu = memoFonctionnel.get(systeme);
-  if (connu !== undefined) return connu;
-  let resultat = Boolean(systeme.composer) && systeme.cheminComplet;
-  if (resultat && systeme.composer) {
-    for (const r of systeme.relations) {
-      for (const s of systeme.relations) {
-        if (systeme.composer(r.id, s.id).size > 1) {
-          resultat = false;
-          break;
-        }
-      }
-      if (!resultat) break;
-    }
-  }
-  memoFonctionnel.set(systeme, resultat);
-  return resultat;
-}
-
-interface Arete {
-  de: string;
-  a: string;
-  relation: string;
-  /** Rang de la prémisse dans la liste affichée. */
-  indice: number;
-}
-
-interface Chemin {
-  aretes: Arete[];
-  /** L'ensemble des relations que ce chemin laisse possibles entre les bouts. */
-  obtenu: Set<string>;
-}
-
-/** Les arêtes parcourables : chaque prémisse dans ses deux sens. */
-function aretes(systeme: Systeme, faits: readonly Fait[]): Arete[] {
-  const liste: Arete[] = [];
-  faits.forEach((fait, indice) => {
-    liste.push({ de: fait.sujet, a: fait.objet, relation: fait.relation, indice });
-    liste.push({
-      de: fait.objet,
-      a: fait.sujet,
-      relation: systeme.converse(fait.relation),
-      indice,
-    });
-  });
-  return liste;
-}
-
-/**
- * Le chemin le plus informatif de `a` vers `b`, parmi les chemins simples.
- *
- * « Le plus informatif » et non « le plus court » : un détour qui laisse une
- * seule relation possible justifie une conclusion qu'un raccourci ambigu ne
- * justifierait pas. À égalité d'information, le plus court gagne — une
- * correction de trois étapes se suit mieux qu'une de cinq.
- */
-function meilleurChemin(
-  systeme: Systeme,
-  liste: readonly Arete[],
-  a: string,
-  b: string,
-  longueurMax: number,
-): Chemin | null {
-  if (!systeme.composer) return null;
-  let meilleur: Chemin | null = null;
-
-  const explorer = (courant: string, vus: Set<string>, prises: Arete[], obtenu: Set<string>) => {
-    if (prises.length > 0 && courant === b) {
-      const candidat: Chemin = { aretes: [...prises], obtenu: new Set(obtenu) };
-      if (
-        !meilleur ||
-        candidat.obtenu.size < meilleur.obtenu.size ||
-        (candidat.obtenu.size === meilleur.obtenu.size &&
-          candidat.aretes.length < meilleur.aretes.length)
-      ) {
-        meilleur = candidat;
-      }
-      return;
-    }
-    if (prises.length >= longueurMax) return;
-
-    for (const arete of liste) {
-      if (arete.de !== courant) continue;
-      if (vus.has(arete.a)) continue;
-      if (prises.some((p) => p.indice === arete.indice)) continue;
-
-      const suivant = new Set<string>();
-      if (obtenu.size === 0) {
-        suivant.add(arete.relation);
-      } else {
-        for (const r of obtenu) for (const t of systeme.composer!(r, arete.relation)) suivant.add(t);
-      }
-      // Un chemin dont la composition est vide est contradictoire : il ne
-      // justifie rien et n'a pas à être exploré plus loin.
-      if (suivant.size === 0) continue;
-
-      vus.add(arete.a);
-      prises.push(arete);
-      explorer(arete.a, vus, prises, suivant);
-      prises.pop();
-      vus.delete(arete.a);
-    }
-  };
-
-  explorer(a, new Set([a]), [], new Set());
-  return meilleur;
-}
 
 export const chaineConclusion: Moteur = {
   id: 'chaine-conclusion',

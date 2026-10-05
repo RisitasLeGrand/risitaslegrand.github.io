@@ -18,6 +18,17 @@ export function phrases(systeme: Systeme, faits: readonly Fait[]): string[] {
   return faits.map((fait) => phrase(systeme, fait));
 }
 
+/**
+ * « que » ou « qu’ », selon l'initiale de ce qui suit.
+ *
+ * Les gabarits de correction enchâssent des propositions dont on ne connaît pas
+ * l'initiale à l'écriture — elle dépend de l'item. Sans élision, on obtient
+ * « exige que au moins un membre soit vrai », qu'aucun lecteur francophone ne
+ * laisse passer.
+ */
+export const que = (clause: string) =>
+  /^[aeiouyàâéèêëîïôöûüh]/i.test(clause) ? `qu’${clause}` : `que ${clause}`;
+
 /** Le libellé d'une relation, ou son identifiant à défaut. */
 export function libelle(systeme: Systeme, relation: string): string {
   return systeme.relations.find((r) => r.id === relation)?.libelle ?? relation;
