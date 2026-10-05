@@ -15,6 +15,7 @@
  * dépouillement de types natif de Node.
  */
 import { alea } from '../src/features/relational-reasoning/noyaux/aleatoire';
+import { composerSession } from '../src/features/relational-reasoning/session';
 import { composerChemin, possibilites, coherent } from '../src/features/relational-reasoning/noyaux/algebre';
 import { line } from '../src/features/relational-reasoning/systemes/line';
 import { plane } from '../src/features/relational-reasoning/systemes/plane';
@@ -26,6 +27,7 @@ import { algebresCompatibles, INTITULES } from '../src/features/relational-reaso
 import { noter } from '../src/features/relational-reasoning/noyaux/notation';
 import {
   PALIERS_SYSTEMES,
+  couplesPourEntrainement,
   echelonDeMoteur,
   systemesSansPalier,
 } from '../src/features/relational-reasoning/progression';
@@ -223,6 +225,92 @@ console.log('\nÉCHELLE À FENÊTRE — ce que le hasard ne doit pas rapporter')
       'chaine-conclusion',
     ),
     2,
+  );
+}
+
+console.log('\nMON ENTRAÎNEMENT — la session ne tire que ce qui est coché');
+{
+  // Un historique qui débloque tout : 200 items réussis sur des moteurs
+  // d'ouverture, ce qui ouvre les familles et tous les paliers de systèmes.
+  const historique: Trace[] = [];
+  for (const moteur of ['algebre-cachee', 'completion-analogie', 'ensembles-possibles', 'entre-deux', 'chaine-conclusion']) {
+    for (let i = 0; i < 40; i += 1) historique.push({ moteur, systeme: 'line', note: 1 });
+  }
+
+  const tous = couplesPourEntrainement(historique);
+  const libre = couplesPourEntrainement(historique, { modeLibre: true });
+  verifier('le mode libre ouvre au moins autant de couples', libre.length >= tous.length, true);
+  verifier(
+    'un couple ouvert par le mode libre démarre à l’échelon 1',
+    libre.filter((c) => !c.debloque).every((c) => c.echelon === 1),
+    true,
+  );
+  verifier(
+    'et un couple déjà débloqué garde son échelon gagné',
+    libre
+      .filter((c) => c.debloque)
+      .every((c) => c.echelon === tous.find((x) => x.moteur.id === c.moteur.id && x.systeme.id === c.systeme.id)?.echelon),
+    true,
+  );
+
+  // Le filtre par moteur.
+  const choisis = ['chaine-conclusion', 'algebre-cachee'];
+  const session = composerSession(historique, 12, 4242, { moteurs: choisis });
+  verifier('la session rend des items', session.items.length > 0, true);
+  verifier(
+    'et seulement sur les moteurs cochés',
+    [...new Set(session.items.map((i) => i.moteur))].sort(),
+    [...choisis].sort(),
+  );
+
+  /**
+   * Le point qu'il fallait éprouver : une sélection qui ne laisse aucun couple
+   * praticable rend une session **vide**.
+   *
+   * Un repli silencieux sur tous les moteurs serait le pire comportement
+   * possible — la personne croirait travailler ce qu'elle a coché, et
+   * s'entraînerait ailleurs sans le savoir.
+   */
+  const vide = composerSession(historique, 12, 4242, { moteurs: ['moteur-qui-n-existe-pas'] });
+  verifier('une sélection sans couple praticable rend une session vide', vide.items.length, 0);
+
+  // Une sélection absente ou vide laisse jouer tous les moteurs accessibles :
+  // c'est le comportement d'avant, et l'interface amorce la sélection pour que
+  // le cas ne se présente pas à l'usage.
+  const sansFiltre = composerSession(historique, 8, 4242);
+  verifier('sans sélection, la session tire largement', sansFiltre.items.length > 0, true);
+
+  // L'ordre groupé.
+  const groupee = composerSession(historique, 12, 777, {
+    moteurs: choisis,
+    ordre: 'par-unite',
+  });
+  const moteursEnOrdre = groupee.items.map((i) => i.moteur);
+  const blocs = moteursEnOrdre.filter((m, i) => i === 0 || m !== moteursEnOrdre[i - 1]).length;
+  verifier(
+    'l’ordre groupé ne laisse qu’un bloc par moteur',
+    blocs,
+    new Set(moteursEnOrdre).size,
+  );
+  const entrelacee = composerSession(historique, 12, 777, { moteurs: choisis });
+  verifier(
+    'et l’ordre entrelacé garde les mêmes items',
+    [...entrelacee.items.map((i) => i.moteur)].sort(),
+    [...moteursEnOrdre].sort(),
+  );
+
+  // Le mode libre doit rendre jouable un moteur qu'un historique vide verrouille.
+  const verrouille = composerSession([], 6, 99, { moteurs: ['recherche-motif'] });
+  const deverrouille = composerSession([], 6, 99, {
+    moteurs: ['recherche-motif'],
+    modeLibre: true,
+  });
+  verifier('sans mode libre, un moteur verrouillé ne joue pas', verrouille.items.length, 0);
+  verifier('avec le mode libre, il joue', deverrouille.items.length > 0, true);
+  verifier(
+    'et la progression n’en est pas modifiée — elle se recalcule depuis l’historique',
+    echelonDeMoteur([], 'recherche-motif'),
+    1,
   );
 }
 

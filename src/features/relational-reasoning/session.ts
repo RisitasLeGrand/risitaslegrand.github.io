@@ -15,7 +15,7 @@
  */
 import { alea, graineDuMoment } from './noyaux/aleatoire';
 import type { Item } from './moteurs/types';
-import { couplesOuverts, type Trace } from './progression';
+import { couplesPourEntrainement, type Trace } from './progression';
 
 /** Tentatives par couple avant de le mettre de côté pour cette session. */
 const REFUS_TOLERES = 12;
@@ -25,13 +25,33 @@ export interface Session {
   items: Item[];
 }
 
+export interface OptionsSession {
+  /**
+   * Les moteurs retenus. Vide ou absent, tous les moteurs accessibles jouent.
+   *
+   * Une sélection qui ne laisserait aucun couple praticable rend une session
+   * **vide** plutôt que de se rabattre sur tous les moteurs : se rabattre
+   * tromperait la personne, qui croirait travailler ce qu'elle a coché.
+   * L'interface interdit d'en arriver là, et la composition ne la contourne pas.
+   */
+  moteurs?: readonly string[];
+  /** Entrelacé, ou regroupé moteur par moteur. */
+  ordre?: 'entrelace' | 'par-unite';
+  /** Ouvre tous les moteurs à l'échelon de départ, sans toucher aux déblocages. */
+  modeLibre?: boolean;
+}
+
 export function composerSession(
   traces: readonly Trace[],
   nombre: number,
   graine = graineDuMoment(),
+  options: OptionsSession = {},
 ): Session {
   const hasard = alea(graine);
-  const disponibles = couplesOuverts(traces).map((couple) => ({ ...couple, refus: 0 }));
+  const retenus = options.moteurs && options.moteurs.length > 0 ? new Set(options.moteurs) : null;
+  const disponibles = couplesPourEntrainement(traces, { modeLibre: options.modeLibre })
+    .filter((couple) => !retenus || retenus.has(couple.moteur.id))
+    .map((couple) => ({ ...couple, refus: 0 }));
   const items: Item[] = [];
 
   let tentatives = 0;
@@ -56,6 +76,16 @@ export function composerSession(
     }
     couple.refus = 0;
     items.push(item);
+  }
+
+  // L'ordre « par moteur » regroupe après coup plutôt que de tirer moteur par
+  // moteur : la boucle de tirage préfère déjà le moteur le moins servi, ce qui
+  // équilibre la session. Tirer dans l'ordre déséquilibrerait le dernier moteur,
+  // qui n'aurait que les items restants.
+  if (options.ordre === 'par-unite') {
+    const rang = new Map<string, number>();
+    for (const item of items) if (!rang.has(item.moteur)) rang.set(item.moteur, rang.size);
+    items.sort((a, b) => (rang.get(a.moteur) ?? 0) - (rang.get(b.moteur) ?? 0));
   }
 
   return { graine, items };

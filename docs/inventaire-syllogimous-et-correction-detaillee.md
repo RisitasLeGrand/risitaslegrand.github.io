@@ -875,3 +875,53 @@ format d'origine ne connaît pas.
 
 Le README est par ailleurs corrigé — « cinq familles » devenait faux, le tableau des régimes ne
 listait que dix systèmes, et l'échelle à fenêtre n'y figurait pas.
+
+## Lot A5 — écran « Mon entraînement » : **livré**
+
+Le livrable de l'étape 3 du prompt A : choisir soi-même les moteurs d'une séance, au lieu de
+subir le tirage parmi tout ce qui est débloqué.
+
+### Ce qui a été écrit
+
+| Fichier | Ce qu'il apporte |
+|---|---|
+| `src/features/cog-training/unites.ts` | `Unite` / `GroupeUnites`, **indépendants du relationnel** : l'écran doit servir à d'autres rubriques de Cog-Training sans réécriture |
+| `src/features/cog-training/composants/MonEntrainement.svelte` | Le panneau : préréglages, recherche, cases, nombre d'items, ordre, mode libre |
+| `src/lib/db.ts` | `SelectionEntrainement`, `lireSelectionEntrainement` / `ecrireSelectionEntrainement`, et `selections` dans l'export/import |
+| `src/features/relational-reasoning/progression.ts` | `couplesPourEntrainement(traces, { modeLibre })` et `CoupleJouable` |
+| `src/features/relational-reasoning/session.ts` | `OptionsSession` en quatrième paramètre |
+| `src/features/relational-reasoning/composants/RelationalReasoning.svelte` | Branchement : `selection` remplace `longueur` |
+
+### Trois décisions qui méritent d'être écrites
+
+**Le mode libre n'offre jamais l'échelon qu'on n'a pas gagné.** Un couple ouvert par le mode
+libre est rendu à l'**échelon 1**. On peut donc s'entraîner où l'on veut, mais pas sauter la
+progression : l'échelon reste calculé depuis l'historique, et le mode libre ne l'écrit pas. En
+le désactivant, les moteurs cochés devenus inaccessibles sont retirés de la sélection plutôt que
+gardés en silence.
+
+**Une sélection sans couple praticable rend une session vide, pas une session complète.** Se
+rabattre sur tous les moteurs serait le pire comportement possible : la personne croirait
+travailler ce qu'elle a coché et s'entraînerait ailleurs sans le savoir. La consigne « empêcher
+de lancer une session avec une sélection vide » est donc tenue **deux fois** — le bouton est
+désactivé avec son explication, et la composition ne contourne pas le filtre si on l'appelle
+autrement.
+
+**La sélection est amorcée au premier usage avec tous les moteurs débloqués.** Sans cela, la
+règle précédente bloquerait une personne qui n'a jamais ouvert le panneau : sélection vide,
+bouton désactivé, aucune séance possible. L'amorçage ne se fait qu'à la première ouverture ; une
+sélection enregistrée, même réduite, n'est jamais réécrite.
+
+Autres détails : la recherche filtre **l'affichage seulement** — elle ne décoche rien, pour qu'un
+filtre oublié ne mange pas la sélection ; l'ordre « regroupé » trie **après** le tirage, parce
+que tirer moteur par moteur déséquilibrerait le dernier, qui n'aurait que les items restants ;
+le nombre d'items est borné à 3–60 à la **lecture** de la base, et non seulement à l'écriture,
+pour qu'une valeur aberrante venue d'un import ne casse pas une séance.
+
+### Essais
+
+Douze assertions nouvelles dans `scripts/essais-relationnel.mts`, section « MON ENTRAÎNEMENT » :
+le mode libre ouvre au moins autant de couples et à l'échelon 1, un couple déjà débloqué garde
+son échelon gagné, la session ne tire que les moteurs cochés, une sélection sans couple
+praticable rend **zéro** item, l'ordre groupé ne laisse qu'un bloc par moteur en gardant les
+mêmes items que l'ordre entrelacé, et la progression n'est pas modifiée par le mode libre.

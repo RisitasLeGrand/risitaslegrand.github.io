@@ -267,22 +267,52 @@ export function etatDesMoteurs(traces: readonly Trace[]): EtatMoteur[] {
 }
 
 /** Les couples praticables : moteur ouvert, système au palier, et compatibles. */
-export function couplesOuverts(
+export interface CoupleJouable {
+  moteur: Moteur;
+  systeme: Systeme;
+  echelon: number;
+  /** Le couple était-il accessible sans le mode libre ? */
+  debloque: boolean;
+}
+
+/**
+ * Les couples qu'une session peut tirer.
+ *
+ * En **mode libre**, tout couple praticable est rendu, même si son moteur ou
+ * son système n'est pas débloqué — mais à l'**échelon de départ**. C'est le
+ * point d'équilibre du réglage : on peut s'entraîner où l'on veut, sans que
+ * cela donne l'échelon qu'on n'a pas gagné. La progression continue par
+ * ailleurs de se recalculer depuis l'historique, de sorte que jouer en mode
+ * libre ne retire rien non plus.
+ */
+export function couplesPourEntrainement(
   traces: readonly Trace[],
-): { moteur: Moteur; systeme: Systeme; echelon: number }[] {
+  options: { modeLibre?: boolean } = {},
+): CoupleJouable[] {
   const ouverts = systemesOuverts(traces);
-  const resultat: { moteur: Moteur; systeme: Systeme; echelon: number }[] = [];
+  const resultat: CoupleJouable[] = [];
 
   for (const etat of etatDesMoteurs(traces)) {
-    if (!etat.ouvert) continue;
+    if (!options.modeLibre && !etat.ouvert) continue;
     for (const systeme of SYSTEMES) {
-      if (!ouverts.has(systeme.id)) continue;
-      if (accepte(etat.moteur, systeme)) {
-        resultat.push({ moteur: etat.moteur, systeme, echelon: etat.echelon });
-      }
+      const systemeOuvert = ouverts.has(systeme.id);
+      if (!options.modeLibre && !systemeOuvert) continue;
+      if (!accepte(etat.moteur, systeme)) continue;
+      const debloque = etat.ouvert && systemeOuvert;
+      resultat.push({
+        moteur: etat.moteur,
+        systeme,
+        echelon: debloque ? etat.echelon : 1,
+        debloque,
+      });
     }
   }
   return resultat;
+}
+
+/** Les couples accessibles sans mode libre. */
+export function couplesOuverts(traces: readonly Trace[]): CoupleJouable[] {
+  return couplesPourEntrainement(traces);
 }
 
 /** Le bilan d'un système : items joués et note moyenne, tous moteurs confondus. */

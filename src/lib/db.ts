@@ -791,6 +791,69 @@ export async function ecrireReglagesSession(reglages: ReglagesSession) {
   await (await db()).put('etat', reglages, 'reglagesSession');
 }
 
+/* --- Sélection d'entraînement (Cog-Training) ------------------------------- */
+
+/**
+ * Ce que la personne a choisi de travailler dans un exercice de Cog-Training.
+ *
+ * Rangé par **exercice** et non globalement : les trois exercices n'ont pas les
+ * mêmes unités à cocher, et une sélection commune n'aurait aucun sens. La clef
+ * du magasin `etat` est donc `selection:<exercice>`.
+ *
+ * Le réglage est une **préférence**, non de la progression : il est mémorisé
+ * pour éviter de recocher à chaque session, et il ne compte dans aucun score.
+ */
+export interface SelectionEntrainement {
+  /** Identifiants cochés. Une sélection vide interdit de lancer une session. */
+  unites: string[];
+  /** Nombre d'items visé pour une session. */
+  items: number;
+  /** Entrelacé, ou regroupé exercice par exercice. */
+  ordre: 'entrelace' | 'par-unite';
+  /**
+   * Mode libre : tout est sélectionnable, même ce qui n'est pas débloqué.
+   *
+   * **Sans toucher aux déblocages gagnés** : une unité ouverte en mode libre
+   * tourne à son échelon de départ, et la progression continue de se calculer
+   * depuis l'historique comme avant. Le mode libre est une permission de
+   * s'entraîner, pas un raccourci de progression.
+   */
+  modeLibre: boolean;
+}
+
+export const SELECTION_PAR_DEFAUT: SelectionEntrainement = {
+  unites: [],
+  items: 12,
+  ordre: 'entrelace',
+  modeLibre: false,
+};
+
+const clefSelection = (exercice: string) => `selection:${exercice}`;
+
+export async function lireSelectionEntrainement(
+  exercice: string,
+): Promise<SelectionEntrainement> {
+  const base = await db();
+  const stockee = (await base.get('etat', clefSelection(exercice))) as
+    | Partial<SelectionEntrainement>
+    | undefined;
+  const fusion = { ...SELECTION_PAR_DEFAUT, ...(stockee ?? {}) };
+  return {
+    unites: Array.isArray(fusion.unites) ? fusion.unites.filter((u) => typeof u === 'string') : [],
+    // Un réglage aberrant ne doit pas pouvoir vider ou saturer une session.
+    items: Math.min(60, Math.max(3, Math.round(fusion.items))),
+    ordre: fusion.ordre === 'par-unite' ? 'par-unite' : 'entrelace',
+    modeLibre: Boolean(fusion.modeLibre),
+  };
+}
+
+export async function ecrireSelectionEntrainement(
+  exercice: string,
+  selection: SelectionEntrainement,
+) {
+  await (await db()).put('etat', selection, clefSelection(exercice));
+}
+
 /* --- Réglages de planification -------------------------------------------- */
 
 export interface ReglagesPlanification {
@@ -872,6 +935,19 @@ export async function exporterTout() {
     difficultes: await base.getAll('difficultes'),
     planification: await lireReglagesPlanification(),
     reglagesSession: (await base.get('etat', 'reglagesSession')) as ReglagesSession | undefined,
+    // Les sélections d'entraînement, une par exercice. Ce sont des préférences
+    // et non de la progression, mais les perdre à chaque import obligerait à
+    // tout recocher — autant les emporter.
+    selections: Object.fromEntries(
+      await Promise.all(
+        (['relational-reasoning', 'veridical-mapping', 'quad-n-back'] as const).map(
+          async (exercice) =>
+            [exercice, (await base.get('etat', clefSelection(exercice))) as
+              | SelectionEntrainement
+              | undefined] as const,
+        ),
+      ),
+    ),
   };
 }
 
@@ -1071,6 +1147,9 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
 
   if (donnees.planification) await ecrireReglagesPlanification(donnees.planification);
   if (donnees.reglagesSession) await ecrireReglagesSession(donnees.reglagesSession);
+  for (const [exercice, selection] of Object.entries(donnees.selections ?? {})) {
+    if (selection) await ecrireSelectionEntrainement(exercice, selection);
+  }
 }
 
 /**

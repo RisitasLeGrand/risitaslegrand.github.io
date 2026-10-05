@@ -13,7 +13,16 @@
    * jamais une session. Le rappel d'une ligne au-dessus de chaque question est
    * le seul tutoriel en cours de session, et il se coupe.
    */
-  import { ajouterSessionRelationnelle, toutesLesSessionsRelationnelles } from '../../../lib/db';
+  import {
+    ajouterSessionRelationnelle,
+    ecrireSelectionEntrainement,
+    lireSelectionEntrainement,
+    SELECTION_PAR_DEFAUT,
+    toutesLesSessionsRelationnelles,
+    type SelectionEntrainement,
+  } from '../../../lib/db';
+  import MonEntrainement from '../../cog-training/composants/MonEntrainement.svelte';
+  import type { GroupeUnites } from '../../cog-training/unites';
   import { gagnerXp, xpRelationnel } from '../../../lib/gamification';
   import Bloc from './Bloc.svelte';
   import Comprendre from './Comprendre.svelte';
@@ -23,6 +32,7 @@
   import { noter, type Donnee } from '../noyaux/notation';
   import { composerSession } from '../session';
   import {
+    FAMILLES,
     etatDesMoteurs,
     itemsReussis,
     prochainPalierSystemes,
@@ -47,8 +57,9 @@
   let etape = $state<Etape>('accueil');
   let chargement = $state(true);
   let traces = $state<Trace[]>([]);
-  let longueur = $state(12);
+  let selection = $state<SelectionEntrainement>({ ...SELECTION_PAR_DEFAUT });
   let comprendreOuvert = $state(false);
+  let entrainementOuvert = $state(false);
   let statsOuvert = $state(false);
   let tutoriels = $state(true);
 
@@ -116,9 +127,88 @@
     } catch {
       traces = [];
     }
+    await chargerSelection();
     chargement = false;
   }
   chargerTraces();
+
+  /**
+   * La sélection, et son amorçage.
+   *
+   * Une sélection vide interdit de lancer une session — c'est la règle, et elle
+   * est nécessaire : une session qui se rabattrait sur tout ferait croire qu'on
+   * travaille ce qu'on a coché. Mais elle rendrait la rubrique inutilisable au
+   * premier jour. D'où l'amorçage : à la première ouverture, la sélection est
+   * **tous les moteurs ouverts**. La règle vaut donc strictement sans jamais
+   * bloquer personne.
+   */
+  async function chargerSelection() {
+    try {
+      const lue = await lireSelectionEntrainement('relational-reasoning');
+      if (lue.unites.length === 0) {
+        const ouvertes = etatDesMoteurs(traces)
+          .filter((etat) => etat.ouvert)
+          .map((etat) => etat.moteur.id);
+        selection = { ...lue, unites: ouvertes };
+        await ecrireSelectionEntrainement('relational-reasoning', selection);
+      } else {
+        selection = lue;
+      }
+    } catch {
+      /* sans stockage, la sélection reste celle de la session courante */
+      selection = { ...SELECTION_PAR_DEFAUT };
+    }
+  }
+
+  async function changerSelection(suivante: SelectionEntrainement) {
+    selection = suivante;
+    try {
+      await ecrireSelectionEntrainement('relational-reasoning', suivante);
+    } catch {
+      /* sans stockage, le réglage ne survit pas au rechargement */
+    }
+  }
+
+  /**
+   * Les moteurs rangés en groupes, pour « Mon entraînement ».
+   *
+   * Même découpage que l'espace « Comprendre », induction comprise : elle n'est
+   * pas dans `FAMILLES` parce qu'elle est ouverte d'emblée et n'a pas de moteur
+   * d'ouverture, mais elle doit évidemment être sélectionnable.
+   */
+  const groupes: GroupeUnites[] = $derived(
+    [
+      ...FAMILLES.map((famille) => ({
+        id: famille.id as string,
+        nom: famille.nom,
+        resume: famille.resume,
+        unites: etats.filter((etat) => etat.moteur.categorie === famille.id),
+      })),
+      {
+        id: 'induction',
+        nom: 'Induction',
+        resume: 'Retrouver une règle à partir d’exemples. Ouvert dès le départ.',
+        unites: etats.filter((etat) => etat.moteur.categorie === 'induction'),
+      },
+    ].map((groupe) => ({
+      id: groupe.id,
+      nom: groupe.nom,
+      resume: groupe.resume,
+      unites: groupe.unites.map((etat) => ({
+        id: etat.moteur.id,
+        nom: etat.moteur.nom,
+        resume: etat.moteur.resume,
+        debloque: etat.ouvert,
+      })),
+    })),
+  );
+
+  /** Les moteurs cochés et réellement jouables : ce que la session tirera. */
+  const retenus = $derived(
+    etats
+      .filter((etat) => (etat.ouvert || selection.modeLibre) && selection.unites.includes(etat.moteur.id))
+      .map((etat) => etat.moteur.id),
+  );
 
   function questionsDe(item: Item): Question[] {
     const principale: Question = {
@@ -146,7 +236,11 @@
   }
 
   function commencer() {
-    const session = composerSession(traces, longueur);
+    const session = composerSession(traces, selection.items, undefined, {
+      moteurs: retenus,
+      ordre: selection.ordre,
+      modeLibre: selection.modeLibre,
+    });
     questions = session.items.flatMap(questionsDe);
     rang = 0;
     corrige = false;
@@ -270,6 +364,13 @@
           class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700
             hover:border-indigo-300 dark:border-slate-700 dark:text-slate-200"
         >{statsOuvert ? 'Masquer la progression' : 'Ma progression'}</button>
+        <button
+          type="button"
+          onclick={() => (entrainementOuvert = !entrainementOuvert)}
+          aria-expanded={entrainementOuvert}
+          class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700
+            hover:border-indigo-300 dark:border-slate-700 dark:text-slate-200"
+        >{entrainementOuvert ? 'Masquer mon entraînement' : 'Mon entraînement'}</button>
       </div>
     </div>
 
@@ -281,21 +382,30 @@
       <Statistiques stats={statistiques(traces)} />
     {/if}
 
-    <fieldset class="mt-5">
-      <legend class="text-sm font-medium text-slate-700 dark:text-slate-200">Nombre d'items</legend>
-      <div class="mt-2 flex gap-2">
-        {#each [8, 12, 20] as n (n)}
-          <button
-            type="button"
-            onclick={() => (longueur = n)}
-            class="rounded-lg border px-4 py-2 text-sm font-medium
-              {longueur === n
-                ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:border-indigo-500 dark:bg-indigo-950/40 dark:text-indigo-300'
-                : 'border-slate-200 text-slate-700 dark:border-slate-800 dark:text-slate-300'}"
-          >{n}</button>
-        {/each}
+    {#if entrainementOuvert}
+      <div class="mt-4">
+        <MonEntrainement
+          {groupes}
+          {selection}
+          onChanger={changerSelection}
+          onLancer={commencer}
+        />
       </div>
-    </fieldset>
+    {/if}
+
+    <!-- Le réglage fin est dans « Mon entraînement » ; l'accueil n'en montre que
+         le résumé, pour qu'on sache sur quoi on part sans avoir à déplier. -->
+    <p class="mt-5 text-sm text-slate-600 dark:text-slate-300">
+      {#if retenus.length === 0}
+        <strong class="font-medium">Aucun exercice coché.</strong> Ouvrez
+        « Mon entraînement » pour en choisir.
+      {:else}
+        {retenus.length} exercice{retenus.length > 1 ? 's' : ''} coché{retenus.length > 1 ? 's' : ''},
+        {selection.items} items, ordre {selection.ordre === 'entrelace'
+          ? 'entrelacé'
+          : 'groupé par exercice'}{selection.modeLibre ? ', mode libre actif' : ''}.
+      {/if}
+    </p>
 
     {#if palier}
       <p class="mt-4 text-xs text-slate-500 dark:text-slate-400">
@@ -307,7 +417,9 @@
     <button
       type="button"
       onclick={commencer}
-      class="mt-5 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+      disabled={retenus.length === 0}
+      class="mt-5 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white
+        hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
     >Commencer</button>
   </section>
 {:else if etape === 'question' && question}
