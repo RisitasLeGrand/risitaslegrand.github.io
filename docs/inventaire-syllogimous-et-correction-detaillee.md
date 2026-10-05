@@ -730,3 +730,77 @@ d'inclusion, celui des diagrammes d'Euler. Le **syllogisme proprement dit** devi
 de la famille des chaînes, qui lit le modèle de ce système, en tire des prémisses quantifiées, et
 les résout lui-même avec son propre solveur. `SchemaEuler`, livré au lot B1, l'attend déjà avec
 ses témoins et ses zones vides.
+
+## Lot A3 — famille « Chaînes de prémisses » : **livré**
+
+| Fichier | Rôle |
+|---|---|
+| `moteurs/chaines/conclusion.ts` | Le moteur `chaine-conclusion` : N prémisses mélangées, une conclusion à juger |
+| `moteurs/types.ts` | La catégorie `chaines` et `RegleDEchelle` |
+| `progression.ts` | La famille, les paliers corrigés, et `echelonParFenetre` |
+
+**17 moteurs, 15 systèmes, 195 couples.** Le moteur tourne sur les **14 systèmes** dotés d'une
+table de composition, avec **100 % de tirages retenus** partout et **0 trace fautive** sur
+2 100 items. Le plus lent est `allen`, à 191 ms par item.
+
+### Deux options ou trois : c'est la détermination du système qui décide
+
+| Mode | Systèmes | Pourquoi |
+|---|---|---|
+| **Deux options** — « découle » / « n'en découle pas » | `rang`, `anneau`, `groups`, `cyclic` | Leur composition est **fonctionnelle** : une chaîne couvrant les entités fixe tout le réseau, et une conclusion y est nécessairement entraînée ou contredite |
+| **Trois verdicts** — « découle », « contredit », « reste ouvert » | les dix autres | Une conclusion peut y être **vraie dans la situation tirée tout en restant ouverte** au vu des prémisses. Répondre « vrai » serait enseigner l'erreur même que la rubrique corrige |
+
+Les trois verdicts reprennent **mot pour mot** ceux d'« Entre-deux », pour qu'un seul vocabulaire
+serve partout.
+
+### Le seuil de 7 sur 8, et ce qu'il corrige
+
+À deux options, trois réussites d'affilée — la règle commune pour monter d'un cran — arrivent
+**une fois sur huit** sans rien comprendre, et deux fautes de suite **une fois sur quatre**.
+L'échelle monterait et descendrait au bruit. D'où `echelle: { reussites: 7, fenetre: 8,
+descente: 4 }` : moins de quatre chances sur cent sous l'hypothèse du pur hasard. La fenêtre se
+vide à chaque changement d'échelon, pour que la mesure recommence au niveau où l'on arrive.
+
+### Un biais de distribution, mesuré puis corrigé
+
+Premier jet : le verdict visé était tiré **à chaque essai**. Comme la boucle rend l'item au
+premier succès, un verdict rare était abandonné dès le premier échec au profit d'un verdict
+facile. Mesure avant correction :
+
+| Système | « découle » | « contredit » | « reste ouvert » |
+|---|---|---|---|
+| `space` | **2 %** | 38 % | 60 % |
+| `rcc8` | **3 %** | 33 % | 65 % |
+| `classes` | **5 %** | 29 % | 66 % |
+
+Une personne aurait appris à répondre toujours « reste ouvert » et marqué 60 %. Corrigé en tirant
+le verdict **une fois** et en **cherchant la paire** qui le réalise, le chemin servant de filtre
+avant la propagation complète — qui coûte jusqu'à 200 ms sur `classes` et ne peut pas être testée
+six fois par instance. Après correction, **33 / 29 / 37 %** sur tous les systèmes à trois
+verdicts et **52 / 48 %** sur les binaires.
+
+### Un défaut des lots A1 et A2, trouvé ici
+
+Mes cinq systèmes nouveaux n'étaient dans **aucun palier** de `PALIERS_SYSTEMES`. Or
+`systemesOuverts()` ne rend que les systèmes placés : ils étaient **injouables**, du code mort
+qu'aucune erreur ne signalait. Corrigé, et `systemesSansPalier()` plus trois assertions
+l'empêchent de se reproduire.
+
+### Ce que la trace porte
+
+La justification est un **chemin** : les prémisses qui, composées l'une après l'autre, mènent du
+premier terme au second. On exige que l'ensemble obtenu par ce chemin soit **exactement** celui
+que la propagation complète donne — sinon le chemin ne suffirait pas à justifier la réponse, et la
+correction pas à pas mentirait par omission. L'item est alors retiré plutôt que posé.
+
+Les prémisses hors du chemin sont vraies mais inutiles : la trace les déclare **distractrices**,
+pour que la correction les signale. Apprendre à voir qu'un fait ne sert à rien fait partie de
+l'exercice.
+
+### Reporté au lot A4
+
+Les **prémisses du second ordre** — « A est à B ce que C est à D », la mécanique `meta` de
+Syllogimous — demandent que le solveur résolve une prémisse qui parle d'autres prémisses. C'est un
+solveur de plus, non un réglage, et le faire à moitié aurait produit des traces inexactes. La
+**négation de surface** est dans le même cas : « A n'est pas après B » n'est univoque que sur un
+vocabulaire de **deux** relations complémentaires, soit `line` et `groups` seulement.

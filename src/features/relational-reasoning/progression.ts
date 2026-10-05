@@ -19,7 +19,7 @@
  * valeur stockée se désynchroniserait d'un import de sauvegarde.
  */
 import { accepte, MOTEURS, type Moteur } from './moteurs/index';
-import type { Categorie } from './moteurs/types';
+import type { Categorie, RegleDEchelle } from './moteurs/types';
 import { credit } from './noyaux/notation';
 import { SYSTEMES, type Systeme } from './systemes/index';
 
@@ -64,6 +64,12 @@ export const FAMILLES: Famille[] = [
     resume: 'Des relations qui ne se composent pas comme on s’y attend.',
     ouverture: 'entre-deux',
   },
+  {
+    id: 'chaines',
+    nom: 'Chaînes de prémisses',
+    resume: 'Des faits dans le désordre, une conclusion : tient-elle ?',
+    ouverture: 'chaine-conclusion',
+  },
 ];
 
 /**
@@ -75,11 +81,40 @@ const FAMILLE_LIBRE: Categorie = 'induction';
 
 /** Paliers d'apparition des systèmes, et items réussis nécessaires. */
 export const PALIERS_SYSTEMES: { systemes: string[]; seuil: number; nom: string }[] = [
-  { systemes: ['line', 'plane', 'groups'], seuil: 0, nom: 'Ligne, plan, équipes' },
-  { systemes: ['digraph', 'poset', 'poset-ouvert'], seuil: 30, nom: 'Réseaux dirigés et ordres partiels' },
-  { systemes: ['space', 'cyclic'], seuil: 70, nom: 'Espace et dominance cyclique' },
-  { systemes: ['rcc8', 'allen'], seuil: 130, nom: 'Régions et intervalles' },
+  {
+    systemes: ['line', 'grandeur', 'plane', 'groups'],
+    seuil: 0,
+    nom: 'Ligne, grandeurs, plan, équipes',
+  },
+  {
+    systemes: ['rang', 'digraph', 'poset', 'poset-ouvert'],
+    seuil: 30,
+    nom: 'Rangée, réseaux dirigés et ordres partiels',
+  },
+  {
+    systemes: ['anneau', 'space', 'plan-temps', 'cyclic'],
+    seuil: 70,
+    nom: 'Anneau, espace, temps et dominance cyclique',
+  },
+  {
+    systemes: ['rcc8', 'allen', 'classes'],
+    seuil: 130,
+    nom: 'Régions, intervalles et catégories',
+  },
 ];
+
+/**
+ * Aucun système ne doit rester hors palier.
+ *
+ * Un système absent de cette liste est **injouable** : `systemesOuverts` ne le
+ * rendra jamais, et il reste du code mort sans qu'aucune erreur ne le dise.
+ * C'est arrivé aux cinq systèmes ajoutés après le premier jet, et un essai le
+ * vérifie désormais.
+ */
+export function systemesSansPalier(): string[] {
+  const places = new Set(PALIERS_SYSTEMES.flatMap((p) => p.systemes));
+  return SYSTEMES.filter((s) => !places.has(s.id)).map((s) => s.id);
+}
 
 /** Conditions de maîtrise du moteur d'ouverture d'une famille. */
 const MAITRISE = { items: 12, fenetre: 20, taux: 0.75 };
@@ -105,6 +140,9 @@ export interface EtatMoteur {
  * à réparer des données.
  */
 export function echelonDeMoteur(traces: readonly Trace[], moteurId: string): number {
+  const regle = MOTEURS.find((m) => m.id === moteurId)?.echelle;
+  if (regle) return echelonParFenetre(traces, moteurId, regle);
+
   let echelon = 1;
   let credits = 0;
   let fautesDeSuite = 0;
@@ -126,6 +164,49 @@ export function echelonDeMoteur(traces: readonly Trace[], moteurId: string): num
         fautesDeSuite = 0;
         echelon = Math.max(1, echelon - 1);
       }
+    }
+  }
+  return echelon;
+}
+
+/**
+ * L'échelle d'un moteur à **peu d'options**, réglée sur une fenêtre glissante.
+ *
+ * La règle commune — trois réussites d'affilée — suppose qu'une réussite
+ * signifie quelque chose. Elle le suppose à juste titre quand il y a quatre
+ * options ou qu'il faut cocher le bon sous-ensemble : réussir trois fois de
+ * suite par hasard y est improbable. Mais sur une réponse à deux options, trois
+ * réussites d'affilée arrivent **une fois sur huit** sans rien comprendre, et
+ * deux fautes de suite **une fois sur quatre**. L'échelle monterait et
+ * descendrait au bruit.
+ *
+ * D'où une fenêtre : il faut sept réussites sur huit items — soit moins de
+ * quatre chances sur cent sous l'hypothèse du pur hasard — pour monter d'un
+ * cran, et quatre réussites ou moins sur huit pour redescendre. La fenêtre se
+ * vide à chaque changement d'échelon, pour que la mesure recommence au niveau
+ * où l'on vient d'arriver et non sur des items d'un autre palier.
+ */
+function echelonParFenetre(
+  traces: readonly Trace[],
+  moteurId: string,
+  regle: RegleDEchelle,
+): number {
+  let echelon = 1;
+  let fenetre: number[] = [];
+
+  for (const trace of traces) {
+    if (trace.moteur !== moteurId) continue;
+    fenetre.push(credit(trace.note));
+    if (fenetre.length > regle.fenetre) fenetre.shift();
+    if (fenetre.length < regle.fenetre) continue;
+
+    const reussites = fenetre.filter((v) => v > 0).length;
+    if (reussites >= regle.reussites) {
+      echelon = Math.min(10, echelon + 1);
+      fenetre = [];
+    } else if (reussites <= regle.descente) {
+      echelon = Math.max(1, echelon - 1);
+      fenetre = [];
     }
   }
   return echelon;

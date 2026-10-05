@@ -95,7 +95,30 @@ export interface Item {
   };
 }
 
-export type Categorie = 'isomorphisme' | 'analogie' | 'incompletude' | 'algebres' | 'induction';
+export type Categorie =
+  | 'isomorphisme'
+  | 'analogie'
+  | 'incompletude'
+  | 'algebres'
+  | 'induction'
+  | 'chaines';
+
+/**
+ * Comment un moteur monte son échelle, quand la règle commune ne convient pas.
+ *
+ * La règle commune — trois réussites d'affilée — suppose qu'une réussite ait du
+ * sens. Sur une réponse à deux options, elle n'en a guère : trois réussites de
+ * suite arrivent une fois sur huit par pur hasard. Un moteur à peu d'options
+ * déclare donc une fenêtre, et la progression s'y conforme.
+ */
+export interface RegleDEchelle {
+  /** Réussites exigées sur une fenêtre pleine pour monter d'un cran. */
+  reussites: number;
+  /** Taille de la fenêtre, en items de ce moteur. */
+  fenetre: number;
+  /** Réussites au plus, sur une fenêtre pleine, pour redescendre d'un cran. */
+  descente: number;
+}
 
 export interface Moteur {
   id: string;
@@ -105,6 +128,11 @@ export interface Moteur {
   resume: string;
   /** Les régimes d'inférence dans lesquels le moteur sait travailler. */
   regimes: Regime[];
+  /**
+   * Règle d'échelle propre au moteur. Absente, la règle commune s'applique :
+   * trois réussites d'affilée pour monter, deux fautes de suite pour descendre.
+   */
+  echelle?: RegleDEchelle;
   /**
    * Ce moteur offre-t-il la correction détaillée ? Vrai par défaut.
    *

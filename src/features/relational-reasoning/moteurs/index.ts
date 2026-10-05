@@ -23,6 +23,7 @@ import { projection } from './geometrie/projection';
 import { cadres } from './geometrie/cadres';
 import { echangeAxes } from './geometrie/echange-axes';
 import { analogieIntruse } from './analogie/intruse';
+import { chaineConclusion } from './chaines/conclusion';
 
 export const MOTEURS: Moteur[] = [
   infererRelation,
@@ -41,6 +42,7 @@ export const MOTEURS: Moteur[] = [
   cadres,
   echangeAxes,
   analogieIntruse,
+  chaineConclusion,
 ];
 
 export function moteurParId(id: string): Moteur | undefined {

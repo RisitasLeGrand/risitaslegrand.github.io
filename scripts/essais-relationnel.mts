@@ -24,7 +24,11 @@ import { SYSTEMES } from '../src/features/relational-reasoning/systemes/index';
 import { MOTEURS, couples } from '../src/features/relational-reasoning/moteurs/index';
 import { algebresCompatibles, INTITULES } from '../src/features/relational-reasoning/noyaux/proprietes';
 import { noter } from '../src/features/relational-reasoning/noyaux/notation';
-import { echelonDeMoteur } from '../src/features/relational-reasoning/progression';
+import {
+  PALIERS_SYSTEMES,
+  echelonDeMoteur,
+  systemesSansPalier,
+} from '../src/features/relational-reasoning/progression';
 import { plusPetitSuffisant, type Contexte } from '../src/features/relational-reasoning/noyaux/mus';
 import { poset } from '../src/features/relational-reasoning/systemes/poset';
 import type { Fait } from '../src/features/relational-reasoning/systemes/types';
@@ -151,6 +155,76 @@ for (const systeme of SYSTEMES.filter((s) => s.composer)) {
   verifier(`${systeme.id} : modèle exclu des possibles`, desaccords, 0);
 }
 
+
+console.log('\nPALIERS — aucun système ne doit rester injouable');
+{
+  // Un système absent de PALIERS_SYSTEMES n'est jamais rendu par
+  // systemesOuverts : il reste du code mort, et rien ne le signale. C'est
+  // arrivé aux cinq systèmes ajoutés après le premier jet.
+  verifier('tous les systèmes ont un palier', systemesSansPalier(), []);
+  const places = PALIERS_SYSTEMES.flatMap((p) => p.systemes);
+  verifier('et aucun n’est placé deux fois', places.length, new Set(places).size);
+  verifier(
+    'tous les systèmes placés existent',
+    places.filter((id) => !SYSTEMES.some((s) => s.id === id)),
+    [],
+  );
+}
+
+console.log('\nÉCHELLE À FENÊTRE — ce que le hasard ne doit pas rapporter');
+{
+  const regle = MOTEURS.find((m) => m.id === 'chaine-conclusion')!.echelle!;
+  verifier('la règle est déclarée', [regle.reussites, regle.fenetre, regle.descente], [7, 8, 4]);
+
+  const trace = (note: number) => ({ moteur: 'chaine-conclusion', systeme: 'line', note });
+  const suite = (notes: number[]) => notes.map(trace);
+
+  // Trois réussites d'affilée suffisent sous la règle commune ; elles ne
+  // doivent rien donner ici, car à deux options elles arrivent une fois sur
+  // huit par pur hasard.
+  verifier(
+    'trois réussites d’affilée ne font pas monter',
+    echelonDeMoteur(suite([1, 1, 1]), 'chaine-conclusion'),
+    1,
+  );
+  verifier(
+    'sept réussites sur huit font monter d’un cran',
+    echelonDeMoteur(suite([1, 1, 1, 0, 1, 1, 1, 1]), 'chaine-conclusion'),
+    2,
+  );
+  verifier(
+    'six sur huit ne suffisent pas',
+    echelonDeMoteur(suite([1, 1, 0, 0, 1, 1, 1, 1]), 'chaine-conclusion'),
+    1,
+  );
+  // La fenêtre se vide après une montée : seize réussites valent deux crans,
+  // et non quatorze.
+  verifier(
+    'seize réussites valent deux crans',
+    echelonDeMoteur(suite(Array(16).fill(1)), 'chaine-conclusion'),
+    3,
+  );
+  // Quatre réussites ou moins sur huit font redescendre — sauf qu'on est déjà
+  // au plancher, d'où le besoin de monter d'abord.
+  verifier(
+    'quatre sur huit font redescendre après une montée',
+    echelonDeMoteur(
+      suite([...Array(8).fill(1), 1, 1, 1, 1, 0, 0, 0, 0]),
+      'chaine-conclusion',
+    ),
+    1,
+  );
+  // Deux fautes de suite, qui suffiraient sous la règle commune, ne doivent
+  // rien faire : à deux options elles arrivent une fois sur quatre.
+  verifier(
+    'deux fautes de suite ne font pas redescendre',
+    echelonDeMoteur(
+      suite([...Array(8).fill(1), 0, 0]),
+      'chaine-conclusion',
+    ),
+    2,
+  );
+}
 
 console.log('\nBARÈME — il doit décourager la devinette');
 {
