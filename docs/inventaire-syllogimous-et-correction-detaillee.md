@@ -929,11 +929,69 @@ pas, et la phrase se brisait sur la moitié des systèmes. La légende cite donc
 verbe que pour un groupe prépositionnel. C'est le même défaut, et le même remède, que les trois
 fautes relevées sur le syllogisme.
 
+## Lot A4 — réglage « négation de surface » : **livré**
+
+| Fichier | Rôle |
+|---|---|
+| `noyaux/presentation.ts` | `negationUnivoque`, `complement`, `phraseNiee` |
+| `moteurs/chaines/conclusion.ts` | Le réglage : prémisses niées, et l'étape de conversion dans la trace |
+| `scripts/essais-relationnel.mts` | L'assertion d'exhaustivité que le réglage suppose |
+
+À partir de l'échelon 4, une partie des prémisses est énoncée **par la négation de l'autre
+relation** : « A n'est pas après B » au lieu de « A est avant B ». La structure sous-jacente ne
+change pas d'un iota — c'est pour cela que la négation est dite *de surface* —, mais il faut la
+traverser avant de pouvoir composer.
+
+### Sur quels systèmes, et pourquoi sur ceux-là seulement
+
+La négation ne désigne une relation que si le vocabulaire en compte **exactement deux**,
+exclusives et exhaustives. Dès trois, elle cesse de trancher : « A n'est pas plus grand que B »
+laisse ouvert entre « plus petit » et « à la même place ». Mesuré sur les quinze systèmes, deux
+seulement ont deux relations — `line` (« est avant » / « est après ») et `groups` (« est alliée
+de » / « est rivale de ») —, ce qui confirme l'estimation faite au moment du report.
+
+Une seconde condition s'est révélée nécessaire à l'écriture : le libellé du complément doit
+commencer par « est ». Sans elle, la phrase niée se brise — « A n'est pas **précède** B ». C'est
+exactement la faute relevée sur l'analogie inter-systèmes, et la règle évite de la refaire.
+
+### L'exhaustivité n'est pas déclarée : elle est vérifiée
+
+Qu'un système à deux relations soit exhaustif ne se lit nulle part dans sa déclaration ; seul son
+modèle le sait. Un système à deux relations qui admettrait un troisième état — une paire
+qu'aucune des deux ne relie — rendrait **toutes** les prémisses niées ambiguës, et rien ne le
+signalerait avant la séance. `essais:relationnel` l'exige donc désormais de tout système à deux
+relations, sur soixante instances chacun.
+
+### Trois décisions, dont deux prises après mesure
+
+**Seules les prémisses du chemin sont niées.** Nier une distractrice obligerait la correction à
+expliquer la conversion d'un fait qu'elle déclare ensuite inutile, ce qui brouillerait les deux
+leçons au lieu d'en donner une.
+
+**Une fois sur deux seulement.** Premier jet : le réglage s'appliquait dès que les conditions
+étaient réunies, et **100 %** des items de l'échelon 6 portaient une négation. Toujours niées, les
+prémisses cessent d'être un réglage pour devenir le format — on apprend à lire « n'est pas » comme
+un mot de plus, au lieu d'avoir à traverser la négation. Le tirage est donc une pièce lancée une
+fois par item, comme le verdict visé et pour la même raison : tirée à chaque essai, elle serait
+abandonnée au premier refus. Mesuré après correction : 0 % sous l'échelon 4, **55 %** à
+l'échelon 6, sur `line` comme sur `groups`.
+
+**La conversion parle dans le sens où le chemin l'emploie.** Premier jet : l'étape de conversion
+produisait « A est après G », et l'étape suivante enchaînait sur « G est avant A » sans qu'on sût
+d'où venait le retournement — le chemin peut traverser une prémisse dans l'autre sens. La
+conversion donne donc les deux formes et produit celle que la composition va employer : « donc E
+est avant A, c'est-à-dire A est après E ».
+
+Les conversions passent par ailleurs **avant** la composition : le chemin narré par `tracerChemin`
+parle de relations positives, et il mentirait s'il les citait sans avoir dit d'où elles viennent.
+
+Mesuré sur 2 400 items, quatre systèmes et deux échelons : **0 trace fautive**, autant d'étapes de
+conversion que de prémisses niées dans chaque item, et aucune phrase agrammaticale.
+
 ### Ce qui reste du lot A4
 
 | Reste | Pourquoi ce n'est pas fait |
 |---|---|
-| **Négation de surface** | N'est univoque que sur un vocabulaire de **deux** relations complémentaires — `line` et `groups` seulement |
 | **Prémisses du second ordre** | Demandent un solveur capable de résoudre une prémisse qui parle d'autres prémisses, non un réglage |
 
 ## Lot A6 — attribution CC BY-NC 3.0 : **livré**

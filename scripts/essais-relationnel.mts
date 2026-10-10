@@ -526,6 +526,39 @@ function minimauxSuffisants(
   verifier('des cas à plusieurs minimaux aussi', compares - uniques > 0, true);
 }
 
+console.log('\nNÉGATION DE SURFACE — un système à deux relations doit être exhaustif');
+/*
+ * `negationUnivoque` tient pour acquis qu'un vocabulaire de deux relations est
+ * exclusif **et exhaustif** : c'est ce qui permet d'énoncer « A n'est pas après
+ * B » et d'en déduire « A est avant B ». La déclaration d'un système ne le dit
+ * pas ; seul son modèle le sait. Un système à deux relations qui admettrait un
+ * troisième état — une paire qu'aucune des deux ne relie — rendrait toutes les
+ * prémisses niées ambiguës, et rien ne le signalerait avant la séance.
+ */
+{
+  const deuxRelations = SYSTEMES.filter((systeme) => systeme.relations.length === 2);
+  verifier('des systèmes à deux relations existent', deuxRelations.length > 0, true);
+  for (const systeme of deuxRelations) {
+    let orphelines = 0;
+    for (let graine = 1; graine <= 60; graine += 1) {
+      const instance = systeme.engendrer(5, alea(graine * 104_729));
+      const modele = instance.modele;
+      if (!modele) {
+        orphelines += 1;
+        continue;
+      }
+      for (const x of instance.entites) {
+        for (const y of instance.entites) {
+          if (x === y) continue;
+          const relation = systeme.relationDansModele(modele, x, y);
+          if (!systeme.relations.some((candidate) => candidate.id === relation)) orphelines += 1;
+        }
+      }
+    }
+    verifier(`${systeme.id} : toute paire porte l’une des deux relations`, orphelines, 0);
+  }
+}
+
 console.log('\nCOÛT — un item ne doit pas figer l’interface');
 // Un moteur qui met vingt secondes à rendre un item est un défaut, même si
 // l'item est juste : la session se fige au tirage, et rien dans les essais ne

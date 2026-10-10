@@ -45,15 +45,51 @@
  * **distractrices**, et la trace les déclare comme telles pour que la correction
  * les signale. Apprendre à voir qu'un fait ne sert à rien fait partie de
  * l'exercice.
+ *
+ * ## Le réglage « négation de surface »
+ *
+ * À partir de l'échelon 4, et sur les seuls systèmes où elle est univoque, une
+ * partie des prémisses est énoncée **par la négation de l'autre relation** :
+ * « A n'est pas après B » au lieu de « A est avant B ». La structure sous-jacente
+ * ne change pas d'un iota — c'est pour cela que la négation est dite *de
+ * surface* —, mais il faut la traverser avant de pouvoir composer, et c'est un
+ * geste qui se rate.
+ *
+ * Deux décisions tiennent ce réglage.
+ *
+ * **Seules les prémisses du chemin sont niées.** Nier une distractrice
+ * obligerait la correction à expliquer la conversion d'un fait qu'elle déclare
+ * ensuite inutile, ce qui brouillerait les deux leçons au lieu d'en donner une.
+ *
+ * **Les conversions passent avant la composition.** La trace rend d'abord
+ * chaque prémisse niée à sa forme affirmative, puis compose : le chemin narré
+ * par `tracerChemin` parle de relations positives, et il mentirait s'il les
+ * citait sans avoir dit d'où elles viennent.
  */
 import { compiler, possibilites } from '../../noyaux/algebre';
-import { libelle, texte } from '../../noyaux/presentation';
+import {
+  complement,
+  libelle,
+  libelleNu,
+  negationUnivoque,
+  phraseNiee,
+  texte,
+} from '../../noyaux/presentation';
 import { journal, ref, type Conclusion } from '../../../correction/trace';
 import { aretes, fonctionnel, meilleurChemin, tracerChemin } from '../../noyaux/chemin';
 import type { Alea, Systeme } from '../../systemes/types';
 import type { Item, Moteur, Option } from '../types';
 
 const TIRAGES = 70;
+
+/**
+ * L'échelon à partir duquel la négation de surface apparaît.
+ *
+ * Pas avant : le format lui-même — des prémisses en désordre, trois verdicts —
+ * demande déjà d'apprendre quelque chose, et ajouter la négation d'emblée
+ * ferait porter l'échec sur la lecture au lieu du raisonnement.
+ */
+const ECHELON_NEGATION = 4;
 
 /** Les trois verdicts, dans les mots d'« Entre-deux ». */
 const VERDICTS = [
@@ -110,6 +146,19 @@ export const chaineConclusion: Moteur = {
      * Une personne aurait appris à répondre toujours la même chose.
      */
     const vise = alea.entier(binaire ? 2 : 3);
+
+    /**
+     * La négation de surface est tirée **une fois**, comme le verdict, et pour
+     * la même raison : tirée à chaque essai, elle serait abandonnée au premier
+     * refus et l'on retomberait toujours sur la forme affirmative.
+     *
+     * Une fois sur deux seulement au-dessus du seuil. Toujours niées, les
+     * prémisses cesseraient d'être un réglage pour devenir le format : on
+     * apprendrait à lire « n'est pas » comme un mot de plus, au lieu d'avoir à
+     * traverser la négation. L'alternance interdit de s'installer dans un mode.
+     */
+    const negationVisee =
+      negationUnivoque(systeme) && echelon >= ECHELON_NEGATION && alea.entier(2) === 0;
 
     for (let essai = 0; essai < TIRAGES; essai += 1) {
       const instance = systeme.engendrer(Math.max(3, Math.min(echelon + 2, 9)), alea);
@@ -181,8 +230,57 @@ export const chaineConclusion: Moteur = {
 
       const conclusion = `${a} ${libelle(systeme, relationConclue)} ${b}`;
 
+      /*
+       * Les prémisses niées : un sous-ensemble non vide des prémisses **du
+       * chemin**, tiré au sort. Jamais toutes, pour que l'énoncé garde au moins
+       * une forme affirmative à quoi comparer.
+       */
+      const surLeChemin = chemin.aretes.map((arete) => arete.indice);
+      const nies = new Set<number>();
+      if (negationVisee && surLeChemin.length >= 2) {
+        const combien = 1 + alea.entier(surLeChemin.length - 1);
+        for (const indice of alea.plusieurs(surLeChemin, combien)) nies.add(indice);
+      }
+
       // ----- La trace, déposée en recomposant le chemin -------------------
       const carnet = journal();
+
+      /*
+       * Les conversions d'abord : le chemin narré ensuite cite des relations
+       * positives, et il faut avoir dit d'où elles sortent.
+       */
+      for (const arete of chemin.aretes) {
+        if (!nies.has(arete.indice)) continue;
+        const fait = faits[arete.indice];
+        const autre = complement(systeme, fait.relation)!;
+        const affirme = `${fait.sujet} ${libelle(systeme, fait.relation)} ${fait.objet}`;
+        /*
+         * Le chemin peut traverser la prémisse dans l'autre sens. Dire
+         * seulement « donc A est après G » laisserait alors l'étape suivante
+         * parler de « G est avant A » sans qu'on sache d'où vient le
+         * retournement. La conversion donne donc les deux formes, et produit
+         * celle que le chemin va employer.
+         */
+        const retourne = arete.de !== fait.sujet;
+        const oriente = `${arete.de} ${libelle(systeme, arete.relation)} ${arete.a}`;
+        carnet.etape({
+          utilise: [ref('premisse', arete.indice)],
+          loi: 'négation de surface',
+          produit: oriente,
+          legende:
+            `La prémisse ${arete.indice + 1} est énoncée par la négation : « ${fait.sujet} ` +
+            `n’est pas ${libelleNu(systeme, autre)} ${fait.objet} ». Ce système n’a que deux ` +
+            `relations, exclusives et exhaustives : nier l’une affirme l’autre, donc ` +
+            `${affirme}` +
+            (retourne ? `, c’est-à-dire ${oriente}.` : '.'),
+          surbrillance: [
+            ref('premisse', arete.indice),
+            ref('entite', fait.sujet),
+            ref('entite', fait.objet),
+          ],
+        });
+      }
+
       tracerChemin(carnet, systeme, chemin, a, { inutilesParmi: faits.length });
 
       const nomsOuverts = [...ouvertes].map((r) => libelle(systeme, r));
@@ -227,13 +325,19 @@ export const chaineConclusion: Moteur = {
         enonce: [
           texte(
             `On sait ceci de ${instance.entites.length} entités — les prémisses sont dans le ` +
-              'désordre, et toutes ne servent pas :',
+              'désordre, et toutes ne servent pas' +
+              (nies.size
+                ? `. Certaines sont énoncées par la négation : ce système n’a que deux ` +
+                  `relations, et nier l’une affirme l’autre`
+                : '') +
+              ' :',
           ),
           {
             type: 'faits',
-            phrases: faits.map(
-              (fait, i) => `${i + 1}. ${fait.sujet} ${libelle(systeme, fait.relation)} ${fait.objet}.`,
-            ),
+            phrases: faits.map((fait, i) => {
+              const niee = nies.has(i) ? phraseNiee(systeme, fait) : null;
+              return `${i + 1}. ${niee ?? `${fait.sujet} ${libelle(systeme, fait.relation)} ${fait.objet}.`}`;
+            }),
           },
         ],
         reponse: { genre: 'unique', options, bonne },

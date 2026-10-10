@@ -136,3 +136,41 @@ export function blocMatrice(systeme: Systeme, instance: Instance): Bloc {
 export function texte(contenu: string): Bloc {
   return { type: 'texte', texte: contenu };
 }
+
+/**
+ * La négation de surface est-elle univoque sur ce système ?
+ *
+ * « A n'est pas après B » ne désigne une relation que si le vocabulaire en
+ * compte **exactement deux**, exclusives et exhaustives : nier l'une revient
+ * alors à affirmer l'autre. Dès trois relations la négation cesse de trancher —
+ * « A n'est pas plus grand que B » laisse ouvert entre « plus petit » et « à la
+ * même place ».
+ *
+ * Deux conditions, donc, et la seconde n'est pas cosmétique. Le libellé du
+ * complément doit commencer par « est », sans quoi la phrase niée se brise :
+ * « A n'est pas **précède** B ». C'est la même faute que celle relevée sur
+ * l'analogie inter-systèmes, et la règle évite de la refaire.
+ *
+ * L'exhaustivité, elle, n'est pas testable depuis la seule déclaration : elle
+ * est vérifiée par `essais:relationnel`, qui exige de tout système à deux
+ * relations que toute paire distincte en porte une. Un système à deux relations
+ * qui admettrait un troisième état y serait pris, au lieu de rendre des
+ * prémisses ambiguës en séance.
+ */
+export function negationUnivoque(systeme: Systeme): boolean {
+  if (systeme.relations.length !== 2) return false;
+  return systeme.relations.every((relation) => /^est /.test(relation.libelle));
+}
+
+/** L'autre relation, sur un système à deux. */
+export function complement(systeme: Systeme, relation: string): string | null {
+  if (!negationUnivoque(systeme)) return null;
+  return systeme.relations.find((autre) => autre.id !== relation)?.id ?? null;
+}
+
+/** « A n'est pas après B. » — l'affirmation dite par la négation de l'autre. */
+export function phraseNiee(systeme: Systeme, fait: Fait): string | null {
+  const autre = complement(systeme, fait.relation);
+  if (!autre) return null;
+  return `${fait.sujet} n’est pas ${libelleNu(systeme, autre)} ${fait.objet}.`;
+}
