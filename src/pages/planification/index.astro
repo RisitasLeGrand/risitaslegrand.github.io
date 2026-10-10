@@ -110,7 +110,7 @@ import Section from '../../components/Section.astro';
   import { formaterDuree, lien, pluriel } from '../../lib/ui';
   import {
     JOURS_SEMAINE,
-    THEMES_ASSIGNABLES,
+    themesAssignables,
     estRepos,
     ecarterSuggestionTrimestrielle,
     ecrireRotation,
@@ -284,7 +284,7 @@ import Section from '../../components/Section.astro';
         selecteur.className =
           'min-h-11 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100';
         selecteur.setAttribute('aria-label', `Matière du ${dateCourte.format(enDate(entree.jour))}`);
-        for (const t of THEMES_ASSIGNABLES) {
+        for (const t of themesAssignables()) {
           const option = document.createElement('option');
           option.value = t.id;
           option.textContent = t.id === 'repos' ? '— Repos, aucune révision —' : t.nom;
@@ -344,7 +344,7 @@ import Section from '../../components/Section.astro';
       selecteur.id = `rotation-${index}`;
       selecteur.className =
         'mt-2 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100';
-      for (const t of THEMES_ASSIGNABLES) {
+      for (const t of themesAssignables()) {
         const option = document.createElement('option');
         option.value = t.id;
         option.textContent = t.id === 'repos' ? '— Repos, aucune révision —' : t.nom;

@@ -31,6 +31,7 @@
     type Resultat,
   } from '../prompt';
   import type { Contexte, OptionsDeContexte } from '../contexte';
+  import { parcoursCourant } from '../../../lib/parcours/courant';
   import { copier, partageDisponible, partager } from '../livraison';
   import {
     avertissementVu,
@@ -91,7 +92,11 @@
 
   function regenerer() {
     if (!contexte) return;
-    resultat = construirePrompt(contexte, { intention, demande });
+    resultat = construirePrompt(contexte, {
+      intention,
+      demande,
+      parcours: parcoursCourant(),
+    });
     // Une modification à la main n'est pas écrasée par un changement de
     // préréglage : la personne a écrit quelque chose, et le lui reprendre
     // serait le pire moment pour le faire.

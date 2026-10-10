@@ -43,11 +43,12 @@ export {
   jourDeRepos,
   lireReglages,
   REPOS,
-  ROTATION_PAR_DEFAUT,
+  rotationParDefaut,
+  SANS_THEME,
   theme,
   themeDuJour,
-  THEMES,
-  THEMES_ASSIGNABLES,
+  themes,
+  themesAssignables,
   type ThemePlanification,
 } from './rotation';
 

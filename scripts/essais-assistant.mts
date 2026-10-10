@@ -31,6 +31,7 @@ import {
   type Intention,
 } from '../src/features/assistant/prompt';
 import { niveauEnMots, texteDuHtml, type Contexte } from '../src/features/assistant/contexte';
+import { PARCOURS, parcoursOuDefaut } from '../src/lib/parcours/registre';
 
 let echecs = 0;
 function verifier(titre: string, obtenu: unknown, attendu: unknown) {
@@ -272,6 +273,51 @@ verifier(
   texteDuHtml('<p>l&#39;article&nbsp;55 &amp; suivants</p>'),
   "l'article 55 & suivants",
 );
+
+// --- 8. L'en-tête nomme le concours du parcours, et pas un autre ----------
+
+/*
+ * Le défaut corrigé ici était en production : l'ouverture du prompt annonçait
+ * « le concours externe de l'INSP » quel que soit le parcours **et** quelle que
+ * soit la voie, alors que le parcours par défaut est le concours interne. Deux
+ * erreurs dans une phrase, dont la seconde est celle qu'on remarque le moins.
+ *
+ * L'essai interroge le registre plutôt que d'écrire les intitulés en dur : un
+ * essai qui recopierait la chaîne attendue ne vérifierait que lui-même.
+ */
+for (const p of PARCOURS) {
+  const r = construirePrompt(contexte(), { intention: 'expliquer', parcours: p });
+  verifier(
+    `l’en-tête de ${p.libelle} nomme son concours`,
+    r.texte.startsWith(`Tu m’aides à préparer ${p.concours.phrase}.`),
+    true,
+  );
+}
+
+{
+  const defaut = construirePrompt(contexte(), { intention: 'expliquer' });
+  verifier(
+    'sans parcours, c’est le parcours par défaut qui nomme le concours',
+    defaut.texte.startsWith(
+      `Tu m’aides à préparer ${parcoursOuDefaut(null).concours.phrase}.`,
+    ),
+    true,
+  );
+  verifier(
+    'et le concours interne n’est plus annoncé comme externe',
+    /concours externe/.test(defaut.texte),
+    false,
+  );
+}
+
+{
+  /*
+   * Plus aucune consigne ne nomme un concours : l'en-tête le fait, et le dire
+   * deux fois, c'était se condamner à ce que les deux divergent.
+   */
+  const nommant = PREREGLAGES.filter((pre) => /INSP|DGFiP/.test(pre.consigne));
+  verifier('aucun préréglage ne nomme un concours', nommant.map((pre) => pre.id), []);
+}
 
 console.log(
   echecs

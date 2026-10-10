@@ -24,6 +24,7 @@
  * bouton une seconde utilité — relire les réponses incertaines de la banque.
  */
 import type { Bloc, Contexte, Rang } from './contexte';
+import { parcoursOuDefaut, type Parcours } from '../../lib/parcours/registre';
 
 export const BUDGET = 8000;
 
@@ -86,7 +87,7 @@ export const PREREGLAGES: Preregage[] = [
     libelle: 'Approfondis',
     description: 'Ce qu’un bon copie-type ajouterait.',
     consigne:
-      'Dis-moi ce qu’une très bonne copie ajouterait sur ce point au concours de l’INSP : ' +
+      'Dis-moi ce qu’une très bonne copie ajouterait sur ce point au concours que je prépare : ' +
       'références précises, chiffres récents, débats en cours, et les nuances qui distinguent ' +
       'une réponse correcte d’une réponse remarquée.',
   },
@@ -108,9 +109,18 @@ export function prereglage(id: Intention): Preregage {
   return PREREGLAGES.find((p) => p.id === id) ?? PREREGLAGES[0];
 }
 
-const EN_TETE =
-  'Tu m’aides à préparer le concours externe de l’INSP (Institut national du service public). ' +
-  'Réponds en français.';
+/**
+ * L'ouverture du prompt, qui nomme le concours préparé.
+ *
+ * C'était une chaîne littérale — « le concours externe de l'INSP » — et elle
+ * portait deux erreurs à la fois : la voie, puisque le parcours par défaut est
+ * le concours **interne**, et le concours lui-même dès qu'une question vient
+ * d'une autre banque que celle de l'INSP. Le concours vient donc du registre
+ * des parcours, qui est le seul endroit où il est déclaré.
+ */
+function enTete(p: Parcours): string {
+  return `Tu m’aides à préparer ${p.concours.phrase}. Réponds en français.`;
+}
 
 const CONTRADICTION =
   'Si une correction ou une réponse reproduite ci-dessous te paraît inexacte, datée ou ' +
@@ -122,6 +132,12 @@ export const MARQUE_TRONCATURE = '[extrait tronqué]';
 
 export interface OptionsDePrompt {
   intention: Intention;
+  /**
+   * Le parcours préparé, dont le concours ouvre le prompt. Facultatif pour que
+   * les essais restent lisibles : à défaut, c'est le parcours par défaut du
+   * registre, et non une chaîne codée en dur.
+   */
+  parcours?: Parcours;
   /** Ce que la personne ajoute de sa main. Facultatif. */
   demande?: string;
   budget?: number;
@@ -156,7 +172,11 @@ function rendreBloc(b: Bloc): string {
 }
 
 function assembler(contexte: Contexte, blocs: Bloc[], options: OptionsDePrompt): string {
-  const parts = [EN_TETE, prereglage(options.intention).consigne, CONTRADICTION];
+  const parts = [
+    enTete(options.parcours ?? parcoursOuDefaut(null)),
+    prereglage(options.intention).consigne,
+    CONTRADICTION,
+  ];
   if (contexte.situation.length) {
     parts.push(`## Où j’en suis\n${contexte.situation.join(' › ')}`);
   }

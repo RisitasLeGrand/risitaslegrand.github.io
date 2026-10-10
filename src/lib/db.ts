@@ -925,8 +925,18 @@ export async function ecrireSelectionEntrainement(
 /* --- Réglages de planification -------------------------------------------- */
 
 export interface ReglagesPlanification {
-  /** Thème proposé pour chaque jour de la semaine, index 0 = dimanche. */
-  rotation: string[];
+  /**
+   * Thème proposé pour chaque jour de la semaine, index 0 = dimanche, **par
+   * parcours**. La clé est l'identifiant du parcours (`parcours/registre.ts`).
+   */
+  rotations?: Record<string, string[]>;
+  /**
+   * Forme antérieure : une rotation unique, du temps où le site ne connaissait
+   * que l'INSP. Conservée en lecture seule — `src/lib/rotation.ts` la migre vers
+   * `rotations.insp` à chaque lecture, y compris sur une sauvegarde ancienne
+   * restaurée longtemps après la mise à jour. Rien ne l'écrit plus.
+   */
+  rotation?: string[];
   /** Dernier trimestre pour lequel la suggestion a été écartée (ex. « 2026-T1 »). */
   trimestreEcarte: string | null;
 }
