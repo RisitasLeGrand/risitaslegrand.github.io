@@ -988,11 +988,91 @@ parle de relations positives, et il mentirait s'il les citait sans avoir dit d'o
 Mesuré sur 2 400 items, quatre systèmes et deux échelons : **0 trace fautive**, autant d'étapes de
 conversion que de prémisses niées dans chaque item, et aucune phrase agrammaticale.
 
-### Ce qui reste du lot A4
+## Lot A4 — `chaine-second-ordre` : **livré**. Le lot est clos.
 
-| Reste | Pourquoi ce n'est pas fait |
+| Fichier | Rôle |
 |---|---|
-| **Prémisses du second ordre** | Demandent un solveur capable de résoudre une prémisse qui parle d'autres prémisses, non un réglage |
+| `moteurs/chaines/second-ordre.ts` | Le moteur : une prémisse qui parle d'une autre prémisse |
+| `moteurs/chaines/verdicts.ts` | Les intitulés de verdict, sortis de `conclusion.ts` pour servir aux deux |
+
+**21 moteurs, 15 systèmes.** 88 % de tirages retenus sur les neuf systèmes acceptés, **0 trace
+fautive**, pire item 21 ms, 1 496 ms pour 720 tirages.
+
+### Ce que l'exercice demande
+
+> 7. La relation de Brume à Calix est la même que celle d'Actos à Doran.
+
+Cette prémisse n'affirme rien par elle-même. Elle devient un fait quand on a lu celle qui donne la
+relation d'Actos à Doran, et c'est ce **transfert** — pas la composition qui le suit — que
+l'exercice fait travailler. C'est la mécanique `meta` de Syllogimous, et le seul format du prompt A
+qui demandait un solveur de plus plutôt qu'un réglage.
+
+**La formule de l'analogie a été écartée.** « Brume est à Calix ce qu'Actos est à Doran » est la
+phrase d'origine, et elle est ambiguë : « est à … ce que » se lit aussi comme une proportion, qui
+n'a pas de sens ici. La forme explicite dit exactement ce que le solveur calcule.
+
+### Trois exigences, et ce que chacune écarte
+
+**La paire source est énoncée**, sa relation se lit dans une prémisse du premier ordre. On pourrait
+l'exiger dérivable, et l'exercice serait plus riche ; il serait aussi à deux inconnues, et un échec
+ne dirait plus lequel des deux gestes a manqué.
+
+**La paire cible n'est énoncée nulle part**, ni dans un sens ni dans l'autre — sinon la prémisse du
+second ordre serait redondante et l'on répondrait juste sans l'avoir lue.
+
+**Le transfert doit servir.** La conclusion est jugée deux fois, avec et sans le fait transféré, et
+l'on exige que le fait **réduise** l'ensemble des relations encore possibles. C'est ce qui distingue
+un item du second ordre d'un item de « Conclusion d'une chaîne » auquel on aurait ajouté une phrase
+décorative.
+
+### La cohérence est acquise par construction
+
+La paire cible est choisie parmi celles qui portent **déjà**, dans le modèle tiré, la même relation
+que la paire source. La prémisse du second ordre est donc vraie du modèle comme le sont les
+prémisses du premier ordre, et le jeu ne peut pas être contradictoire. Tirer la cible librement puis
+tester la cohérence aurait marché aussi, au prix d'une propagation de plus par tirage.
+
+### Deux refus structurels, mesurés avant d'être écrits
+
+Sans eux, le moteur était accepté sur cinq systèmes où il refusait **100 %** de ses tirages — douze
+refus brûlés par séance sur chacun. C'est la troisième fois de la série que la mesure attrape ce
+défaut, après `poset` sur l'analogie inter-systèmes.
+
+| Refus | Systèmes | Raison |
+|---|---|---|
+| Composition **fonctionnelle** | `rang`, `anneau`, `groups`, `cyclic` | Une chaîne de prémisses fixe tout le réseau : la paire interrogée est déjà déterminée sans le transfert, qui ne peut donc rien resserrer |
+| Monde **clos** | `poset` | Toutes les paires y sont énoncées, puisque les faits *sont* le modèle : rien à transférer vers du déjà-dit |
+
+### Le coût, et le mensonge que l'optimisation avait introduit
+
+Mesuré au premier jet : **18 020 ms** pour le pire item sur `allen`, douze fois le budget de
+1 500 ms que `essais:relationnel` garde — le même défaut, à la même échelle, que les 18,9 s de
+« Prémisses minimales » sur RCC8. Les systèmes dont la cohérence par chemin ne suffit pas font payer
+chaque appel à `possibilites` d'une énumération de scénarios, et le moteur en fait **deux** par
+paire candidate. Trois mesures : le nombre d'entités plafonné à cinq sur ces systèmes, les paires
+essayées réduites de huit à quatre, et le calcul « sans transfert » **borné au seuil** qui
+l'intéresse par `arretDesQue`. Pire item : 21 ms.
+
+La dernière mesure a introduit un défaut qu'il a fallu voir : `sans` étant désormais **tronqué**, la
+légende qui disait « sans lui, 2 relations restaient possibles » annonçait une précision que le
+calcul ne faisait plus. Elle dit maintenant que la relation « n'était pas déterminée », sans compter.
+
+### Les verdicts sortent de `conclusion.ts`
+
+Deux moteurs posent la même question et doivent y répondre dans les mêmes mots — le cahier des
+charges le demandait déjà pour « Entre-deux », dont ces intitulés sont repris. Les recopier aurait
+produit deux listes côte à côte qui finissent par ne plus concorder : une reformulation d'un côté, et
+la correction expliquerait un verdict que l'autre moteur n'affiche pas. D'où `chaines/verdicts.ts`.
+
+### Le lot A4 est clos
+
+| Livrable | État |
+|---|---|
+| `chaine-syllogisme` | Livré |
+| `chaine-composee` | Livré |
+| `analogie-inter-systemes` | Livré |
+| Réglage **négation de surface** | Livré |
+| Réglage **prémisses du second ordre** | Livré, comme moteur et non comme réglage |
 
 ## Lot A6 — attribution CC BY-NC 3.0 : **livré**
 

@@ -27,6 +27,7 @@ import { analogieInterSystemes } from './analogie/inter-systemes';
 import { chaineConclusion } from './chaines/conclusion';
 import { chaineSyllogisme } from './chaines/syllogisme';
 import { chaineComposee } from './chaines/composee';
+import { chaineSecondOrdre } from './chaines/second-ordre';
 
 export const MOTEURS: Moteur[] = [
   infererRelation,
@@ -49,6 +50,7 @@ export const MOTEURS: Moteur[] = [
   chaineConclusion,
   chaineSyllogisme,
   chaineComposee,
+  chaineSecondOrdre,
 ];
 
 export function moteurParId(id: string): Moteur | undefined {

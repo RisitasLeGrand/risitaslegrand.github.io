@@ -79,6 +79,7 @@ import { journal, ref, type Conclusion } from '../../../correction/trace';
 import { aretes, fonctionnel, meilleurChemin, tracerChemin } from '../../noyaux/chemin';
 import type { Alea, Systeme } from '../../systemes/types';
 import type { Item, Moteur, Option } from '../types';
+import { BINAIRES, VERDICTS } from './verdicts';
 
 const TIRAGES = 70;
 
@@ -91,15 +92,6 @@ const TIRAGES = 70;
  */
 const ECHELON_NEGATION = 4;
 
-/** Les trois verdicts, dans les mots d'« Entre-deux ». */
-const VERDICTS = [
-  'il découle nécessairement des prémisses',
-  'il les contredit : aucune situation compatible ne le vérifie',
-  'il reste ouvert : les prémisses ne permettent pas de trancher',
-];
-
-/** Les deux verdicts du mode binaire. */
-const BINAIRES = ['il découle nécessairement des prémisses', 'il n’en découle pas'];
 
 export const chaineConclusion: Moteur = {
   id: 'chaine-conclusion',

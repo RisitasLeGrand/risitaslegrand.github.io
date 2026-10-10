@@ -68,6 +68,7 @@ const MOTEURS_TRACES: string[] = [
   'chaine-conclusion',
   'chaine-syllogisme',
   'chaine-composee',
+  'chaine-second-ordre',
   'inferer-relation',
   'reseau-relationnel',
   'ensembles-possibles',
