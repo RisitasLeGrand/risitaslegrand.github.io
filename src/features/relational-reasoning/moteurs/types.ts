@@ -146,19 +146,37 @@ export interface Moteur {
    * régime algébrique mais sa composition est fonctionnelle : aucune paire n'y
    * reste ouverte, ce qui le rend inutilisable pour les moteurs
    * d'indétermination sans qu'aucun régime ne le dise.
+   *
+   * `voisins` est le catalogue complet, pour le seul moteur qui en a besoin :
+   * une analogie inter-systèmes n'est praticable que s'il existe **ailleurs**
+   * un système où transférer. Le paramètre est facultatif, de sorte que les
+   * dix-huit autres moteurs gardent leur signature à un argument.
    */
-  compatible?(systeme: Systeme): boolean;
+  compatible?(systeme: Systeme, voisins?: readonly Systeme[]): boolean;
   /**
    * Rend `null` quand le tirage ne donne pas d'item valide — structure trop
    * symétrique pour avoir une réponse unique, indétermination absente là où
    * elle est nécessaire. La session retire alors une autre graine plutôt que de
    * poser une question douteuse.
+   *
+   * `voisins` suit la même règle que pour `compatible` : le moteur reçoit les
+   * autres systèmes, il ne les importe pas. La séparation des deux couches
+   * tient toujours — un moteur ne connaît aucun système par son nom.
    */
-  engendrer(systeme: Systeme, difficulte: number, alea: Alea): Item | null;
+  engendrer(
+    systeme: Systeme,
+    difficulte: number,
+    alea: Alea,
+    voisins?: readonly Systeme[],
+  ): Item | null;
 }
 
 /** Un moteur peut-il tourner sur un système ? */
-export function accepte(moteur: Moteur, systeme: Systeme): boolean {
+export function accepte(
+  moteur: Moteur,
+  systeme: Systeme,
+  voisins?: readonly Systeme[],
+): boolean {
   if (!moteur.regimes.some((regime) => systeme.regimes.includes(regime))) return false;
-  return moteur.compatible ? moteur.compatible(systeme) : true;
+  return moteur.compatible ? moteur.compatible(systeme, voisins) : true;
 }

@@ -14,6 +14,7 @@
  * quelques refus consécutifs, et s'arrête proprement si plus aucun ne répond.
  */
 import { alea, graineDuMoment } from './noyaux/aleatoire';
+import { SYSTEMES } from './systemes/index';
 import type { Item } from './moteurs/types';
 import { couplesPourEntrainement, type Trace } from './progression';
 
@@ -69,7 +70,9 @@ export function composerSession(
     const candidats = vivants.filter((couple) => compte(couple.moteur.id) === minimum);
     const couple = hasard.un(candidats);
 
-    const item = couple.moteur.engendrer(couple.systeme, couple.echelon, hasard);
+    // Le catalogue passe en quatrième paramètre : un moteur inter-systèmes a
+    // besoin d'un monde où transférer, et il ne doit pas l'importer lui-même.
+    const item = couple.moteur.engendrer(couple.systeme, couple.echelon, hasard, SYSTEMES);
     if (!item) {
       couple.refus += 1;
       continue;

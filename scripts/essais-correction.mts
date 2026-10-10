@@ -84,6 +84,7 @@ const MOTEURS_TRACES: string[] = [
   'sous-systeme-commun',
   'algebre-cachee',
   'analogie-intruse',
+  'analogie-inter-systemes',
 ];
 
 let echecs = 0;
@@ -445,9 +446,9 @@ console.log('\n\x1b[1mL’ÉNONCÉ DIT-IL CE QUE LE SOLVEUR CALCULE ?\x1b[0m\n')
   const moteur = MOTEURS.find((m) => m.id === 'sous-systeme-commun');
   let enonce = '';
   for (const systeme of SYSTEMES) {
-    if (!moteur || !accepte(moteur, systeme) || enonce) continue;
+    if (!moteur || !accepte(moteur, systeme, SYSTEMES) || enonce) continue;
     for (let i = 0; i < 40 && !enonce; i += 1) {
-      const item = moteur.engendrer(systeme, 1 + (i % 6), alea(i * 7919 + 13));
+      const item = moteur.engendrer(systeme, 1 + (i % 6), alea(i * 7919 + 13), SYSTEMES);
       const bloc = item?.enonce.find((b) => b.type === 'texte');
       if (bloc && bloc.type === 'texte') enonce = bloc.texte;
     }
@@ -689,9 +690,9 @@ console.log('\n\x1b[1mLES MOTEURS, ITEM PAR ITEM\x1b[0m\n');
     const compte = { items: 0, traces: 0 };
     couverture.set(moteur.id, compte);
     for (const systeme of SYSTEMES) {
-      if (!accepte(moteur, systeme)) continue;
+      if (!accepte(moteur, systeme, SYSTEMES)) continue;
       for (let i = 0; i < TIRAGES; i += 1) {
-        const item = moteur.engendrer(systeme, 1 + (i % 6), alea(i * 7919 + 13));
+        const item = moteur.engendrer(systeme, 1 + (i % 6), alea(i * 7919 + 13), SYSTEMES);
         if (!item) continue;
         itemsVus += 1;
         compte.items += 1;

@@ -537,7 +537,7 @@ console.log('\nCOÛT — un item ne doit pas figer l’interface');
   let pire = { couple: '—', ms: 0 };
   for (const { moteur, systeme } of couples(MOTEURS, SYSTEMES)) {
     const debut = Date.now();
-    for (let i = 0; i < 3; i += 1) moteur.engendrer(systeme, 6, alea(4000 + i));
+    for (let i = 0; i < 3; i += 1) moteur.engendrer(systeme, 6, alea(4000 + i), SYSTEMES);
     const ms = (Date.now() - debut) / 3;
     if (ms > pire.ms) pire = { couple: `${moteur.id} × ${systeme.id}`, ms };
     if (ms > BUDGET_MS) {
@@ -561,7 +561,7 @@ for (const { moteur, systeme } of couples(MOTEURS, SYSTEMES)) {
   const griefs: string[] = [];
 
   for (let graine = 1; graine <= 200; graine += 1) {
-    const item = moteur.engendrer(systeme, 1 + (graine % 10), alea(graine * 7919));
+    const item = moteur.engendrer(systeme, 1 + (graine % 10), alea(graine * 7919), SYSTEMES);
     if (!item) {
       nuls += 1;
       continue;

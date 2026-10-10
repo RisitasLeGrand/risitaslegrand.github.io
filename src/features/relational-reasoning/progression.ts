@@ -297,7 +297,7 @@ export function couplesPourEntrainement(
     for (const systeme of SYSTEMES) {
       const systemeOuvert = ouverts.has(systeme.id);
       if (!options.modeLibre && !systemeOuvert) continue;
-      if (!accepte(etat.moteur, systeme)) continue;
+      if (!accepte(etat.moteur, systeme, SYSTEMES)) continue;
       const debloque = etat.ouvert && systemeOuvert;
       resultat.push({
         moteur: etat.moteur,

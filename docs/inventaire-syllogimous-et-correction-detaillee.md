@@ -856,11 +856,83 @@ approximative, le moteur s'y refuse.
 `groups` est écarté pour une autre raison : deux relations seulement, de sorte qu'un membre faux
 se devine sans calcul.
 
+## Lot A4 — `analogie-inter-systemes` : **livré**
+
+| Fichier | Rôle |
+|---|---|
+| `moteurs/analogie/inter-systemes.ts` | Le moteur : deux mondes, deux vocabulaires, une algèbre transférée |
+| `moteurs/types.ts` | `voisins` en paramètre facultatif de `compatible` et de `engendrer` |
+| `moteurs/index.ts`, `progression.ts`, `session.ts` | Le catalogue passé au moteur, et non importé par lui |
+
+**20 moteurs, 15 systèmes, 206 couples.** 98 % de tirages retenus sur les neuf systèmes
+acceptés, **0 trace fautive**, 135 ms pour 540 tirages.
+
+### Ce que l'exercice demande, et pourquoi il fallait un vingtième moteur
+
+Deux mondes sont montrés côte à côte, tirés de **deux systèmes différents**. Le premier énonce un
+fait — « Brume est à l'ouest de Calix ». Le second désigne une entité, et il faut dire qui est à
+elle ce que Calix est à Brume. Les deux mondes n'ont **aucun mot en commun** : ce qui passe de
+l'un à l'autre n'est ni le verbe ni le dessin, c'est l'**algèbre abstraite** que la relation
+instancie — un ordre reste un ordre quand il change de nom.
+
+Les dix-neuf moteurs précédents travaillaient tous à l'intérieur d'un système. Celui-ci est le
+premier qui en traverse deux, et c'est pour cela qu'il n'était pas un réglage de
+`completion-analogie` : il lui fallait un second monde, donc un paramètre de plus.
+
+### Le moteur reçoit le catalogue ; il ne l'importe pas
+
+La règle de la phase 8 — « un moteur ne connaît jamais un système par son nom » — est conservée
+telle quelle. Le catalogue arrive en **quatrième paramètre** de `engendrer` et en second de
+`compatible`, tous deux facultatifs : les dix-huit autres moteurs gardent leur signature à trois
+arguments, et rien n'a eu à être retouché chez eux. Le moteur inter-systèmes ne lit, du reste, que
+`relations[].algebre` et `relations[].libelle` — il ne nomme aucun système non plus.
+
+### Les trois conditions qui rendent la réponse défendable
+
+**Le monde d'arrivée doit porter exactement une relation de l'algèbre.** S'il en portait deux —
+le cas de `line`, dont « avant » et « après » sont tous deux des ordres, ou d'un système-produit
+qui en compte quatre —, « la relation de même nature » en désignerait deux, converses l'une de
+l'autre, et la question aurait deux réponses symétriques dont une seule serait comptée juste. Du
+monde de **départ** on n'exige rien de tel : la relation y est énoncée, pas à deviner.
+
+**Les deux vocabulaires doivent être disjoints.** `poset` et `poset-ouvert` sont deux préréglages
+du même module : mêmes relations, mêmes libellés, et **même liste de sept noms d'entités**. Une
+analogie de l'un vers l'autre aurait montré deux fois « précède » et deux fois les mêmes noms — il
+n'y aurait rien eu à transférer. Mesuré avant la correction : ces deux systèmes refusaient **100 %
+de leurs tirages**, et le moteur les acceptait pourtant, ce qui aurait fait brûler douze refus par
+séance. Comparer les libellés écarte le cas sans nommer aucun système, et le refus devient visible
+dès `compatible`.
+
+**Une seule entité doit répondre.** Sur un ordre, « précède » vaut pour plusieurs : le tirage
+cherche une entité qui n'en précède qu'une, et rejette le reste.
+
+### Les deux leurres, et celui qui fait l'exercice
+
+| Leurre | Ce qu'il attrape | Fréquence |
+|---|---|---|
+| `relation-inverse` | L'analogie lue à l'envers : qui précède, au lieu de qui est précédé | 67 % des items |
+| `leurre-de-surface` | Le transfert fait au jugé : relié à la cible, mais par une **équivalence** là où il fallait un **ordre** | 31 % des items |
+
+Le second est celui pour lequel le moteur existe. Sans lui, on pourrait répondre juste en
+cherchant n'importe quelle entité reliée à la cible ; avec lui, il faut avoir reconnu la nature.
+
+Mesuré sur 3 529 items : jamais d'option dupliquée, jamais d'étiquette sur la bonne réponse,
+quatre options dans 97 % des cas, et quatre algèbres effectivement exercées — ordre, opposition,
+équivalence, dominance cyclique — sur **dix-sept couples de mondes** distincts.
+
+### Une faute de langue que seul l'affichage révélait
+
+La dernière étape de la trace enchâssait le libellé nu : « aucune autre entité n'est **précède**
+Forge ». `libelleNu` retire le « est » initial de « est à l'ouest de », mais « précède » n'en a
+pas, et la phrase se brisait sur la moitié des systèmes. La légende cite donc la relation
+**complète**, après son sujet — « ne vérifie "Forge précède …" » —, ce qui vaut aussi bien pour un
+verbe que pour un groupe prépositionnel. C'est le même défaut, et le même remède, que les trois
+fautes relevées sur le syllogisme.
+
 ### Ce qui reste du lot A4
 
 | Reste | Pourquoi ce n'est pas fait |
 |---|---|
-| `analogie-inter-systemes` | Non commencé |
 | **Négation de surface** | N'est univoque que sur un vocabulaire de **deux** relations complémentaires — `line` et `groups` seulement |
 | **Prémisses du second ordre** | Demandent un solveur capable de résoudre une prémisse qui parle d'autres prémisses, non un réglage |
 
