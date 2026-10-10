@@ -1074,6 +1074,66 @@ la correction expliquerait un verdict que l'autre moteur n'affiche pas. D'où `c
 | Réglage **négation de surface** | Livré |
 | Réglage **prémisses du second ordre** | Livré, comme moteur et non comme réglage |
 
+## La suite `essais:relationnel` ne rendait plus de verdict
+
+Le défaut n'est pas dans un moteur : c'est la suite elle-même qui avait cessé d'être utilisable.
+Deux cents graines par couple était un **compte sans budget**, et à 215 couples le compte a fini
+par dépasser le plafond de trente minutes du conteneur — c'est-à-dire qu'elle ne rendait plus de
+verdict du tout. Une suite qu'on ne peut pas attendre ne protège rien.
+
+### Le profil, mesuré sur les 215 couples
+
+Vingt graines par couple, extrapolées à deux cents. Trois moteurs consomment **83 %** du temps :
+
+| Part | Moteur |
+|---|---|
+| 36 % | `premisse-manquante` |
+| 29 % | `isomorphisme-partiel` |
+| 18 % | `ensembles-possibles` |
+| 6 % | `reseau-relationnel` |
+| 1 % | les deux moteurs ajoutés par le lot A4, ensemble |
+
+Et cinq couples pèsent à eux seuls près de la moitié de la section :
+
+| Coût pour 200 items | Couple |
+|---|---|
+| 95 s | `premisse-manquante × rcc8` |
+| 73 s | `ensembles-possibles × rcc8` |
+| 45 s | `premisse-manquante × poset-ouvert` |
+| 38 s | `premisse-manquante × allen` |
+| 30 s | `isomorphisme-partiel × digraph` |
+
+Tous restent **sous le budget de 1 500 ms par item** que la section COÛT garde : 95 s pour deux
+cents items font 473 ms pièce. Ce n'est donc pas un défaut d'item, c'est un défaut de plan
+d'échantillonnage — le compte fixe fait payer deux cents fois un prix unitaire qui varie d'un
+facteur mille d'un couple à l'autre.
+
+### Le compte est doublé d'un budget
+
+Les couples bon marché — la très grande majorité — gardent leurs deux cents graines. Les couples
+coûteux s'arrêtent à **deux secondes**, avec un plancher de **trente graines** pour que le budget
+ne puisse pas vider un couple de tout contrôle.
+
+Le point qui compte : le nombre de graines réellement tirées est **affiché** dès qu'il est
+inférieur à deux cents. Une couverture réduite doit se voir ; la taire donnerait l'illusion d'un
+contrôle à deux cents items là où il n'y en a eu que trente, et c'est précisément le genre de
+silence qui laisse passer un défaut.
+
+### Ce qui reste à faire, et qui n'est pas fait ici
+
+Les trois moteurs coûteux appellent `possibilites` une dizaine de fois par tentative, et sur
+`rcc8` ou `allen` chaque appel énumère des scénarios. `arretDesQue` borne déjà ce calcul là où la
+question est un seuil — c'est ce qui a fait passer la prémisse du second ordre de 18 020 ms à
+14 ms. Le même traitement s'applique probablement à `premisse-manquante`, dont la garde
+« la conclusion est-elle encore possible ? » est peut-être même **toujours vraie** : le modèle
+tiré est un scénario cohérent des prémisses, donc la relation qu'il porte y est possible. Si c'est
+un théorème et non une coïncidence, la garde peut disparaître et l'appel se borner à 2.
+
+Ce n'est pas fait ici : il faudrait d'abord **mesurer** que la garde ne se déclenche jamais, et
+toucher au plan d'échantillonnage de la suite dans le même mouvement aurait mêlé une optimisation
+de moteur à un correctif de harnais. Les deux sont indépendants, et le second suffit à rendre la
+suite utilisable.
+
 ## Lot A6 — attribution CC BY-NC 3.0 : **livré**
 
 Dans l'« à propos » de la rubrique (`src/pages/cog-training/relational-reasoning.astro`) et dans

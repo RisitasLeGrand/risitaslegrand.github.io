@@ -581,7 +581,42 @@ console.log('\nCOÛT — un item ne doit pas figer l’interface');
   console.log(`  ✓ le plus lent : ${pire.couple} — ${Math.round(pire.ms)} ms par item`);
 }
 
-console.log('\nMOTEURS — deux cents items par couple moteur × système');
+/**
+ * Graines par couple, et le temps qu'on accepte d'y mettre.
+ *
+ * Deux cents graines par couple était un compte sans budget, et le compte a
+ * fini par coûter plus que la suite ne peut tenir : mesuré sur les 215 couples,
+ * trois moteurs en consommaient 83 % — `premisse-manquante` 36 %,
+ * `isomorphisme-partiel` 29 %, `ensembles-possibles` 18 % —, et le pire couple,
+ * `premisse-manquante × rcc8`, demandait 95 s à lui seul. La suite dépassait le
+ * plafond de trente minutes du conteneur, c'est-à-dire qu'elle ne rendait plus
+ * de verdict du tout : une suite qu'on ne peut pas attendre ne protège rien.
+ *
+ * Le compte est donc doublé d'un **budget de temps**. Les couples bon marché —
+ * la très grande majorité — gardent leurs deux cents graines ; les couples
+ * coûteux s'arrêtent au budget, et le nombre de graines réellement tirées est
+ * **affiché**. Une couverture réduite doit se voir : la taire donnerait
+ * l'illusion d'un contrôle à deux cents items là où il n'y en a eu que trente.
+ *
+ * Deux planchers, et le second a été ajouté après avoir vu ce que le premier
+ * laissait passer. Un plancher de graines ne garantit rien sur un couple à
+ * faible rendement : `isomorphisme-partiel × digraph` retient 3 % de ses
+ * tirages, de sorte que trente graines n'y donnaient **qu'un seul item** —
+ * affiché « ✓ » comme les autres. Le budget s'efface donc aussi devant un
+ * plancher d'**items** : on continue de tirer tant qu'on n'en a pas obtenu
+ * `ITEMS_MINIMUM`, dans la limite des deux cents graines.
+ *
+ * C'est la section COÛT, et non celle-ci, qui refuse un item trop lent.
+ */
+const GRAINES = 200;
+const GRAINES_MINIMUM = 30;
+const ITEMS_MINIMUM = 10;
+const BUDGET_COUPLE_MS = 2_000;
+
+console.log(
+  `\nMOTEURS — jusqu’à ${GRAINES} items par couple moteur × système, ` +
+    `${BUDGET_COUPLE_MS / 1000} s au plus`,
+);
 
 /**
  * Chaque item est validé **tel que la personne le voit** : on reparse l'énoncé
@@ -591,9 +626,15 @@ console.log('\nMOTEURS — deux cents items par couple moteur × système');
  */
 for (const { moteur, systeme } of couples(MOTEURS, SYSTEMES)) {
   let nuls = 0;
+  let tirees = 0;
   const griefs: string[] = [];
+  const departDuCouple = Date.now();
 
-  for (let graine = 1; graine <= 200; graine += 1) {
+  for (let graine = 1; graine <= GRAINES; graine += 1) {
+    const assezTire = graine > GRAINES_MINIMUM;
+    const assezDItems = tirees - nuls >= ITEMS_MINIMUM;
+    if (assezTire && assezDItems && Date.now() - departDuCouple > BUDGET_COUPLE_MS) break;
+    tirees += 1;
     const item = moteur.engendrer(systeme, 1 + (graine % 10), alea(graine * 7919), SYSTEMES);
     if (!item) {
       nuls += 1;
@@ -700,19 +741,25 @@ for (const { moteur, systeme } of couples(MOTEURS, SYSTEMES)) {
     }
   }
 
-  const rendement = ((200 - nuls) / 200) * 100;
+  const rendement = ((tirees - nuls) / Math.max(tirees, 1)) * 100;
   const etiquette = `${moteur.id} × ${systeme.id}`;
+  // La couverture réduite se dit, pour qu'un « ✓ » ne laisse pas croire à deux
+  // cents items quand le budget en a arrêté trente.
+  const sur =
+    tirees < GRAINES
+      ? ` (sur ${tirees} graines et ${tirees - nuls} item(s), budget atteint)`
+      : '';
   if (griefs.length) {
     echecs += 1;
-    console.log(`  ✗ ${etiquette} — ${griefs.length} grief(s)`);
+    console.log(`  ✗ ${etiquette} — ${griefs.length} grief(s)${sur}`);
     for (const grief of griefs.slice(0, 3)) console.log(`      ${grief}`);
-  } else if (nuls === 200) {
+  } else if (nuls === tirees) {
     // Un rendement nul n'est pas un défaut si le moteur a de bonnes raisons de
     // refuser ce système : « groups » n'est presque jamais rigide, faute de quoi
     // l'appariement aurait plusieurs réponses. On le signale sans échouer.
     console.log(`  – ${etiquette} — aucun item : le moteur refuse ce système`);
   } else {
-    console.log(`  ✓ ${etiquette} — ${rendement.toFixed(0)} % de tirages retenus`);
+    console.log(`  ✓ ${etiquette} — ${rendement.toFixed(0)} % de tirages retenus${sur}`);
   }
 }
 
