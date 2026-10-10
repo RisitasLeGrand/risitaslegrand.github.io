@@ -1,5 +1,14 @@
 # Plan — Cyclades : renommage, parcours, stockage, sauvegarde, prétest, QCM
 
+> **Périmé — remplacé par `docs/cyclades/plan.md`.**
+>
+> Un troisième prompt, « Odyssée, Sport, parité », est arrivé après la validation de ce plan. Il
+> prévaut sur les deux auxquels ce document répond : il lève l'interdiction de construire Sport et
+> « Vie quotidienne », renomme cette dernière en Odyssée et en fait la page d'accueil, et absorbe
+> la phase 8 ci-dessous. Le plan consolidé des trois prompts vit désormais dans
+> `docs/cyclades/plan.md` ; ce fichier est conservé pour l'historique des décisions déjà prises
+> (intitulé de DGFiP A+, ordre des phases, budget de stockage).
+
 Ce plan répond aux deux prompts du 10 octobre 2026 : « parcours, QCM, prétest » et « stockage,
 sauvegarde, branches ». Il est soumis à validation **avant toute écriture de code**, comme les deux
 prompts l'exigent.
