@@ -150,6 +150,34 @@ mesurée, le retour arrière est éprouvé, et l'application fonctionne exacteme
 comme avant — aucune fonctionnalité nouvelle n'est visible. Si cette phase est
 validée sans que rien n'ait changé à l'écran, elle a réussi.
 
+### Mesure, le 11 octobre 2026 — `npm run mesure:migration`
+
+Sur le jeu synthétique de cinq ans, 24 338 enregistrements :
+
+| | |
+|---|---|
+| Durée totale | **1,91 s** (instantané + migration + chargement de la page) |
+| Séances migrées | 1 478 |
+| Notes remappées | 1 478, aux deux niveaux de clés |
+| Instantané | **17,54 Mio** |
+| Occupation avant | 8,71 Mio |
+| Occupation après | 21,44 Mio |
+
+Deux choses à relever, et la seconde n'était pas prévue.
+
+**1,91 s est acceptable sans écran d'attente.** C'est une fois, au premier
+chargement après la mise à jour, et c'est en deçà du seuil où l'on soupçonne un
+blocage. Pas de barre de progression : elle coûterait un écran de plus à
+maintenir pour deux secondes par mise à niveau de schéma.
+
+**L'instantané pèse le double de la base.** 17,54 Mio sérialisés contre 8,71 Mio
+réels : IndexedDB compresse ses enregistrements, un JSON non. Avec deux
+instantanés gardés, la pointe est de l'ordre de 35 Mio — loin du gigaoctet de
+quota, donc sans conséquence aujourd'hui. Mais c'est le facteur qui décidera
+plus tard : si la base atteint 100 Mio, l'instantané devra être compressé avant
+écriture, avec les mêmes outils que la sauvegarde `.cyclades`. La condition est
+écrite ici pour n'avoir pas à la redécouvrir.
+
 **Risque pour les données déjà saisies** : réel. Une migration qui échoue à
 mi-course laisse une base incohérente. Parade : la migration est écrite comme une
 seule transaction IndexedDB par magasin, l'instantané précède tout, et la version
