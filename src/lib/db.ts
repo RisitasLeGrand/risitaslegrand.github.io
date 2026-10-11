@@ -16,6 +16,12 @@ import type { Operation } from './noyau/operations';
 import { socleDe } from './noyau/revisions';
 import { idAppareilNeuf } from './noyau/operations';
 import { fabriqueUlid } from './noyau/ulid';
+import {
+  instantanerSiMigration,
+  revenirA,
+  type Instantane,
+  type ResultatInstantane,
+} from './noyau/instantane';
 
 /**
  * Les quatre niveaux de notation d'une flashcard.
@@ -485,13 +491,65 @@ const VERSION = 12;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
+/**
+ * Ce que la dernière ouverture a fait d'une migration, s'il y en avait une.
+ *
+ * Lu par l'écran de stockage pour proposer le retour arrière. Il n'est pas
+ * affiché de force : une migration réussie ne doit pas interrompre, et une
+ * migration dont l'instantané a échoué doit être **dite** sans empêcher de
+ * travailler.
+ */
+export let derniereMigration: (ResultatInstantane & { echec?: string }) | null = null;
+
+/**
+ * Ouvre la base, après avoir pris un instantané si une migration attend.
+ *
+ * L'instantané est pris **avant** l'ouverture et non dans la transaction de
+ * migration : on ne peut pas écrire dans une autre base depuis une transaction
+ * « versionchange » sans la faire valider d'office. C'est aussi pourquoi
+ * « instantanerSiMigration » interroge la version sans ouvrir la base à l'aveugle
+ * — ouvrir sans version créerait une base vide en version 1 et ferait sauter le
+ * premier bloc de migration.
+ */
+async function ouvrir(): Promise<IDBPDatabase<SchemaRevinsp>> {
+  derniereMigration = await instantanerSiMigration(NOM_BASE, VERSION);
+  return ouvrirAuSchema(NOM_BASE, VERSION);
+}
+
 export function db() {
-  promesse ??= openDB<SchemaRevinsp>(NOM_BASE, VERSION, {
-    // « ancienneVersion » vaut 0 pour une base neuve. Chaque bloc est donc
-    // écrit pour s'appliquer aussi bien à une création qu'à une mise à niveau,
-    // sans jamais toucher aux données déjà enregistrées.
-    async upgrade(base, ancienneVersion, _nouvelle, transaction) {
-      if (ancienneVersion < 1) {
+  promesse ??= ouvrir();
+  return promesse;
+}
+
+/**
+ * L'ouverture proprement dite, à une version donnée.
+ *
+ * Paramétrée par la version pour que le retour arrière puisse recréer les
+ * magasins d'une version antérieure : les blocs ci-dessous sont écrits pour
+ * s'appliquer à une base neuve, donc ouvrir à la version 11 produit exactement
+ * le schéma de la version 11. Aucune description d'ancien schéma n'est
+ * conservée ailleurs, et c'est voulu — elle divergerait.
+ */
+function ouvrirAuSchema(nom: string, version: number) {
+  return openDB<SchemaRevinsp>(nom, version, {
+    /*
+       « ancienneVersion » vaut 0 pour une base neuve. Chaque bloc est donc
+       écrit pour s'appliquer aussi bien à une création qu'à une mise à niveau,
+       sans jamais toucher aux données déjà enregistrées.
+
+       Chaque bloc est gardé par « vers(n) », qui vérifie **les deux bornes**.
+       La version précédente ne regardait que la borne basse : ouvrir une base
+       neuve à la version 11 — ce que fait le retour arrière — exécutait alors
+       le bloc 12, puisque 0 < 12. Le schéma produit n'était pas celui de la
+       version demandée, et la migration suivante échouait en voulant créer un
+       magasin déjà là. Le symptôme tombait très loin de la cause, et la
+       propriété sur laquelle repose le retour arrière — « ouvrir à la version N
+       produit exactement le schéma de la version N » — était simplement
+       fausse.
+    */
+    async upgrade(base, ancienneVersion, nouvelle, transaction) {
+      const vers = (n: number) => ancienneVersion < n && (nouvelle ?? VERSION) >= n;
+      if (vers(1)) {
         base.createObjectStore('etat');
         const cartes = base.createObjectStore('cartes', { keyPath: 'id' });
         cartes.createIndex('du', 'du');
@@ -501,25 +559,25 @@ export function db() {
         quiz.createIndex('le', 'le');
         base.createObjectStore('jours', { keyPath: 'jour' });
       }
-      if (ancienneVersion < 2) {
+      if (vers(2)) {
         // Sessions d'entraînement cognitif (Quad N-Back).
         const nback = base.createObjectStore('nback', { keyPath: 'id', autoIncrement: true });
         nback.createIndex('le', 'le');
       }
-      if (ancienneVersion < 3) {
+      if (vers(3)) {
         // Séances de révision planifiées.
         const seances = base.createObjectStore('seances', { keyPath: 'id', autoIncrement: true });
         seances.createIndex('jour', 'jour');
         seances.createIndex('theme', 'theme');
       }
-      if (ancienneVersion < 4) {
+      if (vers(4)) {
         // Banque « QCM - DGFiP » : historique par question et par session.
         const dgfip = base.createObjectStore('qcmDgfip', { keyPath: 'id' });
         dgfip.createIndex('rubriqueId', 'rubriqueId');
         const sessions = base.createObjectStore('qcmSessions', { keyPath: 'id', autoIncrement: true });
         sessions.createIndex('le', 'le');
       }
-      if (ancienneVersion < 5) {
+      if (vers(5)) {
         // Sessions de Relational Reasoning, qui remplace Syllogismes.
         const relationnel = base.createObjectStore('relationnel', {
           keyPath: 'id',
@@ -527,7 +585,7 @@ export function db() {
         });
         relationnel.createIndex('le', 'le');
       }
-      if (ancienneVersion < 6) {
+      if (vers(6)) {
         // Veridical Mapping : un seuil par arête du hub, et le journal des
         // sessions.
         const seuils = base.createObjectStore('vmSeuils', { keyPath: 'id' });
@@ -538,20 +596,20 @@ export function db() {
         });
         sessions.createIndex('le', 'le');
       }
-      if (ancienneVersion < 8) {
+      if (vers(8)) {
         // Journal d'erreurs : une file de révision séparée, indexée par matière
         // parce que c'est par matière que les séances viennent y puiser.
         const journal = base.createObjectStore('journal', { keyPath: 'id' });
         journal.createIndex('matiere', 'matiere');
       }
-      if (ancienneVersion < 9) {
+      if (vers(9)) {
         // Estimation de niveau : la note de la personne par sujet d'un côté,
         // la difficulté des items de l'autre. Les deux bougent ensemble.
         const competences = base.createObjectStore('competences', { keyPath: 'clef' });
         competences.createIndex('matiere', 'matiere');
         base.createObjectStore('difficultes', { keyPath: 'id' });
       }
-      if (ancienneVersion < 10) {
+      if (vers(10)) {
         // Demandes d'aide à un assistant. Indexées par item pour que le journal
         // puisse dire « sur celle-là, tu avais déjà demandé » sans parcourir
         // tout l'historique.
@@ -559,7 +617,7 @@ export function db() {
         aides.createIndex('le', 'le');
         aides.createIndex('itemId', 'itemId');
       }
-      if (ancienneVersion < 11) {
+      if (vers(11)) {
         /*
          * Les notes de séance quittent l'enregistrement de séance.
          *
@@ -599,7 +657,7 @@ export function db() {
           curseur = await curseur.continue();
         }
       }
-      if (ancienneVersion < 12) {
+      if (vers(12)) {
         /*
          * Le journal d'opérations et le journal de révisions.
          *
@@ -676,7 +734,42 @@ export function db() {
       }
     },
   });
-  return promesse;
+}
+
+/**
+ * Défait la dernière migration à partir d'un instantané.
+ *
+ * Le cache d'ouverture est vidé, sans quoi l'application continuerait de parler
+ * à une base supprimée : « db() » rendrait une poignée vers un objet mort, et
+ * les écritures échoueraient sans message clair.
+ */
+export async function revenirAvantMigration(instantane: Instantane): Promise<void> {
+  /*
+     Le cache d'ouverture est **remplacé** et non vidé, et c'est le cœur de la
+     correction. Le vider laissait « db() » libre de rouvrir à la version
+     courante pendant le retour arrière : la base revenait en version 11, puis
+     un appel concurrent la remigrait aussitôt en 12 — le retour arrière était
+     défait dans la seconde, et l'erreur qui finissait par apparaître (« object
+     store already exists ») tombait très loin de sa cause.
+
+     En pointant « promesse » sur la séquence de retour arrière, tout appel
+     concurrent attend celle-ci et reçoit la base d'alors. L'application
+     continue de fonctionner sur la version antérieure jusqu'au rechargement,
+     que l'écran demande.
+  */
+  const precedente = promesse;
+  promesse = (async () => {
+    if (precedente) (await precedente).close();
+    await revenirA(NOM_BASE, instantane, async (nom, version) => {
+      // On recrée le schéma d'alors en ouvrant à cette version, puis on
+      // referme : c'est « revenirA » qui réécrit les enregistrements, et il le
+      // fait sur une base brute, sans dépendre de « idb ».
+      (await ouvrirAuSchema(nom, version)).close();
+    });
+    return ouvrirAuSchema(NOM_BASE, instantane.deVersion);
+  })();
+  await promesse;
+  derniereMigration = null;
 }
 
 /** Date du jour au format AAAA-MM-JJ, en heure locale. */

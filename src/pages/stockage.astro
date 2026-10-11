@@ -137,6 +137,31 @@ import Base from '../layouts/Base.astro';
     </section>
 
     <!-- ── Intégrité ───────────────────────────────────────────────────── -->
+    <!-- ── Dernière migration ─────────────────────────────────────────── -->
+    <section
+      id="migration"
+      class="hidden rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+    >
+      <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+        Dernière migration
+      </h2>
+      <p class="mb-4 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        Un instantané de votre base a été pris <strong>avant</strong> la dernière
+        mise à niveau du schéma, et il vit dans ce navigateur. Revenir en arrière
+        remet la base dans l’état de cet instantané : <strong>tout ce que vous
+        avez saisi depuis sera perdu</strong>. C’est un dernier recours, pas une
+        réparation.
+      </p>
+      <dl id="migration-detail" class="mb-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-4"></dl>
+      <button
+        id="revenir-migration"
+        class="rounded-lg border border-red-300 bg-white px-4 py-2.5 text-sm font-medium text-red-700 transition hover:bg-red-100 dark:border-red-800 dark:bg-transparent dark:text-red-300"
+      >
+        Revenir avant la migration
+      </button>
+      <p id="message-migration" class="mt-3 hidden text-sm"></p>
+    </section>
+
     <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
       <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">Intégrité</h2>
       <p class="mb-4 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
@@ -303,6 +328,8 @@ import Base from '../layouts/Base.astro';
   } from '../lib/sauvegarde/export-lisible';
   import { compter, effacer, type Cible, type Decompte } from '../lib/sauvegarde/effacement';
   import { fabriquer, noterSauvegardeReussie } from '../lib/sauvegarde/service';
+  import { instantanes, type Instantane } from '../lib/noyau/instantane';
+  import { revenirAvantMigration } from '../lib/db';
 
   const $ = (id: string) => document.getElementById(id)!;
 
@@ -546,6 +573,67 @@ import Base from '../layouts/Base.astro';
     peindreGroupes('groupes-effacement', 'groupe-effacement', true, comptes);
   }
 
+  /**
+   * La section « Dernière migration », cachée quand il n'y a rien à défaire.
+   *
+   * Elle ne s'ouvre pas d'elle-même et n'alerte pas : une migration réussie est
+   * l'issue normale, et interrompre à chaque mise à niveau apprendrait à passer
+   * outre l'avertissement du jour où il compte.
+   */
+  let instantaneCourant: Instantane | null = null;
+
+  async function peindreMigration() {
+    const liste = await instantanes();
+    instantaneCourant = liste[0] ?? null;
+    if (!instantaneCourant) return;
+
+    const i = instantaneCourant;
+    const lignes: [string, string][] = [
+      ['Prise le', new Date(i.le).toLocaleString('fr-FR')],
+      ['Version d’avant', String(i.deVersion)],
+      ['Version actuelle', String(i.versVersion)],
+      ['Taille', `${(i.octets / 1024 / 1024).toFixed(2)} Mio`],
+    ];
+    $('migration-detail').innerHTML = lignes
+      .map(
+        ([terme, valeur]) =>
+          `<div><dt class="text-slate-500 dark:text-slate-400">${terme}</dt>` +
+          `<dd class="font-medium text-slate-900 dark:text-white">${valeur}</dd></div>`,
+      )
+      .join('');
+    $('migration').classList.remove('hidden');
+
+    $('revenir-migration').addEventListener('click', async () => {
+      const combien = Object.values(i.magasins).reduce((somme, m) => somme + m.length, 0);
+      const confirme = window.confirm(
+        `Revenir à l’instantané du ${new Date(i.le).toLocaleString('fr-FR')} ?\n\n` +
+          `La base repassera en version ${i.deVersion} avec ses ${combien} ` +
+          `enregistrements d’alors. Tout ce qui a été saisi depuis sera perdu, ` +
+          `et cette opération ne s’annule pas.`,
+      );
+      if (!confirme) return;
+      const bouton = $('revenir-migration') as HTMLButtonElement;
+      bouton.disabled = true;
+      try {
+        await revenirAvantMigration(i);
+        dire(
+          'message-migration',
+          'Base revenue à l’instantané. Rechargez la page : l’application va de ' +
+            'nouveau proposer la migration.',
+          'succes',
+        );
+      } catch (erreur) {
+        bouton.disabled = false;
+        dire(
+          'message-migration',
+          `Le retour arrière a échoué : ${erreur instanceof Error ? erreur.message : erreur}. ` +
+            'La base n’a pas été remplacée.',
+          'echec',
+        );
+      }
+    });
+  }
+
   auDeverrouillage(async () => {
     $('lien-sauvegarde').setAttribute('href', `${lien('/progression/')}#sauvegarde`);
 
@@ -555,6 +643,8 @@ import Base from '../layouts/Base.astro';
 
     $('chargement').classList.add('hidden');
     $('stockage').classList.remove('hidden');
+
+    await peindreMigration();
 
     $('demander-persistance').addEventListener('click', async () => {
       const accorde = await demanderPersistance();
