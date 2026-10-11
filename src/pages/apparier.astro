@@ -1,0 +1,703 @@
+---
+/**
+ * Page « Apparier un appareil ».
+ *
+ * Phase 3b et 3c du plan de synchronisation : la liaison directe, et
+ * l'appairage qui la rend immédiate. Trois chemins y vivent, dans l'ordre de ce
+ * qu'ils coûtent en gestes :
+ *
+ *  1. **La liaison automatique** (mode A1). Un QR affiché ici, visé par
+ *     l'appareil photo de l'autre appareil. Ensuite, un bouton — l'appairage est
+ *     mémorisé, les deux appareils se retrouvent seuls. C'est le chemin
+ *     privilégié, et l'écran le présente en premier.
+ *  2. **Le lecteur de QR** embarqué, pour les appareils dont l'appareil photo
+ *     n'ouvre pas les liens, et pour que l'ordinateur puisse lire à son tour.
+ *  3. **La liaison sans relais** (mode A2). Deux QR échangés, aucun tiers. Trois
+ *     gestes de plus, et aucune dépendance : c'est le repli du jour où un relais
+ *     public devient inaccessible, et il est construit d'emblée.
+ *
+ * Le transfert de fichier reste sur « /appareils/ » : il n'a besoin de rien, et
+ * il reste le recours quand tout le reste échoue.
+ */
+import Base from '../layouts/Base.astro';
+---
+
+<Base titre="Apparier un appareil" actif="progression">
+  <h1 class="mb-2 text-2xl font-bold text-slate-900 dark:text-white">Apparier un appareil</h1>
+  <p class="mb-8 max-w-3xl text-slate-600 dark:text-slate-300">
+    Une fois l’appairage fait, synchroniser tient en un bouton : les deux
+    appareils se retrouvent seuls et échangent directement, sans que vos données
+    passent par personne. <strong>Ce n’est pas une sauvegarde</strong> : la
+    synchronisation propage aussi les erreurs et les suppressions.
+  </p>
+
+  <div id="chargement" class="py-20 text-center text-slate-400">Lecture de l’état…</div>
+
+  <div id="ecran" class="hidden space-y-8">
+    <!-- ── 1. La liaison automatique ───────────────────────────────────── -->
+    <section
+      class="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-5 dark:border-indigo-900 dark:bg-indigo-950/30"
+    >
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">
+        Liaison automatique
+        <span class="ml-2 rounded-full bg-indigo-600 px-2 py-0.5 text-xs font-medium text-white">
+          recommandé
+        </span>
+      </h2>
+      <p class="mb-4 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
+        Visez le QR ci-dessous avec l’appareil photo de l’autre appareil : il
+        ouvrira Cyclades, et les deux se reconnaîtront. Vos données ne passent
+        pas par le relais — il ne sert qu’à la mise en relation.
+      </p>
+
+      <!--
+        Le mot de passe est demandé **au niveau de la section**, et non dans le
+        bloc « déjà appairé » où je l'avais mis d'abord : il sert aussi à la
+        liaison sans relais, qui n'a pas d'appairage du tout. Enfermé là, il
+        était invisible exactement quand on en avait besoin.
+      -->
+      <div class="mb-4 flex flex-wrap items-end gap-3">
+        <label class="block text-sm">
+          <span class="mb-1 block text-slate-600 dark:text-slate-300">Mot de passe du site</span>
+          <input
+            id="mdp"
+            type="password"
+            autocomplete="current-password"
+            class="w-56 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+          />
+        </label>
+        <p class="max-w-md text-xs text-slate-500 dark:text-slate-400">
+          Il chiffre le paquet échangé : c’est lui qui protège vos données, et
+          non la liaison. Retenu en mémoire pour cette session seulement, jamais
+          enregistré.
+        </p>
+      </div>
+
+      <div id="sans-appairage" class="hidden">
+        <button
+          id="afficher-qr"
+          class="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700"
+        >
+          Afficher le QR d’appairage
+        </button>
+      </div>
+
+      <div id="avec-appairage" class="hidden">
+        <div class="flex flex-col gap-5 sm:flex-row sm:items-start">
+          <div
+            id="qr"
+            class="mx-auto w-56 shrink-0 rounded-xl bg-white p-3 shadow-sm sm:mx-0"
+            aria-live="polite"
+          >
+          </div>
+          <div class="min-w-0 flex-1">
+            <dl id="etat-appairage" class="grid grid-cols-2 gap-3 text-sm"></dl>
+            <p class="mt-3 break-all font-mono text-xs text-slate-400 dark:text-slate-500">
+              <span id="lien-appairage"></span>
+            </p>
+            <div class="mt-4 flex flex-wrap items-end gap-3">
+              <button
+                id="synchroniser"
+                class="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50"
+                disabled
+              >
+                Synchroniser maintenant
+              </button>
+              <button
+                id="oublier"
+                class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-100 dark:hover:bg-slate-800"
+              >
+                Oublier cet appairage
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <p id="message-liaison" class="mt-3 hidden text-sm"></p>
+      <div id="avancement" class="mt-3 hidden">
+        <div class="h-2 w-full overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+          <div id="barre" class="h-full w-0 bg-indigo-600 transition-all"></div>
+        </div>
+        <p id="avancement-texte" class="mt-1 text-xs text-slate-500 dark:text-slate-400"></p>
+      </div>
+    </section>
+
+    <!-- ── 2. Lire un QR code ──────────────────────────────────────────── -->
+    <section
+      class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+    >
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">Lire un QR code</h2>
+      <p class="mb-4 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
+        Si l’appareil photo de votre téléphone ne propose pas d’ouvrir le lien,
+        ou si c’est cet appareil qui doit lire, utilisez ce lecteur. Il
+        reconnaît les QR d’appairage de Cyclades, et affiche le contenu des
+        autres.
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <button
+          id="ouvrir-camera"
+          class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-100 dark:hover:bg-slate-800"
+        >
+          Ouvrir la caméra
+        </button>
+        <button
+          id="fermer-camera"
+          class="hidden rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-100 dark:hover:bg-slate-800"
+        >
+          Fermer la caméra
+        </button>
+      </div>
+      <div id="zone-camera" class="mt-4 hidden">
+        <video
+          id="video"
+          class="w-full max-w-sm rounded-xl border border-slate-300 bg-black dark:border-slate-700"
+          playsinline
+          muted></video>
+      </div>
+      <p id="message-camera" class="mt-3 hidden text-sm"></p>
+      <div
+        id="lu"
+        class="mt-3 hidden rounded-xl border border-slate-200 bg-slate-50 p-4 text-sm dark:border-slate-700 dark:bg-slate-950"
+      >
+        <p class="mb-2 font-medium text-slate-900 dark:text-white">Contenu lu</p>
+        <p id="lu-texte" class="break-all font-mono text-xs text-slate-600 dark:text-slate-300"></p>
+        <div class="mt-3 flex flex-wrap gap-3">
+          <a
+            id="lu-ouvrir"
+            class="hidden rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white"
+            href="#">Ouvrir ce lien</a
+          >
+          <button
+            id="lu-apparier"
+            class="hidden rounded-lg bg-indigo-600 px-3 py-2 text-xs font-medium text-white"
+          >
+            Apparier avec cet appareil
+          </button>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── 3. Sans relais ─────────────────────────────────────────────── -->
+    <section
+      class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+    >
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">
+        Sans relais, par deux QR
+      </h2>
+      <p class="mb-4 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
+        Aucun tiers du tout, pas même pour la mise en relation : les deux
+        appareils se décrivent l’un à l’autre par QR. Trois gestes de plus, et
+        rien qui puisse tomber en panne ailleurs. C’est le recours si la liaison
+        automatique n’aboutit pas.
+      </p>
+      <div class="flex flex-wrap gap-3">
+        <button
+          id="a2-proposer"
+          class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-100 dark:hover:bg-slate-800"
+        >
+          Cet appareil propose
+        </button>
+        <button
+          id="a2-repondre"
+          class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-100 dark:hover:bg-slate-800"
+        >
+          Cet appareil répond
+        </button>
+      </div>
+      <div id="a2-zone" class="mt-4 hidden flex-col gap-4 sm:flex-row sm:items-start">
+        <div id="a2-qr" class="mx-auto w-56 shrink-0 rounded-xl bg-white p-3 shadow-sm sm:mx-0">
+        </div>
+        <div class="min-w-0 flex-1">
+          <ol
+            id="a2-etapes"
+            class="list-decimal space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300"
+          >
+          </ol>
+          <button
+            id="a2-lire"
+            class="mt-3 hidden rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white"
+          >
+            Lire le QR de l’autre appareil
+          </button>
+        </div>
+      </div>
+      <p id="message-a2" class="mt-3 hidden text-sm"></p>
+    </section>
+
+    <!-- ── Ce que voit le relais ──────────────────────────────────────── -->
+    <section
+      class="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950"
+    >
+      <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+        Ce que voit le relais, et ce qu’il ne voit pas
+      </h2>
+      <ul class="max-w-3xl list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
+        <li>
+          <strong>Il voit</strong> le nom du salon — une suite de caractères
+          tirée au hasard — et les adresses IP des deux appareils, comme tout
+          serveur que vous contactez.
+        </li>
+        <li>
+          <strong>Il ne voit pas</strong> vos données : elles passent par la
+          liaison directe entre les deux appareils, jamais par lui.
+        </li>
+        <li>
+          <strong>Il ne peut pas lire</strong> la mise en relation elle-même :
+          elle est chiffrée par une clé dérivée du secret du QR, qu’il n’a pas.
+        </li>
+        <li>
+          <strong>Il ne garde rien.</strong> Et si le relais devient
+          inaccessible, la liaison sans relais ci-dessus fonctionne le même jour.
+        </li>
+      </ul>
+      <p class="mt-3 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        Le lien d’appairage contient le secret dans son <em>fragment</em>, après
+        le dièse : cette partie d’une adresse n’est jamais envoyée au serveur.
+        Elle ne figure donc dans aucun journal de GitHub Pages.
+      </p>
+      <p class="mt-4 text-sm">
+        <a class="text-indigo-600 hover:underline dark:text-indigo-400" href="/appareils/">
+          ← Appareils, transfert de fichier et conflits
+        </a>
+      </p>
+    </section>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../lib/chargement';
+  import {
+    appairageMemorise,
+    fabriquerAppairage,
+    lireFragment,
+    memoriserAppairage,
+    oublierAppairage,
+    urlDAppairage,
+    type Appairage,
+  } from '../lib/sync/appairage';
+  import { rejoindre, type Salon } from '../lib/sync/salon';
+  import { proposer, repondre, type Canal } from '../lib/sync/liaison';
+  import { echanger, EchangeInterrompu, type Etape } from '../lib/sync/echange';
+  import { FusionRefusee } from '../lib/sync/service';
+  import { compacter, decompacter, encoderCharge, enSvg, lireCharge, matrice } from '../lib/sync/qr';
+  import { CameraRefusee, lireAvecCamera, type Lecteur } from '../lib/sync/camera';
+  import { motDePasseRetenu, retenirMotDePasse } from '../lib/sync/mot-de-passe-session';
+  import { SauvegardeRefusee } from '../lib/sauvegarde/format';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  function dire(id: string, texte: string, ton: 'succes' | 'echec' | 'neutre') {
+    const e = $(id);
+    e.textContent = texte;
+    e.className = `mt-3 text-sm ${
+      ton === 'succes'
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : ton === 'echec'
+          ? 'text-amber-600 dark:text-amber-400'
+          : 'text-slate-500 dark:text-slate-400'
+    }`;
+    e.classList.remove('hidden');
+  }
+
+  const definitions = (lignes: [string, string][]) =>
+    lignes
+      .map(
+        ([terme, valeur]) =>
+          `<div><dt class="text-slate-500 dark:text-slate-400">${terme}</dt>` +
+          `<dd class="font-medium text-slate-900 dark:text-white">${valeur}</dd></div>`,
+      )
+      .join('');
+
+  const dateCourte = (iso?: string) =>
+    iso
+      ? new Date(iso).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' })
+      : 'jamais';
+
+  /** Le mot de passe saisi, ou celui retenu pour cette session. */
+  function motDePasse(): string {
+    const champ = $('mdp') as HTMLInputElement;
+    if (champ.value) {
+      retenirMotDePasse(champ.value);
+      champ.value = '';
+    }
+    return motDePasseRetenu() ?? '';
+  }
+
+  auDeverrouillage(async () => {
+    let appairage: Appairage | null = null;
+    let salon: Salon | null = null;
+    let enCours = false;
+
+    /* ── L'état affiché ─────────────────────────────────────────────── */
+
+    const PHRASES: Record<Etape, string> = {
+      preparation: 'Préparation du paquet…',
+      envoi: 'Envoi…',
+      attente: 'En attente du paquet de l’autre appareil…',
+      fusion: 'Fusion…',
+      termine: 'Terminé.',
+      refuse: 'Fusion refusée.',
+      abandon: 'Échange interrompu.',
+    };
+
+    function avancer(part: number, texte: string) {
+      $('avancement').classList.remove('hidden');
+      ($('barre') as HTMLElement).style.width = `${Math.round(part * 100)}%`;
+      $('avancement-texte').textContent = texte;
+    }
+
+    function peindre() {
+      $('sans-appairage').classList.toggle('hidden', Boolean(appairage));
+      $('avec-appairage').classList.toggle('hidden', !appairage);
+      if (!appairage) return;
+      const pairs = salon?.pairs().length ?? 0;
+      $('etat-appairage').innerHTML = definitions([
+        ['Appairé le', dateCourte(appairage.cree)],
+        ['Dernier échange', dateCourte(appairage.derniereReussite)],
+        ['Autre appareil', appairage.appareilDistant ?? 'pas encore vu'],
+        ['Liaison', pairs ? `établie (${pairs})` : 'en attente'],
+      ]);
+      ($('synchroniser') as HTMLButtonElement).disabled = !pairs || enCours;
+    }
+
+    async function dessinerQr(cible: string, contenu: Uint8Array | string, titre: string) {
+      const m = await matrice(contenu, 'L');
+      $(cible).innerHTML = enSvg(m, { titre });
+    }
+
+    /* ── Le chemin privilégié : le salon ────────────────────────────── */
+
+    async function ouvrirSalon(a: Appairage) {
+      await salon?.quitter().catch(() => {});
+      dire('message-liaison', 'Mise en relation…', 'neutre');
+      salon = await rejoindre({ salon: a.salon, secret: a.secret });
+      salon.surPair(async () => {
+        dire('message-liaison', 'L’autre appareil est là.', 'succes');
+        peindre();
+        /* Le mot de passe est déjà connu : on ne fait pas attendre un clic de
+           plus pour quelque chose que l'utilisateur a déjà demandé en scannant. */
+        if (motDePasseRetenu()) await lancerEchange();
+      });
+      salon.surDepart(() => {
+        dire('message-liaison', 'L’autre appareil a quitté la liaison.', 'neutre');
+        peindre();
+      });
+      peindre();
+    }
+
+    async function lancerEchange() {
+      if (!salon || enCours) return;
+      const mdp = motDePasse();
+      if (!mdp) {
+        dire('message-liaison', 'Saisissez le mot de passe du site pour échanger.', 'echec');
+        return;
+      }
+      enCours = true;
+      peindre();
+      try {
+        const rapport = await echanger(salon.canal, mdp, {
+          surEtape: (etape) => dire('message-liaison', PHRASES[etape], 'neutre'),
+          surProgression: (p, sens) =>
+            avancer(
+              p.total ? p.faits / p.total : 0,
+              `${sens === 'envoi' ? 'Envoi' : 'Réception'} — ${Math.round(p.faits / 1024)} Kio sur ${Math.round(p.total / 1024)}`,
+            ),
+        });
+        appairage = await appairageMemorise();
+        const r = rapport.recu;
+        const parties = [
+          `${r.recues} opération(s) et ${r.revisionsRecues} révision(s) reçues`,
+          `${r.cartesRecalculees} carte(s) recalculée(s)`,
+        ];
+        if (r.reglagesChanges.length) parties.push(`${r.reglagesChanges.length} réglage(s)`);
+        if (r.conflits) parties.push(`${r.conflits} conflit(s) à traiter`);
+        parties.push(
+          rapport.identiques === true
+            ? 'les deux appareils sont désormais identiques ✓'
+            : rapport.identiques === false
+              ? 'les empreintes diffèrent encore : relancez une fois'
+              : 'l’autre appareil n’a pas confirmé son empreinte',
+        );
+        dire('message-liaison', `${parties.join(' ; ')}.`, 'succes');
+      } catch (erreur) {
+        if (erreur instanceof FusionRefusee) {
+          dire(
+            'message-liaison',
+            `Fusion refusée, rien n’a été écrit. ${erreur.diagnostic.message} ` +
+              'La marche à suivre est sur la page Appareils.',
+            'echec',
+          );
+        } else if (erreur instanceof EchangeInterrompu) {
+          dire('message-liaison', erreur.message, 'echec');
+        } else if (erreur instanceof SauvegardeRefusee) {
+          dire(
+            'message-liaison',
+            erreur.motif === 'mot-de-passe'
+              ? 'Mot de passe incorrect : rien n’a été fusionné.'
+              : `Paquet refusé (${erreur.motif}).`,
+            'echec',
+          );
+        } else {
+          dire('message-liaison', `Échec : ${(erreur as Error).message}`, 'echec');
+        }
+      } finally {
+        enCours = false;
+        peindre();
+      }
+    }
+
+    async function etablirAppairage(nouveau: Appairage) {
+      appairage = nouveau;
+      await memoriserAppairage(nouveau);
+      await dessinerQr('qr', urlDAppairage(nouveau, location.origin), 'QR d’appairage');
+      $('lien-appairage').textContent = urlDAppairage(nouveau, location.origin);
+      peindre();
+      await ouvrirSalon(nouveau);
+    }
+
+    $('afficher-qr').addEventListener('click', async () => {
+      await etablirAppairage(fabriquerAppairage());
+    });
+
+    $('synchroniser').addEventListener('click', () => void lancerEchange());
+
+    $('oublier').addEventListener('click', async () => {
+      if (!confirm('Oublier cet appairage ? Il faudra scanner un nouveau QR.')) return;
+      await salon?.quitter().catch(() => {});
+      salon = null;
+      await oublierAppairage();
+      appairage = null;
+      $('qr').innerHTML = '';
+      $('lien-appairage').textContent = '';
+      $('avancement').classList.add('hidden');
+      dire('message-liaison', 'Appairage oublié.', 'neutre');
+      peindre();
+    });
+
+    /* ── Le lecteur de QR ───────────────────────────────────────────── */
+
+    let lecteur: Lecteur | null = null;
+    /** Ce que la prochaine lecture doit faire : l'appairage, ou une étape A2. */
+    let attenteA2: null | 'offre' | 'reponse' = null;
+
+    function fermerCamera() {
+      lecteur?.arreter();
+      lecteur = null;
+      $('zone-camera').classList.add('hidden');
+      $('fermer-camera').classList.add('hidden');
+      $('ouvrir-camera').classList.remove('hidden');
+    }
+
+    async function ouvrirCamera() {
+      $('lu').classList.add('hidden');
+      try {
+        $('zone-camera').classList.remove('hidden');
+        $('fermer-camera').classList.remove('hidden');
+        $('ouvrir-camera').classList.add('hidden');
+        dire('message-camera', 'Visez un QR code…', 'neutre');
+        lecteur = await lireAvecCamera($('video') as HTMLVideoElement, {
+          surLecture: (lecture) => {
+            void traiterLecture(lecture.texte, lecture.octets);
+            return true;
+          },
+        });
+      } catch (erreur) {
+        fermerCamera();
+        dire(
+          'message-camera',
+          erreur instanceof CameraRefusee ? erreur.message : `Échec : ${(erreur as Error).message}`,
+          'echec',
+        );
+      }
+    }
+
+    async function traiterLecture(texte: string, octets: Uint8Array) {
+      fermerCamera();
+      dire('message-camera', 'QR lu.', 'succes');
+
+      const charge = lireCharge(octets);
+      if (charge && attenteA2 === 'reponse' && charge.genre === 'reponse') {
+        await accepterReponseA2(await decompacter(charge.donnees));
+        return;
+      }
+      if (charge && attenteA2 === 'offre' && charge.genre === 'offre') {
+        await repondreA2(await decompacter(charge.donnees));
+        return;
+      }
+
+      const fragment = texte.includes('#') ? lireFragment(texte.slice(texte.indexOf('#'))) : null;
+      $('lu').classList.remove('hidden');
+      $('lu-texte').textContent = texte || '(contenu binaire)';
+      const ouvrir = $('lu-ouvrir') as HTMLAnchorElement;
+      const apparier = $('lu-apparier') as HTMLButtonElement;
+      ouvrir.classList.toggle('hidden', !/^https?:\/\//.test(texte));
+      if (/^https?:\/\//.test(texte)) ouvrir.href = texte;
+      apparier.classList.toggle('hidden', !fragment);
+      if (fragment) {
+        apparier.onclick = async () => {
+          $('lu').classList.add('hidden');
+          await etablirAppairage({ ...fragment, cree: new Date().toISOString() });
+        };
+      }
+    }
+
+    $('ouvrir-camera').addEventListener('click', () => void ouvrirCamera());
+    $('fermer-camera').addEventListener('click', fermerCamera);
+
+    /* ── Le repli sans relais ───────────────────────────────────────── */
+
+    let accepterReponse: ((reponse: string) => Promise<void>) | null = null;
+
+    function etapesA2(etapes: string[]) {
+      $('a2-zone').classList.remove('hidden');
+      $('a2-zone').classList.add('flex');
+      $('a2-etapes').innerHTML = etapes.map((e) => `<li>${e}</li>`).join('');
+    }
+
+    async function echangerSurCanal(canal: Canal) {
+      const mdp = motDePasse();
+      if (!mdp) {
+        dire('message-a2', 'Saisissez le mot de passe du site, plus haut, puis recommencez.', 'echec');
+        return;
+      }
+      try {
+        dire('message-a2', 'Liaison établie, échange en cours…', 'neutre');
+        const rapport = await echanger(canal, mdp, {
+          surEtape: (etape) => dire('message-a2', PHRASES[etape], 'neutre'),
+          surProgression: (p, sens) =>
+            avancer(
+              p.total ? p.faits / p.total : 0,
+              `${sens === 'envoi' ? 'Envoi' : 'Réception'} — ${Math.round(p.faits / 1024)} Kio sur ${Math.round(p.total / 1024)}`,
+            ),
+        });
+        dire(
+          'message-a2',
+          `${rapport.recu.recues} opération(s) et ${rapport.recu.revisionsRecues} révision(s) reçues ; ` +
+            (rapport.identiques === true
+              ? 'les deux appareils sont identiques ✓'
+              : rapport.identiques === false
+                ? 'les empreintes diffèrent encore'
+                : 'empreinte de l’autre appareil non confirmée'),
+          'succes',
+        );
+      } catch (erreur) {
+        dire(
+          'message-a2',
+          erreur instanceof FusionRefusee || erreur instanceof EchangeInterrompu
+            ? erreur.message
+            : `Échec : ${(erreur as Error).message}`,
+          'echec',
+        );
+      } finally {
+        canal.fermer();
+      }
+    }
+
+    $('a2-proposer').addEventListener('click', async () => {
+      try {
+        dire('message-a2', 'Collecte des chemins de connexion…', 'neutre');
+        const proposition = await proposer();
+        accepterReponse = proposition.accepter;
+        attenteA2 = 'reponse';
+        await dessinerQr(
+          'a2-qr',
+          encoderCharge({ genre: 'offre', donnees: await compacter(proposition.offre) }),
+          'Proposition de liaison',
+        );
+        etapesA2([
+          'Sur l’autre appareil, ouvrez cette page et choisissez « Cet appareil répond ».',
+          'Visez ce QR avec son lecteur.',
+          'Il affichera un QR en retour : lisez-le avec le bouton ci-dessous.',
+        ]);
+        $('a2-lire').classList.remove('hidden');
+        dire('message-a2', 'QR affiché. En attente de la réponse de l’autre appareil.', 'neutre');
+        void proposition.canal.then(echangerSurCanal);
+      } catch (erreur) {
+        dire('message-a2', `Échec : ${(erreur as Error).message}`, 'echec');
+      }
+    });
+
+    $('a2-repondre').addEventListener('click', async () => {
+      attenteA2 = 'offre';
+      etapesA2([
+        'Visez le QR affiché par l’autre appareil.',
+        'Un QR de réponse apparaîtra ici : faites-le lire par l’autre appareil.',
+      ]);
+      await ouvrirCamera();
+    });
+
+    $('a2-lire').addEventListener('click', async () => {
+      attenteA2 = 'reponse';
+      await ouvrirCamera();
+    });
+
+    async function repondreA2(offre: string) {
+      try {
+        dire('message-a2', 'Réponse en préparation…', 'neutre');
+        const reponse = await repondre(offre);
+        await dessinerQr(
+          'a2-qr',
+          encoderCharge({ genre: 'reponse', donnees: await compacter(reponse.reponse) }),
+          'Réponse de liaison',
+        );
+        etapesA2([
+          'Faites lire ce QR par l’autre appareil, avec son bouton « Lire le QR de l’autre appareil ».',
+          'L’échange démarrera tout seul.',
+        ]);
+        dire('message-a2', 'Réponse affichée. En attente de la liaison.', 'neutre');
+        void reponse.canal.then(echangerSurCanal);
+      } catch (erreur) {
+        dire('message-a2', `Échec : ${(erreur as Error).message}`, 'echec');
+      }
+    }
+
+    async function accepterReponseA2(reponse: string) {
+      if (!accepterReponse) {
+        dire('message-a2', 'Aucune proposition en cours sur cet appareil.', 'echec');
+        return;
+      }
+      await accepterReponse(reponse);
+      dire('message-a2', 'Réponse acceptée, liaison en cours d’ouverture…', 'neutre');
+    }
+
+    /* ── Au chargement ──────────────────────────────────────────────── */
+
+    const venuDuQr = lireFragment(location.hash);
+    if (venuDuQr) {
+      /*
+         Le secret est retiré de la barre d'adresse tout de suite. Il reste dans
+         la base locale, où il a sa place ; le laisser dans l'URL le mettrait
+         dans l'historique du navigateur et dans la prochaine capture d'écran.
+      */
+      history.replaceState(null, '', location.pathname);
+      await etablirAppairage({ ...venuDuQr, cree: new Date().toISOString() });
+      dire(
+        'message-liaison',
+        'Appairé. Saisissez le mot de passe du site : la synchronisation démarrera dès que ' +
+          'l’autre appareil sera là.',
+        'neutre',
+      );
+    } else {
+      appairage = await appairageMemorise();
+      if (appairage) {
+        await dessinerQr('qr', urlDAppairage(appairage, location.origin), 'QR d’appairage');
+        $('lien-appairage').textContent = urlDAppairage(appairage, location.origin);
+        await ouvrirSalon(appairage);
+      }
+      peindre();
+    }
+
+    ($('mdp') as HTMLInputElement).addEventListener('change', () => {
+      const champ = $('mdp') as HTMLInputElement;
+      if (!champ.value) return;
+      retenirMotDePasse(champ.value);
+      champ.value = '';
+      dire('message-liaison', 'Mot de passe retenu pour cette session.', 'neutre');
+      if (salon?.pairs().length) void lancerEchange();
+    });
+
+    $('ecran').classList.remove('hidden');
+    $('chargement').classList.add('hidden');
+  });
+</script>

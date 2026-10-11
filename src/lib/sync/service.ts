@@ -196,6 +196,8 @@ export interface RapportDeFusion {
   empreinte: string;
   /** L'empreinte annoncée par le paquet, pour la comparer. */
   empreinteDistante: string;
+  /** L'appareil qui a fabriqué le paquet : l'écran le nomme, l'appairage le retient. */
+  appareilDistant: string;
   /**
    * Ce que la fusion a constaté des deux histoires avant d'écrire.
    *
@@ -352,6 +354,7 @@ export async function fusionnerPaquet(
     identiques: complete === ouvert.metadonnees.empreinte,
     empreinte: complete,
     empreinteDistante: ouvert.metadonnees.empreinte,
+    appareilDistant: ouvert.metadonnees.appareil,
     diagnostic,
   };
 }

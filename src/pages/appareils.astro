@@ -28,6 +28,27 @@ import Base from '../layouts/Base.astro';
   <div id="chargement" class="py-20 text-center text-slate-400">Lecture de l’état…</div>
 
   <div id="ecran" class="hidden space-y-8">
+    <!-- ── La liaison directe, qui est le chemin le plus court ─────────── -->
+    <section
+      class="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-5 dark:border-indigo-900 dark:bg-indigo-950/30"
+    >
+      <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+        Plus rapide : la liaison directe
+      </h2>
+      <p class="mb-4 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
+        Un QR visé une fois avec l’autre appareil, et les synchronisations
+        suivantes tiennent en un bouton — sans fichier à transporter. Le
+        transfert de fichier ci-dessous reste là : il marche sans réseau, et
+        c’est le recours quand le reste échoue.
+      </p>
+      <a
+        href="/apparier/"
+        class="inline-block rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700"
+      >
+        Apparier un appareil
+      </a>
+    </section>
+
     <!-- ── Les appareils ───────────────────────────────────────────────── -->
     <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
       <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Vos appareils</h2>
@@ -232,12 +253,6 @@ import Base from '../layouts/Base.astro';
       </h2>
       <ul class="max-w-3xl list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
         <li>
-          L’appairage par QR et la liaison directe entre deux appareils ouverts
-          en même temps. Le transport par fichier vient d’abord, parce qu’il
-          éprouve la fusion sans qu’un incident de réseau puisse être pris pour
-          un incident de fusion.
-        </li>
-        <li>
           L’<strong>XP, le niveau et la série</strong> ne sont pas transportés, et
           ne le seront pas ainsi. Un dernier-écrivain-gagne ferait perdre l’XP
           gagnée sur l’autre appareil ; l’additionner la compterait deux fois. Ils
@@ -245,8 +260,16 @@ import Base from '../layouts/Base.astro';
           ils restent propres à chaque appareil — c’est la seule réponse honnête.
         </li>
         <li>
-          Le registre d’appareils, les sauvegardes partagées, et la
-          synchronisation automatique sur un ordinateur certifié.
+          Le <strong>dossier partagé</strong> — déposer le paquet dans un
+          emplacement que les deux appareils voient, sans qu’ils soient ouverts
+          en même temps. Navigateurs Chromium de bureau seulement, d’après le
+          tableau de compatibilité : sur téléphone, cela se réduirait au
+          sélecteur de fichiers, c’est-à-dire au transfert ci-dessus déguisé.
+        </li>
+        <li>
+          La <strong>synchronisation en arrière-plan</strong> sur un ordinateur
+          certifié, à activer à la main, avec notification et annulation sous
+          sept jours.
         </li>
       </ul>
     </section>

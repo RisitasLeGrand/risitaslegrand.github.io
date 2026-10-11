@@ -57,7 +57,11 @@
     "bench-storage": "node scripts/bench-storage.mjs",
     "mesure:migration": "node scripts/mesure-migration.mjs",
     "essais:sauvegarde:format": "tsx scripts/essais-sauvegarde-format.mts",
-    "essais:sauvegarde:cyclades": "node scripts/essais-sauvegarde-cyclades.mjs"
+    "essais:sauvegarde:cyclades": "node scripts/essais-sauvegarde-cyclades.mjs",
+    "essais:qr": "tsx scripts/essais-qr.mts",
+    "essais:morceaux": "tsx scripts/essais-morceaux.mts",
+    "essais:salon": "tsx scripts/essais-salon.mts",
+    "essais:liaison": "node scripts/essais-liaison.mjs"
   },
   "repository": {
     "type": "git",
@@ -74,8 +78,11 @@
     "d3-delaunay": "^6.0.4",
     "d3-shape": "^3.2.0",
     "idb": "^8.0.3",
+    "jsqr": "^1.4.0",
+    "qrcode-generator": "^2.0.4",
     "svelte": "^5.57.1",
     "tailwindcss": "^4.3.3",
+    "trystero": "^0.26.0",
     "ts-fsrs": "^5.4.2"
   },
   "devDependencies": {

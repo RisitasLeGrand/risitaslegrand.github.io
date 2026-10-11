@@ -42,6 +42,23 @@
  * est arrivé entier. C'est utile dans les deux cas, chiffré ou non.
  */
 
+/*
+   La seule dépendance de ce module : les conversions d'octets, qui étaient
+   écrites ici et le sont désormais une fois pour tout le projet. Elle ne lui
+   retire pas sa pureté — « noyau/octets.ts » ne lit ni base, ni DOM, ni réseau.
+*/
+import {
+  aleatoire as aleatoires,
+  base64VersOctets,
+  comprimer,
+  compressionDisponible,
+  concatener,
+  decomprimer,
+  octetsVersBase64,
+} from '../noyau/octets';
+
+export { compressionDisponible };
+
 /* ══════════════════════════════════════════════════════════════════════════
    Le contrat
    ══════════════════════════════════════════════════════════════════════════ */
@@ -143,74 +160,6 @@ export type Octets = Uint8Array<ArrayBufferLike>;
 
 const encodeur = new TextEncoder();
 const decodeur = new TextDecoder();
-
-/** Un tampon neuf de `n` octets aléatoires. */
-function aleatoires(n: number): Uint8Array<ArrayBuffer> {
-  const tampon = new Uint8Array(new ArrayBuffer(n));
-  crypto.getRandomValues(tampon);
-  return tampon;
-}
-
-function octetsVersBase64(octets: Octets): string {
-  let binaire = '';
-  // Par tranches : une chaîne d'appel avec des centaines de milliers
-  // d'arguments dépasse la pile.
-  const TRANCHE = 0x8000;
-  for (let i = 0; i < octets.length; i += TRANCHE) {
-    binaire += String.fromCharCode(...octets.subarray(i, i + TRANCHE));
-  }
-  return btoa(binaire);
-}
-
-function base64VersOctets(b64: string): Uint8Array<ArrayBuffer> {
-  const binaire = atob(b64);
-  const octets = new Uint8Array(new ArrayBuffer(binaire.length));
-  for (let i = 0; i < binaire.length; i += 1) octets[i] = binaire.charCodeAt(i);
-  return octets;
-}
-
-function concatener(morceaux: Octets[]): Uint8Array<ArrayBuffer> {
-  const total = morceaux.reduce((s, m) => s + m.length, 0);
-  const sortie = new Uint8Array(new ArrayBuffer(total));
-  let decalage = 0;
-  for (const m of morceaux) {
-    sortie.set(m, decalage);
-    decalage += m.length;
-  }
-  return sortie;
-}
-
-async function parcourir(flux: ReadableStream<Octets>): Promise<Uint8Array<ArrayBuffer>> {
-  const morceaux: Octets[] = [];
-  const lecteur = flux.getReader();
-  for (;;) {
-    const { done, value } = await lecteur.read();
-    if (done) break;
-    if (value) morceaux.push(value);
-  }
-  return concatener(morceaux);
-}
-
-/**
- * Compression et décompression gzip par les flux natifs du navigateur.
- *
- * `CompressionStream` est disponible partout où l'on vise, et dans Node depuis
- * la version 18 — ce qui permet d'essayer le format en ligne de commande.
- * `compressionDisponible()` existe pour le repli : un fichier non compressé
- * reste un fichier valide, l'en-tête le dit.
- */
-export const compressionDisponible = (): boolean =>
-  typeof CompressionStream === 'function' && typeof DecompressionStream === 'function';
-
-async function comprimer(octets: Octets): Promise<Uint8Array<ArrayBuffer>> {
-  const flux = new Blob([octets as BlobPart]).stream().pipeThrough(new CompressionStream('gzip'));
-  return parcourir(flux as ReadableStream<Octets>);
-}
-
-async function decomprimer(octets: Octets): Promise<Uint8Array<ArrayBuffer>> {
-  const flux = new Blob([octets as BlobPart]).stream().pipeThrough(new DecompressionStream('gzip'));
-  return parcourir(flux as ReadableStream<Octets>);
-}
 
 async function sha256(octets: Octets): Promise<string> {
   const digest = await crypto.subtle.digest('SHA-256', octets as BufferSource);
