@@ -138,6 +138,46 @@ console.log('\nSocle des cartes antérieures au journal');
   vrai('le socle conserve les compteurs', socle.revisions === ancienne.revisions &&
     socle.oublis === ancienne.oublis);
 
+  /*
+     Une notation **antérieure** au socle. Le cas vient de la synchronisation :
+     un appareil installé cette semaine note une carte, un appareil plus ancien
+     migre ensuite et fabrique son socle — dont l'identifiant est postérieur.
+
+     Cet essai existe parce que les deux précédents ne le couvraient pas et
+     passaient par hasard : socle et notations tiraient leurs identifiants de
+     deux fabriques ULID à la même milliseconde, et c'est le tirage aléatoire
+     qui décidait lequel précédait l'autre. Une fois sur deux, le socle passait
+     après — et l'ancien code l'ignorait alors en silence, repartant d'une carte
+     neuve. L'essai dénonçait un vrai défaut un passage sur deux, ce qui est la
+     pire façon de dénoncer quoi que ce soit.
+  */
+  const avantLeSocle: EntreeRevision = {
+    // Un identifiant qui commence par un zéro : antérieur à tout ULID d'aujourd'hui.
+    id: '00000000000000000000000001',
+    genre: 'notation',
+    carteId: ancienne.id,
+    ficheId: ancienne.ficheId,
+    matiere: ancienne.matiere,
+    le: '2025-05-01T09:00:00.000Z',
+    appareil: 'ZZZZ9999',
+    note: 'correct',
+  };
+  const avecAnterieure = recalculerCarte([avantLeSocle, socle]);
+  vrai(
+    'une notation antérieure au socle ne fait pas oublier le socle',
+    avecAnterieure !== null && avecAnterieure.revisions === ancienne.revisions + 1,
+  );
+  v(
+    'et elle est appliquée par-dessus, car le socle ne la connaissait pas',
+    avecAnterieure?.oublis,
+    ancienne.oublis,
+  );
+  v(
+    'l’ordre de lecture n’y change rien',
+    recalculerCarte([socle, avantLeSocle]),
+    avecAnterieure,
+  );
+
   // Une carte dont la fiche a changé : c'est la dernière valeur qui vaut.
   const migree = recalculer(
     [

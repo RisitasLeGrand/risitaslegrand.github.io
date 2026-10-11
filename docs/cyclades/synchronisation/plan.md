@@ -145,6 +145,22 @@ le risque décroissant.
 - Migration avec **instantané `.cyclades` automatique avant** et retour arrière
   possible tant que la version précédente du schéma est connue.
 
+**Le socle est le point de départ par définition, non par son rang.** Corrigé le
+11 octobre 2026, à la phase 4d. Le recalcul prenait le socle s'il était la
+première entrée dans l'ordre des identifiants, et l'ignorait sinon. Or un
+appareil installé cette semaine peut noter une carte **avant** qu'un appareil
+plus ancien n'ait migré : la notation porte alors un identifiant antérieur au
+socle. La carte repartait d'un état neuf, et les compteurs d'une vie de
+révisions retombaient à zéro — sans qu'aucune donnée n'ait été perdue pour
+autant, ce qui est la pire forme de la panne, parce qu'elle ne se voit pas dans
+un journal intact. Le socle est désormais cherché partout, et les entrées qui le
+précèdent sont appliquées **par-dessus** : il ne les connaissait pas.
+
+Cet essai-là passait une fois sur deux sans que personne ne s'en aperçoive : les
+identifiants du socle et des notations sortaient de deux fabriques ULID à la
+même milliseconde, et c'est le tirage aléatoire qui décidait de leur ordre. Un
+essai intermittent est pire qu'un essai absent.
+
 **Critère de sortie** : la migration tourne sur le jeu de cinq ans, sa durée est
 mesurée, le retour arrière est éprouvé, et l'application fonctionne exactement
 comme avant — aucune fonctionnalité nouvelle n'est visible. Si cette phase est
@@ -232,9 +248,28 @@ appareil en retard, rétention, et les cas limites de la section 6 du prompt.
 
 ## 3. Ce que ce plan ne fera pas
 
-- **Pas de fusion de deux bases sans ancêtre commun.** La décision 4 le refuse,
-  et le plan n'en prévoit aucune phase. Une telle fusion n'a pas de réponse juste
-  pour les séries, les niveaux et les états FSRS.
+- **Pas de fusion de deux histoires concurrentes du même objet.** La décision 4
+  refuse « la fusion de deux bases sans ancêtre commun ». Précisé le 11 octobre
+  2026, à la construction de la phase 4d : le critère retenu dans le code est
+  l'existence de **deux socles FSRS pour la même carte**, et non l'absence
+  d'ancêtre commun. L'intention est tenue, le périmètre est juste.
+
+  Pourquoi : deux appareils installés le même jour, chacun ses saisies, n'ont
+  aucun ancêtre commun et leur union ne perd rien — ce sont deux ensembles de
+  faits disjoints. Refuser ce cas aurait fait ajouter un bouton « fusionner
+  quand même », et le garde-fou n'aurait plus rien gardé. À l'inverse, deux
+  appareils **peuvent** avoir un ancêtre commun et porter tout de même deux
+  socles, s'ils ont migré séparément après s'être parlé une fois : l'absence
+  d'ancêtre n'était qu'un indice, et un indice qui manque le cas.
+
+  Le critère porte sur l'**état fusionné** et non sur ce que le paquet apporte,
+  sans quoi le verdict dépendrait de qui tient le fichier. Conséquence assumée :
+  une base portant déjà deux socles pour la même carte est refusée même face à
+  elle-même — elle est déjà dans l'état que le refus décrit.
+
+  Voir `src/lib/sync/premiere-fusion.ts`, et la marche à suivre qui accompagne
+  le refus : un refus qui ne dit pas quoi faire n'est pas un garde-fou, c'est un
+  mur.
 - **Pas de relais TURN.** Si la liaison directe échoue, l'écran bascule sur A2 ou
   sur C. Un TURN verrait passer le trafic chiffré, et serait un service à payer
   ou à exploiter.

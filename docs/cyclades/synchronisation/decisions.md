@@ -169,6 +169,16 @@ fusion hasardeuse.
 **Ce que je te demande** : d'accord pour que la fusion de deux bases sans
 ancêtre commun soit refusée, et non tentée ?
 
+> **Validé, puis précisé à la construction (11 octobre 2026).** Le critère écrit
+> dans le code n'est pas l'absence d'ancêtre commun mais l'existence de **deux
+> socles FSRS pour la même carte** — deux états de départ reconstitués
+> séparément, que rien ne permet de départager. Pris à la lettre, le refus
+> initial aurait interdit un cas sûr : deux appareils installés le même jour,
+> aux faits disjoints. Il aurait aussi laissé passer un cas dangereux : deux
+> appareils qui se sont parlé une fois puis ont migré séparément. L'intention de
+> la décision est tenue ; son indice est remplacé par ce qu'il indiquait. Voir
+> `plan.md`, section 3, et `src/lib/sync/premiere-fusion.ts`.
+
 ---
 
 ## 5. Le changement de mot de passe avec rechiffrement

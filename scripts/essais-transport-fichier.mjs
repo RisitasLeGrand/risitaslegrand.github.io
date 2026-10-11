@@ -251,8 +251,57 @@ async function recevoir(appareil, chemin) {
     undefined,
     { timeout: 60000 },
   );
-  return { apercu, message: await appareil.page.textContent('#message-fusion') };
+  return {
+    apercu,
+    message: await appareil.page.textContent('#message-fusion'),
+    // Le diagnostic de la fusion, affiché même quand il est favorable.
+    diagnostic: await appareil.page.textContent('#apercu-avertissement'),
+  };
 }
+
+/**
+ * Charge un paquet et tente de fusionner, en **attendant un refus**.
+ *
+ * Séparé de « recevoir » exprès : une fonction qui accepte les deux issues
+ * passerait si le refus n'arrivait pas, ce qui est précisément ce qu'on éprouve.
+ */
+async function tenterEtEtreRefuse(appareil, chemin) {
+  await appareil.page.setInputFiles('#fichier', chemin);
+  await appareil.page.waitForSelector('#apercu:not(.hidden)', { timeout: 30000 });
+  await appareil.page.fill('#mdp-fusion', MDP);
+  await appareil.page.click('#fusionner');
+  await appareil.page.waitForFunction(
+    () => {
+      const e = document.getElementById('message-fusion');
+      return e && !e.classList.contains('hidden') && !e.textContent.includes('en cours');
+    },
+    undefined,
+    { timeout: 60000 },
+  );
+  return {
+    message: await appareil.page.textContent('#message-fusion'),
+    visible: !(await appareil.page.locator('#marche-a-suivre').isHidden()),
+    motif: await appareil.page.textContent('#marche-motif'),
+    etapes: await appareil.page.$$eval('#marche-etapes > li', (l) =>
+      l.map((e) => e.textContent.trim()),
+    ),
+  };
+}
+
+/** L'horloge logique persistée de cet appareil, telle qu'elle est en base. */
+const horlogeDe = (appareil) =>
+  appareil.page.evaluate(async () => {
+    const base = await new Promise((ok) => {
+      const r = indexedDB.open('revinsp');
+      r.onsuccess = () => ok(r.result);
+    });
+    const lu = await new Promise((ok) => {
+      const q = base.transaction('etat').objectStore('etat').get('horloge');
+      q.onsuccess = () => ok(q.result);
+    });
+    base.close();
+    return lu ?? null;
+  });
 
 console.log('\nDEUX APPAREILS, DEUX BASES');
 
@@ -375,6 +424,18 @@ const receptionB = await recevoir(b, paquetA.chemin);
 vrai('l’aperçu nomme l’appareil émetteur', receptionB.apercu.includes('Ordinateur de bureau'));
 vrai('l’aperçu annonce le fichier intact', receptionB.apercu.includes('intact'));
 vrai('la fusion annonce ce qu’elle a reçu', receptionB.message.includes('reçues'));
+/*
+   Ces deux appareils n'ont aucun ancêtre commun — ils ne se sont jamais parlé —
+   et leur fusion est pourtant sans danger : leurs faits portent sur des cartes
+   différentes. C'est le cas que la décision 4, prise à la lettre, aurait
+   interdit. Le diagnostic est affiché **même favorable** : on doit pouvoir lire
+   pourquoi c'était sûr.
+*/
+vrai(
+  'le diagnostic dit qu’ils ne s’étaient jamais parlé, et que rien n’est perdu',
+  receptionB.diagnostic.includes('jamais parlé') &&
+    receptionB.diagnostic.includes('aucune histoire'),
+);
 vrai('et les cartes recalculées', receptionB.message.includes('recalculée'));
 
 const apresB = await lire(b);
@@ -422,6 +483,10 @@ const paquetB = await envoyer(b);
 const receptionA = await recevoir(a, paquetB.chemin);
 vrai('A reçoit ce qui lui manquait', receptionA.message.includes('reçues'));
 vrai('et les deux appareils se disent identiques', receptionA.message.includes('identiques'));
+vrai(
+  'et cette fois le diagnostic constate une histoire commune',
+  receptionA.diagnostic.includes('commun'),
+);
 
 await rafraichir(a);
 await rafraichir(b);
@@ -656,6 +721,95 @@ v(
   apresAnnulation.revisions >= 8,
   true,
 );
+
+console.log('\nDEUX HISTOIRES POUR LA MÊME CARTE : LA FUSION DOIT ÊTRE REFUSÉE');
+
+/*
+   Le cas que la décision 4 protège réellement. Deux appareils migrent chacun de
+   leur côté avant de s'apparier : chacun fabrique son propre socle pour la même
+   carte — « l'état de cette carte, repris tel quel, faute de journal antérieur ».
+   Deux socles concurrents disent deux passés différents de la même carte, et
+   aucun recalcul ne peut trancher : le journal ne contient pas de quoi savoir
+   lequel a eu lieu.
+
+   On éprouve donc trois choses, et pas seulement le refus : que le refus
+   survienne, qu'il **n'ait rien écrit** — pas même avancé l'horloge logique —,
+   et qu'il dise quoi faire.
+*/
+{
+  const c = await appareil('C');
+  const d = await appareil('D');
+
+  // La même carte des deux côtés, à des dates différentes : deux socles, deux
+  // identifiants, un seul objet.
+  await semer(c, ['carte-omega'], Date.parse('2026-03-01T08:00:00Z'));
+  await semer(d, ['carte-omega'], Date.parse('2026-04-01T08:00:00Z'));
+  await rafraichir(c);
+  await rafraichir(d);
+
+  /* Le semis n'écrit que le journal : on reconstruit l'état de D, pour pouvoir
+     vérifier ensuite que le refus l'a laissé intact. */
+  await d.page.click('#reconstruire');
+  await d.page.waitForFunction(
+    () => {
+      const e = document.getElementById('message-reconstruction');
+      return e && !e.classList.contains('hidden') && !e.textContent.includes('en cours');
+    },
+    undefined,
+    { timeout: 30000 },
+  );
+
+  /* D se nomme : c'est une émission par l'écran, donc une horloge logique
+     persistée. Sans elle, « l'horloge n'a pas bougé » comparerait deux fois
+     rien. */
+  await d.page.fill('#nom-appareil', 'Portable de secours');
+  await d.page.click('#nommer');
+  await d.page.waitForSelector('#message-nom:not(.hidden)', { timeout: 30000 });
+
+  const avantRefus = await lire(d);
+  const horlogeAvant = await horlogeDe(d);
+  vrai('D a bien une horloge logique avant la tentative', Boolean(horlogeAvant));
+
+  const paquetC = await envoyer(c);
+  const refus = await tenterEtEtreRefuse(d, paquetC.chemin);
+
+  vrai('la fusion est refusée', refus.message.includes('refusée'));
+  vrai('et le refus dit que rien n’a été écrit', refus.message.includes('rien n’a été écrit'));
+  vrai('la marche à suivre est affichée', refus.visible);
+  vrai(
+    'le motif nomme la carte dont les deux appareils ont chacun leur histoire',
+    refus.motif.includes('1 flashcard') && refus.motif.includes('état de départ'),
+  );
+  v('et elle tient en trois étapes', refus.etapes.length, 3);
+  vrai(
+    'la sauvegarde vient avant l’effacement, dans cet ordre',
+    refus.etapes[1].includes('sauvegarde') && refus.etapes[2].includes('effacez'),
+  );
+
+  const apresRefus = await lire(d);
+  v(
+    'rien n’a été écrit : ni opération, ni révision',
+    [apresRefus.operations, apresRefus.revisions],
+    [avantRefus.operations, avantRefus.revisions],
+  );
+  v('pas même une horloge avancée', await horlogeDe(d), horlogeAvant);
+  v('et aucun lot de synchronisation n’a été enregistré', (await d.page.$$('.annuler')).length, 0);
+  vrai(
+    'la carte de D a gardé son propre état',
+    apresRefus.cartes.length === 1 && apresRefus.cartes[0].id === 'carte-omega',
+  );
+
+  /* Et le refus n'est pas un mur : choisir un appareil de référence, puis
+     restaurer, remet les deux sur la même histoire. On vérifie au moins que le
+     chemin existe — l'effacement et la restauration ont leurs propres essais. */
+  vrai(
+    'l’écran dit aussi comment s’en sortir, en nommant la restauration',
+    refus.etapes[2].includes('restaurez'),
+  );
+
+  await c.contexte.close();
+  await d.contexte.close();
+}
 
 console.log('\nREFUS');
 

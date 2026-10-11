@@ -27,6 +27,12 @@ import {
   type Reglages,
 } from '../src/lib/noyau/fusion';
 import { operation, SANS_LOT, type Operation } from '../src/lib/noyau/operations';
+import {
+  diagnostiquer,
+  fusionnable,
+  MARCHE_A_SUIVRE,
+} from '../src/lib/sync/premiere-fusion';
+import type { EntreeRevision } from '../src/lib/noyau/revisions';
 import { comparerOperations } from '../src/lib/noyau/operations';
 
 let echecs = 0;
@@ -504,6 +510,221 @@ propriete(
       .map((o) => o.id);
     return JSON.stringify(fusionner(a, b).aEnvoyer.map((o) => o.id)) === JSON.stringify(attendu);
   },
+);
+
+/* ══════════════════════════════════════════════════════════════════════════
+   La première fusion : ce qu'on réconcilie, ce qu'on refuse
+   ══════════════════════════════════════════════════════════════════════════ */
+
+console.log('\nPremière fusion : le danger est le socle concurrent, pas l’absence d’ancêtre');
+
+const ETAT_NEUF = {
+  due: '2026-05-01',
+  stability: 1,
+  difficulty: 5,
+  elapsed_days: 0,
+  scheduled_days: 0,
+  learning_steps: 0,
+  reps: 0,
+  lapses: 0,
+  state: 0 as const,
+};
+
+/** Un socle, c'est-à-dire un état repris tel quel faute de journal antérieur. */
+const socle = (id: string, carteId: string, appareil: string): EntreeRevision => ({
+  id,
+  genre: 'socle',
+  carteId,
+  ficheId: `fiche-${carteId}`,
+  matiere: 'Économie',
+  le: '2026-05-01T08:00:00.000Z',
+  appareil,
+  hlc: '000001746000000-0000',
+  lot: SANS_LOT,
+  etat: ETAT_NEUF,
+  revisions: 0,
+  oublis: 0,
+});
+
+const notation = (id: string, carteId: string, appareil: string): EntreeRevision => ({
+  id,
+  genre: 'notation',
+  carteId,
+  ficheId: `fiche-${carteId}`,
+  matiere: 'Économie',
+  le: '2026-05-02T08:00:00.000Z',
+  appareil,
+  hlc: '000001746086400-0000',
+  lot: SANS_LOT,
+  note: 'correct',
+});
+
+const cote = (revisions: EntreeRevision[], operations: Operation[] = []) => ({
+  operations,
+  revisions,
+});
+
+const VIDE = cote([], []);
+
+{
+  // Deux appareils installés le même jour, chacun ses cartes : aucun ancêtre
+  // commun, et pourtant rien à perdre. C'est le cas que la décision 4, prise à
+  // la lettre, aurait interdit.
+  const d = diagnostiquer(
+    cote([socle('S-A', 'carte-alpha', 'AAAA1111')]),
+    cote([socle('S-B', 'carte-beta', 'BBBB2222')]),
+  );
+  v('deux appareils sans ancêtre commun mais sans objet commun : disjointe', d.verdict, 'disjointe');
+  vrai('et la fusion est permise', fusionnable(d));
+  v('sans socle concurrent à signaler', d.soclesConcurrents, []);
+}
+
+{
+  const d = diagnostiquer(
+    cote([socle('S-A', 'carte-alpha', 'AAAA1111')]),
+    cote([socle('S-A', 'carte-alpha', 'AAAA1111'), notation('N-1', 'carte-alpha', 'BBBB2222')]),
+  );
+  v('un journal qui recoupe l’autre : histoire commune', d.verdict, 'histoire-commune');
+  v('et le nombre d’enregistrements partagés est exact', d.partagees, 1);
+}
+
+{
+  v('une base vide : la fusion est une copie', diagnostiquer(VIDE, cote([socle('S-B', 'c', 'BBBB2222')])).verdict, 'une-base-vide');
+  v('dans un sens comme dans l’autre', diagnostiquer(cote([socle('S-A', 'c', 'AAAA1111')]), VIDE).verdict, 'une-base-vide');
+  v('deux bases vides aussi', diagnostiquer(VIDE, VIDE).verdict, 'une-base-vide');
+}
+
+{
+  // Le danger : deux socles distincts pour la **même** carte.
+  const d = diagnostiquer(
+    cote([socle('S-A', 'carte-alpha', 'AAAA1111')]),
+    cote([socle('S-B', 'carte-alpha', 'BBBB2222')]),
+  );
+  v('deux socles pour la même carte : irréconciliable', d.verdict, 'irreconciliable');
+  vrai('et la fusion est refusée', !fusionnable(d));
+  v('la carte en cause est nommée', d.soclesConcurrents, ['carte-alpha']);
+  vrai('le motif dit où est le problème', d.message.includes('1 flashcard'));
+}
+
+{
+  /*
+     Et le refus l'emporte même sur une histoire commune : deux appareils
+     peuvent s'être synchronisés une fois et avoir migré séparément avant. C'est
+     pourquoi les socles sont cherchés dans tous les cas, et non seulement
+     quand l'ancêtre commun manque.
+  */
+  const partage = notation('N-0', 'carte-zeta', 'AAAA1111');
+  const d = diagnostiquer(
+    cote([partage, socle('S-A', 'carte-alpha', 'AAAA1111')]),
+    cote([partage, socle('S-B', 'carte-alpha', 'BBBB2222')]),
+  );
+  v('une histoire commune ne rend pas deux socles réconciliables', d.verdict, 'irreconciliable');
+  v('et le partage est tout de même compté', d.partagees, 1);
+}
+
+{
+  // Le même socle des deux côtés — l'un l'a reçu de l'autre — n'est pas un
+  // conflit : c'est le même fait, vu deux fois.
+  const commun = socle('S-A', 'carte-alpha', 'AAAA1111');
+  v(
+    'le même socle de part et d’autre n’est pas concurrent',
+    diagnostiquer(cote([commun]), cote([commun])).verdict,
+    'histoire-commune',
+  );
+}
+
+{
+  // Plusieurs cartes en cause : toutes nommées, et dans l'ordre.
+  const d = diagnostiquer(
+    cote([socle('S-A1', 'carte-beta', 'AAAA1111'), socle('S-A2', 'carte-alpha', 'AAAA1111')]),
+    cote([socle('S-B1', 'carte-beta', 'BBBB2222'), socle('S-B2', 'carte-alpha', 'BBBB2222')]),
+  );
+  v('toutes les cartes en cause sont nommées, triées', d.soclesConcurrents, ['carte-alpha', 'carte-beta']);
+  vrai('et le pluriel est accordé', d.message.includes('2 flashcards'));
+}
+
+/**
+ * Un côté de fusion tiré au sort, socles compris.
+ *
+ * Les identifiants de socle et les cartes sortent de **petits viviers** : c'est
+ * ce qui fait que deux côtés engendrés indépendamment tombent parfois sur la
+ * même carte avec des socles différents — le seul cas qui compte ici. Tirer des
+ * ULID aléatoires rendrait le verdict « irreconciliable » introuvable, et la
+ * propriété ne vérifierait jamais rien du refus.
+ */
+const SOCLES = ['S-1', 'S-2', 'S-3'];
+const CARTES = ['carte-alpha', 'carte-beta'];
+const unCote = fc
+  .record({
+    socles: fc.uniqueArray(
+      fc.tuple(fc.constantFrom(...SOCLES), fc.constantFrom(...CARTES)),
+      { maxLength: 4, selector: ([id]) => id },
+    ),
+    notations: fc.uniqueArray(fc.constantFrom('N-1', 'N-2', 'N-3'), { maxLength: 3 }),
+    appareil: fc.constantFrom(...APPAREILS),
+  })
+  .map(({ socles, notations, appareil }) =>
+    cote([
+      ...socles.map(([id, carte]) => socle(id, carte, appareil)),
+      ...notations.map((id) => notation(id, CARTES[0], appareil)),
+    ]),
+  );
+
+propriete(
+  'le diagnostic est symétrique : le verdict ne dépend pas du sens',
+  fc.tuple(unCote, unCote),
+  ([a, b]) => diagnostiquer(a, b).verdict === diagnostiquer(b, a).verdict,
+);
+
+propriete(
+  'et les cartes en cause sont les mêmes dans les deux sens',
+  fc.tuple(unCote, unCote),
+  ([a, b]) =>
+    JSON.stringify(diagnostiquer(a, b).soclesConcurrents) ===
+    JSON.stringify(diagnostiquer(b, a).soclesConcurrents),
+);
+
+/** Les socles d'un côté, par carte — le calcul de référence de la propriété. */
+const soclesDe = (revisions: readonly EntreeRevision[]) => {
+  const parCarte = new Map<string, Set<string>>();
+  for (const e of revisions) {
+    if (e.genre !== 'socle') continue;
+    parCarte.set(e.carteId, (parCarte.get(e.carteId) ?? new Set<string>()).add(e.id));
+  }
+  return parCarte;
+};
+
+propriete(
+  'un côté sain fusionné avec lui-même n’est jamais refusé',
+  unCote,
+  (a) =>
+    [...soclesDe(a.revisions).values()].some((s) => s.size > 1) ||
+    fusionnable(diagnostiquer(a, a)),
+);
+
+propriete(
+  'le refus équivaut exactement à une carte à deux socles dans l’état fusionné',
+  fc.tuple(unCote, unCote),
+  ([a, b]) => {
+    const danger = [...soclesDe([...a.revisions, ...b.revisions]).values()].some(
+      (socles) => socles.size > 1,
+    );
+    return fusionnable(diagnostiquer(a, b)) === !danger;
+  },
+);
+
+propriete(
+  'une base déjà dédoublée est refusée, même face à elle-même',
+  unCote,
+  (a) =>
+    ![...soclesDe(a.revisions).values()].some((s) => s.size > 1) ||
+    !fusionnable(diagnostiquer(a, a)),
+);
+
+v('la marche à suivre tient en trois étapes', MARCHE_A_SUIVRE.length, 3);
+vrai(
+  'et la sauvegarde y vient avant l’effacement',
+  MARCHE_A_SUIVRE[1].includes('sauvegarde') && MARCHE_A_SUIVRE[2].includes('effacez'),
 );
 
 console.log(echecs === 0 ? '\nTous les essais passent.' : `\n${echecs} échec(s).`);

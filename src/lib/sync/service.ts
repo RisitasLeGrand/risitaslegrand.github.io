@@ -55,6 +55,12 @@ import {
 import { recalculerCarte } from '../srs';
 import { absorberHlc, horlogeCourante, prochaineHlc } from './horloge-locale';
 import {
+  diagnostiquer,
+  fusionnable,
+  MARCHE_A_SUIVRE,
+  type Diagnostic,
+} from './premiere-fusion';
+import {
   apercu as apercuPaquetBrut,
   fabriquer,
   nomDeFichier,
@@ -190,6 +196,14 @@ export interface RapportDeFusion {
   empreinte: string;
   /** L'empreinte annoncée par le paquet, pour la comparer. */
   empreinteDistante: string;
+  /**
+   * Ce que la fusion a constaté des deux histoires avant d'écrire.
+   *
+   * Il voyage avec le rapport plutôt que de s'obtenir par un appel séparé : un
+   * diagnostic appelé à part redériverait la clé, et 600 000 itérations PBKDF2
+   * deux fois pour une seule action de l'utilisateur sont 600 000 de trop.
+   */
+  diagnostic: Diagnostic;
 }
 
 /**
@@ -200,6 +214,16 @@ export interface RapportDeFusion {
  * état FSRS faux par-dessus un état juste — la seule façon de perdre des
  * échéances sans perdre une seule donnée.
  */
+export class FusionRefusee extends Error {
+  constructor(
+    readonly diagnostic: Diagnostic,
+    readonly marcheASuivre: readonly string[] = MARCHE_A_SUIVRE,
+  ) {
+    super(diagnostic.message);
+    this.name = 'FusionRefusee';
+  }
+}
+
 export async function fusionnerPaquet(
   octets: Octets,
   motDePasse: string,
@@ -212,6 +236,17 @@ export async function fusionnerPaquet(
   const distantRevisions = ((ouvert.magasinsEnPlus?.revisions ?? []) as EntreeRevision[]).map(
     (r) => (r.lot === SANS_LOT ? { ...r, lot } : r),
   );
+
+  /*
+     Le refus vient **avant** toute écriture, et avant même d'absorber les
+     horloges : une fusion refusée ne doit rien laisser derrière elle, pas même
+     une horloge avancée.
+  */
+  const diagnostic = diagnostiquer(
+    { operations: local.operations, revisions: local.revisions },
+    { operations: ouvert.contenu.operations, revisions: distantRevisions },
+  );
+  if (!fusionnable(diagnostic)) throw new FusionRefusee(diagnostic);
 
   /*
      L'horloge locale absorbe celle de chaque entrée reçue, avant toute
@@ -317,6 +352,7 @@ export async function fusionnerPaquet(
     identiques: complete === ouvert.metadonnees.empreinte,
     empreinte: complete,
     empreinteDistante: ouvert.metadonnees.empreinte,
+    diagnostic,
   };
 }
 

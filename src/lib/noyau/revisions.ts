@@ -114,29 +114,48 @@ export function recalculer(
   const ordonnees = [...entrees].sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
   if (!ordonnees.length) return null;
 
-  const premiere = ordonnees[0];
-  let carte: EtatCarte = estSocle(premiere)
+  /*
+     Le socle est le point de départ **par définition**, et non par sa place
+     dans l'ordre : il résume ce qui précède le journal. On le cherche donc
+     partout, au lieu de ne regarder que la première entrée.
+
+     Le cas n'est pas théorique. Un appareil installé aujourd'hui peut noter une
+     carte avant qu'un autre, plus ancien, n'ait migré : la notation du premier
+     porte alors un identifiant **antérieur** au socle du second. Avec l'ancien
+     code, ce socle était ignoré — la carte repartait d'un état neuf, et ses
+     compteurs d'une vie de révisions retombaient à zéro, sans qu'aucune donnée
+     n'ait été perdue pour autant. C'est exactement la panne que ce journal
+     existe pour empêcher.
+
+     Une entrée antérieure au socle est donc appliquée **après** lui : le socle
+     ne la connaît pas — l'appareil qui l'a reconstitué ne l'avait jamais vue —,
+     et l'ignorer perdrait une révision réelle.
+  */
+  const socle = ordonnees.find(estSocle);
+  /* Faute de socle, c'est la plus ancienne entrée qui donne l'état de départ. */
+  const plusAncienne = ordonnees[0];
+  let carte: EtatCarte = socle
     ? {
-        id: premiere.carteId,
-        ficheId: premiere.ficheId,
-        matiere: premiere.matiere,
-        du: premiere.etat.due.slice(0, 10),
-        derniereRevision: premiere.etat.last_review ?? null,
-        intervalle: premiere.etat.scheduled_days,
-        revisions: premiere.revisions,
-        oublis: premiere.oublis,
-        fsrs: premiere.etat,
+        id: socle.carteId,
+        ficheId: socle.ficheId,
+        matiere: socle.matiere,
+        du: socle.etat.due.slice(0, 10),
+        derniereRevision: socle.etat.last_review ?? null,
+        intervalle: socle.etat.scheduled_days,
+        revisions: socle.revisions,
+        oublis: socle.oublis,
+        fsrs: socle.etat,
       }
     : {
-        id: premiere.carteId,
-        ficheId: premiere.ficheId,
-        matiere: premiere.matiere,
-        du: premiere.le.slice(0, 10),
+        id: plusAncienne.carteId,
+        ficheId: plusAncienne.ficheId,
+        matiere: plusAncienne.matiere,
+        du: plusAncienne.le.slice(0, 10),
         derniereRevision: null,
         intervalle: 0,
         revisions: 0,
         oublis: 0,
-        fsrs: ordonnanceur.neuve(new Date(premiere.le)),
+        fsrs: ordonnanceur.neuve(new Date(plusAncienne.le)),
       };
 
   for (const entree of ordonnees) {
