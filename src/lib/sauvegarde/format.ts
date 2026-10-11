@@ -49,6 +49,26 @@
 export const LIGNE_RECONNAISSANCE = 'CYCLADES-SAUVEGARDE';
 
 /**
+ * La ligne de reconnaissance d'un **paquet de synchronisation**.
+ *
+ * Un paquet et une sauvegarde partagent tout ce qui est délicat : compresser
+ * puis chiffrer, une somme de contrôle sur les octets du fichier, un sel et un
+ * nombre d'itérations par fichier dans l'en-tête. Écrire une seconde
+ * implémentation de cette discipline serait la vraie faute de ce chantier — deux
+ * chaînes de chiffrement, dont une moins relue, et un bogue qui n'apparaîtrait
+ * que dans l'une des deux.
+ *
+ * Ils ne partagent donc que la ligne qui les distingue. Un paquet présenté comme
+ * sauvegarde, ou l'inverse, est refusé avant toute tentative de déchiffrement :
+ * les deux n'ont pas le même sens, et restaurer un paquet reviendrait à
+ * remplacer sa base par un fragment.
+ */
+export const LIGNE_PAQUET = 'CYCLADES-PAQUET';
+
+/** Les deux formes reconnues, et aucune autre. */
+export type Genre = typeof LIGNE_RECONNAISSANCE | typeof LIGNE_PAQUET;
+
+/**
  * La version du format que ce code sait écrire **et** relire.
  *
  * Un fichier portant une version supérieure est refusé avec un message clair :
@@ -93,8 +113,16 @@ export interface EnTeteSauvegarde {
     porte: 'octets-de-la-charge-utile';
     valeur: string;
   };
-  /** Ce que la personne a choisi de sauvegarder : tout, ou une partie. */
-  portee: { branches: string[]; parcours?: string[] };
+  /**
+   * Ce que le fichier couvre.
+   *
+   * Pour une sauvegarde : les branches et, le cas échéant, les parcours. Pour un
+   * paquet de synchronisation, le même champ porte en plus les métadonnées de
+   * l'émetteur — voir « sync/paquet.ts ». Les loger ici évite d'ajouter au
+   * format commun un champ qui resterait vide dans toutes les sauvegardes, et
+   * que quelqu'un finirait par remplir par erreur.
+   */
+  portee: { branches: string[]; parcours?: string[] } & Record<string, unknown>;
 }
 
 /** Les données à sauvegarder : un tableau d'enregistrements par magasin. */
@@ -111,7 +139,7 @@ export type Magasins = Record<string, unknown[]>;
  * `ArrayBuffer` et `ArrayBufferLike` selon qu'elles allouent ou reçoivent. Un
  * alias unique évite d'avoir à trancher ce débat à chaque signature.
  */
-type Octets = Uint8Array<ArrayBufferLike>;
+export type Octets = Uint8Array<ArrayBufferLike>;
 
 const encodeur = new TextEncoder();
 const decodeur = new TextDecoder();
@@ -280,7 +308,7 @@ export interface OptionsEcriture {
   magasins: Magasins;
   branches: BrancheSauvegardee[];
   versionApplication: string;
-  portee: { branches: string[]; parcours?: string[] };
+  portee: EnTeteSauvegarde['portee'];
   /**
    * Le mot de passe du site. `null` désactive explicitement le chiffrement —
    * l'appelant doit alors avoir averti la personne.
@@ -289,6 +317,11 @@ export interface OptionsEcriture {
   iterations?: number;
   /** Pour les essais : fige la date et les aléas. */
   maintenant?: Date;
+  /**
+   * Sauvegarde (par défaut) ou paquet de synchronisation. Seule la ligne de
+   * reconnaissance change : tout le reste du format est délibérément commun.
+   */
+  genre?: Genre;
 }
 
 export interface Sauvegarde {
@@ -347,7 +380,7 @@ export async function ecrire(options: OptionsEcriture): Promise<Sauvegarde> {
   };
 
   const octets = concatener([
-    encodeur.encode(`${LIGNE_RECONNAISSANCE}\n`),
+    encodeur.encode(`${options.genre ?? LIGNE_RECONNAISSANCE}\n`),
     encodeur.encode(`${JSON.stringify(entete)}\n`),
     chargeUtile,
   ]);
@@ -402,17 +435,34 @@ export class SauvegardeRefusee extends Error {
  * ce que contient un fichier avant de demander quoi que ce soit à la personne,
  * et avant d'appliquer quoi que ce soit.
  */
-export function lireEnTete(octets: Octets): EnTeteSauvegarde {
+export function lireEnTete(octets: Octets, genreAttendu?: Genre): EnTeteSauvegarde {
   const sautLigne = 10;
   const premier = octets.indexOf(sautLigne);
   if (premier < 0) {
     throw new SauvegardeRefusee('pas-une-sauvegarde', 'Ce fichier n’a pas la forme attendue.');
   }
-  const reconnaissance = decodeur.decode(octets.subarray(0, premier));
-  if (reconnaissance.trim() !== LIGNE_RECONNAISSANCE) {
+  const reconnaissance = decodeur.decode(octets.subarray(0, premier)).trim();
+  if (reconnaissance !== LIGNE_RECONNAISSANCE && reconnaissance !== LIGNE_PAQUET) {
     throw new SauvegardeRefusee(
       'pas-une-sauvegarde',
       'Ce fichier n’est pas une sauvegarde Cyclades.',
+    );
+  }
+  /*
+     Le genre attendu est vérifié ici, avant de toucher à la charge utile : un
+     paquet restauré comme sauvegarde remplacerait la base par un fragment, et
+     une sauvegarde fusionnée comme paquet n'aurait pas de sens non plus. Les
+     deux refus sont donc des refus de forme, pas des erreurs de contenu.
+  */
+  if (genreAttendu && reconnaissance !== genreAttendu) {
+    throw new SauvegardeRefusee(
+      'pas-une-sauvegarde',
+      genreAttendu === LIGNE_PAQUET
+        ? 'Ce fichier est une sauvegarde Cyclades, pas un paquet de synchronisation. ' +
+          'Une sauvegarde se restaure depuis l’écran de progression ; elle ne se fusionne pas.'
+        : 'Ce fichier est un paquet de synchronisation, pas une sauvegarde. ' +
+          'Le restaurer remplacerait votre base par un fragment : il se fusionne, ' +
+          'depuis l’écran « Appareils et synchronisation ».',
     );
   }
   const second = octets.indexOf(sautLigne, premier + 1);
@@ -466,8 +516,8 @@ export interface Verification {
  * entier et ce qu'il annonce contenir. Il ne peut pas dire si le mot de passe
  * est le bon — cela demande de déchiffrer, donc d'appeler `relire`.
  */
-export async function verifier(octets: Octets): Promise<Verification> {
-  const entete = lireEnTete(octets);
+export async function verifier(octets: Octets, genreAttendu?: Genre): Promise<Verification> {
+  const entete = lireEnTete(octets, genreAttendu);
   const chargeUtile = octets.subarray(debutChargeUtile(octets));
   const somme = await sha256(chargeUtile);
   return {
@@ -492,8 +542,12 @@ export interface Relecture {
  * faite avant un changement de mot de passe s'ouvre avec l'ancien, et c'est le
  * cas normal, pas une exception.
  */
-export async function relire(octets: Octets, motDePasse?: string): Promise<Relecture> {
-  const { entete, intacte } = await verifier(octets);
+export async function relire(
+  octets: Octets,
+  motDePasse?: string,
+  genreAttendu?: Genre,
+): Promise<Relecture> {
+  const { entete, intacte } = await verifier(octets, genreAttendu);
   if (!intacte) {
     throw new SauvegardeRefusee(
       'somme-de-controle',

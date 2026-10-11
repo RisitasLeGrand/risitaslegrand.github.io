@@ -40,6 +40,7 @@
     "essais:synchronisation": "tsx scripts/essais-synchronisation.mts",
     "essais:journal-revisions": "tsx scripts/essais-journal-revisions.mts",
     "essais:fusion": "tsx scripts/essais-fusion.mts",
+    "essais:simulateur": "tsx scripts/essais-simulateur.mts",
     "essais:effacement:navigateur": "node scripts/essais-effacement-navigateur.mjs",
     "essais:correctifs": "node scripts/essais-correctifs.mjs",
     "essais:veridical": "tsx scripts/essais-veridical.mts",
