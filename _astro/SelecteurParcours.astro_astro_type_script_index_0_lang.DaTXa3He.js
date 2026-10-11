@@ -1,0 +1,1 @@
+import{a as e,n as t,t as n}from"./courant.mzQL3-EF.js";var r=document.getElementById(`selecteur-parcours`);r&&(r.value=t(),e.some(e=>e.id===r.value)||(r.value=n(r.value).id),r.addEventListener(`change`,()=>{n(r.value),location.reload()}));
