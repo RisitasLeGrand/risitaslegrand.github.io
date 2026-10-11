@@ -23,6 +23,8 @@ import {
   ecrireSeance,
   jourISO,
   toutesLesSeances,
+  ecrireNoteSeance,
+  lireNoteSeance,
   type Seance,
 } from './db';
 import { gagnerXp } from './gamification';
@@ -134,16 +136,43 @@ export async function seanceDuJour(jour = jourISO()): Promise<Seance> {
     jour,
     statut: 'prevue',
     secondes: 0,
-    note: '',
-    restitutions: {},
     etendue: estPremierDuMois(jour),
   };
 }
 
 /** Enregistre une séance en cours, sans la terminer. */
-export async function sauvegarder(seance: Seance): Promise<Seance> {
+/** Le texte d'une séance : ce que la personne a écrit, et rien d'autre. */
+export interface TexteDeSeance {
+  note: string;
+  restitutions: Record<string, string>;
+}
+
+const TEXTE_VIDE: TexteDeSeance = { note: '', restitutions: {} };
+
+/**
+ * Enregistre une séance et, s'il y en a, son texte.
+ *
+ * Le texte est un **second paramètre** et non un champ de la séance : il vit
+ * dans un autre magasin, parce qu'il pèse mille fois plus lourd que le reste et
+ * que presque aucune lecture n'en a besoin. Le faire passer par la signature
+ * évite qu'un appelant croie l'enregistrer en le glissant dans l'objet.
+ */
+export async function sauvegarder(seance: Seance, texte?: TexteDeSeance): Promise<Seance> {
   const id = await ecrireSeance(seance);
+  if (texte) await ecrireNoteSeance(id, texte.note, texte.restitutions);
   return { ...seance, id };
+}
+
+/** La séance d'un jour avec son texte, pour l'écran qui les montre ensemble. */
+export async function seanceEtTexte(
+  jour = jourISO(),
+): Promise<{ seance: Seance; texte: TexteDeSeance }> {
+  const seance = await seanceDuJour(jour);
+  const note = typeof seance.id === 'number' ? await lireNoteSeance(seance.id) : null;
+  return {
+    seance,
+    texte: note ? { note: note.note, restitutions: note.restitutions } : { ...TEXTE_VIDE },
+  };
 }
 
 /**
@@ -180,7 +209,11 @@ export interface ResultatSeance {
  * progression déjà en place — XP, série de jours, statistiques du jour. Aucun
  * compteur parallèle n'est tenu.
  */
-export async function terminer(seance: Seance, secondes: number): Promise<ResultatSeance> {
+export async function terminer(
+  seance: Seance,
+  secondes: number,
+  texte: TexteDeSeance = TEXTE_VIDE,
+): Promise<ResultatSeance> {
   const terminee: Seance = {
     ...seance,
     statut: 'terminee',
@@ -188,8 +221,9 @@ export async function terminer(seance: Seance, secondes: number): Promise<Result
     secondes: Math.max(seance.secondes, Math.round(secondes)),
   };
   const id = await ecrireSeance(terminee);
+  await ecrireNoteSeance(id, texte.note, texte.restitutions);
 
-  const gain = await gagnerXp(xpSeance(terminee), { secondes: terminee.secondes });
+  const gain = await gagnerXp(xpSeance(terminee, texte), { secondes: terminee.secondes });
   return { seance: { ...terminee, id }, xpGagne: gain.xpGagne, monteeDeNiveau: gain.monteeDeNiveau };
 }
 
@@ -198,9 +232,9 @@ export async function terminer(seance: Seance, secondes: number): Promise<Result
  * qu'elle a eu lieu, le reste récompense la restitution effective et la note
  * produite, qui sont le cœur de la méthode.
  */
-export function xpSeance(seance: Seance): number {
-  const restitutions = Object.values(seance.restitutions ?? {}).filter((t) => t.trim().length >= 80);
-  const note = seance.note.trim().length;
+export function xpSeance(seance: Seance, texte: TexteDeSeance = TEXTE_VIDE): number {
+  const restitutions = Object.values(texte.restitutions).filter((t) => t.trim().length >= 80);
+  const note = texte.note.trim().length;
   return (
     20 + // séance tenue
     restitutions.length * 8 + // chaque restitution à blanc réellement rédigée

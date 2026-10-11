@@ -187,11 +187,13 @@ import Base from '../../layouts/Base.astro';
     fichesDuTheme,
     rappels,
     sauvegarder,
-    seanceDuJour,
+    seanceEtTexte,
     terminer,
     theme as themeParId,
     xpSeance,
+    type TexteDeSeance,
   } from '../../lib/planification';
+  import { lireNotesSeances, type NoteSeance } from '../../lib/db';
 
   const $ = (id: string) => document.getElementById(id)!;
   const dateCourte = new Intl.DateTimeFormat('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
@@ -204,6 +206,17 @@ import Base from '../../layouts/Base.astro';
   const PLAFOND_JOURNAL = 12;
 
   let seance: Seance;
+  /** Le texte de la séance : chargé une fois, ici, et nulle part ailleurs. */
+  let texte: TexteDeSeance = { note: '', restitutions: {} };
+  /**
+   * Les notes des séances rappelées — deux à quatre, jamais plus.
+   *
+   * Elles sont chargées en une lecture juste avant de peindre les cartes de
+   * rappel. C'est tout le gain du magasin séparé : on lit les deux à quatre
+   * notes dont on a besoin, au lieu de l'historique entier pour en garder
+   * quatre.
+   */
+  let notesPassees = new Map<number, NoteSeance>();
   let secondes = 0;
   let minuterie: number | null = null;
 
@@ -238,7 +251,12 @@ import Base from '../../layouts/Base.astro';
 
   let sauvegardeEnAttente: number | null = null;
 
-  function collecter(): Seance {
+  /*
+   * Deux choses sont collectées séparément, parce qu'elles vivent dans deux
+   * magasins : l'enregistrement de séance, léger et relu sans arrêt, et son
+   * texte, lourd et lu seulement ici.
+   */
+  function collecter(): { seance: Seance; texte: TexteDeSeance } {
     const restitutions: Record<string, string> = {};
     for (const zone of document.querySelectorAll<HTMLTextAreaElement>('[data-restitution]')) {
       restitutions[zone.dataset.restitution!] = zone.value;
@@ -247,18 +265,17 @@ import Base from '../../layouts/Base.astro';
       (c) => c.dataset.fiche!,
     );
     return {
-      ...seance,
-      note: ($('note') as HTMLTextAreaElement).value,
-      restitutions,
-      fiches,
-      secondes: Math.max(seance.secondes, secondes),
+      seance: { ...seance, fiches, secondes: Math.max(seance.secondes, secondes) },
+      texte: { note: ($('note') as HTMLTextAreaElement).value, restitutions },
     };
   }
 
   async function sauvegarderBientot() {
     if (sauvegardeEnAttente !== null) clearTimeout(sauvegardeEnAttente);
     sauvegardeEnAttente = window.setTimeout(async () => {
-      seance = await sauvegarder(collecter());
+      const collecte = collecter();
+      seance = await sauvegarder(collecte.seance, collecte.texte);
+      texte = collecte.texte;
       $('etat-sauvegarde').textContent = 'Enregistré.';
     }, 800);
   }
@@ -267,7 +284,9 @@ import Base from '../../layouts/Base.astro';
 
   async function preparer() {
     const jour = parametreUrl('jour') ?? jourISO();
-    seance = await seanceDuJour(jour);
+    const charge = await seanceEtTexte(jour);
+    seance = charge.seance;
+    texte = charge.texte;
     secondes = seance.secondes;
     afficherMinuteur();
 
@@ -300,6 +319,9 @@ import Base from '../../layouts/Base.astro';
       zone.appendChild(vide);
       $('bloc-rappels').querySelector('h2')!.textContent = '1. Restitution à blanc — sans objet';
     } else {
+      notesPassees = await lireNotesSeances(
+        anterieures.map((s) => s.id).filter((id): id is number => typeof id === 'number'),
+      );
       anterieures.forEach((passee, index) => {
         const rang = anterieures.length - index; // la plus ancienne porte le plus grand n
         zone.appendChild(carteRappel(passee, rang));
@@ -420,7 +442,7 @@ import Base from '../../layouts/Base.astro';
 
     /* 4. Note de séance */
     const note = $('note') as HTMLTextAreaElement;
-    note.value = seance.note;
+    note.value = texte.note;
     poserAideDeNote();
     majCompteur();
     note.addEventListener('input', () => {
@@ -431,7 +453,9 @@ import Base from '../../layouts/Base.astro';
 
     $('bouton-minuteur').addEventListener('click', basculerMinuteur);
     $('enregistrer').addEventListener('click', async () => {
-      seance = await sauvegarder(collecter());
+      const collecte = collecter();
+      seance = await sauvegarder(collecte.seance, collecte.texte);
+      texte = collecte.texte;
       $('etat-sauvegarde').textContent = 'Séance enregistrée : vous pourrez la reprendre plus tard.';
     });
     $('terminer').addEventListener('click', cloturer);
@@ -460,7 +484,7 @@ import Base from '../../layouts/Base.astro';
     const zone = document.createElement('textarea');
     zone.rows = 6;
     zone.dataset.restitution = String(passee.id);
-    zone.value = seance.restitutions?.[String(passee.id)] ?? '';
+    zone.value = texte.restitutions[String(passee.id)] ?? '';
     zone.placeholder = 'Ce dont je me souviens, avec mes mots…';
     zone.className =
       'mt-3 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm leading-relaxed text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-indigo-900';
@@ -477,7 +501,9 @@ import Base from '../../layouts/Base.astro';
     const contenu = document.createElement('p');
     contenu.className =
       'texte-secable mt-3 text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-300';
-    contenu.textContent = passee.note.trim() || 'Aucune note n\'avait été rédigée lors de cette séance.';
+    contenu.textContent =
+      notesPassees.get(passee.id as number)?.note.trim() ||
+      'Aucune note n\'avait été rédigée lors de cette séance.';
     details.append(resume, contenu);
 
     bloc.append(entete, consigne, zone, details);
@@ -527,8 +553,10 @@ import Base from '../../layouts/Base.astro';
 
   async function cloturer() {
     if (minuterie !== null) basculerMinuteur();
-    const resultat = await terminer(collecter(), secondes);
+    const collecte = collecter();
+    const resultat = await terminer(collecte.seance, secondes, collecte.texte);
     seance = resultat.seance;
+    texte = collecte.texte;
 
     const bilan = $('bilan');
     bilan.textContent =
@@ -555,8 +583,8 @@ import Base from '../../layouts/Base.astro';
    */
   function poserAideDeNote() {
     const zone = $('aide-note');
-    const texte = ($('note') as HTMLTextAreaElement).value.trim();
-    const voulu = texte.length >= 40;
+    const saisie = ($('note') as HTMLTextAreaElement).value.trim();
+    const voulu = saisie.length >= 40;
     if (voulu === (zone.childElementCount > 0)) return;
     zone.replaceChildren();
     if (!voulu) return;
@@ -572,7 +600,7 @@ import Base from '../../layouts/Base.astro';
                   jour: seance.jour,
                   theme: themeParId(seance.theme)?.nom ?? seance.theme,
                   note: ($('note') as HTMLTextAreaElement).value,
-                  restitutions: seance.restitutions,
+                  restitutions: texte.restitutions,
                 },
               },
               options,

@@ -18,6 +18,7 @@
 import {
   lireEntreeJournal,
   toutesLesCompetences,
+  lireNotesSeances,
   toutesLesSeances,
   type EntreeJournal,
 } from '../../lib/db';
@@ -89,14 +90,23 @@ export function phraseDuJournal(e: EntreeJournal): string {
  */
 async function blocNotes(ficheId: string | undefined): Promise<Bloc[]> {
   if (!ficheId) return [];
-  const seances = (await toutesLesSeances()).filter(
-    (s) => s.note.trim() && s.fiches?.includes(ficheId),
+  /*
+   * Les séances sont filtrées sur leurs fiches **avant** que le texte soit lu :
+   * c'est tout l'intérêt d'avoir séparé les deux. Deux notes au plus sont
+   * ensuite chargées, au lieu de onze mégaoctets de prose pour en garder deux.
+   */
+  const candidates = (await toutesLesSeances()).filter((s) => s.fiches?.includes(ficheId));
+  if (!candidates.length) return [];
+  const dernieres = candidates.slice(-2);
+  const notes = await lireNotesSeances(
+    dernieres.map((s) => s.id).filter((id): id is number => typeof id === 'number'),
   );
-  if (!seances.length) return [];
-  const texte = seances
-    .slice(-2)
-    .map((s) => `Séance du ${s.jour} :\n${s.note.trim()}`)
+  const texte = dernieres
+    .map((s) => ({ jour: s.jour, note: notes.get(s.id as number)?.note?.trim() }))
+    .filter((x): x is { jour: string; note: string } => Boolean(x.note))
+    .map((x) => `Séance du ${x.jour} :\n${x.note}`)
     .join('\n\n');
+  if (!texte) return [];
   return bloc('Mes notes de séance sur cette fiche', texte, 5);
 }
 

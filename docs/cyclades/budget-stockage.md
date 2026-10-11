@@ -160,17 +160,63 @@ manquent pas.
 | `vmSeuils` | 16 Kio | **conserver** tel quel | Série temporelle d'une paire de dimensions ; le prompt l'exige explicitement |
 | `fiches`, `competences`, `qcmDgfip`, `aides`, `etat` | ~295 Kio | **conserver** | Volumes négligeables |
 
-## Budget visé
+## Budget visé, et ce qui a été obtenu
 
-| Grandeur | Aujourd'hui (5 ans simulés) | Visé après chantier |
-|---|---|---|
-| Occupation réelle | 9,12 Mio | **≤ 4 Mio** (notes et historiques compressés) |
-| Avec le journal FSRS | ~13 Mio | ≤ 6 Mio |
-| Balayage du magasin le plus lourd | 259 ms | **≤ 30 ms** |
-| Tableau de bord prêt | 2,25 s | **≤ 1 s** |
+| Grandeur | Avant | Visé | **Obtenu** |
+|---|---|---|---|
+| Occupation réelle | 9,12 Mio | ≤ 4 Mio | 9,22 Mio — *inchangé, voir plus bas* |
+| Balayage de `seances` | 259 ms | ≤ 30 ms | **15 ms** |
+| Tableau de bord prêt | 2,25 s | ≤ 1 s | **0,58 s** |
+| `/planification/` prêt | 1,54 s | — | **0,31 s** |
 
 Le budget d'octets est **secondaire** et je le dis franchement : il est tenu
-d'avance. Les deux lignes qui comptent sont les deux dernières.
+d'avance. Les deux lignes du milieu sont celles qui comptent.
+
+### Ce qu'a produit la séparation des notes
+
+Les notes de séance ont quitté l'enregistrement de séance pour un magasin
+`notes`, clé par identifiant de séance (base version 11, migration vérifiée au
+signe près par `npm run essais:migration:notes`).
+
+`seances` est passé de **11,60 Mio à 320 Kio**, et son balayage de **259 ms à
+15 ms** — dix-sept fois plus rapide. Le tableau de bord est passé de **2,25 s à
+0,58 s**, la planification de **1,54 s à 0,31 s**.
+
+`notes` coûte maintenant 407 ms à balayer, et **plus rien ne le balaye** : les
+écrans lisent les deux à quatre notes dont ils ont besoin, par leur clé.
+
+### Pourquoi l'occupation n'a pas bougé, et pourquoi c'est juste
+
+Les données n'ont pas rétréci, elles ont déménagé. 9,22 Mio au lieu de 9,12 —
+l'écart est le coût de la clé supplémentaire et du bruit de mesure.
+
+**Et la compression segmentée n'a plus de justification.** Les deux cibles de
+temps sont tenues sans elle. Elle réduirait l'occupation de 9,2 Mio à environ
+1,4 Mio, soit un gain de huit mégaoctets sur un quota qui se compte en
+gigaoctets, en échange d'un `CompressionStream`, d'un Web Worker, d'un cache de
+segments, d'une fenêtre récente à gérer, d'un index à tenir à jour et d'un
+comportement défini pour un segment corrompu.
+
+Je ne la recommande donc **pas** maintenant. Les conditions qui la
+justifieraient sont nommées, pour qu'on sache quand y revenir :
+
+- le journal des révisions FSRS est créé **et** l'occupation dépasse 50 Mio ;
+- ou `navigator.storage.estimate()` montre qu'on approche 70 % du quota réel ;
+- ou les branches Odyssée et Sport, mesurées, pèsent plus que Révisions.
+
+Le reste du chantier « durabilité » garde tout son sens et ne dépend pas d'elle :
+stockage persistant demandé et affiché, suivi de l'occupation, sommes de
+contrôle, comportement défini en cas de corruption.
+
+### Et la seconde correction n'a pas été nécessaire
+
+Le diagnostic prévoyait un second chantier : supprimer les quatre balayages
+redondants de `seances` par peinture. À 259 ms l'unité, ils coûtaient une
+seconde ; à 15 ms, ils coûtent soixante millisecondes. La faute reste une faute,
+mais la corriger demanderait de retoucher la planification, la rotation et la
+gamification pour un gain qui ne se verrait pas. **Elle est donc laissée en
+l'état, sciemment**, et ce paragraphe est là pour qu'on ne la redécouvre pas
+comme une négligence.
 
 ## Deux limites de cette mesure, à ne pas oublier
 

@@ -257,6 +257,7 @@ export function engendrer({ annees = HYPOTHESES.annees, graine = 1, hypotheses =
     jours: [],
     nback: [],
     seances: [],
+    notes: [],
     qcmDgfip: [],
     qcmSessions: [],
     relationnel: [],
@@ -472,6 +473,12 @@ export function engendrer({ annees = HYPOTHESES.annees, graine = 1, hypotheses =
     for (const ante of anterieures.slice(-combien)) {
       restitutions[String(ante)] = texte(r, entre(r, h.restitutionMin, h.restitutionMax));
     }
+    /*
+     * L'enregistrement de séance et son texte sont engendrés séparément, comme
+     * ils sont désormais stockés. Le générateur s'alignait sur l'ancien modèle,
+     * où la note vivait dans la séance ; il aurait mesuré un modèle qui n'existe
+     * plus.
+     */
     sortie.seances.push({
       id: idSeance,
       theme,
@@ -479,10 +486,14 @@ export function engendrer({ annees = HYPOTHESES.annees, graine = 1, hypotheses =
       statut: 'terminee',
       termineeLe: horodatage(r, jour),
       secondes: entre(r, 1800, 10800),
-      note: texte(r, entre(r, h.noteMin, h.noteMax)),
-      restitutions,
       fiches: Array.from({ length: entre(r, 1, 5) }, () => parmi(r, fiches)),
       etendue,
+    });
+    sortie.notes.push({
+      seanceId: idSeance,
+      note: texte(r, entre(r, h.noteMin, h.noteMax)),
+      restitutions,
+      majLe: horodatage(r, jour),
     });
     anterieures.push(idSeance);
     seancesParTheme.set(theme, anterieures);

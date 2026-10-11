@@ -296,10 +296,21 @@ export interface SessionVeridical {
 /**
  * Séance de révision planifiée.
  *
- * Une séance porte sur UN thème de planification et un jour donné. Les
- * restitutions « feuille blanche » sont conservées avec la séance : ce sont
- * elles, et non un décompte calendaire, qui servent à retrouver les séances
- * n-1 et n-2 d'une matière (voir src/lib/planification.ts).
+ * Une séance porte sur UN thème de planification et un jour donné. C'est elle,
+ * et non un décompte calendaire, qui sert à retrouver les séances n-1 et n-2
+ * d'une matière (voir src/lib/planification.ts).
+ *
+ * ## La note et les restitutions vivent ailleurs, et c'est mesuré
+ *
+ * Elles étaient dans cet objet. Une note de séance pèse une à deux pages, et
+ * ses restitutions autant : huit kilo-octets par séance, 11,6 Mio après cinq
+ * ans. Or presque toutes les lectures de ce magasin ne veulent que le thème, le
+ * jour et le statut — la rotation, le planning, l'historique, la série. Elles
+ * chargeaient onze mégaoctets de prose pour lire trois champs, et un balayage
+ * complet coûtait 259 ms, répété quatre fois par peinture du tableau de bord.
+ *
+ * Le texte vit donc dans le magasin `notes`, chargé à la demande. Les chiffres
+ * et la démonstration sont dans `docs/cyclades/budget-stockage.md`.
  */
 export interface Seance {
   id?: number;
@@ -310,13 +321,6 @@ export interface Seance {
   statut: 'prevue' | 'terminee';
   termineeLe?: string | null;
   secondes: number;
-  /** Note de séance rédigée par la personne (1 à 2 pages visées). */
-  note: string;
-  /**
-   * Restitutions à blanc des séances antérieures, indexées par l'identifiant
-   * de la séance restituée.
-   */
-  restitutions?: Record<string, string>;
   /**
    * Identifiants des fiches réellement couvertes pendant la séance.
    *
@@ -327,6 +331,31 @@ export interface Seance {
   fiches?: string[];
   /** Séance étendue du 1er du mois : rappel n-1 à n-4. */
   etendue: boolean;
+}
+
+/**
+ * La note de séance, et les restitutions à blanc qui l'accompagnent.
+ *
+ * Magasin à part, clé par l'identifiant de la séance. Un enregistrement n'existe
+ * que si quelque chose a été écrit : une séance sans note n'a pas de ligne ici,
+ * et c'est la bonne économie — la majorité des séances anciennes n'en auront
+ * jamais.
+ *
+ * `majLe` est la première date de dernière modification du modèle. Elle est
+ * posée ici parce que c'est ce que la fusion de deux appareils réclamera
+ * (`docs/cyclades/sauvegarde.md`), et parce qu'un texte rédigé est précisément
+ * la donnée qu'il ne faut pas écraser à l'aveugle.
+ */
+export interface NoteSeance {
+  seanceId: number;
+  /** Note de séance rédigée par la personne (1 à 2 pages visées). */
+  note: string;
+  /**
+   * Restitutions à blanc des séances antérieures, indexées par l'identifiant
+   * de la séance restituée.
+   */
+  restitutions: Record<string, string>;
+  majLe: string;
 }
 
 export interface Jour {
@@ -422,6 +451,7 @@ interface SchemaRevinsp extends DBSchema {
   jours: { key: string; value: Jour };
   nback: { key: number; value: SessionNBack; indexes: { le: string } };
   seances: { key: number; value: Seance; indexes: { jour: string; theme: string } };
+  notes: { key: number; value: NoteSeance };
   qcmDgfip: { key: string; value: EtatQuestionDgfip; indexes: { rubriqueId: string } };
   qcmSessions: { key: number; value: SessionDgfip; indexes: { le: string } };
   relationnel: { key: number; value: SessionRelationnelle; indexes: { le: string } };
@@ -431,7 +461,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 10;
+const VERSION = 11;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -508,6 +538,46 @@ export function db() {
         const aides = base.createObjectStore('aides', { keyPath: 'id', autoIncrement: true });
         aides.createIndex('le', 'le');
         aides.createIndex('itemId', 'itemId');
+      }
+      if (ancienneVersion < 11) {
+        /*
+         * Les notes de séance quittent l'enregistrement de séance.
+         *
+         * Le déplacement se fait ici, dans la transaction de migration, et non
+         * à la première lecture : une migration paresseuse aurait laissé deux
+         * formes coexister indéfiniment, et c'est le genre de dette qu'on
+         * découvre en lisant un champ absent trois mois plus tard.
+         *
+         * Rien n'est perdu et rien n'est inventé : une séance sans note ne
+         * crée pas de ligne dans `notes`, et une séance dont la note est vide
+         * n'en crée pas davantage.
+         */
+        base.createObjectStore('notes', { keyPath: 'seanceId' });
+
+        const seances = transaction.objectStore('seances');
+        const notes = transaction.objectStore('notes');
+        let curseur = await seances.openCursor();
+        const maintenant = new Date().toISOString();
+        while (curseur) {
+          const ancienne = curseur.value as Seance & {
+            note?: string;
+            restitutions?: Record<string, string>;
+          };
+          const { note, restitutions, ...sansTexte } = ancienne;
+          const aQuelqueChose =
+            Boolean(note?.trim()) ||
+            Object.values(restitutions ?? {}).some((r) => r.trim());
+          if (aQuelqueChose && typeof ancienne.id === 'number') {
+            await notes.put({
+              seanceId: ancienne.id,
+              note: note ?? '',
+              restitutions: restitutions ?? {},
+              majLe: maintenant,
+            });
+          }
+          await curseur.update(sansTexte as Seance);
+          curseur = await curseur.continue();
+        }
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -774,6 +844,73 @@ export async function toutesLesSeances(): Promise<Seance[]> {
   return seances.sort((a, b) => a.jour.localeCompare(b.jour) || (a.id ?? 0) - (b.id ?? 0));
 }
 
+/* --- Notes de séance ------------------------------------------------------ */
+
+/** La note d'une séance, ou `null` si rien n'y a été écrit. */
+export async function lireNoteSeance(seanceId: number): Promise<NoteSeance | null> {
+  return (await (await db()).get('notes', seanceId)) ?? null;
+}
+
+/**
+ * Écrit la note et les restitutions d'une séance.
+ *
+ * Une note vide **et** des restitutions vides suppriment l'enregistrement : il
+ * n'y a aucune raison de garder une ligne qui ne dit rien, et une ligne vide se
+ * confondrait avec « non encore rédigé » dans tous les décomptes.
+ */
+export async function ecrireNoteSeance(
+  seanceId: number,
+  note: string,
+  restitutions: Record<string, string> = {},
+) {
+  const base = await db();
+  const vide = !note.trim() && !Object.values(restitutions).some((r) => r.trim());
+  if (vide) {
+    await base.delete('notes', seanceId);
+    return;
+  }
+  await base.put('notes', { seanceId, note, restitutions, majLe: new Date().toISOString() });
+}
+
+/**
+ * Les notes de plusieurs séances, en une seule lecture.
+ *
+ * Pour les écrans qui en affichent un petit nombre — la restitution à blanc en
+ * montre deux à quatre. Une boucle de `lireNoteSeance` ouvrirait autant de
+ * transactions.
+ */
+export async function lireNotesSeances(
+  seanceIds: readonly number[],
+): Promise<Map<number, NoteSeance>> {
+  if (!seanceIds.length) return new Map();
+  const base = await db();
+  const tx = base.transaction('notes');
+  const trouvees = await Promise.all(seanceIds.map((id) => tx.store.get(id)));
+  await tx.done;
+  const sortie = new Map<number, NoteSeance>();
+  for (const note of trouvees) if (note) sortie.set(note.seanceId, note);
+  return sortie;
+}
+
+/**
+ * Le volume de texte rédigé par séance, sans charger le texte.
+ *
+ * Sert aux décomptes — « cette séance a-t-elle une note ? », « combien de
+ * signes ? » — que plusieurs écrans faisaient en chargeant les notes entières.
+ */
+export async function volumesDesNotes(): Promise<Map<number, { note: number; restitutions: number }>> {
+  const notes = await (await db()).getAll('notes');
+  return new Map(
+    notes.map((n) => [
+      n.seanceId,
+      {
+        note: n.note.trim().length,
+        restitutions: Object.values(n.restitutions).filter((r) => r.trim().length >= 80).length,
+      },
+    ]),
+  );
+}
+
 /**
  * Enregistre une demande d'aide.
  *
@@ -972,6 +1109,8 @@ export const MAGASINS_PROGRESSION = [
   'jours',
   'nback',
   'seances',
+  // Le texte des séances : séparé pour la vitesse, inséparable pour le sens.
+  'notes',
   'qcmDgfip',
   'qcmSessions',
   'relationnel',
