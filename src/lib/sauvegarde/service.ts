@@ -81,6 +81,22 @@ export async function fabriquer(motDePasse: string | null): Promise<ResultatSauv
 /** Note la réussite. À appeler **après** que le fichier est réellement parti. */
 export async function noterSauvegardeReussie(quand = new Date()) {
   await ecrireDerniereSauvegarde(quand.toISOString());
+  /*
+     Et on la déclare comme **fait**, pour que les autres appareils la voient.
+     Sans cela, chacun insiste séparément : on sauvegarde deux fois le même
+     jour, ou pas du tout en croyant que l'autre l'a fait. L'import est
+     dynamique parce que « sync/service » importe la sauvegarde ; à l'exécution,
+     ce module est entièrement initialisé.
+
+     Un échec ici n'annule pas la sauvegarde, qui a bien eu lieu : on perdrait
+     une ligne de registre pour avoir voulu la noter, ce qui serait absurde.
+  */
+  try {
+    const { declarerSauvegarde } = await import('../sync/service');
+    await declarerSauvegarde();
+  } catch (erreur) {
+    console.warn('Sauvegarde faite, mais non déclarée au registre partagé :', erreur);
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

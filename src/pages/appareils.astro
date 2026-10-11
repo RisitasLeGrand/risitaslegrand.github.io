@@ -28,28 +28,54 @@ import Base from '../layouts/Base.astro';
   <div id="chargement" class="py-20 text-center text-slate-400">Lecture de l’état…</div>
 
   <div id="ecran" class="hidden space-y-8">
-    <!-- ── Cet appareil ────────────────────────────────────────────────── -->
+    <!-- ── Les appareils ───────────────────────────────────────────────── -->
     <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-      <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Cet appareil</h2>
-      <dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
-        <div>
-          <dt class="text-slate-500 dark:text-slate-400">Identifiant</dt>
-          <dd id="appareil" class="font-mono font-medium text-slate-900 dark:text-white"></dd>
-        </div>
-        <div>
-          <dt class="text-slate-500 dark:text-slate-400">Empreinte d’état</dt>
-          <dd id="empreinte" class="font-mono font-medium text-slate-900 dark:text-white"></dd>
-        </div>
-        <div>
-          <dt class="text-slate-500 dark:text-slate-400">Journal</dt>
-          <dd id="volume" class="font-medium text-slate-900 dark:text-white"></dd>
-        </div>
-      </dl>
+      <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Vos appareils</h2>
+      <ul id="appareils" class="space-y-3"></ul>
       <p class="mt-4 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
-        L’empreinte se compare <strong>à l’œil</strong>, d’un écran à l’autre :
-        quatre groupes de quatre signes. Si les deux appareils affichent la même,
-        ils portent les mêmes données.
+        Les empreintes se comparent <strong>à l’œil</strong>, d’un écran à
+        l’autre : quatre groupes de quatre signes. Si deux appareils affichent la
+        même, ils portent les mêmes données. Celle d’un autre appareil est celle
+        qu’il annonçait la dernière fois qu’il a parlé à celui-ci — elle a pu
+        changer depuis.
       </p>
+      <div class="mt-4 flex flex-wrap items-end gap-3">
+        <label class="block text-sm">
+          <span class="mb-1 block text-slate-600 dark:text-slate-300">Nom de cet appareil</span>
+          <input
+            id="nom-appareil"
+            type="text"
+            placeholder="Ordinateur de bureau"
+            class="w-64 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+          />
+        </label>
+        <button
+          id="nommer"
+          class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-100 dark:hover:bg-slate-800"
+        >
+          Enregistrer ce nom
+        </button>
+      </div>
+      <p id="message-nom" class="mt-3 hidden text-sm"></p>
+      <p class="mt-3 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        Le nom <strong>voyage</strong> : l’autre appareil l’apprendra à la
+        prochaine synchronisation. Ce que chacun a vu de l’autre, en revanche,
+        reste chez lui — sinon le téléphone afficherait « vu il y a deux jours »
+        alors que c’est l’ordinateur qui l’a vu.
+      </p>
+    </section>
+
+    <!-- ── Sauvegardes partagées ───────────────────────────────────────── -->
+    <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+        Sauvegardes, tous appareils
+      </h2>
+      <p class="mb-4 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        La même liste des deux côtés. Sans elle, chaque appareil insiste
+        séparément : on sauvegarde deux fois le même jour, ou pas du tout en
+        croyant que l’autre l’a fait.
+      </p>
+      <ul id="sauvegardes" class="space-y-2 text-sm"></ul>
     </section>
 
     <!-- ── Envoyer ─────────────────────────────────────────────────────── -->
@@ -69,15 +95,6 @@ import Base from '../layouts/Base.astro';
             id="mdp-envoi"
             type="password"
             autocomplete="current-password"
-            class="w-64 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
-          />
-        </label>
-        <label class="block text-sm">
-          <span class="mb-1 block text-slate-600 dark:text-slate-300">Nom de cet appareil</span>
-          <input
-            id="nom-appareil"
-            type="text"
-            placeholder="Ordinateur de bureau"
             class="w-64 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
           />
         </label>
@@ -203,7 +220,6 @@ import Base from '../layouts/Base.astro';
 
 <script>
   import { auDeverrouillage } from '../lib/chargement';
-  import { lireAppareil } from '../lib/db';
   import { empreinteLisible } from '../lib/noyau/empreinte';
   import {
     annulable,
@@ -214,7 +230,10 @@ import Base from '../layouts/Base.astro';
     fabriquerPaquet,
     fusionnerPaquet,
     lotsRecus,
+    nommerAppareil,
     reconstruireEtatsDerives,
+    registreAppareils,
+    registreSauvegardes,
     type LotRecu,
   } from '../lib/sync/service';
   import { SauvegardeRefusee } from '../lib/sauvegarde/format';
@@ -244,16 +263,72 @@ import Base from '../layouts/Base.astro';
       .join('');
 
   async function peindreEtat() {
-    const [appareil, { lisible }, etat] = await Promise.all([
-      lireAppareil(),
+    const [{ lisible }, etat, registre, sauvegardes] = await Promise.all([
       empreinteLocale(),
       etatLocal(),
+      registreAppareils(),
+      registreSauvegardes(),
     ]);
-    $('appareil').textContent = appareil;
-    $('empreinte').textContent = lisible;
-    $('volume').textContent =
-      `${etat.operations.length.toLocaleString('fr-FR')} opérations, ` +
-      `${etat.revisions.length.toLocaleString('fr-FR')} révisions`;
+
+    $('appareils').innerHTML = registre
+      .map((app) => {
+        const titre = app.nom
+          ? `${app.nom}`
+          : app.soi
+            ? 'Cet appareil'
+            : 'Appareil sans nom';
+        const empreinte = app.soi
+          ? lisible
+          : app.empreinte
+            ? empreinteLisible(app.empreinte)
+            : '—';
+        const etatTexte = app.soi
+          ? `${etat.operations.length.toLocaleString('fr-FR')} opérations, ` +
+            `${etat.revisions.length.toLocaleString('fr-FR')} révisions`
+          : app.vuLe
+            ? `vu le ${new Date(app.vuLe).toLocaleString('fr-FR')}`
+            : 'jamais rencontré depuis cet appareil';
+        return (
+          `<li class="rounded-xl border p-3 ${
+            app.soi
+              ? 'border-indigo-300 bg-indigo-50/50 dark:border-indigo-800 dark:bg-indigo-950/30'
+              : 'border-slate-200 dark:border-slate-800'
+          }">` +
+          `<div class="flex flex-wrap items-baseline justify-between gap-2">` +
+          `<span class="font-medium text-slate-900 dark:text-white">${titre}` +
+          `${app.soi ? ' <span class="text-xs font-normal text-indigo-700 dark:text-indigo-300">(celui-ci)</span>' : ''}` +
+          `</span>` +
+          `<span class="font-mono text-sm text-slate-900 dark:text-white">${empreinte}</span>` +
+          `</div>` +
+          `<div class="mt-1 flex flex-wrap items-baseline justify-between gap-2 text-sm text-slate-500 dark:text-slate-400">` +
+          `<span class="font-mono">${app.id}</span><span>${etatTexte}</span>` +
+          `</div></li>`
+        );
+      })
+      .join('');
+
+    $('sauvegardes').innerHTML = sauvegardes.length
+      ? sauvegardes
+          .slice(0, 10)
+          .map((s) => {
+            const quand = s.le ? new Date(s.le).toLocaleString('fr-FR') : 'date inconnue';
+            const nom = registre.find((a) => a.id === s.appareil);
+            const qui = nom?.nom ?? s.appareil;
+            return (
+              `<li class="flex flex-wrap items-baseline justify-between gap-2 border-b border-slate-200 ` +
+              `pb-1 last:border-0 dark:border-slate-800">` +
+              `<span class="text-slate-900 dark:text-white">${quand}</span>` +
+              `<span class="text-slate-500 dark:text-slate-400">depuis ${qui}</span></li>`
+            );
+          })
+          .join('')
+      : '<li class="text-slate-500 dark:text-slate-400">Aucune sauvegarde déclarée. ' +
+        'Les sauvegardes faites avant cette version ne sont pas listées : elles n’étaient ' +
+        'pas encore déclarées au registre partagé.</li>';
+
+    const champ = $('nom-appareil') as HTMLInputElement;
+    const moi = registre.find((a) => a.soi);
+    if (moi?.nom && !champ.value) champ.value = moi.nom;
   }
 
   async function peindreLots() {
@@ -337,8 +412,10 @@ import Base from '../layouts/Base.astro';
       }
       dire('message-envoi', 'Fabrication du paquet…', 'neutre');
       try {
-        const nom = ($('nom-appareil') as HTMLInputElement).value.trim() || undefined;
-        const paquet = await fabriquerPaquet(mdp, { nomAppareil: nom });
+        /* Le nom vient du registre et non d'un champ de cette section : il est
+           déclaré une fois, et voyage comme un fait. */
+        const moi = (await registreAppareils()).find((a) => a.soi);
+        const paquet = await fabriquerPaquet(mdp, { nomAppareil: moi?.nom });
         const url = URL.createObjectURL(
           new Blob([paquet.octets], { type: 'application/octet-stream' }),
         );
@@ -356,6 +433,25 @@ import Base from '../layouts/Base.astro';
         );
       } catch (erreur) {
         dire('message-envoi', `Échec : ${(erreur as Error).message}`, 'echec');
+      }
+    });
+
+    $('nommer').addEventListener('click', async () => {
+      const nom = ($('nom-appareil') as HTMLInputElement).value.trim();
+      if (!nom) {
+        dire('message-nom', 'Donnez un nom : c’est lui qui distinguera les deux écrans.', 'echec');
+        return;
+      }
+      try {
+        await nommerAppareil(nom);
+        dire(
+          'message-nom',
+          `Nom enregistré. L’autre appareil l’apprendra à la prochaine synchronisation.`,
+          'succes',
+        );
+        await peindreEtat();
+      } catch (erreur) {
+        dire('message-nom', `Échec : ${(erreur as Error).message}`, 'echec');
       }
     });
 

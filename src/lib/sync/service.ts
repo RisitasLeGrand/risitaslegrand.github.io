@@ -34,9 +34,19 @@ import { annulerLot, fusionner, type Reglages } from '../noyau/fusion';
 import { normaliserJournal } from '../noyau/fusion';
 import { empreinte, empreinteLisible } from '../noyau/empreinte';
 import { ulid } from '../noyau/ulid';
-import { SANS_LOT } from '../noyau/operations';
+import { operation, SANS_LOT } from '../noyau/operations';
+import { decoderHlc } from '../noyau/hlc';
+import {
+  appareilsConnus,
+  noterObservation,
+  sauvegardesDeclarees,
+  TYPE_NOM_APPAREIL,
+  TYPE_SAUVEGARDE,
+  type AppareilConnu,
+  type SauvegardeDeclaree,
+} from './appareils';
 import { recalculerCarte } from '../srs';
-import { absorberHlc, horlogeCourante } from './horloge-locale';
+import { absorberHlc, horlogeCourante, prochaineHlc } from './horloge-locale';
 import {
   apercu as apercuPaquetBrut,
   fabriquer,
@@ -273,6 +283,20 @@ export async function fusionnerPaquet(
     });
   }
 
+  /*
+     Ce qu'on vient d'apprendre de l'émetteur est noté **localement** : son nom
+     annoncé, l'empreinte qu'il affichait, et jusqu'où va la tranche qu'il nous
+     a envoyée — ce qui borne ce qu'on aura à lui renvoyer. Ce sont des
+     observations, vraies de cet appareil-ci seulement, et les partager ferait
+     dire au téléphone « vu il y a deux jours » alors que c'est l'ordinateur qui
+     l'a vu.
+  */
+  await noterObservation(ouvert.metadonnees.appareil, {
+    vuLe: new Date().toISOString(),
+    empreinte: ouvert.metadonnees.empreinte,
+    nomAnnonce: ouvert.metadonnees.nomAppareil,
+  });
+
   const { complete } = await empreinteLocale();
   return {
     lot,
@@ -287,6 +311,69 @@ export async function fusionnerPaquet(
     empreinte: complete,
     empreinteDistante: ouvert.metadonnees.empreinte,
   };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Écrire un fait local
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Enregistre un fait dans le journal des opérations.
+ *
+ * C'est la porte par laquelle tout ce qui doit voyager entre dans le journal :
+ * identifiant stable, horloge logique prise à la file, appareil émetteur, lot
+ * vide — une saisie locale n'a été reçue de personne, et l'annulation d'une
+ * fusion ne doit pas pouvoir l'emporter.
+ */
+export async function enregistrerFait(
+  type: string,
+  cible: string,
+  charge: unknown,
+): Promise<Operation> {
+  const op = operation({
+    id: ulid(),
+    appareil: await lireAppareil(),
+    hlc: decoderHlc(await prochaineHlc()),
+    type,
+    cible,
+    charge,
+  });
+  await (await db()).put('operations', op);
+  return op;
+}
+
+/** Nomme un appareil. Le nom est un fait : il voyage. */
+export async function nommerAppareil(nom: string, appareil?: string): Promise<void> {
+  const cible = appareil ?? (await lireAppareil());
+  await enregistrerFait(TYPE_NOM_APPAREIL, cible, { nom: nom.trim() });
+}
+
+/**
+ * Déclare une sauvegarde réussie, de sorte que les deux appareils la voient.
+ *
+ * La maquette l'exige — « la même liste sur les deux appareils » — et ce n'est
+ * pas un confort : sans elle, chaque appareil insiste séparément, et on
+ * sauvegarde deux fois ou pas du tout. `couvertJusqua` dit **ce qui est
+ * protégé**, là où une simple date dit seulement quand on s'en est occupé.
+ */
+export async function declarerSauvegarde(couvertJusqua?: string): Promise<void> {
+  const quand = new Date().toISOString();
+  await enregistrerFait(TYPE_SAUVEGARDE, `sauvegarde:${quand}`, {
+    le: quand,
+    couvertJusqua: couvertJusqua ?? (await horlogeCourante()),
+  });
+}
+
+/** Le registre d'appareils, faits partagés et observations locales réunis. */
+export async function registreAppareils(): Promise<AppareilConnu[]> {
+  const { operations } = await etatLocal();
+  return appareilsConnus(operations, await lireAppareil());
+}
+
+/** Les sauvegardes déclarées par n'importe quel appareil. */
+export async function registreSauvegardes(): Promise<SauvegardeDeclaree[]> {
+  const { operations } = await etatLocal();
+  return sauvegardesDeclarees(operations);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -410,7 +497,7 @@ export async function reconstruireEtatsDerives(): Promise<RapportReconstruction>
   let sansJournal = 0;
   // Les cartes du journal, y compris celles qui n'ont pas encore
   // d'enregistrement — c'est le cas d'une carte reçue d'un autre appareil.
-  for (const [carteId, entrees] of parCarte) {
+  for (const entrees of parCarte.values()) {
     const etat = recalculerCarte(entrees);
     if (!etat) continue;
     await ecrireCarte(etat);

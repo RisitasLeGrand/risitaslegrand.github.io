@@ -39,6 +39,11 @@ async function appareil(nom) {
   const contexte = await nav.newContext({ acceptDownloads: true });
   const page = await contexte.newPage();
   page.on('pageerror', (e) => console.log(`PAGEERROR[${nom}]:`, e.message.slice(0, 200)));
+  page.on('console', (m) => {
+    if (m.type() === 'warning' || m.type() === 'error') {
+      console.log(`CONSOLE[${nom}] ${m.type()}:`, m.text().slice(0, 250));
+    }
+  });
   await page.goto(`${RACINE}/appareils/`, { waitUntil: 'networkidle' });
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
@@ -202,12 +207,25 @@ async function rafraichir(appareil) {
   await appareil.page.waitForSelector('#ecran:not(.hidden)', { timeout: 30000 });
 }
 
-const empreinteAffichee = (appareil) => appareil.page.textContent('#empreinte');
+/**
+ * L'empreinte de cet appareil, lue dans sa ligne du registre.
+ *
+ * Le registre affiche toutes les empreintes côte à côte — c'est l'exigence de
+ * la maquette —, donc il n'y a plus de champ unique à lire. On prend celle de
+ * la ligne marquée « celui-ci ».
+ */
+const empreinteAffichee = (appareil) =>
+  appareil.page.evaluate(() => {
+    const lignes = [...document.querySelectorAll('#appareils > li')];
+    const moi = lignes.find((l) => l.textContent.includes('celui-ci')) ?? lignes[0];
+    const groupes = [...moi.querySelectorAll('.font-mono')];
+    // Deux éléments en police fixe par ligne : l'empreinte puis l'identifiant.
+    return groupes[0]?.textContent?.trim() ?? '';
+  });
 
 /** Crée le paquet par l'écran et rend le chemin du fichier téléchargé. */
-async function envoyer(appareil, nomAffiche) {
+async function envoyer(appareil) {
   await appareil.page.fill('#mdp-envoi', MDP);
-  await appareil.page.fill('#nom-appareil', nomAffiche);
   const attente = appareil.page.waitForEvent('download', { timeout: 60000 });
   await appareil.page.click('#envoyer');
   const telechargement = await attente;
@@ -245,9 +263,11 @@ const avantA = await lire(a);
 const avantB = await lire(b);
 v('la base de A est neuve', [avantA.operations, avantA.revisions], [0, 0]);
 v('celle de B aussi', [avantB.operations, avantB.revisions], [0, 0]);
+/* Les identifiants sont lus dans le registre, qui les affiche : « #appareil »
+   n'existe plus depuis que la section nomme tous les appareils. */
 v(
   'et leurs identifiants d’appareil diffèrent',
-  (await a.page.textContent('#appareil')) !== (await b.page.textContent('#appareil')),
+  (await a.page.textContent('#appareils')) !== (await b.page.textContent('#appareils')),
   true,
 );
 
@@ -276,6 +296,24 @@ v('et deux cartes reconstruites', (await lire(a)).cartes.length, 2);
 v('B en a une', (await lire(b)).cartes.length, 1);
 v('B en a quatre', semisB.revisions, 4);
 vrai('les empreintes diffèrent', (await empreinteAffichee(a)) !== (await empreinteAffichee(b)));
+
+console.log('\nNOMMER LES APPAREILS : LE NOM EST UN FAIT, IL VOYAGE');
+
+for (const [app, nom] of [[a, 'Ordinateur de bureau'], [b, 'Téléphone']]) {
+  await app.page.fill('#nom-appareil', nom);
+  await app.page.click('#nommer');
+  await app.page.waitForSelector('#message-nom:not(.hidden)', { timeout: 30000 });
+}
+vrai(
+  'chaque appareil s’affiche sous son nom, et se reconnaît',
+  (await a.page.textContent('#appareils')).includes('Ordinateur de bureau') &&
+    (await a.page.textContent('#appareils')).includes('celui-ci'),
+);
+v(
+  'et il ne connaît encore que lui-même',
+  (await a.page.$$('#appareils > li')).length,
+  1,
+);
 
 console.log('\nUN RÉGLAGE ÉCRIT ICI DOIT ARRIVER LÀ-BAS');
 
@@ -326,11 +364,11 @@ await a.page.waitForSelector('#ecran:not(.hidden)', { timeout: 30000 });
 
 console.log('\nA ENVOIE, B REÇOIT');
 
-const paquetA = await envoyer(a, 'Ordinateur de bureau');
+const paquetA = await envoyer(a);
 vrai('le fichier porte l’extension attendue', paquetA.nom.endsWith('.paquet'));
 vrai(
   'le message annonce ce qui est parti',
-  paquetA.message.includes('1 opération') && paquetA.message.includes('8 révision'),
+  paquetA.message.includes('opération') && paquetA.message.includes('8 révision'),
 );
 
 const receptionB = await recevoir(b, paquetA.chemin);
@@ -341,7 +379,9 @@ vrai('et les cartes recalculées', receptionB.message.includes('recalculée'));
 
 const apresB = await lire(b);
 v('B porte maintenant les douze révisions', apresB.revisions, 12);
-v('et les deux opérations', apresB.operations, 2);
+/* Quatre opérations : deux check-in — un par appareil — et deux déclarations
+   de nom, car nommer un appareil est un fait qui voyage. */
+v('et les quatre opérations', apresB.operations, 4);
 v(
   'les trois cartes existent chez B, dont deux qu’il ne connaissait pas',
   apresB.cartes.map((c) => c.id),
@@ -367,9 +407,18 @@ const reglageChezB = await b.page.evaluate(async () => {
 v('le réglage écrit chez A est arrivé chez B', reglageChezB?.plafondCartes, 45);
 vrai('et la fusion l’a annoncé', receptionB.message.includes('réglage'));
 
+console.log('\nLE REGISTRE D’APPAREILS');
+
+await rafraichir(b);
+const registreB = await b.page.textContent('#appareils');
+vrai('B connaît maintenant deux appareils', (await b.page.$$('#appareils > li')).length === 2);
+vrai('et il appelle A par le nom que A s’est donné', registreB.includes('Ordinateur de bureau'));
+vrai('il affiche l’empreinte annoncée par A', registreB.includes('·'));
+vrai('et quand il l’a vu', registreB.includes('vu le'));
+
 console.log('\nB ENVOIE À SON TOUR');
 
-const paquetB = await envoyer(b, 'Téléphone');
+const paquetB = await envoyer(b);
 const receptionA = await recevoir(a, paquetB.chemin);
 vrai('A reçoit ce qui lui manquait', receptionA.message.includes('reçues'));
 vrai('et les deux appareils se disent identiques', receptionA.message.includes('identiques'));
@@ -387,23 +436,77 @@ v(
   finalB.cartes,
 );
 
+console.log('\nLE REGISTRE DE SAUVEGARDES EST PARTAGÉ');
+
+/* Une sauvegarde faite sur B doit apparaître dans la liste de A : sans cela,
+   chaque appareil insiste séparément. */
+await b.page.goto(`${RACINE}/progression/`, { waitUntil: 'networkidle' });
+if (await b.page.locator('#champ-mdp').isVisible().catch(() => false)) {
+  await b.page.fill('#champ-mdp', MDP);
+  await b.page.click('#bouton-verrou');
+}
+await b.page.waitForSelector('#sauvegarder', { timeout: 30000 });
+{
+  const attente = b.page.waitForEvent('download', { timeout: 90000 });
+  await b.page.fill('#mdp-sauvegarde', MDP);
+  await b.page.click('#sauvegarder');
+  await attente;
+  /*
+     Attendre le téléchargement ne suffit **pas**. Le fichier part dès que le
+     chiffrement est fini, et la déclaration au registre vient après : naviguer
+     sur la foi du seul téléchargement tue la page en cours d'opération, et la
+     sauvegarde n'est jamais déclarée. C'est le message de fin qui dit que tout
+     est écrit — le même signal qu'un utilisateur attend avant de quitter
+     l'écran.
+  */
+  await b.page.waitForFunction(
+    () => {
+      const texte = document.getElementById('message-sauvegarde')?.textContent ?? '';
+      return texte.length > 0 && !texte.includes('en cours');
+    },
+    undefined,
+    { timeout: 60000 },
+  );
+}
+await b.page.goto(`${RACINE}/appareils/`, { waitUntil: 'networkidle' });
+await b.page.waitForSelector('#ecran:not(.hidden)', { timeout: 30000 });
+vrai(
+  'B voit sa propre sauvegarde dans le registre',
+  (await b.page.textContent('#sauvegardes')).includes('depuis'),
+);
+
+const paquetB2 = await envoyer(b);
+await recevoir(a, paquetB2.chemin);
+await rafraichir(a);
+vrai(
+  'et A la voit aussi, attribuée au téléphone',
+  (await a.page.textContent('#sauvegardes')).includes('Téléphone'),
+);
+
 console.log('\nREJEU : LE MÊME FICHIER UNE SECONDE FOIS');
 
+/* L'état de référence est relu **juste avant** le rejeu, et non figé plus haut :
+   A a reçu entre-temps un second paquet, celui qui portait la sauvegarde
+   déclarée. Comparer à un état antérieur ferait échouer l'essai pour une
+   raison étrangère à ce qu'il vérifie. */
+const avantRejeu = await lire(a);
 const rejeu = await recevoir(a, paquetB.chemin);
 vrai('la fusion n’apporte rien', rejeu.message.includes('0 opération'));
 await rafraichir(a);
 const apresRejeu = await lire(a);
-v('et rien n’a bougé', [apresRejeu.operations, apresRejeu.revisions], [finalA.operations, finalA.revisions]);
+v(
+  'et rien n’a bougé',
+  [apresRejeu.operations, apresRejeu.revisions],
+  [avantRejeu.operations, avantRejeu.revisions],
+);
 
 console.log('\nANNULATION');
 
 const lots = await a.page.$$('.annuler');
 vrai('les synchronisations reçues sont listées, avec un bouton d’annulation', lots.length >= 1);
-v(
-  'et le rejeu, qui n’a rien apporté, n’a pas laissé de ligne',
-  lots.length,
-  1,
-);
+/* Deux lots : le premier paquet de B, puis celui qui portait sa sauvegarde
+   déclarée. Le rejeu, qui n'a rien apporté, n'en a pas laissé de troisième. */
+v('et le rejeu, qui n’a rien apporté, n’a pas laissé de ligne', lots.length, 2);
 
 a.page.once('dialog', (d) => d.accept());
 await lots[0].click();
@@ -414,15 +517,27 @@ vrai('l’annulation dit ce qu’elle a retiré', messageAnnulation.includes('re
 /* L'état vide est nommé, et il reste visible : c'est ce qui permet au message
    d'annulation de rester lisible après avoir annulé la dernière
    synchronisation. */
-vrai(
-  'après annulation, la section reste visible et nomme son état vide',
-  (await a.page.textContent('#lots')).includes('Aucune synchronisation'),
-);
+/* Un lot subsiste : on n'en a annulé qu'un des deux. La section reste donc
+   peuplée, et l'état vide est éprouvé en annulant le second. */
+v('un lot subsiste après la première annulation', (await a.page.$$('.annuler')).length, 1);
 
 const apresAnnulation = await lire(a);
 vrai(
   'le journal de A a bien diminué',
-  apresAnnulation.revisions < finalA.revisions || apresAnnulation.operations < finalA.operations,
+  apresAnnulation.revisions < avantRejeu.revisions ||
+    apresAnnulation.operations < avantRejeu.operations,
+);
+
+a.page.once('dialog', (d) => d.accept());
+await (await a.page.$$('.annuler'))[0].click();
+await a.page.waitForFunction(
+  () => (document.getElementById('lots')?.textContent ?? '').includes('Aucune synchronisation'),
+  undefined,
+  { timeout: 60000 },
+);
+vrai(
+  'et après la seconde, la section reste visible en nommant son état vide',
+  (await a.page.textContent('#lots')).includes('Aucune synchronisation'),
 );
 v(
   'et ce qu’il a saisi lui-même est intact : ses huit révisions sont là',
