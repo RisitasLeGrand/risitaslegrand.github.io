@@ -39,7 +39,8 @@
     "essais:assistant:reseau": "node scripts/essais-assistant-reseau.mjs",
     "essais:parcours": "tsx scripts/essais-parcours.mts",
     "essais:secret": "node scripts/essais-secret.mjs",
-    "essais:sauvegarde": "node scripts/essais-sauvegarde.mjs"
+    "essais:sauvegarde": "node scripts/essais-sauvegarde.mjs",
+    "bench-storage": "node scripts/bench-storage.mjs"
   },
   "repository": {
     "type": "git",
