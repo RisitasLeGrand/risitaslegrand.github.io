@@ -21,6 +21,17 @@ const RACINE = 'http://localhost:4321';
 const VERSION = Number(
   /const VERSION = (\d+)/.exec(readFileSync('src/lib/db.ts', 'utf8'))?.[1] ?? '0',
 );
+
+/*
+   La version de départ est **fixe**, et c'est voulu. Cet essai porte sur la
+   migration 13, celle qui remplace les clés auto-incrémentées par des ULID :
+   il doit donc partir de la 12, quelle que soit la version courante. Il
+   utilisait « VERSION - 1 », ce qui a cessé d'avoir un sens dès la migration
+   suivante — la base était semée en 13, la migration 13 ne s'exécutait plus, et
+   l'essai échouait en annonçant que les clés ne sont pas des ULID. Ce qui était
+   vrai, et n'avait rien à voir avec ce qu'il vérifie.
+*/
+const AVANT_ULID = 12;
 const ULID = /^[0-9A-HJKMNP-TV-Z]{26}$/;
 
 const nav = await chromium.launch({
@@ -74,7 +85,7 @@ const AIDES = [
   { id: 1, le: '2026-01-05T17:30:00.000Z', provenance: '/fiche/f-a', itemId: 'q-1', intention: 'expliquer' },
 ];
 
-console.log(`\nFABRICATION D’UNE BASE VERSION ${VERSION - 1}`);
+console.log(`\nFABRICATION D’UNE BASE VERSION ${AVANT_ULID}`);
 
 await page.goto(`${RACINE}/robots.txt`, { waitUntil: 'load' });
 const depart = await page.evaluate(
@@ -137,9 +148,9 @@ const depart = await page.evaluate(
     base.close();
     return sortie;
   },
-  [SEANCES, NOTES, QUIZ, AIDES, VERSION - 1],
+  [SEANCES, NOTES, QUIZ, AIDES, AVANT_ULID],
 );
-v(`base de départ en version ${VERSION - 1}`, depart.version, VERSION - 1);
+v(`base de départ en version ${AVANT_ULID}`, depart.version, AVANT_ULID);
 
 console.log('\nL’APPLICATION MIGRE');
 

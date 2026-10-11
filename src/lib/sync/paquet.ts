@@ -79,6 +79,14 @@ export const VERSION_PAQUET = 1;
 
 export interface OptionsDeFabrication extends MetadonneesDePaquet {
   contenu: ContenuDePaquet;
+  /**
+   * Des magasins supplémentaires, transportés tels quels.
+   *
+   * Le journal de révisions passe par là. Le format de sauvegarde ne connaît
+   * aucune liste de magasins — c'est précisément ce qui permet de l'étendre
+   * sans le modifier, et donc sans toucher à la chaîne de chiffrement.
+   */
+  magasinsEnPlus?: Record<string, unknown[]>;
   motDePasse: string;
   versionApplication: string;
   iterations?: number;
@@ -122,6 +130,7 @@ export async function fabriquer(options: OptionsDeFabrication): Promise<Paquet> 
   const sauvegarde = await ecrire({
     genre: LIGNE_PAQUET,
     magasins: {
+      ...options.magasinsEnPlus,
       operations: contenu.operations,
       // Les réglages sont un dictionnaire, pas une liste : on l'enveloppe dans
       // un tableau d'un élément plutôt que d'inventer une seconde forme de
@@ -187,6 +196,8 @@ export async function apercu(octets: Octets): Promise<Apercu> {
 export interface PaquetOuvert {
   metadonnees: MetadonneesDePaquet & { versionPaquet: number };
   contenu: ContenuDePaquet;
+  /** Les magasins transportés en plus — le journal de révisions, notamment. */
+  magasinsEnPlus: Record<string, unknown[]>;
   /** Lignes que la relecture n'a pas su interpréter. Zéro en temps normal. */
   lignesIllisibles: number;
 }
@@ -227,7 +238,13 @@ export async function ouvrir(
   const { magasins, lignesIllisibles } = await relire(octets, motDePasse, LIGNE_PAQUET);
   const operations = (magasins.operations ?? []) as Operation[];
   const reglages = ((magasins.reglages ?? [])[0] ?? {}) as Reglages;
-  return { metadonnees, contenu: { operations, reglages }, lignesIllisibles };
+  const { operations: _o, reglages: _r, ...enPlus } = magasins;
+  return {
+    metadonnees,
+    contenu: { operations, reglages },
+    magasinsEnPlus: enPlus,
+    lignesIllisibles,
+  };
 }
 
 /** Le nom d'un paquet enregistré sur disque, pour le transport manuel. */

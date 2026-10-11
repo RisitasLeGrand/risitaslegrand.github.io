@@ -1,0 +1,470 @@
+---
+/**
+ * Page « Appareils et synchronisation ».
+ *
+ * Phase 3a : le **transport manuel**, et lui seul. Le plan le met en premier
+ * pour une raison précise — il éprouve le moteur de fusion sans qu'un bogue de
+ * réseau puisse être confondu avec un bogue de fusion. L'appairage par QR, la
+ * liaison directe et le registre d'appareils viennent après ; cet écran le dit
+ * plutôt que de laisser croire qu'il est incomplet par négligence.
+ *
+ * Trois choses y sont vraies, et la maquette les exigeait toutes les trois :
+ * l'empreinte est affichée en permanence, l'aperçu annonce les conflits
+ * **avant** la fusion, et l'annulation est offerte sept jours.
+ */
+import Base from '../layouts/Base.astro';
+---
+
+<Base titre="Appareils et synchronisation" actif="progression">
+  <h1 class="mb-2 text-2xl font-bold text-slate-900 dark:text-white">
+    Appareils et synchronisation
+  </h1>
+  <p class="mb-8 max-w-3xl text-slate-600 dark:text-slate-300">
+    Utiliser Cyclades sur deux appareils, en transportant un fichier de l’un à
+    l’autre. <strong>Ce n’est pas une sauvegarde</strong> : la synchronisation
+    propage aussi les erreurs et les suppressions. Continuez à sauvegarder.
+  </p>
+
+  <div id="chargement" class="py-20 text-center text-slate-400">Lecture de l’état…</div>
+
+  <div id="ecran" class="hidden space-y-8">
+    <!-- ── Cet appareil ────────────────────────────────────────────────── -->
+    <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Cet appareil</h2>
+      <dl class="grid grid-cols-1 gap-3 text-sm sm:grid-cols-3">
+        <div>
+          <dt class="text-slate-500 dark:text-slate-400">Identifiant</dt>
+          <dd id="appareil" class="font-mono font-medium text-slate-900 dark:text-white"></dd>
+        </div>
+        <div>
+          <dt class="text-slate-500 dark:text-slate-400">Empreinte d’état</dt>
+          <dd id="empreinte" class="font-mono font-medium text-slate-900 dark:text-white"></dd>
+        </div>
+        <div>
+          <dt class="text-slate-500 dark:text-slate-400">Journal</dt>
+          <dd id="volume" class="font-medium text-slate-900 dark:text-white"></dd>
+        </div>
+      </dl>
+      <p class="mt-4 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        L’empreinte se compare <strong>à l’œil</strong>, d’un écran à l’autre :
+        quatre groupes de quatre signes. Si les deux appareils affichent la même,
+        ils portent les mêmes données.
+      </p>
+    </section>
+
+    <!-- ── Envoyer ─────────────────────────────────────────────────────── -->
+    <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+        1. Envoyer depuis cet appareil
+      </h2>
+      <p class="mb-4 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        Un fichier chiffré avec le mot de passe du site. Transportez-le comme
+        vous voulez — clé USB, partage de fichiers, messagerie : son contenu
+        n’est lisible qu’avec votre mot de passe.
+      </p>
+      <div class="flex flex-wrap items-end gap-3">
+        <label class="block text-sm">
+          <span class="mb-1 block text-slate-600 dark:text-slate-300">Mot de passe du site</span>
+          <input
+            id="mdp-envoi"
+            type="password"
+            autocomplete="current-password"
+            class="w-64 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+          />
+        </label>
+        <label class="block text-sm">
+          <span class="mb-1 block text-slate-600 dark:text-slate-300">Nom de cet appareil</span>
+          <input
+            id="nom-appareil"
+            type="text"
+            placeholder="Ordinateur de bureau"
+            class="w-64 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+          />
+        </label>
+        <button
+          id="envoyer"
+          class="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700"
+        >
+          Créer le paquet
+        </button>
+      </div>
+      <p id="message-envoi" class="mt-3 hidden text-sm"></p>
+    </section>
+
+    <!-- ── Recevoir ────────────────────────────────────────────────────── -->
+    <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+        2. Recevoir sur cet appareil
+      </h2>
+      <p class="mb-4 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        Choisissez le paquet venu de l’autre appareil. Vous verrez ce qu’il
+        contient <strong>avant</strong> de fusionner, et la fusion restera
+        annulable sept jours.
+      </p>
+      <div class="flex flex-wrap items-end gap-3">
+        <input
+          id="fichier"
+          type="file"
+          accept=".paquet,application/octet-stream"
+          class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+        />
+      </div>
+
+      <div id="apercu" class="mt-4 hidden rounded-xl border border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-950">
+        <h3 class="mb-3 font-medium text-slate-900 dark:text-white">Avant de fusionner</h3>
+        <dl id="apercu-detail" class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-4"></dl>
+        <p id="apercu-avertissement" class="mt-3 hidden text-sm"></p>
+        <div class="mt-4 flex flex-wrap items-end gap-3">
+          <label class="block text-sm">
+            <span class="mb-1 block text-slate-600 dark:text-slate-300">Mot de passe du site</span>
+            <input
+              id="mdp-fusion"
+              type="password"
+              autocomplete="current-password"
+              class="w-64 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+            />
+          </label>
+          <button
+            id="fusionner"
+            class="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700"
+          >
+            Fusionner
+          </button>
+        </div>
+      </div>
+      <p id="message-fusion" class="mt-3 hidden text-sm"></p>
+    </section>
+
+    <!-- ── Historique et annulation ────────────────────────────────────── -->
+    <section
+      id="historique"
+      class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+    >
+      <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+        Synchronisations reçues
+      </h2>
+      <p class="mb-4 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        Annuler retire les opérations de cette synchronisation, <strong>et elles
+        seules</strong>. Ce que vous avez saisi ici depuis n’est pas touché.
+        L’autre appareil les garde : elles reviendront à la prochaine
+        synchronisation si vous ne les refusez pas aussi là-bas.
+      </p>
+      <ul id="lots" class="space-y-3 text-sm"></ul>
+      <p id="message-annulation" class="mt-3 hidden text-sm"></p>
+    </section>
+
+    <!-- ── Reconstruire ────────────────────────────────────────────────── -->
+    <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+        Reconstruire les échéances
+      </h2>
+      <p class="mb-4 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        Recalcule l’état de toutes vos flashcards à partir du journal de
+        révisions. Le journal est la vérité ; l’état n’en est qu’un résumé. À
+        faire si une échéance vous paraît fausse — c’est sans danger, et le
+        relancer deux fois donne le même résultat.
+      </p>
+      <button
+        id="reconstruire"
+        class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-100 dark:hover:bg-slate-800"
+      >
+        Reconstruire depuis le journal
+      </button>
+      <p id="message-reconstruction" class="mt-3 hidden text-sm"></p>
+    </section>
+
+    <!-- ── Ce qui n'est pas encore là ──────────────────────────────────── -->
+    <section class="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-950">
+      <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+        Ce qui n’est pas encore là
+      </h2>
+      <ul class="max-w-3xl list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
+        <li>
+          L’appairage par QR et la liaison directe entre deux appareils ouverts
+          en même temps. Le transport par fichier vient d’abord, parce qu’il
+          éprouve la fusion sans qu’un incident de réseau puisse être pris pour
+          un incident de fusion.
+        </li>
+        <li>
+          Les <strong>réglages</strong> — rotation hebdomadaire, plafonds de
+          session, parcours courant — ne sont pas encore transportés. Ils vivent
+          dans la base sans horloge par champ ; les y faire passer est le travail
+          de la phase suivante. Un paquet transporte aujourd’hui les faits et les
+          révisions, qui sont le cœur.
+        </li>
+        <li>
+          Le registre d’appareils, les sauvegardes partagées, et la
+          synchronisation automatique sur un ordinateur certifié.
+        </li>
+      </ul>
+    </section>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../lib/chargement';
+  import { lireAppareil } from '../lib/db';
+  import { empreinteLisible } from '../lib/noyau/empreinte';
+  import {
+    annulable,
+    annulerFusion,
+    apercuPaquet,
+    empreinteLocale,
+    etatLocal,
+    fabriquerPaquet,
+    fusionnerPaquet,
+    lotsRecus,
+    reconstruireEtatsDerives,
+    type LotRecu,
+  } from '../lib/sync/service';
+  import { SauvegardeRefusee } from '../lib/sauvegarde/format';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  function dire(id: string, texte: string, ton: 'succes' | 'echec' | 'neutre') {
+    const e = $(id);
+    e.textContent = texte;
+    e.className = `mt-3 text-sm ${
+      ton === 'succes'
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : ton === 'echec'
+          ? 'text-amber-600 dark:text-amber-400'
+          : 'text-slate-500 dark:text-slate-400'
+    }`;
+    e.classList.remove('hidden');
+  }
+
+  const definitions = (lignes: [string, string][]) =>
+    lignes
+      .map(
+        ([terme, valeur]) =>
+          `<div><dt class="text-slate-500 dark:text-slate-400">${terme}</dt>` +
+          `<dd class="font-medium text-slate-900 dark:text-white">${valeur}</dd></div>`,
+      )
+      .join('');
+
+  async function peindreEtat() {
+    const [appareil, { lisible }, etat] = await Promise.all([
+      lireAppareil(),
+      empreinteLocale(),
+      etatLocal(),
+    ]);
+    $('appareil').textContent = appareil;
+    $('empreinte').textContent = lisible;
+    $('volume').textContent =
+      `${etat.operations.length.toLocaleString('fr-FR')} opérations, ` +
+      `${etat.revisions.length.toLocaleString('fr-FR')} révisions`;
+  }
+
+  async function peindreLots() {
+    const lots = await lotsRecus();
+    /*
+       La section reste **toujours** visible, même sans aucune synchronisation.
+       Elle se masquait quand la liste était vide, et annuler la dernière
+       synchronisation faisait donc disparaître la section — avec elle, le
+       message qui confirmait l'annulation. On cliquait, tout s'évanouissait, et
+       plus rien ne disait si cela avait marché. Un état vide nommé vaut mieux
+       qu'une section qui s'escamote.
+    */
+    $('historique').classList.remove('hidden');
+    if (!lots.length) {
+      $('lots').innerHTML =
+        '<li class="text-slate-500 dark:text-slate-400">Aucune synchronisation reçue sur ' +
+        'cet appareil.</li>';
+      return;
+    }
+    $('lots').innerHTML = lots
+      .map((lot) => {
+        const quand = new Date(lot.le).toLocaleString('fr-FR');
+        const venu = lot.nomAppareil ?? lot.appareil;
+        const encore = annulable(lot);
+        const bouton = encore
+          ? `<button data-lot="${lot.lot}" class="annuler rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 transition hover:bg-red-100 dark:border-red-800 dark:bg-transparent dark:text-red-300">Annuler</button>`
+          : '<span class="text-slate-400">Plus annulable</span>';
+        return (
+          `<li class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800">` +
+          `<span>Le ${quand}, de « ${venu} » : ${lot.operations} opération(s), ` +
+          `${lot.revisions} révision(s), ${lot.cartes.length} carte(s) recalculée(s).</span>` +
+          `${bouton}</li>`
+        );
+      })
+      .join('');
+
+    for (const bouton of document.querySelectorAll<HTMLButtonElement>('.annuler')) {
+      bouton.addEventListener('click', async () => {
+        const lot = bouton.dataset.lot!;
+        const details = (await lotsRecus()).find((l) => l.lot === lot) as LotRecu;
+        const confirme = window.confirm(
+          `Annuler la synchronisation du ${new Date(details.le).toLocaleString('fr-FR')} ?\n\n` +
+            `Seront retirées ${details.operations} opération(s) et ${details.revisions} ` +
+            `révision(s) reçues dans cette synchronisation, et elles seules. ` +
+            `${details.cartes.length} carte(s) seront recalculées.\n\n` +
+            `Ce que vous avez saisi ici depuis n’est pas touché.`,
+        );
+        if (!confirme) return;
+        bouton.disabled = true;
+        try {
+          const rapport = await annulerFusion(lot);
+          dire(
+            'message-annulation',
+            `Annulée : ${rapport.retirees} opération(s) et ${rapport.revisionsRetirees} ` +
+              `révision(s) retirées, ${rapport.cartesRecalculees} carte(s) recalculée(s).`,
+            'succes',
+          );
+          await peindreEtat();
+          await peindreLots();
+        } catch (erreur) {
+          bouton.disabled = false;
+          dire('message-annulation', `Annulation impossible : ${(erreur as Error).message}`, 'echec');
+        }
+      });
+    }
+  }
+
+  let octetsRecus: Uint8Array | null = null;
+
+  auDeverrouillage(async () => {
+    await peindreEtat();
+    await peindreLots();
+    $('chargement').classList.add('hidden');
+    $('ecran').classList.remove('hidden');
+
+    $('envoyer').addEventListener('click', async () => {
+      const mdp = ($('mdp-envoi') as HTMLInputElement).value;
+      if (!mdp) {
+        dire('message-envoi', 'Le mot de passe est nécessaire : un paquet n’est jamais en clair.', 'echec');
+        return;
+      }
+      dire('message-envoi', 'Fabrication du paquet…', 'neutre');
+      try {
+        const nom = ($('nom-appareil') as HTMLInputElement).value.trim() || undefined;
+        const paquet = await fabriquerPaquet(mdp, { nomAppareil: nom });
+        const url = URL.createObjectURL(
+          new Blob([paquet.octets], { type: 'application/octet-stream' }),
+        );
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = paquet.nom;
+        a.click();
+        URL.revokeObjectURL(url);
+        ($('mdp-envoi') as HTMLInputElement).value = '';
+        dire(
+          'message-envoi',
+          `Paquet créé : ${paquet.operations} opération(s), ${paquet.revisions} révision(s), ` +
+            `${(paquet.tailleFichier / 1024).toFixed(1)} Kio. Transportez-le sur l’autre appareil.`,
+          'succes',
+        );
+      } catch (erreur) {
+        dire('message-envoi', `Échec : ${(erreur as Error).message}`, 'echec');
+      }
+    });
+
+    $('reconstruire').addEventListener('click', async () => {
+      const bouton = $('reconstruire') as HTMLButtonElement;
+      bouton.disabled = true;
+      dire('message-reconstruction', 'Recalcul en cours…', 'neutre');
+      try {
+        const rapport = await reconstruireEtatsDerives();
+        dire(
+          'message-reconstruction',
+          `${rapport.cartes} carte(s) recalculée(s) depuis le journal.` +
+            (rapport.sansJournal
+              ? ` ${rapport.sansJournal} carte(s) n’ont pas d’entrée au journal : leur état est ` +
+                'laissé tel quel, parce qu’on ne sait pas le reconstituer.'
+              : ''),
+          'succes',
+        );
+        await peindreEtat();
+      } catch (erreur) {
+        dire('message-reconstruction', `Échec : ${(erreur as Error).message}`, 'echec');
+      } finally {
+        bouton.disabled = false;
+      }
+    });
+
+    $('fichier').addEventListener('change', async (evenement) => {
+      const fichier = (evenement.target as HTMLInputElement).files?.[0];
+      $('apercu').classList.add('hidden');
+      $('message-fusion').classList.add('hidden');
+      if (!fichier) return;
+      try {
+        octetsRecus = new Uint8Array(await fichier.arrayBuffer());
+        const vu = await apercuPaquet(octetsRecus);
+        const { complete } = await empreinteLocale();
+        $('apercu-detail').innerHTML = definitions([
+          ['Venu de', vu.metadonnees.nomAppareil ?? vu.metadonnees.appareil],
+          ['Empreinte annoncée', empreinteLisible(vu.metadonnees.empreinte)],
+          ['Taille', `${(vu.tailleFichier / 1024).toFixed(1)} Kio`],
+          ['Intégrité', vu.intact ? 'intact ✓' : 'abîmé'],
+        ]);
+        const avertissements: string[] = [];
+        if (!vu.intact) {
+          avertissements.push(
+            'Ce fichier est incomplet ou abîmé : sa somme de contrôle ne correspond pas. ' +
+              'La fusion sera refusée.',
+          );
+        }
+        if (vu.metadonnees.empreinte === complete) {
+          avertissements.push(
+            'Les empreintes sont déjà identiques : ce paquet n’apporte rien, et le fusionner ' +
+              'ne changera rien. C’est sans danger.',
+          );
+        }
+        if (avertissements.length) {
+          dire('apercu-avertissement', avertissements.join(' '), vu.intact ? 'neutre' : 'echec');
+        } else {
+          $('apercu-avertissement').classList.add('hidden');
+        }
+        $('apercu').classList.remove('hidden');
+      } catch (erreur) {
+        const motif = erreur instanceof SauvegardeRefusee ? ` (${erreur.motif})` : '';
+        dire('message-fusion', `Ce fichier n’est pas un paquet Cyclades${motif}.`, 'echec');
+      }
+    });
+
+    $('fusionner').addEventListener('click', async () => {
+      if (!octetsRecus) return;
+      const mdp = ($('mdp-fusion') as HTMLInputElement).value;
+      if (!mdp) {
+        dire('message-fusion', 'Le mot de passe du site est nécessaire pour déchiffrer le paquet.', 'echec');
+        return;
+      }
+      const bouton = $('fusionner') as HTMLButtonElement;
+      bouton.disabled = true;
+      dire('message-fusion', 'Fusion en cours…', 'neutre');
+      try {
+        const rapport = await fusionnerPaquet(octetsRecus, mdp);
+        ($('mdp-fusion') as HTMLInputElement).value = '';
+        const parties = [
+          `${rapport.recues} opération(s) et ${rapport.revisionsRecues} révision(s) reçues`,
+          `${rapport.cartesRecalculees} carte(s) recalculée(s)`,
+        ];
+        if (rapport.conflits) parties.push(`${rapport.conflits} conflit(s) à traiter`);
+        if (rapport.collisions) {
+          parties.push(
+            `${rapport.collisions} collision(s) d’identifiants — ce paquet est peut-être abîmé`,
+          );
+        }
+        parties.push(
+          rapport.identiques
+            ? 'les deux appareils sont désormais identiques ✓'
+            : 'les empreintes diffèrent encore : envoyez aussi un paquet depuis cet appareil',
+        );
+        dire('message-fusion', `${parties.join(' ; ')}.`, 'succes');
+        await peindreEtat();
+        await peindreLots();
+      } catch (erreur) {
+        const motif = erreur instanceof SauvegardeRefusee ? erreur.motif : null;
+        dire(
+          'message-fusion',
+          motif === 'mot-de-passe'
+            ? 'Mot de passe incorrect : rien n’a été fusionné.'
+            : `Fusion refusée : ${(erreur as Error).message}`,
+          'echec',
+        );
+      } finally {
+        bouton.disabled = false;
+      }
+    });
+  });
+</script>

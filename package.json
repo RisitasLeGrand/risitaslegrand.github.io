@@ -33,6 +33,7 @@
     "essais:migration:journal": "node scripts/essais-migration-journal.mjs",
     "essais:migration:ulid": "node scripts/essais-migration-ulid.mjs",
     "essais:instantane": "node scripts/essais-instantane.mjs",
+    "essais:transport": "node scripts/essais-transport-fichier.mjs",
     "essais:stockage": "node scripts/essais-stockage.mjs",
     "essais:effacement": "tsx scripts/essais-effacement.mts",
     "essais:jour-logique": "tsx scripts/essais-jour-logique.mts",

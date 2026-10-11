@@ -37,7 +37,13 @@
  * figées à la fabrication, et les essais de propriétés qui les éprouvent plutôt
  * que de se fier à ce raisonnement.
  */
-import { comparerOperations, SANS_LOT, type Operation } from './operations';
+import {
+  comparerJournalisables,
+  comparerOperations,
+  SANS_LOT,
+  type Journalisable,
+  type Operation,
+} from './operations';
 import { typeDeFait } from './faits';
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -221,13 +227,13 @@ export interface EtatSynchronisable {
 export interface Collision {
   id: string;
   /** Les versions rencontrées, dédoublonnées par contenu. */
-  versions: readonly Operation[];
+  versions: readonly Journalisable[];
   /** Celle que la fusion retient, par un choix déterministe des deux côtés. */
-  retenue: Operation;
+  retenue: Journalisable;
 }
 
-export interface JournalNormalise {
-  operations: readonly Operation[];
+export interface JournalNormalise<T extends Journalisable = Operation> {
+  operations: readonly T[];
   collisions: readonly Collision[];
 }
 
@@ -250,15 +256,17 @@ export interface JournalNormalise {
  * convergent, et que la collision soit **signalée** plutôt que résorbée en
  * silence.
  */
-export function normaliserJournal(operations: Iterable<Operation>): JournalNormalise {
-  const parId = new Map<string, Operation[]>();
+export function normaliserJournal<T extends Journalisable>(
+  operations: Iterable<T>,
+): JournalNormalise<T> {
+  const parId = new Map<string, T[]>();
   for (const op of operations) {
     const groupe = parId.get(op.id);
     if (groupe) groupe.push(op);
     else parId.set(op.id, [op]);
   }
 
-  const retenues: Operation[] = [];
+  const retenues: T[] = [];
   const collisions: Collision[] = [];
   for (const [id, groupe] of parId) {
     if (groupe.length === 1) {
@@ -268,9 +276,8 @@ export function normaliserJournal(operations: Iterable<Operation>): JournalNorma
     // Le lot est exclu de la comparaison : il dit comment une opération est
     // arrivée, ce qui diffère légitimement d'un appareil à l'autre et ne fait
     // donc pas de deux copies un conflit.
-    const empreinteDe = (o: Operation) =>
-      serialiserStable({ ...o, lot: undefined });
-    const distinctes = new Map<string, Operation>();
+    const empreinteDe = (o: T) => serialiserStable({ ...o, lot: undefined });
+    const distinctes = new Map<string, T>();
     for (const o of groupe) if (!distinctes.has(empreinteDe(o))) distinctes.set(empreinteDe(o), o);
     const formes = [...distinctes.keys()].sort();
     const retenue = distinctes.get(formes[0])!;
@@ -280,7 +287,7 @@ export function normaliserJournal(operations: Iterable<Operation>): JournalNorma
     }
   }
   return {
-    operations: retenues.sort(comparerOperations),
+    operations: retenues.sort(comparerJournalisables),
     collisions: collisions.sort((a, b) => (a.id < b.id ? -1 : 1)),
   };
 }

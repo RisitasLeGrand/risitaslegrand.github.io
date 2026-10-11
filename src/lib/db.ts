@@ -537,7 +537,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 13;
+const VERSION = 14;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -748,8 +748,26 @@ function ouvrirAuSchema(nom: string, version: number) {
         const prochainId = fabriqueUlid();
         const cartes = transaction.objectStore('cartes');
         let carte = await cartes.openCursor();
+        /*
+           L'horloge logique d'un socle est **dérivée de sa propre date** et non
+           tirée de l'horloge vivante. Deux raisons. La migration tourne dans une
+           transaction « versionchange », où attendre une écriture dans un autre
+           magasin la ferait valider d'office. Et surtout : un socle décrit un
+           état constitué au fil des mois ; lui donner l'instant de la migration
+           le placerait après des révisions qui l'ont précédé.
+        */
+        let compteurSocle = 0;
         while (carte) {
-          await revisions.put(socleDe(carte.value, prochainId(), appareil));
+          const date = Date.parse(
+            carte.value.derniereRevision ?? carte.value.fsrs.last_review ?? carte.value.fsrs.due,
+          );
+          const ms = Number.isFinite(date) ? date : Date.now();
+          const hlc = `${String(ms).padStart(15, '0')}-${(compteurSocle % (36 ** 4))
+            .toString(36)
+            .toUpperCase()
+            .padStart(4, '0')}`;
+          compteurSocle += 1;
+          await revisions.put(socleDe(carte.value, prochainId(), appareil, hlc));
           carte = await carte.continue();
         }
       }
@@ -890,6 +908,46 @@ function ouvrirAuSchema(nom: string, version: number) {
             seanceId: nouvellesSeances.get(ancienne) ?? orphelines(),
             restitutions,
           } as unknown as Record<string, unknown>);
+        }
+      }
+      if (vers(14)) {
+        /*
+         * Le journal de révisions devient journalisable.
+         *
+         * Il a été créé à la version 12, avant que celui des opérations
+         * n'existe, et il portait donc sa propre forme : un identifiant, une
+         * date ISO, un appareil — mais ni horloge logique, ni lot. Deux journaux
+         * de formes différentes auraient voulu dire deux règles de fusion, deux
+         * empreintes et deux politiques de rétention ; cette migration les
+         * ramène à une seule.
+         *
+         * L'horloge est **dérivée de la date de chaque entrée**, et non tirée de
+         * l'horloge vivante. Une entrée de l'an dernier doit porter l'instant
+         * logique de l'an dernier, sans quoi elle se rangerait après des
+         * révisions qu'elle a précédées, et le recalcul FSRS en sortirait faux.
+         */
+        const revisions = transaction.objectStore('revisions');
+        let curseur = await revisions.openCursor();
+        let rang = 0;
+        while (curseur) {
+          const entree = curseur.value as EntreeRevision & {
+            hlc?: string;
+            lot?: string;
+          };
+          if (!entree.hlc) {
+            const date = Date.parse(entree.le);
+            const ms = Number.isFinite(date) ? date : Date.now();
+            // Le compteur départage deux entrées de même milliseconde, ce qui
+            // arrive dans une rafale de révisions.
+            const compteur = (rang % 36 ** 4).toString(36).toUpperCase().padStart(4, '0');
+            await curseur.update({
+              ...entree,
+              hlc: `${String(ms).padStart(15, '0')}-${compteur}`,
+              lot: entree.lot ?? '',
+            });
+          }
+          rang += 1;
+          curseur = await curseur.continue();
         }
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {

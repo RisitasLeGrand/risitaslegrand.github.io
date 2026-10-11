@@ -73,12 +73,35 @@ export interface Operation {
   charge: unknown;
 }
 
+/**
+ * Ce qu'il faut pour être fusionné, et rien de plus.
+ *
+ * Cyclades a deux journaux : les opérations, et les révisions FSRS — ce dernier
+ * né à la phase 1b, avant que le premier n'existe. Deux journaux voudraient dire
+ * deux règles de fusion, deux empreintes, deux politiques de rétention, et donc
+ * deux occasions de se tromper au lieu d'une.
+ *
+ * Cette interface est la réponse : la règle de fusion ne connaît que ces quatre
+ * champs, et tout ce qui les porte se fusionne à l'identique. Le journal de
+ * révisions garde alors son index par carte — qui rend le recalcul bon marché —
+ * sans devenir un second modèle.
+ */
+export interface Journalisable {
+  id: string;
+  hlc: string;
+  appareil: string;
+  lot: string;
+}
+
 /** L'ordre total de fusion. Voir le plan, § 1.2. */
-export function comparerOperations(a: Operation, b: Operation): number {
+export function comparerJournalisables(a: Journalisable, b: Journalisable): number {
   if (a.hlc !== b.hlc) return a.hlc < b.hlc ? -1 : 1;
   if (a.appareil !== b.appareil) return a.appareil < b.appareil ? -1 : 1;
   return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
 }
+
+/** Le même ordre, nommé pour les opérations, qui en sont l'usage principal. */
+export const comparerOperations = comparerJournalisables;
 
 export interface Ebauche {
   id: string;

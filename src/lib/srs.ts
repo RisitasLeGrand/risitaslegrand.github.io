@@ -37,6 +37,8 @@ import {
 } from './db';
 import { recalculer, type EntreeRevision } from './noyau/revisions';
 import { ulid } from './noyau/ulid';
+import { SANS_LOT } from './noyau/operations';
+import { prochaineHlc } from './sync/horloge-locale';
 
 const ordonnanceur = fsrs(generatorParameters({ enable_short_term: false }));
 
@@ -152,6 +154,11 @@ export async function noterEtEnregistrer(
     matiere,
     le: instant.toISOString(),
     appareil: await lireAppareil(),
+    // L'horloge logique vient de la file de « sync/horloge-locale.ts » : deux
+    // révisions notées dans la même rafale doivent porter deux instants
+    // logiques distincts, sans quoi leur ordre de causalité est perdu.
+    hlc: await prochaineHlc(),
+    lot: SANS_LOT,
     note,
   });
   const misAJour = noter({ ...existante, ficheId, matiere }, note, instant);
