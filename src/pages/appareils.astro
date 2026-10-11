@@ -180,6 +180,61 @@ import Base from '../layouts/Base.astro';
       <p id="message-fusion" class="mt-3 hidden text-sm"></p>
     </section>
 
+    <!-- ── Dossier partagé ─────────────────────────────────────────────── -->
+    <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+        3. Dossier partagé, sans aucun geste
+      </h2>
+      <p class="mb-4 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        Choisissez un dossier une fois : Cyclades y déposera ses paquets et y
+        lira ceux de l’autre appareil. C’est le seul transport qui n’exige
+        <strong>pas</strong> que les deux appareils soient ouverts en même temps.
+        Si le dossier est synchronisé par un service de fichiers, celui-ci ne
+        voit passer que du chiffré — comme GitHub Pages.
+      </p>
+      <p id="dossier-indisponible" class="mb-4 hidden max-w-3xl text-sm text-amber-600 dark:text-amber-400"></p>
+      <div id="dossier-actions" class="hidden">
+        <dl id="dossier-etat" class="mb-4 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3"></dl>
+        <div class="flex flex-wrap items-end gap-3">
+          <label class="block text-sm">
+            <span class="mb-1 block text-slate-600 dark:text-slate-300">Mot de passe du site</span>
+            <input
+              id="mdp-dossier"
+              type="password"
+              autocomplete="current-password"
+              class="w-56 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+            />
+          </label>
+          <button
+            id="choisir-dossier"
+            class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-100 dark:hover:bg-slate-800"
+          >
+            Choisir le dossier
+          </button>
+          <button
+            id="autoriser-dossier"
+            class="hidden rounded-lg bg-amber-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-amber-700"
+          >
+            Autoriser l’accès
+          </button>
+          <button
+            id="deposer"
+            class="hidden rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700"
+          >
+            Déposer un paquet
+          </button>
+          <button
+            id="oublier-dossier"
+            class="hidden rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-100 dark:hover:bg-slate-800"
+          >
+            Oublier ce dossier
+          </button>
+        </div>
+        <ul id="paquets-dossier" class="mt-4 space-y-2 text-sm"></ul>
+      </div>
+      <p id="message-dossier" class="mt-3 hidden text-sm"></p>
+    </section>
+
     <!-- ── Conflits à traiter ──────────────────────────────────────────── -->
     <section
       id="conflits"
@@ -298,6 +353,21 @@ import Base from '../layouts/Base.astro';
     type LotRecu,
   } from '../lib/sync/service';
   import { SauvegardeRefusee } from '../lib/sauvegarde/format';
+  import { lireAppareil } from '../lib/db';
+  import {
+    autorisation,
+    choisirDossier,
+    deposer,
+    disponible as dossierDisponible,
+    dossierMemorise,
+    DossierRefuse,
+    lirePaquet,
+    memoriserDossier,
+    nettoyer,
+    oublierDossier,
+    paquetsDisponibles,
+    redemanderAutorisation,
+  } from '../lib/sync/dossier';
 
   const $ = (id: string) => document.getElementById(id)!;
 
@@ -572,6 +642,196 @@ import Base from '../layouts/Base.astro';
     await peindreConflits();
     await peindreLots();
     $('chargement').classList.add('hidden');
+    /* ══════════════════════════════════════════════════════════════════
+       Le dossier partagé
+       ══════════════════════════════════════════════════════════════════ */
+
+    let dossier: Awaited<ReturnType<typeof dossierMemorise>> = null;
+
+    const mdpDossier = () => ($('mdp-dossier') as HTMLInputElement).value;
+
+    async function peindreDossier() {
+      if (!dossierDisponible()) {
+        $('dossier-indisponible').textContent =
+          'Ce navigateur ne sait pas mémoriser un dossier : c’est le cas de Firefox, de Safari ' +
+          'et de tous les navigateurs de téléphone. Utilisez la liaison directe ou le fichier.';
+        $('dossier-indisponible').classList.remove('hidden');
+        return;
+      }
+      $('dossier-actions').classList.remove('hidden');
+      const present = Boolean(dossier);
+      $('oublier-dossier').classList.toggle('hidden', !present);
+      $('deposer').classList.toggle('hidden', !present);
+      ($('choisir-dossier') as HTMLButtonElement).textContent = present
+        ? 'Changer de dossier'
+        : 'Choisir le dossier';
+
+      if (!dossier) {
+        $('dossier-etat').innerHTML = definitions([['Dossier', 'aucun']]);
+        $('autoriser-dossier').classList.add('hidden');
+        $('paquets-dossier').innerHTML = '';
+        return;
+      }
+
+      const droit = await autorisation(dossier);
+      $('autoriser-dossier').classList.toggle('hidden', droit === 'accordee');
+      $('dossier-etat').innerHTML = definitions([
+        ['Dossier', dossier.name],
+        [
+          'Accès',
+          droit === 'accordee'
+            ? 'accordé'
+            : droit === 'refusee'
+              ? 'refusé'
+              : 'à redemander d’un clic',
+        ],
+      ]);
+
+      if (droit !== 'accordee') {
+        $('paquets-dossier').innerHTML =
+          '<li class="text-slate-500 dark:text-slate-400">Autorisez l’accès pour voir les ' +
+          'paquets déposés.</li>';
+        return;
+      }
+
+      const moi = await lireAppareil();
+      const paquets = await paquetsDisponibles(dossier, moi);
+      $('paquets-dossier').innerHTML = paquets.length
+        ? paquets
+            .map(
+              (p) =>
+                `<li class="flex flex-wrap items-center justify-between gap-3 rounded-lg border ` +
+                `border-slate-200 p-3 dark:border-slate-700">` +
+                `<span><span class="font-medium text-slate-900 dark:text-white">${p.appareil}</span>` +
+                ` — ${new Date(p.modifie).toLocaleString('fr-FR')}, ` +
+                `${Math.round(p.taille / 1024)} Kio</span>` +
+                `<button class="fusionner-dossier rounded-lg bg-indigo-600 px-3 py-2 text-xs ` +
+                `font-medium text-white" data-nom="${p.nom}">Fusionner</button></li>`,
+            )
+            .join('')
+        : '<li class="text-slate-500 dark:text-slate-400">Aucun paquet déposé par un autre ' +
+          'appareil dans ce dossier.</li>';
+
+      for (const bouton of document.querySelectorAll<HTMLButtonElement>('.fusionner-dossier')) {
+        bouton.addEventListener('click', () => void fusionnerDepuisDossier(bouton.dataset.nom!));
+      }
+    }
+
+    function direDossier(erreur: unknown) {
+      dire(
+        'message-dossier',
+        erreur instanceof DossierRefuse
+          ? erreur.message
+          : erreur instanceof FusionRefusee
+            ? `Fusion refusée, rien n’a été écrit. ${erreur.diagnostic.message}`
+            : erreur instanceof SauvegardeRefusee && erreur.motif === 'mot-de-passe'
+              ? 'Mot de passe incorrect : rien n’a été fusionné.'
+              : `Échec : ${(erreur as Error).message}`,
+        'echec',
+      );
+    }
+
+    $('choisir-dossier').addEventListener('click', async () => {
+      try {
+        const choisi = await choisirDossier();
+        await memoriserDossier(choisi);
+        dossier = await dossierMemorise();
+        /*
+           Repeindre **avant** d'annoncer. L'inverse écrit « dossier mémorisé »
+           alors que la liste des paquets n'est pas encore là : l'écran dit que
+           c'est fini quand ce n'est pas fini, et c'est exactement ce qu'un essai
+           a pris pour un dossier vide.
+        */
+        await peindreDossier();
+        dire('message-dossier', `Dossier « ${choisi.name} » mémorisé.`, 'succes');
+      } catch (erreur) {
+        direDossier(erreur);
+      }
+    });
+
+    $('autoriser-dossier').addEventListener('click', async () => {
+      if (!dossier) return;
+      const droit = await redemanderAutorisation(dossier);
+      await peindreDossier();
+      dire(
+        'message-dossier',
+        droit === 'accordee'
+          ? 'Accès accordé.'
+          : 'Accès toujours refusé : choisissez à nouveau le dossier.',
+        droit === 'accordee' ? 'succes' : 'echec',
+      );
+    });
+
+    $('deposer').addEventListener('click', async () => {
+      if (!dossier) return;
+      const mdp = mdpDossier();
+      if (!mdp) {
+        dire('message-dossier', 'Le mot de passe du site est nécessaire pour chiffrer le paquet.', 'echec');
+        return;
+      }
+      const bouton = $('deposer') as HTMLButtonElement;
+      bouton.disabled = true;
+      try {
+        const paquet = await fabriquerPaquet(mdp);
+        await deposer(dossier, paquet.nom, paquet.octets);
+        /* Le nettoyage suit le dépôt, et non un bouton : une rétention qu'il
+           faut penser à déclencher est une rétention qui ne se fait pas. */
+        const retires = await nettoyer(dossier);
+        ($('mdp-dossier') as HTMLInputElement).value = '';
+        await peindreDossier();
+        dire(
+          'message-dossier',
+          `Déposé : ${paquet.nom} (${Math.round(paquet.tailleFichier / 1024)} Kio)` +
+            (retires.length ? `, ${retires.length} ancien(s) paquet(s) retiré(s)` : '') +
+            '.',
+          'succes',
+        );
+      } catch (erreur) {
+        direDossier(erreur);
+      } finally {
+        bouton.disabled = false;
+      }
+    });
+
+    async function fusionnerDepuisDossier(nom: string) {
+      if (!dossier) return;
+      const mdp = mdpDossier();
+      if (!mdp) {
+        dire('message-dossier', 'Le mot de passe du site est nécessaire pour déchiffrer le paquet.', 'echec');
+        return;
+      }
+      try {
+        dire('message-dossier', 'Fusion en cours…', 'neutre');
+        const octets = await lirePaquet(dossier, nom);
+        const rapport = await fusionnerPaquet(octets, mdp);
+        ($('mdp-dossier') as HTMLInputElement).value = '';
+        dire(
+          'message-dossier',
+          `${rapport.recues} opération(s) et ${rapport.revisionsRecues} révision(s) reçues ; ` +
+            `${rapport.cartesRecalculees} carte(s) recalculée(s)` +
+            (rapport.conflits ? ` ; ${rapport.conflits} conflit(s) à traiter` : '') +
+            '.',
+          'succes',
+        );
+        await peindreEtat();
+        await peindreConflits();
+        await peindreLots();
+        await peindreDossier();
+      } catch (erreur) {
+        direDossier(erreur);
+      }
+    }
+
+    $('oublier-dossier').addEventListener('click', async () => {
+      await oublierDossier();
+      dossier = null;
+      await peindreDossier();
+      dire('message-dossier', 'Dossier oublié. Les fichiers déposés y restent.', 'neutre');
+    });
+
+    dossier = dossierDisponible() ? await dossierMemorise() : null;
+    await peindreDossier();
+
     $('ecran').classList.remove('hidden');
 
     $('envoyer').addEventListener('click', async () => {

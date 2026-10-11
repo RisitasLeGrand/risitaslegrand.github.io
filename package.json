@@ -61,7 +61,9 @@
     "essais:qr": "tsx scripts/essais-qr.mts",
     "essais:morceaux": "tsx scripts/essais-morceaux.mts",
     "essais:salon": "tsx scripts/essais-salon.mts",
-    "essais:liaison": "node scripts/essais-liaison.mjs"
+    "essais:liaison": "node scripts/essais-liaison.mjs",
+    "essais:dossier": "tsx scripts/essais-dossier.mts",
+    "essais:dossier:navigateur": "node scripts/essais-dossier-navigateur.mjs"
   },
   "repository": {
     "type": "git",

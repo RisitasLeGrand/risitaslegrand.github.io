@@ -233,6 +233,41 @@ recalcul.
 - **B enfin** : fichier dans un emplacement choisi. Chromium de bureau seulement,
   d'après le tableau de compatibilité.
 
+**Fait, le 11 octobre 2026.** Les quatre transports existent, et ils partagent
+un seul chemin de fusion : chacun rend un `Canal`, et `echange.ts` fait le
+reste. C'est ce qui garantit que le refus de première fusion, les conflits et
+l'annulation se comportent pareil quel que soit le tuyau — un second chemin de
+fusion aurait été un second endroit où se tromper.
+
+| Transport | Gestes après réglage | Tiers | Éprouvé par |
+|---|---|---|---|
+| **A1** salon + relais public | un bouton | relais de mise en relation, chiffré | `essais:salon` (relais simulé) |
+| **A2** deux QR | trois gestes | aucun | `essais:liaison` (deux contextes, vrai WebRTC, caméra pilotée) |
+| **B** dossier partagé | aucun | aucun, ou votre service de fichiers qui ne voit que du chiffré | `essais:dossier`, `essais:dossier:navigateur` |
+| **C** fichier | quatre gestes | aucun | `essais:transport` |
+
+Trois corrections à inscrire, parce qu'elles contredisent ce qui est écrit plus
+haut dans ce document :
+
+1. **Ma réserve sur Trystero n'est plus vraie.** J'avais recommandé l'option (a)
+   en disant que la dernière publication datait d'environ un an. La version
+   installée est la 0.26.0, publiée le 4 octobre 2026 — une semaine avant ces
+   lignes. Le paquet a été scindé par stratégie, et `trystero/mqtt` lève
+   désormais une erreur qui renvoie vers `@trystero-p2p/mqtt`. Le repli A2 reste
+   construit, non par méfiance, mais parce qu'un relais vivant peut être
+   inaccessible depuis un réseau donné — ce qui est le cas du conteneur où ces
+   essais tournent, et c'est pour cela que A2 y est éprouvé et A1 non.
+2. **Le QR porte les octets, pas des caractères.** La bibliothèque d'encodage ne
+   prend que l'octet de bas poids de chaque caractère : « Économie » produisait
+   un QR vide. Passer les octets soi-même corrige les accents *et* supprime le
+   base64, ce qui fait gagner six versions de QR. Une description de session
+   complète tient en version 14, soit 73 modules.
+3. **Le mot de passe du site est retenu en mémoire** pour la durée de la
+   session, jamais écrit, oublié au verrouillage. Sans cela, « synchroniser en
+   un bouton » demandait une saisie à chaque échange. L'autre voie — chiffrer le
+   paquet avec le secret d'appairage — aurait supprimé la saisie et la garantie
+   avec : qui photographie le QR aurait pu lire la progression.
+
 ### Phase 4 — Les écrans
 
 L'écran « Appareils et synchronisation », les deux parcours des maquettes, le
