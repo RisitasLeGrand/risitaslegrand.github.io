@@ -48,6 +48,18 @@ export const CHAMP_DATE: Record<string, string | null> = {
   seances: 'jour',
   notes: 'majLe',
   journal: 'ouverteLe',
+  revisions: 'le',
+  /*
+     Le journal d'opérations ne porte pas de champ de date : son instant vit
+     dans son identifiant et dans son horloge logique. Il serait découpable par
+     préfixe d'horloge, mais pas par le mécanisme générique d'ici, qui compare
+     des dates ISO — et prétendre le contraire ferait silencieusement passer un
+     découpage à côté. Surtout : effacer une tranche du journal rendrait
+     irrecalculables les états dérivés qui en dépendent. La compaction du
+     journal est un sujet à elle seule, prévue en phase 5, avec sa règle propre
+     — ne jamais compacter au-delà de ce que tous les appareils ont vu.
+  */
+  operations: null,
   // États courants : une ligne par chose suivie, pas par événement. Les dates
   // qu'ils portent disent « vu la dernière fois le… », et découper là-dessus
   // effacerait l'état d'une carte sous prétexte qu'elle est ancienne.
@@ -102,6 +114,14 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
     libelle: 'Demandes à l’IA',
     description: 'Mémoire des questions posées à un assistant. Aucun effet sur la progression.',
     magasins: ['aides'],
+  },
+  {
+    id: 'journaux',
+    libelle: 'Journaux de synchronisation',
+    description:
+      'L’histoire des révisions et le journal d’opérations. Ce qui rend les états ' +
+      'recalculables et la synchronisation possible.',
+    magasins: ['revisions', 'operations'],
   },
   {
     id: 'reglages',

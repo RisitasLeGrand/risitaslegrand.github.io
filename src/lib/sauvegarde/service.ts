@@ -29,7 +29,7 @@ import {
 } from './format';
 
 /** La version de schéma des magasins de Révisions : celle de la base. */
-export const SCHEMA_REVISIONS = 10;
+export const SCHEMA_REVISIONS = 12;
 
 /**
  * La déclaration de la branche Révisions pour la sauvegarde.

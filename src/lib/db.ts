@@ -6,6 +6,16 @@
  */
 import { createEmptyCard, type Card } from 'ts-fsrs';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
+/*
+   Imports de **types seulement** : « noyau/revisions.ts » importe « fsrsNeuf »
+   d'ici, et un import de valeur dans l'autre sens formerait un cycle au
+   chargement. Les types, eux, sont effacés à la compilation.
+*/
+import type { EntreeRevision } from './noyau/revisions';
+import type { Operation } from './noyau/operations';
+import { socleDe } from './noyau/revisions';
+import { idAppareilNeuf } from './noyau/operations';
+import { fabriqueUlid } from './noyau/ulid';
 
 /**
  * Les quatre niveaux de notation d'une flashcard.
@@ -458,10 +468,20 @@ interface SchemaRevinsp extends DBSchema {
   vmSeuils: { key: string; value: SeuilVeridical; indexes: { famille: string } };
   vmSessions: { key: number; value: SessionVeridical; indexes: { le: string } };
   aides: { key: number; value: AideDemandee; indexes: { le: string; itemId: string } };
+  revisions: {
+    key: string;
+    value: EntreeRevision;
+    indexes: { carteId: string; le: string };
+  };
+  operations: {
+    key: string;
+    value: Operation;
+    indexes: { hlc: string; cible: string; lot: string };
+  };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 11;
+const VERSION = 12;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -579,6 +599,52 @@ export function db() {
           curseur = await curseur.continue();
         }
       }
+      if (ancienneVersion < 12) {
+        /*
+         * Le journal d'opérations et le journal de révisions.
+         *
+         * Migration **additive** : aucune donnée existante n'est réécrite. Les
+         * cartes gardent leur état, et reçoivent en plus une entrée de socle
+         * qui porte cet état — c'est ce qui rend recalculable tout ce qui
+         * viendra après, sans inventer ce qui n'a jamais été écrit avant. Voir
+         * « noyau/revisions.ts » pour pourquoi un socle plutôt qu'un journal
+         * reconstitué.
+         */
+        const revisions = base.createObjectStore('revisions', { keyPath: 'id' });
+        revisions.createIndex('carteId', 'carteId');
+        revisions.createIndex('le', 'le');
+
+        const operations = base.createObjectStore('operations', { keyPath: 'id' });
+        // L'horloge encodée se trie comme elle se compare : l'index permet de
+        // lire un intervalle d'horloge sans désérialiser une seule opération.
+        operations.createIndex('hlc', 'hlc');
+        operations.createIndex('cible', 'cible');
+        operations.createIndex('lot', 'lot');
+
+        /*
+         * L'identifiant de cet appareil, tiré une fois et conservé. Il départage
+         * deux horloges égales, donc il doit être stable : le régénérer à chaque
+         * ouverture ferait de chaque session un appareil distinct, et l'ordre de
+         * fusion cesserait d'être reproductible.
+         */
+        const etat = transaction.objectStore('etat');
+        const connu = (await etat.get('appareil')) as string | undefined;
+        const appareil = connu ?? idAppareilNeuf();
+        if (!connu) await etat.put(appareil, 'appareil');
+
+        /*
+         * Une seule fabrique d'ULID pour tous les socles : elle garantit qu'ils
+         * sont ordonnés entre eux et, l'horloge n'étant pas figée, antérieurs à
+         * toute notation ultérieure.
+         */
+        const prochainId = fabriqueUlid();
+        const cartes = transaction.objectStore('cartes');
+        let carte = await cartes.openCursor();
+        while (carte) {
+          await revisions.put(socleDe(carte.value, prochainId(), appareil));
+          carte = await carte.continue();
+        }
+      }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
         // modèle neuf : convertir un historique SM-2 en stabilité et difficulté
@@ -694,6 +760,64 @@ export async function lireCarte(id: string): Promise<EtatCarte | undefined> {
 
 export async function ecrireCarte(carte: EtatCarte) {
   await (await db()).put('cartes', carte);
+}
+
+/* --- Journal de révisions et journal d'opérations -------------------------- */
+
+/**
+ * L'identifiant de cet appareil.
+ *
+ * Posé par la migration v12 ; relu ici. Il n'est **jamais** régénéré après
+ * coup : les opérations déjà écrites le portent, et en changer rendrait leur
+ * ordre de fusion incohérent avec celui des opérations suivantes.
+ */
+export async function lireAppareil(): Promise<string> {
+  const base = await db();
+  const connu = (await base.get('etat', 'appareil')) as string | undefined;
+  if (connu) return connu;
+  // Une base créée avant que ce champ existe, ou vidée : on en pose un plutôt
+  // que de rendre une valeur par défaut, qui serait la même sur deux appareils.
+  const neuf = idAppareilNeuf();
+  await base.put('etat', neuf, 'appareil');
+  return neuf;
+}
+
+export async function ecrireEntreeRevision(entree: EntreeRevision) {
+  await (await db()).put('revisions', entree);
+}
+
+/** Le journal d'une carte, dans l'ordre des identifiants, donc du temps. */
+export async function revisionsDeCarte(carteId: string): Promise<EntreeRevision[]> {
+  const entrees = await (await db()).getAllFromIndex('revisions', 'carteId', carteId);
+  return entrees.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+}
+
+export async function toutesLesRevisions(): Promise<EntreeRevision[]> {
+  return (await db()).getAll('revisions');
+}
+
+export async function ecrireOperation(op: Operation) {
+  await (await db()).put('operations', op);
+}
+
+export async function toutesLesOperations(): Promise<Operation[]> {
+  return (await db()).getAll('operations');
+}
+
+/**
+ * Les identifiants seuls, pour l'empreinte d'état.
+ *
+ * `getAllKeys` ne charge pas les charges utiles : sur un journal de dizaines de
+ * milliers d'opérations, c'est la différence entre lire quelques centaines de
+ * kio de clés et désérialiser plusieurs mégaoctets pour n'en garder que l'`id`.
+ */
+export async function idsDesOperations(): Promise<string[]> {
+  return (await db()).getAllKeys('operations');
+}
+
+/** Les opérations d'un lot de fusion, pour pouvoir l'annuler. */
+export async function operationsDuLot(lot: string): Promise<Operation[]> {
+  return (await db()).getAllFromIndex('operations', 'lot', lot);
 }
 
 export async function toutesLesCompetences(): Promise<Competence[]> {
@@ -1121,6 +1245,14 @@ export const MAGASINS_PROGRESSION = [
   'difficultes',
   // Les demandes d'aide annotent la progression : elles s'effacent avec elle.
   'aides',
+  /*
+     Les deux journaux. Ils font partie de la progression au sens plein : le
+     journal de révisions est ce qui rend l'état FSRS recalculable, et une
+     sauvegarde qui le laisserait de côté rendrait une base dont les cartes ont
+     un état mais plus d'histoire — donc plus de fusion possible.
+  */
+  'revisions',
+  'operations',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */

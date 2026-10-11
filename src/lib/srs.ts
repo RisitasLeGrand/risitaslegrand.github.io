@@ -25,13 +25,18 @@
 import { fsrs, generatorParameters, Rating, type Grade } from 'ts-fsrs';
 import {
   ecrireCarte,
+  ecrireEntreeRevision,
   fsrsNeuf,
   jourISO,
+  lireAppareil,
   lireCarte,
+  revisionsDeCarte,
   serialiserFsrs,
   type EtatCarte,
   type Note,
 } from './db';
+import { recalculer, type EntreeRevision } from './noyau/revisions';
+import { ulid } from './noyau/ulid';
 
 const ordonnanceur = fsrs(generatorParameters({ enable_short_term: false }));
 
@@ -116,7 +121,21 @@ export function delai(echeance: Date, maintenant = new Date()): string {
   return `dans ${ans < 2 ? '1 an' : `${Math.round(ans)} ans`}`;
 }
 
-/** Note une carte et enregistre le résultat. */
+/**
+ * Note une carte, enregistre son état **et** la révision au journal.
+ *
+ * Les deux écritures vont ensemble, et l'ordre compte : le journal d'abord.
+ * Si la seconde écriture échoue, on a une révision journalisée dont l'état
+ * n'est pas à jour — ce que le recalcul répare. L'ordre inverse donnerait un
+ * état sans trace, que rien ne répare et qu'une fusion écraserait.
+ *
+ * Elles ne sont pas dans une transaction commune, et c'est un choix assumé :
+ * les deux magasins vivent dans la même base, mais `ecrireCarte` et
+ * `ecrireEntreeRevision` ouvrent chacune la leur. Les réunir demanderait de
+ * remonter la transaction jusqu'ici, c'est-à-dire de faire de « srs.ts » un
+ * module qui connaît IndexedDB. Le recalcul rend ce risque réparable, ce qui
+ * est mieux qu'une étanchéité qui coûterait cette dépendance.
+ */
 export async function noterEtEnregistrer(
   id: string,
   ficheId: string,
@@ -124,9 +143,37 @@ export async function noterEtEnregistrer(
   note: Note,
 ): Promise<EtatCarte> {
   const existante = (await lireCarte(id)) ?? carteNeuve(id, ficheId, matiere);
-  const misAJour = noter({ ...existante, ficheId, matiere }, note);
+  const instant = new Date();
+  await ecrireEntreeRevision({
+    id: ulid(),
+    genre: 'notation',
+    carteId: id,
+    ficheId,
+    matiere,
+    le: instant.toISOString(),
+    appareil: await lireAppareil(),
+    note,
+  });
+  const misAJour = noter({ ...existante, ficheId, matiere }, note, instant);
   await ecrireCarte(misAJour);
   return misAJour;
+}
+
+/**
+ * L'état d'une carte recalculé depuis son journal.
+ *
+ * C'est la fonction que la fusion appellera sur chaque carte touchée, et c'est
+ * aussi celle qui permet de **vérifier** le journal : recalculer une carte que
+ * personne n'a synchronisée doit rendre exactement son état stocké. Si les deux
+ * divergent, c'est le journal ou l'ordonnanceur qui a changé, et il vaut mieux
+ * le savoir par un essai que par une fusion.
+ */
+export function recalculerCarte(entrees: EntreeRevision[]): EtatCarte | null {
+  return recalculer(entrees, { appliquer: noter, neuve: fsrsNeuf });
+}
+
+export async function recalculerDepuisLeJournal(carteId: string): Promise<EtatCarte | null> {
+  return recalculerCarte(await revisionsDeCarte(carteId));
 }
 
 /** Une carte est due si elle n'a jamais été vue ou si son échéance est atteinte. */

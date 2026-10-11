@@ -10,8 +10,13 @@
  * formes qu'on peut rencontrer — note pleine, note vide, restitutions seules,
  * rien du tout — puis laisse l'application migrer, et vérifie au signe près.
  */
+import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+
+const VERSION = Number(
+  /const VERSION = (\d+)/.exec(readFileSync('src/lib/db.ts', 'utf8'))?.[1] ?? '0',
+);
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -167,7 +172,10 @@ const apres = await page.evaluate(async () => {
   return sortie;
 });
 
-v('la base est passée en version 11', apres.version, 11);
+/* La version attendue est lue dans la source. Elle était codée en dur, et la
+   migration suivante a fait échouer cet essai pour une raison qui n'avait rien
+   à voir avec ce qu'il vérifie — le texte des séances. */
+v(`la base est passée en version ${VERSION}`, apres.version, VERSION);
 v('le magasin « notes » existe', apres.aNotes, true);
 
 console.log('\nAUCUNE SÉANCE PERDUE, AUCUN CHAMP DE PILOTAGE ABÎMÉ');
