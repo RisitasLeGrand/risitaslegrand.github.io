@@ -62,6 +62,13 @@ qu'aucun des deux soit plus vrai.
 
 **Ce que je te demande** : série reprise ou repartie de zéro avec record conservé ?
 
+> **Tranché : repartie de zéro, record conservé.** Tenu le 11 octobre 2026, à la phase 3e.
+>
+> Le socle garde ce qui disparaîtrait autrement : l'XP affichée au moment de la reprise, ce que le
+> recalcul aurait donné, la série courante d'avant, et le record. La reprise n'est pas automatique —
+> elle remet une série visible à zéro, et la déclencher au chargement d'une page serait la mauvaise
+> façon de tenir une décision prise par écrit.
+
 ## 3. Chiffrement au repos des données sensibles
 
 Tu demandes le coût mesuré et une recommandation.

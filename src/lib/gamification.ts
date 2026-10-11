@@ -31,34 +31,17 @@ import {
   FAMILLES,
 } from '../features/relational-reasoning/progression';
 import { MOTEURS as MOTEURS_RR } from '../features/relational-reasoning/moteurs/index';
+import { calculerNiveau, coutNiveau, type Niveau } from './odyssee/activite';
 
 const XP = (config as { xp: Record<string, number> }).xp;
 
-export interface Niveau {
-  niveau: number;
-  xpDansNiveau: number;
-  xpRequisNiveau: number;
-  progression: number; // 0 → 1
-}
-
-/**
- * Barème de niveaux : le niveau n coûte 100 + (n-1) × 50 XP.
- * Niveau 1 → 2 : 100 XP ; 2 → 3 : 150 XP ; etc.
+/*
+ * Le barème de niveaux vit désormais dans le moteur d'activité, qui est la
+ * seule couche autorisée à calculer l'XP et le niveau (B.1, décision 2). Il est
+ * ré-exporté ici pour que les écrans qui l'importaient n'aient rien à savoir de
+ * ce déplacement — et pour qu'il n'en existe qu'une version.
  */
-export function coutNiveau(niveau: number): number {
-  return 100 + (niveau - 1) * 50;
-}
-
-export function calculerNiveau(xpTotal: number): Niveau {
-  let niveau = 1;
-  let reste = Math.max(0, xpTotal);
-  while (reste >= coutNiveau(niveau)) {
-    reste -= coutNiveau(niveau);
-    niveau += 1;
-  }
-  const requis = coutNiveau(niveau);
-  return { niveau, xpDansNiveau: reste, xpRequisNiveau: requis, progression: reste / requis };
-}
+export { coutNiveau, calculerNiveau, type Niveau };
 
 /**
  * La série est-elle intacte entre deux jours ?

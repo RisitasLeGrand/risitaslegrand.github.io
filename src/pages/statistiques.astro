@@ -86,6 +86,103 @@ import Base from '../layouts/Base.astro';
       <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Fiches les plus fragiles</h2>
       <div id="fragiles" class="space-y-2"></div>
     </section>
+
+    <!-- ── D'où vient l'XP : le moteur d'activité ────────────────────── -->
+    <section id="activite">
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">D’où vient mon XP</h2>
+      <p class="mb-3 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        L’XP, le niveau et la série sont calculés <strong>une seule fois</strong>, à partir des
+        faits que chaque branche publie — et non par l’écran qui les affiche. Chaque ligne
+        ci-dessous nomme la règle qui l’a produite, sa base et son multiplicateur.
+      </p>
+
+      <div class="grid gap-4 sm:grid-cols-3">
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <p class="text-sm text-slate-500 dark:text-slate-400">XP recalculée</p>
+          <p id="activite-xp" class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">—</p>
+          <p id="activite-niveau" class="mt-1 text-xs text-slate-400"></p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <p class="text-sm text-slate-500 dark:text-slate-400">Série</p>
+          <p id="activite-serie" class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">—</p>
+          <p id="activite-record" class="mt-1 text-xs text-slate-400"></p>
+        </div>
+        <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+          <p class="text-sm text-slate-500 dark:text-slate-400">Faits publiés</p>
+          <p id="activite-faits" class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">—</p>
+          <p id="activite-domaines" class="mt-1 text-xs text-slate-400"></p>
+        </div>
+      </div>
+
+      <div
+        id="activite-reprise"
+        class="mt-4 hidden rounded-2xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/30"
+      >
+        <h3 class="font-semibold text-slate-900 dark:text-white">Reprendre l’XP et la série</h3>
+        <p id="activite-ecart" class="mt-1 text-sm text-slate-700 dark:text-slate-200"></p>
+        <p class="mt-2 text-sm text-slate-700 dark:text-slate-200">
+          La reprise <strong>convertit sans recalculer</strong> : le total affiché devient le socle,
+          et tout ce qui vient après est calculé par le moteur. Elle remet la
+          <strong>série courante à zéro</strong> — le compteur change de sens, puisqu’un jour
+          comptera désormais pour toute activité et plus seulement pour une révision — et
+          <strong>conserve le record</strong>. C’est la décision 2, et elle n’est pas réversible
+          d’un clic : la valeur d’avant est gardée dans le socle, mais la série repart bien de zéro.
+        </p>
+        <button
+          id="reprendre-activite"
+          type="button"
+          class="mt-3 min-h-11 rounded-lg bg-amber-600 px-4 font-medium text-white transition hover:bg-amber-700"
+        >
+          Reprendre l’XP et la série
+        </button>
+      </div>
+
+      <p
+        id="activite-socle"
+        class="mt-4 hidden rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+      ></p>
+
+      <div class="mt-4 overflow-x-auto rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
+        <table class="w-full text-sm">
+          <thead class="border-b border-slate-200 text-left text-xs text-slate-500 uppercase dark:border-slate-800 dark:text-slate-400">
+            <tr>
+              <th class="px-4 py-3 font-medium">Jour</th>
+              <th class="px-4 py-3 font-medium">Règle</th>
+              <th class="px-4 py-3 font-medium">Détail du calcul</th>
+              <th class="px-4 py-3 text-right font-medium">Base</th>
+              <th class="px-4 py-3 text-right font-medium">×</th>
+              <th class="px-4 py-3 text-right font-medium">XP</th>
+            </tr>
+          </thead>
+          <tbody id="activite-journal" class="divide-y divide-slate-100 dark:divide-slate-800"></tbody>
+        </table>
+      </div>
+      <p id="activite-reste" class="mt-2 text-xs text-slate-400"></p>
+
+      <div id="activite-manques" class="mt-4 space-y-2"></div>
+    </section>
+
+    <!-- ── Désaccords entre branches (B.4) ──────────────────────────── -->
+    <section id="desaccords">
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">Désaccords entre branches</h2>
+      <p class="mb-3 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        Quand deux branches affirment des choses qui ne peuvent pas être vraies ensemble, rien
+        n’est écrasé : la question reste ouverte, et elle <strong>dégrade la fiabilité</strong> des
+        indicateurs qui lisent ces données — jusqu’à l’annuler si le désaccord porte sur la donnée
+        dont tout l’indicateur dépend.
+      </p>
+      <p
+        id="desaccords-etat"
+        class="mb-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+      >—</p>
+      <div id="desaccords-liste" class="space-y-2"></div>
+      <details class="mt-3 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <summary class="cursor-pointer text-sm font-medium text-slate-900 dark:text-white">
+          Les règles déclarées
+        </summary>
+        <div id="desaccords-regles" class="mt-3 space-y-3"></div>
+      </details>
+    </section>
   </div>
 </Base>
 
@@ -381,7 +478,194 @@ import Base from '../layouts/Base.astro';
     }
   }
 
+  /* ══════════════════════════════════════════════════════════════════════
+     D'où vient l'XP
+     ══════════════════════════════════════════════════════════════════════ */
+
+  /**
+   * Le moteur d'activité, peint sur l'écran.
+   *
+   * Le journal est tronqué à quarante lignes : il en compte autant que de faits
+   * publiés, et une page qui en afficherait cinq mille ne s'ouvrirait plus. Le
+   * reste est compté plutôt que caché.
+   */
+  const LIGNES_AFFICHEES = 40;
+
+  async function peindreActivite() {
+    const { etatActivite } = await import('../lib/odyssee/service');
+    const { publierFaitsRevisions } = await import('../lib/odyssee/faits-revisions');
+    const { joursDeRepos } = await import('../lib/rotation');
+
+    /*
+     * Les faits sont publiés une fois, puis la planification est interrogée sur
+     * leurs jours : la série ne doit pas casser sur un jour de repos déclaré, et
+     * la question ne peut être posée qu'une fois les jours connus.
+     */
+    const publication = await publierFaitsRevisions();
+    const repos = await joursDeRepos([...new Set(publication.faits.map((f) => f.jourLogique))]);
+    const avecRepos = await etatActivite({ publication, estRepos: (j) => repos.has(j) });
+
+    $('activite-xp').textContent = `${avecRepos.xp} XP`;
+    $('activite-niveau').textContent =
+      `niveau ${avecRepos.niveau.niveau} · ${avecRepos.niveau.xpDansNiveau} / ${avecRepos.niveau.xpRequisNiveau}`;
+    $('activite-serie').textContent = pluriel(avecRepos.serie.courante, 'jour');
+    $('activite-record').textContent = `record : ${pluriel(avecRepos.serie.record, 'jour')}`;
+    $('activite-faits').textContent = String(avecRepos.faits.length);
+    $('activite-domaines').textContent =
+      Object.entries(avecRepos.parDomaine)
+        .sort((a, b) => b[1] - a[1])
+        .map(([domaine, xp]) => `${domaine} ${xp}`)
+        .join(' · ') || 'aucun fait publié';
+
+    const socle = avecRepos.socle;
+    if (socle) {
+      $('activite-reprise').classList.add('hidden');
+      $('activite-socle').classList.remove('hidden');
+      $('activite-socle').textContent =
+        `XP reprise le ${new Date(socle.le).toLocaleDateString('fr-FR')} : ${socle.xpAffichee} XP ` +
+        `repris tels quels (le recalcul donnait ${socle.xpRecalculee}), série remise à zéro, ` +
+        `record de ${pluriel(socle.serieRecord, 'jour')} conservé. ` +
+        `Tout ce qui suit le ${socle.jour} est calculé par le moteur.`;
+    } else {
+      $('activite-socle').classList.add('hidden');
+      $('activite-reprise').classList.remove('hidden');
+      const { lireProfil } = await import('../lib/db');
+      const profil = await lireProfil();
+      const ecart = avecRepos.journal.total - profil.xp;
+      $('activite-ecart').textContent =
+        `L’XP affichée aujourd’hui est de ${profil.xp} ; le recalcul sur l’historique publiable ` +
+        `donne ${avecRepos.journal.total}, soit ${ecart >= 0 ? '+' : ''}${ecart}. ` +
+        (ecart === 0
+          ? 'Les deux nombres concordent.'
+          : 'L’écart vient de ce que la branche n’a pas enregistré, listé plus bas.');
+    }
+
+    const corps = $('activite-journal');
+    corps.textContent = '';
+    const lignes = [...avecRepos.journal.lignes].reverse();
+    for (const ligne of lignes.slice(0, LIGNES_AFFICHEES)) {
+      const tr = document.createElement('tr');
+      const cellules: [string, string][] = [
+        [ligne.jour, 'px-4 py-2 whitespace-nowrap text-slate-500 dark:text-slate-400'],
+        [ligne.libelleRegle, 'px-4 py-2 font-medium text-slate-900 dark:text-white'],
+        [ligne.pourquoi, 'px-4 py-2 text-slate-600 dark:text-slate-300'],
+        [String(ligne.base), 'px-4 py-2 text-right text-slate-500 dark:text-slate-400'],
+        [
+          ligne.multiplicateurs.length
+            ? ligne.multiplicateurs.map((m) => `${m.id} ×${m.facteur}`).join(', ')
+            : '×1',
+          'px-4 py-2 text-right text-slate-400',
+        ],
+        [String(ligne.xp), 'px-4 py-2 text-right font-semibold text-slate-900 dark:text-white'],
+      ];
+      for (const [texte, classe] of cellules) {
+        const td = document.createElement('td');
+        td.className = classe;
+        td.textContent = texte;
+        tr.appendChild(td);
+      }
+      corps.appendChild(tr);
+    }
+    $('activite-reste').textContent = lignes.length
+      ? lignes.length > LIGNES_AFFICHEES
+        ? `${lignes.length} ligne(s) au journal, les ${LIGNES_AFFICHEES} dernières sont affichées.`
+        : `${lignes.length} ligne(s) au journal.`
+      : 'Aucun fait crédité sur cette fenêtre.';
+
+    const manques = $('activite-manques');
+    manques.textContent = '';
+    for (const manque of avecRepos.manques) {
+      const p = document.createElement('p');
+      p.className =
+        'rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-600 ' +
+        'dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300';
+      p.textContent = `${manque.quoi} — ${manque.combien} : ${manque.consequence}`;
+      manques.appendChild(p);
+    }
+
+    $('reprendre-activite').onclick = async () => {
+      const bouton = $('reprendre-activite') as HTMLButtonElement;
+      bouton.disabled = true;
+      bouton.textContent = 'Reprise…';
+      const { reprendreActivite } = await import('../lib/odyssee/service');
+      await reprendreActivite();
+      await peindreActivite();
+      bouton.disabled = false;
+      bouton.textContent = 'Reprendre l’XP et la série';
+    };
+
+    return avecRepos.faits;
+  }
+
+  /**
+   * Les désaccords entre branches, et les règles qui les cherchent.
+   *
+   * Aujourd'hui, aucun ne peut se produire : seule Révisions publie des faits,
+   * et deux séances de révision qui se chevauchent sont une saisie à corriger,
+   * pas un désaccord entre branches. L'écran le dit plutôt que de laisser une
+   * section vide — et les règles sont visibles, pour qu'on sache ce qui sera
+   * cherché le jour où Sport et Odyssée publieront.
+   */
+  async function peindreDesaccords(faits: import('../lib/noyau/faits').Fait[]) {
+    const { REGLES_DESACCORD, detecter, trierDesaccords } = await import(
+      '../lib/odyssee/desaccords'
+    );
+    const { toutesLesOperations } = await import('../lib/db');
+
+    const tous = detecter(faits);
+    const { ouverts, tranches } = trierDesaccords(tous, await toutesLesOperations());
+
+    $('desaccords-etat').textContent = ouverts.length
+      ? `${pluriel(ouverts.length, 'désaccord')} non tranché(s)` +
+        (tranches.length ? `, et ${pluriel(tranches.length, 'autre déjà tranché', 'autres déjà tranchés')}.` : '.')
+      : tranches.length
+        ? `Aucun désaccord ouvert ; ${pluriel(tranches.length, 'a été tranché', 'ont été tranchés')}.`
+        : 'Aucun désaccord. Seule la branche Révisions publie des faits aujourd’hui : ' +
+          'les règles ci-dessous attendent Sport et Odyssée.';
+
+    const liste = $('desaccords-liste');
+    liste.textContent = '';
+    for (const desaccord of ouverts) {
+      const bloc = document.createElement('div');
+      bloc.className =
+        'rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm ' +
+        'dark:border-amber-900 dark:bg-amber-950/30';
+      const titre = document.createElement('p');
+      titre.className = 'font-medium text-slate-900 dark:text-white';
+      titre.textContent = desaccord.resume;
+      const detail = document.createElement('p');
+      detail.className = 'mt-1 text-xs text-slate-600 dark:text-slate-300';
+      detail.textContent =
+        `${desaccord.gravite === 'impossible' ? 'Impossible' : 'Contradiction'} · ` +
+        `branches : ${desaccord.branches.join(', ')} · ${pluriel(desaccord.faits.length, 'fait')}` +
+        (desaccord.repondueAvant ? ' · une partie avait déjà été répondue' : '');
+      bloc.append(titre, detail);
+      liste.appendChild(bloc);
+    }
+
+    const regles = $('desaccords-regles');
+    regles.textContent = '';
+    for (const regle of REGLES_DESACCORD) {
+      const bloc = document.createElement('div');
+      const titre = document.createElement('p');
+      titre.className = 'text-sm font-medium text-slate-900 dark:text-white';
+      titre.textContent = regle.libelle;
+      const pourquoi = document.createElement('p');
+      pourquoi.className = 'text-xs text-slate-500 dark:text-slate-400';
+      pourquoi.textContent = regle.pourquoi;
+      const types = document.createElement('p');
+      types.className = 'mt-1 font-mono text-xs text-slate-400';
+      types.textContent = regle.types.join(' · ');
+      bloc.append(titre, pourquoi, types);
+      regles.appendChild(bloc);
+    }
+  }
+
   // « auDeverrouillage » : barre de progression, garde-fou de 5 secondes et
   // exécution même si ce script arrive après l'ouverture de la session.
-  auDeverrouillage(afficher);
+  auDeverrouillage(async () => {
+    await afficher();
+    const faits = await peindreActivite();
+    await peindreDesaccords(faits);
+  });
 </script>

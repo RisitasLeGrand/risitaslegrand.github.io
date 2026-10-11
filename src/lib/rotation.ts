@@ -182,3 +182,26 @@ export async function themeDuJour(
 export async function jourDeRepos(jour = jourISO()): Promise<boolean> {
   return estRepos(await themeDuJour(jour));
 }
+
+/**
+ * Les jours de repos parmi une liste, en une seule lecture.
+ *
+ * `jourDeRepos` recharge les réglages **et toutes les séances** à chaque appel :
+ * acceptable pour un jour, ruineux pour cinq ans. La série du moteur d'activité
+ * a besoin de la question posée sur des centaines de jours, d'où cette passe
+ * unique.
+ */
+export async function joursDeRepos(
+  jours: readonly string[],
+  p: Parcours = parcoursCourant(),
+): Promise<Set<string>> {
+  const [reglages, seances] = await Promise.all([lireReglages(p), toutesLesSeances()]);
+  const parJour = new Map(seances.map((s) => [s.jour, s.theme]));
+  const sortie = new Set<string>();
+  for (const jour of jours) {
+    const reassigne = parJour.get(jour);
+    const t = reassigne && theme(reassigne, p) ? reassigne : reglages.rotation[jourDeLaSemaine(jour)];
+    if (estRepos(t)) sortie.add(jour);
+  }
+  return sortie;
+}

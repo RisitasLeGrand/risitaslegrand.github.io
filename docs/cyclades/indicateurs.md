@@ -65,6 +65,13 @@ donc câblée dans le catalogue, pas laissée au moteur de tendances.
 avec la raison. C'est la contrepartie de C.8 : on ne construit pas un plan d'action sur une mesure
 dont on sait qu'elle est faible.
 
+> **Écrite en code le 11 octobre 2026**, à la phase 3f : `src/lib/odyssee/fiabilite.ts` porte les
+> quatre composantes et leur produit, et `src/lib/odyssee/desaccords.ts` alimente la quatrième. Le
+> **catalogue** lui-même (`indicateurs.ts`) attend la phase 4, qui en est le premier lecteur : le
+> construire avant son tableau de bord aurait figé cinquante-deux formules que rien n'aurait
+> éprouvées. La règle de fiabilité, elle, ne pouvait pas attendre — c'est elle que B.4 exige, et
+> elle est indépendante de tout indicateur particulier.
+
 ## Les cibles : fixées par la personne, et pour certains domaines jamais proposées
 
 La roue d'équilibre compare l'effort réel à « la **cible** que je fixe » (C.2). Le catalogue ne

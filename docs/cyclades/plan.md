@@ -99,7 +99,7 @@ générateur ait produit cinq ans de données.
 avec un mot de passe antérieur ; effacement ciblé qui n'emporte rien d'autre ; mesures avant/après
 publiées dans le document de phase.
 
-### Phase 3 — Le socle partagé (P3, partie B)
+### Phase 3 — Le socle partagé (P3, partie B) — **faite**
 
 - **Contrat de faits typés** : un fait porte son type, sa date, sa branche émettrice, son
   propriétaire, sa provenance (automatique / manuelle / importée) et sa fiabilité.
@@ -119,6 +119,83 @@ publiées dans le document de phase.
 conflit reste ouvert ; l'XP recalculé sur l'historique existant est identique à l'XP affiché
 aujourd'hui (ou l'écart est documenté et voulu) ; le jour logique à 4 h ne décale aucune série
 existante d'un jour.
+
+#### Phase 3d — Le moteur d'activité. *Fait, le 11 octobre 2026.*
+
+`src/lib/odyssee/activite.ts` est **pur** : les faits entrent, un journal d'XP sort. Huit règles
+déclarées reproduisent, au point près, les neuf formules que le site appliquait à neuf endroits
+différents — et cette exactitude est la condition de la migration : convertir sans recalculer n'a de
+sens que si l'on sait ce que le recalcul donnerait. Chaque ligne du journal nomme sa règle, sa base,
+son facteur et le détail de son calcul en français.
+
+**Aucun multiplicateur n'est déclaré**, et c'est une décision : le mécanisme existe, la liste est
+vide. L'XP du site n'en a jamais eu ; en introduire un au moment de reprendre l'historique
+changerait des totaux que personne n'a demandé de changer. Le jour où il en faut un, il s'ajoute et
+le journal l'explique de lui-même.
+
+La série compte les jours où l'on a **fait** quelque chose, pas ceux où l'on s'est mesuré : une
+pesée, un repas, une opération bancaire n'ouvrent pas un jour de série, ce que E.3 refuserait
+exactement. Un jour de repos déclaré ne casse rien, jusqu'à quinze jours — au-delà, ce n'est plus un
+repos.
+
+**Révisions publie ses faits, et ne les stocke pas** (`faits-revisions.ts`). Un magasin de faits
+aurait fait deux vérités du même événement — la séance dans `seances`, sa copie dans `faits` — et
+c'est ce que le contrat de faits existe pour empêcher. Publier est donc une lecture, avec des
+identifiants déterministes. Le coût est réel et il est compté : **ce que la branche n'a jamais
+enregistré ne peut pas être publié** — les convergences de seuil de Veridical Mapping, les cartes
+notées avant le journal de révisions, la date d'achèvement d'une fiche. Ces manques voyagent avec
+les faits et s'affichent sous le journal, au lieu d'être remplacés par une estimation qui se ferait
+passer pour une mesure.
+
+Visible sur **Statistiques → « D'où vient mon XP »** : total, niveau, série, ventilation par
+domaine, et les quarante dernières lignes du journal.
+
+#### Phase 3e — La reprise de l'XP et de la série. *Fait, le 11 octobre 2026.*
+
+La décision 2, tenue à la lettre. **Convertir sans recalculer** : le total affiché devient un socle
+daté — le même mot que pour la migration FSRS, et pour la même raison —, réparti entre Connaissances
+et Cognition selon les parts du recalcul, et tout ce qui vient après est calculé par le moteur. La
+somme répartie vaut **exactement** l'XP affichée : les arrondis sont absorbés par le domaine le plus
+chargé, parce qu'un socle qui perdrait un point afficherait deux nombres différents pour la même
+chose.
+
+**La série repart de zéro, le record est conservé**, et la valeur d'avant est écrite dans le socle
+plutôt que perdue. L'écart entre l'XP affichée et l'XP recalculée est mesuré, enregistré, et affiché
+avant la reprise.
+
+Rien ne se fait en silence : la reprise remet une série visible à zéro, et un écran qui la
+déclencherait au chargement serait la mauvaise façon de tenir une décision prise par écrit. Le
+bouton dit ce qu'il va faire ; la reprise est idempotente.
+
+#### Phase 3f — Les désaccords entre branches. *Fait, le 11 octobre 2026.*
+
+Cinq règles déclarées (`desaccords.ts`), chacune avec son « pourquoi » et son contre-exemple :
+deux activités exclusives qui se chevauchent, plus de sommeil que de journée (23 ou 25 heures deux
+jours par an, d'où la question posée au jour logique), deux pesées éloignées le même jour, un effort
+déclaré un jour d'empêchement de santé, une charge perçue orpheline de son check-in.
+
+La réponse est celle des conflits de fusion — **les mêmes quatre issues, le même type d'opération**,
+donc le même journal d'audit, et une résolution qui voyage. Trancher sur l'ordinateur et retrouver
+la question ouverte sur le téléphone serait épuisant. Un fait nouveau sur le même jour **rouvre** le
+désaccord : la réponse donnée ne portait pas sur lui.
+
+Ce qu'un désaccord ouvert coûte est dans `fiabilite.ts`, attaché à l'indicateur et non au moteur de
+tendances : quatre composantes qui **se multiplient** — effectif, fraîcheur, complétude, intégrité —
+de sorte que la plus faible commande. Un désaccord ouvert ramène l'intégrité à 0,5 ; un désaccord
+sur la source pivot l'annule ; sous 0,5 de fiabilité, l'indicateur reste affiché mais ne nourrit
+aucune trajectoire.
+
+Aujourd'hui **aucun désaccord ne peut se produire** — seule Révisions publie des faits, et deux
+séances de révision qui se chevauchent sont une saisie à corriger, pas un désaccord entre branches.
+L'écran le dit, et liste les règles qui attendent Sport et Odyssée, au lieu de montrer une section
+vide.
+
+**Les branches Sport et Odyssée** étaient déjà déclarées au registre depuis la phase 1e, avec
+`disponible: false` : un onglet qui mène à une page vide ne renseigne personne, il promet.
+
+**Essais** : `essais:activite` (54 contrôles), `essais:desaccords` (59),
+`essais:activite:navigateur` (33, dont l'égalité entre l'XP du moteur et les formules du site sur un
+historique posé à la main, et la reprise de bout en bout).
 
 ### Phase 4 — Odyssée, socle (P3, C.2 à C.4)
 
