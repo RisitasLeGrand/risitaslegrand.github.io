@@ -436,6 +436,103 @@ v(
   finalB.cartes,
 );
 
+console.log('\nCONFLIT SUR UN CHAMP SENSIBLE, ET SA RÉSOLUTION');
+
+/* Deux poids différents pour le même jour, saisis sur deux appareils. C'est le
+   cas que la maquette décrit mot pour mot. */
+const poser = (appareil, kg, ms) =>
+  appareil.page.evaluate(
+    async ([kg, ms]) => {
+      const base = await new Promise((ok) => {
+        const r = indexedDB.open('revinsp');
+        r.onsuccess = () => ok(r.result);
+      });
+      const appareilId = await new Promise((ok) => {
+        const q = base.transaction('etat').objectStore('etat').get('appareil');
+        q.onsuccess = () => ok(q.result);
+      });
+      const A = '0123456789ABCDEFGHJKMNPQRSTVWXYZ';
+      let reste = ms;
+      let temps = '';
+      for (let i = 0; i < 10; i += 1) {
+        temps = A[reste % 32] + temps;
+        reste = Math.floor(reste / 32);
+      }
+      await new Promise((ok, ko) => {
+        const tx = base.transaction('operations', 'readwrite');
+        tx.objectStore('operations').put({
+          id: `${temps}POIDS${appareilId.slice(0, 8)}XXX`.slice(0, 26).padEnd(26, 'X'),
+          appareil: appareilId,
+          hlc: `${String(ms).padStart(15, '0')}-0000`,
+          type: 'odyssee.poids',
+          cible: 'poids:2026-10-09',
+          lot: '',
+          charge: { kg },
+        });
+        tx.oncomplete = () => ok();
+        tx.onerror = () => ko(tx.error);
+      });
+      base.close();
+      return appareilId;
+    },
+    [kg, ms],
+  );
+
+await poser(a, 74.2, Date.parse('2026-10-09T07:12:00Z'));
+await poser(b, 73.8, Date.parse('2026-10-09T07:40:00Z'));
+await rafraichir(a);
+v('aucun conflit tant que les journaux ne se sont pas rencontrés', (await a.page.$$('#liste-conflits > li')).length, 0);
+
+const paquetPoidsB = await envoyer(b);
+const receptionPoids = await recevoir(a, paquetPoidsB.chemin);
+vrai('la fusion annonce le conflit', receptionPoids.message.includes('conflit'));
+await rafraichir(a);
+v('A montre un conflit', (await a.page.$$('#liste-conflits > li')).length, 1);
+const texteConflit = await a.page.textContent('#liste-conflits');
+vrai('les deux valeurs sont affichées', texteConflit.includes('74.2') && texteConflit.includes('73.8'));
+vrai('avec l’appareil qui les a saisies', texteConflit.includes('Téléphone'));
+
+/* Ignorer sans motif ne doit rien enregistrer : une réponse sans explication ne
+   se relit pas six mois plus tard. */
+a.page.once('dialog', (d) => d.dismiss());
+await a.page.click('button[data-issue="ignore"]');
+await a.page.waitForTimeout(500);
+v('une invite annulée ne tranche rien', (await a.page.$$('#liste-conflits > li')).length, 1);
+
+/* On garde la valeur de l'ordinateur. */
+const boutons = await a.page.$$('button[data-issue="retenue"]');
+v('un bouton « garder » par valeur', boutons.length, 2);
+await boutons[0].click();
+await a.page.waitForSelector('#message-conflit:not(.hidden)', { timeout: 30000 });
+vrai(
+  'la réponse est enregistrée et annoncée comme voyageant',
+  (await a.page.textContent('#message-conflit')).includes('voyagera'),
+);
+v('et le conflit disparaît', (await a.page.$$('#liste-conflits > li')).length, 0);
+
+/* Et la résolution voyage : B doit le trouver tranché. */
+const paquetResolution = await envoyer(a);
+await recevoir(b, paquetResolution.chemin);
+await rafraichir(b);
+v('B reçoit la résolution et ne montre aucun conflit', (await b.page.$$('#liste-conflits > li')).length, 0);
+vrai(
+  'alors qu’il porte bien les deux valeurs : rien n’a été écrasé',
+  await b.page.evaluate(async () => {
+    const base = await new Promise((ok) => {
+      const r = indexedDB.open('revinsp');
+      r.onsuccess = () => ok(r.result);
+    });
+    const tout = await new Promise((ok) => {
+      const q = base.transaction('operations').objectStore('operations').getAll();
+      q.onsuccess = () => ok(q.result);
+    });
+    base.close();
+    const poids = tout.filter((o) => o.type === 'odyssee.poids');
+    return poids.length === 2 && poids.some((o) => o.charge.kg === 74.2) &&
+      poids.some((o) => o.charge.kg === 73.8);
+  }),
+);
+
 console.log('\nLE REGISTRE DE SAUVEGARDES EST PARTAGÉ');
 
 /* Une sauvegarde faite sur B doit apparaître dans la liste de A : sans cela,
@@ -490,6 +587,7 @@ console.log('\nREJEU : LE MÊME FICHIER UNE SECONDE FOIS');
    déclarée. Comparer à un état antérieur ferait échouer l'essai pour une
    raison étrangère à ce qu'il vérifie. */
 const avantRejeu = await lire(a);
+const lotsAvantRejeu = (await a.page.$$('.annuler')).length;
 const rejeu = await recevoir(a, paquetB.chemin);
 vrai('la fusion n’apporte rien', rejeu.message.includes('0 opération'));
 await rafraichir(a);
@@ -504,9 +602,13 @@ console.log('\nANNULATION');
 
 const lots = await a.page.$$('.annuler');
 vrai('les synchronisations reçues sont listées, avec un bouton d’annulation', lots.length >= 1);
-/* Deux lots : le premier paquet de B, puis celui qui portait sa sauvegarde
-   déclarée. Le rejeu, qui n'a rien apporté, n'en a pas laissé de troisième. */
-v('et le rejeu, qui n’a rien apporté, n’a pas laissé de ligne', lots.length, 2);
+/*
+   La propriété vérifiée est « le rejeu n'ajoute pas de lot », et non « il y a
+   exactement N lots ». Le décompte absolu changeait à chaque étape ajoutée à
+   cet essai, et le faire échouer pour cette raison-là n'apprenait rien : trois
+   fois de suite, j'ai corrigé un nombre au lieu de vérifier la propriété.
+*/
+v('et le rejeu, qui n’a rien apporté, n’a pas laissé de ligne', lots.length, lotsAvantRejeu);
 
 a.page.once('dialog', (d) => d.accept());
 await lots[0].click();
@@ -517,9 +619,11 @@ vrai('l’annulation dit ce qu’elle a retiré', messageAnnulation.includes('re
 /* L'état vide est nommé, et il reste visible : c'est ce qui permet au message
    d'annulation de rester lisible après avoir annulé la dernière
    synchronisation. */
-/* Un lot subsiste : on n'en a annulé qu'un des deux. La section reste donc
-   peuplée, et l'état vide est éprouvé en annulant le second. */
-v('un lot subsiste après la première annulation', (await a.page.$$('.annuler')).length, 1);
+v(
+  'un lot de moins après la première annulation',
+  (await a.page.$$('.annuler')).length,
+  lots.length - 1,
+);
 
 const apresAnnulation = await lire(a);
 vrai(
@@ -528,15 +632,23 @@ vrai(
     apresAnnulation.operations < avantRejeu.operations,
 );
 
-a.page.once('dialog', (d) => d.accept());
-await (await a.page.$$('.annuler'))[0].click();
-await a.page.waitForFunction(
-  () => (document.getElementById('lots')?.textContent ?? '').includes('Aucune synchronisation'),
-  undefined,
-  { timeout: 60000 },
-);
+/* On annule le reste, pour éprouver l'état vide — celui qui doit rester
+   visible, sans quoi le message de confirmation disparaît avec la section. */
+let restants = (await a.page.$$('.annuler')).length;
+let garde = 0;
+while (restants > 0 && garde < 10) {
+  a.page.once('dialog', (d) => d.accept());
+  await (await a.page.$$('.annuler'))[0].click();
+  await a.page.waitForFunction(
+    (combien) => document.querySelectorAll('.annuler').length < combien,
+    restants,
+    { timeout: 60000 },
+  );
+  restants = (await a.page.$$('.annuler')).length;
+  garde += 1;
+}
 vrai(
-  'et après la seconde, la section reste visible en nommant son état vide',
+  'tout annulé, la section reste visible en nommant son état vide',
   (await a.page.textContent('#lots')).includes('Aucune synchronisation'),
 );
 v(

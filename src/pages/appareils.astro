@@ -152,6 +152,34 @@ import Base from '../layouts/Base.astro';
       <p id="message-fusion" class="mt-3 hidden text-sm"></p>
     </section>
 
+    <!-- ── Conflits à traiter ──────────────────────────────────────────── -->
+    <section
+      id="conflits"
+      class="hidden rounded-2xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-950/40"
+    >
+      <h2 class="mb-2 text-lg font-semibold text-amber-900 dark:text-amber-200">
+        Conflits à traiter
+      </h2>
+      <p class="mb-4 max-w-3xl text-sm text-amber-900/80 dark:text-amber-200/80">
+        Deux appareils ont enregistré des valeurs différentes pour la même chose.
+        <strong>Aucune n’a été écrasée.</strong> En attendant votre réponse, la
+        plus récente est affichée et marquée « à vérifier », et les analyses qui
+        s’en servent le disent. Votre réponse voyage : elle tranchera le conflit
+        sur l’autre appareil aussi.
+      </p>
+      <ul id="liste-conflits" class="space-y-4 text-sm"></ul>
+    </section>
+    <!--
+      Le message vit **hors** de la section, et c'est une correction de motif et
+      non d'instance. Trancher le dernier conflit masque la section — et avec
+      elle le message qui confirmait la réponse : on clique, tout s'évanouit, et
+      plus rien ne dit si cela a marché. C'est exactement la faute déjà
+      rencontrée sur l'historique des synchronisations, refaite ici parce que
+      corriger l'instance n'avait rien appris au code. Un message de
+      confirmation ne doit jamais être enfant de ce qu'il confirme avoir vidé.
+    -->
+    <p id="message-conflit" class="hidden text-sm"></p>
+
     <!-- ── Historique et annulation ────────────────────────────────────── -->
     <section
       id="historique"
@@ -229,8 +257,10 @@ import Base from '../layouts/Base.astro';
     etatLocal,
     fabriquerPaquet,
     fusionnerPaquet,
+    conflitsALire,
     lotsRecus,
     nommerAppareil,
+    resoudreConflit,
     reconstruireEtatsDerives,
     registreAppareils,
     registreSauvegardes,
@@ -326,6 +356,8 @@ import Base from '../layouts/Base.astro';
         'Les sauvegardes faites avant cette version ne sont pas listées : elles n’étaient ' +
         'pas encore déclarées au registre partagé.</li>';
 
+    noms = new Map(registre.filter((a) => a.nom).map((a) => [a.id, a.nom!]));
+
     const champ = $('nom-appareil') as HTMLInputElement;
     const moi = registre.find((a) => a.soi);
     if (moi?.nom && !champ.value) champ.value = moi.nom;
@@ -396,10 +428,117 @@ import Base from '../layouts/Base.astro';
     }
   }
 
+  /**
+   * Les conflits ouverts, avec leurs quatre issues.
+   *
+   * L'ordre des boutons suit la maquette, et il n'est pas indifférent : garder
+   * l'une, garder l'autre, puis les deux cas qui demandent une précision. Les
+   * deux premiers sont les plus fréquents ; mettre « ignorer » en tête
+   * apprendrait à ignorer.
+   */
+  async function peindreConflits() {
+    const { ouverts } = await conflitsALire();
+    if (!ouverts.length) {
+      /*
+         Vider **puis** masquer. Masquer sans vider laisse les anciens conflits
+         dans le DOM : ils ne se voient plus, mais ils sont là — et ils
+         réapparaîtraient le jour où la section se réaffiche pour un autre
+         conflit, le temps d'un repaint. C'est la troisième variante de la même
+         faute dans cet écran : masquer n'est pas vider, et un repaint doit
+         laisser le DOM dans l'état qu'il décrit.
+      */
+      $('liste-conflits').innerHTML = '';
+      $('conflits').classList.add('hidden');
+      return;
+    }
+    $('conflits').classList.remove('hidden');
+    $('liste-conflits').innerHTML = ouverts
+      .map((conflit, index) => {
+        const valeurs = conflit.operations
+          .map((op) => {
+            const quand = new Date(Number(op.hlc.slice(0, 15))).toLocaleString('fr-FR');
+            const nom = noms.get(op.appareil) ?? op.appareil;
+            return (
+              `<li class="flex flex-wrap items-baseline justify-between gap-2">` +
+              `<code class="text-slate-900 dark:text-white">${JSON.stringify(op.charge)}</code>` +
+              `<span class="text-amber-900/70 dark:text-amber-200/70">saisi sur ${nom}, ` +
+              `le ${quand}</span>` +
+              `<button data-conflit="${index}" data-issue="retenue" data-retenue="${op.id}" ` +
+              `class="resoudre rounded-lg border border-amber-400 bg-white px-3 py-1 text-xs ` +
+              `font-medium text-amber-900 transition hover:bg-amber-100 dark:border-amber-700 ` +
+              `dark:bg-transparent dark:text-amber-200">Garder celle-ci</button></li>`
+            );
+          })
+          .join('');
+        const deja = conflit.repondueAvant
+          ? `<p class="mt-2 text-amber-900/80 dark:text-amber-200/80">Vous avez déjà répondu à ` +
+            `une partie de cette question ; une valeur nouvelle est arrivée depuis.</p>`
+          : '';
+        return (
+          `<li class="rounded-xl border border-amber-300 bg-white p-4 dark:border-amber-800 ` +
+          `dark:bg-slate-900">` +
+          `<p class="mb-2 font-medium text-slate-900 dark:text-white">${conflit.type} — ` +
+          `${conflit.cible}</p>` +
+          `<ul class="space-y-2">${valeurs}</ul>${deja}` +
+          `<div class="mt-3 flex flex-wrap gap-2">` +
+          `<button data-conflit="${index}" data-issue="toutes-justes" ` +
+          `class="resoudre rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs ` +
+          `font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 ` +
+          `dark:bg-transparent dark:text-slate-100">Les deux sont justes</button>` +
+          `<button data-conflit="${index}" data-issue="ignore" ` +
+          `class="resoudre rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-xs ` +
+          `font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 ` +
+          `dark:bg-transparent dark:text-slate-100">Ignorer</button></div></li>`
+        );
+      })
+      .join('');
+
+    for (const bouton of document.querySelectorAll<HTMLButtonElement>('.resoudre')) {
+      bouton.addEventListener('click', async () => {
+        const conflit = ouverts[Number(bouton.dataset.conflit)];
+        const issue = bouton.dataset.issue as 'retenue' | 'toutes-justes' | 'ignore';
+        let precision: string | undefined;
+        if (issue !== 'retenue') {
+          const question =
+            issue === 'toutes-justes'
+              ? 'En quoi les deux sont-elles justes ? (deux pesées dans la journée, par exemple)'
+              : 'Pourquoi ne pas trancher maintenant ?';
+          precision = window.prompt(question) ?? undefined;
+          // Une annulation de l'invite n'est pas une réponse : on ne journalise
+          // rien plutôt que d'enregistrer un motif vide.
+          if (!precision?.trim()) return;
+        }
+        bouton.disabled = true;
+        try {
+          await resoudreConflit(conflit, {
+            issue,
+            retenue: bouton.dataset.retenue,
+            precision,
+          });
+          dire(
+            'message-conflit',
+            'Réponse enregistrée. Elle voyagera vers vos autres appareils à la prochaine ' +
+              'synchronisation.',
+            'succes',
+          );
+          await peindreEtat();
+          await peindreConflits();
+        } catch (erreur) {
+          bouton.disabled = false;
+          dire('message-conflit', `${(erreur as Error).message}`, 'echec');
+        }
+      });
+    }
+  }
+
+  /** Les noms d'appareils, pour nommer qui a saisi quoi dans un conflit. */
+  let noms = new Map<string, string>();
+
   let octetsRecus: Uint8Array | null = null;
 
   auDeverrouillage(async () => {
     await peindreEtat();
+    await peindreConflits();
     await peindreLots();
     $('chargement').classList.add('hidden');
     $('ecran').classList.remove('hidden');
@@ -554,6 +693,7 @@ import Base from '../layouts/Base.astro';
         );
         dire('message-fusion', `${parties.join(' ; ')}.`, 'succes');
         await peindreEtat();
+        await peindreConflits();
         await peindreLots();
       } catch (erreur) {
         const motif = erreur instanceof SauvegardeRefusee ? erreur.motif : null;

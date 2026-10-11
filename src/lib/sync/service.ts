@@ -30,7 +30,14 @@
 import { db, ecrireCarte, ecrireReglageBrut, lireAppareil } from '../db';
 import type { EntreeRevision } from '../noyau/revisions';
 import type { Operation } from '../noyau/operations';
-import { annulerLot, fusionner, type Reglages } from '../noyau/fusion';
+import { annulerLot, conflits, fusionner, type Conflit, type Reglages } from '../noyau/fusion';
+import {
+  construireResolution,
+  trier,
+  TYPE_RESOLUTION,
+  type Issue,
+  type Tri,
+} from '../noyau/corrections';
 import { normaliserJournal } from '../noyau/fusion';
 import { empreinte, empreinteLisible } from '../noyau/empreinte';
 import { ulid } from '../noyau/ulid';
@@ -304,7 +311,7 @@ export async function fusionnerPaquet(
     reglagesChanges: resultat.reglagesChanges,
     revisionsRecues: revisionsRecues.length,
     aEnvoyer: resultat.aEnvoyer.length,
-    conflits: resultat.conflits.length,
+    conflits: trier(resultat.conflits, resultat.etat.operations).ouverts.length,
     collisions: resultat.collisions.length,
     cartesRecalculees: recalculees,
     identiques: complete === ouvert.metadonnees.empreinte,
@@ -374,6 +381,31 @@ export async function registreAppareils(): Promise<AppareilConnu[]> {
 export async function registreSauvegardes(): Promise<SauvegardeDeclaree[]> {
   const { operations } = await etatLocal();
   return sauvegardesDeclarees(operations);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Conflits et notification de correction
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** Les conflits à traiter, et ceux qu'on a déjà tranchés. */
+export async function conflitsALire(): Promise<Tri> {
+  const { operations } = await etatLocal();
+  return trier(conflits(operations), operations);
+}
+
+/**
+ * Tranche un conflit, et journalise la réponse.
+ *
+ * La résolution est un **fait** : elle voyage, et le conflit sera donc tranché
+ * sur l'autre appareil aussi dès la prochaine synchronisation. Répondre deux
+ * fois à la même question serait épuisant et, plus grave, inexplicable.
+ */
+export async function resoudreConflit(
+  conflit: Conflit,
+  choix: { issue: Issue; retenue?: string; precision?: string },
+): Promise<void> {
+  const charge = construireResolution(conflit, choix);
+  await enregistrerFait(TYPE_RESOLUTION, conflit.cible, charge);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
