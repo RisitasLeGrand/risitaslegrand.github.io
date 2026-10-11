@@ -15,7 +15,7 @@ import type { EntreeRevision } from './noyau/revisions';
 import type { Operation } from './noyau/operations';
 import { socleDe } from './noyau/revisions';
 import { idAppareilNeuf } from './noyau/operations';
-import { fabriqueUlid } from './noyau/ulid';
+import { fabriqueUlid, ulid } from './noyau/ulid';
 import {
   instantanerSiMigration,
   revenirA,
@@ -99,7 +99,14 @@ export function fsrsNeuf(maintenant = new Date()): CarteFsrs {
 }
 
 export interface ResultatQuiz {
-  id?: number;
+  /**
+   * Identifiant stable (ULID), posé à l'écriture.
+   *
+   * C'était une clé auto-incrémentée. Deux appareils produisaient alors tous
+   * deux un « id: 1 » pour deux événements différents : la collision n'était
+   * pas un risque, c'était une certitude dès la première synchronisation.
+   */
+  id?: string;
   ficheId: string;
   matiere: string;
   le: string;
@@ -213,7 +220,14 @@ export interface DifficulteItem {
 }
 
 export interface SessionNBack {
-  id?: number;
+  /**
+   * Identifiant stable (ULID), posé à l'écriture.
+   *
+   * C'était une clé auto-incrémentée. Deux appareils produisaient alors tous
+   * deux un « id: 1 » pour deux événements différents : la collision n'était
+   * pas un risque, c'était une certitude dès la première synchronisation.
+   */
+  id?: string;
   le: string;
   /** Identifiant du mode joué : sert à ne comparer que des parties similaires. */
   titre?: string;
@@ -245,7 +259,14 @@ export interface SessionNBack {
  * désynchroniserait d'un import de sauvegarde, alors qu'un décompte se refait.
  */
 export interface SessionRelationnelle {
-  id?: number;
+  /**
+   * Identifiant stable (ULID), posé à l'écriture.
+   *
+   * C'était une clé auto-incrémentée. Deux appareils produisaient alors tous
+   * deux un « id: 1 » pour deux événements différents : la collision n'était
+   * pas un risque, c'était une certitude dès la première synchronisation.
+   */
+  id?: string;
   le: string;
   /**
    * Note de 0 à 1 par item, et non un booléen : les questions à sélection
@@ -295,7 +316,14 @@ export interface SeuilVeridical {
 
 /** Une session de Veridical Mapping. */
 export interface SessionVeridical {
-  id?: number;
+  /**
+   * Identifiant stable (ULID), posé à l'écriture.
+   *
+   * C'était une clé auto-incrémentée. Deux appareils produisaient alors tous
+   * deux un « id: 1 » pour deux événements différents : la collision n'était
+   * pas un risque, c'était une certitude dès la première synchronisation.
+   */
+  id?: string;
   le: string;
   famille: string;
   mode: string;
@@ -329,7 +357,14 @@ export interface SessionVeridical {
  * et la démonstration sont dans `docs/cyclades/budget-stockage.md`.
  */
 export interface Seance {
-  id?: number;
+  /**
+   * Identifiant stable (ULID), posé à l'écriture.
+   *
+   * C'était une clé auto-incrémentée. Deux appareils produisaient alors tous
+   * deux un « id: 1 » pour deux événements différents : la collision n'était
+   * pas un risque, c'était une certitude dès la première synchronisation.
+   */
+  id?: string;
   /** Identifiant du thème de planification. */
   theme: string;
   /** Jour de la séance, au format AAAA-MM-JJ. */
@@ -363,7 +398,8 @@ export interface Seance {
  * la donnée qu'il ne faut pas écraser à l'aveugle.
  */
 export interface NoteSeance {
-  seanceId: number;
+  /** L'identifiant stable de la séance. Voir « Seance.id ». */
+  seanceId: string;
   /** Note de séance rédigée par la personne (1 à 2 pages visées). */
   note: string;
   /**
@@ -411,7 +447,14 @@ export interface ScoreRubriqueDgfip {
 }
 
 export interface SessionDgfip {
-  id?: number;
+  /**
+   * Identifiant stable (ULID), posé à l'écriture.
+   *
+   * C'était une clé auto-incrémentée. Deux appareils produisaient alors tous
+   * deux un « id: 1 » pour deux événements différents : la collision n'était
+   * pas un risque, c'était une certitude dès la première synchronisation.
+   */
+  id?: string;
   le: string;
   posees: number;
   bonnes: number;
@@ -444,7 +487,14 @@ export interface Profil {
  * utile et non une sanction.
  */
 export interface AideDemandee {
-  id?: number;
+  /**
+   * Identifiant stable (ULID), posé à l'écriture.
+   *
+   * C'était une clé auto-incrémentée. Deux appareils produisaient alors tous
+   * deux un « id: 1 » pour deux événements différents : la collision n'était
+   * pas un risque, c'était une certitude dès la première synchronisation.
+   */
+  id?: string;
   /** Horodatage ISO. */
   le: string;
   /** L'écran d'où partait la demande. */
@@ -463,17 +513,17 @@ interface SchemaRevinsp extends DBSchema {
   journal: { key: string; value: EntreeJournal; indexes: { matiere: string } };
   competences: { key: string; value: Competence; indexes: { matiere: string } };
   difficultes: { key: string; value: DifficulteItem };
-  quiz: { key: number; value: ResultatQuiz; indexes: { le: string } };
+  quiz: { key: string; value: ResultatQuiz; indexes: { le: string } };
   jours: { key: string; value: Jour };
-  nback: { key: number; value: SessionNBack; indexes: { le: string } };
-  seances: { key: number; value: Seance; indexes: { jour: string; theme: string } };
-  notes: { key: number; value: NoteSeance };
+  nback: { key: string; value: SessionNBack; indexes: { le: string } };
+  seances: { key: string; value: Seance; indexes: { jour: string; theme: string } };
+  notes: { key: string; value: NoteSeance };
   qcmDgfip: { key: string; value: EtatQuestionDgfip; indexes: { rubriqueId: string } };
-  qcmSessions: { key: number; value: SessionDgfip; indexes: { le: string } };
-  relationnel: { key: number; value: SessionRelationnelle; indexes: { le: string } };
+  qcmSessions: { key: string; value: SessionDgfip; indexes: { le: string } };
+  relationnel: { key: string; value: SessionRelationnelle; indexes: { le: string } };
   vmSeuils: { key: string; value: SeuilVeridical; indexes: { famille: string } };
-  vmSessions: { key: number; value: SessionVeridical; indexes: { le: string } };
-  aides: { key: number; value: AideDemandee; indexes: { le: string; itemId: string } };
+  vmSessions: { key: string; value: SessionVeridical; indexes: { le: string } };
+  aides: { key: string; value: AideDemandee; indexes: { le: string; itemId: string } };
   revisions: {
     key: string;
     value: EntreeRevision;
@@ -487,7 +537,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 12;
+const VERSION = 13;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -703,6 +753,145 @@ function ouvrirAuSchema(nom: string, version: number) {
           carte = await carte.continue();
         }
       }
+      if (vers(13)) {
+        /*
+         * Les clés auto-incrémentées deviennent des identifiants stables.
+         *
+         * C'est la migration **destructrice** de la phase 1 : elle réécrit sept
+         * magasins et les clés d'un huitième. Elle est précédée d'un instantané
+         * automatique et réversible — voir « noyau/instantane.ts ».
+         *
+         * ## Pourquoi il faut en passer par là
+         *
+         * Une clé auto-incrémentée est un compteur local. Deux appareils
+         * produisent tous deux un « id: 1 » pour deux séances différentes : à la
+         * première fusion, l'une écrase l'autre. Ce n'est pas un risque de
+         * collision, c'est une certitude. Et aucune horloge logique ne répare
+         * cela, puisque le conflit porte sur l'identité même des objets.
+         *
+         * ## L'ordre est conservé, et c'est délibéré
+         *
+         * Les enregistrements sont triés par leur date **avant** de recevoir
+         * leur identifiant, et la fabrique d'ULID reçoit cette date pour
+         * horloge. L'ULID porte donc l'instant réel de l'événement : l'ordre
+         * lexicographique des nouvelles clés est l'ordre chronologique des
+         * faits, exactement comme pour les opérations à venir. Tirer des
+         * identifiants au hasard aurait marché aussi, et aurait perdu cette
+         * propriété pour toujours.
+         *
+         * ## Le vrai danger : « notes »
+         *
+         * Le texte des séances est la seule donnée irremplaçable du site. Son
+         * magasin est indexé par identifiant de séance, **et** ses valeurs
+         * contiennent un dictionnaire de restitutions lui-même indexé par
+         * identifiant de séance. Les deux niveaux sont remappés. Une note dont
+         * la séance a disparu n'est pas supprimée : elle reçoit un identifiant
+         * neuf et reste orpheline, ce que le contrôle d'intégrité continue de
+         * signaler. Perdre du texte pour faire propre serait le pire des
+         * échanges.
+         */
+        const A_MIGRER = [
+          { nom: 'quiz', index: [['le', 'le']] },
+          { nom: 'nback', index: [['le', 'le']] },
+          { nom: 'seances', index: [['jour', 'jour'], ['theme', 'theme']] },
+          { nom: 'qcmSessions', index: [['le', 'le']] },
+          { nom: 'relationnel', index: [['le', 'le']] },
+          { nom: 'vmSessions', index: [['le', 'le']] },
+          { nom: 'aides', index: [['le', 'le'], ['itemId', 'itemId']] },
+        ] as const;
+
+        /** L'instant d'un enregistrement, pour l'ordre et pour l'ULID. */
+        const instantDe = (e: Record<string, unknown>): number => {
+          const brut =
+            (typeof e.le === 'string' && e.le) ||
+            (typeof e.termineeLe === 'string' && e.termineeLe) ||
+            // Une séance non terminée n'a que son jour : midi, faute de mieux,
+            // et non minuit — minuit ferait basculer la séance d'un jour à
+            // l'autre selon le fuseau de lecture.
+            (typeof e.jour === 'string' && `${e.jour}T12:00:00.000Z`) ||
+            '';
+          const instant = Date.parse(brut);
+          // Une date illisible ne doit pas faire échouer la migration entière :
+          // l'enregistrement prend l'instant de la migration, perd son rang
+          // chronologique, et garde tout son contenu.
+          return Number.isFinite(instant) ? instant : Date.now();
+        };
+
+        /** Les séances, pour remapper « notes » ensuite. */
+        const nouvellesSeances = new Map<string, string>();
+
+        /*
+           La boucle traite sept magasins de formes différentes, dont elle n'a
+           besoin de connaître ni les champs ni les index. Le typage précis
+           d'« idb » n'apporte rien ici — il n'y a aucun champ nommé dans ce
+           code — et il empêche d'écrire la boucle, puisque le nom de magasin
+           est une union. D'où cette vue permissive, bornée à ce bloc et
+           nommée, plutôt que des « as » dispersés sur chaque ligne.
+        */
+        type MagasinLibre = {
+          getAll(): Promise<Record<string, unknown>[]>;
+          getAllKeys(): Promise<(number | string)[]>;
+          put(valeur: Record<string, unknown>): Promise<unknown>;
+          createIndex(nom: string, champ: string): unknown;
+        };
+        const libre = (valeur: unknown) => valeur as unknown as MagasinLibre;
+
+        for (const { nom, index } of A_MIGRER) {
+          const ancien = libre(transaction.objectStore(nom));
+          const enregistrements = await ancien.getAll();
+          const clefs = await ancien.getAllKeys();
+          const couples = enregistrements.map((valeur, i) => ({
+            valeur,
+            ancienneClef: clefs[i],
+            instant: instantDe(valeur),
+          }));
+          // Tri croissant : la fabrique d'ULID n'avance alors jamais à
+          // reculons, ce qui lui permet de rester monotone sans artifice.
+          couples.sort(
+            (a, b) =>
+              a.instant - b.instant ||
+              String(a.ancienneClef).localeCompare(String(b.ancienneClef), 'en', {
+                numeric: true,
+              }),
+          );
+
+          base.deleteObjectStore(nom);
+          const neuf = libre(base.createObjectStore(nom, { keyPath: 'id' }));
+          for (const [nomIndex, champ] of index) neuf.createIndex(nomIndex, champ);
+
+          let horloge = 0;
+          const prochain = fabriqueUlid(() => horloge);
+          for (const { valeur, ancienneClef, instant } of couples) {
+            horloge = instant;
+            const identifiant = prochain();
+            if (nom === 'seances') nouvellesSeances.set(String(ancienneClef), identifiant);
+            await neuf.put({ ...valeur, id: identifiant });
+          }
+        }
+
+        /* Les notes : la clé du magasin et les clés internes des restitutions. */
+        const notes = (await libre(transaction.objectStore('notes')).getAll()) as unknown as (
+          NoteSeance & { seanceId: unknown }
+        )[];
+        base.deleteObjectStore('notes');
+        const neufNotes = libre(base.createObjectStore('notes', { keyPath: 'seanceId' }));
+        const orphelines = fabriqueUlid();
+        for (const note of notes) {
+          const ancienne = String(note.seanceId);
+          const restitutions: Record<string, string> = {};
+          for (const [clef, texte] of Object.entries(note.restitutions ?? {})) {
+            // Une restitution qui renvoie à une séance disparue garde sa clé
+            // d'origine : l'écran ne la retrouvera pas, mais le texte est là et
+            // un export le rend.
+            restitutions[nouvellesSeances.get(clef) ?? clef] = texte;
+          }
+          await neufNotes.put({
+            ...note,
+            seanceId: nouvellesSeances.get(ancienne) ?? orphelines(),
+            restitutions,
+          } as unknown as Record<string, unknown>);
+        }
+      }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
         // modèle neuf : convertir un historique SM-2 en stabilité et difficulté
@@ -855,6 +1044,25 @@ export async function ecrireCarte(carte: EtatCarte) {
   await (await db()).put('cartes', carte);
 }
 
+/**
+ * Pose un identifiant stable sur un enregistrement qui n'en a pas.
+ *
+ * À appeler devant **chaque** écriture dans les sept magasins qui portaient une
+ * clé auto-incrémentée. Le compteur de la base les dotait d'une clé toute
+ * seule ; il n'existe plus, et un enregistrement sans « id » est désormais
+ * refusé par IndexedDB — pas par le compilateur, puisque le champ est
+ * optionnel. C'est pourquoi ce passage est nommé plutôt qu'écrit à la main :
+ * un « ulid() » oublié dans un coin ne se verrait qu'à l'usage.
+ */
+function identifie<T extends object>(enregistrement: T): T & { id: string } {
+  // La contrainte est « object » et non « { id?: string } » : les chemins
+  // d'import retirent l'identifiant par déstructuration, et le type qui en
+  // résulte n'a plus de champ « id » du tout — une contrainte plus étroite les
+  // refuserait, qui sont précisément les appels les plus nécessaires.
+  const existant = (enregistrement as { id?: unknown }).id;
+  return { ...enregistrement, id: typeof existant === 'string' ? existant : ulid() };
+}
+
 /* --- Journal de révisions et journal d'opérations -------------------------- */
 
 /**
@@ -969,7 +1177,7 @@ export async function ecrireEtatFiche(etat: EtatFiche) {
 }
 
 export async function ajouterResultatQuiz(resultat: ResultatQuiz) {
-  await (await db()).add('quiz', resultat);
+  await (await db()).add('quiz', identifie(resultat));
 }
 
 export async function tousLesResultatsQuiz(): Promise<ResultatQuiz[]> {
@@ -977,7 +1185,7 @@ export async function tousLesResultatsQuiz(): Promise<ResultatQuiz[]> {
 }
 
 export async function ajouterSessionNBack(session: SessionNBack) {
-  await (await db()).add('nback', session);
+  await (await db()).add('nback', identifie(session));
 }
 
 export async function toutesLesSessionsNBack(): Promise<SessionNBack[]> {
@@ -985,7 +1193,7 @@ export async function toutesLesSessionsNBack(): Promise<SessionNBack[]> {
 }
 
 export async function ajouterSessionRelationnelle(session: SessionRelationnelle) {
-  await (await db()).add('relationnel', session);
+  await (await db()).add('relationnel', identifie(session));
 }
 
 export async function toutesLesSessionsRelationnelles(): Promise<SessionRelationnelle[]> {
@@ -1001,7 +1209,7 @@ export async function ecrireSeuilVeridical(seuil: SeuilVeridical) {
 }
 
 export async function ajouterSessionVeridical(session: SessionVeridical) {
-  await (await db()).add('vmSessions', session);
+  await (await db()).add('vmSessions', identifie(session));
 }
 
 export async function toutesLesSessionsVeridical(): Promise<SessionVeridical[]> {
@@ -1023,7 +1231,7 @@ export async function etatsQuestionsDgfip(): Promise<EtatQuestionDgfip[]> {
 export async function enregistrerSessionDgfip(
   session: SessionDgfip,
   reponses: { id: string; rubriqueId: string; issue: 'bonne' | 'mauvaise' | 'abstention' }[],
-): Promise<number> {
+): Promise<string> {
   const base = await db();
   const tx = base.transaction(['qcmDgfip', 'qcmSessions'], 'readwrite');
   const magasin = tx.objectStore('qcmDgfip');
@@ -1047,9 +1255,10 @@ export async function enregistrerSessionDgfip(
     await magasin.put(etat);
   }
   const { id: _ignore, ...sansId } = session;
-  const id = await tx.objectStore('qcmSessions').add(sansId as SessionDgfip);
+  const avecId = identifie(sansId);
+  await tx.objectStore('qcmSessions').add(avecId as SessionDgfip);
   await tx.done;
-  return id as number;
+  return avecId.id;
 }
 
 export async function toutesLesSessionsDgfip(): Promise<SessionDgfip[]> {
@@ -1058,13 +1267,18 @@ export async function toutesLesSessionsDgfip(): Promise<SessionDgfip[]> {
 
 export async function toutesLesSeances(): Promise<Seance[]> {
   const seances = await (await db()).getAll('seances');
-  return seances.sort((a, b) => a.jour.localeCompare(b.jour) || (a.id ?? 0) - (b.id ?? 0));
+  // Les identifiants sont des ULID : leur ordre lexicographique est l'ordre de
+  // création, ce qui départage deux séances du même jour comme le faisait la
+  // soustraction des anciennes clés numériques.
+  return seances.sort(
+    (a, b) => a.jour.localeCompare(b.jour) || (a.id ?? '').localeCompare(b.id ?? ''),
+  );
 }
 
 /* --- Notes de séance ------------------------------------------------------ */
 
 /** La note d'une séance, ou `null` si rien n'y a été écrit. */
-export async function lireNoteSeance(seanceId: number): Promise<NoteSeance | null> {
+export async function lireNoteSeance(seanceId: string): Promise<NoteSeance | null> {
   return (await (await db()).get('notes', seanceId)) ?? null;
 }
 
@@ -1076,7 +1290,7 @@ export async function lireNoteSeance(seanceId: number): Promise<NoteSeance | nul
  * confondrait avec « non encore rédigé » dans tous les décomptes.
  */
 export async function ecrireNoteSeance(
-  seanceId: number,
+  seanceId: string,
   note: string,
   restitutions: Record<string, string> = {},
 ) {
@@ -1097,14 +1311,14 @@ export async function ecrireNoteSeance(
  * transactions.
  */
 export async function lireNotesSeances(
-  seanceIds: readonly number[],
-): Promise<Map<number, NoteSeance>> {
+  seanceIds: readonly string[],
+): Promise<Map<string, NoteSeance>> {
   if (!seanceIds.length) return new Map();
   const base = await db();
   const tx = base.transaction('notes');
   const trouvees = await Promise.all(seanceIds.map((id) => tx.store.get(id)));
   await tx.done;
-  const sortie = new Map<number, NoteSeance>();
+  const sortie = new Map<string, NoteSeance>();
   for (const note of trouvees) if (note) sortie.set(note.seanceId, note);
   return sortie;
 }
@@ -1115,7 +1329,7 @@ export async function lireNotesSeances(
  * Sert aux décomptes — « cette séance a-t-elle une note ? », « combien de
  * signes ? » — que plusieurs écrans faisaient en chargeant les notes entières.
  */
-export async function volumesDesNotes(): Promise<Map<number, { note: number; restitutions: number }>> {
+export async function volumesDesNotes(): Promise<Map<string, { note: number; restitutions: number }>> {
   const notes = await (await db()).getAll('notes');
   return new Map(
     notes.map((n) => [
@@ -1137,7 +1351,7 @@ export async function volumesDesNotes(): Promise<Map<number, { note: number; res
  */
 export async function enregistrerAide(aide: AideDemandee): Promise<void> {
   try {
-    await (await db()).add('aides', aide);
+    await (await db()).add('aides', identifie(aide));
   } catch {
     /* La demande a lieu quand même. */
   }
@@ -1164,17 +1378,21 @@ export async function aidesParItem(ids: readonly string[]): Promise<Map<string, 
   return comptes;
 }
 
-export async function lireSeance(id: number): Promise<Seance | undefined> {
+export async function lireSeance(id: string): Promise<Seance | undefined> {
   return (await db()).get('seances', id);
 }
 
 /** Crée ou met à jour une séance et retourne son identifiant. */
-export async function ecrireSeance(seance: Seance): Promise<number> {
+export async function ecrireSeance(seance: Seance): Promise<string> {
   const base = await db();
-  return (await base.put('seances', seance)) as number;
+  // L'identifiant est posé ici et non par la base : il n'y a plus de compteur
+  // auto-incrémenté, et une séance sans identifiant n'aurait pas de clé.
+  const avecId = { ...seance, id: seance.id ?? ulid() };
+  await base.put('seances', avecId);
+  return avecId.id;
 }
 
-export async function supprimerSeance(id: number) {
+export async function supprimerSeance(id: string) {
   await (await db()).delete('seances', id);
 }
 
@@ -1593,7 +1811,7 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
     for (const q of donnees.quiz ?? []) {
       if (existants.has(`${q.ficheId}|${q.le}`)) continue;
       const { id: _ignore, ...sansId } = q;
-      await base.add('quiz', sansId as ResultatQuiz);
+      await base.add('quiz', identifie(sansId) as ResultatQuiz);
     }
     // Les séances sont identifiées par le couple (jour, thème) : deux séances
     // du même thème le même jour sont forcément la même.
@@ -1601,19 +1819,19 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
     for (const seance of donnees.seances ?? []) {
       if (seancesExistantes.has(`${seance.jour}|${seance.theme}`)) continue;
       const { id: _ignore, ...sansId } = seance;
-      await base.add('seances', sansId as Seance);
+      await base.add('seances', identifie(sansId) as Seance);
     }
     const sessionsExistantes = new Set((await base.getAll('nback')).map((s) => s.le));
     for (const session of donnees.nback ?? []) {
       if (sessionsExistantes.has(session.le)) continue;
       const { id: _ignore, ...sansId } = session;
-      await base.add('nback', sansId as SessionNBack);
+      await base.add('nback', identifie(sansId) as SessionNBack);
     }
     const relationnellesExistantes = new Set((await base.getAll('relationnel')).map((s) => s.le));
     for (const session of donnees.relationnel ?? []) {
       if (relationnellesExistantes.has(session.le)) continue;
       const { id: _ignore, ...sansId } = session;
-      await base.add('relationnel', sansId as SessionRelationnelle);
+      await base.add('relationnel', identifie(sansId) as SessionRelationnelle);
     }
     // Les seuils ne s'additionnent pas : on garde celui dont l'escalier a vu le
     // plus d'essais, puisque c'est lui le mieux estimé.
@@ -1627,7 +1845,7 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
     for (const session of donnees.vmSessions ?? []) {
       if (vmExistantes.has(session.le)) continue;
       const { id: _ignore, ...sansId } = session;
-      await base.add('vmSessions', sansId as SessionVeridical);
+      await base.add('vmSessions', identifie(sansId) as SessionVeridical);
     }
     // QCM DGFiP : les compteurs par question s'additionnent, l'appareil le
     // plus avancé n'étant pas forcément le même selon la question.
@@ -1648,7 +1866,7 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
     for (const session of donnees.qcmSessions ?? []) {
       if (sessionsDgfipExistantes.has(session.le)) continue;
       const { id: _ignore, ...sansId } = session;
-      await base.add('qcmSessions', sansId as SessionDgfip);
+      await base.add('qcmSessions', identifie(sansId) as SessionDgfip);
     }
     for (const j of donnees.jours ?? []) {
       const local = await base.get('jours', j.jour);
@@ -1665,30 +1883,30 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
   } else {
     for (const q of donnees.quiz ?? []) {
       const { id: _ignore, ...sansId } = q;
-      await base.add('quiz', sansId as ResultatQuiz);
+      await base.add('quiz', identifie(sansId) as ResultatQuiz);
     }
     for (const j of donnees.jours ?? []) await base.put('jours', j);
     for (const session of donnees.nback ?? []) {
       const { id: _ignore, ...sansId } = session;
-      await base.add('nback', sansId as SessionNBack);
+      await base.add('nback', identifie(sansId) as SessionNBack);
     }
     for (const seance of donnees.seances ?? []) {
       const { id: _ignore, ...sansId } = seance;
-      await base.add('seances', sansId as Seance);
+      await base.add('seances', identifie(sansId) as Seance);
     }
     for (const etat of donnees.qcmDgfip ?? []) await base.put('qcmDgfip', etat);
     for (const session of donnees.qcmSessions ?? []) {
       const { id: _ignore, ...sansId } = session;
-      await base.add('qcmSessions', sansId as SessionDgfip);
+      await base.add('qcmSessions', identifie(sansId) as SessionDgfip);
     }
     for (const session of donnees.relationnel ?? []) {
       const { id: _ignore, ...sansId } = session;
-      await base.add('relationnel', sansId as SessionRelationnelle);
+      await base.add('relationnel', identifie(sansId) as SessionRelationnelle);
     }
     for (const seuil of donnees.vmSeuils ?? []) await base.put('vmSeuils', seuil);
     for (const session of donnees.vmSessions ?? []) {
       const { id: _ignore, ...sansId } = session;
-      await base.add('vmSessions', sansId as SessionVeridical);
+      await base.add('vmSessions', identifie(sansId) as SessionVeridical);
     }
   }
 
@@ -1700,7 +1918,7 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
   for (const aide of donnees.aides ?? []) {
     if (aidesConnues.has(`${aide.le}|${aide.itemId ?? ''}`)) continue;
     const { id: _ignore, ...sansId } = aide;
-    await base.add('aides', sansId as AideDemandee);
+    await base.add('aides', identifie(sansId) as AideDemandee);
   }
 
   if (donnees.planification) await ecrireReglagesPlanification(donnees.planification);

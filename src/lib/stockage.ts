@@ -188,9 +188,9 @@ export async function controlerIntegrite(): Promise<Anomalie[]> {
   const anomalies: Anomalie[] = [];
 
   const idsSeances = new Set(
-    (magasins.seances as { id?: number }[]).map((s) => s.id).filter((id) => id !== undefined),
+    (magasins.seances as { id?: string }[]).map((s) => s.id).filter((id) => id !== undefined),
   );
-  const notesOrphelines = (magasins.notes as { seanceId: number }[]).filter(
+  const notesOrphelines = (magasins.notes as { seanceId: string }[]).filter(
     (n) => !idsSeances.has(n.seanceId),
   );
   if (notesOrphelines.length) {

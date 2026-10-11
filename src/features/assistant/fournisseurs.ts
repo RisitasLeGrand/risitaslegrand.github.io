@@ -99,10 +99,10 @@ async function blocNotes(ficheId: string | undefined): Promise<Bloc[]> {
   if (!candidates.length) return [];
   const dernieres = candidates.slice(-2);
   const notes = await lireNotesSeances(
-    dernieres.map((s) => s.id).filter((id): id is number => typeof id === 'number'),
+    dernieres.map((s) => s.id).filter((id): id is string => typeof id === 'string'),
   );
   const texte = dernieres
-    .map((s) => ({ jour: s.jour, note: notes.get(s.id as number)?.note?.trim() }))
+    .map((s) => ({ jour: s.jour, note: s.id ? notes.get(s.id)?.note?.trim() : undefined }))
     .filter((x): x is { jour: string; note: string } => Boolean(x.note))
     .map((x) => `Séance du ${x.jour} :\n${x.note}`)
     .join('\n\n');

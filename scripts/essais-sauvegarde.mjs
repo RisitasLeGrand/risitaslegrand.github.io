@@ -32,7 +32,12 @@ const compter = () => page.evaluate(async () => {
 
 await page.evaluate(async () => {
   const base = await new Promise((ok) => { const r = indexedDB.open('revinsp'); r.onsuccess = () => ok(r.result); });
-  const ajouter = (n, v) => new Promise((ok) => { const r = base.transaction(n,'readwrite').objectStore(n).add(v); r.onsuccess = () => ok(); r.onerror = () => ok(); });
+  /* Depuis la version 13, ces magasins n'ont plus de compteur auto-incrémenté :
+     un enregistrement sans « id » est refusé, et « add » lève sur-le-champ. Le
+     semis pose donc son propre identifiant, comme l'application le fait. */
+  let compteur = 0;
+  const idEssai = () => `01ESSAI${String(compteur++).padStart(19, '0')}`;
+  const ajouter = (n, v) => new Promise((ok) => { const r = base.transaction(n,'readwrite').objectStore(n).add({ id: idEssai(), ...v }); r.onsuccess = () => ok(); r.onerror = () => ok(); });
   const mettre = (n, v) => new Promise((ok) => { const r = base.transaction(n,'readwrite').objectStore(n).put(v); r.onsuccess = () => ok(); r.onerror = () => ok(); });
   await ajouter('nback', { le: '2026-01-01T00:00:00.000Z', n: 2, taux: 0.9, statut: 'terminee', secondes: 60 });
   await ajouter('relationnel', { le: '2026-01-01T00:00:00.000Z', items: [{ moteur: 'algebre-cachee', systeme: 'line', note: 1 }], tentes: 1, reussis: 1, secondes: 30 });

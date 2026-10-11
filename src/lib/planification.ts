@@ -110,7 +110,9 @@ export async function historique(themeId: string): Promise<Seance[]> {
   const seances = await toutesLesSeances();
   return seances
     .filter((s) => s.theme === themeId && s.statut === 'terminee')
-    .sort((a, b) => b.jour.localeCompare(a.jour) || (b.id ?? 0) - (a.id ?? 0));
+    // Les identifiants sont des ULID : leur ordre lexicographique est l'ordre
+    // de création, qui départage deux séances du même jour.
+    .sort((a, b) => b.jour.localeCompare(a.jour) || (b.id ?? '').localeCompare(a.id ?? ''));
 }
 
 /**
@@ -118,7 +120,7 @@ export async function historique(themeId: string): Promise<Seance[]> {
  * 1er du mois. L'ordre suit le déroulé décrit par la méthode : on commence
  * par la plus ancienne et on remonte jusqu'à la plus récente.
  */
-export async function rappels(themeId: string, etendue: boolean, exclureId?: number) {
+export async function rappels(themeId: string, etendue: boolean, exclureId?: string) {
   const passees = (await historique(themeId)).filter((s) => s.id !== exclureId);
   const combien = etendue ? 4 : 2;
   return passees.slice(0, combien).reverse();
@@ -168,7 +170,7 @@ export async function seanceEtTexte(
   jour = jourISO(),
 ): Promise<{ seance: Seance; texte: TexteDeSeance }> {
   const seance = await seanceDuJour(jour);
-  const note = typeof seance.id === 'number' ? await lireNoteSeance(seance.id) : null;
+  const note = typeof seance.id === 'string' ? await lireNoteSeance(seance.id) : null;
   return {
     seance,
     texte: note ? { note: note.note, restitutions: note.restitutions } : { ...TEXTE_VIDE },

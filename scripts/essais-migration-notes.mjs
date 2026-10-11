@@ -181,33 +181,40 @@ v('le magasin « notes » existe', apres.aNotes, true);
 console.log('\nAUCUNE SÉANCE PERDUE, AUCUN CHAMP DE PILOTAGE ABÎMÉ');
 
 v('les quatre séances sont là', apres.seances.length, 4);
-const parId = new Map(apres.seances.map((s) => [s.id, s]));
-v('le thème est intact', parId.get(1)?.theme, 'droit-public');
-v('le jour est intact', parId.get(1)?.jour, '2026-01-05');
-v('le statut est intact', parId.get(1)?.statut, 'terminee');
-v('la durée est intacte', parId.get(1)?.secondes, 3600);
-v('les fiches couvertes sont intactes', parId.get(1)?.fiches, ['fiche-a']);
-v('la date de clôture est intacte', parId.get(1)?.termineeLe, '2026-01-05T18:00:00.000Z');
+/* Les séances sont indexées par leur **jour** et non par leur identifiant : la
+   migration 13 a remplacé les clés numériques par des ULID, et un essai qui
+   cherche « la séance 1 » ne trouve plus rien. Le jour est ce que cet essai
+   connaît vraiment de ses séances. */
+const parId = new Map(apres.seances.map((s) => [s.jour, s]));
+v('le thème est intact', parId.get('2026-01-05')?.theme, 'droit-public');
+v('le jour est intact', parId.get('2026-01-05')?.jour, '2026-01-05');
+v('le statut est intact', parId.get('2026-01-05')?.statut, 'terminee');
+v('la durée est intacte', parId.get('2026-01-05')?.secondes, 3600);
+v('les fiches couvertes sont intactes', parId.get('2026-01-05')?.fiches, ['fiche-a']);
+v('la date de clôture est intacte', parId.get('2026-01-05')?.termineeLe, '2026-01-05T18:00:00.000Z');
 
 console.log('\nLE TEXTE N’EST PLUS DANS LA SÉANCE');
 
-v('plus de champ « note »', 'note' in (parId.get(1) ?? {}), false);
-v('plus de champ « restitutions »', 'restitutions' in (parId.get(1) ?? {}), false);
+v('plus de champ « note »', 'note' in (parId.get('2026-01-05') ?? {}), false);
+v('plus de champ « restitutions »', 'restitutions' in (parId.get('2026-01-05') ?? {}), false);
 
 console.log('\nLE TEXTE EST DANS « NOTES », AU SIGNE PRÈS');
 
-const notes = new Map(apres.notes.map((n) => [n.seanceId, n]));
+/* Les notes sont retrouvées par le jour de leur séance, pour la même raison que
+   les séances : leurs clés sont des ULID depuis la migration 13. */
+const jourDeLaNote = new Map(apres.seances.map((s) => [s.id, s.jour]));
+const notes = new Map(apres.notes.map((n) => [jourDeLaNote.get(n.seanceId), n]));
 v('deux séances seulement ont du texte', apres.notes.length, 2);
-v('la note longue est intacte', notes.get(1)?.note, NOTE_LONGUE);
-v('sa restitution est intacte', notes.get(1)?.restitutions, {
-  '0': 'Ce dont je me souvenais.',
-});
-v('la séance vide n’a pas de ligne', notes.has(2), false);
-v('la séance sans champ de texte non plus', notes.has(4), false);
+v('la note longue est intacte', notes.get('2026-01-05')?.note, NOTE_LONGUE);
+v('sa restitution est intacte', Object.values(notes.get('2026-01-05')?.restitutions ?? {}), [
+  'Ce dont je me souvenais.',
+]);
+v('la séance vide n’a pas de ligne', notes.has('2026-01-06'), false);
+v('la séance sans champ de texte non plus', notes.has('2026-01-08'), false);
 v(
   'la restitution seule a été sauvée',
-  notes.get(3)?.restitutions['1'],
-  'Je me rappelle surtout de la hiérarchie des normes.',
+  Object.values(notes.get('2026-01-07')?.restitutions ?? {}),
+  ['Je me rappelle surtout de la hiérarchie des normes.'],
 );
 v('chaque note porte une date de modification', apres.notes.every((n) => Boolean(n.majLe)), true);
 
@@ -238,7 +245,11 @@ const encore = await page.evaluate(async () => {
   return notes;
 });
 v('les notes sont toujours deux', encore.length, 2);
-v('et la longue est toujours intacte', encore.find((n) => n.seanceId === 1)?.note, NOTE_LONGUE);
+v(
+  'et la longue est toujours intacte',
+  encore.some((n) => n.note === NOTE_LONGUE),
+  true,
+);
 
 await nav.close();
 console.log(

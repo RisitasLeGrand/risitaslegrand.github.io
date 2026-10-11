@@ -216,7 +216,7 @@ import Base from '../../layouts/Base.astro';
    * notes dont on a besoin, au lieu de l'historique entier pour en garder
    * quatre.
    */
-  let notesPassees = new Map<number, NoteSeance>();
+  let notesPassees = new Map<string, NoteSeance>();
   let secondes = 0;
   let minuterie: number | null = null;
 
@@ -320,7 +320,7 @@ import Base from '../../layouts/Base.astro';
       $('bloc-rappels').querySelector('h2')!.textContent = '1. Restitution à blanc — sans objet';
     } else {
       notesPassees = await lireNotesSeances(
-        anterieures.map((s) => s.id).filter((id): id is number => typeof id === 'number'),
+        anterieures.map((s) => s.id).filter((id): id is string => typeof id === 'string'),
       );
       anterieures.forEach((passee, index) => {
         const rang = anterieures.length - index; // la plus ancienne porte le plus grand n
@@ -502,7 +502,7 @@ import Base from '../../layouts/Base.astro';
     contenu.className =
       'texte-secable mt-3 text-sm leading-relaxed whitespace-pre-wrap text-slate-700 dark:text-slate-300';
     contenu.textContent =
-      notesPassees.get(passee.id as number)?.note.trim() ||
+      (passee.id ? notesPassees.get(passee.id)?.note.trim() : '') ||
       'Aucune note n\'avait été rédigée lors de cette séance.';
     details.append(resume, contenu);
 
