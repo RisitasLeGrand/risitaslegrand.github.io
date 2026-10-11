@@ -964,7 +964,7 @@ export async function ecrireReglagesPlanification(reglages: ReglagesPlanificatio
  * Le remède n'est pas d'allonger la seconde liste mais de n'en avoir qu'une :
  * un magasin ajouté ici est pris en compte partout.
  */
-const MAGASINS_PROGRESSION = [
+export const MAGASINS_PROGRESSION = [
   'etat',
   'cartes',
   'fiches',
@@ -989,6 +989,108 @@ async function viderProgression(base: Awaited<ReturnType<typeof db>>) {
   const tx = base.transaction(MAGASINS_PROGRESSION, 'readwrite');
   await Promise.all(MAGASINS_PROGRESSION.map((nom) => tx.objectStore(nom).clear()));
   await tx.done;
+}
+
+/* --- Lecture et écriture brutes, pour la sauvegarde `.cyclades` ----------- */
+
+/**
+ * Tous les magasins de progression, tels qu'ils sont, sans mise en forme.
+ *
+ * ## Pourquoi une seconde voie d'export
+ *
+ * `exporterTout()` ci-dessous produit une forme **choisie** : des champs
+ * renommés, un profil extrait, des sélections reconstituées. C'était le bon
+ * choix pour un échange entre deux appareils de la même version. C'est le
+ * mauvais choix pour une sauvegarde d'archive, qui doit pouvoir être relue par
+ * une version future : tout champ que la forme choisie ne connaît pas est
+ * perdu, et on ne s'en aperçoit qu'à la restauration.
+ *
+ * Cette voie-ci ne choisit rien. Elle rend le contenu de chaque magasin, et un
+ * magasin ajouté demain y entre sans que ce code change.
+ *
+ * ## Le cas de « etat »
+ *
+ * C'est un magasin clé-valeur : la clé vit hors de l'objet, et `getAll` la
+ * perdrait. Ses enregistrements sont donc rendus sous la forme
+ * `{ clef, valeur }` — la même que celle du générateur de données
+ * synthétiques, pour que les deux se relisent du même code.
+ */
+export async function exporterMagasins(
+  noms: readonly string[] = MAGASINS_PROGRESSION,
+): Promise<Record<string, unknown[]>> {
+  const base = await db();
+  const sortie: Record<string, unknown[]> = {};
+  for (const nom of noms) {
+    const magasin = nom as (typeof MAGASINS_PROGRESSION)[number];
+    if (nom === 'etat') {
+      const clefs = await base.getAllKeys('etat');
+      const valeurs = await base.getAll('etat');
+      sortie.etat = clefs.map((clef, i) => ({ clef, valeur: valeurs[i] }));
+      continue;
+    }
+    sortie[nom] = await base.getAll(magasin);
+  }
+  return sortie;
+}
+
+/**
+ * Remplace la progression par celle d'une sauvegarde.
+ *
+ * « Remplacer » veut dire ce qu'il dit : chaque magasin **connu** est vidé puis
+ * rempli. Un magasin que cette version ne connaît pas est laissé de côté et
+ * compté — une sauvegarde écrite par une version future ne doit pas faire
+ * échouer la restauration, et ses magasins inconnus ne doivent pas non plus
+ * être écrits à l'aveugle dans une base qui n'a pas de place pour eux.
+ *
+ * Il n'y a **pas** de mode fusion ici, et c'est délibéré : voir
+ * `docs/cyclades/sauvegarde.md`. Fusionner demande une date de dernière
+ * modification sur chaque enregistrement, que le modèle ne porte pas encore.
+ */
+export async function remplacerMagasins(
+  magasins: Record<string, unknown[]>,
+): Promise<{ ecrits: Record<string, number>; inconnus: string[] }> {
+  const base = await db();
+  const connus = new Set<string>(MAGASINS_PROGRESSION);
+  const inconnus = Object.keys(magasins).filter((nom) => !connus.has(nom));
+
+  await viderProgression(base);
+
+  const ecrits: Record<string, number> = {};
+  for (const nom of MAGASINS_PROGRESSION) {
+    const enregistrements = magasins[nom];
+    if (!Array.isArray(enregistrements)) continue;
+    const tx = base.transaction(nom, 'readwrite');
+    const magasin = tx.objectStore(nom);
+    for (const enr of enregistrements) {
+      if (nom === 'etat') {
+        const { clef, valeur } = enr as { clef: string; valeur: unknown };
+        if (typeof clef === 'string') await magasin.put(valeur as never, clef);
+      } else {
+        await magasin.put(enr as never);
+      }
+    }
+    await tx.done;
+    ecrits[nom] = enregistrements.length;
+  }
+  return { ecrits, inconnus };
+}
+
+/* --- Date de la dernière sauvegarde réussie ------------------------------- */
+
+/**
+ * Elle vit dans `etat`, donc elle **part dans la sauvegarde**.
+ *
+ * Ce qui a une conséquence voulue : restaurer une sauvegarde vieille de trois
+ * mois ramène aussi « dernière sauvegarde il y a trois mois », et la bannière
+ * de rappel se rallume aussitôt. C'est la vérité — l'état restauré n'a pas été
+ * sauvegardé depuis — et c'est exactement le moment où il faut en refaire une.
+ */
+export async function lireDerniereSauvegarde(): Promise<string | null> {
+  return ((await (await db()).get('etat', 'derniereSauvegarde')) as string | undefined) ?? null;
+}
+
+export async function ecrireDerniereSauvegarde(quand = new Date().toISOString()) {
+  await (await db()).put('etat', quand, 'derniereSauvegarde');
 }
 
 /** Sérialise l'intégralité de la progression (export JSON). */

@@ -41,10 +41,16 @@ await page.evaluate(async () => {
 });
 console.log('après semis      :', JSON.stringify(await compter()));
 
-// Export par le bouton.
+/*
+ * Export par le bouton, désigné par son identifiant et non par son libellé.
+ * Le sélecteur d'origine prenait « le premier bouton dont le nom ressemble à
+ * exporter, télécharger ou sauvegarde », et il a cessé de viser le bon le jour
+ * où la page a gagné un bouton « Sauvegarder maintenant » au-dessus. Cet essai
+ * porte sur l'export JSON de synchronisation entre appareils : il doit le dire.
+ */
 const [telechargement] = await Promise.all([
   page.waitForEvent('download', { timeout: 15000 }),
-  page.getByRole('button', { name: /Exporter|Télécharger|sauvegarde/i }).first().click(),
+  page.locator('#exporter').click(),
 ]);
 const chemin = `${S}/sauvegarde-test.json`;
 await telechargement.saveAs(chemin);
