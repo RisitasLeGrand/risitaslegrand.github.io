@@ -44,6 +44,7 @@ import { echanger, type RapportDEchange } from './echange';
 import { motDePasseRetenu } from './mot-de-passe-session';
 import { rejoindre, type Salon } from './salon';
 import { empreinteLocale } from './service';
+import { db } from '../db';
 
 export type Etat =
   | 'non-certifie'
@@ -115,6 +116,48 @@ export const DELAI_AVANT_ECHANGE_MS = 1200;
  */
 export const INTERVALLE_MS = 5 * 60 * 1000;
 
+/**
+ * La clef où l'on note le dernier échange de la veille.
+ *
+ * Elle est **persistée**, et c'est le détail qui rend la veille utilisable sur
+ * un site multi-pages. Le marqueur en mémoire disparaissait à chaque
+ * navigation : parcourir six pages en une minute valait six échanges, donc
+ * douze dérivations PBKDF2 de 600 000 itérations pour ne rien transporter. En
+ * base, la veille sait ce que la page précédente a déjà fait.
+ *
+ * C'est une **observation locale**, comme le reste de ce que cet appareil sait
+ * de lui-même : elle n'est jamais transportée.
+ */
+const CLEF_DERNIER = 'derniereVeille';
+
+interface DernierEchange {
+  empreinte: string;
+  le: string;
+}
+
+async function dernierEchange(): Promise<DernierEchange | null> {
+  return ((await (await db()).get('etat', CLEF_DERNIER)) as DernierEchange | undefined) ?? null;
+}
+
+async function noterEchange(empreinte: string): Promise<void> {
+  await (await db()).put('etat', { empreinte, le: new Date().toISOString() }, CLEF_DERNIER);
+}
+
+/**
+ * Y a-t-il quelque chose à aller chercher ?
+ *
+ * Trois raisons de dire oui, et aucune n'est « on vient d'ouvrir une page » :
+ * on n'a jamais échangé, l'empreinte locale a changé depuis, ou l'intervalle
+ * est écoulé — l'autre appareil, lui, a pu changer sans qu'on le sache.
+ */
+async function echangeUtile(maintenant = Date.now()): Promise<boolean> {
+  const dernier = await dernierEchange();
+  if (!dernier) return true;
+  if (maintenant - Date.parse(dernier.le) >= INTERVALLE_MS) return true;
+  const { complete } = await empreinteLocale();
+  return complete !== dernier.empreinte;
+}
+
 export async function demarrer(options: OptionsVeille = {}): Promise<Veille | null> {
   const dire = (etat: Etat, precision?: string) => {
     courant = etat;
@@ -142,8 +185,6 @@ export async function demarrer(options: OptionsVeille = {}): Promise<Veille | nu
   let enCours = false;
   let minuteur: ReturnType<typeof setTimeout> | null = null;
   let battement: ReturnType<typeof setInterval> | null = null;
-  /** L'empreinte au dernier échange : sans changement, rien à refaire. */
-  let empreinteDuDernier: string | null = null;
 
   const echangerMaintenant = async () => {
     if (arrete || enCours || !salon) return;
@@ -156,7 +197,7 @@ export async function demarrer(options: OptionsVeille = {}): Promise<Veille | nu
         automatique: true,
       });
       await options.surFusion?.(rapport);
-      empreinteDuDernier = rapport.recu.empreinte;
+      await noterEchange(rapport.recu.empreinte);
       if (!arrete) dire('en-veille');
     } catch (erreur) {
       // L'autre appareil a pu fermer sa page au milieu : ce n'est pas une
@@ -176,7 +217,12 @@ export async function demarrer(options: OptionsVeille = {}): Promise<Veille | nu
     });
     const bientot = () => {
       if (minuteur) clearTimeout(minuteur);
-      minuteur = setTimeout(() => void echangerMaintenant(), DELAI_AVANT_ECHANGE_MS);
+      minuteur = setTimeout(() => {
+        void (async () => {
+          if (await echangeUtile()) await echangerMaintenant();
+          else dire('en-veille');
+        })();
+      }, DELAI_AVANT_ECHANGE_MS);
     };
     salon.surPair(bientot);
     /*
@@ -189,9 +235,7 @@ export async function demarrer(options: OptionsVeille = {}): Promise<Veille | nu
     battement = setInterval(() => {
       void (async () => {
         if (arrete || enCours || !salon?.pairs().length) return;
-        const { complete } = await empreinteLocale();
-        if (empreinteDuDernier && complete === empreinteDuDernier) return;
-        await echangerMaintenant();
+        if (await echangeUtile()) await echangerMaintenant();
       })();
     }, INTERVALLE_MS);
 

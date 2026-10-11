@@ -274,10 +274,24 @@ L'écran « Appareils et synchronisation », les deux parcours des maquettes, le
 registre d'appareils, le registre de sauvegardes partagé, l'assistant de première
 fusion.
 
-### Phase 5 — Durcissement
+### Phase 5 — Durcissement. Fait, le 11 octobre 2026
 
 Changement de mot de passe avec rechiffrement, compaction déterministe avec un
 appareil en retard, rétention, et les cas limites de la section 6 du prompt.
+Les cinq livrables sont détaillés ci-dessous. S'y ajoute, du même jour,
+l'amendement sur l'ordinateur certifié (5e), que la phase 4 avait laissé de
+côté.
+
+Une chose est **restée en dehors**, et elle doit être dite ici plutôt que
+découverte : les faits de domaine — séances, quiz de cours, Cog-Training, QCM —
+ne sont pas encore journalisés. Le magasin `operations` ne porte que les faits
+de la synchronisation elle-même, et le journal des révisions FSRS. Ce qui
+voyage aujourd'hui, c'est donc l'histoire des flashcards, les noms d'appareils,
+les sauvegardes déclarées, les résolutions de conflits et les compactages. Le
+reste attend son écriture au journal, qui est un chantier à lui seul — c'est
+écrit sur l'écran des appareils, sous « Ce qui n'est pas encore là », parce
+qu'un écran qui laisse croire que synchroniser transporte tout est pire que pas
+d'écran du tout.
 
 #### 5a — Le changement de mot de passe. Fait, le 11 octobre 2026
 

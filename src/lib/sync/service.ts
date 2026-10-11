@@ -376,12 +376,18 @@ export async function fusionnerPaquet(
     if (gagnant) await ecrireReglageBrut(champ, gagnant.valeur);
   }
 
-  // Le recalcul, ensuite. Les cartes touchées sont celles des révisions
-  // reçues : recalculer tout voudrait dire rejouer soixante mille révisions à
-  // chaque synchronisation.
-  const cartes = [...new Set(revisionsRecues.map((r) => r.carteId))].filter(
-    (carteId) => !perimetreCommun.has(carteId),
-  );
+  /*
+     Le recalcul, ensuite. Les cartes touchées sont celles des révisions
+     reçues : recalculer tout voudrait dire rejouer soixante mille révisions à
+     chaque synchronisation.
+
+     Aucun filtre de compaction ici, et c'est voulu : une carte dont toutes les
+     entrées viennent d'être effacées rend un journal vide, et le recalcul d'un
+     journal vide ne touche à rien. Une carte supprimée puis **recréée** par un
+     fait postérieur à la borne, elle, mérite son recalcul — l'exclure la
+     laisserait sur un état périmé.
+  */
+  const cartes = [...new Set(revisionsRecues.map((r) => r.carteId))];
   let recalculees = 0;
   for (const carteId of cartes) {
     const entrees = await (await db()).getAllFromIndex('revisions', 'carteId', carteId);
