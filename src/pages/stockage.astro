@@ -155,6 +155,115 @@ import Base from '../layouts/Base.astro';
       <div id="integrite" class="mt-4 hidden text-sm"></div>
     </section>
 
+    <!-- ── Export lisible ─────────────────────────────────────────────── -->
+    <section id="exporter-lisible" class="rounded-2xl border border-slate-200 bg-white p-5 target:ring-2 target:ring-indigo-400 dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+        Exporter en clair
+      </h2>
+      <p class="mb-4 max-w-3xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+        Pour emporter vos données ailleurs : les ouvrir dans un tableur, les
+        donner à un autre outil. Le CSV suit les conventions françaises
+        (point-virgule, virgule décimale, accents) et s'ouvre directement dans
+        Excel ou LibreOffice.
+      </p>
+      <p class="mb-4 max-w-3xl rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+        <strong>Ce n'est pas une sauvegarde.</strong> Ces fichiers sont en clair
+        et ne se réimportent pas. Pour pouvoir revenir en arrière, il faut une
+        sauvegarde <code class="rounded bg-amber-100 px-1 dark:bg-amber-900/60">.cyclades</code>.
+      </p>
+
+      <fieldset class="mb-4">
+        <legend class="mb-2 text-sm font-medium text-slate-700 dark:text-slate-200">
+          Quel domaine ?
+        </legend>
+        <div id="groupes-export" class="space-y-2 text-sm"></div>
+      </fieldset>
+
+      <div class="flex flex-wrap gap-2">
+        <button id="exporter-csv" class="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700">
+          Exporter en CSV
+        </button>
+        <button id="exporter-json" class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-100 dark:hover:bg-slate-800">
+          Exporter en JSON
+        </button>
+      </div>
+      <p id="message-export" class="mt-3 hidden text-sm"></p>
+    </section>
+
+    <!-- ── Effacement ciblé ───────────────────────────────────────────── -->
+    <section id="effacer-cible" class="rounded-2xl border border-red-200 bg-red-50/60 p-5 target:ring-2 target:ring-red-400 dark:border-red-900 dark:bg-red-950/30">
+      <h2 class="mb-2 text-lg font-semibold text-red-900 dark:text-red-200">
+        Effacer de façon ciblée
+      </h2>
+      <p class="mb-4 max-w-3xl text-sm leading-relaxed text-red-800/80 dark:text-red-300/80">
+        Pour se débarrasser d'un historique devenu inutile sans tout perdre.
+        Rien ne s'efface avant que vous ayez vu le compte exact de ce qui
+        partirait : un effacement est la seule opération du site qui soit
+        définitive sans recours.
+      </p>
+
+      <fieldset class="mb-4">
+        <legend class="mb-2 text-sm font-medium text-red-900 dark:text-red-200">
+          Quoi effacer ?
+        </legend>
+        <div id="groupes-effacement" class="space-y-2 text-sm"></div>
+      </fieldset>
+
+      <fieldset class="mb-4">
+        <legend class="mb-2 text-sm font-medium text-red-900 dark:text-red-200">
+          Sur quelle période ? (facultatif)
+        </legend>
+        <div class="flex flex-wrap items-end gap-3 text-sm">
+          <label class="block">
+            <span class="mb-1 block text-red-800/80 dark:text-red-300/80">Depuis</span>
+            <input id="depuis" type="date"
+              class="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm dark:border-red-800 dark:bg-slate-950" />
+          </label>
+          <label class="block">
+            <span class="mb-1 block text-red-800/80 dark:text-red-300/80">Jusqu'au</span>
+            <input id="jusqua" type="date"
+              class="rounded-lg border border-red-300 bg-white px-3 py-2 text-sm dark:border-red-800 dark:bg-slate-950" />
+          </label>
+        </div>
+        <p class="mt-2 max-w-3xl text-xs text-red-800/70 dark:text-red-300/70">
+          Sans période, tout le domaine part. Les domaines qui portent un état
+          courant plutôt qu'un historique — les flashcards, le niveau estimé, les
+          réglages — ne se découpent pas par période : ils seront laissés
+          entiers, et le compte le dira.
+        </p>
+      </fieldset>
+
+      <button id="compter" class="rounded-lg border border-red-300 bg-white px-4 py-2.5 text-sm font-medium text-red-700 transition hover:bg-red-100 dark:border-red-800 dark:bg-transparent dark:text-red-300">
+        Compter ce qui partirait
+      </button>
+      <p id="message-effacement" class="mt-3 hidden text-sm"></p>
+
+      <div id="decompte" class="mt-4 hidden rounded-xl border border-red-300 bg-white p-4 dark:border-red-800 dark:bg-slate-900">
+        <p id="decompte-total" class="font-medium text-red-900 dark:text-red-200"></p>
+        <ul id="decompte-detail" class="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700 dark:text-slate-300"></ul>
+        <p id="decompte-refus" class="mt-3 hidden text-sm text-amber-700 dark:text-amber-300"></p>
+
+        <p class="mt-4 text-sm font-medium text-slate-900 dark:text-white">
+          Avant d'effacer, il faut choisir :
+        </p>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button id="sauver-puis-effacer" class="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700">
+            Sauvegarder d'abord, puis effacer
+          </button>
+          <button id="effacer-sans" class="rounded-lg bg-red-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-red-700">
+            Effacer sans sauvegarder
+          </button>
+        </div>
+        <label class="mt-3 block text-sm">
+          <span class="mb-1 block text-slate-700 dark:text-slate-200">
+            Mot de passe du site, pour chiffrer la sauvegarde
+          </span>
+          <input id="mdp-avant-effacement" type="password" autocomplete="current-password"
+            class="w-full max-w-sm rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" />
+        </label>
+      </div>
+    </section>
+
     <!-- ── Pourquoi il n'y a pas de bouton « Compacter » ───────────────── -->
     <section class="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900/60">
       <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
@@ -185,6 +294,15 @@ import Base from '../layouts/Base.astro';
     occupation,
     type Occupation,
   } from '../lib/stockage';
+  import { GROUPES } from '../lib/sauvegarde/groupes';
+  import {
+    comptesParGroupe,
+    exporterGroupeCsv,
+    exporterGroupeJson,
+    type FichierExporte,
+  } from '../lib/sauvegarde/export-lisible';
+  import { compter, effacer, type Cible, type Decompte } from '../lib/sauvegarde/effacement';
+  import { fabriquer, noterSauvegardeReussie } from '../lib/sauvegarde/service';
 
   const $ = (id: string) => document.getElementById(id)!;
 
@@ -268,6 +386,166 @@ import Base from '../layouts/Base.astro';
     e.classList.remove('hidden');
   }
 
+  /* ──────────────────────────────────────────────────────────────────────
+     Téléchargement
+     ────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * Fait partir un fichier.
+   *
+   * Les navigateurs limitent les téléchargements déclenchés en rafale. Un export
+   * CSV d'un groupe en produit plusieurs — un par magasin —, d'où la pause
+   * entre deux : sans elle, seul le premier arrive, et rien ne le signale.
+   */
+  async function telecharger(fichiers: FichierExporte[]) {
+    for (const [i, f] of fichiers.entries()) {
+      const url = URL.createObjectURL(new Blob([f.contenu], { type: f.type }));
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = f.nom;
+      a.click();
+      URL.revokeObjectURL(url);
+      if (i < fichiers.length - 1) await new Promise((ok) => setTimeout(ok, 350));
+    }
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+     Choix d'un domaine
+     ────────────────────────────────────────────────────────────────────── */
+
+  /** Peint une liste de domaines, en boutons radio ou en cases à cocher. */
+  function peindreGroupes(cible: string, nom: string, multiple: boolean, comptes: Map<string, number>) {
+    const zone = $(cible);
+    zone.replaceChildren();
+    for (const [i, g] of GROUPES.entries()) {
+      const combien = comptes.get(g.id) ?? 0;
+      const label = document.createElement('label');
+      label.className = 'flex items-start gap-2';
+      const entree = document.createElement('input');
+      entree.type = multiple ? 'checkbox' : 'radio';
+      entree.name = nom;
+      entree.value = g.id;
+      entree.className = 'mt-1';
+      entree.disabled = combien === 0;
+      if (!multiple && i === 0) entree.checked = true;
+      const texte = document.createElement('span');
+      const titre = document.createElement('strong');
+      titre.textContent = g.libelle;
+      const compte = document.createElement('span');
+      compte.className = 'text-slate-500 dark:text-slate-400';
+      compte.textContent = ` — ${combien.toLocaleString('fr-FR')} enregistrement(s)`;
+      const detail = document.createElement('span');
+      detail.className = 'block text-xs text-slate-400';
+      detail.textContent = g.description;
+      texte.append(titre, compte, detail);
+      label.append(entree, texte);
+      zone.appendChild(label);
+    }
+  }
+
+  const choisis = (nom: string) =>
+    [...document.querySelectorAll<HTMLInputElement>(`input[name="${nom}"]:checked`)].map(
+      (e) => e.value,
+    );
+
+  /* ──────────────────────────────────────────────────────────────────────
+     Effacement : compter, puis choisir
+     ────────────────────────────────────────────────────────────────────── */
+
+  let cibleCourante: Cible | null = null;
+
+  function cibleDesEcrans(): Cible {
+    const depuis = ($('depuis') as HTMLInputElement).value || undefined;
+    const jusqua = ($('jusqua') as HTMLInputElement).value || undefined;
+    return { groupes: choisis('groupe-effacement'), depuis, jusqua };
+  }
+
+  function peindreDecompte(d: Decompte) {
+    $('decompte-total').textContent =
+      d.vises === 0
+        ? 'Rien ne serait effacé avec ce choix.'
+        : `${d.vises.toLocaleString('fr-FR')} enregistrement(s) seraient effacés, définitivement.`;
+
+    const liste = $('decompte-detail');
+    liste.replaceChildren();
+    for (const m of d.parMagasin.filter((m) => !m.refus)) {
+      const li = document.createElement('li');
+      li.textContent = `${m.magasin} — ${m.vises.toLocaleString('fr-FR')} sur ${m.total.toLocaleString('fr-FR')}`;
+      liste.appendChild(li);
+    }
+
+    const refus = $('decompte-refus');
+    if (d.refuses.length) {
+      refus.textContent =
+        'Laissés entiers : ' +
+        d.refuses.map((m) => m.magasin).join(', ') +
+        ' — ces magasins portent un état courant et non un historique, une période ne les découpe pas.';
+      refus.classList.remove('hidden');
+    } else {
+      refus.classList.add('hidden');
+    }
+
+    $('decompte').classList.toggle('hidden', d.vises === 0 && d.refuses.length === 0);
+  }
+
+  async function appliquerEffacement(avecSauvegarde: boolean) {
+    if (!cibleCourante) return;
+
+    if (avecSauvegarde) {
+      const mdp = ($('mdp-avant-effacement') as HTMLInputElement).value;
+      if (!mdp) {
+        dire('message-effacement', 'Saisissez le mot de passe du site pour chiffrer la sauvegarde.', 'echec');
+        return;
+      }
+      dire('message-effacement', 'Sauvegarde en cours…', 'neutre');
+      try {
+        const { sauvegarde, nom } = await fabriquer(mdp);
+        // La sauvegarde est binaire : elle ne passe pas par « telecharger »,
+        // qui met en forme du texte.
+        const url = URL.createObjectURL(
+          new Blob([sauvegarde.octets], { type: 'application/octet-stream' }),
+        );
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `avant-effacement-${nom}`;
+        a.click();
+        URL.revokeObjectURL(url);
+        await noterSauvegardeReussie();
+        ($('mdp-avant-effacement') as HTMLInputElement).value = '';
+      } catch (e) {
+        dire('message-effacement', `Sauvegarde impossible, rien n’a été effacé : ${(e as Error).message}`, 'echec');
+        return;
+      }
+    } else if (!confirm('Effacer sans sauvegarde ? Cette action est définitive et sans recours.')) {
+      return;
+    }
+
+    try {
+      const r = await effacer(cibleCourante);
+      const o = await occupation();
+      peindreOccupation(o);
+      dire(
+        'message-effacement',
+        `${r.total.toLocaleString('fr-FR')} enregistrement(s) effacés` +
+          (r.refuses.length ? `, ${r.refuses.length} magasin(s) laissés entiers` : '') +
+          '.',
+        'succes',
+      );
+      notifier('Effacement terminé', 'info');
+      $('decompte').classList.add('hidden');
+      cibleCourante = null;
+      await rafraichirComptes();
+    } catch (e) {
+      dire('message-effacement', `Effacement interrompu : ${(e as Error).message}`, 'echec');
+    }
+  }
+
+  async function rafraichirComptes() {
+    const comptes = await comptesParGroupe();
+    peindreGroupes('groupes-export', 'groupe-export', false, comptes);
+    peindreGroupes('groupes-effacement', 'groupe-effacement', true, comptes);
+  }
+
   auDeverrouillage(async () => {
     $('lien-sauvegarde').setAttribute('href', `${lien('/progression/')}#sauvegarde`);
 
@@ -324,6 +602,71 @@ import Base from '../layouts/Base.astro';
         bouton.textContent = 'Peser les magasins';
       }
     });
+
+    await rafraichirComptes();
+
+    $('exporter-csv').addEventListener('click', async () => {
+      const [id] = choisis('groupe-export');
+      if (!id) return;
+      dire('message-export', 'Lecture et mise en forme…', 'neutre');
+      try {
+        const fichiers = await exporterGroupeCsv(id);
+        if (!fichiers.length) {
+          dire('message-export', 'Ce domaine est vide : aucun fichier à produire.', 'neutre');
+          return;
+        }
+        await telecharger(fichiers);
+        dire(
+          'message-export',
+          `${fichiers.length} fichier(s) téléchargés, ` +
+            `${fichiers.reduce((s, f) => s + f.enregistrements, 0).toLocaleString('fr-FR')} enregistrement(s). ` +
+            'Rappel : ces fichiers ne se réimportent pas.',
+          'succes',
+        );
+      } catch (e) {
+        dire('message-export', `Export impossible : ${(e as Error).message}`, 'echec');
+      }
+    });
+
+    $('exporter-json').addEventListener('click', async () => {
+      const [id] = choisis('groupe-export');
+      if (!id) return;
+      dire('message-export', 'Lecture et mise en forme…', 'neutre');
+      try {
+        const fichier = await exporterGroupeJson(id);
+        await telecharger([fichier]);
+        dire(
+          'message-export',
+          `${fichier.nom} téléchargé, ${fichier.enregistrements.toLocaleString('fr-FR')} enregistrement(s). ` +
+            'Rappel : ce fichier ne se réimporte pas.',
+          'succes',
+        );
+      } catch (e) {
+        dire('message-export', `Export impossible : ${(e as Error).message}`, 'echec');
+      }
+    });
+
+    $('compter').addEventListener('click', async () => {
+      const cible = cibleDesEcrans();
+      if (!cible.groupes.length) {
+        dire('message-effacement', 'Choisissez au moins un domaine.', 'echec');
+        $('decompte').classList.add('hidden');
+        return;
+      }
+      if (cible.depuis && cible.jusqua && cible.depuis > cible.jusqua) {
+        dire('message-effacement', 'La période est à l’envers : « depuis » est après « jusqu’au ».', 'echec');
+        $('decompte').classList.add('hidden');
+        return;
+      }
+      dire('message-effacement', 'Comptage… rien n’est touché.', 'neutre');
+      const d = await compter(cible);
+      cibleCourante = cible;
+      peindreDecompte(d);
+      dire('message-effacement', 'Compté. Rien n’a été effacé.', 'neutre');
+    });
+
+    $('sauver-puis-effacer').addEventListener('click', () => void appliquerEffacement(true));
+    $('effacer-sans').addEventListener('click', () => void appliquerEffacement(false));
 
     $('controler').addEventListener('click', async () => {
       const bouton = $('controler') as HTMLButtonElement;

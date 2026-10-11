@@ -136,15 +136,89 @@ Quatre états, et le ton monte avec le temps : *jamais*, *à faire*, *ancienne*
 série.** Le site ne peut pas sauvegarder à la place de la personne, et le lui
 faire payer serait punir une limite qui n'est pas la sienne.
 
+## L'export lisible, qui n'est pas une sauvegarde
+
+Deux fonctions distinctes, et les confondre rendrait les deux mauvaises.
+
+| | `.cyclades` | Export lisible |
+|---|---|---|
+| Sert à | **revenir en arrière** | **partir ailleurs** |
+| Contenu | exhaustif | un domaine à la fois |
+| Forme | compressée puis chiffrée | CSV ou JSON en clair |
+| Réimportable | oui | **non** |
+
+L'export lisible existe pour la portabilité : ouvrir ses données dans un
+tableur, les donner à un autre outil. L'écran le dit explicitement, parce que
+croire qu'on a sauvegardé alors qu'on a exporté est exactement l'erreur qui
+coûte tout.
+
+**Le CSV suit les conventions françaises**, et ce n'est pas un détail : un CSV
+séparé par des virgules, avec des points décimaux et sans BOM, s'ouvre dans
+Excel en français comme **une seule colonne de texte**. Le fichier est juste et
+inutilisable. D'où le point-virgule, la virgule décimale, le BOM UTF-8 et les
+fins de ligne CRLF.
+
+Les colonnes sont l'**union** de toutes les clés rencontrées, et non celles du
+premier enregistrement : un champ optionnel absent de la première ligne — comme
+`pretesteeLe` sur une fiche jamais prétestée — disparaîtrait sinon pour tout le
+monde.
+
+## L'effacement ciblé : compter, puis choisir
+
+Un effacement est la seule opération du site qui soit **définitive sans
+recours**. Une restauration se défait en restaurant autre chose ; un effacement
+ne se défait pas.
+
+Le module expose donc deux fonctions prenant le **même filtre** : `compter()`
+dit exactement ce qui partirait, `effacer()` le fait. L'écran impose le premier
+avant le second, et n'efface qu'après un choix explicite entre « sauvegarder
+d'abord » et « effacer sans sauvegarder ».
+
+**Les magasins qui portent un état courant refusent d'être découpés par
+période**, et le disent. Une carte porte `derniereRevision` et `du`, qui
+ressemblent à des dates : les prendre pour la date de l'enregistrement
+effacerait l'état d'une carte sous prétexte qu'elle n'a pas été revue
+récemment — c'est-à-dire précisément les cartes qu'il faut garder. Le champ de
+date de chaque magasin est donc **déclaré** dans `groupes.ts`, et `null` y
+signifie « pas d'historique, ne pas découper ».
+
+Un magasin épargné en silence ferait croire à un effacement complet qui n'a pas
+eu lieu : le décompte et le message final nomment donc ceux qui restent entiers.
+
+## Pourquoi il n'y a pas encore de sauvegarde partielle par parcours
+
+Le prompt la demande : « par branche (et, dans Révisions, par parcours), pour
+pouvoir exporter ou effacer une branche sans toucher aux autres ».
+
+**Aucun enregistrement ne porte d'identifiant de parcours.** Les cartes sont
+clés par fiche, les compétences par matière, les séances par thème — et rien
+n'y dit à quel parcours ces fiches, matières et thèmes appartiennent. Un filtre
+« par parcours » ne pourrait donc rien filtrer : il rendrait tout, ou rien.
+
+Et aujourd'hui cela ne changerait rien de visible, puisque l'INSP est le seul
+parcours qui porte du contenu. Une sélection « par parcours » serait un écran
+qui promet un découpage qu'il ne fait pas — pire que son absence.
+
+Ce qui existe à la place, et qui est honnête :
+
+- la portée (branches et parcours) est **inscrite dans l'en-tête** de chaque
+  sauvegarde, donc un fichier sait déjà dire ce qu'il couvre ;
+- le découpage par **domaine** est offert, et il est réel ;
+- le groupement des magasins (`groupes.ts`) est la structure sur laquelle le
+  découpage par parcours se greffera.
+
+**Ce qu'il faudra pour le faire vraiment** : un champ `parcours` sur les
+enregistrements des magasins qui en dépendent, écrit au moment de la création.
+Ce sera naturel quand le contenu DGFiP existera — un enregistrement créé depuis
+un parcours DGFiP saura d'où il vient — et artificiel avant.
+
 ## Ce qui reste à faire sur ce chantier
 
 - **Destination du fichier** : téléchargement seulement pour l'instant. La
   feuille de partage du système sur mobile et l'enregistrement dans un dossier
   mémorisé avec rotation (API File System Access) restent à écrire.
-- **Sauvegarde partielle** par branche et par parcours : la portée est déjà
-  inscrite dans l'en-tête, la sélection reste à offrir.
+- **Sauvegarde partielle par parcours** : bloquée par l'absence d'identifiant de
+  parcours sur les enregistrements, voir ci-dessus.
 - **Sauvegarde proposée avant une opération risquée** : faite pour la
-  restauration, à faire pour la migration de schéma, l'effacement de branche et
-  le compactage.
-- **Export CSV/JSON lisible par domaine** et **effacement ciblé**.
+  restauration et pour l'effacement ciblé, à faire pour la migration de schéma.
 - **`majLe` sur chaque enregistrement**, qui débloque la fusion.
