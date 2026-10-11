@@ -279,6 +279,73 @@ fusion.
 Changement de mot de passe avec rechiffrement, compaction déterministe avec un
 appareil en retard, rétention, et les cas limites de la section 6 du prompt.
 
+#### 5b — La compaction déterministe. Fait, le 11 octobre 2026
+
+Le journal garde tout, pierres tombales comprises. La compaction est la **seule**
+opération du chantier qui retire des entrées de journal ; elle est donc écrite
+avec la même méfiance que la fusion. Voir `src/lib/sync/compaction.ts`.
+
+**Ce qu'elle efface** : les faits d'une cible supprimée, et la pierre tombale
+elle-même. Rien d'autre. Trois interdits, et le premier est le plus important :
+
+- **jamais les révisions d'une carte vivante.** Résumer le journal d'une carte
+  vivante voudrait dire fabriquer un socle, et deux appareils qui compactent
+  chacun de leur côté fabriqueraient deux socles pour la même carte — ce que la
+  décision 4 nomme irréconciliable et ce que `premiere-fusion.ts` refuse. La
+  compaction serait alors le mécanisme qui rend deux bases infusionnables ;
+- **jamais une opération de compaction**, qui est le seul souvenir de ce qui a
+  été effacé ;
+- **jamais une cible dont une entrée dépasse la borne.** Elle est reportée
+  entière : effacer sa pierre tombale en laissant une opération plus récente que
+  la borne ferait ressusciter l'objet, puisque le périmètre s'arrête à la borne.
+
+**Un compactage est un fait, et non un ménage local.** La tentation inverse ne
+tient pas un examen : l'empreinte d'état porte sur la liste des identifiants du
+journal, donc un appareil qui compacte seul cesse d'être « identique ✓ »
+définitivement, et chaque rencontre lui renvoie ce qu'il vient d'effacer. Le
+compactage voyage donc comme n'importe quel fait, et l'autre appareil l'applique
+à son tour — c'est ce que fait `appliquerCompactages` après chaque fusion.
+
+Il porte la **liste des cibles** et non seulement sa borne, et ce détail est la
+pièce qui rend le procédé sûr : la pierre tombale disparaissant avec les faits
+qu'elle cachait, c'est le compactage qui se souvient que cette cible est
+supprimée. Sans cette liste, un appareil en retard renverrait un fait dont plus
+personne ne sait qu'il concerne un objet effacé.
+
+**La borne est ce que tous les appareils ont accusé détenir** — et non ce qu'on
+leur a envoyé. La distinction n'est pas scolastique : un paquet déposé dans un
+dossier partagé peut n'avoir jamais été ouvert. L'accusé voyage donc **dans les
+métadonnées du paquet** (`recuDe`), et non dans le journal : dans le journal, il
+aurait été un fait de plus par rencontre, pour toujours, et il aurait fait
+répondre « non identiques » à deux bases qui viennent de devenir identiques,
+puisque chacune porterait un accusé que l'autre n'a pas. Le receveur ne l'écrit
+que si la tranche reçue **se raccorde** à ce qu'il détenait déjà — sans quoi il
+y aurait un trou en dessous, et « je détiens tout jusqu'à H » serait faux.
+
+Seul au registre, la borne est l'horloge courante : il n'y a personne à
+attendre. Un appareil connu qui n'a jamais rien accusé **interdit** la
+compaction, et l'écran le dit en le nommant : « jamais vu » n'est pas
+« disparu », et c'est exactement le cas de l'appareil en retard.
+
+**Ce qui manque encore, et il faut le dire** : aucun écran n'écrit de pierre
+tombale aujourd'hui, parce qu'aucun fait de domaine n'est encore journalisé — le
+magasin `operations` ne porte que les faits de la synchronisation elle-même
+(noms d'appareils, sauvegardes déclarées, résolutions de conflits, compactages).
+L'effacement ciblé de la phase 2f, lui, est **local** : il vide des magasins et
+ne journalise rien, de sorte qu'une synchronisation ultérieure ramène ce qu'un
+autre appareil détient encore. La compaction est donc armée avant d'être
+nécessaire, et c'est volontaire : la règle doit exister avant la première pierre
+tombale, pas après.
+
+**Éprouvé par** 53 essais purs (`npm run essais:compaction`, dont neuf
+propriétés : déterminisme, indépendance à l'ordre de lecture, monotonie de la
+borne, commutativité et idempotence de « fusionner puis compacter ») et 29
+essais en navigateur sur deux bases réelles
+(`npm run essais:compaction:navigateur`), qui suivent le parcours dans l'ordre
+où il se produit : refus tant que l'accusé manque, report d'une suppression plus
+récente que la borne, compaction, puis l'appareil en retard qui applique le
+compactage reçu au lieu de ressusciter.
+
 ---
 
 ## 3. Ce que ce plan ne fera pas

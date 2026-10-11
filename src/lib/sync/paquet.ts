@@ -73,6 +73,35 @@ export interface MetadonneesDePaquet {
   tranche: { de: string; a: string };
   /** L'empreinte d'état de l'émetteur au moment de l'envoi. */
   empreinte: string;
+  /**
+   * La plus haute horloge **réellement présente** dans le paquet.
+   *
+   * À ne pas confondre avec `tranche.a`, qui vaut `BORNE_HAUTE` et dit « tout
+   * ce qui existe » pour n'exclure rien de ce qui s'émet pendant la
+   * fabrication. Ce champ-ci dit l'inverse : ce dont le receveur peut accuser
+   * réception sans se tromper. C'est la quantité dont la compaction a besoin,
+   * et la seule qui soit vérifiable — l'horloge de l'émetteur, lui, n'est pas
+   * une preuve de ce qu'il a envoyé.
+   *
+   * Facultatif : un paquet fabriqué avant la phase 5 n'en porte pas, et
+   * l'absence se lit comme « on ne sait pas », donc pas d'accusé.
+   */
+  couvertJusqua?: string;
+  /**
+   * L'accusé de réception : pour chaque appareil, jusqu'où l'émetteur détient
+   * son journal.
+   *
+   * C'est ce qui autorise le destinataire à compacter, et c'est la raison pour
+   * laquelle l'accusé voyage dans le paquet plutôt que dans le journal. Dans le
+   * journal, il serait un fait de plus par rencontre — pour toujours — et il
+   * ferait répondre « non identiques » à deux bases qui viennent de devenir
+   * identiques, puisque chacune porterait un accusé que l'autre n'a pas.
+   *
+   * Il ne dit rien de secret : des identifiants d'appareils et des horloges,
+   * tous déjà présents dans les métadonnées ou dans le journal, et le paquet
+   * est chiffré de bout en bout comme le reste.
+   */
+  recuDe?: Record<string, string>;
 }
 
 export const VERSION_PAQUET = 1;
@@ -125,6 +154,8 @@ export async function fabriquer(options: OptionsDeFabrication): Promise<Paquet> 
     schema: options.schema,
     tranche: options.tranche,
     empreinte: options.empreinte,
+    couvertJusqua: options.couvertJusqua,
+    recuDe: options.recuDe,
   };
 
   const sauvegarde = await ecrire({

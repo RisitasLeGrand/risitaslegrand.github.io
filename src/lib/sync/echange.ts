@@ -35,6 +35,7 @@ import {
   type RapportDeFusion,
 } from './service';
 import { noterReussite } from './appairage';
+import { noterObservation } from './appareils';
 
 export type Etape =
   | 'preparation'
@@ -197,6 +198,18 @@ export async function echanger(
         ok(valeur);
       };
     });
+
+    /*
+       La ligne d'empreinte est envoyée **après** la fusion d'en face : la
+       recevoir prouve donc que notre paquet y est arrivé entier. C'est la seule
+       preuve d'envoi que ce chantier possède, et elle borne la prochaine
+       tranche qu'on aura à envoyer à cet appareil.
+    */
+    if (distante !== null) {
+      await noterObservation(rapport.appareilDistant, {
+        envoyeJusqua: paquet.couvertJusqua,
+      });
+    }
 
     dire('termine');
     return {

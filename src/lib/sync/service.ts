@@ -30,7 +30,14 @@
 import { db, ecrireCarte, ecrireReglageBrut, lireAppareil } from '../db';
 import type { EntreeRevision } from '../noyau/revisions';
 import type { Operation } from '../noyau/operations';
-import { annulerLot, conflits, fusionner, type Conflit, type Reglages } from '../noyau/fusion';
+import {
+  annulerLot,
+  conflits,
+  fusionner,
+  TYPE_SUPPRESSION,
+  type Conflit,
+  type Reglages,
+} from '../noyau/fusion';
 import {
   construireResolution,
   trier,
@@ -45,13 +52,27 @@ import { operation, SANS_LOT } from '../noyau/operations';
 import { decoderHlc } from '../noyau/hlc';
 import {
   appareilsConnus,
+  detenuParAppareil,
   noterObservation,
+  observationDe,
   sauvegardesDeclarees,
   TYPE_NOM_APPAREIL,
   TYPE_SAUVEGARDE,
   type AppareilConnu,
   type SauvegardeDeclaree,
 } from './appareils';
+import {
+  bornePartagee,
+  compactagesDeclares,
+  horsPerimetre,
+  perimetre,
+  planifier,
+  TYPE_COMPACTION,
+  CIBLE_COMPACTION,
+  vide as planVide,
+  type Borne,
+  type Plan,
+} from './compaction';
 import { recalculerCarte } from '../srs';
 import { absorberHlc, horlogeCourante, prochaineHlc } from './horloge-locale';
 import {
@@ -62,6 +83,7 @@ import {
 } from './premiere-fusion';
 import {
   apercu as apercuPaquetBrut,
+  BORNE_BASSE,
   fabriquer,
   nomDeFichier,
   ouvrir,
@@ -130,6 +152,8 @@ export interface PaquetFabrique {
   operations: number;
   revisions: number;
   tailleFichier: number;
+  /** La plus haute horloge du paquet : ce dont le receveur accusera réception. */
+  couvertJusqua: string;
 }
 
 /**
@@ -154,6 +178,17 @@ export async function fabriquerPaquet(
   const { complete } = await empreinteLocale();
   const base = await db();
 
+  /*
+     Ce que le paquet couvre vraiment : la plus haute horloge qu'il contient.
+     À défaut d'entrée — un paquet vide est légitime, c'est celui d'un appareil
+     à jour —, l'horloge courante, qui ne promet rien de faux puisqu'elle
+     majore tout ce que cet appareil a émis.
+  */
+  let couvertJusqua = await horlogeCourante();
+  for (const entree of [...retenues, ...retenuesRevisions]) {
+    if (entree.hlc > couvertJusqua) couvertJusqua = entree.hlc;
+  }
+
   const paquet = await fabriquer({
     contenu: { operations: retenues, reglages },
     // Le journal de révisions voyage comme un magasin de plus : le format ne
@@ -165,6 +200,9 @@ export async function fabriquerPaquet(
     schema: base.version,
     tranche: bornes,
     empreinte: complete,
+    couvertJusqua,
+    // Ce qu'on détient de chacun : c'est ce qui autorisera l'autre à compacter.
+    recuDe: await detenuParAppareil(),
     motDePasse,
     versionApplication: 'cyclades',
     iterations: options.iterations,
@@ -176,6 +214,7 @@ export async function fabriquerPaquet(
     operations: retenues.length,
     revisions: retenuesRevisions.length,
     tailleFichier: paquet.tailleFichier,
+    couvertJusqua,
   };
 }
 
@@ -191,6 +230,12 @@ export interface RapportDeFusion {
   conflits: number;
   collisions: number;
   cartesRecalculees: number;
+  /**
+   * Les entrées que cette fusion a effacées parce qu'un compactage reçu les
+   * déclarait effacées. Zéro en temps normal ; non nul, l'écran d'annulation
+   * doit le dire : une annulation ne les ramènera pas.
+   */
+  effaceesParCompactage: number;
   /** Les deux appareils sont-ils identiques après la fusion ? */
   identiques: boolean;
   empreinte: string;
@@ -235,9 +280,29 @@ export async function fusionnerPaquet(
   const lot = ulid();
 
   const local = await etatLocal();
-  const distantRevisions = ((ouvert.magasinsEnPlus?.revisions ?? []) as EntreeRevision[]).map(
+  const revisionsRecuesBrutes = ((ouvert.magasinsEnPlus?.revisions ?? []) as EntreeRevision[]).map(
     (r) => (r.lot === SANS_LOT ? { ...r, lot } : r),
   );
+
+  /*
+     Le périmètre de compaction, réuni des deux côtés : ce que l'un des deux
+     appareils a déjà déclaré effacé ne doit pas revenir par l'autre. Le filtre
+     est posé **avant** le diagnostic de première fusion, sans quoi le socle
+     d'une carte supprimée et compactée ferait refuser une fusion saine.
+  */
+  const perimetreCommun = perimetre(
+    compactagesDeclares([...local.operations, ...ouvert.contenu.operations]),
+  );
+  const operationsDistantes = horsPerimetre(
+    ouvert.contenu.operations,
+    perimetreCommun,
+    (o) => o.cible,
+  ).gardees;
+  const distantRevisions = horsPerimetre(
+    revisionsRecuesBrutes,
+    perimetreCommun,
+    (r) => r.carteId,
+  ).gardees;
 
   /*
      Le refus vient **avant** toute écriture, et avant même d'absorber les
@@ -246,7 +311,7 @@ export async function fusionnerPaquet(
   */
   const diagnostic = diagnostiquer(
     { operations: local.operations, revisions: local.revisions },
-    { operations: ouvert.contenu.operations, revisions: distantRevisions },
+    { operations: operationsDistantes, revisions: distantRevisions },
   );
   if (!fusionnable(diagnostic)) throw new FusionRefusee(diagnostic);
 
@@ -257,13 +322,13 @@ export async function fusionnerPaquet(
      murale est en retard. Une horloge trop en avance lève, et la fusion
      s'arrête avant d'avoir rien écrit.
   */
-  for (const entree of [...ouvert.contenu.operations, ...distantRevisions]) {
+  for (const entree of [...operationsDistantes, ...distantRevisions]) {
     await absorberHlc(entree.hlc);
   }
 
   const resultat = fusionner(
     { operations: local.operations, reglages: local.reglages },
-    { operations: ouvert.contenu.operations, reglages: ouvert.contenu.reglages },
+    { operations: operationsDistantes, reglages: ouvert.contenu.reglages },
     { lot },
   );
 
@@ -283,6 +348,15 @@ export async function fusionnerPaquet(
   await tx.done;
 
   /*
+     Le paquet peut apporter un **compactage** que cet appareil ne connaissait
+     pas : ce qu'il déclare effacé doit alors l'être ici aussi, sans quoi les
+     deux journaux resteraient différents pour toujours et l'écran dirait « non
+     identiques » sans que rien ne puisse les rapprocher. L'application est
+     idempotente, donc la rejouer à chaque fusion ne coûte qu'une lecture.
+  */
+  const effacees = await appliquerCompactages();
+
+  /*
      Les réglages gagnants sont recopiés dans le magasin ordinaire, pour que les
      écrans les lisent sans rien savoir du registre. L'écriture est **brute** :
      les ré-horodater au nom de cet appareil les ferait repartir vers leur
@@ -297,7 +371,9 @@ export async function fusionnerPaquet(
   // Le recalcul, ensuite. Les cartes touchées sont celles des révisions
   // reçues : recalculer tout voudrait dire rejouer soixante mille révisions à
   // chaque synchronisation.
-  const cartes = [...new Set(revisionsRecues.map((r) => r.carteId))];
+  const cartes = [...new Set(revisionsRecues.map((r) => r.carteId))].filter(
+    (carteId) => !perimetreCommun.has(carteId),
+  );
   let recalculees = 0;
   for (const carteId of cartes) {
     const entrees = await (await db()).getAllFromIndex('revisions', 'carteId', carteId);
@@ -335,10 +411,43 @@ export async function fusionnerPaquet(
      dire au téléphone « vu il y a deux jours » alors que c'est l'ordinateur qui
      l'a vu.
   */
+  const soi = await lireAppareil();
+  const vuAvant = await observationDe(ouvert.metadonnees.appareil);
+  const dejaDetenu = vuAvant?.recuJusqua;
+  const reconnuAvant = vuAvant?.reconnuJusqua;
+  /*
+     Ce que ce paquet nous fait détenir de l'émetteur, et qu'on lui annoncera
+     dans notre prochain paquet : c'est **son** autorisation de compacter.
+
+     Deux conditions, toutes deux nécessaires. La tranche doit **se raccorder**
+     à ce qu'on détient déjà de lui : partir du commencement, ou partir d'une
+     borne qu'on a déjà franchie. Sans quoi il y aurait un trou en dessous, et
+     « je détiens tout jusqu'à H » serait faux — c'est l'erreur qui ferait
+     compacter l'autre appareil sur une promesse qu'on n'a pas tenue. Et la
+     borne ne doit jamais reculer : un paquet ancien rouvert ne doit pas défaire
+     une reconnaissance acquise.
+  */
+  const couvert = ouvert.metadonnees.couvertJusqua;
+  const debut = ouvert.metadonnees.tranche.de;
+  const complet =
+    debut === BORNE_BASSE || (dejaDetenu !== undefined && dejaDetenu >= debut);
+  const recuJusqua =
+    couvert && complet && (!dejaDetenu || dejaDetenu < couvert) ? couvert : dejaDetenu;
+
+  /*
+     Et ce que l'émetteur nous dit détenir de nous, qui est ce dont **notre**
+     compaction a besoin. On garde le plus haut : un paquet ancien rouvert ne
+     fait pas régresser ce qu'on sait.
+  */
+  const annonce = ouvert.metadonnees.recuDe?.[soi];
+
   await noterObservation(ouvert.metadonnees.appareil, {
     vuLe: new Date().toISOString(),
     empreinte: ouvert.metadonnees.empreinte,
     nomAnnonce: ouvert.metadonnees.nomAppareil,
+    recuJusqua,
+    reconnuJusqua:
+      annonce && (!reconnuAvant || reconnuAvant < annonce) ? annonce : reconnuAvant,
   });
 
   const { complete } = await empreinteLocale();
@@ -351,6 +460,7 @@ export async function fusionnerPaquet(
     conflits: trier(resultat.conflits, resultat.etat.operations).ouverts.length,
     collisions: resultat.collisions.length,
     cartesRecalculees: recalculees,
+    effaceesParCompactage: effacees.operations + effacees.revisions,
     identiques: complete === ouvert.metadonnees.empreinte,
     empreinte: complete,
     empreinteDistante: ouvert.metadonnees.empreinte,
@@ -521,6 +631,137 @@ export async function annulerFusion(lot: string): Promise<RapportAnnulation> {
     retirees: defait.retirees.length,
     revisionsRetirees: revisionsRetirees.length,
     cartesRecalculees: recalculees,
+    empreinte: complete,
+  };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   La compaction
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Applique à la base tous les compactages que le journal déclare.
+ *
+ * Appelée après chaque fusion, et par la compaction elle-même. Idempotente :
+ * sans rien à faire, elle ne fait qu'une lecture. C'est elle qui empêche un
+ * appareil en retard de ressusciter indéfiniment ce qu'un autre a effacé — le
+ * compactage reste dans le journal, et chaque retour du même fait se heurte au
+ * même périmètre.
+ */
+export async function appliquerCompactages(): Promise<{
+  operations: number;
+  revisions: number;
+}> {
+  const base = await db();
+  const operations = await base.getAll('operations');
+  const perim = perimetre(compactagesDeclares(operations));
+  if (perim.size === 0) return { operations: 0, revisions: 0 };
+
+  const revisions = await base.getAll('revisions');
+  const opsARetirer = horsPerimetre(operations, perim, (o) => o.cible).retirees;
+  const revsARetirer = horsPerimetre(revisions, perim, (r) => r.carteId).retirees;
+  if (!opsARetirer.length && !revsARetirer.length) return { operations: 0, revisions: 0 };
+
+  const tx = base.transaction(['operations', 'revisions'], 'readwrite');
+  for (const op of opsARetirer) await tx.objectStore('operations').delete(op.id);
+  for (const r of revsARetirer) await tx.objectStore('revisions').delete(r.id);
+  await tx.done;
+  return { operations: opsARetirer.length, revisions: revsARetirer.length };
+}
+
+export interface Prevision {
+  borne: Borne;
+  /** Le plan, quand la borne le permet. */
+  plan?: Plan;
+  /** Les cibles supprimées que le journal porte encore, en tout. */
+  supprimees: number;
+}
+
+/**
+ * Ce qu'une compaction retirerait, sans rien retirer.
+ *
+ * L'écran l'affiche avant de proposer le bouton : une opération qui efface des
+ * entrées de journal ne se déclenche pas sans avoir dit, au nombre près, ce
+ * qu'elle va faire.
+ */
+export async function prevoirCompaction(): Promise<Prevision> {
+  const { operations, revisions } = await etatLocal();
+  const appareils = await appareilsConnus(operations, await lireAppareil());
+  const borne = bornePartagee(appareils, await horlogeCourante());
+  const supprimeesEncore = new Set(
+    operations.filter((o) => o.type === TYPE_SUPPRESSION).map((o) => o.cible),
+  ).size;
+  if (!borne.possible) return { borne, supprimees: supprimeesEncore };
+  return {
+    borne,
+    plan: planifier({ operations, revisions }, borne.jusqua),
+    supprimees: supprimeesEncore,
+  };
+}
+
+export class CompactionRefusee extends Error {
+  constructor(readonly attendus: readonly string[]) {
+    super(
+      attendus.length === 1
+        ? `« ${attendus[0]} » n’a encore accusé réception de rien : la compaction attend.`
+        : `${attendus.length} appareils n’ont encore accusé réception de rien : ` +
+          'la compaction attend.',
+    );
+    this.name = 'CompactionRefusee';
+  }
+}
+
+export interface RapportCompaction {
+  jusqua: string;
+  cibles: number;
+  operations: number;
+  revisions: number;
+  pierresTombales: number;
+  reportees: number;
+  empreinte: string;
+}
+
+/**
+ * Compacte le journal : efface les faits des cibles supprimées, et leurs
+ * pierres tombales.
+ *
+ * L'ordre des deux écritures n'est pas négociable. Le **compactage d'abord**,
+ * les suppressions ensuite : si la seconde étape échoue à moitié, le compactage
+ * est déjà dans le journal et `appliquerCompactages` finira le travail à la
+ * prochaine occasion. L'ordre inverse effacerait sans laisser de trace de ce
+ * qui a été effacé, et le premier appareil en retard ferait tout revenir.
+ */
+export async function compacter(): Promise<RapportCompaction> {
+  const prevision = await prevoirCompaction();
+  if (!prevision.borne.possible) throw new CompactionRefusee(prevision.borne.attendus);
+  const plan = prevision.plan!;
+  if (planVide(plan)) {
+    const { complete } = await empreinteLocale();
+    return {
+      jusqua: plan.jusqua,
+      cibles: 0,
+      operations: 0,
+      revisions: 0,
+      pierresTombales: 0,
+      reportees: plan.reportees.length,
+      empreinte: complete,
+    };
+  }
+
+  await enregistrerFait(TYPE_COMPACTION, CIBLE_COMPACTION, {
+    jusqua: plan.jusqua,
+    cibles: plan.cibles,
+  });
+  const retire = await appliquerCompactages();
+
+  const { complete } = await empreinteLocale();
+  return {
+    jusqua: plan.jusqua,
+    cibles: plan.cibles.length,
+    operations: retire.operations,
+    revisions: retire.revisions,
+    pierresTombales: plan.pierresTombales,
+    reportees: plan.reportees.length,
     empreinte: complete,
   };
 }

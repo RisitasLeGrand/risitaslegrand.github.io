@@ -32,6 +32,7 @@ export const TYPE_NOM_APPAREIL = 'appareil.nom';
 /** Le type de fait qui déclare une sauvegarde réussie. */
 export const TYPE_SAUVEGARDE = 'sauvegarde.faite';
 
+
 const CLEF_OBSERVATIONS = 'appareilsVus';
 
 /** Ce qu'on sait d'un appareil : son nom partagé, nos observations locales. */
@@ -45,6 +46,21 @@ export interface AppareilConnu {
   empreinte?: string;
   /** Jusqu'où on lui a déjà envoyé, pour borner la prochaine tranche. Local. */
   envoyeJusqua?: string;
+  /**
+   * Jusqu'où il a **accusé réception** de notre journal : ce qu'il nous a dit
+   * détenir de nous, la dernière fois qu'un de ses paquets est arrivé ici.
+   *
+   * C'est la quantité dont la compaction a besoin, et elle n'est pas
+   * `envoyeJusqua` : un paquet déposé dans un dossier partagé peut n'avoir
+   * jamais été ouvert. Observation locale, comme le reste — mais une
+   * observation **de ce que l'autre affirme**, et non de ce qu'on a fait.
+   */
+  reconnuJusqua?: string;
+  /**
+   * Jusqu'où **nous** détenons son journal, pour le lui dire dans notre
+   * prochain paquet. C'est l'autre moitié du même échange.
+   */
+  recuJusqua?: string;
   /** Est-ce cet appareil-ci ? */
   soi: boolean;
 }
@@ -53,6 +69,10 @@ export interface Observation {
   vuLe: string;
   empreinte?: string;
   envoyeJusqua?: string;
+  /** Ce que cet appareil nous a dit détenir de nous. Voir `AppareilConnu`. */
+  reconnuJusqua?: string;
+  /** Ce que nous détenons de lui, et que notre prochain paquet lui dira. */
+  recuJusqua?: string;
   /** Le nom annoncé par le paquet, gardé si aucun fait ne le dit encore. */
   nomAnnonce?: string;
 }
@@ -60,6 +80,11 @@ export interface Observation {
 async function observations(): Promise<Record<string, Observation>> {
   const base = await db();
   return ((await base.get('etat', CLEF_OBSERVATIONS)) as Record<string, Observation>) ?? {};
+}
+
+/** Ce qu'on sait d'un appareil, sans lire le journal. */
+export async function observationDe(appareil: string): Promise<Observation | undefined> {
+  return (await observations())[appareil];
 }
 
 /**
@@ -152,6 +177,8 @@ export async function appareilsConnus(
       vuLe: vus[id]?.vuLe,
       empreinte: vus[id]?.empreinte,
       envoyeJusqua: vus[id]?.envoyeJusqua,
+      reconnuJusqua: vus[id]?.reconnuJusqua,
+      recuJusqua: vus[id]?.recuJusqua,
       soi: id === soi,
     }))
     .sort((a, b) => (a.soi ? -1 : b.soi ? 1 : a.id.localeCompare(b.id)));
@@ -167,4 +194,20 @@ export async function appareilsConnus(
  */
 export async function bornePour(appareil: string): Promise<string | undefined> {
   return (await observations())[appareil]?.envoyeJusqua;
+}
+
+/**
+ * Ce que nous détenons de chaque autre appareil, à annoncer dans un paquet.
+ *
+ * Lu des observations et non du journal : la borne vient d'un paquet qu'on a
+ * **fusionné en entier**, ce qu'une lecture du journal ne saurait pas établir —
+ * la plus haute horloge qu'on détient d'un appareil ne dit pas qu'il n'y a pas
+ * de trou en dessous.
+ */
+export async function detenuParAppareil(): Promise<Record<string, string>> {
+  const sortie: Record<string, string> = {};
+  for (const [id, observation] of Object.entries(await observations())) {
+    if (observation.recuJusqua) sortie[id] = observation.recuJusqua;
+  }
+  return sortie;
 }

@@ -63,7 +63,9 @@
     "essais:salon": "tsx scripts/essais-salon.mts",
     "essais:liaison": "node scripts/essais-liaison.mjs",
     "essais:dossier": "tsx scripts/essais-dossier.mts",
-    "essais:dossier:navigateur": "node scripts/essais-dossier-navigateur.mjs"
+    "essais:dossier:navigateur": "node scripts/essais-dossier-navigateur.mjs",
+    "essais:compaction": "tsx scripts/essais-compaction.mts",
+    "essais:compaction:navigateur": "node scripts/essais-compaction-navigateur.mjs"
   },
   "repository": {
     "type": "git",

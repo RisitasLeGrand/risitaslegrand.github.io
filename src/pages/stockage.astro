@@ -289,6 +289,42 @@ import Base from '../layouts/Base.astro';
       </div>
     </section>
 
+    <!-- ── Compaction du journal ───────────────────────────────────────── -->
+    <section id="compaction" class="rounded-2xl border border-slate-200 bg-white p-5 target:ring-2 target:ring-indigo-400 dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+        Compacter le journal de synchronisation
+      </h2>
+      <p class="mb-3 max-w-3xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+        Une suppression n’est pas une absence : c’est une
+        <strong>pierre tombale</strong> inscrite au journal, sans quoi un
+        appareil resté hors ligne ressusciterait à chaque synchronisation ce que
+        vous avez effacé ailleurs. Compacter, c’est retirer les faits des objets
+        supprimés <em>et</em> leurs pierres tombales, une fois que tous vos
+        appareils les ont vus.
+      </p>
+      <p class="mb-4 max-w-3xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+        Jamais l’historique d’une carte vivante. Le résumer voudrait dire
+        fabriquer un socle, et deux appareils qui en fabriqueraient chacun un
+        pour la même carte ne pourraient plus fusionner du tout — la compaction
+        serait alors ce qui sépare vos deux bases, exactement l’inverse de ce
+        qu’on lui demande.
+      </p>
+      <button
+        id="prevoir-compaction"
+        class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-100 dark:hover:bg-slate-800"
+      >
+        Voir ce qui partirait
+      </button>
+      <div id="apercu-compaction" class="mt-4 hidden text-sm"></div>
+      <button
+        id="compacter"
+        class="mt-3 hidden rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700"
+      >
+        Compacter maintenant
+      </button>
+      <p id="message-compaction" class="mt-3 hidden text-sm"></p>
+    </section>
+
     <!-- ── Pourquoi il n'y a pas de bouton « Compacter » ───────────────── -->
     <section class="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900/60">
       <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
@@ -302,7 +338,9 @@ import Base from '../layouts/Base.astro';
         séance de leur enregistrement, ce qui a fait passer le tableau de bord de
         2,25 s à 0,58 s. Un bouton « Compacter » n’aurait donc rien à compacter,
         et les conditions qui feraient revenir sur cette décision sont écrites
-        dans la documentation du projet.
+        dans la documentation du projet. À ne pas confondre avec le compactage
+        du journal, juste au-dessus : celui-ci ne comprime rien, il retire des
+        entrées devenues inutiles.
       </p>
     </section>
   </div>
@@ -329,6 +367,12 @@ import Base from '../layouts/Base.astro';
   import { compter, effacer, type Cible, type Decompte } from '../lib/sauvegarde/effacement';
   import { fabriquer, noterSauvegardeReussie } from '../lib/sauvegarde/service';
   import { instantanes, type Instantane } from '../lib/noyau/instantane';
+  import {
+    compacter,
+    CompactionRefusee,
+    prevoirCompaction,
+    type Prevision,
+  } from '../lib/sync/service';
   import { revenirAvantMigration } from '../lib/db';
 
   const $ = (id: string) => document.getElementById(id)!;
@@ -757,6 +801,116 @@ import Base from '../layouts/Base.astro';
 
     $('sauver-puis-effacer').addEventListener('click', () => void appliquerEffacement(true));
     $('effacer-sans').addEventListener('click', () => void appliquerEffacement(false));
+
+    /* ── Compaction du journal ─────────────────────────────────────── */
+
+    function peindrePrevision(prevision: Prevision) {
+      const zone = $('apercu-compaction');
+      zone.replaceChildren();
+      const bouton = $('compacter') as HTMLButtonElement;
+      bouton.classList.add('hidden');
+
+      if (!prevision.borne.possible) {
+        const p = document.createElement('p');
+        p.className = 'text-amber-700 dark:text-amber-300';
+        const noms = prevision.borne.attendus.map((n) => `« ${n} »`).join(', ');
+        p.textContent =
+          `${noms} n’${prevision.borne.attendus.length > 1 ? 'ont' : 'a'} encore accusé ` +
+          'réception de rien. Tant qu’un appareil n’a pas vu une suppression, l’effacer ' +
+          'd’ici la ferait revenir de là-bas. Synchronisez-le une fois, puis revenez.';
+        const quoi = document.createElement('p');
+        quoi.className = 'mt-2 text-slate-600 dark:text-slate-300';
+        quoi.textContent = prevision.supprimees
+          ? `${prevision.supprimees} objet(s) supprimé(s) attendent dans le journal.`
+          : 'Rien n’attend dans le journal : aucun objet supprimé.';
+        const vers = document.createElement('a');
+        vers.href = lien('/appareils/');
+        vers.className =
+          'mt-2 inline-block font-medium text-indigo-600 underline dark:text-indigo-400';
+        vers.textContent = 'Voir mes appareils';
+        zone.append(p, quoi, vers);
+        zone.classList.remove('hidden');
+        return;
+      }
+
+      const plan = prevision.plan!;
+      const intro = document.createElement('p');
+      if (!plan.cibles.length) {
+        intro.className = 'text-emerald-600 dark:text-emerald-400';
+        intro.textContent =
+          prevision.supprimees === 0
+            ? 'Rien à compacter : aucun objet supprimé dans le journal.'
+            : 'Rien à compacter pour l’instant : les suppressions connues sont plus ' +
+              'récentes que ce que tous vos appareils ont vu.';
+        zone.append(intro);
+      } else {
+        intro.className = 'text-slate-700 dark:text-slate-200';
+        intro.textContent =
+          `${plan.cibles.length} objet(s) supprimé(s) seraient effacés du journal, ` +
+          `soit ${plan.operations.length} opération(s) — dont ${plan.pierresTombales} ` +
+          `pierre(s) tombale(s) — et ${plan.revisions.length} entrée(s) de journal de ` +
+          'révision.';
+        const liste = document.createElement('ul');
+        liste.className = 'mt-2 list-disc space-y-1 pl-5 text-slate-600 dark:text-slate-300';
+        for (const texte of [
+          prevision.borne.seul
+            ? 'Cet appareil est seul au registre : rien à attendre de personne.'
+            : 'Borné à ce que tous vos appareils ont accusé détenir.',
+          plan.reportees.length
+            ? `${plan.reportees.length} objet(s) supprimé(s) sont reportés : une de leurs ` +
+              'entrées est plus récente que cette borne.'
+            : 'Aucun objet reporté.',
+          'Aucun historique de carte vivante n’est touché.',
+        ]) {
+          const li = document.createElement('li');
+          li.textContent = texte;
+          liste.appendChild(li);
+        }
+        zone.append(intro, liste);
+        bouton.classList.remove('hidden');
+      }
+      zone.classList.remove('hidden');
+    }
+
+    $('prevoir-compaction').addEventListener('click', async () => {
+      const bouton = $('prevoir-compaction') as HTMLButtonElement;
+      bouton.disabled = true;
+      $('message-compaction').classList.add('hidden');
+      try {
+        peindrePrevision(await prevoirCompaction());
+      } finally {
+        bouton.disabled = false;
+      }
+    });
+
+    $('compacter').addEventListener('click', async () => {
+      const bouton = $('compacter') as HTMLButtonElement;
+      const message = $('message-compaction');
+      bouton.disabled = true;
+      try {
+        const rapport = await compacter();
+        message.className = 'mt-3 text-sm text-emerald-600 dark:text-emerald-400';
+        message.textContent =
+          `Journal compacté : ${rapport.operations} opération(s) et ` +
+          `${rapport.revisions} entrée(s) de révision retirées, pour ` +
+          `${rapport.cibles} objet(s) supprimé(s). Empreinte : ${rapport.empreinte.slice(0, 16)}.`;
+        message.classList.remove('hidden');
+        // Repeindre avant d'annoncer la suite : l'aperçu affiché était celui
+        // d'avant, et le laisser ferait croire qu'il reste autant à faire.
+        peindrePrevision(await prevoirCompaction());
+        peindreOccupation(await occupation());
+        notifier('Journal compacté', 'succes');
+      } catch (erreur) {
+        message.className = 'mt-3 text-sm text-amber-700 dark:text-amber-300';
+        message.textContent =
+          erreur instanceof CompactionRefusee
+            ? erreur.message
+            : `Le compactage a échoué : ${erreur instanceof Error ? erreur.message : erreur}.`;
+        message.classList.remove('hidden');
+      } finally {
+        bouton.disabled = false;
+      }
+    });
 
     $('controler').addEventListener('click', async () => {
       const bouton = $('controler') as HTMLButtonElement;
