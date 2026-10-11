@@ -17,6 +17,9 @@
  */
 import { chromium } from 'playwright-core';
 import { readFile } from 'node:fs/promises';
+import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+
+const MDP = motDePasseEssais();
 
 const nav = await chromium.launch({
   executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
@@ -100,7 +103,7 @@ verifier('base créée en version 6', cree, 6);
 console.log('\nOUVERTURE PAR L’APPLICATION');
 await page.goto('http://localhost:4321/progression', { waitUntil: 'networkidle' });
 if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
-  await page.fill('#champ-mdp', 'EFN67');
+  await page.fill('#champ-mdp', MDP);
   await page.click('#bouton-verrou');
   await page.waitForTimeout(2500);
 }

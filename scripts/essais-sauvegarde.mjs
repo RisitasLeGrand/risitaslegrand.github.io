@@ -11,6 +11,9 @@
 // ci-dessous à votre installation, puis lancez « astro preview » avant ce script.
 import { chromium } from 'playwright-core';
 import { writeFileSync, readFileSync } from 'node:fs';
+import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+
+const MDP = motDePasseEssais();
 const S = process.env.DOSSIER_ESSAIS ?? '/tmp';
 
 const nav = await chromium.launch({ executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
@@ -19,7 +22,7 @@ const page = await ctx.newPage();
 page.on('pageerror', (e) => console.log('PAGEERROR:', e.message.slice(0, 160)));
 
 await page.goto('http://localhost:4321/progression', { waitUntil: 'networkidle' });
-if (await page.locator('#champ-mdp').isVisible().catch(()=>false)) { await page.fill('#champ-mdp','EFN67'); await page.click('#bouton-verrou'); await page.waitForTimeout(2500); }
+if (await page.locator('#champ-mdp').isVisible().catch(()=>false)) { await page.fill('#champ-mdp',MDP); await page.click('#bouton-verrou'); await page.waitForTimeout(2500); }
 
 const compter = () => page.evaluate(async () => {
   const base = await new Promise((ok) => { const r = indexedDB.open('revinsp'); r.onsuccess = () => ok(r.result); });

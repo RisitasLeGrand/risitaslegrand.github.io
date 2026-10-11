@@ -17,6 +17,9 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
 import { idStable } from './lib/crypto.mjs';
+import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+
+const MDP = motDePasseEssais();
 
 /**
  * Une fiche dépourvue de prétest, trouvée dans le contenu.
@@ -50,7 +53,7 @@ await page.goto('http://localhost:4321/robots.txt');
 await page.evaluate(() => new Promise((ok) => { const r = indexedDB.deleteDatabase('revinsp'); r.onsuccess = r.onerror = r.onblocked = () => ok(); }));
 
 await page.goto('http://localhost:4321/bibliotheque', { waitUntil: 'networkidle' });
-if (await page.locator('#champ-mdp').isVisible().catch(()=>false)) { await page.fill('#champ-mdp','EFN67'); await page.click('#bouton-verrou'); await page.waitForTimeout(3000); }
+if (await page.locator('#champ-mdp').isVisible().catch(()=>false)) { await page.fill('#champ-mdp',MDP); await page.click('#bouton-verrou'); await page.waitForTimeout(3000); }
 
 const AVEC = '/fiche/?id=d9cb5790881e26fa';   // Questions sociales F3, fiche 1 : a un prétest
 const idSans = await ficheSansPretest();

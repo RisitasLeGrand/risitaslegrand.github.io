@@ -11,6 +11,9 @@
  * « astro preview » avant ce script.
  */
 import { chromium } from 'playwright-core';
+import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+
+const MDP = motDePasseEssais();
 
 const nav = await chromium.launch({
   executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
@@ -41,7 +44,7 @@ const lire = (magasin) =>
 
 const connecter = async () => {
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
-    await page.fill('#champ-mdp', 'EFN67');
+    await page.fill('#champ-mdp', MDP);
     await page.click('#bouton-verrou');
     await page.waitForTimeout(3000);
   }

@@ -37,7 +37,9 @@
     "essais:corrections": "node scripts/essais-corrections-contenu.mjs",
     "essais:assistant": "tsx scripts/essais-assistant.mts",
     "essais:assistant:reseau": "node scripts/essais-assistant-reseau.mjs",
-    "essais:parcours": "tsx scripts/essais-parcours.mts"
+    "essais:parcours": "tsx scripts/essais-parcours.mts",
+    "essais:secret": "node scripts/essais-secret.mjs",
+    "essais:sauvegarde": "node scripts/essais-sauvegarde.mjs"
   },
   "repository": {
     "type": "git",

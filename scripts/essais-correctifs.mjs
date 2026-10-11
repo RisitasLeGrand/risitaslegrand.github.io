@@ -11,6 +11,9 @@
  * « astro preview » avant ce script.
  */
 import { chromium } from 'playwright-core';
+import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+
+const MDP = motDePasseEssais();
 const nav = await chromium.launch({ executablePath: process.env.CHROMIUM, args: ['--no-sandbox'] });
 const ctx = await nav.newContext({ viewport: { width: 1100, height: 900 } });
 const page = await ctx.newPage();
@@ -24,7 +27,7 @@ await page.goto(`${B}/robots.txt`);
 await page.evaluate(() => new Promise((ok) => { const r = indexedDB.deleteDatabase('revinsp'); r.onsuccess = r.onerror = r.onblocked = () => ok(); }));
 await page.goto(`${B}/`, { waitUntil: 'networkidle' });
 if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
-  await page.fill('#champ-mdp', 'EFN67');
+  await page.fill('#champ-mdp', MDP);
   await page.click('#bouton-verrou');
   await page.waitForTimeout(3000);
 }

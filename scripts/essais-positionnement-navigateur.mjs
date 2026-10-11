@@ -22,6 +22,9 @@
  * Prérequis : « npx astro build » puis « npx astro preview » sur le port 4321.
  */
 import { chromium } from 'playwright-core';
+import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+
+const MDP = motDePasseEssais();
 
 const RACINE = 'http://localhost:4321';
 const nav = await chromium.launch({
@@ -53,7 +56,7 @@ await page.evaluate(
 
 await page.goto(`${RACINE}/positionnement/`, { waitUntil: 'networkidle' });
 if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
-  await page.fill('#champ-mdp', 'EFN67');
+  await page.fill('#champ-mdp', MDP);
   await page.click('#bouton-verrou');
   await page.waitForTimeout(3000);
 }
