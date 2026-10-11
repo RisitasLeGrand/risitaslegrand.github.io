@@ -51,6 +51,8 @@ export interface FicheActu {
   historique?: ChangementLegislatif[];
   sources?: Source[];
   lien_cours?: string;
+  /** Commentaire de rattachement au programme, par parcours. Voir `lienCours`. */
+  liens_cours?: Record<string, string>;
   /** Termes servant à rattacher l'actualité aux fiches de cours. */
   mots_cles?: string[];
   derniere_maj?: string;
@@ -86,6 +88,8 @@ export interface ChangementLegislatif {
   resume: string;
   sources?: Source[];
   lien_cours?: string;
+  /** Commentaire de rattachement au programme, par parcours. Voir `lienCours`. */
+  liens_cours?: Record<string, string>;
   mots_cles?: string[];
 }
 
@@ -100,6 +104,8 @@ export interface ItemActu {
   sources?: Source[];
   image?: ImageActu;
   lien_cours?: string;
+  /** Commentaire de rattachement au programme, par parcours. Voir `lienCours`. */
+  liens_cours?: Record<string, string>;
   /** Termes servant à rattacher l'actualité aux fiches de cours. */
   mots_cles?: string[];
 }

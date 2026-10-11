@@ -1,8 +1,24 @@
-# Espace de révision personnel
+# Cyclades
 
-Site de révision privé, chiffré, hébergé gratuitement sur GitHub Pages.
-Cours, fiches de synthèse, flashcards à répétition espacée, quiz, glossaire
-et suivi de progression — le tout dans le navigateur, sans serveur ni compte.
+Application personnelle privée, chiffrée, hébergée gratuitement sur GitHub
+Pages — dans le navigateur, sans serveur ni compte.
+
+Cyclades se divise en **branches**, déclarées dans `src/lib/branches.ts` :
+
+| Branche | Ce qu'elle porte | État |
+|---|---|---|
+| **Révisions** | Préparation aux concours : cours, fiches de synthèse, flashcards à répétition espacée, quiz, glossaire, planification, suivi de progression | disponible |
+| **Odyssée** | Pilotage de la vie : domaines, calendrier, tâches, quêtes, tendances | à construire |
+| **Sport** | Musculation et cardio : exercices, séances, suivi de la force | à construire |
+
+La branche Révisions se décline en **parcours** (`src/lib/parcours/registre.ts`) :
+INSP, DGFiP B, DGFiP A, DGFiP A+. Chaque parcours déclare ses matières, ses
+thèmes de planification et le concours qu'il prépare. Seul l'INSP porte du
+contenu à ce jour ; les trois autres se naviguent et attendent leur
+référentiel officiel, qui ne sera jamais inventé.
+
+Les noms de stockage (base IndexedDB `revinsp`, clés `revinsp.*`) gardent leur
+préfixe historique : voir `docs/cyclades/renommage.md`.
 
 ---
 

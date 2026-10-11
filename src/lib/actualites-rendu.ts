@@ -20,6 +20,8 @@ import {
   type Tendance,
 } from './actualites';
 import { rattacher, type IndexTexte } from './rattachement';
+import { idParcoursCourant } from './parcours/courant';
+import { lienCours } from './parcours/lien-cours';
 import type { FicheAplatie } from './contenu';
 import { boutonAssistant } from '../features/assistant/monter';
 import { contexteActualite } from '../features/assistant/fournisseurs';
@@ -53,16 +55,24 @@ function listeSources(sources?: Source[]): string {
  * par la routine, qui ne connaît pas le plan du site (il est chiffré).
  */
 function blocLienCours(
-  actualite: { titre?: string; mots_cles?: string[]; lien_cours?: string },
+  actualite: {
+    titre?: string;
+    mots_cles?: string[];
+    lien_cours?: string;
+    liens_cours?: Record<string, string>;
+  },
   fiches: FicheAplatie[],
 ): string {
   const rattachees = fiches.length
     ? rattacher({ titre: actualite.titre ?? '', mots_cles: actualite.mots_cles }, fiches, indexTexte)
     : [];
-  if (!actualite.lien_cours?.trim() && !rattachees.length) return '';
+  // Le commentaire est celui du parcours ouvert : une phrase écrite pour le
+  // programme de l'INSP n'a rien à dire sous une préparation DGFiP.
+  const phrase = lienCours(actualite, idParcoursCourant());
+  if (!phrase && !rattachees.length) return '';
 
-  const commentaire = actualite.lien_cours?.trim()
-    ? `<span class="font-medium text-indigo-700 dark:text-indigo-300">Lien avec le programme —</span> ${echapper(actualite.lien_cours)}`
+  const commentaire = phrase
+    ? `<span class="font-medium text-indigo-700 dark:text-indigo-300">Lien avec le programme —</span> ${echapper(phrase)}`
     : '<span class="font-medium text-indigo-700 dark:text-indigo-300">À réviser avec</span>';
 
   const puces = rattachees
@@ -407,7 +417,7 @@ export function carteItem(item: ItemActu, fichesCours: FicheAplatie[] = []): HTM
             date: item.date ?? '',
             domaine: etiquetteDomaine(domaineDe(item)).libelle,
             sources: (item.sources ?? []).map((s) => ({ nom: s.nom ?? '', url: s.url })),
-            lienCours: item.lien_cours,
+            lienCours: lienCours(item, idParcoursCourant()),
             motsCles: item.mots_cles,
           }),
       },

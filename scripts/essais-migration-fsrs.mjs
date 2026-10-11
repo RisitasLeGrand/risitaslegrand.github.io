@@ -16,6 +16,7 @@
  * « astro preview » avant ce script.
  */
 import { chromium } from 'playwright-core';
+import { readFile } from 'node:fs/promises';
 
 const nav = await chromium.launch({
   executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
@@ -124,10 +125,19 @@ const apres = await page.evaluate(async () => {
   };
 });
 
-// Le schéma a continué d'avancer depuis la migration FSRS : version 8 pour le
-// journal d'erreurs, version 9 pour les compétences et les difficultés d'items.
-// Ce que l'essai surveille reste le même — la base s'ouvre sans rien perdre.
-verifier('la base est à la version courante', apres.version, 9);
+/*
+ * Le schéma a continué d'avancer depuis la migration FSRS : 8 pour le journal
+ * d'erreurs, 9 pour les compétences et les difficultés d'items, 10 pour les
+ * demandes d'aide. Le numéro était recopié ici, et l'essai échouait à chaque
+ * magasin ajouté — en signalant une régression là où il n'y avait qu'une
+ * constante oubliée. Il est désormais lu dans `db.ts`, qui en est la source :
+ * une base qui s'ouvre sur une version plus ancienne reste une vraie
+ * régression, et c'est bien ce qui est surveillé.
+ */
+const VERSION_ATTENDUE = Number(
+  /const VERSION = (\d+)/.exec(await readFile('src/lib/db.ts', 'utf8'))?.[1],
+);
+verifier('la base est à la version courante', apres.version, VERSION_ATTENDUE);
 verifier('aucun magasin perdu', apres.magasins.length >= 12, true);
 verifier('les autres magasins sont intacts', apres.nback, 1);
 

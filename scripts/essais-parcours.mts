@@ -23,6 +23,7 @@ import {
   planifiable,
   raisonNonPlanifiable,
 } from '../src/lib/parcours/registre';
+import { lienCours } from '../src/lib/parcours/lien-cours';
 import {
   REPOS,
   SANS_THEME,
@@ -206,6 +207,61 @@ verifier(
   'une rotation vide n’est pas migrée comme une rotation',
   rotationsStockees({ rotation: [], trimestreEcarte: null }),
   {},
+);
+
+// --- 5. Le lien avec le programme, par parcours ---------------------------
+
+/*
+ * Le repli sur la forme antérieure est volontairement étroit. La phrase unique
+ * des actualités déjà chiffrées a été écrite pour le programme de l'INSP :
+ * l'afficher sous une préparation DGFiP annoncerait un rattachement qui
+ * n'existe pas, ce qui est précisément le défaut que ce chantier corrige.
+ */
+const ancien = { lien_cours: 'Rattachement attendu : hiérarchie des normes.' };
+
+verifier(
+  'la forme antérieure vaut pour le parcours par défaut',
+  lienCours(ancien, ID_PARCOURS_PAR_DEFAUT),
+  ancien.lien_cours,
+);
+
+for (const p of PARCOURS.filter((p) => p.id !== ID_PARCOURS_PAR_DEFAUT)) {
+  verifier(
+    `la forme antérieure ne vaut pas pour ${p.libelle}`,
+    lienCours(ancien, p.id),
+    undefined,
+  );
+}
+
+const parParcours = {
+  lien_cours: 'Phrase de l’INSP, qui ne doit plus servir de repli.',
+  liens_cours: { 'dgfip-b': 'Programme de contrôleur : environnement administratif.' },
+};
+
+verifier(
+  'une entrée par parcours est rendue telle quelle',
+  lienCours(parParcours, 'dgfip-b'),
+  parParcours.liens_cours['dgfip-b'],
+);
+
+verifier(
+  'la présence de « liens_cours » ferme le repli, même pour le parcours par défaut',
+  lienCours(parParcours, ID_PARCOURS_PAR_DEFAUT),
+  undefined,
+);
+
+verifier('un porteur sans aucun lien ne rend rien', lienCours({}, ID_PARCOURS_PAR_DEFAUT), undefined);
+
+verifier(
+  'une entrée vide ne compte pas pour une entrée',
+  lienCours({ liens_cours: { insp: '   ' } }, ID_PARCOURS_PAR_DEFAUT),
+  undefined,
+);
+
+verifier(
+  'une phrase antérieure vide ne compte pas davantage',
+  lienCours({ lien_cours: '  ' }, ID_PARCOURS_PAR_DEFAUT),
+  undefined,
 );
 
 console.log(

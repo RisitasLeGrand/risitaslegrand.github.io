@@ -4,8 +4,16 @@
  * dépôt GitHub Pages ou les réglages de chiffrement.
  */
 export default {
-  /** Titre affiché dans l'onglet du navigateur et l'en-tête. */
-  titre: 'Espace de révision',
+  /**
+   * Nom du produit, affiché dans l'onglet du navigateur et l'en-tête.
+   *
+   * Cyclades est l'application ; Révisions, Odyssée et Sport en sont les
+   * branches (voir `src/lib/branches.ts`). Les clés de stockage local gardent
+   * le préfixe `revinsp.` et la base IndexedDB garde son nom : les renommer
+   * coûterait l'état des installations existantes pour un gain nul. La table de
+   * correspondance est dans `docs/cyclades/renommage.md`.
+   */
+  titre: 'Cyclades',
 
   /**
    * Chemin de base sur GitHub Pages — doit correspondre à l'adresse publique.

@@ -71,7 +71,20 @@ v('trois questions', nbQuestions, 3);
 v('le bouton « passer » est visible', await page.getByRole('button', { name: /Passer et lire/ }).isVisible(), true);
 
 console.log('\nUNE TENTATIVE');
-await page.locator('#pretest button').filter({ hasText: 'Le niveau de chômage réduit' }).first().click();
+/*
+ * Une option désignée par son texte était un pari sur le tirage : depuis que
+ * les questions de prétest sont tirées d'un vivier, celle qui portait « Le
+ * niveau de chômage réduit » n'est présente qu'une fois sur plusieurs, et
+ * l'essai échouait au hasard. Ce qu'il vérifie — qu'une tentative se corrige,
+ * se récompense et alimente la note d'entrée — ne dépend d'aucune option
+ * particulière : la première de la première question suffit.
+ */
+await page
+  .locator('#pretest section > div > div')
+  .first()
+  .locator('button')
+  .first()
+  .click();
 await page.getByRole('button', { name: /Valider mes réponses/ }).click();
 await page.waitForTimeout(1200);
 v('la correction s’affiche', (await page.locator('#pretest').textContent() ?? '').includes('Rien n’est compté comme une erreur'), true);

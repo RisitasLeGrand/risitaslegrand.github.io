@@ -1,0 +1,50 @@
+---
+/**
+ * Le choix du parcours préparé, dans l'en-tête de la branche Révisions.
+ *
+ * Le parcours décide des thèmes de planification, des matières, du filtre de la
+ * banque de QCM et du concours nommé dans le prompt « Demander à l'IA ». En
+ * changer change donc presque tous les écrans, et beaucoup d'entre eux lisent
+ * leurs données une fois au chargement : la page est rechargée plutôt que
+ * rafraîchie à moitié, ce qui serait la meilleure façon d'afficher les thèmes
+ * d'un parcours avec les fiches d'un autre.
+ *
+ * Un parcours dont le référentiel n'est pas établi reste choisissable : il n'est
+ * pas vide par accident, il attend ses sources, et le lui cacher n'avancerait à
+ * rien.
+ */
+import { PARCOURS } from '../lib/parcours/registre';
+---
+
+<label class="sr-only" for="selecteur-parcours">Parcours préparé</label>
+<select
+  id="selecteur-parcours"
+  class="min-h-11 max-w-[8.5rem] shrink-0 rounded-lg border border-slate-300 bg-white px-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
+>
+  {
+    PARCOURS.map((p) => (
+      <option value={p.id} title={p.intitule}>
+        {p.libelle}
+      </option>
+    ))
+  }
+</select>
+
+<script>
+  import { PARCOURS } from '../lib/parcours/registre';
+  import { definirParcoursCourant, idParcoursCourant } from '../lib/parcours/courant';
+
+  const selecteur = document.getElementById('selecteur-parcours') as HTMLSelectElement | null;
+  if (selecteur) {
+    selecteur.value = idParcoursCourant();
+    // Un identifiant stocké qui ne correspond à aucune option laisserait le
+    // sélecteur sur le premier parcours tout en travaillant sur un autre.
+    if (!PARCOURS.some((p) => p.id === selecteur.value)) {
+      selecteur.value = definirParcoursCourant(selecteur.value).id;
+    }
+    selecteur.addEventListener('change', () => {
+      definirParcoursCourant(selecteur.value);
+      location.reload();
+    });
+  }
+</script>

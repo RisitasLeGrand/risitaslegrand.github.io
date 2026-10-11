@@ -15,6 +15,20 @@ import Section from '../../components/Section.astro';
 <Base titre="Planification" actif="planification">
   <div id="chargement" class="py-20 text-center text-slate-400">Chargement du planning…</div>
 
+  <!--
+    Un parcours dont le programme n'est pas encore établi sur source officielle
+    n'a pas de thèmes, donc rien à planifier. Il affiche la raison au lieu d'un
+    calendrier vide : inventer une rotation serait inventer un programme.
+  -->
+  <div
+    id="sans-referentiel"
+    class="hidden rounded-xl border border-slate-300 bg-slate-50 p-6 dark:border-slate-700 dark:bg-slate-900"
+    role="status"
+  >
+    <p class="etiquette text-slate-600 dark:text-slate-300">Planification indisponible</p>
+    <p id="texte-sans-referentiel" class="mt-2 text-sm text-slate-700 dark:text-slate-300"></p>
+  </div>
+
   <div id="planification" class="hidden space-y-8">
     <!-- Suggestion trimestrielle : indicative, jamais bloquante. -->
     <div
@@ -106,6 +120,8 @@ import Section from '../../components/Section.astro';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { parcoursCourant } from '../../lib/parcours/courant';
+  import { raisonNonPlanifiable } from '../../lib/parcours/registre';
   import { ajouterJours, jourISO } from '../../lib/db';
   import { formaterDuree, lien, pluriel } from '../../lib/ui';
   import {
@@ -368,8 +384,16 @@ import Section from '../../components/Section.astro';
   }
 
   auDeverrouillage(async () => {
-    await peindre();
     $('chargement').classList.add('hidden');
+
+    const raison = raisonNonPlanifiable(parcoursCourant());
+    if (raison) {
+      $('texte-sans-referentiel').textContent = raison;
+      $('sans-referentiel').classList.remove('hidden');
+      return;
+    }
+
+    await peindre();
     $('planification').classList.remove('hidden');
   });
 </script>

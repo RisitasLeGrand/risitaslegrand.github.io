@@ -8,7 +8,9 @@ import Verrou from '../components/Verrou.astro';
 import CommutateurTheme from '../components/CommutateurTheme.astro';
 import BarreProgression from '../components/BarreProgression.astro';
 import PiedDePage from '../components/PiedDePage.astro';
+import SelecteurParcours from '../components/SelecteurParcours.astro';
 import config from '../../site.config.mjs';
+import { ID_BRANCHE_PAR_DEFAUT, branche } from '../lib/branches';
 
 interface Props {
   titre: string;
@@ -20,6 +22,14 @@ interface Props {
 
 const { titre, actif, sansNavigation = false } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+
+/*
+   Ces écrans sont ceux de la branche Révisions. Les autres branches, déclarées
+   dans `src/lib/branches.ts`, n'ont pas encore d'écrans : la barre ne montre
+   donc que celle-ci, et deviendra un sélecteur sans autre changement le jour où
+   Odyssée s'ouvrira.
+*/
+const brancheCourante = branche(ID_BRANCHE_PAR_DEFAUT)!;
 
 // « libelle » est le nom complet (lecteurs d'écran, info-bulle) ; « court »
 // est la version affichée à côté de l'icône sur les grands écrans.
@@ -94,8 +104,15 @@ const onglets = [
                 href={`${base}/`}
                 class="flex shrink-0 items-center gap-2 font-semibold text-slate-900 dark:text-white"
               >
-                <span class="text-lg">🎓</span>
-                <span class="hidden sm:inline">{config.titre}</span>
+                <span class="text-lg" aria-hidden="true">{brancheCourante.icone}</span>
+                <span class="hidden sm:inline">
+                  {config.titre}
+                  <span class="text-slate-400 dark:text-slate-500" aria-hidden="true">·</span>
+                  <span class="font-normal text-slate-600 dark:text-slate-300">
+                    {brancheCourante.libelle}
+                  </span>
+                </span>
+                <span class="sr-only">{config.titre} · {brancheCourante.libelle}</span>
               </a>
 
               <nav
@@ -123,6 +140,7 @@ const onglets = [
               </nav>
 
               <div class="flex shrink-0 items-center gap-1">
+                <SelecteurParcours />
                 <CommutateurTheme />
                 <button
                   id="bouton-verrouiller"

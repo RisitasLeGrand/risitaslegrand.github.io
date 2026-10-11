@@ -120,7 +120,12 @@ await page.goto('http://localhost:4321/progression', { waitUntil: 'networkidle' 
 await connecter();
 await page.waitForTimeout(2000);
 const cases = page.locator('#sources input[type=checkbox]');
-v('quatre sources proposées', await cases.count(), 4);
+/*
+ * Cinq, et non quatre : le prétest est devenu une source à part entière quand
+ * la note d'entrée a été séparée du niveau acquis. L'essai comptait encore
+ * quatre cases et échouait depuis.
+ */
+v('cinq sources proposées', await cases.count(), 5);
 v('le QCM-DGFiP est décoché par défaut', await cases.nth(3).isChecked(), false);
 await cases.nth(0).uncheck();
 await page.waitForTimeout(800);

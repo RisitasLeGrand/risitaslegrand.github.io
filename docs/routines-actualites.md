@@ -185,7 +185,7 @@ ou `annees`.
       "resume": "…",
       "sources": [{ "nom": "…", "url": "…" }],
       "image": { "url": "…", "credit": "…" },
-      "lien_cours": "…",
+      "liens_cours": { "insp": "…" },
       "mots_cles": ["déficit public", "Pacte de stabilité"]
     }
   ],
@@ -218,7 +218,7 @@ mise à jour :
   "titre": "Premier ministre",
   "resume": "…",
   "sources": [{ "nom": "…", "url": "…" }],
-  "lien_cours": "…",
+  "liens_cours": { "insp": "…" },
   "mots_cles": ["gouvernance", "souveraineté"],
   "derniere_maj": "2026-09-22"
 }
@@ -244,7 +244,7 @@ eux :
     "inflation":     { "valeur": "…", "periode_reference": "…", "source": { "nom": "…", "url": "…" } }
   },
   "texte_contextuel": "…",
-  "lien_cours": "…",
+  "liens_cours": { "insp": "…" },
   "derniere_maj": "2026-09-22"
 }
 ```
@@ -261,7 +261,7 @@ eux :
       "date": "2026-09-15",
       "resume": "…",
       "sources": [{ "nom": "…", "url": "…" }],
-      "lien_cours": "…",
+      "liens_cours": { "insp": "…" },
       "mots_cles": ["loi de finances"]
     }
   ],
@@ -348,3 +348,30 @@ jour et se mettent à jour indépendamment.
   refusent tous deux de le faire ; la réponse est toujours `git pull`.
 - **Ne toucher qu'aux fiches réellement concernées**, pour que `derniere_maj`
   reste une information utile.
+
+## Le lien avec le programme est écrit par parcours
+
+Le champ `lien_cours`, une phrase unique, est remplacé par `liens_cours`, un
+dictionnaire dont la clé est l'identifiant du parcours (`insp`, `dgfip-b`,
+`dgfip-a`, `dgfip-ap` — voir `src/lib/parcours/registre.ts`).
+
+La raison n'est pas l'élégance du format. La phrase unique a toujours été écrite
+pour le programme de l'INSP — « rattachement attendu : hiérarchie des normes »,
+« point d'ancrage de toute question sur l'organisation de l'exécutif » — et
+l'afficher sous une préparation DGFiP annoncerait un rattachement qui n'existe
+pas.
+
+Trois règles, appliquées par `lienCours()` dans `src/lib/actualites.ts` :
+
+1. Si `liens_cours` porte une entrée pour le parcours ouvert, c'est elle qui
+   s'affiche.
+2. Si `liens_cours` existe mais n'a pas d'entrée pour ce parcours, **aucun
+   commentaire n'est affiché**. La veille n'en a pas écrit : en inventer un
+   serait pire que de n'en montrer aucun, et les fiches rattachées par mots-clés
+   restent calculées de toute façon.
+3. `lien_cours`, la forme antérieure, n'est lue que pour le parcours **par
+   défaut**. Les actualités déjà chiffrées restent donc lisibles sans être
+   reprises, et sans parler du mauvais concours ailleurs.
+
+Une routine n'est pas tenue de remplir tous les parcours. Écrire la seule entrée
+qu'elle sait écrire est le comportement attendu.

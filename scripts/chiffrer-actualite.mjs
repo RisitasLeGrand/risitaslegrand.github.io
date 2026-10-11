@@ -50,7 +50,10 @@ const ITEM_MODELE = {
   resume: 'Quelques phrases rédigées dans vos propres mots, jamais une copie du texte source.',
   sources: [{ nom: 'Légifrance', url: 'https://www.legifrance.gouv.fr/' }],
   image: { url: 'https://exemple.org/illustration.jpg', credit: 'Auteur / Agence' },
-  lien_cours: "Phrase reliant l'actualité au programme de révision.",
+  liens_cours: {
+    insp: "Phrase reliant l'actualité au programme de l'INSP.",
+    'dgfip-b': "Phrase reliant l'actualité au programme de DGFiP B, ou champ omis.",
+  },
   mots_cles: ['déficit public', 'Pacte de stabilité'],
 };
 
@@ -75,7 +78,9 @@ const MODELES = {
     titre: 'Premier ministre',
     resume: 'Quelques phrases rédigées dans vos propres mots.',
     sources: [{ nom: "Nom de la source", url: 'https://exemple.gouv.fr/page' }],
-    lien_cours: "Phrase expliquant en quoi cette actualité sert la préparation du concours.",
+    liens_cours: {
+      insp: "Phrase expliquant en quoi cette actualité sert la préparation de l'INSP.",
+    },
     mots_cles: ['Premier ministre', 'gouvernement', 'article 20'],
     derniere_maj: new Date().toISOString().slice(0, 10),
   },
@@ -114,7 +119,7 @@ const MODELES = {
     texte_contextuel:
       'Quelques phrases situant ces chiffres les uns par rapport aux autres et par rapport ' +
       'à la trajectoire pluriannuelle des finances publiques.',
-    lien_cours: 'Phrase reliant ces chiffres au programme de révision.',
+    liens_cours: { insp: 'Phrase reliant ces chiffres au programme de l’INSP.' },
     mots_cles: ['déficit public', 'dette publique', 'inflation'],
     derniere_maj: new Date().toISOString().slice(0, 10),
   },
@@ -128,7 +133,7 @@ const MODELES = {
         date: '2026-09-15',
         resume: 'Quelques phrases rédigées dans vos propres mots.',
         sources: [{ nom: 'Légifrance', url: 'https://www.legifrance.gouv.fr/' }],
-        lien_cours: 'Phrase reliant ce changement au programme de révision.',
+        liens_cours: { insp: 'Phrase reliant ce changement au programme de l’INSP.' },
         mots_cles: ['loi de finances', 'LOLF'],
       },
     ],
