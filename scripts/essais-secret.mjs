@@ -63,7 +63,17 @@ console.log('\nAUCUNE CHAÎNE LITTÉRALE DANS LE CHAMP DE MOT DE PASSE');
  * variable est acceptée — c'est ce que fait désormais le module partagé.
  */
 const LITTERAL = /#champ-mdp\s*['"]\s*,\s*['"`]/;
+
+/*
+ * Ce fichier-ci est le seul exclu, et il faut le dire : il cite la forme qu'il
+ * interdit, dans le commentaire ci-dessus, pour qu'on sache ce qu'on cherche.
+ * S'exclure soi-même est le genre d'exception qui finit par couvrir une vraie
+ * fuite — elle est donc nominative, limitée à ce fichier, et ne vaut pas pour
+ * un répertoire entier.
+ */
+const SOI = 'scripts/essais-secret.mjs';
 const coupables = suivis.filter((f) => {
+  if (f === SOI) return false;
   const t = lire(f);
   return t ? LITTERAL.test(t) : false;
 });

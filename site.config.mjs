@@ -38,8 +38,17 @@ export default {
    * Empreinte SHA-256 (hexadécimal minuscule) du mot de passe.
    * Pour la recalculer après un changement de mot de passe :
    *     npm run hash
+   *
+   * Changé le 11 octobre 2026, le mot de passe précédent ayant été publié par
+   * inadvertance dans huit scripts d'essai suivis par Git (voir le commit
+   * « Le mot de passe du site était en clair dans huit fichiers suivis »).
+   *
+   * Conséquence à traiter par la sauvegarde `.cyclades` : une sauvegarde
+   * chiffrée faite avant cette date ne s'ouvre qu'avec l'ANCIEN mot de passe.
+   * Le dialogue de restauration doit donc accepter un mot de passe différent
+   * de l'actuel, et le dire.
    */
-  motDePasseHash: '482c2515aa007dce86a1b64a081b5137754c305312f6f7ba01cfbd90bce5d234',
+  motDePasseHash: '6647465f369de295df6dae01243529600f2bc27e3a41a099d21d9400d56ad253',
 
   /** Paramètres de dérivation de clé (PBKDF2) et de chiffrement (AES-GCM). */
   crypto: {
