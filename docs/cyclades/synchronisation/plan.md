@@ -213,9 +213,10 @@ appareil en retard, rétention, et les cas limites de la section 6 du prompt.
 - **Pas de synchronisation en arrière-plan non surveillée.** Amendé le 11 octobre
   2026 : elle est rétablie pour un **ordinateur certifié**, activée à la main,
   avec notification et annulation sous sept jours. Voir `arriere-plan.md`, qui
-  dit aussi ce qui reste impossible — une notification PUSH, faute de serveur
-  pour la signer, les services de push ayant retiré CORS de leur point de
-  terminaison.
+  dit aussi ce qui est abandonné : la notification PUSH, faute de serveur pour
+  la signer, les services de push ayant retiré CORS de leur point de
+  terminaison. Ni push, ni relais qui en prendrait le nom — la notification est
+  sur le site et, sur téléphone, par l'API « Notification ».
 
 ---
 

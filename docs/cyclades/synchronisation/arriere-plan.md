@@ -13,8 +13,10 @@ ordinateur désigné, allumé, sur lequel Cyclades est ouvert, n'est pas une
 promesse de service : c'est un fait vérifiable.
 
 Trois des quatre demandes sont réalisables. La quatrième, la notification PUSH,
-ne l'est pas sous la forme demandée, et ce document dit pourquoi avant de
-proposer ce qui l'est.
+ne l'est pas : ce document dit pourquoi, puis ce qui la remplace. Elle est
+**abandonnée** et non reportée — décision du 11 octobre 2026, « si le PUSH est
+impossible, ne pas le faire » —, de sorte qu'aucun écran ne promette une
+notification instantanée et qu'aucun substitut n'en prenne le nom.
 
 ---
 
@@ -86,17 +88,23 @@ dépôt, c'est-à-dire un secret hors de la machine. Et il faudrait un jeton pou
 déclencher le workflow depuis l'ordinateur, soit un troisième secret. Cela
 reconstitue un serveur, avec ses clés, pour une notification.
 
-### Écartée pour l'instant : un relais public de notifications
+### Écartée : un relais public de notifications
 
 Un service libre et gratuit du type ntfy permet de publier par un simple POST et
-de recevoir sur téléphone. Deux réserves, et la seconde est sérieuse : la
-publication depuis une origine de navigateur n'est pas documentée comme
-autorisée par CORS et reste à éprouver ; et sans compte, **le nom du sujet fait
-office de mot de passe** — or il vivrait dans du code côté client. Le contenu
-serait chiffré, donc illisible, mais quiconque devine le sujet apprend *qu'une
-synchronisation a eu lieu*, et peut en fabriquer de fausses. À retenir comme
-option de la phase 5 si tu l'acceptes explicitement, avec le nom de sujet tiré
-au hasard et stocké chiffré ; pas par défaut.
+de recevoir sur téléphone. Je l'avais mis en réserve ; **décision du 11 octobre
+2026 : il est écarté aussi.** « Si le PUSH est impossible, ne pas le faire. »
+
+C'est la bonne décision, et pas seulement par économie de travail. Ce relais
+n'était pas un push : c'était un substitut qui en aurait pris le nom. Il aurait
+fallu une application de plus sur le téléphone, et sans compte **le nom du sujet
+fait office de mot de passe** — or il aurait vécu dans du code côté client. Le
+contenu serait chiffré, donc illisible, mais quiconque devine le sujet apprend
+*qu'une synchronisation a eu lieu* et peut en fabriquer de fausses. Payer une
+dépendance externe et une fuite de métadonnée pour une notification qui n'est
+pas celle qu'on voulait, c'est le genre d'arrangement qu'on regrette.
+
+**Il n'y aura donc aucune notification PUSH dans Cyclades**, ni vraie ni
+imitée. Ce qui suit la remplace, et l'écran ne promettra jamais autre chose.
 
 ### Retenu : la notification locale, qui ne mentait jamais
 
@@ -232,8 +240,8 @@ lot. C'est une conséquence du modèle, pas un défaut, mais elle doit être dit
   d'annulation toutes les fusions antérieures.
 - **Phase 4** : l'écran d'activation, la notification sur le site, l'écran
   d'annulation.
-- **Phase 5** : la notification sur téléphone par *service worker*, et le relais
-  public de notifications si tu l'acceptes.
+- **Phase 5** : la notification sur téléphone par *service worker*. Et rien
+  d'autre : pas de relais, pas de push.
 - Le refus « pas de synchronisation en arrière-plan » du plan est remplacé par ce
   document. Les deux autres refus — pas de fusion sans ancêtre commun, pas de
   TURN — tiennent.
