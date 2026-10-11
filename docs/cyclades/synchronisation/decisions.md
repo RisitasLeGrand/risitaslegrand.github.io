@@ -213,6 +213,30 @@ dans l'ordre des phases.
 l'interface doit dire franchement qu'un retrait d'appareil n'est pas une
 révocation.
 
+> **Tenu, le 11 octobre 2026, à la phase 5a.** L'écran des appareils porte une
+> section « Retirer un appareil n'est pas une révocation », qui dit les trois
+> choses dans l'ordre : ce que le retrait fait (sortir du registre, et ne plus
+> être attendu par le compactage), ce qu'il ne fait pas (l'appareil garde ce
+> qu'il a, et son mot de passe ouvre encore les paquets déjà transmis et les
+> sauvegardes déjà faites), et ce que le changement de mot de passe ne fait pas
+> non plus (il protège l'avenir, pas le passé). La **date** du dernier
+> changement y est affichée, tenue par `npm run mot-de-passe` dans
+> `site.config.mjs` : sans elle, « avant le changement » n'est pas une phrase
+> qu'on peut dire précisément.
+>
+> Le coût mesuré de la décision a été ramené à une commande. Le mot de passe
+> n'est pas un argument de ligne de commande — il s'écrirait dans l'historique
+> du shell, qui est un fichier que rien n'efface — mais se lit dans
+> `.env.local`, le seul endroit où il vive.
+>
+> Une conséquence imprévue, trouvée en écrivant le retrait : il ne peut **pas**
+> être local. Le nom d'un appareil est un fait, donc il revient à la
+> synchronisation suivante ; et surtout le retrait change le calcul de la borne
+> de compaction, puisqu'on cesse d'attendre l'accusé de réception d'un appareil
+> retiré. Deux appareils qui ne seraient pas d'accord sur qui est retiré ne
+> compacteraient pas le même journal. Le retrait est donc un fait partagé
+> (`appareil.retire`), réversible d'un geste.
+
 ---
 
 ## 6. La liste des champs à conflit explicite

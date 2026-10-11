@@ -29,6 +29,7 @@ import {
   type Compactage,
 } from '../src/lib/sync/compaction';
 import { fusionner, TYPE_SUPPRESSION, type EtatSynchronisable } from '../src/lib/noyau/fusion';
+import { retraits, TYPE_RETRAIT } from '../src/lib/sync/appareils';
 import { operation, SANS_LOT, type Operation } from '../src/lib/noyau/operations';
 import type { EntreeRevision } from '../src/lib/noyau/revisions';
 
@@ -564,6 +565,61 @@ propriete(
     return ids(une) === ids(deux);
   },
 );
+
+/* ══════════════════════════════════════════════════════════════════════════
+   6. Le retrait d'un appareil
+   ══════════════════════════════════════════════════════════════════════════ */
+
+console.log('\nLe retrait d’un appareil');
+
+const retrait = (cible: string, hlc: string, retire = true): Operation =>
+  op({ type: TYPE_RETRAIT, cible, hlc, charge: { retire } });
+
+{
+  const lu = retraits([retrait('BBBB2222', h(10))]);
+  v('un retrait se lit', [...lu.entries()], [['BBBB2222', true]]);
+}
+
+{
+  // Les opérations arrivent triées par l'ordre total : le dernier gagne.
+  const lu = retraits([retrait('BBBB2222', h(10)), retrait('BBBB2222', h(20), false)]);
+  v('une reprise postérieure annule le retrait', [...lu.entries()], [['BBBB2222', false]]);
+  const inverse = retraits([retrait('BBBB2222', h(10), false), retrait('BBBB2222', h(20))]);
+  v('et un retrait postérieur annule la reprise', [...inverse.entries()], [
+    ['BBBB2222', true],
+  ]);
+}
+
+{
+  const avec = [
+    moi,
+    { ...appareil('BBBB2222'), retire: true },
+    appareil('CCCC3333', h(40)),
+  ];
+  v('un appareil retiré n’est plus attendu', bornePartagee(avec, h(90)), {
+    possible: true,
+    jusqua: h(40),
+    seul: false,
+  });
+}
+
+{
+  const seulEtRetire = [moi, { ...appareil('BBBB2222'), retire: true }];
+  v(
+    'retirer le seul autre appareil rend la borne à l’horloge courante',
+    bornePartagee(seulEtRetire, h(70)),
+    { possible: true, jusqua: h(70), seul: true },
+  );
+}
+
+{
+  const retireMaisConnu = [moi, { ...appareil('BBBB2222', h(5)), retire: true }];
+  v(
+    'un appareil retiré n’abaisse plus la borne, même s’il avait accusé',
+    bornePartagee(retireMaisConnu, h(70)),
+    { possible: true, jusqua: h(70), seul: true },
+  );
+}
 
 console.log(
   echecs === 0 ? '\nTous les essais de compaction passent.\n' : `\n${echecs} échec(s).\n`,

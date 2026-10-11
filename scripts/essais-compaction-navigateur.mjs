@@ -150,19 +150,13 @@ const nommerUnFantome = (appareil, nom) =>
     nom,
   );
 
-const oublierLeFantome = (appareil) =>
-  appareil.page.evaluate(async () => {
-    const base = await new Promise((ok) => {
-      const r = indexedDB.open('revinsp');
-      r.onsuccess = () => ok(r.result);
-    });
-    await new Promise((ok) => {
-      const tx = base.transaction('operations', 'readwrite');
-      tx.objectStore('operations').delete('01FANTOME000000000000000000');
-      tx.oncomplete = () => ok();
-    });
-    base.close();
-  });
+/** Retire un appareil par l'écran, comme la personne le ferait. */
+async function retirer(appareil, id) {
+  await aller(appareil, '/appareils/', '#ecran:not(.hidden)');
+  await appareil.page.click(`[data-retrait="${id}"]`);
+  await appareil.page.waitForSelector('#message-nom:not(.hidden)', { timeout: 30000 });
+  return (await appareil.page.textContent('#message-nom')).replace(/\s+/g, ' ').trim();
+}
 
 async function envoyer(appareil) {
   await aller(appareil, '/appareils/', '#ecran:not(.hidden)');
@@ -247,7 +241,27 @@ await nommerUnFantome(a, 'Vieil ordinateur');
   );
   vrai('et le bouton reste caché', !vu.boutonVisible);
 }
-await oublierLeFantome(a);
+
+{
+  const message = await retirer(a, 'ZZZZ9999');
+  vrai(
+    'le retrait dit franchement qu’il n’est pas une révocation',
+    message.includes('pas une révocation'),
+  );
+  const vu = await prevoir(a);
+  vrai(
+    'un appareil retiré n’est plus attendu par la compaction',
+    vu.texte.includes('Rien à compacter'),
+  );
+  const repris = await retirer(a, 'ZZZZ9999');
+  vrai('et il se reprend d’un geste', repris.includes('repris'));
+  const apres = await prevoir(a);
+  vrai(
+    'repris, il bloque de nouveau la compaction',
+    apres.texte.includes('Vieil ordinateur'),
+  );
+}
+await retirer(a, 'ZZZZ9999');
 
 console.log('\n2. Premier échange : les accusés circulent');
 

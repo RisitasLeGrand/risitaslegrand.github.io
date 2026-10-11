@@ -86,6 +86,37 @@ import Base from '../layouts/Base.astro';
       </p>
     </section>
 
+    <!-- ── Retrait et révocation ───────────────────────────────────────── -->
+    <section class="rounded-2xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-950/40">
+      <h2 class="mb-2 text-lg font-semibold text-amber-900 dark:text-amber-200">
+        Retirer un appareil n’est pas une révocation
+      </h2>
+      <p class="mb-3 max-w-3xl text-sm leading-relaxed text-amber-900/90 dark:text-amber-100/90">
+        Retirer un appareil le sort du registre et dit au compactage de ne plus
+        l’attendre. C’est tout. L’appareil retiré <strong>garde ce qu’il a</strong>,
+        et le mot de passe qu’il connaît ouvre encore les paquets de
+        synchronisation déjà transmis et les sauvegardes déjà faites : chacun
+        porte son propre sel et s’ouvre avec le mot de passe de sa date.
+      </p>
+      <p class="mb-3 max-w-3xl text-sm leading-relaxed text-amber-900/90 dark:text-amber-100/90">
+        Changer le mot de passe du site protège donc <strong>l’avenir, pas le
+        passé</strong>. Le dernier changement date du
+        <strong><span id="mdp-change-le">—</span></strong>. Pour le changer :
+        poser le nouveau dans <code>.env.local</code>, puis
+        <code>npm run mot-de-passe</code> et <code>npm run deploy</code>. Il
+        faudra le ressaisir sur chaque appareil — aucun ne peut l’apprendre tout
+        seul, puisque c’est la preuve de connaissance du mot de passe qui fait
+        l’appairage, et non un jeton.
+      </p>
+      <p class="max-w-3xl text-sm leading-relaxed text-amber-900/90 dark:text-amber-100/90">
+        Un appareil retiré peut être <strong>repris</strong> d’un geste, et ce
+        qu’il n’avait pas encore envoyé arrivera à ce moment-là. Le retrait est
+        une décision partagée, pas un ménage local : les deux appareils doivent
+        être d’accord sur qui est retiré, sans quoi ils ne compacteraient pas le
+        même journal.
+      </p>
+    </section>
+
     <!-- ── Sauvegardes partagées ───────────────────────────────────────── -->
     <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
       <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
@@ -350,10 +381,12 @@ import Base from '../layouts/Base.astro';
     reconstruireEtatsDerives,
     registreAppareils,
     registreSauvegardes,
+    retirerAppareil,
     type LotRecu,
   } from '../lib/sync/service';
   import { SauvegardeRefusee } from '../lib/sauvegarde/format';
   import { lireAppareil } from '../lib/db';
+  import config from '../../site.config.mjs';
   import {
     autorisation,
     choisirDossier,
@@ -393,6 +426,24 @@ import Base from '../layouts/Base.astro';
       )
       .join('');
 
+  /**
+   * La date du dernier changement de mot de passe, lue de la configuration.
+   *
+   * Affichée parce qu'elle est la seule façon de dire précisément ce qu'un
+   * changement ne fait pas : un paquet ou une sauvegarde d'avant cette date
+   * s'ouvre encore avec l'ancien mot de passe.
+   */
+  function peindreDateMotDePasse() {
+    const brut = (config as { motDePasseChangeLe?: string }).motDePasseChangeLe;
+    $('mdp-change-le').textContent = brut
+      ? new Date(`${brut}T12:00:00`).toLocaleDateString('fr-FR', {
+          day: 'numeric',
+          month: 'long',
+          year: 'numeric',
+        })
+      : 'date inconnue';
+  }
+
   async function peindreEtat() {
     const [{ lisible }, etat, registre, sauvegardes] = await Promise.all([
       empreinteLocale(),
@@ -419,11 +470,26 @@ import Base from '../layouts/Base.astro';
           : app.vuLe
             ? `vu le ${new Date(app.vuLe).toLocaleString('fr-FR')}`
             : 'jamais rencontré depuis cet appareil';
+        /*
+           Un appareil retiré reste affiché, grisé, avec de quoi le reprendre.
+           Le faire disparaître ferait croire à une révocation, qui n'en est
+           pas une : il garde ce qu'il a.
+        */
+        const bouton = app.soi
+          ? ''
+          : `<button data-retrait="${app.id}" data-sens="${app.retire ? 'reprendre' : 'retirer'}" ` +
+            `class="rounded-lg border px-2.5 py-1 text-xs font-medium transition ${
+              app.retire
+                ? 'border-indigo-300 text-indigo-700 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-300 dark:hover:bg-indigo-950/40'
+                : 'border-slate-300 text-slate-600 hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800'
+            }">${app.retire ? 'Reprendre' : 'Retirer'}</button>`;
         return (
           `<li class="rounded-xl border p-3 ${
             app.soi
               ? 'border-indigo-300 bg-indigo-50/50 dark:border-indigo-800 dark:bg-indigo-950/30'
-              : 'border-slate-200 dark:border-slate-800'
+              : app.retire
+                ? 'border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-900/60'
+                : 'border-slate-200 dark:border-slate-800'
           }">` +
           `<div class="flex flex-wrap items-baseline justify-between gap-2">` +
           `<span class="font-medium text-slate-900 dark:text-white">${titre}` +
@@ -433,7 +499,14 @@ import Base from '../layouts/Base.astro';
           `</div>` +
           `<div class="mt-1 flex flex-wrap items-baseline justify-between gap-2 text-sm text-slate-500 dark:text-slate-400">` +
           `<span class="font-mono">${app.id}</span><span>${etatTexte}</span>` +
-          `</div></li>`
+          `</div>` +
+          (app.retire || bouton
+            ? `<div class="mt-2 flex flex-wrap items-center justify-between gap-2">` +
+              `<span class="text-xs ${app.retire ? 'text-amber-700 dark:text-amber-300' : 'text-transparent'}">` +
+              `${app.retire ? 'Retiré : plus attendu par le compactage du journal.' : ''}</span>` +
+              `${bouton}</div>`
+            : '') +
+          `</li>`
         );
       })
       .join('');
@@ -638,6 +711,7 @@ import Base from '../layouts/Base.astro';
   let octetsRecus: Uint8Array | null = null;
 
   auDeverrouillage(async () => {
+    peindreDateMotDePasse();
     await peindreEtat();
     await peindreConflits();
     await peindreLots();
@@ -863,6 +937,36 @@ import Base from '../layouts/Base.astro';
         );
       } catch (erreur) {
         dire('message-envoi', `Échec : ${(erreur as Error).message}`, 'echec');
+      }
+    });
+
+    /*
+       Le retrait est délégué : les lignes du registre sont repeintes à chaque
+       fusion, et un écouteur posé sur chaque bouton disparaîtrait avec elles.
+    */
+    $('appareils').addEventListener('click', async (evenement) => {
+      const bouton = (evenement.target as HTMLElement).closest<HTMLButtonElement>(
+        '[data-retrait]',
+      );
+      if (!bouton) return;
+      const id = bouton.dataset.retrait!;
+      const reprendre = bouton.dataset.sens === 'reprendre';
+      bouton.disabled = true;
+      try {
+        await retirerAppareil(id, !reprendre);
+        await peindreEtat();
+        dire(
+          'message-nom',
+          reprendre
+            ? `Appareil ${id} repris : le compactage l’attendra de nouveau.`
+            : `Appareil ${id} retiré. Ce n’est pas une révocation : il garde ce qu’il a, ` +
+              'et le mot de passe qu’il connaît ouvre encore les paquets déjà transmis.',
+          'succes',
+        );
+      } catch (erreur) {
+        dire('message-nom', `Échec : ${(erreur as Error).message}`, 'echec');
+      } finally {
+        bouton.disabled = false;
       }
     });
 

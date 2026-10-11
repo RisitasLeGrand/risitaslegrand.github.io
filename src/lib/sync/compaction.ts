@@ -152,6 +152,8 @@ export interface AppareilBornable {
   soi: boolean;
   /** Jusqu'où il a accusé réception de notre journal. */
   reconnuJusqua?: string;
+  /** Retiré par décision : on ne l'attend plus. */
+  retire?: boolean;
 }
 
 export type Borne =
@@ -160,6 +162,11 @@ export type Borne =
 
 /**
  * La plus petite borne reconnue par tous les appareils du registre.
+ *
+ * Les appareils retirés sont écartés du calcul : c'est la conséquence sur le
+ * moteur qui oblige le retrait à être un fait partagé plutôt qu'un ménage
+ * local — deux appareils qui ne seraient pas d'accord sur qui est retiré ne
+ * compacteraient pas la même chose.
  *
  * Seul au registre, la borne est l'horloge courante : il n'y a personne à
  * attendre, et le cas est fréquent — un appareil unique accumule des pierres
@@ -171,7 +178,13 @@ export function bornePartagee(
   appareils: readonly AppareilBornable[],
   horloge: string,
 ): Borne {
-  const autres = appareils.filter((a) => !a.soi);
+  /*
+     Un appareil retiré n'est plus attendu. Sans cela, retirer un appareil
+     interdirait la compaction pour toujours : son nom est un fait, donc il
+     reste au registre, et un registre qui contient un appareil sans accusé de
+     réception refuse de compacter.
+  */
+  const autres = appareils.filter((a) => !a.soi && !a.retire);
   if (autres.length === 0) return { possible: true, jusqua: horloge, seul: true };
 
   const attendus = autres

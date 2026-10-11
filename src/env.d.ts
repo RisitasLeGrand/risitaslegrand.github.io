@@ -7,6 +7,7 @@ declare module '*/site.config.mjs' {
     base: string;
     brancheDeploiement: string;
     motDePasseHash: string;
+    motDePasseChangeLe: string;
     crypto: {
       iterations: number;
       tailleSelOctets: number;

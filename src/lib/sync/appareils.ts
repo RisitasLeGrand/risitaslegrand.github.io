@@ -32,6 +32,22 @@ export const TYPE_NOM_APPAREIL = 'appareil.nom';
 /** Le type de fait qui déclare une sauvegarde réussie. */
 export const TYPE_SAUVEGARDE = 'sauvegarde.faite';
 
+/**
+ * Le type de fait qui retire un appareil — ou le reprend.
+ *
+ * C'est un **fait**, et il faut dire pourquoi : un retrait purement local
+ * n'aurait pas marché. Le nom d'un appareil est un fait, donc il revient à la
+ * prochaine synchronisation, et l'appareil retiré d'un côté réapparaîtrait de
+ * l'autre. Surtout, le retrait a une conséquence sur le moteur : la compaction
+ * n'attend plus l'accusé de réception d'un appareil retiré. Si les deux
+ * appareils n'étaient pas d'accord sur qui est retiré, ils ne compacteraient
+ * pas la même chose.
+ *
+ * Ce qu'un retrait **n'est pas** : une révocation. L'appareil retiré garde ce
+ * qu'il a, et le mot de passe qu'il connaît ouvre encore les paquets déjà
+ * transmis et les sauvegardes déjà faites. L'écran doit le dire.
+ */
+export const TYPE_RETRAIT = 'appareil.retire';
 
 const CLEF_OBSERVATIONS = 'appareilsVus';
 
@@ -61,6 +77,11 @@ export interface AppareilConnu {
    * prochain paquet. C'est l'autre moitié du même échange.
    */
   recuJusqua?: string;
+  /**
+   * Retiré par décision, et donc plus attendu par la compaction. Il reste
+   * affiché : le faire disparaître ferait croire à une révocation.
+   */
+  retire?: boolean;
   /** Est-ce cet appareil-ci ? */
   soi: boolean;
 }
@@ -154,6 +175,23 @@ export function sauvegardesDeclarees(
 }
 
 /**
+ * Les appareils retirés, et ceux qu'on a repris.
+ *
+ * Dernier écrivain gagne au sens de l'ordre total : un retrait puis une reprise
+ * donnent un appareil repris, et l'inverse un appareil retiré. Les opérations
+ * arrivent triées, on écrase donc au fil de la lecture.
+ */
+export function retraits(operations: readonly Operation[]): Map<string, boolean> {
+  const sortie = new Map<string, boolean>();
+  for (const op of operations) {
+    if (op.type !== TYPE_RETRAIT) continue;
+    const retire = (op.charge as { retire?: unknown })?.retire;
+    sortie.set(op.cible, retire !== false);
+  }
+  return sortie;
+}
+
+/**
  * Le registre complet : les appareils connus, soi compris.
  *
  * Un appareil est « connu » dès qu'un fait le nomme **ou** qu'on l'a observé.
@@ -167,8 +205,14 @@ export async function appareilsConnus(
   soi: string,
 ): Promise<AppareilConnu[]> {
   const noms = nomsDeclares(operations);
+  const partis = retraits(operations);
   const vus = await observations();
-  const identifiants = new Set<string>([soi, ...noms.keys(), ...Object.keys(vus)]);
+  const identifiants = new Set<string>([
+    soi,
+    ...noms.keys(),
+    ...partis.keys(),
+    ...Object.keys(vus),
+  ]);
 
   return [...identifiants]
     .map((id) => ({
@@ -179,6 +223,7 @@ export async function appareilsConnus(
       envoyeJusqua: vus[id]?.envoyeJusqua,
       reconnuJusqua: vus[id]?.reconnuJusqua,
       recuJusqua: vus[id]?.recuJusqua,
+      retire: partis.get(id) === true || undefined,
       soi: id === soi,
     }))
     .sort((a, b) => (a.soi ? -1 : b.soi ? 1 : a.id.localeCompare(b.id)));

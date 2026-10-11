@@ -50,6 +50,18 @@ export default {
    */
   motDePasseHash: '6647465f369de295df6dae01243529600f2bc27e3a41a099d21d9400d56ad253',
 
+  /**
+   * Date du dernier changement de mot de passe, au format AAAA-MM-JJ.
+   *
+   * Tenue par « npm run mot-de-passe », et affichée sur l'écran des appareils.
+   * Elle n'est pas une décoration : c'est elle qui permet de dire franchement
+   * ce qu'un changement ne fait pas. Un paquet de synchronisation ou une
+   * sauvegarde antérieurs à cette date s'ouvrent encore avec l'ANCIEN mot de
+   * passe — un retrait d'appareil n'est pas une révocation, et l'interface doit
+   * le dire plutôt que de laisser croire le contraire.
+   */
+  motDePasseChangeLe: '2026-10-11',
+
   /** Paramètres de dérivation de clé (PBKDF2) et de chiffrement (AES-GCM). */
   crypto: {
     iterations: 600000, // recommandation OWASP pour PBKDF2-HMAC-SHA256

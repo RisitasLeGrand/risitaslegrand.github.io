@@ -279,6 +279,31 @@ fusion.
 Changement de mot de passe avec rechiffrement, compaction déterministe avec un
 appareil en retard, rétention, et les cas limites de la section 6 du prompt.
 
+#### 5a — Le changement de mot de passe. Fait, le 11 octobre 2026
+
+La décision 5 avait mesuré le coût : `npm run hash`, une ligne dans
+`site.config.mjs`, un build, un déploiement, et la ressaisie sur chaque
+appareil. Les deux premières étapes sont mécaniques, donc automatisées :
+`npm run mot-de-passe` lit le nouveau mot de passe dans `.env.local` — **jamais
+en argument**, qui l'écrirait dans l'historique du shell —, calcule l'empreinte,
+l'écrit dans `site.config.mjs` avec la date du changement, et rappelle les trois
+étapes restantes, dont la dernière n'est pas automatisable : aucun appareil ne
+peut apprendre le mot de passe tout seul, puisque c'est la preuve de
+connaissance du mot de passe qui fait l'appairage, et non un jeton.
+
+La limite que la décision 5 nommait est maintenant **écrite sur l'écran** :
+`/appareils/` porte une section « Retirer un appareil n'est pas une
+révocation », et la date du dernier changement y est affichée — sans elle,
+« avant le changement » n'est pas une phrase qu'on peut dire précisément.
+
+Le retrait d'appareil, écrit à cette occasion, ne pouvait pas être local : le
+nom d'un appareil est un fait, donc il reviendrait à la synchronisation
+suivante, et surtout le retrait change le calcul de la borne de compaction. Deux
+appareils qui ne seraient pas d'accord sur qui est retiré ne compacteraient pas
+le même journal. C'est donc un fait partagé, `appareil.retire`, réversible d'un
+geste, et un appareil retiré reste **affiché** : le faire disparaître ferait
+croire à la révocation qu'il n'est pas.
+
 #### 5b — La compaction déterministe. Fait, le 11 octobre 2026
 
 Le journal garde tout, pierres tombales comprises. La compaction est la **seule**
@@ -337,9 +362,9 @@ autre appareil détient encore. La compaction est donc armée avant d'être
 nécessaire, et c'est volontaire : la règle doit exister avant la première pierre
 tombale, pas après.
 
-**Éprouvé par** 53 essais purs (`npm run essais:compaction`, dont neuf
+**Éprouvé par** 59 essais purs (`npm run essais:compaction`, dont neuf
 propriétés : déterminisme, indépendance à l'ordre de lecture, monotonie de la
-borne, commutativité et idempotence de « fusionner puis compacter ») et 29
+borne, commutativité et idempotence de « fusionner puis compacter ») et 35
 essais en navigateur sur deux bases réelles
 (`npm run essais:compaction:navigateur`), qui suivent le parcours dans l'ordre
 où il se produit : refus tant que l'accusé manque, report d'une suppression plus

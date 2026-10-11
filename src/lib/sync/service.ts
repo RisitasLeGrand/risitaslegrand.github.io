@@ -57,6 +57,7 @@ import {
   observationDe,
   sauvegardesDeclarees,
   TYPE_NOM_APPAREIL,
+  TYPE_RETRAIT,
   TYPE_SAUVEGARDE,
   type AppareilConnu,
   type SauvegardeDeclaree,
@@ -502,6 +503,27 @@ export async function enregistrerFait(
 export async function nommerAppareil(nom: string, appareil?: string): Promise<void> {
   const cible = appareil ?? (await lireAppareil());
   await enregistrerFait(TYPE_NOM_APPAREIL, cible, { nom: nom.trim() });
+}
+
+/**
+ * Retire un appareil du registre, ou le reprend.
+ *
+ * Un retrait est un **fait**, parce qu'il a une conséquence sur le moteur : la
+ * compaction cesse d'attendre l'accusé de réception d'un appareil retiré. Deux
+ * appareils qui ne seraient pas d'accord sur qui est retiré ne compacteraient
+ * pas la même chose.
+ *
+ * Ce n'est **pas** une révocation, et l'écran le dit : l'appareil retiré garde
+ * ce qu'il a, et le mot de passe qu'il connaît ouvre encore les paquets déjà
+ * transmis et les sauvegardes déjà faites. Pour protéger l'avenir, il faut
+ * changer le mot de passe — ce qui ne protège pas le passé non plus.
+ */
+export async function retirerAppareil(appareil: string, retire = true): Promise<void> {
+  const soi = await lireAppareil();
+  if (appareil === soi) {
+    throw new Error('Cet appareil-ci ne se retire pas lui-même : il tient le registre.');
+  }
+  await enregistrerFait(TYPE_RETRAIT, appareil, { retire });
 }
 
 /**
