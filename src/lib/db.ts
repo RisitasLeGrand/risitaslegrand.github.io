@@ -1121,6 +1121,80 @@ function identifie<T extends object>(enregistrement: T): T & { id: string } {
   return { ...enregistrement, id: typeof existant === 'string' ? existant : ulid() };
 }
 
+/* --- Réglages synchronisés ------------------------------------------------ */
+
+/**
+ * Les réglages qui voyagent d'un appareil à l'autre, et ceux qui ne voyagent
+ * pas. La liste est ici, nommée, plutôt que dispersée dans les appelants.
+ *
+ * | Clé | Synchronisé | Pourquoi |
+ * |---|---|---|
+ * | `planification` | oui | la rotation hebdomadaire est une décision, pas un état |
+ * | `reglagesSession` | oui | les plafonds de session aussi |
+ * | `selection:*` | oui | ce qu'on a choisi d'entraîner |
+ * | `derniereSauvegarde` | oui | avoir sauvegardé depuis le téléphone compte ici |
+ * | `profil` | **non** | XP, niveau et série sont des **états dérivés** |
+ * | `appareil` | **non** | l'identité de cet appareil-ci |
+ * | `horloge` | **non** | idem : l'horloge logique est propre à l'appareil |
+ *
+ * Le profil est le cas qui mérite d'être expliqué. Un dernier-écrivain-gagne
+ * sur l'XP ferait perdre celle gagnée sur l'autre appareil, et l'additionner la
+ * compterait deux fois. Ni l'un ni l'autre n'est acceptable : l'XP se
+ * **recalcule** depuis les journaux, comme l'état FSRS. Tant que ce recalcul
+ * n'existe pas, le profil reste local, et c'est la seule réponse honnête.
+ */
+export const REGLAGES_SYNCHRONISES = [
+  'planification',
+  'reglagesSession',
+  'derniereSauvegarde',
+] as const;
+
+/** `selection:<exercice>` est synchronisé, quel que soit l'exercice. */
+export const estReglageSynchronise = (champ: string): boolean =>
+  (REGLAGES_SYNCHRONISES as readonly string[]).includes(champ) ||
+  champ.startsWith('selection:');
+
+/**
+ * Note la nouvelle valeur d'un réglage dans le registre versionné.
+ *
+ * Appelée **après** l'écriture ordinaire, de sorte que les lecteurs existants
+ * ne changent pas : le registre est une copie annotée d'une horloge, pas une
+ * seconde source de vérité. Si l'une des deux écritures échoue, c'est la copie
+ * annotée qui manque — le réglage reste juste localement et ne voyagera pas,
+ * ce qui est très préférable à l'inverse.
+ *
+ * L'import de l'horloge est **dynamique** et c'est délibéré : « horloge-locale »
+ * importe ce module, et un import statique en sens inverse formerait un cycle
+ * au chargement. Au moment où cette fonction s'exécute, « db.ts » est
+ * entièrement initialisé, donc l'import ne pose aucun problème.
+ */
+export async function noterReglageSynchronise(champ: string, valeur: unknown): Promise<void> {
+  if (!estReglageSynchronise(champ)) return;
+  const { prochaineHlc } = await import('./sync/horloge-locale');
+  const base = await db();
+  const registre =
+    ((await base.get('etat', 'reglagesSync')) as Record<string, unknown> | undefined) ?? {};
+  registre[champ] = { valeur, hlc: await prochaineHlc(), appareil: await lireAppareil() };
+  await base.put('etat', registre, 'reglagesSync');
+}
+
+/**
+ * Écrit un réglage **sans** le tamponner d'une horloge locale.
+ *
+ * C'est le chemin qu'emprunte l'application d'un réglage reçu d'un autre
+ * appareil. Passer par l'écriture ordinaire aurait ré-horodaté la valeur au nom
+ * de cet appareil-ci, et le piège aurait été joli : la valeur reçue repartirait
+ * vers son émetteur avec une horloge plus récente, qui repartirait encore, et
+ * le registre n'aurait jamais fini de changer — donc les deux appareils ne se
+ * seraient **jamais** déclarés identiques, alors qu'ils portent la même valeur.
+ *
+ * Les clés du registre versionné sont exactement les clés du magasin `etat`,
+ * ce qui permet à cette fonction de rester générique plutôt que d'énumérer.
+ */
+export async function ecrireReglageBrut(champ: string, valeur: unknown): Promise<void> {
+  await (await db()).put('etat', valeur as never, champ as never);
+}
+
 /* --- Journal de révisions et journal d'opérations -------------------------- */
 
 /**
@@ -1487,6 +1561,7 @@ export async function lireReglagesSession(): Promise<ReglagesSession> {
 
 export async function ecrireReglagesSession(reglages: ReglagesSession) {
   await (await db()).put('etat', reglages, 'reglagesSession');
+  await noterReglageSynchronise('reglagesSession', reglages);
 }
 
 /* --- Sélection d'entraînement (Cog-Training) ------------------------------- */
@@ -1550,6 +1625,7 @@ export async function ecrireSelectionEntrainement(
   selection: SelectionEntrainement,
 ) {
   await (await db()).put('etat', selection, clefSelection(exercice));
+  await noterReglageSynchronise(clefSelection(exercice), selection);
 }
 
 /* --- Réglages de planification -------------------------------------------- */
@@ -1578,6 +1654,7 @@ export async function lireReglagesPlanification(): Promise<ReglagesPlanification
 
 export async function ecrireReglagesPlanification(reglages: ReglagesPlanification) {
   await (await db()).put('etat', reglages, 'planification');
+  await noterReglageSynchronise('planification', reglages);
 }
 
 /**
@@ -1731,6 +1808,7 @@ export async function lireDerniereSauvegarde(): Promise<string | null> {
 
 export async function ecrireDerniereSauvegarde(quand = new Date().toISOString()) {
   await (await db()).put('etat', quand, 'derniereSauvegarde');
+  await noterReglageSynchronise('derniereSauvegarde', quand);
 }
 
 /** Sérialise l'intégralité de la progression (export JSON). */

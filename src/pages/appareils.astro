@@ -186,11 +186,11 @@ import Base from '../layouts/Base.astro';
           un incident de fusion.
         </li>
         <li>
-          Les <strong>réglages</strong> — rotation hebdomadaire, plafonds de
-          session, parcours courant — ne sont pas encore transportés. Ils vivent
-          dans la base sans horloge par champ ; les y faire passer est le travail
-          de la phase suivante. Un paquet transporte aujourd’hui les faits et les
-          révisions, qui sont le cœur.
+          L’<strong>XP, le niveau et la série</strong> ne sont pas transportés, et
+          ne le seront pas ainsi. Un dernier-écrivain-gagne ferait perdre l’XP
+          gagnée sur l’autre appareil ; l’additionner la compterait deux fois. Ils
+          se recalculeront depuis les journaux, comme les échéances. En attendant,
+          ils restent propres à chaque appareil — c’est la seule réponse honnête.
         </li>
         <li>
           Le registre d’appareils, les sauvegardes partagées, et la
@@ -439,6 +439,12 @@ import Base from '../layouts/Base.astro';
           `${rapport.recues} opération(s) et ${rapport.revisionsRecues} révision(s) reçues`,
           `${rapport.cartesRecalculees} carte(s) recalculée(s)`,
         ];
+        if (rapport.reglagesChanges.length) {
+          parties.push(
+            `${rapport.reglagesChanges.length} réglage(s) mis à jour ` +
+              `(${rapport.reglagesChanges.join(', ')})`,
+          );
+        }
         if (rapport.conflits) parties.push(`${rapport.conflits} conflit(s) à traiter`);
         if (rapport.collisions) {
           parties.push(

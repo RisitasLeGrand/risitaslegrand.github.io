@@ -27,7 +27,7 @@
  * Ce que le transport manuel éprouve dès maintenant, c'est ce qui compte le
  * plus : les faits, les révisions, et le recalcul de l'état FSRS.
  */
-import { db, ecrireCarte, lireAppareil } from '../db';
+import { db, ecrireCarte, ecrireReglageBrut, lireAppareil } from '../db';
 import type { EntreeRevision } from '../noyau/revisions';
 import type { Operation } from '../noyau/operations';
 import { annulerLot, fusionner, type Reglages } from '../noyau/fusion';
@@ -161,6 +161,8 @@ export const apercuPaquet = (octets: Octets): Promise<Apercu> => apercuPaquetBru
 export interface RapportDeFusion {
   lot: string;
   recues: number;
+  /** Les champs de réglage que la fusion a changés ici. */
+  reglagesChanges: readonly string[];
   revisionsRecues: number;
   aEnvoyer: number;
   conflits: number;
@@ -226,6 +228,18 @@ export async function fusionnerPaquet(
   }
   await tx.done;
 
+  /*
+     Les réglages gagnants sont recopiés dans le magasin ordinaire, pour que les
+     écrans les lisent sans rien savoir du registre. L'écriture est **brute** :
+     les ré-horodater au nom de cet appareil les ferait repartir vers leur
+     émetteur avec une horloge plus récente, indéfiniment, et les deux appareils
+     ne se déclareraient jamais identiques tout en portant la même valeur.
+  */
+  for (const champ of resultat.reglagesChanges) {
+    const gagnant = resultat.etat.reglages[champ];
+    if (gagnant) await ecrireReglageBrut(champ, gagnant.valeur);
+  }
+
   // Le recalcul, ensuite. Les cartes touchées sont celles des révisions
   // reçues : recalculer tout voudrait dire rejouer soixante mille révisions à
   // chaque synchronisation.
@@ -263,6 +277,7 @@ export async function fusionnerPaquet(
   return {
     lot,
     recues: resultat.recues.length,
+    reglagesChanges: resultat.reglagesChanges,
     revisionsRecues: revisionsRecues.length,
     aEnvoyer: resultat.aEnvoyer.length,
     conflits: resultat.conflits.length,

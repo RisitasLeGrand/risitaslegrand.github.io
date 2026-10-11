@@ -277,6 +277,53 @@ v('B en a une', (await lire(b)).cartes.length, 1);
 v('B en a quatre', semisB.revisions, 4);
 vrai('les empreintes diffèrent', (await empreinteAffichee(a)) !== (await empreinteAffichee(b)));
 
+console.log('\nUN RÉGLAGE ÉCRIT ICI DOIT ARRIVER LÀ-BAS');
+
+/*
+   Le réglage est modifié **par l'écran**, et c'est le point de l'essai : écrire
+   le registre versionné à la main aurait vérifié la fusion sans vérifier que
+   l'application l'alimente. Or c'est exactement là que le branchement peut
+   manquer — le code compile et les essais passent, et les réglages ne voyagent
+   pas.
+*/
+await a.page.goto(`${RACINE}/progression/`, { waitUntil: 'networkidle' });
+if (await a.page.locator('#champ-mdp').isVisible().catch(() => false)) {
+  await a.page.fill('#champ-mdp', MDP);
+  await a.page.click('#bouton-verrou');
+}
+await a.page.waitForSelector('#plafond-cartes', { timeout: 30000 });
+await a.page.fill('#plafond-cartes', '45');
+await a.page.dispatchEvent('#plafond-cartes', 'change');
+await a.page.waitForFunction(
+  () => (document.getElementById('message-reglages')?.textContent ?? '').includes('45'),
+  undefined,
+  { timeout: 30000 },
+);
+
+const registreA = await a.page.evaluate(async () => {
+  const base = await new Promise((ok) => {
+    const r = indexedDB.open('revinsp');
+    r.onsuccess = () => ok(r.result);
+  });
+  const lu = await new Promise((ok) => {
+    const q = base.transaction('etat').objectStore('etat').get('reglagesSync');
+    q.onsuccess = () => ok(q.result);
+  });
+  base.close();
+  return lu;
+});
+v(
+  'l’écran de réglages a bien alimenté le registre versionné',
+  registreA?.reglagesSession?.valeur?.plafondCartes,
+  45,
+);
+vrai(
+  'et le registre porte une horloge et un appareil',
+  Boolean(registreA?.reglagesSession?.hlc) && Boolean(registreA?.reglagesSession?.appareil),
+);
+await a.page.goto(`${RACINE}/appareils/`, { waitUntil: 'networkidle' });
+await a.page.waitForSelector('#ecran:not(.hidden)', { timeout: 30000 });
+
 console.log('\nA ENVOIE, B REÇOIT');
 
 const paquetA = await envoyer(a, 'Ordinateur de bureau');
@@ -304,6 +351,21 @@ vrai(
   'leur état FSRS a été recalculé, pas copié',
   apresB.cartes.every((c) => c.revisions === 3 && c.stability > 0),
 );
+
+const reglageChezB = await b.page.evaluate(async () => {
+  const base = await new Promise((ok) => {
+    const r = indexedDB.open('revinsp');
+    r.onsuccess = () => ok(r.result);
+  });
+  const lu = await new Promise((ok) => {
+    const q = base.transaction('etat').objectStore('etat').get('reglagesSession');
+    q.onsuccess = () => ok(q.result);
+  });
+  base.close();
+  return lu;
+});
+v('le réglage écrit chez A est arrivé chez B', reglageChezB?.plafondCartes, 45);
+vrai('et la fusion l’a annoncé', receptionB.message.includes('réglage'));
 
 console.log('\nB ENVOIE À SON TOUR');
 
