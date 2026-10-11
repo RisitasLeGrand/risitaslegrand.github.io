@@ -92,6 +92,8 @@ import {
   type Apercu,
 } from './paquet';
 import type { Octets } from '../sauvegarde/format';
+import { estSocle as estSocleEnregistrement, lireCible } from '../noyau/enregistrements';
+import { materialiserFaitsDomaine, soclerFaitsDomaine } from './faits-domaine';
 
 const CLEF_REGLAGES = 'reglagesSync';
 const CLEF_LOTS = 'lotsRecus';
@@ -174,12 +176,35 @@ export async function fabriquerPaquet(
   motDePasse: string,
   options: { depuis?: string; nomAppareil?: string; iterations?: number } = {},
 ): Promise<PaquetFabrique> {
+  /*
+     Avant de dire ce qu'on a, on finit de l'écrire. Les faits de domaine — QCM,
+     parties de Cog-Training — entrent au journal à leur enregistrement, mais
+     l'historique d'avant cette phase n'y est pas, et une journalisation ratée
+     non plus. Le socle est idempotent : le rejouer ici ne coûte qu'une lecture,
+     et il garantit qu'un paquet ne part jamais en laissant du domaine derrière.
+  */
+  await soclerFaitsDomaine();
   const { operations, revisions, reglages } = await etatLocal();
   const bornes = tranche(options.depuis);
   const dansBornes = <T extends { hlc: string }>(e: T) =>
     e.hlc >= bornes.de && e.hlc <= bornes.a;
 
-  const retenues = operations.filter(dansBornes);
+  /*
+     Les opérations de **socle** portent l'horloge plancher, parce que c'est ce
+     qui les rend identiques d'un appareil à l'autre. Conséquence qu'il ne faut
+     pas découvrir : une tranche incrémentale les exclurait toutes, et un
+     enregistrement tout juste soclé ne partirait jamais.
+
+     Elles sont donc toujours jointes. Les renvoyer sans cesse ne coûte rien de
+     faux — même identifiant, même contenu, l'union les dédoublonne — et c'est
+     le prix d'un socle déterministe.
+
+     Aucun appelant ne demande de tranche incrémentale aujourd'hui : les quatre
+     transports envoient le journal entier. La ligne est donc écrite pour le
+     jour où l'un d'eux le fera, parce que ce jour-là le défaut serait muet —
+     un enregistrement qui ne part pas ne se signale pas.
+  */
+  const retenues = operations.filter((o) => dansBornes(o) || estSocleEnregistrement(o));
   const retenuesRevisions = revisions.filter(dansBornes);
   const appareil = await lireAppareil();
   const { complete } = await empreinteLocale();
@@ -237,6 +262,15 @@ export interface RapportDeFusion {
   conflits: number;
   collisions: number;
   cartesRecalculees: number;
+  /**
+   * Les enregistrements de domaine écrits et effacés par la matérialisation :
+   * les séances, les QCM, les sessions de Cog-Training venus de l'autre
+   * appareil. Ils ne sont pas des « révisions » et ne sont pas des réglages,
+   * d'où leur propre ligne — l'écran doit pouvoir dire « deux QCM sont
+   * arrivés » plutôt que « deux opérations ».
+   */
+  domaineEcrits: number;
+  domaineEffaces: number;
   /**
    * Les entrées que cette fusion a effacées parce qu'un compactage reçu les
    * déclarait effacées. Zéro en temps normal ; non nul, l'écran d'annulation
@@ -377,6 +411,22 @@ export async function fusionnerPaquet(
   }
 
   /*
+     Les faits de domaine reçus sont écrits dans leurs magasins. C'est la même
+     règle que pour FSRS — l'état dérivé est recalculé depuis le journal —, mais
+     appliquée à un magasin : pour chaque cible touchée, la dernière opération
+     gagne, et une suppression l'emporte sur ce qui la précède.
+
+     Seules les cibles que le paquet apportait sont matérialisées : rejouer tout
+     le journal serait juste et cher, et ne sert qu'à la réparation.
+  */
+  const ciblesRecues = [
+    ...new Set(resultat.recues.map((o) => o.cible).filter((c) => lireCible(c) !== null)),
+  ];
+  const domaine = ciblesRecues.length
+    ? await materialiserFaitsDomaine(ciblesRecues)
+    : { ecrits: 0, effaces: 0, illisibles: [] };
+
+  /*
      Le recalcul, ensuite. Les cartes touchées sont celles des révisions
      reçues : recalculer tout voudrait dire rejouer soixante mille révisions à
      chaque synchronisation.
@@ -475,6 +525,8 @@ export async function fusionnerPaquet(
     conflits: trier(resultat.conflits, resultat.etat.operations).ouverts.length,
     collisions: resultat.collisions.length,
     cartesRecalculees: recalculees,
+    domaineEcrits: domaine.ecrits,
+    domaineEffaces: domaine.effaces,
     effaceesParCompactage: effacees.operations + effacees.revisions,
     identiques: complete === ouvert.metadonnees.empreinte,
     empreinte: complete,
@@ -618,6 +670,9 @@ export const annulable = (lot: LotRecu, maintenant = new Date()): boolean =>
   maintenant.getTime() - Date.parse(lot.le) <= JOURS_ANNULABLES * 86_400_000;
 
 export interface RapportAnnulation {
+  /** Les enregistrements de domaine défaits : écrits à nouveau, ou effacés. */
+  domaineEcrits?: number;
+  domaineEffaces?: number;
   retirees: number;
   revisionsRetirees: number;
   cartesRecalculees: number;
@@ -645,6 +700,23 @@ export async function annulerFusion(lot: string): Promise<RapportAnnulation> {
   for (const r of revisionsRetirees) await tx.objectStore('revisions').delete(r.id);
   await tx.done;
 
+  /*
+     Les faits de domaine du lot sont **défaits** : on rematérialise leurs
+     cibles depuis ce qui reste du journal. Une cible dont il ne reste plus
+     aucune opération disparaît du magasin — sans quoi l'annulation laisserait
+     derrière elle les QCM et les sessions de l'autre appareil, et n'annulerait
+     donc rien.
+
+     Une cible que **cet** appareil connaissait déjà retrouve sa version locale,
+     puisque son opération, elle, n'a pas le lot et n'a pas été retirée.
+  */
+  const ciblesDefaites = [
+    ...new Set(defait.retirees.map((o) => o.cible).filter((c) => lireCible(c) !== null)),
+  ];
+  const domaine = ciblesDefaites.length
+    ? await materialiserFaitsDomaine(ciblesDefaites)
+    : { ecrits: 0, effaces: 0 };
+
   // Recalcul des cartes touchées. Une carte dont toutes les entrées
   // disparaissent n'est pas supprimée : elle garde son dernier état connu, qui
   // est celui d'avant la fusion.
@@ -667,6 +739,8 @@ export async function annulerFusion(lot: string): Promise<RapportAnnulation> {
     retirees: defait.retirees.length,
     revisionsRetirees: revisionsRetirees.length,
     cartesRecalculees: recalculees,
+    domaineEcrits: domaine.ecrits,
+    domaineEffaces: domaine.effaces,
     empreinte: complete,
   };
 }
@@ -810,6 +884,10 @@ export interface RapportReconstruction {
   cartes: number;
   /** Cartes dont le journal est vide : leur état est laissé tel quel. */
   sansJournal: number;
+  /** Enregistrements de domaine soclés, écrits et effacés par la réparation. */
+  domaineSocles: number;
+  domaineEcrits: number;
+  domaineEffaces: number;
 }
 
 /**
@@ -854,7 +932,23 @@ export async function reconstruireEtatsDerives(): Promise<RapportReconstruction>
   for (const carte of cartes) {
     if (!parCarte.has(carte.id)) sansJournal += 1;
   }
-  return { cartes: refaites, sansJournal };
+
+  /*
+     Les faits de domaine, ensuite, et dans cet ordre : socler d'abord — faire
+     entrer au journal ce qui n'y est pas —, matérialiser ensuite, pour que les
+     magasins disent ce que dit le journal. L'inverse aurait effacé tout ce que
+     le journal ignore encore, c'est-à-dire exactement ce que le socle est là
+     pour sauver.
+  */
+  const socle = await soclerFaitsDomaine();
+  const domaine = await materialiserFaitsDomaine();
+  return {
+    cartes: refaites,
+    sansJournal,
+    domaineSocles: socle.total,
+    domaineEcrits: domaine.ecrits,
+    domaineEffaces: domaine.effaces,
+  };
 }
 
 /** L'horloge de cet appareil, pour borner la prochaine tranche envoyée. */

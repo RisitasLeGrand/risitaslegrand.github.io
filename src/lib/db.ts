@@ -1304,12 +1304,37 @@ export async function tousLesEtatsFiches(): Promise<EtatFiche[]> {
   return (await db()).getAll('fiches');
 }
 
+/**
+ * Journalise un enregistrement qui vient d'être écrit.
+ *
+ * L'import est **dynamique**, et c'est la seule façon correcte de le faire ici :
+ * le journalisateur a besoin de l'horloge logique, qui a besoin de cette base.
+ * Deux imports de valeurs en sens inverse formeraient un cycle au chargement —
+ * les modules ES savent le tolérer quand il ne s'agit que de fonctions
+ * hoistées, mais c'est une propriété fragile du code appelé, pas une garantie.
+ * Le même raisonnement que pour « noyau/revisions.ts », et la même prudence.
+ *
+ * Silencieux en cas d'échec : l'enregistrement de la personne est déjà écrit, et
+ * « soclerFaitsDomaine » rattrape ce qui n'a pas pu être journalisé. Une erreur
+ * de journal ne doit pas faire perdre une séance.
+ */
+async function journaliser(magasin: string, enregistrement: unknown): Promise<void> {
+  try {
+    const { journaliserEnregistrement } = await import('./sync/faits-domaine');
+    await journaliserEnregistrement(magasin, enregistrement as Record<string, unknown>);
+  } catch {
+    // Volontairement muet : voir ci-dessus.
+  }
+}
+
 export async function ecrireEtatFiche(etat: EtatFiche) {
   await (await db()).put('fiches', etat);
 }
 
 export async function ajouterResultatQuiz(resultat: ResultatQuiz) {
-  await (await db()).add('quiz', identifie(resultat));
+  const avecId = identifie(resultat);
+  await (await db()).add('quiz', avecId);
+  await journaliser('quiz', avecId);
 }
 
 export async function tousLesResultatsQuiz(): Promise<ResultatQuiz[]> {
@@ -1317,7 +1342,9 @@ export async function tousLesResultatsQuiz(): Promise<ResultatQuiz[]> {
 }
 
 export async function ajouterSessionNBack(session: SessionNBack) {
-  await (await db()).add('nback', identifie(session));
+  const avecId = identifie(session);
+  await (await db()).add('nback', avecId);
+  await journaliser('nback', avecId);
 }
 
 export async function toutesLesSessionsNBack(): Promise<SessionNBack[]> {
@@ -1325,7 +1352,9 @@ export async function toutesLesSessionsNBack(): Promise<SessionNBack[]> {
 }
 
 export async function ajouterSessionRelationnelle(session: SessionRelationnelle) {
-  await (await db()).add('relationnel', identifie(session));
+  const avecId = identifie(session);
+  await (await db()).add('relationnel', avecId);
+  await journaliser('relationnel', avecId);
 }
 
 export async function toutesLesSessionsRelationnelles(): Promise<SessionRelationnelle[]> {
@@ -1341,7 +1370,9 @@ export async function ecrireSeuilVeridical(seuil: SeuilVeridical) {
 }
 
 export async function ajouterSessionVeridical(session: SessionVeridical) {
-  await (await db()).add('vmSessions', identifie(session));
+  const avecId = identifie(session);
+  await (await db()).add('vmSessions', avecId);
+  await journaliser('vmSessions', avecId);
 }
 
 export async function toutesLesSessionsVeridical(): Promise<SessionVeridical[]> {
@@ -1390,6 +1421,7 @@ export async function enregistrerSessionDgfip(
   const avecId = identifie(sansId);
   await tx.objectStore('qcmSessions').add(avecId as SessionDgfip);
   await tx.done;
+  await journaliser('qcmSessions', avecId);
   return avecId.id;
 }
 

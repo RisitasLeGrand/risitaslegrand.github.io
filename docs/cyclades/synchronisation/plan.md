@@ -282,16 +282,28 @@ Les cinq livrables sont détaillés ci-dessous. S'y ajoute, du même jour,
 l'amendement sur l'ordinateur certifié (5e), que la phase 4 avait laissé de
 côté.
 
-Une chose est **restée en dehors**, et elle doit être dite ici plutôt que
+Une chose était **restée en dehors**, et elle était dite ici plutôt que
 découverte : les faits de domaine — séances, quiz de cours, Cog-Training, QCM —
-ne sont pas encore journalisés. Le magasin `operations` ne porte que les faits
-de la synchronisation elle-même, et le journal des révisions FSRS. Ce qui
-voyage aujourd'hui, c'est donc l'histoire des flashcards, les noms d'appareils,
-les sauvegardes déclarées, les résolutions de conflits et les compactages. Le
-reste attend son écriture au journal, qui est un chantier à lui seul — c'est
-écrit sur l'écran des appareils, sous « Ce qui n'est pas encore là », parce
-qu'un écran qui laisse croire que synchroniser transporte tout est pire que pas
-d'écran du tout.
+n'étaient pas journalisés, donc ils ne voyageaient pas. Le magasin `operations`
+ne portait que les faits de la synchronisation elle-même, et le journal des
+révisions FSRS.
+
+> **Repris le 11 octobre 2026, phase A1.** Cinq magasins d'événements immuables
+> entrent désormais au journal et voyagent : quiz de cours, QCM DGFiP, Quad
+> N-Back, Relational Reasoning, Veridical Mapping. L'opération porte
+> **l'enregistrement entier** — le fait typé n'est qu'une vue, et faire voyager
+> la vue aurait perdu les identifiants de fiches couvertes ou les scores par
+> rubrique. Le socle de l'existant est **déterministe**, ce qui rend deux bases
+> migrées séparément réconciliables en silence. Détail dans
+> `docs/cyclades/profil-ia/plan.md`, phase A.
+>
+> Ce qui attend encore sa règle, et pourquoi : les **séances** et leurs **notes**
+> (un texte rédigé à la main qu'un dernier-écrivain-gagne effacerait), l'**état
+> des fiches** (un compteur, dont « le dernier gagne » perdrait la moitié), et
+> les **compteurs de tirage DGFiP** (un état dérivé que l'historique ne permet
+> pas de recalculer). L'écran des appareils le dit, sous « Ce qui n'est pas
+> encore là », parce qu'un écran qui laisse croire que synchroniser transporte
+> tout est pire que pas d'écran du tout.
 
 #### 5a — Le changement de mot de passe. Fait, le 11 octobre 2026
 

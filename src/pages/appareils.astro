@@ -395,13 +395,23 @@ import Base from '../layouts/Base.astro';
       </h2>
       <ul class="max-w-3xl list-disc space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300">
         <li>
-          Les <strong>faits de domaine</strong> — séances, quiz de cours,
-          Cog-Training, QCM DGFiP — ne sont pas encore journalisés, donc ils
-          <strong>ne voyagent pas</strong>. Ce qui voyage aujourd’hui : l’histoire
-          de vos révisions de flashcards, les noms d’appareils, les sauvegardes
-          déclarées, les réponses aux conflits et les compactages de journal.
-          C’est dit ici parce que l’écran ne doit pas laisser croire que
-          synchroniser transporte tout.
+          <strong>Ce qui voyage aujourd’hui</strong> : l’histoire de vos révisions
+          de flashcards, les <strong>quiz de cours</strong>, les
+          <strong>QCM DGFiP</strong>, les <strong>trois familles de
+          Cog-Training</strong>, les noms d’appareils, les sauvegardes déclarées,
+          les réponses aux conflits et les compactages de journal.
+        </li>
+        <li>
+          <strong>Ce qui ne voyage pas encore</strong>, et pourquoi chaque cas
+          attend sa règle : les <strong>séances</strong> et leurs
+          <strong>notes</strong>, parce qu’une note est un texte rédigé à la main
+          qu’un dernier-écrivain-gagne effacerait sans le dire ; l’<strong>état
+          des fiches</strong>, parce qu’il porte un compteur — le temps passé —
+          dont « le dernier gagne » perdrait la moitié ; les
+          <strong>compteurs de tirage DGFiP</strong>, qui sont un état dérivé
+          des sessions et que l’historique ne permet pas de recalculer. Une
+          session reçue de l’autre appareil compte donc dans vos statistiques et
+          votre XP, pas encore dans la pondération du tirage.
         </li>
         <li>
           Les <strong>réglages</strong> — rotation hebdomadaire, plafonds de
@@ -774,7 +784,11 @@ import Base from '../layouts/Base.astro';
           dire(
             'message-annulation',
             `Annulée : ${rapport.retirees} opération(s) et ${rapport.revisionsRetirees} ` +
-              `révision(s) retirées, ${rapport.cartesRecalculees} carte(s) recalculée(s).`,
+              `révision(s) retirées, ${rapport.cartesRecalculees} carte(s) recalculée(s)` +
+              (rapport.domaineEffaces
+                ? `, ${rapport.domaineEffaces} enregistrement(s) repartis`
+                : '') +
+              '.',
             'succes',
           );
           await peindreEtat();
@@ -1069,6 +1083,7 @@ import Base from '../layouts/Base.astro';
           'message-dossier',
           `${rapport.recues} opération(s) et ${rapport.revisionsRecues} révision(s) reçues ; ` +
             `${rapport.cartesRecalculees} carte(s) recalculée(s)` +
+            (rapport.domaineEcrits ? ` ; ${rapport.domaineEcrits} enregistrement(s) écrit(s)` : '') +
             (rapport.conflits ? ` ; ${rapport.conflits} conflit(s) à traiter` : '') +
             '.',
           'succes',
@@ -1266,6 +1281,13 @@ import Base from '../layouts/Base.astro';
             (rapport.sansJournal
               ? ` ${rapport.sansJournal} carte(s) n’ont pas d’entrée au journal : leur état est ` +
                 'laissé tel quel, parce qu’on ne sait pas le reconstituer.'
+              : '') +
+            (rapport.domaineSocles
+              ? ` ${rapport.domaineSocles} enregistrement(s) de domaine sont entrés au journal.`
+              : '') +
+            (rapport.domaineEcrits || rapport.domaineEffaces
+              ? ` ${rapport.domaineEcrits} réécrit(s) depuis le journal` +
+                (rapport.domaineEffaces ? `, ${rapport.domaineEffaces} effacé(s).` : '.')
               : ''),
           'succes',
         );
@@ -1348,6 +1370,16 @@ import Base from '../layouts/Base.astro';
           `${rapport.recues} opération(s) et ${rapport.revisionsRecues} révision(s) reçues`,
           `${rapport.cartesRecalculees} carte(s) recalculée(s)`,
         ];
+        /*
+           Les enregistrements de domaine ont leur propre ligne : « deux QCM
+           sont arrivés » se comprend, « deux opérations » non.
+        */
+        if (rapport.domaineEcrits || rapport.domaineEffaces) {
+          parties.push(
+            `${rapport.domaineEcrits} enregistrement(s) écrit(s)` +
+              (rapport.domaineEffaces ? `, ${rapport.domaineEffaces} effacé(s)` : ''),
+          );
+        }
         if (rapport.reglagesChanges.length) {
           parties.push(
             `${rapport.reglagesChanges.length} réglage(s) mis à jour ` +

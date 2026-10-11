@@ -70,6 +70,8 @@
     "essais:activite": "tsx scripts/essais-activite.mts",
     "essais:activite:navigateur": "node scripts/essais-activite-navigateur.mjs",
     "essais:desaccords": "tsx scripts/essais-desaccords.mts",
+    "essais:enregistrements": "tsx scripts/essais-enregistrements.mts",
+    "essais:faits-domaine": "node scripts/essais-faits-domaine-navigateur.mjs",
     "essais:certification": "tsx scripts/essais-certification.mts",
     "essais:certification:navigateur": "node scripts/essais-certification-navigateur.mjs"
   },

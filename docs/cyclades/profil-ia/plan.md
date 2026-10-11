@@ -94,6 +94,19 @@ Plan, liste des questions, schéma d'analyse, maquettes, décisions. **Validatio
 
 ### Phase A — Les faits de domaine deviennent journalisés *(préalable, nouveau)*
 
+> **A1 faite, le 11 octobre 2026.** Cinq magasins d'événements immuables — quiz de cours, QCM
+> DGFiP, Quad N-Back, Relational Reasoning, Veridical Mapping — entrent au journal et voyagent.
+> L'opération porte **l'enregistrement entier** et non le fait typé : le fait typé est une vue,
+> faite pour les indicateurs, et faire voyager la vue aurait perdu des données à chaque
+> synchronisation. Le **socle est déterministe** — identifiant dérivé de la cible, horloge au
+> plancher, appareil nommé `socle` —, de sorte que deux appareils migrés séparément produisent la
+> même opération et se réconcilient en silence ; un même enregistrement de contenus différents
+> donne le même identifiant, et c'est alors une **collision** signalée, ce qui est exactement ce
+> qu'on veut. L'effacement ciblé journalise désormais ses suppressions, sans quoi la première
+> synchronisation les aurait ressuscitées. Reste à A2 : les séances et leurs notes (texte), l'état
+> des fiches (compteur), et les compteurs de tirage DGFiP (état dérivé non recalculable).
+
+
 Ce que la synchronisation intégrale (0.2) exige, et ce dont la vérification des chiffres (B.6.4) a
 besoin.
 

@@ -17,6 +17,7 @@
  */
 import { MAGASINS_PROGRESSION, db } from '../db';
 import { CHAMP_DATE, dateDe, groupe } from './groupes';
+import { cibleDe, magasinJournalise } from '../noyau/enregistrements';
 
 /** Le filtre d'un effacement. Un groupe, et éventuellement une période. */
 export interface Cible {
@@ -112,6 +113,13 @@ export async function compter(cible: Cible): Promise<Decompte> {
 }
 
 export interface ResultatEffacement {
+  /**
+   * Les suppressions entrées au journal, pour que l'effacement voyage.
+   *
+   * Zéro ne veut pas dire « raté » : seuls les magasins journalisés en
+   * produisent. Un écart avec `total` est donc normal.
+   */
+  suppressionsJournalisees?: number;
   /** Ce qui a réellement été effacé, magasin par magasin. */
   effaces: Record<string, number>;
   total: number;
@@ -138,8 +146,18 @@ export async function effacer(cible: Cible): Promise<ResultatEffacement> {
   const refuses: CompteParMagasin[] = [];
   let total = 0;
 
+  /*
+     Les cibles journalisées qui disparaissent doivent **le dire**. Un
+     effacement qui ne journalise rien serait défait par la première
+     synchronisation : l'autre appareil porte encore l'opération d'écriture, et
+     la matérialisation réécrirait l'enregistrement. Une suppression est une
+     opération, pas une absence.
+  */
+  const supprimees: string[] = [];
+
   for (const nom of noms) {
     const magasin = nom as (typeof MAGASINS_PROGRESSION)[number];
+    const journalise = magasinJournalise(nom);
 
     if (avecPeriode && CHAMP_DATE[nom] === null) {
       refuses.push({
@@ -153,10 +171,16 @@ export async function effacer(cible: Cible): Promise<ResultatEffacement> {
     }
 
     if (!avecPeriode) {
-      const combien = (await base.getAll(magasin)).length;
+      const tous = (await base.getAll(magasin)) as unknown as Record<string, unknown>[];
+      if (journalise) {
+        for (const enregistrement of tous) {
+          const clef = enregistrement[journalise.clef];
+          if (typeof clef === 'string' && clef) supprimees.push(cibleDe(nom, clef));
+        }
+      }
       await base.clear(magasin);
-      effaces[nom] = combien;
-      total += combien;
+      effaces[nom] = tous.length;
+      total += tous.length;
       continue;
     }
 
@@ -166,6 +190,10 @@ export async function effacer(cible: Cible): Promise<ResultatEffacement> {
     let combien = 0;
     while (curseur) {
       if (dansLaPeriode(nom, curseur.value, cible)) {
+        if (journalise) {
+          const clef = (curseur.value as Record<string, unknown>)[journalise.clef];
+          if (typeof clef === 'string' && clef) supprimees.push(cibleDe(nom, clef));
+        }
         await curseur.delete();
         combien += 1;
       }
@@ -176,5 +204,20 @@ export async function effacer(cible: Cible): Promise<ResultatEffacement> {
     total += combien;
   }
 
-  return { effaces, total, refuses };
+  /*
+     L'import est dynamique pour la même raison qu'ailleurs : le journalisateur
+     a besoin de l'horloge logique, qui a besoin de cette base.
+  */
+  let suppressionsJournalisees = 0;
+  if (supprimees.length) {
+    try {
+      const { journaliserSuppressions } = await import('../sync/faits-domaine');
+      suppressionsJournalisees = await journaliserSuppressions(supprimees);
+    } catch {
+      // L'effacement a eu lieu ; la suppression non journalisée se rattrape à
+      // la réparation, et l'écran annonce le compte.
+    }
+  }
+
+  return { effaces, total, refuses, suppressionsJournalisees };
 }
