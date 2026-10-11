@@ -1,0 +1,361 @@
+---
+/**
+ * Page « Stockage » : ce que la base contient, et ce qui la menace.
+ *
+ * Elle existe pour une raison précise, et ce n'est pas le quota. Les mesures
+ * sont faites : cinq ans d'usage intensif occupent neuf mégaoctets, et les
+ * quotas se comptent en gigaoctets. Le danger est la **perte** — données de site
+ * effacées, appareil changé, éviction automatique —, et c'est de cela que cette
+ * page parle d'abord.
+ */
+import Base from '../layouts/Base.astro';
+---
+
+<Base titre="Stockage" actif="progression">
+  <div id="chargement" class="py-20 text-center text-slate-400">Lecture de l’espace de stockage…</div>
+
+  <div id="stockage" class="hidden space-y-8">
+    <!-- ── Le risque, avant les chiffres ───────────────────────────────── -->
+    <section class="rounded-2xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-950/40">
+      <h2 class="mb-2 text-lg font-semibold text-amber-900 dark:text-amber-200">
+        Ce qui menace vos données
+      </h2>
+      <p class="max-w-3xl text-sm leading-relaxed text-amber-900/90 dark:text-amber-200/90">
+        Ce n’est pas le manque de place. Cinq ans d’usage intensif tiennent dans
+        une dizaine de mégaoctets, et votre navigateur en accorde des milliers.
+        Le risque réel est la <strong>disparition</strong> : effacer les données
+        de site, changer d’appareil, laisser un nettoyeur passer, ou ne pas
+        revenir assez longtemps pour qu’un navigateur décide de faire le ménage.
+      </p>
+      <p class="mt-3 max-w-3xl text-sm leading-relaxed text-amber-900/90 dark:text-amber-200/90">
+        <strong>Une seule chose protège vraiment : la sauvegarde.</strong> Les
+        réglages ci-dessous réduisent le risque, ils ne le suppriment pas.
+      </p>
+      <a
+        id="lien-sauvegarde"
+        class="mt-4 inline-flex min-h-11 items-center rounded-lg bg-amber-600 px-4 text-sm font-medium text-white transition hover:bg-amber-700"
+      >
+        Aller sauvegarder
+      </a>
+    </section>
+
+    <!-- ── Occupation ──────────────────────────────────────────────────── -->
+    <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Occupation</h2>
+      <dl id="occupation" class="grid grid-cols-2 gap-3 text-sm sm:grid-cols-3"></dl>
+      <div
+        id="alerte-quota"
+        class="mt-4 hidden rounded-xl border p-4 text-sm"
+        role="status"
+      ></div>
+    </section>
+
+    <!-- ── Persistance ─────────────────────────────────────────────────── -->
+    <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+        Stockage persistant
+      </h2>
+      <p class="mb-3 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        Quand il est accordé, le navigateur s’engage à ne pas effacer ces données
+        de lui-même pour faire de la place. Il ne s’engage à rien d’autre :
+        <strong>un effacement manuel, un nettoyeur ou un changement d’appareil
+        emportent tout de même tout</strong>.
+      </p>
+      <p id="etat-persistance" class="mb-3 text-sm font-medium"></p>
+      <button
+        id="demander-persistance"
+        class="hidden rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700"
+      >
+        Demander le stockage persistant
+      </button>
+      <p id="message-persistance" class="mt-3 hidden text-sm"></p>
+
+      <!--
+        Le cas de Safari est traité à part parce qu'il est le plus sévère, et
+        parce que la documentation d'Apple ne le couvre pas : le texte dit donc
+        ce qui est attesté et ce qui ne l'est pas.
+      -->
+      <details class="mt-4 rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-950/60">
+        <summary class="cursor-pointer font-medium text-indigo-600 dark:text-indigo-400">
+          Sur iPhone et iPad, et sur Safari : une règle plus sévère
+        </summary>
+        <div class="mt-3 space-y-2 text-slate-600 dark:text-slate-300">
+          <p>
+            WebKit — le moteur de Safari, et de tous les navigateurs sur iOS —
+            applique un <strong>plafond de sept jours</strong> aux données
+            écrites par un script, ce qui comprend la base de ce site. Le
+            compteur se remet à zéro à chaque visite, et il compte des jours
+            d’usage du navigateur plutôt que des jours calendaires : en venant
+            régulièrement, on ne l’atteint jamais.
+          </p>
+          <p>
+            Un site <strong>ajouté à l’écran d’accueil</strong> est décrit comme
+            exempté de ce ménage. C’est la précaution la plus simple sur
+            téléphone, et elle est recommandée ici.
+          </p>
+          <p class="text-slate-500 dark:text-slate-400">
+            Ce paragraphe mérite une réserve : Apple ne documente pas cette
+            exemption, et ce qu’on en sait vient d’analyses extérieures et de
+            la page de prévention du pistage de WebKit, qui est ancienne. Le
+            comportement exact peut donc différer selon la version. Raison de
+            plus pour ne compter que sur la sauvegarde.
+          </p>
+        </div>
+      </details>
+    </section>
+
+    <!-- ── Détail par magasin ──────────────────────────────────────────── -->
+    <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+        Détail par magasin
+      </h2>
+      <p class="mb-4 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        IndexedDB ne sait pas dire la taille d’un magasin : la seule mesure
+        possible est de relire son contenu et de le mesurer, ce qui donne la
+        taille des <em>données</em> et non celle qu’elles occupent sur le disque.
+        L’opération relit toute la base, d’où le bouton.
+      </p>
+      <button
+        id="peser"
+        class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-100 dark:hover:bg-slate-800"
+      >
+        Peser les magasins
+      </button>
+      <div id="detail" class="mt-4 hidden overflow-x-auto">
+        <table class="w-full text-left text-sm">
+          <thead class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <tr>
+              <th scope="col" class="py-2 pr-4">Magasin</th>
+              <th scope="col" class="py-2 pr-4 text-right">Enregistrements</th>
+              <th scope="col" class="py-2 text-right">Données</th>
+            </tr>
+          </thead>
+          <tbody id="detail-lignes" class="divide-y divide-slate-200 dark:divide-slate-800"></tbody>
+        </table>
+        <p id="detail-rapport" class="mt-3 text-sm text-slate-500 dark:text-slate-400"></p>
+      </div>
+    </section>
+
+    <!-- ── Intégrité ───────────────────────────────────────────────────── -->
+    <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">Intégrité</h2>
+      <p class="mb-4 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        Un contrôle des liens que le modèle suppose : une note sans séance, une
+        séance sans thème, une flashcard dont la fiche a disparu. Il
+        <strong>ne répare rien et n’efface rien</strong> — réparer
+        automatiquement une base qu’on ne comprend pas est le meilleur moyen de
+        transformer une anomalie bénigne en perte.
+      </p>
+      <button
+        id="controler"
+        class="rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-100 dark:hover:bg-slate-800"
+      >
+        Contrôler l’intégrité
+      </button>
+      <div id="integrite" class="mt-4 hidden text-sm"></div>
+    </section>
+
+    <!-- ── Pourquoi il n'y a pas de bouton « Compacter » ───────────────── -->
+    <section class="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900/60">
+      <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+        Pas de compactage, et c’est mesuré
+      </h2>
+      <p class="max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+        Une couche de compression ramènerait l’occupation d’environ neuf
+        mégaoctets à un et demi. Le gain est réel et il ne sert à rien : il porte
+        sur une ressource qui n’est pas rare. Ce qui pesait, c’était le
+        <em>temps</em> — et il a été réglé autrement, en sortant les notes de
+        séance de leur enregistrement, ce qui a fait passer le tableau de bord de
+        2,25 s à 0,58 s. Un bouton « Compacter » n’aurait donc rien à compacter,
+        et les conditions qui feraient revenir sur cette décision sont écrites
+        dans la documentation du projet.
+      </p>
+    </section>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../lib/chargement';
+  import { lien, notifier } from '../lib/ui';
+  import {
+    controlerIntegrite,
+    demanderPersistance,
+    detailStockage,
+    lirePersistance,
+    occupation,
+    type Occupation,
+  } from '../lib/stockage';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  const octets = (n: number | null) => {
+    if (n === null) return 'inconnu';
+    if (n < 1024) return `${n} o`;
+    if (n < 1048576) return `${(n / 1024).toFixed(1)} Ko`;
+    if (n < 1073741824) return `${(n / 1048576).toFixed(2)} Mo`;
+    return `${(n / 1073741824).toFixed(2)} Go`;
+  };
+
+  function definition(cible: string, paires: [string, string][]) {
+    const e = $(cible);
+    e.replaceChildren();
+    for (const [clef, valeur] of paires) {
+      const dt = document.createElement('dt');
+      dt.className = 'text-slate-500 dark:text-slate-400';
+      dt.textContent = clef;
+      const dd = document.createElement('dd');
+      dd.className = 'font-medium text-slate-900 dark:text-white';
+      dd.textContent = valeur;
+      e.append(dt, dd);
+    }
+  }
+
+  function peindreOccupation(o: Occupation) {
+    definition('occupation', [
+      ['Occupé', octets(o.utilise)],
+      ['Quota estimé', octets(o.quota)],
+      ['Part utilisée', o.part === null ? 'inconnue' : `${(o.part * 100).toFixed(1)} %`],
+    ]);
+
+    const alerte = $('alerte-quota');
+    if (o.alerte === 'aucune') {
+      alerte.classList.add('hidden');
+      return;
+    }
+    const critique = o.alerte === 'critique';
+    alerte.className = `mt-4 rounded-xl border p-4 text-sm ${
+      critique
+        ? 'border-red-300 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200'
+        : 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200'
+    }`;
+    alerte.textContent = critique
+      ? 'Plus de 90 % du quota estimé est occupé. Sauvegardez maintenant, puis effacez ce dont vous n’avez plus besoin : au-delà du quota, le navigateur refuse les écritures, et une écriture refusée se perd.'
+      : 'Plus de 70 % du quota estimé est occupé. Rien d’urgent, mais c’est le moment de sauvegarder et de regarder le détail par magasin.';
+    alerte.classList.remove('hidden');
+  }
+
+  async function peindrePersistance() {
+    const p = await lirePersistance();
+    const etat = $('etat-persistance');
+    const bouton = $('demander-persistance');
+    if (!p.disponible) {
+      etat.textContent = 'Ce navigateur ne sait pas répondre sur la persistance.';
+      etat.className = 'mb-3 text-sm font-medium text-slate-500 dark:text-slate-400';
+      bouton.classList.add('hidden');
+      return;
+    }
+    if (p.accorde) {
+      etat.textContent = 'Accordé.';
+      etat.className = 'mb-3 text-sm font-medium text-emerald-600 dark:text-emerald-400';
+      bouton.classList.add('hidden');
+      return;
+    }
+    etat.textContent = 'Non accordé.';
+    etat.className = 'mb-3 text-sm font-medium text-amber-600 dark:text-amber-400';
+    bouton.classList.remove('hidden');
+  }
+
+  function dire(id: string, texte: string, ton: 'succes' | 'echec' | 'neutre') {
+    const e = $(id);
+    e.textContent = texte;
+    e.className = `mt-3 text-sm ${
+      ton === 'succes'
+        ? 'text-emerald-600 dark:text-emerald-400'
+        : ton === 'echec'
+          ? 'text-amber-600 dark:text-amber-400'
+          : 'text-slate-500 dark:text-slate-400'
+    }`;
+    e.classList.remove('hidden');
+  }
+
+  auDeverrouillage(async () => {
+    $('lien-sauvegarde').setAttribute('href', `${lien('/progression/')}#sauvegarde`);
+
+    const o = await occupation();
+    peindreOccupation(o);
+    await peindrePersistance();
+
+    $('chargement').classList.add('hidden');
+    $('stockage').classList.remove('hidden');
+
+    $('demander-persistance').addEventListener('click', async () => {
+      const accorde = await demanderPersistance();
+      await peindrePersistance();
+      dire(
+        'message-persistance',
+        accorde
+          ? 'Accordé. Le navigateur n’effacera plus ces données de lui-même pour faire de la place.'
+          : 'Refusé. C’est un cas ordinaire : les navigateurs accordent cette permission sur des critères qu’ils ne détaillent pas, et un refus n’empêche rien de fonctionner. La sauvegarde reste la vraie protection.',
+        accorde ? 'succes' : 'neutre',
+      );
+    });
+
+    $('peser').addEventListener('click', async () => {
+      const bouton = $('peser') as HTMLButtonElement;
+      bouton.disabled = true;
+      bouton.textContent = 'Lecture en cours…';
+      try {
+        const d = await detailStockage(o.utilise);
+        const corps = $('detail-lignes');
+        corps.replaceChildren();
+        for (const m of d.magasins) {
+          const tr = document.createElement('tr');
+          const nom = document.createElement('td');
+          nom.className = 'py-2 pr-4 font-medium text-slate-900 dark:text-white';
+          nom.textContent = m.nom;
+          const n = document.createElement('td');
+          n.className = 'py-2 pr-4 text-right tabular-nums text-slate-600 dark:text-slate-300';
+          n.textContent = m.enregistrements.toLocaleString('fr-FR');
+          const taille = document.createElement('td');
+          taille.className = 'py-2 text-right tabular-nums text-slate-600 dark:text-slate-300';
+          taille.textContent = octets(m.serialise);
+          tr.append(nom, n, taille);
+          corps.appendChild(tr);
+        }
+        $('detail-rapport').textContent =
+          `${d.enregistrementsTotal.toLocaleString('fr-FR')} enregistrements, ` +
+          `${octets(d.serialiseTotal)} de données` +
+          (d.rapportReel !== null
+            ? ` — soit ${d.rapportReel.toFixed(2)}× sur le disque. Moins de 1 : votre navigateur comprime les valeurs d’IndexedDB de lui-même.`
+            : '.');
+        $('detail').classList.remove('hidden');
+      } finally {
+        bouton.disabled = false;
+        bouton.textContent = 'Peser les magasins';
+      }
+    });
+
+    $('controler').addEventListener('click', async () => {
+      const bouton = $('controler') as HTMLButtonElement;
+      bouton.disabled = true;
+      try {
+        const anomalies = await controlerIntegrite();
+        const zone = $('integrite');
+        zone.replaceChildren();
+        if (!anomalies.length) {
+          const p = document.createElement('p');
+          p.className = 'text-emerald-600 dark:text-emerald-400';
+          p.textContent = 'Aucune anomalie : tous les liens attendus sont en place.';
+          zone.appendChild(p);
+        } else {
+          const liste = document.createElement('ul');
+          liste.className = 'list-disc space-y-1 pl-5 text-amber-700 dark:text-amber-300';
+          for (const a of anomalies) {
+            const li = document.createElement('li');
+            li.textContent = `${a.magasin} — ${a.quoi} (${a.combien}).`;
+            liste.appendChild(li);
+          }
+          const intro = document.createElement('p');
+          intro.className = 'mb-2 text-slate-600 dark:text-slate-300';
+          intro.textContent =
+            'Signalé, pas réparé. Aucune de ces anomalies n’empêche le site de fonctionner ; elles viennent le plus souvent d’un contenu renommé ou d’une restauration partielle.';
+          zone.append(intro, liste);
+        }
+        zone.classList.remove('hidden');
+        notifier('Contrôle d’intégrité terminé', 'info');
+      } finally {
+        bouton.disabled = false;
+      }
+    });
+  });
+</script>
