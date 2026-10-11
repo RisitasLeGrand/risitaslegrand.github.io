@@ -371,6 +371,131 @@ où il se produit : refus tant que l'accusé manque, report d'une suppression pl
 récente que la borne, compaction, puis l'appareil en retard qui applique le
 compactage reçu au lieu de ressusciter.
 
+#### 5c — La rétention. Mesurée, le 11 octobre 2026
+
+Le mot couvre deux choses, et il faut les séparer.
+
+**La rétention par magasin** était l'objet de la phase 2c, et sa conclusion
+tient : la compression segmentée réduirait l'occupation de 9,2 à 1,4 Mio, sur un
+quota qui se compte en gigaoctets, en échange d'un `CompressionStream`, d'un
+*worker*, d'un cache de segments et d'un comportement à définir pour un segment
+corrompu. Les conditions qui feraient y revenir sont écrites dans
+`budget-stockage.md`, et aucune n'est remplie.
+
+**La rétention de ce que la synchronisation crée** est neuve, et c'est elle que
+cette phase devait trancher. Chaque pièce est bornée, et par construction :
+
+| Ce qui s'accumule | Borne | Où |
+|---|---|---|
+| Paquets d'un appareil dans le dossier partagé | **3** par appareil | `PAQUETS_GARDES`, `dossier.ts` |
+| Lots reçus, pour l'annulation | 7 jours annulables, **14 gardés** | `JOURS_ANNULABLES`, `service.ts` |
+| Instantanés d'avant migration | **2** | `INSTANTANES_GARDES`, `instantane.ts` |
+| Observations d'appareils | une par appareil connu | `appareils.ts` |
+| Faits de la synchronisation au journal | voir ci-dessous | — |
+
+Les mesures, sérialisées au signe près : un `sauvegarde.faite` pèse 249 o, un
+`appareil.nom` 176 o, un compactage déclarant vingt cibles 597 o, un lot reçu de
+huit cartes 319 o, une observation d'appareil 254 o. Sur cinq ans, à une
+sauvegarde et un compactage par semaine, cela fait 63 Kio et 152 Kio ; les lots
+sur leur fenêtre de quatorze jours, 9 Kio ; quatre appareils observés, 1 Kio.
+**Environ 225 Kio en cinq ans**, à comparer aux 9,22 Mio mesurés de la base.
+
+**Conclusion : rien à construire**, et c'est une conclusion, pas une prudence.
+Une politique de rétention sur ces magasins coûterait du code et un risque —
+effacer un fait sans pierre tombale, c'est le voir revenir — pour deux dixièmes
+de pour cent de l'occupation.
+
+Une seule ligne de ce tableau peut grossir sans borne, et il faut la nommer : la
+liste des cibles portée par les compactages. C'est un identifiant par objet
+supprimé, **à jamais**, parce que c'est elle qui empêche un appareil en retard de
+ressusciter ce qu'elle décrit. Elle coûte environ un vingtième de ce qu'elle
+permet d'effacer, donc le marché est bon. Elle serait elle-même effaçable une
+fois que **tous** les appareils ont accusé réception du compactage — plus
+personne ne pouvant alors renvoyer ce qu'il efface —, et c'est ce qu'il faudra
+faire si ces opérations dépassent un mégaoctet. Pas avant : une règle du second
+ordre pour deux cent cinquante kilo-octets serait du zèle, et le zèle sur une
+opération qui efface est exactement ce qu'on ne veut pas.
+
+#### 5d — Les champs à conflit explicite. Épinglés, le 11 octobre 2026
+
+Les huit types validés par la décision 6 étaient déjà en place depuis la phase 2
+(`TYPES_A_CONFLIT_EXPLICITE`), et un contrôle vérifiait qu'ils existent au
+catalogue de faits **et** y sont marqués sensibles — les deux listes doivent
+être la même, sans quoi un type serait sensible pour le partage et pas pour la
+fusion.
+
+Ce qui manquait : la liste n'était pas **épinglée**. La décision 6 demandait de
+valider ces huit « ou d'en ajouter » ; un ajout est donc une décision, et une
+décision se prend en voyant un essai échouer, pas en découvrant six mois plus
+tard qu'un type a glissé dans la liste au passage d'un remaniement. L'essai
+compare maintenant la liste, triée, aux huit noms validés, et vérifie que les
+trois « non » — check-in, journal, repas — en restent dehors : ce sont des
+événements et non des états, ils s'unissent par identifiant sans conflit
+possible, et leur ajouter une notification fabriquerait des conflits qui
+n'existent pas.
+
+#### 5e — L'ordinateur certifié. Fait, le 11 octobre 2026
+
+L'amendement `arriere-plan.md` demandait quatre choses. Trois sont faites ; la
+quatrième, la notification PUSH, est **abandonnée** et non reportée — décision du
+11 octobre 2026 — de sorte qu'aucun écran ne promette une notification
+instantanée et qu'aucun substitut n'en prenne le nom.
+
+**La certification** est une décision **locale** (magasin `etat`), prise sur
+l'ordinateur lui-même, jamais à distance depuis le téléphone — ce serait le
+chemin d'une prise de contrôle par QR photographié. Elle est **annoncée** par un
+fait, pour que les autres écrans puissent dire « l'ordinateur de bureau
+synchronise seul » plutôt que de laisser une fusion surgir de nulle part. Et
+l'annonce n'est lue que si son auteur est son sujet : un fait qui certifierait un
+autre appareil que son émetteur est **ignoré**. La règle « jamais à distance »
+est ainsi tenue par le code, et pas seulement par l'écran — un écran qui n'offre
+pas le bouton n'empêche personne de forger l'opération.
+
+**La veille** (`arriere-plan.ts`, lancée par `veille.ts` depuis la mise en page)
+rejoint le salon d'appairage et échange dès qu'un pair paraît, puis reconsidère
+toutes les cinq minutes — mais **seulement si l'empreinte locale a changé**
+depuis le dernier échange : deux dérivations PBKDF2 de 600 000 itérations toutes
+les cinq minutes pour ne rien transporter, ce serait chauffer la machine pour le
+principe. Un verrou de l'API Web Locks, en mode `ifAvailable`, garantit **un
+seul onglet** : sans lui, deux onglets se verraient l'un l'autre comme des pairs
+et chacun fusionnerait son propre paquet.
+
+Trois conditions l'arrêtent, et chacune est un **état affiché** plutôt qu'une
+erreur : pas certifié, aucun appairage mémorisé, ou mot de passe absent de la
+mémoire de session. Le dernier est le plus fréquent et le plus instructif : la
+clé de déchiffrement du contenu peut venir du stockage, mais le mot de passe
+lui-même n'est gardé qu'en mémoire — jamais `localStorage`, jamais
+`sessionStorage`, jamais IndexedDB. Il est donc absent après un rechargement où
+l'on n'a rien tapé, et l'écran le dit au lieu de laisser croire que la veille
+veille. L'écran de verrouillage le retient désormais quand on le tape, ce qui
+suffit pour toute la session.
+
+**La notification** passe par le *service worker* (`public/sw.js`) quand il est
+là, par la page sinon, et n'est jamais émise pour une fusion qui n'a rien
+apporté : un avis « 0 opération reçue » apprendrait à ignorer les avis. Le
+*service worker* ne fait **que** cela — pas de cache, pas d'interception : un
+cache de site chiffré servirait un jour du contenu chiffré avec un mot de passe
+qui n'est plus le bon, et le diagnostic serait illisible. Il ne synchronise pas,
+et ne peut pas : `RTCPeerConnection` n'existe pas dans un *service worker*.
+
+**L'annulation** était déjà là depuis la phase 4 : sept jours, par lot, exacte.
+Ce qui manquait est maintenant écrit sur l'écran — une fusion automatique porte
+la marque « ⟳ automatique » et sa date limite d'annulation. Celle qu'on n'a pas
+demandée est précisément celle qu'il faut pouvoir défaire en connaissance de
+cause.
+
+**Éprouvé par** 7 essais purs (`npm run essais:certification`, dont le fait
+forgé qui certifierait un autre appareil) et 26 essais en navigateur
+(`npm run essais:certification:navigateur`).
+
+**Non éprouvé ici, et c'est dit** : l'échange automatique de bout en bout. Il
+passe par un relais Nostr public, et la politique réseau de la machine de
+développement refuse la connexion — `CONNECT` refusé par le mandataire, code
+403. Le chemin d'échange est cependant **le même** que celui qu'éprouvent
+`essais:liaison` (WebRTC réel entre deux contextes) et `essais:transport`
+(deux bases réelles par fichier) : seul le déclencheur diffère. À vérifier sur
+appareil.
+
 ---
 
 ## 3. Ce que ce plan ne fera pas
@@ -402,7 +527,8 @@ compactage reçu au lieu de ressusciter.
   ou à exploiter.
 - **Pas de synchronisation en arrière-plan non surveillée.** Amendé le 11 octobre
   2026 : elle est rétablie pour un **ordinateur certifié**, activée à la main,
-  avec notification et annulation sous sept jours. Voir `arriere-plan.md`, qui
+  avec notification et annulation sous sept jours — fait le même jour, à la
+  phase 5e. Voir `arriere-plan.md`, qui
   dit aussi ce qui est abandonné : la notification PUSH, faute de serveur pour
   la signer, les services de push ayant retiré CORS de leur point de
   terminaison. Ni push, ni relais qui en prendrait le nom — la notification est

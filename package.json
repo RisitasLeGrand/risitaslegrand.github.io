@@ -66,7 +66,9 @@
     "essais:dossier:navigateur": "node scripts/essais-dossier-navigateur.mjs",
     "essais:compaction": "tsx scripts/essais-compaction.mts",
     "essais:compaction:navigateur": "node scripts/essais-compaction-navigateur.mjs",
-    "mot-de-passe": "node scripts/changer-mot-de-passe.mjs"
+    "mot-de-passe": "node scripts/changer-mot-de-passe.mjs",
+    "essais:certification": "tsx scripts/essais-certification.mts",
+    "essais:certification:navigateur": "node scripts/essais-certification-navigateur.mjs"
   },
   "repository": {
     "type": "git",

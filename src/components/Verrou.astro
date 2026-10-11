@@ -122,6 +122,19 @@
       champ.select();
       return;
     }
+    /*
+       Le mot de passe est retenu **en mémoire** pour la session : c'est lui
+       qu'il faut pour fabriquer et ouvrir un paquet de synchronisation, et
+       « auth.ts » ne garde que la clé dérivée, qui n'ouvre que le contenu
+       publié. Sans cela, synchroniser demanderait de retaper le mot de passe
+       qu'on vient de taper, et la synchronisation sans geste de l'ordinateur
+       certifié serait impossible après un simple rechargement.
+
+       Jamais écrit : ni localStorage, ni sessionStorage, ni IndexedDB. Fermer
+       l'onglet l'oublie, et verrouiller aussi.
+    */
+    const { retenirMotDePasse } = await import('../lib/sync/mot-de-passe-session');
+    retenirMotDePasse(champ.value);
     champ.value = '';
     afficherApplication();
   });

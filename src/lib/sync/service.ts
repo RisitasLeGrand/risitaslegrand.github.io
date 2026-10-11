@@ -107,6 +107,12 @@ export interface LotRecu {
   revisions: number;
   /** Les cartes recalculées, pour savoir ce qu'une annulation défera. */
   cartes: string[];
+  /**
+   * La fusion s'est-elle faite **sans geste** ? L'écran doit le distinguer : une
+   * fusion qu'on n'a pas demandée mérite d'être annoncée, celle qu'on vient de
+   * déclencher n'a pas besoin de l'être.
+   */
+  automatique?: boolean;
 }
 
 /** Au-delà, l'annulation n'est plus offerte. Voir `arriere-plan.md`. */
@@ -275,6 +281,7 @@ export class FusionRefusee extends Error {
 export async function fusionnerPaquet(
   octets: Octets,
   motDePasse: string,
+  options: { automatique?: boolean } = {},
 ): Promise<RapportDeFusion> {
   const base = await db();
   const ouvert = await ouvrir(octets, motDePasse, base.version);
@@ -401,6 +408,7 @@ export async function fusionnerPaquet(
       operations: resultat.recues.length,
       revisions: revisionsRecues.length,
       cartes,
+      automatique: options.automatique || undefined,
     });
   }
 

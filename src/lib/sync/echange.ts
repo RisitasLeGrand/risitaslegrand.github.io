@@ -72,6 +72,8 @@ export interface OptionsEchange {
   /** Délai d'attente du paquet d'en face. */
   delaiMs?: number;
   nomAppareil?: string;
+  /** L'échange se fait-il sans geste, sur un ordinateur certifié ? */
+  automatique?: boolean;
 }
 
 export class EchangeInterrompu extends Error {
@@ -179,7 +181,9 @@ export async function echanger(
 
   dire('fusion');
   try {
-    const rapport = await fusionnerPaquet(recu, motDePasse);
+    const rapport = await fusionnerPaquet(recu, motDePasse, {
+      automatique: options.automatique,
+    });
     await noterReussite(rapport.appareilDistant);
 
     /*

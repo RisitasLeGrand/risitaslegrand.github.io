@@ -189,6 +189,20 @@ const onglets = [
       // « quandDeverrouille » et non un écouteur nu : le paquet de cette page
       // peut arriver après l'ouverture de la session (voir lib/auth.ts).
       quandDeverrouille(() => suivreTemps());
+
+      /*
+         La veille de synchronisation de l'ordinateur certifié.
+
+         Elle vit dans la mise en page et non dans une page, parce que l'onglet
+         qu'on laisse ouvert n'est pas forcément celui des appareils : c'est le
+         tableau de bord, ou une fiche. Le module est importé **paresseusement**
+         et ne fait rien du tout si l'appareil n'est pas certifié — il n'y a
+         donc ni réseau, ni Trystero, ni octet chargé pour les autres.
+      */
+      quandDeverrouille(async () => {
+        const { veiller } = await import('../lib/sync/veille');
+        await veiller();
+      });
     </script>
   </body>
 </html>

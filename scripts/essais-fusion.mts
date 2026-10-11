@@ -367,6 +367,39 @@ propriete(
 {
   const problemes = controlerTypesAConflit();
   v('les huit types à conflit sont au catalogue et sensibles', problemes, []);
+
+  /*
+     La liste est **épinglée**, et c'est voulu. La décision 6 demandait de
+     valider ces huit types « ou d'en ajouter » : un ajout est donc une décision,
+     et une décision se prend en voyant cet essai échouer, pas en découvrant six
+     mois plus tard qu'un type a glissé dans la liste au passage d'un refactor.
+  */
+  v(
+    'et la liste est exactement celle que la décision 6 a validée',
+    [...TYPES_A_CONFLIT_EXPLICITE].sort(),
+    [
+      'odyssee.medicament',
+      'odyssee.mesure',
+      'odyssee.operation',
+      'odyssee.poids',
+      'odyssee.sante',
+      'odyssee.statut-hormonal',
+      'odyssee.valorisation',
+      'sport.blessure',
+    ],
+  );
+
+  /*
+     Et les trois « non » de la décision 6 : des événements, qui s'unissent par
+     identifiant sans conflit possible. Leur ajouter une notification
+     fabriquerait des conflits qui n'existent pas.
+  */
+  for (const type of ['odyssee.checkin', 'odyssee.journal', 'odyssee.repas']) {
+    vrai(
+      `« ${type} » reste hors de la liste : c'est un événement, pas un état`,
+      !TYPES_A_CONFLIT_EXPLICITE.includes(type),
+    );
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

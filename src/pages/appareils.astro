@@ -86,6 +86,62 @@ import Base from '../layouts/Base.astro';
       </p>
     </section>
 
+    <!-- ── Ordinateur certifié ─────────────────────────────────────────── -->
+    <section id="certification" class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+      <div class="mb-2 flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+          Synchronisation automatique
+        </h2>
+        <span id="etat-certification" class="text-sm font-medium text-slate-500 dark:text-slate-400">
+          inactif
+        </span>
+      </div>
+      <p class="mb-3 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        Cet appareil peut synchroniser sans que vous ayez à appuyer sur un
+        bouton.
+      </p>
+      <p class="mb-1 max-w-3xl text-sm font-medium text-slate-700 dark:text-slate-200">
+        Ce que cela veut dire exactement :
+      </p>
+      <ul class="mb-3 max-w-3xl list-disc space-y-1 pl-5 text-sm text-slate-500 dark:text-slate-400">
+        <li>pendant que Cyclades est ouvert dans un onglet ici ;</li>
+        <li>et que l’autre appareil est ouvert aussi.</li>
+      </ul>
+      <p class="mb-4 max-w-3xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
+        Cyclades fermé, ou cet appareil éteint, <strong>rien ne se
+        synchronise</strong>. Un site web ne peut pas tourner tout seul, et nous
+        préférons le dire. Il n’y a donc aucune notification instantanée :
+        l’avis arrive à l’ouverture de Cyclades, ou au réveil du navigateur.
+      </p>
+      <dl id="identite-certification" class="mb-4 grid gap-1 text-sm"></dl>
+      <p class="mb-4 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        Vous serez averti de chaque synchronisation, et vous aurez
+        <strong>sept jours</strong> pour l’annuler.
+      </p>
+      <div class="flex flex-wrap items-center gap-3">
+        <button
+          id="certifier"
+          class="rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700"
+        >
+          Certifier cet appareil
+        </button>
+        <button
+          id="decertifier"
+          class="hidden rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-100 dark:hover:bg-slate-800"
+        >
+          Retirer la certification
+        </button>
+        <button
+          id="autoriser-avis"
+          class="hidden rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-medium text-slate-800 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-100 dark:hover:bg-slate-800"
+        >
+          Autoriser les notifications
+        </button>
+      </div>
+      <p id="message-certification" class="mt-3 hidden text-sm"></p>
+      <p id="veille-certification" class="mt-3 hidden text-sm"></p>
+    </section>
+
     <!-- ── Retrait et révocation ───────────────────────────────────────── -->
     <section class="rounded-2xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-950/40">
       <h2 class="mb-2 text-lg font-semibold text-amber-900 dark:text-amber-200">
@@ -375,6 +431,7 @@ import Base from '../layouts/Base.astro';
     fusionnerPaquet,
     conflitsALire,
     FusionRefusee,
+    JOURS_ANNULABLES,
     lotsRecus,
     nommerAppareil,
     resoudreConflit,
@@ -387,6 +444,20 @@ import Base from '../layouts/Base.astro';
   import { SauvegardeRefusee } from '../lib/sauvegarde/format';
   import { lireAppareil } from '../lib/db';
   import config from '../../site.config.mjs';
+  import {
+    certifier,
+    certificationLocale,
+    certifiesDeclares,
+    TYPE_CERTIFICATION,
+  } from '../lib/sync/certification';
+  import {
+    demanderPermission,
+    enregistrerServiceWorker,
+    etatPermission,
+  } from '../lib/sync/notification';
+  import { cesser, veiller, veilleCourante } from '../lib/sync/veille';
+  import { enregistrerFait } from '../lib/sync/service';
+  import { motDePasseRetenu } from '../lib/sync/mot-de-passe-session';
   import {
     autorisation,
     choisirDossier,
@@ -442,6 +513,99 @@ import Base from '../layouts/Base.astro';
           year: 'numeric',
         })
       : 'date inconnue';
+  }
+
+  /* ── L'ordinateur certifié ───────────────────────────────────────────── */
+
+  const LIBELLES_VEILLE: Record<string, string> = {
+    'non-certifie': 'Veille inactive : cet appareil n’est pas certifié.',
+    'sans-appairage':
+      'Veille en attente : aucun appairage mémorisé. Faites une liaison directe une fois.',
+    'sans-mot-de-passe':
+      'Veille en attente du mot de passe. Il n’est gardé qu’en mémoire : ' +
+      'verrouillez puis déverrouillez pour le retaper, et la veille démarrera.',
+    'autre-onglet': 'Un autre onglet de Cyclades tient déjà la veille.',
+    'en-veille': 'En veille : l’échange se fera dès que l’autre appareil sera ouvert.',
+    'en-cours': 'Échange en cours…',
+    echec: 'Le dernier échange a échoué. La veille continue.',
+  };
+
+  async function peindreCertification() {
+    const [locale, registre, { lisible }] = await Promise.all([
+      certificationLocale(),
+      registreAppareils(),
+      empreinteLocale(),
+    ]);
+    const moi = registre.find((a) => a.soi);
+    const certifie = locale?.certifie === true;
+
+    $('etat-certification').textContent = certifie ? 'actif' : 'inactif';
+    $('etat-certification').className = certifie
+      ? 'text-sm font-medium text-emerald-600 dark:text-emerald-400'
+      : 'text-sm font-medium text-slate-500 dark:text-slate-400';
+
+    /*
+       Le nom et l'empreinte de cet appareil, affichés au moment de certifier :
+       la maquette l'exige, et pour une raison — on doit voir **lequel** on
+       certifie, surtout quand deux appareils portent le même modèle.
+    */
+    definitionsCertification([
+      ['Cet appareil', moi?.nom ? `« ${moi.nom} »` : 'sans nom'],
+      ['Empreinte', lisible],
+      ['Identifiant', moi?.id ?? '—'],
+      ...(certifie && locale
+        ? ([['Certifié le', new Date(locale.le).toLocaleString('fr-FR')]] as [string, string][])
+        : []),
+    ]);
+
+    ($('certifier') as HTMLButtonElement).classList.toggle('hidden', certifie);
+    ($('decertifier') as HTMLButtonElement).classList.toggle('hidden', !certifie);
+    $('autoriser-avis').classList.toggle(
+      'hidden',
+      !certifie || etatPermission() !== 'a-demander',
+    );
+
+    // Un autre appareil se déclare-t-il certifié ? L'amendement en veut un seul
+    // à la fois, et on ne peut pas en révoquer un à distance — on le dit donc.
+    const autres = [...certifiesDeclares((await etatLocal()).operations)].filter(
+      (id) => id !== moi?.id,
+    );
+    const veille = veilleCourante();
+    const texte = certifie
+      ? LIBELLES_VEILLE[veille?.etat() ?? 'sans-appairage'] ??
+        'Veille en attente.'
+      : '';
+    const avertissement = autres.length
+      ? ` « ${autres
+          .map((id) => registre.find((a) => a.id === id)?.nom ?? id)
+          .join(' », « ')} » se déclare aussi certifié : la certification se retire sur ` +
+        'l’appareil lui-même, jamais d’ici.'
+      : '';
+    const ligne = $('veille-certification');
+    ligne.textContent = texte + avertissement;
+    ligne.className =
+      'mt-3 text-sm ' +
+      (autres.length
+        ? 'text-amber-700 dark:text-amber-300'
+        : 'text-slate-500 dark:text-slate-400');
+    ligne.classList.toggle('hidden', !texte && !avertissement);
+  }
+
+  function definitionsCertification(paires: [string, string][]) {
+    const e = $('identite-certification');
+    e.replaceChildren();
+    for (const [clef, valeur] of paires) {
+      const ligne = document.createElement('div');
+      ligne.className = 'flex flex-wrap gap-2';
+      const dt = document.createElement('dt');
+      dt.className = 'text-slate-500 dark:text-slate-400';
+      dt.textContent = `${clef} :`;
+      const dd = document.createElement('dd');
+      dd.className = 'font-mono font-medium text-slate-900 dark:text-white';
+      dd.textContent = valeur;
+      ligne.append(dt, dd);
+      e.appendChild(ligne);
+    }
   }
 
   async function peindreEtat() {
@@ -562,11 +726,29 @@ import Base from '../layouts/Base.astro';
         const bouton = encore
           ? `<button data-lot="${lot.lot}" class="annuler rounded-lg border border-red-300 bg-white px-3 py-1.5 text-sm font-medium text-red-700 transition hover:bg-red-100 dark:border-red-800 dark:bg-transparent dark:text-red-300">Annuler</button>`
           : '<span class="text-slate-400">Plus annulable</span>';
+        /*
+           Une fusion automatique est signalée, et la date limite d'annulation
+           écrite : c'est la seule notification qui ne mente jamais, et celle
+           qu'on n'a pas demandée est précisément celle qu'il faut pouvoir
+           défaire en connaissance de cause.
+        */
+        const limite = new Date(Date.parse(lot.le) + JOURS_ANNULABLES * 86_400_000);
+        const marque = lot.automatique
+          ? '<span class="rounded bg-indigo-100 px-1.5 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200">⟳ automatique</span> '
+          : '';
         return (
-          `<li class="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200 p-3 dark:border-slate-800">` +
-          `<span>Le ${quand}, de « ${venu} » : ${lot.operations} opération(s), ` +
-          `${lot.revisions} révision(s), ${lot.cartes.length} carte(s) recalculée(s).</span>` +
-          `${bouton}</li>`
+          `<li class="flex flex-wrap items-center justify-between gap-3 rounded-xl border p-3 ${
+            lot.automatique
+              ? 'border-indigo-200 bg-indigo-50/40 dark:border-indigo-900 dark:bg-indigo-950/20'
+              : 'border-slate-200 dark:border-slate-800'
+          }">` +
+          `<span>${marque}Le ${quand}, de « ${venu} » : ${lot.operations} opération(s), ` +
+          `${lot.revisions} révision(s), ${lot.cartes.length} carte(s) recalculée(s).` +
+          (encore
+            ? `<br><span class="text-slate-500 dark:text-slate-400">Annulable jusqu’au ` +
+              `${limite.toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}.</span>`
+            : '') +
+          `</span>${bouton}</li>`
         );
       })
       .join('');
@@ -713,6 +895,7 @@ import Base from '../layouts/Base.astro';
   auDeverrouillage(async () => {
     peindreDateMotDePasse();
     await peindreEtat();
+    await peindreCertification();
     await peindreConflits();
     await peindreLots();
     $('chargement').classList.add('hidden');
@@ -968,6 +1151,85 @@ import Base from '../layouts/Base.astro';
       } finally {
         bouton.disabled = false;
       }
+    });
+
+    $('certifier').addEventListener('click', async () => {
+      const bouton = $('certifier') as HTMLButtonElement;
+      bouton.disabled = true;
+      try {
+        await certifier(true);
+        /*
+           La certification est locale ; l'annonce est un fait, écrit **par**
+           cet appareil **sur** lui-même. Un fait qui en certifierait un autre
+           est ignoré à la lecture : c'est la règle « jamais à distance » tenue
+           par le code, et pas seulement par l'écran.
+        */
+        await enregistrerFait(TYPE_CERTIFICATION, await lireAppareil(), { certifie: true });
+        /*
+           La permission de notifier se demande **depuis le geste** : un
+           navigateur refuse une demande non sollicitée, et certains la
+           retiennent contre le site.
+        */
+        const permission = await demanderPermission();
+        await enregistrerServiceWorker(import.meta.env.BASE_URL);
+        await veiller();
+        await peindreEtat();
+        await peindreCertification();
+        dire(
+          'message-certification',
+          'Cet appareil est certifié. Il synchronisera sans geste pendant que Cyclades ' +
+            'est ouvert ici. ' +
+            (permission === 'accordee'
+              ? 'Vous recevrez un avis après chaque fusion.'
+              : permission === 'refusee'
+                ? 'Les notifications sont refusées par le navigateur : les fusions ' +
+                  'resteront visibles ici, dans « Synchronisations reçues ».'
+                : 'Sans notification autorisée, les fusions restent visibles ici.'),
+          'succes',
+        );
+      } catch (erreur) {
+        dire('message-certification', `Échec : ${(erreur as Error).message}`, 'echec');
+      } finally {
+        bouton.disabled = false;
+      }
+    });
+
+    $('decertifier').addEventListener('click', async () => {
+      const bouton = $('decertifier') as HTMLButtonElement;
+      bouton.disabled = true;
+      try {
+        await certifier(false);
+        await enregistrerFait(TYPE_CERTIFICATION, await lireAppareil(), { certifie: false });
+        await cesser();
+        await peindreEtat();
+        await peindreCertification();
+        dire(
+          'message-certification',
+          'Certification retirée. Cet appareil ne synchronisera plus de lui-même ; ' +
+            'rien de ce qu’il a n’est perdu.',
+          'succes',
+        );
+      } catch (erreur) {
+        dire('message-certification', `Échec : ${(erreur as Error).message}`, 'echec');
+      } finally {
+        bouton.disabled = false;
+      }
+    });
+
+    $('autoriser-avis').addEventListener('click', async () => {
+      const etat = await demanderPermission();
+      await enregistrerServiceWorker(import.meta.env.BASE_URL);
+      await peindreCertification();
+      dire(
+        'message-certification',
+        etat === 'accordee'
+          ? 'Notifications autorisées. Un avis s’affichera après chaque fusion automatique.'
+          : etat === 'refusee'
+            ? 'Le navigateur a refusé. Les fusions restent visibles ici, dans ' +
+              '« Synchronisations reçues » — c’est la notification qui ne manque jamais.'
+            : 'Rien n’a changé : la permission reste à demander.',
+        etat === 'accordee' ? 'succes' : 'neutre',
+      );
     });
 
     $('nommer').addEventListener('click', async () => {
