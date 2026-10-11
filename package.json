@@ -32,6 +32,7 @@
     "essais:migration:notes": "node scripts/essais-migration-notes.mjs",
     "essais:stockage": "node scripts/essais-stockage.mjs",
     "essais:effacement": "tsx scripts/essais-effacement.mts",
+    "essais:jour-logique": "tsx scripts/essais-jour-logique.mts",
     "essais:effacement:navigateur": "node scripts/essais-effacement-navigateur.mjs",
     "essais:correctifs": "node scripts/essais-correctifs.mjs",
     "essais:veridical": "tsx scripts/essais-veridical.mts",
