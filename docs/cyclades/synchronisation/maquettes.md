@@ -302,9 +302,12 @@ liste, dans l'aperçu. C'est ton exigence n° 1 — « identiques doit être
 vérifiable » — et la seule façon de la tenir est de montrer l'empreinte si
 souvent qu'on n'ait jamais à la chercher.
 
-**Aucun écran ne promet l'arrière-plan.** Pas de « synchronisation automatique »
-qui laisserait croire à un service qui tourne. Le bandeau dit « synchronisé à
+**Aucun écran ne promet plus que ce qui a lieu.** Le bandeau dit « synchronisé à
 l'instant », au passé, parce que c'est la seule chose vraie d'un site statique.
+L'amendement du 11 octobre ajoute une synchronisation automatique sur un
+ordinateur certifié : son écran d'activation (`arriere-plan.md`) énonce ses deux
+conditions — Cyclades ouvert ici, l'autre appareil ouvert aussi — au lieu de les
+taire.
 
 **L'avertissement « ce n'est pas une sauvegarde » apparaît trois fois** : à
 l'ajout d'un appareil, dans l'aperçu de fusion, et dans la liste des

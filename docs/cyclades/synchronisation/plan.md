@@ -2,7 +2,9 @@
 
 Livrable de la phase 0, écrit le 11 octobre 2026. Les trois autres livrables de
 cette phase sont `decisions.md` (les huit décisions à valider), `maquettes.md`
-(les parcours 3.1 et 3.2) et `compatibilite.md` (le tableau daté).
+(les parcours 3.1 et 3.2) et `compatibilite.md` (le tableau daté). Un cinquième
+document, `arriere-plan.md`, porte l'amendement validé le même jour sur
+l'ordinateur certifié, la notification et l'annulation.
 
 Le prompt qualifie ce chantier de « plus risqué de tous ». Il l'est, et pour une
 raison précise : c'est le premier qui peut **détruire des données déjà saisies**.
@@ -137,6 +139,9 @@ le risque décroissant.
   règle « les états dérivés sont recalculés » est inapplicable. C'est un
   **prérequis**, pas une amélioration.
 - Empreinte d'état.
+- Champ `lot` sur les opérations, nul pour une saisie locale, portant
+  l'identifiant de la fusion qui les a intégrées. Posé dès cette phase : ajouté
+  plus tard, il priverait d'annulation toutes les fusions antérieures.
 - Migration avec **instantané `.cyclades` automatique avant** et retour arrière
   possible tant que la version précédente du schéma est connue.
 
@@ -205,8 +210,12 @@ appareil en retard, rétention, et les cas limites de la section 6 du prompt.
 - **Pas de relais TURN.** Si la liaison directe échoue, l'écran bascule sur A2 ou
   sur C. Un TURN verrait passer le trafic chiffré, et serait un service à payer
   ou à exploiter.
-- **Pas de synchronisation en arrière-plan.** Un site statique n'en a pas les
-  moyens, et aucun écran ne le promettra.
+- **Pas de synchronisation en arrière-plan non surveillée.** Amendé le 11 octobre
+  2026 : elle est rétablie pour un **ordinateur certifié**, activée à la main,
+  avec notification et annulation sous sept jours. Voir `arriere-plan.md`, qui
+  dit aussi ce qui reste impossible — une notification PUSH, faute de serveur
+  pour la signer, les services de push ayant retiré CORS de leur point de
+  terminaison.
 
 ---
 
