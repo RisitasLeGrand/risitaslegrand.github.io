@@ -22,6 +22,7 @@
  */
 import Base from '../../layouts/Base.astro';
 import { MESURES, MOMENTS } from '../../lib/odyssee/corps';
+import { NATURES, VOIES } from '../../lib/odyssee/sensible';
 ---
 
 <Base titre="Mon corps" actif="corps">
@@ -247,12 +248,105 @@ import { MESURES, MOMENTS } from '../../lib/odyssee/corps';
         </details>
       </section>
 
-      <p class="rounded-xl bg-slate-100 px-4 py-3 text-xs text-slate-600 dark:bg-slate-900 dark:text-slate-300">
-        <strong>Médicaments et statut hormonal ne sont pas ici.</strong> Ils appartiennent à ce
-        domaine et sont prévus, mais ils attendent la décision sur le chiffrement au repos : une
-        donnée écrite en clair aujourd’hui laisserait une trace dans les sauvegardes déjà faites,
-        et on ne rattrape pas une donnée qu’on a écrite.
-      </p>
+      <!-- Ce qui passe par le coffre -->
+      <section class="rounded-2xl border-2 border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+          🔒 Mes traitements et mon statut hormonal
+        </h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Ces deux-là sont <strong>chiffrés dans la base</strong> : illisibles sans le mot de passe,
+          même pour une extension de navigateur ou quelqu’un qui ouvre cet ordinateur. La clé n’est
+          jamais mémorisée — c’est pourquoi elle est redemandée à chaque rechargement, y compris si
+          « rester connecté » est coché.
+        </p>
+        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          <strong>Enregistrement seul.</strong> Aucun rappel de prise, aucune vérification
+          d’interaction, aucune posologie proposée : ce seraient des actes médicaux rendus par un
+          logiciel qui ne sait rien de vous.
+        </p>
+
+        <p id="rappel-sauvegarde" class="mt-3 hidden rounded-xl px-4 py-3 text-sm"></p>
+
+        <!-- Le coffre fermé -->
+        <div id="coffre-ferme" class="mt-4 hidden">
+          <label class="block text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Mot de passe</span>
+            <input id="mdp-coffre" type="password" autocomplete="current-password"
+              class="mt-1 min-h-11 w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <button id="ouvrir-coffre" type="button"
+            class="mt-3 min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900"
+            >Ouvrir</button>
+          <p id="erreur-coffre" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+        </div>
+
+        <!-- Le coffre ouvert -->
+        <div id="coffre-ouvert" class="mt-4 hidden space-y-6">
+          <div>
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Ce que j’ai pris</h3>
+            <div class="mt-2 flex flex-wrap items-end gap-3">
+              <label class="text-sm">
+                <span class="block text-slate-700 dark:text-slate-200">Quoi</span>
+                <input id="nom-prise" type="text" maxlength="120"
+                  class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              </label>
+              <label class="text-sm">
+                <span class="block text-slate-700 dark:text-slate-200">Dose</span>
+                <input id="dose" type="text" maxlength="60" placeholder="500 mg"
+                  class="mt-1 min-h-11 w-28 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              </label>
+              <label class="text-sm">
+                <span class="block text-slate-700 dark:text-slate-200">Voie</span>
+                <select id="voie"
+                  class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+                  {Object.entries(VOIES).map(([id, libelle]) => <option value={id}>{libelle}</option>)}
+                </select>
+              </label>
+              <label class="text-sm">
+                <span class="block text-slate-700 dark:text-slate-200">Pourquoi</span>
+                <input id="motif-prise" type="text" maxlength="120"
+                  class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              </label>
+              <button id="noter-prise" type="button"
+                class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+                >Noter</button>
+            </div>
+            <ul id="prises" class="mt-3 space-y-1 text-sm"></ul>
+            <p id="aucune-prise" class="text-sm text-slate-500 dark:text-slate-400">
+              Rien de noté aujourd’hui.
+            </p>
+          </div>
+
+          <div>
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Mon statut</h3>
+            <div class="mt-2 flex flex-wrap items-end gap-3">
+              <label class="text-sm">
+                <span class="block text-slate-700 dark:text-slate-200">Nature</span>
+                <select id="nature"
+                  class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+                  {Object.entries(NATURES).map(([id, libelle]) => <option value={id}>{libelle}</option>)}
+                </select>
+              </label>
+              <label class="min-w-48 flex-1 text-sm">
+                <span class="block text-slate-700 dark:text-slate-200">Intitulé</span>
+                <input id="intitule-statut" type="text" maxlength="200"
+                  class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              </label>
+              <button id="noter-statut" type="button"
+                class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+                >Déclarer</button>
+            </div>
+            <ul id="statuts" class="mt-3 space-y-1 text-sm"></ul>
+            <p id="aucun-statut" class="text-sm text-slate-500 dark:text-slate-400">
+              Rien de déclaré.
+            </p>
+          </div>
+
+          <button id="fermer-coffre" type="button"
+            class="text-xs text-slate-500 underline dark:text-slate-400"
+            >Refermer le coffre maintenant</button>
+        </div>
+      </section>
 
       <p id="erreur" class="hidden text-sm text-rose-700 dark:text-rose-300"></p>
     </div>
@@ -302,6 +396,29 @@ import { MESURES, MOMENTS } from '../../lib/odyssee/corps';
     toutesLesPesees,
     tousLesRepas,
   } from '../../lib/odyssee/donnees-corps';
+  import { coffreOuvert, fermerLeCoffre, ouvrirLeCoffre, surCoffre } from '../../lib/coffre';
+  import { rappelDeSauvegarde } from '../../lib/noyau/coffre';
+  import { lireDerniereSauvegarde } from '../../lib/db';
+  import {
+    NATURES,
+    VOIES,
+    prisesDuJour,
+    statutsEnCours,
+    type NatureDuStatut,
+    type Prise,
+    type StatutHormonal,
+    type VoieDAdministration,
+  } from '../../lib/odyssee/sensible';
+  import {
+    combienDeScelles,
+    ecrirePrise,
+    ecrireStatut,
+    refermerStatut,
+    supprimerPrise,
+    supprimerStatut,
+    toutesLesPrises,
+    tousLesStatuts,
+  } from '../../lib/odyssee/donnees-sensible';
 
   const $ = (id: string) => document.getElementById(id)!;
   const SVG = 'http://www.w3.org/2000/svg';
@@ -313,6 +430,8 @@ import { MESURES, MOMENTS } from '../../lib/odyssee/corps';
   let boissons: Boisson[] = [];
   let sante: EtatDeSante[] = [];
   let aujourdhui = '';
+  let prises: Prise[] = [];
+  let statuts: StatutHormonal[] = [];
 
   const nombre = (n: number, decimales = 1) =>
     n.toLocaleString('fr-FR', { maximumFractionDigits: decimales });
@@ -642,6 +761,114 @@ import { MESURES, MOMENTS } from '../../lib/odyssee/corps';
     }
   }
 
+  /* ── Le coffre ─────────────────────────────────────────────────────────── */
+
+  /**
+   * Le rappel de sauvegarde, gradué.
+   *
+   * C'est la condition **bloquante** de la décision 3 : chiffrer sans
+   * sauvegarder fabrique une perte définitive. Il se calcule coffre **fermé**,
+   * puisque compter les enregistrements scellés n'ouvre rien — et prévenir
+   * quelqu'un qui n'a pas ouvert le coffre depuis longtemps est précisément
+   * utile.
+   */
+  async function peindreRappel() {
+    const [derniere, scelles] = await Promise.all([
+      lireDerniereSauvegarde(),
+      combienDeScelles(),
+    ]);
+    const jours =
+      derniere === null
+        ? null
+        : Math.floor((Date.now() - Date.parse(derniere)) / 86_400_000);
+    const rappel = rappelDeSauvegarde({
+      joursDepuisLaSauvegarde: jours,
+      enregistrementsScelles: scelles,
+    });
+
+    const zone = $('rappel-sauvegarde');
+    zone.classList.toggle('hidden', rappel.insistance === 'aucune');
+    zone.dataset.insistance = rappel.insistance;
+    const fond: Record<string, string> = {
+      discrete: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
+      insistante: 'bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100',
+      urgente: 'bg-rose-50 font-medium text-rose-900 dark:bg-rose-950/40 dark:text-rose-100',
+      aucune: '',
+    };
+    zone.className = `mt-3 rounded-xl px-4 py-3 text-sm ${fond[rappel.insistance]}`;
+    zone.textContent = rappel.message.replaceAll('**', '');
+  }
+
+  function peindreCoffre() {
+    const ouvert = coffreOuvert();
+    $('coffre-ferme').classList.toggle('hidden', ouvert);
+    $('coffre-ouvert').classList.toggle('hidden', !ouvert);
+    if (!ouvert) return;
+
+    const liste = $('prises');
+    liste.innerHTML = '';
+    const duJour = prisesDuJour(prises, aujourdhui);
+    $('aucune-prise').classList.toggle('hidden', duJour.length > 0);
+    for (const groupe of duJour) {
+      const li = document.createElement('li');
+      li.className = 'flex flex-wrap items-baseline gap-2 text-slate-700 dark:text-slate-200';
+      li.dataset.prise = groupe.nom;
+      const texte = document.createElement('span');
+      const heures = groupe.heures
+        .map((h) => new Date(h).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }))
+        .join(', ');
+      texte.textContent = `${groupe.nom} — ${groupe.fois} fois (${heures})`;
+      li.append(texte);
+      for (const prise of prises.filter((p) => p.jour === aujourdhui && p.nom === groupe.nom)) {
+        li.appendChild(
+          bouton(`Retirer ${new Date(prise.le).toLocaleTimeString('fr-FR', {
+            hour: '2-digit',
+            minute: '2-digit',
+          })}`, () => void supprimerPrise(prise.id).then(recharger)),
+        );
+      }
+      liste.appendChild(li);
+    }
+
+    const zone = $('statuts');
+    zone.innerHTML = '';
+    const triees = [...statuts].sort(
+      (a, b) => Number(b.fin === null) - Number(a.fin === null) || b.debut.localeCompare(a.debut),
+    );
+    $('aucun-statut').classList.toggle('hidden', triees.length > 0);
+    const courants = statutsEnCours(statuts);
+    for (const statut of triees) {
+      const li = document.createElement('li');
+      li.className = 'flex flex-wrap items-baseline gap-2 text-slate-700 dark:text-slate-200';
+      li.dataset.statut = statut.id;
+      li.dataset.encours = String(courants.some((c) => c.id === statut.id));
+      const texte = document.createElement('span');
+      texte.textContent =
+        `${NATURES[statut.nature]} — ${statut.intitule}, depuis le ` +
+        `${new Date(statut.debut).toLocaleDateString('fr-FR')}` +
+        (statut.fin ? ` jusqu’au ${new Date(statut.fin).toLocaleDateString('fr-FR')}` : '');
+      li.appendChild(texte);
+      if (!statut.fin) {
+        li.appendChild(
+          bouton('Terminé', () => void refermerStatut(statut.id).then(recharger),
+            'text-indigo-700 dark:text-indigo-300'),
+        );
+      }
+      li.appendChild(bouton('Supprimer', () => void supprimerStatut(statut.id).then(recharger)));
+      zone.appendChild(li);
+    }
+  }
+
+  /** Relit ce que le coffre protège. Silencieux s'il est fermé. */
+  async function rechargerLeCoffre() {
+    if (!coffreOuvert()) {
+      prises = [];
+      statuts = [];
+      return;
+    }
+    [prises, statuts] = await Promise.all([toutesLesPrises(), tousLesStatuts()]);
+  }
+
   /* ── Le cycle ──────────────────────────────────────────────────────────── */
 
   function peindre() {
@@ -651,6 +878,7 @@ import { MESURES, MOMENTS } from '../../lib/odyssee/corps';
     peindreNuits();
     peindreRepas();
     peindreSante();
+    peindreCoffre();
   }
 
   async function recharger() {
@@ -662,7 +890,9 @@ import { MESURES, MOMENTS } from '../../lib/odyssee/corps';
       toutesLesBoissons(),
       toutLEtatDeSante(),
     ]);
+    await rechargerLeCoffre();
     peindre();
+    await peindreRappel();
   }
 
   const essayer = (travail: () => Promise<unknown>) => {
@@ -785,6 +1015,62 @@ import { MESURES, MOMENTS } from '../../lib/odyssee/corps';
           ($('empeche') as HTMLInputElement).checked = false;
         }),
       );
+
+      $('ouvrir-coffre').addEventListener('click', () => {
+        void (async () => {
+          const champ = $('mdp-coffre') as HTMLInputElement;
+          const erreur = await ouvrirLeCoffre(champ.value);
+          $('erreur-coffre').classList.toggle('hidden', erreur === null);
+          if (erreur) {
+            $('erreur-coffre').textContent = erreur;
+            return;
+          }
+          /*
+             Le champ est vidé tout de suite. Laisser un mot de passe dans un
+             champ de formulaire le laisse à portée du gestionnaire de mots de
+             passe, de l'autocomplétion et de la restauration d'onglet.
+          */
+          champ.value = '';
+          await recharger();
+        })();
+      });
+      $('mdp-coffre').addEventListener('keydown', (evenement) => {
+        if ((evenement as KeyboardEvent).key === 'Enter') $('ouvrir-coffre').click();
+      });
+      $('fermer-coffre').addEventListener('click', () => {
+        fermerLeCoffre();
+        void recharger();
+      });
+
+      $('noter-prise').addEventListener('click', () =>
+        essayer(async () => {
+          await ecrirePrise(
+            ($('nom-prise') as HTMLInputElement).value,
+            ($('dose') as HTMLInputElement).value,
+            {
+              voie: ($('voie') as HTMLSelectElement).value as VoieDAdministration,
+              motif: ($('motif-prise') as HTMLInputElement).value.trim(),
+            },
+          );
+          for (const id of ['nom-prise', 'dose', 'motif-prise']) {
+            ($(id) as HTMLInputElement).value = '';
+          }
+        }),
+      );
+
+      $('noter-statut').addEventListener('click', () =>
+        essayer(async () => {
+          await ecrireStatut(($('intitule-statut') as HTMLInputElement).value, {
+            nature: ($('nature') as HTMLSelectElement).value as NatureDuStatut,
+          });
+          ($('intitule-statut') as HTMLInputElement).value = '';
+        }),
+      );
+
+      /* Si le coffre se referme ailleurs — verrouillage de la session —, suivre. */
+      surCoffre(() => {
+        void rechargerLeCoffre().then(() => peindreCoffre());
+      });
 
       await recharger();
       $('vue').classList.remove('hidden');

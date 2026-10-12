@@ -283,6 +283,8 @@ v(
     // Le domaine Corps d'Odyssée, depuis la version 18.
     'odysseePesees', 'odysseeMesures', 'odysseeNuits', 'odysseeRepas', 'odysseeBoissons',
     'odysseeSante', 'odysseeTrajectoires',
+    // Scellés depuis la décision 3.
+    'odysseeMedicaments', 'odysseeHormonal',
   ].sort(),
 );
 

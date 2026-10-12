@@ -8,6 +8,7 @@
  * inégaux pour toujours et l'écran dirait « non identiques » sans que rien ne
  * puisse les rapprocher.
  */
+import { controlerCoffre, estScelle } from '../src/lib/noyau/coffre';
 import fc from 'fast-check';
 import {
   APPAREIL_SOCLE,
@@ -123,7 +124,7 @@ v(
   [],
 );
 /*
-   Huit pour Révisions, douze pour Odyssée, cinq pour Sport.
+   Huit pour Révisions, quatorze pour Odyssée, cinq pour Sport.
 
    Ce compte s'était **tu** quand les quatre premiers magasins de Sport sont
    entrés au registre : l'essai annonçait treize et personne ne le lançait.
@@ -131,9 +132,9 @@ v(
    les compter — un compte qui bouge se corrige sans rien apprendre, une liste
    nommée dit lequel manque.
 */
-v('vingt-cinq magasins journalisés', MAGASINS_JOURNALISES.length, 25);
+v('vingt-sept magasins journalisés', MAGASINS_JOURNALISES.length, 27);
 v(
-  'et les douze d’Odyssée y sont',
+  'et les quatorze d’Odyssée y sont',
   MAGASINS_JOURNALISES.filter((m) => m.magasin.startsWith('odyssee')).map((m) => m.magasin),
   [
     'odysseeTaches',
@@ -150,6 +151,9 @@ v(
     'odysseeSante',
     // Les trajectoires, depuis la phase 9.
     'odysseeTrajectoires',
+    // Les deux scellés, depuis la décision 3.
+    'odysseeMedicaments',
+    'odysseeHormonal',
   ],
 );
 /*
@@ -157,13 +161,18 @@ v(
    le seul moyen de s'apercevoir qu'ils sont arrivés sans que la décision ait
    été prise — une absence ne se remarque pas toute seule.
 */
+/*
+   La décision 3 a été prise le 12 octobre 2026 : les deux magasins existent,
+   et ils sont **scellés**. La ligne qui les attendait en négatif devient donc
+   son contraire — ils doivent être au catalogue du coffre, sans quoi ils
+   voyageraient en clair.
+*/
 v(
-  'ni médicaments ni statut hormonal, tant que la décision 3 n’est pas prise',
-  MAGASINS_JOURNALISES.filter((m) =>
-    ['odysseeMedicaments', 'odysseeHormonal'].includes(m.magasin),
-  ).map((m) => m.magasin),
+  'les deux magasins sensibles sont scellés',
+  ['odysseeMedicaments', 'odysseeHormonal'].filter((m) => !estScelle(m)),
   [],
 );
+v('et le catalogue du coffre se tient', controlerCoffre(), []);
 v(
   'et les cinq de Sport aussi',
   MAGASINS_JOURNALISES.filter((m) => m.magasin.startsWith('sport')).map((m) => m.magasin),

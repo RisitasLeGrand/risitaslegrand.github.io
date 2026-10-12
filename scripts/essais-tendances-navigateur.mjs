@@ -83,8 +83,12 @@ vrai(
   (await page.textContent('#aujourdhui')).includes('—'),
 );
 vrai(
-  'et la réserve sur les médicaments est dite',
-  (await page.textContent('#vue')).includes('Médicaments et statut hormonal ne sont pas ici'),
+  'et le coffre annonce ce qu’il protège',
+  (await page.textContent('#vue')).includes('chiffrés dans la base'),
+);
+vrai(
+  'ainsi que sa contrepartie : la clé n’est pas mémorisée',
+  (await page.textContent('#vue')).includes('jamais mémorisée'),
 );
 
 /* Un poids impossible : refusé par le contrôle du modèle, pas par l'écran. */
@@ -157,6 +161,111 @@ v(
   'l’état déclaré empêche l’effort',
   await page.getAttribute('#sante-ouverte [data-sante]', 'data-empeche'),
   'true',
+);
+
+/* ════════════════════════════════════════════════════════════════════════
+   1 bis. Le coffre : rien n'est lisible sans le mot de passe
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nLE COFFRE SCELLE POUR DE VRAI');
+
+/*
+   Le coffre est **fermé en arrivant sur la page**, et c'est le comportement
+   réel : sa clé vit dans une variable de module, qui ne survit pas à une
+   navigation. Sur un site multi-pages, cela veut dire une saisie du mot de
+   passe à chaque visite de l'écran — bien plus lourd que « une fois par
+   rechargement », et c'est un point ouvert du plan de la partie P.
+*/
+vrai('le coffre est fermé en arrivant', await page.locator('#coffre-ferme').isVisible());
+await page.fill('#mdp-coffre', MDP);
+await page.click('#ouvrir-coffre');
+await page.waitForSelector('#coffre-ouvert:not(.hidden)', { timeout: 20000 });
+
+await page.fill('#nom-prise', 'Paracétamol');
+await page.fill('#dose', '500 mg');
+await page.fill('#motif-prise', 'Mal de tête');
+await page.click('#noter-prise');
+await page.waitForFunction(
+  () => document.querySelectorAll('#prises li').length > 0,
+  { timeout: 15000 },
+);
+vrai('la prise est enregistrée', true);
+
+const surDisque = await page.evaluate(
+  () =>
+    new Promise((ok, ko) => {
+      const demande = indexedDB.open('revinsp');
+      demande.onerror = () => ko(demande.error);
+      demande.onsuccess = () => {
+        const base = demande.result;
+        const tx = base.transaction('odysseeMedicaments', 'readonly');
+        const tout = tx.objectStore('odysseeMedicaments').getAll();
+        tx.oncomplete = () => {
+          base.close();
+          ok(JSON.stringify(tout.result));
+        };
+        tx.onerror = () => ko(tx.error);
+      };
+    }),
+);
+faux('« Paracétamol » n’est pas lisible dans la base', surDisque.includes('Paracétamol'));
+faux('ni la dose', surDisque.includes('500 mg'));
+faux('ni le motif', surDisque.includes('Mal de tête'));
+vrai('mais l’enregistrement existe, scellé', surDisque.includes('"scelle"'));
+
+/*
+   Et le rappel de sauvegarde se réveille : du scellé existe, rien n'a été
+   sauvegardé. C'est la condition bloquante de la décision 3.
+*/
+vrai('le rappel de sauvegarde est affiché', await page.locator('#rappel-sauvegarde').isVisible());
+v(
+  'et il est urgent, puisque rien n’est sauvegardé',
+  await page.getAttribute('#rappel-sauvegarde', 'data-insistance'),
+  'urgente',
+);
+
+/* Refermer le coffre cache le contenu sans rien perdre. */
+await page.click('#fermer-coffre');
+await page.waitForSelector('#coffre-ferme:not(.hidden)', { timeout: 15000 });
+vrai('refermé, le formulaire disparaît', await page.locator('#coffre-ferme').isVisible());
+faux('et le contenu avec', await page.locator('#coffre-ouvert').isVisible());
+
+/* Un mot de passe faux est refusé avant toute dérivation. */
+await page.fill('#mdp-coffre', 'ceci-nest-pas-le-mot-de-passe');
+await page.click('#ouvrir-coffre');
+await page.waitForSelector('#erreur-coffre:not(.hidden)', { timeout: 15000 });
+vrai(
+  'un mot de passe faux est refusé',
+  (await page.textContent('#erreur-coffre')).includes('incorrect'),
+);
+
+await page.fill('#mdp-coffre', MDP);
+await page.click('#ouvrir-coffre');
+await page.waitForSelector('#coffre-ouvert:not(.hidden)', { timeout: 20000 });
+vrai(
+  'et le bon mot de passe rouvre, avec le contenu intact',
+  (await page.textContent('#prises')).includes('Paracétamol'),
+);
+v(
+  'le champ de mot de passe est vidé',
+  await page.inputValue('#mdp-coffre'),
+  '',
+);
+
+/*
+   Le rechargement : la clé du contenu revient du stockage, celle du coffre
+   **non**. C'est la contrepartie annoncée — et, on vient de le voir, elle
+   vaut même pour une simple navigation.
+*/
+await page.reload({ waitUntil: 'networkidle' });
+await deverrouiller();
+await page.waitForSelector('#vue:not(.hidden)', { timeout: 40000 });
+vrai(
+  'après rechargement, le coffre est refermé',
+  await page.locator('#coffre-ferme').isVisible(),
+);
+faux(
+  'et rien de son contenu n’est affiché',
+  (await page.textContent('#vue')).includes('Paracétamol'),
 );
 
 /* ════════════════════════════════════════════════════════════════════════

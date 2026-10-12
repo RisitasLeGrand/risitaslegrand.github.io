@@ -1,0 +1,334 @@
+/**
+ * Le coffre : le chiffrement au repos des quatre domaines sensibles.
+ *
+ * Décision 3, prise le 12 octobre 2026 : **Psyché, Finances, médicaments et
+ * statut hormonal** sont chiffrés dans IndexedDB ; le reste — sommeil, poids,
+ * séances de sport, révisions — reste en clair.
+ *
+ * ## Ce que ce chiffrement protège, et quand
+ *
+ * Il protège contre quiconque **lit la base sans le mot de passe** : une
+ * extension de navigateur, un autre profil, un outil d'inspection, quelqu'un
+ * qui ouvre l'ordinateur. Et il ne protège que **session verrouillée**, pour
+ * une raison qu'il faut dire en face :
+ *
+ * > La clé du coffre n'est **jamais écrite**, ni en `localStorage`, ni en
+ * > `sessionStorage`, ni dans IndexedDB. Elle vit en mémoire, le temps de
+ * > l'onglet.
+ *
+ * C'est ce qui distingue ce chiffrement d'un théâtre. La clé du contenu, elle,
+ * est mémorisée quand on coche « rester connecté » — et une extension capable
+ * de lire IndexedDB peut tout aussi bien lire `localStorage`. Dériver la clé
+ * du coffre de la même façon n'aurait donc rien protégé du tout : l'attaquant
+ * aurait eu les deux.
+ *
+ * **La contrepartie est réelle et assumée** : après un rechargement, les
+ * écrans sensibles redemandent le mot de passe une fois, même si « rester
+ * connecté » est coché. C'est le prix de la protection, et le prétendre
+ * gratuit serait mentir.
+ *
+ * ## Ce que ce chiffrement ne protège pas
+ *
+ * **Les champs d'index restent en clair.** On ne peut pas indexer ce qu'on ne
+ * lit pas, et sans index une lecture par jour parcourt toute la table. Un
+ * enregistrement scellé expose donc son identifiant, son jour logique et son
+ * domaine. La décision 3 le disait déjà : « un index en clair sur les dates et
+ * les domaines dit déjà beaucoup ». Ce qu'il **ne** dit **pas** est le
+ * contenu : qu'on ait écrit quelque chose le 12 octobre dans Psyché se voit ;
+ * ce qu'on a écrit, non.
+ *
+ * Chaque magasin sensible déclare donc ses champs clairs, et
+ * `controlerCoffre()` refuse qu'un champ de contenu s'y glisse.
+ *
+ * ## La perte du mot de passe devient la perte des données
+ *
+ * C'est le premier coût listé par la décision, et il change de nature : un
+ * cours se reconstruit depuis le dépôt, un journal psychique de trois ans ne
+ * se reconstruit pas. La décision pose en condition **bloquante** que le
+ * rappel de sauvegarde devienne plus insistant sur ces domaines. C'est
+ * `rappelDeSauvegarde()`, plus bas, et les écrans concernés l'affichent.
+ */
+
+/** La version du format scellé. Un jour, elle servira. */
+export const VERSION_COFFRE = 1;
+
+/** Un enregistrement chiffré : l'IV et le texte chiffré, tous deux en base64. */
+export interface Scelle {
+  v: number;
+  iv: string;
+  ct: string;
+}
+
+/**
+ * Les magasins chiffrés, et les champs qu'ils laissent en clair.
+ *
+ * La liste est **fermée** : un magasin qui n'y figure pas n'est pas chiffré,
+ * et c'est délibéré. Chiffrer par principe coûterait un déchiffrement à chaque
+ * lecture de la roue du jour, pour protéger un nombre de séries de
+ * musculation.
+ */
+export interface MagasinScelle {
+  magasin: string;
+  /** Pourquoi celui-ci et pas un autre. */
+  pourquoi: string;
+  /**
+   * Les champs laissés en clair, parce qu'ils servent d'index ou de clé.
+   *
+   * Rien d'autre ne doit y figurer. Un champ en clair est un champ lisible
+   * sans mot de passe, et la tentation est grande d'en ajouter « juste un »
+   * pour éviter un déchiffrement.
+   */
+  clairs: readonly string[];
+}
+
+export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
+  {
+    magasin: 'odysseeCheckins',
+    pourquoi: 'Psyché : un état intérieur quotidien, lu par un tiers, fait un dommage.',
+    clairs: ['id', 'jour', 'majLe'],
+  },
+  {
+    magasin: 'odysseeJournal',
+    pourquoi: 'Psyché : le journal est l’objet le plus intime de l’application.',
+    clairs: ['id', 'jour', 'majLe'],
+  },
+  {
+    magasin: 'odysseeMedicaments',
+    pourquoi:
+      'Un traitement déclaré est une donnée de santé au sens le plus strict, et son enregistrement est le seul service rendu — aucun conseil, aucune dose proposée.',
+    clairs: ['id', 'jour', 'majLe'],
+  },
+  {
+    magasin: 'odysseeHormonal',
+    pourquoi:
+      'Statut hormonal et substances : une période déclarative dont la lecture par un tiers peut coûter très cher.',
+    clairs: ['id', 'debut', 'majLe'],
+  },
+  {
+    magasin: 'odysseeComptes',
+    pourquoi: 'Finances : un solde et un intitulé de compte se lisent d’un coup d’œil.',
+    clairs: ['id', 'majLe'],
+  },
+  {
+    magasin: 'odysseeOperations',
+    pourquoi: 'Finances : les opérations racontent une vie entière, jour par jour.',
+    clairs: ['id', 'jour', 'compteId', 'majLe'],
+  },
+  {
+    magasin: 'odysseePositions',
+    pourquoi: 'Finances : un portefeuille est un patrimoine.',
+    clairs: ['id', 'majLe'],
+  },
+];
+
+const PAR_MAGASIN = new Map(MAGASINS_SCELLES.map((m) => [m.magasin, m]));
+
+export const magasinScelle = (magasin: string): MagasinScelle | undefined =>
+  PAR_MAGASIN.get(magasin);
+
+export const estScelle = (magasin: string): boolean => PAR_MAGASIN.has(magasin);
+
+/**
+ * Les champs qu'un magasin scellé n'a **jamais** le droit de laisser en clair.
+ *
+ * Nommés en négatif, comme les magasins absents du registre : une fuite ne se
+ * remarque pas toute seule, et il suffit d'un « juste celui-là, pour éviter un
+ * déchiffrement » pour que le coffre cesse de servir.
+ */
+export const CHAMPS_INTERDITS_EN_CLAIR: readonly string[] = [
+  'montant',
+  'solde',
+  'intitule',
+  'libelle',
+  'note',
+  'texte',
+  'contenu',
+  'humeur',
+  'anxiete',
+  'moral',
+  'energie',
+  'nom',
+  'dose',
+  'substance',
+  'molecule',
+  'motif',
+  'categorie',
+  'beneficiaire',
+  'quantite',
+  'valeur',
+];
+
+/**
+ * Le catalogue du coffre se tient-il ?
+ *
+ * Trois choses : aucun champ de contenu en clair, un identifiant toujours en
+ * clair — sans quoi on ne pourrait pas relire l'enregistrement —, et une
+ * raison écrite pour chaque magasin.
+ */
+export function controlerCoffre(): string[] {
+  const problemes: string[] = [];
+  for (const m of MAGASINS_SCELLES) {
+    if (!m.clairs.includes('id')) {
+      problemes.push(`« ${m.magasin} » doit laisser « id » en clair : c’est sa clé.`);
+    }
+    if (!m.pourquoi.trim()) problemes.push(`« ${m.magasin} » ne dit pas pourquoi il est scellé.`);
+    for (const champ of m.clairs) {
+      if (CHAMPS_INTERDITS_EN_CLAIR.includes(champ)) {
+        problemes.push(
+          `« ${m.magasin} » laisse « ${champ} » en clair : c’est du contenu, pas un index.`,
+        );
+      }
+    }
+  }
+  const vus = new Set<string>();
+  for (const m of MAGASINS_SCELLES) {
+    if (vus.has(m.magasin)) problemes.push(`« ${m.magasin} » est déclaré deux fois.`);
+    vus.add(m.magasin);
+  }
+  return problemes;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Sceller et ouvrir
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const encodeur = new TextEncoder();
+const decodeur = new TextDecoder();
+
+const octetsVersBase64 = (octets: Uint8Array): string => {
+  let binaire = '';
+  for (const o of octets) binaire += String.fromCharCode(o);
+  return btoa(binaire);
+};
+
+const base64VersOctets = (b64: string): Uint8Array => {
+  const binaire = atob(b64);
+  const octets = new Uint8Array(binaire.length);
+  for (let i = 0; i < binaire.length; i += 1) octets[i] = binaire.charCodeAt(i);
+  return octets;
+};
+
+/**
+ * Sépare un enregistrement en sa partie claire et sa partie scellée.
+ *
+ * Tout ce qui n'est pas déclaré clair part dans le chiffré, **y compris les
+ * champs qu'on ajouterait plus tard sans y penser**. C'est le sens de la
+ * séparation : un champ nouveau est scellé par défaut, et il faut un geste
+ * explicite pour l'exposer.
+ */
+export async function sceller(
+  cle: CryptoKey,
+  magasin: string,
+  enregistrement: Record<string, unknown>,
+): Promise<Record<string, unknown>> {
+  const declare = PAR_MAGASIN.get(magasin);
+  if (!declare) throw new Error(`« ${magasin} » n’est pas un magasin scellé.`);
+
+  const clair: Record<string, unknown> = {};
+  const secret: Record<string, unknown> = {};
+  for (const [champ, valeur] of Object.entries(enregistrement)) {
+    if (champ === 'scelle') continue;
+    if (declare.clairs.includes(champ)) clair[champ] = valeur;
+    else secret[champ] = valeur;
+  }
+
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const chiffre = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv: iv as BufferSource },
+    cle,
+    encodeur.encode(JSON.stringify(secret)) as BufferSource,
+  );
+  return {
+    ...clair,
+    scelle: {
+      v: VERSION_COFFRE,
+      iv: octetsVersBase64(iv),
+      ct: octetsVersBase64(new Uint8Array(chiffre)),
+    } satisfies Scelle,
+  };
+}
+
+/** Rouvre un enregistrement scellé. Lève si la clé ne convient pas. */
+export async function ouvrir<T>(cle: CryptoKey, range: Record<string, unknown>): Promise<T> {
+  const scelle = range.scelle as Scelle | undefined;
+  if (!scelle) {
+    // Pas scellé : un enregistrement écrit avant la migration, ou une erreur.
+    return range as T;
+  }
+  const clair = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: base64VersOctets(scelle.iv) as BufferSource },
+    cle,
+    base64VersOctets(scelle.ct) as BufferSource,
+  );
+  const secret = JSON.parse(decodeur.decode(clair)) as Record<string, unknown>;
+  const { scelle: _, ...reste } = range;
+  return { ...reste, ...secret } as T;
+}
+
+/** L'enregistrement est-il effectivement scellé ? Sert aux essais et aux contrôles. */
+export const estFerme = (range: Record<string, unknown>): boolean =>
+  typeof range.scelle === 'object' && range.scelle !== null;
+
+/* ══════════════════════════════════════════════════════════════════════════
+   La condition bloquante : le rappel de sauvegarde
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** Au-delà, le rappel passe de discret à insistant. */
+export const JOURS_AVANT_INSISTANCE = 14;
+
+export type Insistance = 'aucune' | 'discrete' | 'insistante' | 'urgente';
+
+export interface RappelDeSauvegarde {
+  insistance: Insistance;
+  message: string;
+}
+
+/**
+ * Le rappel de sauvegarde, plus fort dès qu'une donnée scellée existe.
+ *
+ * La décision 3 en fait une condition **bloquante** : « chiffrer sans
+ * sauvegarder, c'est fabriquer une perte définitive ». Un journal de trois ans
+ * perdu avec un mot de passe oublié ne se reconstruit pas, contrairement à un
+ * cours, qui se régénère depuis le dépôt.
+ *
+ * Le rappel est donc gradué sur deux choses : depuis combien de temps on n'a
+ * pas sauvegardé, et **s'il y a du scellé à perdre**. Sans scellé, le rappel
+ * reste ce qu'il était.
+ */
+export function rappelDeSauvegarde(options: {
+  joursDepuisLaSauvegarde: number | null;
+  enregistrementsScelles: number;
+}): RappelDeSauvegarde {
+  const { joursDepuisLaSauvegarde: jours, enregistrementsScelles: scelles } = options;
+  if (!scelles) {
+    return jours === null || jours > JOURS_AVANT_INSISTANCE
+      ? {
+          insistance: 'discrete',
+          message: 'Pensez à sauvegarder : le contenu des cours se régénère, votre progression non.',
+        }
+      : { insistance: 'aucune', message: '' };
+  }
+
+  if (jours === null) {
+    return {
+      insistance: 'urgente',
+      message:
+        `${scelles} enregistrement${scelles > 1 ? 's' : ''} chiffré${scelles > 1 ? 's' : ''} ` +
+        'et **aucune sauvegarde**. Ces données ne se reconstruisent pas : un mot de passe oublié ' +
+        'les perd définitivement. Sauvegardez avant d’en écrire davantage.',
+    };
+  }
+  if (jours > JOURS_AVANT_INSISTANCE) {
+    return {
+      insistance: 'insistante',
+      message:
+        `Dernière sauvegarde il y a ${jours} jours, et ${scelles} enregistrement` +
+        `${scelles > 1 ? 's' : ''} chiffré${scelles > 1 ? 's' : ''} depuis. Un journal ou des ` +
+        'comptes perdus ne se reconstruisent pas depuis le dépôt, contrairement aux cours.',
+    };
+  }
+  return {
+    insistance: 'discrete',
+    message: `Sauvegardé il y a ${jours} jour${jours > 1 ? 's' : ''}. Ces données sont chiffrées : la sauvegarde est la seule copie.`,
+  };
+}

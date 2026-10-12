@@ -356,6 +356,13 @@ export const MAGASINS_JOURNALISES: readonly MagasinJournalise[] = [
      trois semaines. La perdre en changeant d'appareil coûterait quelque chose.
   */
   M({ magasin: 'odysseeTrajectoires', type: 'odyssee.quete', clef: 'id', libelle: 'Trajectoire' }),
+  /*
+     Les deux magasins **scellés**. Ils voyagent comme les autres, mais ce qui
+     voyage est le chiffré : un paquet de synchronisation qui traverse un QR
+     code ou un dossier partagé ne doit pas exposer un traitement.
+  */
+  M({ magasin: 'odysseeMedicaments', type: 'odyssee.medicament', clef: 'id', libelle: 'Prise' }),
+  M({ magasin: 'odysseeHormonal', type: 'odyssee.statut-hormonal', clef: 'id', libelle: 'Statut hormonal' }),
 ];
 
 const PAR_MAGASIN = new Map(MAGASINS_JOURNALISES.map((m) => [m.magasin, m]));

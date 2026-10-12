@@ -16,6 +16,7 @@ import type { Evenement, Focus, Quete, Revue, Tache } from './odyssee/modele';
 import type { Blessure, Exercice, Phase, Seance as SeanceSport } from './sport/modele';
 import type { Programme as ProgrammeSport } from './sport/programmes';
 import type { Trajectoire } from './odyssee/trajectoires';
+import type { Prise, StatutHormonal } from './odyssee/sensible';
 import type {
   Boisson,
   EtatDeSante,
@@ -569,10 +570,19 @@ interface SchemaRevinsp extends DBSchema {
   odysseeBoissons: { key: string; value: Boisson; indexes: { jour: string } };
   odysseeSante: { key: string; value: EtatDeSante; indexes: { debut: string } };
   odysseeTrajectoires: { key: string; value: Trajectoire; indexes: { statut: string } };
+  /*
+     Les deux magasins **scellés** du domaine Corps. Leur valeur n'est pas le
+     type déclaré mais un enregistrement dont la plus grande part est chiffrée :
+     voir `noyau/coffre.ts`. Le type reste écrit ici parce que c'est ce qu'on
+     obtient après ouverture, et qu'un `unknown` ferait perdre la vérification
+     exactement là où la donnée est la plus sensible.
+  */
+  odysseeMedicaments: { key: string; value: Prise; indexes: { jour: string } };
+  odysseeHormonal: { key: string; value: StatutHormonal; indexes: { debut: string } };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 19;
+const VERSION = 20;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1104,6 +1114,21 @@ function ouvrirAuSchema(nom: string, version: number) {
           'statut',
           'statut',
         );
+      }
+      if (vers(20)) {
+        /*
+         * Médicaments et statut hormonal, retenus depuis la phase 6 par la
+         * décision 3 — prise le 12 octobre 2026. Ils arrivent **chiffrés dès
+         * leur création** : c'est tout l'intérêt d'avoir attendu. Une migration
+         * qui aurait eu à chiffrer après coup aurait laissé la version en clair
+         * dans les instantanés de migration, et on ne rattrape pas cela.
+         *
+         * Les index portent sur des champs laissés en clair à dessein (`jour`,
+         * `debut`), et c'est la fuite que la décision 3 nomme : qu'on ait écrit
+         * quelque chose ce jour-là se voit ; ce qu'on a écrit, non.
+         */
+        base.createObjectStore('odysseeMedicaments', { keyPath: 'id' }).createIndex('jour', 'jour');
+        base.createObjectStore('odysseeHormonal', { keyPath: 'id' }).createIndex('debut', 'debut');
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -1957,6 +1982,8 @@ export const MAGASINS_PROGRESSION = [
   'odysseeBoissons',
   'odysseeSante',
   'odysseeTrajectoires',
+  'odysseeMedicaments',
+  'odysseeHormonal',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */

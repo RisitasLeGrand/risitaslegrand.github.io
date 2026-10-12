@@ -106,6 +106,20 @@ export async function deverrouiller(motDePasse: string, persistant: boolean): Pr
 
   cleMemoire = cle;
   ecrireStockage(await exporterCle(cle), persistant);
+
+  /*
+     Le coffre s'ouvre du même geste, puisque le mot de passe est là. Sa clé,
+     elle, n'est **pas** mémorisée : au prochain chargement, la clé du contenu
+     reviendra du stockage et les écrans sensibles redemanderont le mot de
+     passe. C'est voulu — voir `coffre.ts`.
+  */
+  try {
+    const { ouvrirLeCoffre } = await import('./coffre');
+    await ouvrirLeCoffre(motDePasse);
+  } catch {
+    // Un coffre qui n'a pas pu s'ouvrir ne doit pas empêcher d'entrer.
+  }
+
   abonnes.forEach((f) => f(true));
   return null;
 }
@@ -116,6 +130,12 @@ export function verrouiller() {
   effacerStockage();
   viderCache();
   oublierCleActualites();
+  /*
+     Et le coffre avec. Le laisser ouvert après un verrouillage explicite
+     serait la pire des incohérences : on croirait avoir tout fermé, et les
+     écrans sensibles resteraient lisibles.
+  */
+  void import('./coffre').then(({ fermerLeCoffre }) => fermerLeCoffre());
   abonnes.forEach((f) => f(false));
 }
 
