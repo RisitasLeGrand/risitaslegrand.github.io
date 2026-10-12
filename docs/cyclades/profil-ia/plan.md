@@ -502,6 +502,72 @@ et non une valeur fausse.
 
 ### Phase E — Le schéma strict, l'import, la vérification *(= phase 4)*
 
+> **E faite, le 12 octobre 2026.** Le validateur, l'enveloppe, le prompt de réparation, la
+> vérification des chiffres, l'aperçu, le tri et la conservation.
+>
+> **Le validateur lit la déclaration du schéma**, pas une copie. Écrit à côté, il aurait divergé du
+> fichier servi à l'IA au premier champ ajouté — et l'import aurait refusé une réponse pourtant
+> conforme à ce qu'on avait demandé. Il est **écrit à la main**, parce que les messages en français
+> avec le chemin exact — « constats[2].preuves[0].indicateur : identifiant inconnu » — **sont** la
+> fonctionnalité : ce sont eux qui nourrissent le prompt de réparation, la seule façon de faire
+> corriger une IA sans l'appeler.
+>
+> **Enveloppe tolérante, contenu strict.** Un bloc de code, une phrase d'introduction, une
+> conclusion, une virgule finale : retirés, et **dits** — l'écran annonce ce qu'il a enlevé, car
+> taire un retrait ferait croire que le texte collé était propre. Le contenu, lui, ne se négocie
+> pas, et **rien n'est importé partiellement** : l'analyse est entière ou nulle.
+>
+> **Les quatre références croisées sont la moitié du travail.** Le schéma dit la forme ; il ne dit
+> pas qu'un `lie_aux_constats` pointe sur un constat qui existe, qu'un identifiant d'indicateur est
+> au catalogue, que les identifiants sont uniques *dans toute l'analyse* et que les dates tombent
+> dans la période. Ce sont ces quatre contrôles qui attrapent une IA qui a inventé. Elles ne sont
+> cherchées que si la forme tient : chercher un lien dans un objet dont `constats` n'est pas une
+> liste produirait des messages qui parlent d'un autre problème que le vrai.
+>
+> **Quatre verdicts, et les deux qui manquent partout.** « Approché » : une IA qui lit 5,3 h et cite
+> 5 h n'a pas inventé, elle a arrondi, et la signaler comme fausse ferait cesser de lire les
+> verdicts. « Non vérifiable » : une compaction a effacé le détail, ou l'unité ne correspond pas —
+> dire « non retrouvé » accuserait l'IA d'avoir inventé alors que c'est **nous** qui ne savons plus.
+> C'est la distinction la plus importante du module, et l'ordre des contrôles la protège :
+> l'impossibilité de vérifier passe **avant** la comparaison.
+>
+> **L'unité ne se convertit jamais en silence.** Des heures citées là où le catalogue compte des
+> secondes donnent « non vérifiable », pas une conversion devinée : une conversion marcherait neuf
+> fois sur dix et, la dixième, confirmerait un chiffre faux.
+>
+> **La borne de compaction est lue du journal local**, et non du manifeste : une compaction peut
+> avoir eu lieu **depuis** l'export, et c'est précisément le cas où la vérification devient
+> impossible. Lire le manifeste dirait « tout était là au moment de l'export », ce qui est vrai et
+> sans intérêt pour un recalcul fait aujourd'hui.
+>
+> **Une seule preuve non retrouvée rend tout le constat douteux**, et l'écran le signale en
+> évidence : un constat bâti sur trois chiffres dont un est inventé n'est pas aux deux tiers juste.
+>
+> **Le tri refuse d'adopter une action dont le constat est écarté.** Adopter l'action en rejetant sa
+> raison laisserait une trajectoire que plus rien ne justifie, et qu'on ne saurait pas évaluer. Le
+> plafond de trois trajectoires actives de C.8 est tenu, les questions rejoignent la revue, et les
+> remarques de qualité deviennent des « à vérifier » — **jamais** des corrections automatiques.
+>
+> **L'analyse conservée est une opération journalisée**, donc chiffrée et synchronisée, **étiquetée**
+> « analyse externe produite par une IA, non vérifiée ». L'étiquette est posée par le module et non
+> par l'appelant : un appelant qui l'oublierait conserverait une analyse d'IA indiscernable d'une
+> donnée mesurée. Un export inconnu — journal effacé, autre source — n'empêche pas l'import : il
+> porte un avertissement, comme B.6.3 le demande.
+>
+> **Tout est rendu en texte échappé.** Le site sait rendre du Markdown, pour les fiches qui viennent
+> du dépôt ; une analyse importée n'emprunte jamais ce chemin. Et le balisage est refusé **à la
+> validation** et pas seulement à l'affichage : un refus à la source évite d'avoir à se demander, à
+> chaque rendu, si tel champ a été nettoyé.
+>
+> Un défaut de formulation trouvé par l'essai de navigateur : une virgule qui traîne après
+> l'accolade finale était annoncée comme « une phrase de conclusion ». Ce n'en est pas une, et le
+> dire ferait chercher à la personne une phrase qu'elle n'a pas écrite.
+>
+> **Essais** : `essais:validateur` (88 contrôles), `essais:verification` (57) et
+> `essais:import:navigateur` (47, le cycle complet depuis un export réel : un chiffre juste
+> confirmé, un chiffre inventé non retrouvé, une unité non convertie, et l'opération journalisée
+> avec son étiquette).
+
 - `schema-analyse.json` et `exemple-analyse.json`, servis avec l'export.
 - Le validateur : **écrit à la main**, sans dépendance. Un validateur de schéma JSON générique
   pèserait plus que ce qu'il apporte pour un schéma fermé de cette taille, et les messages d'erreur

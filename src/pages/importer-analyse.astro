@@ -1,0 +1,568 @@
+---
+/**
+ * « Importer une analyse » : valider, vérifier, apercevoir, trier.
+ *
+ * ## Les six étapes de B.6, et celle qui compte
+ *
+ * Validation stricte avec messages en français et chemin exact ; prompt de
+ * réparation à copier ; rattachement à l'export ; **vérification automatique
+ * des chiffres cités** ; aperçu ; tri par la personne. La quatrième est celle
+ * qui fait la différence entre importer une analyse et la croire.
+ *
+ * ## Tout est rendu en texte échappé
+ *
+ * Le site sait rendre du Markdown — pour les fiches de cours, qui viennent du
+ * dépôt et qu'on a écrites. Une analyse importée n'emprunte **jamais** ce
+ * chemin : `textContent` partout, aucune image distante, aucun lien ouvert. Le
+ * texte d'une IA est une donnée, et une donnée ne s'exécute pas.
+ */
+import Base from '../layouts/Base.astro';
+---
+
+<Base titre="Importer une analyse" entete="leger">
+  <div class="mx-auto max-w-3xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Importer une analyse</h1>
+    <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      Collez la réponse de l’IA, ou choisissez le fichier qu’elle vous a rendu. Cyclades la valide,
+      <strong>recalcule les chiffres cités</strong> et vous montre ce qu’elle vaut avant d’en garder
+      quoi que ce soit.
+    </p>
+
+    <div
+      class="mt-5 rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+      role="note"
+    >
+      Une analyse importée est <strong>produite par une IA et non vérifiée</strong>. Elle est
+      conservée avec cette étiquette, affichée en texte brut, et ne modifie jamais vos données
+      d’elle-même. Pour ce qui touche au corps, à la santé ou aux finances, consultez un
+      professionnel.
+    </div>
+
+    <!-- ── 1. Le texte ──────────────────────────────────────────────────── -->
+    <section class="mt-8">
+      <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">1. La réponse de l’IA</h2>
+      <textarea
+        id="brut"
+        rows="10"
+        spellcheck="false"
+        placeholder="Collez ici l’objet JSON. Un bloc de code, une phrase d’introduction ou une virgule finale sont retirés automatiquement."
+        class="w-full rounded-lg border border-slate-300 px-3 py-2 font-mono text-xs text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+      ></textarea>
+      <div class="mt-3 flex flex-wrap items-center gap-3">
+        <input
+          id="fichier"
+          type="file"
+          accept=".json,.txt,application/json,text/plain"
+          class="text-sm"
+        />
+        <span class="flex-1"></span>
+        <button
+          id="verifier"
+          type="button"
+          class="min-h-11 rounded-lg bg-indigo-600 px-5 font-medium text-white transition hover:bg-indigo-700"
+        >
+          Vérifier
+        </button>
+      </div>
+      <p id="attente-import" class="mt-3 hidden text-sm text-slate-500 dark:text-slate-400">
+        Validation et recalcul des chiffres cités…
+      </p>
+    </section>
+
+    <!-- ── 2. Les erreurs ──────────────────────────────────────────────── -->
+    <section id="bloc-erreurs" class="mt-8 hidden">
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">Ce qui ne passe pas</h2>
+      <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+        Rien n’est importé partiellement : l’analyse est entière ou nulle. Chaque erreur dit
+        <strong>où</strong> elle se trouve.
+      </p>
+      <p id="enveloppe" class="mb-3 hidden text-sm text-slate-600 dark:text-slate-300"></p>
+      <ul id="erreurs" class="space-y-1 text-sm"></ul>
+
+      <h3 class="mt-6 font-semibold text-slate-900 dark:text-white">Faire corriger l’IA</h3>
+      <p class="mt-1 mb-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+        Ce texte est engendré ici, sans aucun appel à un modèle. Copiez-le et donnez-le à l’IA.
+      </p>
+      <pre
+        id="reparation"
+        class="max-h-64 overflow-auto rounded-lg bg-slate-50 p-3 text-xs whitespace-pre-wrap dark:bg-slate-950"
+      ></pre>
+      <button
+        id="copier-reparation"
+        type="button"
+        class="mt-2 min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+      >
+        Copier le texte de réparation
+      </button>
+      <p id="message-copie" class="mt-2 hidden text-sm text-slate-600 dark:text-slate-300"></p>
+    </section>
+
+    <!-- ── 3. L'aperçu ──────────────────────────────────────────────────── -->
+    <section id="bloc-apercu" class="mt-8 hidden">
+      <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">L’aperçu</h2>
+      <div
+        class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+      >
+        <p id="rattachement" class="text-sm"></p>
+        <p id="comptes" class="mt-2 text-sm text-slate-600 dark:text-slate-300"></p>
+        <h3 class="mt-4 font-semibold text-slate-900 dark:text-white">Résumé de l’IA</h3>
+        <p id="resume-analyse" class="mt-1 text-sm whitespace-pre-wrap text-slate-700 dark:text-slate-200"></p>
+      </div>
+
+      <h3 class="mt-6 mb-2 font-semibold text-slate-900 dark:text-white">
+        Les constats, et ce que valent leurs chiffres
+      </h3>
+      <div id="constats" class="space-y-3"></div>
+
+      <h3 class="mt-6 mb-2 font-semibold text-slate-900 dark:text-white">Les propositions</h3>
+      <div id="propositions" class="space-y-3"></div>
+
+      <h3 class="mt-6 mb-2 font-semibold text-slate-900 dark:text-white">
+        Questions et remarques sur les données
+      </h3>
+      <div id="questions" class="space-y-2"></div>
+
+      <div class="mt-8 flex flex-wrap items-center gap-3">
+        <button
+          id="conserver"
+          type="button"
+          class="min-h-11 rounded-lg bg-indigo-600 px-5 font-medium text-white transition hover:bg-indigo-700"
+        >
+          Conserver avec ce tri
+        </button>
+        <p id="motifs-tri" class="text-sm text-red-600 dark:text-red-400"></p>
+      </div>
+      <p id="message-import" class="mt-3 hidden text-sm"></p>
+    </section>
+
+    <!-- ── Les analyses conservées ──────────────────────────────────────── -->
+    <section class="mt-10">
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">
+        Analyses conservées
+      </h2>
+      <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+        Chacune porte son étiquette et sa période. Elles se synchronisent avec vos appareils.
+      </p>
+      <div id="conservees" class="space-y-2"></div>
+      <p id="aucune-analyse" class="text-sm text-slate-500 dark:text-slate-400">
+        Aucune analyse importée pour l’instant.
+      </p>
+    </section>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../lib/chargement';
+  import {
+    analysesConservees,
+    apercevoir,
+    conserver,
+    controlerTri,
+    type Apercu,
+    type Tri,
+  } from '../lib/import-analyse';
+  import {
+    LIBELLES_ETAT,
+    LIBELLES_VERDICT,
+    TRAJECTOIRES_ACTIVES,
+  } from '../lib/noyau/verification';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  let dernier: Apercu | null = null;
+  const tri: Tri = { constats: {}, propositions: {} };
+
+  const COULEUR_VERDICT: Record<string, string> = {
+    confirme: 'text-emerald-700 dark:text-emerald-400',
+    approche: 'text-sky-700 dark:text-sky-400',
+    'non-retrouve': 'text-red-700 dark:text-red-400',
+    'non-verifiable': 'text-slate-500 dark:text-slate-400',
+  };
+
+  /**
+   * Un bloc de texte **échappé**, et jamais autre chose.
+   *
+   * Tout ce qui vient de l'analyse passe par ici. `textContent` et non
+   * `innerHTML` : le texte d'une IA est une donnée, et une donnée ne
+   * s'interprète pas. Le site sait rendre du Markdown, pour les fiches qui
+   * viennent du dépôt ; une analyse importée n'emprunte jamais ce chemin.
+   */
+  function ligne(texte: string, classe: string): HTMLElement {
+    const p = document.createElement('p');
+    p.className = classe;
+    p.textContent = texte;
+    return p;
+  }
+
+  function peindreConstats(apercu: Apercu) {
+    const constats = Array.isArray(apercu.analyse?.constats) ? apercu.analyse!.constats : [];
+    const zone = $('constats');
+    zone.textContent = '';
+
+    for (const brut of constats as Record<string, unknown>[]) {
+      const id = String(brut.id ?? '');
+      const vu = apercu.parConstat?.find((c) => c.constat === id);
+      const douteux = vu?.etat === 'douteux';
+
+      const carte = document.createElement('div');
+      carte.dataset.constat = id;
+      carte.dataset.etat = vu?.etat ?? 'invérifiable';
+      carte.className =
+        'rounded-2xl border p-4 ' +
+        (douteux
+          ? 'border-red-400 bg-red-50/60 dark:border-red-800 dark:bg-red-950/20'
+          : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900');
+
+      const entete = document.createElement('div');
+      entete.className = 'flex flex-wrap items-baseline justify-between gap-2';
+      entete.append(
+        ligne(
+          `${String(brut.type ?? '')} · ${String(brut.domaine ?? '')}`,
+          'text-xs font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400',
+        ),
+        ligne(
+          LIBELLES_ETAT[vu?.etat ?? 'invérifiable'],
+          'text-xs font-medium ' + (douteux ? 'text-red-700 dark:text-red-300' : 'text-slate-500 dark:text-slate-400'),
+        ),
+      );
+      carte.appendChild(entete);
+      carte.appendChild(
+        ligne(String(brut.enonce ?? ''), 'mt-1 font-medium text-slate-900 dark:text-white'),
+      );
+      carte.appendChild(
+        ligne(
+          `Confiance déclarée par l’IA : ${String(brut.confiance ?? '—')}`,
+          'mt-1 text-xs text-slate-500 dark:text-slate-400',
+        ),
+      );
+
+      /* Les preuves, avec leur verdict de recalcul. */
+      const preuves = document.createElement('ul');
+      preuves.className = 'mt-3 space-y-1';
+      for (const verification of vu?.verifications ?? []) {
+        const li = document.createElement('li');
+        li.dataset.verdict = verification.verdict;
+        li.className = 'text-sm';
+        const nom = document.createElement('span');
+        nom.className = 'font-mono text-xs text-slate-600 dark:text-slate-300';
+        nom.textContent = verification.preuve.indicateur;
+        const verdict = document.createElement('span');
+        verdict.className = 'ml-2 font-medium ' + (COULEUR_VERDICT[verification.verdict] ?? '');
+        verdict.textContent = LIBELLES_VERDICT[verification.verdict];
+        const raison = document.createElement('span');
+        raison.className = 'block text-xs text-slate-500 dark:text-slate-400';
+        raison.textContent =
+          `cité : ${verification.preuve.valeurCitee} ${verification.preuve.unite} — ${verification.raison}`;
+        li.append(nom, verdict, raison);
+        preuves.appendChild(li);
+      }
+      carte.appendChild(preuves);
+
+      if (Array.isArray(brut.explications_alternatives) && brut.explications_alternatives.length) {
+        const autres = document.createElement('ul');
+        autres.className = 'mt-3 list-disc pl-5 text-xs text-slate-500 dark:text-slate-400';
+        for (const explication of brut.explications_alternatives) {
+          const li = document.createElement('li');
+          li.textContent = String(explication);
+          autres.appendChild(li);
+        }
+        carte.appendChild(autres);
+      }
+      if (typeof brut.limites === 'string' && brut.limites) {
+        carte.appendChild(
+          ligne(`Limites : ${brut.limites}`, 'mt-2 text-xs text-slate-500 dark:text-slate-400'),
+        );
+      }
+
+      /* Garder ou écarter. Par défaut : gardé, sauf si une preuve manque. */
+      tri.constats[id] = douteux ? 'ecarte' : 'garde';
+      const choix = document.createElement('div');
+      choix.className = 'mt-3 flex gap-2';
+      for (const [sort, libelle] of [
+        ['garde', 'Garder'],
+        ['ecarte', 'Écarter'],
+      ] as const) {
+        const bouton = document.createElement('button');
+        bouton.type = 'button';
+        bouton.dataset.sortConstat = `${id}:${sort}`;
+        const peindre = () => {
+          const actif = tri.constats[id] === sort;
+          bouton.className =
+            'min-h-11 rounded-lg border px-4 text-sm font-medium transition ' +
+            (actif
+              ? 'border-indigo-600 bg-indigo-50 text-indigo-800 dark:border-indigo-500 dark:bg-indigo-950/50 dark:text-indigo-200'
+              : 'border-slate-300 dark:border-slate-700');
+          bouton.setAttribute('aria-pressed', actif ? 'true' : 'false');
+        };
+        bouton.textContent = libelle;
+        peindre();
+        bouton.addEventListener('click', () => {
+          tri.constats[id] = sort;
+          for (const autre of choix.querySelectorAll<HTMLButtonElement>('button')) {
+            const son = autre.dataset.sortConstat?.split(':')[1];
+            const actif = tri.constats[id] === son;
+            autre.className =
+              'min-h-11 rounded-lg border px-4 text-sm font-medium transition ' +
+              (actif
+                ? 'border-indigo-600 bg-indigo-50 text-indigo-800 dark:border-indigo-500 dark:bg-indigo-950/50 dark:text-indigo-200'
+                : 'border-slate-300 dark:border-slate-700');
+            autre.setAttribute('aria-pressed', actif ? 'true' : 'false');
+          }
+          verifierTri();
+        });
+        choix.appendChild(bouton);
+      }
+      carte.appendChild(choix);
+      zone.appendChild(carte);
+    }
+  }
+
+  function peindrePropositions(apercu: Apercu) {
+    const propositions = Array.isArray(apercu.analyse?.propositions)
+      ? apercu.analyse!.propositions
+      : [];
+    const zone = $('propositions');
+    zone.textContent = '';
+
+    for (const brut of propositions as Record<string, unknown>[]) {
+      const id = String(brut.id ?? '');
+      tri.propositions[id] = 'reportee';
+
+      const carte = document.createElement('div');
+      carte.dataset.proposition = id;
+      carte.className =
+        'rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900';
+      carte.append(
+        ligne(
+          `${String(brut.nature ?? '')} · ${String(brut.domaine ?? '')} · ${String(brut.horizon_semaines ?? '?')} semaines`,
+          'text-xs font-medium tracking-wide text-slate-500 uppercase dark:text-slate-400',
+        ),
+        ligne(String(brut.titre ?? ''), 'mt-1 font-medium text-slate-900 dark:text-white'),
+        ligne(
+          String(brut.description ?? ''),
+          'mt-1 text-sm whitespace-pre-wrap text-slate-700 dark:text-slate-200',
+        ),
+        ligne(
+          `Suivi par : ${String(brut.indicateur_de_suivi ?? '—')} · découle de : ${
+            Array.isArray(brut.lie_aux_constats) ? brut.lie_aux_constats.join(', ') : '—'
+          }`,
+          'mt-1 font-mono text-xs text-slate-500 dark:text-slate-400',
+        ),
+      );
+      if (brut.avertissement_professionnel === true) {
+        carte.appendChild(
+          ligne(
+            'L’IA signale que cette proposition touche au corps, à la santé ou aux finances. Consultez un professionnel avant d’y donner suite.',
+            'mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-100',
+          ),
+        );
+      }
+
+      const choix = document.createElement('div');
+      choix.className = 'mt-3 flex flex-wrap gap-2';
+      for (const [sort, libelle] of [
+        ['adoptee', 'Adopter comme trajectoire'],
+        ['reportee', 'Reporter'],
+        ['refusee', 'Refuser'],
+      ] as const) {
+        const bouton = document.createElement('button');
+        bouton.type = 'button';
+        bouton.dataset.sortProposition = `${id}:${sort}`;
+        const peindre = (element: HTMLButtonElement) => {
+          const son = element.dataset.sortProposition?.split(':')[1];
+          const actif = tri.propositions[id] === son;
+          element.className =
+            'min-h-11 rounded-lg border px-4 text-sm font-medium transition ' +
+            (actif
+              ? 'border-indigo-600 bg-indigo-50 text-indigo-800 dark:border-indigo-500 dark:bg-indigo-950/50 dark:text-indigo-200'
+              : 'border-slate-300 dark:border-slate-700');
+          element.setAttribute('aria-pressed', actif ? 'true' : 'false');
+        };
+        bouton.textContent = libelle;
+        peindre(bouton);
+        bouton.addEventListener('click', () => {
+          tri.propositions[id] = sort;
+          for (const autre of choix.querySelectorAll<HTMLButtonElement>('button')) peindre(autre);
+          verifierTri();
+        });
+        choix.appendChild(bouton);
+      }
+      carte.appendChild(choix);
+      zone.appendChild(carte);
+    }
+  }
+
+  function peindreQuestions(apercu: Apercu) {
+    const zone = $('questions');
+    zone.textContent = '';
+    const questions = Array.isArray(apercu.analyse?.questions_a_clarifier)
+      ? apercu.analyse!.questions_a_clarifier
+      : [];
+    for (const brut of questions as Record<string, unknown>[]) {
+      const bloc = document.createElement('div');
+      bloc.dataset.question = String(brut.id ?? '');
+      bloc.className = 'rounded-xl border border-slate-200 px-4 py-3 dark:border-slate-800';
+      bloc.append(
+        ligne(String(brut.question ?? ''), 'text-sm font-medium text-slate-900 dark:text-white'),
+        ligne(String(brut.pourquoi ?? ''), 'mt-1 text-xs text-slate-500 dark:text-slate-400'),
+        ligne(
+          'Cette question rejoindra votre prochaine revue de période.',
+          'mt-1 text-xs text-indigo-700 dark:text-indigo-400',
+        ),
+      );
+      zone.appendChild(bloc);
+    }
+    const qualite = Array.isArray(apercu.analyse?.qualite_des_donnees)
+      ? apercu.analyse!.qualite_des_donnees
+      : [];
+    for (const brut of qualite as Record<string, unknown>[]) {
+      const bloc = document.createElement('div');
+      bloc.dataset.qualite = String(brut.domaine ?? '');
+      bloc.className =
+        'rounded-xl border border-dashed border-slate-300 px-4 py-3 dark:border-slate-700';
+      bloc.append(
+        ligne(
+          `${String(brut.domaine ?? '')} — ${String(brut.probleme ?? '')}`,
+          'text-sm text-slate-700 dark:text-slate-200',
+        ),
+        ligne(
+          'Devient un « à vérifier » : aucune donnée n’est corrigée automatiquement.',
+          'mt-1 text-xs text-slate-500 dark:text-slate-400',
+        ),
+      );
+      zone.appendChild(bloc);
+    }
+  }
+
+  function verifierTri() {
+    if (!dernier) return;
+    const verdict = controlerTri(tri, dernier.liens ?? {});
+    $('motifs-tri').textContent = verdict.motifs.join(' ');
+    ($('conserver') as HTMLButtonElement).disabled = !verdict.recevable;
+    ($('conserver') as HTMLButtonElement).classList.toggle('opacity-40', !verdict.recevable);
+  }
+
+  async function peindreConservees() {
+    const analyses = await analysesConservees();
+    const zone = $('conservees');
+    zone.textContent = '';
+    $('aucune-analyse').classList.toggle('hidden', analyses.length > 0);
+    for (const analyse of analyses) {
+      const bloc = document.createElement('div');
+      bloc.dataset.analyse = analyse.id;
+      bloc.className = 'rounded-xl border border-slate-200 px-4 py-3 dark:border-slate-800';
+      bloc.append(
+        ligne(
+          `${analyse.periode.debut} → ${analyse.periode.fin}`,
+          'text-sm font-medium text-slate-900 dark:text-white',
+        ),
+        ligne(analyse.etiquette, 'mt-1 text-xs text-amber-800 dark:text-amber-300'),
+        ligne(
+          `Importée le ${new Date(analyse.importeeLe).toLocaleDateString('fr-FR')} · ` +
+            `${analyse.verifications.length} constat(s)` +
+            (analyse.exportInconnu ? ' · export d’origine inconnu' : ''),
+          'mt-1 text-xs text-slate-500 dark:text-slate-400',
+        ),
+      );
+      zone.appendChild(bloc);
+    }
+  }
+
+  async function verifier() {
+    $('bloc-erreurs').classList.add('hidden');
+    $('bloc-apercu').classList.add('hidden');
+    $('message-import').classList.add('hidden');
+    $('attente-import').classList.remove('hidden');
+    try {
+      const apercu = await apercevoir(($('brut') as HTMLTextAreaElement).value);
+      dernier = apercu;
+      tri.constats = {};
+      tri.propositions = {};
+
+      const enveloppe = $('enveloppe');
+      if (apercu.validation.retire.length) {
+        enveloppe.textContent = `Retiré du texte collé : ${apercu.validation.retire.join(', ')}.`;
+        enveloppe.classList.remove('hidden');
+      } else {
+        enveloppe.classList.add('hidden');
+      }
+
+      if (!apercu.validation.recevable) {
+        const liste = $('erreurs');
+        liste.textContent = '';
+        for (const erreur of apercu.validation.erreurs) {
+          const li = document.createElement('li');
+          li.dataset.chemin = erreur.chemin;
+          const chemin = document.createElement('code');
+          chemin.className = 'font-mono text-xs text-red-700 dark:text-red-400';
+          chemin.textContent = erreur.chemin;
+          const raison = document.createElement('span');
+          raison.className = 'ml-2 text-slate-700 dark:text-slate-200';
+          raison.textContent = erreur.raison;
+          li.append(chemin, raison);
+          liste.appendChild(li);
+        }
+        $('reparation').textContent = apercu.reparation ?? '';
+        $('bloc-erreurs').classList.remove('hidden');
+        return;
+      }
+
+      const rattachement = $('rattachement');
+      rattachement.textContent = apercu.exportInconnu
+        ? 'L’export d’origine n’est pas au journal : l’import reste possible, mais les chiffres ne peuvent pas être rapprochés d’un périmètre connu.'
+        : 'Rattachée à un export du journal : période et empreinte vérifiées.';
+      rattachement.className = apercu.exportInconnu
+        ? 'text-sm text-amber-800 dark:text-amber-300'
+        : 'text-sm text-emerald-700 dark:text-emerald-400';
+
+      const comptes = apercu.comptes ?? {};
+      $('comptes').textContent =
+        `Chiffres cités : ${comptes.confirme ?? 0} confirmé(s), ${comptes.approche ?? 0} approché(s), ` +
+        `${comptes['non-retrouve'] ?? 0} non retrouvé(s), ${comptes['non-verifiable'] ?? 0} non vérifiable(s).`;
+      $('resume-analyse').textContent = String(apercu.analyse?.resume ?? '');
+
+      peindreConstats(apercu);
+      peindrePropositions(apercu);
+      peindreQuestions(apercu);
+      verifierTri();
+      $('bloc-apercu').classList.remove('hidden');
+    } finally {
+      $('attente-import').classList.add('hidden');
+    }
+  }
+
+  $('verifier').addEventListener('click', () => void verifier());
+  $('fichier').addEventListener('change', async () => {
+    const fichier = ($('fichier') as HTMLInputElement).files?.[0];
+    if (!fichier) return;
+    ($('brut') as HTMLTextAreaElement).value = await fichier.text();
+    await verifier();
+  });
+  $('copier-reparation').addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText($('reparation').textContent ?? '');
+      $('message-copie').textContent = 'Copié. Collez-le à l’IA telle quelle.';
+    } catch {
+      $('message-copie').textContent =
+        'La copie automatique a échoué : sélectionnez le texte ci-dessus et copiez-le.';
+    }
+    $('message-copie').classList.remove('hidden');
+  });
+  $('conserver').addEventListener('click', async () => {
+    if (!dernier) return;
+    const verdict = controlerTri(tri, dernier.liens ?? {});
+    if (!verdict.recevable) return;
+    const conservee = await conserver(dernier, tri);
+    const message = $('message-import');
+    message.className = 'mt-3 text-sm text-slate-700 dark:text-slate-200';
+    const gardes = Object.values(tri.constats).filter((s) => s === 'garde').length;
+    message.textContent =
+      `Analyse conservée, étiquetée « ${conservee.etiquette} ». ` +
+      `${gardes} constat(s) gardé(s), ${verdict.adoptees.length} proposition(s) adoptée(s) ` +
+      `sur un plafond de ${TRAJECTOIRES_ACTIVES}.`;
+    message.classList.remove('hidden');
+    await peindreConservees();
+  });
+
+  auDeverrouillage(peindreConservees);
+</script>
