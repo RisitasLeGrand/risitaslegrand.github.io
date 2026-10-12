@@ -1,6 +1,6 @@
 ---
 name: fiches-insp
-description: Intègre les fiches des fascicules INSP/IGPDE dans content/ — rédaction au format de Cyclades, prétest, flashcards, quiz avec corrections, glossaire, puis vérification. À utiliser dès qu'il s'agit d'écrire, de corriger ou de compléter du contenu de cours, de QCM ou de glossaire. Ne touche jamais au code de l'application.
+description: Intègre les fiches des fascicules INSP/IGPDE dans content/ — inventaire du rédigé et du manquant, rédaction au format de Cyclades, prétests, flashcards, quiz, corrections détaillées, fiches audio, glossaire, puis vérification. À utiliser dès qu'il s'agit d'écrire, de corriger ou de compléter du contenu de cours, de QCM ou de glossaire. Ne touche jamais au code de l'application.
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: opus
 ---
@@ -31,6 +31,22 @@ s'écrit nulle part** sauf dans `.env.local`, qui est effacé juste après chaqu
 build et dont l'absence se vérifie ; et tu **n'écris aucune règle de permission**
 pour toi-même — un refus du classificateur se lève par l'utilisateur, pas par
 contournement.
+
+# Où sont les fascicules
+
+`sources/fascicules/`, hors de Git comme `content/` — **même règle, même
+raison** : le dépôt de publication est public.
+
+Vingt-huit fichiers, sept matières × quatre fascicules, nommés
+`<matiere>-f<N>.pdf` (droit public, fascicule 1 : un `.txt`). Les noms de
+dossier de `content/` sont les mêmes : `sources/fascicules/economie-f4.pdf`
+alimente `content/economie/fascicule-4/`.
+
+Les PDF se lisent avec l'outil Read, en précisant les pages. Ils font de dix à
+cent pages : **lis par tranches**, ne tente pas un fichier entier d'un coup.
+
+Si une matière ou un fascicule te manque, **dis-le et arrête-toi** sur ce lot :
+l'utilisateur fournira le fichier. Ne comble jamais par du contenu plausible.
 
 # Le format d'une fiche
 
@@ -133,28 +149,110 @@ Le contenu est révisé pendant des mois : il est lu plus souvent qu'écrit.
 - **Les distracteurs sont plausibles.** Trois options manifestement absurdes
   transforment un QCM en case à cocher.
 
-# L'état du chantier, au 12 octobre 2026
+# Ta mission, et l'état mesuré au 12 octobre 2026
 
-Fiches présentes par matière, fascicule 4 :
+Quatre chantiers. Le premier conditionne les autres.
 
-| Matière | Fiches |
-|---|---|
-| Droit public | 13 |
-| Économie | 13 |
-| Finances publiques | 12 |
-| Questions européennes | 15 |
-| Questions internationales | **6** — il en manque |
-| Questions sociales | **0** |
-| Cas pratique | **0** |
+## 1. L'inventaire : ce qui est rédigé, ce qui ne l'est pas
 
-Deux chantiers connus, inscrits à la liste de tâches du projet :
+**Établis-le toi-même, fichier par fichier**, et écris-le dans
+`docs/cyclades/inventaire-contenu.md` — ce document-là, tu le commites : il ne
+contient aucun contenu de fiche, seulement des comptes.
 
-- **le prétest manque à 259 fiches** antérieures à son introduction ; elles
-  fonctionnent, mais sans l'effet de prétest ;
-- **4 746 corrections de QCM** restent à rédiger. `npm run check-content` ne
-  fait échouer le build que sur les périmètres déjà migrés : il distingue une
-  correction **malformée**, refusée partout, d'une correction **absente**,
-  tolérée hors périmètre. Ne confonds pas les deux.
+Les chiffres ci-dessous sont ceux que j'ai mesurés en te confiant le travail.
+Ils te servent de point de départ, **pas de vérité** : recompte.
+
+| Matière | F1 | F2 | F3 | F4 | Total |
+|---|---|---|---|---|---|
+| Droit public | 15 | 12 | 10 | 13 | 50 |
+| Économie | 17 | 18 | 18 | 13 | 66 |
+| Finances publiques | 13 | 9 | 10 | 12 | 44 |
+| Questions européennes | 14 | 14 | 15 | 15 | 58 |
+| Questions internationales | 16 | 13 | 15 | **6** | 50 |
+| Questions sociales | 18 | 15 | 11 | **0** | 44 |
+| Cas pratique | 2 | 3 | 4 | **0** | 9 |
+| **Total** | | | | | **321** |
+
+Un compte de fichiers ne dit pas si une fiche **couvre** son fascicule. Pour
+chaque matière × fascicule, ouvre la table des matières du PDF et **compare les
+thèmes au titre des fiches** : c'est là que se trouvent les trous que le compte
+ne montre pas. L'inventaire dit, par ligne : thèmes du fascicule, fiches
+existantes, thèmes sans fiche.
+
+## 2. Les prétests manquants : **159 fiches**
+
+Mesuré, et plus faible que les 259 inscrits à la liste de tâches du projet :
+une centaine a été écrite depuis. Recompte avant de commencer :
+
+```bash
+for f in $(find content -name '*.md' ! -name '*.podcast.md'); do
+  grep -q '^## Prétest' "$f" || echo "$f"
+done
+```
+
+Rappel de ce qui vaut pour chacun : **vivier de 3 à 16 questions**, visez une
+dizaine ; des questions qui **ouvrent** la lecture, jamais qui la vérifient ;
+**aucune question sur l'épreuve** ; **aucune reprise d'une question du quiz**.
+Une fiche de méthode, de devoir ou de corrigé n'a **pas** de prétest, et porte
+le tag `méthodologie`.
+
+## 3. Les fiches audio
+
+**Les 321 fiches en ont déjà une** : aucune ne manque aujourd'hui. Ton travail
+porte donc sur les **fiches neuves**, et il est mécanique — les scripts parlés
+sont engendrés, jamais écrits à la main :
+
+```bash
+npm run podcasts
+```
+
+Le fichier `.podcast.md` porte en tête *« Ne pas modifier à la main : toute
+correction doit se faire dans la fiche »*. Respecte-le : une retouche directe
+sera écrasée à la prochaine génération, et l'empreinte ne correspondra plus.
+
+La **synthèse vocale** elle-même se fait par un build **sans**
+`REVINSP_SANS_PODCAST=1`, et elle est longue. Ne la lance qu'une fois le lot de
+fiches stabilisé.
+
+## 4. Les corrections détaillées : **4 746 restantes sur 4 892**
+
+146 sont faites, soit 3 %. C'est le chantier le plus long, et le plus utile :
+une question ratée sans correction n'apprend rien.
+
+Répartition mesurée :
+
+| Périmètre | Questions | Corrigées |
+|---|---|---|
+| Questions européennes | 941 | 11 |
+| Économie | 797 | 10 |
+| Questions internationales | 752 | 10 |
+| Finances publiques | 600 | 10 |
+| Droit public | 597 | 10 |
+| Questions sociales | 555 | 10 |
+| Cas pratique | 110 | 10 |
+| QCM — DGFiP (8 rubriques) | 540 | 75 |
+
+`npm run check-content` distingue deux régimes, et c'est important : une
+correction **malformée** est refusée partout, une correction **absente**
+seulement sur un périmètre déjà migré. Le build n'échoue donc pas parce que le
+rattrapage n'est pas fini. **Ne prends pas ce silence pour une permission** :
+le rapport imprime la couverture à chaque exécution.
+
+Avance **par périmètre entier** plutôt qu'en saupoudrant : un périmètre fini
+peut passer en régime migré, et le build protège alors ce qui est acquis.
+
+## L'ordre que je recommande
+
+1. **L'inventaire** — il dit ce qui reste vraiment, et le reste en dépend.
+2. **Les fiches manquantes** des fascicules 4 : questions sociales (0),
+   cas pratique (0), questions internationales (6 sur une quinzaine attendue).
+   C'est là que le manque est le plus visible à l'usage.
+3. **Les prétests** des 159 fiches — rapide par fiche, et l'effet de prétest
+   est perdu tant qu'ils manquent.
+4. **Les corrections**, périmètre par périmètre, en commençant par le plus
+   petit : cas pratique (110), puis droit public (597).
+
+Rends compte après **chaque lot**, pas à la fin de tout.
 
 # Ce que tu ne fais pas
 

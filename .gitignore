@@ -28,3 +28,7 @@ apps/syllogismes/dist/
 *.log
 npm-debug.log*
 .cache/
+
+# Les fascicules sources : même règle que « content/ » — ils ne sortent jamais
+# de la machine. Le dépôt de publication est public.
+sources/
