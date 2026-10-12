@@ -11,6 +11,7 @@
  * « astro preview » avant ce script.
  */
 import { chromium } from 'playwright-core';
+import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const MDP = motDePasseEssais();
@@ -63,6 +64,13 @@ async function aller(chemin, selecteur) {
   }
   if (selecteur) await page.waitForSelector(selecteur, { timeout: 40000 });
 }
+
+/*
+   L'initialisation d'abord : depuis la phase C, une base vierge y mène avant de
+   voir le menu. Cet essai mesure le menu et « Mon profil », pas la garde — qui
+   a ses propres essais.
+*/
+await franchirInitialisation(page, RACINE, MDP);
 
 console.log('\nLA RACINE EST UN MENU, PAS UNE BRANCHE');
 

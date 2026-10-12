@@ -381,8 +381,19 @@ export const champsDeBranche = (branche: string): ChampDeclare[] =>
    La valeur d'un champ, telle que le journal la porte
    ══════════════════════════════════════════════════════════════════════════ */
 
-/** D'où vient la valeur. A.3 : « déclaré, observé puis confirmé ». */
-export type Source = 'declare' | 'observe';
+/**
+ * D'où vient la valeur. A.3 : « déclaré, observé puis confirmé ».
+ *
+ * Les trois sont distinctes, et la troisième n'est pas un luxe. `declare` : la
+ * personne l'a dit. `observe` : l'usage le laisse penser, et personne ne l'a
+ * validé. `confirme` : l'usage le laissait penser, et la personne a répondu
+ * « c'est juste ». Fondre les deux dernières dans `declare` ferait disparaître
+ * la seule information qui compte le jour où un réglage est faux — savoir si
+ * c'est une déclaration qui l'était, ou une déduction.
+ */
+export type Source = 'declare' | 'observe' | 'confirme';
+
+const SOURCES: readonly Source[] = ['declare', 'observe', 'confirme'];
 
 export interface ChargeChamp {
   /** Absente quand `supprime` est vrai : il n'y a plus de valeur à porter. */
@@ -421,7 +432,8 @@ function lireCharge(op: Operation): ChargeLue | null {
   if (!charge) return null;
   if (charge.supprime === true) return { valeur: null, source: 'declare', supprime: true };
   if (!('valeur' in charge)) return null;
-  const source: Source = charge.source === 'observe' ? 'observe' : 'declare';
+  const source: Source =
+    charge.source && SOURCES.includes(charge.source) ? charge.source : 'declare';
   return { valeur: charge.valeur, source, portee: charge.portee };
 }
 

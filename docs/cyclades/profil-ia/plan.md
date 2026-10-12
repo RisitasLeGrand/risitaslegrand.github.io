@@ -223,6 +223,68 @@ et non une valeur fausse.
 
 ### Phase C — Initialisation, modules par branche, adaptation *(= phase 2)*
 
+> **C1 faite, le 12 octobre 2026.** Le parcours, les reports, les modules de branche et
+> l'initialisation allégée.
+>
+> **Le report est journalisé, et c'est tout le parcours qui tient là-dessus.** Toucher
+> « Plus tard » sur l'heure de lever, fermer l'onglet, revenir : si le report n'est pas gardé,
+> l'écran repose la même question, et la personne comprend qu'on ne l'a pas écoutée. Un drapeau
+> local aurait suffi à un seul appareil ; le fait journalisé vaut pour les deux. « Réglée » couvre
+> donc **répondue ou reportée** — sans quoi le parcours ne se terminerait jamais —, et la question
+> reportée reparaît dans « Mon profil », parmi les champs restants : l'endroit prévu pour y
+> revenir quand on veut, et non celui où l'on est retenu.
+>
+> **Un écran peut régler deux champs.** La question 3 — « Français, et heure de Paris : c'est bien
+> ça ? » — en règle deux. Les poser séparément aurait affiché deux fois la même phrase, et la
+> seconde aurait paru un bug. Le regroupement se fait sur la **question affichée**, pas sur une
+> liste de champs : deux champs qui recevraient un jour la même formulation seraient réunis sans
+> qu'on y pense, et un contrôle vérifie que la liste `GROUPES` ne nomme que des champs qui posent
+> bien la même question.
+>
+> **Les réponses proposées sont des données, pas du HTML.** Les choix fermés des quatorze
+> questions et des modules vivent dans le cœur, et un essai vérifie que **chaque valeur proposée
+> passe la validation de son champ** : un bouton qui écrit une valeur refusée est un écran mort, et
+> il ne se découvre qu'en cliquant. Le même contrôle exige que **tout champ déclaré sache se
+> poser** — liste de choix, bornes, saisie libre de sa nature, ou registre nommé. Un champ ajouté
+> sans moyen de répondre ne se verrait qu'en arrivant dessus.
+>
+> **L'initialisation allégée (A.7) propose au lieu de demander, et le dit.** Sept déductions :
+> le parcours ouvert, le rythme hebdomadaire médian, le temps disponible — **plancher**, pas
+> estimation, parce qu'on a au moins le temps qu'on a déjà passé —, le moment préféré, les
+> matières solides et fragiles d'après le niveau estimé, et un domaine que l'usage montre et que
+> le défaut n'allume pas. Chacune porte **le constat qui l'établit** en français, et rien n'est
+> écrit avant qu'on ait continué. Trois règles d'honnêteté tenues par des essais : **aucune
+> déduction sans effectif** (six faits, et un niveau non fiable ne devient jamais une matière
+> « solide ») ; **le constat dit ce qui a été vu**, pas ce qui en est conclu ; et **ce qui n'est
+> pas observable n'est pas déduit** — les jours de travail, par exemple, parce que les jours où
+> l'on révise ne sont pas les jours où l'on travaille, et que pour beaucoup c'est l'inverse.
+>
+> La `Source` d'un champ compte désormais **trois** valeurs et non deux, comme A.3 le disait
+> depuis le début : déclaré, observé, **observé puis confirmé**. Les fondre aurait effacé la seule
+> information qui serve le jour où un réglage est faux — savoir si c'est une déclaration qui
+> l'était, ou une déduction.
+>
+> **Les huit domaines entrent en code** (`noyau/domaines.ts`), cinq allumés, pour que la question
+> 12 ait ses libellés et que la roue d'équilibre n'invente pas les siens.
+>
+> **La garde est aux deux portes** : `/` mène à l'initialisation tant qu'elle n'a pas eu lieu,
+> `/revisions/` à ses six questions tant qu'elles n'ont pas été posées. Elle ne retient personne —
+> « Terminer maintenant » est sur chaque écran —, et le socle passe avant le module : demander les
+> matières fortes avant d'avoir montré à quoi elles servent, c'est demander à quelqu'un de se
+> noter sur un programme qu'il n'a pas vu.
+>
+> Un défaut de méthode corrigé au passage : « l'installation porte-t-elle de l'usage ? » se lisait
+> d'abord dans le **journal**. Une base restaurée d'une sauvegarde, ou migrée avant que son socle
+> soit posé, porte des séances sans porter leurs opérations — et aurait donc reçu les quatorze
+> questions complètes. La question se lit maintenant dans les magasins, au premier non vide.
+>
+> **Essais** : `essais:initialisation` (119 contrôles) et `essais:initialisation:navigateur` (50,
+> dont le report qui tient après rechargement, le module posé une seule fois, et la déduction
+> confirmée écrite « observé, puis confirmé » et jamais « déclaré »). Deux suites voisines
+> traversent désormais la garde comme une personne le ferait, par « Terminer maintenant » : un
+> essai qui passerait par la porte de service cesserait de remarquer que la porte principale est
+> cassée.
+
 - Le parcours : mot de passe → *(première fois)* initialisation → menu. Une question à la fois,
   boutons et suggestions, « Plus tard » partout sauf le prénom, reprise après fermeture (l'avancement
   est un champ de profil comme les autres, donc il se synchronise).

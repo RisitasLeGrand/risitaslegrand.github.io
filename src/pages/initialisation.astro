@@ -1,0 +1,661 @@
+---
+/**
+ * L'initialisation : une question à la fois, et « Plus tard » partout.
+ *
+ * ## Pourquoi un écran par question
+ *
+ * A.2 le demande, et la raison tient en une phrase : un formulaire de quatorze
+ * champs n'est pas une conversation, et il se ferme sans être rempli. Une
+ * question seule au milieu de l'écran se répond — et si on l'abandonne, on
+ * revient à la même, parce que le report est journalisé comme le reste.
+ *
+ * ## Ce que l'écran ne fait jamais
+ *
+ * **Il ne retient personne.** « Plus tard » est visible sur chaque question
+ * sauf le prénom, et « Terminer » est accessible dès la première. Une
+ * initialisation dont on ne peut pas sortir est un péage, pas un accueil.
+ *
+ * **Il ne présente jamais une déduction comme une déclaration.** Les champs
+ * préremplis par l'usage observé (A.7) portent la mention « observé », le
+ * constat qui l'établit, et deux boutons distincts : « C'est juste », qui
+ * confirme, et la saisie, qui déclare. Une valeur devinée présentée comme
+ * déclarée est un mensonge qui dure des mois.
+ */
+import Base from '../layouts/Base.astro';
+---
+
+<Base titre="Faisons connaissance" entete="leger" sansNavigation>
+  <div class="mx-auto max-w-xl">
+    <div id="chargement-init">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Préparation…</p>
+    </div>
+
+    <div id="parcours" class="hidden">
+      <!-- ── Avancement ──────────────────────────────────────────────── -->
+      <div class="mb-6">
+        <div class="flex items-baseline justify-between">
+          <p id="etiquette" class="text-sm font-medium text-indigo-600 dark:text-indigo-400"></p>
+          <p id="compteur" class="text-xs text-slate-500 dark:text-slate-400"></p>
+        </div>
+        <div
+          class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800"
+          role="progressbar"
+          aria-labelledby="etiquette"
+        >
+          <div id="jauge" class="h-full w-0 rounded-full bg-indigo-600 transition-all"></div>
+        </div>
+      </div>
+
+      <!-- ── La question ─────────────────────────────────────────────── -->
+      <section
+        class="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900"
+      >
+        <h1 id="question" class="text-xl font-semibold text-slate-900 dark:text-white"></h1>
+        <p id="observe" class="mt-3 hidden text-sm"></p>
+        <div id="saisie" class="mt-5 space-y-4"></div>
+        <p id="erreur" class="mt-3 hidden text-sm text-red-600 dark:text-red-400" role="alert"></p>
+
+        <div class="mt-6 flex flex-wrap items-center gap-3">
+          <button
+            id="valider"
+            type="button"
+            class="min-h-11 rounded-lg bg-indigo-600 px-5 font-medium text-white transition hover:bg-indigo-700 disabled:opacity-40"
+          >
+            Continuer
+          </button>
+          <button
+            id="plus-tard"
+            type="button"
+            class="min-h-11 rounded-lg px-4 text-sm font-medium text-slate-600 underline-offset-2 transition hover:underline dark:text-slate-300"
+          >
+            Plus tard
+          </button>
+          <span class="flex-1"></span>
+          <button
+            id="terminer"
+            type="button"
+            class="min-h-11 rounded-lg px-4 text-sm font-medium text-slate-500 underline-offset-2 transition hover:underline dark:text-slate-400"
+          >
+            Terminer maintenant
+          </button>
+        </div>
+      </section>
+
+      <p class="mt-4 text-xs text-slate-500 dark:text-slate-400">
+        Tout est facultatif, sauf le prénom. Vous pourrez tout changer, restreindre ou supprimer
+        depuis « Mon profil ».
+      </p>
+    </div>
+
+    <!-- ── L'écran d'accueil de l'initialisation allégée ─────────────── -->
+    <section id="allegee" class="hidden">
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-white">On se connaît déjà un peu</h1>
+      <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">
+        Cette installation porte déjà de l’usage. Rien n’en sera écrasé : ce qui suit est
+        <strong>repris tel quel</strong>, et les questions dont la réponse se devine vous seront
+        proposées plutôt que demandées — à vous de confirmer.
+      </p>
+      <ul id="repris" class="mt-5 space-y-2 text-sm text-slate-700 dark:text-slate-200"></ul>
+      <button
+        id="commencer"
+        type="button"
+        class="mt-6 min-h-11 rounded-lg bg-indigo-600 px-5 font-medium text-white transition hover:bg-indigo-700"
+      >
+        Commencer
+      </button>
+    </section>
+
+    <!-- ── Fin ───────────────────────────────────────────────────────── -->
+    <section id="fin" class="hidden">
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-white">C’est tout.</h1>
+      <p id="resume-fin" class="mt-3 text-sm text-slate-600 dark:text-slate-300"></p>
+      <a
+        id="aller-menu"
+        href="#"
+        class="mt-6 inline-flex min-h-11 items-center rounded-lg bg-indigo-600 px-5 font-medium text-white transition hover:bg-indigo-700"
+      >
+        Entrer
+      </a>
+    </section>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../lib/chargement';
+  import { base, echapper, parametreUrl } from '../lib/ui';
+  import { branche as brancheDeclaree } from '../lib/branches';
+  import { DOMAINES } from '../lib/noyau/domaines';
+  import { PARCOURS } from '../lib/parcours/registre';
+  import { ecrireChamp, marquerInitialisation } from '../lib/profil';
+  import {
+    installationExistante,
+    marquerModule,
+    observerUsage,
+    parcoursLocal,
+    reporter,
+  } from '../lib/initialisation';
+  import {
+    BORNES,
+    CHOIX,
+    DEFAUTS,
+    MAXIMUM_LIGNES,
+    MULTIPLES,
+    SUGGESTIONS,
+    enEcrans,
+    type Option,
+    type Question,
+  } from '../lib/noyau/initialisation';
+  import type { Deduction } from '../lib/noyau/observation';
+  import type { ChampDeclare } from '../lib/noyau/profil';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  /** La branche dont on pose le module, ou rien pour le socle. */
+  const brancheVoulue = parametreUrl('branche');
+  /** Où retourner une fois fini. */
+  const retour = brancheVoulue
+    ? `${base}${brancheDeclaree(brancheVoulue)?.racine ?? '/'}`
+    : `${base}/`;
+
+  /* ════════════════════════════════════════════════════════════════════
+     Les saisies : une par nature, et quelques cas nommés
+     ════════════════════════════════════════════════════════════════════ */
+
+  /** Ce qu'une saisie sait faire : se montrer, et rendre une valeur. */
+  interface Saisie {
+    element: HTMLElement;
+    /** La valeur saisie, ou `undefined` quand rien n'est utilisable. */
+    lire: () => unknown;
+    /** Quand la saisie se valide d'elle-même — un bouton de choix unique. */
+    immediate?: boolean;
+  }
+
+  const CLASSE_BASCULE =
+    'min-h-11 rounded-lg border px-4 text-sm font-medium transition ' +
+    'border-slate-300 text-slate-700 hover:border-indigo-400 ' +
+    'dark:border-slate-700 dark:text-slate-200 dark:hover:border-indigo-600';
+  const CLASSE_BASCULE_ACTIVE =
+    'min-h-11 rounded-lg border px-4 text-sm font-medium transition ' +
+    'border-indigo-600 bg-indigo-50 text-indigo-800 ' +
+    'dark:border-indigo-500 dark:bg-indigo-950/50 dark:text-indigo-200';
+
+  function bascules(options: readonly Option[], retenues: unknown[]): Saisie {
+    const choisies = new Set(retenues.map((v) => String(v)));
+    const element = document.createElement('div');
+    element.className = 'flex flex-wrap gap-2';
+    for (const option of options) {
+      const bouton = document.createElement('button');
+      bouton.type = 'button';
+      bouton.dataset.valeur = String(option.valeur);
+      const peindre = () => {
+        const active = choisies.has(String(option.valeur));
+        bouton.className = active ? CLASSE_BASCULE_ACTIVE : CLASSE_BASCULE;
+        bouton.setAttribute('aria-pressed', active ? 'true' : 'false');
+      };
+      bouton.textContent = option.libelle;
+      peindre();
+      bouton.addEventListener('click', () => {
+        const clef = String(option.valeur);
+        if (choisies.has(clef)) choisies.delete(clef);
+        else choisies.add(clef);
+        peindre();
+      });
+      element.appendChild(bouton);
+    }
+    return {
+      element,
+      lire: () => options.filter((o) => choisies.has(String(o.valeur))).map((o) => String(o.valeur)),
+    };
+  }
+
+  function choixUnique(options: readonly Option[], retenue: unknown, valider: () => void): Saisie {
+    let choisie: unknown = retenue;
+    const element = document.createElement('div');
+    element.className = 'grid gap-2';
+    for (const option of options) {
+      const bouton = document.createElement('button');
+      bouton.type = 'button';
+      bouton.dataset.valeur = String(option.valeur);
+      bouton.className =
+        'w-full rounded-xl border px-4 py-3 text-left transition ' +
+        (String(choisie) === String(option.valeur)
+          ? 'border-indigo-600 bg-indigo-50 dark:border-indigo-500 dark:bg-indigo-950/50'
+          : 'border-slate-300 hover:border-indigo-400 dark:border-slate-700 dark:hover:border-indigo-600');
+      const titre = document.createElement('span');
+      titre.className = 'block font-medium text-slate-900 dark:text-white';
+      titre.textContent = option.libelle;
+      bouton.appendChild(titre);
+      if (option.aide) {
+        const aide = document.createElement('span');
+        aide.className = 'mt-1 block text-sm text-slate-500 dark:text-slate-400';
+        aide.textContent = option.aide;
+        bouton.appendChild(aide);
+      }
+      bouton.addEventListener('click', () => {
+        choisie = option.valeur;
+        valider();
+      });
+      element.appendChild(bouton);
+    }
+    return { element, lire: () => choisie, immediate: true };
+  }
+
+  function texte(declare: ChampDeclare, defaut: string): Saisie {
+    const enveloppe = document.createElement('div');
+    const champ = document.createElement('input');
+    champ.type = 'text';
+    champ.id = `saisie-${declare.champ}`;
+    champ.value = defaut;
+    champ.autocomplete = 'off';
+    champ.className =
+      'w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 ' +
+      'dark:border-slate-700 dark:bg-slate-950 dark:text-white';
+    enveloppe.appendChild(champ);
+
+    const suggestions = SUGGESTIONS[declare.champ];
+    if (suggestions?.length) {
+      const liste = document.createElement('div');
+      liste.className = 'mt-3 flex flex-wrap gap-2';
+      for (const mot of suggestions) {
+        const bouton = document.createElement('button');
+        bouton.type = 'button';
+        bouton.className = CLASSE_BASCULE;
+        bouton.textContent = mot;
+        bouton.addEventListener('click', () => {
+          champ.value = mot;
+          champ.focus();
+        });
+        liste.appendChild(bouton);
+      }
+      enveloppe.appendChild(liste);
+    }
+    return { element: enveloppe, lire: () => champ.value.trim() };
+  }
+
+  function lignes(declare: ChampDeclare, defaut: string[]): Saisie {
+    const maximum = MAXIMUM_LIGNES[declare.champ] ?? 3;
+    const enveloppe = document.createElement('div');
+    enveloppe.className = 'space-y-2';
+    const champs: HTMLInputElement[] = [];
+    for (let i = 0; i < maximum; i += 1) {
+      const champ = document.createElement('input');
+      champ.type = 'text';
+      champ.value = defaut[i] ?? '';
+      champ.placeholder = i === 0 ? 'Une phrase suffit' : 'Facultatif';
+      champ.className =
+        'w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 ' +
+        'dark:border-slate-700 dark:bg-slate-950 dark:text-white';
+      champs.push(champ);
+      enveloppe.appendChild(champ);
+    }
+    return {
+      element: enveloppe,
+      lire: () => champs.map((c) => c.value.trim()).filter(Boolean),
+    };
+  }
+
+  function heure(defaut: string): Saisie {
+    const champ = document.createElement('input');
+    champ.type = 'time';
+    champ.step = '900';
+    champ.value = defaut;
+    champ.className =
+      'rounded-lg border border-slate-300 px-3 py-2 text-slate-900 ' +
+      'dark:border-slate-700 dark:bg-slate-950 dark:text-white';
+    return { element: champ, lire: () => (champ.value ? champ.value : undefined) };
+  }
+
+  function curseur(declare: ChampDeclare, defaut: number): Saisie {
+    const bornes = BORNES[declare.champ] ?? { min: 0, max: 40, pas: 1, unite: '' };
+    const enveloppe = document.createElement('div');
+    const valeur = document.createElement('p');
+    valeur.className = 'text-2xl font-semibold text-slate-900 dark:text-white';
+    const champ = document.createElement('input');
+    champ.type = 'range';
+    champ.min = String(bornes.min);
+    champ.max = String(bornes.max);
+    champ.step = String(bornes.pas);
+    champ.value = String(Math.min(bornes.max, Math.max(bornes.min, defaut)));
+    champ.className = 'mt-2 w-full';
+    const peindre = () => {
+      const n = Number(champ.value);
+      valeur.textContent = `${n.toLocaleString('fr-FR')} ${bornes.unite}${n > 1 && bornes.unite === 'séance' ? 's' : ''}`;
+    };
+    champ.addEventListener('input', peindre);
+    peindre();
+    enveloppe.append(valeur, champ);
+    return { element: enveloppe, lire: () => Number(champ.value) };
+  }
+
+  function repartition(champs: readonly { clef: string; libelle: string }[], defaut: Record<string, number>): Saisie {
+    const enveloppe = document.createElement('div');
+    enveloppe.className = 'space-y-3';
+    const curseurs = new Map<string, HTMLInputElement>();
+    let inconnu = false;
+    for (const { clef, libelle } of champs) {
+      const ligne = document.createElement('div');
+      const etiquette = document.createElement('div');
+      etiquette.className = 'flex items-baseline justify-between text-sm';
+      const nom = document.createElement('span');
+      nom.className = 'text-slate-700 dark:text-slate-200';
+      nom.textContent = libelle;
+      const lu = document.createElement('span');
+      lu.className = 'font-medium text-slate-900 dark:text-white';
+      const champ = document.createElement('input');
+      champ.type = 'range';
+      champ.min = '0';
+      champ.max = '20';
+      champ.step = '1';
+      champ.value = String(defaut[clef] ?? 0);
+      champ.className = 'mt-1 w-full';
+      const peindre = () => {
+        lu.textContent = `${Number(champ.value)} h`;
+      };
+      champ.addEventListener('input', peindre);
+      peindre();
+      etiquette.append(nom, lu);
+      ligne.append(etiquette, champ);
+      curseurs.set(clef, champ);
+      enveloppe.appendChild(ligne);
+    }
+    const pas = document.createElement('button');
+    pas.type = 'button';
+    pas.className = CLASSE_BASCULE;
+    pas.textContent = 'Je ne sais pas encore';
+    pas.addEventListener('click', () => {
+      inconnu = true;
+      $('valider').click();
+    });
+    enveloppe.appendChild(pas);
+    return {
+      element: enveloppe,
+      lire: () => {
+        if (inconnu) return {};
+        const sortie: Record<string, number> = {};
+        for (const [clef, champ] of curseurs) {
+          const n = Number(champ.value);
+          if (n > 0) sortie[clef] = n;
+        }
+        return sortie;
+      },
+    };
+  }
+
+  function dates(clefs: readonly { clef: string; libelle: string }[], defaut: Record<string, unknown>): Saisie {
+    const enveloppe = document.createElement('div');
+    enveloppe.className = 'space-y-3';
+    const champs = new Map<string, HTMLInputElement>();
+    for (const { clef, libelle } of clefs) {
+      const ligne = document.createElement('label');
+      ligne.className = 'block text-sm';
+      const nom = document.createElement('span');
+      nom.className = 'block text-slate-700 dark:text-slate-200';
+      nom.textContent = libelle;
+      const champ = document.createElement('input');
+      champ.type = 'date';
+      const deja = defaut[clef];
+      champ.value = typeof deja === 'string' ? deja : '';
+      champ.className =
+        'mt-1 rounded-lg border border-slate-300 px-3 py-2 text-slate-900 ' +
+        'dark:border-slate-700 dark:bg-slate-950 dark:text-white';
+      champs.set(clef, champ);
+      ligne.append(nom, champ);
+      enveloppe.appendChild(ligne);
+    }
+    const note = document.createElement('p');
+    note.className = 'text-xs text-slate-500 dark:text-slate-400';
+    note.textContent = 'Laissez vide si vous ne savez pas encore.';
+    enveloppe.appendChild(note);
+    return {
+      element: enveloppe,
+      lire: () => {
+        const sortie: Record<string, string> = {};
+        for (const [clef, champ] of champs) if (champ.value) sortie[clef] = champ.value;
+        return sortie;
+      },
+    };
+  }
+
+  /** Les matières du parcours courant, pour R4 et R5. */
+  function matieres(): { valeur: string; libelle: string }[] {
+    const vues = new Map<string, string>();
+    for (const parcours of PARCOURS) {
+      for (const theme of parcours.themes) {
+        for (const matiere of theme.matieres) vues.set(matiere, matiere);
+      }
+    }
+    return [...vues.keys()].sort((a, b) => a.localeCompare(b, 'fr')).map((m) => ({ valeur: m, libelle: m }));
+  }
+
+  /** La saisie qui convient à ce champ. */
+  function saisieDe(declare: ChampDeclare, defaut: unknown, valider: () => void): Saisie {
+    const champ = declare.champ;
+
+    if (champ === 'domainesActifs') {
+      const options = DOMAINES.map((d) => ({ valeur: d.id, libelle: d.libelle, aide: d.description }));
+      const retenues = Array.isArray(defaut)
+        ? (defaut as unknown[])
+        : DOMAINES.filter((d) => d.actifParDefaut).map((d) => d.id);
+      return bascules(options, retenues);
+    }
+    if (champ === 'concours') {
+      const options = PARCOURS.map((p) => ({ valeur: p.id, libelle: p.libelle, aide: p.intitule }));
+      return bascules(options, Array.isArray(defaut) ? (defaut as unknown[]) : []);
+    }
+    if (champ === 'matieresFortes' || champ === 'matieresFaibles') {
+      return bascules(matieres(), Array.isArray(defaut) ? (defaut as unknown[]) : []);
+    }
+    if (champ === 'tempsParDomaine' || champ === 'ciblesEquilibre') {
+      const actifs = DOMAINES.filter((d) => d.actifParDefaut).map((d) => ({ clef: d.id, libelle: d.libelle }));
+      return repartition(actifs, (defaut as Record<string, number>) ?? {});
+    }
+    if (champ === 'datesEpreuves') {
+      const clefs = PARCOURS.map((p) => ({ clef: p.id, libelle: p.libelle }));
+      return dates(clefs, (defaut as Record<string, unknown>) ?? {});
+    }
+
+    const options = CHOIX[champ];
+    if (options) {
+      if (MULTIPLES.includes(champ)) {
+        return bascules(options, Array.isArray(defaut) ? (defaut as unknown[]) : []);
+      }
+      return choixUnique(options, defaut, valider);
+    }
+    if (champ in BORNES) return curseur(declare, typeof defaut === 'number' ? defaut : 0);
+    if (champ in MAXIMUM_LIGNES) return lignes(declare, Array.isArray(defaut) ? (defaut as string[]).map(String) : []);
+    if (declare.nature === 'heure') return heure(typeof defaut === 'string' ? defaut : '07:00');
+    return texte(declare, typeof defaut === 'string' ? defaut : '');
+  }
+
+  /* ════════════════════════════════════════════════════════════════════
+     Le déroulé
+     ════════════════════════════════════════════════════════════════════ */
+
+  let ecrans: Question[] = [];
+  let position = 0;
+  let saisies: { declare: ChampDeclare; saisie: Saisie; deduction?: Deduction }[] = [];
+
+  function montrerFin(reglees: number, total: number) {
+    $('parcours').classList.add('hidden');
+    $('fin').classList.remove('hidden');
+    const lien = $('aller-menu') as HTMLAnchorElement;
+    lien.href = retour;
+    $('resume-fin').textContent = brancheVoulue
+      ? `${reglees} question${reglees > 1 ? 's' : ''} sur ${total} réglée${reglees > 1 ? 's' : ''}. Le reste se complète depuis « Mon profil », quand vous voudrez.`
+      : `${reglees} question${reglees > 1 ? 's' : ''} sur ${total} réglée${reglees > 1 ? 's' : ''}. Tout se change depuis « Mon profil », à tout moment.`;
+  }
+
+  async function terminer(reglees: number, total: number) {
+    if (brancheVoulue) await marquerModule(brancheVoulue);
+    else await marquerInitialisation(await installationExistante());
+    montrerFin(reglees, total);
+  }
+
+  function peindre() {
+    const ecran = ecrans[position];
+    if (!ecran) return;
+
+    $('erreur').classList.add('hidden');
+    $('question').textContent = ecran.question;
+    $('etiquette').textContent = brancheVoulue
+      ? `${brancheDeclaree(brancheVoulue)?.libelle ?? brancheVoulue} — pour commencer`
+      : 'Faisons connaissance';
+    $('compteur').textContent = `${position + 1} / ${ecrans.length}`;
+    ($('jauge') as HTMLElement).style.width = `${Math.round((position / ecrans.length) * 100)}%`;
+
+    const obligatoire = ecran.etapes.some((e) => e.declare.obligatoire);
+    $('plus-tard').classList.toggle('hidden', obligatoire);
+
+    /* Les constats d'observation, s'il y en a pour cet écran. */
+    const deductions = ecran.etapes.map((e) => e.deduction).filter(Boolean) as Deduction[];
+    const bloc = $('observe');
+    if (deductions.length) {
+      bloc.className =
+        'mt-3 rounded-xl border border-sky-300 bg-sky-50 px-4 py-3 text-sm text-sky-900 ' +
+        'dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100';
+      bloc.innerHTML =
+        '<strong>Observé, pas déclaré :</strong> ' +
+        deductions.map((d) => echapper(d.constat)).join(' ') +
+        ' <span class="block mt-1 opacity-80">La réponse est préremplie. Corrigez-la si elle est fausse — rien n’est écrit avant que vous continuiez.</span>';
+      bloc.classList.remove('hidden');
+    } else {
+      bloc.classList.add('hidden');
+      bloc.textContent = '';
+    }
+
+    const zone = $('saisie');
+    zone.innerHTML = '';
+    saisies = [];
+    for (const etape of ecran.etapes) {
+      const defaut =
+        etape.deja?.valeur ?? etape.deduction?.valeur ?? DEFAUTS[etape.declare.champ] ?? undefined;
+      const saisie = saisieDe(etape.declare, defaut, () => void valider());
+      if (ecran.etapes.length > 1) {
+        const titre = document.createElement('p');
+        titre.className = 'text-sm font-medium text-slate-700 dark:text-slate-200';
+        titre.textContent = etape.declare.libelle;
+        zone.appendChild(titre);
+      }
+      zone.appendChild(saisie.element);
+      saisies.push({
+        declare: etape.declare,
+        saisie,
+        ...(etape.deduction ? { deduction: etape.deduction } : {}),
+      });
+    }
+
+    const immediate = saisies.every((s) => s.saisie.immediate);
+    $('valider').classList.toggle('hidden', immediate && saisies.length === 1);
+  }
+
+  function avancer() {
+    position += 1;
+    if (position >= ecrans.length) {
+      void terminer(ecrans.length, ecrans.length);
+      return;
+    }
+    peindre();
+  }
+
+  async function valider() {
+    const ecran = ecrans[position];
+    let ecrit = 0;
+    for (const { declare, saisie, deduction } of saisies) {
+      const valeur = saisie.lire();
+      if (valeur === undefined) continue;
+      if (typeof valeur === 'string' && !valeur) continue;
+      if (Array.isArray(valeur) && !valeur.length) continue;
+      try {
+        /*
+         * `confirme` et non `declare` : la valeur vient d'une observation que la
+         * personne vient de valider. Les deux sources ne sont pas la même chose,
+         * et « Mon profil » le dira — une déduction confirmée reste une
+         * déduction, et si l'observation était fausse, c'est la trace qui
+         * permettra de comprendre pourquoi le réglage l'était aussi.
+         */
+        const memeQueDeduit =
+          deduction !== undefined && JSON.stringify(deduction.valeur) === JSON.stringify(valeur);
+        await ecrireChamp(declare.champ, valeur, {
+          source: memeQueDeduit ? 'confirme' : 'declare',
+        });
+        ecrit += 1;
+      } catch (erreur) {
+        $('erreur').textContent = erreur instanceof Error ? erreur.message : String(erreur);
+        $('erreur').classList.remove('hidden');
+        return;
+      }
+    }
+
+    if (!ecrit && ecran.etapes.some((e) => e.declare.obligatoire)) {
+      $('erreur').textContent = 'Cette réponse est la seule qui soit attendue.';
+      $('erreur').classList.remove('hidden');
+      return;
+    }
+    avancer();
+  }
+
+  async function plusTard() {
+    for (const etape of ecrans[position].etapes) await reporter(etape.declare.champ);
+    avancer();
+  }
+
+  auDeverrouillage(
+    async () => {
+      const options = brancheVoulue ? { branche: brancheVoulue } : {};
+      const existante = !brancheVoulue && (await installationExistante());
+      const observe = existante || brancheVoulue ? await observerUsage() : null;
+      const parcours = await parcoursLocal({
+        ...options,
+        ...(observe ? { deductions: observe.deductions } : {}),
+      });
+
+      ecrans = enEcrans(parcours.restantes);
+      $('chargement-init').classList.add('hidden');
+
+      if (!ecrans.length) {
+        await terminer(parcours.reglees, parcours.total);
+        return;
+      }
+
+      $('valider').addEventListener('click', () => void valider());
+      $('plus-tard').addEventListener('click', () => void plusTard());
+      $('terminer').addEventListener('click', () => void terminer(parcours.reglees, parcours.total));
+
+      if (existante && observe) {
+        const liste = $('repris');
+        const { etatActivite } = await import('../lib/odyssee/service');
+        const activite = await etatActivite();
+        const reprises: string[] = [
+          `${activite.xp.toLocaleString('fr-FR')} points d’expérience et le niveau ${activite.niveau.niveau}.`,
+          activite.serie.record > 0
+            ? `Votre record de série : ${activite.serie.record} jours.`
+            : 'Aucune série enregistrée pour l’instant.',
+          `${observe.observation.jours.length} jours d’activité connus.`,
+          ...observe.deductions.map((d) => d.constat),
+        ];
+        for (const phrase of reprises) {
+          const li = document.createElement('li');
+          li.className = 'flex gap-2';
+          const puce = document.createElement('span');
+          puce.setAttribute('aria-hidden', 'true');
+          puce.textContent = '·';
+          const texte = document.createElement('span');
+          texte.textContent = phrase;
+          li.append(puce, texte);
+          liste.appendChild(li);
+        }
+        $('allegee').classList.remove('hidden');
+        $('commencer').addEventListener('click', () => {
+          $('allegee').classList.add('hidden');
+          $('parcours').classList.remove('hidden');
+          peindre();
+        });
+        return;
+      }
+
+      $('parcours').classList.remove('hidden');
+      peindre();
+    },
+    { zoneChargement: '#chargement-init' },
+  );
+</script>

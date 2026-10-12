@@ -72,6 +72,8 @@
     "essais:desaccords": "tsx scripts/essais-desaccords.mts",
     "essais:enregistrements": "tsx scripts/essais-enregistrements.mts",
     "essais:faits-domaine": "node scripts/essais-faits-domaine-navigateur.mjs",
+    "essais:initialisation": "tsx scripts/essais-initialisation.mts",
+    "essais:initialisation:navigateur": "node scripts/essais-initialisation-navigateur.mjs",
     "essais:profil": "tsx scripts/essais-profil.mts",
     "essais:profil:navigateur": "node scripts/essais-profil-navigateur.mjs",
     "essais:certification": "tsx scripts/essais-certification.mts",

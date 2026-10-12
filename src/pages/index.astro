@@ -127,6 +127,7 @@ import config from '../../site.config.mjs';
 
 <script>
   import { auDeverrouillage } from '../lib/chargement';
+  import { base } from '../lib/ui';
 
   /*
      La salutation est le seul élément personnel du menu, et elle se charge
@@ -135,6 +136,21 @@ import config from '../../site.config.mjs';
      salutation complète.
   */
   auDeverrouillage(async () => {
+    /*
+       La garde d'A.1 : mot de passe → *(première fois)* initialisation → menu.
+       Elle est **ici** et non dans le déverrouillage lui-même, parce que la
+       marque d'initialisation vit dans la base chiffrée : avant l'ouverture de
+       la session, on ne sait pas encore s'il faut initialiser. Et elle ne
+       retient personne — l'écran d'initialisation porte « Terminer maintenant »
+       sur chacune de ses questions.
+    */
+    const { porteLocale } = await import('../lib/initialisation');
+    const porte = await porteLocale();
+    if (porte.quoi === 'initialiser') {
+      window.location.replace(`${base}/initialisation/`);
+      return;
+    }
+
     const { prenom } = await import('../lib/profil');
     const nom = await prenom();
     if (!nom) return;

@@ -11,6 +11,7 @@
  * « astro preview » avant ce script.
  */
 import { chromium } from 'playwright-core';
+import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const MDP = motDePasseEssais();
@@ -27,8 +28,11 @@ await page.goto(`${B}/robots.txt`);
 await page.evaluate(() => new Promise((ok) => { const r = indexedDB.deleteDatabase('revinsp'); r.onsuccess = r.onerror = r.onblocked = () => ok(); }));
 /*
  * L'accueil de Révisions est à /revisions/ : la racine est le menu de Cyclades
- * depuis la section 0.1 du prompt complémentaire.
+ * depuis la section 0.1 du prompt complémentaire. Et depuis la phase C, une
+ * base vierge passe d'abord par l'initialisation : l'essai la traverse comme
+ * une personne le ferait, puisque ce n'est pas ce qu'il mesure.
  */
+await franchirInitialisation(page, B, MDP);
 await page.goto(`${B}/revisions/`, { waitUntil: 'networkidle' });
 if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
   await page.fill('#champ-mdp', MDP);

@@ -661,6 +661,25 @@ import Section from '../../components/Section.astro';
   // « auDeverrouillage » : barre de progression, garde-fou de 5 secondes et
   // exécution même si ce script arrive après l'ouverture de la session.
   auDeverrouillage(async () => {
+    /*
+       Les questions de la branche sont posées **à la première entrée**, et pas
+       à l'initialisation : demander les matières fortes avant d'avoir montré à
+       quoi elles servent, c'est demander à quelqu'un de se noter sur un
+       programme qu'il n'a pas vu. La marque est journalisée, donc le téléphone
+       ne redemandera pas.
+    */
+    const { porteLocale } = await import('../../lib/initialisation');
+    const porte = await porteLocale('revisions');
+    if (porte.quoi !== 'entrer') {
+      const { base } = await import('../../lib/ui');
+      window.location.replace(
+        porte.quoi === 'module'
+          ? `${base}/initialisation/?branche=revisions`
+          : `${base}/initialisation/`,
+      );
+      return;
+    }
+
     await afficher();
     // Un échec de la veille ne doit jamais empêcher l'affichage du tableau de bord.
     afficherActualites().catch((e) => console.warn('Actualités indisponibles :', e));

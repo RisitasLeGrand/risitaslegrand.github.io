@@ -108,6 +108,19 @@ import Base from '../layouts/Base.astro';
   const nomDeBranche = (id: string) => branche(id)?.libelle ?? id;
 
   /**
+   * Les trois sources d'A.3, dites en français.
+   *
+   * « Observé, puis confirmé » n'est pas « déclaré », et l'écran ne les confond
+   * pas : le jour où un réglage est faux, savoir si la personne l'a dit ou si
+   * Cyclades l'a déduit est la première chose à regarder.
+   */
+  const LIBELLE_SOURCE: Record<string, string> = {
+    declare: 'déclaré',
+    observe: 'observé, non confirmé',
+    confirme: 'observé, puis confirmé',
+  };
+
+  /**
    * La valeur, en français.
    *
    * Et **échappée**, parce que ces valeurs sont saisies : « Qu'est-ce que vous
@@ -145,7 +158,7 @@ import Base from '../layouts/Base.astro';
     const meta = document.createElement('p');
     meta.className = 'mt-1 text-xs text-slate-500 dark:text-slate-400';
     meta.textContent =
-      `${valeur.source === 'declare' ? 'déclaré' : 'observé, non confirmé'} · ` +
+      `${LIBELLE_SOURCE[valeur.source]} · ` +
       `version ${valeur.version} · posé sur ${valeur.appareil}`;
 
     const portee = document.createElement('p');
