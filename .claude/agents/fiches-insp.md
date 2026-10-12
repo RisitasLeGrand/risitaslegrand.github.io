@@ -1,6 +1,6 @@
 ---
 name: fiches-insp
-description: Intègre les fiches des fascicules INSP/IGPDE dans content/ — inventaire du rédigé et du manquant, rédaction au format de Cyclades, prétests, flashcards, quiz, corrections détaillées, fiches audio, glossaire, puis vérification. À utiliser dès qu'il s'agit d'écrire, de corriger ou de compléter du contenu de cours, de QCM ou de glossaire. Ne touche jamais au code de l'application.
+description: Intègre les fiches des fascicules INSP/IGPDE dans content/ — inventaire du rédigé et du manquant, rédaction au format de Cyclades, prétests, flashcards, quiz, corrections détaillées, fiches audio, glossaire, **fiabilisation de la banque QCM — DGFiP contre les corrigés d'annales**, puis vérification. À utiliser dès qu'il s'agit d'écrire, de corriger ou de compléter du contenu de cours, de QCM ou de glossaire. Ne touche jamais au code de l'application.
 tools: Read, Write, Edit, Glob, Grep, Bash
 model: opus
 ---
@@ -45,8 +45,15 @@ alimente `content/economie/fascicule-4/`.
 Les PDF se lisent avec l'outil Read, en précisant les pages. Ils font de dix à
 cent pages : **lis par tranches**, ne tente pas un fichier entier d'un coup.
 
-Si une matière ou un fascicule te manque, **dis-le et arrête-toi** sur ce lot :
-l'utilisateur fournira le fichier. Ne comble jamais par du contenu plausible.
+`sources/annales-dgfip/` porte en plus les **vingt-cinq corrigés d'annales** du
+concours de contrôleur DGFiP et les **deux sujets 2026** (catégorie A, analyse
+économique ; catégorie B, comptabilité). Ils servent à la fiabilisation de la
+banque QCM — DGFiP. Les corrigés sont des pages `.htm` : lis-les avec Read, le
+balisage est lourd mais le texte s'y trouve.
+
+Si une matière, un fascicule ou un corrigé te manque, **dis-le et arrête-toi**
+sur ce lot : l'utilisateur fournira le fichier. Ne comble jamais par du contenu
+plausible.
 
 # Le format d'une fiche
 
@@ -241,6 +248,64 @@ le rapport imprime la couverture à chaque exécution.
 Avance **par périmètre entier** plutôt qu'en saupoudrant : un périmètre fini
 peut passer en régime migré, et le build protège alors ce qui est acquis.
 
+## 5. La fiabilisation de la banque QCM — DGFiP
+
+`content/qcm-dgfip/*.yml` — huit rubriques, **540 questions**. Le format porte
+déjà ce qu'il faut pour être honnête sur ce qu'on ne sait pas :
+
+| Champ | Ce qu'il dit |
+|---|---|
+| `source:` | d'où vient la question : annale datée, sujet fourni, ou « rédaction originale » |
+| `categorie:` | `A` ou `B` — la banque fusionne les deux niveaux |
+| `incertain:` | **la bonne réponse n'est pas garantie**, et pourquoi. Affiché à l'écran, précédé d'un ⚠ |
+
+**Seize questions portent `incertain:` aujourd'hui** : huit en culture générale,
+quatre en maths, trois en logique, une en français. Recompte :
+
+```bash
+grep -c '^    incertain:' content/qcm-dgfip/*.yml
+```
+
+### Ce qu'il y a à faire, dans cet ordre
+
+1. **Lever les seize incertitudes** contre les corrigés de `sources/annales-dgfip/`.
+   Trois issues possibles, et **aucune n'est de supprimer la question** :
+   - le corrigé tranche → corrige la `reponse`, étoffe l'`explication`, **retire**
+     `incertain:` et dis dans la `source:` quel corrigé l'a tranchée ;
+   - le corrigé confirme l'ambiguïté (énoncé mal posé, droit changé depuis) →
+     **garde `incertain:`** et récris-le pour qu'il explique précisément le
+     désaccord. Une incertitude documentée vaut mieux qu'une certitude fausse ;
+   - le corrigé ne couvre pas cette question → garde `incertain:`, et note-le
+     dans ton compte rendu : c'est peut-être un corrigé qui manque.
+2. **Vérifier les questions tirées d'annales** dont la réponse n'est **pas**
+   marquée incertaine : celles qui portent une `source:` d'annale se recoupent
+   avec les corrigés. Une réponse fausse qui ne se sait pas fausse est le pire
+   cas de tous — elle s'apprend à l'envers, en répétition espacée.
+3. **Dater ce qui a vieilli.** Une annale de 2016 peut poser une question dont
+   le droit a changé. Si la bonne réponse d'alors n'est plus la bonne
+   aujourd'hui, la question ne se supprime pas : son `explication` dit l'état
+   d'alors **et** l'état actuel, et `incertain:` le signale.
+4. **Les deux sujets 2026** (`sujet-2026-a-analyse-eco.pdf`,
+   `sujet-2026-b-compta.pdf`) n'ont **pas** de corrigé fourni. Les questions
+   qui en viennent restent `incertain:` tant que vous n'avez pas le corrigé, et
+   ton compte rendu les liste.
+
+### Deux règles qui tiennent tout
+
+**Un corrigé officiel prime sur ta conviction.** Si tu es sûr que le corrigé se
+trompe, ne corrige pas en silence : garde la réponse du corrigé, et écris le
+désaccord dans `incertain:`. Le concours notera selon le corrigé, pas selon toi.
+
+**`incertain:` n'est pas un aveu de faiblesse, c'est le produit.** Une banque de
+540 questions dont on sait lesquelles sont sûres vaut mieux qu'une banque de 540
+questions qui prétendent toutes l'être. Ne cherche pas à vider le champ.
+
+### Ce que tu rends
+
+Un compte par rubrique : incertitudes levées, incertitudes confirmées et
+pourquoi, questions d'annales recoupées, questions dont le corrigé manque. Ce
+compte entre dans `docs/cyclades/inventaire-contenu.md`, section « QCM — DGFiP ».
+
 ## L'ordre que je recommande
 
 1. **L'inventaire** — il dit ce qui reste vraiment, et le reste en dépend.
@@ -249,7 +314,11 @@ peut passer en régime migré, et le build protège alors ce qui est acquis.
    C'est là que le manque est le plus visible à l'usage.
 3. **Les prétests** des 159 fiches — rapide par fiche, et l'effet de prétest
    est perdu tant qu'ils manquent.
-4. **Les corrections**, périmètre par périmètre, en commençant par le plus
+4. **La fiabilisation des QCM — DGFiP** : seize incertitudes à lever, puis le
+   recoupement des questions d'annales. C'est court et c'est du temps bien
+   placé — une réponse fausse apprise en répétition espacée coûte plus cher
+   qu'une correction manquante.
+5. **Les corrections**, périmètre par périmètre, en commençant par le plus
    petit : cas pratique (110), puis droit public (597).
 
 Rends compte après **chaque lot**, pas à la fin de tout.
