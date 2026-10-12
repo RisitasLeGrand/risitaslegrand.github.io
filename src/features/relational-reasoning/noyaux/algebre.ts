@@ -418,6 +418,35 @@ export function possibilitesExactes(
 }
 
 /**
+ * Les relations possibles, par la voie que le système déclare suffisante, et
+ * **« je ne sais pas »** plutôt qu'une approximation.
+ *
+ * `possibilites` se rabat, quand le budget d'énumération est épuisé, sur la
+ * cohérence par chemin. Pour les algèbres où elle ne suffit pas — `allen`,
+ * `classes`, `rcc8`, `poset` en monde ouvert — ce repli rend un **sur-ensemble**
+ * des relations réellement possibles. C'est sans conséquence pour qui demande
+ * « ce réseau tient-il debout ? », et c'est faux pour qui en fait un corrigé :
+ * une relation que l'énumération aurait écartée s'y retrouve comptée bonne, et
+ * la personne qui l'exclut à juste titre est marquée en erreur.
+ *
+ * Les engendreurs d'exercices passent donc par ici et **abandonnent l'instance**
+ * quand la réponse est `null` : un tirage de plus coûte bien moins cher qu'un
+ * corrigé faux.
+ */
+export function possibilitesSures(
+  algebre: Algebre,
+  cheminComplet: boolean,
+  entites: readonly string[],
+  faits: readonly Fait[],
+  a: string,
+  b: string,
+  arretDesQue = Number.POSITIVE_INFINITY,
+): Set<string> | null {
+  if (cheminComplet) return possibilitesParChemin(algebre, entites, faits, a, b);
+  return possibilitesExactes(algebre, entites, faits, a, b, arretDesQue);
+}
+
+/**
  * Les relations possibles, par la voie que le système déclare suffisante.
  * C'est l'entrée qu'utilisent les moteurs ; ils n'ont pas à savoir laquelle.
  */

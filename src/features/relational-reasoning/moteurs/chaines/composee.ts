@@ -28,7 +28,7 @@
  * sur huit par hasard : le moteur déclare la même règle que ses voisins, sept
  * réussites sur huit.
  */
-import { compiler, possibilites } from '../../noyaux/algebre';
+import { compiler, possibilitesSures } from '../../noyaux/algebre';
 import { journal, ref } from '../../../correction/trace';
 import { libelle, que, texte } from '../../noyaux/presentation';
 import { aretes, fonctionnel, meilleurChemin, type Chemin } from '../../noyaux/chemin';
@@ -164,15 +164,23 @@ export const chaineComposee: Moteur = {
         const chemin = meilleurChemin(systeme, liste, a, b, 4);
         if (!chemin || chemin.obtenu.size !== 1) continue;
 
-        const ouvertes = possibilites(
+        /*
+           On ne cherche qu'à savoir si la relation est **déterminée** : l'arrêt
+           au deuxième scénario distinct suffit, et évite d'énumérer une foule
+           de scénarios là où la réponse tombe au second. `null` — budget
+           épuisé — fait abandonner la paire : un corrigé approché vaudrait
+           moins qu'un tirage de plus.
+        */
+        const ouvertes = possibilitesSures(
           algebre,
           systeme.cheminComplet,
           instance.entites,
           instance.faits,
           a,
           b,
+          2,
         );
-        if (ouvertes.size !== 1) continue;
+        if (!ouvertes || ouvertes.size !== 1) continue;
         const etablie = [...ouvertes][0];
         if (!chemin.obtenu.has(etablie)) continue;
 

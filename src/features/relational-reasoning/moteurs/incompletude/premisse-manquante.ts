@@ -31,7 +31,7 @@
  * d'où la référence particulière que la narration reçoit — sans quoi la
  * correction surlignerait une prémisse qui n'existe pas.
  */
-import { coherent, possibilites } from '../../noyaux/algebre';
+import { coherent, possibilitesSures } from '../../noyaux/algebre';
 import { aretes, journal, meilleurChemin, tracerChemin } from '../../noyaux/chemin';
 import { candidatsSuffisants, FAITS_MAXIMUM } from '../../noyaux/mus';
 import { blocFaits, libelle, phrase, texte } from '../../noyaux/presentation';
@@ -74,7 +74,13 @@ export const premisseManquante: Moteur = {
       if (premisses.length < 2) continue;
       if (!coherent(algebre, systeme.cheminComplet, instance.entites, premisses)) continue;
 
-      const ouvertes = possibilites(
+      /*
+         On teste l'appartenance de `conclusion`, ce qu'une troncature rendrait
+         faux : l'énumération s'arrêterait avant de la rencontrer. Pas de repli
+         non plus — un sur-ensemble ferait passer pour incertaine une
+         conclusion que l'énumération aurait tranchée.
+      */
+      const ouvertes = possibilitesSures(
         algebre,
         systeme.cheminComplet,
         instance.entites,
@@ -82,7 +88,7 @@ export const premisseManquante: Moteur = {
         a,
         b,
       );
-      if (ouvertes.size < 2 || !ouvertes.has(conclusion)) continue;
+      if (!ouvertes || ouvertes.size < 2 || !ouvertes.has(conclusion)) continue;
 
       // Les candidats : le fait retiré, et des variantes portant sur d'autres
       // paires ou d'autres relations. Ils doivent tous être *plausibles* — même

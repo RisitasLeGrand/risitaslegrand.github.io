@@ -54,7 +54,7 @@
  * L'exigence d'honnêteté de la famille vaut ici aussi : le chemin doit justifier
  * à lui seul ce que la propagation complète établit, sinon l'item est retiré.
  */
-import { compiler, possibilites } from '../../noyaux/algebre';
+import { compiler, possibilitesSures } from '../../noyaux/algebre';
 import { libelle, texte } from '../../noyaux/presentation';
 import { journal, ref, type Conclusion } from '../../../correction/trace';
 import { aretes, fonctionnel, meilleurChemin, tracerChemin } from '../../noyaux/chemin';
@@ -183,8 +183,17 @@ export const chaineSecondOrdre: Moteur = {
         if (vise === 0 && chemin.obtenu.size !== 1) continue;
         if (vise === 2 && chemin.obtenu.size < 2) continue;
 
-        const avec = possibilites(algebre, systeme.cheminComplet, instance.entites, augmentes, a, b);
-        if (avec.size === 0) continue;
+        /* Même seuil et même refus de l'approximation que dans « Conclusion ». */
+        const avec = possibilitesSures(
+          algebre,
+          systeme.cheminComplet,
+          instance.entites,
+          augmentes,
+          a,
+          b,
+          chemin.obtenu.size + 1,
+        );
+        if (!avec || avec.size === 0) continue;
 
         // L'exigence d'honnêteté : le chemin justifie à lui seul la réponse.
         if (chemin.obtenu.size !== avec.size) continue;
@@ -200,7 +209,7 @@ export const chaineSecondOrdre: Moteur = {
          * relation de plus a été vue — le résultat est alors tronqué, et ne sert
          * qu'à cette comparaison, ce que son contrat autorise expressément.
          */
-        const sans = possibilites(
+        const sans = possibilitesSures(
           algebre,
           systeme.cheminComplet,
           instance.entites,
@@ -209,7 +218,7 @@ export const chaineSecondOrdre: Moteur = {
           b,
           avec.size + 1,
         );
-        if (!(avec.size < sans.size)) continue;
+        if (!sans || !(avec.size < sans.size)) continue;
 
         const determine = avec.size === 1;
         const exclues = systeme.relations.filter((r) => !avec.has(r.id));

@@ -34,7 +34,7 @@
  * réflexe de tout cocher paierait, et l'exercice récompenserait l'inverse de ce
  * qu'il enseigne.
  */
-import { compiler, possibilites } from '../../noyaux/algebre';
+import { compiler, possibilitesSures } from '../../noyaux/algebre';
 import { aretes, journal, meilleurChemin, tracerChemin } from '../../noyaux/chemin';
 import { blocFaits, libelle, texte } from '../../noyaux/presentation';
 import { ref } from '../../../correction/trace';
@@ -84,7 +84,22 @@ export const ensemblesPossibles: Moteur = {
       );
       if (faits.length < 2) continue;
 
-      const ouvertes = possibilites(algebre, systeme.cheminComplet, instance.entites, faits, a, b);
+      /*
+         Ici l'ensemble **est** le corrigé : la personne coche les relations
+         possibles. Pas de troncature, donc — et pas de repli non plus. Un
+         sur-ensemble ferait cocher comme bonne une relation que l'énumération
+         aurait écartée, et marquerait en erreur qui l'exclut à juste titre.
+         Budget épuisé : on tire une autre instance.
+      */
+      const ouvertes = possibilitesSures(
+        algebre,
+        systeme.cheminComplet,
+        instance.entites,
+        faits,
+        a,
+        b,
+      );
+      if (!ouvertes) continue;
       const impossibles = systeme.relations.filter((r) => !ouvertes.has(r.id));
 
       // Ni déterminé, ni vacant, et assez de leurres pour que tout cocher ne

@@ -66,7 +66,7 @@
  * par `tracerChemin` parle de relations positives, et il mentirait s'il les
  * citait sans avoir dit d'où elles viennent.
  */
-import { compiler, possibilites } from '../../noyaux/algebre';
+import { compiler, possibilitesSures } from '../../noyaux/algebre';
 import {
   complement,
   libelle,
@@ -181,15 +181,23 @@ export const chaineConclusion: Moteur = {
         if (vise === 0 && chemin.obtenu.size !== 1) continue;
         if (vise === 2 && chemin.obtenu.size < 2) continue;
 
-        const ouvertes = possibilites(
+        /*
+           La comparaison porte sur `chemin.obtenu` : une relation de plus que
+           lui suffit à écarter l'instance, d'où l'arrêt à ce seuil. Et `null`
+           — budget épuisé — la fait abandonner, car le repli sur la cohérence
+           par chemin rendrait un sur-ensemble, c'est-à-dire un corrigé qui
+           compte bonnes des relations en réalité impossibles.
+        */
+        const ouvertes = possibilitesSures(
           algebre,
           systeme.cheminComplet,
           instance.entites,
           faits,
           a,
           b,
+          chemin.obtenu.size + 1,
         );
-        if (ouvertes.size === 0) continue;
+        if (!ouvertes || ouvertes.size === 0) continue;
 
         // L'exigence qui rend la correction honnête : le chemin doit justifier à
         // lui seul ce que la propagation complète établit.
