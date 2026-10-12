@@ -1,0 +1,284 @@
+---
+/**
+ * « Mes synthèses » : une période, ses mesures, et ce qu'on ne sait pas d'elle.
+ *
+ * ## Les trois sections, et pourquoi la troisième existe
+ *
+ * Les mesures, la comparaison avec la période précédente, et **ce qui n'a pas
+ * pu être mesuré**. La troisième est celle qui manque partout : sans elle, une
+ * roue d'équilibre presque vide se lit comme une vie déséquilibrée, alors
+ * qu'elle dit seulement qu'une seule branche publie des faits.
+ *
+ * ## Ce que l'écran ne fait pas
+ *
+ * **Il ne juge pas ce qui ne se juge pas.** Un indicateur que le catalogue dit
+ * neutre affiche son écart et aucune flèche. E.3 l'exige pour le corps et
+ * l'humeur ; le catalogue étend la règle au taux de bonnes réponses, qui dépend
+ * de la difficulté tirée, et au niveau estimé, qui n'est pas une note de valeur.
+ *
+ * **Il n'affiche pas zéro pour une absence.** Un indicateur sans donnée paraît
+ * dans « ce qui n'a pas pu être mesuré », avec la source qui manque — jamais
+ * dans les mesures avec une valeur nulle.
+ */
+import Base from '../layouts/Base.astro';
+---
+
+<Base titre="Mes synthèses" entete="leger">
+  <div class="mx-auto max-w-4xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Mes synthèses</h1>
+    <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      Chaque mesure porte sa <strong>formule</strong>, sa <strong>source</strong> et sa
+      <strong>fiabilité</strong>. Une mesure peu fiable reste affichée — vous avez produit ces
+      données — mais elle est grisée, et la raison est dite.
+    </p>
+
+    <div class="mt-5 flex flex-wrap gap-2" role="group" aria-label="Période">
+      <button data-periode="semaine" type="button" class="periode">Cette semaine</button>
+      <button data-periode="mois" type="button" class="periode">Ce mois</button>
+      <button data-periode="trimestre" type="button" class="periode">Ce trimestre</button>
+      <button data-periode="annee" type="button" class="periode">Cette année</button>
+    </div>
+
+    <div id="chargement-syntheses" class="mt-6">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Calcul des indicateurs…</p>
+    </div>
+
+    <div id="vue" class="mt-6 hidden">
+      <header
+        class="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900"
+      >
+        <h2 id="titre-periode" class="text-lg font-semibold text-slate-900 dark:text-white"></h2>
+        <p id="couverture" class="mt-1 text-sm text-slate-600 dark:text-slate-300"></p>
+        <div id="par-domaine" class="mt-3 flex flex-wrap gap-2 text-xs"></div>
+      </header>
+
+      <section class="mt-8">
+        <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Ce qui est mesuré</h2>
+        <div id="mesures" class="space-y-3"></div>
+        <p id="aucune-mesure" class="hidden text-sm text-slate-500 dark:text-slate-400">
+          Aucune mesure sur cette période.
+        </p>
+      </section>
+
+      <section class="mt-8">
+        <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">
+          Ce qui n’a pas pu être mesuré
+        </h2>
+        <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+          Ce n’est pas un zéro : c’est une absence. Un indicateur sans source ne dit rien, et le
+          dire est plus utile que d’afficher une valeur nulle.
+        </p>
+        <div id="manques" class="space-y-2"></div>
+      </section>
+    </div>
+  </div>
+</Base>
+
+<style>
+  .periode {
+    min-height: 2.75rem;
+    border-radius: 0.5rem;
+    border-width: 1px;
+    padding-inline: 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    transition: all 150ms;
+    border-color: var(--color-slate-300, #cbd5e1);
+  }
+  .periode[aria-pressed='true'] {
+    border-color: var(--color-indigo-600, #4f46e5);
+    background: var(--color-indigo-50, #eef2ff);
+    color: var(--color-indigo-800, #3730a3);
+  }
+  :global(.dark) .periode {
+    border-color: var(--color-slate-700, #334155);
+  }
+  :global(.dark) .periode[aria-pressed='true'] {
+    background: color-mix(in srgb, var(--color-indigo-950, #1e1b4b) 50%, transparent);
+    color: var(--color-indigo-200, #c7d2fe);
+  }
+</style>
+
+<script>
+  import { auDeverrouillage } from '../lib/chargement';
+  import { syntheseDe } from '../lib/indicateurs';
+  import type { Comparaison, TypePeriode } from '../lib/odyssee/syntheses';
+  import type { Evaluation } from '../lib/odyssee/indicateurs';
+  import { libelleDuDomaine } from '../lib/noyau/domaines';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  /**
+   * La valeur, dans l'unité de l'indicateur.
+   *
+   * Les parts s'affichent en pourcentage et les secondes en heures : une
+   * rétention de « 0,8333 » et un temps de « 10 800 » sont justes et illisibles,
+   * et un écran illisible se lit de travers.
+   */
+  function lisible(valeur: number, unite: string): string {
+    if (unite === 'part') return `${Math.round(valeur * 1000) / 10} %`;
+    if (unite === 'secondes') {
+      const heures = valeur / 3600;
+      return heures >= 1
+        ? `${(Math.round(heures * 10) / 10).toLocaleString('fr-FR')} h`
+        : `${Math.round(valeur / 60)} min`;
+    }
+    const arrondi = Math.abs(valeur) >= 100 ? Math.round(valeur) : Math.round(valeur * 100) / 100;
+    return `${arrondi.toLocaleString('fr-FR')} ${unite}`;
+  }
+
+  const FLECHE: Record<string, string> = {
+    mieux: '↗',
+    'moins-bien': '↘',
+    stable: '→',
+    aucun: '',
+  };
+  const MOT: Record<string, string> = {
+    mieux: 'en progrès',
+    'moins-bien': 'en recul',
+    stable: 'stable',
+    aucun: '',
+  };
+
+  function peindreMesure(e: Evaluation, comparaison?: Comparaison): HTMLElement {
+    const exploitable = (e.fiabilite?.valeur ?? 0) >= 0.5;
+    const bloc = document.createElement('div');
+    bloc.dataset.indicateur = e.indicateur.id;
+    bloc.className =
+      'rounded-2xl border p-4 ' +
+      (exploitable
+        ? 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'
+        : 'border-dashed border-slate-300 bg-slate-50 dark:border-slate-700 dark:bg-slate-950');
+
+    const entete = document.createElement('div');
+    entete.className = 'flex flex-wrap items-baseline justify-between gap-2';
+    const nom = document.createElement('span');
+    nom.className = 'font-medium text-slate-900 dark:text-white';
+    nom.textContent = e.indicateur.libelle;
+    const valeur = document.createElement('span');
+    valeur.className =
+      'text-xl font-semibold ' +
+      (exploitable ? 'text-slate-900 dark:text-white' : 'text-slate-400 dark:text-slate-500');
+    valeur.dataset.valeur = String(e.mesure!.valeur);
+    valeur.textContent = lisible(e.mesure!.valeur, e.indicateur.unite);
+    entete.append(nom, valeur);
+    bloc.appendChild(entete);
+
+    /*
+       La comparaison : l'écart toujours, le verdict seulement si le catalogue
+       dit que l'indicateur se juge. Un indicateur neutre porte donc son écart
+       sans flèche et sans couleur — l'écart est un fait, le verdict une opinion.
+    */
+    if (comparaison && comparaison.ecart !== null) {
+      const tendance = document.createElement('p');
+      tendance.dataset.verdict = comparaison.verdict;
+      tendance.className = 'mt-1 text-sm text-slate-600 dark:text-slate-300';
+      const signe = comparaison.ecart > 0 ? '+' : '';
+      tendance.textContent =
+        `${FLECHE[comparaison.verdict]} ${signe}${lisible(comparaison.ecart, e.indicateur.unite)} ` +
+        `par rapport à la période précédente${MOT[comparaison.verdict] ? ` — ${MOT[comparaison.verdict]}` : ''}`;
+      bloc.appendChild(tendance);
+    }
+
+    const formule = document.createElement('p');
+    formule.className = 'mt-2 text-sm text-slate-500 dark:text-slate-400';
+    formule.textContent = e.indicateur.formule;
+    bloc.appendChild(formule);
+
+    const pied = document.createElement('p');
+    pied.className = 'mt-2 text-xs text-slate-500 dark:text-slate-400';
+    const fiab = Math.round((e.fiabilite?.valeur ?? 0) * 100);
+    pied.textContent =
+      `Fiabilité ${fiab} %` +
+      (exploitable ? '' : ' — trop faible pour en tirer un plan') +
+      ` · source : ${e.indicateur.sources.join(', ')} · effectif : ${e.mesure!.effectif}`;
+    bloc.appendChild(pied);
+
+    if (e.fiabilite?.motifs.length) {
+      const motifs = document.createElement('ul');
+      motifs.className = 'mt-1 list-disc pl-5 text-xs text-amber-700 dark:text-amber-400';
+      for (const motif of e.fiabilite.motifs) {
+        const li = document.createElement('li');
+        li.textContent = motif;
+        motifs.appendChild(li);
+      }
+      bloc.appendChild(motifs);
+    }
+
+    if (e.mesure!.parClef) {
+      const detail = document.createElement('p');
+      detail.className = 'mt-2 text-xs text-slate-600 dark:text-slate-300';
+      detail.textContent = Object.entries(e.mesure!.parClef)
+        .map(([clef, n]) => `${clef} : ${Math.round(n * 100) / 100}`)
+        .join(' · ');
+      bloc.appendChild(detail);
+    }
+    return bloc;
+  }
+
+  let type: TypePeriode = 'semaine';
+
+  async function peindre() {
+    $('vue').classList.add('hidden');
+    $('chargement-syntheses').classList.remove('hidden');
+    for (const bouton of document.querySelectorAll<HTMLButtonElement>('[data-periode]')) {
+      bouton.setAttribute('aria-pressed', bouton.dataset.periode === type ? 'true' : 'false');
+    }
+
+    const { synthese, comparaisons } = await syntheseDe(type);
+    const par = new Map(comparaisons.map((c) => [c.indicateur, c]));
+
+    $('titre-periode').textContent =
+      synthese.periode.libelle.charAt(0).toUpperCase() + synthese.periode.libelle.slice(1);
+    const mesurees = synthese.evaluations.filter((e) => e.mesure);
+    $('couverture').textContent =
+      `${mesurees.length} indicateur(s) mesuré(s) sur ${synthese.evaluations.length} ` +
+      `— couverture de ${Math.round(synthese.couverture * 100)} %. ` +
+      'Les autres attendent une branche qui publie leurs faits.';
+
+    const domaines = $('par-domaine');
+    domaines.textContent = '';
+    for (const d of synthese.parDomaine) {
+      const puce = document.createElement('span');
+      puce.className =
+        'rounded-full border border-slate-300 px-3 py-1 text-slate-600 dark:border-slate-700 dark:text-slate-300';
+      puce.textContent =
+        `${d.domaine === 'transverse' ? 'Transverse' : libelleDuDomaine(d.domaine)} : ` +
+        `${d.mesures}/${d.declares} mesurés, ${d.exploitables} exploitable(s)`;
+      domaines.appendChild(puce);
+    }
+
+    const zone = $('mesures');
+    zone.textContent = '';
+    for (const e of mesurees) zone.appendChild(peindreMesure(e, par.get(e.indicateur.id)));
+    $('aucune-mesure').classList.toggle('hidden', mesurees.length > 0);
+
+    const manques = $('manques');
+    manques.textContent = '';
+    for (const manque of synthese.manques) {
+      const ligne = document.createElement('div');
+      ligne.className =
+        'rounded-xl border border-dashed border-slate-300 px-4 py-2 text-sm dark:border-slate-700';
+      const nom = document.createElement('span');
+      nom.className = 'font-medium text-slate-700 dark:text-slate-200';
+      nom.textContent = manque.libelle;
+      const pourquoi = document.createElement('span');
+      pourquoi.className = 'text-slate-500 dark:text-slate-400';
+      pourquoi.textContent = ` — ${manque.pourquoi}`;
+      ligne.append(nom, pourquoi);
+      manques.appendChild(ligne);
+    }
+
+    $('chargement-syntheses').classList.add('hidden');
+    $('vue').classList.remove('hidden');
+  }
+
+  for (const bouton of document.querySelectorAll<HTMLButtonElement>('[data-periode]')) {
+    bouton.addEventListener('click', () => {
+      type = (bouton.dataset.periode as TypePeriode) ?? 'semaine';
+      void peindre();
+    });
+  }
+
+  auDeverrouillage(peindre, { zoneChargement: '#chargement-syntheses' });
+</script>

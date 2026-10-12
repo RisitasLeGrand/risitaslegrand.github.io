@@ -66,11 +66,18 @@ avec la raison. C'est la contrepartie de C.8 : on ne construit pas un plan d'act
 dont on sait qu'elle est faible.
 
 > **Écrite en code le 11 octobre 2026**, à la phase 3f : `src/lib/odyssee/fiabilite.ts` porte les
-> quatre composantes et leur produit, et `src/lib/odyssee/desaccords.ts` alimente la quatrième. Le
-> **catalogue** lui-même (`indicateurs.ts`) attend la phase 4, qui en est le premier lecteur : le
-> construire avant son tableau de bord aurait figé cinquante-deux formules que rien n'aurait
-> éprouvées. La règle de fiabilité, elle, ne pouvait pas attendre — c'est elle que B.4 exige, et
-> elle est indépendante de tout indicateur particulier.
+> quatre composantes et leur produit, et `src/lib/odyssee/desaccords.ts` alimente la quatrième.
+>
+> **Le catalogue est en code depuis le 12 octobre 2026** (`src/lib/odyssee/indicateurs.ts`), et il
+> ne porte que les **quinze** entrées calculables — les quatorze mesures des colonnes
+> « disponible : oui » ci-dessous, plus `tr.couverture-mesure`. Les trente-huit autres restent ici,
+> nommées, et entreront en code avec la branche qui publiera leurs faits : les déclarer vides
+> aurait figé des formules que rien n'aurait éprouvées.
+>
+> Une précision que l'écriture a imposée : la quatrième composante se calcule **par indicateur** et
+> non globalement. La fenêtre de calcul porte les désaccords entiers, et `evaluer` ne retient que
+> ceux qui touchent les sources de l'indicateur — un conflit sur une source étrangère ne dégrade
+> rien, et c'est la seule lecture qui donne un sens à la règle du pivot.
 
 ## Les cibles : fixées par la personne, et pour certains domaines jamais proposées
 

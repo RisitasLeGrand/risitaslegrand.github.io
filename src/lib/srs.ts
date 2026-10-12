@@ -184,6 +184,19 @@ export async function recalculerDepuisLeJournal(carteId: string): Promise<EtatCa
 }
 
 /** Une carte est due si elle n'a jamais été vue ou si son échéance est atteinte. */
+/**
+ * La rétention prédite d'une carte à un instant, de 0 à 1.
+ *
+ * Demandée à la bibliothèque et non recalculée : la courbe d'oubli de FSRS a
+ * changé de formule entre deux versions majeures, et une copie locale aurait
+ * divergé en silence le jour de la montée de version. L'indicateur
+ * `cog.retention-fsrs` lit cette valeur, pas une approximation.
+ */
+export function retentionPredite(carte: EtatCarte, maintenant = new Date()): number {
+  const valeur = ordonnanceur.get_retrievability(carte.fsrs, maintenant, false);
+  return typeof valeur === 'number' && Number.isFinite(valeur) ? valeur : 0;
+}
+
 export function estDue(carte: EtatCarte | undefined, aujourdhui = jourISO()): boolean {
   if (!carte) return true;
   return carte.du <= aujourdhui;

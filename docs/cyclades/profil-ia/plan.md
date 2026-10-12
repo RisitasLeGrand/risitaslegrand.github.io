@@ -364,6 +364,62 @@ et non une valeur fausse.
 
 ### Phase D — Le catalogue d'indicateurs et les synthèses *(= phase 3)*
 
+> **D1 faite, le 12 octobre 2026.** Le catalogue, les périodes, les comparaisons et les séries.
+>
+> **Quinze entrées, et pas cinquante-deux.** `docs/cyclades/indicateurs.md` en décrit cinquante-deux
+> pour les cinq domaines d'Odyssée ; quatorze sont calculables aujourd'hui, parce que seule
+> Révisions publie des faits. Le code ne déclare que celles-là, plus `tr.couverture-mesure`, qui se
+> calcule sur le catalogue lui-même. Un export qui annoncerait cinquante-deux indicateurs dont
+> trente-huit vides serait moins honnête qu'un export qui en annonce quatorze et dit pourquoi ; le
+> reste attend sa branche, nommé, dans le document.
+>
+> **`null`, jamais zéro, et l'essai le vérifie indicateur par indicateur.** « Aucune donnée » et
+> « zéro » sont deux choses différentes, et les confondre fait passer un domaine non mesuré pour un
+> domaine délaissé. La règle ne tient que si l'**assembleur** la respecte aussi : un bloc de fenêtre
+> qu'on ne sait pas remplir reste absent, car un `cartes: []` à la place d'un `cartes` manquant
+> transformerait « on ne sait pas » en « aucune carte n'atteint 0,9 » — une mesure, et fausse.
+> Un seul indicateur inverse la distinction, et il porte son commentaire : `cog.charge-arrieree`
+> rend zéro quand des cartes existent et qu'aucune n'est due, et `null` quand il n'y a pas de
+> cartes du tout.
+>
+> **La pente de la courbe d'oubli rend `null` quand tous les intervalles sont égaux.** Rendre zéro
+> dirait « l'oubli ne joue pas », ce qui est une affirmation forte tirée d'une absence de variation.
+>
+> **Le pivot commande la dégradation.** `fiabilite.ts` savait déjà dégrader ; ce qui manquait, c'est
+> que la fenêtre porte les désaccords **entiers** et non un compte, pour que `evaluer` fasse le tri
+> par indicateur. Un conflit sur une source étrangère ne touche donc plus rien, un conflit sur une
+> source secondaire abîme de moitié, un conflit sur le pivot annule — et les trois cas ont leur
+> essai.
+>
+> **Les périodes sont calendaires et non glissantes.** « Cette semaine » est la semaine du lundi au
+> dimanche, pas les sept derniers jours. Une période glissante ne se compare pas à la précédente —
+> elles se chevauchent —, et toute la comparaison repose là-dessus. Les essais couvrent la fin de
+> mois, la fin d'année et le 29 février 2028.
+>
+> **La comparaison ne juge pas ce qui ne se juge pas.** Un indicateur `neutre` reçoit un **écart** et
+> jamais un verdict : l'écart est un fait, le verdict est une opinion. E.3 l'exige pour le corps et
+> l'humeur ; le catalogue étend la règle au taux de bonnes réponses — qui dépend de la difficulté
+> tirée, donc un taux qui monte parce que le tirage s'est adouci n'est pas un progrès — et au niveau
+> estimé, qui n'est pas une note de valeur. Un essai vérifie qu'aucun indicateur neutre ne reçoit
+> « mieux » ni « moins bien », et un contrôle du catalogue qu'aucun ne porte de cible proposée.
+>
+> **La résolution des séries se dégrade avec l'ancienneté**, et la règle est déclarée et non
+> choisie à l'affichage : au jour sur trente jours, à la semaine sur un an, au mois au-delà. La
+> valeur d'un pas est la **moyenne** et non la somme — une somme mensuelle à côté de valeurs
+> journalières écraserait les jours récents, et une courbe de régularité additionnée n'a aucun sens.
+>
+> **La rétention est demandée à la bibliothèque** (`retentionPredite`, nouvelle dans `srs.ts`) et non
+> recalculée : la courbe d'oubli de FSRS a changé de formule entre deux versions majeures, et une
+> copie locale aurait divergé en silence à la montée de version.
+>
+> **« Mes synthèses »** affiche les trois sections : les mesures avec leur formule, leur source,
+> leur effectif et leur fiabilité ; la comparaison avec la période précédente ; et **ce qui n'a pas
+> pu être mesuré**, avec la source qui manque. La troisième est celle qui manque partout : sans
+> elle, une couverture de 50 % se lit comme un échec plutôt que comme l'état normal d'un tableau de
+> bord dont une seule branche sur trois publie.
+>
+> **Essais** : `essais:indicateurs` (116 contrôles) et `essais:indicateurs:navigateur`.
+
 - `indicateurs.ts` : les 14 indicateurs calculables aujourd'hui, identifiants stables du document,
   formule en français, unité, sources (pivot en premier, comme `fiabilite.ts` l'attend), fréquence,
   minimum d'effectif. `calcul` rend `null`, jamais zéro.
