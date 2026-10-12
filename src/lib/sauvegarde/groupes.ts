@@ -70,6 +70,23 @@ export const CHAMP_DATE: Record<string, string | null> = {
   qcmDgfip: null,
   vmSeuils: null,
   etat: null,
+  /*
+     Odyssée. Trois magasins portent un historique, deux portent un état.
+
+     Une **tâche** et une **quête** sont des objets qu'on garde : une tâche
+     close l'an dernier n'est pas un événement de l'an dernier à effacer, c'est
+     une ligne de l'inventaire — et la quête, surtout, porte *dans* l'objet la
+     liste de ses jours tenus. Les découper par période effacerait cinq ans de
+     série pour avoir voulu effacer un mois. Elles sont donc des états.
+
+     Les **événements**, le **focus** et les **revues** sont au contraire une
+     ligne par chose arrivée, à une date : ils se découpent.
+  */
+  odysseeTaches: null,
+  odysseeQuetes: null,
+  odysseeEvenements: 'debut',
+  odysseeFocus: 'debut',
+  odysseeRevues: 'jour',
 };
 
 export const GROUPES: readonly GroupeDeMagasins[] = [
@@ -122,6 +139,18 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
       'L’histoire des révisions et le journal d’opérations. Ce qui rend les états ' +
       'recalculables et la synchronisation possible.',
     magasins: ['revisions', 'operations'],
+  },
+  {
+    id: 'odyssee',
+    libelle: 'Odyssée',
+    description: 'Tâches, quêtes, agenda, temps de concentration et revues.',
+    magasins: [
+      'odysseeTaches',
+      'odysseeQuetes',
+      'odysseeEvenements',
+      'odysseeFocus',
+      'odysseeRevues',
+    ],
   },
   {
     id: 'reglages',

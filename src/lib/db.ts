@@ -12,6 +12,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
    chargement. Les types, eux, sont effacés à la compilation.
 */
 import type { EntreeRevision } from './noyau/revisions';
+import type { Evenement, Focus, Quete, Revue, Tache } from './odyssee/modele';
 import type { Operation } from './noyau/operations';
 import { socleDe } from './noyau/revisions';
 import { idAppareilNeuf } from './noyau/operations';
@@ -534,10 +535,20 @@ interface SchemaRevinsp extends DBSchema {
     value: Operation;
     indexes: { hlc: string; cible: string; lot: string };
   };
+  /*
+     Les magasins d'Odyssée. Leurs formes sont déclarées dans la branche qui
+     les possède — « odyssee/modele.ts » — et non ici : « db.ts » n'a besoin
+     que du nom et des index pour ouvrir la base.
+  */
+  odysseeTaches: { key: string; value: Tache; indexes: { echeance: string; faiteLe: string } };
+  odysseeQuetes: { key: string; value: Quete };
+  odysseeEvenements: { key: string; value: Evenement; indexes: { debut: string } };
+  odysseeFocus: { key: string; value: Focus; indexes: { debut: string } };
+  odysseeRevues: { key: string; value: Revue; indexes: { jour: string } };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 14;
+const VERSION = 15;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -949,6 +960,46 @@ function ouvrirAuSchema(nom: string, version: number) {
           rang += 1;
           curseur = await curseur.continue();
         }
+      }
+      if (vers(15)) {
+        /*
+         * Les magasins d'Odyssée.
+         *
+         * Migration **purement additive** : cinq magasins vides apparaissent,
+         * et pas une ligne existante n'est lue. C'est ce qui permet de l'écrire
+         * sans instantané de sécurité particulier — il n'y a rien à perdre.
+         *
+         * ## Pourquoi des index, et lesquels
+         *
+         * Un index ne se rajoute qu'en montant encore la version : autant poser
+         * tout de suite ceux dont les écrans auront besoin. `echeance` et
+         * `faiteLe` servent à l'arriéré et au compte des clôtures ; `debut` au
+         * calendrier et au focus, qui lisent tous deux un intervalle de temps ;
+         * `jour` aux revues. Les quêtes n'en ont pas : elles se comptent en
+         * dizaines, jamais en milliers, et un index sur un magasin qui tient
+         * en mémoire coûte plus qu'il ne rend.
+         *
+         * Les quêtes portent leurs jours tenus dans un tableau plutôt que dans
+         * un magasin de « tenues » : voir « odyssee/modele.ts ». Un index
+         * multiEntry sur ce tableau aurait permis de chercher « qui a été tenu
+         * le 3 mars », mais aucun écran ne pose cette question — ils demandent
+         * tous l'inverse, « cette quête, quels jours ? », à quoi l'objet
+         * répond seul.
+         */
+        const taches = base.createObjectStore('odysseeTaches', { keyPath: 'id' });
+        taches.createIndex('echeance', 'echeance');
+        taches.createIndex('faiteLe', 'faiteLe');
+
+        base.createObjectStore('odysseeQuetes', { keyPath: 'id' });
+
+        const evenements = base.createObjectStore('odysseeEvenements', { keyPath: 'id' });
+        evenements.createIndex('debut', 'debut');
+
+        const focus = base.createObjectStore('odysseeFocus', { keyPath: 'id' });
+        focus.createIndex('debut', 'debut');
+
+        const revues = base.createObjectStore('odysseeRevues', { keyPath: 'id' });
+        revues.createIndex('jour', 'jour');
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -1778,6 +1829,18 @@ export const MAGASINS_PROGRESSION = [
   */
   'revisions',
   'operations',
+  /*
+     Les magasins d'Odyssée. Ils entrent dans la progression au même titre que
+     ceux de Révisions : une sauvegarde qui laisserait de côté les tâches et
+     les quêtes rendrait une base amputée de la moitié de ce que la personne y
+     a mis, et un effacement qui les oublierait laisserait des données
+     derrière lui en disant le contraire.
+  */
+  'odysseeTaches',
+  'odysseeQuetes',
+  'odysseeEvenements',
+  'odysseeFocus',
+  'odysseeRevues',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */

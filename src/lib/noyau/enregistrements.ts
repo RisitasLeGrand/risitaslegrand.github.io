@@ -291,6 +291,36 @@ export const MAGASINS_JOURNALISES: readonly MagasinJournalise[] = [
     soclePar: 'appareil',
     combiner: combinerEtatDeFiche,
   }),
+  /*
+     Odyssée. Les cinq magasins entrent dès leur création, et non après coup :
+     une donnée écrite avant d'être inscrite ici ne voyagerait pas, et le
+     socle de rattrapage devrait inventer une horloge pour elle.
+
+     La dernière écriture gagne partout, et c'est juste pour les cinq. Une
+     tâche, une quête, un événement et une revue sont des objets que la
+     personne modifie entièrement depuis un écran : l'appareil qui a écrit en
+     dernier est celui devant lequel elle était. Le focus, lui, ne se modifie
+     pas du tout — une session enregistrée est close.
+
+     Les jours tenus d'une quête mériteraient en théorie une union plutôt
+     qu'un écrasement : tenue le matin sur le téléphone, tenue le soir sur
+     l'ordinateur hors ligne, la dernière écriture perd le jour de l'autre.
+     Mais une quête se tient **une fois par jour**, et le cas suppose deux
+     appareils tenant la même quête le même jour sans s'être synchronisés
+     entre les deux. Le coût d'une règle de combinaison de plus — et d'une
+     règle de plus à tenir juste pour toujours — dépasse celui de ce cas-là.
+     Si l'usage le dément, `combiner` est là pour ça, comme pour les fiches.
+  */
+  M({ magasin: 'odysseeTaches', type: 'odyssee.tache', clef: 'id', libelle: 'Tâche' }),
+  M({ magasin: 'odysseeQuetes', type: 'odyssee.quete', clef: 'id', libelle: 'Quête' }),
+  M({
+    magasin: 'odysseeEvenements',
+    type: 'odyssee.evenement',
+    clef: 'id',
+    libelle: 'Événement d’agenda',
+  }),
+  M({ magasin: 'odysseeFocus', type: 'odyssee.focus', clef: 'id', libelle: 'Temps focus' }),
+  M({ magasin: 'odysseeRevues', type: 'odyssee.revue', clef: 'id', libelle: 'Revue' }),
 ];
 
 const PAR_MAGASIN = new Map(MAGASINS_JOURNALISES.map((m) => [m.magasin, m]));

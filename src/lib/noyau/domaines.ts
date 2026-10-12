@@ -24,6 +24,17 @@
  * « pas de donnée », jamais zéro.
  */
 
+/**
+ * L'identifiant d'un domaine, tel que les faits le portent.
+ *
+ * C'est un `string`, et l'alias n'ajoute aucune vérification. Il ajoute ce qui
+ * manquait : la différence, lisible à la déclaration, entre un champ qui porte
+ * « corps » et un champ qui porte un titre de tâche. `Domaine` est le
+ * descriptif, `IdDomaine` est la clef — les confondre est l'erreur qu'on fait
+ * une fois par fichier.
+ */
+export type IdDomaine = string;
+
 export interface Domaine {
   /** Identifiant stable, sans accent : celui que les faits portent. */
   id: string;

@@ -74,6 +74,7 @@
     "essais:adaptation": "tsx scripts/essais-adaptation.mts",
     "essais:adaptation:navigateur": "node scripts/essais-adaptation-navigateur.mjs",
     "essais:activite": "tsx scripts/essais-activite.mts",
+    "essais:odyssee": "tsx scripts/essais-odyssee-modele.mts",
     "essais:activite:navigateur": "node scripts/essais-activite-navigateur.mjs",
     "essais:desaccords": "tsx scripts/essais-desaccords.mts",
     "essais:enregistrements": "tsx scripts/essais-enregistrements.mts",
@@ -87,7 +88,8 @@
     "essais:profil": "tsx scripts/essais-profil.mts",
     "essais:profil:navigateur": "node scripts/essais-profil-navigateur.mjs",
     "essais:certification": "tsx scripts/essais-certification.mts",
-    "essais:certification:navigateur": "node scripts/essais-certification-navigateur.mjs"
+    "essais:certification:navigateur": "node scripts/essais-certification-navigateur.mjs",
+    "essais:odyssee:navigateur": "node scripts/essais-odyssee-navigateur.mjs"
   },
   "repository": {
     "type": "git",

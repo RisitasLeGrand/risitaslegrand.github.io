@@ -29,9 +29,24 @@ export async function franchirInitialisation(page, racine, motDePasse) {
       await page.fill('#champ-mdp', motDePasse);
       await page.click('#bouton-verrou');
     }
-    // Soit l'écran des questions s'ouvre, soit l'écran de fin : dans les deux
-    // cas, « Entrer » apparaît une fois la marque posée.
-    await page.waitForSelector('#terminer, #aller-menu, #commencer', { timeout: 40000 });
+    /*
+       Soit l'écran des questions s'ouvre, soit l'écran allégé, soit l'écran de
+       fin. On attend que **l'un des trois** boutons soit visible, et non le
+       premier du sélecteur : « waitForSelector » sur une union résout la liste
+       puis attend le premier élément, qui est `#terminer` — caché tant que
+       l'écran allégé est affiché. L'attente expirait donc sur une base qui
+       porte déjà de l'usage, c'est-à-dire précisément le cas où l'écran allégé
+       existe.
+    */
+    await page.waitForFunction(
+      () =>
+        ['terminer', 'aller-menu', 'commencer'].some((id) => {
+          const e = document.getElementById(id);
+          return e instanceof HTMLElement && e.offsetParent !== null;
+        }),
+      undefined,
+      { timeout: 40000 },
+    );
     if (await page.locator('#commencer').isVisible().catch(() => false)) {
       await page.click('#commencer');
     }

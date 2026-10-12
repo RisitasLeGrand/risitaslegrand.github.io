@@ -122,7 +122,19 @@ v(
   MAGASINS_JOURNALISES.filter((m) => !typeDeFait(m.type)).map((m) => m.magasin),
   [],
 );
-v('huit magasins', MAGASINS_JOURNALISES.length, 8);
+/* Huit pour Révisions, cinq pour Odyssée. */
+v('treize magasins journalisés', MAGASINS_JOURNALISES.length, 13);
+v(
+  'et les cinq d’Odyssée y sont',
+  MAGASINS_JOURNALISES.filter((m) => m.magasin.startsWith('odyssee')).map((m) => m.magasin),
+  [
+    'odysseeTaches',
+    'odysseeQuetes',
+    'odysseeEvenements',
+    'odysseeFocus',
+    'odysseeRevues',
+  ],
+);
 v(
   'un seul porte une règle de combinaison, et c’est l’état d’une fiche',
   MAGASINS_JOURNALISES.filter((m) => m.combiner).map((m) => m.magasin),
