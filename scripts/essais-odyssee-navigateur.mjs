@@ -578,6 +578,105 @@ v(
   true,
 );
 
+/* ════════════════════════════════════════════════════════════════════════
+   8. La branche est ouverte : la barre est devenue un sélecteur
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nODYSSÉE EST OUVERTE');
+
+await page.goto(`${RACINE}/odyssee/`, { waitUntil: 'networkidle' });
+await deverrouiller();
+await page.waitForSelector('#vue:not(.hidden)', { timeout: 40000 });
+
+{
+  /*
+     Les onglets viennent du registre de branches, et la mise en page ne
+     connaît plus aucun écran : c'est le critère d'extensibilité que la
+     phase 8 posait — ajouter une branche ne doit pas demander d'y toucher.
+  */
+  const onglets = await page.$$eval('#navigation-principale a', (els) =>
+    els.map((e) => e.getAttribute('href') ?? ''),
+  );
+  vrai('la barre montre les écrans d’Odyssée', onglets.some((h) => h.includes('/odyssee/taches/')));
+  faux('et non ceux de Révisions', onglets.some((h) => h.includes('/flashcards/')));
+  vrai('« Mes synthèses » y est, car Odyssée les lit', onglets.some((h) => h.includes('/syntheses/')));
+}
+vrai(
+  'et un lien mène à Révisions',
+  (await page.locator('[data-branche="revisions"]').count()) === 1,
+);
+faux(
+  'Sport, fermée, n’apparaît pas',
+  (await page.locator('[data-branche="sport"]').count()) > 0,
+);
+
+await page.goto(`${RACINE}/flashcards/`, { waitUntil: 'networkidle' });
+await deverrouiller();
+await page.waitForSelector('#navigation-principale', { timeout: 40000 });
+{
+  const onglets = await page.$$eval('#navigation-principale a', (els) =>
+    els.map((e) => e.getAttribute('href') ?? ''),
+  );
+  // Et réciproquement : un écran de Révisions montre la barre de Révisions.
+  vrai('un écran de Révisions garde sa barre', onglets.some((h) => h.includes('/flashcards/')));
+  faux('sans les écrans d’Odyssée', onglets.some((h) => h.includes('/odyssee/taches/')));
+}
+vrai(
+  'et le lien mène à Odyssée',
+  (await page.locator('[data-branche="odyssee"]').count()) === 1,
+);
+
+/* ════════════════════════════════════════════════════════════════════════
+   9. Les quêtes et la revue du soir
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nLES QUÊTES ET LA REVUE');
+
+await page.goto(`${RACINE}/odyssee/quetes/`, { waitUntil: 'networkidle' });
+await deverrouiller();
+await page.waitForSelector('#vue:not(.hidden)', { timeout: 40000 });
+v('la quête semée est là', await page.locator('[data-quete]').count(), 1);
+v('et la frise montre quatorze jours', await page.locator('[data-quete] [data-jour]').count(), 14);
+{
+  const tenue = await page.locator(`[data-quete] [data-jour="${JOUR}"]`).getAttribute('data-tenue');
+  v('le jour tenu plus tôt est coché', tenue, 'true');
+}
+/* Mettre en pause ne supprime rien : la quête garde son histoire. */
+await page.click('[data-quete] [data-action="basculer"]');
+await page.waitForFunction(
+  () => document.querySelector('[data-quete]')?.getAttribute('data-active') === 'false',
+  undefined,
+  { timeout: 15000 },
+);
+v(
+  'la quête en pause garde ses jours tenus',
+  await page.locator('[data-quete] [data-jour][data-tenue="true"]').count(),
+  1,
+);
+
+await page.goto(`${RACINE}/odyssee/revue/`, { waitUntil: 'networkidle' });
+await deverrouiller();
+await page.waitForSelector('#vue:not(.hidden)', { timeout: 40000 });
+await page.click('#enregistrer');
+vrai(
+  'une revue vide est refusée',
+  ((await page.locator('#erreur').textContent()) ?? '').includes('Une réponse au moins'),
+);
+await page.fill('#compte', 'Avancé sur le fascicule 4.');
+await page.click('#enregistrer');
+await page.waitForFunction(
+  () => (document.getElementById('dit')?.textContent ?? '').length > 0,
+  undefined,
+  { timeout: 15000 },
+);
+vrai(
+  'une revue d’une ligne est enregistrée',
+  ((await page.locator('#dit').textContent()) ?? '').includes('enregistrée'),
+);
+/* E.6 pris au mot : le coût de saisie est affiché. */
+vrai(
+  'et le temps passé est affiché',
+  /\d+ s/.test((await page.locator('#cout').textContent()) ?? ''),
+);
+
 await nav.close();
 console.log(
   echecs

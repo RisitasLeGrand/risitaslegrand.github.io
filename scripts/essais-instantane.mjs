@@ -276,6 +276,8 @@ v(
     'aides', 'cartes', 'competences', 'difficultes', 'etat', 'fiches', 'journal',
     'jours', 'nback', 'notes', 'operations', 'qcmDgfip', 'qcmSessions', 'quiz',
     'relationnel', 'revisions', 'seances', 'vmSeuils', 'vmSessions',
+    // Odyssée, depuis la version 15.
+    'odysseeTaches', 'odysseeQuetes', 'odysseeEvenements', 'odysseeFocus', 'odysseeRevues',
   ].sort(),
 );
 

@@ -85,20 +85,19 @@ await aller('/', '[data-branche="revisions"]');
     })),
   );
   v('trois branches sont proposées', cartes.length, 3);
+  /* Odyssée s'est ouverte le 12 octobre 2026 ; Sport reste fermée. */
   v(
-    'Révisions est la seule ouverte',
-    cartes.filter((c) => c.cliquable).map((c) => c.branche),
-    ['revisions'],
+    'deux branches sont ouvertes',
+    cartes.filter((c) => c.cliquable).map((c) => c.branche).sort(),
+    ['odyssee', 'revisions'],
   );
   vrai(
-    'les deux autres annoncent « Bientôt »',
+    'la troisième annonce « Bientôt »',
     cartes.filter((c) => !c.cliquable).every((c) => c.texte.includes('Bientôt')),
   );
   vrai(
-    'et elles ne sont pas des liens',
-    await page.evaluate(
-      () => !document.querySelector('a[data-branche="sport"], a[data-branche="odyssee"]'),
-    ),
+    'et elle n’est pas un lien',
+    await page.evaluate(() => !document.querySelector('a[data-branche="sport"]')),
   );
 
   // Aucune donnée personnelle : ni XP, ni série, ni carte de séance.

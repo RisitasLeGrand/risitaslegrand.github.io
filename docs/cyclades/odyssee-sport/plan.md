@@ -185,9 +185,37 @@ dupliquerait la vérité.
 
 ### O6 — Revue du soir, et le coût de saisie affiché (E.6)
 
+> **O6 faite, le 12 octobre 2026.** Quatre questions, dont **aucune** obligatoire prise
+> séparément, et une seule exigence : une revue entièrement vide n'est pas enregistrée. Une revue
+> d'une ligne l'est — la tenir compte plus que de la bien remplir, et un écran qui exige quatre
+> réponses complètes apprend à ne plus l'ouvrir.
+>
+> **Le relevé passe avant les questions.** La première chose que montre l'écran n'est pas une
+> question mais ce qui était prévu et attend une réponse : c'est le moment de la journée où l'on
+> peut y répondre de mémoire, et c'est la seule partie qui alimente un calcul.
+>
+> **Le coût de saisie est affiché**, et c'est E.6 pris au mot : l'écran dit combien de secondes on
+> y a passé. S'il coûte plus qu'il n'annonce, cela se voit, et c'est l'écran qu'il faudra
+> raccourcir.
+
 ### O7 — Ouverture de la branche
 
-`disponible: true`, navigation à deux niveaux, essais de bout en bout.
+> **O7 faite, le 12 octobre 2026.** Odyssée est ouverte ; Sport reste fermée.
+>
+> **Les onglets ont quitté la mise en page pour le registre.** `Base.astro` ne connaît plus aucun
+> écran : il déduit la branche du chemin et affiche les onglets qu'elle déclare. C'est le critère
+> d'extensibilité que la phase 8 posait — « si ce test passe sans modifier le cœur, l'extensibilité
+> est démontrée » —, et Sport n'aura donc aucune ligne à y ajouter.
+>
+> **Un écran d'Odyssée passe en en-tête complet.** Ils étaient en en-tête léger, ce qui était juste
+> tant que la branche était fermée : un écran accessible seulement par son adresse n'a pas de barre
+> à montrer. L'ouvrir sans le changer aurait livré une branche sans navigation, et l'essai l'a
+> attrapé — la barre ne contenait ni les écrans d'Odyssée ni ceux de Révisions, parce qu'il n'y
+> avait pas de barre du tout.
+>
+> **Le passage d'une branche à l'autre est un lien par branche ouverte**, et non un menu : à deux
+> branches, un menu coûte un clic de plus pour cacher une seule option. Il disparaît entièrement
+> quand il n'y a nulle part où aller.
 
 ---
 

@@ -18,10 +18,20 @@
  *
  * ## Mais on n'affiche que ce qui existe
  *
- * `disponible` est faux pour Odyssée et Sport, et la navigation ne montre que
- * les branches disponibles. Un onglet qui mène à une page vide ne renseigne
- * personne : il promet. Le jour où la branche s'ouvre, le drapeau passe à vrai
- * et la barre devient un vrai sélecteur, sans autre changement.
+ * `disponible` est faux tant qu'une branche n'a pas d'écrans, et la navigation
+ * ne montre que les branches disponibles. Un onglet qui mène à une page vide
+ * ne renseigne personne : il promet.
+ *
+ * **Odyssée s'est ouverte le 12 octobre 2026**, et la barre est devenue le
+ * sélecteur annoncé. Sport reste fermée.
+ *
+ * ## Chaque branche porte ses onglets
+ *
+ * Ils étaient écrits en dur dans la mise en page, parce qu'il n'y avait qu'une
+ * branche. Les mettre ici est ce que la phase 8 appelait « registre complété :
+ * icône, routes, navigation » : la mise en page ne décide plus de rien, elle
+ * affiche les onglets de la branche courante. La prochaine branche n'aura donc
+ * aucune ligne à ajouter dans `Base.astro`.
  */
 export interface Branche {
   id: string;
@@ -42,6 +52,19 @@ export interface Branche {
   racine: string;
   /** La branche a-t-elle des écrans aujourd'hui ? */
   disponible: boolean;
+  /** Ses onglets, dans l'ordre d'affichage. */
+  onglets: readonly Onglet[];
+}
+
+export interface Onglet {
+  id: string;
+  /** Le nom complet : lecteurs d'écran, info-bulle. */
+  libelle: string;
+  /** La version affichée à côté de l'icône sur les grands écrans. */
+  court: string;
+  /** Chemin absolu **sans** la base du site, qu'ajoute la mise en page. */
+  chemin: string;
+  icone: string;
 }
 
 export const BRANCHES: Branche[] = [
@@ -52,6 +75,26 @@ export const BRANCHES: Branche[] = [
     description: 'Préparation aux concours : cours, flashcards, quiz, planification.',
     racine: '/revisions/',
     disponible: true,
+    /*
+       Les écrans de Révisions gardent leurs chemins propres — `/flashcards/`,
+       `/quiz/` — et ne sont pas sous `/revisions/` : ils en portaient déjà de
+       distincts, et un renommage massif casserait en silence une ressource
+       chiffrée dont le chemin est écrit dans un manifeste.
+    */
+    onglets: [
+      { id: 'accueil', libelle: 'Tableau de bord', court: 'Accueil', chemin: '/revisions/', icone: '🏠' },
+      { id: 'planification', libelle: 'Planification des révisions', court: 'Planning', chemin: '/planification/', icone: '🗓️' },
+      { id: 'bibliotheque', libelle: 'Bibliothèque', court: 'Cours', chemin: '/bibliotheque/', icone: '📚' },
+      { id: 'flashcards', libelle: 'Flashcards', court: 'Cartes', chemin: '/flashcards/', icone: '🃏' },
+      { id: 'quiz', libelle: 'Quiz', court: 'Quiz', chemin: '/quiz/', icone: '🎯' },
+      { id: 'positionnement', libelle: 'Prétest de positionnement', court: 'Niveau', chemin: '/positionnement/', icone: '🧭' },
+      { id: 'journal', libelle: 'Journal d’erreurs', court: 'Erreurs', chemin: '/journal/', icone: '🩹' },
+      { id: 'cog-training', libelle: 'Cog-Training — entraînement cognitif', court: 'Cog-Training', chemin: '/cog-training/', icone: '🧩' },
+      { id: 'recherche', libelle: 'Recherche', court: 'Recherche', chemin: '/recherche/', icone: '🔎' },
+      { id: 'statistiques', libelle: 'Statistiques', court: 'Stats', chemin: '/statistiques/', icone: '📈' },
+      { id: 'glossaire', libelle: 'Glossaire', court: 'Glossaire', chemin: '/glossaire/', icone: '📖' },
+      { id: 'progression', libelle: 'Sauvegarde et synchronisation', court: 'Sauvegarde', chemin: '/progression/', icone: '💾' },
+    ],
   },
   {
     id: 'odyssee',
@@ -59,7 +102,15 @@ export const BRANCHES: Branche[] = [
     icone: '🧭',
     description: 'Pilotage de la vie : domaines, calendrier, tâches, quêtes, tendances.',
     racine: '/odyssee/',
-    disponible: false,
+    disponible: true,
+    onglets: [
+      { id: 'accueil', libelle: 'Tableau de bord', court: 'Accueil', chemin: '/odyssee/', icone: '🏠' },
+      { id: 'calendrier', libelle: 'Mon calendrier', court: 'Agenda', chemin: '/odyssee/calendrier/', icone: '🗓️' },
+      { id: 'taches', libelle: 'Mes tâches', court: 'Tâches', chemin: '/odyssee/taches/', icone: '✅' },
+      { id: 'quetes', libelle: 'Mes quêtes', court: 'Quêtes', chemin: '/odyssee/quetes/', icone: '🔁' },
+      { id: 'revue', libelle: 'Revue du soir', court: 'Revue', chemin: '/odyssee/revue/', icone: '🌙' },
+      { id: 'syntheses', libelle: 'Mes synthèses', court: 'Synthèses', chemin: '/syntheses/', icone: '📈' },
+    ],
   },
   {
     id: 'sport',
@@ -68,6 +119,7 @@ export const BRANCHES: Branche[] = [
     description: 'Musculation et cardio : exercices, séances, suivi de la force.',
     racine: '/sport/',
     disponible: false,
+    onglets: [],
   },
 ];
 
@@ -76,6 +128,33 @@ export const ID_BRANCHE_PAR_DEFAUT = 'revisions';
 export const branche = (id: string): Branche | undefined => BRANCHES.find((b) => b.id === id);
 
 export const branchesDisponibles = (): Branche[] => BRANCHES.filter((b) => b.disponible);
+
+/**
+ * La branche à laquelle appartient un chemin.
+ *
+ * Par le préfixe, et Révisions par défaut. Ce n'est pas une approximation :
+ * les écrans de Révisions sont dispersés par héritage — `/flashcards/`,
+ * `/quiz/` — et les lister ici pour les reconnaître ferait une seconde liste à
+ * tenir, qui divergerait de la première. Les branches nouvelles, elles, vivent
+ * toutes sous leur racine, et la règle du préfixe suffit.
+ *
+ * Les écrans communs — `/profil/`, `/syntheses/`, `/exporter-ia/` — tombent
+ * donc dans Révisions, qui est la branche d'accueil. Un écran commun n'a pas
+ * de branche propre, et lui en inventer une n'aiderait personne.
+ */
+export function brancheDuChemin(chemin: string): Branche {
+  /*
+     `includes` et non `startsWith` : le site est servi sous une base — sur
+     GitHub Pages, les chemins commencent par le nom du dépôt. Comparer au
+     début obligerait à connaître la base ici, c'est-à-dire à la passer depuis
+     chaque appel, pour distinguer des racines qui ne se ressemblent pas.
+  */
+  for (const b of BRANCHES) {
+    if (b.id === ID_BRANCHE_PAR_DEFAUT) continue;
+    if (chemin.includes(b.racine)) return b;
+  }
+  return branche(ID_BRANCHE_PAR_DEFAUT)!;
+}
 
 /** Le nom complet d'un écran : « Cyclades · Révisions ». */
 export function nomComplet(nomProduit: string, id = ID_BRANCHE_PAR_DEFAUT): string {

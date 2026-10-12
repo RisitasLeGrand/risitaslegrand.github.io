@@ -1,0 +1,286 @@
+---
+/**
+ * Odyssée : la revue du soir.
+ *
+ * ## Moins de trente secondes, et le coût est affiché
+ *
+ * E.6 demande que la saisie reste réduite à l'utile. Une revue du soir qui
+ * demanderait dix réponses ne serait pas tenue trois jours, et une revue non
+ * tenue vaut moins qu'une revue courte. Quatre questions, dont **une seule**
+ * obligatoire, et le temps de saisie est affiché en haut : si l'écran coûte
+ * plus qu'il n'annonce, cela se voit.
+ *
+ * ## Le relevé d'abord, les questions ensuite
+ *
+ * La première chose que montre l'écran n'est pas une question, c'est ce qui
+ * était prévu aujourd'hui et qui attend une réponse. C'est le moment de la
+ * journée où l'on peut y répondre de mémoire, et c'est ce qui alimente le
+ * suivi du plan — les questions ouvertes, elles, ne nourrissent aucun calcul.
+ *
+ * ## Rien n'est obligatoire sauf une chose
+ *
+ * Une revue vide n'est pas enregistrée. Mais une revue d'une ligne l'est : la
+ * tenir compte plus que de la bien remplir, et un écran qui exige quatre
+ * réponses complètes apprend à ne plus l'ouvrir.
+ */
+import Base from '../../layouts/Base.astro';
+---
+
+<Base titre="Revue du soir" actif="revue">
+  <div class="mx-auto max-w-2xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Revue du soir</h1>
+    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+      Moins de trente secondes. Une seule réponse suffit : la tenir compte plus que de la bien
+      remplir.
+    </p>
+
+    <div id="chargement-revue" class="mt-6">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Lecture de la journée…</p>
+    </div>
+
+    <div id="vue" class="mt-6 hidden space-y-8">
+      <p
+        id="deja"
+        class="hidden rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-100"
+      >
+        La revue d’aujourd’hui est déjà tenue. Vous pouvez la compléter.
+      </p>
+
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+          Ce qui était prévu aujourd’hui
+        </h2>
+        <p id="resume-plan" class="mt-1 text-sm text-slate-600 dark:text-slate-300"></p>
+        <div id="a-relever" class="mt-3 space-y-2"></div>
+        <p id="rien-a-relever" class="hidden text-sm text-slate-500 dark:text-slate-400">
+          Rien n’attend de réponse.
+        </p>
+      </section>
+
+      <form id="questions" class="space-y-5">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">En trois phrases</h2>
+        <label class="block text-sm">
+          <span class="block font-medium text-slate-800 dark:text-slate-100">
+            Qu’est-ce qui a compté aujourd’hui&nbsp;?
+          </span>
+          <textarea
+            id="compte"
+            rows="2"
+            maxlength="500"
+            class="mt-1 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+          ></textarea>
+        </label>
+        <label class="block text-sm">
+          <span class="block font-medium text-slate-800 dark:text-slate-100">
+            Qu’est-ce qui vous a arrêté&nbsp;?
+          </span>
+          <textarea
+            id="obstacle"
+            rows="2"
+            maxlength="500"
+            class="mt-1 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+          ></textarea>
+        </label>
+        <label class="block text-sm">
+          <span class="block font-medium text-slate-800 dark:text-slate-100">
+            Une chose pour demain
+          </span>
+          <input
+            id="demain"
+            type="text"
+            maxlength="200"
+            class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+          />
+        </label>
+
+        <div class="flex flex-wrap items-center gap-3">
+          <button
+            id="enregistrer"
+            type="submit"
+            class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+            >Enregistrer la revue</button
+          >
+          <span id="dit" class="text-sm text-slate-600 dark:text-slate-300"></span>
+        </div>
+        <p id="erreur" class="hidden text-sm text-rose-700 dark:text-rose-300"></p>
+        <p id="cout" class="text-xs text-slate-400 dark:text-slate-500"></p>
+      </form>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { etatDuJour } from '../../lib/odyssee-jour';
+  import { ecrireRevue, relever, revueDu } from '../../lib/odyssee/donnees';
+  import {
+    MOTIFS,
+    type Evenement,
+    type MotifNonFait,
+    type Realisation,
+  } from '../../lib/odyssee/modele';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  let jour = '';
+  /** L'instant d'ouverture, pour afficher ce que l'écran a réellement coûté. */
+  const ouverte = Date.now();
+
+  function ligne(texte: string, classe: string): HTMLParagraphElement {
+    const p = document.createElement('p');
+    p.className = classe;
+    p.textContent = texte;
+    return p;
+  }
+
+  /** La même mécanique de relevé qu'ailleurs : la question, puis le motif. */
+  function carteDeReleve(evenement: Evenement): HTMLElement {
+    const carte = document.createElement('div');
+    carte.className =
+      'rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 ' +
+      'dark:bg-slate-950';
+    carte.dataset.releve = evenement.id;
+    carte.appendChild(ligne(evenement.titre, 'font-medium text-slate-900 dark:text-white'));
+
+    const boutons = document.createElement('div');
+    boutons.className = 'mt-2 flex flex-wrap gap-2';
+    const bloc = document.createElement('div');
+    bloc.className = 'mt-2 hidden';
+    const select = document.createElement('select');
+    select.className =
+      'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm ' +
+      'dark:border-slate-700 dark:bg-slate-950';
+    select.setAttribute('aria-label', 'Pourquoi');
+    const vide = document.createElement('option');
+    vide.value = '';
+    vide.textContent = 'Pourquoi ?';
+    select.appendChild(vide);
+    for (const m of MOTIFS) {
+      const option = document.createElement('option');
+      option.value = m.id;
+      option.textContent = m.libelle;
+      option.title = m.precision;
+      select.appendChild(option);
+    }
+    const valider = document.createElement('button');
+    valider.type = 'button';
+    valider.className =
+      'mt-2 min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white';
+    valider.textContent = 'Enregistrer';
+    const erreur = ligne('', 'mt-2 hidden text-sm text-rose-700 dark:text-rose-300');
+    let choisie: Realisation | null = null;
+
+    for (const [valeur, libelle] of [
+      ['fait', 'Fait'],
+      ['partiel', 'En partie'],
+      ['non-fait', 'Pas fait'],
+    ] as const) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.reponse = valeur;
+      b.className =
+        'min-h-11 rounded-lg border border-slate-300 px-3 text-sm transition ' +
+        'hover:border-indigo-400 dark:border-slate-700';
+      b.textContent = libelle;
+      b.addEventListener('click', () => {
+        if (valeur === 'fait') {
+          void appliquer(evenement.id, 'fait');
+          return;
+        }
+        choisie = valeur;
+        vide.textContent =
+          valeur === 'non-fait' ? 'Pourquoi ? (obligatoire)' : 'Pourquoi ? (facultatif)';
+        bloc.classList.remove('hidden');
+        select.focus();
+      });
+      boutons.appendChild(b);
+    }
+    valider.addEventListener('click', () => {
+      if (!choisie) return;
+      if (choisie === 'non-fait' && !select.value) {
+        erreur.textContent = 'Dire que cela n’a pas eu lieu demande d’en dire la raison.';
+        erreur.classList.remove('hidden');
+        return;
+      }
+      void appliquer(evenement.id, choisie, (select.value || null) as MotifNonFait | null);
+    });
+    bloc.append(select, valider, erreur);
+    carte.append(boutons, bloc);
+    return carte;
+  }
+
+  async function appliquer(id: string, realise: Realisation, motif: MotifNonFait | null = null) {
+    await relever(id, realise, { motif });
+    await peindre();
+  }
+
+  async function peindre() {
+    const etat = await etatDuJour();
+    jour = etat.aujourdhui;
+
+    const p = etat.plan;
+    $('resume-plan').textContent =
+      p.prevus === 0
+        ? 'Rien n’était prévu ces sept derniers jours.'
+        : p.taux === null
+          ? `${p.prevus} moment(s) prévu(s), aucun relevé.`
+          : `${Math.round(p.taux * 100)} % tenu sur sept jours — ${p.nonReleves} sans réponse.`;
+
+    const zone = $('a-relever');
+    zone.innerHTML = '';
+    $('rien-a-relever').classList.toggle('hidden', etat.aRelever.length > 0);
+    for (const evenement of etat.aRelever) zone.appendChild(carteDeReleve(evenement));
+
+    const deja = await revueDu('soir', jour);
+    $('deja').classList.toggle('hidden', !deja);
+    if (deja) {
+      ($('compte') as HTMLTextAreaElement).value = deja.reponses.compte ?? '';
+      ($('obstacle') as HTMLTextAreaElement).value = deja.reponses.obstacle ?? '';
+      ($('demain') as HTMLInputElement).value = deja.reponses.demain ?? '';
+    }
+    $('vue').classList.remove('hidden');
+  }
+
+  auDeverrouillage(
+    async () => {
+      await peindre();
+
+      $('questions').addEventListener('submit', (evenement) => {
+        evenement.preventDefault();
+        void (async () => {
+          const reponses: Record<string, string> = {};
+          for (const [clef, champ] of [
+            ['compte', 'compte'],
+            ['obstacle', 'obstacle'],
+            ['demain', 'demain'],
+          ] as const) {
+            const valeur = ($(champ) as HTMLTextAreaElement | HTMLInputElement).value.trim();
+            if (valeur) reponses[clef] = valeur;
+          }
+          /*
+             Une revue vide n'est pas une revue : l'enregistrer ferait croire
+             au suivi qu'elle a été tenue, et une revue tenue à blanc vaut
+             moins que pas de revue du tout.
+          */
+          if (!Object.keys(reponses).length) {
+            $('erreur').textContent = 'Une réponse au moins, sinon il n’y a rien à garder.';
+            $('erreur').classList.remove('hidden');
+            return;
+          }
+          $('erreur').classList.add('hidden');
+          await ecrireRevue('soir', jour, reponses);
+          const secondes = Math.round((Date.now() - ouverte) / 1000);
+          $('dit').textContent = 'Revue enregistrée.';
+          /*
+             Le coût de saisie est **affiché**, et c'est E.6 pris au mot : si
+             l'écran coûte plus qu'il n'annonce, cela se voit, et c'est
+             l'écran qu'il faudra raccourcir.
+          */
+          $('cout').textContent = `Vous y avez passé ${secondes} s.`;
+          await peindre();
+        })();
+      });
+    },
+    { zoneChargement: '#chargement-revue' },
+  );
+</script>

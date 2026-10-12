@@ -10,7 +10,7 @@ import BarreProgression from '../components/BarreProgression.astro';
 import PiedDePage from '../components/PiedDePage.astro';
 import SelecteurParcours from '../components/SelecteurParcours.astro';
 import config from '../../site.config.mjs';
-import { ID_BRANCHE_PAR_DEFAUT, branche } from '../lib/branches';
+import { branchesDisponibles, brancheDuChemin } from '../lib/branches';
 
 interface Props {
   titre: string;
@@ -35,29 +35,22 @@ const enteteVoulu = entete ?? (sansNavigation ? 'aucun' : 'complet');
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 /*
-   Ces écrans sont ceux de la branche Révisions. Les autres branches, déclarées
-   dans `src/lib/branches.ts`, n'ont pas encore d'écrans : la barre ne montre
-   donc que celle-ci, et deviendra un sélecteur sans autre changement le jour où
-   Odyssée s'ouvrira.
+   La branche se déduit du chemin, et ses onglets viennent du registre. La mise
+   en page ne connaît plus aucun écran : ajouter une branche ne demande donc
+   pas d'y toucher, ce que la phase 8 posait comme le seul critère
+   d'extensibilité qui vaille.
 */
-const brancheCourante = branche(ID_BRANCHE_PAR_DEFAUT)!;
+const brancheCourante = brancheDuChemin(Astro.url.pathname);
+const autresBranches = branchesDisponibles().filter((b) => b.id !== brancheCourante.id);
 
-// « libelle » est le nom complet (lecteurs d'écran, info-bulle) ; « court »
-// est la version affichée à côté de l'icône sur les grands écrans.
-const onglets = [
-  { id: 'accueil', libelle: 'Tableau de bord', court: 'Accueil', href: `${base}${brancheCourante.racine}`, icone: '🏠' },
-  { id: 'planification', libelle: 'Planification des révisions', court: 'Planning', href: `${base}/planification/`, icone: '🗓️' },
-  { id: 'bibliotheque', libelle: 'Bibliothèque', court: 'Cours', href: `${base}/bibliotheque/`, icone: '📚' },
-  { id: 'flashcards', libelle: 'Flashcards', court: 'Cartes', href: `${base}/flashcards/`, icone: '🃏' },
-  { id: 'quiz', libelle: 'Quiz', court: 'Quiz', href: `${base}/quiz/`, icone: '🎯' },
-  { id: 'positionnement', libelle: 'Prétest de positionnement', court: 'Niveau', href: `${base}/positionnement/`, icone: '🧭' },
-  { id: 'journal', libelle: "Journal d'erreurs", court: 'Erreurs', href: `${base}/journal/`, icone: '🩹' },
-  { id: 'cog-training', libelle: 'Cog-Training — entraînement cognitif', court: 'Cog-Training', href: `${base}/cog-training/`, icone: '🧩' },
-  { id: 'recherche', libelle: 'Recherche', court: 'Recherche', href: `${base}/recherche/`, icone: '🔎' },
-  { id: 'statistiques', libelle: 'Statistiques', court: 'Stats', href: `${base}/statistiques/`, icone: '📈' },
-  { id: 'glossaire', libelle: 'Glossaire', court: 'Glossaire', href: `${base}/glossaire/`, icone: '📖' },
-  { id: 'progression', libelle: 'Sauvegarde et synchronisation', court: 'Sauvegarde', href: `${base}/progression/`, icone: '💾' },
-];
+const onglets = brancheCourante.onglets.map((o) => ({
+  id: o.id,
+  libelle: o.libelle,
+  court: o.court,
+  href: `${base}${o.chemin}`,
+  icone: o.icone,
+}));
+
 ---
 
 <!doctype html>
@@ -136,6 +129,24 @@ const onglets = [
                   <span class="hidden sm:inline">{brancheCourante.libelle}</span>
                   <span class="sr-only">Accueil de {brancheCourante.libelle}</span>
                 </a>
+                {/*
+                   Le passage d'une branche à l'autre, en un lien par branche
+                   ouverte plutôt qu'en menu déroulant : à deux branches, un
+                   menu coûte un clic de plus pour cacher une seule option.
+                   Il n'apparaît pas du tout quand il n'y a rien où aller.
+                */}
+                {autresBranches.map((autre) => (
+                  <a
+                    href={`${base}${autre.racine}`}
+                    title={autre.description}
+                    data-branche={autre.id}
+                    class="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-normal text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-indigo-400"
+                  >
+                    <span class="text-base" aria-hidden="true">{autre.icone}</span>
+                    <span class="hidden sm:inline">{autre.libelle}</span>
+                    <span class="sr-only">Aller dans {autre.libelle}</span>
+                  </a>
+                ))}
               </div>
 
               <nav

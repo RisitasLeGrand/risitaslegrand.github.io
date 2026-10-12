@@ -1,0 +1,278 @@
+---
+/**
+ * Odyssée : les quêtes.
+ *
+ * Une quête est ce qu'on se propose de **tenir**, et non de finir. Elle n'a
+ * donc pas de case « terminée » : elle a une cadence, et des jours tenus.
+ *
+ * ## Pourquoi on voit les quatorze derniers jours
+ *
+ * Un seul jour ne dit rien d'une habitude, et un mois entier ne tient pas sur
+ * un écran de téléphone. Quatorze jours montrent deux semaines complètes, donc
+ * la régularité **et** la rechute, qui est l'information utile.
+ *
+ * ## Désactiver plutôt que supprimer
+ *
+ * Une quête qu'on cesse de tenir garde son histoire. La supprimer effacerait
+ * les jours tenus avec elle, et la roue d'équilibre verrait un trou là où il y
+ * a eu un renoncement assumé — deux choses très différentes.
+ */
+import Base from '../../layouts/Base.astro';
+---
+
+<Base titre="Mes quêtes" actif="quetes">
+  <div class="mx-auto max-w-3xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Mes quêtes</h1>
+    <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      Ce qui revient chaque jour ou chaque semaine. Une quête ne se termine pas : elle se tient,
+      ou non. Ce qui se fait une seule fois est une <strong>tâche</strong>.
+    </p>
+
+    <div id="chargement-quetes" class="mt-6">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Lecture des quêtes…</p>
+    </div>
+
+    <div id="vue" class="mt-6 hidden">
+      <form
+        id="ajout"
+        class="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900"
+      >
+        <div class="flex flex-wrap items-end gap-3">
+          <label class="min-w-56 flex-1 text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Quoi</span>
+            <input
+              id="titre"
+              type="text"
+              required
+              maxlength="200"
+              class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+            />
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Domaine</span>
+            <select
+              id="domaine"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+            ></select>
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Cadence</span>
+            <select
+              id="cadence"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+            >
+              <option value="jour">Chaque jour</option>
+              <option value="semaine">Chaque semaine</option>
+            </select>
+          </label>
+          <button
+            id="ajouter"
+            type="submit"
+            class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+            >Ajouter</button
+          >
+        </div>
+        <p id="erreur" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+      </form>
+
+      <section class="mt-8">
+        <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">En cours</h2>
+        <div id="actives" class="space-y-3"></div>
+        <p id="actives-vide" class="hidden text-sm text-slate-500 dark:text-slate-400">
+          Aucune quête. Vous en créerez quand vous voudrez vous engager sur quelque chose.
+        </p>
+      </section>
+
+      <section class="mt-8">
+        <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">En pause</h2>
+        <p class="mb-3 text-sm text-slate-500 dark:text-slate-400">
+          Elles gardent leur histoire et ne comptent plus dans le plancher du jour.
+        </p>
+        <div id="dormantes" class="space-y-3"></div>
+        <p id="dormantes-vide" class="hidden text-sm text-slate-500 dark:text-slate-400">
+          Aucune.
+        </p>
+      </section>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { domainesActifs } from '../../lib/odyssee-jour';
+  import {
+    ajouterQuete,
+    ecrireQuete,
+    supprimerQuete,
+    tenir,
+    toutesLesQuetes,
+  } from '../../lib/odyssee/donnees';
+  import type { Cadence, Quete } from '../../lib/odyssee/modele';
+  import { derniersJours } from '../../lib/odyssee/jour';
+  import { jourLogique } from '../../lib/noyau/jour-logique';
+  import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
+  import { DOMAINES, libelleDuDomaine } from '../../lib/noyau/domaines';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  /** Deux semaines : assez pour voir la régularité **et** la rechute. */
+  const JOURS_MONTRES = 14;
+
+  let actifs: string[] = [];
+  let aujourdhui = '';
+
+  function ligne(texte: string, classe: string): HTMLParagraphElement {
+    const p = document.createElement('p');
+    p.className = classe;
+    p.textContent = texte;
+    return p;
+  }
+
+  /**
+   * La série en cours, en jours consécutifs tenus jusqu'à aujourd'hui.
+   *
+   * Le jour même ne **rompt** pas la série s'il n'est pas encore tenu : il est
+   * en cours. Compter une rupture à minuit transformerait chaque matin en
+   * échec, ce qui est le contraire de ce qu'une série encourage.
+   */
+  function serie(quete: Quete): number {
+    if (quete.cadence !== 'jour') return 0;
+    const tenues = new Set(quete.tenues);
+    let compte = 0;
+    let jour = aujourdhui;
+    if (!tenues.has(jour)) {
+      jour = new Date(Date.parse(`${jour}T00:00:00.000Z`) - 86400000).toISOString().slice(0, 10);
+    }
+    while (tenues.has(jour)) {
+      compte += 1;
+      jour = new Date(Date.parse(`${jour}T00:00:00.000Z`) - 86400000).toISOString().slice(0, 10);
+    }
+    return compte;
+  }
+
+  function carte(quete: Quete): HTMLElement {
+    const bloc = document.createElement('div');
+    bloc.className =
+      'rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 ' +
+      'dark:bg-slate-950';
+    bloc.dataset.quete = quete.id;
+    bloc.dataset.active = String(quete.active);
+
+    const entete = document.createElement('div');
+    entete.className = 'flex flex-wrap items-baseline gap-2';
+    const titre = document.createElement('span');
+    titre.className = 'font-medium text-slate-900 dark:text-white';
+    titre.textContent = quete.titre;
+    const detail = document.createElement('span');
+    detail.className = 'text-xs text-slate-400 dark:text-slate-500';
+    detail.textContent =
+      `${libelleDuDomaine(quete.domaine)} · ${quete.cadence === 'jour' ? 'chaque jour' : 'chaque semaine'}` +
+      (quete.cadence === 'jour' && serie(quete) > 0 ? ` · série de ${serie(quete)}` : '');
+    entete.append(titre, detail);
+    bloc.appendChild(entete);
+
+    /* La frise des quatorze derniers jours, cochable. */
+    const frise = document.createElement('div');
+    frise.className = 'mt-2 flex flex-wrap gap-1';
+    const tenues = new Set(quete.tenues);
+    for (const jour of derniersJours(aujourdhui, JOURS_MONTRES)) {
+      const case_ = document.createElement('button');
+      case_.type = 'button';
+      case_.dataset.jour = jour;
+      case_.dataset.tenue = String(tenues.has(jour));
+      case_.setAttribute(
+        'aria-label',
+        `${quete.titre}, ${jour} : ${tenues.has(jour) ? 'tenue' : 'non tenue'}`,
+      );
+      case_.setAttribute('aria-pressed', String(tenues.has(jour)));
+      case_.className =
+        'size-7 rounded-md border text-[10px] leading-7 transition ' +
+        (tenues.has(jour)
+          ? 'border-indigo-600 bg-indigo-500 text-white'
+          : 'border-slate-300 text-slate-400 hover:border-indigo-400 dark:border-slate-700');
+      case_.textContent = jour.slice(8);
+      case_.addEventListener('click', () =>
+        void agir(() => tenir(quete.id, !tenues.has(jour), new Date(`${jour}T12:00:00.000Z`))),
+      );
+      frise.appendChild(case_);
+    }
+    bloc.appendChild(frise);
+
+    const actions = document.createElement('div');
+    actions.className = 'mt-2 flex flex-wrap gap-2';
+    for (const [libelle, action] of [
+      [quete.active ? 'Mettre en pause' : 'Reprendre', () =>
+        ecrireQuete({ ...quete, active: !quete.active })],
+      ['Supprimer', () => supprimerQuete(quete.id)],
+    ] as const) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.dataset.action = libelle === 'Supprimer' ? 'supprimer' : 'basculer';
+      b.className =
+        'min-h-11 rounded-lg border border-slate-300 px-3 text-sm transition ' +
+        'hover:border-indigo-400 dark:border-slate-700' +
+        (libelle === 'Supprimer' ? ' text-rose-700 dark:text-rose-300' : '');
+      b.textContent = libelle;
+      b.addEventListener('click', () => void agir(action));
+      actions.appendChild(b);
+    }
+    bloc.appendChild(actions);
+    return bloc;
+  }
+
+  async function agir(action: () => Promise<unknown>) {
+    try {
+      await action();
+    } catch (erreur) {
+      $('erreur').textContent = erreur instanceof Error ? erreur.message : String(erreur);
+      $('erreur').classList.remove('hidden');
+      return;
+    }
+    await peindre();
+  }
+
+  async function peindre() {
+    const quetes = await toutesLesQuetes();
+    for (const [zone, liste] of [
+      ['actives', quetes.filter((q) => q.active)],
+      ['dormantes', quetes.filter((q) => !q.active)],
+    ] as const) {
+      const cible = $(zone);
+      cible.innerHTML = '';
+      $(`${zone}-vide`).classList.toggle('hidden', liste.length > 0);
+      for (const quete of liste) cible.appendChild(carte(quete));
+    }
+    $('vue').classList.remove('hidden');
+  }
+
+  auDeverrouillage(
+    async () => {
+      actifs = await domainesActifs();
+      aujourdhui = jourLogique(new Date(), await reglagesJourLogiqueLocaux());
+
+      const select = $('domaine') as HTMLSelectElement;
+      for (const d of DOMAINES) {
+        if (!actifs.includes(d.id)) continue;
+        const option = document.createElement('option');
+        option.value = d.id;
+        option.textContent = d.libelle;
+        select.appendChild(option);
+      }
+
+      $('ajout').addEventListener('submit', (evenement) => {
+        evenement.preventDefault();
+        const titre = ($('titre') as HTMLInputElement).value.trim();
+        if (!titre) return;
+        const cadence = ($('cadence') as HTMLSelectElement).value as Cadence;
+        void agir(async () => {
+          await ajouterQuete({ titre, domaine: select.value, cadence });
+          ($('titre') as HTMLInputElement).value = '';
+          $('erreur').classList.add('hidden');
+        });
+      });
+
+      await peindre();
+    },
+    { zoneChargement: '#chargement-quetes' },
+  );
+</script>
