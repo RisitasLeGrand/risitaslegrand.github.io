@@ -43,6 +43,7 @@ const v = (titre, obtenu, attendu) => {
   }
 };
 const vrai = (titre, condition) => v(titre, condition, true);
+const faux = (titre, condition) => v(titre, condition, false);
 
 const contexte = await nav.newContext();
 const page = await contexte.newPage();
@@ -165,6 +166,201 @@ v('la séance d’avant la migration est toujours là', apres.seances, ['SEANCE-
    machine un appareil inconnu pour tous les autres.
 */
 v('et l’identifiant d’appareil n’a pas bougé', apres.appareil, 'APPAREIL-ESSAI');
+
+/* ════════════════════════════════════════════════════════════════════════
+   2. Le tableau de bord, sur une base qui ne sait rien
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nUN TABLEAU DE BORD VIDE LE DIT, ET N’ACCUSE PAS');
+
+await page.goto(`${RACINE}/odyssee/`, { waitUntil: 'networkidle' });
+await deverrouiller();
+await page.waitForSelector('#vue:not(.hidden)', { timeout: 40000 });
+
+vrai('le bandeau du vide est affiché', await page.locator('#bandeau-vide').isVisible());
+{
+  const texte = (await page.locator('#bandeau-vide').textContent()) ?? '';
+  /*
+     La phrase doit dire que c'est une **absence**, et pas un déséquilibre.
+     C'est l'exigence tirée du catalogue d'indicateurs, et elle se vérifie sur
+     les mots, parce que c'est par les mots qu'elle se perd.
+  */
+  vrai('et il parle d’absence de données', texte.includes('absence de données'));
+  vrai('en niant explicitement le déséquilibre', texte.includes('n’est pas un déséquilibre'));
+}
+{
+  const etats = await page.$$eval('#roue [data-domaine]', (els) =>
+    els.map((e) => e.getAttribute('data-etat')),
+  );
+  v('les cinq domaines actifs sont peints', etats.length, 5);
+  v('et tous « sans donnée »', [...new Set(etats)], ['sans-donnee']);
+  const textes = await page.$$eval('#roue [data-domaine]', (els) =>
+    els.map((e) => e.textContent ?? ''),
+  );
+  // Jamais « 0 % » : un zéro permanent est un reproche permanent.
+  v('aucune carte n’affiche un pourcentage', textes.filter((t) => t.includes('%')).length, 0);
+  vrai('toutes disent « pas de donnée »', textes.every((t) => t.includes('Pas de donnée')));
+}
+vrai('les domaines en pause ne sont pas peints', (await page.locator('#roue [data-domaine="ordre"]').count()) === 0);
+
+/* ════════════════════════════════════════════════════════════════════════
+   3. Une quête : le plancher, la suggestion, et sa règle
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nCHAQUE SUGGESTION PORTE SA RÈGLE');
+
+/*
+   La quête est semée **directement en base**, et non par un écran : l'écran
+   des quêtes est en O5, et attendre qu'il existe pour vérifier le tableau de
+   bord reviendrait à ne vérifier ni l'un ni l'autre. Le format est celui que
+   « modele.ts » déclare, et un écart de forme ferait échouer l'essai — ce qui
+   est exactement ce qu'on veut d'une fixture.
+*/
+const JOUR = await page.evaluate(() => {
+  const d = new Date();
+  // Le jour logique bascule à 4 h : avant, on est encore la veille.
+  if (d.getHours() < 4) d.setDate(d.getDate() - 1);
+  return d.toISOString().slice(0, 10);
+});
+
+await page.evaluate(
+  (jour) =>
+    new Promise((ok, ko) => {
+      const demande = indexedDB.open('revinsp');
+      demande.onerror = () => ko(demande.error);
+      demande.onsuccess = () => {
+        const base = demande.result;
+        const tx = base.transaction('odysseeQuetes', 'readwrite');
+        tx.objectStore('odysseeQuetes').put({
+          id: 'QUETE-ESSAI',
+          titre: 'Marcher trente minutes',
+          domaine: 'corps',
+          cadence: 'jour',
+          active: true,
+          tenues: [],
+          creeeLe: `${jour}T08:00:00.000Z`,
+          majLe: `${jour}T08:00:00.000Z`,
+        });
+        tx.oncomplete = () => {
+          base.close();
+          ok(true);
+        };
+        tx.onerror = () => ko(tx.error);
+      };
+    }),
+  JOUR,
+);
+
+await page.reload({ waitUntil: 'networkidle' });
+await deverrouiller();
+await page.waitForSelector('#vue:not(.hidden)', { timeout: 40000 });
+
+v(
+  'la quête non tenue est suggérée',
+  await page.locator('#suggestions [data-regle="quete-du-jour"]').count(),
+  1,
+);
+{
+  const texte =
+    (await page.locator('#suggestions [data-regle="quete-du-jour"]').textContent()) ?? '';
+  vrai('la suggestion nomme la quête', texte.includes('Marcher trente minutes'));
+  vrai('et dit ce qui l’a déclenchée', texte.includes('pas encore tenue'));
+  /*
+     L'intitulé de la règle, et non sa raison : la raison explique au
+     développeur pourquoi la règle existe, l'intitulé dit à la personne ce que
+     la règle cherche. Les confondre afficherait un commentaire de code.
+  */
+  vrai(
+    'et affiche l’intitulé de la règle',
+    texte.includes('Une quête du jour n’est pas encore tenue'),
+  );
+}
+v('le plancher compte une quête', await page.locator('#plancher [data-quete]').count(), 1);
+v('dont aucune tenue', (await page.locator('#plancher-compte').textContent())?.trim(), '0 sur 1.');
+
+/* La tenir depuis la suggestion : c'est le geste que l'écran existe pour offrir. */
+await page.click('#suggestions [data-tenir="QUETE-ESSAI"]');
+await page.waitForFunction(
+  () => (document.getElementById('plancher-compte')?.textContent ?? '').includes('atteint'),
+  undefined,
+  { timeout: 15000 },
+);
+v(
+  'tenue, le plancher est atteint',
+  (await page.locator('#plancher-compte').textContent())?.trim(),
+  '1 sur 1 — atteint.',
+);
+v(
+  'et la suggestion a disparu',
+  await page.locator('#suggestions [data-regle="quete-du-jour"]').count(),
+  0,
+);
+
+/*
+   Et la roue cesse d'être vide : une quête tenue est un fait, mais **sans
+   durée** — elle ne doit donc pas peser dans la roue, qui ne compte que des
+   secondes. Le bandeau du vide reste affiché, et c'est voulu.
+*/
+vrai(
+  'une quête tenue ne remplit pas la roue : elle n’a pas de durée',
+  await page.locator('#bandeau-vide').isVisible(),
+);
+
+/* ════════════════════════════════════════════════════════════════════════
+   4. Le focus enregistre ce qui a eu lieu
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nLE FOCUS COMPTE LE TEMPS RÉEL');
+
+await page.selectOption('#focus-domaine', 'cognition');
+await page.click('#focus-demarrer');
+vrai('le compteur apparaît', await page.locator('#focus-compteur').isVisible());
+await page.waitForTimeout(2200);
+await page.click('#focus-arreter');
+await page.waitForFunction(
+  () => (document.getElementById('focus-dit')?.textContent ?? '').length > 0,
+  undefined,
+  { timeout: 15000 },
+);
+
+const sessions = await page.evaluate(
+  () =>
+    new Promise((ok, ko) => {
+      const demande = indexedDB.open('revinsp');
+      demande.onerror = () => ko(demande.error);
+      demande.onsuccess = () => {
+        const base = demande.result;
+        const tx = base.transaction('odysseeFocus', 'readonly');
+        tx.objectStore('odysseeFocus').getAll().onsuccess = (e) => {
+          const r = e.target.result.map((f) => ({
+            domaine: f.domaine,
+            secondes: f.secondes,
+            interrompue: f.interrompue,
+          }));
+          base.close();
+          ok(r);
+        };
+        tx.onerror = () => ko(tx.error);
+      };
+    }),
+);
+v('une session est enregistrée', sessions.length, 1);
+v('dans le domaine choisi', sessions[0].domaine, 'cognition');
+/*
+   Deux secondes, pas les vingt-cinq minutes visées. Compter la durée visée
+   gonflerait le temps de concentration exactement les jours où l'on s'est le
+   moins concentré.
+*/
+vrai('et elle vaut le temps réellement passé', sessions[0].secondes >= 2 && sessions[0].secondes <= 6);
+vrai('arrêtée avant son terme, elle est marquée interrompue', sessions[0].interrompue === true);
+
+/* La roue, elle, s'est remplie : un focus porte une durée. */
+await page.reload({ waitUntil: 'networkidle' });
+await deverrouiller();
+await page.waitForSelector('#vue:not(.hidden)', { timeout: 40000 });
+faux('la roue n’est plus vide', await page.locator('#bandeau-vide').isVisible());
+v(
+  'et c’est Cognition qui porte la mesure',
+  await page.locator('#roue [data-domaine="cognition"]').getAttribute('data-etat'),
+  'mesure',
+);
 
 await nav.close();
 console.log(

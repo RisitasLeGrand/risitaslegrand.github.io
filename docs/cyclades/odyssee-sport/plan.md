@@ -98,8 +98,30 @@ dupliquerait la vérité.
 
 ### O3 — `/odyssee/` : le tableau de bord
 
-Roue, cartes de domaine, « Aujourd'hui », « Que faire maintenant ? », derniers gains, couverture,
-notifications de correction. Focus Pomodoro.
+> **O3 faite, le 12 octobre 2026.** Le bandeau du vide, « Que faire maintenant ? », le plancher,
+> la roue, l'agenda du jour, le focus.
+>
+> **Une seule lecture, un seul instant.** `etatDuJour` lit tout en une fois. Cinq lectures séparées
+> auraient donné cinq instants différents : la roue calculée à 23 h 59 et les suggestions à 0 h 00
+> ne parleraient pas du même jour, et personne ne comprendrait pourquoi.
+>
+> **La roue additionne les deux branches.** Si elle ne voyait que les faits d'Odyssée, Cognition et
+> Connaissances seraient vides alors que ce sont les deux domaines les mieux nourris — c'est tout
+> le sens d'une roue d'équilibre.
+>
+> **Le bandeau du vide se vérifie sur ses mots**, parce que c'est par les mots qu'il se perdrait :
+> l'essai exige « absence de données » et « n'est pas un déséquilibre ». Et la contrepartie, qui
+> est la vraie preuve : une quête tenue **ne remplit pas** la roue, puisqu'elle n'a pas de durée.
+> Le bandeau reste donc affiché après l'avoir cochée, et c'est voulu.
+>
+> **La règle est dans le DOM**, en `data-regle`, et pas seulement à l'écran : un essai vérifie
+> ainsi *quelle* règle a parlé au lieu de deviner d'après un libellé qui changera. L'écran affiche
+> l'**intitulé** de la règle, jamais sa raison — la raison explique au développeur pourquoi elle
+> existe, l'intitulé dit à la personne ce qu'elle cherche.
+>
+> **Le focus n'écrit qu'à l'arrêt**, et il écrit le temps réellement passé. Les deux secondes de
+> l'essai, pas les vingt-cinq minutes visées : compter la durée visée gonflerait le temps de
+> concentration exactement les jours où l'on s'est le moins concentré.
 
 ### O4 — Calendrier
 

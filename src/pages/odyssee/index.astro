@@ -1,0 +1,477 @@
+---
+/**
+ * Odyssée : le tableau de bord.
+ *
+ * ## Ce que l'écran dit quand il ne sait rien
+ *
+ * C'est sa première obligation, avant toute autre. Au premier lancement, la
+ * roue est vide et la couverture de mesure est au quart. Un écran qui
+ * dessinerait alors cinq branches à zéro dirait « votre vie est déséquilibrée »
+ * là où il faudrait lire « je ne sais rien de vous ». La roue affiche donc
+ * **« pas de donnée »** par branche, et un bandeau le dit en toutes lettres
+ * tant qu'aucun domaine n'est mesuré.
+ *
+ * ## Chaque suggestion porte sa règle
+ *
+ * « Que faire maintenant ? » est une liste de règles locales — aucune IA,
+ * aucun appel réseau. Chaque ligne affiche **ce qui l'a déclenchée**, et le
+ * nom de la règle est dans le DOM pour qu'un essai distingue « l'écran a
+ * suggéré » de « l'écran a deviné ». Une suggestion qu'on ne peut pas discuter
+ * finit par être ignorée en bloc.
+ *
+ * ## Le focus écrit à la fin, et seulement ce qui a eu lieu
+ *
+ * Le minuteur n'enregistre rien tant qu'il tourne : une session de vingt-cinq
+ * minutes interrompue au bout de neuf en vaut neuf, et compter la durée visée
+ * gonflerait le temps de concentration exactement les jours où l'on s'est le
+ * moins concentré.
+ */
+import Base from '../../layouts/Base.astro';
+---
+
+<Base titre="Odyssée" entete="leger">
+  <div class="mx-auto max-w-5xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Odyssée</h1>
+    <p id="date-du-jour" class="mt-1 text-sm text-slate-500 dark:text-slate-400"></p>
+
+    <div id="chargement-odyssee" class="mt-6">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Lecture de la journée…</p>
+    </div>
+
+    <div id="vue" class="mt-6 hidden space-y-8">
+      <!-- Le bandeau du vide : affiché seulement quand rien n'est mesuré. -->
+      <p
+        id="bandeau-vide"
+        class="hidden rounded-2xl border border-sky-300 bg-sky-50 px-4 py-3 text-sm text-sky-900 dark:border-sky-800 dark:bg-sky-950/40 dark:text-sky-100"
+      >
+      </p>
+
+      <!-- Que faire maintenant -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+          Que faire maintenant&nbsp;?
+        </h2>
+        <p class="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+          Des règles locales, et rien d’autre : chaque proposition dit ce qui l’a déclenchée.
+          Aucune intelligence artificielle, aucune connexion.
+        </p>
+        <div id="suggestions" class="mt-3 space-y-2"></div>
+        <p id="rien-a-faire" class="hidden text-sm text-slate-500 dark:text-slate-400">
+          Rien de particulier à signaler pour l’instant.
+        </p>
+        <p id="retenues" class="mt-2 hidden text-xs text-amber-800 dark:text-amber-200"></p>
+      </section>
+
+      <!-- Le plancher du jour -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Le plancher du jour</h2>
+        <p id="plancher-compte" class="mt-1 text-sm text-slate-600 dark:text-slate-300"></p>
+        <div id="plancher" class="mt-3 space-y-2"></div>
+        <p id="plancher-vide" class="hidden text-sm text-slate-500 dark:text-slate-400">
+          Aucune quête active. Vous en créerez quand vous voudrez vous engager sur quelque chose.
+        </p>
+      </section>
+
+      <!-- La roue d'équilibre -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+          L’équilibre des sept derniers jours
+        </h2>
+        <p id="couverture" class="mt-1 text-sm text-slate-500 dark:text-slate-400"></p>
+        <div id="roue" class="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3"></div>
+      </section>
+
+      <!-- La journée -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Aujourd’hui</h2>
+        <div id="agenda" class="mt-3 space-y-2"></div>
+        <p id="agenda-vide" class="hidden text-sm text-slate-500 dark:text-slate-400">
+          Rien à l’agenda aujourd’hui.
+        </p>
+      </section>
+
+      <!-- Le focus -->
+      <section
+        class="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900"
+      >
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Se concentrer</h2>
+        <p class="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+          Le temps est enregistré <strong>à l’arrêt</strong>, et c’est le temps réellement passé —
+          pas celui qui était visé.
+        </p>
+        <div class="mt-3 flex flex-wrap items-end gap-3">
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Domaine</span>
+            <select
+              id="focus-domaine"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+            ></select>
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Durée visée</span>
+            <select
+              id="focus-duree"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+            >
+              <option value="900">15 min</option>
+              <option value="1500" selected>25 min</option>
+              <option value="2700">45 min</option>
+              <option value="3600">1 h</option>
+            </select>
+          </label>
+          <button
+            id="focus-demarrer"
+            type="button"
+            class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+          >
+            Démarrer
+          </button>
+          <button
+            id="focus-arreter"
+            type="button"
+            class="hidden min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium transition hover:border-slate-400 dark:border-slate-700"
+          >
+            Arrêter et enregistrer
+          </button>
+        </div>
+        <p
+          id="focus-compteur"
+          class="mt-3 hidden font-mono text-3xl tabular-nums text-slate-900 dark:text-white"
+          aria-live="polite"
+        >
+        </p>
+        <p id="focus-dit" class="mt-2 text-sm text-slate-600 dark:text-slate-300"></p>
+      </section>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { etatDuJour, type EtatDuJour } from '../../lib/odyssee-jour';
+  import { ajouterFocus } from '../../lib/odyssee/donnees';
+  import { tenir } from '../../lib/odyssee/donnees';
+  import { regle } from '../../lib/odyssee/jour';
+  import { DOMAINES, libelleDuDomaine } from '../../lib/noyau/domaines';
+  import { dureeDeLEvenement } from '../../lib/odyssee/modele';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  /** Une durée, dite comme on la dit : « 1 h 20 », « 35 min ». */
+  function duree(secondes: number): string {
+    const minutes = Math.round(secondes / 60);
+    if (minutes < 60) return `${minutes} min`;
+    const h = Math.floor(minutes / 60);
+    const m = minutes % 60;
+    return m ? `${h} h ${String(m).padStart(2, '0')}` : `${h} h`;
+  }
+
+  const heure = (iso: string) =>
+    new Date(iso).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' });
+
+  function ligne(texte: string, classe: string): HTMLParagraphElement {
+    const p = document.createElement('p');
+    p.className = classe;
+    p.textContent = texte;
+    return p;
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+     Les suggestions
+     ────────────────────────────────────────────────────────────────────── */
+  function peindreSuggestions(etat: EtatDuJour) {
+    const zone = $('suggestions');
+    zone.innerHTML = '';
+    $('rien-a-faire').classList.toggle('hidden', etat.suggestions.length > 0);
+
+    for (const suggestion of etat.suggestions) {
+      const carte = document.createElement('div');
+      carte.className =
+        'rounded-xl border border-slate-200 px-4 py-3 dark:border-slate-800 ' +
+        (suggestion.regle === 'journee-surchargee'
+          ? 'bg-amber-50 dark:bg-amber-950/30'
+          : 'bg-white dark:bg-slate-950');
+      /*
+         La règle est dans le DOM, et pas seulement à l'écran : c'est ce qui
+         permet à un essai de vérifier *quelle* règle a parlé, au lieu de
+         deviner d'après un libellé qui changera.
+      */
+      carte.dataset.regle = suggestion.regle;
+
+      carte.appendChild(
+        ligne(suggestion.texte, 'font-medium text-slate-900 dark:text-white'),
+      );
+      carte.appendChild(
+        ligne(suggestion.parceQue, 'mt-0.5 text-sm text-slate-600 dark:text-slate-300'),
+      );
+      const r = regle(suggestion.regle);
+      if (r) {
+        carte.appendChild(
+          ligne(r.intitule, 'mt-1 text-xs text-slate-400 dark:text-slate-500'),
+        );
+      }
+
+      // Une quête se tient depuis la suggestion : c'est le geste attendu.
+      if (suggestion.cible?.quoi === 'quete') {
+        const bouton = document.createElement('button');
+        bouton.type = 'button';
+        bouton.className =
+          'mt-2 min-h-11 rounded-lg border border-slate-300 px-3 text-sm transition ' +
+          'hover:border-indigo-400 dark:border-slate-700';
+        bouton.textContent = 'Tenue aujourd’hui';
+        bouton.dataset.tenir = suggestion.cible.id;
+        bouton.addEventListener('click', () => void tenirPuisRafraichir(suggestion.cible!.id));
+        carte.appendChild(bouton);
+      }
+      zone.appendChild(carte);
+    }
+
+    const retenues = $('retenues');
+    retenues.classList.toggle('hidden', etat.retenues === 0);
+    if (etat.retenues > 0) {
+      retenues.textContent =
+        `Journée chargée : ${etat.retenues} proposition${etat.retenues > 1 ? 's' : ''} ` +
+        'qui ajouteraient du travail sont mises de côté. Elles restent dans leurs écrans.';
+    }
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+     Le plancher
+     ────────────────────────────────────────────────────────────────────── */
+  function peindrePlancher(etat: EtatDuJour) {
+    const zone = $('plancher');
+    zone.innerHTML = '';
+    $('plancher-vide').classList.toggle('hidden', etat.plancher.total > 0);
+    $('plancher-compte').textContent = etat.plancher.total
+      ? `${etat.plancher.tenues} sur ${etat.plancher.total}${etat.plancher.atteint ? ' — atteint.' : '.'}`
+      : '';
+
+    for (const { quete, tenue } of etat.plancher.attendues) {
+      const ligneQuete = document.createElement('label');
+      ligneQuete.className =
+        'flex min-h-11 items-center gap-3 rounded-xl border border-slate-200 px-4 py-2 ' +
+        'dark:border-slate-800';
+      ligneQuete.dataset.quete = quete.id;
+      const case_ = document.createElement('input');
+      case_.type = 'checkbox';
+      case_.checked = tenue;
+      case_.className = 'size-5';
+      case_.addEventListener('change', () => void tenirPuisRafraichir(quete.id, case_.checked));
+      const texte = document.createElement('span');
+      texte.className = 'text-sm text-slate-800 dark:text-slate-100';
+      texte.textContent = quete.titre;
+      const domaine = document.createElement('span');
+      domaine.className = 'ml-auto text-xs text-slate-400 dark:text-slate-500';
+      domaine.textContent = libelleDuDomaine(quete.domaine);
+      ligneQuete.append(case_, texte, domaine);
+      zone.appendChild(ligneQuete);
+    }
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+     La roue
+     ────────────────────────────────────────────────────────────────────── */
+  function peindreRoue(etat: EtatDuJour) {
+    const zone = $('roue');
+    zone.innerHTML = '';
+
+    const bandeau = $('bandeau-vide');
+    bandeau.classList.toggle('hidden', !etat.roue.vide);
+    if (etat.roue.vide) {
+      /*
+         La phrase exacte compte. « Rien n'a encore été mesuré » dit la vérité ;
+         une roue plate dirait « votre vie est déséquilibrée », ce qui est faux
+         et décourageant le premier jour.
+      */
+      bandeau.textContent =
+        'Rien n’a encore été mesuré sur ces sept jours. Ce n’est pas un déséquilibre : ' +
+        'c’est une absence de données. La roue se remplira à mesure que vous utiliserez Cyclades.';
+    }
+
+    for (const branche of etat.roue.branches) {
+      if (branche.etat === 'en-pause') continue;
+      const carte = document.createElement('div');
+      carte.className =
+        'rounded-xl border border-slate-200 px-4 py-3 dark:border-slate-800 ' +
+        'bg-white dark:bg-slate-950';
+      carte.dataset.domaine = branche.domaine;
+      carte.dataset.etat = branche.etat;
+
+      carte.appendChild(
+        ligne(branche.libelle, 'font-medium text-slate-900 dark:text-white'),
+      );
+
+      if (branche.etat === 'sans-donnee') {
+        carte.appendChild(
+          ligne('Pas de donnée', 'mt-0.5 text-sm text-slate-400 dark:text-slate-500'),
+        );
+      } else {
+        const part = Math.round((branche.part ?? 0) * 1000) / 10;
+        carte.appendChild(
+          ligne(
+            `${duree(branche.secondes ?? 0)} — ${part.toLocaleString('fr-FR')} %`,
+            'mt-0.5 text-sm text-slate-700 dark:text-slate-200',
+          ),
+        );
+        const jauge = document.createElement('div');
+        jauge.className = 'mt-2 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800';
+        const barre = document.createElement('div');
+        barre.className = 'h-1.5 rounded-full bg-indigo-500';
+        barre.style.width = `${Math.min(100, part)}%`;
+        jauge.appendChild(barre);
+        carte.appendChild(jauge);
+      }
+
+      if (branche.cible !== null) {
+        const cible = Math.round(branche.cible * 1000) / 10;
+        const ecart =
+          branche.ecart === null
+            ? 'cible non comparable sans donnée'
+            : `${branche.ecart >= 0 ? '+' : '−'}${Math.abs(Math.round(branche.ecart * 1000) / 10).toLocaleString('fr-FR')} pt`;
+        carte.appendChild(
+          ligne(
+            `Cible ${cible.toLocaleString('fr-FR')} % · ${ecart}`,
+            'mt-1 text-xs text-slate-400 dark:text-slate-500',
+          ),
+        );
+      }
+      zone.appendChild(carte);
+    }
+
+    const c = etat.couverture;
+    $('couverture').textContent =
+      c.part === null
+        ? 'Aucun domaine suivi.'
+        : `${c.mesures.length} domaine${c.mesures.length > 1 ? 's' : ''} sur ${etat.actifs.length} ` +
+          `${c.mesures.length > 1 ? 'portent' : 'porte'} des données` +
+          (c.sansDonnee.length
+            ? ` · sans donnée : ${c.sansDonnee.map(libelleDuDomaine).join(', ')}`
+            : '');
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+     L'agenda du jour
+     ────────────────────────────────────────────────────────────────────── */
+  function peindreAgenda(etat: EtatDuJour) {
+    const zone = $('agenda');
+    zone.innerHTML = '';
+    $('agenda-vide').classList.toggle('hidden', etat.evenementsDuJour.length > 0);
+
+    const tries = [...etat.evenementsDuJour].sort((a, b) => a.debut.localeCompare(b.debut));
+    for (const evenement of tries) {
+      const carte = document.createElement('div');
+      carte.className =
+        'flex min-h-11 items-baseline gap-3 rounded-xl border border-slate-200 px-4 py-2 ' +
+        'dark:border-slate-800';
+      carte.dataset.evenement = evenement.id;
+      const quand = document.createElement('span');
+      quand.className = 'font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400';
+      quand.textContent = evenement.journeeEntiere
+        ? 'journée'
+        : `${heure(evenement.debut)}–${heure(evenement.fin)}`;
+      const titre = document.createElement('span');
+      titre.className = 'text-sm text-slate-800 dark:text-slate-100';
+      titre.textContent = evenement.titre;
+      const combien = document.createElement('span');
+      combien.className = 'ml-auto text-xs text-slate-400 dark:text-slate-500';
+      combien.textContent = evenement.journeeEntiere
+        ? libelleDuDomaine(evenement.domaine)
+        : duree(dureeDeLEvenement(evenement));
+      carte.append(quand, titre, combien);
+      zone.appendChild(carte);
+    }
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+     Le focus
+     ────────────────────────────────────────────────────────────────────── */
+  let depart: Date | null = null;
+  let tictac: number | null = null;
+
+  function afficherCompteur() {
+    if (!depart) return;
+    const secondes = Math.floor((Date.now() - depart.getTime()) / 1000);
+    const m = Math.floor(secondes / 60);
+    const s = secondes % 60;
+    $('focus-compteur').textContent = `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  }
+
+  function demarrerFocus() {
+    depart = new Date();
+    $('focus-compteur').classList.remove('hidden');
+    $('focus-demarrer').classList.add('hidden');
+    $('focus-arreter').classList.remove('hidden');
+    $('focus-dit').textContent = '';
+    afficherCompteur();
+    tictac = window.setInterval(afficherCompteur, 1000);
+  }
+
+  async function arreterFocus() {
+    if (!depart) return;
+    if (tictac !== null) window.clearInterval(tictac);
+    const fin = new Date();
+    const secondes = Math.max(0, Math.round((fin.getTime() - depart.getTime()) / 1000));
+    const visee = Number((($('focus-duree') as HTMLSelectElement).value) || 0);
+    const domaine = ($('focus-domaine') as HTMLSelectElement).value;
+
+    await ajouterFocus({
+      domaine,
+      tacheId: null,
+      debut: depart.toISOString(),
+      fin: fin.toISOString(),
+      secondes,
+      /* Interrompue veut dire « arrêtée avant son terme », et rien d'autre. */
+      interrompue: secondes < visee,
+    });
+
+    depart = null;
+    $('focus-compteur').classList.add('hidden');
+    $('focus-arreter').classList.add('hidden');
+    $('focus-demarrer').classList.remove('hidden');
+    $('focus-dit').textContent = `${duree(secondes)} enregistrées en ${libelleDuDomaine(domaine)}.`;
+    await rafraichir();
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+     Le cycle de l'écran
+     ────────────────────────────────────────────────────────────────────── */
+  async function tenirPuisRafraichir(id: string, tenue = true) {
+    await tenir(id, tenue);
+    await rafraichir();
+  }
+
+  async function rafraichir() {
+    const etat = await etatDuJour();
+    $('date-du-jour').textContent = new Date(`${etat.aujourdhui}T12:00:00Z`).toLocaleDateString(
+      'fr-FR',
+      { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' },
+    );
+    peindreSuggestions(etat);
+    peindrePlancher(etat);
+    peindreRoue(etat);
+    peindreAgenda(etat);
+
+    // Le choix de domaine du focus ne propose que les domaines **actifs** :
+    // voir « jour.ts » — un domaine en pause se tait, y compris à la saisie.
+    const select = $('focus-domaine') as HTMLSelectElement;
+    if (!select.options.length) {
+      for (const d of DOMAINES) {
+        if (!etat.actifs.includes(d.id)) continue;
+        const option = document.createElement('option');
+        option.value = d.id;
+        option.textContent = d.libelle;
+        select.appendChild(option);
+      }
+    }
+    $('vue').classList.remove('hidden');
+  }
+
+  auDeverrouillage(
+    async () => {
+      $('focus-demarrer').addEventListener('click', demarrerFocus);
+      $('focus-arreter').addEventListener('click', () => void arreterFocus());
+      await rafraichir();
+    },
+    { zoneChargement: '#chargement-odyssee' },
+  );
+</script>
