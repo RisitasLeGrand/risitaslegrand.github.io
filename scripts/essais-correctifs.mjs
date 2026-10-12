@@ -25,7 +25,11 @@ const B = 'http://localhost:4321';
 
 await page.goto(`${B}/robots.txt`);
 await page.evaluate(() => new Promise((ok) => { const r = indexedDB.deleteDatabase('revinsp'); r.onsuccess = r.onerror = r.onblocked = () => ok(); }));
-await page.goto(`${B}/`, { waitUntil: 'networkidle' });
+/*
+ * L'accueil de Révisions est à /revisions/ : la racine est le menu de Cyclades
+ * depuis la section 0.1 du prompt complémentaire.
+ */
+await page.goto(`${B}/revisions/`, { waitUntil: 'networkidle' });
 if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
   await page.fill('#champ-mdp', MDP);
   await page.click('#bouton-verrou');
@@ -34,7 +38,19 @@ if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
 
 /* ══ 4. « À revoir », et non « à réviser » ═══════════════════════════════ */
 console.log('\nACCUEIL — LE COMPTEUR DOIT ÊTRE TENABLE');
-await page.waitForFunction(() => document.getElementById('dues')?.textContent !== '—', null, { timeout: 20000 });
+/*
+ * L'attente portait sur « textContent !== '—' », qui est vraie dès que
+ * l'élément n'existe pas : une page sans compteur passait donc le garde-fou et
+ * échouait deux lignes plus bas, sur un message qui ne disait pas pourquoi.
+ */
+await page.waitForFunction(
+  () => {
+    const n = document.getElementById('dues');
+    return Boolean(n) && n.textContent !== '—';
+  },
+  null,
+  { timeout: 20000 },
+);
 const libelle = await page.evaluate(() => document.getElementById('dues').previousElementSibling.textContent.trim());
 v('le libellé annonce « à revoir »', libelle, "À revoir aujourd'hui");
 const dues = Number(await page.locator('#dues').textContent());
@@ -123,8 +139,13 @@ v('le bandeau de repos est visible', await page.locator('#bandeau-repos').isVisi
 v('aucune fiche du jour n’est proposée',
   (await page.locator('#fiches-jour a').count()) + (await page.locator('#contenu-jour a').count()), 0);
 
-console.log("\nACCUEIL — LA CARTE DE SÉANCE SUIT");
-await page.goto(`${B}/`, { waitUntil: 'networkidle' });
+console.log("\nACCUEIL DE RÉVISIONS — LA CARTE DE SÉANCE SUIT");
+/*
+ * L'accueil de Révisions est à /revisions/ depuis que la racine est le menu de
+ * Cyclades : « la première page est un menu qui ouvre le choix entre les trois
+ * branches » (section 0.1 du prompt complémentaire).
+ */
+await page.goto(`${B}/revisions/`, { waitUntil: 'networkidle' });
 await page.waitForFunction(() => document.getElementById('seance-titre')?.textContent?.trim(), null, { timeout: 20000 });
 v('la carte annonce le repos',
   (await page.locator('#seance-etiquette').textContent()).trim(), 'Aucune révision prévue');

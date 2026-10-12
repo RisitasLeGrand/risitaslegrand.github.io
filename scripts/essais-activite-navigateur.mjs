@@ -52,13 +52,24 @@ async function aller(chemin, selecteur) {
   await page.waitForSelector(selecteur, { timeout: 40000 });
 }
 
-/** Les trois jours posés : avant-hier, hier, aujourd'hui. */
-const JOURS = await (async () => {
-  const aujourdhui = new Date();
-  const jour = (n) => {
-    const d = new Date(aujourdhui.getTime() - n * 86_400_000);
-    return d.toISOString().slice(0, 10);
-  };
+/**
+ * Les trois jours posés : avant-hier, hier, aujourd'hui — en **jours logiques**.
+ *
+ * La journée bascule à 4 h, fuseau Europe/Paris : entre minuit et 4 h, le jour
+ * logique est encore celui de la veille. Un essai qui compterait en jours
+ * calendaires sèmerait donc des faits « de demain », qui tomberaient après le
+ * jour de bascule du socle et seraient comptés en plus de lui. C'est arrivé, à
+ * 1 h du matin, et l'écart était exactement l'XP des deux faits du jour.
+ */
+const JOURS = (() => {
+  const format = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Europe/Paris',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  });
+  const BASCULE_MS = 4 * 3_600_000;
+  const jour = (n) => format.format(new Date(Date.now() - BASCULE_MS - n * 86_400_000));
   return { avantHier: jour(2), hier: jour(1), aujourdhui: jour(0) };
 })();
 

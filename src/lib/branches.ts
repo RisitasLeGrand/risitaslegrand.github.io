@@ -5,7 +5,7 @@
  * écrans, ses données et ses règles. Trois sont prévues :
  *
  * - **Révisions** — la préparation aux concours, ce qui s'appelait RevINSP ;
- * - **Odyssée** — le pilotage de la vie, qui deviendra la page d'accueil ;
+ * - **Odyssée** — le pilotage de la vie ;
  * - **Sport** — la musculation et le cardio.
  *
  * ## Pourquoi déclarer des branches qui n'existent pas encore
@@ -30,7 +30,15 @@ export interface Branche {
   icone: string;
   /** Une phrase, pour l'écran de choix et les info-bulles. */
   description: string;
-  /** Racine de ses pages. `'/'` pour celle qui occupe la racine du site. */
+  /**
+   * Racine de ses pages.
+   *
+   * Aucune branche n'occupe `/` : c'est le **menu**, depuis la section 0.1 du
+   * prompt complémentaire. Les autres écrans de Révisions gardent en revanche
+   * leurs chemins propres (`/flashcards/`, `/quiz/`), parce qu'ils en portent
+   * déjà de distincts et qu'un renommage massif de chemins casse en silence une
+   * ressource chiffrée dont le chemin est écrit dans un manifeste.
+   */
   racine: string;
   /** La branche a-t-elle des écrans aujourd'hui ? */
   disponible: boolean;
@@ -42,7 +50,7 @@ export const BRANCHES: Branche[] = [
     libelle: 'Révisions',
     icone: '🎓',
     description: 'Préparation aux concours : cours, flashcards, quiz, planification.',
-    racine: '/',
+    racine: '/revisions/',
     disponible: true,
   },
   {

@@ -551,7 +551,7 @@ import { base } from '../lib/ui';
       afficherVue('accueil-session');
       void rafraichirCompteurs();
     });
-    $('retour-accueil').setAttribute('href', lien('/'));
+    $('retour-accueil').setAttribute('href', lien('/revisions/'));
     $('carte').addEventListener('click', retourner);
 
     for (const bouton of document.querySelectorAll<HTMLButtonElement>('#notation [data-note]')) {

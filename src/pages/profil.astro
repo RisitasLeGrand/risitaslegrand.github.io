@@ -1,0 +1,375 @@
+---
+/**
+ * « Mon profil » : ce que Cyclades sait, qui le lit, et comment l'effacer.
+ *
+ * A.3 fixe ce que l'écran doit dire pour chaque champ : sa valeur, **qui
+ * l'utilise**, et de quoi restreindre sa portée. A.5 ajoute la suppression d'un
+ * champ ou de tout le profil. Les trois sont ici, et rien d'autre : ce n'est pas
+ * un tableau de bord, c'est un endroit où l'on vérifie et où l'on retire.
+ *
+ * Le détail qui fait la différence entre un écran honnête et un formulaire :
+ * chaque champ dit **d'où il vient** — déclaré, ou observé — et ce qu'il
+ * **règle** dans l'application. Un réglage dont on ne voit pas la cause se
+ * change au hasard.
+ */
+import Base from '../layouts/Base.astro';
+---
+
+<Base titre="Mon profil" entete="leger">
+  <div class="mx-auto max-w-3xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Mon profil</h1>
+    <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      Ces informations restent sur vos appareils, chiffrées, et se synchronisent avec eux. Elles
+      sont <strong>exclues par défaut</strong> des exports destinés à une IA.
+    </p>
+
+    <p
+      id="avancement"
+      class="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+    >
+      Chargement…
+    </p>
+
+    <!-- ── Divergences entre appareils (A.6) ─────────────────────────── -->
+    <section id="bloc-divergences" class="mt-6 hidden">
+      <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+        Deux appareils ne disent pas la même chose
+      </h2>
+      <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+        La valeur la plus récente est celle qui s’applique. Rien n’est perdu : choisissez celle qui
+        est juste, ou laissez-la telle quelle.
+      </p>
+      <div id="divergences" class="space-y-3"></div>
+    </section>
+
+    <!-- ── Les champs ─────────────────────────────────────────────────── -->
+    <section class="mt-6">
+      <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Ce qui est renseigné</h2>
+      <div id="champs" class="space-y-3"></div>
+      <p id="aucun-champ" class="hidden text-sm text-slate-500 dark:text-slate-400">
+        Rien n’est renseigné pour l’instant.
+      </p>
+    </section>
+
+    <!-- ── Ce qui reste à dire ────────────────────────────────────────── -->
+    <section class="mt-8">
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">
+        Ce qui n’est pas renseigné
+      </h2>
+      <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+        Tout est facultatif, sauf le prénom. Rien ici n’est un reproche : un champ vide ne change
+        qu’une chose, c’est que Cyclades ne s’en sert pas.
+      </p>
+      <div id="restants" class="space-y-2"></div>
+    </section>
+
+    <!-- ── Effacement ─────────────────────────────────────────────────── -->
+    <section
+      class="mt-10 rounded-2xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/30"
+    >
+      <h2 class="font-semibold text-slate-900 dark:text-white">Tout effacer</h2>
+      <p class="mt-1 text-sm text-slate-700 dark:text-slate-200">
+        Supprime <strong>tous</strong> les champs du profil. L’adaptation en tiendra compte : les
+        réglages qui en découlaient reviennent à leur valeur par défaut, et les écrans cessent de
+        vous appeler par votre prénom. Vos données de révision, de sport et d’Odyssée ne sont pas
+        touchées.
+      </p>
+      <button
+        id="effacer-profil"
+        type="button"
+        class="mt-3 min-h-11 rounded-lg bg-amber-600 px-4 font-medium text-white transition hover:bg-amber-700"
+      >
+        Supprimer tout le profil
+      </button>
+      <p id="message-effacement" class="mt-3 hidden text-sm"></p>
+    </section>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../lib/chargement';
+  import { echapper, pluriel } from '../lib/ui';
+  import { BRANCHES, branche } from '../lib/branches';
+  import {
+    avancementLocal,
+    branchesConnues,
+    divergencesLocales,
+    ecrireChamp,
+    profilLocal,
+    restreindre,
+    supprimerChamp,
+    supprimerProfil,
+  } from '../lib/profil';
+  import type { Portee, ValeurDeChamp } from '../lib/noyau/profil';
+  import { lecteurs, porteeInclut } from '../lib/noyau/profil';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  const nomDeBranche = (id: string) => branche(id)?.libelle ?? id;
+
+  /**
+   * La valeur, en français.
+   *
+   * Et **échappée**, parce que ces valeurs sont saisies : « Qu'est-ce que vous
+   * faites dans la vie ? » accepte n'importe quel texte, et ce texte est ici
+   * inséré dans du HTML.
+   */
+  function lisible(valeur: unknown): string {
+    if (Array.isArray(valeur)) {
+      return valeur.length ? valeur.map((x) => echapper(String(x))).join(', ') : '—';
+    }
+    if (valeur && typeof valeur === 'object') {
+      const entrees = Object.entries(valeur as Record<string, unknown>);
+      return entrees.length
+        ? entrees.map(([c, v]) => `${echapper(c)} : ${echapper(String(v))}`).join(' · ')
+        : '—';
+    }
+    if (typeof valeur === 'boolean') return valeur ? 'oui' : 'non';
+    const texte = String(valeur ?? '').trim();
+    return texte ? echapper(texte) : '—';
+  }
+
+  function peindreChamp(valeur: ValeurDeChamp): HTMLElement {
+    const bloc = document.createElement('div');
+    bloc.className =
+      'rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900';
+    bloc.dataset.champ = valeur.champ;
+
+    const lus = lecteurs(valeur, branchesConnues());
+    const entete = document.createElement('div');
+    entete.className = 'flex flex-wrap items-baseline justify-between gap-2';
+    entete.innerHTML =
+      `<span class="font-medium text-slate-900 dark:text-white">${echapper(valeur.declare.libelle)}</span>` +
+      `<span class="font-mono text-sm text-slate-700 dark:text-slate-200">${lisible(valeur.valeur)}</span>`;
+
+    const meta = document.createElement('p');
+    meta.className = 'mt-1 text-xs text-slate-500 dark:text-slate-400';
+    meta.textContent =
+      `${valeur.source === 'declare' ? 'déclaré' : 'observé, non confirmé'} · ` +
+      `version ${valeur.version} · posé sur ${valeur.appareil}`;
+
+    const portee = document.createElement('p');
+    portee.className = 'mt-1 text-xs text-slate-500 dark:text-slate-400';
+    portee.textContent = lus.length
+      ? `Utilisé par : ${lus.map(nomDeBranche).join(', ')}`
+      : 'Utilisé par : aucune branche — ce champ ne sert qu’aux écrans communs.';
+
+    bloc.append(entete, meta, portee);
+
+    if (valeur.declare.regle) {
+      const regle = document.createElement('p');
+      regle.className = 'mt-1 text-xs text-slate-500 dark:text-slate-400';
+      regle.textContent = `ⓘ ${valeur.declare.regle}`;
+      bloc.appendChild(regle);
+    }
+
+    /*
+       La portée se change par des cases, une par branche. Cocher **étend** la
+       portée, décocher la restreint : les deux sont offertes, parce qu'un champ
+       trop restreint est aussi gênant qu'un champ trop ouvert — et c'est la
+       personne qui sait lequel des deux la gêne.
+    */
+    const choix = document.createElement('div');
+    choix.className = 'mt-3 flex flex-wrap items-center gap-3';
+    const titre = document.createElement('span');
+    titre.className = 'text-xs text-slate-500 dark:text-slate-400';
+    titre.textContent = 'Lisible par :';
+    choix.appendChild(titre);
+
+    for (const b of BRANCHES) {
+      const etiquette = document.createElement('label');
+      etiquette.className = 'flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-200';
+      const case_ = document.createElement('input');
+      case_.type = 'checkbox';
+      case_.checked = porteeInclut(valeur.portee, b.id);
+      case_.className = 'h-4 w-4 rounded border-slate-300 dark:border-slate-700';
+      case_.addEventListener('change', async () => {
+        const voulues = BRANCHES.filter((autre) =>
+          autre.id === b.id
+            ? case_.checked
+            : (
+                choix.querySelector(
+                  `input[data-branche="${autre.id}"]`,
+                ) as HTMLInputElement | null
+              )?.checked,
+        ).map((autre) => autre.id);
+        const portee: Portee = voulues.length === BRANCHES.length ? 'toutes' : voulues;
+        await restreindre(valeur.champ, portee);
+        await peindre();
+      });
+      case_.dataset.branche = b.id;
+      etiquette.append(case_, document.createTextNode(b.libelle));
+      choix.appendChild(etiquette);
+    }
+    bloc.appendChild(choix);
+
+    const actions = document.createElement('div');
+    actions.className = 'mt-3 flex flex-wrap gap-2';
+    const modifier = document.createElement('button');
+    modifier.type = 'button';
+    modifier.className =
+      'min-h-11 rounded-lg border border-slate-300 px-3 text-xs font-medium transition ' +
+      'hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800';
+    modifier.textContent = 'Modifier';
+    modifier.addEventListener('click', () => void demander(valeur.champ, valeur.declare.question, valeur.valeur));
+
+    const supprimer = document.createElement('button');
+    supprimer.type = 'button';
+    supprimer.className =
+      'min-h-11 rounded-lg border border-slate-300 px-3 text-xs font-medium text-amber-900 transition ' +
+      'hover:bg-amber-50 dark:border-slate-700 dark:text-amber-200 dark:hover:bg-amber-950/40';
+    supprimer.textContent = 'Supprimer';
+    supprimer.addEventListener('click', async () => {
+      if (!window.confirm(`Supprimer « ${valeur.declare.libelle} » ?`)) return;
+      await supprimerChamp(valeur.champ);
+      await peindre();
+    });
+
+    actions.append(modifier, supprimer);
+    bloc.appendChild(actions);
+    return bloc;
+  }
+
+  /**
+   * La saisie, par une invite du navigateur.
+   *
+   * Assumé, et provisoire : l'écran d'initialisation de la phase suivante
+   * portera les vrais champs — molettes d'heure, boutons à bascule, curseurs.
+   * Mettre ici un formulaire complet par nature de champ aurait dupliqué ce
+   * travail pour le jeter ensuite, et laisser « Mon profil » en lecture seule
+   * aurait été pire : A.3 demande qu'on puisse corriger **à tout moment**.
+   */
+  async function demander(champ: string, question: string, actuelle: unknown): Promise<void> {
+    const { champDeclare } = await import('../lib/noyau/profil');
+    const declare = champDeclare(champ)!;
+    const depart =
+      Array.isArray(actuelle)
+        ? actuelle.join(', ')
+        : actuelle && typeof actuelle === 'object'
+          ? JSON.stringify(actuelle)
+          : String(actuelle ?? '');
+    const saisie = window.prompt(question, depart);
+    if (saisie === null) return;
+    let valeur: unknown = saisie.trim();
+    if (declare.nature === 'nombre') valeur = Number(saisie.replace(',', '.'));
+    else if (declare.nature === 'booleen') valeur = /^(oui|vrai|true|1)$/i.test(saisie.trim());
+    else if (declare.nature === 'liste') {
+      valeur = saisie
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean);
+    } else if (declare.nature === 'repartition') {
+      try {
+        valeur = JSON.parse(saisie);
+      } catch {
+        window.alert('Forme attendue : {"cognition": 10}');
+        return;
+      }
+    }
+    try {
+      await ecrireChamp(champ, valeur);
+    } catch (erreur) {
+      window.alert((erreur as Error).message);
+      return;
+    }
+    await peindre();
+  }
+
+  async function peindre(): Promise<void> {
+    const [profil, etat, divergences] = await Promise.all([
+      profilLocal(),
+      avancementLocal(),
+      divergencesLocales(),
+    ]);
+
+    $('avancement').textContent =
+      `${etat.repondus} réponse(s) sur ${etat.total} au socle commun` +
+      (etat.prenomPose ? '' : ' — le prénom, la seule réponse attendue, n’est pas encore donné') +
+      (etat.initialisation
+        ? `. Initialisation ${etat.initialisation.allegee ? 'allégée ' : ''}faite le ` +
+          `${new Date(etat.initialisation.termineeLe).toLocaleDateString('fr-FR')}.`
+        : '.');
+
+    const liste = $('champs');
+    liste.textContent = '';
+    for (const valeur of [...profil.values()].sort((a, b) =>
+      a.declare.libelle.localeCompare(b.declare.libelle),
+    )) {
+      liste.appendChild(peindreChamp(valeur));
+    }
+    $('aucun-champ').classList.toggle('hidden', profil.size > 0);
+
+    const restants = $('restants');
+    restants.textContent = '';
+    for (const declare of etat.restants) {
+      const ligne = document.createElement('div');
+      ligne.className =
+        'flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed ' +
+        'border-slate-300 px-4 py-2 text-sm dark:border-slate-700';
+      const texte = document.createElement('span');
+      texte.className = 'text-slate-600 dark:text-slate-300';
+      texte.textContent = declare.libelle + (declare.obligatoire ? ' (attendu)' : '');
+      const bouton = document.createElement('button');
+      bouton.type = 'button';
+      bouton.className =
+        'min-h-11 rounded-lg border border-slate-300 px-3 text-xs font-medium transition ' +
+        'hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800';
+      bouton.textContent = 'Renseigner';
+      bouton.addEventListener('click', () => void demander(declare.champ, declare.question, ''));
+      ligne.append(texte, bouton);
+      restants.appendChild(ligne);
+    }
+
+    const bloc = $('bloc-divergences');
+    const zone = $('divergences');
+    zone.textContent = '';
+    bloc.classList.toggle('hidden', divergences.length === 0);
+    for (const divergence of divergences) {
+      const carte = document.createElement('div');
+      carte.className =
+        'rounded-2xl border border-amber-300 bg-white p-4 dark:border-amber-800 dark:bg-slate-900';
+      const titre = document.createElement('p');
+      titre.className = 'font-medium text-slate-900 dark:text-white';
+      titre.textContent = divergence.declare.libelle;
+      carte.appendChild(titre);
+      for (const version of divergence.versions) {
+        const ligne = document.createElement('div');
+        ligne.className = 'mt-2 flex flex-wrap items-baseline justify-between gap-2 text-sm';
+        ligne.innerHTML =
+          `<span class="font-mono text-slate-700 dark:text-slate-200">${lisible(version.valeur)}</span>` +
+          `<span class="text-xs text-slate-500 dark:text-slate-400">sur ${echapper(version.appareil)}</span>`;
+        const garder = document.createElement('button');
+        garder.type = 'button';
+        garder.className =
+          'min-h-11 rounded-lg border border-amber-400 px-3 text-xs font-medium text-amber-900 ' +
+          'transition hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200';
+        garder.textContent = 'Garder celle-ci';
+        garder.addEventListener('click', async () => {
+          await ecrireChamp(divergence.champ, version.valeur, { source: version.source });
+          await peindre();
+        });
+        ligne.appendChild(garder);
+        carte.appendChild(ligne);
+      }
+      zone.appendChild(carte);
+    }
+  }
+
+  $('effacer-profil').addEventListener('click', async () => {
+    if (
+      !window.confirm(
+        'Supprimer tout le profil ?\n\nTous les champs seront effacés, sur cet appareil et sur ' +
+          'les autres à la prochaine synchronisation. Vos données de révision ne sont pas touchées.',
+      )
+    ) {
+      return;
+    }
+    const combien = await supprimerProfil();
+    const message = $('message-effacement');
+    message.className = 'mt-3 text-sm text-slate-700 dark:text-slate-200';
+    message.textContent = `${pluriel(combien, 'champ')} supprimé(s).`;
+    await peindre();
+  });
+
+  auDeverrouillage(peindre);
+</script>

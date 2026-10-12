@@ -163,6 +163,47 @@ et non une valeur fausse.
 
 ### Phase B — Le profil commun et « Mon profil » *(= phase 1 du prompt)*
 
+> **B1 faite, le 12 octobre 2026.** Le modèle, le menu de garde et l'écran « Mon profil ».
+>
+> **Le profil est son journal.** Une opération par champ, cible `profil:<champ>`, et rien d'autre :
+> pas de magasin. Trente champs font trente opérations que le journal porte et transporte déjà ; y
+> ajouter un magasin aurait fait deux vérités du même champ. Conséquences obtenues sans rien
+> écrire de plus : la fusion **champ par champ** d'A.6 (dernier écrivain par champ), la portée par
+> champ, la suppression par champ, le versionnement par champ. Modifier le prénom ici et l'heure de
+> lever là ne fait aucun conflit.
+>
+> **La divergence est vue, pas seulement fusionnée.** A.6 demande « une question de confirmation en
+> cas de divergence ». La fusion a déjà lieu ; ce que `divergences()` ajoute, c'est de savoir
+> qu'une valeur en a remplacé une autre, et laquelle. Deux écritures du même appareil n'en sont pas
+> une : c'est une correction, et la personne a changé d'avis sur sa propre machine.
+>
+> **L'initialisation est un fait journalisé**, pas un drapeau local — sans quoi le téléphone
+> reposerait les quatorze questions. C'est l'exigence d'A.6 tenue par le modèle.
+>
+> **Aucun champ sensible n'est dans le profil commun**, et l'essai le vérifie plutôt que de le
+> promettre : il cherche un champ qui porterait le nom d'un type de fait sensible, et un champ
+> nommé « blessures ». Une blessure connue reste un fait `sport.blessure`, sous la matrice.
+>
+> **Le menu de garde** est à `/`, et l'accueil de Révisions a suivi à `/revisions/` — l'option B du
+> 1.1, qui ne déplace que l'accueil. L'en-tête porte désormais **deux** liens : le nom du produit
+> ramène au menu, celui de la branche à son accueil. Le menu n'affiche **rien** de personnel hors
+> le prénom : pas d'XP, pas de série, pas de carte due. Un menu qui annoncerait le retard du jour
+> transformerait la porte d'entrée en reproche.
+>
+> **« Mon profil »** dit, pour chaque champ, sa valeur, **qui le lit**, d'où il vient (déclaré ou
+> observé) et ce qu'il **règle** dans l'application. La portée se change par des cases, une par
+> branche. La saisie passe par une invite du navigateur, et c'est assumé : l'écran d'initialisation
+> de B2 portera les vrais champs, et laisser « Mon profil » en lecture seule en attendant aurait
+> été pire — A.3 demande qu'on puisse corriger à tout moment.
+>
+> Un défaut trouvé au passage, dans un essai voisin : il comptait en jours **calendaires** là où le
+> site compte en jours **logiques**, et échouait donc chaque nuit entre minuit et 4 h. Corrigé, avec
+> la raison écrite.
+>
+> **Essais** : `essais:profil` (60 contrôles) et `essais:profil:navigateur` (33, dont le menu sans
+> donnée personnelle, la salutation qui apparaît et disparaît avec le prénom, la portée qui tient
+> après rechargement, et la suppression qui remet le champ dans les restants).
+
 - **Modèle** : un enregistrement par champ — `{ champ, valeur, portee, sensible, source, modifieLe,
   version }` — et une **opération journalisée par champ** (`profil.champ`, cible
   `profil:<champ>`). Conséquence heureuse : la fusion champ par champ réclamée par A.6 est **déjà

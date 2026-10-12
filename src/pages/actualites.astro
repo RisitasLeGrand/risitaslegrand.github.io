@@ -84,7 +84,7 @@ import Base from '../layouts/Base.astro';
   const filtres = [...document.querySelectorAll<HTMLButtonElement>('.filtre-domaine')];
   const zoneFiltres = document.getElementById('filtres')!;
 
-  document.getElementById('retour')!.setAttribute('href', lien('/'));
+  document.getElementById('retour')!.setAttribute('href', lien('/revisions/'));
 
   const donnees: Record<string, PeriodeActu[] | undefined> = {};
   let fichesCours: FicheAplatie[] = [];

@@ -18,9 +18,20 @@ interface Props {
   actif?: string;
   /** Masque la navigation principale (page plein écran). */
   sansNavigation?: boolean;
+  /**
+   * L'en-tête voulu.
+   *
+   * `complet` : le ruban d'onglets de la branche. `leger` : le titre, le thème
+   * et le verrou, sans navigation de branche — c'est ce qu'il faut au **menu**,
+   * qui est au-dessus des branches et n'a donc pas d'onglets à montrer, mais
+   * qui doit pouvoir changer de thème et verrouiller la session. `aucun` : rien,
+   * pour une page plein écran.
+   */
+  entete?: 'complet' | 'leger' | 'aucun';
 }
 
-const { titre, actif, sansNavigation = false } = Astro.props;
+const { titre, actif, sansNavigation = false, entete } = Astro.props;
+const enteteVoulu = entete ?? (sansNavigation ? 'aucun' : 'complet');
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 /*
@@ -34,7 +45,7 @@ const brancheCourante = branche(ID_BRANCHE_PAR_DEFAUT)!;
 // « libelle » est le nom complet (lecteurs d'écran, info-bulle) ; « court »
 // est la version affichée à côté de l'icône sur les grands écrans.
 const onglets = [
-  { id: 'accueil', libelle: 'Tableau de bord', court: 'Accueil', href: `${base}/`, icone: '🏠' },
+  { id: 'accueil', libelle: 'Tableau de bord', court: 'Accueil', href: `${base}${brancheCourante.racine}`, icone: '🏠' },
   { id: 'planification', libelle: 'Planification des révisions', court: 'Planning', href: `${base}/planification/`, icone: '🗓️' },
   { id: 'bibliotheque', libelle: 'Bibliothèque', court: 'Cours', href: `${base}/bibliotheque/`, icone: '📚' },
   { id: 'flashcards', libelle: 'Flashcards', court: 'Cartes', href: `${base}/flashcards/`, icone: '🃏' },
@@ -96,24 +107,36 @@ const onglets = [
 
     <div id="application" class="hidden min-h-screen">
       {
-        !sansNavigation && (
+        enteteVoulu === 'complet' && (
           <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
             <div class="bandeau-tricolore"></div>
             <div class="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
-              <a
-                href={`${base}/`}
-                class="flex shrink-0 items-center gap-2 font-semibold text-slate-900 dark:text-white"
-              >
-                <span class="text-lg" aria-hidden="true">{brancheCourante.icone}</span>
-                <span class="hidden sm:inline">
-                  {config.titre}
-                  <span class="text-slate-400 dark:text-slate-500" aria-hidden="true">·</span>
-                  <span class="font-normal text-slate-600 dark:text-slate-300">
-                    {brancheCourante.libelle}
-                  </span>
-                </span>
-                <span class="sr-only">{config.titre} · {brancheCourante.libelle}</span>
-              </a>
+              {/*
+                Deux liens et non un : le nom du produit ramène au **menu**, le
+                nom de la branche à son accueil. Un seul lien aurait forcé à
+                choisir, et le retour au menu serait devenu introuvable depuis
+                l'intérieur d'une branche.
+              */}
+              <div class="flex shrink-0 items-center gap-1.5 font-semibold text-slate-900 dark:text-white">
+                <a
+                  href={`${base}/`}
+                  title="Menu de Cyclades"
+                  class="flex items-center gap-2 rounded-lg px-1 transition hover:text-indigo-600 dark:hover:text-indigo-400"
+                >
+                  <span class="text-lg" aria-hidden="true">🗂️</span>
+                  <span class="hidden sm:inline">{config.titre}</span>
+                  <span class="sr-only">Menu de {config.titre}</span>
+                </a>
+                <span class="hidden text-slate-400 sm:inline dark:text-slate-500" aria-hidden="true">·</span>
+                <a
+                  href={`${base}${brancheCourante.racine}`}
+                  class="flex items-center gap-1.5 rounded-lg px-1 font-normal text-slate-600 transition hover:text-indigo-600 dark:text-slate-300 dark:hover:text-indigo-400"
+                >
+                  <span class="text-lg sm:hidden" aria-hidden="true">{brancheCourante.icone}</span>
+                  <span class="hidden sm:inline">{brancheCourante.libelle}</span>
+                  <span class="sr-only">Accueil de {brancheCourante.libelle}</span>
+                </a>
+              </div>
 
               <nav
                 id="navigation-principale"
@@ -157,11 +180,37 @@ const onglets = [
         )
       }
 
+      {
+        enteteVoulu === 'leger' && (
+          <header class="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+            <div class="bandeau-tricolore"></div>
+            <div class="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
+              <span class="flex shrink-0 items-center gap-2 font-semibold text-slate-900 dark:text-white">
+                <span class="text-lg" aria-hidden="true">🗂️</span>
+                <span>{config.titre}</span>
+              </span>
+              <div class="flex flex-1 justify-end gap-1">
+                <CommutateurTheme />
+                <button
+                  id="bouton-verrouiller"
+                  type="button"
+                  title="Verrouiller la session"
+                  aria-label="Verrouiller la session"
+                  class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                >
+                  <span aria-hidden="true">🔒</span>
+                </button>
+              </div>
+            </div>
+          </header>
+        )
+      }
+
       <main class="mx-auto max-w-6xl px-4 py-8">
         <slot />
       </main>
 
-      {!sansNavigation && <PiedDePage />}
+      {enteteVoulu !== 'aucun' && <PiedDePage />}
     </div>
 
     <script>
