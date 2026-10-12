@@ -67,6 +67,8 @@
     "essais:compaction": "tsx scripts/essais-compaction.mts",
     "essais:compaction:navigateur": "node scripts/essais-compaction-navigateur.mjs",
     "mot-de-passe": "node scripts/changer-mot-de-passe.mjs",
+    "essais:adaptation": "tsx scripts/essais-adaptation.mts",
+    "essais:adaptation:navigateur": "node scripts/essais-adaptation-navigateur.mjs",
     "essais:activite": "tsx scripts/essais-activite.mts",
     "essais:activite:navigateur": "node scripts/essais-activite-navigateur.mjs",
     "essais:desaccords": "tsx scripts/essais-desaccords.mts",

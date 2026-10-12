@@ -96,6 +96,46 @@ import config from '../../site.config.mjs';
       }
     </ul>
 
+    <!-- ── La proposition du jour (A.8) ─────────────────────────────────
+         Au plus une par semaine, jamais bloquante : elle est **sous** les
+         cartes, elle n'a pas de bouton de fermeture obligatoire, et l'ignorer
+         est une réponse qui ne coûte rien. -->
+    <section
+      id="proposition"
+      class="mt-8 hidden rounded-2xl border border-sky-300 bg-sky-50 p-5 dark:border-sky-800 dark:bg-sky-950/40"
+      aria-live="polite"
+    >
+      <p class="text-xs font-medium tracking-wide text-sky-700 uppercase dark:text-sky-300">
+        Observé, pas déclaré
+      </p>
+      <p id="proposition-constat" class="mt-1 text-sm text-sky-900 dark:text-sky-100"></p>
+      <p id="proposition-question" class="mt-2 font-medium text-slate-900 dark:text-white"></p>
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button
+          id="proposition-oui"
+          type="button"
+          class="min-h-11 rounded-lg bg-sky-700 px-4 text-sm font-medium text-white transition hover:bg-sky-800"
+        >
+          D’accord
+        </button>
+        <button
+          id="proposition-plus-tard"
+          type="button"
+          class="min-h-11 rounded-lg border border-sky-400 px-4 text-sm font-medium text-sky-800 transition hover:bg-sky-100 dark:border-sky-700 dark:text-sky-200 dark:hover:bg-sky-900/50"
+        >
+          Plus tard
+        </button>
+        <button
+          id="proposition-non"
+          type="button"
+          class="min-h-11 rounded-lg px-4 text-sm font-medium text-slate-600 underline-offset-2 transition hover:underline dark:text-slate-300"
+        >
+          Non, laissez comme ça
+        </button>
+      </div>
+      <p id="proposition-reponse" class="mt-3 hidden text-sm text-slate-700 dark:text-slate-200"></p>
+    </section>
+
     <nav class="mt-10 flex flex-wrap gap-x-5 gap-y-2 text-sm" aria-label="Écrans communs">
       <a
         href={`${base}/profil/`}
@@ -153,7 +193,54 @@ import config from '../../site.config.mjs';
 
     const { prenom } = await import('../lib/profil');
     const nom = await prenom();
-    if (!nom) return;
-    document.getElementById('salutation')!.textContent = `Bonjour ${nom}.`;
+    if (nom) document.getElementById('salutation')!.textContent = `Bonjour ${nom}.`;
+
+    /*
+       La proposition vient **après** l'affichage, et son échec n'empêche rien :
+       elle publie les faits pour observer l'usage, et une porte d'entrée qui
+       attendrait ce calcul serait bloquante par accident — ce qu'A.8 interdit
+       par principe.
+    */
+    void montrerProposition();
   });
+
+  async function montrerProposition() {
+    try {
+      const { accepter, propositionLocale, refuser, reporterProposition } = await import(
+        '../lib/adaptation'
+      );
+      const { proposition } = await propositionLocale();
+      if (!proposition) return;
+
+      const bloc = document.getElementById('proposition')!;
+      document.getElementById('proposition-constat')!.textContent = proposition.constat;
+      document.getElementById('proposition-question')!.textContent = proposition.question;
+      bloc.classList.remove('hidden');
+
+      const repondre = async (travail: () => Promise<void>, message: string) => {
+        await travail();
+        for (const id of ['proposition-oui', 'proposition-plus-tard', 'proposition-non']) {
+          document.getElementById(id)!.classList.add('hidden');
+        }
+        const reponse = document.getElementById('proposition-reponse')!;
+        reponse.textContent = message;
+        reponse.classList.remove('hidden');
+      };
+
+      document.getElementById('proposition-oui')!.addEventListener('click', () => {
+        void repondre(
+          () => accepter(proposition),
+          'C’est noté. Vous pouvez tout remettre comme avant depuis « Mon profil ».',
+        );
+      });
+      document.getElementById('proposition-plus-tard')!.addEventListener('click', () => {
+        void repondre(() => reporterProposition(proposition), 'On en reparle dans deux semaines.');
+      });
+      document.getElementById('proposition-non')!.addEventListener('click', () => {
+        void repondre(() => refuser(proposition), 'Entendu. Cette question ne reviendra pas.');
+      });
+    } catch (erreur) {
+      console.warn('Proposition d’adaptation indisponible :', erreur);
+    }
+  }
 </script>

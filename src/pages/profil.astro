@@ -63,6 +63,45 @@ import Base from '../layouts/Base.astro';
       <div id="restants" class="space-y-2"></div>
     </section>
 
+    <!-- ── Ce que Cyclades en déduit (§3 de questions.md) ─────────────── -->
+    <section class="mt-10">
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">
+        Ce que Cyclades en déduit
+      </h2>
+      <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+        Aucune de ces déductions ne modifie une donnée : elles changent des <strong>réglages</strong>.
+        Chacune dit la réponse dont elle découle — un réglage dont on ne voit pas la cause se change
+        au hasard.
+      </p>
+      <div id="reglages" class="space-y-2"></div>
+    </section>
+
+    <!-- ── L'adaptation (A.8) ─────────────────────────────────────────── -->
+    <section class="mt-10">
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">L’adaptation</h2>
+      <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+        Quand l’usage observé contredit ce que vous avez déclaré, Cyclades pose la question — une
+        fois par semaine au plus, jamais en travers de votre chemin. Une question refusée ne revient
+        pas.
+      </p>
+      <p
+        id="adaptation-etat"
+        class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+      >
+        Chargement…
+      </p>
+      <div id="ecarts" class="mt-3 space-y-2"></div>
+      <div id="decisions" class="mt-3 space-y-2"></div>
+      <button
+        id="reinitialiser-adaptation"
+        type="button"
+        class="mt-4 min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+      >
+        Réinitialiser l’adaptation
+      </button>
+      <p id="message-adaptation" class="mt-3 hidden text-sm"></p>
+    </section>
+
     <!-- ── Effacement ─────────────────────────────────────────────────── -->
     <section
       class="mt-10 rounded-2xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/30"
@@ -288,6 +327,93 @@ import Base from '../layouts/Base.astro';
     await peindre();
   }
 
+  /** Les réglages déduits, chacun avec sa cause. */
+  async function peindreReglages(): Promise<void> {
+    const { reglagesLocaux } = await import('../lib/adaptation');
+    const zone = $('reglages');
+    zone.textContent = '';
+    for (const reglage of await reglagesLocaux()) {
+      const ligne = document.createElement('div');
+      ligne.className =
+        'rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900';
+      const titre = document.createElement('p');
+      titre.className = 'flex flex-wrap items-baseline gap-2';
+      const nom = document.createElement('span');
+      nom.className = 'font-medium text-slate-900 dark:text-white';
+      nom.textContent = reglage.libelle;
+      const origine = document.createElement('span');
+      origine.className = 'text-xs text-slate-500 dark:text-slate-400';
+      origine.textContent = reglage.deduit ? 'déduit de vos réponses' : 'réglage par défaut';
+      titre.append(nom, origine);
+      const cause = document.createElement('p');
+      cause.className = 'mt-1 text-sm text-slate-600 dark:text-slate-300';
+      cause.textContent = reglage.cause;
+      ligne.append(titre, cause);
+      zone.appendChild(ligne);
+    }
+  }
+
+  const LIBELLE_ISSUE: Record<string, string> = {
+    acceptee: 'acceptée',
+    reportee: 'reportée',
+    refusee: 'refusée — elle ne reviendra pas',
+    remise: 'défaite par une réinitialisation',
+  };
+
+  /** L'état de l'adaptation : l'écart connu, ou le silence et sa raison. */
+  async function peindreAdaptation(): Promise<void> {
+    const { decisionsLocales, propositionLocale } = await import('../lib/adaptation');
+    const { regleAdaptation } = await import('../lib/noyau/adaptation');
+    const [{ proposition, silence, ecarts }, decisions] = await Promise.all([
+      propositionLocale(),
+      decisionsLocales(),
+    ]);
+
+    $('adaptation-etat').textContent = proposition
+      ? 'Une question vous attend sur le menu.'
+      : silence?.pourquoi === 'aucun-ecart'
+        ? 'Rien à signaler : ce que vous avez déclaré et ce que l’usage montre se tiennent.'
+        : silence?.pourquoi === 'trop-tot'
+          ? `Un écart est connu, et il attendra ${silence.joursRestants} jour(s) : une question par semaine au plus.`
+          : silence?.pourquoi === 'ajourne'
+            ? `Un écart est connu, et vous l’avez reporté : on en reparlera dans ${silence.joursRestants} jour(s).`
+            : 'Les écarts connus portent sur des questions que vous avez refusées. Elles ne reviendront pas.';
+
+    /*
+       Les écarts sont montrés **tous**, même ceux qui ne seront pas proposés
+       aujourd'hui : quelqu'un qui ouvre cet écran a le droit de savoir ce que
+       Cyclades a remarqué, plutôt que de l'apprendre dans trois jours.
+    */
+    const zone = $('ecarts');
+    zone.textContent = '';
+    for (const ecart of ecarts) {
+      const carte = document.createElement('div');
+      carte.className =
+        'rounded-xl border border-sky-200 bg-sky-50/60 px-4 py-3 text-sm dark:border-sky-900 dark:bg-sky-950/30';
+      const constat = document.createElement('p');
+      constat.className = 'text-slate-700 dark:text-slate-200';
+      constat.textContent = ecart.constat;
+      const question = document.createElement('p');
+      question.className = 'mt-1 text-slate-500 dark:text-slate-400';
+      question.textContent = ecart.question;
+      carte.append(constat, question);
+      zone.appendChild(carte);
+    }
+
+    const prises = $('decisions');
+    prises.textContent = '';
+    for (const decision of decisions.values()) {
+      if (decision.issue === 'remise') continue;
+      const regle = regleAdaptation(decision.regle);
+      const ligne = document.createElement('p');
+      ligne.className = 'text-xs text-slate-500 dark:text-slate-400';
+      ligne.textContent =
+        `${regle?.libelle ?? decision.regle} — ${LIBELLE_ISSUE[decision.issue] ?? decision.issue}` +
+        (decision.le ? ` le ${new Date(decision.le).toLocaleDateString('fr-FR')}` : '');
+      prises.appendChild(ligne);
+    }
+  }
+
   async function peindre(): Promise<void> {
     const [profil, etat, divergences] = await Promise.all([
       profilLocal(),
@@ -384,5 +510,42 @@ import Base from '../layouts/Base.astro';
     await peindre();
   });
 
-  auDeverrouillage(peindre);
+  $('reinitialiser-adaptation').addEventListener('click', async () => {
+    if (
+      !window.confirm(
+        'Réinitialiser l’adaptation ?\n\nLes réglages qu’une proposition acceptée avait changés ' +
+          'reviennent à la valeur que vous aviez déclarée — pas à une valeur par défaut. Les ' +
+          'questions que vous avez refusées restent refusées.',
+      )
+    ) {
+      return;
+    }
+    const { reinitialiserAdaptation } = await import('../lib/adaptation');
+    const remise = await reinitialiserAdaptation();
+    const message = $('message-adaptation');
+    message.className = 'mt-3 text-sm text-slate-700 dark:text-slate-200';
+    const touches = remise.retablis.length + remise.supprimes.length;
+    message.textContent = touches
+      ? `${pluriel(remise.retablis.length, 'réglage')} remis à sa valeur déclarée` +
+        (remise.supprimes.length
+          ? `, et ${pluriel(remise.supprimes.length, 'champ')} supprimé(s) faute d’avoir eu une valeur avant.`
+          : '.')
+      : 'Rien à défaire : aucune proposition n’a été acceptée.';
+    message.classList.remove('hidden');
+    await peindre();
+  });
+
+  auDeverrouillage(async () => {
+    await peindre();
+    /*
+       Les réglages et l'adaptation viennent **après** le profil : l'adaptation
+       publie les faits pour observer l'usage, et cet écran doit s'afficher
+       avant, pas après. Leur échec n'emporte pas la page.
+    */
+    await peindreReglages().catch((e) => console.warn('Réglages déduits indisponibles :', e));
+    await peindreAdaptation().catch((e) => {
+      console.warn('Adaptation indisponible :', e);
+      $('adaptation-etat').textContent = 'L’adaptation n’a pas pu être calculée sur cet appareil.';
+    });
+  });
 </script>

@@ -285,6 +285,72 @@ et non une valeur fausse.
 > essai qui passerait par la porte de service cesserait de remarquer que la porte principale est
 > cassée.
 
+> **C2 faite, le 12 octobre 2026.** L'adaptation, et les réglages déduits avec leur cause.
+>
+> **Les réglages déduits ne sont pas des champs.** Le §3 de `questions.md` le posait : « aucune de
+> ces déductions ne modifie une donnée. Elles changent des **réglages**. » L'heure de bascule du
+> jour logique découle de l'heure de lever ; ce n'est pas une seconde vérité sur le lever, c'est une
+> conséquence. En faire un champ aurait créé deux valeurs à tenir d'accord, et le jour où elles
+> divergent, la personne ne saurait plus laquelle elle a dite. Huit réglages, chacun affiché avec
+> **la réponse dont il découle** et ce qu'il ne change pas : « votre bascule de journée est à 6 h
+> parce que vous vous levez à 7 h ; la changer ne changera pas votre heure de lever ». Et chacun
+> existe toujours : faute de réponse, il porte sa valeur d'usine et **le dit**, au lieu de
+> disparaître — une liste qui se vide laisserait croire qu'il n'y a pas de réglage.
+>
+> **Cinq règles d'adaptation, et deux seuils par règle plutôt qu'un.** Le rythme déclaré contre
+> l'observé ne se signale que si l'écart est à la fois grand **en proportion** et grand **en
+> heures** : le seuil relatif seul ferait proposer de passer de 1 h à 1 h 30, le seuil absolu seul
+> ferait proposer de passer de 30 h à 28 h. Un domaine muet depuis un mois n'est proposé à
+> l'extinction que s'il n'est **pas le seul** à l'être : tous muets veut dire que l'application
+> n'est pas utilisée, pas que les domaines sont mal choisis — prendre une absence pour un choix est
+> la faute la plus facile ici. Et un coucher déclaré après minuit se compare dans le **jour
+> logique** : 1 h est postérieur à 23 h, pas antérieur.
+>
+> **« Au plus une par semaine » porte sur l'attention demandée, pas sur la règle.** Le plafond se
+> mesure sur **toutes** les décisions : avoir refusé une proposition lundi ne doit pas en faire
+> apparaître une autre mardi. Il se lit dans le journal et non dans un compteur local, sans quoi
+> deux appareils en proposeraient deux. Un refus est **définitif** — pas « pas avant trois mois » :
+> jamais. Redemander ce qu'on a refusé est la façon la plus sûre de faire désinstaller un logiciel.
+>
+> **Le silence a sa raison, et « Mon profil » la donne.** Trois silences distincts : aucun écart,
+> un écart connu qui attend son tour, ou des écarts qui portent tous sur des questions refusées.
+> L'écran montre **tous** les écarts détectés, même ceux qu'il ne proposera pas aujourd'hui :
+> quelqu'un qui ouvre cette page a le droit de savoir ce que Cyclades a remarqué, plutôt que de
+> l'apprendre dans trois jours.
+>
+> **« Réinitialiser l'adaptation » retrouve la valeur déclarée au lieu de la deviner.** Le journal
+> garde toutes les versions de chaque champ : la remise relit celle qui précédait l'acceptation. Un
+> « retour aux valeurs par défaut » aurait effacé la déclaration en même temps que l'adaptation, et
+> la personne aurait perdu une réponse qu'elle avait donnée. Deux acceptations successives sur le
+> même champ se défont **d'un coup**, jusqu'avant la première : remonter d'un cran laisserait une
+> valeur que personne n'a jamais déclarée. Un refus, lui, n'est pas défait par la remise — refuser
+> n'est pas une adaptation, c'est son contraire.
+>
+> Le défaut qu'un essai a trouvé là : `accepter()` écrit le champ **puis** journalise la décision,
+> dans cet ordre, pour qu'aucune décision ne prétende qu'une écriture a eu lieu si elle a échoué.
+> La remise cherchait donc « la dernière écriture avant la décision » — qui est celle de
+> l'adaptation elle-même. Elle réécrivait la valeur adaptée et ne défaisait rien. La décision porte
+> désormais ce qui avait été proposé, et la remise écarte par la valeur, pas par la position.
+>
+> **Pourquoi un écart déclaré/observé n'est pas un désaccord au sens de 3f.** La phase 3f montre
+> des désaccords entre **faits** : deux faits qui ne peuvent pas être vrais ensemble — un sommeil
+> de neuf heures dans une nuit où une séance a eu lieu. Une déclaration et un fait, eux, ne se
+> contredisent pas de cette façon : l'un dit ce qui s'est passé, l'autre ce qu'on fait
+> d'habitude. Aucune des deux n'est fausse, et la seule réponse admissible est de poser la
+> question. L'adaptation ne touche donc **jamais** un fait, et `desaccords.ts` n'a reçu aucune
+> règle nouvelle : il lui en faudra le jour où une seconde branche publiera des faits.
+>
+> Un troisième silence est né d'un essai de navigateur : l'écran disait « vous avez refusé » à
+> quelqu'un qui venait de répondre « plus tard ». Les deux états étaient confondus parce qu'ils
+> produisent le même silence, et dire l'un pour l'autre est une petite trahison — elle se remarque.
+> Un report rend désormais le délai qui lui reste, et « tout refusé » n'est dit que quand c'est vrai
+> de tous les écarts connus.
+>
+> **Essais** : `essais:adaptation` (89 contrôles) et `essais:adaptation:navigateur` (27, dont le
+> plafond hebdomadaire après une réponse, l'acceptation écrite « observé, puis confirmé » et jamais
+> « déclaré », la remise qui retrouve la valeur déclarée, et les huit réglages déduits affichés avec
+> leur cause).
+
 - Le parcours : mot de passe → *(première fois)* initialisation → menu. Une question à la fois,
   boutons et suggestions, « Plus tard » partout sauf le prénom, reprise après fermeture (l'avancement
   est un champ de profil comme les autres, donc il se synchronise).
