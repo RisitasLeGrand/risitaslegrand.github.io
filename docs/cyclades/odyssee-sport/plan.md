@@ -231,20 +231,99 @@ variante et équipement — sans quoi deux exercices différents se compareraien
 SVG **dessiné nativement**, avant et arrière, trois états par clic, **avec l'alternative en cases à
 cocher obligatoire** : utilisable au clavier et au lecteur d'écran seuls.
 
+> **S2 faite, le 12 octobre 2026.** `src/lib/sport/schema-corps.ts` et `/sport/exercices/`.
+>
+> **Le dessin est une donnée, pas une image.** Un tableau de primitives par muscle, que la page
+> assemble en SVG. C'est ce qui permet à `controlerSchema()` de vérifier que chaque muscle déclaré
+> a une forme, qu'aucune forme ne déborde de la boîte, et qu'aucune face n'est vide — trois
+> contrôles qu'aucun PNG ne permettrait, et trois erreurs qu'on découvrirait autrement à l'usage.
+>
+> **L'alternative en cases n'est pas un repli, c'est l'égal.** Les deux sont affichées en même
+> temps et écrivent le même état, par une seule fonction `poser()` : il n'existe aucun chemin qui
+> change le schéma sans changer les cases. C'est ce qui en fait une équivalence plutôt qu'un mode
+> dégradé qu'on oublierait de tenir à jour.
+>
+> **Les zones sont de vrais boutons au clavier.** `role="button"`, `tabindex`, `aria-pressed`, un
+> nom accessible qui dit l'état, et Entrée comme Espace qui cyclent — sans quoi le parcours clavier
+> mènerait à des zones qu'on ne peut pas activer, le pire des deux mondes. L'ordre de tabulation
+> suit le corps de haut en bas, calculé depuis les formes et non écrit à la main.
+>
+> **La silhouette porte `aria-hidden`.** C'est un repère visuel ; l'exposer ajouterait au parcours
+> une étape qui ne mène nulle part.
+
 ### S3 — Séances types, programmes, volume par muscle
 
 Coefficient secondaire 0,5 réglable, **stocké avec chaque calcul** — un coefficient changé plus tard
 ne doit pas réécrire l'histoire.
+
+> **S3 faite, le 12 octobre 2026.** `src/lib/sport/programmes.ts`, le magasin `sportProgrammes`
+> (migration v17, additive) et `/sport/programmes/`.
+>
+> **Une séance type n'est pas une séance.** Rien dans ce module n'écrit dans `sportSeances` : un
+> programme prépare, la saisie en direct enregistre. Les confondre ferait apparaître dans
+> l'historique des séances jamais faites, et dans le volume réalisé des séries jamais soulevées —
+> l'illusion exacte que le relevé d'Odyssée combat.
+>
+> **Le prévu passe par le même calcul que le réalisé.** `volumePrevu` fabrique des séries fictives
+> et les donne à `volumeParMuscle` plutôt que de refaire la pondération. Deux formules à tenir
+> d'accord auraient fait mesurer à l'écart prévu/réalisé la divergence du code autant que celle de
+> la personne.
+>
+> **Le facteur `parSemaine / nombre de séances types`** ramène un programme à l'échelle
+> hebdomadaire du réalisé. Trois séances types tournées quatre fois par semaine, ce n'est ni trois
+> ni quatre : c'est 4/3 par type, et un code qui multiplierait par `parSemaine` triplerait le
+> prévu.
+>
+> **Le tableau montre tous les muscles, y compris à zéro partout** — la ligne vide est
+> l'information. Et `musclesAbsents` nomme ce qu'aucun exercice du programme ne touche : un trou ne
+> se voit pas en lisant un programme, puisqu'on y voit ce qui est, jamais ce qui n'y est pas.
+> C'est une alerte, pas un refus : un programme du haut du corps est un programme.
 
 ### S4 — La séance en direct
 
 Saisie série par série, minuteur de récupération réelle, Wake Lock, **sauvegarde à chaque série**,
 hors réseau. Une séance interrompue se reprend sans perte.
 
+> **S4 faite, le 12 octobre 2026.** `/sport/seance/`.
+>
+> **Le repos enregistré est mesuré, pas consigné.** Le minuteur relit l'horloge à chaque battement
+> au lieu d'incrémenter un compteur — un onglet en arrière-plan voit ses minuteurs ralentis, et un
+> compteur incrémenté dériverait de plusieurs minutes sur une séance. Et il **continue de compter
+> au-delà de la cible** : un minuteur qui s'arrêterait à sa consigne enregistrerait sa consigne.
+>
+> **L'instant de la dernière série est lu dans les données**, jamais dans une variable. Au retour
+> d'une interruption, la variable serait vide et le repos repartirait de zéro, alors que la donnée
+> sait l'heure qu'il était.
+>
+> **Le Wake Lock est repris au retour d'arrière-plan.** Le navigateur le relâche de lui-même et ne
+> le rend pas ; sans cette reprise, l'écran s'éteindrait dès le premier passage par une autre
+> application. Là où il n'existe pas, l'écran le dit en une ligne plutôt que d'échouer en silence.
+>
+> **La charge est gardée d'une série à l'autre, les répétitions sont vidées.** On enchaîne presque
+> toujours la même charge, et la retaper est le genre de friction qui fait abandonner la saisie au
+> milieu d'une séance — c'est-à-dire qui fait perdre la séance.
+
 ### S5 — Le suivi de la force
 
 Epley et Brzycki, **imprécision signalée au-delà de dix répétitions**, bandes de contexte datées,
 filtre « périodes comparables », détection de plateau.
+
+> **S5 faite, le 12 octobre 2026.** `/sport/force/`.
+>
+> **L'imprécision a une forme, pas seulement une mention.** Les points tirés de séries de plus de
+> dix répétitions sont des cercles **creux** sur la courbe et portent « approximative » dans le
+> tableau. Un tracé lisse donnerait à une approximation l'allure d'une mesure.
+>
+> **L'échelle ne part pas de zéro, et la légende le dit.** À partir de zéro, deux kilos gagnés sur
+> cent seraient invisibles ; tronquée sans le dire, l'échelle exagérerait la pente. Les deux
+> défauts s'évitent en annonçant l'échelle.
+>
+> **Le graphique porte `aria-hidden`, et le tableau est la version complète.** Même raison qu'au
+> schéma du corps : exposer un tracé au lecteur d'écran produit une liste de coordonnées, qui
+> n'informe personne.
+>
+> **Le filtre « périodes comparables » compte ce qu'il écarte**, et l'annonce. Un filtre qui
+> escamoterait des points sans le dire ferait passer une sélection pour l'histoire entière.
 
 ### S6 — Les modulations, et le garde-fou
 
@@ -253,7 +332,37 @@ aucune mémoire de désobéissance, aucun compteur de propositions non suivies. 
 négociable** : en présence d'une douleur ou d'une blessure déclarée, aucune proposition de
 progresser.
 
+> **S6 faite, le 12 octobre 2026.** `src/lib/sport/refus-locaux.ts`, et les propositions sur
+> `/sport/seance/`, `/sport/force/`, `/sport/corps/`.
+>
+> **Le refus vit dans le stockage local, et nulle part ailleurs.** Un refus doit laisser une trace,
+> sans quoi la même proposition reviendrait le lendemain — une façon de ne pas écouter. Mais cette
+> trace n'entre **ni dans les magasins, ni dans la synchronisation, ni dans la sauvegarde, ni dans
+> l'export pour une IA** : on ne pourra jamais bâtir un reproche sur ce qu'elle contient. Elle
+> expire d'elle-même, et la perdre coûte au pire une proposition qui revient une fois. Choisir le
+> stockage le plus faible est ici le choix de fond.
+>
+> **Un seul refus par couple exercice / sorte**, et un bouton pour tout oublier : une donnée
+> invisible doit rester effaçable.
+>
+> **Le garde-fou est à deux endroits, et c'est voulu.** Dans `proposer()`, comme premier test que
+> rien ne contourne ; et sur le tableau de bord, en clair — une protection qu'on ne sait pas avoir
+> ne rassure personne.
+
 ### S7 — Ouverture de la branche
+
+> **S7 faite, le 12 octobre 2026.** Six écrans, six onglets, `disponible: true`.
+>
+> **Les onglets ont été déclarés avant l'ouverture**, branche encore fermée. Ce n'est pas une
+> contradiction : `disponible` commande ce que **les autres** branches montrent, les onglets
+> commandent ce que Sport montre d'elle-même. Les écrans se répondaient donc pendant la
+> construction sans que la branche soit promise à qui ne l'avait pas demandée.
+>
+> **`essais:sport:navigateur` vérifie les trois promesses** qu'aucun essai pur n'atteint : le
+> schéma utilisable au clavier seul (focus, Entrée, Espace, noms accessibles, et la case qui
+> commande le schéma dans l'autre sens), la séance rechargée en plein milieu qui revient avec ses
+> séries, et la douleur déclarée qui s'affiche. Il vérifie aussi que la barre ne montre **pas** les
+> onglets de Révisions — l'erreur exacte attrapée en O7.
 
 ---
 

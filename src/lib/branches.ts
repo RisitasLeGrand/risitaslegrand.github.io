@@ -23,7 +23,9 @@
  * ne renseigne personne : il promet.
  *
  * **Odyssée s'est ouverte le 12 octobre 2026**, et la barre est devenue le
- * sélecteur annoncé. Sport reste fermée.
+ * sélecteur annoncé ; **Sport le même jour**, une fois ses six écrans en
+ * place. Les trois branches sont donc ouvertes, et `disponible` reste ce
+ * qu'il était : l'interrupteur qui empêche d'annoncer ce qui n'existe pas.
  *
  * ## Chaque branche porte ses onglets
  *
@@ -118,8 +120,15 @@ export const BRANCHES: Branche[] = [
     icone: '🏋️',
     description: 'Musculation et cardio : exercices, séances, suivi de la force.',
     racine: '/sport/',
-    disponible: false,
-    onglets: [],
+    disponible: true,
+    onglets: [
+      { id: 'accueil', libelle: 'Tableau de bord', court: 'Accueil', chemin: '/sport/', icone: '🏠' },
+      { id: 'seance', libelle: 'Ma séance', court: 'Séance', chemin: '/sport/seance/', icone: '🏋️' },
+      { id: 'exercices', libelle: 'Mes exercices', court: 'Exercices', chemin: '/sport/exercices/', icone: '📋' },
+      { id: 'programmes', libelle: 'Mes programmes', court: 'Programmes', chemin: '/sport/programmes/', icone: '🗂️' },
+      { id: 'force', libelle: 'Mon suivi de la force', court: 'Force', chemin: '/sport/force/', icone: '📈' },
+      { id: 'corps', libelle: 'Mon corps et mes blessures', court: 'Corps', chemin: '/sport/corps/', icone: '🩹' },
+    ],
   },
 ];
 

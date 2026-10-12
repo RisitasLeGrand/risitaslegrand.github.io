@@ -143,7 +143,15 @@ const apres = await page.evaluate(
     }),
 );
 
-v('la base est passée en version 15', apres.version, 15);
+/*
+   Un **plancher**, et non la version exacte. Le sujet de cet essai est qu'une
+   base en v14 migre sans rien perdre ; le numéro du jour appartient à
+   « db.ts », et l'inscrire ici obligerait à retoucher l'essai à chaque schéma
+   — une retouche mécanique qui finit par se faire sans réfléchir. Ce qui
+   compte est vérifié juste en dessous : les magasins neufs sont là, et les
+   anciens aussi.
+*/
+vrai('la base a migré au moins jusqu’à la v15', apres.version >= 15);
 v(
   'les cinq magasins d’Odyssée existent',
   apres.magasins.filter((m) => m.startsWith('odyssee')).sort(),
@@ -604,9 +612,9 @@ vrai(
   'et un lien mène à Révisions',
   (await page.locator('[data-branche="revisions"]').count()) === 1,
 );
-faux(
-  'Sport, fermée, n’apparaît pas',
-  (await page.locator('[data-branche="sport"]').count()) > 0,
+vrai(
+  'et un autre à Sport, ouverte depuis',
+  (await page.locator('[data-branche="sport"]').count()) === 1,
 );
 
 await page.goto(`${RACINE}/flashcards/`, { waitUntil: 'networkidle' });

@@ -34,8 +34,14 @@ import {
   type Serie,
   type TypeDePhase,
 } from './modele';
+import { controlerProgramme, type Programme } from './programmes';
 
-type MagasinSport = 'sportExercices' | 'sportSeances' | 'sportPhases' | 'sportBlessures';
+type MagasinSport =
+  | 'sportExercices'
+  | 'sportSeances'
+  | 'sportPhases'
+  | 'sportBlessures'
+  | 'sportProgrammes';
 
 async function journaliser(magasin: MagasinSport, enregistrement: unknown): Promise<void> {
   try {
@@ -232,6 +238,46 @@ export async function refermerBlessure(id: string, le = new Date()): Promise<Ble
 export const toutesLesBlessures = async (): Promise<Blessure[]> =>
   (await db()).getAll('sportBlessures');
 
+/**
+ * Rouvre une blessure refermée trop tôt.
+ *
+ * La symétrie n'est pas un confort : une douleur qu'on croyait passée et qui
+ * revient est le cas courant, et sans ce chemin on la saisirait comme une
+ * **nouvelle** blessure, ce qui ferait paraître récente une gêne ancienne —
+ * exactement la distinction sur laquelle le garde-fou s'appuie pour proposer
+ * de consulter plutôt que de réduire.
+ */
+export async function rouvrirBlessure(id: string): Promise<Blessure | null> {
+  const base = await db();
+  const blessure = await base.get('sportBlessures', id);
+  if (!blessure) return null;
+  const avec: Blessure = { ...blessure, fin: null, majLe: maintenant() };
+  await base.put('sportBlessures', avec);
+  await journaliser('sportBlessures', avec);
+  return avec;
+}
+
+export async function supprimerBlessure(id: string): Promise<void> {
+  await (await db()).delete('sportBlessures', id);
+  await journaliserSuppression([`sportBlessures:${id}`]);
+}
+
+/** Referme la phase en cours, s'il y en a une. Une seule phase court à la fois. */
+export async function cloreLaPhaseEnCours(le = new Date()): Promise<void> {
+  const base = await db();
+  for (const phase of await base.getAll('sportPhases')) {
+    if (phase.fin !== null) continue;
+    const avec: Phase = { ...phase, fin: le.toISOString(), majLe: maintenant() };
+    await base.put('sportPhases', avec);
+    await journaliser('sportPhases', avec);
+  }
+}
+
+export async function supprimerPhase(id: string): Promise<void> {
+  await (await db()).delete('sportPhases', id);
+  await journaliserSuppression([`sportPhases:${id}`]);
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    La bibliothèque livrée
    ══════════════════════════════════════════════════════════════════════════ */
@@ -361,3 +407,48 @@ export async function installerBibliotheque(): Promise<number> {
   }
   return BIBLIOTHEQUE.length;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Les programmes
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export type ProgrammeNeuf = Omit<Programme, 'id' | 'majLe'> & Partial<Pick<Programme, 'id'>>;
+
+/**
+ * Écrit un programme, et **désactive les autres** s'il devient actif.
+ *
+ * Deux programmes actifs à la fois n'auraient pas de sens : « le programme que
+ * je suis » est au singulier, et c'est lui que la séance en direct propose au
+ * démarrage. Laisser l'invariant à la charge de l'écran le casserait le jour
+ * où un second écran écrirait un programme.
+ */
+export async function ecrireProgramme(neuf: ProgrammeNeuf): Promise<Programme> {
+  const programme: Programme = { ...neuf, id: neuf.id ?? ulid(), majLe: maintenant() };
+  const problemes = controlerProgramme(programme);
+  if (problemes.length) throw new Error(problemes.join(' '));
+
+  const base = await db();
+  await base.put('sportProgrammes', programme);
+  await journaliser('sportProgrammes', programme);
+
+  if (programme.actif) {
+    for (const autre of await base.getAll('sportProgrammes')) {
+      if (autre.id === programme.id || !autre.actif) continue;
+      const eteint = { ...autre, actif: false, majLe: maintenant() };
+      await base.put('sportProgrammes', eteint);
+      await journaliser('sportProgrammes', eteint);
+    }
+  }
+  return programme;
+}
+
+export async function supprimerProgramme(id: string): Promise<void> {
+  await (await db()).delete('sportProgrammes', id);
+  await journaliserSuppression([`sportProgrammes:${id}`]);
+}
+
+export const tousLesProgrammes = async (): Promise<Programme[]> =>
+  (await db()).getAll('sportProgrammes');
+
+export const programmeActif = async (): Promise<Programme | undefined> =>
+  (await tousLesProgrammes()).find((p) => p.actif);

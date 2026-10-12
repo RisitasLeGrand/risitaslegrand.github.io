@@ -85,19 +85,24 @@ await aller('/', '[data-branche="revisions"]');
     })),
   );
   v('trois branches sont proposées', cartes.length, 3);
-  /* Odyssée s'est ouverte le 12 octobre 2026 ; Sport reste fermée. */
+  /*
+     Odyssée et Sport se sont ouvertes le 12 octobre 2026. Les trois branches
+     sont donc cliquables, et l'essai le vérifie plutôt que de le supposer :
+     c'est exactement la ligne qui a rattrapé l'ouverture d'Odyssée, quand les
+     écrans existaient et que la navigation n'y menait pas.
+  */
   v(
-    'deux branches sont ouvertes',
+    'les trois branches sont ouvertes',
     cartes.filter((c) => c.cliquable).map((c) => c.branche).sort(),
-    ['odyssee', 'revisions'],
+    ['odyssee', 'revisions', 'sport'],
   );
   vrai(
-    'la troisième annonce « Bientôt »',
-    cartes.filter((c) => !c.cliquable).every((c) => c.texte.includes('Bientôt')),
+    'aucune n’annonce plus « Bientôt »',
+    cartes.every((c) => !c.texte.includes('Bientôt')),
   );
   vrai(
-    'et elle n’est pas un lien',
-    await page.evaluate(() => !document.querySelector('a[data-branche="sport"]')),
+    'et Sport est bien un lien',
+    await page.evaluate(() => !!document.querySelector('a[data-branche="sport"]')),
   );
 
   // Aucune donnée personnelle : ni XP, ni série, ni carte de séance.
@@ -107,8 +112,15 @@ await aller('/', '[data-branche="revisions"]');
   vrai('aucune carte due', !/carte/i.test(texte));
   v('la salutation est neutre tant que le prénom est inconnu', (await page.textContent('#salutation')).trim(), 'Bonjour.');
 
-  vrai('le menu mène à « Mon profil »', await page.locator('a[href$="/profil/"]').isVisible());
-  vrai('aux appareils', await page.locator('a[href$="/appareils/"]').isVisible());
+  /*
+     Dans `main`, et non dans la page entière : le pied de page est devenu un
+     plan du site et porte lui aussi un lien « Mon profil ». Chercher partout
+     en trouverait deux, et l'essai échouerait pour une raison qui n'est pas
+     celle qu'il mesure — le menu doit mener au profil, pas être seul à le
+     faire.
+  */
+  vrai('le menu mène à « Mon profil »', await page.locator('main a[href$="/profil/"]').isVisible());
+  vrai('aux appareils', await page.locator('main a[href$="/appareils/"]').isVisible());
 }
 
 console.log('\nL’ACCUEIL DE RÉVISIONS A SUIVI À /revisions/');

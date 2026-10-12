@@ -8,8 +8,8 @@ Cyclades se divise en **branches**, déclarées dans `src/lib/branches.ts` :
 | Branche | Ce qu'elle porte | État |
 |---|---|---|
 | **Révisions** | Préparation aux concours : cours, fiches de synthèse, flashcards à répétition espacée, quiz, glossaire, planification, suivi de progression | disponible |
-| **Odyssée** | Pilotage de la vie : domaines, calendrier, tâches, quêtes, tendances | à construire |
-| **Sport** | Musculation et cardio : exercices, séances, suivi de la force | à construire |
+| **Odyssée** | Pilotage de la vie : domaines, calendrier, tâches, quêtes, revue du soir, relevé de ce qui a eu lieu | disponible |
+| **Sport** | Musculation et cardio : bibliothèque d'exercices, schéma du corps, programmes, séance en direct, suivi de la force | disponible |
 
 La branche Révisions se décline en **parcours** (`src/lib/parcours/registre.ts`) :
 INSP, DGFiP B, DGFiP A, DGFiP A+. Chaque parcours déclare ses matières, ses
@@ -38,9 +38,11 @@ préfixe historique : voir `docs/cyclades/renommage.md`.
 12. [Comment fonctionne la protection](#comment-fonctionne-la-protection)
 13. [Sauvegarder et synchroniser la progression](#sauvegarder-et-synchroniser-la-progression)
 14. [Mon profil, l'export vers une IA, l'import d'une analyse](#mon-profil-lexport-vers-une-ia-limport-dune-analyse)
-15. [Cog-Training](#cog-training--quad-n-back-relational-reasoning-et-veridical-mapping)
-16. [Organisation du projet](#organisation-du-projet)
-17. [En cas de problème](#en-cas-de-problème)
+15. [Odyssée : le pilotage de la vie](#odyssée--le-pilotage-de-la-vie)
+16. [Sport : la musculation et le cardio](#sport--la-musculation-et-le-cardio)
+17. [Cog-Training](#cog-training--quad-n-back-relational-reasoning-et-veridical-mapping)
+18. [Organisation du projet](#organisation-du-projet)
+19. [En cas de problème](#en-cas-de-problème)
 
 ---
 
@@ -892,6 +894,79 @@ touche au corps, à la psyché ou aux finances, que l'IA l'ait signalé ou non.
 
 ---
 
+## Odyssée : le pilotage de la vie
+
+La branche **Odyssée** (`/odyssee/`) tient l'agenda, les tâches, les habitudes
+et la revue du soir. Six écrans :
+
+| Écran | Ce qu'il fait |
+|---|---|
+| **Tableau de bord** (`/odyssee/`) | La roue des domaines, les suggestions du jour, le minuteur de focus, et l'indicateur du plan tenu |
+| **Mon calendrier** (`/odyssee/calendrier/`) | Les événements, l'import et l'export `.ics` |
+| **Mes tâches** (`/odyssee/taches/`) | La liste, les échéances, l'abandon motivé |
+| **Mes quêtes** (`/odyssee/quetes/`) | Les habitudes, leur frise de quatorze jours, la mise en pause |
+| **Revue du soir** (`/odyssee/revue/`) | Le relevé d'abord, puis trois questions |
+| **Mes synthèses** (`/syntheses/`) | Les indicateurs par période, écran commun aux branches |
+
+**Le relevé est ce qui distingue Odyssée d'un agenda.** À la revue du soir, on
+dit de chaque élément planifié s'il a eu lieu — fait, partiellement, pas fait —
+et **pourquoi**, parmi dix motifs fermés. Trois conséquences :
+
+- l'indicateur « plan tenu » existe, et il vaut `null` tant que rien n'est
+  relevé : une absence de relevé n'est pas un zéro ;
+- une **cause dominante** se calcule, parce que la liste de motifs est fermée.
+  Un champ libre n'aurait produit que des phrases ;
+- un créneau d'agenda déclaré fait devient un fait **confirmé**, un créneau
+  déclaré non fait n'est pas publié du tout, et seul l'élément non relevé reste
+  une supposition. Sans le relevé, tout créneau était publié « estimé », faute
+  de mieux.
+
+Les domaines **en pause se taisent**, suggestions comprises : mettre un domaine
+en pause et continuer d'en recevoir des rappels n'aurait aucun sens.
+
+---
+
+## Sport : la musculation et le cardio
+
+La branche **Sport** (`/sport/`) tient le carnet d'entraînement. Six écrans :
+
+| Écran | Ce qu'il fait |
+|---|---|
+| **Tableau de bord** (`/sport/`) | Les quatre dernières semaines, le volume par muscle, les blessures ouvertes |
+| **Ma séance** (`/sport/seance/`) | La saisie série par série, le minuteur de repos réel, le Wake Lock |
+| **Mes exercices** (`/sport/exercices/`) | La bibliothèque, et le schéma du corps |
+| **Mes programmes** (`/sport/programmes/`) | Les séances types, et le volume prévu contre réalisé |
+| **Mon suivi de la force** (`/sport/force/`) | La courbe des maximums estimés, les phases, le plateau |
+| **Mon corps** (`/sport/corps/`) | Les phases d'entraînement, et les douleurs déclarées |
+
+Trois choses méritent d'être sues avant d'utiliser la branche.
+
+**Une séance interrompue se reprend sans perte.** Chaque série est écrite dès
+qu'elle est saisie, et la séance en cours est retrouvée au rechargement. Le
+repos enregistré est le temps **réellement** écoulé, relu sur l'horloge, et le
+compteur continue au-delà de la cible : un minuteur qui s'arrêterait à sa
+consigne enregistrerait sa consigne.
+
+**Les charges du suivi de force sont estimées, jamais soulevées.** Elles
+viennent des formules d'Epley et de Brzycki ; au-delà de dix répétitions, les
+deux divergent et le point devient un cercle creux sur la courbe, marqué
+« approximative » dans le tableau. L'échelle du graphique ne part pas de zéro,
+et la légende le dit.
+
+**Une douleur déclarée empêche toute proposition de progresser** sur les
+muscles concernés, et aucun réglage ne le désactive. Une blessure sans muscle
+coché est générale : elle couvre tout. Pour le reste, Sport propose, vous
+disposez — et un refus n'est retenu que dans le stockage local de l'appareil,
+hors de la synchronisation, de la sauvegarde et de l'export : il sert à se
+taire quelque temps, jamais à tenir un compte.
+
+Le schéma du corps est **dessiné nativement** et doublé d'une liste de cases
+toujours affichée. Les deux écrivent la même chose, dans les deux sens : un
+tracé SVG n'est pas lisible au lecteur d'écran, et la liste n'est donc pas un
+repli mais l'autre moitié de la même donnée.
+
+---
+
 ## Cog-Training : Quad N-Back, Relational Reasoning et Veridical Mapping
 
 La rubrique **Cog-Training** (`/cog-training/`) réunit des exercices
@@ -1255,11 +1330,25 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 │       │   ├── verification.ts                    # Recalcul des chiffres cités
 │       │   └── avertissements.ts                  # Garde-fou des domaines sensibles
 │       │
-│       └── odyssee/         # Lecture transversale des branches
-│           ├── activite.ts, desaccords.ts         # XP/niveau/série, divergences
-│           ├── indicateurs.ts, syntheses.ts       # Les 15 indicateurs, les périodes
-│           ├── fiabilite.ts                       # Couverture et lacunes
-│           └── export-ia.ts                       # Les neuf fichiers de l'export
+│       ├── odyssee/         # Pilotage de la vie, et lecture transversale
+│       │   ├── activite.ts, desaccords.ts         # XP/niveau/série, divergences
+│       │   ├── indicateurs.ts, syntheses.ts       # Les 15 indicateurs, les périodes
+│       │   ├── fiabilite.ts                       # Couverture et lacunes
+│       │   ├── export-ia.ts                       # Les neuf fichiers de l'export
+│       │   ├── modele.ts, donnees.ts              # Tâches, quêtes, événements, relevé
+│       │   ├── jour.ts                            # Roue du jour, règles, plan tenu
+│       │   ├── ics.ts                             # Import et export de calendrier
+│       │   └── faits-odyssee.ts                   # Projection vers les faits
+│       │
+│       └── sport/           # Musculation et cardio
+│           ├── modele.ts                          # 18 muscles, exercices, séries, séances
+│           ├── schema-corps.ts                    # Le dessin, déclaré comme une donnée
+│           ├── force.ts                           # Epley, Brzycki, courbe, plateau
+│           ├── programmes.ts                      # Séances types, volume prévu/réalisé
+│           ├── modulation.ts                      # Propositions, et le garde-fou
+│           ├── refus-locaux.ts                    # Les refus, hors de toute sauvegarde
+│           ├── donnees.ts                         # Magasins et bibliothèque livrée
+│           └── faits-sport.ts                     # Projection vers les faits
 │
 └── public/                  # Fichiers copiés tels quels (robots.txt, favicon)
     ├── data/                # Contenu chiffré produit par le build — non commité

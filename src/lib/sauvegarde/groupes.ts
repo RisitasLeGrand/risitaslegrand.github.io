@@ -96,6 +96,7 @@ export const CHAMP_DATE: Record<string, string | null> = {
   sportSeances: 'jour',
   sportPhases: 'debut',
   sportBlessures: 'debut',
+  sportProgrammes: null,
 };
 
 export const GROUPES: readonly GroupeDeMagasins[] = [
@@ -165,7 +166,7 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
     id: 'sport',
     libelle: 'Sport',
     description: 'Exercices, séances et séries, phases d’entraînement, blessures déclarées.',
-    magasins: ['sportExercices', 'sportSeances', 'sportPhases', 'sportBlessures'],
+    magasins: ['sportExercices', 'sportSeances', 'sportPhases', 'sportBlessures', 'sportProgrammes'],
   },
   {
     id: 'reglages',

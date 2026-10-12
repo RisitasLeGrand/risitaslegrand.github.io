@@ -36,6 +36,20 @@ import {
   type PointDeForce,
 } from '../src/lib/sport/force';
 import { BIBLIOTHEQUE } from '../src/lib/sport/donnees';
+import {
+  TOLERANCE,
+  comparerVolumes,
+  controlerProgramme,
+  musclesAbsents,
+  volumePrevu,
+  type Programme,
+} from '../src/lib/sport/programmes';
+import {
+  ETATS,
+  controlerSchema,
+  etatSuivant,
+  musclesDeLaFace,
+} from '../src/lib/sport/schema-corps';
 import { projeterFaitsSport } from '../src/lib/sport/faits-sport';
 import type { Seance } from '../src/lib/sport/modele';
 import {
@@ -623,6 +637,180 @@ v('trente et un exercices sont livrés', BIBLIOTHEQUE.length, 31);
   const identites = BIBLIOTHEQUE.map(identiteDeComparaison);
   v('et aucun doublon d’identité', identites.length - new Set(identites).size, 0);
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   11. Le schéma du corps
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nLE SCHÉMA DU CORPS COUVRE LE MODÈLE');
+
+v('le schéma ne pose aucun problème', controlerSchema(), []);
+{
+  const avant = musclesDeLaFace('avant');
+  const arriere = musclesDeLaFace('arriere');
+  v('les deux faces couvrent les dix-huit muscles', avant.length + arriere.length, MUSCLES.length);
+  /*
+     Un muscle n'apparaît que sur sa face : le montrer des deux côtés
+     doublerait les zones cliquables et ferait croire à deux muscles.
+  */
+  v('et aucun n’est sur les deux', avant.filter((m) => arriere.includes(m)), []);
+  // L'ordre de parcours au clavier suit le corps, de haut en bas.
+  v('le parcours commence par le haut', avant[0], 'cou');
+}
+{
+  /*
+     Trois états, et le cycle revient à son point de départ. Sans le
+     troisième, désigner un muscle secondaire demanderait un second contrôle
+     à côté du schéma, et l'on aurait deux façons de dire la même chose.
+  */
+  v('le cycle fait trois pas', ETATS.length, 3);
+  v(
+    'et il revient à son point de départ',
+    etatSuivant(etatSuivant(etatSuivant('aucun'))),
+    'aucun',
+  );
+  v('rien, puis principal', etatSuivant('aucun'), 'principal');
+  v('puis secondaire', etatSuivant('principal'), 'secondaire');
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Les programmes et le volume prévu
+   ══════════════════════════════════════════════════════════════════════════ */
+console.log('\n\x1b[1mLES PROGRAMMES\x1b[0m');
+
+const programme = (p: Partial<Programme> = {}): Programme => ({
+  id: 'P',
+  nom: 'Haut / bas',
+  description: '',
+  seances: [
+    {
+      id: 'S1',
+      nom: 'Poussée',
+      blocs: [
+        {
+          exerciceId: 'X',
+          series: 4,
+          repetitionsMin: 6,
+          repetitionsMax: 10,
+          repos: 150,
+          chargeIndicative: 70,
+          note: '',
+        },
+      ],
+    },
+  ],
+  parSemaine: 2,
+  actif: true,
+  ciblesParMuscle: {},
+  majLe: '2026-10-10T00:00:00.000Z',
+  ...p,
+});
+
+v('un programme bien formé ne pose rien', controlerProgramme(programme()), []);
+v(
+  'un programme sans séance est refusé',
+  controlerProgramme(programme({ seances: [] })).length,
+  1,
+);
+v(
+  'une fourchette à l’envers est refusée',
+  controlerProgramme(
+    programme({
+      seances: [
+        {
+          id: 'S1',
+          nom: 'Poussée',
+          blocs: [
+            {
+              exerciceId: 'X',
+              series: 3,
+              repetitionsMin: 12,
+              repetitionsMax: 8,
+              repos: null,
+              chargeIndicative: null,
+              note: '',
+            },
+          ],
+        },
+      ],
+    }),
+  ).length,
+  1,
+);
+
+{
+  /*
+     Une séance type, deux séances par semaine, quatre séries de développé
+     couché : les pectoraux reçoivent 4 × 2 = 8 séries pleines, et les deux
+     muscles secondaires 8 × 0,5 = 4 chacun. Le facteur est bien 2 et non 1 —
+     c'est lui qui ramène des séances types à une semaine.
+  */
+  const prevu = volumePrevu(programme(), [exercice()]);
+  v('le facteur ramène les séances types à la semaine', prevu.facteur, 2);
+  v('les principaux reçoivent le volume plein', prevu.series.pectoraux, 8);
+  v('les secondaires la moitié', prevu.series.triceps, 4);
+  v('le coefficient voyage avec le résultat', prevu.coefficient, COEFFICIENT_SECONDAIRE);
+}
+
+{
+  /*
+     Trois séances types tournées quatre fois par semaine : chacune revient
+     4/3 fois. C'est le cas que le facteur existe pour traiter, et celui
+     qu'un code qui multiplierait bêtement par `parSemaine` tripleraient.
+  */
+  const trois = programme({
+    parSemaine: 4,
+    seances: [
+      { id: 'A', nom: 'A', blocs: [{ exerciceId: 'X', series: 3, repetitionsMin: 8, repetitionsMax: 12, repos: null, chargeIndicative: null, note: '' }] },
+      { id: 'B', nom: 'B', blocs: [{ exerciceId: 'X', series: 3, repetitionsMin: 8, repetitionsMax: 12, repos: null, chargeIndicative: null, note: '' }] },
+      { id: 'C', nom: 'C', blocs: [{ exerciceId: 'X', series: 3, repetitionsMin: 8, repetitionsMax: 12, repos: null, chargeIndicative: null, note: '' }] },
+    ],
+  });
+  // 9 séries au total × (4/3) = 12 séries hebdomadaires sur les pectoraux.
+  v('quatre séances pour trois types', volumePrevu(trois, [exercice()]).series.pectoraux, 12);
+}
+
+{
+  const lignes = comparerVolumes({
+    prevu: { pectoraux: 10 },
+    realise: { pectoraux: 10, dorsaux: 2 },
+    cibles: { pectoraux: 10, dorsaux: 10 },
+  });
+  const ligne = (id: string) => lignes.find((l) => l.muscle === id)!;
+  v('tous les muscles figurent, même à zéro', lignes.length, MUSCLES.length);
+  v('dans la cible', ligne('pectoraux').etat, 'dans');
+  v('sous la cible', ligne('dorsaux').etat, 'sous');
+  v('sans cible déclarée, aucun jugement', ligne('mollets').etat, 'sans-cible');
+  /*
+     La tolérance est symétrique : à ±20 % d'une cible de 10, 12 est encore
+     « dans » et 12,1 passe « au-delà ». On éprouve la borne et non son
+     milieu, parce que c'est la borne qui se trompe.
+  */
+  v(
+    'la borne haute est comprise',
+    comparerVolumes({ prevu: {}, realise: { pectoraux: 10 * (1 + TOLERANCE) }, cibles: { pectoraux: 10 } })
+      .find((l) => l.muscle === 'pectoraux')!.etat,
+    'dans',
+  );
+  v(
+    'et juste au-dessus on sort',
+    comparerVolumes({ prevu: {}, realise: { pectoraux: 12.1 }, cibles: { pectoraux: 10 } })
+      .find((l) => l.muscle === 'pectoraux')!.etat,
+    'au-dela',
+  );
+}
+
+{
+  /*
+     Le trou se voit : un programme qui n'a qu'un développé couché ne touche
+     ni les jambes ni le dos, et c'est ce qu'on ne voit pas en lisant le
+     programme.
+  */
+  const absents = musclesAbsents(programme(), [exercice()]);
+  vrai('les jambes manquent', absents.includes('quadriceps'));
+  faux('les pectoraux ne manquent pas', absents.includes('pectoraux'));
+  faux('ni les triceps, secondaires mais touchés', absents.includes('triceps'));
+}
+
 
 /* ════════════════════════════════════════════════════════════════════════ */
 console.log(

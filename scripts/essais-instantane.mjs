@@ -278,6 +278,8 @@ v(
     'relationnel', 'revisions', 'seances', 'vmSeuils', 'vmSessions',
     // Odyssée, depuis la version 15.
     'odysseeTaches', 'odysseeQuetes', 'odysseeEvenements', 'odysseeFocus', 'odysseeRevues',
+    // Sport, depuis la version 16, et ses programmes depuis la 17.
+    'sportExercices', 'sportSeances', 'sportPhases', 'sportBlessures', 'sportProgrammes',
   ].sort(),
 );
 

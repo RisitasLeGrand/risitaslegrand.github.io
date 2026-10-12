@@ -6,46 +6,45 @@
  * le CONTENU, lui, est celui d'un site personnel. On n'y reprend donc ni le
  * bloc-marque de l'État, ni les mentions propres à un service public — ce site
  * n'en est pas un, et la mention finale le dit explicitement.
+ *
+ * ## Les colonnes viennent du registre des branches
+ *
+ * Elles étaient écrites en dur, et listaient les écrans de Révisions sur
+ * **toutes** les pages, y compris celles d'Odyssée et de Sport. C'est la même
+ * erreur que la barre d'onglets avant l'ouverture d'Odyssée : une mise en page
+ * qui connaît les écrans d'une branche est une mise en page qu'il faut
+ * modifier à chaque branche, et qu'on oublie de modifier.
+ *
+ * Désormais : une colonne par branche ouverte, remplie de ses onglets, plus
+ * une colonne pour les écrans communs — ceux qui n'appartiennent à aucune
+ * branche et n'ont donc pas d'onglet où vivre.
  */
 import config from '../../site.config.mjs';
+import { branchesDisponibles } from '../lib/branches';
 
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 const colonnes = [
+  ...branchesDisponibles().map((branche) => ({
+    titre: branche.libelle,
+    liens: branche.onglets.map((onglet) => ({
+      libelle: onglet.court,
+      href: `${base}${onglet.chemin}`,
+    })),
+  })),
   {
-    titre: 'Réviser',
-    liens: [
-      { libelle: 'Planning', href: `${base}/planification/` },
-      { libelle: 'Bibliothèque', href: `${base}/bibliotheque/` },
-      { libelle: 'Flashcards', href: `${base}/flashcards/` },
-      { libelle: 'Quiz du cours', href: `${base}/quiz/cours/` },
-      { libelle: 'Recherche', href: `${base}/recherche/` },
-    ],
-  },
-  {
-    titre: 'Suivre',
-    liens: [
-      { libelle: 'Tableau de bord', href: `${base}/` },
-      { libelle: 'Statistiques', href: `${base}/statistiques/` },
-      { libelle: 'Actualités', href: `${base}/actualites/` },
-      { libelle: 'Glossaire', href: `${base}/glossaire/` },
-      { libelle: "Journal d'erreurs", href: `${base}/journal/` },
-    ],
-  },
-  {
-    titre: "S'entraîner",
-    liens: [
-      { libelle: 'Cog-Training', href: `${base}/cog-training/` },
-      { libelle: 'Quad N-Back', href: `${base}/cog-training/quad-n-back/` },
-      { libelle: 'Relational Reasoning', href: `${base}/cog-training/relational-reasoning/` },
-      { libelle: 'Veridical Mapping', href: `${base}/cog-training/veridical-mapping/` },
-      { libelle: 'QCM — DGFiP', href: `${base}/quiz/dgfip/` },
-    ],
-  },
-  {
+    /*
+       Les écrans qui n'appartiennent à aucune branche, et ceux de Révisions
+       qui n'ont pas d'onglet : sans cette colonne, ils ne seraient atteignables
+       que depuis le tableau de bord qui y renvoie.
+    */
     titre: 'Cet espace',
     liens: [
-      { libelle: 'Sauvegarde et synchronisation', href: `${base}/progression/` },
+      { libelle: 'Menu', href: `${base}/` },
+      { libelle: 'Mon profil', href: `${base}/profil/` },
+      { libelle: 'Actualités', href: `${base}/actualites/` },
+      { libelle: 'Quiz du cours', href: `${base}/quiz/cours/` },
+      { libelle: 'QCM — DGFiP', href: `${base}/quiz/dgfip/` },
       { libelle: 'Stockage', href: `${base}/stockage/` },
     ],
   },

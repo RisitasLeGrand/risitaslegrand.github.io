@@ -1,0 +1,439 @@
+---
+/**
+ * Sport : la bibliothèque d'exercices.
+ *
+ * ## Le schéma et les cases disent la même chose, toujours
+ *
+ * Les deux sont affichés **en même temps**, et non l'un en repli de l'autre.
+ * Un schéma cliquable n'est pas utilisable au lecteur d'écran, quoi qu'on
+ * fasse des rôles ARIA ; une liste de cases l'est, et elle est moins rapide à
+ * la souris. Les deux écrivent le même état, et cocher d'un côté met l'autre à
+ * jour — c'est ce qui en fait une alternative et non un mode dégradé.
+ *
+ * Chaque zone du schéma est un `<button>` réel, avec son nom accessible et son
+ * `aria-pressed` : au clavier seul, on peut donc parcourir le corps et cycler
+ * les états sans jamais toucher les cases. Les deux chemins marchent ; c'est
+ * l'exigence, pas la coquetterie.
+ *
+ * ## L'identité de comparaison est montrée
+ *
+ * Le nom, l'équipement et la variante forment l'identité : deux exercices qui
+ * la partagent sont le même, et changer d'équipement repart de zéro pour le
+ * suivi de force. L'écran le dit au moment de la saisie, parce que c'est là
+ * que la décision se prend — et il signale les doublons plutôt que de les
+ * fusionner, ce qui serait irréversible.
+ */
+import Base from '../../layouts/Base.astro';
+import { FORMES, HAUTEUR, LARGEUR, SILHOUETTE, musclesDeLaFace } from '../../lib/sport/schema-corps';
+import { MUSCLES, UNITES_DE_CHARGE, libelleDuMuscle } from '../../lib/sport/modele';
+
+/*
+   La nature et la latéralité sont demandées à la saisie et non devinées : un
+   exercice unilatéral dont on croit la charge bilatérale compterait le double,
+   et un étirement rangé en force polluerait le suivi de la force.
+*/
+const NATURES = [
+  ['force', 'Force'],
+  ['cardio', 'Cardio'],
+  ['mobilite', 'Mobilité'],
+  ['gainage', 'Gainage'],
+] as const;
+
+const faces = [
+  { id: 'avant' as const, libelle: 'De face', muscles: musclesDeLaFace('avant') },
+  { id: 'arriere' as const, libelle: 'De dos', muscles: musclesDeLaFace('arriere') },
+];
+
+/** Les muscles groupés, pour la liste de cases. */
+const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
+  groupe,
+  muscles: MUSCLES.filter((m) => m.groupe === groupe),
+}));
+---
+
+<Base titre="Mes exercices" actif="exercices">
+  <div class="mx-auto max-w-5xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Mes exercices</h1>
+    <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      Le <strong>nom</strong>, l’<strong>équipement</strong> et la <strong>variante</strong> font
+      l’identité d’un exercice : deux charges à la barre et aux haltères ne se comparent pas, et
+      changer d’équipement repart de zéro pour le suivi de force.
+    </p>
+
+    <div id="chargement-exercices" class="mt-6">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Lecture de la bibliothèque…</p>
+    </div>
+
+    <div id="vue" class="mt-6 hidden">
+      <p id="doublons" class="mb-4 hidden rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-100"></p>
+
+      <form
+        id="ajout"
+        class="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900"
+      >
+        <h2 class="text-base font-semibold text-slate-900 dark:text-white">Ajouter un exercice</h2>
+
+        <div class="mt-3 flex flex-wrap items-end gap-3">
+          <label class="min-w-48 flex-1 text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Nom</span>
+            <input id="nom" type="text" required maxlength="120"
+              class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Équipement</span>
+            <input id="equipement" type="text" maxlength="60"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Variante</span>
+            <input id="variante" type="text" maxlength="60"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Nature</span>
+            <select id="nature"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+              {NATURES.map(([id, libelle]) => <option value={id}>{libelle}</option>)}
+            </select>
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Côtés</span>
+            <select id="lateralite"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+              <option value="bilateral">Les deux à la fois</option>
+              <option value="unilateral">Un côté à la fois</option>
+            </select>
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Charge</span>
+            <select id="unite"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+              {Object.entries(UNITES_DE_CHARGE).map(([id, libelle]) => (
+                <option value={id}>{libelle}</option>
+              ))}
+            </select>
+          </label>
+        </div>
+
+        <h3 class="mt-5 text-sm font-semibold text-slate-900 dark:text-white">
+          Quels muscles travaillent&nbsp;?
+        </h3>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Cliquez une zone pour la faire passer de <em>rien</em> à <em>principal</em>, puis à
+          <em>secondaire</em>. Les cases en dessous font exactement la même chose, et restent
+          synchronisées.
+        </p>
+
+        <div class="mt-3 grid gap-6 lg:grid-cols-2">
+          <!-- Le schéma -->
+          <div class="flex flex-wrap justify-center gap-4">
+            {faces.map((face) => (
+              <figure class="text-center">
+                <svg
+                  viewBox={`0 0 ${LARGEUR} ${HAUTEUR}`}
+                  class="h-72 w-auto"
+                  role="group"
+                  aria-label={`Schéma du corps, ${face.libelle.toLowerCase()}`}
+                  data-face={face.id}
+                >
+                  <g aria-hidden="true" class="fill-slate-200 dark:fill-slate-800">
+                    {SILHOUETTE.map((f) =>
+                      f.sorte === 'ellipse' ? (
+                        <ellipse cx={f.cx} cy={f.cy} rx={f.rx} ry={f.ry} />
+                      ) : (
+                        <rect x={f.x} y={f.y} width={f.largeur} height={f.hauteur} rx={f.r ?? 0} />
+                      ),
+                    )}
+                  </g>
+                  {face.muscles.map((id) => (
+                    <g
+                      role="button"
+                      tabindex="0"
+                      data-zone={id}
+                      data-etat="aucun"
+                      aria-pressed="false"
+                      aria-label={libelleDuMuscle(id)}
+                      class="zone"
+                    >
+                      <title>{libelleDuMuscle(id)}</title>
+                      {(FORMES[id] ?? []).map((f) =>
+                        f.sorte === 'ellipse' ? (
+                          <ellipse cx={f.cx} cy={f.cy} rx={f.rx} ry={f.ry} />
+                        ) : (
+                          <rect x={f.x} y={f.y} width={f.largeur} height={f.hauteur} rx={f.r ?? 0} />
+                        ),
+                      )}
+                    </g>
+                  ))}
+                </svg>
+                <figcaption class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {face.libelle}
+                </figcaption>
+              </figure>
+            ))}
+          </div>
+
+          <!-- L'alternative, toujours présente -->
+          <fieldset class="space-y-3">
+            <legend class="text-sm font-medium text-slate-700 dark:text-slate-200">
+              Ou choisissez dans la liste
+            </legend>
+            {groupes.map(({ groupe, muscles }) => (
+              <div>
+                <p class="text-xs font-semibold text-slate-500 dark:text-slate-400">{groupe}</p>
+                <div class="mt-1 grid gap-1 sm:grid-cols-2">
+                  {muscles.map((m) => (
+                    <label class="flex min-h-11 items-center gap-2 text-sm">
+                      <select
+                        data-case={m.id}
+                        aria-label={m.libelle}
+                        class="min-h-11 rounded-lg border border-slate-300 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-950"
+                      >
+                        <option value="aucun">—</option>
+                        <option value="principal">Principal</option>
+                        <option value="secondaire">Secondaire</option>
+                      </select>
+                      <span class="text-slate-700 dark:text-slate-200">{m.libelle}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </fieldset>
+        </div>
+
+        <div class="mt-4 flex flex-wrap items-center gap-3">
+          <button type="submit"
+            class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+            >Ajouter</button>
+          <span id="identite" class="font-mono text-xs text-slate-400 dark:text-slate-500"></span>
+        </div>
+        <p id="erreur" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+      </form>
+
+      <section class="mt-8">
+        <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">La bibliothèque</h2>
+        <input id="filtre" type="search" placeholder="Filtrer par nom, équipement ou muscle"
+          class="mb-3 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+        <div id="liste" class="space-y-2"></div>
+        <p id="liste-vide" class="hidden text-sm text-slate-500 dark:text-slate-400">Rien ici.</p>
+      </section>
+    </div>
+  </div>
+</Base>
+
+<style>
+  .zone {
+    fill: var(--color-slate-400, #94a3b8);
+    cursor: pointer;
+    transition: fill 120ms;
+  }
+  .zone:hover { fill: var(--color-indigo-400, #818cf8); }
+  .zone:focus-visible {
+    outline: 2px solid var(--color-indigo-600, #4f46e5);
+    outline-offset: 2px;
+  }
+  .zone[data-etat='principal'] { fill: var(--color-indigo-600, #4f46e5); }
+  .zone[data-etat='secondaire'] { fill: var(--color-indigo-300, #a5b4fc); }
+</style>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import {
+    ecrireExercice,
+    installerBibliotheque,
+    supprimerExercice,
+    tousLesExercices,
+  } from '../../lib/sport/donnees';
+  import {
+    UNITES_DE_CHARGE,
+    identiteDeComparaison,
+    libelleDuMuscle,
+    type Exercice,
+    type Lateralite,
+    type NatureExercice,
+    type UniteDeCharge,
+  } from '../../lib/sport/modele';
+  import { doublons } from '../../lib/sport/force';
+  import { etatSuivant, type EtatMuscle } from '../../lib/sport/schema-corps';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  /** L'état de chaque muscle dans le formulaire. Une seule source, deux vues. */
+  const etats = new Map<string, EtatMuscle>();
+
+  /**
+   * Pose l'état d'un muscle et met **les deux vues** à jour.
+   *
+   * C'est ici que tient la promesse d'équivalence : il n'existe pas de chemin
+   * qui change le schéma sans changer les cases, parce qu'il n'existe qu'une
+   * fonction pour changer quoi que ce soit.
+   */
+  function poser(id: string, etat: EtatMuscle) {
+    etats.set(id, etat);
+    for (const zone of document.querySelectorAll<SVGGElement>(`[data-zone="${id}"]`)) {
+      zone.dataset.etat = etat;
+      zone.setAttribute('aria-pressed', String(etat !== 'aucun'));
+      zone.setAttribute(
+        'aria-label',
+        etat === 'aucun'
+          ? libelleDuMuscle(id)
+          : `${libelleDuMuscle(id)} — ${etat === 'principal' ? 'principal' : 'secondaire'}`,
+      );
+    }
+    const choix = document.querySelector<HTMLSelectElement>(`[data-case="${id}"]`);
+    if (choix && choix.value !== etat) choix.value = etat;
+  }
+
+  const retenus = (etat: EtatMuscle) =>
+    [...etats.entries()].filter(([, e]) => e === etat).map(([id]) => id);
+
+  function direIdentite() {
+    const nom = ($('nom') as HTMLInputElement).value;
+    const equipement = ($('equipement') as HTMLInputElement).value;
+    const variante = ($('variante') as HTMLInputElement).value;
+    $('identite').textContent = nom
+      ? `identité : ${identiteDeComparaison({ nom, equipement, variante })}`
+      : '';
+  }
+
+  function ligne(texte: string, classe: string): HTMLParagraphElement {
+    const p = document.createElement('p');
+    p.className = classe;
+    p.textContent = texte;
+    return p;
+  }
+
+  let bibliotheque: Exercice[] = [];
+
+  function peindreListe() {
+    const filtre = ($('filtre') as HTMLInputElement).value.trim().toLowerCase();
+    const visibles = bibliotheque.filter((e) => {
+      if (!filtre) return true;
+      const muscles = [...e.principaux, ...e.secondaires].map(libelleDuMuscle).join(' ');
+      return `${e.nom} ${e.equipement} ${e.variante} ${muscles}`.toLowerCase().includes(filtre);
+    });
+
+    const zone = $('liste');
+    zone.innerHTML = '';
+    $('liste-vide').classList.toggle('hidden', visibles.length > 0);
+    for (const exercice of [...visibles].sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))) {
+      const carte = document.createElement('div');
+      carte.className =
+        'rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950';
+      carte.dataset.exercice = exercice.id;
+
+      const titre = document.createElement('p');
+      titre.className = 'font-medium text-slate-900 dark:text-white';
+      titre.textContent = [exercice.nom, exercice.equipement, exercice.variante]
+        .filter(Boolean)
+        .join(' · ');
+      carte.appendChild(titre);
+
+      carte.appendChild(
+        ligne(
+          `${UNITES_DE_CHARGE[exercice.unite]} · ${exercice.principaux.map(libelleDuMuscle).join(', ')}` +
+            (exercice.secondaires.length
+              ? ` (+ ${exercice.secondaires.map(libelleDuMuscle).join(', ')})`
+              : ''),
+          'mt-0.5 text-xs text-slate-500 dark:text-slate-400',
+        ),
+      );
+
+      const supprimer = document.createElement('button');
+      supprimer.type = 'button';
+      supprimer.dataset.supprimer = exercice.id;
+      supprimer.className = 'mt-2 text-xs text-rose-700 underline dark:text-rose-300';
+      supprimer.textContent = 'Supprimer';
+      supprimer.addEventListener('click', () =>
+        void supprimerExercice(exercice.id).then(recharger),
+      );
+      carte.appendChild(supprimer);
+      zone.appendChild(carte);
+    }
+
+    /*
+       Les doublons sont **signalés**, jamais fusionnés : fusionner deux
+       exercices est irréversible, et la personne sait mieux que le code si
+       « barre » et « barre olympique » sont la même chose.
+    */
+    const paquets = doublons(bibliotheque);
+    $('doublons').classList.toggle('hidden', paquets.length === 0);
+    if (paquets.length) {
+      $('doublons').textContent =
+        'Deux saisies partagent la même identité et leurs progressions sont séparées : ' +
+        paquets.map((p) => p.map((e) => e.nom).join(' / ')).join(' ; ') +
+        '. À vous de décider si c’est le même exercice.';
+    }
+  }
+
+  async function recharger() {
+    bibliotheque = await tousLesExercices();
+    peindreListe();
+  }
+
+  auDeverrouillage(
+    async () => {
+      await installerBibliotheque();
+
+      for (const zone of document.querySelectorAll<SVGGElement>('[data-zone]')) {
+        const id = zone.dataset.zone!;
+        etats.set(id, 'aucun');
+        const cycler = () => poser(id, etatSuivant(etats.get(id) ?? 'aucun'));
+        zone.addEventListener('click', cycler);
+        /*
+           Espace et Entrée : un `<g role="button">` n'a pas le comportement
+           natif d'un `<button>`, et sans cela le parcours clavier mènerait à
+           des zones qu'on ne peut pas activer — le pire des deux mondes.
+        */
+        zone.addEventListener('keydown', (evenement) => {
+          if (evenement.key !== 'Enter' && evenement.key !== ' ') return;
+          evenement.preventDefault();
+          cycler();
+        });
+      }
+      for (const choix of document.querySelectorAll<HTMLSelectElement>('[data-case]')) {
+        const id = choix.dataset.case!;
+        if (!etats.has(id)) etats.set(id, 'aucun');
+        choix.addEventListener('change', () => poser(id, choix.value as EtatMuscle));
+      }
+
+      for (const champ of ['nom', 'equipement', 'variante']) {
+        $(champ).addEventListener('input', direIdentite);
+      }
+      $('filtre').addEventListener('input', peindreListe);
+
+      $('ajout').addEventListener('submit', (evenement) => {
+        evenement.preventDefault();
+        void (async () => {
+          try {
+            await ecrireExercice({
+              nom: ($('nom') as HTMLInputElement).value.trim(),
+              nature: ($('nature') as HTMLSelectElement).value as NatureExercice,
+              lateralite: ($('lateralite') as HTMLSelectElement).value as Lateralite,
+              equipement: ($('equipement') as HTMLInputElement).value.trim(),
+              variante: ($('variante') as HTMLInputElement).value.trim(),
+              unite: ($('unite') as HTMLSelectElement).value as UniteDeCharge,
+              principaux: retenus('principal'),
+              secondaires: retenus('secondaire'),
+            });
+            ($('nom') as HTMLInputElement).value = '';
+            ($('variante') as HTMLInputElement).value = '';
+            for (const id of [...etats.keys()]) poser(id, 'aucun');
+            direIdentite();
+            $('erreur').classList.add('hidden');
+            await recharger();
+          } catch (erreur) {
+            $('erreur').textContent =
+              erreur instanceof Error ? erreur.message : String(erreur);
+            $('erreur').classList.remove('hidden');
+          }
+        })();
+      });
+
+      await recharger();
+      $('vue').classList.remove('hidden');
+    },
+    { zoneChargement: '#chargement-exercices' },
+  );
+</script>

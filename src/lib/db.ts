@@ -14,6 +14,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 import type { EntreeRevision } from './noyau/revisions';
 import type { Evenement, Focus, Quete, Revue, Tache } from './odyssee/modele';
 import type { Blessure, Exercice, Phase, Seance as SeanceSport } from './sport/modele';
+import type { Programme as ProgrammeSport } from './sport/programmes';
 import type { Operation } from './noyau/operations';
 import { socleDe } from './noyau/revisions';
 import { idAppareilNeuf } from './noyau/operations';
@@ -551,10 +552,11 @@ interface SchemaRevinsp extends DBSchema {
   sportSeances: { key: string; value: SeanceSport; indexes: { jour: string; statut: string } };
   sportPhases: { key: string; value: Phase; indexes: { debut: string } };
   sportBlessures: { key: string; value: Blessure; indexes: { debut: string } };
+  sportProgrammes: { key: string; value: ProgrammeSport };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 16;
+const VERSION = 17;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1031,6 +1033,20 @@ function ouvrirAuSchema(nom: string, version: number) {
 
         base.createObjectStore('sportPhases', { keyPath: 'id' }).createIndex('debut', 'debut');
         base.createObjectStore('sportBlessures', { keyPath: 'id' }).createIndex('debut', 'debut');
+      }
+      if (vers(17)) {
+        /*
+         * Les programmes, arrivés une version après le reste de Sport.
+         *
+         * Sans index : on les lit tous, toujours. Il y en a une poignée, et un
+         * index sur `actif` coûterait son écriture à chaque enregistrement pour
+         * épargner le parcours de cinq lignes.
+         *
+         * Les séances types vivent **dans** leur programme, comme les séries
+         * dans leur séance : on ne lit jamais une séance type sans le programme
+         * qui lui donne son rang et sa cadence.
+         */
+        base.createObjectStore('sportProgrammes', { keyPath: 'id' });
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -1876,6 +1892,7 @@ export const MAGASINS_PROGRESSION = [
   'sportSeances',
   'sportPhases',
   'sportBlessures',
+  'sportProgrammes',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */

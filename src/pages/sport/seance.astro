@@ -1,0 +1,666 @@
+---
+/**
+ * Sport : la séance en direct.
+ *
+ * ## Ce que cet écran promet
+ *
+ * Qu'une séance interrompue se reprend sans perte. Le téléphone s'éteint, la
+ * batterie lâche, l'application se ferme : au retour, la séance est là, avec
+ * ses séries. C'est la seule promesse qui compte dans une salle de sport, et
+ * elle tient à une seule décision — **écrire à chaque série**, jamais à la
+ * fin.
+ *
+ * ## Le minuteur mesure, il ne décompte pas seulement
+ *
+ * Ce qui est enregistré est le repos **réellement écoulé** entre deux séries,
+ * pris sur l'horloge, et non la cible qu'on s'était donnée. Un minuteur qui
+ * noterait sa propre consigne ne mesurerait rien ; et comme il continue de
+ * compter quand on le laisse filer, le chiffre reste vrai même quand on
+ * traîne.
+ *
+ * L'horloge est relue à chaque affichage plutôt qu'incrémentée : un onglet
+ * mis en arrière-plan voit ses minuteurs ralentis, et un compteur incrémenté
+ * dériverait de plusieurs minutes sur une séance.
+ *
+ * ## Wake Lock, et ce qu'on fait quand il n'existe pas
+ *
+ * L'écran reste allumé pendant la séance, quand le navigateur le permet. Il
+ * ne le permet pas toujours — Safari ancien, Firefox — et l'écran le dit en
+ * une ligne plutôt que d'échouer en silence. Le verrou est **relâché** à la
+ * fin de la séance et repris au retour d'arrière-plan, que le navigateur
+ * libère de son côté.
+ *
+ * ## Hors réseau
+ *
+ * Rien ici n'appelle le réseau : IndexedDB, l'horloge, et des modules déjà
+ * chargés. Une séance se fait en sous-sol.
+ */
+import Base from '../../layouts/Base.astro';
+---
+
+<Base titre="Ma séance" actif="seance">
+  <div class="mx-auto max-w-3xl">
+    <div id="chargement-seance" class="mt-2">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Reprise de la séance…</p>
+    </div>
+
+    <div id="vue" class="hidden">
+      <!-- Aucune séance en cours -->
+      <section id="repos" class="hidden">
+        <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Ma séance</h1>
+        <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+          Rien en cours. La séance s’enregistre série par série, et se reprend telle quelle si
+          l’écran s’éteint.
+        </p>
+        <div class="mt-4 flex flex-wrap items-end gap-3">
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Programme</span>
+            <select id="programme"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+              <option value="">Sans programme</option>
+            </select>
+          </label>
+          <button id="commencer" type="button"
+            class="min-h-11 rounded-lg bg-indigo-600 px-5 text-sm font-medium text-white transition hover:bg-indigo-700"
+            >Commencer la séance</button>
+        </div>
+        <div id="dernieres" class="mt-8"></div>
+      </section>
+
+      <!-- Séance en cours -->
+      <section id="encours" class="hidden">
+        <div class="flex flex-wrap items-baseline justify-between gap-3">
+          <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Séance en cours</h1>
+          <p id="duree" class="font-mono text-sm text-slate-500 dark:text-slate-400" aria-live="off"></p>
+        </div>
+        <p id="veille" class="mt-1 hidden text-xs text-slate-400 dark:text-slate-500"></p>
+
+        <!-- Le minuteur de récupération -->
+        <div class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+          <div class="flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p class="text-xs uppercase text-slate-500 dark:text-slate-400">Repos écoulé</p>
+              <p id="repos-ecoule" class="font-mono text-3xl font-bold tabular-nums text-slate-900 dark:text-white">—</p>
+            </div>
+            <div class="text-right">
+              <label class="text-xs text-slate-500 dark:text-slate-400">
+                Cible
+                <input id="repos-cible" type="number" min="0" max="900" step="15" value="120"
+                  class="ml-1 min-h-11 w-20 rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950" />
+                s
+              </label>
+              <p id="repos-etat" class="mt-1 text-xs text-slate-500 dark:text-slate-400" role="status"></p>
+            </div>
+          </div>
+        </div>
+
+        <!-- La saisie -->
+        <form id="saisie" class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
+          <label class="block text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Exercice</span>
+            <select id="exercice" required
+              class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"></select>
+          </label>
+
+          <p id="proposition" class="mt-3 hidden rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-100"></p>
+          <div id="proposition-actions" class="mt-2 hidden gap-4 text-xs">
+            <button id="suivre" type="button" class="text-indigo-700 underline dark:text-indigo-300"
+              >Prendre la charge proposée</button>
+            <button id="refuser" type="button" class="text-slate-500 underline dark:text-slate-400"
+              >Ne plus me le proposer pour l’instant</button>
+          </div>
+
+          <div class="mt-3 flex flex-wrap items-end gap-3">
+            <label class="text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Charge</span>
+              <input id="charge" type="number" min="0" step="0.5" inputmode="decimal"
+                class="mt-1 min-h-12 w-28 rounded-lg border border-slate-300 bg-white px-3 text-lg tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+            </label>
+            <label class="text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Répétitions</span>
+              <input id="repetitions" type="number" min="0" max="200" inputmode="numeric" required
+                class="mt-1 min-h-12 w-24 rounded-lg border border-slate-300 bg-white px-3 text-lg tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+            </label>
+            <label class="text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">En réserve</span>
+              <select id="reserve"
+                class="mt-1 min-h-12 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+                <option value="">Non estimé</option>
+                <option value="0">0 — rien de plus</option>
+                <option value="1">1</option>
+                <option value="2" selected>2</option>
+                <option value="3">3</option>
+                <option value="4">4</option>
+                <option value="5">5 et plus</option>
+              </select>
+            </label>
+            <label class="flex min-h-12 items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+              <input id="echec" type="checkbox" class="size-5 rounded" />
+              Menée à l’échec
+            </label>
+          </div>
+
+          <p id="estimation" class="mt-2 text-xs text-slate-500 dark:text-slate-400" aria-live="polite"></p>
+          <p id="erreur" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+
+          <div class="mt-3 flex flex-wrap gap-3">
+            <button type="submit"
+              class="min-h-12 rounded-lg bg-indigo-600 px-6 text-base font-medium text-white transition hover:bg-indigo-700"
+              >Enregistrer la série</button>
+            <button id="annuler-serie" type="button"
+              class="min-h-12 rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700"
+              >Annuler la dernière</button>
+          </div>
+        </form>
+
+        <!-- Ce qui est déjà fait -->
+        <section class="mt-6">
+          <h2 class="text-base font-semibold text-slate-900 dark:text-white">Séries enregistrées</h2>
+          <ol id="series" class="mt-2 space-y-1"></ol>
+          <p id="rien-encore" class="text-sm text-slate-500 dark:text-slate-400">
+            Aucune série. La première enregistrée fixe le point de reprise.
+          </p>
+          <p id="volume" class="mt-3 text-xs text-slate-500 dark:text-slate-400"></p>
+        </section>
+
+        <!-- La clôture -->
+        <section class="mt-8 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+          <h2 class="text-base font-semibold text-slate-900 dark:text-white">Terminer</h2>
+          <label class="mt-3 block text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">
+              Difficulté perçue de la séance, de 1 à 10
+            </span>
+            <input id="difficulte" type="range" min="1" max="10" step="1" value="6"
+              class="mt-2 w-full max-w-sm" />
+            <output id="difficulte-valeur" for="difficulte" class="text-sm tabular-nums text-slate-700 dark:text-slate-200">6</output>
+          </label>
+          <label class="mt-3 block text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Note</span>
+            <textarea id="note" rows="2" maxlength="500"
+              class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"></textarea>
+          </label>
+          <div class="mt-3 flex flex-wrap gap-3">
+            <button id="terminer" type="button"
+              class="min-h-11 rounded-lg bg-emerald-700 px-5 text-sm font-medium text-white transition hover:bg-emerald-800"
+              >Terminer la séance</button>
+            <button id="abandonner" type="button"
+              class="min-h-11 rounded-lg border border-rose-300 px-4 text-sm text-rose-700 dark:border-rose-900 dark:text-rose-300"
+              >Supprimer cette séance</button>
+          </div>
+        </section>
+      </section>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { jourLogique } from '../../lib/noyau/jour-logique';
+  import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
+  import {
+    ajouterSerie,
+    cloreSeance,
+    ouvrirSeance,
+    retirerDerniereSerie,
+    seanceEnCours,
+    supprimerSeance,
+    tousLesExercices,
+    tousLesProgrammes,
+    toutesLesBlessures,
+    toutesLesPhases,
+    toutesLesSeancesSport,
+  } from '../../lib/sport/donnees';
+  import {
+    UNITES_DE_CHARGE,
+    libelleDuMuscle,
+    volumeParMuscle,
+    type Blessure,
+    type Exercice,
+    type Seance,
+    type Serie,
+  } from '../../lib/sport/modele';
+  import { courbeDeForce, maximumEstime } from '../../lib/sport/force';
+  import { proposer, refuser, type Proposition } from '../../lib/sport/modulation';
+  import { refusEnCours, retenirRefus } from '../../lib/sport/refus-locaux';
+  import type { Programme } from '../../lib/sport/programmes';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  let exercices: Exercice[] = [];
+  let programmes: Programme[] = [];
+  let blessures: Blessure[] = [];
+  let seances: Seance[] = [];
+  let seance: Seance | null = null;
+  let aujourdhui = '';
+  /** La proposition affichée pour l'exercice choisi, ou `null`. */
+  let proposition: Proposition | null = null;
+
+  /* ── Le temps ──────────────────────────────────────────────────────────── */
+
+  /**
+   * L'instant de la dernière série, d'où se compte le repos.
+   *
+   * Pris dans les données et non dans une variable : au retour d'une
+   * interruption, la variable serait vide et le repos repartirait de zéro,
+   * alors que la donnée, elle, sait l'heure qu'il était.
+   */
+  const dernierInstant = (): number | null => {
+    const derniere = seance?.series.at(-1);
+    return derniere ? Date.parse(derniere.le) : null;
+  };
+
+  const mmss = (secondes: number): string => {
+    const m = Math.floor(secondes / 60);
+    const s = Math.floor(secondes % 60);
+    return `${m}:${String(s).padStart(2, '0')}`;
+  };
+
+  /** Un seul battement d'horloge pour la durée et le repos : relu, jamais incrémenté. */
+  let battement: number | null = null;
+
+  function battre() {
+    if (!seance) return;
+    const maintenant = Date.now();
+    $('duree').textContent = `séance : ${mmss((maintenant - Date.parse(seance.debut)) / 1000)}`;
+
+    const depuis = dernierInstant();
+    if (depuis === null) {
+      $('repos-ecoule').textContent = '—';
+      $('repos-etat').textContent = 'Le repos se compte à partir de la première série.';
+      return;
+    }
+    const ecoule = (maintenant - depuis) / 1000;
+    $('repos-ecoule').textContent = mmss(ecoule);
+
+    const cible = Number(($('repos-cible') as HTMLInputElement).value);
+    if (!cible) {
+      $('repos-etat').textContent = '';
+    } else if (ecoule < cible) {
+      $('repos-etat').textContent = `encore ${mmss(cible - ecoule)}`;
+      $('repos-ecoule').className =
+        'font-mono text-3xl font-bold tabular-nums text-slate-900 dark:text-white';
+    } else {
+      /*
+         Au-delà de la cible, le compteur continue : c'est le repos réel qui
+         sera enregistré, et un minuteur qui s'arrêterait à sa consigne
+         enregistrerait sa consigne.
+      */
+      $('repos-etat').textContent = 'prêt';
+      $('repos-ecoule').className =
+        'font-mono text-3xl font-bold tabular-nums text-emerald-700 dark:text-emerald-300';
+    }
+  }
+
+  /* ── Le verrou d'écran ─────────────────────────────────────────────────── */
+
+  let verrou: WakeLockSentinel | null = null;
+
+  async function prendreLeVerrou() {
+    if (!('wakeLock' in navigator)) {
+      $('veille').textContent =
+        'Ce navigateur ne sait pas garder l’écran allumé : pensez à régler la mise en veille.';
+      $('veille').classList.remove('hidden');
+      return;
+    }
+    try {
+      verrou = await navigator.wakeLock.request('screen');
+      $('veille').classList.add('hidden');
+    } catch {
+      // Refusé — batterie faible, onglet caché. Sans conséquence sur la saisie.
+      $('veille').textContent = 'L’écran peut s’éteindre : le verrou a été refusé.';
+      $('veille').classList.remove('hidden');
+    }
+  }
+
+  async function rendreLeVerrou() {
+    try {
+      await verrou?.release();
+    } catch {
+      // Déjà relâché par le navigateur.
+    }
+    verrou = null;
+  }
+
+  /* ── Le rendu ──────────────────────────────────────────────────────────── */
+
+  const exercicePar = (id: string) => exercices.find((e) => e.id === id);
+
+  function peindreChoixExercice() {
+    const select = $('exercice') as HTMLSelectElement;
+    const garde = select.value;
+    select.innerHTML = '';
+    for (const e of [...exercices].sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))) {
+      const option = document.createElement('option');
+      option.value = e.id;
+      option.textContent = [e.nom, e.equipement, e.variante].filter(Boolean).join(' · ');
+      select.appendChild(option);
+    }
+    if (garde) select.value = garde;
+  }
+
+  function direEstimation() {
+    const charge = ($('charge') as HTMLInputElement).value;
+    const reps = Number(($('repetitions') as HTMLInputElement).value);
+    const estimation = maximumEstime(charge === '' ? null : Number(charge), reps);
+    if (!estimation) {
+      $('estimation').textContent = '';
+      return;
+    }
+    $('estimation').textContent =
+      `Maximum estimé : ${estimation.estime.toLocaleString('fr-FR')} kg` +
+      (estimation.imprecis
+        ? ' — estimation peu fiable au-delà de dix répétitions, elle sert d’ordre de grandeur.'
+        : '.');
+  }
+
+  /** Ce que Sport a à dire sur l'exercice choisi, ou rien. */
+  async function direLaProposition() {
+    const exercice = exercicePar(($('exercice') as HTMLSelectElement).value);
+    proposition = null;
+    $('proposition').classList.add('hidden');
+    $('proposition-actions').classList.add('hidden');
+    $('proposition-actions').classList.remove('flex');
+    if (!exercice) return;
+
+    const phases = await toutesLesPhases();
+    const terminees = seances.filter((s) => s.statut === 'terminee');
+    const points = courbeDeForce(exercice.id, terminees, { phases });
+    const derniere = [...terminees]
+      .reverse()
+      .find((s) => s.series.some((serie) => serie.exerciceId === exercice.id));
+
+    const { proposition: dite, silence } = proposer({
+      exercice,
+      points,
+      dernieresSeries: derniere?.series.filter((s) => s.exerciceId === exercice.id) ?? [],
+      blessures,
+      refus: refusEnCours(aujourdhui),
+      aujourdhui,
+    });
+
+    if (!dite) {
+      /*
+         Le silence n'est affiché que lorsqu'il a une raison utile à connaître.
+         « Rien à dire » n'en est pas une : l'écran ne doit pas meubler.
+      */
+      if (silence?.pourquoi === 'pas-assez-de-seances') {
+        $('proposition').textContent =
+          'Pas encore assez de séances sur cet exercice pour dire quoi que ce soit.';
+        $('proposition').classList.remove('hidden');
+      }
+      return;
+    }
+
+    proposition = dite;
+    $('proposition').textContent = `${dite.texte} — ${dite.parceQue}`;
+    $('proposition').classList.remove('hidden');
+    $('proposition-actions').classList.remove('hidden');
+    $('proposition-actions').classList.add('flex');
+    ($('suivre') as HTMLButtonElement).hidden = dite.charge === undefined;
+  }
+
+  function peindreSeries() {
+    const liste = $('series');
+    liste.innerHTML = '';
+    const series = seance?.series ?? [];
+    $('rien-encore').classList.toggle('hidden', series.length > 0);
+
+    series.forEach((serie, rang) => {
+      const exercice = exercicePar(serie.exerciceId);
+      const li = document.createElement('li');
+      li.className = 'flex flex-wrap items-baseline gap-2 text-sm';
+      li.dataset.serie = String(rang);
+
+      const numero = document.createElement('span');
+      numero.className = 'w-6 text-xs tabular-nums text-slate-400 dark:text-slate-500';
+      numero.textContent = `${rang + 1}.`;
+
+      const corps = document.createElement('span');
+      corps.className = 'text-slate-700 dark:text-slate-200';
+      const unite = exercice ? UNITES_DE_CHARGE[exercice.unite] : 'kg';
+      corps.textContent =
+        `${exercice?.nom ?? 'Exercice inconnu'} — ` +
+        (serie.charge === null ? '' : `${serie.charge.toLocaleString('fr-FR')} ${unite} × `) +
+        `${serie.repetitions} rép.` +
+        (serie.echec ? ' · à l’échec' : serie.reserve !== null ? ` · ${serie.reserve} en réserve` : '') +
+        (serie.repos !== null ? ` · ${mmss(serie.repos)} de repos` : '');
+      li.append(numero, corps);
+      liste.appendChild(li);
+    });
+
+    const vol = volumeParMuscle(series, exercices);
+    const lignes = Object.entries(vol.series).sort((a, b) => b[1] - a[1]);
+    $('volume').textContent = lignes.length
+      ? `Volume de la séance : ${lignes
+          .map(([m, n]) => `${libelleDuMuscle(m)} ${n.toLocaleString('fr-FR')}`)
+          .join(' · ')} (séries, secondaires à ${vol.coefficient.toLocaleString('fr-FR')}).`
+      : '';
+  }
+
+  async function peindreDernieres() {
+    const terminees = seances
+      .filter((s) => s.statut === 'terminee')
+      .sort((a, b) => b.debut.localeCompare(a.debut))
+      .slice(0, 5);
+    const zone = $('dernieres');
+    zone.innerHTML = '';
+    if (!terminees.length) return;
+
+    const titre = document.createElement('h2');
+    titre.className = 'text-base font-semibold text-slate-900 dark:text-white';
+    titre.textContent = 'Mes dernières séances';
+    zone.appendChild(titre);
+
+    const liste = document.createElement('ul');
+    liste.className = 'mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-300';
+    for (const s of terminees) {
+      const li = document.createElement('li');
+      li.dataset.seance = s.id;
+      const minutes = s.fin
+        ? Math.round((Date.parse(s.fin) - Date.parse(s.debut)) / 60000)
+        : null;
+      li.textContent =
+        `${new Date(`${s.jour}T12:00:00`).toLocaleDateString('fr-FR', {
+          weekday: 'long',
+          day: 'numeric',
+          month: 'long',
+        })} — ${s.series.length} série${s.series.length > 1 ? 's' : ''}` +
+        (minutes !== null ? `, ${minutes} min` : '') +
+        (s.difficulte !== null ? `, difficulté ${s.difficulte}/10` : '');
+      liste.appendChild(li);
+    }
+    zone.appendChild(liste);
+  }
+
+  async function peindre() {
+    const enRepos = seance === null;
+    $('repos').classList.toggle('hidden', !enRepos);
+    $('encours').classList.toggle('hidden', enRepos);
+
+    if (enRepos) {
+      if (battement !== null) {
+        clearInterval(battement);
+        battement = null;
+      }
+      await rendreLeVerrou();
+      await peindreDernieres();
+      return;
+    }
+
+    peindreChoixExercice();
+    peindreSeries();
+    await direLaProposition();
+    battre();
+    if (battement === null) battement = window.setInterval(battre, 1000);
+  }
+
+  async function recharger() {
+    [exercices, programmes, blessures, seances] = await Promise.all([
+      tousLesExercices(),
+      tousLesProgrammes(),
+      toutesLesBlessures(),
+      toutesLesSeancesSport(),
+    ]);
+    seance = (await seanceEnCours()) ?? null;
+    await peindre();
+  }
+
+  /* ── Les actions ───────────────────────────────────────────────────────── */
+
+  async function enregistrerSerie() {
+    if (!seance) return;
+    const exerciceId = ($('exercice') as HTMLSelectElement).value;
+    const charge = ($('charge') as HTMLInputElement).value;
+    const reserveBrute = ($('reserve') as HTMLSelectElement).value;
+    const depuis = dernierInstant();
+
+    const serie: Serie = {
+      exerciceId,
+      charge: charge === '' ? null : Number(charge),
+      repetitions: Number(($('repetitions') as HTMLInputElement).value),
+      echec: ($('echec') as HTMLInputElement).checked,
+      reserve: reserveBrute === '' ? null : Number(reserveBrute),
+      // Le repos **réel**, pris sur l'horloge, et nul avant la première série.
+      repos: depuis === null ? null : Math.round((Date.now() - depuis) / 1000),
+      le: new Date().toISOString(),
+    };
+
+    const avec = await ajouterSerie(seance.id, serie);
+    if (!avec) throw new Error('La séance n’a pas pu être retrouvée.');
+    seance = avec;
+    seances = seances.map((s) => (s.id === avec.id ? avec : s));
+
+    /*
+       Les répétitions sont vidées, la charge est gardée : on enchaîne presque
+       toujours la même charge, et la retaper à chaque série est le genre de
+       friction qui fait abandonner la saisie en cours de séance.
+    */
+    ($('repetitions') as HTMLInputElement).value = '';
+    ($('echec') as HTMLInputElement).checked = false;
+    peindreSeries();
+    battre();
+    await direLaProposition();
+    ($('repetitions') as HTMLInputElement).focus();
+  }
+
+  auDeverrouillage(
+    async () => {
+      const reglages = await reglagesJourLogiqueLocaux();
+      aujourdhui = jourLogique(new Date(), reglages);
+
+      await recharger();
+
+      // Le choix de programme, sur l'écran de repos.
+      const choix = $('programme') as HTMLSelectElement;
+      for (const p of programmes) {
+        const option = document.createElement('option');
+        option.value = p.id;
+        option.textContent = p.nom + (p.actif ? ' (suivi)' : '');
+        if (p.actif) option.selected = true;
+        choix.appendChild(option);
+      }
+
+      $('commencer').addEventListener('click', () => {
+        void (async () => {
+          seance = await ouvrirSeance(choix.value || null);
+          seances = [...seances.filter((s) => s.id !== seance!.id), seance];
+          await prendreLeVerrou();
+          await peindre();
+          $('exercice').focus();
+        })();
+      });
+
+      $('exercice').addEventListener('change', () => void direLaProposition());
+      for (const champ of ['charge', 'repetitions']) {
+        $(champ).addEventListener('input', direEstimation);
+      }
+      $('repos-cible').addEventListener('input', battre);
+      $('difficulte').addEventListener('input', () => {
+        $('difficulte-valeur').textContent = ($('difficulte') as HTMLInputElement).value;
+      });
+
+      $('suivre').addEventListener('click', () => {
+        if (proposition?.charge === undefined) return;
+        ($('charge') as HTMLInputElement).value = String(proposition.charge);
+        direEstimation();
+      });
+
+      $('refuser').addEventListener('click', () => {
+        if (!proposition) return;
+        const charge = ($('charge') as HTMLInputElement).value;
+        retenirRefus(
+          refuser(
+            proposition.exerciceId,
+            proposition.sorte,
+            aujourdhui,
+            charge === '' ? null : Number(charge),
+          ),
+          aujourdhui,
+        );
+        void direLaProposition();
+      });
+
+      $('saisie').addEventListener('submit', (evenement) => {
+        evenement.preventDefault();
+        void (async () => {
+          try {
+            await enregistrerSerie();
+            $('erreur').classList.add('hidden');
+          } catch (erreur) {
+            $('erreur').textContent = erreur instanceof Error ? erreur.message : String(erreur);
+            $('erreur').classList.remove('hidden');
+          }
+        })();
+      });
+
+      $('annuler-serie').addEventListener('click', () => {
+        void (async () => {
+          if (!seance) return;
+          const avec = await retirerDerniereSerie(seance.id);
+          if (!avec) return;
+          seance = avec;
+          seances = seances.map((s) => (s.id === avec.id ? avec : s));
+          peindreSeries();
+          battre();
+        })();
+      });
+
+      $('terminer').addEventListener('click', () => {
+        void (async () => {
+          if (!seance) return;
+          await cloreSeance(seance.id, {
+            difficulte: Number(($('difficulte') as HTMLInputElement).value),
+            note: ($('note') as HTMLTextAreaElement).value.trim(),
+          });
+          ($('note') as HTMLTextAreaElement).value = '';
+          seance = null;
+          await rendreLeVerrou();
+          await recharger();
+        })();
+      });
+
+      $('abandonner').addEventListener('click', () => {
+        void (async () => {
+          if (!seance) return;
+          await supprimerSeance(seance.id);
+          seance = null;
+          await rendreLeVerrou();
+          await recharger();
+        })();
+      });
+
+      /*
+         Le navigateur relâche le verrou quand l'onglet passe en arrière-plan,
+         et ne le rend pas de lui-même. Sans cette reprise, l'écran
+         s'éteindrait dès le premier passage par une autre application.
+      */
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState !== 'visible' || !seance || verrou) return;
+        void prendreLeVerrou();
+      });
+
+      $('vue').classList.remove('hidden');
+    },
+    { zoneChargement: '#chargement-seance' },
+  );
+</script>

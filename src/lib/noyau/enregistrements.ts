@@ -336,6 +336,7 @@ export const MAGASINS_JOURNALISES: readonly MagasinJournalise[] = [
   M({ magasin: 'sportSeances', type: 'sport.seance', clef: 'id', libelle: 'Séance de sport' }),
   M({ magasin: 'sportPhases', type: 'sport.phase', clef: 'id', libelle: 'Phase d’entraînement' }),
   M({ magasin: 'sportBlessures', type: 'sport.blessure', clef: 'id', libelle: 'Blessure' }),
+  M({ magasin: 'sportProgrammes', type: 'sport.phase', clef: 'id', libelle: 'Programme' }),
 ];
 
 const PAR_MAGASIN = new Map(MAGASINS_JOURNALISES.map((m) => [m.magasin, m]));

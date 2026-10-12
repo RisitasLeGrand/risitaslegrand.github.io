@@ -1,0 +1,258 @@
+---
+/**
+ * Sport : le tableau de bord.
+ *
+ * Il répond à « où j'en suis », et il refuse de meubler. Une case sans donnée
+ * dit qu'elle n'en a pas — même principe que la roue d'Odyssée : l'absence de
+ * mesure n'est pas un zéro, et afficher « 0 séance » à qui n'a jamais ouvert
+ * l'écran de séance est une fausse nouvelle.
+ *
+ * Il ne calcule rien qui ne soit calculé ailleurs : le volume vient de
+ * `volumeParMuscle`, les blessures du garde-fou, le plateau de `force.ts`.
+ * Un tableau de bord qui referait les calculs à sa façon serait un second
+ * jeu de vérités.
+ */
+import Base from '../../layouts/Base.astro';
+---
+
+<Base titre="Sport" actif="accueil">
+  <div class="mx-auto max-w-4xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Sport</h1>
+
+    <div id="chargement-sport" class="mt-6">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Lecture…</p>
+    </div>
+
+    <div id="vue" class="mt-6 hidden space-y-8">
+      <p id="alerte" class="hidden rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:bg-rose-950/30 dark:text-rose-100"></p>
+      <p id="reprise" class="hidden rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-100"></p>
+
+      <section>
+        <h2 class="text-base font-semibold text-slate-900 dark:text-white">Ces quatre semaines</h2>
+        <dl id="chiffres" class="mt-3 grid gap-3 sm:grid-cols-3"></dl>
+      </section>
+
+      <section>
+        <h2 class="text-base font-semibold text-slate-900 dark:text-white">
+          Ce qui a travaillé, ces sept derniers jours
+        </h2>
+        <div id="muscles" class="mt-3"></div>
+      </section>
+
+      <section>
+        <h2 class="text-base font-semibold text-slate-900 dark:text-white">Mes dernières séances</h2>
+        <ul id="dernieres" class="mt-3 space-y-1 text-sm text-slate-600 dark:text-slate-300"></ul>
+        <p id="aucune" class="text-sm text-slate-500 dark:text-slate-400">
+          Aucune séance enregistrée. L’écran « Séance » en ouvre une.
+        </p>
+      </section>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { jourLogique } from '../../lib/noyau/jour-logique';
+  import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
+  import {
+    seanceEnCours,
+    tousLesExercices,
+    toutesLesBlessures,
+    toutesLesSeancesSport,
+  } from '../../lib/sport/donnees';
+  import { libelleDuMuscle, musclesEmpeches, volumeParMuscle } from '../../lib/sport/modele';
+  import { base } from '../../lib/ui';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  function chiffre(libelle: string, valeur: string, note: string): HTMLDivElement {
+    const carte = document.createElement('div');
+    carte.className =
+      'rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950';
+    const dt = document.createElement('dt');
+    dt.className = 'text-xs uppercase text-slate-500 dark:text-slate-400';
+    dt.textContent = libelle;
+    const dd = document.createElement('dd');
+    dd.className = 'mt-1 text-2xl font-bold tabular-nums text-slate-900 dark:text-white';
+    dd.textContent = valeur;
+    const p = document.createElement('p');
+    p.className = 'mt-0.5 text-xs text-slate-400 dark:text-slate-500';
+    p.textContent = note;
+    carte.append(dt, dd, p);
+    return carte;
+  }
+
+  auDeverrouillage(
+    async () => {
+      const reglages = await reglagesJourLogiqueLocaux();
+      const [exercices, seances, blessures, enCours] = await Promise.all([
+        tousLesExercices(),
+        toutesLesSeancesSport(),
+        toutesLesBlessures(),
+        seanceEnCours(),
+      ]);
+
+      /* Le garde-fou, en haut parce qu'il commande tout le reste. */
+      const empeches = musclesEmpeches(blessures);
+      if (empeches.general || empeches.muscles.size) {
+        $('alerte').innerHTML = '';
+        $('alerte').append(
+          document.createTextNode(
+            empeches.general
+              ? 'Une gêne générale est déclarée : aucune progression ne sera proposée, nulle part. '
+              : `Déclaré douloureux : ${[...empeches.muscles]
+                  .map(libelleDuMuscle)
+                  .join(', ')}. Aucune progression ne sera proposée sur ces muscles. `,
+          ),
+        );
+        const lien = document.createElement('a');
+        lien.href = `${base}/sport/corps/`;
+        lien.className = 'underline';
+        lien.textContent = 'Voir mon corps';
+        $('alerte').appendChild(lien);
+        $('alerte').classList.remove('hidden');
+      }
+
+      /* Une séance restée ouverte est la première chose à savoir. */
+      if (enCours) {
+        $('reprise').innerHTML = '';
+        $('reprise').append(
+          document.createTextNode(
+            `Une séance est en cours depuis le ${new Date(enCours.debut).toLocaleString('fr-FR', {
+              weekday: 'long',
+              day: 'numeric',
+              month: 'long',
+              hour: '2-digit',
+              minute: '2-digit',
+            })}, avec ${enCours.series.length} série${enCours.series.length > 1 ? 's' : ''}. `,
+          ),
+        );
+        const lien = document.createElement('a');
+        lien.href = `${base}/sport/seance/`;
+        lien.className = 'underline';
+        lien.textContent = 'La reprendre';
+        $('reprise').appendChild(lien);
+        $('reprise').classList.remove('hidden');
+      }
+
+      const terminees = seances.filter((s) => s.statut === 'terminee');
+      const depuis = (jours: number) =>
+        jourLogique(new Date(Date.now() - jours * 86_400_000), reglages);
+
+      const surQuatre = terminees.filter((s) => s.jour >= depuis(28));
+      const surSept = terminees.filter((s) => s.jour >= depuis(7));
+
+      const chiffres = $('chiffres');
+      chiffres.innerHTML = '';
+      if (!terminees.length) {
+        /*
+           Aucune donnée : on le dit, on n'affiche pas trois zéros. Un zéro
+           mesuré et une absence de mesure ne sont pas la même information.
+        */
+        chiffres.appendChild(
+          chiffre('Séances', '—', 'Rien d’enregistré : ce n’est pas zéro, c’est rien.'),
+        );
+      } else {
+        const series = surQuatre.reduce((n, s) => n + s.series.length, 0);
+        const minutes = surQuatre.reduce(
+          (n, s) => n + (s.fin ? (Date.parse(s.fin) - Date.parse(s.debut)) / 60000 : 0),
+          0,
+        );
+        const notees = surQuatre.filter((s) => s.difficulte !== null);
+        chiffres.append(
+          chiffre(
+            'Séances',
+            String(surQuatre.length),
+            `soit ${(surQuatre.length / 4).toLocaleString('fr-FR', {
+              maximumFractionDigits: 1,
+            })} par semaine`,
+          ),
+          chiffre('Séries', String(series), `${Math.round(minutes)} minutes en tout`),
+          chiffre(
+            'Difficulté moyenne',
+            notees.length
+              ? (
+                  notees.reduce((n, s) => n + (s.difficulte ?? 0), 0) / notees.length
+                ).toLocaleString('fr-FR', { maximumFractionDigits: 1 })
+              : '—',
+            notees.length
+              ? `sur ${notees.length} séance${notees.length > 1 ? 's' : ''} notée${
+                  notees.length > 1 ? 's' : ''
+                }`
+              : 'aucune séance notée : la moyenne n’existe pas',
+          ),
+        );
+      }
+
+      /* Le volume des sept derniers jours, par muscle. */
+      const zone = $('muscles');
+      const volume = volumeParMuscle(
+        surSept.flatMap((s) => s.series),
+        exercices,
+      );
+      const lignes = Object.entries(volume.series).sort((a, b) => b[1] - a[1]);
+      zone.innerHTML = '';
+      if (!lignes.length) {
+        const p = document.createElement('p');
+        p.className = 'text-sm text-slate-500 dark:text-slate-400';
+        p.textContent = 'Aucune série ces sept derniers jours.';
+        zone.appendChild(p);
+      } else {
+        const maximum = lignes[0][1];
+        const liste = document.createElement('ul');
+        liste.className = 'space-y-1';
+        for (const [muscle, compte] of lignes) {
+          const li = document.createElement('li');
+          li.className = 'flex items-center gap-3 text-sm';
+          li.dataset.muscle = muscle;
+
+          const nom = document.createElement('span');
+          nom.className = 'w-40 shrink-0 text-slate-700 dark:text-slate-200';
+          nom.textContent = libelleDuMuscle(muscle);
+
+          const barre = document.createElement('span');
+          barre.className = 'h-2 rounded-full bg-indigo-500';
+          barre.style.width = `${Math.max(4, (compte / maximum) * 60)}%`;
+          barre.setAttribute('aria-hidden', 'true');
+
+          const valeur = document.createElement('span');
+          valeur.className = 'tabular-nums text-xs text-slate-500 dark:text-slate-400';
+          valeur.textContent = `${compte.toLocaleString('fr-FR')} séries`;
+
+          li.append(nom, barre, valeur);
+          liste.appendChild(li);
+        }
+        zone.appendChild(liste);
+        const note = document.createElement('p');
+        note.className = 'mt-2 text-xs text-slate-400 dark:text-slate-500';
+        note.textContent = `Les muscles secondaires comptent pour ${volume.coefficient.toLocaleString(
+          'fr-FR',
+        )} série.`;
+        zone.appendChild(note);
+      }
+
+      /* Les dernières séances. */
+      const liste = $('dernieres');
+      liste.innerHTML = '';
+      const recentes = [...terminees].sort((a, b) => b.debut.localeCompare(a.debut)).slice(0, 6);
+      $('aucune').classList.toggle('hidden', recentes.length > 0);
+      for (const s of recentes) {
+        const li = document.createElement('li');
+        li.dataset.seance = s.id;
+        const minutes = s.fin ? Math.round((Date.parse(s.fin) - Date.parse(s.debut)) / 60000) : null;
+        li.textContent =
+          `${new Date(`${s.jour}T12:00:00`).toLocaleDateString('fr-FR', {
+            weekday: 'long',
+            day: 'numeric',
+            month: 'long',
+          })} — ${s.series.length} série${s.series.length > 1 ? 's' : ''}` +
+          (minutes !== null ? `, ${minutes} min` : '') +
+          (s.difficulte !== null ? `, difficulté ${s.difficulte}/10` : '');
+        liste.appendChild(li);
+      }
+
+      $('vue').classList.remove('hidden');
+    },
+    { zoneChargement: '#chargement-sport' },
+  );
+</script>

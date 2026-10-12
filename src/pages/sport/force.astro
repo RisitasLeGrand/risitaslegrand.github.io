@@ -1,0 +1,458 @@
+---
+/**
+ * Sport : le suivi de la force.
+ *
+ * ## Un chiffre estimé se présente comme estimé
+ *
+ * La courbe montre des **maximums estimés** par Epley et Brzycki, c'est-à-dire
+ * des charges que personne n'a soulevées. L'écran le dit, et marque d'un
+ * cercle creux les points tirés de séries de plus de dix répétitions, où les
+ * deux formules divergent franchement. Un graphique lisse qui tairait cela
+ * donnerait à une approximation l'allure d'une mesure.
+ *
+ * ## Les bandes de phase sont du contexte, pas une excuse
+ *
+ * Une baisse pendant une sèche n'est pas un échec, et le filtre « périodes
+ * comparables » existe pour que la comparaison porte sur ce qui se compare.
+ * Il n'efface rien : les points écartés sont comptés et annoncés.
+ *
+ * ## Le graphique est dessiné, et il est aussi lu
+ *
+ * Même raison qu'au schéma du corps : un tracé SVG n'est pas lisible au
+ * lecteur d'écran. Le tableau sous la courbe porte les mêmes points, il est
+ * toujours là, et c'est lui qui est la version complète.
+ */
+import Base from '../../layouts/Base.astro';
+import { PHASES } from '../../lib/sport/modele';
+---
+
+<Base titre="Mon suivi de la force" actif="force">
+  <div class="mx-auto max-w-4xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Mon suivi de la force</h1>
+    <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      Les charges tracées sont des <strong>maximums estimés</strong> : calculés par formule à partir
+      des séries enregistrées, jamais soulevés tels quels.
+    </p>
+
+    <div id="chargement-force" class="mt-6">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Lecture des séances…</p>
+    </div>
+
+    <div id="vue" class="mt-6 hidden">
+      <div class="flex flex-wrap items-end gap-3">
+        <label class="min-w-56 flex-1 text-sm">
+          <span class="block text-slate-700 dark:text-slate-200">Exercice</span>
+          <select id="exercice"
+            class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"></select>
+        </label>
+      </div>
+
+      <fieldset class="mt-4">
+        <legend class="text-sm font-medium text-slate-700 dark:text-slate-200">
+          Ne comparer que les périodes
+        </legend>
+        <p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">
+          Rien de coché compare tout, y compris les jours sans phase déclarée. Dès qu’une phase est
+          cochée, ces jours-là sont écartés : ne pas savoir dans quelle phase on était n’est pas la
+          même chose qu’être dans celle qu’on compare.
+        </p>
+        <div class="mt-2 flex flex-wrap gap-3">
+          {Object.entries(PHASES).map(([id, libelle]) => (
+            <label class="flex min-h-11 items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+              <input type="checkbox" data-phase={id} class="size-5 rounded" />
+              {libelle}
+            </label>
+          ))}
+        </div>
+      </fieldset>
+
+      <p id="ecartes" class="mt-3 hidden text-xs text-amber-700 dark:text-amber-300"></p>
+
+      <figure class="mt-5">
+        <div id="graphique" class="overflow-x-auto"></div>
+        <figcaption id="legende" class="mt-2 text-xs text-slate-500 dark:text-slate-400"></figcaption>
+      </figure>
+
+      <p id="plateau" class="mt-4 hidden rounded-xl px-4 py-3 text-sm"></p>
+      <p id="proposition" class="mt-3 hidden rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-100"></p>
+      <button id="oublier-refus" type="button"
+        class="mt-2 hidden text-xs text-slate-500 underline dark:text-slate-400"
+        >Oublier les propositions que j’ai écartées</button>
+
+      <section class="mt-8">
+        <h2 class="text-base font-semibold text-slate-900 dark:text-white">Les points, un par jour</h2>
+        <div class="mt-2 overflow-x-auto">
+          <table class="w-full text-sm">
+            <caption class="sr-only">
+              Maximums estimés par jour : la meilleure estimation du jour, la série qui l’a produite,
+              la phase déclarée, et la fiabilité.
+            </caption>
+            <thead>
+              <tr class="border-b border-slate-200 text-left text-xs uppercase text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                <th scope="col" class="py-2">Jour</th>
+                <th scope="col" class="py-2 text-right">Estimé</th>
+                <th scope="col" class="py-2 text-right">D’après</th>
+                <th scope="col" class="py-2">Phase</th>
+                <th scope="col" class="py-2">Fiabilité</th>
+              </tr>
+            </thead>
+            <tbody id="points"></tbody>
+          </table>
+        </div>
+        <p id="aucun-point" class="hidden text-sm text-slate-500 dark:text-slate-400">
+          Aucune série enregistrée sur cet exercice.
+        </p>
+      </section>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { jourLogique } from '../../lib/noyau/jour-logique';
+  import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
+  import {
+    tousLesExercices,
+    toutesLesBlessures,
+    toutesLesPhases,
+    toutesLesSeancesSport,
+  } from '../../lib/sport/donnees';
+  import {
+    PHASES,
+    type Blessure,
+    type Exercice,
+    type Phase,
+    type Seance,
+    type TypeDePhase,
+  } from '../../lib/sport/modele';
+  import {
+    REPETITIONS_FIABLES,
+    SEANCES_POUR_UN_PLATEAU,
+    courbeDeForce,
+    plateau,
+    type PointDeForce,
+  } from '../../lib/sport/force';
+  import { proposer } from '../../lib/sport/modulation';
+  import { oublierTousLesRefus, refusEnCours } from '../../lib/sport/refus-locaux';
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const SVG = 'http://www.w3.org/2000/svg';
+
+  let exercices: Exercice[] = [];
+  let seances: Seance[] = [];
+  let phases: Phase[] = [];
+  let blessures: Blessure[] = [];
+  let aujourdhui = '';
+
+  const kg = (n: number) => `${(Math.round(n * 10) / 10).toLocaleString('fr-FR')} kg`;
+  const jourCourt = (jour: string) =>
+    new Date(`${jour}T12:00:00`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' });
+
+  const phasesCochees = (): TypeDePhase[] =>
+    [...document.querySelectorAll<HTMLInputElement>('[data-phase]')]
+      .filter((c) => c.checked)
+      .map((c) => c.dataset.phase as TypeDePhase);
+
+  /* ── Le tracé ──────────────────────────────────────────────────────────── */
+
+  const COULEUR_PHASE: Record<TypeDePhase, string> = {
+    'prise-de-masse': '#6366f1',
+    seche: '#f59e0b',
+    maintien: '#64748b',
+    deload: '#14b8a6',
+    reprise: '#a855f7',
+  };
+
+  function tracer(points: readonly PointDeForce[]) {
+    const zone = $('graphique');
+    zone.innerHTML = '';
+    if (points.length < 2) {
+      const p = document.createElement('p');
+      p.className = 'text-sm text-slate-500 dark:text-slate-400';
+      p.textContent =
+        points.length === 1
+          ? 'Un seul point : il faut au moins deux jours pour tracer une évolution.'
+          : 'Rien à tracer.';
+      zone.appendChild(p);
+      return;
+    }
+
+    const L = 720;
+    const H = 260;
+    const marge = { haut: 16, bas: 34, gauche: 52, droite: 12 };
+    const largeur = L - marge.gauche - marge.droite;
+    const hauteur = H - marge.haut - marge.bas;
+
+    const valeurs = points.map((p) => p.estime);
+    /*
+       L'échelle part d'une base **non nulle** mais marquée comme telle dans
+       la légende : à partir de zéro, des progrès de deux kilos sur cent
+       seraient invisibles ; sans le dire, l'échelle tronquée exagérerait la
+       pente. On fait les deux, et on l'annonce.
+    */
+    const bas = Math.floor((Math.min(...valeurs) * 0.95) / 5) * 5;
+    const haut = Math.ceil((Math.max(...valeurs) * 1.05) / 5) * 5;
+    const etendue = Math.max(1, haut - bas);
+
+    const jours = points.map((p) => Date.parse(`${p.jour}T12:00:00Z`));
+    const t0 = jours[0];
+    const t1 = jours[jours.length - 1];
+    const x = (t: number) => marge.gauche + (largeur * (t - t0)) / Math.max(1, t1 - t0);
+    const y = (v: number) => marge.haut + hauteur - (hauteur * (v - bas)) / etendue;
+
+    const svg = document.createElementNS(SVG, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${L} ${H}`);
+    svg.setAttribute('class', 'h-64 w-full min-w-[32rem]');
+    /*
+       `aria-hidden` : le tableau sous la figure porte les mêmes points, en
+       entier. Exposer un tracé au lecteur d'écran produirait une liste de
+       coordonnées, qui n'informe personne.
+    */
+    svg.setAttribute('aria-hidden', 'true');
+    svg.setAttribute('focusable', 'false');
+
+    // Les bandes de phase, dessinées sous la courbe.
+    let bandeDebut: { phase: TypeDePhase | null; t: number } = {
+      phase: points[0].phase,
+      t: jours[0],
+    };
+    const fermerBande = (fin: number) => {
+      if (!bandeDebut.phase) return;
+      const rect = document.createElementNS(SVG, 'rect');
+      rect.setAttribute('x', String(x(bandeDebut.t)));
+      rect.setAttribute('y', String(marge.haut));
+      rect.setAttribute('width', String(Math.max(2, x(fin) - x(bandeDebut.t))));
+      rect.setAttribute('height', String(hauteur));
+      rect.setAttribute('fill', COULEUR_PHASE[bandeDebut.phase]);
+      rect.setAttribute('opacity', '0.12');
+      svg.appendChild(rect);
+    };
+    points.forEach((p, i) => {
+      if (p.phase === bandeDebut.phase) return;
+      fermerBande(jours[i]);
+      bandeDebut = { phase: p.phase, t: jours[i] };
+    });
+    fermerBande(t1);
+
+    // Les axes : deux graduations verticales suffisent à situer l'échelle.
+    for (const valeur of [bas, haut]) {
+      const ligne = document.createElementNS(SVG, 'line');
+      ligne.setAttribute('x1', String(marge.gauche));
+      ligne.setAttribute('x2', String(L - marge.droite));
+      ligne.setAttribute('y1', String(y(valeur)));
+      ligne.setAttribute('y2', String(y(valeur)));
+      ligne.setAttribute('stroke', 'currentColor');
+      ligne.setAttribute('class', 'text-slate-200 dark:text-slate-800');
+      svg.appendChild(ligne);
+
+      const texte = document.createElementNS(SVG, 'text');
+      texte.setAttribute('x', String(marge.gauche - 8));
+      texte.setAttribute('y', String(y(valeur) + 4));
+      texte.setAttribute('text-anchor', 'end');
+      texte.setAttribute('class', 'fill-slate-400 text-[11px]');
+      texte.textContent = String(valeur);
+      svg.appendChild(texte);
+    }
+
+    const ligne = document.createElementNS(SVG, 'polyline');
+    ligne.setAttribute('fill', 'none');
+    ligne.setAttribute('stroke', '#4f46e5');
+    ligne.setAttribute('stroke-width', '2');
+    ligne.setAttribute('stroke-linejoin', 'round');
+    ligne.setAttribute(
+      'points',
+      points.map((p, i) => `${x(jours[i])},${y(p.estime)}`).join(' '),
+    );
+    svg.appendChild(ligne);
+
+    points.forEach((p, i) => {
+      const cercle = document.createElementNS(SVG, 'circle');
+      cercle.setAttribute('cx', String(x(jours[i])));
+      cercle.setAttribute('cy', String(y(p.estime)));
+      cercle.setAttribute('r', '4');
+      // Creux quand l'estimation est peu fiable : la forme porte l'information.
+      cercle.setAttribute('fill', p.imprecis ? 'var(--color-bg, #ffffff)' : '#4f46e5');
+      cercle.setAttribute('stroke', '#4f46e5');
+      cercle.setAttribute('stroke-width', '2');
+      svg.appendChild(cercle);
+    });
+
+    for (const [rang, indice] of [0, points.length - 1].entries()) {
+      const texte = document.createElementNS(SVG, 'text');
+      texte.setAttribute('x', String(x(jours[indice])));
+      texte.setAttribute('y', String(H - 10));
+      texte.setAttribute('text-anchor', rang === 0 ? 'start' : 'end');
+      texte.setAttribute('class', 'fill-slate-400 text-[11px]');
+      texte.textContent = jourCourt(points[indice].jour);
+      svg.appendChild(texte);
+    }
+
+    zone.appendChild(svg);
+    $('legende').textContent =
+      `Échelle de ${bas} à ${haut} kg — elle ne part pas de zéro. ` +
+      `Cercle creux : estimation tirée d’une série de plus de ${REPETITIONS_FIABLES} répétitions, ` +
+      'où les formules divergent. Bandes colorées : phases déclarées.';
+  }
+
+  /* ── Le tableau ────────────────────────────────────────────────────────── */
+
+  function peindrePoints(points: readonly PointDeForce[]) {
+    const corps = $('points');
+    corps.innerHTML = '';
+    $('aucun-point').classList.toggle('hidden', points.length > 0);
+    for (const p of [...points].reverse()) {
+      const tr = document.createElement('tr');
+      tr.className = 'border-b border-slate-100 dark:border-slate-900';
+      tr.dataset.jour = p.jour;
+
+      const cellules: [string, string][] = [
+        [
+          new Date(`${p.jour}T12:00:00`).toLocaleDateString('fr-FR', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+          }),
+          'py-1.5 text-slate-700 dark:text-slate-200',
+        ],
+        [kg(p.estime), 'py-1.5 text-right tabular-nums text-slate-900 dark:text-white'],
+        [
+          `${p.charge.toLocaleString('fr-FR')} × ${p.repetitions}`,
+          'py-1.5 text-right tabular-nums text-slate-500 dark:text-slate-400',
+        ],
+        [p.phase ? PHASES[p.phase] : '—', 'py-1.5 text-slate-500 dark:text-slate-400'],
+        [
+          p.imprecis ? 'approximative' : 'correcte',
+          `py-1.5 text-xs ${
+            p.imprecis
+              ? 'text-amber-700 dark:text-amber-300'
+              : 'text-slate-400 dark:text-slate-500'
+          }`,
+        ],
+      ];
+      for (const [texte, classe] of cellules) {
+        const td = document.createElement('td');
+        td.className = classe;
+        td.textContent = texte;
+        tr.appendChild(td);
+      }
+      corps.appendChild(tr);
+    }
+  }
+
+  /* ── La synthèse ───────────────────────────────────────────────────────── */
+
+  async function peindre() {
+    const exercice = exercices.find((e) => e.id === ($('exercice') as HTMLSelectElement).value);
+    if (!exercice) return;
+
+    const terminees = seances.filter((s) => s.statut === 'terminee');
+    const retenues = phasesCochees();
+    const tous = courbeDeForce(exercice.id, terminees, { phases });
+    const points = courbeDeForce(exercice.id, terminees, {
+      phases,
+      phasesRetenues: retenues,
+    });
+
+    const ecartes = tous.length - points.length;
+    $('ecartes').classList.toggle('hidden', ecartes === 0);
+    if (ecartes) {
+      $('ecartes').textContent =
+        `${ecartes} jour${ecartes > 1 ? 's' : ''} écarté${ecartes > 1 ? 's' : ''} par le filtre, ` +
+        'dont les jours sans phase déclarée.';
+    }
+
+    tracer(points);
+    peindrePoints(points);
+
+    /* Le plateau. */
+    const stagnation = plateau(points);
+    const zone = $('plateau');
+    zone.classList.remove('hidden');
+    if (stagnation.pourquoiPas === 'assez-de-points') {
+      zone.className = 'mt-4 rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300';
+      zone.textContent =
+        `Pas de conclusion : il faut plus de ${SEANCES_POUR_UN_PLATEAU} jours de données pour ` +
+        'distinguer un plateau du bruit.';
+    } else if (stagnation.atteint) {
+      zone.className = 'mt-4 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-100';
+      zone.textContent =
+        `Plateau : les ${stagnation.seances} derniers jours n’ont pas dépassé le record précédent` +
+        (stagnation.record ? ` de ${kg(stagnation.record)}` : '') +
+        '. Cela peut être une phase, une fatigue, ou le bon moment pour changer quelque chose.';
+    } else {
+      zone.className = 'mt-4 rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100';
+      zone.textContent = stagnation.record
+        ? `Ça progresse encore. Meilleure estimation : ${kg(stagnation.record)}.`
+        : 'Ça progresse encore.';
+    }
+
+    /* Ce que Sport a à dire, s'il a quelque chose. */
+    const derniere = [...terminees]
+      .reverse()
+      .find((s) => s.series.some((serie) => serie.exerciceId === exercice.id));
+    const refus = refusEnCours(aujourdhui);
+    const { proposition } = proposer({
+      exercice,
+      points: tous,
+      dernieresSeries: derniere?.series.filter((s) => s.exerciceId === exercice.id) ?? [],
+      blessures,
+      refus,
+      aujourdhui,
+    });
+    $('proposition').classList.toggle('hidden', proposition === null);
+    if (proposition) {
+      $('proposition').textContent = `${proposition.texte} — ${proposition.parceQue}`;
+    }
+    $('oublier-refus').classList.toggle('hidden', refus.length === 0);
+  }
+
+  auDeverrouillage(
+    async () => {
+      const reglages = await reglagesJourLogiqueLocaux();
+      aujourdhui = jourLogique(new Date(), reglages);
+
+      [exercices, seances, phases, blessures] = await Promise.all([
+        tousLesExercices(),
+        toutesLesSeancesSport(),
+        toutesLesPhases(),
+        toutesLesBlessures(),
+      ]);
+
+      /*
+         Les exercices qui ont des séries d'abord, et les autres ensuite : un
+         sélecteur qui ouvre sur un exercice jamais pratiqué montre une page
+         vide à chaque visite.
+      */
+      const pratiques = new Set(
+        seances.flatMap((s) => s.series.map((serie) => serie.exerciceId)),
+      );
+      const select = $('exercice') as HTMLSelectElement;
+      const tries = [...exercices].sort(
+        (a, b) =>
+          Number(pratiques.has(b.id)) - Number(pratiques.has(a.id)) ||
+          a.nom.localeCompare(b.nom, 'fr'),
+      );
+      for (const e of tries) {
+        const option = document.createElement('option');
+        option.value = e.id;
+        option.textContent =
+          [e.nom, e.equipement, e.variante].filter(Boolean).join(' · ') +
+          (pratiques.has(e.id) ? '' : ' — jamais pratiqué');
+        select.appendChild(option);
+      }
+
+      select.addEventListener('change', () => void peindre());
+      for (const choix of document.querySelectorAll<HTMLInputElement>('[data-phase]')) {
+        choix.addEventListener('change', () => void peindre());
+      }
+      $('oublier-refus').addEventListener('click', () => {
+        oublierTousLesRefus();
+        void peindre();
+      });
+
+      await peindre();
+      $('vue').classList.remove('hidden');
+    },
+    { zoneChargement: '#chargement-force' },
+  );
+</script>

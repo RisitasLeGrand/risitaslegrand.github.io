@@ -122,8 +122,16 @@ v(
   MAGASINS_JOURNALISES.filter((m) => !typeDeFait(m.type)).map((m) => m.magasin),
   [],
 );
-/* Huit pour Révisions, cinq pour Odyssée. */
-v('treize magasins journalisés', MAGASINS_JOURNALISES.length, 13);
+/*
+   Huit pour Révisions, cinq pour Odyssée, cinq pour Sport.
+
+   Ce compte s'était **tu** quand les quatre premiers magasins de Sport sont
+   entrés au registre : l'essai annonçait treize et personne ne le lançait.
+   C'est pourquoi les deux lignes qui suivent nomment les magasins au lieu de
+   les compter — un compte qui bouge se corrige sans rien apprendre, une liste
+   nommée dit lequel manque.
+*/
+v('dix-huit magasins journalisés', MAGASINS_JOURNALISES.length, 18);
 v(
   'et les cinq d’Odyssée y sont',
   MAGASINS_JOURNALISES.filter((m) => m.magasin.startsWith('odyssee')).map((m) => m.magasin),
@@ -133,6 +141,17 @@ v(
     'odysseeEvenements',
     'odysseeFocus',
     'odysseeRevues',
+  ],
+);
+v(
+  'et les cinq de Sport aussi',
+  MAGASINS_JOURNALISES.filter((m) => m.magasin.startsWith('sport')).map((m) => m.magasin),
+  [
+    'sportExercices',
+    'sportSeances',
+    'sportPhases',
+    'sportBlessures',
+    'sportProgrammes',
   ],
 );
 v(
