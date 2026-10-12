@@ -1,0 +1,416 @@
+---
+/**
+ * « Exporter pour une IA » : l'assistant en étapes de E.7.
+ *
+ * ## Les cinq règles de E.7, et où elles vivent
+ *
+ * Catégories sensibles **décochées** par défaut, textes libres **exclus** par
+ * défaut, **confirmation par catégorie**, **aperçu avant génération**, et
+ * **aucune copie conservée**. Les deux premières vivent dans le catalogue
+ * `CATEGORIES` et non dans cet écran, pour qu'une refonte de l'interface ne
+ * puisse pas les perdre. Les trois autres sont ici, et c'est leur place : ce
+ * sont des étapes, pas des réglages.
+ *
+ * ## Le site n'envoie rien
+ *
+ * Pas d'appel de modèle, pas de clé, pas de connexion. L'export est téléchargé,
+ * et la personne le confie elle-même à l'IA de son choix. C'est la condition de
+ * B.1, et elle est tenue par construction : rien dans ce code ne sait envoyer.
+ */
+import Base from '../layouts/Base.astro';
+---
+
+<Base titre="Exporter pour une IA" entete="leger">
+  <div class="mx-auto max-w-3xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Exporter pour une IA</h1>
+    <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      Cyclades construit un dossier que <strong>vous</strong> confiez à l’IA de votre choix. Le
+      site n’appelle aucun modèle et n’envoie rien : tout passe par des fichiers que vous
+      téléchargez. Aucune copie de l’export n’est conservée — seul son identifiant est inscrit au
+      journal.
+    </p>
+
+    <!-- ── 1. La période ────────────────────────────────────────────────── -->
+    <section class="mt-8">
+      <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">1. La période</h2>
+      <div class="flex flex-wrap gap-2" role="group" aria-label="Période">
+        <button data-periode="semaine" type="button" class="choix">Cette semaine</button>
+        <button data-periode="mois" type="button" class="choix" aria-pressed="true">Ce mois</button>
+        <button data-periode="trimestre" type="button" class="choix">Ce trimestre</button>
+        <button data-periode="annee" type="button" class="choix">Cette année</button>
+      </div>
+    </section>
+
+    <!-- ── 2. Les catégories ────────────────────────────────────────────── -->
+    <section class="mt-8">
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">
+        2. Ce qui part, catégorie par catégorie
+      </h2>
+      <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+        Les catégories sensibles sont décochées, et les textes libres aussi. Votre prénom et votre
+        nom ne partent <strong>jamais</strong>, quelle que soit la sélection.
+      </p>
+      <div id="categories" class="space-y-2"></div>
+    </section>
+
+    <!-- ── 3. Le pseudonyme ─────────────────────────────────────────────── -->
+    <section class="mt-8">
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">3. Comment vous nommer</h2>
+      <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+        Le nom employé dans les textes de l’export. Laissez tel quel si vous n’en voulez pas.
+      </p>
+      <input
+        id="pseudonyme"
+        type="text"
+        autocomplete="off"
+        class="w-full max-w-sm rounded-lg border border-slate-300 px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+      />
+    </section>
+
+    <!-- ── 4. L'aperçu ──────────────────────────────────────────────────── -->
+    <section class="mt-8">
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">4. L’aperçu</h2>
+      <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+        Rien n’est téléchargé avant que vous ayez vu ce qui sort.
+      </p>
+      <button
+        id="apercevoir"
+        type="button"
+        class="min-h-11 rounded-lg bg-indigo-600 px-5 font-medium text-white transition hover:bg-indigo-700"
+      >
+        Construire l’aperçu
+      </button>
+      <p id="attente" class="mt-3 hidden text-sm text-slate-500 dark:text-slate-400">
+        Calcul des indicateurs et des séries…
+      </p>
+      <p id="erreur-export" class="mt-3 hidden text-sm text-red-600 dark:text-red-400" role="alert"></p>
+
+      <div id="apercu" class="mt-5 hidden space-y-4">
+        <div
+          class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+        >
+          <p id="resume-export" class="text-sm text-slate-700 dark:text-slate-200"></p>
+          <p id="taille" class="mt-2 text-sm text-slate-600 dark:text-slate-300"></p>
+          <div id="decoupage" class="mt-3 hidden">
+            <p class="text-sm font-medium text-amber-800 dark:text-amber-300">
+              Le volume dépasse ce qu’une IA lit raisonnablement d’un coup. Découpage proposé :
+            </p>
+            <ul id="decoupage-liste" class="mt-1 list-disc pl-5 text-sm text-slate-700 dark:text-slate-200"></ul>
+          </div>
+          <p id="problemes" class="mt-3 hidden rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-200"></p>
+        </div>
+
+        <div
+          class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+        >
+          <h3 class="font-semibold text-slate-900 dark:text-white">Les fichiers</h3>
+          <div id="fichiers" class="mt-3 space-y-2"></div>
+        </div>
+
+        <div
+          class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+        >
+          <h3 class="font-semibold text-slate-900 dark:text-white">Un coup d’œil au contenu</h3>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Le début de chaque fichier, en texte échappé.
+          </p>
+          <div id="extraits" class="mt-3 space-y-3"></div>
+        </div>
+
+        <div class="flex flex-wrap gap-3">
+          <button
+            id="telecharger"
+            type="button"
+            class="min-h-11 rounded-lg bg-indigo-600 px-5 font-medium text-white transition hover:bg-indigo-700"
+          >
+            Télécharger les fichiers
+          </button>
+          <button
+            id="telecharger-unique"
+            type="button"
+            class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+          >
+            Un seul fichier Markdown
+          </button>
+        </div>
+        <p id="message-export" class="hidden text-sm"></p>
+      </div>
+    </section>
+
+    <!-- ── Le journal ───────────────────────────────────────────────────── -->
+    <section class="mt-10">
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">Journal des exports</h2>
+      <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+        L’identifiant, l’empreinte, la date et le périmètre — <strong>jamais le contenu</strong>.
+        C’est ce qui permettra de rattacher une analyse importée à l’export dont elle répond.
+      </p>
+      <div id="journal" class="space-y-2"></div>
+      <p id="journal-vide" class="text-sm text-slate-500 dark:text-slate-400">
+        Aucun export pour l’instant.
+      </p>
+    </section>
+  </div>
+</Base>
+
+<style>
+  .choix {
+    min-height: 2.75rem;
+    border-radius: 0.5rem;
+    border-width: 1px;
+    padding-inline: 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-color: var(--color-slate-300, #cbd5e1);
+    transition: all 150ms;
+  }
+  .choix[aria-pressed='true'] {
+    border-color: var(--color-indigo-600, #4f46e5);
+    background: var(--color-indigo-50, #eef2ff);
+    color: var(--color-indigo-800, #3730a3);
+  }
+  :global(.dark) .choix {
+    border-color: var(--color-slate-700, #334155);
+  }
+  :global(.dark) .choix[aria-pressed='true'] {
+    background: color-mix(in srgb, var(--color-indigo-950, #1e1b4b) 50%, transparent);
+    color: var(--color-indigo-200, #c7d2fe);
+  }
+</style>
+
+<script>
+  import { auDeverrouillage } from '../lib/chargement';
+  import { echapper } from '../lib/ui';
+  import {
+    CATEGORIES,
+    PSEUDONYME_PAR_DEFAUT,
+    categoriesParDefaut,
+    construireExport,
+    journalDesExports,
+    noterExport,
+    type Export,
+  } from '../lib/export-ia';
+  import type { TypePeriode } from '../lib/odyssee/syntheses';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  let type: TypePeriode = 'mois';
+  let retenues = new Set(categoriesParDefaut());
+  let dernier: Export | null = null;
+
+  const poids = (octets: number) =>
+    octets >= 1024 * 1024
+      ? `${(octets / 1024 / 1024).toLocaleString('fr-FR', { maximumFractionDigits: 2 })} Mo`
+      : `${Math.round(octets / 1024)} ko`;
+
+  function peindreCategories() {
+    const zone = $('categories');
+    zone.textContent = '';
+    for (const c of CATEGORIES) {
+      const ligne = document.createElement('label');
+      ligne.className =
+        'flex items-start gap-3 rounded-xl border px-4 py-3 ' +
+        (c.sensible
+          ? 'border-amber-300 bg-amber-50/60 dark:border-amber-900 dark:bg-amber-950/20'
+          : 'border-slate-200 dark:border-slate-800');
+      const case_ = document.createElement('input');
+      case_.type = 'checkbox';
+      case_.className = 'mt-1 h-5 w-5';
+      case_.dataset.categorie = c.id;
+      case_.checked = retenues.has(c.id);
+      case_.addEventListener('change', () => {
+        /*
+           La confirmation par catégorie de E.7, et seulement pour les
+           sensibles : demander confirmation à chaque case rendrait la
+           demande invisible à force d'être répétée.
+        */
+        if (case_.checked && c.sensible) {
+          const accord = window.confirm(
+            `« ${c.libelle} » est une catégorie sensible.\n\n${c.description}\n\n` +
+              'Elle partira dans un fichier que vous confierez à un service extérieur. Confirmer ?',
+          );
+          if (!accord) {
+            case_.checked = false;
+            return;
+          }
+        }
+        if (case_.checked) retenues.add(c.id);
+        else retenues.delete(c.id);
+        /* L'aperçu devient faux dès que la sélection change. */
+        dernier = null;
+        $('apercu').classList.add('hidden');
+      });
+
+      const texte = document.createElement('span');
+      const nom = document.createElement('span');
+      nom.className = 'block font-medium text-slate-900 dark:text-white';
+      nom.textContent = c.libelle + (c.sensible ? ' · sensible' : '');
+      const description = document.createElement('span');
+      description.className = 'block text-sm text-slate-500 dark:text-slate-400';
+      description.textContent = c.description;
+      texte.append(nom, description);
+      ligne.append(case_, texte);
+      zone.appendChild(ligne);
+    }
+  }
+
+  async function peindreJournal() {
+    const entrees = await journalDesExports();
+    const zone = $('journal');
+    zone.textContent = '';
+    $('journal-vide').classList.toggle('hidden', entrees.length > 0);
+    for (const entree of entrees) {
+      const ligne = document.createElement('div');
+      ligne.className =
+        'rounded-xl border border-slate-200 px-4 py-2 text-sm dark:border-slate-800';
+      ligne.innerHTML =
+        `<span class="font-mono text-xs text-slate-700 dark:text-slate-200">${echapper(entree.exportId)}</span>` +
+        `<span class="block text-slate-500 dark:text-slate-400">` +
+        `${echapper(entree.periode.debut)} → ${echapper(entree.periode.fin)} · ` +
+        `${echapper(entree.portee)} · ${poids(entree.octets)} · ` +
+        `${echapper(entree.categories.join(', '))}</span>` +
+        `<span class="block font-mono text-xs break-all text-slate-400 dark:text-slate-500">${echapper(entree.empreinte)}</span>`;
+      zone.appendChild(ligne);
+    }
+  }
+
+  function telecharger(nom: string, type: string, contenu: string) {
+    const lien = document.createElement('a');
+    const url = URL.createObjectURL(new Blob([contenu], { type }));
+    lien.href = url;
+    // Les sous-dossiers ne survivent pas à un téléchargement simple : le nom
+    // aplati garde la trace du chemin plutôt que de la perdre.
+    lien.download = nom.replace('/', '-');
+    lien.click();
+    URL.revokeObjectURL(url);
+  }
+
+  async function apercevoir() {
+    $('erreur-export').classList.add('hidden');
+    $('apercu').classList.add('hidden');
+    $('attente').classList.remove('hidden');
+    try {
+      const resultat = await construireExport({
+        type,
+        categories: [...retenues],
+        pseudonyme: ($('pseudonyme') as HTMLInputElement).value,
+      });
+      dernier = resultat;
+
+      $('resume-export').textContent =
+        `Export ${resultat.manifeste.export_id} — ${resultat.manifeste.periode.debut} au ` +
+        `${resultat.manifeste.periode.fin}, portée « ${resultat.manifeste.portee} », ` +
+        `${resultat.fichiers.length} fichiers.`;
+      $('taille').textContent =
+        `${poids(resultat.estimation.octets)}, soit environ ` +
+        `${resultat.estimation.jetonsEnviron.toLocaleString('fr-FR')} jetons. ` +
+        (resultat.estimation.tientEnUnSeulEnvoi
+          ? 'Cela tient en un seul envoi.'
+          : 'Cela dépasse ce qu’une IA lit raisonnablement d’un coup.');
+
+      const decoupage = $('decoupage');
+      decoupage.classList.toggle('hidden', resultat.estimation.tientEnUnSeulEnvoi);
+      const liste = $('decoupage-liste');
+      liste.textContent = '';
+      for (const etape of resultat.estimation.decoupage) {
+        const li = document.createElement('li');
+        li.textContent = etape;
+        liste.appendChild(li);
+      }
+
+      const problemes = $('problemes');
+      problemes.classList.toggle('hidden', resultat.problemes.length === 0);
+      problemes.textContent = resultat.problemes.join(' ');
+
+      const fichiers = $('fichiers');
+      fichiers.textContent = '';
+      for (const f of resultat.estimation.parFichier) {
+        const ligne = document.createElement('div');
+        ligne.className = 'flex items-baseline justify-between gap-3 text-sm';
+        ligne.dataset.fichier = f.nom;
+        const nom = document.createElement('span');
+        nom.className = 'font-mono text-slate-700 dark:text-slate-200';
+        nom.textContent = f.nom;
+        const taille = document.createElement('span');
+        taille.className = 'text-slate-500 dark:text-slate-400';
+        taille.textContent = poids(f.octets);
+        ligne.append(nom, taille);
+        fichiers.appendChild(ligne);
+      }
+
+      /*
+         Les extraits sont posés par textContent et non par innerHTML : un
+         export porte des textes libres écrits à la main, et l'aperçu est le
+         seul endroit où ils reviennent à l'écran.
+      */
+      const extraits = $('extraits');
+      extraits.textContent = '';
+      for (const f of resultat.fichiers) {
+        const bloc = document.createElement('details');
+        bloc.className = 'rounded-lg border border-slate-200 p-3 dark:border-slate-800';
+        const resume = document.createElement('summary');
+        resume.className = 'cursor-pointer font-mono text-sm text-slate-700 dark:text-slate-200';
+        resume.textContent = f.nom;
+        const pre = document.createElement('pre');
+        pre.className =
+          'mt-2 max-h-56 overflow-auto rounded bg-slate-50 p-2 text-xs whitespace-pre-wrap dark:bg-slate-950';
+        pre.textContent = f.contenu.slice(0, 1500) + (f.contenu.length > 1500 ? '\n…' : '');
+        bloc.append(resume, pre);
+        extraits.appendChild(bloc);
+      }
+
+      $('apercu').classList.remove('hidden');
+    } catch (erreur) {
+      $('erreur-export').textContent =
+        erreur instanceof Error ? erreur.message : String(erreur);
+      $('erreur-export').classList.remove('hidden');
+    } finally {
+      $('attente').classList.add('hidden');
+    }
+  }
+
+  /**
+   * Télécharge, puis inscrit au journal.
+   *
+   * Dans cet ordre : un export construit pour l'aperçu et abandonné n'a jamais
+   * quitté la machine, et l'inscrire ferait croire qu'il est dehors.
+   */
+  async function ecrire(unique: boolean) {
+    if (!dernier) return;
+    if (dernier.problemes.length) {
+      window.alert(`L’export est refusé :\n\n${dernier.problemes.join('\n')}`);
+      return;
+    }
+    if (unique) {
+      telecharger(dernier.unique.nom, dernier.unique.type, dernier.unique.contenu);
+    } else {
+      for (const f of dernier.fichiers) telecharger(f.nom, f.type, f.contenu);
+    }
+    const entree = await noterExport(dernier);
+    const message = $('message-export');
+    message.className = 'text-sm text-slate-700 dark:text-slate-200';
+    message.textContent =
+      `Export ${entree.exportId} inscrit au journal. Aucune copie du contenu n’a été conservée.`;
+    message.classList.remove('hidden');
+    await peindreJournal();
+  }
+
+  for (const bouton of document.querySelectorAll<HTMLButtonElement>('[data-periode]')) {
+    bouton.addEventListener('click', () => {
+      type = (bouton.dataset.periode as TypePeriode) ?? 'mois';
+      for (const autre of document.querySelectorAll<HTMLButtonElement>('[data-periode]')) {
+        autre.setAttribute('aria-pressed', autre === bouton ? 'true' : 'false');
+      }
+      dernier = null;
+      $('apercu').classList.add('hidden');
+    });
+  }
+  $('apercevoir').addEventListener('click', () => void apercevoir());
+  $('telecharger').addEventListener('click', () => void ecrire(false));
+  $('telecharger-unique').addEventListener('click', () => void ecrire(true));
+
+  auDeverrouillage(async () => {
+    ($('pseudonyme') as HTMLInputElement).value = PSEUDONYME_PAR_DEFAUT;
+    peindreCategories();
+    await peindreJournal();
+  });
+</script>

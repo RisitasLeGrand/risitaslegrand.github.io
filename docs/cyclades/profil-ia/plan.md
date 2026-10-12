@@ -426,6 +426,71 @@ et non une valeur fausse.
 - Les synthèses : période (semaine, mois, trimestre, année, libre), bilan global, par domaine ou
   transversale. Précalcul des indicateurs, détail à part, séries à résolution dégradée avec
   l'ancienneté.
+> **D2 faite, le 12 octobre 2026.** Les huit fichiers, le manifeste, le journal et l'assistant.
+>
+> **Le schéma est une donnée, et il n'est écrit qu'une fois.** Trois choses en ont besoin et doivent
+> dire la même : le `schema-analyse.json` servi avec l'export, que l'IA lit ; le validateur de
+> l'import, qui refuse ce qui n'est pas conforme ; et `exemple-analyse.json`, qui doit passer ce
+> validateur. Un fichier écrit à la main et un validateur écrit à la main divergent au premier champ
+> ajouté, et la divergence ne se voit pas — l'IA suit le fichier, le site suit son code, et l'import
+> refuse une réponse pourtant conforme à ce qu'on avait demandé. `noyau/schema-analyse.ts` porte la
+> déclaration ; le fichier en est le rendu, et le validateur de la phase E en sera le lecteur.
+> L'exemple est **engendré** sur un vrai identifiant d'indicateur et de l'export courant, donc il
+> passe le schéma par construction : un exemple non conforme apprendrait le mauvais format, ce qui
+> est pire qu'aucun exemple.
+>
+> **`additionalProperties: false` partout, et c'est ce qui tient E.1 et E.4.** Les garde-fous ne
+> reposent pas sur la prudence du modèle : la `nature` d'une proposition est fermée à
+> l'organisation, aux habitudes, aux mesures, aux questions et aux vérifications de données. Une IA
+> qui proposerait une dose, un protocole ou un placement n'a **aucune valeur pour le dire**, et sa
+> réponse est refusée à l'import. Un essai le vérifie sur une nature « dose » et sur un champ
+> `conseil_medical` ajouté à la racine.
+>
+> **Trois champs sont facultatifs** — les questions, les remarques de qualité, les limites
+> globales : une IA qui n'a rien à demander ni à signaler doit pouvoir répondre sans inventer des
+> listes vides.
+>
+> **Les protections de E.7 vivent dans le catalogue, pas dans l'écran.** Catégories sensibles
+> décochées, textes libres et profil exclus par défaut : un garde-fou qui vit dans une case à cocher
+> se perd à la première refonte de l'interface, et personne ne s'en aperçoit. Le contrôle du
+> catalogue refuse une catégorie sensible cochée par défaut, et l'essai de navigateur vérifie
+> qu'une confirmation **refusée** laisse la case décochée.
+>
+> **Le prénom et le nom ne traversent jamais l'export**, quelle que soit la sélection : A.5 ne
+> laisse pas de case à cocher là-dessus, et le module les retire avant de construire. Par-dessus,
+> un **contrôle** les cherche dans tous les fichiers — y compris dans les textes libres, où la
+> personne peut s'être nommée elle-même — et refuse l'écriture s'il les trouve. C'est le filet, pas
+> la règle.
+>
+> **Le catalogue exporté porte tous les indicateurs, mesurés ou non**, et les valeurs absentes
+> sortent en `null` avec la raison. Une IA qui ne verrait que ce qui est mesuré ne pourrait pas
+> signaler ce qui manque, et le type de constat `lacune_de_donnees` perdrait son objet.
+>
+> **Le vecteur de versions dit aussi quand la vérification sera impossible.** Les bornes d'horloge
+> par appareil disent jusqu'où le journal portait ; le périmètre de compaction dit ce qui avait déjà
+> été effacé. Sans le second, une preuve portant sur une période compactée serait recalculée sur un
+> journal amputé et déclarée « non retrouvée » — alors que la bonne réponse est « non vérifiable ».
+> `qualite-des-donnees.md` le dit en français.
+>
+> **Le journal des exports est une opération, pas un magasin** — comme le profil, et pour la même
+> raison. Il porte l'identifiant, l'empreinte, la date, la portée, les catégories et le poids ;
+> **jamais le contenu**, et un essai de navigateur lit l'opération en base pour le vérifier.
+> L'inscription a lieu **après** le téléchargement : un export construit pour l'aperçu puis
+> abandonné n'a jamais quitté la machine, et l'inscrire ferait croire qu'il est dehors.
+>
+> **L'empreinte couvre les noms et les contenus**, dans l'ordre : deux exports aux mêmes contenus
+> sous des noms différents ne sont pas le même export. Le manifeste est construit en dernier,
+> puisqu'il porte l'empreinte des autres et ne peut pas s'inclure dans son propre hachage.
+>
+> **Le découpage proposé est par domaine, puis transversal**, et non par période : une IA qui ne
+> voit qu'un trimestre ne peut rien dire d'une tendance annuelle, alors qu'elle traite parfaitement
+> un domaine à la fois.
+>
+> **Essais** : `essais:export-ia` (93 contrôles, dont un lecteur minimal de la déclaration qui
+> prouve que l'exemple passe le schéma) et `essais:export-ia:navigateur` (57, dont la confirmation
+> refusée, l'empreinte du manifeste téléchargé rapprochée de celle du journal, et l'opération
+> journalisée sans un octet de contenu).
+
 - Les huit fichiers de B.3, la variante fichier unique, le `manifest.json` avec l'identifiant
   d'export, l'empreinte SHA-256 et le **vecteur de versions** (les bornes d'horloge par appareil,
   plus le périmètre de compaction — c'est ce qui rend la vérification possible, et ce qui dit quand
