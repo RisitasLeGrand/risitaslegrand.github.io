@@ -93,7 +93,9 @@
     "essais:odyssee:ics": "tsx scripts/essais-odyssee-ics.mts",
     "essais:sport": "tsx scripts/essais-sport.mts",
     "essais:sport:navigateur": "node scripts/essais-sport-navigateur.mjs",
-    "essais:corps": "tsx scripts/essais-corps.mts"
+    "essais:corps": "tsx scripts/essais-corps.mts",
+    "essais:tendances": "tsx scripts/essais-tendances.mts",
+    "essais:tendances:navigateur": "node scripts/essais-tendances-navigateur.mjs"
   },
   "repository": {
     "type": "git",

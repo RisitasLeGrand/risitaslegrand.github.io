@@ -15,6 +15,7 @@ import type { EntreeRevision } from './noyau/revisions';
 import type { Evenement, Focus, Quete, Revue, Tache } from './odyssee/modele';
 import type { Blessure, Exercice, Phase, Seance as SeanceSport } from './sport/modele';
 import type { Programme as ProgrammeSport } from './sport/programmes';
+import type { Trajectoire } from './odyssee/trajectoires';
 import type {
   Boisson,
   EtatDeSante,
@@ -567,10 +568,11 @@ interface SchemaRevinsp extends DBSchema {
   odysseeRepas: { key: string; value: RepasCorps; indexes: { jour: string } };
   odysseeBoissons: { key: string; value: Boisson; indexes: { jour: string } };
   odysseeSante: { key: string; value: EtatDeSante; indexes: { debut: string } };
+  odysseeTrajectoires: { key: string; value: Trajectoire; indexes: { statut: string } };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 18;
+const VERSION = 19;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1090,6 +1092,18 @@ function ouvrirAuSchema(nom: string, version: number) {
           base.createObjectStore(nom, { keyPath: 'id' }).createIndex('jour', 'jour');
         }
         base.createObjectStore('odysseeSante', { keyPath: 'id' }).createIndex('debut', 'debut');
+      }
+      if (vers(19)) {
+        /*
+         * Les trajectoires. Index sur `statut`, parce que la question posée
+         * avant chaque écriture est « combien sont actives ? » — le plafond de
+         * trois est un refus d'écriture, pas un avertissement d'écran, et il
+         * se vérifie à chaque fois.
+         */
+        base.createObjectStore('odysseeTrajectoires', { keyPath: 'id' }).createIndex(
+          'statut',
+          'statut',
+        );
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -1942,6 +1956,7 @@ export const MAGASINS_PROGRESSION = [
   'odysseeRepas',
   'odysseeBoissons',
   'odysseeSante',
+  'odysseeTrajectoires',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */

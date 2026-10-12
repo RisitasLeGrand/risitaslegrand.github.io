@@ -906,6 +906,8 @@ et la revue du soir. Six écrans :
 | **Mes tâches** (`/odyssee/taches/`) | La liste, les échéances, l'abandon motivé |
 | **Mes quêtes** (`/odyssee/quetes/`) | Les habitudes, leur frise de quatorze jours, la mise en pause |
 | **Revue du soir** (`/odyssee/revue/`) | Le relevé d'abord, puis trois questions |
+| **Mon corps** (`/odyssee/corps/`) | Pesées, mesures, sommeil, repas, boissons, santé |
+| **Mes tendances** (`/odyssee/tendances/`) | La revue de cinq minutes, les bilans, les pistes, les trajectoires |
 | **Mes synthèses** (`/syntheses/`) | Les indicateurs par période, écran commun aux branches |
 
 **Le relevé est ce qui distingue Odyssée d'un agenda.** À la revue du soir, on
@@ -923,6 +925,23 @@ et **pourquoi**, parmi dix motifs fermés. Trois conséquences :
 
 Les domaines **en pause se taisent**, suggestions comprises : mettre un domaine
 en pause et continuer d'en recevoir des rappels n'aurait aucun sens.
+
+**Les tendances sont des pistes, jamais des causes.** Les données d'ici sont
+observationnelles : rien n'y distingue « mieux dormir fait mieux réviser » de
+« les jours calmes permettent les deux ». Une piste n'apparaît donc qu'au-delà
+de **vingt jours appariés**, avec un lien d'au moins 0,3, un intervalle de
+confiance qui ne contient pas zéro, et après correction des comparaisons
+multiples — le nombre de croisements testés est affiché, parce qu'une piste
+retenue parmi quarante-cinq ne se lit pas comme une piste retenue parmi deux.
+Chaque piste porte sa **réserve** à côté de son énoncé, et un contrôle relit
+les phrases affichées pour y refuser tout mot de causalité.
+
+Ce qui est **écarté** est montré avec son motif. Un écran vide se lit « rien à
+voir » ; le vrai message est presque toujours « pas encore assez de données »,
+et les deux appellent des conduites opposées.
+
+**Trois trajectoires au plus**, et c'est un refus d'écriture, pas un
+avertissement. Une trajectoire écartée ne vous est plus proposée.
 
 ---
 

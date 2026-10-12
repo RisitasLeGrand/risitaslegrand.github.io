@@ -103,6 +103,7 @@ export const CHAMP_DATE: Record<string, string | null> = {
   odysseeRepas: 'jour',
   odysseeBoissons: 'jour',
   odysseeSante: 'debut',
+  odysseeTrajectoires: 'debut',
 };
 
 export const GROUPES: readonly GroupeDeMagasins[] = [
@@ -172,6 +173,7 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
       'odysseeRepas',
       'odysseeBoissons',
       'odysseeSante',
+      'odysseeTrajectoires',
     ],
   },
   {

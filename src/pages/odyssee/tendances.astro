@@ -1,0 +1,643 @@
+---
+/**
+ * Odyssée : mes tendances.
+ *
+ * Quatre choses, dans l'ordre où on les regarde :
+ *
+ * 1. **la revue de cinq minutes**, guidée, une fois par semaine ;
+ * 2. les **bilans** de période, avec la précédente pour comparer ;
+ * 3. les **pistes** — jamais des causes — et ce qui a été écarté, avec le motif ;
+ * 4. les **trajectoires**, trois au plus.
+ *
+ * ## Pourquoi « ce qui a été écarté » est affiché
+ *
+ * Parce qu'un écran de tendances vide se lit « il n'y a rien à voir », alors
+ * que le vrai message est presque toujours « pas encore assez de données ».
+ * Les deux appellent des conduites opposées : l'un fait abandonner, l'autre
+ * fait continuer à mesurer. Le compte des tests menés est affiché pour la
+ * même raison : une piste retenue parmi quarante-cinq ne se lit pas comme une
+ * piste retenue parmi deux.
+ */
+import Base from '../../layouts/Base.astro';
+import { EFFECTIF_MINIMAL, EFFET_MINIMAL } from '../../lib/odyssee/tendances';
+import { PLAFOND_ACTIVES } from '../../lib/odyssee/trajectoires';
+import { DOMAINES } from '../../lib/noyau/domaines';
+---
+
+<Base titre="Mes tendances" actif="tendances">
+  <div class="mx-auto max-w-4xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Mes tendances</h1>
+    <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      Des <strong>pistes</strong>, jamais des causes. Les données d’ici sont observationnelles :
+      rien n’y distingue « mieux dormir fait mieux réviser » de « les jours calmes permettent les
+      deux ».
+    </p>
+
+    <div id="chargement-tendances" class="mt-6">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Lecture et calculs…</p>
+    </div>
+
+    <div id="vue" class="mt-6 hidden space-y-10">
+      <!-- La revue de cinq minutes -->
+      <section class="rounded-2xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-900 dark:bg-indigo-950/30">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+            Ma revue de la semaine
+          </h2>
+          <p id="revue-quand" class="text-xs text-slate-500 dark:text-slate-400"></p>
+        </div>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Cinq minutes, quatre questions. Elle n’enregistre rien d’elle-même : c’est une lecture
+          guidée, et ce qui en sort est une trajectoire ou rien.
+        </p>
+        <ol id="revue" class="mt-3 space-y-3"></ol>
+      </section>
+
+      <!-- Les bilans -->
+      <section>
+        <div class="flex flex-wrap items-end justify-between gap-3">
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Mon bilan</h2>
+          <label class="text-sm">
+            <span class="sr-only">Période du bilan</span>
+            <select id="periode"
+              class="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+              <option value="semaine">Cette semaine</option>
+              <option value="mois" selected>Ce mois</option>
+              <option value="trimestre">Ce trimestre</option>
+              <option value="annee">Cette année</option>
+            </select>
+          </label>
+        </div>
+        <p id="bilan-periode" class="mt-1 text-sm text-slate-500 dark:text-slate-400"></p>
+        <div class="mt-3 overflow-x-auto">
+          <table class="w-full text-sm">
+            <caption class="sr-only">
+              Indicateurs de la période, comparés à la période précédente.
+            </caption>
+            <thead>
+              <tr class="border-b border-slate-200 text-left text-xs uppercase text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                <th scope="col" class="py-2">Indicateur</th>
+                <th scope="col" class="py-2 text-right">Avant</th>
+                <th scope="col" class="py-2 text-right">Maintenant</th>
+                <th scope="col" class="py-2">Écart</th>
+              </tr>
+            </thead>
+            <tbody id="bilan"></tbody>
+          </table>
+        </div>
+        <p id="bilan-manques" class="mt-2 text-xs text-slate-500 dark:text-slate-400"></p>
+      </section>
+
+      <!-- Les pistes -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Mes pistes</h2>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Une piste demande au moins <strong>{EFFECTIF_MINIMAL} jours appariés</strong>, un lien
+          d’au moins <strong>{EFFET_MINIMAL.toLocaleString('fr-FR')}</strong>, un intervalle qui ne
+          contient pas zéro, et de survivre à la correction des comparaisons multiples.
+        </p>
+        <label class="mt-3 flex min-h-11 items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+          <input id="decalages" type="checkbox" class="size-5 rounded" />
+          Chercher aussi les liens décalés d’un jour
+        </label>
+        <p id="tests" class="mt-2 text-xs text-slate-400 dark:text-slate-500"></p>
+        <div id="pistes" class="mt-3 space-y-3"></div>
+        <p id="aucune-piste" class="mt-3 hidden rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300"></p>
+
+        <details class="mt-4">
+          <summary class="cursor-pointer text-sm text-slate-500 dark:text-slate-400">
+            Ce qui a été regardé et écarté
+          </summary>
+          <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+            Un écran vide se lit « il n’y a rien à voir ». Le plus souvent, le vrai message est
+            « pas encore assez de données », et les deux appellent des conduites opposées.
+          </p>
+          <ul id="ecartees" class="mt-2 space-y-1 text-xs"></ul>
+        </details>
+      </section>
+
+      <!-- Les trajectoires -->
+      <section>
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Mes trajectoires</h2>
+          <p id="place" class="text-xs text-slate-500 dark:text-slate-400"></p>
+        </div>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          {PLAFOND_ACTIVES} au plus. Une liste de douze intentions n’est pas douze fois plus
+          ambitieuse : c’est une liste qu’on ne regarde plus, et dont chaque ligne devient un petit
+          reproche.
+        </p>
+
+        <div id="trajectoires" class="mt-3 space-y-3"></div>
+        <p id="aucune-trajectoire" class="mt-3 text-sm text-slate-500 dark:text-slate-400">
+          Aucune trajectoire. Ce n’est pas un manque : on peut mesurer sans se fixer de cap.
+        </p>
+
+        <details class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+          <summary class="cursor-pointer text-sm font-medium text-slate-900 dark:text-white">
+            Ouvrir une trajectoire
+          </summary>
+          <div class="mt-3 flex flex-wrap items-end gap-3">
+            <label class="min-w-48 flex-1 text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Intitulé</span>
+              <input id="intitule" type="text" maxlength="200"
+                class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+            </label>
+            <label class="text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Domaine</span>
+              <select id="domaine"
+                class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+                {DOMAINES.map((d) => <option value={d.id}>{d.libelle}</option>)}
+              </select>
+            </label>
+            <label class="text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Horizon</span>
+              <input id="horizon" type="date"
+                class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+            </label>
+          </div>
+          <label class="mt-3 block text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Pourquoi, en une phrase</span>
+            <input id="pourquoi" type="text" maxlength="300"
+              class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <button id="ouvrir" type="button"
+            class="mt-3 min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+            >Ouvrir</button>
+        </details>
+      </section>
+
+      <p id="erreur" class="hidden rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:bg-rose-950/30 dark:text-rose-200"></p>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { jourLogique } from '../../lib/noyau/jour-logique';
+  import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
+  import { publierTousLesFaits } from '../../lib/odyssee/faits-branches';
+  import { syntheseDe } from '../../lib/indicateurs';
+  import { construireToutes } from '../../lib/odyssee/series';
+  import {
+    EFFECTIF_MINIMAL,
+    controlerVocabulaire,
+    explorer,
+    recul,
+    tendance,
+    type Piste,
+    type PisteEcartee,
+    type Serie,
+  } from '../../lib/odyssee/tendances';
+  import {
+    PLAFOND_ACTIVES,
+    STATUTS,
+    dejaEcartee,
+    placeDisponible,
+    type StatutTrajectoire,
+    type Trajectoire,
+  } from '../../lib/odyssee/trajectoires';
+  import {
+    changerStatut,
+    ecrireTrajectoire,
+    supprimerTrajectoire,
+    toutesLesTrajectoires,
+  } from '../../lib/odyssee/donnees-corps';
+  import type { TypePeriode } from '../../lib/odyssee/syntheses';
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const nombre = (n: number, d = 1) => n.toLocaleString('fr-FR', { maximumFractionDigits: d });
+
+  let series: Serie[] = [];
+  let trajectoires: Trajectoire[] = [];
+  let pistes: Piste[] = [];
+  let aujourdhui = '';
+
+  function dire(erreur: unknown) {
+    $('erreur').textContent = erreur instanceof Error ? erreur.message : String(erreur);
+    $('erreur').classList.remove('hidden');
+  }
+
+  /* ── Les pistes ────────────────────────────────────────────────────────── */
+
+  const MOTIFS: Record<PisteEcartee['motif'], string> = {
+    effectif: `moins de ${EFFECTIF_MINIMAL} jours où les deux sont mesurés`,
+    effet: 'lien trop petit pour signifier quelque chose',
+    intervalle: 'l’intervalle contient zéro : le signe lui-même n’est pas établi',
+    'comparaisons-multiples': 'ne survit pas à la correction des comparaisons multiples',
+    incalculable: 'une des deux séries ne varie pas',
+  };
+
+  function carteDePiste(piste: Piste): HTMLElement {
+    const carte = document.createElement('article');
+    carte.className =
+      'rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950';
+    carte.dataset.piste = piste.id;
+    carte.dataset.sorte = piste.sorte;
+
+    const enonce = document.createElement('p');
+    enonce.className = 'font-medium text-slate-900 dark:text-white';
+    enonce.textContent = piste.enonce;
+    carte.appendChild(enonce);
+
+    /*
+       La réserve est **à côté** de l'énoncé, dans le même bloc et de la même
+       taille. En note de bas de page, elle ne serait pas lue, et l'énoncé
+       seul se lirait comme une cause — ce que tout le module existe pour
+       empêcher.
+    */
+    const reserve = document.createElement('p');
+    reserve.className = 'mt-1 text-sm text-slate-600 dark:text-slate-300';
+    reserve.textContent = piste.reserve;
+    carte.appendChild(reserve);
+
+    const chiffres = document.createElement('p');
+    chiffres.className = 'mt-2 text-xs text-slate-400 dark:text-slate-500';
+    chiffres.textContent =
+      `${piste.n} jours appariés · recul ${piste.recul.niveau} ` +
+      `(${piste.recul.etendue} jours d’étendue, densité ${nombre(piste.recul.densite, 2)})`;
+    carte.appendChild(chiffres);
+
+    /* Ouvrir une trajectoire depuis la piste : c'est le seul geste proposé. */
+    const suivre = document.createElement('button');
+    suivre.type = 'button';
+    suivre.className = 'mt-2 mr-4 text-xs text-indigo-700 underline dark:text-indigo-300';
+    suivre.textContent = 'En faire une trajectoire';
+    suivre.addEventListener('click', () => {
+      ($('intitule') as HTMLInputElement).value = piste.enonce.split(' sur ')[0];
+      ($('pourquoi') as HTMLInputElement).value = 'Vérifier si cela tient dans la durée.';
+      ($('intitule') as HTMLInputElement).dataset.origine = piste.id;
+      $('intitule').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      ($('intitule') as HTMLInputElement).focus();
+    });
+
+    const ecarter = document.createElement('button');
+    ecarter.type = 'button';
+    ecarter.className = 'text-xs text-slate-500 underline dark:text-slate-400';
+    ecarter.textContent = 'Ne plus me la proposer';
+    ecarter.addEventListener('click', () => {
+      void (async () => {
+        try {
+          /*
+             Une trajectoire « écartée » est créée pour **retenir l'origine**.
+             Sans elle, on ne saurait pas quelle proposition ne plus faire, et
+             la piste reviendrait au prochain chargement.
+          */
+          await ecrireTrajectoire({
+            origine: piste.id,
+            intitule: piste.enonce.slice(0, 120),
+            pourquoi: '',
+            domaine: 'transverse',
+            statut: 'refusee',
+            series: piste.series,
+            debut: new Date().toISOString(),
+            horizon: null,
+            closeLe: new Date().toISOString(),
+            motif: 'Écartée depuis l’écran des tendances.',
+          });
+          await recharger();
+        } catch (erreur) {
+          dire(erreur);
+        }
+      })();
+    });
+
+    carte.append(suivre, ecarter);
+    return carte;
+  }
+
+  function peindrePistes(exploration: ReturnType<typeof explorer>) {
+    /*
+       Les pistes dont l'origine a déjà été écartée ne reviennent pas. C'est
+       la promesse « un refus est respecté », et elle se tient ici parce que
+       c'est ici qu'on affiche.
+    */
+    pistes = exploration.pistes.filter((p) => !dejaEcartee(trajectoires, p.id));
+
+    const zone = $('pistes');
+    zone.innerHTML = '';
+    for (const piste of pistes) zone.appendChild(carteDePiste(piste));
+
+    $('tests').textContent = exploration.tests
+      ? `${exploration.tests} croisement${exploration.tests > 1 ? 's' : ''} testé${
+          exploration.tests > 1 ? 's' : ''
+        }. Plus on en teste, plus il faut d’exigence pour retenir : c’est pourquoi ce nombre est affiché.`
+      : 'Aucun croisement n’a pu être testé.';
+
+    const vide = $('aucune-piste');
+    vide.classList.toggle('hidden', pistes.length > 0);
+    if (!pistes.length) {
+      const parManqueDeDonnees = exploration.ecartees.filter((e) => e.motif === 'effectif').length;
+      vide.textContent = parManqueDeDonnees
+        ? `Aucune piste pour l’instant, et ${parManqueDeDonnees} croisement${
+            parManqueDeDonnees > 1 ? 's' : ''
+          } attend${parManqueDeDonnees > 1 ? 'ent' : ''} simplement plus de jours mesurés. ` +
+          'Ce n’est pas « rien à voir », c’est « pas encore ».'
+        : 'Aucune piste. Les croisements testés ne montrent rien d’assez net pour être dit.';
+    }
+
+    const liste = $('ecartees');
+    liste.innerHTML = '';
+    for (const ecartee of exploration.ecartees) {
+      const li = document.createElement('li');
+      li.className = 'text-slate-500 dark:text-slate-400';
+      li.dataset.motif = ecartee.motif;
+      const noms = ecartee.series
+        .map((id) => series.find((s) => s.id === id)?.libelle ?? id)
+        .join(' × ');
+      li.textContent =
+        `${noms}${ecartee.decalage ? ` (décalé de ${ecartee.decalage} j)` : ''} — ` +
+        `${MOTIFS[ecartee.motif]} (${ecartee.n} jours).`;
+      liste.appendChild(li);
+    }
+  }
+
+  /* ── La revue de cinq minutes ──────────────────────────────────────────── */
+
+  function peindreRevue(exploration: ReturnType<typeof explorer>) {
+    const tous = [...series.values()].flatMap((s) => [...s.valeurs.keys()]);
+    const monRecul = recul(tous);
+    const montantes = series.map((s) => tendance(s)).filter((t): t is Piste => t !== null);
+
+    $('revue-quand').textContent = `Au ${new Date(`${aujourdhui}T12:00:00`).toLocaleDateString(
+      'fr-FR',
+      { day: 'numeric', month: 'long' },
+    )}`;
+
+    const questions: { titre: string; reponse: string }[] = [
+      {
+        titre: 'Qu’est-ce qui a bougé ?',
+        reponse: montantes.length
+          ? montantes.map((t) => t.enonce).join(' ')
+          : 'Rien de net sur les séries mesurées. Une semaine sans mouvement est une semaine, pas un échec.',
+      },
+      {
+        titre: 'Qu’est-ce qui se tient ensemble ?',
+        reponse: exploration.pistes.length
+          ? `${exploration.pistes.length} piste${exploration.pistes.length > 1 ? 's' : ''} ci-dessous. Lisez la réserve avant l’énoncé.`
+          : 'Aucun croisement net. Voir plus bas ce qui a été regardé, et pourquoi il a été écarté.',
+      },
+      {
+        titre: 'Avec quel recul ?',
+        reponse:
+          monRecul.niveau === 'aucun'
+            ? `Trop peu : ${monRecul.renseignes} jours renseignés sur ${monRecul.etendue} d’étendue. Rien de ce qui précède n’est solide.`
+            : `Recul ${monRecul.niveau} : ${monRecul.renseignes} jours renseignés sur ${monRecul.etendue} d’étendue, densité ${nombre(monRecul.densite, 2)}.`,
+      },
+      {
+        titre: 'Qu’est-ce que je garde pour les prochaines semaines ?',
+        reponse: (() => {
+          const actives = trajectoires.filter((t) => t.statut === 'active');
+          if (!actives.length) {
+            return `Aucune trajectoire en cours. ${PLAFOND_ACTIVES} places libres — et zéro est un choix valable.`;
+          }
+          return actives.map((t) => t.intitule).join(' · ');
+        })(),
+      },
+    ];
+
+    const liste = $('revue');
+    liste.innerHTML = '';
+    questions.forEach((question, rang) => {
+      const li = document.createElement('li');
+      li.dataset.question = String(rang + 1);
+      const titre = document.createElement('p');
+      titre.className = 'font-medium text-slate-900 dark:text-white';
+      titre.textContent = `${rang + 1}. ${question.titre}`;
+      const reponse = document.createElement('p');
+      reponse.className = 'mt-0.5 text-sm text-slate-600 dark:text-slate-300';
+      reponse.textContent = question.reponse;
+      li.append(titre, reponse);
+      liste.appendChild(li);
+    });
+  }
+
+  /* ── Les trajectoires ──────────────────────────────────────────────────── */
+
+  function peindreTrajectoires() {
+    const zone = $('trajectoires');
+    zone.innerHTML = '';
+    const visibles = trajectoires
+      .filter((t) => t.statut !== 'refusee')
+      .sort(
+        (a, b) =>
+          Number(b.statut === 'active') - Number(a.statut === 'active') ||
+          b.debut.localeCompare(a.debut),
+      );
+    $('aucune-trajectoire').classList.toggle('hidden', visibles.length > 0);
+
+    for (const t of visibles) {
+      const carte = document.createElement('article');
+      carte.className =
+        t.statut === 'active'
+          ? 'rounded-2xl border border-indigo-200 bg-white px-4 py-3 dark:border-indigo-900 dark:bg-slate-950'
+          : 'rounded-2xl border border-slate-200 px-4 py-2 dark:border-slate-800';
+      carte.dataset.trajectoire = t.id;
+      carte.dataset.statut = t.statut;
+
+      const titre = document.createElement('p');
+      titre.className = 'font-medium text-slate-900 dark:text-white';
+      titre.textContent = t.intitule;
+      carte.appendChild(titre);
+
+      const detail = document.createElement('p');
+      detail.className = 'mt-0.5 text-xs text-slate-500 dark:text-slate-400';
+      detail.textContent =
+        `${STATUTS[t.statut]} · ${t.domaine}` +
+        (t.horizon ? ` · horizon ${new Date(`${t.horizon}T12:00:00`).toLocaleDateString('fr-FR')}` : '') +
+        (t.pourquoi ? ` · ${t.pourquoi}` : '') +
+        (t.motif ? ` · ${t.motif}` : '');
+      carte.appendChild(detail);
+
+      const actions = document.createElement('div');
+      actions.className = 'mt-2 flex flex-wrap gap-4 text-xs';
+      const changer = (statut: StatutTrajectoire, libelle: string, motif = '') => {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.dataset.vers = statut;
+        b.className = 'text-indigo-700 underline dark:text-indigo-300';
+        b.textContent = libelle;
+        b.addEventListener('click', () => {
+          void (async () => {
+            try {
+              await changerStatut(t.id, statut, motif);
+              await recharger();
+            } catch (erreur) {
+              dire(erreur);
+            }
+          })();
+        });
+        return b;
+      };
+      if (t.statut === 'active') {
+        actions.append(
+          changer('atteinte', 'Atteinte'),
+          changer('abandonnee', 'Abandonner', 'Abandonnée depuis l’écran des tendances.'),
+        );
+      } else {
+        actions.append(changer('active', 'La reprendre'));
+      }
+      const effacer = document.createElement('button');
+      effacer.type = 'button';
+      effacer.className = 'text-rose-700 underline dark:text-rose-300';
+      effacer.textContent = 'Supprimer';
+      effacer.addEventListener('click', () => void supprimerTrajectoire(t.id).then(recharger));
+      actions.appendChild(effacer);
+      carte.appendChild(actions);
+      zone.appendChild(carte);
+    }
+
+    const place = placeDisponible(trajectoires);
+    $('place').textContent = place.pourquoi;
+  }
+
+  /* ── Le bilan ──────────────────────────────────────────────────────────── */
+
+  async function peindreBilan() {
+    const type = ($('periode') as HTMLSelectElement).value as TypePeriode;
+    const { synthese, avant, comparaisons } = await syntheseDe(type);
+
+    $('bilan-periode').textContent =
+      `Du ${new Date(`${synthese.periode.de}T12:00:00`).toLocaleDateString('fr-FR')} ` +
+      `au ${new Date(`${synthese.periode.a}T12:00:00`).toLocaleDateString('fr-FR')}` +
+      (avant
+        ? ` — comparé au ${new Date(`${avant.periode.de}T12:00:00`).toLocaleDateString('fr-FR')} ` +
+          `au ${new Date(`${avant.periode.a}T12:00:00`).toLocaleDateString('fr-FR')}.`
+        : '.');
+
+    const mot: Record<string, string> = {
+      mieux: 'mieux',
+      'moins-bien': 'moins bien',
+      stable: 'stable',
+      aucun: '—',
+    };
+    const couleur: Record<string, string> = {
+      mieux: 'text-emerald-700 dark:text-emerald-300',
+      'moins-bien': 'text-amber-700 dark:text-amber-300',
+      stable: 'text-slate-500 dark:text-slate-400',
+      aucun: 'text-slate-400 dark:text-slate-500',
+    };
+
+    const corps = $('bilan');
+    corps.innerHTML = '';
+    for (const c of comparaisons) {
+      /*
+         Les indicateurs sans mesure **ni** avant ni maintenant sont laissés
+         de côté : une ligne « — / — / — » occupe une place sans rien dire, et
+         le compte des manques est annoncé en dessous.
+      */
+      if (c.avant === null && c.apres === null) continue;
+      const tr = document.createElement('tr');
+      tr.className = 'border-b border-slate-100 dark:border-slate-900';
+      tr.dataset.indicateur = c.indicateur;
+      tr.dataset.verdict = c.verdict;
+
+      const nom = document.createElement('th');
+      nom.scope = 'row';
+      nom.className = 'py-1.5 text-left font-normal text-slate-700 dark:text-slate-200';
+      nom.textContent = c.libelle;
+      tr.appendChild(nom);
+
+      for (const valeur of [c.avant, c.apres]) {
+        const td = document.createElement('td');
+        td.className = 'py-1.5 text-right tabular-nums text-slate-600 dark:text-slate-300';
+        td.textContent = valeur === null ? '—' : nombre(valeur, 2);
+        tr.appendChild(td);
+      }
+      const verdict = document.createElement('td');
+      verdict.className = `py-1.5 pl-3 text-xs ${couleur[c.verdict]}`;
+      verdict.textContent =
+        c.ecart === null ? '—' : `${c.ecart > 0 ? '+' : ''}${nombre(c.ecart, 2)} · ${mot[c.verdict]}`;
+      tr.appendChild(verdict);
+      corps.appendChild(tr);
+    }
+
+    $('bilan-manques').textContent = synthese.manques.length
+      ? `${synthese.manques.length} indicateur${synthese.manques.length > 1 ? 's' : ''} sans mesure sur cette période : ${synthese.manques
+          .slice(0, 5)
+          .map((m) => m.libelle)
+          .join(', ')}${synthese.manques.length > 5 ? '…' : ''}`
+      : '';
+  }
+
+  /* ── Le cycle ──────────────────────────────────────────────────────────── */
+
+  async function recharger() {
+    $('erreur').classList.add('hidden');
+    const [publication, lesTrajectoires] = await Promise.all([
+      publierTousLesFaits(),
+      toutesLesTrajectoires(),
+    ]);
+    trajectoires = lesTrajectoires;
+    series = construireToutes(publication.faits);
+
+    const decalages = ($('decalages') as HTMLInputElement).checked ? [0, 1] : [0];
+    const exploration = explorer(series, { decalages });
+
+    /*
+       Le contrôle de vocabulaire tourne **sur les phrases réellement
+       affichées**, et pas seulement dans les essais. Si une formulation
+       future affirmait une cause, elle serait signalée ici plutôt que lue
+       comme une vérité.
+    */
+    const problemes = controlerVocabulaire(
+      exploration.pistes.flatMap((p) => [p.enonce, p.reserve]),
+    );
+    if (problemes.length) {
+      dire(
+        new Error(
+          `Une formulation affirme une cause et a été retenue à tort : ${problemes[0]}. ` +
+            'Signalez-le : c’est un défaut du programme, pas de vos données.',
+        ),
+      );
+    }
+
+    peindreTrajectoires();
+    peindrePistes(exploration);
+    peindreRevue(exploration);
+    await peindreBilan();
+  }
+
+  auDeverrouillage(
+    async () => {
+      const reglages = await reglagesJourLogiqueLocaux();
+      aujourdhui = jourLogique(new Date(), reglages);
+
+      $('periode').addEventListener('change', () => {
+        void peindreBilan().catch(dire);
+      });
+      $('decalages').addEventListener('change', () => void recharger().catch(dire));
+
+      $('ouvrir').addEventListener('click', () => {
+        void (async () => {
+          try {
+            const champ = $('intitule') as HTMLInputElement;
+            const horizon = ($('horizon') as HTMLInputElement).value;
+            await ecrireTrajectoire({
+              origine: champ.dataset.origine ?? null,
+              intitule: champ.value.trim(),
+              pourquoi: ($('pourquoi') as HTMLInputElement).value.trim(),
+              domaine: ($('domaine') as HTMLSelectElement).value,
+              statut: 'active',
+              series: [],
+              debut: new Date().toISOString(),
+              horizon: horizon || null,
+              closeLe: null,
+              motif: '',
+            });
+            champ.value = '';
+            delete champ.dataset.origine;
+            ($('pourquoi') as HTMLInputElement).value = '';
+            await recharger();
+          } catch (erreur) {
+            dire(erreur);
+          }
+        })();
+      });
+
+      await recharger();
+      $('vue').classList.remove('hidden');
+    },
+    { zoneChargement: '#chargement-tendances' },
+  );
+</script>

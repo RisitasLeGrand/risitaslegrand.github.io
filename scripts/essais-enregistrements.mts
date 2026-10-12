@@ -123,7 +123,7 @@ v(
   [],
 );
 /*
-   Huit pour Révisions, onze pour Odyssée, cinq pour Sport.
+   Huit pour Révisions, douze pour Odyssée, cinq pour Sport.
 
    Ce compte s'était **tu** quand les quatre premiers magasins de Sport sont
    entrés au registre : l'essai annonçait treize et personne ne le lançait.
@@ -131,9 +131,9 @@ v(
    les compter — un compte qui bouge se corrige sans rien apprendre, une liste
    nommée dit lequel manque.
 */
-v('vingt-quatre magasins journalisés', MAGASINS_JOURNALISES.length, 24);
+v('vingt-cinq magasins journalisés', MAGASINS_JOURNALISES.length, 25);
 v(
-  'et les onze d’Odyssée y sont',
+  'et les douze d’Odyssée y sont',
   MAGASINS_JOURNALISES.filter((m) => m.magasin.startsWith('odyssee')).map((m) => m.magasin),
   [
     'odysseeTaches',
@@ -148,6 +148,8 @@ v(
     'odysseeRepas',
     'odysseeBoissons',
     'odysseeSante',
+    // Les trajectoires, depuis la phase 9.
+    'odysseeTrajectoires',
   ],
 );
 /*

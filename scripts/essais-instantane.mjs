@@ -282,7 +282,7 @@ v(
     'sportExercices', 'sportSeances', 'sportPhases', 'sportBlessures', 'sportProgrammes',
     // Le domaine Corps d'Odyssée, depuis la version 18.
     'odysseePesees', 'odysseeMesures', 'odysseeNuits', 'odysseeRepas', 'odysseeBoissons',
-    'odysseeSante',
+    'odysseeSante', 'odysseeTrajectoires',
   ].sort(),
 );
 

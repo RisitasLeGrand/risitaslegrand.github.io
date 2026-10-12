@@ -29,6 +29,13 @@ import {
   type QuoiMesurer,
   type Repas,
 } from './corps';
+import {
+  controlerTrajectoire,
+  estActive,
+  placeDisponible,
+  type StatutTrajectoire,
+  type Trajectoire,
+} from './trajectoires';
 
 type MagasinCorps =
   | 'odysseePesees'
@@ -36,7 +43,8 @@ type MagasinCorps =
   | 'odysseeNuits'
   | 'odysseeRepas'
   | 'odysseeBoissons'
-  | 'odysseeSante';
+  | 'odysseeSante'
+  | 'odysseeTrajectoires';
 
 async function journaliser(magasin: MagasinCorps, enregistrement: unknown): Promise<void> {
   try {
@@ -250,4 +258,77 @@ export const toutLEtatDeSante = async (): Promise<EtatDeSante[]> =>
 export async function supprimerSante(id: string): Promise<void> {
   await (await db()).delete('odysseeSante', id);
   await journaliserSuppression([`odysseeSante:${id}`]);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Les trajectoires
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export type TrajectoireNeuve = Omit<Trajectoire, 'id' | 'majLe'> &
+  Partial<Pick<Trajectoire, 'id'>>;
+
+/**
+ * Écrit une trajectoire, et **refuse** la quatrième active.
+ *
+ * Le plafond est appliqué ici et non à l'écran, par la règle de maison : un
+ * écran se contourne, un contrôle refuse l'écriture. Une trajectoire qu'on
+ * rend inactive peut toujours être enregistrée — c'est précisément comme on
+ * fait de la place.
+ */
+export async function ecrireTrajectoire(neuve: TrajectoireNeuve): Promise<Trajectoire> {
+  const trajectoire: Trajectoire = {
+    ...neuve,
+    id: neuve.id ?? ulid(),
+    majLe: maintenant(),
+  };
+  exiger(controlerTrajectoire(trajectoire));
+
+  if (estActive(trajectoire)) {
+    const place = placeDisponible(await toutesLesTrajectoires(), trajectoire.id);
+    if (!place.possible) throw new Error(place.pourquoi);
+  }
+  await (await db()).put('odysseeTrajectoires', trajectoire);
+  await journaliser('odysseeTrajectoires', trajectoire);
+  return trajectoire;
+}
+
+/**
+ * Change le statut d'une trajectoire.
+ *
+ * La date de clôture est posée ici, jamais par l'appelant : un statut sans
+ * date est refusé par le contrôle, et laisser l'écran la fournir ferait deux
+ * endroits où l'oublier.
+ */
+export async function changerStatut(
+  id: string,
+  statut: StatutTrajectoire,
+  motif = '',
+  le = new Date(),
+): Promise<Trajectoire | null> {
+  const base = await db();
+  const trajectoire = await base.get('odysseeTrajectoires', id);
+  if (!trajectoire) return null;
+  const avec: Trajectoire = {
+    ...trajectoire,
+    statut,
+    motif: statut === 'active' ? '' : motif || trajectoire.motif,
+    closeLe: statut === 'active' ? null : le.toISOString(),
+    majLe: maintenant(),
+  };
+  exiger(controlerTrajectoire(avec));
+  if (statut === 'active') {
+    const place = placeDisponible(await toutesLesTrajectoires(), id);
+    if (!place.possible) throw new Error(place.pourquoi);
+  }
+  await base.put('odysseeTrajectoires', avec);
+  await journaliser('odysseeTrajectoires', avec);
+  return avec;
+}
+
+export const toutesLesTrajectoires = async (): Promise<Trajectoire[]> =>
+  (await db()).getAll('odysseeTrajectoires');
+
+export async function supprimerTrajectoire(id: string): Promise<void> {
+  await (await db()).delete('odysseeTrajectoires', id);
+  await journaliserSuppression([`odysseeTrajectoires:${id}`]);
 }

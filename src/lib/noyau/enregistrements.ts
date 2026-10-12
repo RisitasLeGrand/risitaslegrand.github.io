@@ -350,6 +350,12 @@ export const MAGASINS_JOURNALISES: readonly MagasinJournalise[] = [
   M({ magasin: 'odysseeRepas', type: 'odyssee.repas', clef: 'id', libelle: 'Repas' }),
   M({ magasin: 'odysseeBoissons', type: 'odyssee.hydratation', clef: 'id', libelle: 'Boisson' }),
   M({ magasin: 'odysseeSante', type: 'odyssee.sante', clef: 'id', libelle: 'État de santé' }),
+  /*
+     Une trajectoire **voyage**, contrairement aux refus de Sport : elle porte
+     un choix de fond sur les prochains mois, pas une consigne de silence de
+     trois semaines. La perdre en changeant d'appareil coûterait quelque chose.
+  */
+  M({ magasin: 'odysseeTrajectoires', type: 'odyssee.quete', clef: 'id', libelle: 'Trajectoire' }),
 ];
 
 const PAR_MAGASIN = new Map(MAGASINS_JOURNALISES.map((m) => [m.magasin, m]));

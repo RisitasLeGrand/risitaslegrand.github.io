@@ -421,6 +421,53 @@ progresser.
 
 ---
 
+## Phase 9 — Tendances, trajectoires, revues
+
+> **Faite le 12 octobre 2026.** `src/lib/odyssee/tendances.ts`, `series.ts`, `trajectoires.ts`,
+> le magasin `odysseeTrajectoires` (migration v19, additive) et `/odyssee/tendances/`.
+>
+> **Quatre garde-fous, et l'ordre compte.** L'effectif d'abord — sous vingt paires appariées, le
+> calcul n'est pas fait, et dix jours de corrélation *parfaite* ne produisent rien ; la taille
+> d'effet ensuite ; l'intervalle de confiance, qui écarte tout ce dont le signe n'est pas établi ;
+> et Benjamini-Hochberg en dernier, parce qu'elle a besoin du nombre total de tests. **Le nombre
+> de tests est affiché** : une piste retenue parmi quarante-cinq ne se lit pas comme une piste
+> retenue parmi deux.
+>
+> **Le vocabulaire est fermé, et un contrôle le vérifie.** `controlerVocabulaire()` relit les
+> phrases **produites** — pas l'intention — et refuse vingt-six tournures de causalité, y compris
+> celles qui ont l'air prudentes : « favorise », « contribue à », « grâce à ». Le contrôle tourne
+> aussi **dans la page** : une formulation future qui affirmerait une cause serait signalée au
+> lieu d'être lue comme une vérité. Chaque piste porte sa **réserve** à côté de son énoncé, de la
+> même taille — en note de bas de page, elle ne serait pas lue.
+>
+> **Ce qui est écarté est affiché, avec son motif.** Un écran de tendances vide se lit « il n'y a
+> rien à voir », alors que le vrai message est presque toujours « pas encore assez de données ».
+> Les deux appellent des conduites opposées : l'une fait abandonner, l'autre fait continuer à
+> mesurer.
+>
+> **Le recul se mesure à deux chiffres**, étendue et densité, parce qu'ils se trompent
+> différemment : six mois à quatre points n'est pas du recul, c'est un souvenir.
+>
+> **L'agrégation d'une série est déclarée par type, jamais devinée.** Sommer des pesées donnerait
+> 157 kg ; deviner d'après l'unité confondrait une pesée et une charge soulevée, toutes deux « en
+> kg ». Une séance sans difficulté notée est **sautée**, pas comptée pour zéro.
+>
+> **Trois trajectoires, et c'est un refus d'écriture.** Le plafond vit dans `ecrireTrajectoire`,
+> pas à l'écran : une liste de douze intentions n'est pas douze fois plus ambitieuse, c'est une
+> liste qu'on ne regarde plus. Un **refus se mémorise par l'origine** — l'identifiant de la piste,
+> jamais l'intitulé — et il voyage, contrairement aux refus de Sport : il porte un choix de fond
+> sur les prochains mois, pas une consigne de silence de trois semaines.
+>
+> **Les statistiques sont vérifiées à la main.** Chaque cas d'essai porte son calcul en
+> commentaire : l'écart-type en n−1 sur un jeu choisi pour que l'erreur de dénominateur se voie,
+> r = 6/√60 posé à la main, la pente calculée **en jours** et non en rang — l'essai compare
+> explicitement aux deux —, et un cas de Benjamini-Hochberg qui **remonte** : 0,03 échoue à son
+> propre seuil et se trouve retenu parce qu'un rang supérieur passe. Un filtrage test par test
+> donnerait un autre résultat, et ce ne serait plus BH. (Mon premier jeu d'essai était faux :
+> j'avais mal classé les rangs. Il est refait, avec le tableau des seuils en commentaire.)
+
+---
+
 ## Ce qui attend une décision avant d'être construit
 
 | Décision | Ce qu'elle bloque | État |
