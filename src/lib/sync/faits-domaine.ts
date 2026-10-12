@@ -27,6 +27,7 @@ import { prochaineHlc } from './horloge-locale';
 import { decoderHlc } from '../noyau/hlc';
 import { operation, SANS_LOT, type Operation } from '../noyau/operations';
 import { TYPE_SUPPRESSION } from '../noyau/fusion';
+import { resolutions } from '../noyau/corrections';
 import { ulid } from '../noyau/ulid';
 import {
   MAGASINS_JOURNALISES,
@@ -123,13 +124,24 @@ export interface RapportSocle {
 export async function soclerFaitsDomaine(): Promise<RapportSocle> {
   const base = await db();
   const operations = await toutesLesOperations();
+  /*
+     Ce que le journal connaît déjà. Pour un magasin à socle **partagé**, une
+     opération de n'importe quel appareil suffit : l'enregistrement est le même
+     des deux côtés. Pour un magasin à socle **par appareil**, il faut une
+     opération **de cet appareil** — celle de l'autre décrit sa version, pas la
+     nôtre, et s'en contenter ferait disparaître la moitié de l'histoire.
+  */
   const connues = new Set<string>();
   for (const op of operations) {
-    if (lireCible(op.cible)) connues.add(op.cible);
+    const defaite = lireCible(op.cible);
+    if (!defaite) continue;
+    connues.add(op.cible);
+    connues.add(`${op.cible}\u0000${op.appareil}`);
   }
 
   const parMagasin: Record<string, number> = {};
   let total = 0;
+  const soi = await lireAppareil();
   for (const declare of MAGASINS_JOURNALISES) {
     const enregistrements = (await base.getAll(
       declare.magasin as never,
@@ -138,8 +150,13 @@ export async function soclerFaitsDomaine(): Promise<RapportSocle> {
     for (const enregistrement of enregistrements) {
       const clef = enregistrement[declare.clef];
       if (typeof clef !== 'string' || !clef) continue;
-      if (connues.has(cibleDe(declare.magasin, clef))) continue;
-      const op = operationSocle(declare.magasin, enregistrement);
+      const cible = cibleDe(declare.magasin, clef);
+      const dejaLa =
+        declare.soclePar === 'appareil'
+          ? connues.has(`${cible}\u0000${soi}`)
+          : connues.has(cible);
+      if (dejaLa) continue;
+      const op = operationSocle(declare.magasin, enregistrement, soi);
       if (op) aEcrire.push(op);
     }
     if (!aEcrire.length) continue;
@@ -170,7 +187,16 @@ export async function materialiserFaitsDomaine(
 ): Promise<RapportMaterialisation> {
   const base = await db();
   const operations = await toutesLesOperations();
-  const plan = materialiser(operations, cibles ? { cibles } : {});
+  /*
+     Les réponses aux conflits sont lues du journal, et non d'un état local :
+     une résolution est une opération, donc elle voyage, donc les deux appareils
+     matérialisent la même version. C'est tout l'intérêt de l'avoir faite
+     journalisée à la phase 4c.
+  */
+  const plan = materialiser(operations, {
+    ...(cibles ? { cibles } : {}),
+    retenues: resolutions(operations),
+  });
 
   let ecrits = 0;
   for (const aEcrire of plan.aEcrire) {

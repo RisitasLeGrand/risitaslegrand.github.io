@@ -1327,8 +1327,45 @@ async function journaliser(magasin: string, enregistrement: unknown): Promise<vo
   }
 }
 
+/** Journalise une suppression, pour qu'elle voyage. Muette pour la même raison. */
+async function journaliserSuppression(cibles: readonly string[]): Promise<void> {
+  try {
+    const { journaliserSuppressions } = await import('./sync/faits-domaine');
+    await journaliserSuppressions(cibles);
+  } catch {
+    // Volontairement muet : voir ci-dessus.
+  }
+}
+
+/**
+ * Ce qui, dans l'état d'une fiche, mérite d'entrer au journal.
+ *
+ * Pas tout : `ecrireEtatFiche` est appelée **à chaque ouverture** de fiche, pour
+ * poser `derniereOuverture`. Journaliser à chaque fois ferait une opération par
+ * consultation — des milliers en cinq ans, jamais dédoublonnables puisque
+ * l'heure change à chaque fois. Or ce qui doit voyager est l'histoire de la
+ * fiche, pas le compte de ses visites : lue ou non, prétestée ou non, quelles
+ * questions de prétest ont déjà été servies.
+ *
+ * La comparaison porte donc sur cette projection, et la date d'ouverture voyage
+ * seulement quand elle accompagne un changement réel.
+ */
+const partieJournalisable = (etat: Partial<EtatFiche> | undefined) =>
+  JSON.stringify([
+    etat?.lu ?? false,
+    etat?.matiere ?? '',
+    etat?.pretesteeLe ?? null,
+    etat?.pretestPasseLe ?? null,
+    [...(etat?.pretestVues ?? [])].sort(),
+  ]);
+
 export async function ecrireEtatFiche(etat: EtatFiche) {
-  await (await db()).put('fiches', etat);
+  const base = await db();
+  const avant = await base.get('fiches', etat.id);
+  await base.put('fiches', etat);
+  if (!avant || partieJournalisable(avant) !== partieJournalisable(etat)) {
+    await journaliser('fiches', etat);
+  }
 }
 
 export async function ajouterResultatQuiz(resultat: ResultatQuiz) {
@@ -1462,9 +1499,12 @@ export async function ecrireNoteSeance(
   const vide = !note.trim() && !Object.values(restitutions).some((r) => r.trim());
   if (vide) {
     await base.delete('notes', seanceId);
+    await journaliserSuppression([`notes:${seanceId}`]);
     return;
   }
-  await base.put('notes', { seanceId, note, restitutions, majLe: new Date().toISOString() });
+  const enregistrement = { seanceId, note, restitutions, majLe: new Date().toISOString() };
+  await base.put('notes', enregistrement);
+  await journaliser('notes', enregistrement);
 }
 
 /**
@@ -1553,11 +1593,18 @@ export async function ecrireSeance(seance: Seance): Promise<string> {
   // auto-incrémenté, et une séance sans identifiant n'aurait pas de clé.
   const avecId = { ...seance, id: seance.id ?? ulid() };
   await base.put('seances', avecId);
+  await journaliser('seances', avecId);
   return avecId.id;
 }
 
 export async function supprimerSeance(id: string) {
   await (await db()).delete('seances', id);
+  /*
+     Une suppression est une opération, pas une absence : sans elle, la séance
+     reviendrait à la première synchronisation, puisque l'autre appareil porte
+     encore son écriture. Sa note part avec elle, pour la même raison.
+  */
+  await journaliserSuppression([`seances:${id}`, `notes:${id}`]);
 }
 
 /* --- Réglages de session -------------------------------------------------- */

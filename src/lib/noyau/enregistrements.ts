@@ -78,28 +78,172 @@ export interface MagasinJournalise {
   clef: string;
   /** Ce que c'est, en français, pour les écrans et les messages. */
   libelle: string;
+  /**
+   * Un socle **partagé** ou **par appareil**, et le choix n'est pas cosmétique.
+   *
+   * `partage` (le défaut) : l'identifiant du socle ne dépend que de la cible,
+   * donc deux appareils qui portent le même enregistrement produisent **une
+   * seule** opération et se réconcilient en silence. C'est ce qu'il faut pour un
+   * événement **immuable** — un QCM passé le 3 mai est le même des deux côtés,
+   * et deux opérations pour un seul fait seraient du bruit.
+   *
+   * `appareil` : l'identifiant porte aussi l'appareil, et l'opération son nom.
+   * C'est ce qu'il faut dès que l'enregistrement peut **légitimement différer**
+   * d'un appareil à l'autre : l'état d'une fiche, qui se combine, et la note
+   * d'une séance, dont le désaccord doit être **montré**. Avec un socle
+   * partagé, les deux versions auraient le même identifiant : l'union n'en
+   * aurait gardé qu'une, choisie par une règle de départage qui n'a aucun sens
+   * métier, et la seconde aurait disparu sans que rien ne le dise.
+   */
+  soclePar?: 'partage' | 'appareil';
+  /**
+   * Comment plusieurs appareils se combinent, quand « le dernier gagne » est faux.
+   *
+   * Reçoit **la dernière version de chaque appareil**, dans l'ordre de l'horloge,
+   * et rend l'enregistrement à écrire. Deux écritures du même appareil ne sont
+   * pas une divergence : c'est une correction, et seule la plus récente est
+   * présentée ici.
+   *
+   * Sans `combiner`, la règle reste « la dernière opération gagne », ce qui est
+   * juste pour un événement immuable et pour une séance.
+   */
+  combiner?: (
+    versions: readonly { appareil: string; enregistrement: Record<string, unknown> }[],
+  ) => Record<string, unknown>;
 }
 
 const M = (m: MagasinJournalise): MagasinJournalise => m;
 
+/* --- La règle de l'état d'une fiche -------------------------------------- */
+
+const ouLogique = (versions: readonly Record<string, unknown>[], champ: string): boolean =>
+  versions.some((v) => v[champ] === true);
+
+/** Le plus grand des textes comparables — donc la date la plus récente, en ISO. */
+function dateMax(versions: readonly Record<string, unknown>[], champ: string): string | undefined {
+  let haut: string | undefined;
+  for (const v of versions) {
+    const valeur = v[champ];
+    if (typeof valeur !== 'string' || !valeur) continue;
+    if (!haut || valeur > haut) haut = valeur;
+  }
+  return haut;
+}
+
+/** La plus ancienne des dates. */
+function dateMin(versions: readonly Record<string, unknown>[], champ: string): string | undefined {
+  let bas: string | undefined;
+  for (const v of versions) {
+    const valeur = v[champ];
+    if (typeof valeur !== 'string' || !valeur) continue;
+    if (!bas || valeur < bas) bas = valeur;
+  }
+  return bas;
+}
+
+function nombreMax(versions: readonly Record<string, unknown>[], champ: string): number {
+  let haut = 0;
+  for (const v of versions) {
+    const valeur = v[champ];
+    if (typeof valeur === 'number' && Number.isFinite(valeur) && valeur > haut) haut = valeur;
+  }
+  return haut;
+}
+
+function union(versions: readonly Record<string, unknown>[], champ: string): string[] {
+  const vus = new Set<string>();
+  for (const v of versions) {
+    const valeur = v[champ];
+    if (!Array.isArray(valeur)) continue;
+    for (const x of valeur) if (typeof x === 'string') vus.add(x);
+  }
+  return [...vus].sort();
+}
+
+/**
+ * L'état d'une fiche se **combine**, champ par champ, et ne s'écrase pas.
+ *
+ * C'est le seul magasin où « la dernière écriture gagne » serait faux, et pour
+ * une raison simple : ses champs ne décrivent pas un état instantané, ils
+ * accumulent une histoire. Lue sur l'ordinateur, elle est lue ; prétestée sur
+ * le téléphone, elle est prétestée. Prendre la version la plus récente
+ * effacerait l'une des deux, et personne ne saurait laquelle.
+ *
+ * Champ par champ, et chaque règle a sa raison :
+ *
+ * - `lu` : **ou logique**. Une fiche lue ne redevient pas non lue.
+ * - `pretesteeLe` : **la plus ancienne**. L'effet de prétest tient à ce qu'il
+ *   précède la première lecture ; c'est donc la première tentative qui compte.
+ * - `pretestPasseLe` : **la plus récente**. « Passer » n'est pas répondre, et le
+ *   prétest revient un autre jour : c'est le dernier report qui décide.
+ * - `pretestVues` : **union**. Les questions déjà servies ne doivent pas
+ *   revenir, d'où qu'elles aient été servies.
+ * - `derniereOuverture` : **la plus récente**, qui est la seule lecture juste.
+ * - `secondes` : **le maximum**. Un compteur fusionné par le maximum
+ *   sous-estime quand on a lu la même fiche sur deux appareils ; il ne
+ *   surestime jamais, et une surestimation serait pire — elle ferait croire à
+ *   un travail qui n'a pas eu lieu. (Le champ n'est d'ailleurs incrémenté
+ *   nulle part aujourd'hui : il est reporté tel quel d'une écriture à l'autre.)
+ * - `matiere` : celle de la version la plus récente. C'est une étiquette, pas
+ *   une histoire.
+ */
+export function combinerEtatDeFiche(
+  versions: readonly { appareil: string; enregistrement: Record<string, unknown> }[],
+): Record<string, unknown> {
+  const tous = versions.map((v) => v.enregistrement);
+  const derniere = tous[tous.length - 1] ?? {};
+  const combine: Record<string, unknown> = {
+    ...derniere,
+    lu: ouLogique(tous, 'lu'),
+    secondes: nombreMax(tous, 'secondes'),
+  };
+
+  const ouverture = dateMax(tous, 'derniereOuverture');
+  combine.derniereOuverture = ouverture ?? null;
+
+  const pretestee = dateMin(tous, 'pretesteeLe');
+  if (pretestee) combine.pretesteeLe = pretestee;
+  else delete combine.pretesteeLe;
+
+  const passe = dateMax(tous, 'pretestPasseLe');
+  if (passe) combine.pretestPasseLe = passe;
+  else delete combine.pretestPasseLe;
+
+  const vues = union(tous, 'pretestVues');
+  if (vues.length) combine.pretestVues = vues;
+  else delete combine.pretestVues;
+
+  return combine;
+}
+
 /**
  * Les magasins dont chaque enregistrement entre au journal.
  *
- * Cinq, et tous **immuables** : un résultat de QCM, une partie de N-Back, une
- * session de Veridical Mapping ne se modifient pas après coup. C'est ce qui
- * rend la règle « la dernière opération gagne » sans conséquence ici — il n'y
- * en a jamais qu'une par cible, sauf socle redondant.
+ * Cinq d'abord, tous **immuables** : un résultat de QCM, une partie de N-Back,
+ * une session de Veridical Mapping ne se modifient pas après coup. C'est ce qui
+ * rend la règle « la dernière opération gagne » sans conséquence pour eux — il
+ * n'y en a jamais qu'une par cible, sauf socle redondant.
  *
- * Ce que la liste ne contient pas, et pourquoi chaque absence est une décision :
+ * Deux de plus, qui ont demandé chacune leur règle :
  *
- * - **Les séances** se modifient (prévue, puis terminée, puis sa durée), et
- *   **les notes de séance** sont des textes rédigés à la main. Un dernier
- *   écrivain silencieux y perdrait deux pages de restitution. Elles demandent
- *   leur propre règle, et elles l'auront.
- * - **Les états de fiche** portent un **compteur** — les secondes passées
- *   dessus — et une date d'ouverture locale. Un compteur fusionné par « le
- *   dernier gagne » perd le temps lu sur l'autre appareil, ce qui est faux et
- *   invisible. Il faut une somme par appareil, donc une règle de plus.
+ * - **Les séances** se modifient : prévue, puis terminée, puis sa durée
+ *   corrigée. La dernière écriture gagne, et c'est juste ici — les champs d'une
+ *   séance sont objectifs, et l'écriture la plus récente est la mieux informée.
+ * - **Les notes de séance** sont des textes rédigés à la main, parfois deux
+ *   pages. La dernière écriture gagne **aussi**, mais le désaccord entre deux
+ *   appareils est **montré** et non résolu : `revision.note-seance` est dans
+ *   `TYPES_TEXTE_A_CONFLIT`, la version la plus récente s'affiche en attendant,
+ *   et la réponse donnée au conflit décide — `materialiser` la respecte.
+ *
+ * - **Les états de fiche** ne s'écrasent pas, ils se **combinent** : lue sur
+ *   l'ordinateur, prétestée sur le téléphone, les deux doivent tenir. C'est le
+ *   seul magasin à porter un `combiner`, et chaque champ y a sa règle — voir
+ *   `combinerEtatDeFiche`. Ils n'entrent au journal qu'au **changement réel** :
+ *   l'écriture a lieu à chaque ouverture de fiche, et journaliser une visite
+ *   ferait des milliers d'opérations pour aucune information.
+ *
+ * Ce que la liste ne contient toujours pas, et pourquoi c'est une décision :
+ *
  * - **Les compteurs de tirage DGFiP** (`qcmDgfip`) sont un **état dérivé** des
  *   sessions, et un état dérivé ne se fusionne pas : il se recalcule. Mais les
  *   sessions d'avant ne portent pas le détail par question, donc le recalcul
@@ -124,6 +268,28 @@ export const MAGASINS_JOURNALISES: readonly MagasinJournalise[] = [
     type: 'revision.cog-training',
     clef: 'id',
     libelle: 'Veridical Mapping',
+  }),
+  M({
+    magasin: 'seances',
+    type: 'revision.seance',
+    clef: 'id',
+    libelle: 'Séance de révision',
+    soclePar: 'appareil',
+  }),
+  M({
+    magasin: 'notes',
+    type: 'revision.note-seance',
+    clef: 'seanceId',
+    libelle: 'Note de séance',
+    soclePar: 'appareil',
+  }),
+  M({
+    magasin: 'fiches',
+    type: 'revision.fiche',
+    clef: 'id',
+    libelle: 'État d’une fiche',
+    soclePar: 'appareil',
+    combiner: combinerEtatDeFiche,
   }),
 ];
 
@@ -193,8 +359,10 @@ export const HLC_SOCLE = encoderHlc(HLC_ZERO);
 /** Le préfixe d'identifiant d'un socle. Lisible, et hors de l'espace des ULID. */
 export const PREFIXE_SOCLE = 'SOCLE-';
 
-export const idSocle = (magasin: string, clef: string): string =>
-  `${PREFIXE_SOCLE}${magasin}-${clef}`;
+export const idSocle = (magasin: string, clef: string, appareil?: string): string =>
+  appareil
+    ? `${PREFIXE_SOCLE}${magasin}-${clef}-${appareil}`
+    : `${PREFIXE_SOCLE}${magasin}-${clef}`;
 
 export const estSocle = (op: Operation): boolean => op.id.startsWith(PREFIXE_SOCLE);
 
@@ -208,14 +376,21 @@ export const estSocle = (op: Operation): boolean => op.id.startsWith(PREFIXE_SOC
 export function operationSocle(
   magasin: string,
   enregistrement: Record<string, unknown>,
+  appareil?: string,
 ): Operation | null {
   const declare = PAR_MAGASIN.get(magasin);
   if (!declare) return null;
   const clef = enregistrement[declare.clef];
   if (typeof clef !== 'string' || !clef) return null;
+  /*
+     Un socle par appareil sans appareil serait un socle partagé, donc une
+     version perdue en silence : on préfère ne rien écrire et le dire.
+  */
+  const parAppareil = declare.soclePar === 'appareil';
+  if (parAppareil && !appareil) return null;
   return operation({
-    id: idSocle(magasin, clef),
-    appareil: APPAREIL_SOCLE,
+    id: idSocle(magasin, clef, parAppareil ? appareil : undefined),
+    appareil: parAppareil ? appareil! : APPAREIL_SOCLE,
     hlc: decoderHlc(HLC_SOCLE),
     type: declare.type,
     cible: cibleDe(magasin, clef),
@@ -254,6 +429,20 @@ export interface OptionsMaterialisation {
    * ce qui est juste, et cher : on ne le fait qu'à la réparation.
    */
   cibles?: Iterable<string>;
+  /**
+   * Les réponses données aux conflits, lues du journal (`corrections.ts`).
+   *
+   * Sans elles, la matérialisation prendrait toujours la version la plus
+   * récente — ce qui est le bon affichage **en attendant** une réponse, et le
+   * mauvais une fois la réponse donnée. Répondre « garder celle de
+   * l'ordinateur » et voir s'afficher celle du téléphone rendrait la réponse
+   * inutile, donc le conflit insoluble.
+   *
+   * Seule l'issue « retenue » change quelque chose : « les deux sont justes »
+   * et « ignoré » laissent la plus récente, puisqu'aucune des deux n'a été
+   * désignée.
+   */
+  retenues?: Iterable<{ cible: string; retenue?: string; issue: string }>;
 }
 
 /**
@@ -271,16 +460,29 @@ export function materialiser(
   options: OptionsMaterialisation = {},
 ): Materialisation {
   const retenues = options.cibles ? new Set(options.cibles) : null;
-  const derniere = new Map<string, Operation>();
 
+  /*
+     Les réponses aux conflits, par cible : seule l'issue « retenue » désigne une
+     opération. « Les deux sont justes » et « ignoré » laissent la règle du
+     magasin décider, puisqu'aucune version n'a été choisie.
+  */
+  const designee = new Map<string, string>();
+  for (const resolution of options.retenues ?? []) {
+    if (resolution.issue !== 'retenue' || !resolution.retenue) continue;
+    designee.set(resolution.cible, resolution.retenue);
+  }
+
+  // Toutes les opérations d'enregistrement, groupées par cible.
+  const parCible = new Map<string, Operation[]>();
   for (const op of operations) {
     // Une cible qui ne vient pas d'un magasin journalisé n'est pas notre
     // affaire : le journal porte aussi les noms d'appareils, les compactages,
     // les résolutions de conflit.
     if (!lireCible(op.cible)) continue;
     if (retenues && !retenues.has(op.cible)) continue;
-    const vue = derniere.get(op.cible);
-    if (!vue || comparerOperations(vue, op) < 0) derniere.set(op.cible, op);
+    const groupe = parCible.get(op.cible);
+    if (groupe) groupe.push(op);
+    else parCible.set(op.cible, [op]);
   }
 
   const aEcrire: AEcrire[] = [];
@@ -297,48 +499,108 @@ export function materialiser(
   */
   if (retenues) {
     for (const cible of [...retenues].sort()) {
-      if (derniere.has(cible)) continue;
+      if (parCible.has(cible)) continue;
       const defaite = lireCible(cible);
       if (!defaite) continue;
       aEffacer.push({ magasin: defaite.magasin.magasin, clef: defaite.clef, cible });
     }
   }
 
-  for (const cible of [...derniere.keys()].sort()) {
-    const op = derniere.get(cible)!;
+  for (const cible of [...parCible.keys()].sort()) {
     const defaite = lireCible(cible)!;
-    if (op.type === TYPE_SUPPRESSION) {
-      aEffacer.push({ magasin: defaite.magasin.magasin, clef: defaite.clef, cible });
+    const magasin = defaite.magasin;
+    const ordonnees = [...parCible.get(cible)!].sort(comparerOperations);
+    const derniere = ordonnees[ordonnees.length - 1];
+
+    if (derniere.type === TYPE_SUPPRESSION) {
+      aEffacer.push({ magasin: magasin.magasin, clef: defaite.clef, cible });
       continue;
     }
-    const charge = lireCharge(op);
-    if (!charge) {
-      illisibles.push({
-        id: op.id,
-        cible,
-        motif: 'La charge ne porte pas d’enregistrement lisible.',
-      });
+
+    /*
+       On ne regarde que ce qui suit la **dernière suppression** : un objet
+       supprimé puis recréé repart de zéro, et combiner son avant et son après
+       ressusciterait ce que la suppression avait écarté.
+    */
+    let depuis = -1;
+    for (let i = 0; i < ordonnees.length; i += 1) {
+      if (ordonnees[i].type === TYPE_SUPPRESSION) depuis = i;
+    }
+    const utiles = ordonnees.slice(depuis + 1);
+
+    /** Lit la charge d'une opération, ou la signale illisible. */
+    const charge = (op: Operation) => {
+      const lue = lireCharge(op);
+      if (!lue) {
+        illisibles.push({
+          id: op.id,
+          cible,
+          motif: 'La charge ne porte pas d’enregistrement lisible.',
+        });
+        return null;
+      }
+      if (lue.magasin !== magasin.magasin) {
+        illisibles.push({
+          id: op.id,
+          cible,
+          motif: `La charge annonce le magasin « ${lue.magasin} », la cible dit « ${magasin.magasin} ».`,
+        });
+        return null;
+      }
+      if (lue.enregistrement[magasin.clef] !== defaite.clef) {
+        illisibles.push({
+          id: op.id,
+          cible,
+          motif: 'L’enregistrement porte une clé différente de celle de la cible.',
+        });
+        return null;
+      }
+      return lue;
+    };
+
+    /*
+       Une réponse au conflit désigne une version : elle décide, et la règle du
+       magasin ne s'applique plus. Répondre « garder celle de l'ordinateur » et
+       voir s'afficher une combinaison des deux ne serait pas une réponse.
+    */
+    const choisie = designee.get(cible);
+    if (choisie) {
+      const op = utiles.find((o) => o.id === choisie);
+      if (op) {
+        const lue = charge(op);
+        if (lue) {
+          aEcrire.push({ magasin: magasin.magasin, enregistrement: lue.enregistrement, cible });
+        }
+        continue;
+      }
+      // Désignée mais absente de ce qui suit la dernière suppression : la
+      // réponse portait sur une version que le journal ne porte plus.
+    }
+
+    if (!magasin.combiner) {
+      const lue = charge(utiles[utiles.length - 1]);
+      if (lue) {
+        aEcrire.push({ magasin: magasin.magasin, enregistrement: lue.enregistrement, cible });
+      }
       continue;
     }
-    if (charge.magasin !== defaite.magasin.magasin) {
-      illisibles.push({
-        id: op.id,
-        cible,
-        motif: `La charge annonce le magasin « ${charge.magasin} », la cible dit « ${defaite.magasin.magasin} ».`,
-      });
-      continue;
+
+    /*
+       La règle du magasin combine **la dernière version de chaque appareil**.
+       Deux écritures du même appareil ne sont pas une divergence : c'est une
+       correction, et la plus récente la remplace.
+    */
+    const parAppareil = new Map<string, Operation>();
+    for (const op of utiles) parAppareil.set(op.appareil, op);
+    const versions: { appareil: string; enregistrement: Record<string, unknown> }[] = [];
+    for (const op of [...parAppareil.values()].sort(comparerOperations)) {
+      const lue = charge(op);
+      if (lue) versions.push({ appareil: op.appareil, enregistrement: lue.enregistrement });
     }
-    if (charge.enregistrement[defaite.magasin.clef] !== defaite.clef) {
-      illisibles.push({
-        id: op.id,
-        cible,
-        motif: `L’enregistrement porte une clé différente de celle de la cible.`,
-      });
-      continue;
-    }
+    if (!versions.length) continue;
     aEcrire.push({
-      magasin: defaite.magasin.magasin,
-      enregistrement: charge.enregistrement,
+      magasin: magasin.magasin,
+      enregistrement: magasin.combiner(versions),
       cible,
     });
   }

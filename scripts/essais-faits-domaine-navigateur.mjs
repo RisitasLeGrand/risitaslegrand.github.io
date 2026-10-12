@@ -12,6 +12,13 @@
  * deux appareils qui portent le même enregistrement doivent produire la même
  * opération, sans quoi leurs journaux resteraient inégaux pour toujours.
  *
+ * Ce qu'il ne couvre pas, et c'est dit plutôt que supposé : l'écriture d'une
+ * **séance** et de sa **note** par l'écran. Elles ne s'enregistrent qu'à la fin
+ * d'une séance complète, qui demande un thème planifié et une dizaine de gestes
+ * — l'essai les sème donc à la main et éprouve tout le reste du chemin : le
+ * socle, le transport, la matérialisation, le conflit de texte et sa réponse.
+ * Le QCM, lui, est réellement passé par l'écran.
+ *
  * Playwright n'est pas une dépendance du projet : fournissez CHROMIUM et lancez
  * « astro preview » avant ce script.
  */
@@ -108,6 +115,61 @@ const semer = (appareil, magasin, enregistrement) =>
       return true;
     },
     [magasin, enregistrement],
+  );
+
+/** L'identifiant de cet appareil, tel que la base le porte. */
+const idAppareil = (appareil) =>
+  appareil.page.evaluate(async () => {
+    const base = await new Promise((ok) => {
+      const r = indexedDB.open('revinsp');
+      r.onsuccess = () => ok(r.result);
+    });
+    const id = await new Promise((ok) => {
+      const q = base.transaction('etat').objectStore('etat').get('appareil');
+      q.onsuccess = () => ok(q.result);
+    });
+    base.close();
+    return id;
+  });
+
+/**
+ * Écrit une opération à la main, avec son appareil et son horloge.
+ *
+ * C'est ainsi que l'essai fabrique un **désaccord** : deux appareils qui ont
+ * écrit la même cible avec des contenus différents. Le passer par l'écran
+ * demanderait de terminer deux séances complètes, et ce n'est pas ce qu'on
+ * éprouve ici.
+ */
+const ecrireOperation = (appareil, { id, type, cible, charge, ms }) =>
+  appareil.page.evaluate(
+    async ([id, type, cible, charge, ms]) => {
+      const base = await new Promise((ok) => {
+        const r = indexedDB.open('revinsp');
+        r.onsuccess = () => ok(r.result);
+      });
+      const moi = await new Promise((ok) => {
+        const q = base.transaction('etat').objectStore('etat').get('appareil');
+        q.onsuccess = () => ok(q.result);
+      });
+      const op = {
+        id,
+        appareil: moi,
+        hlc: `${String(ms).padStart(15, '0')}-0000`,
+        type,
+        cible,
+        lot: '',
+        charge,
+      };
+      await new Promise((ok, ko) => {
+        const tx = base.transaction('operations', 'readwrite');
+        tx.objectStore('operations').put(op);
+        tx.oncomplete = () => ok();
+        tx.onerror = () => ko(tx.error);
+      });
+      base.close();
+      return op;
+    },
+    [id, type, cible, charge, ms],
   );
 
 const empreinteAffichee = (appareil) =>
@@ -346,6 +408,198 @@ console.log('\nANNULER UNE FUSION DÉFAIT CE QU’ELLE A ÉCRIT');
   v('les sessions reçues aussi', apresAnnulation.nback, []);
   await C.contexte.close();
 }
+
+console.log('\nUNE SÉANCE ET SA NOTE VOYAGENT');
+
+const D = await appareil('ordinateur-2');
+const E = await appareil('telephone-2');
+await ouvrir(D, '/appareils/', '#ecran:not(.hidden)');
+await ouvrir(E, '/appareils/', '#ecran:not(.hidden)');
+
+const SEANCE = '01SEANCEPARTAGEE000000001';
+await semer(D, 'seances', {
+  id: SEANCE,
+  theme: 'economie',
+  jour: new Date().toISOString().slice(0, 10),
+  statut: 'terminee',
+  termineeLe: new Date().toISOString(),
+  secondes: 3600,
+  fiches: ['eco-1', 'eco-2'],
+  etendue: false,
+});
+await semer(D, 'notes', {
+  seanceId: SEANCE,
+  note: 'Ce que je retiens de la séance : la règle d’annualité et ses quatre exceptions.',
+  restitutions: {},
+  majLe: new Date().toISOString(),
+});
+
+const paquetD = await envoyer(D);
+await recevoir(E, paquetD);
+
+const lireSeance = (appareil) =>
+  appareil.page.evaluate(async () => {
+    const base = await new Promise((ok) => {
+      const r = indexedDB.open('revinsp');
+      r.onsuccess = () => ok(r.result);
+    });
+    const tout = (nom) =>
+      new Promise((ok) => {
+        const q = base.transaction(nom).objectStore(nom).getAll();
+        q.onsuccess = () => ok(q.result);
+      });
+    const sortie = {
+      seances: (await tout('seances')).map((s) => ({ id: s.id, statut: s.statut, fiches: s.fiches })),
+      notes: (await tout('notes')).map((n) => ({ seanceId: n.seanceId, note: n.note })),
+    };
+    base.close();
+    return sortie;
+  });
+
+{
+  const vu = await lireSeance(E);
+  v('la séance est arrivée', vu.seances.length, 1);
+  v('avec ses fiches couvertes', vu.seances[0].fiches, ['eco-1', 'eco-2']);
+  v('et son statut', vu.seances[0].statut, 'terminee');
+  v('la note est arrivée', vu.notes.length, 1);
+  vrai('avec son texte', vu.notes[0].note.includes('annualité'));
+}
+
+console.log('\nDEUX NOTES CONCURRENTES OUVRENT UN DÉSACCORD, ET LA RÉPONSE DÉCIDE');
+
+{
+  /*
+   * Chacun réécrit la note de son côté. La plus récente s'affiche en attendant
+   * — c'est le provisoire —, mais rien n'est perdu : les deux opérations sont
+   * au journal, et la réponse désigne celle qui gagne.
+   */
+  const base = Date.now();
+  const opD = await ecrireOperation(D, {
+    id: '01NOTEBUREAU0000000000001',
+    type: 'revision.note-seance',
+    cible: `notes:${SEANCE}`,
+    charge: {
+      magasin: 'notes',
+      enregistrement: {
+        seanceId: SEANCE,
+        note: 'Version de l’ordinateur : annualité, unité, universalité, spécialité.',
+        restitutions: {},
+        majLe: new Date(base).toISOString(),
+      },
+    },
+    ms: base,
+  });
+  await ecrireOperation(E, {
+    id: '01NOTEPORTABLE00000000001',
+    type: 'revision.note-seance',
+    cible: `notes:${SEANCE}`,
+    charge: {
+      magasin: 'notes',
+      enregistrement: {
+        seanceId: SEANCE,
+        note: 'Version du téléphone : <script>alert(1)</script> quatre principes budgétaires.',
+        restitutions: {},
+        majLe: new Date(base + 1000).toISOString(),
+      },
+    },
+    ms: base + 1000,
+  });
+
+  const paquet = await envoyer(D);
+  await recevoir(E, paquet);
+
+  await ouvrir(E, '/appareils/', '#ecran:not(.hidden)');
+  await E.page.waitForSelector('#conflits:not(.hidden)', { timeout: 40000 });
+  const texteConflit = await E.page.textContent('#liste-conflits');
+  vrai('le désaccord de texte est montré', texteConflit.includes('revision.note-seance'));
+  vrai('les deux versions sont résumées', texteConflit.includes('ordinateur') && texteConflit.includes('téléphone'));
+  vrai('le compte de signes est donné', /signes/.test(texteConflit));
+  /*
+   * La note contient une balise : elle doit s'afficher comme du texte, et
+   * jamais être interprétée. L'écran ne doit donc contenir aucun élément
+   * « script » venu de là.
+   */
+  v(
+    'aucune balise de la note n’a été interprétée',
+    await E.page.evaluate(() => document.querySelectorAll('#liste-conflits script').length),
+    0,
+  );
+
+  v(
+    'en attendant la réponse, la plus récente s’affiche',
+    (await lireSeance(E)).notes[0].note.includes('téléphone'),
+    true,
+  );
+
+  // « Garder celle-ci » sur la version de l'ordinateur.
+  const bouton = E.page.locator(`.resoudre[data-retenue="${opD.id}"]`);
+  await bouton.waitFor({ timeout: 20000 });
+  await bouton.click();
+  await E.page.waitForTimeout(2500);
+
+  v(
+    'la réponse décide de ce qui est écrit',
+    (await lireSeance(E)).notes[0].note.includes('ordinateur'),
+    true,
+  );
+  const apres = await E.page.textContent('#liste-conflits');
+  vrai('et le conflit n’est plus ouvert', !apres.includes('revision.note-seance'));
+}
+
+console.log('\nL’ÉTAT D’UNE FICHE SE COMBINE : LUE ICI, PRÉTESTÉE LÀ');
+
+{
+  /*
+   * C'est le seul magasin où « la dernière écriture gagne » perdrait une
+   * information que personne ne pourrait retrouver. Chaque appareil écrit sa
+   * moitié de l'histoire ; la fusion doit garder les deux.
+   */
+  const FICHE = 'eco-essai-combinaison';
+  await semer(D, 'fiches', {
+    id: FICHE,
+    matiere: 'Économie',
+    lu: true,
+    derniereOuverture: '2026-05-01T10:00:00.000Z',
+    secondes: 600,
+  });
+  await semer(E, 'fiches', {
+    id: FICHE,
+    matiere: 'Économie',
+    lu: false,
+    derniereOuverture: '2026-05-02T09:00:00.000Z',
+    secondes: 120,
+    pretesteeLe: '2026-05-02',
+    pretestVues: ['q1', 'q2'],
+  });
+
+  // Chacun socle sa version, puis D envoie à E.
+  await envoyer(E);
+  const paquet = await envoyer(D);
+  await recevoir(E, paquet);
+
+  const fiche = await E.page.evaluate(async (id) => {
+    const base = await new Promise((ok) => {
+      const r = indexedDB.open('revinsp');
+      r.onsuccess = () => ok(r.result);
+    });
+    const valeur = await new Promise((ok) => {
+      const q = base.transaction('fiches').objectStore('fiches').get(id);
+      q.onsuccess = () => ok(q.result ?? null);
+    });
+    base.close();
+    return valeur;
+  }, FICHE);
+
+  vrai('la fiche existe après fusion', Boolean(fiche));
+  v('« lue » est conservée, bien qu’écrite sur l’autre appareil', fiche.lu, true);
+  v('le prétest local est conservé aussi', fiche.pretesteeLe, '2026-05-02');
+  v('les questions servies sont unies', fiche.pretestVues, ['q1', 'q2']);
+  v('la dernière ouverture est la plus récente des deux', fiche.derniereOuverture, '2026-05-02T09:00:00.000Z');
+  v('le compteur prend le maximum', fiche.secondes, 600);
+}
+
+await D.contexte.close();
+await E.contexte.close();
 
 console.log(
   echecs

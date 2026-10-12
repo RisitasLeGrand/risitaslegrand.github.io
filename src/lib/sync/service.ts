@@ -643,6 +643,14 @@ export async function resoudreConflit(
 ): Promise<void> {
   const charge = construireResolution(conflit, choix);
   await enregistrerFait(TYPE_RESOLUTION, conflit.cible, charge);
+  /*
+     Si la cible est un enregistrement, la réponse doit se **voir** : répondre
+     « garder la version de l'ordinateur » et retrouver celle du téléphone à
+     l'écran rendrait la réponse inutile, donc le conflit insoluble. La
+     matérialisation relit le journal, résolutions comprises, et réécrit la
+     version désignée.
+  */
+  if (lireCible(conflit.cible)) await materialiserFaitsDomaine([conflit.cible]);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

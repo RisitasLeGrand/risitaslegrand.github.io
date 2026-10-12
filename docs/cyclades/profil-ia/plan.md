@@ -103,8 +103,44 @@ Plan, liste des questions, schéma d'analyse, maquettes, décisions. **Validatio
 > même opération et se réconcilient en silence ; un même enregistrement de contenus différents
 > donne le même identifiant, et c'est alors une **collision** signalée, ce qui est exactement ce
 > qu'on veut. L'effacement ciblé journalise désormais ses suppressions, sans quoi la première
-> synchronisation les aurait ressuscitées. Reste à A2 : les séances et leurs notes (texte), l'état
-> des fiches (compteur), et les compteurs de tirage DGFiP (état dérivé non recalculable).
+> synchronisation les aurait ressuscitées.
+
+> **A2 faite, le 12 octobre 2026.** Les trois entités qui demandaient chacune leur règle.
+>
+> **Les séances** : dernière écriture gagne, ce qui est juste — leurs champs sont objectifs, et
+> l'écriture la plus récente est la mieux informée. Leur suppression emporte leur note.
+>
+> **Les notes de séance** : un **second** registre de types à conflit, `TYPES_TEXTE_A_CONFLIT`.
+> La première liste porte un invariant vérifié — un type à conflit explicite est un type *sensible*
+> au sens de E.5 —, et une note de séance n'est pas sensible : ce n'est ni de la santé, ni de la
+> psyché, ni des finances. Elle est **irremplaçable**, ce qui n'est pas la même chose. « Sensible »
+> dit qui peut la lire ; « irremplaçable » dit ce que coûte sa perte. Deux raisons de montrer le
+> désaccord, donc deux listes, chacune avec son contrôle. La plus récente s'affiche en attendant, et
+> **la réponse décide** : `materialiser` lit les résolutions du journal — elles sont des opérations,
+> donc elles voyagent, donc les deux appareils écrivent la même version.
+>
+> **L'état des fiches** se **combine** et ne s'écrase pas : lue sur l'ordinateur, prétestée sur le
+> téléphone, les deux doivent tenir. `lu` par ou logique, `pretesteeLe` par la plus ancienne date
+> (l'effet de prétest tient à ce qu'il précède la lecture), `pretestPasseLe` par la plus récente,
+> `pretestVues` par union, `derniereOuverture` par la plus récente, `secondes` par le **maximum** —
+> qui sous-estime quand on a lu la même fiche sur deux appareils, et ne surestime jamais : une
+> surestimation ferait croire à un travail qui n'a pas eu lieu. Ils n'entrent au journal qu'au
+> changement réel, l'écriture ayant lieu à chaque ouverture de fiche.
+>
+> Et une conséquence du socle déterministe qu'il a fallu trancher : pour ces trois magasins, le
+> socle est **par appareil**. Un socle partagé aurait donné le même identifiant aux deux versions,
+> l'union n'en aurait gardé qu'une — choisie par une règle de départage sans sens métier — et la
+> seconde aurait disparu sans que rien ne le dise. Les cinq magasins d'événements immuables gardent
+> leur socle partagé, qui est tout leur intérêt.
+>
+> Au passage, un défaut d'affichage qui devenait un défaut de sûreté : l'écran des conflits
+> insérait `JSON.stringify(charge)` dans du HTML. Depuis que les enregistrements voyagent, cette
+> charge peut être une note de deux pages écrite à la main — illisible, et **non échappée**. Elle
+> est désormais résumée (début du texte, compte de signes, nombre de restitutions) et échappée sans
+> exception.
+>
+> Reste hors du périmètre : les compteurs de tirage DGFiP, état dérivé que l'historique ne permet
+> pas de recalculer.
 
 
 Ce que la synchronisation intégrale (0.2) exige, et ce dont la vérification des chiffres (B.6.4) a

@@ -153,6 +153,21 @@ export const TYPES: readonly TypeDeFait[] = [
     description: 'Nombre de cartes notées dans la journée logique.',
   }),
   T({
+    id: 'revision.note-seance',
+    libelle: 'Note de séance',
+    proprietaire: 'revisions',
+    domaine: 'connaissances',
+    nature: 'texte',
+    /*
+     * Non **sensible** au sens de E.5 — ce n'est ni de la santé, ni de la
+     * psyché, ni des finances —, et pourtant à ne jamais écraser en silence :
+     * c'est un texte rédigé à la main, parfois deux pages. D'où la seconde
+     * liste de `fusion.ts`, et la distinction entre « sensible » et
+     * « irremplaçable », qui ne sont pas la même chose.
+     */
+    description: 'La note d’une séance et ses restitutions à blanc, rédigées à la main.',
+  }),
+  T({
     id: 'revision.fiche',
     libelle: 'Fiche travaillée',
     proprietaire: 'revisions',

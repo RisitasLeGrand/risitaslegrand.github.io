@@ -297,11 +297,17 @@ révisions FSRS.
 > migrées séparément réconciliables en silence. Détail dans
 > `docs/cyclades/profil-ia/plan.md`, phase A.
 >
-> Ce qui attend encore sa règle, et pourquoi : les **séances** et leurs **notes**
-> (un texte rédigé à la main qu'un dernier-écrivain-gagne effacerait), l'**état
-> des fiches** (un compteur, dont « le dernier gagne » perdrait la moitié), et
-> les **compteurs de tirage DGFiP** (un état dérivé que l'historique ne permet
-> pas de recalculer). L'écran des appareils le dit, sous « Ce qui n'est pas
+> **A2, le 12 octobre 2026** : les séances voyagent aussi, et leurs **notes** —
+> avec un second registre de types à conflit, parce qu'un texte rédigé à la main
+> n'est pas *sensible* au sens de E.5 mais **irremplaçable**, ce qui demande
+> aussi de montrer le désaccord. L'**état des fiches** se **combine** champ par
+> champ au lieu de s'écraser. Pour ces trois magasins, le socle est **par
+> appareil** : un socle partagé aurait donné le même identifiant aux deux
+> versions et l'union en aurait perdu une en silence.
+>
+> Ce qui attend encore : les **compteurs de tirage DGFiP**, un état dérivé que
+> l'historique ne permet pas de recalculer — les sessions d'avant ne portent pas
+> le détail par question. L'écran des appareils le dit, sous « Ce qui n'est pas
 > encore là », parce qu'un écran qui laisse croire que synchroniser transporte
 > tout est pire que pas d'écran du tout.
 

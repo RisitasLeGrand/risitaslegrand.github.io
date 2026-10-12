@@ -137,6 +137,33 @@ export const TYPES_A_CONFLIT_EXPLICITE: readonly string[] = [
   'sport.blessure',
 ];
 
+/**
+ * Les textes rédigés à la main, qu'un dernier écrivain ne doit pas effacer.
+ *
+ * ## Pourquoi une seconde liste plutôt qu'un ajout à la première
+ *
+ * La première porte un invariant **vérifié** : un type à conflit explicite est
+ * un type **sensible** au sens de E.5, et les deux listes doivent être la même
+ * — sans quoi un type serait sensible pour le partage et pas pour la fusion.
+ * Une note de séance n'est pas sensible : ce n'est ni de la santé, ni de la
+ * psyché, ni des finances, et la mettre dans la première liste aurait rendu cet
+ * invariant invérifiable.
+ *
+ * Mais elle est **irremplaçable**, et ce n'est pas la même chose. Deux pages de
+ * restitution à blanc écrasées par la version du téléphone ne se retrouvent
+ * nulle part. « Sensible » dit qui peut la lire ; « irremplaçable » dit ce que
+ * coûte sa perte. Les deux demandent de montrer le désaccord, pour deux raisons
+ * différentes, et une liste par raison se relit mieux qu'une liste pour deux.
+ *
+ * L'invariant de celle-ci : le type est déclaré au catalogue, sa nature est
+ * `texte`, et il n'est **pas** sensible — sans quoi il irait dans l'autre.
+ */
+export const TYPES_TEXTE_A_CONFLIT: readonly string[] = ['revision.note-seance'];
+
+/** Les deux listes réunies : ce dont un désaccord doit être montré. */
+export const typeAConflitExplicite = (type: string): boolean =>
+  TYPES_A_CONFLIT_EXPLICITE.includes(type) || TYPES_TEXTE_A_CONFLIT.includes(type);
+
 export interface Conflit {
   type: string;
   cible: string;
@@ -180,7 +207,7 @@ function serialiserStable(valeur: unknown): string {
 export function conflits(operations: readonly Operation[]): Conflit[] {
   const groupes = new Map<string, Operation[]>();
   for (const op of operations) {
-    if (!TYPES_A_CONFLIT_EXPLICITE.includes(op.type)) continue;
+    if (!typeAConflitExplicite(op.type)) continue;
     const clef = `${op.type}\u0000${op.cible}`;
     const groupe = groupes.get(clef);
     if (groupe) groupe.push(op);
@@ -466,6 +493,31 @@ export function annulerLot(etat: EtatSynchronisable, lot: string): ResultatAnnul
  */
 export function controlerTypesAConflit(): string[] {
   const problemes: string[] = [];
+
+  /*
+     La seconde liste a son propre invariant : du texte, déclaré, et non
+     sensible. Un type qui serait les deux à la fois figurerait dans les deux
+     listes et verrait son conflit signalé deux fois.
+  */
+  for (const type of TYPES_TEXTE_A_CONFLIT) {
+    const declare = typeDeFait(type);
+    if (!declare) {
+      problemes.push(`« ${type} » est à conflit de texte mais absent du catalogue de faits.`);
+      continue;
+    }
+    if (declare.nature !== 'texte') {
+      problemes.push(
+        `« ${type} » est à conflit de texte mais sa nature est « ${declare.nature} ».`,
+      );
+    }
+    if (declare.sensible) {
+      problemes.push(
+        `« ${type} » est sensible : sa place est dans TYPES_A_CONFLIT_EXPLICITE, ` +
+          'et non dans la liste des textes — sans quoi son conflit serait signalé deux fois.',
+      );
+    }
+  }
+
   for (const type of TYPES_A_CONFLIT_EXPLICITE) {
     const declare = typeDeFait(type);
     if (!declare) {
