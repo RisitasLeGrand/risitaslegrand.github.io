@@ -62,6 +62,20 @@ import Base from '../../layouts/Base.astro';
         <p id="retenues" class="mt-2 hidden text-xs text-amber-800 dark:text-amber-200"></p>
       </section>
 
+      <!-- Ce qui était prévu -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+          Ce que vous aviez prévu
+        </h2>
+        <p id="plan-chiffres" class="mt-1 text-sm text-slate-600 dark:text-slate-300"></p>
+        <p id="plan-pourquoi" class="mt-1 text-sm text-slate-500 dark:text-slate-400"></p>
+
+        <div id="a-relever" class="mt-3 space-y-2"></div>
+        <p id="rien-a-relever" class="hidden text-sm text-slate-500 dark:text-slate-400">
+          Rien à relever : tout ce qui est passé a reçu une réponse.
+        </p>
+      </section>
+
       <!-- Le plancher du jour -->
       <section>
         <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Le plancher du jour</h2>
@@ -149,11 +163,16 @@ import Base from '../../layouts/Base.astro';
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
   import { etatDuJour, type EtatDuJour } from '../../lib/odyssee-jour';
-  import { ajouterFocus } from '../../lib/odyssee/donnees';
-  import { tenir } from '../../lib/odyssee/donnees';
+  import { ajouterFocus, relever, tenir } from '../../lib/odyssee/donnees';
   import { regle } from '../../lib/odyssee/jour';
   import { DOMAINES, libelleDuDomaine } from '../../lib/noyau/domaines';
-  import { dureeDeLEvenement } from '../../lib/odyssee/modele';
+  import {
+    MOTIFS,
+    dureeDeLEvenement,
+    type Evenement,
+    type MotifNonFait,
+    type Realisation,
+  } from '../../lib/odyssee/modele';
 
   const $ = (id: string) => document.getElementById(id)!;
 
@@ -233,6 +252,164 @@ import Base from '../../layouts/Base.astro';
         `Journée chargée : ${etat.retenues} proposition${etat.retenues > 1 ? 's' : ''} ` +
         'qui ajouteraient du travail sont mises de côté. Elles restent dans leurs écrans.';
     }
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
+     Ce qui était prévu : le relevé, et son motif
+     ────────────────────────────────────────────────────────────────────── */
+  function peindrePlan(etat: EtatDuJour) {
+    const p = etat.plan;
+    /*
+       Le taux ne s'affiche que s'il existe. « 0 % » sur zéro réponse serait
+       un chiffre sans contenu, et le genre de chiffre qu'on finit par citer.
+    */
+    $('plan-chiffres').textContent =
+      p.prevus === 0
+        ? 'Rien n’était prévu sur ces sept jours.'
+        : p.taux === null
+          ? `${p.prevus} moment${p.prevus > 1 ? 's' : ''} prévu${p.prevus > 1 ? 's' : ''}, ` +
+            'aucun relevé pour l’instant.'
+          : `${Math.round(p.taux * 100)} % de ce qui était prévu a été tenu — ` +
+            `${p.faits} fait${p.faits > 1 ? 's' : ''}, ${p.partiels} en partie, ` +
+            `${p.nonFaits} non fait${p.nonFaits > 1 ? 's' : ''}` +
+            (p.nonReleves ? `, ${p.nonReleves} sans réponse.` : '.');
+
+    /*
+       La cause dominante, quand il y en a une. Sous le seuil, on affiche les
+       motifs sans en désigner un : nommer une cause sur deux observations
+       serait la conclusion que le catalogue d'indicateurs interdit ailleurs.
+    */
+    const pourquoi = $('plan-pourquoi');
+    if (p.dominant) {
+      pourquoi.textContent =
+        `Le plus souvent : ${p.dominant.libelle.toLowerCase()} ` +
+        `(${p.dominant.combien} fois sur ${p.motifs.reduce((s, m) => s + m.combien, 0)}).`;
+    } else if (p.motifs.length) {
+      pourquoi.textContent = `Raisons données : ${p.motifs
+        .map((m) => `${m.libelle.toLowerCase()} ×${m.combien}`)
+        .join(', ')}. Trop peu pour en dégager une.`;
+    } else {
+      pourquoi.textContent = '';
+    }
+
+    const zone = $('a-relever');
+    zone.innerHTML = '';
+    $('rien-a-relever').classList.toggle('hidden', etat.aRelever.length > 0);
+    for (const evenement of etat.aRelever) {
+      zone.appendChild(carteDeReleve(evenement));
+    }
+  }
+
+  /** Une ligne « cela a-t-il eu lieu ? », avec le motif qui s'ouvre si besoin. */
+  function carteDeReleve(evenement: Evenement): HTMLElement {
+    const carte = document.createElement('div');
+    carte.className =
+      'rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 ' +
+      'dark:bg-slate-950';
+    carte.dataset.releve = evenement.id;
+
+    const quand = new Date(evenement.debut).toLocaleString('fr-FR', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+    carte.appendChild(ligne(evenement.titre, 'font-medium text-slate-900 dark:text-white'));
+    carte.appendChild(ligne(quand, 'mt-0.5 text-xs text-slate-400 dark:text-slate-500'));
+
+    const boutons = document.createElement('div');
+    boutons.className = 'mt-2 flex flex-wrap gap-2';
+
+    const bloc = document.createElement('div');
+    bloc.className = 'mt-3 hidden';
+
+    /* Le choix du motif, caché tant qu'il n'est pas nécessaire. */
+    const choixMotif = document.createElement('select');
+    choixMotif.className =
+      'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm ' +
+      'dark:border-slate-700 dark:bg-slate-950';
+    choixMotif.setAttribute('aria-label', 'Pourquoi cela n’a pas eu lieu');
+    const vide = document.createElement('option');
+    vide.value = '';
+    vide.textContent = 'Pourquoi ? (obligatoire)';
+    choixMotif.appendChild(vide);
+    for (const m of MOTIFS) {
+      const option = document.createElement('option');
+      option.value = m.id;
+      option.textContent = m.libelle;
+      option.title = m.precision;
+      choixMotif.appendChild(option);
+    }
+
+    const precision = document.createElement('input');
+    precision.type = 'text';
+    precision.placeholder = 'En deux mots, si vous voulez';
+    precision.className =
+      'mt-2 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm ' +
+      'dark:border-slate-700 dark:bg-slate-950';
+
+    const valider = document.createElement('button');
+    valider.type = 'button';
+    valider.dataset.validerReleve = evenement.id;
+    valider.className =
+      'mt-2 min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white ' +
+      'transition hover:bg-indigo-700';
+    valider.textContent = 'Enregistrer';
+
+    const erreur = ligne('', 'mt-2 hidden text-sm text-rose-700 dark:text-rose-300');
+
+    let choisie: 'partiel' | 'non-fait' | null = null;
+
+    for (const [valeur, libelle] of [
+      ['fait', 'Fait'],
+      ['partiel', 'En partie'],
+      ['non-fait', 'Pas fait'],
+    ] as const) {
+      const bouton = document.createElement('button');
+      bouton.type = 'button';
+      bouton.dataset.reponse = valeur;
+      bouton.className =
+        'min-h-11 rounded-lg border border-slate-300 px-4 text-sm transition ' +
+        'hover:border-indigo-400 dark:border-slate-700';
+      bouton.textContent = libelle;
+      bouton.addEventListener('click', () => {
+        if (valeur === 'fait') {
+          void releverPuisRafraichir(evenement.id, 'fait');
+          return;
+        }
+        /*
+           « Pas fait » et « en partie » ouvrent la question du motif au lieu
+           d'enregistrer tout de suite. Pour « pas fait », il est exigé : c'est
+           le contrôle du modèle qui le refuserait de toute façon, et mieux
+           vaut le dire avant l'échec qu'après.
+        */
+        choisie = valeur;
+        bloc.classList.remove('hidden');
+        vide.textContent =
+          valeur === 'non-fait' ? 'Pourquoi ? (obligatoire)' : 'Pourquoi ? (facultatif)';
+        choixMotif.focus();
+      });
+      boutons.appendChild(bouton);
+    }
+
+    valider.addEventListener('click', () => {
+      if (!choisie) return;
+      if (choisie === 'non-fait' && !choixMotif.value) {
+        erreur.textContent = 'Dire que cela n’a pas eu lieu demande d’en dire la raison.';
+        erreur.classList.remove('hidden');
+        return;
+      }
+      erreur.classList.add('hidden');
+      void releverPuisRafraichir(evenement.id, choisie, {
+        motif: (choixMotif.value || null) as never,
+        motifLibre: precision.value,
+      });
+    });
+
+    bloc.append(choixMotif, precision, valider, erreur);
+    carte.append(boutons, bloc);
+    return carte;
   }
 
   /* ──────────────────────────────────────────────────────────────────────
@@ -440,6 +617,15 @@ import Base from '../../layouts/Base.astro';
     await rafraichir();
   }
 
+  async function releverPuisRafraichir(
+    id: string,
+    realise: Realisation,
+    options: { motif?: MotifNonFait | null; motifLibre?: string } = {},
+  ) {
+    await relever(id, realise, options);
+    await rafraichir();
+  }
+
   async function rafraichir() {
     const etat = await etatDuJour();
     $('date-du-jour').textContent = new Date(`${etat.aujourdhui}T12:00:00Z`).toLocaleDateString(
@@ -447,6 +633,7 @@ import Base from '../../layouts/Base.astro';
       { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' },
     );
     peindreSuggestions(etat);
+    peindrePlan(etat);
     peindrePlancher(etat);
     peindreRoue(etat);
     peindreAgenda(etat);

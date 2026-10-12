@@ -37,6 +37,8 @@ import {
   type Focus,
   type Quete,
   type Revue,
+  type MotifNonFait,
+  type Realisation,
   type Tache,
   type TypeDeRevue,
 } from './modele';
@@ -86,6 +88,8 @@ export async function ajouterTache(neuve: TacheNeuve): Promise<Tache> {
     domaine: neuve.domaine,
     echeance: neuve.echeance ?? null,
     faiteLe: null,
+    abandonneeLe: null,
+    motifAbandon: null,
     note: neuve.note ?? '',
     creeeLe: maintenant(),
     majLe: maintenant(),
@@ -123,6 +127,77 @@ export async function clore(id: string, fait: boolean, le = new Date()): Promise
   };
   await base.put('odysseeTaches', avec);
   await journaliser('odysseeTaches', avec);
+  return avec;
+}
+
+/**
+ * Renoncer à une tâche, ou revenir sur ce renoncement.
+ *
+ * Distinct de la suppression, et c'est tout l'intérêt : une tâche abandonnée
+ * quitte l'arriéré sans quitter le suivi. La supprimer ferait remonter le taux
+ * de plan tenu à chaque renoncement — exactement l'inverse de ce qu'un suivi
+ * doit faire.
+ */
+export async function abandonner(
+  id: string,
+  abandon: boolean,
+  motifAbandon: MotifNonFait | null = null,
+  le = new Date(),
+): Promise<Tache | null> {
+  const base = await db();
+  const tache = await base.get('odysseeTaches', id);
+  if (!tache) return null;
+  const avec: Tache = {
+    ...tache,
+    abandonneeLe: abandon ? jourLogique(le) : null,
+    motifAbandon: abandon ? motifAbandon : null,
+    // Renoncer à une tâche faite n'a pas de sens : le contrôle le refuse.
+    faiteLe: abandon ? null : tache.faiteLe,
+    majLe: maintenant(),
+  };
+  const problemes = controlerTache(avec);
+  if (problemes.length) throw new Error(problemes.join(' '));
+  await base.put('odysseeTaches', avec);
+  await journaliser('odysseeTaches', avec);
+  return avec;
+}
+
+/**
+ * Relever un événement : ce qui était prévu a-t-il eu lieu ?
+ *
+ * `releveLe` distingue « répondu » de « jamais ouvert », ce que `realise` seul
+ * ne dirait pas : revenir à `inconnu` après avoir répondu est un geste réel —
+ * « je m'étais trompé » — et il ne doit pas se confondre avec l'absence de
+ * réponse.
+ */
+export async function relever(
+  id: string,
+  realise: Realisation,
+  options: { motif?: MotifNonFait | null; motifLibre?: string; le?: Date } = {},
+): Promise<Evenement | null> {
+  const le = options.le ?? new Date();
+  const base = await db();
+  const evenement = await base.get('odysseeEvenements', id);
+  if (!evenement) return null;
+  /*
+     Le motif ne survit pas à un changement de réponse : passer de « pas fait »
+     à « fait » et garder le motif laisserait une raison de non-réalisation sur
+     un événement réalisé. Le contrôle le refuserait ; on l'efface plutôt que
+     de laisser l'écran s'en charger.
+  */
+  const garderLeMotif = realise === 'non-fait' || realise === 'partiel';
+  const avec: Evenement = {
+    ...evenement,
+    realise,
+    motif: garderLeMotif ? (options.motif ?? null) : null,
+    motifLibre: garderLeMotif ? (options.motifLibre ?? '') : '',
+    releveLe: realise === 'inconnu' ? null : le.toISOString(),
+    majLe: maintenant(),
+  };
+  const problemes = controlerEvenement(avec);
+  if (problemes.length) throw new Error(problemes.join(' '));
+  await base.put('odysseeEvenements', avec);
+  await journaliser('odysseeEvenements', avec);
   return avec;
 }
 

@@ -362,6 +362,222 @@ v(
   'mesure',
 );
 
+/* ════════════════════════════════════════════════════════════════════════
+   5. Les tâches : trois sorties, et le motif exigé
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nUNE TÂCHE SE FAIT, S’ABANDONNE, OU RESTE OUVERTE');
+
+await page.goto(`${RACINE}/odyssee/taches/`, { waitUntil: 'networkidle' });
+await deverrouiller();
+await page.waitForSelector('#vue:not(.hidden)', { timeout: 40000 });
+
+await page.fill('#titre', 'Appeler le syndic');
+await page.selectOption('#domaine', 'connaissances');
+await page.click('#ajouter');
+await page.waitForFunction(
+  () => document.querySelectorAll('[data-tache]').length === 1,
+  undefined,
+  { timeout: 15000 },
+);
+v('la tâche est créée', await page.locator('[data-tache]').count(), 1);
+v(
+  'et elle est ouverte',
+  await page.locator('[data-tache]').first().getAttribute('data-etat'),
+  'ouverte',
+);
+
+/*
+   Le domaine proposé ne contient que les domaines actifs : offrir un domaine
+   en pause permettrait de créer une tâche qui ne reparaîtrait jamais — la
+   règle posée en O2.
+*/
+{
+  const proposes = await page.$$eval('#domaine option', (els) => els.map((e) => e.value));
+  faux('« ordre » n’est pas proposé : il est en pause', proposes.includes('ordre'));
+  v('les cinq actifs le sont', proposes.length, 5);
+}
+
+/* L'abandon demande un motif, et le refuse sans. */
+await page.click('[data-renoncer]');
+await page.click('[data-confirmer]');
+vrai(
+  'renoncer sans motif est refusé, et dit pourquoi',
+  ((await page.locator('[data-tache]').first().textContent()) ?? '').includes(
+    'fait partie du renoncement',
+  ),
+);
+v(
+  'et la tâche est toujours ouverte',
+  await page.locator('[data-tache]').first().getAttribute('data-etat'),
+  'ouverte',
+);
+
+await page.selectOption('[data-motif]', 'trop-ambitieux');
+await page.click('[data-confirmer]');
+await page.waitForFunction(
+  () => document.querySelector('[data-tache]')?.getAttribute('data-etat') === 'abandonnee',
+  undefined,
+  { timeout: 15000 },
+);
+v(
+  'avec motif, elle est abandonnée',
+  await page.locator('[data-tache]').first().getAttribute('data-etat'),
+  'abandonnee',
+);
+vrai(
+  'et le motif est affiché',
+  ((await page.locator('[data-tache]').first().textContent()) ?? '').includes(
+    'le plan était trop chargé',
+  ),
+);
+
+/* ════════════════════════════════════════════════════════════════════════
+   6. Le calendrier et le relevé
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nCE QUI ÉTAIT PRÉVU : ODYSSÉE DEMANDE, ET SAIT POURQUOI');
+
+/*
+   Deux moments **passés** sont semés directement : l'écran ne permet pas de
+   créer un événement dans le passé par son formulaire — ce serait un usage
+   douteux —, et c'est pourtant le seul état où le relevé se pose.
+*/
+const PASSES = await page.evaluate(
+  (jour) =>
+    new Promise((ok, ko) => {
+      const demande = indexedDB.open('revinsp');
+      demande.onerror = () => ko(demande.error);
+      demande.onsuccess = () => {
+        const base = demande.result;
+        const tx = base.transaction('odysseeEvenements', 'readwrite');
+        const magasin = tx.objectStore('odysseeEvenements');
+        for (const [id, titre, h] of [
+          ['EV-1', 'Séance de sport', 6],
+          ['EV-2', 'Appel famille', 7],
+        ]) {
+          magasin.put({
+            id,
+            titre,
+            domaine: 'corps',
+            debut: `${jour}T0${h}:00:00.000Z`,
+            fin: `${jour}T0${h}:45:00.000Z`,
+            journeeEntiere: false,
+            lieu: '',
+            note: '',
+            uidIcs: null,
+            realise: 'inconnu',
+            releveLe: null,
+            motif: null,
+            motifLibre: '',
+            majLe: `${jour}T05:00:00.000Z`,
+          });
+        }
+        tx.oncomplete = () => {
+          base.close();
+          ok(true);
+        };
+        tx.onerror = () => ko(tx.error);
+      };
+    }),
+  JOUR,
+);
+vrai('deux moments passés sont semés', PASSES === true);
+
+await page.goto(`${RACINE}/odyssee/calendrier/`, { waitUntil: 'networkidle' });
+await deverrouiller();
+await page.waitForSelector('#vue-calendrier:not(.hidden)', { timeout: 40000 });
+await page.click('[data-vue="jour"]');
+await page.waitForFunction(
+  () => document.querySelectorAll('[data-evenement]').length === 2,
+  undefined,
+  { timeout: 15000 },
+);
+v('les deux moments sont à l’agenda du jour', await page.locator('[data-evenement]').count(), 2);
+v('et les deux demandent un relevé', await page.locator('[data-releve]').count(), 2);
+
+/* « Fait » s'enregistre d'un clic : il n'a pas de raison à donner. */
+await page.click('[data-evenement="EV-1"] [data-reponse="fait"]');
+await page.waitForFunction(
+  () =>
+    document
+      .querySelector('[data-evenement="EV-1"] [data-realise]')
+      ?.getAttribute('data-realise') === 'fait',
+  undefined,
+  { timeout: 15000 },
+);
+v(
+  'un moment déclaré fait porte sa réponse',
+  await page
+    .locator('[data-evenement="EV-1"] [data-realise]')
+    .getAttribute('data-realise'),
+  'fait',
+);
+
+/* « Pas fait » ouvre la question du motif, et la refuse vide. */
+await page.click('[data-evenement="EV-2"] [data-reponse="non-fait"]');
+await page.click('[data-evenement="EV-2"] button:has-text("Enregistrer")');
+vrai(
+  'un « pas fait » sans motif est refusé à l’écran',
+  ((await page.locator('[data-evenement="EV-2"]').textContent()) ?? '').includes(
+    'demande d’en dire la raison',
+  ),
+);
+v(
+  'et rien n’est enregistré',
+  await page.locator('[data-evenement="EV-2"] [data-realise]').count(),
+  0,
+);
+
+await page.selectOption('[data-evenement="EV-2"] select', 'imprevu');
+await page.fill('[data-evenement="EV-2"] input[type="text"]', 'panne de voiture');
+await page.click('[data-evenement="EV-2"] button:has-text("Enregistrer")');
+await page.waitForFunction(
+  () =>
+    document
+      .querySelector('[data-evenement="EV-2"] [data-realise]')
+      ?.getAttribute('data-realise') === 'non-fait',
+  undefined,
+  { timeout: 15000 },
+);
+{
+  const texte = (await page.locator('[data-evenement="EV-2"]').textContent()) ?? '';
+  vrai('le motif est enregistré et affiché', texte.includes('un imprévu'));
+  vrai('et la précision libre aussi', texte.includes('panne de voiture'));
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   7. Le suivi, et ce qu'il refuse de conclure
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nLE TABLEAU DE BORD COMPTE CE QUI A ÉTÉ RELEVÉ');
+
+await page.goto(`${RACINE}/odyssee/`, { waitUntil: 'networkidle' });
+await deverrouiller();
+await page.waitForSelector('#vue:not(.hidden)', { timeout: 40000 });
+
+{
+  const chiffres = (await page.locator('#plan-chiffres').textContent()) ?? '';
+  /*
+     Deux moments relevés — un fait, un non fait — plus la tâche abandonnée,
+     qui compte comme non faite : un sur trois, soit 33 %.
+  */
+  vrai('le taux est affiché', chiffres.includes('%'));
+  vrai('et le détail des réponses aussi', chiffres.includes('1 fait'));
+}
+{
+  const pourquoi = (await page.locator('#plan-pourquoi').textContent()) ?? '';
+  vrai('les raisons données sont listées', pourquoi.includes('un imprévu'));
+  /*
+     Deux motifs, un chacun : sous le seuil et à égalité. Nommer une cause
+     dominante là-dessus serait la conclusion que le catalogue d'indicateurs
+     interdit ailleurs.
+  */
+  vrai('mais aucune cause n’est désignée', pourquoi.includes('Trop peu'));
+}
+v(
+  'il ne reste rien à relever',
+  await page.locator('#rien-a-relever').isVisible(),
+  true,
+);
+
 await nav.close();
 console.log(
   echecs

@@ -58,6 +58,19 @@ export interface Tache extends Possede {
   /** Jour logique d'échéance, ou `null` : une tâche sans date n'est pas en retard. */
   echeance: string | null;
   faiteLe: string | null;
+  /**
+   * Jour logique de l'abandon, ou `null`.
+   *
+   * Renoncer n'est pas oublier. Une tâche abandonnée quitte l'arriéré — elle
+   * ne reparaît plus dans « Que faire maintenant ? » — **sans** être
+   * supprimée : elle compte dans le suivi du plan tenu, du côté de ce qui
+   * n'a pas été fait, et la supprimer ferait remonter le taux de réalisation
+   * à chaque renoncement. C'est exactement l'inverse de ce qu'un suivi doit
+   * faire.
+   */
+  abandonneeLe: string | null;
+  /** Pourquoi on y a renoncé. Exigé à l'abandon, `null` sinon. */
+  motifAbandon: MotifNonFait | null;
   /** Texte libre, jamais obligatoire. */
   note: string;
   creeeLe: string;
@@ -98,6 +111,152 @@ export interface Quete extends Possede {
    Les événements
    ════════════════════════════════════════════════════════════════════════ */
 
+/* ════════════════════════════════════════════════════════════════════════
+   Le relevé : ce qui était prévu a-t-il eu lieu ?
+   ════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * L'écart entre le plan et le réel, dit par la personne.
+ *
+ * ## Pourquoi `inconnu` est une valeur et non une absence
+ *
+ * Un agenda dit ce qui était **prévu**. Sans relevé, le site ne peut que le
+ * supposer vécu — et c'est ce qu'il faisait, en marquant les faits `estime`.
+ * Mais « je ne sais pas » et « ce n'était pas fait » sont deux choses
+ * différentes, et les confondre fabriquerait un taux de réalisation faux dans
+ * les deux sens : à la baisse si l'on compte tout ce qui n'est pas relevé
+ * comme non fait, à la hausse si l'on compte tout comme fait.
+ *
+ * `inconnu` est donc la valeur de départ, elle est **comptée à part**, et le
+ * taux de réalisation ne porte que sur ce qui a été relevé.
+ *
+ * ## Pourquoi « partiel » existe
+ *
+ * Sans lui, une séance de deux heures écourtée à vingt minutes obligerait à
+ * mentir dans un sens ou dans l'autre. Et c'est le cas le plus fréquent : la
+ * plupart des plans ne sont ni tenus ni abandonnés, ils sont rognés.
+ */
+export type Realisation = 'inconnu' | 'fait' | 'partiel' | 'non-fait';
+
+export const REALISATIONS: readonly Realisation[] = ['inconnu', 'fait', 'partiel', 'non-fait'];
+
+export const LIBELLE_REALISATION: Record<Realisation, string> = {
+  inconnu: 'Pas encore dit',
+  fait: 'Fait',
+  partiel: 'En partie',
+  'non-fait': 'Pas fait',
+};
+
+/* ════════════════════════════════════════════════════════════════════════
+   Pourquoi cela n'a pas eu lieu
+   ════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Les motifs d'un plan non tenu.
+ *
+ * ## Pourquoi une liste déclarée, et pas seulement un texte libre
+ *
+ * Un texte libre dit tout et ne se compte pas. « Odyssée doit savoir
+ * pourquoi » ne veut rien dire si la réponse n'est lisible que par un humain
+ * qui relirait trois ans de notes : il faut que la raison dominante se
+ * **calcule**. La liste est donc fermée — et le texte libre existe à côté,
+ * pour ce que la liste ne dit pas.
+ *
+ * ## Pourquoi ces motifs-là
+ *
+ * Ils couvrent les causes réelles d'un plan qui tombe, et ils sont rangés du
+ * plus extérieur au plus intérieur. Deux choix méritent d'être défendus :
+ *
+ * **`trop-ambitieux` met en cause le plan, pas la personne.** C'est le motif
+ * le plus utile de la liste, parce que c'est celui qui débouche sur une
+ * correction — planifier moins —, là où « je n'ai pas réussi » ne débouche sur
+ * rien. Sans lui, tout échec de planification se lirait comme un échec de
+ * volonté.
+ *
+ * **`sans-envie` existe, et il est dit sans détour.** L'omettre forcerait à
+ * choisir un motif faux, et un suivi qu'on remplit de travers ne vaut rien.
+ * Il n'est pas plus mal noté qu'un autre : aucun motif ne l'est, parce que ce
+ * relevé n'est pas une note.
+ */
+export type MotifNonFait =
+  | 'imprevu'
+  | 'annule-par-autrui'
+  | 'manque-de-temps'
+  | 'trop-ambitieux'
+  | 'sante'
+  | 'fatigue'
+  | 'sans-envie'
+  | 'priorite-changee'
+  | 'oubli'
+  | 'autre';
+
+export interface Motif {
+  id: MotifNonFait;
+  libelle: string;
+  /** Ce qu'il recouvre, pour que deux motifs voisins ne soient pas confondus. */
+  precision: string;
+}
+
+export const MOTIFS: readonly Motif[] = [
+  {
+    id: 'imprevu',
+    libelle: 'Un imprévu',
+    precision: 'Quelque chose d’autre s’est imposé, hors de votre main.',
+  },
+  {
+    id: 'annule-par-autrui',
+    libelle: 'Annulé par quelqu’un d’autre',
+    precision: 'Ce n’est pas vous qui avez renoncé.',
+  },
+  {
+    id: 'manque-de-temps',
+    libelle: 'Pas eu le temps',
+    precision: 'La journée était pleine ; rien ne s’est substitué en particulier.',
+  },
+  {
+    id: 'trop-ambitieux',
+    libelle: 'Le plan était trop chargé',
+    precision: 'Ce n’était pas tenable au départ. C’est le plan qu’il faut revoir.',
+  },
+  {
+    id: 'sante',
+    libelle: 'Santé',
+    precision: 'Douleur, maladie, rendez-vous médical.',
+  },
+  {
+    id: 'fatigue',
+    libelle: 'Trop fatigué',
+    precision: 'Possible sur le papier, hors d’atteinte ce jour-là.',
+  },
+  {
+    id: 'sans-envie',
+    libelle: 'Pas eu envie',
+    precision: 'Dit sans détour : un suivi qu’on remplit de travers ne vaut rien.',
+  },
+  {
+    id: 'priorite-changee',
+    libelle: 'Ce n’était plus la priorité',
+    precision: 'Vous avez fait autre chose, et c’était le bon choix.',
+  },
+  {
+    id: 'oubli',
+    libelle: 'Oublié',
+    precision: 'Jamais revenu à l’esprit au bon moment.',
+  },
+  {
+    id: 'autre',
+    libelle: 'Autre',
+    precision: 'À préciser en deux mots.',
+  },
+];
+
+const MOTIF_PAR_ID = new Map(MOTIFS.map((m) => [m.id, m]));
+
+export const motif = (id: string): Motif | undefined =>
+  MOTIF_PAR_ID.get(id as MotifNonFait);
+
+export const libelleDuMotif = (id: string): string => MOTIF_PAR_ID.get(id as MotifNonFait)?.libelle ?? id;
+
 /**
  * Un événement d'agenda.
  *
@@ -105,6 +264,9 @@ export interface Quete extends Possede {
  * vient. Il n'est pas décoratif : réimporter le même agenda doit **mettre à
  * jour** les événements déjà connus, pas les dupliquer. Un événement saisi à
  * la main n'en a pas, et c'est ce qui le protège d'être écrasé par un import.
+ *
+ * `realise` porte le relevé — voir `Realisation`. Il n'est **jamais** déduit :
+ * un événement passé reste `inconnu` tant que la personne n'a pas répondu.
  */
 export interface Evenement extends Possede {
   titre: string;
@@ -118,6 +280,20 @@ export interface Evenement extends Possede {
   lieu: string;
   note: string;
   uidIcs: string | null;
+  realise: Realisation;
+  /** Instant du relevé, pour distinguer « répondu » de « jamais ouvert ». */
+  releveLe: string | null;
+  /**
+   * Pourquoi cela n'a pas eu lieu, ou pas entièrement.
+   *
+   * Exigé quand `realise` vaut `non-fait` — c'est tout l'intérêt du relevé —,
+   * proposé sans être exigé quand il vaut `partiel`, et nécessairement `null`
+   * sinon : un motif de non-réalisation sur un événement fait serait une
+   * contradiction que personne ne remarquerait avant de compter.
+   */
+  motif: MotifNonFait | null;
+  /** Les deux mots qui précisent le motif. Jamais obligatoires. */
+  motifLibre: string;
 }
 
 /* ════════════════════════════════════════════════════════════════════════
@@ -184,6 +360,24 @@ export interface Revue extends Possede {
 export function controlerTache(t: Tache): string[] {
   const problemes: string[] = [];
   if (!t.titre.trim()) problemes.push('Une tâche a besoin d’un titre.');
+  /*
+     Faite **et** abandonnée est contradictoire, et ce n'est pas une subtilité :
+     le suivi du plan tenu compterait la même tâche des deux côtés.
+  */
+  if (t.faiteLe && t.abandonneeLe) {
+    problemes.push('Une tâche ne peut pas être à la fois faite et abandonnée.');
+  }
+  /*
+     Un abandon sans motif ne serait qu'une disparition. La contrainte est ici,
+     dans le contrôle, et non dans l'écran : un écran se contourne, un contrôle
+     refuse l'écriture.
+  */
+  if (t.abandonneeLe && !t.motifAbandon) {
+    problemes.push('Dire pourquoi vous y renoncez fait partie du renoncement.');
+  }
+  if (!t.abandonneeLe && t.motifAbandon) {
+    problemes.push('Une tâche qui n’est pas abandonnée ne porte pas de motif d’abandon.');
+  }
   if (t.echeance !== null && !/^\d{4}-\d{2}-\d{2}$/.test(t.echeance)) {
     problemes.push('L’échéance doit être un jour au format AAAA-MM-JJ.');
   }
@@ -210,6 +404,18 @@ export function controlerQuete(q: Quete): string[] {
 export function controlerEvenement(e: Evenement): string[] {
   const problemes: string[] = [];
   if (!e.titre.trim()) problemes.push('Un événement a besoin d’un titre.');
+  if (!REALISATIONS.includes(e.realise)) {
+    problemes.push('Le relevé doit être « inconnu », « fait », « partiel » ou « non-fait ».');
+  }
+  if (e.realise === 'non-fait' && !e.motif) {
+    problemes.push('Dire que cela n’a pas eu lieu demande d’en dire la raison.');
+  }
+  if ((e.realise === 'fait' || e.realise === 'inconnu') && e.motif) {
+    problemes.push('Un motif de non-réalisation n’a pas de sens ici.');
+  }
+  if (e.motif && !MOTIF_PAR_ID.has(e.motif)) {
+    problemes.push(`Motif inconnu : « ${e.motif} ».`);
+  }
   const debut = Date.parse(e.debut);
   const fin = Date.parse(e.fin);
   if (Number.isNaN(debut)) problemes.push('La date de début est illisible.');

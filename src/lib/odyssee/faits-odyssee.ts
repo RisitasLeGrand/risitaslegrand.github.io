@@ -166,11 +166,25 @@ export function projeterFaitsOdyssee(
   /* --- Événements passés -------------------------------------------------- */
   const maintenant = (options.maintenant ?? new Date()).toISOString();
   let evenementsAVenir = 0;
+  let evenementsNonFaits = 0;
+  let evenementsNonReleves = 0;
   for (const evenement of evenements) {
     if (evenement.fin > maintenant) {
       evenementsAVenir += 1;
       continue;
     }
+    /*
+       Relevé « pas fait » : l'événement **n'a pas eu lieu**, et publier sa
+       durée compterait un temps que personne n'a passé. Il sort donc des
+       faits — tout en restant dans le suivi du plan tenu, qui est fait pour
+       cela. C'est la différence entre « ce qui s'est passé » et « ce qui
+       était prévu ».
+    */
+    if (evenement.realise === 'non-fait') {
+      evenementsNonFaits += 1;
+      continue;
+    }
+    if (evenement.realise === 'inconnu') evenementsNonReleves += 1;
     brouillons.push({
       id: `odyssee.evenement:${evenement.id}`,
       type: 'odyssee.evenement',
@@ -181,21 +195,41 @@ export function projeterFaitsOdyssee(
       unite: 'secondes',
       source: evenement.uidIcs ? 'import' : 'manuel',
       /*
-         `estime`, et c'est le seul des cinq à ne pas être `confirme`. Un
-         créneau d'agenda dit ce qui était **prévu**, pas ce qui a eu lieu :
-         la réunion a pu finir plus tôt, ou ne pas avoir lieu du tout. Le
-         marquer confirmé ferait passer un plan pour une observation, et la
-         couverture de mesure s'en trouverait flattée exactement là où elle
-         est la plus fragile.
+         La fiabilité vient du **relevé**, et c'est ce que le relevé a changé.
+
+         Avant lui, un créneau d'agenda était toujours `estime` : il disait ce
+         qui était prévu, et le marquer confirmé aurait fait passer un plan
+         pour une observation. Maintenant que la personne peut répondre, un
+         événement qu'elle déclare fait est une observation — `confirme` —, et
+         seul ce qu'elle n'a pas relevé reste une supposition.
+
+         « En partie » reste `estime` et garde sa durée entière : on sait que
+         ce fut plus court, on ne sait pas de combien, et inventer une
+         proportion serait pire que de l'avouer.
       */
-      fiabilite: 'estime',
-      details: { titre: evenement.titre, journeeEntiere: evenement.journeeEntiere },
+      fiabilite: evenement.realise === 'fait' ? 'confirme' : 'estime',
+      details: {
+        titre: evenement.titre,
+        journeeEntiere: evenement.journeeEntiere,
+        realise: evenement.realise,
+      },
     });
   }
   manques.push({
     quoi: 'Événements encore à venir',
     combien: evenementsAVenir,
     consequence: 'Ils ne sont pas publiés : un temps prévu n’est pas un temps vécu.',
+  });
+  manques.push({
+    quoi: 'Moments prévus qui n’ont pas eu lieu',
+    combien: evenementsNonFaits,
+    consequence: 'Ils ne comptent dans aucune durée, mais pèsent dans le suivi du plan tenu.',
+  });
+  manques.push({
+    quoi: 'Moments passés sans relevé',
+    combien: evenementsNonReleves,
+    consequence:
+      'Leur durée est publiée comme estimée : nul ne sait encore s’ils ont eu lieu.',
   });
 
   /* --- Focus --------------------------------------------------------------

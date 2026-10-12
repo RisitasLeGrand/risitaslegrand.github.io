@@ -123,12 +123,65 @@ dupliquerait la vérité.
 > l'essai, pas les vingt-cinq minutes visées : compter la durée visée gonflerait le temps de
 > concentration exactement les jours où l'on s'est le moins concentré.
 
-### O4 — Calendrier
+### O4 — Calendrier, tâches, et le suivi « prévu / réalisé »
 
-Jour, semaine, mois. Import et export ICS, **aucune synchronisation cloud**. Détection de
-chevauchement et de surcharge.
+> **O4 et O5 faites, le 12 octobre 2026**, avec l'addendum du même jour : *« l'utilisateur doit
+> pouvoir gérer intégralement son planning depuis Odyssée ; Odyssée doit réaliser un suivi de ce
+> qui est fait ou non ; si une tâche ou un événement planifié n'a pas eu lieu, Odyssée doit savoir
+> pourquoi. »*
+>
+> **Le relevé a résolu une gêne que j'avais signalée en O1.** Un créneau d'agenda était publié
+> `estime` faute de mieux : il disait ce qui était prévu, et nul ne savait si cela avait eu lieu.
+> Maintenant que la personne peut répondre, un moment déclaré fait devient `confirme`, un moment
+> déclaré **non fait n'est plus publié du tout** — publier sa durée compterait un temps que
+> personne n'a passé — et seul ce qui n'est pas relevé reste une supposition.
+>
+> **« Je ne sais pas » n'est pas « pas fait ».** C'est la règle qui tient tout le suivi. Les
+> moments non relevés sont comptés **à part** et n'entrent pas dans le taux : les compter comme
+> des échecs ferait baisser le chiffre pour une absence de réponse, ce qui apprendrait à ne plus
+> rien planifier. Et sans aucun relevé, le taux vaut `null` plutôt que zéro.
+>
+> **« En partie » vaut une demie**, et le chiffre est déclaré dans `POIDS_PARTIEL` plutôt que
+> fondu dans une formule. Le compter pour 1 effacerait la différence entre une séance tenue et une
+> séance rognée ; pour 0, il la rendrait équivalente à un abandon. C'est aussi le cas le plus
+> fréquent : la plupart des plans ne sont ni tenus ni abandonnés, ils sont rognés.
+>
+> **Une tâche a trois sorties, pas deux.** L'abandon n'est pas un confort d'interface : sans lui,
+> retirer une tâche de l'arriéré imposerait de la supprimer, et supprimer ferait **remonter** le
+> taux à chaque renoncement — l'inverse de ce qu'un suivi doit faire. Une tâche **sans échéance**
+> n'entre pas dans le compte : une liste de choses à faire « un jour » n'est pas un plan, et la
+> compter ferait baisser le taux à chaque idée notée.
+>
+> **Les dix motifs sont une liste fermée, parce qu'un texte libre ne se compte pas.** « Savoir
+> pourquoi » ne veut rien dire si la réponse n'est lisible que par un humain relisant trois ans de
+> notes : il faut que la cause dominante se **calcule**. Le texte libre existe à côté, pour ce que
+> la liste ne dit pas.
+>
+> Deux motifs méritent d'être défendus. **`trop-ambitieux` met en cause le plan et non la
+> personne** : c'est le seul qui débouche sur une correction — planifier moins —, là où « je n'ai
+> pas réussi » ne débouche sur rien. **`sans-envie` est dit sans détour** : l'omettre forcerait à
+> choisir un motif faux, et un suivi qu'on remplit de travers ne vaut rien.
+>
+> **Le motif est exigé par le contrôle du modèle, pas par l'écran.** Un écran se contourne ; un
+> contrôle refuse l'écriture. L'écran le demande **avant**, pour que l'échec ne soit jamais la
+> façon dont on apprend la règle — mais la garantie est ailleurs.
+>
+> **Aucune cause dominante sous quatre observations, ni à égalité.** Nommer une cause sur deux
+> relevés serait exactement la conclusion que le catalogue d'indicateurs interdit ailleurs, et il
+> n'y a pas de raison de se l'autoriser ici parce que c'est plus facile à calculer.
+>
+> **L'iCalendar est écrit à la main**, et ce que cela coûte est dit plutôt que caché : les règles
+> de récurrence ne sont pas lues, une série est importée comme son seul premier terme, et les
+> séries concernées sont **nommées** dans le rapport d'import. Une bibliothèque pesant de 50 à
+> 200 ko aurait chargé chaque page du site pour un import qu'on fait trois fois par an. Ce qui
+> n'est pas négociable y est : CRLF, pliage à 75 **octets** — un « é » en pèse deux —, échappement,
+> et un `UID` stable, qui est la seule chose rendant un réimport utilisable plus d'une fois.
+>
+> **Les relevés ne sont pas retenus par la surcharge.** Toutes les autres suggestions qui ajoutent
+> du travail se taisent une journée à neuf heures d'agenda ; celle-là passe, parce que répondre
+> « pas fait » est le geste le plus utile d'une journée trop pleine.
 
-### O5 — Tâches et quêtes
+### O5 — Tâches et quêtes *(fait avec O4 — voir ci-dessus)*
 
 ### O6 — Revue du soir, et le coût de saisie affiché (E.6)
 

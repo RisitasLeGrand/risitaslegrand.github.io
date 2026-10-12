@@ -32,7 +32,8 @@
  */
 import type { Fait } from '../noyau/faits';
 import { DOMAINES, type IdDomaine } from '../noyau/domaines';
-import type { Evenement, Quete, Tache } from './modele';
+import type { Evenement, MotifNonFait, Quete, Tache } from './modele';
+import { MOTIFS, libelleDuMotif } from './modele';
 import { chevauchements, dureeDeLEvenement } from './modele';
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -223,6 +224,7 @@ export type IdRegle =
   | 'journee-surchargee'
   | 'agenda-en-conflit'
   | 'domaine-delaisse'
+  | 'releve-a-faire'
   | 'revue-du-soir';
 
 export interface Regle {
@@ -283,6 +285,13 @@ export const REGLES: readonly Regle[] = [
       'ailleurs : un domaine qui n’a jamais rien reçu n’est pas délaissé, il n’est pas suivi.',
   },
   {
+    id: 'releve-a-faire',
+    intitule: 'Un moment prévu est passé, et vous n’avez pas dit s’il a eu lieu',
+    raison:
+      'Un agenda dit ce qui était prévu. Sans relevé, le site devrait supposer, et un taux de ' +
+      'réalisation supposé ne vaut rien. La question se pose une fois, après coup, jamais avant.',
+  },
+  {
     id: 'revue-du-soir',
     intitule: 'La revue du soir n’est pas faite',
     raison: 'Proposée seulement après l’heure du coucher moins deux heures, jamais le matin.',
@@ -298,7 +307,7 @@ export interface Suggestion {
   /** Ce qui l'a déclenchée, affiché en dessous : « parce que… ». */
   parceQue: string;
   /** L'objet visé, pour que le bouton mène quelque part. */
-  cible?: { quoi: 'tache' | 'quete' | 'evenement' | 'revue'; id: string };
+  cible?: { quoi: 'tache' | 'quete' | 'evenement' | 'revue' | 'releve'; id: string };
 }
 
 /** Seuils de la règle « journée surchargée ». */
@@ -440,6 +449,28 @@ export function queFaireMaintenant(
       regle: 'domaine-delaisse',
       texte: d.libelle,
       parceQue: 'Rien dans ce domaine depuis le début de la semaine.',
+    });
+  }
+
+  /* --- Les relevés en attente ----------------------------------------------
+     Un événement passé dont on n'a pas dit s'il a eu lieu. La question se pose
+     **après** l'heure de fin, jamais avant : demander à 9 h si la réunion de
+     14 h a eu lieu n'a pas de sens, et demander pendant qu'elle a lieu non
+     plus.
+
+     Les relevés ne sont pas retenus par la surcharge, et c'est voulu :
+     répondre « pas fait » est le geste le plus utile d'une journée trop
+     pleine, et c'est précisément le jour où il faut le proposer.
+  */
+  for (const evenement of entrees.evenementsDuJour) {
+    if (evenement.realise !== 'inconnu') continue;
+    if (evenement.journeeEntiere) continue;
+    if (Date.parse(evenement.fin) > options.maintenant.getTime()) continue;
+    brutes.push({
+      regle: 'releve-a-faire',
+      texte: evenement.titre,
+      parceQue: 'Était prévu, et vous n’avez pas encore dit si cela a eu lieu.',
+      cible: { quoi: 'releve', id: evenement.id },
     });
   }
 
@@ -587,4 +618,174 @@ export function semaineCourante(aujourdhui: string): string[] {
     jours.push(new Date(jour.getTime() - i * 24 * 3600 * 1000).toISOString().slice(0, 10));
   }
   return jours;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Le plan tenu : ce qui était prévu a-t-il été fait ?
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Ce qu'un élément du plan vaut, du point de vue du suivi.
+ *
+ * `partiel` vaut une demie, et ce n'est pas un arbitraire déguisé : c'est la
+ * seule valeur qui ne force pas à mentir. La compter pour 1 effacerait la
+ * différence entre une séance tenue et une séance rognée ; la compter pour 0
+ * la rendrait équivalente à un abandon. Le chiffre est déclaré ici, une fois,
+ * et affiché avec le taux pour qu'il puisse être discuté.
+ */
+export const POIDS_PARTIEL = 0.5;
+
+export interface PlanTenu {
+  /** Éléments prévus sur la fenêtre et déjà échus — ceux à venir n'y sont pas. */
+  prevus: number;
+  faits: number;
+  partiels: number;
+  nonFaits: number;
+  /** Prévu, échu, et sans réponse. Compté à part : « je ne sais pas » n'est pas « pas fait ». */
+  nonReleves: number;
+  /**
+   * Le taux, entre 0 et 1, **sur ce qui a été relevé seulement**.
+   *
+   * `null` quand rien n'a été relevé : un taux calculé sur zéro réponse serait
+   * un chiffre sans contenu, et le genre de chiffre qu'on finit par citer.
+   */
+  taux: number | null;
+  /** Combien de fois chaque motif a été donné, du plus fréquent au moins. */
+  motifs: { motif: MotifNonFait; libelle: string; combien: number }[];
+  /**
+   * Le motif dominant, s'il y en a un.
+   *
+   * `null` tant que les motifs donnés n'atteignent pas `MOTIFS_POUR_CONCLURE`,
+   * ou quand deux motifs sont à égalité. Nommer une cause dominante sur deux
+   * observations serait exactement le genre de conclusion que le catalogue
+   * d'indicateurs interdit ailleurs, et il n'y a pas de raison de se l'autoriser
+   * ici parce que c'est plus facile à calculer.
+   */
+  dominant: { motif: MotifNonFait; libelle: string; combien: number; part: number } | null;
+}
+
+/** En deçà, on ne nomme aucune cause dominante. */
+export const MOTIFS_POUR_CONCLURE = 4;
+
+export interface OptionsPlanTenu {
+  /** Les jours logiques observés. */
+  jours: readonly string[];
+  /** Instant courant : ce qui n'est pas encore échu n'est pas compté. */
+  maintenant: Date;
+  actifs: readonly IdDomaine[];
+}
+
+/**
+ * Le suivi « prévu / réalisé », sur les événements et les tâches datées.
+ *
+ * ## Ce qui entre dans le compte, et ce qui n'y entre pas
+ *
+ * | Élément | Compté ? |
+ * |---|---|
+ * | Événement passé, relevé | oui, selon la réponse |
+ * | Événement passé, non relevé | compté **à part**, jamais comme un échec |
+ * | Événement encore à venir | non : on ne manque pas un rendez-vous de demain |
+ * | Tâche échue et faite | oui, comme faite |
+ * | Tâche échue et abandonnée | oui, comme non faite — renoncer est une réponse |
+ * | Tâche échue, ni faite ni abandonnée | non relevée |
+ * | Tâche **sans échéance** | non : elle n'était prévue pour aucun jour |
+ *
+ * La dernière ligne est la plus importante. Une liste de choses à faire « un
+ * jour » n'est pas un plan, et la compter ferait baisser le taux à chaque
+ * idée notée — ce qui apprendrait à ne plus rien noter.
+ */
+export function planTenu(
+  taches: readonly Tache[],
+  evenements: readonly Evenement[],
+  options: OptionsPlanTenu,
+): PlanTenu {
+  const fenetre = new Set(options.jours);
+  const actifs = new Set(options.actifs);
+  const instant = options.maintenant.getTime();
+
+  let faits = 0;
+  let partiels = 0;
+  let nonFaits = 0;
+  let nonReleves = 0;
+  const comptes = new Map<MotifNonFait, number>();
+  const noter = (m: MotifNonFait | null) => {
+    if (m) comptes.set(m, (comptes.get(m) ?? 0) + 1);
+  };
+
+  for (const evenement of evenements) {
+    if (!actifs.has(evenement.domaine)) continue;
+    const jour = evenement.debut.slice(0, 10);
+    if (!fenetre.has(jour)) continue;
+    // Pas encore échu : on ne manque pas ce qui n'a pas encore eu lieu.
+    if (Date.parse(evenement.fin) > instant) continue;
+    if (evenement.realise === 'fait') {
+      faits += 1;
+    } else if (evenement.realise === 'partiel') {
+      partiels += 1;
+      // Un « en partie » peut porter un motif, sans y être tenu.
+      noter(evenement.motif);
+    } else if (evenement.realise === 'non-fait') {
+      nonFaits += 1;
+      noter(evenement.motif);
+    } else {
+      nonReleves += 1;
+    }
+  }
+
+  for (const tache of taches) {
+    if (!actifs.has(tache.domaine)) continue;
+    // Sans échéance, elle n'était prévue pour aucun jour.
+    if (!tache.echeance || !fenetre.has(tache.echeance)) continue;
+    if (tache.faiteLe) {
+      faits += 1;
+      continue;
+    }
+    if (tache.abandonneeLe) {
+      nonFaits += 1;
+      noter(tache.motifAbandon);
+      continue;
+    }
+    /*
+       Une tâche dont l'échéance n'est pas passée n'est pas en retard : elle
+       est encore à faire. La comparaison porte sur le jour, parce qu'une
+       échéance est un jour et non une heure.
+    */
+    const finDuJour = Date.parse(`${tache.echeance}T23:59:59.999Z`);
+    if (finDuJour > instant) continue;
+    nonReleves += 1;
+  }
+
+  const releves = faits + partiels + nonFaits;
+  /*
+     Les motifs sont triés par fréquence, puis par **ordre de déclaration** à
+     égalité. Un tri instable ferait changer l'ordre d'un affichage à l'autre
+     sur les mêmes données, et une liste qui bouge toute seule se lit comme
+     une liste qui ment.
+  */
+  const rang = new Map(MOTIFS.map((m, i) => [m.id, i]));
+  const motifs = [...comptes.entries()]
+    .map(([m, combien]) => ({ motif: m, libelle: libelleDuMotif(m), combien }))
+    .sort((a, b) =>
+      b.combien !== a.combien
+        ? b.combien - a.combien
+        : (rang.get(a.motif) ?? 99) - (rang.get(b.motif) ?? 99),
+    );
+
+  const donnes = motifs.reduce((somme, m) => somme + m.combien, 0);
+  const exAequo = motifs.length > 1 && motifs[0].combien === motifs[1].combien;
+  const dominant =
+    motifs.length && donnes >= MOTIFS_POUR_CONCLURE && !exAequo
+      ? { ...motifs[0], part: motifs[0].combien / donnes }
+      : null;
+
+  return {
+    prevus: releves + nonReleves,
+    faits,
+    partiels,
+    nonFaits,
+    nonReleves,
+    taux: releves > 0 ? (faits + partiels * POIDS_PARTIEL) / releves : null,
+    motifs,
+    dominant,
+  };
 }

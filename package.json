@@ -89,7 +89,8 @@
     "essais:profil:navigateur": "node scripts/essais-profil-navigateur.mjs",
     "essais:certification": "tsx scripts/essais-certification.mts",
     "essais:certification:navigateur": "node scripts/essais-certification-navigateur.mjs",
-    "essais:odyssee:navigateur": "node scripts/essais-odyssee-navigateur.mjs"
+    "essais:odyssee:navigateur": "node scripts/essais-odyssee-navigateur.mjs",
+    "essais:odyssee:ics": "tsx scripts/essais-odyssee-ics.mts"
   },
   "repository": {
     "type": "git",

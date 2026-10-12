@@ -1,0 +1,338 @@
+---
+/**
+ * Odyssée : les tâches.
+ *
+ * ## Trois sorties, et pas deux
+ *
+ * Une tâche se termine, s'abandonne, ou reste ouverte. L'abandon n'est pas un
+ * confort d'interface : sans lui, la seule façon de retirer une tâche de
+ * l'arriéré serait de la supprimer, et supprimer ferait **remonter** le taux
+ * de plan tenu à chaque renoncement — l'inverse de ce qu'un suivi doit faire.
+ * Renoncer est donc une réponse, elle est enregistrée comme telle, et elle
+ * demande un motif.
+ *
+ * ## Pourquoi l'écran exige le motif alors que le modèle l'exige déjà
+ *
+ * Il ne l'exige pas : il le **demande avant**, pour que l'échec d'écriture ne
+ * soit jamais la façon dont la personne découvre la règle. Le contrôle du
+ * modèle reste la garantie ; l'écran est la politesse.
+ *
+ * ## Les domaines proposés sont les domaines actifs
+ *
+ * Un domaine en pause se tait, suggestions comprises — c'est la règle posée en
+ * O2. Offrir ici un domaine en pause permettrait de créer une tâche qui ne
+ * reparaîtrait jamais.
+ */
+import Base from '../../layouts/Base.astro';
+---
+
+<Base titre="Mes tâches" entete="leger">
+  <div class="mx-auto max-w-3xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Mes tâches</h1>
+    <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      Une tâche se fait une fois. Ce qui revient chaque jour ou chaque semaine est une
+      <strong>quête</strong>, et se tient depuis le tableau de bord.
+    </p>
+
+    <div id="chargement-taches" class="mt-6">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Lecture des tâches…</p>
+    </div>
+
+    <div id="vue" class="mt-6 hidden">
+      <form
+        id="ajout"
+        class="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900"
+      >
+        <div class="flex flex-wrap items-end gap-3">
+          <label class="min-w-56 flex-1 text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Quoi</span>
+            <input
+              id="titre"
+              type="text"
+              required
+              maxlength="200"
+              class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+            />
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Domaine</span>
+            <select
+              id="domaine"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+            ></select>
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Pour quand</span>
+            <input
+              id="echeance"
+              type="date"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+            />
+          </label>
+          <button
+            id="ajouter"
+            type="submit"
+            class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+          >
+            Ajouter
+          </button>
+        </div>
+        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          Sans date, la tâche reste une intention : elle ne compte pas dans le suivi du plan, et
+          ne vous sera pas reprochée.
+        </p>
+        <p id="erreur-ajout" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+      </form>
+
+      <section class="mt-8">
+        <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">En retard</h2>
+        <div id="retard" class="space-y-2"></div>
+        <p id="retard-vide" class="hidden text-sm text-slate-500 dark:text-slate-400">
+          Rien en retard.
+        </p>
+      </section>
+
+      <section class="mt-8">
+        <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">À faire</h2>
+        <div id="ouvertes" class="space-y-2"></div>
+        <p id="ouvertes-vide" class="hidden text-sm text-slate-500 dark:text-slate-400">
+          Rien à faire pour l’instant.
+        </p>
+      </section>
+
+      <section class="mt-8">
+        <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">Closes</h2>
+        <p class="mb-3 text-sm text-slate-500 dark:text-slate-400">
+          Faites et abandonnées, les trente dernières. Une tâche abandonnée reste ici : elle
+          compte dans le suivi, et la supprimer ferait remonter le taux à chaque renoncement.
+        </p>
+        <div id="closes" class="space-y-2"></div>
+        <p id="closes-vide" class="hidden text-sm text-slate-500 dark:text-slate-400">
+          Rien encore.
+        </p>
+      </section>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { domainesActifs } from '../../lib/odyssee-jour';
+  import {
+    abandonner,
+    ajouterTache,
+    clore,
+    supprimerTache,
+    toutesLesTaches,
+  } from '../../lib/odyssee/donnees';
+  import { MOTIFS, libelleDuMotif, type MotifNonFait, type Tache } from '../../lib/odyssee/modele';
+  import { jourLogique } from '../../lib/noyau/jour-logique';
+  import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
+  import { DOMAINES, libelleDuDomaine } from '../../lib/noyau/domaines';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  let actifs: string[] = [];
+  let aujourdhui = '';
+
+  function ligne(texte: string, classe: string): HTMLParagraphElement {
+    const p = document.createElement('p');
+    p.className = classe;
+    p.textContent = texte;
+    return p;
+  }
+
+  function bouton(libelle: string, classe = ''): HTMLButtonElement {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className =
+      'min-h-11 rounded-lg border border-slate-300 px-3 text-sm transition ' +
+      'hover:border-indigo-400 dark:border-slate-700 ' +
+      classe;
+    b.textContent = libelle;
+    return b;
+  }
+
+  /**
+   * La carte d'une tâche.
+   *
+   * L'abandon ouvre le choix du motif au lieu de s'appliquer : c'est la seule
+   * action de cet écran qui demande une réponse, et la demander après coup —
+   * par un message d'erreur — serait la pire façon de l'apprendre.
+   */
+  function carte(tache: Tache): HTMLElement {
+    const bloc = document.createElement('div');
+    bloc.className =
+      'rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 ' +
+      'dark:bg-slate-950';
+    bloc.dataset.tache = tache.id;
+    bloc.dataset.etat = tache.faiteLe ? 'faite' : tache.abandonneeLe ? 'abandonnee' : 'ouverte';
+
+    const titre = ligne(
+      tache.titre,
+      'font-medium ' +
+        (tache.faiteLe || tache.abandonneeLe
+          ? 'text-slate-400 line-through dark:text-slate-500'
+          : 'text-slate-900 dark:text-white'),
+    );
+    bloc.appendChild(titre);
+
+    const detail: string[] = [libelleDuDomaine(tache.domaine)];
+    if (tache.echeance) detail.push(`pour le ${tache.echeance}`);
+    if (tache.faiteLe) detail.push(`faite le ${tache.faiteLe}`);
+    if (tache.abandonneeLe) {
+      detail.push(
+        `abandonnée le ${tache.abandonneeLe}` +
+          (tache.motifAbandon ? ` — ${libelleDuMotif(tache.motifAbandon).toLowerCase()}` : ''),
+      );
+    }
+    bloc.appendChild(
+      ligne(detail.join(' · '), 'mt-0.5 text-xs text-slate-400 dark:text-slate-500'),
+    );
+
+    const actions = document.createElement('div');
+    actions.className = 'mt-2 flex flex-wrap gap-2';
+
+    if (!tache.faiteLe && !tache.abandonneeLe) {
+      const faite = bouton('Faite');
+      faite.dataset.faire = tache.id;
+      faite.addEventListener('click', () => void agirPuisPeindre(() => clore(tache.id, true)));
+      actions.appendChild(faite);
+
+      const renoncer = bouton('J’y renonce');
+      renoncer.dataset.renoncer = tache.id;
+      const choix = document.createElement('div');
+      choix.className = 'mt-2 hidden w-full';
+      const select = document.createElement('select');
+      select.dataset.motif = tache.id;
+      select.className =
+        'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm ' +
+        'dark:border-slate-700 dark:bg-slate-950';
+      const vide = document.createElement('option');
+      vide.value = '';
+      vide.textContent = 'Pourquoi y renoncez-vous ? (obligatoire)';
+      select.appendChild(vide);
+      for (const m of MOTIFS) {
+        const option = document.createElement('option');
+        option.value = m.id;
+        option.textContent = m.libelle;
+        option.title = m.precision;
+        select.appendChild(option);
+      }
+      const confirmer = bouton('Confirmer le renoncement', 'mt-2');
+      confirmer.dataset.confirmer = tache.id;
+      const erreur = ligne('', 'mt-2 hidden text-sm text-rose-700 dark:text-rose-300');
+      confirmer.addEventListener('click', () => {
+        if (!select.value) {
+          erreur.textContent = 'Dire pourquoi vous y renoncez fait partie du renoncement.';
+          erreur.classList.remove('hidden');
+          return;
+        }
+        void agirPuisPeindre(() =>
+          abandonner(tache.id, true, select.value as MotifNonFait),
+        );
+      });
+      renoncer.addEventListener('click', () => choix.classList.remove('hidden'));
+      choix.append(select, confirmer, erreur);
+      actions.append(renoncer);
+      bloc.append(actions, choix);
+      return bloc;
+    }
+
+    const rouvrir = bouton('Rouvrir');
+    rouvrir.dataset.rouvrir = tache.id;
+    rouvrir.addEventListener('click', () =>
+      void agirPuisPeindre(async () => {
+        /*
+           Rouvrir défait les deux sorties, et dans cet ordre : lever l'abandon
+           efface le motif, puis la clôture est levée. Les inverser laisserait
+           un instant une tâche faite **et** abandonnée, que le contrôle
+           refuse — et le refus porterait sur un état que personne n'a voulu.
+        */
+        if (tache.abandonneeLe) await abandonner(tache.id, false);
+        if (tache.faiteLe) await clore(tache.id, false);
+      }),
+    );
+    actions.appendChild(rouvrir);
+
+    const supprimer = bouton('Supprimer', 'text-rose-700 dark:text-rose-300');
+    supprimer.dataset.supprimer = tache.id;
+    supprimer.addEventListener('click', () =>
+      void agirPuisPeindre(() => supprimerTache(tache.id)),
+    );
+    actions.appendChild(supprimer);
+
+    bloc.appendChild(actions);
+    return bloc;
+  }
+
+  async function agirPuisPeindre(action: () => Promise<unknown>) {
+    try {
+      await action();
+    } catch (erreur) {
+      const message = erreur instanceof Error ? erreur.message : String(erreur);
+      $('erreur-ajout').textContent = message;
+      $('erreur-ajout').classList.remove('hidden');
+      return;
+    }
+    await peindre();
+  }
+
+  async function peindre() {
+    const taches = await toutesLesTaches();
+    const ouvertes = taches.filter((t) => !t.faiteLe && !t.abandonneeLe);
+    const retard = ouvertes.filter((t) => t.echeance && t.echeance < aujourdhui);
+    const aFaire = ouvertes.filter((t) => !retard.includes(t));
+    const closes = taches
+      .filter((t) => t.faiteLe || t.abandonneeLe)
+      .sort((a, b) => (b.faiteLe ?? b.abandonneeLe ?? '').localeCompare(a.faiteLe ?? a.abandonneeLe ?? ''))
+      .slice(0, 30);
+
+    for (const [zone, liste] of [
+      ['retard', retard],
+      ['ouvertes', aFaire],
+      ['closes', closes],
+    ] as const) {
+      const cible = $(zone);
+      cible.innerHTML = '';
+      $(`${zone}-vide`).classList.toggle('hidden', liste.length > 0);
+      const tries = [...liste].sort((a, b) =>
+        (a.echeance ?? '9999').localeCompare(b.echeance ?? '9999'),
+      );
+      for (const tache of tries) cible.appendChild(carte(tache));
+    }
+    $('vue').classList.remove('hidden');
+  }
+
+  auDeverrouillage(
+    async () => {
+      actifs = await domainesActifs();
+      aujourdhui = jourLogique(new Date(), await reglagesJourLogiqueLocaux());
+
+      const select = $('domaine') as HTMLSelectElement;
+      for (const d of DOMAINES) {
+        if (!actifs.includes(d.id)) continue;
+        const option = document.createElement('option');
+        option.value = d.id;
+        option.textContent = d.libelle;
+        select.appendChild(option);
+      }
+
+      $('ajout').addEventListener('submit', (evenement) => {
+        evenement.preventDefault();
+        const titre = ($('titre') as HTMLInputElement).value.trim();
+        if (!titre) return;
+        const echeance = ($('echeance') as HTMLInputElement).value || null;
+        void agirPuisPeindre(async () => {
+          await ajouterTache({ titre, domaine: select.value, echeance });
+          ($('titre') as HTMLInputElement).value = '';
+          ($('echeance') as HTMLInputElement).value = '';
+          $('erreur-ajout').classList.add('hidden');
+        });
+      });
+
+      await peindre();
+    },
+    { zoneChargement: '#chargement-taches' },
+  );
+</script>

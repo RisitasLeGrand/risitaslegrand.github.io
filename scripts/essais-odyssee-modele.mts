@@ -10,6 +10,7 @@ import { projeterFaitsOdyssee } from '../src/lib/odyssee/faits-odyssee';
 import {
   JOURS_DE_LA_ROUE,
   SUGGESTIONS_AFFICHEES,
+  planTenu,
   controlerRegles,
   couverture,
   derniersJours,
@@ -20,6 +21,7 @@ import {
 } from '../src/lib/odyssee/jour';
 import {
   CADENCES,
+  MOTIFS,
   TYPES_DE_REVUE,
   chevauchements,
   controlerEvenement,
@@ -52,6 +54,8 @@ const tache = (p: Partial<Tache> = {}): Tache => ({
   domaine: 'ordre',
   echeance: null,
   faiteLe: null,
+  abandonneeLe: null,
+  motifAbandon: null,
   note: '',
   creeeLe: '2026-10-01T09:00:00.000Z',
   majLe: '2026-10-01T09:00:00.000Z',
@@ -80,6 +84,10 @@ const evenement = (p: Partial<Evenement> = {}): Evenement => ({
   lieu: '',
   note: '',
   uidIcs: null,
+  realise: 'inconnu',
+  releveLe: null,
+  motif: null,
+  motifLibre: '',
   ...p,
 });
 
@@ -658,6 +666,304 @@ const options = {
   // Une liste de quinze suggestions n'est pas une aide, c'est une liste de reproches.
   v('les suggestions sont plafonnées', suggestions.length, SUGGESTIONS_AFFICHEES);
 }
+
+/* ════════════════════════════════════════════════════════════════════════
+   7 bis. Le plan tenu : « je ne sais pas » n'est pas « pas fait »
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nLE SUIVI DU PLAN NE COMPTE QUE CE QUI A ÉTÉ RELEVÉ');
+
+const AVEC_ORDRE = [...ACTIFS, 'ordre'];
+const SOIR = new Date('2026-10-12T22:00:00.000Z');
+const passe = (p: Partial<Evenement> = {}) =>
+  evenement({
+    debut: '2026-10-12T09:00:00.000Z',
+    fin: '2026-10-12T10:00:00.000Z',
+    ...p,
+  });
+
+{
+  const p = planTenu([], [], { jours: JOURS, maintenant: SOIR, actifs: AVEC_ORDRE });
+  v('sans rien de prévu, le taux n’existe pas', p.taux, null);
+  v('et rien n’est compté', p.prevus, 0);
+}
+
+{
+  /*
+     Un taux calculé sur zéro réponse serait un chiffre sans contenu, et le
+     genre de chiffre qu'on finit par citer. Trois moments prévus, aucun
+     relevé : on dit qu'il y en a trois, et on ne dit pas de taux.
+  */
+  const p = planTenu(
+    [],
+    [passe({ id: 'A' }), passe({ id: 'B' }), passe({ id: 'C' })],
+    { jours: JOURS, maintenant: SOIR, actifs: AVEC_ORDRE },
+  );
+  v('trois prévus, aucun relevé', [p.prevus, p.nonReleves], [3, 3]);
+  v('et toujours pas de taux', p.taux, null);
+}
+
+{
+  const p = planTenu(
+    [],
+    [
+      passe({ id: 'A', realise: 'fait' }),
+      passe({ id: 'B', realise: 'non-fait', motif: 'imprevu' }),
+      passe({ id: 'C', realise: 'partiel' }),
+      passe({ id: 'D' }),
+    ],
+    { jours: JOURS, maintenant: SOIR, actifs: AVEC_ORDRE },
+  );
+  v('les trois réponses sont comptées à part', [p.faits, p.partiels, p.nonFaits], [1, 1, 1]);
+  v('et le non relevé aussi', p.nonReleves, 1);
+  /*
+     (1 fait + 0,5 partiel) / 3 relevés. Le quatrième, non relevé, ne pèse
+     d'aucun côté : l'inclure ferait baisser le taux pour une absence de
+     réponse, ce qui apprendrait à ne plus rien planifier.
+  */
+  v('le taux porte sur les relevés seuls', p.taux, 0.5);
+}
+
+{
+  const futur = evenement({
+    id: 'DEMAIN',
+    debut: '2026-10-12T23:30:00.000Z',
+    fin: '2026-10-13T00:30:00.000Z',
+  });
+  const p = planTenu([], [futur], { jours: JOURS, maintenant: SOIR, actifs: AVEC_ORDRE });
+  // On ne manque pas un rendez-vous qui n'a pas encore eu lieu.
+  v('un moment encore à venir n’est pas compté', p.prevus, 0);
+}
+
+{
+  const p = planTenu(
+    [
+      tache({ id: 'FAITE', echeance: '2026-10-11', faiteLe: '2026-10-11' }),
+      tache({ id: 'ABANDON', echeance: '2026-10-11', abandonneeLe: '2026-10-11', motifAbandon: 'priorite-changee' }),
+      tache({ id: 'MUETTE', echeance: '2026-10-11' }),
+      tache({ id: 'SANS-DATE' }),
+    ],
+    [],
+    { jours: JOURS, maintenant: SOIR, actifs: AVEC_ORDRE },
+  );
+  v('une tâche faite compte comme faite', p.faits, 1);
+  // Renoncer est une réponse : la tâche quitte l'arriéré, pas le suivi.
+  v('une tâche abandonnée compte comme non faite', p.nonFaits, 1);
+  v('une tâche échue et muette est non relevée', p.nonReleves, 1);
+  /*
+     Une liste de choses à faire « un jour » n'est pas un plan : la compter
+     ferait baisser le taux à chaque idée notée, ce qui apprendrait à ne plus
+     rien noter.
+  */
+  v('une tâche sans échéance n’est pas un plan', p.prevus, 3);
+  v('le taux porte sur les deux relevées', p.taux, 0.5);
+}
+
+{
+  const p = planTenu(
+    [tache({ echeance: '2026-10-12', faiteLe: null })],
+    [],
+    { jours: JOURS, maintenant: new Date('2026-10-12T09:00:00.000Z'), actifs: AVEC_ORDRE },
+  );
+  // L'échéance est un jour : elle n'est pas dépassée à neuf heures du matin.
+  v('une tâche due aujourd’hui n’est pas encore en défaut', p.prevus, 0);
+}
+
+{
+  const p = planTenu([], [passe({ domaine: 'corps', realise: 'fait' })], {
+    jours: JOURS,
+    maintenant: SOIR,
+    actifs: ['connaissances'],
+  });
+  v('un domaine non suivi ne pèse pas', p.prevus, 0);
+}
+
+console.log('\nET LA SUGGESTION DE RELEVÉ');
+{
+  const { suggestions } = queFaireMaintenant(
+    { ...base, evenementsDuJour: [passe({ id: 'PASSE' })] },
+    { ...options, maintenant: SOIR, actifs: AVEC_ORDRE },
+  );
+  v(
+    'un moment passé sans relevé est signalé',
+    suggestions.filter((s) => s.regle === 'releve-a-faire').length,
+    1,
+  );
+  const relevé = queFaireMaintenant(
+    { ...base, evenementsDuJour: [passe({ id: 'PASSE', realise: 'fait' })] },
+    { ...options, maintenant: SOIR, actifs: AVEC_ORDRE },
+  );
+  v(
+    'une fois relevé, il se tait',
+    relevé.suggestions.filter((s) => s.regle === 'releve-a-faire').length,
+    0,
+  );
+  const avant = queFaireMaintenant(
+    { ...base, evenementsDuJour: [passe({ id: 'PASSE' })] },
+    { ...options, maintenant: new Date('2026-10-12T09:30:00.000Z'), actifs: AVEC_ORDRE },
+  );
+  // Demander pendant que la réunion a lieu n'a pas de sens.
+  v(
+    'et rien n’est demandé avant la fin',
+    avant.suggestions.filter((s) => s.regle === 'releve-a-faire').length,
+    0,
+  );
+}
+
+{
+  /*
+     Les relevés ne sont pas retenus par la surcharge : répondre « pas fait »
+     est le geste le plus utile d'une journée trop pleine, et c'est
+     précisément le jour où il faut le proposer.
+  */
+  const journee: Evenement[] = [];
+  for (let h = 8; h < 17; h += 1) {
+    journee.push(
+      passe({
+        id: `H${h}`,
+        debut: `2026-10-12T${String(h).padStart(2, '0')}:00:00.000Z`,
+        fin: `2026-10-12T${String(h + 1).padStart(2, '0')}:00:00.000Z`,
+      }),
+    );
+  }
+  const { suggestions, surchargee } = queFaireMaintenant(
+    { ...base, evenementsDuJour: journee },
+    { ...options, maintenant: SOIR, actifs: AVEC_ORDRE },
+  );
+  vrai('la journée est surchargée', surchargee);
+  vrai(
+    'et les relevés passent quand même',
+    suggestions.some((s) => s.regle === 'releve-a-faire'),
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   7 ter. Pourquoi cela n'a pas eu lieu
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nODYSSÉE SAIT POURQUOI, OU SE TAIT');
+
+{
+  /*
+     Un relevé « pas fait » sans motif est refusé à l'écriture, et non
+     seulement découragé par l'écran : un écran se contourne, un contrôle
+     refuse. C'est ce qui garantit qu'aucun non-fait de la base n'est muet.
+  */
+  v(
+    'un « pas fait » sans motif est refusé',
+    controlerEvenement(evenement({ realise: 'non-fait' })),
+    ['Dire que cela n’a pas eu lieu demande d’en dire la raison.'],
+  );
+  v(
+    'avec motif, il passe',
+    controlerEvenement(evenement({ realise: 'non-fait', motif: 'fatigue' })),
+    [],
+  );
+  v(
+    'un motif sur un événement fait est une contradiction',
+    controlerEvenement(evenement({ realise: 'fait', motif: 'fatigue' })),
+    ['Un motif de non-réalisation n’a pas de sens ici.'],
+  );
+  v(
+    'un motif inconnu est refusé',
+    controlerEvenement(
+      evenement({ realise: 'non-fait', motif: 'flemme' as never }),
+    ).length,
+    1,
+  );
+  v(
+    'un abandon sans motif est refusé',
+    controlerTache(tache({ abandonneeLe: '2026-10-11' })),
+    ['Dire pourquoi vous y renoncez fait partie du renoncement.'],
+  );
+}
+
+{
+  const p = planTenu(
+    [],
+    [
+      passe({ id: 'A', realise: 'non-fait', motif: 'manque-de-temps' }),
+      passe({ id: 'B', realise: 'non-fait', motif: 'manque-de-temps' }),
+      passe({ id: 'C', realise: 'non-fait', motif: 'fatigue' }),
+      passe({ id: 'D', realise: 'partiel', motif: 'manque-de-temps' }),
+    ],
+    { jours: JOURS, maintenant: SOIR, actifs: AVEC_ORDRE },
+  );
+  v(
+    'les motifs sont comptés, du plus fréquent au moins',
+    p.motifs.map((m) => [m.motif, m.combien]),
+    [
+      ['manque-de-temps', 3],
+      ['fatigue', 1],
+    ],
+  );
+  v('et le dominant est nommé', p.dominant?.motif, 'manque-de-temps');
+  v('avec sa part', p.dominant?.part, 0.75);
+  /*
+     Un « en partie » peut porter un motif sans y être tenu : il compte dans
+     les motifs, et du côté des réalisations il vaut une demie.
+  */
+  v('le partiel compte dans les deux', [p.partiels, p.nonFaits], [1, 3]);
+}
+
+{
+  // Trois motifs donnés : sous le seuil, on ne nomme aucune cause.
+  const p = planTenu(
+    [],
+    [
+      passe({ id: 'A', realise: 'non-fait', motif: 'fatigue' }),
+      passe({ id: 'B', realise: 'non-fait', motif: 'fatigue' }),
+      passe({ id: 'C', realise: 'non-fait', motif: 'fatigue' }),
+    ],
+    { jours: JOURS, maintenant: SOIR, actifs: AVEC_ORDRE },
+  );
+  v('trois observations ne font pas une cause', p.dominant, null);
+  v('mais les motifs sont quand même comptés', p.motifs[0].combien, 3);
+}
+
+{
+  // Égalité parfaite : aucune cause ne domine, et le dire vaut mieux que de trancher.
+  const p = planTenu(
+    [],
+    [
+      passe({ id: 'A', realise: 'non-fait', motif: 'fatigue' }),
+      passe({ id: 'B', realise: 'non-fait', motif: 'fatigue' }),
+      passe({ id: 'C', realise: 'non-fait', motif: 'imprevu' }),
+      passe({ id: 'D', realise: 'non-fait', motif: 'imprevu' }),
+    ],
+    { jours: JOURS, maintenant: SOIR, actifs: AVEC_ORDRE },
+  );
+  v('deux causes à égalité n’en désignent aucune', p.dominant, null);
+}
+
+{
+  const p = planTenu(
+    [
+      tache({
+        id: 'T',
+        echeance: '2026-10-11',
+        abandonneeLe: '2026-10-11',
+        motifAbandon: 'trop-ambitieux',
+      }),
+    ],
+    [
+      passe({ id: 'A', realise: 'non-fait', motif: 'trop-ambitieux' }),
+      passe({ id: 'B', realise: 'non-fait', motif: 'trop-ambitieux' }),
+      passe({ id: 'C', realise: 'non-fait', motif: 'trop-ambitieux' }),
+    ],
+    { jours: JOURS, maintenant: SOIR, actifs: AVEC_ORDRE },
+  );
+  /*
+     Tâches et événements versent dans le même compte : la cause d'un plan qui
+     tombe ne dépend pas de la forme sous laquelle il était noté.
+  */
+  v('tâches et événements comptent ensemble', p.motifs[0].combien, 4);
+  v('et le motif qui met en cause le plan ressort', p.dominant?.motif, 'trop-ambitieux');
+}
+
+v(
+  'les dix motifs sont déclarés avec une précision',
+  MOTIFS.filter((m) => !m.libelle.trim() || m.precision.trim().length < 20).length,
+  0,
+);
 
 /* ════════════════════════════════════════════════════════════════════════
    8. Les fenêtres de jours

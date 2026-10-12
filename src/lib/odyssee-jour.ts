@@ -38,10 +38,12 @@ import {
   couverture,
   derniersJours,
   plancherDuJour,
+  planTenu,
   queFaireMaintenant,
   roue,
   semaineCourante,
   type Couverture,
+  type PlanTenu,
   type Plancher,
   type Roue,
   type Suggestion,
@@ -59,6 +61,10 @@ export interface EtatDuJour {
   retenues: number;
   surchargee: boolean;
   couverture: Couverture;
+  /** Le suivi « prévu / réalisé » sur la fenêtre de sept jours. */
+  plan: PlanTenu;
+  /** Les moments passés dont le relevé manque, à n'importe quel jour de la fenêtre. */
+  aRelever: Evenement[];
   evenementsDuJour: Evenement[];
   taches: Tache[];
   quetes: Quete[];
@@ -125,7 +131,19 @@ export async function etatDuJour(maintenant = new Date()): Promise<EtatDuJour> {
 
   const debutDuJour = `${aujourdhui}T00:00:00.000Z`;
   const finDuJour = `${aujourdhui}T23:59:59.999Z`;
+  /*
+     Deux fenêtres, et elles ne servent pas à la même chose. Le jour, pour
+     l'agenda et les suggestions. Les sept jours, pour le suivi du plan et
+     pour les relevés en retard — un moment de mardi non relevé doit rester
+     posable vendredi, sans quoi il suffirait d'ignorer la question un jour
+     pour qu'elle disparaisse, et le taux ne porterait que sur les jours
+     assidus.
+  */
   const evenementsDuJour = await evenementsEntre(debutDuJour, finDuJour);
+  const evenementsDeLaFenetre = await evenementsEntre(
+    `${jours[0]}T00:00:00.000Z`,
+    finDuJour,
+  );
   const revueFaite = Boolean(await revueDu('soir', aujourdhui));
 
   const laRoue = roue(faits, { actifs, cibles, jours });
@@ -135,11 +153,24 @@ export async function etatDuJour(maintenant = new Date()): Promise<EtatDuJour> {
     { maintenant, aujourdhui, semaine, actifs, coucher, revueFaite },
   );
 
+  const plan = planTenu(taches, evenementsDeLaFenetre, { jours, maintenant, actifs });
+  const aRelever = evenementsDeLaFenetre
+    .filter(
+      (e) =>
+        e.realise === 'inconnu' &&
+        !e.journeeEntiere &&
+        actifs.includes(e.domaine) &&
+        Date.parse(e.fin) <= maintenant.getTime(),
+    )
+    .sort((a, b) => b.debut.localeCompare(a.debut));
+
   return {
     aujourdhui,
     jours,
     semaine,
     actifs,
+    plan,
+    aRelever,
     roue: laRoue,
     plancher: lePlancher,
     suggestions: quoi.suggestions,
