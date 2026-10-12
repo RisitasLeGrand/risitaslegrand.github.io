@@ -13,6 +13,7 @@ import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 */
 import type { EntreeRevision } from './noyau/revisions';
 import type { Evenement, Focus, Quete, Revue, Tache } from './odyssee/modele';
+import type { Blessure, Exercice, Phase, Seance as SeanceSport } from './sport/modele';
 import type { Operation } from './noyau/operations';
 import { socleDe } from './noyau/revisions';
 import { idAppareilNeuf } from './noyau/operations';
@@ -545,10 +546,15 @@ interface SchemaRevinsp extends DBSchema {
   odysseeEvenements: { key: string; value: Evenement; indexes: { debut: string } };
   odysseeFocus: { key: string; value: Focus; indexes: { debut: string } };
   odysseeRevues: { key: string; value: Revue; indexes: { jour: string } };
+  /* Les magasins de Sport. Mêmes principes : les formes vivent dans la branche. */
+  sportExercices: { key: string; value: Exercice };
+  sportSeances: { key: string; value: SeanceSport; indexes: { jour: string; statut: string } };
+  sportPhases: { key: string; value: Phase; indexes: { debut: string } };
+  sportBlessures: { key: string; value: Blessure; indexes: { debut: string } };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 15;
+const VERSION = 16;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1000,6 +1006,31 @@ function ouvrirAuSchema(nom: string, version: number) {
 
         const revues = base.createObjectStore('odysseeRevues', { keyPath: 'id' });
         revues.createIndex('jour', 'jour');
+      }
+      if (vers(16)) {
+        /*
+         * Les magasins de Sport. Additive, comme la v15.
+         *
+         * `sportSeances` porte un index sur `statut` et non seulement sur le
+         * jour : la reprise d'une séance interrompue cherche « y a-t-il une
+         * séance en cours ? », et c'est la toute première question que pose
+         * l'écran au chargement. Sans index, elle lirait l'historique entier à
+         * chaque ouverture, pour trouver au plus une ligne.
+         *
+         * Les séries vivent **dans** leur séance et non dans un magasin à
+         * elles. Une série isolée n'a pas de sens, on ne la lit jamais sans sa
+         * séance, et la sauvegarde à chaque série écrit alors un seul
+         * enregistrement — ce qui est exactement ce qu'il faut pour qu'une
+         * reprise soit sûre.
+         */
+        base.createObjectStore('sportExercices', { keyPath: 'id' });
+
+        const seances = base.createObjectStore('sportSeances', { keyPath: 'id' });
+        seances.createIndex('jour', 'jour');
+        seances.createIndex('statut', 'statut');
+
+        base.createObjectStore('sportPhases', { keyPath: 'id' }).createIndex('debut', 'debut');
+        base.createObjectStore('sportBlessures', { keyPath: 'id' }).createIndex('debut', 'debut');
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -1841,6 +1872,10 @@ export const MAGASINS_PROGRESSION = [
   'odysseeEvenements',
   'odysseeFocus',
   'odysseeRevues',
+  'sportExercices',
+  'sportSeances',
+  'sportPhases',
+  'sportBlessures',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */

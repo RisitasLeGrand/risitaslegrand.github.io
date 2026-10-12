@@ -35,6 +35,9 @@ import {
   plateau,
   type PointDeForce,
 } from '../src/lib/sport/force';
+import { BIBLIOTHEQUE } from '../src/lib/sport/donnees';
+import { projeterFaitsSport } from '../src/lib/sport/faits-sport';
+import type { Seance } from '../src/lib/sport/modele';
 import {
   SEANCES_MINIMALES,
   controlerGardeFou,
@@ -461,6 +464,164 @@ v('le seuil est de trois séances', SEANCES_MINIMALES, 3);
   );
   const r = cas({ points: stable, dernieresSeries: [serie({ reserve: 0, echec: true })] });
   v('un plateau propose de varier, pas de forcer', r.proposition?.sorte, 'varier');
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   9. La projection de faits
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nSPORT PUBLIE CE QUI A EU LIEU');
+
+const seance = (p: Partial<Seance> = {}): Seance => ({
+  id: 'S1',
+  jour: '2026-10-09',
+  debut: '2026-10-09T10:00:00.000Z',
+  fin: '2026-10-09T11:00:00.000Z',
+  statut: 'terminee',
+  series: [serie()],
+  difficulte: 7,
+  note: '',
+  programmeId: null,
+  majLe: '2026-10-09T11:00:00.000Z',
+  ...p,
+});
+
+const videSport = { seances: [], exercices: [exercice()], phases: [], blessures: [] };
+
+{
+  const { faits, refuses } = projeterFaitsSport({
+    ...videSport,
+    seances: [seance(), seance({ id: 'S2', statut: 'en-cours', fin: null })],
+  });
+  v('aucun fait refusé par le contrat', refuses, []);
+  /*
+     Une séance en cours n'a pas de durée : la publier compterait un temps qui
+     n'est pas encore passé.
+  */
+  v(
+    'la séance en cours n’est pas publiée',
+    faits.filter((f) => f.type === 'sport.seance').map((f) => f.id),
+    ['sport.seance:S1'],
+  );
+  const laSeance = faits.find((f) => f.type === 'sport.seance')!;
+  v('sa durée est celle écoulée', laSeance.valeur, 3600);
+  v('et elle dit quels muscles ont travaillé', laSeance.details?.muscles, ['pectoraux']);
+}
+
+{
+  const deux = seance({ series: [serie({ charge: 80 }), serie({ charge: 85 })] });
+  const { faits } = projeterFaitsSport({ ...videSport, seances: [deux] });
+  const series = faits.filter((f) => f.type === 'sport.serie');
+  v('chaque série fait un fait', series.length, 2);
+  /*
+     Le rang est dans l'identifiant : deux séries identiques du même exercice
+     le même jour sont deux faits distincts, et un identifiant qui les
+     confondrait en perdrait une.
+  */
+  v('et son identifiant porte son rang', series.map((f) => f.id), [
+    'sport.serie:S1:0',
+    'sport.serie:S1:1',
+  ]);
+  // La charge, pas le tonnage : le tonnage mélange des exercices incomparables.
+  v('la valeur est la charge', series[1].valeur, 85);
+  v('et les répétitions sont dans les détails', series[0].details?.repetitions, 8);
+}
+
+{
+  /*
+     Un record republié à chaque séance ne serait plus un record : ce serait la
+     meilleure série du jour, déjà présente dans les faits « sport.serie ».
+  */
+  const seances = [
+    seance({ id: 'A', jour: '2026-10-01', debut: '2026-10-01T10:00:00.000Z', fin: '2026-10-01T11:00:00.000Z', series: [serie({ charge: 80, le: '2026-10-01T10:30:00.000Z' })] }),
+    seance({ id: 'B', jour: '2026-10-05', debut: '2026-10-05T10:00:00.000Z', fin: '2026-10-05T11:00:00.000Z', series: [serie({ charge: 80, le: '2026-10-05T10:30:00.000Z' })] }),
+    seance({ id: 'C', jour: '2026-10-09', debut: '2026-10-09T10:00:00.000Z', fin: '2026-10-09T11:00:00.000Z', series: [serie({ charge: 90, le: '2026-10-09T10:30:00.000Z' })] }),
+  ];
+  const { faits } = projeterFaitsSport({ ...videSport, seances });
+  const records = faits.filter((f) => f.type === 'sport.record');
+  v('un record n’est publié qu’au dépassement', records.length, 2);
+  v('le premier, puis celui qui le bat', records.map((f) => f.id), [
+    'sport.record:A:X',
+    'sport.record:C:X',
+  ]);
+  /*
+     « estime » : un maximum calculé par Epley et Brzycki n'a pas été soulevé.
+     Le marquer confirmé ferait passer une formule pour une mesure.
+  */
+  v('et un record estimé reste estimé', records[0].fiabilite, 'estime');
+}
+
+{
+  const { faits } = projeterFaitsSport({
+    ...videSport,
+    blessures: [
+      {
+        id: 'B1',
+        muscles: ['pectoraux'],
+        intensite: 6,
+        debut: '2026-10-08T00:00:00.000Z',
+        fin: null,
+        note: '',
+        majLe: '2026-10-08T00:00:00.000Z',
+      },
+    ],
+  });
+  /*
+     Une blessure ouverte est publiée : non publiée, elle disparaîtrait des
+     synthèses au moment même où elle explique tout le reste.
+  */
+  const b = faits.find((f) => f.type === 'sport.blessure')!;
+  v('une blessure ouverte est publiée', b.details?.ouverte, true);
+  v('et elle nomme les muscles', b.valeur, 'pectoraux');
+}
+
+{
+  const contenu = { ...videSport, seances: [seance()] };
+  v(
+    'deux projections rendent la même chose',
+    JSON.stringify(projeterFaitsSport(contenu).faits),
+    JSON.stringify(projeterFaitsSport(contenu).faits),
+  );
+}
+
+{
+  const sansExercice = projeterFaitsSport({ ...videSport, exercices: [], seances: [seance()] });
+  /*
+     Le fait est cherché par son type et non par son rang : les faits sont
+     triés par identifiant, et « sport.record » passe avant « sport.seance ».
+     Un essai qui prend le premier mesure l'ordre du tri, pas la règle.
+  */
+  const laSeance = sansExercice.faits.find((f) => f.type === 'sport.seance');
+  vrai('une séance dont l’exercice manque reste publiée', laSeance !== undefined);
+  v('mais elle ne nomme aucun muscle', laSeance?.details?.muscles, []);
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   10. La bibliothèque livrée
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nLA BIBLIOTHÈQUE LIVRÉE');
+
+v('trente et un exercices sont livrés', BIBLIOTHEQUE.length, 31);
+{
+  const problemes = BIBLIOTHEQUE.flatMap((livre, rang) =>
+    controlerExercice({ ...livre, id: `L${rang}`, fourni: true, majLe: '' }).map(
+      (p) => `${livre.nom} : ${p}`,
+    ),
+  );
+  v('et aucun ne pose de problème de forme', problemes, []);
+}
+{
+  /*
+     La bibliothèque doit couvrir les dix-huit muscles : un muscle du schéma
+     qu'aucun exercice livré ne sollicite serait une case du corps sur
+     laquelle on ne peut rien noter sans créer d'abord son exercice.
+  */
+  const couverts = new Set(BIBLIOTHEQUE.flatMap((e) => [...e.principaux, ...e.secondaires]));
+  const manquants = MUSCLES.filter((m) => !couverts.has(m.id)).map((m) => m.id);
+  v('les dix-huit muscles sont couverts', manquants, []);
+}
+{
+  const identites = BIBLIOTHEQUE.map(identiteDeComparaison);
+  v('et aucun doublon d’identité', identites.length - new Set(identites).size, 0);
 }
 
 /* ════════════════════════════════════════════════════════════════════════ */

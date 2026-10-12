@@ -321,6 +321,21 @@ export const MAGASINS_JOURNALISES: readonly MagasinJournalise[] = [
   }),
   M({ magasin: 'odysseeFocus', type: 'odyssee.focus', clef: 'id', libelle: 'Temps focus' }),
   M({ magasin: 'odysseeRevues', type: 'odyssee.revue', clef: 'id', libelle: 'Revue' }),
+  /*
+     Sport. La séance porte ses séries : une seule opération par séance, et la
+     dernière écriture gagne. C'est ce qui rend la sauvegarde à chaque série
+     tenable — sans quoi une séance de trente séries ferait trente opérations
+     dont vingt-neuf seraient aussitôt périmées.
+
+     Conséquence à connaître : deux appareils qui enregistreraient la **même**
+     séance en parallèle garderaient celle du dernier. Le cas suppose de
+     s'entraîner en saisissant sur deux téléphones à la fois ; le prix d'une
+     règle de combinaison pour cela dépasse ce qu'elle éviterait.
+  */
+  M({ magasin: 'sportExercices', type: 'sport.record', clef: 'id', libelle: 'Exercice' }),
+  M({ magasin: 'sportSeances', type: 'sport.seance', clef: 'id', libelle: 'Séance de sport' }),
+  M({ magasin: 'sportPhases', type: 'sport.phase', clef: 'id', libelle: 'Phase d’entraînement' }),
+  M({ magasin: 'sportBlessures', type: 'sport.blessure', clef: 'id', libelle: 'Blessure' }),
 ];
 
 const PAR_MAGASIN = new Map(MAGASINS_JOURNALISES.map((m) => [m.magasin, m]));

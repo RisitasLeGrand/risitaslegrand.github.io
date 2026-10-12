@@ -87,6 +87,15 @@ export const CHAMP_DATE: Record<string, string | null> = {
   odysseeEvenements: 'debut',
   odysseeFocus: 'debut',
   odysseeRevues: 'jour',
+  /*
+     Sport. La bibliothèque d'exercices est un **état** : effacer les exercices
+     d'il y a trois ans rendrait illisibles les séances qui y renvoient. Les
+     séances, les phases et les blessures, elles, sont datées.
+  */
+  sportExercices: null,
+  sportSeances: 'jour',
+  sportPhases: 'debut',
+  sportBlessures: 'debut',
 };
 
 export const GROUPES: readonly GroupeDeMagasins[] = [
@@ -151,6 +160,12 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
       'odysseeFocus',
       'odysseeRevues',
     ],
+  },
+  {
+    id: 'sport',
+    libelle: 'Sport',
+    description: 'Exercices, séances et séries, phases d’entraînement, blessures déclarées.',
+    magasins: ['sportExercices', 'sportSeances', 'sportPhases', 'sportBlessures'],
   },
   {
     id: 'reglages',
