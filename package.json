@@ -90,7 +90,8 @@
     "essais:certification": "tsx scripts/essais-certification.mts",
     "essais:certification:navigateur": "node scripts/essais-certification-navigateur.mjs",
     "essais:odyssee:navigateur": "node scripts/essais-odyssee-navigateur.mjs",
-    "essais:odyssee:ics": "tsx scripts/essais-odyssee-ics.mts"
+    "essais:odyssee:ics": "tsx scripts/essais-odyssee-ics.mts",
+    "essais:sport": "tsx scripts/essais-sport.mts"
   },
   "repository": {
     "type": "git",

@@ -1,0 +1,472 @@
+/**
+ * Le noyau de Sport : la force, le volume, et le garde-fou.
+ *
+ * Trois choses se vérifient ici, et la troisième est la seule qui ne se
+ * négocie pas :
+ *
+ * - **la charge maximale estimée est juste sur des cas connus**, calculés à la
+ *   main — une formule fausse ne se voit pas, elle produit des nombres
+ *   plausibles ;
+ * - **l'identité de comparaison sépare ce qui doit l'être** : deux équipements
+ *   différents ne partagent pas une progression ;
+ * - **aucune proposition de progresser en présence d'une douleur déclarée**.
+ *   Le contrôle l'éprouve sur un cas où toutes les autres règles voudraient
+ *   proposer de monter, sans quoi il ne prouverait rien.
+ */
+import {
+  COEFFICIENT_SECONDAIRE,
+  MUSCLES,
+  controlerExercice,
+  controlerSerie,
+  identiteDeComparaison,
+  musclesEmpeches,
+  volumeParMuscle,
+  type Blessure,
+  type Exercice,
+  type Serie,
+} from '../src/lib/sport/modele';
+import {
+  PROGRES_MINIMAL,
+  REPETITIONS_FIABLES,
+  SEANCES_POUR_UN_PLATEAU,
+  courbeDeForce,
+  doublons,
+  maximumEstime,
+  plateau,
+  type PointDeForce,
+} from '../src/lib/sport/force';
+import {
+  SEANCES_MINIMALES,
+  controlerGardeFou,
+  proposer,
+  refuser,
+} from '../src/lib/sport/modulation';
+
+let echecs = 0;
+const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
+  const a = JSON.stringify(obtenu);
+  const b = JSON.stringify(attendu);
+  if (a === b) {
+    console.log(`  \x1b[32m✓\x1b[0m ${intitule}`);
+    return;
+  }
+  echecs += 1;
+  console.log(`  \x1b[31m✗\x1b[0m ${intitule}\n      obtenu  ${a}\n      attendu ${b}`);
+};
+const vrai = (intitule: string, condition: boolean) => v(intitule, condition, true);
+const faux = (intitule: string, condition: boolean) => v(intitule, condition, false);
+
+const exercice = (p: Partial<Exercice> = {}): Exercice => ({
+  id: 'X',
+  nom: 'Développé couché',
+  nature: 'force',
+  lateralite: 'bilateral',
+  equipement: 'barre',
+  variante: '',
+  unite: 'kg',
+  principaux: ['pectoraux'],
+  secondaires: ['triceps', 'deltoide-anterieur'],
+  fourni: false,
+  majLe: '2026-10-01T00:00:00.000Z',
+  ...p,
+});
+
+const serie = (p: Partial<Serie> = {}): Serie => ({
+  exerciceId: 'X',
+  charge: 80,
+  repetitions: 8,
+  echec: false,
+  reserve: 2,
+  repos: 120,
+  le: '2026-10-09T10:00:00.000Z',
+  ...p,
+});
+
+const point = (jour: string, estime: number, p: Partial<PointDeForce> = {}): PointDeForce => ({
+  jour,
+  estime,
+  charge: estime * 0.8,
+  repetitions: 8,
+  imprecis: false,
+  phase: null,
+  ...p,
+});
+
+/* ════════════════════════════════════════════════════════════════════════
+   1. La charge maximale estimée, sur des cas calculés à la main
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nLA CHARGE MAXIMALE ESTIMÉE');
+
+{
+  /*
+     100 kg × 5 répétitions.
+     Epley   : 100 × (1 + 5/30)  = 116,666… → 116,7
+     Brzycki : 100 × 36 / (37−5) = 112,5
+     Moyenne : 114,583…          → 114,6
+  */
+  const e = maximumEstime(100, 5)!;
+  v('Epley sur 100 kg × 5', e.epley, 116.7);
+  v('Brzycki sur 100 kg × 5', e.brzycki, 112.5);
+  v('et la moyenne affichée', e.estime, 114.6);
+  faux('cinq répétitions restent fiables', e.imprecis);
+}
+{
+  /*
+     60 kg × 10.
+     Epley   : 60 × (1 + 10/30)   = 80
+     Brzycki : 60 × 36 / (37−10)  = 80
+     Les deux formules coïncident exactement à dix répétitions — c'est une
+     propriété connue, et c'est un bon contrôle : si l'une des deux est mal
+     écrite, l'égalité tombe.
+  */
+  const e = maximumEstime(60, 10)!;
+  v('à dix répétitions les deux formules coïncident', [e.epley, e.brzycki], [80, 80]);
+  v('et l’écart est nul', e.ecart, 0);
+  faux('dix est encore dans la plage fiable', e.imprecis);
+}
+{
+  const e = maximumEstime(50, 15)!;
+  vrai('au-delà de dix, l’imprécision est signalée', e.imprecis);
+  // Brzycki part plus haut qu'Epley à partir de dix : l'écart se creuse.
+  vrai('et les deux formules divergent', e.ecart > 0.05);
+}
+v('une répétition est le maximum, sans écart', maximumEstime(140, 1), {
+  epley: 140,
+  brzycki: 140,
+  estime: 140,
+  ecart: 0,
+  imprecis: false,
+});
+v('sans charge, rien n’est estimé', maximumEstime(null, 8), null);
+v('à zéro répétition non plus', maximumEstime(100, 0), null);
+/*
+   Brzycki s'annule à 37 : au-delà de 36, on ne rend rien plutôt qu'un nombre
+   délirant ou une division par zéro.
+*/
+v('et au-delà de trente-six répétitions, on se tait', maximumEstime(20, 40), null);
+v('le seuil de fiabilité est bien dix', REPETITIONS_FIABLES, 10);
+
+/* ════════════════════════════════════════════════════════════════════════
+   2. L'identité de comparaison
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nCE QUI SE COMPARE, ET CE QUI NE SE COMPARE PAS');
+
+v(
+  'l’identité est normalisée : accents, casse, espaces',
+  identiteDeComparaison({ nom: '  Développé  Couché ', equipement: 'BARRE', variante: '' }),
+  identiteDeComparaison({ nom: 'developpe couche', equipement: 'barre', variante: '' }),
+);
+/*
+   Deux équipements différents sont deux exercices. Changer d'équipement
+   repart de zéro pour le suivi, et c'est juste : un record au Smith machine
+   n'est pas un record à la barre libre.
+*/
+vrai(
+  'l’équipement sépare',
+  identiteDeComparaison({ nom: 'Développé couché', equipement: 'barre', variante: '' }) !==
+    identiteDeComparaison({ nom: 'Développé couché', equipement: 'haltères', variante: '' }),
+);
+vrai(
+  'la variante aussi',
+  identiteDeComparaison({ nom: 'Développé couché', equipement: 'barre', variante: 'incliné' }) !==
+    identiteDeComparaison({ nom: 'Développé couché', equipement: 'barre', variante: '' }),
+);
+
+{
+  const liste = [
+    exercice({ id: 'A' }),
+    exercice({ id: 'B', nom: 'DÉVELOPPÉ COUCHÉ' }),
+    exercice({ id: 'C', equipement: 'haltères' }),
+  ];
+  v(
+    'deux saisies du même exercice sont signalées',
+    doublons(liste).map((p) => p.map((e) => e.id)),
+    [['A', 'B']],
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   3. Le volume, et son coefficient conservé
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nLE VOLUME GARDE SON COEFFICIENT');
+
+{
+  const vol = volumeParMuscle([serie(), serie(), serie()], [exercice()]);
+  v('trois séries font trois séries sur le muscle principal', vol.series.pectoraux, 3);
+  // 3 × 0,5 : les secondaires comptent pour une fraction.
+  v('et une et demie sur chaque secondaire', vol.series.triceps, 1.5);
+  /*
+     Le coefficient voyage avec le résultat. Sans lui, un volume lu six mois
+     plus tard serait ininterprétable : « douze séries » sans savoir si les
+     secondaires y pèsent une demie ou un tiers.
+  */
+  v('le coefficient est conservé avec le calcul', vol.coefficient, COEFFICIENT_SECONDAIRE);
+  const autre = volumeParMuscle([serie(), serie(), serie()], [exercice()], 0.3);
+  v('un autre coefficient donne un autre volume', autre.series.triceps, 0.9);
+  v('et il est dit', autre.coefficient, 0.3);
+}
+v(
+  'une série sur un exercice inconnu ne compte nulle part',
+  volumeParMuscle([serie({ exerciceId: 'INCONNU' })], [exercice()]).series,
+  {},
+);
+
+/* ════════════════════════════════════════════════════════════════════════
+   4. Les contrôles de forme
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nLES CONTRÔLES');
+
+v('un exercice bien formé ne pose rien', controlerExercice(exercice()), []);
+v(
+  'un exercice sans muscle principal est refusé',
+  controlerExercice(exercice({ principaux: [] })),
+  ['Un exercice sollicite au moins un muscle principal.'],
+);
+/*
+   Un muscle principal **et** secondaire compterait deux fois dans le volume,
+   une fois plein et une fois réduit : le genre d'erreur qui gonfle un chiffre
+   sans jamais se voir.
+*/
+v(
+  'un muscle à la fois principal et secondaire est refusé',
+  controlerExercice(exercice({ secondaires: ['pectoraux'] })).length,
+  1,
+);
+v('un muscle inconnu est refusé', controlerExercice(exercice({ principaux: ['foie'] })).length, 1);
+
+v('une série bien formée ne pose rien', controlerSerie(serie()), []);
+/*
+   Échec et réserve non nulle sont contradictoires : si l'on aurait pu en faire
+   deux de plus, on n'a pas atteint l'échec. La contradiction fausserait toute
+   estimation, qui s'appuie sur l'un ou sur l'autre.
+*/
+v(
+  'échec et réserve ensemble sont refusés',
+  controlerSerie(serie({ echec: true, reserve: 2 })),
+  ['Une série menée à l’échec n’a pas de répétitions en réserve.'],
+);
+v('échec avec zéro en réserve passe', controlerSerie(serie({ echec: true, reserve: 0 })), []);
+v('les dix-huit muscles sont déclarés', MUSCLES.length, 18);
+
+/* ════════════════════════════════════════════════════════════════════════
+   5. La courbe, les phases, le plateau
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nLA COURBE ET LE PLATEAU');
+
+{
+  const seances = [
+    { jour: '2026-10-01', series: [serie({ charge: 70 }), serie({ charge: 80 })] },
+    { jour: '2026-10-05', series: [serie({ charge: 82.5 })] },
+  ];
+  const courbe = courbeDeForce('X', seances);
+  /*
+     Un point par jour, et c'est la **meilleure** série du jour : tracer
+     chacune ferait un nuage où l'échauffement voisinerait la série lourde.
+  */
+  v('un point par jour', courbe.length, 2);
+  v('et c’est la meilleure série du jour', courbe[0].charge, 80);
+  vrai('les points sont triés', courbe[0].jour < courbe[1].jour);
+}
+{
+  const phases = [
+    { id: 'P1', type: 'seche' as const, debut: '2026-10-01T00:00:00.000Z', fin: '2026-10-03T00:00:00.000Z', note: '', majLe: '' },
+    { id: 'P2', type: 'prise-de-masse' as const, debut: '2026-10-04T00:00:00.000Z', fin: null, note: '', majLe: '' },
+  ];
+  const seances = [
+    { jour: '2026-10-02', series: [serie({ charge: 70 })] },
+    { jour: '2026-10-06', series: [serie({ charge: 90 })] },
+  ];
+  const toute = courbeDeForce('X', seances, { phases });
+  v('chaque point porte sa phase', toute.map((p) => p.phase), ['seche', 'prise-de-masse']);
+  /*
+     Le filtre « périodes comparables » : sans lui, toute sèche ressemble à un
+     échec et toute prise de masse à un progrès.
+  */
+  const filtre = courbeDeForce('X', seances, { phases, phasesRetenues: ['prise-de-masse'] });
+  v('le filtre ne garde que les périodes comparables', filtre.map((p) => p.jour), ['2026-10-06']);
+}
+
+{
+  const stable = ['2026-10-01', '2026-10-05', '2026-10-09', '2026-10-13', '2026-10-17'].map((j) =>
+    point(j, 100),
+  );
+  const p = plateau(stable);
+  vrai('quatre séances sans dépasser font un plateau', p.atteint);
+  v('et il dit combien', p.seances, SEANCES_POUR_UN_PLATEAU);
+}
+{
+  const court = ['2026-10-01', '2026-10-05', '2026-10-09'].map((j) => point(j, 100));
+  const p = plateau(court);
+  faux('trois points ne suffisent pas à conclure', p.atteint);
+  v('et on dit pourquoi', p.pourquoiPas, 'assez-de-points');
+}
+{
+  const monte = [
+    point('2026-10-01', 100),
+    point('2026-10-05', 100),
+    point('2026-10-09', 100),
+    point('2026-10-13', 100),
+    point('2026-10-17', 110),
+  ];
+  faux('un progrès récent rompt le plateau', plateau(monte).atteint);
+}
+{
+  /*
+     101,5 après 100, c'est 1,5 % : sous le seuil de 2 %. Une estimation portée
+     par une formule approchée ne distingue pas cela d'un jour de forme.
+  */
+  const bruit = [
+    point('2026-10-01', 100),
+    point('2026-10-05', 100.5),
+    point('2026-10-09', 101),
+    point('2026-10-13', 101.2),
+    point('2026-10-17', 101.5),
+  ];
+  vrai('un progrès sous le seuil reste un plateau', plateau(bruit).atteint);
+  v('le seuil est bien de 2 %', PROGRES_MINIMAL, 0.02);
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   6. Le garde-fou, qui ne se négocie pas
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nAUCUNE PROGRESSION PROPOSÉE SUR UNE DOULEUR DÉCLARÉE');
+
+v('le contrôle du garde-fou ne trouve rien', controlerGardeFou(), []);
+
+const AUJOURDHUI = '2026-10-10';
+const MAINTENANT = new Date('2026-10-10T10:00:00.000Z');
+const POINTS = ['2026-10-01', '2026-10-05', '2026-10-09'].map((j) => point(j, 100, { charge: 80 }));
+const FACILES = [serie({ reserve: 3 }), serie({ reserve: 2 })];
+
+const blessure = (p: Partial<Blessure> = {}): Blessure => ({
+  id: 'B',
+  muscles: ['pectoraux'],
+  intensite: 5,
+  debut: '2026-10-09T00:00:00.000Z',
+  fin: null,
+  note: '',
+  majLe: '2026-10-09T00:00:00.000Z',
+  ...p,
+});
+
+const cas = (p: Partial<Parameters<typeof proposer>[0]> = {}) =>
+  proposer({
+    exercice: exercice(),
+    points: POINTS,
+    dernieresSeries: FACILES,
+    blessures: [],
+    refus: [],
+    aujourdhui: AUJOURDHUI,
+    maintenant: MAINTENANT,
+    ...p,
+  });
+
+v('sans douleur, ce cas propose de monter', cas().proposition?.sorte, 'monter');
+v('et la charge suggérée est de 2,5 kg de plus', cas().proposition?.charge, 82.5);
+
+v(
+  'une douleur sur le muscle principal interdit la montée',
+  cas({ blessures: [blessure()] }).proposition?.sorte,
+  'reduire',
+);
+/*
+   Un muscle **secondaire** suffit : le triceps travaille au développé couché,
+   et proposer de monter la charge est proposer de le solliciter plus.
+*/
+v(
+  'une douleur sur un secondaire aussi',
+  cas({ blessures: [blessure({ muscles: ['triceps'] })] }).proposition?.sorte,
+  'reduire',
+);
+/*
+   Une blessure sans muscle est **générale** : grippe, fatigue extrême. La
+   traiter comme « aucun muscle concerné » laisserait proposer une progression
+   le jour où l'on est au lit.
+*/
+v(
+  'une gêne générale couvre tout',
+  cas({ blessures: [blessure({ muscles: [] })] }).proposition?.sorte,
+  'reduire',
+);
+v(
+  'une douleur refermée ne bloque plus',
+  cas({ blessures: [blessure({ fin: '2026-10-09T18:00:00.000Z' })] }).proposition?.sorte,
+  'monter',
+);
+v(
+  'une douleur de plus de deux semaines invite à consulter',
+  cas({ blessures: [blessure({ debut: '2026-09-20T00:00:00.000Z' })] }).proposition?.sorte,
+  'consulter',
+);
+
+/* ════════════════════════════════════════════════════════════════════════
+   7. Le refus, et l'absence de mémoire de désobéissance
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nSPORT PROPOSE, LA PERSONNE DISPOSE');
+
+{
+  const r = refuser('X', 'monter', AUJOURDHUI, 80);
+  v('un refus porte une date de fin', r.jusquAu, '2026-10-31');
+  const apres = cas({ refus: [r] });
+  v('et la proposition se tait', apres.proposition, null);
+  v('en disant pour combien de temps', apres.silence?.pourquoi, 'refus-recent');
+  vrai('avec les jours restants', (apres.silence?.joursRestants ?? 0) > 0);
+}
+{
+  /*
+     L'exception au silence : la charge réelle a dépassé celle du refus. La
+     personne a progressé d'elle-même, et se taire reviendrait à ignorer ce qui
+     a eu lieu. On ne lui dit **pas** qu'elle avait refusé — c'est précisément
+     ce que « aucune mémoire de désobéissance » interdit.
+  */
+  const r = refuser('X', 'monter', AUJOURDHUI, 80);
+  const monte = POINTS.map((p) => ({ ...p, charge: 90 }));
+  const apres = cas({ refus: [r], points: monte });
+  v('mais un progrès réel rouvre la parole', apres.proposition?.sorte, 'monter');
+  faux(
+    'et rien ne mentionne le refus',
+    (apres.proposition?.parceQue ?? '').toLowerCase().includes('refus'),
+  );
+}
+{
+  const r = refuser('AUTRE', 'monter', AUJOURDHUI, 80);
+  v('un refus sur un autre exercice ne fait rien taire', cas({ refus: [r] }).proposition?.sorte, 'monter');
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   8. Quand Sport n'a rien à dire, il le dit
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nET QUAND IL N’A RIEN À DIRE');
+
+v(
+  'trop peu de séances : aucune proposition',
+  cas({ points: POINTS.slice(0, 2) }).silence?.pourquoi,
+  'pas-assez-de-seances',
+);
+v('le seuil est de trois séances', SEANCES_MINIMALES, 3);
+{
+  // Des séries dures, aucun plateau : rien à dire, et c'est une réponse.
+  const dures = [serie({ reserve: 0, echec: true }), serie({ reserve: 1 })];
+  const r = cas({ dernieresSeries: dures });
+  v('des séries dures n’appellent pas de montée', r.proposition, null);
+  v('et le silence est motivé', r.silence?.pourquoi, 'rien-a-dire');
+}
+{
+  /*
+     Un plateau n'appelle pas à forcer. Insister plus fort sur ce qui ne
+     progresse plus est la réaction la plus naturelle et la moins efficace.
+  */
+  const stable = ['2026-10-01', '2026-10-03', '2026-10-05', '2026-10-07', '2026-10-09'].map((j) =>
+    point(j, 100, { charge: 80 }),
+  );
+  const r = cas({ points: stable, dernieresSeries: [serie({ reserve: 0, echec: true })] });
+  v('un plateau propose de varier, pas de forcer', r.proposition?.sorte, 'varier');
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
+console.log(
+  echecs
+    ? `\n\x1b[31m${echecs} essai(s) en échec.\x1b[0m\n`
+    : '\n\x1b[32m✓ tout passe\x1b[0m\n',
+);
+process.exit(echecs ? 1 : 0);
