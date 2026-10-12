@@ -584,6 +584,47 @@ et non une valeur fausse.
 
 ### Phase F — Durcissement, sécurité, documentation *(= phase 5)*
 
+> **F faite, le 12 octobre 2026.** Le durcissement du validateur, l'avertissement décidé
+> localement, le bouclage sur cinq ans, le guide et le README.
+>
+> **Le texte échappé ne suffisait pas.** `textContent` protège du HTML ; il ne protège pas d'un
+> Unicode qui ment sur son propre ordre. Une marque bidirectionnelle (`U+202E` et ses voisines)
+> retourne l'affichage d'un fragment sans rien changer aux caractères : une proposition peut
+> s'afficher à l'envers de ce qu'elle dit, et la lecture humaine — le seul contrôle qui reste une
+> fois la forme validée — y perd. Les caractères de contrôle font la même chose au copier-coller.
+> Les uns et les autres sont désormais **refusés à la validation**, avec le rappel correspondant
+> dans le prompt de réparation : une IA honnête n'en produit pas, et une réponse qui en porte doit
+> être refaite, pas nettoyée en silence.
+>
+> **L'avertissement professionnel se décide ici, pas chez l'IA.** `avertissement_professionnel` est
+> rempli par la partie dont on se méfie : s'y fier seul reviendrait à laisser le modèle décider
+> quand il doit être encadré. La règle locale déclenche sur le **domaine** (corps, psyché,
+> finances) ou la **nature** (une mesure), et le champ de l'IA ne fait que s'y ajouter — d'où les
+> quatre origines `regle`, `ia`, `les-deux`, `aucune`, lisibles dans le DOM pour qu'un essai
+> distingue « l'écran a averti » de « l'écran a cru l'IA ». La bannière, elle, est permanente :
+> aucune analyse importée ne s'affiche sans dire qu'elle vient d'une IA et n'a pas été vérifiée.
+>
+> **Le bouclage mesure ce que les essais ne disent pas.** Cinq ans synthétiques, **24 354
+> enregistrements** semés en 18,5 s, puis le cycle joué par l'interface réelle :
+>
+> | Étape | Mesure |
+> |---|---|
+> | Construction de l'export | **45,7 s** |
+> | Poids des neuf fichiers | **220 ko**, soit environ **56 300 jetons** |
+> | Découpage proposé | non — cela tient en un seul envoi |
+> | Validation + vérification à l'import | **28,2 s** |
+> | Occupation de la base après bouclage | 13,14 Mo |
+>
+> L'analyse n'est pas écrite à la main : elle est **engendrée à partir du manifeste et du catalogue
+> que l'export vient de produire**, avec un chiffre délibérément faux. Les six chiffres repris sont
+> confirmés, le septième n'est pas retrouvé, et le constat qui le porte est signalé. Une analyse
+> écrite d'avance aurait cité des chiffres choisis pour passer ; celle-ci cite ce qui existe.
+>
+> **220 ko est le chiffre qui valide l'architecture.** Le découpage par domaine est écrit et
+> testé, mais sur cinq ans d'usage il ne sert pas : une année entière tient dans ce qu'une IA lit
+> d'un coup. Si le volume avait débordé, c'est le format qu'il aurait fallu revoir, pas l'envoi.
+
+
 - Rendu **en texte échappé uniquement**. Le site sait rendre du Markdown — pour les fiches de cours,
   qui viennent du dépôt. Une analyse importée n'empruntera **jamais** ce chemin : `textContent`, pas
   `innerHTML`, aucune image distante, aucun lien ouvert automatiquement.

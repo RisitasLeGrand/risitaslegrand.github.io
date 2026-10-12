@@ -482,6 +482,50 @@ console.log('\n\x1b[1mLe prompt de réparation\x1b[0m');
   faux('et ne porte aucun rappel', prompt.includes('Rappels :'));
 }
 
+/* ══════════════════════════════════════════════════════════════════════════ */
+console.log('\n\x1b[1mLe durcissement : ce qui ne se voit pas à l’écran\x1b[0m');
+
+{
+  /*
+     U+202E retourne l'affichage d'une ligne sans changer ce qu'elle contient :
+     l'énoncé se lirait à l'écran autrement qu'il n'est écrit. L'échappement
+     protège le HTML, pas la lecture — d'où un refus à la validation.
+  */
+  const a = copie();
+  a.constats[0].enonce = 'Le résultat est \u202eetsuj\u202c, dit-il, et le reste suit.';
+  const verdict = validerTexte(texteDe(a), CONTEXTE);
+  v('une inversion de sens d’écriture est refusée', verdict.erreurs[0].chemin, 'constats[0].enonce');
+  vrai('et la raison dit ce qu’elle ferait', verdict.erreurs[0].raison.includes('ferait lire autre chose'));
+}
+{
+  const a = copie();
+  a.resume = `Un résumé assez long pour passer le minimum, avec un \u0007 caché dedans.`;
+  const verdict = validerTexte(texteDe(a), CONTEXTE);
+  vrai(
+    'un caractère de contrôle est refusé',
+    verdict.erreurs.some((e) => e.raison.includes('caractères de contrôle')),
+  );
+}
+{
+  const a = copie();
+  a.resume = 'Un résumé\navec un retour à la ligne, qui est légitime dans un texte brut.';
+  v('un retour à la ligne reste admis', validerTexte(texteDe(a), CONTEXTE).recevable, true);
+}
+{
+  const a = copie();
+  a.constats[0].enonce = 'Un énoncé\u200bavec une espace de largeur nulle, ce qui est anodin.';
+  v('une espace de largeur nulle ne déclenche rien', validerTexte(texteDe(a), CONTEXTE).recevable, true);
+}
+{
+  const a = copie();
+  a.constats[0].enonce = 'Le résultat est \u202eetsuj\u202c, dit-il, et le reste suit.';
+  const prompt = promptDeReparation(validerTexte(texteDe(a), CONTEXTE).erreurs);
+  vrai(
+    'le prompt de réparation rappelle la règle des caractères imprimables',
+    prompt.includes('ni marque de sens d’écriture'),
+  );
+}
+
 console.log(
   echecs
     ? `\n\x1b[31m${echecs} essai(s) en échec.\x1b[0m\n`

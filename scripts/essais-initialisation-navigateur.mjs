@@ -77,8 +77,18 @@ await page.evaluate(
     }),
 );
 
-await aller('/', '#question, [data-branche="revisions"]');
+await page.goto(`${RACINE}/`, { waitUntil: 'networkidle' });
+await deverrouiller();
+/*
+   La garde décide **après** avoir lu la base, et le menu est peint pendant
+   qu'elle lit : attendre « l'un ou l'autre écran » attraperait le menu avant
+   la redirection, et l'essai mesurerait la vitesse de la lecture, pas la
+   garde. On attend donc la redirection sans exiger qu'elle ait lieu — un
+   délai qui expire est une réponse, et c'est l'assertion qui tranche.
+*/
+await page.waitForURL('**/initialisation/', { timeout: 20000 }).catch(() => {});
 v('le menu renvoie à l’initialisation', new URL(page.url()).pathname, '/initialisation/');
+await page.waitForSelector('#question', { timeout: 40000 }).catch(() => {});
 v('et la première question est celle du prénom', await question(), 'Comment doit-on vous appeler ?');
 v('l’avancement est annoncé', await compteur(), '1 / 15');
 faux('« Plus tard » n’est pas proposé sur le prénom', await page.locator('#plus-tard').isVisible());
@@ -313,6 +323,20 @@ await page2.click('#commencer');
 await page2.waitForSelector('#parcours:not(.hidden)', { timeout: 15000 });
 await page2.fill('#saisie-prenom', 'Alexis');
 await page2.click('#valider');
+/*
+   Attendre que l'écran ait changé avant d'entrer dans la boucle. Sans cela,
+   la boucle lit encore la question du prénom, « Plus tard » n'y est pas, et
+   Playwright patiente jusqu'à ce qu'il apparaisse — c'est-à-dire sur l'écran
+   suivant. La boucle se décale alors d'un écran et compare la question à une
+   valeur périmée : l'attente rend la main aussitôt, un second clic part
+   pendant que le premier avance encore, et deux écrans passent pour un clic.
+   C'est ce décalage qui faisait sauter la question déduite une fois sur trois.
+*/
+await page2.waitForFunction(
+  () => document.getElementById('question')?.textContent !== 'Comment doit-on vous appeler ?',
+  undefined,
+  { timeout: 15000 },
+);
 
 /* On avance jusqu'à la question du temps par semaine, qui est déduite. */
 let vus = 0;
@@ -345,7 +369,26 @@ vrai(
 }
 
 await page2.click('#valider');
-await page2.waitForTimeout(400);
+/*
+   Attendre que l'opération soit **journalisée**, et non un délai fixe :
+   « Valider » écrit puis avance, et partir vers « Mon profil » sur un délai
+   calibré ici ferait lire la base avant l'écriture — l'essai dirait alors que
+   la confirmation ne s'enregistre pas, ce qui serait faux.
+*/
+await page2.waitForFunction(
+  () =>
+    new Promise((ok) => {
+      const r = indexedDB.open('revinsp');
+      r.onsuccess = () => {
+        const tx = r.result.transaction('operations', 'readonly');
+        tx.objectStore('operations').getAll().onsuccess = (e) =>
+          ok(e.target.result.some((o) => JSON.stringify(o).includes('tempsParSemaine')));
+      };
+      r.onerror = () => ok(false);
+    }),
+  undefined,
+  { timeout: 15000 },
+);
 await page2.goto(`${RACINE}/profil/`, { waitUntil: 'networkidle' });
 await page2.waitForSelector('#champs', { timeout: 40000 });
 {

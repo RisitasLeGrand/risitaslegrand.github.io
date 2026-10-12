@@ -58,6 +58,7 @@
     "essais:secret": "node scripts/essais-secret.mjs",
     "essais:sauvegarde": "node scripts/essais-sauvegarde.mjs",
     "bench-storage": "node scripts/bench-storage.mjs",
+    "bouclage-ia": "node scripts/bouclage-ia.mjs",
     "mesure:migration": "node scripts/mesure-migration.mjs",
     "essais:sauvegarde:format": "tsx scripts/essais-sauvegarde-format.mts",
     "essais:sauvegarde:cyclades": "node scripts/essais-sauvegarde-cyclades.mjs",

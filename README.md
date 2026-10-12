@@ -37,9 +37,10 @@ préfixe historique : voir `docs/cyclades/renommage.md`.
 11. [Changer le mot de passe](#changer-le-mot-de-passe)
 12. [Comment fonctionne la protection](#comment-fonctionne-la-protection)
 13. [Sauvegarder et synchroniser la progression](#sauvegarder-et-synchroniser-la-progression)
-14. [Cog-Training](#cog-training--quad-n-back-relational-reasoning-et-veridical-mapping)
-15. [Organisation du projet](#organisation-du-projet)
-16. [En cas de problème](#en-cas-de-problème)
+14. [Mon profil, l'export vers une IA, l'import d'une analyse](#mon-profil-lexport-vers-une-ia-limport-dune-analyse)
+15. [Cog-Training](#cog-training--quad-n-back-relational-reasoning-et-veridical-mapping)
+16. [Organisation du projet](#organisation-du-projet)
+17. [En cas de problème](#en-cas-de-problème)
 
 ---
 
@@ -840,6 +841,57 @@ La page **Sauvegarde** permet de :
 
 ---
 
+## Mon profil, l'export vers une IA, l'import d'une analyse
+
+Trois écrans permettent de faire relire votre pratique par l'IA de votre choix
+**sans que le site n'appelle jamais de modèle** : vous téléchargez un dossier,
+vous le confiez à qui vous voulez, vous rapportez la réponse. Aucune connexion
+sortante, aucune clé d'API, aucun coût.
+
+| Écran | Ce qu'il fait |
+|---|---|
+| **Mon profil** (`/profil/`) | Quinze écrans, une question par écran, puis les réglages que Cyclades déduit de l'usage observé |
+| **Synthèses** (`/syntheses/`) | Les quinze indicateurs calculés sur une période, et la comparaison avec la précédente |
+| **Exporter pour une IA** (`/exporter-ia/`) | Construit le dossier à confier au modèle, après aperçu |
+| **Importer une analyse** (`/importer-analyse/`) | Relit la réponse, revérifie chaque chiffre cité, vous laisse trier |
+
+### Mon profil
+
+L'initialisation ne se fait pas d'un bloc : chaque question tient sur un écran,
+et « Terminer maintenant » est disponible partout — un report est enregistré,
+pas une réponse vide. Un profil restauré depuis une sauvegarde n'est jamais
+redemandé.
+
+Ensuite Cyclades **observe** huit semaines d'usage et en déduit huit réglages
+(moment des séances, volume quotidien, bascule du jour logique…). Chaque
+réglage affiche sa cause. Quand l'usage s'écarte durablement de ce que vous
+avez déclaré, l'écran **propose** un ajustement : vous acceptez, vous reportez,
+ou vous refusez — et un refus se respecte.
+
+### Exporter pour une IA
+
+Période, catégories, pseudonyme, aperçu. Les catégories sensibles (corps,
+psyché, finances) sont **décochées par défaut** et les cocher demande une
+confirmation à part ; votre prénom et votre nom ne partent jamais, et un
+contrôle les cherche dans tous les fichiers avant l'écriture. Neuf fichiers
+sortent, dont le schéma strict de la réponse attendue. Chaque export est
+inscrit au journal — identifiant, empreinte, périmètre, poids, **jamais le
+contenu** — et seulement après téléchargement.
+
+### Importer une analyse
+
+Vous collez la réponse du modèle. Cyclades la valide contre le schéma (un
+prompt de réparation est proposé si elle ne passe pas), puis **recalcule
+lui-même chaque chiffre que l'IA cite** : confirmé, approché, faux, ou non
+vérifiable — un chiffre devenu incalculable après compaction n'est jamais
+compté comme une invention. Vous gardez ce que vous voulez, trajectoire par
+trajectoire, et un avertissement professionnel s'affiche dès que le domaine
+touche au corps, à la psyché ou aux finances, que l'IA l'ait signalé ou non.
+
+> Le guide détaillé des trois écrans : [`docs/cyclades/profil-ia/guide.md`](docs/cyclades/profil-ia/guide.md).
+
+---
+
 ## Cog-Training : Quad N-Back, Relational Reasoning et Veridical Mapping
 
 La rubrique **Cog-Training** (`/cog-training/`) réunit des exercices
@@ -1189,7 +1241,25 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 │       ├── actualites.ts    # Chargement et déchiffrement des actualités
 │       ├── actualites-rendu.ts  # Fabrique les cartes d'actualité
 │       ├── rattachement.ts  # Relie une actualité aux fiches de cours
-│       └── ui.ts            # Utilitaires d'affichage
+│       ├── ui.ts            # Utilitaires d'affichage
+│       │
+│       ├── noyau/           # Règles pures, sans IndexedDB — testables avec tsx
+│       │   ├── ulid.ts, hlc.ts, empreinte.ts      # Identité, horloge logique, état
+│       │   ├── operations.ts, fusion.ts           # Journal d'opérations et fusion
+│       │   ├── jour-logique.ts, faits.ts          # Jour à 4 h, faits de domaine typés
+│       │   ├── profil.ts, initialisation.ts       # Profil journalisé, questions d'entrée
+│       │   ├── observation.ts, reglages.ts        # Usage observé, réglages déduits
+│       │   ├── adaptation.ts                      # Propositions d'ajustement et refus
+│       │   ├── schema-analyse.ts                  # Format strict de la réponse de l'IA
+│       │   ├── validateur-analyse.ts              # Validation et prompt de réparation
+│       │   ├── verification.ts                    # Recalcul des chiffres cités
+│       │   └── avertissements.ts                  # Garde-fou des domaines sensibles
+│       │
+│       └── odyssee/         # Lecture transversale des branches
+│           ├── activite.ts, desaccords.ts         # XP/niveau/série, divergences
+│           ├── indicateurs.ts, syntheses.ts       # Les 15 indicateurs, les périodes
+│           ├── fiabilite.ts                       # Couverture et lacunes
+│           └── export-ia.ts                       # Les neuf fichiers de l'export
 │
 └── public/                  # Fichiers copiés tels quels (robots.txt, favicon)
     ├── data/                # Contenu chiffré produit par le build — non commité

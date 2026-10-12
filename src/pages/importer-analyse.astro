@@ -105,6 +105,10 @@ import Base from '../layouts/Base.astro';
       >
         <p id="rattachement" class="text-sm"></p>
         <p id="comptes" class="mt-2 text-sm text-slate-600 dark:text-slate-300"></p>
+        <p
+          id="banniere"
+          class="mt-3 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+        ></p>
         <h3 class="mt-4 font-semibold text-slate-900 dark:text-white">Résumé de l’IA</h3>
         <p id="resume-analyse" class="mt-1 text-sm whitespace-pre-wrap text-slate-700 dark:text-slate-200"></p>
       </div>
@@ -166,6 +170,7 @@ import Base from '../layouts/Base.astro';
     LIBELLES_VERDICT,
     TRAJECTOIRES_ACTIVES,
   } from '../lib/noyau/verification';
+  import { BANNIERE_ANALYSE, avertissement } from '../lib/noyau/avertissements';
 
   const $ = (id: string) => document.getElementById(id)!;
 
@@ -349,13 +354,24 @@ import Base from '../layouts/Base.astro';
           'mt-1 font-mono text-xs text-slate-500 dark:text-slate-400',
         ),
       );
-      if (brut.avertissement_professionnel === true) {
-        carte.appendChild(
-          ligne(
-            'L’IA signale que cette proposition touche au corps, à la santé ou aux finances. Consultez un professionnel avant d’y donner suite.',
-            'mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-100',
-          ),
+      /*
+         L'avertissement vient de la **règle locale ou** du champ de l'IA, et
+         jamais du seul champ : il est rempli par la partie dont on se méfie.
+         Une IA qui oublie de le cocher laisserait passer exactement ce que le
+         garde-fou doit arrêter.
+      */
+      const garde = avertissement({
+        domaine: String(brut.domaine ?? ''),
+        nature: String(brut.nature ?? ''),
+        avertissementDeclare: brut.avertissement_professionnel === true,
+      });
+      if (garde.afficher) {
+        const bloc = ligne(
+          garde.phrase,
+          'mt-2 rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-100',
         );
+        bloc.dataset.avertissement = garde.origine;
+        carte.appendChild(bloc);
       }
 
       const choix = document.createElement('div');
@@ -519,6 +535,7 @@ import Base from '../layouts/Base.astro';
       $('comptes').textContent =
         `Chiffres cités : ${comptes.confirme ?? 0} confirmé(s), ${comptes.approche ?? 0} approché(s), ` +
         `${comptes['non-retrouve'] ?? 0} non retrouvé(s), ${comptes['non-verifiable'] ?? 0} non vérifiable(s).`;
+      $('banniere').textContent = BANNIERE_ANALYSE;
       $('resume-analyse').textContent = String(apercu.analyse?.resume ?? '');
 
       peindreConstats(apercu);

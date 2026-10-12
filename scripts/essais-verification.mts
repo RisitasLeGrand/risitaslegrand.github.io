@@ -29,6 +29,12 @@ import {
   type Recalcul,
   type Tri,
 } from '../src/lib/noyau/verification';
+import {
+  BANNIERE_ANALYSE,
+  DOMAINES_A_AVERTISSEMENT,
+  avertissement,
+  controlerAvertissements,
+} from '../src/lib/noyau/avertissements';
 
 let echecs = 0;
 const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
@@ -234,6 +240,48 @@ const LIENS = { p1: ['c1'], p2: ['c2'], p3: ['c1', 'c3'], p4: ['c4'] };
   );
 }
 v('le plafond de trajectoires est celui de C.8', TRAJECTOIRES_ACTIVES, 3);
+
+/* ══════════════════════════════════════════════════════════════════════════ */
+console.log('\n\x1b[1mL’avertissement professionnel, décidé localement\x1b[0m');
+
+v('le catalogue des avertissements ne porte aucun problème', controlerAvertissements(), []);
+v('trois domaines en demandent un', [...DOMAINES_A_AVERTISSEMENT], ['corps', 'psyche', 'finances']);
+
+{
+  /*
+     Le cas qui justifie tout le module : l'IA ne coche rien, et la règle locale
+     avertit quand même. Le champ est rempli par la partie dont on se méfie.
+  */
+  const a = avertissement({ domaine: 'corps', nature: 'habitude', avertissementDeclare: false });
+  vrai('une proposition du corps avertit même si l’IA ne l’a pas dit', a.afficher);
+  v('et l’origine est la règle locale', a.origine, 'regle');
+  vrai('la phrase renvoie à un médecin', a.phrase.includes('médecin'));
+}
+{
+  const a = avertissement({ domaine: 'cognition', nature: 'organisation', avertissementDeclare: true });
+  vrai('une proposition anodine avertit si l’IA le demande', a.afficher);
+  v('et l’origine est l’IA', a.origine, 'ia');
+  vrai('la phrase est alors générale', a.phrase.includes('L’IA a signalé'));
+}
+{
+  const a = avertissement({ domaine: 'psyche', nature: 'question', avertissementDeclare: true });
+  v('les deux ensemble se voient', a.origine, 'les-deux');
+  vrai('et la phrase est celle du domaine', a.phrase.includes('psychique'));
+}
+{
+  const a = avertissement({ domaine: 'cognition', nature: 'organisation' });
+  faux('une proposition d’organisation en cognition n’avertit pas', a.afficher);
+  v('et l’origine le dit', a.origine, 'aucune');
+  v('la phrase est vide', a.phrase, '');
+}
+{
+  const a = avertissement({ domaine: 'connaissances', nature: 'mesure' });
+  vrai('une proposition de mesure avertit, quel que soit son domaine', a.afficher);
+  v('par la règle locale', a.origine, 'regle');
+}
+v('les finances ont leur phrase propre', avertissement({ domaine: 'finances', nature: 'habitude' }).phrase.includes('placement'), true);
+vrai('la bannière dit que l’analyse n’est pas vérifiée', BANNIERE_ANALYSE.includes('non vérifiée'));
+vrai('et qu’elle ne modifie rien d’elle-même', BANNIERE_ANALYSE.includes('ne modifie aucune'));
 
 console.log(
   echecs

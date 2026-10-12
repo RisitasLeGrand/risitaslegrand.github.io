@@ -194,6 +194,22 @@ function controlerForme(
       if (/<\/?[a-z][^>]*>/i.test(valeur)) {
         return e('le texte doit être du texte brut : ni HTML, ni balisage.');
       }
+      /*
+       * Les caractères de contrôle et les **inversions bidirectionnelles**.
+       * U+202E retourne l'affichage d'une ligne sans changer ce qu'elle
+       * contient : un énoncé peut alors se lire à l'écran autrement qu'il
+       * n'est écrit, et c'est exactement le genre de piège qu'un rendu en
+       * texte échappé n'arrête pas — l'échappement protège le HTML, pas la
+       * lecture.
+       */
+      if (/[\u0000-\u0008\u000b\u000c\u000e-\u001f\u007f]/.test(valeur)) {
+        return e('le texte contient des caractères de contrôle, qui ne s’affichent pas.');
+      }
+      if (/[\u202a-\u202e\u2066-\u2069\u200e\u200f]/.test(valeur)) {
+        return e(
+          'le texte contient une marque de sens d’écriture, qui ferait lire autre chose que ce qui est écrit.',
+        );
+      }
       return [];
     }
     case 'entier':
@@ -528,6 +544,11 @@ export function promptDeReparation(erreurs: readonly Erreur[]): string {
     }
     if (e.raison.includes('texte brut')) {
       rappels.add('Les textes sont en texte brut : ni HTML, ni balisage.');
+    }
+    if (e.raison.includes('caractères de contrôle') || e.raison.includes('sens d’écriture')) {
+      rappels.add(
+        'Les textes ne portent que des caractères imprimables : ni caractère de contrôle, ni marque de sens d’écriture.',
+      );
     }
     if (e.raison.includes('JSON valide')) {
       rappels.add(
