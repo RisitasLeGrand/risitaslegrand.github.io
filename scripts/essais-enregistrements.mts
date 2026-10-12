@@ -123,7 +123,7 @@ v(
   [],
 );
 /*
-   Huit pour Révisions, cinq pour Odyssée, cinq pour Sport.
+   Huit pour Révisions, onze pour Odyssée, cinq pour Sport.
 
    Ce compte s'était **tu** quand les quatre premiers magasins de Sport sont
    entrés au registre : l'essai annonçait treize et personne ne le lançait.
@@ -131,9 +131,9 @@ v(
    les compter — un compte qui bouge se corrige sans rien apprendre, une liste
    nommée dit lequel manque.
 */
-v('dix-huit magasins journalisés', MAGASINS_JOURNALISES.length, 18);
+v('vingt-quatre magasins journalisés', MAGASINS_JOURNALISES.length, 24);
 v(
-  'et les cinq d’Odyssée y sont',
+  'et les onze d’Odyssée y sont',
   MAGASINS_JOURNALISES.filter((m) => m.magasin.startsWith('odyssee')).map((m) => m.magasin),
   [
     'odysseeTaches',
@@ -141,7 +141,26 @@ v(
     'odysseeEvenements',
     'odysseeFocus',
     'odysseeRevues',
+    // Le domaine Corps, depuis la phase 6.
+    'odysseePesees',
+    'odysseeMesures',
+    'odysseeNuits',
+    'odysseeRepas',
+    'odysseeBoissons',
+    'odysseeSante',
   ],
+);
+/*
+   Les deux magasins que la **décision 3** retient. Les nommer en négatif est
+   le seul moyen de s'apercevoir qu'ils sont arrivés sans que la décision ait
+   été prise — une absence ne se remarque pas toute seule.
+*/
+v(
+  'ni médicaments ni statut hormonal, tant que la décision 3 n’est pas prise',
+  MAGASINS_JOURNALISES.filter((m) =>
+    ['odysseeMedicaments', 'odysseeHormonal'].includes(m.magasin),
+  ).map((m) => m.magasin),
+  [],
 );
 v(
   'et les cinq de Sport aussi',

@@ -280,6 +280,9 @@ v(
     'odysseeTaches', 'odysseeQuetes', 'odysseeEvenements', 'odysseeFocus', 'odysseeRevues',
     // Sport, depuis la version 16, et ses programmes depuis la 17.
     'sportExercices', 'sportSeances', 'sportPhases', 'sportBlessures', 'sportProgrammes',
+    // Le domaine Corps d'Odyssée, depuis la version 18.
+    'odysseePesees', 'odysseeMesures', 'odysseeNuits', 'odysseeRepas', 'odysseeBoissons',
+    'odysseeSante',
   ].sort(),
 );
 

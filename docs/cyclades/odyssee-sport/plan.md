@@ -366,11 +366,66 @@ progresser.
 
 ---
 
+## Phase 6 — Le domaine Corps
+
+> **Faite le 12 octobre 2026, à une réserve près.** `src/lib/odyssee/corps.ts`,
+> `donnees-corps.ts`, `faits-corps.ts`, `faits-branches.ts`, le magasin ×6 (migration v18,
+> additive) et `/odyssee/corps/`.
+>
+> **La réserve : ni médicaments ni statut hormonal.** Les deux appartiennent au domaine et sont
+> déclarés au contrat de faits, mais la **décision 3** — le chiffrement au repos — n'est pas prise.
+> Les écrire en clair aujourd'hui puis les chiffrer plus tard laisserait une trace en clair dans
+> les instantanés de migration et dans les sauvegardes déjà faites : *on ne rattrape pas une donnée
+> qu'on a écrite*. Le plan ne rangeait la décision 3 que devant les phases 7 et 8 ; elle tient
+> aussi sur ces deux objets-ci, et c'est le seul endroit où la phase 6 s'arrête.
+>
+> Un essai nomme les deux magasins **en négatif** (`ni médicaments ni statut hormonal`) : une
+> absence ne se remarque pas toute seule, et sans cette ligne ils pourraient arriver sans que la
+> décision ait été prise.
+>
+> **L'impossible est refusé, l'invraisemblable passe.** Un poids de −5 kg est une faute de frappe ;
+> un poids de 300 kg est le corps de quelqu'un. Les contrôles du modèle ne reprennent donc que la
+> borne du possible, et c'est `valider()` qui abaisse la fiabilité d'une valeur hors du plausible —
+> elle sort `a-verifier`, pas un refus.
+>
+> **L'absence n'est pas un zéro**, encore. `journee()` rend `null` partout où rien n'a été saisi,
+> et un repas non chiffré est publié avec `chiffre: false` : sans lui, un café noté sans calories
+> compterait comme un jeûne dans toute moyenne.
+>
+> **La moyenne mobile ne comble pas les trous.** Les jours sans pesée sont sautés, non interpolés,
+> et chaque point dit sur combien de jours il porte. Une courbe plus lisse serait moins vraie.
+>
+> **Aucun appel réseau, aucune base d'aliments** : décision 4, défaut sûr. Les calories et les
+> macros se saisissent, et se contrôlent entre elles par Atwater à 25 % près — un écart d'un quart
+> signale presque toujours une unité confondue.
+
+### Ce que la phase 6 a révélé : deux règles muettes
+
+> **Les faits ne circulaient pas entre branches.** `publierFaitsSport` n'était appelé nulle part
+> dans l'application, et `publierFaitsCorps` n'existait pas. Les règles de désaccord
+> `effort-sous-sante` et `chevauchement-exclusif`, écrites en phase 3f pour opposer deux branches,
+> n'avaient donc **jamais rien eu à opposer**. Une règle qui ne peut pas se déclencher se tait
+> exactement comme une règle satisfaite.
+>
+> `faits-branches.ts` assemble les quatre publications ; la roue du jour et les indicateurs la
+> lisent. L'**XP ne bouge pas** : ses règles n'écoutent que les types `revision.*`, et tout le
+> reste tombe dans `sansRegle`, qui dit en toutes lettres « compte pour les indicateurs, pas pour
+> l'XP ». C'est la décision 2, et c'est ce qui rend ce branchement sans danger.
+>
+> **Un fait porte un seul jour logique, et cela ne convient pas aux états.** Une maladie déclarée
+> le 8 et encore ouverte le 12 ne rencontrait pas la séance du 12 : `detecter` range chaque fait
+> dans le bucket de son unique jour. Les règles déclarent désormais `etale`, la liste des types
+> dont un fait **dure** et doit être vu chaque jour couvert. Étaler n'est pas le défaut : le
+> sommeil somme par jour, et une nuit à cheval sur minuit comptée deux fois ferait un jour
+> impossible de seize heures.
+
+---
+
 ## Ce qui attend une décision avant d'être construit
 
 | Décision | Ce qu'elle bloque | État |
 |---|---|---|
-| **3 — chiffrement au repos** de Psyché, Finances, médicaments et statut hormonal | Phases 7 et 8 (Psyché, Finances) | **non tranchée** |
+| **3 — chiffrement au repos** de Psyché, Finances, médicaments et statut hormonal | Phases 7 et 8, **et les deux derniers objets de la phase 6** | **non tranchée** |
 | **5 — lecture des modulations Sport** | S6 | non tranchée ; je construis sur la recommandation écrite, qui est révocable |
 | **4 — appels réseau** (cours de bourse, base d'aliments) | Finances, nutrition | non tranchée ; je construis **sans**, ce qui est la recommandation et le défaut sûr |
 

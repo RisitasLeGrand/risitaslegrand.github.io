@@ -1,0 +1,794 @@
+---
+/**
+ * Odyssée : mon corps.
+ *
+ * Pesées, mesures, sommeil, repas, boissons, santé. Tout se saisit à la main
+ * — **aucun appel réseau, aucune base d'aliments** : c'est la décision 4, et
+ * le défaut sûr tant qu'elle n'est pas tranchée autrement.
+ *
+ * ## Ce que l'écran affiche en premier
+ *
+ * La moyenne mobile du poids, pas le poids du jour. Le poids d'un matin bouge
+ * d'un kilo avec un repas salé de la veille ; la moyenne sur sept jours est
+ * ce qu'on regarde pour savoir où l'on va. Le chiffre brut reste là, en
+ * second, parce que c'est lui qu'on vient de poser sur la balance.
+ *
+ * ## Ce qui n'y est pas
+ *
+ * Les médicaments et le statut hormonal. Ils appartiennent au domaine, ils
+ * sont déclarés au contrat de faits, et ils attendent la **décision 3** sur
+ * le chiffrement au repos. L'écran le dit plutôt que de faire comme s'ils
+ * n'existaient pas : une absence silencieuse se lirait comme un oubli.
+ */
+import Base from '../../layouts/Base.astro';
+import { MESURES, MOMENTS } from '../../lib/odyssee/corps';
+---
+
+<Base titre="Mon corps" actif="corps">
+  <div class="mx-auto max-w-4xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Mon corps</h1>
+    <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      Tout se saisit à la main : aucune base d’aliments, aucun appel réseau. Un repas noté sans
+      chiffre reste un repas noté.
+    </p>
+
+    <div id="chargement-corps" class="mt-6">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Lecture…</p>
+    </div>
+
+    <div id="vue" class="mt-6 hidden space-y-10">
+      <!-- Aujourd'hui -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Aujourd’hui</h2>
+        <dl id="aujourdhui" class="mt-3 grid gap-3 sm:grid-cols-4"></dl>
+      </section>
+
+      <!-- Le poids -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Mon poids</h2>
+        <p id="tendance" class="mt-1 text-sm text-slate-600 dark:text-slate-300"></p>
+        <div class="mt-3 flex flex-wrap items-end gap-3">
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Poids du jour</span>
+            <input id="kg" type="number" min="20" max="400" step="0.1" inputmode="decimal"
+              class="mt-1 min-h-11 w-32 rounded-lg border border-slate-300 bg-white px-3 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <button id="peser" type="button"
+            class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+            >Enregistrer</button>
+        </div>
+        <div id="courbe" class="mt-4 overflow-x-auto"></div>
+        <table class="mt-3 w-full text-sm">
+          <caption class="sr-only">Pesées récentes, avec la moyenne mobile sur sept jours.</caption>
+          <thead>
+            <tr class="border-b border-slate-200 text-left text-xs uppercase text-slate-500 dark:border-slate-800 dark:text-slate-400">
+              <th scope="col" class="py-2">Jour</th>
+              <th scope="col" class="py-2 text-right">Pesée</th>
+              <th scope="col" class="py-2 text-right">Moyenne 7 j</th>
+              <th scope="col" class="py-2 text-right">Sur</th>
+              <th scope="col" class="py-2"></th>
+            </tr>
+          </thead>
+          <tbody id="pesees"></tbody>
+        </table>
+        <p id="aucune-pesee" class="text-sm text-slate-500 dark:text-slate-400">Aucune pesée.</p>
+      </section>
+
+      <!-- Les mesures -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Mes mesures</h2>
+        <div class="mt-3 flex flex-wrap items-end gap-3">
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Quoi</span>
+            <select id="quoi"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+              {Object.entries(MESURES).map(([id, libelle]) => <option value={id}>{libelle}</option>)}
+            </select>
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Centimètres</span>
+            <input id="cm" type="number" min="1" max="300" step="0.5" inputmode="decimal"
+              class="mt-1 min-h-11 w-28 rounded-lg border border-slate-300 bg-white px-3 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <button id="mesurer" type="button"
+            class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+            >Enregistrer</button>
+        </div>
+        <ul id="mesures" class="mt-3 space-y-1 text-sm"></ul>
+        <p id="aucune-mesure" class="text-sm text-slate-500 dark:text-slate-400">Aucune mesure.</p>
+      </section>
+
+      <!-- Le sommeil -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Mon sommeil</h2>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Une nuit appartient au jour où l’on se lève : « j’ai mal dormi » désigne la nuit qui
+          précède la journée dont on parle.
+        </p>
+        <div class="mt-3 flex flex-wrap items-end gap-3">
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Couché à</span>
+            <input id="coucher" type="datetime-local"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Levé à</span>
+            <input id="lever" type="datetime-local"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Qualité</span>
+            <select id="qualite"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+              <option value="">Non donnée</option>
+              <option value="1">1 — très mauvaise</option>
+              <option value="2">2</option>
+              <option value="3" selected>3</option>
+              <option value="4">4</option>
+              <option value="5">5 — excellente</option>
+            </select>
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Réveils</span>
+            <input id="reveils" type="number" min="0" max="30"
+              class="mt-1 min-h-11 w-20 rounded-lg border border-slate-300 bg-white px-3 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <button id="dormir" type="button"
+            class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+            >Enregistrer</button>
+        </div>
+        <ul id="nuits" class="mt-3 space-y-1 text-sm"></ul>
+        <p id="aucune-nuit" class="text-sm text-slate-500 dark:text-slate-400">Aucune nuit notée.</p>
+      </section>
+
+      <!-- Les repas -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Mes repas</h2>
+        <div class="mt-3 flex flex-wrap items-end gap-3">
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Moment</span>
+            <select id="moment"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+              {Object.entries(MOMENTS).map(([id, libelle]) => <option value={id}>{libelle}</option>)}
+            </select>
+          </label>
+          <label class="min-w-48 flex-1 text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Quoi</span>
+            <input id="intitule" type="text" maxlength="200"
+              class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">kcal</span>
+            <input id="kcal" type="number" min="0" max="20000" inputmode="numeric"
+              class="mt-1 min-h-11 w-24 rounded-lg border border-slate-300 bg-white px-3 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">P</span>
+            <input id="proteines" type="number" min="0" max="2000"
+              class="mt-1 min-h-11 w-20 rounded-lg border border-slate-300 bg-white px-2 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">G</span>
+            <input id="glucides" type="number" min="0" max="2000"
+              class="mt-1 min-h-11 w-20 rounded-lg border border-slate-300 bg-white px-2 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">L</span>
+            <input id="lipides" type="number" min="0" max="2000"
+              class="mt-1 min-h-11 w-20 rounded-lg border border-slate-300 bg-white px-2 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <button id="manger" type="button"
+            class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+            >Enregistrer</button>
+        </div>
+        <p id="macros" class="mt-2 text-xs text-slate-500 dark:text-slate-400" aria-live="polite"></p>
+        <ul id="repas" class="mt-3 space-y-1 text-sm"></ul>
+        <p id="aucun-repas" class="text-sm text-slate-500 dark:text-slate-400">Aucun repas noté aujourd’hui.</p>
+      </section>
+
+      <!-- Les boissons -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Ce que je bois</h2>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button type="button" data-verre="150"
+            class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700">+ 150 mL</button>
+          <button type="button" data-verre="250"
+            class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700">+ 250 mL</button>
+          <button type="button" data-verre="500"
+            class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700">+ 500 mL</button>
+          <button type="button" data-verre="1000"
+            class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700">+ 1 L</button>
+          <button id="annuler-verre" type="button"
+            class="min-h-11 rounded-lg px-3 text-sm text-slate-500 underline dark:text-slate-400"
+            >Annuler le dernier</button>
+        </div>
+      </section>
+
+      <!-- La santé -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Ma santé</h2>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Cocher « cela m’empêche de faire un effort » est la seule déclaration d’ici qui agit sur
+          une autre branche : Sport la lit, et cesse de proposer de progresser.
+        </p>
+        <div id="sante-ouverte" class="mt-3 space-y-2"></div>
+        <p id="aucune-sante" class="mt-3 text-sm text-emerald-700 dark:text-emerald-300">
+          Rien de déclaré en ce moment.
+        </p>
+
+        <details class="mt-4 rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+          <summary class="cursor-pointer text-sm font-medium text-slate-900 dark:text-white">
+            Déclarer quelque chose
+          </summary>
+          <div class="mt-3 flex flex-wrap items-end gap-3">
+            <label class="min-w-48 flex-1 text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Quoi</span>
+              <input id="intitule-sante" type="text" maxlength="200"
+                class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+            </label>
+            <label class="text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Depuis le</span>
+              <input id="debut-sante" type="date"
+                class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+            </label>
+            <label class="text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Intensité</span>
+              <input id="intensite" type="range" min="1" max="10" value="4" class="mt-2 w-32" />
+              <output id="intensite-valeur" for="intensite" class="ml-1 text-sm tabular-nums text-slate-700 dark:text-slate-200">4</output>
+            </label>
+          </div>
+          <label class="mt-3 flex min-h-11 items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+            <input id="empeche" type="checkbox" class="size-5 rounded" />
+            Cela m’empêche de faire un effort
+          </label>
+          <button id="declarer-sante" type="button"
+            class="mt-3 min-h-11 rounded-lg bg-rose-700 px-4 text-sm font-medium text-white transition hover:bg-rose-800"
+            >Déclarer</button>
+        </details>
+      </section>
+
+      <p class="rounded-xl bg-slate-100 px-4 py-3 text-xs text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+        <strong>Médicaments et statut hormonal ne sont pas ici.</strong> Ils appartiennent à ce
+        domaine et sont prévus, mais ils attendent la décision sur le chiffrement au repos : une
+        donnée écrite en clair aujourd’hui laisserait une trace dans les sauvegardes déjà faites,
+        et on ne rattrape pas une donnée qu’on a écrite.
+      </p>
+
+      <p id="erreur" class="hidden text-sm text-rose-700 dark:text-rose-300"></p>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { jourLogique } from '../../lib/noyau/jour-logique';
+  import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
+  import {
+    MESURES,
+    MOMENTS,
+    dureeDeLaNuit,
+    journee,
+    kcalDesMacros,
+    macrosIncoherentes,
+    moyenneMobile,
+    type Boisson,
+    type EtatDeSante,
+    type MesureCorporelle,
+    type MomentDuRepas,
+    type Nuit,
+    type Pesee,
+    type QuoiMesurer,
+    type Repas,
+  } from '../../lib/odyssee/corps';
+  import {
+    ecrireBoisson,
+    ecrireMesure,
+    ecrireNuit,
+    ecrirePesee,
+    ecrireRepas,
+    ecrireSante,
+    refermerSante,
+    rouvrirSante,
+    supprimerBoisson,
+    supprimerMesure,
+    supprimerNuit,
+    supprimerPesee,
+    supprimerRepas,
+    supprimerSante,
+    toutLEtatDeSante,
+    toutesLesBoissons,
+    toutesLesMesures,
+    toutesLesNuits,
+    toutesLesPesees,
+    tousLesRepas,
+  } from '../../lib/odyssee/donnees-corps';
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const SVG = 'http://www.w3.org/2000/svg';
+
+  let pesees: Pesee[] = [];
+  let mesures: MesureCorporelle[] = [];
+  let nuits: Nuit[] = [];
+  let repas: Repas[] = [];
+  let boissons: Boisson[] = [];
+  let sante: EtatDeSante[] = [];
+  let aujourdhui = '';
+
+  const nombre = (n: number, decimales = 1) =>
+    n.toLocaleString('fr-FR', { maximumFractionDigits: decimales });
+  const heures = (secondes: number) => {
+    const h = Math.floor(secondes / 3600);
+    const m = Math.round((secondes % 3600) / 60);
+    return `${h} h ${String(m).padStart(2, '0')}`;
+  };
+  const jourLong = (jour: string) =>
+    new Date(`${jour}T12:00:00`).toLocaleDateString('fr-FR', {
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    });
+
+  function dire(erreur: unknown) {
+    $('erreur').textContent = erreur instanceof Error ? erreur.message : String(erreur);
+    $('erreur').classList.remove('hidden');
+  }
+  const taire = () => $('erreur').classList.add('hidden');
+
+  function carte(libelle: string, valeur: string, note: string): HTMLDivElement {
+    const bloc = document.createElement('div');
+    bloc.className =
+      'rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950';
+    const dt = document.createElement('dt');
+    dt.className = 'text-xs uppercase text-slate-500 dark:text-slate-400';
+    dt.textContent = libelle;
+    const dd = document.createElement('dd');
+    dd.className = 'mt-1 text-xl font-bold tabular-nums text-slate-900 dark:text-white';
+    dd.textContent = valeur;
+    const p = document.createElement('p');
+    p.className = 'mt-0.5 text-xs text-slate-400 dark:text-slate-500';
+    p.textContent = note;
+    bloc.append(dt, dd, p);
+    return bloc;
+  }
+
+  function bouton(texte: string, action: () => void, classe = 'text-rose-700 dark:text-rose-300') {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = `text-xs underline ${classe}`;
+    b.textContent = texte;
+    b.addEventListener('click', action);
+    return b;
+  }
+
+  /* ── Le résumé du jour ─────────────────────────────────────────────────── */
+
+  function peindreAujourdhui() {
+    const j = journee(aujourdhui, { pesees, nuits, repas, boissons });
+    const zone = $('aujourdhui');
+    zone.innerHTML = '';
+    /*
+       `—` et non `0` quand rien n'est noté. « Je n'ai rien bu » et « je n'ai
+       rien noté » ne sont pas la même journée, et les confondre ferait mentir
+       toute moyenne calculée dessus.
+    */
+    zone.append(
+      carte('Poids', j.poids === null ? '—' : `${nombre(j.poids)} kg`, j.poids === null ? 'pas de pesée' : 'dernière du jour'),
+      carte('Sommeil', j.sommeil === null ? '—' : heures(j.sommeil), j.sommeil === null ? 'rien noté' : 'cette nuit'),
+      carte(
+        'Calories',
+        j.kcal === null ? '—' : nombre(j.kcal, 0),
+        j.repas ? `${j.repas} repas noté${j.repas > 1 ? 's' : ''}` : 'aucun repas noté',
+      ),
+      carte(
+        'Boissons',
+        j.hydratation === null ? '—' : `${nombre(j.hydratation / 1000, 2)} L`,
+        j.hydratation === null ? 'rien noté' : 'depuis ce matin',
+      ),
+    );
+  }
+
+  /* ── Le poids ──────────────────────────────────────────────────────────── */
+
+  function peindrePoids() {
+    const serie = moyenneMobile(pesees);
+    $('aucune-pesee').classList.toggle('hidden', serie.length > 0);
+
+    /* La tendance : la moyenne d'aujourd'hui contre celle d'il y a trente jours. */
+    if (serie.length >= 2) {
+      const dernier = serie[serie.length - 1];
+      const cible = new Date(Date.parse(`${dernier.jour}T12:00:00.000Z`) - 30 * 86400000)
+        .toISOString()
+        .slice(0, 10);
+      const avant = [...serie].reverse().find((p) => p.jour <= cible) ?? serie[0];
+      const ecart = dernier.moyenne - avant.moyenne;
+      $('tendance').textContent =
+        `Moyenne sur 7 jours : ${nombre(dernier.moyenne, 2)} kg` +
+        (avant === dernier
+          ? '.'
+          : ` — ${ecart === 0 ? 'stable' : `${ecart > 0 ? '+' : '−'}${nombre(Math.abs(ecart), 2)} kg`} ` +
+            `depuis le ${jourLong(avant.jour)}.`);
+    } else {
+      $('tendance').textContent =
+        serie.length === 1
+          ? 'Une seule pesée : la moyenne mobile a besoin de plusieurs jours pour dire quelque chose.'
+          : 'Aucune pesée. Le poids d’un seul matin ne dit rien ; c’est la moyenne qui parle.';
+    }
+
+    tracerPoids(serie);
+
+    const corps = $('pesees');
+    corps.innerHTML = '';
+    for (const point of [...serie].reverse().slice(0, 14)) {
+      const pesee = pesees.find((p) => p.jour === point.jour)!;
+      const tr = document.createElement('tr');
+      tr.className = 'border-b border-slate-100 dark:border-slate-900';
+      tr.dataset.jour = point.jour;
+      for (const [texte, classe] of [
+        [jourLong(point.jour), 'py-1.5 text-slate-700 dark:text-slate-200'],
+        [`${nombre(point.kg, 1)} kg`, 'py-1.5 text-right tabular-nums text-slate-900 dark:text-white'],
+        [`${nombre(point.moyenne, 2)} kg`, 'py-1.5 text-right tabular-nums text-slate-600 dark:text-slate-300'],
+        [`${point.points} j`, 'py-1.5 text-right text-xs text-slate-400 dark:text-slate-500'],
+      ] as [string, string][]) {
+        const td = document.createElement('td');
+        td.className = classe;
+        td.textContent = texte;
+        tr.appendChild(td);
+      }
+      const actions = document.createElement('td');
+      actions.className = 'py-1.5 pl-3 text-right';
+      actions.appendChild(
+        bouton('Supprimer', () => void supprimerPesee(pesee.id).then(recharger)),
+      );
+      tr.appendChild(actions);
+      corps.appendChild(tr);
+    }
+  }
+
+  function tracerPoids(serie: { jour: string; kg: number; moyenne: number }[]) {
+    const zone = $('courbe');
+    zone.innerHTML = '';
+    if (serie.length < 2) return;
+
+    const L = 720;
+    const H = 200;
+    const marge = { haut: 12, bas: 26, gauche: 48, droite: 10 };
+    const largeur = L - marge.gauche - marge.droite;
+    const hauteur = H - marge.haut - marge.bas;
+
+    const valeurs = serie.flatMap((p) => [p.kg, p.moyenne]);
+    const bas = Math.floor(Math.min(...valeurs) - 0.5);
+    const haut = Math.ceil(Math.max(...valeurs) + 0.5);
+    const etendue = Math.max(1, haut - bas);
+    const t = serie.map((p) => Date.parse(`${p.jour}T12:00:00Z`));
+    const x = (i: number) => marge.gauche + (largeur * (t[i] - t[0])) / Math.max(1, t[t.length - 1] - t[0]);
+    const y = (v: number) => marge.haut + hauteur - (hauteur * (v - bas)) / etendue;
+
+    const svg = document.createElementNS(SVG, 'svg');
+    svg.setAttribute('viewBox', `0 0 ${L} ${H}`);
+    svg.setAttribute('class', 'h-48 w-full min-w-[28rem]');
+    // Le tableau en dessous porte les mêmes points : voir le suivi de la force.
+    svg.setAttribute('aria-hidden', 'true');
+
+    for (const valeur of [bas, haut]) {
+      const ligne = document.createElementNS(SVG, 'line');
+      ligne.setAttribute('x1', String(marge.gauche));
+      ligne.setAttribute('x2', String(L - marge.droite));
+      ligne.setAttribute('y1', String(y(valeur)));
+      ligne.setAttribute('y2', String(y(valeur)));
+      ligne.setAttribute('stroke', 'currentColor');
+      ligne.setAttribute('class', 'text-slate-200 dark:text-slate-800');
+      svg.appendChild(ligne);
+      const texte = document.createElementNS(SVG, 'text');
+      texte.setAttribute('x', String(marge.gauche - 6));
+      texte.setAttribute('y', String(y(valeur) + 4));
+      texte.setAttribute('text-anchor', 'end');
+      texte.setAttribute('class', 'fill-slate-400 text-[11px]');
+      texte.textContent = String(valeur);
+      svg.appendChild(texte);
+    }
+
+    /* Les pesées brutes, en gris clair : le bruit est montré, pas caché. */
+    const brut = document.createElementNS(SVG, 'polyline');
+    brut.setAttribute('fill', 'none');
+    brut.setAttribute('stroke', 'currentColor');
+    brut.setAttribute('class', 'text-slate-300 dark:text-slate-700');
+    brut.setAttribute('stroke-width', '1.5');
+    brut.setAttribute('points', serie.map((p, i) => `${x(i)},${y(p.kg)}`).join(' '));
+    svg.appendChild(brut);
+
+    const lisse = document.createElementNS(SVG, 'polyline');
+    lisse.setAttribute('fill', 'none');
+    lisse.setAttribute('stroke', '#4f46e5');
+    lisse.setAttribute('stroke-width', '2.5');
+    lisse.setAttribute('stroke-linejoin', 'round');
+    lisse.setAttribute('points', serie.map((p, i) => `${x(i)},${y(p.moyenne)}`).join(' '));
+    svg.appendChild(lisse);
+
+    zone.appendChild(svg);
+    const legende = document.createElement('p');
+    legende.className = 'mt-1 text-xs text-slate-400 dark:text-slate-500';
+    legende.textContent =
+      `Échelle de ${bas} à ${haut} kg — elle ne part pas de zéro. ` +
+      'Trait épais : moyenne sur sept jours. Trait clair : les pesées, telles quelles.';
+    zone.appendChild(legende);
+  }
+
+  /* ── Mesures, nuits, repas ─────────────────────────────────────────────── */
+
+  function peindreMesures() {
+    const liste = $('mesures');
+    liste.innerHTML = '';
+    const triees = [...mesures].sort((a, b) => b.le.localeCompare(a.le)).slice(0, 12);
+    $('aucune-mesure').classList.toggle('hidden', triees.length > 0);
+    for (const m of triees) {
+      const li = document.createElement('li');
+      li.className = 'flex flex-wrap items-baseline gap-2 text-slate-700 dark:text-slate-200';
+      li.dataset.mesure = m.id;
+      const texte = document.createElement('span');
+      texte.textContent = `${MESURES[m.quoi]} — ${nombre(m.cm)} cm, ${jourLong(m.jour)}`;
+      li.append(texte, bouton('Supprimer', () => void supprimerMesure(m.id).then(recharger)));
+      liste.appendChild(li);
+    }
+  }
+
+  function peindreNuits() {
+    const liste = $('nuits');
+    liste.innerHTML = '';
+    const triees = [...nuits].sort((a, b) => b.jour.localeCompare(a.jour)).slice(0, 10);
+    $('aucune-nuit').classList.toggle('hidden', triees.length > 0);
+    for (const n of triees) {
+      const duree = dureeDeLaNuit(n);
+      const li = document.createElement('li');
+      li.className = 'flex flex-wrap items-baseline gap-2 text-slate-700 dark:text-slate-200';
+      li.dataset.nuit = n.id;
+      const texte = document.createElement('span');
+      texte.textContent =
+        `${jourLong(n.jour)} — ${duree === null ? '?' : heures(duree)}` +
+        (n.qualite !== null ? `, qualité ${n.qualite}/5` : '') +
+        (n.reveils !== null ? `, ${n.reveils} réveil${n.reveils > 1 ? 's' : ''}` : '');
+      li.append(texte, bouton('Supprimer', () => void supprimerNuit(n.id).then(recharger)));
+      liste.appendChild(li);
+    }
+  }
+
+  function peindreRepas() {
+    const liste = $('repas');
+    liste.innerHTML = '';
+    const duJour = repas
+      .filter((r) => r.jour === aujourdhui)
+      .sort((a, b) => a.le.localeCompare(b.le));
+    $('aucun-repas').classList.toggle('hidden', duJour.length > 0);
+    for (const r of duJour) {
+      const li = document.createElement('li');
+      li.className = 'flex flex-wrap items-baseline gap-2 text-slate-700 dark:text-slate-200';
+      li.dataset.repas = r.id;
+      li.dataset.chiffre = String(r.kcal !== null);
+      const texte = document.createElement('span');
+      texte.textContent =
+        `${MOMENTS[r.moment]} — ${r.intitule}` +
+        (r.kcal !== null ? ` · ${nombre(r.kcal, 0)} kcal` : ' · non chiffré');
+      li.appendChild(texte);
+      if (macrosIncoherentes(r)) {
+        const alerte = document.createElement('span');
+        alerte.className = 'text-xs text-amber-700 dark:text-amber-300';
+        alerte.textContent = `(les macros disent ${kcalDesMacros(r)} kcal)`;
+        li.appendChild(alerte);
+      }
+      li.appendChild(bouton('Supprimer', () => void supprimerRepas(r.id).then(recharger)));
+      liste.appendChild(li);
+    }
+  }
+
+  function direMacros() {
+    const lire = (id: string) => {
+      const v = ($(id) as HTMLInputElement).value;
+      return v === '' ? null : Number(v);
+    };
+    const calcule = kcalDesMacros({
+      proteines: lire('proteines'),
+      glucides: lire('glucides'),
+      lipides: lire('lipides'),
+    });
+    $('macros').textContent =
+      calcule === null ? '' : `Les macros saisies font ${nombre(calcule, 0)} kcal.`;
+  }
+
+  /* ── La santé ──────────────────────────────────────────────────────────── */
+
+  function peindreSante() {
+    const zone = $('sante-ouverte');
+    zone.innerHTML = '';
+    const triees = [...sante].sort(
+      (a, b) => Number(b.fin === null) - Number(a.fin === null) || b.debut.localeCompare(a.debut),
+    );
+    const ouvertes = triees.filter((e) => e.fin === null);
+    $('aucune-sante').classList.toggle('hidden', ouvertes.length > 0);
+
+    for (const e of triees.slice(0, 10)) {
+      const bloc = document.createElement('div');
+      bloc.className =
+        e.fin === null
+          ? 'rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm dark:border-rose-900 dark:bg-rose-950/30'
+          : 'rounded-xl border border-slate-200 px-4 py-2 text-sm dark:border-slate-800';
+      bloc.dataset.sante = e.id;
+      bloc.dataset.ouvert = String(e.fin === null);
+      bloc.dataset.empeche = String(e.empecheEffort);
+
+      const titre = document.createElement('p');
+      titre.className = 'font-medium text-slate-900 dark:text-white';
+      titre.textContent = e.intitule;
+      bloc.appendChild(titre);
+
+      const detail = document.createElement('p');
+      detail.className = 'mt-0.5 text-xs text-slate-600 dark:text-slate-300';
+      detail.textContent =
+        `Intensité ${e.intensite}/10 · depuis le ${jourLong(e.debut.slice(0, 10))}` +
+        (e.fin ? ` · terminé le ${jourLong(e.fin.slice(0, 10))}` : '') +
+        (e.empecheEffort ? ' · empêche l’effort' : '');
+      bloc.appendChild(detail);
+
+      const actions = document.createElement('div');
+      actions.className = 'mt-2 flex gap-4';
+      actions.append(
+        bouton(
+          e.fin ? 'Rouvrir' : 'C’est passé',
+          () => void (e.fin ? rouvrirSante(e.id) : refermerSante(e.id)).then(recharger),
+          'text-indigo-700 dark:text-indigo-300',
+        ),
+        bouton('Supprimer', () => void supprimerSante(e.id).then(recharger)),
+      );
+      bloc.appendChild(actions);
+      zone.appendChild(bloc);
+    }
+  }
+
+  /* ── Le cycle ──────────────────────────────────────────────────────────── */
+
+  function peindre() {
+    peindreAujourdhui();
+    peindrePoids();
+    peindreMesures();
+    peindreNuits();
+    peindreRepas();
+    peindreSante();
+  }
+
+  async function recharger() {
+    [pesees, mesures, nuits, repas, boissons, sante] = await Promise.all([
+      toutesLesPesees(),
+      toutesLesMesures(),
+      toutesLesNuits(),
+      tousLesRepas(),
+      toutesLesBoissons(),
+      toutLEtatDeSante(),
+    ]);
+    peindre();
+  }
+
+  const essayer = (travail: () => Promise<unknown>) => {
+    void (async () => {
+      try {
+        await travail();
+        taire();
+        await recharger();
+      } catch (erreur) {
+        dire(erreur);
+      }
+    })();
+  };
+
+  auDeverrouillage(
+    async () => {
+      const reglages = await reglagesJourLogiqueLocaux();
+      aujourdhui = jourLogique(new Date(), reglages);
+
+      /* Les champs d'heure proposent la nuit écoulée : 23 h hier, maintenant. */
+      const maintenant = new Date();
+      const hier = new Date(maintenant.getTime() - 86_400_000);
+      const local = (d: Date, h: number, m: number) => {
+        const copie = new Date(d);
+        copie.setHours(h, m, 0, 0);
+        const decalage = copie.getTimezoneOffset() * 60_000;
+        return new Date(copie.getTime() - decalage).toISOString().slice(0, 16);
+      };
+      ($('coucher') as HTMLInputElement).value = local(hier, 23, 0);
+      ($('lever') as HTMLInputElement).value = local(maintenant, 7, 0);
+      ($('debut-sante') as HTMLInputElement).value = new Date().toISOString().slice(0, 10);
+
+      $('intensite').addEventListener('input', () => {
+        $('intensite-valeur').textContent = ($('intensite') as HTMLInputElement).value;
+      });
+      for (const champ of ['proteines', 'glucides', 'lipides']) {
+        $(champ).addEventListener('input', direMacros);
+      }
+
+      $('peser').addEventListener('click', () =>
+        essayer(async () => {
+          const kg = Number(($('kg') as HTMLInputElement).value);
+          await ecrirePesee(kg);
+          ($('kg') as HTMLInputElement).value = '';
+        }),
+      );
+
+      $('mesurer').addEventListener('click', () =>
+        essayer(async () => {
+          await ecrireMesure(
+            ($('quoi') as HTMLSelectElement).value as QuoiMesurer,
+            Number(($('cm') as HTMLInputElement).value),
+          );
+          ($('cm') as HTMLInputElement).value = '';
+        }),
+      );
+
+      $('dormir').addEventListener('click', () =>
+        essayer(async () => {
+          const qualite = ($('qualite') as HTMLSelectElement).value;
+          const reveils = ($('reveils') as HTMLInputElement).value;
+          await ecrireNuit(
+            new Date(($('coucher') as HTMLInputElement).value).toISOString(),
+            new Date(($('lever') as HTMLInputElement).value).toISOString(),
+            {
+              qualite: qualite === '' ? null : Number(qualite),
+              reveils: reveils === '' ? null : Number(reveils),
+            },
+          );
+        }),
+      );
+
+      $('manger').addEventListener('click', () =>
+        essayer(async () => {
+          const lire = (id: string) => {
+            const v = ($(id) as HTMLInputElement).value;
+            return v === '' ? null : Number(v);
+          };
+          await ecrireRepas({
+            moment: ($('moment') as HTMLSelectElement).value as MomentDuRepas,
+            intitule: ($('intitule') as HTMLInputElement).value.trim(),
+            kcal: lire('kcal'),
+            proteines: lire('proteines'),
+            glucides: lire('glucides'),
+            lipides: lire('lipides'),
+            note: '',
+          });
+          for (const id of ['intitule', 'kcal', 'proteines', 'glucides', 'lipides']) {
+            ($(id) as HTMLInputElement).value = '';
+          }
+          direMacros();
+        }),
+      );
+
+      for (const b of document.querySelectorAll<HTMLButtonElement>('[data-verre]')) {
+        b.addEventListener('click', () => essayer(() => ecrireBoisson(Number(b.dataset.verre))));
+      }
+      $('annuler-verre').addEventListener('click', () =>
+        essayer(async () => {
+          const derniere = [...boissons]
+            .filter((b) => b.jour === aujourdhui)
+            .sort((a, b) => a.le.localeCompare(b.le))
+            .at(-1);
+          if (derniere) await supprimerBoisson(derniere.id);
+        }),
+      );
+
+      $('declarer-sante').addEventListener('click', () =>
+        essayer(async () => {
+          await ecrireSante({
+            intitule: ($('intitule-sante') as HTMLInputElement).value.trim(),
+            // Midi : une date sans heure prise à minuit UTC bascule de jour en France.
+            debut: `${($('debut-sante') as HTMLInputElement).value}T12:00:00.000Z`,
+            fin: null,
+            intensite: Number(($('intensite') as HTMLInputElement).value),
+            empecheEffort: ($('empeche') as HTMLInputElement).checked,
+            note: '',
+          });
+          ($('intitule-sante') as HTMLInputElement).value = '';
+          ($('empeche') as HTMLInputElement).checked = false;
+        }),
+      );
+
+      await recharger();
+      $('vue').classList.remove('hidden');
+    },
+    { zoneChargement: '#chargement-corps' },
+  );
+</script>

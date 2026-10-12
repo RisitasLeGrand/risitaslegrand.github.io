@@ -24,8 +24,7 @@ import { reglagesJourLogiqueLocaux } from './adaptation';
 import { DOMAINES_ACTIFS_PAR_DEFAUT, type IdDomaine } from './noyau/domaines';
 import type { Fait } from './noyau/faits';
 import { champ } from './profil';
-import { publierFaitsRevisions } from './odyssee/faits-revisions';
-import { publierFaitsOdyssee } from './odyssee/faits-odyssee';
+import { publierTousLesFaits } from './odyssee/faits-branches';
 import {
   evenementsEntre,
   revueDu,
@@ -118,16 +117,21 @@ export async function etatDuJour(maintenant = new Date()): Promise<EtatDuJour> {
      cette semaine : la fenêtre des faits est donc large, et c'est la règle qui
      restreint, pas la lecture.
   */
-  const [revisions, odyssee, taches, quetes, actifs, cibles, coucher] = await Promise.all([
-    publierFaitsRevisions({ reglages }),
-    publierFaitsOdyssee({ reglages }),
+  /*
+     Toutes les branches, et non seulement Révisions et Odyssée. La roue
+     mesure l'équilibre entre domaines : lui cacher le sport et le corps
+     reviendrait à dire « tu négliges ton corps » à quelqu'un qui vient de
+     s'entraîner et de peser.
+  */
+  const [publication, taches, quetes, actifs, cibles, coucher] = await Promise.all([
+    publierTousLesFaits({ reglages }),
     toutesLesTaches(),
     toutesLesQuetes(),
     domainesActifs(),
     ciblesDeLaRoue(),
     heureDeCoucher(),
   ]);
-  const faits = [...revisions.faits, ...odyssee.faits];
+  const faits = publication.faits;
 
   const debutDuJour = `${aujourdhui}T00:00:00.000Z`;
   const finDuJour = `${aujourdhui}T23:59:59.999Z`;

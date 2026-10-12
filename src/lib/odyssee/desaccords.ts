@@ -34,7 +34,7 @@
  * choisit rien. Un désaccord qu'on ne sait pas trancher reste une donnée
  * incertaine, pas une donnée fausse.
  */
-import { dureeDuJourLogique, type ReglagesJourLogique } from '../noyau/jour-logique';
+import { dureeDuJourLogique, jourLogique, type ReglagesJourLogique } from '../noyau/jour-logique';
 import { resolutions, type ChargeResolution, type Issue, type Resolution } from '../noyau/corrections';
 import type { Operation } from '../noyau/operations';
 import type { Fait } from '../noyau/faits';
@@ -78,6 +78,21 @@ export interface RegleDesaccord {
   types: readonly string[];
   /** Les clefs de `details` qu'elle lit. Déclarées, pour que les branches à venir les sachent. */
   lit?: readonly string[];
+  /**
+   * Les types dont un fait **dure**, et qu'il faut voir chaque jour couvert.
+   *
+   * Un fait porte un seul jour logique — celui de sa fin, ou de son début
+   * s'il n'a pas de fin. Cela convient aux événements : une séance, une
+   * pesée, un repas. Cela ne convient pas aux **états** : une maladie
+   * déclarée le 10 et encore ouverte le 12 ne rencontrerait jamais la séance
+   * du 12, et la règle se tairait en ayant l'air satisfaite.
+   *
+   * Étaler n'est pourtant pas le défaut, parce que ce serait faux pour les
+   * règles qui **somment** : une nuit à cheval sur minuit comptée dans les
+   * deux jours doublerait le sommeil. Chaque règle déclare donc les types
+   * qu'elle veut voir s'étendre, et seulement ceux-là.
+   */
+  etale?: readonly string[];
   /** Les faits d'un même jour logique, déjà filtrés sur `types`. */
   detecter: (faits: readonly Fait[], jour: string, contexte: ContexteDesaccord) => Desaccord[];
 }
@@ -209,6 +224,8 @@ export const REGLES_DESACCORD: readonly RegleDesaccord[] = [
       'La santé générale appartient à Odyssée et alimente Sport (D.7 : aucune proposition de progression sous douleur déclarée). Une séance tenue un jour marqué « empêche l’effort » n’est pas interdite — on peut s’être entraîné malgré tout — mais les deux déclarations ne peuvent pas être toutes les deux justes telles quelles.',
     types: ['sport.seance', 'odyssee.sante'],
     lit: ['empecheEffort'],
+    // Une maladie dure : voir `etale` sur l'interface.
+    etale: ['odyssee.sante'],
     detecter: (faits, jour) => {
       const empechements = faits.filter(
         (f) => f.type === 'odyssee.sante' && f.details?.empecheEffort === true,
@@ -259,6 +276,24 @@ export const REGLES_DESACCORD: readonly RegleDesaccord[] = [
 ];
 
 /**
+ * Un fait durable couvre-t-il ce jour logique ?
+ *
+ * Du jour de son début à celui de sa fin, bornes comprises. Sans fin, jusqu'au
+ * dernier jour observé : un état ouvert vaut jusqu'à preuve du contraire, et
+ * c'est le sens même de « ouvert ».
+ */
+function couvre(
+  fait: Fait,
+  jour: string,
+  dernier: string,
+  contexte: ContexteDesaccord,
+): boolean {
+  const debut = jourLogique(new Date(fait.debut), contexte.reglages);
+  const fin = fait.fin ? jourLogique(new Date(fait.fin), contexte.reglages) : dernier;
+  return debut <= jour && jour <= fin;
+}
+
+/**
  * Tous les désaccords d'une liste de faits.
  *
  * Les règles travaillent par jour logique, parce que c'est l'unité dans
@@ -276,11 +311,29 @@ export function detecter(
     if (groupe) groupe.push(fait);
     else parJour.set(fait.jourLogique, [fait]);
   }
+  const jours = [...parJour.keys()].sort();
+  /*
+     Le dernier jour observé borne les états encore ouverts. Rien d'autre ne
+     peut le faire ici : `detecter` est pure et ne connaît pas « aujourd'hui ».
+     Une maladie sans fin couvre donc la fenêtre qu'on lui présente, ce qui est
+     exactement ce qu'on veut savoir d'elle.
+  */
+  const dernier = jours[jours.length - 1];
+
   const sortie: Desaccord[] = [];
-  for (const jour of [...parJour.keys()].sort()) {
+  for (const jour of jours) {
     const duJour = parJour.get(jour)!;
     for (const regle of regles) {
       const concernes = duJour.filter((f) => regle.types.includes(f.type));
+      if (regle.etale?.length) {
+        for (const fait of faits) {
+          if (!regle.etale.includes(fait.type)) continue;
+          // Déjà dans le paquet du jour : ne pas le compter deux fois.
+          if (fait.jourLogique === jour) continue;
+          if (!couvre(fait, jour, dernier, contexte)) continue;
+          concernes.push(fait);
+        }
+      }
       if (!concernes.length) continue;
       sortie.push(...regle.detecter(concernes, jour, contexte));
     }

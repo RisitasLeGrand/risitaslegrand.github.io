@@ -153,9 +153,26 @@ const apres = await page.evaluate(
 */
 vrai('la base a migré au moins jusqu’à la v15', apres.version >= 15);
 v(
-  'les cinq magasins d’Odyssée existent',
+  /*
+     Les cinq de la v15, et les six du domaine Corps arrivés en v18. L'essai
+     part d'une base en v14 : il vérifie donc que **tous** les blocs additifs
+     ont tourné, et pas seulement celui qui l'intéressait au départ.
+  */
+  'les onze magasins d’Odyssée existent',
   apres.magasins.filter((m) => m.startsWith('odyssee')).sort(),
-  ['odysseeEvenements', 'odysseeFocus', 'odysseeQuetes', 'odysseeRevues', 'odysseeTaches'],
+  [
+    'odysseeBoissons',
+    'odysseeEvenements',
+    'odysseeFocus',
+    'odysseeMesures',
+    'odysseeNuits',
+    'odysseePesees',
+    'odysseeQuetes',
+    'odysseeRepas',
+    'odysseeRevues',
+    'odysseeSante',
+    'odysseeTaches',
+  ],
 );
 /*
    Et aucun des anciens n'a disparu. C'est ce que « additive » veut dire, et

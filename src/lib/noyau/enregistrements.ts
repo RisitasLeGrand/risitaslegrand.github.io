@@ -337,6 +337,19 @@ export const MAGASINS_JOURNALISES: readonly MagasinJournalise[] = [
   M({ magasin: 'sportPhases', type: 'sport.phase', clef: 'id', libelle: 'Phase d’entraînement' }),
   M({ magasin: 'sportBlessures', type: 'sport.blessure', clef: 'id', libelle: 'Blessure' }),
   M({ magasin: 'sportProgrammes', type: 'sport.phase', clef: 'id', libelle: 'Programme' }),
+
+  /*
+     Le domaine Corps d'Odyssée. Ni médicaments ni statut hormonal : la
+     décision 3 n'est pas tranchée, et inscrire au registre un magasin qui
+     n'existe pas encore serait promettre un voyage à une donnée sensible
+     avant d'avoir décidé comment elle doit être écrite.
+  */
+  M({ magasin: 'odysseePesees', type: 'odyssee.poids', clef: 'id', libelle: 'Pesée' }),
+  M({ magasin: 'odysseeMesures', type: 'odyssee.mesure', clef: 'id', libelle: 'Mesure corporelle' }),
+  M({ magasin: 'odysseeNuits', type: 'odyssee.sommeil', clef: 'id', libelle: 'Nuit' }),
+  M({ magasin: 'odysseeRepas', type: 'odyssee.repas', clef: 'id', libelle: 'Repas' }),
+  M({ magasin: 'odysseeBoissons', type: 'odyssee.hydratation', clef: 'id', libelle: 'Boisson' }),
+  M({ magasin: 'odysseeSante', type: 'odyssee.sante', clef: 'id', libelle: 'État de santé' }),
 ];
 
 const PAR_MAGASIN = new Map(MAGASINS_JOURNALISES.map((m) => [m.magasin, m]));

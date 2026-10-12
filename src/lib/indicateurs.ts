@@ -188,9 +188,9 @@ export async function rassembler(p: Periode, options: OptionsFenetre = {}): Prom
       return reglagesJourLogiqueLocaux();
     })());
 
-  const [{ publierFaitsRevisions }, { etatActivite }, { tableauDeNiveaux }, { comptesParMatiere }] =
+  const [{ publierTousLesFaits }, { etatActivite }, { tableauDeNiveaux }, { comptesParMatiere }] =
     await Promise.all([
-      import('./odyssee/faits-revisions'),
+      import('./odyssee/faits-branches'),
       import('./odyssee/service'),
       import('./niveau'),
       import('./journal'),
@@ -199,7 +199,13 @@ export async function rassembler(p: Periode, options: OptionsFenetre = {}): Prom
   const aujourdhui = jourLogique(maintenant, reglages);
   const [publication, activite, niveaux, erreurs, cartes, revisions, echelons, programme] =
     await Promise.all([
-      publierFaitsRevisions({ de: p.de, a: p.a, reglages }),
+      /*
+         Toutes les branches. Les indicateurs d'un domaine Corps ou Sport
+         restaient vides parce que leurs faits n'étaient jamais lus ici — et
+         une couverture de mesure à zéro ne se distingue pas d'un domaine
+         qu'on néglige.
+      */
+      publierTousLesFaits({ de: p.de, a: p.a, reglages }),
       etatActivite({ reglages, maintenant }),
       tableauDeNiveaux(),
       comptesParMatiere(),
@@ -211,7 +217,16 @@ export async function rassembler(p: Periode, options: OptionsFenetre = {}): Prom
 
   const desaccordsOuverts = await (async () => {
     const { detecter } = await import('./odyssee/desaccords');
-    return detecter(activite.faits);
+    /*
+       `publication.faits` et non `activite.faits` : le second ne porte que
+       Révisions, parce que l'XP et la série se calculent sur elle seule
+       (décision 2). Or les règles de désaccord sont **faites** pour opposer
+       deux branches — une séance de sport à une révision, un effort à un
+       empêchement déclaré. Les nourrir d'une seule branche les rendait
+       silencieuses par construction, et une règle qui ne peut pas se
+       déclencher se tait exactement comme une règle satisfaite.
+    */
+    return detecter(publication.faits, { reglages });
   })();
 
   return {

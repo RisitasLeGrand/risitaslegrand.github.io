@@ -15,6 +15,14 @@ import type { EntreeRevision } from './noyau/revisions';
 import type { Evenement, Focus, Quete, Revue, Tache } from './odyssee/modele';
 import type { Blessure, Exercice, Phase, Seance as SeanceSport } from './sport/modele';
 import type { Programme as ProgrammeSport } from './sport/programmes';
+import type {
+  Boisson,
+  EtatDeSante,
+  MesureCorporelle,
+  Nuit,
+  Pesee,
+  Repas as RepasCorps,
+} from './odyssee/corps';
 import type { Operation } from './noyau/operations';
 import { socleDe } from './noyau/revisions';
 import { idAppareilNeuf } from './noyau/operations';
@@ -553,10 +561,16 @@ interface SchemaRevinsp extends DBSchema {
   sportPhases: { key: string; value: Phase; indexes: { debut: string } };
   sportBlessures: { key: string; value: Blessure; indexes: { debut: string } };
   sportProgrammes: { key: string; value: ProgrammeSport };
+  odysseePesees: { key: string; value: Pesee; indexes: { jour: string } };
+  odysseeMesures: { key: string; value: MesureCorporelle; indexes: { jour: string } };
+  odysseeNuits: { key: string; value: Nuit; indexes: { jour: string } };
+  odysseeRepas: { key: string; value: RepasCorps; indexes: { jour: string } };
+  odysseeBoissons: { key: string; value: Boisson; indexes: { jour: string } };
+  odysseeSante: { key: string; value: EtatDeSante; indexes: { debut: string } };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 17;
+const VERSION = 18;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1047,6 +1061,35 @@ function ouvrirAuSchema(nom: string, version: number) {
          * qui lui donne son rang et sa cadence.
          */
         base.createObjectStore('sportProgrammes', { keyPath: 'id' });
+      }
+      if (vers(18)) {
+        /*
+         * Le domaine Corps d'Odyssée. Additive, comme les trois précédentes.
+         *
+         * Six magasins et non un seul « corps » fourre-tout : chacun porte une
+         * forme différente, et les mélanger obligerait chaque lecture à filtrer
+         * sur un champ `sorte` — c'est-à-dire à parcourir cinq fois trop de
+         * lignes pour tracer une courbe de poids.
+         *
+         * Index sur `jour` partout, parce que **toutes** les lectures sont par
+         * jour ou par fenêtre de jours : le résumé d'une journée, la moyenne
+         * mobile sur sept jours, la détection de désaccords. `odysseeSante`
+         * porte le sien sur `debut`, puisqu'un état de santé dure.
+         *
+         * Ni médicaments ni statut hormonal : la décision 3, sur le chiffrement
+         * au repos, n'est pas tranchée, et on ne rattrape pas une donnée
+         * sensible déjà écrite en clair dans un instantané de migration.
+         */
+        for (const nom of [
+          'odysseePesees',
+          'odysseeMesures',
+          'odysseeNuits',
+          'odysseeRepas',
+          'odysseeBoissons',
+        ] as const) {
+          base.createObjectStore(nom, { keyPath: 'id' }).createIndex('jour', 'jour');
+        }
+        base.createObjectStore('odysseeSante', { keyPath: 'id' }).createIndex('debut', 'debut');
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -1893,6 +1936,12 @@ export const MAGASINS_PROGRESSION = [
   'sportPhases',
   'sportBlessures',
   'sportProgrammes',
+  'odysseePesees',
+  'odysseeMesures',
+  'odysseeNuits',
+  'odysseeRepas',
+  'odysseeBoissons',
+  'odysseeSante',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */

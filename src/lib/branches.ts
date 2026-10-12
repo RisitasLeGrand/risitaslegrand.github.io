@@ -111,6 +111,7 @@ export const BRANCHES: Branche[] = [
       { id: 'taches', libelle: 'Mes tâches', court: 'Tâches', chemin: '/odyssee/taches/', icone: '✅' },
       { id: 'quetes', libelle: 'Mes quêtes', court: 'Quêtes', chemin: '/odyssee/quetes/', icone: '🔁' },
       { id: 'revue', libelle: 'Revue du soir', court: 'Revue', chemin: '/odyssee/revue/', icone: '🌙' },
+      { id: 'corps', libelle: 'Mon corps', court: 'Corps', chemin: '/odyssee/corps/', icone: '🫀' },
       { id: 'syntheses', libelle: 'Mes synthèses', court: 'Synthèses', chemin: '/syntheses/', icone: '📈' },
     ],
   },
@@ -127,7 +128,13 @@ export const BRANCHES: Branche[] = [
       { id: 'exercices', libelle: 'Mes exercices', court: 'Exercices', chemin: '/sport/exercices/', icone: '📋' },
       { id: 'programmes', libelle: 'Mes programmes', court: 'Programmes', chemin: '/sport/programmes/', icone: '🗂️' },
       { id: 'force', libelle: 'Mon suivi de la force', court: 'Force', chemin: '/sport/force/', icone: '📈' },
-      { id: 'corps', libelle: 'Mon corps et mes blessures', court: 'Corps', chemin: '/sport/corps/', icone: '🩹' },
+      /*
+         « Phases et blessures », et non « Mon corps » : Odyssée porte déjà un
+         écran de ce nom — poids, sommeil, repas — et deux onglets homonymes
+         dans deux branches se confondraient à la lecture. Celui-ci ne traite
+         que de ce qui contextualise l'entraînement.
+      */
+      { id: 'etat', libelle: 'Mes phases et mes blessures', court: 'Blessures', chemin: '/sport/corps/', icone: '🩹' },
     ],
   },
 ];
