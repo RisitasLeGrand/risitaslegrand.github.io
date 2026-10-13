@@ -214,7 +214,10 @@ import Base from '../../layouts/Base.astro';
          le décrire, et elle se manipule au clavier sans rien ajouter.
       */
       const etiquette = document.createElement('label');
-      etiquette.className = 'flex shrink-0 items-center gap-2 text-sm';
+      // « cible-tactile » : c'est l'étiquette qu'on touche, pas la case de
+      // 20 px. Sans elle, la zone sensible fait 20 px de haut sur un écran
+      // tactile, et le doigt vise le voisin.
+      etiquette.className = 'cible-tactile shrink-0 gap-2 text-sm';
       const case_ = document.createElement('input');
       case_.type = 'checkbox';
       case_.className = 'size-5 rounded border-slate-300 dark:border-slate-700';
