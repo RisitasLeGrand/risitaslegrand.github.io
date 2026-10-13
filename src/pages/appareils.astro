@@ -32,21 +32,45 @@ import Base from '../layouts/Base.astro';
     <section
       class="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-5 dark:border-indigo-900 dark:bg-indigo-950/30"
     >
+      {/*
+         « Ajouter un téléphone », et pas « Apparier un appareil ».
+
+         Le parcours existait, sous un nom qui décrit le **procédé** plutôt
+         que l'intention. On cherche « comment mettre mes révisions sur mon
+         téléphone », pas « comment apparier » — et un écran qui s'intitule
+         « Plus rapide : la liaison directe » répond à une question qu'on ne
+         s'est pas posée. Le chemin `/apparier/` ne change pas : c'est le nom
+         affiché, pas la route.
+
+         Deux portes vers la même page, parce qu'elle fait deux choses : on y
+         ajoute un appareil, et on y relance un échange avec un appareil déjà
+         connu. Les confondre sous un seul libellé obligerait à en choisir un
+         qui mentirait la moitié du temps.
+      */}
       <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
-        Plus rapide : la liaison directe
+        Ajouter un téléphone
       </h2>
       <p class="mb-4 max-w-3xl text-sm text-slate-600 dark:text-slate-300">
         Un QR visé une fois avec l’autre appareil, et les synchronisations
-        suivantes tiennent en un bouton — sans fichier à transporter. Le
-        transfert de fichier ci-dessous reste là : il marche sans réseau, et
-        c’est le recours quand le reste échoue.
+        suivantes tiennent en un bouton — sans fichier à transporter. Gardez
+        les deux écrans allumés le temps de l’échange. Le transfert de fichier
+        ci-dessous reste là : il marche sans réseau, et c’est le recours quand
+        le reste échoue.
       </p>
-      <a
-        href="/apparier/"
-        class="cible-tactile rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700"
-      >
-        Apparier un appareil
-      </a>
+      <div class="flex flex-wrap items-center gap-4">
+        <a
+          href="/apparier/"
+          class="cible-tactile rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700"
+        >
+          Ajouter un téléphone
+        </a>
+        <a
+          href="/apparier/"
+          class="cible-tactile text-sm font-medium text-indigo-700 underline-offset-4 hover:underline dark:text-indigo-300"
+        >
+          Déjà apparié ? Synchroniser maintenant
+        </a>
+      </div>
     </section>
 
     <!-- ── Les appareils ───────────────────────────────────────────────── -->
