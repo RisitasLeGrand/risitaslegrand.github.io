@@ -1155,3 +1155,84 @@ affirmait avoir tout obtenu.**
 - Un **contrôle d'origine par `curl`** sur les quatre fichiers, le jour où la
   passerelle s'ouvrira : les empreintes des sections 10, 11 et 12 le rendront
   immédiat.
+
+---
+
+## 13. Les URL authentiques, extraites des liens embarqués (13 octobre 2026)
+
+Les annotations `/URI` du PDF de la page de sélection (section 11, empreinte
+`de2a6660…c3198d`) portent les cibles réelles des liens. Extraites localement,
+sans aucun accès réseau. Même chaîne de possession que la section 11 : ce sont
+les liens de la page telle que le navigateur de l'utilisateur l'a rendue.
+
+```text
+https://www.phqscreeners.com/images/sites/g/files/g10016261/f/201412/instructions.pdf
+https://www.phqscreeners.com/images/sites/g/files/g10016261/f/201412/01_Bibliography%20by%20author.pdf
+http://pfizer.com/general/terms.jsp
+http://www.pfizer.com/
+http://www.pfizer.com/privacy
+```
+
+### 13.1 Le chemin réel, et ce qu'il révèle des deux relevés externes
+
+Le préfixe authentique est **`/images/sites/g/files/g10016261/f/201412/`**.
+Confronté aux deux chemins annoncés « confirmés » :
+
+| Source | Chemin annoncé | Verdict |
+|---|---|---|
+| Relevé n°2 | `/images/sites/g/files/`**`g10060481`**`/f/201412/` | préfixe **juste**, identifiant de site **faux** |
+| Relevé n°3 | `/sites/g/files/`**`g10016261`**`/f/201412/` | préfixe **faux** (`/images` manquant), identifiant **juste** |
+| **Authentique** | `/images/sites/g/files/g10016261/f/201412/` | — |
+
+**Chacun des deux avait une moitié juste et une moitié fausse** — et aucun n'était
+utilisable, puisque rien ne disait laquelle. Le segment `201412` est en revanche
+authentique, bien que les deux questionnaires datent de 2010 : c'est un chemin de
+dépôt, pas une date de document.
+
+URL probables des trois fichiers déjà authentifiés, à confirmer par `curl` :
+
+```text
+https://www.phqscreeners.com/images/sites/g/files/g10016261/f/201412/PHQ9_French%20for%20France.pdf
+https://www.phqscreeners.com/images/sites/g/files/g10016261/f/201412/GAD7_French%20for%20France.pdf
+```
+
+### 13.2 Où vivent les seuils d'interprétation
+
+**`instructions.pdf` est l'*Instruction Manual* référencé par la page**, et c'est
+là que doivent se trouver la règle de calcul et les seuils absents des deux
+questionnaires (section 12.6). **Un seul fichier reste donc à obtenir pour clore
+le volet psychométrique.**
+
+### 13.3 Point juridique à compléter
+
+Les mentions « Privacy Policy » et « Terms of Use Agreement » du pied de page
+pointent vers **`pfizer.com`**, non vers `phqscreeners.com`. L'énoncé permissif
+authentifié en section 11.2 vit donc sur un site régi par les conditions
+d'utilisation de Pfizer. **`http://pfizer.com/general/terms.jsp` est à relever**
+avant de conclure sur le régime applicable : une autorisation portée par une page
+ne se lit pas indépendamment des conditions générales du site qui l'héberge.
+
+### 13.4 Contrôle d'origine, prêt à exécuter
+
+À lancer dès que la passerelle s'ouvre. Il compare les empreintes servies à
+celles des sections 10 et 12, et récupère les deux pièces manquantes.
+
+```bash
+mkdir -p /tmp/echelles/verif && cd /tmp/echelles/verif
+B='https://www.phqscreeners.com/images/sites/g/files/g10016261/f/201412'
+curl -sSL -o phq9.pdf        "$B/PHQ9_French%20for%20France.pdf"
+curl -sSL -o gad7.pdf        "$B/GAD7_French%20for%20France.pdf"
+curl -sSL -o instructions.pdf "$B/instructions.pdf"
+curl -sSL -o who5.pdf        'https://cdn.who.int/media/docs/default-source/mental-health/indice-(en-cinq-points)-de-bien--tre-de-l-oms.pdf'
+sha256sum *.pdf
+# attendu :
+#   408801762a1b728ebc01eaf119302539e7fb5503b855d81d603dbe9a43be9fc1  who5.pdf
+#   b9529947a01d82b7c640176958e6e0f409a98e239380deafdfb4f27162c50298  phq9.pdf
+#   3622a0e265cb182c0cc8cffaa836b22b8f264dd9f39f9759c68459e4fa08f02c  gad7.pdf
+pdftotext -layout instructions.pdf -
+```
+
+Une empreinte identique prouve l'origine et clôt la réserve des sections 10.1 et
+12.1. Une empreinte différente signifie que le fichier servi n'est pas celui
+relevé ici — le texte des sections 10, 12 resterait exact pour les fichiers
+empreintés, mais devrait être refait sur le fichier servi.
