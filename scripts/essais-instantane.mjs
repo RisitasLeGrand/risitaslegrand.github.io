@@ -303,6 +303,8 @@ v(
        `SENSIBLES_EN_CLAIR` dans `noyau/coffre.ts`.
     */
     'odysseeUsage', 'odysseeVeilleBases',
+    // Le cycle de vie des repères, depuis la version 24. Scellés tous les deux.
+    'odysseeVeilleSignaux', 'odysseeVeilleReglages',
   ].sort(),
 );
 

@@ -128,6 +128,9 @@ export const CHAMP_DATE: Record<string, string | null> = {
   odysseeUsage: 'jour',
   // Une ligne de base est un état, pas un événement : elle se remplace.
   odysseeVeilleBases: null,
+  // Un repère est daté : il s'élague comme le journal qui l'a produit.
+  odysseeVeilleSignaux: 'jour',
+  odysseeVeilleReglages: null,
 };
 
 export const GROUPES: readonly GroupeDeMagasins[] = [
@@ -209,6 +212,8 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
       'odysseeJournal',
       'odysseeUsage',
       'odysseeVeilleBases',
+      'odysseeVeilleSignaux',
+      'odysseeVeilleReglages',
     ],
   },
   {

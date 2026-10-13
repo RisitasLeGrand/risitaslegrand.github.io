@@ -332,7 +332,7 @@ santé.
 | **0** | Ce document. | — |
 | **1** | Registre déclaratif des indicateurs, calcul des valeurs, complétude, base personnelle robuste. Tests : médiane et ÉAM sur cas connus, séparation ouvré / week-end, « non saisi » ≠ « valeur basse ». | **faite** — 65 essais |
 | **2** | Moteur : déviation, persistance, croisement, décote de contexte, trois sensibilités, base figée. ~~Web Worker, calcul incrémental~~ — écartés après mesure, voir 7 ter. Tests : déclin multi-domaines détecté après 14 j, déclin mono-domaine jamais, base non entraînée. | **faite** — 60 essais |
-| **3** | Carte, « Pourquoi ce repère », « Ce que la veille regarde », « À propos », statut, journal des signaux, cadence, pause, désactivation. Tests : check-in rassurant ne lève rien, un seul signal actif, désactivation sans relance. | oui |
+| **3** | Carte, « Pourquoi ce repère », « Ce que la veille regarde », « À propos », statut, journal des signaux, cadence, pause, désactivation. Tests : check-in rassurant ne lève rien, un seul signal actif, désactivation sans relance. | **faite** — 96 essais purs + 29 navigateur |
 | **4** | Jeux synthétiques sur cinq ans et **taux de faux signaux mesuré**, recalcul identique sur deux appareils, synthèse médecin, mode rejeu, documentation. | oui |
 
 ## 7 bis. Ce que la phase 1 a appris
@@ -401,6 +401,46 @@ reprendre.
 de jours consécutifs.** C'est équivalent dans l'intention, plus robuste aux
 trous, et cela évite un compteur à remettre à zéro — un objet d'état de plus,
 donc un objet de plus à faire diverger.
+
+## 7 quater. Ce que la phase 3 a appris
+
+**Mon collecteur lisait l'heure dans un autre fuseau que le reste de
+l'application.** Il employait `getHours()`, c'est-à-dire l'heure de la
+machine, pendant que le journal d'usage passait par `heureLocale` en
+Europe/Paris. Les deux cohabitaient dans le même calcul : une session de 3 h
+du matin était nocturne pour un indicateur et diurne pour l'autre, selon le
+fuseau de l'appareil. Un essai l'a montré ; une relecture ne l'aurait pas vu.
+
+**Plusieurs indicateurs n'étaient pas journaliers.** « Nombre de nuits
+courtes », « séances par semaine », « part des séances abandonnées » sont des
+grandeurs de fenêtre : prises au jour, elles valent 0 ou 1, et la médiane
+d'une série de 0 et de 1 ne dit rien. Elles sont désormais calculées **en
+roulant sur sept jours**, ce qui leur rend une médiane qui a un sens. Le prix
+est une semaine d'inertie, qui ne coûte rien à un dispositif exigeant déjà dix
+à vingt-et-un jours de persistance.
+
+**Changer un réglage ne relançait rien.** La règle « une évaluation par jour »
+bloquait le recalcul : on choisissait une autre sensibilité, et l'écran
+répondait « la veille a déjà regardé aujourd'hui ». Un réglage qu'on modifie
+sans effet visible est pire qu'un réglage absent — on le change deux fois,
+puis on cesse d'y croire. Activer, changer de sensibilité et lever une pause
+remettent maintenant le compteur du jour à zéro.
+
+**Le contrôle de vocabulaire ne doit pas porter sur les dénégations.** L'écran
+dit « il n'existe aucun taux de détection », et c'est exactement la mise en
+garde qu'on veut lire. Interdire le mot partout aurait obligé à l'écrire en
+périphrase, c'est-à-dire à dire moins clairement la seule chose qui compte. Le
+contrôle porte donc sur les textes **fabriqués** — statut et carte —, pas sur
+la prose de l'écran. C'est la même leçon que le contrôle des finances, qui
+s'était piégé en refusant « aucun conseil en investissement ».
+
+**Cinq indicateurs sur vingt-trois ne sont pas encore alimentés**, et la liste
+est déclarée dans `NON_COLLECTES` plutôt que devinée : la rupture d'une
+pratique installée, les non-réalisations sans motif, la régularité des
+révisions, les interactions notées et les repas sautés. L'écran les affiche
+avec la mention « pas encore alimenté », et un essai compare la liste à ce que
+le collecteur produit réellement — le jour où une branche se met à alimenter
+l'un d'eux sans qu'on retire la ligne, l'essai le dira.
 
 ## 8. Ce que je n'ai pas pu vérifier
 

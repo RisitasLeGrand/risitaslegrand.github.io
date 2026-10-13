@@ -20,6 +20,7 @@ import type { Prise, StatutHormonal } from './odyssee/sensible';
 import type { Checkin, CheckinHebdo, Entree } from './odyssee/psyche';
 import type { Session } from './odyssee/usage';
 import type { LigneDeBase } from './odyssee/veille';
+import type { ReglagesVeille, SignalEnregistre } from './odyssee/signal-veille';
 import type { Compte, OperationBancaire, Valorisation } from './odyssee/finances';
 import type { LigneBudget } from './odyssee/budget';
 import type {
@@ -612,10 +613,21 @@ interface SchemaRevinsp extends DBSchema {
   */
   odysseeUsage: { key: string; value: Session; indexes: { jour: string } };
   odysseeVeilleBases: { key: string; value: LigneDeBase; indexes: Record<string, never> };
+  /*
+     Le cycle de vie des repères, depuis la phase 3. Scellés : un repère dit
+     que telle personne s'écarte de son habitude sur le sommeil et
+     l'engagement, ce qui est une information sur elle et sur rien d'autre.
+
+     Les réglages le sont aussi, et pour une raison moins évidente : savoir
+     que quelqu'un a *activé* une veille du rythme de vie est déjà une
+     information sur lui.
+  */
+  odysseeVeilleSignaux: { key: string; value: SignalEnregistre; indexes: { jour: string } };
+  odysseeVeilleReglages: { key: string; value: ReglagesVeille & { id: string } };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 23;
+const VERSION = 24;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1209,6 +1221,20 @@ function ouvrirAuSchema(nom: string, version: number) {
          */
         base.createObjectStore('odysseeUsage', { keyPath: 'id' }).createIndex('jour', 'jour');
         base.createObjectStore('odysseeVeilleBases', { keyPath: 'id' });
+      }
+      if (vers(24)) {
+        /*
+         * La veille, phase 3 : le journal des repères et les réglages.
+         *
+         * Les deux sont scellés. L'index sur le jour sert la seule lecture
+         * réelle — « les repères de cette période » pour le journal — et il
+         * porte sur un champ laissé en clair à dessein : qu'un repère ait été
+         * levé tel jour se voit, ce qu'il disait non.
+         */
+        base
+          .createObjectStore('odysseeVeilleSignaux', { keyPath: 'id' })
+          .createIndex('jour', 'jour');
+        base.createObjectStore('odysseeVeilleReglages', { keyPath: 'id' });
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -2073,6 +2099,8 @@ export const MAGASINS_PROGRESSION = [
   'odysseeLignesBudget',
   'odysseeUsage',
   'odysseeVeilleBases',
+  'odysseeVeilleSignaux',
+  'odysseeVeilleReglages',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */

@@ -113,6 +113,7 @@ export const BRANCHES: Branche[] = [
       { id: 'revue', libelle: 'Revue du soir', court: 'Revue', chemin: '/odyssee/revue/', icone: '🌙' },
       { id: 'corps', libelle: 'Mon corps', court: 'Corps', chemin: '/odyssee/corps/', icone: '🫀' },
       { id: 'psyche', libelle: 'Ma psyché', court: 'Psyché', chemin: '/odyssee/psyche/', icone: '🫧' },
+      { id: 'veille', libelle: 'Repère de rythme de vie', court: 'Repère', chemin: '/odyssee/veille/', icone: '🧭' },
       { id: 'finances', libelle: 'Mes finances', court: 'Finances', chemin: '/odyssee/finances/', icone: '💶' },
       { id: 'tendances', libelle: 'Mes tendances', court: 'Tendances', chemin: '/odyssee/tendances/', icone: '🔭' },
       { id: 'syntheses', libelle: 'Mes synthèses', court: 'Synthèses', chemin: '/syntheses/', icone: '📈' },

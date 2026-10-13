@@ -126,6 +126,18 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
     clairs: ['id', 'majLe'],
   },
   {
+    magasin: 'odysseeVeilleSignaux',
+    pourquoi:
+      'Veille : un repère nomme les domaines où quelqu’un s’écarte de son habitude. C’est un constat sur lui, et le lire ne demande aucune compétence.',
+    clairs: ['id', 'jour', 'majLe'],
+  },
+  {
+    magasin: 'odysseeVeilleReglages',
+    pourquoi:
+      'Veille : savoir que quelqu’un a activé une veille du rythme de vie est déjà une information sur lui, avant même qu’elle ait rien observé.',
+    clairs: ['id', 'majLe'],
+  },
+  {
     magasin: 'odysseeLignesBudget',
     pourquoi: 'Finances : le budget dit ce qu’on gagne, ce qu’on doit et ce qu’on met de côté.',
     clairs: ['id', 'majLe'],

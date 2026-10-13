@@ -1,0 +1,585 @@
+---
+/**
+ * Odyssée : le repère de rythme de vie.
+ *
+ * Un écran qui compare des repères factuels à **votre habitude**, et à rien
+ * d'autre. Pas de dépistage, pas de détection, pas de prévention : ces trois
+ * mots sont refusés par `controlerFormulations()`, et le titre de la carte
+ * dit « un repère à examiner », jamais « alerte ».
+ *
+ * ## Éteint par défaut, et c'est le premier choix de l'écran
+ *
+ * Un dispositif qui observe quelqu'un sans qu'il l'ait demandé n'a pas sa
+ * place, quelle que soit son utilité. Rien n'est calculé tant que la case
+ * n'est pas cochée.
+ *
+ * ## Les ressources, comme dans « Ma psyché »
+ *
+ * Toujours affichées, jamais révélées par un seuil. Un numéro qui apparaît
+ * *parce qu'un repère s'est levé* transformerait l'écran en diagnostic. Elles
+ * sont d'ailleurs le seul endroit de cette page où des chiffres s'affichent :
+ * partout ailleurs le contrôle les refuse, et ce n'est pas la même chose de
+ * mesurer quelqu'un ou de lui donner un numéro à appeler.
+ */
+import Base from '../../layouts/Base.astro';
+import { RESSOURCES } from '../../lib/odyssee/psyche';
+import { CATALOGUE, DOMAINES, JOURS_DE_REFERENCE } from '../../lib/odyssee/veille';
+import { REGLAGES } from '../../lib/odyssee/moteur-veille';
+import { NON_COLLECTES } from '../../lib/odyssee/mesures-veille';
+
+const PREUVES: Record<string, string> = {
+  plausible: 'Plausible — une association rapportée, sur des groupes.',
+  faible: 'Faible — rapporté, mais sans direction stable.',
+  heuristique: 'Raisonnement — aucune étude, une logique assumée.',
+  solide: 'Solide',
+};
+const parDomaine = Object.keys(DOMAINES).map((d) => ({
+  id: d,
+  libelle: DOMAINES[d as keyof typeof DOMAINES].libelle,
+  compte: DOMAINES[d as keyof typeof DOMAINES].compteDansLeCroisement,
+  indicateurs: CATALOGUE.filter((i) => i.domaine === d),
+}));
+---
+
+<Base titre="Repère de rythme de vie" actif="psyche">
+  <div class="mx-auto max-w-3xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Repère de rythme de vie</h1>
+    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+      Compare ce que vous enregistrez déjà à <strong>votre propre habitude</strong>. La seule
+      référence est vous-même, jamais une moyenne de population.
+    </p>
+    <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+      <strong>Aucun diagnostic, aucun dépistage.</strong> Cet écran ne sait pas si un repère est
+      juste : il n’existe aucune évaluation clinique à laquelle se comparer, donc aucun taux de
+      détection, et toute interface qui laisserait croire à une précision mentirait.
+    </p>
+
+    <div id="chargement" class="mt-6 text-sm text-slate-500 dark:text-slate-400">Chargement…</div>
+
+    <div id="vue" class="mt-6 hidden space-y-10">
+      <!-- Le coffre -->
+      <section id="coffre-ferme" class="hidden rounded-2xl border-2 border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">🔒 Ouvrir le coffre</h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Les repères et les réglages sont chiffrés. Le mot de passe est redemandé à chaque nouvel
+          onglet, et la clé ne quitte pas cet appareil.
+        </p>
+        <label class="mt-3 block text-sm">
+          <span class="block text-slate-700 dark:text-slate-200">Mot de passe</span>
+          <input id="mdp-coffre" type="password" autocomplete="current-password"
+            class="mt-1 min-h-11 w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+        </label>
+        <button id="ouvrir-coffre" type="button"
+          class="mt-3 min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900"
+          >Ouvrir</button>
+        <p id="erreur-coffre" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+      </section>
+
+      <div id="coffre-ouvert" class="hidden space-y-10">
+        <!-- Le statut, toujours là -->
+        <section class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <h2 class="text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">État</h2>
+          <p id="statut" class="mt-2 text-sm text-slate-800 dark:text-slate-100"></p>
+          <ul id="manques" class="mt-2 hidden list-disc space-y-1 pl-5 text-xs text-slate-500 dark:text-slate-400"></ul>
+        </section>
+
+        <!-- La carte -->
+        <section id="carte" class="hidden rounded-2xl border-2 border-amber-300 bg-amber-50 p-5 dark:border-amber-700 dark:bg-amber-950/30">
+          <h2 id="carte-titre" class="text-lg font-semibold text-slate-900 dark:text-white"></h2>
+          <p id="carte-intro" class="mt-3 text-sm text-slate-800 dark:text-slate-100"></p>
+          <ul id="carte-puces" class="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-800 dark:text-slate-100"></ul>
+          <p id="carte-reserve" class="mt-3 text-sm text-slate-700 dark:text-slate-200"></p>
+          <p id="carte-contexte" class="mt-3 text-sm text-slate-600 dark:text-slate-300"></p>
+
+          <div id="carte-checkins-bloc" class="my-4 hidden border-y border-amber-200 py-3 dark:border-amber-800">
+            <p id="carte-checkins" class="text-sm text-slate-700 dark:text-slate-200"></p>
+          </div>
+
+          <p id="carte-invitation" class="mt-3 text-sm text-slate-800 dark:text-slate-100"></p>
+
+          <div class="mt-4 flex flex-wrap gap-2">
+            <button type="button" data-reponse="vu"
+              class="min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white dark:bg-slate-200 dark:text-slate-900">Je l’ai vu</button>
+            <button type="button" data-reponse="explication"
+              class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm font-medium text-slate-800 dark:border-slate-600 dark:text-slate-100">Il y a une explication</button>
+            <button type="button" data-reponse="pas-pertinent"
+              class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm font-medium text-slate-800 dark:border-slate-600 dark:text-slate-100">Pas pertinent</button>
+            <button type="button" data-reponse="plus-tard"
+              class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm font-medium text-slate-800 dark:border-slate-600 dark:text-slate-100">Plus tard</button>
+          </div>
+
+          <div class="mt-4 flex flex-wrap gap-4 text-sm">
+            <button id="bouton-pourquoi" type="button" class="underline text-indigo-700 dark:text-indigo-300">Pourquoi ce repère ?</button>
+            <a href="#ressources" class="underline text-indigo-700 dark:text-indigo-300">Besoin d’en parler ?</a>
+          </div>
+
+          <p id="carte-mention" class="mt-4 text-xs text-slate-500 dark:text-slate-400"></p>
+        </section>
+
+        <!-- Pourquoi ce repère : les valeurs exactes, et elles seules -->
+        <section id="pourquoi" class="hidden rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Pourquoi ce repère</h2>
+          <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+            Les valeurs exactes vivent ici, et nulle part ailleurs. La carte, elle, n’en porte
+            aucune : un écart chiffré donne à une comparaison avec vous-même l’allure d’une mesure
+            clinique.
+          </p>
+          <table class="mt-3 w-full text-left text-sm">
+            <thead class="text-xs uppercase text-slate-500 dark:text-slate-400">
+              <tr>
+                <th class="py-1">Repère</th><th class="py-1">Écart</th>
+                <th class="py-1">Seuil</th><th class="py-1">Jours</th><th class="py-1">Contexte</th>
+              </tr>
+            </thead>
+            <tbody id="pourquoi-lignes"></tbody>
+          </table>
+          <p id="pourquoi-base" class="mt-3 text-xs text-slate-500 dark:text-slate-400"></p>
+        </section>
+
+        <!-- Les réglages -->
+        <section class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Réglages</h2>
+
+          <label class="mt-3 flex items-start gap-3 text-sm">
+            <input id="activer" type="checkbox" class="mt-1 h-5 w-5" />
+            <span class="text-slate-800 dark:text-slate-100">
+              <strong>Activer la veille.</strong>
+              <span class="block text-slate-600 dark:text-slate-300">
+                Rien n’est observé ni calculé tant que cette case est décochée. La décocher
+                n’efface rien, et ne déclenche aucun rattrapage à la réactivation.
+              </span>
+            </span>
+          </label>
+
+          <div id="reglages-actifs" class="mt-4 hidden space-y-4">
+            <div>
+              <span class="block text-sm font-medium text-slate-800 dark:text-slate-100">Sensibilité</span>
+              <p class="text-xs text-slate-500 dark:text-slate-400">
+                Aucune n’est plus juste que les autres : il n’y a pas de vérité à laquelle les
+                comparer. « Discrète » signale moins et plus tard ; « attentive », l’inverse.
+              </p>
+              <div class="mt-2 flex flex-wrap gap-2">
+                {
+                  (Object.keys(REGLAGES) as (keyof typeof REGLAGES)[]).map((s) => (
+                    <button type="button" data-sensibilite={s}
+                      class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700">
+                      {REGLAGES[s].libelle}
+                    </button>
+                  ))
+                }
+              </div>
+            </div>
+
+            <div>
+              <span class="block text-sm font-medium text-slate-800 dark:text-slate-100">Pause</span>
+              <p class="text-xs text-slate-500 dark:text-slate-400">
+                Se taire un moment sans rien éteindre — un déménagement, une période chargée.
+              </p>
+              <div class="mt-2 flex flex-wrap items-center gap-2">
+                <input id="pause-jusquau" type="date"
+                  class="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+                <button id="poser-pause" type="button"
+                  class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm dark:border-slate-600">Mettre en pause</button>
+                <button id="lever-pause" type="button"
+                  class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm dark:border-slate-600">Lever la pause</button>
+              </div>
+            </div>
+          </div>
+          <p id="reglages-dit" class="mt-3 text-sm text-emerald-700 dark:text-emerald-300"></p>
+        </section>
+
+        <!-- Le journal des repères -->
+        <section>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Repères passés</h2>
+          <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+            Ce qui a été signalé, et ce que vous en avez dit. Rien n’en est déduit : ce journal
+            n’alimente aucun calcul.
+          </p>
+          <ul id="journal-reperes" class="mt-3 space-y-2 text-sm"></ul>
+          <p id="aucun-repere" class="mt-3 hidden text-sm text-slate-500 dark:text-slate-400">
+            Aucun repère n’a été signalé. Cela ne signifie pas que tout va bien.
+          </p>
+        </section>
+      </div>
+
+      <!-- Ce que la veille regarde : hors du coffre, c'est de la documentation -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Ce que la veille regarde</h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Les {CATALOGUE.length} repères déclarés, leur définition, ce qui les justifie et ce qui
+          peut les expliquer sans que rien n’aille mal. Un repère marqué
+          « pas encore alimenté » est déclaré mais vide : aucune branche ne le remplit à ce jour.
+        </p>
+        <div class="mt-4 space-y-5">
+          {
+            parDomaine.map((d) => (
+              <details class="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+                <summary class="cursor-pointer text-sm font-semibold text-slate-900 dark:text-white">
+                  {d.libelle}
+                  <span class="ml-2 font-normal text-xs text-slate-500 dark:text-slate-400">
+                    {d.indicateurs.length} repères
+                    {d.compte ? '' : ' — appoint : renforce un signal, ne le déclenche jamais'}
+                  </span>
+                </summary>
+                <ul class="mt-3 space-y-3">
+                  {
+                    d.indicateurs.map((i) => (
+                      <li data-indicateur={i.id} class="text-sm">
+                        <span class="font-medium text-slate-900 dark:text-white">{i.libelle}</span>
+                        {NON_COLLECTES.includes(i.id) && (
+                          <span class="ml-2 rounded bg-slate-200 px-2 py-0.5 text-xs text-slate-700 dark:bg-slate-700 dark:text-slate-200">
+                            pas encore alimenté
+                          </span>
+                        )}
+                        <p class="text-slate-600 dark:text-slate-300">{i.definition}</p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                          <strong>{PREUVES[i.preuve]}</strong> {i.justification}
+                        </p>
+                        <p class="text-xs text-slate-500 dark:text-slate-400">
+                          Peut s’expliquer par : {i.confusions.join(', ')}.
+                        </p>
+                      </li>
+                    ))
+                  }
+                </ul>
+              </details>
+            ))
+          }
+        </div>
+      </section>
+
+      <!-- À propos -->
+      <section class="rounded-2xl border border-slate-200 bg-slate-50 p-4 dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">À propos</h2>
+        <div class="mt-2 space-y-3 text-sm text-slate-700 dark:text-slate-200">
+          <p>
+            <strong>Aucun repère n’est « solide ».</strong> Les travaux disponibles établissent des
+            associations sur des groupes, pas des effets chez une personne. Le catalogue refuse
+            d’ailleurs qu’un repère se déclare solide, et un contrôle automatique le vérifie.
+          </p>
+          <p>
+            <strong>Il n’y a aucune vérité terrain.</strong> Cyclades ne saura jamais si un repère
+            était juste : il n’existe pas d’évaluation clinique à laquelle se comparer. Il n’y a
+            donc ni taux de détection, ni chiffre de fiabilité, et il n’y en aura pas.
+          </p>
+          <p>
+            <strong>Des signaux pour rien, et des choses manquées.</strong> Quelqu’un dont le
+            sommeil est naturellement irrégulier déclenchera moins ; quelqu’un de très régulier
+            déclenchera pour un déménagement. Les deux sont normaux, et aucun réglage ne les
+            supprime.
+          </p>
+          <p>
+            <strong>Vos auto-évaluations n’entrent pas dans le calcul.</strong> Un check-in
+            rassurant ne peut pas éteindre un repère, et un check-in sombre ne peut pas en
+            allumer un. Ils s’affichent à côté, et les deux peuvent être vrais.
+          </p>
+          <p>
+            <strong>La référence est figée pendant qu’un repère est ouvert.</strong> Sans cela, une
+            dégradation lente deviendrait votre nouvelle habitude et le repère s’éteindrait de
+            lui-même, sans que rien ne se soit amélioré.
+          </p>
+          <p class="text-slate-600 dark:text-slate-300">
+            La référence se construit sur {JOURS_DE_REFERENCE} jours, jours ouvrés et week-ends
+            séparés, par médiane et écart absolu médian — pour qu’une seule nuit blanche ne
+            déplace pas votre habitude.
+          </p>
+        </div>
+      </section>
+
+      <!-- Les ressources : toujours là, jamais derrière un seuil -->
+      <section id="ressources" class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Besoin d’en parler ?</h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Ces numéros sont affichés en permanence, de la même façon chaque jour. Ils n’apparaissent
+          jamais « parce qu’un repère s’est levé ».
+        </p>
+        <ul class="mt-3 space-y-2 text-sm">
+          {
+            RESSOURCES.map((r) => (
+              <li data-ressource={r.numero} class="text-slate-700 dark:text-slate-200">
+                <a href={`tel:${r.numero}`} class="font-semibold text-indigo-700 underline dark:text-indigo-300">
+                  {r.numero}
+                </a>
+                {' — '}
+                {r.nom}. <span class="text-slate-500 dark:text-slate-400">{r.quand}</span>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { coffreOuvert, ouvrirLeCoffre } from '../../lib/coffre';
+  import { CATALOGUE } from '../../lib/odyssee/veille';
+  import { REGLAGES, type Sensibilite } from '../../lib/odyssee/moteur-veille';
+  import {
+    LIBELLES_DE_REPONSE,
+    composerLaCarte,
+    formulerLeStatut,
+    type Reponse,
+    type SignalEnregistre,
+  } from '../../lib/odyssee/signal-veille';
+  import {
+    ecrireLesReglages,
+    faireUnTour,
+    repondreAuSignal,
+    tousLesSignaux,
+    type TourComplet,
+  } from '../../lib/odyssee/donnees-veille';
+  import { tousLesCheckins } from '../../lib/odyssee/donnees-psyche';
+  import { ECART_NOTABLE, ecartALaBase, ORDRE_DIMENSIONS, DIMENSIONS } from '../../lib/odyssee/psyche';
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const parId = new Map(CATALOGUE.map((i) => [i.id, i]));
+  let dernier: TourComplet | null = null;
+
+  /**
+   * La lecture des check-ins, posée **à côté** de la carte.
+   *
+   * Elle n'entre jamais dans le moteur — c'est tout l'objet de la règle. Si
+   * elle ne dit rien d'utilisable, on n'invente pas : la place reste vide
+   * plutôt que meublée d'une phrase creuse.
+   */
+  async function lireLesCheckins(): Promise<string | null> {
+    try {
+      const checkins = await tousLesCheckins();
+      if (checkins.length < 7) return null;
+      const dans: string[] = [];
+      const hors: string[] = [];
+      for (const d of ORDRE_DIMENSIONS) {
+        const lu = ecartALaBase(checkins, d);
+        if (lu === null) continue;
+        (Math.abs(lu.ecart) < ECART_NOTABLE ? dans : hors).push(
+          DIMENSIONS[d].libelle.toLowerCase(),
+        );
+      }
+      if (!dans.length && !hors.length) return null;
+      const morceaux: string[] = [];
+      if (dans.length) morceaux.push(`${dans.join(' et ')} dans votre moyenne`);
+      if (hors.length) morceaux.push(`${hors.join(' et ')} en écart`);
+      return (
+        `Vos check-ins sur la même période disent : ${morceaux.join(', ')}. ` +
+        'Les deux peuvent être vrais.'
+      );
+    } catch {
+      return null;
+    }
+  }
+
+  function peindreLaCarte(tour: TourComplet, lecture: string | null) {
+    const signal =
+      tour.decision.quoi === 'montrer' ? tour.decision.signal : tour.leve;
+    if (!signal) {
+      $('carte').classList.add('hidden');
+      $('pourquoi').classList.add('hidden');
+      return;
+    }
+    const repere = {
+      jour: signal.jour,
+      depuis: signal.depuis,
+      sensibilite: signal.sensibilite,
+      deviations:
+        tour.verdict?.quoi === 'repere'
+          ? tour.verdict.repere.deviations
+          : signal.indicateurs.map((id) => ({
+              indicateur: id,
+              domaine: parId.get(id)!.domaine,
+              libelle: parId.get(id)!.libelle,
+              ecarts: 0,
+              seuilApplique: REGLAGES[signal.sensibilite].seuil,
+              devie: true,
+              contextes: [],
+              joursRetenus: 0,
+            })),
+      domaines: signal.domaines,
+      appuis: [],
+      contextes: signal.contextes,
+      baseArreteeAu: signal.baseArreteeAu,
+    };
+    const carte = composerLaCarte(repere, lecture);
+    $('carte-titre').textContent = carte.titre;
+    $('carte-intro').textContent = carte.introduction;
+    $('carte-puces').innerHTML = '';
+    for (const p of carte.puces) {
+      const li = document.createElement('li');
+      li.textContent = p;
+      $('carte-puces').appendChild(li);
+    }
+    $('carte-reserve').textContent = carte.reserve;
+    $('carte-contexte').textContent = carte.contexte;
+    $('carte-checkins-bloc').classList.toggle('hidden', carte.checkins === null);
+    $('carte-checkins').textContent = carte.checkins ?? '';
+    $('carte-invitation').textContent = carte.invitation;
+    $('carte-mention').textContent = carte.mention;
+    $('carte').classList.remove('hidden');
+    $('carte').dataset.signal = signal.id;
+
+    // « Pourquoi ce repère » : les valeurs exactes, et elles seules.
+    const lignes = $('pourquoi-lignes');
+    lignes.innerHTML = '';
+    for (const d of repere.deviations) {
+      const tr = document.createElement('tr');
+      tr.dataset.repere = d.indicateur;
+      for (const texte of [
+        d.libelle,
+        `${d.ecarts.toFixed(2)} ÉAM`,
+        `${d.seuilApplique.toFixed(2)} ÉAM`,
+        String(d.joursRetenus),
+        d.contextes.length ? d.contextes.join(', ') : '—',
+      ]) {
+        const td = document.createElement('td');
+        td.className = 'py-1 pr-3 text-slate-700 dark:text-slate-200';
+        td.textContent = texte;
+        tr.appendChild(td);
+      }
+      lignes.appendChild(tr);
+    }
+    $('pourquoi-base').textContent =
+      `Référence arrêtée au ${repere.baseArreteeAu}. Tant qu’un repère est ouvert, elle reste ` +
+      'celle d’avant lui : sans ce gel, une dégradation lente deviendrait votre nouvelle habitude.';
+  }
+
+  async function peindreLeJournal() {
+    const signaux = await tousLesSignaux();
+    const liste = $('journal-reperes');
+    liste.innerHTML = '';
+    $('aucun-repere').classList.toggle('hidden', signaux.length > 0);
+    for (const s of signaux) {
+      const li = document.createElement('li');
+      li.dataset.signalPasse = s.id;
+      li.className = 'rounded-lg border border-slate-200 p-3 dark:border-slate-800';
+      const quoi = s.indicateurs.map((i) => parId.get(i)?.libelle ?? i).join(', ');
+      const dit = s.reponse ? ` — vous avez répondu « ${LIBELLES_DE_REPONSE[s.reponse]} »` : '';
+      li.textContent = `${s.jour} : ${quoi}${dit}.`;
+      liste.appendChild(li);
+    }
+  }
+
+  async function peindre() {
+    const tour = await faireUnTour();
+    dernier = tour;
+    $('statut').textContent = formulerLeStatut(tour, tour.etat);
+
+    const manques = $('manques');
+    manques.innerHTML = '';
+    const insuffisant = tour.verdict?.quoi === 'donnees-insuffisantes';
+    manques.classList.toggle('hidden', !insuffisant);
+    if (insuffisant && tour.verdict?.quoi === 'donnees-insuffisantes') {
+      for (const m of tour.verdict.suffisance.manques.slice(0, 8)) {
+        const li = document.createElement('li');
+        li.textContent = m;
+        manques.appendChild(li);
+      }
+      if (tour.verdict.suffisance.jamaisRenseignes.length) {
+        const li = document.createElement('li');
+        li.textContent =
+          `${tour.verdict.suffisance.jamaisRenseignes.length} repères n’ont jamais reçu de ` +
+          'donnée. Ils sont déclarés, et listés plus bas.';
+        manques.appendChild(li);
+      }
+    }
+
+    const r = tour.etat.reglages;
+    ($('activer') as HTMLInputElement).checked = r.active;
+    $('reglages-actifs').classList.toggle('hidden', !r.active);
+    for (const b of document.querySelectorAll<HTMLElement>('[data-sensibilite]')) {
+      const choisi = b.dataset.sensibilite === r.sensibilite;
+      b.dataset.choisi = String(choisi);
+      b.classList.toggle('bg-slate-800', choisi);
+      b.classList.toggle('text-white', choisi);
+      b.classList.toggle('dark:bg-slate-200', choisi);
+      b.classList.toggle('dark:text-slate-900', choisi);
+    }
+    ($('pause-jusquau') as HTMLInputElement).value = r.enPauseJusquau ?? '';
+
+    peindreLaCarte(tour, await lireLesCheckins());
+    await peindreLeJournal();
+  }
+
+  function montrerLeCoffre() {
+    const ouvert = coffreOuvert();
+    $('coffre-ferme').classList.toggle('hidden', ouvert);
+    $('coffre-ouvert').classList.toggle('hidden', !ouvert);
+    return ouvert;
+  }
+
+  auDeverrouillage(async () => {
+    $('chargement').classList.add('hidden');
+    $('vue').classList.remove('hidden');
+    if (montrerLeCoffre()) await peindre();
+
+    $('ouvrir-coffre').addEventListener('click', async () => {
+      const mdp = ($('mdp-coffre') as HTMLInputElement).value;
+      try {
+        await ouvrirLeCoffre(mdp);
+        ($('mdp-coffre') as HTMLInputElement).value = '';
+        $('erreur-coffre').classList.add('hidden');
+        if (montrerLeCoffre()) await peindre();
+      } catch {
+        $('erreur-coffre').textContent = 'Mot de passe refusé.';
+        $('erreur-coffre').classList.remove('hidden');
+      }
+    });
+
+    $('activer').addEventListener('change', async (e) => {
+      const active = (e.target as HTMLInputElement).checked;
+      await ecrireLesReglages({ active, evalueeLe: null });
+      $('reglages-dit').textContent = active
+        ? 'La veille observe. Elle ne vous demandera rien de plus que ce que vous notez déjà.'
+        : 'La veille est éteinte. Rien n’est observé, et rien ne sera rattrapé si vous la rallumez.';
+      await peindre();
+    });
+
+    /*
+       Changer un réglage remet « evalueeLe » à zéro.
+
+       Sans cela, la règle « une évaluation par jour » bloquait le recalcul :
+       on choisissait une autre sensibilité, et l'écran répondait « la veille
+       a déjà regardé aujourd'hui ». Un réglage qu'on modifie sans effet
+       visible est pire qu'un réglage absent — on le change deux fois, puis
+       on cesse d'y croire. La conclusion d'hier ne vaut d'ailleurs plus :
+       elle a été tirée avec d'autres seuils.
+    */
+    for (const b of document.querySelectorAll<HTMLElement>('[data-sensibilite]')) {
+      b.addEventListener('click', async () => {
+        await ecrireLesReglages({
+          sensibilite: b.dataset.sensibilite as Sensibilite,
+          evalueeLe: null,
+        });
+        await peindre();
+      });
+    }
+
+    $('poser-pause').addEventListener('click', async () => {
+      const jusquau = ($('pause-jusquau') as HTMLInputElement).value;
+      if (!jusquau) return;
+      await ecrireLesReglages({ enPauseJusquau: jusquau });
+      await peindre();
+    });
+    $('lever-pause').addEventListener('click', async () => {
+      // Même raison : lever une pause doit faire regarder, pas attendre demain.
+      await ecrireLesReglages({ enPauseJusquau: null, evalueeLe: null });
+      await peindre();
+    });
+
+    for (const b of document.querySelectorAll<HTMLElement>('[data-reponse]')) {
+      b.addEventListener('click', async () => {
+        const id = $('carte').dataset.signal;
+        if (!id) return;
+        const signal = (await tousLesSignaux()).find((s: SignalEnregistre) => s.id === id);
+        if (!signal) return;
+        await repondreAuSignal(signal, b.dataset.reponse as Reponse);
+        await peindre();
+      });
+    }
+
+    $('bouton-pourquoi').addEventListener('click', () => {
+      $('pourquoi').classList.toggle('hidden');
+      $('pourquoi').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  });
+</script>

@@ -105,8 +105,15 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    plus bas. Ils ont été retirés, puis sont revenus avec la phase 1 — cette
    fois avec leurs magasins.
 */
-v('dix magasins scellés', MAGASINS_SCELLES.length, 10);
+v('douze magasins scellés', MAGASINS_SCELLES.length, 12);
 vrai('la ligne de base de la veille en est', estScelle('odysseeVeilleBases'));
+vrai('les repères aussi', estScelle('odysseeVeilleSignaux'));
+/*
+   Et jusqu'aux réglages : savoir que quelqu'un a *activé* une veille du
+   rythme de vie est déjà une information sur lui, avant même qu'elle ait
+   rien observé.
+*/
+vrai('et jusqu’aux réglages de la veille', estScelle('odysseeVeilleReglages'));
 vrai('les comptes en sont', estScelle('odysseeComptes'));
 vrai('les opérations aussi', estScelle('odysseeOperations'));
 vrai('et les lignes de budget', estScelle('odysseeLignesBudget'));
