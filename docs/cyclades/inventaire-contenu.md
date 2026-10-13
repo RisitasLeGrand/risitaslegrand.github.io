@@ -262,17 +262,23 @@ d'être consigné ici.
 | 6 | `questions-europeennes/fascicule-3` | 15 | 63 |
 | 7 | `questions-sociales/fascicule-1` | 17 | 46 |
 | 8 | `questions-sociales/fascicule-2` | 15 | 31 |
+| 9 | `finances-publiques`, fascicules 1 à 3 | 31 | **0** |
 
-Fiches avec prétest, après le lot 8 : **307 sur 347**.
+**Le chantier est terminé.** Les **150 prétests** sont écrits, et
+**338 fiches sur 347** en portent un.
 
-**Trois matières sur quatre sont complètes** : questions internationales (44),
-questions européennes (43), questions sociales (32). Restent les **finances
-publiques (31)**, dernier lot.
+Les **neuf fiches restantes sont exactement les neuf exemptes** : celles dont le
+sujet est l'épreuve elle-même — méthode, devoir, corrigé, bibliographie — qui
+portent le tag `méthodologie` et pour lesquelles le format interdit le prétest.
+`npm run verifier:pretests` les affiche encore en « reste à écrire »
+(`droit-public/fascicule-1 — 4 / 15`, `economie/fascicule-1 — 2 / 17`,
+`finances-publiques/fascicule-1 — 1 / 13`, `questions-sociales/fascicule-1 —
+1 / 18`, `cas-pratique/fascicule-1 — 1 / 2`) : **le compte est juste, il n'y a
+rien à y faire**. Le vérificateur ne connaît pas l'exemption ; c'est la seule
+lecture à savoir faire de sa sortie.
 
-Une précision de lecture pour `npm run verifier:pretests` : il affiche encore
-`questions-sociales/fascicule-1 — 1 / 18`. Cette fiche-là est la fiche de
-méthode du fascicule ; son sujet est l'épreuve elle-même, elle porte le tag
-`méthodologie` et le format y interdit le prétest. Le compte est donc juste.
+Répartition finale par matière : questions internationales 44, questions
+européennes 43, questions sociales 32, finances publiques 31.
 
 Note de méthode retenue d'un lot à l'autre : un prétest **ouvre la lecture**, il
 ne la résume pas. Les questions portent donc sur les notions que la fiche
@@ -280,10 +286,11 @@ suppose connues — le vocabulaire, les mécanismes, les repères — et non sur
 qu'elle apprend. Le vivier va de 3 à 16 questions : il suit la densité de la
 fiche au lieu de viser un chiffre uniforme.
 
-Un point à vérifier à la rédaction : `questions-sociales/fascicule-3` et
-`finances-publiques/fascicule-4` n'ont aucun prétest manquant, alors que leurs
-voisins en manquent partout. Rien ne dit que ce soit une anomalie — mais c'est
-l'endroit où regarder si un compte paraît faux plus tard.
+Un point relevé au moment de l'inventaire, et désormais tranché :
+`questions-sociales/fascicule-3` et `finances-publiques/fascicule-4` n'avaient
+aucun prétest manquant alors que leurs voisins en manquaient partout. Le doute
+était légitime, mais la rédaction des neuf lots l'a levé : ces deux fascicules
+étaient bien complets, et aucun compte ne s'est révélé faux.
 
 ---
 
