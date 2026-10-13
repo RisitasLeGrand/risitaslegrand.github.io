@@ -375,3 +375,51 @@ Trois règles, appliquées par `lienCours()` dans `src/lib/actualites.ts` :
 
 Une routine n'est pas tenue de remplir tous les parcours. Écrire la seule entrée
 qu'elle sait écrire est le comportement attendu.
+
+## Coût récurrent
+
+*Écrit le 13 octobre 2026 (D-014). Le README chiffre déjà celui des podcasts —
+« Coût récurrent : aucun » —, celui des routines manquait.*
+
+**Coût financier supplémentaire : aucun.** Rien ici n'ouvre d'abonnement ni de
+ligne de facturation. Ce qui est consommé l'est sur des ressources déjà
+payées, ou gratuites par nature :
+
+| Poste | Ce qui est consommé | Ce que cela coûte |
+|---|---|---|
+| Les quatre routines | le quota d'usage du compte Claude existant | rien de plus que l'abonnement déjà souscrit |
+| Le workflow de publication | des minutes GitHub Actions | rien : elles sont gratuites sur un dépôt public |
+| GitHub Pages | de la bande passante et du stockage | rien dans l'offre gratuite |
+| Le dépôt | du stockage Git | voir ci-dessous |
+
+### Ce qui se mesure vraiment : le volume
+
+**69 exécutions par an** — 52 hebdomadaires, 12 mensuelles, 4 trimestrielles,
+1 annuelle. Chacune ajoute un fichier chiffré, versionné et publié. Les
+tailles constatées le 13 octobre 2026, sur 39 semaines, 9 mois et 3
+trimestres déjà produits :
+
+| Niveau | Taille moyenne constatée | Par an |
+|---|---|---|
+| Hebdomadaire | 5,3 Kio | 276 Kio |
+| Mensuel | 12,8 Kio | 154 Kio |
+| Trimestriel | 21,9 Kio | 88 Kio |
+| Annuel | *aucune produite à ce jour* | ~30 Kio, estimé par extrapolation |
+
+**Soit de l'ordre de 0,55 Mio par an**, et `actualites-data/` pèse 524 Kio
+aujourd'hui. À comparer au plafond de 1 Gio recommandé par GitHub Pages, que
+les fiches audio approchent bien plus vite : ce poste-là n'est pas celui à
+surveiller, et le dire évite de le surveiller pour rien.
+
+### Le vrai coût est ailleurs, et il est en temps
+
+Chaque routine ouvre une pull request et ne publie rien sans relecture. Le
+coût récurrent réel de la rubrique n'est donc pas une facture, c'est **une
+relecture par semaine** : vérifier que les chiffres cités sont sourcés et que
+les sources sont réelles. Sans ce geste, le mécanisme continue de tourner et
+publie ce qu'il croit vrai.
+
+### Ce qui coûterait, et qui a été écarté
+
+Une synthèse vocale en nuage pour les fiches audio — « aucun coût financier
+supplémentaire toléré » : les deux moteurs restent locaux, libres et gratuits.

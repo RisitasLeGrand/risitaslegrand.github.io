@@ -1329,6 +1329,21 @@ Voronoï) et `d3-shape` (art génératif) — les deux modules précis dont les
 générateurs ont besoin, pas l'ensemble de `d3`. Les autres retraits évitent
 d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 
+## Les guides
+
+Le README dit comment faire tourner Cyclades. Ces documents disent comment
+l'étendre et comment le défaire.
+
+| Document | Quand l'ouvrir |
+|---|---|
+| [`docs/ajouter-une-branche.md`](docs/ajouter-une-branche.md) | ajouter un domaine d'usage entier (après Révisions, Odyssée et Sport) |
+| [`docs/ajouter-un-parcours.md`](docs/ajouter-un-parcours.md) | préparer un concours de plus |
+| [`docs/retour-arriere.md`](docs/retour-arriere.md) | défaire une publication, une migration, un mot de passe, une actualité |
+| [`docs/routines-actualites.md`](docs/routines-actualites.md) | la rubrique Actualités, ses quatre routines et leur coût récurrent |
+| [`docs/cyclades/sauvegarde.md`](docs/cyclades/sauvegarde.md) | le format `.cyclades` et pourquoi il ne fusionne pas |
+
+---
+
 ## Organisation du projet
 
 ```
@@ -1336,7 +1351,7 @@ d'embarquer des bibliothèques pour des fonctions que le site assure déjà.
 ├── content/                 # VOS FICHES EN CLAIR + scripts parlés + audio + banque QCM — jamais commité
 ├── content-exemple/         # Exemples fournis, copiés par « npm run init:contenu »
 ├── actualites-data/         # Rubrique Actualités — entrées chiffrées + clé publique
-├── docs/                    # Consignes des routines de veille
+├── docs/                    # Guides : routines de veille, ajout d'une branche, retour arrière
 ├── outils/                  # Modèles de synthèse vocale — jamais commité
 ├── .env.local               # VOTRE MOT DE PASSE — jamais commité
 ├── site.config.mjs          # Réglages : mot de passe (empreinte), base, XP, glossaire
