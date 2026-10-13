@@ -155,8 +155,11 @@ const parDomaine = Object.keys(DOMAINES).map((d) => ({
             <div>
               <span class="block text-sm font-medium text-slate-800 dark:text-slate-100">Sensibilité</span>
               <p class="text-xs text-slate-500 dark:text-slate-400">
-                Aucune n’est plus juste que les autres : il n’y a pas de vérité à laquelle les
-                comparer. « Discrète » signale moins et plus tard ; « attentive », l’inverse.
+                Les trois ne diffèrent que par le seuil d’écart. Mesuré sur cinq ans de vies
+                synthétiques stables : « discrète » ne signale rien, « standard » signale une
+                fois tous les vingt-cinq ans, « attentive » une fois tous les deux ans.
+                <strong>« Attentive » ne repère pas mieux une vraie dégradation</strong> — elle
+                dérange seulement plus souvent. Voir « À propos ».
               </p>
               <div class="mt-2 flex flex-wrap gap-2">
                 {
@@ -274,9 +277,17 @@ const parDomaine = Object.keys(DOMAINES).map((d) => ({
             allumer un. Ils s’affichent à côté, et les deux peuvent être vrais.
           </p>
           <p>
-            <strong>La référence est figée pendant qu’un repère est ouvert.</strong> Sans cela, une
-            dégradation lente deviendrait votre nouvelle habitude et le repère s’éteindrait de
-            lui-même, sans que rien ne se soit amélioré.
+            <strong>La référence s’arrête avant la période qu’elle juge.</strong> Sans cela, une
+            dégradation lente entrerait peu à peu dans votre habitude, la référence la
+            rejoindrait, et l’écart retomberait — le repère s’éteindrait de lui-même sans que rien
+            ne se soit amélioré. C’est le défaut que la mesure a trouvé : avant correction, il
+            fallait un écart trois fois plus grand pour que quoi que ce soit se voie.
+          </p>
+          <p>
+            <strong>Une sensibilité plus haute ne repère pas mieux.</strong> C’est contre-intuitif,
+            et c’est mesuré : les signaux pour rien partent les premiers, et le silence qui suit
+            chaque réponse masque ensuite celui qui comptait. En dessous d’une certaine exigence,
+            régler plus bas ne fait qu’ajouter du bruit qui cache ce qu’on cherche.
           </p>
           <p class="text-slate-600 dark:text-slate-300">
             La référence se construit sur {JOURS_DE_REFERENCE} jours, jours ouvrés et week-ends

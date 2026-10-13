@@ -58,7 +58,8 @@ vrai('le coffre est fermé au départ', await page.locator('#coffre-ferme').isVi
 faux('et les réglages sont hors d’atteinte', await page.locator('#coffre-ouvert').isVisible());
 vrai('« Ce que la veille regarde » reste lisible sans le coffre',
   await page.locator('text=Ce que la veille regarde').isVisible());
-vrai('« À propos » aussi', await page.locator('text=À propos').isVisible());
+vrai('« À propos » aussi',
+  await page.getByRole('heading', { name: 'À propos' }).isVisible());
 
 console.log('\nLES RESSOURCES SONT LÀ, SANS CONDITION');
 

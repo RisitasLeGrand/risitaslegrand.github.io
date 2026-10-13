@@ -229,7 +229,7 @@ Désactivée) est lisible à tout moment dans Psyché.
 | Sensibilité | Seuil | Persistance | k |
 |---|---|---|---|
 | Discrète | 2,5 ÉAM | 21 j | 4 |
-| **Standard** (défaut) | 2 ÉAM | 14 j | 3 |
+| **Standard** (défaut) | 2,5 ÉAM | 21 j | 3 |
 | Attentive | 1,5 ÉAM | 10 j | 3 |
 
 ### 4.4 Contexte
@@ -333,7 +333,7 @@ santé.
 | **1** | Registre déclaratif des indicateurs, calcul des valeurs, complétude, base personnelle robuste. Tests : médiane et ÉAM sur cas connus, séparation ouvré / week-end, « non saisi » ≠ « valeur basse ». | **faite** — 65 essais |
 | **2** | Moteur : déviation, persistance, croisement, décote de contexte, trois sensibilités, base figée. ~~Web Worker, calcul incrémental~~ — écartés après mesure, voir 7 ter. Tests : déclin multi-domaines détecté après 14 j, déclin mono-domaine jamais, base non entraînée. | **faite** — 60 essais |
 | **3** | Carte, « Pourquoi ce repère », « Ce que la veille regarde », « À propos », statut, journal des signaux, cadence, pause, désactivation. Tests : check-in rassurant ne lève rien, un seul signal actif, désactivation sans relance. | **faite** — 96 essais purs + 29 navigateur |
-| **4** | Jeux synthétiques sur cinq ans et **taux de faux signaux mesuré**, recalcul identique sur deux appareils, synthèse médecin, mode rejeu, documentation. | oui |
+| **4** | Jeux synthétiques sur cinq ans et **taux de faux signaux mesuré** : fait, voir `mesures.md` — et la mesure a trouvé deux défauts de conception. Restent : recalcul identique sur deux appareils, synthèse médecin, mode rejeu. | **en cours** |
 
 ## 7 bis. Ce que la phase 1 a appris
 

@@ -341,6 +341,7 @@ const DUREES = [
   { jours: 10, mot: 'une dizaine de jours' },
   { jours: 14, mot: 'deux semaines' },
   { jours: 21, mot: 'trois semaines' },
+  { jours: 28, mot: 'quatre semaines' },
 ];
 
 const direLaDuree = (jours: number) =>

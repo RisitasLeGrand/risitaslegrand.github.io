@@ -93,17 +93,35 @@ export interface Reglage {
 }
 
 /**
- * Les trois réglages, dont un seul est le défaut.
+ * Les trois réglages, **révisés après mesure** en phase 4.
  *
- * « Discrète » n'est pas « moins fiable » : c'est moins de signaux, plus
- * tardifs, et plus difficiles à expliquer autrement. « Attentive » est
- * l'inverse. Aucun des trois n'est plus juste que les autres — il n'y a pas
- * de vérité terrain à laquelle les comparer.
+ * Le plan proposait de faire varier trois choses à la fois — le seuil, la
+ * fenêtre et le nombre de domaines. La mesure sur cinq ans de vies
+ * synthétiques a montré que c'était une mauvaise idée, de deux façons.
+ *
+ * **Le k = 4 de « Discrète » la rendait aveugle.** Une dégradation touchant
+ * trois domaines ne peut pas en remplir quatre : le réglage ne signalait
+ * jamais rien, quelle que soit l'ampleur. Zéro faux signal, zéro détection.
+ *
+ * **Baisser le seuil ne détectait rien de plus, et coûtait très cher.** À
+ * 1,5 ÉAM sur dix jours, la mesure donnait près de neuf signaux par an sur
+ * une vie stable — et *moins* de détections, pas plus. La raison est
+ * contre-intuitive et vaut d'être retenue : les faux signaux partent les
+ * premiers, le silence qui suit chaque réponse les suit, et ce silence masque
+ * le vrai signal quand il arrive. **En dessous d'une certaine spécificité, la
+ * cadence transforme la sensibilité en bruit qui cache ce qu'on cherche.**
+ *
+ * Les trois réglages ne font donc plus varier qu'**une** chose, le seuil, sur
+ * une fenêtre de vingt-et-un jours et un croisement de trois domaines. Les
+ * chiffres mesurés sont dans `docs/cyclades/psyche-veille/mesures.md`, et
+ * l'écran « À propos » les affiche : quelqu'un qui choisit « Attentive » doit
+ * savoir qu'elle signale plus souvent sur une vie stable **sans** mieux
+ * repérer une vraie dégradation.
  */
 export const REGLAGES: Record<Sensibilite, Reglage> = {
-  discrete: { seuil: 2.5, persistance: 21, k: 4, libelle: 'Discrète' },
-  standard: { seuil: 2, persistance: 14, k: 3, libelle: 'Standard' },
-  attentive: { seuil: 1.5, persistance: 10, k: 3, libelle: 'Attentive' },
+  discrete: { seuil: 3, persistance: 21, k: 3, libelle: 'Discrète' },
+  standard: { seuil: 2.5, persistance: 21, k: 3, libelle: 'Standard' },
+  attentive: { seuil: 2, persistance: 21, k: 3, libelle: 'Attentive' },
 };
 
 export const SENSIBILITE_PAR_DEFAUT: Sensibilite = 'standard';
@@ -308,19 +326,51 @@ export interface Entree {
    */
   signalActifDepuis?: string | null;
   catalogue?: readonly Indicateur[];
+  /**
+   * Un réglage libre, qui prime sur la sensibilité.
+   *
+   * Il n'existe que pour **mesurer** : c'est ce qui permet de balayer des
+   * seuils et des fenêtres sans toucher aux trois réglages offerts. Aucun
+   * écran ne le passe, et aucun ne doit le passer — les trois sensibilités
+   * sont un choix, pas un curseur.
+   */
+  reglageBrut?: { seuil: number; persistance: number; k: number };
 }
 
 export function evaluer(entree: Entree): Verdict {
   const catalogue = entree.catalogue ?? CATALOGUE;
-  const reglage = REGLAGES[entree.sensibilite ?? SENSIBILITE_PAR_DEFAUT];
+  const offert = REGLAGES[entree.sensibilite ?? SENSIBILITE_PAR_DEFAUT];
+  const reglage: Reglage = entree.reglageBrut
+    ? { ...offert, ...entree.reglageBrut }
+    : offert;
   const contextes = entree.contextes ?? [];
   const { jour } = entree;
 
-  // Le gel. Un jour avant le début du signal, jamais le jour même : le jour
-  // du déclenchement appartient déjà à la période qu'on veut tenir dehors.
+  /*
+     La base s'arrête **avant** la fenêtre qu'on lui compare, toujours.
+
+     C'est le correctif le plus important de la phase 4, et il vient d'une
+     mesure. Tant que la base allait jusqu'au jour courant, elle contenait la
+     période qu'on voulait juger : une dégradation qui dure y entrait peu à
+     peu, la référence la rejoignait, et l'écart retombait sous le seuil. Le
+     gel était censé l'empêcher — mais il ne s'arme que pendant qu'un repère
+     est ouvert, et une dégradation lente n'en ouvre jamais. Donc ne gèle
+     jamais. Donc ne se voit jamais. Le raisonnement était circulaire, et la
+     mesure l'a montré : au réglage Standard, il fallait un écart de six
+     écarts absolus médians — trois heures de sommeil en moins, toutes les
+     nuits — pour que quoi que ce soit se déclenche.
+
+     Psyché avait déjà reçu ce correctif en phase 7 ; je ne l'avais pas
+     reporté ici.
+
+     Le gel reste utile par-dessus : il recule la base encore plus loin quand
+     un repère est ouvert, pour que la période du signal n'y entre pas non
+     plus. On retient donc la plus ancienne des deux dates.
+  */
+  const avantLaFenetre = ajouterJours(jour, -reglage.persistance);
   const baseArreteeAu = entree.signalActifDepuis
-    ? ajouterJours(entree.signalActifDepuis, -1)
-    : jour;
+    ? [ajouterJours(entree.signalActifDepuis, -1), avantLaFenetre].sort()[0]
+    : avantLaFenetre;
 
   const comptes = comptesDeJours(entree.mesures, jour, reglage.persistance, JOURS_DE_REFERENCE);
   const assez = suffisance(comptes, catalogue);
@@ -476,10 +526,22 @@ export function controlerMoteur(): string[] {
   for (let i = 1; i < ordre.length; i += 1) {
     const avant = REGLAGES[ordre[i - 1]];
     const apres = REGLAGES[ordre[i]];
-    if (apres.seuil <= avant.seuil || apres.persistance <= avant.persistance) {
+    if (apres.seuil <= avant.seuil) {
       problemes.push(
-        `« ${apres.libelle} » devrait être plus exigeante que « ${avant.libelle} » sur le ` +
-          'seuil comme sur la persistance.',
+        `« ${apres.libelle} » devrait avoir un seuil plus haut que « ${avant.libelle} ».`,
+      );
+    }
+    /*
+       Et la fenêtre comme le croisement doivent rester **identiques**. La
+       phase 4 a montré qu'en faire varier plusieurs à la fois produisait des
+       réglages incomparables, dont l'un était purement aveugle. Un réglage
+       offert à quelqu'un doit se décrire en une phrase ; trois axes qui
+       bougent ensemble ne se décrivent pas.
+    */
+    if (apres.persistance !== avant.persistance || apres.k !== avant.k) {
+      problemes.push(
+        `« ${apres.libelle} » et « ${avant.libelle} » ne diffèrent pas que par le seuil. ` +
+          'Voir la note des réglages : faire varier plusieurs axes a produit un réglage aveugle.',
       );
     }
   }

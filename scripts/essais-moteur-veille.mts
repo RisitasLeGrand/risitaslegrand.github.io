@@ -77,16 +77,26 @@ const serie = (base: number, jours: number, apres?: number, jours2 = 0): Mesure[
 
 egal('1.1 le moteur passe son propre contrôle', controlerMoteur(), []);
 egal('1.2 le catalogue aussi', controlerCatalogue(), []);
-verifier('1.3 Standard est à deux ÉAM, quatorze jours, trois domaines',
-  REGLAGES.standard.seuil === 2 && REGLAGES.standard.persistance === 14 && REGLAGES.standard.k === 3);
-verifier('1.4 Discrète est plus exigeante sur les trois axes',
+verifier('1.3 Standard est à deux ÉAM et demi, vingt-et-un jours, trois domaines',
+  REGLAGES.standard.seuil === 2.5 && REGLAGES.standard.persistance === 21 &&
+    REGLAGES.standard.k === 3);
+/*
+   Les trois réglages ne diffèrent **que** par le seuil, depuis la phase 4.
+   En faire varier plusieurs à la fois avait produit une « Discrète » qui
+   exigeait quatre domaines, donc aveugle à toute dégradation qui n'en
+   touchait que trois : zéro faux signal, zéro détection.
+*/
+verifier('1.4 Discrète ne diffère que par un seuil plus haut',
   REGLAGES.discrete.seuil > REGLAGES.standard.seuil &&
-    REGLAGES.discrete.persistance > REGLAGES.standard.persistance &&
-    REGLAGES.discrete.k > REGLAGES.standard.k);
-verifier('1.5 Attentive est moins exigeante sur le seuil et la fenêtre',
+    REGLAGES.discrete.persistance === REGLAGES.standard.persistance &&
+    REGLAGES.discrete.k === REGLAGES.standard.k);
+verifier('1.5 Attentive, que par un seuil plus bas',
   REGLAGES.attentive.seuil < REGLAGES.standard.seuil &&
-    REGLAGES.attentive.persistance < REGLAGES.standard.persistance);
-verifier('1.6 la décote rend un contexte atténuant, jamais aggravant', DECOTE > 1);
+    REGLAGES.attentive.persistance === REGLAGES.standard.persistance &&
+    REGLAGES.attentive.k === REGLAGES.standard.k);
+verifier('1.6 aucun réglage n’exige plus de domaines qu’une dégradation n’en touche',
+  Object.values(REGLAGES).every((r) => r.k <= 3));
+verifier('1.7 la décote rend un contexte atténuant, jamais aggravant', DECOTE > 1);
 
 /* ── 2. L'écart d'un indicateur ────────────────────────────────────────── */
 
@@ -99,7 +109,7 @@ verifier('1.6 la décote rend un contexte atténuant, jamais aggravant', DECOTE 
   verifier('2.1 une chute de deux heures sur une habitude parfaite dévie', d?.devie === true,
     `écarts ${d?.ecarts}`);
   verifier('2.2 l’écart est positif, c’est-à-dire dans le sens préoccupant', (d?.ecarts ?? 0) > 0);
-  egal('2.3 les quatorze jours de la fenêtre sont retenus', d?.joursRetenus, 14);
+  egal('2.3 les vingt-et-un jours de la fenêtre sont retenus', d?.joursRetenus, 21);
 }
 
 {
@@ -237,7 +247,7 @@ const FIN = jourDecale(LUNDI, 69);
   if (v.quoi === 'repere') {
     egal('4.6 les trois domaines sont nommés', [...v.repere.domaines].sort(),
       ['engagement', 'rythme', 'sommeil']);
-    egal('4.7 la fenêtre commence quatorze jours plus tôt', v.repere.depuis, jourDecale(FIN, -13));
+    egal('4.7 la fenêtre commence vingt-et-un jours plus tôt', v.repere.depuis, jourDecale(FIN, -20));
     verifier('4.8 les déviations sont ordonnées, la plus forte d’abord',
       v.repere.deviations.every((d, i, t) => i === 0 || t[i - 1].ecarts >= d.ecarts));
   }
@@ -250,10 +260,16 @@ const FIN = jourDecale(LUNDI, 69);
     'usage.heure-tardive': [0.02, 0.5],
     'focus.minutes': [120, 20],
   });
-  egal('4.9 Discrète exige un quatrième domaine',
-    evaluer({ jour: FIN, mesures, sensibilite: 'discrete' }).quoi, 'rien-a-signaler');
-  egal('4.10 Attentive se contente des mêmes trois',
-    evaluer({ jour: FIN, mesures, sensibilite: 'attentive' }).quoi, 'repere');
+  /*
+     Les trois réglages voient la même dégradation franche : ils ne diffèrent
+     que par le seuil, et celle-ci le dépasse largement. La différence entre
+     eux se joue sur les dégradations **modérées**, pas sur celles-là — et
+     c'est la mesure qui le dit, pas cet essai.
+  */
+  for (const s of ['discrete', 'standard', 'attentive'] as Sensibilite[]) {
+    egal(`4.9 ${s} voit une dégradation franche sur trois domaines`,
+      evaluer({ jour: FIN, mesures, sensibilite: s }).quoi, 'repere');
+  }
 }
 
 {
@@ -354,6 +370,56 @@ const FIN = jourDecale(LUNDI, 69);
     '5.4 c’est bien le gel qui fait la différence, rien d’autre',
     sansGel.quoi !== avecGel.quoi,
   );
+}
+
+/* ── 5 bis. La base s'arrête avant la fenêtre qu'elle juge ─────────────── */
+
+{
+  /*
+     Le correctif de la phase 4, et il vient d'une mesure, pas d'une relecture.
+
+     Tant que la base allait jusqu'au jour courant, elle contenait la période
+     qu'on voulait juger : la dégradation y entrait, la référence la
+     rejoignait, l'écart retombait. Le gel était censé l'empêcher — mais il ne
+     s'arme que pendant qu'un repère est ouvert, et une dégradation lente n'en
+     ouvre jamais. Le raisonnement tournait en rond, et le dispositif exigeait
+     six écarts absolus médians pour sortir de son silence.
+  */
+  const mesures: Record<string, Mesure[]> = {};
+  for (const i of CATALOGUE) mesures[i.id] = serie(i.sens === 'baisse' ? 10 : 2, 70);
+  const v = evaluer({ jour: FIN, mesures });
+  const attendu = jourDecale(FIN, -REGLAGES.standard.persistance);
+  egal('5bis.1 sans repère ouvert, la base s’arrête une fenêtre plus tôt',
+    v.quoi === 'rien-a-signaler' ? v.baseArreteeAu : null, attendu);
+  verifier('5bis.2 et non le jour même', attendu !== FIN);
+}
+
+{
+  // Avec un repère ouvert, on retient la plus ancienne des deux dates.
+  const mesures: Record<string, Mesure[]> = {};
+  for (const i of CATALOGUE) mesures[i.id] = serie(i.sens === 'baisse' ? 10 : 2, 70);
+  const tot = evaluer({ jour: FIN, mesures, signalActifDepuis: jourDecale(FIN, -40) });
+  egal('5bis.3 un repère ancien recule la base davantage',
+    tot.quoi === 'rien-a-signaler' ? tot.baseArreteeAu : null, jourDecale(FIN, -41));
+  const recent = evaluer({ jour: FIN, mesures, signalActifDepuis: jourDecale(FIN, -3) });
+  egal('5bis.4 un repère tout frais ne la rapproche pas pour autant',
+    recent.quoi === 'rien-a-signaler' ? recent.baseArreteeAu : null,
+    jourDecale(FIN, -REGLAGES.standard.persistance));
+}
+
+{
+  /*
+     Et la conséquence qui compte : une dégradation modérée se voit **sans**
+     qu'un repère soit déjà ouvert. C'est précisément ce qui ne marchait pas.
+  */
+  const mesures = entreeAvec({
+    // Deux écarts absolus médians environ, pas davantage.
+    'sommeil.duree': [8, 7],
+    'usage.heure-tardive': [0.1, 0.35],
+    'focus.minutes': [120, 80],
+  });
+  egal('5bis.5 une dégradation modérée se voit, sans repère préalable',
+    evaluer({ jour: FIN, mesures }).quoi, 'repere');
 }
 
 /* ── 6. Données insuffisantes ──────────────────────────────────────────── */

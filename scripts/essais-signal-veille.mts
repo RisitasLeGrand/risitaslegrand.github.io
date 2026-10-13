@@ -263,15 +263,21 @@ verifier('1.4 « Plus tard » ouvre le plus court', SILENCE_APRES['plus-tard'] <
 }
 
 {
-  // La durée est dite en mots, et suit la sensibilité.
-  for (const [s, mot] of [['attentive', 'une dizaine de jours'], ['standard', 'deux semaines'],
-    ['discrete', 'trois semaines']] as [keyof typeof REGLAGES, string][]) {
+  /*
+     La durée est dite en mots, jamais en chiffres. Depuis la phase 4, les
+     trois sensibilités partagent la même fenêtre de vingt-et-un jours — elles
+     ne diffèrent que par le seuil —, donc la carte dit « trois semaines »
+     dans les trois cas. L'essai le vérifie pour les trois plutôt que de
+     n'en regarder qu'un : si une fenêtre venait à diverger, la phrase le
+     dirait, et c'est ce qu'on veut savoir.
+  */
+  for (const s of ['attentive', 'standard', 'discrete'] as (keyof typeof REGLAGES)[]) {
     const carte = composerLaCarte({
       jour: FIN, depuis: j(56), sensibilite: s, deviations: [], domaines: [], appuis: [],
       contextes: [], baseArreteeAu: j(55),
     });
-    verifier(`8.8 ${s} : la durée se dit « ${mot} »`, carte.introduction.includes(mot),
-      carte.introduction);
+    verifier(`8.8 ${s} : la durée se dit « trois semaines »`,
+      carte.introduction.includes('trois semaines'), carte.introduction);
   }
 }
 
