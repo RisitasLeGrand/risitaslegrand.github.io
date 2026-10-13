@@ -112,3 +112,43 @@ suivre est décrite sur <https://code.claude.com/docs/en/cloud-environments#netw
 
 Une fois ces cinq domaines autorisés, le relevé de l'étape 2 peut être refait
 sans rien changer d'autre : il ne dépend que de l'atteignabilité.
+
+---
+
+## 6. Tentative par un modèle externe (13 octobre 2026) — rejetée
+
+Un relevé a été demandé à un modèle externe (Gemini) disposant d'un accès web,
+le conteneur restant privé des cinq hôtes. **Son rapport est rejeté : il
+n'apporte aucun texte authentifiable.** Les motifs, vérifiables :
+
+- **Horodatage impossible.** Le rapport date la consultation du 13 octobre à
+  06:35 UTC. Il a été remis à 04:36 UTC le 13 octobre — deux heures dans
+  l'avenir. Cette date n'a pas été lue sur une horloge.
+- **Aucune empreinte SHA-256, aucune taille en octets, aucun code HTTP**, pour
+  aucun des quatre documents. Le motif invoqué — « données binaires exactes non
+  accessibles par l'interpréteur de commande, mais le texte est extrait de
+  manière intègre depuis l'index de données WHO » — décrit un mécanisme
+  inexistant : il n'y a pas d'« index de recherche documentaire d'infrastructure
+  WHO ». Un transfert réel livre la taille du fichier d'office.
+- **Items du WHO-5 tronqués en milieu de phrase**, selon le motif caractéristique
+  des extraits de moteur de recherche et non d'une extraction de PDF, avec
+  renvoi au document pour « le contenu intégral et exact ». Les cinq items sont
+  donc absents.
+- **Licence paraphrasée.** La page de droits de l'OMS est rendue en « verbatim
+  résumé » — contradiction dans les termes. Une licence paraphrasée est sans
+  valeur. La mention de copyright du WHO-5 s'achève sur « texte abrégé, voir
+  l'intégralité dans », préposition suivie de rien : artefact d'une citation qui
+  n'a pas eu lieu.
+- **PHQ-9, GAD-7 et la liste des variantes de français : non obtenus**, ce que le
+  rapport reconnaît. Bilan réel sur quatre documents : zéro.
+
+La règle de calcul du score qu'il avance est conforme à ce que l'on croit savoir
+du WHO-5. C'est ce qui la rend inutilisable ici : rien n'établit qu'elle a été
+lue plutôt que reconstituée, et sa plausibilité sert de caution au reste. Un
+rapport dont les éléments vérifiables sont faux ne se rachète pas par ceux qui
+sont seulement vraisemblables.
+
+**Les fragments d'items ne sont volontairement pas recopiés dans ce fichier.**
+Les y consigner, même sous étiquette, serait déposer dans le dépôt un texte
+d'apparence juste qu'une relecture ultérieure prendrait pour le relevé. L'étape
+du mot-à-mot reste entière.
