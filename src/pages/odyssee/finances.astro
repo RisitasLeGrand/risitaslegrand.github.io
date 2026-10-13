@@ -1,0 +1,426 @@
+---
+/**
+ * Odyssée : mes finances — l'import d'un relevé.
+ *
+ * ## Rien n'entre tant que le solde ne boucle pas
+ *
+ * Le relevé imprime ses propres soldes d'ouverture et de clôture. Le contrôle
+ * est donc total : ce n'est pas un échantillon vérifié, c'est l'intégralité
+ * des opérations qui doit se recomposer au centime.
+ *
+ * Ce n'est pas une précaution, c'est la condition de l'import. Un analyseur
+ * écrit avec soin a perdu onze opérations sur 278 à cause d'un caractère
+ * isolé dans la marge, sans rien signaler : 267 lignes plausibles ressemblent
+ * exactement à 278 lignes plausibles. Seul le solde l'a dit.
+ *
+ * L'erreur est **par compte**, pas par fichier : un compte qui boucle peut
+ * entrer seul.
+ *
+ * ## Le fichier ne quitte pas l'appareil, et n'est pas conservé
+ *
+ * Il est lu en mémoire, analysé par un *worker* local, puis oublié. Les
+ * opérations, elles, sont chiffrées au repos. Les numéros de carte et les
+ * IBAN sont réduits à leurs quatre derniers chiffres **avant** l'écriture :
+ * un libellé masqué à l'écran mais enregistré en clair n'est pas masqué.
+ */
+import Base from '../../layouts/Base.astro';
+---
+
+<Base titre="Mes finances" actif="finances">
+  <div class="mx-auto max-w-3xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Mes finances</h1>
+    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+      Tout est chiffré dans la base, et rien ne quitte cet appareil. Aucun numéro de compte n’est
+      enregistré : un intitulé suffit.
+    </p>
+
+    <div id="chargement-finances" class="mt-6">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Lecture…</p>
+    </div>
+
+    <div id="vue" class="mt-6 hidden space-y-8">
+      <!-- Le coffre fermé -->
+      <section id="coffre-ferme" class="hidden rounded-2xl border-2 border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">🔒 Ouvrir le coffre</h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Le mot de passe est redemandé à chaque nouvel onglet. La clé ne quitte pas cet appareil.
+        </p>
+        <label class="mt-3 block text-sm">
+          <span class="block text-slate-700 dark:text-slate-200">Mot de passe</span>
+          <input id="mdp-coffre" type="password" autocomplete="current-password"
+            class="mt-1 min-h-11 w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+        </label>
+        <button id="ouvrir-coffre" type="button"
+          class="mt-3 min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900"
+          >Ouvrir</button>
+        <p id="erreur-coffre" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+      </section>
+
+      <div id="coffre-ouvert" class="hidden space-y-8">
+        <!-- L'état -->
+        <section>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Ce qui est enregistré</h2>
+          <dl id="etat" class="mt-3 grid gap-3 sm:grid-cols-3"></dl>
+        </section>
+
+        <!-- L'import -->
+        <section>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Importer un relevé</h2>
+
+          <div id="depot"
+            class="mt-3 rounded-2xl border-2 border-dashed border-slate-300 p-8 text-center transition dark:border-slate-700">
+            <p class="text-sm text-slate-600 dark:text-slate-300">
+              Déposez un relevé PDF ici, ou
+              <button id="choisir" type="button"
+                class="font-medium text-indigo-700 underline dark:text-indigo-300">choisissez-en un</button>.
+            </p>
+            <input id="fichier" type="file" accept="application/pdf,.pdf" class="sr-only" />
+            <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+              Le fichier est lu sur cet appareil et n’est pas conservé.
+            </p>
+          </div>
+
+          <p id="lecture-en-cours" class="mt-3 hidden text-sm text-slate-600 dark:text-slate-300">
+            Lecture du relevé…
+          </p>
+          <p id="erreur-import" class="mt-3 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+        </section>
+
+        <!-- Le contrôle avant validation -->
+        <section id="apercu" class="hidden">
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Avant d’enregistrer</h2>
+          <p id="verdict" class="mt-1 text-sm"></p>
+
+          <ul id="comptes" class="mt-3 space-y-2 text-sm"></ul>
+
+          <div class="mt-4 rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800">
+            <p class="text-xs font-medium text-slate-500 dark:text-slate-400">
+              Les cinq premières opérations lues
+            </p>
+            <ul id="echantillon" class="mt-2 space-y-1 font-mono text-xs"></ul>
+            <p id="masquage" class="mt-2 hidden text-xs text-amber-800 dark:text-amber-200"></p>
+          </div>
+
+          <p id="gabarit" class="mt-3 text-xs text-slate-500 dark:text-slate-400"></p>
+
+          <div class="mt-4 flex flex-wrap gap-3">
+            <button id="enregistrer" type="button"
+              class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-700"
+              >Enregistrer</button>
+            <button id="annuler" type="button"
+              class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700"
+              >Annuler</button>
+          </div>
+        </section>
+
+        <!--
+          La confirmation vit **hors** de l'aperçu, qui est masqué après
+          l'enregistrement : la mettre dedans la rendait invisible au moment
+          précis où elle sert. Un essai en navigateur l'a trouvée.
+        -->
+        <p id="resultat" class="hidden rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"></p>
+
+        <button id="fermer-coffre" type="button"
+          class="text-xs text-slate-500 underline dark:text-slate-400"
+          >Refermer le coffre maintenant</button>
+      </div>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { euros, type OperationBancaire } from '../../lib/odyssee/finances';
+  import { lireReleve, empreintesDOperations, type CompteLu, type Lecture } from '../../lib/odyssee/releve';
+  import {
+    combienDeFinances,
+    ecrireCompte,
+    ecrireOperations,
+    ecrireValorisation,
+    identifiantDeCompte,
+    toutesLesOperations,
+    tousLesComptes,
+  } from '../../lib/odyssee/donnees-finances';
+  import {
+    coffreOuvert,
+    fermerLeCoffre,
+    ouvrirLeCoffre,
+    reprendreLeCoffre,
+    surCoffre,
+  } from '../../lib/coffre';
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const dire = (zone: string, e: unknown) => {
+    const z = $(zone);
+    z.textContent = e instanceof Error ? e.message : String(e);
+    z.classList.remove('hidden');
+  };
+
+  /** Ce que la dernière lecture a donné, en attente de confirmation. */
+  let enAttente: Lecture | null = null;
+
+  /* ── L'état ───────────────────────────────────────────────────────────── */
+
+  async function peindreEtat() {
+    const [comptes, operations] = await Promise.all([tousLesComptes(), toutesLesOperations()]);
+    const zone = $('etat');
+    zone.innerHTML = '';
+    const solde = operations.reduce((s, o) => s + o.centimes, 0);
+    const cases: [string, string][] = [
+      ['Comptes', String(comptes.length)],
+      ['Opérations', String(operations.length)],
+      ['Somme des mouvements', operations.length ? euros(solde) : '—'],
+    ];
+    for (const [titre, valeur] of cases) {
+      const bloc = document.createElement('div');
+      bloc.className = 'rounded-xl border border-slate-200 p-3 dark:border-slate-800';
+      bloc.dataset.etat = titre;
+      bloc.innerHTML = `<dt class="text-xs text-slate-500 dark:text-slate-400"></dt>
+        <dd class="mt-1 text-lg font-semibold tabular-nums text-slate-900 dark:text-white"></dd>`;
+      bloc.querySelector('dt')!.textContent = titre;
+      bloc.querySelector('dd')!.textContent = valeur;
+      zone.appendChild(bloc);
+    }
+  }
+
+  /* ── L'aperçu ─────────────────────────────────────────────────────────── */
+
+  function peindreApercu(lecture: Lecture) {
+    $('apercu').classList.remove('hidden');
+    $('resultat').classList.add('hidden');
+
+    const bouclent = lecture.controles.filter((c) => c.verdict === 'boucle');
+    const verdict = $('verdict');
+    verdict.dataset.importable = String(lecture.importable);
+    if (lecture.importable) {
+      verdict.textContent = `Les ${lecture.controles.length} compte(s) bouclent au centime.`;
+      verdict.className = 'mt-1 text-sm text-emerald-800 dark:text-emerald-200';
+    } else {
+      verdict.textContent =
+        `Import refusé — ${lecture.controles.length - bouclent.length} compte(s) sur ` +
+        `${lecture.controles.length} ne bouclent pas. Rien n’a été enregistré. ` +
+        'Un relevé dont le solde ne se recompose pas contient une erreur de lecture, ' +
+        'et une opération mal signée fausse tout ce qui suit.';
+      verdict.className = 'mt-1 text-sm text-rose-800 dark:text-rose-200';
+    }
+
+    const liste = $('comptes');
+    liste.innerHTML = '';
+    for (const c of lecture.controles) {
+      const li = document.createElement('li');
+      li.dataset.compte = c.nom;
+      li.dataset.verdict = c.verdict;
+      li.className = 'rounded-xl border border-slate-200 p-3 dark:border-slate-800';
+      const marque = c.verdict === 'boucle' ? '✓' : c.verdict === 'ecart' ? '✗' : '⚠';
+      li.innerHTML = `<p class="font-medium text-slate-900 dark:text-white"></p>
+        <p class="mt-1 text-slate-600 dark:text-slate-300"></p>`;
+      li.querySelector('p')!.textContent = `${marque} ${c.nom} — ${c.operations} opération(s)`;
+      li.querySelectorAll('p')[1].textContent = c.message;
+      liste.appendChild(li);
+    }
+
+    const echantillon = $('echantillon');
+    echantillon.innerHTML = '';
+    const premieres = lecture.comptes.flatMap((c) => c.operations).slice(0, 5);
+    for (const o of premieres) {
+      const li = document.createElement('li');
+      li.className = 'text-slate-700 dark:text-slate-200';
+      li.textContent = `${o.jour}  ${euros(o.centimes).padStart(12)}  ${o.libelle}`;
+      echantillon.appendChild(li);
+    }
+    const masques = premieres.filter((o) => o.libelle.includes('●')).length;
+    $('masquage').classList.toggle('hidden', masques === 0);
+    if (masques) {
+      $('masquage').textContent =
+        `⚠ ${masques} identifiant(s) masqué(s) à la lecture : seuls les quatre derniers ` +
+        'chiffres sont conservés. Le fichier, lui, n’est pas conservé du tout.';
+    }
+
+    $('gabarit').textContent = `Gabarit reconnu : ${lecture.empreinte.slice(0, 120)}`;
+    ($('enregistrer') as HTMLButtonElement).disabled = bouclent.length === 0;
+    ($('enregistrer') as HTMLButtonElement).textContent = lecture.importable
+      ? `Enregistrer ${premieres.length ? lecture.comptes.reduce((s, c) => s + c.operations.length, 0) : 0} opération(s)`
+      : `Enregistrer les ${bouclent.length} compte(s) qui bouclent`;
+  }
+
+  /* ── Lire un fichier ──────────────────────────────────────────────────── */
+
+  async function lireFichier(fichier: File) {
+    $('erreur-import').classList.add('hidden');
+    $('lecture-en-cours').classList.remove('hidden');
+    try {
+      const { lirePdf, masquerIdentifiants } = await import('../../lib/odyssee/lire-pdf');
+      const pdf = await lirePdf(fichier);
+      const lecture = lireReleve(pdf.morceaux, { producteur: pdf.producteur });
+      /*
+         Le masquage se fait ici, entre la lecture et l'aperçu : ce qui est
+         montré est exactement ce qui sera enregistré, au caractère près.
+      */
+      for (const c of lecture.comptes) {
+        for (const o of c.operations) o.libelle = masquerIdentifiants(o.libelle);
+      }
+      if (lecture.refus) dire('erreur-import', lecture.refus);
+      enAttente = lecture;
+      peindreApercu(lecture);
+    } catch (erreur) {
+      dire('erreur-import', erreur);
+    } finally {
+      $('lecture-en-cours').classList.add('hidden');
+      /*
+         Le champ est vidé après chaque lecture. Sans cela, choisir **deux
+         fois le même fichier** ne déclenche aucun événement — la valeur de
+         l'input n'ayant pas changé — et il ne se passe rien. Or réimporter
+         le même relevé pour vérifier qu'il ne double rien est exactement ce
+         qu'on fait quand on ne fait pas confiance à un import.
+      */
+      ($('fichier') as HTMLInputElement).value = '';
+    }
+  }
+
+  /* ── Enregistrer ──────────────────────────────────────────────────────── */
+
+  async function enregistrer() {
+    if (!enAttente) return;
+    /*
+       Seuls les comptes qui bouclent entrent. L'erreur est par compte, pas
+       par fichier : refuser le Livret Jeune parce que le compte courant a un
+       écart ferait perdre une donnée saine.
+    */
+    const retenus = enAttente.comptes.filter(
+      (c) => enAttente!.controles.find((v) => v.nom === c.nom)?.verdict === 'boucle',
+    );
+    let ecrites = 0;
+    let dejaLa = 0;
+    for (const c of retenus) {
+      const compteId = identifiantDeCompte(c.nom);
+      await ecrireCompte({
+        id: compteId,
+        libelle: c.nom,
+        type: devinerLeType(c.nom),
+        devise: 'EUR',
+        closLe: null,
+      });
+      if (c.cloture) {
+        await ecrireValorisation({
+          compteId,
+          jour: c.cloture.jour,
+          centimes: Math.abs(c.cloture.centimes),
+        });
+      }
+      const empreintes = empreintesDOperations(compteId, c.operations);
+      const operations: OperationBancaire[] = c.operations.map((o, i) => ({
+        id: empreintes[i],
+        compteId,
+        jour: o.jour,
+        centimes: o.centimes,
+        libelle: o.libelle,
+        categorie: '',
+        transfertAvec: null,
+        majLe: new Date().toISOString(),
+      }));
+      const bilan = await ecrireOperations(operations);
+      ecrites += bilan.ecrites;
+      dejaLa += bilan.dejaLa;
+    }
+    enAttente = null;
+    $('apercu').classList.add('hidden');
+    const resultat = $('resultat');
+    resultat.classList.remove('hidden');
+    resultat.textContent =
+      `${ecrites} opération(s) enregistrée(s)` +
+      (dejaLa ? `, ${dejaLa} déjà présente(s) et ignorée(s).` : '.');
+    await peindreEtat();
+  }
+
+  /**
+   * Le type d'un compte, deviné de son intitulé — et modifiable ensuite.
+   *
+   * Deviner est acceptable ici parce que l'erreur est visible et sans
+   * conséquence sur les montants : un livret rangé en « autre actif » se
+   * corrige d'un geste, et rien n'en dépend tant que le patrimoine n'est pas
+   * affiché. Ce serait inacceptable pour un signe ou une date.
+   */
+  function devinerLeType(nom: string) {
+    const n = nom.toLowerCase();
+    if (n.includes('ldd') || n.includes('livret a') || n.includes('développement'))
+      return 'epargne-reglementee' as const;
+    if (n.includes('livret')) return 'livret' as const;
+    if (n.includes('pea')) return 'pea' as const;
+    if (n.includes('assurance')) return 'assurance-vie' as const;
+    if (n.includes('per')) return 'per' as const;
+    if (n.includes('prêt') || n.includes('pret')) return 'dette' as const;
+    return 'courant' as const;
+  }
+
+  /* ── Le cycle ─────────────────────────────────────────────────────────── */
+
+  async function recharger() {
+    await reprendreLeCoffre();
+    const ouvert = coffreOuvert();
+    $('coffre-ferme').classList.toggle('hidden', ouvert);
+    $('coffre-ouvert').classList.toggle('hidden', !ouvert);
+    if (ouvert) await peindreEtat();
+  }
+
+  auDeverrouillage(
+    async () => {
+      const champ = $('fichier') as HTMLInputElement;
+      $('choisir').addEventListener('click', () => champ.click());
+      champ.addEventListener('change', () => {
+        if (champ.files?.[0]) void lireFichier(champ.files[0]);
+      });
+
+      const depot = $('depot');
+      for (const nom of ['dragenter', 'dragover']) {
+        depot.addEventListener(nom, (e) => {
+          e.preventDefault();
+          depot.classList.add('border-indigo-500', 'bg-indigo-50/50');
+        });
+      }
+      for (const nom of ['dragleave', 'drop']) {
+        depot.addEventListener(nom, (e) => {
+          e.preventDefault();
+          depot.classList.remove('border-indigo-500', 'bg-indigo-50/50');
+        });
+      }
+      depot.addEventListener('drop', (e) => {
+        const fichier = (e as DragEvent).dataTransfer?.files?.[0];
+        if (fichier) void lireFichier(fichier);
+      });
+
+      $('enregistrer').addEventListener('click', () => {
+        void enregistrer().catch((e) => dire('erreur-import', e));
+      });
+      $('annuler').addEventListener('click', () => {
+        enAttente = null;
+        $('apercu').classList.add('hidden');
+      });
+
+      $('ouvrir-coffre').addEventListener('click', () => {
+        void (async () => {
+          const mdp = $('mdp-coffre') as HTMLInputElement;
+          const erreur = await ouvrirLeCoffre(mdp.value);
+          $('erreur-coffre').classList.toggle('hidden', erreur === null);
+          if (erreur) {
+            $('erreur-coffre').textContent = erreur;
+            return;
+          }
+          mdp.value = '';
+          await recharger();
+        })();
+      });
+      $('mdp-coffre').addEventListener('keydown', (e) => {
+        if ((e as KeyboardEvent).key === 'Enter') $('ouvrir-coffre').click();
+      });
+      $('fermer-coffre').addEventListener('click', () => {
+        fermerLeCoffre();
+        void recharger();
+      });
+      surCoffre(() => void recharger());
+
+      await recharger();
+      $('vue').classList.remove('hidden');
+    },
+    { zoneChargement: '#chargement-finances' },
+  );
+</script>

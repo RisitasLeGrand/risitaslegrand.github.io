@@ -19,6 +19,7 @@
  */
 import {
   ECART_MINIMAL_ENTRE_COLONNES,
+  nettoyerLeNom,
   empreinteDeGabarit,
   empreintesDOperations,
   frontiereParEcart,
@@ -108,6 +109,36 @@ console.log('\nLES BRIQUES');
   );
 }
 
+console.log('\nAUCUN NUMÉRO DE COMPTE NE SURVIT À L’INTITULÉ');
+
+{
+  /*
+     Le nom imprimé sert de clé, faute d'identifiant acceptable — mais il
+     porte le numéro de compte juste à côté, et le garder reviendrait à
+     stocker par la bande ce que C.7 interdit frontalement.
+  */
+  v(
+    'la mention N° et sa suite disparaissent',
+    nettoyerLeNom('LIVRET A SUP N° 000553 en euros (GE)'),
+    'LIVRET A SUP',
+  );
+  /*
+     Le cas qui a mordu en navigateur : le « ° » manquait, et « N 00055347 »
+     survivait aux deux premières coupes — laissant un « N » orphelin en fin
+     d'intitulé par-dessus le marché.
+  */
+  v(
+    'même sans le signe degré',
+    nettoyerLeNom('C/C CONTRAT PERSONNEL PARCOURS.J+ N 00055347 en euros (GD)'),
+    'C/C CONTRAT PERSONNEL PARCOURS.J+',
+  );
+  v('un intitulé sans numéro est intact', nettoyerLeNom('LIVRET JEUNE'), 'LIVRET JEUNE');
+  faux(
+    'aucun chiffre ne subsiste jamais',
+    /\d/.test(nettoyerLeNom('COMPTE 12345678 N° 99 en euros')),
+  );
+}
+
 console.log('\nLA FRONTIÈRE PAR ÉCART, ET SON REFUS');
 
 {
@@ -157,6 +188,7 @@ console.log('\nUN RELEVÉ QUI BOUCLE');
 
   const lecture = lireReleve(morceaux, { producteur: 'UTM2_ps2pdf 0.24.290' });
   v('un seul compte', lecture.comptes.length, 1);
+  v('au nom nettoyé', lecture.comptes[0].nom, 'C/C CONTRAT PERSONNEL PARCOURS.J+');
   v('quatre opérations', lecture.comptes[0].operations.length, 4);
   v(
     'signées par leur colonne',

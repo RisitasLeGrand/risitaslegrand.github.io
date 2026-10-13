@@ -100,6 +100,7 @@
     "essais:psyche": "tsx scripts/essais-psyche.mts",
     "essais:budget": "tsx scripts/essais-budget.mts",
     "essais:releve": "tsx scripts/essais-releve.mts",
+    "essais:finances:navigateur": "node scripts/essais-finances-navigateur.mjs",
     "essais:psyche:navigateur": "node scripts/essais-psyche-navigateur.mjs"
   },
   "repository": {
@@ -118,6 +119,7 @@
     "d3-shape": "^3.2.0",
     "idb": "^8.0.3",
     "jsqr": "^1.4.0",
+    "pdfjs-dist": "^4.10.38",
     "qrcode-generator": "^2.0.4",
     "svelte": "^5.57.1",
     "tailwindcss": "^4.3.3",

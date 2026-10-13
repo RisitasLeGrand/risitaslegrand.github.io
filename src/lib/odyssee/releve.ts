@@ -238,6 +238,38 @@ export function empreinteDeGabarit(lignes: readonly LigneLue[], producteur: stri
   return `${producteur} ~ sans en-tête de colonnes`;
 }
 
+/**
+ * L'intitulé d'un compte, débarrassé de tout ce qui ressemble à un numéro.
+ *
+ * Le nom imprimé sert de clé — un relevé ne porte aucun identifiant qu'on
+ * accepte d'enregistrer. Mais il porte le numéro de compte juste à côté, et
+ * le garder reviendrait à stocker par la bande ce que C.7 interdit
+ * frontalement.
+ *
+ * Trois coupes successives, parce qu'une seule ne suffit pas : la mention
+ * « N° » ou « Réf » et sa suite, la mention de devise, puis **toute suite de
+ * chiffres restante**. La troisième attrape le cas qui a mordu — un relevé
+ * où le « ° » manquait, et où « N 00055347 » survivait aux deux premières.
+ */
+export function nettoyerLeNom(texte: string): string {
+  return (
+    texte
+      /* « N° 123 », « N 123 », « Réf : 009 » et tout ce qui suit. */
+      .replace(/\s*\b(?:N[°ºo]?|R[ée]f\.?)\s*[:°]?\s*\d.*$/i, '')
+      .replace(/\s+en\s+euros.*$/i, '')
+      /* Toute suite de chiffres restante, où qu'elle soit. */
+      .replace(/(?:\d[\s-]?){3,}/g, ' ')
+      /* Ce que les coupes laissent derrière : parenthèses vides, ponctuation
+         orpheline, lettre isolée en fin — « … PARCOURS.J+ N » devenait un nom. */
+      .replace(/\(\s*\)/g, '')
+      .replace(/\s{2,}/g, ' ')
+      .replace(/[\s:;,.\-]+$/, '')
+      .replace(/\s+[A-Z]$/, '')
+      .trim()
+      .slice(0, 60)
+  );
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    Le résultat
    ══════════════════════════════════════════════════════════════════════════ */
@@ -318,11 +350,7 @@ export function lireReleve(
     const solde = SOLDE.exec(l.texte);
 
     if (ENTETE_COMPTE.test(l.texte) && indexDeLaDate(l) === -1 && !solde) {
-      const nom = l.texte
-        .replace(/\s*(N°|Réf).*$/i, '')
-        .replace(/\s+en euros.*$/i, '')
-        .trim()
-        .slice(0, 60);
+      const nom = nettoyerLeNom(l.texte);
       if (!comptes.has(nom)) {
         comptes.set(nom, { nom, ouverture: null, cloture: null, operations: [] });
       }
