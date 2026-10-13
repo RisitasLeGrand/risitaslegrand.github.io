@@ -235,6 +235,28 @@ console.log('\nLA RÉTENTION');
   v(`et la fenêtre fait ${JOURS_CONSERVES} jours`, aElaguer([recente], '2026-10-12'), []);
 }
 
+console.log('\nLE JOURNAL D’USAGE NE VOYAGE PAS');
+
+{
+  /*
+     La règle vit dans des données qu'un essai peut lire, parce que la
+     tentation de l'inscrire au registre « pour que ça suive » est la chose la
+     plus naturelle du monde — elle y a d'ailleurs été inscrite une fois.
+  */
+  const { MAGASINS_JOURNALISES, MAGASINS_SANS_GESTE, controlerSansGeste } = await import(
+    '../src/lib/noyau/enregistrements'
+  );
+  vrai(
+    'il est déclaré rempli sans geste de la personne',
+    MAGASINS_SANS_GESTE.includes('odysseeUsage'),
+  );
+  faux(
+    'et il n’est pas journalisé : sinon deux appareils ne concorderaient plus jamais',
+    MAGASINS_JOURNALISES.some((m) => m.magasin === 'odysseeUsage'),
+  );
+  v('aucun magasin n’est dans les deux listes', controlerSansGeste(), []);
+}
+
 /* ════════════════════════════════════════════════════════════════════════ */
 console.log(
   echecs

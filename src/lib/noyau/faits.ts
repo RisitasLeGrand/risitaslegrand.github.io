@@ -432,6 +432,17 @@ export const TYPES: readonly TypeDeFait[] = [
     description: 'Texte libre. Ne sort jamais de l’appareil, ni vers une autre branche.',
   }),
   T({
+    id: 'odyssee.usage',
+    libelle: 'Session d’usage',
+    proprietaire: 'odyssee',
+    domaine: 'psyche',
+    nature: 'duree',
+    unite: 'secondes',
+    sensible: true,
+    description:
+      'Un début et une fin d’ouverture de l’application. Aucune page, aucun écran, aucune action — voir odyssee/usage.ts.',
+  }),
+  T({
     id: 'odyssee.operation',
     libelle: 'Opération financière',
     proprietaire: 'odyssee',

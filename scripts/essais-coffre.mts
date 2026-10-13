@@ -105,7 +105,8 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    plus bas. Ils ont été retirés, puis sont revenus avec la phase 1 — cette
    fois avec leurs magasins.
 */
-v('neuf magasins scellés', MAGASINS_SCELLES.length, 9);
+v('dix magasins scellés', MAGASINS_SCELLES.length, 10);
+vrai('la ligne de base de la veille en est', estScelle('odysseeVeilleBases'));
 vrai('les comptes en sont', estScelle('odysseeComptes'));
 vrai('les opérations aussi', estScelle('odysseeOperations'));
 vrai('et les lignes de budget', estScelle('odysseeLignesBudget'));
@@ -281,16 +282,25 @@ console.log('\n\x1b[1mTOUT TYPE SENSIBLE EST SCELLÉ, OU DISPENSÉ AVEC SA RAISO
 
 {
   const typesSensibles = TYPES.filter((t) => t.sensible).map((t) => t.id);
-  vrai('onze types sont déclarés sensibles', typesSensibles.length === 11);
+  vrai('douze types sont déclarés sensibles', typesSensibles.length === 12);
   v(
     'le registre réel est couvert',
     controlerCouvertureDesSensibles(MAGASINS_JOURNALISES, typesSensibles),
     [],
   );
   v(
-    'cinq magasins sensibles sont nommément laissés en clair',
+    'six magasins sensibles sont nommément laissés en clair',
     SENSIBLES_EN_CLAIR.map((d) => d.magasin),
-    ['sportBlessures', 'odysseePesees', 'odysseeMesures', 'odysseeRepas', 'odysseeSante'],
+    [
+      'sportBlessures',
+      'odysseePesees',
+      'odysseeMesures',
+      'odysseeRepas',
+      // Le seul dont la raison n'est pas l'ergonomie, mais la mesure
+      // elle-même : scellé, il n'enregistrerait qu'un échantillon biaisé.
+      'odysseeUsage',
+      'odysseeSante',
+    ],
   );
   v(
     'et chacun dit pourquoi',

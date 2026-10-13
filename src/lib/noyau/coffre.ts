@@ -120,6 +120,12 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
     clairs: ['id', 'jour', 'compteId', 'majLe'],
   },
   {
+    magasin: 'odysseeVeilleBases',
+    pourquoi:
+      'Veille : la ligne de base dit l’habitude d’une personne — combien elle dort, à quelle heure elle se couche, combien de fois elle ouvre son téléphone la nuit. C’est un portrait, et il se lit sans rien comprendre d’autre.',
+    clairs: ['id', 'majLe'],
+  },
+  {
     magasin: 'odysseeLignesBudget',
     pourquoi: 'Finances : le budget dit ce qu’on gagne, ce qu’on doit et ce qu’on met de côté.',
     clairs: ['id', 'majLe'],
@@ -230,6 +236,12 @@ export const SENSIBLES_EN_CLAIR: readonly SensibleEnClair[] = [
     type: 'odyssee.repas',
     pourquoi:
       'Trois à cinq saisies par jour : c’est le magasin le plus écrit de Cyclades, et une demande de mot de passe à chaque repas le viderait.',
+  },
+  {
+    magasin: 'odysseeUsage',
+    type: 'odyssee.usage',
+    pourquoi:
+      'Un magasin scellé ne s’écrit que coffre ouvert, c’est-à-dire rarement. Sceller le journal d’usage n’enregistrerait que les sessions où l’on vient consulter sa psyché ou ses traitements : un échantillon biaisé par exactement ce qu’on cherche à mesurer, et vide le reste du temps. Le choix est donc des horodatages en clair, ou pas de domaine observé du tout — et sans domaine observé la veille s’éteint quand quelqu’un cesse de saisir. Ce qui en est dérivé, lui, est scellé (odysseeVeilleBases).',
   },
   {
     magasin: 'odysseeSante',

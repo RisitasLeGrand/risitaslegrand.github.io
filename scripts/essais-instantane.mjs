@@ -11,6 +11,13 @@
  * Le troisième essai est celui du piège : une base **neuve** ne doit pas
  * produire d'instantané, et surtout ne doit pas se faire migrer « de 1 vers 12 »
  * — ce qui sauterait le premier bloc de migration et la moitié des magasins.
+ *
+ * ⚠ La liste des magasins attendus est écrite **à la main**, et c'est
+ * délibéré : une liste dérivée du schéma ne détecterait pas un magasin
+ * disparu, puisqu'elle disparaîtrait avec lui. Le prix est qu'il faut
+ * l'allonger à chaque migration — et qu'il faut donc relancer cet essai
+ * après chaque changement de schéma, ce qui n'a pas été fait entre les
+ * versions 21 et 23.
  */
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
@@ -285,6 +292,17 @@ v(
     'odysseeSante', 'odysseeTrajectoires',
     // Scellés depuis la décision 3.
     'odysseeMedicaments', 'odysseeHormonal',
+    // Psyché, scellée, depuis la version 21.
+    'odysseeCheckins', 'odysseeHebdos', 'odysseeJournal',
+    // Finances, scellées, depuis la version 22.
+    'odysseeComptes', 'odysseeValorisations', 'odysseeOperations', 'odysseeLignesBudget',
+    /*
+       La veille, depuis la version 23. Le journal d'usage n'est pas scellé —
+       un magasin scellé ne s'écrit que coffre ouvert, donc rarement, et le
+       journal n'enregistrerait qu'un échantillon biaisé. Voir
+       `SENSIBLES_EN_CLAIR` dans `noyau/coffre.ts`.
+    */
+    'odysseeUsage', 'odysseeVeilleBases',
   ].sort(),
 );
 

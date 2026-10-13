@@ -263,6 +263,23 @@ const onglets = brancheCourante.onglets.map((o) => ({
         const { veiller } = await import('../lib/sync/veille');
         await veiller();
       });
+
+      /*
+         Le journal d'usage.
+
+         Dans la mise en page, parce qu'une session est « l'application a été
+         ouverte » et non « telle page a été vue » — c'est tout le point du
+         module, qui n'enregistre d'ailleurs aucune page.
+
+         Après ouverture de la session, comme le suivi du temps : quelqu'un
+         qui arrive sur l'écran de mot de passe et s'en va n'a pas utilisé
+         Cyclades, et ce journal sert précisément à distinguer une absence
+         réelle d'un silence de saisie. Le compter fausserait les deux.
+      */
+      quandDeverrouille(async () => {
+        const { enregistrerLUsage } = await import('../lib/odyssee/donnees-usage');
+        await enregistrerLUsage();
+      });
     </script>
   </body>
 </html>

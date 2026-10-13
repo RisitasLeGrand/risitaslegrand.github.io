@@ -109,8 +109,25 @@ export const CHAMP_DATE: Record<string, string | null> = {
   odysseeCheckins: 'jour',
   odysseeValorisations: 'jour',
   odysseeOperations: 'jour',
+  /*
+     Oubliés à la phase 1 de Finances, et rattrapés ici : un compte et une
+     ligne de budget sont des **états**, pas des événements. Les élaguer par
+     date rendrait illisibles les opérations et les valorisations qui y
+     renvoient.
+  */
+  odysseeComptes: null,
+  odysseeLignesBudget: null,
   odysseeHebdos: 'semaine',
   odysseeJournal: 'jour',
+  /*
+     Le journal d'usage s'élague à 180 jours, comme `JOURS_CONSERVES` le dit
+     dans `odyssee/usage.ts` : la ligne de base en demande 56, la fenêtre 14,
+     et garder cinq ans d'horodatages pour en utiliser deux mois serait
+     conserver sans raison la donnée la moins protégée de l'application.
+  */
+  odysseeUsage: 'jour',
+  // Une ligne de base est un état, pas un événement : elle se remplace.
+  odysseeVeilleBases: null,
 };
 
 export const GROUPES: readonly GroupeDeMagasins[] = [
@@ -190,6 +207,8 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
       'odysseeLignesBudget',
       'odysseeHebdos',
       'odysseeJournal',
+      'odysseeUsage',
+      'odysseeVeilleBases',
     ],
   },
   {

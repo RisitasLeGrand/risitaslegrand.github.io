@@ -158,20 +158,24 @@ v(
      part d'une base en v14 : il vérifie donc que **tous** les blocs additifs
      ont tourné, et pas seulement celui qui l'intéressait au départ.
   */
-  'les dix-sept magasins d’Odyssée existent',
+  'les vingt-trois magasins d’Odyssée existent',
   apres.magasins.filter((m) => m.startsWith('odyssee')).sort(),
   [
     'odysseeBoissons',
     // La psyché, depuis la phase 7 : scellés tous les trois.
     'odysseeCheckins',
+    // Finances, depuis sa phase 1 : scellés tous les quatre.
+    'odysseeComptes',
     'odysseeEvenements',
     'odysseeFocus',
     'odysseeHebdos',
     'odysseeHormonal',
     'odysseeJournal',
+    'odysseeLignesBudget',
     'odysseeMedicaments',
     'odysseeMesures',
     'odysseeNuits',
+    'odysseeOperations',
     'odysseePesees',
     'odysseeQuetes',
     'odysseeRepas',
@@ -179,6 +183,14 @@ v(
     'odysseeSante',
     'odysseeTaches',
     'odysseeTrajectoires',
+    /*
+       La veille, depuis sa phase 1. Le journal d'usage n'est pas scellé, et
+       c'est la seule exception d'Odyssée : scellé, il ne s'écrirait que coffre
+       ouvert et ne mesurerait qu'un échantillon biaisé.
+    */
+    'odysseeUsage',
+    'odysseeValorisations',
+    'odysseeVeilleBases',
   ],
 );
 /*
@@ -472,6 +484,16 @@ console.log('\nCE QUI ÉTAIT PRÉVU : ODYSSÉE DEMANDE, ET SAIT POURQUOI');
    Deux moments **passés** sont semés directement : l'écran ne permet pas de
    créer un événement dans le passé par son formulaire — ce serait un usage
    douteux —, et c'est pourtant le seul état où le relevé se pose.
+
+   Leurs heures sont calculées depuis l'instant présent, et non écrites en dur.
+   Elles l'étaient — 6 h et 7 h — et l'essai ne passait donc que l'après-midi :
+   lancé le matin, les deux moments étaient encore à venir et le relevé, à
+   juste titre, ne s'affichait pas. Le défaut était dans l'essai, pas dans
+   l'écran, et il a coûté une demi-heure à comprendre.
+
+   Il reste une fenêtre d'une minute, juste après 4 h du matin, où le moment
+   semé tomberait la veille : la contrainte est inhérente, puisqu'il faut un
+   moment à la fois passé et dans le jour logique courant.
 */
 const PASSES = await page.evaluate(
   (jour) =>
@@ -482,16 +504,19 @@ const PASSES = await page.evaluate(
         const base = demande.result;
         const tx = base.transaction('odysseeEvenements', 'readwrite');
         const magasin = tx.objectStore('odysseeEvenements');
-        for (const [id, titre, h] of [
-          ['EV-1', 'Séance de sport', 6],
-          ['EV-2', 'Appel famille', 7],
+        const finDuSecond = Date.now() - 60_000;
+        for (const [id, titre, recul] of [
+          ['EV-1', 'Séance de sport', 2],
+          ['EV-2', 'Appel famille', 1],
         ]) {
+          const fin = new Date(finDuSecond - (recul - 1) * 20 * 60_000);
+          const debut = new Date(fin.getTime() - 15 * 60_000);
           magasin.put({
             id,
             titre,
             domaine: 'corps',
-            debut: `${jour}T0${h}:00:00.000Z`,
-            fin: `${jour}T0${h}:45:00.000Z`,
+            debut: debut.toISOString(),
+            fin: fin.toISOString(),
             journeeEntiere: false,
             lieu: '',
             note: '',

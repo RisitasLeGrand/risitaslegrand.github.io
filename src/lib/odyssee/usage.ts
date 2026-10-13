@@ -43,6 +43,21 @@
  * qu'elle révèle, c'est « cet appareil a été utilisé à telle heure », ce que
  * le système d'exploitation sait déjà.
  *
+ * ## Il ne voyage pas non plus
+ *
+ * Il n'entre pas dans le journal d'opérations, et donc pas dans les paquets
+ * de synchronisation. Un appareil écrit une session chaque fois qu'on
+ * l'ouvre, sans qu'on ait rien demandé ; si ces sessions voyageaient, deux
+ * appareils ne pourraient plus jamais présenter la même empreinte, puisque
+ * les ouvrir pour comparer suffirait à créer l'écart qu'on vient constater.
+ * La vérification de concordance — ce qui permet de faire confiance à une
+ * fusion — serait définitivement rouge.
+ *
+ * La veille n'observe donc que l'appareil sur lequel elle tourne. Un appareil
+ * neuf n'a pas les vingt-huit jours de base qu'exige `suffisance()` : il dit
+ * « données insuffisantes », et non « effondrement ». Voir la note de
+ * `noyau/enregistrements.ts`.
+ *
  * Ce qui en est **dérivé**, en revanche — un signal de la veille — est
  * sensible et scellé comme le reste. C'est l'inverse de la charge perçue, où
  * la source est scellée et le dérivé public ; ici la source est publique et

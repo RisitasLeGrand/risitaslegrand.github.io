@@ -121,6 +121,7 @@ const SENSIBLES_ATTENDUS = [
   'odyssee.journal',
   'odyssee.operation',
   'odyssee.valorisation',
+  'odyssee.usage',
 ];
 v(
   'la liste des types sensibles est exactement celle attendue',

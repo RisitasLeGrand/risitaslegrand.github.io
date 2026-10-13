@@ -93,9 +93,12 @@ export async function etatLocal(): Promise<EtatInitialisation> {
  * un seul dans le cas qui compte.
  */
 export async function installationExistante(): Promise<boolean> {
-  const { MAGASINS_JOURNALISES } = await import('./noyau/enregistrements');
+  const { MAGASINS_JOURNALISES, MAGASINS_SANS_GESTE } = await import('./noyau/enregistrements');
   const base = await db();
   for (const declare of MAGASINS_JOURNALISES) {
+    // Ce que l'application écrit sur elle-même n'est pas de l'usage : voir
+    // `MAGASINS_SANS_GESTE`.
+    if (MAGASINS_SANS_GESTE.includes(declare.magasin)) continue;
     if ((await base.count(declare.magasin as never)) > 0) return true;
   }
   return false;

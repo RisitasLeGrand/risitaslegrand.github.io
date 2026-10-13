@@ -18,6 +18,8 @@ import type { Programme as ProgrammeSport } from './sport/programmes';
 import type { Trajectoire } from './odyssee/trajectoires';
 import type { Prise, StatutHormonal } from './odyssee/sensible';
 import type { Checkin, CheckinHebdo, Entree } from './odyssee/psyche';
+import type { Session } from './odyssee/usage';
+import type { LigneDeBase } from './odyssee/veille';
 import type { Compte, OperationBancaire, Valorisation } from './odyssee/finances';
 import type { LigneBudget } from './odyssee/budget';
 import type {
@@ -599,10 +601,21 @@ interface SchemaRevinsp extends DBSchema {
   odysseeValorisations: { key: string; value: Valorisation; indexes: { compteId: string } };
   odysseeOperations: { key: string; value: OperationBancaire; indexes: { jour: string; compteId: string } };
   odysseeLignesBudget: { key: string; value: LigneBudget; indexes: Record<string, never> };
+  /*
+     La veille du rythme de vie, depuis la phase 1.
+
+     `odysseeUsage` est le seul magasin de donnée personnelle **non scellé** de
+     tout Odyssée, et la raison est écrite dans `SENSIBLES_EN_CLAIR` : scellé,
+     il n'enregistrerait que les sessions où le coffre est ouvert, c'est-à-dire
+     un échantillon biaisé par ce qu'on cherche à mesurer. Ce qui en est
+     dérivé, lui, est scellé.
+  */
+  odysseeUsage: { key: string; value: Session; indexes: { jour: string } };
+  odysseeVeilleBases: { key: string; value: LigneDeBase; indexes: Record<string, never> };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 22;
+const VERSION = 23;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1181,6 +1194,21 @@ function ouvrirAuSchema(nom: string, version: number) {
         operations.createIndex('jour', 'jour');
         operations.createIndex('compteId', 'compteId');
         base.createObjectStore('odysseeLignesBudget', { keyPath: 'id' });
+      }
+      if (vers(23)) {
+        /*
+         * La veille du rythme de vie, phase 1.
+         *
+         * Le journal d'usage est indexé par jour logique, parce que la seule
+         * lecture qu'on en fait est « les sessions de ce jour-là ». Il ne
+         * porte aucun autre champ, et `controlerSession()` le vérifie.
+         *
+         * Les lignes de base sont scellées et sans index : on les lit par
+         * identifiant d'indicateur, jamais par valeur — et leur valeur est
+         * chiffrée, donc inindexable de toute façon.
+         */
+        base.createObjectStore('odysseeUsage', { keyPath: 'id' }).createIndex('jour', 'jour');
+        base.createObjectStore('odysseeVeilleBases', { keyPath: 'id' });
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -2043,6 +2071,8 @@ export const MAGASINS_PROGRESSION = [
   'odysseeValorisations',
   'odysseeOperations',
   'odysseeLignesBudget',
+  'odysseeUsage',
+  'odysseeVeilleBases',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */

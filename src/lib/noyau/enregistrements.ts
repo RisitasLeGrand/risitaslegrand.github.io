@@ -372,6 +372,52 @@ export const MAGASINS_JOURNALISES: readonly MagasinJournalise[] = [
   M({ magasin: 'odysseeLignesBudget', type: 'odyssee.operation', clef: 'id', libelle: 'Ligne de budget' }),
 ];
 
+/**
+ * Les magasins que l'application remplit **toute seule**.
+ *
+ * Une ligne y apparaît sans que personne n'ait rien fait d'autre qu'ouvrir
+ * Cyclades. Elle ne prouve donc pas qu'une installation « porte de l'usage » :
+ * c'est l'application qui s'observe elle-même, et non la personne qui
+ * travaille.
+ *
+ * La distinction n'est pas théorique. Sans cette liste, l'enregistreur du
+ * journal d'usage écrit sa première session à la première ouverture, et
+ * l'écran d'accueil d'une installation neuve annonce à son propriétaire
+ * qu'il le connaît déjà — sur la foi d'une ligne écrite une seconde plus tôt
+ * par le programme lui-même. C'est arrivé, et c'est l'essai de navigateur de
+ * l'initialisation qui l'a attrapé.
+ */
+export const MAGASINS_SANS_GESTE: readonly string[] = ['odysseeUsage'];
+
+/**
+ * Pourquoi le journal d'usage **ne voyage pas**.
+ *
+ * Il a d'abord été inscrit au registre, puis retiré, et la raison vaut d'être
+ * gardée parce qu'elle ne se devine pas.
+ *
+ * Un appareil écrit une session chaque fois qu'on l'ouvre, sans qu'on ait
+ * rien demandé. Si ces sessions entraient dans le journal d'opérations, deux
+ * appareils ne pourraient **plus jamais** présenter la même empreinte : les
+ * ouvrir pour comparer suffirait à créer l'écart qu'on vient constater. La
+ * vérification de concordance, qui est ce qui permet de faire confiance à une
+ * fusion, deviendrait définitivement rouge — et un voyant toujours rouge ne
+ * dit plus rien.
+ *
+ * Ce qu'on perd : la veille n'observe que l'appareil sur lequel elle tourne.
+ * Ce qu'on croyait perdre en plus — qu'un changement d'appareil se lise comme
+ * un effondrement — n'arrive pas : un appareil neuf n'a pas les vingt-huit
+ * jours de base qu'exige `suffisance()`, et dit « données insuffisantes »
+ * plutôt que de crier.
+ */
+export function controlerSansGeste(): string[] {
+  const journalises = new Set(MAGASINS_JOURNALISES.map((m) => m.magasin));
+  return MAGASINS_SANS_GESTE.filter((m) => journalises.has(m)).map(
+    (m) =>
+      `« ${m} » est à la fois journalisé et rempli sans geste. Les deux ne vont ` +
+      'pas ensemble : voir la note ci-dessus sur les empreintes qui ne concordent plus.',
+  );
+}
+
 const PAR_MAGASIN = new Map(MAGASINS_JOURNALISES.map((m) => [m.magasin, m]));
 
 export const magasinJournalise = (magasin: string): MagasinJournalise | undefined =>

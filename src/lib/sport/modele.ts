@@ -291,10 +291,27 @@ export function musclesEmpeches(
 ): { muscles: Set<string>; general: boolean } {
   const muscles = new Set<string>();
   let general = false;
-  const instant = maintenant.toISOString();
+  /*
+     La comparaison se fait **au jour**, et non à l'instant.
+
+     Une blessure déclarée aujourd'hui porte un `debut` ancré à midi — c'est la
+     convention de conversion jour → instant de toute l'application, faite pour
+     que le fuseau ne déplace rien. Comparée à l'instant présent, une gêne
+     déclarée le matin était donc tenue pour « à venir », et le garde-fou
+     laissait proposer de progresser sur un muscle douloureux jusqu'à midi.
+     C'est l'essai de navigateur de Sport qui l'a attrapé, et il ne tombait
+     lui-même que le matin.
+
+     Le sens de l'arrondi est choisi : une blessure qui commence aujourd'hui
+     compte dès aujourd'hui, et une blessure qui finit aujourd'hui compte
+     encore aujourd'hui. Dans le doute, le garde-fou retient plutôt qu'il ne
+     laisse passer.
+  */
+  const jourDe = (iso: string) => iso.slice(0, 10);
+  const aujourdhui = jourDe(maintenant.toISOString());
   for (const b of blessures) {
-    if (b.debut > instant) continue;
-    if (b.fin !== null && b.fin < instant) continue;
+    if (jourDe(b.debut) > aujourdhui) continue;
+    if (b.fin !== null && jourDe(b.fin) < aujourdhui) continue;
     if (!b.muscles.length) general = true;
     for (const m of b.muscles) muscles.add(m);
   }

@@ -330,10 +330,45 @@ santé.
 | Phase | Contenu | Testée |
 |---|---|---|
 | **0** | Ce document. | — |
-| **1** | Registre déclaratif des indicateurs, calcul des valeurs, complétude, base personnelle robuste. Tests : médiane et ÉAM sur cas connus, séparation ouvré / week-end, « non saisi » ≠ « valeur basse ». | oui |
+| **1** | Registre déclaratif des indicateurs, calcul des valeurs, complétude, base personnelle robuste. Tests : médiane et ÉAM sur cas connus, séparation ouvré / week-end, « non saisi » ≠ « valeur basse ». | **faite** — 65 essais |
 | **2** | Moteur : déviation, persistance, croisement, décote de contexte, trois sensibilités, base figée. Web Worker, calcul incrémental. Tests : déclin multi-domaines détecté après 14 j, déclin mono-domaine jamais, base non entraînée. | oui |
 | **3** | Carte, « Pourquoi ce repère », « Ce que la veille regarde », « À propos », statut, journal des signaux, cadence, pause, désactivation. Tests : check-in rassurant ne lève rien, un seul signal actif, désactivation sans relance. | oui |
 | **4** | Jeux synthétiques sur cinq ans et **taux de faux signaux mesuré**, recalcul identique sur deux appareils, synthèse médecin, mode rejeu, documentation. | oui |
+
+## 7 bis. Ce que la phase 1 a appris
+
+Trois choses se sont découvertes en construisant, et aucune n'était dans le
+plan.
+
+**Le croisement était inatteignable sans saisie.** Le catalogue de la section 3
+ne plaçait d'indicateurs observés que dans deux domaines comptants — `rythme`
+et `engagement` — alors que le croisement en exige trois. Quelqu'un qui cesse
+de saisir faisait donc tomber la veille en « données insuffisantes »,
+c'est-à-dire au silence, au moment précis où elle aurait servi : exactement le
+défaut que le domaine C existait pour éviter. L'abandon d'une séance de sport
+est désormais compté comme **observé** — une séance se conduit dans
+l'application, qui la voit ouverte puis délaissée sans que personne n'ait rien
+à saisir — et `controlerCatalogue()` refuse maintenant tout catalogue où moins
+de trois domaines comptants portent un indicateur observé.
+
+**Le journal d'usage ne voyage pas.** Il a été inscrit au registre de
+synchronisation, puis retiré. Un appareil écrit une session chaque fois qu'on
+l'ouvre ; si ces sessions voyageaient, deux appareils ne pourraient plus jamais
+présenter la même empreinte, puisque les ouvrir pour comparer suffirait à créer
+l'écart qu'on vient constater. La veille n'observe donc que l'appareil sur
+lequel elle tourne. Ce qu'on craignait de perdre — qu'un changement d'appareil
+se lise comme un effondrement — n'arrive pas : un appareil neuf n'a pas les
+vingt-huit jours de base qu'exige `suffisance()`, et dit « données
+insuffisantes » plutôt que de crier.
+
+**L'enregistreur a menti à une installation neuve.** Branché sur le cycle de
+vie des pages, il écrivait sa première session à la première ouverture — et
+l'écran d'accueil, qui demande « cette installation porte-t-elle déjà de
+l'usage ? » en comptant les magasins journalisés, répondait oui. Une
+installation vierge annonçait donc à son propriétaire qu'elle le connaissait
+déjà, sur la foi d'une ligne écrite une seconde plus tôt par le programme
+lui-même. D'où `MAGASINS_SANS_GESTE` : ce que l'application écrit sur elle-même
+n'est pas de l'usage.
 
 ## 8. Ce que je n'ai pas pu vérifier
 
