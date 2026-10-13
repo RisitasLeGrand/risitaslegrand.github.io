@@ -47,20 +47,49 @@ await page.evaluate(async () => {
 console.log('après semis      :', JSON.stringify(await compter()));
 
 /*
- * Export par le bouton, désigné par son identifiant et non par son libellé.
- * Le sélecteur d'origine prenait « le premier bouton dont le nom ressemble à
- * exporter, télécharger ou sauvegarde », et il a cessé de viser le bon le jour
- * où la page a gagné un bouton « Sauvegarder maintenant » au-dessus. Cet essai
- * porte sur l'export JSON de synchronisation entre appareils : il doit le dire.
+ * Le fichier d'essai, fabriqué sans bouton.
+ *
+ * Il venait du bouton « Exporter ma progression ». Ce bouton est retiré
+ * (D-008) : Cyclades ne produit plus de JSON, parce que trois mécanismes se
+ * disputaient le même geste. L'**import**, lui, reste — les fichiers déjà
+ * exportés doivent rester lisibles —, et c'est précisément ce que cet essai
+ * vérifie : qu'une restauration en mode « Remplacer » efface réellement,
+ * deux fois de suite, sans laisser de doublon.
+ *
+ * Le fichier est donc assemblé depuis IndexedDB, dans la forme que
+ * « importerTout » attend. Cette forme est écrite ici une seconde fois, et
+ * c'est assumé : si elle dérive de celle du lecteur, l'import échouera et
+ * l'essai avec lui — la duplication se contrôle elle-même, ce qui est
+ * exactement ce qu'on demande à un essai de régression de format.
+ *
+ * Les champs facultatifs — profil, planification, réglages, sélections — sont
+ * omis volontairement : l'essai porte sur l'effacement des magasins à clé, et
+ * un paquet minimal prouve de surcroît que le lecteur tolère l'absence.
  */
-const [telechargement] = await Promise.all([
-  page.waitForEvent('download', { timeout: 15000 }),
-  page.locator('#exporter').click(),
-]);
 const chemin = `${S}/sauvegarde-test.json`;
-await telechargement.saveAs(chemin);
-const taille = readFileSync(chemin, 'utf8').length;
-console.log(`export           : ${taille} octets`);
+const contenu = await page.evaluate(async () => {
+  const base = await new Promise((ok, non) => {
+    const d = indexedDB.open('revinsp');
+    d.onsuccess = () => ok(d.result);
+    d.onerror = () => non(d.error);
+  });
+  const tout = (magasin) =>
+    new Promise((ok) => {
+      if (!base.objectStoreNames.contains(magasin)) return ok([]);
+      const r = base.transaction(magasin, 'readonly').objectStore(magasin).getAll();
+      r.onsuccess = () => ok(r.result);
+      r.onerror = () => ok([]);
+    });
+  const MAGASINS = [
+    'cartes', 'fiches', 'quiz', 'jours', 'nback', 'seances', 'qcmDgfip', 'qcmSessions',
+    'relationnel', 'vmSeuils', 'vmSessions', 'journal', 'competences', 'difficultes', 'aides',
+  ];
+  const paquet = { format: 'revinsp-progression', version: 1, exporteLe: new Date().toISOString() };
+  for (const m of MAGASINS) paquet[m] = await tout(m);
+  return JSON.stringify(paquet, null, 2);
+});
+writeFileSync(chemin, contenu);
+console.log(`export           : ${contenu.length} octets`);
 
 // Deux restaurations en mode « remplacement ».
 for (const passe of [1, 2]) {
