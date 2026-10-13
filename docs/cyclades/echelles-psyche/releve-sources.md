@@ -1120,9 +1120,23 @@ n'existent nulle part.
 
 **Sur l'hypothèse de la section 8.1 bis** (deux documents réels mal étiquetés) :
 elle est **écartée pour les fichiers « France »** — le texte du relevé n°3 ne
-correspond à aucun des deux. Il reste concevable qu'il reflète une autre
-traduction française réelle, la variante Canada par exemple ; seule cette
-variante le dirait. Mais pour la cible annoncée, il était faux.
+correspond à aucun des deux.
+
+**Et elle est désormais close pour le Canada aussi** : l'utilisateur atteste que
+**la variante Canada est identique à la variante France** (attestation orale, le
+13 octobre ; je n'ai pas reçu ce fichier, donc ni empreinte ni comparaison
+mécanique — une empreinte dirait en outre s'il s'agit du même texte ou
+littéralement du même fichier). Le texte du relevé n°3 ne correspond donc à
+aucune des deux variantes françaises connues de `phqscreeners.com`.
+
+Il reste une possibilité résiduelle, et elle mérite d'être nommée parce qu'elle
+change la nature du manquement sans en changer la conséquence : le relevé n°3
+pourrait reproduire une **autre traduction française réelle du PHQ-9, circulant
+hors de `phqscreeners.com`** — il en existe plusieurs. Dans cette lecture, il
+n'aurait pas inventé un texte mais violé la règle de la source unique, en
+restituant un document tiers sous l'étiquette du fichier demandé. Dans l'autre,
+il a confabulé. Le résultat est le même : inutilisable, et présenté comme
+authentique.
 
 **Et la leçon tient en une ligne : le relevé qui s'est révélé exact est celui qui
 a reconnu ses manques, et le relevé qui s'est révélé faux est celui qui
@@ -1130,8 +1144,12 @@ affirmait avoir tout obtenu.**
 
 ### 12.8 Reste à obtenir
 
-- La **liste réelle des variantes de français** : toujours pas établie (section 11.4).
-- La **variante Canada du PHQ-9**, si elle existe, pour clore la question ci-dessus.
+- La **liste réelle des variantes de français** : toujours pas établie
+  (section 11.4). L'attestation que France et Canada sont identiques réduit
+  l'enjeu de cette liste sans la fournir : il reste à savoir si d'autres
+  variantes sont proposées, et si elles diffèrent entre elles.
+- ~~La variante Canada du PHQ-9~~ — question close par attestation de
+  l'utilisateur (section 12.7), sans empreinte.
 - Les **seuils d'interprétation**, depuis l'*Instruction Manual* ou la
   littérature, avec leur propre source et leur propre empreinte.
 - Un **contrôle d'origine par `curl`** sur les quatre fichiers, le jour où la
