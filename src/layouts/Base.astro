@@ -10,7 +10,12 @@ import BarreProgression from '../components/BarreProgression.astro';
 import PiedDePage from '../components/PiedDePage.astro';
 import SelecteurParcours from '../components/SelecteurParcours.astro';
 import config from '../../site.config.mjs';
-import { branchesDisponibles, brancheDuChemin, brancheDUnOnglet } from '../lib/branches';
+import {
+  branchesDisponibles,
+  brancheDuChemin,
+  brancheDUnOnglet,
+  ID_BRANCHE_PAR_DEFAUT,
+} from '../lib/branches';
 
 interface Props {
   titre: string;
@@ -130,18 +135,39 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
         enteteVoulu === 'complet' && (
           <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
             <div class="bandeau-tricolore"></div>
-            <div class="mx-auto flex max-w-6xl items-center gap-3 px-4 py-3">
+            {/*
+               L'en-tête tient sur **une ou deux rangées**, selon la place.
+
+               Il tenait sur une seule, de force : le bloc de droite portait
+               « shrink-0 » et refusait de se réduire, de sorte que son bord
+               droit tombait à 388 px sur un écran de 360 — et que le document
+               entier défilait de 28 px sur quarante-quatre pages. La barre
+               d'onglets, elle, n'y était pour rien : elle défile proprement.
+
+               Deux contraintes se heurtaient, et aucune ne pouvait céder.
+               Une cible tactile veut 44 px ; six cibles de 44 px, les écarts
+               et les marges font déjà 330 px, et il reste à loger la barre
+               d'onglets et le sélecteur de parcours. Sur une rangée, à 360 px,
+               c'est arithmétiquement impossible.
+
+               Donc : au-dessous de « lg », la barre d'onglets passe à la ligne
+               (« w-full order-last »), et la rangée du haut ne porte plus que
+               l'identité, les branches, le thème et le verrou. Au-dessus,
+               l'ordre d'origine revient, en une rangée. Une seule structure,
+               deux mises en forme — rien n'est dupliqué.
+            */}
+            <div class="mx-auto flex max-w-6xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-2 lg:py-3">
               {/*
                 Deux liens et non un : le nom du produit ramène au **menu**, le
                 nom de la branche à son accueil. Un seul lien aurait forcé à
                 choisir, et le retour au menu serait devenu introuvable depuis
                 l'intérieur d'une branche.
               */}
-              <div class="flex shrink-0 items-center gap-1.5 font-semibold text-slate-900 dark:text-white">
+              <div class="flex shrink-0 items-center gap-1 font-semibold text-slate-900 sm:gap-1.5 dark:text-white">
                 <a
                   href={`${base}/`}
                   title="Menu de Cyclades"
-                  class="flex items-center gap-2 rounded-lg px-1 transition hover:text-indigo-600 dark:hover:text-indigo-400"
+                  class="cible-tactile-pleine gap-2 rounded-lg px-1 transition hover:text-indigo-600 dark:hover:text-indigo-400"
                 >
                   <span class="text-lg" aria-hidden="true">🗂️</span>
                   <span class="hidden sm:inline">{config.titre}</span>
@@ -150,7 +176,7 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
                 <span class="hidden text-slate-400 sm:inline dark:text-slate-500" aria-hidden="true">·</span>
                 <a
                   href={`${base}${brancheCourante.racine}`}
-                  class="flex items-center gap-1.5 rounded-lg px-1 font-normal text-slate-600 transition hover:text-indigo-600 dark:text-slate-300 dark:hover:text-indigo-400"
+                  class="cible-tactile-pleine gap-1.5 rounded-lg px-1 font-normal text-slate-600 transition hover:text-indigo-600 dark:text-slate-300 dark:hover:text-indigo-400"
                 >
                   <span class="text-lg sm:hidden" aria-hidden="true">{brancheCourante.icone}</span>
                   <span class="hidden sm:inline">{brancheCourante.libelle}</span>
@@ -167,7 +193,7 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
                     href={`${base}${autre.racine}`}
                     title={autre.description}
                     data-branche={autre.id}
-                    class="flex items-center gap-1.5 rounded-lg px-2 py-1 text-sm font-normal text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-indigo-400"
+                    class="cible-tactile-pleine gap-1.5 rounded-lg px-2 text-sm font-normal text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-indigo-400"
                   >
                     <span class="text-base" aria-hidden="true">{autre.icone}</span>
                     <span class="hidden sm:inline">{autre.libelle}</span>
@@ -176,32 +202,49 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
                 ))}
               </div>
 
-              <nav
-                id="navigation-principale"
-                aria-label="Navigation principale"
-                class="defilement-masque -mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto px-1"
-              >
-                {onglets.map((onglet) => (
-                  <a
-                    href={onglet.href}
-                    title={onglet.libelle}
-                    aria-label={onglet.libelle}
-                    aria-current={actif === onglet.id ? 'page' : undefined}
-                    class:list={[
-                      'flex shrink-0 items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition',
-                      actif === onglet.id
-                        ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
-                        : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
-                    ]}
-                  >
-                    <span aria-hidden="true">{onglet.icone}</span>
-                    <span class="hidden lg:inline">{onglet.court}</span>
-                  </a>
-                ))}
-              </nav>
+              {/*
+                 Le parcours et les onglets vont ensemble, et c'est aussi la
+                 bonne lecture : le parcours est la **portée** de ce que les
+                 onglets ouvrent — ses thèmes de planification, ses matières,
+                 son filtre de banque de QCM. Il était dans le groupe du thème
+                 et du verrou, qui sont des réglages de l'application entière.
 
-              <div class="flex shrink-0 items-center gap-1">
-                <SelecteurParcours />
+                 Et il ne paraît plus que dans Révisions, la seule branche
+                 qu'il gouverne : sur une page de Sport, il occupait cent
+                 pixels pour proposer un choix sans effet visible ici.
+                 (« Demander à l'IA », ouvert depuis le glossaire sur
+                 n'importe quelle page, continue de lire le parcours en
+                 cours ; c'est le **changer** d'ailleurs que Révisions qui
+                 n'avait pas de sens.)
+              */}
+              <div class="order-last flex w-full min-w-0 shrink items-center gap-2 lg:order-none lg:w-auto lg:flex-1">
+                {brancheCourante.id === ID_BRANCHE_PAR_DEFAUT && <SelecteurParcours />}
+                <nav
+                  id="navigation-principale"
+                  aria-label="Navigation principale"
+                  class="defilement-masque -mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto px-1"
+                >
+                  {onglets.map((onglet) => (
+                    <a
+                      href={onglet.href}
+                      title={onglet.libelle}
+                      aria-label={onglet.libelle}
+                      aria-current={actif === onglet.id ? 'page' : undefined}
+                      class:list={[
+                        'cible-tactile-pleine shrink-0 gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition',
+                        actif === onglet.id
+                          ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                          : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
+                      ]}
+                    >
+                      <span aria-hidden="true">{onglet.icone}</span>
+                      <span class="hidden lg:inline">{onglet.court}</span>
+                    </a>
+                  ))}
+                </nav>
+              </div>
+
+              <div class="ml-auto flex shrink-0 items-center gap-1 lg:ml-0">
                 <CommutateurTheme />
                 <button
                   id="bouton-verrouiller"
