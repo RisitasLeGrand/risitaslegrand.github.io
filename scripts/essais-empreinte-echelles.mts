@@ -50,8 +50,8 @@ import { ECHELLES, controlerEchelles, type Echelle } from '../src/lib/odyssee/ec
  */
 const EMPREINTES: Record<string, string> = {
   who5: '3ffa968c72112004985cbd802497bbd29f51fbd0b99c5e28495e68034d317cbc',
-  phq9: '57539c85b89de4dc9fa4d55b5541dd0fb9de4d26c0b5822be5e98df2b3fe212e',
-  gad7: '6418a561010daeae28533532f62a30b7467f6f236d2bd62eee5ccb7376794787',
+  phq9: '4ec47c113574b8363b6fcc5f9d5d294162784419495a0d858025cd4c2420ab38',
+  gad7: 'a0ee094015b8d25fd7b9c884532b3541e1a29053c35a18ae78078950a49d7cc0',
 };
 
 /**
