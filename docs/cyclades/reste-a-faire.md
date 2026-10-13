@@ -40,11 +40,23 @@ Mon avis reste la **2**. Dès qu'elle est tranchée, les trois échelles se
 codent : elles entrent dans Psyché, sous coffre, et c'est un chantier d'une
 phase, pas de quatre.
 
-### B.2 — Finances, phase 3
+### B.2 — Finances, phase 3 — **livrée**
 
-Appariement des opérations, file « à rapprocher », rapprochement de solde.
-Les phases 1 et 2 sont livrées, le modèle tient, l'import de relevé fonctionne
-de bout en bout. Rien ne bloque.
+Appariement, file « à rapprocher », rapprochement de solde avec recherche de
+causes, écarts par ligne, catégorie et mois, et 1.5 (déduire des lignes de
+budget du réel). Schéma **v26**, magasin `odysseeRapprochements` scellé.
+231 essais, dont une chaîne complète en navigateur — quatre relevés importés,
+une récurrence déduite, une ligne créée, la file qui propose.
+
+Les décisions et les six fautes corrigées sont dans
+[`finances/phase-3.md`](finances/phase-3.md). Ce qui reste de la maquette 4.3 :
+les gestes « Autre ligne » et « Diviser », dont les moteurs existent et sont
+éprouvés mais dont l'interface relève de l'écran du budget.
+
+Reste donc, pour Finances : la **phase 4** (dossier surveillé, usage par
+Odyssée, écran « Qui lit mon budget », export ICS des échéances) et la
+**phase 5** (jeu synthétique de cinq ans, conflits entre deux appareils,
+mesures d'ergonomie, guide court).
 
 ### B.3 — Audio : cent fiches sans voix
 

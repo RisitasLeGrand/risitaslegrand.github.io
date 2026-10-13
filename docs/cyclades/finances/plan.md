@@ -573,7 +573,7 @@ base — et elle est décochée par défaut.
 | **0** | Ce plan et ces maquettes. | — |
 | **1** | Modèle, magasins scellés, calculs du budget, occurrences déterministes, scénarios. Tests : centimes, périodicités, fin de mois, bissextiles, mensualisation exacte. | oui |
 | **2** | Import **PDF d'abord** : lecture par pdf.js, ancrage sur l'en-tête de colonnes, découpage en comptes, **contrôle de solde bloquant**, empreinte de gabarit et profils par banque. Puis collage, saisie rapide, et le lecteur CSV en réserve. Dédoublonnage, contrôle avant validation, annulation. Tests : les quatre comptes du relevé réel bouclent, un gabarit modifié est annoncé, chevauchements, masquage. | oui |
-| **3** | Appariement, file « à rapprocher », rapprochement de solde et recherche de causes, écarts par ligne, catégorie et mois. Tests : 1→N, N→1, débit différé, remboursements. | oui |
+| **3** | Appariement, file « à rapprocher », rapprochement de solde et recherche de causes, écarts par ligne, catégorie et mois. Tests : 1→N, N→1, débit différé, remboursements. | **livrée** — voir `phase-3.md` |
 | **4** | Dossier surveillé (si l'API répond), usage par Odyssée, écran « Qui lit mon budget », export ICS des échéances. | oui |
 | **5** | Jeu synthétique de cinq ans, conflits entre deux appareils, mesures d'ergonomie (gestes et temps pour les quatre parcours que tu listes), guide court. | oui |
 

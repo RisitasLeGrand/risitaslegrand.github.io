@@ -1,0 +1,798 @@
+---
+/**
+ * Odyssée : à rapprocher — relier le prévu au réel.
+ *
+ * ## Les certaines sont déjà appliquées
+ *
+ * Faire confirmer ce dont le système est sûr dépense l'attention là où elle
+ * ne sert à rien — et le budget d'attention est précisément ce qui fait
+ * abandonner un rapprochement mensuel au bout de deux mois. Les certaines
+ * sont donc appliquées, annoncées en pied, et annulables d'un geste.
+ *
+ * ## Chaque proposition dit pourquoi
+ *
+ * Avec ses trois critères chiffrés : l'écart au montant, l'écart à la date,
+ * le motif reconnu et combien de fois. Un appariement qu'on ne peut pas
+ * contester se confirme sans être lu, et la file devient un bouton « oui »
+ * répété quatorze fois — ce qui est pire que pas de file du tout, parce que
+ * les erreurs y entrent sans qu'on les voie.
+ *
+ * ## Le solde est la seule vérification qui vaille
+ *
+ * L'écran de rapprochement de solde ne dit pas seulement qu'il y a un écart :
+ * il propose des causes vérifiables une par une sur le relevé papier. Aucune
+ * n'est appliquée. Corriger un solde en inventant une opération fabriquerait
+ * la concordance au lieu de la constater.
+ */
+import Base from '../../layouts/Base.astro';
+---
+
+<Base titre="À rapprocher" actif="finances">
+  <div class="mx-auto max-w-3xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">À rapprocher</h1>
+    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+      Relier chaque opération du relevé à l’échéance qu’elle solde. Tout se calcule sur cet
+      appareil : aucune proposition n’est faite ailleurs qu’ici.
+      <a href="/odyssee/finances/" class="underline">Importer un relevé</a>.
+    </p>
+
+    <div id="chargement-rapprocher" class="mt-6">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Lecture…</p>
+    </div>
+
+    <div id="vue" class="mt-6 hidden space-y-8">
+      <section id="coffre-ferme" class="hidden rounded-2xl border-2 border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">🔒 Ouvrir le coffre</h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Le mot de passe est redemandé à chaque nouvel onglet. La clé ne quitte pas cet appareil.
+        </p>
+        <label class="mt-3 block text-sm">
+          <span class="block text-slate-700 dark:text-slate-200">Mot de passe</span>
+          <input id="mdp-coffre" type="password" autocomplete="current-password"
+            class="mt-1 min-h-11 w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+        </label>
+        <button id="ouvrir-coffre" type="button"
+          class="mt-3 min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900"
+          >Ouvrir</button>
+        <p id="erreur-coffre" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+      </section>
+
+      <div id="coffre-ouvert" class="hidden space-y-10">
+        <!-- ── La file ─────────────────────────────────────────────────── -->
+        <section>
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="titre-file" class="text-lg font-semibold text-slate-900 dark:text-white">
+              À rapprocher
+            </h2>
+            <button id="tout-confirmer" type="button"
+              class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-40"
+              >Tout confirmer</button>
+          </div>
+          <p id="compte-file" class="mt-1 text-sm text-slate-500 dark:text-slate-400"></p>
+
+          <p id="file-vide" class="mt-4 hidden rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300"></p>
+
+          <h3 id="titre-probables" class="mt-6 hidden text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            Probables — un geste chacun
+          </h3>
+          <ul id="probables" class="mt-2 space-y-3"></ul>
+
+          <h3 id="titre-a-classer" class="mt-6 hidden text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            À classer — aucune ligne ne correspond
+          </h3>
+          <ul id="a-classer" class="mt-2 space-y-3"></ul>
+
+          <p id="pied-certaines" class="mt-6 hidden rounded-xl bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-100"></p>
+          <button id="annuler-certaines" type="button"
+            class="mt-2 hidden min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700"
+            >Annuler les certaines de ce passage</button>
+          <ul id="certaines" class="mt-2 hidden space-y-2"></ul>
+        </section>
+
+        <!-- ── Le rapprochement de solde ───────────────────────────────── -->
+        <section>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Rapprochement de solde</h2>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Le solde imprimé sur le relevé contre la somme des opérations enregistrées. Aucune
+            tolérance : un centime d’écart signale une opération manquante, en double ou mal signée.
+          </p>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Le <strong>solde de départ</strong> est celui d’avant la première opération enregistrée —
+            l’ouverture du plus ancien relevé importé. Sans lui, la comparaison porterait sur la somme
+            des mouvements seule, et elle ne pourrait jamais égaler un solde de compte : l’écart
+            annoncé serait constant, et ne voudrait rien dire.
+          </p>
+          <div class="mt-3 flex flex-wrap items-end gap-3">
+            <label class="block text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Compte</span>
+              <select id="compte-solde"
+                class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"></select>
+            </label>
+            <label class="block text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Solde de départ</span>
+              <input id="solde-depart" type="text" inputmode="decimal" placeholder="0,00"
+                class="mt-1 min-h-11 w-40 rounded-lg border border-slate-300 bg-white px-3 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+            </label>
+            <label class="block text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Solde du relevé</span>
+              <input id="solde-declare" type="text" inputmode="decimal" placeholder="741,62"
+                class="mt-1 min-h-11 w-40 rounded-lg border border-slate-300 bg-white px-3 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+            </label>
+            <button id="verifier-solde" type="button"
+              class="min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900"
+              >Vérifier</button>
+          </div>
+          <p id="verdict-solde" class="mt-3 hidden text-sm"></p>
+          <ul id="causes" class="mt-3 space-y-2"></ul>
+        </section>
+
+        <!-- ── Les écarts ──────────────────────────────────────────────── -->
+        <section>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Le prévu contre le réel</h2>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Les échéances <strong>non échues</strong> ne comptent pas comme un écart : elles ne sont
+            pas en retard, elles ne sont pas encore dues.
+          </p>
+          <div class="mt-3 flex flex-wrap gap-2" role="tablist">
+            <button data-axe="ligne" type="button" class="axe min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700">Par ligne</button>
+            <button data-axe="categorie" type="button" class="axe min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700">Par catégorie</button>
+            <button data-axe="mois" type="button" class="axe min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700">Par mois</button>
+          </div>
+          <ul id="ecarts" class="mt-3 space-y-2"></ul>
+          <p id="ecarts-vides" class="mt-3 hidden text-sm text-slate-500 dark:text-slate-400"></p>
+        </section>
+
+        <!-- ── Déduire du réel ─────────────────────────────────────────── -->
+        <section>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Déduire des lignes du réel</h2>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Les opérations déjà importées contiennent la plupart des lignes du budget. Rien n’est
+            créé sans votre accord, et chaque proposition dit sur quoi elle repose.
+          </p>
+          <button id="deduire" type="button"
+            class="mt-3 min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium dark:border-slate-700"
+            >Chercher les récurrences</button>
+          <ul id="recurrences" class="mt-3 space-y-3"></ul>
+          <p id="recurrences-vides" class="mt-3 hidden text-sm text-slate-500 dark:text-slate-400"></p>
+        </section>
+
+        <p id="erreur" class="hidden rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:bg-rose-950/30 dark:text-rose-100"></p>
+
+        <button id="fermer-coffre" type="button"
+          class="text-xs text-slate-500 underline dark:text-slate-400"
+          >Refermer le coffre maintenant</button>
+      </div>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { centimesDe, euros, type OperationBancaire } from '../../lib/odyssee/finances';
+  import { reconcilier } from '../../lib/odyssee/finances';
+  import { occurrences, TOLERANCE_PAR_DEFAUT, type Occurrence } from '../../lib/odyssee/budget';
+  import { construireLaFile, type Proposition } from '../../lib/odyssee/appariement';
+  import {
+    chercherLesCauses,
+    ecartsParCategorie,
+    ecartsParLigne,
+    ecartsParMois,
+    type EcartAgrege,
+  } from '../../lib/odyssee/rapprochement';
+  import { detecterLesRecurrences, enLigneDeBudget } from '../../lib/odyssee/recurrences';
+  import {
+    annulerLesAutomatiques,
+    annulerRapprochement,
+    ecrireLigne,
+    ecrireRapprochement,
+    ecrireRapprochements,
+    etatDesRapprochements,
+    tousLesComptes,
+    toutesLesLignes,
+    toutesLesOperations,
+  } from '../../lib/odyssee/donnees-finances';
+  import {
+    coffreOuvert,
+    fermerLeCoffre,
+    ouvrirLeCoffre,
+    reprendreLeCoffre,
+    surCoffre,
+  } from '../../lib/coffre';
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const dire = (e: unknown) => {
+    const z = $('erreur');
+    z.textContent = e instanceof Error ? e.message : String(e);
+    z.classList.remove('hidden');
+  };
+
+  /**
+   * Le jour d'arrêt des échéances.
+   *
+   * Lu **une fois** au chargement, et passé partout en paramètre. Une fonction
+   * de calcul qui lit l'horloge elle-même ne peut être ni rejouée ni testée à
+   * midi comme à minuit — c'est exactement la faute qui avait fait passer un
+   * essai de calendrier seulement l'après-midi.
+   */
+  const aujourdHui = new Date().toISOString().slice(0, 10);
+
+  let axe: 'ligne' | 'categorie' | 'mois' = 'ligne';
+  /** Le début du passage en cours : ce que « Annuler » peut défaire. */
+  let debutDuPassage = new Date().toISOString();
+
+  /* ── Les données du tour ───────────────────────────────────────────────── */
+
+  async function rassembler() {
+    const [operations, lignes, etat] = await Promise.all([
+      toutesLesOperations(),
+      toutesLesLignes(),
+      etatDesRapprochements(),
+    ]);
+    /*
+       La fenêtre des occurrences est celle des opérations, élargie d'un mois
+       de chaque côté : une échéance du 5 novembre peut être soldée le
+       29 octobre, et une du 30 septembre le 2 octobre.
+    */
+    const jours = operations.map((o) => o.jour).sort();
+    const du = jours.length ? reculer(jours[0], 40) : aujourdHui;
+    const au = jours.length ? avancer(jours[jours.length - 1], 40) : aujourdHui;
+    const occ = lignes.flatMap((l) => occurrences(l, du, au));
+    return { operations, lignes, occ, etat };
+  }
+
+  const decaler = (jour: string, n: number) =>
+    new Date(Date.parse(`${jour}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+  const avancer = (j: string, n: number) => decaler(j, n);
+  const reculer = (j: string, n: number) => decaler(j, -n);
+
+  function reglagesDe(lignes: Awaited<ReturnType<typeof toutesLesLignes>>) {
+    return {
+      tolerance: TOLERANCE_PAR_DEFAUT,
+      motifs: lignes.flatMap((l) =>
+        l.motifs.map((fragment) => ({ ligneId: l.id, fragment, vu: 1 })),
+      ),
+      sensParLigne: Object.fromEntries(lignes.map((l) => [l.id, l.sens])),
+    };
+  }
+
+  /* ── La file ───────────────────────────────────────────────────────────── */
+
+  async function peindreLaFile() {
+    const { operations, lignes, occ, etat } = await rassembler();
+    const dejaRangees = new Set(etat.retenus.map((r) => r.operationId));
+    const occPrises = new Set(
+      etat.retenus.filter((r) => r.occurrenceId).map((r) => r.occurrenceId as string),
+    );
+    const libres = operations.filter((o) => !dejaRangees.has(o.id));
+    const occLibres = occ.filter((o) => !occPrises.has(o.id));
+    const file = construireLaFile(occLibres, libres, reglagesDe(lignes));
+    const parOcc = new Map(occ.map((o) => [o.id, o]));
+    const parLigne = new Map(lignes.map((l) => [l.id, l]));
+
+    /*
+       Les certaines s'appliquent **avant** d'être affichées, et le pied le
+       dit. Les afficher d'abord pour les appliquer ensuite laisserait la
+       personne croire qu'il lui reste un geste à faire.
+    */
+    let retenus = etat.retenus;
+    if (file.certaines.length) {
+      await ecrireRapprochements(
+        file.certaines.map((p) => ({
+          operationId: p.operationId,
+          occurrenceId: p.occurrenceId,
+          ligneId: p.ligneId,
+          type: 'automatique' as const,
+          centimes: operations.find((o) => o.id === p.operationId)?.centimes ?? 0,
+          ecartAuPrevu: p.ecartAuPrevu,
+          decideLe: new Date().toISOString(),
+        })),
+      );
+      /*
+         Et on **relit** : `etat` date d'avant l'écriture, donc il ignore ce
+         qu'on vient d'appliquer. Peindre le pied à partir de lui ferait
+         disparaître ces opérations de la file sans que rien n'explique où
+         elles sont parties — exactement le trou que l'essai en navigateur a
+         trouvé un cran plus loin, au rechargement.
+      */
+      retenus = (await etatDesRapprochements()).retenus;
+    }
+
+    $('titre-file').textContent =
+      `À rapprocher — ${file.probables.length + file.aClasser.length} opération(s)`;
+    $('compte-file').textContent =
+      `${file.certaines.length} certaine(s) (déjà appliquée(s)) · ` +
+      `${file.probables.length} probable(s) · ${file.aClasser.length} à classer`;
+
+    const rien = !file.certaines.length && !file.probables.length && !file.aClasser.length;
+    $('file-vide').classList.toggle('hidden', !rien);
+    if (rien) {
+      $('file-vide').textContent = operations.length
+        ? 'Tout est rangé. Rien n’attend de décision.'
+        : 'Aucune opération enregistrée. Importez un relevé pour commencer.';
+    }
+
+    /* Les probables. */
+    $('titre-probables').classList.toggle('hidden', !file.probables.length);
+    const zone = $('probables');
+    zone.innerHTML = '';
+    for (const p of file.probables) {
+      zone.appendChild(carteDeProposition(p, parOcc, parLigne, operations));
+    }
+    ($('tout-confirmer') as HTMLButtonElement).disabled = file.probables.length === 0;
+
+    /* À classer. */
+    $('titre-a-classer').classList.toggle('hidden', !file.aClasser.length);
+    const zoneC = $('a-classer');
+    zoneC.innerHTML = '';
+    for (const o of file.aClasser) zoneC.appendChild(carteAClasser(o));
+
+    /*
+       Le pied des certaines liste **toutes** celles qui sont appliquées, et
+       pas seulement celles de ce passage.
+
+       C'est une correction, et elle venait d'un trou réel : en ne montrant
+       que le passage en cours, une opération rangée d'office la semaine
+       dernière devenait invisible au rechargement — ni dans la file, ni
+       dans le pied, ni annulable. Le système l'avait décidée, et plus rien
+       ne permettait de la contester. Une décision automatique qu'on ne peut
+       plus voir est pire qu'une décision qu'on doit confirmer.
+
+       Le bouton d'annulation en bloc, lui, reste borné à ce passage : une
+       décision prise il y a trois mois et jamais contestée n'a pas à sauter
+       parce qu'on rouvre l'écran aujourd'hui.
+    */
+    const automatiques = retenus.filter((r) => r.type === 'automatique');
+    const deCePassage = automatiques.filter((r) => r.decideLe >= debutDuPassage);
+    const combien = automatiques.length;
+    $('pied-certaines').classList.toggle('hidden', combien === 0);
+    $('certaines').classList.toggle('hidden', combien === 0);
+    $('annuler-certaines').classList.toggle('hidden', deCePassage.length === 0);
+    if (combien) {
+      $('pied-certaines').textContent =
+        `${combien} certaine(s) appliquée(s) automatiquement : même compte, montant dans la ` +
+        'tolérance, date dans la fenêtre, et un libellé déjà vu sur la ligne.' +
+        (deCePassage.length ? ` Dont ${deCePassage.length} à l’instant.` : '');
+      const parOperation = new Map(operations.map((o) => [o.id, o]));
+      const liste = $('certaines');
+      liste.innerHTML = '';
+      for (const r of automatiques) {
+        const li = document.createElement('li');
+        li.className = 'flex flex-wrap items-center gap-2 text-sm text-slate-600 dark:text-slate-300';
+        li.dataset.certaine = r.operationId;
+        const op = parOperation.get(r.operationId);
+        const ligne = r.ligneId ? parLigne.get(r.ligneId) : undefined;
+        const texte = document.createElement('span');
+        texte.textContent = op
+          ? `${op.jour}  ${euros(op.centimes)}  ${op.libelle} → ${ligne?.libelle ?? r.ligneId}`
+          : `${r.operationId} → ${r.ligneId}`;
+        const bouton = document.createElement('button');
+        bouton.type = 'button';
+        bouton.dataset.geste = 'annuler-une';
+        bouton.className = 'text-xs underline';
+        bouton.textContent = 'Annuler';
+        bouton.addEventListener('click', () => {
+          void annulerRapprochement(r.operationId, r.occurrenceId).then(peindreTout).catch(dire);
+        });
+        li.append(texte, bouton);
+        liste.appendChild(li);
+      }
+    }
+  }
+
+  function carteDeProposition(
+    p: Proposition,
+    parOcc: Map<string, Occurrence>,
+    parLigne: Map<string, { libelle: string; sens: string }>,
+    operations: readonly OperationBancaire[],
+  ): HTMLElement {
+    const op = operations.find((o) => o.id === p.operationId)!;
+    const occ = parOcc.get(p.occurrenceId);
+    const ligne = parLigne.get(p.ligneId);
+
+    const li = document.createElement('li');
+    li.dataset.proposition = p.operationId;
+    li.dataset.niveau = p.niveau;
+    li.className = 'rounded-xl border border-slate-200 p-3 dark:border-slate-800';
+
+    const entete = document.createElement('p');
+    entete.className = 'font-medium tabular-nums text-slate-900 dark:text-white';
+    entete.textContent = `${op.jour}  ${euros(op.centimes)}  ${op.libelle}`;
+
+    const cible = document.createElement('p');
+    cible.className = 'mt-1 text-sm text-slate-700 dark:text-slate-200';
+    cible.textContent = occ && ligne
+      ? `→ ${ligne.libelle} (prévu ${euros(occ.signe * occ.montant)} le ${occ.jour})`
+      : `→ ${p.ligneId}`;
+
+    /*
+       L'explication porte les trois critères chiffrés. C'est elle, et non un
+       seuil, qui rend le refus possible : « Montant hors tolérance de
+       17,40 € » se conteste, « probable » ne se conteste pas.
+    */
+    const pourquoi = document.createElement('p');
+    pourquoi.className = 'mt-1 text-sm text-slate-500 dark:text-slate-400';
+    pourquoi.dataset.explication = '';
+    pourquoi.textContent = p.explication;
+
+    const gestes = document.createElement('div');
+    gestes.className = 'mt-2 flex flex-wrap gap-2';
+    gestes.append(
+      bouton('Confirmer', 'confirmer', async () => {
+        await ecrireRapprochement({
+          operationId: p.operationId,
+          occurrenceId: p.occurrenceId,
+          ligneId: p.ligneId,
+          type: 'confirme',
+          centimes: op.centimes,
+          ecartAuPrevu: p.ecartAuPrevu,
+          decideLe: new Date().toISOString(),
+        });
+        await peindreTout();
+      }),
+      bouton('Hors budget', 'hors-budget', async () => {
+        await ecrireRapprochement({
+          operationId: p.operationId,
+          occurrenceId: null,
+          ligneId: null,
+          type: 'horsBudget',
+          centimes: op.centimes,
+          ecartAuPrevu: null,
+          decideLe: new Date().toISOString(),
+        });
+        await peindreTout();
+      }),
+      bouton('Refuser', 'refuser', async () => {
+        await ecrireRapprochement({
+          operationId: p.operationId,
+          occurrenceId: p.occurrenceId,
+          ligneId: p.ligneId,
+          type: 'refuse',
+          centimes: 0,
+          ecartAuPrevu: null,
+          decideLe: new Date().toISOString(),
+        });
+        await peindreTout();
+      }),
+    );
+
+    li.append(entete, cible, pourquoi, gestes);
+    if (p.remboursement) {
+      const note = document.createElement('p');
+      note.className = 'mt-1 text-xs text-emerald-700 dark:text-emerald-300';
+      note.dataset.remboursement = '';
+      note.textContent =
+        'Rentrée sur une ligne de charge : comptée en remboursement, elle réduit le réel de ' +
+        'cette ligne au lieu de gonfler les ressources.';
+      li.insertBefore(note, gestes);
+    }
+    return li;
+  }
+
+  function carteAClasser(o: OperationBancaire): HTMLElement {
+    const li = document.createElement('li');
+    li.dataset.aClasser = o.id;
+    li.className = 'rounded-xl border border-slate-200 p-3 dark:border-slate-800';
+    const p = document.createElement('p');
+    p.className = 'font-medium tabular-nums text-slate-900 dark:text-white';
+    p.textContent = `${o.jour}  ${euros(o.centimes)}  ${o.libelle}`;
+    const gestes = document.createElement('div');
+    gestes.className = 'mt-2 flex flex-wrap gap-2';
+    gestes.append(
+      bouton('Hors budget', 'hors-budget', async () => {
+        await ecrireRapprochement({
+          operationId: o.id,
+          occurrenceId: null,
+          ligneId: null,
+          type: 'horsBudget',
+          centimes: o.centimes,
+          ecartAuPrevu: null,
+          decideLe: new Date().toISOString(),
+        });
+        await peindreTout();
+      }),
+    );
+    li.append(p, gestes);
+    return li;
+  }
+
+  function bouton(texte: string, marque: string, faire: () => Promise<void>): HTMLButtonElement {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.geste = marque;
+    b.className =
+      'min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700';
+    b.textContent = texte;
+    b.addEventListener('click', () => void faire().catch(dire));
+    return b;
+  }
+
+  /* ── Le solde ──────────────────────────────────────────────────────────── */
+
+  async function peindreLesComptes() {
+    const comptes = await tousLesComptes();
+    const select = $('compte-solde') as HTMLSelectElement;
+    const choisi = select.value;
+    select.innerHTML = '';
+    for (const c of comptes) {
+      const o = document.createElement('option');
+      o.value = c.id;
+      o.textContent = c.libelle;
+      select.appendChild(o);
+    }
+    if (choisi) select.value = choisi;
+  }
+
+  async function verifierLeSolde() {
+    const compteId = ($('compte-solde') as HTMLSelectElement).value;
+    const saisie = ($('solde-declare') as HTMLInputElement).value;
+    const declare = centimesDe(saisie);
+    const saisieDepart = ($('solde-depart') as HTMLInputElement).value.trim();
+    const depart = saisieDepart === '' ? 0 : centimesDe(saisieDepart);
+    const verdict = $('verdict-solde');
+    const causes = $('causes');
+    causes.innerHTML = '';
+    verdict.classList.remove('hidden');
+
+    if (depart === null) {
+      verdict.dataset.concorde = '';
+      verdict.className = 'mt-3 text-sm text-rose-800 dark:text-rose-200';
+      verdict.textContent =
+        'Le solde de départ est attendu en euros, par exemple 1 000,00. Laissez-le vide s’il ' +
+        'est nul.';
+      return;
+    }
+    if (declare === null) {
+      verdict.dataset.concorde = '';
+      verdict.className = 'mt-3 text-sm text-rose-800 dark:text-rose-200';
+      verdict.textContent = 'Le solde du relevé est attendu en euros, par exemple 741,62.';
+      return;
+    }
+
+    const operations = (await toutesLesOperations()).filter((o) => o.compteId === compteId);
+    const r = reconcilier(operations, compteId, declare, depart);
+    verdict.dataset.concorde = String(r.concorde);
+    if (r.concorde) {
+      verdict.className = 'mt-3 text-sm text-emerald-800 dark:text-emerald-200';
+      verdict.textContent =
+        `Le compte boucle au centime : ${euros(r.calcule)} de part et d’autre, sur ` +
+        `${operations.length} opération(s).`;
+      return;
+    }
+    verdict.className = 'mt-3 text-sm text-rose-800 dark:text-rose-200';
+    verdict.textContent =
+      `Écart de ${euros(r.ecart)} : le relevé dit ${euros(r.declare)}, les opérations ` +
+      `enregistrées font ${euros(r.calcule)}. Voici ce qui l’expliquerait — à vérifier une ` +
+      'par une sur le relevé. Aucune n’est appliquée.';
+
+    for (const c of chercherLesCauses(operations, r.ecart)) {
+      const li = document.createElement('li');
+      li.dataset.cause = c.nature;
+      li.className = 'rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800';
+      li.textContent = c.phrase;
+      causes.appendChild(li);
+    }
+  }
+
+  /* ── Les écarts ────────────────────────────────────────────────────────── */
+
+  async function peindreLesEcarts() {
+    const { lignes, occ, etat } = await rassembler();
+    const parLigne = ecartsParLigne(lignes, occ, etat.retenus, TOLERANCE_PAR_DEFAUT, aujourdHui);
+
+    let rangees: EcartAgrege[];
+    if (axe === 'ligne') {
+      rangees = parLigne.map((e) => ({
+        cle: e.libelle,
+        prevu: e.prevu,
+        reel: e.reel,
+        ecart: e.ecart,
+        ecartRelatif: e.ecartRelatif,
+      }));
+    } else if (axe === 'categorie') {
+      rangees = ecartsParCategorie(parLigne);
+    } else {
+      rangees = ecartsParMois(lignes, occ, etat.retenus, TOLERANCE_PAR_DEFAUT, aujourdHui);
+    }
+
+    const horsTolerance = new Set(parLigne.filter((e) => e.horsTolerance).map((e) => e.libelle));
+    const zone = $('ecarts');
+    zone.innerHTML = '';
+    $('ecarts-vides').classList.toggle('hidden', rangees.length > 0);
+    if (!rangees.length) {
+      $('ecarts-vides').textContent =
+        'Aucune ligne de budget, ou aucune échéance échue sur la période des opérations.';
+      return;
+    }
+
+    for (const e of rangees) {
+      const li = document.createElement('li');
+      li.dataset.ecart = e.cle;
+      li.className =
+        'flex flex-wrap items-baseline justify-between gap-2 rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800';
+      const gauche = document.createElement('span');
+      gauche.className = 'font-medium text-slate-900 dark:text-white';
+      /*
+         Le symbole, le chiffre **et** le mot — jamais la couleur seule. Et le
+         vocabulaire reste neutre : « écart », jamais « dépassement ». Un
+         budget serré est un choix, pas une faute.
+      */
+      const alerte = axe === 'ligne' && horsTolerance.has(e.cle);
+      gauche.textContent = `${alerte ? '⚠ ' : ''}${e.cle}`;
+      const droite = document.createElement('span');
+      droite.className = 'tabular-nums text-slate-600 dark:text-slate-300';
+      const relatif =
+        e.ecartRelatif === null ? '—' : `${(e.ecartRelatif * 100).toFixed(1).replace('.', ',')} %`;
+      droite.textContent =
+        `prévu ${euros(e.prevu)} · réel ${euros(e.reel)} · écart ${euros(e.ecart)} (${relatif})` +
+        (alerte ? ' — hors tolérance' : '');
+      li.append(gauche, droite);
+      zone.appendChild(li);
+    }
+  }
+
+  /* ── Déduire du réel ───────────────────────────────────────────────────── */
+
+  async function peindreLesRecurrences() {
+    const [operations, lignes] = await Promise.all([toutesLesOperations(), toutesLesLignes()]);
+    const connues = new Set(lignes.flatMap((l) => l.motifs));
+    const trouvees = detecterLesRecurrences(operations).filter((r) => !connues.has(r.fragment));
+    const zone = $('recurrences');
+    zone.innerHTML = '';
+    $('recurrences-vides').classList.toggle('hidden', trouvees.length > 0);
+    if (!trouvees.length) {
+      $('recurrences-vides').textContent = operations.length
+        ? 'Aucune récurrence nouvelle : il faut au moins trois occurrences régulières pour ' +
+          'qu’une périodicité veuille dire quelque chose.'
+        : 'Aucune opération enregistrée.';
+      return;
+    }
+
+    for (const r of trouvees) {
+      const p = enLigneDeBudget(r, new Date().toISOString());
+      const li = document.createElement('li');
+      li.dataset.recurrence = r.fragment;
+      li.className = 'rounded-xl border border-slate-200 p-3 dark:border-slate-800';
+      const titre = document.createElement('p');
+      titre.className = 'font-medium text-slate-900 dark:text-white';
+      const quand =
+        r.periodicite === 'hebdomadaire'
+          ? `chaque semaine, jour ${r.jourAttendu}`
+          : `le ${r.jourAttendu} de chaque échéance ${r.periodicite}`;
+      titre.textContent = `${r.libelle} — ${euros(r.montant)} ${quand}`;
+      const fondement = document.createElement('p');
+      fondement.className = 'mt-1 text-sm text-slate-500 dark:text-slate-400';
+      fondement.dataset.fondement = '';
+      fondement.textContent = r.fondement;
+      const gestes = document.createElement('div');
+      gestes.className = 'mt-2 flex flex-wrap gap-2';
+      gestes.append(
+        bouton('Créer cette ligne', 'creer-ligne', async () => {
+          await ecrireLigne(p.ligne);
+          await peindreTout();
+        }),
+      );
+      li.append(titre, fondement, gestes);
+      zone.appendChild(li);
+    }
+  }
+
+  /* ── Le cycle ──────────────────────────────────────────────────────────── */
+
+  async function peindreTout() {
+    $('erreur').classList.add('hidden');
+    await peindreLaFile();
+    await peindreLesComptes();
+    await peindreLesEcarts();
+  }
+
+  async function recharger() {
+    await reprendreLeCoffre();
+    const ouvert = coffreOuvert();
+    $('coffre-ferme').classList.toggle('hidden', ouvert);
+    $('coffre-ouvert').classList.toggle('hidden', !ouvert);
+    if (ouvert) await peindreTout();
+  }
+
+  function marquerLAxe() {
+    for (const b of document.querySelectorAll<HTMLElement>('.axe')) {
+      const actif = b.dataset.axe === axe;
+      b.dataset.actif = String(actif);
+      b.classList.toggle('bg-slate-800', actif);
+      b.classList.toggle('text-white', actif);
+      b.classList.toggle('dark:bg-slate-200', actif);
+      b.classList.toggle('dark:text-slate-900', actif);
+    }
+  }
+
+  auDeverrouillage(
+    async () => {
+      $('ouvrir-coffre').addEventListener('click', () => {
+        void (async () => {
+          const mdp = $('mdp-coffre') as HTMLInputElement;
+          const erreur = await ouvrirLeCoffre(mdp.value);
+          $('erreur-coffre').classList.toggle('hidden', erreur === null);
+          if (erreur) {
+            $('erreur-coffre').textContent = erreur;
+            return;
+          }
+          mdp.value = '';
+          debutDuPassage = new Date().toISOString();
+          await recharger();
+        })();
+      });
+      $('mdp-coffre').addEventListener('keydown', (e) => {
+        if ((e as KeyboardEvent).key === 'Enter') $('ouvrir-coffre').click();
+      });
+      $('fermer-coffre').addEventListener('click', () => {
+        fermerLeCoffre();
+        void recharger();
+      });
+
+      $('tout-confirmer').addEventListener('click', () => {
+        void (async () => {
+          /*
+             « Tout confirmer » porte sur les **probables** seules. Les
+             certaines sont déjà appliquées, et les « à classer » n'ont
+             aucune cible : les emporter dans le même geste rangerait des
+             opérations nulle part.
+          */
+          const { operations, lignes, occ, etat } = await rassembler();
+          const dejaRangees = new Set(etat.retenus.map((r) => r.operationId));
+          const occPrises = new Set(
+            etat.retenus.filter((r) => r.occurrenceId).map((r) => r.occurrenceId as string),
+          );
+          const file = construireLaFile(
+            occ.filter((o) => !occPrises.has(o.id)),
+            operations.filter((o) => !dejaRangees.has(o.id)),
+            reglagesDe(lignes),
+          );
+          const quand = new Date().toISOString();
+          await ecrireRapprochements(
+            file.probables.map((p) => ({
+              operationId: p.operationId,
+              occurrenceId: p.occurrenceId,
+              ligneId: p.ligneId,
+              type: 'confirme' as const,
+              centimes: operations.find((o) => o.id === p.operationId)?.centimes ?? 0,
+              ecartAuPrevu: p.ecartAuPrevu,
+              decideLe: quand,
+            })),
+          );
+          await peindreTout();
+        })().catch(dire);
+      });
+
+      /*
+         « Annuler » du pied : il défait les certaines **de ce passage**, et
+         non toutes celles jamais appliquées. Une opération rangée d'office
+         il y a trois mois et jamais contestée n'a pas à revenir dans la file
+         parce qu'on rouvre l'écran aujourd'hui.
+      */
+      $('annuler-certaines').addEventListener('click', () => {
+        void annulerLesAutomatiques(debutDuPassage).then(peindreTout).catch(dire);
+      });
+
+      $('verifier-solde').addEventListener('click', () => void verifierLeSolde().catch(dire));
+      for (const champ of ['solde-declare', 'solde-depart']) {
+        $(champ).addEventListener('keydown', (e) => {
+          if ((e as KeyboardEvent).key === 'Enter') $('verifier-solde').click();
+        });
+      }
+      $('deduire').addEventListener('click', () => void peindreLesRecurrences().catch(dire));
+
+      for (const b of document.querySelectorAll<HTMLElement>('.axe')) {
+        b.addEventListener('click', () => {
+          axe = (b.dataset.axe as typeof axe) ?? 'ligne';
+          marquerLAxe();
+          void peindreLesEcarts().catch(dire);
+        });
+      }
+      marquerLAxe();
+
+      surCoffre(() => void recharger());
+      await recharger();
+      $('vue').classList.remove('hidden');
+    },
+    { zoneChargement: '#chargement-rapprocher' },
+  );
+</script>

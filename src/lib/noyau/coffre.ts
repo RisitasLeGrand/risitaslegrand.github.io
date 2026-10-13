@@ -149,6 +149,12 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
     clairs: ['id', 'majLe'],
   },
   {
+    magasin: 'odysseeRapprochements',
+    pourquoi:
+      'Finances : un rapprochement relie un montant à une ligne de vie — « ce prélèvement de 112,40 € est mon électricité ». Il en dit autant que l’opération elle-même.',
+    clairs: ['id', 'operationId', 'majLe'],
+  },
+  {
     magasin: 'odysseeHormonal',
     pourquoi:
       'Statut hormonal et substances : une période déclarative dont la lecture par un tiers peut coûter très cher.',

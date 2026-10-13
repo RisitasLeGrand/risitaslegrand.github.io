@@ -158,7 +158,7 @@ v(
      part d'une base en v14 : il vérifie donc que **tous** les blocs additifs
      ont tourné, et pas seulement celui qui l'intéressait au départ.
   */
-  'les vingt-six magasins d’Odyssée existent',
+  'les vingt-sept magasins d’Odyssée existent',
   apres.magasins.filter((m) => m.startsWith('odyssee')).sort(),
   [
     'odysseeBoissons',
@@ -179,6 +179,8 @@ v(
     'odysseePassations',
     'odysseePesees',
     'odysseeQuetes',
+    // Le rapprochement, depuis la phase 3 de Finances. Scellé lui aussi.
+    'odysseeRapprochements',
     'odysseeRepas',
     'odysseeRevues',
     'odysseeSante',

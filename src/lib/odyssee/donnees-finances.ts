@@ -34,12 +34,20 @@ import {
   type Valorisation,
 } from './finances';
 import { controlerLigne, type LigneBudget } from './budget';
+import {
+  controlerRapprochement,
+  identifiantDeRapprochement,
+  resoudre,
+  type Rapprochement,
+  type TypeDeRapprochement,
+} from './rapprochement';
 
 type MagasinFinances =
   | 'odysseeComptes'
   | 'odysseeValorisations'
   | 'odysseeOperations'
-  | 'odysseeLignesBudget';
+  | 'odysseeLignesBudget'
+  | 'odysseeRapprochements';
 
 async function journaliser(magasin: MagasinFinances, scelle: unknown): Promise<void> {
   try {
@@ -195,6 +203,123 @@ export async function supprimerLigne(id: string): Promise<void> {
   await journaliserSuppression([`odysseeLignesBudget:${id}`]);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   Les rapprochements
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Le nom de cet appareil, tel qu'il figurera dans un conflit.
+ *
+ * Il sert à **nommer** un désaccord, pas à l'arbitrer : l'arbitrage se fait
+ * sur le type de décision, jamais sur l'appareil. Si l'identité d'appareil
+ * n'est pas disponible, on écrit « cet appareil » plutôt que d'inventer un
+ * nom — un conflit entre « inconnu-1 » et « inconnu-2 » n'aiderait personne.
+ */
+async function nomDeLAppareil(): Promise<string> {
+  try {
+    const { lireAppareil } = await import('../db');
+    return (await lireAppareil()) || 'cet appareil';
+  } catch {
+    return 'cet appareil';
+  }
+}
+
+export async function ecrireRapprochement(
+  r: Omit<Rapprochement, 'id' | 'majLe' | 'appareil'> & { appareil?: string },
+): Promise<Rapprochement> {
+  const complet: Rapprochement = {
+    ...r,
+    id: identifiantDeRapprochement(r.operationId, r.occurrenceId),
+    appareil: r.appareil ?? (await nomDeLAppareil()),
+    majLe: maintenant(),
+  };
+  exiger(controlerRapprochement(complet));
+  return ecrire('odysseeRapprochements', complet);
+}
+
+/**
+ * Écrit plusieurs rapprochements d'un coup — ce que fait « Tout confirmer ».
+ *
+ * Une boucle d'écritures séparées ferait autant d'ouvertures du coffre et
+ * autant d'entrées de journal ; sur une file de quatorze, la différence se
+ * voit à l'écran.
+ */
+export async function ecrireRapprochements(
+  liste: readonly (Omit<Rapprochement, 'id' | 'majLe' | 'appareil'> & { appareil?: string })[],
+): Promise<Rapprochement[]> {
+  if (!liste.length) return [];
+  const cle = exigerLeCoffre();
+  const appareil = await nomDeLAppareil();
+  const quand = maintenant();
+  const complets = liste.map((r) => ({
+    ...r,
+    id: identifiantDeRapprochement(r.operationId, r.occurrenceId),
+    appareil: r.appareil ?? appareil,
+    majLe: quand,
+  }));
+  for (const c of complets) exiger(controlerRapprochement(c));
+
+  const base = await db();
+  const tx = base.transaction('odysseeRapprochements', 'readwrite');
+  const scelles = await Promise.all(
+    complets.map((c) =>
+      sceller(cle, 'odysseeRapprochements', c as unknown as Record<string, unknown>),
+    ),
+  );
+  await Promise.all(scelles.map((s) => tx.store.put(s as unknown as never)));
+  await tx.done;
+  for (const s of scelles) await journaliser('odysseeRapprochements', s);
+  return complets;
+}
+
+export const tousLesRapprochements = () => toutLire<Rapprochement>('odysseeRapprochements');
+
+/**
+ * L'état retenu, conflits compris.
+ *
+ * C'est cette lecture-là que les écrans utilisent, et non la liste brute :
+ * sans l'arbitrage, deux appareils en désaccord feraient compter une
+ * opération deux fois dans les écarts.
+ */
+export async function etatDesRapprochements() {
+  const [rapprochements, operations] = await Promise.all([
+    tousLesRapprochements(),
+    toutesLesOperations(),
+  ]);
+  return resoudre(rapprochements, operations);
+}
+
+/**
+ * Annuler une décision — le geste que le pied de la file propose.
+ *
+ * La suppression est journalisée comme les autres : un rapprochement défait
+ * sur un appareil doit l'être partout, sinon le prochain échange le ferait
+ * revenir.
+ */
+export async function annulerRapprochement(
+  operationId: string,
+  occurrenceId: string | null,
+): Promise<void> {
+  const id = identifiantDeRapprochement(operationId, occurrenceId);
+  await (await db()).delete('odysseeRapprochements', id);
+  await journaliserSuppression([`odysseeRapprochements:${id}`]);
+}
+
+/** Annule tout ce qui a été appliqué d'office lors d'un passage de la file. */
+export async function annulerLesAutomatiques(depuis: string): Promise<number> {
+  const tous = await tousLesRapprochements();
+  const cibles = tous.filter((r) => r.type === 'automatique' && r.decideLe >= depuis);
+  if (!cibles.length) return 0;
+  const base = await db();
+  const tx = base.transaction('odysseeRapprochements', 'readwrite');
+  await Promise.all(cibles.map((r) => tx.store.delete(r.id)));
+  await tx.done;
+  await journaliserSuppression(cibles.map((r) => `odysseeRapprochements:${r.id}`));
+  return cibles.length;
+}
+
+export type { Rapprochement, TypeDeRapprochement };
+
 /**
  * Combien d'enregistrements financiers existent, **sans ouvrir le coffre**.
  *
@@ -208,6 +333,7 @@ export async function combienDeFinances(): Promise<number> {
     base.count('odysseeValorisations'),
     base.count('odysseeOperations'),
     base.count('odysseeLignesBudget'),
+    base.count('odysseeRapprochements'),
   ]);
   return comptes.reduce((s, n) => s + n, 0);
 }

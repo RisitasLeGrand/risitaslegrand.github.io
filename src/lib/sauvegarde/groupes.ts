@@ -117,6 +117,13 @@ export const CHAMP_DATE: Record<string, string | null> = {
   */
   odysseeComptes: null,
   odysseeLignesBudget: null,
+  /*
+     Un rapprochement est un **état** lui aussi : il dit où une opération est
+     rangée. L'élaguer par date laisserait une opération conservée sans sa
+     décision, c'est-à-dire de retour dans « à rapprocher » des années après
+     avoir été classée.
+  */
+  odysseeRapprochements: null,
   odysseeHebdos: 'semaine',
   odysseeJournal: 'jour',
   /*
@@ -217,6 +224,7 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
       'odysseeVeilleSignaux',
       'odysseeVeilleReglages',
       'odysseePassations',
+      'odysseeRapprochements',
     ],
   },
   {

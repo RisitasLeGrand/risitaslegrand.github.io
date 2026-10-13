@@ -24,6 +24,7 @@ import type { ReglagesVeille, SignalEnregistre } from './odyssee/signal-veille';
 import type { Passation } from './odyssee/echelles';
 import type { Compte, OperationBancaire, Valorisation } from './odyssee/finances';
 import type { LigneBudget } from './odyssee/budget';
+import type { Rapprochement } from './odyssee/rapprochement';
 import type {
   Boisson,
   EtatDeSante,
@@ -631,10 +632,21 @@ interface SchemaRevinsp extends DBSchema {
      application puisse contenir.
   */
   odysseePassations: { key: string; value: Passation; indexes: { jour: string; echelle: string } };
+  /*
+     Les rapprochements, depuis la phase 3 de Finances. L'index porte sur
+     l'opération parce que c'est la seule lecture chaude : « cette opération
+     est-elle déjà rangée ? », posée une fois par ligne de relevé importée.
+
+     L'index ne porte **pas** sur l'occurrence, et c'est délibéré : les
+     identifiants d'occurrence sont dérivés et se recalculent, indexer une
+     clé qui peut changer de forme à la prochaine version du moteur de
+     périodicité fabriquerait un index silencieusement faux.
+  */
+  odysseeRapprochements: { key: string; value: Rapprochement; indexes: { operationId: string } };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 25;
+const VERSION = 26;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1255,6 +1267,19 @@ function ouvrirAuSchema(nom: string, version: number) {
         const passations = base.createObjectStore('odysseePassations', { keyPath: 'id' });
         passations.createIndex('jour', 'jour');
         passations.createIndex('echelle', 'echelle');
+      }
+      if (vers(26)) {
+        /*
+         * Les rapprochements — Finances, phase 3.
+         *
+         * Scellé : un rapprochement dit « cette opération de 112,40 € est
+         * mon électricité », ce qui est à la fois un montant et un fait de
+         * vie. L'identifiant et l'horodatage restent en clair, comme partout
+         * ailleurs, pour que la fusion puisse travailler sans la clé.
+         */
+        base
+          .createObjectStore('odysseeRapprochements', { keyPath: 'id' })
+          .createIndex('operationId', 'operationId');
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -2122,6 +2147,7 @@ export const MAGASINS_PROGRESSION = [
   'odysseeVeilleSignaux',
   'odysseeVeilleReglages',
   'odysseePassations',
+  'odysseeRapprochements',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */
