@@ -448,6 +448,23 @@ export const annulerLaRegle = async (nomDeLaRegle: string): Promise<number> =>
     ),
   );
 
+/**
+ * Tout ce que la dernière passe automatique a posé, défait.
+ *
+ * C'est le « Tout annuler » du compte rendu d'import (maquette 8.1), et il
+ * se borne à la passe : ce que la personne a pointé elle-même n'est jamais
+ * touché, et ce qu'une passe antérieure avait posé reste en place. Le
+ * critère est l'instant — « décidé depuis que cet écran s'est ouvert » —,
+ * le même que « annulerLesAutomatiques » emploie pour les rapprochements.
+ * Il n'y a pas d'autre critère disponible : une opération ne porte pas
+ * l'identifiant de l'import qui l'a amenée, et lui en donner un serait une
+ * migration, pas un bouton.
+ */
+export const annulerLePassage = async (depuis: string): Promise<number> =>
+  annulerPlusieurs(
+    (await tousLesPointages()).filter((p) => p.auteur !== 'moi' && p.decideLe >= depuis),
+  );
+
 export const annulerLImport = async (importId: string): Promise<number> =>
   annulerPlusieurs(
     (await tousLesPointages()).filter((p) => p.importId === importId && p.auteur !== 'moi'),

@@ -170,6 +170,67 @@ await aller('/odyssee/rapprocher/', '#vue');
     await page.textContent('#compte-file'));
 }
 
+/* ── 2 bis. Le compte rendu de la passe (maquette 8.1) ───────────────── */
+
+console.log('\nLE COMPTE RENDU ANNONCE CE QUE LA PASSE A FAIT');
+
+{
+  vrai('le bandeau s’affiche après une passe qui a écrit',
+    await page.locator('#compte-rendu').isVisible());
+  const titre = await page.textContent('#titre-compte-rendu');
+  vrai('il annonce le nombre d’opérations', titre.includes('20 opérations'), titre);
+  const lignes = await page.$$eval('#lignes-compte-rendu li', (e) => e.map((x) => x.textContent));
+  /*
+     Douze à pointer et huit à revoir, et non vingt à pointer : huit portent
+     une anomalie — premier montant d'un vendeur sans historique. C'est la
+     décision du moteur, et le compte rendu la rapporte au lieu de la
+     lisser. Ce qui est éprouvé ici, c'est que les nombres **font le
+     total** : un compte rendu dont les lignes n'additionnent pas ce que le
+     titre annonce est pire que pas de compte rendu.
+  */
+  v('les deux tas sont nommés', lignes.length, 2);
+  vrai('douze à pointer', lignes.some((l) => l.startsWith('12 à pointer')), lignes);
+  vrai('huit à revoir', lignes.some((l) => l.startsWith('8 à revoir')), lignes);
+  const somme = lignes.reduce((s, l) => s + Number(l.match(/^\d+/)[0]), 0);
+  v('et les nombres font le total annoncé', somme, 20);
+  /*
+     Le sondage ne se déclenche qu’à partir de dix pointées **seules**. Rien
+     n’a été pointé seul ici : la ligne doit rester absente. L’éprouver
+     par l’absence vaut mieux que de ne pas l’éprouver : c’est ce seuil qui
+     empêche un « contrôle » de trois lignes qui n’apprend rien.
+  */
+  faux('et aucun sondage, faute de pointées seules',
+    await page.locator('#ligne-sondage').isVisible());
+}
+
+{
+  /*
+     La seconde ouverture ne réécrit rien — chaque opération a déjà le
+     statut que la passe lui donnerait. Le bandeau doit donc disparaître :
+     un « passage terminé » affiché à chaque visite cesserait d’être lu.
+  */
+  /*
+     La passe **converge**, mais pas du premier coup : mesuré le 13 octobre
+     2026, la seconde ouverture écrit encore quatre pointages, la troisième
+     aucun. La cause est connue et antérieure au compte rendu : l'historique
+     d'un vendeur se reconstruit depuis ce qui est déjà pointé, donc la
+     première passe le laisse vide, la deuxième le trouve rempli, et deux
+     anomalies de « montant inhabituel » tombent. Le compte rendu rend cette
+     non-idempotence visible, il ne la crée pas ; elle est au tableau sous
+     D-033. Ce que l'essai fige, c'est la convergence : si une passe se
+     remettait à écrire indéfiniment, le bandeau s'afficherait à chaque
+     ouverture et la base s'écrirait pour rien.
+  */
+  const ecrits = [];
+  for (let i = 0; i < 3; i += 1) {
+    await aller('/odyssee/rapprocher/', '#vue');
+    ecrits.push(Number(await page.getAttribute('#compte-rendu', 'data-ecrits')));
+  }
+  v('la deuxième passe écrit encore, les suivantes plus rien', ecrits, [4, 0, 0]);
+  faux('et une passe qui n’écrit rien n’annonce rien',
+    await page.locator('#compte-rendu').isVisible());
+}
+
 /* ── 3. Le réel propose ses lignes ────────────────────────────────────── */
 
 console.log('\nLE RÉEL PROPOSE SES LIGNES');

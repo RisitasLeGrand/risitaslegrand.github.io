@@ -59,6 +59,32 @@ import Base from '../../layouts/Base.astro';
       </section>
 
       <div id="coffre-ouvert" class="hidden space-y-10">
+        <!--
+          ── Le compte rendu de la passe automatique (maquette 8.1) ─────
+
+          Il ne s'affiche que quand la passe a **écrit** quelque chose,
+          c'est-à-dire après un import ou après une règle nouvelle. Le
+          montrer à chaque ouverture annoncerait « import terminé » devant
+          un écran où rien n'est entré, et un bandeau qui dit toujours la
+          même chose cesse d'être lu.
+        -->
+        <section id="compte-rendu"
+          class="hidden rounded-2xl border border-indigo-200 bg-indigo-50/60 p-4 dark:border-indigo-900 dark:bg-indigo-950/30">
+          <h2 id="titre-compte-rendu" class="text-lg font-semibold text-slate-900 dark:text-white"></h2>
+          <ul id="lignes-compte-rendu" class="mt-3 space-y-2 text-sm"></ul>
+
+          <p id="ligne-sondage" class="mt-4 hidden border-t border-indigo-200 pt-3 text-sm text-slate-700 dark:border-indigo-900 dark:text-slate-200"></p>
+          <div id="gestes-sondage" class="mt-2 hidden flex-wrap gap-2">
+            <button id="verifier-sondage" type="button"
+              class="cible-tactile rounded-lg bg-slate-800 px-3 text-sm font-medium text-white dark:bg-slate-200 dark:text-slate-900"
+              >Vérifier</button>
+            <button id="sondage-plus-tard" type="button"
+              class="cible-tactile rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700"
+              >Plus tard</button>
+          </div>
+          <ul id="echantillon-sondage" class="mt-3 hidden space-y-2 text-sm"></ul>
+        </section>
+
         <!-- ── La file ─────────────────────────────────────────────────── -->
         <section>
           <div class="flex flex-wrap items-baseline justify-between gap-2">
@@ -276,6 +302,7 @@ import Base from '../../layouts/Base.astro';
     HISTORIQUE_VIDE,
     PREREGLAGE_PAR_DEFAUT,
     decider,
+    sondage,
   } from '../../lib/odyssee/pointage';
   import {
     grouperLesInconnus,
@@ -297,6 +324,8 @@ import Base from '../../layouts/Base.astro';
   } from '../../lib/odyssee/regles-pointage';
   import { vueDesCategories } from '../../lib/odyssee/categories-pointees';
   import {
+    annulerLePassage,
+    annulerLePointage,
     appliquerLaRegleAuPasse,
     defractionnerLOperation,
     ecrireLaRegle,
@@ -364,6 +393,8 @@ import Base from '../../layouts/Base.astro';
   let inconnusMontres = 10;
   /** Le début du passage en cours : ce que « Annuler » peut défaire. */
   let debutDuPassage = new Date().toISOString();
+  /** L'échantillon du contrôle par sondage, tiré par le moteur. */
+  let sondageDuTour: string[] = [];
   /** Le vendeur dont le mode avancé est ouvert, et son brouillon. */
   let avanceOuvert: string | null = null;
   let brouillon: BrouillonDeRegle | null = null;
@@ -904,7 +935,182 @@ import Base from '../../layouts/Base.astro';
         versionDuDictionnaire: VERSION_DU_DICTIONNAIRE,
       });
     }
-    await ecrireLesPointages(aEcrire);
+    const { ecrits } = await ecrireLesPointages(aEcrire);
+
+    /*
+       Les trois nombres portent sur **tout** ce que la file contient, et non
+       sur la seule passe : « 19 à pointer » doit dire ce qui reste à faire,
+       pas ce que cette passe vient de reclasser. Seul le déclenchement du
+       bandeau dépend de la passe.
+    */
+    const apres = new Map((await tousLesPointages()).map((p) => [p.operationId, p]));
+    const concernees = operations.filter((o) => !o.transfertAvec);
+    const statutDe = (o: OperationBancaire) => apres.get(o.id)?.statut ?? 'a-pointer';
+    const parStatut = (s: string) => concernees.filter((o) => statutDe(o) === s).length;
+
+    /* L'échantillon se tire sur les pointées seules — jamais sur les miennes. */
+    const pointeesSeules = concernees
+      .filter((o) => {
+        const p = apres.get(o.id);
+        return p?.statut === 'pointee-auto' && p.auteur !== 'moi';
+      })
+      .map((o) => ({ id: o.id, centimes: o.centimes }));
+
+    return {
+      ecrits: ecrits.length,
+      total: concernees.length,
+      pointees: parStatut('pointee-auto'),
+      parMoi: parStatut('pointee-par-moi'),
+      aPointer: parStatut('a-pointer'),
+      aRevoir: parStatut('a-revoir'),
+      aVerifier: sondage(pointeesSeules),
+    };
+  }
+
+  /** Ce que la dernière passe automatique laisse derrière elle. */
+  type CompteRendu = Awaited<ReturnType<typeof pointerCeQuiPeutLEtre>>;
+
+  /**
+   * Le compte rendu, et ses raccourcis vers les trois tas.
+   *
+   * Chaque nombre porte le geste qui va avec : annoncer « 7 à revoir » sans
+   * dire où elles sont oblige à les chercher dans une file de quatre-vingts
+   * lignes, et c'est à ce moment-là qu'on referme l'écran.
+   */
+  function peindreLeCompteRendu(cr: CompteRendu) {
+    const bloc = $('compte-rendu');
+    /* Lisible par les essais : combien la passe a réellement écrit. */
+    bloc.dataset.ecrits = String(cr.ecrits);
+    bloc.classList.toggle('hidden', cr.ecrits === 0);
+    if (cr.ecrits === 0) return;
+
+    $('titre-compte-rendu').textContent =
+      `Passage terminé — ${cr.total} opération${cr.total > 1 ? 's' : ''}`;
+
+    const zone = $('lignes-compte-rendu');
+    zone.innerHTML = '';
+    const ligne = (
+      nombre: number,
+      quoi: string,
+      gestes: readonly [string, () => void | Promise<void>][],
+    ) => {
+      if (nombre === 0) return;
+      const li = document.createElement('li');
+      li.className = 'flex flex-wrap items-center gap-x-3 gap-y-1';
+      const texte = document.createElement('span');
+      texte.className = 'text-slate-800 dark:text-slate-100';
+      texte.innerHTML = '';
+      const fort = document.createElement('strong');
+      fort.textContent = String(nombre);
+      texte.append(fort, ` ${quoi}`);
+      li.appendChild(texte);
+      for (const [libelle, faire] of gestes) {
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className =
+          'cible-tactile rounded-lg border border-slate-300 px-3 text-xs dark:border-slate-700';
+        b.textContent = libelle;
+        b.addEventListener('click', () => void Promise.resolve(faire()).catch(dire));
+        li.appendChild(b);
+      }
+      zone.appendChild(li);
+    };
+
+    const allerA = (lequel: typeof filtre) => {
+      filtre = lequel;
+      appliquerLeFiltre();
+      $('titre-file').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    };
+
+    ligne(cr.pointees, 'pointées automatiquement', [
+      ['Les revoir', () => allerA('tout')],
+      [
+        'Tout annuler',
+        async () => {
+          const combien = await annulerLePassage(debutDuPassage);
+          if (combien === 0) return;
+          await peindreTout();
+        },
+      ],
+    ]);
+    ligne(cr.aPointer, 'à pointer', [['Les traiter', () => allerA('a-pointer')]]);
+    ligne(cr.aRevoir, 'à revoir', [['Les voir', () => allerA('a-revoir')]]);
+    /*
+       Les quatre nombres font le total annoncé. Sans cette quatrième ligne,
+       « 87 opérations » surmonterait trois nombres qui n'en font que 73, et
+       la première chose qu'on fait devant un compte rendu est l'addition.
+    */
+    ligne(cr.parMoi, 'déjà pointées par vous', []);
+
+    peindreLeSondage(cr.aVerifier);
+  }
+
+  /**
+   * Le contrôle par sondage : quelques lignes à relire, pas un inventaire.
+   *
+   * Le tirage est celui du moteur — les trois plus gros montants et deux au
+   * hasard, à partir de dix pointées seules —, et il est déterministe : le
+   * même passage propose le même échantillon, sur cet appareil comme sur
+   * l'autre. Un sondage qui changerait à chaque ouverture ne se finirait
+   * jamais.
+   */
+  function peindreLeSondage(ids: readonly string[]) {
+    const vide = ids.length === 0;
+    $('ligne-sondage').classList.toggle('hidden', vide);
+    $('gestes-sondage').classList.toggle('hidden', vide);
+    $('gestes-sondage').classList.toggle('flex', !vide);
+    $('echantillon-sondage').classList.add('hidden');
+    if (vide) return;
+
+    $('ligne-sondage').textContent =
+      `Contrôle par sondage : ${ids.length} opération${ids.length > 1 ? 's' : ''} ` +
+      'à vérifier d’un coup d’œil.';
+    sondageDuTour = [...ids];
+  }
+
+  /**
+   * Les lignes tirées, avec ce qui a été décidé et pourquoi.
+   *
+   * Un seul geste par ligne : « Annuler ce pointage ». Corriger sur place
+   * reviendrait à refaire ici l'écran de pointage, et l'opération annulée
+   * retombe justement dans la file, à sa place, avec tous ses gestes.
+   */
+  async function peindreLEchantillon() {
+    const [operations, pointages] = await Promise.all([
+      toutesLesOperations(), tousLesPointages(),
+    ]);
+    const parOperation = new Map(pointages.map((p) => [p.operationId, p]));
+    const zone = $('echantillon-sondage');
+    zone.innerHTML = '';
+    for (const id of sondageDuTour) {
+      const o = operations.find((x) => x.id === id);
+      const p = parOperation.get(id);
+      if (!o || !p) continue;
+      const li = document.createElement('li');
+      li.className = 'rounded-xl border border-indigo-200 bg-white p-3 dark:border-indigo-900 dark:bg-slate-900';
+
+      const titre = document.createElement('p');
+      titre.className = 'font-medium text-slate-900 dark:text-white';
+      titre.textContent = `${o.libelle} — ${euros(o.centimes)}`;
+
+      const detail = document.createElement('p');
+      detail.className = 'mt-1 text-xs text-slate-500 dark:text-slate-400';
+      detail.textContent =
+        `${typeDe(p.typeId ?? '')?.libelle ?? 'sans type'} · ${p.pourquoi}`;
+
+      const defaire = document.createElement('button');
+      defaire.type = 'button';
+      defaire.className =
+        'cible-tactile mt-2 rounded-lg border border-slate-300 px-3 text-xs dark:border-slate-700';
+      defaire.textContent = 'Annuler ce pointage';
+      defaire.addEventListener('click', () => {
+        void annulerLePointage(id).then(peindreTout).catch(dire);
+      });
+
+      li.append(titre, detail, defaire);
+      zone.appendChild(li);
+    }
+    zone.classList.remove('hidden');
   }
 
   async function peindreLesInconnus() {
@@ -1619,7 +1825,7 @@ import Base from '../../layouts/Base.astro';
 
   async function peindreTout() {
     $('erreur').classList.add('hidden');
-    await pointerCeQuiPeutLEtre();
+    peindreLeCompteRendu(await pointerCeQuiPeutLEtre());
     await peindreLaFile();
     await peindreLesInconnus();
     await peindreLeFractionnement();
@@ -1761,6 +1967,22 @@ import Base from '../../layouts/Base.astro';
       */
       $('annuler-certaines').addEventListener('click', () => {
         void annulerLesAutomatiques(debutDuPassage).then(peindreTout).catch(dire);
+      });
+
+      $('verifier-sondage').addEventListener('click', () => {
+        void peindreLEchantillon().catch(dire);
+      });
+      /*
+         « Plus tard » ne reporte rien et ne retient rien : il referme la
+         ligne pour cette visite. Un sondage qu'on repousse en le notant
+         quelque part reviendrait le lendemain avec les mêmes opérations,
+         et c'est ainsi qu'un contrôle devient une corvée.
+      */
+      $('sondage-plus-tard').addEventListener('click', () => {
+        $('ligne-sondage').classList.add('hidden');
+        $('gestes-sondage').classList.add('hidden');
+        $('gestes-sondage').classList.remove('flex');
+        $('echantillon-sondage').classList.add('hidden');
       });
 
       $('verifier-solde').addEventListener('click', () => void verifierLeSolde().catch(dire));
