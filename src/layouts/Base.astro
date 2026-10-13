@@ -245,6 +245,24 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
               </div>
 
               <div class="ml-auto flex shrink-0 items-center gap-1 lg:ml-0">
+                {/*
+                  L'indicateur de synchronisation, discret (D-025, point 2).
+
+                  Un point, pas un bandeau, et masqué tant que la veille ne
+                  tourne pas : un indicateur qui dit « rien ne se passe » en
+                  permanence devient un meuble, et un bandeau coûterait au
+                  ruban d'onglets la place que D-009 venait de lui rendre.
+                  Le libellé accessible, lui, dit l'état en toutes lettres.
+                */}
+                <span
+                  id="temoin-sync"
+                  class="hidden h-11 w-5 items-center justify-center"
+                  role="status"
+                  aria-live="polite"
+                >
+                  <span id="pastille-sync" aria-hidden="true" class="block h-2 w-2 rounded-full bg-slate-400"></span>
+                  <span id="texte-sync" class="sr-only"></span>
+                </span>
                 <CommutateurTheme />
                 <button
                   id="bouton-verrouiller"
@@ -343,7 +361,66 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
       */
       quandDeverrouille(async () => {
         const { veiller } = await import('../lib/sync/veille');
-        await veiller();
+        const veille = await veiller();
+        if (veille) peindreLeTemoin(veille.etat());
+      });
+
+      /*
+         Le témoin de synchronisation, discret (D-025, point 2).
+
+         Il ne s'affiche que quand la veille tourne — « en veille », « en
+         cours », « échec ». Les trois états d'attente (« non certifié »,
+         « sans appairage », « sans mot de passe ») le laissent caché : ce
+         sont des réponses à une question que personne n'a posée, et
+         l'écran des appareils les dit déjà en toutes lettres.
+      */
+      const COULEURS: Record<string, string> = {
+        'en-veille': 'bg-emerald-500',
+        'en-cours': 'bg-indigo-500',
+        echec: 'bg-amber-500',
+      };
+      const MOTS: Record<string, string> = {
+        'en-veille': 'Synchronisation en veille.',
+        'en-cours': 'Synchronisation en cours.',
+        echec: 'Dernière synchronisation en échec ; la veille continue.',
+      };
+
+      function peindreLeTemoin(etat: string) {
+        const temoin = document.getElementById('temoin-sync');
+        const pastille = document.getElementById('pastille-sync');
+        const texte = document.getElementById('texte-sync');
+        if (!temoin || !pastille || !texte) return;
+        const couleur = COULEURS[etat];
+        temoin.classList.toggle('hidden', !couleur);
+        temoin.classList.toggle('flex', Boolean(couleur));
+        if (!couleur) return;
+        pastille.className = `block h-2 w-2 rounded-full ${couleur}`;
+        texte.textContent = MOTS[etat] ?? '';
+        temoin.title = MOTS[etat] ?? '';
+      }
+
+      /*
+         Le cache hors ligne (D-025, point 1).
+
+         Deux gestes seulement : enregistrer le worker, et lui dire à quelle
+         publication on appartient. C'est cette annonce qui l'autorise à
+         cacher quoi que ce soit, et qui efface le cache de la publication
+         précédente — voir l'en-tête de « public/sw.js ».
+      */
+      quandDeverrouille(async () => {
+        const [{ enregistrerServiceWorker }, { annoncerLaPublication }, { chargerParametresCle }] =
+          await Promise.all([
+            import('../lib/sync/notification'),
+            import('../lib/hors-ligne'),
+            import('../lib/contenu'),
+          ]);
+        try {
+          await enregistrerServiceWorker(import.meta.env.BASE_URL);
+          const { version } = await chargerParametresCle();
+          if (version) await annoncerLaPublication(version);
+        } catch {
+          /* Hors ligne, worker refusé : le site marche sans cache. */
+        }
       });
 
       /*

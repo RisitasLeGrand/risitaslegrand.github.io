@@ -133,7 +133,8 @@
     "essais:finances:navigateur": "node scripts/essais-finances-navigateur.mjs",
     "essais:psyche:navigateur": "node scripts/essais-psyche-navigateur.mjs",
     "essais:sante": "tsx scripts/essais-sante.mts",
-    "essais:sante:navigateur": "node scripts/essais-sante-navigateur.mjs"
+    "essais:sante:navigateur": "node scripts/essais-sante-navigateur.mjs",
+    "essais:hors-ligne": "node scripts/essais-hors-ligne.mjs"
   },
   "repository": {
     "type": "git",

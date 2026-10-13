@@ -11,18 +11,36 @@
  * Il tient aussi la veille unique de l'onglet : deux appels — deux scripts, un
  * retour en arrière du navigateur — ne doivent pas ouvrir deux salons.
  */
-import { estCertifie } from './certification';
+import { appairageMemorise } from './appairage';
+import { certificationEffective, certificationLocale } from './certification';
+import { motDePasseRetenu } from './mot-de-passe-session';
 import type { Veille } from './arriere-plan';
 
 let courante: Veille | null = null;
 let enCours: Promise<Veille | null> | null = null;
 
-/** Démarre la veille si cet appareil est certifié. Sans bruit, sinon. */
+/**
+ * Démarre la veille si cet appareil est certifié. Sans bruit, sinon.
+ *
+ * La certification se lit **effective** depuis D-028 : la décision
+ * enregistrée, ou, à défaut, le défaut d'un appareil apparié qui a le mot de
+ * passe en mémoire. Les deux conditions du défaut se testent ici sans rien
+ * charger de lourd — un `get` sur `etat` et une lecture de mémoire —, ce qui
+ * est la raison d'être de ce module, et `arriere-plan.ts` les revérifie de
+ * toute façon avant d'agir.
+ *
+ * L'oubli aurait été silencieux : « demarrer » aurait accepté le défaut,
+ * mais personne ne l'aurait appelé.
+ */
 export async function veiller(): Promise<Veille | null> {
   if (courante) return courante;
   if (enCours) return enCours;
   enCours = (async () => {
-    if (!(await estCertifie())) return null;
+    const { certifie } = certificationEffective(await certificationLocale(), {
+      apparie: (await appairageMemorise()) !== null,
+      motDePasseEnMemoire: motDePasseRetenu() !== null,
+    });
+    if (!certifie) return null;
     const [{ demarrer }, { avertir }, { lien }] = await Promise.all([
       import('./arriere-plan'),
       import('./notification'),

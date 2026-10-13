@@ -266,7 +266,7 @@ import Section from '../../components/Section.astro';
     seanceDuJour,
     theme as themeParId,
   } from '../../lib/planification';
-  import { chargerFiche } from '../../lib/contenu';
+  import { chargerFiche, urlDeLaFiche } from '../../lib/contenu';
   import { aProposer, montrer as montrerPretest } from '../../lib/pretest';
   import { entreesOuvertes } from '../../lib/journal';
   import { zoneDeTravail } from '../../lib/niveau';
@@ -559,6 +559,33 @@ import Section from '../../components/Section.astro';
     document.getElementById('bloc-seance')!.classList.remove('hidden');
 
     if (!terminee && !repos) await proposerPretest(seance.theme);
+    if (!repos) void garderLesFichesDuJour(seance.theme);
+  }
+
+  /**
+   * Garder les fiches du jour pour une ouverture hors ligne (D-025).
+   *
+   * « Du jour » veut dire celles du thème que la rotation a posé aujourd'hui,
+   * et douze au plus : le cache est un confort, pas une copie du site, et
+   * garder une matière entière pour une séance d'une heure reviendrait à
+   * télécharger ce qu'on ne lira pas.
+   *
+   * Lancé sans attendre, et sans jamais lever : c'est du confort, et un
+   * confort qui retarderait l'affichage du tableau de bord serait une
+   * mauvaise affaire.
+   */
+  async function garderLesFichesDuJour(themeId: string) {
+    try {
+      const [{ garderPourHorsLigne }, manifeste] = await Promise.all([
+        import('../../lib/hors-ligne'),
+        chargerManifeste(),
+      ]);
+      const duJour = fichesDuTheme(manifeste, themeId).slice(0, 12);
+      const urls = await Promise.all(duJour.map((f) => urlDeLaFiche(f.id)));
+      await garderPourHorsLigne(urls);
+    } catch {
+      /* Pas de worker, hors ligne, quota : la séance se fait quand même. */
+    }
   }
 
   /**

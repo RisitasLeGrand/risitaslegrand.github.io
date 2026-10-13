@@ -281,6 +281,20 @@ export async function chargerBinaire(chemin: string): Promise<ArrayBuffer> {
 
 export const chargerManifeste = () => charger<Manifeste>('manifeste.json');
 export const chargerFiche = (id: string) => charger<Fiche>(`fiches/${id}.json`);
+
+/**
+ * L'URL exacte d'une fiche chiffrée, version comprise.
+ *
+ * Elle existe pour le cache hors ligne (D-025), qui doit garder **la même
+ * URL** que celle que `charger` demandera ensuite : garder une fiche sans son
+ * paramètre de version reviendrait à garder un fichier qu'une publication
+ * suivante rendrait illisible, sans qu'on puisse distinguer les deux.
+ */
+export async function urlDeLaFiche(id: string): Promise<string> {
+  const { version } = await chargerParametresCle();
+  const url = urlData(`fiches/${id}.json`);
+  return version ? `${url}?v=${encodeURIComponent(version)}` : url;
+}
 export const chargerGlossaire = () => charger<TermeGlossaire[]>('glossaire.json');
 export const chargerIndexRecherche = () => charger<EntreeRecherche[]>('recherche.json');
 export const chargerBanqueDgfip = () => charger<BanqueDgfip>('qcm-dgfip.json');
