@@ -48,8 +48,11 @@ C'est déjà le cas dans ce qui est livré.
 rend la comparaison prévu / réalisé cohérente par construction plutôt que par
 tableau de correspondance — un tableau que personne ne tient à jour.
 
-Douze familles, quarante-six types. Le niveau de finesse est choisi sur un
-critère simple : **un type doit pouvoir porter une décision différente d'un
+Douze familles, **cinquante-neuf types** — plus trois « états » (§2 bis).
+*(Correction : la première version de ce plan annonçait « quarante-six »,
+qui était une erreur de comptage ; le tableau ci-dessous, lui, n'a pas
+changé et c'est celui qui a été validé.)* Le niveau de finesse est choisi
+sur un critère simple : **un type doit pouvoir porter une décision différente d'un
 autre**. « Boulangerie » et « supermarché » se séparent parce qu'on peut
 vouloir pointer l'un automatiquement et pas l'autre ; « boulangerie » et
 « pâtisserie » ne se séparent pas, parce qu'on n'en ferait jamais rien.
@@ -425,7 +428,7 @@ Ce qui reste à faire quand 3 bis arrivera :
 | # | Question | Ma recommandation |
 |---|---|---|
 | **10** | Définitions | **Les vôtres, confirmées.** Avec la réserve de vocabulaire du §1 : l'autre opération s'appelle toujours « rapprochement de solde » en entier. |
-| **11** | Taxonomie | **12 familles, 46 types** (§2), catégories communes au budget, ambigus en « commerce multi-catégories » proposé, fractionnement par `diviser()` déjà écrit. |
+| **11** | Taxonomie | **12 familles, 59 types + 3 états** (§2), catégories communes au budget, ambigus en « commerce multi-catégories » proposé, fractionnement par `diviser()` déjà écrit. |
 | **12** | Préréglage | **Standard**, avec la santé hors de l'auto même en Rapide. Les trois ne diffèrent que sur le plafond et la liste des types en auto. |
 | **13** | Sondage | **Oui, et petit** : les 3 plus gros montants + 2 tirés au sort, seulement si 10 opérations ou plus ont été pointées seules. Un sondage qui est une corvée se saute. |
 | **14** | Garde-fous | Plafond **150 €** (60 € à la première occurrence), **3 occurrences** minimum, exclusions du §5. Valeurs à **mesurer**, pas à décréter. |

@@ -1,0 +1,2701 @@
+{
+ "version": "2026-10-13",
+ "note": "Écrit à la main, sans reprise d'aucune liste tierce. Les entrées reposent sur la connaissance des enseignes et des formats de libellés français, et n'ont PAS été vérifiées sur des relevés réels : leur couverture ne se connaîtra qu'à l'usage.",
+ "entrees": [
+  {
+   "motifs": [
+    "CARREFOUR CITY"
+   ],
+   "nom": "Carrefour City",
+   "type": "superette",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CARREFOUR CONTACT"
+   ],
+   "nom": "Carrefour Contact",
+   "type": "superette",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CARREFOUR EXPRESS"
+   ],
+   "nom": "Carrefour Express",
+   "type": "superette",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CARREFOUR MARKET"
+   ],
+   "nom": "Carrefour Market",
+   "type": "supermarche",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CARREFOUR"
+   ],
+   "nom": "Carrefour",
+   "type": "commerce-multi-categories",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "E LECLERC",
+    "ELECLERC",
+    "LECLERC"
+   ],
+   "nom": "E.Leclerc",
+   "type": "commerce-multi-categories",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "INTERMARCHE"
+   ],
+   "nom": "Intermarché",
+   "type": "commerce-multi-categories",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SUPER U",
+    "HYPER U",
+    "MAGASINS U",
+    "U EXPRESS"
+   ],
+   "nom": "Système U",
+   "type": "commerce-multi-categories",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "AUCHAN"
+   ],
+   "nom": "Auchan",
+   "type": "commerce-multi-categories",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CASINO SUPERMARCHE",
+    "GEANT CASINO"
+   ],
+   "nom": "Casino",
+   "type": "commerce-multi-categories",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MONOPRIX"
+   ],
+   "nom": "Monoprix",
+   "type": "supermarche",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "FRANPRIX"
+   ],
+   "nom": "Franprix",
+   "type": "superette",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "LIDL"
+   ],
+   "nom": "Lidl",
+   "type": "supermarche",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ALDI"
+   ],
+   "nom": "Aldi",
+   "type": "supermarche",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "NETTO"
+   ],
+   "nom": "Netto",
+   "type": "supermarche",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CORA"
+   ],
+   "nom": "Cora",
+   "type": "commerce-multi-categories",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "GRAND FRAIS"
+   ],
+   "nom": "Grand Frais",
+   "type": "primeur",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "BIOCOOP"
+   ],
+   "nom": "Biocoop",
+   "type": "epicerie-specialisee",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "NATURALIA"
+   ],
+   "nom": "Naturalia",
+   "type": "epicerie-specialisee",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "LA VIE CLAIRE"
+   ],
+   "nom": "La Vie Claire",
+   "type": "epicerie-specialisee",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "PICARD"
+   ],
+   "nom": "Picard",
+   "type": "epicerie-specialisee",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "THIRIET"
+   ],
+   "nom": "Thiriet",
+   "type": "epicerie-specialisee",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "BOULANGERIE"
+   ],
+   "nom": "Boulangerie",
+   "type": "boulangerie",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "FOURNIL"
+   ],
+   "nom": "Fournil",
+   "type": "boulangerie",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "BOUCHERIE"
+   ],
+   "nom": "Boucherie",
+   "type": "boucherie",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "PRIMEUR"
+   ],
+   "nom": "Primeur",
+   "type": "primeur",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "MARCHE COUVERT"
+   ],
+   "nom": "Marché couvert",
+   "type": "marche",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "DELIVEROO"
+   ],
+   "nom": "Deliveroo",
+   "type": "livraison-repas",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "UBER EATS",
+    "UBEREATS"
+   ],
+   "nom": "Uber Eats",
+   "type": "livraison-repas",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "JUST EAT"
+   ],
+   "nom": "Just Eat",
+   "type": "livraison-repas",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "FRICHTI"
+   ],
+   "nom": "Frichti",
+   "type": "livraison-repas",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "HELLOFRESH"
+   ],
+   "nom": "HelloFresh",
+   "type": "livraison-repas",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "NESPRESSO"
+   ],
+   "nom": "Nespresso",
+   "type": "epicerie-specialisee",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MCDONALD",
+    "MC DONALD"
+   ],
+   "nom": "McDonald's",
+   "type": "restauration-rapide",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "BURGER KING"
+   ],
+   "nom": "Burger King",
+   "type": "restauration-rapide",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "KFC"
+   ],
+   "nom": "KFC",
+   "type": "restauration-rapide",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SUBWAY"
+   ],
+   "nom": "Subway",
+   "type": "restauration-rapide",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "DOMINO S PIZZA",
+    "DOMINOS PIZZA"
+   ],
+   "nom": "Domino's Pizza",
+   "type": "restauration-rapide",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "PIZZA HUT"
+   ],
+   "nom": "Pizza Hut",
+   "type": "restauration-rapide",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "BRIOCHE DOREE"
+   ],
+   "nom": "Brioche Dorée",
+   "type": "restauration-rapide",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "STARBUCKS"
+   ],
+   "nom": "Starbucks",
+   "type": "cafe-bar",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "COLUMBUS CAFE"
+   ],
+   "nom": "Columbus Café",
+   "type": "cafe-bar",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "FLUNCH"
+   ],
+   "nom": "Flunch",
+   "type": "restaurant",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "BUFFALO GRILL"
+   ],
+   "nom": "Buffalo Grill",
+   "type": "restaurant",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "HIPPOPOTAMUS"
+   ],
+   "nom": "Hippopotamus",
+   "type": "restaurant",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "COURTEPAILLE"
+   ],
+   "nom": "Courtepaille",
+   "type": "restaurant",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "LA BOUCHERIE"
+   ],
+   "nom": "La Boucherie",
+   "type": "restaurant",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CROUS"
+   ],
+   "nom": "CROUS",
+   "type": "cantine",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SODEXO"
+   ],
+   "nom": "Sodexo",
+   "type": "cantine",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ELIOR"
+   ],
+   "nom": "Elior",
+   "type": "cantine",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "RESTAURANT"
+   ],
+   "nom": "Restaurant",
+   "type": "restaurant",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "BRASSERIE"
+   ],
+   "nom": "Brasserie",
+   "type": "restaurant",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "PIZZERIA"
+   ],
+   "nom": "Pizzeria",
+   "type": "restaurant",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "TOTALENERGIES",
+    "TOTAL ENERGIES"
+   ],
+   "nom": "TotalEnergies",
+   "type": "carburant",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "TOTAL ACCESS"
+   ],
+   "nom": "Total Access",
+   "type": "carburant",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ESSO"
+   ],
+   "nom": "Esso",
+   "type": "carburant",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "BP FRANCE"
+   ],
+   "nom": "BP",
+   "type": "carburant",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SHELL"
+   ],
+   "nom": "Shell",
+   "type": "carburant",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "STATION SERVICE"
+   ],
+   "nom": "Station-service",
+   "type": "carburant",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "VINCI AUTOROUTES"
+   ],
+   "nom": "Vinci Autoroutes",
+   "type": "peage",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "APRR"
+   ],
+   "nom": "APRR",
+   "type": "peage",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SANEF"
+   ],
+   "nom": "Sanef",
+   "type": "peage",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ESCOTA"
+   ],
+   "nom": "Escota",
+   "type": "peage",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ULYS"
+   ],
+   "nom": "Ulys",
+   "type": "peage",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "BIP AND GO",
+    "BIPANDGO"
+   ],
+   "nom": "Bip&Go",
+   "type": "peage",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "INDIGO PARK",
+    "PARKING INDIGO"
+   ],
+   "nom": "Indigo",
+   "type": "stationnement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "EFFIA"
+   ],
+   "nom": "Effia",
+   "type": "stationnement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "PAYBYPHONE"
+   ],
+   "nom": "PayByPhone",
+   "type": "stationnement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ONEPARK"
+   ],
+   "nom": "OnePark",
+   "type": "stationnement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "HORODATEUR"
+   ],
+   "nom": "Horodateur",
+   "type": "stationnement",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "SNCF CONNECT",
+    "SNCF VOYAGEURS",
+    "SNCF"
+   ],
+   "nom": "SNCF",
+   "type": "train",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "OUIGO"
+   ],
+   "nom": "OUIGO",
+   "type": "train",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "TRAINLINE"
+   ],
+   "nom": "Trainline",
+   "type": "train",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "RATP"
+   ],
+   "nom": "RATP",
+   "type": "transport-public",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "NAVIGO"
+   ],
+   "nom": "Navigo",
+   "type": "transport-public",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "TRANSDEV"
+   ],
+   "nom": "Transdev",
+   "type": "transport-public",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "KEOLIS"
+   ],
+   "nom": "Keolis",
+   "type": "transport-public",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "BLABLACAR"
+   ],
+   "nom": "BlaBlaCar",
+   "type": "transport-public",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "FLIXBUS"
+   ],
+   "nom": "FlixBus",
+   "type": "transport-public",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "AIR FRANCE"
+   ],
+   "nom": "Air France",
+   "type": "avion",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "EASYJET"
+   ],
+   "nom": "easyJet",
+   "type": "avion",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "RYANAIR"
+   ],
+   "nom": "Ryanair",
+   "type": "avion",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "TRANSAVIA"
+   ],
+   "nom": "Transavia",
+   "type": "avion",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "UBER TRIP",
+    "UBER BV"
+   ],
+   "nom": "Uber",
+   "type": "taxi-vtc",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "BOLT EU"
+   ],
+   "nom": "Bolt",
+   "type": "taxi-vtc",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "TAXIS G7",
+    "G7 TAXI"
+   ],
+   "nom": "G7",
+   "type": "taxi-vtc",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "EUROPCAR"
+   ],
+   "nom": "Europcar",
+   "type": "location-vehicule",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "HERTZ"
+   ],
+   "nom": "Hertz",
+   "type": "location-vehicule",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "AVIS LOCATION"
+   ],
+   "nom": "Avis",
+   "type": "location-vehicule",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SIXT"
+   ],
+   "nom": "Sixt",
+   "type": "location-vehicule",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "GETAROUND"
+   ],
+   "nom": "Getaround",
+   "type": "location-vehicule",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "NORAUTO"
+   ],
+   "nom": "Norauto",
+   "type": "entretien-auto",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "FEU VERT"
+   ],
+   "nom": "Feu Vert",
+   "type": "entretien-auto",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MIDAS"
+   ],
+   "nom": "Midas",
+   "type": "entretien-auto",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SPEEDY"
+   ],
+   "nom": "Speedy",
+   "type": "entretien-auto",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ROADY"
+   ],
+   "nom": "Roady",
+   "type": "entretien-auto",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CONTROLE TECHNIQUE"
+   ],
+   "nom": "Contrôle technique",
+   "type": "entretien-auto",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "GARAGE"
+   ],
+   "nom": "Garage",
+   "type": "entretien-auto",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "LEROY MERLIN"
+   ],
+   "nom": "Leroy Merlin",
+   "type": "travaux-bricolage",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CASTORAMA"
+   ],
+   "nom": "Castorama",
+   "type": "travaux-bricolage",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "BRICORAMA"
+   ],
+   "nom": "Bricorama",
+   "type": "travaux-bricolage",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "BRICO DEPOT"
+   ],
+   "nom": "Brico Dépôt",
+   "type": "travaux-bricolage",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MR BRICOLAGE"
+   ],
+   "nom": "Mr.Bricolage",
+   "type": "travaux-bricolage",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "POINT P"
+   ],
+   "nom": "Point.P",
+   "type": "travaux-bricolage",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "IKEA"
+   ],
+   "nom": "IKEA",
+   "type": "ameublement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CONFORAMA"
+   ],
+   "nom": "Conforama",
+   "type": "ameublement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MAISONS DU MONDE"
+   ],
+   "nom": "Maisons du Monde",
+   "type": "ameublement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ALINEA"
+   ],
+   "nom": "Alinéa",
+   "type": "ameublement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "FONCIA"
+   ],
+   "nom": "Foncia",
+   "type": "charges-copropriete",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "NEXITY"
+   ],
+   "nom": "Nexity",
+   "type": "charges-copropriete",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CITYA"
+   ],
+   "nom": "Citya",
+   "type": "charges-copropriete",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SERGIC"
+   ],
+   "nom": "Sergic",
+   "type": "charges-copropriete",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SYNDIC"
+   ],
+   "nom": "Syndic",
+   "type": "charges-copropriete",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "LOYER"
+   ],
+   "nom": "Loyer",
+   "type": "loyer",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "QUITTANCE"
+   ],
+   "nom": "Quittance de loyer",
+   "type": "loyer",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "EDF"
+   ],
+   "nom": "EDF",
+   "type": "electricite-gaz",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ENGIE"
+   ],
+   "nom": "Engie",
+   "type": "electricite-gaz",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ENI GAS",
+    "ENI FRANCE"
+   ],
+   "nom": "Eni",
+   "type": "electricite-gaz",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "EKWATEUR"
+   ],
+   "nom": "ekWateur",
+   "type": "electricite-gaz",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ENERCOOP"
+   ],
+   "nom": "Enercoop",
+   "type": "electricite-gaz",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "PLANETE OUI"
+   ],
+   "nom": "Planète Oui",
+   "type": "electricite-gaz",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MINT ENERGIE"
+   ],
+   "nom": "Mint Énergie",
+   "type": "electricite-gaz",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ENEDIS"
+   ],
+   "nom": "Enedis",
+   "type": "electricite-gaz",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "GRDF"
+   ],
+   "nom": "GRDF",
+   "type": "electricite-gaz",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "VEOLIA"
+   ],
+   "nom": "Veolia",
+   "type": "eau",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SUEZ"
+   ],
+   "nom": "Suez",
+   "type": "eau",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SAUR"
+   ],
+   "nom": "Saur",
+   "type": "eau",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SYNDICAT DES EAUX"
+   ],
+   "nom": "Syndicat des eaux",
+   "type": "eau",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "FIOUL"
+   ],
+   "nom": "Fioul",
+   "type": "combustibles",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "BUTAGAZ"
+   ],
+   "nom": "Butagaz",
+   "type": "combustibles",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ANTARGAZ"
+   ],
+   "nom": "Antargaz",
+   "type": "combustibles",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ORANGE FRANCE",
+    "ORANGE SA",
+    "ORANGE"
+   ],
+   "nom": "Orange",
+   "type": "operateur-mobile",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SFR"
+   ],
+   "nom": "SFR",
+   "type": "operateur-mobile",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "BOUYGUES TELECOM"
+   ],
+   "nom": "Bouygues Telecom",
+   "type": "operateur-mobile",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "FREE MOBILE"
+   ],
+   "nom": "Free Mobile",
+   "type": "operateur-mobile",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "FREE HAUT DEBIT",
+    "FREE SAS"
+   ],
+   "nom": "Free",
+   "type": "acces-internet",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SOSH"
+   ],
+   "nom": "Sosh",
+   "type": "operateur-mobile",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "RED BY SFR"
+   ],
+   "nom": "RED by SFR",
+   "type": "operateur-mobile",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "PRIXTEL"
+   ],
+   "nom": "Prixtel",
+   "type": "operateur-mobile",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "LA POSTE MOBILE"
+   ],
+   "nom": "La Poste Mobile",
+   "type": "operateur-mobile",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SYMA MOBILE"
+   ],
+   "nom": "Syma Mobile",
+   "type": "operateur-mobile",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "NRJ MOBILE"
+   ],
+   "nom": "NRJ Mobile",
+   "type": "operateur-mobile",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CORIOLIS"
+   ],
+   "nom": "Coriolis",
+   "type": "operateur-mobile",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MAIF"
+   ],
+   "nom": "MAIF",
+   "type": "assurance",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MACIF"
+   ],
+   "nom": "MACIF",
+   "type": "assurance",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MATMUT"
+   ],
+   "nom": "Matmut",
+   "type": "assurance",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "GMF"
+   ],
+   "nom": "GMF",
+   "type": "assurance",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "AXA"
+   ],
+   "nom": "AXA",
+   "type": "assurance",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ALLIANZ"
+   ],
+   "nom": "Allianz",
+   "type": "assurance",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "GROUPAMA"
+   ],
+   "nom": "Groupama",
+   "type": "assurance",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MAAF"
+   ],
+   "nom": "MAAF",
+   "type": "assurance",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "DIRECT ASSURANCE"
+   ],
+   "nom": "Direct Assurance",
+   "type": "assurance",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "LUKO"
+   ],
+   "nom": "Luko",
+   "type": "assurance",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "LOVYS"
+   ],
+   "nom": "Lovys",
+   "type": "assurance",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ASSURANCE"
+   ],
+   "nom": "Assurance",
+   "type": "assurance",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "HARMONIE MUTUELLE"
+   ],
+   "nom": "Harmonie Mutuelle",
+   "type": "mutuelle",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MGEN"
+   ],
+   "nom": "MGEN",
+   "type": "mutuelle",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MUTUELLE"
+   ],
+   "nom": "Mutuelle",
+   "type": "mutuelle",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "ALAN SA"
+   ],
+   "nom": "Alan",
+   "type": "mutuelle",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "PHARMACIE"
+   ],
+   "nom": "Pharmacie",
+   "type": "pharmacie",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "LABORATOIRE"
+   ],
+   "nom": "Laboratoire",
+   "type": "laboratoire",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "BIOGROUP"
+   ],
+   "nom": "Biogroup",
+   "type": "laboratoire",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CERBALLIANCE"
+   ],
+   "nom": "Cerballiance",
+   "type": "laboratoire",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "DOCTOLIB"
+   ],
+   "nom": "Doctolib",
+   "type": "praticien",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CABINET MEDICAL"
+   ],
+   "nom": "Cabinet médical",
+   "type": "praticien",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "CENTRE HOSPITALIER"
+   ],
+   "nom": "Centre hospitalier",
+   "type": "hopital",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "OPTIC 2000"
+   ],
+   "nom": "Optic 2000",
+   "type": "praticien",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "KRYS"
+   ],
+   "nom": "Krys",
+   "type": "praticien",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ALAIN AFFLELOU"
+   ],
+   "nom": "Alain Afflelou",
+   "type": "praticien",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "GRAND OPTICAL"
+   ],
+   "nom": "Grand Optical",
+   "type": "praticien",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "NETFLIX"
+   ],
+   "nom": "Netflix",
+   "type": "streaming-video",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "DISNEY PLUS",
+    "DISNEYPLUS"
+   ],
+   "nom": "Disney+",
+   "type": "streaming-video",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CANAL PLUS",
+    "CANALPLUS"
+   ],
+   "nom": "Canal+",
+   "type": "streaming-video",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "PRIME VIDEO"
+   ],
+   "nom": "Prime Video",
+   "type": "streaming-video",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "PARAMOUNT PLUS"
+   ],
+   "nom": "Paramount+",
+   "type": "streaming-video",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MOLOTOV"
+   ],
+   "nom": "Molotov",
+   "type": "streaming-video",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SPOTIFY"
+   ],
+   "nom": "Spotify",
+   "type": "musique",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "DEEZER"
+   ],
+   "nom": "Deezer",
+   "type": "musique",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "APPLE MUSIC"
+   ],
+   "nom": "Apple Music",
+   "type": "musique",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "YOUTUBE PREMIUM"
+   ],
+   "nom": "YouTube Premium",
+   "type": "musique",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "LE MONDE"
+   ],
+   "nom": "Le Monde",
+   "type": "presse",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MEDIAPART"
+   ],
+   "nom": "Mediapart",
+   "type": "presse",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "LIBERATION"
+   ],
+   "nom": "Libération",
+   "type": "presse",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "LE FIGARO"
+   ],
+   "nom": "Le Figaro",
+   "type": "presse",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "LES ECHOS"
+   ],
+   "nom": "Les Échos",
+   "type": "presse",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "TELERAMA"
+   ],
+   "nom": "Télérama",
+   "type": "presse",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ADOBE"
+   ],
+   "nom": "Adobe",
+   "type": "logiciel",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MICROSOFT"
+   ],
+   "nom": "Microsoft",
+   "type": "logiciel",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "GOOGLE ONE"
+   ],
+   "nom": "Google One",
+   "type": "logiciel",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ICLOUD",
+    "APPLE COM BILL"
+   ],
+   "nom": "Apple",
+   "type": "logiciel",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "DROPBOX"
+   ],
+   "nom": "Dropbox",
+   "type": "logiciel",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "OVH"
+   ],
+   "nom": "OVH",
+   "type": "logiciel",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "BASIC FIT",
+    "BASICFIT"
+   ],
+   "nom": "Basic-Fit",
+   "type": "salle-de-sport",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "FITNESS PARK"
+   ],
+   "nom": "Fitness Park",
+   "type": "salle-de-sport",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "NEONESS"
+   ],
+   "nom": "Neoness",
+   "type": "salle-de-sport",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "KEEP COOL"
+   ],
+   "nom": "Keep Cool",
+   "type": "salle-de-sport",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "AMAZON"
+   ],
+   "nom": "Amazon",
+   "type": "commerce-multi-categories",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CDISCOUNT"
+   ],
+   "nom": "Cdiscount",
+   "type": "commerce-multi-categories",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "FNAC"
+   ],
+   "nom": "Fnac",
+   "type": "culture-loisirs",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "DARTY"
+   ],
+   "nom": "Darty",
+   "type": "equipement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "BOULANGER"
+   ],
+   "nom": "Boulanger",
+   "type": "equipement",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "LDLC",
+    "L D L C"
+   ],
+   "nom": "LDLC",
+   "type": "equipement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "RUE DU COMMERCE"
+   ],
+   "nom": "Rue du Commerce",
+   "type": "equipement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "VEEPEE"
+   ],
+   "nom": "Veepee",
+   "type": "commerce-multi-categories",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ZALANDO"
+   ],
+   "nom": "Zalando",
+   "type": "habillement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "VINTED"
+   ],
+   "nom": "Vinted",
+   "type": "habillement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "DECATHLON"
+   ],
+   "nom": "Decathlon",
+   "type": "culture-loisirs",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "INTERSPORT"
+   ],
+   "nom": "Intersport",
+   "type": "culture-loisirs",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "GO SPORT"
+   ],
+   "nom": "Go Sport",
+   "type": "culture-loisirs",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "KIABI"
+   ],
+   "nom": "Kiabi",
+   "type": "habillement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ZARA"
+   ],
+   "nom": "Zara",
+   "type": "habillement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "H ET M",
+    "H M FRANCE"
+   ],
+   "nom": "H&M",
+   "type": "habillement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "UNIQLO"
+   ],
+   "nom": "Uniqlo",
+   "type": "habillement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CELIO"
+   ],
+   "nom": "Celio",
+   "type": "habillement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "PRIMARK"
+   ],
+   "nom": "Primark",
+   "type": "habillement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "GEMO"
+   ],
+   "nom": "Gémo",
+   "type": "habillement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "LA HALLE"
+   ],
+   "nom": "La Halle",
+   "type": "habillement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CHAUSSEA"
+   ],
+   "nom": "Chausséa",
+   "type": "habillement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "GIFI"
+   ],
+   "nom": "GiFi",
+   "type": "equipement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CULTURA"
+   ],
+   "nom": "Cultura",
+   "type": "culture-loisirs",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MICROMANIA"
+   ],
+   "nom": "Micromania",
+   "type": "culture-loisirs",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "JOUECLUB"
+   ],
+   "nom": "JouéClub",
+   "type": "culture-loisirs",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "KING JOUET"
+   ],
+   "nom": "King Jouet",
+   "type": "culture-loisirs",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "NATURE ET DECOUVERTES"
+   ],
+   "nom": "Nature & Découvertes",
+   "type": "culture-loisirs",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "UGC CINE"
+   ],
+   "nom": "UGC",
+   "type": "culture-loisirs",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CINEMAS PATHE",
+    "PATHE GAUMONT"
+   ],
+   "nom": "Pathé",
+   "type": "culture-loisirs",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MAXI ZOO",
+    "MAXIZOO"
+   ],
+   "nom": "Maxi Zoo",
+   "type": "animalerie",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ANIMALIS"
+   ],
+   "nom": "Animalis",
+   "type": "animalerie",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "VETERINAIRE"
+   ],
+   "nom": "Vétérinaire",
+   "type": "animalerie",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "TRUFFAUT"
+   ],
+   "nom": "Truffaut",
+   "type": "animalerie",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "JARDILAND"
+   ],
+   "nom": "Jardiland",
+   "type": "animalerie",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SEPHORA"
+   ],
+   "nom": "Sephora",
+   "type": "equipement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "NOCIBE"
+   ],
+   "nom": "Nocibé",
+   "type": "equipement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "MARIONNAUD"
+   ],
+   "nom": "Marionnaud",
+   "type": "equipement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "YVES ROCHER"
+   ],
+   "nom": "Yves Rocher",
+   "type": "equipement",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "COTISATION CARTE"
+   ],
+   "nom": "Cotisation carte",
+   "type": "frais-bancaires",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "FRAIS DE TENUE DE COMPTE"
+   ],
+   "nom": "Frais de tenue de compte",
+   "type": "frais-bancaires",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "COMMISSION D INTERVENTION"
+   ],
+   "nom": "Commission d’intervention",
+   "type": "frais-bancaires",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "AGIOS"
+   ],
+   "nom": "Agios",
+   "type": "frais-bancaires",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "FRAIS SUR VIREMENT"
+   ],
+   "nom": "Frais sur virement",
+   "type": "frais-bancaires",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "INTERETS CREDITEURS"
+   ],
+   "nom": "Intérêts créditeurs",
+   "type": "interets",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "RETRAIT DAB"
+   ],
+   "nom": "Retrait au distributeur",
+   "type": "retrait",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "RETRAIT ESPECES"
+   ],
+   "nom": "Retrait d’espèces",
+   "type": "retrait",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "RETRAIT"
+   ],
+   "nom": "Retrait",
+   "type": "retrait",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "ECHEANCE PRET",
+    "REMBOURSEMENT PRET"
+   ],
+   "nom": "Échéance de prêt",
+   "type": "remboursement-credit",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CREDIT AGRICOLE"
+   ],
+   "nom": "Crédit Agricole",
+   "type": "frais-bancaires",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CREDIT MUTUEL"
+   ],
+   "nom": "Crédit Mutuel",
+   "type": "frais-bancaires",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "BNP PARIBAS"
+   ],
+   "nom": "BNP Paribas",
+   "type": "frais-bancaires",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SOCIETE GENERALE"
+   ],
+   "nom": "Société Générale",
+   "type": "frais-bancaires",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "LA BANQUE POSTALE"
+   ],
+   "nom": "La Banque Postale",
+   "type": "frais-bancaires",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CAISSE D EPARGNE"
+   ],
+   "nom": "Caisse d’Épargne",
+   "type": "frais-bancaires",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "BOURSORAMA"
+   ],
+   "nom": "BoursoBank",
+   "type": "frais-bancaires",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "FORTUNEO"
+   ],
+   "nom": "Fortuneo",
+   "type": "frais-bancaires",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "HELLO BANK"
+   ],
+   "nom": "Hello bank!",
+   "type": "frais-bancaires",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "REVOLUT"
+   ],
+   "nom": "Revolut",
+   "type": "frais-bancaires",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "DGFIP"
+   ],
+   "nom": "DGFiP",
+   "type": "impots-taxes",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "IMPOTS"
+   ],
+   "nom": "Impôts",
+   "type": "impots-taxes",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "TRESOR PUBLIC"
+   ],
+   "nom": "Trésor public",
+   "type": "impots-taxes",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "TAXE FONCIERE"
+   ],
+   "nom": "Taxe foncière",
+   "type": "impots-taxes",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "TAXE HABITATION"
+   ],
+   "nom": "Taxe d’habitation",
+   "type": "impots-taxes",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ANTAI"
+   ],
+   "nom": "ANTAI",
+   "type": "amende",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "AMENDE"
+   ],
+   "nom": "Amende",
+   "type": "amende",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "ANTS"
+   ],
+   "nom": "ANTS",
+   "type": "administration",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "PREFECTURE"
+   ],
+   "nom": "Préfecture",
+   "type": "administration",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "MAIRIE"
+   ],
+   "nom": "Mairie",
+   "type": "administration",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "LA POSTE"
+   ],
+   "nom": "La Poste",
+   "type": "administration",
+   "statut": "ambigu",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "URSSAF"
+   ],
+   "nom": "URSSAF",
+   "type": "organisme-social",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CPAM"
+   ],
+   "nom": "CPAM",
+   "type": "organisme-social",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "AMELI"
+   ],
+   "nom": "Ameli",
+   "type": "organisme-social",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "CARSAT"
+   ],
+   "nom": "CARSAT",
+   "type": "organisme-social",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "POLE EMPLOI",
+    "FRANCE TRAVAIL"
+   ],
+   "nom": "France Travail",
+   "type": "organisme-social",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ALLOCATIONS FAMILIALES"
+   ],
+   "nom": "Allocations familiales",
+   "type": "organisme-social",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "SALAIRE"
+   ],
+   "nom": "Salaire",
+   "type": "employeur",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "REMUNERATION"
+   ],
+   "nom": "Rémunération",
+   "type": "employeur",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "PENSION"
+   ],
+   "nom": "Pension",
+   "type": "pension",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "RETRAITE"
+   ],
+   "nom": "Retraite",
+   "type": "pension",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "ALLOCATION"
+   ],
+   "nom": "Allocation",
+   "type": "prestation-sociale",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "LIVRET A"
+   ],
+   "nom": "Livret A",
+   "type": "virement-epargne",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "LIVRET DEVELOPPEMENT DURABLE",
+    "LDDS"
+   ],
+   "nom": "LDDS",
+   "type": "virement-epargne",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "PLAN EPARGNE LOGEMENT"
+   ],
+   "nom": "PEL",
+   "type": "virement-epargne",
+   "statut": "sur",
+   "generique": false
+  },
+  {
+   "motifs": [
+    "ASSURANCE VIE"
+   ],
+   "nom": "Assurance vie",
+   "type": "placement",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "VIREMENT DE"
+   ],
+   "nom": "Virement reçu",
+   "type": "employeur",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "VIREMENT A"
+   ],
+   "nom": "Virement émis",
+   "type": "virement-epargne",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "VIREMENT EN VOTRE FAVEUR"
+   ],
+   "nom": "Virement reçu",
+   "type": "employeur",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "CHEQUE"
+   ],
+   "nom": "Chèque",
+   "type": "frais-bancaires",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "REMISE DE CHEQUE"
+   ],
+   "nom": "Remise de chèque",
+   "type": "frais-bancaires",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "COTISATION"
+   ],
+   "nom": "Cotisation",
+   "type": "frais-bancaires",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "REMBOURSEMENT"
+   ],
+   "nom": "Remboursement",
+   "type": "frais-bancaires",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "ABONNEMENT"
+   ],
+   "nom": "Abonnement",
+   "type": "logiciel",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "FACTURE"
+   ],
+   "nom": "Facture",
+   "type": "administration",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "ADHESION"
+   ],
+   "nom": "Adhésion",
+   "type": "administration",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "PARKING"
+   ],
+   "nom": "Parking",
+   "type": "stationnement",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "PEAGE"
+   ],
+   "nom": "Péage",
+   "type": "peage",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "CARBURANT"
+   ],
+   "nom": "Carburant",
+   "type": "carburant",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "INTERETS"
+   ],
+   "nom": "Intérêts",
+   "type": "interets",
+   "statut": "ambigu",
+   "generique": true
+  },
+  {
+   "motifs": [
+    "FRAIS BANCAIRES"
+   ],
+   "nom": "Frais bancaires",
+   "type": "frais-bancaires",
+   "statut": "sur",
+   "generique": true
+  }
+ ]
+}
