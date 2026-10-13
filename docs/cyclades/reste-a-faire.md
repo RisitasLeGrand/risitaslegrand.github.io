@@ -175,25 +175,17 @@ plutôt qu'un nom écrit.
 
 ---
 
-## G. Deux mots de passe, et les routines ont le bon
+## G. Un seul mot de passe — la moitié faite, l'autre à faire avant lundi
 
-Signalé ce soir comme une anomalie à vérifier, puis vérifié — et c'était
-l'inverse de ce que je supposais.
+### Ce qui s'était installé sans se voir
 
-**`actualites-data/cle-privee-chiffree.json` est scellé avec le mot de passe
-que portent les quatre routines, pas avec le mot de passe du site en
-vigueur.** Éprouvé dans les deux sens : avec le mot de passe actuel,
-`dechiffrer-actualite.mjs` répond « Mot de passe incorrect » ; avec celui des
-routines, il liste les 39 entrées hebdomadaires. Les six pull requests des
-routines sont d'ailleurs toutes fusionnées, la dernière le 12 octobre.
+`actualites-data/cle-privee-chiffree.json` était scellé avec le mot de passe
+que portent les quatre routines, et non avec celui du site. Signalé d'abord
+comme une anomalie des routines, puis vérifié — et c'était l'inverse : les
+routines avaient le bon, et les « corriger » seules les aurait cassées.
 
-Les routines ont donc raison, et **les « corriger » les casserait** : elles
-échoueraient dès leur première lecture des actualités passées.
-
-### Pourquoi les deux cohabitent sans que rien ne se voie
-
-Il y a deux chemins vers la même clé privée, et ils ne lisent pas le même
-fichier.
+Deux chemins mènent à la même clé privée, et ils ne lisent pas le même
+fichier. C'est ce qui a rendu la divergence invisible pendant des semaines :
 
 | Qui | Lit | Scellé avec |
 |---|---|---|
@@ -201,30 +193,45 @@ fichier.
 | Les routines, après un clone | `actualites-data/cle-privee-chiffree.json`, commité | le mot de passe du jour où il a été scellé |
 
 `content/` n'est jamais commité : une routine qui clone n'a que la copie
-chiffrée. Le site, lui, ne la lit jamais. Les deux marchent, chacun avec son
-mot de passe, et rien ne les confronte — d'où le silence.
+chiffrée, et le site ne la lit jamais. Chacun marchait avec son mot de passe,
+rien ne les confrontait.
 
-### Le remède, et son ordre
+### Fait : la clé est resynchronisée
 
-Le dépôt avait prévu le cas : `npm run actualites:cles -- --resynchroniser`
-porte en commentaire « le mot de passe a changé : on réécrit la copie chiffrée
-sans toucher à la paire ». La paire étant inchangée, les actualités déjà
-publiées restent lisibles.
+`npm run actualites:cles -- --resynchroniser` a réécrit la copie chiffrée avec
+le mot de passe du site, **sans toucher à la paire**. Éprouvé dans les deux
+sens après coup : avec le mot de passe en vigueur, les 39 entrées
+hebdomadaires se listent ; avec l'ancien, le déchiffrement est refusé.
 
-L'ordre compte, et il n'existe pas d'ordre sans fenêtre de casse — les deux
-gestes vont ensemble, dans la même séance :
+Que les 39 entrées se relisent est la preuve que la paire est intacte : les
+actualités déjà publiées restent lisibles, sur le site comme pour les
+routines. Le fichier reste une enveloppe — PBKDF2-SHA256 à 600 000 itérations,
+AES-GCM, sel, vecteur d'initialisation, texte chiffré — et rien d'autre.
 
-1. `npm run actualites:cles -- --resynchroniser`, puis commiter le seul
-   `actualites-data/cle-privee-chiffree.json` ;
-2. mettre les **quatre** prompts de routine au mot de passe en vigueur.
+### À faire : les quatre prompts, avant lundi 5 h
 
-Le second geste ne m'est pas accessible : le prompt d'une routine ne se change
-que depuis la conversation où elle poste, et il y en a quatre, une par
-routine. La prochaine échéance est la veille hebdomadaire du lundi.
+**Les quatre routines détiennent désormais un mot de passe qui n'ouvre plus
+rien.** Il faut y porter celui du site, dans la ligne
 
-### Ou ne rien faire
+    Le propriétaire du site te confie son mot de passe : SITE_PASSWORD=…
 
-C'est défendable : tout fonctionne. Le coût est une divergence qui ne se voit
-nulle part et qui mordra le jour où le mot de passe du site changera encore,
-ou le jour où `npm run actualites:lire` sera lancé avec celui qu'on croit
-être le bon. C'est précisément pour cela que `--resynchroniser` existe.
+et dans la commande de l'étape 0
+
+    echo "SITE_PASSWORD=…" > .env.local
+
+Deux occurrences par routine, huit en tout. Rien d'autre ne change.
+
+Ce geste ne m'est pas accessible : le prompt d'une routine ne se change que
+depuis la conversation où elle poste, et il y en a quatre, une par routine.
+
+| Routine | Cadence | Prochain tir |
+|---|---|---|
+| Veille hebdomadaire | lundi 5 h | **lundi 19 octobre** |
+| Bilan mensuel | le 1er à 5 h | 1er novembre |
+| Synthèse trimestrielle | les 1er janvier, avril, juillet, octobre | 2 janvier |
+| Synthèse annuelle | le 6 janvier | 6 janvier |
+
+**L'échéance qui compte est lundi.** Si les prompts ne sont pas à jour, la
+veille hebdomadaire échouera à sa première lecture des actualités passées.
+Elle n'abîmera rien — le bulletin de la semaine sera simplement manquant, et
+le tir suivant pourra le republier avec `--remplacer`.
