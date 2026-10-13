@@ -99,6 +99,7 @@
     "essais:coffre": "tsx scripts/essais-coffre.mts",
     "essais:psyche": "tsx scripts/essais-psyche.mts",
     "essais:budget": "tsx scripts/essais-budget.mts",
+    "essais:usage": "tsx scripts/essais-usage.mts",
     "essais:releve": "tsx scripts/essais-releve.mts",
     "essais:finances:navigateur": "node scripts/essais-finances-navigateur.mjs",
     "essais:psyche:navigateur": "node scripts/essais-psyche-navigateur.mjs"
