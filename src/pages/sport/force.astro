@@ -155,13 +155,39 @@ import { PHASES } from '../../lib/sport/modele';
 
   /* ── Le tracé ──────────────────────────────────────────────────────────── */
 
+  /*
+     Les couleurs du tracé passent par les jetons, comme le reste du site.
+
+     Elles étaient écrites en dur, donc **identiques dans les deux thèmes** :
+     le même graphique mélangeait alors deux régimes, puisque le point creux,
+     lui, allait déjà chercher une variable. Les valeurs de repli sont celles
+     d'avant, c'est-à-dire la palette Tailwind d'origine : le thème sombre ne
+     change pas d'un pixel, et le thème clair suit enfin le Bleu France au
+     lieu de garder l'indigo de défaut.
+  */
   const COULEUR_PHASE: Record<TypeDePhase, string> = {
-    'prise-de-masse': '#6366f1',
-    seche: '#f59e0b',
-    maintien: '#64748b',
-    deload: '#14b8a6',
-    reprise: '#a855f7',
+    'prise-de-masse': 'var(--color-indigo-500, #6366f1)',
+    seche: 'var(--color-amber-500, #f59e0b)',
+    maintien: 'var(--color-slate-500, #64748b)',
+    deload: 'var(--color-teal-500, #14b8a6)',
+    reprise: 'var(--color-purple-500, #a855f7)',
   };
+
+  /** La couleur d'action : celle des liens et de l'onglet actif. */
+  const COULEUR_COURBE = 'var(--color-indigo-600, #4f46e5)';
+
+  /*
+     Le fond du creux.
+
+     C'était `var(--color-bg, #ffffff)` — mais `--color-bg` **n'est défini
+     nulle part** : ni dans `tokens.css`, ni par Tailwind. Le repli
+     s'appliquait donc toujours, et un point « peu fiable » se rendait en
+     blanc plein sur la carte sombre : exactement l'inverse de ce que la
+     forme devait dire, puisqu'il ressortait **plus** que les points sûrs.
+     `--etat-fond-eleve` est le jeton du fond de carte, défini dans les deux
+     thèmes — c'est lui qui rend le creux creux.
+  */
+  const COULEUR_CREUX = 'var(--etat-fond-eleve, #ffffff)';
 
   function tracer(points: readonly PointDeForce[]) {
     const zone = $('graphique');
@@ -256,7 +282,7 @@ import { PHASES } from '../../lib/sport/modele';
 
     const ligne = document.createElementNS(SVG, 'polyline');
     ligne.setAttribute('fill', 'none');
-    ligne.setAttribute('stroke', '#4f46e5');
+    ligne.setAttribute('stroke', COULEUR_COURBE);
     ligne.setAttribute('stroke-width', '2');
     ligne.setAttribute('stroke-linejoin', 'round');
     ligne.setAttribute(
@@ -271,8 +297,8 @@ import { PHASES } from '../../lib/sport/modele';
       cercle.setAttribute('cy', String(y(p.estime)));
       cercle.setAttribute('r', '4');
       // Creux quand l'estimation est peu fiable : la forme porte l'information.
-      cercle.setAttribute('fill', p.imprecis ? 'var(--color-bg, #ffffff)' : '#4f46e5');
-      cercle.setAttribute('stroke', '#4f46e5');
+      cercle.setAttribute('fill', p.imprecis ? COULEUR_CREUX : COULEUR_COURBE);
+      cercle.setAttribute('stroke', COULEUR_COURBE);
       cercle.setAttribute('stroke-width', '2');
       svg.appendChild(cercle);
     });
