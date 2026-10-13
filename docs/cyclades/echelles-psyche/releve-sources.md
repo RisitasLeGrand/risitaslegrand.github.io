@@ -212,9 +212,11 @@ Trois choses, qui valent d'être conservées :
 - **La liste complète des variantes de français** (deux signalées sur un nombre
   inconnu).
 - Le rapport initial était **tronqué** en cours de partie « droits » ; la page
-  de droits de l'OMS et la ligne de licence PHQ/GAD ont été transmises
-  séparément, par collage de l'utilisateur. Leur provenance exacte à l'intérieur
-  de la session externe n'est donc pas établie.
+  de droits de l'OMS, la ligne de licence PHQ/GAD du site et l'attribution
+  portée par les PDF PHQ-9 / GAD-7 en français ont été transmises séparément,
+  par collage de l'utilisateur. Leur provenance exacte à l'intérieur de la
+  session externe n'est donc pas établie, et elles ne portent elles non plus
+  aucune empreinte.
 
 ### 7.4 TEXTE SOUS QUARANTAINE — ne pas utiliser comme donnée d'échelle
 
@@ -325,6 +327,23 @@ Note de codage portée par le document : `(*For office coding: Total Score T____
 ```text
 All PHQ, GAD-7 screeners and translations are downloadable from this website and no permission is required to reproduce, translate, display or distribute them.
 ```
+
+#### Attribution portée par les PDF PHQ-9 / GAD-7, en français (non authentifié, transmise séparément)
+
+Les retours à la ligne et les espaces en fin de ligne sont ceux de la source
+transmise, conservés tels quels : ils relèvent du retour à la ligne du PDF et
+font partie de l'empreinte. **Ne pas les normaliser.**
+
+```text
+Développé par les Dr Robert L. Spitzer, Janet B.W. Williams, Kurt Kroenke et leurs collègues grâce à 
+une allocation d’études de Pfizer Inc. La reproduction, la traduction, l’affichage ou la distribution de ce 
+document sont autorisés.
+```
+
+À recouper : la traduction de *educational grant* en « allocation d’études », et
+la formule « sont autorisés » là où la version anglaise du site porte « no
+permission is required ». Ces deux choix de traduction sont des marqueurs
+vérifiables.
 
 #### Page de droits de l'OMS (non authentifié, transmise séparément)
 
