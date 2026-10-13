@@ -8,6 +8,7 @@
  * l'historique local pour ramener plus souvent ce qui est mal su.
  */
 import type { BanqueDgfip, QuestionDgfip, RubriqueDgfip } from './contenu';
+import { estExpiree, questionsServables } from './qcm-temporalite';
 import type { EtatQuestionDgfip, ScoreRubriqueDgfip } from './db';
 import { ecartJours, jourISO } from './db';
 import { melanger } from './ui';
@@ -55,6 +56,15 @@ export const FORMATS: FormatEpreuve[] = [
   { id: 'mixte-27', libelle: 'Demi-épreuve — 27 questions', total: 27 },
   { id: 'mixte-12', libelle: 'Série courte — 12 questions', total: 12 },
 ];
+
+/*
+   La temporalité vit dans son propre module, et c'est délibéré : « qcm.ts »
+   importe « ./ui », qui lit « import.meta.env » et n'existe donc que dans un
+   navigateur. Les règles d'expiration et de tirage par parcours, elles, sont
+   des fonctions pures qu'on veut pouvoir éprouver en Node — c'est-à-dire sans
+   attendre 2027 pour savoir si une question de 2027 est servie.
+*/
+export { estExpiree, questionsServables } from './qcm-temporalite';
 
 /** Barème officiel : le hasard a un coût, l'abstention n'en a pas. */
 export const BAREME = { bonne: 1, mauvaise: -0.5, abstention: 0 } as const;
@@ -178,15 +188,17 @@ export function composerSession(
   banque: BanqueDgfip,
   historique: EtatQuestionDgfip[],
   format: FormatEpreuve,
+  parcours?: string,
 ): QuestionTiree[] {
   const parId = new Map(historique.map((e) => [e.id, e]));
   const aujourdhui = jourISO();
+  const servables = questionsServables(banque, parcours, aujourdhui);
   const quota = repartir(banque.rubriques, format.total, format.repartition);
 
   const retenues: QuestionDgfip[] = [];
   for (const [rubriqueId, combien] of quota) {
     if (combien <= 0) continue;
-    const candidats = banque.questions
+    const candidats = servables
       .filter((q) => q.rubriqueId === rubriqueId)
       .map((q) => ({ valeur: q, poids: poids(parId.get(q.id), aujourdhui) }));
     retenues.push(...tirerPonderé(candidats, combien));
@@ -213,10 +225,27 @@ function ordreOptions(question: QuestionDgfip): number[] {
 /**
  * Nombre de questions qu'un format peut réellement poser, la banque étant ce
  * qu'elle est : sert à masquer les formats dont les rubriques manquent encore.
+ *
+ * Le compte porte sur les questions **servables** — ni expirées, ni d'une
+ * origine que ce parcours ne tire pas —, et non sur les totaux annoncés par
+ * les rubriques. Sans cela, un format resterait proposé à 45 questions alors
+ * que le tirage n'en trouverait que trente : la session s'ouvrirait plus
+ * courte que son titre, en silence.
  */
-export function tailleReelle(banque: BanqueDgfip, format: FormatEpreuve): number {
+export function tailleReelle(
+  banque: BanqueDgfip,
+  format: FormatEpreuve,
+  parcours?: string,
+  aujourdhui = jourISO(),
+): number {
+  const servables = questionsServables(banque, parcours, aujourdhui);
+  const parRubrique = new Map<string, number>();
+  for (const q of servables) {
+    parRubrique.set(q.rubriqueId, (parRubrique.get(q.rubriqueId) ?? 0) + 1);
+  }
+  const rubriques = banque.rubriques.map((r) => ({ ...r, total: parRubrique.get(r.id) ?? 0 }));
   let n = 0;
-  for (const combien of repartir(banque.rubriques, format.total, format.repartition).values()) {
+  for (const combien of repartir(rubriques, format.total, format.repartition).values()) {
     n += combien;
   }
   return n;

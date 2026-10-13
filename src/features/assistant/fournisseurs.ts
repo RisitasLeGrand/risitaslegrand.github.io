@@ -234,7 +234,9 @@ export async function contexteDgfip(
   const { question, choisies } = sujet;
   const provenance = [
     question.source ? `Provenance : ${question.source}.` : null,
-    question.categorie ? `Catégorie ${question.categorie} du concours.` : null,
+    question.categorie_origine === 'maison'
+      ? 'Question rédigée pour ce site, hors annale.'
+      : `Catégorie ${question.categorie_origine} du concours.`,
     question.incertain ? `Réserve du site : ${question.incertain}` : null,
   ]
     .filter(Boolean)

@@ -179,6 +179,7 @@ import { base } from '../../lib/ui';
     type ReponseSession,
   } from '../../lib/qcm';
   import { echapper, formaterDate, notifier, pluriel } from '../../lib/ui';
+  import { idParcoursCourant } from '../../lib/parcours/courant';
   import { MATIERE_DGFIP, signalerErreur } from '../../lib/journal';
   import { enregistrerReponse } from '../../lib/niveau';
   import { demonterCorrection, monterCorrection } from '../../features/correction/qcm/monter';
@@ -261,7 +262,12 @@ import { base } from '../../lib/ui';
     const choisi = ($('format-dgfip') as HTMLSelectElement).value;
     const format = formats.find((f) => f.id === choisi) ?? formats[0];
     if (!format) return;
-    questions = composerSession(banque, await etatsQuestionsDgfip(), format);
+    questions = composerSession(
+      banque,
+      await etatsQuestionsDgfip(),
+      format,
+      idParcoursCourant(),
+    );
     if (!questions.length) return;
     choix = questions.map(() => []);
     position = 0;
@@ -556,7 +562,7 @@ import { base } from '../../lib/ui';
     select.innerHTML = '';
     formats = [];
     for (const format of FORMATS) {
-      const reelle = tailleReelle(banque, format);
+      const reelle = tailleReelle(banque, format, idParcoursCourant());
       if (reelle === 0) continue;
       formats.push(format);
       const libelle =

@@ -133,6 +133,24 @@ export interface RubriqueDgfip {
   total: number;
 }
 
+/** Les cinq natures du prompt 20 (§ 3). Voir « scripts/lib/schema.mjs ». */
+export type NatureQcm =
+  | 'intemporelle'
+  | 'historique'
+  | 'actuelle'
+  | 'passee-non-historique'
+  | 'a-venir';
+
+export interface Temporalite {
+  nature: NatureQcm;
+  /** Jour auquel la réponse est vraie (natures « actuelle » et « a-venir »). */
+  date_de_reference?: string;
+  /** Jour où rouvrir la question. Avertit à la construction, ne bloque pas. */
+  a_reverifier_le?: string;
+  /** Jour après lequel la question ne doit plus être servie. */
+  expire_le?: string;
+}
+
 export interface QuestionDgfip {
   id: string;
   rubrique: string;
@@ -143,8 +161,17 @@ export interface QuestionDgfip {
   explication: string;
   /** Annale d'origine, ou mention de rédaction maison. */
   source?: string;
-  /** Niveau de concours dont la question est issue. */
-  categorie?: 'A' | 'B';
+  /**
+   * D'où vient la question, et donc dans quels parcours elle est tirée.
+   *
+   * « maison » n'était pas prévu par le prompt 20, qui annonçait `A | B`. La
+   * banque en a démenti la prémisse : 153 questions sur 540 ne viennent
+   * d'aucune annale. Leur écrire « B » aurait faussé le tirage de DGFiP B au
+   * profit de questions que la DGFiP n'a jamais posées.
+   */
+  categorie_origine: 'A' | 'B' | 'maison';
+  /** La temporalité de la réponse. Absente : la question n'est pas étiquetée. */
+  temporalite?: Temporalite;
   /** Présent quand la bonne réponse ne peut pas être garantie. */
   incertain?: string;
   correction?: Correction;

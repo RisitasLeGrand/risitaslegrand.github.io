@@ -310,6 +310,109 @@ export const glossaireSchema = z.array(
  * catégorie du concours, et la possibilité de signaler une réponse discutable
  * plutôt que de la présenter comme certaine.
  */
+/**
+ * La temporalité d'une question (prompt 20, § 3).
+ *
+ * ## Le défaut que ce bloc existe pour empêcher
+ *
+ * Le site est **statique** et peut rester des mois sans reconstruction. Une
+ * réponse vraie en 2025 continuerait donc d'être servie comme vraie en 2027,
+ * sans qu'aucun signal ne se déclenche — ni au build, puisqu'il n'a pas lieu,
+ * ni à l'exécution, puisque rien ne regarde l'heure. C'est pour cela que
+ * l'expiration est vérifiée **deux fois** : ici, à la construction, et une
+ * seconde fois dans le navigateur (« src/lib/qcm.ts »).
+ *
+ * ## Les cinq natures, et ce qu'elles engagent
+ *
+ * - `intemporelle` — la réponse ne dépend pas de la date. Une règle
+ *   d'accord, un calcul, une définition. **Aucune date requise.**
+ * - `historique` — porte sur un fait passé et clos, qui ne changera plus.
+ *   « En quelle année la LOLF a-t-elle été promulguée ? » **Aucune date
+ *   requise** : le passé ne se périme pas.
+ * - `actuelle` — porte sur un état du monde qui peut changer : un taux, un
+ *   titulaire de fonction, un seuil. **`date_de_reference` obligatoire**, et
+ *   `a_reverifier_le` vivement conseillé.
+ * - `passee-non-historique` — portait sur un état du monde **et cet état a
+ *   changé** : la question est devenue fausse sans que personne la corrige.
+ *   Le prompt demande de la remplacer, à rubrique et compétence constantes.
+ *   **`expire_le` obligatoire** — elle ne doit plus être servie.
+ * - `a-venir` — porte sur un fait **programmé** : une entrée en vigueur, une
+ *   échéance. **`date_de_reference` et `expire_le` obligatoires**, et la
+ *   source doit être donnée. Un pronostic n'est pas un fait programmé, et
+ *   n'a rien à faire ici.
+ *
+ * ## Pourquoi les dates sont exigées par nature, et non toutes
+ *
+ * Exiger `date_de_reference` sur une règle d'accord du participe passé
+ * produirait 540 dates dont la plupart n'ont pas de sens, et une date sans
+ * sens est une date que personne ne tient à jour. Le schéma ne demande que
+ * ce que la nature rend nécessaire, et **refuse** une date posée sur une
+ * nature qui ne la comporte pas : une `expire_le` sur une question
+ * intemporelle serait un piège à retardement.
+ */
+export const NATURES_QCM = [
+  'intemporelle',
+  'historique',
+  'actuelle',
+  'passee-non-historique',
+  'a-venir',
+];
+
+/*
+   Une date, et une date qui existe.
+
+   « Date.parse » ne suffit pas : le 31 février se **reporte** au 3 mars sans
+   lever, et la date fausse passerait le contrôle en se transformant. On fait
+   donc l'aller-retour et l'on compare — si le jour revient différent de celui
+   qu'on a écrit, c'est que le calendrier l'a corrigé, ce qu'un contrôle de
+   format doit refuser plutôt qu'accepter en silence.
+*/
+const jourIso = z
+  .string()
+  .regex(/^\d{4}-\d{2}-\d{2}$/, 'une date se note AAAA-MM-JJ')
+  .refine((v) => {
+    const d = new Date(`${v}T12:00:00Z`);
+    return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === v;
+  }, 'date impossible : ce jour n’existe pas au calendrier');
+
+export const temporaliteSchema = z
+  .object({
+    nature: z.enum(NATURES_QCM),
+    /** Le jour auquel la réponse est vraie. */
+    date_de_reference: jourIso.optional(),
+    /** Le jour où il faudra rouvrir la question. Avertissement, pas échec. */
+    a_reverifier_le: jourIso.optional(),
+    /** Le jour après lequel la question ne doit plus être servie. */
+    expire_le: jourIso.optional(),
+  })
+  .superRefine((v, ctx) => {
+    const exige = (champ, natures) => {
+      if (natures.includes(v.nature) && !v[champ]) {
+        ctx.addIssue({
+          code: 'custom',
+          message: `temporalité « ${v.nature} » : « ${champ} » est obligatoire`,
+        });
+      }
+    };
+    const interdit = (champ, natures) => {
+      if (natures.includes(v.nature) && v[champ]) {
+        ctx.addIssue({
+          code: 'custom',
+          message:
+            `temporalité « ${v.nature} » : « ${champ} » n'a pas de sens ici` +
+            (champ === 'expire_le' ? ' — ce serait un piège à retardement' : ''),
+        });
+      }
+    };
+    exige('date_de_reference', ['actuelle', 'a-venir']);
+    exige('expire_le', ['passee-non-historique', 'a-venir']);
+    interdit('expire_le', ['intemporelle', 'historique']);
+    interdit('date_de_reference', ['intemporelle', 'historique']);
+    if (v.expire_le && v.date_de_reference && v.expire_le < v.date_de_reference) {
+      ctx.addIssue({ code: 'custom', message: '« expire_le » précède « date_de_reference »' });
+    }
+  });
+
 export const questionDgfipSchema = z
   .object({
     question: z.string().min(1, 'question vide'),
@@ -319,8 +422,32 @@ export const questionDgfipSchema = z
     explication: z.string().min(1, 'chaque question doit porter sa correction'),
     /** D'où vient la question : annale, sujet fourni, ou rédaction maison. */
     source: z.string().optional(),
-    /** « A » ou « B » : la banque fusionne les deux niveaux de concours. */
-    categorie: z.enum(['A', 'B']).optional(),
+    /**
+     * L'origine de la question, qui décide des parcours où elle est tirée.
+     *
+     * Le prompt 20 (§ par.11) prévoyait `A | B`. La banque en a démenti la
+     * prémisse : **153 questions sur 540 ne viennent d'aucune annale** — elles
+     * portent toutes « RevINSP — rédaction originale ». Leur écrire « B »
+     * serait faux, et fausserait le tirage de DGFiP B au profit de questions
+     * que la DGFiP n'a jamais posées. D'où `maison`, troisième valeur, dont le
+     * sens est « utilisable partout, revendiquée par aucun concours ».
+     */
+    categorie_origine: z.enum(['A', 'B', 'maison'], {
+      message: '« categorie_origine » est obligatoire : A, B ou maison',
+    }),
+    /*
+       L'ancien nom est refusé, et non toléré en silence. Une tolérance aurait
+       laissé une question neuve passer sous « categorie: B » sans que rien ne
+       le dise, et le champ serait reparti en deux noms concurrents — ce qui
+       est exactement l'état d'où l'on sort. Les 540 questions sont migrées ;
+       il n'y a plus de raison d'accepter l'ancien nom, et il y en a une de le
+       refuser.
+    */
+    categorie: z
+      .never({ message: '« categorie » a été renommé « categorie_origine » (A, B ou maison)' })
+      .optional(),
+    /** La temporalité (prompt 20, § 3). Voir « temporaliteSchema ». */
+    temporalite: temporaliteSchema.optional(),
     /**
      * Note affichée quand la bonne réponse n'est pas certaine — sujet sans
      * corrigé, énoncé ambigu, état du droit ayant changé depuis l'annale.
@@ -362,7 +489,8 @@ export const questionDgfipSchema = z
       bonnes,
       explication: v.explication.trim(),
       source: v.source?.trim(),
-      categorie: v.categorie,
+      categorie_origine: v.categorie_origine,
+      temporalite: v.temporalite,
       incertain: v.incertain?.trim(),
       correction: v.correction,
     };

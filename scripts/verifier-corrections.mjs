@@ -35,6 +35,23 @@ const couleur = {
 };
 
 const erreurs = [];
+const alertes = [];
+
+/**
+ * Le jour de la construction, et pourquoi il est paramétrable.
+ *
+ * Les contrôles de temporalité comparent des dates à « aujourd'hui ». Un essai
+ * qui vérifierait qu'une question expirée fait échouer le build devrait donc
+ * inscrire une date passée dans le contenu, et la laisser s'accumuler. Avec
+ * « CYCLADES_JOUR », l'essai avance l'horloge au lieu de salir la banque.
+ */
+const JOUR =
+  process.env.CYCLADES_JOUR && /^\d{4}-\d{2}-\d{2}$/.test(process.env.CYCLADES_JOUR)
+    ? process.env.CYCLADES_JOUR
+    : new Date().toISOString().slice(0, 10);
+
+/** Couverture de l'étiquetage de temporalité, par nature. */
+const parNature = new Map();
 
 /** Un compteur de couverture par périmètre. */
 function compteur() {
@@ -147,9 +164,58 @@ async function verifierDgfip() {
           `qcm-dgfip/${nom} : « ${question.question} » sans bloc « correction » — la rubrique ${id} est déclarée migrée`,
         );
       }
+      controlerLaTemporalite(nom, question);
     }
   }
   return parRubrique;
+}
+
+/**
+ * Les deux règles de temporalité du prompt 20 (§ qcm.5), et leur asymétrie.
+ *
+ * **« à venir » expirée : échec.** C'est la lettre de p20.qcm.5, et elle est
+ * juste : une question « à venir » dont l'échéance est passée annonce comme
+ * futur un fait qui a eu lieu — ou qui n'a pas eu lieu, et c'est pire.
+ * Personne ne l'a relue, et le site republierait sciemment du faux.
+ *
+ * **« passée non historique » expirée : avertissement, pas échec.** Elle est
+ * **déjà retirée du tirage** par « estExpiree » : elle n'est plus servie, et
+ * le danger est donc écarté sans arrêter la construction. L'étiqueter
+ * ainsi, c'est précisément l'acte par lequel on la neutralise ; faire
+ * échouer le build sur ce geste punirait celui qui range. Le prompt demande
+ * de la remplacer à rubrique et compétence constantes, ce qui est un travail
+ * de contenu, pas une urgence de publication.
+ *
+ * **Revérification : avertissement.** « a_reverifier_le » dit « rouvre le
+ * dossier », pas « ceci est faux ». Faire échouer le build là-dessus
+ * apprendrait à contourner le contrôle, ce qui est la seule façon certaine de
+ * le rendre inutile.
+ *
+ * Une question **sans bloc de temporalité** n'est ni en erreur ni en alerte :
+ * l'étiquetage se fait par lots, et le compte des non étiquetées est au
+ * tableau de couverture plutôt que dans le flot des problèmes.
+ */
+function controlerLaTemporalite(nom, question) {
+  const t = question.temporalite;
+  const clef = t?.nature ?? 'non étiquetée';
+  parNature.set(clef, (parNature.get(clef) ?? 0) + 1);
+  if (!t) return;
+
+  const titre = question.question.slice(0, 60);
+  if (t.expire_le && t.expire_le < JOUR) {
+    const message =
+      `qcm-dgfip/${nom} : « ${titre} » a expiré le ${t.expire_le} (nature « ${t.nature} »)`;
+    if (t.nature === 'a-venir') {
+      erreurs.push(`${message} — une échéance annoncée comme future est passée, et nul ne l'a relue`);
+    } else {
+      alertes.push(`${message} — retirée du tirage ; à remplacer à rubrique et compétence constantes`);
+    }
+  }
+  if (t.a_reverifier_le && t.a_reverifier_le < JOUR) {
+    alertes.push(
+      `qcm-dgfip/${nom} : « ${titre} » était à revérifier le ${t.a_reverifier_le}`,
+    );
+  }
 }
 
 function tableau(titre, entrees, migrees) {
@@ -206,6 +272,39 @@ if (restant > 0) {
       `Reste à rédiger : ${restant} correction(s). Régime d'inventaire sur les périmètres non migrés.`,
     ),
   );
+}
+
+/* --- Couverture de l'étiquetage de temporalité (prompt 20, § qcm.8) ------ */
+if (parNature.size) {
+  const ordre = [
+    'intemporelle',
+    'historique',
+    'actuelle',
+    'passee-non-historique',
+    'a-venir',
+    'non étiquetée',
+  ];
+  const totalQ = [...parNature.values()].reduce((n, v) => n + v, 0);
+  console.log(`\n${couleur.gras('QCM — COUVERTURE DE LA TEMPORALITÉ')}\n`);
+  for (const nature of ordre) {
+    const n = parNature.get(nature);
+    if (!n) continue;
+    const part = Math.round((n / totalQ) * 1000) / 10;
+    const ligne = `  ${nature.padEnd(24)}${String(n).padStart(5)}${`${part} %`.padStart(9)}`;
+    console.log(nature === 'non étiquetée' ? couleur.jaune(ligne) : ligne);
+  }
+  const etiquetees = totalQ - (parNature.get('non étiquetée') ?? 0);
+  console.log(
+    couleur.faible(`  ${'étiquetées'.padEnd(24)}${String(etiquetees).padStart(5)} sur ${totalQ}`),
+  );
+}
+
+if (alertes.length > 0) {
+  console.log(`\n${couleur.jaune(`${alertes.length} question(s) à revérifier :`)}`);
+  for (const a of alertes.slice(0, 20)) console.log(couleur.jaune(`  ! ${a}`));
+  if (alertes.length > 20) {
+    console.log(couleur.faible(`  … et ${alertes.length - 20} autre(s).`));
+  }
 }
 
 if (erreurs.length > 0) {
