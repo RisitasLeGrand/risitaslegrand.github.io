@@ -35,6 +35,49 @@ export function definirIndexTexte(index: IndexTexte) {
   indexTexte = index;
 }
 
+/**
+ * Fabrique une balise ouvrante dont les attributs sont posés par le DOM.
+ *
+ * ## Pourquoi `echapper()` ne suffisait pas
+ *
+ * `echapper()` passe par `textContent` puis relit `innerHTML` : le navigateur
+ * y échappe `&`, `<` et `>`, parce que ce sont les trois caractères qui
+ * comptent **dans du texte**. Le guillemet droit, lui, n'a rien de dangereux
+ * dans du texte, et le navigateur le laisse tel quel. Interpolé dans un
+ * attribut, il **ferme l'attribut** — et la suite de la chaîne devient des
+ * attributs à part entière. Démontré en navigateur : la charge
+ * `" onerror=…` crée un gestionnaire `onerror` vivant.
+ *
+ * ## Pourquoi `setAttribute` et non un second échappement
+ *
+ * Un `echapperAttribut()` aurait réglé les quatre sites d'aujourd'hui. Mais
+ * il aurait laissé le cinquième à écrire, et c'est le cinquième qui pose
+ * problème : rien ne rappelle, au moment d'ajouter un attribut, lequel des
+ * deux échappements s'applique. `setAttribute` ne se trompe pas de contexte,
+ * parce qu'il ne compose pas de chaîne : il pose une valeur, et c'est le
+ * sérialiseur du navigateur qui l'écrit correctement, guillemets compris.
+ *
+ * On rend la balise **ouvrante seule** : ces fonctions assemblent du HTML en
+ * chaînes, avec du contenu déjà construit, et reconstruire tout l'arbre
+ * serait un chantier d'une autre taille que celui qu'on mène ici. Le gain est
+ * exactement là où était le défaut : dans les attributs.
+ */
+function baliseOuvrante(nom: string, attributs: Record<string, string | undefined>): string {
+  const el = document.createElement(nom);
+  for (const [clef, valeur] of Object.entries(attributs)) {
+    if (valeur !== undefined) el.setAttribute(clef, valeur);
+  }
+  const rendu = el.outerHTML;
+  /*
+     `outerHTML` rend la balise entière. On coupe à la fin de la balise
+     ouvrante — l'élément est vide, donc le premier `>` qui suit les attributs
+     la ferme. Chercher `>` serait faux si une valeur en contenait un ; le
+     sérialiseur, lui, écrit `&gt;` dans les attributs, de sorte que le
+     premier `>` littéral est bien celui de la balise.
+  */
+  return rendu.slice(0, rendu.indexOf('>') + 1);
+}
+
 function listeSources(sources?: Source[]): string {
   if (!sources?.length) return '';
   const liens = sources
@@ -42,8 +85,14 @@ function listeSources(sources?: Source[]): string {
     .map((s) => {
       const nom = echapper(s.nom);
       if (!s.url) return `<span>${nom}</span>`;
-      return `<a href="${echapper(s.url)}" target="_blank" rel="noopener noreferrer nofollow"
-                 class="underline decoration-dotted underline-offset-2 hover:text-indigo-600 dark:hover:text-indigo-400">${nom}</a>`;
+      const ouvrante = baliseOuvrante('a', {
+        href: s.url,
+        target: '_blank',
+        rel: 'noopener noreferrer nofollow',
+        class:
+          'underline decoration-dotted underline-offset-2 hover:text-indigo-600 dark:hover:text-indigo-400',
+      });
+      return `${ouvrante}${nom}</a>`;
     });
   if (!liens.length) return '';
   return `<p class="texte-secable mt-3 text-xs text-slate-500 dark:text-slate-400">Source${liens.length > 1 ? 's' : ''} : ${liens.join(' · ')}</p>`;
@@ -78,9 +127,12 @@ function blocLienCours(
   const puces = rattachees
     .map(
       ({ fiche }) =>
-        `<a href="${lien('/fiche/')}?id=${encodeURIComponent(fiche.id)}"
-            title="${echapper(fiche.matiere)} · ${echapper(fiche.fascicule)}"
-            class="inline-flex min-h-9 max-w-full items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-indigo-700 ring-1 ring-indigo-200 transition hover:bg-indigo-100 dark:bg-slate-900 dark:text-indigo-300 dark:ring-indigo-800 dark:hover:bg-slate-800">
+        `${baliseOuvrante('a', {
+          href: `${lien('/fiche/')}?id=${encodeURIComponent(fiche.id)}`,
+          title: `${fiche.matiere} · ${fiche.fascicule}`,
+          class:
+            'inline-flex min-h-9 max-w-full items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-indigo-700 ring-1 ring-indigo-200 transition hover:bg-indigo-100 dark:bg-slate-900 dark:text-indigo-300 dark:ring-indigo-800 dark:hover:bg-slate-800',
+        })}
            <span aria-hidden="true">📄</span><span class="texte-secable line-clamp-2 text-left">${echapper(fiche.titre)}</span>
          </a>`,
     )
@@ -188,8 +240,12 @@ function tuilesIndicateurs(indicateurs?: Record<string, Indicateur>): string {
     const indicateur = indicateurs[cle];
     const source = indicateur.source?.nom
       ? indicateur.source.url
-        ? `<a href="${echapper(indicateur.source.url)}" target="_blank" rel="noopener noreferrer nofollow"
-              class="underline decoration-dotted underline-offset-2">${echapper(indicateur.source.nom)}</a>`
+        ? `${baliseOuvrante('a', {
+            href: indicateur.source.url,
+            target: '_blank',
+            rel: 'noopener noreferrer nofollow',
+            class: 'underline decoration-dotted underline-offset-2',
+          })}${echapper(indicateur.source.nom)}</a>`
         : echapper(indicateur.source.nom)
       : '';
     return `<div class="rounded-lg border border-slate-200 bg-slate-50 p-3 dark:border-slate-800 dark:bg-slate-950/50">
@@ -376,8 +432,14 @@ export function carteItem(item: ItemActu, fichesCours: FicheAplatie[] = []): HTM
   // masque le bloc si elle ne se charge pas (lien mort, hotlink refusé).
   const image = item.image?.url
     ? `<figure class="-mx-4 -mt-4 mb-3 overflow-hidden bg-slate-100 dark:bg-slate-800">
-         <img src="${echapper(item.image.url)}" alt="" loading="lazy" referrerpolicy="no-referrer"
-              class="aspect-video w-full max-w-full object-cover" onerror="this.closest('figure').remove()" />
+         ${baliseOuvrante('img', {
+           src: item.image.url,
+           alt: '',
+           loading: 'lazy',
+           referrerpolicy: 'no-referrer',
+           class: 'aspect-video w-full max-w-full object-cover',
+           onerror: "this.closest('figure').remove()",
+         })}
          ${
            item.image.credit
              ? `<figcaption class="px-3 py-1.5 text-[11px] text-slate-500 dark:text-slate-400">${echapper(item.image.credit)}</figcaption>`
