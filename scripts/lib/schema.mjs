@@ -206,6 +206,47 @@ export function defautsDeLaCorrection(correction, options, bonnes) {
   return defauts;
 }
 
+/**
+ * À quelle option correspond une réponse donnée par son texte ?
+ *
+ * L'appariement était insensible à la casse, et c'est un piège : une fiche sur
+ * l'usage des majuscules proposait « La Cour d'appel » et « la cour d'appel »
+ * comme deux options distinctes — la seule différence étant justement ce que la
+ * question évalue. Mises en minuscules, les deux se confondaient, et la
+ * première l'emportait : la fiche était silencieusement clefée sur la mauvaise
+ * réponse, sans que rien ne le signale ni au build, ni à l'écran.
+ *
+ * D'où trois temps, dans cet ordre. La correspondance exacte d'abord : quand
+ * elle existe, aucune ambiguïté n'est possible, même si une autre option ne
+ * diffère que par la casse. La correspondance à la casse près ensuite, mais
+ * **à la seule condition qu'elle soit unique** — c'est la tolérance qui rend
+ * service au rédacteur pressé, et le contenu déjà écrit en dépend. Le refus
+ * enfin, quand plusieurs options se confondent une fois mises en minuscules :
+ * mieux vaut un build qui s'arrête qu'une clef fausse qui passe.
+ *
+ * Renvoie « { idx } » ou « { erreur } » ; l'appelant préfixe le message.
+ */
+export function indiceDeLaReponse(options, texte) {
+  const exact = options.indexOf(texte);
+  if (exact !== -1) return { idx: exact };
+  const bas = texte.toLowerCase();
+  const cassePres = [];
+  options.forEach((o, i) => {
+    if (o.toLowerCase() === bas) cassePres.push(i);
+  });
+  if (cassePres.length === 1) return { idx: cassePres[0] };
+  if (cassePres.length > 1) {
+    const citees = cassePres.map((i) => `${i + 1} (« ${options[i]} »)`).join(', ');
+    return {
+      erreur:
+        `la réponse « ${texte} » ne correspond exactement à aucune option, et ` +
+        `${cassePres.length} options se confondent une fois mises en minuscules : ${citees}. ` +
+        'Écrire la réponse telle quelle, ou la donner par son index (0 pour la première).',
+    };
+  }
+  return { erreur: `la réponse « ${texte} » ne figure pas dans les options` };
+}
+
 export const quizSchema = z
   .object({
     question: z.string().min(1, 'question de quiz vide'),
@@ -230,15 +271,15 @@ export const quizSchema = z
         continue;
       }
       const texte = String(brute).trim();
-      const idx = options.findIndex((o) => o.toLowerCase() === texte.toLowerCase());
-      if (idx === -1) {
+      const trouve = indiceDeLaReponse(options, texte);
+      if (trouve.erreur !== undefined) {
         ctx.addIssue({
           code: 'custom',
-          message: `quiz « ${v.question} » : la réponse « ${texte} » ne figure pas dans les options`,
+          message: `quiz « ${v.question} » : ${trouve.erreur}`,
         });
         return z.NEVER;
       }
-      indices.push(idx);
+      indices.push(trouve.idx);
     }
     const bonnes = [...new Set(indices)].sort((a, b) => a - b);
     for (const defaut of defautsDeLaCorrection(v.correction, options, bonnes)) {
@@ -301,15 +342,15 @@ export const questionDgfipSchema = z
         continue;
       }
       const texte = String(brute).trim();
-      const idx = options.findIndex((o) => o.toLowerCase() === texte.toLowerCase());
-      if (idx === -1) {
+      const trouve = indiceDeLaReponse(options, texte);
+      if (trouve.erreur !== undefined) {
         ctx.addIssue({
           code: 'custom',
-          message: `question « ${v.question} » : la réponse « ${texte} » ne figure pas dans les options`,
+          message: `question « ${v.question} » : ${trouve.erreur}`,
         });
         return z.NEVER;
       }
-      indices.push(idx);
+      indices.push(trouve.idx);
     }
     const bonnes = [...new Set(indices)].sort((a, b) => a - b);
     for (const defaut of defautsDeLaCorrection(v.correction, options, bonnes)) {

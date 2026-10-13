@@ -16,6 +16,7 @@ import {
   TYPES_VISUEL,
   correctionSchema,
   defautsDeLaCorrection,
+  indiceDeLaReponse,
   questionDgfipSchema,
   quizSchema,
   visuelSchema,
@@ -257,6 +258,116 @@ console.log('\n\x1b[1mBRANCHÉ SUR LES DEUX BANQUES\x1b[0m\n');
       questionDgfipSchema.safeParse({ ...dgfip, correction: correction(QUATRE) }).data?.correction,
     ),
     true,
+  );
+}
+
+console.log('\n\x1b[1mL’APPARIEMENT DE LA RÉPONSE À SON OPTION\x1b[0m\n');
+{
+  /*
+   * Le cas qui a fait découvrir le défaut : une fiche sur l'usage des
+   * majuscules, dont deux options ne diffèrent que par la casse. Mises en
+   * minuscules, elles se confondent ; l'ancien appariement retenait la
+   * première, c'est-à-dire la mauvaise une fois sur deux, et sans rien dire.
+   */
+  const majuscules = {
+    question: 'Quelle graphie est correcte dans le corps d’un texte ?',
+    options: ['La Cour d’appel', 'la cour d’appel'],
+  };
+
+  verifier(
+    'entre deux options qui ne diffèrent que par la casse, la graphie exacte décide',
+    quizSchema.safeParse({ ...majuscules, reponse: 'la cour d’appel' }).data?.bonnes,
+    [1],
+  );
+  verifier(
+    'et l’autre graphie désigne bien l’autre option',
+    quizSchema.safeParse({ ...majuscules, reponse: 'La Cour d’appel' }).data?.bonnes,
+    [0],
+  );
+
+  // Aucune des deux options n'est écrite ainsi : plus rien ne permet de
+  // trancher, et deviner serait clefer la fiche sur une réponse fausse.
+  const confus = quizSchema.safeParse({ ...majuscules, reponse: 'LA COUR D’APPEL' });
+  verifier('une réponse qui confond deux options est refusée', confus.success, false);
+  verifier(
+    'et le message cite les options confondues',
+    confus.success
+      ? ''
+      : confus.error.issues.some(
+          (i) => i.message.includes('se confondent') && i.message.includes('La Cour d’appel'),
+        ),
+    true,
+  );
+  verifier(
+    'et dit comment s’en sortir',
+    confus.success ? '' : confus.error.issues.some((i) => i.message.includes('par son index')),
+    true,
+  );
+  verifier(
+    'l’index reste la sortie de secours, quelle que soit la casse des options',
+    quizSchema.safeParse({ ...majuscules, reponse: 1 }).data?.bonnes,
+    [1],
+  );
+
+  /*
+   * La tolérance d'origine rendait service au rédacteur pressé, et le contenu
+   * déjà écrit en dépend : elle est conservée tant qu'elle ne confond rien.
+   */
+  verifier(
+    'la casse reste tolérée quand une seule option peut correspondre',
+    quizSchema.safeParse({
+      question: 'Quel texte fonde la Ve République ?',
+      options: ['La loi de 1875', 'La Constitution de 1958'],
+      reponse: 'la constitution de 1958',
+    }).data?.bonnes,
+    [1],
+  );
+
+  // Le même contrôle vaut pour la banque d'annales, qui partage la logique.
+  const dgfipConfus = questionDgfipSchema.safeParse({
+    question: 'Quelle graphie retenir ?',
+    options: ['Le Conseil d’État', 'le conseil d’État'],
+    reponse: 'LE CONSEIL D’ÉTAT',
+    explication: 'La majuscule marque l’institution.',
+  });
+  verifier('la banque DGFiP refuse la même confusion', dgfipConfus.success, false);
+  verifier(
+    'et la question y reste nommée dans le message',
+    dgfipConfus.success
+      ? ''
+      : dgfipConfus.error.issues.some((i) => i.message.startsWith('question « Quelle graphie')),
+    true,
+  );
+
+  // Une réponse simplement absente garde son message d'origine : la distinguer
+  // de l'ambiguïté évite d'envoyer le rédacteur chercher une casse qui n'est
+  // pas en cause.
+  const absente = quizSchema.safeParse({
+    question: 'Quel texte fonde la Ve République ?',
+    options: ['La loi de 1875', 'La Constitution de 1958'],
+    reponse: 'Le traité de Rome',
+  });
+  verifier('une réponse absente des options est refusée', absente.success, false);
+  verifier(
+    'et pour la bonne raison',
+    absente.success
+      ? ''
+      : absente.error.issues.some(
+          (i) => i.message.includes('ne figure pas dans les options')
+            && !i.message.includes('se confondent'),
+        ),
+    true,
+  );
+
+  // Le cœur de la règle, isolé de Zod.
+  verifier(
+    'l’appariement rend un index, ou une erreur, jamais les deux',
+    [
+      indiceDeLaReponse(['Oui', 'Non'], 'Non').idx,
+      indiceDeLaReponse(['Oui', 'oui'], 'OUI').idx,
+      indiceDeLaReponse(['Oui', 'oui'], 'oui').idx,
+    ],
+    [1, undefined, 1],
   );
 }
 
