@@ -35,6 +35,13 @@ import {
 } from './finances';
 import { controlerLigne, type LigneBudget } from './budget';
 import {
+  CLEF_ETAT,
+  REGLAGES_PAR_DEFAUT,
+  relireLesReglages,
+  type EtatDesConsommateurs,
+  type ReglagesConsommateurs,
+} from './consommateurs';
+import {
   controlerRapprochement,
   identifiantDeRapprochement,
   resoudre,
@@ -47,7 +54,8 @@ type MagasinFinances =
   | 'odysseeValorisations'
   | 'odysseeOperations'
   | 'odysseeLignesBudget'
-  | 'odysseeRapprochements';
+  | 'odysseeRapprochements'
+  | 'odysseeConsommateurs';
 
 async function journaliser(magasin: MagasinFinances, scelle: unknown): Promise<void> {
   try {
@@ -319,6 +327,39 @@ export async function annulerLesAutomatiques(depuis: string): Promise<number> {
 }
 
 export type { Rapprochement, TypeDeRapprochement };
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Qui lit mon budget
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Les réglages des consommateurs, **par défaut si rien n'est enregistré**.
+ *
+ * Et par défaut aussi si la lecture échoue : un coffre fermé ou un
+ * enregistrement illisible ne doit pas ouvrir des lecteurs qui étaient
+ * fermés, ni fermer ceux que la personne avait laissés ouverts sans le
+ * redire. Les valeurs par défaut du registre sont la seule réponse sûre.
+ */
+export async function lireLesConsommateurs(): Promise<ReglagesConsommateurs> {
+  try {
+    const tous = await toutLire<EtatDesConsommateurs>('odysseeConsommateurs');
+    const etat = tous.find((e) => e.id === CLEF_ETAT);
+    return etat ? relireLesReglages(etat.reglages) : { ...REGLAGES_PAR_DEFAUT };
+  } catch {
+    return { ...REGLAGES_PAR_DEFAUT };
+  }
+}
+
+export async function ecrireLesConsommateurs(
+  reglages: ReglagesConsommateurs,
+): Promise<EtatDesConsommateurs> {
+  const etat: EtatDesConsommateurs = {
+    id: CLEF_ETAT,
+    reglages: relireLesReglages(reglages),
+    majLe: maintenant(),
+  };
+  return ecrire('odysseeConsommateurs', etat);
+}
 
 /**
  * Combien d'enregistrements financiers existent, **sans ouvrir le coffre**.

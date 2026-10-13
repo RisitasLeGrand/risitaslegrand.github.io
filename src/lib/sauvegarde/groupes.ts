@@ -124,6 +124,8 @@ export const CHAMP_DATE: Record<string, string | null> = {
      avoir été classée.
   */
   odysseeRapprochements: null,
+  // Sept interrupteurs : un état, et un seul enregistrement.
+  odysseeConsommateurs: null,
   odysseeHebdos: 'semaine',
   odysseeJournal: 'jour',
   /*
@@ -225,6 +227,7 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
       'odysseeVeilleReglages',
       'odysseePassations',
       'odysseeRapprochements',
+      'odysseeConsommateurs',
     ],
   },
   {

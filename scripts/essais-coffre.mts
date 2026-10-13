@@ -105,7 +105,7 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    plus bas. Ils ont été retirés, puis sont revenus avec la phase 1 — cette
    fois avec leurs magasins.
 */
-v('quatorze magasins scellés', MAGASINS_SCELLES.length, 14);
+v('quinze magasins scellés', MAGASINS_SCELLES.length, 15);
 vrai('les passations d’échelles en sont', estScelle('odysseePassations'));
 vrai('la ligne de base de la veille en est', estScelle('odysseeVeilleBases'));
 vrai('les repères aussi', estScelle('odysseeVeilleSignaux'));
@@ -123,6 +123,12 @@ vrai('et les lignes de budget', estScelle('odysseeLignesBudget'));
    électricité ». Il en apprend autant que l'opération qu'il range.
 */
 vrai('les rapprochements en sont', estScelle('odysseeRapprochements'));
+/*
+   Et les sept interrupteurs de « Qui lit mon budget » : savoir que quelqu'un
+   a ouvert son budget à l'IA, ou fermé tout le reste, est une information sur
+   lui.
+*/
+vrai('et qui lit mon budget', estScelle('odysseeConsommateurs'));
 vrai('le journal en est', estScelle('odysseeJournal'));
 vrai('les check-ins aussi', estScelle('odysseeCheckins'));
 vrai('et les points de semaine', estScelle('odysseeHebdos'));

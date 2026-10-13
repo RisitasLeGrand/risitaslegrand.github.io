@@ -34,7 +34,17 @@ import Base from '../../layouts/Base.astro';
       enregistré : un intitulé suffit.
       <a href="/odyssee/rapprocher/" class="underline">À rapprocher</a> — relier les opérations
       importées aux échéances qu’elles soldent.
+      <a href="/odyssee/qui-lit-mon-budget/" class="underline">Qui lit mon budget</a>.
     </p>
+
+    <!--
+      Le bandeau du dossier surveillé vit **hors** du coffre : il ne dit qu'un
+      nombre, jamais un nom de fichier. Les banques mettent le numéro de
+      compte dans le nom du relevé, et l'afficher ici le montrerait à
+      quelqu'un qui n'a pas donné son mot de passe.
+    -->
+    <p id="bandeau-dossier"
+      class="mt-4 hidden rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-900 dark:bg-indigo-950/30 dark:text-indigo-100"></p>
 
     <div id="chargement-finances" class="mt-6">
       <p class="text-sm text-slate-500 dark:text-slate-400">Lecture…</p>
@@ -80,6 +90,20 @@ import Base from '../../layouts/Base.astro';
             <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
               Le fichier est lu sur cet appareil et n’est pas conservé.
             </p>
+          </div>
+
+          <!-- Le dossier surveillé — méthode 3 du plan. -->
+          <div id="dossier" class="mt-3 rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800">
+            <div class="flex flex-wrap items-center gap-2">
+              <button id="surveiller" type="button"
+                class="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium dark:border-slate-700"
+                >Surveiller un dossier…</button>
+              <button id="oublier-dossier" type="button"
+                class="hidden min-h-11 rounded-lg px-3 text-xs text-slate-500 underline dark:text-slate-400"
+                >Ne plus surveiller</button>
+            </div>
+            <p id="etat-dossier" class="mt-2 text-slate-600 dark:text-slate-300"></p>
+            <ul id="nouveaux-releves" class="mt-2 space-y-2"></ul>
           </div>
 
           <p id="lecture-en-cours" class="mt-3 hidden text-sm text-slate-600 dark:text-slate-300">
@@ -150,6 +174,23 @@ import Base from '../../layouts/Base.astro';
     reprendreLeCoffre,
     surCoffre,
   } from '../../lib/coffre';
+  import {
+    DossierDeRelevesRefuse,
+    autorisation,
+    choisirDossierDeReleves,
+    contenuDuDossier,
+    disponible as dossierDisponible,
+    dossierMemorise,
+    lireLeFichier,
+    memoriserLeDossier,
+    noterCommeVues,
+    nouveaux,
+    oublierLeDossier,
+    phraseDuBandeau,
+    redemanderAutorisation,
+    type PoigneeDossier,
+    type ReleveDuDossier,
+  } from '../../lib/odyssee/dossier-releves';
 
   const $ = (id: string) => document.getElementById(id)!;
   const dire = (zone: string, e: unknown) => {
@@ -354,6 +395,107 @@ import Base from '../../layouts/Base.astro';
     return 'courant' as const;
   }
 
+  /* ── Le dossier surveillé ─────────────────────────────────────────────── */
+
+  let poignee: PoigneeDossier | null = null;
+
+  /**
+   * Le dossier mémorisé, si l'appareil sait en mémoriser un.
+   *
+   * L'autorisation n'est **pas** redemandée ici : un navigateur l'exige après
+   * un geste de la personne, et la redemander au chargement se solderait par
+   * un refus silencieux qui donnerait l'impression que le dossier est perdu.
+   * On affiche donc qu'il faut un clic, et on attend ce clic.
+   */
+  async function reprendreLeDossier() {
+    if (!dossierDisponible()) {
+      $('etat-dossier').textContent =
+        'Ce navigateur ne sait pas mémoriser un dossier. Déposez les relevés un par un : le ' +
+        'résultat est exactement le même, à un geste près.';
+      ($('surveiller') as HTMLButtonElement).disabled = true;
+      return;
+    }
+    poignee = await dossierMemorise();
+    if (!poignee) {
+      $('etat-dossier').textContent =
+        'Choisissez le dossier où votre banque dépose ses relevés. Cyclades le relira à chaque ' +
+        'ouverture et dira combien de nouveaux fichiers s’y trouvent. Il n’y écrit jamais rien.';
+      return;
+    }
+    $('oublier-dossier').classList.remove('hidden');
+    const etat = await autorisation(poignee);
+    if (etat !== 'accordee') {
+      $('etat-dossier').textContent =
+        `Dossier « ${poignee.name} » mémorisé. Le navigateur redemande l’autorisation de le ` +
+        'lire après un redémarrage, et elle exige un clic.';
+      ($('surveiller') as HTMLButtonElement).textContent = 'Autoriser la lecture du dossier';
+      return;
+    }
+    await listerLeDossier();
+  }
+
+  async function listerLeDossier() {
+    if (!poignee) return;
+    const contenu = await contenuDuDossier(poignee);
+    const phrase = phraseDuBandeau(contenu);
+    $('bandeau-dossier').classList.toggle('hidden', phrase === null);
+    if (phrase) $('bandeau-dossier').textContent = phrase;
+
+    const neufs = nouveaux(contenu);
+    $('etat-dossier').textContent = neufs.length
+      ? `Dossier « ${poignee.name} » : ${neufs.length} nouveau(x) relevé(s) sur ${contenu.length}.`
+      : `Dossier « ${poignee.name} » : rien de nouveau sur ${contenu.length} fichier(s).`;
+
+    const liste = $('nouveaux-releves');
+    liste.innerHTML = '';
+    for (const r of neufs) liste.appendChild(ligneDeReleve(r));
+  }
+
+  function ligneDeReleve(r: ReleveDuDossier): HTMLElement {
+    const li = document.createElement('li');
+    li.dataset.nouveauReleve = r.nom;
+    li.className = 'flex flex-wrap items-center justify-between gap-2';
+    const nom = document.createElement('span');
+    nom.className = 'min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200';
+    nom.textContent = r.nom;
+    const gestes = document.createElement('span');
+    gestes.className = 'flex gap-2';
+
+    const importer = document.createElement('button');
+    importer.type = 'button';
+    importer.dataset.geste = 'importer';
+    importer.className = 'min-h-11 rounded-lg border border-slate-300 px-3 text-xs dark:border-slate-700';
+    importer.textContent = 'Lire';
+    importer.addEventListener('click', () => {
+      void (async () => {
+        if (!poignee) return;
+        const fichier = await lireLeFichier(poignee, r.nom);
+        /*
+           L'empreinte est notée **avant** la lecture, et non après l'import.
+           Un relevé illisible ou refusé par le contrôle de solde serait
+           sinon reproposé à chaque ouverture, indéfiniment, sans qu'aucun
+           geste puisse l'écarter.
+        */
+        await noterCommeVues([r.empreinte]);
+        await lireFichier(fichier);
+        await listerLeDossier();
+      })().catch((e) => dire('erreur-import', e));
+    });
+
+    const ignorer = document.createElement('button');
+    ignorer.type = 'button';
+    ignorer.dataset.geste = 'ignorer';
+    ignorer.className = 'min-h-11 rounded-lg px-3 text-xs text-slate-500 underline dark:text-slate-400';
+    ignorer.textContent = 'Ignorer';
+    ignorer.addEventListener('click', () => {
+      void noterCommeVues([r.empreinte]).then(listerLeDossier).catch((e) => dire('erreur-import', e));
+    });
+
+    gestes.append(importer, ignorer);
+    li.append(nom, gestes);
+    return li;
+  }
+
   /* ── Le cycle ─────────────────────────────────────────────────────────── */
 
   async function recharger() {
@@ -398,6 +540,35 @@ import Base from '../../layouts/Base.astro';
         $('apercu').classList.add('hidden');
       });
 
+      $('surveiller').addEventListener('click', () => {
+        void (async () => {
+          if (poignee && (await autorisation(poignee)) !== 'accordee') {
+            if ((await redemanderAutorisation(poignee)) !== 'accordee') {
+              throw new DossierDeRelevesRefuse('permission');
+            }
+            ($('surveiller') as HTMLButtonElement).textContent = 'Changer de dossier…';
+            await listerLeDossier();
+            return;
+          }
+          poignee = await choisirDossierDeReleves();
+          await memoriserLeDossier(poignee);
+          $('oublier-dossier').classList.remove('hidden');
+          ($('surveiller') as HTMLButtonElement).textContent = 'Changer de dossier…';
+          await listerLeDossier();
+        })().catch((e) => dire('erreur-import', e));
+      });
+      $('oublier-dossier').addEventListener('click', () => {
+        void (async () => {
+          await oublierLeDossier();
+          poignee = null;
+          $('oublier-dossier').classList.add('hidden');
+          $('bandeau-dossier').classList.add('hidden');
+          $('nouveaux-releves').innerHTML = '';
+          ($('surveiller') as HTMLButtonElement).textContent = 'Surveiller un dossier…';
+          await reprendreLeDossier();
+        })().catch((e) => dire('erreur-import', e));
+      });
+
       $('ouvrir-coffre').addEventListener('click', () => {
         void (async () => {
           const mdp = $('mdp-coffre') as HTMLInputElement;
@@ -422,6 +593,12 @@ import Base from '../../layouts/Base.astro';
 
       await recharger();
       $('vue').classList.remove('hidden');
+      /*
+         Le dossier est relu **après** l'affichage, et son échec n'empêche
+         pas l'écran : une permission perdue ne doit pas bloquer un import
+         fait à la main, qui est la voie principale.
+      */
+      await reprendreLeDossier().catch((e) => dire('erreur-import', e));
     },
     { zoneChargement: '#chargement-finances' },
   );

@@ -1,0 +1,344 @@
+---
+/**
+ * Odyssée : qui lit mon budget — Finances, phase 4, section 8 du plan.
+ *
+ * ## Montrer, pas seulement promettre
+ *
+ * Un écran de permissions se lit une fois, à l'installation, et n'est plus
+ * jamais rouvert. Les sept lignes y disent ce que chacun voit ; rien, dans un
+ * écran ordinaire, ne permet de le **vérifier**. « Voir ce qu'il reçoit »
+ * affiche la projection réelle, calculée à l'instant sur les vraies données.
+ *
+ * C'est la seule façon d'offrir autre chose qu'une déclaration : si la ligne
+ * dit « aucun montant » et que l'aperçu en montre un, la contradiction est
+ * sous les yeux de la personne au lieu d'être enfouie dans un module.
+ *
+ * ## Le coffre, pour les aperçus seulement
+ *
+ * Les sept interrupteurs se règlent **coffre fermé** : savoir qu'on veut
+ * fermer l'accès de l'IA à son budget ne devrait pas demander d'ouvrir son
+ * budget. Seuls les aperçus, qui lisent des données réelles, l'exigent.
+ */
+import Base from '../../layouts/Base.astro';
+---
+
+<Base titre="Qui lit mon budget" actif="finances">
+  <div class="mx-auto max-w-3xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Qui lit mon budget</h1>
+    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+      Sept endroits de Cyclades peuvent lire quelque chose de vos finances. Chacun dit en toutes
+      lettres ce qu’il voit, et vous pouvez le vérifier : « Voir ce qu’il reçoit » affiche la
+      projection réelle, calculée à l’instant.
+    </p>
+
+    <div id="chargement-consommateurs" class="mt-6">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Lecture…</p>
+    </div>
+
+    <div id="vue" class="mt-6 hidden space-y-6">
+      <ul id="liste" class="space-y-3"></ul>
+
+      <section class="rounded-2xl border border-slate-200 p-4 text-sm dark:border-slate-800">
+        <h2 class="font-semibold text-slate-900 dark:text-white">Deux règles qui ne se règlent pas</h2>
+        <p class="mt-2 text-slate-600 dark:text-slate-300">
+          <strong>La veille du rythme de vie ne s’allume jamais sur un budget dépassé.</strong>
+          Un budget serré est un choix, pas un signal de santé. Elle ne reçoit qu’une cadence de
+          dépenses comparée à votre propre base, sans aucune référence au prévu — et même en
+          l’activant, elle ne peut pas recevoir autre chose.
+        </p>
+        <p class="mt-2 text-slate-600 dark:text-slate-300">
+          <strong>« Demander à l’IA » redemande votre accord à chaque fois.</strong> C’est le seul
+          des sept dont la sortie quitte l’appareil. Un accord donné en janvier ne peut pas couvrir
+          un envoi fait en novembre sur des données que personne n’a relues.
+        </p>
+      </section>
+
+      <section id="pour-les-apercus" class="rounded-2xl border-2 border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">🔒 Pour voir les aperçus</h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Les interrupteurs se règlent sans le coffre. Les aperçus, eux, lisent vos données réelles.
+        </p>
+        <label class="mt-3 block text-sm">
+          <span class="block text-slate-700 dark:text-slate-200">Mot de passe</span>
+          <input id="mdp-coffre" type="password" autocomplete="current-password"
+            class="mt-1 min-h-11 w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+        </label>
+        <button id="ouvrir-coffre" type="button"
+          class="mt-3 min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900"
+          >Ouvrir</button>
+        <p id="erreur-coffre" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+      </section>
+
+      <p id="erreur" class="hidden rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:bg-rose-950/30 dark:text-rose-100"></p>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { euros } from '../../lib/odyssee/finances';
+  import { occurrences, TOLERANCE_PAR_DEFAUT } from '../../lib/odyssee/budget';
+  import {
+    CONSOMMATEURS,
+    projeter,
+    type Consommateur,
+    type Projection,
+    type ReglagesConsommateurs,
+    type SourceFinances,
+  } from '../../lib/odyssee/consommateurs';
+  import {
+    ecrireLesConsommateurs,
+    etatDesRapprochements,
+    lireLesConsommateurs,
+    toutesLesLignes,
+    toutesLesOperations,
+  } from '../../lib/odyssee/donnees-finances';
+  import { coffreOuvert, ouvrirLeCoffre, reprendreLeCoffre, surCoffre } from '../../lib/coffre';
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const dire = (e: unknown) => {
+    const z = $('erreur');
+    z.textContent = e instanceof Error ? e.message : String(e);
+    z.classList.remove('hidden');
+  };
+
+  const aujourdHui = new Date().toISOString().slice(0, 10);
+  let reglages: ReglagesConsommateurs;
+
+  /* ── Les données, une fois le coffre ouvert ───────────────────────────── */
+
+  let source: SourceFinances | null = null;
+
+  async function rassembler(): Promise<SourceFinances> {
+    const [lignes, operations, etat] = await Promise.all([
+      toutesLesLignes(),
+      toutesLesOperations(),
+      etatDesRapprochements(),
+    ]);
+    const jours = operations.map((o) => o.jour).sort();
+    const du = jours.length ? jours[0] : aujourdHui;
+    const au = new Date(Date.parse(`${aujourdHui}T00:00:00Z`) + 400 * 86_400_000)
+      .toISOString().slice(0, 10);
+    return {
+      lignes,
+      occurrences: lignes.flatMap((l) => occurrences(l, du, au)),
+      operations,
+      rapprochements: etat.retenus,
+      /*
+         Les jours d'import se déduisent des opérations enregistrées : un
+         magasin d'imports existe au modèle mais n'est pas encore rempli, et
+         inventer une régularité serait pire que de la mesurer de travers.
+      */
+      importsLe: [...new Set(operations.map((o) => o.majLe.slice(0, 10)))].sort(),
+      revuesFaites: [],
+      tolerance: TOLERANCE_PAR_DEFAUT,
+      arreteAu: aujourdHui,
+    };
+  }
+
+  /* ── L'aperçu, en français ────────────────────────────────────────────── */
+
+  function enFrancais(p: Projection): string[] {
+    switch (p.consommateur) {
+      case 'agenda': {
+        const e = p.vue.echeances;
+        if (!e.length) return ['Aucune échéance à venir.'];
+        return e.slice(0, 6).map((x) => `${x.jour} — ${x.libelle} : ${euros(x.montant)}`)
+          .concat(e.length > 6 ? [`… et ${e.length - 6} de plus.`] : []);
+      }
+      case 'quoiMaintenant':
+        return [`${p.vue.aRapprocher} opération(s) à rapprocher.`];
+      case 'objectifs':
+        return [
+          `Épargne mensuelle prévue : ${euros(p.vue.epargneMensuelle)}.`,
+          p.vue.tauxEpargne === null
+            ? 'Taux d’épargne : inconnu, faute de ressource déclarée.'
+            : `Taux d’épargne : ${(p.vue.tauxEpargne * 100).toFixed(1).replace('.', ',')} %.`,
+        ];
+      case 'habitudes':
+        return [
+          p.vue.joursDepuisLeDernierImport === null
+            ? 'Aucun import encore.'
+            : `Dernier import il y a ${p.vue.joursDepuisLeDernierImport} jour(s).`,
+          `${p.vue.importsSurTroisMois} import(s) sur trois mois.`,
+          p.vue.partRapprochee === null
+            ? 'Aucune échéance échue : rien à rapprocher pour l’instant.'
+            : `${Math.round(p.vue.partRapprochee * 100)} % des échéances échues sont rapprochées.`,
+        ];
+      case 'quetes':
+        return [p.vue.revueDuMoisFaite ? 'Revue du mois faite.' : 'Revue du mois non faite.'];
+      case 'veille':
+        return [
+          p.vue.sortiesParJourRecent === null
+            ? 'Cadence récente : pas assez de données.'
+            : `Cadence récente : ${p.vue.sortiesParJourRecent.toFixed(2).replace('.', ',')} sortie(s) par jour.`,
+          p.vue.sortiesParJourDeBase === null
+            ? 'Base : pas assez d’historique.'
+            : `Base : ${p.vue.sortiesParJourDeBase.toFixed(2).replace('.', ',')} sortie(s) par jour.`,
+          'Aucun montant, et aucune comparaison au budget.',
+        ];
+      case 'ia':
+        return p.vue.resume.split('\n');
+      default:
+        return [];
+    }
+  }
+
+  /* ── L'écran ──────────────────────────────────────────────────────────── */
+
+  function peindre() {
+    const liste = $('liste');
+    liste.innerHTML = '';
+    for (const c of CONSOMMATEURS) {
+      const li = document.createElement('li');
+      li.dataset.consommateur = c.id;
+      li.className = 'rounded-xl border border-slate-200 p-3 dark:border-slate-800';
+
+      const tete = document.createElement('div');
+      tete.className = 'flex flex-wrap items-start justify-between gap-3';
+
+      const gauche = document.createElement('div');
+      gauche.className = 'min-w-0 flex-1';
+      const titre = document.createElement('p');
+      titre.className = 'font-medium text-slate-900 dark:text-white';
+      titre.textContent = c.libelle;
+      const voit = document.createElement('p');
+      voit.className = 'mt-1 text-sm text-slate-600 dark:text-slate-300';
+      voit.dataset.voit = '';
+      voit.textContent = c.voit;
+      gauche.append(titre, voit);
+
+      /*
+         Une case à cocher, et non un bouton à bascule : elle est annoncée
+         par les lecteurs d'écran comme cochée ou décochée sans qu'on ait à
+         le décrire, et elle se manipule au clavier sans rien ajouter.
+      */
+      const etiquette = document.createElement('label');
+      etiquette.className = 'flex shrink-0 items-center gap-2 text-sm';
+      const case_ = document.createElement('input');
+      case_.type = 'checkbox';
+      case_.className = 'size-5 rounded border-slate-300 dark:border-slate-700';
+      case_.checked = reglages[c.id];
+      case_.dataset.interrupteur = c.id;
+      case_.setAttribute('aria-label', `${c.libelle} — ${c.voit}`);
+      const mot = document.createElement('span');
+      mot.dataset.etat = '';
+      mot.textContent = reglages[c.id] ? 'Autorisé' : 'Fermé';
+      case_.addEventListener('change', () => {
+        reglages = { ...reglages, [c.id]: case_.checked };
+        mot.textContent = case_.checked ? 'Autorisé' : 'Fermé';
+        void ecrireLesConsommateurs(reglages).catch(dire);
+        rendreLApercu(c.id, li);
+      });
+      etiquette.append(case_, mot);
+      tete.append(gauche, etiquette);
+
+      const bas = document.createElement('div');
+      bas.className = 'mt-2';
+      const bouton = document.createElement('button');
+      bouton.type = 'button';
+      bouton.dataset.apercu = c.id;
+      bouton.className = 'text-xs text-slate-500 underline dark:text-slate-400';
+      bouton.textContent = 'Voir ce qu’il reçoit';
+      const zone = document.createElement('div');
+      zone.dataset.zoneApercu = c.id;
+      zone.className = 'mt-2 hidden rounded-lg bg-slate-50 p-3 text-sm dark:bg-slate-900';
+      bouton.addEventListener('click', () => {
+        zone.classList.toggle('hidden');
+        if (!zone.classList.contains('hidden')) rendreLApercu(c.id, li);
+      });
+      bas.append(bouton, zone);
+
+      li.append(tete, bas);
+      liste.appendChild(li);
+    }
+  }
+
+  function rendreLApercu(id: Consommateur, li: HTMLElement) {
+    const zone = li.querySelector<HTMLElement>(`[data-zone-apercu="${id}"]`);
+    if (!zone || zone.classList.contains('hidden')) return;
+    zone.innerHTML = '';
+    const p = document.createElement('p');
+    p.className = 'text-slate-600 dark:text-slate-300';
+
+    if (!coffreOuvert() || !source) {
+      p.textContent =
+        'Ouvrez le coffre ci-dessous pour voir ce que ce lecteur reçoit réellement. ' +
+        'L’interrupteur, lui, se règle sans.';
+      zone.appendChild(p);
+      return;
+    }
+    const projection = projeter(id, source, reglages, true);
+    if (!projection) {
+      p.dataset.rien = '';
+      p.textContent = 'Rien. Ce lecteur est fermé : aucune donnée ne lui est calculée.';
+      zone.appendChild(p);
+      return;
+    }
+    const ul = document.createElement('ul');
+    ul.className = 'space-y-1 text-slate-700 dark:text-slate-200';
+    for (const ligne of enFrancais(projection)) {
+      const item = document.createElement('li');
+      item.textContent = ligne;
+      ul.appendChild(item);
+    }
+    zone.appendChild(ul);
+    if (declarationSansMontant(id)) {
+      const note = document.createElement('p');
+      note.dataset.sansMontant = id;
+      note.className = 'mt-2 text-xs text-slate-500 dark:text-slate-400';
+      note.textContent =
+        'Aucun montant ci-dessus : ce n’est pas l’interrupteur qui le garantit, c’est la forme ' +
+        'de ce qui est calculé pour ce lecteur.';
+      zone.appendChild(note);
+    }
+  }
+
+  const declarationSansMontant = (id: Consommateur) =>
+    !CONSOMMATEURS.find((c) => c.id === id)!.montantsAutorises;
+
+  async function recharger() {
+    await reprendreLeCoffre();
+    const ouvert = coffreOuvert();
+    $('pour-les-apercus').classList.toggle('hidden', ouvert);
+    if (ouvert) {
+      reglages = await lireLesConsommateurs();
+      source = await rassembler();
+    }
+    peindre();
+  }
+
+  auDeverrouillage(
+    async () => {
+      /*
+         Les réglages par défaut d'abord, pour que les sept interrupteurs
+         soient manipulables coffre fermé. La lecture en base les remplace
+         dès que le coffre s'ouvre.
+      */
+      const { REGLAGES_PAR_DEFAUT } = await import('../../lib/odyssee/consommateurs');
+      reglages = { ...REGLAGES_PAR_DEFAUT };
+
+      $('ouvrir-coffre').addEventListener('click', () => {
+        void (async () => {
+          const mdp = $('mdp-coffre') as HTMLInputElement;
+          const erreur = await ouvrirLeCoffre(mdp.value);
+          $('erreur-coffre').classList.toggle('hidden', erreur === null);
+          if (erreur) {
+            $('erreur-coffre').textContent = erreur;
+            return;
+          }
+          mdp.value = '';
+          await recharger();
+        })();
+      });
+      $('mdp-coffre').addEventListener('keydown', (e) => {
+        if ((e as KeyboardEvent).key === 'Enter') $('ouvrir-coffre').click();
+      });
+      surCoffre(() => void recharger().catch(dire));
+
+      await recharger();
+      $('vue').classList.remove('hidden');
+    },
+    { zoneChargement: '#chargement-consommateurs' },
+  );
+</script>

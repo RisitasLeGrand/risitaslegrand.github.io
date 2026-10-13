@@ -53,10 +53,33 @@ Les décisions et les six fautes corrigées sont dans
 les gestes « Autre ligne » et « Diviser », dont les moteurs existent et sont
 éprouvés mais dont l'interface relève de l'écran du budget.
 
-Reste donc, pour Finances : la **phase 4** (dossier surveillé, usage par
-Odyssée, écran « Qui lit mon budget », export ICS des échéances) et la
-**phase 5** (jeu synthétique de cinq ans, conflits entre deux appareils,
-mesures d'ergonomie, guide court).
+### B.2 bis — Finances, phase 4 — **livrée**
+
+« Qui lit mon budget » (sept consommateurs, projections réellement bornées),
+dossier surveillé de relevés, export ICS des échéances. Schéma **v27**.
+190 essais. Décisions dans [`finances/phase-4.md`](finances/phase-4.md).
+
+### B.2 ter — Finances, phase 3 bis — **plan à valider, rien de codé**
+
+Le prompt complet de Finances, reçu le 13 octobre 2026, contient une
+**section 2 bis** que le plan de phase 0 n'avait pas : le **pointage
+automatisé par type de vendeur**, avec un dictionnaire d'enseignes livré avec
+l'application, des règles locales créées à la détection d'un nom inconnu, et
+des catégories pointées comparables au budget.
+
+Le plan de phase 0 n'en contient aucune occurrence — il a été écrit depuis une
+version antérieure du prompt. Le calendrier, lui, tient : les phases 1, 2, 3
+et 4 livrées correspondent à celles du prompt. C'est la **phase 3 bis** qui
+manque, entière.
+
+Le plan, les maquettes et les sept décisions (10 à 16) sont dans
+[`finances/plan-2bis-pointage.md`](finances/plan-2bis-pointage.md).
+**Le prompt interdit de coder avant validation**, et l'attente est justifiée :
+un dictionnaire de 250 enseignes écrit de mémoire et une automatisation qui
+classe sans demander se corrigent mal après coup.
+
+Reste ensuite la **phase 5** (jeu synthétique de cinq ans, conflits entre deux
+appareils, mesures d'ergonomie, guide court).
 
 ### B.3 — Audio : cent fiches sans voix
 

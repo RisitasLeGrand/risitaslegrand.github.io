@@ -142,6 +142,32 @@ import Base from '../../layouts/Base.astro';
           <p id="ecarts-vides" class="mt-3 hidden text-sm text-slate-500 dark:text-slate-400"></p>
         </section>
 
+        <!-- ── L'export ICS des échéances ──────────────────────────────── -->
+        <section>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Échéances dans l’agenda</h2>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Un fichier <code>.ics</code> à ouvrir dans l’agenda du téléphone, pour que le loyer du 5
+            se voie sans ouvrir Cyclades. Chaque échéance y est une journée entière : un prélèvement
+            n’a pas d’heure, et lui en inventer une ferait sonner un rappel qui ne veut rien dire.
+          </p>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <strong>C’est le seul export de Finances qui quitte l’appareil</strong> — un agenda est,
+            pour la plupart des gens, synchronisé chez un tiers. Il ne porte donc que le libellé, la
+            date et le montant : aucun compte, aucun écart au budget, aucun solde.
+          </p>
+          <div class="mt-3 flex flex-wrap items-end gap-3">
+            <label class="flex items-center gap-2 text-sm">
+              <input id="ics-ressources" type="checkbox" checked
+                class="size-5 rounded border-slate-300 dark:border-slate-700" />
+              <span class="text-slate-700 dark:text-slate-200">Inclure les ressources</span>
+            </label>
+            <button id="exporter-ics" type="button"
+              class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium dark:border-slate-700"
+              >Exporter douze mois</button>
+          </div>
+          <p id="resultat-ics" class="mt-2 hidden text-sm text-slate-600 dark:text-slate-300"></p>
+        </section>
+
         <!-- ── Déduire du réel ─────────────────────────────────────────── -->
         <section>
           <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Déduire des lignes du réel</h2>
@@ -180,6 +206,7 @@ import Base from '../../layouts/Base.astro';
     type EcartAgrege,
   } from '../../lib/odyssee/rapprochement';
   import { detecterLesRecurrences, enLigneDeBudget } from '../../lib/odyssee/recurrences';
+  import { OPTIONS_PAR_DEFAUT, echeancesEnIcs } from '../../lib/odyssee/echeances-ics';
   import {
     annulerLesAutomatiques,
     annulerRapprochement,
@@ -676,6 +703,39 @@ import Base from '../../layouts/Base.astro';
     }
   }
 
+  /* ── L'export ICS ──────────────────────────────────────────────────────── */
+
+  async function exporterLesEcheances() {
+    const { lignes } = await rassembler();
+    const options = {
+      ...OPTIONS_PAR_DEFAUT(aujourdHui),
+      ressourcesComprises: ($('ics-ressources') as HTMLInputElement).checked,
+    };
+    /*
+       Les occurrences sont recalculées sur la fenêtre de l'export, et non
+       reprises de celle de la file : la file regarde autour des opérations
+       importées, l'export regarde devant. Réutiliser la première exporterait
+       surtout du passé.
+    */
+    const occ = lignes.flatMap((l) => occurrences(l, options.depuis, options.jusqua));
+    const texte = echeancesEnIcs(lignes, occ, options);
+    const combien = texte.split('BEGIN:VEVENT').length - 1;
+
+    const lien = document.createElement('a');
+    const url = URL.createObjectURL(new Blob([texte], { type: 'text/calendar;charset=utf-8' }));
+    lien.href = url;
+    lien.download = `echeances-${aujourdHui}.ics`;
+    lien.click();
+    URL.revokeObjectURL(url);
+
+    const zone = $('resultat-ics');
+    zone.classList.remove('hidden');
+    zone.dataset.combien = String(combien);
+    zone.textContent = combien
+      ? `${combien} échéance(s) exportée(s), du ${options.depuis} au ${options.jusqua}.`
+      : 'Aucune échéance sur les douze prochains mois : il n’y a pas encore de ligne de budget.';
+  }
+
   /* ── Le cycle ──────────────────────────────────────────────────────────── */
 
   async function peindreTout() {
@@ -779,6 +839,7 @@ import Base from '../../layouts/Base.astro';
         });
       }
       $('deduire').addEventListener('click', () => void peindreLesRecurrences().catch(dire));
+      $('exporter-ics').addEventListener('click', () => void exporterLesEcheances().catch(dire));
 
       for (const b of document.querySelectorAll<HTMLElement>('.axe')) {
         b.addEventListener('click', () => {

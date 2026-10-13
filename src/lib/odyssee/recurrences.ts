@@ -308,11 +308,49 @@ export interface Proposition1cinq {
   recurrence: Recurrence;
 }
 
+/**
+ * Les mots de plomberie bancaire, retirés de l'intitulé proposé.
+ *
+ * Les mêmes que ceux que `controlerAppariement` interdit comme motifs, et
+ * pour une raison voisine : « PRLV SEPA EDF CLIENTS SA » n'est pas un nom de
+ * ligne de budget, c'est un en-tête de transport. Une ligne ainsi nommée
+ * traverse ensuite toute l'application — les écrans, les écarts, et
+ * l'export ICS qui part dans un agenda synchronisé chez un tiers.
+ *
+ * On retire, on ne devine pas : ce qui reste est montré tel quel, et la
+ * personne corrige. Un intitulé inventé serait plus joli et moins vrai.
+ */
+export const PLOMBERIE: readonly string[] = [
+  'VIR', 'VIRT', 'PRLV', 'PRELEVEMENT', 'CB', 'SEPA', 'DE', 'DU', 'PAR',
+  'M', 'MME', 'MR', 'SARL', 'SAS', 'SA', 'EURL', 'SCI',
+];
+
+/**
+ * L'intitulé proposé pour une ligne déduite.
+ *
+ * Capitale initiale par mot, parce qu'un libellé de relevé est tout en
+ * majuscules et qu'une ligne de budget en capitales se lit comme un cri dans
+ * une liste de vingt.
+ */
+export function intituleDepuisLeLibelle(libelle: string): string {
+  const mots = normaliser(libelle)
+    .split(' ')
+    .filter((m) => m && !PLOMBERIE.includes(m));
+  /*
+     Si tout a été retiré — un libellé qui n'est que de la plomberie —, on
+     garde le libellé d'origine plutôt que de rendre une ligne sans nom.
+  */
+  if (!mots.length) return libelle.trim();
+  return mots
+    .map((m) => (/^\d+$/.test(m) ? m : m[0] + m.slice(1).toLowerCase()))
+    .join(' ');
+}
+
 export function enLigneDeBudget(r: Recurrence, cree: string): Proposition1cinq {
   const id = `r-${r.fragment.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}`;
   const ligne: LigneBudget = {
     id,
-    libelle: r.libelle,
+    libelle: intituleDepuisLeLibelle(r.libelle),
     categorie: '',
     sens: r.sens,
     compteId: r.compteId,

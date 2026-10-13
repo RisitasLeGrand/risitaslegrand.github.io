@@ -315,6 +315,36 @@ console.log('\nLES ÉCARTS, ET L’ÉCHÉANCE NON ÉCHUE');
     (await page.$$eval('[data-ecart]', (e) => e.length)) > 0);
 }
 
+/* ── 7 bis. L'export ICS des échéances ───────────────────────────────── */
+
+console.log('\nL’EXPORT ICS NE SORT QUE CE QU’IL FAUT');
+
+{
+  const telechargement = page.waitForEvent('download', { timeout: 20000 });
+  await page.click('#exporter-ics');
+  const fichier = await telechargement;
+  vrai('un fichier .ics est téléchargé', fichier.suggestedFilename().endsWith('.ics'),
+    fichier.suggestedFilename());
+
+  const chemin = await fichier.path();
+  const texte = (await import('node:fs')).readFileSync(chemin, 'utf8');
+  vrai('c’est un VCALENDAR', texte.startsWith('BEGIN:VCALENDAR'));
+  vrai('il porte douze échéances de loyer', (texte.match(/BEGIN:VEVENT/g) ?? []).length === 12,
+    String((texte.match(/BEGIN:VEVENT/g) ?? []).length));
+  vrai('en journées entières', texte.includes('DTSTART;VALUE=DATE:'));
+  vrai('avec le montant dans le titre', texte.includes('SUMMARY:'));
+  /*
+     Un .ics part dans un agenda synchronisé chez un tiers. Rien de ce qui
+     identifie le compte ne doit y figurer.
+  */
+  faux('et sans le libellé bancaire', texte.includes('VIR M DUPONT LOYER'));
+  faux('ni le mot « écart »', texte.includes('écart'));
+  faux('ni le mot « solde »', texte.includes('solde'));
+
+  const zone = await page.textContent('#resultat-ics');
+  vrai('l’écran dit combien ont été exportées', /12 échéance/.test(zone), zone);
+}
+
 /* ── 8. Le coffre et le réseau ────────────────────────────────────────── */
 
 console.log('\nLE COFFRE GARDE L’ÉCRAN, ET RIEN NE SORT');

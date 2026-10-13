@@ -21,6 +21,7 @@ import {
   controlerLesRecurrences,
   detecterLesRecurrences,
   enLigneDeBudget,
+  intituleDepuisLeLibelle,
   mediane,
 } from '../src/lib/odyssee/recurrences';
 import { controlerLigne } from '../src/lib/odyssee/budget';
@@ -214,6 +215,15 @@ console.log('\n5. DE LA RÉCURRENCE À LA LIGNE');
   const [r] = detecterLesRecurrences(operations);
   const p = enLigneDeBudget(r, '2027-01-10T09:00:00.000Z');
   egal('5.3 la ligne proposée est valide', controlerLigne(p.ligne), []);
+  /*
+     L'intitulé est **nettoyé** de la plomberie bancaire. Une ligne nommée
+     « VIR M DUPONT LOYER » traverse ensuite toute l'application — les
+     écrans, les écarts, et l'export ICS qui part dans un agenda synchronisé
+     chez un tiers. C'est un essai en navigateur qui l'a trouvée là.
+  */
+  egal('5.3 bis l’intitulé est nettoyé', p.ligne.libelle, 'Dupont Loyer');
+  egal('5.3 ter mais le motif d’appariement garde le libellé brut',
+    p.motifs[0].fragment, 'VIR M DUPONT LOYER');
   egal('5.4 elle commence au premier jour observé, pas aujourd’hui',
     p.ligne.versions[0].depuis, '2026-01-05');
   egal('5.5 son montant est positif, le sens le signe', p.ligne.versions[0].montant, 78000);
@@ -237,7 +247,27 @@ console.log('\n5. DE LA RÉCURRENCE À LA LIGNE');
   egal('5.14 et sa borne haute le maximum', p.ligne.versions[0].montantHaut, 52000);
 }
 
-console.log('\n6. LES GARDE-FOUS');
+console.log('\n6. L’INTITULÉ NETTOYÉ');
+
+{
+  egal('6.0 un virement perd son préfixe',
+    intituleDepuisLeLibelle('VIR M DUPONT LOYER'), 'Dupont Loyer');
+  egal('6.0 bis un prélèvement SEPA aussi',
+    intituleDepuisLeLibelle('PRLV SEPA EDF CLIENTS SA'), 'Edf Clients');
+  egal('6.0 ter une forme juridique part avec',
+    intituleDepuisLeLibelle('SARL LE PETIT MARCHE'), 'Le Petit Marche');
+  /*
+     Et un libellé qui n'est **que** de la plomberie garde son texte
+     d'origine : rendre une ligne sans nom serait pire que de rendre un nom
+     laid, que la personne peut corriger.
+  */
+  egal('6.0 quater un libellé entièrement de plomberie est conservé',
+    intituleDepuisLeLibelle('PRLV'), 'PRLV');
+  egal('6.0 quinquies et les capitales deviennent lisibles',
+    intituleDepuisLeLibelle('CB STATION SERVICE'), 'Station Service');
+}
+
+console.log('\n7. LES GARDE-FOUS');
 
 {
   egal('6.1 le garde-fou ne trouve rien', controlerLesRecurrences(), []);

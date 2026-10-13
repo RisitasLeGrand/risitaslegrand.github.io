@@ -298,6 +298,8 @@ v(
     'odysseeComptes', 'odysseeValorisations', 'odysseeOperations', 'odysseeLignesBudget',
     // Les rapprochements, depuis la phase 3 de Finances.
     'odysseeRapprochements',
+    // Et « Qui lit mon budget », depuis la phase 4.
+    'odysseeConsommateurs',
     /*
        La veille, depuis la version 23. Le journal d'usage n'est pas scellé —
        un magasin scellé ne s'écrit que coffre ouvert, donc rarement, et le

@@ -25,6 +25,7 @@ import type { Passation } from './odyssee/echelles';
 import type { Compte, OperationBancaire, Valorisation } from './odyssee/finances';
 import type { LigneBudget } from './odyssee/budget';
 import type { Rapprochement } from './odyssee/rapprochement';
+import type { EtatDesConsommateurs } from './odyssee/consommateurs';
 import type {
   Boisson,
   EtatDeSante,
@@ -643,10 +644,16 @@ interface SchemaRevinsp extends DBSchema {
      périodicité fabriquerait un index silencieusement faux.
   */
   odysseeRapprochements: { key: string; value: Rapprochement; indexes: { operationId: string } };
+  /*
+     Qui lit le budget, depuis la phase 4 de Finances. Un seul enregistrement,
+     de clé fixe : ce n'est pas une suite d'événements mais un **état**, et
+     sept interrupteurs se remplacent en bloc.
+  */
+  odysseeConsommateurs: { key: string; value: EtatDesConsommateurs };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 26;
+const VERSION = 27;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1280,6 +1287,16 @@ function ouvrirAuSchema(nom: string, version: number) {
         base
           .createObjectStore('odysseeRapprochements', { keyPath: 'id' })
           .createIndex('operationId', 'operationId');
+      }
+      if (vers(27)) {
+        /*
+         * Qui lit mon budget — Finances, phase 4.
+         *
+         * Scellé comme le reste du domaine : savoir que quelqu'un a ouvert
+         * son budget à « Demander à l'IA » est une information sur lui, de
+         * la même nature que savoir qu'il a activé une veille.
+         */
+        base.createObjectStore('odysseeConsommateurs', { keyPath: 'id' });
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -2148,6 +2165,7 @@ export const MAGASINS_PROGRESSION = [
   'odysseeVeilleReglages',
   'odysseePassations',
   'odysseeRapprochements',
+  'odysseeConsommateurs',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */

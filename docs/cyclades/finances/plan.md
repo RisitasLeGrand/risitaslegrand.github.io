@@ -574,12 +574,40 @@ base — et elle est décochée par défaut.
 | **1** | Modèle, magasins scellés, calculs du budget, occurrences déterministes, scénarios. Tests : centimes, périodicités, fin de mois, bissextiles, mensualisation exacte. | oui |
 | **2** | Import **PDF d'abord** : lecture par pdf.js, ancrage sur l'en-tête de colonnes, découpage en comptes, **contrôle de solde bloquant**, empreinte de gabarit et profils par banque. Puis collage, saisie rapide, et le lecteur CSV en réserve. Dédoublonnage, contrôle avant validation, annulation. Tests : les quatre comptes du relevé réel bouclent, un gabarit modifié est annoncé, chevauchements, masquage. | oui |
 | **3** | Appariement, file « à rapprocher », rapprochement de solde et recherche de causes, écarts par ligne, catégorie et mois. Tests : 1→N, N→1, débit différé, remboursements. | **livrée** — voir `phase-3.md` |
-| **4** | Dossier surveillé (si l'API répond), usage par Odyssée, écran « Qui lit mon budget », export ICS des échéances. | oui |
+| **4** | Dossier surveillé (si l'API répond), usage par Odyssée, écran « Qui lit mon budget », export ICS des échéances. | **livrée** — voir `phase-4.md` |
 | **5** | Jeu synthétique de cinq ans, conflits entre deux appareils, mesures d'ergonomie (gestes et temps pour les quatre parcours que tu listes), guide court. | oui |
 
 **Construire le budget depuis le réel (1.5) est en phase 3**, pas en phase 1 :
 il faut des opérations importées et un appariement qui marche pour que la
 détection de récurrences ait de quoi se nourrir.
+
+## 10 bis. Ce que ce plan a manqué — le pointage par vendeur
+
+**Ce plan ne contient aucune occurrence des mots « vendeur » ni
+« pointage ».** Il a été écrit depuis une version du prompt qui n'avait pas
+la **section 2 bis** — pointage automatisé des opérations par type de
+vendeur, dictionnaire d'enseignes livré avec l'application, règles locales
+créées à la détection d'un nom inconnu, catégories pointées comparables au
+budget. Que ce plan ait sa propre « section 2 bis », sur les relevés PDF, a
+probablement contribué à masquer l'absence.
+
+Le prompt range ce chantier en **phase 3 bis**, entre l'appariement et
+l'usage par Odyssée. Le reste du calendrier concorde : les phases 1, 2, 3 et
+4 livrées sont bien celles du prompt.
+
+Le plan de rattrapage, ses maquettes et les sept décisions (10 à 16) sont
+dans [`plan-2bis-pointage.md`](plan-2bis-pointage.md). **Rien n'en est
+codé** : le prompt l'interdit avant validation.
+
+Deux conséquences sur ce qui existe déjà :
+
+- `categoriser()` et `RegleCategorisation`, dans `finances.ts`, sont une
+  version primitive de ce chantier. Elles seront **absorbées**, pas
+  conservées en parallèle.
+- La règle de confidentialité de 2 bis.8 — « les autres domaines ne reçoivent
+  que des agrégats, jamais le vendeur ni le type » — est **déjà tenue par
+  construction** par les projections de la phase 4, et c'est elle qui a fait
+  découvrir que le résumé pour l'IA listait les intitulés de lignes.
 
 ## 11. Ce que je n'ai pas pu vérifier
 
