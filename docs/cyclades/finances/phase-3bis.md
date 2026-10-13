@@ -111,9 +111,9 @@ Le rapport l'écrit lui-même, à chaque exécution.
 |---|---|
 | `essais:vendeurs` | 93 |
 | `essais:pointage` | 69 |
-| `essais:regles-pointage` | 61 |
+| `essais:regles-pointage` | 71 |
 | `essais:fractionnement` | 42 |
-| `essais:rapprocher-ecran` (pointage et fractionnement compris) | 81 |
+| `essais:rapprocher-ecran` (pointage, fractionnement et mode avancé compris) | 97 |
 
 ## Le fractionnement, et ce qu'il a appris
 
@@ -154,12 +154,54 @@ alors que tout est réparti lui donne la moitié de la plus grosse plutôt que
 zéro. Sans ces deux reports, corriger une erreur en produirait une seconde,
 et l'écran répondrait à une correction par un reproche.
 
+## Le mode avancé, et ce qu'il a appris
+
+Six champs — nom, type, motif, comparaison, ce que la règle a le droit de
+faire, ligne de budget visée —, l'aperçu sur le passé, et le second geste
+qui l'applique. Chacun de ces six est une décision que le geste en un clic
+prend déjà sans le dire : le mode avancé ne rend pas l'écran plus compliqué,
+il avoue lesquelles.
+
+**Le brouillon part du geste simple.** Même motif proposé, même type choisi
+au-dessus, même mode « proposer ». Ouvrir sur un formulaire vide aurait fait
+du mode avancé un autre écran plutôt que le même, déplié.
+
+**« Pointer seule » est désactivé, pas masqué**, quand le type l'interdit. Le
+masquer laisserait croire qu'il n'existe pas ; le montrer barré dit qu'il
+existe et pourquoi il est hors d'atteinte.
+
+**« Exact » n'est pas exact sur le libellé du relevé.** Les trois
+comparaisons portent sur le libellé **nettoyé** — mentions de carte, dates,
+références, ville —, si bien que deux lignes qui ne diffèrent que par leur
+date sont « exactement » le même libellé. C'est le bon comportement, la date
+n'appartient pas au vendeur ; mais ce n'est pas ce qu'on attend du mot, et
+c'est un essai qui l'a montré en échouant sur une attente fausse. L'écran le
+dit maintenant sous le choix.
+
+**L'aperçu cachait sa propre protection.** Quand tout ce qu'une règle attrape
+est déjà pointé par la personne, il disait « cette règle ne touche aucune
+opération déjà importée » — vrai, et trompeur : on croit avoir écrit un motif
+qui rate sa cible, et le premier réflexe est de l'élargir. Il dit maintenant
+que la règle les attrape et que ce sont vos propres pointages qui les
+retiennent. Trouvé par l'essai d'écran, corrigé dans le module, et porté par
+deux essais purs.
+
+**Appliquer au passé est refusé sur un type « jamais automatique ».**
+Reclasser vingt-trois opérations d'un geste *est* un pointage automatique,
+quoi qu'en dise le bouton qui le déclenche, et ces types-là existent
+précisément pour que ce geste n'existe pas sur eux. L'écriture porte en
+revanche l'auteur « règle » et non « moi », bien que la personne ait décidé :
+sans cela, « Défaire ses pointages » — qui cherche les pointages d'auteur
+« règle » — ne pourrait plus défaire une application de masse autrement
+qu'opération par opération.
+
+**Le jeu d'essai a dû gagner un vendeur.** Il n'en portait qu'un d'inconnu :
+le geste simple le consommait, et le mode avancé n'avait plus rien sur quoi
+s'éprouver. Un cinquième mouvement mensuel a été ajouté au relevé fabriqué,
+et les comptes qui en dépendaient avec lui.
+
 ## Ce que 3 bis ne fait pas
 
-- **Le mode avancé de création de règle** (modifier le motif, choisir la
-  comparaison, viser une ligne de budget, appliquer au passé) existe en
-  module — `controlerLeBrouillon`, `apercuSurLePasse` — et pas encore en
-  écran. Le geste simple, lui, est là.
 - **Le compte rendu d'import** « N pointées, M à pointer, K à revoir »
   n'est pas affiché après l'import : le pointage se fait à l'ouverture de
   la file, et les trois nombres y figurent. La maquette 8.1 reste à faire.

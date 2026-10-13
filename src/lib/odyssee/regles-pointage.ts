@@ -241,8 +241,18 @@ export function apercuSurLePasse(
   const touchees = attrapees.filter((o) => !o.pointeeParMoi);
   const somme = touchees.reduce((s, o) => s + Math.abs(o.centimes), 0);
 
+  /*
+     Le cas qu'un essai d'écran a trouvé : zéro touchée **et** des protégées.
+     La phrase disait « ne touche aucune opération », ce qui est vrai et
+     cache la seule chose qui compte — la règle attrape bien ces
+     opérations-là, c'est votre propre pointage qui les retient. Sans le
+     dire, on croit avoir écrit un motif qui rate sa cible, et on l'élargit.
+  */
   const phrase = touchees.length === 0
-    ? 'Cette règle ne touche aucune opération déjà importée.'
+    ? (protegees.length
+        ? `Cette règle n’en reclasserait aucune : les ${protegees.length} qu’elle attrape, ` +
+          'vous les avez pointées vous-même, et elles ne bougeront pas.'
+        : 'Cette règle ne touche aucune opération déjà importée.')
     : `${touchees.length} opération(s) déjà importée(s) seraient reclassées`
       + (protegees.length
         ? `, et ${protegees.length} que vous avez pointée(s) vous-même ne bougeront pas.`

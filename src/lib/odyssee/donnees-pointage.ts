@@ -26,6 +26,8 @@ import {
   type Pointage,
 } from './pointage';
 import { controlerLesParts } from './fractionnement';
+import { apercuSurLePasse, type Apercu, type OperationPointable } from './regles-pointage';
+import { typeDe } from './taxonomie';
 import type { OperationBancaire } from './finances';
 import type { RegleDePointage, Vendeur } from './vendeurs';
 import {
@@ -324,6 +326,83 @@ export async function defractionnerLOperation(
     },
   ]);
   return ecrits[0] ?? null;
+}
+
+/* ── Appliquer une règle au passé ─────────────────────────────────────── */
+
+/**
+ * Les opérations sous la forme que l'aperçu attend, avec ce qui les protège.
+ *
+ * Les opérations sont passées en paramètre plutôt que lues ici : ce module
+ * tient le pointage, pas les relevés, et aller les chercher créerait un lien
+ * entre deux magasins qui n'ont aucune raison de se connaître.
+ */
+export async function pointables(
+  operations: readonly OperationBancaire[],
+): Promise<OperationPointable[]> {
+  const pointages = new Map((await tousLesPointages()).map((p) => [p.operationId, p]));
+  return operations.map((o) => ({
+    id: o.id,
+    libelle: o.libelle,
+    centimes: o.centimes,
+    pointeeParMoi: pointages.get(o.id)?.auteur === 'moi',
+  }));
+}
+
+/** Ce qu'une règle ferait au passé. Ne touche à rien. */
+export async function apercuDeLaRegle(
+  regle: RegleDePointage,
+  operations: readonly OperationBancaire[],
+): Promise<Apercu> {
+  return apercuSurLePasse(regle, await pointables(operations));
+}
+
+/**
+ * Applique une règle aux opérations déjà importées.
+ *
+ * ## Pourquoi un type « jamais automatique » est refusé ici
+ *
+ * Reclasser vingt-trois opérations d'un geste **est** un pointage
+ * automatique, quoi qu'en dise le bouton qui le déclenche. Les types marqués
+ * `jamaisAuto` — la santé, et ce qui lui ressemble — existent précisément
+ * pour que ce geste-là n'existe pas sur eux. On refuse donc, en disant
+ * pourquoi, plutôt que d'accepter en désobéissant en silence à un drapeau
+ * qu'on a posé soi-même.
+ *
+ * ## Pourquoi l'auteur reste « règle »
+ *
+ * Alors que la personne a décidé, explicitement, devant l'aperçu. Parce que
+ * « Défaire ses pointages », sur l'écran des règles, cherche les pointages
+ * d'auteur « règle » portant le nom de la règle : les écrire au nom de la
+ * personne rendrait une application de masse impossible à défaire autrement
+ * qu'opération par opération. Ce qu'elle a décidé, c'est d'appliquer la
+ * règle ; c'est donc la règle qui signe, et elle se défait comme telle.
+ */
+export async function appliquerLaRegleAuPasse(
+  regle: RegleDePointage,
+  operations: readonly OperationBancaire[],
+): Promise<{ ecrits: number; protegees: number; apercu: Apercu }> {
+  const type = typeDe(regle.typeId);
+  if (type?.jamaisAuto) {
+    throw new Error(
+      `« ${type.libelle} » n’est jamais pointé automatiquement, et reclasser d’un geste des ` +
+        'opérations déjà importées en est un. Classez-les une par une, ou changez de type.',
+    );
+  }
+  const apercu = await apercuDeLaRegle(regle, operations);
+  if (!apercu.touchees.length) return { ecrits: 0, protegees: apercu.protegees.length, apercu };
+
+  const { ecrits, protegees } = await ecrireLesPointages(
+    apercu.touchees.map((o) => ({
+      operationId: o.id,
+      statut: 'pointee-auto' as const,
+      vendeurNom: regle.nom,
+      typeId: regle.typeId,
+      auteur: 'regle' as const,
+      pourquoi: `Règle « ${regle.nom} » appliquée par vous aux opérations déjà importées.`,
+    })),
+  );
+  return { ecrits: ecrits.length, protegees: protegees + apercu.protegees.length, apercu };
 }
 
 async function nomDeLAppareil(): Promise<string> {

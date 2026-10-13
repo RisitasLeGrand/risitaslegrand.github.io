@@ -56,11 +56,11 @@ const MOIS = [
      tous les 21 — donc parfaitement mensuel —, et la détection le proposait
      en ligne de budget, ce qu'elle avait parfaitement raison de faire.
   */
-  { n: '09', fin: '30', electricite: '95,00', divers: '43,90', jourDivers: '03', nomEdf: 'PRLV EDF' },
-  { n: '10', fin: '31', electricite: '95,00', divers: '12,90', jourDivers: '19', nomEdf: 'PRLV EDF' },
+  { n: '09', fin: '30', electricite: '95,00', divers: '43,90', jourDivers: '03', presse: '3,20', nomEdf: 'PRLV EDF' },
+  { n: '10', fin: '31', electricite: '95,00', divers: '12,90', jourDivers: '19', presse: '5,40', nomEdf: 'PRLV EDF' },
   /* La banque renomme son libellé en novembre : une seule ligne doit sortir. */
-  { n: '11', fin: '30', electricite: '112,40', divers: '31,00', jourDivers: '28', nomEdf: 'PRLV EDF CLIENTS SA' },
-  { n: '12', fin: '31', electricite: '95,00', divers: '8,50', jourDivers: '11', nomEdf: 'PRLV EDF CLIENTS SA' },
+  { n: '11', fin: '30', electricite: '112,40', divers: '31,00', jourDivers: '28', presse: '2,80', nomEdf: 'PRLV EDF CLIENTS SA' },
+  { n: '12', fin: '31', electricite: '95,00', divers: '8,50', jourDivers: '11', presse: '6,10', nomEdf: 'PRLV EDF CLIENTS SA' },
 ];
 const LOYER = '780,00';
 const SALAIRE = '2 350,00';
@@ -69,7 +69,8 @@ const fichiers = [];
 let solde = 100000;
 for (const m of MOIS) {
   const ouverture = solde;
-  const mouvement = sou(SALAIRE) - sou(LOYER) - sou(m.electricite) - sou(m.divers);
+  const mouvement =
+    sou(SALAIRE) - sou(LOYER) - sou(m.electricite) - sou(m.divers) - sou(m.presse);
   solde = ouverture + mouvement;
   const precedent = String(Number(m.n) - 1).padStart(2, '0');
   const finPrecedente = m.n === '09' ? '31/08/2026' : `${MOIS[MOIS.indexOf(m) - 1].fin}/${precedent}/2026`;
@@ -81,10 +82,17 @@ for (const m of MOIS) {
     ...ligne(688, `05/${m.n}/2026`, 'VIR M DUPONT LOYER', LOYER, true),
     ...ligne(676, `15/${m.n}/2026`, m.nomEdf, m.electricite, true),
     ...ligne(664, `${m.jourDivers}/${m.n}/2026`, 'SARL LE PETIT MARCHE', m.divers, true),
-    { x: 57, y: 648, texte: `SOLDE CREDITEUR AU ${finPrecedente}` },
-    { x: 515, y: 648, texte: euro(ouverture) },
-    { x: 57, y: 628, texte: `Ref : 009 SOLDE CREDITEUR AU ${m.fin}/${m.n}/2026` },
-    { x: 515, y: 628, texte: euro(solde) },
+    /*
+       Un second vendeur inconnu. Il existe pour que deux essais puissent
+       chacun créer une règle sur le sien : le geste simple sur l'un, le
+       mode avancé sur l'autre. Avec un seul, le premier des deux le
+       consommait et le second n'éprouvait plus rien.
+    */
+    ...ligne(652, `08/${m.n}/2026`, 'CB PRESSE DU CENTRE', m.presse, true),
+    { x: 57, y: 632, texte: `SOLDE CREDITEUR AU ${finPrecedente}` },
+    { x: 515, y: 632, texte: euro(ouverture) },
+    { x: 57, y: 612, texte: `Ref : 009 SOLDE CREDITEUR AU ${m.fin}/${m.n}/2026` },
+    { x: 515, y: 612, texte: euro(solde) },
   ]]));
   fichiers.push(chemin);
 }
@@ -146,7 +154,7 @@ for (const f of fichiers) {
   await page.click('#enregistrer');
   await page.waitForSelector('#resultat:not(.hidden)', { timeout: 30000 });
 }
-v('seize opérations enregistrées', (await page.textContent('[data-etat="Opérations"] dd')).trim(), '16');
+v('vingt opérations enregistrées', (await page.textContent('[data-etat="Opérations"] dd')).trim(), '20');
 
 /* ── 2. Sans ligne de budget, tout est à classer ──────────────────────── */
 
@@ -155,10 +163,10 @@ console.log('\nSANS BUDGET, TOUT EST À CLASSER');
 await aller('/odyssee/rapprocher/', '#vue');
 {
   const aClasser = await page.$$eval('[data-a-classer]', (e) => e.length);
-  v('les seize opérations attendent', aClasser, 16);
+  v('les vingt opérations attendent', aClasser, 20);
   faux('aucune probable', await page.locator('#titre-probables').isVisible());
   faux('et rien n’a été appliqué d’office', await page.locator('#pied-certaines').isVisible());
-  vrai('le compte le dit', (await page.textContent('#compte-file')).includes('16 à classer'),
+  vrai('le compte le dit', (await page.textContent('#compte-file')).includes('20 à classer'),
     await page.textContent('#compte-file'));
 }
 
@@ -233,7 +241,7 @@ await aller('/odyssee/rapprocher/', '#vue');
   vrai('et chacun est annulable un par un',
     (await page.$$eval('[data-certaine] [data-geste="annuler-une"]', (e) => e.length)) >= 4);
   v('et les douze autres restent à classer',
-    await page.$$eval('[data-a-classer]', (e) => e.length), 12);
+    await page.$$eval('[data-a-classer]', (e) => e.length), 16);
 
   const texte = await page.textContent('#coffre-ouvert');
   vrai('les certaines sont annoncées comme appliquées',
@@ -378,6 +386,128 @@ console.log('\nCRÉER LA RÈGLE EN UN GESTE');
   await page.waitForTimeout(2500);
   const apres = await page.$$eval('[data-inconnu]', (e) => e.length);
   vrai('le vendeur quitte la liste des inconnus', apres < avant, `${avant} → ${apres}`);
+}
+
+{
+  /*
+     Le mode avancé s'éprouve sur un **autre** vendeur que celui du geste
+     simple, qui vient de quitter la liste. S'il n'en reste aucun, l'essai
+     n'éprouve rien : on l'exige plutôt que de passer en silence.
+  */
+  vrai('il reste un vendeur inconnu pour éprouver le mode avancé',
+    (await page.$$('[data-inconnu]')).length > 0);
+}
+
+console.log('\nLE MODE AVANCÉ DE CRÉATION DE RÈGLE');
+
+{
+  const cible = await page.$$eval('[data-inconnu]', (e) => e[0].dataset.inconnu);
+  await page.selectOption(`[data-type-pour="${cible}"]`, 'marche');
+  await page.click(`[data-inconnu="${cible}"] [data-geste="mode-avance"]`);
+  await page.waitForSelector(`[data-avance="${cible}"]`, { timeout: 15000 });
+
+  const champs = await page.$$eval('[data-champ-regle]', (e) => e.map((x) => x.dataset.champRegle));
+  v('les six champs sont là', champs.sort(),
+    ['comparaison', 'ligne', 'mode', 'motif', 'nom', 'type']);
+
+  /*
+     Le brouillon part du geste simple : même motif proposé, même type
+     choisi juste au-dessus. Le mode avancé ouvre ce que le geste simple
+     décide pour vous ; il ne recommence pas depuis rien.
+  */
+  vrai('le motif proposé est repris', (await page.inputValue('[data-champ-regle="motif"]')).length > 3);
+  v('le type choisi est repris', await page.inputValue('[data-champ-regle="type"]'), 'marche');
+  v('et le mode naît sur « proposer »',
+    await page.inputValue('[data-champ-regle="mode"]'), 'proposer');
+
+  vrai('l’aperçu sur le passé est affiché d’emblée',
+    (await page.textContent('[data-apercu-regle]')).length > 10,
+    await page.textContent('[data-apercu-regle]'));
+}
+
+{
+  /*
+     Un type « jamais automatique » ne doit pas pouvoir être pointé seul. Le
+     choix est désactivé plutôt que masqué : le masquer laisserait croire
+     qu'il n'existe pas.
+  */
+  await page.selectOption('[data-champ-regle="type"]', 'pharmacie');
+  await page.waitForTimeout(600);
+  const desactive = await page.$eval(
+    '[data-champ-regle="mode"] option[value="auto"]', (e) => e.disabled);
+  vrai('« Pointer seule » est hors d’atteinte sur un type jamais automatique', desactive);
+  await page.selectOption('[data-champ-regle="type"]', 'marche');
+  await page.waitForTimeout(600);
+  const actif = await page.$eval(
+    '[data-champ-regle="mode"] option[value="auto"]', (e) => e.disabled);
+  faux('et redevient atteignable sur un type ordinaire', actif);
+}
+
+{
+  // Un motif trop court est refusé, et la création se ferme.
+  await page.fill('[data-champ-regle="motif"]', 'LE');
+  await page.locator('[data-champ-regle="motif"]').blur();
+  await page.waitForFunction(
+    () => !document.querySelector('[data-defauts-regle]').classList.contains('hidden'),
+    { timeout: 15000 });
+  vrai('un motif trop court est refusé',
+    (await page.textContent('[data-defauts-regle]')).includes('Allongez'),
+    await page.textContent('[data-defauts-regle]'));
+  vrai('et la création est fermée', await page.isDisabled('[data-geste="creer-avance"]'));
+
+  /*
+     Un motif qui vise le vendeur déjà classé au geste simple : la règle
+     l'attrape, et pourtant rien ne bougerait — ces opérations sont pointées
+     par vous. L'aperçu doit le dire. Il disait « ne touche aucune
+     opération », ce qui est vrai et laisse croire à un motif qui rate sa
+     cible, donc invite à l'élargir. C'est cet essai qui l'a trouvé.
+  */
+  await page.fill('[data-champ-regle="motif"]', 'MARCHE');
+  await page.locator('[data-champ-regle="motif"]').blur();
+  await page.waitForTimeout(800);
+  vrai('un motif qui n’attrape que vos propres pointages le dit',
+    (await page.textContent('[data-apercu-regle]')).includes('vous les avez pointées vous-même'),
+    await page.textContent('[data-apercu-regle]'));
+
+  // Un motif qui vise son propre vendeur : l'aperçu chiffre ce qu'il prend.
+  await page.fill('[data-champ-regle="motif"]', 'PRESSE');
+  await page.locator('[data-champ-regle="motif"]').blur();
+  await page.waitForFunction(
+    () => document.querySelector('[data-defauts-regle]').classList.contains('hidden'),
+    { timeout: 15000 });
+  faux('un motif correct rouvre la création',
+    await page.isDisabled('[data-geste="creer-avance"]'));
+  const apercu = await page.textContent('[data-apercu-regle]');
+  vrai('l’aperçu chiffre ce que la règle reclasserait',
+    /\d+ opération\(s\) déjà importée\(s\)/.test(apercu), apercu);
+}
+
+{
+  /*
+     Le geste qui distingue le mode avancé : créer **et** appliquer au
+     passé. Ce que le geste simple ne fait pas, et ne doit pas faire sans
+     qu'on ait vu combien d'opérations bougeront.
+     Les quatre achats au marché sont déjà pointés par vous — ils ont été
+     fractionnés ou classés plus haut —, donc protégés : c'est exactement ce
+     que l'aperçu doit dire plutôt que de les reclasser en silence.
+  */
+  await page.selectOption('[data-champ-regle="comparaison"]', 'contient');
+  await page.waitForTimeout(600);
+  const avantCreation = await page.$$eval('[data-inconnu]', (e) => e.length);
+  const bouton = page.locator('[data-geste="creer-et-appliquer"]');
+  if (await bouton.isVisible()) {
+    vrai('le bouton annonce combien d’opérations il touchera',
+      /\d+ opération/.test(await bouton.textContent()), await bouton.textContent());
+    await bouton.click();
+  } else {
+    await page.click('[data-geste="creer-avance"]');
+  }
+  await page.waitForTimeout(2500);
+  const apres = await page.$$eval('[data-inconnu]', (e) => e.length);
+  vrai('le vendeur quitte la liste des inconnus', apres < avantCreation,
+    `${avantCreation} → ${apres}`);
+  faux('et le formulaire avancé se referme',
+    (await page.$$('[data-avance]')).length > 0);
 }
 
 console.log('\nLES CATÉGORIES POINTÉES, ET CE QU’ELLES NE COMPTENT PAS');

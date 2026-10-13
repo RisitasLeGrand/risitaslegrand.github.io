@@ -170,6 +170,23 @@ const regle: RegleDePointage = {
 }
 
 {
+  /*
+     Zéro reclassée **et** des protégées. Le cas a été trouvé par un essai
+     d'écran : la phrase disait « ne touche aucune opération », ce qui est
+     vrai et cache la seule chose qui compte — la règle attrape bien ces
+     opérations, c'est le pointage de la personne qui les retient. Sans le
+     dire, on croit avoir écrit un motif qui rate sa cible, et on l'élargit.
+  */
+  const a = apercuSurLePasse(regle, [
+    { id: 'A', libelle: 'CB LE FOURNIL DE TOURNAY', centimes: -850, pointeeParMoi: true },
+    { id: 'B', libelle: 'CB LE FOURNIL TOURNAY', centimes: -920, pointeeParMoi: true },
+  ]);
+  egal('3.7 bis aucune n’est reclassée', a.touchees.length, 0);
+  verifier('3.7 ter et la phrase dit que ce sont les vôtres qui retiennent',
+    a.phrase.includes('vous les avez pointées vous-même'), a.phrase);
+}
+
+{
   const a = apercuSurLePasse(regle, [{ id: 'Z', libelle: 'CB LIDL', centimes: -100 }]);
   egal('3.6 une règle qui ne touche rien le dit',
     a.phrase, 'Cette règle ne touche aucune opération déjà importée.');
@@ -183,6 +200,58 @@ const regle: RegleDePointage = {
     { id: 'A', libelle: 'CB BOULANGERIE PAUL ET MARIE', centimes: -500 },
   ]);
   egal('3.8 un fragment n’attrape pas', a.touchees, []);
+}
+
+console.log('\n3 bis. LES TROIS COMPARAISONS, QUE LE MODE AVANCÉ OFFRE');
+
+{
+  /*
+     Le geste simple ne propose que « contient ». Le mode avancé ouvre les
+     trois, et les deux autres n'avaient aucun essai : elles passaient par
+     « apercuSurLePasse » sans que rien ne dise ce qu'elles attrapent.
+  */
+  const operations = [
+    { id: 'A', libelle: 'CB FOURNIL TOURNAY 12/10', centimes: -850 },
+    { id: 'B', libelle: 'CB AU FOURNIL TOURNAY', centimes: -920 },
+    { id: 'C', libelle: 'CB FOURNIL TOURNAY', centimes: -500 },
+  ];
+  const sur = (comparaison: RegleDePointage['comparaison'], motif = 'FOURNIL TOURNAY') =>
+    apercuSurLePasse({ ...regle, motif, comparaison }, operations).touchees.map((o) => o.id);
+
+  egal('3.9 « contient » attrape partout dans le libellé', sur('contient'), ['A', 'B', 'C']);
+  /*
+     Le libellé est nettoyé avant la comparaison — mentions de carte, dates,
+     références. « CB FOURNIL TOURNAY 12/10 » commence donc bien par le
+     motif, et « AU FOURNIL » non : c'est le nettoyage qui rend « commence »
+     utilisable sur des relevés réels, où rien ne commence jamais par
+     l'enseigne.
+  */
+  egal('3.10 « commence » exclut ce qui a un mot devant', sur('commence'), ['A', 'C']);
+  /*
+     « Exact » est exact sur le libellé **nettoyé**, pas sur celui du relevé.
+     « CB FOURNIL TOURNAY 12/10 » se réduit à « FOURNIL TOURNAY » comme
+     « CB FOURNIL TOURNAY » : les deux sont donc exacts. C'est le bon
+     comportement — la date n'appartient pas au vendeur —, mais ce n'est pas
+     celui qu'on attend du mot « exact », et l'écran le dit en toutes lettres
+     sous le choix de comparaison.
+  */
+  egal('3.11 « exact » porte sur le libellé nettoyé, dates comprises',
+    sur('exact'), ['A', 'C']);
+  egal('3.12 un motif vide n’attrape rien, quelle que soit la comparaison',
+    [sur('contient', ''), sur('commence', ''), sur('exact', '')], [[], [], []]);
+}
+
+{
+  /* Et les trois champs du mode avancé traversent la fabrication. */
+  const b = {
+    nom: 'Le Fournil', typeId: 'boulangerie', motif: 'fournil tournay',
+    comparaison: 'commence' as const, mode: 'manuel' as const, ligneId: 'ligne-pain',
+  };
+  const r = regleDepuisLeBrouillon(b, 'r9', '2026-10-13T00:00:00.000Z');
+  egal('3.13 la comparaison choisie est conservée', r.comparaison, 'commence');
+  egal('3.14 le mode choisi aussi', r.mode, 'manuel');
+  egal('3.15 et la ligne de budget visée', r.ligneId, 'ligne-pain');
+  egal('3.16 le motif, lui, est normalisé', r.motif, 'FOURNIL TOURNAY');
 }
 
 console.log('\n4. DEUX CORRECTIONS CONTRADICTOIRES : ON DEMANDE');

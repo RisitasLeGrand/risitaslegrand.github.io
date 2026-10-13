@@ -260,7 +260,7 @@ import Base from '../../layouts/Base.astro';
   import { auDeverrouillage } from '../../lib/chargement';
   import { centimesDe, euros, type OperationBancaire } from '../../lib/odyssee/finances';
   import { reconcilier } from '../../lib/odyssee/finances';
-  import { occurrences, TOLERANCE_PAR_DEFAUT, type Occurrence } from '../../lib/odyssee/budget';
+  import { occurrences, TOLERANCE_PAR_DEFAUT, type LigneBudget, type Occurrence } from '../../lib/odyssee/budget';
   import { construireLaFile, type Proposition } from '../../lib/odyssee/appariement';
   import {
     chercherLesCauses,
@@ -286,9 +286,18 @@ import Base from '../../layouts/Base.astro';
     VERSION_DU_DICTIONNAIRE,
     dictionnaireUtilisable,
   } from '../../lib/odyssee/dictionnaire-vendeurs';
-  import { brouillonPour, regleDepuisLeBrouillon, typesSuggeres } from '../../lib/odyssee/regles-pointage';
+  import {
+    apercuSurLePasse,
+    brouillonPour,
+    controlerLeBrouillon,
+    regleDepuisLeBrouillon,
+    typesSuggeres,
+    type BrouillonDeRegle,
+    type OperationPointable,
+  } from '../../lib/odyssee/regles-pointage';
   import { vueDesCategories } from '../../lib/odyssee/categories-pointees';
   import {
+    appliquerLaRegleAuPasse,
     defractionnerLOperation,
     ecrireLaRegle,
     ecrireLesPointages,
@@ -296,6 +305,7 @@ import Base from '../../layouts/Base.astro';
     lireLesModifications,
     nomsMasques,
     noterLeVendeur,
+    pointables,
     tousLesPointages,
     tousLesVendeurs,
     toutesLesRegles,
@@ -354,6 +364,19 @@ import Base from '../../layouts/Base.astro';
   let inconnusMontres = 10;
   /** Le début du passage en cours : ce que « Annuler » peut défaire. */
   let debutDuPassage = new Date().toISOString();
+  /** Le vendeur dont le mode avancé est ouvert, et son brouillon. */
+  let avanceOuvert: string | null = null;
+  let brouillon: BrouillonDeRegle | null = null;
+  /*
+     Ce dont le mode avancé a besoin pour son aperçu, recalculé à chaque
+     peinture. En variables plutôt qu'en paramètres parce que l'aperçu se
+     refait à chaque frappe dans le champ « motif », et qu'aller relire la
+     base à chaque frappe serait une lecture chiffrée par caractère tapé.
+  */
+  let pointablesDuTour: OperationPointable[] = [];
+  let libellesDuTour: string[] = [];
+  let lignesDuTour: LigneBudget[] = [];
+
   /** La recherche de l'éditeur de parts, et l'opération ouverte dedans. */
   let rechercheDOperation = '';
   let operationEnEdition: string | null = null;
@@ -888,6 +911,9 @@ import Base from '../../layouts/Base.astro';
     const [operations, su, pointages] = await Promise.all([
       toutesLesOperations(), connaissance(), tousLesPointages(),
     ]);
+    pointablesDuTour = await pointables(operations);
+    libellesDuTour = operations.map((o) => o.libelle);
+    lignesDuTour = await toutesLesLignes();
     const parOperation = new Map(pointages.map((p) => [p.operationId, p]));
     /* On ne redemande pas ce que la personne a déjà classé elle-même. */
     const libres = operations.filter((o) => parOperation.get(o.id)?.auteur !== 'moi');
@@ -954,10 +980,276 @@ import Base from '../../layouts/Base.astro';
       bouton('Je ne sais pas', 'a-identifier', async () => {
         await creerLaRegle(g, 'a-identifier');
       }),
+      bouton('Mode avancé', 'mode-avance', async () => {
+        /*
+           Le brouillon part du geste simple : même motif proposé, même mode
+           « proposer ». Le mode avancé ouvre ce que le geste simple décide
+           pour vous, il ne recommence pas depuis rien.
+        */
+        avanceOuvert = g.net;
+        brouillon = brouillonPour(g.net, choix.value || 'a-identifier', g.libelles);
+        await peindreLesInconnus();
+      }),
     );
 
     li.append(titre, variantes, choix, gestes);
+    if (avanceOuvert === g.net && brouillon) li.appendChild(formulaireAvance(g, brouillon));
     return li;
+  }
+
+  /**
+   * Le mode avancé : ce que le geste simple décide à votre place.
+   *
+   * Quatre choses, et chacune est une décision que le geste en un clic prend
+   * sans le dire — le motif, la façon de comparer, le droit de classer seule,
+   * et la ligne de budget visée. Les montrer ne rend pas l'écran plus
+   * compliqué : elles sont déjà prises, l'écran se contente d'avouer
+   * lesquelles.
+   *
+   * Le formulaire se repeint en entier à chaque changement, pour la même
+   * raison que l'éditeur de parts : l'aperçu, les défauts et l'avis sur le
+   * motif dépendent tous de l'ensemble des champs.
+   */
+  function formulaireAvance(
+    g: ReturnType<typeof grouperLesInconnus>[number],
+    b: BrouillonDeRegle,
+  ): HTMLElement {
+    const bloc = document.createElement('div');
+    bloc.dataset.avance = g.net;
+    bloc.className = 'mt-3 space-y-3 border-t border-slate-200 pt-3 dark:border-slate-800';
+
+    const champ = (
+      etiquette: string,
+      marque: string,
+      valeur: string,
+      surChangement: (v: string) => void,
+      aide = '',
+    ) => {
+      const label = document.createElement('label');
+      label.className = 'block text-sm';
+      const titre = document.createElement('span');
+      titre.className = 'block text-slate-700 dark:text-slate-200';
+      titre.textContent = etiquette;
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.dataset.champRegle = marque;
+      input.value = valeur;
+      input.className =
+        'mt-1 min-h-11 w-full max-w-md rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+      input.addEventListener('change', () => {
+        surChangement(input.value);
+        void peindreLesInconnus().catch(dire);
+      });
+      label.append(titre, input);
+      if (aide) {
+        const p = document.createElement('p');
+        p.className = 'mt-1 text-xs text-slate-500 dark:text-slate-400';
+        p.textContent = aide;
+        label.appendChild(p);
+      }
+      return label;
+    };
+
+    const liste = (
+      etiquette: string,
+      marque: string,
+      options: readonly { valeur: string; libelle: string; interdit?: boolean }[],
+      valeur: string,
+      surChangement: (v: string) => void,
+      aide = '',
+    ) => {
+      const label = document.createElement('label');
+      label.className = 'block text-sm';
+      const titre = document.createElement('span');
+      titre.className = 'block text-slate-700 dark:text-slate-200';
+      titre.textContent = etiquette;
+      const select = document.createElement('select');
+      select.dataset.champRegle = marque;
+      select.className =
+        'mt-1 min-h-11 w-full max-w-md rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+      for (const o of options) {
+        const option = document.createElement('option');
+        option.value = o.valeur;
+        option.textContent = o.libelle;
+        option.disabled = o.interdit === true;
+        select.appendChild(option);
+      }
+      select.value = valeur;
+      select.addEventListener('change', () => {
+        surChangement(select.value);
+        void peindreLesInconnus().catch(dire);
+      });
+      label.append(titre, select);
+      if (aide) {
+        const p = document.createElement('p');
+        p.className = 'mt-1 text-xs text-slate-500 dark:text-slate-400';
+        p.textContent = aide;
+        label.appendChild(p);
+      }
+      return label;
+    };
+
+    bloc.appendChild(champ('Nom de la règle', 'nom', b.nom, (v) => { b.nom = v; }));
+
+    bloc.appendChild(liste(
+      'Type',
+      'type',
+      TOUS_LES_TYPES.map((t) => ({ valeur: t.id, libelle: t.libelle })),
+      b.typeId,
+      (v) => { b.typeId = v; },
+    ));
+
+    bloc.appendChild(champ(
+      'Motif cherché dans le libellé', 'motif', b.motif, (v) => { b.motif = v; },
+      'Le libellé est d’abord nettoyé — mentions de carte, dates, références, ville — ' +
+        'puis comparé à ce motif.',
+    ));
+
+    bloc.appendChild(liste(
+      'Comparaison', 'comparaison',
+      [
+        { valeur: 'contient', libelle: 'Le libellé contient le motif' },
+        { valeur: 'commence', libelle: 'Le libellé commence par le motif' },
+        { valeur: 'exact', libelle: 'Le libellé est exactement le motif' },
+      ],
+      b.comparaison,
+      (v) => { b.comparaison = v as BrouillonDeRegle['comparaison']; },
+      'Les trois portent sur le libellé une fois nettoyé, pas sur celui du relevé : ' +
+        '« exact » ' +
+        'accepte donc deux lignes qui ne diffèrent que par leur date. Un motif qui déborde ' +
+        'n’est pas forcément une erreur — l’aperçu dit ce qu’il prend.',
+    ));
+
+    /*
+       Le mode « Pointe seule » est **désactivé**, et non masqué, quand le
+       type l'interdit. Le masquer laisserait croire qu'il n'existe pas ;
+       le montrer barré dit qu'il existe et pourquoi il est hors d'atteinte.
+    */
+    const interdit = typeDe(b.typeId)?.jamaisAuto === true;
+    bloc.appendChild(liste(
+      'Ce que la règle a le droit de faire', 'mode',
+      [
+        { valeur: 'proposer', libelle: 'Proposer, et attendre un geste' },
+        { valeur: 'auto', libelle: 'Pointer seule', interdit },
+        { valeur: 'manuel', libelle: 'Ne rien faire seule : classement toujours manuel' },
+      ],
+      b.mode,
+      (v) => { b.mode = v as BrouillonDeRegle['mode']; },
+      interdit
+        ? `« ${typeDe(b.typeId)!.libelle} » n’est jamais pointé automatiquement : « Pointer ` +
+          'seule » est hors d’atteinte pour ce type.'
+        : 'Une règle créée en un geste propose ; lui laisser décider seule est votre choix.',
+    ));
+
+    bloc.appendChild(liste(
+      'Ligne de budget visée (facultatif)', 'ligne',
+      [{ valeur: '', libelle: 'Aucune' },
+       ...lignesDuTour.map((l) => ({ valeur: l.id, libelle: l.libelle }))],
+      b.ligneId ?? '',
+      (v) => { b.ligneId = v || null; },
+      'Sert au rapprochement : les opérations de ce vendeur seront proposées contre cette ligne.',
+    ));
+
+    /* ── Les défauts, et l'avis sur le motif ──────────────────────────── */
+    const { problemes, avis } = controlerLeBrouillon(b, g.libelles, libellesDuTour);
+    const defauts = document.createElement('ul');
+    defauts.dataset.defautsRegle = g.net;
+    defauts.className = 'list-disc space-y-1 pl-5 text-sm text-rose-800 dark:text-rose-200';
+    defauts.classList.toggle('hidden', problemes.length === 0);
+    for (const p of problemes) {
+      const li = document.createElement('li');
+      li.textContent = p.phrase;
+      defauts.appendChild(li);
+    }
+    bloc.appendChild(defauts);
+
+    if (avis.acceptable && avis.deTrop.length) {
+      const trop = document.createElement('p');
+      trop.dataset.motifDeborde = g.net;
+      trop.className = 'text-sm text-amber-800 dark:text-amber-200';
+      trop.textContent =
+        `${avis.avertissement} Par exemple : ${avis.deTrop.slice(0, 3).map((l) => `« ${l} »`).join(', ')}.`;
+      bloc.appendChild(trop);
+    }
+
+    /* ── L'aperçu sur le passé ────────────────────────────────────────── */
+    const regle = regleDepuisLeBrouillon(b, 'apercu', new Date().toISOString());
+    const apercu = apercuSurLePasse(regle, pointablesDuTour);
+    const resume = document.createElement('p');
+    resume.dataset.apercuRegle = g.net;
+    resume.className = 'text-sm text-slate-700 dark:text-slate-200';
+    resume.textContent = apercu.phrase;
+    bloc.appendChild(resume);
+
+    if (apercu.touchees.length) {
+      const exemples = document.createElement('p');
+      exemples.dataset.exemplesRegle = g.net;
+      exemples.className = 'text-xs text-slate-500 dark:text-slate-400';
+      exemples.textContent =
+        `Par exemple : ${apercu.touchees.slice(0, 3).map((o) => `« ${o.libelle} »`).join(', ')}.`;
+      bloc.appendChild(exemples);
+    }
+
+    /* ── Les gestes ───────────────────────────────────────────────────── */
+    const gestes = document.createElement('div');
+    gestes.className = 'flex flex-wrap gap-2';
+
+    const creer = bouton('Créer la règle', 'creer-avance', async () => {
+      await creerDepuisLeBrouillon(g, b, false);
+    });
+    const creerEtAppliquer = bouton(
+      `Créer et appliquer à ${apercu.touchees.length} opération(s) passée(s)`,
+      'creer-et-appliquer',
+      async () => {
+        await creerDepuisLeBrouillon(g, b, true);
+      },
+    );
+    for (const btn of [creer, creerEtAppliquer]) {
+      btn.disabled = problemes.length > 0;
+      btn.classList.toggle('opacity-40', problemes.length > 0);
+    }
+    creerEtAppliquer.classList.toggle('hidden', apercu.touchees.length === 0);
+
+    gestes.append(creer, creerEtAppliquer, bouton('Revenir au geste simple', 'fermer-avance', async () => {
+      avanceOuvert = null;
+      brouillon = null;
+      await peindreLesInconnus();
+    }));
+    bloc.appendChild(gestes);
+    return bloc;
+  }
+
+  async function creerDepuisLeBrouillon(
+    g: ReturnType<typeof grouperLesInconnus>[number],
+    b: BrouillonDeRegle,
+    auPasse: boolean,
+  ) {
+    const r = regleDepuisLeBrouillon(b, `r-${Date.now()}-${g.net.slice(0, 12)}`, new Date().toISOString());
+    await ecrireLaRegle(r);
+    await noterLeVendeur(g.net, b.typeId, g.net);
+    if (auPasse) {
+      const { ecrits, protegees } = await appliquerLaRegleAuPasse(r, await toutesLesOperations());
+      dire(
+        `${ecrits} opération(s) reclassée(s)` +
+          (protegees ? `, et ${protegees} que vous aviez pointée(s) vous-même n’ont pas bougé.` : '.'),
+      );
+      $('erreur').className =
+        'rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200';
+    } else {
+      /* Comme le geste simple : les opérations du groupe sont ce qu'on vient
+         de nommer, et les pointer finit le geste au lieu de l'étendre. */
+      await ecrireLesPointages(g.operationIds.map((id) => ({
+        operationId: id,
+        statut: 'pointee-par-moi' as const,
+        vendeurNom: g.net,
+        typeId: b.typeId,
+        auteur: 'moi' as const,
+        pourquoi: `Règle « ${r.nom} » créée par vous.`,
+      })));
+    }
+    avanceOuvert = null;
+    brouillon = null;
+    await peindreTout();
   }
 
   async function creerLaRegle(
