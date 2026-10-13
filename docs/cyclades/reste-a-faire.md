@@ -74,9 +74,20 @@ manque, entière.
 
 Le plan, les maquettes et les sept décisions (10 à 16) sont dans
 [`finances/plan-2bis-pointage.md`](finances/plan-2bis-pointage.md).
-**Le prompt interdit de coder avant validation**, et l'attente est justifiée :
-un dictionnaire de 250 enseignes écrit de mémoire et une automatisation qui
-classe sans demander se corrigent mal après coup.
+**Décisions 11, 12 et 15 validées le 13 octobre 2026.**
+
+| Sous-phase | Contenu | État |
+|---|---|---|
+| **3 bis a** | Taxonomie (12 familles, 59 types + 3 états), normalisation, résolution, appariement approché, groupement des inconnus | **livrée**, 93 essais |
+| **3 bis b** | Dictionnaire de 296 entrées, mesure du taux de reconnaissance | **livrée** |
+| **3 bis c** | Politique de pointage, préréglages, anomalies, sondage, rétrogradation d'une règle | **livrée**, 69 essais |
+| **3 bis d** | Magasins scellés, règles locales, vendeurs inconnus, « Mes règles » | à faire |
+| **3 bis e** | Catégories pointées, vue prévu / réalisé / écart, file unique filtrable | à faire |
+
+Mesure sur le jeu synthétique de 51 libellés : **100 % reconnus, 0 faux
+positif** — avec la réserve, écrite dans le rapport de `npm run
+mesurer:reconnaissance`, que le jeu et le dictionnaire sortent de la même
+main et que ce chiffre ne dit rien de relevés réels.
 
 Reste ensuite la **phase 5** (jeu synthétique de cinq ans, conflits entre deux
 appareils, mesures d'ergonomie, guide court).
