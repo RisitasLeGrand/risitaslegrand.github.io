@@ -558,3 +558,93 @@ empreintes et couche texte.
 
 Les cinq hôtes étaient encore refusés au dernier contrôle, le 13 octobre 2026 à
 05:17:40 UTC.
+
+---
+
+## 9. Remontée au développeur central
+
+**État : phase 1 bloquée. Zéro texte d'échelle authentifié. Aucune échelle
+intégrable en l'état.** Une seule action débloque la suite, et elle n'est pas
+dans le code.
+
+### 9.1 Le blocage, et le geste qui le lève
+
+La passerelle réseau du conteneur refuse les cinq hôtes nécessaires
+(`CONNECT tunnel failed, response 403`, constaté six fois entre 00:37 et 05:17
+UTC le 13 octobre). Test de contrôle : `pypi.org` rend 200, `example.com` est
+refusé — c'est une liste blanche étroite, pas une panne. Une session parallèle
+rapporte onze hôtes refusés sur douze (`docs/cyclades/acces-sources.md`).
+
+**À faire :** environnement cloud → *Edit* → *Network access* → ajouter
+`cdn.who.int`, `www.who.int`, `iris.who.int`, `www.phqscreeners.com`,
+`phqscreeners.com` sous *Allowed domains*, case *Allow package managers*
+laissée cochée. **Puis ouvrir une session neuve** : la politique est figée au
+lancement du conteneur et ne se recharge pas dans une session en cours.
+
+À défaut d'ouverture : exécuter le téléchargement depuis un poste ayant accès et
+transmettre, pour chaque document, l'empreinte SHA-256, la taille en octets, les
+en-têtes de réponse et la sortie de `pdftotext -layout`. Le texte seul ne suffit
+pas — c'est tout l'objet de ce qui suit.
+
+### 9.2 Résultat à connaître avant de confier ce travail à un modèle
+
+Trois relevés par modèles externes ont été tentés. **Aucun n'a produit une seule
+empreinte.** Surtout, les relevés n°2 et n°3 transcrivent le même PDF et
+divergent sur 8 items du PHQ-9 sur 9, sur les 7 items du GAD-7, sur les options
+de réponse et sur les degrés de l'échelle fonctionnelle (section 8.1). Deux
+transcriptions verbatim du même fichier ne peuvent pas différer.
+
+**Recommandation : ne pas accepter de texte d'échelle d'un modèle, quel qu'il
+soit, celui qui écrit ces lignes compris, sans empreinte du fichier et sortie de
+sa couche texte.** Ces textes sont plausibles, et c'est exactement ce qui les
+rend coûteux : un item faux à un mot près se relit sans alerter personne, et
+fausse ensuite chaque score calculé par l'application.
+
+### 9.3 Point à trancher, qui n'est pas de mon ressort
+
+Les mentions relevées (sous quarantaine, non authentifiées) indiquent deux
+régimes très différents :
+
+- **WHO-5** : la page de droits de l'OMS porte CC BY-NC-SA 3.0 IGO. Si cela
+  s'applique, **NonCommercial** et **ShareAlike** ont des conséquences
+  d'architecture, pas seulement de mention : la clause NC pèse sur tout modèle
+  économique, la clause SA se propage aux adaptations. Le PDF ajoute que la
+  traduction française n'a pas été produite par l'OMS, qui n'en garantit pas
+  l'exactitude, et que **la version anglaise est seule contraignante et
+  authentique**.
+- **PHQ-9 / GAD-7** : régime annoncé permissif — « no permission is required to
+  reproduce, translate, display or distribute them », et attribution
+  Spitzer / Williams / Kroenke avec allocation d'études de Pfizer Inc.
+
+**À décider sur pièces authentifiées, pas sur ce relevé.** La question mérite
+d'être posée avant d'écrire la moindre ligne d'intégration, parce qu'elle peut
+changer le choix entre embarquer les échelles et les référencer.
+
+### 9.4 Avertissement sur la lecture de ce fichier
+
+Deux raisonnements que j'y ai écrits ont été **retirés après coup**, et les
+sections concernées portent la rectification plutôt que l'effacement :
+
+- l'argument des anomalies typographiques comme empreinte d'authenticité
+  (section 7.2) est faux : l'extraction était océrisée → voir **7.2 bis** ;
+- le crédit accordé à l'URL en `g10060481/f/201412/` (section 7.2) est retiré :
+  un second relevé donne `g10016261`, également « confirmé » → voir **8.2**.
+
+Dans les deux cas j'avais pris une apparence de spécificité pour une preuve.
+Les sections 7.4 et 8.1 ne valent que comme matériau de confrontation aux PDF
+réels.
+
+### 9.5 Ce qui reste à obtenir
+
+| Élément | État |
+|---|---|
+| Empreintes, tailles, en-têtes des 4 documents | néant |
+| WHO-5 : texte authentifié | néant (version sous quarantaine en 7.4) |
+| PHQ-9 / GAD-7 : texte authentifié | néant (deux versions contradictoires) |
+| Règles de score PHQ-9 / GAD-7 | non obtenues ; seuils vus en n°3 non retenus |
+| Liste réelle des variantes de français | non établie (France et Canada signalés) |
+| Mentions de droits | obtenues mais non authentifiées |
+
+Aucun fichier de données d'échelle, aucun `NOTICE`, aucun code, aucun test n'a
+été produit. Un seul fichier du dépôt a été touché depuis le début de ce
+chantier : celui-ci.
