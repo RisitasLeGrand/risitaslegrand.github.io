@@ -1418,3 +1418,72 @@ partie d'un relevé ne dit rien de la fiabilité du reste.
 **Le mot-à-mot demandé est obtenu et empreinté pour les trois échelles.** Restent
 deux lacunes documentées — la liste des variantes et le contrôle d'origine — et
 une décision qui n'est pas de mon ressort, celle de la section 14.5.
+
+---
+
+## 15. Confrontation des documents authentifiés entre eux (13 octobre 2026)
+
+Trois constats issus de la seule comparaison des pièces des sections 10, 12 et
+14. Aucune source nouvelle, aucune interprétation : ce sont des faits de texte.
+
+### 15.1 Les catégories de réponse françaises ne traduisent pas littéralement l'ancrage anglais
+
+Le manuel énonce les catégories anglaises sur lesquelles reposent les seuils
+(section 14.2) ; les PDF français portent les leurs. Mises en regard :
+
+| Valeur | Anglais (manuel, ancrage des seuils) | Français « France » (PHQ-9 et GAD-7) | Écart |
+|---|---|---|---|
+| 0 | `not at all` | `Jamais` | **« jamais » ≠ « pas du tout »** |
+| 1 | `several days` | `Plusieurs jours` | concordant |
+| 2 | `more than half the days` | `Plus de la moitié du temps` | **« du temps » ≠ « des jours »** |
+| 3 | `nearly every day` | `Presque tous les jours` | concordant |
+
+**Deux niveaux sur quatre s'écartent du sens de l'ancrage anglais** : le niveau 0
+passe d'une absence de gêne à une absence d'occurrence, et le niveau 2 d'un
+décompte de jours à une proportion de temps.
+
+Ce constat et celui de la section 14.5 se renforcent : les seuils sont validés
+sur l'anglais, la traduction française n'est pas psychométriquement validée, et
+son jeu de réponses diverge du jeu anglais sur la moitié de ses niveaux. **Cela
+ne disqualifie pas le questionnaire français** — il est publié comme tel par
+l'éditeur, et le manuel qualifie les traductions MAPI de linguistiquement
+valides. Cela borne ce qu'on peut en dire : le score français n'est pas
+démontré équivalent au score anglais, et c'est à prendre en compte dans ce que
+l'application affiche.
+
+### 15.2 Piège d'implémentation : un même libellé, deux valeurs
+
+| Libellé | WHO-5 | PHQ-9 / GAD-7 |
+|---|---|---|
+| `Plus de la moitié du temps` | **3** | **2** |
+| `Jamais` | **0** | **0** |
+
+`Plus de la moitié du temps` est **le même texte avec deux valeurs différentes**
+selon l'échelle. Toute table d'options indexée sur le libellé, et non sur le
+couple (échelle, libellé), produira un score faux pour l'une des deux. Que
+`Jamais` vaille 0 des deux côtés est une coïncidence et non une règle : elle ne
+doit pas servir de garantie.
+
+### 15.3 Les trois échelles n'ont ni la même granularité ni le même sens
+
+| | WHO-5 | PHQ-9 | GAD-7 |
+|---|---|---|---|
+| Niveaux | **6** (`5 4 3 2 1 0`) | 4 (`0 1 2 3`) | 4 (`0 1 2 3`) |
+| Items | 5 | 9 | 7 |
+| Score brut | 0 à 25 | 0 à 27 | 0 à 21 |
+| Transformation | **× 4 → 0 à 100** | aucune | aucune |
+| Sens de la montée | **score élevé = meilleur bien-être** | score élevé = symptômes plus sévères | score élevé = symptômes plus sévères |
+| Paliers au document | **aucun** | aucun (voir manuel, 14.3) | aucun (voir manuel, 14.2) |
+| Item non coté | — | **la question fonctionnelle** (14.6) | — |
+
+**Le sens de la montée s'inverse entre le WHO-5 et les deux autres.** Une
+présentation uniforme des trois scores — même code couleur, même sens de jauge —
+inverserait la lecture d'une des trois. C'est le second piège, et il est plus
+facile à commettre que le premier parce qu'il ne produit aucune erreur de calcul.
+
+### 15.4 Portée de cette section
+
+Ces trois constats sont des observations de texte sur des fichiers empreintés ;
+ils n'engagent aucun choix de mise en œuvre, qui relève du développeur central.
+Ils sont consignés ici parce qu'ils ne se voient qu'en lisant les six documents
+ensemble, et qu'ils disparaîtraient d'un relevé document par document.
