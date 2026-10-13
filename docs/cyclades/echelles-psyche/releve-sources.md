@@ -152,3 +152,263 @@ sont seulement vraisemblables.
 Les y consigner, même sous étiquette, serait déposer dans le dépôt un texte
 d'apparence juste qu'une relecture ultérieure prendrait pour le relevé. L'étape
 du mot-à-mot reste entière.
+
+---
+
+## 7. Relevé externe n°2 (Qwen, 13 octobre 2026) — recevable comme piste, pas comme relevé
+
+Second relevé externe, d'une qualité sans rapport avec le premier. **Il reste
+néanmoins non authentifié, et une contradiction interne l'empêche d'être retenu
+comme relevé à la source.**
+
+### 7.1 La contradiction centrale
+
+Dans sa partie « preuve de téléchargement », le rapport porte pour **les quatre
+documents** la phrase exacte : « Je n'ai pas téléchargé ce fichier. » Tous les
+champs — code HTTP, en-tête `Date`, `ETag`, `Content-Length`, taille, SHA-256,
+ligne `%PDF`, producteur, nombre de pages — sont à `NON OBTENU`.
+
+Or chaque bloc transcrit porte l'étiquette `[FICHIER] copié du fichier que j'ai
+effectivement téléchargé`.
+
+**Les deux affirmations ne peuvent pas être vraies ensemble.** L'étiquette
+`[FICHIER]` est démentie par la partie B du rapport lui-même. Au mieux le texte
+vient d'une page rendue par un outil d'extraction (`[PAGE]`), au pire d'ailleurs.
+Aucune empreinte n'existe, donc rien n'est vérifiable : le texte ci-dessous est
+**sous quarantaine**.
+
+### 7.2 Ce que ce relevé apporte réellement
+
+Trois choses, qui valent d'être conservées :
+
+1. **Des URL de structure crédible**, bien plus que les chemins devinés en
+   section 2 :
+   - `https://www.phqscreeners.com/images/sites/g/files/g10060481/f/201412/PHQ9_French%20for%20France.pdf`
+   - `https://www.phqscreeners.com/images/sites/g/files/g10060481/f/201412/GAD7_French%20for%20France.pdf`
+   Le segment `g10060481` et l'horodatage `201412` ont la forme d'un chemin de
+   gestionnaire de contenu réel, difficilement inventable de mémoire. **À
+   vérifier en premier** le jour où les domaines s'ouvrent.
+2. **Une variante « Canada »** signalée pour le PHQ-9 (`PHQ9_French for
+   Canada.pdf`). Le rapport n'en signale aucune autre : ni Belgique, ni Suisse.
+   Cette liste est donc **possiblement incomplète** et reste à établir sur la
+   page de sélection.
+3. **Des artefacts typographiques qui servent d'empreinte.** Le texte transcrit
+   comporte des anomalies caractéristiques d'une extraction de PDF, non d'une
+   rédaction de mémoire : « vousavez » sans espace, « bienêtre » sans trait
+   d'union, « ont- ils » avec espace interne, et un « géné(e) » dans le GAD-7
+   là où le PHQ-9 porte « gêné(e) ». Cette asymétrie entre deux documents est
+   peu compatible avec une reconstitution unique.
+   **Ces anomalies sont conservées telles quelles ci-dessous, sans correction :
+   elles constituent le moyen de vérification le moins coûteux.** Si les vrais
+   PDF portent les mêmes, le texte est authentifié ; s'ils ne les portent pas,
+   il est à jeter.
+
+### 7.3 Ce qui manque toujours
+
+- **Toute preuve de téléchargement**, pour les quatre documents.
+- **La règle de calcul du score du PHQ-9 et du GAD-7**, et leurs seuils
+  d'interprétation. Seul un fragment de codage interne est rapporté pour le
+  GAD-7.
+- **La liste complète des variantes de français** (deux signalées sur un nombre
+  inconnu).
+- Le rapport initial était **tronqué** en cours de partie « droits » ; la page
+  de droits de l'OMS et la ligne de licence PHQ/GAD ont été transmises
+  séparément, par collage de l'utilisateur. Leur provenance exacte à l'intérieur
+  de la session externe n'est donc pas établie.
+
+### 7.4 TEXTE SOUS QUARANTAINE — ne pas utiliser comme donnée d'échelle
+
+> Tout ce qui suit est **non authentifié**. Aucune empreinte, aucune taille,
+> aucun code HTTP ne l'accompagne, et son étiquette d'origine est contredite par
+> le rapport qui le porte. Il est consigné pour être **recoupé** contre les PDF
+> réels, pas pour être employé. Aucun fichier de données d'échelle ne doit en
+> être tiré avant ce recoupement.
+
+#### WHO-5 — version française (non authentifié)
+
+Titre : `Indice (en cinq points) de bien-être de l’OMS (1999)`
+
+Consigne : `Veuillez indiquer, pour chacune des cinq affirmations, laquelle se rapproche le plus de ce que vousavez ressenti au cours des deux dernières semaines. Notez que le chiffre est proportionnel au bienêtre.`
+
+Exemple : `si vous vous êtes senti(e) bien et de bonne humeur plus de la moitié du temps au cours des deux dernières semaines, cochez la case 3.`
+
+Période de rappel : `Au cours des deux dernières semaines`
+
+Options : `Tout le Temps (5) | La plupart du temps (4) | Plus de la moitié du temps (3) | Moins de la moitié du temps (2) | De temps en temps (1) | Jamais (0)`
+
+Items :
+
+```text
+1. Je me suis senti(e) bien et de bonne humeur
+2. Je me suis senti(e) calme et tranquille
+3. Je me suis senti(e) plein(e) d'énergie et vigoureux(se)
+4. Je me suis réveillé(e) en me sentant frais(che) et dispos(e)
+5. Ma vie quotidienne a été remplie de choses intéressantes
+```
+
+Score : `Pour calculer votre score, ajoutez les chiffres correspondant aux cases que vous avez cochées et multipliez la somme par quatre. Vous obtiendrez alors un score compris entre 0 et 100. Un score élevé signifie un meilleur bien-être.`
+
+Mentions portées par le PDF :
+
+```text
+French translation
+
+* * *
+
+The WHO-5 was developed during the 1990s by the late Per Bech of the Psychiatric Centre North Zealand
+(Copenhagen, Denmark), which hosted a WHO Collaborating Centre for Mental Health. The WHO-5 was derived
+from other scales and studies by the WHO Regional Office in Europe [1][2]. It has been translated, tested and used
+in a wide range of languages and settings across the globe [3].
+
+In 2024 the Psychiatric Centre North Zealand and WHO agreed to assign copyright in the WHO-5 to WHO, thereby
+creating the opportunity to publish and disseminate the tool as a WHO open access product.
+
+The translation displayed on the next page was completed before WHO accepted copyright of the English version
+in 2024. The translation was published on the website of the Psychiatric Centre North Zealand (Copenhagen,
+Denmark). WHO is not responsible for the content or accuracy of this translation. In the event of any inconsistency
+between the English and the translated version, the English version shall be the binding and authentic version.
+```
+
+#### PHQ-9 — version française France (non authentifié)
+
+Titre : `QUESTIONNAIRE SUR LA SANTÉ DU PATIENT – 9 (PHQ-9)`
+
+Consigne : `Au cours des 2 dernières semaines, selon quelle fréquence avez-vous été gêné(e) par les problèmes suivants ?(Veuillez cocher(✓) votre réponse)`
+
+Options : `Jamais (0) | Plusieurs jours (1) | Plus de la moitié du temps (2) | Presque tous les jours (3)`
+
+Items :
+
+```text
+1. Peu d'intérêt ou de plaisir à faire les choses
+2. Être triste, déprimé(e) ou désespéré(e)
+3. Difficultés à s'endormir ou à rester endormi(e), ou dormir trop
+4. Se sentir fatigué(e) ou manquer d'énergie
+5. Avoir peu d'appétit ou manger trop
+6. Avoir une mauvaise opinion de soi-même, ou avoir le sentiment d'être nul(le), ou d'avoir déçu sa famille ou s'être déçu(e) soi-même
+7. Avoir du mal à se concentrer, par exemple, pour lire le journal ou regarder la télévision
+8. Bouger ou parler si lentement que les autres auraient pu le remarquer. Ou au contraire, être si agité(e) que vous avez eu du mal à tenir en place par rapport à d'habitude
+9. Penser qu'il vaudrait mieux mourir ou envisager de vous faire du mal d'une manière ou d'une autre
+```
+
+Question complémentaire : `Si vous avez coché au moins un des problèmes évoqués, à quel point ce(s) problème(s) a-t-il (ont- ils) rendu votre travail, vos tâches à la maison ou votre capacité à vous entendre avec les autres difficile(s) ?`
+Options : `Pas du tout difficile(s) | Assez difficile(s) | Très difficile(s) | Extrêmement difficile(s)`
+
+**Règle de score : NON OBTENUE.**
+
+#### GAD-7 — version française France (non authentifié)
+
+Titre : `GAD-7`
+
+Consigne : `Au cours des 2 dernières semaines, selon quelle fréquence avez-vous été géné(e) par les problèmes suivants ? (Veuillez cocher (✓) votre réponse)`
+
+Options : `Jamais (0) | Plusieurs jours (1) | Plus de la moitié du temps (2) | Presque tous les jours (3)`
+
+Items :
+
+```text
+1. Un sentiment de nervosité, d'anxiété ou de tension
+2. Une incapacité à arrêter de s'inquiéter ou à contrôler ses inquiétudes
+3. Une inquiétude excessive à propos de différentes choses
+4. Des difficultés à se détendre
+5. Une agitation telle qu'il est difficile à tenir en place
+6. Une tendance à être facilement contrarié(e) ou irritable
+7. Un sentiment de peur comme si quelque chose de terrible risquait de se produire
+```
+
+Note de codage portée par le document : `(*For office coding: Total Score T____ = ____ + ____ + ____ )`
+
+**Règle de score : NON OBTENUE.**
+
+#### Licence PHQ / GAD-7 (non authentifié, transmise séparément)
+
+```text
+All PHQ, GAD-7 screeners and translations are downloadable from this website and no permission is required to reproduce, translate, display or distribute them.
+```
+
+#### Page de droits de l'OMS (non authentifié, transmise séparément)
+
+```text
+Copyright, Licensing and Permissions
+
+WHO supports open access to the published output of its activities as a fundamental part of its mission and a public benefit to be encouraged wherever possible.
+
+WHO’s open access applies to:
+
+- all publications published by WHO  CC BY-NC-SA 3.0 IGO;
+- articles or chapters published in non-WHO publications that are authored or co-authored by WHO staff CC BY 3.0 IGO or CC BY-NC 3.0 IGO;
+- articles or chapters published in non-WHO publications that are authored or co-authored by individuals or institutions funded in whole or in part by WHO CC BY 3.0 IGO or CC BY-NC 3.0 IGO.
+
+While most of the content in WHO publications is owned by WHO, there may be materials that are credited to another published source. Permission will normally be required from the originating publisher to reproduce such materials. Please refer to the copyright notice in the publication concerned for complete information.
+
+Permissions and licensing
+
+Permission from WHO is not required for the use of WHO materials issued under the Creative Commons Attribution-NonCommercial-ShareAlike 3.0 Intergovernmental Organization ( CC BY-NC-SA 3.0 IGO) licence.
+
+It is important to note that:
+
+• WHO publications cannot be used to promote or endorse products, services or any specific organization.
+
+• WHO logo cannot be used without written authorization from WHO.
+
+• WHO provides no warranty of any kind, either expressed or implied. In no event shall WHO be liable for damages arising from the use of WHO publications.
+
+The  CC BY-NC-SA 3.0 IGO licence allows users to freely copy, reproduce, reprint, distribute, translate and adapt the work for non-commercial purposes, provided WHO is acknowledged as the source using the following suggested citation:
+
+[Title]. [Place of publication]: World Health Organization; [Year]. Licence: CC BY-NC-SA 3.0 IGO.
+
+The use of WHO materials that are not available under the CC BY-NC-SA 3.0 IGO licence is subject to permission being granted by WHO. Some of the uses of such materials are:
+
+• reproduction and translation of figures, tables, maps, photos, etc.
+
+• reprint and translation of complete works.
+
+• licensing of materials or other technical information in electronic database products and services.
+
+To request permission to use such materials, please complete the following permissions form.
+
+Translations and adaptations
+
+If you create an adaptation or a translation of a WHO publication available under the CC BY-NC-SA 3.0 IGO licence, the following disclaimer should be included, as applicable:
+
+For translations: “This translation was not created by the World Health Organization (WHO). WHO is not responsible for the content or accuracy of this translation. The original English edition “[Title]. Geneva: World Health Organization; [Year]. Licence: CC BY-NC-SA 3.0 IGO” shall be the binding and authentic edition”.
+
+For adaptations: “This is an adaptation of an original work “[Title]. Geneva: World Health Organization (WHO); [Year]. Licence: CC BY-NC-SA 3.0 IGO”. This adaptation was not created by WHO. WHO is not responsible for the content or accuracy of this adaptation. The original edition shall be the binding and authentic edition”.
+
+The adaptation or translation must be licensed under the same or similar licence terms. Note that the CC BY-NC-SA 3.0 IGO licence can only be used by organizations established by a treaty or other instrument governed by international law and possessing its own international legal personality, and that are not subject to national laws, such as United Nations agencies, Intergovernmental organizations and International Organizations.
+
+Similar licences that could be used are the  CC BY-NC-SA 3.0 licence or the  CC BY-NC-SA 4.0 licence.
+
+Commercial uses
+
+Permission is required for commercial uses and licensing of WHO materials, such as using the material in the context of a commercial activity. Requests can be made by completing the following permissions form.
+
+Licensing of WHO Classifications
+
+- the International Statistical Classification of Diseases and Related Health Problems (ICD),
+- the International Classification of Functioning, Disability and Health (ICF),
+- and the International Classification of Health Interventions (ICHI).
+
+These Classifications are now available on the ICD-11 platform https://icd.who.int. They are licensed under the Creative Commons Attribution-NoDerivs 3.0 IGO (CC BY-ND 3.0 IGO) license and may be used for commercial and non-commercial purposes, provided there is no adaptation of the codes and the work is appropriately cited. Further information on the special aspects of the ICD license is available here: ICD-11 Terms of Use and License Agreement.
+
+You can also access the codes via an API by registering here https://icd.who.int/icdapi. Proposals for amendments to ICD-11 can be submitted through our website https://icd.who.int.
+
+WHO grants Governments, eventually represented by the relevant institutions, the translation rights of ICD-11, and other Classifications. Translations are prepared and delivered directly using the ICD-11 Translation Platform. Requests for translations will require written agreements and should be submitted online via icd@who.int.
+
+For further information, visit https://icd.who.int
+```
+
+### 7.5 Ce qui reste à faire, par ordre
+
+1. Ouvrir les cinq domaines, puis **recouper** : les anomalies typographiques de
+   la section 7.4 sont le test. Elles doivent se retrouver à l'identique.
+2. Vérifier en priorité les deux URL en `g10060481/f/201412/`.
+3. Établir la liste réelle des variantes de français sur la page de sélection.
+4. Relever les règles de score du PHQ-9 et du GAD-7, absentes ici.
+5. **Point à trancher ensuite, hors relevé** : si le WHO-5 relève bien de
+   CC BY-NC-SA 3.0 IGO, les clauses *NonCommercial* et *ShareAlike* ont des
+   conséquences sur l'intégration dans une application. À décider sur pièces, pas
+   sur ce relevé sous quarantaine.
+
+Le mot-à-mot authentifié reste donc à faire. Aucun fichier de données d'échelle,
+aucun `NOTICE`, aucun code n'est produit : la phase 1 n'est pas validée.
