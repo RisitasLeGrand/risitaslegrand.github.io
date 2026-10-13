@@ -138,9 +138,47 @@ ignoré, ce qui revient à ne plus l'avoir.
 
 ---
 
-## F. Une question jamais tranchée
+## F. Le modèle de branches, enfin tranché
 
-Le dépôt n'a toujours pas de branche `main` stable : tout vit sur
-`claude/new-session-vlew41`, qui porte maintenant l'intégralité du travail. Je
-n'y touche pas sans ton accord, mais la question se posera le jour où une
-session repartira de zéro — et elle se posera mal ce jour-là.
+`main` existe depuis le 13 octobre 2026 au soir. Elle part du sommet de
+`claude/new-session-vlew41` et porte donc l'intégralité du travail.
+
+| Branche | Rôle |
+|---|---|
+| `main` | La référence. Ce dont une nouvelle session part, et ce que les routines lisent. |
+| `claude/new-session-vlew41` | La branche de travail des sessions. |
+| `gh-pages` | La publication. Reconstruite de zéro à chaque `npm run deploy`, depuis `dist/` seul. Son historique n'a aucune valeur. |
+| `veille/…`, `bilan/…`, `synthese/…` | Les branches éphémères des quatre routines d'actualités, fusionnées puis abandonnées. |
+
+### Il reste un geste, et il n'est pas à ma portée
+
+**La branche par défaut du dépôt est encore `claude/new-session-vlew41`.** Le
+mandataire par lequel passent mes appels refuse d'écrire les réglages d'un
+dépôt — « Repository settings writes are not permitted through this proxy ».
+C'est une limite de mes droits, pas une difficulté technique.
+
+Le changement se fait en un clic :
+**Settings → General → Default branch → `main`**, sur
+`RisitasLeGrand/risitaslegrand.github.io`.
+
+Pourquoi cela compte, au-delà de l'esthétique : le workflow « Publier les
+actualités » ne s'exécute que si `github.ref_name == default_branch`, et les
+quatre routines commencent toutes par `git checkout <branche par défaut>`.
+Tant que le défaut reste la branche de travail, c'est **elle** qui sert de
+référence aux routines — ce qui marche aujourd'hui, et deviendra faux le jour
+où une session en ouvrira une autre.
+
+Rien n'est codé en dur nulle part : ni le workflow ni les routines ne nomment
+une branche. Le basculement est donc sans effet de bord, et c'est délibéré —
+le workflow porte même un commentaire qui explique pourquoi il lit le défaut
+plutôt qu'un nom écrit.
+
+### Une chose à vérifier au passage
+
+Les quatre routines d'actualités portent dans leur prompt un mot de passe de
+site qui **n'est pas celui en vigueur**. La veille du 12 octobre s'est pourtant
+bien terminée, donc ou bien ce mot de passe ne sert qu'à une étape qui n'a pas
+été atteinte, ou bien la rubrique Actualités ne dépend pas de lui — ses entrées
+sont chiffrées avec une clé publique distincte. Je ne l'ai pas tranché, et je
+n'ai touché à aucune routine. À regarder avant la prochaine veille
+hebdomadaire.
