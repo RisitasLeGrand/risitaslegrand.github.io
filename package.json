@@ -134,7 +134,9 @@
     "essais:psyche:navigateur": "node scripts/essais-psyche-navigateur.mjs",
     "essais:sante": "tsx scripts/essais-sante.mts",
     "essais:sante:navigateur": "node scripts/essais-sante-navigateur.mjs",
-    "essais:hors-ligne": "node scripts/essais-hors-ligne.mjs"
+    "essais:hors-ligne": "node scripts/essais-hors-ligne.mjs",
+    "essais:espaces": "node scripts/essais-espaces.mjs",
+    "essais:structure": "node scripts/essais-structure.mjs"
   },
   "repository": {
     "type": "git",

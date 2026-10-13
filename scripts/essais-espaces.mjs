@@ -1,0 +1,85 @@
+/**
+ * Les espaces mangés entre un mot et une balise en ligne.
+ *
+ * ## La faute, et pourquoi elle ne se voit pas dans le gabarit
+ *
+ * Astro supprime le saut de ligne qui sépare un nœud de texte d'une balise en
+ * ligne voisine. Le gabarit suivant, parfaitement lisible :
+ *
+ *     …une fois assez de réponses accumulées.
+ *     <a href="…">Choisir ce qui l'alimente →</a>
+ *
+ * produit `accumulées.<a …>Choisir`, c'est-à-dire, à l'écran,
+ * « accumulées.Choisir ». Le défaut est donc invisible à la relecture du
+ * gabarit : il naît à la construction. C'est pour cela que ce contrôle lit le
+ * **HTML construit** et non les sources.
+ *
+ * ## Ce que le contrôle attrape, et ce qu'il laisse passer
+ *
+ * Il signale un caractère de mot ou une ponctuation **fermante** collé à
+ * l'ouverture d'une balise en ligne, et la fermeture d'une telle balise collée
+ * à un caractère de mot. Il ne signale pas les collages légitimes, qui sont
+ * tous précédés d'une apostrophe, d'une ouvrante ou d'un tiret : `l'<abbr…`,
+ * `(<a…`, `«&nbsp;<em…`.
+ *
+ * Il ne voit que les pages construites. Une page que le site ne publie pas, ou
+ * un texte écrit par du code au moment de l'affichage, lui échappent
+ * entièrement : ce contrôle couvre les gabarits, pas les rendus dynamiques.
+ */
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+
+const RACINE = 'dist';
+
+/** Les balises dont le collage à un mot est, à l'écran, un espace manquant. */
+const EN_LIGNE = 'a|abbr|b|code|em|i|kbd|mark|q|s|small|strong|sub|sup|u';
+
+/**
+ * Avant une ouvrante : lettre, chiffre, ou ponctuation qui termine un mot.
+ * L'apostrophe, les ouvrantes et le tiret sont exclus — ils collent à bon
+ * droit.
+ */
+const AVANT = String.raw`[\p{L}\p{N}.,;:!?…»%]`;
+/** Après une fermante : une lettre ou un chiffre. Rien d'autre ne trahit. */
+const APRES = String.raw`[\p{L}\p{N}]`;
+
+const OUVRANTE = new RegExp(`${AVANT}<(?:${EN_LIGNE})[ >]`, 'gu');
+const FERMANTE = new RegExp(`</(?:${EN_LIGNE})>${APRES}`, 'gu');
+
+function pages(dossier) {
+  const sortie = [];
+  for (const nom of readdirSync(dossier)) {
+    const chemin = join(dossier, nom);
+    if (statSync(chemin).isDirectory()) sortie.push(...pages(chemin));
+    else if (nom.endsWith('.html')) sortie.push(chemin);
+  }
+  return sortie;
+}
+
+/** Le code n'est pas du texte : un `<em>` dans une chaîne JS ne se lit pas. */
+const sansCode = (html) =>
+  html
+    .replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, ' ');
+
+const ligneDe = (texte, index) => texte.slice(0, index).split('\n').length;
+
+let fautes = 0;
+for (const page of pages(RACINE)) {
+  const html = sansCode(readFileSync(page, 'utf8'));
+  for (const motif of [OUVRANTE, FERMANTE]) {
+    motif.lastIndex = 0;
+    let m;
+    while ((m = motif.exec(html)) !== null) {
+      const extrait = html.slice(Math.max(0, m.index - 40), m.index + 60).replace(/\s+/g, ' ');
+      console.log(`✗ ${page}:${ligneDe(html, m.index)} … ${extrait} …`);
+      fautes += 1;
+    }
+  }
+}
+
+if (fautes > 0) {
+  console.log(`\n${fautes} espace(s) mangé(s) entre un mot et une balise en ligne.`);
+  process.exit(1);
+}
+console.log(`✓ ${pages(RACINE).length} pages : aucun mot collé à une balise en ligne.`);

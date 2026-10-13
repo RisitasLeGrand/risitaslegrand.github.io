@@ -12,6 +12,10 @@ import Base from '../layouts/Base.astro';
 ---
 
 <Base titre="Stockage" actif="progression">
+  <!-- Le titre vit hors des deux blocs : une page qui n'annonce son sujet
+       qu'une fois la base lue n'a pas de titre pour qui arrive au clavier. -->
+  <h1 class="mb-5 text-2xl font-bold text-slate-900 dark:text-white">Stockage</h1>
+
   <div id="chargement" class="py-20 text-center text-slate-400">Lecture de l’espace de stockage…</div>
 
   <div id="stockage" class="hidden space-y-8">
@@ -57,7 +61,7 @@ import Base from '../layouts/Base.astro';
       </h2>
       <p class="mb-3 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
         Quand il est accordé, le navigateur s’engage à ne pas effacer ces données
-        de lui-même pour faire de la place. Il ne s’engage à rien d’autre :
+        de lui-même pour faire de la place. Il ne s’engage à rien d’autre :{' '}
         <strong>un effacement manuel, un nettoyeur ou un changement d’appareil
         emportent tout de même tout</strong>.
       </p>
@@ -166,7 +170,7 @@ import Base from '../layouts/Base.astro';
       <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">Intégrité</h2>
       <p class="mb-4 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
         Un contrôle des liens que le modèle suppose : une note sans séance, une
-        séance sans thème, une flashcard dont la fiche a disparu. Il
+        séance sans thème, une flashcard dont la fiche a disparu. Il{' '}
         <strong>ne répare rien et n’efface rien</strong> — réparer
         automatiquement une base qu’on ne comprend pas est le meilleur moyen de
         transformer une anomalie bénigne en perte.
@@ -295,7 +299,7 @@ import Base from '../layouts/Base.astro';
         Compacter le journal de synchronisation
       </h2>
       <p class="mb-3 max-w-3xl text-sm leading-relaxed text-slate-500 dark:text-slate-400">
-        Une suppression n’est pas une absence : c’est une
+        Une suppression n’est pas une absence : c’est une{' '}
         <strong>pierre tombale</strong> inscrite au journal, sans quoi un
         appareil resté hors ligne ressusciterait à chaque synchronisation ce que
         vous avez effacé ailleurs. Compacter, c’est retirer les faits des objets
@@ -333,7 +337,7 @@ import Base from '../layouts/Base.astro';
       <p class="max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
         Une couche de compression ramènerait l’occupation d’environ neuf
         mégaoctets à un et demi. Le gain est réel et il ne sert à rien : il porte
-        sur une ressource qui n’est pas rare. Ce qui pesait, c’était le
+        sur une ressource qui n’est pas rare. Ce qui pesait, c’était le{' '}
         <em>temps</em> — et il a été réglé autrement, en sortant les notes de
         séance de leur enregistrement, ce qui a fait passer le tableau de bord de
         2,25 s à 0,58 s. Un bouton « Compacter » n’aurait donc rien à compacter,
