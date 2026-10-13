@@ -82,9 +82,10 @@ Un vide de **56 points** sépare les deux groupes. La frontière se **déduit** 
 fichier (le plus grand écart entre deux abscisses), elle ne se code pas : les
 pages de livret n'ont pas la même mise en page que celles du compte courant.
 
-### Et le résultat qui change tout
+### Le résultat, en deux temps
 
-J'ai écrit l'analyseur complet et je l'ai confronté aux soldes imprimés :
+J'ai écrit l'analyseur complet et je l'ai confronté aux soldes imprimés. Au
+premier essai :
 
 ```
 ✓ LIVRET JEUNE                 6 op.   1600,00 +   0,00 → 1600,00  imprimé 1600,00
@@ -93,17 +94,34 @@ J'ai écrit l'analyseur complet et je l'ai confronté aux soldes imprimés :
 ✗ LIVRET DE DEVELOPPEMENT     45 op.    506,00 +2944,00 → 3450,00  imprimé 3325,00
 ```
 
-**Trois comptes sur quatre ne bouclent pas**, de 30 €, 125 € et 78,14 €. Les
-colonnes sont pourtant bien séparées, l'attribution aux comptes est exacte, et
-aucune ligne n'est sautée — je l'ai vérifié ligne à ligne. Il reste donc une
-poignée de montants dont le signe est faux, et **je n'ai pas fini de les
-identifier**. Je le dis plutôt que de laisser croire à un analyseur qui marche.
+Trois comptes sur quatre faux, de 78,14 €, 30 € et 125 €. Colonnes bien
+séparées, attribution aux comptes exacte, aucune ligne à deux montants.
 
-C'est précisément le résultat utile. Un analyseur écrit avec soin, dont chaque
-étape intermédiaire a l'air juste, produit un solde faux de 30 € sur un compte.
-Sans contrôle, ces erreurs entrent dans le budget **en silence**, et faussent
-tous les rapprochements suivants — et on les découvre trois mois plus tard, en
-cherchant pourquoi rien ne tombe juste.
+**La cause, trouvée en suivant le contrôle.** Onze lignes sur 278 portent un
+**caractère isolé dans la marge** — un « 2 », un « X », un « V » — avant la
+date. Mon analyseur exigeait que la date soit le premier morceau de la ligne,
+et les écartait **en silence**. Les trois écarts s'expliquent exactement :
+5 + 25 sur le Livret A font 30, 20 + 105 sur le LDD font 125, et les six
+débits plus un crédit du compte courant font 78,14.
+
+Une fois la date cherchée dans les **deux premiers** morceaux :
+
+```
+✓ C/C CONTRAT PERSONNEL      191 op.    525,71 − 516,95 →    8,76  imprimé    8,76
+✓ LIVRET JEUNE                 6 op.   1600,00 +   0,00 → 1600,00  imprimé 1600,00
+✓ LIVRET A SUP                34 op.    410,00 + 195,00 →  605,00  imprimé  605,00
+✓ LIVRET DE DEVELOPPEMENT     47 op.    506,00 +2819,00 → 3325,00  imprimé 3325,00
+
+✓ TOUS LES COMPTES BOUCLENT AU CENTIME
+```
+
+278 opérations, quatre comptes, zéro écart.
+
+**Ce que cet épisode démontre, et qui vaut plus que le résultat.** Un analyseur
+soigné a perdu onze opérations sur 278 à cause d'un caractère de marge, sans
+rien signaler. Aucune relecture du code ne l'aurait montré ; aucun coup d'œil
+à la liste importée non plus — 267 lignes plausibles ressemblent exactement à
+278 lignes plausibles. **Seul le solde l'a dit.**
 
 ### Ce que j'en conclus, et qui remplace ma décision 8
 
@@ -133,6 +151,43 @@ l'intégralité des opérations qui doit se recomposer exactement.
 
 Un compte qui boucle peut entrer seul : l'erreur est par compte, pas par
 fichier.
+
+### Tous les relevés ne se ressemblent pas
+
+Ils n'ont ni la même taille, ni le même nombre de comptes, ni la même mise en
+page — et mon échantillon est **d'un seul relevé, d'une seule banque, d'un
+seul mois**. Trois conséquences sur la méthode.
+
+**La frontière des colonnes s'ancre sur l'en-tête imprimé, pas sur les
+données.** Mon premier jet la déduisait du plus grand écart entre les
+abscisses des montants. Cela marche sur 278 opérations et **échoue sur trois**
+— un relevé d'une page sans aucun crédit n'a qu'un seul groupe, et le
+découpage inventerait une séparation là où il n'y en a pas. Or ce relevé
+imprime « Débit EUROS » et « Crédit EUROS » **sur chaque page**, avec leurs
+positions. L'ancrage est donc :
+
+1. l'en-tête de colonnes de **la page courante**, s'il est présent ;
+2. à défaut, le plus grand écart entre abscisses, **et seulement si** les deux
+   groupes sont séparés d'au moins 20 points et comptent chacun un montant ;
+3. à défaut, refus de lire ce fichier, avec la raison.
+
+Cet ancrage par page a d'ailleurs révélé que les pages paires du relevé sont
+**décalées de 10 points** par rapport aux impaires — une marge recto-verso.
+Une frontière unique pour tout le document aurait fini par trancher au mauvais
+endroit sur un relevé un peu différent.
+
+**Le découpage en comptes ne suppose rien sur le nombre.** Un compte commence
+à son en-tête et se referme sur son solde final ; un relevé d'un seul compte,
+d'une page, sans opération, suit le même chemin. Les en-têtes se répètent à
+chaque page et ne créent pas de doublon — ils sont regroupés par nom.
+
+**Et ce qui reste hors de portée est dit.** Un relevé **sans solde imprimé**
+ne peut pas être vérifié. Dans ce cas, l'import est refusé par défaut, avec
+une dérogation explicite — « importer sans contrôle, 47 opérations non
+vérifiées » — qui marque les opérations comme telles pour que le
+rapprochement sache qu'elles sont fragiles. Je ne connais pas de relevé
+français sans solde, mais je préfère que le cas soit traité plutôt que
+découvert.
 
 **Ce que cela vaut pour le CSV aussi.** Le même contrôle s'applique quand
 l'export porte un solde, et c'est la raison pour laquelle l'écran d'import
@@ -437,7 +492,7 @@ base — et elle est décochée par défaut.
 | 5 | Tolérances | **± 2 jours** et **± 2 % ou 2 €, le plus grand des deux** par défaut, réglables par ligne. Le « plus grand des deux » évite qu'un abonnement à 9,99 € exige une exactitude au centime. |
 | 6 | Fichier source | **Jamais conservé.** Il n'apporte qu'un risque : les opérations sont déjà là, et un relevé oublié dans un stockage de navigateur est exactement ce que ce chantier cherche à éviter. |
 | 7 | Consommateurs par défaut | Les cinq premiers de la section 8 **activés**, veille du rythme et IA **décochés**. |
-| 8 | Relevés PDF | **Oui — je change d'avis, et la section 2 bis dit pourquoi.** J'avais recommandé non sans avoir ouvert un relevé. Le tien a une couche de texte propre, des colonnes récupérables par pdf.js, et **il imprime ses propres soldes**. Condition absolue : l'import est refusé tant que le solde de chaque compte ne boucle pas au centime. Mon premier analyseur échoue ce contrôle sur trois comptes sur quatre — c'est la meilleure preuve que le contrôle est indispensable. |
+| 8 | Relevés PDF | **Oui — je change d'avis, et la section 2 bis dit pourquoi.** J'avais recommandé non sans avoir ouvert un relevé. Le tien a une couche de texte propre, des colonnes récupérables par pdf.js, et **il imprime ses propres soldes** : les quatre comptes bouclent au centime. Condition absolue : l'import est refusé tant que chaque compte ne boucle pas. Mon premier analyseur perdait onze opérations sur 278 à cause d'un caractère de marge, sans rien signaler — c'est le solde, et lui seul, qui l'a dit. |
 | 9 | Agrégateur DSP2 | **Écarté, et je le recommande fermement.** Il impose un tiers agréé, un compte, des clés, et fait transiter **l'intégralité de tes opérations** par ses serveurs. C'est la seule méthode qui annule la propriété qui fonde Cyclades. Le gain — un geste en moins par mois — ne la paie pas. |
 
 ## 10. Les phases
@@ -464,8 +519,9 @@ détection de récurrences ait de quoi se nourrir.
 - **Les formats d'export de tes banques** : décision 1. J'ai le relevé PDF du
   CIC ; il me manque un **export CSV** de chaque banque, qui reste la voie
   principale.
-- **Les trois écarts de solde de la section 2 bis** : identifiés comme des
-  signes faux, non localisés. À finir en phase 2, avec le contrôle comme filet.
+- **La variabilité réelle des relevés** : un seul fichier, une seule banque,
+  un seul mois. La méthode de la section 2 bis est conçue pour ne rien
+  supposer, mais seule une deuxième banque le prouvera.
 - **Les plafonds et barèmes** (livret A, PEA, PER) : aucun n'est en dur, et
   aucun ne s'affichera sans source officielle et date de vérification. Les
   sources officielles ne sont pas atteignables depuis cet environnement en ce
