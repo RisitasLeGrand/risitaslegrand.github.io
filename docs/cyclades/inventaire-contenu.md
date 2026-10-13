@@ -258,8 +258,9 @@ d'être consigné ici.
 | 2 | `questions-internationales/fascicule-2` | 13 | 121 |
 | 3 | `questions-internationales/fascicule-3` | 15 | 106 |
 | 4 | `questions-europeennes/fascicule-1` | 14 | 92 |
+| 5 | `questions-europeennes/fascicule-2` | 14 | 78 |
 
-Fiches avec prétest, après le lot 4 : **246 sur 347**. **Les questions
+Fiches avec prétest, après le lot 5 : **260 sur 347**. **Les questions
 internationales sont complètes** : les 44 prétests de la matière sont écrits.
 
 Note de méthode retenue d'un lot à l'autre : un prétest **ouvre la lecture**, il
@@ -557,11 +558,21 @@ proscrit en prétest et la taille du vivier — c'est-à-dire tout ce que le bui
 refuserait. Il ne couvre évidemment pas le chiffrement ni l'écriture des
 fichiers de sortie.
 
-**2. Un faux positif dans le filtre de prétest.** `scripts/lib/pretest.mjs`
-interdit le mot « jury » dans une question de prétest, à juste titre pour le
-jury du concours. Mais un **jury citoyen** — instance de participation tirée au
-sort — n'a rien à voir, et la question a été refusée à tort en cas pratique 4.
-Mon mandat m'interdit de toucher à `scripts/` : j'ai donc reformulé la question
-et je signale le défaut plutôt que de le corriger. La correction tiendrait
-vraisemblablement en une exception sur l'expression « jury citoyen », à décider
-par qui tient le script.
+**2. Deux faux positifs dans le filtre de prétest.** `scripts/lib/pretest.mjs`
+écarte des mots qui désignent l'épreuve. Deux d'entre eux ont aussi un sens
+juridique ordinaire, et la question a été refusée à tort :
+
+- **« jury »**, dans « **jury citoyen** », instance de participation tirée au
+  sort (cas pratique 4). **Corrigé depuis** : une liste d'expressions permises
+  retire « jury citoyen », « jury populaire » et « jury d'assises » du texte
+  avant la recherche.
+- **« devoir »**, dans « **devoir de vigilance** », obligation de prévention
+  pesant sur une entreprise (questions européennes 2, fiche 14). Même nature,
+  même remède possible. En attendant, la question a été reformulée en
+  « obligation de vigilance ».
+
+Dans les deux cas, mon mandat m'interdisant de toucher à `scripts/`, j'ai
+reformulé et signalé plutôt que corrigé. D'autres termes de la liste ont le
+même double sens et se rencontreront : **« copie »** (copie d'un acte),
+**« coefficient »** (coefficient budgétaire, coefficient de Gini) et
+**« chapitre »** (chapitre budgétaire, chapitre VI de la Charte).
