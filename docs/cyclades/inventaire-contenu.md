@@ -256,8 +256,10 @@ d'être consigné ici.
 |---|---|---|---|
 | 1 | `questions-internationales/fascicule-1` | 16 | 134 |
 | 2 | `questions-internationales/fascicule-2` | 13 | 121 |
+| 3 | `questions-internationales/fascicule-3` | 15 | 106 |
 
-Fiches avec prétest, après le lot 2 : **217 sur 347**.
+Fiches avec prétest, après le lot 3 : **232 sur 347**. **Les questions
+internationales sont complètes** : les 44 prétests de la matière sont écrits.
 
 Note de méthode retenue d'un lot à l'autre : un prétest **ouvre la lecture**, il
 ne la résume pas. Les questions portent donc sur les notions que la fiche
