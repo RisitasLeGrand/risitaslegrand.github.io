@@ -479,6 +479,11 @@ Un troisième relevé a été produit, annoncé comme mise à jour du précéden
 confronté au relevé n°2, il prouve qu'aucun des deux n'est fiable.** C'est le
 résultat le plus utile de la série, et c'est un résultat négatif.
 
+**Précision déterminante : il s'agit du même modèle que le relevé n°2 (Qwen),
+sur une seconde requête, avec des règles réseau étendues.** Cela change la
+portée de la divergence constatée ci-dessous, et dans le sens de l'aggraver —
+voir 8.1 bis.
+
 ### 8.1 Le test décisif : deux transcriptions du même fichier divergent
 
 Les deux relevés prétendent transcrire **le même PDF** — PHQ-9 « French for
@@ -516,6 +521,39 @@ transcriptions « verbatim » du même fichier ne peuvent pas différer. Il exis
 plusieurs traductions françaises du PHQ-9 en circulation ; ces deux relevés en
 restituent vraisemblablement des souvenirs distincts, sans lire le fichier.
 
+### 8.1 bis Même modèle, deux requêtes : ce que la variance signifie
+
+Les relevés n°2 et n°3 ne viennent pas de deux sources indépendantes : c'est
+**le même modèle, interrogé deux fois**, la seconde fois avec un accès réseau
+élargi. Trois conséquences.
+
+**1. La divergence devient un signal plus fort, non plus faible.** Deux modèles
+différents qui se contredisent laissent place à l'hypothèse que l'un a lu le
+fichier et l'autre non. **Un même modèle qui produit deux textes différents pour
+le même fichier cible est la signature d'une génération depuis sa mémoire
+paramétrique** : une lecture réelle est reproductible, une reconstitution varie
+d'une exécution à l'autre. Le changement des chiffres de l'URL entre les deux
+requêtes (`g10060481` → `g10016261`), toutes deux annoncées « confirmées »,
+relève de la même variance — c'est le comportement typique d'un identifiant
+inventé.
+
+**2. L'accès réseau élargi aggrave l'absence de preuve au lieu de l'excuser.**
+Avec des règles réseau étendues, le relevé n°3 porte toujours « Je n'ai pas
+téléchargé ce fichier » et `NON OBTENU` pour les quatre documents : ni empreinte,
+ni taille, ni en-tête, ni nombre de pages. Un accès dont on ne tire aucune preuve
+de téléchargement n'améliore pas l'authentification ; il retire la dernière
+excuse technique à son absence.
+
+**3. L'hypothèse qu'il faut malgré tout garder ouverte.** Les deux textes
+pourraient être **deux documents réels distincts**, chacun mal étiqueté
+« France » : il existe plusieurs traductions françaises du PHQ-9 en circulation,
+et le relevé n°2 signalait lui-même une variante « Canada ». Dans cette branche,
+aucun des deux textes n'est inventé — mais aucun n'est utilisable non plus,
+puisqu'on ignore de quel fichier chacun provient. **Conséquence pratique : lors
+du relevé direct, télécharger et comparer les variantes France ET Canada, et
+confronter les deux textes de ce fichier à chacune.** C'est le seul protocole
+qui départage entre « reconstitution » et « bon texte, mauvaise étiquette ».
+
 ### 8.2 Les autres défauts du relevé n°3
 
 - **Le chemin d'URL a changé de chiffres**, et reste annoncé comme « confirmé » :
@@ -547,9 +585,11 @@ restituent vraisemblablement des souvenirs distincts, sans lire le fichier.
 ### 8.3 Ce que cela établit
 
 La voie du relais externe est **fermée par l'expérience**, et non par principe :
-trois relevés, aucune empreinte, et deux textes mutuellement contradictoires sur
-le même fichier. Un quatrième relevé externe n'apporterait qu'une troisième
-version du PHQ-9, sans moyen de départager.
+trois relevés, aucune empreinte — y compris avec un accès réseau élargi — et deux
+textes mutuellement contradictoires produits par le même modèle sur le même
+fichier cible. Une quatrième requête n'apporterait qu'une troisième version du
+PHQ-9, sans moyen de départager : c'est la définition d'un procédé non
+reproductible.
 
 **Le texte des sections 7.4 et 8.1 ne doit servir qu'à une chose : être
 confronté aux PDF réels.** Aucune échelle ne peut en être tirée. Le seul chemin
@@ -589,10 +629,23 @@ pas — c'est tout l'objet de ce qui suit.
 ### 9.2 Résultat à connaître avant de confier ce travail à un modèle
 
 Trois relevés par modèles externes ont été tentés. **Aucun n'a produit une seule
-empreinte.** Surtout, les relevés n°2 et n°3 transcrivent le même PDF et
-divergent sur 8 items du PHQ-9 sur 9, sur les 7 items du GAD-7, sur les options
-de réponse et sur les degrés de l'échelle fonctionnelle (section 8.1). Deux
-transcriptions verbatim du même fichier ne peuvent pas différer.
+empreinte** — y compris le dernier, lancé avec des règles réseau étendues, qui
+porte malgré cet accès « Je n'ai pas téléchargé ce fichier » pour les quatre
+documents. Un accès dont on ne tire aucune preuve ne retire pas le doute, il
+retire l'excuse.
+
+Surtout : les relevés n°2 et n°3 sont **le même modèle interrogé deux fois**, et
+ils divergent sur 8 items du PHQ-9 sur 9, sur les 7 items du GAD-7, sur les
+options de réponse et sur les degrés de l'échelle fonctionnelle (sections 8.1 et
+8.1 bis). Une lecture de fichier est reproductible ; une reconstitution varie
+d'une exécution à l'autre. Les chiffres de l'URL ont d'ailleurs changé entre les
+deux requêtes tout en restant « confirmés ».
+
+Une hypothèse reste ouverte et commande le protocole : les deux textes pourraient
+être **deux documents réels distincts mal étiquetés « France »** (plusieurs
+traductions françaises du PHQ-9 circulent, et une variante « Canada » a été
+signalée). D'où la consigne de la section 9.5 : télécharger France **et** Canada,
+et confronter les deux textes de ce fichier à chacune.
 
 **Recommandation : ne pas accepter de texte d'échelle d'un modèle, quel qu'il
 soit, celui qui écrit ces lignes compris, sans empreinte du fichier et sortie de
@@ -643,6 +696,7 @@ réels.
 | PHQ-9 / GAD-7 : texte authentifié | néant (deux versions contradictoires) |
 | Règles de score PHQ-9 / GAD-7 | non obtenues ; seuils vus en n°3 non retenus |
 | Liste réelle des variantes de français | non établie (France et Canada signalés) |
+| Comparaison France ↔ Canada contre les textes en 7.4 et 8.1 | à faire ; seul test qui départage reconstitution et mauvaise étiquette |
 | Mentions de droits | obtenues mais non authentifiées |
 
 Aucun fichier de données d'échelle, aucun `NOTICE`, aucun code, aucun test n'a
