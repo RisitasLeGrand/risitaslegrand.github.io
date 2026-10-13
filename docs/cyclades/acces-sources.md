@@ -51,6 +51,40 @@ une valeur manque, l'application doit le dire — c'est la règle du prompt, et
 c'est aussi ce qui permet de reprendre plus tard sans se demander ce qui a
 été inventé entre-temps.
 
+## Second relevé, le même jour, pour la synthèse des années 2024 et 2025
+
+La ligne `D-023` de l'audit demande deux synthèses annuelles dont **chaque
+chiffre est sourcé**. Neuf hôtes essayés à la même minute, tous refusés au
+`CONNECT` — y compris le témoin public :
+
+| Hôte | Pour quoi | Résultat |
+|---|---|---|
+| `www.insee.fr` | PIB, déficit, dette, inflation, chômage | `403` |
+| `www.vie-publique.fr` | lois promulguées, décisions publiques | `403` |
+| `www.legifrance.gouv.fr` | textes et dates de promulgation | `403` |
+| `www.economie.gouv.fr` | budget, mesures fiscales | `403` |
+| `www.banque-france.fr` | taux, crédit, conjoncture | `403` |
+| `www.ecb.europa.eu` | décisions de politique monétaire | `403` |
+| `ec.europa.eu` | droit de l'Union, procédures | `403` |
+| `en.wikipedia.org` | repère de contrôle | `403` |
+| `example.com` | **témoin** neutre | `403` |
+
+Le témoin tombe aussi : la politique n'épargne rien hors GitHub et les
+registres de paquets. `WebFetch` échoue de la même façon (`ENOTFOUND`), la
+résolution de nom passant par la même passerelle.
+
+**La recherche web, elle, répond** — mais elle rend le résumé d'un modèle sur
+des extraits, pas la page. Elle a d'ailleurs rendu, sur le déficit public
+2024, deux montants en euros différents selon la publication, et une dette
+révisée de 113,0 % à 112,6 % du PIB. C'est exactement le genre d'écart qu'une
+synthèse annuelle doit trancher en ouvrant la source, et que je ne peux pas
+trancher d'ici. Citer l'URL d'une page que je n'ai pas lue serait une
+affirmation déguisée en référence.
+
+**`actualites-data/annees/2024.json` et `2025.json` ne sont donc pas
+produits.** Ce qu'il faudrait pour les produire est au lot 5 de
+`sources-a-atteindre.md`.
+
 ## Pour lever le blocage
 
 Les deux voies sont inchangées : les fichiers transmis directement, ou

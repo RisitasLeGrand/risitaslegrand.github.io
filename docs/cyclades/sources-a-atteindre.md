@@ -217,6 +217,57 @@ texte : je ne sais pas aujourd'hui de quels travaux il s'agit.
 
 ---
 
+## Lot 5 — Les deux synthèses annuelles 2024 et 2025 (★ bloque `D-023`)
+
+*Ajouté le 13 octobre 2026, après l'audit.*
+
+La ligne `D-023` demande `actualites-data/annees/2024.json` et `2025.json`,
+« chaque chiffre **sourcé** ». Deux obstacles, indépendants l'un de l'autre,
+et le second est le plus dur.
+
+**Premier obstacle : aucune source n'est atteignable.** Neuf hôtes essayés le
+13 octobre, tous refusés, témoin compris (`acces-sources.md`, second relevé).
+
+**Second obstacle : l'archive ne remonte pas avant 2026.** La voie normale —
+la synthèse annuelle se construit en relisant les trimestres, qui relisent
+les mois, qui relisent les semaines — est fermée : l'archive contient
+**39 semaines, 9 mois et 3 trimestres, tous de 2026**, et rien de 2024 ni de
+2025. Vérifié en recalculant l'empreinte de chaque identifiant possible de
+2023 à 2026 et en la cherchant dans `actualites-data/`.
+
+Les deux années seraient donc à écrire **de mémoire**, ce que le critère
+interdit explicitement, et pour une raison que le relevé des échelles a déjà
+documentée sous le nom de signature de la mémoire paramétrique : les chiffres
+plausibles sont les plus dangereux, parce que rien ne les signale.
+
+### Ce qu'il me faudrait, par ordre d'utilité
+
+| ★ | Pièce | Où |
+|---|---|---|
+| ★ | Comptes nationaux annuels 2024 **et** 2025 : PIB en volume, déficit et dette en % du PIB | `insee.fr` |
+| ★ | Inflation annuelle (IPC et IPCH) 2024 et 2025 | `insee.fr` |
+| ★ | Chômage au sens du BIT, moyenne annuelle 2024 et 2025 | `insee.fr` |
+| ★ | Lois promulguées marquantes de chaque année, avec leur date | `legifrance.gouv.fr`, `vie-publique.fr` |
+| · | Décisions de politique monétaire de la BCE, dates et niveaux de taux | `ecb.europa.eu` |
+| · | Décisions du Conseil européen, dates | `consilium.europa.eu` |
+
+Le format attendu est celui que rend `node scripts/chiffrer-actualite.mjs
+--modele annees`.
+
+### La voie la plus courte
+
+Ce n'est pas de me transmettre des PDF : **c'est la routine annuelle
+elle-même.** Elle existe, son texte est écrit, elle tourne sur une
+infrastructure qui a accès au web, et son prompt lui impose déjà de sourcer.
+Il suffirait de la déclencher à la main sur `claude.ai/code/routines` en lui
+demandant 2024 puis 2025 — en sachant qu'elle ne pourra pas, elle non plus,
+s'appuyer sur des trimestres qui n'existent pas, et devra donc tout chercher.
+
+L'autre voie reste l'ajout des hôtes ci-dessus sous **Allowed domains** de
+l'environnement de cette session.
+
+---
+
 ## Une décision qui t'attend, et qui ne demande aucune source
 
 Elle est posée en section 14.5 du relevé des échelles, et elle est importante.
