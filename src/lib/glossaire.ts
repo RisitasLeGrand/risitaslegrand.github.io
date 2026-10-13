@@ -82,14 +82,20 @@ function ouvrir(cible: HTMLElement) {
   bulle.append(titre, texte);
 
   /*
-   * « Si la définition ne suffit pas ». C'est le seul emplacement du site où le
-   * contexte est assez court pour que le lien « Ouvrir dans Claude » tienne
-   * sous le plafond d'URL — un terme, sa définition, et la phrase où on l'a
-   * rencontré.
+   * « La définition ne suffit pas ».
    *
-   * La phrase vient du DOM environnant et non du glossaire : c'est elle qui
-   * fait la différence entre « qu'est-ce que la subsidiarité » et « pourquoi
-   * parle-t-on de subsidiarité ici ».
+   * Ce commentaire disait que c'était le seul emplacement du site où le
+   * contexte tenait sous le plafond d'URL du lien « Ouvrir dans Claude ».
+   * Ce lien n'existe plus — D-002 l'a retiré, et un contrôle empêche son
+   * retour —, donc le plafond d'URL non plus : le contexte part par
+   * `boutonAssistant`, dans la page. La raison de cette phrase a disparu ;
+   * la phrase, elle, reste utile, et voici la vraie.
+   *
+   * La phrase d'exemple vient du DOM environnant et non du glossaire : c'est
+   * elle qui fait la différence entre « qu'est-ce que la subsidiarité » et
+   * « pourquoi parle-t-on de subsidiarité ici ». Les 600 caractères de
+   * plafond ci-dessous ne protègent plus une URL : ils évitent d'envoyer un
+   * paragraphe entier là où une phrase suffit.
    */
   if (entree) {
     const phrase = cible.closest('p, li, td, blockquote')?.textContent?.trim();
