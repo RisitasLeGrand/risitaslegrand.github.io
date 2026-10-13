@@ -1106,7 +1106,7 @@ GAD-7) **ne figurent dans aucun de ces fichiers.**
 | Options de réponse | exactes | fausses (`Pas du tout`, `des jours`) |
 | Modalités fonctionnelles | exactes, `(s)` compris | fausses (`Un peu difficile`, absent) |
 | Consigne du GAD-7 | `géné(e)` au lieu de `gêné(e)` — artefact d'OCR | `à quelle fréquence` au lieu de `selon quelle fréquence` |
-| Seuils d'interprétation | honnêtement `NON OBTENUE` | inventés — absents des deux PDF |
+| Seuils d'interprétation | honnêtement `NON OBTENUE` | absents des deux PDF — mais **authentiques**, voir la rectification en 14.7 |
 | Bloc de cotation GAD-7 | astérisque parasite (`(*For office coding`) | non rapporté |
 | Coche | `✓` au lieu de `✔` | `✓` au lieu de `✔` |
 | Apostrophes | `'` par endroits au lieu de `’` | idem |
@@ -1236,3 +1236,185 @@ Une empreinte identique prouve l'origine et clôt la réserve des sections 10.1 
 12.1. Une empreinte différente signifie que le fichier servi n'est pas celui
 relevé ici — le texte des sections 10, 12 resterait exact pour les fichiers
 empreintés, mais devrait être refait sur le fichier servi.
+
+---
+
+## 14. Instruction Manual et bibliographie — RELEVÉS AUTHENTIFIÉS (13 octobre 2026)
+
+Fichiers joints par l'utilisateur, empreintés et extraits dans le conteneur. Même
+chaîne de possession qu'en section 10.1. **Ces deux fichiers étaient les cibles
+des liens embarqués relevés en section 13**, ce qui confirme ces liens.
+
+### 14.1 Preuve de fichier
+
+| Champ | Instruction Manual | Bibliographie |
+|---|---|---|
+| Taille réelle | **134 493 octets** | **175 450 octets** |
+| SHA-256 | **`6ed2f00f97e438c1168cd702d38d31fc923031445c720653005f138aa424228a`** | **`614ded70a7a4a1df18a8e6d712130456062b667b4e703c51c97d111021d93acf`** |
+| En-tête de fichier | `%PDF-1.6` | `%PDF-1.4` |
+| Pages | 9 | 49 |
+| Titre interne | *(vide)* | `Microsoft Word - PHQ biblio by author _Apr 2010_.rtf` |
+| Auteur interne | **`Kurt Kroenke`** | `cg014193` |
+| Producteur | `Microsoft® Office Word 2007` | `Acrobat Distiller 8.1.0 (Windows)` |
+| Création | 22 juin 2010, 22:18:09 UTC | 19 mai 2010, 14:32:12 UTC |
+| Modification | **16 avril 2014, 13:54:47 UTC** | 19 mai 2010, 14:32:12 UTC |
+
+La bibliographie est une liste de références (`PRIME-MD & PHQ Family of Scales
+Reference List by Author (Updated April 2010)`) et **ne porte aucune mention de
+droits** — vérifié par recherche. Elle n'est pas reprise ici.
+
+**Réserve d'encodage, à connaître avant toute citation au caractère :** la couche
+texte du manuel rend les guillemets typographiques du document par `U+2015`
+(barre horizontale) et `U+2016` (double barre verticale). Ce sont des artefacts
+de la table d'encodage du PDF, non les caractères du document. **Les chaînes
+anglaises citées ci-dessous sont donc exactes quant aux mots, et normalisées
+quant aux guillemets** — je les rends par `"`. Toute reprise au caractère près
+exigerait de relire le document lui-même.
+
+### 14.2 Règles de calcul du score — AUTHENTIFIÉES
+
+`PHQ-9 Depression Severity`, verbatim (guillemets normalisés) :
+
+```text
+This is calculated by assigning scores of 0, 1, 2, and 3, to the response categories of "not at
+all," "several days," "more than half the days," and "nearly every day," respectively. PHQ-9 total
+score for the nine items ranges from 0 to 27. [...] Scores of 5, 10, 15, and 20 represent
+cutpoints for mild, moderate, moderately severe and severe depression, respectively. Sensitivity
+to change has also been confirmed. The PHQ-8 is scored just like the PHQ-9 and its total score
+ranges from 0 to 24. Cutpoints on the PHQ-8 are identical to the PHQ-9.
+```
+
+`GAD-7 Anxiety Severity`, verbatim :
+
+```text
+This is calculated by assigning scores of 0, 1, 2, and 3, to the response categories of "not at
+all," "several days," "more than half the days," and "nearly every day," respectively. GAD-7 total
+score for the seven items ranges from 0 to 21. Scores of 5, 10, and 15 represent cutpoints for
+mild, moderate, and severe anxiety, respectively. [...] When screening for anxiety disorders, a
+recommended cutpoint for further evaluation is a score of 10 or greater.
+```
+
+### 14.3 Table 4 — paliers du PHQ-9, verbatim
+
+```text
+ Table 4. PHQ-9 Scores and Proposed Treatment Actions *
+
+PHQ-9         Depression     Proposed Treatment Actions
+Score          Severity
+
+ 0–4         None-minimal    None
+
+ 5–9               Mild      Watchful waiting; repeat PHQ-9 at follow-up
+
+10 – 14        Moderate      Treatment plan, considering counseling, follow-up and/or
+                             pharmacotherapy
+
+15 – 19       Moderately     Active treatment with pharmacotherapy and/or psychotherapy
+               Severe
+
+20 – 27          Severe      Immediate initiation of pharmacotherapy and, if severe impairment or
+                             poor response to therapy, expedited referral to a mental health
+                             specialist for psychotherapy and/or collaborative management
+
+* From Kroenke K, Spitzer RL, Psychiatric Annals 2002;32:509-521
+```
+
+Le manuel ne donne **pas** de tableau équivalent pour le GAD-7 : seuls les
+points de coupure 5, 10 et 15 y figurent, en texte.
+
+### 14.4 RÉGIME JURIDIQUE — tranché, et plus favorable que prévu
+
+Page 8, section `QUESTIONS REGARDING DEVELOPMENT, ACKNOWLEDGMENTS AND USE`,
+verbatim :
+
+```text
+The PHQ family of measures (see Table 1, page 3), including abbreviated and alternative
+versions as well as the GAD-7, were developed by Drs. Robert L. Spitzer, Janet B.W. Williams,
+Kurt Kroenke and colleagues, with an educational grant from Pfizer Inc.
+All of the measures included in Table 1 are in the public domain. No permission is required to
+reproduce, translate, display or distribute.
+```
+
+**« in the public domain »** est plus net que l'énoncé du site relevé en
+section 11.2, et il est signé du manuel dont l'auteur interne est Kurt Kroenke.
+Le PHQ-9 et le GAD-7 relèvent donc du **domaine public**, ce qui rend sans objet
+la réserve de la section 13.3 sur les conditions d'utilisation de Pfizer : il n'y
+a pas de licence à respecter, seulement une attribution d'usage à faire par
+correction.
+
+### 14.5 CONSTAT CRITIQUE POUR L'APPLICATION — les traductions ne sont pas validées
+
+Page 7, section `TRANSLATIONS`, verbatim :
+
+```text
+Many of the translations have been developed by the MAPI Research Institute using an
+internationally accepted translation methodology.       Thus, most of the translations are
+linguistically valid. However, unlike the English versions of the PHQ and GAD-7, few of the
+translations have been psychometrically validated against an independent structured
+psychiatric interview.
+```
+
+**C'est le point le plus important de ce relevé pour la suite du projet.** Les
+seuils de la section 14.3 sont établis sur les versions **anglaises**. Le manuel
+indique que peu de traductions ont été validées psychométriquement. Rien dans les
+pièces relevées n'établit que la traduction française « France » l'ait été.
+
+Conséquence : **afficher un palier de sévérité calculé sur la version française
+en le présentant comme validé irait au-delà de ce que la source autorise.** Ce
+n'est pas une question de licence — le domaine public n'impose rien — mais
+d'exactitude. La décision revient au développeur central ; les formulations
+possibles vont de l'affichage du score brut sans palier, à l'affichage des
+paliers avec mention explicite qu'ils proviennent de la validation anglaise.
+
+### 14.6 Deux précisions d'implémentation, authentifiées
+
+**La question fonctionnelle n'entre pas dans le score.** Page 2, verbatim
+(guillemets normalisés) :
+
+```text
+This single patient-rated difficulty item is not used in calculating any PHQ score or diagnosis but
+rather represents the patient's global impression of symptom-related impairment.
+```
+
+**L'item 9 du PHQ-9 appelle une précaution.** Page 2, verbatim :
+
+```text
+A particularly important question is how to assess suicide risk in individuals who answer positively
+to the 9th question of the PHQ-9. A four-item screener has been developed that may assist in
+positive responses to this 9th question [16], although a final decision about the actual risk of self-
+harm requires a clinical interview.
+```
+
+### 14.7 Rectification sur le relevé externe n°3
+
+La section 12.7 qualifiait ses seuils d'« inventés ». **C'est inexact et je le
+corrige : les seuils qu'il donnait sont authentiques**, conformes à la table 4
+ci-dessus pour le PHQ-9 (0-4, 5-9, 10-14, 15-19, 20-27) et aux points de coupure
+du GAD-7 (0-4, 5-9, 10-14, 15-21). Ils ne figuraient pas dans les deux
+questionnaires qu'il prétendait avoir lus — ils figurent dans le manuel.
+
+Le constat exact est donc plus instructif que celui que j'avais porté : **ce
+relevé a restitué correctement des chiffres très diffusés, et faussement le texte
+d'une traduction particulière.** C'est la signature même de la mémoire
+paramétrique — ce qui est répété partout ressort juste, ce qui est propre à un
+document ressort inventé. Et c'est précisément pourquoi la plausibilité d'une
+partie d'un relevé ne dit rien de la fiabilité du reste.
+
+### 14.8 État de clôture du relevé
+
+| Élément | État |
+|---|---|
+| WHO-5 français : texte, options, score | **authentifié** (section 10) |
+| PHQ-9 « France » : texte, options | **authentifié** (section 12) |
+| GAD-7 « France » : texte, options | **authentifié** (section 12) |
+| Règles de score et seuils PHQ-9 / GAD-7 | **authentifiés** (section 14) |
+| Licence PHQ-9 / GAD-7 | **authentifiée — domaine public** (section 14.4) |
+| Mentions et attribution des trois échelles | **authentifiées** (sections 10.4, 12.5) |
+| Page de droits de l'OMS | relevée, sous quarantaine (section 7.4) — non empreintée |
+| Liste complète des variantes de français | **non établie** (section 11.4) |
+| Validation psychométrique du français | **absente, et signalée comme telle par la source** (14.5) |
+| Contrôle d'origine par `curl` des 6 fichiers | **à faire** (script en 13.4) |
+
+**Le mot-à-mot demandé est obtenu et empreinté pour les trois échelles.** Restent
+deux lacunes documentées — la liste des variantes et le contrôle d'origine — et
+une décision qui n'est pas de mon ressort, celle de la section 14.5.
