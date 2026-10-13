@@ -863,3 +863,91 @@ distinction qui comptait.
 PHQ-9 et GAD-7 français, la variante Canada du PHQ-9 pour départager les deux
 textes contradictoires de la section 8.1, et la page de sélection de
 `phqscreeners.com` pour la liste réelle des variantes et son énoncé de licence.
+
+---
+
+## 11. Page de sélection de phqscreeners.com — RELEVÉ AUTHENTIFIÉ (13 octobre 2026)
+
+Impression PDF de la page, fournie par l'utilisateur. Même chaîne de possession
+qu'en section 10.1 : empreinte et extraction faites par moi, correspondance à
+l'original attestée par l'utilisateur.
+
+### 11.1 Preuve de fichier
+
+| Champ | Valeur |
+|---|---|
+| URL visitée, d'après le nom du fichier | `www.phqscreeners.com/select-screener` |
+| Provenance effective | impression PDF de la page, pièce jointe de l'utilisateur |
+| Code HTTP et en-têtes | `NON OBTENU` — aucune requête HTTP émise par moi |
+| Taille réelle | **78 043 octets** |
+| SHA-256 | **`de2a666072b4e2341819196cc1eadcc932089493043e7cc721b993a953c3198d`** |
+| En-tête de fichier | `%PDF-1.4` |
+| Pages | 1 |
+| Producteur | `Call PDF v 2.4` — outil d'impression de page web |
+| Titre, auteur internes | vides |
+
+Couche texte présente, 2 042 octets extraits. **L'empreinte porte sur
+l'impression, non sur la page servie** : elle ne vaut pas comme empreinte de
+`phqscreeners.com`, seulement comme preuve que le texte ci-dessous est bien celui
+du fichier reçu.
+
+### 11.2 Énoncé de licence, verbatim — AUTHENTIFIÉ
+
+```text
+All PHQ, GAD-7 screeners and translations are downloadable from this website and no permission is
+required to reproduce, translate, display or distribute them.
+```
+
+L'extraction rend cette phrase avec des espaces multiples (`All  PHQ,   GAD-7
+screeners   and   translations  are`), effet de la justification du texte dans la
+mise en page et non du contenu. **Le texte transmis par l'utilisateur en
+section 7.4 est confirmé exact.** C'est la pièce juridiquement décisive pour le
+PHQ-9 et le GAD-7, et elle est désormais appuyée sur un fichier empreinté.
+
+### 11.3 Historique et attribution, verbatim
+
+```text
+Recognizing signs of mental health disorders is not always easy.
+The Patient Health Questionnaire (PHQ) is a diagnostic tool for
+mental health disorders used by health care professionals that is
+quick and easy for patients to complete. In the mid-1990s,
+Robert L. Spitzer, MD, Janet B.W. Williams, DSW, and Kurt
+Kroenke, MD, and colleagues at Columbia University developed
+the Primary Care Evaluation of Mental Disorders (PRIME-MD), a
+diagnostic tool containing modules on 12 different mental health
+disorders. They worked in collaboration with researchers at the
+Regenstrief Institute at Indiana University and with the support of
+an educational grant from Pfizer Inc. During the development
+of PRIME-MD, Drs. Spitzer, Williams and Kroenke, created
+the PHQ and GAD-7 screeners.
+The PHQ, a self-administered version of the PRIME-MD, contains
+the mood (PHQ-9), anxiety, alcohol, eating, and somatoform
+modules as covered in the original PRIME-MD. The GAD-7 was
+subsequently developed as a brief scale for anxiety. The PHQ-9, a
+tool specific to depression, simply scores each of the 9 DSM-IV
+criteria based on the mood module from the original PRIME-MD.
+The GAD-7 scores 7 common anxiety symptoms. Various versions
+of the PHQ scales are discussed in the Instruction Manual.
+```
+
+Autres éléments de la page : `Screener Overview`, `PHQ and GAD-7 Screeners`,
+`Select a Screener`, `Click here to access the Instruction Manual`,
+`Bibliography by author`, `Privacy Policy`, `Terms of Use Agreement`.
+
+### 11.4 Ce que cette page ne donne PAS : la liste des variantes
+
+**Aucune liste de langues ni de variantes de français n'apparaît dans
+l'extraction.** La page capturée ne contient que le texte de présentation et les
+liens ci-dessus. Le sélecteur d'instrument et de langue est vraisemblablement un
+élément interactif qui ne s'imprime pas : une impression PDF fige le document
+rendu, pas le contenu déplié d'une liste.
+
+**La question des variantes de français reste donc entière** : ni leur nombre, ni
+leurs intitulés, ni l'existence d'une variante « France » ne sont établis. Pour
+l'obtenir, il faut soit déplier le sélecteur et le capturer ouvert, soit relever
+les intitulés proposés au moment du téléchargement.
+
+À noter toutefois : le nom du fichier confirme le chemin `/select-screener`, qui
+avait été proposé de mémoire en section 2 et porté comme non vérifié. Les deux
+chemins `g10060481` et `g10016261` annoncés « confirmés » par les relevés
+externes restent, eux, sans confirmation d'aucune sorte.
