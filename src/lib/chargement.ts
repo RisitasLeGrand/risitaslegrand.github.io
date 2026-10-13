@@ -179,6 +179,21 @@ export function auDeverrouillage(travail: () => void | Promise<void>, options: O
       .then(() => {
         nettoyer();
         terminerChargement();
+        /*
+           Masquer la zone d'attente **ici**, et non dans chaque page.
+           
+           Elle n'était retirée que par les pages qui y pensaient : vingt-cinq
+           le faisaient, quatorze l'avaient oublié, et leur « Lecture des
+           programmes… » restait au-dessus d'un contenu pourtant rendu. Mesuré
+           le 13 octobre sur les quatorze, dix secondes après le chargement.
+           
+           Un contrat que la moitié des appelants oublie n'est pas un contrat,
+           c'est un piège : il appartient au mécanisme. Les pages qui le font
+           déjà ne changent pas de comportement — masquer deux fois ne coûte
+           rien —, et l'échec continue d'écrire dans la zone plutôt que de la
+           masquer, puisque c'est là qu'on doit lire pourquoi.
+        */
+        zone?.classList.add('hidden');
       })
       .catch((erreur: unknown) => {
         nettoyer();
