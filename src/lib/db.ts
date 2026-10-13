@@ -18,6 +18,8 @@ import type { Programme as ProgrammeSport } from './sport/programmes';
 import type { Trajectoire } from './odyssee/trajectoires';
 import type { Prise, StatutHormonal } from './odyssee/sensible';
 import type { Checkin, CheckinHebdo, Entree } from './odyssee/psyche';
+import type { Compte, OperationBancaire, Valorisation } from './odyssee/finances';
+import type { LigneBudget } from './odyssee/budget';
 import type {
   Boisson,
   EtatDeSante,
@@ -583,10 +585,24 @@ interface SchemaRevinsp extends DBSchema {
   odysseeCheckins: { key: string; value: Checkin; indexes: { jour: string } };
   odysseeHebdos: { key: string; value: CheckinHebdo; indexes: { semaine: string } };
   odysseeJournal: { key: string; value: Entree; indexes: { jour: string } };
+  /*
+     Finances, depuis la phase 1. Scellés tous les quatre : un solde et un
+     intitulé de compte se lisent d'un coup d'œil, et les opérations racontent
+     une vie entière, jour par jour.
+
+     Les **occurrences** du budget n'ont pas de magasin, et c'est délibéré :
+     elles se recalculent à l'identique depuis les lignes, donc deux appareils
+     qui les enregistreraient fusionneraient un cache au lieu de recalculer un
+     état. Voir l'en-tête de `odyssee/budget.ts`.
+  */
+  odysseeComptes: { key: string; value: Compte; indexes: Record<string, never> };
+  odysseeValorisations: { key: string; value: Valorisation; indexes: { compteId: string } };
+  odysseeOperations: { key: string; value: OperationBancaire; indexes: { jour: string; compteId: string } };
+  odysseeLignesBudget: { key: string; value: LigneBudget; indexes: Record<string, never> };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 21;
+const VERSION = 22;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1147,6 +1163,24 @@ function ouvrirAuSchema(nom: string, version: number) {
         base.createObjectStore('odysseeCheckins', { keyPath: 'id' }).createIndex('jour', 'jour');
         base.createObjectStore('odysseeHebdos', { keyPath: 'id' }).createIndex('semaine', 'semaine');
         base.createObjectStore('odysseeJournal', { keyPath: 'id' }).createIndex('jour', 'jour');
+      }
+      if (vers(22)) {
+        /*
+         * Finances, phase 1. Quatre magasins, tous scellés.
+         *
+         * Les index sont ceux des lectures réelles et d'elles seules : les
+         * opérations d'un jour, celles d'un compte, les valorisations d'un
+         * compte. Tout autre champ est chiffré, donc inindexable — et c'est
+         * la contrainte qui a décidé de la forme, pas l'inverse.
+         */
+        base.createObjectStore('odysseeComptes', { keyPath: 'id' });
+        base
+          .createObjectStore('odysseeValorisations', { keyPath: 'id' })
+          .createIndex('compteId', 'compteId');
+        const operations = base.createObjectStore('odysseeOperations', { keyPath: 'id' });
+        operations.createIndex('jour', 'jour');
+        operations.createIndex('compteId', 'compteId');
+        base.createObjectStore('odysseeLignesBudget', { keyPath: 'id' });
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -2005,6 +2039,10 @@ export const MAGASINS_PROGRESSION = [
   'odysseeCheckins',
   'odysseeHebdos',
   'odysseeJournal',
+  'odysseeComptes',
+  'odysseeValorisations',
+  'odysseeOperations',
+  'odysseeLignesBudget',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */

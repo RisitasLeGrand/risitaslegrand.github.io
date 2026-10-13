@@ -98,6 +98,7 @@
     "essais:tendances:navigateur": "node scripts/essais-tendances-navigateur.mjs",
     "essais:coffre": "tsx scripts/essais-coffre.mts",
     "essais:psyche": "tsx scripts/essais-psyche.mts",
+    "essais:budget": "tsx scripts/essais-budget.mts",
     "essais:psyche:navigateur": "node scripts/essais-psyche-navigateur.mjs"
   },
   "repository": {

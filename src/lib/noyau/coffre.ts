@@ -105,6 +105,26 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
     clairs: ['id', 'jour', 'majLe'],
   },
   {
+    magasin: 'odysseeComptes',
+    pourquoi: 'Finances : un intitulé de compte et son type se lisent d’un coup d’œil.',
+    clairs: ['id', 'majLe'],
+  },
+  {
+    magasin: 'odysseeValorisations',
+    pourquoi: 'Finances : une valorisation datée, c’est le patrimoine à une date.',
+    clairs: ['id', 'compteId', 'jour', 'majLe'],
+  },
+  {
+    magasin: 'odysseeOperations',
+    pourquoi: 'Finances : les opérations racontent une vie entière, jour par jour.',
+    clairs: ['id', 'jour', 'compteId', 'majLe'],
+  },
+  {
+    magasin: 'odysseeLignesBudget',
+    pourquoi: 'Finances : le budget dit ce qu’on gagne, ce qu’on doit et ce qu’on met de côté.',
+    clairs: ['id', 'majLe'],
+  },
+  {
     magasin: 'odysseeHormonal',
     pourquoi:
       'Statut hormonal et substances : une période déclarative dont la lecture par un tiers peut coûter très cher.',

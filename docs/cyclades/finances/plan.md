@@ -42,9 +42,10 @@ l'inscrirai dans aucune phase avant.
 
 ## 2 bis. Le relevé PDF, mesuré sur un vrai fichier
 
-Tu m'as transmis un extrait de compte de septembre 2026 (CIC — Lyonnaise de
-Banque, 9 pages, 4 comptes). Il est dans `sources/releves/`, **ignoré par Git**,
-et il ne sera jamais commité. Dis-moi quand je dois l'effacer.
+Tu m'as transmis **deux** extraits de compte (CIC — Lyonnaise de Banque) :
+septembre 2026, 9 pages, et octobre 2025, 10 pages, quatre comptes chacun.
+Ils ont été lus dans un dossier ignoré par Git, jamais commités, et
+**effacés à ta demande une fois la mesure faite** — le dossier aussi.
 
 J'avais recommandé « pas de PDF en v1 » sans en avoir ouvert un. Voici ce que
 la mesure dit, et en quoi elle me fait changer d'avis.
@@ -122,6 +123,38 @@ soigné a perdu onze opérations sur 278 à cause d'un caractère de marge, sans
 rien signaler. Aucune relecture du code ne l'aurait montré ; aucun coup d'œil
 à la liste importée non plus — 267 lignes plausibles ressemblent exactement à
 278 lignes plausibles. **Seul le solde l'a dit.**
+
+### Le second gabarit : un an plus tôt, sans rien changer
+
+Le relevé d'octobre 2025 a été passé **au même analyseur, sans une ligne de
+modification** :
+
+```
+✓ C/C CONTRAT PERSONNEL      211 op.     41,87 −   5,40 →   36,47  imprimé   36,47
+✓ LIVRET JEUNE                21 op.   1600,00 +   0,00 → 1600,00  imprimé 1600,00
+✓ LIVRET A SUP                61 op.     30,00 + 165,76 →  195,76  imprimé  195,76
+✓ LIVRET DE DEVELOPPEMENT     14 op.      4,01 +  19,01 →   23,02  imprimé   23,02
+
+✓ TOUS LES COMPTES BOUCLENT AU CENTIME
+```
+
+307 opérations, dix pages au lieu de neuf, un an d'écart, quatre comptes dont
+les soldes n'ont rien à voir. **Et l'empreinte de gabarit est identique :**
+
+```
+UTM2_ps2pdf 0.24.290 ~ Date@63 | Date valeur@98 | Opération@161
+                     | Débit EUROS@409 | Crédit EUROS@480
+→ sceau d6e084cc239d2a0f, pour les deux
+```
+
+Deux conclusions. La reconnaissance de gabarit tient sur une année, donc
+« aucun réglage dès le deuxième import » n'est pas une promesse en l'air. Et
+l'empreinte ne contient **ni nom, ni numéro, ni montant, ni date** : c'est une
+description de forme, qu'on peut conserver sans conserver le relevé.
+
+Deux relevés de la même banque ne font toujours pas une preuve générale : une
+seconde banque reste la vérification utile. Mais le mécanisme, lui, a été
+éprouvé sur autre chose que le fichier qui l'a inspiré.
 
 ### Ce que j'en conclus, et qui remplace ma décision 8
 
@@ -523,7 +556,7 @@ base — et elle est décochée par défaut.
 
 | # | Question | Ma recommandation |
 |---|---|---|
-| 1 | Banques et formats | **Réglé : pas d'export structuré disponible.** Le PDF est la source. Ce qui me serait utile : un relevé de **chaque autre banque** si tu en as une seconde, pour éprouver le gabarit, et un **second relevé du CIC** (un autre mois) pour vérifier que l'empreinte de gabarit tient. Et si une banque offre un jour un OFX ou un QIF, dis-le : ce sont des formats structurés, plus simples que le CSV. |
+| 1 | Banques et formats | **Réglé : pas d'export structuré disponible.** Le PDF est la source, et le second relevé du CIC confirme que le gabarit tient sur un an. Reste utile : un relevé d'une **autre banque**, si tu en as une. Et si une banque offre un jour un OFX ou un QIF — souvent cachés derrière « exporter vers un logiciel de comptabilité » —, dis-le : ce sont des formats structurés, plus simples que le CSV. |
 | 2 | Méthodes retenues | **6, 3, 2, 5** : relevé PDF en voie principale, dossier surveillé de PDF, collage pour combler le mois, saisie rapide pour les espèces. Le lecteur de CSV est écrit quand même — il coûte peu, et il sera là le jour où une banque l'offre. 4 à vérifier sur ton téléphone. |
 | 3 | Masquage | **Quatre derniers chiffres conservés.** Rien du tout casserait la distinction entre deux cartes du même foyer, et quatre chiffres sans le reste n'identifient aucun compte. |
 | 4 | Reste à vivre | **ressources − charges fixes − épargne programmée.** Les enveloppes variables n'en sont pas déduites : c'est dedans qu'on vit. Formule modifiable, affichée sous le résultat. |
@@ -557,10 +590,9 @@ détection de récurrences ait de quoi se nourrir.
 - **Les formats d'export de tes banques** : décision 1. J'ai le relevé PDF du
   CIC ; il me manque un **export CSV** de chaque banque, qui reste la voie
   principale.
-- **La variabilité réelle des relevés** : un seul fichier, une seule banque,
-  un seul mois. La méthode de la section 2 bis est conçue pour ne rien
-  supposer, mais seule une deuxième banque — ou un second mois — le prouvera.
-  C'est désormais la vérification la plus utile que tu puisses me donner.
+- **La variabilité entre banques** : deux relevés, une seule banque. Le second
+  mois est fait et il passe ; une **seconde banque** reste la vérification
+  utile, si tu en as une.
 - **Le collage** : je n'ai pas vu à quoi ressemble le tableau d'opérations sur
   le site de ta banque, donc je ne sais pas encore ce que le presse-papiers en
   rend. À éprouver sur un copier-coller réel.

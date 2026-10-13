@@ -252,7 +252,16 @@ export function patrimoineNet(
    Les opérations
    ══════════════════════════════════════════════════════════════════════════ */
 
-export interface Operation {
+/**
+ * Une opération bancaire.
+ *
+ * Nommée `OperationBancaire` et non `Operation` : `noyau/operations.ts` porte
+ * déjà une `Operation`, qui est une entrée du journal de synchronisation. Les
+ * deux sont des « opérations » en français courant et n'ont rien à voir ; les
+ * laisser se disputer le nom court aurait obligé chaque fichier à
+ * renommer l'une des deux à l'import, c'est-à-dire à choisir au cas par cas.
+ */
+export interface OperationBancaire {
   id: string;
   compteId: string;
   jour: string;
@@ -272,7 +281,7 @@ export interface Operation {
   majLe: string;
 }
 
-export function controlerOperation(o: Operation): string[] {
+export function controlerOperation(o: OperationBancaire): string[] {
   const problemes: string[] = [];
   if (!Number.isInteger(o.centimes)) problemes.push('Une opération se compte en centimes entiers.');
   if (o.centimes === 0) {
@@ -346,7 +355,7 @@ export interface Appariement {
  * qu'une fois. On apparie la paire la plus proche dans le temps d'abord, pour
  * que deux virements du même montant dans le même mois ne se croisent pas.
  */
-export function detecterTransferts(operations: readonly Operation[]): Appariement[] {
+export function detecterTransferts(operations: readonly OperationBancaire[]): Appariement[] {
   const jours = (a: string, b: string) =>
     Math.abs(Date.parse(`${a}T12:00:00Z`) - Date.parse(`${b}T12:00:00Z`)) / 86_400_000;
 
@@ -396,7 +405,7 @@ export interface Flux {
  * épargne nulle le mois où l'on ne verse rien tout en dépensant moins que l'on
  * gagne, ce qui ne l'est pas.
  */
-export function flux(operations: readonly Operation[]): Flux {
+export function flux(operations: readonly OperationBancaire[]): Flux {
   const internes = new Set<string>();
   for (const paire of detecterTransferts(operations)) {
     internes.add(paire.sortie);
@@ -450,7 +459,7 @@ export interface Reconciliation {
  * ce désaccord reviendrait à masquer la seule information utile.
  */
 export function reconcilier(
-  operations: readonly Operation[],
+  operations: readonly OperationBancaire[],
   compteId: string,
   soldeDeclare: Centimes,
   depart: Centimes = 0,

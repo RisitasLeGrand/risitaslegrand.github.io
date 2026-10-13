@@ -99,13 +99,16 @@ console.log('\n\x1b[1mLE CATALOGUE DU COFFRE SE TIENT\x1b[0m');
 
 v('aucun problème de catalogue', controlerCoffre(), []);
 /*
-   Cinq, et non huit. Trois magasins de Finances — comptes, opérations,
-   positions — avaient été inscrits au catalogue par anticipation le jour de
-   la décision 3, alors que la branche n'était pas construite. Ils ont été
-   retirés : voir `controlerMagasinsExistants` plus bas, qui attrape
-   désormais ce cas. Ils reviendront avec la phase 1 de Finances.
+   Neuf. Trois magasins de Finances avaient été inscrits par anticipation le
+   jour de la décision 3, alors que la branche n'existait pas, et
+   `controlerCoffre()` passait au vert : d'où `controlerMagasinsExistants`
+   plus bas. Ils ont été retirés, puis sont revenus avec la phase 1 — cette
+   fois avec leurs magasins.
 */
-v('cinq magasins scellés', MAGASINS_SCELLES.length, 5);
+v('neuf magasins scellés', MAGASINS_SCELLES.length, 9);
+vrai('les comptes en sont', estScelle('odysseeComptes'));
+vrai('les opérations aussi', estScelle('odysseeOperations'));
+vrai('et les lignes de budget', estScelle('odysseeLignesBudget'));
 vrai('le journal en est', estScelle('odysseeJournal'));
 vrai('les check-ins aussi', estScelle('odysseeCheckins'));
 vrai('et les points de semaine', estScelle('odysseeHebdos'));
@@ -270,7 +273,7 @@ console.log('\n\x1b[1mUNE DÉCLARATION SANS MAGASIN NE PROTÈGE RIEN\x1b[0m');
     [],
   );
   const sansRien = controlerMagasinsExistants([]);
-  v('un schéma vide les signale tous les cinq', sansRien.length, MAGASINS_SCELLES.length);
+  v('un schéma vide les signale tous', sansRien.length, MAGASINS_SCELLES.length);
   vrai('et le message nomme le magasin', sansRien[0].includes(MAGASINS_SCELLES[0].magasin));
 }
 
