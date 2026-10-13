@@ -125,7 +125,7 @@ import { base } from '../../lib/ui';
   import { aplatirFiches, chargerFiche, chargerManifeste, type QuestionQuiz } from '../../lib/contenu';
   import { ajouterResultatQuiz, lireReglagesSession, tousLesResultatsQuiz } from '../../lib/db';
   import { gagnerXp, xpQuiz } from '../../lib/gamification';
-  import { formaterDate, lien, melanger, notifier, parametreUrl, pluriel } from '../../lib/ui';
+  import { formaterDate, lien, marquerOption, melanger, notifier, parametreUrl, pluriel } from '../../lib/ui';
   import { signalerErreur } from '../../lib/journal';
   import { insecables } from '../../lib/typographie';
   import { enregistrerReponse, ordonnerParZoneProximale } from '../../lib/niveau';
@@ -332,13 +332,15 @@ import { base } from '../../lib/ui';
       bouton.disabled = true;
       if (q.bonnes.includes(index)) {
         bouton.className =
-          'w-full rounded-xl border-2 border-emerald-500 bg-emerald-50 px-4 py-3 text-left font-medium text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200';
+          'flex w-full items-start gap-2 rounded-xl border-2 border-emerald-500 bg-emerald-50 px-4 py-3 text-left font-medium text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200';
+        marquerOption(bouton, 'juste');
       } else if (index === choisi) {
         bouton.className =
-          'w-full rounded-xl border-2 border-red-400 bg-red-50 px-4 py-3 text-left text-red-900 line-through dark:bg-red-950 dark:text-red-200';
+          'flex w-full items-start gap-2 rounded-xl border-2 border-red-400 bg-red-50 px-4 py-3 text-left text-red-900 dark:bg-red-950 dark:text-red-200';
+        marquerOption(bouton, 'choisi-faux');
       } else {
         bouton.className =
-          'w-full rounded-xl border border-slate-200 px-4 py-3 text-left text-slate-400 dark:border-slate-800';
+          'flex w-full items-start gap-2 rounded-xl border border-slate-200 px-4 py-3 text-left text-slate-400 dark:border-slate-800';
       }
     }
 
@@ -412,7 +414,7 @@ import { base } from '../../lib/ui';
      */
     actions.appendChild(
       boutonAssistant({
-        titre: 'Demander à l’IA — question de quiz',
+        titre: 'Préparer une question pour une IA — question de quiz',
         itemId: q.id,
         matiere: q.matiere,
         construireContexte: async (options) =>

@@ -53,7 +53,13 @@ export function ouvrirAssistant(options: OuvertureAssistant): void {
  */
 export function boutonAssistant(
   options: OuvertureAssistant,
-  libelle = 'Demander à l’IA',
+  /*
+     Le libellé dit ce que le bouton fait, et non ce qu'on aimerait qu'il
+     fasse. « Demander à l'IA » promet une réponse ; le site n'appelle aucune
+     intelligence artificielle, il assemble un texte à copier — ce que le
+     panneau explique très bien une fois ouvert, c'est-à-dire trop tard.
+  */
+  libelle = 'Préparer une question pour une IA',
 ): HTMLButtonElement {
   const bouton = document.createElement('button');
   bouton.type = 'button';

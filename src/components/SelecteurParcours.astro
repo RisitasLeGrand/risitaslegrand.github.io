@@ -16,7 +16,22 @@
 import { PARCOURS } from '../lib/parcours/registre';
 ---
 
-<label class="sr-only" for="selecteur-parcours">Parcours préparé</label>
+{/*
+   L'étiquette est **visible** dès qu'il y a la place.
+
+   Une liste de 101 px posée entre le thème et le verrou, sans un mot pour
+   dire ce qu'elle choisit, est un bouton dont on découvre l'effet en
+   l'actionnant — et son effet est de changer tout le parcours préparé. En
+   dessous de 640 px, l'en-tête n'a pas la place de l'écrire, et elle
+   redevient lisible aux seules technologies d'assistance : un mot coupé en
+   deux par manque de place ne renseigne personne.
+*/}
+<label
+  for="selecteur-parcours"
+  class="shrink-0 text-xs font-medium text-slate-500 dark:text-slate-400"
+>
+  <span class="sr-only sm:not-sr-only">Parcours préparé</span>
+</label>
 <select
   id="selecteur-parcours"
   class="min-h-11 max-w-[8.5rem] shrink-0 rounded-lg border border-slate-300 bg-white px-2 text-sm font-medium text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-900"
@@ -33,6 +48,7 @@ import { PARCOURS } from '../lib/parcours/registre';
 <script>
   import { PARCOURS } from '../lib/parcours/registre';
   import { definirParcoursCourant, idParcoursCourant } from '../lib/parcours/courant';
+  import { notifier } from '../lib/ui';
 
   const selecteur = document.getElementById('selecteur-parcours') as HTMLSelectElement | null;
   if (selecteur) {
@@ -42,8 +58,39 @@ import { PARCOURS } from '../lib/parcours/registre';
     if (!PARCOURS.some((p) => p.id === selecteur.value)) {
       selecteur.value = definirParcoursCourant(selecteur.value).id;
     }
+    /*
+       Le changement s'annonce — après le rechargement, pas avant.
+
+       Changer de parcours recharge la page : un message affiché au moment du
+       clic disparaîtrait avec elle, et la personne se retrouverait devant un
+       site entièrement différent sans que rien ne l'ait dit. Le libellé de
+       départ est donc mis de côté le temps du rechargement, puis annoncé.
+
+       « sessionStorage » et non le magasin chiffré : c'est une phrase à
+       afficher une fois, qui ne doit survivre ni à l'onglet ni au
+       verrouillage, et qui n'a aucune raison de voyager entre appareils.
+    */
+    const MEMO = 'parcours.change';
+    const nomDe = (id: string) => PARCOURS.find((p) => p.id === id)?.libelle ?? id;
+
+    try {
+      const avant = sessionStorage.getItem(MEMO);
+      if (avant) {
+        sessionStorage.removeItem(MEMO);
+        notifier(`Parcours changé : ${nomDe(avant)} → ${nomDe(idParcoursCourant())}`, 'succes');
+      }
+    } catch {
+      /* Navigation privée, stockage refusé : l'annonce saute, pas le reste. */
+    }
+
     selecteur.addEventListener('change', () => {
+      const avant = idParcoursCourant();
       definirParcoursCourant(selecteur.value);
+      try {
+        sessionStorage.setItem(MEMO, avant);
+      } catch {
+        /* idem */
+      }
       location.reload();
     });
   }

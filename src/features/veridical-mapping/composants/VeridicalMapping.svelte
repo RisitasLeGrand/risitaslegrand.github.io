@@ -114,7 +114,7 @@
     const corriges = corrigerEssai(essai, choix);
     const premier = corriges[0];
     ouvrirAssistant({
-      titre: 'Demander à l’IA — Veridical Mapping',
+      titre: 'Préparer une question pour une IA — Veridical Mapping',
       matiere: 'Cog-Training',
       construireContexte: async () =>
         contexteCogTraining({
@@ -717,7 +717,7 @@
               text-slate-700 hover:border-indigo-400 hover:text-indigo-700 dark:border-slate-700
               dark:bg-slate-900 dark:text-slate-200 dark:hover:border-indigo-600
               dark:hover:text-indigo-300"
-          >Demander à l’IA</button>
+          >Préparer une question pour une IA</button>
         {/if}
         <p class="text-sm text-slate-500 dark:text-slate-400">
           {reussis} bonne{reussis > 1 ? 's' : ''} sur {faits}

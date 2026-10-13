@@ -104,7 +104,7 @@ function ouvrir(cible: HTMLElement) {
     aide.appendChild(
       boutonAssistant(
         {
-          titre: `Demander à l’IA — ${entree.terme}`,
+          titre: `Préparer une question pour une IA — ${entree.terme}`,
           itemId: entree.id,
           construireContexte: async () =>
             contexteGlossaire({

@@ -17,6 +17,7 @@ import { readdir, readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
 import { idStable } from './lib/crypto.mjs';
+import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const MDP = motDePasseEssais();
@@ -52,7 +53,17 @@ const v = (t, o, a) => { const ok = JSON.stringify(o) === JSON.stringify(a); if 
 await page.goto('http://localhost:4321/robots.txt');
 await page.evaluate(() => new Promise((ok) => { const r = indexedDB.deleteDatabase('revinsp'); r.onsuccess = r.onerror = r.onblocked = () => ok(); }));
 
-await page.goto('http://localhost:4321/bibliotheque', { waitUntil: 'networkidle' });
+/*
+   La porte d'initialisation se franchit avant tout le reste.
+
+   Sans cela, l'écran de fiche se déverrouille puis **redirige** vers
+   « /initialisation/ », où il n'y a pas de « #titre » : l'essai attendait
+   trente secondes un élément qui ne viendrait jamais, et échouait sur un
+   délai plutôt que sur ce qu'il teste. Les autres essais d'écran passent
+   tous par là ; celui-ci avait été écrit avant que la porte existe.
+*/
+await franchirInitialisation(page, 'http://localhost:4321', MDP);
+await page.goto('http://localhost:4321/bibliotheque/', { waitUntil: 'networkidle' });
 if (await page.locator('#champ-mdp').isVisible().catch(()=>false)) { await page.fill('#champ-mdp',MDP); await page.click('#bouton-verrou'); await page.waitForTimeout(3000); }
 
 const AVEC = '/fiche/?id=d9cb5790881e26fa';   // Questions sociales F3, fiche 1 : a un prétest

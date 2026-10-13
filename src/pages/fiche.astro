@@ -172,7 +172,7 @@ import Base from '../layouts/Base.astro';
       rangee.appendChild(
         boutonAssistant(
           {
-            titre: `Demander à l’IA — ${titre.textContent ?? fiche.titre}`,
+            titre: `Préparer une question pour une IA — ${titre.textContent ?? fiche.titre}`,
             matiere: fiche.matiere,
             construireContexte: async (options) =>
               contexteFiche(
@@ -186,7 +186,7 @@ import Base from '../layouts/Base.astro';
                 options,
               ),
           },
-          'Demander à l’IA',
+          'Préparer une question pour une IA',
         ),
       );
       titre.appendChild(rangee);
@@ -288,7 +288,7 @@ import Base from '../layouts/Base.astro';
         flottant.appendChild(
           boutonAssistant(
             {
-              titre: 'Demander à l’IA — passage sélectionné',
+              titre: 'Préparer une question pour une IA — passage sélectionné',
               matiere: fiche.matiere,
               construireContexte: async (options) => {
                 const choisi = document.getSelection()?.toString().trim() ?? passage;
@@ -303,7 +303,7 @@ import Base from '../layouts/Base.astro';
                 );
               },
             },
-            'Demander à l’IA sur ce passage',
+            'Préparer une question pour une IA sur ce passage',
           ),
         );
         document.body.appendChild(flottant);

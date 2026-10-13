@@ -91,18 +91,18 @@ console.log('\n\x1b[1mA1 — LE LIEN D’ÉVITEMENT\x1b[0m\n');
   });
   verifier('le premier arrêt de tabulation est « Aller au contenu »', premier, {
     texte: 'Aller au contenu',
-    cible: '#contenu',
+    cible: '#contenu-principal',
   });
   verifier(
     'et il est visible une fois atteint',
-    await page.locator('a[href="#contenu"]').first().isVisible(),
+    await page.locator('a[href="#contenu-principal"]').first().isVisible(),
     true,
   );
-  verifier('son ancre existe', await page.locator('main#contenu').count(), 1);
+  verifier('son ancre existe', await page.locator('main#contenu-principal').count(), 1);
 
   // Combien d'arrêts séparaient le haut de page du contenu, sans le lien.
   const avant = await page.evaluate(() => {
-    const principal = document.querySelector('main#contenu');
+    const principal = document.querySelector('main#contenu-principal');
     const focalisables = [...document.querySelectorAll(
       'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])',
     )].filter((e) => e.offsetParent !== null || e.getClientRects().length > 0);

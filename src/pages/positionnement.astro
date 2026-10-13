@@ -63,7 +63,7 @@ import Base from '../layouts/Base.astro';
     type Perimetre,
   } from '../lib/positionnement';
   import { justesse } from '../lib/pretest';
-  import { lien, parametreUrl, pluriel } from '../lib/ui';
+  import { lien, marquerOption, parametreUrl, pluriel } from '../lib/ui';
 
   const $ = (id: string) => document.getElementById(id)!;
 
@@ -257,8 +257,9 @@ import Base from '../layouts/Base.astro';
           (bonne
             ? 'border-emerald-500 bg-emerald-50 text-emerald-900 dark:border-emerald-500 dark:bg-emerald-950/50 dark:text-emerald-200'
             : cochee
-              ? 'border-slate-400 bg-slate-100 text-slate-600 line-through dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400'
+              ? 'border-slate-400 bg-slate-100 text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400'
               : 'border-slate-200 text-slate-500 dark:border-slate-800 dark:text-slate-400');
+        marquerOption(bouton, bonne ? 'juste' : cochee ? 'choisi-faux' : 'neutre');
       });
       if (question.explication) {
         const note = document.createElement('p');

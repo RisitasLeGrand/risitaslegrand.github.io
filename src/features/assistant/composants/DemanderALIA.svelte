@@ -44,7 +44,7 @@
 
   let {
     construireContexte,
-    titre = 'Demander à l’IA',
+    titre = 'Préparer une question pour une IA',
     itemId,
     matiere,
     fermer,
@@ -308,7 +308,19 @@
       {/if}
     </section>
 
-    <footer class="mt-4 flex flex-wrap items-center gap-2">
+    <!--
+       Le pied colle au bas du panneau.
+
+       L'aperçu fait plusieurs écrans, et l'avertissement en tête repousse les
+       choix sous la ligne de flottaison : sur un écran de 800 px, l'action
+       « Copier » — la seule raison d'ouvrir cette fenêtre — se trouvait hors
+       de vue, et il fallait deviner qu'il y avait à défiler. Elle reste
+       maintenant visible où qu'on en soit dans le texte.
+    -->
+    <footer
+      class="sticky bottom-0 -mx-5 mt-4 flex flex-wrap items-center gap-2 border-t border-slate-200
+        bg-white px-5 py-3 dark:border-slate-800 dark:bg-slate-900"
+    >
       <button
         type="button"
         onclick={surCopier}

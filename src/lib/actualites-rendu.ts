@@ -505,7 +505,7 @@ export function carteItem(item: ItemActu, fichesCours: FicheAplatie[] = []): HTM
   aide.appendChild(
     boutonAssistant(
       {
-        titre: 'Demander à l’IA — actualité',
+        titre: 'Préparer une question pour une IA — actualité',
         construireContexte: async () =>
           contexteActualite({
             titre: item.titre ?? '',
@@ -517,7 +517,7 @@ export function carteItem(item: ItemActu, fichesCours: FicheAplatie[] = []): HTM
             motsCles: item.mots_cles,
           }),
       },
-      'Demander à l’IA',
+      'Préparer une question pour une IA',
     ),
   );
   element.appendChild(aide);

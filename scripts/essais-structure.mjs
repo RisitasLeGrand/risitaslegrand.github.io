@@ -96,6 +96,23 @@ for (const page of pages(RACINE)) {
     }
   }
 
+  /*
+     Un identifiant en double ne lève aucune erreur, et c'est ce qui le rend
+     dangereux : « getElementById » rend simplement le premier du document, et
+     le code qui cherchait l'autre écrit au mauvais endroit. Un lien
+     d'évitement posé sur le <main> avec un identifiant déjà pris par l'écran
+     de fiche a suffi à faire écrire le cours par-dessus la page.
+  */
+  const ids = [...html.matchAll(/\sid="([^"]+)"/g)].map((m) => m[1]);
+  const vus = new Set();
+  for (const id of ids) {
+    if (vus.has(id)) {
+      console.log(`✗ ${page} : identifiant « ${id} » en double.`);
+      fautes += 1;
+    }
+    vus.add(id);
+  }
+
   const titre = html.match(/<title>([^<]*)<\/title>/)?.[1] ?? '';
   if (titres.has(titre)) {
     console.log(`✗ ${page} : même <title> que ${titres.get(titre)} — « ${titre} ».`);

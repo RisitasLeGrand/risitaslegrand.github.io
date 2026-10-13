@@ -80,3 +80,56 @@ export function notifier(message: string, variante: 'info' | 'succes' | 'badge' 
     setTimeout(() => bulle.remove(), 320);
   }, 2600);
 }
+
+/** L'état d'une option de QCM, une fois la réponse donnée. */
+export type EtatOption = 'juste' | 'choisi-faux' | 'neutre';
+
+const MARQUES: Record<EtatOption, { signe: string; dit: string } | null> = {
+  juste: { signe: '✓', dit: 'Bonne réponse' },
+  'choisi-faux': { signe: '✗', dit: 'Votre réponse, fausse' },
+  neutre: null,
+};
+
+/**
+ * Marque une option corrigée d'un signe, plutôt que de rayer son texte.
+ *
+ * ## Pourquoi ne plus barrer
+ *
+ * La réponse choisie à tort était rayée en rouge. C'est le seul texte de la
+ * page qu'on a besoin de relire attentivement — « qu'est-ce que j'ai répondu,
+ * au juste ? » — et c'était le seul rendu illisible. Un signe devant, une
+ * bordure et un fond disent la même chose sans abîmer la lecture.
+ *
+ * ## Pourquoi un signe et pas seulement une couleur
+ *
+ * Rouge et vert sont la paire que la plus fréquente des dyschromatopsies
+ * confond. Le signe porte donc l'information, la couleur la renforce, et un
+ * texte masqué la donne aux lecteurs d'écran, pour qui ni l'un ni l'autre
+ * n'existe.
+ *
+ * Idempotente : marquer deux fois ne double pas le signe. Le texte passe par
+ * « textContent » de bout en bout — rien de ce qui vient d'une fiche n'est
+ * interprété comme du HTML.
+ */
+export function marquerOption(bouton: HTMLElement, etat: EtatOption): void {
+  const marque = MARQUES[etat];
+  if (!marque || bouton.querySelector('[data-marque]')) return;
+
+  const texte = bouton.textContent ?? '';
+  bouton.textContent = '';
+
+  const signe = document.createElement('span');
+  signe.dataset.marque = etat;
+  signe.setAttribute('aria-hidden', 'true');
+  signe.className = 'shrink-0 font-bold';
+  signe.textContent = marque.signe;
+
+  const dit = document.createElement('span');
+  dit.className = 'sr-only';
+  dit.textContent = `${marque.dit} : `;
+
+  const corps = document.createElement('span');
+  corps.textContent = texte;
+
+  bouton.append(signe, dit, corps);
+}

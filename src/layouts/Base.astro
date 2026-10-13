@@ -142,11 +142,17 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
          Il est invisible tant qu'il n'a pas le focus — « sr-only » le sort de
          l'écran, « focus:not-sr-only » l'y ramène —, parce qu'un lien
          d'évitement visible en permanence occupe le coin de chaque page pour
-         une minorité de visites. Il vise « #contenu », posé sur le <main> :
-         sans cette ancre, le lien ne mènerait nulle part.
+         une minorité de visites.
+
+         L'ancre s'appelle « contenu-principal » et non « contenu », qui
+         existait déjà sur l'écran de fiche. Un identifiant en double ne
+         produit aucune erreur : « getElementById » rend le premier du
+         document, et la fiche a écrit son cours dans le <main> au lieu de sa
+         propre zone, effaçant la page entière. C'est l'essai « essais:pretest »
+         qui l'a vu, pas la relecture.
       */}
       <a
-        href="#contenu"
+        href="#contenu-principal"
         class="sr-only rounded-br-lg bg-indigo-600 px-4 py-3 font-medium text-white focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-50"
       >
         Aller au contenu
@@ -355,7 +361,7 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
         )
       }
 
-      <main id="contenu" tabindex="-1" class="mx-auto max-w-6xl px-4 py-8">
+      <main id="contenu-principal" tabindex="-1" class="mx-auto max-w-6xl px-4 py-8">
         <slot />
       </main>
 

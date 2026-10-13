@@ -49,7 +49,7 @@ import { lireEtatFiche } from './db';
 import { gagnerXp, xpPretest } from './gamification';
 import { enregistrerPretest, niveauDEntree, type ReponsePretest } from './niveau';
 import { enregistrerIssue, justesse, tirer, type Issue } from './pretest-noyau';
-import { lien, notifier, pluriel } from './ui';
+import { lien, marquerOption, notifier, pluriel } from './ui';
 
 // Le noyau porte les décisions (proposer, tirer, noter, consigner) ; il est
 // réexporté ici pour que les pages n'aient qu'un module à connaître.
@@ -215,8 +215,9 @@ export async function montrer(
             (bonne
               ? 'border-emerald-500 bg-emerald-50 text-emerald-900 dark:border-emerald-500 dark:bg-emerald-950/50 dark:text-emerald-200'
               : cochee
-                ? 'border-slate-400 bg-slate-100 text-slate-600 line-through dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400'
+                ? 'border-slate-400 bg-slate-100 text-slate-600 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-400'
                 : 'border-slate-200 text-slate-500 dark:border-slate-800 dark:text-slate-400');
+          marquerOption(bouton, bonne ? 'juste' : cochee ? 'choisi-faux' : 'neutre');
         });
         if (question.explication) {
           const note = document.createElement('p');

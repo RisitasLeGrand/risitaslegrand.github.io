@@ -417,7 +417,7 @@
       resultats[resultats.length - 1]?.donnee ?? null,
     );
     ouvrirAssistant({
-      titre: 'Demander à l’IA — Relational Reasoning',
+      titre: 'Préparer une question pour une IA — Relational Reasoning',
       matiere: 'Cog-Training',
       construireContexte: async () =>
         contexteCogTraining({
@@ -703,7 +703,7 @@
               font-medium text-slate-700 hover:border-indigo-400 hover:text-indigo-700
               dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200
               dark:hover:border-indigo-600 dark:hover:text-indigo-300"
-          >Demander à l’IA</button>
+          >Préparer une question pour une IA</button>
         {/if}
       </div>
     {/if}

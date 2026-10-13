@@ -18,6 +18,7 @@ import {
   type QuestionDgfip,
   type QuestionQuiz,
 } from './contenu';
+import { marquerOption } from './ui';
 import { boutonAssistant } from '../features/assistant/monter';
 import {
   contexteDgfip,
@@ -217,7 +218,7 @@ export function montrer(
        */
       const aide = boutonAssistant(
         {
-          titre: 'Demander à l’IA — reprise du journal',
+          titre: 'Préparer une question pour une IA — reprise du journal',
           itemId: item.entree.id,
           matiere: item.entree.matiere,
           construireContexte: async (options) => {
@@ -242,7 +243,7 @@ export function montrer(
             return contexteJournal({ entree: item.entree, interne });
           },
         },
-        'Demander à l’IA',
+        'Préparer une question pour une IA',
       );
 
       if (item.options && item.bonnes) {
@@ -258,12 +259,13 @@ export function montrer(
               const b = enfant as HTMLButtonElement;
               b.disabled = true;
               b.className =
-                'w-full rounded-lg border px-3 py-2 text-left text-sm ' +
+                'flex w-full items-start gap-2 rounded-lg border px-3 py-2 text-left text-sm ' +
                 (bonnes.includes(j)
                   ? 'border-emerald-500 bg-emerald-50 text-emerald-900 dark:border-emerald-500 dark:bg-emerald-950/50 dark:text-emerald-200'
                   : j === i
-                    ? 'border-red-400 bg-red-50 text-red-900 line-through dark:border-red-700 dark:bg-red-950/50 dark:text-red-200'
+                    ? 'border-red-400 bg-red-50 text-red-900 dark:border-red-700 dark:bg-red-950/50 dark:text-red-200'
                     : 'border-slate-200 text-slate-500 dark:border-slate-800 dark:text-slate-400');
+              marquerOption(b, bonnes.includes(j) ? 'juste' : j === i ? 'choisi-faux' : 'neutre');
             }
             if (item.explication) {
               const note = document.createElement('p');
