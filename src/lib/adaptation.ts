@@ -6,6 +6,7 @@
  * donne la base, l'horloge logique et les faits publiés.
  */
 import { db, lireAppareil, toutesLesOperations } from './db';
+import { signalerEcriture } from './sync/signal-ecriture';
 import { prochaineHlc } from './sync/horloge-locale';
 import { decoderHlc } from './noyau/hlc';
 import { operation, SANS_LOT } from './noyau/operations';
@@ -39,6 +40,7 @@ async function journaliser(cible: string, type: string, charge: unknown) {
     charge,
   });
   await (await db()).put('operations', op);
+  signalerEcriture();
   return op;
 }
 

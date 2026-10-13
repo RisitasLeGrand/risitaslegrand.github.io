@@ -23,6 +23,7 @@
  * bon.
  */
 import { db, lireAppareil, toutesLesOperations } from '../db';
+import { signalerEcriture } from './signal-ecriture';
 import { prochaineHlc } from './horloge-locale';
 import { decoderHlc } from '../noyau/hlc';
 import { operation, SANS_LOT, type Operation } from '../noyau/operations';
@@ -65,6 +66,7 @@ export async function journaliserEnregistrement(
       charge: { magasin, enregistrement } satisfies ChargeEnregistrement,
     });
     await (await db()).put('operations', op);
+    signalerEcriture();
     return op;
   } catch {
     return null;
@@ -98,6 +100,7 @@ export async function journaliserSuppressions(cibles: readonly string[]): Promis
         charge: {},
       });
       await base.put('operations', op);
+      signalerEcriture();
       ecrites += 1;
     } catch {
       // Même raison qu'à l'écriture : l'effacement local a déjà eu lieu, et une

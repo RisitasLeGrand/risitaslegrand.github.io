@@ -14,6 +14,7 @@
  * le menu encore moins : il ne lit qu'un prénom.
  */
 import { db, lireAppareil, toutesLesOperations } from './db';
+import { signalerEcriture } from './sync/signal-ecriture';
 import { prochaineHlc } from './sync/horloge-locale';
 import { decoderHlc } from './noyau/hlc';
 import { operation, SANS_LOT, type Operation } from './noyau/operations';
@@ -52,6 +53,7 @@ async function journaliser(cible: string, type: string, charge: unknown): Promis
     charge,
   });
   await (await db()).put('operations', op);
+  signalerEcriture();
   return op;
 }
 

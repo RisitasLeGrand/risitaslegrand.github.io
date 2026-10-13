@@ -8,6 +8,7 @@
  * sans navigateur, les lectures ne le sont pas.
  */
 import { lireAppareil, toutesLesOperations } from './db';
+import { signalerEcriture } from './sync/signal-ecriture';
 import { prochaineHlc } from './sync/horloge-locale';
 import { decoderHlc } from './noyau/hlc';
 import { operation, SANS_LOT, type Operation } from './noyau/operations';
@@ -41,6 +42,7 @@ async function journaliser(cible: string, type: string, charge: unknown): Promis
     charge,
   });
   await (await db()).put('operations', op);
+  signalerEcriture();
   return op;
 }
 

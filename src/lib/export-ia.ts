@@ -21,6 +21,7 @@
  * (B.6.4) aura besoin pour répondre « non vérifiable » au lieu d'inventer.
  */
 import { db, lireAppareil, toutesLesOperations } from './db';
+import { signalerEcriture } from './sync/signal-ecriture';
 import { sha256Hex } from './crypto';
 import { decoderHlc } from './noyau/hlc';
 import { operation, SANS_LOT } from './noyau/operations';
@@ -88,6 +89,7 @@ export async function inscrireAuJournal(entree: Omit<EntreeJournalExport, 'appar
     charge: entree,
   });
   await (await db()).put('operations', op);
+  signalerEcriture();
   return op;
 }
 

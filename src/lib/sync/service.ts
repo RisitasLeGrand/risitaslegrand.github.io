@@ -28,6 +28,7 @@
  * plus : les faits, les révisions, et le recalcul de l'état FSRS.
  */
 import { db, ecrireCarte, ecrireReglageBrut, lireAppareil } from '../db';
+import { signalerEcriture } from './signal-ecriture';
 import type { EntreeRevision } from '../noyau/revisions';
 import type { Operation } from '../noyau/operations';
 import {
@@ -562,6 +563,7 @@ export async function enregistrerFait(
     charge,
   });
   await (await db()).put('operations', op);
+  signalerEcriture();
   return op;
 }
 

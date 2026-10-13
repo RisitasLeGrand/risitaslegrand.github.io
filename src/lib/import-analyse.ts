@@ -23,6 +23,7 @@
  * jamais rendu autrement qu'en texte échappé, et jamais interprété.
  */
 import { db, lireAppareil, toutesLesOperations } from './db';
+import { signalerEcriture } from './sync/signal-ecriture';
 import { decoderHlc } from './noyau/hlc';
 import { operation, SANS_LOT } from './noyau/operations';
 import { ulid } from './noyau/ulid';
@@ -311,6 +312,7 @@ export async function conserver(apercu: Apercu, tri?: Tri): Promise<AnalyseConse
     charge: conservee,
   });
   await (await db()).put('operations', op);
+  signalerEcriture();
   return conservee;
 }
 

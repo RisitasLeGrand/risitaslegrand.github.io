@@ -7,6 +7,14 @@
 import { createEmptyCard, type Card } from 'ts-fsrs';
 import { openDB, type DBSchema, type IDBPDatabase } from 'idb';
 /*
+   Le signal d'écriture regroupée : un module sans dépendance, sans effet tant
+   que personne ne s'y abonne, et qui n'est abonné que par la veille de
+   synchronisation — c'est-à-dire sur un appareil certifié, une fois la
+   session ouverte. Sur toutes les autres pages, l'appel coûte un test de
+   taille d'ensemble.
+*/
+import { signalerEcriture } from './sync/signal-ecriture';
+/*
    Imports de **types seulement** : « noyau/revisions.ts » importe « fsrsNeuf »
    d'ici, et un import de valeur dans l'autre sens formerait un cycle au
    chargement. Les types, eux, sont effacés à la compilation.
@@ -1598,6 +1606,7 @@ export async function lireAppareil(): Promise<string> {
 
 export async function ecrireEntreeRevision(entree: EntreeRevision) {
   await (await db()).put('revisions', entree);
+  signalerEcriture();
 }
 
 /** Le journal d'une carte, dans l'ordre des identifiants, donc du temps. */
@@ -1612,6 +1621,7 @@ export async function toutesLesRevisions(): Promise<EntreeRevision[]> {
 
 export async function ecrireOperation(op: Operation) {
   await (await db()).put('operations', op);
+  signalerEcriture();
 }
 
 export async function toutesLesOperations(): Promise<Operation[]> {
