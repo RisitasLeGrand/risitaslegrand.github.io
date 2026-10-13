@@ -951,3 +951,189 @@ les intitulés proposés au moment du téléchargement.
 avait été proposé de mémoire en section 2 et porté comme non vérifié. Les deux
 chemins `g10060481` et `g10016261` annoncés « confirmés » par les relevés
 externes restent, eux, sans confirmation d'aucune sorte.
+
+---
+
+## 12. PHQ-9 et GAD-7 français « France » — RELEVÉS AUTHENTIFIÉS (13 octobre 2026)
+
+Fichiers joints par l'utilisateur, empreintés et extraits dans le conteneur. Même
+chaîne de possession qu'en section 10.1 : l'empreinte et le texte sont les miens
+et reproductibles, la correspondance à ce que sert `phqscreeners.com` est attestée
+par l'utilisateur et reste à contrôler par un `curl` direct.
+
+### 12.1 Preuve de fichier
+
+| Champ | PHQ-9 | GAD-7 |
+|---|---|---|
+| Taille réelle | **42 110 octets** | **121 061 octets** |
+| SHA-256 | **`b9529947a01d82b7c640176958e6e0f409a98e239380deafdfb4f27162c50298`** | **`3622a0e265cb182c0cc8cffaa836b22b8f264dd9f39f9759c68459e4fa08f02c`** |
+| En-tête de fichier | `%PDF-1.4` | `%PDF-1.4` |
+| Pages | 1 | 1 |
+| Titre interne | `Microsoft Word - PHQ9_French for France.doc` | `Microsoft Word - GAD7_French for France.doc` |
+| Auteur interne | `cg014193` | `anubhav` |
+| Créateur | `PScript5.dll Version 5.2.2` | `PScript5.dll Version 5.2.2` |
+| Producteur | `Acrobat Distiller 8.1.0 (Windows)` | `Acrobat Distiller 6.0 (Windows)` |
+| Création / modification | 14 juin 2010, 16:58:26 UTC | 18 mai 2010, 09:02:29 UTC |
+| Format de page | 612 × 792 pts (letter) | 612 × 792 pts (letter) |
+| Code HTTP, en-têtes | `NON OBTENU` | `NON OBTENU` |
+
+**Les titres internes confirment la variante « France ».** Les deux documents
+datent de 2010 — à noter, puisque les relevés externes annonçaient des chemins
+contenant `201412`.
+
+Couche texte présente dans les deux cas (3 024 et 1 968 octets extraits) :
+**aucune océrisation n'intervient.**
+
+### 12.2 Caractères exacts, communs aux deux documents
+
+- **Apostrophe : uniquement `’` (U+2019).** Zéro apostrophe droite `'` — compté.
+- **Case à cocher : `✔` (U+2714, *heavy check mark*)**, et **non** `✓` (U+2713).
+  Les deux relevés sous quarantaine portaient `✓`.
+- Le tiret du titre du PHQ-9 est un tiret demi-cadratin : `– 9`.
+
+### 12.3 PHQ-9 — texte intégral verbatim
+
+Titre, sur trois lignes : `QUESTIONNAIRE SUR LA SANTÉ DU PATIENT` / `– 9` / `(PHQ-9)`
+
+Consigne :
+
+```text
+Au cours des 2 dernières semaines, selon quelle fréquence
+avez-vous été gêné(e) par les problèmes suivants ?
+(Veuillez cocher (✔) votre réponse)
+```
+
+Options et valeurs : `Jamais` 0 · `Plusieurs jours` 1 · `Plus de la moitié du temps` 2 · `Presque tous les jours` 3
+
+Items :
+
+```text
+1. Peu d’intérêt ou de plaisir à faire les choses
+2. Être triste, déprimé(e) ou désespéré(e)
+3. Difficultés à s’endormir ou à rester endormi(e), ou dormir trop
+4. Se sentir fatigué(e) ou manquer d’énergie
+5. Avoir peu d’appétit ou manger trop
+6. Avoir une mauvaise opinion de soi-même, ou avoir le sentiment d’être nul(le), ou d’avoir déçu sa famille ou s’être déçu(e) soi-même
+7. Avoir du mal à se concentrer, par exemple, pour lire le journal ou regarder la télévision
+8. Bouger ou parler si lentement que les autres auraient pu le remarquer. Ou au contraire, être si agité(e) que vous avez eu du mal à tenir en place par rapport à d’habitude
+9. Penser qu’il vaudrait mieux mourir ou envisager de vous faire du mal d’une manière ou d’une autre
+```
+
+Bloc de cotation, verbatim :
+
+```text
+                                                         FOR OFFICE CODING     0     + ______ + ______ + ______
+                                                                                                =Total Score: ______
+```
+
+Question fonctionnelle, avec sa coupure de ligne d'origine :
+
+```text
+Si vous avez coché au moins un des problèmes évoqués, à quel point ce(s) problème(s) a-t-il (ont-
+ils) rendu votre travail, vos tâches à la maison ou votre capacité à vous entendre avec les autres
+difficile(s) ?
+```
+
+Ses quatre modalités : `Pas du tout difficile(s)` · `Assez difficile(s)` · `Très difficile(s)` · `Extrêmement difficile(s)`
+
+### 12.4 GAD-7 — texte intégral verbatim
+
+Titre : `GAD-7`
+
+Consigne :
+
+```text
+Au cours des 2 dernières semaines, selon quelle
+fréquence avez-vous été gêné(e) par les problèmes
+                   suivants ?
+
+         (Veuillez cocher (✔) votre réponse)
+```
+
+Options et valeurs : `Jamais` 0 · `Plusieurs jours` 1 · `Plus de la moitié du temps` 2 · `Presque tous les jours` 3
+
+Items :
+
+```text
+1. Un sentiment de nervosité, d’anxiété ou de tension
+2. Une incapacité à arrêter de s’inquiéter ou à contrôler ses inquiétudes
+3. Une inquiétude excessive à propos de différentes choses
+4. Des difficultés à se détendre
+5. Une agitation telle qu’il est difficile à tenir en place
+6. Une tendance à être facilement contrarié(e) ou irritable
+7. Un sentiment de peur comme si quelque chose de terrible risquait de se produire
+```
+
+Bloc de cotation, verbatim :
+
+```text
+                           (For office coding: Total Score T____ =                    ____     +    ____      + ____ )
+```
+
+### 12.5 Attribution, verbatim — identique dans les deux documents
+
+```text
+Développé par les Dr Robert L. Spitzer, Janet B.W. Williams, Kurt Kroenke et leurs collègues grâce à
+une allocation d’études de Pfizer Inc. La reproduction, la traduction, l’affichage ou la distribution de ce
+document sont autorisés.
+```
+
+Ces coupures de ligne sont celles du **GAD-7**. Le PHQ-9 porte le même texte avec
+des coupures différentes (`grâce à une allocation d’études` / `de Pfizer Inc.`).
+Le texte transmis par l'utilisateur en section 7.4 correspondait donc au GAD-7, et
+il est **confirmé exact, coupures comprises**.
+
+### 12.6 CONSTAT MAJEUR : ni règle de score, ni seuils dans ces documents
+
+**Aucun des deux PDF ne contient de règle de calcul du score ni de seuil
+d'interprétation.** Ils ne portent qu'un bloc de cotation à usage interne
+(« FOR OFFICE CODING », « For office coding »), sans formule ni palier.
+
+Conséquence pratique : **les seuils ne peuvent pas être sourcés sur ces
+documents.** Ils devront venir de l'*Instruction Manual* référencé sur la page de
+sélection (section 11.3) ou de la littérature, et faire l'objet d'un relevé
+distinct avec sa propre source. Les seuils avancés par le relevé externe n°3
+(0-4, 5-9, 10-14, 15-19, 20-27 pour le PHQ-9 ; 0-4, 5-9, 10-14, 15-21 pour le
+GAD-7) **ne figurent dans aucun de ces fichiers.**
+
+### 12.7 Verdict sur les trois relevés externes
+
+| | Relevé n°2 (océrisé) | Relevé n°3 (réseau étendu) |
+|---|---|---|
+| PHQ-9, 9 items | **exacts, mot pour mot** | **8 faux sur 9** |
+| GAD-7, 7 items | **exacts, mot pour mot** | **7 faux sur 7** |
+| Titre du GAD-7 | exact (`GAD-7`) | faux (`TROUBLE D’ANXIÉTÉ GÉNÉRALISÉE – 7 (GAD-7)`, absent du document) |
+| Options de réponse | exactes | fausses (`Pas du tout`, `des jours`) |
+| Modalités fonctionnelles | exactes, `(s)` compris | fausses (`Un peu difficile`, absent) |
+| Consigne du GAD-7 | `géné(e)` au lieu de `gêné(e)` — artefact d'OCR | `à quelle fréquence` au lieu de `selon quelle fréquence` |
+| Seuils d'interprétation | honnêtement `NON OBTENUE` | inventés — absents des deux PDF |
+| Bloc de cotation GAD-7 | astérisque parasite (`(*For office coding`) | non rapporté |
+| Coche | `✓` au lieu de `✔` | `✓` au lieu de `✔` |
+| Apostrophes | `'` par endroits au lieu de `’` | idem |
+
+**Le relevé n°2 disait vrai sur le fond.** Ses seules erreurs sont des artefacts
+de procédé — un accent perdu, des mots recollés, une coche approchée, un
+astérisque surnuméraire — et il a honnêtement déclaré ne pas avoir les seuils.
+**Le relevé n°3 a produit un texte faux de bout en bout**, tout en l'étiquetant
+`[FICHIER]`, en annonçant `OBTENU`, et en y ajoutant des seuils plausibles qui
+n'existent nulle part.
+
+**Sur l'hypothèse de la section 8.1 bis** (deux documents réels mal étiquetés) :
+elle est **écartée pour les fichiers « France »** — le texte du relevé n°3 ne
+correspond à aucun des deux. Il reste concevable qu'il reflète une autre
+traduction française réelle, la variante Canada par exemple ; seule cette
+variante le dirait. Mais pour la cible annoncée, il était faux.
+
+**Et la leçon tient en une ligne : le relevé qui s'est révélé exact est celui qui
+a reconnu ses manques, et le relevé qui s'est révélé faux est celui qui
+affirmait avoir tout obtenu.**
+
+### 12.8 Reste à obtenir
+
+- La **liste réelle des variantes de français** : toujours pas établie (section 11.4).
+- La **variante Canada du PHQ-9**, si elle existe, pour clore la question ci-dessus.
+- Les **seuils d'interprétation**, depuis l'*Instruction Manual* ou la
+  littérature, avec leur propre source et leur propre empreinte.
+- Un **contrôle d'origine par `curl`** sur les quatre fichiers, le jour où la
+  passerelle s'ouvrira : les empreintes des sections 10, 11 et 12 le rendront
+  immédiat.
