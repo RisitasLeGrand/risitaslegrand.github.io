@@ -22,11 +22,9 @@
 import {
   BUDGET,
   MARQUE_TRONCATURE,
-  PLAFOND_URL,
   PREREGLAGES,
   construirePrompt,
   couperAuxParagraphes,
-  lienClaude,
   prereglage,
   type Intention,
 } from '../src/features/assistant/prompt';
@@ -208,53 +206,20 @@ verifier(
   'expliquer',
 );
 
-// --- 4. « Ouvrir dans Claude » ---------------------------------------------
+/*
+   --- 4. Il n'y a plus de lien « Ouvrir dans Claude » -----------------------
 
-verifier('un prompt court donne un lien', typeof lienClaude('Bonjour'), 'string');
-verifier('un prompt long n’en donne pas', lienClaude(remplissage(20000)), null);
-{
-  // L'encodage gonfle : un texte tout en accents dépasse le plafond bien avant
-  // sa longueur brute, et c'est la longueur encodée qui décide.
-  const accents = 'é'.repeat(1500);
-  verifier(
-    'c’est la longueur encodée qui décide, non la longueur brute',
-    [accents.length < PLAFOND_URL, lienClaude(accents)],
-    [true, null],
-  );
-}
-{
-  /*
-   * Le cas pour lequel le lien existe : le prompt le plus court du site, celui
-   * d'un terme de glossaire. À 2 000, il ne passait pas — le plafond avait été
-   * fixé sans mesure, et le bouton n'aurait jamais servi.
-   */
-  const glossaire: Contexte = {
-    provenance: 'glossaire',
-    sujet: 'subsidiarité',
-    situation: ['Glossaire', 'subsidiarité'],
-    blocs: [
-      {
-        titre: 'Le terme',
-        texte:
-          'subsidiarité : principe selon lequel l’Union n’intervient, hors de ses compétences ' +
-          'exclusives, que si les objectifs ne peuvent être atteints de manière suffisante par ' +
-          'les États membres.',
-        rang: 1,
-      },
-      {
-        titre: 'La phrase où je l’ai rencontré',
-        texte: 'Le contrôle de subsidiarité est confié aux parlements nationaux.',
-        rang: 2,
-      },
-    ],
-  };
-  const court = construirePrompt(glossaire, { intention: 'expliquer' });
-  verifier(
-    'le prompt le plus court du site tient dans un lien',
-    typeof lienClaude(court.texte),
-    'string',
-  );
-}
+   Cette section vérifiait un plafond d'URL, un encodage et un repli. Le
+   bouton est retiré (D-002) : une URL emportait tout le prompt — extrait de
+   fiche, question, réponse — dans son adresse, et une adresse s'inscrit dans
+   l'historique du navigateur et dans les journaux de tout ce qui se trouve
+   entre les deux.
+
+   Ce qui le remplace n'est pas un essai de plus ici, mais un invariant dans
+   « essais:assistant:reseau » : **aucune URL sortante dans la clôture des
+   imports du module**. Vérifier l'absence au même endroit que l'absence
+   d'appel réseau est le bon endroit — c'est la même garantie.
+*/
 
 // --- 5. Le HTML des fiches devient du texte --------------------------------
 

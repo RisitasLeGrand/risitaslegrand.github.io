@@ -232,36 +232,19 @@ export function construirePrompt(contexte: Contexte, options: OptionsDePrompt): 
 }
 
 /**
- * Le lien « Ouvrir dans Claude », ou `null` si le prompt est trop long.
+ * Il n'y a plus de lien « Ouvrir dans Claude », et c'est volontaire.
  *
- * Vérifié : `https://claude.ai/new?q=…` ouvre une conversation neuve avec le
- * prompt prérempli. Mais le transport par URL casse bien avant la fenêtre de
- * contexte du modèle, et l'encodage gonfle le texte — un retour à la ligne
- * devient `%0A`, chaque accent six caractères. Le lien n'est donc offert que
- * s'il tient, et sinon la fenêtre dit pourquoi : « Copier » reste le chemin
- * garanti, et c'est l'action principale.
+ * Le prompt 20 §4.1 en ordonnait le retrait ; il était resté. Un lien sortant
+ * `https://claude.ai/new?q=…` emporte **tout le prompt dans son URL** :
+ * l'extrait de fiche, la question, la réponse donnée. Une URL n'est pas un
+ * canal discret — elle s'inscrit dans l'historique du navigateur, dans le
+ * journal du serveur d'en face, et dans tout ce qui se trouve entre les deux.
+ * Pour un site dont la raison d'être est que rien de son contenu ne sorte en
+ * clair, c'était la seule porte ouverte.
  *
- * ## Pourquoi 6 000 et non 2 000
- *
- * Le plan retenait 2 000, d'après une recommandation d'usage courante. Mesure
- * faite sur le site : le **plus court** prompt que ce module sache produire —
- * un terme de glossaire, sa définition, la phrase où on l'a rencontré — pèse
- * 1 300 caractères et en fait près de 2 700 une fois encodé, le français étant
- * accentué et le prompt structuré en paragraphes. À 2 000, le lien n'aurait
- * donc **jamais** été offert, pas même dans le cas pour lequel il avait été
- * prévu : un bouton mort, et un motif affiché à chaque ouverture.
- *
- * 6 000 reste très en deçà de ce qu'un navigateur transporte (de l'ordre de
- * 32 000 caractères), et laisse passer le glossaire, une flashcard courte et
- * les items de Cog-Training, tout en écartant les prompts de quiz et de fiche,
- * qui dépassent les 10 000 une fois encodés. Ce qui n'est pas vérifié, et que
- * la fenêtre assume, c'est ce que `claude.ai` accepte exactement : d'où le
- * repli, qui n'est pas un repli mais l'action principale — « Copier ».
+ * Ce que le retrait ne coûte pas : **« Copier » fait la même chose**, en
+ * laissant voir le texte avant qu'il parte, et « Partager » reste là où le
+ * système le propose. Le plafond `PLAFOND_URL` et la fonction `lienClaude`
+ * disparaissent avec le bouton : ils n'existaient que pour lui, et un plafond
+ * sans lien à plafonner est un morceau de code qui attend qu'on s'en resserve.
  */
-export const PLAFOND_URL = 6000;
-
-export function lienClaude(texte: string, plafond = PLAFOND_URL): string | null {
-  const encode = encodeURIComponent(texte);
-  if (encode.length > plafond) return null;
-  return `https://claude.ai/new?q=${encode}`;
-}

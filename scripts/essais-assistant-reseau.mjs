@@ -9,9 +9,17 @@
  *  1. **Aucun appel réseau.** On parcourt la clôture des imports à partir des
  *     points d'entrée du module et l'on échoue sur `fetch(`,
  *     `XMLHttpRequest`, `sendBeacon`, `EventSource`, `WebSocket` ou un
- *     `import()` d'URL. Le seul lien vers l'extérieur est une chaîne
- *     `https://claude.ai/new?q=…` **rendue** à l'interface, qui en fait un
- *     `href` : c'est le navigateur qui l'ouvre, sur un geste de la personne.
+ *     `import()` d'URL.
+ *
+ *  1 bis. **Aucune URL sortante, même inerte.** Le module portait un lien
+ *     `https://claude.ai/new?q=…` : une chaîne, jamais appelée par le code,
+ *     rendue à l'interface qui en faisait un `href`. Aucun des contrôles
+ *     ci-dessus ne la voyait, parce qu'aucun appel réseau n'avait lieu — et
+ *     pourtant tout le prompt partait dans une adresse, qui s'inscrit dans
+ *     l'historique du navigateur et dans les journaux du serveur d'en face.
+ *     Le lien est retiré (D-002), et ce contrôle existe pour qu'il ne
+ *     revienne pas : **aucun littéral `http://` ou `https://`** dans la
+ *     clôture, hors ce fichier d'essai et les commentaires.
  *
  *  2. **Aucun accès au secret.** La garantie n'est pas un filtre de chaînes —
  *     qui se contournerait au premier champ ajouté — mais le fait que la
@@ -146,6 +154,29 @@ console.log(`\x1b[90m${vus.size} fichier(s) parcouru(s) depuis les points d'entr
  * Un seuil en nombre de fichiers aurait été arbitraire, et aurait cassé au
  * premier module retiré.
  */
+/*
+   Les URL sortantes, littérales.
+
+   On retire d'abord les commentaires : le code garde la mémoire de ce qu'il
+   ne fait plus, et c'est une bonne chose — un commentaire qui explique
+   pourquoi « https://claude.ai/new?q= » a disparu ne doit pas faire échouer
+   le contrôle qui vérifie sa disparition.
+
+   Les schémas `data:` et `blob:` ne sont pas visés : ils ne sortent pas de
+   la machine. On ne vise que ce qui désigne un hôte.
+*/
+for (const fichier of vus) {
+  const source = await readFile(fichier, 'utf8');
+  const sansCommentaires = source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  for (const trouve of sansCommentaires.matchAll(/https?:\/\/[^\s'"`)]+/g)) {
+    defauts.push(
+      `${path.relative(racine, fichier)} porte une URL sortante : ${trouve[0].slice(0, 60)}`,
+    );
+  }
+}
+
 const TEMOIN = path.join(racine, 'src/lib/db.ts');
 if (!vus.has(TEMOIN)) {
   defauts.push(

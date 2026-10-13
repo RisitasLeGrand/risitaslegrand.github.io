@@ -26,7 +26,6 @@
   import {
     PREREGLAGES,
     construirePrompt,
-    lienClaude,
     type Intention,
     type Resultat,
   } from '../prompt';
@@ -125,7 +124,6 @@
     void recalculer();
   }
 
-  const lien = $derived(lienClaude(texte));
 
   async function tracer() {
     await enregistrerAide({
@@ -324,23 +322,6 @@
           class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100
             dark:border-slate-700 dark:hover:bg-slate-800">Partager</button
         >
-      {/if}
-      {#if lien}
-        <a
-          href={lien}
-          target="_blank"
-          rel="noreferrer"
-          onclick={tracer}
-          class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100
-            dark:border-slate-700 dark:hover:bg-slate-800">Ouvrir dans Claude</a
-        >
-      {:else}
-        <!-- Désactivé avec son motif : un lien trop long serait tronqué par le
-             navigateur, et ouvrirait une conversation sur un prompt coupé au
-             milieu sans que rien ne le signale. -->
-        <span class="text-xs text-slate-500 dark:text-slate-400">
-          Prompt trop long pour un lien — utilisez « Copier ».
-        </span>
       {/if}
       {#if etat === 'copie'}
         <span class="text-sm text-emerald-700 dark:text-emerald-300">Copié.</span>
