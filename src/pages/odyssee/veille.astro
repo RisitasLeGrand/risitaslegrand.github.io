@@ -203,6 +203,77 @@ const parDomaine = Object.keys(DOMAINES).map((d) => ({
             Aucun repère n’a été signalé. Cela ne signifie pas que tout va bien.
           </p>
         </section>
+
+        <!-- Le rejeu : ce que la veille aurait dit, sur l'historique réel -->
+        <section class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Rejouer mon historique</h2>
+          <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+            Dérouler vos données passées jour après jour, et voir ce que la veille aurait dit
+            avec chacun des trois réglages. Les chiffres connus viennent de vies simulées ;
+            celui-ci vient de vous, et c’est la seule façon de juger un réglage sur votre vie
+            plutôt que sur une moyenne.
+          </p>
+          <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+            Le rejeu <strong>n’écrit rien</strong> : il ne lève aucun repère, ne modifie aucun
+            réglage, et ne vous enverra pas de cartes en retard.
+          </p>
+          <button id="rejouer" type="button"
+            class="mt-3 min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white dark:bg-slate-200 dark:text-slate-900">
+            Rejouer</button>
+          <p id="rejeu-attente" class="mt-3 hidden text-sm text-slate-500 dark:text-slate-400">
+            Déroulement en cours…</p>
+          <div id="rejeu-resultat" class="mt-4 hidden space-y-3">
+            <p id="rejeu-phrase" class="text-sm text-slate-800 dark:text-slate-100"></p>
+            <table class="w-full text-left text-sm">
+              <thead class="text-xs uppercase text-slate-500 dark:text-slate-400">
+                <tr><th class="py-1">Réglage</th><th class="py-1">Repères</th><th class="py-1">Quand</th></tr>
+              </thead>
+              <tbody id="rejeu-lignes"></tbody>
+            </table>
+            <p id="rejeu-domaines" class="text-sm text-slate-600 dark:text-slate-300"></p>
+
+            <div class="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
+              <h3 class="text-sm font-semibold text-slate-900 dark:text-white">
+                Le même calcul sur un autre appareil</h3>
+              <p class="mt-1 text-xs text-slate-600 dark:text-slate-300">
+                Si vous tenez Cyclades sur deux appareils synchronisés, les deux empreintes
+                ci-dessous doivent être identiques. Elles ne portent que sur ce qui voyage :
+                le journal d’usage reste sur son appareil, et les repères qui en dérivent sont
+                donc hors comparaison.
+              </p>
+              <p id="rejeu-empreinte" class="mt-2 font-mono text-base tracking-wider text-slate-900 dark:text-white"></p>
+              <p id="rejeu-ecartes" class="mt-1 text-xs text-slate-500 dark:text-slate-400"></p>
+            </div>
+          </div>
+        </section>
+
+        <!-- La synthèse médecin -->
+        <section class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+            Une synthèse à montrer à un médecin</h2>
+          <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+            La carte vous suggère d’en parler à votre médecin. Y aller les mains vides, c’est y
+            aller avec un souvenir. Ce document rassemble ce qui a été signalé, sur quelle
+            période, avec quel réglage — et dit clairement ce que ce dispositif ne fait pas.
+          </p>
+          <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+            Il est produit ici, sur cet appareil, et n’est conservé nulle part. Il ne contient ni
+            vos auto-évaluations, ni vos scores d’échelles, ni aucun intitulé de note ou de
+            tâche.
+          </p>
+          <div class="mt-3 flex flex-wrap gap-2">
+            <button id="composer-synthese" type="button"
+              class="min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white dark:bg-slate-200 dark:text-slate-900">
+              Composer la synthèse</button>
+            <button id="telecharger-synthese" type="button"
+              class="hidden min-h-11 rounded-lg border border-slate-400 px-4 text-sm dark:border-slate-600">
+              Enregistrer en texte</button>
+            <button id="imprimer-synthese" type="button"
+              class="hidden min-h-11 rounded-lg border border-slate-400 px-4 text-sm dark:border-slate-600">
+              Imprimer</button>
+          </div>
+          <article id="synthese" class="mt-4 hidden space-y-4 border-t border-slate-200 pt-4 dark:border-slate-800"></article>
+        </section>
       </div>
 
       <!-- Ce que la veille regarde : hors du coffre, c'est de la documentation -->
@@ -337,10 +408,14 @@ const parDomaine = Object.keys(DOMAINES).map((d) => ({
   import {
     ecrireLesReglages,
     faireUnTour,
+    rejeuDeLHistorique,
     repondreAuSignal,
+    syntheseAMontrer,
     tousLesSignaux,
     type TourComplet,
   } from '../../lib/odyssee/donnees-veille';
+  import { domainesDuRejeu, empreinteLisible, phraseDuRejeu } from '../../lib/odyssee/rejeu-veille';
+  import { syntheseEnTexte, type Synthese } from '../../lib/odyssee/synthese-veille';
   import { tousLesCheckins } from '../../lib/odyssee/donnees-psyche';
   import { ECART_NOTABLE, ecartALaBase, ORDRE_DIMENSIONS, DIMENSIONS } from '../../lib/odyssee/psyche';
 
@@ -511,6 +586,102 @@ const parDomaine = Object.keys(DOMAINES).map((d) => ({
     await peindreLeJournal();
   }
 
+  /* ── Le rejeu ─────────────────────────────────────────────────────────── */
+
+  async function peindreLeRejeu() {
+    $('rejeu-attente').classList.remove('hidden');
+    $('rejeu-resultat').classList.add('hidden');
+    /*
+       Une image avant de bloquer : le rejeu déroule plusieurs années jour par
+       jour, trois fois, et il le fait sur le fil principal. Sans ce rendu
+       intercalé, le bouton resterait figé sans que rien n'indique que quelque
+       chose se passe — et la deuxième chose qu'on fait alors est de cliquer
+       encore.
+    */
+    await new Promise((f) => requestAnimationFrame(() => setTimeout(f, 0)));
+
+    const { trois, courante, empreinte, ecartes } = await rejeuDeLHistorique();
+    const retenu = trois.find((r) => r.sensibilite === courante) ?? trois[1];
+
+    $('rejeu-phrase').textContent = phraseDuRejeu(retenu);
+
+    const corps = $('rejeu-lignes');
+    corps.innerHTML = '';
+    for (const r of trois) {
+      const tr = document.createElement('tr');
+      tr.dataset.rejeu = r.sensibilite;
+      tr.className =
+        'border-t border-slate-200 dark:border-slate-800' +
+        (r.sensibilite === courante ? ' font-semibold' : '');
+      const nom = REGLAGES[r.sensibilite].libelle + (r.sensibilite === courante ? ' (le vôtre)' : '');
+      const quand = r.reperes.length ? r.reperes.map((x) => x.jour).join(', ') : '—';
+      for (const texte of [nom, String(r.reperes.length), quand]) {
+        const td = document.createElement('td');
+        td.className = 'py-1 pr-2 align-top';
+        td.textContent = texte;
+        tr.appendChild(td);
+      }
+      corps.appendChild(tr);
+    }
+
+    const domaines = domainesDuRejeu(retenu);
+    $('rejeu-domaines').textContent = domaines.length
+      ? `Les domaines qui ont porté ces repères : ${domaines.map((d) => d.libelle).join(', ')}.`
+      : 'Aucun domaine n’a porté de repère sur cette période.';
+
+    $('rejeu-empreinte').textContent = empreinteLisible(empreinte);
+    $('rejeu-ecartes').textContent = ecartes.length
+      ? `${ecartes.length} repères sont écartés de cette empreinte, parce qu’ils viennent du ` +
+        'journal d’usage, qui ne quitte jamais son appareil.'
+      : 'Aucun repère n’est écarté de cette empreinte.';
+
+    $('rejeu-attente').classList.add('hidden');
+    $('rejeu-resultat').classList.remove('hidden');
+  }
+
+  /* ── La synthèse ──────────────────────────────────────────────────────── */
+
+  let synthese: Synthese | null = null;
+
+  function peindreLaSynthese(s: Synthese) {
+    const zone = $('synthese');
+    zone.innerHTML = '';
+
+    const titre = document.createElement('h3');
+    titre.className = 'text-base font-semibold text-slate-900 dark:text-white';
+    titre.textContent = s.titre;
+    zone.appendChild(titre);
+
+    for (const section of s.sections) {
+      const bloc = document.createElement('div');
+      bloc.dataset.section = section.titre;
+      const h = document.createElement('h4');
+      h.className = 'mt-3 text-sm font-semibold text-slate-900 dark:text-white';
+      h.textContent = section.titre;
+      bloc.appendChild(h);
+      for (const p of section.prose) {
+        const el = document.createElement('p');
+        el.className = 'mt-2 text-sm text-slate-700 dark:text-slate-200';
+        el.textContent = p;
+        bloc.appendChild(el);
+      }
+      if (section.lignes.length) {
+        const ul = document.createElement('ul');
+        ul.className = 'mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700 dark:text-slate-200';
+        for (const l of section.lignes) {
+          const li = document.createElement('li');
+          li.textContent = l;
+          ul.appendChild(li);
+        }
+        bloc.appendChild(ul);
+      }
+      zone.appendChild(bloc);
+    }
+    zone.classList.remove('hidden');
+    $('telecharger-synthese').classList.remove('hidden');
+    $('imprimer-synthese').classList.remove('hidden');
+  }
+
   function montrerLeCoffre() {
     const ouvert = coffreOuvert();
     $('coffre-ferme').classList.toggle('hidden', ouvert);
@@ -587,6 +758,32 @@ const parDomaine = Object.keys(DOMAINES).map((d) => ({
         await peindre();
       });
     }
+
+    $('rejouer').addEventListener('click', peindreLeRejeu);
+
+    $('composer-synthese').addEventListener('click', async () => {
+      synthese = await syntheseAMontrer();
+      peindreLaSynthese(synthese);
+      $('synthese').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+
+    $('telecharger-synthese').addEventListener('click', () => {
+      if (!synthese) return;
+      /*
+         Un fichier texte, et pas un PDF. Un PDF demanderait une bibliothèque
+         de plus sur une page déjà lourde, et le texte se lit, se colle dans
+         un courriel, s'imprime et se relit dans dix ans — ce qu'aucun format
+         fabriqué par une dépendance ne garantit.
+      */
+      const lien = document.createElement('a');
+      const blob = new Blob([syntheseEnTexte(synthese)], { type: 'text/plain;charset=utf-8' });
+      lien.href = URL.createObjectURL(blob);
+      lien.download = `veille-synthese-${synthese.editeLe}.txt`;
+      lien.click();
+      URL.revokeObjectURL(lien.href);
+    });
+
+    $('imprimer-synthese').addEventListener('click', () => window.print());
 
     $('bouton-pourquoi').addEventListener('click', () => {
       $('pourquoi').classList.toggle('hidden');

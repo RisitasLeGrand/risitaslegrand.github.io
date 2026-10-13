@@ -28,7 +28,6 @@
  * et posée sous une règle qui dit que les deux peuvent être vrais. Si elle
  * entrait ici, elle finirait tôt ou tard par peser sur une décision.
  */
-import { ulid } from '../noyau/ulid';
 import type { DomaineVeille, Indicateur } from './veille';
 import {
   CATALOGUE,
@@ -197,9 +196,57 @@ export function decider(etat: EtatVeille, jour: string): Decision {
 }
 
 /** Transforme un repère du moteur en repère enregistrable. */
+/**
+ * L'identité d'un repère, **déduite de son contenu** et non tirée au sort.
+ *
+ * C'était un ULID, c'est-à-dire un identifiant qui contient l'heure et du
+ * hasard. Deux appareils qui tiennent les mêmes données et lèvent le même
+ * repère le même jour lui donnaient donc deux noms différents — et le jour où
+ * ce magasin voyagerait, la personne verrait deux fois la même carte sans
+ * qu'aucun défaut ne se soit produit nulle part. Un identifiant tiré au sort
+ * est une divergence qu'on fabrique soi-même.
+ *
+ * L'identité est donc le condensé de ce qui fait le repère : le jour, le début
+ * de sa fenêtre, la sensibilité, et les indicateurs **triés** — l'ordre dans
+ * lequel le moteur les classe dépend de leur force, et deux appareils qui
+ * départageraient deux écarts égaux dans un ordre différent ne doivent pas
+ * pour autant fabriquer deux repères.
+ *
+ * Deux repères de même contenu le même jour se confondraient. C'est
+ * impossible en pratique — un seul repère est ouvert à la fois, et un silence
+ * suit chaque réponse —, et si cela arrivait, les confondre serait la bonne
+ * réponse plutôt qu'un défaut.
+ *
+ * Le jour reste en clair en tête : l'identifiant se trie comme un ULID, et se
+ * lit dans un journal sans avoir à ouvrir l'enregistrement.
+ */
+export function identiteDuRepere(repere: Repere): string {
+  const canonique = [
+    repere.jour,
+    repere.depuis,
+    repere.sensibilite,
+    [...repere.deviations.map((d) => d.indicateur)].sort().join(','),
+  ].join('|');
+  /*
+     FNV-1a sur 32 bits, appliqué deux fois avec des amorces différentes pour
+     tenir sur soixante-quatre : le hachage n'a rien à défendre ici — il ne
+     protège aucun secret et personne n'a intérêt à le heurter —, il doit
+     seulement être le même partout et ne dépendre d'aucune bibliothèque.
+  */
+  const fnv = (texte: string, amorce: number) => {
+    let h = amorce >>> 0;
+    for (let i = 0; i < texte.length; i += 1) {
+      h ^= texte.charCodeAt(i);
+      h = Math.imul(h, 16_777_619) >>> 0;
+    }
+    return h.toString(16).padStart(8, '0');
+  };
+  return `vr-${repere.jour}-${fnv(canonique, 2_166_136_261)}${fnv(canonique, 1)}`;
+}
+
 export function enregistrer(repere: Repere, le: string): SignalEnregistre {
   return {
-    id: ulid(),
+    id: identiteDuRepere(repere),
     jour: repere.jour,
     depuis: repere.depuis,
     sensibilite: repere.sensibilite,
@@ -420,7 +467,7 @@ export function controlerCycle(): string[] {
      constantes : c'est l'assemblage qui pourrait introduire un chiffre, pas
      les morceaux pris séparément.
   */
-  const carte = composerLaCarte({
+  const carteDEssai: Repere = {
     jour: '2026-10-13',
     depuis: '2026-09-30',
     sensibilite: 'standard',
@@ -429,7 +476,33 @@ export function controlerCycle(): string[] {
     appuis: [],
     contextes: [],
     baseArreteeAu: '2026-09-29',
-  });
+  };
+  const carte = composerLaCarte(carteDEssai);
   problemes.push(...controlerFormulations(phrasesDeLaCarte(carte)));
+
+  /*
+     L'identité doit tenir à l'ordre des déviations. C'est le seul endroit où
+     le hasard pourrait rentrer sans se voir : le moteur classe les écarts par
+     force, et deux appareils qui départageraient deux écarts égaux autrement
+     fabriqueraient deux repères là où il n'y en a qu'un.
+  */
+  const deviation = (indicateur: string) => ({
+    indicateur,
+    domaine: 'sommeil' as DomaineVeille,
+    libelle: indicateur,
+    ecarts: 3,
+    seuilApplique: 2.5,
+    devie: true,
+    contextes: [],
+    joursRetenus: 21,
+  });
+  const socle = { ...carteDEssai, deviations: [deviation('a'), deviation('b')] };
+  const inverse = { ...carteDEssai, deviations: [deviation('b'), deviation('a')] };
+  if (identiteDuRepere(socle) !== identiteDuRepere(inverse)) {
+    problemes.push(
+      'L’identité d’un repère dépend de l’ordre de ses déviations : deux appareils ' +
+        'pourraient fabriquer deux repères là où il n’y en a qu’un.',
+    );
+  }
   return problemes;
 }

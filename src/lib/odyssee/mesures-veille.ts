@@ -291,6 +291,36 @@ export function construireLesMesures(sources: SourcesDeMesures): Record<string, 
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   Ce qui ne voyage pas d'un appareil à l'autre
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Les indicateurs tirés du journal d'usage, et donc **propres à un appareil**.
+ *
+ * Le journal d'usage n'est pas synchronisé, délibérément : un appareil écrit
+ * une session chaque fois qu'on l'ouvre, et si ces sessions voyageaient, deux
+ * appareils ne pourraient plus jamais présenter la même empreinte — les
+ * ouvrir pour comparer suffirait à créer l'écart qu'on vient constater.
+ *
+ * La conséquence est qu'un appareil et un autre ne s'accorderont jamais sur
+ * ces cinq-là, même parfaitement synchronisés. Ce n'est pas un défaut, mais
+ * cela doit se **dire** : `rejeu-veille.ts` les écarte de la comparaison
+ * entre appareils, et nomme ce qu'il a écarté.
+ *
+ * La liste est déclarée ici, à côté du code qui les fabrique, et un essai la
+ * compare à ce que `construireLesMesures` produit en ne recevant **que** le
+ * journal d'usage. Le jour où un indicateur changera de source, l'essai le
+ * dira plutôt que l'écran de comparaison.
+ */
+export const DEPUIS_LE_JOURNAL_DUSAGE: readonly string[] = [
+  'usage.heure-tardive',
+  'usage.duree',
+  'usage.fragmentation',
+  'jour.amplitude',
+  'jour.irregularite-debut',
+];
+
+/* ══════════════════════════════════════════════════════════════════════════
    Ce qui n'est pas encore collecté
    ══════════════════════════════════════════════════════════════════════════ */
 

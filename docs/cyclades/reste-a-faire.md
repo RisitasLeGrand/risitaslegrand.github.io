@@ -10,8 +10,8 @@ signalés.
 
 | Chantier | Où en est-ce | Qui |
 |---|---|---|
-| **Veille du rythme de vie, phase 4** | Jeux synthétiques écrits, taux de faux signaux en cours de mesure sur cinq ans × dix graines × trois sensibilités. Restent : déterminisme sur deux appareils, synthèse médecin, mode rejeu, documentation. | moi |
 | **Fascicule 5 — 79 fiches** | Inventaire rendu : 346 pages, 79 chapitres, dont **61 entièrement neufs**. 16 fiches écrites à l'heure de ce relevé. +23 % de contenu, qui porterait le total à 426 fiches. | agent INSP |
+| **Veille — rejouer sur de vraies données** | Phase 4 close : déterminisme sur deux appareils, synthèse médecin et mode rejeu livrés et éprouvés. Le rejeu n'a toutefois encore **rien à lire** — cette installation ne porte aucun historique de veille. Ce qui reste n'est pas du code : c'est d'avoir vécu assez de jours. | moi, plus tard |
 | **Explications et corrections détaillées** | 8 048 questions au total. **2 706 n'ont aucune explication**, et 7 902 n'ont pas de correction détaillée. Plan chiffré demandé avant exécution. | agent INSP, après le F5 |
 
 ---

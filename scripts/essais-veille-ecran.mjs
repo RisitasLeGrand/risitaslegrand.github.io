@@ -170,6 +170,69 @@ console.log('\nLES TROIS SENSIBILITÉS, ET LA PAUSE');
   faux('et se lève', (await page.textContent('#statut')).includes('en pause'));
 }
 
+console.log('\nLE REJEU NE TOUCHE À RIEN');
+
+{
+  const statutAvant = await page.textContent('#statut');
+  await page.click('#rejouer');
+  await page.waitForSelector('#rejeu-resultat:not(.hidden)', { timeout: 30000 });
+
+  vrai('les trois réglages sont rejoués',
+    (await page.$$eval('[data-rejeu]', (e) => e.map((x) => x.dataset.rejeu))).length === 3);
+  vrai('sans historique, il le dit au lieu de rassurer',
+    (await page.textContent('#rejeu-phrase')).includes('pas encore assez d’historique'));
+  vrai('une empreinte comparable est affichée, en quatre groupes de quatre',
+    /^[0-9A-F]{4}( · [0-9A-F]{4}){3}$/.test((await page.textContent('#rejeu-empreinte')).trim()));
+  vrai('et ce qui en est écarté est nommé',
+    (await page.textContent('#rejeu-ecartes')).includes('journal d’usage'));
+
+  /*
+     Le point qui vaut cet essai : le rejeu est une lecture. S'il écrivait
+     quoi que ce soit — un repère, un « evalueeLe » avancé —, il deviendrait
+     une façon détournée de recevoir des cartes en retard, et le statut
+     changerait sous les yeux.
+  */
+  v('le statut n’a pas bougé', await page.textContent('#statut'), statutAvant);
+  faux('aucune carte n’est apparue', await page.locator('#carte').isVisible());
+  vrai('et le journal des repères est toujours vide',
+    (await page.textContent('#aucun-repere')).includes('ne signifie pas'));
+}
+
+console.log('\nLA SYNTHÈSE MÉDECIN');
+
+{
+  faux('le téléchargement n’est proposé qu’une fois le document composé',
+    await page.locator('#telecharger-synthese').isVisible());
+
+  await page.click('#composer-synthese');
+  await page.waitForSelector('#synthese:not(.hidden)', { timeout: 20000 });
+
+  const sections = await page.$$eval('[data-section]', (e) => e.map((x) => x.dataset.section));
+  v('les sept sections sont rendues', sections.length, 7);
+  vrai('dont celle qui dit ce qui est tu',
+    sections.includes('Ce que ce document ne contient pas'));
+
+  const texte = await page.textContent('#synthese');
+  vrai('le document dit qu’il ne dépiste rien', texte.includes('ne dépiste rien'));
+  vrai('et qu’il n’existe ni sensibilité ni spécificité',
+    texte.includes('ni sensibilité, ni spécificité'));
+  vrai('et que l’absence de repère ne rassure pas',
+    texte.includes('L’absence de repère ne signifie pas que tout va bien'));
+  vrai('il porte des chiffres, à la différence de la carte', /\d/.test(texte));
+  vrai('il nomme le réglage en vigueur', texte.includes('Réglage en vigueur'));
+  faux('aucun score d’échelle n’y figure',
+    texte.includes('PHQ') || texte.includes('GAD') || texte.includes('WHO-5'));
+
+  vrai('l’enregistrement est maintenant proposé',
+    await page.locator('#telecharger-synthese').isVisible());
+
+  // Composer deux fois ne doit pas empiler deux documents.
+  await page.click('#composer-synthese');
+  await page.waitForTimeout(500);
+  v('composer deux fois ne duplique rien',
+    (await page.$$eval('[data-section]', (e) => e.length)), 7);
+}
+
 console.log('\nÉTEINDRE N’EFFACE RIEN ET NE RATTRAPE RIEN');
 
 await page.uncheck('#activer');

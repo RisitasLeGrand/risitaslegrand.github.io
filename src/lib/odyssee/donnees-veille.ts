@@ -23,7 +23,15 @@ import { exigerLeCoffre } from '../coffre';
 import { ouvrir, sceller } from '../noyau/coffre';
 import { jourLogique } from '../noyau/jour-logique';
 import { construireLesMesures, type SourcesDeMesures } from './mesures-veille';
-import type { Contexte } from './moteur-veille';
+import type { Contexte, Sensibilite } from './moteur-veille';
+import {
+  empreinteDuRejeu,
+  partageable,
+  rejouer,
+  rejouerLesTrois,
+  type Rejeu,
+} from './rejeu-veille';
+import { syntheseMedecin, type Synthese } from './synthese-veille';
 import {
   REGLAGES_PAR_DEFAUT,
   decider,
@@ -206,6 +214,71 @@ export async function faireUnTour(
     return { ...tour, etat: { ...etat, ouvert: tour.leve } };
   }
   return { ...tour, etat };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Le rejeu et la synthèse
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export interface RejeuComplet {
+  /** Les trois sensibilités sur le même historique. */
+  trois: readonly Rejeu[];
+  /** Celle actuellement choisie, pour la mettre en avant. */
+  courante: Sensibilite;
+  /**
+   * L'empreinte de ce que deux appareils peuvent comparer.
+   *
+   * Calculée sur la sensibilité en vigueur et hors journal d'usage : c'est la
+   * seule chose que deux appareils synchronisés doivent afficher à
+   * l'identique.
+   */
+  empreinte: string;
+  ecartes: readonly string[];
+}
+
+/**
+ * Rejoue l'historique réel. **Sans rien écrire.**
+ *
+ * Ni repère levé, ni réglage touché, ni `evalueeLe` avancé : c'est une
+ * lecture, et le seul endroit où elle pourrait cesser de l'être est ici. Le
+ * tour de veille employé rend des objets ; personne ne les enregistre.
+ */
+export async function rejeuDeLHistorique(): Promise<RejeuComplet> {
+  exigerLeCoffre();
+  const reglages = await lireLesReglages();
+  const mesures = construireLesMesures(await lireLesSources());
+  const { mesures: partagees, ecartes } = partageable(mesures);
+  return {
+    trois: rejouerLesTrois({ mesures }),
+    courante: reglages.sensibilite,
+    empreinte: await empreinteDuRejeu(
+      rejouer({ mesures: partagees, sensibilite: reglages.sensibilite }),
+    ),
+    ecartes,
+  };
+}
+
+/**
+ * La synthèse à imprimer ou à montrer.
+ *
+ * Elle est composée à la demande et n'est enregistrée nulle part — ni dans un
+ * magasin, ni dans le coffre. Un document destiné à sortir de l'appareil dans
+ * la poche de quelqu'un n'a aucune raison d'y rester aussi.
+ */
+export async function syntheseAMontrer(
+  le = new Date(),
+  contextes: readonly Contexte[] = [],
+): Promise<Synthese> {
+  exigerLeCoffre();
+  const [reglages, signaux] = await Promise.all([lireLesReglages(), tousLesSignaux()]);
+  const mesures = construireLesMesures(await lireLesSources());
+  return syntheseMedecin({
+    jour: jourLogique(le),
+    reglages,
+    signaux,
+    contextes,
+    alimentes: Object.keys(mesures),
+  });
 }
 
 /** Le détail chiffré, pour « Pourquoi ce repère ? ». Jamais sur la carte. */

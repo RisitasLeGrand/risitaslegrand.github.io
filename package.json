@@ -105,6 +105,8 @@
     "essais:signal-veille": "tsx scripts/essais-signal-veille.mts",
     "essais:mesures-veille": "tsx scripts/essais-mesures-veille.mts",
     "essais:veille:ecran": "node scripts/essais-veille-ecran.mjs",
+    "essais:rejeu-veille": "tsx scripts/essais-rejeu-veille.mts",
+    "essais:synthese-veille": "tsx scripts/essais-synthese-veille.mts",
     "veille:faux-signaux": "tsx scripts/veille-faux-signaux.mts",
     "essais:echelles": "tsx scripts/essais-echelles.mts",
     "essais:echelles:ecran": "node scripts/essais-echelles-ecran.mjs",

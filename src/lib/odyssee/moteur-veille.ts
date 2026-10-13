@@ -126,6 +126,22 @@ export const REGLAGES: Record<Sensibilite, Reglage> = {
 
 export const SENSIBILITE_PAR_DEFAUT: Sensibilite = 'standard';
 
+/**
+ * Le jour où ces trois seuils ont été arrêtés.
+ *
+ * Il existe pour une seule raison : la synthèse médecin recopie des chiffres
+ * mesurés — tant de signaux par an, telle dégradation remarquée tant de fois
+ * — et un chiffre recopié vieillit sans bruit. Changer un seuil sans refaire
+ * la mesure produirait un document qui affirme, sur un réglage, ce qui avait
+ * été observé sur un autre.
+ *
+ * `controlerLaMesure()` refuse donc une mesure antérieure à cette date. Qui
+ * touche à `REGLAGES` doit relancer `npm run veille:faux-signaux`, reporter
+ * les chiffres, et avancer les deux dates. Le garde est volontairement
+ * pénible : c'est exactement le genre d'écart que personne ne verrait.
+ */
+export const REGLAGES_FIXES_LE = '2026-10-13';
+
 /* ══════════════════════════════════════════════════════════════════════════
    Le contexte déclaré
    ══════════════════════════════════════════════════════════════════════════ */

@@ -333,7 +333,7 @@ santé.
 | **1** | Registre déclaratif des indicateurs, calcul des valeurs, complétude, base personnelle robuste. Tests : médiane et ÉAM sur cas connus, séparation ouvré / week-end, « non saisi » ≠ « valeur basse ». | **faite** — 65 essais |
 | **2** | Moteur : déviation, persistance, croisement, décote de contexte, trois sensibilités, base figée. ~~Web Worker, calcul incrémental~~ — écartés après mesure, voir 7 ter. Tests : déclin multi-domaines détecté après 14 j, déclin mono-domaine jamais, base non entraînée. | **faite** — 60 essais |
 | **3** | Carte, « Pourquoi ce repère », « Ce que la veille regarde », « À propos », statut, journal des signaux, cadence, pause, désactivation. Tests : check-in rassurant ne lève rien, un seul signal actif, désactivation sans relance. | **faite** — 96 essais purs + 29 navigateur |
-| **4** | Jeux synthétiques sur cinq ans et **taux de faux signaux mesuré** : fait, voir `mesures.md` — et la mesure a trouvé deux défauts de conception. Restent : recalcul identique sur deux appareils, synthèse médecin, mode rejeu. | **en cours** |
+| **4** | Jeux synthétiques sur cinq ans et **taux de faux signaux mesuré** (voir `mesures.md` — la mesure a trouvé deux défauts de conception), recalcul identique sur deux appareils, synthèse médecin, mode rejeu. | **faite** — 45 + 35 essais purs, 11 navigateur |
 
 ## 7 bis. Ce que la phase 1 a appris
 
@@ -441,6 +441,60 @@ révisions, les interactions notées et les repas sautés. L'écran les affiche
 avec la mention « pas encore alimenté », et un essai compare la liste à ce que
 le collecteur produit réellement — le jour où une branche se met à alimenter
 l'un d'eux sans qu'on retire la ligne, l'essai le dira.
+
+## 7 quinquies. Ce que la phase 4 a appris
+
+**Je fabriquais moi-même la divergence que je cherchais à mesurer.** Un repère
+recevait un ULID, c'est-à-dire un identifiant tiré de l'heure et du hasard.
+Deux appareils tenant les mêmes données et levant le même repère le même jour
+lui donnaient donc deux noms différents — et le jour où ce magasin voyagerait,
+la même carte apparaîtrait deux fois sans qu'aucun défaut ne se soit produit
+nulle part. L'identité est désormais le condensé de ce qui fait le repère, et
+elle ne dépend même pas de l'ordre dans lequel le moteur a classé les écarts.
+
+**Classer une divergence par ses indicateurs était faux dans le sens
+dangereux.** Ma première version distinguait les divergences « attendues » —
+celles qui ne portent que sur des indicateurs tirés du journal d'usage, lequel
+ne voyage pas — des autres. Or un repère exige trois domaines : sa liste
+d'indicateurs déborde toujours du rythme. Une divergence réellement causée par
+le journal d'usage se présentait donc comme un défaut de reproductibilité, et
+à force d'en voir, on aurait cessé de regarder — donc on aurait cessé de voir
+le vrai désaccord, le jour où il serait arrivé.
+
+La bonne méthode ne demande aucun jugement : on **rejoue deux fois**. Sur la
+part qui voyage, toute divergence est un défaut, sans exception et sans
+interprétation. Sur la totalité, ce qui apparaît en plus est le prix du
+journal d'usage, et ce prix se constate au lieu de se déduire.
+
+**Les chiffres sont interdits sur la carte et obligatoires dans la synthèse
+médecin.** Ce n'est pas une incohérence : c'est le même raisonnement appliqué
+à deux lecteurs. Devant quelqu'un qui n'a aucun moyen d'en juger, un chiffre
+donne à une comparaison avec soi-même l'allure d'une mesure clinique. Devant
+un professionnel qui en a les moyens, les retenir serait lui demander un avis
+en lui cachant ce sur quoi le donner. Un essai porte explicitement la
+différence, parce qu'une prochaine lecture la prendrait sinon pour un oubli et
+« harmoniserait » les deux contrôles.
+
+**Un repère sans donnée a deux raisons de l'être, et les confondre ment.** La
+première version de la synthèse disait « trois repères ne sont pas
+renseignés » en mêlant ceux que la personne n'a pas saisis et ceux
+qu'*aucune source de l'application n'alimente encore*. Un lecteur y aurait lu
+un relâchement de saisie là où c'est le programme qui ne sait pas mesurer.
+Trois états, donc, et non deux.
+
+**Un chiffre recopié vieillit en silence.** La synthèse cite les taux mesurés
+plutôt que de relancer un calcul de plusieurs minutes à chaque impression.
+Changer un seuil sans refaire la mesure produirait un document qui affirme,
+sur un réglage, ce qui avait été observé sur un autre. D'où `REGLAGES_FIXES_LE`
+et un garde qui refuse une mesure antérieure : qui touche aux seuils doit
+relancer la mesure et avancer les deux dates.
+
+**Le rejeu existe, la lecture qu'il devait permettre n'existe pas encore.**
+`mesures.md` concluait que le rejeu sur l'historique réel était le seul moyen
+d'évaluation disponible. L'instrument est là, éprouvé sur des vies
+synthétiques ; mais cette installation ne porte aucun historique de veille, et
+il n'a donc encore rien à lire. Ce qui reste à faire n'est plus du code : c'est
+d'attendre d'avoir vécu assez de jours pour le rejouer.
 
 ## 8. Ce que je n'ai pas pu vérifier
 

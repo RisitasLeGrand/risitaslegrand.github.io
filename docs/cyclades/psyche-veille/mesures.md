@@ -172,3 +172,75 @@ quatre planchers passe presque toujours inaperçue. Savoir laquelle des deux
 ressemble à ce qui arrive dans une vraie vie demanderait une vérité terrain
 qui n'existe pas. Le **mode rejeu** sur l'historique réel est le seul moyen
 d'évaluation disponible, et c'est pour cela qu'il est au programme.
+
+---
+
+## 7. Le rejeu, et ce que deux appareils peuvent comparer
+
+Ajoutés après la mesure, et pour la prolonger.
+
+### Le rejeu
+
+Dérouler l'historique réel jour après jour, avec les trois réglages, et voir ce
+que la veille **aurait dit**. Le parcours est séquentiel et emploie le tour de
+veille réel, pas une copie : la base figée, le silence après réponse et la
+règle du repère unique dépendent tous de l'état laissé par la veille, et une
+copie aurait dérivé au premier changement de cadence.
+
+Il n'écrit rien — ni repère, ni réglage, ni `evalueeLe`. Un essai navigateur le
+vérifie en comparant le statut affiché avant et après : si le rejeu écrivait
+quoi que ce soit, il deviendrait une façon détournée de recevoir des cartes en
+retard.
+
+Les quatre-vingt-quatre premiers jours sont écartés. En deçà la veille répond
+« données insuffisantes », ce qui est le bon comportement mais ne dit rien ;
+les compter comme observés ferait croire à un dispositif plus discret qu'il
+n'est.
+
+**Ce que le rejeu a donné à ce jour : rien.** Cette installation ne porte aucun
+historique de veille. L'instrument est éprouvé sur les vies synthétiques — une
+vie stable de trois ans ne lève aucun repère au réglage par défaut, une
+dégradation de huit planchers au jour 400 est vue le treizième jour —, mais la
+lecture sur données réelles, celle que la section 6 appelait, attend d'avoir de
+quoi se faire.
+
+### Deux appareils
+
+La veille ne se synchronise pas : ses trois magasins ne sont pas journalisés,
+et chaque appareil calcule chez lui. Ce qui les rapproche, ce sont leurs
+**sources**, qui voyagent — à une exception près, délibérée : le journal
+d'usage. Les cinq indicateurs du domaine `rythme` en dérivent, et deux
+appareils ne peuvent donc pas s'y accorder.
+
+D'où une comparaison en deux temps, qui ne demande aucun jugement :
+
+| Ce qu'on rejoue | Ce qu'une divergence signifie |
+|---|---|
+| La part qui voyage | **Un défaut.** Sans exception et sans interprétation. |
+| Tout | Le prix du journal d'usage, constaté au lieu d'être déduit. |
+
+L'écran affiche l'empreinte de la première, en seize signes et quatre groupes,
+comme celle des journaux : deux appareils synchronisés doivent afficher la
+même, et ce qui en est écarté est nommé sous elle.
+
+Les propriétés éprouvées, chacune par un essai qui échouerait si elle tombait :
+l'ordre des indicateurs dans l'objet ne change rien, l'ordre des jours à
+l'intérieur d'une série non plus, et le fuseau horaire du processus non plus —
+avec une canarie qui vérifie d'abord que le fuseau a bien changé, sans quoi
+l'essai n'éprouverait rien.
+
+### La synthèse médecin
+
+La carte dit « en parler à votre médecin peut être utile ». Ce document existe
+pour que la phrase soit suivable : sept sections, composées à la demande, non
+conservées, et qui portent leurs dénégations en propre — ne dépiste rien, ne
+diagnostique rien, ni sensibilité ni spécificité, l'absence de repère ne
+signifie pas que tout va bien.
+
+Il porte des chiffres, que la carte interdit. C'est le même raisonnement
+appliqué à deux lecteurs, et un essai le dit explicitement pour qu'on ne le
+prenne pas pour un oubli.
+
+Il ne contient ni auto-évaluation, ni score d'échelle, ni intitulé de note, de
+tâche ou de repas — et il dit lesquels, parce qu'un lecteur qui ignore ce qui a
+été tu suppose que tout y est.
