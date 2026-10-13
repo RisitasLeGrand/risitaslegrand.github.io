@@ -30,6 +30,34 @@
  * rechargement où l'on n'a rien tapé. L'écran le dit et propose de le saisir,
  * au lieu de laisser croire que la synchronisation veille.
  *
+ * ## Les déclencheurs, et pourquoi chacun est là
+ *
+ * La veille ne partait que du chargement de page, puis d'un battement de cinq
+ * minutes. Quatre occasions manquaient, et chacune correspond à un moment où
+ * la personne **attend** que ce soit déjà fait :
+ *
+ * | Occasion | Ce qui la rend utile |
+ * |---|---|
+ * | retour au premier plan | on revient de l'autre appareil, justement |
+ * | retour du réseau | l'échange précédent a pu échouer pour cette raison |
+ * | après une écriture, regroupée | une carte notée ne doit pas attendre cinq minutes |
+ * | fermeture | voir plus bas : elle est déjà couverte, et autrement |
+ *
+ * **La fermeture est le cas intéressant.** On ne peut pas échanger pendant
+ * `pagehide` : deux dérivations PBKDF2 de 600 000 itérations et une
+ * négociation WebRTC ne tiennent pas dans le délai qu'un navigateur accorde à
+ * une page qui s'en va, et une tentative à moitié faite ne vaut rien. Mais le
+ * déclencheur de fermeture **existe déjà, par construction** : `echangeUtile`
+ * compare l'empreinte locale à celle du dernier échange, et une page fermée
+ * avec des écritures non échangées rouvre donc sur un échange immédiat.
+ * `pagehide` sert à autre chose, et à une seule chose : quitter le salon
+ * proprement, pour que l'appareil d'en face ne garde pas un pair fantôme.
+ *
+ * **Chaque déclencheur a son plancher.** Un échange coûte deux dérivations de
+ * clé ; ce module refusait déjà de les dépenser toutes les cinq minutes pour
+ * ne rien transporter, et il serait absurde de les dépenser à chaque bascule
+ * d'onglet. Les planchers sont nommés ci-dessous, chacun avec sa raison.
+ *
  * ## Jamais d'exception vers l'appelant
  *
  * Ce module tourne pour son compte, déclenché par le chargement d'une page. Une
@@ -42,8 +70,10 @@ import { appairageMemorise } from './appairage';
 import { estCertifie } from './certification';
 import { echanger, type RapportDEchange } from './echange';
 import { motDePasseRetenu } from './mot-de-passe-session';
+import { garderLEcranAllume } from './ecran-allume';
 import { rejoindre, type Salon } from './salon';
 import { empreinteLocale } from './service';
+import { surEcritureRegroupee } from './signal-ecriture';
 import { db } from '../db';
 
 export type Etat =
@@ -69,6 +99,8 @@ export interface OptionsVeille {
   rejoindreSalon?: Parameters<typeof rejoindre>[0]['rejoindreSalon'];
   /** Le verrou d'onglet. Injectable pour les essais, et absent est toléré. */
   verrouiller?: Verrouiller;
+  /** Le verrou d'écran. Injectable pour les essais ; absent, on n'en prend pas. */
+  verrouDEcran?: Parameters<typeof garderLEcranAllume>[0];
 }
 
 /**
@@ -115,6 +147,36 @@ export const DELAI_AVANT_ECHANGE_MS = 1200;
  * la machine pour le principe.
  */
 export const INTERVALLE_MS = 5 * 60 * 1000;
+
+/**
+ * Le plancher d'un échange déclenché par un **retour au premier plan**.
+ *
+ * Une bascule d'onglet ne dit rien de nouveau sur l'état local — l'empreinte
+ * n'a pas bougé — mais elle dit quelque chose sur l'intention : on revient,
+ * souvent de l'autre appareil. On échange donc même sans changement local,
+ * ce que `echangeUtile` ne ferait pas, mais pas plus d'une fois par minute :
+ * entre deux onglets, un aller-retour se compte en secondes.
+ */
+export const PLANCHER_RETOUR_MS = 60 * 1000;
+
+/**
+ * Le plancher d'un échange déclenché par le **retour du réseau**.
+ *
+ * Plus court, parce que l'événement est rare et qu'il signale précisément la
+ * levée de ce qui faisait échouer l'échange précédent.
+ */
+export const PLANCHER_RESEAU_MS = 30 * 1000;
+
+/**
+ * Le plancher d'un échange déclenché par une **écriture**.
+ *
+ * Le signal d'écriture est déjà regroupé — vingt secondes de silence. Mais
+ * une séance de flashcards fait des rafales séparées par des pauses, et
+ * chaque pause vaudrait un échange : deux minutes d'écart est ce qui ramène
+ * le coût sous celui du battement tout en divisant l'attente par deux et
+ * demi.
+ */
+export const PLANCHER_ECRITURE_MS = 2 * 60 * 1000;
 
 /**
  * La clef où l'on note le dernier échange de la veille.
@@ -183,6 +245,16 @@ export async function demarrer(options: OptionsVeille = {}): Promise<Veille | nu
   let salon: Salon | null = null;
   let arrete = false;
   let enCours = false;
+  /*
+     L'heure du dernier échange **de cette page**, en mémoire.
+
+     Distincte de `derniereVeille`, qui est persistée et porte une empreinte :
+     celle-là sert à savoir s'il y a quelque chose à envoyer, celle-ci à ne
+     pas rouvrir une liaison toutes les dix secondes. Un plancher doit être
+     local à l'onglet : c'est lui qui vient de payer les deux dérivations.
+  */
+  let dernierEchangeMs = 0;
+  const detacher: Array<() => void> = [];
   let minuteur: ReturnType<typeof setTimeout> | null = null;
   let battement: ReturnType<typeof setInterval> | null = null;
 
@@ -191,6 +263,14 @@ export async function demarrer(options: OptionsVeille = {}): Promise<Veille | nu
     if (!salon.pairs().length) return;
     enCours = true;
     dire('en-cours');
+    /*
+       L'écran reste allumé pendant l'échange, et pas une seconde de plus.
+       Sur un téléphone, l'écran qui s'éteint suspend la page au milieu de la
+       négociation : rien n'est corrompu — la fusion est idempotente —, mais
+       la synchronisation ne se fait jamais quand on ne la regarde pas, ce
+       qui est exactement ce qu'elle ne doit pas être.
+    */
+    const ecran = await garderLEcranAllume(options.verrouDEcran);
     try {
       const rapport = await echanger(salon.canal, motDePasse, {
         nomAppareil: options.nomAppareil,
@@ -198,15 +278,33 @@ export async function demarrer(options: OptionsVeille = {}): Promise<Veille | nu
       });
       await options.surFusion?.(rapport);
       await noterEchange(rapport.recu.empreinte);
+      dernierEchangeMs = Date.now();
       if (!arrete) dire('en-veille');
     } catch (erreur) {
       // L'autre appareil a pu fermer sa page au milieu : ce n'est pas une
       // panne de la veille, et elle continue.
+      dernierEchangeMs = Date.now();
       dire('echec', erreur instanceof Error ? erreur.message : String(erreur));
       if (!arrete) dire('en-veille');
     } finally {
       enCours = false;
+      await ecran.rendre();
     }
+  };
+
+  /*
+     Un échange déclenché par une occasion plutôt que par un changement.
+
+     `echangeUtile` répond « non » quand l'empreinte locale n'a pas bougé, et
+     c'est juste pour le battement : rien à envoyer. Mais au retour au premier
+     plan ou au retour du réseau, ce qui a pu changer est **chez l'autre**, et
+     l'empreinte locale ne le dira jamais. D'où ce chemin parallèle, borné par
+     un plancher propre à chaque occasion.
+  */
+  const echangerSiPlancherPasse = async (plancher: number) => {
+    if (arrete || enCours || !salon?.pairs().length) return;
+    if (Date.now() - dernierEchangeMs < plancher) return;
+    await echangerMaintenant();
   };
 
   const ouvrirSalon = async () => {
@@ -239,7 +337,57 @@ export async function demarrer(options: OptionsVeille = {}): Promise<Veille | nu
       })();
     }, INTERVALLE_MS);
 
+    brancherLesDeclencheurs();
     dire('en-veille');
+  };
+
+  /**
+   * Les quatre occasions, branchées une fois le salon ouvert.
+   *
+   * Chacune se détache à l'arrêt : la veille vit dans la mise en page, et une
+   * mise en page qui laisserait des écouteurs derrière elle en empilerait un
+   * jeu par navigation.
+   */
+  const brancherLesDeclencheurs = () => {
+    const doc = globalThis.document;
+    const fenetre = globalThis.window;
+
+    if (doc?.addEventListener) {
+      // Retour au premier plan : on revient souvent de l'autre appareil.
+      const auRetour = () => {
+        if (doc.visibilityState === 'visible') void echangerSiPlancherPasse(PLANCHER_RETOUR_MS);
+      };
+      doc.addEventListener('visibilitychange', auRetour);
+      detacher.push(() => doc.removeEventListener('visibilitychange', auRetour));
+    }
+
+    if (fenetre?.addEventListener) {
+      // Retour du réseau : c'est précisément ce qui faisait échouer l'échange.
+      const auReseau = () => void echangerSiPlancherPasse(PLANCHER_RESEAU_MS);
+      fenetre.addEventListener('online', auReseau);
+      detacher.push(() => fenetre.removeEventListener('online', auReseau));
+
+      /*
+         Fermeture. On n'échange pas ici — voir l'en-tête du module : le
+         délai accordé à une page qui s'en va ne couvre pas deux dérivations
+         PBKDF2 et une négociation WebRTC, et une tentative à moitié faite ne
+         vaut rien. On quitte le salon, pour que l'appareil d'en face ne
+         garde pas un pair fantôme qu'il attendrait en vain. Ce que la
+         fermeture devait déclencher, la réouverture le fait : `echangeUtile`
+         voit l'empreinte changée et échange sans attendre le battement.
+      */
+      const aLaFermeture = () => {
+        void salon?.quitter();
+      };
+      fenetre.addEventListener('pagehide', aLaFermeture);
+      detacher.push(() => fenetre.removeEventListener('pagehide', aLaFermeture));
+    }
+
+    // Après une écriture, regroupée — le signal attend vingt secondes de
+    // silence, et le plancher deux minutes depuis le dernier échange.
+    detacher.push(
+      surEcritureRegroupee(() => void echangerSiPlancherPasse(PLANCHER_ECRITURE_MS)),
+    );
   };
 
   const verrouiller = options.verrouiller ?? verrouDuNavigateur();
@@ -264,6 +412,7 @@ export async function demarrer(options: OptionsVeille = {}): Promise<Veille | nu
       arrete = true;
       if (minuteur) clearTimeout(minuteur);
       if (battement) clearInterval(battement);
+      for (const detacherUn of detacher.splice(0)) detacherUn();
       verrou?.relacher();
       await salon?.quitter();
       salon = null;
