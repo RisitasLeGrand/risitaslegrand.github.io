@@ -40,6 +40,105 @@ si l'API répond**, avec un repli annoncé, jamais supposé présent. La cible d
 partage (méthode 4) reste **à vérifier sur ton téléphone**, et je ne
 l'inscrirai dans aucune phase avant.
 
+## 2 bis. Le relevé PDF, mesuré sur un vrai fichier
+
+Tu m'as transmis un extrait de compte de septembre 2026 (CIC — Lyonnaise de
+Banque, 9 pages, 4 comptes). Il est dans `sources/releves/`, **ignoré par Git**,
+et il ne sera jamais commité. Dis-moi quand je dois l'effacer.
+
+J'avais recommandé « pas de PDF en v1 » sans en avoir ouvert un. Voici ce que
+la mesure dit, et en quoi elle me fait changer d'avis.
+
+### Ce qui marche
+
+| Vérification | Résultat |
+|---|---|
+| Couche de texte | **présente** — 29 141 caractères, aucune OCR nécessaire |
+| Producteur | `UTM2_ps2pdf`, génération régulière |
+| Lignes d'opération | **267**, toutes de la forme `date date libellé montant` |
+| Soldes d'ouverture et de clôture | **imprimés pour chacun des 4 comptes** |
+| Attribution aux comptes | 184 + 6 + 32 + 45 = 267, **exacte** |
+
+### Le piège, et pourquoi il décide de la méthode
+
+**Le signe n'est pas dans le texte, il est dans la position.** Débit et crédit
+sont deux colonnes ; l'extraction linéaire les écrase. Mesuré : avec `pypdf`,
+les montants d'un débit et d'un crédit tombent à la **même colonne de
+caractères** (51 pour `PAIEMENT PSC TARBES 5,00` comme pour `VIR DE M ALEXIS
+POUSSET 10,00`). Le producteur émet la ligne entière en une seule opération de
+texte, et l'espacement de colonne disparaît.
+
+Avec **pdf.js** — la bibliothèque qui tournerait dans le navigateur — les
+positions sont conservées, et les deux colonnes se séparent nettement :
+
+```
+x des montants : 435:6  438:1  440:42  444:32  445:16  449:55  454:21
+                 │←──────────── 173 débits ────────────→│
+                 510:10  512:3  514:20  518:11  519:10  524:29  528:11
+                 │←──────────── 94 crédits ────────────→│
+```
+
+Un vide de **56 points** sépare les deux groupes. La frontière se **déduit** du
+fichier (le plus grand écart entre deux abscisses), elle ne se code pas : les
+pages de livret n'ont pas la même mise en page que celles du compte courant.
+
+### Et le résultat qui change tout
+
+J'ai écrit l'analyseur complet et je l'ai confronté aux soldes imprimés :
+
+```
+✓ LIVRET JEUNE                 6 op.   1600,00 +   0,00 → 1600,00  imprimé 1600,00
+✗ C/C CONTRAT PERSONNEL      184 op.    525,71 − 438,81 →   86,90  imprimé    8,76
+✗ LIVRET A SUP                32 op.    410,00 + 225,00 →  635,00  imprimé  605,00
+✗ LIVRET DE DEVELOPPEMENT     45 op.    506,00 +2944,00 → 3450,00  imprimé 3325,00
+```
+
+**Trois comptes sur quatre ne bouclent pas**, de 30 €, 125 € et 78,14 €. Les
+colonnes sont pourtant bien séparées, l'attribution aux comptes est exacte, et
+aucune ligne n'est sautée — je l'ai vérifié ligne à ligne. Il reste donc une
+poignée de montants dont le signe est faux, et **je n'ai pas fini de les
+identifier**. Je le dis plutôt que de laisser croire à un analyseur qui marche.
+
+C'est précisément le résultat utile. Un analyseur écrit avec soin, dont chaque
+étape intermédiaire a l'air juste, produit un solde faux de 30 € sur un compte.
+Sans contrôle, ces erreurs entrent dans le budget **en silence**, et faussent
+tous les rapprochements suivants — et on les découvre trois mois plus tard, en
+cherchant pourquoi rien ne tombe juste.
+
+### Ce que j'en conclus, et qui remplace ma décision 8
+
+**Le PDF devient importable, à une condition absolue : le solde de chaque
+compte doit boucler au centime, ou l'import est refusé.**
+
+Le relevé imprime ses propres soldes d'ouverture et de clôture : le contrôle
+est donc **gratuit et total**. Ce n'est pas un échantillon vérifié, c'est
+l'intégralité des opérations qui doit se recomposer exactement.
+
+```
+┌──────────────────────────────────────────────────────────┐
+│ ⚠ Import refusé — 3 comptes sur 4 ne bouclent pas        │
+├──────────────────────────────────────────────────────────┤
+│ ✓ Livret Jeune            6 op.   solde exact            │
+│ ✗ Compte courant        184 op.   écart de 78,14 €       │
+│ ✗ Livret A               32 op.   écart de 30,00 €       │
+│ ✗ LDD                    45 op.   écart de 125,00 €      │
+│                                                          │
+│ Rien n'a été enregistré. Un relevé dont le solde ne se   │
+│ recompose pas contient une erreur de lecture, et une     │
+│ opération mal signée fausse tout ce qui suit.            │
+│                                                          │
+│ [ Voir le détail ]   [ Importer le Livret Jeune seul ]   │
+└──────────────────────────────────────────────────────────┘
+```
+
+Un compte qui boucle peut entrer seul : l'erreur est par compte, pas par
+fichier.
+
+**Ce que cela vaut pour le CSV aussi.** Le même contrôle s'applique quand
+l'export porte un solde, et c'est la raison pour laquelle l'écran d'import
+affiche la somme (maquette 4.4) : c'est le chiffre qu'on compare d'un coup
+d'œil à son relevé.
+
 ## 3. Les méthodes d'import, classées
 
 Le critère que tu demandes : gestes, durée, fiabilité, dépendance, maintenance.
@@ -53,7 +152,7 @@ premier import ajoute le mappage, une fois).
 | 2 | **Coller le tableau** | 2 à 3 | moyenne (colonnes devinées) | aucun | moyenne | **oui, surtout sur téléphone** |
 | 5 | **Saisie rapide** | 2 (montant, valider) | haute | aucun | faible | **oui** — espèces et prévu |
 | 4 | Partage depuis l'app bancaire | 2 | ? | aucun | ? | **à vérifier sur ton téléphone** |
-| 6 | Relevés PDF | 2 | **basse** | aucun | forte | **non en v1** (décision 8) |
+| 6 | **Relevés PDF** | 2 à 3 | **haute, sous condition** | aucun | moyenne | **oui** — voir 2 bis et la décision 8 révisée |
 | — | Agrégateur DSP2 | 0 | haute | **oui** | forte | **écarté** (décision 9) |
 
 **Le plancher honnête : un geste.** Sans serveur ni tiers, aucune méthode ne
@@ -338,7 +437,7 @@ base — et elle est décochée par défaut.
 | 5 | Tolérances | **± 2 jours** et **± 2 % ou 2 €, le plus grand des deux** par défaut, réglables par ligne. Le « plus grand des deux » évite qu'un abonnement à 9,99 € exige une exactitude au centime. |
 | 6 | Fichier source | **Jamais conservé.** Il n'apporte qu'un risque : les opérations sont déjà là, et un relevé oublié dans un stockage de navigateur est exactement ce que ce chantier cherche à éviter. |
 | 7 | Consommateurs par défaut | Les cinq premiers de la section 8 **activés**, veille du rythme et IA **décochés**. |
-| 8 | Relevés PDF | **Non en v1.** Fiabilité basse, formats mouvants, maintenance forte, pour un gain d'un geste sur une méthode qui en demande deux. À reconsidérer si une banque n'offre aucun export. |
+| 8 | Relevés PDF | **Oui — je change d'avis, et la section 2 bis dit pourquoi.** J'avais recommandé non sans avoir ouvert un relevé. Le tien a une couche de texte propre, des colonnes récupérables par pdf.js, et **il imprime ses propres soldes**. Condition absolue : l'import est refusé tant que le solde de chaque compte ne boucle pas au centime. Mon premier analyseur échoue ce contrôle sur trois comptes sur quatre — c'est la meilleure preuve que le contrôle est indispensable. |
 | 9 | Agrégateur DSP2 | **Écarté, et je le recommande fermement.** Il impose un tiers agréé, un compte, des clés, et fait transiter **l'intégralité de tes opérations** par ses serveurs. C'est la seule méthode qui annule la propriété qui fonde Cyclades. Le gain — un geste en moins par mois — ne la paie pas. |
 
 ## 10. Les phases
@@ -362,7 +461,11 @@ détection de récurrences ait de quoi se nourrir.
   Chromium de serveur. Firefox, Safari et iOS sont à vérifier sur tes appareils.
 - **La cible de partage** (méthode 4) : `navigator.share` est absent ici, ce qui
   ne dit rien de ton téléphone.
-- **Les formats d'export de tes banques** : décision 1, j'attends les fichiers.
+- **Les formats d'export de tes banques** : décision 1. J'ai le relevé PDF du
+  CIC ; il me manque un **export CSV** de chaque banque, qui reste la voie
+  principale.
+- **Les trois écarts de solde de la section 2 bis** : identifiés comme des
+  signes faux, non localisés. À finir en phase 2, avec le contrôle comme filet.
 - **Les plafonds et barèmes** (livret A, PEA, PER) : aucun n'est en dur, et
   aucun ne s'affichera sans source officielle et date de vérification. Les
   sources officielles ne sont pas atteignables depuis cet environnement en ce

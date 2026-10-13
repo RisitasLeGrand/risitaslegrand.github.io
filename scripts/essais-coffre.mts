@@ -16,11 +16,17 @@
  * Node 20+ fournit `crypto.subtle` : le chiffrement s'éprouve donc pour de
  * vrai ici, sans navigateur.
  */
+import { TYPES } from '../src/lib/noyau/faits';
+import { MAGASINS_JOURNALISES } from '../src/lib/noyau/enregistrements';
+import { MAGASINS_PROGRESSION } from '../src/lib/db';
 import {
   CHAMPS_INTERDITS_EN_CLAIR,
   JOURS_AVANT_INSISTANCE,
   MAGASINS_SCELLES,
   controlerCoffre,
+  controlerCouvertureDesSensibles,
+  controlerMagasinsExistants,
+  SENSIBLES_EN_CLAIR,
   estFerme,
   estScelle,
   magasinScelle,
@@ -92,11 +98,18 @@ const autre = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, 
 console.log('\n\x1b[1mLE CATALOGUE DU COFFRE SE TIENT\x1b[0m');
 
 v('aucun problème de catalogue', controlerCoffre(), []);
-v('huit magasins scellés', MAGASINS_SCELLES.length, 8);
+/*
+   Cinq, et non huit. Trois magasins de Finances — comptes, opérations,
+   positions — avaient été inscrits au catalogue par anticipation le jour de
+   la décision 3, alors que la branche n'était pas construite. Ils ont été
+   retirés : voir `controlerMagasinsExistants` plus bas, qui attrape
+   désormais ce cas. Ils reviendront avec la phase 1 de Finances.
+*/
+v('cinq magasins scellés', MAGASINS_SCELLES.length, 5);
 vrai('le journal en est', estScelle('odysseeJournal'));
 vrai('les check-ins aussi', estScelle('odysseeCheckins'));
 vrai('et les points de semaine', estScelle('odysseeHebdos'));
-vrai('les comptes aussi', estScelle('odysseeComptes'));
+vrai('les médicaments aussi', estScelle('odysseeMedicaments'));
 /*
    Et le sommeil **non**. C'est la moitié de la décision 3 : chiffrer par
    principe coûterait un déchiffrement à chaque lecture de la roue du jour,
@@ -234,10 +247,67 @@ console.log('\n\x1b[1mUN CHAMP DE CONTENU EN CLAIR EST ATTRAPÉ\x1b[0m');
 }
 
 v(
-  'les champs clairs des comptes se limitent aux index',
-  magasinScelle('odysseeComptes')?.clairs,
-  ['id', 'majLe'],
+  'les champs clairs des médicaments se limitent aux index',
+  magasinScelle('odysseeMedicaments')?.clairs,
+  ['id', 'jour', 'majLe'],
 );
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Les deux garde-fous qui manquaient
+   ══════════════════════════════════════════════════════════════════════════ */
+console.log('\n\x1b[1mUNE DÉCLARATION SANS MAGASIN NE PROTÈGE RIEN\x1b[0m');
+
+{
+  /*
+     Le cas réel : la décision 3 avait inscrit trois magasins de Finances au
+     catalogue alors qu'ils n'existaient pas, et `controlerCoffre()` passait
+     au vert. Le contrôle relisait la forme des déclarations sans vérifier
+     qu'elles portaient sur quelque chose.
+  */
+  v(
+    'tous les magasins scellés existent au schéma',
+    controlerMagasinsExistants(MAGASINS_PROGRESSION as readonly string[]),
+    [],
+  );
+  const sansRien = controlerMagasinsExistants([]);
+  v('un schéma vide les signale tous les cinq', sansRien.length, MAGASINS_SCELLES.length);
+  vrai('et le message nomme le magasin', sansRien[0].includes(MAGASINS_SCELLES[0].magasin));
+}
+
+console.log('\n\x1b[1mTOUT TYPE SENSIBLE EST SCELLÉ, OU DISPENSÉ AVEC SA RAISON\x1b[0m');
+
+{
+  const typesSensibles = TYPES.filter((t) => t.sensible).map((t) => t.id);
+  vrai('onze types sont déclarés sensibles', typesSensibles.length === 11);
+  v(
+    'le registre réel est couvert',
+    controlerCouvertureDesSensibles(MAGASINS_JOURNALISES, typesSensibles),
+    [],
+  );
+  v(
+    'cinq magasins sensibles sont nommément laissés en clair',
+    SENSIBLES_EN_CLAIR.map((d) => d.magasin),
+    ['sportBlessures', 'odysseePesees', 'odysseeMesures', 'odysseeRepas', 'odysseeSante'],
+  );
+  v(
+    'et chacun dit pourquoi',
+    SENSIBLES_EN_CLAIR.filter((d) => d.pourquoi.length < 30).map((d) => d.magasin),
+    [],
+  );
+
+  /*
+     Le contrôle doit **attraper** le cas qu'il prétend couvrir, sinon il ne
+     prouve rien. On simule la branche future qui ajoute un magasin portant
+     un type sensible sans y penser.
+  */
+  const avecOubli = [
+    ...MAGASINS_JOURNALISES,
+    { magasin: 'odysseeConfidences', type: 'odyssee.journal' },
+  ];
+  const attrape = controlerCouvertureDesSensibles(avecOubli, typesSensibles);
+  v('un magasin sensible oublié est attrapé', attrape.length, 1);
+  vrai('et le message dit quoi faire', attrape[0].includes('Scellez-le, ou dites pourquoi'));
+}
 
 /* ══════════════════════════════════════════════════════════════════════════
    La condition bloquante : le rappel de sauvegarde

@@ -110,21 +110,6 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
       'Statut hormonal et substances : une période déclarative dont la lecture par un tiers peut coûter très cher.',
     clairs: ['id', 'debut', 'majLe'],
   },
-  {
-    magasin: 'odysseeComptes',
-    pourquoi: 'Finances : un solde et un intitulé de compte se lisent d’un coup d’œil.',
-    clairs: ['id', 'majLe'],
-  },
-  {
-    magasin: 'odysseeOperations',
-    pourquoi: 'Finances : les opérations racontent une vie entière, jour par jour.',
-    clairs: ['id', 'jour', 'compteId', 'majLe'],
-  },
-  {
-    magasin: 'odysseePositions',
-    pourquoi: 'Finances : un portefeuille est un patrimoine.',
-    clairs: ['id', 'majLe'],
-  },
 ];
 
 const PAR_MAGASIN = new Map(MAGASINS_SCELLES.map((m) => [m.magasin, m]));
@@ -173,6 +158,138 @@ export const CHAMPS_INTERDITS_EN_CLAIR: readonly string[] = [
  * clair — sans quoi on ne pourrait pas relire l'enregistrement —, et une
  * raison écrite pour chaque magasin.
  */
+/**
+ * Les magasins qui portent une donnée déclarée sensible **et restent en clair**.
+ *
+ * ## Pourquoi cette liste existe, et pourquoi elle est pénible
+ *
+ * Le contrat de faits marque onze types `sensible`. Cinq d'entre eux vivent
+ * dans des magasins non scellés, et c'est **voulu** : la décision 3 a retenu
+ * que le coffre ne verrouillerait pas le quotidien. Se peser, noter un repas
+ * ou déclarer un rhume doit rester possible sans retaper un mot de passe,
+ * sans quoi personne ne le fait — et un suivi qu'on ne tient pas ne protège
+ * rien du tout.
+ *
+ * Mais un arbitrage qui ne vit nulle part n'est pas un arbitrage, c'est un
+ * oubli qui a réussi. Sans cette liste, le jour où une branche ajoute un
+ * magasin portant un type sensible, il entrerait en clair **exactement de la
+ * même façon** que ces cinq-là — et rien ne distinguerait la décision du
+ * défaut.
+ *
+ * D'où la forme : toute couverture manquante doit être **nommée ici avec sa
+ * raison**, ou le contrôle échoue. C'est délibérément inconfortable. Écrire
+ * une ligne de dispense oblige à formuler pourquoi, et formuler pourquoi est
+ * le moment où l'on s'aperçoit qu'on n'a pas de raison.
+ */
+export interface SensibleEnClair {
+  magasin: string;
+  type: string;
+  pourquoi: string;
+}
+
+export const SENSIBLES_EN_CLAIR: readonly SensibleEnClair[] = [
+  {
+    magasin: 'sportBlessures',
+    type: 'sport.blessure',
+    pourquoi:
+      'Une blessure interdit des exercices : Sport doit pouvoir la lire pour ne pas proposer de progresser dessus, et il ne demande jamais le mot de passe.',
+  },
+  {
+    magasin: 'odysseePesees',
+    type: 'odyssee.poids',
+    pourquoi:
+      'Décision 3 : le coffre ne verrouille pas le quotidien. Une pesée se note en dix secondes au saut du lit, ou ne se note pas.',
+  },
+  {
+    magasin: 'odysseeMesures',
+    type: 'odyssee.mesure',
+    pourquoi: 'Même geste que la pesée, même raison.',
+  },
+  {
+    magasin: 'odysseeRepas',
+    type: 'odyssee.repas',
+    pourquoi:
+      'Trois à cinq saisies par jour : c’est le magasin le plus écrit de Cyclades, et une demande de mot de passe à chaque repas le viderait.',
+  },
+  {
+    magasin: 'odysseeSante',
+    type: 'odyssee.sante',
+    pourquoi:
+      'Un état de santé empêche l’effort, donc Sport et Odyssée le lisent pour s’abstenir de proposer. Le détail médical, lui, est dans les magasins scellés.',
+  },
+];
+
+/**
+ * Tout type sensible est-il scellé, ou nommément dispensé ?
+ *
+ * Prend le registre en paramètre plutôt que de l'importer : `coffre.ts`
+ * n'importe rien, et c'est ce qui permet de l'éprouver sur un registre
+ * fabriqué pour l'essai — notamment sur celui qui contient le magasin oublié
+ * qu'on veut voir attraper.
+ */
+export function controlerCouvertureDesSensibles(
+  magasins: readonly { magasin: string; type: string }[],
+  typesSensibles: readonly string[],
+): string[] {
+  const problemes: string[] = [];
+  const sensibles = new Set(typesSensibles);
+  const dispenses = new Map(SENSIBLES_EN_CLAIR.map((d) => [d.magasin, d]));
+
+  for (const m of magasins) {
+    if (!sensibles.has(m.type)) continue;
+    if (estScelle(m.magasin)) continue;
+    const dispense = dispenses.get(m.magasin);
+    if (!dispense) {
+      problemes.push(
+        `« ${m.magasin} » porte « ${m.type} », déclaré sensible, et n’est ni scellé ` +
+          'ni inscrit dans SENSIBLES_EN_CLAIR. Scellez-le, ou dites pourquoi il reste en clair.',
+      );
+      continue;
+    }
+    if (dispense.type !== m.type) {
+      problemes.push(
+        `« ${m.magasin} » est dispensé pour « ${dispense.type} » mais porte « ${m.type} ».`,
+      );
+    }
+    if (!dispense.pourquoi.trim()) {
+      problemes.push(`« ${m.magasin} » est dispensé sans raison écrite.`);
+    }
+  }
+
+  /*
+     Une dispense devenue inutile est signalée elle aussi : un magasin scellé
+     entre-temps qui garderait sa ligne de dispense laisserait croire, à la
+     lecture, qu'il voyage en clair.
+  */
+  for (const d of SENSIBLES_EN_CLAIR) {
+    if (estScelle(d.magasin)) {
+      problemes.push(`« ${d.magasin} » est scellé : sa dispense n’a plus lieu d’être.`);
+    }
+  }
+  return problemes;
+}
+
+/**
+ * Tout magasin déclaré scellé existe-t-il vraiment ?
+ *
+ * Cette question avait une mauvaise réponse pendant une journée. La décision 3
+ * avait inscrit `odysseeComptes`, `odysseeOperations` et `odysseePositions` au
+ * catalogue par anticipation, alors que Finances n'était pas construite : trois
+ * magasins scellés qui n'existaient pas, et `controlerCoffre()` passait au vert.
+ *
+ * Inoffensif en soi. Inquiétant par ce que cela dit du contrôle : il relisait
+ * la forme des déclarations sans jamais vérifier qu'elles portaient sur
+ * quelque chose. Le schéma étant impur, la liste entre par paramètre.
+ */
+export function controlerMagasinsExistants(existants: readonly string[]): string[] {
+  const schema = new Set(existants);
+  return MAGASINS_SCELLES.filter((m) => !schema.has(m.magasin)).map(
+    (m) =>
+      `« ${m.magasin} » est déclaré scellé mais n’existe pas au schéma : ` +
+      'une déclaration sans magasin ne protège rien.',
+  );
+}
+
 export function controlerCoffre(): string[] {
   const problemes: string[] = [];
   for (const m of MAGASINS_SCELLES) {
