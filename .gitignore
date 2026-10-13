@@ -14,6 +14,10 @@ public/actualites-data/
 # réinstallable par « npm run podcasts:installer ».
 outils/
 
+# Rapports d'audit : ils décrivent des faiblesses éventuelles et des captures
+# de données synthétiques. Ils restent sur la machine locale.
+audit/
+
 # --- Dépendances et artefacts de build ---
 node_modules/
 dist/
