@@ -1,0 +1,98 @@
+NOTICE
+======
+
+Ce dépôt publie un site de révision personnel. Il réutilise des travaux de
+tiers, dont certains sous conditions. Ce fichier les nomme, dit la portée de
+chacune, et dit aussi — c'est le point important — **ce qui n'est pas
+authentifié**.
+
+--------------------------------------------------------------------------
+1. Échelles psychométriques
+--------------------------------------------------------------------------
+
+Trois échelles sont administrées par l'écran « Ma psyché » : le WHO-5, le
+PHQ-9 et le GAD-7. Leur texte, leurs valeurs de réponse et leurs seuils
+viennent de documents fournis par la personne qui tient ce site ; le relevé
+de provenance complet est hors du dépôt public.
+
+AVERTISSEMENT SUR CE FICHIER LUI-MÊME
+  Les mentions de licence reproduites ci-dessous ont été obtenues par
+  extraction OCR de documents PDF, et NON par lecture directe des pages de
+  droits des ayants droit — les hôtes who.int et phqscreeners.com n'étaient
+  pas joignables. Sous OCR, un accent, une parenthèse ou un suffixe « (e) »
+  se perdent couramment. Chaque caractère ci-dessous est donc suspect
+  individuellement, y compris dans les formules juridiques. Ce fichier dit
+  ce que le projet croit savoir et d'où il le tient ; il ne tient pas lieu
+  de licence. En cas de doute, la source faisant foi est la page de droits
+  de l'ayant droit.
+
+WHO-5 — Indice (en cinq points) de bien-être de l'OMS (1999)
+  Attribution portée par le document :
+      © Psychiatric Research Unit, WHO Collaborating Center for Mental
+      Health, Frederiksborg General Hospital, DK-3400 Hillerød
+  Réserve portée par le document : l'OMS décline la responsabilité de
+  l'exactitude de la traduction et déclare la version anglaise seule
+  contraignante et authentique.
+  Portée : la page de droits de l'OMS place ses publications sous licence
+  Creative Commons Attribution-NonCommercial-ShareAlike 3.0 IGO
+  (CC BY-NC-SA 3.0 IGO) et précise que ses publications ne peuvent être
+  employées pour promouvoir un produit, un service ou une organisation, ni
+  son logo reproduit sans autorisation écrite.
+  >>> USAGE NON COMMERCIAL. Ce site n'a aucune activité commerciale, ne
+      porte aucune publicité, ne vend rien et ne mesure aucune audience.
+      La condition est remplie de fait ; elle cesserait de l'être si la
+      nature du site changeait.
+
+PHQ-9 — Questionnaire sur la santé du patient (9 items)
+GAD-7 — Generalized Anxiety Disorder, 7 items
+  Attribution portée par les documents français :
+      Développé par les Dr Robert L. Spitzer, Janet B.W. Williams,
+      Kurt Kroenke et leurs collègues grâce à une allocation d'études de
+      Pfizer Inc. La reproduction, la traduction, l'affichage ou la
+      distribution de ce document sont autorisés.
+  Mention équivalente relevée côté anglais : « All PHQ, GAD-7 screeners and
+  translations are downloadable from this website and no permission is
+  required to reproduce, translate, display or distribute them. »
+  Portée : reproduction, traduction, affichage et distribution autorisés,
+  sans condition de non-commercialité énoncée.
+
+Les seuils du PHQ-9 et du GAD-7 sont affichés dans la langue de leur source
+(« Mild », « Moderate »…) et jamais traduits : produire une étiquette
+française que personne n'a validée reviendrait à emprunter l'autorité d'un
+instrument qu'on n'a pas administré.
+
+--------------------------------------------------------------------------
+2. Annales de concours
+--------------------------------------------------------------------------
+
+La banque « QCM — DGFiP » reprend des sujets d'annales de la Direction
+générale des finances publiques. La condition de réutilisation relevée est
+l'absence de profit financier.
+
+  >>> AUCUN PROFIT FINANCIER. Ce site est personnel, gratuit, sans
+      publicité, sans compte, sans mesure d'audience et sans aucune forme
+      de monétisation. La condition est remplie de fait.
+
+Les corrigés des QCM de la DGFiP ne sont pas publiés. Les corrections
+rédigées dans ce dépôt sont des propositions ; les questions dont la
+réponse attendue reste incertaine portent le champ « incertain ».
+
+--------------------------------------------------------------------------
+3. Polices
+--------------------------------------------------------------------------
+
+Public Sans et Spectral, sous SIL Open Font License 1.1. Elles sont servies
+depuis ce site : aucune requête n'est adressée à un service tiers.
+
+--------------------------------------------------------------------------
+4. Identité visuelle
+--------------------------------------------------------------------------
+
+La palette du thème clair s'inspire de la charte graphique de l'État
+français (Bleu France, Rouge Marianne, gris neutres). NE SONT PAS REPRIS, et
+restent réservés aux services de l'État : la typographie Marianne, le
+bloc-marque (logo et mention « République Française ») et la présentation
+officielle de la devise.
+
+Ce site est personnel, sans lien avec l'administration et sans caractère de
+service public.

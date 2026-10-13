@@ -427,6 +427,15 @@ tiré de vos fiches et corrigé au fil de l'eau, et le **QCM — DGFiP**, une
 **épreuve blanche** avec sa banque de questions autonome, son format d'épreuve
 et son barème qui sanctionne l'erreur.
 
+> **Condition de réutilisation des annales : aucun profit financier.** C'est
+> la condition relevée sur les sujets d'annales dont la banque est tirée. Ce
+> site est personnel, gratuit, sans publicité, sans compte, sans mesure
+> d'audience et sans aucune forme de monétisation : elle est remplie **de
+> fait**. Elle cesserait de l'être si la nature du site changeait, et rien
+> dans le code ne l'empêcherait — d'où cette ligne, et le fichier
+> [`NOTICE`](NOTICE), qui porte aussi les licences des échelles
+> psychométriques.
+
 ### Écrire la banque
 
 Un fichier YAML par rubrique dans `content/qcm-dgfip/` — dossier ignoré par
