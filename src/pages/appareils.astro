@@ -487,6 +487,7 @@ import Base from '../layouts/Base.astro';
   import { lireAppareil } from '../lib/db';
   import config from '../../site.config.mjs';
   import {
+    certificationEffective,
     certifier,
     certificationLocale,
     certifiesDeclares,
@@ -499,6 +500,7 @@ import Base from '../layouts/Base.astro';
   } from '../lib/sync/notification';
   import { cesser, veiller, veilleCourante } from '../lib/sync/veille';
   import { enregistrerFait } from '../lib/sync/service';
+  import { appairageMemorise } from '../lib/sync/appairage';
   import { motDePasseRetenu } from '../lib/sync/mot-de-passe-session';
   import {
     autorisation,
@@ -579,9 +581,20 @@ import Base from '../layouts/Base.astro';
       empreinteLocale(),
     ]);
     const moi = registre.find((a) => a.soi);
-    const certifie = locale?.certifie === true;
+    /*
+       L'écran montre la certification **effective**, défaut compris (D-028).
+       Montrer la seule décision enregistrée afficherait « inactif » au-dessus
+       d'une veille qui tourne, et c'est l'incohérence la plus sûre pour faire
+       douter de tout le reste.
+    */
+    const { certifie, parDefaut } = certificationEffective(locale, {
+      apparie: (await appairageMemorise()) !== null,
+      motDePasseEnMemoire: motDePasseRetenu() !== null,
+    });
 
-    $('etat-certification').textContent = certifie ? 'actif' : 'inactif';
+    $('etat-certification').textContent = certifie
+      ? parDefaut ? 'actif par défaut' : 'actif'
+      : 'inactif';
     $('etat-certification').className = certifie
       ? 'text-sm font-medium text-emerald-600 dark:text-emerald-400'
       : 'text-sm font-medium text-slate-500 dark:text-slate-400';
@@ -598,9 +611,27 @@ import Base from '../layouts/Base.astro';
       ...(certifie && locale
         ? ([['Certifié le', new Date(locale.le).toLocaleString('fr-FR')]] as [string, string][])
         : []),
+      /*
+         Dire d'où vient une certification qu'on n'a pas donnée, et à quelle
+         condition elle tient : sans cette ligne, elle paraîtrait surgie de
+         nulle part, et sa disparition au prochain verrouillage aussi.
+      */
+      ...(parDefaut
+        ? ([[
+            'Certifié',
+            'par défaut — cet appareil est apparié et le mot de passe est en ' +
+              'mémoire. La certification retombe au verrouillage ; « Certifier » ' +
+              'la rend permanente.',
+          ]] as [string, string][])
+        : []),
     ]);
 
-    ($('certifier') as HTMLButtonElement).classList.toggle('hidden', certifie);
+    /*
+       « Certifier » reste offert sous une certification tacite : il la change
+       en décision, donc en certification qui survit au verrouillage. Le
+       masquer laisserait sans geste pour obtenir ce que le bouton promet.
+    */
+    ($('certifier') as HTMLButtonElement).classList.toggle('hidden', certifie && !parDefaut);
     ($('decertifier') as HTMLButtonElement).classList.toggle('hidden', !certifie);
     $('autoriser-avis').classList.toggle(
       'hidden',

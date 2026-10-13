@@ -873,7 +873,9 @@ après QR), **deux QR** sans aucun relais, **dossier partagé**, et **transfert
 de fichier**, qui marche sans réseau et reste le recours quand le reste
 échoue.
 
-Sur un **ordinateur certifié**, la synchronisation se fait **sans geste** tant
+Sur un **ordinateur certifié** — et il l'est par défaut dès qu'il est apparié
+et que le mot de passe est en mémoire —, la synchronisation se fait **sans
+geste** tant
 qu'un onglet de Cyclades est ouvert et que l'autre appareil l'est aussi : à
 l'ouverture, au retour au premier plan, au retour du réseau, après une
 écriture (regroupée), et par un battement de cinq minutes. L'écran reste

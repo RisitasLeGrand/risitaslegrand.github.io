@@ -8,6 +8,7 @@
  * bouton n'empêche personne de forger l'opération.
  */
 import {
+  certificationEffective,
   certifiesDeclares,
   TYPE_CERTIFICATION,
 } from '../src/lib/sync/certification';
@@ -124,6 +125,49 @@ v(
     ]),
   ].sort(),
   ['AAAA1111', 'BBBB2222'],
+);
+
+/* ── Le défaut de certification (D-028) ──────────────────────────────── */
+
+const effectif = (
+  locale: { certifie: boolean; le: string } | null,
+  apparie: boolean,
+  motDePasseEnMemoire: boolean,
+) => certificationEffective(locale, { apparie, motDePasseEnMemoire });
+
+const LE = '2026-10-13T20:00:00.000Z';
+
+v(
+  'un appareil apparié qui a le mot de passe se certifie seul',
+  effectif(null, true, true),
+  { certifie: true, parDefaut: true },
+);
+v(
+  'un appareil apparié sans mot de passe en mémoire, non',
+  effectif(null, true, false),
+  { certifie: false, parDefaut: false },
+);
+v(
+  'un appareil non apparié, non — même avec le mot de passe',
+  effectif(null, false, true),
+  { certifie: false, parDefaut: false },
+);
+
+/*
+   Les deux essais qui comptent : la décision explicite gagne dans les deux
+   sens. Un refus écrasé par le défaut ne serait pas un défaut mais une
+   reprise de contrôle, et une certification donnée à la main ne doit pas
+   s'évaporer parce que le mot de passe a quitté la mémoire.
+*/
+v(
+  'un refus explicite tient contre le défaut',
+  effectif({ certifie: false, le: LE }, true, true),
+  { certifie: false, parDefaut: false },
+);
+v(
+  'et une certification donnée à la main survit au mot de passe oublié',
+  effectif({ certifie: true, le: LE }, false, false),
+  { certifie: true, parDefaut: false },
 );
 
 console.log(

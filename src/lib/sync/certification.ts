@@ -56,6 +56,64 @@ export const estCertifie = async (): Promise<boolean> =>
   (await certificationLocale())?.certifie === true;
 
 /**
+ * Ce qu'il faut réunir pour qu'un appareil se certifie **tout seul**.
+ *
+ * Les deux conditions sont celles que la veille exige déjà pour agir : un
+ * appairage mémorisé et le mot de passe en mémoire de session. Les reprendre
+ * ici n'ajoute donc aucun pouvoir — cela déplace seulement le moment où on
+ * les constate.
+ */
+export interface ContexteDeCertification {
+  /** Un appairage est mémorisé sur cet appareil. */
+  apparie: boolean;
+  /** Le mot de passe du site est en mémoire de session, maintenant. */
+  motDePasseEnMemoire: boolean;
+}
+
+/**
+ * La certification effective : la décision prise, ou le défaut.
+ *
+ * ## Pourquoi un défaut, après l'avoir refusé
+ *
+ * Le prompt 23 voulait la synchronisation automatique **activée par défaut**.
+ * Le code posait l'inverse : « le niveau 0 ne se mérite pas, il se donne » y
+ * était devenu « il se mérite ». L'audit l'a relevé (D-028), et la réponse
+ * tranche pour le défaut — mais le défaut le plus étroit des trois proposés :
+ * seulement sur un appareil **déjà apparié** et qui a le **mot de passe en
+ * mémoire**. Les deux conditions ensemble disent : quelqu'un a photographié
+ * le QR sur cet appareil, et quelqu'un y a tapé le mot de passe depuis le
+ * dernier verrouillage. Ce n'est pas un appareil anonyme.
+ *
+ * ## Ce qui reste intact
+ *
+ * **La décision explicite gagne toujours**, dans les deux sens. Un appareil
+ * décertifié à la main le reste, même s'il remplit les deux conditions : un
+ * défaut qui écraserait un refus ne serait pas un défaut, ce serait une
+ * reprise de contrôle.
+ *
+ * **Le défaut ne se garde pas.** Il n'est ni écrit dans « etat », ni annoncé
+ * par un fait : il se recalcule à chaque démarrage de la veille. La raison
+ * tient en une phrase — le mot de passe quitte la mémoire au verrouillage et
+ * à chaque rechargement sans saisie, donc une certification persistée
+ * survivrait à la condition qui l'a fait naître. Un appareil serait certifié
+ * pour toujours après une seule session où l'on a tapé le mot de passe, ce
+ * qui n'est pas ce qui a été décidé.
+ *
+ * La contrepartie est assumée : les autres appareils ne voient pas une
+ * certification par défaut, puisque rien ne l'annonce. Ils ne voient pas non
+ * plus l'appareil agir hors de ses propres échanges, et l'écran local, lui,
+ * la montre et dit qu'elle est tacite.
+ */
+export function certificationEffective(
+  locale: Certification | null,
+  contexte: ContexteDeCertification,
+): { certifie: boolean; parDefaut: boolean } {
+  if (locale) return { certifie: locale.certifie, parDefaut: false };
+  const certifie = contexte.apparie && contexte.motDePasseEnMemoire;
+  return { certifie, parDefaut: certifie };
+}
+
+/**
  * Pose ou retire la certification de **cet** appareil.
  *
  * L'écriture locale d'abord, l'annonce ensuite : si l'annonce échoue, la

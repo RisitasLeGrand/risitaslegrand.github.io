@@ -54,9 +54,25 @@ Un appareil certifié :
   par type de fait (phase 3b) s'applique identiquement. Un appareil certifié
   n'est pas un appareil privilégié, c'est un appareil autorisé à agir seul.
 
-La certification est désactivée par défaut, et s'active sur l'ordinateur
-lui-même — jamais à distance depuis le téléphone, ce qui serait le chemin d'une
-prise de contrôle par QR photographié.
+La certification s'active sur l'ordinateur lui-même — jamais à distance depuis
+le téléphone, ce qui serait le chemin d'une prise de contrôle par QR
+photographié.
+
+> **Révisé le 13 octobre 2026 (audit, D-028).** « Désactivée par défaut »
+> n'est plus exact, et ne l'aurait jamais dû être : le prompt 23 voulait la
+> synchronisation automatique **activée par défaut**, et ce document avait
+> posé l'inverse. Un appareil **déjà apparié** dont le **mot de passe est en
+> mémoire de session** est désormais certifié *tacitement*. Trois précisions
+> qui font tout l'écart avec « certifié pour tout le monde » :
+>
+> - la décision explicite gagne toujours, dans les deux sens — un appareil
+>   décertifié à la main le reste ;
+> - le défaut **ne se garde pas** : il n'est ni écrit ni annoncé par un fait,
+>   et il retombe dès que le mot de passe quitte la mémoire, c'est-à-dire au
+>   verrouillage et à chaque rechargement sans saisie ;
+> - les deux conditions sont celles que la veille exigeait déjà pour agir. Le
+>   défaut ne donne donc aucun pouvoir neuf : il supprime un geste qui ne
+>   protégeait rien de plus que les deux autres.
 
 ## 3. La notification PUSH : pourquoi elle est impossible, et quoi à la place
 

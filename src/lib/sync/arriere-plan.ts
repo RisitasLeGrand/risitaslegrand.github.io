@@ -67,7 +67,7 @@
  * page au milieu.
  */
 import { appairageMemorise } from './appairage';
-import { estCertifie } from './certification';
+import { certificationEffective, certificationLocale } from './certification';
 import { echanger, type RapportDEchange } from './echange';
 import { motDePasseRetenu } from './mot-de-passe-session';
 import { garderLEcranAllume } from './ecran-allume';
@@ -227,10 +227,14 @@ export async function demarrer(options: OptionsVeille = {}): Promise<Veille | nu
   };
   let courant: Etat = 'non-certifie';
 
-  if (!(await estCertifie())) {
-    dire('non-certifie');
-    return null;
-  }
+  /*
+     L'ordre des trois conditions est renversé depuis D-028, et c'est la
+     seule conséquence visible du défaut de certification : l'appairage et
+     le mot de passe se constatent **avant** la certification, parce que la
+     certification tacite se déduit d'eux. Les trois états affichables sont
+     les mêmes, et « non-certifie » ne reste dit que d'un appareil qui a été
+     décertifié à la main alors qu'il remplissait les conditions.
+  */
   const appairage = await appairageMemorise();
   if (!appairage) {
     dire('sans-appairage');
@@ -239,6 +243,14 @@ export async function demarrer(options: OptionsVeille = {}): Promise<Veille | nu
   const motDePasse = motDePasseRetenu();
   if (!motDePasse) {
     dire('sans-mot-de-passe');
+    return null;
+  }
+  const { certifie } = certificationEffective(await certificationLocale(), {
+    apparie: true,
+    motDePasseEnMemoire: true,
+  });
+  if (!certifie) {
+    dire('non-certifie');
     return null;
   }
 
