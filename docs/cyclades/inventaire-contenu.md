@@ -297,7 +297,183 @@ que le rapport confirme.
 
 ---
 
-## 6. Ce qui manque et que je n'ai pas
+## 6. QCM — DGFiP : fiabilisation de la banque
+
+Relevé du 13 octobre 2026, après recoupement des 540 questions de
+`content/qcm-dgfip/` avec les vingt-cinq corrigés de `sources/annales-dgfip/` et
+les deux sujets officiels 2026.
+
+### Une précision qui commande tout le reste
+
+Les vingt-cinq `.htm` ne sont **pas des corrigés officiels de la DGFiP**. Ce
+sont les « propositions de correction » publiées par un site communautaire de
+préparation aux concours, parfois révisées après coup au vu des remarques du
+forum, et qui écrivent elles-mêmes, à l'occasion, que « seul le correcteur
+connaît la bonne réponse ». La DGFiP ne publie pas ses corrigés.
+
+Ils restent la meilleure référence disponible, et c'est à eux que la banque se
+réfère — mais une incertitude « levée par le corrigé » veut dire ici : *la
+correction de référence tranche*, pas *l'administration a tranché*. Les deux
+sujets 2026, eux, sont bien des documents officiels : énoncés authentiques,
+sans aucune réponse.
+
+### Les seize incertitudes : dix levées, six maintenues
+
+| Rubrique | Incertitudes avant | Levées | Maintenues |
+|---|---|---|---|
+| Culture générale | 8 | 5 | 3 |
+| Mathématiques | 4 | 3 | 1 |
+| Logique | 3 | 1 | 2 |
+| Français | 1 | 1 | 0 |
+| **Total** | **16** | **10** | **6** |
+
+**Levées — le corrigé tranche.** Pour chacune, la réponse de la banque était
+déjà celle du corrigé ; le champ `source:` dit désormais quel corrigé l'a
+tranchée, et l'`explication` a absorbé ce que disait l'`incertain:`.
+
+1. *Quand la valeur de l'euro a-t-elle été fixée ?* (CG, 2018-2019, Q7) — le
+   corrigé conclut « aucune », après révision du 13 octobre 2018 au vu du
+   règlement (CE) n° 2866/98 du 31 décembre 1998.
+2. *De quand date la loi sur la parité ?* (CG, 2018-2019, Q14) — « aucune » :
+   la loi est du 6 juin 2000, absente des propositions. Le corrigé parle de
+   « question polémique », mais tranche sans hésiter.
+3. *Membre de l'Académie Goncourt en 2019* (CG, 2019-2020, Q8) — « toutes ».
+   Question datée : l'énoncé a été réancré sur 2019, et l'explication le dit.
+4. *Laquelle de ces villes est la capitale de son pays ?* (CG, 2015, Q14) —
+   le corrigé valide les quatre villes une à une, donc « toutes ». L'ancien
+   `incertain:` affirmait que le corrigé « désignait Brasilia » : c'était faux,
+   et c'est corrigé.
+5. *Nombre d'États du Conseil de l'Europe* (CG, 2016-2017, Q10) — 47. Question
+   datée (46 depuis mars 2022) ; l'énoncé porte désormais la période.
+6. *Nombre de fautes dans l'extrait de Tocqueville* (français, 2023-2024, Q18)
+   — 8, les huit étant énumérées par le corrigé révisé le 16 novembre 2023.
+7. *VOITURE = 1234…* (logique, sujet-test 2025-2026, Q26) — ORANGE = 154. Le
+   corrigé relève lui-même l'entorse de VÉLO = 2 et la juge sans effet.
+8. *Pourcentage d'élèves de moins de 1,60 m* (maths, 2024-2025, Q34) — 50 %,
+   et le corrigé confirme les effectifs 10, 7, 8, 11, 14.
+9. *Aire du jardin circulaire* (maths, 2019-2020, Q35) — « aucune ». À signaler :
+   le calcul intermédiaire du corrigé annonce 9,7 alors que 9,616 s'arrondit à
+   9,6 ; l'étourderie ne change pas la réponse, et l'explication la relève.
+10. *Thomas, Antoine, Tours* (maths, 2019-2020, Q37) — Thomas, 24 minutes. Le
+    corrigé écrit en tête qu'« il fallait savoir que Paris, Tours et Poitiers
+    étaient en ligne » : l'alignement, absent de l'énoncé d'origine, est donc
+    explicité dans celui de la banque.
+
+**Maintenues — le corrigé confirme l'ambiguïté (4).** Dans les quatre cas, le
+corrigé donne une réponse *et* écrit qu'il n'en est pas sûr. La banque garde sa
+réponse et l'`incertain:` cite désormais les mots du corrigé plutôt que les
+nôtres.
+
+- *Qui a peint « Le Déjeuner sur l'herbe » ?* (CG, 2020-2021, Q11) — Manet,
+  mais le corrigé ajoute que « la neutralisation de la question peut aussi être
+  retenue car elle est litigieuse ».
+- *Qui fut le dernier roi de France à avoir régné ?* (CG, 2017-2018, Q11) —
+  Louis-Philippe. Le corrigé ouvre par « Attention : la question polémique du
+  concours ! » et conclut que « seul l'auteur de la question connaît la bonne
+  réponse ». L'énoncé de la banque, qui avait perdu le « de France » de
+  l'original, a été rétabli : c'est ce membre de phrase qui fait toute la
+  question.
+- *ANGUILLE – MANGUE – CRABE – GOYAVE – ?* (logique, 2023-2024, Q44) —
+  TORSADE, mais le corrigé expose les deux raisonnements, dont l'alternance
+  animal / fruit qui donnerait HOMARD, et prévient que « seul l'auteur connaît
+  le véritable raisonnement ».
+- *Probabilité de tirer une bille jaune puis une rouge* (maths, 2019-2020, Q32)
+  — 1/6, mais le relevé du corrigé porte littéralement « 1/6 ou neutralisation »
+  et son auteur écrit qu'il neutraliserait la question.
+
+**Maintenues — aucun corrigé ne couvre la question (2).**
+
+- *Quelle institution française est renouvelée par fractions tous les trois
+  ans ?* (CG) — vient du sujet Contrôleur 2026, épreuve n° 2, Q6, qui n'a pas
+  de corrigé. L'énoncé officiel dit « par tiers », ce qui depuis 2011 désigne
+  littéralement le Conseil constitutionnel et non le Sénat, renouvelé par
+  moitié. La banque répond « le Sénat » par vraisemblance, et le dit.
+- *Cailloux – Pierres – Roches – ???* (logique) — vient du sujet Inspecteur
+  2026, épreuve n° 2 : pas de corrigé non plus, et deux lectures (par le nombre
+  de lettres, « rubis » ; par le sens, « granite »).
+
+### Le recoupement des questions non marquées
+
+C'est le volet le plus important, et le plus rassurant.
+
+**317 questions** de la banque portent une `source:` d'annale pour laquelle un
+corrigé existe. Elles ont toutes été appariées à leur question d'origine et
+leur réponse comparée à celle du corrigé.
+
+| Rubrique | Questions recoupées | Réponses concordantes | Écarts de réponse |
+|---|---|---|---|
+| Culture générale | 177 | 177 | 0 |
+| Mathématiques | 90 | 90 | 0 |
+| Français | 34 | 34 | 0 |
+| Logique | 16 | 16 | 0 |
+| **Total** | **317** | **317** | **0** |
+
+**Aucune réponse fausse n'a été trouvée.** Le cas qui ressemblait le plus à une
+erreur n'en est pas une : pour le système 2x − 3y = 7 et x + 5y = −3 (maths,
+2020-2021, Q39), le corrigé imprime son option gagnante « x = 2 et y = 4 »
+alors que sa propre vérification calcule avec y = −1 — une coquille du corrigé,
+et la banque a la valeur juste.
+
+Trois corrections de forme ont tout de même été apportées, trouvées en chemin :
+
+- *Qu'est-ce que le partage d'un fichier ?* (CG, sujet-test 2025-2026, Q8) — la
+  bonne option avait été élargie en « droits de lecture ou d'écriture » là où le
+  sujet officiel dit le seul « droit d'écriture ». L'option est revenue à la
+  lettre du sujet, et la nuance est passée dans l'explication.
+- *Guernica* (CG, 2017-2018, Q7) — l'explication affirmait que les trois autres
+  événements étaient « postérieurs de plusieurs années » ; Verdun (1916) est
+  antérieur de vingt et un ans. Réécrite.
+- *Qui fut le dernier roi de France à avoir régné ?* — énoncé rétabli, voir
+  plus haut.
+
+### Les 70 questions sans corrigé
+
+Elles viennent des deux sujets officiels 2026, tous deux fournis sans corrigé :
+
+| Source | Rubriques | Questions |
+|---|---|---|
+| `sujet-2026-a-analyse-eco.pdf` — Inspecteur, épreuve n° 2 | anglais (5), culture numérique (10), environnement administratif (10), logique (8), Union européenne (10) | **43** |
+| `sujet-2026-b-compta.pdf` — Contrôleur, épreuve n° 2 | culture générale (8), français (8), mathématiques (7), logique (4) | **27** |
+
+Faute de corrigé, leurs réponses n'ont pas pu être *validées* ; elles ont été
+**vérifiées pour fidélité** contre les énoncés officiels. Les 70 énoncés ont été
+retrouvés dans les sujets, et dans les 70 cas la réponse de la banque figure
+bien parmi les quatre options officielles. Les réponses vérifiables par le
+calcul ou par un fait certain ont été réexaminées par sondage — nombres
+premiers, vitesses, durées de mandat, degrés de parenté, nombre de régions,
+séries de logique : aucune n'a bronché. Ce sondage n'est pas un recoupement.
+
+Deux d'entre elles portent `incertain:`, et ce sont les deux où l'énoncé
+lui-même pose problème (voir plus haut). Les 68 autres ne le portent pas : leur
+réponse est déterminée par le raisonnement ou par un fait non contestable, et
+marquer tout le lot ferait perdre au champ sa valeur de signal. **C'est un
+arbitrage, et il mérite d'être su** : si les corrigés de ces deux épreuves
+arrivent un jour, ces 68 questions sont les premières à recouper.
+
+### Les corrigés qui manquent
+
+- **Le corrigé de l'épreuve n° 2 du concours 2026 d'inspecteur** des finances
+  publiques (QCM de `sujet-2026-a-analyse-eco.pdf`) — 43 questions non
+  recoupées.
+- **Le corrigé de l'épreuve n° 2 du concours 2026 de contrôleur** des finances
+  publiques (QCM de `sujet-2026-b-compta.pdf`) — 27 questions non recoupées.
+
+Les corrigés disponibles pour 2026 sont ceux du **sujet-test** de contrôleur
+(culture générale, français, logique, mathématiques), qui est un autre document :
+ils couvrent bien les 27 questions de la banque issues du sujet-test, mais pas
+celles des deux épreuves réelles.
+
+Aucun autre corrigé ne manque : toutes les autres annales citées en `source:`
+par la banque ont le leur.
+
+### État des vérifications
+
+`npm run check-content` : aucun problème de correction, couverture inchangée à
+146 / 4 892. `npm run essais:corrections` : tous les essais passent.
+
+---
+
+## 7. Ce qui manque et que je n'ai pas
 
 Les vingt-huit fascicules sont présents, et **les vingt-huit sont lisibles** :
 les vingt-sept PDF portent une couche de texte propre (de 2 800 à 4 300
