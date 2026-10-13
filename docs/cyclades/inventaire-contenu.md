@@ -993,3 +993,103 @@ numérique à dix ans, mais rien dans la source ne permet de trancher.
   et accessoirement `Sujet Cas Pratique.pdf`, son annexe 2 : la fiche du devoir
   a été écrite sur le sujet, qui est reproduit en entier dans le fascicule ;
   **le corrigé n'a pas été écrit et ne peut pas l'être** sans ce fichier.
+
+---
+
+## 10. Corrections détaillées — le périmètre « cas pratique » est terminé
+
+Le rattrapage des corrections détaillées a été engagé par le **plus petit
+périmètre**, conformément à la règle d'avancement par périmètre entier plutôt
+qu'en saupoudrant.
+
+### Le compte
+
+| | Avant | Après |
+|---|---|---|
+| Questions de quiz en cas pratique | 158 | 158 |
+| Corrections rédigées | 10 | **158** |
+| Avec visuel | 10 | **158** |
+| Avec `visuel: aucun` justifié | 0 | **0** |
+| En `confiance: moyenne` | 0 | **0** |
+
+**Cent quarante-huit corrections** ont été écrites, réparties sur les onze
+fiches de la matière qui n'étaient pas encore couvertes :
+
+| Fiche | Corrections écrites |
+|---|---|
+| F1 · corrigé entretien professionnel | 10 |
+| F2 · styles de management | 8 (2 préexistaient) |
+| F2 · manager dans l'incertitude | 11 |
+| F2 · la motivation | 12 |
+| F3 · diversité et lutte contre les discriminations | 15 |
+| F3 · conseils médicaux | 14 |
+| F3 · handicap et reclassement | 15 |
+| F3 · devoir 1 — métiers et compétences de la transition écologique | 15 |
+| F4 · association des citoyens à la conception des politiques publiques | 20 |
+| F5 · pour un usage modéré des majuscules | 12 |
+| F5 · devoir 2 — intelligence artificielle et processus RH | 16 |
+
+La couverture d'ensemble passe de **146 / 6 759 (2,2 %)** à **294 / 6 759
+(4,3 %)**. `npm run check-content` ne relève **aucun problème**.
+
+### Ce qui reste à faire sur ce périmètre, et que je n'ai pas fait
+
+Le périmètre étant complet, **`cas-pratique` peut passer en régime migré** : il
+suffit de l'ajouter à `MATIERES_MIGREES` dans
+`scripts/lib/corrections-migrees.mjs`, ce qui fera refuser par le build toute
+question de cas pratique ajoutée sans correction. **Je ne l'ai pas fait** : ce
+fichier est un script, et la consigne est de ne toucher qu'à `content/`. La
+modification est d'une ligne.
+
+### Parti pris de rédaction
+
+Chaque correction porte les six éléments qu'exige le schéma, et deux choix ont
+été tenus du début à la fin.
+
+**Un visuel pour chaque question, et jamais `type: aucun`.** Le schéma admet
+l'absence de dessin à condition de la justifier ; sur ce périmètre, aucune
+question ne l'a imposée. Les questions de méthode se prêtent au tableau
+comparatif, les chronologies à la frise, les mécanismes de décision au schéma à
+niveaux, les arbitrages à la courbe en cloche, les typologies au diagramme de
+Venn, et les questions de typographie au texte annoté — ce dernier type s'est
+révélé le seul qui permette de montrer *où* tombe la majuscule.
+
+**Le `detail` explique l'erreur, il ne répète pas la bonne réponse.** Un
+candidat qui s'est trompé connaît déjà la réponse quand il lit la correction :
+ce qu'il ignore, c'est pourquoi il s'est trompé. Chaque `detail` s'attache donc
+à nommer la confusion plausible — le piège de l'énoncé négatif, la ressemblance
+de deux notions voisines, l'intuition qui mène au mauvais choix — et à donner
+le test qui permet de trancher la prochaine fois.
+
+### Un défaut du programme, signalé et contourné dans le contenu
+
+`quizSchema` apparie la réponse à son option **sans tenir compte de la casse**
+(`scripts/lib/schema.mjs`) :
+
+```js
+const idx = options.findIndex((o) => o.toLowerCase() === texte.toLowerCase());
+```
+
+C'est sans conséquence dans la quasi-totalité des cas, mais la fiche
+« Pour un usage modéré des majuscules » pose par construction des questions dont
+les options **ne diffèrent que par la casse** — « La Cour d'appel » contre
+« la cour d'appel », « La Préfecture de Police » contre « la préfecture de
+Police ». L'appariement retenait alors la **première** option, c'est-à-dire la
+mauvaise, et la fiche était silencieusement clefée sur une réponse fausse.
+
+Le défaut ne s'était pas vu parce qu'une question sans bloc `correction:` ne
+permet aucun recoupement : c'est l'ajout des corrections qui l'a révélé, le
+contrôle de cohérence entre `par_option` et la clef ayant immédiatement signalé
+la contradiction.
+
+**Contournement retenu, dans le contenu seul** : les trois questions concernées
+donnent désormais leur réponse **par index** (`reponse: 1`), forme que le schéma
+accepte et qui ne souffre pas d'ambiguïté. Un commentaire en explique la raison
+dans la fiche. Le balayage de l'ensemble du contenu ne trouve **aucune autre
+fiche** dont des options de quiz ne se distinguent que par la casse.
+
+**Ce qu'il resterait à corriger dans le programme**, et qui ne m'appartient pas :
+l'appariement gagnerait à être sensible à la casse, ou à refuser un jeu
+d'options ambigu une fois mis en minuscules — un QCM dont deux options sont
+indiscernables pour le vérificateur est un QCM mal posé, et le dire au build
+vaut mieux que de choisir silencieusement la première.
