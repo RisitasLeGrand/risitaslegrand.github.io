@@ -138,7 +138,8 @@
     "essais:espaces": "node scripts/essais-espaces.mjs",
     "essais:structure": "node scripts/essais-structure.mjs",
     "essais:typographie": "tsx scripts/essais-typographie.mts",
-    "essais:colonnes:navigateur": "node scripts/essais-colonnes-navigateur.mjs"
+    "essais:colonnes:navigateur": "node scripts/essais-colonnes-navigateur.mjs",
+    "essais:quiz:navigateur": "node scripts/essais-quiz-navigateur.mjs"
   },
   "repository": {
     "type": "git",

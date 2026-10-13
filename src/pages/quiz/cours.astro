@@ -57,8 +57,12 @@ import { base } from '../../lib/ui';
       </button>
     </div>
 
-    <p id="quiz-vide" class="mt-6 hidden rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">
-      Aucune question de quiz pour cette sélection.
+    <p
+      id="quiz-vide"
+      role="status"
+      class="mt-6 hidden rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300"
+    >
+      Aucune question de quiz pour cette sélection. Essayez une autre matière, ou « Toutes ».
     </p>
 
     <div id="historique" class="mt-10"></div>
@@ -66,11 +70,19 @@ import { base } from '../../lib/ui';
 
   <section id="jeu" class="hidden">
     <div class="mb-4 flex items-center gap-3">
-      <button id="quitter-quiz" class="text-sm text-slate-500 hover:underline dark:text-slate-400">← Quitter</button>
+      <button
+        id="quitter-quiz"
+        class="cible-tactile text-sm text-slate-600 hover:underline dark:text-slate-300"
+      >← Quitter</button>
       <div class="h-2 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
         <div id="barre-quiz" class="h-full rounded-full bg-indigo-500 transition-all duration-300" style="width:0%"></div>
       </div>
-      <span id="score-courant" class="text-sm font-medium text-slate-500 tabular-nums dark:text-slate-400">0/0</span>
+      <span
+        id="score-courant"
+        role="status"
+        aria-live="polite"
+        class="text-sm font-medium text-slate-500 tabular-nums dark:text-slate-400"
+      ></span>
     </div>
 
     <div class="mx-auto max-w-2xl">
@@ -113,7 +125,7 @@ import { base } from '../../lib/ui';
   import { aplatirFiches, chargerFiche, chargerManifeste, type QuestionQuiz } from '../../lib/contenu';
   import { ajouterResultatQuiz, lireReglagesSession, tousLesResultatsQuiz } from '../../lib/db';
   import { gagnerXp, xpQuiz } from '../../lib/gamification';
-  import { formaterDate, lien, melanger, notifier, parametreUrl } from '../../lib/ui';
+  import { formaterDate, lien, melanger, notifier, parametreUrl, pluriel } from '../../lib/ui';
   import { signalerErreur } from '../../lib/journal';
   import { insecables } from '../../lib/typographie';
   import { enregistrerReponse, ordonnerParZoneProximale } from '../../lib/niveau';
@@ -152,6 +164,31 @@ import { base } from '../../lib/ui';
     return ids.length ? ids : null;
   }
 
+  /**
+   * Les fiches à charger pour un tirage de « limite » questions au hasard.
+   *
+   * Le tirage se fait sur les couples (fiche, n° de question) que le
+   * manifeste permet d'énumérer sans rien télécharger. On rend les fiches
+   * distinctes qui en ressortent : au plus « limite », souvent moins.
+   *
+   * Le tirage final reste fait sur les questions chargées, comme avant — une
+   * fiche tirée apporte toutes ses questions au mélange. Le résultat n'est
+   * donc pas rigoureusement équiprobable sur les 6 219 questions de la
+   * banque, et il ne l'était déjà pas : la limite de session tranchait de
+   * toute façon dans un mélange. Ce qui change est le nombre de fichiers
+   * déchiffrés pour y arriver.
+   */
+  function fichesDuTirage<T extends { id: string; nbQuiz: number }>(
+    candidates: readonly T[],
+    limite: number,
+  ): T[] {
+    if (limite <= 0) return [...candidates];
+    const couples: T[] = [];
+    for (const f of candidates) for (let i = 0; i < f.nbQuiz; i += 1) couples.push(f);
+    const tirees = new Set(melanger(couples).slice(0, limite));
+    return candidates.filter((f) => tirees.has(f));
+  }
+
   /** Rassemble les questions correspondant aux filtres choisis. */
   async function collecter(matiere: string, ficheId: string, limite: number): Promise<QuestionPosee[]> {
     const manifeste = await chargerManifeste();
@@ -165,8 +202,32 @@ import { base } from '../../lib/ui';
         (!ensemble || ensemble.has(f.id)),
     );
 
+    /*
+       Pourquoi un tirage avant le chargement, et seulement ici.
+
+       « Toutes les matières, toutes les fiches » faisait charger **les 425
+       fiches** du site, l'une après l'autre et chacune déchiffrée, pour en
+       retenir vingt questions. Mesuré : 4 s et 425 téléchargements en local,
+       et sur un téléphone en 4G le bouton « Commencer » ne produit rien de
+       visible assez longtemps pour qu'on le croie cassé — c'est le constat
+       F1 de la critique, dont la cause supposée était « aucune fiche
+       étudiée ». Ce n'était pas ça.
+
+       Quand aucun sujet n'est fixé, aucune mise en ordre par zone proximale
+       n'aura lieu (voir « clefSujet » plus bas) : le tirage est purement
+       aléatoire. Le manifeste donnant « nbQuiz » par fiche, on peut donc
+       tirer les questions **sur le manifeste**, et ne charger que les fiches
+       effectivement tirées — au plus « limite », soit vingt au lieu de 425.
+
+       Dès qu'une matière ou une fiche est choisie, on garde le chargement
+       complet : la zone proximale a besoin de tout le sujet pour ordonner,
+       et ce chemin-là démarre déjà sans attente perceptible.
+    */
+    const sujetFixe = Boolean(matiere || ficheId);
+    const aCharger = sujetFixe ? candidates : fichesDuTirage(candidates, limite);
+
     const toutes: QuestionPosee[] = [];
-    for (const resume of candidates) {
+    for (const resume of aCharger) {
       const fiche = await chargerFiche(resume.id);
       for (const question of fiche.quiz) {
         toutes.push({
@@ -195,6 +256,19 @@ import { base } from '../../lib/ui';
     return limite > 0 ? priorisees.slice(0, limite) : priorisees;
   }
 
+  /**
+   * Où l'on en est, et comment cela se passe — dans cet ordre.
+   *
+   * Les deux QCM affichaient « 1/30 » et « 0/1 », qui se ressemblent et ne
+   * disent pas la même chose : l'un comptait les questions, l'autre les
+   * bonnes réponses. Les deux écrans disent maintenant la position en toutes
+   * lettres, et celui-ci ajoute le score une fois qu'il existe — annoncer
+   * « 0 juste » avant la première réponse n'informe de rien.
+   */
+  const avancement = (index: number, repondues: number, justes: number) =>
+    `Question ${index + 1} sur ${questions.length}` +
+    (repondues > 0 ? ` · ${pluriel(justes, 'juste')}` : '');
+
   function afficherQuestion() {
     if (position >= questions.length) return terminer();
     const q = questions[position];
@@ -202,7 +276,7 @@ import { base } from '../../lib/ui';
 
     $('quiz-source').textContent = `${q.matiere} · ${q.ficheTitre}`;
     $('quiz-question').textContent = insecables(q.question);
-    $('score-courant').textContent = `${bonnes}/${position}`;
+    $('score-courant').textContent = avancement(position, position, bonnes);
     $('barre-quiz').style.width = `${Math.round((position / questions.length) * 100)}%`;
     $('quiz-correction').classList.add('hidden');
     // La correction de la question précédente est démontée, jamais seulement
@@ -358,7 +432,7 @@ import { base } from '../../lib/ui';
 
     correction.classList.remove('hidden');
 
-    $('score-courant').textContent = `${bonnes}/${position + 1}`;
+    $('score-courant').textContent = avancement(position, position + 1, bonnes);
     const suivant = $('quiz-suivant');
     suivant.textContent = position + 1 >= questions.length ? 'Voir le résultat' : 'Question suivante';
     suivant.classList.remove('hidden');
@@ -456,7 +530,22 @@ import { base } from '../../lib/ui';
     const ficheId = ($('quiz-fiche') as HTMLSelectElement).value;
     const limite = Number(($('quiz-taille') as HTMLSelectElement).value);
 
-    questions = await collecter(matiere, ficheId, limite);
+    /*
+       Le tirage déchiffre des fiches, donc il prend un temps non nul, et un
+       bouton qui ne change pas d'état pendant ce temps se fait recliquer —
+       puis se fait croire cassé. Le libellé dit ce qui se passe, et le
+       bouton refuse un second clic.
+    */
+    const bouton = $('lancer-quiz') as HTMLButtonElement;
+    const libelle = bouton.textContent;
+    bouton.disabled = true;
+    bouton.textContent = 'Préparation du tirage…';
+    try {
+      questions = await collecter(matiere, ficheId, limite);
+    } finally {
+      bouton.disabled = false;
+      bouton.textContent = libelle;
+    }
     if (!questions.length) {
       $('quiz-vide').classList.remove('hidden');
       return;
