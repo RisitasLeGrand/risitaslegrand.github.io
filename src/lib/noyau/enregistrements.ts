@@ -366,6 +366,7 @@ export const MAGASINS_JOURNALISES: readonly MagasinJournalise[] = [
   M({ magasin: 'odysseeCheckins', type: 'odyssee.checkin', clef: 'id', libelle: 'Check-in' }),
   M({ magasin: 'odysseeHebdos', type: 'odyssee.checkin', clef: 'id', libelle: 'Point de semaine' }),
   M({ magasin: 'odysseeJournal', type: 'odyssee.journal', clef: 'id', libelle: 'Entrée de journal' }),
+  M({ magasin: 'odysseePassations', type: 'odyssee.passation', clef: 'id', libelle: 'Passation d’échelle' }),
   M({ magasin: 'odysseeComptes', type: 'odyssee.valorisation', clef: 'id', libelle: 'Compte' }),
   M({ magasin: 'odysseeValorisations', type: 'odyssee.valorisation', clef: 'id', libelle: 'Valorisation' }),
   M({ magasin: 'odysseeOperations', type: 'odyssee.operation', clef: 'id', libelle: 'Opération' }),

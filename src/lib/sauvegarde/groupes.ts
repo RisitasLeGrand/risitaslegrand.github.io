@@ -131,6 +131,8 @@ export const CHAMP_DATE: Record<string, string | null> = {
   // Un repère est daté : il s'élague comme le journal qui l'a produit.
   odysseeVeilleSignaux: 'jour',
   odysseeVeilleReglages: null,
+  // Une passation est datée, et n'est jamais remplacée : on en refait une.
+  odysseePassations: 'jour',
 };
 
 export const GROUPES: readonly GroupeDeMagasins[] = [
@@ -214,6 +216,7 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
       'odysseeVeilleBases',
       'odysseeVeilleSignaux',
       'odysseeVeilleReglages',
+      'odysseePassations',
     ],
   },
   {

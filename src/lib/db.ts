@@ -21,6 +21,7 @@ import type { Checkin, CheckinHebdo, Entree } from './odyssee/psyche';
 import type { Session } from './odyssee/usage';
 import type { LigneDeBase } from './odyssee/veille';
 import type { ReglagesVeille, SignalEnregistre } from './odyssee/signal-veille';
+import type { Passation } from './odyssee/echelles';
 import type { Compte, OperationBancaire, Valorisation } from './odyssee/finances';
 import type { LigneBudget } from './odyssee/budget';
 import type {
@@ -624,10 +625,16 @@ interface SchemaRevinsp extends DBSchema {
   */
   odysseeVeilleSignaux: { key: string; value: SignalEnregistre; indexes: { jour: string } };
   odysseeVeilleReglages: { key: string; value: ReglagesVeille & { id: string } };
+  /*
+     Les passations d'échelles, depuis la phase « échelles ». Scellées : un
+     score de PHQ-9 daté est l'une des données les plus sensibles que cette
+     application puisse contenir.
+  */
+  odysseePassations: { key: string; value: Passation; indexes: { jour: string; echelle: string } };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 24;
+const VERSION = 25;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1235,6 +1242,19 @@ function ouvrirAuSchema(nom: string, version: number) {
           .createObjectStore('odysseeVeilleSignaux', { keyPath: 'id' })
           .createIndex('jour', 'jour');
         base.createObjectStore('odysseeVeilleReglages', { keyPath: 'id' });
+      }
+      if (vers(25)) {
+        /*
+         * Les échelles WHO-5, PHQ-9 et GAD-7.
+         *
+         * Un seul magasin pour les trois : une passation porte l'identifiant
+         * de son échelle. Les deux index servent les deux lectures réelles —
+         * l'historique d'une échelle, et ce qui a été rempli un jour donné.
+         * Le reste, réponses comprises, est chiffré.
+         */
+        const passations = base.createObjectStore('odysseePassations', { keyPath: 'id' });
+        passations.createIndex('jour', 'jour');
+        passations.createIndex('echelle', 'echelle');
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -2101,6 +2121,7 @@ export const MAGASINS_PROGRESSION = [
   'odysseeVeilleBases',
   'odysseeVeilleSignaux',
   'odysseeVeilleReglages',
+  'odysseePassations',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */

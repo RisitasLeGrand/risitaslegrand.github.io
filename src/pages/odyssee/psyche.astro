@@ -18,13 +18,24 @@
  * quoi dire ça, et une personne qui a compris le mécanisme apprend surtout à
  * mentir aux glissières pour que le bandeau disparaisse.
  *
- * ## Ce qui n'est pas ici
+ * ## Ce qui n'est pas ici, et ce qui a changé
  *
- * Les échelles WHO-5, PHQ-9 et GAD-7. Elles donneraient des scores
- * comparables à des seuils cliniques publiés — et donc un diagnostic rendu
- * par un logiciel. Leur licence et la validation de leur traduction
- * française n'ont par ailleurs pas été vérifiées. Quatre glissières sans
- * prétention valent mieux qu'un score emprunté.
+ * Les échelles WHO-5, PHQ-9 et GAD-7 ont longtemps été écartées de cet
+ * écran, pour deux raisons : elles donneraient des scores comparables à des
+ * seuils publiés, et ni leur licence ni la validation de leur traduction
+ * française n'avaient été vérifiées.
+ *
+ * **La seconde raison est tombée.** Les textes, les règles de score, les
+ * seuils et le régime juridique ont été authentifiés et empreintés le
+ * 13 octobre 2026 — le PHQ-9 et le GAD-7 sont dans le domaine public. Les
+ * trois échelles vivent désormais dans un écran **à part**,
+ * `/odyssee/echelles/`, avec leurs réserves et leurs paliers cités dans la
+ * langue de leur source.
+ *
+ * La première raison, elle, demeure, et c'est pourquoi elles ne sont pas
+ * *ici* : les quatre glissières de cet écran sont une relecture de soi, pas
+ * une mesure. Les mélanger à des instruments publiés ferait passer les
+ * premières pour les secondes.
  */
 import Base from '../../layouts/Base.astro';
 import { ECHELLE, JOURS_DE_LIGNE_DE_BASE, ORDRE_DIMENSIONS, DIMENSIONS, RESSOURCES } from '../../lib/odyssee/psyche';

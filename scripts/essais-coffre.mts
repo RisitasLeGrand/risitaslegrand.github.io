@@ -105,7 +105,8 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    plus bas. Ils ont été retirés, puis sont revenus avec la phase 1 — cette
    fois avec leurs magasins.
 */
-v('douze magasins scellés', MAGASINS_SCELLES.length, 12);
+v('treize magasins scellés', MAGASINS_SCELLES.length, 13);
+vrai('les passations d’échelles en sont', estScelle('odysseePassations'));
 vrai('la ligne de base de la veille en est', estScelle('odysseeVeilleBases'));
 vrai('les repères aussi', estScelle('odysseeVeilleSignaux'));
 /*
@@ -289,7 +290,7 @@ console.log('\n\x1b[1mTOUT TYPE SENSIBLE EST SCELLÉ, OU DISPENSÉ AVEC SA RAISO
 
 {
   const typesSensibles = TYPES.filter((t) => t.sensible).map((t) => t.id);
-  vrai('douze types sont déclarés sensibles', typesSensibles.length === 12);
+  vrai('treize types sont déclarés sensibles', typesSensibles.length === 13);
   v(
     'le registre réel est couvert',
     controlerCouvertureDesSensibles(MAGASINS_JOURNALISES, typesSensibles),

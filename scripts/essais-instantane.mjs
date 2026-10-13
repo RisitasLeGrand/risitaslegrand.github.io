@@ -305,6 +305,8 @@ v(
     'odysseeUsage', 'odysseeVeilleBases',
     // Le cycle de vie des repères, depuis la version 24. Scellés tous les deux.
     'odysseeVeilleSignaux', 'odysseeVeilleReglages',
+    // Les échelles, depuis la version 25. Scellées.
+    'odysseePassations',
   ].sort(),
 );
 

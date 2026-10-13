@@ -132,9 +132,9 @@ v(
    les compter — un compte qui bouge se corrige sans rien apprendre, une liste
    nommée dit lequel manque.
 */
-v('trente-quatre magasins journalisés', MAGASINS_JOURNALISES.length, 34);
+v('trente-cinq magasins journalisés', MAGASINS_JOURNALISES.length, 35);
 v(
-  'et les vingt-et-un d’Odyssée y sont',
+  'et les vingt-deux d’Odyssée y sont',
   MAGASINS_JOURNALISES.filter((m) => m.magasin.startsWith('odyssee')).map((m) => m.magasin),
   [
     'odysseeTaches',
@@ -158,6 +158,8 @@ v(
     'odysseeCheckins',
     'odysseeHebdos',
     'odysseeJournal',
+    // Les passations d’échelles, depuis la phase « échelles ».
+    'odysseePassations',
     // Finances, depuis la phase 1 — scellés tous les quatre.
     'odysseeComptes',
     'odysseeValorisations',

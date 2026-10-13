@@ -126,6 +126,12 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
     clairs: ['id', 'majLe'],
   },
   {
+    magasin: 'odysseePassations',
+    pourquoi:
+      'Échelles : un score de PHQ-9 ou de GAD-7, daté, est lisible par quiconque connaît ces instruments — et ils sont connus. C’est la donnée la plus sensible que cette application puisse contenir.',
+    clairs: ['id', 'jour', 'echelle', 'majLe'],
+  },
+  {
     magasin: 'odysseeVeilleSignaux',
     pourquoi:
       'Veille : un repère nomme les domaines où quelqu’un s’écarte de son habitude. C’est un constat sur lui, et le lire ne demande aucune compétence.',

@@ -1,0 +1,318 @@
+---
+/**
+ * Odyssée : les trois échelles — WHO-5, PHQ-9, GAD-7.
+ *
+ * ## Pourquoi elles sont là, après avoir été refusées
+ *
+ * « Ma psyché » dit encore, dans son en-tête, que ces échelles n'y sont pas :
+ * leur licence et la validation de leur traduction n'avaient pas été
+ * vérifiées. Elles l'ont été depuis — textes, scores, seuils et licence
+ * authentifiés et empreintés, voir `docs/cyclades/echelles-psyche/`. Le
+ * PHQ-9 et le GAD-7 sont dans le **domaine public**, et le WHO-5 porte le
+ * copyright de la Psychiatric Research Unit, avec autorisation de
+ * reproduction du premier et mention du second.
+ *
+ * ## Ce que l'écran affiche, et ce qu'il refuse d'afficher
+ *
+ * Le **score**, et le **palier** quand la source en donne un — mais dans les
+ * termes anglais du manuel, accompagnés de leur provenance. Le manuel indique
+ * que peu de traductions ont été validées psychométriquement et que les
+ * seuils viennent des versions anglaises ; traduire l'étiquette produirait un
+ * mot français que personne n'a validé, et qui se lirait comme le verdict de
+ * l'application.
+ *
+ * Le WHO-5 n'a **aucun** palier : son document n'en donne pas, et ceux qui
+ * circulent viennent d'ailleurs.
+ *
+ * ## Les ressources, comme partout dans Psyché
+ *
+ * Toujours affichées, jamais déclenchées par un score. Le neuvième item du
+ * PHQ-9 porte sur l'idée de mourir ; un bandeau qui apparaîtrait *parce que*
+ * cet item a été coché transformerait l'écran en évaluation du risque, ce
+ * qu'aucun questionnaire ne fait — le manuel le dit lui-même.
+ */
+import Base from '../../layouts/Base.astro';
+import { RESSOURCES } from '../../lib/odyssee/psyche';
+import { ECHELLES } from '../../lib/odyssee/echelles';
+---
+
+<Base titre="Échelles" actif="psyche">
+  <div class="mx-auto max-w-3xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Échelles</h1>
+    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+      Trois questionnaires publiés — WHO-5, PHQ-9, GAD-7 — repris au mot près de leurs documents
+      sources. Tout est chiffré dans le coffre.
+    </p>
+    <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+      <strong>Un score n’est pas un diagnostic.</strong> Ces questionnaires sont des instruments
+      d’appoint : ils ne remplacent pas un entretien, et leur manuel le dit. Les tranches affichées
+      sont celles de la version anglaise, citées dans sa langue.
+    </p>
+
+    <div id="chargement" class="mt-6 text-sm text-slate-500 dark:text-slate-400">Chargement…</div>
+
+    <div id="vue" class="mt-6 hidden space-y-8">
+      <section id="coffre-ferme" class="hidden rounded-2xl border-2 border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">🔒 Ouvrir le coffre</h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Un score daté est l’une des données les plus sensibles de cette application. Le mot de
+          passe est redemandé à chaque nouvel onglet, et la clé ne quitte pas cet appareil.
+        </p>
+        <label class="mt-3 block text-sm">
+          <span class="block text-slate-700 dark:text-slate-200">Mot de passe</span>
+          <input id="mdp-coffre" type="password" autocomplete="current-password"
+            class="mt-1 min-h-11 w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+        </label>
+        <button id="ouvrir-coffre" type="button"
+          class="mt-3 min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white dark:bg-slate-200 dark:text-slate-900">Ouvrir</button>
+        <p id="erreur-coffre" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+      </section>
+
+      <div id="coffre-ouvert" class="hidden space-y-10">
+        {
+          ECHELLES.map((e) => (
+            <section data-echelle={e.id} class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+              <h2 class="text-lg font-semibold text-slate-900 dark:text-white">{e.titre}</h2>
+              <p class="mt-2 whitespace-pre-line text-sm text-slate-700 dark:text-slate-200">{e.consigne}</p>
+
+              <div data-questionnaire={e.id} class="mt-4 hidden space-y-4">
+                {
+                  e.items.map((item, n) => (
+                    <fieldset data-item={`${e.id}-${n}`} class="rounded-lg border border-slate-200 p-3 dark:border-slate-800">
+                      <legend class="px-1 text-sm text-slate-800 dark:text-slate-100">
+                        {n + 1}. {item}
+                      </legend>
+                      <div class="mt-2 flex flex-wrap gap-2">
+                        {
+                          e.options.map((o) => (
+                            <label class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700">
+                              <input type="radio" name={`${e.id}-${n}`} value={o.valeur} />
+                              <span>{o.libelle}</span>
+                            </label>
+                          ))
+                        }
+                      </div>
+                    </fieldset>
+                  ))
+                }
+
+                {
+                  e.id === 'phq9' && (
+                    <fieldset data-gene class="rounded-lg border border-dashed border-slate-300 p-3 dark:border-slate-700">
+                      <legend class="px-1 text-sm text-slate-800 dark:text-slate-100">
+                        Si vous avez coché au moins un des problèmes évoqués, à quel point ce(s)
+                        problème(s) a-t-il (ont-ils) rendu votre travail, vos tâches à la maison ou
+                        votre capacité à vous entendre avec les autres difficile(s) ?
+                      </legend>
+                      <p class="px-1 text-xs text-slate-500 dark:text-slate-400">
+                        Cette question n’entre pas dans le calcul du score : le manuel précise
+                        qu’elle rend votre impression générale sur la gêne occasionnée.
+                      </p>
+                      <div class="mt-2 flex flex-wrap gap-2">
+                        {
+                          ['Pas du tout difficile(s)', 'Assez difficile(s)', 'Très difficile(s)',
+                            'Extrêmement difficile(s)'].map((g) => (
+                            <label class="flex min-h-11 cursor-pointer items-center gap-2 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700">
+                              <input type="radio" name={`${e.id}-gene`} value={g} />
+                              <span>{g}</span>
+                            </label>
+                          ))
+                        }
+                      </div>
+                    </fieldset>
+                  )
+                }
+
+                <div class="flex flex-wrap items-center gap-3">
+                  <button type="button" data-enregistrer={e.id}
+                    class="min-h-11 rounded-lg bg-indigo-700 px-4 text-sm font-medium text-white">Enregistrer</button>
+                  <button type="button" data-annuler={e.id}
+                    class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm dark:border-slate-600">Annuler</button>
+                  <p data-manque={e.id} class="text-sm text-amber-700 dark:text-amber-300"></p>
+                </div>
+              </div>
+
+              <button type="button" data-commencer={e.id}
+                class="mt-3 min-h-11 rounded-lg border border-slate-400 px-4 text-sm dark:border-slate-600">Remplir</button>
+
+              <div data-dernier={e.id} class="mt-4 text-sm"></div>
+
+              <details class="mt-4">
+                <summary class="cursor-pointer text-sm text-slate-600 dark:text-slate-300">
+                  Historique et provenance
+                </summary>
+                <ul data-historique={e.id} class="mt-3 space-y-1 text-sm text-slate-700 dark:text-slate-200"></ul>
+                {
+                  e.origineDesPaliers && (
+                    <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
+                      <strong>D’où viennent les tranches.</strong> {e.origineDesPaliers}
+                    </p>
+                  )
+                }
+                <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+                  <strong>Ce que la source dit d’elle-même.</strong> {e.reserve}
+                </p>
+                <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">{e.attribution}</p>
+              </details>
+            </section>
+          ))
+        }
+      </div>
+
+      <section id="ressources" class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Besoin d’en parler ?</h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Ces numéros sont affichés en permanence, de la même façon chaque jour. Ils n’apparaissent
+          jamais à cause d’un score.
+        </p>
+        <ul class="mt-3 space-y-2 text-sm">
+          {
+            RESSOURCES.map((r) => (
+              <li data-ressource={r.numero} class="text-slate-700 dark:text-slate-200">
+                <a href={`tel:${r.numero}`} class="font-semibold text-indigo-700 underline dark:text-indigo-300">{r.numero}</a>
+                {' — '}{r.nom}. <span class="text-slate-500 dark:text-slate-400">{r.quand}</span>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { coffreOuvert, ouvrirLeCoffre } from '../../lib/coffre';
+  import { ECHELLES, echelle, noter, type IdEchelle } from '../../lib/odyssee/echelles';
+  import { ecrirePassation, historique } from '../../lib/odyssee/donnees-echelles';
+
+  const $ = (s: string) => document.querySelector<HTMLElement>(s)!;
+
+  const lire = (id: IdEchelle): (number | null)[] =>
+    echelle(id).items.map((_, n) => {
+      const choisi = document.querySelector<HTMLInputElement>(`input[name="${id}-${n}"]:checked`);
+      return choisi ? Number(choisi.value) : null;
+    });
+
+  /**
+   * Le score et, s'il y a lieu, le palier.
+   *
+   * L'étiquette reste dans la langue de la source, et la phrase dit « le
+   * manuel place ce score dans la tranche qu'il nomme » plutôt que de
+   * qualifier la personne. La différence n'est pas cosmétique : la première
+   * formulation cite, la seconde juge.
+   */
+  function direLeResultat(id: IdEchelle, reponses: readonly (number | null)[]): string {
+    const e = echelle(id);
+    const r = noter(e, reponses);
+    if (r.score === null) {
+      return `Questionnaire incomplet : ${r.sansReponse} réponse(s) manquante(s). Un score ` +
+        'partiel serait plus bas, donc plus rassurant, sans rien dire de plus.';
+    }
+    const base = `Score : ${r.score} sur ${r.maximum}.`;
+    if (!r.palier) {
+      return `${base} Ce questionnaire ne donne pas de tranche d’interprétation.`;
+    }
+    return `${base} Le manuel place ce score dans la tranche qu’il nomme « ${r.palier.etiquette} ».`;
+  }
+
+  async function peindreHistorique(id: IdEchelle) {
+    const liste = $(`[data-historique="${id}"]`);
+    const dernier = $(`[data-dernier="${id}"]`);
+    const passees = await historique(id);
+    liste.innerHTML = '';
+    if (!passees.length) {
+      dernier.textContent = 'Jamais rempli.';
+      const li = document.createElement('li');
+      li.textContent = 'Aucune passation.';
+      liste.appendChild(li);
+      return;
+    }
+    dernier.textContent = `Dernière passation le ${passees[0].passation.jour}. ` +
+      direLeResultat(id, passees[0].passation.reponses);
+    dernier.dataset.score = String(passees[0].resultat.score ?? '');
+    for (const p of passees) {
+      const li = document.createElement('li');
+      li.dataset.passation = p.passation.id;
+      li.textContent = `${p.passation.jour} — ` +
+        (p.resultat.score === null
+          ? `incomplet, ${p.resultat.sansReponse} réponse(s) manquante(s)`
+          : `${p.resultat.score} / ${p.resultat.maximum}` +
+            (p.resultat.palier ? ` — « ${p.resultat.palier.etiquette} »` : ''));
+      liste.appendChild(li);
+    }
+  }
+
+  function montrerLeCoffre() {
+    const ouvert = coffreOuvert();
+    $('#coffre-ferme').classList.toggle('hidden', ouvert);
+    $('#coffre-ouvert').classList.toggle('hidden', !ouvert);
+    return ouvert;
+  }
+
+  auDeverrouillage(async () => {
+    $('#chargement').classList.add('hidden');
+    $('#vue').classList.remove('hidden');
+    if (montrerLeCoffre()) for (const e of ECHELLES) await peindreHistorique(e.id);
+
+    $('#ouvrir-coffre').addEventListener('click', async () => {
+      const champ = document.getElementById('mdp-coffre') as HTMLInputElement;
+      try {
+        await ouvrirLeCoffre(champ.value);
+        champ.value = '';
+        $('#erreur-coffre').classList.add('hidden');
+        if (montrerLeCoffre()) for (const e of ECHELLES) await peindreHistorique(e.id);
+      } catch {
+        $('#erreur-coffre').textContent = 'Mot de passe refusé.';
+        $('#erreur-coffre').classList.remove('hidden');
+      }
+    });
+
+    for (const b of document.querySelectorAll<HTMLElement>('[data-commencer]')) {
+      b.addEventListener('click', () => {
+        const id = b.dataset.commencer as IdEchelle;
+        $(`[data-questionnaire="${id}"]`).classList.remove('hidden');
+        b.classList.add('hidden');
+      });
+    }
+    for (const b of document.querySelectorAll<HTMLElement>('[data-annuler]')) {
+      b.addEventListener('click', () => {
+        const id = b.dataset.annuler as IdEchelle;
+        $(`[data-questionnaire="${id}"]`).classList.add('hidden');
+        document.querySelector<HTMLElement>(`[data-commencer="${id}"]`)!.classList.remove('hidden');
+        for (const i of document.querySelectorAll<HTMLInputElement>(`input[name^="${id}-"]`)) {
+          i.checked = false;
+        }
+        $(`[data-manque="${id}"]`).textContent = '';
+      });
+    }
+
+    for (const b of document.querySelectorAll<HTMLElement>('[data-enregistrer]')) {
+      b.addEventListener('click', async () => {
+        const id = b.dataset.enregistrer as IdEchelle;
+        const reponses = lire(id);
+        const manquants = reponses.filter((r) => r === null).length;
+        /*
+           On enregistre quand même un questionnaire incomplet : ce qui a été
+           répondu l'a été, et l'effacer parce qu'il manque un item serait
+           perdre une saisie réelle. C'est le **score** qui reste null, pas la
+           passation.
+        */
+        if (manquants) {
+          $(`[data-manque="${id}"]`).textContent =
+            `${manquants} réponse(s) manquante(s) : la passation est enregistrée, mais sans score.`;
+        }
+        const gene = id === 'phq9'
+          ? (document.querySelector<HTMLInputElement>('input[name="phq9-gene"]:checked')?.value ?? null)
+          : null;
+        await ecrirePassation(id, reponses, { gene });
+        $(`[data-questionnaire="${id}"]`).classList.add('hidden');
+        document.querySelector<HTMLElement>(`[data-commencer="${id}"]`)!.classList.remove('hidden');
+        for (const i of document.querySelectorAll<HTMLInputElement>(`input[name^="${id}-"]`)) {
+          i.checked = false;
+        }
+        await peindreHistorique(id);
+      });
+    }
+  });
+</script>

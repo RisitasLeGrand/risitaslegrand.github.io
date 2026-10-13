@@ -106,6 +106,8 @@
     "essais:mesures-veille": "tsx scripts/essais-mesures-veille.mts",
     "essais:veille:ecran": "node scripts/essais-veille-ecran.mjs",
     "veille:faux-signaux": "tsx scripts/veille-faux-signaux.mts",
+    "essais:echelles": "tsx scripts/essais-echelles.mts",
+    "essais:echelles:ecran": "node scripts/essais-echelles-ecran.mjs",
     "essais:veille:navigateur": "node scripts/essais-veille-navigateur.mjs",
     "essais:releve": "tsx scripts/essais-releve.mts",
     "essais:finances:navigateur": "node scripts/essais-finances-navigateur.mjs",

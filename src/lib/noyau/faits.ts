@@ -443,6 +443,24 @@ export const TYPES: readonly TypeDeFait[] = [
       'Un début et une fin d’ouverture de l’application. Aucune page, aucun écran, aucune action — voir odyssee/usage.ts.',
   }),
   T({
+    id: 'odyssee.passation',
+    libelle: 'Passation d’une échelle',
+    proprietaire: 'odyssee',
+    domaine: 'psyche',
+    nature: 'nombre',
+    /*
+       « points », et non une unité physique : un score d'échelle n'en a pas.
+       Le contrôle du noyau exige qu'un type porteur de valeur déclare la
+       sienne, et il a raison de l'exiger — une valeur sans unité se compare
+       à n'importe quoi. Ici l'unité dit surtout que le nombre n'est
+       interprétable que par son barème.
+    */
+    unite: 'points',
+    sensible: true,
+    description:
+      'Score daté d’une échelle validée (WHO-5, PHQ-9, GAD-7), avec ses réponses. Ne sort jamais de l’appareil sans le coffre.',
+  }),
+  T({
     id: 'odyssee.operation',
     libelle: 'Opération financière',
     proprietaire: 'odyssee',
