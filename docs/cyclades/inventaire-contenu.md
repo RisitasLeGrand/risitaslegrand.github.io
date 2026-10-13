@@ -594,3 +594,195 @@ reformulé et signalé plutôt que corrigé. D'autres termes de la liste ont le
 même double sens et se rencontreront : **« copie »** (copie d'un acte),
 **« coefficient »** (coefficient budgétaire, coefficient de Gini) et
 **« chapitre »** (chapitre budgétaire, chapitre VI de la Charte).
+
+---
+
+## 8. Le fascicule 5 — relevé du 13 octobre 2026
+
+Les sept PDF du **fascicule 5** (« Préparation au concours d'entrée à l'INSP
+2024-2025 — Fascicule 5 ») sont arrivés dans `sources/fascicules/`, à la
+convention habituelle `<matiere>-f5.pdf`. Même émetteur, même forme que les
+fascicules 1 à 4.
+
+**Qualité d'extraction.** Les sept portent une couche de texte propre. Le défaut
+d'espacement des lettres (`D R O I T   P U B L I C`) redouté sur les fascicules
+précédents **ne se produit sur aucun des sept** : l'extraction page à page rend
+des mots recomposés, titres courants et tables des matières compris. Les tables
+des matières se trouvent page 3 pour cinq d'entre eux, et la pagination
+annoncée (45, 45, 65, 73, 56, 54, 8 pages) correspond exactement au nombre de
+pages lues. Aucune page vide inattendue, aucun passage illisible.
+
+### Vue d'ensemble
+
+| Matière | Pages | Thème général du plan de travail n° 5 | Chapitres | Fiches à écrire |
+|---|---|---|---|---|
+| Cas pratique | 8 | (pas de titre de plan : deux pièces détachées) | 2 | 2 |
+| Droit public | 45 | Fonction publique – Environnement – Domanialité publique – Régulation | 10 | 10 |
+| Économie | 45 | Les politiques publiques face aux enjeux de long terme | 10 | 10 |
+| Questions sociales | 54 | Santé et nouveaux enjeux | 13 | 13 |
+| Questions internationales | 56 | La politique étrangère de la France | 14 | 14 |
+| Finances publiques | 65 | Interactions financières entre l'État et les autres administrations publiques | 15 | 15 |
+| Questions européennes | 73 | Action extérieure de l'Union européenne | 15 | 15 |
+| **Total** | **346** | | **79** | **79** |
+
+**Soixante-dix-neuf fiches.** Le compte des chapitres est celui des entrées de
+table des matières qui portent du contenu : les intitulés de section —
+« Inégalités », « Finances locales », « Politiques de santé » — ne sont pas
+comptés, les fiches d'actualité et les devoirs le sont, comme dans la section 2.
+
+Rapporté aux 347 fiches existantes, le fascicule 5 représente une augmentation
+de **23 %** du contenu, et porterait le total à **426**.
+
+### Cas pratique — 2 chapitres
+
+| # | Chapitre (p.) | Fiche existante proche | Nature |
+|---|---|---|---|
+| 1 | « Pour un usage modéré des majuscules » — février 2025 (5-6) | aucune | neuf |
+| 2 | Devoir n° 2 en résolution de cas pratique : autocorrectif (7-8) | F3 porte le devoir n° 1 | neuf |
+
+**Un renvoi non résolu.** Le chapitre 2 reproduit le sujet en entier, mais
+renvoie à deux annexes qui ne sont pas dans `sources/` : « annexe 2 (cf. Sujet
+Cas Pratique.pdf) » — redondante, le sujet étant déjà au fascicule — et surtout
+« annexe 3 (cf. Corrigé Cas Pratique IA_V2.pdf) », **la proposition de
+corrigé**. La fiche du devoir peut donc être écrite sur le sujet ; le corrigé
+ne peut pas l'être. C'est le **quatrième** renvoi manquant, après les trois de
+la section 7.
+
+### Droit public — 10 chapitres
+
+| # | Chapitre (p.) | Fiche existante proche | Nature |
+|---|---|---|---|
+| 1 | Les différentes catégories d'agents publics (8-12) | aucune | neuf |
+| 2 | Déontologie et droit de grève des fonctionnaires (13-18) | aucune | neuf |
+| 3 | Rapport annuel sur l'état de la fonction publique, éd. 2024 (19-22) | aucune | neuf |
+| 4 | Le dialogue social dans la fonction publique après la loi du 6 août 2019 (23-25) | QS F2 « Le rôle de l'État en matière de négociation collective » (secteur privé) | neuf |
+| 5 | La place du droit environnemental (26-29) | aucune | neuf |
+| 6 | La charte de l'environnement (30-33) | DP F2 « La hiérarchie des normes » (bloc de constitutionnalité) | neuf |
+| 7 | La domanialité publique (34-38) | aucune | neuf |
+| 8 | La régulation économique (39-42) | **Éco F4 « La régulation économique aujourd'hui »** | recoupement fort, angle différent |
+| 9 | Actualité jurisprudentielle — décembre 2024 (43-44) | série : une par fascicule en F1-F4 | neuf (suite de série) |
+| 10 | Actualité législative et réglementaire — janvier 2025 (45) | idem | neuf (suite de série) |
+
+Le droit de la fonction publique est **entièrement absent** du contenu actuel :
+quatre des dix chapitres l'ouvrent. C'est le gain le plus net du fascicule.
+
+### Économie — 10 chapitres
+
+| # | Chapitre (p.) | Fiche existante proche | Nature |
+|---|---|---|---|
+| 1 | La théorie du choix public (6-8) | aucune | neuf |
+| 2 | Gouvernance économique mondiale (9-12) | Éco F3 « Le système monétaire international », « Les réformes financières promues par le G20 » | recoupement partiel |
+| 3 | Inégalités et politique économique — concepts clés (13-16) | aucune | neuf |
+| 4 | Les inégalités de patrimoine (17-20) | aucune | neuf |
+| 5 | Inégalités et politique économique (21-24) | FiPu F4 « Impôt et redistribution » | recoupement partiel |
+| 6 | Conséquences économiques du vieillissement démographique (25-29) | aucune | neuf |
+| 7 | Marché du travail et vieillissement (30-34) | QS F3 « Comment améliorer l'emploi des seniors… » | recoupement partiel, angle économique |
+| 8 | Réformes des retraites et soutenabilité (35-37) | QS F1 « L'âge de départ à la retraite », « Les systèmes de retraite et leurs paramètres » | recoupement fort, angle économique |
+| 9 | Le partage de la valeur ajoutée (38-41) | aucune | neuf |
+| 10 | Perspectives économiques 2025-2026 (42-45) | Éco F2 « La poussée inflationniste : points d'étape » (daté 2024) | actualisation |
+
+Le thème **inégalités** (trois chapitres) et le thème **vieillissement** (trois
+chapitres, retraites comprises) sont les deux apports structurants.
+
+### Questions sociales — 13 chapitres
+
+| # | Chapitre (p.) | Fiche existante proche | Nature |
+|---|---|---|---|
+| 1 | Les lois de financement de la Sécurité sociale (6-9) | QS F1 « Le financement de la sécurité sociale et l'ONDAM » ; **et FiPu F5 ch. 11, même intitulé** | doublon interne au fascicule 5 |
+| 2 | Les données de santé (10-13) | aucune | neuf |
+| 3 | Les acteurs de la sécurité sanitaire (14-17) | aucune | neuf |
+| 4 | La couverture du risque santé et l'articulation Assurance maladie / complémentaires (18-23) | aucune | neuf |
+| 5 | Organisation des soins et déserts médicaux (24-26) | aucune | neuf |
+| 6 | Santé publique et préventive (27-29) | aucune | neuf |
+| 7 | Les enjeux de la politique vaccinale (30-32) | aucune | neuf |
+| 8 | Lutte contre l'obésité (33-36) | aucune | neuf |
+| 9 | Régulation des urgences et soins non programmés (37-40) | aucune | neuf |
+| 10 | La politique du médicament (41-44) | aucune | neuf |
+| 11 | Articulation AT-MP / prévention de la pénibilité (45-47) | QS F2 « La prévention des accidents du travail » ; QS F1 « Le fonds de prévention de l'usure professionnelle » | recoupement partiel |
+| 12 | Impacts de la transformation environnementale sur la protection sociale (48-51) | aucune | neuf |
+| 13 | La numérisation de la santé (52-54) | aucune | neuf |
+
+**La santé était le grand absent du contenu.** Les 61 fiches de questions
+sociales portaient sur la protection sociale, le travail, l'emploi et la
+solidarité ; **aucune** sur l'organisation du système de soins. Onze des treize
+chapitres ouvrent un domaine entièrement neuf.
+
+### Questions internationales — 14 chapitres
+
+| # | Chapitre (p.) | Fiche existante proche | Nature |
+|---|---|---|---|
+| 1 | Le ministère de l'Europe et des Affaires étrangères (6-9) | QI F4 « À quoi sert un diplomate aujourd'hui ? » | recoupement partiel |
+| 2 | La politique étrangère de la France (10-12) | aucune | neuf |
+| 3 | La France dans la mondialisation (13-16) | aucune | neuf |
+| 4 | La politique africaine de la France (17-19) | QI F1 « L'Union africaine » (angle organisation) | neuf |
+| 5 | Les opérations extérieures de la France (20-23) | QI F4 « Les opérations de maintien de la paix » (angle ONU) | recoupement partiel |
+| 6 | La francophonie (24-26) | QI F4 « La diplomatie culturelle » | recoupement partiel |
+| 7 | Le couple franco-allemand (27-30) | **QE F1 « Quelles perspectives pour le couple franco-allemand ? »** | recoupement fort |
+| 8 | La France et la Russie (31-34) | QI F1 « Le conflit en Ukraine » | neuf |
+| 9 | La politique de la France au Moyen-Orient (35-38) | QI F3 « Le conflit israélo-palestinien » | neuf |
+| 10 | La France et l'Asie-Pacifique (39-42) | QI F1 « La zone Pacifique » | recoupement partiel |
+| 11 | La politique de défense de la France (43-45) | QI F1 « Les principales forces armées dans le monde » | neuf |
+| 12 | L'organisation de la politique européenne de la France (46-48) | **QE F1 « Les administrations françaises et l'Union européenne »** | recoupement fort |
+| 13 | La relation franco-britannique (49-52) | QE F1 « Le Brexit et ses conséquences » | recoupement partiel |
+| 14 | La France et l'Amérique latine (53-56) | QI F1 « Les organisations latino-américaines » | neuf |
+
+Le fascicule bascule du **système international** vers **la France dans ce
+système** : c'est un point de vue que le contenu n'avait pas.
+
+### Finances publiques — 15 chapitres
+
+| # | Chapitre (p.) | Fiche existante proche | Nature |
+|---|---|---|---|
+| 1 | Les relations financières entre l'État et les collectivités territoriales (6-10) | DP F1 « Décentralisation (1) : autonomie financière » | recoupement partiel, angle financier |
+| 2 | La maîtrise de la dépense locale (11-16) | FiPu F3 « Le contrôle des finances locales » | recoupement partiel |
+| 3 | La fiscalité locale (17-21) | FiPu F4 « Les grands principes fiscaux » | neuf |
+| 4 | Les ressources de l'Union européenne (22-25) | **QE F3 « Faut-il réformer le financement du budget de l'Union ? »** | recoupement fort |
+| 5 | Le budget de l'Union européenne (26-29) | **QE F3 « À quoi sert le budget de l'Union ? », « Le pouvoir budgétaire dans l'UE »** | recoupement fort |
+| 6 | L'harmonisation fiscale européenne (30-32) | QE F3 « L'Union face au défi de l'évasion fiscale » | recoupement partiel |
+| 7 | L'imposition minimale mondiale des multinationales, « Pilier 2 » (33-35) | aucune | neuf |
+| 8 | Révision à mi-parcours du cadre financier pluriannuel (36-38) | aucune | neuf |
+| 9 | Le financement de la protection sociale (39-43) | QS F1 « Le financement de la sécurité sociale et l'ONDAM » | recoupement partiel |
+| 10 | Les relations financières entre l'État et la Sécurité sociale (44-47) | aucune | neuf |
+| 11 | Les lois de financement de la Sécurité sociale (48-52) | **QS F5 ch. 1, même intitulé** | doublon interne au fascicule 5 |
+| 12 | La dette sociale (53-56) | FiPu F1 « Dette et soutenabilité » (dette de l'État) | neuf |
+| 13 | Panorama international des finances publiques (57-58) | aucune | neuf |
+| 14 | L'émission et la gestion de la dette — AFT et DACES (59-62) | FiPu F1 « Dette et soutenabilité » | recoupement partiel, angle opérationnel |
+| 15 | Actualités des finances publiques — décembre 2024 (63-65) | série | neuf (suite de série) |
+
+### Questions européennes — 15 chapitres
+
+| # | Chapitre (p.) | Fiche existante proche | Nature |
+|---|---|---|---|
+| 1 | Existe-t-il une diplomatie européenne ? (6-9) | aucune | neuf |
+| 2 | Quel avenir pour les relations transatlantiques ? (10-13) | **QI F4 « Les relations transatlantiques »** | recoupement fort, angle UE |
+| 3 | Une défense européenne commune est-elle possible ? (14-18) | aucune | neuf |
+| 4 | Quelle politique de solidarité internationale pour l'UE ? (19-23) | aucune | neuf |
+| 5 | Quelles relations entre les pays de l'UE et les pays voisins ? (24-27) | aucune | neuf |
+| 6 | L'Union européenne et l'Afrique (28-31) | aucune | neuf |
+| 7 | L'élargissement de l'Union européenne (32-38) | QE F1 « Grands et petits États au sein de l'UE » | neuf |
+| 8 | La politique commerciale de l'Union européenne (39-45) | Éco F3 « Le commerce international : bilan, enjeux » | recoupement partiel |
+| 9 | L'Union européenne et la Chine (46-49) | QI F1 « Les relations sino-américaines » | neuf |
+| 10 | Quelle autonomie stratégique pour l'UE ? (50-53) | **QE F1 « Qu'entend-on par souveraineté européenne ? »** | recoupement fort |
+| 11 | L'Union européenne et l'Indo-Pacifique (54-56) | QI F1 « La zone Pacifique » | neuf |
+| 12 | Les relations entre l'UE et la Russie (57-61) | QI F1 « Le conflit en Ukraine » | neuf |
+| 13 | Quelle est l'influence de l'UE au sein des enceintes multilatérales ? (62-65) | QI F1 « Le multilatéralisme » | recoupement partiel |
+| 14 | L'Union européenne et l'Amérique latine (66-69) | aucune | neuf |
+| 15 | Politique étrangère de la France et politique étrangère de l'UE (70-73) | **QI F5 ch. 12** | doublon partiel interne au fascicule 5 |
+
+### Ce que le relevé des recoupements commande
+
+Sur 79 chapitres, **61 sont entièrement neufs**, **15 recoupent partiellement**
+une fiche existante et **3 la recoupent fortement** sans l'annuler. Deux
+chapitres font doublon **à l'intérieur même du fascicule 5** (les LFSS, entre
+finances publiques et questions sociales ; la politique étrangère France/UE,
+entre questions européennes et questions internationales).
+
+Règle retenue pour la rédaction : **une fiche par chapitre de fascicule, même
+en cas de recoupement.** Trois raisons. Le découpage par matière est celui des
+épreuves, et un candidat révise « finances publiques » ou « questions
+sociales », pas un sujet transversal. Le traitement diffère : les LFSS vues par
+les finances publiques sont une procédure et des agrégats, vues par les
+questions sociales une politique et des branches. Et fusionner reviendrait à
+faire disparaître un chapitre de fascicule de l'inventaire, c'est-à-dire à
+rendre invisible ce qui a été lu. Les fiches qui se recoupent se renvoient donc
+l'une à l'autre par leurs tags plutôt que de se confondre.
