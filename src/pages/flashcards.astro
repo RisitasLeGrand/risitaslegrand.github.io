@@ -173,6 +173,7 @@ import { base } from '../lib/ui';
   import { signalerErreur } from '../lib/journal';
   import { enregistrerReponse, ordonnerParZoneProximale } from '../lib/niveau';
   import { lien, melanger, notifier, parametreUrl, pluriel } from '../lib/ui';
+  import { insecables } from '../lib/typographie';
   import { boutonAssistant } from '../features/assistant/monter';
   import { contexteFlashcard } from '../features/assistant/fournisseurs';
 
@@ -245,8 +246,8 @@ import { base } from '../lib/ui';
     $('zone-reponse').classList.add('hidden');
     $('notation').classList.add('hidden');
     $('indice-retourner').classList.remove('hidden');
-    $('question').textContent = carte.question;
-    $('reponse').textContent = carte.reponse;
+    $('question').textContent = insecables(carte.question);
+    $('reponse').textContent = insecables(carte.reponse);
     $('source-carte').textContent = `${carte.matiere} · ${carte.ficheTitre}${carte.neuve ? ' · nouvelle carte' : ''}`;
     $('compteur').textContent = `${position + 1}/${file.length}`;
     $('barre-session').style.width = `${Math.round((position / file.length) * 100)}%`;

@@ -136,7 +136,9 @@
     "essais:sante:navigateur": "node scripts/essais-sante-navigateur.mjs",
     "essais:hors-ligne": "node scripts/essais-hors-ligne.mjs",
     "essais:espaces": "node scripts/essais-espaces.mjs",
-    "essais:structure": "node scripts/essais-structure.mjs"
+    "essais:structure": "node scripts/essais-structure.mjs",
+    "essais:typographie": "tsx scripts/essais-typographie.mts",
+    "essais:colonnes:navigateur": "node scripts/essais-colonnes-navigateur.mjs"
   },
   "repository": {
     "type": "git",

@@ -241,6 +241,10 @@ console.log('\n\x1b[1mBRANCHÉ SUR LES DEUX BANQUES\x1b[0m\n');
     options: ['54', '56', '48', '64'],
     reponse: '56',
     explication: 'Table de 7.',
+    // Obligatoire depuis D-006 : une question de banque dit d'où elle vient.
+    // Le jeu d'essai l'avait oublié, et les trois assertions qui suivent
+    // échouaient sur ce champ absent en croyant parler de la correction.
+    categorie_origine: 'maison',
   };
   verifier(
     'une question DGFiP sans correction reste valide',
@@ -329,6 +333,10 @@ console.log('\n\x1b[1mL’APPARIEMENT DE LA RÉPONSE À SON OPTION\x1b[0m\n');
     options: ['Le Conseil d’État', 'le conseil d’État'],
     reponse: 'LE CONSEIL D’ÉTAT',
     explication: 'La majuscule marque l’institution.',
+    // Sans ce champ, le refus venait de son absence et non de la confusion :
+    // l'assertion du dessus passait pour la mauvaise raison, et celle du
+    // dessous échouait en le disant.
+    categorie_origine: 'maison',
   });
   verifier('la banque DGFiP refuse la même confusion', dgfipConfus.success, false);
   verifier(
@@ -373,11 +381,23 @@ console.log('\n\x1b[1mL’APPARIEMENT DE LA RÉPONSE À SON OPTION\x1b[0m\n');
 
 console.log('\n\x1b[1mLE RÉGIME À DEUX VITESSES\x1b[0m\n');
 {
-  // Au départ, aucun périmètre n'est migré : le contrôle est en inventaire
-  // partout, et le build ne doit pas échouer sur une absence.
-  verifier('aucune matière migrée au départ', MATIERES_MIGREES, []);
-  verifier('aucune rubrique migrée au départ', RUBRIQUES_MIGREES, []);
+  /*
+     Ces assertions disaient « aucune matière migrée au départ », et c'était
+     vrai le jour où elles ont été écrites. D-019 a inscrit « cas-pratique »
+     le 13 octobre 2026, et personne n'est revenu ici : l'essai est resté
+     rouge, c'est-à-dire ignoré. Il dit désormais l'état réel, et le dit de
+     façon à ne pas redevenir faux au lot suivant — ce qui compte n'est pas
+     la longueur de la liste, c'est qu'un périmètre migré le soit et qu'un
+     autre ne le soit pas.
+  */
+  verifier('« cas-pratique » est migré depuis D-019', estMatiereMigree('cas-pratique'), true);
+  verifier('aucune rubrique DGFiP migrée à ce jour', RUBRIQUES_MIGREES, []);
   verifier('une matière non listée n’est pas migrée', estMatiereMigree('droit-public'), false);
+  verifier(
+    'la liste des matières migrées n’est pas vide : le garde-fou mord quelque part',
+    MATIERES_MIGREES.length > 0,
+    true,
+  );
   // La liste ne fait que croître : on vérifie qu'elle est bien une liste de
   // chaînes, pour qu'une faute de frappe n'y passe pas silencieusement.
   verifier(

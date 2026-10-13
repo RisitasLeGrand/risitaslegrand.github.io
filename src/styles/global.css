@@ -358,3 +358,23 @@ dfn.terme-glossaire:focus-visible {
 .defilement-fin:focus-within::-webkit-scrollbar-thumb {
   background-color: var(--etat-defilement);
 }
+
+/* Des colonnes qui respirent.
+
+   « CIBLE » aligné à droite, « ÉCART » aligné à gauche, aucune marge entre
+   les deux : les cellules sont séparées, mais les deux textes sont poussés
+   chacun contre la frontière et se lisent « CIBLEÉCART ». Le défaut ne se
+   voit pas dans le gabarit — les cellules y sont bien distinctes —, il naît
+   de l'alignement, et il faut mesurer le rendu pour le constater.
+
+   La règle est globale plutôt que posée cellule par cellule parce que les
+   lignes de corps de ces tableaux sont peintes par du JavaScript : un style
+   à portée de composant ne les atteindrait pas, et l'en-tête respirerait
+   pendant que le corps continuerait de coller. */
+.table-aeree :is(th, td) {
+  padding-inline-end: 1rem;
+}
+
+.table-aeree :is(th, td):last-child {
+  padding-inline-end: 0;
+}

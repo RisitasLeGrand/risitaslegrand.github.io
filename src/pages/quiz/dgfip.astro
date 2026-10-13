@@ -182,6 +182,7 @@ import { base } from '../../lib/ui';
   import { idParcoursCourant } from '../../lib/parcours/courant';
   import { MATIERE_DGFIP, signalerErreur } from '../../lib/journal';
   import { enregistrerReponse } from '../../lib/niveau';
+  import { insecables } from '../../lib/typographie';
   import { demonterCorrection, monterCorrection } from '../../features/correction/qcm/monter';
   import { boutonAssistant } from '../../features/assistant/monter';
   import { contexteDgfip } from '../../features/assistant/fournisseurs';
@@ -280,7 +281,7 @@ import { base } from '../../lib/ui';
     const multiple = q.bonnes.length > 1;
 
     $('rubrique-courante').textContent = q.rubrique;
-    $('enonce-dgfip').textContent = q.question;
+    $('enonce-dgfip').textContent = insecables(q.question);
     $('consigne-dgfip').textContent = multiple
       ? 'Plusieurs réponses attendues — le point n’est acquis que si la sélection est exacte.'
       : 'Une seule réponse attendue.';
@@ -297,7 +298,7 @@ import { base } from '../../lib/ui';
       bouton.type = 'button';
       bouton.dataset.index = String(index);
       bouton.setAttribute('role', multiple ? 'checkbox' : 'radio');
-      bouton.textContent = q.options[index];
+      bouton.textContent = insecables(q.options[index]);
       bouton.addEventListener('click', () => basculer(index, multiple));
       zone.appendChild(bouton);
     }
