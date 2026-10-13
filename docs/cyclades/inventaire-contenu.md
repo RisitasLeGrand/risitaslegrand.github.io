@@ -259,8 +259,11 @@ d'être consigné ici.
 | 3 | `questions-internationales/fascicule-3` | 15 | 106 |
 | 4 | `questions-europeennes/fascicule-1` | 14 | 92 |
 | 5 | `questions-europeennes/fascicule-2` | 14 | 78 |
+| 6 | `questions-europeennes/fascicule-3` | 15 | 63 |
 
-Fiches avec prétest, après le lot 5 : **260 sur 347**. **Les questions
+Fiches avec prétest, après le lot 6 : **275 sur 347**. **Les questions
+européennes sont complètes** : les 43 prétests de la matière sont écrits.
+Restent les questions sociales (32) et les finances publiques (31). **Les questions
 internationales sont complètes** : les 44 prétests de la matière sont écrits.
 
 Note de méthode retenue d'un lot à l'autre : un prétest **ouvre la lecture**, il
