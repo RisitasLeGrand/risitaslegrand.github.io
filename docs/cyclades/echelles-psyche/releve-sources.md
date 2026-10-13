@@ -469,3 +469,92 @@ For further information, visit https://icd.who.int
 
 Le mot-à-mot authentifié reste donc à faire. Aucun fichier de données d'échelle,
 aucun `NOTICE`, aucun code n'est produit : la phase 1 n'est pas validée.
+
+---
+
+## 8. Relevé externe n°3 (13 octobre 2026) — et la démonstration que cette voie est fermée
+
+Un troisième relevé a été produit, annoncé comme mise à jour du précédent avec
+« les textes complets du PHQ-9 et du GAD-7 ». **Son apport réel est ailleurs :
+confronté au relevé n°2, il prouve qu'aucun des deux n'est fiable.** C'est le
+résultat le plus utile de la série, et c'est un résultat négatif.
+
+### 8.1 Le test décisif : deux transcriptions du même fichier divergent
+
+Les deux relevés prétendent transcrire **le même PDF** — PHQ-9 « French for
+France » de `phqscreeners.com` — et tous deux étiquettent leur texte `[FICHIER]`.
+Ils donnent des textes différents sur **8 items sur 9**.
+
+| # | Relevé n°2 | Relevé n°3 |
+|---|---|---|
+| 1 | Peu d'intérêt ou de plaisir à faire les choses | *identique* |
+| 2 | **Être** triste, déprimé(e) ou désespéré(e) | **Se sentir** triste, déprimé(e) ou désespéré(e) |
+| 3 | **Difficultés** à s'endormir… | **Difficulté** à s'endormir… |
+| 4 | …ou **manquer d'énergie** | …ou **avoir peu d'énergie** |
+| 5 | **Avoir peu** d'appétit ou manger trop | **Peu** d'appétit ou manger trop |
+| 6 | Avoir une mauvaise opinion de soi-même, ou avoir le sentiment d'être nul(le), ou d'avoir déçu sa famille ou s'être déçu(e) soi-même | Se sentir nul(le) – ou coupable ou honteux(se) |
+| 7 | **Avoir du mal** à se concentrer, par exemple, **pour lire** le journal… | **Difficulté** à se concentrer, par exemple **en lisant** le journal… |
+| 8 | …le remarquer**.** Ou **au contraire, être si agité(e) que vous avez eu du mal à tenir en place par rapport à** d'habitude | …le remarquer **?** Ou **le contraire – être si agité(e) ou remuant(e) que vous avez beaucoup bougé plus qu'**habitude |
+| 9 | **Penser qu'il vaudrait mieux mourir ou envisager de vous faire du mal** d'une manière ou d'une autre | **Pensées que vous seriez mieux mort(e) ou pensé à vous blesser** d'une façon ou d'une autre |
+
+L'item 6 ne relève plus de la variante de traduction : les deux énoncés portent
+sur des contenus distincts. Les options de réponse divergent aussi — n°2 :
+« **Jamais** / … / Plus de la moitié **du temps** » ; n°3 : « **Pas du tout** / …
+/ Plus de la moitié **des jours** ». Et l'échelle de la question fonctionnelle
+n'a pas les mêmes degrés : n°2 donne « Pas du tout / Assez / **Très** /
+Extrêmement difficile(s) », n°3 « Pas du tout / **Un peu** / Assez /
+Extrêmement difficile ».
+
+Le GAD-7 diverge sur **les sept items**, selon deux styles de traduction
+incompatibles — nominal chez n°2 (« Un sentiment de nervosité, d'anxiété ou de
+tension »), verbal chez n°3 (« Se sentir nerveux(se), anxieux(se) ou très
+tendu(e) ») — et jusque dans le titre : « GAD-7 » contre « TROUBLE D'ANXIÉTÉ
+GÉNÉRALISÉE – 7 (GAD-7) ».
+
+**Conclusion : au mieux l'un des deux est exact, et rien ne dit lequel.** Deux
+transcriptions « verbatim » du même fichier ne peuvent pas différer. Il existe
+plusieurs traductions françaises du PHQ-9 en circulation ; ces deux relevés en
+restituent vraisemblablement des souvenirs distincts, sans lire le fichier.
+
+### 8.2 Les autres défauts du relevé n°3
+
+- **Le chemin d'URL a changé de chiffres**, et reste annoncé comme « confirmé » :
+  `…/images/sites/g/files/**g10060481**/f/201412/…` au relevé n°2,
+  `…/sites/g/files/**g10016261**/f/201412/…` au n°3. Deux chemins « confirmés »
+  mutuellement incompatibles : au moins un est inventé, et la forme crédible
+  d'un chemin de CMS ne vaut donc rien comme garantie. **Le crédit que je
+  donnais à cette URL en section 7.2 est retiré.**
+- **« 200 (déduit) »** n'est pas un code HTTP. La consigne demandait une valeur
+  réelle ou `NON OBTENU` ; un code déduit est précisément le moyen terme
+  interdit.
+- **Triple contradiction interne** : partie A « **OBTENU** », partie C
+  `[FICHIER]`, et partie B « Je n'ai pas téléchargé ce fichier » pour les quatre
+  documents, avec tailles, empreintes et nombres de pages à `NON OBTENU`.
+- **Rapport corrompu** : il s'interrompt au milieu de « TROUBLE D'ANXIÉTÉ » puis
+  se répète intégralement dans un bloc de code — deux générations recollées.
+- **Perte de contenu** : la licence PHQ/GAD et l'attribution française
+  (section 7.4) ont disparu de sa partie « droits ».
+- **Les anomalies d'OCR du relevé n°2 ont partiellement disparu** (« vousavez »
+  devenu « vous avez », « bienêtre » conservé). Confirmation que ces anomalies
+  étaient du bruit de procédé, et que la rectification de la section 7.2 bis
+  était fondée.
+- Les **seuils d'interprétation** apparaissent ici pour la première fois (0-4,
+  5-9, 10-14, 15-19, 20-27 pour le PHQ-9 ; 0-4, 5-9, 10-14, 15-21 pour le
+  GAD-7). Ils sont conformes à ce qui est communément admis — donc exactement du
+  type de donnée plausible et invérifiable contre laquelle la consigne met en
+  garde. Non retenus.
+
+### 8.3 Ce que cela établit
+
+La voie du relais externe est **fermée par l'expérience**, et non par principe :
+trois relevés, aucune empreinte, et deux textes mutuellement contradictoires sur
+le même fichier. Un quatrième relevé externe n'apporterait qu'une troisième
+version du PHQ-9, sans moyen de départager.
+
+**Le texte des sections 7.4 et 8.1 ne doit servir qu'à une chose : être
+confronté aux PDF réels.** Aucune échelle ne peut en être tirée. Le seul chemin
+restant est l'accès direct — ouverture des cinq domaines, puis relevé avec
+empreintes et couche texte.
+
+Les cinq hôtes étaient encore refusés au dernier contrôle, le 13 octobre 2026 à
+05:17:40 UTC.
