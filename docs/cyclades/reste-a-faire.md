@@ -173,12 +173,58 @@ une branche. Le basculement est donc sans effet de bord, et c'est délibéré �
 le workflow porte même un commentaire qui explique pourquoi il lit le défaut
 plutôt qu'un nom écrit.
 
-### Une chose à vérifier au passage
+---
 
-Les quatre routines d'actualités portent dans leur prompt un mot de passe de
-site qui **n'est pas celui en vigueur**. La veille du 12 octobre s'est pourtant
-bien terminée, donc ou bien ce mot de passe ne sert qu'à une étape qui n'a pas
-été atteinte, ou bien la rubrique Actualités ne dépend pas de lui — ses entrées
-sont chiffrées avec une clé publique distincte. Je ne l'ai pas tranché, et je
-n'ai touché à aucune routine. À regarder avant la prochaine veille
-hebdomadaire.
+## G. Deux mots de passe, et les routines ont le bon
+
+Signalé ce soir comme une anomalie à vérifier, puis vérifié — et c'était
+l'inverse de ce que je supposais.
+
+**`actualites-data/cle-privee-chiffree.json` est scellé avec le mot de passe
+que portent les quatre routines, pas avec le mot de passe du site en
+vigueur.** Éprouvé dans les deux sens : avec le mot de passe actuel,
+`dechiffrer-actualite.mjs` répond « Mot de passe incorrect » ; avec celui des
+routines, il liste les 39 entrées hebdomadaires. Les six pull requests des
+routines sont d'ailleurs toutes fusionnées, la dernière le 12 octobre.
+
+Les routines ont donc raison, et **les « corriger » les casserait** : elles
+échoueraient dès leur première lecture des actualités passées.
+
+### Pourquoi les deux cohabitent sans que rien ne se voie
+
+Il y a deux chemins vers la même clé privée, et ils ne lisent pas le même
+fichier.
+
+| Qui | Lit | Scellé avec |
+|---|---|---|
+| Le navigateur, sur le site | `data/actualites-cle.json`, réécrit à chaque build depuis la copie **en clair** de `content/` | le mot de passe du site, forcément à jour |
+| Les routines, après un clone | `actualites-data/cle-privee-chiffree.json`, commité | le mot de passe du jour où il a été scellé |
+
+`content/` n'est jamais commité : une routine qui clone n'a que la copie
+chiffrée. Le site, lui, ne la lit jamais. Les deux marchent, chacun avec son
+mot de passe, et rien ne les confronte — d'où le silence.
+
+### Le remède, et son ordre
+
+Le dépôt avait prévu le cas : `npm run actualites:cles -- --resynchroniser`
+porte en commentaire « le mot de passe a changé : on réécrit la copie chiffrée
+sans toucher à la paire ». La paire étant inchangée, les actualités déjà
+publiées restent lisibles.
+
+L'ordre compte, et il n'existe pas d'ordre sans fenêtre de casse — les deux
+gestes vont ensemble, dans la même séance :
+
+1. `npm run actualites:cles -- --resynchroniser`, puis commiter le seul
+   `actualites-data/cle-privee-chiffree.json` ;
+2. mettre les **quatre** prompts de routine au mot de passe en vigueur.
+
+Le second geste ne m'est pas accessible : le prompt d'une routine ne se change
+que depuis la conversation où elle poste, et il y en a quatre, une par
+routine. La prochaine échéance est la veille hebdomadaire du lundi.
+
+### Ou ne rien faire
+
+C'est défendable : tout fonctionne. Le coût est une divergence qui ne se voit
+nulle part et qui mordra le jour où le mot de passe du site changera encore,
+ou le jour où `npm run actualites:lire` sera lancé avec celui qu'on croit
+être le bon. C'est précisément pour cela que `--resynchroniser` existe.
