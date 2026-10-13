@@ -77,6 +77,25 @@ export interface Palier {
   a: number;
   /** L'étiquette **de la source**, dans sa langue. Jamais traduite. */
   etiquette: string;
+  /**
+   * Vrai quand l'étiquette **n'est pas celle de la source** mais une mention
+   * de Cyclades.
+   *
+   * Un seul cas : la tranche 0-4 du GAD-7. Le manuel donne trois points de
+   * coupure et nomme les trois tranches qui s'ensuivent ; il ne nomme pas
+   * celle d'en dessous. Il fallait pourtant l'étiqueter pour couvrir
+   * l'intervalle, d'où « Below cutpoint ».
+   *
+   * Ce drapeau existe parce que l'interface disait « la tranche que le manuel
+   * nomme » pour **toutes** les tranches — vrai huit fois sur neuf, et faux
+   * pour celle-là. Une attribution fausse à la source est exactement ce que
+   * ce dossier combat ; elle était d'autant plus coûteuse qu'elle était
+   * invisible au milieu de huit attributions justes.
+   *
+   * Conséquence d'affichage : une étiquette citée se met entre guillemets,
+   * une étiquette déduite n'en porte pas.
+   */
+  deduit?: boolean;
 }
 
 export interface Echelle {
@@ -176,7 +195,7 @@ export const PHQ9: Echelle = {
     { de: 0, a: 4, etiquette: 'None-minimal' },
     { de: 5, a: 9, etiquette: 'Mild' },
     { de: 10, a: 14, etiquette: 'Moderate' },
-    { de: 15, a: 19, etiquette: 'Moderately severe' },
+    { de: 15, a: 19, etiquette: 'Moderately Severe' },
     { de: 20, a: 27, etiquette: 'Severe' },
   ],
   origineDesPaliers:
@@ -222,7 +241,7 @@ export const GAD7: Echelle = {
      tranche, contrairement au PHQ-9.
   */
   paliers: [
-    { de: 0, a: 4, etiquette: 'Below cutpoint' },
+    { de: 0, a: 4, etiquette: 'Below cutpoint', deduit: true },
     { de: 5, a: 9, etiquette: 'Mild' },
     { de: 10, a: 14, etiquette: 'Moderate' },
     { de: 15, a: 21, etiquette: 'Severe' },
@@ -231,7 +250,9 @@ export const GAD7: Echelle = {
     'Points de coupure 5, 10 et 15 donnés en texte par l’« Instruction Manual » du PHQ. Le ' +
     'manuel ajoute qu’un score de 10 ou plus justifie une évaluation complémentaire. Comme ' +
     'pour le PHQ-9, ces tranches sont établies sur la version anglaise, et la validation de la ' +
-    'traduction française n’est pas établie.',
+    'traduction française n’est pas établie. Le manuel ne nomme pas la tranche sous le premier ' +
+    'point de coupure : « Below cutpoint » est une mention de Cyclades, déduite, et non une ' +
+    'étiquette de la source.',
   attribution:
     'Développé par les Dr Robert L. Spitzer, Janet B.W. Williams, Kurt Kroenke et leurs ' +
     'collègues grâce à une allocation d’études de Pfizer Inc. La reproduction, la traduction, ' +
@@ -349,6 +370,22 @@ export function controlerEchelles(echelles: readonly Echelle[] = ECHELLES): stri
             'citation pour devenir un jugement.',
         );
       }
+    }
+
+    /*
+       Une étiquette qui n'est pas celle de la source doit le dire, parce que
+       l'interface annonce « la tranche que le manuel nomme ». Huit tranches
+       sur neuf le sont ; la neuvième ne l'était pas, et l'erreur se cachait
+       derrière les huit autres.
+    */
+    const deduits = e.paliers.filter((p) => p.deduit);
+    if (deduits.length && !/déduit/i.test(e.origineDesPaliers ?? '')) {
+      problemes.push(
+        `« ${e.id} » porte ${deduits.length} étiquette(s) déduite(s) — ` +
+          `${deduits.map((p) => `« ${p.etiquette} »`).join(', ')} — sans que ` +
+          'son origine ne le dise. Une étiquette de Cyclades présentée comme celle du manuel ' +
+          'est une attribution fausse à la source.',
+      );
     }
 
     // Les tranches couvrent tout l'intervalle, sans trou ni recouvrement.

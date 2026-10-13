@@ -1,0 +1,117 @@
+Cyclades — sources et droits des instruments psychométriques
+============================================================
+
+Ce fichier recense les documents tiers dont Cyclades reproduit le texte, leurs
+mentions de droits et l'état exact de ce qui est établi à leur sujet. Le relevé
+détaillé, avec les empreintes, les métadonnées et le texte intégral, est dans
+docs/cyclades/echelles-psyche/releve-sources.md.
+
+Les trois textes ont été relevés le 13 octobre 2026 sur les documents des
+éditeurs, empreints en SHA-256, et extraits de leur couche texte — sans
+océrisation et sans transcription manuelle. Les textes intégrés sont vérifiés
+au caractère contre ces extractions.
+
+
+1. WHO-5 — Indice (en cinq points) de bien-être de l'OMS (1999)
+---------------------------------------------------------------
+
+Document : « indice-(en-cinq-points)-de-bien--tre-de-l-oms.pdf », cdn.who.int
+SHA-256  : 408801762a1b728ebc01eaf119302539e7fb5503b855d81d603dbe9a43be9fc1
+Taille   : 183 475 octets, 3 pages
+
+Mention portée par le document, verbatim :
+
+    © Psychiatric Research Unit, WHO Collaborating Center for Mental Health,
+    Frederiksborg General Hospital, DK-3400 Hillerød
+
+Le préambule du document indique qu'en 2024 le Psychiatric Centre North Zealand
+et l'OMS ont convenu de céder le copyright du WHO-5 à l'OMS. Il indique aussi
+que la traduction française a été réalisée avant cette cession, qu'elle n'a pas
+été produite par l'OMS, que l'OMS n'en garantit pas l'exactitude, et que :
+
+    In the event of any inconsistency between the English and the translated
+    version, the English version shall be the binding and authentic version.
+
+ÉTAT DES DROITS — NON TRANCHÉ. Le document ne porte aucune mention de licence
+Creative Commons. Le CC BY-NC-SA 3.0 IGO relevé sur la page de politique
+générale de l'OMS (who.int/copyright) ne lui est pas explicitement rattaché, et
+le document porte encore le © de la Psychiatric Research Unit. Ce point reste à
+arbitrer et n'est pas résolu par ce fichier.
+
+Le document ne donne aucun seuil d'interprétation. Cyclades n'en affiche aucun.
+
+
+2. PHQ-9 — Questionnaire sur la santé du patient – 9, version « French for France »
+-----------------------------------------------------------------------------------
+
+Document : « PHQ9_French for France.pdf », phqscreeners.com
+SHA-256  : b9529947a01d82b7c640176958e6e0f409a98e239380deafdfb4f27162c50298
+Taille   : 42 110 octets, 1 page
+
+
+3. GAD-7 — version « French for France »
+----------------------------------------
+
+Document : « GAD7_French for France.pdf », phqscreeners.com
+SHA-256  : 3622a0e265cb182c0cc8cffaa836b22b8f264dd9f39f9759c68459e4fa08f02c
+Taille   : 121 061 octets, 1 page
+
+
+Droits du PHQ-9 et du GAD-7
+---------------------------
+
+Attribution portée par les deux documents, verbatim :
+
+    Développé par les Dr Robert L. Spitzer, Janet B.W. Williams, Kurt Kroenke
+    et leurs collègues grâce à une allocation d'études de Pfizer Inc. La
+    reproduction, la traduction, l'affichage ou la distribution de ce document
+    sont autorisés.
+
+L'« Instruction Manual » du PHQ (instructions.pdf, phqscreeners.com, SHA-256
+6ed2f00f97e438c1168cd702d38d31fc923031445c720653005f138aa424228a, 9 pages,
+auteur interne Kurt Kroenke) porte, page 8, verbatim :
+
+    The PHQ family of measures (see Table 1, page 3), including abbreviated and
+    alternative versions as well as the GAD-7, were developed by Drs. Robert L.
+    Spitzer, Janet B.W. Williams, Kurt Kroenke and colleagues, with an
+    educational grant from Pfizer Inc.
+    All of the measures included in Table 1 are in the public domain. No
+    permission is required to reproduce, translate, display or distribute.
+
+La page de téléchargement de l'éditeur porte, verbatim :
+
+    All PHQ, GAD-7 screeners and translations are downloadable from this website
+    and no permission is required to reproduce, translate, display or distribute
+    them.
+
+
+Réserve sur les seuils d'interprétation
+---------------------------------------
+
+Les paliers du PHQ-9 et du GAD-7 affichés par Cyclades viennent de cet
+« Instruction Manual » — table 4 pour le PHQ-9, points de coupure 5, 10 et 15 en
+texte pour le GAD-7. Ces tranches sont établies sur les versions ANGLAISES. Le
+manuel indique, page 7, verbatim :
+
+    Many of the translations have been developed by the MAPI Research Institute
+    using an internationally accepted translation methodology. Thus, most of the
+    translations are linguistically valid. However, unlike the English versions
+    of the PHQ and GAD-7, few of the translations have been psychometrically
+    validated against an independent structured psychiatric interview.
+
+Rien n'établit que la traduction française « France » ait été validée
+psychométriquement. Cyclades affiche donc les paliers dans les termes anglais du
+manuel, accompagnés de leur provenance, et ne les traduit pas : une étiquette
+française serait une étiquette que personne n'a validée.
+
+Le manuel précise également que la question du PHQ-9 sur la difficulté
+ressentie n'entre pas dans le calcul du score, et qu'une décision sur un risque
+réel de se faire du mal demande un entretien clinique.
+
+
+Ce que Cyclades n'est pas
+-------------------------
+
+Cyclades ne remplace pas un professionnel de santé et ne produit aucun
+diagnostic. Les scores et les tranches affichés sont ceux des instruments cités
+ci-dessus, restitués avec leurs réserves d'origine.

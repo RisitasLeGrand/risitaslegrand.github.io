@@ -201,6 +201,12 @@ import { ECHELLES } from '../../lib/odyssee/echelles';
    * manuel place ce score dans la tranche qu'il nomme » plutôt que de
    * qualifier la personne. La différence n'est pas cosmétique : la première
    * formulation cite, la seconde juge.
+   *
+   * Sauf pour une tranche, et c'est le sens du drapeau `deduit` : le manuel
+   * ne nomme pas celle du GAD-7 sous le premier point de coupure. Lui
+   * appliquer « la tranche qu'il nomme » attribuait à la source une étiquette
+   * qu'elle n'a pas — faux une fois sur neuf, donc invisible. Les étiquettes
+   * citées portent des guillemets, les nôtres n'en portent pas.
    */
   function direLeResultat(id: IdEchelle, reponses: readonly (number | null)[]): string {
     const e = echelle(id);
@@ -212,6 +218,10 @@ import { ECHELLES } from '../../lib/odyssee/echelles';
     const base = `Score : ${r.score} sur ${r.maximum}.`;
     if (!r.palier) {
       return `${base} Ce questionnaire ne donne pas de tranche d’interprétation.`;
+    }
+    if (r.palier.deduit) {
+      return `${base} Ce score est sous le premier point de coupure du manuel. La mention ` +
+        `${r.palier.etiquette} est de Cyclades : le manuel ne nomme pas cette tranche.`;
     }
     return `${base} Le manuel place ce score dans la tranche qu’il nomme « ${r.palier.etiquette} ».`;
   }
@@ -238,7 +248,12 @@ import { ECHELLES } from '../../lib/odyssee/echelles';
         (p.resultat.score === null
           ? `incomplet, ${p.resultat.sansReponse} réponse(s) manquante(s)`
           : `${p.resultat.score} / ${p.resultat.maximum}` +
-            (p.resultat.palier ? ` — « ${p.resultat.palier.etiquette} »` : ''));
+            (p.resultat.palier
+              ? p.resultat.palier.deduit
+                /* Sans guillemets : la mention est de nous, pas du manuel. */
+                ? ` — ${p.resultat.palier.etiquette}`
+                : ` — « ${p.resultat.palier.etiquette} »`
+              : ''));
       liste.appendChild(li);
     }
   }
