@@ -50,8 +50,39 @@ body {
   @apply inline-flex items-center;
 }
 
+/* Sa variante **pleine** : hauteur et largeur. Elle est pour les boutons qui
+   ne portent qu'une icône — une icône fait trente pixels de large, et aucune
+   hauteur ne rattrape une largeur de trente. */
+.cible-tactile-pleine {
+  @apply inline-flex items-center justify-center;
+}
+
 @media (pointer: coarse) {
-  .cible-tactile {
+  .cible-tactile,
+  .cible-tactile-pleine {
+    min-height: 2.75rem;
+  }
+
+  .cible-tactile-pleine {
+    min-width: 2.75rem;
+  }
+
+  /* Les contrôles de formulaire, d'un coup et partout.
+
+     Les listes déroulantes faisaient 36 px de haut, les boutons de filtre 26,
+     les curseurs 16. Les reprendre écran par écran aurait produit cinquante
+     correctifs identiques dont le cinquante-et-unième écran se serait passé.
+     Un contrôle de formulaire est une cible par définition — contrairement à
+     un lien, qui est le plus souvent un mot dans une phrase : étirer tous les
+     liens à 44 px aérerait les paragraphes jusqu'à l'illisible. Les liens
+     restent donc traités un par un, les contrôles d'un seul geste.
+
+     Cases et boutons radio exceptés : leur cible est l'étiquette qui les
+     entoure, et la grandir **eux** décalerait l'alignement du texte. */
+  button,
+  select,
+  textarea,
+  input:not([type='checkbox']):not([type='radio']):not([type='hidden']) {
     min-height: 2.75rem;
   }
 }
