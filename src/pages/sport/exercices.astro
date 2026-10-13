@@ -213,7 +213,7 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
 
       <section class="mt-8">
         <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">La bibliothèque</h2>
-        <input id="filtre" type="search" placeholder="Filtrer par nom, équipement ou muscle"
+        <input id="filtre" aria-label="Filtrer les exercices" type="search" placeholder="Filtrer par nom, équipement ou muscle"
           class="mb-3 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
         <div id="liste" class="space-y-2"></div>
         <p id="liste-vide" class="hidden text-sm text-slate-500 dark:text-slate-400">Rien ici.</p>

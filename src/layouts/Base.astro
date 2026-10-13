@@ -131,6 +131,26 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
     <Verrou />
 
     <div id="application" class="hidden min-h-screen">
+      {/*
+         Le lien d'évitement, premier arrêt de tabulation de la page.
+
+         Dans Révisions, atteindre le contenu au clavier demandait dix-neuf
+         tabulations : le logo, trois branches, douze onglets, la liste de
+         parcours, le thème et le verrou. Dix-neuf, à chaque page, pour
+         quelqu'un qui ne se sert pas d'une souris.
+
+         Il est invisible tant qu'il n'a pas le focus — « sr-only » le sort de
+         l'écran, « focus:not-sr-only » l'y ramène —, parce qu'un lien
+         d'évitement visible en permanence occupe le coin de chaque page pour
+         une minorité de visites. Il vise « #contenu », posé sur le <main> :
+         sans cette ancre, le lien ne mènerait nulle part.
+      */}
+      <a
+        href="#contenu"
+        class="sr-only rounded-br-lg bg-indigo-600 px-4 py-3 font-medium text-white focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-50"
+      >
+        Aller au contenu
+      </a>
       {
         enteteVoulu === 'complet' && (
           <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
@@ -224,11 +244,29 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
                   aria-label="Navigation principale"
                   class="defilement-masque -mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto px-1"
                 >
+                  {/*
+                     Le nom accessible commence par le libellé **visible**.
+
+                     L'onglet affiche « Cartes » et s'appelait « Flashcards » :
+                     quelqu'un qui pilote à la voix dit « cliquer Cartes » et
+                     n'obtient rien, parce que le nom qu'il lit n'est pas
+                     celui que la machine connaît. C'est le critère 2.5.3 de
+                     WCAG, « Étiquette dans le nom », et il est de niveau A.
+
+                     Le libellé long n'est pas perdu pour autant : il suit le
+                     court, après un tiret. « Cartes » déclenche, « Cartes —
+                     Flashcards » s'entend, et l'infobulle garde le long, qui
+                     est le seul à dire de quoi il s'agit.
+                  */}
                   {onglets.map((onglet) => (
                     <a
                       href={onglet.href}
                       title={onglet.libelle}
-                      aria-label={onglet.libelle}
+                      aria-label={
+                        onglet.court === onglet.libelle
+                          ? onglet.libelle
+                          : `${onglet.court} — ${onglet.libelle}`
+                      }
                       aria-current={actif === onglet.id ? 'page' : undefined}
                       class:list={[
                         'cible-tactile-pleine shrink-0 gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition',
@@ -317,7 +355,7 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
         )
       }
 
-      <main class="mx-auto max-w-6xl px-4 py-8">
+      <main id="contenu" tabindex="-1" class="mx-auto max-w-6xl px-4 py-8">
         <slot />
       </main>
 

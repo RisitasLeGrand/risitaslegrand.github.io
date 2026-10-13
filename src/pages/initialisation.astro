@@ -245,6 +245,9 @@ import Base from '../layouts/Base.astro';
     const champ = document.createElement('input');
     champ.type = 'text';
     champ.id = `saisie-${declare.champ}`;
+    /* La question est le titre de l'écran : la désigner vaut mieux que la
+       recopier dans un « aria-label » qui se désynchroniserait d'elle. */
+    champ.setAttribute('aria-labelledby', 'question');
     champ.value = defaut;
     champ.autocomplete = 'off';
     champ.className =
