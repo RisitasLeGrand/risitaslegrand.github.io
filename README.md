@@ -835,20 +835,64 @@ le site à Google Search Console.
 
 XP, niveaux, série de jours, badges, échéances de répétition espacée, résultats
 de quiz et temps passé sont enregistrés **dans le navigateur** (IndexedDB).
-Ils ne sont liés ni à un compte ni à un serveur — et ne sont donc pas partagés
-automatiquement entre vos appareils.
+Ils ne sont liés ni à un compte ni à un serveur.
 
-La page **Sauvegarde** permet de :
+**Ce sont deux besoins différents, et deux mécanismes différents.** Les
+confondre est ce qui a produit, pendant un temps, trois procédés concurrents
+pour le même geste.
 
-- **exporter** toute la progression dans un fichier `.json` ;
-- **importer** ce fichier sur un autre appareil, en deux modes :
-  - *Fusionner* — conserve, pour chaque carte, la révision la plus récente
-    (à utiliser pour synchroniser ordinateur et téléphone) ;
-  - *Remplacer* — écrase la progression locale (à utiliser pour restaurer) ;
-- **réinitialiser** entièrement la progression.
+### Mettre à l'abri : la sauvegarde `.cyclades`
 
-> Pensez à exporter de temps en temps : vider les données du navigateur efface
-> aussi la progression.
+`/progression/` → **Sauvegarder**. Le fichier est **compressé puis chiffré**
+avec le mot de passe du site, fabriqué dans le navigateur et téléchargé — rien
+n'est envoyé. Il ne perd aucun champ, et c'est le seul format à pouvoir le
+promettre.
+
+- La page affiche l'**ancienneté** de la dernière sauvegarde et le dit quand
+  elle vieillit.
+- Un **instantané de sécurité** est pris automatiquement avant toute fusion et
+  avant toute migration de schéma ; il s'annule pendant sept jours.
+- La restauration n'a **qu'un mode** : elle efface la progression de ce
+  navigateur, puis restaure. *Fusionner* n'existe pas pour la sauvegarde
+  complète — [`docs/cyclades/sauvegarde.md`](docs/cyclades/sauvegarde.md) dit
+  pourquoi, et c'est `/appareils/` qui fusionne.
+
+> Rangez le fichier **ailleurs que sur l'appareil qu'il protège**. Une
+> sauvegarde posée à côté de ce qu'elle sauvegarde ne protège de rien.
+
+### Passer d'un appareil à l'autre : `/appareils/`
+
+**Ajouter un téléphone** : un QR visé une fois depuis `/apparier/`, et les
+échanges suivants tiennent en un bouton. L'appairage est mémorisé, le
+chiffrement est de bout en bout, et le relais ne voit que des messages de mise
+en relation — `/apparier/` porte une section « Ce que voit le relais, et ce
+qu'il ne voit pas ».
+
+Quatre transports, du plus court au plus sûr : **liaison directe** (WebRTC
+après QR), **deux QR** sans aucun relais, **dossier partagé**, et **transfert
+de fichier**, qui marche sans réseau et reste le recours quand le reste
+échoue.
+
+Sur un **ordinateur certifié**, la synchronisation se fait **sans geste** tant
+qu'un onglet de Cyclades est ouvert et que l'autre appareil l'est aussi : à
+l'ouverture, au retour au premier plan, au retour du réseau, après une
+écriture (regroupée), et par un battement de cinq minutes. L'écran reste
+allumé le temps de l'échange. Onglet fermé ou machine éteinte, rien ne se
+passe : un site statique ne peut pas tourner tout seul.
+
+### Ce qui n'existe plus
+
+L'**export JSON** a été retiré. Cyclades n'en produit plus : la sauvegarde
+`.cyclades` le remplace pour l'archivage, `/appareils/` pour le passage d'un
+appareil à l'autre. L'**import** d'un ancien `.json` reste disponible sur
+`/progression/` — on cesse d'en fabriquer, on ne cesse pas de savoir les
+relire.
+
+### Réinitialiser
+
+`/progression/` → **Réinitialiser** efface toute la progression de ce
+navigateur. Les fiches ne sont pas touchées. `/stockage/` permet un effacement
+**ciblé**, magasin par magasin, et affiche ce que chacun pèse.
 
 ---
 
@@ -1457,5 +1501,13 @@ Vérifiez que `content/glossaire.yml` existe (le build indique le nombre de
 termes chargés) et que la forme employée dans le texte figure dans `formes`.
 
 **J'ai perdu ma progression**
-Réimportez votre dernier export JSON depuis la page *Sauvegarde*. Sans export,
-la progression n'est pas récupérable : elle n'existait que dans ce navigateur.
+Restaurez votre dernière sauvegarde `.cyclades` depuis `/progression/` →
+**Restaurer une sauvegarde** : elle remplace ce qu'il y a dans ce navigateur.
+Si vous aviez un ancien export `.json`, il reste importable depuis la même
+page, au choix en *Fusionner* ou en *Remplacer*. Si vous n'avez ni l'un ni l'autre, la progression n'est pas
+récupérable : elle n'existait que dans ce navigateur.
+
+Avant d'y arriver : un **instantané de sécurité** est pris automatiquement
+avant chaque fusion et chaque migration, et s'annule pendant sept jours depuis
+`/appareils/`. Il ne remplace pas une sauvegarde — il vit dans le même
+navigateur, et disparaît avec lui.
