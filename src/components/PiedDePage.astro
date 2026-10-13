@@ -7,47 +7,86 @@
  * bloc-marque de l'État, ni les mentions propres à un service public — ce site
  * n'en est pas un, et la mention finale le dit explicitement.
  *
- * ## Les colonnes viennent du registre des branches
+ * ## Le pied dit où l'on est, pas tout ce qui existe
  *
- * Elles étaient écrites en dur, et listaient les écrans de Révisions sur
- * **toutes** les pages, y compris celles d'Odyssée et de Sport. C'est la même
- * erreur que la barre d'onglets avant l'ouverture d'Odyssée : une mise en page
- * qui connaît les écrans d'une branche est une mise en page qu'il faut
- * modifier à chaque branche, et qu'on oublie de modifier.
+ * Il a connu deux états, et c'est le second qu'on corrige ici.
  *
- * Désormais : une colonne par branche ouverte, remplie de ses onglets, plus
- * une colonne pour les écrans communs — ceux qui n'appartiennent à aucune
- * branche et n'ont donc pas d'onglet où vivre.
+ * 1. Les colonnes étaient **écrites en dur** et listaient les écrans de
+ *    Révisions sur toutes les pages, y compris celles d'Odyssée et de Sport.
+ * 2. Elles sont venues du **registre des branches** — le codage en dur a
+ *    disparu, mais le pied est resté **le même partout** : une seule valeur
+ *    distincte sur les cinquante pages. Sur le menu, qui est au-dessus des
+ *    branches, il déroulait leurs trente onglets ; sur une page d'Odyssée, il
+ *    proposait les douze onglets de Révisions que la barre venait justement
+ *    de cesser d'afficher. Le défaut d'origine avait changé de forme, pas de
+ *    nature.
+ *
+ * Désormais le pied est **contextuel**, et sa portée est celle de l'en-tête :
+ *
+ * - **Au-dessus des branches** (le menu, le profil, l'export, l'import —
+ *   c'est-à-dire les pages à en-tête léger) : les trois branches, et rien de
+ *   leur intérieur. On n'y entre pas par un onglet pris au hasard.
+ * - **Dans une branche** : ses onglets et ses écrans sans onglet, puis le
+ *   retour au menu et les autres branches.
+ *
+ * ## Ce que cela retire, et où c'est reparti
+ *
+ * Rien ne devient inatteignable : les onglets des autres branches sont à deux
+ * clics — la branche, puis l'onglet — au lieu d'un, et la colonne
+ * « Cyclades » les nomme sur chaque page. En échange, six écrans qui
+ * n'étaient dans aucun pied (« Appareils », « À rapprocher », « Mes règles »,
+ * « Qui lit mon budget », « Exporter », « Importer ») y sont enfin, auprès de
+ * ce à quoi ils appartiennent.
  */
 import config from '../../site.config.mjs';
-import { branchesDisponibles } from '../lib/branches';
+import {
+  branchesDisponibles,
+  ECRANS_COMMUNS,
+  type Branche,
+  type Onglet,
+} from '../lib/branches';
 
+interface Props {
+  /**
+   * L'identifiant de la branche où l'on se trouve, ou `menu` pour les pages
+   * qui sont au-dessus des branches.
+   *
+   * C'est la mise en page qui le dit, et non un calcul refait ici sur le
+   * chemin : elle a déjà tranché la même question pour choisir l'en-tête, et
+   * deux réponses à une seule question finiraient par diverger. Un pied qui
+   * annoncerait Révisions sous un en-tête de menu serait exactement
+   * l'incohérence qu'on corrige.
+   */
+  portee: string;
+}
+
+const { portee } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const lien = (o: Onglet) => ({ libelle: o.court, href: `${base}${o.chemin}` });
+
+const branches = branchesDisponibles();
+const courante: Branche | undefined = branches.find((b) => b.id === portee);
+const autres = branches.filter((b) => b.id !== courante?.id);
+
+const colonneBranches = {
+  titre: courante ? 'Cyclades' : 'Les branches',
+  liens: [
+    ...(courante ? [{ libelle: `Menu de ${config.titre}`, href: `${base}/` }] : []),
+    ...autres.map((b) => ({ libelle: `${b.icone} ${b.libelle}`, href: `${base}${b.racine}` })),
+  ],
+};
 
 const colonnes = [
-  ...branchesDisponibles().map((branche) => ({
-    titre: branche.libelle,
-    liens: branche.onglets.map((onglet) => ({
-      libelle: onglet.court,
-      href: `${base}${onglet.chemin}`,
-    })),
-  })),
-  {
-    /*
-       Les écrans qui n'appartiennent à aucune branche, et ceux de Révisions
-       qui n'ont pas d'onglet : sans cette colonne, ils ne seraient atteignables
-       que depuis le tableau de bord qui y renvoie.
-    */
-    titre: 'Cet espace',
-    liens: [
-      { libelle: 'Menu', href: `${base}/` },
-      { libelle: 'Mon profil', href: `${base}/profil/` },
-      { libelle: 'Actualités', href: `${base}/actualites/` },
-      { libelle: 'Quiz du cours', href: `${base}/quiz/cours/` },
-      { libelle: 'QCM — DGFiP', href: `${base}/quiz/dgfip/` },
-      { libelle: 'Stockage', href: `${base}/stockage/` },
-    ],
-  },
+  ...(courante
+    ? [
+        {
+          titre: courante.libelle,
+          liens: [...courante.onglets, ...(courante.annexes ?? [])].map(lien),
+        },
+      ]
+    : []),
+  colonneBranches,
+  { titre: 'Cet espace', liens: ECRANS_COMMUNS.map(lien) },
 ];
 ---
 
@@ -55,21 +94,26 @@ const colonnes = [
   <div class="bandeau-tricolore"></div>
 
   <div class="mx-auto max-w-6xl px-4 py-10">
-    <div class="grid gap-8 sm:grid-cols-2 lg:grid-cols-4">
+    <div
+      class:list={[
+        'grid gap-8 sm:grid-cols-2',
+        colonnes.length === 3 ? 'lg:grid-cols-3' : 'lg:grid-cols-2',
+      ]}
+    >
       {
         colonnes.map((colonne) => (
           <nav aria-label={colonne.titre}>
             <h2 class="text-sm font-bold tracking-wide text-slate-900 uppercase dark:text-white">
               {colonne.titre}
             </h2>
-            <ul class="mt-3 space-y-2">
-              {colonne.liens.map((lien) => (
+            <ul class="mt-2 space-y-0.5">
+              {colonne.liens.map((lienDeColonne) => (
                 <li>
                   <a
-                    href={lien.href}
-                    class="text-sm text-slate-600 underline-offset-4 transition hover:text-indigo-600 hover:underline dark:text-slate-300 dark:hover:text-indigo-400"
+                    href={lienDeColonne.href}
+                    class="cible-tactile text-sm text-slate-600 underline-offset-4 transition hover:text-indigo-600 hover:underline dark:text-slate-300 dark:hover:text-indigo-400"
                   >
-                    {lien.libelle}
+                    {lienDeColonne.libelle}
                   </a>
                 </li>
               ))}

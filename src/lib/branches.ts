@@ -56,6 +56,21 @@ export interface Branche {
   disponible: boolean;
   /** Ses onglets, dans l'ordre d'affichage. */
   onglets: readonly Onglet[];
+  /**
+   * Ses écrans **sans onglet**.
+   *
+   * Tout écran n'en mérite pas un : la barre d'onglets est un budget
+   * d'attention, et l'y ajouter se paie sur les douze autres. Mais un écran
+   * sans onglet n'est pas pour autant un écran sans branche — « Qui lit mon
+   * budget » appartient à Odyssée, « QCM — DGFiP » à Révisions, et le pied
+   * de page est l'endroit où on peut les nommer sans rien coûter à la barre.
+   *
+   * Sans cette liste, ils vivaient dans une colonne « Cet espace » affichée
+   * sur **toutes** les pages : les QCM de Révisions s'offraient depuis une
+   * séance de musculation, et les trois écrans de finances n'étaient nulle
+   * part. Les rattacher ici les range là où ils sont utiles, et seulement là.
+   */
+  annexes?: readonly Onglet[];
 }
 
 export interface Onglet {
@@ -97,6 +112,11 @@ export const BRANCHES: Branche[] = [
       { id: 'glossaire', libelle: 'Glossaire', court: 'Glossaire', chemin: '/glossaire/', icone: '📖' },
       { id: 'progression', libelle: 'Sauvegarde et synchronisation', court: 'Sauvegarde', chemin: '/progression/', icone: '💾' },
     ],
+    annexes: [
+      { id: 'actualites', libelle: 'Actualités passées', court: 'Actualités', chemin: '/actualites/', icone: '📰' },
+      { id: 'quiz-cours', libelle: 'Quiz du cours', court: 'Quiz du cours', chemin: '/quiz/cours/', icone: '🎯' },
+      { id: 'quiz-dgfip', libelle: 'QCM — DGFiP', court: 'QCM — DGFiP', chemin: '/quiz/dgfip/', icone: '🏛️' },
+    ],
   },
   {
     id: 'odyssee',
@@ -118,6 +138,11 @@ export const BRANCHES: Branche[] = [
       { id: 'finances', libelle: 'Mes finances', court: 'Finances', chemin: '/odyssee/finances/', icone: '💶' },
       { id: 'tendances', libelle: 'Mes tendances', court: 'Tendances', chemin: '/odyssee/tendances/', icone: '🔭' },
       { id: 'syntheses', libelle: 'Mes synthèses', court: 'Synthèses', chemin: '/syntheses/', icone: '📈' },
+    ],
+    annexes: [
+      { id: 'rapprocher', libelle: 'Opérations à rapprocher', court: 'À rapprocher', chemin: '/odyssee/rapprocher/', icone: '🔗' },
+      { id: 'regles', libelle: 'Mes règles de pointage', court: 'Mes règles', chemin: '/odyssee/mes-regles/', icone: '📏' },
+      { id: 'lecteurs-budget', libelle: 'Qui lit mon budget', court: 'Qui lit mon budget', chemin: '/odyssee/qui-lit-mon-budget/', icone: '👁️' },
     ],
   },
   {
@@ -142,6 +167,26 @@ export const BRANCHES: Branche[] = [
       { id: 'etat', libelle: 'Mes phases et mes blessures', court: 'Blessures', chemin: '/sport/corps/', icone: '🩹' },
     ],
   },
+];
+
+/**
+ * Les écrans qui n'appartiennent à **aucune** branche.
+ *
+ * Le profil, les appareils, le stockage, l'export et l'import : ils servent
+ * Cyclades entier, et aucune branche ne peut se les approprier sans mentir.
+ * Ils sont donc listés une fois, ici, et le pied de page les montre partout —
+ * c'est la seule colonne qui ne dépende pas d'où l'on se trouve.
+ *
+ * `/apparier/` n'y figure pas : c'est une étape du parcours d'appairage, qu'on
+ * atteint depuis « Appareils ». Un lien de pied de page vers le milieu d'un
+ * parcours ne mène nulle part de compréhensible.
+ */
+export const ECRANS_COMMUNS: readonly Onglet[] = [
+  { id: 'profil', libelle: 'Mon profil', court: 'Mon profil', chemin: '/profil/', icone: '🪪' },
+  { id: 'appareils', libelle: 'Appareils et synchronisation', court: 'Appareils', chemin: '/appareils/', icone: '📱' },
+  { id: 'stockage', libelle: 'Stockage', court: 'Stockage', chemin: '/stockage/', icone: '🗄️' },
+  { id: 'exporter-ia', libelle: 'Exporter pour une IA', court: 'Exporter pour une IA', chemin: '/exporter-ia/', icone: '📤' },
+  { id: 'importer-analyse', libelle: 'Importer une analyse', court: 'Importer une analyse', chemin: '/importer-analyse/', icone: '📥' },
 ];
 
 export const ID_BRANCHE_PAR_DEFAUT = 'revisions';
@@ -175,6 +220,30 @@ export function brancheDuChemin(chemin: string): Branche {
     if (chemin.includes(b.racine)) return b;
   }
   return branche(ID_BRANCHE_PAR_DEFAUT)!;
+}
+
+/**
+ * La branche qui **déclare** un écran, par correspondance exacte de chemin.
+ *
+ * `brancheDuChemin` répond par le préfixe, et c'est ce qu'il faut à l'en-tête :
+ * `/cog-training/quad-n-back/` n'est pas un onglet, et appartient pourtant à
+ * Révisions. Mais le préfixe se trompe sur les écrans dispersés : `/syntheses/`
+ * est déclaré **onglet d'Odyssée** et tombe dans Révisions, faute de vivre sous
+ * `/odyssee/`.
+ *
+ * Cette fonction-ci ne devine pas : elle lit la déclaration. Elle rend `null`
+ * quand aucune branche ne revendique l'écran — le menu, le profil, l'export —,
+ * ce qui est une réponse et non un échec. Et elle n'ajoute **aucune liste** :
+ * elle relit celle que le registre tient déjà.
+ */
+export function brancheDUnOnglet(chemin: string): Branche | null {
+  const propre = `${chemin.replace(/\/+$/, '')}/`;
+  for (const b of BRANCHES) {
+    for (const o of [...b.onglets, ...(b.annexes ?? [])]) {
+      if (propre.endsWith(o.chemin)) return b;
+    }
+  }
+  return null;
 }
 
 /** Le nom complet d'un écran : « Cyclades · Révisions ». */

@@ -10,7 +10,7 @@ import BarreProgression from '../components/BarreProgression.astro';
 import PiedDePage from '../components/PiedDePage.astro';
 import SelecteurParcours from '../components/SelecteurParcours.astro';
 import config from '../../site.config.mjs';
-import { branchesDisponibles, brancheDuChemin } from '../lib/branches';
+import { branchesDisponibles, brancheDuChemin, brancheDUnOnglet } from '../lib/branches';
 
 interface Props {
   titre: string;
@@ -50,6 +50,33 @@ const onglets = brancheCourante.onglets.map((o) => ({
   href: `${base}${o.chemin}`,
   icone: o.icone,
 }));
+
+/*
+   La portée du pied de page : la branche où l'on est, ou le menu.
+
+   Elle n'est pas toujours celle de l'en-tête, et c'est voulu. Une page à
+   en-tête complet est dans sa branche, par le préfixe de son chemin. Une page
+   à en-tête léger est **au-dessus** des branches — sauf si le registre la
+   déclare comme onglet de l'une d'elles, ce qui est le cas de « Mes
+   synthèses », onglet d'Odyssée hébergé à `/syntheses/`. Le préfixe la
+   rangerait dans Révisions ; la déclaration sait mieux.
+*/
+const porteeDuPied =
+  enteteVoulu === 'complet'
+    ? brancheCourante.id
+    : (brancheDUnOnglet(Astro.url.pathname)?.id ?? 'menu');
+
+/*
+   Le retour au menu dans l'en-tête léger.
+
+   Quatre pages le portaient sans offrir la moindre sortie : il fallait
+   descendre jusqu'au pied pour trouver « Menu ». Deux exceptions restent, et
+   elles sont justes : le menu **est** la sortie, et l'initialisation est un
+   parcours d'accueil, où une porte de sortie dessert la personne — c'est
+   `sansNavigation` qui la signale.
+*/
+const estLeMenu = Astro.url.pathname.replace(/\/+$/, '') === base;
+const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
 
 ---
 
@@ -196,10 +223,22 @@ const onglets = brancheCourante.onglets.map((o) => ({
           <header class="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
             <div class="bandeau-tricolore"></div>
             <div class="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
-              <span class="flex shrink-0 items-center gap-2 font-semibold text-slate-900 dark:text-white">
-                <span class="text-lg" aria-hidden="true">🗂️</span>
-                <span>{config.titre}</span>
-              </span>
+              {retourAuMenu ? (
+                <a
+                  href={`${base}/`}
+                  title={`Menu de ${config.titre}`}
+                  class="flex h-11 shrink-0 items-center gap-2 rounded-lg px-1 font-semibold text-slate-900 transition hover:text-indigo-600 dark:text-white dark:hover:text-indigo-400"
+                >
+                  <span class="text-lg" aria-hidden="true">🗂️</span>
+                  <span>{config.titre}</span>
+                  <span class="sr-only">— revenir au menu</span>
+                </a>
+              ) : (
+                <span class="flex h-11 shrink-0 items-center gap-2 font-semibold text-slate-900 dark:text-white">
+                  <span class="text-lg" aria-hidden="true">🗂️</span>
+                  <span>{config.titre}</span>
+                </span>
+              )}
               <div class="flex flex-1 justify-end gap-1">
                 <CommutateurTheme />
                 <button
@@ -221,7 +260,7 @@ const onglets = brancheCourante.onglets.map((o) => ({
         <slot />
       </main>
 
-      {enteteVoulu !== 'aucun' && <PiedDePage />}
+      {enteteVoulu !== 'aucun' && <PiedDePage portee={porteeDuPied} />}
     </div>
 
     <script>

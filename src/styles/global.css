@@ -36,6 +36,26 @@ body {
   );
 }
 
+/* --- Cible tactile -------------------------------------------------------- */
+/* Quarante-quatre pixels est la règle, mais c'est une règle **du doigt**.
+   L'imposer à chaque lien d'un pied de page piloté à la souris l'étirerait du
+   double sans que personne y gagne en précision. « pointer: coarse » dit
+   exactement la bonne condition — « l'organe de pointage est imprécis » —, et
+   il est vrai sur un téléphone, faux sur un ordinateur, et vrai sur une
+   tablette, qui en a autant besoin qu'un téléphone sans en avoir la largeur.
+
+   La hauteur seule : la largeur d'un lien de texte vient de son texte, et
+   l'étirer créerait des zones cliquables qui mordent sur le vide. */
+.cible-tactile {
+  @apply inline-flex items-center;
+}
+
+@media (pointer: coarse) {
+  .cible-tactile {
+    min-height: 2.75rem;
+  }
+}
+
 /* --- Texte sécable -------------------------------------------------------- */
 /* Les actualités citent des URL entières et des références normatives sans
    espace. Sur un écran étroit, une telle chaîne dépasse la carte : elle est
