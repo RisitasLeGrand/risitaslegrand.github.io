@@ -1,135 +1,116 @@
-# Ce qui reste à faire — relevé du 13 octobre 2026
+# Ce qui reste à faire — relevé du 13 octobre 2026, au soir
 
 Dressé sur l'état réel du dépôt, pas sur la liste de tâches : les comptes
-ci-dessous sont mesurés, et les écarts avec ce que la liste annonçait sont
-signalés.
+ci-dessous sont **mesurés**, et les écarts avec ce que le relevé précédent
+annonçait sont signalés, y compris quand ils me donnent tort.
 
 ---
 
-## A. En cours
+## 0. Les quatre chiffres qu'il faut avoir en tête
+
+| Quoi | Compté aujourd'hui | Ce que le relevé du matin disait |
+|---|---|---|
+| Fiches de cours | **425** | 347 |
+| Fiches avec voix | **250**, soit **175 sans** | 247, soit « une centaine sans » |
+| Questions de QCM | **6 759**, dont **0 sans explication** | 8 048, dont 2 706 sans explication |
+| Questions avec correction détaillée | **294**, soit **6 465 sans** | 146 |
+| Scripts d'essai | **100** | 85 |
+
+Deux de ces écarts méritent qu'on s'y arrête.
+
+**« 8 048 questions, 2 706 sans explication » était faux.** Le compte réel est
+de 6 759 questions, et **aucune** n'est sans explication. Le chiffre venait du
+rapport de l'agent INSP et n'a jamais été recoupé contre le dépôt. Ce qui
+manque, ce sont les **corrections détaillées** — le bloc `correction:` avec
+son verdict par option, son détail et son visuel —, et il en manque 6 465.
+C'est un chantier tout aussi grand, mais ce n'est pas le même, et le confondre
+aurait fait croire que des milliers de questions s'affichent sans un mot
+d'explication alors qu'elles en portent toutes une.
+
+**Le fascicule 5 est écrit.** 78 fiches sur les 79 chapitres inventoriés, de
+taille comparable à celles du fascicule 4 (médiane 54 ko contre 46 ko). Le
+relevé du matin en annonçait 16. L'agent INSP a travaillé pendant la journée.
+
+---
+
+## A. Ce qui attend un geste, et rien d'autre
+
+### A.1 — Les 175 fiches sans voix ★
+
+Les textes de podcast existent pour **les 425 fiches** : c'est la synthèse
+vocale qui n'a pas été passée sur 175 d'entre elles, dont les 78 du fascicule
+5. La chaîne est locale, gratuite et longue ; il faut la lancer délibérément,
+avec un `npm run build` **sans** `REVINSP_SANS_PODCAST=1`.
+
+C'est le plus gros écart entre ce qui est écrit et ce qui est utilisable.
+
+### A.2 — Publication des fascicules 3, 4 et 5
+
+Tâches #62 et #90, plus le fascicule 5 qui vient de s'écrire. Les fiches et
+les textes de podcast sont là, le glossaire porte 531 termes ; restent la
+synthèse audio (A.1), le complément de glossaire pour le fascicule 5, et la
+publication.
+
+### A.3 — Deux écrans de Finances 3 bis
+
+Les deux derniers de la maquette, et les deux ont leur moteur écrit et
+éprouvé :
+
+- le **compte rendu d'import** « N pointées, M à pointer, K à revoir »
+  (maquette 8.1) — aujourd'hui les trois nombres figurent dans la file, mais
+  rien ne les annonce après un import ;
+- l'**affichage du sondage** — `sondage()` tire déjà, de façon déterministe,
+  les opérations à faire revérifier ; aucun écran ne les montre.
+
+### A.4 — Deux gestes de la maquette 4.3 (Finances phase 3)
+
+« Autre ligne » et « Diviser » — ce dernier au sens de la phase 3, répartir
+une opération entre plusieurs **occurrences de budget**, à ne pas confondre
+avec le fractionnement par **catégories** livré aujourd'hui. Les moteurs
+`diviser()` et `controlerParts()` existent et sont éprouvés ; l'interface
+relève de l'écran du budget.
+
+### A.5 — `MATIERES_MIGREES` est vide
+
+Le régime à deux vitesses des corrections est en place, mais aucun périmètre
+n'y est déclaré migré. L'agent INSP demandait d'y ajouter `cas-pratique`.
+Une ligne, et le contrôle passe de l'inventaire à l'exigence sur ce périmètre.
+
+### A.6 — Un magasin déclaré que personne n'écrit
+
+`odysseeVeilleBases` existe dans le schéma, dans la liste des magasins
+scellés et dans la politique de rétention — et **aucun code ne l'écrit**. Les
+lignes de base de la veille sont recalculées à chaque évaluation, ce qui est
+le bon choix (2,9 ms à l'horizon réel). Il faut donc soit retirer le magasin,
+soit écrire pourquoi il est réservé. En l'état, il ment sur ce que
+l'application garde.
+
+---
+
+## B. Les chantiers ouverts
 
 | Chantier | Où en est-ce | Qui |
 |---|---|---|
-| **Fascicule 5 — 79 fiches** | Inventaire rendu : 346 pages, 79 chapitres, dont **61 entièrement neufs**. 16 fiches écrites à l'heure de ce relevé. +23 % de contenu, qui porterait le total à 426 fiches. | agent INSP |
-| **Veille — rejouer sur de vraies données** | Phase 4 close : déterminisme sur deux appareils, synthèse médecin et mode rejeu livrés et éprouvés. Le rejeu n'a toutefois encore **rien à lire** — cette installation ne porte aucun historique de veille. Ce qui reste n'est pas du code : c'est d'avoir vécu assez de jours. | moi, plus tard |
-| **Explications et corrections détaillées** | 8 048 questions au total. **2 706 n'ont aucune explication**, et 7 902 n'ont pas de correction détaillée. Plan chiffré demandé avant exécution. | agent INSP, après le F5 |
-
----
-
-## B. Déblocable tout de suite
-
-### B.1 — Les trois échelles ne sont plus bloquées ★
-
-C'est le changement le plus important de la journée, et la liste de tâches ne
-le reflétait pas. `echelles-psyche/releve-sources.md` établit que **tout est
-authentifié** : textes français intégraux du WHO-5, du PHQ-9 et du GAD-7,
-options de réponse, règles de score, seuils d'interprétation, et licence —
-domaine public pour le PHQ et le GAD. Six fichiers empreintés.
-
-Il ne manque plus de **fichier**. Il manque une **décision**, posée en
-section 14.5 : le manuel dit que peu de traductions ont été validées
-psychométriquement, et les seuils sont établis sur les versions anglaises.
-Trois formulations possibles, de la plus prudente à la plus informative :
-
-1. score brut seul, sans palier ;
-2. score et palier, **avec mention** que les paliers viennent de la validation
-   anglaise et que la traduction française n'a pas été validée ;
-3. score et palier sans mention — à écarter.
-
-Mon avis reste la **2**. Dès qu'elle est tranchée, les trois échelles se
-codent : elles entrent dans Psyché, sous coffre, et c'est un chantier d'une
-phase, pas de quatre.
-
-### B.2 — Finances, phase 3 — **livrée**
-
-Appariement, file « à rapprocher », rapprochement de solde avec recherche de
-causes, écarts par ligne, catégorie et mois, et 1.5 (déduire des lignes de
-budget du réel). Schéma **v26**, magasin `odysseeRapprochements` scellé.
-231 essais, dont une chaîne complète en navigateur — quatre relevés importés,
-une récurrence déduite, une ligne créée, la file qui propose.
-
-Les décisions et les six fautes corrigées sont dans
-[`finances/phase-3.md`](finances/phase-3.md). Ce qui reste de la maquette 4.3 :
-les gestes « Autre ligne » et « Diviser », dont les moteurs existent et sont
-éprouvés mais dont l'interface relève de l'écran du budget.
-
-### B.2 bis — Finances, phase 4 — **livrée**
-
-« Qui lit mon budget » (sept consommateurs, projections réellement bornées),
-dossier surveillé de relevés, export ICS des échéances. Schéma **v27**.
-190 essais. Décisions dans [`finances/phase-4.md`](finances/phase-4.md).
-
-### B.2 ter — Finances, phase 3 bis — **plan à valider, rien de codé**
-
-Le prompt complet de Finances, reçu le 13 octobre 2026, contient une
-**section 2 bis** que le plan de phase 0 n'avait pas : le **pointage
-automatisé par type de vendeur**, avec un dictionnaire d'enseignes livré avec
-l'application, des règles locales créées à la détection d'un nom inconnu, et
-des catégories pointées comparables au budget.
-
-Le plan de phase 0 n'en contient aucune occurrence — il a été écrit depuis une
-version antérieure du prompt. Le calendrier, lui, tient : les phases 1, 2, 3
-et 4 livrées correspondent à celles du prompt. C'est la **phase 3 bis** qui
-manque, entière.
-
-Le plan, les maquettes et les sept décisions (10 à 16) sont dans
-[`finances/plan-2bis-pointage.md`](finances/plan-2bis-pointage.md).
-**Décisions 11, 12 et 15 validées le 13 octobre 2026.**
-
-| Sous-phase | Contenu | État |
-|---|---|---|
-| **3 bis a** | Taxonomie (12 familles, 59 types + 3 états), normalisation, résolution, appariement approché, groupement des inconnus | **livrée**, 93 essais |
-| **3 bis b** | Dictionnaire de 296 entrées, mesure du taux de reconnaissance | **livrée** |
-| **3 bis c** | Politique de pointage, préréglages, anomalies, sondage, rétrogradation d'une règle | **livrée**, 69 essais |
-| **3 bis d** | Magasins scellés (v28), règles locales, vendeurs inconnus, « Mes règles » | **livrée**, 61 essais |
-| **3 bis e** | Catégories pointées, vue prévu / réalisé / écart, file unique filtrable | **livrée** |
-
-Décisions et défauts dans [`finances/phase-3bis.md`](finances/phase-3bis.md).
-L'**écran de fractionnement** est livré : recherche par libellé ou par
-montant, éditeur de parts, reste à répartir affiché en permanence, et le
-fractionnement qui se retrouve au centime dans les catégories. Le **mode
-avancé de création de règle** l'est aussi : six champs, l'aperçu sur le passé
-et le second geste qui l'applique. Restent, et c'est dit : le compte rendu
-d'import de la maquette 8.1 et l'affichage du sondage — les deux ont leur
-moteur écrit et éprouvé.
-
-Mesure sur le jeu synthétique de 51 libellés : **100 % reconnus, 0 faux
-positif** — avec la réserve, écrite dans le rapport de `npm run
-mesurer:reconnaissance`, que le jeu et le dictionnaire sortent de la même
-main et que ce chiffre ne dit rien de relevés réels.
-
-Reste ensuite la **phase 5** (jeu synthétique de cinq ans, conflits entre deux
-appareils, mesures d'ergonomie, guide court).
-
-### B.3 — Audio : cent fiches sans voix
-
-Mesuré à l'instant : **347 fiches, 247 fichiers audio chiffrés publiés**. Les
-textes de podcast existent pour la totalité des fascicules 1 à 4 — c'est la
-synthèse vocale qui n'a pas été passée sur une centaine d'entre eux. La
-chaîne est locale et longue ; c'est une tâche à lancer délibérément, pas un
-effet de bord d'une construction.
-
-### B.4 — Publication des fascicules 3 et 4
-
-Les tâches #62 et #90 restent ouvertes. Les fiches et les textes de podcast
-sont là ; il reste le glossaire à compléter, la synthèse audio (B.3) et la
-publication.
+| **Corrections détaillées** | 294 sur 6 759. Le lot pilote a prouvé le format ; le reste demande un plan chiffré avant d'être lancé. | agent INSP |
+| **Finances, phase 5** | Jeu synthétique de cinq ans, conflits entre deux appareils, mesures d'ergonomie, guide court. Rien de commencé. | moi |
+| **Veille — rejouer sur de vraies données** | Phase 4 close. Le rejeu n'a **rien à lire** : cette installation ne porte aucun historique de veille. Ce qui reste n'est pas du code, c'est d'avoir vécu assez de jours. | le temps |
+| **Santé, traitements, musculation** | Plan validé, valeurs bloquées. Voir C. | moi, en partie |
 
 ---
 
 ## C. Bloqué sur des sources extérieures
 
-**Santé, traitements et musculation** — plan validé, et la forme se construit
-sans rien attendre : modèle, écrans, enregistrement, programmes, volumes. Ce
-qui est bloqué, ce sont les **valeurs** : demi-vies, interactions, limites de
-sécurité, niveaux de preuve des méthodes. La liste de courses est dans
+**Santé, traitements et musculation** — la forme se construit sans rien
+attendre : modèle, écrans, enregistrement, programmes, volumes. Ce qui est
+bloqué, ce sont les **valeurs** : demi-vies, interactions, limites de
+sécurité, niveaux de preuve des méthodes. La liste est dans
 `sources-a-atteindre.md`, lots 2 et 3.
 
-Décision possible : **construire la forme maintenant**, avec chaque valeur
-affichée « inconnue » et un bandeau qui le dit. C'est le comportement voulu de
-toute façon — une valeur inventée coûterait plus cher qu'une case vide — et
-cela met le chantier en état de recevoir les sources le jour où elles
-arrivent, plutôt que de tout commencer ce jour-là.
+La décision que je recommande, inchangée : **construire la forme maintenant**,
+chaque valeur affichée « inconnue », avec un bandeau qui le dit. C'est le
+comportement voulu de toute façon — une valeur inventée coûterait plus cher
+qu'une case vide — et cela met le chantier en état de recevoir les sources le
+jour où elles arrivent, au lieu de tout commencer ce jour-là.
 
 ---
 
@@ -139,28 +120,27 @@ arrivent, plutôt que de tout commencer ce jour-là.
 |---|---|---|
 | Trois annexes INSP | 3 thèmes sur 29 | `fichiers-bloquants.md` § 2 |
 | Corrigés DGFiP 2026, inspecteur et contrôleur | 70 questions non recoupées | `fichiers-bloquants.md` § 3 |
+| Quatre sources du fascicule 5 | dont `Corrigé Cas Pratique IA_V2.pdf` | rapport de l'agent INSP |
 
 ---
 
-## E. La dette méthodologique trouvée aujourd'hui
+## E. La dette méthodologique, et ce qu'elle a encore coûté
 
-Elle mérite une ligne à part, parce qu'elle a coûté trois défauts.
-
-**La suite d'essais n'avait pas été relancée depuis deux phases.** En la
-passant entièrement, trois défauts dormants sont sortis : Sport proposait de
-progresser sur un muscle douloureux toute la matinée ; deux magasins de
-Finances n'avaient pas de politique de rétention ; un essai du calendrier ne
-pouvait passer que l'après-midi. Aucun n'aurait été trouvé autrement, et tous
-trois dataient de la version 22.
-
-**La règle à tenir** : la suite complète — 85 scripts, une vingtaine de
+**La règle, rappelée** : la suite complète — **100 scripts**, une vingtaine de
 minutes — après chaque changement de schéma, et pas seulement avant une
-publication.
+publication. Elle avait sorti trois défauts dormants la dernière fois qu'on
+l'a oubliée.
+
+Un piège de mesure à retenir, trouvé aujourd'hui : `essais-relationnel` dépasse
+les 300 secondes. Une boucle de vérification qui coupe à 300 s le rapporte en
+échec alors qu'il passe. Un essai lent qu'on croit cassé finit par être
+ignoré, ce qui revient à ne plus l'avoir.
 
 ---
 
 ## F. Une question jamais tranchée
 
-Le dépôt n'a pas de branche `main` stable : tout vit sur
-`claude/new-session-vlew41`. Je ne l'ai pas touché en ton absence, mais la
-question se posera le jour où une session repartira de zéro.
+Le dépôt n'a toujours pas de branche `main` stable : tout vit sur
+`claude/new-session-vlew41`, qui porte maintenant l'intégralité du travail. Je
+n'y touche pas sans ton accord, mais la question se posera le jour où une
+session repartira de zéro — et elle se posera mal ce jour-là.
