@@ -245,6 +245,25 @@ Par fascicule, pour planifier les lots :
 La répartition est nette : les prétests manquent sur quatre matières, et jamais
 sur un fascicule 4. Droit public, économie et cas pratique sont complets.
 
+### Avancement
+
+Les prétests s'écrivent par lots d'une quinzaine, dans l'ordre questions
+internationales, questions européennes, questions sociales, finances publiques.
+Chaque lot passe `npm run verifier:pretests` et la validation de schéma avant
+d'être consigné ici.
+
+| Lot | Portée | Prétests écrits | Reste |
+|---|---|---|---|
+| 1 | `questions-internationales/fascicule-1` | 16 | 134 |
+
+Fiches avec prétest, après le lot 1 : **204 sur 347**.
+
+Note de méthode retenue d'un lot à l'autre : un prétest **ouvre la lecture**, il
+ne la résume pas. Les questions portent donc sur les notions que la fiche
+suppose connues — le vocabulaire, les mécanismes, les repères — et non sur ce
+qu'elle apprend. Le vivier va de 3 à 16 questions : il suit la densité de la
+fiche au lieu de viser un chiffre uniforme.
+
 Un point à vérifier à la rédaction : `questions-sociales/fascicule-3` et
 `finances-publiques/fascicule-4` n'ont aucun prétest manquant, alors que leurs
 voisins en manquent partout. Rien ne dit que ce soit une anomalie — mais c'est
