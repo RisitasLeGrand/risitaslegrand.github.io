@@ -88,6 +88,12 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
     clairs: ['id', 'jour', 'majLe'],
   },
   {
+    magasin: 'odysseeHebdos',
+    pourquoi:
+      'Psyché : trois questions ouvertes sur la semaine, donc du texte libre sur ce qui a pesé.',
+    clairs: ['id', 'semaine', 'majLe'],
+  },
+  {
     magasin: 'odysseeJournal',
     pourquoi: 'Psyché : le journal est l’objet le plus intime de l’application.',
     clairs: ['id', 'jour', 'majLe'],
@@ -147,6 +153,8 @@ export const CHAMPS_INTERDITS_EN_CLAIR: readonly string[] = [
   'anxiete',
   'moral',
   'energie',
+  'stress',
+  'motivation',
   'nom',
   'dose',
   'substance',

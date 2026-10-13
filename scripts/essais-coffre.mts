@@ -92,8 +92,10 @@ const autre = await crypto.subtle.generateKey({ name: 'AES-GCM', length: 256 }, 
 console.log('\n\x1b[1mLE CATALOGUE DU COFFRE SE TIENT\x1b[0m');
 
 v('aucun problème de catalogue', controlerCoffre(), []);
-v('sept magasins scellés', MAGASINS_SCELLES.length, 7);
+v('huit magasins scellés', MAGASINS_SCELLES.length, 8);
 vrai('le journal en est', estScelle('odysseeJournal'));
+vrai('les check-ins aussi', estScelle('odysseeCheckins'));
+vrai('et les points de semaine', estScelle('odysseeHebdos'));
 vrai('les comptes aussi', estScelle('odysseeComptes'));
 /*
    Et le sommeil **non**. C'est la moitié de la décision 3 : chiffrer par

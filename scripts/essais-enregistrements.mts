@@ -132,9 +132,9 @@ v(
    les compter — un compte qui bouge se corrige sans rien apprendre, une liste
    nommée dit lequel manque.
 */
-v('vingt-sept magasins journalisés', MAGASINS_JOURNALISES.length, 27);
+v('trente magasins journalisés', MAGASINS_JOURNALISES.length, 30);
 v(
-  'et les quatorze d’Odyssée y sont',
+  'et les dix-sept d’Odyssée y sont',
   MAGASINS_JOURNALISES.filter((m) => m.magasin.startsWith('odyssee')).map((m) => m.magasin),
   [
     'odysseeTaches',
@@ -154,6 +154,10 @@ v(
     // Les deux scellés, depuis la décision 3.
     'odysseeMedicaments',
     'odysseeHormonal',
+    // La psyché, depuis la phase 7 — scellée elle aussi.
+    'odysseeCheckins',
+    'odysseeHebdos',
+    'odysseeJournal',
   ],
 );
 /*
@@ -168,8 +172,10 @@ v(
    voyageraient en clair.
 */
 v(
-  'les deux magasins sensibles sont scellés',
-  ['odysseeMedicaments', 'odysseeHormonal'].filter((m) => !estScelle(m)),
+  'les cinq magasins sensibles sont scellés',
+  ['odysseeMedicaments', 'odysseeHormonal', 'odysseeCheckins', 'odysseeHebdos', 'odysseeJournal'].filter(
+    (m) => !estScelle(m),
+  ),
   [],
 );
 v('et le catalogue du coffre se tient', controlerCoffre(), []);

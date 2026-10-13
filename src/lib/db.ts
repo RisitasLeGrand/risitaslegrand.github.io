@@ -17,6 +17,7 @@ import type { Blessure, Exercice, Phase, Seance as SeanceSport } from './sport/m
 import type { Programme as ProgrammeSport } from './sport/programmes';
 import type { Trajectoire } from './odyssee/trajectoires';
 import type { Prise, StatutHormonal } from './odyssee/sensible';
+import type { Checkin, CheckinHebdo, Entree } from './odyssee/psyche';
 import type {
   Boisson,
   EtatDeSante,
@@ -579,10 +580,13 @@ interface SchemaRevinsp extends DBSchema {
   */
   odysseeMedicaments: { key: string; value: Prise; indexes: { jour: string } };
   odysseeHormonal: { key: string; value: StatutHormonal; indexes: { debut: string } };
+  odysseeCheckins: { key: string; value: Checkin; indexes: { jour: string } };
+  odysseeHebdos: { key: string; value: CheckinHebdo; indexes: { semaine: string } };
+  odysseeJournal: { key: string; value: Entree; indexes: { jour: string } };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 20;
+const VERSION = 21;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1129,6 +1133,20 @@ function ouvrirAuSchema(nom: string, version: number) {
          */
         base.createObjectStore('odysseeMedicaments', { keyPath: 'id' }).createIndex('jour', 'jour');
         base.createObjectStore('odysseeHormonal', { keyPath: 'id' }).createIndex('debut', 'debut');
+      }
+      if (vers(21)) {
+        /*
+         * Psyché. Scellés dès leur création, comme les deux précédents — la
+         * décision 3 les nomme explicitement, et c'est le domaine où une fuite
+         * coûte le plus cher.
+         *
+         * Le check-in est indexé par jour, le point de semaine par semaine :
+         * les deux lectures sont « celui d'aujourd'hui » et « celui de cette
+         * semaine », et elles doivent rester immédiates même scellées.
+         */
+        base.createObjectStore('odysseeCheckins', { keyPath: 'id' }).createIndex('jour', 'jour');
+        base.createObjectStore('odysseeHebdos', { keyPath: 'id' }).createIndex('semaine', 'semaine');
+        base.createObjectStore('odysseeJournal', { keyPath: 'id' }).createIndex('jour', 'jour');
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -1984,6 +2002,9 @@ export const MAGASINS_PROGRESSION = [
   'odysseeTrajectoires',
   'odysseeMedicaments',
   'odysseeHormonal',
+  'odysseeCheckins',
+  'odysseeHebdos',
+  'odysseeJournal',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */

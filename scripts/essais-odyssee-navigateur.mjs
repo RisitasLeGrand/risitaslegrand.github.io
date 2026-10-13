@@ -158,13 +158,17 @@ v(
      part d'une base en v14 : il vérifie donc que **tous** les blocs additifs
      ont tourné, et pas seulement celui qui l'intéressait au départ.
   */
-  'les quatorze magasins d’Odyssée existent',
+  'les dix-sept magasins d’Odyssée existent',
   apres.magasins.filter((m) => m.startsWith('odyssee')).sort(),
   [
     'odysseeBoissons',
+    // La psyché, depuis la phase 7 : scellés tous les trois.
+    'odysseeCheckins',
     'odysseeEvenements',
     'odysseeFocus',
+    'odysseeHebdos',
     'odysseeHormonal',
+    'odysseeJournal',
     'odysseeMedicaments',
     'odysseeMesures',
     'odysseeNuits',

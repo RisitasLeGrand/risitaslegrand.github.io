@@ -35,9 +35,15 @@ import { publierFaitsOdyssee } from './faits-odyssee';
 import { publierFaitsCorps } from './faits-corps';
 
 /** Les branches publiables, dans l'ordre où elles sont assemblées. */
-export type SourceDeFaits = 'revisions' | 'odyssee' | 'corps' | 'sport';
+export type SourceDeFaits = 'revisions' | 'odyssee' | 'corps' | 'sport' | 'psyche';
 
-export const SOURCES: readonly SourceDeFaits[] = ['revisions', 'odyssee', 'corps', 'sport'];
+export const SOURCES: readonly SourceDeFaits[] = [
+  'revisions',
+  'odyssee',
+  'corps',
+  'sport',
+  'psyche',
+];
 
 export interface OptionsToutesBranches extends OptionsPublication {
   /** Restreindre l'assemblage. Par défaut, toutes. */
@@ -64,8 +70,42 @@ export async function publierTousLesFaits(
       import('../sport/faits-sport').then(({ publierFaitsSport }) => publierFaitsSport(reste)),
     );
   }
+  if (sources.includes('psyche')) travaux.push(publierPsycheOuLeDire(reste));
 
   return fusionner(await Promise.all(travaux));
+}
+
+/**
+ * Psyché, ou la raison de son absence.
+ *
+ * Sa lecture **lève** quand le coffre est fermé : c'est voulu, et c'est le cas
+ * le plus courant — le coffre ne s'ouvre que sur demande. Laisser l'exception
+ * remonter ferait échouer l'agrégat entier, et une roue d'équilibre vide
+ * remplacerait quatre branches lisibles parce que la cinquième est verrouillée.
+ *
+ * L'absence est donc **déclarée** plutôt que rattrapée en silence : un manque
+ * nommé se lit à l'écran, et distingue « le coffre est fermé » de « il n'y a
+ * rien à montrer » — qui s'affichent autrement de la même façon.
+ */
+async function publierPsycheOuLeDire(options: OptionsPublication): Promise<Publication> {
+  try {
+    const { publierFaitsPsyche } = await import('./faits-psyche');
+    return await publierFaitsPsyche(options);
+  } catch {
+    return {
+      faits: [],
+      refuses: [],
+      manques: [
+        {
+          quoi: 'Psyché, coffre fermé',
+          combien: 1,
+          consequence:
+            'Rien de la psyché n’entre dans ce calcul, pas même la charge perçue. ' +
+            'Ouvrez le coffre depuis « Ma psyché » pour l’y faire entrer.',
+        },
+      ],
+    };
+  }
 }
 
 /**

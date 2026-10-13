@@ -363,6 +363,9 @@ export const MAGASINS_JOURNALISES: readonly MagasinJournalise[] = [
   */
   M({ magasin: 'odysseeMedicaments', type: 'odyssee.medicament', clef: 'id', libelle: 'Prise' }),
   M({ magasin: 'odysseeHormonal', type: 'odyssee.statut-hormonal', clef: 'id', libelle: 'Statut hormonal' }),
+  M({ magasin: 'odysseeCheckins', type: 'odyssee.checkin', clef: 'id', libelle: 'Check-in' }),
+  M({ magasin: 'odysseeHebdos', type: 'odyssee.checkin', clef: 'id', libelle: 'Point de semaine' }),
+  M({ magasin: 'odysseeJournal', type: 'odyssee.journal', clef: 'id', libelle: 'Entrée de journal' }),
 ];
 
 const PAR_MAGASIN = new Map(MAGASINS_JOURNALISES.map((m) => [m.magasin, m]));

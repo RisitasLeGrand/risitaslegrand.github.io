@@ -87,8 +87,8 @@ vrai(
   (await page.textContent('#vue')).includes('chiffrés dans la base'),
 );
 vrai(
-  'ainsi que sa contrepartie : la clé n’est pas mémorisée',
-  (await page.textContent('#vue')).includes('jamais mémorisée'),
+  'ainsi que la portée exacte de la mémoire de la clé',
+  (await page.textContent('#vue')).includes('le temps de l’onglet'),
 );
 
 /* Un poids impossible : refusé par le contrôle du modèle, pas par l'écran. */
@@ -252,21 +252,54 @@ v(
 );
 
 /*
-   Le rechargement : la clé du contenu revient du stockage, celle du coffre
-   **non**. C'est la contrepartie annoncée — et, on vient de le voir, elle
-   vaut même pour une simple navigation.
+   Ce que la clé traverse, et ce qu'elle ne traverse pas.
+
+   Elle vit dans `sessionStorage` depuis le 13 octobre 2026 : elle survit donc
+   au **rechargement** et à la navigation dans l'onglet, et meurt avec
+   l'onglet. Les deux moitiés se vérifient ici, parce que la première sans la
+   seconde ne prouverait rien — un stockage qui survit à l'onglet tiendrait le
+   premier essai aussi bien.
 */
 await page.reload({ waitUntil: 'networkidle' });
 await deverrouiller();
 await page.waitForSelector('#vue:not(.hidden)', { timeout: 40000 });
 vrai(
-  'après rechargement, le coffre est refermé',
-  await page.locator('#coffre-ferme').isVisible(),
+  'après rechargement, le coffre est toujours ouvert',
+  await page.locator('#coffre-ouvert').isVisible(),
 );
-faux(
-  'et rien de son contenu n’est affiché',
+vrai(
+  'et son contenu est relu',
   (await page.textContent('#vue')).includes('Paracétamol'),
 );
+
+{
+  /*
+     Un autre onglet, c'est-à-dire un autre contexte : son `sessionStorage`
+     est vide. C'est la ligne qui distingue `sessionStorage` de
+     `localStorage`, et sans elle le choix retenu ne se voit pas.
+  */
+  const autre = await nav.newContext();
+  const onglet = await autre.newPage();
+  await onglet.goto(`${RACINE}/odyssee/corps/`, { waitUntil: 'networkidle' });
+  if (await onglet.locator('#champ-mdp').isVisible().catch(() => false)) {
+    await onglet.fill('#champ-mdp', MDP);
+    await onglet.click('#bouton-verrou');
+  }
+  await onglet.waitForSelector('#vue:not(.hidden)', { timeout: 40000 });
+  vrai(
+    'dans un autre onglet, le coffre est fermé',
+    await onglet.locator('#coffre-ferme').isVisible(),
+  );
+  faux(
+    'et son contenu reste invisible',
+    (await onglet.textContent('#vue')).includes('Paracétamol'),
+  );
+  /*
+     Et le déverrouillage du site n'y a rien changé : il ne doit plus ouvrir
+     le coffre. C'est la régression qu'un essai de Psyché a attrapée.
+  */
+  await autre.close();
+}
 
 /* ════════════════════════════════════════════════════════════════════════
    2. Les tendances : aucune piste sans données

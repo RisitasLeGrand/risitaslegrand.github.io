@@ -1,0 +1,535 @@
+---
+/**
+ * Odyssée : ma psyché.
+ *
+ * Un check-in quotidien de moins de trente secondes, un point de semaine, un
+ * journal libre. Tout est dans le coffre : c'est le seul écran de Cyclades
+ * dont **aucune** donnée n'est lisible sans le mot de passe.
+ *
+ * ## Les ressources ne sont pas derrière le coffre, et pas derrière un seuil
+ *
+ * Le 3114, le 15, le 112 s'affichent toujours, en bas, de la même façon
+ * chaque jour. Ni masqués par le verrou, ni révélés par un score bas.
+ *
+ * Deux raisons. D'abord, quelqu'un qui en a besoin ne doit pas avoir à se
+ * souvenir d'un mot de passe pour les lire. Ensuite, un numéro qui apparaît
+ * *parce que* la note du jour est basse transforme l'écran en diagnostic : il
+ * dit « d'après tes chiffres, tu devrais appeler ». Ce logiciel n'a pas de
+ * quoi dire ça, et une personne qui a compris le mécanisme apprend surtout à
+ * mentir aux glissières pour que le bandeau disparaisse.
+ *
+ * ## Ce qui n'est pas ici
+ *
+ * Les échelles WHO-5, PHQ-9 et GAD-7. Elles donneraient des scores
+ * comparables à des seuils cliniques publiés — et donc un diagnostic rendu
+ * par un logiciel. Leur licence et la validation de leur traduction
+ * française n'ont par ailleurs pas été vérifiées. Quatre glissières sans
+ * prétention valent mieux qu'un score emprunté.
+ */
+import Base from '../../layouts/Base.astro';
+import { ECHELLE, JOURS_DE_LIGNE_DE_BASE, ORDRE_DIMENSIONS, DIMENSIONS, RESSOURCES } from '../../lib/odyssee/psyche';
+---
+
+<Base titre="Ma psyché" actif="psyche">
+  <div class="mx-auto max-w-3xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Ma psyché</h1>
+    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+      Quatre glissières, moins de trente secondes. Tout est chiffré dans la base : illisible sans
+      le mot de passe, y compris pour une extension de navigateur ou quelqu’un qui ouvre cet
+      ordinateur.
+    </p>
+    <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+      <strong>Aucun diagnostic.</strong> Ces chiffres ne sont pas un test, ne sont comparés à aucun
+      seuil clinique, et ne disent rien de ce que vous avez. Ils servent à vous relire.
+    </p>
+
+    <div id="chargement-psyche" class="mt-6">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Lecture…</p>
+    </div>
+
+    <div id="vue" class="mt-6 hidden space-y-10">
+      <p id="rappel-sauvegarde" class="hidden rounded-xl px-4 py-3 text-sm"></p>
+
+      <!-- Le coffre fermé -->
+      <section id="coffre-ferme" class="hidden rounded-2xl border-2 border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">🔒 Ouvrir le coffre</h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Le mot de passe est redemandé à chaque nouvel onglet. La clé ne quitte pas cet appareil.
+        </p>
+        <label class="mt-3 block text-sm">
+          <span class="block text-slate-700 dark:text-slate-200">Mot de passe</span>
+          <input id="mdp-coffre" type="password" autocomplete="current-password"
+            class="mt-1 min-h-11 w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+        </label>
+        <button id="ouvrir-coffre" type="button"
+          class="mt-3 min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900"
+          >Ouvrir</button>
+        <p id="erreur-coffre" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+      </section>
+
+      <!-- Le coffre ouvert -->
+      <div id="coffre-ouvert" class="hidden space-y-10">
+        <!-- Le check-in du jour -->
+        <section>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Aujourd’hui</h2>
+          <p id="etat-checkin" class="mt-1 text-sm text-slate-600 dark:text-slate-300"></p>
+
+          <div id="glissieres" class="mt-4 space-y-5">
+            {
+              ORDRE_DIMENSIONS.map((d) => (
+                <div data-dimension={d}>
+                  <div class="flex items-baseline justify-between gap-3">
+                    <label for={`gl-${d}`} class="text-sm font-medium text-slate-900 dark:text-white">
+                      {DIMENSIONS[d].libelle}
+                      <span class="ml-2 font-normal text-slate-500 dark:text-slate-400">
+                        {DIMENSIONS[d].question}
+                      </span>
+                    </label>
+                    <output
+                      id={`val-${d}`}
+                      data-valeur={d}
+                      class="text-sm tabular-nums text-slate-500 dark:text-slate-400"
+                      >non renseigné</output
+                    >
+                  </div>
+                  <div class="mt-1 flex items-center gap-3">
+                    <input
+                      id={`gl-${d}`}
+                      type="range"
+                      min={ECHELLE.min}
+                      max={ECHELLE.max}
+                      step="1"
+                      value="5"
+                      data-glissiere={d}
+                      disabled
+                      class="h-11 w-full accent-indigo-600 disabled:opacity-40"
+                    />
+                    {/*
+                       Une case pour *activer* la glissière, et non pour la
+                       désactiver : au départ rien n'est renseigné, et une
+                       glissière posée au milieu ne doit pas se lire comme un
+                       « 5 » que personne n'a choisi. C'est la différence entre
+                       l'absence et le zéro, appliquée à un curseur.
+                    */}
+                    <label class="flex shrink-0 items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
+                      <input type="checkbox" data-active={d} class="size-4 accent-indigo-600" />
+                      noter
+                    </label>
+                  </div>
+                </div>
+              ))
+            }
+          </div>
+
+          <label class="mt-5 block text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Un mot, si vous voulez</span>
+            <input id="note" type="text" maxlength="280"
+              class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+
+          <div class="mt-4 flex flex-wrap items-center gap-3">
+            <button id="enregistrer" type="button"
+              class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+              >Enregistrer</button>
+            <p id="charge" class="text-sm text-slate-600 dark:text-slate-300"></p>
+          </div>
+        </section>
+
+        <!-- Les écarts -->
+        <section>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Où j’en suis</h2>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Comparé à <strong>votre</strong> moyenne, jamais à celle de quelqu’un d’autre. Il faut
+            au moins {JOURS_DE_LIGNE_DE_BASE} jours notés pour qu’une dimension dise quelque chose.
+          </p>
+          <dl id="ecarts" class="mt-3 grid gap-3 sm:grid-cols-2"></dl>
+        </section>
+
+        <!-- Le point de semaine -->
+        <section>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Le point de la semaine</h2>
+          <p id="semaine" class="mt-1 text-sm text-slate-500 dark:text-slate-400"></p>
+          <div class="mt-3 space-y-3">
+            <label class="block text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Qu’est-ce qui m’a porté ?</span>
+              <textarea id="porte" rows="2" maxlength="2000"
+                class="mt-1 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-950"></textarea>
+            </label>
+            <label class="block text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Qu’est-ce qui m’a pesé ?</span>
+              <textarea id="pese" rows="2" maxlength="2000"
+                class="mt-1 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-950"></textarea>
+            </label>
+            <label class="block text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">De quoi ai-je besoin ?</span>
+              <textarea id="besoin" rows="2" maxlength="2000"
+                class="mt-1 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-950"></textarea>
+            </label>
+          </div>
+          <button id="enregistrer-hebdo" type="button"
+            class="mt-3 min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+            >Enregistrer le point</button>
+        </section>
+
+        <!-- Le journal -->
+        <section>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Mon journal</h2>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Texte libre. Il ne sort jamais de cet appareil : les autres branches n’apprennent que
+            la date d’une entrée et sa longueur, jamais un mot de son contenu.
+          </p>
+          <textarea id="entree" rows="5" maxlength="20000"
+            class="mt-3 w-full rounded-lg border border-slate-300 bg-white p-3 text-sm dark:border-slate-700 dark:bg-slate-950"></textarea>
+          <button id="ecrire" type="button"
+            class="mt-2 min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+            >Ajouter au journal</button>
+          <ul id="journal" class="mt-4 space-y-3 text-sm"></ul>
+          <p id="aucune-entree" class="mt-3 hidden text-sm text-slate-500 dark:text-slate-400">
+            Rien d’écrit pour l’instant.
+          </p>
+        </section>
+
+        <button id="fermer-coffre" type="button"
+          class="text-xs text-slate-500 underline dark:text-slate-400"
+          >Refermer le coffre maintenant</button>
+      </div>
+
+      <!-- Les ressources : hors du coffre, hors de tout seuil -->
+      <section id="ressources" class="rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
+        <h2 class="text-base font-semibold text-slate-900 dark:text-white">
+          Si ça ne va pas, parler à quelqu’un
+        </h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Ces numéros sont là tous les jours, quels que soient les chiffres de l’écran.
+        </p>
+        <ul class="mt-3 space-y-2 text-sm">
+          {
+            RESSOURCES.map((r) => (
+              <li data-ressource={r.numero} class="text-slate-700 dark:text-slate-200">
+                <a href={`tel:${r.numero}`} class="font-semibold text-indigo-700 underline dark:text-indigo-300">
+                  {r.numero}
+                </a>
+                {' — '}
+                {r.nom}.{' '}
+                <span class="text-slate-500 dark:text-slate-400">{r.quand}</span>
+              </li>
+            ))
+          }
+        </ul>
+      </section>
+
+      <p id="erreur" class="hidden text-sm text-rose-700 dark:text-rose-300"></p>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { jourLogique } from '../../lib/noyau/jour-logique';
+  import {
+    DIMENSIONS,
+    ECART_NOTABLE,
+    ORDRE_DIMENSIONS,
+    chargePercue,
+    ecartALaBase,
+    joursRestants,
+    type Checkin,
+    type CheckinHebdo,
+    type Dimension,
+    type Entree,
+  } from '../../lib/odyssee/psyche';
+  import {
+    combienDePsyche,
+    ecrireCheckin,
+    ecrireEntree,
+    ecrireHebdo,
+    lundiDe,
+    supprimerEntree,
+    tousLesCheckins,
+    tousLesHebdos,
+    toutLeJournal,
+  } from '../../lib/odyssee/donnees-psyche';
+  import {
+    coffreOuvert,
+    fermerLeCoffre,
+    ouvrirLeCoffre,
+    reprendreLeCoffre,
+    surCoffre,
+  } from '../../lib/coffre';
+  import { rappelDeSauvegarde } from '../../lib/noyau/coffre';
+  import { lireDerniereSauvegarde } from '../../lib/db';
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const dire = (e: unknown) => {
+    const zone = $('erreur');
+    zone.textContent = e instanceof Error ? e.message : String(e);
+    zone.classList.remove('hidden');
+  };
+  const taire = () => $('erreur').classList.add('hidden');
+
+  let checkins: Checkin[] = [];
+  let hebdos: CheckinHebdo[] = [];
+  let journal: Entree[] = [];
+  let aujourdhui = jourLogique(new Date());
+
+  /* ── Les glissières ───────────────────────────────────────────────────── */
+
+  const glissiere = (d: Dimension) => $(`gl-${d}`) as HTMLInputElement;
+  const interrupteur = (d: Dimension) =>
+    document.querySelector<HTMLInputElement>(`input[data-active="${d}"]`)!;
+
+  /** La valeur d'une dimension : `null` si la case « noter » est décochée. */
+  function lire(d: Dimension): number | null {
+    return interrupteur(d).checked ? Number(glissiere(d).value) : null;
+  }
+
+  function poser(d: Dimension, valeur: number | null) {
+    interrupteur(d).checked = valeur !== null;
+    glissiere(d).disabled = valeur === null;
+    if (valeur !== null) glissiere(d).value = String(valeur);
+    $(`val-${d}`).textContent = valeur === null ? 'non renseigné' : `${valeur} / 10`;
+  }
+
+  /** La charge perçue, recalculée à chaque mouvement : elle se voit se former. */
+  function peindreCharge() {
+    const charge = chargePercue({ energie: lire('energie'), stress: lire('stress') });
+    $('charge').textContent =
+      charge === null
+        ? 'Charge perçue : elle a besoin de l’énergie ou du stress.'
+        : `Charge perçue : ${charge} / 10 — c’est la seule chose que Sport lira.`;
+  }
+
+  /* ── Les écrans ───────────────────────────────────────────────────────── */
+
+  function peindreCheckin() {
+    const duJour = checkins.find((c) => c.jour === aujourdhui) ?? null;
+    $('etat-checkin').textContent = duJour
+      ? `Noté à ${new Date(duJour.le).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}. Réenregistrer corrige, cela n’ajoute pas une seconde note.`
+      : 'Rien de noté aujourd’hui.';
+    for (const d of ORDRE_DIMENSIONS) poser(d, duJour ? duJour[d] : null);
+    ($('note') as HTMLInputElement).value = duJour?.note ?? '';
+    peindreCharge();
+  }
+
+  function peindreEcarts() {
+    const zone = $('ecarts');
+    zone.innerHTML = '';
+    for (const d of ORDRE_DIMENSIONS) {
+      const ecart = ecartALaBase(checkins, d);
+      const bloc = document.createElement('div');
+      bloc.className =
+        'rounded-xl border border-slate-200 p-3 dark:border-slate-800';
+      bloc.dataset.ecart = d;
+      const dt = document.createElement('dt');
+      dt.className = 'text-xs font-medium text-slate-500 dark:text-slate-400';
+      dt.textContent = DIMENSIONS[d].libelle;
+      const dd = document.createElement('dd');
+      dd.className = 'mt-1 text-sm text-slate-800 dark:text-slate-100';
+      if (ecart === null) {
+        /*
+           Combien il manque, et non « pas assez de données » : une attente
+           chiffrée se termine, un refus vague se répète.
+        */
+        const reste = joursRestants(checkins, d);
+        dd.textContent = `Encore ${reste} jour(s) à noter.`;
+        dd.dataset.tendance = 'inconnue';
+      } else {
+        const signe = ecart.ecart > 0 ? '+' : '';
+        dd.textContent =
+          Math.abs(ecart.ecart) < ECART_NOTABLE
+            ? `Dans votre moyenne (${ecart.base.toFixed(1)}).`
+            : `${ecart.tendance} de votre moyenne : ${ecart.recent.toFixed(1)} contre ${ecart.base.toFixed(1)} (${signe}${ecart.ecart.toFixed(1)}).`;
+        dd.dataset.tendance = ecart.tendance;
+      }
+      bloc.append(dt, dd);
+      zone.appendChild(bloc);
+    }
+  }
+
+  function peindreHebdo() {
+    const semaine = lundiDe(aujourdhui);
+    const existant = hebdos.find((h) => h.semaine === semaine) ?? null;
+    $('semaine').textContent = existant
+      ? `Semaine du ${semaine} — déjà renseignée. Réenregistrer la corrige.`
+      : `Semaine du ${semaine}.`;
+    ($('porte') as HTMLTextAreaElement).value = existant?.porte ?? '';
+    ($('pese') as HTMLTextAreaElement).value = existant?.pese ?? '';
+    ($('besoin') as HTMLTextAreaElement).value = existant?.besoin ?? '';
+  }
+
+  function peindreJournal() {
+    const zone = $('journal');
+    zone.innerHTML = '';
+    $('aucune-entree').classList.toggle('hidden', journal.length > 0);
+    for (const entree of journal.slice(0, 30)) {
+      const li = document.createElement('li');
+      li.className = 'rounded-xl border border-slate-200 p-3 dark:border-slate-800';
+      li.dataset.entree = entree.id;
+      const date = document.createElement('p');
+      date.className = 'text-xs text-slate-500 dark:text-slate-400';
+      date.textContent = new Date(entree.le).toLocaleString('fr-FR', {
+        dateStyle: 'full',
+        timeStyle: 'short',
+      });
+      const texte = document.createElement('p');
+      texte.className = 'mt-1 whitespace-pre-wrap text-slate-800 dark:text-slate-100';
+      texte.textContent = entree.texte;
+      const retirer = document.createElement('button');
+      retirer.type = 'button';
+      retirer.className = 'mt-2 text-xs text-slate-500 underline dark:text-slate-400';
+      retirer.textContent = 'Supprimer';
+      retirer.addEventListener('click', () =>
+        essayer(async () => {
+          await supprimerEntree(entree.id);
+        }),
+      );
+      li.append(date, texte, retirer);
+      zone.appendChild(li);
+    }
+  }
+
+  /**
+   * Le rappel de sauvegarde, calculé coffre **fermé**.
+   *
+   * Compter les enregistrements scellés n'en ouvre aucun — et prévenir
+   * quelqu'un qui n'a pas ouvert le coffre depuis longtemps est précisément
+   * le cas utile.
+   */
+  async function peindreRappel() {
+    const [derniere, scelles] = await Promise.all([lireDerniereSauvegarde(), combienDePsyche()]);
+    const jours =
+      derniere === null ? null : Math.floor((Date.now() - Date.parse(derniere)) / 86_400_000);
+    const rappel = rappelDeSauvegarde({
+      joursDepuisLaSauvegarde: jours,
+      enregistrementsScelles: scelles,
+    });
+    const zone = $('rappel-sauvegarde');
+    zone.dataset.insistance = rappel.insistance;
+    const fond: Record<string, string> = {
+      discrete: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200',
+      insistante: 'bg-amber-50 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100',
+      urgente: 'bg-rose-50 font-medium text-rose-900 dark:bg-rose-950/40 dark:text-rose-100',
+      aucune: 'hidden',
+    };
+    zone.className = `rounded-xl px-4 py-3 text-sm ${fond[rappel.insistance]}`;
+    zone.textContent = rappel.message.replaceAll('**', '');
+  }
+
+  function peindre() {
+    const ouvert = coffreOuvert();
+    $('coffre-ferme').classList.toggle('hidden', ouvert);
+    $('coffre-ouvert').classList.toggle('hidden', !ouvert);
+    if (!ouvert) return;
+    peindreCheckin();
+    peindreEcarts();
+    peindreHebdo();
+    peindreJournal();
+  }
+
+  async function recharger() {
+    aujourdhui = jourLogique(new Date());
+    await reprendreLeCoffre();
+    if (coffreOuvert()) {
+      [checkins, hebdos, journal] = await Promise.all([
+        tousLesCheckins(),
+        tousLesHebdos(),
+        toutLeJournal(),
+      ]);
+    } else {
+      checkins = [];
+      hebdos = [];
+      journal = [];
+    }
+    peindre();
+    await peindreRappel();
+  }
+
+  const essayer = (travail: () => Promise<unknown>) => {
+    void (async () => {
+      try {
+        await travail();
+        taire();
+        await recharger();
+      } catch (erreur) {
+        dire(erreur);
+      }
+    })();
+  };
+
+  auDeverrouillage(
+    async () => {
+      for (const d of ORDRE_DIMENSIONS) {
+        interrupteur(d).addEventListener('change', () => {
+          glissiere(d).disabled = !interrupteur(d).checked;
+          $(`val-${d}`).textContent = interrupteur(d).checked
+            ? `${glissiere(d).value} / 10`
+            : 'non renseigné';
+          peindreCharge();
+        });
+        glissiere(d).addEventListener('input', () => {
+          $(`val-${d}`).textContent = `${glissiere(d).value} / 10`;
+          peindreCharge();
+        });
+      }
+
+      $('enregistrer').addEventListener('click', () =>
+        essayer(async () => {
+          await ecrireCheckin({
+            humeur: lire('humeur'),
+            energie: lire('energie'),
+            stress: lire('stress'),
+            motivation: lire('motivation'),
+            note: ($('note') as HTMLInputElement).value.trim(),
+          });
+        }),
+      );
+
+      $('enregistrer-hebdo').addEventListener('click', () =>
+        essayer(async () => {
+          await ecrireHebdo({
+            porte: ($('porte') as HTMLTextAreaElement).value,
+            pese: ($('pese') as HTMLTextAreaElement).value,
+            besoin: ($('besoin') as HTMLTextAreaElement).value,
+          });
+        }),
+      );
+
+      $('ecrire').addEventListener('click', () =>
+        essayer(async () => {
+          const champ = $('entree') as HTMLTextAreaElement;
+          await ecrireEntree(champ.value);
+          champ.value = '';
+        }),
+      );
+
+      $('ouvrir-coffre').addEventListener('click', () => {
+        void (async () => {
+          const champ = $('mdp-coffre') as HTMLInputElement;
+          const erreur = await ouvrirLeCoffre(champ.value);
+          $('erreur-coffre').classList.toggle('hidden', erreur === null);
+          if (erreur) {
+            $('erreur-coffre').textContent = erreur;
+            return;
+          }
+          // Vidé tout de suite : un mot de passe laissé dans un champ reste à
+          // portée du gestionnaire de mots de passe et de la restauration d'onglet.
+          champ.value = '';
+          await recharger();
+        })();
+      });
+      $('mdp-coffre').addEventListener('keydown', (evenement) => {
+        if ((evenement as KeyboardEvent).key === 'Enter') $('ouvrir-coffre').click();
+      });
+      $('fermer-coffre').addEventListener('click', () => {
+        fermerLeCoffre();
+        void recharger();
+      });
+
+      surCoffre(() => void recharger());
+
+      await recharger();
+      $('vue').classList.remove('hidden');
+    },
+    { zoneChargement: '#chargement-psyche' },
+  );
+</script>

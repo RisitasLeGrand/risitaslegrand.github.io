@@ -168,7 +168,25 @@ objets de ce prompt, qui sont de même nature : `traitement`, `prise`, `prelevem
 **journal d'usage** de J.5. En clair : le `catalogue` des molécules (données publiques
 versionnées, aucune donnée personnelle) et les `habitude` (voir 3.13 — à rediscuter).
 
-**Le point ouvert, qu'il faut trancher avec vous.** La clé du coffre vit dans une
+**Point tranché le 13 octobre 2026 — option B retenue, et une seconde chose avec
+elle.** La clé vit désormais dans `sessionStorage` : elle survit à la navigation,
+elle meurt à la fermeture de l'onglet, et un commentaire au-dessus de la constante
+`MEMORISER` dit comment revenir en arrière en une ligne.
+
+Le changement en a révélé un second, que l'essai navigateur de Psyché a attrapé :
+le **déverrouillage du site ouvrait le coffre tout seul**, puisque le mot de passe
+était là. Tant que la clé mourait à chaque navigation, cela se voyait à peine.
+Avec `sessionStorage`, cela revenait à ouvrir le coffre pour tout l'onglet dès
+l'entrée sur le site — et le coffre cessait d'être une seconde porte. C'était
+exactement perdre ce que la décision 3 achetait : la protection contre
+l'ordinateur déverrouillé qu'on prête deux minutes, avec le site déjà ouvert.
+L'ouverture automatique a donc été retirée d'`auth.ts`. Le prix, assumé : le mot
+de passe est tapé une seconde fois, une fois par onglet, le jour où l'on va voir
+ses traitements ou sa psyché.
+
+Ce qui suit est l'analyse qui a mené à B, conservée pour la trace.
+
+La clé du coffre vivait dans une
 variable de module : elle ne survit pas à une **navigation**, pas seulement à un
 rechargement. Sur un site multi-pages, cela veut dire **une saisie du mot de passe à
 chaque visite de l'écran Santé**. Je l'ai constaté en écrivant l'essai navigateur, et
@@ -184,7 +202,7 @@ Je recommande **B**, pour une raison précise : la clé du **contenu** est déj�
 `localStorage` quand « rester connecté » est coché, donc A ne protège contre une
 extension active que si cette case est décochée — un cas rare. B protège les menaces
 réalistes (l'ordinateur ouvert, le profil partagé, l'inspection après coup) à un coût
-acceptable : une saisie par session de navigation. **À confirmer.**
+acceptable : une saisie par session de navigation.
 
 ### 3.8 Sources des interactions, et licence du Thésaurus
 

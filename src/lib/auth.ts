@@ -108,17 +108,23 @@ export async function deverrouiller(motDePasse: string, persistant: boolean): Pr
   ecrireStockage(await exporterCle(cle), persistant);
 
   /*
-     Le coffre s'ouvre du même geste, puisque le mot de passe est là. Sa clé,
-     elle, n'est **pas** mémorisée : au prochain chargement, la clé du contenu
-     reviendra du stockage et les écrans sensibles redemanderont le mot de
-     passe. C'est voulu — voir `coffre.ts`.
+     Le coffre ne s'ouvre **pas** ici, et c'est le point de la décision 3.
+
+     Il s'ouvrait : le mot de passe était là, autant s'en servir. Depuis que la
+     clé du coffre survit à la navigation (`MEMORISER` dans `coffre.ts`), cela
+     revenait à l'ouvrir pour tout l'onglet dès l'entrée sur le site — et le
+     coffre cessait d'être une seconde porte. Un essai en navigateur l'a
+     montré : la psyché s'affichait sans que personne ait rien demandé.
+
+     Or la seconde porte est précisément ce qu'on a voulu. Le chiffrement au
+     repos protège la base contre une extension ou contre quelqu'un qui
+     récupère le fichier ; il ne protège de rien contre un ordinateur
+     déverrouillé qu'on prête deux minutes, avec le site déjà ouvert. C'est ce
+     cas-là que vise la décision 3, parce que c'est le plus probable.
+
+     Le prix est connu et assumé : le mot de passe est tapé une seconde fois,
+     une fois par onglet, le jour où l'on va voir ses traitements ou sa psyché.
   */
-  try {
-    const { ouvrirLeCoffre } = await import('./coffre');
-    await ouvrirLeCoffre(motDePasse);
-  } catch {
-    // Un coffre qui n'a pas pu s'ouvrir ne doit pas empêcher d'entrer.
-  }
 
   abonnes.forEach((f) => f(true));
   return null;
