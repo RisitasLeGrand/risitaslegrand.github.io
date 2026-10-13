@@ -85,7 +85,31 @@ const r = await page.evaluate(() => {
     ),
   };
 
+  // 3. La validation de schéma (D-029) : elle vit à côté de setAttribute,
+  //    parce que les deux défauts ne sont pas de même nature — l'un est une
+  //    faute de composition, l'autre une faute de confiance.
+  const urlSure = (brute) => {
+    if (!brute) return undefined;
+    try {
+      return new URL(brute, document.baseURI).protocol === 'https:' ? brute : undefined;
+    } catch {
+      return undefined;
+    }
+  };
+  const schemas = {
+    'https: passe': urlSure('https://exemple.test/a') !== undefined,
+    'http: refusé': urlSure('http://exemple.test/a') === undefined,
+    'javascript: refusé': urlSure('javascript:alert(1)') === undefined,
+    'JaVaScRiPt: refusé': urlSure('JaVaScRiPt:alert(1)') === undefined,
+    'javascript: précédé d’espaces refusé': urlSure('  javascript:alert(1)') === undefined,
+    'javascript: précédé d’un saut de ligne refusé': urlSure('\njavascript:alert(1)') === undefined,
+    'data: refusé': urlSure('data:text/html,<script>1</script>') === undefined,
+    'vbscript: refusé': urlSure('vbscript:msgbox(1)') === undefined,
+    'url illisible refusée': urlSure('://::') === undefined,
+  };
+
   return {
+    schemas,
     echappeLesChevrons: echapper('<b>') === '&lt;b&gt;',
     echappeLesGuillemets: echapper('"') === '&quot;',
     ancienAttributInjecte: ancien?.getAttribute('onerror') ?? null,
@@ -135,9 +159,12 @@ for (const [nom, e] of Object.entries(r.nouveaux)) {
   );
 }
 
+console.log('\nET LES SCHÉMAS D’URL SONT SUR LISTE BLANCHE');
+for (const [nom, ok] of Object.entries(r.schemas)) verifier(nom, ok);
+
 console.log(
   echecs === 0
-    ? '\n\x1b[32m✓ Les quatre attributs sont clos.\x1b[0m\n'
+    ? '\n\x1b[32m✓ Les quatre attributs sont clos, et les trois URL validées.\x1b[0m\n'
     : `\n\x1b[31m✗ ${echecs} échec(s)\x1b[0m\n`,
 );
 await nav.close();

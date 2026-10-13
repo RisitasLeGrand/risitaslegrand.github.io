@@ -78,15 +78,47 @@ function baliseOuvrante(nom: string, attributs: Record<string, string | undefine
   return rendu.slice(0, rendu.indexOf('>') + 1);
 }
 
+/**
+ * Une URL d'origine extérieure, ou `null` si son schéma n'est pas `https:`.
+ *
+ * `setAttribute` a fermé la classe de défaut où la valeur **s'échappait** de
+ * son attribut (D-003). Il reste celle où la valeur est un attribut honnête
+ * dont le contenu est un programme : `javascript:…` posé par `setAttribute`
+ * ne s'exécute pas au rendu, mais s'exécute **au clic**. Les deux défauts
+ * sont voisins et se corrigent à deux endroits différents, parce qu'ils ne
+ * sont pas de même nature : l'un est une faute de composition, l'autre une
+ * faute de confiance.
+ *
+ * Liste blanche et non liste noire : `javascript:` écarté nommément
+ * laisserait `data:`, `vbscript:`, et les schémas que les navigateurs
+ * inventeront. On exige `https:` — ce que toutes les sources de la veille
+ * portent déjà — et le reste disparaît plutôt que d'être affiché mort, parce
+ * qu'un lien qui ne mène nulle part se clique quand même.
+ *
+ * `URL` et non une expression régulière : le constructeur applique les
+ * règles d'analyse du navigateur, celles-là mêmes qui décideront au clic.
+ * Un préfixe mesuré à la main se laisse contourner par une espace, une
+ * tabulation ou un retour à la ligne en tête, que l'analyseur ignore.
+ */
+function urlSure(brute?: string): string | undefined {
+  if (!brute) return undefined;
+  try {
+    return new URL(brute, document.baseURI).protocol === 'https:' ? brute : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 function listeSources(sources?: Source[]): string {
   if (!sources?.length) return '';
   const liens = sources
     .filter((s) => s && s.nom)
     .map((s) => {
       const nom = echapper(s.nom);
-      if (!s.url) return `<span>${nom}</span>`;
+      const url = urlSure(s.url);
+      if (!url) return `<span>${nom}</span>`;
       const ouvrante = baliseOuvrante('a', {
-        href: s.url,
+        href: url,
         target: '_blank',
         rel: 'noopener noreferrer nofollow',
         class:
@@ -238,10 +270,11 @@ function tuilesIndicateurs(indicateurs?: Record<string, Indicateur>): string {
     .map((cle) => ({ cle, libelle: cle.replace(/_/g, ' ') }));
   const tuiles = [...connues, ...autres].map(({ cle, libelle }) => {
     const indicateur = indicateurs[cle];
+    const urlIndicateur = urlSure(indicateur.source?.url);
     const source = indicateur.source?.nom
-      ? indicateur.source.url
+      ? urlIndicateur
         ? `${baliseOuvrante('a', {
-            href: indicateur.source.url,
+            href: urlIndicateur,
             target: '_blank',
             rel: 'noopener noreferrer nofollow',
             class: 'underline decoration-dotted underline-offset-2',
@@ -430,10 +463,11 @@ export function carteItem(item: ItemActu, fichesCours: FicheAplatie[] = []): HTM
 
   // L'image n'est jamais hébergée ici : on affiche l'URL d'origine, et on
   // masque le bloc si elle ne se charge pas (lien mort, hotlink refusé).
-  const image = item.image?.url
+  const urlImage = urlSure(item.image?.url);
+  const image = urlImage
     ? `<figure class="-mx-4 -mt-4 mb-3 overflow-hidden bg-slate-100 dark:bg-slate-800">
          ${baliseOuvrante('img', {
-           src: item.image.url,
+           src: urlImage,
            alt: '',
            loading: 'lazy',
            referrerpolicy: 'no-referrer',
@@ -441,7 +475,7 @@ export function carteItem(item: ItemActu, fichesCours: FicheAplatie[] = []): HTM
            onerror: "this.closest('figure').remove()",
          })}
          ${
-           item.image.credit
+           item.image?.credit
              ? `<figcaption class="px-3 py-1.5 text-[11px] text-slate-500 dark:text-slate-400">${echapper(item.image.credit)}</figcaption>`
              : ''
          }
