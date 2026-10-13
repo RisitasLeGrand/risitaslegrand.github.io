@@ -202,12 +202,12 @@ premier import ajoute le mappage, une fois).
 
 | # | Méthode | Gestes | Fiabilité | Tiers | Maintenance | Retenue |
 |---|---|---|---|---|---|---|
-| 3 | **Dossier surveillé** | **1** (« importer les 2 nouveaux fichiers ») | haute | aucun | moyenne (permission à renouveler) | **oui, si l'API répond** |
-| 1 | **Glisser-déposer / choisir un fichier** | 2 à 3 | haute | aucun | faible | **oui — socle obligatoire** |
-| 2 | **Coller le tableau** | 2 à 3 | moyenne (colonnes devinées) | aucun | moyenne | **oui, surtout sur téléphone** |
-| 5 | **Saisie rapide** | 2 (montant, valider) | haute | aucun | faible | **oui** — espèces et prévu |
+| 6 | **Relevé PDF** | 2 à 3 | **haute, sous contrôle de solde** | aucun | moyenne | **oui — voie principale** |
+| 3 | **Dossier surveillé** (de PDF) | **1** | haute | aucun | moyenne (permission à renouveler) | **oui, si l'API répond** |
+| 2 | **Coller le tableau** du site de la banque | 2 à 3 | moyenne | aucun | moyenne | **oui — c'est ce qui comble le mois** |
+| 5 | **Saisie rapide** | 2 | haute | aucun | faible | **oui** — espèces et prévu |
+| 1 | Glisser-déposer d'un CSV | 2 à 3 | haute | aucun | faible | **gardé, inutilisable aujourd'hui** |
 | 4 | Partage depuis l'app bancaire | 2 | ? | aucun | ? | **à vérifier sur ton téléphone** |
-| 6 | **Relevés PDF** | 2 à 3 | **haute, sous condition** | aucun | moyenne | **oui** — voir 2 bis et la décision 8 révisée |
 | — | Agrégateur DSP2 | 0 | haute | **oui** | forte | **écarté** (décision 9) |
 
 **Le plancher honnête : un geste.** Sans serveur ni tiers, aucune méthode ne
@@ -220,6 +220,44 @@ fichiers, importer ? ». Je ne promettrai pas mieux.
 d'une même banque, aucune colonne à désigner : le profil est reconnu par
 l'empreinte de son en-tête. C'est là que se joue la différence entre « deux
 minutes » et « dix secondes ».
+
+### Sans export CSV, le PDF devient le tronc
+
+Tu m'as dit que l'export CSV est techniquement impossible sur tes comptes. Le
+PDF cesse donc d'être un filet : c'est **la** source. Quatre conséquences, et
+la première est une bonne nouvelle.
+
+**On ne perd rien.** Un export CSV de banque donne la date, le libellé et le
+montant signé. Ton relevé PDF donne cela **plus les soldes d'ouverture et de
+clôture de chaque compte** — que beaucoup de CSV omettent. Le contrôle total
+de la section précédente est donc possible *grâce* au PDF, et ne le serait
+pas forcément avec un CSV. La voie imposée se trouve être la plus vérifiable.
+
+**Le profil de relevé remplace le mappage de colonnes.** Là où un CSV demande
+de désigner ses colonnes une fois par banque, un PDF demande de reconnaître sa
+mise en page : producteur, libellés d'en-tête, leurs positions, la forme des
+lignes de solde. C'est une **empreinte du gabarit**, calculée à la première
+lecture et retrouvée ensuite. Dès le deuxième relevé de la même banque, aucun
+réglage — la promesse est la même, le mécanisme change.
+
+**Le rythme devient mensuel, et il faut le combler.** Un relevé arrive une fois
+par mois : rapprocher seulement à sa réception signifie ignorer ses dépenses
+pendant trois semaines. D'où la place remontée du **collage** : copier le
+tableau depuis le site de la banque prend trois gestes et donne le réel du
+jour. Le relevé mensuel vient ensuite **confirmer et corriger** ce qui a été
+collé — et son contrôle de solde arbitre, puisque lui seul fait foi.
+
+Cela donne une division du travail nette : le collage pour voir, le PDF pour
+clore. Les doublons entre les deux se traitent comme tous les autres, par
+l'empreinte stable (date, montant, libellé normalisé, rang), et le PDF l'emporte
+en cas de divergence.
+
+**Le risque se déplace sur la mise en page.** Une banque qui redessine ses
+relevés casse l'analyseur. Deux garanties : le contrôle de solde **échoue
+bruyamment** au lieu de laisser passer des opérations fausses, et le profil
+enregistre l'empreinte du gabarit, donc un changement est annoncé — « la mise
+en page de ce relevé a changé depuis le dernier import » — avant même de lire
+les montants.
 
 ## 4. Maquettes
 
@@ -485,8 +523,8 @@ base — et elle est décochée par défaut.
 
 | # | Question | Ma recommandation |
 |---|---|---|
-| 1 | Banques et formats | **J'attends ta liste.** Un export CSV par banque suffit : je déduis le profil du fichier, pas d'une documentation. |
-| 2 | Méthodes retenues | **1, 2, 3, 5** (fichier, collage, dossier surveillé, saisie rapide). 4 à vérifier sur ton téléphone, 6 et 7 : voir ci-dessous. |
+| 1 | Banques et formats | **Réglé : pas d'export structuré disponible.** Le PDF est la source. Ce qui me serait utile : un relevé de **chaque autre banque** si tu en as une seconde, pour éprouver le gabarit, et un **second relevé du CIC** (un autre mois) pour vérifier que l'empreinte de gabarit tient. Et si une banque offre un jour un OFX ou un QIF, dis-le : ce sont des formats structurés, plus simples que le CSV. |
+| 2 | Méthodes retenues | **6, 3, 2, 5** : relevé PDF en voie principale, dossier surveillé de PDF, collage pour combler le mois, saisie rapide pour les espèces. Le lecteur de CSV est écrit quand même — il coûte peu, et il sera là le jour où une banque l'offre. 4 à vérifier sur ton téléphone. |
 | 3 | Masquage | **Quatre derniers chiffres conservés.** Rien du tout casserait la distinction entre deux cartes du même foyer, et quatre chiffres sans le reste n'identifient aucun compte. |
 | 4 | Reste à vivre | **ressources − charges fixes − épargne programmée.** Les enveloppes variables n'en sont pas déduites : c'est dedans qu'on vit. Formule modifiable, affichée sous le résultat. |
 | 5 | Tolérances | **± 2 jours** et **± 2 % ou 2 €, le plus grand des deux** par défaut, réglables par ligne. Le « plus grand des deux » évite qu'un abonnement à 9,99 € exige une exactitude au centime. |
@@ -501,7 +539,7 @@ base — et elle est décochée par défaut.
 |---|---|---|
 | **0** | Ce plan et ces maquettes. | — |
 | **1** | Modèle, magasins scellés, calculs du budget, occurrences déterministes, scénarios. Tests : centimes, périodicités, fin de mois, bissextiles, mensualisation exacte. | oui |
-| **2** | Import : glisser-déposer, détection de format, profils par banque, collage, saisie rapide. Dédoublonnage, contrôle avant validation, annulation. Tests : encodages, chevauchements, masquage. | oui |
+| **2** | Import **PDF d'abord** : lecture par pdf.js, ancrage sur l'en-tête de colonnes, découpage en comptes, **contrôle de solde bloquant**, empreinte de gabarit et profils par banque. Puis collage, saisie rapide, et le lecteur CSV en réserve. Dédoublonnage, contrôle avant validation, annulation. Tests : les quatre comptes du relevé réel bouclent, un gabarit modifié est annoncé, chevauchements, masquage. | oui |
 | **3** | Appariement, file « à rapprocher », rapprochement de solde et recherche de causes, écarts par ligne, catégorie et mois. Tests : 1→N, N→1, débit différé, remboursements. | oui |
 | **4** | Dossier surveillé (si l'API répond), usage par Odyssée, écran « Qui lit mon budget », export ICS des échéances. | oui |
 | **5** | Jeu synthétique de cinq ans, conflits entre deux appareils, mesures d'ergonomie (gestes et temps pour les quatre parcours que tu listes), guide court. | oui |
@@ -521,7 +559,11 @@ détection de récurrences ait de quoi se nourrir.
   principale.
 - **La variabilité réelle des relevés** : un seul fichier, une seule banque,
   un seul mois. La méthode de la section 2 bis est conçue pour ne rien
-  supposer, mais seule une deuxième banque le prouvera.
+  supposer, mais seule une deuxième banque — ou un second mois — le prouvera.
+  C'est désormais la vérification la plus utile que tu puisses me donner.
+- **Le collage** : je n'ai pas vu à quoi ressemble le tableau d'opérations sur
+  le site de ta banque, donc je ne sais pas encore ce que le presse-papiers en
+  rend. À éprouver sur un copier-coller réel.
 - **Les plafonds et barèmes** (livret A, PEA, PER) : aucun n'est en dur, et
   aucun ne s'affichera sans source officielle et date de vérification. Les
   sources officielles ne sont pas atteignables depuis cet environnement en ce
