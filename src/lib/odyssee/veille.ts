@@ -78,6 +78,19 @@ export interface Indicateur {
   saisie: Saisie;
   /** Jours valides minimaux dans la fenêtre de 14. */
   joursMinimaux: number;
+  /**
+   * La plus petite différence qui vaille d'être remarquée, dans l'unité de
+   * l'indicateur.
+   *
+   * Elle sert de **plancher** à la dispersion de la ligne de base, et sans
+   * elle le moteur serait absurde : quelqu'un qui dort exactement huit heures
+   * toutes les nuits a un écart absolu médian de zéro, et la moindre nuit à
+   * sept heures cinquante le ferait dévier d'une infinité d'écarts. Le
+   * plancher dit « en deçà de cela, ce n'est pas un changement, c'est du
+   * bruit », et c'est une décision par indicateur qu'aucune formule ne peut
+   * prendre à notre place.
+   */
+  plancherDeDispersion: number;
 }
 
 const I = (i: Indicateur): Indicateur => i;
@@ -105,6 +118,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['garde d’enfant', 'travail de nuit', 'voyage'],
     saisie: 'declarative',
     joursMinimaux: 10,
+    // Un quart d’heure de sommeil.
+    plancherDeDispersion: 0.25,
   }),
   I({
     id: 'sommeil.irregularite',
@@ -120,6 +135,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['décalage horaire', 'week-ends', 'astreintes'],
     saisie: 'declarative',
     joursMinimaux: 10,
+    // Un quart d’heure de dispersion.
+    plancherDeDispersion: 0.25,
   }),
   I({
     id: 'sommeil.nuits-courtes',
@@ -133,19 +150,37 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['garde d’enfant', 'travail de nuit'],
     saisie: 'declarative',
     joursMinimaux: 10,
+    // Une nuit sur deux semaines.
+    plancherDeDispersion: 0.5,
   }),
   I({
     id: 'sommeil.phase',
     domaine: 'sommeil',
     libelle: 'Heure de coucher',
-    definition: 'Médiane de l’heure de coucher sur la fenêtre.',
-    unite: 'heures',
+    /*
+       **Heures écoulées depuis 18 h**, et non heure de l'horloge. C'est la
+       seule grandeur circulaire du catalogue, et la convention n'est pas
+       cosmétique : en heures d'horloge, quelqu'un qui passe de 23 h à 3 h
+       voit sa valeur chuter de vingt heures, et le moteur lit un coucher
+       spectaculairement avancé là où la personne se couche quatre heures
+       plus tard. Avec l'ancre à 18 h, 23 h vaut 5 et 3 h vaut 9 : la
+       grandeur redevient monotone sur toute la soirée et la nuit.
+
+       Le jour logique de Cyclades bascule à 4 h ; l'ancre à 18 h laisse donc
+       dix heures de marge avant la bascule, ce qui couvre les couchers les
+       plus tardifs sans repasser par zéro.
+    */
+    definition:
+      'Médiane de l’heure de coucher sur la fenêtre, exprimée en heures écoulées depuis 18 h.',
+    unite: 'heures depuis 18 h',
     sens: 'hausse',
     preuve: 'faible',
     justification: 'Le décalage de phase est rapporté, mais moins nettement que l’irrégularité.',
     confusions: ['saison', 'charge de travail'],
     saisie: 'declarative',
     joursMinimaux: 10,
+    // Un quart d’heure de décalage.
+    plancherDeDispersion: 0.25,
   }),
 
   /* ── Activité ────────────────────────────────────────────────────────── */
@@ -161,6 +196,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['blessure déclarée', 'phase de décharge programmée', 'vacances'],
     saisie: 'declarative',
     joursMinimaux: 10,
+    // Une demi-séance par semaine.
+    plancherDeDispersion: 0.5,
   }),
   I({
     id: 'sport.abandons',
@@ -183,6 +220,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     */
     saisie: 'observee',
     joursMinimaux: 7,
+    // Un abandon sur dix séances.
+    plancherDeDispersion: 0.1,
   }),
   I({
     id: 'sport.rupture',
@@ -196,6 +235,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['saison', 'vacances', 'blessure'],
     saisie: 'declarative',
     joursMinimaux: 14,
+    // Une rupture est un événement : son plancher la rend seule suffisante.
+    plancherDeDispersion: 0.5,
   }),
 
   /* ── Rythme et usage — le domaine observé ────────────────────────────── */
@@ -211,6 +252,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['travail de nuit', 'fuseau horaire'],
     saisie: 'observee',
     joursMinimaux: 10,
+    // Une session nocturne sur vingt.
+    plancherDeDispersion: 0.05,
   }),
   I({
     id: 'usage.duree',
@@ -224,6 +267,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['changement d’appareil'],
     saisie: 'observee',
     joursMinimaux: 10,
+    // Deux minutes de session.
+    plancherDeDispersion: 2,
   }),
   I({
     id: 'usage.fragmentation',
@@ -237,6 +282,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['notifications', 'usage professionnel'],
     saisie: 'observee',
     joursMinimaux: 10,
+    // Une session par jour.
+    plancherDeDispersion: 1,
   }),
   I({
     id: 'jour.amplitude',
@@ -252,6 +299,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['voyage', 'fuseau'],
     saisie: 'observee',
     joursMinimaux: 10,
+    // Une demi-heure d’amplitude.
+    plancherDeDispersion: 0.5,
   }),
   I({
     id: 'jour.irregularite-debut',
@@ -265,6 +314,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['horaires variables', 'week-ends'],
     saisie: 'observee',
     joursMinimaux: 10,
+    // Un quart d’heure de dispersion.
+    plancherDeDispersion: 0.25,
   }),
 
   /* ── Engagement ──────────────────────────────────────────────────────── */
@@ -280,6 +331,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['congés', 'charge externe'],
     saisie: 'observee',
     joursMinimaux: 8,
+    // Dix minutes de concentration.
+    plancherDeDispersion: 10,
   }),
   I({
     id: 'focus.abandons',
@@ -293,6 +346,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['interruptions extérieures'],
     saisie: 'observee',
     joursMinimaux: 7,
+    // Une interruption sur dix.
+    plancherDeDispersion: 0.1,
   }),
   I({
     id: 'taches.report',
@@ -306,6 +361,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['surcharge ponctuelle', 'imprévu'],
     saisie: 'observee',
     joursMinimaux: 8,
+    // Une tâche reportée sur dix.
+    plancherDeDispersion: 0.1,
   }),
   I({
     id: 'taches.sans-motif',
@@ -322,6 +379,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['lassitude de l’outil'],
     saisie: 'observee',
     joursMinimaux: 7,
+    // Une non-réponse sur dix.
+    plancherDeDispersion: 0.1,
   }),
   I({
     id: 'revisions.regularite',
@@ -335,6 +394,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['calendrier d’examens'],
     saisie: 'observee',
     joursMinimaux: 8,
+    // Un demi-jour d’intervalle.
+    plancherDeDispersion: 0.5,
   }),
 
   /* ── Agenda et lien — appoint seulement ──────────────────────────────── */
@@ -350,6 +411,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['annulations subies'],
     saisie: 'observee',
     joursMinimaux: 7,
+    // Une annulation sur dix.
+    plancherDeDispersion: 0.1,
   }),
   I({
     id: 'agenda.densite',
@@ -363,6 +426,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['vacances', 'télétravail', 'agenda tenu ailleurs'],
     saisie: 'declarative',
     joursMinimaux: 10,
+    // Un demi-événement par semaine.
+    plancherDeDispersion: 0.5,
   }),
   I({
     id: 'lien.interactions',
@@ -376,6 +441,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['saisie abandonnée'],
     saisie: 'declarative',
     joursMinimaux: 10,
+    // Une demi-interaction par semaine.
+    plancherDeDispersion: 0.5,
   }),
 
   /* ── Corps ───────────────────────────────────────────────────────────── */
@@ -391,6 +458,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['horaires variables', 'jeûne volontaire'],
     saisie: 'declarative',
     joursMinimaux: 10,
+    // Une demi-heure de dispersion.
+    plancherDeDispersion: 0.5,
   }),
   I({
     id: 'repas.sautes',
@@ -406,6 +475,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['jeûne volontaire', 'repas pris dehors'],
     saisie: 'declarative',
     joursMinimaux: 8,
+    // Un demi-repas.
+    plancherDeDispersion: 0.5,
   }),
   I({
     id: 'poids.variation',
@@ -419,6 +490,8 @@ export const CATALOGUE: readonly Indicateur[] = [
     confusions: ['sport', 'maladie', 'traitement déclaré'],
     saisie: 'declarative',
     joursMinimaux: 8,
+    // Un demi-écart.
+    plancherDeDispersion: 0.5,
   }),
 ];
 
@@ -458,6 +531,18 @@ export function controlerCatalogue(catalogue: readonly Indicateur[] = CATALOGUE)
       problemes.push(`« ${i.id} » ne déclare aucun facteur de confusion : c’est invraisemblable.`);
     }
     if (!(i.domaine in DOMAINES)) problemes.push(`« ${i.id} » vise un domaine inconnu.`);
+    /*
+       Un plancher nul rendrait le moteur infiniment sensible pour quelqu'un
+       de parfaitement régulier : la division par une dispersion de zéro.
+       C'est le genre de défaut qui ne se voit pas sur des données moyennes et
+       qui se déclenche tous les jours sur les gens les plus réguliers.
+    */
+    if (!(i.plancherDeDispersion > 0)) {
+      problemes.push(
+        `« ${i.id} » n’a pas de plancher de dispersion. Sans lui, une dispersion ` +
+          'habituelle nulle fait diverger l’écart.',
+      );
+    }
   }
 
   /*

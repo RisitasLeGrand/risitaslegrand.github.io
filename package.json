@@ -101,6 +101,7 @@
     "essais:budget": "tsx scripts/essais-budget.mts",
     "essais:usage": "tsx scripts/essais-usage.mts",
     "essais:veille": "tsx scripts/essais-veille.mts",
+    "essais:moteur-veille": "tsx scripts/essais-moteur-veille.mts",
     "essais:veille:navigateur": "node scripts/essais-veille-navigateur.mjs",
     "essais:releve": "tsx scripts/essais-releve.mts",
     "essais:finances:navigateur": "node scripts/essais-finances-navigateur.mjs",

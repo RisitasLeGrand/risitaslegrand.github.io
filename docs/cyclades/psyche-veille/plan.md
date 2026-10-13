@@ -331,7 +331,7 @@ santé.
 |---|---|---|
 | **0** | Ce document. | — |
 | **1** | Registre déclaratif des indicateurs, calcul des valeurs, complétude, base personnelle robuste. Tests : médiane et ÉAM sur cas connus, séparation ouvré / week-end, « non saisi » ≠ « valeur basse ». | **faite** — 65 essais |
-| **2** | Moteur : déviation, persistance, croisement, décote de contexte, trois sensibilités, base figée. Web Worker, calcul incrémental. Tests : déclin multi-domaines détecté après 14 j, déclin mono-domaine jamais, base non entraînée. | oui |
+| **2** | Moteur : déviation, persistance, croisement, décote de contexte, trois sensibilités, base figée. ~~Web Worker, calcul incrémental~~ — écartés après mesure, voir 7 ter. Tests : déclin multi-domaines détecté après 14 j, déclin mono-domaine jamais, base non entraînée. | **faite** — 60 essais |
 | **3** | Carte, « Pourquoi ce repère », « Ce que la veille regarde », « À propos », statut, journal des signaux, cadence, pause, désactivation. Tests : check-in rassurant ne lève rien, un seul signal actif, désactivation sans relance. | oui |
 | **4** | Jeux synthétiques sur cinq ans et **taux de faux signaux mesuré**, recalcul identique sur deux appareils, synthèse médecin, mode rejeu, documentation. | oui |
 
@@ -369,6 +369,38 @@ installation vierge annonçait donc à son propriétaire qu'elle le connaissait
 déjà, sur la foi d'une ligne écrite une seconde plus tôt par le programme
 lui-même. D'où `MAGASINS_SANS_GESTE` : ce que l'application écrit sur elle-même
 n'est pas de l'usage.
+
+## 7 ter. Ce que la phase 2 a appris
+
+**L'heure de coucher est une grandeur circulaire, et je l'avais traitée comme
+un nombre.** En heures d'horloge, quelqu'un qui repousse son coucher de 23 h à
+3 h voit sa valeur chuter de vingt : le moteur y lisait un coucher
+spectaculairement avancé, c'est-à-dire une amélioration, là où la personne se
+couche quatre heures plus tard. L'indicateur est désormais défini en **heures
+écoulées depuis 18 h**, ce qui le rend monotone sur toute la soirée et la
+nuit, et un essai porte la convention pour que nul ne la défasse.
+
+**Une dispersion habituelle nulle faisait diverger l'écart.** Quelqu'un qui
+dort exactement huit heures toutes les nuits a un écart absolu médian de zéro :
+la moindre nuit à sept heures cinquante le faisait dévier d'une infinité
+d'écarts. Chacun des vingt-trois indicateurs déclare donc maintenant un
+**plancher de dispersion** — la plus petite différence qui vaille d'être
+remarquée, dans son unité — et `controlerCatalogue()` refuse qu'il manque. Ce
+défaut ne se serait jamais vu sur des données moyennes : il ne frappe que les
+gens les plus réguliers, c'est-à-dire tous les jours, chez eux.
+
+**Le Web Worker et le calcul incrémental sont écartés.** Mesure faite : 2,9 ms
+à l'horizon réel de cent quatre-vingts jours, 4,9 ms à cinq ans. Un Worker
+exigerait de copier les mesures à chaque appel — à cinq ans, la copie coûte
+plus que le calcul — et l'incrémental introduirait un état à invalider, soit
+la source classique du chiffre affiché qui n'est plus celui des données. La
+décision est écrite dans l'en-tête du moteur, avec le seuil qui la ferait
+reprendre.
+
+**La persistance se mesure par la médiane de la fenêtre, pas par un compteur
+de jours consécutifs.** C'est équivalent dans l'intention, plus robuste aux
+trous, et cela évite un compteur à remettre à zéro — un objet d'état de plus,
+donc un objet de plus à faire diverger.
 
 ## 8. Ce que je n'ai pas pu vérifier
 
