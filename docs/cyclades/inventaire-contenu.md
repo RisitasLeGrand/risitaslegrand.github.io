@@ -255,8 +255,9 @@ d'être consigné ici.
 | Lot | Portée | Prétests écrits | Reste |
 |---|---|---|---|
 | 1 | `questions-internationales/fascicule-1` | 16 | 134 |
+| 2 | `questions-internationales/fascicule-2` | 13 | 121 |
 
-Fiches avec prétest, après le lot 1 : **204 sur 347**.
+Fiches avec prétest, après le lot 2 : **217 sur 347**.
 
 Note de méthode retenue d'un lot à l'autre : un prétest **ouvre la lecture**, il
 ne la résume pas. Les questions portent donc sur les notions que la fiche
