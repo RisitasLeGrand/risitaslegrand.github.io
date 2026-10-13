@@ -57,10 +57,27 @@ body {
   @apply inline-flex items-center justify-center;
 }
 
+/* Et sa variante **minimale** : vingt-quatre pixels, le plancher de WCAG 2.2
+   AA, sans les quarante-quatre du confort.
+
+   Elle est pour ce qu'on touche rarement et qui vit dans un espace compté :
+   la mention de source sous un indicateur, par exemple. Lui donner 44 px
+   ajouterait trente pixels à chaque tuile d'un tableau de bord qui en compte
+   une dizaine, pour un lien qu'on suit une fois par mois. Vingt-quatre
+   suffisent à la règle, et la règle existe pour que le doigt atteigne — pas
+   pour que la page grandisse. */
+.cible-minimale {
+  @apply inline-flex items-center;
+}
+
 @media (pointer: coarse) {
   .cible-tactile,
   .cible-tactile-pleine {
     min-height: 2.75rem;
+  }
+
+  .cible-minimale {
+    min-height: 1.5rem;
   }
 
   .cible-tactile-pleine {

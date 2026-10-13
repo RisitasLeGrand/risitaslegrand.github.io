@@ -140,7 +140,8 @@
     "essais:typographie": "tsx scripts/essais-typographie.mts",
     "essais:colonnes:navigateur": "node scripts/essais-colonnes-navigateur.mjs",
     "essais:quiz:navigateur": "node scripts/essais-quiz-navigateur.mjs",
-    "essais:accessibilite:navigateur": "node scripts/essais-accessibilite-navigateur.mjs"
+    "essais:accessibilite:navigateur": "node scripts/essais-accessibilite-navigateur.mjs",
+    "essais:mobile:navigateur": "node scripts/essais-mobile-navigateur.mjs"
   },
   "repository": {
     "type": "git",

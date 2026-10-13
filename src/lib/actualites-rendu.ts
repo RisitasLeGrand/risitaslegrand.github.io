@@ -277,7 +277,7 @@ function tuilesIndicateurs(indicateurs?: Record<string, Indicateur>): string {
             href: urlIndicateur,
             target: '_blank',
             rel: 'noopener noreferrer nofollow',
-            class: 'underline decoration-dotted underline-offset-2',
+            class: 'cible-minimale underline decoration-dotted underline-offset-2',
           })}${echapper(indicateur.source.nom)}</a>`
         : echapper(indicateur.source.nom)
       : '';
