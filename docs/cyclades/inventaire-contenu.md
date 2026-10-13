@@ -1,6 +1,8 @@
 # Inventaire du contenu — fascicules INSP/IGPDE
 
-Relevé établi le 13 octobre 2026, fichier par fichier, par l'agent `fiches-insp`.
+Relevé établi le 13 octobre 2026, fichier par fichier, par l'agent `fiches-insp`,
+puis mis à jour le même jour après la rédaction des vingt-six fiches manquantes
+rédigeables (questions sociales F4, questions internationales F4, cas pratique F4).
 
 Ce document ne contient **aucun contenu de fiche** : seulement des comptes, des
 titres de chapitres de fascicule et des titres de fiches. C'est à ce titre qu'il
@@ -22,14 +24,14 @@ de fiches audio et de corrections ont été recalculés et non repris.
 | Économie | 17 | 18 | 18 | 13 | 66 |
 | Finances publiques | 13 | 9 | 10 | 12 | 44 |
 | Questions européennes | 14 | 14 | 15 | 15 | 58 |
-| Questions internationales | 16 | 13 | 15 | **6** | 50 |
-| Questions sociales | 18 | 15 | 11 | **0** | 44 |
-| Cas pratique | 2 | 3 | 4 | **0** | 9 |
-| **Total** | **95** | **84** | **83** | **59** | **321** |
+| Questions internationales | 16 | 13 | 15 | **14** | 58 |
+| Questions sociales | 18 | 15 | 11 | **17** | 61 |
+| Cas pratique | 2 | 3 | 4 | **1** | 10 |
+| **Total** | **95** | **84** | **83** | **85** | **347** |
 
-Le compte de fichiers confirme celui qui m'a été transmis, aux 321 fiches près.
-Il ne dit pourtant pas grand-chose : ce qui suit est la comparaison
-chapitre par chapitre.
+Le relevé initial comptait **321 fiches** ; les **vingt-six fiches** rédigées
+depuis portent le total à **347**. Le compte de fichiers ne dit pourtant pas
+grand-chose : ce qui suit est la comparaison chapitre par chapitre.
 
 ### Thèmes de fascicule sans fiche
 
@@ -39,18 +41,19 @@ chapitre par chapitre.
 | Économie | 0 | 0 | 0 | 0 | 0 |
 | Finances publiques | 0 | 0 | 0 | 0 | 0 |
 | Questions européennes | 1 | 0 | 0 | 0 | 1 |
-| Questions internationales | 0 | 0 | 0 | **8** | 8 |
-| Questions sociales | 0 | 0 | 0 | **17** | 17 |
-| Cas pratique | 1 | 0 | 0 | **2** | 3 |
-| **Total** | **2** | **0** | **0** | **27** | **29** |
+| Questions internationales | 0 | 0 | 0 | 0 | 0 |
+| Questions sociales | 0 | 0 | 0 | 0 | 0 |
+| Cas pratique | 1 | 0 | 0 | **1** | 2 |
+| **Total** | **2** | **0** | **0** | **1** | **3** |
 
-Sur ces 29 thèmes, **26 sont rédigeables immédiatement** : le texte est dans le
-fascicule. Les **trois autres sont des renvois** vers des documents qui ne sont
-pas dans `sources/` — voir la section « Ce qui manque et que je n'ai pas ».
+Le relevé initial dénombrait **29 thèmes sans fiche**, dont **26 rédigeables
+immédiatement** — ces vingt-six ont été écrits. **Il reste trois thèmes**, et
+ce sont exactement les trois qui ne sont pas rédigeables : des **renvois** vers
+des documents absents de `sources/`. Voir la section « Ce qui manque et que je
+n'ai pas ».
 
-Autrement dit : les fascicules 1, 2 et 3 sont couverts intégralement, sauf deux
-renvois. **Tout le manque est dans les fascicules 4** de questions sociales, de
-questions internationales et de cas pratique.
+Autrement dit : **tout ce qui pouvait être rédigé l'est**. Le reliquat ne se
+résorbera pas par du travail de rédaction, mais par l'apport de trois fichiers.
 
 ---
 
@@ -125,22 +128,22 @@ Thème sans fiche, en F1 :
 | F1 — L'évolution du système international depuis 1945 | 16 | 16 | **0** |
 | F2 — Les acteurs des relations internationales | 13 | 13 | **0** |
 | F3 — Les grands enjeux des relations internationales | 15 | 15 | **0** |
-| F4 — Les instruments des relations internationales | 14 | 6 | **8** |
+| F4 — Les instruments des relations internationales | 14 | 14 | **0** |
 
-Les six fiches existantes du fascicule 4 couvrent les six premiers chapitres (du
-diplomate à la diplomatie culturelle). Les huit suivants n'ont pas de fiche :
+Le fascicule 4 est désormais complet. Les six premières fiches couvraient les
+six premiers chapitres (du diplomate à la diplomatie culturelle) ; les **huit
+fiches 07 à 14** rédigées depuis couvrent les huit derniers :
 
-1. L'usage de la force dans les relations internationales (p. 29)
-2. Les opérations de maintien de la paix (OMP) (p. 33)
-3. Les sanctions internationales (p. 36)
-4. Les services de renseignement (p. 40)
-5. Les relations transatlantiques (p. 44)
-6. Les actes unilatéraux des États et des organisations internationales (p. 48)
-7. L'OTAN (p. 52)
-8. La relation sino-russe (p. 55)
-
-Le texte des huit chapitres est présent et lisible dans le PDF : **rédigeables
-immédiatement**.
+| Ordre | Titre |
+|---|---|
+| 07 | L'usage de la force dans les relations internationales |
+| 08 | Les opérations de maintien de la paix |
+| 09 | Les sanctions internationales |
+| 10 | Les services de renseignement |
+| 11 | Les relations transatlantiques |
+| 12 | Les actes unilatéraux des États et des organisations internationales |
+| 13 | L'OTAN |
+| 14 | La relation sino-russe |
 
 ### Questions sociales
 
@@ -149,33 +152,33 @@ immédiatement**.
 | F1 — Introduction et protection sociale | 17 | 18 | **0** |
 | F2 — Travail | 15 | 15 | **0** |
 | F3 — Emploi et formation | 11 | 11 | **0** |
-| F4 — Cohésion sociale | 17 | 0 | **17** |
+| F4 — Cohésion sociale | 17 | 17 | **0** |
 
 Le fascicule 1 porte une fiche de plus que de chapitres : « Typologies :
 protection sociale, risques et modèles » (fiche 03) est une fiche dérivée.
 
-Le fascicule 4 n'a **aucune fiche**. Ses dix-sept chapitres :
+Le fascicule 4, qui n'avait **aucune fiche**, en a désormais **dix-sept**, une
+par chapitre — c'était le plus gros lot restant :
 
-1. Les défis du développement social local (p. 6)
-2. De la Stratégie de prévention et de lutte contre la pauvreté au Pacte des solidarités (p. 9)
-3. Accès aux droits et inclusion numérique (p. 12)
-4. La politique du logement (p. 16)
-5. L'hébergement d'urgence (p. 23)
-6. Le logement social — quels besoins pour quels publics ? (p. 25)
-7. Transition écologique et politique de la ville (p. 28)
-8. La prévention spécialisée et la lutte contre la délinquance des mineurs en France (p. 30)
-9. Les mineurs non accompagnés, un enjeu de prise en charge pour les conseils départementaux (p. 34)
-10. Les grandes données de l'immigration en France (p. 38)
-11. Migrants, demandeurs d'asile et réfugiés (p. 41)
-12. Les effets redistributifs de la politique familiale (p. 44)
-13. La garde du jeune enfant (moins de trois ans) (p. 48)
-14. Politiques familiales des organismes sociaux : quelles articulations avec l'État et les départements ? (p. 53)
-15. Les enjeux financiers et sociaux de la prise en charge des jeunes majeurs (p. 55)
-16. Les politiques d'inclusion des personnes en situation de handicap (p. 58)
-17. La prise en charge du handicap en protection de l'enfance (p. 62)
-
-Le texte des dix-sept chapitres est présent et lisible : **rédigeables
-immédiatement**. C'est le plus gros lot restant.
+| Ordre | Titre |
+|---|---|
+| 01 | Les défis du développement social local |
+| 02 | De la Stratégie de prévention et de lutte contre la pauvreté au Pacte des solidarités |
+| 03 | Accès aux droits et inclusion numérique |
+| 04 | La politique du logement |
+| 05 | L'hébergement d'urgence |
+| 06 | Le logement social — quels besoins pour quels publics ? |
+| 07 | Transition écologique et politique de la ville |
+| 08 | La prévention spécialisée et la lutte contre la délinquance des mineurs |
+| 09 | Les mineurs non accompagnés |
+| 10 | Les grandes données de l'immigration en France |
+| 11 | Migrants, demandeurs d'asile et réfugiés |
+| 12 | Les effets redistributifs de la politique familiale |
+| 13 | La garde du jeune enfant |
+| 14 | Politiques familiales des organismes sociaux |
+| 15 | Les enjeux financiers et sociaux de la prise en charge des jeunes majeurs |
+| 16 | Les politiques d'inclusion des personnes en situation de handicap |
+| 17 | La prise en charge du handicap en protection de l'enfance |
 
 ### Cas pratique
 
@@ -184,7 +187,7 @@ immédiatement**. C'est le plus gros lot restant.
 | F1 — Cadrage et méthodologie de la note RCP | 5 | 2 | **1** |
 | F2 — Management | 3 | 3 | **0** |
 | F3 — Diversité, santé, handicap | 4 | 4 | **0** |
-| F4 — Participation citoyenne | 2 | 0 | **2** |
+| F4 — Participation citoyenne | 2 | 1 | **1** |
 
 F1 : les trois premiers chapitres (cadrage, annexes 1ʳᵉ et 2ᵉ parties) sont
 réunis dans la fiche 01, et la proposition de correction du sujet V0 dans la
@@ -195,10 +198,10 @@ fiche 02. Reste sans fiche :
   (cf. Annexe4_Fiches connaissances pour épve RCP_HG.pdf) ». Annexe absente de
   `sources/`. Non rédigeable en l'état.
 
-F4 : aucune fiche pour ses deux chapitres.
+F4 : un chapitre sur deux est couvert.
 
 - **L'association des citoyens à la conception des politiques publiques**
-  (p. 5-8) — texte complet, rédigeable immédiatement.
+  (p. 5-8) — texte complet, **fiche 01 rédigée**.
 - **Proposition de corrigé du devoir 1 de cas pratique** (p. 9) — renvoi seul
   (« cf. RCP_Devoir1_Corrigé.pdf »), fichier absent de `sources/`. Non
   rédigeable en l'état.
@@ -209,6 +212,10 @@ F4 : aucune fiche pour ses deux chapitres.
 
 Compte refait : **159 fiches** sans section `## Prétest` sur 321. Le chiffre
 transmis est exact.
+
+Recompté après la rédaction des vingt-six fiches neuves : **toujours 159 sur
+347**. Les vingt-six portent toutes leur prétest, le manque n'a donc pas bougé
+d'un cran — il reste entièrement sur des fiches antérieures.
 
 Mais sur ces 159, **neuf n'en ont pas besoin** : ce sont les fiches dont le
 sujet est l'épreuve elle-même (méthode, devoir, corrigé, bibliographie), qui
@@ -233,11 +240,10 @@ Par fascicule, pour planifier les lots :
 | Finances publiques | 12 | 9 | 10 | 0 |
 | Questions européennes | 14 | 14 | 15 | 0 |
 | Questions internationales | 16 | 13 | 15 | 0 |
-| Questions sociales | 17 | 15 | 0 | — |
+| Questions sociales | 17 | 15 | 0 | 0 |
 
 La répartition est nette : les prétests manquent sur quatre matières, et jamais
-sur un fascicule 4 déjà rédigé. Droit public, économie et cas pratique sont
-complets.
+sur un fascicule 4. Droit public, économie et cas pratique sont complets.
 
 Un point à vérifier à la rédaction : `questions-sociales/fascicule-3` et
 `finances-publiques/fascicule-4` n'ont aucun prétest manquant, alors que leurs
@@ -248,10 +254,17 @@ l'endroit où regarder si un compte paraît faux plus tard.
 
 ## 4. Les fiches audio
 
-**Aucune ne manque.** 321 fiches, 321 fichiers `.podcast.md`, aucun orphelin
-dans un sens ni dans l'autre. Le chiffre transmis (0 manquant) est exact.
+**Aucune ne manque.** Au relevé initial : 321 fiches, 321 fichiers
+`.podcast.md`, aucun orphelin dans un sens ni dans l'autre. Le chiffre transmis
+(0 manquant) est exact.
 
-Ce chantier ne se rouvrira qu'avec les fiches neuves, et par `npm run podcasts`.
+Après la rédaction des vingt-six fiches neuves, `npm run podcasts` a été relancé
+et l'égalité tient : **347 fiches, 347 fichiers `.podcast.md`**. À noter que la
+première exécution a été interrompue par la limite de durée d'une tâche de fond
+avant d'avoir traité les toutes dernières fiches ; une seconde exécution a
+achevé le lot. La commande étant idempotente — elle ne régénère que ce qui
+manque ou ce dont l'empreinte a changé —, la relancer ne coûte rien et c'est le
+réflexe à garder après chaque lot.
 
 ---
 
@@ -500,5 +513,32 @@ n'ai que son titre.
 
 Rien d'autre ne me manque pour travailler. Les vingt-six autres thèmes sans
 fiche — huit en questions internationales 4, dix-sept en questions sociales 4,
-un en cas pratique 4 — ont leur texte dans les fascicules et peuvent être
-rédigés dès maintenant.
+un en cas pratique 4 — avaient leur texte dans les fascicules : **ils sont
+rédigés**. Ces trois renvois sont donc tout ce qui sépare le contenu de la
+complétude, et aucun travail de rédaction ne les résorbera.
+
+### Deux limites de l'outillage, rencontrées à la rédaction
+
+**1. `npm run build` ne m'est pas exécutable.** Le script vérifie
+`SITE_PASSWORD` contre une empreinte SHA-256 avant toute autre chose, et le mot
+de passe ne s'écrit nulle part ailleurs que dans `.env.local` — je ne l'ai pas,
+et il n'est pas question que je l'écrive. Or la validation du front-matter et
+des sections se trouve **après** cette porte de chiffrement : le build est donc
+inutilisable comme contrôle tant qu'on n'a pas le mot de passe. À la place, j'ai
+rejoué la validation du build à l'identique, en important ses propres modules
+(`frontMatterSchema`, `flashcardSchema`, `quizSchema`, `decouperSections`,
+`motDeLEpreuve`) et en reproduisant son `parserListeYaml` local. Résultat sur le
+dernier passage : **347 fiches contrôlées, aucune erreur, aucun avertissement**.
+Le contrôle couvre le schéma, les sections, le tag `méthodologie`, le vocabulaire
+proscrit en prétest et la taille du vivier — c'est-à-dire tout ce que le build
+refuserait. Il ne couvre évidemment pas le chiffrement ni l'écriture des
+fichiers de sortie.
+
+**2. Un faux positif dans le filtre de prétest.** `scripts/lib/pretest.mjs`
+interdit le mot « jury » dans une question de prétest, à juste titre pour le
+jury du concours. Mais un **jury citoyen** — instance de participation tirée au
+sort — n'a rien à voir, et la question a été refusée à tort en cas pratique 4.
+Mon mandat m'interdit de toucher à `scripts/` : j'ai donc reformulé la question
+et je signale le défaut plutôt que de le corriger. La correction tiendrait
+vraisemblablement en une exception sur l'expression « jury citoyen », à décider
+par qui tient le script.
