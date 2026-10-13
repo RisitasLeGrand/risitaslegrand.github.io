@@ -34,6 +34,7 @@ import Base from '../../layouts/Base.astro';
       Relier chaque opération du relevé à l’échéance qu’elle solde. Tout se calcule sur cet
       appareil : aucune proposition n’est faite ailleurs qu’ici.
       <a href="/odyssee/finances/" class="underline">Importer un relevé</a>.
+      <a href="/odyssee/mes-regles/" class="underline">Mes règles</a>.
     </p>
 
     <div id="chargement-rapprocher" class="mt-6">
@@ -70,6 +71,18 @@ import Base from '../../layouts/Base.astro';
           </div>
           <p id="compte-file" class="mt-1 text-sm text-slate-500 dark:text-slate-400"></p>
 
+          <!--
+            Une seule file, filtrable. Le plan l'impose et la raison est
+            d'attention : deux écrans pour vider un mois, c'est un écran de
+            trop et un mois qu'on ne vide pas.
+          -->
+          <div class="mt-3 flex flex-wrap gap-2" role="tablist">
+            <button data-filtre="tout" type="button" class="filtre min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700">Tout</button>
+            <button data-filtre="a-pointer" type="button" class="filtre min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700">À pointer</button>
+            <button data-filtre="a-rapprocher" type="button" class="filtre min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700">À rapprocher</button>
+            <button data-filtre="a-revoir" type="button" class="filtre min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700">À revoir</button>
+          </div>
+
           <p id="file-vide" class="mt-4 hidden rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300"></p>
 
           <h3 id="titre-probables" class="mt-6 hidden text-sm font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
@@ -87,6 +100,36 @@ import Base from '../../layouts/Base.astro';
             class="mt-2 hidden min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700"
             >Annuler les certaines de ce passage</button>
           <ul id="certaines" class="mt-2 hidden space-y-2"></ul>
+        </section>
+
+        <!-- ── Les vendeurs inconnus ───────────────────────────────────── -->
+        <section id="bloc-inconnus" class="hidden">
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Vendeurs inconnus</h2>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            <strong>Un vendeur par ligne</strong>, jamais une opération par ligne : les variantes
+            d’un même libellé sont regroupées. Les plus coûteux d’abord, dix à la fois.
+            « Plus tard » ne bloque rien — les opérations restent à classer, sans relance.
+          </p>
+          <ul id="inconnus" class="mt-3 space-y-3"></ul>
+          <button id="dix-suivants" type="button"
+            class="mt-3 hidden min-h-11 rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700"
+            >Traiter les dix suivants</button>
+        </section>
+
+        <!-- ── Les catégories pointées ─────────────────────────────────── -->
+        <section>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+            Catégories pointées contre le budget
+          </h2>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Le réalisé est la somme des opérations <strong>pointées</strong>. Les remboursements
+            se déduisent de leur catégorie, les virements entre vos comptes sont exclus, et une
+            opération fractionnée se répartit entre ses parts.
+          </p>
+          <ul id="categories-pointees" class="mt-3 space-y-2"></ul>
+          <p id="non-pointe"
+            class="mt-3 rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-100"></p>
+          <p id="un-seul-cote" class="mt-2 hidden text-sm text-slate-500 dark:text-slate-400"></p>
         </section>
 
         <!-- ── Le rapprochement de solde ───────────────────────────────── -->
@@ -207,6 +250,33 @@ import Base from '../../layouts/Base.astro';
   } from '../../lib/odyssee/rapprochement';
   import { detecterLesRecurrences, enLigneDeBudget } from '../../lib/odyssee/recurrences';
   import { OPTIONS_PAR_DEFAUT, echeancesEnIcs } from '../../lib/odyssee/echeances-ics';
+  import { TOUS_LES_TYPES, typeDe } from '../../lib/odyssee/taxonomie';
+  import {
+    HISTORIQUE_VIDE,
+    PREREGLAGE_PAR_DEFAUT,
+    decider,
+  } from '../../lib/odyssee/pointage';
+  import {
+    grouperLesInconnus,
+    reconnaitre,
+    type Connaissance,
+  } from '../../lib/odyssee/vendeurs';
+  import {
+    VERSION_DU_DICTIONNAIRE,
+    dictionnaireUtilisable,
+  } from '../../lib/odyssee/dictionnaire-vendeurs';
+  import { brouillonPour, regleDepuisLeBrouillon, typesSuggeres } from '../../lib/odyssee/regles-pointage';
+  import { vueDesCategories } from '../../lib/odyssee/categories-pointees';
+  import {
+    ecrireLaRegle,
+    ecrireLesPointages,
+    lireLesModifications,
+    nomsMasques,
+    noterLeVendeur,
+    tousLesPointages,
+    tousLesVendeurs,
+    toutesLesRegles,
+  } from '../../lib/odyssee/donnees-pointage';
   import {
     annulerLesAutomatiques,
     annulerRapprochement,
@@ -244,6 +314,9 @@ import Base from '../../layouts/Base.astro';
   const aujourdHui = new Date().toISOString().slice(0, 10);
 
   let axe: 'ligne' | 'categorie' | 'mois' = 'ligne';
+  let filtre: 'tout' | 'a-pointer' | 'a-rapprocher' | 'a-revoir' = 'tout';
+  /** Combien de vendeurs inconnus sont montrés. Dix de plus à chaque fois. */
+  let inconnusMontres = 10;
   /** Le début du passage en cours : ce que « Annuler » peut défaire. */
   let debutDuPassage = new Date().toISOString();
 
@@ -703,6 +776,230 @@ import Base from '../../layouts/Base.astro';
     }
   }
 
+  /* ── Le pointage ───────────────────────────────────────────────────────── */
+
+  async function connaissance(): Promise<Connaissance> {
+    const [regles, vendeurs, masques] = await Promise.all([
+      toutesLesRegles(), tousLesVendeurs(), nomsMasques(),
+    ]);
+    return {
+      regles: regles.filter((r) => r.typeId !== 'masque'),
+      vendeurs,
+      dictionnaire: dictionnaireUtilisable(masques),
+    };
+  }
+
+  /**
+   * Pointe ce qui peut l'être, et rend le compte rendu.
+   *
+   * Les pointages automatiques sont écrits **puis** annoncés : « N pointées
+   * automatiquement, M à pointer, K à revoir ». Les annoncer sans les
+   * écrire laisserait croire qu'un geste reste à faire ; les écrire sans
+   * les annoncer les rendrait invisibles.
+   */
+  async function pointerCeQuiPeutLEtre() {
+    const [operations, su, dejaPointees] = await Promise.all([
+      toutesLesOperations(), connaissance(), tousLesPointages(),
+    ]);
+    const parOperation = new Map(dejaPointees.map((p) => [p.operationId, p]));
+    const parJour = new Map<string, typeof operations>();
+    for (const o of operations) {
+      parJour.set(o.jour, [...(parJour.get(o.jour) ?? []), o]);
+    }
+    /* L'historique d'un vendeur se construit depuis ce qui est déjà pointé. */
+    const historiques = new Map<string, { montants: number[]; comptes: string[] }>();
+    for (const p of dejaPointees) {
+      if (!p.vendeurNom) continue;
+      const o = operations.find((x) => x.id === p.operationId);
+      if (!o) continue;
+      const h = historiques.get(p.vendeurNom) ?? { montants: [], comptes: [] };
+      h.montants.push(Math.abs(o.centimes));
+      if (!h.comptes.includes(o.compteId)) h.comptes.push(o.compteId);
+      historiques.set(p.vendeurNom, h);
+    }
+
+    const aEcrire: Parameters<typeof ecrireLesPointages>[0][number][] = [];
+    for (const o of operations) {
+      if (o.transfertAvec) continue;
+      const ancien = parOperation.get(o.id);
+      if (ancien?.auteur === 'moi') continue;
+      const r = reconnaitre(o.libelle, su);
+      const d = decider(o, r, {
+        prereglage: PREREGLAGE_PAR_DEFAUT,
+        historique: r.nom ? (historiques.get(r.nom) ?? HISTORIQUE_VIDE) : HISTORIQUE_VIDE,
+        memeJour: parJour.get(o.jour) ?? [],
+      });
+      /* Inutile de réécrire un pointage identique à celui qui existe. */
+      if (ancien && ancien.statut === d.statut && ancien.typeId === (r.typeId ?? null)) continue;
+      aEcrire.push({
+        operationId: o.id,
+        statut: d.statut,
+        vendeurNom: r.nom,
+        typeId: r.typeId,
+        auteur: r.source === 'ma-regle' ? 'regle'
+          : r.source === 'mon-historique' ? 'historique' : 'dictionnaire',
+        pourquoi: d.pourquoi,
+        versionDuDictionnaire: VERSION_DU_DICTIONNAIRE,
+      });
+    }
+    await ecrireLesPointages(aEcrire);
+  }
+
+  async function peindreLesInconnus() {
+    const [operations, su, pointages] = await Promise.all([
+      toutesLesOperations(), connaissance(), tousLesPointages(),
+    ]);
+    const parOperation = new Map(pointages.map((p) => [p.operationId, p]));
+    /* On ne redemande pas ce que la personne a déjà classé elle-même. */
+    const libres = operations.filter((o) => parOperation.get(o.id)?.auteur !== 'moi');
+    const groupes = grouperLesInconnus(libres, su);
+
+    $('bloc-inconnus').classList.toggle('hidden', groupes.length === 0);
+    $('dix-suivants').classList.toggle('hidden', groupes.length <= inconnusMontres);
+    const zone = $('inconnus');
+    zone.innerHTML = '';
+    for (const g of groupes.slice(0, inconnusMontres)) {
+      zone.appendChild(carteDInconnu(g));
+    }
+  }
+
+  function carteDInconnu(g: ReturnType<typeof grouperLesInconnus>[number]): HTMLElement {
+    const li = document.createElement('li');
+    li.dataset.inconnu = g.net;
+    li.className = 'rounded-xl border border-slate-200 p-3 dark:border-slate-800';
+
+    const titre = document.createElement('p');
+    titre.className = 'font-medium text-slate-900 dark:text-white';
+    titre.textContent =
+      `${g.net} — ${g.operationIds.length} opération(s) · ${euros(-g.cumule)} au total`;
+
+    const variantes = document.createElement('p');
+    variantes.className = 'mt-1 truncate text-xs text-slate-500 dark:text-slate-400';
+    variantes.textContent = [...new Set(g.libelles)].map((l) => `« ${l} »`).join(', ');
+
+    const choix = document.createElement('select');
+    choix.dataset.typePour = g.net;
+    choix.className =
+      'mt-2 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+    const vide = document.createElement('option');
+    vide.value = '';
+    vide.textContent = 'Choisir un type…';
+    choix.appendChild(vide);
+    /*
+       Les suggérés d'abord, et seulement ensuite la liste entière. Sans
+       IA : un mot du libellé qui est le libellé d'un type, et rien de plus.
+    */
+    const suggeres = typesSuggeres(g.libelles, TOUS_LES_TYPES);
+    for (const id of suggeres) {
+      const o = document.createElement('option');
+      o.value = id;
+      o.textContent = `${typeDe(id)!.libelle} — suggéré`;
+      choix.appendChild(o);
+    }
+    for (const t of TOUS_LES_TYPES) {
+      if (suggeres.includes(t.id)) continue;
+      const o = document.createElement('option');
+      o.value = t.id;
+      o.textContent = t.libelle;
+      choix.appendChild(o);
+    }
+    if (suggeres.length) choix.value = suggeres[0];
+
+    const gestes = document.createElement('div');
+    gestes.className = 'mt-2 flex flex-wrap gap-2';
+    gestes.append(
+      bouton('Créer la règle', 'creer-regle', async () => {
+        if (!choix.value) throw new Error('Choisissez un type avant de créer la règle.');
+        await creerLaRegle(g, choix.value);
+      }),
+      bouton('Je ne sais pas', 'a-identifier', async () => {
+        await creerLaRegle(g, 'a-identifier');
+      }),
+    );
+
+    li.append(titre, variantes, choix, gestes);
+    return li;
+  }
+
+  async function creerLaRegle(
+    g: ReturnType<typeof grouperLesInconnus>[number],
+    typeId: string,
+  ) {
+    const b = brouillonPour(g.net, typeId, g.libelles);
+    const r = regleDepuisLeBrouillon(b, `r-${Date.now()}-${g.net.slice(0, 12)}`, new Date().toISOString());
+    await ecrireLaRegle(r);
+    await noterLeVendeur(g.net, typeId, g.net);
+    /*
+       La règle vaut pour l'avenir. Les opérations de ce groupe sont
+       pointées tout de suite parce qu'elles **sont** ce qu'on vient de
+       nommer — ce n'est pas « appliquer au passé », c'est finir le geste.
+    */
+    await ecrireLesPointages(g.operationIds.map((id) => ({
+      operationId: id,
+      statut: 'pointee-par-moi' as const,
+      vendeurNom: g.net,
+      typeId,
+      auteur: 'moi' as const,
+      pourquoi: `Règle « ${r.motif} » créée par vous.`,
+    })));
+    await peindreTout();
+  }
+
+  /* ── Les catégories pointées ───────────────────────────────────────────── */
+
+  async function peindreLesCategoriesPointees() {
+    const [operations, lignes, pointages, modifications] = await Promise.all([
+      toutesLesOperations(), toutesLesLignes(), tousLesPointages(), lireLesModifications(),
+    ]);
+    const jours = operations.map((o) => o.jour).sort();
+    const du = jours.length ? jours[0].slice(0, 8) + '01' : aujourdHui;
+    const au = jours.length ? jours[jours.length - 1] : aujourdHui;
+
+    /* Le prévu par catégorie, mensualisé sur la période des opérations. */
+    const prevuParCategorie: Record<string, number> = {};
+    for (const l of lignes) {
+      const v = l.versions[l.versions.length - 1];
+      if (!v) continue;
+      prevuParCategorie[l.categorie || 'Sans catégorie'] =
+        (prevuParCategorie[l.categorie || 'Sans catégorie'] ?? 0) + v.montant;
+    }
+
+    const vue = vueDesCategories({
+      operations, pointages, prevuParCategorie, modifications, du, au,
+    });
+
+    const zone = $('categories-pointees');
+    zone.innerHTML = '';
+    for (const l of vue.lignes) {
+      const li = document.createElement('li');
+      li.dataset.categoriePointee = l.categorie;
+      li.className =
+        'flex flex-wrap items-baseline justify-between gap-2 rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800';
+      const gauche = document.createElement('span');
+      gauche.className = 'font-medium text-slate-900 dark:text-white';
+      gauche.textContent = `${l.dUnSeulCote ? '⚠ ' : ''}${l.categorie}`;
+      const droite = document.createElement('span');
+      droite.className = 'tabular-nums text-slate-600 dark:text-slate-300';
+      const relatif = l.ecartRelatif === null
+        ? '—'
+        : `${(l.ecartRelatif * 100).toFixed(1).replace('.', ',')} %`;
+      droite.textContent =
+        `prévu ${euros(l.prevu)} · réalisé ${euros(l.reel)} · écart ${euros(l.ecart)} (${relatif})`;
+      li.append(gauche, droite);
+      zone.appendChild(li);
+    }
+
+    $('non-pointe').textContent = vue.nonPointe.phrase;
+    const seul = [
+      ...vue.prevuesSansRealise.map((c) => `« ${c} » est prévue et rien ne l’alimente`),
+      ...vue.realiseesSansPrevu.map((c) => `« ${c} » est dépensée et n’est prévue nulle part`),
+    ];
+    $('un-seul-cote').classList.toggle('hidden', seul.length === 0);
+    if (seul.length) {
+      $('un-seul-cote').textContent = `⚠ ${seul.join(' ; ')}.`;
+    }
+  }
+
   /* ── L'export ICS ──────────────────────────────────────────────────────── */
 
   async function exporterLesEcheances() {
@@ -740,9 +1037,59 @@ import Base from '../../layouts/Base.astro';
 
   async function peindreTout() {
     $('erreur').classList.add('hidden');
+    await pointerCeQuiPeutLEtre();
     await peindreLaFile();
+    await peindreLesInconnus();
+    await peindreLesCategoriesPointees();
     await peindreLesComptes();
     await peindreLesEcarts();
+    appliquerLeFiltre();
+  }
+
+  /**
+   * Le filtre masque, il ne recalcule pas.
+   *
+   * Un filtre qui refait les calculs changerait les totaux affichés
+   * ailleurs sur l'écran selon l'onglet choisi, ce qui est la façon la plus
+   * sûre de rendre deux chiffres incomparables.
+   */
+  function appliquerLeFiltre() {
+    const montrer = (selecteur: string, oui: boolean) => {
+      for (const e of document.querySelectorAll<HTMLElement>(selecteur)) {
+        e.classList.toggle('hidden', !oui);
+      }
+    };
+    const rapprocher = filtre === 'tout' || filtre === 'a-rapprocher';
+    const pointer = filtre === 'tout' || filtre === 'a-pointer';
+    montrer('[data-proposition]', rapprocher);
+    montrer('[data-a-classer]', pointer);
+    montrer('[data-inconnu]', pointer);
+
+    /*
+       Un titre de section ne s'affiche que si le filtre le permet **et**
+       qu'il y a quelque chose dessous. Sans la seconde condition, le filtre
+       réaffiche « Probables — un geste chacun » au-dessus du vide, et le
+       premier essai en navigateur l'a vu : il écrasait la logique de
+       vacuité que la peinture venait d'appliquer.
+    */
+    const combien = (s: string) => document.querySelectorAll(s).length;
+    $('titre-probables').classList.toggle(
+      'hidden', !(rapprocher && combien('[data-proposition]') > 0),
+    );
+    $('titre-a-classer').classList.toggle(
+      'hidden', !(pointer && combien('[data-a-classer]') > 0),
+    );
+    $('bloc-inconnus').classList.toggle(
+      'hidden', !(pointer && combien('[data-inconnu]') > 0),
+    );
+    for (const b of document.querySelectorAll<HTMLElement>('.filtre')) {
+      const actif = b.dataset.filtre === filtre;
+      b.dataset.actif = String(actif);
+      b.classList.toggle('bg-slate-800', actif);
+      b.classList.toggle('text-white', actif);
+      b.classList.toggle('dark:bg-slate-200', actif);
+      b.classList.toggle('dark:text-slate-900', actif);
+    }
   }
 
   async function recharger() {
@@ -841,6 +1188,17 @@ import Base from '../../layouts/Base.astro';
       $('deduire').addEventListener('click', () => void peindreLesRecurrences().catch(dire));
       $('exporter-ics').addEventListener('click', () => void exporterLesEcheances().catch(dire));
 
+      for (const b of document.querySelectorAll<HTMLElement>('.filtre')) {
+        b.addEventListener('click', () => {
+          filtre = (b.dataset.filtre as typeof filtre) ?? 'tout';
+          appliquerLeFiltre();
+        });
+      }
+      $('dix-suivants').addEventListener('click', () => {
+        inconnusMontres += 10;
+        void peindreLesInconnus().then(appliquerLeFiltre).catch(dire);
+      });
+
       for (const b of document.querySelectorAll<HTMLElement>('.axe')) {
         b.addEventListener('click', () => {
           axe = (b.dataset.axe as typeof axe) ?? 'ligne';
@@ -849,6 +1207,7 @@ import Base from '../../layouts/Base.astro';
         });
       }
       marquerLAxe();
+      appliquerLeFiltre();
 
       surCoffre(() => void recharger());
       await recharger();

@@ -81,8 +81,13 @@ Le plan, les maquettes et les sept décisions (10 à 16) sont dans
 | **3 bis a** | Taxonomie (12 familles, 59 types + 3 états), normalisation, résolution, appariement approché, groupement des inconnus | **livrée**, 93 essais |
 | **3 bis b** | Dictionnaire de 296 entrées, mesure du taux de reconnaissance | **livrée** |
 | **3 bis c** | Politique de pointage, préréglages, anomalies, sondage, rétrogradation d'une règle | **livrée**, 69 essais |
-| **3 bis d** | Magasins scellés, règles locales, vendeurs inconnus, « Mes règles » | à faire |
-| **3 bis e** | Catégories pointées, vue prévu / réalisé / écart, file unique filtrable | à faire |
+| **3 bis d** | Magasins scellés (v28), règles locales, vendeurs inconnus, « Mes règles » | **livrée**, 61 essais |
+| **3 bis e** | Catégories pointées, vue prévu / réalisé / écart, file unique filtrable | **livrée** |
+
+Décisions et défauts dans [`finances/phase-3bis.md`](finances/phase-3bis.md).
+Restent, et c'est dit : l'écran de fractionnement, le mode avancé de
+création de règle, le compte rendu d'import de la maquette 8.1, et
+l'affichage du sondage — tous quatre ont leur moteur écrit et éprouvé.
 
 Mesure sur le jeu synthétique de 51 libellés : **100 % reconnus, 0 faux
 positif** — avec la réserve, écrite dans le rapport de `npm run

@@ -315,6 +315,90 @@ console.log('\nLES ÉCARTS, ET L’ÉCHÉANCE NON ÉCHUE');
     (await page.$$eval('[data-ecart]', (e) => e.length)) > 0);
 }
 
+/* ── 7 ter. Le pointage par vendeur ──────────────────────────────────── */
+
+console.log('\nLA FILE EST UNIQUE, ET FILTRABLE');
+
+{
+  const filtres = await page.$$eval('.filtre', (e) => e.map((x) => x.dataset.filtre));
+  v('quatre filtres', filtres, ['tout', 'a-pointer', 'a-rapprocher', 'a-revoir']);
+  v('« Tout » est actif au départ',
+    await page.getAttribute('[data-filtre="tout"]', 'data-actif'), 'true');
+
+  await page.click('[data-filtre="a-rapprocher"]');
+  await page.waitForTimeout(400);
+  v('le filtre se marque',
+    await page.getAttribute('[data-filtre="a-rapprocher"]', 'data-actif'), 'true');
+  /*
+     Le filtre **masque**, il ne recalcule pas : un filtre qui referait les
+     calculs changerait les totaux affichés ailleurs selon l'onglet choisi.
+  */
+  faux('les « à classer » sont masqués',
+    await page.locator('[data-a-classer]').first().isVisible().catch(() => false));
+  await page.click('[data-filtre="tout"]');
+  await page.waitForTimeout(400);
+  vrai('et reviennent',
+    await page.locator('[data-a-classer]').first().isVisible().catch(() => false));
+}
+
+console.log('\nLES VENDEURS INCONNUS, UN PAR LIGNE');
+
+{
+  vrai('le bloc est affiché', await page.locator('#bloc-inconnus').isVisible());
+  const inconnus = await page.$$eval('[data-inconnu]', (e) => e.map((x) => x.dataset.inconnu));
+  /*
+     Quatre achats au marché, quatre dates différentes, **une** ligne. En
+     faire quatre est exactement ce qui fait abandonner.
+  */
+  vrai('le marché est groupé en une ligne',
+    inconnus.filter((n) => n.includes('MARCHE')).length === 1, JSON.stringify(inconnus));
+
+  const titre = await page.textContent('[data-inconnu] p');
+  vrai('la ligne dit combien d’opérations et combien au total',
+    /\d+ opération\(s\).+€/.test(titre), titre);
+}
+
+{
+  /* Un type est suggéré, sans IA : un mot du libellé qui est un type. */
+  const premier = await page.$$eval('[data-inconnu]', (e) => e[0].dataset.inconnu);
+  const options = await page.$$eval(
+    `[data-type-pour="${premier}"] option`, (e) => e.map((x) => x.textContent));
+  vrai('le choix commence par « Choisir un type… »',
+    options[0].includes('Choisir'), JSON.stringify(options.slice(0, 3)));
+  vrai('et la taxonomie entière est proposée', options.length > 50, String(options.length));
+}
+
+console.log('\nCRÉER LA RÈGLE EN UN GESTE');
+
+{
+  const avant = await page.$$eval('[data-inconnu]', (e) => e.length);
+  const cible = await page.$$eval('[data-inconnu]', (e) => e[0].dataset.inconnu);
+  await page.selectOption(`[data-type-pour="${cible}"]`, 'marche');
+  await page.click(`[data-inconnu="${cible}"] [data-geste="creer-regle"]`);
+  await page.waitForTimeout(2500);
+  const apres = await page.$$eval('[data-inconnu]', (e) => e.length);
+  vrai('le vendeur quitte la liste des inconnus', apres < avant, `${avant} → ${apres}`);
+}
+
+console.log('\nLES CATÉGORIES POINTÉES, ET CE QU’ELLES NE COMPTENT PAS');
+
+{
+  const lignes = await page.$$eval('[data-categorie-pointee]',
+    (e) => e.map((x) => x.dataset.categoriePointee));
+  vrai('des catégories sont affichées', lignes.length > 0, JSON.stringify(lignes));
+  vrai('l’alimentation en est, depuis la règle créée',
+    lignes.includes('Alimentation'), JSON.stringify(lignes));
+
+  /*
+     La ligne « non pointé » n'est pas un détail d'affichage : une
+     comparaison faite à moitié ressemble exactement à une comparaison faite
+     en entier, et se trompe toujours dans le sens rassurant.
+  */
+  const phrase = await page.textContent('#non-pointe');
+  vrai('ce qui n’est pas compté est dit',
+    phrase.includes('n’en tient pas compte') || phrase.includes('Tout est pointé'), phrase);
+}
+
 /* ── 7 bis. L'export ICS des échéances ───────────────────────────────── */
 
 console.log('\nL’EXPORT ICS NE SORT QUE CE QU’IL FAUT');

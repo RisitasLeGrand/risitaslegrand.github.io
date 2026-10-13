@@ -373,6 +373,10 @@ export const MAGASINS_JOURNALISES: readonly MagasinJournalise[] = [
   M({ magasin: 'odysseeLignesBudget', type: 'odyssee.operation', clef: 'id', libelle: 'Ligne de budget' }),
   M({ magasin: 'odysseeRapprochements', type: 'odyssee.operation', clef: 'id', libelle: 'Rapprochement' }),
   M({ magasin: 'odysseeConsommateurs', type: 'odyssee.operation', clef: 'id', libelle: 'Qui lit mon budget' }),
+  M({ magasin: 'odysseeVendeurs', type: 'odyssee.operation', clef: 'id', libelle: 'Vendeur' }),
+  M({ magasin: 'odysseeReglesPointage', type: 'odyssee.operation', clef: 'id', libelle: 'Règle de pointage' }),
+  M({ magasin: 'odysseePointages', type: 'odyssee.operation', clef: 'id', libelle: 'Pointage' }),
+  M({ magasin: 'odysseeTaxonomie', type: 'odyssee.operation', clef: 'id', libelle: 'Taxonomie' }),
 ];
 
 /**

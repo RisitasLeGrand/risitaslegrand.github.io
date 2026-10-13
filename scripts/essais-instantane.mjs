@@ -300,6 +300,8 @@ v(
     'odysseeRapprochements',
     // Et « Qui lit mon budget », depuis la phase 4.
     'odysseeConsommateurs',
+    // Le pointage par type de vendeur, depuis la phase 3 bis.
+    'odysseeVendeurs', 'odysseeReglesPointage', 'odysseePointages', 'odysseeTaxonomie',
     /*
        La veille, depuis la version 23. Le journal d'usage n'est pas scellé —
        un magasin scellé ne s'écrit que coffre ouvert, donc rarement, et le

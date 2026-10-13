@@ -261,6 +261,71 @@ export function anomaliesDe(
 
 export type StatutDePointage = 'a-pointer' | 'pointee-auto' | 'pointee-par-moi' | 'a-revoir';
 
+/** Qui a décidé. Conservé, et affiché par « Pourquoi ce pointage ? ». */
+export type AuteurDuPointage = 'regle' | 'dictionnaire' | 'historique' | 'moi';
+
+/** Une part d'opération, quand elle se répartit entre plusieurs catégories. */
+export interface PartPointee {
+  typeId: string;
+  centimes: Centimes;
+}
+
+/**
+ * Le pointage d'une opération.
+ *
+ * Un par opération — l'identifiant **est** celui de l'opération. Le journal
+ * immuable que le prompt demande n'est pas un second magasin : c'est le
+ * journal de synchronisation, qui enregistre chaque écriture scellée. Ce
+ * qui lui manquerait, l'état d'**avant**, est porté par `precedent` : chaque
+ * pointage dit d'où il vient, et l'historique se relit sans jointure.
+ */
+export interface Pointage {
+  id: string;
+  operationId: string;
+  statut: StatutDePointage;
+  vendeurNom: string | null;
+  typeId: string | null;
+  /** Vide quand l'opération n'est pas fractionnée. */
+  parts: readonly PartPointee[];
+  auteur: AuteurDuPointage;
+  pourquoi: string;
+  /** La version du dictionnaire qui a servi, pour pouvoir le dire. */
+  versionDuDictionnaire: string | null;
+  /** L'import dont il provient, pour pouvoir tout annuler d'un geste. */
+  importId: string | null;
+  /** Ce qu'il remplace, ou `null` si c'est le premier. */
+  precedent: { typeId: string | null; vendeurNom: string | null; auteur: AuteurDuPointage } | null;
+  appareil: string;
+  decideLe: string;
+  majLe: string;
+}
+
+export function controlerPointage(p: Pointage): string[] {
+  const problemes: string[] = [];
+  if (p.id !== p.operationId) {
+    problemes.push('Un pointage porte l’identifiant de son opération : il y en a un seul par opération.');
+  }
+  if (p.statut === 'pointee-auto' && p.auteur === 'moi') {
+    problemes.push('« Pointée automatiquement » et « par moi » ensemble ne veulent rien dire.');
+  }
+  if (p.statut === 'pointee-par-moi' && p.auteur !== 'moi') {
+    problemes.push('« Pointée par moi » doit porter « moi » comme auteur.');
+  }
+  if (p.parts.length === 1) {
+    problemes.push('Une seule part n’est pas un fractionnement : laissez `parts` vide.');
+  }
+  if (p.parts.some((x) => x.centimes === 0)) {
+    problemes.push('Une part de zéro n’est pas une part.');
+  }
+  const type = p.typeId ? typeDe(p.typeId) : undefined;
+  if (p.statut === 'pointee-auto' && type?.jamaisAuto) {
+    problemes.push(
+      `« ${type.libelle} » a été pointé automatiquement, ce qui ne doit jamais arriver.`,
+    );
+  }
+  return problemes;
+}
+
 export interface Decision {
   statut: StatutDePointage;
   /** Pourquoi, en une phrase affichable — c'est « Pourquoi ce pointage ? ». */

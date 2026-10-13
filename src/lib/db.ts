@@ -26,6 +26,9 @@ import type { Compte, OperationBancaire, Valorisation } from './odyssee/finances
 import type { LigneBudget } from './odyssee/budget';
 import type { Rapprochement } from './odyssee/rapprochement';
 import type { EtatDesConsommateurs } from './odyssee/consommateurs';
+import type { Pointage } from './odyssee/pointage';
+import type { RegleDePointage, Vendeur } from './odyssee/vendeurs';
+import type { EtatDeLaTaxonomie } from './odyssee/taxonomie';
 import type {
   Boisson,
   EtatDeSante,
@@ -650,10 +653,24 @@ interface SchemaRevinsp extends DBSchema {
      sept interrupteurs se remplacent en bloc.
   */
   odysseeConsommateurs: { key: string; value: EtatDesConsommateurs };
+  /*
+     Le pointage par vendeur, depuis la phase 3 bis de Finances.
+
+     Quatre magasins, et un seul index : celui du pointage sur son
+     opération, qui est la seule lecture chaude — « cette opération est-elle
+     déjà classée ? », posée une fois par ligne importée. Les vendeurs et
+     les règles se lisent en entier, parce qu'il y en a des dizaines et non
+     des milliers, et qu'un index sur un magasin de cette taille coûte plus
+     qu'il ne rend.
+  */
+  odysseeVendeurs: { key: string; value: Vendeur };
+  odysseeReglesPointage: { key: string; value: RegleDePointage };
+  odysseePointages: { key: string; value: Pointage; indexes: { operationId: string } };
+  odysseeTaxonomie: { key: string; value: EtatDeLaTaxonomie };
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 27;
+const VERSION = 28;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1297,6 +1314,22 @@ function ouvrirAuSchema(nom: string, version: number) {
          * la même nature que savoir qu'il a activé une veille.
          */
         base.createObjectStore('odysseeConsommateurs', { keyPath: 'id' });
+      }
+      if (vers(28)) {
+        /*
+         * Le pointage par type de vendeur — Finances, phase 3 bis.
+         *
+         * Scellés tous les quatre. Un type de vendeur peut révéler une
+         * santé, une adhésion, un don : le prompt les classe comme données
+         * sensibles, et la liste des vendeurs d'une personne en dit plus
+         * long sur elle que la plupart de ce que cette base contient.
+         */
+        base.createObjectStore('odysseeVendeurs', { keyPath: 'id' });
+        base.createObjectStore('odysseeReglesPointage', { keyPath: 'id' });
+        base
+          .createObjectStore('odysseePointages', { keyPath: 'id' })
+          .createIndex('operationId', 'operationId');
+        base.createObjectStore('odysseeTaxonomie', { keyPath: 'id' });
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -2166,6 +2199,10 @@ export const MAGASINS_PROGRESSION = [
   'odysseePassations',
   'odysseeRapprochements',
   'odysseeConsommateurs',
+  'odysseeVendeurs',
+  'odysseeReglesPointage',
+  'odysseePointages',
+  'odysseeTaxonomie',
 ] as const;
 
 /** Vide tous les magasins de progression, dans une seule transaction. */

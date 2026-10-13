@@ -105,7 +105,7 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    plus bas. Ils ont été retirés, puis sont revenus avec la phase 1 — cette
    fois avec leurs magasins.
 */
-v('quinze magasins scellés', MAGASINS_SCELLES.length, 15);
+v('dix-neuf magasins scellés', MAGASINS_SCELLES.length, 19);
 vrai('les passations d’échelles en sont', estScelle('odysseePassations'));
 vrai('la ligne de base de la veille en est', estScelle('odysseeVeilleBases'));
 vrai('les repères aussi', estScelle('odysseeVeilleSignaux'));
@@ -129,6 +129,15 @@ vrai('les rapprochements en sont', estScelle('odysseeRapprochements'));
    lui.
 */
 vrai('et qui lit mon budget', estScelle('odysseeConsommateurs'));
+/*
+   Et le pointage par vendeur, entier. La liste des commerçants de
+   quelqu'un dit où il va, ce qu'il soigne, ce à quoi il adhère et ce qu'il
+   donne : elle en apprend plus que presque tout le reste de cette base.
+*/
+vrai('les vendeurs en sont', estScelle('odysseeVendeurs'));
+vrai('les règles de pointage aussi', estScelle('odysseeReglesPointage'));
+vrai('les pointages eux-mêmes', estScelle('odysseePointages'));
+vrai('et la taxonomie modifiée', estScelle('odysseeTaxonomie'));
 vrai('le journal en est', estScelle('odysseeJournal'));
 vrai('les check-ins aussi', estScelle('odysseeCheckins'));
 vrai('et les points de semaine', estScelle('odysseeHebdos'));

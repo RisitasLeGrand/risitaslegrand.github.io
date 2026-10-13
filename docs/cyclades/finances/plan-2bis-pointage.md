@@ -439,11 +439,14 @@ Ce qui reste à faire quand 3 bis arrivera :
 
 | | Contenu | Livrée testée |
 |---|---|---|
-| **3 bis a** | Normalisation, résolution, taxonomie, modèle et magasins scellés. Jeu de libellés synthétiques. | oui |
-| **3 bis b** | Le dictionnaire (≈ 250 entrées) et la mesure du taux de reconnaissance, publiée telle quelle. | oui |
-| **3 bis c** | Politique de pointage, anomalies, journal, annulation, sondage. | oui |
-| **3 bis d** | Règles locales, vendeurs inconnus et création sur le champ, « Mes règles ». | oui |
-| **3 bis e** | Catégories pointées, vue prévu / réalisé / écart, file unique filtrable. | oui |
+| **3 bis a** | Normalisation, résolution, taxonomie, modèle et magasins scellés. Jeu de libellés synthétiques. | **livrée** |
+| **3 bis b** | Le dictionnaire (**296** entrées, et non 250) et la mesure du taux de reconnaissance, publiée telle quelle. | **livrée** |
+| **3 bis c** | Politique de pointage, anomalies, journal, annulation, sondage. | **livrée** |
+| **3 bis d** | Règles locales, vendeurs inconnus et création sur le champ, « Mes règles ». | **livrée** |
+| **3 bis e** | Catégories pointées, vue prévu / réalisé / écart, file unique filtrable. | **livrée** |
+
+Les décisions prises en chemin et les huit défauts trouvés par la mesure
+sont dans [`phase-3bis.md`](phase-3bis.md).
 
 ## 14. Ce que je ne peux pas vérifier
 

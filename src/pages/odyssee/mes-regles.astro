@@ -1,0 +1,360 @@
+---
+/**
+ * Odyssée : mes règles — Finances, phase 3 bis d.
+ *
+ * ## Une règle qu'on ne peut pas relire n'est pas une règle
+ *
+ * Tout ce qui classe une opération est ici, en français : le motif, le
+ * type, le mode, et deux compteurs — appliquée, corrigée. C'est ce qui
+ * sépare cet écran d'un modèle qui apprend : la personne peut répondre à
+ * « pourquoi cette dépense est-elle rangée là ? » sans faire confiance.
+ *
+ * ## Le dictionnaire se masque, il ne se supprime pas
+ *
+ * Il est embarqué dans l'application et se met à jour avec elle. Supprimer
+ * une de ses entrées n'aurait aucun sens — elle reviendrait à la version
+ * suivante. Un masque, lui, est une donnée de la personne : il survit.
+ *
+ * ## Les compteurs ne sont pas décoratifs
+ *
+ * Une règle corrigée plus d'une fois sur quatre cesse de pointer seule et
+ * se contente de proposer. L'écran le dit sur la ligne, parce qu'une règle
+ * rétrogradée en silence laisse croire qu'elle fonctionne encore.
+ */
+import Base from '../../layouts/Base.astro';
+---
+
+<Base titre="Mes règles" actif="finances">
+  <div class="mx-auto max-w-3xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Mes règles</h1>
+    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+      Tout ce qui classe une opération, en clair. Vos règles passent avant le dictionnaire
+      embarqué — il est écrit sans avoir vu vos relevés, vous les avez sous les yeux.
+      <a href="/odyssee/rapprocher/" class="underline">Retour à la file</a>.
+    </p>
+
+    <div id="chargement-regles" class="mt-6">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Lecture…</p>
+    </div>
+
+    <div id="vue" class="mt-6 hidden space-y-8">
+      <section id="coffre-ferme" class="hidden rounded-2xl border-2 border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">🔒 Ouvrir le coffre</h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Vos règles portent des noms de commerçants : elles sont chiffrées comme le reste.
+        </p>
+        <label class="mt-3 block text-sm">
+          <span class="block text-slate-700 dark:text-slate-200">Mot de passe</span>
+          <input id="mdp-coffre" type="password" autocomplete="current-password"
+            class="mt-1 min-h-11 w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+        </label>
+        <button id="ouvrir-coffre" type="button"
+          class="mt-3 min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900"
+          >Ouvrir</button>
+        <p id="erreur-coffre" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+      </section>
+
+      <div id="coffre-ouvert" class="hidden space-y-8">
+        <!-- ── Les contradictions, d'abord : elles demandent ─────────── -->
+        <section id="bloc-contradictions" class="hidden">
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">À trancher</h2>
+          <ul id="contradictions" class="mt-2 space-y-2"></ul>
+        </section>
+
+        <!-- ── Mes règles ───────────────────────────────────────────── -->
+        <section>
+          <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Mes règles</h2>
+            <input id="chercher" type="search" placeholder="Chercher…"
+              class="min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </div>
+          <ul id="regles" class="mt-3 space-y-3"></ul>
+          <p id="aucune-regle" class="mt-3 hidden text-sm text-slate-500 dark:text-slate-400">
+            Aucune règle pour l’instant. Elles se créent depuis la file, quand un vendeur inconnu
+            apparaît — ou quand vous corrigez un classement.
+          </p>
+        </section>
+
+        <!-- ── Mes vendeurs ─────────────────────────────────────────── -->
+        <section>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Mes vendeurs</h2>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Ceux que Cyclades a appris de vos confirmations. Ils passent avant le dictionnaire.
+          </p>
+          <ul id="vendeurs" class="mt-3 space-y-2"></ul>
+        </section>
+
+        <!-- ── Le dictionnaire embarqué ─────────────────────────────── -->
+        <section>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Dictionnaire embarqué</h2>
+          <p id="a-propos-dictionnaire" class="mt-1 text-sm text-slate-500 dark:text-slate-400"></p>
+          <p class="mt-2 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:bg-slate-900 dark:text-slate-300">
+            Ses entrées sont écrites à la main, sans reprise d’aucune liste tierce, et
+            <strong>n’ont pas été vérifiées sur de vrais relevés</strong> : leur couverture ne se
+            connaîtra qu’à l’usage. Une entrée masquée le reste après une mise à jour.
+          </p>
+          <label class="mt-3 flex flex-wrap items-end gap-2 text-sm">
+            <span class="sr-only">Nom de l’entrée à masquer</span>
+            <input id="a-masquer" type="text" placeholder="Nom de l’entrée (ex. Carrefour)"
+              class="min-h-11 flex-1 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+            <button id="masquer" type="button"
+              class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium dark:border-slate-700"
+              >Masquer cette entrée</button>
+          </label>
+          <ul id="masques" class="mt-3 space-y-2"></ul>
+        </section>
+
+        <p id="erreur" class="hidden rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-900 dark:bg-rose-950/30 dark:text-rose-100"></p>
+      </div>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { typeDe } from '../../lib/odyssee/taxonomie';
+  import { jugerLaRegle } from '../../lib/odyssee/pointage';
+  import { detecterLesContradictions } from '../../lib/odyssee/regles-pointage';
+  import {
+    DICTIONNAIRE,
+    VERSION_DU_DICTIONNAIRE,
+  } from '../../lib/odyssee/dictionnaire-vendeurs';
+  import {
+    MASQUE,
+    annulerLaRegle,
+    annulerLeVendeur,
+    ecrireLaRegle,
+    oublierLeVendeur,
+    supprimerLaRegle,
+    tousLesVendeurs,
+    toutesLesRegles,
+  } from '../../lib/odyssee/donnees-pointage';
+  import { coffreOuvert, ouvrirLeCoffre, reprendreLeCoffre, surCoffre } from '../../lib/coffre';
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const dire = (e: unknown) => {
+    const z = $('erreur');
+    z.textContent = e instanceof Error ? e.message : String(e);
+    z.classList.remove('hidden');
+  };
+
+  let recherche = '';
+
+  const MODES: Record<string, string> = {
+    auto: 'Pointe seule', proposer: 'Propose', manuel: 'Toujours manuel',
+  };
+
+  async function peindre() {
+    const [regles, vendeurs] = await Promise.all([toutesLesRegles(), tousLesVendeurs()]);
+    const vraies = regles.filter((r) => r.typeId !== MASQUE);
+    const masques = regles.filter((r) => r.typeId === MASQUE);
+
+    /* ── Les contradictions, en tête : elles attendent une réponse ──── */
+    const contradictions = detecterLesContradictions(vraies);
+    $('bloc-contradictions').classList.toggle('hidden', contradictions.length === 0);
+    const zoneC = $('contradictions');
+    zoneC.innerHTML = '';
+    for (const c of contradictions) {
+      const li = document.createElement('li');
+      li.dataset.contradiction = c.motif;
+      li.className =
+        'rounded-xl border-2 border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100';
+      li.textContent = c.question;
+      zoneC.appendChild(li);
+    }
+
+    /* ── Mes règles ──────────────────────────────────────────────────── */
+    const filtrees = recherche
+      ? vraies.filter((r) =>
+          `${r.nom} ${r.motif}`.toLowerCase().includes(recherche.toLowerCase()))
+      : vraies;
+    $('aucune-regle').classList.toggle('hidden', vraies.length > 0);
+    const zone = $('regles');
+    zone.innerHTML = '';
+    for (const r of filtrees.sort((a, b) => a.nom.localeCompare(b.nom))) {
+      const li = document.createElement('li');
+      li.dataset.regle = r.nom;
+      li.className = 'rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800';
+
+      const titre = document.createElement('p');
+      titre.className = 'font-medium text-slate-900 dark:text-white';
+      titre.textContent =
+        `${r.nom} — le libellé ${r.comparaison} « ${r.motif} » → ${typeDe(r.typeId)?.libelle ?? r.typeId}`;
+
+      const compteurs = document.createElement('p');
+      compteurs.className = 'mt-1 text-slate-600 dark:text-slate-300';
+      const verdict = jugerLaRegle(r.appliquee, r.corrigee);
+      compteurs.dataset.compteurs = r.nom;
+      compteurs.textContent =
+        `Appliquée ${r.appliquee} fois · corrigée ${r.corrigee} fois · ${MODES[r.mode]}`;
+
+      li.append(titre, compteurs);
+
+      /*
+         Une règle rétrogradée le dit sur sa ligne. En silence, elle
+         laisserait croire qu'elle fonctionne encore.
+      */
+      if (verdict.retrograder) {
+        const avis = document.createElement('p');
+        avis.dataset.retrogradee = r.nom;
+        avis.className = 'mt-1 text-amber-800 dark:text-amber-200';
+        avis.textContent = `⚠ ${verdict.phrase}`;
+        li.appendChild(avis);
+      }
+
+      const gestes = document.createElement('div');
+      gestes.className = 'mt-2 flex flex-wrap gap-2';
+      const basculer = r.mode === 'auto' ? 'proposer' : 'auto';
+      const interdit = typeDe(r.typeId)?.jamaisAuto === true;
+      if (!(interdit && basculer === 'auto')) {
+        gestes.appendChild(bouton(
+          basculer === 'auto' ? 'La laisser pointer seule' : 'Qu’elle se contente de proposer',
+          'basculer',
+          async () => {
+            await ecrireLaRegle({ ...r, mode: basculer });
+            await peindre();
+          },
+        ));
+      }
+      gestes.append(
+        bouton('Défaire ses pointages', 'defaire', async () => {
+          const combien = await annulerLaRegle(r.motif);
+          dire(`${combien} pointage(s) défait(s).`);
+          $('erreur').className =
+            'rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200';
+          await peindre();
+        }),
+        bouton('Supprimer', 'supprimer', async () => {
+          await supprimerLaRegle(r.id);
+          await peindre();
+        }),
+      );
+      li.appendChild(gestes);
+      zone.appendChild(li);
+    }
+
+    /* ── Mes vendeurs ────────────────────────────────────────────────── */
+    const zoneV = $('vendeurs');
+    zoneV.innerHTML = '';
+    for (const v of [...vendeurs].sort((a, b) => b.vu - a.vu || a.nom.localeCompare(b.nom))) {
+      const li = document.createElement('li');
+      li.dataset.vendeur = v.nom;
+      li.className =
+        'flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800';
+      const g = document.createElement('span');
+      g.textContent =
+        `${v.nom} — ${typeDe(v.typeId)?.libelle ?? v.typeId} · vu ${v.vu} fois · ` +
+        `${v.alias.length} libellé(s) connu(s)`;
+      const d = document.createElement('span');
+      d.className = 'flex gap-2';
+      d.append(
+        bouton('Défaire ses pointages', 'defaire-vendeur', async () => {
+          await annulerLeVendeur(v.nom);
+          await peindre();
+        }),
+        bouton('Oublier', 'oublier-vendeur', async () => {
+          await oublierLeVendeur(v.id);
+          await peindre();
+        }),
+      );
+      li.append(g, d);
+      zoneV.appendChild(li);
+    }
+
+    /* ── Le dictionnaire ─────────────────────────────────────────────── */
+    $('a-propos-dictionnaire').textContent =
+      `${DICTIONNAIRE.length} entrées, version du ${VERSION_DU_DICTIONNAIRE}. ` +
+      `${masques.length} entrée(s) masquée(s) par vous.`;
+    const zoneM = $('masques');
+    zoneM.innerHTML = '';
+    for (const m of masques) {
+      const li = document.createElement('li');
+      li.dataset.masque = m.nom;
+      li.className =
+        'flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800';
+      const g = document.createElement('span');
+      g.textContent = `« ${m.nom} » est masquée.`;
+      li.append(g, bouton('Ne plus masquer', 'demasquer', async () => {
+        await supprimerLaRegle(m.id);
+        await peindre();
+      }));
+      zoneM.appendChild(li);
+    }
+  }
+
+  function bouton(texte: string, marque: string, faire: () => Promise<void>): HTMLButtonElement {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.dataset.geste = marque;
+    b.className = 'min-h-11 rounded-lg border border-slate-300 px-3 text-xs dark:border-slate-700';
+    b.textContent = texte;
+    b.addEventListener('click', () => void faire().catch(dire));
+    return b;
+  }
+
+  async function recharger() {
+    await reprendreLeCoffre();
+    const ouvert = coffreOuvert();
+    $('coffre-ferme').classList.toggle('hidden', ouvert);
+    $('coffre-ouvert').classList.toggle('hidden', !ouvert);
+    if (ouvert) await peindre();
+  }
+
+  auDeverrouillage(
+    async () => {
+      $('ouvrir-coffre').addEventListener('click', () => {
+        void (async () => {
+          const mdp = $('mdp-coffre') as HTMLInputElement;
+          const erreur = await ouvrirLeCoffre(mdp.value);
+          $('erreur-coffre').classList.toggle('hidden', erreur === null);
+          if (erreur) {
+            $('erreur-coffre').textContent = erreur;
+            return;
+          }
+          mdp.value = '';
+          await recharger();
+        })();
+      });
+      $('mdp-coffre').addEventListener('keydown', (e) => {
+        if ((e as KeyboardEvent).key === 'Enter') $('ouvrir-coffre').click();
+      });
+      $('chercher').addEventListener('input', () => {
+        recherche = ($('chercher') as HTMLInputElement).value;
+        void peindre().catch(dire);
+      });
+      $('masquer').addEventListener('click', () => {
+        void (async () => {
+          const champ = $('a-masquer') as HTMLInputElement;
+          const nom = champ.value.trim();
+          if (!nom) throw new Error('Donnez le nom de l’entrée à masquer.');
+          if (!DICTIONNAIRE.some((e) => e.nom.toLowerCase() === nom.toLowerCase())) {
+            throw new Error(`« ${nom} » n’est pas une entrée du dictionnaire embarqué.`);
+          }
+          /*
+             Un masque est une règle sans type : c'est la seule chose qui
+             voyage entre appareils, et elle doit survivre à une mise à jour
+             du fichier embarqué.
+          */
+          await ecrireLaRegle({
+            id: `masque-${nom.toLowerCase().replace(/[^a-z0-9]+/g, '-')}`,
+            nom,
+            typeId: MASQUE,
+            motif: nom,
+            comparaison: 'exact',
+            mode: 'manuel',
+            ligneId: null,
+            appliquee: 0,
+            corrigee: 0,
+            majLe: new Date().toISOString(),
+          });
+          champ.value = '';
+          await peindre();
+        })().catch(dire);
+      });
+      surCoffre(() => void recharger().catch(dire));
+      await recharger();
+      $('vue').classList.remove('hidden');
+    },
+    { zoneChargement: '#chargement-regles' },
+  );
+</script>

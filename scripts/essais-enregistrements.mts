@@ -132,9 +132,9 @@ v(
    les compter — un compte qui bouge se corrige sans rien apprendre, une liste
    nommée dit lequel manque.
 */
-v('trente-sept magasins journalisés', MAGASINS_JOURNALISES.length, 37);
+v('quarante-et-un magasins journalisés', MAGASINS_JOURNALISES.length, 41);
 v(
-  'et les vingt-quatre d’Odyssée y sont',
+  'et les vingt-huit d’Odyssée y sont',
   MAGASINS_JOURNALISES.filter((m) => m.magasin.startsWith('odyssee')).map((m) => m.magasin),
   [
     'odysseeTaches',
@@ -169,6 +169,11 @@ v(
     'odysseeRapprochements',
     // Qui lit mon budget, depuis la phase 4.
     'odysseeConsommateurs',
+    // Le pointage par vendeur, depuis la phase 3 bis.
+    'odysseeVendeurs',
+    'odysseeReglesPointage',
+    'odysseePointages',
+    'odysseeTaxonomie',
   ],
 );
 /*
@@ -183,7 +188,7 @@ v(
    voyageraient en clair.
 */
 v(
-  'les onze magasins sensibles sont scellés',
+  'les quinze magasins sensibles sont scellés',
   [
     'odysseeMedicaments',
     'odysseeHormonal',
@@ -196,6 +201,10 @@ v(
     'odysseeLignesBudget',
     'odysseeRapprochements',
     'odysseeConsommateurs',
+    'odysseeVendeurs',
+    'odysseeReglesPointage',
+    'odysseePointages',
+    'odysseeTaxonomie',
   ].filter((m) => !estScelle(m)),
   [],
 );

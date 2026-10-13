@@ -126,6 +126,17 @@ export const CHAMP_DATE: Record<string, string | null> = {
   odysseeRapprochements: null,
   // Sept interrupteurs : un état, et un seul enregistrement.
   odysseeConsommateurs: null,
+  /*
+     Le pointage, depuis la phase 3 bis. Des **états**, tous les quatre :
+     un vendeur, une règle, un classement et une taxonomie se remplacent,
+     ils ne s'accumulent pas par date. Élaguer un pointage laisserait une
+     opération conservée sans son classement, c'est-à-dire de retour dans
+     la file des années après avoir été rangée.
+  */
+  odysseeVendeurs: null,
+  odysseeReglesPointage: null,
+  odysseePointages: null,
+  odysseeTaxonomie: null,
   odysseeHebdos: 'semaine',
   odysseeJournal: 'jour',
   /*
@@ -228,6 +239,10 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
       'odysseePassations',
       'odysseeRapprochements',
       'odysseeConsommateurs',
+      'odysseeVendeurs',
+      'odysseeReglesPointage',
+      'odysseePointages',
+      'odysseeTaxonomie',
     ],
   },
   {

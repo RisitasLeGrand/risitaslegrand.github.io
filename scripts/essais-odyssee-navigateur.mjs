@@ -158,7 +158,7 @@ v(
      part d'une base en v14 : il vérifie donc que **tous** les blocs additifs
      ont tourné, et pas seulement celui qui l'intéressait au départ.
   */
-  'les vingt-huit magasins d’Odyssée existent',
+  'les trente-deux magasins d’Odyssée existent',
   apres.magasins.filter((m) => m.startsWith('odyssee')).sort(),
   [
     'odysseeBoissons',
@@ -180,13 +180,17 @@ v(
     'odysseeOperations',
     'odysseePassations',
     'odysseePesees',
+    // Le pointage par vendeur, depuis la phase 3 bis de Finances.
+    'odysseePointages',
     'odysseeQuetes',
     // Le rapprochement, depuis la phase 3 de Finances. Scellé lui aussi.
     'odysseeRapprochements',
+    'odysseeReglesPointage',
     'odysseeRepas',
     'odysseeRevues',
     'odysseeSante',
     'odysseeTaches',
+    'odysseeTaxonomie',
     'odysseeTrajectoires',
     /*
        La veille, depuis sa phase 1. Le journal d'usage n'est pas scellé, et
@@ -198,6 +202,8 @@ v(
     'odysseeVeilleBases',
     'odysseeVeilleReglages',
     'odysseeVeilleSignaux',
+    // « Veille » avant « Vendeurs » : le i passe avant le n.
+    'odysseeVendeurs',
   ],
 );
 /*

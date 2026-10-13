@@ -149,6 +149,30 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
     clairs: ['id', 'majLe'],
   },
   {
+    magasin: 'odysseeVendeurs',
+    pourquoi:
+      'Finances : la liste des commerçants de quelqu’un dit où il va, ce qu’il soigne, ce à quoi il adhère et ce qu’il donne. Elle en apprend plus que presque tout le reste de cette base.',
+    clairs: ['id', 'majLe'],
+  },
+  {
+    magasin: 'odysseeReglesPointage',
+    pourquoi:
+      'Finances : une règle porte le nom d’un vendeur et le type qu’on lui a donné — la même information, sous une autre forme.',
+    clairs: ['id', 'majLe'],
+  },
+  {
+    magasin: 'odysseePointages',
+    pourquoi:
+      'Finances : un pointage relie une opération à un type de vendeur. « Pharmacie, 240 € » est un fait de santé autant qu’un fait de budget.',
+    clairs: ['id', 'operationId', 'majLe'],
+  },
+  {
+    magasin: 'odysseeTaxonomie',
+    pourquoi:
+      'Finances : les catégories qu’on a modifiées disent ce qu’on suit de près, et donc ce qui préoccupe.',
+    clairs: ['id', 'majLe'],
+  },
+  {
     magasin: 'odysseeConsommateurs',
     pourquoi:
       'Finances : savoir que quelqu’un a ouvert son budget à « Demander à l’IA », ou fermé tout le reste, est une information sur lui — de la même nature que savoir qu’il a activé une veille.',
