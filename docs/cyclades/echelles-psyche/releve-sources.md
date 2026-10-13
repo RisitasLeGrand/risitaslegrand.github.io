@@ -702,3 +702,164 @@ réels.
 Aucun fichier de données d'échelle, aucun `NOTICE`, aucun code, aucun test n'a
 été produit. Un seul fichier du dépôt a été touché depuis le début de ce
 chantier : celui-ci.
+
+---
+
+## 10. WHO-5 français — RELEVÉ AUTHENTIFIÉ (13 octobre 2026)
+
+**Premier document authentifié de ce chantier.** Le fichier a été fourni par
+l'utilisateur en pièce jointe, puis empreinté et extrait dans le conteneur.
+
+### 10.1 Chaîne de possession — à lire avant d'utiliser ce relevé
+
+**Je n'ai pas téléchargé ce fichier depuis `cdn.who.int`** : la passerelle refuse
+toujours l'hôte. L'utilisateur l'a téléchargé et joint ; j'ai calculé l'empreinte
+et extrait la couche texte moi-même, sans aucune transcription par un humain ni
+par un modèle. Conséquence exacte : **l'empreinte et le texte ci-dessous sont les
+miens et sont reproductibles ; la correspondance entre ce fichier et ce que
+`cdn.who.int` sert est attestée par l'utilisateur, pas par moi.** C'est une
+garantie incomparablement plus forte qu'un relais de modèle, et ce n'en est pas
+une preuve d'origine. Un contrôle d'origine reste à faire par un `curl` direct le
+jour où l'hôte s'ouvre : l'empreinte ci-dessous suffira à le trancher en une
+commande.
+
+### 10.2 Preuve de fichier
+
+| Champ | Valeur |
+|---|---|
+| URL canonique attendue | `https://cdn.who.int/media/docs/default-source/mental-health/indice-(en-cinq-points)-de-bien--tre-de-l-oms.pdf` |
+| Provenance effective | pièce jointe de l'utilisateur |
+| Code HTTP, en-tête `Date`, `ETag`, `Last-Modified`, `Content-Length` | `NON OBTENU` — aucune requête HTTP n'a été émise par moi |
+| Taille réelle | **183 475 octets** |
+| SHA-256 | **`408801762a1b728ebc01eaf119302539e7fb5503b855d81d603dbe9a43be9fc1`** |
+| En-tête de fichier | `%PDF-1.4` |
+| Pages | 3 |
+| Titre interne | `WHO5__cover` |
+| Auteur interne | `kislay singh` |
+| Créateur | `Canva` |
+| Producteur | `3-Heights(TM) PDF Security Shell 4.8.25.2 (http://www.pdf-tools.com) / pdcat (www.pdf-tools.com)` |
+| Création / modification | 3 octobre 2024, 08:52:58 UTC / 09:22:30 UTC |
+| Format de page | 595,5 × 842,25 pts (A4) |
+| Chiffré | non |
+| Anomalie relevée | `pdfinfo` signale `Syntax Error: Suspects object is wrong type (boolean)` — malformation mineure, sans effet sur l'extraction |
+
+Outil : `pdftotext -layout` (poppler 24.02.0). Couche texte présente, 3 581 octets
+extraits — **ce n'est pas un scan image**, aucune océrisation n'intervient.
+
+### 10.3 Texte français intégral, verbatim
+
+**Le document n'emploie que l'apostrophe typographique `’` (U+2019). Aucune
+apostrophe droite `'` n'y figure** — vérifié par comptage. Toute reprise de ce
+texte doit conserver ce caractère.
+
+Titre : `Indice (en cinq points) de bien-être de l’OMS (1999)`
+
+Consigne, avec ses coupures de ligne d'origine :
+
+```text
+Veuillez indiquer, pour chacune des cinq affirmations, laquelle se rapproche le plus de ce que vous
+avez ressenti au cours des deux dernières semaines. Notez que le chiffre est proportionnel au bien-
+être.
+Exemple : si vous vous êtes senti(e) bien et de bonne humeur plus de la moitié du temps au cours
+des deux dernières semaines, cochez la case 3.
+```
+
+Période de rappel, telle qu'elle figure en tête de tableau : `Au cours des deux dernières semaines`
+
+Items :
+
+```text
+1. Je me suis senti(e) bien et de bonne humeur
+2. Je me suis senti(e) calme et tranquille
+3. Je me suis senti(e) plein(e) d’énergie et vigoureux(se)
+4. Je me suis réveillé(e) en me sentant frais(che) et dispos(e)
+5. Ma vie quotidienne a été remplie de choses intéressantes
+```
+
+Options de réponse et valeurs, dans l'ordre des colonnes du tableau :
+
+| Libellé | Valeur |
+|---|---|
+| `Tout le Temps` | 5 |
+| `La plupart du temps` | 4 |
+| `Plus de la moitié du temps` | 3 |
+| `Moins de la moitié du temps` | 2 |
+| `De temps en temps` | 1 |
+| `Jamais` | 0 |
+
+La majuscule de `Tout le Temps` est bien celle du document. Chacun des cinq items
+porte la même rangée de valeurs `5 4 3 2 1 0`.
+
+Règle de calcul, sous le titre `Calcul des points :` :
+
+```text
+Pour calculer votre score, ajoutez les chiffres correspondant aux cases que vous avez cochées et
+multipliez la somme par quatre.
+Vous obtiendrez alors un score compris entre 0 et 100. Un score élevé signifie un meilleur bien-être.
+```
+
+**Aucun seuil d'interprétation ne figure dans ce document.**
+
+### 10.4 Mentions de droits, verbatim
+
+En-tête du document, page 1 :
+
+```text
+The World Health Organization-Five Well-Being Index
+(WHO-5)
+French translation
+The WHO-5 was developed during the 1990s by the late Per Bech of the Psychiatric Centre North Zealand
+(Copenhagen, Denmark), which hosted a WHO Collaborating Centre for Mental Health. The WHO-5 was derived
+from other scales and studies by the WHO Regional Office in Europe [1][2]. It has been translated, tested and used
+in a wide range of languages and settings across the globe [3].
+
+In 2024 the Psychiatric Centre North Zealand and WHO agreed to assign copyright in the WHO-5 to WHO, thereby
+creating the opportunity to publish and disseminate the tool as a WHO open access product.
+
+ The translation displayed on the next page was completed before WHO accepted copyright of the English version
+in 2024. The translation was published on the website of the Psychiatric Centre North Zealand (Copenhagen,
+Denmark). WHO is not responsible for the content or accuracy of this translation. In the event of any inconsistency
+between the English and the translated version, the English version shall be the binding and authentic version.
+                  Psychiatric Research Unit
+                  WHO Collaborating Centre in Mental Health
+```
+
+Pied de la page de l'échelle :
+
+```text
+© Psychiatric Research Unit, WHO Collaborating Center for Mental Health, Frederiksborg General Hospital, DK-3400 Hillerød
+```
+
+**Point juridique, et il corrige un raccourci de la section 9.3 :** ce document
+**ne porte aucune mention de licence Creative Commons**. Il porte un `©` de la
+*Psychiatric Research Unit*, alors même que son préambule annonce la cession du
+copyright à l'OMS en 2024 — les deux coexistent dans le fichier. Le
+CC BY-NC-SA 3.0 IGO relevé en section 7.4 vient de la **page de politique
+générale** de l'OMS, pas de ce PDF, et rien ici n'établit qu'il s'y applique.
+Noter aussi que l'OMS décline la responsabilité de l'exactitude de la traduction
+française et déclare la **version anglaise seule contraignante et authentique** :
+c'est un élément à peser pour une application qui restituerait des scores.
+
+### 10.5 Confrontation aux textes sous quarantaine
+
+| Point | Verdict |
+|---|---|
+| **Les cinq items** | **Exacts dans le relevé n°2 (section 7.4), mot pour mot.** |
+| Règle de score | Exacte, au mot près. Le titre `Calcul des points :` manquait. |
+| Options et valeurs | Exactes, `Tout le Temps` majuscule comprise. |
+| « vousavez » (n°2) | **Artefact confirmé.** Le document porte `que vous` / retour à la ligne / `avez ressenti`. |
+| « bienêtre » (n°2 et n°3) | **Artefact confirmé.** Le document porte `bien-` / retour à la ligne / `être`. |
+| Apostrophes | **Divergence réelle au caractère.** Le document n'emploie que `’` ; les relevés sous quarantaine emploient par endroits `'`. |
+| Omissions des relevés | Titre anglais, ligne `Psychiatric Research Unit / WHO Collaborating Centre in Mental Health`, titre `Calcul des points :`, et la ligne `©`. |
+
+**La rectification de la section 7.2 bis est donc confirmée par la source** : les
+anomalies typographiques étaient bien du bruit de procédé, et non une empreinte
+d'authenticité. Dans le cas du WHO-5, le texte restitué était néanmoins juste —
+ce qui ne le rendait pas vérifiable pour autant, et c'est précisément la
+distinction qui comptait.
+
+### 10.6 Reste à obtenir
+
+PHQ-9 et GAD-7 français, la variante Canada du PHQ-9 pour départager les deux
+textes contradictoires de la section 8.1, et la page de sélection de
+`phqscreeners.com` pour la liste réelle des variantes et son énoncé de licence.
