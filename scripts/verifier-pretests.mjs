@@ -27,22 +27,31 @@ import { motDeLEpreuve } from './lib/pretest.mjs';
 /**
  * Le filtre se contrôle avant de contrôler les fiches.
  *
- * Il a crié à tort une fois : un **jury citoyen** — instance de participation
- * tirée au sort, et sujet d'une fiche de cas pratique — tombait sous le mot
- * « jury », réservé au jury du concours. La question a été reformulée pour
- * contourner le filtre, ce qui est le signe qu'un filtre a tort, pas qu'il a
- * bien travaillé.
+ * Il a crié à tort deux fois pendant la rédaction : un **jury citoyen** —
+ * instance de participation tirée au sort — sous le mot « jury », puis un
+ * **devoir de vigilance** sous le mot « devoir ». Dans les deux cas la
+ * question a été reformulée pour le contourner, ce qui est le symptôme à ne
+ * pas laisser passer : un filtre qu'on contourne ne protège plus rien, il
+ * déforme seulement ce qu'on écrit.
  *
- * Ces six cas tiennent les deux bords : l'exception passe, et un mot interdit
- * qui réapparaît ailleurs dans la même phrase tombe quand même.
+ * Ces treize cas tiennent les deux bords — le sens de fond passe, le sens du
+ * concours tombe, et un mot interdit qui réapparaît ailleurs dans la même
+ * phrase tombe quand même.
  */
 const CAS_DU_FILTRE = [
-  ['Pourquoi tirer au sort les membres d’un jury citoyen ?', null],
-  ['Un jury populaire peut-il être consulté ?', null],
-  ['Que recherche le jury du concours ?', 'jury'],
-  ['Le jury citoyen rend-il une copie au jury ?', 'copie'],
-  ['Quelle est la durée de l’épreuve ?', 'epreuve'],
+  ['Que recouvre le devoir de vigilance des multinationales ?', null],
+  ['Qu’est-ce que le devoir d’ingérence ?', null],
+  ['Qu’est-ce qu’un chapitre budgétaire ?', null],
+  ['Que mesure le coefficient de Gini ?', null],
+  ['Qu’est-ce qu’une copie conforme ?', null],
+  ['Pourquoi tirer au sort un jury citoyen ?', null],
   ['Qu’est-ce que la décentralisation ?', null],
+  ['Quel est le sujet du devoir 1 ?', 'sujet du devoir'],
+  ['Quel est le coefficient de cette épreuve ?', 'epreuve'],
+  ['Combien de chapitres compte le fascicule ?', 'fascicule'],
+  ['Que recherche le jury du concours ?', 'jury'],
+  ['Le jury citoyen est-il choisi par le jury ?', 'jury'],
+  ['Comment est noté le corrigé ?', 'corrige'],
 ];
 
 for (const [question, attendu] of CAS_DU_FILTRE) {
