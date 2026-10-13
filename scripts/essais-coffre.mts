@@ -105,7 +105,13 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    plus bas. Ils ont été retirés, puis sont revenus avec la phase 1 — cette
    fois avec leurs magasins.
 */
-v('dix-neuf magasins scellés', MAGASINS_SCELLES.length, 19);
+/*
+   Vingt-quatre depuis la phase 1 de Santé (D-024), dix-neuf avant elle. Ce
+   nombre écrit en dur est l'office de cet essai : un magasin scellé qu'on
+   ajoute doit se déclarer ici, et un magasin qui **disparaîtrait** du
+   registre — c'est-à-dire qui cesserait d'être chiffré — se verrait aussi.
+*/
+v('vingt-quatre magasins scellés', MAGASINS_SCELLES.length, 24);
 vrai('les passations d’échelles en sont', estScelle('odysseePassations'));
 vrai('la ligne de base de la veille en est', estScelle('odysseeVeilleBases'));
 vrai('les repères aussi', estScelle('odysseeVeilleSignaux'));

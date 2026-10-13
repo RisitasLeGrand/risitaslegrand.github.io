@@ -48,6 +48,16 @@ export interface Prise {
   jour: string;
   le: string;
   nom: string;
+  /**
+   * Le traitement déclaré auquel cette prise se rattache, s'il y en a un.
+   *
+   * Facultatif, et ajouté sans reprise des prises déjà saisies (phase 1 de
+   * Santé, D-024) : un champ absent se lit « pas rattachée », ce qui est la
+   * vérité pour toute prise antérieure aux traitements. Réécrire ces lignes
+   * pour les rattacher à des traitements inexistants aurait été une
+   * migration destructive sans contrepartie.
+   */
+  traitementId?: string | null;
   /** Libre : « 500 mg », « 2 bouffées », « une cuillère ». */
   dose: string;
   voie: VoieDAdministration;

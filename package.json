@@ -131,7 +131,9 @@
     "essais:veille:navigateur": "node scripts/essais-veille-navigateur.mjs",
     "essais:releve": "tsx scripts/essais-releve.mts",
     "essais:finances:navigateur": "node scripts/essais-finances-navigateur.mjs",
-    "essais:psyche:navigateur": "node scripts/essais-psyche-navigateur.mjs"
+    "essais:psyche:navigateur": "node scripts/essais-psyche-navigateur.mjs",
+    "essais:sante": "tsx scripts/essais-sante.mts",
+    "essais:sante:navigateur": "node scripts/essais-sante-navigateur.mjs"
   },
   "repository": {
     "type": "git",

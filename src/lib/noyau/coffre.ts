@@ -190,6 +190,46 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
       'Statut hormonal et substances : une période déclarative dont la lecture par un tiers peut coûter très cher.',
     clairs: ['id', 'debut', 'majLe'],
   },
+  /*
+     Santé, phase 1 (D-024). Les cinq magasins sont scellés dès leur création,
+     comme l'ont été les médicaments et la psyché : une donnée de santé écrite
+     en clair ne se rattrape pas, puisqu'elle resterait en clair dans les
+     instantanés de migration déjà pris.
+
+     Les champs laissés clairs sont les seuls que les index demandent. La
+     fuite qu'ils portent est celle que la décision 3 nomme et accepte :
+     qu'on ait écrit quelque chose ce jour-là se voit ; ce qu'on a écrit, non.
+  */
+  {
+    magasin: 'odysseeTraitements',
+    pourquoi:
+      'Santé : le nom d’un traitement, sa posologie et son prescripteur disent une pathologie, une transition ou une pratique. C’est la donnée la plus coûteuse à perdre du domaine.',
+    clairs: ['id', 'debut', 'majLe'],
+  },
+  {
+    magasin: 'odysseePrelevements',
+    pourquoi:
+      'Santé : la date d’un bilan, son laboratoire et son contexte — « à jeun », « 3 h après la prise » — dessinent un suivi médical.',
+    clairs: ['id', 'jour', 'majLe'],
+  },
+  {
+    magasin: 'odysseeResultats',
+    pourquoi:
+      'Santé : un analyte et sa valeur sont un résultat d’examen. Lu par un tiers, c’est un dossier médical.',
+    clairs: ['id', 'prelevementId', 'majLe'],
+  },
+  {
+    magasin: 'odysseeSymptomes',
+    pourquoi:
+      'Santé : ce que la personne ressent et à quelle intensité, écrit dans ses mots.',
+    clairs: ['id', 'jour', 'majLe'],
+  },
+  {
+    magasin: 'odysseeConditions',
+    pourquoi:
+      'Santé : une condition déclarée dure, et sa seule lecture suffit à situer quelqu’un.',
+    clairs: ['id', 'debut', 'majLe'],
+  },
 ];
 
 const PAR_MAGASIN = new Map(MAGASINS_SCELLES.map((m) => [m.magasin, m]));

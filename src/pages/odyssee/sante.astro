@@ -1,0 +1,450 @@
+---
+/**
+ * Odyssée : santé et traitements.
+ *
+ * Phase 1 du prompt 25, livrée sous la ligne `D-024` de l'audit : **la forme,
+ * sans les valeurs**. On y déclare ce qu'on prend, ce qu'on a fait doser, ce
+ * qu'on ressent et ce qui dure. Rien n'y est évalué.
+ *
+ * ## Pourquoi un écran distinct de « Mon corps »
+ *
+ * Les deux ont des rythmes d'usage opposés, et c'est la décision 3.1 du plan.
+ * Le corps se note tous les jours en dix secondes — une pesée, un verre
+ * d'eau. La santé s'ouvre par épisodes : un bilan tous les trois mois, une
+ * déclaration de traitement. Les réunir ferait un écran long où le geste
+ * quotidien se noie.
+ *
+ * Même domaine `corps`, en revanche : les faits y sont déjà déclarés, les
+ * permissions écrites, et Sport lit « corps ». Conséquence voulue — **le
+ * coffre ne verrouille pas le quotidien** : peser et noter un repas reste
+ * possible coffre fermé, et le mot de passe n'est demandé qu'ici.
+ *
+ * ## Ce que cet écran ne fera jamais
+ *
+ * Pas de posologie proposée, pas de rappel d'oubli, pas de courbe de
+ * concentration — « une courbe projetée à partir des doses déclarées **est**
+ * un outil de planification de dose, quel que soit l'avertissement qui
+ * l'accompagne » (décision 3.2). Le seul calcul affiché est le **délai depuis
+ * la dernière prise**, qui est une soustraction entre deux instants saisis.
+ */
+import Base from '../../layouts/Base.astro';
+import { POURQUOI_CATALOGUE_VIDE } from '../../lib/odyssee/sante';
+---
+
+<Base titre="Santé et traitements" actif="sante">
+  <div class="mx-auto max-w-3xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Santé et traitements</h1>
+    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+      Ce que vous prenez, ce que vous faites doser, ce que vous ressentez. Tout est chiffré dans
+      la base : illisible sans le mot de passe, y compris pour une extension de navigateur ou
+      quelqu’un qui ouvre cet ordinateur.
+    </p>
+    <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+      <strong>Enregistrement seul.</strong> Aucune dose proposée, aucun rappel d’oubli, aucune
+      vérification d’interaction, aucune courbe projetée. Cet écran range ce que vous écrivez et
+      vous le rend ; il ne donne aucun avis.
+    </p>
+
+    <!-- ── Avant activation ──────────────────────────────────────────── -->
+    <section id="pas-active" class="mt-6 hidden rounded-2xl border-2 border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-900">
+      <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Cet espace est fermé</h2>
+      <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+        Il ne s’ouvre que si vous le demandez, et il reste fermé sur vos autres appareils tant que
+        vous ne les ouvrez pas aussi : l’activation ne se synchronise pas.
+      </p>
+      <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+        Ce qu’il permettrait : déclarer un traitement et sa période, marquer les prises, enregistrer
+        un prélèvement et ses résultats avec l’intervalle de votre laboratoire, noter un symptôme,
+        inscrire une condition qui dure.
+      </p>
+      <button id="activer" type="button"
+        class="cible-tactile mt-4 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white dark:bg-slate-200 dark:text-slate-900"
+        >Ouvrir l’espace Santé</button>
+    </section>
+
+    <!-- ── Coffre fermé ──────────────────────────────────────────────── -->
+    <section id="coffre-ferme" class="mt-6 hidden rounded-2xl border-2 border-slate-300 bg-slate-50 p-5 dark:border-slate-700 dark:bg-slate-900">
+      <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Le coffre est fermé</h2>
+      <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+        Ces données sont chiffrées à part. Le mot de passe est redemandé à chaque nouvel onglet,
+        et la clé ne quitte pas cet appareil.
+      </p>
+      <label class="mt-3 block text-sm">
+        <span class="block text-slate-700 dark:text-slate-200">Mot de passe</span>
+        <input id="mdp-coffre" type="password" autocomplete="current-password"
+          class="cible-tactile mt-1 w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+      </label>
+      <button id="ouvrir-coffre" type="button"
+        class="cible-tactile mt-3 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white dark:bg-slate-200 dark:text-slate-900"
+        >Ouvrir</button>
+      <p id="erreur-coffre" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+    </section>
+
+    <!-- ── L'écran ───────────────────────────────────────────────────── -->
+    <div id="coffre-ouvert" class="hidden space-y-8">
+      <p id="erreur" class="hidden rounded-xl bg-rose-50 px-4 py-3 text-sm text-rose-800 dark:bg-rose-950/40 dark:text-rose-200"></p>
+
+      <!--
+        Le bandeau du catalogue vide. Il n'est pas une excuse : c'est le
+        contenu de la phase. Une fiche de molécule porte une demi-vie, une
+        maturité clinique et un statut antidopage, et aucune de ces valeurs
+        n'entrera sans source. Tant qu'il n'y en a pas, le catalogue est vide
+        et le dit — plutôt que d'afficher des chiffres d'allure savante.
+      -->
+      <section class="rounded-2xl border border-amber-300 bg-amber-50/70 p-4 dark:border-amber-800 dark:bg-amber-950/30">
+        <h2 class="text-sm font-bold tracking-wide text-amber-900 uppercase dark:text-amber-200">
+          Valeurs non sourcées
+        </h2>
+        <p id="bandeau-catalogue" class="mt-2 text-sm text-amber-900 dark:text-amber-100"></p>
+      </section>
+
+      <!-- Traitements -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Mes traitements</h2>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Le nom tel que vous l’écrivez, la période, et la posologie <strong>en toutes lettres</strong>.
+          Un nombre appellerait un calcul, le calcul une comparaison, et la comparaison serait un
+          avis que cet écran n’a pas à rendre.
+        </p>
+        <form id="form-traitement" class="mt-3 grid gap-2 sm:grid-cols-2">
+          <input id="t-nom" type="text" placeholder="Nom" required
+            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          <input id="t-debut" type="date" required
+            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          <input id="t-posologie" type="text" placeholder="Posologie — « 1 comprimé le matin »"
+            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm sm:col-span-2 dark:border-slate-700 dark:bg-slate-950" />
+          <select id="t-origine"
+            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+            <option value="moi">De ma propre initiative</option>
+            <option value="prescrit">Prescrit</option>
+          </select>
+          <input id="t-prescripteur" type="text" placeholder="Prescripteur (facultatif)"
+            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          <button type="submit"
+            class="cible-tactile rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white sm:col-span-2"
+            >Déclarer ce traitement</button>
+        </form>
+        <ul id="traitements" class="mt-4 space-y-2"></ul>
+      </section>
+
+      <!-- Prélèvements -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Mes prélèvements</h2>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Notez le <strong>contexte</strong> au moment du prélèvement — « à jeun », « 3 h après la
+          prise ». Deux bilans pris dans des contextes différents ne se comparent pas, et cela ne
+          se reconstitue pas six mois plus tard.
+        </p>
+        <form id="form-prelevement" class="mt-3 grid gap-2 sm:grid-cols-2">
+          <input id="p-jour" type="date" required
+            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          <input id="p-labo" type="text" placeholder="Laboratoire"
+            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          <input id="p-contexte" type="text" placeholder="Contexte"
+            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm sm:col-span-2 dark:border-slate-700 dark:bg-slate-950" />
+          <button type="submit"
+            class="cible-tactile rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white sm:col-span-2"
+            >Enregistrer ce prélèvement</button>
+        </form>
+        <ul id="prelevements" class="mt-4 space-y-3"></ul>
+      </section>
+
+      <!-- Symptômes -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Mes symptômes</h2>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          L’intensité est <strong>la vôtre</strong>, de 0 à 10. Elle sert à vous relire, jamais à
+          déclencher quoi que ce soit.
+        </p>
+        <form id="form-symptome" class="mt-3 grid gap-2 sm:grid-cols-3">
+          <input id="s-jour" type="date" required
+            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          <input id="s-intitule" type="text" placeholder="Ce que vous ressentez" required
+            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          <input id="s-intensite" type="number" min="0" max="10" step="1" value="5"
+            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          <button type="submit"
+            class="cible-tactile rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white sm:col-span-3"
+            >Noter ce symptôme</button>
+        </form>
+        <ul id="symptomes" class="mt-4 space-y-2"></ul>
+      </section>
+
+      <!-- Conditions -->
+      <section>
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Ce qui dure</h2>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Une condition que <strong>vous</strong> déclarez. Ce n’est pas un diagnostic posé par
+          Cyclades : c’est une ligne de contexte que vous écrivez pour vous.
+        </p>
+        <form id="form-condition" class="mt-3 grid gap-2 sm:grid-cols-2">
+          <input id="c-intitule" type="text" placeholder="Intitulé" required
+            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          <input id="c-debut" type="date" required
+            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          <button type="submit"
+            class="cible-tactile rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white sm:col-span-2"
+            >Inscrire</button>
+        </form>
+        <ul id="conditions" class="mt-4 space-y-2"></ul>
+      </section>
+    </div>
+  </div>
+</Base>
+
+<script define:vars={{ POURQUOI_CATALOGUE_VIDE }}>
+  window.__pourquoiCatalogueVide = POURQUOI_CATALOGUE_VIDE;
+</script>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { jourLogique } from '../../lib/noyau/jour-logique';
+  import { coffreOuvert, ouvrirLeCoffre, reprendreLeCoffre, surCoffre } from '../../lib/coffre';
+  import { heuresDepuisLaDernierePrise, situerDansLIntervalle } from '../../lib/odyssee/sante';
+  import { toutesLesPrises } from '../../lib/odyssee/donnees-sensible';
+  import {
+    activerLaSante,
+    ecrireCondition,
+    ecrirePrelevement,
+    ecrireSymptome,
+    ecrireTraitement,
+    santeActive,
+    supprimerCondition,
+    supprimerPrelevement,
+    supprimerSymptome,
+    supprimerTraitement,
+    toutesLesConditions,
+    tousLesPrelevements,
+    tousLesResultats,
+    tousLesSymptomes,
+    tousLesTraitements,
+  } from '../../lib/odyssee/donnees-sante';
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const dire = (e: unknown) => {
+    const z = $('erreur');
+    z.textContent = e instanceof Error ? e.message : String(e);
+    z.classList.remove('hidden');
+  };
+
+  const AUJOURDHUI = jourLogique(new Date());
+
+  function ligne(texte: string, detail: string, retirer: () => Promise<void>): HTMLLIElement {
+    const li = document.createElement('li');
+    li.className =
+      'flex flex-wrap items-baseline justify-between gap-2 rounded-xl border border-slate-200 p-3 dark:border-slate-800';
+    const gauche = document.createElement('div');
+    const titre = document.createElement('p');
+    titre.className = 'font-medium text-slate-900 dark:text-white';
+    titre.textContent = texte;
+    const sous = document.createElement('p');
+    sous.className = 'mt-0.5 text-xs text-slate-500 dark:text-slate-400';
+    sous.textContent = detail;
+    gauche.append(titre, sous);
+    const bouton = document.createElement('button');
+    bouton.type = 'button';
+    bouton.className =
+      'cible-tactile rounded-lg border border-slate-300 px-3 text-xs dark:border-slate-700';
+    bouton.textContent = 'Retirer';
+    bouton.addEventListener('click', () => void retirer().then(peindre).catch(dire));
+    li.append(gauche, bouton);
+    return li;
+  }
+
+  async function peindre() {
+    $('erreur').classList.add('hidden');
+    $('bandeau-catalogue').textContent = (window as unknown as {
+      __pourquoiCatalogueVide: string;
+    }).__pourquoiCatalogueVide;
+
+    const [traitements, prelevements, resultats, symptomes, conditions, prises] = await Promise.all(
+      [
+        tousLesTraitements(),
+        tousLesPrelevements(),
+        tousLesResultats(),
+        tousLesSymptomes(),
+        toutesLesConditions(),
+        toutesLesPrises(),
+      ],
+    );
+
+    const zoneT = $('traitements');
+    zoneT.replaceChildren();
+    for (const t of [...traitements].sort((a, b) => b.debut.localeCompare(a.debut))) {
+      const heures = heuresDepuisLaDernierePrise(prises, t.id, new Date().toISOString());
+      /*
+         « Aucune prise enregistrée » et « il y a 3 h » sont deux informations
+         différentes, et « 0 h » dirait la seconde à la place de la première.
+      */
+      const depuis =
+        heures === null
+          ? 'aucune prise enregistrée'
+          : `dernière prise il y a ${Math.round(heures)} h`;
+      const periode = t.fin ? `du ${t.debut} au ${t.fin}` : `depuis le ${t.debut}`;
+      zoneT.appendChild(
+        ligne(
+          t.nom,
+          [periode, t.posologie, depuis].filter(Boolean).join(' · '),
+          () => supprimerTraitement(t.id),
+        ),
+      );
+    }
+
+    const zoneP = $('prelevements');
+    zoneP.replaceChildren();
+    for (const p of [...prelevements].sort((a, b) => b.jour.localeCompare(a.jour))) {
+      const li = ligne(
+        `Prélèvement du ${p.jour}`,
+        [p.laboratoire, p.contexte].filter(Boolean).join(' · ') || 'sans précision',
+        () => supprimerPrelevement(p.id).then(() => undefined),
+      );
+      const siens = resultats.filter((r) => r.prelevementId === p.id);
+      if (siens.length) {
+        const liste = document.createElement('ul');
+        liste.className = 'mt-2 w-full space-y-0.5 text-xs text-slate-600 dark:text-slate-300';
+        for (const r of siens) {
+          const place = situerDansLIntervalle(r);
+          const ou =
+            place === null
+              ? 'intervalle du laboratoire non renseigné'
+              : place === 'dans'
+                ? 'dans l’intervalle du laboratoire'
+                : `${place} l’intervalle du laboratoire`;
+          const el = document.createElement('li');
+          el.textContent = `${r.analyte} : ${r.valeur} ${r.unite} — ${ou}`;
+          liste.appendChild(el);
+        }
+        li.appendChild(liste);
+      }
+      zoneP.appendChild(li);
+    }
+
+    const zoneS = $('symptomes');
+    zoneS.replaceChildren();
+    for (const s of [...symptomes].sort((a, b) => b.jour.localeCompare(a.jour))) {
+      zoneS.appendChild(
+        ligne(s.intitule, `${s.jour} · intensité déclarée ${s.intensite}/10`, () =>
+          supprimerSymptome(s.id),
+        ),
+      );
+    }
+
+    const zoneC = $('conditions');
+    zoneC.replaceChildren();
+    for (const c of [...conditions].sort((a, b) => b.debut.localeCompare(a.debut))) {
+      zoneC.appendChild(
+        ligne(c.intitule, c.fin ? `du ${c.debut} au ${c.fin}` : `depuis le ${c.debut}`, () =>
+          supprimerCondition(c.id),
+        ),
+      );
+    }
+  }
+
+  async function montrerCeQuiConvient() {
+    const active = await santeActive();
+    $('pas-active').classList.toggle('hidden', active);
+    if (!active) {
+      $('coffre-ferme').classList.add('hidden');
+      $('coffre-ouvert').classList.add('hidden');
+      return;
+    }
+    await reprendreLeCoffre();
+    const ouvert = coffreOuvert();
+    $('coffre-ferme').classList.toggle('hidden', ouvert);
+    $('coffre-ouvert').classList.toggle('hidden', !ouvert);
+    if (ouvert) await peindre();
+  }
+
+  const valeur = (id: string) => ($(id) as HTMLInputElement | HTMLSelectElement).value;
+
+  auDeverrouillage(
+    async () => {
+      ($('t-debut') as HTMLInputElement).value = AUJOURDHUI;
+      ($('p-jour') as HTMLInputElement).value = AUJOURDHUI;
+      ($('s-jour') as HTMLInputElement).value = AUJOURDHUI;
+      ($('c-debut') as HTMLInputElement).value = AUJOURDHUI;
+
+      $('activer').addEventListener('click', () => {
+        void activerLaSante(true).then(montrerCeQuiConvient).catch(dire);
+      });
+
+      $('ouvrir-coffre').addEventListener('click', () => {
+        void (async () => {
+          const mdp = $('mdp-coffre') as HTMLInputElement;
+          const erreur = await ouvrirLeCoffre(mdp.value);
+          $('erreur-coffre').classList.toggle('hidden', erreur === null);
+          if (erreur) {
+            $('erreur-coffre').textContent = erreur;
+            return;
+          }
+          mdp.value = '';
+          await montrerCeQuiConvient();
+        })();
+      });
+
+      $('form-traitement').addEventListener('submit', (e) => {
+        e.preventDefault();
+        void ecrireTraitement(valeur('t-nom'), valeur('t-debut'), {
+          posologie: valeur('t-posologie'),
+          origine: valeur('t-origine') as 'moi' | 'prescrit',
+          prescripteur: valeur('t-prescripteur'),
+        })
+          .then(() => {
+            ($('t-nom') as HTMLInputElement).value = '';
+            ($('t-posologie') as HTMLInputElement).value = '';
+            ($('t-prescripteur') as HTMLInputElement).value = '';
+            return peindre();
+          })
+          .catch(dire);
+      });
+
+      $('form-prelevement').addEventListener('submit', (e) => {
+        e.preventDefault();
+        void ecrirePrelevement(valeur('p-jour'), {
+          le: new Date().toISOString(),
+          laboratoire: valeur('p-labo'),
+          contexte: valeur('p-contexte'),
+        })
+          .then(() => {
+            ($('p-labo') as HTMLInputElement).value = '';
+            ($('p-contexte') as HTMLInputElement).value = '';
+            return peindre();
+          })
+          .catch(dire);
+      });
+
+      $('form-symptome').addEventListener('submit', (e) => {
+        e.preventDefault();
+        void ecrireSymptome(
+          valeur('s-jour'),
+          valeur('s-intitule'),
+          Number(valeur('s-intensite')),
+        )
+          .then(() => {
+            ($('s-intitule') as HTMLInputElement).value = '';
+            return peindre();
+          })
+          .catch(dire);
+      });
+
+      $('form-condition').addEventListener('submit', (e) => {
+        e.preventDefault();
+        void ecrireCondition(valeur('c-intitule'), valeur('c-debut'))
+          .then(() => {
+            ($('c-intitule') as HTMLInputElement).value = '';
+            return peindre();
+          })
+          .catch(dire);
+      });
+
+      /*
+         Refermer le coffre doit refermer l'écran tout de suite, et non à la
+         prochaine navigation : « verrouiller » qui laisse des traitements
+         lisibles à l'écran ne verrouille rien.
+      */
+      surCoffre(() => void montrerCeQuiConvient().catch(dire));
+
+      await montrerCeQuiConvient();
+    },
+  );
+</script>

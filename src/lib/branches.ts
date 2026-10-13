@@ -140,6 +140,15 @@ export const BRANCHES: Branche[] = [
       { id: 'syntheses', libelle: 'Mes synthèses', court: 'Synthèses', chemin: '/syntheses/', icone: '📈' },
     ],
     annexes: [
+      /*
+         Santé est une annexe et non un onglet, et c'est la décision 3.1 du
+         plan appliquée à la barre : le corps se note tous les jours, la santé
+         s'ouvre par épisodes — un bilan par trimestre, une déclaration de
+         traitement. Un treizième onglet se paierait sur les douze autres, pour
+         un écran qu'on ouvre huit fois par an. Le pied de page le nomme, et
+         « Mon corps » y mène.
+      */
+      { id: 'sante', libelle: 'Santé et traitements', court: 'Santé', chemin: '/odyssee/sante/', icone: '🩺' },
       { id: 'rapprocher', libelle: 'Opérations à rapprocher', court: 'À rapprocher', chemin: '/odyssee/rapprocher/', icone: '🔗' },
       { id: 'regles', libelle: 'Mes règles de pointage', court: 'Mes règles', chemin: '/odyssee/mes-regles/', icone: '📏' },
       { id: 'lecteurs-budget', libelle: 'Qui lit mon budget', court: 'Qui lit mon budget', chemin: '/odyssee/qui-lit-mon-budget/', icone: '👁️' },

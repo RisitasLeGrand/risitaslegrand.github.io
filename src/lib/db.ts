@@ -25,6 +25,13 @@ import type { Blessure, Exercice, Phase, Seance as SeanceSport } from './sport/m
 import type { Programme as ProgrammeSport } from './sport/programmes';
 import type { Trajectoire } from './odyssee/trajectoires';
 import type { Prise, StatutHormonal } from './odyssee/sensible';
+import type {
+  ConditionDeclaree,
+  Prelevement,
+  Resultat,
+  Symptome,
+  Traitement,
+} from './odyssee/sante';
 import type { Checkin, CheckinHebdo, Entree } from './odyssee/psyche';
 import type { Session } from './odyssee/usage';
 import type { LigneDeBase } from './odyssee/veille';
@@ -599,6 +606,22 @@ interface SchemaRevinsp extends DBSchema {
   */
   odysseeMedicaments: { key: string; value: Prise; indexes: { jour: string } };
   odysseeHormonal: { key: string; value: StatutHormonal; indexes: { debut: string } };
+  /*
+     Santé, phase 1 (D-024). Scellés dès leur création, comme les deux
+     précédents, et pour la même raison : une donnée de santé écrite en clair
+     reste en clair dans les instantanés de migration déjà pris.
+
+     Les index sont ceux des seules lectures prévues : les traitements d'une
+     période, les prélèvements d'une fenêtre de jours, les résultats d'un
+     prélèvement, les symptômes d'un jour. Les conditions n'en ont pas : elles
+     se comptent sur les doigts d'une main, et un index les coûterait plus
+     qu'il ne les servirait.
+  */
+  odysseeTraitements: { key: string; value: Traitement; indexes: { debut: string } };
+  odysseePrelevements: { key: string; value: Prelevement; indexes: { jour: string } };
+  odysseeResultats: { key: string; value: Resultat; indexes: { prelevementId: string } };
+  odysseeSymptomes: { key: string; value: Symptome; indexes: { jour: string } };
+  odysseeConditions: { key: string; value: ConditionDeclaree; indexes: Record<string, never> };
   odysseeCheckins: { key: string; value: Checkin; indexes: { jour: string } };
   odysseeHebdos: { key: string; value: CheckinHebdo; indexes: { semaine: string } };
   odysseeJournal: { key: string; value: Entree; indexes: { jour: string } };
@@ -706,7 +729,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 28;
+const VERSION = 29;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1366,6 +1389,37 @@ function ouvrirAuSchema(nom: string, version: number) {
           .createObjectStore('odysseePointages', { keyPath: 'id' })
           .createIndex('operationId', 'operationId');
         base.createObjectStore('odysseeTaxonomie', { keyPath: 'id' });
+      }
+      if (vers(29)) {
+        /*
+         * Santé, phase 1 — la **forme** du prompt 25, sous la ligne D-024.
+         *
+         * Cinq magasins neufs, scellés dès leur création. Aucune reprise de
+         * données : `odysseeMedicaments` garde ses prises telles quelles, et
+         * gagne seulement un champ facultatif `traitementId`. C'était le
+         * choix à faire au point d'arrêt A2 — réécrire des prises déjà
+         * saisies pour les rattacher à des traitements qui n'existent pas
+         * encore aurait été une migration destructive sans contrepartie,
+         * alors qu'un champ absent se lit « pas rattachée », ce qui est
+         * exactement la vérité.
+         *
+         * Les valeurs, elles, n'arrivent pas avec la forme : le catalogue de
+         * molécules est vide et le dit. Voir `odyssee/sante.ts`.
+         */
+        base.createObjectStore('odysseeTraitements', { keyPath: 'id' }).createIndex(
+          'debut',
+          'debut',
+        );
+        base.createObjectStore('odysseePrelevements', { keyPath: 'id' }).createIndex(
+          'jour',
+          'jour',
+        );
+        base.createObjectStore('odysseeResultats', { keyPath: 'id' }).createIndex(
+          'prelevementId',
+          'prelevementId',
+        );
+        base.createObjectStore('odysseeSymptomes', { keyPath: 'id' }).createIndex('jour', 'jour');
+        base.createObjectStore('odysseeConditions', { keyPath: 'id' });
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -2223,6 +2277,11 @@ export const MAGASINS_PROGRESSION = [
   'odysseeTrajectoires',
   'odysseeMedicaments',
   'odysseeHormonal',
+  'odysseeTraitements',
+  'odysseePrelevements',
+  'odysseeResultats',
+  'odysseeSymptomes',
+  'odysseeConditions',
   'odysseeCheckins',
   'odysseeHebdos',
   'odysseeJournal',
