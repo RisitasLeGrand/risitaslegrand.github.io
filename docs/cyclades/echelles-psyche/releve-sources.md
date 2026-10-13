@@ -192,16 +192,46 @@ Trois choses, qui valent d'être conservées :
    Canada.pdf`). Le rapport n'en signale aucune autre : ni Belgique, ni Suisse.
    Cette liste est donc **possiblement incomplète** et reste à établir sur la
    page de sélection.
-3. **Des artefacts typographiques qui servent d'empreinte.** Le texte transcrit
-   comporte des anomalies caractéristiques d'une extraction de PDF, non d'une
-   rédaction de mémoire : « vousavez » sans espace, « bienêtre » sans trait
-   d'union, « ont- ils » avec espace interne, et un « géné(e) » dans le GAD-7
-   là où le PHQ-9 porte « gêné(e) ». Cette asymétrie entre deux documents est
-   peu compatible avec une reconstitution unique.
-   **Ces anomalies sont conservées telles quelles ci-dessous, sans correction :
-   elles constituent le moyen de vérification le moins coûteux.** Si les vrais
-   PDF portent les mêmes, le texte est authentifié ; s'ils ne les portent pas,
-   il est à jeter.
+3. **Des anomalies typographiques — dont la valeur de preuve est annulée par
+   l'OCR (voir 7.2 bis).** Le texte comporte « vousavez » sans espace,
+   « bienêtre » sans trait d'union, « ont- ils » avec espace interne, et un
+   « géné(e) » dans le GAD-7 là où le PHQ-9 porte « gêné(e) ». Elles sont
+   conservées ci-dessous sans correction, mais **elles ne prouvent rien quant à
+   la fidélité du texte** : elles sont très probablement produites par le moteur
+   d'OCR, non portées par les documents.
+
+### 7.2 bis — RECTIFICATION : le texte provient d'une extraction OCR
+
+L'utilisateur a précisé après coup que **ces transcriptions sont issues d'une
+extraction OCR**. Deux conséquences, dont la première annule un raisonnement
+écrit plus haut dans ce fichier et poussé le 13 octobre.
+
+**1. L'argument d'empreinte était faux, et il est retiré.** J'avais soutenu que
+les anomalies typographiques signaient une lecture réelle du PDF et que, si les
+vrais fichiers les portaient, le texte serait authentifié. C'est inversé : sous
+OCR, « ê » lu « é », une espace avalée et un trait d'union perdu sont les erreurs
+les plus banales du procédé. Le PDF réel porte donc très probablement
+« gêné(e) » dans le GAD-7 comme dans le PHQ-9, « vous avez » et « bien-être ».
+**L'absence de ces anomalies dans les vrais fichiers ne réfuterait rien, et leur
+présence ne confirmerait rien** : le test que j'avais proposé ne départage pas.
+
+**2. Un texte d'échelle issu d'OCR ne peut pas satisfaire l'exigence du
+mot-à-mot.** L'OCR échoue précisément sur ce qui fait la valeur de ces
+documents : les accents, les suffixes « (e) » et « (s) », les parenthèses, le
+glyphe « ✓ », et les chiffres des tableaux de cotation — donc les valeurs de
+réponse et les seuils de score. Chaque caractère ci-dessous est suspect
+individuellement, y compris dans les mentions de licence.
+
+**3. L'étiquetage du rapport est fautif une seconde fois.** La consigne imposait
+d'étiqueter tout recours à l'OCR par `OCR NON VÉRIFIÉ`. Le rapport a étiqueté
+`[FICHIER] copié du fichier que j'ai effectivement téléchargé`, sans mentionner
+l'OCR. La provenance réelle n'est venue ni du rapport ni de ses étiquettes.
+
+À l'inverse, l'OCR éclaire partiellement la contradiction de la section 7.1 :
+océriser suppose d'avoir obtenu un rendu des pages, ce qui situe le procédé
+au-dessus de l'invention pure. Mais cela reste incompatible avec « Je n'ai pas
+téléchargé ce fichier » et avec un nombre de pages à `NON OBTENU`, que toute
+océrisation fournit.
 
 ### 7.3 Ce qui manque toujours
 
@@ -220,11 +250,13 @@ Trois choses, qui valent d'être conservées :
 
 ### 7.4 TEXTE SOUS QUARANTAINE — ne pas utiliser comme donnée d'échelle
 
-> Tout ce qui suit est **non authentifié**. Aucune empreinte, aucune taille,
-> aucun code HTTP ne l'accompagne, et son étiquette d'origine est contredite par
-> le rapport qui le porte. Il est consigné pour être **recoupé** contre les PDF
-> réels, pas pour être employé. Aucun fichier de données d'échelle ne doit en
-> être tiré avant ce recoupement.
+> **OCR NON VÉRIFIÉ.** Tout ce qui suit provient d'une extraction OCR, sans
+> empreinte, sans taille, sans code HTTP, et sous une étiquette d'origine
+> contredite par le rapport qui la porte (voir 7.1 et 7.2 bis). **Chaque
+> caractère est suspect**, en particulier les accents, les suffixes « (e) », les
+> parenthèses, le glyphe « ✓ » et les chiffres de cotation. Ce texte est consigné
+> pour être **recoupé contre la couche texte des PDF réels**, pas pour être
+> employé, et aucun fichier de données d'échelle n'en sera tiré.
 
 #### WHO-5 — version française (non authentifié)
 
@@ -330,9 +362,10 @@ All PHQ, GAD-7 screeners and translations are downloadable from this website and
 
 #### Attribution portée par les PDF PHQ-9 / GAD-7, en français (non authentifié, transmise séparément)
 
-Les retours à la ligne et les espaces en fin de ligne sont ceux de la source
-transmise, conservés tels quels : ils relèvent du retour à la ligne du PDF et
-font partie de l'empreinte. **Ne pas les normaliser.**
+Les retours à la ligne et les espaces en fin de ligne sont conservés tels quels,
+**non pas parce qu'ils feraient preuve** — l'extraction est océrisée, ils peuvent
+venir du moteur d'OCR autant que de la mise en page — mais parce qu'un relevé ne
+se retouche pas. **Ne pas les normaliser.**
 
 ```text
 Développé par les Dr Robert L. Spitzer, Janet B.W. Williams, Kurt Kroenke et leurs collègues grâce à 
@@ -342,8 +375,9 @@ document sont autorisés.
 
 À recouper : la traduction de *educational grant* en « allocation d’études », et
 la formule « sont autorisés » là où la version anglaise du site porte « no
-permission is required ». Ces deux choix de traduction sont des marqueurs
-vérifiables.
+permission is required ». Ces deux formules sont des choix de traducteur, donc
+plus robustes à l'OCR qu'un accent ou une parenthèse : ce sont les seuls
+marqueurs de cette section qui gardent une valeur indicative.
 
 #### Page de droits de l'OMS (non authentifié, transmise séparément)
 
@@ -419,8 +453,12 @@ For further information, visit https://icd.who.int
 
 ### 7.5 Ce qui reste à faire, par ordre
 
-1. Ouvrir les cinq domaines, puis **recouper** : les anomalies typographiques de
-   la section 7.4 sont le test. Elles doivent se retrouver à l'identique.
+1. Ouvrir les cinq domaines, puis **recouper caractère par caractère contre la
+   couche texte des PDF réels** — `pdftotext -layout`, pas une relecture à
+   l'œil. Le texte de la section 7.4 étant océrisé, les divergences sont
+   attendues et ne tranchent rien par elles-mêmes : seule la couche texte du
+   fichier d'origine fait foi. Si les PDF sont des images sans couche texte, le
+   mot-à-mot exigé est hors d'atteinte par ce chemin et il faudra le dire.
 2. Vérifier en priorité les deux URL en `g10060481/f/201412/`.
 3. Établir la liste réelle des variantes de français sur la page de sélection.
 4. Relever les règles de score du PHQ-9 et du GAD-7, absentes ici.
