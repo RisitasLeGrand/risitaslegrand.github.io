@@ -261,14 +261,18 @@ d'être consigné ici.
 | 5 | `questions-europeennes/fascicule-2` | 14 | 78 |
 | 6 | `questions-europeennes/fascicule-3` | 15 | 63 |
 | 7 | `questions-sociales/fascicule-1` | 17 | 46 |
+| 8 | `questions-sociales/fascicule-2` | 15 | 31 |
 
-Fiches avec prétest, après le lot 7 : **292 sur 347**. **Les questions
-internationales et européennes sont complètes.** Le fascicule 1 de questions
-sociales l'est aussi, à sa fiche de méthode près, qui porte le tag
-`méthodologie` et n'a pas à recevoir de prétest : `npm run verifier:pretests`
-l'affiche donc à `1 / 18`, et c'est le compte attendu. Restent 46 prétests —
-questions sociales 2 (15) et finances publiques (31). **Les questions
-internationales sont complètes** : les 44 prétests de la matière sont écrits.
+Fiches avec prétest, après le lot 8 : **307 sur 347**.
+
+**Trois matières sur quatre sont complètes** : questions internationales (44),
+questions européennes (43), questions sociales (32). Restent les **finances
+publiques (31)**, dernier lot.
+
+Une précision de lecture pour `npm run verifier:pretests` : il affiche encore
+`questions-sociales/fascicule-1 — 1 / 18`. Cette fiche-là est la fiche de
+méthode du fascicule ; son sujet est l'épreuve elle-même, elle porte le tag
+`méthodologie` et le format y interdit le prétest. Le compte est donc juste.
 
 Note de méthode retenue d'un lot à l'autre : un prétest **ouvre la lecture**, il
 ne la résume pas. Les questions portent donc sur les notions que la fiche
