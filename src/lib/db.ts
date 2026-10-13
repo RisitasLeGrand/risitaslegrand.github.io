@@ -626,6 +626,34 @@ interface SchemaRevinsp extends DBSchema {
      dérivé, lui, est scellé.
   */
   odysseeUsage: { key: string; value: Session; indexes: { jour: string } };
+  /**
+   * Les lignes de base de la veille — **déclaré, scellé, et jamais écrit**.
+   *
+   * Ce n'est ni un oubli ni un reste : c'est une conception qui a trouvé plus
+   * simple en cours de route, et le magasin reste pour une raison précise.
+   *
+   * Le magasin existait pour **figer** une ligne de base pendant qu'un signal
+   * est actif : sans figement, la dégradation en cours se fondrait dans la
+   * base à laquelle on la compare, et le signal s'éteindrait tout seul. La
+   * phase 3 a obtenu le même figement **autrement** : `ligneDeBase()` prend
+   * `arreteeAu` en paramètre, et on la recalcule avec la date d'avant le
+   * signal. Une base recalculée à la demande, de façon déterministe, à partir
+   * de mesures qui ne bougent pas, est strictement équivalente à une base
+   * rangée — et elle ne peut pas se désynchroniser de ses mesures, ce qu'une
+   * base rangée ferait au premier rejeu.
+   *
+   * **Pourquoi ne pas le retirer, alors.** Supprimer un magasin d'IndexedDB
+   * est une migration de schéma, qui doit réussir du premier coup sur la
+   * seule installation qui compte, pour un gain nul — le magasin est vide.
+   * Il reste donc déclaré, scellé (`coffre.ts`) et couvert par la rétention
+   * (`sauvegarde/groupes.ts`) : si la veille se remettait un jour à persister
+   * ses bases, elles seraient protégées dès la première écriture plutôt
+   * qu'après qu'on y ait repensé.
+   *
+   * Ce qu'il ne faut pas en conclure : que l'application garde des lignes de
+   * base. Elle n'en garde aucune. C'est précisément ce que ce commentaire
+   * existe pour dire, et ce que son absence laissait croire.
+   */
   odysseeVeilleBases: { key: string; value: LigneDeBase; indexes: Record<string, never> };
   /*
      Le cycle de vie des repères, depuis la phase 3. Scellés : un repère dit

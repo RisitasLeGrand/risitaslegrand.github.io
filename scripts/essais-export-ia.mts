@@ -287,7 +287,18 @@ vrai(
 console.log('\n\x1b[1mLes catégories, et les garde-fous de E.7\x1b[0m');
 
 v('le catalogue des catégories ne porte aucun problème', controlerCategories(), []);
-v('dix catégories sont déclarées', CATEGORIES.length, 10);
+/*
+   Onze depuis le 13 octobre : « analyses » est entrée (D-022, p24 § B.8.5).
+   Le compte est vérifié en dur, et c'est voulu — il a attrapé cette
+   onzième catégorie à la minute où elle est apparue. Une catégorie ajoutée
+   sans qu'on y pense est une donnée qui part sans qu'on y pense.
+*/
+v('onze catégories sont déclarées', CATEGORIES.length, 11);
+v(
+  '« analyses » existe, et elle est décochée par défaut',
+  CATEGORIES.filter((c) => c.id === 'analyses').map((c) => [c.sensible, c.parDefaut]),
+  [[false, false]],
+);
 v(
   'trois sont sensibles',
   CATEGORIES.filter((c) => c.sensible).map((c) => c.id),

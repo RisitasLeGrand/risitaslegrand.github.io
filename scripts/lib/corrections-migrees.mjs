@@ -19,8 +19,20 @@
  * vient de terminer.
  */
 
-/** Matières de cours dont toutes les questions de « ## Quiz » sont corrigées. */
-export const MATIERES_MIGREES = [];
+/**
+ * Matières de cours dont toutes les questions de « ## Quiz » sont corrigées.
+ *
+ * `cas-pratique` y entre le 13 octobre 2026 (D-019). Les deux listes étaient
+ * **vides depuis leur création** : la règle stricte ne s'appliquait nulle
+ * part, et le garde-fou n'avait jamais pris effet — un contrôle qui ne
+ * contrôle rien finit par rassurer, ce qui est pire que son absence.
+ *
+ * Mesure faite avant d'inscrire : 158 questions de cas pratique, **158
+ * corrigées**. Le build ne casse donc pas aujourd'hui, et il cassera le jour
+ * où une question de ce périmètre arrivera sans sa correction. C'est
+ * exactement le but.
+ */
+export const MATIERES_MIGREES = ['cas-pratique'];
 
 /** Rubriques de « QCM - DGFiP » dont toutes les questions sont corrigées. */
 export const RUBRIQUES_MIGREES = [];

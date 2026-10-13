@@ -37,6 +37,7 @@ import {
   estimer,
   fichierUnique,
   manifeste,
+  type AnalysePrecedente,
   type Estimation,
   type FichierExporte,
   type Manifeste,
@@ -226,6 +227,19 @@ export async function construireExport(options: OptionsExport = {}): Promise<Exp
   const { profil, objectifs, interdits } = await lireProfilPourExport(categories);
   const decisions = categories.includes('decisions') ? await lireDecisionsPourExport() : [];
 
+  /*
+     Les analyses précédentes (p24 § B.8.5), décochées par défaut.
+
+     Elles permettent l'analyse en deux temps : une passe par domaine, puis
+     une passe transversale qui relit les premières. On n'emporte **pas** le
+     document d'analyse — il contient des phrases écrites par un modèle, et
+     les recoller reviendrait à souffler ses conclusions au suivant. On
+     emporte les constats et le verdict que **le site** leur a donné après
+     recalcul : ce que nous avons établi de l'analyse, non ce qu'elle
+     affirmait d'elle-même.
+  */
+  const analyses = categories.includes('analyses') ? await lireAnalysesPourExport() : [];
+
   const entrees = {
     synthese: vue,
     comparaisons: comparer(vue, avant),
@@ -233,6 +247,7 @@ export async function construireExport(options: OptionsExport = {}): Promise<Exp
     ...(Object.keys(profil).length ? { profil } : {}),
     ...(Object.keys(objectifs).length ? { objectifs } : {}),
     ...(decisions.length ? { decisions } : {}),
+    ...(analyses.length ? { analyses } : {}),
     vecteur: await vecteurDeVersions(),
     exportId: ulid(),
     genereLe: maintenant.toISOString(),
@@ -293,6 +308,18 @@ export async function empreindre(fichiers: readonly FichierExporte[]): Promise<s
  * c'est tout l'intérêt du contrôle, qui cherche le prénom dans les textes
  * libres, où la personne peut s'être nommée elle-même.
  */
+/** Les analyses conservées, réduites à ce qui se cite. */
+async function lireAnalysesPourExport(): Promise<AnalysePrecedente[]> {
+  const { analysesConservees } = await import('./import-analyse');
+  return (await analysesConservees()).map((a) => ({
+    id: a.id,
+    periode: a.periode,
+    importeeLe: a.importeeLe,
+    etiquette: a.etiquette,
+    constats: a.verifications.map((v) => ({ constat: v.constat, etat: v.etat })),
+  }));
+}
+
 async function lireProfilPourExport(categories: readonly string[]) {
   const { profilLocal } = await import('./profil');
   const champs = await profilLocal();

@@ -146,7 +146,11 @@ export const CHAMP_DATE: Record<string, string | null> = {
      conserver sans raison la donnée la moins protégée de l'application.
   */
   odysseeUsage: 'jour',
-  // Une ligne de base est un état, pas un événement : elle se remplace.
+  /* Une ligne de base est un état, pas un événement : elle se remplace.
+     Le magasin est **vide par conception** — la veille recalcule ses bases à
+     la demande plutôt que de les ranger ; voir « db.ts », déclaration de
+     « odysseeVeilleBases ». La règle reste écrite pour le jour où elle
+     servirait. */
   odysseeVeilleBases: null,
   // Un repère est daté : il s'élague comme le journal qui l'a produit.
   odysseeVeilleSignaux: 'jour',

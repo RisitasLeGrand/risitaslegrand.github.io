@@ -10,6 +10,24 @@
  * résidu d'une publication précédente. Son historique n'a aucune valeur — tout
  * y est régénérable —, d'où le « push --force ».
  *
+ * ## Elle est déjà orpheline, et il faut le dire ici
+ *
+ * L'audit (D-012) proposait de rendre « gh-pages » orpheline et de la
+ * reconstruire sans historique à chaque publication. **C'est déjà ce que fait
+ * ce script**, et depuis toujours : « git init » dans un dossier temporaire,
+ * un seul commit, « push --force ». La branche distante ne porte donc jamais
+ * plus d'une publication, et aucun historique ne s'y accumule.
+ *
+ * Mesuré le 13 octobre 2026 : le dépôt local pèse 1,2 Gio, et « origin/gh-pages »
+ * y compte pour **459 Mio sur 969 fichiers, dont 412 Mio de fiches audio**.
+ * Ce poids ne vient donc pas d'un historique de publication : il vient du fait
+ * que le clone de travail **récupère** la branche de publication, qu'il n'a
+ * aucune raison de lire. Le remède est du côté du clone — un refspec qui
+ * l'exclut —, pas du côté de ce script. Il est au tableau sous D-030.
+ *
+ * Écrit ici parce que la prochaine personne qui mesurera 1,2 Gio reviendra
+ * naturellement à ce fichier, et y chercherait un défaut qui n'y est pas.
+ *
  * DEUX EXCEPTIONS, publiées à côté du build Astro sans jamais l'écraser :
  *
  *

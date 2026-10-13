@@ -109,7 +109,7 @@ await page.waitForSelector('#categories input[type="checkbox"]', { timeout: 4000
   const cases = await page.$$eval('#categories input[type="checkbox"]', (els) =>
     els.map((e) => ({ id: e.dataset.categorie, coche: e.checked })),
   );
-  v('dix catégories sont proposées', cases.length, 10);
+  v('onze catégories sont proposées', cases.length, 11);
   v(
     'trois sont cochées au départ',
     cases.filter((c) => c.coche).map((c) => c.id),
