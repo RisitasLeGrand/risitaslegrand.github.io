@@ -786,3 +786,210 @@ questions sociales une politique et des branches. Et fusionner reviendrait à
 faire disparaître un chapitre de fascicule de l'inventaire, c'est-à-dire à
 rendre invisible ce qui a été lu. Les fiches qui se recoupent se renvoient donc
 l'une à l'autre par leurs tags plutôt que de se confondre.
+
+---
+
+## 9. Le fascicule 5 — rédaction achevée
+
+Les **sept matières du fascicule 5 sont rédigées**. Les 79 chapitres relevés en
+section 8 ont donné **78 fiches** : les deux chapitres d'actualité du droit
+public — « Actualité jurisprudentielle – décembre 2024 » et « Actualité
+législative et réglementaire – janvier 2025 », deux et une pages — ont été
+réunis en une seule fiche, comme le sont déjà les fiches d'actualité des
+fascicules antérieurs lorsque les deux volets couvrent la même période.
+
+| Matière | Chapitres | Fiches écrites | Libellé du fascicule dans le front-matter |
+|---|---|---|---|
+| Cas pratique | 2 | 2 | Fascicule 5 |
+| Droit public | 10 | 9 | Fascicule 5 — Fonction publique, environnement, domanialité publique, régulation |
+| Économie | 10 | 10 | Fascicule 5 — Les politiques publiques face aux enjeux de long terme |
+| Questions sociales | 13 | 13 | Fascicule 5 — Santé et nouveaux enjeux |
+| Questions internationales | 14 | 14 | Fascicule 5 — La politique étrangère de la France |
+| Finances publiques | 15 | 15 | Fascicule 5 — Interactions financières entre l'État et les autres administrations publiques |
+| Questions européennes | 15 | 15 | Fascicule 5 — L'action extérieure de l'Union européenne |
+| **Total** | **79** | **78** | |
+
+### Vue d'ensemble mise à jour
+
+| Matière | F1 | F2 | F3 | F4 | F5 | Total |
+|---|---|---|---|---|---|---|
+| Droit public | 15 | 12 | 10 | 13 | 9 | 59 |
+| Économie | 17 | 18 | 18 | 13 | 10 | 76 |
+| Finances publiques | 13 | 9 | 10 | 12 | 15 | 59 |
+| Questions européennes | 14 | 14 | 15 | 15 | 15 | 73 |
+| Questions internationales | 16 | 13 | 15 | 14 | 14 | 72 |
+| Questions sociales | 18 | 15 | 11 | 17 | 13 | 74 |
+| Cas pratique | 2 | 3 | 4 | 1 | 2 | 12 |
+| **Total** | **95** | **84** | **83** | **85** | **78** | **425** |
+
+**Aucun thème du fascicule 5 ne reste sans fiche**, hormis le corrigé du devoir
+de cas pratique, dont le fichier manque — signalé en section 8 et rappelé plus
+bas. Les **trois thèmes sans fiche** des fascicules 1 à 4 relevés en section 1
+demeurent : ce sont des renvois vers des documents absents de `sources/`, et
+ils ne se résorberont pas par de la rédaction. Le reliquat total est donc de
+**quatre thèmes**, et de **quatre fichiers à fournir**.
+
+### État des vérifications
+
+Les trois vérifications sans mot de passe passent sur l'ensemble du contenu :
+
+- `npm run verifier:pretests` — **425 fiches contrôlées, dont 415 avec prétest**,
+  aucun doublon prétest/quiz, aucun vocabulaire d'épreuve, aucun vivier hors
+  bornes. Les dix fiches sans prétest sont les fiches de méthode, de devoir et
+  de corrigé, qui portent le tag `méthodologie` ;
+- contrôle de schéma (front-matter, flashcards, quiz, découpage des sections) —
+  aucune erreur ;
+- `npm run check-content` — **aucun problème de correction** ; couverture des
+  corrections détaillées inchangée à **146 / 6 759 (2,2 %)**, le fascicule 5
+  ayant mécaniquement augmenté le dénominateur.
+
+La construction n'a **pas** été lancée : elle exige le mot de passe, qui n'est
+écrit nulle part dans le dépôt.
+
+### Fiches audio
+
+`npm run podcasts` a été exécuté : **les 78 fiches du fascicule 5 portent leur
+script `.podcast.md`**, engendré et non écrit à la main. La **synthèse vocale**
+reste à produire par une construction sans `REVINSP_SANS_PODCAST=1`.
+
+### Glossaire
+
+**Trente-huit entrées** ont été ajoutées à `content/glossaire.yml`, qui en
+compte désormais **531**. Elles ont été retenues sur le critère habituel — un
+terme qui revient dans plusieurs fiches et sur lequel un lecteur peut buter —
+et non sur celui de la nouveauté : l'essentiel du vocabulaire du fascicule 5
+était déjà couvert.
+
+Les ajouts portent sur l'action extérieure de l'Union (PESC, PSDC, Haut
+Représentant, SEAE, délégation de l'Union, représentant spécial, autonomie
+stratégique, boussole stratégique, BITDE, Fonds européen de défense, Facilité
+européenne pour la paix, rival systémique, coercition économique, Global
+Gateway, cadre financier pluriannuel, ressources propres, Next Generation EU,
+politique européenne de voisinage, Partenariat oriental, critères de
+Copenhague, accord d'association, accord de partenariat économique,
+Indo-Pacifique, zone économique exclusive, régions ultrapériphériques,
+nation-cadre), sur les finances publiques (Agence France Trésor, spécialiste en
+valeurs du Trésor, obligation assimilable du Trésor, CADES, impôts et taxes
+affectés, imposition minimale mondiale), sur l'économie (théorie du choix
+public, ratio de dépendance démographique), sur la santé (désert médical) et
+sur le droit public (domanialité publique, Charte de l'environnement, principe
+de précaution).
+
+### Corrections détaillées
+
+**Aucun bloc `correction:` détaillé n'a été rédigé pour le fascicule 5.** Chaque
+question de quiz porte en revanche son `explication`, obligatoire et contrôlée.
+Le chantier des corrections détaillées reste donc entier, et le fascicule 5
+l'a agrandi : le dénominateur passe de 6 459 à **6 759** questions.
+
+### Anomalies de source relevées dans le fascicule 5
+
+Chaque anomalie a été **signalée dans la fiche elle-même**, en incise en
+italique, plutôt que corrigée en silence : le fascicule fait foi pour le
+concours, et un candidat qui le relit doit retrouver ce qu'il a lu. Les écarts
+les plus structurants sont les suivants.
+
+**Contradictions internes au fascicule 5** — un même fait daté différemment
+d'un chapitre à l'autre :
+
+| Fait | Datations concurrentes |
+|---|---|
+| Traité de Nice | 2003 (QE ch. 1, QI/QE divers) contre 2000 (QE ch. 3) |
+| Accord global UE-Chine sur les investissements | décembre 2020 (QE ch. 9 et ch. 10) contre décembre 2021 (QE ch. 11) |
+| Stratégie indo-pacifique de l'Union | 2022 (QE ch. 9) contre 2021 (QE ch. 10) |
+| Chine premier partenaire commercial de l'Union | 2002 (QE ch. 9) contre 2020 (QE ch. 11) |
+| Début des négociations UE-Mercosur | 1999 (QE ch. 8, QE ch. 14) contre 2016 (QE ch. 15) |
+| Nombre de représentants spéciaux de l'Union | dix (QE ch. 1) contre treize (QE ch. 15) |
+| Cadre financier pluriannuel « traditionnel » | 1 210 Md€ (FiPu ch. 5) contre 1 214 Md€ (FiPu ch. 8) |
+| Commissaire à la défense | 2024 (QE ch. 3, intro) contre 2025 (QE ch. 3, corps) |
+| Fonds européen de défense | 7,9 Md€ (QE ch. 3) contre 7,8 Md€ (QE ch. 10) |
+| Dépenses des ASSO | 737,5 Md€ puis 735 Md€ (FiPu ch. 10) |
+| Dette sociale fin 2023 | « 264 Md€ fin 2023 » puis « fin 2024 » (FiPu ch. 12) |
+| CRDS | 8,7 Md€ puis 9,5 Md€ (FiPu ch. 9) |
+| BEPS | 2013 (FiPu ch. 7) contre 2012 (FiPu ch. 13) |
+
+**Erreurs de fait apparentes** — restituées telles quelles dans les fiches, avec
+l'écart signalé :
+
+- *Christophe* Soames pour **Christopher** Soames, premier commissaire chargé
+  des Relations extérieures reçu à Pékin (QE ch. 9) ;
+- *Audrey Azouley* pour **Audrey Azoulay** (QE ch. 14) ;
+- *Philippe Moreau-Desfarge* pour **Philippe Moreau Defarges** (QE ch. 13) ;
+- *Charles Michels* pour **Charles Michel** (QE F5, chapitre Afrique) ;
+- entrée de la Russie à l'**OMC** datée de 2005 (adhésion effective en 2012,
+  QE ch. 12) ;
+- élargissement de 2004 présenté comme portant sur **12** pays d'Europe
+  centrale et orientale (dix États, QE ch. 12) ;
+- **Bosnie-Herzégovine, Ukraine et Géorgie** présentées comme entrées dans
+  l'OTAN (QE ch. 13) : elles n'en sont pas membres ; et la Suède y est entrée en
+  2024, non en 2023 ;
+- **OTAN datée de 1948** et siège parisien de l'**OCDE** daté de 1945
+  (QE ch. 13) ;
+- dénonciation de l'accord sur le nucléaire iranien datée de **2016**
+  (intervenue en 2018, QE ch. 13) ;
+- **Alliance pour le multilatéralisme** datée de 2021 (lancée en 2019,
+  QE ch. 13) ;
+- taxe française sur les **billets d'avion** datée de 2002 (instituée en 2005,
+  QE ch. 13) ;
+- chronologie inversée : la reconnaissance américaine au **sommet de Bucarest
+  d'avril 2008** présentée comme résultant du traité de Lisbonne, entré en
+  vigueur en 2009 (QE ch. 13) ;
+- « signature **en 2009** du traité de Lisbonne » (signé en décembre 2007,
+  QE ch. 15) ;
+- l'**OTAN** qualifiée de « simple filiale économique de l'OTAN » — la formule
+  de Vladimir Shemiatenkov vise la Communauté, non l'Alliance (QE ch. 12) ;
+- « règles de l'**OMS** » là où le contexte commercial impose l'**OMC**
+  (QE ch. 10) ;
+- le **Nicaragua** rangé à la fois parmi les soutiens francs de l'Ukraine et
+  parmi les positions prorusses (QE ch. 14) ;
+- *Pour une révolution fiscale* attribué à « Piketty et Saez » et sous-titré
+  « XXème siècle » — l'ouvrage est de Landais, Piketty et Saez, et porte sur le
+  XXIᵉ siècle (FiPu ch. 12) ;
+- adjudication « au prix demandé » qualifiée « à la hollandaise », alors que la
+  terminologie usuelle désigne par là l'adjudication à prix uniforme
+  (FiPu ch. 14) ;
+- titre « AFT et DACES » pour un corps de chapitre qui ne traite que de la
+  **CADES** (FiPu ch. 14) ;
+- CASA datée de 2004 — la contribution instituée en 2004 est la **CSA**
+  (FiPu ch. 9).
+
+**Incohérences arithmétiques** (finances publiques) : « 24 % pour
+l'investissement (734 Md€) » incompatible avec 24 % de 315,6 Md€ ; « + 1,5 %
+pour les APUL » devant se lire APUC ; « 8,1 % du PIB » contredisant « 8,1 % de
+la dette publique » ; fiscalité locale annoncée à 165 Md€ mais détaillée à
+65 + 104 = 169 ; assiette TVA « écrêtée à 50 % du PNB » là où le RNB est
+attendu ; « 100 M€ » pour 100 Md€ de dette non transférée ; déficit 2018 à
+1,2 puis 1,4 Md€ ; cotisations de l'État employeur à 46,2 Md€ puis 59,4 Md€ ;
+phrase du panorama international auto-contradictoire sur le solde de la zone
+euro (− 3,6 puis − 0,8) ; « bénéfices de ménages » pour entreprises.
+
+**Coquilles et passages altérés** : « juillet 220 » pour juillet 2020
+(QE ch. 10) ; « 2 5561 Mds USD » d'investissements directs (QE ch. 2) ; « de
+13 % pour l'Espagne a -34 % pour la France », signe ambigu (QE ch. 2) ;
+« l'UEM la Banque mondiale » pour « l'UE, la Banque mondiale » (QE F5,
+chapitre Afrique) ; « de 6 pays en 1957 à 28 aujourd'hui » dans un chapitre de
+mars 2024, qui ignore le Brexit ; paragraphe Mercosur dupliqué à l'identique
+dans deux sections (QE ch. 8) ; paragraphe CETA non actualisé (« pourrait être
+présenté au Parlement en 2019 ») ; phrase tronquée sur le budget des agences,
+chapitre budget de l'Union (FiPu ch. 5) ; « zone maritime d'intérêt **ans** le
+Nord-Ouest de l'océan Indien » (QE ch. 11) ; « Sidney » pour Sydney
+(QE ch. 11) ; « cycles de formation **demies** » (QE ch. 13) ; « Covid- !9 »
+(QE ch. 13) ; « l'état des droits » pour l'État de droit (QE ch. 14) ; guerre
+d'indépendance américaine datée « 1775-1782 » et « effondrement de l'URSS en
+1989 » (QE ch. 2) ; « art. 8 TFUE » pour la clause de voisinage, qui est à
+l'article 8 TUE ; plan de La Valette daté de février 2016 alors que le sommet
+s'est tenu en novembre 2015 ; confusion FED / FEDD dans le chapitre Afrique ;
+accord avec la Corée du Sud « en vigueur depuis 2006 » (signé en 2010, appliqué
+en 2011) ; « 28 États membres » au Comité de politique commerciale.
+
+**Chiffre douteux, restitué avec réserve** : l'initiative *Scale-Up Europe*
+viserait « dix entreprises technologiques valorisées à plus de **100 M USD** »
+d'ici à 2030 (QE ch. 10) — seuil surprenant pour une ambition de souveraineté
+numérique à dix ans, mais rien dans la source ne permet de trancher.
+
+### Ce qui manque toujours
+
+- **`Corrigé Cas Pratique IA_V2.pdf`**, annexe 3 du devoir n° 2 de cas pratique,
+  et accessoirement `Sujet Cas Pratique.pdf`, son annexe 2 : la fiche du devoir
+  a été écrite sur le sujet, qui est reproduit en entier dans le fascicule ;
+  **le corrigé n'a pas été écrit et ne peut pas l'être** sans ce fichier.
