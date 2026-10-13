@@ -116,6 +116,27 @@ import Base from '../../layouts/Base.astro';
             >Traiter les dix suivants</button>
         </section>
 
+        <!-- ── Fractionner une opération ───────────────────────────────── -->
+        <section id="bloc-fractionnement">
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+            Fractionner une opération
+          </h2>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Un passage au supermarché qui tient de l’alimentation et du bricolage, un achat
+            partagé : une opération peut appartenir à plusieurs catégories. Les parts somment
+            <strong>au centime</strong> à l’opération — un centime orphelin ferait échouer le
+            rapprochement de solde sans dire pourquoi.
+          </p>
+          <label class="mt-3 block text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">
+              Chercher une opération, par libellé ou par montant</span>
+            <input id="chercher-operation" type="search" placeholder="supermarché, 120, 120,00…"
+              class="mt-1 min-h-11 w-full max-w-md rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <p id="fractionnement-combien" class="mt-2 text-xs text-slate-500 dark:text-slate-400"></p>
+          <ul id="fractionnables" class="mt-3 space-y-3"></ul>
+        </section>
+
         <!-- ── Les catégories pointées ─────────────────────────────────── -->
         <section>
           <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
@@ -268,8 +289,10 @@ import Base from '../../layouts/Base.astro';
   import { brouillonPour, regleDepuisLeBrouillon, typesSuggeres } from '../../lib/odyssee/regles-pointage';
   import { vueDesCategories } from '../../lib/odyssee/categories-pointees';
   import {
+    defractionnerLOperation,
     ecrireLaRegle,
     ecrireLesPointages,
+    fractionnerLOperation,
     lireLesModifications,
     nomsMasques,
     noterLeVendeur,
@@ -277,6 +300,18 @@ import Base from '../../layouts/Base.astro';
     tousLesVendeurs,
     toutesLesRegles,
   } from '../../lib/odyssee/donnees-pointage';
+  import {
+    PARTS_MAXIMALES,
+    ajouterUnePart,
+    partsDeDepart,
+    controlerLesParts,
+    mettreLeResteSur,
+    partEnPourcentage,
+    phraseDuReste,
+    repartirEnParts,
+    retirerUnePart,
+  } from '../../lib/odyssee/fractionnement';
+  import type { PartPointee } from '../../lib/odyssee/pointage';
   import {
     annulerLesAutomatiques,
     annulerRapprochement,
@@ -319,6 +354,10 @@ import Base from '../../layouts/Base.astro';
   let inconnusMontres = 10;
   /** Le début du passage en cours : ce que « Annuler » peut défaire. */
   let debutDuPassage = new Date().toISOString();
+  /** La recherche de l'éditeur de parts, et l'opération ouverte dedans. */
+  let rechercheDOperation = '';
+  let operationEnEdition: string | null = null;
+  let partsEnEdition: PartPointee[] = [];
 
   /* ── Les données du tour ───────────────────────────────────────────────── */
 
@@ -945,6 +984,257 @@ import Base from '../../layouts/Base.astro';
     await peindreTout();
   }
 
+  /* ── L'éditeur de parts ────────────────────────────────────────────────── */
+
+  /** Au-delà, on ne cherche plus, on feuillette : la recherche doit mordre. */
+  const OPERATIONS_MONTREES = 12;
+
+  /**
+   * Les opérations qui répondent à la recherche.
+   *
+   * Par libellé **ou** par montant, parce qu'on se souvient de l'un ou de
+   * l'autre, rarement des deux. Le montant est comparé sur sa forme affichée
+   * autant que sur ses chiffres : quelqu'un qui tape « 120 » cherche 120,00 €
+   * et ne pense pas en centimes.
+   */
+  function operationsCherchees(
+    operations: readonly OperationBancaire[],
+    recherche: string,
+  ): OperationBancaire[] {
+    const net = recherche.trim().toLowerCase();
+    if (!net) return [];
+    const chiffres = net.replace(/[^\d,.-]/g, '').replace(',', '.');
+    return operations
+      .filter((o) => {
+        if (o.libelle.toLowerCase().includes(net)) return true;
+        if (!chiffres) return false;
+        const montant = Math.abs(o.centimes / 100).toFixed(2);
+        return montant.startsWith(chiffres) || montant === chiffres;
+      })
+      .sort((a, b) => b.jour.localeCompare(a.jour))
+      .slice(0, OPERATIONS_MONTREES);
+  }
+
+  async function peindreLeFractionnement() {
+    const [operations, pointages] = await Promise.all([
+      toutesLesOperations(), tousLesPointages(),
+    ]);
+    const parOperation = new Map(pointages.map((p) => [p.operationId, p]));
+    const trouvees = operationsCherchees(operations, rechercheDOperation);
+
+    const combien = $('fractionnement-combien');
+    combien.textContent = !rechercheDOperation.trim()
+      ? 'Tapez de quoi reconnaître l’opération : une opération se fractionne une par une.'
+      : trouvees.length
+        ? `${trouvees.length} opération(s) trouvée(s)${trouvees.length === OPERATIONS_MONTREES ? ', les plus récentes' : ''}.`
+        : 'Aucune opération ne correspond.';
+
+    const liste = $('fractionnables');
+    liste.innerHTML = '';
+    for (const o of trouvees) {
+      liste.appendChild(ligneFractionnable(o, parOperation.get(o.id) ?? null));
+    }
+  }
+
+  function ligneFractionnable(
+    o: OperationBancaire,
+    pointage: { typeId: string | null; parts: readonly PartPointee[] } | null,
+  ): HTMLElement {
+    const li = document.createElement('li');
+    li.dataset.fractionnable = o.id;
+    li.className = 'rounded-xl border border-slate-200 p-3 dark:border-slate-800';
+
+    const entete = document.createElement('p');
+    entete.className = 'font-medium tabular-nums text-slate-900 dark:text-white';
+    entete.textContent = `${o.jour}  ${euros(o.centimes)}  ${o.libelle}`;
+    li.appendChild(entete);
+
+    const etat = document.createElement('p');
+    etat.className = 'mt-1 text-xs text-slate-500 dark:text-slate-400';
+    etat.dataset.etatPointage = o.id;
+    etat.textContent = pointage?.parts.length
+      ? `Déjà fractionnée en ${pointage.parts.length} parts : ` +
+        pointage.parts.map((x) => `${typeDe(x.typeId)?.libelle ?? x.typeId} ${euros(x.centimes)}`).join(' · ')
+      : pointage?.typeId
+        ? `Pointée « ${typeDe(pointage.typeId)?.libelle ?? pointage.typeId} », en une seule part.`
+        : 'Pas encore pointée.';
+    li.appendChild(etat);
+
+    if (operationEnEdition === o.id) {
+      li.appendChild(editeurDeParts(o));
+    } else {
+      const gestes = document.createElement('div');
+      gestes.className = 'mt-2 flex flex-wrap gap-2';
+      gestes.appendChild(bouton(
+        pointage?.parts.length ? 'Modifier les parts' : 'Fractionner',
+        'ouvrir-fractionnement',
+        async () => {
+          operationEnEdition = o.id;
+          /*
+             On reprend les parts existantes s'il y en a. Repartir d'un
+             partage égal effacerait sans prévenir une répartition que la
+             personne avait réglée au centime.
+          */
+          partsEnEdition = pointage?.parts.length
+            ? pointage.parts.map((x) => ({ ...x }))
+            : partsDeDepart(o, pointage?.typeId ?? null);
+          await peindreLeFractionnement();
+        },
+      ));
+      if (pointage?.parts.length) {
+        gestes.appendChild(bouton('Défaire le fractionnement', 'defaire-fractionnement', async () => {
+          await defractionnerLOperation(o.id);
+          await peindreTout();
+        }));
+      }
+      li.appendChild(gestes);
+    }
+    return li;
+  }
+
+  /**
+   * L'éditeur lui-même.
+   *
+   * Il se repeint en entier à chaque frappe. C'est inhabituel pour un
+   * formulaire, et c'est voulu ici : le reste à répartir, les pourcentages et
+   * la liste des défauts dépendent tous de l'ensemble des parts, et un rendu
+   * partiel laisserait un chiffre en retard d'une frappe sur les autres —
+   * exactement le genre d'écart qui fait douter de tout l'écran.
+   */
+  function editeurDeParts(o: OperationBancaire): HTMLElement {
+    const bloc = document.createElement('div');
+    bloc.dataset.editeurParts = o.id;
+    bloc.className = 'mt-3 space-y-2 border-t border-slate-200 pt-3 dark:border-slate-800';
+
+    const redessiner = () => {
+      void peindreLeFractionnement();
+    };
+
+    partsEnEdition.forEach((part, index) => {
+      const ligne = document.createElement('div');
+      ligne.dataset.part = String(index);
+      ligne.className = 'flex flex-wrap items-center gap-2';
+
+      const choix = document.createElement('select');
+      choix.dataset.typeDeLaPart = String(index);
+      choix.className =
+        'min-h-11 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950';
+      for (const t of TOUS_LES_TYPES) {
+        const option = document.createElement('option');
+        option.value = t.id;
+        option.textContent = t.libelle;
+        choix.appendChild(option);
+      }
+      choix.value = part.typeId;
+      choix.addEventListener('change', () => {
+        partsEnEdition[index] = { ...part, typeId: choix.value };
+        redessiner();
+      });
+
+      const montant = document.createElement('input');
+      montant.type = 'text';
+      montant.inputMode = 'decimal';
+      montant.dataset.montantDeLaPart = String(index);
+      montant.className =
+        'min-h-11 w-28 rounded-lg border border-slate-300 bg-white px-2 text-right text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950';
+      montant.value = (part.centimes / 100).toFixed(2).replace('.', ',');
+      /*
+         Sur « change » et non sur « input » : relire à chaque frappe
+         transformerait « 1 » en un euro, puis « 12 » en douze, et
+         repeindrait l'écran sous les doigts de la personne.
+      */
+      montant.addEventListener('change', () => {
+        const lu = centimesDe(montant.value);
+        if (lu === null) {
+          dire(new Error(`« ${montant.value} » ne se lit pas comme un montant. Par exemple : -70,00.`));
+          return;
+        }
+        partsEnEdition[index] = { ...partsEnEdition[index], centimes: lu };
+        redessiner();
+      });
+
+      const part100 = partEnPourcentage(part, o);
+      const pourcentage = document.createElement('span');
+      pourcentage.dataset.pourcentage = String(index);
+      pourcentage.className = 'w-14 text-right text-xs tabular-nums text-slate-500 dark:text-slate-400';
+      pourcentage.textContent = part100 === null ? '—' : `${part100.toFixed(0)} %`;
+
+      ligne.append(choix, montant, pourcentage);
+      ligne.appendChild(bouton('Le reste ici', 'poser-le-reste', async () => {
+        partsEnEdition = mettreLeResteSur(o, partsEnEdition, index);
+        await peindreLeFractionnement();
+      }));
+      ligne.appendChild(bouton('Retirer', 'retirer-part', async () => {
+        partsEnEdition = retirerUnePart(partsEnEdition, index);
+        await peindreLeFractionnement();
+      }));
+      bloc.appendChild(ligne);
+    });
+
+    const reste = document.createElement('p');
+    reste.dataset.reste = o.id;
+    reste.className = 'text-sm tabular-nums text-slate-700 dark:text-slate-200';
+    reste.textContent = phraseDuReste(o, partsEnEdition);
+    bloc.appendChild(reste);
+
+    const defauts = controlerLesParts(o, partsEnEdition);
+    const liste = document.createElement('ul');
+    liste.dataset.defautsParts = o.id;
+    liste.className = 'list-disc space-y-1 pl-5 text-sm text-rose-800 dark:text-rose-200';
+    liste.classList.toggle('hidden', defauts.length === 0);
+    for (const d of defauts) {
+      const li = document.createElement('li');
+      li.textContent = d;
+      liste.appendChild(li);
+    }
+    bloc.appendChild(liste);
+
+    const gestes = document.createElement('div');
+    gestes.className = 'flex flex-wrap gap-2';
+    gestes.appendChild(bouton('Ajouter une part', 'ajouter-part', async () => {
+      if (partsEnEdition.length >= PARTS_MAXIMALES) {
+        throw new Error(
+          `${PARTS_MAXIMALES} parts est le maximum : au-delà, ce n’est plus répartir une ` +
+            'opération, c’est ressaisir un ticket.',
+        );
+      }
+      const libre = TOUS_LES_TYPES.find((t) => !partsEnEdition.some((x) => x.typeId === t.id));
+      partsEnEdition = ajouterUnePart(o, partsEnEdition, libre?.id ?? TOUS_LES_TYPES[0].id);
+      await peindreLeFractionnement();
+    }));
+    gestes.appendChild(bouton('Parts égales', 'parts-egales', async () => {
+      /*
+         On garde les types déjà choisis, et l'on ne redistribue que les
+         montants : « parts égales » corrige une répartition, il ne recommence
+         pas le classement.
+      */
+      const egales = repartirEnParts(o, partsEnEdition.length, partsEnEdition[0]?.typeId ?? '');
+      partsEnEdition = egales.map((part, i) => ({
+        typeId: partsEnEdition[i]?.typeId ?? part.typeId,
+        centimes: part.centimes,
+      }));
+      await peindreLeFractionnement();
+    }));
+
+    const valider = bouton('Enregistrer la répartition', 'valider-parts', async () => {
+      await fractionnerLOperation(o, partsEnEdition);
+      operationEnEdition = null;
+      partsEnEdition = [];
+      await peindreTout();
+    });
+    valider.disabled = defauts.length > 0;
+    valider.classList.toggle('opacity-40', defauts.length > 0);
+    gestes.appendChild(valider);
+
+    gestes.appendChild(bouton('Abandonner', 'abandonner-parts', async () => {
+      operationEnEdition = null;
+      partsEnEdition = [];
+      await peindreLeFractionnement();
+    }));
+    bloc.appendChild(gestes);
+    return bloc;
+  }
+
   /* ── Les catégories pointées ───────────────────────────────────────────── */
 
   async function peindreLesCategoriesPointees() {
@@ -1040,6 +1330,7 @@ import Base from '../../layouts/Base.astro';
     await pointerCeQuiPeutLEtre();
     await peindreLaFile();
     await peindreLesInconnus();
+    await peindreLeFractionnement();
     await peindreLesCategoriesPointees();
     await peindreLesComptes();
     await peindreLesEcarts();
@@ -1064,6 +1355,7 @@ import Base from '../../layouts/Base.astro';
     montrer('[data-proposition]', rapprocher);
     montrer('[data-a-classer]', pointer);
     montrer('[data-inconnu]', pointer);
+    $('bloc-fractionnement').classList.toggle('hidden', !pointer);
 
     /*
        Un titre de section ne s'affiche que si le filtre le permet **et**
@@ -1194,6 +1486,21 @@ import Base from '../../layouts/Base.astro';
           appliquerLeFiltre();
         });
       }
+      /*
+         La recherche se déclenche sur « input » et non sur « change » : elle
+         ne fait que filtrer une liste déjà en mémoire, et attendre que le
+         champ perde le focus pour montrer le résultat donnerait l'impression
+         d'un écran qui ne répond pas.
+      */
+      $('chercher-operation').addEventListener('input', (e) => {
+        rechercheDOperation = (e.target as HTMLInputElement).value;
+        /* Changer de recherche ferme l'éditeur : il porte sur une opération
+           qui peut disparaître de la liste sous lui. */
+        operationEnEdition = null;
+        partsEnEdition = [];
+        void peindreLeFractionnement().catch(dire);
+      });
+
       $('dix-suivants').addEventListener('click', () => {
         inconnusMontres += 10;
         void peindreLesInconnus().then(appliquerLeFiltre).catch(dire);

@@ -22,8 +22,11 @@ import {
   controlerPointage,
   jugerLaRegle,
   type AuteurDuPointage,
+  type PartPointee,
   type Pointage,
 } from './pointage';
+import { controlerLesParts } from './fractionnement';
+import type { OperationBancaire } from './finances';
 import type { RegleDePointage, Vendeur } from './vendeurs';
 import {
   CLEF_TAXONOMIE,
@@ -242,6 +245,85 @@ export async function ecrireLesPointages(
   }
   await ecrireEnLot('odysseePointages', ecrits);
   return { ecrits, protegees };
+}
+
+/**
+ * La part qui porte le plus gros montant.
+ *
+ * Elle sert à deux choses : donner au pointage un `typeId` qui veuille dire
+ * quelque chose pour qui ne lit pas les parts, et décider de ce que devient
+ * l'opération si l'on défait le fractionnement. Le départage en cas
+ * d'égalité est l'ordre d'édition — celui dans lequel la personne a saisi
+ * ses parts —, et non l'ordre alphabétique : c'est le seul qui ait un sens
+ * pour elle.
+ */
+export const partPrincipale = (parts: readonly PartPointee[]): PartPointee | null =>
+  parts.reduce<PartPointee | null>(
+    (meilleure, p) =>
+      meilleure === null || Math.abs(p.centimes) > Math.abs(meilleure.centimes) ? p : meilleure,
+    null,
+  );
+
+/**
+ * Répartit une opération entre plusieurs types.
+ *
+ * Le pointage qui en sort est **de moi** : il est donc protégé contre les
+ * règles, le dictionnaire et les réimports, comme tout ce que la personne a
+ * décidé elle-même. C'est voulu — on ne fractionne pas une opération pour
+ * qu'une règle la recolle au prochain import.
+ *
+ * Le contrôle complet, celui qui vérifie que les parts somment à
+ * l'opération, se fait ici parce que c'est le seul endroit où le montant de
+ * l'opération est en main.
+ */
+export async function fractionnerLOperation(
+  operation: OperationBancaire,
+  parts: readonly PartPointee[],
+  vendeurNom: string | null = null,
+): Promise<Pointage> {
+  exiger(controlerLesParts(operation, parts));
+  const principale = partPrincipale(parts);
+  const { ecrits } = await ecrireLesPointages([
+    {
+      operationId: operation.id,
+      statut: 'pointee-par-moi',
+      vendeurNom,
+      typeId: principale?.typeId ?? null,
+      parts: parts.map((p) => ({ ...p })),
+      auteur: 'moi',
+      pourquoi: `Réparti par vous en ${parts.length} parts.`,
+    },
+  ]);
+  if (!ecrits.length) throw new Error('Le fractionnement n’a rien écrit.');
+  return ecrits[0];
+}
+
+/**
+ * Défait un fractionnement : l'opération retourne à un seul type.
+ *
+ * Elle ne retourne pas « à pointer » — ce serait perdre ce que la personne
+ * savait déjà. Elle garde le type de sa part la plus grosse, à moins qu'on
+ * n'en impose un autre.
+ */
+export async function defractionnerLOperation(
+  operationId: string,
+  typeId?: string,
+): Promise<Pointage | null> {
+  const ancien = (await tousLesPointages()).find((p) => p.operationId === operationId);
+  if (!ancien) return null;
+  const retenu = typeId ?? partPrincipale(ancien.parts)?.typeId ?? ancien.typeId;
+  const { ecrits } = await ecrireLesPointages([
+    {
+      operationId,
+      statut: 'pointee-par-moi',
+      vendeurNom: ancien.vendeurNom,
+      typeId: retenu,
+      parts: [],
+      auteur: 'moi',
+      pourquoi: 'Fractionnement défait par vous.',
+    },
+  ]);
+  return ecrits[0] ?? null;
 }
 
 async function nomDeLAppareil(): Promise<string> {

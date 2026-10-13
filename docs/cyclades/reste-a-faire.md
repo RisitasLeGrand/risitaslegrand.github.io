@@ -85,9 +85,12 @@ Le plan, les maquettes et les sept décisions (10 à 16) sont dans
 | **3 bis e** | Catégories pointées, vue prévu / réalisé / écart, file unique filtrable | **livrée** |
 
 Décisions et défauts dans [`finances/phase-3bis.md`](finances/phase-3bis.md).
-Restent, et c'est dit : l'écran de fractionnement, le mode avancé de
-création de règle, le compte rendu d'import de la maquette 8.1, et
-l'affichage du sondage — tous quatre ont leur moteur écrit et éprouvé.
+L'**écran de fractionnement** est livré : recherche par libellé ou par
+montant, éditeur de parts, reste à répartir affiché en permanence, et le
+fractionnement qui se retrouve au centime dans les catégories. Restent, et
+c'est dit : le mode avancé de création de règle, le compte rendu d'import de
+la maquette 8.1, et l'affichage du sondage — tous trois ont leur moteur écrit
+et éprouvé.
 
 Mesure sur le jeu synthétique de 51 libellés : **100 % reconnus, 0 faux
 positif** — avec la réserve, écrite dans le rapport de `npm run

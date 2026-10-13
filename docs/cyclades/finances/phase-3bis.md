@@ -112,14 +112,50 @@ Le rapport l'écrit lui-même, à chaque exécution.
 | `essais:vendeurs` | 93 |
 | `essais:pointage` | 69 |
 | `essais:regles-pointage` | 61 |
-| `essais:rapprocher-ecran` (pointage compris) | 63 |
+| `essais:fractionnement` | 42 |
+| `essais:rapprocher-ecran` (pointage et fractionnement compris) | 81 |
+
+## Le fractionnement, et ce qu'il a appris
+
+`vueDesCategories` répartissait déjà correctement une opération entre
+plusieurs catégories, et les essais le vérifiaient au centime — mais rien ne
+permettait d'en **fabriquer** une. `Pointage.parts` existait, personne ne
+pouvait le remplir. `fractionnement.ts` est la moitié manquante.
+
+**La convention de signe était implicite, et c'est ce qui la rendait
+dangereuse.** Une part porte le signe de son opération : une dépense de
+120 € vaut `-12000`, et ses parts `-7000` et `-5000`. C'est imposé par le
+calcul d'en face, qui ajoute `-part.centimes` à la catégorie. Des parts
+positives sur une dépense sommeraient correctement et la feraient compter en
+recette — l'arithmétique passe, la lecture est fausse, et rien ne le dirait.
+C'est la même famille de défaut que le `abs(part)` de la phase 3, qui lisait
+un remboursement net comme une dépense. Les signes mêlés sont donc refusés, et
+un essai vérifie d'abord qu'ils **somment bien** avant de vérifier qu'ils sont
+refusés quand même.
+
+**Trois contrôles, et deux d'entre eux ne vivent pas où l'on croit.** Un
+`Pointage` porte l'identifiant de son opération, pas son montant : le
+contrôle « les parts somment à l'opération » ne peut pas vivre dans
+`controlerPointage`. Il est donc dans `fractionnement.ts`, appelé par
+l'éditeur et par l'écriture. En échange, les deux qui n'ont besoin de rien
+d'autre que du pointage — pas deux parts sur le même type, pas de signes
+mêlés — ont été **ajoutés** à `controlerPointage`, où ils ferment toutes les
+voies d'écriture et pas seulement celle de l'éditeur.
+
+**L'éditeur s'ouvrait sur un état invalide.** La première version ouvrait sur
+deux parts égales du type courant, c'est-à-dire sur deux parts du même type :
+l'écran accueillait par un reproche quelqu'un qui n'avait encore rien fait.
+La seconde part naît désormais « à identifier » — un état, pas un type, et il
+dit exactement ce qu'il en est.
+
+**Un geste de correction ne doit pas créer une erreur de plus.** Retirer une
+part reverse son montant sur la plus grosse des restantes ; en ajouter une
+alors que tout est réparti lui donne la moitié de la plus grosse plutôt que
+zéro. Sans ces deux reports, corriger une erreur en produirait une seconde,
+et l'écran répondrait à une correction par un reproche.
 
 ## Ce que 3 bis ne fait pas
 
-- **Le fractionnement n'a pas d'écran.** `vueDesCategories` répartit
-  correctement une opération entre plusieurs catégories et les essais le
-  vérifient au centime, mais l'éditeur de parts reste à écrire. Le moteur,
-  lui, est celui de la phase 3 — `diviser()` et `controlerParts()`.
 - **Le mode avancé de création de règle** (modifier le motif, choisir la
   comparaison, viser une ligne de budget, appliquer au passé) existe en
   module — `controlerLeBrouillon`, `apercuSurLePasse` — et pas encore en

@@ -399,6 +399,128 @@ console.log('\nLES CATÉGORIES POINTÉES, ET CE QU’ELLES NE COMPTENT PAS');
     phrase.includes('n’en tient pas compte') || phrase.includes('Tout est pointé'), phrase);
 }
 
+/* ── 7 ter. Fractionner une opération ────────────────────────────────── */
+
+console.log('\nFRACTIONNER UNE OPÉRATION');
+
+{
+  faux('rien n’est proposé tant qu’on n’a pas cherché',
+    (await page.$$('[data-fractionnable]')).length > 0);
+
+  await page.fill('#chercher-operation', 'PETIT MARCHE');
+  await page.waitForFunction(
+    () => document.querySelectorAll('[data-fractionnable]').length > 0, { timeout: 15000 });
+  const trouvees = await page.$$eval('[data-fractionnable]', (e) => e.length);
+  v('les quatre achats au marché sont trouvés', trouvees, 4);
+  vrai('et leur nombre est annoncé',
+    (await page.textContent('#fractionnement-combien')).includes('4 opération'));
+
+  /*
+     Chercher par montant autant que par libellé : on se souvient de l'un ou
+     de l'autre, rarement des deux.
+  */
+  await page.fill('#chercher-operation', '43,90');
+  await page.waitForFunction(
+    () => document.querySelectorAll('[data-fractionnable]').length === 1, { timeout: 15000 });
+  vrai('la recherche par montant trouve la bonne opération',
+    (await page.textContent('[data-fractionnable]')).includes('43,90'));
+}
+
+{
+  const cible = await page.$eval('[data-fractionnable]', (e) => e.dataset.fractionnable);
+  await page.click(`[data-fractionnable="${cible}"] [data-geste="ouvrir-fractionnement"]`);
+  await page.waitForSelector(`[data-editeur-parts="${cible}"]`, { timeout: 15000 });
+
+  v('l’éditeur s’ouvre sur deux parts', (await page.$$('[data-part]')).length, 2);
+  /*
+     Et sur un état **enregistrable**. Ouvrir sur deux parts du même type
+     accueillerait par un reproche quelqu'un qui n'a encore rien fait.
+  */
+  faux('aucun défaut n’est affiché à l’ouverture',
+    await page.locator(`[data-defauts-parts="${cible}"]`).isVisible());
+  vrai('et le reste dit que tout est réparti',
+    (await page.textContent(`[data-reste="${cible}"]`)).includes('Tout est réparti'));
+  faux('le bouton d’enregistrement est actif',
+    await page.isDisabled('[data-geste="valider-parts"]'));
+
+  // On déséquilibre : le reste se dit, et l'enregistrement se ferme.
+  await page.fill('[data-montant-de-la-part="0"]', '-10,00');
+  await page.locator('[data-montant-de-la-part="0"]').blur();
+  await page.waitForFunction(
+    () => document.querySelector('[data-reste]').textContent.includes('Il reste'),
+    { timeout: 15000 });
+  /*
+     L'opération fait 43,90 €, donc 21,95 € par part à l'ouverture. Ramener
+     la première à 10,00 € laisse 11,95 € — et c'est ce chiffre-là que
+     l'écran doit dire, pas « il manque quelque chose ».
+  */
+  vrai('un déséquilibre se dit en euros, et du bon montant',
+    (await page.textContent('[data-reste]')).includes('11,95'),
+    await page.textContent('[data-reste]'));
+  vrai('et l’enregistrement se ferme',
+    await page.isDisabled('[data-geste="valider-parts"]'));
+  vrai('le défaut est écrit, pas seulement signalé',
+    (await page.textContent('[data-defauts-parts]')).includes('répartir'));
+
+  // « Le reste ici » referme l'écart d'un geste.
+  await page.click('[data-part="1"] [data-geste="poser-le-reste"]');
+  await page.waitForFunction(
+    () => document.querySelector('[data-reste]').textContent.includes('Tout est réparti'),
+    { timeout: 15000 });
+  faux('« Le reste ici » rend l’enregistrement possible',
+    await page.isDisabled('[data-geste="valider-parts"]'));
+
+  // Deux parts sur le même type : refusé, et dit.
+  await page.selectOption('[data-type-de-la-part="1"]', 'marche');
+  await page.waitForTimeout(600);
+  vrai('deux parts sur le même type sont refusées',
+    (await page.textContent('[data-defauts-parts]')).includes('additionnez'),
+    await page.textContent('[data-defauts-parts]'));
+  vrai('et l’enregistrement reste fermé',
+    await page.isDisabled('[data-geste="valider-parts"]'));
+
+  // On range la seconde part ailleurs, et on enregistre.
+  await page.selectOption('[data-type-de-la-part="1"]', 'travaux-bricolage');
+  await page.waitForTimeout(600);
+  faux('un type distinct rouvre l’enregistrement',
+    await page.isDisabled('[data-geste="valider-parts"]'));
+  await page.click('[data-geste="valider-parts"]');
+  await page.waitForTimeout(2500);
+}
+
+{
+  /*
+     Le point qui vaut cet essai de bout en bout : le fractionnement doit se
+     retrouver dans les catégories, au centime. Les deux moitiés du
+     dispositif — l'éditeur et « vueDesCategories » — ont leurs essais purs ;
+     ce qu'eux ne disent pas, c'est que les conventions de signe des deux
+     côtés sont les mêmes.
+  */
+  const lignes = await page.$$eval('[data-categorie-pointee]',
+    (e) => e.map((x) => x.dataset.categoriePointee));
+  vrai('le logement apparaît, depuis la part de bricolage',
+    lignes.includes('Logement'), JSON.stringify(lignes));
+
+  await page.fill('#chercher-operation', '43,90');
+  await page.waitForFunction(
+    () => document.querySelectorAll('[data-fractionnable]').length === 1, { timeout: 15000 });
+  const etat = await page.textContent('[data-etat-pointage]');
+  vrai('l’opération est annoncée fractionnée', etat.includes('Déjà fractionnée en 2 parts'), etat);
+  vrai('et les deux parts sont nommées avec leur montant',
+    etat.includes('10,00') && etat.includes('33,90'), etat);
+
+  // Et l'on peut défaire.
+  await page.click('[data-geste="defaire-fractionnement"]');
+  await page.waitForTimeout(2500);
+  await page.fill('#chercher-operation', '43,90');
+  await page.waitForFunction(
+    () => document.querySelectorAll('[data-fractionnable]').length === 1, { timeout: 15000 });
+  const apres = await page.textContent('[data-etat-pointage]');
+  faux('défaire le fractionnement le retire', apres.includes('Déjà fractionnée'));
+  vrai('et l’opération reste pointée, pas renvoyée à zéro',
+    apres.includes('Pointée'), apres);
+}
+
 /* ── 7 bis. L'export ICS des échéances ───────────────────────────────── */
 
 console.log('\nL’EXPORT ICS NE SORT QUE CE QU’IL FAUT');

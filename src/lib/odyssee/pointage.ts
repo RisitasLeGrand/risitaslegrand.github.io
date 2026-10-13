@@ -317,6 +317,25 @@ export function controlerPointage(p: Pointage): string[] {
   if (p.parts.some((x) => x.centimes === 0)) {
     problemes.push('Une part de zéro n’est pas une part.');
   }
+  /*
+     Deux contrôles que `fractionnement.ts` exerce aussi pendant l'édition,
+     et qui sont répétés ici parce qu'ils n'ont besoin de rien d'autre que du
+     pointage : ils ferment donc **toutes** les voies d'écriture, pas
+     seulement celle de l'éditeur. Le troisième — les parts somment à
+     l'opération — ne peut pas vivre ici : un pointage porte l'identifiant de
+     son opération, pas son montant.
+  */
+  const typesDesParts = p.parts.map((x) => x.typeId);
+  if (new Set(typesDesParts).size !== typesDesParts.length) {
+    problemes.push('Deux parts sur le même type : elles n’en font qu’une, et doivent être additionnées.');
+  }
+  const signes = new Set(p.parts.filter((x) => x.centimes !== 0).map((x) => (x.centimes < 0 ? -1 : 1)));
+  if (signes.size > 1) {
+    problemes.push(
+      'Des parts de signes contraires : une partie de l’opération compterait en dépense et ' +
+        'l’autre en recette, ce qu’aucune ligne de relevé ne fait.',
+    );
+  }
   const type = p.typeId ? typeDe(p.typeId) : undefined;
   if (p.statut === 'pointee-auto' && type?.jamaisAuto) {
     problemes.push(

@@ -118,6 +118,7 @@
     "essais:dossier-releves": "tsx scripts/essais-dossier-releves.mts",
     "essais:consommateurs:ecran": "node scripts/essais-consommateurs-ecran.mjs",
     "essais:regles-pointage": "tsx scripts/essais-regles-pointage.mts",
+    "essais:fractionnement": "tsx scripts/essais-fractionnement.mts",
     "essais:pointage": "tsx scripts/essais-pointage.mts",
     "essais:vendeurs": "tsx scripts/essais-vendeurs.mts",
     "mesurer:reconnaissance": "tsx scripts/mesurer-reconnaissance.mts",
