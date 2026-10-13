@@ -9,7 +9,9 @@
  *   2. un questionnaire incomplet n'a **pas** de score, et surtout pas un
  *      score partiel, qui serait plus bas donc plus rassurant ;
  *   3. aucun palier n'apparaît sans sa provenance, ni traduit en français ;
- *   4. le WHO-5 n'a pas de palier, et le contrôle refuse qu'on lui en mette.
+ *   4. le WHO-5 n'a pas de palier, et le contrôle refuse qu'on lui en mette ;
+ *   5. une étiquette de palier qui n'est pas celle du manuel est marquée comme
+ *      telle, pour que l'interface ne l'attribue pas à la source.
  */
 import {
   ECHELLES,
@@ -132,7 +134,13 @@ egal('3.9 un nombre de réponses différent du nombre d’items ne donne rien',
   egal('4.2 score 5 → Mild, à la borne exacte', score(5), 'Mild');
   egal('4.3 score 9 → Mild encore', score(9), 'Mild');
   egal('4.4 score 10 → Moderate', score(10), 'Moderate');
-  egal('4.5 score 15 → Moderately severe', score(15), 'Moderately severe');
+  /*
+     La casse est celle de la table 4 du manuel, qui écrit « Moderately
+     Severe » sur deux lignes. La phrase en prose du manuel écrit la même
+     chose en minuscules ; comme le module cite la table, c'est la casse de
+     la table qui fait foi. Le relevé portait la minuscule : corrigé.
+  */
+  egal('4.5 score 15 → Moderately Severe, casse de la table 4', score(15), 'Moderately Severe');
   egal('4.6 score 20 → Severe', score(20), 'Severe');
   egal('4.7 score 27 → Severe', score(27), 'Severe');
   verifier('4.8 le palier d’un score nul existe', palier(0) === 'None-minimal');
@@ -153,6 +161,57 @@ egal('3.9 un nombre de réponses différent du nombre d’items ne donne rien',
 
 egal('4.13 le WHO-5 n’a aucun palier', WHO5.paliers.length, 0);
 egal('4.14 et un score complet n’en produit pas', noter(WHO5, [2, 2, 2, 2, 2]).palier, null);
+
+/* ── 4 bis. L'étiquette que le manuel ne donne pas ────────────────────── */
+
+{
+  /*
+     Le manuel nomme les trois tranches qui suivent ses points de coupure ;
+     il ne nomme pas celle d'en dessous. L'interface annonçait pourtant « la
+     tranche que le manuel nomme » pour les neuf tranches des deux échelles :
+     juste huit fois, faux une fois, et invisible au milieu des huit autres.
+
+     D'où le drapeau `deduit`, et ces essais : une étiquette de Cyclades ne
+     doit jamais pouvoir se faire passer pour une citation.
+  */
+  const basse = GAD7.paliers.find((p) => p.de === 0)!;
+  verifier('4.15 la tranche basse du GAD-7 est marquée déduite', basse.deduit === true);
+  egal('4.16 son étiquette reste inchangée', basse.etiquette, 'Below cutpoint');
+
+  const citees = [
+    ...PHQ9.paliers,
+    ...GAD7.paliers.filter((p) => p.de !== 0),
+  ];
+  verifier(
+    '4.17 toutes les autres tranches sont des citations, non des déductions',
+    citees.every((p) => !p.deduit),
+    `déduites à tort : ${citees.filter((p) => p.deduit).map((p) => p.etiquette).join(', ')}`,
+  );
+
+  verifier(
+    '4.18 l’origine du GAD-7 dit que l’étiquette basse est déduite',
+    /déduit/i.test(GAD7.origineDesPaliers ?? ''),
+  );
+
+  // Et le contrôle attrape une déduction qu'on aurait oublié d'annoncer.
+  const truque: Echelle = {
+    ...GAD7,
+    origineDesPaliers: 'Points de coupure du manuel, établis sur la version anglaise.',
+  };
+  const trouves = controlerEchelles([truque]);
+  verifier(
+    '4.19 une étiquette déduite sans mention est refusée',
+    trouves.some((m) => /déduite\(s\)/.test(m)),
+    `obtenu : ${JSON.stringify(trouves)}`,
+  );
+
+  // À l'inverse, une tranche citée n'a pas besoin de cette mention.
+  egal(
+    '4.20 le PHQ-9, dont aucune tranche n’est déduite, passe sans cette mention',
+    controlerEchelles([PHQ9]),
+    [],
+  );
+}
 
 /* ── 5. Le vocabulaire de Psyché reste tenu ───────────────────────────── */
 

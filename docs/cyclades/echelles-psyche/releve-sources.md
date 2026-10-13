@@ -601,11 +601,17 @@ Les cinq hôtes étaient encore refusés au dernier contrôle, le 13 octobre 202
 
 ---
 
-## 9. Remontée au développeur central
+## 9. Remontée au développeur central — PÉRIMÉE, voir la section 16
 
-**État : phase 1 bloquée. Zéro texte d'échelle authentifié. Aucune échelle
-intégrable en l'état.** Une seule action débloque la suite, et elle n'est pas
-dans le code.
+> ⚠️ **CETTE SECTION EST DÉPASSÉE. Ne pas la transmettre.** Elle a été écrite
+> alors qu'aucun texte n'était authentifié ; ce n'est plus le cas depuis les
+> sections 10 à 15. **La remontée à jour est la section 16.** Celle-ci est
+> conservée pour l'historique, et parce que son constat de blocage réseau reste
+> exact.
+
+**État au moment de sa rédaction : phase 1 bloquée. Zéro texte d'échelle
+authentifié. Aucune échelle intégrable en l'état.** Une seule action débloque la
+suite, et elle n'est pas dans le code.
 
 ### 9.1 Le blocage, et le geste qui le lève
 
@@ -1418,3 +1424,185 @@ partie d'un relevé ne dit rien de la fiabilité du reste.
 **Le mot-à-mot demandé est obtenu et empreinté pour les trois échelles.** Restent
 deux lacunes documentées — la liste des variantes et le contrôle d'origine — et
 une décision qui n'est pas de mon ressort, celle de la section 14.5.
+
+---
+
+## 15. Confrontation des documents authentifiés entre eux (13 octobre 2026)
+
+Trois constats issus de la seule comparaison des pièces des sections 10, 12 et
+14. Aucune source nouvelle, aucune interprétation : ce sont des faits de texte.
+
+### 15.1 Les catégories de réponse françaises ne traduisent pas littéralement l'ancrage anglais
+
+Le manuel énonce les catégories anglaises sur lesquelles reposent les seuils
+(section 14.2) ; les PDF français portent les leurs. Mises en regard :
+
+| Valeur | Anglais (manuel, ancrage des seuils) | Français « France » (PHQ-9 et GAD-7) | Écart |
+|---|---|---|---|
+| 0 | `not at all` | `Jamais` | **« jamais » ≠ « pas du tout »** |
+| 1 | `several days` | `Plusieurs jours` | concordant |
+| 2 | `more than half the days` | `Plus de la moitié du temps` | **« du temps » ≠ « des jours »** |
+| 3 | `nearly every day` | `Presque tous les jours` | concordant |
+
+**Deux niveaux sur quatre s'écartent du sens de l'ancrage anglais** : le niveau 0
+passe d'une absence de gêne à une absence d'occurrence, et le niveau 2 d'un
+décompte de jours à une proportion de temps.
+
+Ce constat et celui de la section 14.5 se renforcent : les seuils sont validés
+sur l'anglais, la traduction française n'est pas psychométriquement validée, et
+son jeu de réponses diverge du jeu anglais sur la moitié de ses niveaux. **Cela
+ne disqualifie pas le questionnaire français** — il est publié comme tel par
+l'éditeur, et le manuel qualifie les traductions MAPI de linguistiquement
+valides. Cela borne ce qu'on peut en dire : le score français n'est pas
+démontré équivalent au score anglais, et c'est à prendre en compte dans ce que
+l'application affiche.
+
+### 15.2 Piège d'implémentation : un même libellé, deux valeurs
+
+| Libellé | WHO-5 | PHQ-9 / GAD-7 |
+|---|---|---|
+| `Plus de la moitié du temps` | **3** | **2** |
+| `Jamais` | **0** | **0** |
+
+`Plus de la moitié du temps` est **le même texte avec deux valeurs différentes**
+selon l'échelle. Toute table d'options indexée sur le libellé, et non sur le
+couple (échelle, libellé), produira un score faux pour l'une des deux. Que
+`Jamais` vaille 0 des deux côtés est une coïncidence et non une règle : elle ne
+doit pas servir de garantie.
+
+### 15.3 Les trois échelles n'ont ni la même granularité ni le même sens
+
+| | WHO-5 | PHQ-9 | GAD-7 |
+|---|---|---|---|
+| Niveaux | **6** (`5 4 3 2 1 0`) | 4 (`0 1 2 3`) | 4 (`0 1 2 3`) |
+| Items | 5 | 9 | 7 |
+| Score brut | 0 à 25 | 0 à 27 | 0 à 21 |
+| Transformation | **× 4 → 0 à 100** | aucune | aucune |
+| Sens de la montée | **score élevé = meilleur bien-être** | score élevé = symptômes plus sévères | score élevé = symptômes plus sévères |
+| Paliers au document | **aucun** | aucun (voir manuel, 14.3) | aucun (voir manuel, 14.2) |
+| Item non coté | — | **la question fonctionnelle** (14.6) | — |
+
+**Le sens de la montée s'inverse entre le WHO-5 et les deux autres.** Une
+présentation uniforme des trois scores — même code couleur, même sens de jauge —
+inverserait la lecture d'une des trois. C'est le second piège, et il est plus
+facile à commettre que le premier parce qu'il ne produit aucune erreur de calcul.
+
+### 15.4 Portée de cette section
+
+Ces trois constats sont des observations de texte sur des fichiers empreintés ;
+ils n'engagent aucun choix de mise en œuvre, qui relève du développeur central.
+Ils sont consignés ici parce qu'ils ne se voient qu'en lisant les six documents
+ensemble, et qu'ils disparaîtraient d'un relevé document par document.
+
+---
+
+## 16. Remontée au développeur central — à jour au 13 octobre 2026
+
+**Remplace la section 9, qui disait l'inverse et ne doit plus être transmise.**
+
+### 16.1 État : le relevé est fait
+
+**Le mot-à-mot des trois échelles est obtenu, empreinté et vérifiable.** Six
+fichiers relevés, chacun avec sa taille, son SHA-256, ses métadonnées internes et
+sa couche texte extraite — aucune océrisation, aucune transcription humaine ou
+par modèle.
+
+| Fichier | Octets | SHA-256 (début) | Section |
+|---|---|---|---|
+| WHO-5 français | 183 475 | `408801762a1b…` | 10 |
+| PHQ-9 « French for France » | 42 110 | `b9529947a01d…` | 12 |
+| GAD-7 « French for France » | 121 061 | `3622a0e265cb…` | 12 |
+| Instruction Manual | 134 493 | `6ed2f00f97e4…` | 14 |
+| Page de sélection (impression) | 78 043 | `de2a666072b4…` | 11 |
+| Bibliographie | 175 450 | `614ded70a7a4…` | 14 |
+
+Ce qui est établi : textes intégraux, consignes, périodes de rappel, items,
+options avec leurs valeurs, règles de calcul, seuils, et toutes les mentions de
+droits.
+
+### 16.2 Droits : domaine public pour le PHQ-9 et le GAD-7
+
+Le manuel, dont l'auteur interne est Kurt Kroenke, porte : *« All of the measures
+included in Table 1 are in the public domain. No permission is required to
+reproduce, translate, display or distribute. »* **Il n'y a pas de licence à
+respecter**, seulement une attribution à faire par correction (texte exact en
+section 12.5).
+
+Pour le WHO-5 : le PDF ne porte **aucune mention Creative Commons**, mais un `©`
+de la *Psychiatric Research Unit*, quand son préambule annonce la cession du
+copyright à l'OMS en 2024. Le CC BY-NC-SA 3.0 IGO vient de la page de politique
+générale de l'OMS, **pas du document**, et rien ne l'y rattache. C'est le seul
+point de droit qui demande encore un avis — et il porte sur le WHO-5 seul.
+
+### 16.3 Les trois choses à savoir avant d'écrire une ligne
+
+**1. Les seuils sont validés sur l'anglais, pas sur le français.** Le manuel le
+dit : *« few of the translations have been psychometrically validated »*. Et le
+jeu de réponses français s'écarte de l'ancrage anglais sur deux niveaux sur
+quatre (section 15.1). Afficher un palier de sévérité calculé sur le français en
+le présentant comme validé irait au-delà de la source. **C'est la décision à
+prendre** : score brut sans palier, ou paliers avec mention explicite de leur
+origine anglaise.
+
+**2. Un même libellé a deux valeurs selon l'échelle.** `Plus de la moitié du
+temps` vaut **3** dans le WHO-5 et **2** dans le PHQ-9 et le GAD-7. Toute table
+d'options indexée sur le libellé seul produira un score faux. Indexer sur le
+couple (échelle, libellé).
+
+**3. Le sens de la montée s'inverse.** Score WHO-5 élevé = meilleur bien-être ;
+score PHQ-9 ou GAD-7 élevé = symptômes plus sévères. Une jauge ou un code couleur
+uniforme pour les trois inverserait la lecture de l'une d'elles — sans produire
+aucune erreur de calcul, donc sans rien signaler.
+
+À quoi s'ajoutent deux faits d'implémentation authentifiés : **la question
+fonctionnelle du PHQ-9 n'entre pas dans le score**, et **l'item 9 du PHQ-9
+appelle une précaution explicite** — une réponse positive demande un entretien
+clinique, pas un verdict automatique (textes en section 14.6).
+
+Et deux détails de caractère qui comptent pour des chaînes comparées : les trois
+documents n'emploient que l'apostrophe **`’` (U+2019)**, et la coche est
+**`✔` (U+2714)**, pas `✓`.
+
+### 16.4 Ce qui reste ouvert, et son poids
+
+| Point | Poids |
+|---|---|
+| Décision de la section 16.3 n°1 sur l'affichage des paliers | **bloquant pour l'intégration** |
+| Liste complète des variantes de français | mineur — derrière un sélecteur interactif ; France et Canada attestés identiques |
+| Contrôle d'origine par `curl` des six fichiers | mineur — script et empreintes prêts en section 13.4 |
+| Rattachement du WHO-5 à une licence explicite | à arbitrer, WHO-5 seul |
+| Accès réseau du conteneur aux cinq hôtes | **non résolu** — voir 16.5 |
+
+### 16.5 L'accès réseau n'est toujours pas rétabli
+
+Les cinq hôtes sont refusés à chaque contrôle depuis le 13 octobre 00:37 UTC,
+dernier essai à 21:01 UTC. **La règle réseau modifiée n'a pas pris effet**, et
+l'hypothèse de la session à rouvrir est écartée : un conteneur né à 05:04 refusait
+toujours à 05:25. Deux causes restent, et elles ne sont pas diagnosticables depuis
+le conteneur — deux environnements homonymes `Default`
+(`env_0198bLo9y2XVzvhccU7sPF7k`, où tourne cette session, et
+`env_01MkgfRhWLuDKtacdpzyT4HY`), ou un niveau d'accès qui n'applique pas la liste.
+**Recommandation : créer un environnement neuf, nommé distinctement**, plutôt que
+d'arbitrer entre deux homonymes. Cela servira aussi aux onze hôtes refusés que
+relève `docs/cyclades/acces-sources.md`.
+
+Le relevé a pu se faire sans cet accès, par pièces jointes. Mais toute
+vérification d'origine en dépend.
+
+### 16.6 Réserve de méthode
+
+La chaîne de possession est la suivante : **l'utilisateur a téléchargé les
+fichiers et les a joints ; j'ai calculé les empreintes et extrait le texte.** Les
+empreintes et les textes sont les miens et reproductibles ; la correspondance
+entre ces fichiers et ce que servent `cdn.who.int` et `phqscreeners.com` est
+attestée par l'utilisateur. Le `curl` de la section 13.4 la prouvera en une
+commande.
+
+Et une réserve sur la lecture du reste du dossier : **trois raisonnements que j'y
+ai écrits ont été retirés** — l'argument des anomalies typographiques comme
+preuve d'authenticité (rectifié en 7.2 bis), le crédit donné à une URL de forme
+crédible (retiré en 8.2 puis tranché en 13.1), et la qualification d'« inventés »
+portée sur des seuils qui étaient authentiques (rectifié en 14.7). Les sections
+concernées portent la rectification plutôt que l'effacement. Deux fois j'avais
+pris une apparence de spécificité pour une preuve, et une fois j'avais conclu trop
+vite d'une absence.
