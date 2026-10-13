@@ -25,6 +25,39 @@ import { quizSchema } from './lib/schema.mjs';
 import { motDeLEpreuve } from './lib/pretest.mjs';
 
 /**
+ * Le filtre se contrôle avant de contrôler les fiches.
+ *
+ * Il a crié à tort une fois : un **jury citoyen** — instance de participation
+ * tirée au sort, et sujet d'une fiche de cas pratique — tombait sous le mot
+ * « jury », réservé au jury du concours. La question a été reformulée pour
+ * contourner le filtre, ce qui est le signe qu'un filtre a tort, pas qu'il a
+ * bien travaillé.
+ *
+ * Ces six cas tiennent les deux bords : l'exception passe, et un mot interdit
+ * qui réapparaît ailleurs dans la même phrase tombe quand même.
+ */
+const CAS_DU_FILTRE = [
+  ['Pourquoi tirer au sort les membres d’un jury citoyen ?', null],
+  ['Un jury populaire peut-il être consulté ?', null],
+  ['Que recherche le jury du concours ?', 'jury'],
+  ['Le jury citoyen rend-il une copie au jury ?', 'copie'],
+  ['Quelle est la durée de l’épreuve ?', 'epreuve'],
+  ['Qu’est-ce que la décentralisation ?', null],
+];
+
+for (const [question, attendu] of CAS_DU_FILTRE) {
+  const obtenu = motDeLEpreuve(question);
+  if (obtenu !== attendu) {
+    console.error(
+      `\x1b[31m✖ Le filtre du vocabulaire est cassé.\x1b[0m\n` +
+        `  « ${question} » → ${JSON.stringify(obtenu)}, attendu ${JSON.stringify(attendu)}.\n` +
+        '  Aucune fiche n’a été contrôlée : un filtre faux vaut moins que pas de filtre.',
+    );
+    process.exit(1);
+  }
+}
+
+/**
  * Même lecture que le build, en plus court : on n'a pas besoin de collecter les
  * erreurs pour les afficher à la fin, on les dit tout de suite.
  */
