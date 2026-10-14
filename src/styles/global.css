@@ -418,3 +418,20 @@ dfn.terme-glossaire:focus-visible {
 .groupe-onglets {
   position: relative;
 }
+
+/* Rendu différé des très longues listes.
+
+   Le glossaire fait cinq cent trente et un termes et quatre-vingt-dix mille
+   pixels. Sans cela le navigateur met en page les cinq cent trente et un, dont
+   les cinq cent vingt-cinq que personne ne regarde. « content-visibility »
+   laisse le navigateur sauter la mise en page d'une section tant qu'elle
+   n'approche pas de l'écran ; la taille annoncée par « contain-intrinsic-size »
+   (posée par le script, section par section) tient la place en attendant, puis
+   est remplacée par la vraie dès le premier rendu.
+
+   La recherche du navigateur (Ctrl+F) et les sauts d'ancre continuent de
+   fonctionner : le contenu sauté reste dans le document, il n'est pas mis en
+   page, c'est tout. */
+.differe {
+  content-visibility: auto;
+}

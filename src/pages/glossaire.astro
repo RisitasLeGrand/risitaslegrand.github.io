@@ -12,11 +12,48 @@ import Base from '../layouts/Base.astro';
     id="filtre-glossaire" aria-label="Filtrer les termes du glossaire"
     type="search"
     placeholder="Filtrer les termes…"
-    class="mb-5 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:focus:ring-indigo-900"
+    class="mb-3 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:focus:ring-indigo-900"
   />
 
   <div id="chargement" class="py-20 text-center text-slate-400">Déchiffrement du glossaire…</div>
-  <div id="lettres" class="mb-4 hidden flex-wrap gap-1"></div>
+
+  {/*
+     L'index alphabétique est **collant**.
+
+     Cinq cent trente et un termes font quatre-vingt-dix mille pixels de haut
+     sur un téléphone. L'index existait déjà, mais en haut de page seulement :
+     une fois le saut fait, changer de lettre voulait dire remonter les
+     quatre-vingt-dix mille pixels. Collé sous l'en-tête, il reste à portée.
+
+     Sur téléphone, les vingt-deux lettres tiennent sur une ligne qui défile
+     horizontalement plutôt que sur trois lignes empilées, qui mangeraient un
+     sixième de l'écran en permanence. La lettre courante s'y recentre toute
+     seule pendant qu'on fait défiler la page : sans cela, une bande d'une
+     ligne n'aurait montré que « A B C D E F G H » du début à la fin.
+
+     Le bouton « Haut » est hors de la bande qui défile — sinon il recouvrirait
+     le A au repos.
+  */}
+  <div
+    id="barre-index"
+    class="sticky z-30 -mx-4 mb-4 hidden items-center gap-2 border-b border-slate-200 bg-white/95 px-4 py-1.5 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95"
+  >
+    <div
+      id="lettres"
+      aria-label="Index alphabétique"
+      class="flex min-w-0 flex-1 gap-1 overflow-x-auto sm:flex-wrap sm:overflow-x-visible"
+    >
+    </div>
+    <button
+      id="haut-de-page"
+      type="button"
+      title="Revenir en haut de la page"
+      class="cible-tactile-pleine shrink-0 gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+    >
+      <span aria-hidden="true">↑</span> Haut
+    </button>
+  </div>
+
   <div id="glossaire" class="space-y-6"></div>
 </Base>
 
@@ -27,6 +64,134 @@ import Base from '../layouts/Base.astro';
 
   let termes: TermeGlossaire[] = [];
   const $ = (id: string) => document.getElementById(id)!;
+
+  /** Les puces de l'index, par lettre ; refaites à chaque rendu. */
+  let puces = new Map<string, HTMLAnchorElement>();
+  /** La lettre actuellement marquée, pour ne pas réécrire à chaque image. */
+  let courante = '';
+
+  /**
+   * Cale la bande collante sous l'en-tête, lui-même collant.
+   *
+   * L'en-tête n'a pas la même hauteur sur téléphone et sur grand écran, et
+   * l'écrire en dur aurait laissé un trou ou un recouvrement sur l'un des
+   * deux. On la mesure. La marge de défilement des sections suit : sans elle,
+   * un saut vers « R » placerait le R sous la bande.
+   */
+  function caler() {
+    const entete = document.querySelector('header');
+    const hautEntete = entete ? Math.round(entete.getBoundingClientRect().height) : 0;
+    const barre = $('barre-index');
+    barre.style.top = `${hautEntete}px`;
+    const hautBarre = Math.round(barre.getBoundingClientRect().height);
+    document.documentElement.style.setProperty('--saut-glossaire', `${hautEntete + hautBarre + 8}px`);
+  }
+
+  /*
+     Le modèle de hauteur d'une section, et pourquoi il est calibré.
+
+     « contain-intrinsic-size » annonce au navigateur la taille d'une section
+     qu'il n'a pas encore mise en page. Une estimation grossière — cent
+     cinquante pixels par terme — s'est révélée fausse de six pour cent sur
+     l'ensemble, ce qui n'a l'air de rien : sur quatre-vingt-trois mille
+     pixels, six pour cent font cinq mille pixels, et un saut vers « Z »
+     atterrissait sur le « S ». Mesuré, pas supposé : l'essai de navigateur
+     le constatait.
+
+     Le modèle est donc calibré sur les cartes réellement mises en page — la
+     première section l'est toujours, puisqu'elle est à l'écran. Hauteur
+     d'une carte ≈ a + b × nombre de signes, par moindres carrés sur ces
+     cartes-là. Faute d'échantillons (un filtre qui ne rend qu'une carte), on
+     garde les valeurs de départ, qui sont celles observées à 390 px.
+  */
+  let socleCarte = 64;
+  let pixelParSigne = 0.42;
+  const estimer = (nb, signes) => Math.round(56 + nb * (socleCarte + 8) + signes * pixelParSigne);
+
+  function calibrer() {
+    const points = [];
+    for (const bloc of document.querySelectorAll('#glossaire dl > div')) {
+      const h = bloc.getBoundingClientRect().height;
+      const signes = (bloc.textContent ?? '').length;
+      if (h > 0 && signes > 0) points.push([signes, h]);
+    }
+    if (points.length >= 5) {
+      const n = points.length;
+      const sx = points.reduce((t, [x]) => t + x, 0);
+      const sy = points.reduce((t, [, y]) => t + y, 0);
+      const sxx = points.reduce((t, [x]) => t + x * x, 0);
+      const sxy = points.reduce((t, [x, y]) => t + x * y, 0);
+      const denom = n * sxx - sx * sx;
+      if (denom > 0) {
+        const b = (n * sxy - sx * sy) / denom;
+        const a = (sy - b * sx) / n;
+        // Des valeurs aberrantes (toutes les cartes de même longueur) ne
+        // doivent pas remplacer un modèle raisonnable par un absurde.
+        if (a > 0 && b > 0 && a < 400 && b < 5) {
+          socleCarte = a;
+          pixelParSigne = b;
+        }
+      }
+    }
+    for (const section of document.querySelectorAll('section[id^="lettre-"]')) {
+      const nb = section.querySelectorAll('dt').length;
+      const signes = Number(section.dataset.signes ?? 0);
+      if (nb) section.style.containIntrinsicSize = `auto ${estimer(nb, signes)}px`;
+    }
+  }
+
+  /*
+     Le saut vers une lettre, qui se corrige lui-même.
+
+     Tant que les sections ne sont pas mises en page, leur position n'est
+     qu'une estimation : viser « Z » d'un seul coup, c'est viser une position
+     calculée sur des tailles supposées. On vise, le navigateur met en page ce
+     qui arrive à l'écran, les positions se corrigent, on revise — jusqu'à ce
+     que l'écart tombe sous deux pixels, ou au bout de huit images, pour ne
+     pas boucler si la page bouge pour une autre raison.
+
+     « instant » et non le défilement doux du site : un glissement de
+     quatre-vingt mille pixels ne montre rien à personne, et il se battrait
+     avec les corrections.
+  */
+  let abandonner = () => {};
+  function allerA(lettre) {
+    let vivant = true;
+    abandonner();
+    abandonner = () => {
+      vivant = false;
+    };
+    /*
+       Les rendez-vous successifs : tout de suite, à l'image suivante, puis de
+       plus en plus tard. Les premiers corrigent le gros de l'erreur, les
+       derniers rattrapent la mise en page qui se termine — une section qui
+       s'affiche au-dessus de l'écran décale tout ce qui suit, et c'est
+       justement ce que les vingt-deux derniers pixels étaient.
+    */
+    const RENDEZ_VOUS = [0, 16, 50, 120, 250, 450];
+    let stable = 0;
+    const viser = (i) => {
+      if (!vivant) return;
+      const section = document.getElementById(`lettre-${lettre}`);
+      if (!section) return;
+      const barre = $('barre-index').getBoundingClientRect();
+      const cible = Math.max(0, window.scrollY + section.getBoundingClientRect().top - barre.bottom);
+      if (Math.abs(cible - window.scrollY) >= 2) {
+        stable = 0;
+        window.scrollTo({ top: cible, behavior: 'instant' });
+      } else {
+        stable += 1;
+      }
+      suivre();
+      if (stable >= 2 || i >= RENDEZ_VOUS.length - 1) return;
+      setTimeout(() => viser(i + 1), RENDEZ_VOUS[i + 1]);
+    };
+    viser(0);
+    // Un geste de la personne reprend la main : on ne la tire pas en arrière.
+    for (const evenement of ['wheel', 'touchstart', 'keydown']) {
+      window.addEventListener(evenement, () => abandonner(), { once: true, passive: true });
+    }
+  }
 
   function rendre(filtre = '') {
     const requete = normaliser(filtre.trim());
@@ -46,24 +211,43 @@ import Base from '../layouts/Base.astro';
     zone.innerHTML = '';
     if (!retenus.length) {
       zone.innerHTML = '<p class="py-10 text-center text-sm text-slate-500">Aucun terme ne correspond.</p>';
+      $('barre-index').classList.add('hidden');
+      $('barre-index').classList.remove('flex');
       return;
     }
 
     for (const lettre of [...parLettre.keys()].sort()) {
+      const groupe = parLettre.get(lettre)!;
       const section = document.createElement('section');
       section.id = `lettre-${lettre}`;
-      section.className = 'scroll-mt-24';
+      /*
+         « differe » : le navigateur ne met en page une section qu'au moment où
+         elle approche de l'écran. La taille annoncée est une estimation —
+         environ cent cinquante pixels par terme sur téléphone — que le
+         navigateur remplace par la vraie dès qu'il a rendu la section une
+         fois ; sans elle, la barre de défilement sauterait à chaque section
+         découverte.
+      */
+      section.className = 'differe scroll-mt-[var(--saut-glossaire,6rem)]';
+      section.dataset.signes = String(groupe.reduce((n, t) => n + t.definition.length + t.terme.length, 0));
+      section.style.containIntrinsicSize = `auto ${estimer(groupe.length, +section.dataset.signes)}px`;
       const titre = document.createElement('h2');
       titre.className = 'mb-2 text-sm font-bold tracking-wide text-indigo-600 dark:text-indigo-400';
       titre.textContent = lettre;
       section.appendChild(titre);
 
+      /*
+         Deux colonnes à partir de « lg ». Les cartes ne se coupent pas en deux
+         d'une colonne à l'autre : « break-inside-avoid ». Sur téléphone, une
+         seule colonne — deux colonnes de cent quatre-vingt-quinze pixels ne
+         seraient lisibles pour personne.
+      */
       const liste = document.createElement('dl');
-      liste.className = 'space-y-2';
-      for (const terme of parLettre.get(lettre)!.sort((a, b) => a.terme.localeCompare(b.terme, 'fr'))) {
+      liste.className = 'space-y-2 lg:columns-2 lg:gap-x-4 lg:space-y-0';
+      for (const terme of groupe.sort((a, b) => a.terme.localeCompare(b.terme, 'fr'))) {
         const bloc = document.createElement('div');
         bloc.className =
-          'rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900';
+          'mb-2 break-inside-avoid rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900';
         const dt = document.createElement('dt');
         dt.className = 'font-semibold text-slate-900 dark:text-white';
         dt.textContent = terme.terme;
@@ -80,16 +264,82 @@ import Base from '../layouts/Base.astro';
     // Index alphabétique cliquable.
     const lettres = $('lettres');
     lettres.innerHTML = '';
+    puces = new Map<string, HTMLAnchorElement>();
+    courante = '';
     for (const lettre of [...parLettre.keys()].sort()) {
       const a = document.createElement('a');
       a.href = `#lettre-${lettre}`;
+      a.dataset.lettre = lettre;
       a.className =
-        'cible-tactile-pleine rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800';
+        'cible-tactile-pleine shrink-0 rounded-md border border-slate-200 px-2 py-1 text-xs font-medium text-slate-600 transition hover:bg-slate-100 aria-[current=true]:border-indigo-500 aria-[current=true]:bg-indigo-50 aria-[current=true]:text-indigo-700 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:aria-[current=true]:border-indigo-400 dark:aria-[current=true]:bg-indigo-950 dark:aria-[current=true]:text-indigo-200';
       a.textContent = lettre;
+      /*
+         Le « href » reste : clic du milieu, « ouvrir dans un onglet » et la
+         navigation au clavier continuent de marcher comme sur un lien. Le
+         clic ordinaire, lui, passe par le saut qui se corrige.
+      */
+      a.addEventListener('click', (e) => {
+        e.preventDefault();
+        history.replaceState(null, '', `#lettre-${lettre}`);
+        allerA(lettre);
+      });
       lettres.appendChild(a);
+      puces.set(lettre, a);
     }
-    lettres.classList.remove('hidden');
-    lettres.classList.add('flex');
+    $('barre-index').classList.remove('hidden');
+    $('barre-index').classList.add('flex');
+    caler();
+    requestAnimationFrame(() => {
+      calibrer();
+      suivre();
+    });
+  }
+
+  /*
+     La lettre où l'on se trouve est marquée et ramenée dans la bande.
+
+     « aria-current » plutôt qu'une classe seule : la marque existe aussi pour
+     un lecteur d'écran. La section retenue est celle qui croise le bas de la
+     bande, et non le haut de la fenêtre : sinon ce serait la section cachée
+     derrière la bande qui serait marquée.
+
+     Un écouteur de défilement, et non un « IntersectionObserver » : celui-ci
+     ne prévient qu'aux bords de la fenêtre. Une section entrée par le bas ne
+     redonnerait signe de vie qu'une fois sortie par le haut — huit cent
+     quarante-quatre pixels de retard sur un téléphone, soit cinq fiches
+     pendant lesquelles l'index aurait montré la lettre précédente.
+  */
+  function suivre() {
+    if (!puces.size) return;
+    const seuil = Math.round($('barre-index').getBoundingClientRect().bottom) + 4;
+    let visible = '';
+    for (const lettre of puces.keys()) {
+      const section = document.getElementById(`lettre-${lettre}`);
+      if (!section) continue;
+      const r = section.getBoundingClientRect();
+      if (r.top <= seuil && r.bottom > seuil) visible = lettre;
+    }
+    if (!visible || visible === courante) return;
+    puces.get(courante)?.removeAttribute('aria-current');
+    courante = visible;
+    const puce = puces.get(visible)!;
+    puce.setAttribute('aria-current', 'true');
+    const bande = $('lettres');
+    const p = puce.getBoundingClientRect();
+    const b = bande.getBoundingClientRect();
+    if (p.left < b.left || p.right > b.right) {
+      bande.scrollTo({ left: puce.offsetLeft - bande.clientWidth / 2 + puce.offsetWidth / 2 });
+    }
+  }
+
+  let enAttente = false;
+  function auDefilement() {
+    if (enAttente) return;
+    enAttente = true;
+    requestAnimationFrame(() => {
+      enAttente = false;
+      suivre();
+    });
   }
 
   // « auDeverrouillage » : barre de progression, garde-fou de 5 secondes et
@@ -101,5 +351,22 @@ import Base from '../layouts/Base.astro';
     $('filtre-glossaire').addEventListener('input', (e) =>
       rendre((e.target as HTMLInputElement).value),
     );
+    /*
+       Le retour en haut rend aussi le **focus** au champ de filtre : sans
+       cela, un clavier serait remonté visuellement mais serait resté à la
+       lettre R, et la touche Tab suivante l'y aurait ramené.
+    */
+    $('haut-de-page').addEventListener('click', () => {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+      ($('filtre-glossaire') as HTMLInputElement).focus({ preventScroll: true });
+    });
+    window.addEventListener('resize', () => {
+      caler();
+      suivre();
+    });
+    window.addEventListener('scroll', auDefilement, { passive: true });
+    // Une ancre « #lettre-R » ouverte depuis un lien extérieur : même saut.
+    const ancre = /^#lettre-(.+)$/.exec(location.hash);
+    if (ancre) allerA(decodeURIComponent(ancre[1]));
   });
 </script>
