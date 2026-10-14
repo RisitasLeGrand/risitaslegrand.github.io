@@ -814,7 +814,7 @@
               : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'}"
         >
           {dimension.libelle}
-          <kbd class="mt-1 block text-[11px] font-normal opacity-60">
+          <kbd class="mt-1 block text-xs font-normal opacity-60">
             {etat === 'reussite' ? '✓' : etat === 'echec' ? '✗' : etat === 'oubli' ? '⌛' : libelleTouche(reglages.touches[dimension.cle])}
           </kbd>
         </button>

@@ -74,7 +74,7 @@ import Base from '../layouts/Base.astro';
     const etiquettes = li.querySelector('[data-etiquettes]')!;
     const ajouter = (texte: string, classes: string) => {
       const span = document.createElement('span');
-      span.className = `rounded-full px-2 py-0.5 text-[11px] font-medium ${classes}`;
+      span.className = `rounded-full px-2 py-0.5 text-xs font-medium ${classes}`;
       span.textContent = texte;
       etiquettes.appendChild(span);
     };

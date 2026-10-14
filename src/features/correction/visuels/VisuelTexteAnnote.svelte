@@ -48,7 +48,7 @@
           {/if}{segment.texte}
         </span>
         {#if segment.etiquette}
-          <span class="mt-0.5 text-[11px] uppercase tracking-wide text-indigo-700 dark:text-indigo-300"
+          <span class="mt-0.5 text-xs uppercase tracking-wide text-indigo-700 dark:text-indigo-300"
             >{segment.etiquette}</span
           >
         {/if}

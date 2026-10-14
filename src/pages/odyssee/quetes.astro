@@ -186,7 +186,7 @@ import Base from '../../layouts/Base.astro';
       );
       case_.setAttribute('aria-pressed', String(tenues.has(jour)));
       case_.className =
-        'size-7 rounded-md border text-[10px] leading-7 transition ' +
+        'size-7 rounded-md border text-xs leading-7 transition ' +
         (tenues.has(jour)
           ? 'border-indigo-600 bg-indigo-500 text-white'
           : 'border-slate-300 text-slate-400 hover:border-indigo-400 dark:border-slate-700');

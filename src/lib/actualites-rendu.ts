@@ -289,7 +289,7 @@ function tuilesIndicateurs(indicateurs?: Record<string, Indicateur>): string {
                   ? `<p class="mt-0.5 text-xs text-slate-500 dark:text-slate-400">${echapper(indicateur.periode_reference)}</p>`
                   : ''
               }
-              ${source ? `<p class="texte-secable mt-1 text-[11px] text-slate-400 dark:text-slate-500">${source}</p>` : ''}
+              ${source ? `<p class="texte-secable mt-1 text-xs text-slate-400 dark:text-slate-500">${source}</p>` : ''}
             </div>`;
   });
   if (!tuiles.length) return '';
@@ -507,7 +507,7 @@ export function carteItem(
          })}
          ${
            item.image?.credit
-             ? `<figcaption class="px-3 py-1.5 text-[11px] text-slate-500 dark:text-slate-400">${echapper(item.image.credit)}</figcaption>`
+             ? `<figcaption class="px-3 py-1.5 text-xs text-slate-500 dark:text-slate-400">${echapper(item.image.credit)}</figcaption>`
              : ''
          }
        </figure>`
@@ -618,7 +618,7 @@ function marquerLecture(carte: HTMLElement, lu: boolean): void {
     marque = document.createElement('span');
     marque.dataset.marqueLu = 'oui';
     marque.className =
-      'shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600 uppercase dark:bg-slate-800 dark:text-slate-300';
+      'shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold text-slate-600 uppercase dark:bg-slate-800 dark:text-slate-300';
     marque.textContent = 'Lu';
     entete.appendChild(marque);
   }

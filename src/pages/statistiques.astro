@@ -314,7 +314,7 @@ import Base from '../layouts/Base.astro';
       barre.className = `w-full rounded-t ${heures >= 10 ? 'bg-emerald-500' : heures >= 5 ? 'bg-indigo-500' : 'bg-indigo-300 dark:bg-indigo-800'}`;
       barre.style.height = `${Math.max(2, (semaine.secondes / maxSecondes) * 100)}%`;
       const etiquette = document.createElement('span');
-      etiquette.className = 'text-[10px] text-slate-400';
+      etiquette.className = 'text-xs text-slate-400';
       etiquette.textContent = semaine.libelle;
       colonne.append(barre, etiquette);
       histogramme.appendChild(colonne);

@@ -563,7 +563,7 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
               href={`${base}${o.chemin}`}
               aria-current={actif === o.id ? 'page' : undefined}
               class:list={[
-                'flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1 text-[11px] font-medium transition',
+                'flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1 text-xs font-medium transition',
                 actif === o.id
                   ? 'text-indigo-700 dark:text-indigo-300'
                   : 'text-slate-600 dark:text-slate-300',
@@ -578,7 +578,7 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
             type="button"
             aria-expanded="false"
             aria-controls="feuille-plus"
-            class="flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1 text-[11px] font-medium text-slate-600 transition dark:text-slate-300"
+            class="flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1 text-xs font-medium text-slate-600 transition dark:text-slate-300"
           >
             <span class="text-lg leading-none" aria-hidden="true">⋯</span>
             <span>Plus</span>
