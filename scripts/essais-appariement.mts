@@ -24,9 +24,11 @@ import {
   controlerAppariement,
   controlerParts,
   critereDeDate,
+  defautsDeLaDivision,
   critereDeMontant,
   diviser,
   fragmentsDe,
+  occurrencesProposees,
   grouperVers,
   motifReconnu,
   normaliser,
@@ -402,6 +404,90 @@ verifier('7.6 une part de zéro est refusée',
   const file = construireLaFile([], [op({ id: 'Z' })], reglages());
   egal('9.7 sans aucune ligne, tout est à classer', file.aClasser.map((o) => o.id), ['Z']);
   egal('9.8 et rien n’est proposé', [...file.certaines, ...file.probables], []);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   10. Les deux gestes de la maquette 4.3
+
+   Ce que ces essais couvrent : les **décisions** des deux gestes, qui sont
+   dans le moteur et non dans l'écran — l'ordre dans lequel les occurrences
+   sont proposées, et les trois refus d'une division. Ce qu'ils ne couvrent
+   pas : le câblage du formulaire. C'est dit ici plutôt que laissé à
+   supposer.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+console.log('\n10. « Autre ligne » et « Diviser »');
+
+{
+  /* Un prélèvement du 10 ; trois occurrences libres, dont une rentrée. */
+  const operation = op({ id: 'P', jour: '2026-10-10', centimes: -11240 });
+  const libres = [
+    occ({ id: 'salaire:2026-10-09', ligneId: 'salaire', jour: '2026-10-09', signe: 1, montant: 200000 }),
+    occ({ id: 'loyer:2026-10-20', ligneId: 'loyer', jour: '2026-10-20' }),
+    occ({ id: 'elec:2026-10-12', ligneId: 'elec', jour: '2026-10-12' }),
+  ];
+  egal(
+    '10.1 le même sens d’abord, puis le jour le plus proche',
+    occurrencesProposees(operation, libres).map((o) => o.id),
+    ['elec:2026-10-12', 'loyer:2026-10-20', 'salaire:2026-10-09'],
+  );
+  egal(
+    '10.2 et rien n’est retiré : une réaffectation sert aux cas non vus',
+    occurrencesProposees(operation, libres).length,
+    libres.length,
+  );
+}
+
+{
+  const operation = op({ id: 'G', centimes: -10000 });
+  egal(
+    '10.3 des parts qui somment et visent deux occurrences : aucun défaut',
+    defautsDeLaDivision(operation, [
+      { occurrenceId: 'a', centimes: -6000 },
+      { occurrenceId: 'b', centimes: -4000 },
+    ]),
+    [],
+  );
+  verifier(
+    '10.4 des parts qui ne somment pas sont refusées',
+    defautsDeLaDivision(operation, [
+      { occurrenceId: 'a', centimes: -6000 },
+      { occurrenceId: 'b', centimes: -3000 },
+    ]).some((d) => d.includes('pour une opération de')),
+  );
+  verifier(
+    '10.5 deux parts sur la même occurrence sont refusées',
+    defautsDeLaDivision(operation, [
+      { occurrenceId: 'a', centimes: -6000 },
+      { occurrenceId: 'a', centimes: -4000 },
+    ]).some((d) => d.includes('la même occurrence')),
+  );
+  verifier(
+    '10.6 une part unique renvoie vers « Autre ligne »',
+    defautsDeLaDivision(operation, [{ occurrenceId: 'a', centimes: -10000 }]).some((d) =>
+      d.includes('« Autre ligne »'),
+    ),
+  );
+  /*
+     Le lien avec `etatDesRapprochements` : ce que `defautsDeLaDivision`
+     laisse passer doit être exactement ce que `diviser` sait écrire, et ce
+     que l'arbitrage saura relire comme une division.
+  */
+  const parts = diviser(operation, [
+    { occurrenceId: 'a', centimes: -3333 },
+    { occurrenceId: 'b', centimes: -3333 },
+    { occurrenceId: 'c', centimes: -3333 },
+  ]);
+  egal(
+    '10.7 le reste de la division va sur la dernière part',
+    parts.map((x) => x.centimes),
+    [-3333, -3333, -3334],
+  );
+  egal(
+    '10.8 et la somme des parts vaut l’opération au centime',
+    parts.reduce((s, x) => s + x.centimes, 0),
+    operation.centimes,
+  );
 }
 
 /* ── Bilan ─────────────────────────────────────────────────────────────── */

@@ -466,6 +466,65 @@ export function diviser(
   return sorties;
 }
 
+/**
+ * Les occurrences à proposer pour une réaffectation, de la plus plausible
+ * à la moins.
+ *
+ * Le tri est **du même sens d'abord, puis du jour le plus proche**, et il ne
+ * retire rien : tout ce qui est libre reste dans la liste. C'est délibéré —
+ * « Autre ligne » sert précisément aux cas que l'appariement n'a pas vus, et
+ * une liste filtrée par la même logique que celle qui vient d'échouer ne
+ * servirait à rien. Mais proposer une rentrée en tête sur un prélèvement
+ * ferait chercher, d'où le tri.
+ */
+export function occurrencesProposees(
+  operation: OperationBancaire,
+  occurrencesLibres: readonly Occurrence[],
+): Occurrence[] {
+  const sens = (centimes: number) => (centimes < 0 ? -1 : 1);
+  const jour = Date.parse(`${operation.jour}T12:00:00Z`);
+  return [...occurrencesLibres].sort((a, b) => {
+    const sa = sens(a.signe * a.montant) === sens(operation.centimes) ? 0 : 1;
+    const sb = sens(b.signe * b.montant) === sens(operation.centimes) ? 0 : 1;
+    if (sa !== sb) return sa - sb;
+    const da = Math.abs(Date.parse(`${a.jour}T12:00:00Z`) - jour);
+    const db = Math.abs(Date.parse(`${b.jour}T12:00:00Z`) - jour);
+    return da - db;
+  });
+}
+
+/**
+ * Ce qui empêche d'enregistrer une division, en phrases.
+ *
+ * Trois refus, et le premier est le seul qui soit une question de sûreté :
+ * `etatDesRapprochements` ne reconnaît une opération comme **divisée** que si
+ * ses décisions somment à son montant. Des parts qui ne somment pas seraient
+ * lues comme un désaccord entre décisions, une seule survivrait, et les
+ * autres disparaîtraient sans que rien ne le dise.
+ *
+ * Les deux autres sont des refus de forme, et ils valent mieux qu'un
+ * enregistrement muet : deux parts sur la même occurrence s'écraseraient
+ * l'une l'autre, l'identifiant d'un rapprochement étant le couple opération ×
+ * occurrence ; et une part unique n'est pas une division, c'est une
+ * réaffectation, qui a son propre geste.
+ */
+export function defautsDeLaDivision(
+  operation: OperationBancaire,
+  parts: readonly { occurrenceId: string; centimes: Centimes }[],
+): string[] {
+  const defauts = controlerParts(
+    operation,
+    parts.map((p) => ({ ...p, operationId: operation.id })),
+  );
+  if (new Set(parts.map((p) => p.occurrenceId)).size !== parts.length) {
+    defauts.push('Deux parts visent la même occurrence : ce serait une part, pas deux.');
+  }
+  if (parts.length < 2) {
+    defauts.push('Diviser demande au moins deux parts. Pour une seule, « Autre ligne » suffit.');
+  }
+  return defauts;
+}
+
 export function controlerParts(
   operation: OperationBancaire,
   parts: readonly PartDOperation[],

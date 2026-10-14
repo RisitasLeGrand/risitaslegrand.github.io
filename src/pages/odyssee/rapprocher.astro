@@ -289,8 +289,9 @@ import Base from '../../layouts/Base.astro';
   import { occurrences, TOLERANCE_PAR_DEFAUT, type LigneBudget, type Occurrence } from '../../lib/odyssee/budget';
   import {
     construireLaFile,
-    controlerParts,
+    defautsDeLaDivision,
     diviser,
+    occurrencesProposees,
     type Proposition,
   } from '../../lib/odyssee/appariement';
   import {
@@ -730,30 +731,6 @@ import Base from '../../layouts/Base.astro';
     return `${ligne?.libelle ?? occ.ligneId} — ${euros(occ.signe * occ.montant)} le ${occ.jour}`;
   }
 
-  /**
-   * Les occurrences proposées, de la plus plausible à la moins.
-   *
-   * Le tri est **du même sens d'abord, puis du jour le plus proche**. Il ne
-   * cache rien : tout ce qui est libre reste dans la liste, parce qu'une
-   * réaffectation sert précisément aux cas que le moteur n'a pas vus. Mais
-   * une rentrée proposée en tête sur un prélèvement ferait chercher.
-   */
-  function occurrencesProposees(
-    op: OperationBancaire,
-    occLibres: readonly Occurrence[],
-  ): Occurrence[] {
-    const sensDe = (centimes: number) => (centimes < 0 ? -1 : 1);
-    const jour = Date.parse(`${op.jour}T12:00:00Z`);
-    return [...occLibres].sort((a, b) => {
-      const sa = sensDe(a.signe * a.montant) === sensDe(op.centimes) ? 0 : 1;
-      const sb = sensDe(b.signe * b.montant) === sensDe(op.centimes) ? 0 : 1;
-      if (sa !== sb) return sa - sb;
-      const da = Math.abs(Date.parse(`${a.jour}T12:00:00Z`) - jour);
-      const db = Math.abs(Date.parse(`${b.jour}T12:00:00Z`) - jour);
-      return da - db;
-    });
-  }
-
   function selecteurDOccurrence(
     occurrences: readonly Occurrence[],
     parLigne: Map<string, { libelle: string; sens: string }>,
@@ -924,19 +901,12 @@ import Base from '../../layouts/Base.astro';
         : `Reste à répartir : ${euros(op.centimes - somme)} sur ${euros(op.centimes)}.`;
     bloc.appendChild(reste);
 
-    /* Les défauts viennent du moteur, pas d'une seconde règle écrite ici. */
-    const defauts = [
-      ...controlerParts(
-        op,
-        partsDeLaDivision.map((x) => ({ ...x, operationId: op.id })),
-      ),
-      ...(new Set(partsDeLaDivision.map((x) => x.occurrenceId)).size === partsDeLaDivision.length
-        ? []
-        : ['Deux parts visent la même occurrence : ce serait une part, pas deux.']),
-      ...(partsDeLaDivision.length < 2
-        ? ['Diviser demande au moins deux parts. Pour une seule, « Autre ligne » suffit.']
-        : []),
-    ];
+    /*
+       Les trois refus viennent du moteur, et pas d'une règle réécrite ici :
+       c'est ce qui permet de les éprouver sans navigateur, et ce qui garantit
+       que l'écran refuse exactement ce que l'enregistrement refuserait.
+    */
+    const defauts = defautsDeLaDivision(op, partsDeLaDivision);
     const liste = document.createElement('ul');
     liste.dataset.defautsDivision = p.operationId;
     liste.className = 'list-disc space-y-1 pl-5 text-sm text-rose-800 dark:text-rose-200';
