@@ -73,7 +73,14 @@ const estRedirection = (html) => /<meta http-equiv="refresh"/i.test(html);
  * disparaît de cette liste le jour où la décision est prise — dans un sens ou
  * dans l'autre.
  */
-const CONNUS = new Map([['dist/revisions/index.html', 'D-037']]);
+const CONNUS = new Map();
+/*
+   Vide depuis le 14 octobre 2026. « dist/revisions/index.html » y figurait au
+   titre de D-037 : le tableau de bord n'avait aucun « h1 » hors du verrou.
+   La décision a été prise — un titre lu et non vu — et l'exception est donc
+   retirée, ce qui rend le contrôle strict sur cet écran comme sur les autres.
+   La liste reste pour la prochaine, s'il y en a une.
+*/
 
 let fautes = 0;
 let rappels = 0;

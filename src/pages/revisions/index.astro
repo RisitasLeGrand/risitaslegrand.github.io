@@ -4,6 +4,21 @@ import Section from '../../components/Section.astro';
 ---
 
 <Base titre="Tableau de bord" actif="accueil">
+  {/*
+     Le titre de l'écran, lu et non vu (D-037).
+
+     C'était le seul des cinquante-deux écrans sans « h1 » : la page d'accueil
+     s'ouvre sur ses quatre tuiles, et rien ne nommait l'écran. Pour qui voit
+     la page, le nom est déjà partout — l'onglet actif, le titre de l'onglet
+     du navigateur, le fil de la barre. Pour qui l'écoute, il manquait, et la
+     structure du document commençait à « h2 ».
+
+     « sr-only » plutôt qu'un titre visible : la demande était de rendre
+     l'écran conforme, pas de changer l'allure de celui qu'on regarde le plus
+     souvent.
+  */}
+  <h1 class="sr-only">Tableau de bord</h1>
+
   <div id="chargement" class="py-20 text-center text-slate-400">Déchiffrement du contenu…</div>
 
   <div id="tableau" class="hidden space-y-6">

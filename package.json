@@ -149,7 +149,8 @@
     "essais:glossaire:navigateur": "node scripts/essais-glossaire-navigateur.mjs",
     "essais:actualites:navigateur": "node scripts/essais-actualites-navigateur.mjs",
     "actualites:dist": "node scripts/actualites-dist.mjs",
-    "essais:etats-vides:navigateur": "node scripts/essais-etats-vides-navigateur.mjs"
+    "essais:etats-vides:navigateur": "node scripts/essais-etats-vides-navigateur.mjs",
+    "mesure:tailles": "node scripts/mesurer-tailles.mjs"
   },
   "repository": {
     "type": "git",
