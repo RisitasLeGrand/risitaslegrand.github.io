@@ -36,6 +36,7 @@ import {
   PREFIXE_CIBLE,
   champsDeBranche,
   champsDuSocle,
+  questionsDuSocle,
   lireInitialisation,
   lireProfil,
   valider,
@@ -205,10 +206,11 @@ export function parcours(
   const parChampDeduit = new Map((options.deductions ?? []).map((d) => [d.champ, d]));
   /* Les champs demandés au moment du besoin ne sont pas du parcours : les y
      laisser reviendrait à collecter « au cas où » une donnée dont la minimisation
-     impose qu'elle n'existe que si une fonction l'exige. */
-  const champs = (options.branche ? champsDeBranche(options.branche) : champsDuSocle()).filter(
-    (c) => !c.demandeAuBesoin,
-  );
+     impose qu'elle n'existe que si une fonction l'exige. `questionsDuSocle()`
+     porte ce filtre, et `avancement()` s'en sert aussi : un seul endroit. */
+  const champs = options.branche
+    ? champsDeBranche(options.branche).filter((c) => !c.demandeAuBesoin)
+    : questionsDuSocle();
 
   const etapes = champs.map((declare): Etape => {
     const deja = profil.get(declare.champ);

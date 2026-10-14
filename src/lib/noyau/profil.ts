@@ -435,6 +435,20 @@ export const champDeclare = (champ: string): ChampDeclare | undefined => PAR_CHA
 /** Les champs du socle commun, dans l'ordre de l'initialisation. */
 export const champsDuSocle = (): ChampDeclare[] => CHAMPS.filter((c) => !c.brancheDOrigine);
 
+/**
+ * Les champs du socle **que l'on pose en question**, c'est-à-dire tous sauf
+ * ceux qui se demandent au moment du besoin.
+ *
+ * La distinction a l'air d'un détail et ne l'est pas. `avancement()` affiche
+ * « deux réponses sur N » : si N comptait les champs jamais posés, il
+ * annoncerait un dénominateur que la personne **ne peut pas atteindre**, et
+ * l'initialisation semblerait inachevée pour toujours. Nommer les deux
+ * ensembles vaut mieux que filtrer au cas par cas chez les appelants, où le
+ * jour vient toujours où l'un d'eux oublie.
+ */
+export const questionsDuSocle = (): ChampDeclare[] =>
+  champsDuSocle().filter((c) => !c.demandeAuBesoin);
+
 /** Les champs qu'une branche pose à sa première ouverture. */
 export const champsDeBranche = (branche: string): ChampDeclare[] =>
   CHAMPS.filter((c) => c.brancheDOrigine === branche);
@@ -603,7 +617,7 @@ export interface Avancement {
 
 export function avancement(operations: readonly Operation[]): Avancement {
   const profil = lireProfil(operations);
-  const socle = champsDuSocle();
+  const socle = questionsDuSocle();
   const restants = socle.filter((c) => !profil.has(c.champ));
   return {
     repondus: socle.length - restants.length,

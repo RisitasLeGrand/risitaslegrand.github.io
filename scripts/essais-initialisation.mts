@@ -42,6 +42,7 @@ import {
   TYPE_INITIALISATION,
   champsDeBranche,
   champsDuSocle,
+  questionsDuSocle,
   cibleDuChamp,
   valider,
 } from '../src/lib/noyau/profil';
@@ -147,8 +148,11 @@ v(
 /* ══════════════════════════════════════════════════════════════════════════ */
 console.log('\n\x1b[1mLe parcours : ce qui reste à poser\x1b[0m');
 
-const socle = champsDuSocle();
-v('le socle fait quatorze questions sur seize champs', socle.length, 16);
+const socle = questionsDuSocle();
+/* Dix-sept depuis l'ajout de l'année de naissance. Le parcours ne compte que
+   les champs qu'il pose : le mois, la majorité déclarée et les usages coupés
+   se demandent au moment du besoin et n'en sont pas. */
+v('le socle fait dix-sept questions', socle.length, 17);
 
 const vierge = parcours([]);
 v('tout reste à poser sur une base vierge', vierge.restantes.length, socle.length);
@@ -164,7 +168,7 @@ vrai(
 );
 
 const unReporte = parcours([champ('prenom', 'Alexis', 1), report('nom', 2)]);
-v('une question reportée ne se repose pas', unReporte.prochaine?.declare.champ, 'formalite');
+v('une question reportée ne se repose pas', unReporte.prochaine?.declare.champ, 'naissanceAnnee');
 v('mais elle compte comme réglée', unReporte.reglees, 2);
 vrai('et l’étape dit qu’elle est reportée', unReporte.etapes[1].reportee);
 
@@ -186,7 +190,7 @@ v('un report levé remet la question dans la file', repris.prochaine?.declare.ch
 console.log('\n\x1b[1mLes écrans : une question, même quand elle règle deux champs\x1b[0m');
 
 const ecrans = enEcrans(vierge.restantes);
-v('seize champs tiennent en quinze écrans', ecrans.length, socle.length - 1);
+v('dix-sept champs tiennent en seize écrans', ecrans.length, socle.length - 1);
 const ecranFuseau = ecrans.find((e) => e.etapes.some((x) => x.declare.champ === 'fuseau'));
 v('la langue et le fuseau partagent leur écran', ecranFuseau?.etapes.length, 2);
 v(
@@ -482,9 +486,13 @@ console.log('\n\x1b[1mLes champs dynamiques sont tous connus\x1b[0m');
 for (const nom of DYNAMIQUES) {
   vrai(
     `« ${nom} » est un champ déclaré`,
-    socle.concat(champsDeBranche('revisions'), champsDeBranche('sport'), champsDeBranche('odyssee')).some(
-      (c) => c.champ === nom,
-    ),
+    /* Tous les champs du socle, et non les seules questions : un champ dynamique
+       peut très bien se demander au moment du besoin — « usagesCoupes » se règle
+       depuis son propre écran. Ce que cette assertion vérifie est qu'il est
+       **déclaré**, pas qu'il est posé par le parcours. */
+    champsDuSocle()
+      .concat(champsDeBranche('revisions'), champsDeBranche('sport'), champsDeBranche('odyssee'))
+      .some((c) => c.champ === nom),
   );
 }
 
