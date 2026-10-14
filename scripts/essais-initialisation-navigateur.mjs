@@ -90,7 +90,9 @@ await page.waitForURL('**/initialisation/', { timeout: 20000 }).catch(() => {});
 v('le menu renvoie à l’initialisation', new URL(page.url()).pathname, '/initialisation/');
 await page.waitForSelector('#question', { timeout: 40000 }).catch(() => {});
 v('et la première question est celle du prénom', await question(), 'Comment doit-on vous appeler ?');
-v('l’avancement est annoncé', await compteur(), '1 / 15');
+/* Seize écrans depuis l'ajout de l'année de naissance : dix-sept questions,
+   dont la langue et le fuseau qui partagent le leur. */
+v('l’avancement est annoncé', await compteur(), '1 / 16');
 faux('« Plus tard » n’est pas proposé sur le prénom', await page.locator('#plus-tard').isVisible());
 vrai('mais « Terminer maintenant » l’est', await page.locator('#terminer').isVisible());
 v(
@@ -122,7 +124,7 @@ await page.waitForFunction(
   { timeout: 15000 },
 );
 v('le prénom posé, on passe au nom', await question(), 'Et votre nom, si vous voulez le donner ?');
-v('le compteur avance', await compteur(), '2 / 15');
+v('le compteur avance', await compteur(), '2 / 16');
 vrai('et « Plus tard » apparaît', await page.locator('#plus-tard').isVisible());
 
 await page.click('#plus-tard');

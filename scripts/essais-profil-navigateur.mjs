@@ -142,10 +142,13 @@ await aller('/profil/', '#avancement');
 
 {
   const avancement = await page.textContent('#avancement');
-  vrai('l’avancement est annoncé', avancement.includes('0 réponse(s) sur 16'));
+  /* Dix-sept depuis l'ajout de l'année de naissance. Le mois, la majorité
+     déclarée et les usages coupés ne sont pas des questions : ils se demandent
+     au moment du besoin, et les compter rendrait le total inatteignable. */
+  vrai('l’avancement est annoncé', avancement.includes('0 réponse(s) sur 17'));
   vrai('et le prénom est signalé comme attendu', avancement.includes('prénom'));
   const restants = await page.$$eval('#restants > div', (els) => els.length);
-  v('les seize champs du socle restent à poser', restants, 16);
+  v('les dix-sept questions du socle restent à poser', restants, 17);
 }
 
 reponse = 'Alexis';
@@ -164,7 +167,7 @@ await page.waitForTimeout(1500);
     champs[0].texte.includes('aucune branche'),
   );
   const restants = await page.$$eval('#restants > div', (els) => els.length);
-  v('quinze champs restent', restants, 15);
+  v('seize questions restent', restants, 16);
 }
 
 await aller('/', '#salutation');
@@ -206,7 +209,7 @@ await page.waitForTimeout(1500);
   v('plus aucun champ renseigné', champs, 0);
   vrai('l’écran le dit', await page.locator('#aucun-champ').isVisible());
   const restants = await page.$$eval('#restants > div', (els) => els.length);
-  v('et les seize champs sont à nouveau à poser', restants, 16);
+  v('et les dix-sept questions sont à nouveau à poser', restants, 17);
 
   await aller('/', '#salutation');
   v('le menu ne salue plus par le prénom', (await page.textContent('#salutation')).trim(), 'Bonjour.');
