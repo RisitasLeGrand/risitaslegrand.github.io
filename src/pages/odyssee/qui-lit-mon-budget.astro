@@ -324,7 +324,11 @@ import Base from '../../layouts/Base.astro';
       $('ouvrir-coffre').addEventListener('click', () => {
         void (async () => {
           const mdp = $('mdp-coffre') as HTMLInputElement;
-          const erreur = await ouvrirLeCoffre(mdp.value);
+          const erreur = await ouvrirLeCoffre(mdp.value, {
+            memoriserAppareil:
+              (document.getElementById('coffre-appareil') as HTMLInputElement | null)?.checked ??
+              false,
+          });
           $('erreur-coffre').classList.toggle('hidden', erreur === null);
           if (erreur) {
             $('erreur-coffre').textContent = erreur;

@@ -1,0 +1,96 @@
+---
+/**
+ * Le formulaire d'ouverture du coffre, partagé.
+ *
+ * Il était recopié dans neuf pages, à la virgule près sauf la phrase
+ * d'explication. C'est cette duplication qui a produit l'écart relevé le
+ * 14 octobre : six pages sur dix sans bouton de fermeture. Un bloc recopié
+ * n'évolue jamais partout.
+ *
+ * Les identifiants restent ceux d'avant — `coffre-ferme`, `mdp-coffre`,
+ * `ouvrir-coffre`, `erreur-coffre` — pour que les scripts des neuf pages
+ * continuent de fonctionner sans être réécrits.
+ */
+interface Props {
+  /** Ce que cet écran garde, en une phrase. Propre à la page. */
+  raison?: string;
+  /**
+   * Sans cadre ni titre.
+   *
+   * `corps.astro` loge le champ **à l'intérieur** d'une carte existante : lui
+   * poser une seconde carte ferait un cadre dans un cadre. La variante garde
+   * les mêmes identifiants et les mêmes cases, et ne change que l'habillage —
+   * c'est la présentation qui diffère d'un écran à l'autre, pas la promesse.
+   */
+  nu?: boolean;
+}
+const { raison, nu = false } = Astro.props;
+const cadre = nu
+  ? 'mt-4 hidden'
+  : 'hidden rounded-2xl border-2 border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900';
+---
+
+<section id="coffre-ferme" class={cadre}>
+  {!nu && <h2 class="text-lg font-semibold text-slate-900 dark:text-white">🔒 Ouvrir le coffre</h2>}
+  {raison && <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{raison}</p>}
+  <label class="block text-sm">
+    <span class="block text-slate-700 dark:text-slate-200">Mot de passe</span>
+    <input
+      id="mdp-coffre"
+      type="password"
+      autocomplete="current-password"
+      class="mt-1 min-h-11 w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+    />
+  </label>
+
+  <label class="mt-3 flex items-start gap-2 text-sm">
+    <input id="coffre-session" type="checkbox" checked class="mt-1 h-4 w-4 shrink-0 rounded border-slate-300" />
+    <span class="text-slate-700 dark:text-slate-200">
+      Garder le coffre ouvert pendant cette session
+      <span class="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
+        Le coffre reste ouvert tant que cet onglet l’est, d’une page à l’autre et
+        après un rechargement. Fermer l’onglet le referme.
+      </span>
+    </span>
+  </label>
+
+  <label id="ligne-coffre-appareil" class="mt-3 flex items-start gap-2 text-sm">
+    <input id="coffre-appareil" type="checkbox" class="mt-1 h-4 w-4 shrink-0 rounded border-slate-300" />
+    <span class="text-slate-700 dark:text-slate-200">
+      Mémoriser le coffre sur cet appareil
+      <span class="mt-0.5 block text-xs text-slate-500 dark:text-slate-400">
+        Le coffre se rouvrira sans mot de passe, même après avoir fermé le
+        navigateur. <strong>Quiconque utilise cet appareil et ce navigateur
+        pourra alors ouvrir le coffre sans le connaître.</strong> Révocable par
+        « Oublier sur cet appareil ».
+      </span>
+    </span>
+  </label>
+
+  <button
+    id="ouvrir-coffre"
+    type="button"
+    class="mt-3 min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900"
+    >Ouvrir</button
+  >
+  <p id="erreur-coffre" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+</section>
+
+<script>
+  /*
+     La seconde case ne paraît qu'une fois la première cochée : mémoriser sans
+     garder ouvert n'aurait aucun sens, et proposer les deux de front
+     inviterait à cocher la plus engageante sans y penser.
+  */
+  const session = document.getElementById('coffre-session') as HTMLInputElement | null;
+  const ligne = document.getElementById('ligne-coffre-appareil');
+  const appareil = document.getElementById('coffre-appareil') as HTMLInputElement | null;
+  if (session && ligne && appareil) {
+    const ajuster = () => {
+      ligne.classList.toggle('hidden', !session.checked);
+      if (!session.checked) appareil.checked = false;
+    };
+    ajuster();
+    session.addEventListener('change', ajuster);
+  }
+</script>

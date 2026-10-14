@@ -23,6 +23,7 @@
 import Base from '../../layouts/Base.astro';
 import { MESURES, MOMENTS } from '../../lib/odyssee/corps';
 import { NATURES, VOIES } from '../../lib/odyssee/sensible';
+import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 ---
 
 <Base titre="Corps" actif="corps" coffre>
@@ -274,17 +275,7 @@ import { NATURES, VOIES } from '../../lib/odyssee/sensible';
         <p id="rappel-sauvegarde" class="mt-3 hidden rounded-xl px-4 py-3 text-sm"></p>
 
         <!-- Le coffre fermé -->
-        <div id="coffre-ferme" class="mt-4 hidden">
-          <label class="block text-sm">
-            <span class="block text-slate-700 dark:text-slate-200">Mot de passe</span>
-            <input id="mdp-coffre" type="password" autocomplete="current-password"
-              class="mt-1 min-h-11 w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
-          </label>
-          <button id="ouvrir-coffre" type="button"
-            class="mt-3 min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900"
-            >Ouvrir</button>
-          <p id="erreur-coffre" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
-        </div>
+        <FormulaireCoffre nu />
 
         <!-- Le coffre ouvert -->
         <div id="coffre-ouvert" class="mt-4 hidden space-y-6">
@@ -1035,7 +1026,11 @@ import { NATURES, VOIES } from '../../lib/odyssee/sensible';
       $('ouvrir-coffre').addEventListener('click', () => {
         void (async () => {
           const champ = $('mdp-coffre') as HTMLInputElement;
-          const erreur = await ouvrirLeCoffre(champ.value);
+          const erreur = await ouvrirLeCoffre(champ.value, {
+            memoriserAppareil:
+              (document.getElementById('coffre-appareil') as HTMLInputElement | null)?.checked ??
+              false,
+          });
           $('erreur-coffre').classList.toggle('hidden', erreur === null);
           if (erreur) {
             $('erreur-coffre').textContent = erreur;

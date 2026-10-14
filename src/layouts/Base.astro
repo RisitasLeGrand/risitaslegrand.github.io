@@ -10,6 +10,7 @@ import BarreProgression from '../components/BarreProgression.astro';
 import PiedDePage from '../components/PiedDePage.astro';
 import SelecteurParcours from '../components/SelecteurParcours.astro';
 import config from '../../site.config.mjs';
+import TemoinCoffre from '../components/TemoinCoffre.astro';
 import {
   branchesDisponibles,
   brancheDuChemin,
@@ -286,6 +287,7 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
         enteteVoulu === 'complet' && (
           <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
             <div class="bandeau-tricolore"></div>
+            <TemoinCoffre />
             {/*
                L'en-tête tient sur **une ou deux rangées**, selon la place.
 
@@ -587,6 +589,7 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
         enteteVoulu === 'leger' && (
           <header class="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
             <div class="bandeau-tricolore"></div>
+            <TemoinCoffre />
             <div class="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
               {retourAuMenu ? (
                 <a

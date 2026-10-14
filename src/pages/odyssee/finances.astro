@@ -24,6 +24,7 @@
  * un libellé masqué à l'écran mais enregistré en clair n'est pas masqué.
  */
 import Base from '../../layouts/Base.astro';
+import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 ---
 
 <Base titre="Finances" actif="finances" coffre>
@@ -52,21 +53,7 @@ import Base from '../../layouts/Base.astro';
 
     <div id="vue" class="mt-6 hidden space-y-8">
       <!-- Le coffre fermé -->
-      <section id="coffre-ferme" class="hidden rounded-2xl border-2 border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
-        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">🔒 Ouvrir le coffre</h2>
-        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
-          Le mot de passe est redemandé à chaque nouvel onglet. La clé ne quitte pas cet appareil.
-        </p>
-        <label class="mt-3 block text-sm">
-          <span class="block text-slate-700 dark:text-slate-200">Mot de passe</span>
-          <input id="mdp-coffre" type="password" autocomplete="current-password"
-            class="mt-1 min-h-11 w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
-        </label>
-        <button id="ouvrir-coffre" type="button"
-          class="mt-3 min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900"
-          >Ouvrir</button>
-        <p id="erreur-coffre" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
-      </section>
+      <FormulaireCoffre raison={"Le mot de passe est redemandé à chaque nouvel onglet. La clé ne quitte pas cet appareil."} />
 
       <div id="coffre-ouvert" class="hidden space-y-8">
         <!-- L'état -->
@@ -571,7 +558,11 @@ import Base from '../../layouts/Base.astro';
       $('ouvrir-coffre').addEventListener('click', () => {
         void (async () => {
           const mdp = $('mdp-coffre') as HTMLInputElement;
-          const erreur = await ouvrirLeCoffre(mdp.value);
+          const erreur = await ouvrirLeCoffre(mdp.value, {
+            memoriserAppareil:
+              (document.getElementById('coffre-appareil') as HTMLInputElement | null)?.checked ??
+              false,
+          });
           $('erreur-coffre').classList.toggle('hidden', erreur === null);
           if (erreur) {
             $('erreur-coffre').textContent = erreur;

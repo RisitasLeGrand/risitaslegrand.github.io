@@ -71,6 +71,7 @@
 import { db } from './db';
 import { sha256Hex } from './crypto';
 import {
+  APPAREIL,
   SESSION,
   desencapsuler,
   encapsuler,
@@ -80,6 +81,15 @@ import {
 
 const CLEF_SEL = 'coffre.sel';
 const CLEF_SESSION = 'cyclades.coffre';
+/**
+ * Le chiffré mémorisé sur l'appareil (P1 bis).
+ *
+ * Dans `localStorage`, parce que c'est le seul stockage qui survive à la
+ * fermeture du navigateur — ce que la case demande explicitement. L'interdit 2
+ * proscrit la clé **en clair** dans `localStorage` : ce qui y est rangé est un
+ * chiffré, inutilisable sans l'enveloppe non extractible d'IndexedDB.
+ */
+const CLEF_APPAREIL = 'cyclades.coffre.appareil';
 
 /**
  * La clé survit-elle à une navigation ?
@@ -208,14 +218,19 @@ export async function reprendreLeCoffre(): Promise<boolean> {
   if (cleMemoire) return true;
   if (!MEMORISER) return false;
   let brut: string | null = null;
+  let ou: typeof SESSION | typeof APPAREIL = SESSION;
   try {
     brut = sessionStorage.getItem(CLEF_SESSION);
+    if (!brut) {
+      brut = localStorage.getItem(CLEF_APPAREIL);
+      if (brut) ou = APPAREIL;
+    }
   } catch {
     return false;
   }
   if (!brut) return false;
   try {
-    cleMemoire = await desencapsuler(brut, SESSION);
+    cleMemoire = await desencapsuler(brut, ou);
     abonnes.forEach((f) => f(true));
     return true;
   } catch {
@@ -232,6 +247,39 @@ export async function reprendreLeCoffre(): Promise<boolean> {
   }
 }
 
+/**
+ * Comment le coffre est ouvert : pour la session seule, ou mémorisé.
+ *
+ * L'en-tête en a besoin pour ne pas dire « mémorisé sur cet appareil » à qui
+ * n'a rien mémorisé — un témoin qui se trompe sur la portée est pire que pas
+ * de témoin.
+ */
+export function modeDuCoffre(): 'ferme' | 'session' | 'appareil' {
+  if (!cleMemoire) return 'ferme';
+  try {
+    return localStorage.getItem(CLEF_APPAREIL) ? 'appareil' : 'session';
+  } catch {
+    return 'session';
+  }
+}
+
+/**
+ * Oublie la mémorisation sur cet appareil, et ferme le coffre.
+ *
+ * Distincte de « Fermer le coffre », qui ne touche pas à la mémorisation :
+ * les deux libellés ne promettent pas la même chose, et les confondre ferait
+ * croire effacé ce qui ne l'est pas.
+ */
+export function oublierLAppareil(): void {
+  try {
+    localStorage.removeItem(CLEF_APPAREIL);
+  } catch {
+    // Rien à oublier.
+  }
+  void oublierLEncapsulation(APPAREIL);
+  fermerLeCoffre();
+}
+
 /** La clé du coffre, ou `null` si le coffre est fermé. */
 export const cleDuCoffre = (): CryptoKey | null => cleMemoire;
 
@@ -246,7 +294,10 @@ export const coffreOuvert = (): boolean => cleMemoire !== null;
  * suite. Un coffre qui accepte n'importe quelle clé fabrique des données
  * perdues.
  */
-export async function ouvrirLeCoffre(motDePasse: string): Promise<string | null> {
+export async function ouvrirLeCoffre(
+  motDePasse: string,
+  options: { memoriserAppareil?: boolean } = {},
+): Promise<string | null> {
   if (!motDePasse) return 'Saisissez le mot de passe.';
   const config = (await import('../../site.config.mjs')).default as { motDePasseHash: string };
   if ((await sha256Hex(motDePasse)) !== config.motDePasseHash.toLowerCase()) {
@@ -260,6 +311,19 @@ export async function ouvrirLeCoffre(motDePasse: string): Promise<string | null>
   if (MEMORISER) {
     await renouvelerLEncapsulationDeSession();
     await retenir(cleMemoire);
+  }
+  /*
+     P1 bis. L'enveloppe de l'appareil, elle, n'est PAS renouvelée : elle doit
+     survivre à la fermeture du navigateur, c'est tout son objet. Seuls
+     « Oublier sur cet appareil », un changement de mot de passe et la
+     réinitialisation l'effacent.
+  */
+  if (options.memoriserAppareil) {
+    try {
+      localStorage.setItem(CLEF_APPAREIL, await encapsuler(cleMemoire, APPAREIL));
+    } catch {
+      // Stockage refusé : le coffre fonctionne, sans mémorisation.
+    }
   }
   abonnes.forEach((f) => f(true));
   return null;

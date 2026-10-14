@@ -19,7 +19,8 @@
  * elle fuit seulement. Ce contrôle compare donc deux ensembles établis depuis
  * la source, dans les deux sens :
  *
- *   • les pages qui portent le formulaire de coffre (`id="mdp-coffre"`) ;
+ *   • les pages qui portent le formulaire de coffre — par ses identifiants,
+ *     ou par le composant « FormulaireCoffre » qui les porte désormais ;
  *   • les pages qui passent `coffre` au gabarit.
  *
  * Toute page présente dans l'un et absente de l'autre est une faute, quel que
@@ -61,7 +62,20 @@ for (const p of pages) {
   const nom = relative(RACINE, p);
   // Le formulaire de déverrouillage : c'est lui qui atteste qu'un contenu
   // chiffré se rend sur cette page une fois le coffre ouvert.
-  if (source.includes('id="mdp-coffre"') || source.includes('id="coffre-ferme"')) {
+  /*
+     Trois marques, et la troisième a été ajoutée le 14 octobre : le
+     formulaire est devenu le composant « FormulaireCoffre », de sorte que
+     les deux identifiants ne figurent plus dans la source des pages. Ce
+     contrôle est alors passé au rouge — à juste titre, puisqu'il ne voyait
+     plus les coffres. C'est sa détection qui suit le code, pas l'inverse :
+     l'invariant qu'il protège — une page qui se déclare « sous coffre » en
+     porte bien un — n'a pas bougé d'un pouce.
+  */
+  if (
+    source.includes('id="mdp-coffre"') ||
+    source.includes('id="coffre-ferme"') ||
+    source.includes('<FormulaireCoffre')
+  ) {
     avecCoffre.push(nom);
   }
   // La déclaration au gabarit, sous ses deux écritures possibles.

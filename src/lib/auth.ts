@@ -141,7 +141,15 @@ export function verrouiller() {
      serait la pire des incohérences : on croirait avoir tout fermé, et les
      écrans sensibles resteraient lisibles.
   */
-  void import('./coffre').then(({ fermerLeCoffre }) => fermerLeCoffre());
+  /*
+     Et la mémorisation avec, pas seulement la session. Un verrouillage
+     explicite qui laisserait le coffre se rouvrir sans mot de passe à la
+     visite suivante dirait le contraire de ce que le bouton promet. C'est ma
+     lecture de l'esprit de l'interdit 6 ; elle va au-delà de la lettre du
+     prompt 35, qui distingue « Fermer » de « Oublier », et je la signale
+     plutôt que de la glisser.
+  */
+  void import('./coffre').then(({ oublierLAppareil }) => oublierLAppareil());
   abonnes.forEach((f) => f(false));
 }
 
