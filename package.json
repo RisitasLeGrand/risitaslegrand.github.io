@@ -43,6 +43,7 @@
     "essais:jour-logique": "tsx scripts/essais-jour-logique.mts",
     "essais:noyau": "tsx scripts/essais-noyau.mts",
     "essais:contexte": "tsx scripts/essais-contexte-personne.mts",
+    "essais:qui-utilise:navigateur": "node scripts/essais-qui-utilise-navigateur.mjs",
     "essais:synchronisation": "tsx scripts/essais-synchronisation.mts",
     "essais:orchestration": "tsx scripts/essais-orchestration.mts",
     "essais:journal-revisions": "tsx scripts/essais-journal-revisions.mts",

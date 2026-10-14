@@ -476,3 +476,90 @@ export function controlerRegistre(): string[] {
   }
   return problemes;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Les interrupteurs
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Un usage est-il actif ?
+ *
+ * On enregistre **ce que la personne a coupé**, pas ce qu'elle a laissé. La
+ * dissymétrie est volontaire et elle a une conséquence précise : un usage
+ * ajouté par une version ultérieure n'est dans aucune liste, donc c'est **son
+ * propre défaut** qui s'applique — jamais « actif ». Un nouveau lecteur de
+ * l'âge qui s'allumerait tout seul chez quelqu'un qui avait tout fermé serait
+ * la pire façon d'en ajouter un.
+ *
+ * C'est la même règle que `relireLesReglages()` côté Finances, et pour la même
+ * raison.
+ */
+export function estActif(id: string, coupes: readonly string[]): boolean {
+  const u = PAR_ID.get(id);
+  if (!u) return false;
+  if (coupes.includes(id)) return false;
+  return u.defaut === 'actif';
+}
+
+/**
+ * Ce que l'écran « Qui utilise mon âge et mon sexe » affiche pour une ligne.
+ *
+ * Trois états, et le troisième n'est pas le deuxième. **Coupé** est une
+ * décision de la personne ; **inconnu faute de donnée** est un usage qu'elle
+ * n'a pas coupé mais qui ne peut rien faire ; **en attente d'une source** est
+ * un usage que Cyclades ne sait pas encore faire. Les confondre ferait croire
+ * à un réglage là où il n'y en a pas.
+ */
+export type EtatDUsage = 'actif' | 'coupe' | 'inconnu-faute-de-donnee' | 'attend-une-source';
+
+export function etatDUsage(id: string, coupes: readonly string[], contexte: Contexte): EtatDUsage {
+  const u = PAR_ID.get(id);
+  if (!u) return 'coupe';
+  if (coupes.includes(id)) return 'coupe';
+  if (u.fondement.type === 'source-a-obtenir') return 'attend-une-source';
+  const valeurs = Object.values(contexte);
+  if (valeurs.length > 0 && valeurs.every((x) => x === 'inconnu')) {
+    return 'inconnu-faute-de-donnee';
+  }
+  return u.defaut === 'actif' ? 'actif' : 'coupe';
+}
+
+/** Les clés qu'un écran ne montre pas sans la case « afficher les usages sensibles ». */
+export const CLES_SENSIBLES: readonly CleDeContexte[] = ['suivi_cycle', 'statut_hormonal'];
+
+/**
+ * Cet usage doit-il rester replié par défaut ?
+ *
+ * 2.6 : l'écran ne révèle pas l'existence du suivi du cycle à quelqu'un qui
+ * regarde par-dessus l'épaule. Aucun usage ne lit ces clés aujourd'hui — elles
+ * arrivent avec le module du cycle —, et c'est précisément pour cela que la
+ * règle s'écrit maintenant : le jour où le premier arrivera, il sera replié
+ * sans que personne ait à y penser.
+ */
+export const estSensible = (u: UsageDeclare): boolean =>
+  u.clesLues.some((c) => CLES_SENSIBLES.includes(c));
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Simuler l'absence
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * « Voir ce qui change sans mon âge » (2.6), sans que l'écran touche aux
+ * champs bruts.
+ *
+ * La première version de l'écran fabriquait l'état amputé à la main, et
+ * l'essai sur le graphe d'imports l'a refusée — à juste titre. Un écran qui
+ * sait écrire `{ naissanceAnnee: null, … }` sait aussi lire la vraie valeur :
+ * la connaissance de la forme est déjà la moitié du contournement. La
+ * simulation appartient donc au module qui possède cette forme.
+ *
+ * Ces deux fonctions **ne modifient rien** : elles rendent une copie. C'est ce
+ * que le bandeau promet à l'écran, et un essai le vérifie en comparant la
+ * liste avant et après.
+ */
+export const sansAge = (etat: EtatDeLaPersonne): EtatDeLaPersonne => ({
+  ...etat,
+  age: { naissanceAnnee: null, naissanceMois: null, majeurDeclare: null },
+});
+
+export const sansSexe = (etat: EtatDeLaPersonne): EtatDeLaPersonne => ({ ...etat, sexe: null });

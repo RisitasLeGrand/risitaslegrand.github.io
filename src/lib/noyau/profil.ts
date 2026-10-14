@@ -172,6 +172,20 @@ export const CHAMPS: readonly ChampDeclare[] = [
     regle: 'Ignorée si l’année de naissance est connue : c’est elle qui fait foi.',
   }),
   C({
+    champ: 'usagesCoupes',
+    libelle: 'Usages de l’âge et du sexe que j’ai coupés',
+    nature: 'liste',
+    question: 'Quels usages de votre âge et de votre sexe souhaitez-vous couper ?',
+    porteeParDefaut: [],
+    demandeAuBesoin:
+      'Depuis « Qui utilise mon âge et mon sexe », dans Mon profil. La question ne se ' +
+      'pose pas à l’initialisation : couper un usage demande d’abord de voir lesquels ' +
+      'existent.',
+    regle:
+      'Un usage coupé ne reçoit plus rien, et l’écran le montre comme coupé plutôt que ' +
+      'comme absent.',
+  }),
+  C({
     champ: 'formalite',
     libelle: 'Tutoiement ou vouvoiement',
     nature: 'texte',

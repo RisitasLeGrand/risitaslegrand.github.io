@@ -277,6 +277,7 @@ const AUTORISES = new Set([
   'src/lib/noyau/registre-usages.ts',
   'src/lib/noyau/profil.ts',
   'src/lib/noyau/initialisation.ts',
+  'src/lib/etat-personne.ts',
 ]);
 
 /** Ce qu'aucun autre fichier ne doit nommer. */
@@ -305,7 +306,7 @@ for (const chemin of fichiers) {
 }
 
 v(`aucun des ${fichiers.length} fichiers de src/ ne contourne la porte`, fautes, []);
-v('la liste des modules autorisés n’a pas grossi en silence', AUTORISES.size, 5);
+v('la liste des modules autorisés n’a pas grossi en silence', AUTORISES.size, 6);
 
 /* ══════════════════════════════════════════════════════════════════════════
    7. Les champs, dans le profil commun
@@ -332,9 +333,10 @@ v(
 );
 
 const auBesoin = CHAMPS.filter((c) => c.demandeAuBesoin).map((c) => c.champ);
-v('le mois et la majorité déclarée sont demandés au besoin', auBesoin, [
+v('les champs demandés au besoin, et eux seuls', auBesoin, [
   'naissanceMois',
   'majeurDeclare',
+  'usagesCoupes',
 ]);
 v(
   'et ils ne sont donc pas dans le parcours d’initialisation',

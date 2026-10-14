@@ -1,0 +1,263 @@
+---
+/**
+ * Qui utilise mon âge et mon sexe — prompt de profil, âge et sexe, 2.6.
+ *
+ * ## Montrer, et montrer ce qui manque
+ *
+ * L'écran jumeau de Finances (« Qui lit mon budget ») a prouvé qu'une ligne de
+ * permissions se lit une fois et ne se rouvre jamais. Celui-ci reprend son
+ * patron, avec une différence imposée par l'état des choses : la plupart des
+ * usages déclarés **ne peuvent rien faire**, parce que leurs repères
+ * demandent des sources que cet environnement ne peut pas atteindre.
+ *
+ * Les montrer quand même, marqués « en attente d'une source », est la seule
+ * option honnête. Les cacher ferait de cet écran une liste de ce que Cyclades
+ * fait, alors qu'il promet d'être la liste de ce qu'il **peut** faire de votre
+ * âge et de votre sexe.
+ *
+ * ## Quatre états, et aucun n'est le synonyme d'un autre
+ *
+ * « Coupé » est une décision ; « inconnu faute de donnée » est un usage qui
+ * n'a rien à lire ; « en attente d'une source » est quelque chose que Cyclades
+ * ne sait pas encore faire. Les fondre en « inactif » ferait croire à un
+ * réglage là où il n'y en a pas, et à une donnée manquante là où c'est la
+ * source qui manque.
+ *
+ * ## La case des usages sensibles
+ *
+ * Aucun usage ne lit aujourd'hui le suivi du cycle ni le statut hormonal : ils
+ * arrivent plus tard. La case existe déjà, et le repli aussi — le jour où le
+ * premier arrivera, il sera replié sans que personne ait à y penser. Un écran
+ * qui révélerait l'existence d'un suivi du cycle à quelqu'un qui regarde par
+ * -dessus l'épaule aurait échoué à sa seule tâche.
+ */
+import Base from '../layouts/Base.astro';
+---
+
+<Base titre="Qui utilise mon âge et mon sexe" entete="leger">
+  <div class="mx-auto max-w-3xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">
+      Qui utilise mon âge et mon sexe
+    </h1>
+    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+      Chaque endroit de Cyclades qui peut lire votre âge ou votre sexe est listé ici, avec ce
+      qu’il lit exactement, pourquoi, et un interrupteur. Rien ne lit ces champs sans y figurer.
+      <a href="/profil/" class="underline">Retour à Mon profil</a>.
+    </p>
+
+    <div class="mt-6">
+      <!-- La cible tactile est le label entier, pas la case de 16 px : à 360 px
+           une case nue se rate une fois sur trois, et rater celle-ci affiche des
+           usages sensibles qu'on ne voulait pas montrer. -->
+      <label class="flex min-h-11 items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
+        <input id="afficher-sensibles" type="checkbox"
+          class="size-5 rounded border-slate-300 dark:border-slate-700" />
+        Afficher les usages sensibles
+      </label>
+    </div>
+
+    <div id="chargement" class="mt-6">
+      <p class="text-sm text-slate-500 dark:text-slate-400">Lecture…</p>
+    </div>
+
+    <div id="vue" class="mt-6 hidden space-y-8">
+      <ul id="liste" class="space-y-3"></ul>
+
+      <section class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+          Voir ce qui change sans ces informations
+        </h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          La simulation ne modifie rien : elle recalcule la liste comme si le champ était vide.
+        </p>
+        <div class="mt-3 flex flex-wrap gap-2">
+          <button id="sans-age" type="button"
+            class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+            >Voir ce qui change sans mon âge</button>
+          <button id="sans-sexe" type="button"
+            class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+            >Voir ce qui change sans mon sexe</button>
+          <button id="fin-simulation" type="button"
+            class="hidden min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900"
+            >Revenir au réel</button>
+        </div>
+        <p id="bandeau-simulation" class="mt-3 hidden rounded-lg bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-200"></p>
+      </section>
+
+      <section class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+          Ce que Cyclades a choisi de ne pas faire
+        </h2>
+        <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+          Un usage écarté est une décision, pas un oubli. Chacun dit sa raison.
+        </p>
+        <ul id="non-usages" class="mt-3 space-y-3 text-sm"></ul>
+      </section>
+    </div>
+  </div>
+
+  <script>
+    import { auDeverrouillage } from '../lib/chargement';
+    import { echapper } from '../lib/ui';
+    import { champ, ecrireChamp } from '../lib/profil';
+    import { etatDeLaPersonne } from '../lib/etat-personne';
+    import { jourLogique } from '../lib/noyau/jour-logique';
+    import {
+      NON_USAGES,
+      USAGES,
+      contextePersonne,
+      estSensible,
+      etatDUsage,
+      sansAge,
+      sansSexe,
+      type EtatDeLaPersonne,
+      type EtatDUsage,
+      type UsageDeclare,
+    } from '../lib/noyau/registre-usages';
+
+    const CLES = {
+      tranche_age: 'votre tranche d’âge',
+      majeur: 'si vous êtes majeur(e), sans votre âge',
+      sexe_physio: 'votre sexe',
+      suivi_cycle: 'si le suivi est actif',
+      statut_hormonal: 'votre statut hormonal',
+    } as const;
+
+    const ETIQUETTE: Record<EtatDUsage, { texte: string; classe: string }> = {
+      actif: { texte: 'actif', classe: 'bg-emerald-100 text-emerald-900 dark:bg-emerald-950 dark:text-emerald-200' },
+      coupe: { texte: 'coupé', classe: 'bg-slate-200 text-slate-700 dark:bg-slate-800 dark:text-slate-300' },
+      'inconnu-faute-de-donnee': {
+        texte: 'inconnu faute de donnée',
+        classe: 'bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200',
+      },
+      'attend-une-source': {
+        texte: 'en attente d’une source',
+        classe: 'bg-sky-100 text-sky-900 dark:bg-sky-950 dark:text-sky-200',
+      },
+    };
+
+    let coupes: string[] = [];
+    let reel: EtatDeLaPersonne;
+    let simulation: 'aucune' | 'sans-age' | 'sans-sexe' = 'aucune';
+
+    const etatAffiche = (): EtatDeLaPersonne => {
+      if (simulation === 'sans-age') return sansAge(reel);
+      if (simulation === 'sans-sexe') return sansSexe(reel);
+      return reel;
+    };
+
+    function ligne(u: UsageDeclare, etat: EtatDeLaPersonne, jour: string): string {
+      const contexte = contextePersonne(u.id, etat, jour);
+      const quoi = etatDUsage(u.id, coupes, contexte);
+      const badge = ETIQUETTE[quoi];
+      const lit = u.clesLues.map((c) => CLES[c]).join(', ');
+      const attente =
+        u.fondement.type === 'source-a-obtenir'
+          ? `<p class="mt-2 text-sm text-sky-800 dark:text-sky-300">Attend : ${echapper(u.fondement.laquelle)}. Tant qu’elle n’est pas vérifiée, rien n’est affiché.</p>`
+          : '';
+      return `
+        <li class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800" data-usage="${echapper(u.id)}">
+          <div class="flex flex-wrap items-start justify-between gap-3">
+            <div class="min-w-0">
+              <p class="font-semibold text-slate-900 dark:text-white">${echapper(u.rubrique)}</p>
+              <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">${echapper(u.but)}</p>
+            </div>
+            <span class="shrink-0 rounded-full px-2 py-1 text-xs font-medium ${badge.classe}">${echapper(badge.texte)}</span>
+          </div>
+          <dl class="mt-3 space-y-1 text-sm">
+            <div><dt class="inline font-medium text-slate-700 dark:text-slate-200">Lit :</dt>
+              <dd class="inline text-slate-600 dark:text-slate-300"> ${echapper(lit)}</dd></div>
+            <div><dt class="inline font-medium text-slate-700 dark:text-slate-200">Vous verrez :</dt>
+              <dd class="inline text-slate-600 dark:text-slate-300"> ${echapper(u.effetVisible)}</dd></div>
+            <div><dt class="inline font-medium text-slate-700 dark:text-slate-200">Si la donnée manque :</dt>
+              <dd class="inline text-slate-600 dark:text-slate-300"> ${echapper(u.siInconnu)}</dd></div>
+          </dl>
+          ${attente}
+          <label class="mt-3 flex min-h-11 items-center gap-3 text-sm text-slate-700 dark:text-slate-200">
+            <input type="checkbox" data-couper="${echapper(u.id)}" ${coupes.includes(u.id) ? '' : 'checked'}
+              class="size-5 rounded border-slate-300 dark:border-slate-700" />
+            Autoriser cet usage
+          </label>
+        </li>`;
+    }
+
+    function dessiner() {
+      const jour = jourLogique(new Date());
+      const etat = etatAffiche();
+      const sensibles = (document.getElementById('afficher-sensibles') as HTMLInputElement)?.checked;
+      const visibles = USAGES.filter((u) => sensibles || !estSensible(u));
+      const liste = document.getElementById('liste')!;
+      liste.innerHTML = visibles.map((u) => ligne(u, etat, jour)).join('');
+
+      const caches = USAGES.length - visibles.length;
+      if (caches > 0) {
+        liste.insertAdjacentHTML(
+          'beforeend',
+          `<li class="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+             ${caches} usage(s) sensible(s) replié(s). Cochez la case en haut pour les voir.
+           </li>`,
+        );
+      }
+
+      for (const boite of liste.querySelectorAll<HTMLInputElement>('[data-couper]')) {
+        boite.addEventListener('change', async () => {
+          const id = boite.dataset.couper!;
+          coupes = boite.checked ? coupes.filter((x) => x !== id) : [...new Set([...coupes, id])];
+          await ecrireChamp('usagesCoupes', coupes);
+          dessiner();
+        });
+      }
+    }
+
+    function bandeau() {
+      const b = document.getElementById('bandeau-simulation')!;
+      const fin = document.getElementById('fin-simulation')!;
+      if (simulation === 'aucune') {
+        b.classList.add('hidden');
+        fin.classList.add('hidden');
+        return;
+      }
+      b.textContent =
+        simulation === 'sans-age'
+          ? 'Simulation : la liste ci-dessus est celle que vous auriez sans votre année de naissance. Rien n’a été modifié.'
+          : 'Simulation : la liste ci-dessus est celle que vous auriez sans votre sexe. Rien n’a été modifié.';
+      b.classList.remove('hidden');
+      fin.classList.remove('hidden');
+    }
+
+    auDeverrouillage(async () => {
+      reel = await etatDeLaPersonne();
+      const enregistres = await champ('usagesCoupes');
+      coupes = Array.isArray(enregistres?.valeur) ? (enregistres.valeur as string[]) : [];
+
+      document.getElementById('non-usages')!.innerHTML = NON_USAGES.map(
+        (n) => `
+          <li>
+            <p class="font-medium text-slate-800 dark:text-slate-100">${echapper(n.rubrique)} — ${echapper(n.ecarte)}</p>
+            <p class="mt-1 text-slate-600 dark:text-slate-300">${echapper(n.raison)}</p>
+          </li>`,
+      ).join('');
+
+      document.getElementById('afficher-sensibles')!.addEventListener('change', dessiner);
+      document.getElementById('sans-age')!.addEventListener('click', () => {
+        simulation = 'sans-age';
+        bandeau();
+        dessiner();
+      });
+      document.getElementById('sans-sexe')!.addEventListener('click', () => {
+        simulation = 'sans-sexe';
+        bandeau();
+        dessiner();
+      });
+      document.getElementById('fin-simulation')!.addEventListener('click', () => {
+        simulation = 'aucune';
+        bandeau();
+        dessiner();
+      });
+
+      dessiner();
+      document.getElementById('chargement')!.classList.add('hidden');
+      document.getElementById('vue')!.classList.remove('hidden');
+    });
+  </script>
+</Base>
