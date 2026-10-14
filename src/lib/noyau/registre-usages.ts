@@ -73,7 +73,7 @@ export interface EtatDeLaPersonne {
 }
 
 export const ETAT_VIERGE: EtatDeLaPersonne = {
-  age: { anneeNaissance: null, moisNaissance: null, majeurDeclare: null },
+  age: { naissanceAnnee: null, naissanceMois: null, majeurDeclare: null },
   sexe: null,
   suiviCycleActif: false,
   statutHormonal: null,

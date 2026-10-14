@@ -56,9 +56,9 @@ export type EtatDeChamp = 'non_repondu' | 'inconnu' | 'refuse' | 'renseigne';
 
 export interface DeclarationDAge {
   /** `null` quand l'année n'est pas renseignée, quelle qu'en soit la raison. */
-  anneeNaissance: number | null;
+  naissanceAnnee: number | null;
   /** Demandé **uniquement** à la frontière d'un seuil utilisé (2.4). 1 à 12. */
-  moisNaissance: number | null;
+  naissanceMois: number | null;
   /**
    * « Je suis majeur(e) », en alternative à l'année.
    *
@@ -70,8 +70,8 @@ export interface DeclarationDAge {
 }
 
 export const DECLARATION_VIERGE: DeclarationDAge = {
-  anneeNaissance: null,
-  moisNaissance: null,
+  naissanceAnnee: null,
+  naissanceMois: null,
   majeurDeclare: null,
 };
 
@@ -100,7 +100,7 @@ function decomposer(jour: string): { annee: number; mois: number } {
  * naissance comptant pour l'âge le plus bas jusqu'à sa fin.
  */
 export function ageA(declaration: DeclarationDAge, jour: string): Fourchette | null {
-  const { anneeNaissance: naissance, moisNaissance: mois } = declaration;
+  const { naissanceAnnee: naissance, naissanceMois: mois } = declaration;
   if (naissance === null) return null;
   const aujourdhui = decomposer(jour);
   const A = aujourdhui.annee - naissance;
@@ -165,7 +165,7 @@ export function moisRequisPour(
   idDuSeuil: string,
   jour: string,
 ): boolean {
-  if (declaration.anneeNaissance === null || declaration.moisNaissance !== null) return false;
+  if (declaration.naissanceAnnee === null || declaration.naissanceMois !== null) return false;
   return franchit(declaration, idDuSeuil, jour) === 'indeterminable';
 }
 
@@ -209,3 +209,26 @@ export function trancheDAge(
 
 /** Le seuil, pour un écran qui veut citer sa ligne plutôt que l'affirmer. */
 export const seuilDeclare = (id: string): SeuilDeclare | undefined => seuil(id);
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Plausibilité : signaler, jamais refuser
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Une année aberrante, à faire confirmer — **sans bloquer** (B.3).
+ *
+ * La nuance est tout le sujet. Refuser `1066` paraît sage jusqu'au jour où
+ * quelqu'un tape `1066` pour `1966` : il corrige. Mais refuser oblige aussi à
+ * deviner quelle année est « vraie », et un logiciel qui se trompe de borne
+ * empêche quelqu'un de se déclarer. On signale, la personne tranche.
+ *
+ * Rend la phrase à afficher, ou `null` quand il n'y a rien à dire.
+ */
+export function anneeAberrante(annee: number, jour: string): string | null {
+  if (!Number.isInteger(annee)) return 'Une année s’écrit en chiffres entiers.';
+  const { annee: courante } = decomposer(jour);
+  if (annee > courante) return `${annee} est dans le futur. Est-ce bien l’année voulue ?`;
+  const age = courante - annee;
+  if (age > 130) return `${annee} donnerait plus de 130 ans. Est-ce bien l’année voulue ?`;
+  return null;
+}

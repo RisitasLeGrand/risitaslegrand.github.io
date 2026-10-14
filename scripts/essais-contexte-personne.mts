@@ -14,11 +14,15 @@ import { join } from 'node:path';
 import {
   DECLARATION_VIERGE,
   ageA,
+  anneeAberrante,
   franchit,
   moisRequisPour,
   trancheDAge,
   type DeclarationDAge,
 } from '../src/lib/noyau/age';
+import { BRANCHES } from '../src/lib/branches';
+import { CHAMPS, controlerChamps, valider } from '../src/lib/noyau/profil';
+import { controlerQuestions, parcours } from '../src/lib/noyau/initialisation';
 import { controlerSeuils, SEUILS } from '../src/lib/noyau/seuils-age';
 import {
   ETAT_VIERGE,
@@ -68,27 +72,27 @@ console.log('\n2. L’ÂGE EST UN INTERVALLE');
 v('sans année, pas d’âge', ageA(DECLARATION_VIERGE, '2026-10-14'), null);
 v(
   'sans le mois, l’âge vaut A−1 ou A',
-  ageA(ne({ anneeNaissance: 1990 }), '2026-10-14'),
+  ageA(ne({ naissanceAnnee: 1990 }), '2026-10-14'),
   { min: 35, max: 36 },
 );
 v(
   'anniversaire passé : la fourchette se referme sur A',
-  ageA(ne({ anneeNaissance: 1990, moisNaissance: 3 }), '2026-10-14'),
+  ageA(ne({ naissanceAnnee: 1990, naissanceMois: 3 }), '2026-10-14'),
   { min: 36, max: 36 },
 );
 v(
   'anniversaire à venir : A−1',
-  ageA(ne({ anneeNaissance: 1990, moisNaissance: 12 }), '2026-10-14'),
+  ageA(ne({ naissanceAnnee: 1990, naissanceMois: 12 }), '2026-10-14'),
   { min: 35, max: 35 },
 );
 v(
   'le mois de naissance compte pour l’âge le plus bas jusqu’à sa fin',
-  ageA(ne({ anneeNaissance: 1990, moisNaissance: 10 }), '2026-10-14'),
+  ageA(ne({ naissanceAnnee: 1990, naissanceMois: 10 }), '2026-10-14'),
   { min: 35, max: 35 },
 );
 v(
   'et il bascule le mois suivant',
-  ageA(ne({ anneeNaissance: 1990, moisNaissance: 10 }), '2026-11-01'),
+  ageA(ne({ naissanceAnnee: 1990, naissanceMois: 10 }), '2026-11-01'),
   { min: 36, max: 36 },
 );
 
@@ -101,32 +105,32 @@ console.log('\n3. LE SEUIL, ET LE BON CÔTÉ DE L’ERREUR');
 v('rien de déclaré : indéterminable', franchit(DECLARATION_VIERGE, 'majorite', '2026-10-14'), 'indeterminable');
 v(
   'largement majeur : oui',
-  franchit(ne({ anneeNaissance: 1990 }), 'majorite', '2026-10-14'),
+  franchit(ne({ naissanceAnnee: 1990 }), 'majorite', '2026-10-14'),
   'oui',
 );
 v(
   'largement mineur : non',
-  franchit(ne({ anneeNaissance: 2015 }), 'majorite', '2026-10-14'),
+  franchit(ne({ naissanceAnnee: 2015 }), 'majorite', '2026-10-14'),
   'non',
 );
 v(
   'né en 2008 : 17 ou 18 ans — indéterminable, et surtout pas « non »',
-  franchit(ne({ anneeNaissance: 2008 }), 'majorite', '2026-10-14'),
+  franchit(ne({ naissanceAnnee: 2008 }), 'majorite', '2026-10-14'),
   'indeterminable',
 );
 v(
   'le mois lève l’indétermination dans un sens…',
-  franchit(ne({ anneeNaissance: 2008, moisNaissance: 3 }), 'majorite', '2026-10-14'),
+  franchit(ne({ naissanceAnnee: 2008, naissanceMois: 3 }), 'majorite', '2026-10-14'),
   'oui',
 );
 v(
   '…comme dans l’autre',
-  franchit(ne({ anneeNaissance: 2008, moisNaissance: 12 }), 'majorite', '2026-10-14'),
+  franchit(ne({ naissanceAnnee: 2008, naissanceMois: 12 }), 'majorite', '2026-10-14'),
   'non',
 );
 v(
   'le mois courant reste du côté prudent',
-  franchit(ne({ anneeNaissance: 2008, moisNaissance: 10 }), 'majorite', '2026-10-14'),
+  franchit(ne({ naissanceAnnee: 2008, naissanceMois: 10 }), 'majorite', '2026-10-14'),
   'non',
 );
 v(
@@ -136,17 +140,17 @@ v(
 );
 v(
   'et l’année prime sur la déclaration',
-  franchit(ne({ anneeNaissance: 2015, majeurDeclare: true }), 'majorite', '2026-10-14'),
+  franchit(ne({ naissanceAnnee: 2015, majeurDeclare: true }), 'majorite', '2026-10-14'),
   'non',
 );
 
 console.log('\n   Le mois n’est demandé qu’à la frontière');
 v('pas d’année : on ne demande pas le mois', moisRequisPour(DECLARATION_VIERGE, 'majorite', '2026-10-14'), false);
-v('loin du seuil : non', moisRequisPour(ne({ anneeNaissance: 1990 }), 'majorite', '2026-10-14'), false);
-v('à la frontière : oui', moisRequisPour(ne({ anneeNaissance: 2008 }), 'majorite', '2026-10-14'), true);
+v('loin du seuil : non', moisRequisPour(ne({ naissanceAnnee: 1990 }), 'majorite', '2026-10-14'), false);
+v('à la frontière : oui', moisRequisPour(ne({ naissanceAnnee: 2008 }), 'majorite', '2026-10-14'), true);
 v(
   'mois déjà connu : on ne le redemande pas',
-  moisRequisPour(ne({ anneeNaissance: 2008, moisNaissance: 3 }), 'majorite', '2026-10-14'),
+  moisRequisPour(ne({ naissanceAnnee: 2008, naissanceMois: 3 }), 'majorite', '2026-10-14'),
   false,
 );
 
@@ -158,22 +162,22 @@ console.log('\n4. LA TRANCHE, À LA GRANULARITÉ DÉCLARÉE');
 
 v(
   'bornes larges : une tranche',
-  trancheDAge(ne({ anneeNaissance: 1990, moisNaissance: 3 }), [18, 40, 65], '2026-10-14'),
+  trancheDAge(ne({ naissanceAnnee: 1990, naissanceMois: 3 }), [18, 40, 65], '2026-10-14'),
   '18-39',
 );
 v(
   'sous la première borne',
-  trancheDAge(ne({ anneeNaissance: 2015, moisNaissance: 3 }), [18, 40, 65], '2026-10-14'),
+  trancheDAge(ne({ naissanceAnnee: 2015, naissanceMois: 3 }), [18, 40, 65], '2026-10-14'),
   'moins de 18',
 );
 v(
   'au-dessus de la dernière',
-  trancheDAge(ne({ anneeNaissance: 1950, moisNaissance: 3 }), [18, 40, 65], '2026-10-14'),
+  trancheDAge(ne({ naissanceAnnee: 1950, naissanceMois: 3 }), [18, 40, 65], '2026-10-14'),
   '65 et plus',
 );
 v(
   'fourchette à cheval sur une borne : aucune tranche n’est vraie',
-  trancheDAge(ne({ anneeNaissance: 1986 }), [18, 40, 65], '2026-10-14'),
+  trancheDAge(ne({ naissanceAnnee: 1986 }), [18, 40, 65], '2026-10-14'),
   null,
 );
 v('sans année : rien', trancheDAge(DECLARATION_VIERGE, [18, 40], '2026-10-14'), null);
@@ -186,7 +190,7 @@ console.log('\n5. LA PORTE');
 
 const adulte: EtatDeLaPersonne = {
   ...ETAT_VIERGE,
-  age: { anneeNaissance: 1990, moisNaissance: 3, majeurDeclare: null },
+  age: { naissanceAnnee: 1990, naissanceMois: 3, majeurDeclare: null },
   sexe: 'femme',
 };
 
@@ -222,7 +226,7 @@ v(
 );
 v(
   'majeur indéterminable se rend « inconnu », et non « non »',
-  contextePersonne('sante.substances-majeur', { ...ETAT_VIERGE, age: ne({ anneeNaissance: 2008 }) }, '2026-10-14'),
+  contextePersonne('sante.substances-majeur', { ...ETAT_VIERGE, age: ne({ naissanceAnnee: 2008 }) }, '2026-10-14'),
   { majeur: 'inconnu' },
 );
 v(
@@ -251,15 +255,32 @@ v('les onze usages retombent sur « inconnu » sans erreur', planté, null);
 
 console.log('\n6. LE GRAPHE D’IMPORTS');
 
-/** Les seuls modules autorisés à toucher les champs bruts ou le calcul d'âge. */
+/**
+ * Les seuls modules autorisés à nommer les champs bruts ou le calcul d'âge.
+ *
+ * Deux familles, et la distinction est la raison d'être de la liste.
+ *
+ * Les trois premiers **sont** la machinerie : calculer l'âge et servir le
+ * contexte est leur travail. Les deux derniers **déclarent** les champs — le
+ * catalogue et la façon de poser la question — sans jamais lire la valeur
+ * d'une personne pour en tirer une conséquence.
+ *
+ * Tout autre fichier qui nomme un de ces champs le fait pour en lire la
+ * valeur, et c'est précisément le contournement que 2.2 interdit. La taille de
+ * cette liste est elle-même vérifiée plus bas : l'allonger doit être un geste
+ * délibéré, visible en relecture, et non une ligne ajoutée pour faire passer
+ * un essai.
+ */
 const AUTORISES = new Set([
   'src/lib/noyau/age.ts',
   'src/lib/noyau/seuils-age.ts',
   'src/lib/noyau/registre-usages.ts',
+  'src/lib/noyau/profil.ts',
+  'src/lib/noyau/initialisation.ts',
 ]);
 
 /** Ce qu'aucun autre fichier ne doit nommer. */
-const CHAMPS_BRUTS = /\b(anneeNaissance|moisNaissance|majeurDeclare)\b/;
+const CHAMPS_BRUTS = /\b(naissanceAnnee|naissanceMois|majeurDeclare)\b/;
 const IMPORT_AGE = /from\s+['"][^'"]*noyau\/(age|seuils-age)['"]/;
 
 const fichiers: string[] = [];
@@ -284,6 +305,61 @@ for (const chemin of fichiers) {
 }
 
 v(`aucun des ${fichiers.length} fichiers de src/ ne contourne la porte`, fautes, []);
+v('la liste des modules autorisés n’a pas grossi en silence', AUTORISES.size, 5);
+
+/* ══════════════════════════════════════════════════════════════════════════
+   7. Les champs, dans le profil commun
+   ══════════════════════════════════════════════════════════════════════════ */
+
+console.log('\n7. LES CHAMPS, DANS LE PROFIL COMMUN');
+
+v('le catalogue de profil est sain', controlerChamps(BRANCHES.map((b) => b.id)), []);
+v('chaque question sait se poser', controlerQuestions(), []);
+
+const declares = CHAMPS.filter((c) =>
+  ['naissanceAnnee', 'naissanceMois', 'majeurDeclare'].includes(c.champ),
+);
+v('les trois champs sont déclarés', declares.length, 3);
+v(
+  'aucun n’est obligatoire',
+  declares.some((c) => c.obligatoire === true),
+  false,
+);
+v(
+  'aucune branche ne les lit par la portée : le registre seul ouvre',
+  declares.map((c) => JSON.stringify(c.porteeParDefaut)),
+  ['[]', '[]', '[]'],
+);
+
+const auBesoin = CHAMPS.filter((c) => c.demandeAuBesoin).map((c) => c.champ);
+v('le mois et la majorité déclarée sont demandés au besoin', auBesoin, [
+  'naissanceMois',
+  'majeurDeclare',
+]);
+v(
+  'et ils ne sont donc pas dans le parcours d’initialisation',
+  parcours([]).etapes.map((e) => e.declare.champ).filter((c) => auBesoin.includes(c)),
+  [],
+);
+v(
+  'l’année, elle, y est — au chapitre « Moi », juste après le nom',
+  parcours([]).etapes.map((e) => e.declare.champ).slice(0, 3),
+  ['prenom', 'nom', 'naissanceAnnee'],
+);
+
+console.log('\n   Une année aberrante se signale, elle ne se refuse pas');
+v('1990 ne dit rien', anneeAberrante(1990, '2026-10-14'), null);
+v('une année recevable reste recevable', valider('naissanceAnnee', 1066).recevable, true);
+v(
+  'mais 1066 se fait remarquer',
+  anneeAberrante(1066, '2026-10-14'),
+  '1066 donnerait plus de 130 ans. Est-ce bien l’année voulue ?',
+);
+v(
+  'le futur aussi',
+  anneeAberrante(2030, '2026-10-14'),
+  '2030 est dans le futur. Est-ce bien l’année voulue ?',
+);
 
 /* ══════════════════════════════════════════════════════════════════════════ */
 

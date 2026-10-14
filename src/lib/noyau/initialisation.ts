@@ -202,7 +202,12 @@ export function parcours(
   const profil = lireProfil(operations);
   const reports = lireReports(operations);
   const parChampDeduit = new Map((options.deductions ?? []).map((d) => [d.champ, d]));
-  const champs = options.branche ? champsDeBranche(options.branche) : champsDuSocle();
+  /* Les champs demandés au moment du besoin ne sont pas du parcours : les y
+     laisser reviendrait à collecter « au cas où » une donnée dont la minimisation
+     impose qu'elle n'existe que si une fonction l'exige. */
+  const champs = (options.branche ? champsDeBranche(options.branche) : champsDuSocle()).filter(
+    (c) => !c.demandeAuBesoin,
+  );
 
   const etapes = champs.map((declare): Etape => {
     const deja = profil.get(declare.champ);
@@ -321,6 +326,22 @@ export const CHOIX: Readonly<Record<string, readonly Option[]>> = {
     { valeur: 'vous', libelle: 'Vouvoyez-moi' },
   ],
   langue: [{ valeur: 'fr', libelle: 'Français' }],
+  /* Un mois est un ensemble fermé, contrairement à une année : douze libellés
+     valent mieux qu'un curseur de 1 à 12, et « Mars » se lit mieux que « 3 ». */
+  naissanceMois: [
+    { valeur: 1, libelle: 'Janvier' },
+    { valeur: 2, libelle: 'Février' },
+    { valeur: 3, libelle: 'Mars' },
+    { valeur: 4, libelle: 'Avril' },
+    { valeur: 5, libelle: 'Mai' },
+    { valeur: 6, libelle: 'Juin' },
+    { valeur: 7, libelle: 'Juillet' },
+    { valeur: 8, libelle: 'Août' },
+    { valeur: 9, libelle: 'Septembre' },
+    { valeur: 10, libelle: 'Octobre' },
+    { valeur: 11, libelle: 'Novembre' },
+    { valeur: 12, libelle: 'Décembre' },
+  ],
   fuseau: [
     { valeur: 'Europe/Paris', libelle: 'Heure de Paris' },
     { valeur: 'Europe/Brussels', libelle: 'Bruxelles' },
@@ -447,6 +468,19 @@ export const BORNES: Readonly<Record<string, Bornes>> = {
   frequenceSouhaitee: { min: 1, max: 7, pas: 1, unite: 'séance' },
 };
 
+/**
+ * Les nombres **tapés librement**, que rien ne borne.
+ *
+ * `BORNES` ne convenait pas, et la différence n'est pas cosmétique : des bornes
+ * sont une **contrainte**, et B.3 demande exactement l'inverse pour une année
+ * de naissance — « année plausible, confirmation en cas d'aberration, **sans
+ * blocage** ». Un minimum à 1900 refuserait quelqu'un né en 1895 ; un maximum
+ * calculé refuserait une faute de frappe au lieu de la signaler. Ces champs
+ * s'écrivent donc sans borne, et leur invraisemblance est **dite** par
+ * `anneeAberrante()`, qui rend une phrase et non un refus.
+ */
+export const SAISIE_LIBRE_CHIFFREE: readonly string[] = ['naissanceAnnee'];
+
 /** Combien de lignes au plus, pour les champs à saisie libre multiple. */
 export const MAXIMUM_LIGNES: Readonly<Record<string, number>> = {
   objectifsAnnee: 3,
@@ -531,6 +565,7 @@ export function controlerQuestions(): string[] {
     ...Object.keys(DEFAUTS),
     ...MULTIPLES,
     ...DYNAMIQUES,
+    ...SAISIE_LIBRE_CHIFFREE,
     ...GROUPES.flat(),
   ]);
   for (const champ of nommes) {
@@ -564,6 +599,7 @@ export function controlerQuestions(): string[] {
       champ.champ in MAXIMUM_LIGNES ||
       champ.champ in SUGGESTIONS ||
       DYNAMIQUES.includes(champ.champ) ||
+      SAISIE_LIBRE_CHIFFREE.includes(champ.champ) ||
       champ.nature === 'texte' ||
       champ.nature === 'heure' ||
       champ.nature === 'booleen';

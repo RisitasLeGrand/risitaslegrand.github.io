@@ -87,6 +87,17 @@ export interface ChampDeclare {
   /** Obligatoire à l'initialisation. Un seul champ l'est. */
   obligatoire?: boolean;
   /**
+   * Ce champ **n'est pas posé par le parcours** : il est demandé au moment où
+   * une fonction en a besoin, et la phrase dit quand.
+   *
+   * C'est la minimisation rendue mécanique plutôt que promise. Le mois de
+   * naissance n'a d'usage qu'à la frontière d'un seuil : le poser à
+   * l'initialisation reviendrait à collecter « au cas où », ce que le prompt
+   * de profil interdit. Le parcours filtre sur ce champ, et l'essai vérifie
+   * qu'il le fait.
+   */
+  demandeAuBesoin?: string;
+  /**
    * Ce que le champ **règle** dans l'application, en français.
    *
    * L'écran « Mon profil » l'affiche : « votre bascule de journée est à 6 h
@@ -122,6 +133,43 @@ export const CHAMPS: readonly ChampDeclare[] = [
     nature: 'texte',
     question: 'Et votre nom, si vous voulez le donner ?',
     porteeParDefaut: [],
+  }),
+  C({
+    champ: 'naissanceAnnee',
+    libelle: 'Année de naissance',
+    nature: 'nombre',
+    question: 'Quelle est votre année de naissance ?',
+    /* Vide, comme le nom : aucune branche ne lit ce champ par la portée. La
+       lecture passe par `contextePersonne()` et le registre des usages, qui
+       est plus fin qu'une branche et qui s'affiche à l'écran. */
+    porteeParDefaut: [],
+    regle:
+      'Elle sert à calculer votre âge. Cyclades ne conserve jamais votre jour de ' +
+      'naissance, et votre mois seulement si une fonction l’exige à la frontière ' +
+      'd’un âge.',
+  }),
+  C({
+    champ: 'naissanceMois',
+    libelle: 'Mois de naissance',
+    nature: 'nombre',
+    question: 'Et le mois ?',
+    porteeParDefaut: [],
+    demandeAuBesoin:
+      'Au moment d’activer une fonction dont le seuil d’âge tombe sur votre année : ' +
+      'sans le mois, Cyclades ne peut pas savoir de quel côté du seuil vous êtes, et ' +
+      'il reste du côté prudent.',
+    regle: 'Il lève l’incertitude d’un an, et seulement quand elle bloque quelque chose.',
+  }),
+  C({
+    champ: 'majeurDeclare',
+    libelle: 'Majorité déclarée',
+    nature: 'booleen',
+    question: 'Êtes-vous majeur(e) ?',
+    porteeParDefaut: [],
+    demandeAuBesoin:
+      'Si vous préférez ne pas donner votre année de naissance : cette réponse seule ' +
+      'suffit aux fonctions réservées aux majeurs, et ne stocke aucune année.',
+    regle: 'Ignorée si l’année de naissance est connue : c’est elle qui fait foi.',
   }),
   C({
     champ: 'formalite',
