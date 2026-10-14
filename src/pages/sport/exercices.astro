@@ -192,6 +192,33 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
            que la simplifiée est un défaut d'affichage, alors que c'est le
            réglage voulu par défaut (décision 6).
         */}
+        {/*
+           A7, cas 1 — les muscles sollicités s'allument, étape par étape.
+
+           **À la demande, jamais en boucle** : rien ne bouge tant qu'on n'a pas
+           appuyé. Deux étapes — principaux, puis secondaires —, avançables au
+           clavier, rejouables, et interruptibles.
+
+           **L'état final est lisible sans l'animation** : à la fin, le schéma
+           montre exactement ce qu'il montrait avant qu'on lance, et le texte
+           ci-dessous dit la même chose en toutes lettres. Qui n'appuie jamais
+           ne perd rien ; qui n'y voit pas lit le commentaire.
+        */}
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            id="voir-animation"
+            type="button"
+            class="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 dark:border-slate-700 dark:text-slate-200"
+          >Voir l’animation</button>
+          <button
+            id="etape-animation"
+            type="button"
+            hidden
+            class="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 dark:border-slate-700 dark:text-slate-200"
+          >Étape suivante</button>
+          <p id="commentaire-animation" class="text-sm text-slate-600 dark:text-slate-300" aria-live="polite"></p>
+        </div>
+
         <fieldset class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1">
           <legend class="text-xs font-medium text-slate-500 dark:text-slate-400">
             Forme du schéma
@@ -661,4 +688,92 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
     });
   }
   appliquer(choix);
+</script>
+
+<script>
+  /*
+     A7, cas 1 — les muscles sollicités s'allument sur le schéma.
+
+     **Pourquoi ce script lit l'état du schéma plutôt qu'un exercice.** Les
+     zones portent déjà `data-etat` (« aucun », « principal », « secondaire »),
+     tenu à jour par les cases à cocher comme par les clics. L'animation
+     emprunte donc exactement la même source que l'écran : elle ne peut pas
+     montrer autre chose que ce qui est enregistré, et elle vaut pour les deux
+     formes du schéma — simplifiée comme complète — puisqu'elle ne touche pas
+     au dessin.
+
+     **Elle est rendue, pas simulée.** On éteint, puis on rallume par étapes.
+     L'état de départ est mémorisé et restitué à la fin : à aucun moment
+     l'animation ne laisse l'écran dans un état faux. Si on quitte la boîte en
+     cours de route, la restitution se fait quand même.
+  */
+  const VIDE = 'aucun';
+  const ETAPES = [
+    { etat: 'principal', dit: (n: number) => `Muscles principaux : ${n}.` },
+    { etat: 'secondaire', dit: (n: number) => `Muscles secondaires : ${n}.` },
+  ] as const;
+
+  const zones = () => document.querySelectorAll<SVGGElement>('svg[data-face] [data-zone]');
+  const bouton = document.getElementById('voir-animation') as HTMLButtonElement | null;
+  const suivant = document.getElementById('etape-animation') as HTMLButtonElement | null;
+  const commentaire = document.getElementById('commentaire-animation');
+
+  if (bouton && suivant && commentaire) {
+    /** L'état enregistré, avant que l'animation n'y touche. */
+    let reel: Map<SVGGElement, string> | null = null;
+    let etape = 0;
+
+    const poser = (element: SVGGElement, etat: string) => {
+      element.dataset.etat = etat;
+      element.setAttribute('aria-pressed', String(etat !== VIDE));
+    };
+
+    const restituer = () => {
+      if (!reel) return;
+      for (const [element, etat] of reel) poser(element, etat);
+      reel = null;
+      etape = 0;
+      suivant.hidden = true;
+      bouton.textContent = 'Voir l’animation';
+      commentaire.textContent = '';
+    };
+
+    const jouerEtape = () => {
+      if (!reel) return;
+      const { etat, dit } = ETAPES[etape];
+      let compte = 0;
+      for (const [element, voulu] of reel) {
+        if (voulu !== etat) continue;
+        poser(element, etat);
+        compte += 1;
+      }
+      commentaire.textContent = `Étape ${etape + 1} sur ${ETAPES.length}. ${dit(compte)}`;
+      etape += 1;
+      if (etape >= ETAPES.length) {
+        suivant.hidden = true;
+        bouton.textContent = 'Rejouer';
+        // L'état final EST l'état réel : rien à restituer, et c'est voulu.
+        reel = null;
+        etape = 0;
+      }
+    };
+
+    bouton.addEventListener('click', () => {
+      restituer();
+      reel = new Map();
+      for (const z of zones()) reel.set(z, z.dataset.etat ?? VIDE);
+      // On éteint tout : sans cela, « s'allumer » n'aurait rien à montrer.
+      for (const z of zones()) poser(z, VIDE);
+      etape = 0;
+      suivant.hidden = false;
+      bouton.textContent = 'Interrompre';
+      commentaire.textContent = 'Animation en cours. « Étape suivante » pour avancer.';
+      jouerEtape();
+    });
+
+    suivant.addEventListener('click', jouerEtape);
+
+    // Quitter la boîte en cours d'animation ne doit pas laisser l'écran faux.
+    document.getElementById('fenetre-ajout')?.addEventListener('close', restituer);
+  }
 </script>

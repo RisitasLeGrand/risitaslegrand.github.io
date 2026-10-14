@@ -63,10 +63,11 @@
 <div class="my-3">
   {@render children?.(visibles)}
 
+  {#key visibles}
   {#if etapeCourante}
     <p
-      class="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm text-slate-800
-        dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-200"
+      class="etape-revelee mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm
+        text-slate-800 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-200"
       aria-live="polite"
     >
       <span class="font-semibold">Étape {etapeCourante.rang} sur {total}</span>
@@ -77,6 +78,7 @@
       {etapeCourante.legende}
     </p>
   {/if}
+  {/key}
 
   {#if total > 1}
     <div class="mt-2 flex flex-wrap items-center gap-2">
@@ -119,3 +121,51 @@
     </div>
   {/if}
 </div>
+
+<style>
+  /*
+     Chaque étape paraît par un fondu et un léger glissement — A7, cas 2 du
+     prompt 34.
+
+     **Pourquoi un bloc `{#key}` et non une transition Svelte.** Le texte de
+     l'étape n'est pas monté puis démonté : c'est le même élément dont le
+     contenu change. Sans clé, rien ne relancerait l'animation, et l'étape
+     suivante apparaîtrait sèchement. La clé force un remplacement, donc une
+     animation neuve à chaque pas.
+
+     **Le sens ne dépend pas de l'animation.** « Étape n sur m » et la légende
+     sont écrites, et la zone est `aria-live` : un lecteur d'écran annonce le
+     changement sans rien devoir au mouvement.
+
+     Le glissement vient de la gauche, dans le sens de la lecture : on avance
+     dans un raisonnement, l'étape entre d'où vient le texte.
+  */
+  .etape-revelee {
+    animation: etape-parait var(--duree-moyenne, 200ms) var(--courbe-entree, ease-out);
+  }
+
+  @keyframes etape-parait {
+    from {
+      opacity: 0;
+      transform: translateX(-0.5rem);
+    }
+    to {
+      opacity: 1;
+      transform: translateX(0);
+    }
+  }
+
+  /*
+     Sous mouvement réduit, aucun déplacement — et pas seulement une durée
+     courte. Neutraliser la durée laisserait l'étape SAUTER de sa position
+     décalée à sa place : c'est la leçon de la phase 4, et elle vaut ici aussi.
+  */
+  @media (prefers-reduced-motion: reduce) {
+    .etape-revelee {
+      animation: none;
+    }
+  }
+  :global(:root[data-animations='reduites']) .etape-revelee {
+    animation: none;
+  }
+</style>

@@ -425,6 +425,49 @@ muscles sur ce schéma.
   l'instant.** Le prompt en autorise deux au plus, soumises à l'audit ; en
   proposer avant que le pilote ait jugé les trois premières serait deviner.
 
+> **Phase 7 : cas 1 et 2 livrés le 14 octobre. Le cas 3 est soumis, pas livré.**
+>
+> **Cas 1 — les muscles s'allument.** Un bouton « Voir l'animation » dans la
+> boîte d'ajout, deux étapes (principaux, puis secondaires), avançables,
+> rejouables, interruptibles. L'animation **lit `data-etat` sur les zones**,
+> c'est-à-dire la source même que les cases à cocher tiennent à jour : elle ne
+> peut donc pas montrer autre chose que ce qui est enregistré, et elle vaut
+> pour les deux formes du schéma puisqu'elle ne touche pas au dessin. Un texte
+> dit l'étape et le nombre de muscles.
+>
+> **La règle qui compte, et qu'on enfreint sans s'en apercevoir** : l'état
+> final doit être l'état réel. Une animation qui laisse l'écran dans un état
+> intermédiaire a transformé une aide en mensonge. Le contrôle relève l'état
+> avant et après et exige qu'ils soient identiques — et il a été **éprouvé** en
+> détournant la seconde étape : il relève alors `biceps:aucun` au lieu de
+> `biceps:secondaire`.
+>
+> **Cas 2 — le déroulé.** Chaque étape paraît par un fondu et un léger
+> glissement, relancé par un bloc `{#key}` : le texte de l'étape n'est pas
+> monté puis démonté, c'est le même élément dont le contenu change, et sans clé
+> rien ne relancerait l'animation. Sous mouvement réduit, l'animation est
+> **supprimée, pas raccourcie** — leçon de la phase 4. Le refus de la lecture
+> automatique, qui existait déjà, est inchangé.
+>
+> **Cas 3 — non livré, et voici pourquoi.** Deux obstacles, dont un est un
+> conflit interne au prompt.
+> 1. **Le composant nommé n'est pas une jauge.** `BarreProgression.astro` est
+>    la **barre de chargement de la page** : elle n'a aucune valeur à
+>    atteindre, donc rien à « remplir jusqu'à ». Les vraies jauges de valeur
+>    sont ailleurs, en `style.width` inline dans 8 pages.
+> 2. **Les animer violerait l'interdit n° 4**, qui proscrit l'animation de
+>    `width`. C'est le même genre de conflit que `details` en phase 2, et il se
+>    résoudrait de la même façon : réécrire ces barres en `transform: scaleX()`.
+>    Mais cela substitue 8 cibles non nommées à une cible nommée — un
+>    changement de périmètre que je ne prends pas seul.
+>
+> À noter : **le chiffre est déjà affiché d'emblée** à côté de ces barres. La
+> seule chose qui manque est le remplissage animé.
+>
+> **Toujours zéro proposition supplémentaire** avant l'audit du pilote.
+>
+> **Contrôle** : `npm run essais:explicatives`, 16 contrôles.
+
 ## Livrables
 
 - Commits séparés par phase, chacun décrit.

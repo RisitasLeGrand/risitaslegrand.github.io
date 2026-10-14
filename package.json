@@ -165,7 +165,8 @@
     "essais:apparition": "node scripts/essais-apparition-navigateur.mjs",
     "essais:listes": "node scripts/essais-listes-navigateur.mjs",
     "essais:retours": "node scripts/essais-retours-navigateur.mjs",
-    "essais:chargements": "node scripts/essais-chargements-navigateur.mjs"
+    "essais:chargements": "node scripts/essais-chargements-navigateur.mjs",
+    "essais:explicatives": "node scripts/essais-explicatives-navigateur.mjs"
   },
   "repository": {
     "type": "git",
