@@ -170,6 +170,21 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
         racine.setAttribute('data-theme', rendu);
         racine.setAttribute('data-theme-choix', choix);
         racine.style.colorScheme = rendu === 'sombre' ? 'dark' : 'light';
+
+        // Animations : même principe, et pour la même raison — appliqué avant
+        // le premier rendu, sinon une animation aurait le temps de jouer avant
+        // que le réglage soit lu. Deux valeurs seulement : « reduites » et
+        // « completes ». Le réglage du système reste honoré de son côté par
+        // « prefers-reduced-motion » ; le plus restrictif des deux l'emporte,
+        // puisque chacun neutralise sans que l'autre puisse rétablir.
+        var animations = 'completes';
+        try {
+          var a = localStorage.getItem('revinsp.animations');
+          if (a === 'reduites' || a === 'completes') animations = a;
+        } catch (e) {
+          /* navigation privée : on garde le défaut */
+        }
+        racine.setAttribute('data-animations', animations);
       })();
     </script>
   </head>

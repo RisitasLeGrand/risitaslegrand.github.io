@@ -25,6 +25,7 @@
     "essais:pretest": "node scripts/essais-pretest.mjs",
     "essais:positionnement": "tsx scripts/essais-positionnement.mts",
     "essais:positionnement:navigateur": "node scripts/essais-positionnement-navigateur.mjs",
+    "essais:mouvement-reduit": "node scripts/essais-mouvement-reduit-navigateur.mjs",
     "essais:publication": "node scripts/essais-publication-actualites.mjs",
     "essais:journal": "node scripts/essais-journal.mjs",
     "essais:flashcards": "node scripts/essais-flashcards.mjs",

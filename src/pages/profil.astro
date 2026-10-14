@@ -73,6 +73,34 @@ import Base from '../layouts/Base.astro';
     </section>
 
     <!-- ── Ce que Cyclades en déduit (§3 de questions.md) ─────────────── -->
+    <!-- ── Affichage : l'interrupteur d'animations (prompt 34, décision 4) ── -->
+    <section class="mt-10">
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">Affichage</h2>
+      <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+        Ce réglage s'ajoute à celui de votre appareil. Si l'un des deux demande moins de
+        mouvement, c'est lui qui s'applique : désactiver ici ne peut pas réactiver ce que le
+        système a coupé.
+      </p>
+      <label
+        for="reduire-animations"
+        class="flex min-h-11 w-full max-w-2xl cursor-pointer items-start gap-3 rounded-lg border border-slate-200 bg-white px-4 py-3 text-left transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:hover:bg-slate-800"
+      >
+        <input
+          type="checkbox"
+          id="reduire-animations"
+          class="mt-0.5 h-5 w-5 shrink-0 rounded border-slate-400 text-indigo-600 dark:border-slate-500"
+        />
+        <span class="min-w-0">
+          <span class="block font-medium text-slate-900 dark:text-white">
+            Réduire les animations
+          </span>
+          <span class="block text-sm text-slate-500 dark:text-slate-400">
+            Supprime les déplacements et les fondus. Le contenu et les commandes ne changent pas.
+          </span>
+        </span>
+      </label>
+    </section>
+
     <section class="mt-10">
       <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">
         Ce que Cyclades en déduit
@@ -557,4 +585,35 @@ import Base from '../layouts/Base.astro';
       $('adaptation-etat').textContent = 'L’adaptation n’a pas pu être calculée sur cet appareil.';
     });
   });
+</script>
+
+<script>
+  /*
+     Interrupteur « Réduire les animations » (prompt 34, décision 4).
+
+     Il vit à part du reste de l'écran : il ne touche à aucune donnée, ne lit
+     rien du coffre et ne dépend d'aucun chargement. Un profil qui échoue à se
+     peindre ne doit pas emporter avec lui le réglage d'accessibilité.
+
+     L'attribut est déjà posé avant le premier rendu par le script d'amorçage
+     du gabarit ; ici on ne fait que refléter cet état dans la case et le
+     mettre à jour quand elle change.
+  */
+  const CLE_ANIMATIONS = 'revinsp.animations';
+  const case_ = document.getElementById('reduire-animations') as HTMLInputElement | null;
+
+  if (case_) {
+    const racine = document.documentElement;
+    case_.checked = racine.getAttribute('data-animations') === 'reduites';
+
+    case_.addEventListener('change', () => {
+      const valeur = case_.checked ? 'reduites' : 'completes';
+      racine.setAttribute('data-animations', valeur);
+      try {
+        localStorage.setItem(CLE_ANIMATIONS, valeur);
+      } catch {
+        /* navigation privée : le choix ne vaudra que pour cette page */
+      }
+    });
+  }
 </script>

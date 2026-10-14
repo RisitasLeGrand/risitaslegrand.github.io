@@ -41,6 +41,30 @@
   --text-base: 1.0625rem;
 }
 
+/* --- L'échelle des animations (prompt 34, famille A6) -------------------- */
+/*
+   Trois durées et deux courbes, définies une seule fois et employées partout.
+   Une échelle à trois crans suffit : au-delà, personne ne sait plus laquelle
+   choisir, et les pages finissent par ne plus bouger au même rythme.
+
+   Le plafond de 300 ms vient de l'interdit n° 5 du prompt — aucune animation
+   ne retarde une action. Seul un retour explicite de succès peut aller jusqu'à
+   600 ms, d'où « --duree-succes », à n'employer que là.
+
+   « --sortie » est plus rapide que « --entree » : ce qui se ferme doit libérer
+   l'écran sans se faire attendre, ce qui s'ouvre peut prendre le temps d'être
+   compris.
+*/
+:root {
+  --duree-courte: 120ms;
+  --duree-moyenne: 200ms;
+  --duree-longue: 300ms;
+  --duree-succes: 600ms;
+
+  --courbe-entree: cubic-bezier(0.22, 0.61, 0.36, 1);
+  --courbe-sortie: cubic-bezier(0.4, 0, 1, 1);
+}
+
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
@@ -314,6 +338,21 @@ dfn.terme-glossaire:focus-visible {
   border-radius: 2px;
 }
 
+/*
+   Deux sources, la plus restrictive gagne : le réglage du système d'exploitation
+   et l'interrupteur « Réduire les animations » de l'application (décision 4 du
+   prompt 34), ce dernier porté par `data-animations` sur <html>, posé avant le
+   premier rendu par le script d'amorçage du gabarit.
+
+   `animation-iteration-count` est là pour une raison mesurée, le 14 octobre
+   2026, par « npm run essais:mouvement-reduit ». Neutraliser la seule *durée*
+   suffit pour une animation qui joue une fois : elle s'achève avant d'être vue.
+   Pour une animation **infinie**, non — elle tourne 0,01 ms par cycle, sans fin.
+   Relevé sur le bouton de capture de touche du quad n-back, qui porte
+   `animate-pulse` : `animation-iteration-count` valait « infinite » sous
+   mouvement réduit. Un clignotement à cadence maximale, sur l'écran d'un
+   exercice cognitif, exactement ce que l'interdit n° 3 proscrit.
+*/
 @media (prefers-reduced-motion: reduce) {
   html {
     scroll-behavior: auto;
@@ -322,8 +361,20 @@ dfn.terme-glossaire:focus-visible {
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+:root[data-animations='reduites'] {
+  scroll-behavior: auto;
+}
+:root[data-animations='reduites'] *,
+:root[data-animations='reduites'] *::before,
+:root[data-animations='reduites'] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
 }
 
 /* --- Barre de défilement -------------------------------------------------- */

@@ -26,11 +26,22 @@ M1 à M4 du prompt : **les quatre constats tiennent**. Vérifié par lecture.
 `schema-corps.ts` à 218 lignes, boîte 200 × 420.
 
 **Un défaut non signalé par le prompt**, que j'ajoute : le bloc M2 neutralise
-les **durées** mais pas `animation-iteration-count`. Deux animations infinies
-existent (`Grille.svelte:95`, `QuadNBack.svelte:615`) ; sous mouvement réduit
-elles ne s'arrêtent pas, elles s'accélèrent. **Lu dans le code, pas mesuré au
-navigateur.** Pré-existant, donc traité en phase 0 et non compté comme une
-régression de ce lot.
+les **durées** mais pas `animation-iteration-count`. Sous mouvement réduit, une
+animation infinie ne s'arrête donc pas — elle s'accélère. Pré-existant, traité
+en phase 0, non compté comme une régression de ce lot.
+
+> **Correction du 14 octobre, après mesure.** J'avais d'abord annoncé *deux*
+> animations en cause, `Grille.svelte:95` et `QuadNBack.svelte:615`. C'était
+> faux pour la première : `Grille.svelte` **se protège lui-même**, lignes 120 à
+> 124, par `@media (prefers-reduced-motion: reduce) { .tourne { animation:
+> none } }`. J'avais lu la ligne 95 sans lire la 120. `BarreProgression.astro`
+> et `Deroule.svelte` ont également leur garde locale. **Une seule** animation
+> était réellement exposée : `animate-pulse` sur le bouton de capture de touche
+> du quad n-back.
+>
+> Et le constat n'est plus « lu dans le code » : il est **mesuré**.
+> `animation-iteration-count` valait bien `infinite` sous mouvement réduit, sur
+> la règle comme sur l'écran réel.
 
 ## Ordre des phases, et pourquoi il diffère de l'ordre du prompt
 
