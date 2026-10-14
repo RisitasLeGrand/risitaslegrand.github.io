@@ -113,13 +113,25 @@ import { MUSCLES } from '../../lib/sport/modele';
           Compté en <strong>séries</strong>, jamais en tonnage : cent kilos au soulevé de terre et
           cent kilos au curl ne demandent pas le même effort.
         </p>
-        <label class="mt-2 inline-flex items-center gap-2 text-sm">
-          <span class="text-slate-700 dark:text-slate-200">Réalisé sur</span>
+        {/*
+           Trois corrections pour une seule cause : à 390 px, l'étiquette et la
+           liste côte à côte poussaient le document à 400 px, et la barre fixe
+           du bas s'étirait avec lui.
+
+           « inline-flex » mettait les deux sur une ligne que l'écran n'a pas ;
+           l'étiquette passe donc au-dessus. Le libellé le plus long perdait
+           « (moyenne hebdo) », qui se répétait sur deux options et ne disait
+           rien de plus que la colonne du tableau. Et « max-w-full » empêche
+           une liste déroulante de dépasser son parent, ce qu'elle fait
+           volontiers quand son option la plus large l'y pousse.
+        */}
+        <label class="mt-2 block text-sm">
+          <span class="block text-slate-700 dark:text-slate-200">Réalisé sur</span>
           <select id="fenetre"
-            class="min-h-11 rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950">
-            <option value="7">les 7 derniers jours</option>
-            <option value="14">les 14 derniers jours (moyenne hebdo)</option>
-            <option value="28" selected>les 28 derniers jours (moyenne hebdo)</option>
+            class="mt-1 min-h-11 max-w-full rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950">
+            <option value="7">7 derniers jours</option>
+            <option value="14">14 derniers jours</option>
+            <option value="28" selected>28 derniers jours</option>
           </select>
         </label>
         {/*

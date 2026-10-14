@@ -251,11 +251,17 @@ import Base from '../layouts/Base.astro';
         annulable sept jours.
       </p>
       <div class="flex flex-wrap items-end gap-3">
+        {/*
+           Un champ de fichier porte une largeur intrinsèque — le bouton natif
+           et le nom du fichier — et refuse de se réduire dans un conteneur
+           flex. À 390 px il poussait le document à 396 px. « max-w-full » le
+           borne, « min-w-0 » lève le plancher que flex lui accorde par défaut.
+        */}
         <input
           id="fichier" aria-label="Fichier de paquet à importer"
           type="file"
           accept=".paquet,application/octet-stream"
-          class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
+          class="min-w-0 max-w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"
         />
       </div>
 

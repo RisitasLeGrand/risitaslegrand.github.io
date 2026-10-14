@@ -178,6 +178,57 @@ for (const ecran of ECRANS) {
   for (const f of m.fautives) console.log(`  ${ecran} ${f}`);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   M5 — la largeur, sur TOUTES les routes, coffre ouvert
+   ══════════════════════════════════════════════════════════════════════════
+
+   M2 couvre les écrans que cette liste nomme. M5 couvre le site entier, et il
+   ouvre le coffre — sans quoi il ne mesurerait rien.
+
+   Ce n'est pas une précaution théorique : le 14 octobre, un balayage des 54
+   routes coffre fermé a rendu « aucun débordement », alors que deux pages
+   débordaient bel et bien de 10 et 6 px. Les pages étaient vides, voilà tout.
+   Un contrôle de largeur qui ne déverrouille pas mesure une coquille, et il
+   est vert pour toujours.
+*/
+{
+  const { readdirSync, statSync } = await import('node:fs');
+  const { join } = await import('node:path');
+  const routes = [];
+  const parcourir = (d, prefixe) => {
+    for (const e of readdirSync(d)) {
+      const c = join(d, e);
+      if (statSync(c).isDirectory()) parcourir(c, `${prefixe}${e}/`);
+      else if (e === 'index.html') routes.push(prefixe);
+    }
+  };
+  parcourir('dist', '/');
+  routes.sort();
+
+  const larges = [];
+  for (const r of routes) {
+    await page.goto(`${RACINE}${r}`, { waitUntil: 'networkidle', timeout: 25000 });
+    const verrou = page.locator('#champ-mdp');
+    if (await verrou.isVisible().catch(() => false)) {
+      await page.fill('#champ-mdp', MDP);
+      await page.click('#bouton-verrou');
+      await page.waitForTimeout(900);
+    }
+    const m = await page.evaluate(() => ({
+      largeur: document.documentElement.scrollWidth,
+      fenetre: document.documentElement.clientWidth,
+      coupables: [...document.querySelectorAll('body *')]
+        .filter((e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 1)
+        .slice(0, 2)
+        .map((e) => `${e.tagName}.${(e.className || '').toString().slice(0, 30)}`),
+    }));
+    if (m.largeur > m.fenetre) {
+      larges.push(`${r} ${m.largeur}/${m.fenetre} px (${m.coupables.join(', ')})`);
+    }
+  }
+  verifier(`M5 — aucune des ${routes.length} routes ne déborde, coffre ouvert`, larges, []);
+}
+
 await contexte.close();
 await nav.close();
 
