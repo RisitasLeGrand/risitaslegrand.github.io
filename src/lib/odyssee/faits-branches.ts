@@ -35,7 +35,7 @@ import { publierFaitsOdyssee } from './faits-odyssee';
 import { publierFaitsCorps } from './faits-corps';
 
 /** Les branches publiables, dans l'ordre où elles sont assemblées. */
-export type SourceDeFaits = 'revisions' | 'odyssee' | 'corps' | 'sport' | 'psyche';
+export type SourceDeFaits = 'revisions' | 'odyssee' | 'corps' | 'sport' | 'psyche' | 'finances';
 
 export const SOURCES: readonly SourceDeFaits[] = [
   'revisions',
@@ -43,6 +43,7 @@ export const SOURCES: readonly SourceDeFaits[] = [
   'corps',
   'sport',
   'psyche',
+  'finances',
 ];
 
 export interface OptionsToutesBranches extends OptionsPublication {
@@ -71,6 +72,7 @@ export async function publierTousLesFaits(
     );
   }
   if (sources.includes('psyche')) travaux.push(publierPsycheOuLeDire(reste));
+  if (sources.includes('finances')) travaux.push(publierFinancesOuLeDire(reste));
 
   return fusionner(await Promise.all(travaux));
 }
@@ -102,6 +104,36 @@ async function publierPsycheOuLeDire(options: OptionsPublication): Promise<Publi
           consequence:
             'Rien de la psyché n’entre dans ce calcul, pas même la charge perçue. ' +
             'Ouvrez le coffre depuis « Ma psyché » pour l’y faire entrer.',
+        },
+      ],
+    };
+  }
+}
+
+/**
+ * Finances, ou la raison de son absence.
+ *
+ * Même mécanique que Psyché, et pour la même raison : sa lecture lève quand
+ * le coffre est fermé, et laisser l'exception remonter ferait échouer
+ * l'agrégat entier. L'absence est donc nommée plutôt que rattrapée en
+ * silence — « le coffre est fermé » et « il n'y a rien à montrer » ne doivent
+ * pas s'afficher de la même façon.
+ */
+async function publierFinancesOuLeDire(options: OptionsPublication): Promise<Publication> {
+  try {
+    const { publierFaitsFinances } = await import('./faits-finances');
+    return await publierFaitsFinances(options);
+  } catch {
+    return {
+      faits: [],
+      refuses: [],
+      manques: [
+        {
+          quoi: 'Finances, coffre fermé',
+          combien: 1,
+          consequence:
+            'Ni opération ni valorisation n’entre dans ce calcul. ' +
+            'Ouvrez le coffre depuis « Mes finances » pour les y faire entrer.',
         },
       ],
     };

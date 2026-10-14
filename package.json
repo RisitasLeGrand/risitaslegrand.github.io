@@ -26,6 +26,7 @@
     "essais:positionnement": "tsx scripts/essais-positionnement.mts",
     "essais:positionnement:navigateur": "node scripts/essais-positionnement-navigateur.mjs",
     "essais:transitions:navigateur": "node scripts/essais-transitions-navigateur.mjs",
+    "essais:coffre-analyse": "node scripts/essais-coffre-analyse.mjs",
     "essais:coffre-onglets": "node scripts/essais-coffre-onglets.mjs",
     "essais:coffre-temoin": "node scripts/essais-coffre-temoin.mjs",
     "essais:coffre-session": "node scripts/essais-coffre-session.mjs",
