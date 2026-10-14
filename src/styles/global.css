@@ -623,6 +623,52 @@ button:not(:disabled):active,
   animation: marque-parait var(--duree-moyenne) var(--courbe-entree);
 }
 
+/* --- Chargements (prompt 34, A5) ----------------------------------------- */
+/*
+   **Ce qui était déjà bon, et que je ne m'attribue pas.** L'exigence « aucun
+   indicateur qui tourne indéfiniment sans texte » était tenue avant ce lot :
+   il n'y a aucun indicateur tournant dans le site — zéro `animate-spin` sur
+   341 fichiers — et toutes les attentes sont annoncées par du texte
+   (« Déchiffrement du glossaire… », « Chargement de l'exercice… »).
+
+   **Ce qui manquait** : l'arrivée. Le contenu sautait à l'écran au terme du
+   déchiffrement, et c'est ce saut que l'A5 veut remplacer.
+
+   **Deux règles, posées sur la convention plutôt que sur 46 pages.** Les
+   identifiants `chargement` et `vue` sont uniques par page : une règle suffit
+   donc à couvrir le site, et la page qu'on écrira demain en hérite sans qu'on
+   ait à y penser. Un fondu qui dépend de la mémoire de celui qui écrit la page
+   suivante n'est pas un fondu, c'est une intention.
+
+   **La couverture est inégale, et il faut le savoir.** Des 46 pages qui
+   annoncent une attente, 22 révèlent ensuite un conteneur `vue` : celles-là
+   ont le fondu d'arrivée. Les 24 autres rendent dans un conteneur déjà présent
+   — le glossaire en est le cas type — et n'offrent aucun instant unique où
+   accrocher une arrivée sans toucher à chacune ; elles n'ont donc que la
+   disparition adoucie du texte d'attente. C'est moins que « tous les
+   chargements paraissent en fondu ».
+
+   **Pourquoi une animation à l'arrivée et une transition au départ.** Le
+   contenu n'arrive qu'une fois : un élément qui passe de `display: none` à
+   visible relance ses animations, ce qui suffit et se dégrade en silence. Le
+   texte d'attente, lui, doit s'effacer *avant* de quitter le rendu : c'est le
+   cas de la phase 2, et il réclame `allow-discrete`.
+*/
+#vue:not(.hidden) {
+  animation: paraitre var(--duree-moyenne) var(--courbe-entree);
+}
+
+#chargement {
+  opacity: 1;
+  transition:
+    opacity var(--duree-courte) var(--courbe-sortie),
+    display var(--duree-courte) allow-discrete;
+}
+#chargement.hidden {
+  display: none;
+  opacity: 0;
+}
+
 /* --- Barre de défilement -------------------------------------------------- */
 /* Discrète et accordée au thème, sur la page comme sur les zones défilantes.
    Deux écritures pour deux familles de navigateurs, puisant dans les mêmes

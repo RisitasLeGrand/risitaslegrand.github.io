@@ -304,6 +304,47 @@ muscles sur ce schéma.
   IndexedDB, à la construction d'un graphique. Aucun indicateur tournant sans
   texte.
 
+> **Phase 5 livrée le 14 octobre. Une exigence déjà tenue, une couverture
+> inégale, et je donne les deux chiffres.**
+>
+> **Déjà tenu avant ce lot** : « aucun indicateur qui tourne indéfiniment sans
+> texte ». Il n'y a **aucun indicateur tournant** dans le site — zéro
+> `animate-spin` sur 341 fichiers — et toutes les attentes sont annoncées par
+> du texte. Le contrôle fige ce fait plutôt que de me l'attribuer : la règle
+> est facile à enfreindre d'une classe Tailwind, et l'enfreindre ne casserait
+> rien de visible.
+>
+> **Ce qui manquait** : l'arrivée. Le contenu sautait à l'écran au terme du
+> déchiffrement.
+>
+> **Deux règles posées sur la convention, aucune page touchée.** Les
+> identifiants `chargement` et `vue` sont uniques par page : une règle couvre
+> donc le site, et la page écrite demain en hérite. Le contenu paraît par une
+> *animation* — un élément qui passe de `display: none` à visible les relance,
+> et il n'arrive qu'une fois ; le texte d'attente s'efface par une *transition*
+> avec `allow-discrete`, puisqu'il doit s'effacer **avant** de quitter le
+> rendu. 200 ms à l'arrivée, 120 ms au départ.
+>
+> **La couverture est inégale, et le contrôle l'imprime lui-même** plutôt que
+> de la laisser dans une note : **46 pages annoncent une attente, 22 seulement
+> révèlent un conteneur `vue`**. Celles-là ont le fondu d'arrivée. Les 24
+> autres rendent dans un conteneur déjà présent — le glossaire en est le cas
+> type — et n'offrent aucun instant unique où accrocher une arrivée sans
+> toucher à chacune ; elles n'ont que la disparition adoucie du texte
+> d'attente. C'est moins que « tous les chargements paraissent en fondu », et
+> le contrôle B bis se mesure exprès sur le glossaire, c'est-à-dire sur une
+> page **sans** conteneur `vue` : le mesurer sur une page qui en a un ne
+> prouverait rien pour les 24 autres.
+>
+> **Le squelette n'est pas fait, et c'est un choix.** Il demande, par écran, un
+> gabarit qui imite la forme du contenu à venir : du balisage sur 46 pages, à
+> tenir à jour quand chaque écran change. Le fondu couvre le même besoin — ne
+> pas sauter — pour un coût sans commune mesure. Le squelette reste possible
+> là où une attente sera longue au point de le mériter.
+>
+> **Contrôle** : `npm run essais:chargements`, 10 contrôles, rouge sur 3 avant
+> le correctif.
+
 ## Phase 6 — schéma du corps, deux formes
 
 - **Technique** : les formes deviennent des **chemins SVG déclarés par muscle**,
