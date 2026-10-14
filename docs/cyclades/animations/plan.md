@@ -367,6 +367,51 @@ muscles sur ce schéma.
   coloration selon le volume, sélection, cases à cocher synchronisées et égales
   au schéma, un muscle sur sa seule face, SVG uniquement, contrastes AA.
 
+> **Phase 6 livrée le 14 octobre, et soumise sur captures comme annoncé.**
+>
+> **Ce qui est fait.** Les ellipses et rectangles sont remplacés par des
+> **chemins déclarés**, en deux jeux — simplifiée et complète — sur les mêmes
+> ancrages. 18 muscles par jeu, 6 pièces de silhouette, un sélecteur dans la
+> boîte « Ajouter un exercice », le choix mémorisé, le défaut **simplifiée**
+> (décision 6).
+>
+> **Un seul côté est écrit.** Les muscles pairs sont déclarés à gauche et
+> reflétés par `miroir()`, sur une grammaire volontairement réduite (`M L Q C
+> Z`, absolues). Écrire les deux côtés, c'était 68 chemins au lieu de 40 et une
+> asymétrie à la première correction oubliée. Un contrôle établit que
+> **refléter deux fois rend l'original** — ce qu'un copier-coller symétrique ne
+> permet pas de prouver.
+>
+> **Les contrôles ont attrapé deux défauts avant moi.** La boîte déclarée des
+> fessiers s'arrêtait à 207 alors qu'un point était à 209 ; et le contrôle de
+> parité existe parce que la page rend un seul jeu de balises et réécrit `d` :
+> un muscle à deux chemins d'un côté et un seul de l'autre laisserait une forme
+> orpheline à la bascule.
+>
+> **Deux défauts que les captures, elles, ont montrés** — et qu'aucun contrôle
+> n'aurait vus :
+> 1. **Les bras flottaient.** La silhouette les dessinait en bandes fines qui
+>    ne contenaient pas les muscles ; biceps et avant-bras pendaient à côté.
+>    Membres élargis, les muscles sont désormais dedans.
+> 2. **Ma première série de captures était sombre des deux côtés** et se disait
+>    « claire » : `colorScheme` ne pilote pas le thème de Cyclades, qui lit
+>    `revinsp.theme` avec les valeurs `clair`/`sombre`. Corrigé.
+>
+> **Mon verdict, sans l'enjoliver.** Le schéma est lisible et utilisable : on
+> reconnaît une silhouette, on voit où cliquer, et la forme complète se
+> distingue de la simplifiée (segments abdominaux, vastes séparés, deux chefs
+> du mollet). Ce n'est pas « anatomiquement crédible » au sens d'une planche :
+> les avant-bras restent fins, le bas du dos se lit en taches. C'est la réserve
+> que le plan annonçait, et elle n'est qu'en partie levée. **Captures soumises
+> à Alexis ; s'il préfère une simplifiée très soignée à une complète
+> approximative, le jeu complet se retire d'une ligne.**
+>
+> **Contrôle** : `controlerSchema()` couvre les deux jeux — formes, boîtes
+> déclarées, parité, réciprocité du reflet — et `essais:sport` y ajoute que le
+> défaut est bien « simplifiée », que les deux jeux **diffèrent** réellement,
+> et que la complète porte des sous-chemins. Sans ce dernier point, livrer deux
+> fois le même dessin passerait tous les autres contrôles.
+
 ## Phase 7 — A7, animations explicatives
 
 - **Les trois cas, dans l'ordre du prompt** : muscles sollicités sur le schéma

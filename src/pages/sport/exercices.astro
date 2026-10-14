@@ -24,7 +24,27 @@
  * fusionner, ce qui serait irréversible.
  */
 import Base from '../../layouts/Base.astro';
-import { FORMES, HAUTEUR, LARGEUR, SILHOUETTE, musclesDeLaFace } from '../../lib/sport/schema-corps';
+import {
+  FORME_PAR_DEFAUT,
+  HAUTEUR,
+  LARGEUR,
+  LIBELLE_FORME,
+  formesDuCorps,
+  musclesDeLaFace,
+  silhouetteDuCorps,
+} from '../../lib/sport/schema-corps';
+
+/*
+   Les deux jeux sont rendus dans le MÊME balisage : chaque chemin porte sa
+   forme simplifiée dans « d » et sa forme complète dans « data-complete ».
+   Changer de réglage réécrit « d », sans toucher aux zones, aux noms
+   accessibles ni à l'ordre de tabulation. Rendre deux arbres et en cacher un
+   doublerait les cibles et les étiquettes pour les technologies d'assistance.
+*/
+const SIMPLE = formesDuCorps('simplifiee');
+const DETAIL = formesDuCorps('complete');
+const SILHOUETTE_SIMPLE = silhouetteDuCorps('simplifiee');
+const SILHOUETTE_DETAIL = silhouetteDuCorps('complete');
 import { MUSCLES, UNITES_DE_CHARGE, libelleDuMuscle } from '../../lib/sport/modele';
 
 /*
@@ -163,6 +183,33 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
           synchronisées.
         </p>
 
+        {/*
+           Le choix de la forme.
+
+           Une paire de boutons radio plutôt qu'une case à cocher : « complète »
+           et « simplifiée » sont deux états nommés, pas une option qu'on
+           active. Un libellé de case — « Schéma détaillé » — laisserait croire
+           que la simplifiée est un défaut d'affichage, alors que c'est le
+           réglage voulu par défaut (décision 6).
+        */}
+        <fieldset class="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1">
+          <legend class="text-xs font-medium text-slate-500 dark:text-slate-400">
+            Forme du schéma
+          </legend>
+          {(['simplifiee', 'complete'] as const).map((forme) => (
+            <label class="flex min-h-11 items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name="forme-corps"
+                value={forme}
+                checked={forme === FORME_PAR_DEFAUT}
+                class="h-4 w-4"
+              />
+              {LIBELLE_FORME[forme]}
+            </label>
+          ))}
+        </fieldset>
+
         <div class="mt-3 grid gap-6 lg:grid-cols-2">
           <!-- Le schéma -->
           <div class="flex flex-wrap justify-center gap-4">
@@ -176,13 +223,9 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
                   data-face={face.id}
                 >
                   <g aria-hidden="true" class="fill-slate-200 dark:fill-slate-800">
-                    {SILHOUETTE.map((f) =>
-                      f.sorte === 'ellipse' ? (
-                        <ellipse cx={f.cx} cy={f.cy} rx={f.rx} ry={f.ry} />
-                      ) : (
-                        <rect x={f.x} y={f.y} width={f.largeur} height={f.hauteur} rx={f.r ?? 0} />
-                      ),
-                    )}
+                    {SILHOUETTE_SIMPLE.map((f, i) => (
+                      <path d={f.d} data-complete={SILHOUETTE_DETAIL[i]?.d ?? f.d} />
+                    ))}
                   </g>
                   {face.muscles.map((id) => (
                     <g
@@ -195,13 +238,9 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
                       class="zone"
                     >
                       <title>{libelleDuMuscle(id)}</title>
-                      {(FORMES[id] ?? []).map((f) =>
-                        f.sorte === 'ellipse' ? (
-                          <ellipse cx={f.cx} cy={f.cy} rx={f.rx} ry={f.ry} />
-                        ) : (
-                          <rect x={f.x} y={f.y} width={f.largeur} height={f.hauteur} rx={f.r ?? 0} />
-                        ),
-                      )}
+                      {(SIMPLE[id] ?? []).map((f, i) => (
+                        <path d={f.d} data-complete={DETAIL[id]?.[i]?.d ?? f.d} />
+                      ))}
                     </g>
                   ))}
                 </svg>
@@ -568,4 +607,58 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
     },
     { zoneChargement: '#chargement-exercices' },
   );
+</script>
+
+<script>
+  /*
+     Le choix de la forme du schéma — décision 6 du prompt 34.
+
+     **Pourquoi un script séparé.** Celui du dessus attend le déverrouillage ;
+     le choix de la forme, lui, ne dépend d'aucune donnée chiffrée et doit
+     s'appliquer dès que la page existe. L'attacher au déverrouillage ferait
+     clignoter la forme au moment où le contenu arrive.
+
+     **Pourquoi réécrire « d » plutôt que basculer deux arbres.** Les zones, les
+     noms accessibles et l'ordre de tabulation restent exactement les mêmes :
+     seul le tracé change. Deux arbres doubleraient les cibles pour les
+     technologies d'assistance, et c'est précisément ce que l'alternative en
+     cases à cocher cherche à éviter.
+  */
+  const CLEF = 'revinsp.forme-corps';
+
+  function appliquer(forme: string) {
+    for (const chemin of document.querySelectorAll<SVGPathElement>('svg[data-face] path')) {
+      const complet = chemin.dataset.complete;
+      if (!complet) continue;
+      // La forme simplifiée est celle du balisage : on la garde en réserve au
+      // premier passage, pour pouvoir y revenir sans rechargement.
+      if (!chemin.dataset.simple) chemin.dataset.simple = chemin.getAttribute('d') ?? '';
+      chemin.setAttribute('d', forme === 'complete' ? complet : chemin.dataset.simple);
+    }
+  }
+
+  function lire(): string {
+    try {
+      return localStorage.getItem(CLEF) === 'complete' ? 'complete' : 'simplifiee';
+    } catch {
+      // Navigation privée, stockage refusé : on retombe sur le défaut, qui est
+      // justement celui qu'Alexis a choisi.
+      return 'simplifiee';
+    }
+  }
+
+  const choix = lire();
+  for (const bouton of document.querySelectorAll<HTMLInputElement>('input[name="forme-corps"]')) {
+    bouton.checked = bouton.value === choix;
+    bouton.addEventListener('change', () => {
+      if (!bouton.checked) return;
+      try {
+        localStorage.setItem(CLEF, bouton.value);
+      } catch {
+        /* Le réglage vaudra pour cette page seulement : mieux que rien. */
+      }
+      appliquer(bouton.value);
+    });
+  }
+  appliquer(choix);
 </script>

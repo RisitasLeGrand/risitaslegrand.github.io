@@ -46,9 +46,13 @@ import {
 } from '../src/lib/sport/programmes';
 import {
   ETATS,
+  FORME_PAR_DEFAUT,
   controlerSchema,
   etatSuivant,
+  formesDuCorps,
+  miroir,
   musclesDeLaFace,
+  silhouetteDuCorps,
 } from '../src/lib/sport/schema-corps';
 import { projeterFaitsSport } from '../src/lib/sport/faits-sport';
 import type { Seance } from '../src/lib/sport/modele';
@@ -644,6 +648,51 @@ v('trente et un exercices sont livrés', BIBLIOTHEQUE.length, 31);
 console.log('\nLE SCHÉMA DU CORPS COUVRE LE MODÈLE');
 
 v('le schéma ne pose aucun problème', controlerSchema(), []);
+
+/*
+   Les deux formes du schéma — prompt 34, phase 6.
+
+   `controlerSchema()` couvre déjà la parité des deux jeux, leurs boîtes et la
+   réciprocité du reflet. Ce qui suit vérifie ce qu'il ne peut pas voir de
+   l'intérieur : que le défaut est bien celui qu'Alexis a tranché, et que les
+   deux jeux sont effectivement DIFFÉRENTS. Sans ce dernier point, livrer deux
+   fois le même dessin passerait tous les autres contrôles.
+*/
+v('le défaut est la forme simplifiée (décision 6)', FORME_PAR_DEFAUT, 'simplifiee');
+{
+  const simple = formesDuCorps('simplifiee');
+  const detail = formesDuCorps('complete');
+  const identiques = Object.keys(simple).filter(
+    (id) => (simple[id] ?? []).map((f) => f.d).join('|') === (detail[id] ?? []).map((f) => f.d).join('|'),
+  );
+  v('aucun muscle n’a le même tracé dans les deux formes', identiques, []);
+  v(
+    'la silhouette non plus',
+    silhouetteDuCorps('simplifiee').map((f) => f.d).join('|') ===
+      silhouetteDuCorps('complete').map((f) => f.d).join('|'),
+    false,
+  );
+
+  /*
+     Et la forme complète porte bien du détail : au moins un muscle y est
+     dessiné en plusieurs sous-chemins — les segments des abdominaux, les deux
+     vastes, les deux chefs du mollet. Un « détail » qui ne serait qu'un
+     contour un peu différent ne mériterait pas son nom.
+  */
+  const sousChemins = (d: string) => (d.match(/M/g) ?? []).length;
+  const detailles = Object.entries(detail).filter(([, formes]) =>
+    formes.some((f) => sousChemins(f.d) > 1),
+  );
+  v('la forme complète dessine des sous-chemins', detailles.length >= 3, true);
+}
+
+/* Le reflet, éprouvé sur des cas écrits à la main plutôt que sur les données
+   du schéma : un contrôle qui ne s'exerce que sur ce qu'il garde finit par
+   épouser ses défauts. */
+v('le reflet renvoie l’abscisse autour de l’axe', miroir('M 10 20 Z'), 'M 190 20 Z');
+v('il reflète aussi les points de contrôle', miroir('Q 30 40 50 60'), 'Q 170 40 150 60');
+v('il laisse « Z » tranquille', miroir('Z'), 'Z');
+v('refléter deux fois rend l’original', miroir(miroir('M 10 20 L 30 40 Z')), 'M 10 20 L 30 40 Z');
 {
   const avant = musclesDeLaFace('avant');
   const arriere = musclesDeLaFace('arriere');
