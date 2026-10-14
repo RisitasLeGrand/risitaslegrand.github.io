@@ -38,9 +38,55 @@ interface Props {
    * pour une page plein écran.
    */
   entete?: 'complet' | 'leger' | 'aucun';
+  /**
+   * La page rend du contenu du coffre une fois celui-ci ouvert.
+   *
+   * Seule conséquence à ce jour : **aucune transition entre documents**. Une
+   * transition capture la page sortante pour la rejouer par-dessus la page
+   * entrante ; sur un écran déverrouillé, cette capture contient des données
+   * chiffrées rendues en clair, ce que l'interdit n° 2 du prompt 34 exclut.
+   *
+   * Comme une transition exige que les **deux** pages y consentent, ne pas
+   * émettre la règle ici suffit à l'empêcher dans les deux sens, en partant
+   * comme en arrivant.
+   *
+   * « npm run essais:coffre-transitions » vérifie que toute page portant le
+   * formulaire de déverrouillage le déclare, et qu'aucune ne le déclare sans
+   * en porter un. Une liste tenue à la main rouillerait en silence : la page
+   * oubliée fonctionnerait, elle fuirait seulement.
+   */
+  coffre?: boolean;
 }
 
-const { titre, actif, sansNavigation = false, entete } = Astro.props;
+const { titre, actif, sansNavigation = false, entete, coffre = false } = Astro.props;
+
+/*
+   La feuille des transitions entre pages, passée telle quelle par `set:html`.
+
+   Pourquoi pas un `<style>` ordinaire : le 14 octobre, écrite en littéral
+   JSX dans le gabarit, elle est arrivée dans la page avec son accolade et son
+   accent grave — « {`@view-transition … » — donc invalide dès le premier
+   caractère. La feuille entière était rejetée par le moteur, et les essais de
+   coffre passaient au vert parce qu'**aucune** transition n'avait lieu, nulle
+   part. Un contrôle vert parce qu'il ne voit rien.
+
+   `set:html` pose le texte sans que rien ne le réinterprète, et `is:inline`
+   le soustrait au pipeline CSS d'Astro, qui n'a pas à connaître une règle
+   qu'il pourrait écarter.
+*/
+const CSS_TRANSITIONS = `@view-transition { navigation: auto }
+
+/* Sobre (décision 2) : un fondu seul, aux durées du socle A6, sans glissement
+   ni rebond. Le mouvement réduit est déjà couvert par le socle, qui ramène
+   ces durées à 0,01 ms. */
+::view-transition-old(root) {
+  animation-duration: var(--duree-courte, 120ms);
+  animation-timing-function: var(--courbe-sortie, ease-in);
+}
+::view-transition-new(root) {
+  animation-duration: var(--duree-moyenne, 200ms);
+  animation-timing-function: var(--courbe-entree, ease-out);
+}`;
 const enteteVoulu = entete ?? (sansNavigation ? 'aucun' : 'complet');
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
@@ -187,6 +233,22 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
         racine.setAttribute('data-animations', animations);
       })();
     </script>
+
+    {
+      /*
+         Transitions entre documents (prompt 34, A1 — décision 1 : CSS seul,
+         pas de routeur client).
+
+         La règle n'est émise que sur les pages **sans coffre**. Une transition
+         entre documents n'a lieu que si la page sortante et la page entrante
+         y consentent toutes les deux : l'omettre ici empêche donc la capture
+         dans les deux sens, sans avoir à nommer la moindre région sensible.
+
+         Les navigateurs qui ne connaissent pas cette règle l'ignorent, et la
+         navigation y reste sèche — c'est le repli prévu par la décision 1.
+      */
+      !coffre && <style is:inline set:html={CSS_TRANSITIONS} />
+    }
   </head>
 
   <body>

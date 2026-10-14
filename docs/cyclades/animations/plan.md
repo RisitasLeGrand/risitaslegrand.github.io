@@ -74,10 +74,10 @@ muscles sur ce schéma.
 - **Technique** : `@view-transition { navigation: auto }` en CSS seul.
 - **Fichiers** : `src/styles/global.css`, `src/layouts/Base.astro`.
 - **Le risque est le coffre, et il est précis.** Une transition entre documents
-  capture la page sortante. **11 routes sont sous coffre** : `odyssee/psyche`,
-  `finances`, `sante`, `molecule`, `mes-regles`, `corps`, `echelles`, `veille`,
-  `rapprocher`, `bibliographie`, `qui-lit-mon-budget`.
-- **Réserve de méthode** : je **retire ces 11 routes de la transition**, au lieu
+  capture la page sortante. **10 routes sont sous coffre** : `odyssee/corps`,
+  `echelles`, `finances`, `mes-regles`, `molecule`, `psyche`,
+  `qui-lit-mon-budget`, `rapprocher`, `sante`, `veille`.
+- **Réserve de méthode** : je **retire ces 10 routes de la transition**, au lieu
   de poser `view-transition-name: none` sur chaque région sensible. L'interdit
   n° 2 est absolu ; une exclusion de route se prouve d'une ligne, un inventaire
   de régions se re-prouve à chaque écran ajouté.
@@ -88,6 +88,53 @@ muscles sur ce schéma.
 - **Contrôle** : essai qui ferme le coffre, navigue, et vérifie qu'aucune donnée
   sensible n'apparaît ni dans la page ni dans la transition ; essai du focus et
   de l'annonce au clavier.
+
+> **Corrections du 14 octobre, après exécution.** Trois, dont deux de mes
+> propres erreurs.
+>
+> 1. **« 11 routes » était faux : il y en a 10.** `bibliographie` figurait dans
+>    ma liste parce qu'un relevé antérieur avait retenu son `actif="sante"`.
+>    Elle ne porte pas de coffre. Le chiffre est corrigé ci-dessus, et
+>    `essais:coffre-transitions` établit désormais la liste depuis la source,
+>    dans les deux sens, plutôt que de la recopier.
+>
+> 2. **Un bogue d'implémentation, invisible et grave.** La règle avait d'abord
+>    été écrite dans un `<style>` contenant un littéral de gabarit JSX : Astro
+>    a émis la syntaxe du littéral dans la feuille, qui devenait invalide dès
+>    le premier caractère. Résultat : **aucune transition nulle part**, et mes
+>    deux contrôles « coffre » verts pour la pire des raisons. Corrigé par une
+>    constante de frontmatter et `<style is:inline set:html={…} />`.
+>
+> 3. **Ce que mesure `pageswap`, et ce qu'il ne mesure pas.** Mon essai
+>    attendait « aucune transition » au départ d'une page ordinaire vers une
+>    page sous coffre, et le relevé donnait « oui ». L'implémentation était
+>    correcte, l'assertion fausse : `pageswap` n'atteste que le consentement de
+>    la page **sortante**. Seul `pagereveal`, à l'arrivée, dit si la transition
+>    s'est jouée. Mesuré :
+>
+>    | trajet | départ | arrivée |
+>    |---|---|---|
+>    | ordinaire → ordinaire | oui | **oui** — transition |
+>    | ordinaire → sous coffre | oui | **non** — abandonnée |
+>    | coffre ouvert → ordinaire | **non** | non — jamais amorcée |
+>
+>    La deuxième ligne n'est pas une fuite : la photographie annoncée est celle
+>    de la page ordinaire. Ce qui protège les données est la troisième.
+>    L'essai relève désormais les deux bouts du trajet.
+>
+> **Et la preuve que les contrôles mesurent.** Déclaration `coffre` retirée de
+> `odyssee/psyche.astro`, reconstruit : `essais:coffre-transitions` et
+> `essais:transitions:navigateur` virent au rouge tous les deux, ce dernier en
+> relevant `{"depart":"oui","arrivee":"oui"}` sur l'écran sensible — la fuite
+> exacte qu'interdit le point n° 2. Déclaration restaurée, les deux reviennent
+> au vert.
+>
+> **Un effet à ne pas surestimer.** Les transitions **entre documents** ne
+> préservent pas le document : la page entrante est chargée et ses scripts
+> rejoués comme à toute navigation. Les risques listés ci-dessus (scripts qui
+> ne se relancent plus, connexions IndexedDB, minuteurs) concernent un routeur
+> client, pas ce mécanisme. Lu dans la spécification et cohérent avec les
+> relevés ; non éprouvé écran par écran.
 
 ## Phase 2 — A2, apparition et disparition
 
@@ -167,7 +214,7 @@ muscles sur ce schéma.
 ## Réserves sur les décisions 1 à 5, en clair
 
 1. **Décision 1** : aucune réserve sur le choix. Une sur la méthode — exclusion
-   des 11 routes sous coffre plutôt qu'un inventaire de régions.
+   des 10 routes sous coffre plutôt qu'un inventaire de régions.
 2. **Décision 2** : aucune.
 3. **Décision 3** : aucune.
 4. **Décision 4** : aucune sur le choix. Le mécanisme existe déjà pour le thème ;
