@@ -8,6 +8,39 @@
    résout en « clair » ou « sombre » avant le premier rendu. */
 @custom-variant dark (&:where([data-theme='sombre'], [data-theme='sombre'] *));
 
+/* --- La taille du texte (D-038) ------------------------------------------ */
+/*
+   Trois tailles remontées d'un cran, et les mesures qui l'ont décidé.
+
+   Relevé du 14 octobre 2026, par « npm run mesure:tailles », compté en
+   **caractères réellement rendus** sur dix-huit écrans : 88,4 % du texte lu
+   était sous 16 px, 31 % à 12 px et 57 % à 14 px. Douze pixels est la taille
+   d'une mention légale ; seize est la taille par défaut d'un navigateur, et
+   le plancher que les guides d'accessibilité retiennent pour du texte
+   continu.
+
+   Trois options avaient été construites, mesurées puis retirées — le détail
+   est dans `docs/cyclades/d-038-taille-du-texte.md`. C'est la deuxième qui
+   est appliquée ici :
+
+     12 → 14 px (text-xs)    14 → 16 px (text-sm)    16 → 17 px (text-base)
+
+   Ce qu'elle coûte, mesuré : environ dix pour cent de hauteur de page. Ce
+   qu'elle évite : une augmentation d'un seul pixel, qui aurait laissé 31 %
+   du texte à 13 px — toujours une mention légale ; et une remontée de la
+   racine, qui aurait grossi les marges autant que le texte, pour deux fois
+   moins de texte gagné.
+
+   Les espacements ne bougent pas : seules ces trois variables changent, et
+   les hauteurs de ligne suivent, puisque Tailwind les exprime en rapport de
+   la taille et non en pixels.
+*/
+@theme {
+  --text-xs: 0.875rem;
+  --text-sm: 1rem;
+  --text-base: 1.0625rem;
+}
+
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;

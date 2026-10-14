@@ -4,8 +4,9 @@ Le constat T5 de la critique d'interface dit que le texte courant est petit.
 « Petit » n'est pas une mesure : ce document en porte une, puis trois options
 dont le coût a été **construit et mesuré**, pas estimé.
 
-Rien n'est appliqué. `npm run mesure:tailles` rejoue le relevé,
-`src/styles/global.css` est intact.
+**L'option B est appliquée depuis le 14 octobre 2026.** Ce document garde le
+relevé d'avant, les trois options et leur coût, puis ce qui a été constaté
+après. `npm run mesure:tailles` rejoue la mesure à tout moment.
 
 ---
 
@@ -109,3 +110,51 @@ débordement ni cible trop petite, pas que la mise en page reste belle.
 Si B est retenu, le bon ordre est : appliquer, reconstruire, relancer
 `essais:mobile`, `essais:colonnes` et `essais:accessibilite`, puis **regarder
 les cinq écrans les plus touchés** avant de garder.
+
+
+---
+
+## 4. Après — ce qui a été constaté
+
+L'option B est en place dans `src/styles/global.css`, en trois variables et
+rien d'autre. Relevé du même jour, même commande, mêmes dix-huit écrans :
+
+| Taille | Avant | Après |
+|---:|---:|---:|
+| 10–11 px | 85 car. | 276 car. |
+| **12 px** | **21 425 (31,0 %)** | **0** |
+| 14 px | 39 607 (57,3 %) | 22 825 (27,3 %) |
+| 16 px | 6 491 (9,4 %) | 58 841 (70,4 %) |
+| 17 px et plus | 1 504 | 1 602 |
+
+> **Sous 16 px : 88,4 % → 27,7 %. Sous 14 px : 31,1 % → 0,3 %.**
+
+Le palier de 12 px a disparu du texte courant, et la majorité du texte est
+au plancher de 16 px. Les cinq écrans les plus denses ne sont plus les mêmes :
+`/sport/exercices/` (56 % sous 16 px), `/sport/`, `/quiz/dgfip/`,
+`/bibliotheque/` et `/fiche/` — tous autour de la moitié, contre 95 à 98 %
+pour les cinq premiers d'avant.
+
+**Essais verts** : espaces, structure, mobile (aucun débordement latéral,
+aucune cible sous 24 px), colonnes, accessibilité, navigation, quiz.
+
+**Regardé à l'œil**, comme annoncé : captures des cinq écrans les plus denses
+à 390 px et à 1280 px. Les mises en page tiennent — les cartes d'exercice,
+les tuiles de barème du QCM et les listes de la bibliothèque respirent plutôt
+mieux qu'avant.
+
+## 5. Ce que la mesure d'après a fait apparaître
+
+**Deux cent soixante-seize caractères restent à 10 et 11 px.** Ce sont des
+tailles écrites à la main (`text-[10px]`, `text-[11px]`) sur des étiquettes et
+des crédits d'image, qui ne passent pas par l'échelle et que l'option B n'a
+donc pas touchées. Elles sont désormais **le seul texte du site sous 14 px**.
+Les remonter à `text-xs` — maintenant 14 px — est une ligne de décision, pas
+une suite automatique de D-038.
+
+**L'essai des colonnes mesure quinze paires d'en-têtes au lieu de vingt-trois.**
+Ce n'est pas la taille du texte : c'est le lot C. Le tableau des volumes de
+Programmes et le tableau des points de Force sont désormais repliés tant
+qu'il n'y a rien à montrer, et sur un profil vierge ils n'ont plus d'en-tête
+à mesurer. Sur un profil qui porte des données, les vingt-trois paires
+reviennent.
