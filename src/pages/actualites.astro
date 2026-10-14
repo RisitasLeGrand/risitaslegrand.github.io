@@ -73,6 +73,28 @@ import Base from '../layouts/Base.astro';
      l'ordre dans lequel on les lit, pas l'ordre des index.
   */}
   <nav id="barre-periode" class="mb-5 hidden flex-wrap items-center gap-2" aria-label="Période affichée">
+    <!--
+      Le choix de la période vient en premier, et prend toute la ligne tant
+      que l'écran est étroit (D-043).
+
+      Il était glissé entre « Précédente » et « Suivante », en « flex-1 » :
+      les deux boutons et le compteur prenaient 266 px des 358 disponibles
+      sur un téléphone, et le menu héritait des 69 restants. L'option
+      choisie en demandait 414 — on lisait « 202 », et rien ne disait quelle
+      période on regardait. Le défaut était antérieur au passage du texte à
+      16 px, qui n'a fait que l'aggraver : à 14 px, 96 px pour 363 demandés.
+
+      En tête, il se lit avant les flèches qui le font avancer, et la
+      tabulation suit le même ordre. « basis-full » lui donne la ligne
+      entière sous 640 px ; au-dessus, il reprend la largeur de son contenu
+      et ne se laisse plus comprimer.
+    -->
+    <label for="choix-periode" class="sr-only">Période affichée</label>
+    <select
+      id="choix-periode"
+      class="min-h-11 max-w-full shrink-0 basis-full rounded-lg border border-slate-300 bg-white px-2 text-sm font-medium text-slate-700 sm:basis-auto dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+    >
+    </select>
     <button
       id="periode-precedente"
       type="button"
@@ -80,12 +102,6 @@ import Base from '../layouts/Base.astro';
     >
       ‹ Précédente
     </button>
-    <label for="choix-periode" class="sr-only">Période affichée</label>
-    <select
-      id="choix-periode"
-      class="min-h-11 max-w-full min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm font-medium text-slate-700 sm:flex-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
-    >
-    </select>
     <button
       id="periode-suivante"
       type="button"
@@ -446,9 +462,27 @@ import Base from '../layouts/Base.astro';
       const option = document.createElement('option');
       option.value = idPeriode(entree);
       const reste = nonLues(entree);
-      option.textContent =
-        `${titrePeriode(entree)} — ${pluriel(items.length, 'actualité')}` +
-        (reste ? `, ${reste} non lue${reste > 1 ? 's' : ''}` : '');
+      /*
+         Le libellé tient dans la largeur d'un téléphone (D-043).
+
+         Un « option » ne se replie pas et ne s'abrège pas : ce qui dépasse
+         disparaît, sans que rien ne le signale. Le format d'origine —
+         « 2026-W40 · semaine en cours — 5 actualités, 5 non lues » —
+         demandait 414 px pour 334 disponibles à 390 px de large.
+
+         Deux coupes, mesurées plutôt que devinées. Le qualificatif de la
+         période (« semaine en cours ») part : il reste sous les yeux, dans
+         le titre de la section juste en dessous, qui lui emploie
+         « titrePeriode » en entier. Et lorsqu'il reste des actualités à
+         lire, le compte à lire remplace le compte total, qu'il porte déjà.
+
+         Le pire cas devient « 2026-W40 — 128 à lire sur 128 », 226 px :
+         il passe à 320 px de large, sous les 360 px que la documentation
+         retient comme écran le plus étroit.
+      */
+      option.textContent = reste
+        ? `${idPeriode(entree)} — ${reste} à lire sur ${items.length}`
+        : `${idPeriode(entree)} — ${pluriel(items.length, 'actualité')}`;
       choixPeriode.appendChild(option);
     }
     choixPeriode.value = periodeChoisie;

@@ -255,9 +255,18 @@ verifier(
   { trouvee: true, lu: 'true' },
 );
 
+/*
+   Le libellé a changé de forme avec D-043 — « 5 à lire sur 12 » au lieu de
+   « 12 actualités, 5 non lues », pour tenir dans la largeur d'un téléphone.
+   Ce que le contrôle vérifie n'a pas changé : le menu dit ce qui reste.
+   L'attente est seulement devenue plus précise, puisqu'elle exige les deux
+   nombres et leur rapport.
+*/
 verifier(
   'L4 — le sélecteur de période annonce ce qui reste à lire',
-  await page.evaluate(() => /non lue/.test(document.getElementById('choix-periode')?.options[0]?.textContent ?? '')),
+  await page.evaluate(() =>
+    /\d+ à lire sur \d+/.test(document.getElementById('choix-periode')?.options[0]?.textContent ?? ''),
+  ),
   true,
 );
 
@@ -311,6 +320,62 @@ const surTel = await pageTel.evaluate(() => ({
 }));
 mesure('hauteur de page à 390 px', `${surTel.hauteur} px`);
 verifier('N7 — pas de défilement latéral sur téléphone', surTel.large <= surTel.fenetre + 1, true);
+
+/*
+   N8 — le menu de période se lit en entier sur l'écran le plus étroit.
+
+   Un « option » ne se replie pas, ne s'abrège pas et n'avertit pas : ce qui
+   dépasse disparaît, et rien ne dit à la personne qu'elle lit un libellé
+   tronqué. C'était le cas — 69 px de large pour un libellé qui en demandait
+   414 : on lisait « 202 ». Deux causes, deux corrections (D-043), et donc un
+   contrôle qui mesure la seule chose qui compte, le rapport entre la place et
+   le besoin.
+
+   Mesuré à 360 px, la largeur que « docs/ajouter-une-branche.md » retient
+   comme écran le plus étroit, et sur toutes les options — pas seulement celle
+   qui se trouve choisie au moment du passage.
+*/
+const etroit = await nav.newContext({ viewport: { width: 360, height: 780 }, hasTouch: true, isMobile: true });
+const pageEtroite = await etroit.newPage();
+await franchirInitialisation(pageEtroite, RACINE, MDP);
+await pageEtroite.goto(`${RACINE}/actualites/`, { waitUntil: 'networkidle' });
+if (await pageEtroite.locator('#champ-mdp').isVisible().catch(() => false)) {
+  await pageEtroite.fill('#champ-mdp', MDP);
+  await pageEtroite.click('#bouton-verrou');
+}
+await pageEtroite.waitForTimeout(1500);
+const menu = await pageEtroite.evaluate(() => {
+  const choix = document.getElementById('choix-periode');
+  if (!choix || !choix.options.length) return null;
+  const style = getComputedStyle(choix);
+  /* La flèche du menu et les marges internes mangent de la place : on les
+     retire du budget plutôt que de mesurer une largeur que le texte n'a pas. */
+  const place =
+    choix.getBoundingClientRect().width -
+    parseFloat(style.paddingLeft) -
+    parseFloat(style.paddingRight) -
+    16;
+  const sonde = document.createElement('span');
+  sonde.style.cssText = `position:absolute;visibility:hidden;white-space:nowrap;font:${style.font}`;
+  document.body.appendChild(sonde);
+  const trop = [];
+  let pire = 0;
+  for (const option of choix.options) {
+    sonde.textContent = option.text;
+    const besoin = Math.ceil(sonde.getBoundingClientRect().width);
+    pire = Math.max(pire, besoin);
+    if (besoin > place) trop.push(`« ${option.text} » : ${besoin} px pour ${Math.round(place)}`);
+  }
+  sonde.remove();
+  return { trop, pire: Math.round(pire), place: Math.round(place), options: choix.options.length };
+});
+await etroit.close();
+if (!menu) {
+  verifier('N8 — le menu de période porte des options', false, true);
+} else {
+  mesure('menu de période à 360 px', `${menu.options} options, la plus longue ${menu.pire} px pour ${menu.place} disponibles`);
+  verifier('N8 — aucun libellé de période n’est rogné à 360 px', menu.trop, []);
+}
 
 await nav.close();
 console.log(rouges ? `\n\x1b[31m${rouges} rouge(s).\x1b[0m` : '\n\x1b[32mTout est vert.\x1b[0m');
