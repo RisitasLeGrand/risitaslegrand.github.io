@@ -116,14 +116,32 @@ console.log('\n\x1b[1mA1 — LE LIEN D’ÉVITEMENT\x1b[0m\n');
 console.log('\n\x1b[1mA2 — LE NOM ACCESSIBLE COMMENCE PAR LE LIBELLÉ VISIBLE\x1b[0m\n');
 {
   const ecarts = await page.evaluate(() => {
+    /*
+       Le nom accessible n'est **pas** `textContent` : un `<span
+       aria-hidden>` — l'icône — en fait partie dans le texte brut et pas
+       dans le nom. Le calculer ainsi faisait échouer le contrôle sur des
+       onglets parfaitement conformes, ce qui est la pire sorte de contrôle.
+    */
+    const nomAccessible = (el) => {
+      const etiquette = el.getAttribute('aria-label');
+      if (etiquette?.trim()) return etiquette.trim();
+      return [...el.querySelectorAll('span')]
+        .filter((s) => !s.closest('[aria-hidden="true"]'))
+        .map((s) => s.textContent.trim())
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .trim();
+    };
     const sortie = [];
-    for (const a of document.querySelectorAll('nav[aria-label="Navigation principale"] a')) {
+    for (const a of document.querySelectorAll(
+      'nav[aria-label="Navigation principale"] a, nav[aria-label="Navigation principale"] summary',
+    )) {
       const visible = [...a.querySelectorAll('span')]
         .filter((s) => !s.hasAttribute('aria-hidden') && !s.classList.contains('sr-only'))
         .map((s) => s.textContent.trim())
         .join(' ')
         .trim();
-      const nom = a.getAttribute('aria-label') ?? a.textContent.trim();
+      const nom = nomAccessible(a);
       if (visible && !nom.toLowerCase().startsWith(visible.toLowerCase())) {
         sortie.push({ visible, nom });
       }

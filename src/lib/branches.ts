@@ -57,6 +57,23 @@ export interface Branche {
   /** Ses onglets, dans l'ordre d'affichage. */
   onglets: readonly Onglet[];
   /**
+   * Le regroupement de la barre, sur les écrans larges.
+   *
+   * Un identifiant d'onglet qui n'apparaît dans aucun groupe s'affiche seul,
+   * à sa place dans `onglets`. Un identifiant cité par un groupe inexistant
+   * fait échouer le contrôle du registre : une barre qui perd silencieusement
+   * un écran est exactement ce qu'on vient de corriger.
+   */
+  groupes?: readonly GroupeOnglets[];
+  /**
+   * Les quatre destinations de la barre du bas, sur téléphone.
+   *
+   * Quatre, et une cinquième entrée « Plus » qui ouvre le reste. Ce n'est pas
+   * un chiffre rond choisi pour faire joli : à 390 px, cinq cibles de 44 px
+   * avec leur libellé tiennent, six se touchent.
+   */
+  principaux?: readonly string[];
+  /**
    * Ses écrans **sans onglet**.
    *
    * Tout écran n'en mérite pas un : la barre d'onglets est un budget
@@ -75,13 +92,52 @@ export interface Branche {
 
 export interface Onglet {
   id: string;
-  /** Le nom complet : lecteurs d'écran, info-bulle. */
-  libelle: string;
-  /** La version affichée à côté de l'icône sur les grands écrans. */
-  court: string;
+  /**
+   * **Le** nom de l'écran. Un seul, partout.
+   *
+   * L'onglet disait « Cours », le titre de la page « Bibliothèque », le pied
+   * de page encore autre chose. Trois mots pour un écran, c'est trois écrans
+   * pour qui cherche — et pour qui pilote à la voix, c'est un onglet qu'on
+   * n'atteint pas. Ce champ est donc la seule source : barre, `<h1>`,
+   * `<title>` et pied de page le reprennent tel quel, et un essai le vérifie.
+   */
+  nom: string;
+  /**
+   * Une version plus courte, **uniquement** pour la barre du bas sur
+   * téléphone, où quatre destinations se partagent 390 px.
+   *
+   * Elle doit être un **préfixe** de `nom` : « Tableau » pour « Tableau de
+   * bord ». C'est la règle de WCAG 2.5.3 appliquée d'avance — le nom
+   * accessible commence par ce qu'on lit — et un essai la vérifie.
+   */
+  court?: string;
+  /** Une phrase d'info-bulle. Jamais un second nom. */
+  description?: string;
   /** Chemin absolu **sans** la base du site, qu'ajoute la mise en page. */
   chemin: string;
   icone: string;
+}
+
+/**
+ * Un groupe d'onglets, déplié au survol ou au clic.
+ *
+ * ## Pourquoi grouper
+ *
+ * Douze onglets ne tiennent pas. Mesuré : à 1280 px, la barre de Révisions
+ * disposait de 517 px pour 1 261 px de contenu — sept entrées sur douze
+ * invisibles, sans flèche ni barre de défilement pour le dire. Sur téléphone
+ * c'était pire : 8 px de large pour 550 px de contenu, donc rien.
+ *
+ * Une fonction qu'on ne voit pas n'existe pas. Cinq entrées dont trois
+ * dépliantes montrent les douze ; douze entrées dont sept cachées n'en
+ * montrent que cinq.
+ */
+export interface GroupeOnglets {
+  id: string;
+  nom: string;
+  icone: string;
+  /** Les identifiants d'onglets rassemblés, dans l'ordre. */
+  membres: readonly string[];
 }
 
 export const BRANCHES: Branche[] = [
@@ -99,23 +155,45 @@ export const BRANCHES: Branche[] = [
        chiffrée dont le chemin est écrit dans un manifeste.
     */
     onglets: [
-      { id: 'accueil', libelle: 'Tableau de bord', court: 'Accueil', chemin: '/revisions/', icone: '🏠' },
-      { id: 'planification', libelle: 'Planification des révisions', court: 'Planning', chemin: '/planification/', icone: '🗓️' },
-      { id: 'bibliotheque', libelle: 'Bibliothèque', court: 'Cours', chemin: '/bibliotheque/', icone: '📚' },
-      { id: 'flashcards', libelle: 'Flashcards', court: 'Cartes', chemin: '/flashcards/', icone: '🃏' },
-      { id: 'quiz', libelle: 'Quiz', court: 'Quiz', chemin: '/quiz/', icone: '🎯' },
-      { id: 'positionnement', libelle: 'Prétest de positionnement', court: 'Niveau', chemin: '/positionnement/', icone: '🧭' },
-      { id: 'journal', libelle: 'Journal d’erreurs', court: 'Erreurs', chemin: '/journal/', icone: '🩹' },
-      { id: 'cog-training', libelle: 'Cog-Training — entraînement cognitif', court: 'Cog-Training', chemin: '/cog-training/', icone: '🧩' },
-      { id: 'recherche', libelle: 'Recherche', court: 'Recherche', chemin: '/recherche/', icone: '🔎' },
-      { id: 'statistiques', libelle: 'Statistiques', court: 'Stats', chemin: '/statistiques/', icone: '📈' },
-      { id: 'glossaire', libelle: 'Glossaire', court: 'Glossaire', chemin: '/glossaire/', icone: '📖' },
-      { id: 'progression', libelle: 'Sauvegarde et synchronisation', court: 'Sauvegarde', chemin: '/progression/', icone: '💾' },
+      { id: 'accueil', nom: 'Tableau de bord', court: 'Tableau', chemin: '/revisions/', icone: '🏠' },
+      { id: 'planification', nom: 'Planning', description: 'La planification des révisions.', chemin: '/planification/', icone: '🗓️' },
+      { id: 'bibliotheque', nom: 'Cours', description: 'La bibliothèque des fiches.', chemin: '/bibliotheque/', icone: '📚' },
+      { id: 'flashcards', nom: 'Cartes', description: 'Les cartes de rappel espacé.', chemin: '/flashcards/', icone: '🃏' },
+      { id: 'quiz', nom: 'Quiz', chemin: '/quiz/', icone: '🎯' },
+      { id: 'positionnement', nom: 'Niveau', description: 'Le prétest de positionnement.', chemin: '/positionnement/', icone: '🎚️' },
+      { id: 'journal', nom: 'Erreurs', description: 'Le journal des erreurs à reprendre.', chemin: '/journal/', icone: '🩹' },
+      { id: 'cog-training', nom: 'Cog-Training', description: 'L’entraînement cognitif.', chemin: '/cog-training/', icone: '🧩' },
+      { id: 'recherche', nom: 'Recherche', chemin: '/recherche/', icone: '🔎' },
+      { id: 'statistiques', nom: 'Statistiques', chemin: '/statistiques/', icone: '📈' },
+      { id: 'glossaire', nom: 'Glossaire', chemin: '/glossaire/', icone: '📖' },
     ],
+    /*
+       Cinq entrées au lieu de douze. Le découpage suit ce qu'on vient faire :
+       on planifie, on apprend, on se mesure, on cherche. « Sauvegarde » quitte
+       la barre pour le menu « Cet espace » — ce n'est pas une activité de
+       révision, c'est de l'entretien, et il est le même dans les trois
+       branches.
+    */
+    groupes: [
+      { id: 'apprendre', nom: 'Apprendre', icone: '📚', membres: ['bibliotheque', 'flashcards', 'quiz'] },
+      { id: 'mesurer', nom: 'Mesurer', icone: '📈', membres: ['positionnement', 'journal', 'statistiques'] },
+      { id: 'outils', nom: 'Outils', icone: '🧰', membres: ['recherche', 'glossaire', 'cog-training'] },
+    ],
+    principaux: ['accueil', 'bibliotheque', 'flashcards', 'quiz'],
     annexes: [
-      { id: 'actualites', libelle: 'Actualités passées', court: 'Actualités', chemin: '/actualites/', icone: '📰' },
-      { id: 'quiz-cours', libelle: 'Quiz du cours', court: 'Quiz du cours', chemin: '/quiz/cours/', icone: '🎯' },
-      { id: 'quiz-dgfip', libelle: 'QCM — DGFiP', court: 'QCM — DGFiP', chemin: '/quiz/dgfip/', icone: '🏛️' },
+      /*
+         « Sauvegarde » a quitté la barre (N2).
+
+         Ce n'est pas une activité de révision, c'est de l'entretien, et il
+         est le même dans les trois branches : sa place est le menu « Cet
+         espace », qui est partout. Dans la barre, il occupait la largeur
+         d'un onglet pour un écran qu'on ouvre une fois par mois, et cette
+         largeur manquait aux onze autres.
+      */
+      { id: 'progression', nom: 'Sauvegarde', description: 'Sauvegarder et restaurer.', chemin: '/progression/', icone: '💾' },
+      { id: 'actualites', nom: 'Actualités', chemin: '/actualites/', icone: '📰' },
+      { id: 'quiz-cours', nom: 'Quiz du cours', chemin: '/quiz/cours/', icone: '🎯' },
+      { id: 'quiz-dgfip', nom: 'QCM — DGFiP', chemin: '/quiz/dgfip/', icone: '🏛️' },
     ],
   },
   {
@@ -126,19 +204,25 @@ export const BRANCHES: Branche[] = [
     racine: '/odyssee/',
     disponible: true,
     onglets: [
-      { id: 'accueil', libelle: 'Tableau de bord', court: 'Accueil', chemin: '/odyssee/', icone: '🏠' },
-      { id: 'calendrier', libelle: 'Mon calendrier', court: 'Agenda', chemin: '/odyssee/calendrier/', icone: '🗓️' },
-      { id: 'taches', libelle: 'Mes tâches', court: 'Tâches', chemin: '/odyssee/taches/', icone: '✅' },
-      { id: 'quetes', libelle: 'Mes quêtes', court: 'Quêtes', chemin: '/odyssee/quetes/', icone: '🔁' },
-      { id: 'revue', libelle: 'Revue du soir', court: 'Revue', chemin: '/odyssee/revue/', icone: '🌙' },
-      { id: 'corps', libelle: 'Mon corps', court: 'Corps', chemin: '/odyssee/corps/', icone: '🫀' },
-      { id: 'psyche', libelle: 'Ma psyché', court: 'Psyché', chemin: '/odyssee/psyche/', icone: '🫧' },
-      { id: 'veille', libelle: 'Repère de rythme de vie', court: 'Repère', chemin: '/odyssee/veille/', icone: '🧭' },
-      { id: 'echelles', libelle: 'Échelles', court: 'Échelles', chemin: '/odyssee/echelles/', icone: '📋' },
-      { id: 'finances', libelle: 'Mes finances', court: 'Finances', chemin: '/odyssee/finances/', icone: '💶' },
-      { id: 'tendances', libelle: 'Mes tendances', court: 'Tendances', chemin: '/odyssee/tendances/', icone: '🔭' },
-      { id: 'syntheses', libelle: 'Mes synthèses', court: 'Synthèses', chemin: '/syntheses/', icone: '📈' },
+      { id: 'accueil', nom: 'Tableau de bord', court: 'Tableau', chemin: '/odyssee/', icone: '🏠' },
+      { id: 'calendrier', nom: 'Agenda', description: 'Mon calendrier.', chemin: '/odyssee/calendrier/', icone: '🗓️' },
+      { id: 'taches', nom: 'Tâches', chemin: '/odyssee/taches/', icone: '✅' },
+      { id: 'quetes', nom: 'Quêtes', chemin: '/odyssee/quetes/', icone: '🔁' },
+      { id: 'revue', nom: 'Revue du soir', court: 'Revue', chemin: '/odyssee/revue/', icone: '🌙' },
+      { id: 'corps', nom: 'Corps', chemin: '/odyssee/corps/', icone: '🫀' },
+      { id: 'psyche', nom: 'Psyché', chemin: '/odyssee/psyche/', icone: '🫧' },
+      { id: 'veille', nom: 'Repère de rythme de vie', court: 'Repère', chemin: '/odyssee/veille/', icone: '🧿' },
+      { id: 'echelles', nom: 'Échelles', chemin: '/odyssee/echelles/', icone: '📋' },
+      { id: 'finances', nom: 'Finances', chemin: '/odyssee/finances/', icone: '💶' },
+      { id: 'tendances', nom: 'Tendances', chemin: '/odyssee/tendances/', icone: '🔭' },
+      { id: 'syntheses', nom: 'Synthèses', chemin: '/syntheses/', icone: '🧾' },
     ],
+    groupes: [
+      { id: 'faire', nom: 'Faire', icone: '✅', membres: ['taches', 'quetes', 'revue'] },
+      { id: 'moi', nom: 'Moi', icone: '🫀', membres: ['corps', 'psyche', 'echelles', 'veille'] },
+      { id: 'compter', nom: 'Compter', icone: '💶', membres: ['finances', 'tendances', 'syntheses'] },
+    ],
+    principaux: ['accueil', 'calendrier', 'taches', 'corps'],
     annexes: [
       /*
          Santé est une annexe et non un onglet, et c'est la décision 3.1 du
@@ -148,10 +232,10 @@ export const BRANCHES: Branche[] = [
          un écran qu'on ouvre huit fois par an. Le pied de page le nomme, et
          « Mon corps » y mène.
       */
-      { id: 'sante', libelle: 'Santé et traitements', court: 'Santé', chemin: '/odyssee/sante/', icone: '🩺' },
-      { id: 'rapprocher', libelle: 'Opérations à rapprocher', court: 'À rapprocher', chemin: '/odyssee/rapprocher/', icone: '🔗' },
-      { id: 'regles', libelle: 'Mes règles de pointage', court: 'Mes règles', chemin: '/odyssee/mes-regles/', icone: '📏' },
-      { id: 'lecteurs-budget', libelle: 'Qui lit mon budget', court: 'Qui lit mon budget', chemin: '/odyssee/qui-lit-mon-budget/', icone: '👁️' },
+      { id: 'sante', nom: 'Santé', description: 'Santé et traitements.', chemin: '/odyssee/sante/', icone: '🩺' },
+      { id: 'rapprocher', nom: 'À rapprocher', description: 'Les opérations à rapprocher.', chemin: '/odyssee/rapprocher/', icone: '🔗' },
+      { id: 'regles', nom: 'Mes règles', description: 'Les règles de pointage.', chemin: '/odyssee/mes-regles/', icone: '📏' },
+      { id: 'lecteurs-budget', nom: 'Qui lit mon budget', chemin: '/odyssee/qui-lit-mon-budget/', icone: '👁️' },
     ],
   },
   {
@@ -162,19 +246,29 @@ export const BRANCHES: Branche[] = [
     racine: '/sport/',
     disponible: true,
     onglets: [
-      { id: 'accueil', libelle: 'Tableau de bord', court: 'Accueil', chemin: '/sport/', icone: '🏠' },
-      { id: 'seance', libelle: 'Ma séance', court: 'Séance', chemin: '/sport/seance/', icone: '🏋️' },
-      { id: 'exercices', libelle: 'Mes exercices', court: 'Exercices', chemin: '/sport/exercices/', icone: '📋' },
-      { id: 'programmes', libelle: 'Mes programmes', court: 'Programmes', chemin: '/sport/programmes/', icone: '🗂️' },
-      { id: 'force', libelle: 'Mon suivi de la force', court: 'Force', chemin: '/sport/force/', icone: '📈' },
+      { id: 'accueil', nom: 'Tableau de bord', court: 'Tableau', chemin: '/sport/', icone: '🏠' },
+      { id: 'seance', nom: 'Séance', chemin: '/sport/seance/', icone: '🏋️' },
+      { id: 'exercices', nom: 'Exercices', chemin: '/sport/exercices/', icone: '📋' },
+      { id: 'programmes', nom: 'Programmes', chemin: '/sport/programmes/', icone: '🗂️' },
+      { id: 'force', nom: 'Force', description: 'Le suivi de la force.', chemin: '/sport/force/', icone: '📈' },
       /*
          « Phases et blessures », et non « Mon corps » : Odyssée porte déjà un
          écran de ce nom — poids, sommeil, repas — et deux onglets homonymes
          dans deux branches se confondraient à la lecture. Celui-ci ne traite
          que de ce qui contextualise l'entraînement.
       */
-      { id: 'etat', libelle: 'Mes phases et mes blessures', court: 'Blessures', chemin: '/sport/corps/', icone: '🩹' },
+      { id: 'etat', nom: 'Phases et blessures', court: 'Phases', chemin: '/sport/corps/', icone: '🩹' },
     ],
+    /*
+       Six onglets tenaient à 1280 px, mais pas à 660 : « Force » y était
+       coupé et « Blessures » absent. Deux groupes suffisent à les rendre
+       tous atteignables sans toucher à l'ordre.
+    */
+    groupes: [
+      { id: 'preparer', nom: 'Préparer', icone: '🗂️', membres: ['exercices', 'programmes'] },
+      { id: 'suivre', nom: 'Suivre', icone: '📈', membres: ['force', 'etat'] },
+    ],
+    principaux: ['accueil', 'seance', 'exercices', 'force'],
   },
 ];
 
@@ -191,11 +285,11 @@ export const BRANCHES: Branche[] = [
  * parcours ne mène nulle part de compréhensible.
  */
 export const ECRANS_COMMUNS: readonly Onglet[] = [
-  { id: 'profil', libelle: 'Mon profil', court: 'Mon profil', chemin: '/profil/', icone: '🪪' },
-  { id: 'appareils', libelle: 'Appareils et synchronisation', court: 'Appareils', chemin: '/appareils/', icone: '📱' },
-  { id: 'stockage', libelle: 'Stockage', court: 'Stockage', chemin: '/stockage/', icone: '🗄️' },
-  { id: 'exporter-ia', libelle: 'Exporter pour une IA', court: 'Exporter pour une IA', chemin: '/exporter-ia/', icone: '📤' },
-  { id: 'importer-analyse', libelle: 'Importer une analyse', court: 'Importer une analyse', chemin: '/importer-analyse/', icone: '📥' },
+  { id: 'profil', nom: 'Mon profil', chemin: '/profil/', icone: '🪪' },
+  { id: 'appareils', nom: 'Appareils', description: 'Appareils et synchronisation.', chemin: '/appareils/', icone: '📱' },
+  { id: 'stockage', nom: 'Stockage', chemin: '/stockage/', icone: '🗄️' },
+  { id: 'exporter-ia', nom: 'Exporter pour une IA', chemin: '/exporter-ia/', icone: '📤' },
+  { id: 'importer-analyse', nom: 'Importer une analyse', chemin: '/importer-analyse/', icone: '📥' },
 ];
 
 export const ID_BRANCHE_PAR_DEFAUT = 'revisions';
@@ -259,4 +353,117 @@ export function brancheDUnOnglet(chemin: string): Branche | null {
 export function nomComplet(nomProduit: string, id = ID_BRANCHE_PAR_DEFAUT): string {
   const b = branche(id);
   return b ? `${nomProduit} · ${b.libelle}` : nomProduit;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Ce que la barre affiche
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** Une entrée de barre : un onglet seul, ou un groupe dépliant. */
+export type EntreeDeBarre =
+  | { sorte: 'onglet'; onglet: Onglet }
+  | { sorte: 'groupe'; groupe: GroupeOnglets; membres: readonly Onglet[] };
+
+/**
+ * Les entrées de la barre d'une branche, dans l'ordre.
+ *
+ * Un onglet cité par un groupe n'apparaît qu'à la place du groupe ; les
+ * autres gardent la leur. L'ordre des entrées suit donc celui de `onglets`,
+ * le groupe prenant la place de son **premier** membre — ce qui conserve
+ * l'ordre qu'on connaît plutôt que d'en inventer un.
+ */
+export function entreesDeLaBarre(b: Branche): EntreeDeBarre[] {
+  const groupes = b.groupes ?? [];
+  const parMembre = new Map<string, GroupeOnglets>();
+  for (const g of groupes) for (const m of g.membres) parMembre.set(m, g);
+
+  const sortie: EntreeDeBarre[] = [];
+  const poses = new Set<string>();
+  for (const onglet of b.onglets) {
+    const g = parMembre.get(onglet.id);
+    if (!g) {
+      sortie.push({ sorte: 'onglet', onglet });
+      continue;
+    }
+    if (poses.has(g.id)) continue;
+    poses.add(g.id);
+    sortie.push({
+      sorte: 'groupe',
+      groupe: g,
+      membres: g.membres
+        .map((id) => b.onglets.find((o) => o.id === id))
+        .filter((o): o is Onglet => Boolean(o)),
+    });
+  }
+  return sortie;
+}
+
+/** Les destinations de la barre du bas, sur téléphone. */
+export const ongletsPrincipaux = (b: Branche): Onglet[] =>
+  (b.principaux ?? b.onglets.slice(0, 4).map((o) => o.id))
+    .map((id) => b.onglets.find((o) => o.id === id))
+    .filter((o): o is Onglet => Boolean(o));
+
+/** Le nom court d'un onglet, pour la barre du bas. */
+export const nomCourt = (o: Onglet): string => o.court ?? o.nom;
+
+/**
+ * Le contrôle du registre lui-même.
+ *
+ * Trois choses qu'une relecture laisse passer et qu'un écran ne signale pas :
+ * un groupe qui cite un onglet disparu — l'écran devient inatteignable sans
+ * que rien ne proteste —, un nom court qui n'est pas un préfixe du nom — la
+ * commande vocale échoue —, et deux écrans qui portent le même nom — on ne
+ * sait plus lequel on ouvre.
+ */
+export function controlerBranches(): string[] {
+  const problemes: string[] = [];
+  const nomsVus = new Map<string, string>();
+
+  for (const b of BRANCHES) {
+    const ids = new Set(b.onglets.map((o) => o.id));
+    for (const g of b.groupes ?? []) {
+      for (const m of g.membres) {
+        if (!ids.has(m)) {
+          problemes.push(`${b.libelle} : le groupe « ${g.nom} » cite l’onglet absent « ${m} ».`);
+        }
+      }
+    }
+    for (const id of b.principaux ?? []) {
+      if (!ids.has(id)) {
+        problemes.push(`${b.libelle} : « ${id} » est une destination principale mais pas un onglet.`);
+      }
+    }
+    for (const o of [...b.onglets, ...(b.annexes ?? [])]) {
+      if (o.court && !o.nom.toLowerCase().startsWith(o.court.toLowerCase())) {
+        problemes.push(
+          `« ${o.court} » n’est pas un préfixe de « ${o.nom} » : la commande vocale échouerait.`,
+        );
+      }
+      /*
+         L'unicité se juge **dans une branche**, pas sur tout le site.
+
+         Les trois branches ont chacune leur tableau de bord, et c'est le bon
+         nom pour les trois : ce sont trois écrans du même genre, dans trois
+         contextes que l'en-tête affiche déjà. Exiger trois noms différents
+         aurait produit trois périphrases pour éviter une collision qui n'en
+         est pas une. Le `<title>` de la page, lui, porte la branche, et c'est
+         là que l'unicité compte — « essais:structure » la vérifie.
+      */
+      const clef = `${b.id}|${o.nom.toLowerCase()}`;
+      const ailleurs = nomsVus.get(clef);
+      if (ailleurs && ailleurs !== o.chemin) {
+        problemes.push(
+          `Deux écrans de ${b.libelle} portent le nom « ${o.nom} » : ${ailleurs} et ${o.chemin}.`,
+        );
+      }
+      nomsVus.set(clef, o.chemin);
+    }
+  }
+  for (const o of ECRANS_COMMUNS) {
+    if (o.court && !o.nom.toLowerCase().startsWith(o.court.toLowerCase())) {
+      problemes.push(`« ${o.court} » n’est pas un préfixe de « ${o.nom} ».`);
+    }
+  }
+  return problemes;
 }

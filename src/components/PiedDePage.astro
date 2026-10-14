@@ -62,7 +62,7 @@ interface Props {
 
 const { portee } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-const lien = (o: Onglet) => ({ libelle: o.court, href: `${base}${o.chemin}` });
+const lien = (o: Onglet) => ({ libelle: o.nom, href: `${base}${o.chemin}` });
 
 const branches = branchesDisponibles();
 const courante: Branche | undefined = branches.find((b) => b.id === portee);
@@ -76,14 +76,22 @@ const colonneBranches = {
   ],
 };
 
+/*
+   Le pied s'est allégé (N6).
+
+   Il portait trente-huit liens sur quatre colonnes, soit sept cents pixels
+   sur ordinateur et mille sur téléphone, **sur chaque page** — y compris
+   pendant une épreuve blanche. Il doublait la barre d'onglets, et servait de
+   seule navigation sur téléphone parce que la barre y était invisible.
+
+   La barre du bas répare ce dernier point : le pied n'a plus à porter le plan
+   du site. Il garde les **annexes** de la branche — les écrans sans onglet,
+   qui n'apparaissent nulle part ailleurs —, les autres branches, et « Cet
+   espace ». Les onglets, eux, sont dans la barre, en haut et en bas.
+*/
 const colonnes = [
-  ...(courante
-    ? [
-        {
-          titre: courante.libelle,
-          liens: [...courante.onglets, ...(courante.annexes ?? [])].map(lien),
-        },
-      ]
+  ...(courante && (courante.annexes ?? []).length
+    ? [{ titre: courante.libelle, liens: (courante.annexes ?? []).map(lien) }]
     : []),
   colonneBranches,
   { titre: 'Cet espace', liens: ECRANS_COMMUNS.map(lien) },

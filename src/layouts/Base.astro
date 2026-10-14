@@ -14,7 +14,12 @@ import {
   branchesDisponibles,
   brancheDuChemin,
   brancheDUnOnglet,
+  entreesDeLaBarre,
+  nomCourt,
+  ongletsPrincipaux,
+  ECRANS_COMMUNS,
   ID_BRANCHE_PAR_DEFAUT,
+  type EntreeDeBarre,
 } from '../lib/branches';
 
 interface Props {
@@ -46,15 +51,28 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
    d'extensibilité qui vaille.
 */
 const brancheCourante = brancheDuChemin(Astro.url.pathname);
-const autresBranches = branchesDisponibles().filter((b) => b.id !== brancheCourante.id);
+/*
+   L'ordre des branches ne bouge **jamais** (N3).
 
-const onglets = brancheCourante.onglets.map((o) => ({
-  id: o.id,
-  libelle: o.libelle,
-  court: o.court,
-  href: `${base}${o.chemin}`,
-  icone: o.icone,
-}));
+   Il bougeait : la branche courante passait en tête, donc Révisions affichait
+   🎓 🧭 🏋, Odyssée 🧭 🎓 🏋, Sport 🏋 🎓 🧭. Un même lien changeait de place
+   d'une page à l'autre, ce qui défait la seule chose qu'une barre fixe
+   apporte — qu'on finisse par viser sans lire. La branche courante est
+   maintenant marquée, pas déplacée.
+*/
+const branches = branchesDisponibles();
+
+/*
+   La barre affiche des **entrées**, dont certaines regroupent plusieurs
+   onglets. Douze onglets ne tenaient pas : mesuré, la barre de Révisions
+   disposait de 517 px pour 1 261 px de contenu à 1280 px de large, et de 8 px
+   pour 550 px sur téléphone. Sept écrans sur douze étaient inatteignables
+   sans faire glisser une barre dont rien ne disait qu'elle glissait.
+*/
+const entrees = entreesDeLaBarre(brancheCourante);
+const idsDeLEntree = (e: EntreeDeBarre) =>
+  e.sorte === 'onglet' ? [e.onglet.id] : e.membres.map((o) => o.id);
+const principaux = ongletsPrincipaux(brancheCourante);
 
 /*
    La portée du pied de page : la branche où l'on est, ou le menu.
@@ -95,7 +113,18 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
     <meta name="googlebot" content="noindex, nofollow" />
     <meta name="referrer" content="no-referrer" />
     <meta name="color-scheme" content="light dark" />
-    <title>{titre} · {config.titre}</title>
+    {/*
+       Le titre d'onglet porte la branche, et c'est deux problèmes réglés.
+
+       Les trois branches ont chacune un « Tableau de bord » : sans la
+       branche, trois onglets de navigateur s'appelleraient pareil et
+       l'historique deviendrait illisible. Et la critique relève qu'on ne sait
+       pas **où l'on est** — le titre est le seul endroit qui puisse le dire
+       quand la page est défilée.
+    */}
+    <title>
+      {titre} · {enteteVoulu === 'complet' ? `${brancheCourante.libelle} · ` : ''}{config.titre}
+    </title>
     <link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
     <script is:inline>
       // Applique le thème avant le premier rendu pour éviter tout clignotement.
@@ -200,30 +229,34 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
                   <span class="sr-only">Menu de {config.titre}</span>
                 </a>
                 <span class="hidden text-slate-400 sm:inline dark:text-slate-500" aria-hidden="true">·</span>
-                <a
-                  href={`${base}${brancheCourante.racine}`}
-                  class="cible-tactile-pleine gap-1.5 rounded-lg px-1 font-normal text-slate-600 transition hover:text-indigo-600 dark:text-slate-300 dark:hover:text-indigo-400"
-                >
-                  <span class="text-lg sm:hidden" aria-hidden="true">{brancheCourante.icone}</span>
-                  <span class="hidden sm:inline">{brancheCourante.libelle}</span>
-                  <span class="sr-only">Accueil de {brancheCourante.libelle}</span>
-                </a>
                 {/*
-                   Le passage d'une branche à l'autre, en un lien par branche
-                   ouverte plutôt qu'en menu déroulant : à deux branches, un
-                   menu coûte un clic de plus pour cacher une seule option.
-                   Il n'apparaît pas du tout quand il n'y a rien où aller.
+                   Les trois branches, **toujours dans le même ordre**, la
+                   courante marquée par son fond et par `aria-current`.
+
+                   Le contraste des inactives passe de 3,74 : 1 à la couleur
+                   du texte secondaire ordinaire : le seuil de WCAG AA pour du
+                   texte courant est 4,5 : 1, et « inactif » n'est pas une
+                   raison d'être illisible — c'est une raison d'être moins
+                   appuyé, ce que fait déjà l'absence de fond.
                 */}
-                {autresBranches.map((autre) => (
+                {branches.map((b) => (
                   <a
-                    href={`${base}${autre.racine}`}
-                    title={autre.description}
-                    data-branche={autre.id}
-                    class="cible-tactile-pleine gap-1.5 rounded-lg px-2 text-sm font-normal text-slate-400 transition hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-500 dark:hover:bg-slate-800 dark:hover:text-indigo-400"
+                    href={`${base}${b.racine}`}
+                    title={b.description}
+                    data-branche={b.id}
+                    aria-current={b.id === brancheCourante.id ? 'true' : undefined}
+                    class:list={[
+                      'cible-tactile-pleine gap-1.5 rounded-lg px-2 text-sm font-normal transition',
+                      b.id === brancheCourante.id
+                        ? 'bg-slate-100 font-medium text-slate-900 dark:bg-slate-800 dark:text-white'
+                        : 'text-slate-600 hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-indigo-400',
+                    ]}
                   >
-                    <span class="text-base" aria-hidden="true">{autre.icone}</span>
-                    <span class="hidden sm:inline">{autre.libelle}</span>
-                    <span class="sr-only">Aller dans {autre.libelle}</span>
+                    <span class="text-base" aria-hidden="true">{b.icone}</span>
+                    <span class="hidden sm:inline">{b.libelle}</span>
+                    <span class="sr-only">
+                      {b.id === brancheCourante.id ? `${b.libelle} — branche courante` : `Aller dans ${b.libelle}`}
+                    </span>
                   </a>
                 ))}
               </div>
@@ -243,52 +276,109 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
                  cours ; c'est le **changer** d'ailleurs que Révisions qui
                  n'avait pas de sens.)
               */}
-              <div class="order-last flex w-full min-w-0 shrink items-center gap-2 lg:order-none lg:w-auto lg:flex-1">
+              {/*
+                 La barre prend **sa propre rangée** tant qu'elle n'a pas la
+                 place de tenir sur celle du haut.
+
+                 Mesuré à 1280 px : la rangée haute offrait 407 px à une barre
+                 qui en demandait 624, parce que le nom du produit, les trois
+                 branches et le sélecteur de parcours occupaient le reste.
+                 Le seuil passe donc de « lg » à « 2xl » — en dessous de
+                 1536 px, la barre descend d'une rangée et dispose de toute la
+                 largeur. Mesuré à 1280 px après : 624 px de contenu pour
+                 1248 px disponibles. Une rangée de plus coûte quarante pixels
+                 de hauteur ; sept écrans invisibles coûtaient plus.
+              */}
+              <div class="order-last flex w-full min-w-0 shrink items-center gap-2 2xl:order-none 2xl:w-auto 2xl:flex-1">
                 {brancheCourante.id === ID_BRANCHE_PAR_DEFAUT && <SelecteurParcours />}
                 <nav
                   id="navigation-principale"
                   aria-label="Navigation principale"
-                  class="defilement-masque -mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto px-1"
+                  {/*
+                     Plus de `overflow-x-auto` : il n'y a plus rien à faire
+                     défiler, et surtout il **coupait les panneaux** des
+                     groupes, qui sont positionnés en absolu et doivent
+                     déborder de la barre pour s'afficher. Un menu déroulant
+                     dans un conteneur qui masque le débordement est un menu
+                     qui s'ouvre dans une fente.
+                  */}
+                  class="-mx-1 flex min-w-0 flex-1 flex-wrap gap-1 px-1"
                 >
                   {/*
-                     Le nom accessible commence par le libellé **visible**.
+                     Un nom par écran, le même partout.
 
-                     L'onglet affiche « Cartes » et s'appelait « Flashcards » :
-                     quelqu'un qui pilote à la voix dit « cliquer Cartes » et
-                     n'obtient rien, parce que le nom qu'il lit n'est pas
-                     celui que la machine connaît. C'est le critère 2.5.3 de
-                     WCAG, « Étiquette dans le nom », et il est de niveau A.
+                     Le registre porte désormais un seul `nom` : la barre, le
+                     titre de la page, son `<h1>` et le pied de page le
+                     reprennent tel quel. L'onglet disait « Cours » et la page
+                     « Bibliothèque » ; pour qui pilote à la voix, c'était un
+                     onglet qu'on n'atteint pas (WCAG 2.5.3, niveau A), et
+                     pour tout le monde, deux écrans là où il y en a un.
 
-                     Le libellé long n'est pas perdu pour autant : il suit le
-                     court, après un tiret. « Cartes » déclenche, « Cartes —
-                     Flashcards » s'entend, et l'infobulle garde le long, qui
-                     est le seul à dire de quoi il s'agit.
+                     Les groupes s'ouvrent par `<details>` : au clavier
+                     naturellement, sans JavaScript, et refermés par la touche
+                     d'échappement. Un menu fait à la main aurait demandé
+                     cinquante lignes pour refaire ce que le navigateur sait.
                   */}
-                  {onglets.map((onglet) => (
-                    <a
-                      href={onglet.href}
-                      title={onglet.libelle}
-                      aria-label={
-                        onglet.court === onglet.libelle
-                          ? onglet.libelle
-                          : `${onglet.court} — ${onglet.libelle}`
-                      }
-                      aria-current={actif === onglet.id ? 'page' : undefined}
-                      class:list={[
-                        'cible-tactile-pleine shrink-0 gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition',
-                        actif === onglet.id
-                          ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
-                          : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
-                      ]}
-                    >
-                      <span aria-hidden="true">{onglet.icone}</span>
-                      <span class="hidden lg:inline">{onglet.court}</span>
-                    </a>
-                  ))}
+                  {entrees.map((e) =>
+                    e.sorte === 'onglet' ? (
+                      <a
+                        href={`${base}${e.onglet.chemin}`}
+                        title={e.onglet.description ?? e.onglet.nom}
+                        aria-current={actif === e.onglet.id ? 'page' : undefined}
+                        class:list={[
+                          'cible-tactile-pleine hidden shrink-0 gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition sm:inline-flex',
+                          actif === e.onglet.id
+                            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                            : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
+                        ]}
+                      >
+                        <span aria-hidden="true">{e.onglet.icone}</span>
+                        <span>{e.onglet.nom}</span>
+                      </a>
+                    ) : (
+                      <details
+                        class="groupe-onglets hidden shrink-0 sm:block"
+                        data-groupe={e.groupe.id}
+                      >
+                        <summary
+                          class:list={[
+                            'cible-tactile-pleine list-none gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition',
+                            idsDeLEntree(e).includes(actif ?? '')
+                              ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                              : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
+                          ]}
+                        >
+                          <span aria-hidden="true">{e.groupe.icone}</span>
+                          <span>{e.groupe.nom}</span>
+                          <span aria-hidden="true" class="text-xs">▾</span>
+                        </summary>
+                        <ul class="absolute z-50 mt-1 min-w-48 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                          {e.membres.map((o) => (
+                            <li>
+                              <a
+                                href={`${base}${o.chemin}`}
+                                title={o.description ?? o.nom}
+                                aria-current={actif === o.id ? 'page' : undefined}
+                                class:list={[
+                                  'cible-tactile w-full gap-2 rounded-lg px-3 text-sm transition',
+                                  actif === o.id
+                                    ? 'bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                                    : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
+                                ]}
+                              >
+                                <span aria-hidden="true">{o.icone}</span>
+                                <span>{o.nom}</span>
+                              </a>
+                            </li>
+                          ))}
+                        </ul>
+                      </details>
+                    ),
+                  )}
                 </nav>
               </div>
 
-              <div class="ml-auto flex shrink-0 items-center gap-1 lg:ml-0">
+              <div class="ml-auto flex shrink-0 items-center gap-1 2xl:ml-0">
                 {/*
                   L'indicateur de synchronisation, discret (D-025, point 2).
 
@@ -308,15 +398,65 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
                   <span id="texte-sync" class="sr-only"></span>
                 </span>
                 <CommutateurTheme />
-                <button
-                  id="bouton-verrouiller"
-                  type="button"
-                  title="Verrouiller la session"
-                  aria-label="Verrouiller la session"
-                  class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                >
-                  <span aria-hidden="true">🔒</span>
-                </button>
+                {/*
+                   « Cet espace » : les écrans qui ne sont d'aucune branche.
+
+                   Profil, Appareils, Stockage, Exporter et Importer ne
+                   s'ouvraient que depuis le menu d'accueil, et aucune colonne
+                   du pied de page ne les nommait. Ils sont de partout — ils
+                   servent Cyclades entier —, donc ils sont ici, au même
+                   endroit sur chaque page, en-tête complet **et** léger : la
+                   critique relève que le gabarit change d'un écran à l'autre,
+                   et c'est le côté droit qui changeait.
+
+                   Les trois écrans de données (Sauvegarde, Stockage,
+                   Appareils) y sont voisins : on ne devinait pas lequel
+                   ouvrir, et les voir côte à côte est la réponse la moins
+                   coûteuse — les fondre en un seul écran aurait été un
+                   chantier, pas une correction.
+                */}
+                <details class="groupe-onglets relative shrink-0">
+                  <summary
+                    class="cible-tactile-pleine list-none rounded-lg text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                    title="Cet espace"
+                  >
+                    <span aria-hidden="true">⚙️</span>
+                    <span class="sr-only">Cet espace — réglages et données</span>
+                  </summary>
+                  <ul class="absolute right-0 z-50 mt-1 min-w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                    {ECRANS_COMMUNS.map((o) => (
+                      <li>
+                        <a
+                          href={`${base}${o.chemin}`}
+                          title={o.description ?? o.nom}
+                          class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                        >
+                          <span aria-hidden="true">{o.icone}</span>
+                          <span>{o.nom}</span>
+                        </a>
+                      </li>
+                    ))}
+                    <li>
+                      <a
+                        href={`${base}/progression/`}
+                        class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        <span aria-hidden="true">💾</span>
+                        <span>Sauvegarde</span>
+                      </a>
+                    </li>
+                    <li class="mt-1 border-t border-slate-200 pt-1 dark:border-slate-700">
+                      <button
+                        id="bouton-verrouiller"
+                        type="button"
+                        class="cible-tactile w-full gap-2 rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        <span aria-hidden="true">🔒</span>
+                        <span>Verrouiller la session</span>
+                      </button>
+                    </li>
+                  </ul>
+                </details>
               </div>
             </div>
           </header>
@@ -346,22 +486,172 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
               )}
               <div class="flex flex-1 justify-end gap-1">
                 <CommutateurTheme />
-                <button
-                  id="bouton-verrouiller"
-                  type="button"
-                  title="Verrouiller la session"
-                  aria-label="Verrouiller la session"
-                  class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
-                >
-                  <span aria-hidden="true">🔒</span>
-                </button>
+                <details class="groupe-onglets relative shrink-0">
+                  <summary
+                    class="cible-tactile-pleine list-none rounded-lg text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+                    title="Cet espace"
+                  >
+                    <span aria-hidden="true">⚙️</span>
+                    <span class="sr-only">Cet espace — réglages et données</span>
+                  </summary>
+                  <ul class="absolute right-0 z-50 mt-1 min-w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                    {ECRANS_COMMUNS.map((o) => (
+                      <li>
+                        <a
+                          href={`${base}${o.chemin}`}
+                          title={o.description ?? o.nom}
+                          class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                        >
+                          <span aria-hidden="true">{o.icone}</span>
+                          <span>{o.nom}</span>
+                        </a>
+                      </li>
+                    ))}
+                    <li>
+                      <a
+                        href={`${base}/progression/`}
+                        class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        <span aria-hidden="true">💾</span>
+                        <span>Sauvegarde</span>
+                      </a>
+                    </li>
+                    <li class="mt-1 border-t border-slate-200 pt-1 dark:border-slate-700">
+                      <button
+                        id="bouton-verrouiller"
+                        type="button"
+                        class="cible-tactile w-full gap-2 rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        <span aria-hidden="true">🔒</span>
+                        <span>Verrouiller la session</span>
+                      </button>
+                    </li>
+                  </ul>
+                </details>
               </div>
             </div>
           </header>
         )
       }
 
-      <main id="contenu-principal" tabindex="-1" class="mx-auto max-w-6xl px-4 py-8">
+      {/*
+         La barre du bas, sur téléphone (N1).
+
+         À 390 px, la barre d'onglets du haut disposait de 8 px pour 550 px de
+         contenu : la navigation interne d'une branche était purement
+         invisible, et le seul chemin vers un autre écran passait par le pied
+         de page, à deux à cinq mille pixels plus bas, parmi trente-huit
+         liens.
+
+         Quatre destinations et un « Plus ». Quatre parce qu'à 390 px, cinq
+         cibles de 44 px avec leur libellé tiennent et six se touchent. Le
+         « Plus » ouvre le reste **groupé**, avec la branche courante en tête
+         — un écran qu'on cherche se cherche dans sa branche.
+
+         Elle est en `position: fixed`, donc le contenu reçoit en bas une
+         marge de sa hauteur : une barre qui recouvre la dernière ligne d'une
+         page est une barre qui cache ce qu'on lisait.
+      */}
+      {enteteVoulu === 'complet' && (
+        <nav
+          id="barre-du-bas"
+          aria-label="Navigation de la branche"
+          class="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-200 bg-white/95 backdrop-blur sm:hidden dark:border-slate-800 dark:bg-slate-900/95"
+        >
+          {principaux.map((o) => (
+            <a
+              href={`${base}${o.chemin}`}
+              aria-current={actif === o.id ? 'page' : undefined}
+              class:list={[
+                'flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1 text-[11px] font-medium transition',
+                actif === o.id
+                  ? 'text-indigo-700 dark:text-indigo-300'
+                  : 'text-slate-600 dark:text-slate-300',
+              ]}
+            >
+              <span class="text-lg leading-none" aria-hidden="true">{o.icone}</span>
+              <span>{nomCourt(o)}</span>
+            </a>
+          ))}
+          <button
+            id="ouvrir-plus"
+            type="button"
+            aria-expanded="false"
+            aria-controls="feuille-plus"
+            class="flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1 text-[11px] font-medium text-slate-600 transition dark:text-slate-300"
+          >
+            <span class="text-lg leading-none" aria-hidden="true">⋯</span>
+            <span>Plus</span>
+          </button>
+        </nav>
+      )}
+
+      {enteteVoulu === 'complet' && (
+        <div
+          id="feuille-plus"
+          class="fixed inset-0 z-50 hidden bg-slate-900/40 sm:hidden"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Tous les écrans"
+        >
+          <div class="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl bg-white p-4 dark:bg-slate-900">
+            <div class="mb-3 flex items-center justify-between">
+              <h2 class="text-base font-semibold text-slate-900 dark:text-white">
+                {brancheCourante.libelle}
+              </h2>
+              <button
+                id="fermer-plus"
+                type="button"
+                class="cible-tactile rounded-lg px-3 text-sm text-slate-600 underline dark:text-slate-300"
+              >
+                Fermer
+              </button>
+            </div>
+            <ul class="space-y-1">
+              {brancheCourante.onglets.map((o) => (
+                <li>
+                  <a
+                    href={`${base}${o.chemin}`}
+                    aria-current={actif === o.id ? 'page' : undefined}
+                    class:list={[
+                      'cible-tactile w-full gap-2 rounded-lg px-3 text-sm transition',
+                      actif === o.id
+                        ? 'bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                        : 'text-slate-700 dark:text-slate-200',
+                    ]}
+                  >
+                    <span aria-hidden="true">{o.icone}</span>
+                    <span>{o.nom}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+            <h3 class="mt-4 mb-1 etiquette text-slate-500 dark:text-slate-400">Cet espace</h3>
+            <ul class="space-y-1">
+              {ECRANS_COMMUNS.map((o) => (
+                <li>
+                  <a
+                    href={`${base}${o.chemin}`}
+                    class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 dark:text-slate-200"
+                  >
+                    <span aria-hidden="true">{o.icone}</span>
+                    <span>{o.nom}</span>
+                  </a>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
+
+      <main
+        id="contenu-principal"
+        tabindex="-1"
+        class:list={[
+          'mx-auto max-w-6xl px-4 py-8',
+          enteteVoulu === 'complet' ? 'pb-24 sm:pb-8' : '',
+        ]}
+      >
         <slot />
       </main>
 
@@ -486,3 +776,52 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
     </script>
   </body>
 </html>
+
+<script>
+  /*
+     Trois gestes que le navigateur ne donne pas seul.
+
+     1. Un `<details>` ouvert reste ouvert quand on en ouvre un autre : deux
+        panneaux superposés. On ferme donc les frères à l'ouverture.
+     2. Un clic ailleurs ne le ferme pas. Un menu qu'il faut recliquer pour
+        refermer est un menu qu'on laisse ouvert par mégarde.
+     3. La feuille « Plus » du téléphone : ouverture, fermeture, et la touche
+        d'échappement, qui est ce qu'on essaie d'abord.
+  */
+  const groupes = () => [...document.querySelectorAll<HTMLDetailsElement>('.groupe-onglets')];
+
+  for (const d of groupes()) {
+    d.addEventListener('toggle', () => {
+      if (!d.open) return;
+      for (const autre of groupes()) if (autre !== d) autre.open = false;
+    });
+  }
+
+  document.addEventListener('click', (e) => {
+    const dans = (e.target as HTMLElement | null)?.closest('.groupe-onglets');
+    for (const d of groupes()) if (d !== dans) d.open = false;
+  });
+
+  const feuille = document.getElementById('feuille-plus');
+  const ouvrir = document.getElementById('ouvrir-plus');
+  const fermer = document.getElementById('fermer-plus');
+
+  const basculerFeuille = (ouverte: boolean) => {
+    feuille?.classList.toggle('hidden', !ouverte);
+    ouvrir?.setAttribute('aria-expanded', String(ouverte));
+    if (ouverte) (feuille?.querySelector('a') as HTMLElement | null)?.focus();
+    else ouvrir?.focus();
+  };
+
+  ouvrir?.addEventListener('click', () => basculerFeuille(true));
+  fermer?.addEventListener('click', () => basculerFeuille(false));
+  feuille?.addEventListener('click', (e) => {
+    if (e.target === feuille) basculerFeuille(false);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key !== 'Escape') return;
+    if (feuille && !feuille.classList.contains('hidden')) basculerFeuille(false);
+    for (const d of groupes()) d.open = false;
+  });
+</script>

@@ -144,7 +144,8 @@
     "essais:colonnes:navigateur": "node scripts/essais-colonnes-navigateur.mjs",
     "essais:quiz:navigateur": "node scripts/essais-quiz-navigateur.mjs",
     "essais:accessibilite:navigateur": "node scripts/essais-accessibilite-navigateur.mjs",
-    "essais:mobile:navigateur": "node scripts/essais-mobile-navigateur.mjs"
+    "essais:mobile:navigateur": "node scripts/essais-mobile-navigateur.mjs",
+    "essais:navigation:navigateur": "tsx scripts/essais-navigation-navigateur.mjs"
   },
   "repository": {
     "type": "git",

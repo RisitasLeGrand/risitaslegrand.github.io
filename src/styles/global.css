@@ -395,3 +395,26 @@ dfn.terme-glossaire:focus-visible {
 .table-aeree :is(th, td):last-child {
   padding-inline-end: 0;
 }
+
+/* --- Les groupes dépliants de la barre --------------------------------- */
+
+/* `<details>` plutôt qu'un menu écrit à la main : il s'ouvre au clavier, il se
+   ferme à l'échappement, il est annoncé comme dépliable, et tout cela sans une
+   ligne de JavaScript. Le marqueur par défaut, lui, n'a rien à faire dans une
+   barre d'onglets. */
+.groupe-onglets > summary {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+
+.groupe-onglets > summary::-webkit-details-marker,
+.groupe-onglets > summary::marker {
+  display: none;
+  content: '';
+}
+
+/* Le panneau se positionne par rapport à la barre, pas à la page. */
+.groupe-onglets {
+  position: relative;
+}
