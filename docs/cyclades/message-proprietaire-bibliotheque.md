@@ -43,17 +43,26 @@ cité**.
 fait que Cyclades ne peut pas produire si on le lui demande. La trace est
 ici, datée ; l'écran, lui, se contente de créditer.
 
-**Les témoignages de tiers restent hors de portée.** La bibliothèque
-rassemble 5 441 extraits de conversations signés de 342 pseudonymes. Leurs
-auteurs ne sont pas le propriétaire du dépôt, et aucune autorisation venant
-de lui ne peut couvrir leurs droits. Cyclades n'en reprend aucun — et c'est
-indépendant de tout accord.
+**Les témoignages : la réserve est levée.** J'avais écrit que l'accord du
+propriétaire ne pouvait pas couvrir les 5 441 extraits signés de 342
+pseudonymes, leurs auteurs n'étant pas lui. **Alexis a corrigé la prémisse le
+14 octobre 2026 : ces témoignages sont versés pour consolider la base de
+NooTopics et lui appartiennent.** La réserve tombe, et je ne la maintiens
+pas.
 
-**La copie de la partie bibliographique (phase 5) reste non décidée.** Les
+Cyclades n'en reprend pourtant aucun, et la raison n'a plus rien à voir avec
+les droits : ce sont des rapports non vérifiés, dont des doses. Toute la
+branche Santé est construite sur une règle — ne rien afficher comme un fait
+qui n'en est pas un — et des posologies rapportées par des inconnus sont
+exactement ce que cette règle écarte. Avoir le droit de recopier quelque
+chose et avoir raison de le faire sont deux questions distinctes : la
+première est réglée, la seconde répond non.
+
+**La copie de la partie bibliographique (phase 5) reste non demandée.** Les
 25 226 liens et leurs titres sont une autre affaire que les 970 noms : c'est
-le cœur du travail rassemblé, et « pas de souci tant que NooTopics est cité »
-a été dit à propos de la ressource en général, pas de la recopie de sa
-bibliographie. Si c'est voulu, cela se demande explicitement.
+le cœur du travail rassemblé. L'accord ne s'y oppose plus, mais personne ne
+l'a demandée — et je ne l'élargis pas de moi-même. Un mot suffit : elle
+rendrait la bibliographie consultable hors ligne.
 
 ## Pour mémoire : ce que le dépôt publie, lui
 

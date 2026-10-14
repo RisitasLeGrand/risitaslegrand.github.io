@@ -56,9 +56,14 @@ mais cesse d'être l'obstacle : l'accord vient d'ailleurs.
 La citation est tenue par une constante unique et six contrôles — voir
 `docs/cyclades/message-proprietaire-bibliotheque.md`.
 
-Deux choses que l'autorisation ne couvre pas : les **témoignages de tiers**
-(342 pseudonymes, dont les auteurs ne sont pas le propriétaire) et la **copie
-de la partie bibliographique**, qui reste à demander si elle est voulue.
+Précision du même jour : les **témoignages** versés à la bibliothèque la
+consolident et lui appartiennent — la réserve que j'avais posée sur les 342
+pseudonymes tombe. Cyclades n'en reprend toujours aucun, mais pour une autre
+raison : ce sont des rapports non vérifiés, dont des doses, et la règle de
+cette branche est de ne rien afficher comme un fait qui n'en est pas un.
+
+Reste la **copie de la partie bibliographique**, que rien n'interdit plus et
+que personne n'a demandée.
 
 ## Les treize décisions
 

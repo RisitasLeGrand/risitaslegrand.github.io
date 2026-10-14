@@ -37,16 +37,27 @@
  * condition, et elle est tenue ici : le nom est une constante, il apparaît
  * partout où la ressource est nommée, et un essai le vérifie.
  *
- * Deux précisions que cette autorisation ne lève pas, et qu'il serait
- * malhonnête de laisser croire réglées :
+ * Une précision que cette autorisation ne lève pas : elle m'a été
+ * **rapportée**, elle n'est pas une licence écrite sur le dépôt. L'écran cite
+ * donc la source sans affirmer un accord que Cyclades ne peut pas produire.
+ * Ce qui en est su est écrit dans
+ * `docs/cyclades/message-proprietaire-bibliotheque.md`, daté.
  *
- *  - elle m'a été **rapportée**, elle n'est pas une licence écrite sur le
- *    dépôt. L'écran cite donc la source sans affirmer un accord que Cyclades
- *    ne peut pas produire. Ce qui en est su est écrit dans
- *    `docs/cyclades/message-proprietaire-bibliotheque.md`, daté ;
- *  - elle ne peut pas couvrir les **témoignages de tiers** que la
- *    bibliothèque rassemble, dont les auteurs ne sont pas le propriétaire du
- *    dépôt. Cyclades n'en reprend aucun, et c'est indépendant de tout accord.
+ * ## Les témoignages : la question des droits est réglée, pas celle du fond
+ *
+ * J'avais écrit que l'accord du propriétaire ne pouvait pas couvrir les
+ * témoignages rassemblés par la bibliothèque, leurs auteurs n'étant pas lui.
+ * Alexis a corrigé la prémisse le 14 octobre 2026 : **ces témoignages sont
+ * versés pour consolider la base de NooTopics et lui appartiennent.** La
+ * réserve tombe donc, et je ne la maintiens pas.
+ *
+ * Cyclades n'en reprend pourtant aucun, et la raison n'a plus rien à voir
+ * avec les droits : **ce sont des rapports non vérifiés, dont des doses.**
+ * Toute cette branche est construite sur une règle — ne rien afficher comme
+ * un fait qui n'en est pas un — et des posologies rapportées par des
+ * inconnus sont exactement ce que cette règle écarte. Avoir le droit de
+ * recopier quelque chose et avoir raison de le faire sont deux questions
+ * distinctes ; la première est réglée, la seconde répond non.
  *
  * ## Ce qui n'a pas pu être vérifié
  *
