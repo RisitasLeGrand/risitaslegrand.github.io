@@ -21,6 +21,14 @@
  * et n'est pas partagé entre onglets, tandis que `localStorage` survit à
  * l'extinction de la machine.
  *
+ * Et ce qui y est rangé n'est plus la clé, mais son **chiffré** : voir
+ * `coffre-cles.ts`, qui garde l'enveloppe dans IndexedDB, non extractible et
+ * renouvelée à chaque ouverture. Une lecture du stockage de l'onglet ne rend
+ * donc plus rien d'utilisable. Contre un script exécuté sur notre origine,
+ * en revanche, cela n'apporte rien — il appellerait `unwrapKey` comme nous.
+ * Le tableau ci-dessous est inchangé sur ce point, et c'est voulu : il dit ce
+ * qui est protégé, pas ce qu'on aimerait l'être.
+ *
  * Ce choix a été pris après avoir mesuré ce que coûtait le précédent. La clé
  * vivait dans une variable de module, donc ne survivait **même pas à une
  * navigation** : sur un site multi-pages, cela faisait une saisie du mot de
@@ -62,6 +70,13 @@
  */
 import { db } from './db';
 import { sha256Hex } from './crypto';
+import {
+  SESSION,
+  desencapsuler,
+  encapsuler,
+  oublierLEncapsulation,
+  renouvelerLEncapsulationDeSession,
+} from './coffre-cles';
 
 const CLEF_SEL = 'coffre.sel';
 const CLEF_SESSION = 'cyclades.coffre';
@@ -132,38 +147,54 @@ async function deriver(motDePasse: string): Promise<CryptoKey> {
     materiel,
     { name: 'AES-GCM', length: 256 },
     /*
-       Extractible **seulement** si on la mémorise : `sessionStorage` ne stocke
-       que du texte, donc il faut pouvoir l'exporter. Quand `MEMORISER` est
-       faux, elle reste non extractible, et `exportKey` échoue dessus — ce qui
-       empêche l'erreur de l'écrire quelque part « pour éviter de la
-       redemander ».
+       Extractible **seulement** si on la mémorise, et la raison a changé avec
+       l'encapsulation : ce n'est plus parce qu'il faut l'écrire en texte —
+       justement, on ne l'écrit plus —, c'est parce que `wrapKey` refuse
+       d'encapsuler une clé non extractible. Le matériel ne sort pour autant
+       jamais de la page : il passe de `wrapKey` au chiffré, sans détour par
+       une variable. Quand `MEMORISER` est faux, elle reste non extractible et
+       `exportKey` échoue dessus, ce qui empêche l'erreur de l'écrire quelque
+       part « pour éviter de la redemander ».
     */
     MEMORISER,
     ['encrypt', 'decrypt'],
   );
 }
 
-const base64 = (octets: Uint8Array): string => {
-  let binaire = '';
-  for (const o of octets) binaire += String.fromCharCode(o);
-  return btoa(binaire);
-};
-
-function retenir(brut: string): void {
+/**
+ * Range la clé du coffre pour la durée de l'onglet — **encapsulée**.
+ *
+ * Ce qui atterrit dans `sessionStorage` est un chiffré : sans la clé
+ * d'encapsulation, gardée dans IndexedDB et non extractible, il ne vaut rien.
+ * La clé elle-même n'y figure plus en clair, ce qu'exige la décision 5.
+ *
+ * Pourquoi `sessionStorage` tout de même, et pas la seule mémoire : Cyclades
+ * est multi-pages, chaque navigation détruit la mémoire de la page, et s'en
+ * tenir à elle redemanderait le mot de passe **à chaque page** — l'inverse de
+ * ce que le prompt 35 cherche.
+ */
+async function retenir(cle: CryptoKey): Promise<void> {
   if (!MEMORISER) return;
   try {
-    sessionStorage.setItem(CLEF_SESSION, brut);
+    sessionStorage.setItem(CLEF_SESSION, await encapsuler(cle, SESSION));
   } catch {
     // Navigation privée, stockage refusé : le coffre fonctionne, sans mémoire.
   }
 }
 
 export function oublierLaMemoire(): void {
+  /*
+     L'effacement qui compte est celui-ci, et il est **synchrone** : sans le
+     chiffré, la clé d'encapsulation n'ouvre plus rien. La destruction de
+     l'enveloppe suit sans qu'on l'attende, de sorte que « Fermer le coffre »
+     reste immédiat même si la page est quittée dans la foulée (interdit 6).
+  */
   try {
     sessionStorage.removeItem(CLEF_SESSION);
   } catch {
     // Rien à faire : il n'y avait rien à oublier.
   }
+  void oublierLEncapsulation(SESSION);
 }
 
 /**
@@ -184,17 +215,18 @@ export async function reprendreLeCoffre(): Promise<boolean> {
   }
   if (!brut) return false;
   try {
-    const octets = Uint8Array.from(atob(brut), (c) => c.charCodeAt(0));
-    cleMemoire = await crypto.subtle.importKey(
-      'raw',
-      octets as BufferSource,
-      { name: 'AES-GCM', length: 256 },
-      true,
-      ['encrypt', 'decrypt'],
-    );
+    cleMemoire = await desencapsuler(brut, SESSION);
     abonnes.forEach((f) => f(true));
     return true;
   } catch {
+    /*
+       Trois cas tombent ici, et le même traitement leur convient : un chiffré
+       produit sous une enveloppe désormais renouvelée, un reste en clair écrit
+       par une version antérieure de ce module, un stockage abîmé. Dans les
+       trois, on oublie et le mot de passe est redemandé **une fois**. Tenter
+       de relire un ancien format en clair reviendrait à rouvrir la porte que
+       la décision 5 ferme.
+    */
     oublierLaMemoire();
     return false;
   }
@@ -221,7 +253,14 @@ export async function ouvrirLeCoffre(motDePasse: string): Promise<string | null>
     return 'Mot de passe incorrect.';
   }
   cleMemoire = await deriver(motDePasse);
-  if (MEMORISER) retenir(base64(new Uint8Array(await crypto.subtle.exportKey('raw', cleMemoire))));
+  /*
+     L'enveloppe est renouvelée à chaque ouverture : un chiffré d'une session
+     précédente, restauré par le navigateur ou copié, cesse d'être ouvrable.
+  */
+  if (MEMORISER) {
+    await renouvelerLEncapsulationDeSession();
+    await retenir(cleMemoire);
+  }
   abonnes.forEach((f) => f(true));
   return null;
 }
