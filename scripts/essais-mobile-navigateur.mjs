@@ -88,6 +88,20 @@ verifier(
   true,
 );
 
+/*
+   M4 — un lien de phrase ne porte pas la classe des cibles tactiles (D-041).
+
+   La classe impose 44 px de haut, ce qui fabrique une boîte plus haute que
+   la ligne au milieu d'un paragraphe : le texte s'écarte autour, et le
+   paragraphe perd son rythme. WCAG 2.5.8 exempte justement ces liens-là, et
+   le contrôle M3 ci-dessous applique déjà l'exception — la classe ne sert
+   donc à rien et coûte la mise en page.
+
+   Le critère est le même que celui de M3, et c'est voulu : si l'exception
+   s'applique, la classe est de trop.
+*/
+const liensDePhrase = [];
+
 const debordent = [];
 let souslePlancher = 0;
 let entreLesDeux = 0;
@@ -101,6 +115,20 @@ for (const ecran of ECRANS) {
     await page.waitForTimeout(1200);
   }
   await page.waitForTimeout(800);
+
+  liensDePhrase.push(
+    ...(await page.evaluate((ecran) => {
+      const dansUnePhrase = (a) => {
+        const bloc = a.closest('p, li, td, dd');
+        if (!bloc) return false;
+        const reste = (bloc.textContent ?? '').replace(a.textContent ?? '', '').trim();
+        return reste.length > 10;
+      };
+      return [...document.querySelectorAll('#contenu-principal a')]
+        .filter((a) => a.classList.contains('cible-tactile') && dansUnePhrase(a) && a.checkVisibility())
+        .map((a) => `${ecran} « ${(a.textContent ?? '').trim().slice(0, 40)} »`);
+    }, ecran)),
+  );
 
   const m = await page.evaluate(
     ([plancher, confort]) => {
@@ -159,6 +187,7 @@ console.log(
   `  (${cibles} cibles mesurées ; ${entreLesDeux} entre ${PLANCHER} et ${CONFORT} px, ` +
     `au-dessus du plancher mais sous le confort tactile)`,
 );
+verifier('M4 — aucun lien de phrase ne porte « cible-tactile » (D-041)', liensDePhrase, []);
 
 if (rouges > 0) {
   console.log(`\n\x1b[31m${rouges} constat(s) en échec.\x1b[0m`);

@@ -79,6 +79,22 @@ body {
 
    La hauteur seule : la largeur d'un lien de texte vient de son texte, et
    l'étirer créerait des zones cliquables qui mordent sur le vide. */
+/*
+   À ne **jamais** poser sur un lien placé dans une phrase (D-041).
+
+   La classe donne quarante-quatre pixels de haut sous « pointer: coarse ».
+   Sur un lien posé au milieu d'un paragraphe, cela fabrique une boîte plus
+   haute que la ligne : le texte s'écarte autour, et le paragraphe perd son
+   rythme — très visible depuis que le texte courant est à 16 px.
+
+   Ce n'est pas un compromis entre lisibilité et accessibilité : WCAG 2.5.8
+   **exempte explicitement** un lien posé dans une phrase ou un bloc de
+   texte, et l'essai « essais:mobile » applique déjà cette exception. Lui
+   imposer 44 px n'obéit donc à rien, et abîme la lecture.
+
+   Un contrôle le vérifie dans « essais:mobile » : un lien de phrase qui
+   porterait cette classe passe au rouge.
+*/
 .cible-tactile {
   @apply inline-flex items-center;
 }
