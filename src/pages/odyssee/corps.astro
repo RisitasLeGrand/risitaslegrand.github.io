@@ -596,7 +596,9 @@ import { NATURES, VOIES } from '../../lib/odyssee/sensible';
 
     const svg = document.createElementNS(SVG, 'svg');
     svg.setAttribute('viewBox', `0 0 ${L} ${H}`);
-    svg.setAttribute('class', 'h-48 w-full min-w-[28rem]');
+    // Largeur minimale calée sur le « viewBox », hauteur libre : voir le
+    // suivi de la force, qui porte la démonstration (D-042).
+    svg.setAttribute('class', 'h-auto w-full min-w-[45rem]');
     // Le tableau en dessous porte les mêmes points : voir le suivi de la force.
     svg.setAttribute('aria-hidden', 'true');
 
@@ -613,7 +615,7 @@ import { NATURES, VOIES } from '../../lib/odyssee/sensible';
       texte.setAttribute('x', String(marge.gauche - 6));
       texte.setAttribute('y', String(y(valeur) + 4));
       texte.setAttribute('text-anchor', 'end');
-      texte.setAttribute('class', 'fill-slate-400 text-[11px]');
+      texte.setAttribute('class', 'fill-slate-400 text-xs');
       texte.textContent = String(valeur);
       svg.appendChild(texte);
     }

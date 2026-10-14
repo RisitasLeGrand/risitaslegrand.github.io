@@ -140,6 +140,7 @@
     "essais:hors-ligne": "node scripts/essais-hors-ligne.mjs",
     "essais:espaces": "node scripts/essais-espaces.mjs",
     "essais:structure": "node scripts/essais-structure.mjs",
+    "essais:courbes": "node scripts/essais-courbes.mjs",
     "essais:typographie": "tsx scripts/essais-typographie.mts",
     "essais:colonnes:navigateur": "node scripts/essais-colonnes-navigateur.mjs",
     "essais:quiz:navigateur": "node scripts/essais-quiz-navigateur.mjs",

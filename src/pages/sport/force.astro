@@ -245,7 +245,24 @@ import { PHASES } from '../../lib/sport/modele';
 
     const svg = document.createElementNS(SVG, 'svg');
     svg.setAttribute('viewBox', `0 0 ${L} ${H}`);
-    svg.setAttribute('class', 'h-64 w-full min-w-[32rem]');
+    /*
+       Une unité de dessin vaut **au moins** un pixel à l'écran (D-042).
+
+       La règle n'est pas décorative : dans un « viewBox », une taille de
+       police est une unité de dessin, pas une taille d'écran. L'ancienne
+       mise en forme — hauteur figée à 16 rem contre un dessin haut de 260,
+       largeur minimale de 32 rem contre un dessin large de 720 — écrasait
+       le tracé au facteur 0,71 sur téléphone et 0,99 sur ordinateur : les
+       étiquettes déclarées à 11 unités atteignaient l'œil à 7,8 px et
+       10,8 px. Aucune valeur de police n'y aurait rien changé.
+
+       En posant la largeur minimale à celle du « viewBox » et en laissant la
+       hauteur suivre, le facteur ne descend plus sous 1 : une étiquette à
+       « text-xs » fait donc 14 px au moins, partout. Le conteneur défile
+       déjà horizontalement, et c'est le prix assumé — un dessin large de
+       720 px demande à être parcouru sur un écran de 390.
+    */
+    svg.setAttribute('class', 'h-auto w-full min-w-[45rem]');
     /*
        `aria-hidden` : le tableau sous la figure porte les mêmes points, en
        entier. Exposer un tracé au lecteur d'écran produirait une liste de
@@ -292,7 +309,7 @@ import { PHASES } from '../../lib/sport/modele';
       texte.setAttribute('x', String(marge.gauche - 8));
       texte.setAttribute('y', String(y(valeur) + 4));
       texte.setAttribute('text-anchor', 'end');
-      texte.setAttribute('class', 'fill-slate-400 text-[11px]');
+      texte.setAttribute('class', 'fill-slate-400 text-xs');
       texte.textContent = String(valeur);
       svg.appendChild(texte);
     }
@@ -325,7 +342,7 @@ import { PHASES } from '../../lib/sport/modele';
       texte.setAttribute('x', String(x(jours[indice])));
       texte.setAttribute('y', String(H - 10));
       texte.setAttribute('text-anchor', rang === 0 ? 'start' : 'end');
-      texte.setAttribute('class', 'fill-slate-400 text-[11px]');
+      texte.setAttribute('class', 'fill-slate-400 text-xs');
       texte.textContent = jourCourt(points[indice].jour);
       svg.appendChild(texte);
     }
