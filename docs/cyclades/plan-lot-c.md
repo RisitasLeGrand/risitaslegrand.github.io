@@ -74,7 +74,7 @@ seule semaine de démonstration.
 
 ---
 
-## L4 — Le bruit des états vides · **à faire**
+## L4 — Le bruit des états vides · **fait**
 
 - **Programmes** : les 18 lignes de tirets remplacées par une phrase et une
   action, le tableau replié tant qu'il n'y a pas de donnée.
@@ -83,9 +83,16 @@ seule semaine de démonstration.
 - **Statistiques** : un message à la place d'un graphique vide, et la valeur
   réelle quand elle est trop petite pour être dessinée.
 
+Constaté à l'exécution : le cas « zéro absolu » n'est presque jamais celui
+qu'on rencontre. Sur un carnet neuf, l'essai mesure **5 s** de révision —
+cinq secondes sur une échelle de dix heures, soit la barre de trois pixels
+que la critique décrit. Le remplacement du graphique ne suffisait donc pas :
+c'est le **chiffre écrit** qui répond au « sans valeur ni message », et les
+deux branches sont contrôlées séparément.
+
 ---
 
-## L5 — Planification : des jours passés marqués « non tenue » · **à faire**
+## L5 — Planification : des jours passés marqués « non tenue » · **fait**
 
 La cause est marquée **[D]** par la critique : à établir avant de corriger.
 Deux correctifs possibles selon ce que la lecture du code montrera —
@@ -94,6 +101,17 @@ les jours antérieurs à cette date. Le constat sera écrit ici avant le
 correctif.
 
 ---
+
+## Anomalie trouvée en chemin, et qui n'est pas dans la critique
+
+L'essai `essais:sport:navigateur` cliquait `details >> nth=0` sur
+`/sport/corps/`. Depuis que la barre de navigation du lot B groupe ses
+onglets dans des `details`, la page en porte **trois avant son contenu** : le
+sélecteur désignait un menu de l'en-tête, caché à cette largeur, et l'essai
+expirait. C'est une conséquence de mon propre lot B, trouvée en relançant
+les essais, et c'est le sélecteur qui était trop large — la page est intacte.
+Corrigé en `#contenu-principal details >> nth=0`. Aucun autre essai
+n'utilisait un sélecteur `details` non qualifié.
 
 ## Lignes de décision nées de ce lot
 

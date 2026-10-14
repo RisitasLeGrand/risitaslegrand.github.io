@@ -58,10 +58,29 @@ import Base from '../layouts/Base.astro';
            du bord encore parcourable. Les douze semaines restent les douze
            semaines : rien n'est retiré, c'est la fenêtre qui bouge.
         */}
+        {/*
+           Quand il n'y a rien à tracer, on l'écrit.
+
+           L'échelle est fixe — dix heures — pour que les semaines se
+           comparent entre elles. C'est juste, mais six minutes de révision
+           dessinent alors une barre de trois pixels : le graphique devient
+           un rectangle sombre et vide, sans valeur ni message, et rien ne
+           dit si c'est la donnée qui manque ou l'affichage qui est cassé.
+        */}
+        <p
+          id="histogramme-vide"
+          class="hidden rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400"
+        >
+          Aucun temps de révision enregistré sur les douze dernières semaines.{' '}
+          <a id="vers-planification" href="#" class="mt-3 block font-medium text-indigo-600 underline dark:text-indigo-400">
+            Ouvrir la planification
+          </a>
+        </p>
         <div id="zone-histogramme" class="defilement-masque -mx-1 overflow-x-auto px-1">
-          <div id="histogramme" class="flex h-40 min-w-[25rem] items-end gap-2"></div>
+          <div id="histogramme" role="img" class="flex h-40 min-w-[25rem] items-end gap-2"></div>
         </div>
-        <p class="mt-3 text-xs text-slate-400">
+        <p id="total-histogramme" class="mt-3 text-xs text-slate-500 dark:text-slate-400"></p>
+        <p class="mt-1 text-xs text-slate-400">
           Objectif indicatif : 10 à 15 h par semaine (ligne pointillée à 10 h).
         </p>
       </div>
@@ -261,8 +280,30 @@ import Base from '../layouts/Base.astro';
       const total = jours.filter((j) => j.jour >= debut && j.jour <= fin).reduce((n, j) => n + j.secondes, 0);
       semaines.push({ libelle: new Date(debut).toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' }), secondes: total });
     }
+    $('vers-planification').setAttribute('href', lien('/planification/'));
+    const totalSemaines = semaines.reduce((n, s) => n + s.secondes, 0);
+    const laPlusForte = semaines.reduce((m, s) => (s.secondes > m.secondes ? s : m), semaines[0]);
+    $('histogramme-vide').classList.toggle('hidden', totalSemaines > 0);
+    $('zone-histogramme').classList.toggle('hidden', totalSemaines === 0);
+    $('total-histogramme').classList.toggle('hidden', totalSemaines === 0);
+    /*
+       Le chiffre est écrit, et pas seulement dessiné : sous une heure, la
+       barre ne mesure que quelques pixels sur une échelle de dix heures, et
+       c'est précisément dans ce cas qu'on a besoin de savoir combien.
+    */
+    $('total-histogramme').textContent =
+      `Douze semaines : ${formaterDuree(totalSemaines)} en tout, ` +
+      `la plus forte étant celle du ${laPlusForte.libelle} avec ${formaterDuree(laPlusForte.secondes)}. ` +
+      'L’échelle est fixe à 10 h, pour que les semaines se comparent entre elles.';
+
     const maxSecondes = Math.max(10 * 3600, ...semaines.map((s) => s.secondes));
     const histogramme = $('histogramme');
+    histogramme.setAttribute(
+      'aria-label',
+      `Temps de révision des douze dernières semaines : ${semaines
+        .map((s) => `${s.libelle} ${formaterDuree(s.secondes)}`)
+        .join(', ')}.`,
+    );
     histogramme.innerHTML = '';
     for (const semaine of semaines) {
       const heures = semaine.secondes / 3600;

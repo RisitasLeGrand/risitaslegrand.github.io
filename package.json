@@ -148,7 +148,8 @@
     "essais:navigation:navigateur": "tsx scripts/essais-navigation-navigateur.mjs",
     "essais:glossaire:navigateur": "node scripts/essais-glossaire-navigateur.mjs",
     "essais:actualites:navigateur": "node scripts/essais-actualites-navigateur.mjs",
-    "actualites:dist": "node scripts/actualites-dist.mjs"
+    "actualites:dist": "node scripts/actualites-dist.mjs",
+    "essais:etats-vides:navigateur": "node scripts/essais-etats-vides-navigateur.mjs"
   },
   "repository": {
     "type": "git",

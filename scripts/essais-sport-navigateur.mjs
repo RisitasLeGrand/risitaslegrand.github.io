@@ -273,7 +273,15 @@ vrai(
   await page.locator('#aucune-ouverte').isVisible(),
 );
 
-await page.click('details >> nth=0');
+/*
+   Le premier « details » **du contenu**, et non de la page.
+
+   Depuis que la barre de navigation groupe ses onglets dans des « details »,
+   la page en porte trois avant le contenu : « details >> nth=0 » désignait
+   un menu de l'en-tête, caché à cette largeur, et l'essai expirait sur un
+   défaut qui n'existait pas. C'est le sélecteur qui était trop large.
+*/
+await page.click('#contenu-principal details >> nth=0');
 await page.check('[data-muscle="pectoraux"]');
 await page.click('#declarer');
 await page.waitForFunction(

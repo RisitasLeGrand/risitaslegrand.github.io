@@ -47,6 +47,22 @@ import { PHASES } from '../../lib/sport/modele';
         </label>
       </div>
 
+      {/*
+         Tant qu'aucun exercice n'est choisi, il n'y a rien à montrer — et le
+         dire vaut mieux que de montrer un graphique vide.
+
+         Le sélecteur ouvrait sur le premier exercice par ordre alphabétique,
+         « Adducteurs à la machine », jamais pratiqué : la page s'ouvrait donc
+         sur une courbe sans point, un tableau sans ligne, et aucune
+         indication que le problème était le choix et non les données.
+      */}
+      <p
+        id="invite-exercice"
+        class="mt-5 hidden rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400"
+      >
+      </p>
+
+      <div id="analyse">
       <fieldset class="mt-4">
         <legend class="text-sm font-medium text-slate-700 dark:text-slate-200">
           Ne comparer que les périodes
@@ -103,6 +119,7 @@ import { PHASES } from '../../lib/sport/modele';
           Aucune série enregistrée sur cet exercice.
         </p>
       </section>
+      </div>
     </div>
   </div>
 </Base>
@@ -369,7 +386,14 @@ import { PHASES } from '../../lib/sport/modele';
 
   async function peindre() {
     const exercice = exercices.find((e) => e.id === ($('exercice') as HTMLSelectElement).value);
-    if (!exercice) return;
+    $('analyse').classList.toggle('hidden', !exercice);
+    $('invite-exercice').classList.toggle('hidden', !!exercice);
+    if (!exercice) {
+      $('invite-exercice').textContent = exercices.length
+        ? 'Choisissez un exercice pour voir sa courbe de force. Les exercices déjà pratiqués sont en tête de la liste.'
+        : "Aucun exercice dans la bibliothèque : il n'y a pas encore de courbe à tracer.";
+      return;
+    }
 
     const terminees = seances.filter((s) => s.statut === 'terminee');
     const retenues = phasesCochees();
@@ -445,27 +469,47 @@ import { PHASES } from '../../lib/sport/modele';
       ]);
 
       /*
-         Les exercices qui ont des séries d'abord, et les autres ensuite : un
-         sélecteur qui ouvre sur un exercice jamais pratiqué montre une page
-         vide à chaque visite.
+         Les exercices pratiqués d'abord, du plus récent au plus ancien, les
+         autres ensuite par ordre alphabétique.
+
+         Ils étaient déjà devant les autres, mais rangés par nom entre eux :
+         la page s'ouvrait donc sur le premier dans l'alphabet, et non sur
+         celui de la dernière séance. Et quand rien n'a encore été pratiqué,
+         elle s'ouvrait sur « Adducteurs à la machine — jamais pratiqué »,
+         c'est-à-dire sur une page vide. Dans ce cas, le sélecteur n'ouvre
+         plus sur rien : il invite à choisir.
       */
-      const pratiques = new Set(
-        seances.flatMap((s) => s.series.map((serie) => serie.exerciceId)),
-      );
+      const dernierJour = new Map<string, string>();
+      for (const seance of seances) {
+        for (const serie of seance.series) {
+          const connu = dernierJour.get(serie.exerciceId);
+          if (!connu || seance.jour > connu) dernierJour.set(serie.exerciceId, seance.jour);
+        }
+      }
       const select = $('exercice') as HTMLSelectElement;
-      const tries = [...exercices].sort(
-        (a, b) =>
-          Number(pratiques.has(b.id)) - Number(pratiques.has(a.id)) ||
-          a.nom.localeCompare(b.nom, 'fr'),
-      );
+      const tries = [...exercices].sort((a, b) => {
+        const ja = dernierJour.get(a.id);
+        const jb = dernierJour.get(b.id);
+        if (ja && jb && ja !== jb) return jb.localeCompare(ja);
+        if (Boolean(ja) !== Boolean(jb)) return ja ? -1 : 1;
+        return a.nom.localeCompare(b.nom, 'fr');
+      });
+
+      if (!dernierJour.size) {
+        const invite = document.createElement('option');
+        invite.value = '';
+        invite.textContent = 'Choisissez un exercice…';
+        select.appendChild(invite);
+      }
       for (const e of tries) {
         const option = document.createElement('option');
         option.value = e.id;
         option.textContent =
           [e.nom, e.equipement, e.variante].filter(Boolean).join(' · ') +
-          (pratiques.has(e.id) ? '' : ' — jamais pratiqué');
+          (dernierJour.has(e.id) ? '' : ' — jamais pratiqué');
         select.appendChild(option);
       }
+      select.value = dernierJour.size ? (tries[0]?.id ?? '') : '';
 
       select.addEventListener('change', () => void peindre());
       for (const choix of document.querySelectorAll<HTMLInputElement>('[data-phase]')) {

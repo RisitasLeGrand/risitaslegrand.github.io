@@ -122,7 +122,25 @@ import { MUSCLES } from '../../lib/sport/modele';
             <option value="28" selected>les 28 derniers jours (moyenne hebdo)</option>
           </select>
         </label>
-        <div class="mt-3 overflow-x-auto">
+        {/*
+           Le tableau ne s'affiche qu'une fois qu'il a quelque chose à dire.
+
+           Sans programme et sans séance, il dessinait dix-huit lignes de
+           tirets et répétait dix-huit fois « aucune cible ». Ce n'est pas une
+           information : c'est la forme d'une information, remplie de rien, et
+           il faut la lire en entier pour s'en apercevoir.
+        */}
+        <p id="volumes-vides" class="mt-3 hidden rounded-xl border border-dashed border-slate-300 px-4 py-6 text-center text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
+          <span id="volumes-vides-texte"></span>
+          <button
+            id="volumes-vides-action"
+            type="button"
+            class="cible-tactile-pleine mt-3 block w-full rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-indigo-500 sm:mx-auto sm:w-auto"
+          >
+            Créer un programme
+          </button>
+        </p>
+        <div id="volumes-tableau" class="mt-3 overflow-x-auto">
           <table class="table-aeree w-full text-sm">
             <caption class="sr-only">
               Volume hebdomadaire par muscle : prévu par le programme actif, réalisé, et cible.
@@ -494,6 +512,22 @@ import { MUSCLES } from '../../lib/sport/modele';
       'au-dela': 'au-delà de la cible',
     };
 
+    /*
+       « Vide » veut dire : rien de prévu, rien de réalisé, aucune cible. Une
+       seule valeur quelque part suffit à rendre le tableau utile — y compris
+       un réalisé sans programme, qui est justement ce qu'on veut voir avant
+       d'en écrire un.
+    */
+    const rienADire = lignes.every((l) => !l.prevu && !l.realise && l.cible === null);
+    $('volumes-tableau').classList.toggle('hidden', rienADire);
+    $('volumes-vides').classList.toggle('hidden', !rienADire);
+    if (rienADire) {
+      $('volumes-vides-texte').textContent = actif
+        ? `« ${actif.nom} » ne fixe aucune cible et aucune séance n'a été tenue sur la période. Le tableau s'affichera dès la première série enregistrée.`
+        : "Aucun programme suivi et aucune séance tenue sur la période : il n'y a encore rien à comparer.";
+      $('volumes-vides-action').textContent = actif ? 'Modifier le programme' : 'Créer un programme';
+    }
+
     const corps = $('volumes');
     corps.innerHTML = '';
     for (const ligne of lignes) {
@@ -544,6 +578,10 @@ import { MUSCLES } from '../../lib/sport/modele';
   auDeverrouillage(
     async () => {
       $('nouveau').addEventListener('click', () => ouvrirEditeur(null));
+      $('volumes-vides-action').addEventListener('click', () => {
+        const actif = programmes.find((p) => p.actif);
+        ouvrirEditeur(actif ?? null);
+      });
       $('annuler').addEventListener('click', fermerEditeur);
       $('ajouter-seance').addEventListener('click', () => {
         if (!brouillon) return;
