@@ -352,6 +352,16 @@ dfn.terme-glossaire:focus-visible {
    `animate-pulse` : `animation-iteration-count` valait « infinite » sous
    mouvement réduit. Un clignotement à cadence maximale, sur l'écran d'un
    exercice cognitif, exactement ce que l'interdit n° 3 proscrit.
+
+   **Les pseudo-éléments de transition ont leur propre ligne, et c'est une
+   correction, pas un ornement.** `*` ne sélectionne pas
+   `::view-transition-group` et ses semblables : ils vivent dans un arbre
+   distinct, rattaché à l'élément racine. Les transitions de page livrées en
+   phase 1 échappaient donc entièrement à ce bloc. Mesuré le 14 octobre 2026,
+   par la promesse `finished` de l'API : **246 ms sous mouvement réduit, contre
+   245 ms en mode normal** — aucune différence. L'interdit n° 3 ne tolère qu'un
+   fondu de 100 ms au plus. Régression de la phase 1, corrigée ici, et figée
+   par « npm run essais:listes ».
 */
 @media (prefers-reduced-motion: reduce) {
   html {
@@ -364,6 +374,13 @@ dfn.terme-glossaire:focus-visible {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+  :root::view-transition-group(*),
+  :root::view-transition-image-pair(*),
+  :root::view-transition-old(*),
+  :root::view-transition-new(*) {
+    animation-duration: 0.01ms !important;
+    animation-delay: 0s !important;
+  }
 }
 
 :root[data-animations='reduites'] {
@@ -375,6 +392,13 @@ dfn.terme-glossaire:focus-visible {
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
+}
+:root[data-animations='reduites']::view-transition-group(*),
+:root[data-animations='reduites']::view-transition-image-pair(*),
+:root[data-animations='reduites']::view-transition-old(*),
+:root[data-animations='reduites']::view-transition-new(*) {
+  animation-duration: 0.01ms !important;
+  animation-delay: 0s !important;
 }
 
 /* --- Apparition et disparition (prompt 34, A2) ---------------------------- */

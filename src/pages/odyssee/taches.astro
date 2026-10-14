@@ -167,6 +167,13 @@ import Base from '../../layouts/Base.astro';
       'dark:bg-slate-950';
     bloc.dataset.tache = tache.id;
     bloc.dataset.etat = tache.faiteLe ? 'faite' : tache.abandonneeLe ? 'abandonnee' : 'ouverte';
+    /* Le nom par lequel le navigateur reconnaîtra cette carte d'une repeinte à
+       l'autre, et la fera glisser jusqu'à sa nouvelle place (prompt 34, A3).
+       L'appariement se fait par ce nom, pas par identité d'objet : il survit
+       donc au « innerHTML = '' » de `peindre()`, qui détruit et recrée tout.
+       Préfixé, parce qu'un identifiant peut commencer par un chiffre et qu'un
+       nom de transition doit être un identifiant CSS valide. */
+    bloc.style.viewTransitionName = `tache-${tache.id}`;
 
     const titre = ligne(
       tache.titre,
@@ -278,6 +285,23 @@ import Base from '../../layouts/Base.astro';
     await peindre();
   }
 
+  /**
+   * Repeint les trois zones — et fait glisser les cartes vers leur nouvelle
+   * place au lieu de les laisser sauter (prompt 34, A3).
+   *
+   * **Pourquoi pas `animate:flip`.** Le plan l'annonçait, et le relevé l'a
+   * écarté : cette liste n'est pas un composant Svelte, elle est peinte ici par
+   * `innerHTML`. L'équivalent natif est `startViewTransition`, déjà retenu par
+   * la décision 1 pour les transitions de page, et qui n'ajoute aucune
+   * dépendance (interdit n° 6). Le navigateur apparie les cartes par leur
+   * `view-transition-name`, posé dans `carte()`.
+   *
+   * **La lecture de la base reste hors de la transition.** Pendant une
+   * transition, l'écran est figé sur sa photographie ; y enfermer un accès à
+   * IndexedDB ferait payer à l'utilisateur une attente qui n'a rien d'une
+   * animation, et l'interdit n° 5 l'exclut. On lit d'abord, on n'enveloppe que
+   * l'écriture dans le DOM.
+   */
   async function peindre() {
     const taches = await toutesLesTaches();
     const ouvertes = taches.filter((t) => !t.faiteLe && !t.abandonneeLe);
@@ -288,20 +312,31 @@ import Base from '../../layouts/Base.astro';
       .sort((a, b) => (b.faiteLe ?? b.abandonneeLe ?? '').localeCompare(a.faiteLe ?? a.abandonneeLe ?? ''))
       .slice(0, 30);
 
-    for (const [zone, liste] of [
-      ['retard', retard],
-      ['ouvertes', aFaire],
-      ['closes', closes],
-    ] as const) {
-      const cible = $(zone);
-      cible.innerHTML = '';
-      $(`${zone}-vide`).classList.toggle('hidden', liste.length > 0);
-      const tries = [...liste].sort((a, b) =>
-        (a.echeance ?? '9999').localeCompare(b.echeance ?? '9999'),
-      );
-      for (const tache of tries) cible.appendChild(carte(tache));
-    }
-    $('vue').classList.remove('hidden');
+    const ecrire = () => {
+      for (const [zone, liste] of [
+        ['retard', retard],
+        ['ouvertes', aFaire],
+        ['closes', closes],
+      ] as const) {
+        const cible = $(zone);
+        cible.innerHTML = '';
+        $(`${zone}-vide`).classList.toggle('hidden', liste.length > 0);
+        const tries = [...liste].sort((a, b) =>
+          (a.echeance ?? '9999').localeCompare(b.echeance ?? '9999'),
+        );
+        for (const tache of tries) cible.appendChild(carte(tache));
+      }
+      $('vue').classList.remove('hidden');
+    };
+
+    // Sur un navigateur sans l'API, on écrit directement : la liste se repeint
+    // d'un coup, comme avant ce lot. Aucun repli à écrire.
+    const demarrer = document.startViewTransition?.bind(document);
+    if (!demarrer) return ecrire();
+    await demarrer(ecrire).finished.catch(() => {
+      /* Une transition interrompue — une seconde action pendant la première —
+         n'est pas une erreur : la liste est à jour dans tous les cas. */
+    });
   }
 
   auDeverrouillage(

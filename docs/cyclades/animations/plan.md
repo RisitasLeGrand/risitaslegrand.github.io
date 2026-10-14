@@ -209,6 +209,50 @@ muscles sur ce schéma.
 - **Risque** : `flip` exige des blocs `each` **clés**. Toute liste non clée
   animera de travers. Le relevé des listes concernées précède le code.
 
+> **Phase 3 livrée le 14 octobre. La technique annoncée a été écartée, et une
+> régression de la phase 1 corrigée en passant.**
+>
+> **`animate:flip` n'a aucune prise ici.** Le relevé l'établit : des 102 blocs
+> `each` du site, 56 portent une clé d'identité stable, 36 une clé sur
+> l'**indice** — inutile pour `flip`, puisqu'elle suit la position au lieu de
+> suivre l'élément — et 10 aucune clé. Mais surtout, **les trois listes que
+> l'A3 nomme ne sont pas des composants Svelte** : les tâches d'Odyssée sont
+> peintes par `innerHTML` dans le script de la page, le centre de notifications
+> n'existe pas (prompt 32 non construit, déjà constaté en phase 2), et les
+> flashcards montrent une carte à la fois. J'avais d'abord cru tenir les tâches
+> dans un bloc clé `taches as tache (tache.id)` : c'étaient celles de
+> *Veridical Mapping*, un homonyme.
+>
+> **Ce qui a été fait à la place.** `document.startViewTransition()` avec un
+> `view-transition-name` stable par carte — l'équivalent natif de FLIP, déjà
+> retenu par la décision 1, sans dépendance nouvelle (interdit n° 6). Le
+> navigateur apparie les cartes par leur nom, ce qui **traverse le
+> `innerHTML = ''`** puisque l'appariement ne repose pas sur l'identité d'objet.
+> La lecture de la base reste hors de la transition : y enfermer un accès
+> IndexedDB ferait payer une attente qui n'est pas une animation (interdit
+> n° 5).
+>
+> **Et la régression, qui n'était pas dans le lot.** Le socle de mouvement
+> réduit de la phase 0 neutralise par un sélecteur `*`. Or `*` **ne sélectionne
+> pas** `::view-transition-group` et ses semblables, qui vivent dans un arbre
+> distinct. Les transitions de page de la phase 1 jouaient donc leur animation
+> complète sous `prefers-reduced-motion: reduce`. Mesuré par la promesse
+> `finished` : **246 ms sous mouvement réduit contre 245 ms en mode normal**,
+> aucune différence. L'interdit n° 3 ne tolère qu'un fondu de 100 ms. C'est ma
+> régression de la phase 1 ; corrigée ici, et maintenant 250 ms contre 12 ms.
+>
+> **Une erreur d'assertion, dite parce qu'elle instruit.** J'avais d'abord
+> opposé le plafond de 100 ms à la durée que renvoie `finished` pour la liste :
+> 108 ms, donc rouge. Mais `finished` couvre aussi la capture des
+> photographies et l'attente d'une image — un surcoût que l'implémentation ne
+> gouverne pas et que l'interdit ne vise pas. Le contrôle compare désormais les
+> deux modes sur le même geste : **87 ms contre 296 ms**.
+>
+> **Contrôle** : `npm run essais:listes`, 7 contrôles, rouge sur 5 avant le
+> correctif. La page des tâches n'est pas sous coffre — `essais:coffre-transitions`
+> l'établit depuis la source — donc la capture de même document n'entre pas en
+> conflit avec l'interdit n° 2.
+
 ## Phase 4 — A4, retours d'action
 
 - **Technique** : retour bref sur bouton pressé, réponse juste ou fausse,

@@ -162,7 +162,8 @@
     "mesure:tailles": "node scripts/mesurer-tailles.mjs",
     "bibliographie:construire": "node scripts/construire-bibliographie.mjs",
     "essais:bibliographie:navigateur": "node scripts/essais-bibliographie-navigateur.mjs",
-    "essais:apparition": "node scripts/essais-apparition-navigateur.mjs"
+    "essais:apparition": "node scripts/essais-apparition-navigateur.mjs",
+    "essais:listes": "node scripts/essais-listes-navigateur.mjs"
   },
   "repository": {
     "type": "git",
