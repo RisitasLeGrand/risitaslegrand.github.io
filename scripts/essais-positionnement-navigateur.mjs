@@ -28,7 +28,16 @@ const MDP = motDePasseEssais();
 
 const RACINE = 'http://localhost:4321';
 const nav = await chromium.launch({
-  executablePath: process.env.CHROMIUM,
+  /*
+     Le chemin par défaut, comme dans les vingt-huit autres essais.
+
+     Celui-ci était le seul à ne pas en porter : sans « CHROMIUM » dans
+     l'environnement, playwright-core cherchait le navigateur qu'il attend
+     (« chromium_headless_shell-1248 »), que ce conteneur n'a pas, et l'essai
+     s'arrêtait avant d'avoir ouvert une page. Un essai qui ne démarre pas
+     n'échoue pas : il disparaît, ce qui est pire.
+  */
+  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
   args: ['--no-sandbox'],
 });
 const ctx = await nav.newContext({ viewport: { width: 1100, height: 1000 } });

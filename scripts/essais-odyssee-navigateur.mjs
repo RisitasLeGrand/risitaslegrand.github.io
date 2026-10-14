@@ -152,15 +152,21 @@ const apres = await page.evaluate(
    anciens aussi.
 */
 vrai('la base a migré au moins jusqu’à la v15', apres.version >= 15);
-v(
-  /*
-     Les cinq de la v15, et les six du domaine Corps arrivés en v18. L'essai
-     part d'une base en v14 : il vérifie donc que **tous** les blocs additifs
-     ont tourné, et pas seulement celui qui l'intéressait au départ.
-  */
-  'les trente-deux magasins d’Odyssée existent',
-  apres.magasins.filter((m) => m.startsWith('odyssee')).sort(),
-  [
+/*
+   Un **plancher** ici aussi, et pour la même raison qu'au-dessus.
+
+   La liste était une égalité : chaque nouveau magasin d'Odyssée la faisait
+   tomber, sur un essai dont le sujet est la migration depuis la v14 et non
+   l'inventaire du jour. Deux magasins ajoutés par le domaine Santé l'ont
+   fait tomber sans qu'aucune migration soit cassée — un rouge qui ne dit
+   rien finit par être lu comme un rouge qu'on ignore.
+
+   Ce qui est vérifié : **tous** les magasins attendus sont là, et les
+   anciens aussi. Ce qui ne l'est plus : qu'il n'y en ait pas d'autres. Un
+   magasin surnuméraire ou mal nommé reste attrapé ailleurs — « essais:coffre »
+   compte exactement les magasins scellés, et refuse un nom inconnu.
+*/
+const ATTENDUS = [
     'odysseeBoissons',
     // La psyché, depuis la phase 7 : scellés tous les trois.
     'odysseeCheckins',
@@ -204,8 +210,18 @@ v(
     'odysseeVeilleSignaux',
     // « Veille » avant « Vendeurs » : le i passe avant le n.
     'odysseeVendeurs',
-  ],
+];
+const presents = apres.magasins.filter((m) => m.startsWith('odyssee')).sort();
+const manquants = ATTENDUS.filter((m) => !presents.includes(m));
+v(
+  `les ${ATTENDUS.length} magasins d’Odyssée attendus existent (${presents.length} présents)`,
+  manquants,
+  [],
 );
+{
+  const enPlus = presents.filter((m) => !ATTENDUS.includes(m));
+  if (enPlus.length) console.log(`    · ${enPlus.length} magasin(s) de plus depuis : ${enPlus.join(', ')}`);
+}
 /*
    Et aucun des anciens n'a disparu. C'est ce que « additive » veut dire, et
    c'est la seule formulation qui attrape une migration qui recréerait le
@@ -517,7 +533,22 @@ const PASSES = await page.evaluate(
         const base = demande.result;
         const tx = base.transaction('odysseeEvenements', 'readwrite');
         const magasin = tx.objectStore('odysseeEvenements');
-        const finDuSecond = Date.now() - 60_000;
+        /*
+           Les moments sont posés dans le **jour logique**, pas dans le jour
+           du calendrier.
+
+           Entre minuit et 4 h, les deux diffèrent : le calendrier affiche
+           encore la veille, et des moments datés de « maintenant » tombaient
+           dans un jour qu'il ne montrait pas. L'essai échouait alors quatre
+           heures par nuit, sur un écran qui faisait exactement ce qu'on lui
+           demande — et un essai qui échoue à heure fixe finit par être lu
+           comme un essai qu'on ignore.
+
+           Après 4 h, « maintenant moins une minute » est dans le jour
+           logique courant et rien ne change. Avant, on recule à 23 h de la
+           veille : passé, et dans le jour affiché.
+        */
+        const finDuSecond = Math.min(Date.now() - 60_000, Date.parse(`${jour}T23:00:00`));
         for (const [id, titre, recul] of [
           ['EV-1', 'Séance de sport', 2],
           ['EV-2', 'Appel famille', 1],

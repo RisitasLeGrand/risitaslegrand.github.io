@@ -1,5 +1,12 @@
 # Ce qui reste à faire — relevé du 13 octobre 2026, au soir
 
+> **Mise à jour du 14 octobre 2026.** Trois entrées de ce relevé étaient déjà
+> fausses au moment où il a été écrit, ou l'ont été dans les heures qui ont
+> suivi : A.3, A.5 et A.6. Elles sont corrigées ci-dessous, avec la preuve de
+> ce qui a été constaté. Le lot C de la critique d'interface — pages trop
+> longues, états vides, planning — a par ailleurs été traité en entier :
+> voir `plan-lot-c.md`.
+
 Dressé sur l'état réel du dépôt, pas sur la liste de tâches : les comptes
 ci-dessous sont **mesurés**, et les écarts avec ce que le relevé précédent
 annonçait sont signalés, y compris quand ils me donnent tort.
@@ -51,16 +58,19 @@ les textes de podcast sont là, le glossaire porte 531 termes ; restent la
 synthèse audio (A.1), le complément de glossaire pour le fascicule 5, et la
 publication.
 
-### A.3 — Deux écrans de Finances 3 bis
+### A.3 — Deux écrans de Finances 3 bis — **faits, et déjà faits quand ce relevé l'écrivait**
 
-Les deux derniers de la maquette, et les deux ont leur moteur écrit et
-éprouvé :
+Ce relevé a été écrit à 15 h 13 ; le commit `f66ea52`, « D-021 — le compte
+rendu de la passe, et l'affichage du sondage », date de 20 h 46 le même jour.
+Les deux écrans existent :
 
-- le **compte rendu d'import** « N pointées, M à pointer, K à revoir »
-  (maquette 8.1) — aujourd'hui les trois nombres figurent dans la file, mais
-  rien ne les annonce après un import ;
-- l'**affichage du sondage** — `sondage()` tire déjà, de façon déterministe,
-  les opérations à faire revérifier ; aucun écran ne les montre.
+- le compte rendu est la section `#compte-rendu` de
+  `src/pages/odyssee/rapprocher.astro` : « N pointées automatiquement, M à
+  pointer, K à revoir », chaque nombre portant le geste qui va avec ;
+- le sondage s'affiche dans `#echantillon-sondage`, avec ses deux gestes
+  « Vérifier » et « Plus tard ».
+
+Constaté le 14 octobre en lisant le code et l'historique, pas déduit.
 
 ### A.4 — Deux gestes de la maquette 4.3 (Finances phase 3)
 
@@ -70,20 +80,23 @@ avec le fractionnement par **catégories** livré aujourd'hui. Les moteurs
 `diviser()` et `controlerParts()` existent et sont éprouvés ; l'interface
 relève de l'écran du budget.
 
-### A.5 — `MATIERES_MIGREES` est vide
+### A.5 — `MATIERES_MIGREES` est vide — **fait (D-019)**
 
-Le régime à deux vitesses des corrections est en place, mais aucun périmètre
-n'y est déclaré migré. L'agent INSP demandait d'y ajouter `cas-pratique`.
-Une ligne, et le contrôle passe de l'inventaire à l'exigence sur ce périmètre.
+`scripts/lib/corrections-migrees.mjs` porte `['cas-pratique']` depuis le
+13 octobre. Mesure faite avant de l'inscrire : 158 questions de cas pratique,
+158 corrigées — le build ne casse donc pas aujourd'hui, et cassera le jour où
+une question de ce périmètre arrivera sans sa correction.
 
-### A.6 — Un magasin déclaré que personne n'écrit
+### A.6 — Un magasin déclaré que personne n'écrit — **tranché : il reste, et il le dit**
 
-`odysseeVeilleBases` existe dans le schéma, dans la liste des magasins
-scellés et dans la politique de rétention — et **aucun code ne l'écrit**. Les
-lignes de base de la veille sont recalculées à chaque évaluation, ce qui est
-le bon choix (2,9 ms à l'horizon réel). Il faut donc soit retirer le magasin,
-soit écrire pourquoi il est réservé. En l'état, il ment sur ce que
-l'application garde.
+Le choix retenu est le second : le magasin reste déclaré, et sa déclaration
+dans `db.ts` porte maintenant la raison — supprimer un magasin d'IndexedDB
+est une migration de schéma, qui doit réussir du premier coup sur la seule
+installation qui compte, pour un gain nul puisque le magasin est vide.
+`sauvegarde/groupes.ts` le redit à sa ligne de rétention. Le commentaire se
+termine par ce qu'il faut *ne pas* en conclure : l'application ne garde
+aucune ligne de base, et c'est précisément ce que son absence laissait
+croire.
 
 ---
 

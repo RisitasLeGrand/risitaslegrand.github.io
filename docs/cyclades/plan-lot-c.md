@@ -125,6 +125,27 @@ les essais, et c'est le sélecteur qui était trop large — la page est intacte
 Corrigé en `#contenu-principal details >> nth=0`. Aucun autre essai
 n'utilisait un sélecteur `details` non qualifié.
 
+## La suite complète des essais de navigateur, relancée
+
+Vingt-huit scripts, passés un par un. **Quatre rouges, aucun défaut du
+site** : quatre essais qui mesuraient autre chose que ce qu'ils croyaient.
+Trois viennent de mes propres changements, le quatrième d'une horloge.
+
+| Essai | Ce qui n'allait pas | Corrigé en |
+|---|---|---|
+| `positionnement` | seul des vingt-neuf à ne pas porter de chemin de navigateur par défaut : sans `CHROMIUM` dans l'environnement, il s'arrêtait avant d'ouvrir une page. **Un essai qui ne démarre pas n'échoue pas : il disparaît.** | lui donnant le même défaut que les vingt-huit autres |
+| `psyche` | « un onglet Psyché est proposé » : depuis le lot B les onglets sont groupés, le lien est dans un `details` replié, donc invisible — mais à un geste | contrôlant le geste : le groupe est visible, l'ouvrir montre le lien |
+| `odyssee` (magasins) | égalité stricte sur la liste des magasins ; deux magasins ajoutés par le domaine Santé la faisaient tomber sur un essai dont le sujet est la migration depuis la v14 | un plancher, comme pour le numéro de version juste au-dessus — `essais:coffre` compte toujours les scellés exactement |
+| `odyssee` (relevés) | les moments « passés » étaient semés à partir de `Date.now()`, dont la date de calendrier (14 oct.) diffère du **jour logique** affiché (13 oct.) entre minuit et 4 h. L'essai échouait donc quatre heures par nuit | ancrant les moments dans le jour logique |
+
+Le dernier a demandé une sonde pour être établi plutôt que supposé : le
+calendrier affichait bien « mardi 13 octobre » à 3 h 55, et les moments
+datés du 14 n'y figuraient pas. Le site fait exactement ce qu'on lui
+demande ; c'est l'essai qui regardait le mauvais jour.
+
+`actualites` compte pour vert : il s'arrête tant que `npm run
+actualites:dist` n'a pas été lancé, et c'est voulu.
+
 ## Lignes de décision nées de ce lot
 
 | Réf. | Question | Pourquoi je m'arrête |

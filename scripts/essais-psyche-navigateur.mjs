@@ -64,10 +64,28 @@ async function aller(chemin, selecteur) {
 console.log('\nL’ÉCRAN EXISTE, ET L’ONGLET Y MÈNE');
 
 await aller('/odyssee/corps/', '#vue');
-vrai(
-  'un onglet « Psyché » est proposé depuis une autre page d’Odyssée',
-  await page.locator('a[href$="/odyssee/psyche/"]').first().isVisible(),
-);
+/*
+   Le lien existe, et le chemin pour y arriver aussi.
+
+   Depuis le lot B, les onglets d'une branche sont groupés : « Psyché » est
+   dans le groupe « Moi », replié au repos. Le lien n'est donc plus visible
+   d'emblée, et l'essai le déclarait absent — alors qu'il est à un geste.
+   Ce qu'il faut contrôler, c'est ce geste : le groupe qui le contient est
+   visible, et l'ouvrir montre le lien. Se contenter de « le lien est dans
+   le document » aurait laissé passer un lien enterré dans un menu qu'on ne
+   peut pas ouvrir.
+*/
+{
+  const lien = page.locator('a[href$="/odyssee/psyche/"]').first();
+  vrai('le lien vers la Psyché existe dans la navigation', (await lien.count()) > 0);
+  if (!(await lien.isVisible())) {
+    const groupe = page.locator('details:has(a[href$="/odyssee/psyche/"])').first();
+    vrai('il est dans un groupe d’onglets, dont le libellé est visible', await groupe.locator('summary').first().isVisible());
+    await groupe.locator('summary').first().click();
+    await page.waitForTimeout(200);
+  }
+  vrai('un onglet « Psyché » est atteignable depuis une autre page d’Odyssée', await lien.isVisible());
+}
 
 await aller('/odyssee/psyche/', '#vue');
 
