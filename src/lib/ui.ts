@@ -65,19 +65,20 @@ export function notifier(message: string, variante: 'info' | 'succes' | 'badge' 
   }[variante];
 
   const bulle = document.createElement('div');
-  bulle.className = `pointer-events-auto rounded-full px-4 py-2 text-sm font-medium shadow-lg transition-all duration-300 ${couleurs}`;
+  bulle.className = `bulle-notification pointer-events-auto rounded-full px-4 py-2 text-sm font-medium shadow-lg ${couleurs}`;
   bulle.textContent = message;
-  bulle.style.opacity = '0';
-  bulle.style.transform = 'translateY(8px)';
   zone.appendChild(bulle);
-  requestAnimationFrame(() => {
-    bulle.style.opacity = '1';
-    bulle.style.transform = 'translateY(0)';
-  });
+  requestAnimationFrame(() => bulle.classList.add('parue'));
+
   setTimeout(() => {
-    bulle.style.opacity = '0';
-    bulle.style.transform = 'translateY(8px)';
-    setTimeout(() => bulle.remove(), 320);
+    bulle.classList.remove('parue');
+    bulle.classList.add('sortante');
+    // La durée de sortie vit dans la feuille de style, avec les autres jetons
+    // du prompt 34 ; on la relit plutôt que d'en garder ici une copie qui
+    // dériverait en silence. La marge couvre l'arrondi et le mouvement réduit,
+    // où la durée tombe à 0,01 ms et la bulle doit tout de même disparaître.
+    const sortie = Number.parseFloat(getComputedStyle(bulle).transitionDuration) * 1000;
+    setTimeout(() => bulle.remove(), Math.max(sortie, 0) + 40);
   }, 2600);
 }
 

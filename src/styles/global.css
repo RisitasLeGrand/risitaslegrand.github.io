@@ -377,6 +377,160 @@ dfn.terme-glossaire:focus-visible {
   transition-duration: 0.01ms !important;
 }
 
+/* --- Apparition et disparition (prompt 34, A2) ---------------------------- */
+/*
+   **Le problème, et pourquoi la solution n'est pas évidente.** Cyclades montre
+   et cache presque tout en basculant `display` : l'attribut `hidden` sur le
+   menu de thème, la classe `.hidden` de Tailwind ailleurs — 43 fichiers au
+   relevé du 14 octobre 2026. Or `display: none` → `display: block` **ne se
+   transitionne pas**. Une transition d'opacité écrite sur un tel élément ne
+   produit rien : il paraît d'un coup, comme avant. Le piège est qu'elle a
+   pourtant l'air écrite.
+
+   La parade, mesurée le 14 octobre sur Chromium 141 avant d'être adoptée :
+   `transition-behavior: allow-discrete` sur `display`, avec `@starting-style`
+   pour donner à l'élément un état de départ au moment où il entre dans le
+   rendu. `transitionrun` se déclenche alors sur `opacity`, et l'opacité valait
+   0,87 à 120 ms — la transition court vraiment.
+
+   **Les deux morceaux ne servent pas au même bout du geste**, et le relevé l'a
+   montré en retirant `allow-discrete` : l'ouverture continuait de fondre,
+   seule la fermeture cassait. C'est logique une fois vu — à l'ouverture,
+   `display` bascule aussitôt vers l'état visible et `@starting-style` fournit
+   l'opacité de départ ; à la fermeture, sans `allow-discrete`, l'élément
+   quitte le rendu à l'instant même et n'a pas le temps de s'effacer.
+   `@starting-style` sert donc l'apparition, `allow-discrete` la disparition.
+
+   **Ce qui se passe sur un navigateur qui l'ignore** : la déclaration est
+   écartée, l'élément paraît d'un coup. Exactement le comportement actuel. La
+   dégradation ne casse rien et ne demande aucun repli écrit à la main.
+
+   **Interdit n° 4 tenu** : seules `opacity` et `transform` sont animées.
+   `display` figure dans la liste, mais c'est une propriété discrète — elle
+   bascule, elle ne s'interpole pas, et ne provoque donc aucun recalcul
+   progressif de la mise en page.
+
+   **La fermeture est plus brève que l'ouverture**, comme l'A2 le demande : la
+   durée courte à la fermeture contre la moyenne à l'ouverture. Fermer est une
+   intention déjà formée ; attendre son animation est du temps perdu.
+*/
+.apparition {
+  opacity: 1;
+  transition:
+    opacity var(--duree-moyenne) var(--courbe-entree),
+    transform var(--duree-moyenne) var(--courbe-entree),
+    display var(--duree-moyenne) allow-discrete;
+}
+
+/* L'état fermé, sous les deux écritures du site. La spécificité (0,2,0) passe
+   devant `.hidden` et devant `[hidden]` de la préflight, sans `!important`. */
+.apparition[hidden],
+.apparition.hidden {
+  display: none;
+  opacity: 0;
+  transition-duration: var(--duree-courte);
+  transition-timing-function: var(--courbe-sortie);
+}
+
+/* Le glissement, réservé à ce qui s'ancre à un bouton — un menu déroulant.
+   Un voile plein écran qui glisse donnerait le mal de mer ; il se contente
+   d'un fondu. */
+.apparition-glisse:not([hidden]):not(.hidden) {
+  transform: translateY(0);
+}
+.apparition-glisse[hidden],
+.apparition-glisse.hidden {
+  transform: translateY(-0.25rem);
+}
+
+/* L'état de départ, sans lequel rien ne se passe : au moment où l'élément
+   entre dans le rendu, il n'a pas d'« avant » à interpoler. */
+@starting-style {
+  .apparition:not([hidden]):not(.hidden) {
+    opacity: 0;
+  }
+  .apparition-glisse:not([hidden]):not(.hidden) {
+    transform: translateY(-0.25rem);
+  }
+}
+
+/* Le contenu d'un dépliant paraît en fondu — et sa hauteur, elle, ne s'anime
+   pas.
+
+   C'est la réserve annoncée au plan, et elle n'est pas levée : animer un
+   dépliage suppose d'animer une hauteur, ce que l'interdit n° 4 proscrit sans
+   réserve. Le compromis retenu est le fondu seul. La boîte s'ouvre d'un coup,
+   son contenu paraît. Ce n'est pas le dépliage fluide qu'on imagine en lisant
+   l'A2 ; c'est ce que l'interdit n° 4 laisse faire, et je préfère le dire que
+   de contourner l'interdit. */
+@keyframes paraitre {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+details[open] > :not(summary) {
+  animation: paraitre var(--duree-courte) var(--courbe-entree);
+}
+
+/* Les boîtes de dialogue natives, et leur fond.
+
+   `<dialog>` bascule lui aussi `display` quand on l'ouvre : même mécanisme,
+   et le fond (`::backdrop`) suit, sans quoi il apparaîtrait sèchement derrière
+   une boîte qui, elle, fond. */
+dialog {
+  opacity: 0;
+  transition:
+    opacity var(--duree-courte) var(--courbe-sortie),
+    display var(--duree-courte) allow-discrete,
+    overlay var(--duree-courte) allow-discrete;
+}
+dialog[open] {
+  opacity: 1;
+  transition-duration: var(--duree-moyenne);
+  transition-timing-function: var(--courbe-entree);
+}
+dialog::backdrop {
+  opacity: 0;
+  transition:
+    opacity var(--duree-courte) var(--courbe-sortie),
+    display var(--duree-courte) allow-discrete,
+    overlay var(--duree-courte) allow-discrete;
+}
+dialog[open]::backdrop {
+  opacity: 1;
+  transition-duration: var(--duree-moyenne);
+}
+@starting-style {
+  dialog[open],
+  dialog[open]::backdrop {
+    opacity: 0;
+  }
+}
+
+/* La bulle d'un message de confirmation. Sa durée vit ici plutôt que dans
+   « ui.ts » : le script la relit par `getComputedStyle` pour savoir quand
+   retirer la bulle, ce qui évite deux chiffres à tenir d'accord. */
+.bulle-notification {
+  opacity: 0;
+  transform: translateY(0.5rem);
+  transition:
+    opacity var(--duree-moyenne) var(--courbe-entree),
+    transform var(--duree-moyenne) var(--courbe-entree);
+}
+.bulle-notification.parue {
+  opacity: 1;
+  transform: translateY(0);
+}
+.bulle-notification.sortante {
+  opacity: 0;
+  transform: translateY(0.5rem);
+  transition-duration: var(--duree-courte);
+  transition-timing-function: var(--courbe-sortie);
+}
+
 /* --- Barre de défilement -------------------------------------------------- */
 /* Discrète et accordée au thème, sur la page comme sur les zones défilantes.
    Deux écritures pour deux familles de navigateurs, puisant dans les mêmes

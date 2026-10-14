@@ -147,6 +147,61 @@ muscles sur ce schéma.
   animation de hauteur, ou `details` écarté de ce lot. Je propose le fondu seul,
   et je le dirai dans l'inventaire.
 
+> **Phase 2 livrée le 14 octobre. Ce que le relevé a changé au plan.**
+>
+> **Le vrai obstacle n'était pas dans le plan.** Cyclades montre et cache
+> presque tout en basculant `display` — l'attribut `hidden` sur le menu de
+> thème, la classe `.hidden` de Tailwind ailleurs, **43 fichiers** au relevé.
+> Or `display: none` → `display: block` **ne se transitionne pas**. Une
+> transition d'opacité écrite sur un tel élément ne produit rien, tout en ayant
+> l'air écrite : le même piège qu'en phase 1, à un étage différent.
+>
+> La parade, **mesurée avant d'être adoptée** (sonde du 14 octobre, Chromium
+> 141) : `transition-behavior: allow-discrete` avec `@starting-style`.
+> `transitionrun` s'est déclenché sur `opacity`, à 0,87 d'opacité après 120 ms.
+> Sur un navigateur qui l'ignore, l'élément paraît d'un coup — c'est-à-dire
+> comme aujourd'hui : la dégradation ne demande aucun repli écrit à la main.
+>
+> **Et les deux morceaux ne servent pas au même bout du geste.** En retirant
+> `allow-discrete` pour éprouver le contrôle, seule la **fermeture** a cassé :
+> l'ouverture continuait de fondre. `@starting-style` sert l'apparition,
+> `allow-discrete` la disparition. Mon premier commentaire disait les deux ; il
+> est corrigé.
+>
+> **Ce qui est branché** : le menu de thème (fondu et léger glissement), la
+> feuille « Plus » de la navigation sur téléphone (fondu seul — un voile plein
+> écran qui glisse donnerait le mal de mer), les boîtes de dialogue natives et
+> leur fond, et les messages de confirmation. Fermeture à 120 ms contre 200 ms
+> à l'ouverture, partout, comme l'A2 le demande.
+>
+> **`notifier()` animait déjà** — opacité et `translateY`, donc conforme à
+> l'interdit n° 4 — mais avec ses durées écrites en dur (300 ms à l'aller comme
+> au retour), hors de l'échelle de la phase 0 et sans dissymétrie. La durée vit
+> désormais dans la feuille de style et le script la relit par
+> `getComputedStyle` : un seul chiffre à tenir, au lieu de deux qui dérivent.
+>
+> **La réserve sur `details` est tranchée, pas levée.** Le contenu paraît en
+> fondu ; la **hauteur ne s'anime pas**, parce que l'interdit n° 4 l'exclut sans
+> réserve. La boîte s'ouvre d'un coup, son contenu paraît. Ce n'est pas le
+> dépliage fluide qu'on imagine en lisant l'A2, et je préfère l'écrire que de
+> contourner l'interdit.
+>
+> **Le centre de notifications, cible nommée par l'A2, n'existe pas.** Le
+> prompt 32 n'est pas construit : aucun fichier, aucun composant. Cette cible
+> est donc sans objet aujourd'hui, et je ne l'ai pas inventée pour la cocher.
+>
+> **Ce qui n'est pas converti, et pourquoi.** Les 43 fichiers qui basculent
+> `.hidden` ne le sont pas tous : l'immense majorité échange du contenu
+> (onglets, sections conditionnelles, états d'écran), ce que l'A2 ne vise pas.
+> Seules les surfaces nommées par le prompt — menus, panneaux, boîtes de
+> dialogue, messages — portent le mécanisme. Le mécanisme est une classe
+> réutilisable : brancher une surface de plus coûte un mot dans sa liste de
+> classes.
+>
+> **Contrôle** : `npm run essais:apparition`, 19 contrôles. Rouge avant le
+> correctif sur 5 d'entre eux (« aucune transition ne démarre », durées à `0s`),
+> et rouge de nouveau quand on retire `allow-discrete`.
+
 ## Phase 3 — A3, listes qui changent
 
 - **Technique** : `animate:flip` de Svelte sur les cartes à réviser, les tâches,
