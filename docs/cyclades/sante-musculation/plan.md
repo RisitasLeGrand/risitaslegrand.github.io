@@ -1,8 +1,17 @@
 # Plan — Santé et traitements, concentrations sériques, méthodes de Musculation
 
-> **Statut : soumis à validation.** Le prompt demande de ne rien coder avant accord
-> (partie P). Rien de ce document n'est implémenté, à une exception près, signalée
-> en tête de la section « Ce qui existe déjà ».
+> **Statut : validé le 14 octobre 2026**, par le choix « Santé — construire la forme,
+> valeurs "inconnue" » parmi quatre chantiers proposés, suivi de « les quatre
+> successivement puis build ». La partie P du prompt est donc satisfaite pour ce
+> périmètre : le modèle, les écrans, l'enregistrement, les programmes et les volumes,
+> chaque valeur affichée « inconnue » tant qu'aucune source ne la fonde.
+>
+> **Phase 0 livrée** le 14 octobre : schémas des fichiers déclaratifs, texte de
+> consentement, registre des sources. Les phases suivantes sont à faire.
+>
+> Ce qui n'est **pas** couvert par cette validation et demandera un accord à part :
+> toute valeur numérique entrée dans l'application, qui relève du registre des
+> sources, et la publication.
 
 Ce plan répond au prompt complémentaire du 12 octobre 2026. Il confirme les douze
 interprétations du 0.4, tranche les seize décisions du 0.5, et découpe le chantier

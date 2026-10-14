@@ -21,8 +21,14 @@ partout.
 
 ## État : rien n'est encore sourcé
 
-Le chantier est en attente de validation du plan
-(`docs/cyclades/sante-musculation/plan.md`). Aucune valeur n'est entrée dans
+Le plan est validé depuis le 14 octobre 2026 et sa **phase 0 est livrée** : les
+schémas de `scripts/lib/schemas-sante.mjs` refusent désormais, au build, toute
+valeur chiffrée dépourvue de référence, de date de consultation, de population et
+de niveau de confiance. La règle de ce registre n'est donc plus une intention mais
+une condition — vérifiée par `npm run essais:schemas-sante`, qui tente les cinq
+contournements connus et constate qu'ils échouent.
+
+Aucune valeur n'est entrée dans
 l'application, donc aucune source n'est encore inscrite ici.
 
 Les **pistes de départ** fournies par le prompt (annexe S) sont listées ci-dessous
