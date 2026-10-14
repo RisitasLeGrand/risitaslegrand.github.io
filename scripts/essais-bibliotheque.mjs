@@ -241,6 +241,56 @@ console.log('\n\x1b[1mLA PASSERELLE EST UNE SORTIE, PAS UN APPEL\x1b[0m\n');
   );
 }
 
+console.log('\n\x1b[1mLA CITATION, QUI EST LA CONDITION POSÉE\x1b[0m\n');
+{
+  /*
+     Le propriétaire de la ressource n'a posé qu'une condition : être cité.
+     Une condition qui tient à un mot se perd dans une refonte d'écran sans
+     que personne s'en aperçoive — d'où ces contrôles, qui ne vérifient pas
+     que le texte est joli mais qu'il est **là**.
+  */
+  const passerelle = readFileSync('src/lib/odyssee/bibliotheque-externe.ts', 'utf8');
+  const fiche = readFileSync('src/pages/odyssee/molecule.astro', 'utf8');
+  const menu = readFileSync('src/pages/odyssee/sante.astro', 'utf8');
+
+  const nom = /export const NOM_BIBLIOTHEQUE = '([^']+)';/.exec(passerelle)?.[1] ?? '';
+  v('le nom à citer est déclaré une fois', nom.length > 0, true);
+  /*
+     Le code seul, commentaires retirés. La première version de ce contrôle
+     cherchait les apostrophes dans le fichier entier : en français, une
+     apostrophe sur deux ouvre une fausse chaîne, et la prose des
+     commentaires était comptée comme du texte affiché. C'est l'essai qui
+     avait tort, pas le fichier.
+  */
+  const codeSeul = passerelle
+    .slice(passerelle.indexOf('export const'))
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+  v(
+    'le nom n’est écrit en toutes lettres qu’à sa déclaration',
+    (codeSeul.match(new RegExp(`'[^']*${nom}[^']*'`, 'g')) ?? []),
+    [`'${nom}'`],
+  );
+  v(
+    'la ligne de crédit nomme la ressource',
+    new RegExp(`\\$\\{NOM_BIBLIOTHEQUE\\}`).test(
+      /export const ATTRIBUTION = ([^;]+);/.exec(passerelle)?.[1] ?? '',
+    ),
+    true,
+  );
+  v('la fiche de molécule affiche le crédit', fiche.includes('{ATTRIBUTION}'), true);
+  v(
+    'et l’écran qui propose les noms aussi — ce sont les mêmes noms',
+    menu.includes('ATTRIBUTION') && menu.includes("from '../../lib/odyssee/bibliotheque-externe'"),
+    true,
+  );
+  v(
+    'le libellé du lien nomme la ressource',
+    (/export const LIBELLE_LIEN = ([^;]+);/.exec(passerelle)?.[1] ?? '').includes('NOM_BIBLIOTHEQUE'),
+    true,
+  );
+}
+
 console.log('\n\x1b[1mAUCUNE TRACE DE CE QUI EST CONSULTÉ\x1b[0m\n');
 {
   const ecran = readFileSync('src/pages/odyssee/molecule.astro', 'utf8');

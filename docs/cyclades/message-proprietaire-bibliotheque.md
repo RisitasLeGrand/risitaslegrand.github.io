@@ -1,52 +1,64 @@
-# Message au propriétaire du dépôt (décision 3)
+# NooTopics — ce qui est su de l'autorisation, et ce qui en découle
 
-*Rédigé pour toi. **C'est toi qui l'envoies**, depuis ton compte : je n'écris
-à personne. Tant qu'une réponse écrite ne précise pas une licence, Cyclades
-s'en tient au lien sortant et ne copie rien.*
-
-Ouvrir une *issue* sur `Nootropics123/Nootopics-Neuroscience-Library`, ou
-écrire au propriétaire du compte.
+*Ce fichier était un brouillon de demande de licence. Il n'en est plus une :
+l'autorisation a été donnée. Il garde la trace de ce qui a été accordé, par
+qui, à quelle date et sous quelle forme — parce qu'une autorisation dont on ne
+sait plus la portée ne vaut pas mieux que pas d'autorisation.*
 
 ---
 
-**Objet : réutilisation en lecture seule — demande de licence**
+## L'autorisation
 
-Bonjour,
+**14 octobre 2026.** Alexis, qui connaît le propriétaire du dépôt, rapporte
+que la réutilisation **ne pose pas de difficulté tant que NooTopics est
+cité**.
 
-J'utilise votre bibliothèque *Nootopics Neuroscience Library* comme ressource
-de consultation personnelle, et je souhaite clarifier ce que je peux en faire.
+| | |
+|---|---|
+| Ressource | *Nootopics Neuroscience Library*, `Nootropics123/Nootopics-Neuroscience-Library` |
+| Forme de l'accord | **verbal, rapporté** par Alexis — pas de licence publiée, pas d'écrit du propriétaire au dossier |
+| Condition posée | **citer NooTopics** |
+| Date | 14 octobre 2026 |
 
-Je développe pour mon usage propre une application de suivi personnel, hors
-ligne et chiffrée, qui n'est ni vendue ni ouverte à d'autres utilisateurs. Je
-voudrais deux choses, et rien d'autre :
+## Ce que cela change, et c'est fait
 
-1. **Reprendre la liste des noms de composés** (environ 970) pour alimenter un
-   menu de saisie — uniquement les noms, sans vos liens, titres, thèmes,
-   catégories, témoignages, pseudonymes, doses ni compteurs, et sans conserver
-   l'information qu'un nom vient de chez vous.
-2. **Éventuellement** conserver une copie figée et datée de la partie
-   bibliographique (liens, titres, thèmes, composés — **sans les témoignages
-   ni les pseudonymes**) pour la consulter hors ligne, avec attribution
-   visible et sans aucune réutilisation analytique.
+- La citation est **une constante unique**, `NOM_BIBLIOTHEQUE` dans
+  `src/lib/odyssee/bibliotheque-externe.ts`, reprise partout où la ressource
+  est nommée : le libellé du lien, l'avertissement de sortie, la mention de
+  consultation, la phrase de couverture inconnue.
+- Une ligne de crédit, `ATTRIBUTION`, s'affiche **sur les deux écrans qui se
+  servent de la ressource** : la fiche de molécule (la passerelle) et l'écran
+  Santé (le menu de noms). Le second compte autant que le premier : ce sont
+  les mêmes noms, et les afficher sans dire d'où ils viennent reviendrait à
+  les présenter comme ceux de Cyclades.
+- Six contrôles dans `essais:bibliotheque` tiennent la condition : le nom est
+  déclaré une fois, il n'est jamais recopié en toutes lettres ailleurs, la
+  ligne de crédit le reprend, et les deux écrans l'affichent. Une refonte
+  d'écran qui l'effacerait passe au rouge.
 
-Je n'ai trouvé ni licence, ni README, ni conditions de réutilisation sur la
-branche `main`. En l'absence de licence, je considère qu'aucun droit ne m'est
-accordé, et je m'en tiens pour l'instant à un simple lien vers votre page.
+## Ce que cela ne change pas
 
-Accepteriez-vous de préciser une licence pour le dépôt, ou de m'autoriser par
-écrit l'un de ces deux usages ? Si vous préférez que je m'abstienne, dites-le
-simplement : je n'en reprendrai rien.
+**L'écran ne proclame pas l'accord.** Il cite la source, il n'écrit pas
+« utilisé avec l'autorisation de son auteur » : cette phrase affirmerait un
+fait que Cyclades ne peut pas produire si on le lui demande. La trace est
+ici, datée ; l'écran, lui, se contente de créditer.
 
-Une remarque, à toutes fins utiles : les extraits de conversations contiennent
-des messages de tiers identifiés par pseudonyme. Je ne compte pas les
-reprendre, et une autorisation de votre part ne couvrirait vraisemblablement
-pas les droits de leurs auteurs.
+**Les témoignages de tiers restent hors de portée.** La bibliothèque
+rassemble 5 441 extraits de conversations signés de 342 pseudonymes. Leurs
+auteurs ne sont pas le propriétaire du dépôt, et aucune autorisation venant
+de lui ne peut couvrir leurs droits. Cyclades n'en reprend aucun — et c'est
+indépendant de tout accord.
 
-Merci du travail rassemblé là, et de votre réponse.
+**La copie de la partie bibliographique (phase 5) reste non décidée.** Les
+25 226 liens et leurs titres sont une autre affaire que les 970 noms : c'est
+le cœur du travail rassemblé, et « pas de souci tant que NooTopics est cité »
+a été dit à propos de la ressource en général, pas de la recopie de sa
+bibliographie. Si c'est voulu, cela se demande explicitement.
 
----
+## Pour mémoire : ce que le dépôt publie, lui
 
-**Ce que la réponse doit contenir pour être exploitable** : une licence nommée
-(ou une autorisation explicite), son périmètre (noms seuls, ou partie
-bibliographique), et la mention d'attribution souhaitée. Une réponse du type
-« oui, pas de problème » ne suffit pas à lever le droit des bases de données.
+Au 13 octobre 2026, `LICENSE`, `LICENSE.md`, `LICENSE.txt`, `README.md`,
+`readme.md` et `COPYING` répondent tous **404** sur `main`. Le constat reste
+vrai ; il est seulement devenu sans objet pour l'usage fait ici, puisque
+l'autorisation vient d'ailleurs. Une licence publiée sur le dépôt resterait
+préférable : elle survit aux conversations.

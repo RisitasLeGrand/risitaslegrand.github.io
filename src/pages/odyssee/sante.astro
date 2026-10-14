@@ -228,6 +228,7 @@ import { POURQUOI_CATALOGUE_VIDE } from '../../lib/odyssee/sante';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import { coffreOuvert, ouvrirLeCoffre, reprendreLeCoffre, surCoffre } from '../../lib/coffre';
   import { heuresDepuisLaDernierePrise, situerDansLIntervalle } from '../../lib/odyssee/sante';
+  import { ATTRIBUTION } from '../../lib/odyssee/bibliotheque-externe';
   import { chercher, type EntreeRegistre } from '../../lib/odyssee/molecules';
   import { chargerRegistreMolecules } from '../../lib/contenu';
   import { toutesLesPrises } from '../../lib/odyssee/donnees-sensible';
@@ -296,9 +297,18 @@ import { POURQUOI_CATALOGUE_VIDE } from '../../lib/odyssee/sante';
     try {
       const brut = await chargerRegistreMolecules();
       registre = brut.map((e) => ({ ...e, alias: e.alias ?? [] }));
+      /*
+         Le crédit accompagne la liste, et pas seulement la passerelle.
+
+         Ces noms viennent de la bibliothèque citée : les afficher sans dire
+         d'où ils sortent reviendrait à les présenter comme ceux de Cyclades,
+         et la seule condition posée par leur auteur est précisément d'être
+         nommé. La mention est donc sur l'écran qui s'en sert.
+      */
       $('etat-registre').textContent =
         `${registre.length} molécules proposées. Figurer dans cette liste n’est ni une ` +
-        'validation, ni un encouragement, ni une indication de disponibilité légale.';
+        'validation, ni un encouragement, ni une indication de disponibilité légale. ' +
+        ATTRIBUTION;
     } catch {
       registre = [];
       $('etat-registre').textContent =

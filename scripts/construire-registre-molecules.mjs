@@ -1,6 +1,13 @@
 /**
  * Construit `content/sante/molecules.json` — le registre des noms du menu.
  *
+ * **Provenance : NooTopics** (bibliothèque communautaire). Son propriétaire
+ * autorise la réutilisation à une condition, citer le nom, et l'écran qui
+ * propose ces noms le cite — voir `ATTRIBUTION` dans
+ * `src/lib/odyssee/bibliotheque-externe.ts`. C'est écrit ici aussi parce que
+ * c'est ici que le fichier est fabriqué, et qu'un registre dont on a oublié
+ * la provenance ne peut plus créditer personne.
+ *
  * ## Pourquoi ce script existe, et pourquoi il n'est pas lancé par le build
  *
  * La contrainte est explicite : « la liste de molécules présentée supra doit

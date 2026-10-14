@@ -39,6 +39,27 @@ Trois conséquences que rien ne contourne :
    vide avec une valeur tirée de ta mémoire ». Les phases 3 et 4 livrent le
    **mécanisme**, sa **validation** et ses **essais**, avec **zéro entrée**.
 
+## Addendum du 14 octobre 2026 — l'autorisation
+
+Le propriétaire de la bibliothèque a fait savoir, par l'intermédiaire
+d'Alexis qui le connaît, que **la réutilisation ne pose pas de difficulté
+tant que NooTopics est cité**. Tout ce que ce plan dit de l'absence de
+licence reste factuellement vrai — le dépôt n'en publie toujours aucune —
+mais cesse d'être l'obstacle : l'accord vient d'ailleurs.
+
+| Décision | Ce qu'elle devient |
+|---|---|
+| **1** — lien sortant, aucune copie | inchangée pour l'instant : la copie de la bibliographie (phase 5) n'a pas été demandée, et « pas de souci tant que NooTopics est cité » a été dit de la ressource, pas de sa recopie |
+| **3** — message au propriétaire | **sans objet** : l'autorisation est donnée. Le fichier garde la trace de ce qui a été accordé, et sous quelle forme |
+| **registre de 970 noms** | reposait sur la parade « reconstruire depuis les nomenclatures publiques ». Elle n'est plus nécessaire ; la citation la remplace |
+
+La citation est tenue par une constante unique et six contrôles — voir
+`docs/cyclades/message-proprietaire-bibliotheque.md`.
+
+Deux choses que l'autorisation ne couvre pas : les **témoignages de tiers**
+(342 pseudonymes, dont les auteurs ne sont pas le propriétaire) et la **copie
+de la partie bibliographique**, qui reste à demander si elle est voulue.
+
 ## Les treize décisions
 
 **1 — Mode d'intégration : option 1**, lien sortant. Sans licence, aucune copie.

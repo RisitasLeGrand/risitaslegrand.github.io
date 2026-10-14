@@ -25,6 +25,7 @@
 import Base from '../../layouts/Base.astro';
 import {
   ADRESSE_BIBLIOTHEQUE,
+  ATTRIBUTION,
   AVERTISSEMENT_SORTANT,
   COUVERTURE_INCONNUE,
   LIBELLE_LIEN,
@@ -196,6 +197,13 @@ import {
       </div>
       <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">{COUVERTURE_INCONNUE}</p>
       <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{MENTION_DONNEE_MORTE}</p>
+      {/*
+         Le crédit, à la demande du propriétaire de la ressource — c'est la
+         seule condition qu'il a posée. Il est écrit en toutes lettres et non
+         déduit du lien : une adresse n'est pas une citation, et un lien qu'on
+         ne suit pas ne crédite personne.
+      */}
+      <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{ATTRIBUTION}</p>
     </section>
   </div>
 </Base>
