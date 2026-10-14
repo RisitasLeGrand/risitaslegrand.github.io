@@ -147,19 +147,34 @@ croire.
 
 ## C. Bloqué sur des sources extérieures
 
-**Santé, traitements et musculation** — la forme se construit sans rien
-attendre : modèle, écrans, enregistrement, programmes, volumes. Ce qui est
-bloqué, ce sont les **valeurs** : demi-vies, interactions, limites de
-sécurité, niveaux de preuve des méthodes. La liste est dans
+> **Correction du 14 octobre.** Cette section recommandait de « construire la
+> forme maintenant ». Elle était **déjà périmée quand elle a été écrite** : la
+> forme a été construite le 13 octobre au soir. `src/lib/odyssee/sante.ts`
+> porte `ValeurSourcee`, `FicheMolecule`, `Traitement`, `Ressenti`,
+> `Prelevement`, `Resultat` ; `/odyssee/sante/` est un écran de 578 lignes
+> avec activation explicite, coffre, bandeau de catalogue et déclaration de
+> traitement ; `Prise` porte son `traitementId`. La phase 1 du plan est
+> livrée. Je l'ai pourtant proposée comme chantier à ouvrir, et c'est une
+> erreur de ma part, trouvée en allant lire le code avant d'écrire.
+
+**Santé, traitements et musculation** — ce qui reste bloqué est ce que cette
+section disait déjà : les **valeurs**. Demi-vies, interactions, limites de
+sécurité, niveaux de preuve des méthodes. `CATALOGUE` est vide, et
+`POURQUOI_CATALOGUE_VIDE` le dit à l'écran plutôt que de laisser une liste
+vide sans explication. La liste des sources à atteindre est dans
 `sources-a-atteindre.md`, lots 2 et 3.
 
-La décision que je recommande, inchangée : **construire la forme maintenant**,
-chaque valeur affichée « inconnue », avec un bandeau qui le dit. C'est le
-comportement voulu de toute façon — une valeur inventée coûterait plus cher
-qu'une case vide — et cela met le chantier en état de recevoir les sources le
-jour où elles arrivent, au lieu de tout commencer ce jour-là.
+**Ce qui a été ajouté le 14 octobre**, et qui manquait vraiment : la phase 0.
+Les schémas de `scripts/lib/schemas-sante.mts` refusent au build toute valeur
+chiffrée sans sa référence, et ils **importent** les listes de maturité et de
+statut antidopage de l'application plutôt que d'en tenir une seconde copie —
+j'en avais d'abord écrit une, avec un vocabulaire différent, c'est-à-dire
+exactement la dérive de constante que D-044 venait de corriger ailleurs. Le
+texte de consentement de J.5 est livré aussi, avant la fonctionnalité qu'il
+encadre.
 
----
+**La suite n'est donc pas « construire la forme » mais la phase 2** : le
+catalogue des molécules, qui attend des sources primaires, et rien d'autre.
 
 ## D. Bloqué sur des documents que toi seul peux fournir
 

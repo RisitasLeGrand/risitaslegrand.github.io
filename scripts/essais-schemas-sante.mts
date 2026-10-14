@@ -6,7 +6,7 @@
  * tentent donc, un par un, les cinq façons de contourner la règle « aucune
  * valeur sans sa source », et vérifient que chacune est fermée.
  */
-import { SCHEMAS } from './lib/schemas-sante.mjs';
+import { SCHEMAS } from './lib/schemas-sante.mts';
 
 let reussis = 0;
 const echecs = [];
@@ -35,7 +35,7 @@ const MOLECULE = {
   id: 'cafeine',
   nom: 'Caféine',
   synonymes: ['1,3,7-triméthylxanthine'],
-  maturiteClinique: 'complement-alimentaire',
+  maturiteClinique: 'autorisee',
   donneesHumaines: true,
   statutAntidopage: 'autorise',
   demiVie: { valeur: 5, unite: 'h', intervalle: [3, 7], source: SOURCE },
@@ -115,6 +115,20 @@ refuse('une question obligatoire est refusée', SCHEMAS.question, {
   renseigne: 'profil.objectif',
   facultative: false,
 });
+
+refuse('une maturité absente de la liste de l’application est refusée', SCHEMAS.molecule, {
+  ...MOLECULE,
+  maturiteClinique: 'medicament-hors-amm',
+});
+{
+  const sante = await import('../src/lib/odyssee/sante');
+  verifier(
+    'les maturités admises sont exactement celles que l’écran sait nommer',
+    Object.keys(sante.MATURITES).every((m) =>
+      SCHEMAS.molecule.safeParse({ ...MOLECULE, maturiteClinique: m }).success,
+    ),
+  );
+}
 
 console.log('\nLE CONSENTEMENT (J.5), LIVRÉ EN PHASE 0 POUR ÊTRE RELU');
 

@@ -33,6 +33,17 @@
  * n'existe : sans `.strict()`, `{ ..., dose: 200 }` passait. Un champ qu'on
  * n'a pas prévu n'est pas une tolérance, c'est une porte.
  *
+ * ## Pourquoi les listes viennent de l'application, et non d'ici
+ *
+ * `MaturiteClinique` et `StatutAntidopage` sont déjà définis dans
+ * `src/lib/odyssee/sante.ts`, qui les affiche. En les réécrivant ici, j'en
+ * avais fabriqué une seconde version, avec un vocabulaire différent —
+ * « medicament-autorise » contre « autorisee ». Deux listes pour une seule
+ * notion, c'est la dérive de constante que D-044 vient de corriger ailleurs
+ * dans ce dépôt, et il n'y a pas de raison de la rejouer ici. Les schémas
+ * importent donc les listes de l'application : un fichier déclaratif valide
+ * est, par construction, un fichier que l'écran saura nommer.
+ *
  * Ils ne jugent pas une source. Qu'une référence soit un RCP ou un billet de
  * forum, ils l'acceptent — mais le `type` et la `confiance` sont obligatoires
  * et énumérés, donc la faiblesse d'une source est **écrite** et affichable, et
@@ -40,6 +51,7 @@
  * a de quoi juger.
  */
 import { z } from 'zod';
+import { MATURITES, STATUTS_ANTIDOPAGE } from '../../src/lib/odyssee/sante';
 
 /** Les types de source admis, du plus fort au plus faible. Repris du registre. */
 export const TYPES_DE_SOURCE = [
@@ -93,25 +105,19 @@ export const valeurSourcee = (unites) =>
     }).strict(),
   ]);
 
-export const MATURITES = [
-  'medicament-autorise',
-  'medicament-hors-amm',
-  'complement-alimentaire',
-  'molecule-de-recherche',
-  'inconnue',
-];
-
-export const STATUTS_ANTIDOPAGE = ['interdit', 'interdit-en-competition', 'autorise', 'inconnu'];
+/* Les deux listes viennent de l'application ; voir l'en-tête. */
+const MATURITES_ADMISES = Object.keys(MATURITES) as [string, ...string[]];
+const STATUTS_ADMIS = Object.keys(STATUTS_ANTIDOPAGE) as [string, ...string[]];
 
 /** Une molécule du catalogue. */
 export const molecule = z.object({
   id: z.string().regex(/^[a-z0-9-]+$/, 'L’identifiant est en minuscules, chiffres et tirets.'),
   nom: z.string().min(2),
   synonymes: z.array(z.string()),
-  maturiteClinique: z.enum(MATURITES),
+  maturiteClinique: z.enum(MATURITES_ADMISES),
   /** Existe-t-il des données **chez l'humain** ? La question précède toute dose. */
   donneesHumaines: z.union([z.boolean(), z.literal('inconnu')]),
-  statutAntidopage: z.enum(STATUTS_ANTIDOPAGE),
+  statutAntidopage: z.enum(STATUTS_ADMIS),
   demiVie: valeurSourcee(['h', 'j']),
   /*
      Pas de champ « dose ». C'est délibéré et ce n'est pas un oubli : une dose
