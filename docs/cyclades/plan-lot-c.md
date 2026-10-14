@@ -63,14 +63,26 @@ seule semaine de démonstration.
 
 ---
 
-## L3 — Sport > Exercices : formulaire avant la liste · **à faire**
+## L3 — Sport > Exercices : formulaire avant la liste · **fait**
 
 | Piste | Décision |
 |---|---|
-| Liste d'abord, avec recherche | prévu |
-| Création dans un panneau ou une boîte de dialogue | prévu — dialogue natif `<dialog>`, pas de dépendance |
-| Muscles par la silhouette, les 15 listes dans un bloc « Avancé » | prévu |
-| « Supprimer » dans un menu « … » avec annulation | prévu pour la confirmation ; **l'annulation après coup est une ligne de décision D-040** (il faut garder l'exercice supprimé quelque part, donc toucher au magasin) |
+| Liste d'abord, avec recherche | **fait** — le champ de filtre existait déjà ; c'est l'ordre qui changeait |
+| Création dans un panneau ou une boîte de dialogue | **fait** — `<dialog>` natif, `showModal()` : le piège du focus, Échap et l'inertie de la page sont ceux du navigateur, pas une réimplémentation qui oublierait un cas |
+| Muscles par la silhouette, les 15 listes dans un bloc « Avancé » | **fait, avec une réserve** — le bloc est `open` dans le balisage, et le script ne le referme qu'en dessous de `lg`. La liste de cases est l'**alternative accessible** du schéma cliquable, pas un supplément : la replier par défaut partout l'aurait rendue plus difficile d'accès pour les seuls à qui elle est indispensable. |
+| « Supprimer » dans un menu « … » avec annulation | **confirmation faite, annulation non** : conserver l'exercice supprimé demande de toucher au magasin → **D-040** |
+
+**Mesuré avant et après**, 31 exercices en bibliothèque :
+
+| | avant | après |
+|---|---|---|
+| Hauteur à 1280 px | 5 097 px | 3 214 px |
+| Hauteur à 390 px | 7 397 px | 3 981 px |
+| Éléments interactifs visibles | 75 | 33 |
+
+Les chiffres d'avant retrouvent ceux de la critique (5 353 px et 7 454 px) à
+5 % près — l'écart tient au nombre d'exercices, qui n'est pas forcément le
+même que sur le site en ligne.
 
 ---
 

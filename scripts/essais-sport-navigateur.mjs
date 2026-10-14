@@ -111,6 +111,33 @@ await page.goto(`${RACINE}/sport/exercices/`, { waitUntil: 'networkidle' });
 await deverrouiller();
 await page.waitForSelector('#vue:not(.hidden)', { timeout: 30000 });
 
+/* ── La liste d'abord, la création dans une boîte de dialogue ─────────── */
+v(
+  'la bibliothèque est en tête, le formulaire n’est pas ouvert',
+  await page.evaluate(() => {
+    const fenetre = document.getElementById('fenetre-ajout');
+    const liste = document.getElementById('liste');
+    return {
+      ouverte: fenetre instanceof HTMLDialogElement ? fenetre.open : null,
+      listeAvantFenetre:
+        !!fenetre && !!liste && (liste.compareDocumentPosition(fenetre) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0,
+      champNomVisible: document.getElementById('nom')?.checkVisibility() ?? null,
+    };
+  }),
+  { ouverte: false, listeAvantFenetre: true, champNomVisible: false },
+);
+
+await page.click('#ouvrir-ajout');
+await page.waitForTimeout(300);
+v(
+  'le bouton « Ajouter un exercice » ouvre la fenêtre et donne le focus au nom',
+  await page.evaluate(() => ({
+    ouverte: document.getElementById('fenetre-ajout').open,
+    focus: document.activeElement?.id ?? '',
+  })),
+  { ouverte: true, focus: 'nom' },
+);
+
 const zones = await page.$$eval('[data-zone]', (els) =>
   els.map((e) => ({
     muscle: e.dataset.zone,
@@ -190,6 +217,12 @@ v(
 await page.fill('#nom', 'Tirage essai');
 await page.fill('#equipement', 'poulie');
 await page.click('#ajout button[type="submit"]');
+await page.waitForTimeout(400);
+v(
+  'enregistrer referme la fenêtre',
+  await page.evaluate(() => document.getElementById('fenetre-ajout').open),
+  false,
+);
 await page.waitForFunction(
   () => [...document.querySelectorAll('#liste p')].some((p) => p.textContent.includes('Tirage essai')),
   { timeout: 15000 },
@@ -201,6 +234,65 @@ v(
     [...document.querySelectorAll('[data-zone]')].every((z) => z.dataset.etat === 'aucun'),
   ),
   true,
+);
+
+/* ── « Supprimer » est derrière un menu, et pose une question ─────────── */
+v(
+  'aucun « Supprimer » n’est visible d’emblée sur les lignes',
+  await page.evaluate(
+    () =>
+      [...document.querySelectorAll('#liste [data-supprimer]')].filter((b) => b.checkVisibility())
+        .length,
+  ),
+  0,
+);
+v(
+  'chaque ligne porte un menu d’actions nommé',
+  await page.evaluate(() => {
+    const cartes = [...document.querySelectorAll('#liste [data-exercice]')];
+    const menus = cartes.map((c) => c.querySelector('.menu-actions > summary'));
+    return {
+      lignes: cartes.length > 0,
+      tousUnMenu: menus.every((m) => m && (m.getAttribute('aria-label') ?? '').startsWith('Actions sur ')),
+    };
+  }),
+  { lignes: true, tousUnMenu: true },
+);
+
+await page.click('#liste [data-exercice] .menu-actions > summary');
+await page.waitForTimeout(200);
+v(
+  'ouvrir le menu montre « Supprimer »',
+  await page.evaluate(() =>
+    document.querySelector('#liste [data-supprimer]')?.checkVisibility() ?? false,
+  ),
+  true,
+);
+
+/*
+   Le refus doit **garder** l'exercice : une suppression qui part quand même
+   après un « Annuler » est pire que pas de confirmation du tout.
+*/
+page.once('dialog', (d) => void d.dismiss());
+const avantRefus = await page.evaluate(
+  () => document.querySelectorAll('#liste [data-exercice]').length,
+);
+await page.click('#liste [data-supprimer]');
+await page.waitForTimeout(600);
+v(
+  'refuser la confirmation ne supprime rien',
+  await page.evaluate(() => document.querySelectorAll('#liste [data-exercice]').length),
+  avantRefus,
+);
+
+page.once('dialog', (d) => void d.accept());
+await page.click('#liste [data-exercice] .menu-actions > summary');
+await page.click('#liste [data-supprimer]');
+await page.waitForTimeout(800);
+v(
+  'accepter supprime une ligne',
+  await page.evaluate(() => document.querySelectorAll('#liste [data-exercice]').length),
+  avantRefus - 1,
 );
 
 /* ════════════════════════════════════════════════════════════════════════
