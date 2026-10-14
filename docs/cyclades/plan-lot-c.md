@@ -165,16 +165,17 @@ actualites:dist` n'a pas été lancé, et c'est voulu.
 | D-041 | Les liens de phrase portaient « cible-tactile » | **corrigée** le 14 octobre. WCAG 2.5.8 exempte un lien posé au fil d'une phrase, et l'essai appliquait déjà l'exception : la classe n'obéissait à rien et fabriquait une boîte plus haute que la ligne. Retirée de huit liens, gardée sur les fils d'Ariane, les boutons et les liens isolés. Contrôle M4 de `essais:mobile`. |
 | D-042 | Les étiquettes en unités de dessin, sous 14 px à l'écran | **corrigée sur les deux courbes**, le reste **remonté sans être touché**, le 14 octobre. Voir la section ci-dessous. |
 | D-043 | Le menu de période des actualités, rogné sur téléphone | **corrigée** le 14 octobre. Mise en page et libellé, les deux étaient en cause. Contrôle N8 de `essais:actualites:navigateur`. |
+| D-044 | Les étiquettes des visuels de correction, sous 14 px | **corrigée** le 14 octobre, après que la mesure a démenti ce que D-042 en disait. Voir la section réécrite ci-dessous. |
 
 ---
 
-## D-042 — pourquoi deux courbes sont corrigées et seize étiquettes ne le sont pas
+## D-042 — les deux courbes tracées à la main
 
-La suite de D-038 a fait apparaître trente-deux tailles écrites à la main,
-hors de l'échelle typographique. Treize sont du **texte HTML** : elles sont
-passées à `text-xs` et le site n'a plus aucun texte sous 14 px. Les
-dix-neuf autres sont des `<text>` dans un `viewBox`, et c'est une tout
-autre affaire.
+La suite de D-038 a fait apparaître des tailles écrites à la main, hors de
+l'échelle typographique. Treize sont du **texte HTML** : elles sont passées à
+`text-xs`. Les autres sont des `<text>` dans un `viewBox`, et c'est une tout
+autre affaire — dont cette section ne traite que les deux courbes tracées à
+la main, le reste relevant de D-044.
 
 **Dans un `viewBox`, une taille de police est une unité de dessin.** Ce que
 l'œil reçoit vaut la valeur déclarée multipliée par le facteur d'échelle,
@@ -186,12 +187,6 @@ réelle dans le conteneur réel :
 |---|---:|---:|
 | `sport/force` — courbe, 11 u | **7,8 px** | **10,8 px** |
 | `odyssee/corps` — courbe, 11 u | **6,8 px** | **10,6 px** |
-| `VisuelFigure`, 10 u | 9,4 px | 17,7 px |
-| `VisuelCourbe` / `Frise` / `Schema`, 10 u | 10,5 px | 19,8 px |
-| `VisuelVenn`, 11 u | 12,3 px | 23,1 px |
-| `Graphe` du raisonnement relationnel, 11 u | 13,1 px | 14,1 px |
-
-Deux régimes, et c'est ce qui sépare le geste fait du geste non fait.
 
 **Les deux courbes sont un défaut franc.** Hauteur figée contre un dessin
 plus haut, largeur minimale plus étroite que le dessin : le facteur ne
@@ -200,16 +195,74 @@ largeurs**, et aucune valeur de police n'y aurait rien changé. La largeur
 minimale passe à celle du `viewBox`, la hauteur se libère, le facteur ne
 descend plus sous 1. Le prix est assumé : un dessin large de 720 px se
 parcourt sur un écran de 390, dans un conteneur qui défilait déjà.
-`npm run essais:courbes` garde l'invariant.
+`npm run essais:dessins` garde l'invariant.
 
-**Les seize autres ne sont pas une taille à relever.** Elles varient du
-simple au double selon l'écran — 9,4 px sur un téléphone, 23,1 px sur un
-ordinateur. Leur poser `text-xs` donnerait 13 px sur téléphone et 28 px sur
-ordinateur : le défaut changerait de bout sans disparaître. Ce qui est en
-cause est le **rapport** entre le dessin et sa boîte, pas la valeur écrite,
-et le revoir veut dire reprendre la géométrie de huit visuels de correction
-dont les étiquettes sont placées à la main. C'est un lot, pas une
-retouche — il est posé ici, non fait, plutôt que bâclé.
+**Ce que je disais des seize autres était faux.** J'avais écrit qu'elles
+variaient de 9,4 à 23,1 px selon l'écran, et qu'il fallait donc revoir un
+rapport plutôt qu'une taille. Les deux affirmations sont tombées à la mesure,
+et la section D-044 ci-dessous les remplace.
+
+## D-044 — les visuels de correction, et trois erreurs de ma part
+
+### Ce que la mesure a démenti
+
+J'avais calculé le facteur d'échelle de ces visuels en supposant que leur SVG
+s'étirait à la largeur de sa colonne. Il ne s'étire pas : `Cadre.svelte` pose
+`style="max-width: {largeur}px"` en ligne, le dessin ne grandit **jamais**
+au-delà de son `viewBox` et ne fait que rétrécir sous un écran plus étroit.
+Je ne l'avais pas vu en lisant le fichier.
+
+Le facteur est donc plafonné à 1, mesuré à 1,00 sur sept visuels sur huit à
+390 comme à 1280 px. Les étiquettes rendaient à leur valeur déclarée — 9, 10
+et 11 px — et c'était une simple remontée, pas une reprise de géométrie.
+
+Deux autres erreurs sont venues avec : un palier à **9 px** que je n'avais pas
+compté, ce qui porte l'inventaire à **neuf fichiers** et non seize
+étiquettes ; et un premier aperçu que j'ai mesuré **sans la feuille de style
+du site**, qui donnait toutes les étiquettes à 16 px — un chiffre qui n'avait
+aucun sens et qui a servi à le voir.
+
+### Ce que la remontée a cassé, et pourquoi
+
+Remonter les étiquettes à 14 a fait passer les chevauchements de **0 à 26**,
+constatés sur les huit visuels les plus chargés de la banque réelle — 210
+visuels dépouillés, le plus lourd de chaque type retenu, parce que c'est lui
+qui révèle les collisions.
+
+La cause est la même partout, et elle est instructive : ces visuels placent
+leurs textes à la main, donc ils en **estiment la largeur**. Ces estimations
+étaient des nombres nus calés sur dix unités — « largeur d'un caractère à 10
+points : 5,1 », « hauteur de ligne : 11 », « écart au sommet : 12 ». Les
+étiquettes ont changé, pas eux : le replieur croyait les libellés quarante
+pour cent plus courts qu'ils ne sont, concluait qu'ils tenaient, et les
+laissait se heurter. **Les algorithmes étaient justes ; la mesure qu'on leur
+donnait ne l'était plus.**
+
+Toutes ces constantes dérivent maintenant de `TAILLE_ETIQUETTE`, et une seule
+valeur à changer suffira la prochaine fois.
+
+### Les quatre réglages qui ne découlaient pas de là
+
+| Visuel | Ce qui n'allait pas | Corrigé en |
+|---|---|---|
+| `VisuelVenn` | les libellés de zone, posés d'un bloc et centrés, se heurtaient dès qu'ils dépassaient la largeur du lobe : « Irlande, Chypre » entrait dans « 25 États » et sortait du cercle | les repliant sur la largeur du lobe, l'intersection recevant moins |
+| `VisuelFigure` | « Parlement » s'affichait « Parlemen » : les noms de sommets sont en demi-gras, et leur largeur était estimée au rapport du texte courant, donc le recadrage les croyait à l'intérieur | un rapport propre au demi-gras |
+| `VisuelFigure` | seul visuel large de 380, il était le seul réduit sur un téléphone — facteur 0,94, étiquettes à 13,2 px | 340, la largeur commune, la hauteur lui rendant la place |
+| `VisuelFigure` | la cote du côté bas arrivait à seize unités du nom de sommet, soit moins qu'une ligne de texte | un écart une fois et demie plus grand pour les cotes |
+
+### Constaté après correction
+
+**58 étiquettes, toutes à 14 px, 0 chevauchement**, à 390 comme à 1280 px.
+
+La mesure s'est faite sur un aperçu temporaire des huit visuels, monté avec
+les données réelles de la banque et supprimé ensuite : ces visuels ne
+s'affichent qu'au sein d'une correction de QCM, c'est-à-dire après une
+mauvaise réponse à une question qui en porte un.
+
+`npm run essais:dessins` — l'ancien `essais:courbes`, élargi — garde les deux
+invariants : aucune taille écrite hors de l'échelle, et toute constante de
+placement dérivée de `TAILLE_ETIQUETTE`. Éprouvé en rendant son nombre nu à
+la frise : rouge, « LARGEUR_CARACTERE = 5.1 est un nombre nu ».
 
 ## D-043 — les deux causes, séparées
 

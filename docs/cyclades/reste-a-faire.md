@@ -6,7 +6,8 @@
 > ce qui a été constaté. Le lot C de la critique d'interface — pages trop
 > longues, états vides, planning — a par ailleurs été traité en entier, L1 à
 > L5, et sept lignes de décision en sont nées, D-037 à D-043 : voir
-> `plan-lot-c.md`. Une seule reste ouverte, et elle est en A.4 bis.
+> `plan-lot-c.md`, D-037 à D-044, toutes closes. Un défaut trouvé en chemin
+> reste ouvert, en A.4 ter.
 
 Dressé sur l'état réel du dépôt, pas sur la liste de tâches : les comptes
 ci-dessous sont **mesurés**, et les écarts avec ce que le relevé précédent
@@ -73,21 +74,37 @@ Les deux écrans existent :
 
 Constaté le 14 octobre en lisant le code et l'historique, pas déduit.
 
-### A.4 bis — Seize étiquettes en unités de dessin (D-044) ★
+### A.4 bis — Les étiquettes des visuels de correction — **fait (D-044)**
 
-Reste ouvert du lot C. Les visuels de correction des QCM et le graphe du
-raisonnement relationnel déclarent leurs étiquettes à 10 et 11 **unités de
-`viewBox`**, ce qui donne entre **9,4 px sur un téléphone et 23,1 px sur un
-ordinateur** — mesuré, pas estimé. Les deux courbes tracées à la main, elles,
-sont corrigées (D-042) : elles étaient sous le plancher à *toutes* les
-largeurs, ce qui en faisait un défaut franc.
+Cette entrée disait, hier, qu'il fallait revoir la géométrie de huit visuels
+parce que leurs étiquettes allaient de 9,4 px sur un téléphone à 23,1 px sur
+un ordinateur. **C'était faux.** Le cadre de ces visuels plafonne leur largeur
+rendue à celle de leur dessin : le facteur d'échelle est à 1, les étiquettes
+rendaient à leur valeur déclarée, et il fallait simplement les remonter.
 
-Ces seize-là ne le sont pas, et ce n'est pas un oubli : leur poser `text-xs`
-donnerait 13 px sur téléphone et 28 px sur ordinateur — le défaut changerait
-de bout. Ce qui est en cause est le **rapport** entre le dessin et sa boîte,
-donc la géométrie de huit visuels dont les étiquettes sont placées à la main.
-C'est un lot, pas une retouche. Le détail et les mesures sont dans
-`plan-lot-c.md`, section D-042.
+La remontée a fait apparaître le vrai défaut, qui n'était pas celui-là : les
+constantes servant à estimer la largeur d'un texte — pour le replier, pour le
+ranger, pour l'écarter d'un sommet — étaient des nombres calés sur dix
+unités, restés tels quels. Vingt-six chevauchements sont apparus ; elles
+dérivent maintenant de la taille des étiquettes, et il n'y en a plus aucun.
+
+Constaté : **58 étiquettes, toutes à 14 px, 0 chevauchement**, à 390 comme à
+1280 px, sur les huit visuels les plus chargés de la banque réelle.
+`npm run essais:dessins` garde l'invariant. Le détail est dans
+`plan-lot-c.md`, section D-044.
+
+### A.4 ter — Le tableau d'une correction déborde sur un téléphone ★
+
+Trouvé en chemin, pendant D-044, et **non corrigé** : le visuel « tableau »
+d'une correction de QCM dépasse la largeur de l'écran de **125 px** à 390 px
+de large. C'est un `<table>` HTML, sans conteneur qui défile, et le défaut est
+antérieur — la remontée des étiquettes n'y est pour rien, elle ne touche
+aucun texte de ce visuel.
+
+Il échappait au contrôle M2 de `essais:mobile`, qui mesure douze écrans :
+aucun ne porte de correction, celles-ci ne s'affichant qu'après une mauvaise
+réponse. C'est la seconde fois que l'absence des corrections dans les écrans
+mesurés cache quelque chose.
 
 ### A.4 — Deux gestes de la maquette 4.3 (Finances phase 3)
 

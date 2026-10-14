@@ -39,10 +39,27 @@
   const LARGEUR = 340;
   const X0 = 30;
   const X1 = LARGEUR - 30;
-  /** Largeur d'un caractère à 10 points, et marge entre deux libellés. */
-  const LARGEUR_CARACTERE = 5.1;
-  const ECART_MINIMAL = 6;
-  const HAUTEUR_RANGEE = 12;
+  /*
+     Les trois constantes du rangement **dérivent de la taille du texte**, et
+     ne la devinent plus (D-044).
+
+     « LARGEUR_CARACTERE » valait 5,1 — la largeur d'un caractère à 10 unités.
+     Quand les étiquettes sont passées de 10 à 14, la constante est restée :
+     le ranger croyait donc chaque libellé 40 % plus court qu'il ne l'est,
+     concluait qu'il tenait, et laissait sur une même rangée des textes qui se
+     chevauchaient. Le défaut n'était pas dans l'algorithme, qui est juste,
+     mais dans la mesure qu'on lui donnait.
+
+     Le rapport 0,51 est celui de la fonte du site, mesuré sur les libellés
+     réels de la banque ; il est conservateur, un caractère moyen y est plus
+     étroit. La hauteur de rangée suit la taille parce qu'une rangée doit
+     loger une ligne de texte, et l'écart minimal parce qu'un blanc qui ne
+     grandit pas avec le texte finit par ne plus se voir.
+  */
+  const TAILLE_ETIQUETTE = 14;
+  const LARGEUR_CARACTERE = TAILLE_ETIQUETTE * 0.51;
+  const ECART_MINIMAL = TAILLE_ETIQUETTE * 0.6;
+  const HAUTEUR_RANGEE = TAILLE_ETIQUETTE * 1.2;
 
   const intervalles = $derived(donnees.intervalles ?? []);
 
@@ -125,8 +142,8 @@
 
   {#each places as place, i (i)}
     {@const couleur = place.jalon.marqueur ? MARQUEURS[place.jalon.marqueur].couleur : 'var(--etat-texte-faible)'}
-    {@const yDate = Y_AXE - 12 - rangeesDates[i] * HAUTEUR_RANGEE}
-    {@const yLibelle = Y_AXE + 20 + rangeesLibelles[i] * HAUTEUR_RANGEE}
+    {@const yDate = Y_AXE - TAILLE_ETIQUETTE * 0.9 - rangeesDates[i] * HAUTEUR_RANGEE}
+    {@const yLibelle = Y_AXE + TAILLE_ETIQUETTE * 1.4 + rangeesLibelles[i] * HAUTEUR_RANGEE}
     <line x1={place.px} y1={Y_AXE - 6} x2={place.px} y2={Y_AXE + 6} stroke={couleur} stroke-width="2" />
     <circle cx={place.px} cy={Y_AXE} r={place.jalon.marqueur ? 5 : 3.5} fill={couleur} />
     <!-- Les traits de rappel relient le jalon à ses textes dès qu'ils sont
@@ -140,9 +157,9 @@
         stroke-width="0.8" stroke-dasharray="2 2" />
     {/if}
     <text x={place.ax} y={yDate} text-anchor={place.ancre}
-      class="fill-slate-700 text-[10px] font-semibold dark:fill-slate-200">{place.jalon.date}</text>
+      class="fill-slate-700 text-xs font-semibold dark:fill-slate-200">{place.jalon.date}</text>
     <text x={place.ax} y={yLibelle} text-anchor={place.ancre}
-      class="fill-slate-600 text-[10px] dark:fill-slate-300">{place.jalon.libelle}</text>
+      class="fill-slate-600 text-xs dark:fill-slate-300">{place.jalon.libelle}</text>
   {/each}
 
   {#each intervalles as intervalle, i (i)}
@@ -155,7 +172,7 @@
     <line x1={xa} y1={y} x2={xb} y2={y} stroke={couleur} stroke-width="3" stroke-linecap="round" />
     <line x1={xa} y1={y - 4} x2={xa} y2={y + 4} stroke={couleur} stroke-width="1.5" />
     <line x1={xb} y1={y - 4} x2={xb} y2={y + 4} stroke={couleur} stroke-width="1.5" />
-    <text x={(xa + xb) / 2} y={y - 6} text-anchor="middle" class="fill-slate-600 text-[10px] dark:fill-slate-300"
+    <text x={(xa + xb) / 2} y={y - 6} text-anchor="middle" class="fill-slate-600 text-xs dark:fill-slate-300"
       >{intervalle.libelle}</text>
   {/each}
 </Cadre>

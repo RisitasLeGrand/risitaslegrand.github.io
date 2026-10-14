@@ -90,7 +90,7 @@
             : 'stroke-slate-400 dark:stroke-slate-500'}
         />
         <text x={s.mx} y={s.my - 4} text-anchor="middle"
-          class="fill-slate-500 text-[9px] dark:fill-slate-400">{arete.libelle}</text>
+          class="fill-slate-500 text-xs dark:fill-slate-400">{arete.libelle}</text>
       {/if}
     {/each}
 
@@ -100,7 +100,7 @@
         <line x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} stroke-width="1.5" stroke-dasharray="2 4"
           class="stroke-indigo-400 dark:stroke-indigo-500" />
         <text x={s.mx} y={s.my - 4} text-anchor="middle"
-          class="fill-indigo-500 text-[10px] font-bold dark:fill-indigo-400">?</text>
+          class="fill-indigo-500 text-xs font-bold dark:fill-indigo-400">?</text>
       {/if}
     {/if}
 
@@ -119,7 +119,7 @@
             : 'stroke-slate-300 dark:stroke-slate-700'} dark:fill-slate-900"
           stroke-width={avant ? 2.6 : 1.5} />
         <text x={p.x} y={p.y + 4} text-anchor="middle"
-          class="fill-slate-900 text-[11px] font-semibold dark:fill-white">{nom}</text>
+          class="fill-slate-900 text-xs font-semibold dark:fill-white">{nom}</text>
       {/if}
     {/each}
   </svg>

@@ -101,6 +101,58 @@ for (const { fichier, quoi } of COURBES) {
   );
 }
 
+/*
+   Deuxième partie — les huit visuels de correction.
+
+   Leur cadre ne grandit jamais au-delà de sa largeur de dessin : le facteur
+   d'échelle y est plafonné à 1, et une étiquette déclarée à quatorze unités
+   fait donc quatorze pixels. La taille n'est pas le risque ; la **dérive**
+   l'est.
+
+   Ces visuels placent leurs textes à la main, et pour cela estiment leur
+   largeur : « largeur d'un caractère », « hauteur d'une ligne », « écart au
+   sommet ». Ces constantes étaient des nombres nus, calés sur dix unités.
+   Quand les étiquettes sont passées à quatorze, elles sont restées — le
+   replieur croyait les libellés quarante pour cent plus courts qu'ils ne le
+   sont, et vingt-six couples de textes se chevauchaient là où il n'y en avait
+   aucun. Le défaut n'était pas dans les algorithmes, qui sont justes, mais
+   dans la mesure qu'on leur donnait.
+
+   D'où les deux contrôles : aucune taille écrite hors de l'échelle, et toute
+   constante de placement dérivée de « TAILLE_ETIQUETTE ». Un nombre nu qui
+   reviendrait rouvrirait exactement la même faille.
+*/
+const VISUELS = [
+  'src/features/correction/visuels/VisuelCourbe.svelte',
+  'src/features/correction/visuels/VisuelFigure.svelte',
+  'src/features/correction/visuels/VisuelFrise.svelte',
+  'src/features/correction/visuels/VisuelSchema.svelte',
+  'src/features/correction/visuels/VisuelVenn.svelte',
+];
+
+for (const fichier of VISUELS) {
+  const source = readFileSync(fichier, 'utf8');
+  const nom = fichier.split('/').pop().replace('.svelte', '');
+
+  const enDur = source.match(/text-\[\d+px\]/g);
+  verifier(
+    `${nom} — aucune taille d'étiquette écrite hors de l'échelle`,
+    !enDur,
+    `trouvé : ${[...new Set(enDur ?? [])].join(', ')}. Une taille en dur ne suit pas l'échelle typographique.`,
+  );
+
+  /* On ne lit que le bloc de constantes, pas les coordonnées du dessin : un
+     « x={p.x + 12} » est une position dans la figure, pas une mesure de
+     texte. */
+  const declarations = [...source.matchAll(/const (LARGEUR_CARACTERE\w*|HAUTEUR_LIGNE|ECART_ETIQUETTE|HAUTEUR_RANGEE|ECART_MINIMAL) = ([^;]+);/g)];
+  const nues = declarations.filter(([, , valeur]) => !valeur.includes('TAILLE_ETIQUETTE'));
+  verifier(
+    `${nom} — les constantes de placement dérivent de la taille du texte`,
+    nues.length === 0,
+    nues.map(([, clef, valeur]) => `« ${clef} = ${valeur.trim()} » est un nombre nu`).join(' ; '),
+  );
+}
+
 if (rouges > 0) {
   console.log(`\n\x1b[31m${rouges} constat(s) en échec.\x1b[0m`);
   process.exit(1);

@@ -31,9 +31,19 @@
   let { donnees, alt, legende }: { donnees: DonneesSchema; alt: string; legende?: string } = $props();
 
   const LARGEUR = 340;
-  /** Largeur d'un caractère à 10 points, mesurée sur la police du site. */
-  const LARGEUR_CARACTERE = 5.1;
-  const HAUTEUR_LIGNE = 11;
+  /*
+     Le repli et l'interligne dérivent de la taille du texte (D-044).
+
+     « LARGEUR_CARACTERE » valait 5,1, soit un caractère à 10 unités, et
+     « HAUTEUR_LIGNE » 11. Les étiquettes sont passées à 14 : le replieur
+     croyait donc qu'une ligne tenait quarante pour cent de caractères de plus
+     qu'elle n'en tient, et les lignes d'un même libellé se touchaient. Les
+     deux suivent maintenant la taille, et une seule valeur à changer suffira
+     la prochaine fois.
+  */
+  const TAILLE_ETIQUETTE = 14;
+  const LARGEUR_CARACTERE = TAILLE_ETIQUETTE * 0.51;
+  const HAUTEUR_LIGNE = TAILLE_ETIQUETTE * 1.15;
   const L_BOITE_MAX = 150;
   const MARGE = 10;
 
@@ -69,7 +79,7 @@
       const largeur = Math.min(L_BOITE_MAX, pas - MARGE);
       const repliees = freres.map((noeud) => replier(noeud.libelle, largeur));
       const lignesMax = Math.max(...repliees.map((l) => l.length));
-      const hauteur = lignesMax * HAUTEUR_LIGNE + 12;
+      const hauteur = lignesMax * HAUTEUR_LIGNE + TAILLE_ETIQUETTE;
       freres.forEach((noeud, rang) => {
         calculees.set(noeud.id, {
           x: pas * (rang + 1),
@@ -132,7 +142,7 @@
           x={lx}
           y={ly}
           text-anchor="middle"
-          class="fill-slate-500 text-[9px] dark:fill-slate-400"
+          class="fill-slate-500 text-xs dark:fill-slate-400"
           stroke="var(--etat-fond-eleve)"
           stroke-width="3"
           paint-order="stroke"
@@ -158,9 +168,9 @@
       {#each boite.lignes as ligne, j (j)}
         <text
           x={boite.x}
-          y={boite.y - ((boite.lignes.length - 1) * HAUTEUR_LIGNE) / 2 + j * HAUTEUR_LIGNE + 3.5}
+          y={boite.y - ((boite.lignes.length - 1) * HAUTEUR_LIGNE) / 2 + j * HAUTEUR_LIGNE + TAILLE_ETIQUETTE * 0.35}
           text-anchor="middle"
-          class="fill-slate-900 text-[10px] font-medium dark:fill-white">{ligne}</text>
+          class="fill-slate-900 text-xs font-medium dark:fill-white">{ligne}</text>
       {/each}
     {/if}
   {/each}

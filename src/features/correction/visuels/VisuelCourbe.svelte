@@ -32,7 +32,9 @@
   const X0 = MARGE_G;
   const X1 = LARGEUR - 16;
   const Y0 = HAUTEUR - MARGE_B;
-  const Y1 = 18;
+  /* Le tracé commence plus bas : le nom de l'axe des ordonnées tient seul
+     au-dessus de lui, et ne chevauche plus la graduation maximale (D-044). */
+  const Y1 = 30;
 
   const px = (x: number) =>
     X0 + ((x - donnees.axeX.min) / (donnees.axeX.max - donnees.axeX.min)) * (X1 - X0);
@@ -46,7 +48,9 @@
   const TIRETS_PAR_DEFAUT = [null, '6 4', '2 3', '8 3 2 3'];
 
   /** Largeur d'un caractère à 10 points, pour estimer un libellé. */
-  const LARGEUR_CARACTERE = 5.1;
+  /* Dérivée de la taille du texte, comme dans la frise et le schéma (D-044). */
+  const TAILLE_ETIQUETTE = 14;
+  const LARGEUR_CARACTERE = TAILLE_ETIQUETTE * 0.51;
 
   /**
    * Les noms de séries, écartés jusqu'à ne plus se heurter.
@@ -68,7 +72,7 @@
       let y = py(dernier[1]) - 6;
       for (let essai = 0; essai < 8; essai += 1) {
         if (!prises.some(([a, b]) => y - 9 < b && y + 2 > a)) break;
-        y -= 11;
+        y -= TAILLE_ETIQUETTE * 1.15;
       }
       prises.push([y - 9, y + 2]);
       return { ax, y };
@@ -88,13 +92,13 @@
       const boite = (): [number, number, number, number] => [
         aGauche ? ax - largeur : ax,
         aGauche ? ax : ax + largeur,
-        y - 9,
-        y + 2,
+        y - TAILLE_ETIQUETTE * 0.78,
+        y + TAILLE_ETIQUETTE * 0.22,
       ];
       for (let essai = 0; essai < 8; essai += 1) {
         const [a, b, c, d] = boite();
         if (!prises.some(([e, f, g, h]) => a < f && b > e && c < h && d > g)) break;
-        y -= 11;
+        y -= TAILLE_ETIQUETTE * 1.15;
       }
       prises.push(boite());
       return { ancre, ax, y };
@@ -108,20 +112,20 @@
   <!-- Le nom de l'axe est centré sous lui, et non calé à droite où il
        chevauchait la graduation maximale. -->
   <text x={(X0 + X1) / 2} y={Y0 + 26} text-anchor="middle"
-    class="fill-slate-600 text-[10px] dark:fill-slate-300">{donnees.axeX.nom}</text>
+    class="fill-slate-600 text-xs dark:fill-slate-300">{donnees.axeX.nom}</text>
   <!-- Le nom de l'axe des ordonnées est ancré au bord gauche du cadre, et non
        à l'axe : ancré à l'axe, « Solde (% du PIB) » débordait du viewBox par la
        gauche et s'affichait « du PIB) ». Il passe aussi au-dessus du maximum,
        qu'il chevauchait dès que celui-ci avait trois chiffres. -->
-  <text x="2" y={Y1 - 7} text-anchor="start" class="fill-slate-600 text-[10px] dark:fill-slate-300"
+  <text x="2" y={Y1 - 18} text-anchor="start" class="fill-slate-600 text-xs dark:fill-slate-300"
     >{donnees.axeY.nom}</text>
-  <text x={X0 - 6} y={Y1 + 3} text-anchor="end" class="fill-slate-500 text-[9px] dark:fill-slate-400"
+  <text x={X0 - 6} y={Y1 + 4} text-anchor="end" class="fill-slate-500 text-xs dark:fill-slate-400"
     >{donnees.axeY.max}</text>
-  <text x={X0} y={Y0 + 14} text-anchor="middle" class="fill-slate-500 text-[9px] dark:fill-slate-400"
+  <text x={X0} y={Y0 + 14} text-anchor="middle" class="fill-slate-500 text-xs dark:fill-slate-400"
     >{donnees.axeX.min}</text>
-  <text x={X1} y={Y0 + 14} text-anchor="middle" class="fill-slate-500 text-[9px] dark:fill-slate-400"
+  <text x={X1} y={Y0 + 14} text-anchor="middle" class="fill-slate-500 text-xs dark:fill-slate-400"
     >{donnees.axeX.max}</text>
-  <text x={X0 - 6} y={Y0 + 3} text-anchor="end" class="fill-slate-500 text-[9px] dark:fill-slate-400"
+  <text x={X0 - 6} y={Y0 + 3} text-anchor="end" class="fill-slate-500 text-xs dark:fill-slate-400"
     >{donnees.axeY.min}</text>
 
   {#each donnees.series as serie, i (i)}
@@ -138,7 +142,7 @@
     />
     {@const place = nomsDeSeries[i]}
     <text x={place.ax} y={place.y} text-anchor="end"
-      class="fill-slate-700 text-[10px] font-medium dark:fill-slate-200">{serie.nom}</text>
+      class="fill-slate-700 text-xs font-medium dark:fill-slate-200">{serie.nom}</text>
   {/each}
 
   {#each donnees.reperes ?? [] as repere, i (i)}
@@ -156,6 +160,6 @@
         stroke={couleur} stroke-width="0.8" stroke-dasharray="2 2" />
     {/if}
     <text x={place.ax} y={place.y} text-anchor={place.ancre}
-      class="fill-slate-700 text-[10px] font-medium dark:fill-slate-200">{repere.libelle}</text>
+      class="fill-slate-700 text-xs font-medium dark:fill-slate-200">{repere.libelle}</text>
   {/each}
 </Cadre>

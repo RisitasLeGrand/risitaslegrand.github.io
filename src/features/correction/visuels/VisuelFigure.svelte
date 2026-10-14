@@ -30,11 +30,28 @@
   let { donnees, alt, legende }: { donnees: DonneesFigure; alt: string; legende?: string } = $props();
 
   /** Le cadre est plus large que haut : les noms de sommets vivent sur les côtés. */
-  const LARGEUR = 380;
-  const HAUTEUR = 290;
+  /*
+     340 comme les autres visuels, et non 380 (D-044).
+
+     Le cadre ne grandit jamais au-delà de sa largeur de dessin, mais il
+     rétrécit sous un écran plus étroit : à 380, la figure était la seule à
+     être réduite sur un téléphone — facteur 0,94, étiquettes à 13,2 px au
+     lieu de 14. La ramener à la largeur commune la fait tenir, et la hauteur
+     gagnée lui rend la place que la largeur lui coûte.
+  */
+  const LARGEUR = 340;
+  const HAUTEUR = 310;
   const MARGE = 30;
   /** Largeur d'un caractère à 11 points, pour ramener un nom dans le cadre. */
-  const LARGEUR_CARACTERE = 5.6;
+  /* Dérivée de la taille du texte (D-044) ; le rapport 0,56 est celui des
+     libellés en demi-gras de ce visuel, plus larges que le texte courant. */
+  const TAILLE_ETIQUETTE = 14;
+  const LARGEUR_CARACTERE = TAILLE_ETIQUETTE * 0.56;
+  const ECART_ETIQUETTE = TAILLE_ETIQUETTE * 1.3;
+  /* Les noms de sommets sont en demi-gras, donc plus larges que le texte
+     courant : estimés au même rapport, « Parlement » dépassait le cadre et
+     s'affichait « Parlemen ». */
+  const LARGEUR_CARACTERE_GRAS = TAILLE_ETIQUETTE * 0.64;
 
   const xs = $derived(donnees.points.map((p) => p.x));
   const ys = $derived(donnees.points.map((p) => p.y));
@@ -80,9 +97,15 @@
   function placeDuNom(p: { x: number; y: number }, texte: string) {
     const { ux, uy } = unitaire(p.x - centre.x, p.y - centre.y);
     const ancre = ux < -0.3 ? 'end' : ux > 0.3 ? 'start' : 'middle';
-    let x = p.x + ux * 12;
-    const y = p.y + uy * 12 + (uy > 0.3 ? 8 : uy < -0.3 ? -2 : 4);
-    const largeur = texte.length * LARGEUR_CARACTERE;
+    /* L'écart au sommet suit la taille du texte (D-044) : fixé à 12, il
+       suffisait à 10 unités et laissait un nom de sommet toucher la cote
+       voisine dès que les étiquettes sont passées à 14. */
+    let x = p.x + ux * ECART_ETIQUETTE;
+    const y =
+      p.y +
+      uy * ECART_ETIQUETTE +
+      (uy > 0.3 ? TAILLE_ETIQUETTE * 0.6 : uy < -0.3 ? -TAILLE_ETIQUETTE * 0.15 : TAILLE_ETIQUETTE * 0.3);
+    const largeur = texte.length * LARGEUR_CARACTERE_GRAS;
     const gauche = ancre === 'end' ? x - largeur : ancre === 'middle' ? x - largeur / 2 : x;
     if (gauche < 3) x += 3 - gauche;
     const droite = gauche + largeur;
@@ -106,8 +129,12 @@
         {@const mx = (p.x + q.x) / 2}
         {@const my = (p.y + q.y) / 2}
         {@const { ux, uy } = unitaire(mx - centre.x, my - centre.y)}
-        <text x={mx + ux * 12} y={my + uy * 12 + 3} text-anchor="middle"
-          class="fill-slate-700 text-[10px] font-medium dark:fill-slate-200">{segment.cote}</text>
+        <!-- La cote s'écarte une fois et demie plus que le nom d'un sommet :
+             les deux partent du même centre, et sur le côté du bas elles
+             arrivaient sinon à seize unités l'une de l'autre, soit moins
+             qu'une ligne de texte à quatorze. -->
+        <text x={mx + ux * ECART_ETIQUETTE} y={my + uy * ECART_ETIQUETTE * 1.7 + TAILLE_ETIQUETTE * 0.22} text-anchor="middle"
+          class="fill-slate-700 text-xs font-medium dark:fill-slate-200">{segment.cote}</text>
       {/if}
     {/if}
   {/each}
@@ -128,7 +155,7 @@
            du sommet, qui part vers l'extérieur, ne peut plus le rencontrer. -->
       {@const { ux, uy } = unitaire(centre.x - s.x, centre.y - s.y)}
       <text x={s.x + ux * 34} y={s.y + uy * 34 + 3} text-anchor="middle"
-        class="fill-slate-700 text-[10px] dark:fill-slate-200">{angle.libelle}</text>
+        class="fill-slate-700 text-xs dark:fill-slate-200">{angle.libelle}</text>
     {/if}
   {/each}
 
@@ -138,7 +165,7 @@
       {@const place = placeDuNom(p, point.libelle ?? point.id)}
       <circle cx={p.x} cy={p.y} r="3.5" class="fill-slate-700 dark:fill-slate-200" />
       <text x={place.x} y={place.y} text-anchor={place.ancre}
-        class="fill-slate-900 text-[11px] font-semibold dark:fill-white">{point.libelle ?? point.id}</text>
+        class="fill-slate-900 text-xs font-semibold dark:fill-white">{point.libelle ?? point.id}</text>
     {/if}
   {/each}
 </Cadre>

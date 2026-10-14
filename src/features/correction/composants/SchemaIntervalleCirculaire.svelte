@@ -106,6 +106,6 @@
 
   {#if legende}
     <text x={CENTRE} y={CENTRE + 4} text-anchor="middle"
-      class="fill-slate-600 text-[11px] dark:fill-slate-300">{legende}</text>
+      class="fill-slate-600 text-xs dark:fill-slate-300">{legende}</text>
   {/if}
 </Cadre>

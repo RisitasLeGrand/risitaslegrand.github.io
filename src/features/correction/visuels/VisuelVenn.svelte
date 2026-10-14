@@ -60,6 +60,41 @@
   const HAUTEUR = 250;
   const R = 72;
 
+  /*
+     Les libellés de zone se replient (D-044).
+
+     Posés d'un bloc et centrés sur leur zone, ils se heurtaient dès que le
+     texte dépassait la largeur du lobe : « Irlande, Chypre » entrait dans
+     « 25 États », et sortait du cercle par la gauche. Le défaut existait déjà
+     à 10 unités sur les libellés longs ; à 14 il devient la règle.
+
+     Le budget est la largeur du lobe, un peu élargie : une zone latérale de
+     cercle offre à peu près un rayon de place utile, et l'intersection moins.
+     Ce qui ne tient pas passe à la ligne, et les lignes se centrent sur le
+     centre de la zone — jamais plus loin, pour que l'étiquette reste dans la
+     surface qu'elle nomme.
+  */
+  const TAILLE_ETIQUETTE = 14;
+  const LARGEUR_CARACTERE = TAILLE_ETIQUETTE * 0.56;
+  const HAUTEUR_LIGNE = TAILLE_ETIQUETTE * 1.15;
+  const BUDGET_ZONE = R * 1.15;
+
+  function replier(texte: string, budget: number): string[] {
+    const parCaracteres = Math.max(5, Math.floor(budget / LARGEUR_CARACTERE));
+    const lignes: string[] = [];
+    let courante = '';
+    for (const mot of texte.split(/\s+/)) {
+      if (!courante) courante = mot;
+      else if ((courante + ' ' + mot).length <= parCaracteres) courante += ' ' + mot;
+      else {
+        lignes.push(courante);
+        courante = mot;
+      }
+    }
+    if (courante) lignes.push(courante);
+    return lignes;
+  }
+
   /** Deux ensembles côte à côte, trois en triangle. */
   const centres = $derived(
     donnees.ensembles.length === 2
@@ -186,8 +221,13 @@
     {#if zone.libelle}
       {@const { inclus, exclus } = partition(zone.regions)}
       {@const c = centreZone(inclus, exclus)}
-      <text x={c.x} y={c.y + 4} text-anchor="middle"
-        class="fill-slate-900 text-[11px] font-semibold dark:fill-white">{zone.libelle}</text>
+      {@const lignes = replier(zone.libelle, inclus.length > 1 ? BUDGET_ZONE * 0.8 : BUDGET_ZONE)}
+      {#each lignes as ligne, k (k)}
+        <text x={c.x}
+          y={c.y + TAILLE_ETIQUETTE * 0.35 - ((lignes.length - 1) * HAUTEUR_LIGNE) / 2 + k * HAUTEUR_LIGNE}
+          text-anchor="middle"
+          class="fill-slate-900 text-xs font-semibold dark:fill-white">{ligne}</text>
+      {/each}
     {/if}
   {/each}
 
@@ -197,7 +237,7 @@
          posés sur les centres, ils se touchaient, les cercles se recouvrant. -->
     {@const ecart = haut ? 0 : centres[i].x < LARGEUR / 2 ? -26 : 26}
     <text x={centres[i].x + ecart} y={haut ? centres[i].y + R + 16 : centres[i].y - R - 7}
-      text-anchor="middle" class="fill-slate-800 text-[11px] font-semibold dark:fill-slate-100"
+      text-anchor="middle" class="fill-slate-800 text-xs font-semibold dark:fill-slate-100"
       >{ensemble.libelle}</text>
   {/each}
 </Cadre>
