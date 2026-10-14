@@ -4,8 +4,9 @@
 > fausses au moment où il a été écrit, ou l'ont été dans les heures qui ont
 > suivi : A.3, A.5 et A.6. Elles sont corrigées ci-dessous, avec la preuve de
 > ce qui a été constaté. Le lot C de la critique d'interface — pages trop
-> longues, états vides, planning — a par ailleurs été traité en entier :
-> voir `plan-lot-c.md`.
+> longues, états vides, planning — a par ailleurs été traité en entier, L1 à
+> L5, et sept lignes de décision en sont nées, D-037 à D-043 : voir
+> `plan-lot-c.md`. Une seule reste ouverte, et elle est en A.4 bis.
 
 Dressé sur l'état réel du dépôt, pas sur la liste de tâches : les comptes
 ci-dessous sont **mesurés**, et les écarts avec ce que le relevé précédent
@@ -71,6 +72,22 @@ Les deux écrans existent :
   « Vérifier » et « Plus tard ».
 
 Constaté le 14 octobre en lisant le code et l'historique, pas déduit.
+
+### A.4 bis — Seize étiquettes en unités de dessin (D-044) ★
+
+Reste ouvert du lot C. Les visuels de correction des QCM et le graphe du
+raisonnement relationnel déclarent leurs étiquettes à 10 et 11 **unités de
+`viewBox`**, ce qui donne entre **9,4 px sur un téléphone et 23,1 px sur un
+ordinateur** — mesuré, pas estimé. Les deux courbes tracées à la main, elles,
+sont corrigées (D-042) : elles étaient sous le plancher à *toutes* les
+largeurs, ce qui en faisait un défaut franc.
+
+Ces seize-là ne le sont pas, et ce n'est pas un oubli : leur poser `text-xs`
+donnerait 13 px sur téléphone et 28 px sur ordinateur — le défaut changerait
+de bout. Ce qui est en cause est le **rapport** entre le dessin et sa boîte,
+donc la géométrie de huit visuels dont les étiquettes sont placées à la main.
+C'est un lot, pas une retouche. Le détail et les mesures sont dans
+`plan-lot-c.md`, section D-042.
 
 ### A.4 — Deux gestes de la maquette 4.3 (Finances phase 3)
 

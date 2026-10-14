@@ -59,7 +59,7 @@ seule semaine de démonstration.
 | Recherche | **fait** | la recherche traverse toutes les périodes de la vue courante, sinon elle ne chercherait que dans la semaine affichée, ce qui ne sert à rien |
 | Mémoriser le filtre de domaine dans l'adresse | **fait** | et aussi la période, la vue et la recherche : une adresse se partage et se recharge |
 | Rendu différé | **fait** | utile surtout sur les résultats de recherche, qui peuvent traverser quarante semaines |
-| Marqueur « lu / non lu » | **fait (D-039, validé le 14 octobre)** | magasin `actualitesLues`, migration v31, bascule par carte, compte de non lues dans le sélecteur de période, filtre « Non lues seulement » |
+| Marqueur « lu / non lu » | **fait (D-039, validé le 14 octobre)** | magasin `actualitesLues`, migration v31, bascule par carte, compte restant à lire dans le sélecteur de période (sa forme a changé avec D-043), filtre « Non lues seulement » |
 
 ---
 
