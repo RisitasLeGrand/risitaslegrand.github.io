@@ -1,8 +1,11 @@
 # Profil (âge, sexe) et suivi du cycle menstruel — plan de phase 0
 
-*Soumis à validation. **Aucune ligne de code n'est écrite** avant un « go » sur
-ce document : le prompt l'exige en tête, et la règle de liaison le dit
-indépendamment.*
+> **Validé par Alexis le 14 octobre 2026**, recommandations comprises, avec les
+> cinq écarts au prompt consignés en section 10. La phase 1 est ouverte ; les
+> phases suivantes restent soumises à validation sur rendu, lot par lot.
+
+*Le prompt exige un plan validé avant toute ligne de code. Ce document est ce
+plan, et il porte désormais ce qui a été tranché — pas ce que je préférerais.*
 
 Ce document répond à la phase 0 demandée : le plan en phases, le tableau des
 amendements, le registre des usages, l'inventaire des repères sourcés, le
@@ -471,27 +474,29 @@ première exécution sur `NATURES.cycle = 'Phase du cycle'` — voir l'amendemen
 
 ## 10. Les décisions
 
-Vingt-cinq du prompt, trois ajoutées par ce plan. Ma recommandation suit chacune ;
-**aucune n'est appliquée sans ta réponse.**
+Vingt-cinq du prompt, trois ajoutées par ce plan. **Toutes tranchées le
+14 octobre 2026** : la colonne porte désormais la décision, non une préférence.
+Cinq s'écartent de ce que le prompt recommandait pour lui-même — les cinq lignes
+en gras le disent et disent pourquoi.
 
 | # | Décision | Ma recommandation |
 |---|---|---|
-| **A** | **Inverser l'ordre des phases** : cycle et facteurs avant les usages âge/sexe | **oui** — 90 % des usages de l'ancienne phase 2 sont bloqués sur des sources injoignables |
-| **B** | **Renommer la nature `cycle`** de `StatutHormonal` (migration sous coffre) | **oui**, avant toute extension — sinon l'homonymie est garantie |
-| **C** | **Me fournir la liste des symptômes d'urgence** depuis une source officielle | **indispensable** — le seul point où l'attente coûte plus que l'imperfection |
+| **A** | **Inverser l'ordre des phases** : cycle et facteurs avant les usages âge/sexe | **Retenu.** 90 % des usages de l'ancienne phase 2 sont bloqués sur des sources injoignables. **Le plancher de sécurité reste au début** : le *moteur* `applicable / non_applicable / indeterminable` ne demande aucune source et garde sa place en phase 2 ; seuls les **usages** qui ont besoin de valeurs partent à la fin |
+| **B** | **Désambiguïser la nature `cycle`** de `StatutHormonal` | **Retenu, en deux temps** — ma recommandation initiale (« renommer avant toute extension ») coûtait plus que nécessaire. Ce que le test de vocabulaire attrape est le **libellé affiché** : « Phase du cycle » → « Phase de cure » est de l'affichage, la clé stockée ne bouge pas, **aucune migration**, fait tout de suite. La **clé** `cycle`, invisible de la personne mais piégeuse à côté d'un futur `menstruel_*`, se renomme **avec l'arrivée du module**, qui impose de toute façon un changement de schéma : la migration voyage avec lui au lieu de se payer deux fois |
+| **C** | **Symptômes d'urgence (4.4.6)** | **Scindé en deux, et le module n'attend pas** — j'avais eu tort d'en faire un verrou. Le **bloc de recours** (« en cas de doute, 15 ou 112 ») n'est pas une affirmation médicale : ce sont les numéros d'urgence, déjà présents via E.2. Il part **avec le module**, à tout âge, sous tout statut, module même désactivé. La **liste énumérée** des symptômes demande une source officielle, qu'Alexis fournira ; elle s'ajoute ce jour-là. Je ne l'inventerai pas |
 | 1 | Un coffre par personne, sans partage | **confirmé** |
 | 2 | Valeurs du sexe ; champ « genre » ou accord grammatical | **non** — formulations neutres |
 | 3 | Question posée d'office à *femme* et *intersexe ou autre*, module ouvert à tous | **confirmé** |
 | 4 | Emplacements de la collecte (chapitres 1 et 7) | **confirmé** |
 | 5 | Frontière à 18 ans ; cycle sous 18 ans | **« journal seul »**, avec les urgences — ACOG 651 est injoignable, donc aucun repère d'adolescente |
-| 6 | Avertissement de planification sur le repère de sommeil | **option désactivée par défaut**, et **non livrable** faute de source |
+| **6** | Avertissement de planification sur le repère de sommeil | **Écart au prompt : ne pas le construire du tout.** Le prompt en fait la *seule exception assumée* à l'interdiction de comparer la personne à sa tranche d'âge. Pour avertir que le plan de révision rogne le sommeil, Cyclades n'a besoin de personne d'autre : il connaît le sommeil déclaré **et la base habituelle de la personne**. Comparer à soi-même répond à la même question, mieux, sans source et sans exception. **La fonction est gardée, l'exception supprimée** — il n'y a donc plus aucune exception à 1 n° 6 |
 | 7 | Repères de prévention par âge et sexe | **plus tard** |
 | 8 | Définition de J1 ; fenêtre « avant les règles » | J1 = premier jour de saignement menstruel, traces isolées exclues ; fenêtre **à fixer avec toi** (décision 24) |
 | 9 | Marqueurs d'ovulation | **oui, phase 8**, et seulement a posteriori |
-| 10 | Import d'un historique | **oui, phase 8**, brut non conservé |
+| **10** | Import d'un historique depuis une autre application | **Écart au prompt : non, et pas « plus tard ».** Le bénéfice est faible (quelques dates, une fois). Le risque est d'une nature que le prompt ne traite pas : il borde l'**écriture** (colonnes non mappées écartées), pas la **lecture** — l'assistant de mappage doit voir les colonnes pour les proposer, donc voir une éventuelle colonne d'activité sexuelle avant de l'écarter. La saisie rétroactive de 4.3, avec ses dates marquées `estime`, donne le même résultat pour une surface nulle |
 | 11 | Signaux d'orientation | **aucun signal codé** tant qu'aucune source n'est atteignable ; le repère reste un fait affiché |
 | 12 | Fenêtre fertile, ovulation prédite, contraception | **jamais** — non levable |
-| 13 | Facteurs sans source | **rubrique séparée** « Mesuré, lien non établi ». Écartés : finances, usage de l'application, saison, lumière, météo |
+| 13 | Facteurs sans source | **Rubrique séparée** « Mesuré, lien non établi ». Écartés : finances, usage de l'application, saison, lumière, météo. **À savoir avant d'ouvrir l'écran** : aucune source n'étant atteignable, **tous** les facteurs y atterrissent au premier jour — ce n'est pas un cas particulier en bas de page, c'est la page entière |
 | 14 | Méthode des pistes entre cycles | à proposer chiffrée en phase 5, **validée avant implémentation** |
 | 15 | Le cycle dans « Que faire maintenant ? » | **jamais** |
 | 16 | Base personnelle stratifiée par le cycle | **non** — contexte affiché seulement |
@@ -499,13 +504,27 @@ Vingt-cinq du prompt, trois ajoutées par ce plan. Ma recommandation suit chacun
 | 18 | Option « ne pas synchroniser le cycle » | **non synchronisé par défaut** tant que les garanties ne sont pas démontrées |
 | 19 | Dérivées S2 et sous-interrupteur indépendant de « tout voir » | **confirmé** |
 | 20 | Libellé du module | **« Suivi personnel »** — et la collision avec `/odyssee/mes-regles/` l'impose autant que la discrétion |
-| 21 | Largeur de la tranche d'âge à l'export | **dix ans** |
+| 21 | Largeur de la tranche d'âge à l'export | **Dix ans.** Une tranche de cinq ans **plus un sexe**, dans un export destiné à un tiers, se rapproche d'une donnée identifiante ; dix ans suffit à tout usage que le registre prévoit |
 | 22 | Ordre de vérification des sources | **tu les fournis** ; ordre proposé : symptômes d'urgence, FIGO, sommeil par tranche, populations des échelles, RCP |
 | 23 | Points appelant un avis juridique | **trois** : la qualification du suivi, la mention « pas un dispositif médical », le régime des données de santé |
 | 24 | Paramètres de produit à justifier | proposés chiffrés en phase 3, **aucun appliqué avant ta réponse** |
 | 25 | Purge physique, sauvegardes, index | **confirmé** ; ce que l'architecture ne permet pas sera dit, pas contourné |
 
 ---
+
+## 10 bis. Par quoi la phase 1 commence
+
+Validé en même temps que les décisions. **La pièce qui compte n'est pas le champ
+d'âge : c'est `contexte_personne()` et le registre.** Tant qu'un module peut lire
+`sexe` directement, chaque usage ajouté est une promesse tenue à la main. Une
+fois la porte unique posée et le test sur le graphe d'imports en place, **un
+usage non déclaré ne compile pas** — exactement ce que `ValeurSourcee` fait déjà
+pour une valeur sans source. C'est le même geste, et c'est celui qui a le mieux
+tenu dans ce projet.
+
+Ordre de la phase 1 : seuils déclarés → calcul de l'âge et règle de frontière →
+registre → `contexte_personne()` → test du graphe d'imports → collecte →
+carte « utilisateur existant » → écran « Qui utilise mon âge et mon sexe ».
 
 ## 11. Ce que je n'ai pas vérifié
 
