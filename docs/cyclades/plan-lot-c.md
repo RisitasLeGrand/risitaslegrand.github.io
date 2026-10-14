@@ -106,11 +106,19 @@ deux branches sont contrôlées séparément.
 
 ## L5 — Planification : des jours passés marqués « non tenue » · **fait**
 
-La cause est marquée **[D]** par la critique : à établir avant de corriger.
-Deux correctifs possibles selon ce que la lecture du code montrera —
-démarrer le planning à la date d'ouverture du parcours, ou ne pas étiqueter
-les jours antérieurs à cette date. Le constat sera écrit ici avant le
-correctif.
+La cause était marquée **[D]** par la critique : à établir avant de
+corriger. Elle est établie, et c'est la première des deux hypothèses :
+`peindrePlanning` partait de `aujourd'hui − 7` sans regarder depuis quand le
+carnet existe, et étiquetait « non tenue » sept jours antérieurs à son
+ouverture. Il part maintenant au plus tôt de `creeLe`.
+
+Un cas de bord, trouvé en écrivant le correctif : un profil enregistré avant
+que ce champ n'existe prendrait « maintenant », et masquerait des jours
+réellement passés. Quand le dernier jour étudié est antérieur à `creeLe`,
+c'est donc lui qui fait foi. Et le chapeau, qui annonçait « les séances à
+venir » en montrant sept jours passés, dit maintenant ce qu'il montre.
+
+**Mesuré** : 21 jours affichés avant, 14 après, et zéro « non tenue ».
 
 ---
 
@@ -150,5 +158,80 @@ actualites:dist` n'a pas été lancé, et c'est voulu.
 
 | Réf. | Question | État |
 |---|---|---|
+| D-037 | Le tableau de bord, seul écran sans `h1` hors du verrou | **livré** le 14 octobre, en `sr-only` : le nom de l'écran est partout pour qui voit la page, il manquait à qui l'écoute, et la structure commençait à `h2`. L'exception nommée disparaît de `essais:structure` — 51 écrans, 51 titres distincts, zéro exception. |
+| D-038 | La taille du texte sur tout le site | **option B appliquée** le 14 octobre, puis les tailles écrites hors de l'échelle traitées. Document dédié : `d-038-taille-du-texte.md`. |
 | D-039 | Marqueur « lu / non lu » sur les actualités | **validé et livré** le 14 octobre. Magasin `actualitesLues`, non scellé — un marqueur de lecture qui ne marcherait que coffre ouvert serait absurde sur une liste d'actualités. La clef est « période:empreinte du titre » : IndexedDB n'est pas chiffré pour Révisions, et une liste de titres en clair sur le disque dirait ce qui est lu. |
 | D-040 | Annulation après suppression d'un exercice | **écartée pour l'instant** le 14 octobre. La confirmation reste, le retour en arrière n'est pas fait. |
+| D-041 | Les liens de phrase portaient « cible-tactile » | **corrigée** le 14 octobre. WCAG 2.5.8 exempte un lien posé au fil d'une phrase, et l'essai appliquait déjà l'exception : la classe n'obéissait à rien et fabriquait une boîte plus haute que la ligne. Retirée de huit liens, gardée sur les fils d'Ariane, les boutons et les liens isolés. Contrôle M4 de `essais:mobile`. |
+| D-042 | Les étiquettes en unités de dessin, sous 14 px à l'écran | **corrigée sur les deux courbes**, le reste **remonté sans être touché**, le 14 octobre. Voir la section ci-dessous. |
+| D-043 | Le menu de période des actualités, rogné sur téléphone | **corrigée** le 14 octobre. Mise en page et libellé, les deux étaient en cause. Contrôle N8 de `essais:actualites:navigateur`. |
+
+---
+
+## D-042 — pourquoi deux courbes sont corrigées et seize étiquettes ne le sont pas
+
+La suite de D-038 a fait apparaître trente-deux tailles écrites à la main,
+hors de l'échelle typographique. Treize sont du **texte HTML** : elles sont
+passées à `text-xs` et le site n'a plus aucun texte sous 14 px. Les
+dix-neuf autres sont des `<text>` dans un `viewBox`, et c'est une tout
+autre affaire.
+
+**Dans un `viewBox`, une taille de police est une unité de dessin.** Ce que
+l'œil reçoit vaut la valeur déclarée multipliée par le facteur d'échelle,
+c'est-à-dire le rapport entre la boîte rendue et le `viewBox`. Écrire
+« 14 » n'y donne pas 14 px. Mesuré au navigateur, en injectant la géométrie
+réelle dans le conteneur réel :
+
+| | 390 px | 1280 px |
+|---|---:|---:|
+| `sport/force` — courbe, 11 u | **7,8 px** | **10,8 px** |
+| `odyssee/corps` — courbe, 11 u | **6,8 px** | **10,6 px** |
+| `VisuelFigure`, 10 u | 9,4 px | 17,7 px |
+| `VisuelCourbe` / `Frise` / `Schema`, 10 u | 10,5 px | 19,8 px |
+| `VisuelVenn`, 11 u | 12,3 px | 23,1 px |
+| `Graphe` du raisonnement relationnel, 11 u | 13,1 px | 14,1 px |
+
+Deux régimes, et c'est ce qui sépare le geste fait du geste non fait.
+
+**Les deux courbes sont un défaut franc.** Hauteur figée contre un dessin
+plus haut, largeur minimale plus étroite que le dessin : le facteur ne
+montait jamais à 1, donc elles étaient **sous le plancher à toutes les
+largeurs**, et aucune valeur de police n'y aurait rien changé. La largeur
+minimale passe à celle du `viewBox`, la hauteur se libère, le facteur ne
+descend plus sous 1. Le prix est assumé : un dessin large de 720 px se
+parcourt sur un écran de 390, dans un conteneur qui défilait déjà.
+`npm run essais:courbes` garde l'invariant.
+
+**Les seize autres ne sont pas une taille à relever.** Elles varient du
+simple au double selon l'écran — 9,4 px sur un téléphone, 23,1 px sur un
+ordinateur. Leur poser `text-xs` donnerait 13 px sur téléphone et 28 px sur
+ordinateur : le défaut changerait de bout sans disparaître. Ce qui est en
+cause est le **rapport** entre le dessin et sa boîte, pas la valeur écrite,
+et le revoir veut dire reprendre la géométrie de huit visuels de correction
+dont les étiquettes sont placées à la main. C'est un lot, pas une
+retouche — il est posé ici, non fait, plutôt que bâclé.
+
+## D-043 — les deux causes, séparées
+
+Un `<option>` ne se replie pas, ne s'abrège pas et n'avertit pas : ce qui
+dépasse disparaît sans que rien ne le signale. Le menu faisait **69 px**
+pour un libellé qui en demandait **414** — on lisait « 202 ».
+
+1. **La mise en page.** Le menu était glissé entre « Précédente » et
+   « Suivante », en `flex-1` : les deux boutons et le compteur prenaient
+   266 px des 358 disponibles, il héritait du reste. Il passe en tête — on
+   lit la période avant les flèches qui la font avancer, et la tabulation
+   suit — et prend la ligne entière sous 640 px. Il gagne 358 px.
+2. **Le libellé**, car 358 ne suffisaient toujours pas. Le qualificatif
+   part, puisqu'il reste sous les yeux dans le titre de section juste en
+   dessous ; et tant qu'il reste des actualités à lire, le compte à lire
+   remplace le compte total, qu'il porte déjà.
+
+Le défaut est **antérieur** au passage du texte à 16 px, qui n'a fait que
+l'aggraver : vérifié en rétablissant l'ancienne échelle dans le navigateur,
+96 px pour 363 demandés. C'est une ligne de mon propre lot C, pas une
+régression de D-038.
+
+Constaté après correction, sur les trente-neuf périodes réelles à 360 px —
+la largeur que `docs/ajouter-une-branche.md` retient comme écran le plus
+étroit : le plus long libellé fait **194 px pour 296 disponibles**.

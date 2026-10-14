@@ -152,9 +152,50 @@ donc pas touchées. Elles sont désormais **le seul texte du site sous 14 px**.
 Les remonter à `text-xs` — maintenant 14 px — est une ligne de décision, pas
 une suite automatique de D-038.
 
+> **Suite donnée le 14 octobre** : les treize occurrences HTML sont passées
+> à `text-xs`, les dix-neuf autres sont des unités de dessin et relèvent de
+> D-042. Voir la section 6.
+
 **L'essai des colonnes mesure quinze paires d'en-têtes au lieu de vingt-trois.**
 Ce n'est pas la taille du texte : c'est le lot C. Le tableau des volumes de
 Programmes et le tableau des points de Force sont désormais repliés tant
 qu'il n'y a rien à montrer, et sur un profil vierge ils n'ont plus d'en-tête
 à mesurer. Sur un profil qui porte des données, les vingt-trois paires
 reviennent.
+
+
+---
+
+## 6. La suite — les tailles écrites hors de l'échelle
+
+Trente-deux au total, comptées dans la source (`text-[10px]`,
+`text-[11px]`). Elles se partagent en deux familles que seule la mesure
+distingue, et que confondre aurait conduit à un geste faux.
+
+**Treize sont du texte HTML** : barre de navigation du bas, crédits et
+sources d'actualité, pastilles de la planification et de la bibliothèque,
+étiquettes du graphique des statistiques, jours des quêtes, raccourci
+clavier du Quad n-back, mention des annotations. Elles passent à `text-xs`.
+Relevé du jour, même commande, mêmes dix-huit écrans, 1280 × 900 :
+
+| Taille | Caractères | Part |
+|---:|---:|---:|
+| 14 px | 21 633 | 31,3 % |
+| 16 px | 45 985 | 66,4 % |
+| 17 px | 88 | 0,1 % |
+| 18 px | 1 107 | 1,6 % |
+
+> **Sous 16 px : 31,3 %. Sous 14 px : 0,0 %.**
+
+Le site n'a plus aucun texte HTML sous 14 px.
+
+**Dix-neuf sont des `<text>` dans un `viewBox`**, c'est-à-dire des unités de
+dessin et non des tailles d'écran. Trois d'entre elles — les deux courbes
+tracées à la main — étaient sous le plancher à toutes les largeurs et sont
+corrigées ; les seize autres varient du simple au double selon l'écran et
+demandent de revoir une géométrie, pas une valeur. Le détail, les mesures et
+la raison de ne pas avoir touché aux seize sont dans `plan-lot-c.md`,
+section D-042.
+
+**Essais verts** : espaces, structure, courbes, actualités, mobile (dont M4),
+accessibilité, colonnes, navigation, sport, odyssée.
