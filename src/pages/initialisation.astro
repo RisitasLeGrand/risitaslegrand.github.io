@@ -140,11 +140,14 @@ import Base from '../layouts/Base.astro';
     DEFAUTS,
     MAXIMUM_LIGNES,
     MULTIPLES,
+    SAISIE_LIBRE_CHIFFREE,
     SUGGESTIONS,
+    avisDeSaisie,
     enEcrans,
     type Option,
     type Question,
   } from '../lib/noyau/initialisation';
+  import { jourLogique } from '../lib/noyau/jour-logique';
   import type { Deduction } from '../lib/noyau/observation';
   import type { ChampDeclare } from '../lib/noyau/profil';
 
@@ -238,6 +241,59 @@ import Base from '../layouts/Base.astro';
       element.appendChild(bouton);
     }
     return { element, lire: () => choisie, immediate: true };
+  }
+
+  /**
+   * Un nombre tapé librement, que rien ne borne — et qui se fait remarquer
+   * quand il est invraisemblable.
+   *
+   * Le repli `texte()` aurait rendu une chaîne pour un champ de nature
+   * « nombre » : `valider()` l'aurait refusée, et l'écran aurait été mort sans
+   * que rien ne plante. Le curseur de `BORNES`, lui, aurait imposé des bornes
+   * dures là où B.3 demande un avertissement — un minimum à 1900 refuserait
+   * quelqu'un né en 1895.
+   *
+   * D'où ce troisième cas : une saisie numérique sans borne, doublée d'une
+   * phrase sous le champ quand la valeur étonne. La phrase n'empêche pas de
+   * continuer ; c'est tout son intérêt.
+   */
+  function nombreLibre(declare: ChampDeclare, defaut: number | null): Saisie {
+    const enveloppe = document.createElement('div');
+    const champ = document.createElement('input');
+    champ.type = 'number';
+    champ.inputMode = 'numeric';
+    champ.id = `saisie-${declare.champ}`;
+    champ.setAttribute('aria-labelledby', 'question');
+    champ.value = defaut === null ? '' : String(defaut);
+    champ.autocomplete = 'off';
+    champ.className =
+      'w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 ' +
+      'dark:border-slate-700 dark:bg-slate-950 dark:text-white';
+    enveloppe.appendChild(champ);
+
+    const avis = document.createElement('p');
+    avis.id = `avis-${declare.champ}`;
+    avis.className = 'mt-2 hidden text-sm text-amber-800 dark:text-amber-300';
+    avis.setAttribute('role', 'status');
+    enveloppe.appendChild(avis);
+
+    champ.addEventListener('input', () => {
+      const n = Number(champ.value);
+      const phrase =
+        champ.value.trim() === '' || !Number.isFinite(n)
+          ? null
+          : avisDeSaisie(declare.champ, n, jourLogique(new Date()));
+      avis.textContent = phrase ?? '';
+      avis.classList.toggle('hidden', phrase === null);
+    });
+
+    return {
+      element: enveloppe,
+      lire: () => {
+        const n = Number(champ.value);
+        return champ.value.trim() === '' || !Number.isFinite(n) ? undefined : n;
+      },
+    };
   }
 
   function texte(declare: ChampDeclare, defaut: string): Saisie {
@@ -463,6 +519,9 @@ import Base from '../layouts/Base.astro';
         return bascules(options, Array.isArray(defaut) ? (defaut as unknown[]) : []);
       }
       return choixUnique(options, defaut, valider);
+    }
+    if (SAISIE_LIBRE_CHIFFREE.includes(champ)) {
+      return nombreLibre(declare, typeof defaut === 'number' ? defaut : null);
     }
     if (champ in BORNES) return curseur(declare, typeof defaut === 'number' ? defaut : 0);
     if (champ in MAXIMUM_LIGNES) return lignes(declare, Array.isArray(defaut) ? (defaut as string[]).map(String) : []);

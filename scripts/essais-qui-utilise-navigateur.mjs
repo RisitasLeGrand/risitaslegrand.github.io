@@ -140,6 +140,54 @@ const trop = await page.evaluate(() =>
 );
 v('aucune cible tactile sous 44 px', trop, []);
 
+/* --- 7. La question de l'année, à l'initialisation ---------------------- */
+
+console.log('\nL’ANNÉE DE NAISSANCE, À L’INITIALISATION');
+
+const neuf = await nav.newContext({ viewport: { width: 360, height: 780 }, hasTouch: true, isMobile: true });
+const p2 = await neuf.newPage();
+p2.on('pageerror', (e) => console.log('PAGEERROR[init]:', e.message.slice(0, 200)));
+await p2.goto(`${RACINE}/initialisation/`, { waitUntil: 'networkidle' });
+if (await p2.locator('#champ-mdp').isVisible().catch(() => false)) {
+  await p2.fill('#champ-mdp', MDP);
+  await p2.click('#bouton-verrou');
+}
+if (await p2.locator('#commencer').isVisible().catch(() => false)) await p2.click('#commencer');
+await p2.waitForSelector('#question', { timeout: 30000 });
+
+/* Prénom, puis nom : l'année est la troisième question. */
+for (let i = 0; i < 6; i += 1) {
+  const titre = await p2.locator('#question').innerText();
+  if (titre.includes('année de naissance')) break;
+  const libre = p2.locator('#saisie input[type=text]');
+  if (await libre.count()) await libre.first().fill('Essai');
+  if (await p2.locator('#valider').isEnabled()) await p2.click('#valider');
+  else await p2.click('#plus-tard');
+  await p2.waitForTimeout(200);
+}
+
+v('la question de l’année est atteinte', (await p2.locator('#question').innerText()).includes('année de naissance'), true);
+v(
+  'elle est rendue par une saisie numérique, pas par un champ de texte mort',
+  await p2.locator('#saisie input[type=number]').count(),
+  1,
+);
+vrai('« Plus tard » est une sortie offerte', await p2.locator('#plus-tard').isVisible());
+
+await p2.fill('#saisie input[type=number]', '1066');
+await p2.waitForTimeout(150);
+const avis = await p2.locator('#saisie p[role=status]').innerText();
+vrai('une année aberrante se fait remarquer', avis.includes('130 ans'));
+vrai('…et n’empêche pas de continuer', await p2.locator('#valider').isEnabled());
+
+await p2.fill('#saisie input[type=number]', '1990');
+await p2.waitForTimeout(150);
+v(
+  'une année plausible ne dit rien',
+  await p2.locator('#saisie p[role=status]:not(.hidden)').count(),
+  0,
+);
+
 /* ----------------------------------------------------------------------- */
 
 await nav.close();

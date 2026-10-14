@@ -28,6 +28,7 @@
  * aurait fait deux vérités du même champ.
  */
 import type { Deduction } from './observation';
+import { anneeAberrante } from './age';
 import type { Operation } from './operations';
 import { comparerOperations } from './operations';
 import {
@@ -480,6 +481,26 @@ export const BORNES: Readonly<Record<string, Bornes>> = {
  * `anneeAberrante()`, qui rend une phrase et non un refus.
  */
 export const SAISIE_LIBRE_CHIFFREE: readonly string[] = ['naissanceAnnee'];
+
+/**
+ * Y a-t-il quelque chose à dire sur cette réponse — **sans la refuser** ?
+ *
+ * L'écran appelle cette fonction sans savoir de quel champ il s'agit, et c'est
+ * le but : s'il devait connaître les années de naissance en particulier, il
+ * devrait aussi connaître la prochaine règle du même genre, et la suivante.
+ * Ici, l'outillage des questions répond ; la page affiche la phrase, et laisse
+ * continuer.
+ *
+ * C'est aussi ce qui évite à la page d'importer le calcul d'âge, que l'essai
+ * sur le graphe d'imports lui interdit — à raison : un écran qui sait calculer
+ * un âge sait aussi lire l'année.
+ */
+export function avisDeSaisie(champ: string, valeur: unknown, jour: string): string | null {
+  if (champ === 'naissanceAnnee' && typeof valeur === 'number') {
+    return anneeAberrante(valeur, jour);
+  }
+  return null;
+}
 
 /** Combien de lignes au plus, pour les champs à saisie libre multiple. */
 export const MAXIMUM_LIGNES: Readonly<Record<string, number>> = {
