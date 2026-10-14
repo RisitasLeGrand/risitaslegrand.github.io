@@ -57,13 +57,27 @@ const CHAMPS_DE_LA_BASE = [
 ];
 
 /**
- * Les trois endroits où le **nom** de la ressource a le droit d'apparaître :
- * la passerelle, qui doit bien porter son adresse ; le script d'extraction,
- * qui est lancé à la main ; et la documentation, qui explique pourquoi.
+ * Les endroits où le **nom** de la ressource a le droit d'apparaître : la
+ * passerelle, qui doit bien porter son adresse ; les scripts d'extraction,
+ * qui sont lancés à la main ; et la documentation, qui explique pourquoi.
+ *
+ * `construire-bibliographie.mjs` a rejoint la liste le 14 octobre, et c'est
+ * un rattrapage, pas un assouplissement. Il est de la même nature que son
+ * voisin déjà autorisé : lancé à la main (`npm run bibliographie:construire`),
+ * il reçoit le fichier source en argument et doit nommer les champs de la
+ * base pour les lire. Il ne contient **aucune donnée** — vérifié — et il
+ * nomme `anecAuthors` précisément pour dire qu'il l'écarte, ce que son
+ * en-tête explique sur dix lignes.
+ *
+ * Ce que cette règle protège est la présence de **données** de la ressource
+ * dans le dépôt, pas la mention de ses noms de colonnes par l'outil qui la
+ * lit. L'essai échouait depuis `ac2136f` faute d'avoir été mis à jour avec
+ * le script qu'il accompagne.
  */
 const LIEUX_AUTORISES = [
   'src/lib/odyssee/bibliotheque-externe.ts',
   'scripts/construire-registre-molecules.mjs',
+  'scripts/construire-bibliographie.mjs',
   'scripts/essais-bibliotheque.mjs',
   'docs/cyclades/plan-molecules.md',
   'docs/cyclades/message-proprietaire-bibliotheque.md',
