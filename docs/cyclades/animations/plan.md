@@ -468,6 +468,44 @@ muscles sur ce schéma.
 >
 > **Contrôle** : `npm run essais:explicatives`, 16 contrôles.
 
+> **Cas 3 livré le 14 octobre, après arbitrage du pilote et confirmation
+> d'Alexis.**
+>
+> **Ce que le relevé a corrigé, trois fois.** J'annonçais 9 jauges dans 8
+> pages ; le pilote en a signalé deux que mon motif ne voyait pas
+> (`bibliotheque` en chaîne HTML, `horizon-jalon-barre` sur deux lignes), et le
+> contrôle en a trouvé **trois de plus** dans des composants Svelte que je
+> n'avais pas balayés. Total réel : **une vingtaine de jauges, 11 infractions**
+> plus la barre de chargement.
+>
+> **Et le point qui a renversé l'arbitrage** : le conflit avec l'interdit n° 4
+> **préexistait**. Ces barres portaient déjà `transition-all` sur une largeur.
+> J'avais présenté « ne rien animer » comme l'option prudente ; elle laissait
+> l'infraction en place. C'était faux, et cela changeait la décision.
+>
+> **Livré** : un mécanisme unique — piste `.jauge`, remplissage
+> `.jauge-remplissage` en `transform: scaleX()`, origine à gauche. Deux
+> familles : `.jauge-valeur` par défaut (remplissage d'arrivée, 300 ms) et
+> `.jauge-seance` (200 ms entre étapes). La barre de chargement migre sans
+> changer de logique. **Plus aucune largeur n'est animée dans le site.**
+>
+> **L'exclusion du coffre, qui n'est pas esthétique** : la jauge d'Odyssée
+> mesure le temps par branche, et Psyché en est une source. Coffre ouvert, elle
+> reflète une donnée du coffre. Elle migre au même mécanisme — pour que la
+> largeur ne soit plus animée nulle part — mais porte `.jauge-sans-animation`.
+>
+> **Deux contrôles écrits de travers, et corrigés.** Le premier comparait
+> l'échelle au chiffre affiché sur le premier écran de l'accueil : « 0 = 0 »,
+> vrai sans rien mesurer. Le second extrayait `scaleX(…)` par une expression
+> qui s'arrêtait à la première parenthèse fermante et tronquait justement le
+> « / 100 » cherché — il accusait six conversions correctes. La vérification
+> porte désormais sur **les vingt sites**, et interdit qu'une échelle soit
+> écrite en pourcents : `scaleX(62)` au lieu de `scaleX(0,62)` donnerait une
+> jauge cent fois trop large.
+>
+> **Contrôle** : `npm run essais:jauges`, 13 contrôles, rouge avant la
+> migration sur les 11 infractions existantes.
+
 ## Livrables
 
 - Commits séparés par phase, chacun décrit.

@@ -42,7 +42,7 @@ import Base from '../layouts/Base.astro';
           role="progressbar"
           aria-labelledby="etiquette"
         >
-          <div id="jauge" class="h-full w-0 rounded-full bg-indigo-600 transition-all"></div>
+          <div id="jauge" class="jauge-remplissage jauge-seance h-full rounded-full bg-indigo-600"></div>
         </div>
       </div>
 
@@ -563,7 +563,8 @@ import Base from '../layouts/Base.astro';
       ? `${brancheDeclaree(brancheVoulue)?.libelle ?? brancheVoulue} — pour commencer`
       : 'Faisons connaissance';
     $('compteur').textContent = `${position + 1} / ${ecrans.length}`;
-    ($('jauge') as HTMLElement).style.width = `${Math.round((position / ecrans.length) * 100)}%`;
+    ($('jauge') as HTMLElement).style.transform =
+      `scaleX(${Math.round((position / ecrans.length) * 100) / 100})`;
 
     const obligatoire = ecran.etapes.some((e) => e.declare.obligatoire);
     $('plus-tard').classList.toggle('hidden', obligatoire);

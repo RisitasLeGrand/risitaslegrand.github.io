@@ -1,0 +1,289 @@
+/**
+ * Les jauges — et la largeur qu'aucune d'elles ne doit plus animer.
+ *
+ *   npm run essais:jauges
+ *
+ * **Pourquoi ce contrôle existe, et ce qu'il corrige.** L'interdit n° 4 du
+ * prompt 34 proscrit l'animation de `width` : elle recalcule la mise en page à
+ * chaque image. Le relevé du 14 octobre 2026 a montré que **l'infraction était
+ * déjà là**, antérieure au lot : huit éléments portaient à la fois un
+ * `style="width:…"` et `transition-all`, plus la barre de chargement qui
+ * transitionnait `width` explicitement.
+ *
+ * C'est le point qui a retourné mon propre raisonnement. J'avais présenté le
+ * cas 3 de l'A7 comme « ajouter un remplissage violerait l'interdit » ; en
+ * réalité ne rien faire laissait l'infraction en place. Ne pas animer n'était
+ * donc pas l'option prudente.
+ *
+ * **La parade, décidée par l'arbitrage du 14 octobre** : un mécanisme unique,
+ * `transform: scaleX()` sur un élément à largeur fixe, origine à gauche.
+ * `transform` est explicitement autorisé, ne recalcule pas la mise en page, et
+ * n'ajoute aucun décalage.
+ *
+ * **Deux familles, et elles ne se confondent pas.**
+ *   • Jauges de VALEUR — niveau, maîtrise, horizon, bibliothèque, sport :
+ *     elles se remplissent une fois à l'arrivée, le chiffre étant déjà écrit.
+ *   • Barres d'AVANCEMENT de séance — quiz, flashcards, initialisation,
+ *     appariement : elles passent d'une étape à l'autre, sans remplissage
+ *     d'arrivée. Leur faire jouer un remplissage à chaque question serait une
+ *     animation en boucle déguisée.
+ *
+ * **Et une exclusion, qui ne vient pas de l'esthétique.** La jauge du tableau
+ * de bord d'Odyssée mesure le temps par branche, et Psyché en est une source :
+ * coffre ouvert, elle reflète une donnée du coffre. L'A7 interdit toute
+ * animation explicative sur ces données. Elle migre donc au même mécanisme,
+ * **sans aucune animation**.
+ */
+import { readdirSync, readFileSync, statSync } from 'node:fs';
+import { join } from 'node:path';
+import { chromium } from 'playwright-core';
+import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+
+const MDP = motDePasseEssais();
+const RACINE = 'http://localhost:4321';
+const PLAFOND_MS = 300;
+
+const secondes = (brut) => Number.parseFloat(String(brut)) || 0;
+
+let echecs = 0;
+const v = (titre, obtenu, attendu) => {
+  const ok = JSON.stringify(obtenu) === JSON.stringify(attendu);
+  if (!ok) echecs += 1;
+  console.log(`  ${ok ? '\x1b[32m✓\x1b[0m' : '\x1b[31m✗\x1b[0m'} ${titre}`);
+  if (!ok) {
+    console.log(`      obtenu  ${JSON.stringify(obtenu)?.slice(0, 600)}`);
+    console.log(`      attendu ${JSON.stringify(attendu)?.slice(0, 300)}`);
+  }
+};
+
+console.log('\nJAUGES');
+
+/* --- A. Aucune jauge n'anime ni ne transitionne « width » ---------------- */
+/*
+   Lu dans la source plutôt qu'à l'écran, et c'est voulu : une transition de
+   largeur ne se voit qu'au moment où la valeur change, c'est-à-dire rarement
+   et sur des écrans qui demandent des données. La source, elle, se lit
+   entièrement.
+
+   `transition-all` compte, et c'est tout l'intérêt : il n'écrit pas « width »,
+   mais il le transitionne. Un contrôle qui chercherait le mot « width » dans
+   les transitions passerait à côté de l'infraction la plus répandue.
+*/
+
+console.log('\n  A — aucune largeur animée');
+
+const fichiers = [];
+const parcourir = (d) => {
+  for (const e of readdirSync(d)) {
+    const c = join(d, e);
+    if (statSync(c).isDirectory()) parcourir(c);
+    else if (/\.(astro|svelte)$/.test(e)) fichiers.push(c);
+  }
+};
+parcourir('src');
+
+/** Une balise qui pose une largeur en style, sur une seule ligne de source. */
+const POSE_UNE_LARGEUR = /style\s*=\s*"[^"]*\bwidth\s*:/i;
+/** Une transition qui emporte la largeur, nommée ou non. */
+const TRANSITIONNE_LA_LARGEUR = /\btransition-all\b|\btransition-\[width\]|transition\s*:[^;"']*\bwidth\b/i;
+
+{
+  const fautifs = [];
+  for (const f of fichiers) {
+    const lignes = readFileSync(f, 'utf8').split('\n');
+    lignes.forEach((ligne, i) => {
+      if (POSE_UNE_LARGEUR.test(ligne) && TRANSITIONNE_LA_LARGEUR.test(ligne)) {
+        fautifs.push(`${f}:${i + 1}`);
+      }
+    });
+  }
+  v('aucun élément ne pose une largeur ET ne la transitionne', fautifs, []);
+}
+
+/* Et la barre de chargement, qui transitionne « width » sans le poser en
+   style : elle y échapperait sans cette ligne. */
+{
+  const source = readFileSync('src/components/BarreProgression.astro', 'utf8');
+  v(
+    'la barre de chargement ne transitionne plus la largeur',
+    /transition-\[width\]/.test(source),
+    false,
+  );
+}
+
+/* --- B. Le mécanisme est partagé, pas recopié ---------------------------- */
+/*
+   Vingt jauges écrites chacune à sa façon, c'est vingt occasions d'oublier la
+   règle. Une classe commune, et la vingt-et-unième l'hérite.
+*/
+
+console.log('\n  B — un seul mécanisme, partagé');
+
+{
+  const socle = readFileSync('src/styles/global.css', 'utf8');
+  v('le socle déclare la jauge', /\.jauge\b/.test(socle), true);
+  v('et son remplissage', /\.jauge-remplissage\b/.test(socle), true);
+  v(
+    'le remplissage est une transformation, pas une largeur',
+    /\.jauge-remplissage\s*\{[^}]*transform:\s*scaleX/.test(socle),
+    true,
+  );
+  v(
+    'ancrée à gauche, sans quoi elle grandirait par le milieu',
+    /\.jauge-remplissage\s*\{[^}]*transform-origin:\s*left/.test(socle),
+    true,
+  );
+}
+
+/* --- C. À l'écran : la jauge dit la bonne valeur ------------------------- */
+
+console.log('\n  C — à l’écran, la proportion est juste');
+
+/*
+   **Mesuré sur l'initialisation, et c'est un choix, pas un pis-aller.** Les
+   écrans à jauge de valeur — révisions, bibliothèque — renvoient un navigateur
+   neuf vers l'initialisation faute de profil : y mesurer demanderait de semer
+   des données, donc de mesurer ce que l'essai a lui-même écrit.
+   L'initialisation, elle, affiche « n sur m » À CÔTÉ de sa jauge. Deux
+   affichages du même fait, qui doivent concorder : c'est la seule façon de
+   voir qu'une jauge ment, et elle ne coûte aucune donnée.
+*/
+const nav = await chromium.launch({
+  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  args: ['--no-sandbox'],
+});
+
+const ouvrir = async (page, route, attendu) => {
+  await page.goto(`${RACINE}${route}`, { waitUntil: 'networkidle' });
+  const verrou = page.locator('#champ-mdp');
+  if (await verrou.isVisible().catch(() => false)) {
+    await page.fill('#champ-mdp', MDP);
+    await page.click('#bouton-verrou');
+  }
+  await page.locator(attendu).first().waitFor({ state: 'visible', timeout: 25000 });
+};
+
+const ctx = await nav.newContext({ viewport: { width: 1280, height: 900 } });
+const page = await ctx.newPage();
+page.on('pageerror', (e) => console.log('PAGEERROR:', e.message.slice(0, 200)));
+
+await ouvrir(page, '/initialisation/', '#compteur');
+
+{
+  const lu = await page.evaluate(() => {
+    const barre = document.getElementById('jauge');
+    return {
+      largeurEnStyle: barre.style.width,
+      classe: barre.className,
+      transformation: getComputedStyle(barre).transform,
+    };
+  });
+  v('la jauge ne porte plus de largeur en style', lu.largeurEnStyle, '');
+  v('elle emploie le mécanisme partagé', /jauge-remplissage/.test(lu.classe), true);
+  v('et le navigateur lui calcule bien une transformation', lu.transformation !== '', true);
+}
+
+/*
+   **La justesse de l'échelle se vérifie dans la source, et c'est délibéré.**
+
+   Mesurer « l'échelle correspond au chiffre affiché » sur un écran demande d'y
+   amener des données : un navigateur neuf n'a pas de profil, les écrans à
+   jauge de valeur renvoient vers l'accueil, et le parcours d'accueil n'avance
+   pas sans qu'on réponde. Semer ces données reviendrait à mesurer ce que
+   l'essai a lui-même écrit — et la première écriture de ce contrôle passait
+   « 0 = 0 » au premier écran, c'est-à-dire sans rien regarder.
+
+   La faute réellement possible, elle, est unique et se lit entièrement : avoir
+   écrit `scaleX(62)` là où il fallait `scaleX(0.62)`. Une échelle en pourcents
+   donne une jauge cent fois trop large. On vérifie donc que **chaque**
+   conversion divise par cent, sur les vingt sites, plutôt qu'une seule à
+   l'écran.
+*/
+
+console.log('\n  C bis — chaque échelle est bien une proportion');
+
+{
+  const suspects = [];
+  for (const f of fichiers) {
+    const texte = readFileSync(f, 'utf8');
+    /* Les parenthèses s'imbriquent — `scaleX(${Math.round(x) / 100})` — et une
+       expression régulière qui s'arrête à la première fermante tronquerait
+       justement le « / 100 » qu'on cherche. Ma première écriture le faisait, et
+       accusait six conversions correctes. On compte donc les parenthèses. */
+    for (let i = texte.indexOf('scaleX('); i !== -1; i = texte.indexOf('scaleX(', i + 1)) {
+      let profondeur = 0;
+      let fin = i + 7;
+      for (; fin < texte.length; fin += 1) {
+        if (texte[fin] === '(') profondeur += 1;
+        else if (texte[fin] === ')') {
+          if (profondeur === 0) break;
+          profondeur -= 1;
+        }
+      }
+      const expr = texte.slice(i + 7, fin).trim();
+      // Une constante : 0 et 1 sont les bornes légitimes.
+      if (/^\$?\{?\s*-?\d+(\.\d+)?\s*\}?$/.test(expr)) {
+        const valeur = Number.parseFloat(expr.replace(/[${}]/g, ''));
+        if (valeur < 0 || valeur > 1) suspects.push(`${f} : scaleX(${expr})`);
+        continue;
+      }
+      // Une expression : elle doit ramener à une proportion.
+      if (!/\/\s*100|\/\s*\w+\.length|\/\s*questions|\/\s*file|\/\s*ecrans|\/\s*reglages/.test(expr)) {
+        suspects.push(`${f} : scaleX(${expr})`);
+      }
+    }
+  }
+  v('aucune échelle n’est écrite en pourcents', suspects, []);
+}
+
+/* --- D. Sous mouvement réduit, aucun remplissage animé ------------------- */
+
+console.log('\n  D — sous mouvement réduit, la valeur est posée, pas remplie');
+
+{
+  const sobre = await nav.newContext({
+    viewport: { width: 1280, height: 900 },
+    reducedMotion: 'reduce',
+  });
+  const s = await sobre.newPage();
+  await ouvrir(s, '/initialisation/', '#compteur');
+  const lu = await s.evaluate(() => {
+    const c = getComputedStyle(document.getElementById('jauge'));
+    return { duree: c.transitionDuration, animation: c.animationName, ad: c.animationDuration };
+  });
+  v('aucune transition ne court', secondes(lu.duree) <= 0.001, true);
+  v(
+    'et aucune animation de remplissage',
+    lu.animation === 'none' || secondes(lu.ad) <= 0.001,
+    true,
+  );
+  await sobre.close();
+}
+
+/* --- E. La jauge d'Odyssée n'anime rien du tout -------------------------- */
+/*
+   Elle reflète une donnée du coffre quand il est ouvert. L'exclusion n'est pas
+   une préférence : c'est l'A7 qui l'impose.
+*/
+
+console.log('\n  E — la jauge d’Odyssée, sous coffre, n’anime rien');
+
+{
+  const source = readFileSync('src/pages/odyssee/index.astro', 'utf8');
+  v('elle emploie le mécanisme partagé', /jauge-remplissage/.test(source), true);
+  v(
+    'et elle est marquée « sans animation »',
+    /jauge-sans-animation/.test(source),
+    true,
+  );
+  const socle = readFileSync('src/styles/global.css', 'utf8');
+  v(
+    'le socle neutralise cette variante',
+    /\.jauge-sans-animation[^{]*\{[^}]*transition:\s*none/.test(socle),
+    true,
+  );
+}
+
+await nav.close();
+console.log(`\n${echecs ? '\x1b[31m✗' : '\x1b[32m✓'} ${echecs} échec(s)\x1b[0m\n`);
+process.exit(echecs ? 1 : 0);

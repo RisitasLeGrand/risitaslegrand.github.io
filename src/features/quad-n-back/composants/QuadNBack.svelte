@@ -759,7 +759,7 @@
         ↻ <span class="hidden sm:inline">Recommencer</span>
       </button>
       <div class="h-2 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
-        <div class="h-full rounded-full bg-indigo-500 transition-all duration-200" style="width: {progression}%"></div>
+        <div class="jauge-remplissage jauge-seance h-full rounded-full bg-indigo-500" style="transform: scaleX({progression / 100})"></div>
       </div>
       <span class="text-sm font-medium tabular-nums text-slate-500 dark:text-slate-400">
         {Math.max(0, index + 1)}/{partie?.epreuves.length ?? 0}

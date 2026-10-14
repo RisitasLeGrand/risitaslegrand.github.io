@@ -558,7 +558,7 @@
     </div>
 
     <div class="h-1 overflow-hidden rounded bg-slate-200 dark:bg-slate-800">
-      <div class="h-full bg-indigo-500 transition-all" style="width: {(faits / reglages.essais) * 100}%"></div>
+      <div class="jauge-remplissage jauge-seance h-full bg-indigo-500" style="transform: scaleX({faits / reglages.essais})"></div>
     </div>
 
     {#if essai.arete.vers.modalite === 'auditive' && !sonPret}

@@ -31,7 +31,10 @@ function elements() {
 function poser(valeur: number) {
   avancement = Math.max(0, Math.min(100, valeur));
   if (!elements()) return;
-  jauge!.style.width = `${avancement}%`;
+  /* Une transformation, plus une largeur : animer « width » recalculait la mise
+     en page à chaque image, ce que l'interdit n° 4 du prompt 34 proscrit. La
+     logique d'avancement, elle, ne change pas (arbitrage du 14 octobre, point 4). */
+  jauge!.style.transform = `scaleX(${avancement / 100})`;
   barre!.setAttribute('aria-valuenow', String(Math.round(avancement)));
 }
 

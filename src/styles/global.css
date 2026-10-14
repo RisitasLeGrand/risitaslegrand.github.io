@@ -669,6 +669,61 @@ button:not(:disabled):active,
   opacity: 0;
 }
 
+/* --- Les jauges (prompt 34, arbitrage du 14 octobre) ---------------------- */
+/*
+   **Un seul mécanisme, et pourquoi il a fallu l'écrire.** L'interdit n° 4
+   proscrit l'animation de `width` : elle recalcule la mise en page à chaque
+   image. Or le relevé du 14 octobre a montré que l'infraction **était déjà
+   présente** — onze éléments posaient une largeur et la transitionnaient, le
+   plus souvent par un `transition-all` qui n'écrit même pas le mot « width ».
+   Ne rien faire ne la supprimait pas : c'est ce qui a renversé l'arbitrage.
+
+   La parade : une piste à largeur fixe, et un remplissage qui n'est qu'une
+   **transformation**. `transform` est explicitement autorisé, ne touche pas à
+   la mise en page, et n'ajoute aucun décalage.
+
+   **L'origine à gauche n'est pas un détail** : sans elle, la jauge grandirait
+   depuis son milieu, dans les deux sens, ce qui ne veut rien dire pour une
+   progression.
+
+   **Deux familles**, parce qu'elles ne racontent pas la même chose :
+   `.jauge-valeur` se remplit une fois à l'arrivée — une maîtrise, un niveau ;
+   `.jauge-seance` passe d'une étape à la suivante — une question sur douze.
+   Faire jouer un remplissage à chaque question serait une animation en boucle
+   déguisée, ce que l'A7 proscrit.
+
+   Vingt jauges écrites chacune à sa façon, c'était vingt occasions d'oublier
+   la règle. Avec une classe commune, la vingt-et-unième en hérite.
+*/
+.jauge {
+  overflow: hidden;
+}
+
+.jauge-remplissage {
+  width: 100%;
+  transform: scaleX(0);
+  transform-origin: left;
+  transition: transform var(--duree-longue) var(--courbe-entree);
+}
+
+/* Une étape succède à une autre : plus bref qu'un remplissage d'arrivée. */
+.jauge-seance .jauge-remplissage,
+.jauge-remplissage.jauge-seance {
+  transition-duration: var(--duree-moyenne);
+}
+
+/*
+   **L'exclusion du coffre, et elle n'est pas esthétique.** La jauge du tableau
+   de bord d'Odyssée mesure le temps par branche, et Psyché en est une source :
+   coffre ouvert, elle reflète une donnée du coffre. L'A7 interdit toute
+   animation explicative sur ces données. Elle emploie donc le même mécanisme —
+   pour que la largeur ne soit plus animée nulle part — mais ne s'anime pas.
+*/
+.jauge-sans-animation,
+.jauge-sans-animation .jauge-remplissage {
+  transition: none;
+}
+
 /* --- Barre de défilement -------------------------------------------------- */
 /* Discrète et accordée au thème, sur la page comme sur les zones défilantes.
    Deux écritures pour deux familles de navigateurs, puisant dans les mêmes

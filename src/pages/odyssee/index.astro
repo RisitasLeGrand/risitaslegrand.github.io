@@ -493,8 +493,11 @@ import Base from '../../layouts/Base.astro';
         const jauge = document.createElement('div');
         jauge.className = 'mt-2 h-1.5 rounded-full bg-slate-200 dark:bg-slate-800';
         const barre = document.createElement('div');
-        barre.className = 'h-1.5 rounded-full bg-indigo-500';
-        barre.style.width = `${Math.min(100, part)}%`;
+        /* Même mécanisme que partout — mais SANS animation : cette jauge mesure le
+           temps par branche, et Psyché en est une source. Coffre ouvert, elle
+           reflète une donnée du coffre, que l'A7 interdit d'animer. */
+        barre.className = 'h-1.5 rounded-full jauge-remplissage jauge-sans-animation';
+        barre.style.transform = `scaleX(${Math.min(100, part) / 100})`;
         jauge.appendChild(barre);
         carte.appendChild(jauge);
       }

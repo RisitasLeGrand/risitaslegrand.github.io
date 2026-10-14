@@ -211,8 +211,8 @@ import Base from '../../layouts/Base.astro';
           nom.textContent = libelleDuMuscle(muscle);
 
           const barre = document.createElement('span');
-          barre.className = 'h-2 rounded-full bg-indigo-500';
-          barre.style.width = `${Math.max(4, (compte / maximum) * 60)}%`;
+          barre.className = 'h-2 rounded-full jauge-remplissage';
+          barre.style.transform = `scaleX(${Math.max(4, (compte / maximum) * 60) / 100})`;
           barre.setAttribute('aria-hidden', 'true');
 
           const valeur = document.createElement('span');
