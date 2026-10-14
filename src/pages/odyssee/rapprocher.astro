@@ -287,7 +287,12 @@ import Base from '../../layouts/Base.astro';
   import { centimesDe, euros, type OperationBancaire } from '../../lib/odyssee/finances';
   import { reconcilier } from '../../lib/odyssee/finances';
   import { occurrences, TOLERANCE_PAR_DEFAUT, type LigneBudget, type Occurrence } from '../../lib/odyssee/budget';
-  import { construireLaFile, type Proposition } from '../../lib/odyssee/appariement';
+  import {
+    construireLaFile,
+    controlerParts,
+    diviser,
+    type Proposition,
+  } from '../../lib/odyssee/appariement';
   import {
     chercherLesCauses,
     ecartsParCategorie,
@@ -413,6 +418,23 @@ import Base from '../../layouts/Base.astro';
   let operationEnEdition: string | null = null;
   let partsEnEdition: PartPointee[] = [];
 
+  /*
+     Les deux gestes de la maquette 4.3, ouverts sur une seule carte à la fois.
+
+     « Autre ligne » corrige la **cible** d'une proposition : le moteur a
+     trouvé une occurrence, elle n'est pas la bonne, on en désigne une autre.
+     « Diviser » corrige sa **forme** : l'opération n'appartient pas à une
+     occurrence mais à plusieurs, et chacune reçoit sa part.
+
+     Un seul panneau ouvert à la fois, et les deux s'excluent : ouvrir l'un
+     ferme l'autre. Deux panneaux ouverts sur la même opération poseraient la
+     question de celui qui gagne à l'enregistrement, et la réponse ne se
+     devine pas depuis l'écran.
+  */
+  let reaffectationOuverte: string | null = null;
+  let divisionOuverte: string | null = null;
+  let partsDeLaDivision: { occurrenceId: string; centimes: number }[] = [];
+
   /* ── Les données du tour ───────────────────────────────────────────────── */
 
   async function rassembler() {
@@ -509,7 +531,7 @@ import Base from '../../layouts/Base.astro';
     const zone = $('probables');
     zone.innerHTML = '';
     for (const p of file.probables) {
-      zone.appendChild(carteDeProposition(p, parOcc, parLigne, operations));
+      zone.appendChild(carteDeProposition(p, parOcc, parLigne, operations, occLibres));
     }
     ($('tout-confirmer') as HTMLButtonElement).disabled = file.probables.length === 0;
 
@@ -577,6 +599,7 @@ import Base from '../../layouts/Base.astro';
     parOcc: Map<string, Occurrence>,
     parLigne: Map<string, { libelle: string; sens: string }>,
     operations: readonly OperationBancaire[],
+    occLibres: readonly Occurrence[],
   ): HTMLElement {
     const op = operations.find((o) => o.id === p.operationId)!;
     const occ = parOcc.get(p.occurrenceId);
@@ -648,7 +671,36 @@ import Base from '../../layouts/Base.astro';
       }),
     );
 
+    gestes.append(
+      bouton('Autre ligne', 'autre-ligne', async () => {
+        reaffectationOuverte = reaffectationOuverte === p.operationId ? null : p.operationId;
+        divisionOuverte = null;
+        await peindreLaFile();
+      }),
+      bouton('Diviser', 'diviser', async () => {
+        if (divisionOuverte === p.operationId) {
+          divisionOuverte = null;
+        } else {
+          divisionOuverte = p.operationId;
+          reaffectationOuverte = null;
+          /*
+             On part de l'occurrence que le moteur a proposée, avec la
+             totalité du montant. La première part est donc déjà juste si la
+             personne n'en ajoute qu'une seconde : le reste ira dessus.
+          */
+          partsDeLaDivision = [{ occurrenceId: p.occurrenceId, centimes: op.centimes }];
+        }
+        await peindreLaFile();
+      }),
+    );
+
     li.append(entete, cible, pourquoi, gestes);
+    if (reaffectationOuverte === p.operationId) {
+      li.appendChild(panneauAutreLigne(p, op, occLibres, parLigne));
+    }
+    if (divisionOuverte === p.operationId) {
+      li.appendChild(panneauDeDivision(p, op, occLibres, parLigne));
+    }
     if (p.remboursement) {
       const note = document.createElement('p');
       note.className = 'mt-1 text-xs text-emerald-700 dark:text-emerald-300';
@@ -659,6 +711,308 @@ import Base from '../../layouts/Base.astro';
       li.insertBefore(note, gestes);
     }
     return li;
+  }
+
+  /* ── Les deux gestes de la maquette 4.3 ────────────────────────────────── */
+
+  /**
+   * Le libellé d'une occurrence dans un sélecteur : ligne, prévu, jour.
+   *
+   * Les trois ensemble, et pas seulement la ligne : deux occurrences d'une
+   * même ligne ne se distinguent que par leur jour et leur montant, et un
+   * menu qui afficherait deux fois « Électricité » demanderait de deviner.
+   */
+  function libelleDOccurrence(
+    occ: Occurrence,
+    parLigne: Map<string, { libelle: string; sens: string }>,
+  ): string {
+    const ligne = parLigne.get(occ.ligneId);
+    return `${ligne?.libelle ?? occ.ligneId} — ${euros(occ.signe * occ.montant)} le ${occ.jour}`;
+  }
+
+  /**
+   * Les occurrences proposées, de la plus plausible à la moins.
+   *
+   * Le tri est **du même sens d'abord, puis du jour le plus proche**. Il ne
+   * cache rien : tout ce qui est libre reste dans la liste, parce qu'une
+   * réaffectation sert précisément aux cas que le moteur n'a pas vus. Mais
+   * une rentrée proposée en tête sur un prélèvement ferait chercher.
+   */
+  function occurrencesProposees(
+    op: OperationBancaire,
+    occLibres: readonly Occurrence[],
+  ): Occurrence[] {
+    const sensDe = (centimes: number) => (centimes < 0 ? -1 : 1);
+    const jour = Date.parse(`${op.jour}T12:00:00Z`);
+    return [...occLibres].sort((a, b) => {
+      const sa = sensDe(a.signe * a.montant) === sensDe(op.centimes) ? 0 : 1;
+      const sb = sensDe(b.signe * b.montant) === sensDe(op.centimes) ? 0 : 1;
+      if (sa !== sb) return sa - sb;
+      const da = Math.abs(Date.parse(`${a.jour}T12:00:00Z`) - jour);
+      const db = Math.abs(Date.parse(`${b.jour}T12:00:00Z`) - jour);
+      return da - db;
+    });
+  }
+
+  function selecteurDOccurrence(
+    occurrences: readonly Occurrence[],
+    parLigne: Map<string, { libelle: string; sens: string }>,
+    valeur: string,
+    marque: string,
+  ): HTMLSelectElement {
+    const choix = document.createElement('select');
+    choix.dataset.choixOccurrence = marque;
+    choix.className =
+      'min-h-11 w-full min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950';
+    for (const occ of occurrences) {
+      const option = document.createElement('option');
+      option.value = occ.id;
+      option.textContent = libelleDOccurrence(occ, parLigne);
+      choix.appendChild(option);
+    }
+    choix.value = valeur;
+    return choix;
+  }
+
+  /**
+   * « Autre ligne » — la même opération, vers une occurrence choisie à la main.
+   *
+   * Ce que la décision garde du moteur : rien. L'écart au prévu est
+   * **recalculé** sur l'occurrence retenue, parce que celui de la proposition
+   * se rapportait à une autre ligne et n'aurait plus de sens ici. Le type
+   * reste « confirme » : c'est une décision humaine, et l'arbitrage la fait
+   * passer devant toute reprise automatique ultérieure.
+   */
+  function panneauAutreLigne(
+    p: Proposition,
+    op: OperationBancaire,
+    occLibres: readonly Occurrence[],
+    parLigne: Map<string, { libelle: string; sens: string }>,
+  ): HTMLElement {
+    const bloc = document.createElement('div');
+    bloc.dataset.panneauAutreLigne = p.operationId;
+    bloc.className = 'mt-3 space-y-2 border-t border-slate-200 pt-3 dark:border-slate-800';
+
+    const proposees = occurrencesProposees(op, occLibres);
+    if (!proposees.length) {
+      const vide = document.createElement('p');
+      vide.className = 'text-sm text-slate-500 dark:text-slate-400';
+      vide.textContent =
+        'Aucune autre occurrence n’est libre : toutes celles du budget sont déjà rapprochées.';
+      bloc.appendChild(vide);
+      bloc.appendChild(bouton('Fermer', 'fermer-autre-ligne', async () => {
+        reaffectationOuverte = null;
+        await peindreLaFile();
+      }));
+      return bloc;
+    }
+
+    const ligne = document.createElement('div');
+    ligne.className = 'flex flex-wrap items-center gap-2';
+    const choix = selecteurDOccurrence(
+      proposees,
+      parLigne,
+      proposees.some((o) => o.id === p.occurrenceId) ? p.occurrenceId : proposees[0].id,
+      p.operationId,
+    );
+    ligne.appendChild(choix);
+    bloc.appendChild(ligne);
+
+    const gestes = document.createElement('div');
+    gestes.className = 'flex flex-wrap gap-2';
+    gestes.appendChild(bouton('Ranger ici', 'valider-autre-ligne', async () => {
+      const occ = proposees.find((o) => o.id === choix.value);
+      if (!occ) throw new Error('Cette occurrence n’est plus libre : rouvrez la file.');
+      await ecrireRapprochement({
+        operationId: op.id,
+        occurrenceId: occ.id,
+        ligneId: occ.ligneId,
+        type: 'confirme',
+        centimes: op.centimes,
+        ecartAuPrevu: op.centimes - occ.signe * occ.montant,
+        decideLe: new Date().toISOString(),
+      });
+      reaffectationOuverte = null;
+      await peindreTout();
+    }));
+    gestes.appendChild(bouton('Abandonner', 'abandonner-autre-ligne', async () => {
+      reaffectationOuverte = null;
+      await peindreLaFile();
+    }));
+    bloc.appendChild(gestes);
+    return bloc;
+  }
+
+  /**
+   * « Diviser » — une opération, plusieurs occurrences, des parts qui somment.
+   *
+   * La somme exacte n'est pas une coquetterie : `etatDesRapprochements` ne
+   * reconnaît une opération comme **divisée** que si ses décisions somment au
+   * montant de l'opération et qu'aucune ne vaut le total. Des parts qui ne
+   * somment pas seraient lues comme un désaccord entre décisions, et une
+   * seule survivrait — les autres parts disparaîtraient sans rien dire.
+   *
+   * D'où le garde-fou en deux temps : `controlerParts` refuse d'enregistrer
+   * ce qui ne somme pas, et `diviser` pose le reste de la division sur la
+   * dernière part pour qu'un centime de division ne reste jamais orphelin.
+   */
+  function panneauDeDivision(
+    p: Proposition,
+    op: OperationBancaire,
+    occLibres: readonly Occurrence[],
+    parLigne: Map<string, { libelle: string; sens: string }>,
+  ): HTMLElement {
+    const bloc = document.createElement('div');
+    bloc.dataset.panneauDivision = p.operationId;
+    bloc.className = 'mt-3 space-y-2 border-t border-slate-200 pt-3 dark:border-slate-800';
+
+    const proposees = occurrencesProposees(op, occLibres);
+
+    partsDeLaDivision.forEach((part, index) => {
+      const ligne = document.createElement('div');
+      ligne.dataset.partOccurrence = String(index);
+      ligne.className = 'flex flex-wrap items-center gap-2';
+
+      const choix = selecteurDOccurrence(proposees, parLigne, part.occurrenceId, String(index));
+      choix.addEventListener('change', () => {
+        partsDeLaDivision[index] = { ...partsDeLaDivision[index], occurrenceId: choix.value };
+        void peindreLaFile();
+      });
+
+      const montant = document.createElement('input');
+      montant.type = 'text';
+      montant.inputMode = 'decimal';
+      montant.dataset.montantPartOccurrence = String(index);
+      montant.className =
+        'min-h-11 w-28 rounded-lg border border-slate-300 bg-white px-2 text-right text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950';
+      montant.value = (part.centimes / 100).toFixed(2).replace('.', ',');
+      montant.addEventListener('change', () => {
+        const lu = centimesDe(montant.value);
+        if (lu === null) {
+          dire(new Error(`« ${montant.value} » ne se lit pas comme un montant. Par exemple : -70,00.`));
+          return;
+        }
+        partsDeLaDivision[index] = { ...partsDeLaDivision[index], centimes: lu };
+        void peindreLaFile();
+      });
+
+      ligne.append(choix, montant);
+      ligne.appendChild(bouton('Le reste ici', 'reste-sur-la-part', async () => {
+        const autres = partsDeLaDivision.reduce(
+          (somme, x, i) => (i === index ? somme : somme + x.centimes),
+          0,
+        );
+        partsDeLaDivision[index] = { ...partsDeLaDivision[index], centimes: op.centimes - autres };
+        await peindreLaFile();
+      }));
+      if (partsDeLaDivision.length > 1) {
+        ligne.appendChild(bouton('Retirer', 'retirer-part-occurrence', async () => {
+          partsDeLaDivision = partsDeLaDivision.filter((_, i) => i !== index);
+          await peindreLaFile();
+        }));
+      }
+      bloc.appendChild(ligne);
+    });
+
+    const somme = partsDeLaDivision.reduce((s, x) => s + x.centimes, 0);
+    const reste = document.createElement('p');
+    reste.dataset.resteDivision = p.operationId;
+    reste.className = 'text-sm tabular-nums text-slate-700 dark:text-slate-200';
+    reste.textContent =
+      reste0(op.centimes - somme)
+        ? `Les parts somment à ${euros(somme)} : l’opération est entièrement répartie.`
+        : `Reste à répartir : ${euros(op.centimes - somme)} sur ${euros(op.centimes)}.`;
+    bloc.appendChild(reste);
+
+    /* Les défauts viennent du moteur, pas d'une seconde règle écrite ici. */
+    const defauts = [
+      ...controlerParts(
+        op,
+        partsDeLaDivision.map((x) => ({ ...x, operationId: op.id })),
+      ),
+      ...(new Set(partsDeLaDivision.map((x) => x.occurrenceId)).size === partsDeLaDivision.length
+        ? []
+        : ['Deux parts visent la même occurrence : ce serait une part, pas deux.']),
+      ...(partsDeLaDivision.length < 2
+        ? ['Diviser demande au moins deux parts. Pour une seule, « Autre ligne » suffit.']
+        : []),
+    ];
+    const liste = document.createElement('ul');
+    liste.dataset.defautsDivision = p.operationId;
+    liste.className = 'list-disc space-y-1 pl-5 text-sm text-rose-800 dark:text-rose-200';
+    liste.classList.toggle('hidden', defauts.length === 0);
+    for (const d of defauts) {
+      const li = document.createElement('li');
+      li.textContent = d;
+      liste.appendChild(li);
+    }
+    bloc.appendChild(liste);
+
+    const gestes = document.createElement('div');
+    gestes.className = 'flex flex-wrap gap-2';
+    gestes.appendChild(bouton('Ajouter une part', 'ajouter-part-occurrence', async () => {
+      const libre = proposees.find((o) => !partsDeLaDivision.some((x) => x.occurrenceId === o.id));
+      if (!libre) {
+        throw new Error(
+          'Toutes les occurrences libres sont déjà prises par une part : il n’en reste aucune à ajouter.',
+        );
+      }
+      partsDeLaDivision = [...partsDeLaDivision, { occurrenceId: libre.id, centimes: 0 }];
+      await peindreLaFile();
+    }));
+    gestes.appendChild(bouton('Parts égales', 'parts-egales-occurrences', async () => {
+      /*
+         Le reste de la division va sur la dernière part, comme dans
+         `diviser()` : deux arrondis différents dans le même écran donneraient
+         un total juste à l'enregistrement et faux à l'affichage.
+      */
+      const n = partsDeLaDivision.length || 1;
+      const base = Math.trunc(op.centimes / n);
+      partsDeLaDivision = partsDeLaDivision.map((x, i) => ({
+        ...x,
+        centimes: i === n - 1 ? op.centimes - base * (n - 1) : base,
+      }));
+      await peindreLaFile();
+    }));
+
+    const valider = bouton('Enregistrer la division', 'valider-division', async () => {
+      const parts = diviser(op, partsDeLaDivision);
+      const parOccurrence = new Map(occLibres.map((o) => [o.id, o]));
+      await ecrireRapprochements(
+        parts.map((part) => {
+          const occ = parOccurrence.get(part.occurrenceId);
+          if (!occ) throw new Error('Une occurrence de la division n’est plus libre : rouvrez la file.');
+          return {
+            operationId: op.id,
+            occurrenceId: occ.id,
+            ligneId: occ.ligneId,
+            type: 'confirme' as const,
+            centimes: part.centimes,
+            ecartAuPrevu: part.centimes - occ.signe * occ.montant,
+            decideLe: new Date().toISOString(),
+          };
+        }),
+      );
+      divisionOuverte = null;
+      partsDeLaDivision = [];
+      await peindreTout();
+    });
+    valider.disabled = defauts.length > 0;
+    valider.classList.toggle('opacity-40', defauts.length > 0);
+    gestes.appendChild(valider);
+
+    gestes.appendChild(bouton('Abandonner', 'abandonner-division', async () => {
+      divisionOuverte = null;
+      partsDeLaDivision = [];
+      await peindreLaFile();
+    }));
+    bloc.appendChild(gestes);
+    return bloc;
+  }
+
+  /** Vrai quand il ne reste rien à répartir. Nommé pour se lire dans la phrase. */
+  function reste0(centimes: number): boolean {
+    return centimes === 0;
   }
 
   function carteAClasser(o: OperationBancaire): HTMLElement {
