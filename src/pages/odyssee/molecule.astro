@@ -204,6 +204,21 @@ import {
          ne suit pas ne crédite personne.
       */}
       <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{ATTRIBUTION}</p>
+      {/*
+         La copie hors ligne, à côté de la passerelle.
+
+         Elle répond à une autre question : la passerelle mène à la version
+         vivante, la copie permet de chercher une référence sans réseau — et
+         sans que la molécule cherchée sorte de l'appareil.
+      */}
+      <p class="mt-3">
+        <a
+          id="vers-bibliographie"
+          href="#"
+          class="cible-tactile font-medium text-indigo-600 underline dark:text-indigo-300"
+          >Chercher dans la copie hors ligne de la bibliographie</a
+        >
+      </p>
     </section>
   </div>
 </Base>
@@ -219,7 +234,7 @@ import {
   import { CLEF_AVERTISSEMENT_VU } from '../../lib/odyssee/bibliotheque-externe';
   import { NON_DOCUMENTE } from '../../lib/odyssee/molecules';
   import { CATALOGUE } from '../../lib/odyssee/sante';
-  import { formaterDate, notifier, parametreUrl, pluriel } from '../../lib/ui';
+  import { formaterDate, lien, notifier, parametreUrl, pluriel } from '../../lib/ui';
 
   const $ = (id: string) => document.getElementById(id)!;
 
@@ -349,6 +364,8 @@ import {
           $('nom-a-copier').classList.remove('hidden');
         })();
     });
+
+    $('vers-bibliographie').setAttribute('href', lien('/odyssee/bibliographie/'));
 
     await peindreJournal();
     $('chargement').classList.add('hidden');

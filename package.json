@@ -150,7 +150,9 @@
     "essais:actualites:navigateur": "node scripts/essais-actualites-navigateur.mjs",
     "actualites:dist": "node scripts/actualites-dist.mjs",
     "essais:etats-vides:navigateur": "node scripts/essais-etats-vides-navigateur.mjs",
-    "mesure:tailles": "node scripts/mesurer-tailles.mjs"
+    "mesure:tailles": "node scripts/mesurer-tailles.mjs",
+    "bibliographie:construire": "node scripts/construire-bibliographie.mjs",
+    "essais:bibliographie:navigateur": "node scripts/essais-bibliographie-navigateur.mjs"
   },
   "repository": {
     "type": "git",

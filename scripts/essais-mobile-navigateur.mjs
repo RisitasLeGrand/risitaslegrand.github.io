@@ -54,6 +54,7 @@ const ECRANS = [
   '/progression/',
   '/profil/',
   '/odyssee/',
+  '/odyssee/bibliographie/',
   '/sport/',
 ];
 

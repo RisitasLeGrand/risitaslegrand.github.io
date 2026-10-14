@@ -25,7 +25,11 @@ import { motDeLEpreuve } from './lib/pretest.mjs';
 import { dechiffrerAvecMotDePasse } from './lib/secret.mjs';
 import { construireIndexGlossaire, idTerme } from './lib/glossaire.mjs';
 import { decouperSections, rendreHtml, texteBrut, extraireSommaire } from './lib/markdown.mjs';
+import { gzipSync } from 'node:zlib';
 import { sha256Hex, deriverCle, selAleatoire, chiffrerJson, chiffrerBinaire, idStable, b64 } from './lib/crypto.mjs';
+
+/** Gzip, niveau maximal : le fichier est écrit une fois et lu souvent. */
+const comprimerGzip = async (octets) => gzipSync(octets, { level: 9 });
 import { audioDisponible, SUFFIXE_SCRIPT } from './podcasts.mjs';
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
@@ -596,6 +600,31 @@ async function main() {
     await writeFile(
       path.join(dossierSortie, 'molecules.json'),
       JSON.stringify(await chiffrerJson(cle, registre, tailleIvOctets)),
+    );
+  }
+
+  /*
+     La copie figée de la bibliographie de NooTopics.
+
+     **Compressée puis chiffrée, et dans cet ordre.** Huit mégaoctets de JSON
+     deviennent 1,76 Mo ; chiffrer d'abord aurait rendu la compression
+     inopérante, puisqu'un texte chiffré est du bruit. C'est le même ordre que
+     le format de sauvegarde « .cyclades », pour la même raison.
+
+     Elle part donc en **binaire** (`bibliographie.bin`), comme les fiches
+     audio, et non en enveloppe JSON : un fichier de 1,76 Mo encodé en base64
+     en pèserait 2,3.
+
+     Son absence n'est pas une erreur, comme pour le registre : le site se
+     construit sans, et l'écran le dit.
+  */
+  const cheminBiblio = path.join(dossierContenu, 'sante', 'bibliographie.json');
+  if (existsSync(cheminBiblio)) {
+    const octets = await readFile(cheminBiblio);
+    const comprime = await comprimerGzip(octets);
+    await writeFile(
+      path.join(dossierSortie, 'bibliographie.bin'),
+      await chiffrerBinaire(cle, comprime, tailleIvOctets),
     );
   }
 

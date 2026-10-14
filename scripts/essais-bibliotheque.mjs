@@ -143,8 +143,15 @@ console.log('\n\x1b[1mLE PAQUET PUBLIÉ — RIEN EN CLAIR\x1b[0m\n');
     });
     v(`aucune des ${pages.length} pages construites ne porte un champ de la base`, avecDonnees, []);
 
+    /*
+       Deux écrans la portent depuis la copie hors ligne, et c'est légitime :
+       la fiche de molécule mène à la version vivante, la bibliographie
+       propose « voir la version à jour ». Ailleurs, ce serait un lien qui a
+       fui.
+    */
     const avecAdresse = pages.filter((f) => readFileSync(f, 'utf8').includes('Nootopics'));
-    v('l’adresse n’est que sur l’écran de molécule', avecAdresse, [
+    v('l’adresse n’est que sur les deux écrans qui la portent', avecAdresse, [
+      'dist/odyssee/bibliographie/index.html',
       'dist/odyssee/molecule/index.html',
     ]);
   }
@@ -239,6 +246,95 @@ console.log('\n\x1b[1mLA PASSERELLE EST UNE SORTIE, PAS UN APPEL\x1b[0m\n');
     ecran.includes('COUVERTURE_INCONNUE'),
     true,
   );
+}
+
+console.log('\n\x1b[1mLA COPIE FIGÉE — CE QUI N’EN FAIT PAS PARTIE\x1b[0m\n');
+{
+  /*
+     La copie de la partie bibliographique est autorisée ; ce qui en est
+     **écarté** l'est par décision, et une décision qui ne se contrôle pas
+     se perd. On regarde le fichier produit, pas l'intention du script.
+  */
+  const chemin = 'content/sante/bibliographie.json';
+  if (!existsSync(chemin)) {
+    console.log('  · pas de copie construite sur cette machine : contrôle sans objet.');
+  } else {
+    const paquet = JSON.parse(readFileSync(chemin, 'utf8'));
+    const champs = new Set(paquet.references.flatMap((r) => Object.keys(r)));
+    v(
+      'les références ne portent que les champs bibliographiques',
+      [...champs].sort(),
+      [
+        'ajouteLe',
+        'annee',
+        'composes',
+        'identifiant',
+        'portail',
+        'revue',
+        'sousThemes',
+        'theme',
+        'titre',
+        'typeEtude',
+        'url',
+      ],
+    );
+    v(
+      'aucun champ de témoignage, de pseudonyme ou de salon',
+      [...champs].filter((c) => /anec|auteur|author|pseudo|channel|salon|serveur|extrait|citation/i.test(c)),
+      [],
+    );
+    /*
+       La garantie que les extraits d'articles ne sont pas repris est
+       **structurelle**, pas statistique, et ce contrôle a mis deux essais à
+       le comprendre.
+
+       Premier jet : refuser les titres de plus de quatre cents caractères.
+       Rouge — et c'était la donnée qui avait raison : « Role of
+       palmitoylethanolamide (PEA) in depression… » fait 536 caractères parce
+       que la revue y accole l'intitulé de sa section spéciale.
+
+       Deuxième jet : refuser les titres commençant par un guillemet, qui est
+       la forme des extraits. Rouge aussi, et treize fois : « "Summertime
+       sadness": Striatal dopamine binding… » est un titre d'article tout à
+       fait ordinaire. Un titre académique commence souvent par une citation.
+
+       Il n'existe donc **aucune signature fiable** qui distingue un titre
+       d'un extrait dans la donnée elle-même. Ce qui garantit l'exclusion est
+       que le script ne lit jamais la colonne des extraits : c'est cela qu'on
+       contrôle, sur le script. Le seuil de longueur reste, très au-dessus,
+       comme garde-fou de dernier recours.
+    */
+    const longs = paquet.references.filter((r) => (r.titre ?? '').length > 800).length;
+    v('aucun titre n’atteint la longueur d’un résumé', longs, 0);
+    v('la copie est datée', /^\d{4}-\d{2}-\d{2}$/.test(paquet.genereLe ?? ''), true);
+    v('et elle porte son attribution', paquet.attribution, 'NooTopics');
+    v(
+      'elle n’est pas suivie par Git',
+      suivis.filter((f) => f.endsWith('content/sante/bibliographie.json')),
+      [],
+    );
+    console.log(`  · ${paquet.references.length} références, ${paquet.composes.length} composés nommés.`);
+  }
+
+  {
+    const constructeur = readFileSync('scripts/construire-bibliographie.mjs', 'utf8');
+    const colonnes = [...constructeur.matchAll(/^const ([A-Z_]+) = (\d+);$/gm)].map((m) => [
+      m[1],
+      Number(m[2]),
+    ]);
+    v('le script nomme les colonnes qu’il lit', colonnes.length >= 10, true);
+    /* 6 pseudonymes · 8 extraits d'articles · 13 salons · 14 serveurs. */
+    v(
+      'aucune colonne écartée n’est nommée',
+      colonnes.filter(([, i]) => [6, 8, 13, 14].includes(i)),
+      [],
+    );
+    v(
+      'et aucune n’est lue par son numéro, en passant',
+      [...constructeur.matchAll(/r\[(\d+)\]/g)].map((m) => Number(m[1])),
+      [],
+    );
+  }
 }
 
 console.log('\n\x1b[1mLA CITATION, QUI EST LA CONDITION POSÉE\x1b[0m\n');

@@ -62,8 +62,11 @@ pseudonymes tombe. Cyclades n'en reprend toujours aucun, mais pour une autre
 raison : ce sont des rapports non vérifiés, dont des doses, et la règle de
 cette branche est de ne rien afficher comme un fait qui n'en est pas un.
 
-Reste la **copie de la partie bibliographique**, que rien n'interdit plus et
-que personne n'a demandée.
+La **copie de la partie bibliographique** a été demandée le même jour et
+faite : 25 226 références hors ligne, 1,76 Mo publiés, écran
+`/odyssee/bibliographie/`. La décision 1 (« lien sortant, aucune copie »)
+est donc dépassée sur ce point, et seulement sur celui-là : rien d'autre
+n'est recopié.
 
 ## Les treize décisions
 

@@ -58,11 +58,25 @@ exactement ce que cette règle écarte. Avoir le droit de recopier quelque
 chose et avoir raison de le faire sont deux questions distinctes : la
 première est réglée, la seconde répond non.
 
-**La copie de la partie bibliographique (phase 5) reste non demandée.** Les
-25 226 liens et leurs titres sont une autre affaire que les 970 noms : c'est
-le cœur du travail rassemblé. L'accord ne s'y oppose plus, mais personne ne
-l'a demandée — et je ne l'élargis pas de moi-même. Un mot suffit : elle
-rendrait la bibliographie consultable hors ligne.
+**La copie de la partie bibliographique est faite** (14 octobre 2026,
+demandée par Alexis). 25 226 références consultables hors ligne, sur
+`/odyssee/bibliographie/`.
+
+| | |
+|---|---|
+| Repris | titre, adresse, revue, année, type d'étude, portail, identifiant (PMID, DOI), thème et sous-thèmes, composés cités, date d'ajout |
+| Écarté | pseudonymes, extraits d'articles, témoignages, salons et serveurs, et les six colonnes dont le sens n'est pas établi |
+| Poids | 8,07 Mo de JSON → **1,76 Mo** publiés, compressés puis chiffrés |
+| Ouverture | 815 ms, déchiffrement, décompression, analyse et premier rendu compris |
+
+Les **extraits d'articles** sont écartés pour une raison qui n'a rien à voir
+avec l'accord reçu : ce sont des citations d'abstracts, qui appartiennent aux
+éditeurs et aux auteurs des articles. Le lien y mène de toute façon.
+
+La copie est **figée et datée** : l'écran affiche la date de la copie et les
+bornes des partages qu'elle recense, et le lien vers la version vivante est à
+côté. Une bibliographie hors ligne qui ne dit pas de quand elle date se fait
+passer pour à jour.
 
 ## Pour mémoire : ce que le dépôt publie, lui
 

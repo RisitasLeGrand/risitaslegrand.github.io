@@ -126,6 +126,14 @@ import { POURQUOI_CATALOGUE_VIDE } from '../../lib/odyssee/sante';
             placeholder="Trois lettres suffisent"
             class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
           <p id="etat-registre" class="mt-1 text-xs text-slate-500 dark:text-slate-400"></p>
+          <p class="mt-1 text-xs">
+            <a
+              id="vers-bibliographie"
+              href="#"
+              class="cible-tactile font-medium text-indigo-600 underline dark:text-indigo-300"
+              >Bibliographie hors ligne — 25 226 références, copie figée</a
+            >
+          </p>
           <ul id="suggestions" class="mt-1 max-h-64 space-y-1 overflow-y-auto" role="listbox" aria-label="Molécules proposées"></ul>
         </div>
 
@@ -229,6 +237,7 @@ import { POURQUOI_CATALOGUE_VIDE } from '../../lib/odyssee/sante';
   import { coffreOuvert, ouvrirLeCoffre, reprendreLeCoffre, surCoffre } from '../../lib/coffre';
   import { heuresDepuisLaDernierePrise, situerDansLIntervalle } from '../../lib/odyssee/sante';
   import { ATTRIBUTION } from '../../lib/odyssee/bibliotheque-externe';
+  import { lien } from '../../lib/ui';
   import { chercher, type EntreeRegistre } from '../../lib/odyssee/molecules';
   import { chargerRegistreMolecules } from '../../lib/contenu';
   import { toutesLesPrises } from '../../lib/odyssee/donnees-sensible';
@@ -475,6 +484,7 @@ import { POURQUOI_CATALOGUE_VIDE } from '../../lib/odyssee/sante';
   auDeverrouillage(
     async () => {
       $('t-chercher').addEventListener('input', peindreSuggestions);
+      $('vers-bibliographie').setAttribute('href', lien('/odyssee/bibliographie/'));
       ($('t-debut') as HTMLInputElement).value = AUJOURDHUI;
       ($('p-jour') as HTMLInputElement).value = AUJOURDHUI;
       ($('s-jour') as HTMLInputElement).value = AUJOURDHUI;

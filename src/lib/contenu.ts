@@ -279,6 +279,79 @@ export async function chargerBinaire(chemin: string): Promise<ArrayBuffer> {
   }
 }
 
+/**
+ * Une référence de la copie figée de la bibliographie (NooTopics).
+ *
+ * Les champs numériques sont des **index** dans les tables du même paquet :
+ * un thème ou un portail répété vingt-cinq mille fois en toutes lettres
+ * pèserait plus que tout le reste.
+ */
+export interface ReferenceBibliographie {
+  titre: string;
+  url: string;
+  /** Index dans `themes`, ou null. */
+  theme: number | null;
+  /** Index dans `sousThemes[theme]`. */
+  sousThemes: number[];
+  /** Date d'ajout à la bibliothèque, « AAAA-MM-JJ ». */
+  ajouteLe: string;
+  /** Index dans `portails`. */
+  portail: number | null;
+  /** Index dans `typesEtude`. */
+  typeEtude: number | null;
+  /** PMID, DOI… tel que la source l'écrit. */
+  identifiant: string;
+  /** Index dans `composes`. */
+  composes: number[];
+  annee: number | null;
+  revue: string;
+}
+
+export interface Bibliographie {
+  genereLe: string;
+  attribution: string;
+  premierPartage: string;
+  dernierPartage: string;
+  /** Paires « grand thème / sous-thème ». */
+  themes: [string, string][];
+  sousThemes: Record<string, string[]>;
+  portails: string[];
+  typesEtude: string[];
+  composes: string[];
+  references: ReferenceBibliographie[];
+}
+
+let bibliographie: Promise<Bibliographie> | null = null;
+
+/**
+ * La copie figée de la bibliographie, déchiffrée puis décompressée.
+ *
+ * **Chargée une seule fois, et seulement si on ouvre l'écran.** Le paquet
+ * pèse 1,76 Mo sur le réseau et huit fois plus une fois décompressé : le
+ * charger au démarrage du site ferait payer à chaque visite une donnée qu'on
+ * consulte rarement. La promesse est mémorisée, pas le résultat d'un premier
+ * échec — une panne de réseau ne doit pas condamner l'écran pour la durée de
+ * l'onglet.
+ */
+export function chargerBibliographie(): Promise<Bibliographie> {
+  bibliographie ??= (async () => {
+    const { decomprimer, compressionDisponible } = await import('./noyau/octets');
+    if (!compressionDisponible()) {
+      throw new Error(
+        'Ce navigateur ne sait pas décompresser le paquet (DecompressionStream absent). ' +
+          'La bibliographie hors ligne demande un navigateur plus récent.',
+      );
+    }
+    const chiffre = await chargerBinaire('bibliographie.bin');
+    const clair = await decomprimer(new Uint8Array(chiffre));
+    return JSON.parse(new TextDecoder().decode(clair)) as Bibliographie;
+  })().catch((e) => {
+    bibliographie = null;
+    throw e;
+  });
+  return bibliographie;
+}
+
 export const chargerManifeste = () => charger<Manifeste>('manifeste.json');
 export const chargerFiche = (id: string) => charger<Fiche>(`fiches/${id}.json`);
 

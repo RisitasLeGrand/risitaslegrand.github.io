@@ -1,0 +1,277 @@
+---
+/**
+ * La bibliographie de NooTopics, consultable hors ligne.
+ *
+ * ## Ce que cet écran est, et ce qu'il n'est pas
+ *
+ * Une **copie figée et datée** de la partie bibliographique de NooTopics :
+ * 25 226 références — titre, adresse, revue, année, type d'étude, thème,
+ * composés cités. Rien d'autre n'en a été repris : ni les pseudonymes de
+ * ceux qui ont partagé, ni les extraits d'articles, ni les témoignages. Voir
+ * l'en-tête de `scripts/construire-bibliographie.mjs`, qui dit ce qui est
+ * écarté et pourquoi.
+ *
+ * Ce n'est **pas une source de Cyclades**. Aucune analyse, aucune alerte,
+ * aucun calcul, aucun export ne la lit : c'est une liste de lectures
+ * possibles, et le fait qu'un article y figure ne dit rien de sa qualité.
+ * La seule chose qu'elle apporte est de pouvoir chercher une référence sans
+ * réseau, et de suivre le lien quand on en a un.
+ *
+ * ## Pourquoi elle est datée en gros
+ *
+ * Une bibliographie hors ligne qui ne dit pas de quand elle date se fait
+ * passer pour à jour. La date de la copie et les bornes des partages sont
+ * donc affichées avant la première référence, et le lien vers la version
+ * vivante est à côté.
+ *
+ * ## Ce que cet écran n'écrit jamais
+ *
+ * Rien. Pas de compteur de consultation, pas d'historique de recherche, pas
+ * de favoris : ce qu'on cherche dans une bibliographie de molécules est une
+ * donnée de santé, et la meilleure façon de ne pas la laisser fuir est de ne
+ * pas l'enregistrer. Un essai le vérifie.
+ */
+import Base from '../../layouts/Base.astro';
+import { ADRESSE_BIBLIOTHEQUE, ATTRIBUTION, NOM_BIBLIOTHEQUE } from '../../lib/odyssee/bibliotheque-externe';
+---
+
+<Base titre="Bibliographie" actif="sante">
+  <div class="mx-auto max-w-5xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">
+      Bibliographie {NOM_BIBLIOTHEQUE}
+    </h1>
+    <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      Une copie <strong>figée</strong> de la partie bibliographique, consultable sans réseau.
+      Les pseudonymes, les extraits d’articles et les témoignages n’en font pas partie.
+      Ce n’est pas une source de Cyclades : aucun calcul ne la lit, et figurer ici ne dit
+      rien de la qualité d’un article.
+    </p>
+
+    <div id="chargement-biblio" class="mt-6 text-sm text-slate-500 dark:text-slate-400">
+      Déchiffrement de la bibliographie… (1,8 Mo, une seule fois par visite)
+    </div>
+    <p id="erreur-biblio" class="mt-6 hidden rounded-xl border border-rose-300 bg-rose-50 p-4 text-sm text-rose-900 dark:border-rose-800 dark:bg-rose-950/30 dark:text-rose-100"></p>
+
+    <div id="vue" class="mt-6 hidden">
+      <p id="datation" class="rounded-xl bg-slate-100 px-4 py-3 text-sm text-slate-700 dark:bg-slate-900 dark:text-slate-200"></p>
+      <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+        {ATTRIBUTION}{' '}
+        <a
+          href={ADRESSE_BIBLIOTHEQUE}
+          target="_blank"
+          rel="noopener noreferrer"
+          class="font-medium text-indigo-600 underline dark:text-indigo-300"
+          >Voir la version à jour<span class="sr-only"> — site externe, s’ouvre dans un nouvel onglet</span></a
+        >
+      </p>
+
+      <div class="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <label class="text-sm sm:col-span-2">
+          <span class="block text-slate-700 dark:text-slate-200">Chercher</span>
+          <input
+            id="q" type="search" autocomplete="off"
+            placeholder="Titre, revue, identifiant, composé…"
+            class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+          />
+        </label>
+        <label class="text-sm">
+          <span class="block text-slate-700 dark:text-slate-200">Thème</span>
+          <select id="f-theme" class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950"></select>
+        </label>
+        <label class="text-sm">
+          <span class="block text-slate-700 dark:text-slate-200">Type d’étude</span>
+          <select id="f-type" class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950"></select>
+        </label>
+      </div>
+
+      <p id="compte" role="status" class="mt-3 text-sm text-slate-600 dark:text-slate-300"></p>
+      <ol id="resultats" class="mt-2 space-y-2"></ol>
+      <div class="mt-4 flex justify-center">
+        <button
+          id="plus"
+          type="button"
+          class="cible-tactile-pleine hidden rounded-lg border border-slate-300 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+        >
+        </button>
+      </div>
+    </div>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { chargerBibliographie, type Bibliographie, type ReferenceBibliographie } from '../../lib/contenu';
+  import { normaliser, pluriel } from '../../lib/ui';
+
+  const $ = (id: string) => document.getElementById(id)!;
+  /** Combien de références s'affichent d'un coup, et à chaque « Afficher plus ». */
+  const PAR_PAGE = 50;
+
+  let paquet: Bibliographie | null = null;
+  /** Le texte cherchable de chaque référence, préparé une fois. */
+  let indexTexte: string[] = [];
+  let retenues: ReferenceBibliographie[] = [];
+  let affichees = 0;
+
+  const libelleTheme = (i: number | null) => {
+    if (paquet === null || i === null) return '';
+    const t = paquet.themes[i];
+    return t ? [t[0], t[1]].filter(Boolean).join(' · ') : '';
+  };
+
+  /*
+     Le texte cherchable est préparé **une fois**, à l'ouverture.
+
+     Reconstruire « titre + revue + composés » pour vingt-cinq mille
+     références à chaque frappe se verrait : la recherche ne fait plus ici
+     qu'un « includes » par ligne sur une chaîne déjà normalisée.
+  */
+  function preparerIndex(b: Bibliographie) {
+    indexTexte = b.references.map((r) =>
+      normaliser(
+        [
+          r.titre,
+          r.revue,
+          r.identifiant,
+          libelleTheme(r.theme),
+          ...r.composes.map((i) => b.composes[i] ?? ''),
+        ].join(' '),
+      ),
+    );
+  }
+
+  function filtrer() {
+    if (!paquet) return;
+    const requete = normaliser(($('q') as HTMLInputElement).value.trim());
+    const theme = ($('f-theme') as HTMLSelectElement).value;
+    const type = ($('f-type') as HTMLSelectElement).value;
+
+    retenues = paquet.references.filter((r, i) => {
+      if (theme !== '' && String(r.theme) !== theme) return false;
+      if (type !== '' && String(r.typeEtude) !== type) return false;
+      return !requete || indexTexte[i].includes(requete);
+    });
+    affichees = 0;
+    $('resultats').innerHTML = '';
+    $('compte').textContent =
+      retenues.length === paquet.references.length
+        ? `${pluriel(retenues.length, 'référence')} dans la copie.`
+        : `${pluriel(retenues.length, 'référence')} sur ${paquet.references.length}.`;
+    peindreUnePage();
+  }
+
+  function ligne(reference: ReferenceBibliographie): HTMLElement {
+    const b = paquet!;
+    const item = document.createElement('li');
+    /*
+       Rendu différé : une liste de cinquante références tient à l'écran, mais
+       « Afficher plus » les empile, et la mise en page de ce qui est sorti de
+       l'écran ne sert à personne.
+    */
+    item.className =
+      'differe rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-950';
+    item.style.containIntrinsicSize = 'auto 96px';
+
+    const lien = document.createElement('a');
+    lien.href = reference.url;
+    lien.target = '_blank';
+    lien.rel = 'noopener noreferrer';
+    lien.className = 'font-medium text-indigo-700 underline dark:text-indigo-300';
+    lien.textContent = reference.titre || reference.url;
+    const dit = document.createElement('span');
+    dit.className = 'sr-only';
+    dit.textContent = ' — site externe, s’ouvre dans un nouvel onglet';
+    lien.appendChild(dit);
+    item.appendChild(lien);
+
+    const details = [
+      reference.revue,
+      reference.annee ? String(reference.annee) : '',
+      reference.typeEtude !== null ? b.typesEtude[reference.typeEtude] : '',
+      reference.portail !== null ? b.portails[reference.portail] : '',
+      reference.identifiant,
+    ].filter(Boolean);
+    const sous = document.createElement('p');
+    sous.className = 'mt-0.5 text-xs text-slate-500 dark:text-slate-400';
+    sous.textContent = details.join(' · ');
+    item.appendChild(sous);
+
+    const theme = libelleTheme(reference.theme);
+    const composes = reference.composes.map((i) => b.composes[i] ?? '').filter(Boolean);
+    if (theme || composes.length) {
+      const bas = document.createElement('p');
+      bas.className = 'mt-1 text-xs text-slate-400 dark:text-slate-500';
+      bas.textContent = [theme, composes.slice(0, 6).join(', ')].filter(Boolean).join(' — ');
+      item.appendChild(bas);
+    }
+    return item;
+  }
+
+  function peindreUnePage() {
+    const zone = $('resultats');
+    const tranche = retenues.slice(affichees, affichees + PAR_PAGE);
+    for (const r of tranche) zone.appendChild(ligne(r));
+    affichees += tranche.length;
+
+    const reste = retenues.length - affichees;
+    const bouton = $('plus') as HTMLButtonElement;
+    bouton.classList.toggle('hidden', reste <= 0);
+    if (reste > 0) {
+      bouton.textContent = `Afficher ${Math.min(PAR_PAGE, reste)} de plus (${reste} restantes)`;
+    }
+  }
+
+  function remplirFiltres(b: Bibliographie) {
+    const theme = $('f-theme') as HTMLSelectElement;
+    const type = $('f-type') as HTMLSelectElement;
+    const option = (valeur: string, texte: string) => {
+      const o = document.createElement('option');
+      o.value = valeur;
+      o.textContent = texte;
+      return o;
+    };
+    theme.appendChild(option('', 'Tous les thèmes'));
+    // Rangés par libellé : l'ordre de la source est lui-même une donnée.
+    [...b.themes.entries()]
+      .map(([i, t]) => [String(i), [t[0], t[1]].filter(Boolean).join(' · ')] as const)
+      .sort((a, c) => a[1].localeCompare(c[1], 'fr'))
+      .forEach(([i, libelle]) => theme.appendChild(option(i, libelle)));
+
+    type.appendChild(option('', 'Tous les types'));
+    b.typesEtude.forEach((t, i) => {
+      if (t) type.appendChild(option(String(i), t));
+    });
+  }
+
+  auDeverrouillage(async () => {
+    try {
+      paquet = await chargerBibliographie();
+    } catch (erreur) {
+      $('chargement-biblio').classList.add('hidden');
+      $('erreur-biblio').textContent =
+        erreur instanceof Error ? erreur.message : String(erreur);
+      $('erreur-biblio').classList.remove('hidden');
+      return;
+    }
+
+    preparerIndex(paquet);
+    remplirFiltres(paquet);
+    $('datation').textContent =
+      `Copie figée du ${paquet.genereLe}. Les partages qu’elle recense vont du ` +
+      `${paquet.premierPartage} au ${paquet.dernierPartage}. ` +
+      'Rien n’y est ajouté depuis : pour la suite, suivez le lien ci-dessous.';
+
+    let minuterie = 0;
+    $('q').addEventListener('input', () => {
+      window.clearTimeout(minuterie);
+      minuterie = window.setTimeout(filtrer, 250);
+    });
+    $('f-theme').addEventListener('change', filtrer);
+    $('f-type').addEventListener('change', filtrer);
+    $('plus').addEventListener('click', peindreUnePage);
+
+    filtrer();
+    $('chargement-biblio').classList.add('hidden');
+    $('vue').classList.remove('hidden');
+  });
+</script>
