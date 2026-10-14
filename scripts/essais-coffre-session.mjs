@@ -228,18 +228,39 @@ v('toujours non extractible', apresReouverture.enveloppe?.extractible, false);
 
 /* --- F. Un onglet neuf redemande le coffre ------------------------------- */
 
-console.log('\n  F — la portée reste celle de l’onglet');
+console.log('\n  F — la frontière de la session');
 
+/*
+   Ce contrôle disait, en phase 1 : « un onglet neuf redemande le coffre ».
+   La phase 3 a changé ce contrat **à dessein** — c'est la session
+   multi-onglets de la décision 1 — et le contrôle est donc passé au rouge.
+   Il n'est pas supprimé pour autant : il garde la frontière qui, elle, n'a
+   pas bougé, et qui est celle qui compte. Le cas « case décochée », où
+   l'onglet neuf redemande bien, est tenu par `essais:coffre-onglets`, D.
+*/
 const onglet = await ctx.newPage();
 await onglet.goto(`${RACINE}/odyssee/psyche/`, { waitUntil: 'networkidle' });
 await ouvrirLaSession(onglet);
-await onglet.waitForTimeout(1500);
+await onglet.waitForTimeout(2500);
 v(
-  'un onglet neuf redemande le coffre',
+  'un onglet neuf hérite de la session (relais, case cochée par défaut)',
   await onglet.locator('#mdp-coffre').isVisible().catch(() => false),
-  true,
+  false,
 );
 await onglet.close();
+
+/* La frontière, elle, tient : sans onglet donneur, rien ne passe. */
+const etranger = await nav.newContext({ viewport: { width: 1280, height: 900 } });
+const p3 = await etranger.newPage();
+await p3.goto(`${RACINE}/odyssee/psyche/`, { waitUntil: 'networkidle' });
+await ouvrirLaSession(p3);
+await p3.waitForTimeout(2500);
+v(
+  'mais un contexte sans donneur redemande le coffre',
+  await p3.locator('#mdp-coffre').isVisible().catch(() => false),
+  true,
+);
+await etranger.close();
 
 await nav.close();
 console.log(`\n${echecs ? '\x1b[31m✗' : '\x1b[32m✓'} ${echecs} échec(s)\x1b[0m\n`);

@@ -46,6 +46,7 @@
 
 <script>
   import { fermerLeCoffre, modeDuCoffre, oublierLAppareil, reprendreLeCoffre, surCoffre } from '../lib/coffre';
+  import { demarrerLeRelais, marquerSessionEtendue } from '../lib/coffre-relais';
 
   const temoin = document.getElementById('temoin-coffre');
   const libelle = document.getElementById('temoin-coffre-libelle');
@@ -55,6 +56,15 @@
     const peindre = (ouvert: boolean) => {
       temoin.classList.toggle('hidden', !ouvert);
       if (!ouvert) return;
+      /*
+         La portée est décidée à l'ouverture, par la case du formulaire. Elle
+         est relevée ici plutôt que dans les dix gestionnaires des pages : un
+         réglage noté à dix endroits finit par différer à l'un d'eux, et c'est
+         exactement ainsi que six pages s'étaient retrouvées sans bouton de
+         fermeture.
+      */
+      const case_ = document.getElementById('coffre-session') as HTMLInputElement | null;
+      if (case_) marquerSessionEtendue(case_.checked);
       const mode = modeDuCoffre();
       libelle.textContent =
         mode === 'appareil' ? 'Coffre ouvert (mémorisé sur cet appareil)' : 'Coffre ouvert (session)';
@@ -72,5 +82,12 @@
        l'interdit 6 ne serait tenu que sur les pages du coffre.
     */
     void reprendreLeCoffre().then(peindre);
+
+    /*
+       Le relais est branché sur toutes les pages, parce que n'importe laquelle
+       peut être le nouvel onglet qui demande la clé — ou l'onglet vivant qui
+       la donne.
+    */
+    demarrerLeRelais();
   }
 </script>
