@@ -575,6 +575,30 @@ async function main() {
     ),
   );
 
+  /*
+     Le registre des molécules, s'il existe (2.8 du prompt bibliothèque).
+
+     Il n'est **pas** dans le dépôt, pas plus que le reste de `content/` : il
+     est produit chez la personne par `npm run molecules:registre`, puis
+     chiffré ici comme tout le contenu. Les noms n'apparaissent donc jamais en
+     clair dans le dépôt public, ce qui est la condition pour que la contrainte
+     « la liste doit apparaître dans le menu » n'emporte pas avec elle la
+     publication d'une base sans licence.
+
+     Son absence n'est pas une erreur : le menu retombe alors sur le catalogue
+     de Cyclades, et le dit. Un build qui échouerait faute de ce fichier
+     rendrait le site inconstructible par quelqu'un qui n'a pas voulu
+     l'extraction.
+  */
+  const cheminRegistre = path.join(dossierContenu, 'sante', 'molecules.json');
+  if (existsSync(cheminRegistre)) {
+    const registre = JSON.parse(await readFile(cheminRegistre, 'utf8'));
+    await writeFile(
+      path.join(dossierSortie, 'molecules.json'),
+      JSON.stringify(await chiffrerJson(cle, registre, tailleIvOctets)),
+    );
+  }
+
   // La banque DGFiP est publiée en un seul fichier : 54 questions tirées au
   // hasard dans l'ensemble, il faudrait de toute façon tout télécharger.
   if (banqueDgfip.questions.length) {

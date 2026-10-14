@@ -230,6 +230,14 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
       'Santé : une condition déclarée dure, et sa seule lecture suffit à situer quelqu’un.',
     clairs: ['id', 'debut', 'majLe'],
   },
+  {
+    magasin: 'odysseeRessentis',
+    pourquoi:
+      'Santé : ce qu’une personne ressent sous un traitement nommé en dit autant que le ' +
+      'traitement. C’est aussi la seule expérience que l’application regarde — celle des ' +
+      'autres reste dehors.',
+    clairs: ['id', 'traitementId', 'jour', 'majLe'],
+  },
 ];
 
 const PAR_MAGASIN = new Map(MAGASINS_SCELLES.map((m) => [m.magasin, m]));

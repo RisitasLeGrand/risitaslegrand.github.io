@@ -20,12 +20,14 @@ import { ouvrir, sceller } from '../noyau/coffre';
 import {
   controlerCondition,
   controlerPrelevement,
+  controlerRessenti,
   controlerResultat,
   controlerSymptome,
   controlerTraitement,
   type ConditionDeclaree,
   type OrigineDuTraitement,
   type Prelevement,
+  type Ressenti,
   type Resultat,
   type Symptome,
   type Traitement,
@@ -36,7 +38,8 @@ type MagasinDeSante =
   | 'odysseePrelevements'
   | 'odysseeResultats'
   | 'odysseeSymptomes'
-  | 'odysseeConditions';
+  | 'odysseeConditions'
+  | 'odysseeRessentis';
 
 async function journaliser(magasin: MagasinDeSante, scelle: unknown): Promise<void> {
   try {
@@ -132,6 +135,8 @@ export async function ecrireTraitement(
     origine?: OrigineDuTraitement;
     prescripteur?: string;
     posologie?: string;
+    /** Une prise isolée : pas de fin, pas de schéma, pas de rappel. */
+    sporadique?: boolean;
     fin?: string;
     note?: string;
   } = {},
@@ -143,6 +148,7 @@ export async function ecrireTraitement(
     origine: options.origine ?? 'moi',
     prescripteur: options.prescripteur?.trim() ?? '',
     posologie: options.posologie?.trim() ?? '',
+    sporadique: options.sporadique ?? false,
     debut,
     fin: options.fin ?? '',
     note: options.note ?? '',
@@ -299,4 +305,35 @@ export async function combienDeSante(): Promise<number> {
     base.count('odysseeConditions'),
   ]);
   return comptes.reduce((s, n) => s + n, 0);
+}
+
+/* ── Les ressentis, rattachés à un traitement (2.3) ───────────────────── */
+
+/**
+ * Écrit une note de ressenti.
+ *
+ * Même chemin que tout le reste de Santé : `ranger()` scelle avant d'écrire,
+ * et rien ne passe à côté. Il n'y a pas de variante « rapide » : une note
+ * qu'on écrirait en clair parce qu'elle est courte serait la seule du
+ * magasin à l'être, et suffirait à trahir le reste.
+ */
+export async function ecrireRessenti(
+  r: Omit<Ressenti, 'id' | 'majLe'> & { id?: string },
+): Promise<Ressenti> {
+  const complet: Ressenti = { ...r, id: r.id ?? ulid(), majLe: new Date().toISOString() };
+  const problemes = controlerRessenti(complet);
+  if (problemes.length) throw new Error(problemes.join(' '));
+  await ranger('odysseeRessentis', complet);
+  return complet;
+}
+
+export const tousLesRessentis = (): Promise<Ressenti[]> =>
+  toutOuvrir<Ressenti>('odysseeRessentis');
+
+export const supprimerRessenti = (id: string): Promise<void> => oublier('odysseeRessentis', id);
+
+/** Les notes d'un traitement, de la plus récente à la plus ancienne. */
+export async function ressentisDuTraitement(traitementId: string): Promise<Ressenti[]> {
+  const tous = await tousLesRessentis();
+  return tous.filter((r) => r.traitementId === traitementId).sort((a, b) => (a.jour < b.jour ? 1 : -1));
 }

@@ -106,12 +106,18 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    fois avec leurs magasins.
 */
 /*
-   Vingt-quatre depuis la phase 1 de Santé (D-024), dix-neuf avant elle. Ce
-   nombre écrit en dur est l'office de cet essai : un magasin scellé qu'on
-   ajoute doit se déclarer ici, et un magasin qui **disparaîtrait** du
-   registre — c'est-à-dire qui cesserait d'être chiffré — se verrait aussi.
+   Vingt-cinq depuis le journal de ressentis, vingt-quatre depuis la phase 1
+   de Santé (D-024), dix-neuf avant elle. Ce nombre écrit en dur est l'office
+   de cet essai : un magasin scellé qu'on ajoute doit se déclarer ici, et un
+   magasin qui **disparaîtrait** du registre — c'est-à-dire qui cesserait
+   d'être chiffré — se verrait aussi.
 */
-v('vingt-quatre magasins scellés', MAGASINS_SCELLES.length, 24);
+v('vingt-cinq magasins scellés', MAGASINS_SCELLES.length, 25);
+v(
+  'le journal de ressentis en fait partie',
+  MAGASINS_SCELLES.some((m) => m.magasin === 'odysseeRessentis'),
+  true,
+);
 vrai('les passations d’échelles en sont', estScelle('odysseePassations'));
 vrai('la ligne de base de la veille en est', estScelle('odysseeVeilleBases'));
 vrai('les repères aussi', estScelle('odysseeVeilleSignaux'));

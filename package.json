@@ -5,6 +5,7 @@
   "scripts": {
     "init:contenu": "node scripts/init-contenu.mjs",
     "contenu": "node scripts/podcasts.mjs && node scripts/verifier-corrections.mjs && node scripts/build-content.mjs",
+    "molecules:registre": "node scripts/construire-registre-molecules.mjs",
     "dev": "npm run contenu && astro dev",
     "build": "npm run contenu && astro build",
     "preview": "astro preview",
@@ -133,6 +134,8 @@
     "essais:finances:navigateur": "node scripts/essais-finances-navigateur.mjs",
     "essais:psyche:navigateur": "node scripts/essais-psyche-navigateur.mjs",
     "essais:sante": "tsx scripts/essais-sante.mts",
+    "essais:molecules": "tsx scripts/essais-molecules.mts",
+    "essais:bibliotheque": "node scripts/essais-bibliotheque.mjs",
     "essais:sante:navigateur": "node scripts/essais-sante-navigateur.mjs",
     "essais:hors-ligne": "node scripts/essais-hors-ligne.mjs",
     "essais:espaces": "node scripts/essais-espaces.mjs",

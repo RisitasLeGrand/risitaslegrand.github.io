@@ -300,6 +300,26 @@ export const chargerIndexRecherche = () => charger<EntreeRecherche[]>('recherche
 export const chargerBanqueDgfip = () => charger<BanqueDgfip>('qcm-dgfip.json');
 
 /**
+ * Le registre des noms de molécules du menu de déclaration (2.8).
+ *
+ * Absent tant que « npm run molecules:registre » n'a pas été lancé, et c'est
+ * un état normal, pas une panne : le menu retombe alors sur le catalogue de
+ * Cyclades et le dit. Le registre ne porte que des noms — aucun champ ne dit
+ * d'où ils viennent, et aucun module d'analyse ne le lit.
+ */
+export const chargerRegistreMolecules = () =>
+  charger<
+    {
+      id: string;
+      nom: string;
+      alias: string[];
+      nomenclature: string | null;
+      fiche: boolean;
+      identiteVerifiee: boolean;
+    }[]
+  >('molecules.json');
+
+/**
  * Clé privée de la rubrique Actualités, publiée chiffrée par le build.
  * Absente si « npm run actualites:cles » n'a jamais été lancé : la rubrique
  * reste alors simplement masquée.

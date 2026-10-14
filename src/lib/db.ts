@@ -28,6 +28,7 @@ import type { Prise, StatutHormonal } from './odyssee/sensible';
 import type {
   ConditionDeclaree,
   Prelevement,
+  Ressenti,
   Resultat,
   Symptome,
   Traitement,
@@ -622,6 +623,7 @@ interface SchemaRevinsp extends DBSchema {
   odysseeResultats: { key: string; value: Resultat; indexes: { prelevementId: string } };
   odysseeSymptomes: { key: string; value: Symptome; indexes: { jour: string } };
   odysseeConditions: { key: string; value: ConditionDeclaree; indexes: Record<string, never> };
+  odysseeRessentis: { key: string; value: Ressenti; indexes: { traitementId: string } };
   odysseeCheckins: { key: string; value: Checkin; indexes: { jour: string } };
   odysseeHebdos: { key: string; value: CheckinHebdo; indexes: { semaine: string } };
   odysseeJournal: { key: string; value: Entree; indexes: { jour: string } };
@@ -729,7 +731,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 29;
+const VERSION = 30;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1420,6 +1422,25 @@ function ouvrirAuSchema(nom: string, version: number) {
         );
         base.createObjectStore('odysseeSymptomes', { keyPath: 'id' }).createIndex('jour', 'jour');
         base.createObjectStore('odysseeConditions', { keyPath: 'id' });
+      }
+      if (vers(30)) {
+        /*
+         * Le journal de ressentis (2.3 du prompt bibliothèque).
+         *
+         * Scellé, comme tout ce que Santé écrit. Ce qu'on ressent sous un
+         * traitement est au moins aussi parlant que le traitement lui-même :
+         * lu par un tiers, « moins net qu'au début » accolé à un nom de
+         * molécule raconte une histoire complète.
+         *
+         * Les traitements déjà saisis n'ont pas de champ « sporadique » :
+         * absent se lit « non », ce qui est exactement ce qu'ils sont. Aucune
+         * réécriture, donc — une migration qui touche des lignes pour y poser
+         * une valeur par défaut déjà lisible ne fait que risquer de les
+         * abîmer.
+         */
+        base
+          .createObjectStore('odysseeRessentis', { keyPath: 'id' })
+          .createIndex('traitementId', 'traitementId');
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -2282,6 +2303,7 @@ export const MAGASINS_PROGRESSION = [
   'odysseeResultats',
   'odysseeSymptomes',
   'odysseeConditions',
+  'odysseeRessentis',
   'odysseeCheckins',
   'odysseeHebdos',
   'odysseeJournal',

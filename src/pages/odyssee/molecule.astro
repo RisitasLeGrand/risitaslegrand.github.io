@@ -1,0 +1,349 @@
+---
+/**
+ * La fiche d'une molécule.
+ *
+ * ## Ce que cet écran montre aujourd'hui, et pourquoi
+ *
+ * Presque rien, et il le dit. Le catalogue est vide : aucune demi-vie, aucun
+ * effet, aucune interaction, aucune limite, aucune dose n'a pu être sourcée
+ * depuis la machine qui construit ce site — toutes les sources primaires
+ * (RCP, agences, PubMed, Europe PMC, PubChem) y sont injoignables.
+ *
+ * L'écran existe quand même, et complet, pour une raison : la **forme** est
+ * ce qui empêchera plus tard d'écrire n'importe quoi. Chaque section porte
+ * déjà sa phrase fixe, son étiquette de provenance et son contrôle. Le jour
+ * où une valeur arrivera, elle devra entrer par une de ces portes, avec sa
+ * source — ou elle n'entrera pas.
+ *
+ * ## Ce qu'il ne fait pas
+ *
+ * Il ne dit pas ce que la bibliothèque externe contient pour cette molécule.
+ * Cyclades ne le sait pas, et ne doit pas pouvoir le savoir : le registre des
+ * noms ne garde aucune trace de provenance. Le lien sortant est générique, et
+ * la phrase le dit.
+ */
+import Base from '../../layouts/Base.astro';
+import {
+  ADRESSE_BIBLIOTHEQUE,
+  AVERTISSEMENT_SORTANT,
+  COUVERTURE_INCONNUE,
+  LIBELLE_LIEN,
+  MENTION_DONNEE_MORTE,
+} from '../../lib/odyssee/bibliotheque-externe';
+import {
+  AUCUNE_DOSE_HUMAINE,
+  AUCUNE_LIMITE,
+  BANDEAU_SANS_FICHE,
+  LIBELLE_DOSES,
+  NON_DOCUMENTE,
+} from '../../lib/odyssee/molecules';
+---
+
+<Base titre="Molécule" entete="leger">
+  <h1 id="titre-molecule" class="text-2xl font-bold text-slate-900 dark:text-white">Molécule</h1>
+  <p id="etiquette-identite" class="mt-1 hidden text-xs font-medium text-amber-700 dark:text-amber-300">
+    identité non vérifiée
+  </p>
+
+  <div id="chargement" class="py-16 text-center text-slate-400">Lecture de la fiche…</div>
+
+  <div id="fiche" class="hidden mt-5 space-y-6">
+    <!-- Le bandeau de la molécule sans fiche (décision 13). -->
+    <section
+      id="bandeau-sans-fiche"
+      class="hidden rounded-2xl border border-amber-300 bg-amber-50/70 p-4 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"
+    >
+      {BANDEAU_SANS_FICHE}
+    </section>
+
+    <!-- Profondeur 1 : d'un coup d'œil. -->
+    <section>
+      <h2 class="etiquette text-slate-500 dark:text-slate-400">D’un coup d’œil</h2>
+      <dl class="mt-2 grid gap-x-6 gap-y-2 sm:grid-cols-2">
+        <div class="flex justify-between gap-4 border-b border-slate-100 py-1.5 dark:border-slate-900">
+          <dt class="text-sm text-slate-500 dark:text-slate-400">Classe</dt>
+          <dd id="v-classe" class="text-sm text-slate-700 dark:text-slate-200">{NON_DOCUMENTE}</dd>
+        </div>
+        <div class="flex justify-between gap-4 border-b border-slate-100 py-1.5 dark:border-slate-900">
+          <dt class="text-sm text-slate-500 dark:text-slate-400">Statut en France</dt>
+          <dd id="v-statut" class="text-sm text-slate-700 dark:text-slate-200">{NON_DOCUMENTE}</dd>
+        </div>
+        <div class="flex justify-between gap-4 border-b border-slate-100 py-1.5 dark:border-slate-900">
+          <dt class="text-sm text-slate-500 dark:text-slate-400">Niveau de preuve</dt>
+          <dd id="v-preuve" class="text-sm text-slate-700 dark:text-slate-200">inconnu</dd>
+        </div>
+        <div class="flex justify-between gap-4 border-b border-slate-100 py-1.5 dark:border-slate-900">
+          <dt class="text-sm text-slate-500 dark:text-slate-400">Demi-vie</dt>
+          <dd id="v-demi-vie" class="text-sm text-slate-700 dark:text-slate-200">{NON_DOCUMENTE}</dd>
+        </div>
+      </dl>
+    </section>
+
+    <!-- Profondeurs 2 et 3 : repliées, pour ne pas submerger (2.6). -->
+    <details class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+      <summary class="cible-tactile cursor-pointer text-sm font-medium text-slate-900 dark:text-white">
+        À la demande — mécanisme, effets indésirables
+      </summary>
+      <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+        {NON_DOCUMENTE}. Une affirmation n’entre ici qu’avec son étiquette de provenance —
+        humain, animal, cellules, mécanisme déduit — et sa source vérifiée.
+      </p>
+    </details>
+
+    <details class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+      <summary class="cible-tactile cursor-pointer text-sm font-medium text-slate-900 dark:text-white">
+        Exhaustif — doses étudiées, limites, sources
+      </summary>
+
+      <h3 class="mt-3 etiquette text-slate-500 dark:text-slate-400">Limites à ne pas dépasser</h3>
+      <p id="limites" class="mt-1 text-sm text-slate-700 dark:text-slate-200">{AUCUNE_LIMITE}</p>
+
+      <h3 class="mt-4 etiquette text-slate-500 dark:text-slate-400">Doses étudiées</h3>
+      <p id="doses" class="mt-1 text-sm text-slate-700 dark:text-slate-200">{AUCUNE_DOSE_HUMAINE}</p>
+      <p id="libelle-doses" class="mt-1 hidden text-xs text-slate-500 dark:text-slate-400">
+        {LIBELLE_DOSES}
+      </p>
+    </details>
+
+    <!-- Mon journal : ma donnée, la seule expérience que Cyclades regarde. -->
+    <section>
+      <div class="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 class="etiquette text-slate-500 dark:text-slate-400">Mon journal</h2>
+        <p id="compte-ressentis" class="text-xs text-slate-400 dark:text-slate-500"></p>
+      </div>
+      <div id="liste-ressentis" class="mt-2 space-y-2"></div>
+      <form id="form-ressenti" class="mt-3 grid gap-2 sm:grid-cols-2">
+        <input
+          id="r-jour"
+          type="date"
+          aria-label="Jour du ressenti"
+          class="min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+        />
+        <input
+          id="r-ressenti"
+          type="text"
+          aria-label="Ce que je ressens"
+          placeholder="Ce que je ressens"
+          class="min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+        />
+        <input
+          id="r-indesirable"
+          type="text"
+          aria-label="Effet que je tiens pour indésirable"
+          placeholder="Effet que je tiens pour indésirable"
+          class="min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+        />
+        <input
+          id="r-tolerance"
+          type="text"
+          aria-label="Tolérance, dans mes mots"
+          placeholder="Tolérance, dans mes mots"
+          class="min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
+        />
+        <button
+          id="r-noter"
+          type="submit"
+          class="cible-tactile justify-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white sm:col-span-2"
+        >
+          Noter ce que je ressens
+        </button>
+      </form>
+      <p class="mt-1 text-xs text-slate-400 dark:text-slate-500">
+        Chiffré au repos, exclu des exports et de « Préparer une question pour une IA ».
+        Aucun score, aucune moyenne, aucune XP.
+      </p>
+    </section>
+
+    <!-- La passerelle sortante (2.1). -->
+    <section class="rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+      <p
+        id="avertissement-biblio"
+        class="hidden rounded-xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"
+      >
+        {AVERTISSEMENT_SORTANT}
+        <label class="mt-2 flex items-center gap-2 text-sm">
+          <input id="ne-plus-avertir" type="checkbox" class="rounded" />
+          <span>Ne plus afficher cet avertissement</span>
+        </label>
+        <button
+          id="confirmer-sortie"
+          type="button"
+          class="cible-tactile mt-2 rounded-lg bg-amber-600 px-3 text-sm font-medium text-white"
+        >
+          Ouvrir la bibliothèque
+        </button>
+      </p>
+
+      <a
+        id="lien-biblio"
+        href={ADRESSE_BIBLIOTHEQUE}
+        target="_blank"
+        rel="noopener noreferrer"
+        class="cible-tactile font-medium text-indigo-600 underline dark:text-indigo-300"
+      >
+        {LIBELLE_LIEN}
+        <span class="sr-only">— site externe, s’ouvre dans un nouvel onglet</span>
+      </a>
+      <div class="mt-2">
+        <button
+          id="copier-nom"
+          type="button"
+          class="cible-tactile rounded-lg border border-slate-300 px-3 text-sm font-medium dark:border-slate-700"
+        >
+          Copier le nom
+        </button>
+        <span id="nom-a-copier" class="ml-2 hidden rounded bg-slate-100 px-2 py-1 font-mono text-xs select-all dark:bg-slate-800"></span>
+      </div>
+      <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">{COUVERTURE_INCONNUE}</p>
+      <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">{MENTION_DONNEE_MORTE}</p>
+    </section>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { exigerLeCoffre } from '../../lib/coffre';
+  import {
+    ecrireRessenti,
+    ressentisDuTraitement,
+    tousLesTraitements,
+  } from '../../lib/odyssee/donnees-sante';
+  import { CLEF_AVERTISSEMENT_VU } from '../../lib/odyssee/bibliotheque-externe';
+  import { NON_DOCUMENTE } from '../../lib/odyssee/molecules';
+  import { CATALOGUE } from '../../lib/odyssee/sante';
+  import { formaterDate, notifier, parametreUrl, pluriel } from '../../lib/ui';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  auDeverrouillage(async () => {
+    await exigerLeCoffre();
+
+    const traitementId = parametreUrl('traitement') ?? '';
+    const traitements = await tousLesTraitements();
+    const traitement = traitements.find((t) => t.id === traitementId) ?? null;
+    const nom = traitement?.nom ?? parametreUrl('nom') ?? 'Molécule';
+
+    $('titre-molecule').textContent = nom;
+    document.title = `${nom} · Cyclades`;
+    $('nom-a-copier').textContent = nom;
+
+    /*
+       Le catalogue est vide : toute molécule est donc « sans fiche », et le
+       bandeau s'affiche. Le code n'en fait pas l'hypothèse pour autant — il
+       cherche, et c'est la recherche qui échoue. Le jour où une fiche
+       existera, rien ici ne changera.
+    */
+    const fiche = CATALOGUE.find((f) => f.nom.toLowerCase() === nom.toLowerCase()) ?? null;
+    $('bandeau-sans-fiche').classList.toggle('hidden', Boolean(fiche));
+    $('etiquette-identite').classList.toggle('hidden', Boolean(fiche));
+    if (fiche) {
+      $('v-demi-vie').textContent = fiche.demiVie.connue ? fiche.demiVie.valeur : NON_DOCUMENTE;
+    }
+
+    /* ── Le journal ───────────────────────────────────────────────── */
+
+    async function peindreJournal() {
+      if (!traitement) {
+        $('form-ressenti').classList.add('hidden');
+        $('compte-ressentis').textContent = 'Ouvrez cette fiche depuis un traitement pour la noter.';
+        return;
+      }
+      const notes = await ressentisDuTraitement(traitement.id);
+      $('compte-ressentis').textContent = notes.length
+        ? `${pluriel(notes.length, 'note')} · chiffré`
+        : 'Aucune note · chiffré';
+      const zone = $('liste-ressentis');
+      zone.innerHTML = '';
+      for (const n of notes) {
+        const ligne = document.createElement('div');
+        ligne.className =
+          'rounded-xl border border-slate-200 px-3 py-2 text-sm dark:border-slate-800';
+        const date = document.createElement('span');
+        date.className = 'mr-2 text-xs text-slate-400';
+        date.textContent = formaterDate(n.jour);
+        const corps = document.createElement('span');
+        corps.className = 'text-slate-700 dark:text-slate-200';
+        corps.textContent = [n.ressenti, n.indesirable, n.tolerance].filter(Boolean).join(' · ');
+        ligne.append(date, corps);
+        zone.appendChild(ligne);
+      }
+    }
+
+    $('form-ressenti').addEventListener('submit', (e) => {
+      e.preventDefault();
+      if (!traitement) return;
+      const lire = (id: string) => ($(id) as HTMLInputElement).value.trim();
+      void ecrireRessenti({
+        traitementId: traitement.id,
+        jour: lire('r-jour') || new Date().toISOString().slice(0, 10),
+        ressenti: lire('r-ressenti'),
+        indesirable: lire('r-indesirable'),
+        tolerance: lire('r-tolerance'),
+        note: '',
+      })
+        .then(() => {
+          for (const id of ['r-ressenti', 'r-indesirable', 'r-tolerance']) {
+            ($(id) as HTMLInputElement).value = '';
+          }
+          return peindreJournal();
+        })
+        .catch((err) => notifier(String(err instanceof Error ? err.message : err)));
+    });
+
+    /* ── La passerelle ────────────────────────────────────────────── */
+
+    const vu = (() => {
+      try {
+        return localStorage.getItem(CLEF_AVERTISSEMENT_VU) === 'oui';
+      } catch {
+        return false;
+      }
+    })();
+
+    const lien = $('lien-biblio') as HTMLAnchorElement;
+    if (!vu) {
+      /*
+         Tant que l'avertissement n'a pas été lu, le lien ne navigue pas : il
+         déplie l'avertissement. Un avertissement qu'on peut traverser sans le
+         voir n'avertit personne.
+      */
+      lien.addEventListener('click', (e) => {
+        e.preventDefault();
+        $('avertissement-biblio').classList.remove('hidden');
+        ($('confirmer-sortie') as HTMLButtonElement).focus();
+      });
+      $('confirmer-sortie').addEventListener('click', () => {
+        if (($('ne-plus-avertir') as HTMLInputElement).checked) {
+          try {
+            localStorage.setItem(CLEF_AVERTISSEMENT_VU, 'oui');
+          } catch {
+            /* stockage refusé : l'avertissement reviendra, ce qui est le bon défaut */
+          }
+        }
+        window.open(lien.href, '_blank', 'noopener,noreferrer');
+      });
+    }
+
+    $('copier-nom').addEventListener('click', () => {
+      /*
+         Le nom passe par le presse-papiers, jamais par l'adresse : ce qu'on
+         consulte dans une bibliothèque de molécules est une donnée de santé,
+         et une URL se retrouve dans l'historique.
+      */
+      navigator.clipboard
+        ?.writeText(nom)
+        .then(() => notifier(`« ${nom} » copié.`, 'succes'))
+        .catch(() => {
+          $('nom-a-copier').classList.remove('hidden');
+          notifier('Presse-papiers indisponible : le nom est affiché, sélectionnez-le.');
+        }) ??
+        (() => {
+          $('nom-a-copier').classList.remove('hidden');
+        })();
+    });
+
+    await peindreJournal();
+    $('chargement').classList.add('hidden');
+    $('fiche').classList.remove('hidden');
+  });
+</script>

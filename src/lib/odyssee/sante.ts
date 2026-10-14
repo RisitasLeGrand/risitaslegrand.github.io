@@ -224,6 +224,16 @@ export interface Traitement {
   prescripteur: string;
   /** Texte libre : « 1 comprimé le matin », « 250 mg tous les 10 jours ». */
   posologie: string;
+  /**
+   * Une prise isolée, sans schéma ni rappel (décision 12).
+   *
+   * Un type plutôt qu'un magasin : une prise sporadique **est** un traitement
+   * d'un jour. Lui donner son propre magasin aurait dupliqué le modèle, les
+   * contrôles, le chiffrement et la synchronisation pour une différence qui
+   * tient dans un booléen — et aurait obligé chaque écran à lire deux listes
+   * là où il en lit une.
+   */
+  sporadique: boolean;
   debut: string;
   /** Vide tant qu'il court. */
   fin: string;
@@ -242,6 +252,45 @@ export function controlerTraitement(t: Traitement): string[] {
 
 export const traitementEnCours = (t: Traitement, jour: string): boolean =>
   t.debut <= jour && (!t.fin || t.fin >= jour);
+
+/* ── Ce que je ressens, rattaché à ce que je prends (2.3) ─────────────── */
+
+/**
+ * Une note de ressenti, liée à un traitement.
+ *
+ * C'est **ma** donnée d'expérience, et la seule que Cyclades regarde : les
+ * témoignages de tiers restent dans la ressource externe, que je consulte
+ * moi-même et que l'application n'utilise pas.
+ *
+ * Aucun score, aucune moyenne, aucun message rassurant, aucune XP. Un module
+ * qui noterait un ressenti sur dix aurait transformé une observation en
+ * jugement, et un « vous allez mieux » calculé sur trois notes serait une
+ * affirmation que rien n'étaye.
+ */
+export interface Ressenti {
+  id: string;
+  /** Le traitement concerné. Une note de ressenti sans objet n'en est pas une. */
+  traitementId: string;
+  jour: string;
+  /** Ce que je ressens, dans mes mots. */
+  ressenti: string;
+  /** Ce que je tiens pour un effet indésirable, dans mes mots. */
+  indesirable: string;
+  /** Texte libre : « supporté », « moins net qu'au début ». Jamais un chiffre. */
+  tolerance: string;
+  note: string;
+  majLe: string;
+}
+
+export function controlerRessenti(r: Ressenti): string[] {
+  const problemes: string[] = [];
+  if (!r.traitementId?.trim()) problemes.push('Un ressenti se rattache à un traitement.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(r.jour)) problemes.push('Un ressenti a une date.');
+  if (!r.ressenti.trim() && !r.indesirable.trim() && !r.tolerance.trim() && !r.note.trim()) {
+    problemes.push('Un ressenti entièrement vide n’est pas une note.');
+  }
+  return problemes;
+}
 
 /* ── Les prélèvements et leurs résultats ─────────────────────────────── */
 

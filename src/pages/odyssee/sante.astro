@@ -106,6 +106,29 @@ import { POURQUOI_CATALOGUE_VIDE } from '../../lib/odyssee/sante';
           Un nombre appellerait un calcul, le calcul une comparaison, et la comparaison serait un
           avis que cet écran n’a pas à rendre.
         </p>
+        <!--
+           Le menu des molécules (2.8).
+
+           Une liste déroulante classique aurait tenu un millier d'entrées et
+           aurait été inutilisable au doigt. C'est donc un champ de recherche
+           qui propose, et un champ de nom qui reste libre : « ma molécule
+           n'est pas dans la liste » n'est pas une sortie de secours
+           optionnelle, c'est le cas normal tant que le registre est absent.
+
+           Rien de ce qui est tapé ici n'est enregistré. Seule la déclaration
+           validée l'est.
+        -->
+        <div class="sm:col-span-2">
+          <label for="t-chercher" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
+            Chercher une molécule
+          </label>
+          <input id="t-chercher" type="search" autocomplete="off"
+            placeholder="Trois lettres suffisent"
+            class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          <p id="etat-registre" class="mt-1 text-xs text-slate-500 dark:text-slate-400"></p>
+          <ul id="suggestions" class="mt-1 max-h-64 space-y-1 overflow-y-auto" role="listbox" aria-label="Molécules proposées"></ul>
+        </div>
+
         <form id="form-traitement" class="mt-3 grid gap-2 sm:grid-cols-2">
           <input id="t-nom" aria-label="Nom du traitement" type="text" placeholder="Nom" required
             class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
@@ -120,6 +143,10 @@ import { POURQUOI_CATALOGUE_VIDE } from '../../lib/odyssee/sante';
           </select>
           <input id="t-prescripteur" aria-label="Prescripteur" type="text" placeholder="Prescripteur (facultatif)"
             class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          <label class="flex items-center gap-2 text-sm text-slate-600 sm:col-span-2 dark:text-slate-300">
+            <input id="t-sporadique" type="checkbox" class="rounded" />
+            <span>Prise sporadique — une prise isolée, sans schéma ni rappel</span>
+          </label>
           <button type="submit"
             class="cible-tactile rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white sm:col-span-2"
             >Déclarer ce traitement</button>
@@ -201,6 +228,8 @@ import { POURQUOI_CATALOGUE_VIDE } from '../../lib/odyssee/sante';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import { coffreOuvert, ouvrirLeCoffre, reprendreLeCoffre, surCoffre } from '../../lib/coffre';
   import { heuresDepuisLaDernierePrise, situerDansLIntervalle } from '../../lib/odyssee/sante';
+  import { chercher, type EntreeRegistre } from '../../lib/odyssee/molecules';
+  import { chargerRegistreMolecules } from '../../lib/contenu';
   import { toutesLesPrises } from '../../lib/odyssee/donnees-sensible';
   import {
     activerLaSante,
@@ -249,6 +278,73 @@ import { POURQUOI_CATALOGUE_VIDE } from '../../lib/odyssee/sante';
     bouton.addEventListener('click', () => void retirer().then(peindre).catch(dire));
     li.append(gauche, bouton);
     return li;
+  }
+
+  /* ── Le menu des molécules (2.8) ─────────────────────────────────── */
+
+  /**
+   * Le registre, chargé une fois à l'ouverture de l'écran.
+   *
+   * Son absence est un état normal : le fichier n'existe que si l'extraction
+   * a été lancée à la main. Le menu le dit, et la saisie libre reste le
+   * chemin principal — elle l'était déjà avant ce menu, et elle le reste
+   * après.
+   */
+  let registre: EntreeRegistre[] = [];
+
+  async function chargerLeMenu() {
+    try {
+      const brut = await chargerRegistreMolecules();
+      registre = brut.map((e) => ({ ...e, alias: e.alias ?? [] }));
+      $('etat-registre').textContent =
+        `${registre.length} molécules proposées. Figurer dans cette liste n’est ni une ` +
+        'validation, ni un encouragement, ni une indication de disponibilité légale.';
+    } catch {
+      registre = [];
+      $('etat-registre').textContent =
+        'Aucun registre de molécules sur cet appareil : écrivez le nom directement. ' +
+        '(« npm run molecules:registre » le construit, hors du dépôt.)';
+    }
+  }
+
+  function peindreSuggestions() {
+    const zone = $('suggestions');
+    const q = ($('t-chercher') as HTMLInputElement).value.trim();
+    zone.innerHTML = '';
+    if (!registre.length || q.length < 2) return;
+
+    /*
+       Vingt propositions au plus. Le registre en compte près d'un millier :
+       tout peindre coûterait une seconde sur téléphone pour un résultat que
+       personne ne lit au-delà de la dixième ligne.
+    */
+    for (const e of chercher(registre, q, new Set(), 20)) {
+      const li = document.createElement('li');
+      const bouton = document.createElement('button');
+      bouton.type = 'button';
+      bouton.className =
+        'cible-tactile w-full justify-between gap-2 rounded-lg border border-slate-200 px-3 ' +
+        'text-left text-sm hover:bg-slate-50 dark:border-slate-800 dark:hover:bg-slate-900';
+      const nom = document.createElement('span');
+      nom.textContent = e.nom;
+      const etat = document.createElement('span');
+      etat.className = 'text-xs text-slate-400';
+      etat.textContent = [
+        e.fiche ? 'fiche disponible' : 'sans fiche',
+        e.identiteVerifiee ? '' : 'identité non vérifiée',
+      ]
+        .filter(Boolean)
+        .join(' · ');
+      bouton.append(nom, etat);
+      bouton.addEventListener('click', () => {
+        ($('t-nom') as HTMLInputElement).value = e.nom;
+        ($('t-chercher') as HTMLInputElement).value = '';
+        zone.innerHTML = '';
+        ($('t-debut') as HTMLInputElement).focus();
+      });
+      li.appendChild(bouton);
+      zone.appendChild(li);
+    }
   }
 
   async function peindre() {
@@ -352,13 +448,23 @@ import { POURQUOI_CATALOGUE_VIDE } from '../../lib/odyssee/sante';
     const ouvert = coffreOuvert();
     $('coffre-ferme').classList.toggle('hidden', ouvert);
     $('coffre-ouvert').classList.toggle('hidden', !ouvert);
-    if (ouvert) await peindre();
+    if (ouvert) {
+      /*
+         Le registre se charge **à l'ouverture de l'écran**, pas au démarrage
+         du site : c'est la seule façon qu'il reste étanche. Un chargement
+         global l'aurait rendu disponible à tout module qui passe, et
+         l'étanchéité serait redevenue une question de discipline.
+      */
+      await chargerLeMenu();
+      await peindre();
+    }
   }
 
   const valeur = (id: string) => ($(id) as HTMLInputElement | HTMLSelectElement).value;
 
   auDeverrouillage(
     async () => {
+      $('t-chercher').addEventListener('input', peindreSuggestions);
       ($('t-debut') as HTMLInputElement).value = AUJOURDHUI;
       ($('p-jour') as HTMLInputElement).value = AUJOURDHUI;
       ($('s-jour') as HTMLInputElement).value = AUJOURDHUI;
@@ -388,11 +494,13 @@ import { POURQUOI_CATALOGUE_VIDE } from '../../lib/odyssee/sante';
           posologie: valeur('t-posologie'),
           origine: valeur('t-origine') as 'moi' | 'prescrit',
           prescripteur: valeur('t-prescripteur'),
+          sporadique: ($('t-sporadique') as HTMLInputElement).checked,
         })
           .then(() => {
             ($('t-nom') as HTMLInputElement).value = '';
             ($('t-posologie') as HTMLInputElement).value = '';
             ($('t-prescripteur') as HTMLInputElement).value = '';
+            ($('t-sporadique') as HTMLInputElement).checked = false;
             return peindre();
           })
           .catch(dire);
