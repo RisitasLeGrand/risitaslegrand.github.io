@@ -75,6 +75,25 @@ const idsDeLEntree = (e: EntreeDeBarre) =>
 const principaux = ongletsPrincipaux(brancheCourante);
 
 /*
+   Le nom de la page courante, pour le téléphone.
+
+   Sous « sm », la barre du bas porte déjà `principaux` — exactement la même
+   liste que le ruban du haut. Les deux rangées disaient donc la même chose,
+   l'une au-dessus de l'autre, et c'est l'un des constats de la critique du
+   14 octobre.
+
+   Ce qui se perd en retirant le ruban n'est pas la navigation, qui reste en
+   bas : c'est de **savoir où l'on est**, puisque la barre du bas le marque
+   discrètement. Le nom le remplace, et prend moins de place qu'il n'en
+   libère.
+
+   Il vient du registre quand l'onglet y figure, et du titre de la page
+   sinon — une page hors onglets (une fiche, un détail) a tout de même un
+   nom à afficher.
+*/
+const nomDeLaPage = principaux.find((o) => o.id === actif)?.nom ?? titre;
+
+/*
    La portée du pied de page : la branche où l'on est, ou le menu.
 
    Elle n'est pas toujours celle de l'en-tête, et c'est voulu. Une page à
@@ -291,6 +310,30 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
               */}
               <div class="order-last flex w-full min-w-0 shrink items-center gap-2 2xl:order-none 2xl:w-auto 2xl:flex-1">
                 {brancheCourante.id === ID_BRANCHE_PAR_DEFAUT && <SelecteurParcours />}
+                {/*
+                   Le nom de la page, sous « sm » seulement : il prend la place
+                   du ruban caché juste à côté. `aria-hidden` parce que le
+                   titre du document le dit déjà à un lecteur d'écran, et
+                   l'entendre deux fois à chaque page serait une gêne, pas une
+                   aide.
+                */}
+                <span
+                  id="nom-de-la-page"
+                  aria-hidden="true"
+                  class="min-w-0 flex-1 truncate text-sm font-medium text-slate-700 sm:hidden dark:text-slate-200"
+                  >{nomDeLaPage}</span
+                >
+                {/*
+                   `hidden sm:flex` sur la barre : sous 640 px la barre du bas
+                   rend la **même liste**, et deux navigations identiques l'une
+                   au-dessus de l'autre ne valent pas mieux qu'une. Au-dessus,
+                   la barre du bas disparaît (`sm:hidden`) et ce ruban redevient
+                   la seule navigation de branche : les deux seuils sont le
+                   même, et c'est volontaire.
+
+                   Ce qui se perdrait sans contrepartie, c'est de savoir où
+                   l'on est — d'où le nom de la page, juste au-dessus.
+                */}
                 <nav
                   id="navigation-principale"
                   aria-label="Navigation principale"
@@ -302,7 +345,7 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
                      dans un conteneur qui masque le débordement est un menu
                      qui s'ouvre dans une fente.
                   */}
-                  class="-mx-1 flex min-w-0 flex-1 flex-wrap gap-1 px-1"
+                  class="-mx-1 hidden min-w-0 flex-1 flex-wrap gap-1 px-1 sm:flex"
                 >
                   {/*
                      Un nom par écran, le même partout.
