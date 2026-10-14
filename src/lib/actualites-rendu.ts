@@ -457,8 +457,28 @@ function marquerRattachement(element: HTMLElement) {
   element.dataset.rattachements = String(element.querySelectorAll('a[href*="/fiche/"]').length);
 }
 
-/** Carte d'une actualité datée (entrée hebdomadaire, trimestrielle ou annuelle). */
-export function carteItem(item: ItemActu, fichesCours: FicheAplatie[] = []): HTMLElement {
+/**
+ * Carte d'une actualité datée (entrée hebdomadaire, trimestrielle ou annuelle).
+ *
+ * ## Le mode replié
+ *
+ * Sur l'archive, cent neuf articles de huit à dix lignes faisaient quarante
+ * mille pixels et sept cent dix éléments interactifs. Repliée, la carte
+ * montre son domaine, son titre et trois lignes de résumé ; le lien avec le
+ * programme, les sources et le bouton « Préparer une question pour une IA »
+ * attendent derrière « Lire la suite ». Ce ne sont pas seulement des pixels
+ * en moins : ces trois blocs portaient presque tous les éléments interactifs
+ * de la page, et une liste qu'on survole n'a pas besoin d'eux.
+ *
+ * Le tableau de bord, lui, n'affiche que quatre actualités et n'a jamais été
+ * trop long : il garde la carte entière. D'où l'option, plutôt qu'un
+ * changement partout.
+ */
+export function carteItem(
+  item: ItemActu,
+  fichesCours: FicheAplatie[] = [],
+  { replie = false }: { replie?: boolean } = {},
+): HTMLElement {
   const domaine = etiquetteDomaine(domaineDe(item));
 
   // L'image n'est jamais hébergée ici : on affiche l'URL d'origine, et on
@@ -488,12 +508,12 @@ export function carteItem(item: ItemActu, fichesCours: FicheAplatie[] = []): HTM
     titre: item.titre ?? '',
     entete: image,
     corps: `
-      <p class="texte-secable mt-2 text-sm text-slate-600 dark:text-slate-300">${echapper(item.resume ?? '')}</p>
-      ${blocLienCours(item, fichesCours)}
-      ${listeSources(item.sources)}`,
+      <p data-resume class="texte-secable mt-2 text-sm text-slate-600 dark:text-slate-300${replie ? ' line-clamp-3' : ''}">${echapper(item.resume ?? '')}</p>`,
   });
   element.dataset.domaine = domaineDe(item);
-  marquerRattachement(element);
+
+  const suite = document.createElement('div');
+  suite.innerHTML = `${blocLienCours(item, fichesCours)}${listeSources(item.sources)}`;
 
   /*
    * Une actualité est le contexte où l'assistant sert le plus souvent : elle
@@ -520,7 +540,35 @@ export function carteItem(item: ItemActu, fichesCours: FicheAplatie[] = []): HTM
       'Préparer une question pour une IA',
     ),
   );
-  element.appendChild(aide);
+  suite.appendChild(aide);
+
+  if (!replie) {
+    element.appendChild(suite);
+    marquerRattachement(element);
+    return element;
+  }
+
+  const bloc = document.createElement('details');
+  bloc.className = 'depliant mt-1';
+  const titre = document.createElement('summary');
+  const ouvrir = document.createElement('span');
+  ouvrir.className = 'depliant-ouvrir';
+  ouvrir.textContent = 'Lire la suite';
+  const fermer = document.createElement('span');
+  fermer.className = 'depliant-fermer';
+  fermer.textContent = 'Replier';
+  titre.append(ouvrir, fermer);
+  bloc.append(titre, suite);
+  // Le résumé se déplie avec le reste : le couper à trois lignes et laisser
+  // la coupe en place une fois la carte ouverte n'aurait caché que le texte
+  // qu'on vient de demander à lire.
+  bloc.addEventListener('toggle', () => {
+    element.querySelector('[data-resume]')?.classList.toggle('line-clamp-3', !bloc.open);
+  });
+  element.appendChild(bloc);
+  // « marquerRattachement » lit le bloc « lien avec le programme », qui est
+  // maintenant dans le dépliant : il doit donc passer après l'assemblage.
+  marquerRattachement(element);
   return element;
 }
 

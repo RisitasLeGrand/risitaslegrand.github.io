@@ -43,6 +43,50 @@ import Base from '../layouts/Base.astro';
     <button type="button" data-domaine="international" class="filtre-domaine min-h-11 rounded-full px-4 py-2 text-sm font-medium">International</button>
   </div>
 
+  {/*
+     La recherche traverse toutes les périodes de la vue, et pas seulement
+     celle qui est affichée : chercher « inflation » dans la seule semaine
+     ouverte ne servirait à rien. Tant qu'elle est remplie, la navigation
+     période par période s'efface — on ne peut pas être à la fois sur une
+     semaine et sur quarante.
+  */}
+  <input
+    id="recherche-actu"
+    type="search"
+    aria-label="Rechercher dans les actualités"
+    placeholder="Rechercher un titre, un résumé, un mot-clé…"
+    class="mb-4 w-full rounded-xl border border-slate-300 bg-white px-4 py-2.5 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:focus:ring-indigo-900"
+  />
+
+  {/*
+     Une période à la fois. « Précédente » recule dans le temps : les
+     périodes sont rangées de la plus récente à la plus ancienne, et c'est
+     l'ordre dans lequel on les lit, pas l'ordre des index.
+  */}
+  <nav id="barre-periode" class="mb-5 hidden flex-wrap items-center gap-2" aria-label="Période affichée">
+    <button
+      id="periode-precedente"
+      type="button"
+      class="cible-tactile-pleine rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+    >
+      ‹ Précédente
+    </button>
+    <label for="choix-periode" class="sr-only">Période affichée</label>
+    <select
+      id="choix-periode"
+      class="min-h-11 max-w-full min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm font-medium text-slate-700 sm:flex-none dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200"
+    >
+    </select>
+    <button
+      id="periode-suivante"
+      type="button"
+      class="cible-tactile-pleine rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+    >
+      Suivante ›
+    </button>
+    <span id="position-periode" role="status" class="text-sm text-slate-500 dark:text-slate-400"></span>
+  </nav>
+
   <div id="chargement-actu" class="py-16 text-center text-slate-400">Chargement des actualités…</div>
   <div id="archive" class="hidden space-y-8"></div>
 </Base>
@@ -70,7 +114,7 @@ import Base from '../layouts/Base.astro';
   } from '../lib/actualites-rendu';
   import { aplatirFiches, chargerIndexRecherche, chargerManifeste, type FicheAplatie } from '../lib/contenu';
   import { construireIndexTexte } from '../lib/rattachement';
-  import { lien, parametreUrl } from '../lib/ui';
+  import { lien, normaliser, parametreUrl, pluriel } from '../lib/ui';
 
   const ACTIF_ONGLET = 'bg-white text-indigo-700 shadow-sm dark:bg-slate-900 dark:text-indigo-300';
   const INACTIF_ONGLET = 'text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white';
@@ -86,10 +130,49 @@ import Base from '../layouts/Base.astro';
 
   document.getElementById('retour')!.setAttribute('href', lien('/revisions/'));
 
+  const champRecherche = document.getElementById('recherche-actu') as HTMLInputElement;
+  const barrePeriode = document.getElementById('barre-periode')!;
+  const choixPeriode = document.getElementById('choix-periode') as HTMLSelectElement;
+  const precedente = document.getElementById('periode-precedente') as HTMLButtonElement;
+  const suivante = document.getElementById('periode-suivante') as HTMLButtonElement;
+  const position = document.getElementById('position-periode')!;
+
   const donnees: Record<string, PeriodeActu[] | undefined> = {};
   let fichesCours: FicheAplatie[] = [];
   let vue = 'semaines';
   let domaine = '';
+  /** Identifiant de la période affichée ; vide = la plus récente. */
+  let periodeChoisie = '';
+  let recherche = '';
+
+  const MOT = { semaines: 'semaine', mois: 'mois', trimestres: 'trimestre', annees: 'année' } as const;
+  const motDe = (v: string) => MOT[v as keyof typeof MOT] ?? 'période';
+
+  /**
+   * L'adresse porte l'état de l'écran.
+   *
+   * Une archive sans adresse n'est pas partageable et ne se recharge pas :
+   * revenir d'une fiche de cours ramenait à la semaine la plus récente, quelle
+   * que soit celle qu'on lisait. « replaceState » et non « pushState » : ces
+   * changements ne sont pas des pages, et vingt retours en arrière pour
+   * défaire vingt clics de filtre seraient un piège.
+   */
+  function majAdresse() {
+    const p = new URLSearchParams();
+    if (vue !== 'semaines') p.set('vue', vue);
+    if (domaine) p.set('domaine', domaine);
+    if (periodeChoisie) p.set('periode', periodeChoisie);
+    if (recherche) p.set('q', recherche);
+    const suite = p.toString();
+    history.replaceState(null, '', suite ? `?${suite}` : location.pathname);
+  }
+
+  /** Le texte d'un item, tel qu'on le cherche : titre, résumé, mots-clés, sources. */
+  function texteDe(item: { titre?: string; resume?: string; mots_cles?: string[]; sources?: { nom?: string }[] }) {
+    return normaliser(
+      [item.titre ?? '', item.resume ?? '', ...(item.mots_cles ?? []), ...(item.sources ?? []).map((x) => x.nom ?? '')].join(' '),
+    );
+  }
 
   function peindreBoutons() {
     for (const bouton of onglets) {
@@ -103,8 +186,11 @@ import Base from '../layouts/Base.astro';
       bouton.setAttribute('aria-pressed', String(actif));
     }
     // Les frises se lisent par période, pas par domaine : le filtre n'y a pas
-    // de sens, la légende de couleurs le remplace.
+    // de sens, la légende de couleurs le remplace. La recherche non plus : une
+    // frise n'a pas de texte à chercher.
     zoneFiltres.classList.toggle('hidden', vue === 'syntheses');
+    champRecherche.classList.toggle('hidden', vue === 'syntheses');
+    champRecherche.placeholder = `Rechercher dans toutes les ${vue === 'annees' ? 'années' : vue}…`;
   }
 
   /**
@@ -173,17 +259,88 @@ import Base from '../layouts/Base.astro';
     }
   }
 
+  /** Une section de période : titre, tendances, cartes, lien vers la frise. */
+  function sectionDePeriode(entree: PeriodeActu, items: ReturnType<typeof itemsDe>, tendances: unknown[]) {
+    const section = document.createElement('section');
+    // Rendu différé : sur une recherche qui traverse quarante semaines, le
+    // navigateur n'a pas à mettre en page ce qui est hors de l'écran.
+    section.className = 'differe';
+    section.style.containIntrinsicSize = `auto ${240 + items.length * 230}px`;
+    const titre = document.createElement('h2');
+    titre.className =
+      'mb-3 border-b border-slate-200 pb-2 text-lg font-semibold text-slate-900 dark:border-slate-800 dark:text-white';
+    titre.textContent = titrePeriode(entree);
+    section.appendChild(titre);
+
+    // Les tendances de fond ouvrent le bilan : elles en donnent la lecture
+    // d'ensemble, avant la liste des actualités retenues.
+    if (tendances.length) {
+      const bloc = blocTendances(tendances as never);
+      bloc.classList.add('mb-4');
+      section.appendChild(bloc);
+    }
+
+    if (items.length) {
+      const grille = document.createElement('div');
+      grille.className = 'grid gap-3 md:grid-cols-2';
+      for (const item of items) grille.appendChild(carteItem(item, fichesCours, { replie: true }));
+      section.appendChild(grille);
+    }
+
+    // Lien vers la frise de cette période, qui vit dans l'onglet Synthèses.
+    if (friseDe(entree).length) {
+      const vers = document.createElement('button');
+      vers.type = 'button';
+      vers.className =
+        'mt-3 inline-flex min-h-11 items-center text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400';
+      vers.textContent = `Voir la frise chronologique de ${idPeriode(entree)} →`;
+      vers.addEventListener('click', () => void basculer('syntheses'));
+      section.appendChild(vers);
+    }
+    return section;
+  }
+
+  /** Les items d'une période, filtrés par domaine puis par la recherche. */
+  function itemsDe(entree: PeriodeActu) {
+    const requete = normaliser(recherche.trim());
+    return (entree.items ?? [])
+      .filter((i) => !domaine || domaineDe(i) === domaine)
+      .filter((i) => !requete || texteDe(i).includes(requete));
+  }
+
+  /**
+   * Les périodes qui ont quelque chose à montrer, de la plus récente à la
+   * plus ancienne.
+   *
+   * Le tri explicite, et non l'ordre de chargement : les quatre chargeurs ne
+   * le garantissent pas de la même façon, et une liste à l'envers ferait
+   * reculer « Suivante ».
+   */
+  function periodesVisibles() {
+    return [...(donnees[vue] ?? [])]
+      .sort((a, b) => idPeriode(b).localeCompare(idPeriode(a)))
+      .map((entree) => ({
+        entree,
+        items: itemsDe(entree),
+        tendances: domaine || recherche.trim() ? [] : (entree.tendances ?? []),
+      }))
+      .filter(({ items, tendances }) => items.length || tendances.length);
+  }
+
   function peindreArchive() {
     peindreBoutons();
     archive.innerHTML = '';
 
     if (vue === 'syntheses') {
+      barrePeriode.classList.add('hidden');
+      barrePeriode.classList.remove('flex');
       peindreSyntheses();
       return;
     }
 
-    const entrees = donnees[vue] ?? [];
-    if (!entrees.length) {
+    if (!(donnees[vue] ?? []).length) {
+      barrePeriode.classList.add('hidden');
+      barrePeriode.classList.remove('flex');
       archive.appendChild(
         messageVide(
           "Aucune actualité n'a encore été publiée pour cette période. Les routines de veille alimenteront cette page automatiquement.",
@@ -192,51 +349,65 @@ import Base from '../layouts/Base.astro';
       return;
     }
 
-    let affichees = 0;
-    for (const entree of entrees) {
-      const items = (entree.items ?? []).filter((i) => !domaine || domaineDe(i) === domaine);
-      const tendances = domaine ? [] : (entree.tendances ?? []);
-      if (!items.length && !tendances.length) continue;
-      affichees += items.length + tendances.length;
+    const visibles = periodesVisibles();
 
-      const section = document.createElement('section');
-      const titre = document.createElement('h2');
-      titre.className =
-        'mb-3 border-b border-slate-200 pb-2 text-lg font-semibold text-slate-900 dark:border-slate-800 dark:text-white';
-      titre.textContent = titrePeriode(entree);
-      section.appendChild(titre);
-
-      // Les tendances de fond ouvrent le bilan : elles en donnent la lecture
-      // d'ensemble, avant la liste des actualités retenues.
-      if (tendances.length) {
-        const bloc = blocTendances(tendances);
-        bloc.classList.add('mb-4');
-        section.appendChild(bloc);
+    /*
+       En recherche, toutes les périodes qui répondent sont montrées d'un
+       coup, avec leur nombre : « dans quelle semaine en a-t-on parlé » est
+       justement la question qu'on pose, et une réponse période par période
+       obligerait à les visiter une à une.
+    */
+    if (recherche.trim()) {
+      barrePeriode.classList.add('hidden');
+      barrePeriode.classList.remove('flex');
+      const total = visibles.reduce((n, v) => n + v.items.length, 0);
+      const compte = document.createElement('p');
+      compte.setAttribute('role', 'status');
+      compte.className = 'mb-4 text-sm text-slate-500 dark:text-slate-400';
+      compte.textContent = total
+        ? `${pluriel(total, 'résultat')} dans ${pluriel(visibles.length, motDe(vue), vue === 'mois' ? 'mois' : undefined)}.`
+        : '';
+      if (total) archive.appendChild(compte);
+      for (const { entree, items, tendances } of visibles) {
+        archive.appendChild(sectionDePeriode(entree, items, tendances));
       }
-
-      if (items.length) {
-        const grille = document.createElement('div');
-        grille.className = 'grid gap-3 md:grid-cols-2';
-        for (const item of items) grille.appendChild(carteItem(item, fichesCours));
-        section.appendChild(grille);
+      if (!total) {
+        archive.appendChild(messageVide(`Aucune actualité ne correspond à « ${recherche.trim()} »${domaine ? ' dans ce domaine' : ''}.`));
       }
-
-      // Lien vers la frise de cette période, qui vit dans l'onglet Synthèses.
-      if (friseDe(entree).length) {
-        const vers = document.createElement('button');
-        vers.type = 'button';
-        vers.className =
-          'mt-3 inline-flex min-h-11 items-center text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400';
-        vers.textContent = `Voir la frise chronologique de ${idPeriode(entree)} →`;
-        vers.addEventListener('click', () => void basculer('syntheses'));
-        section.appendChild(vers);
-      }
-      archive.appendChild(section);
+      void repecher();
+      return;
     }
 
-    if (!affichees) {
+    if (!visibles.length) {
+      barrePeriode.classList.add('hidden');
+      barrePeriode.classList.remove('flex');
       archive.appendChild(messageVide('Aucune actualité ne correspond à ce domaine sur la période disponible.'));
+      return;
     }
+
+    // La période retenue : celle de l'adresse si elle existe encore après
+    // filtrage, la plus récente sinon.
+    let index = visibles.findIndex(({ entree }) => idPeriode(entree) === periodeChoisie);
+    if (index === -1) index = 0;
+    const courante = visibles[index];
+    periodeChoisie = idPeriode(courante.entree);
+
+    choixPeriode.innerHTML = '';
+    for (const { entree, items } of visibles) {
+      const option = document.createElement('option');
+      option.value = idPeriode(entree);
+      option.textContent = `${titrePeriode(entree)} — ${pluriel(items.length, 'actualité')}`;
+      choixPeriode.appendChild(option);
+    }
+    choixPeriode.value = periodeChoisie;
+    precedente.disabled = index >= visibles.length - 1;
+    suivante.disabled = index <= 0;
+    position.textContent = `${index + 1} sur ${visibles.length}`;
+    barrePeriode.classList.remove('hidden');
+    barrePeriode.classList.add('flex');
+
+    archive.appendChild(sectionDePeriode(courante.entree, courante.items, courante.tendances));
+    majAdresse();
     void repecher();
   }
 
@@ -273,6 +444,11 @@ import Base from '../layouts/Base.astro';
   }
 
   async function basculer(cible: string) {
+    // Les identifiants de période ne se ressemblent pas d'une vue à l'autre
+    // (« 2026-W38 », « 2026-10 ») : garder le choix en changeant de vue ferait
+    // chercher une semaine parmi des mois, et retomberait sur la plus récente
+    // sans le dire. On repart donc de la plus récente, explicitement.
+    if (cible !== vue) periodeChoisie = '';
     vue = cible;
     peindreBoutons();
     if (cible === 'syntheses' || !donnees[cible]) {
@@ -293,13 +469,56 @@ import Base from '../layouts/Base.astro';
     bouton.addEventListener('click', () => {
       domaine = bouton.dataset.domaine ?? '';
       peindreArchive();
+      majAdresse();
     });
   }
+
+  choixPeriode.addEventListener('change', () => {
+    periodeChoisie = choixPeriode.value;
+    peindreArchive();
+    window.scrollTo({ top: 0 });
+  });
+
+  /*
+     « Précédente » recule dans le temps, donc avance dans la liste, qui est
+     rangée de la plus récente à la plus ancienne. Écrire l'inverse aurait
+     donné deux boutons qui font le contraire de ce qu'ils disent.
+  */
+  const deplacer = (pas: number) => {
+    const visibles = periodesVisibles();
+    const index = visibles.findIndex(({ entree }) => idPeriode(entree) === periodeChoisie);
+    const vise = visibles[(index === -1 ? 0 : index) + pas];
+    if (!vise) return;
+    periodeChoisie = idPeriode(vise.entree);
+    peindreArchive();
+    window.scrollTo({ top: 0 });
+  };
+  precedente.addEventListener('click', () => deplacer(1));
+  suivante.addEventListener('click', () => deplacer(-1));
+
+  /*
+     La recherche attend deux cent cinquante millisecondes avant de redessiner :
+     redessiner à chaque touche sur quarante semaines rendrait la frappe
+     saccadée, et le rendu différé n'y changerait rien — c'est la construction
+     des cartes qui coûte, pas leur mise en page.
+  */
+  let minuterie = 0;
+  champRecherche.addEventListener('input', () => {
+    window.clearTimeout(minuterie);
+    minuterie = window.setTimeout(() => {
+      recherche = champRecherche.value;
+      peindreArchive();
+      majAdresse();
+    }, 250);
+  });
 
   // « auDeverrouillage » : barre de progression, garde-fou de 5 secondes et
   // exécution même si ce script arrive après l'ouverture de la session.
   auDeverrouillage(async () => {
     domaine = parametreUrl('domaine') ?? parametreUrl('theme') ?? '';
+    periodeChoisie = parametreUrl('periode') ?? '';
+    recherche = parametreUrl('q') ?? '';
+    champRecherche.value = recherche;
     // Le manifeste alimente le rattachement des actualités aux fiches de cours ;
     // son absence ne doit pas empêcher l'affichage des actualités.
     chargerManifeste()

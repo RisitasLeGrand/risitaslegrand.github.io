@@ -146,7 +146,9 @@
     "essais:accessibilite:navigateur": "node scripts/essais-accessibilite-navigateur.mjs",
     "essais:mobile:navigateur": "node scripts/essais-mobile-navigateur.mjs",
     "essais:navigation:navigateur": "tsx scripts/essais-navigation-navigateur.mjs",
-    "essais:glossaire:navigateur": "node scripts/essais-glossaire-navigateur.mjs"
+    "essais:glossaire:navigateur": "node scripts/essais-glossaire-navigateur.mjs",
+    "essais:actualites:navigateur": "node scripts/essais-actualites-navigateur.mjs",
+    "actualites:dist": "node scripts/actualites-dist.mjs"
   },
   "repository": {
     "type": "git",
