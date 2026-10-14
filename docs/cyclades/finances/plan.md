@@ -575,7 +575,7 @@ base — et elle est décochée par défaut.
 | **2** | Import **PDF d'abord** : lecture par pdf.js, ancrage sur l'en-tête de colonnes, découpage en comptes, **contrôle de solde bloquant**, empreinte de gabarit et profils par banque. Puis collage, saisie rapide, et le lecteur CSV en réserve. Dédoublonnage, contrôle avant validation, annulation. Tests : les quatre comptes du relevé réel bouclent, un gabarit modifié est annoncé, chevauchements, masquage. | oui |
 | **3** | Appariement, file « à rapprocher », rapprochement de solde et recherche de causes, écarts par ligne, catégorie et mois. Tests : 1→N, N→1, débit différé, remboursements. | **livrée** — voir `phase-3.md` |
 | **4** | Dossier surveillé (si l'API répond), usage par Odyssée, écran « Qui lit mon budget », export ICS des échéances. | **livrée** — voir `phase-4.md` |
-| **5** | Jeu synthétique de cinq ans, conflits entre deux appareils, mesures d'ergonomie (gestes et temps pour les quatre parcours que tu listes), guide court. | oui |
+| **5** | Jeu synthétique de cinq ans, conflits entre deux appareils, mesures d'ergonomie (gestes et temps pour les quatre parcours que tu listes), guide court. | **premier volet livré** le 14 octobre : le jeu synthétique, déterministe, `scripts/lib/finances-synthetiques.mjs` et `npm run essais:finances-synthetiques`. Les trois autres volets en dépendaient et restent à faire. |
 
 **Construire le budget depuis le réel (1.5) est en phase 3**, pas en phase 1 :
 il faut des opérations importées et un appariement qui marche pour que la

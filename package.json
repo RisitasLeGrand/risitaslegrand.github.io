@@ -142,6 +142,7 @@
     "essais:structure": "node scripts/essais-structure.mjs",
     "essais:dessins": "node scripts/essais-dessins.mjs",
     "essais:schemas-sante": "tsx scripts/essais-schemas-sante.mts",
+    "essais:finances-synthetiques": "tsx scripts/essais-finances-synthetiques.mts",
     "essais:typographie": "tsx scripts/essais-typographie.mts",
     "essais:colonnes:navigateur": "node scripts/essais-colonnes-navigateur.mjs",
     "essais:quiz:navigateur": "node scripts/essais-quiz-navigateur.mjs",
