@@ -49,6 +49,10 @@ export const CHAMP_DATE: Record<string, string | null> = {
   notes: 'majLe',
   journal: 'ouverteLe',
   revisions: 'le',
+  /* Le marqueur de lecture d'une actualité est daté : il s'élague comme le
+     reste de la progression, et une lecture d'il y a trois ans n'a plus
+     d'intérêt que pour le volume qu'elle occupe. */
+  actualitesLues: 'luLe',
   /*
      Le journal d'opérations ne porte pas de champ de date : son instant vit
      dans son identifiant et dans son horloge logique. Il serait découpable par
@@ -106,10 +110,21 @@ export const CHAMP_DATE: Record<string, string | null> = {
   odysseeTrajectoires: 'debut',
   odysseeMedicaments: 'jour',
   odysseeHormonal: 'debut',
-  /* Santé, phase 1 : les trois datés s'élaguent, les deux qui durent non. */
+  /* Santé, phase 1 : les trois datés s'élaguent, les deux qui durent non.
+
+     La phrase ci-dessus était écrite depuis la phase 1 ; les deux qui durent
+     n'avaient jamais été inscrites, et « essais:effacement » les réclamait.
+     Un traitement et une condition déclarée sont des **états** : ils ont un
+     début et parfois une fin, et élaguer « ce qui date de plus de N » y
+     effacerait un traitement en cours commencé il y a trois ans. */
   odysseePrelevements: 'jour',
   odysseeResultats: null,
   odysseeSymptomes: 'jour',
+  odysseeTraitements: null,
+  odysseeConditions: null,
+  /* Un ressenti est daté du jour où on l'écrit : il s'élague comme un
+     symptôme, et pour la même raison — c'est un événement, pas un état. */
+  odysseeRessentis: 'jour',
   odysseeCheckins: 'jour',
   odysseeValorisations: 'jour',
   odysseeOperations: 'jour',
@@ -167,8 +182,8 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
   {
     id: 'revisions',
     libelle: 'Révisions',
-    description: 'Flashcards, fiches lues, quiz de cours, pointages quotidiens.',
-    magasins: ['cartes', 'fiches', 'quiz', 'jours'],
+    description: 'Flashcards, fiches lues, actualités lues, quiz de cours, pointages quotidiens.',
+    magasins: ['cartes', 'fiches', 'quiz', 'jours', 'actualitesLues'],
   },
   {
     id: 'seances',
@@ -238,6 +253,7 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
       'odysseeResultats',
       'odysseeSymptomes',
       'odysseeConditions',
+      'odysseeRessentis',
       'odysseeCheckins',
       'odysseeComptes',
       'odysseeValorisations',

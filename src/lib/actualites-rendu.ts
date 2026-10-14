@@ -195,7 +195,7 @@ function coquilleCarte(options: {
     'flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm transition hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-700';
   element.innerHTML = `
     ${options.entete ?? ''}
-    <div class="flex items-baseline justify-between gap-3">
+    <div data-entete class="flex items-baseline justify-between gap-3">
       <p class="etiquette ${options.classeEtiquette}">${echapper(options.etiquette)}</p>
       ${
         options.mention
@@ -477,7 +477,18 @@ function marquerRattachement(element: HTMLElement) {
 export function carteItem(
   item: ItemActu,
   fichesCours: FicheAplatie[] = [],
-  { replie = false }: { replie?: boolean } = {},
+  {
+    replie = false,
+    lecture,
+  }: {
+    replie?: boolean;
+    /**
+     * Le marqueur « lu » (D-039). Absent, la carte n'en porte pas : le
+     * tableau de bord montre quatre actualités du jour, où « lu » n'a pas de
+     * sens.
+     */
+    lecture?: { lu: boolean; basculer: (lu: boolean) => void | Promise<void> };
+  } = {},
 ): HTMLElement {
   const domaine = etiquetteDomaine(domaineDe(item));
 
@@ -511,6 +522,7 @@ export function carteItem(
       <p data-resume class="texte-secable mt-2 text-sm text-slate-600 dark:text-slate-300${replie ? ' line-clamp-3' : ''}">${echapper(item.resume ?? '')}</p>`,
   });
   element.dataset.domaine = domaineDe(item);
+  if (lecture) marquerLecture(element, lecture.lu);
 
   const suite = document.createElement('div');
   suite.innerHTML = `${blocLienCours(item, fichesCours)}${listeSources(item.sources)}`;
@@ -549,7 +561,7 @@ export function carteItem(
   }
 
   const bloc = document.createElement('details');
-  bloc.className = 'depliant mt-1';
+  bloc.className = 'depliant min-w-0 flex-1';
   const titre = document.createElement('summary');
   const ouvrir = document.createElement('span');
   ouvrir.className = 'depliant-ouvrir';
@@ -565,11 +577,85 @@ export function carteItem(
   bloc.addEventListener('toggle', () => {
     element.querySelector('[data-resume]')?.classList.toggle('line-clamp-3', !bloc.open);
   });
-  element.appendChild(bloc);
+  /*
+     Le dépliant et le marqueur de lecture partagent une ligne.
+
+     Une ligne de plus par carte sur cent neuf cartes, c'est une page plus
+     longue pour une information qui tient dans un coin. « items-start » et
+     non « items-center » : une fois le dépliant ouvert, le bouton doit
+     rester en haut, à côté de « Replier », et non flotter au milieu du
+     contenu déplié.
+  */
+  const actions = document.createElement('div');
+  actions.className = 'mt-1 flex flex-wrap items-start justify-between gap-2';
+  actions.appendChild(bloc);
+  if (lecture) actions.appendChild(boutonDeLecture(element, lecture));
+  element.appendChild(actions);
   // « marquerRattachement » lit le bloc « lien avec le programme », qui est
   // maintenant dans le dépliant : il doit donc passer après l'assemblage.
   marquerRattachement(element);
   return element;
+}
+
+/**
+ * Pose l'état de lecture sur la carte : une étiquette dans l'en-tête, et un
+ * peu moins d'encre.
+ *
+ * L'étiquette porte le mot, et l'atténuation le renforce — une carte plus
+ * pâle, seule, ne dirait rien à qui ne compare pas, et ne dirait rien du tout
+ * à un lecteur d'écran.
+ */
+function marquerLecture(carte: HTMLElement, lu: boolean): void {
+  carte.dataset.lu = String(lu);
+  carte.classList.toggle('opacity-70', lu);
+  const entete = carte.querySelector('[data-entete]');
+  let marque = carte.querySelector<HTMLElement>('[data-marque-lu]');
+  if (!lu) {
+    marque?.remove();
+    return;
+  }
+  if (!marque && entete) {
+    marque = document.createElement('span');
+    marque.dataset.marqueLu = 'oui';
+    marque.className =
+      'shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-bold text-slate-600 uppercase dark:bg-slate-800 dark:text-slate-300';
+    marque.textContent = 'Lu';
+    entete.appendChild(marque);
+  }
+}
+
+/**
+ * Le bouton qui bascule l'état.
+ *
+ * Son libellé **dit l'action**, pas l'état : « Marquer comme lu » puis
+ * « Marquer comme non lu ». Un bouton intitulé « Lu » laisserait entière la
+ * question de savoir si c'est un constat ou une commande, et son nom
+ * accessible ne pourrait pas être les deux à la fois.
+ */
+function boutonDeLecture(
+  carte: HTMLElement,
+  lecture: { lu: boolean; basculer: (lu: boolean) => void | Promise<void> },
+): HTMLElement {
+  let lu = lecture.lu;
+  const bouton = document.createElement('button');
+  bouton.type = 'button';
+  bouton.dataset.basculeLu = '';
+  const peindre = () => {
+    bouton.textContent = lu ? 'Marquer comme non lu' : 'Marquer comme lu';
+    bouton.className =
+      'cible-minimale shrink-0 rounded-lg px-2 py-1 text-xs font-medium transition ' +
+      (lu
+        ? 'text-slate-500 hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800'
+        : 'text-indigo-700 hover:bg-indigo-50 dark:text-indigo-300 dark:hover:bg-indigo-950/40');
+  };
+  peindre();
+  bouton.addEventListener('click', () => {
+    lu = !lu;
+    peindre();
+    marquerLecture(carte, lu);
+    void lecture.basculer(lu);
+  });
+  return bouton;
 }
 
 /** Message affiché tant qu'aucune donnée n'a été publiée. */

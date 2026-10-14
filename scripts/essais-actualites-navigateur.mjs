@@ -201,6 +201,93 @@ const deplie = await page.evaluate(() => {
 verifier('N6 — déplier rend le résumé entier', deplie.resumeCoupe, false);
 verifier('N6 — et montre le bouton « Préparer une question »', deplie.iaVisible, true);
 
+/* ── D-039 : le marqueur « lu / non lu » ──────────────────────────────── */
+await ouvrir('/actualites/');
+const avantLecture = await page.evaluate(() => ({
+  cartes: document.querySelectorAll('#archive article').length,
+  lues: document.querySelectorAll('#archive article[data-lu="true"]').length,
+  boutons: [...document.querySelectorAll('#archive [data-bascule-lu]')].map((b) => b.textContent),
+}));
+verifier('L1 — rien n’est lu au départ', avantLecture.lues, 0);
+verifier(
+  'L1 — chaque carte porte sa bascule, et son libellé dit l’action',
+  {
+    boutons: avantLecture.boutons.length,
+    cartes: avantLecture.cartes,
+    tous: avantLecture.boutons.every((t) => t === 'Marquer comme lu'),
+  },
+  { boutons: avantLecture.cartes, cartes: avantLecture.cartes, tous: true },
+);
+
+const titreLu = await page.evaluate(
+  () => document.querySelector('#archive article h3')?.textContent ?? '',
+);
+await page.click('#archive article [data-bascule-lu]');
+await page.waitForTimeout(400);
+verifier(
+  'L2 — la carte marquée le dit, et la bascule propose l’inverse',
+  await page.evaluate(() => {
+    const carte = document.querySelector('#archive article');
+    return {
+      lu: carte?.dataset.lu ?? null,
+      marque: carte?.querySelector('[data-marque-lu]')?.textContent ?? '',
+      bouton: carte?.querySelector('[data-bascule-lu]')?.textContent ?? '',
+      autres: document.querySelectorAll('#archive article[data-lu="true"]').length,
+    };
+  }),
+  { lu: 'true', marque: 'Lu', bouton: 'Marquer comme non lu', autres: 1 },
+);
+
+/*
+   Le point de l'affaire : le marqueur doit survivre au rechargement. Un
+   « lu » qui vit en mémoire ne répond pas à « savoir où l'on en est », qui
+   est la question posée une semaine plus tard.
+*/
+await ouvrir('/actualites/');
+verifier(
+  'L3 — le marqueur survit au rechargement, sur la même actualité',
+  await page.evaluate((titre) => {
+    const carte = [...document.querySelectorAll('#archive article')].find(
+      (a) => a.querySelector('h3')?.textContent === titre,
+    );
+    return { trouvee: !!carte, lu: carte?.dataset.lu ?? null };
+  }, titreLu),
+  { trouvee: true, lu: 'true' },
+);
+
+verifier(
+  'L4 — le sélecteur de période annonce ce qui reste à lire',
+  await page.evaluate(() => /non lue/.test(document.getElementById('choix-periode')?.options[0]?.textContent ?? '')),
+  true,
+);
+
+await page.check('#non-lues');
+await page.waitForTimeout(500);
+verifier(
+  'L4 — « Non lues seulement » retire la carte lue',
+  await page.evaluate((titre) => ({
+    luesAffichees: document.querySelectorAll('#archive article[data-lu="true"]').length,
+    laCarte: [...document.querySelectorAll('#archive article h3')].some((h) => h.textContent === titre),
+  }), titreLu),
+  { luesAffichees: 0, laCarte: false },
+);
+await page.uncheck('#non-lues');
+await page.waitForTimeout(500);
+
+await page.evaluate((titre) => {
+  const carte = [...document.querySelectorAll('#archive article')].find(
+    (a) => a.querySelector('h3')?.textContent === titre,
+  );
+  carte?.querySelector('[data-bascule-lu]')?.click();
+}, titreLu);
+await page.waitForTimeout(500);
+await ouvrir('/actualites/');
+verifier(
+  'L5 — démarquer efface vraiment la ligne, rechargement compris',
+  await page.evaluate(() => document.querySelectorAll('#archive article[data-lu="true"]').length),
+  0,
+);
+
 // Mesure téléphone.
 await contexte.close();
 const tel = await nav.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true, isMobile: true });

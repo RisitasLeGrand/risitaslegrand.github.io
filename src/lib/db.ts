@@ -508,6 +508,38 @@ export interface SessionDgfip {
   parRubrique: ScoreRubriqueDgfip[];
 }
 
+/**
+ * Une actualité marquée comme lue (D-039).
+ *
+ * ## Pourquoi un magasin, et pas un champ
+ *
+ * Les actualités ne sont pas des données locales : elles sont publiées,
+ * chiffrées, et relues à chaque visite. Rien dans l'item ne peut porter l'état
+ * de lecture, qui appartient à la personne et non au bulletin.
+ *
+ * ## Pourquoi la clef ne contient pas le titre
+ *
+ * `id` vaut « <période>:<empreinte du titre> ». La période reste lisible —
+ * savoir que quelqu'un a lu quelque chose la semaine 40 n'apprend rien — mais
+ * le titre est réduit à une empreinte : IndexedDB n'est pas chiffré pour les
+ * données de Révisions, et une liste de titres d'actualités en clair sur le
+ * disque dirait ce que la personne lit. L'empreinte suffit à retrouver la
+ * ligne ; elle ne se relit pas.
+ *
+ * ## Ce que ce magasin ne fait pas
+ *
+ * Il n'est **pas scellé**. Un marqueur de lecture qui ne fonctionnerait que
+ * coffre ouvert serait absurde sur une liste d'actualités, et son contenu
+ * n'est pas de la nature de ce que le coffre protège. Il part avec la
+ * progression, dans le groupe « Révisions », à côté des fiches lues.
+ */
+export interface ActualiteLue {
+  /** « <période>:<empreinte du titre> ». Voir `cleActualite`. */
+  id: string;
+  /** Horodatage du marquage, pour que la rétention sache l'élaguer. */
+  luLe: string;
+}
+
 export interface Profil {
   xp: number;
   streakCourante: number;
@@ -622,6 +654,8 @@ interface SchemaRevinsp extends DBSchema {
   odysseePrelevements: { key: string; value: Prelevement; indexes: { jour: string } };
   odysseeResultats: { key: string; value: Resultat; indexes: { prelevementId: string } };
   odysseeSymptomes: { key: string; value: Symptome; indexes: { jour: string } };
+  /* Les actualités marquées lues (D-039). Pas scellé : voir « ActualiteLue ». */
+  actualitesLues: { key: string; value: ActualiteLue; indexes: Record<string, never> };
   odysseeConditions: { key: string; value: ConditionDeclaree; indexes: Record<string, never> };
   odysseeRessentis: { key: string; value: Ressenti; indexes: { traitementId: string } };
   odysseeCheckins: { key: string; value: Checkin; indexes: { jour: string } };
@@ -731,7 +765,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 30;
+const VERSION = 31;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1441,6 +1475,22 @@ function ouvrirAuSchema(nom: string, version: number) {
         base
           .createObjectStore('odysseeRessentis', { keyPath: 'id' })
           .createIndex('traitementId', 'traitementId');
+      }
+      if (vers(31)) {
+        /*
+         * Le marqueur « lu » des actualités (D-039).
+         *
+         * Un seul magasin, sans index : on le lit entier au chargement de
+         * l'archive — quelques centaines de lignes au pire — et on y écrit
+         * une ligne par clic. Un index sur la date coûterait plus qu'il ne
+         * rapporterait.
+         *
+         * Aucune reprise de données : avant aujourd'hui, rien n'était marqué,
+         * et un magasin vide se lit « rien n'est lu », ce qui est exactement
+         * la vérité. Une migration qui aurait marqué « lu » l'historique
+         * existant aurait inventé un passé.
+         */
+        base.createObjectStore('actualitesLues', { keyPath: 'id' });
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -2272,6 +2322,8 @@ export const MAGASINS_PROGRESSION = [
   */
   'revisions',
   'operations',
+  // Les actualités marquées lues : de la progression, comme les fiches lues.
+  'actualitesLues',
   /*
      Les magasins d'Odyssée. Ils entrent dans la progression au même titre que
      ceux de Révisions : une sauvegarde qui laisserait de côté les tâches et

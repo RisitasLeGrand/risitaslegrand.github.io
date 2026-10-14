@@ -41,6 +41,15 @@ import Base from '../layouts/Base.astro';
     <button type="button" data-domaine="social" class="filtre-domaine min-h-11 rounded-full px-4 py-2 text-sm font-medium">Social</button>
     <button type="button" data-domaine="juridique" class="filtre-domaine min-h-11 rounded-full px-4 py-2 text-sm font-medium">Juridique</button>
     <button type="button" data-domaine="international" class="filtre-domaine min-h-11 rounded-full px-4 py-2 text-sm font-medium">International</button>
+
+    {/*
+       Un marqueur de lecture sans moyen de s'en servir serait une décoration.
+       La bascule vit avec les filtres de domaine, parce qu'elle en est un.
+    */}
+    <label class="ms-auto flex min-h-11 cursor-pointer items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
+      <input id="non-lues" type="checkbox" class="size-5 rounded" />
+      Non lues seulement
+    </label>
   </div>
 
   {/*
@@ -114,6 +123,7 @@ import Base from '../layouts/Base.astro';
   } from '../lib/actualites-rendu';
   import { aplatirFiches, chargerIndexRecherche, chargerManifeste, type FicheAplatie } from '../lib/contenu';
   import { construireIndexTexte } from '../lib/rattachement';
+  import { cleActualite, lues, marquer } from '../lib/actualites-lues';
   import { lien, normaliser, parametreUrl, pluriel } from '../lib/ui';
 
   const ACTIF_ONGLET = 'bg-white text-indigo-700 shadow-sm dark:bg-slate-900 dark:text-indigo-300';
@@ -138,6 +148,9 @@ import Base from '../layouts/Base.astro';
   const position = document.getElementById('position-periode')!;
 
   const donnees: Record<string, PeriodeActu[] | undefined> = {};
+  /** Les clefs des actualités déjà lues (D-039), lues une fois au démarrage. */
+  let dejaLues = new Set<string>();
+  let nonLuesSeules = false;
   let fichesCours: FicheAplatie[] = [];
   let vue = 'semaines';
   let domaine = '';
@@ -283,7 +296,33 @@ import Base from '../layouts/Base.astro';
     if (items.length) {
       const grille = document.createElement('div');
       grille.className = 'grid gap-3 md:grid-cols-2';
-      for (const item of items) grille.appendChild(carteItem(item, fichesCours, { replie: true }));
+      const periode = idPeriode(entree);
+      for (const item of items) {
+        const cle = cleActualite(periode, item.titre ?? '');
+        grille.appendChild(
+          carteItem(item, fichesCours, {
+            replie: true,
+            lecture: {
+              lu: dejaLues.has(cle),
+              /*
+                 L'écriture ne redessine pas la liste : une carte qui
+                 disparaîtrait sous le doigt au moment où on la marque lue
+                 ferait perdre sa place. Le filtre « non lues seulement » ne
+                 s'applique qu'au rendu suivant, et c'est voulu.
+              */
+              basculer: async (lu) => {
+                if (lu) dejaLues.add(cle);
+                else dejaLues.delete(cle);
+                try {
+                  await marquer(cle, lu);
+                } catch (e) {
+                  console.warn('Marquage de lecture non enregistré :', e);
+                }
+              },
+            },
+          }),
+        );
+      }
       section.appendChild(grille);
     }
 
@@ -300,12 +339,22 @@ import Base from '../layouts/Base.astro';
     return section;
   }
 
-  /** Les items d'une période, filtrés par domaine puis par la recherche. */
+  /** Les items d'une période, filtrés par domaine, par la recherche, par l'état de lecture. */
   function itemsDe(entree: PeriodeActu) {
     const requete = normaliser(recherche.trim());
+    const periode = idPeriode(entree);
     return (entree.items ?? [])
       .filter((i) => !domaine || domaineDe(i) === domaine)
-      .filter((i) => !requete || texteDe(i).includes(requete));
+      .filter((i) => !requete || texteDe(i).includes(requete))
+      .filter((i) => !nonLuesSeules || !dejaLues.has(cleActualite(periode, i.titre ?? '')));
+  }
+
+  /** Le nombre d'actualités non lues d'une période, filtres de domaine inclus. */
+  function nonLues(entree: PeriodeActu) {
+    const periode = idPeriode(entree);
+    return (entree.items ?? [])
+      .filter((i) => !domaine || domaineDe(i) === domaine)
+      .filter((i) => !dejaLues.has(cleActualite(periode, i.titre ?? ''))).length;
   }
 
   /**
@@ -396,7 +445,10 @@ import Base from '../layouts/Base.astro';
     for (const { entree, items } of visibles) {
       const option = document.createElement('option');
       option.value = idPeriode(entree);
-      option.textContent = `${titrePeriode(entree)} — ${pluriel(items.length, 'actualité')}`;
+      const reste = nonLues(entree);
+      option.textContent =
+        `${titrePeriode(entree)} — ${pluriel(items.length, 'actualité')}` +
+        (reste ? `, ${reste} non lue${reste > 1 ? 's' : ''}` : '');
       choixPeriode.appendChild(option);
     }
     choixPeriode.value = periodeChoisie;
@@ -473,6 +525,11 @@ import Base from '../layouts/Base.astro';
     });
   }
 
+  (document.getElementById('non-lues') as HTMLInputElement).addEventListener('change', (e) => {
+    nonLuesSeules = (e.target as HTMLInputElement).checked;
+    peindreArchive();
+  });
+
   choixPeriode.addEventListener('change', () => {
     periodeChoisie = choixPeriode.value;
     peindreArchive();
@@ -519,6 +576,8 @@ import Base from '../layouts/Base.astro';
     periodeChoisie = parametreUrl('periode') ?? '';
     recherche = parametreUrl('q') ?? '';
     champRecherche.value = recherche;
+    // L'état de lecture d'abord : les cartes en ont besoin dès le premier rendu.
+    dejaLues = await lues();
     // Le manifeste alimente le rattachement des actualités aux fiches de cours ;
     // son absence ne doit pas empêcher l'affichage des actualités.
     chargerManifeste()
