@@ -40,11 +40,40 @@ import {
 } from '../../lib/odyssee/molecules';
 ---
 
-<Base titre="Molécule" entete="leger">
+<Base titre="Molécule" actif="sante">
   <h1 id="titre-molecule" class="text-2xl font-bold text-slate-900 dark:text-white">Molécule</h1>
   <p id="etiquette-identite" class="mt-1 hidden text-xs font-medium text-amber-700 dark:text-amber-300">
     identité non vérifiée
   </p>
+
+  <!--
+    Le coffre fermé n'est pas une erreur.
+
+    Cette page affichait un encadré rouge « Déchiffrement impossible » avec un
+    bouton « Réessayer », et déposait une erreur dans la console. Or il ne
+    s'était rien passé d'anormal : le mot de passe est redemandé à chaque
+    nouvel onglet, par conception. Traiter cet état comme une panne apprend à
+    la personne à se méfier de son propre coffre, et le bouton « Réessayer »
+    ne pouvait rien réessayer du tout.
+
+    La carte est celle de Psyché et de Finances, au mot près — deux versions
+    de la même promesse finiraient par diverger.
+  -->
+  <section id="coffre-ferme" class="mt-5 hidden rounded-2xl border-2 border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">🔒 Ouvrir le coffre</h2>
+    <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+      Le mot de passe est redemandé à chaque nouvel onglet. La clé ne quitte pas cet appareil.
+    </p>
+    <label class="mt-3 block text-sm">
+      <span class="block text-slate-700 dark:text-slate-200">Mot de passe</span>
+      <input id="mdp-coffre" type="password" autocomplete="current-password"
+        class="mt-1 min-h-11 w-full max-w-sm rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+    </label>
+    <button id="ouvrir-coffre" type="button"
+      class="mt-3 min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900"
+      >Ouvrir</button>
+    <p id="erreur-coffre" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+  </section>
 
   <div id="chargement" class="py-16 text-center text-slate-400">Lecture de la fiche…</div>
 
@@ -225,7 +254,7 @@ import {
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
-  import { exigerLeCoffre } from '../../lib/coffre';
+  import { coffreOuvert, ouvrirLeCoffre, surCoffre } from '../../lib/coffre';
   import {
     ecrireRessenti,
     ressentisDuTraitement,
@@ -238,9 +267,49 @@ import {
 
   const $ = (id: string) => document.getElementById(id)!;
 
-  auDeverrouillage(async () => {
-    await exigerLeCoffre();
+  /** Branche la carte une seule fois, quel que soit le nombre de rendus. */
+  function brancherLeCoffre(rendre: () => Promise<void>) {
+    $('ouvrir-coffre').addEventListener('click', () => {
+      void (async () => {
+        const champ = $('mdp-coffre') as HTMLInputElement;
+        const erreur = await ouvrirLeCoffre(champ.value);
+        $('erreur-coffre').classList.toggle('hidden', erreur === null);
+        if (erreur) {
+          $('erreur-coffre').textContent = erreur;
+          return;
+        }
+        /* Vidé tout de suite : un mot de passe laissé dans un champ reste à
+           portée du gestionnaire de mots de passe et de la restauration
+           d'onglet. */
+        champ.value = '';
+        await rendre();
+      })();
+    });
+    $('mdp-coffre').addEventListener('keydown', (evenement) => {
+      if ((evenement as KeyboardEvent).key === 'Enter') $('ouvrir-coffre').click();
+    });
+    surCoffre(() => void rendre());
+  }
 
+  auDeverrouillage(async () => {
+    if (!coffreOuvert()) {
+      $('chargement').classList.add('hidden');
+      $('coffre-ferme').classList.remove('hidden');
+      brancherLeCoffre(async () => {
+        $('coffre-ferme').classList.add('hidden');
+        $('chargement').classList.remove('hidden');
+        await rendreLaFiche();
+      });
+      return;
+    }
+    brancherLeCoffre(async () => {
+      $('coffre-ferme').classList.add('hidden');
+      await rendreLaFiche();
+    });
+    await rendreLaFiche();
+  });
+
+  async function rendreLaFiche() {
     const traitementId = parametreUrl('traitement') ?? '';
     const traitements = await tousLesTraitements();
     const traitement = traitements.find((t) => t.id === traitementId) ?? null;
@@ -370,5 +439,5 @@ import {
     await peindreJournal();
     $('chargement').classList.add('hidden');
     $('fiche').classList.remove('hidden');
-  });
+  }
 </script>
