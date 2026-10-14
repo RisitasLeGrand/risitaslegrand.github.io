@@ -32,12 +32,31 @@ import { join } from 'node:path';
 const RACINE = 'dist';
 
 /** Les balises dont le collage à un mot est, à l'écran, un espace manquant. */
-const EN_LIGNE = 'a|abbr|b|code|em|i|kbd|mark|q|s|small|strong|sub|sup|u';
+/**
+ * Les balises **fiablement** en ligne. `button` a rejoint la liste le
+ * 14 octobre : il manquait, et c'est pour cela que ce contrôle ne voyait pas
+ * « ici, ouchoisissez-en un » sur l'écran des finances.
+ *
+ * `label` a été essayé et **retiré**, avec sa raison. Il est en ligne par
+ * défaut, mais le dépôt s'en sert couramment comme d'un bloc
+ * (`class="flex …"`), et un mot collé à un bloc ne se voit pas : l'ajouter
+ * produisait un faux positif immédiat sur la fiche de molécule. Un balayage du
+ * HTML ne connaît pas le `display` calculé — c'est la limite de ce contrôle, et
+ * la raison d'être de son pendant au navigateur, qui lit le texte rendu.
+ */
+const EN_LIGNE = 'a|abbr|b|button|code|em|i|kbd|mark|q|s|small|strong|sub|sup|u';
 
 /**
  * Avant une ouvrante : lettre, chiffre, ou ponctuation qui termine un mot.
  * L'apostrophe, les ouvrantes et le tiret sont exclus — ils collent à bon
  * droit.
+ *
+ * **L'espace insécable en est exclue aussi**, et c'est la seule correction qui
+ * tienne. Le minifieur supprime toute espace ordinaire entre un nœud de texte
+ * et une balise en ligne : `{' '}`, une espace littérale et même `&#32;` sont
+ * tous écrasés — mesuré, trois fois, le 14 octobre. L'insécable, elle, n'est
+ * pas une espace réductible : elle survit, et elle garde en prime le mot avec
+ * le contrôle qui le suit, ce qui est le rendu voulu.
  */
 const AVANT = String.raw`[\p{L}\p{N}.,;:!?…»%]`;
 /** Après une fermante : une lettre ou un chiffre. Rien d'autre ne trahit. */

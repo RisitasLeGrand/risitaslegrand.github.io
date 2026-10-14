@@ -92,7 +92,12 @@ import { ECHELLE, JOURS_DE_LIGNE_DE_BASE, ORDRE_DIMENSIONS, DIMENSIONS, RESSOURC
                   <div class="flex items-baseline justify-between gap-3">
                     <label for={`gl-${d}`} class="text-sm font-medium text-slate-900 dark:text-white">
                       {DIMENSIONS[d].libelle}
-                      <span class="ml-2 font-normal text-slate-500 dark:text-slate-400">
+                      {/* L'espace insécable est dans le **texte**, pas dans la marge.
+                          « ml-2 » écartait les deux à l'œil, mais le texte restait
+                          « HumeurComment vous sentez-vous ? » — ce qu'un lecteur
+                          d'écran prononce tel quel. Une marge n'est pas une espace. */}
+                      <span class="font-normal text-slate-500 dark:text-slate-400">
+                        {'\u00a0'}
                         {DIMENSIONS[d].question}
                       </span>
                     </label>

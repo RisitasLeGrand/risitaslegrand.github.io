@@ -290,7 +290,10 @@ const parDomaine = Object.keys(DOMAINES).map((d) => ({
               <details class="rounded-xl border border-slate-200 p-3 dark:border-slate-800">
                 <summary class="cursor-pointer text-sm font-semibold text-slate-900 dark:text-white">
                   {d.libelle}
-                  <span class="ml-2 font-normal text-xs text-slate-500 dark:text-slate-400">
+                  {/* L'insécable est dans le texte : « ml-2 » écarte à l'œil mais
+                      laisse lire « Sommeil4 repères ». Une marge n'est pas une espace. */}
+                  <span class="font-normal text-xs text-slate-500 dark:text-slate-400">
+                    {'\u00a0'}
                     {d.indicateurs.length} repères
                     {d.compte ? '' : ' — appoint : renforce un signal, ne le déclenche jamais'}
                   </span>
