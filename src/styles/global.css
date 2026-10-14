@@ -555,6 +555,74 @@ dialog[open]::backdrop {
   transition-timing-function: var(--courbe-sortie);
 }
 
+/* --- Retours d'action (prompt 34, A4) ------------------------------------ */
+/*
+   **Le bouton pressé.** Relevé du 14 octobre 2026 : sur 282 boutons, aucun ne
+   donnait de retour à la pression. 180 portent une classe `transition`, mais
+   pour le survol seulement, et l'unique `active:` du code est une propriété de
+   quête sans rapport avec l'état CSS.
+
+   Une seule règle, posée sur l'élément, plutôt qu'une classe à répandre sur
+   282 boutons : un retour de pression qui dépend de la mémoire de celui qui
+   écrit le bouton suivant n'est pas un retour, c'est une loterie.
+
+   Seule `transform` est animée (interdit n° 4), et 120 ms suffisent largement
+   au plafond de 300 ms de l'interdit n° 5. Le geste n'attend rien : la règle
+   est purement déclarative, aucun script ne s'interpose entre le doigt et
+   l'action.
+*/
+button:not(:disabled),
+[role='button']:not([aria-disabled='true']) {
+  transition: transform var(--duree-courte) var(--courbe-sortie);
+}
+button:not(:disabled):active,
+[role='button']:not([aria-disabled='true']):active {
+  transform: scale(0.97);
+}
+
+/*
+   **Et sous mouvement réduit, on annule la transformation, pas sa durée.**
+
+   C'est le piège de cette phase, et il méritait d'être écrit. Le socle de la
+   phase 0 ramène les durées à 0,01 ms. Appliqué ici, cela ne supprimerait pas
+   la mise à l'échelle : elle sauterait à sa valeur instantanément, et le
+   bouton se déplacerait tout de même — plus brutalement, même. Or l'interdit
+   n° 3 proscrit le déplacement, pas sa lenteur. Il faut donc neutraliser
+   `transform` lui-même.
+*/
+@media (prefers-reduced-motion: reduce) {
+  button:not(:disabled):active,
+  [role='button']:not([aria-disabled='true']):active {
+    transform: none;
+  }
+}
+:root[data-animations='reduites'] button:not(:disabled):active,
+:root[data-animations='reduites'] [role='button']:not([aria-disabled='true']):active {
+  transform: none;
+}
+
+/*
+   **La marque d'une réponse corrigée.** Le signe `✓` ou `✗` que pose
+   `marquerOption` paraît avec un léger appui, pour que l'œil le trouve sans
+   avoir à le chercher. Le sens, lui, ne dépend pas de cette animation : le
+   signe reste affiché, et un texte masqué le dit aux lecteurs d'écran. C'était
+   vrai avant ce lot, et ça le reste.
+*/
+@keyframes marque-parait {
+  from {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+[data-marque] {
+  display: inline-block;
+  animation: marque-parait var(--duree-moyenne) var(--courbe-entree);
+}
+
 /* --- Barre de défilement -------------------------------------------------- */
 /* Discrète et accordée au thème, sur la page comme sur les zones défilantes.
    Deux écritures pour deux familles de navigateurs, puisant dans les mêmes

@@ -65,8 +65,30 @@ export function notifier(message: string, variante: 'info' | 'succes' | 'badge' 
   }[variante];
 
   const bulle = document.createElement('div');
-  bulle.className = `bulle-notification pointer-events-auto rounded-full px-4 py-2 text-sm font-medium shadow-lg ${couleurs}`;
-  bulle.textContent = message;
+  bulle.className =
+    'bulle-notification pointer-events-auto flex items-center gap-2 rounded-full px-4 py-2 ' +
+    `text-sm font-medium shadow-lg ${couleurs}`;
+
+  /*
+     La coche de la décision 3 : « célébrations discrètes ». Une coche, pas un
+     confetti. Elle est masquée aux lecteurs d'écran — le message lui-même dit
+     déjà ce qui a réussi, et un « coche » lu à voix haute n'apprendrait rien.
+     Le texte reste la source du sens ; la coche le renforce, elle ne le
+     remplace pas.
+  */
+  if (variante === 'succes') {
+    const coche = document.createElement('span');
+    coche.dataset.coche = '';
+    coche.setAttribute('aria-hidden', 'true');
+    coche.className = 'shrink-0 font-bold';
+    coche.textContent = '✓';
+    bulle.appendChild(coche);
+  }
+
+  const texte = document.createElement('span');
+  texte.textContent = message;
+  bulle.appendChild(texte);
+
   zone.appendChild(bulle);
   requestAnimationFrame(() => bulle.classList.add('parue'));
 

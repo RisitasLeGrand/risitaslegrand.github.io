@@ -260,6 +260,44 @@ muscles sur ce schéma.
 - **Contrainte tenue** : le sens ne repose jamais sur l'animation ni sur la
   couleur seules — le texte ou l'icône dit déjà juste ou faux, et le reste.
 
+> **Phase 4 livrée le 14 octobre. Le piège était dans le mouvement réduit, une
+> fois de plus, et sous une forme nouvelle.**
+>
+> **Relevé.** Sur 282 boutons, **aucun** ne donnait de retour à la pression :
+> 180 portent une classe `transition`, mais pour le survol seulement, et
+> l'unique `active:` du code est une propriété de quête sans rapport avec
+> l'état CSS. En revanche **deux exigences étaient déjà tenues avant ce lot**,
+> et je le dis plutôt que de me les attribuer : `marquerOption` pose un signe
+> `✓`/`✗` doublé d'un texte pour lecteur d'écran, et les quatre boutons de
+> notation portent leur libellé en toutes lettres. Le sens n'y a jamais reposé
+> sur la couleur.
+>
+> **Ce qui est ajouté.** Un retour de pression sur `button:active`, en
+> `transform` seul, 120 ms — posé sur l'élément plutôt que par une classe à
+> répandre sur 282 boutons, parce qu'un retour qui dépend de la mémoire de
+> celui qui écrit le bouton suivant n'est pas un retour. L'apparition de la
+> marque de correction, 200 ms. Et la **coche** de la décision 3 sur les
+> messages de succès — masquée aux lecteurs d'écran, puisque le message dit
+> déjà ce qui a réussi. Pas de confetti.
+>
+> **Le piège, et il est nouveau.** Le socle de la phase 0 neutralise les
+> *durées*. Cela ne suffit pas ici : une mise à l'échelle dont la durée vaut
+> 0,01 ms **saute à sa valeur** — le bouton se déplace tout de même, plus
+> brutalement même. Or l'interdit n° 3 proscrit le déplacement, pas sa lenteur.
+> Il faut annuler `transform` lui-même. **Éprouvé** : en retirant l'annulation
+> pour ne laisser que la neutralisation de durée, le contrôle vire au rouge en
+> relevant `matrix(0.97, 0, 0, 0.97, 0, 0)` sous mouvement réduit.
+>
+> C'est le troisième visage du même défaut, et il vaut d'être noté comme règle
+> plutôt que comme incident : phase 0, la durée ne suffisait pas pour une
+> animation *infinie* ; phase 3, le sélecteur `*` n'atteignait pas les
+> pseudo-éléments de *transition* ; phase 4, neutraliser la durée ne supprime
+> pas un *déplacement*. À chaque fois, « réduire la durée » a été confondu avec
+> « supprimer le mouvement ».
+>
+> **Contrôle** : `npm run essais:retours`, 14 contrôles, rouge sur 4 avant le
+> correctif.
+
 ## Phase 5 — A5, chargements
 
 - **Technique** : squelette ou fondu d'arrivée au déchiffrement, à la lecture
