@@ -50,6 +50,7 @@ import {
   commitsDeRetard,
   DOSSIER_ACTUALITES,
   ecrireInventaire,
+  nomDeDepot,
   verifierActualitesChiffrees,
 } from './lib/actualites-publication.mjs';
 
@@ -93,6 +94,30 @@ try {
     'Aucun dépôt distant « origin » n\'est configuré.\n' +
       '  Ajoutez-le :  git remote add origin https://github.com/<compte>/<depot>.git',
   );
+}
+
+// --- « origin » désigne-t-il le dépôt déclaré ? ---------------------------
+// Voir « depotDePublication » dans site.config.mjs pour le raisonnement : une
+// redirection GitHub n'est pas un contrat, et publier vers un ancien nom
+// réussit en silence jusqu'au jour où ce n'est plus le bon dépôt.
+const depotDeclare = config.depotDePublication;
+if (depotDeclare) {
+  const nomOrigin = nomDeDepot(depot);
+  if (nomOrigin === null) {
+    echouer(
+      `L'adresse de « origin » n'a pas la forme « …/compte/dépôt » :  ${depot}\n` +
+        `  Attendu :  https://github.com/${depotDeclare}.git`,
+    );
+  }
+  if (nomOrigin.toLowerCase() !== depotDeclare.toLowerCase()) {
+    echouer(
+      `« origin » désigne « ${nomOrigin} », mais le dépôt de publication déclaré est « ${depotDeclare} ».\n` +
+        '  GitHub redirige peut-être le premier vers le second — mais une redirection disparaît\n' +
+        '  dès qu\'un dépôt est recréé sous l\'ancien nom, et la publication partirait alors ailleurs.\n' +
+        `  Corrigez la télécommande :  git remote set-url origin https://github.com/${depotDeclare}.git\n` +
+        '  Si c\'est le dépôt qui a changé de nom, mettez « depotDePublication » à jour dans site.config.mjs.',
+    );
+  }
 }
 
 // --- Retard sur le dépôt distant -----------------------------------------

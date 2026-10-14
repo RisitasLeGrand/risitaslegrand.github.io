@@ -60,6 +60,35 @@ export function commitsDeRetard(racine, branche) {
   }
 }
 
+/**
+ * Extrait « compte/dépôt » d'une adresse de dépôt Git, ou « null » si l'adresse
+ * n'a pas cette forme. Les quatre écritures rencontrées sont acceptées :
+ * « https://hôte/compte/dépôt », la même avec « .git », « git@hôte:compte/dépôt »
+ * et « ssh://git@hôte/compte/dépôt ».
+ *
+ * **Pourquoi ce contrôle existe.** GitHub redirige en silence l'ancien nom d'un
+ * dépôt renommé. Une publication partie vers l'ancien nom aboutit donc, et le
+ * compte rendu n'en dit rien d'autre qu'une ligne « remote: This repository
+ * moved » noyée dans la sortie de git. Mais la redirection tombe dès que
+ * quelqu'un recrée un dépôt sous l'ancien nom — et la publication irait alors
+ * chez lui. On compare donc ce que « origin » désigne à ce que
+ * « depotDePublication » déclare, et on refuse de publier en cas d'écart.
+ */
+export function nomDeDepot(url) {
+  const brut = String(url ?? '').trim();
+  if (!brut) return null;
+  const m = brut.match(/^(?:[a-z][a-z0-9+.-]*:\/\/[^/]+\/|[^/@\s]+@[^:/\s]+:)(.+)$/i);
+  if (!m) return null;
+  // Les barres finales d'abord : « …/dépôt.git/ » ne perdrait pas son « .git »
+  // si on retirait le suffixe avant elles.
+  const morceaux = m[1]
+    .replace(/\/+$/, '')
+    .replace(/\.git$/i, '')
+    .split('/')
+    .filter(Boolean);
+  return morceaux.length === 2 ? morceaux.join('/') : null;
+}
+
 /** Branche actuellement extraite, ou « null » hors de toute branche. */
 export function brancheCourante(racine) {
   try {

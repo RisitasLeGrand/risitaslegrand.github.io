@@ -13,16 +13,18 @@
  * temporaire et une paire de clés jetable.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync } from 'node:fs';
 import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { genererPaireActualites, chiffrerPourActualites, importerPubliqueActualites } from './lib/crypto.mjs';
 import {
   ecrireInventaire,
+  nomDeDepot,
   nomFichierInventaire,
   verifierActualitesChiffrees,
 } from './lib/actualites-publication.mjs';
+import config from '../site.config.mjs';
 
 let reussis = 0;
 let echoues = 0;
@@ -237,6 +239,64 @@ console.log('\nÉcrasement d\'une entrée publiée');
       );
     }
   }
+}
+
+// --- Le dépôt de publication déclaré -------------------------------------
+// Ajouté le 14 octobre 2026, après qu'une publication est partie vers un
+// ancien nom du dépôt que GitHub redirigeait en silence. Le garde-fou ne vaut
+// que si sa lecture d'adresse est juste : on l'éprouve sur les écritures
+// réelles, et surtout sur celles qu'il doit refuser.
+console.log('\nDépôt de publication déclaré');
+{
+  const attendu = 'RisitasLeGrand/risitaslegrand.github.io';
+
+  for (const [adresse, voulu] of [
+    [`https://github.com/${attendu}`, attendu],
+    [`https://github.com/${attendu}.git`, attendu],
+    [`https://github.com/${attendu}.git/`, attendu],
+    [`git@github.com:${attendu}.git`, attendu],
+    [`ssh://git@github.com/${attendu}.git`, attendu],
+    ['  https://github.com/RisitasLeGrand/revinsp  ', 'RisitasLeGrand/revinsp'],
+  ]) {
+    const lu = nomDeDepot(adresse);
+    verifier(`« ${adresse.trim()} » → ${voulu}`, lu === voulu, `lu : ${lu}`);
+  }
+
+  for (const adresse of ['', null, undefined, 'pas-une-adresse', 'https://github.com/compte', 'https://github.com/a/b/c']) {
+    verifier(`« ${adresse} » n'est pas un « compte/dépôt »`, nomDeDepot(adresse) === null);
+  }
+
+  // Le contrôle doit mordre : c'est exactement l'écart du 14 octobre 2026.
+  const ancien = nomDeDepot('https://github.com/RisitasLeGrand/revinsp');
+  verifier(
+    "l'ancien nom du dépôt ne concorde pas avec le nom déclaré",
+    ancien !== null && ancien.toLowerCase() !== attendu.toLowerCase(),
+  );
+  verifier(
+    'la casse ne fait pas échouer une adresse correcte',
+    nomDeDepot(`https://github.com/${attendu.toUpperCase()}`)?.toLowerCase() === attendu.toLowerCase(),
+  );
+
+  verifier(
+    '« depotDePublication » est déclaré dans site.config.mjs',
+    config.depotDePublication === attendu,
+    `lu : ${config.depotDePublication}`,
+  );
+
+  // Contrôle de position, et non d'exécution : lancer « deploy.mjs » pour voir
+  // le refus publierait le site s'il passait. On vérifie donc dans la source
+  // que le garde-fou existe et qu'il précède la poussée — un garde-fou placé
+  // après le « push » ne garderait rien.
+  const source = readFileSync(new URL('./deploy.mjs', import.meta.url), 'utf8').split('\n');
+  const ligneGarde = source.findIndex((l) => l.includes('config.depotDePublication'));
+  const lignePoussee = source.findIndex((l) => l.includes("'push'"));
+  verifier('deploy.mjs lit « depotDePublication »', ligneGarde !== -1);
+  verifier('deploy.mjs pousse bien la branche de publication', lignePoussee !== -1);
+  verifier(
+    'le garde-fou précède la poussée',
+    ligneGarde !== -1 && lignePoussee !== -1 && ligneGarde < lignePoussee,
+    `garde ligne ${ligneGarde + 1}, poussée ligne ${lignePoussee + 1}`,
+  );
 }
 
 console.log(`\n${echoues ? '✗' : '✓'} ${reussis} essai(s) réussi(s), ${echoues} échec(s)\n`);

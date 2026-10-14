@@ -31,6 +31,23 @@ export default {
    */
   base: '/',
 
+  /**
+   * Dépôt de publication, « compte/dépôt », sous le nom que GitHub lui donne
+   * aujourd'hui. Déclaré ici pour que « npm run deploy » puisse vérifier que la
+   * télécommande « origin » le désigne bien, au lieu de le supposer.
+   *
+   * **Pourquoi ce contrôle existe.** Le 14 octobre 2026, une publication est
+   * partie vers « RisitasLeGrand/revinsp » — un ancien nom du dépôt, que GitHub
+   * redirige en silence vers celui-ci. Elle a abouti, et rien dans le compte
+   * rendu ne le signalait : seule une ligne « remote: This repository moved »,
+   * noyée dans la sortie de git, en portait la trace.
+   *
+   * Une redirection n'est pas un contrat. GitHub la retire si quelqu'un recrée
+   * un dépôt sous l'ancien nom — et la publication partirait alors chez ce
+   * quelqu'un, sans un mot. Mieux vaut un refus bruyant qu'un succès trompeur.
+   */
+  depotDePublication: 'RisitasLeGrand/risitaslegrand.github.io',
+
   /** Branche de publication utilisée par « npm run deploy ». */
   brancheDeploiement: 'gh-pages',
 
