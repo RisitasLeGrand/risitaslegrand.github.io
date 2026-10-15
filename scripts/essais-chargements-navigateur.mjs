@@ -189,10 +189,26 @@ await ouvrir('/glossaire/', '#glossaire');
 const depart = await page.evaluate(() => window.__depart);
 v('la disparition du texte d’attente a été observée', depart !== null, true);
 if (depart) {
+  /*
+     CE CONTRÔLE A CHANGÉ D'INVARIANT, ET C'EST UNE DÉCISION, PAS UN
+     RELÂCHEMENT.
+
+     Il exigeait que la disparition soit EN FONDU : durée strictement
+     supérieure à zéro. L'A1 du prompt 37 a retiré ce fondu, parce qu'il
+     reposait sur « allow-discrete » et gardait le texte dans le flux pendant
+     120 ms, décalant tout ce qui le suivait — 0,119 à 0,614 de CLS mesurés
+     selon la page. Entre une petite douceur et un décalage de 0,6, le choix
+     n'était pas douteux.
+
+     Exiger encore le fondu reviendrait à exiger le défaut. Ce qui survit et
+     se vérifie ici : le texte d'attente DISPARAÎT bien (c'est la ligne
+     au-dessus), et sa disparition ne dépasse pas le plafond — zéro compris.
+     Que la page ne décale plus est mesuré ailleurs, par « essais:decalage »,
+     qui est l'essai écrit pour cela.
+  */
   v(
-    `elle est en fondu et brève (${depart.duree} ≤ ${PLAFOND_MS} ms)`,
-    Math.max(...String(depart.duree).split(',').map(secondes)) * 1000 <= PLAFOND_MS &&
-      Math.max(...String(depart.duree).split(',').map(secondes)) > 0,
+    `sa disparition tient dans le plafond, zéro compris (${depart.duree} ≤ ${PLAFOND_MS} ms)`,
+    Math.max(...String(depart.duree).split(',').map(secondes)) * 1000 <= PLAFOND_MS,
     true,
   );
 }

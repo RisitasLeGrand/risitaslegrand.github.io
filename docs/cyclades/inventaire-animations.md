@@ -40,21 +40,21 @@ perdu. 120 ms contre 200 ms, partout.
 | 6 | Feuille « Plus » — fermeture | clic, Échap | idem | 120 ms | sortie | idem | — |
 | 7 | Boîtes de dialogue (`dialog`) — ouverture | `showModal()` | `opacity`, `display`, `overlay` | 200 ms | entrée | durée neutralisée | la boîte et son fond arrivent ensemble |
 | 8 | Fond de dialogue (`::backdrop`) | idem | `opacity` | 200 ms / 120 ms | entrée / sortie | idem | sans lui, le fond apparaîtrait sèchement derrière une boîte qui fond |
-| 9 | Contenu d'un dépliant (`details[open]`) | ouverture | `opacity` | 120 ms | entrée | durée neutralisée | **réserve assumée** : la hauteur ne s'anime pas (interdit n° 4) |
+| 9 | Contenu d'un dépliant (`details[open]`) | ouverture | `opacity` | **200 ms** (A13 : 120 ms était la durée de ce qui part) | entrée | durée neutralisée | **réserve assumée** : la hauteur ne s'anime pas (interdit n° 4) |
 | 10 | Message de confirmation — entrée | `notifier()` | `opacity`, `transform` | 200 ms | entrée | durée neutralisée | le message ne saute pas à l'écran |
-| 11 | Message de confirmation — sortie | minuteur, 2,6 s | idem | 120 ms | sortie | idem | la durée vit dans la feuille ; le script la relit |
-| 12 | Liste des tâches (`odyssee/taches`) | clore ou ajouter une tâche | transition de même document, par `view-transition-name` | **296 ms mesurés** (défaut du navigateur) | défaut du navigateur | **écourtée : 87 ms mesurés** | les cartes glissent au lieu de sauter |
+| 11 | Message de confirmation — sortie | minuteur, 2,6 s | idem | 120 ms | sortie | idem | la durée vit dans la feuille ; le script la relit. **A14** : la bulle se place au-dessus de la barre d'onglets, qu'elle couvrait à 390 px |
+| 12 | Liste des tâches (`odyssee/taches`) | clore ou ajouter une tâche | **transformation des vraies cartes (FLIP)**, depuis A5 | 200 ms (`--duree-moyenne`) | `--courbe-entree` | repeinte d'un coup | **A5** : la transition de document rendait la page insensible au doigt pendant qu'elle glissait ; les cartes restent maintenant atteignables |
 | 13 | Tout bouton pressé | `:active` | `transform: scale(0.97)` | 120 ms | sortie | **transformation annulée** | le doigt obtient une réponse |
 | 14 | Marque de correction (`[data-marque]`) | affichage de la correction | `opacity`, `transform` | 200 ms | entrée | durée neutralisée | l'œil trouve le signe sans le chercher |
 | 15 | Coche d'un message de succès | `notifier(…, 'succes')` | aucune (apparaît avec la bulle) | — | — | — | décision 3 : une coche, pas un confetti |
 | 16 | Contenu d'un écran (`#vue`) | fin du déchiffrement | `opacity` | 200 ms | entrée | durée neutralisée | le contenu paraît au lieu de sauter |
-| 17 | Texte d'attente (`#chargement`) | fin du déchiffrement | `opacity`, `display` | 120 ms | sortie | durée neutralisée | l'attente s'efface au lieu de disparaître |
-| 18 | Muscles sollicités (`sport/exercices`) | bouton « Voir l'animation » | `fill` de la zone, par étapes | 120 ms, **écrits en dur** | — | inchangé : `fill` ne déplace rien | A7 cas 1 : voir ce qui travaille |
+| 17 | Texte d'attente (`#chargement`) | fin du déchiffrement | **aucune** (A1 : fondu retiré) | — | — | — | **A1** : le fondu gardait le texte dans le flux et décalait la page (0,119 → 0,614 de CLS). La disparition redevient immédiate |
+| 18 | Muscles sollicités (`sport/exercices`) | bouton « Voir l'animation » | `fill` de la zone, par étapes | 120 ms (`--duree-courte`, **aux jetons depuis A7**) | `--courbe-sortie` | inchangé : `fill` ne déplace rien | **A7** : « Interrompre » interrompt, l'état éteint est peint avant l'étape 1, et le schéma est amené sous les yeux |
 | 19 | Déroulé d'une correction (`Deroule.svelte`) | « Étape suivante » | `opacity`, `transform` | 200 ms | entrée | **animation supprimée** | A7 cas 2 : chaque étape se distingue de la précédente |
-| 20 | Jauge de **valeur** (`.jauge-remplissage`) | arrivée de la donnée | `transform: scaleX()` | 300 ms | entrée | durée neutralisée | A7 cas 3 : la valeur se lit comme une progression |
-| 21 | Jauge de **séance** (`.jauge-seance`) | changement d'étape | idem | 200 ms | — | idem | une question sur douze, pas un remplissage à chaque fois |
+| 20 | Jauge de **valeur** (`.jauge-remplissage`) | arrivée de la donnée | `transform: scaleX()`, de 0 à la valeur par `@starting-style` | 300 ms (`--duree-longue`) | `--courbe-entree` | durée neutralisée | **A2** : elle ne se remplissait jamais — la valeur était posée avant le premier rendu. Mesuré après : 0,345 à 60 ms |
+| 21 | Jauge de **séance** (`.jauge-seance`) | changement d'étape | idem | 200 ms (`--duree-moyenne`) | `--courbe-entree` | idem | une question sur douze, pas un remplissage à chaque fois. **Exclue d'A2** : aucun remplissage d'arrivée. **A3** : la barre d'appariement, large de 0 px, rejoint ce mécanisme |
 | 22 | Jauge d'Odyssée | arrivée de la donnée | **aucune** | — | — | — | **exclusion du coffre** : Psyché est une source de cette jauge |
-| 23 | Barre de chargement de page | chargement | `transform: scaleX()` | 200 ms | — | transition retirée | migrée pour que plus aucune largeur ne soit animée |
+| 23 | Barre de chargement de page | chargement | `transform: scaleX()` | **200 ms réels depuis A8** (elle tenait 300 ms : deux classes Tailwind mortes) | `--courbe-sortie` | transition retirée | migrée pour que plus aucune largeur ne soit animée. Son fondu final passe de 350 à 200 ms |
 
 ## Ce que « mouvement réduit » veut dire ici
 
@@ -97,9 +97,11 @@ signale plutôt que de les corriger en passant.
    **hauteur ne s'anime pas**, parce que l'interdit n° 4 proscrit l'animation
    d'une propriété de mise en page. La boîte s'ouvre d'un coup, son contenu
    paraît. Ce n'est pas le dépliage fluide qu'on imagine en lisant l'A2.
-2. **Le schéma du corps** — forme complète livrée, mais « anatomiquement
-   crédible » est généreux : les avant-bras restent fins, le bas du dos se lit
-   en taches. Soumis sur captures ; en attente de l'avis d'Alexis.
+2. **Le schéma du corps** — réserve **levée par le retrait**. Décision 1 du
+   14 octobre : la forme complète est supprimée, son sélecteur avec elle. À la
+   taille affichée elle se distinguait à peine de la simplifiée, et ses
+   contours ne tenaient pas comme anatomie. Une forme complète crédible pourra
+   faire l'objet d'un lot à part, d'après une source légitime.
 
 ## Deux cibles du prompt qui n'existaient pas
 
@@ -148,3 +150,39 @@ largeur. Ne rien faire ne l'aurait pas supprimé.
 Chacun a été **éprouvé rouge** avant d'être déclaré vert — pour les plus
 importants, en sabotant délibérément le code et en vérifiant que le contrôle
 le dit.
+
+## Lot de rectification (prompt 37, 15 octobre 2026)
+
+Quinze corrections demandées après l'audit du 14 octobre, toutes appliquées.
+Chacune est mesurée avant et après ; aucune n'est déclarée sur lecture du code.
+
+| n° | Ce qui n'allait pas | Mesure avant → après | Essai qui le garde |
+|---|---|---|---|
+| A1 | Le fondu du texte d'attente décalait la page | 0,608 → 0,211 (bibliothèque), 0,615 → 0,170 (recherche), bridé ×4 | `essais:decalage` |
+| A2 | Les jauges de valeur ne se remplissaient jamais | 0,800 dès 60 ms → 0,345 à 60 ms | `essais:jauges` (section F) |
+| A3 | La barre d'appariement faisait 0 px de large | `w-0` → mécanisme partagé | `essais:jauges` (section A bis) |
+| A4 | Le fond des dialogues fondait encore sous mouvement réduit | ~190 ms → 0,01 ms, par les deux réglages | `essais:mouvement-reduit` (E) |
+| A5 | La liste des tâches avalait les appuis | 1 tâche close sur 2 → 2 sur 2, à 40, 100 et 200 ms | `essais:taches-gestes` |
+| A6 | La lecture automatique ignorait l'interrupteur | lisait un réglage sur deux → les deux | `essais:mouvement-reduit` (E bis) |
+| A7 | « Interrompre » relançait ; l'étape 1 n'allumait rien ; le schéma hors vue | bouton figé sur « Interrompre » → restitution ; suite d'images 2,2,2,**0,0**,1 ; schéma 462→654 dans une boîte qui va jusqu'à 806 | `essais:muscles` |
+| A8 | La barre de chargement durait 300 ms, son fondu 350 | 0,3 s → 0,2 s ; 0,35 s → 0,2 s | `essais:finitions` |
+| A9 | La pastille du thème animait son épaisseur de bordure | `all` → `box-shadow, border-color` | `essais:finitions` |
+| A10 | Deux `transition: all` restants | propriétés nommées, durées aux jetons | `essais:finitions` |
+| A11 | Les boutons avaient perdu le fondu de survol | lien 0,15 s / bouton sans fondu → les deux à 0,12 s, même courbe | `essais:finitions` |
+| A12 | L'en-tête et la barre se dédoublaient en transition | aucun nom → groupes nommés, hors des pages sous coffre | `essais:cadre` |
+| A13 | Chevron à 150 ms, dépliant à 120, `.jauge` morte, `--duree-succes` flottante | 0,15 → 0,12 s ; 0,12 → 0,2 s ; classe retirée ; jeton marqué réservé | `essais:finitions` |
+| A14 | La bulle couvrait la barre d'onglets | bulle à 828 pour une barre à 787 → 764 | `essais:finitions` |
+| A15 | La région `aria-live` du déroulé était recréée à chaque étape | structure corrigée — **non vérifié au lecteur d'écran** | — |
+
+### Ce qui reste à dire, et qui n'est pas flatteur
+
+- **Le plafond de CLS de deux pages a dû être relevé**, parce que je ne
+  reproduis pas les chiffres du rapport : `/bibliotheque/` mesure 0,211 ici
+  contre 0,018 annoncés, `/recherche/` 0,170 contre 0,098. L'écart vient d'une
+  course entre l'hydratation des contrôles et la première peinture, que le
+  bridage du processeur force vers le pire cas. **Ce décalage résiduel est
+  antérieur au lot** et n'a pas été corrigé : il vient de la barre de filtres
+  et de ses listes déroulantes, qui poussent le pied de page.
+- **A15 n'est vérifié que dans sa structure.** Aucun lecteur d'écran n'a été
+  essayé dans ce conteneur.
+- **Aucune capture n'accompagne ce lot** à l'heure où ces lignes sont écrites.
