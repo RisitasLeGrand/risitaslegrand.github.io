@@ -48,6 +48,26 @@ import config from '../../site.config.mjs';
       </p>
     </header>
 
+    <!--
+       La revue, quand elle est due ou manquée (V4 du prompt 36).
+
+       EN TÊTE de l'accueil, et non seulement sur le tableau de bord de
+       l'Odyssée : la décision 2 d'Alexis écarte de toucher à la barre du bas,
+       et c'est ici que la revue gagne sa route en un geste sans retirer la
+       sienne à une autre destination.
+
+       Caché par défaut : un bandeau qui paraîtrait avant d'avoir lu l'état
+       sauterait à l'écran puis disparaîtrait, ce qui est pire que rien.
+    -->
+    <a
+      id="revue-due"
+      href={`${base}/odyssee/revue/`}
+      class="mb-6 hidden items-center gap-3 rounded-2xl border border-indigo-300 bg-indigo-50 px-4 py-3 text-sm font-medium text-indigo-900 transition hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-100 dark:hover:bg-indigo-900/40"
+    >
+      <span aria-hidden="true">🗒️</span>
+      <span id="revue-due-texte">La revue vous attend</span>
+    </a>
+
     <ul class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       {
         BRANCHES.map((b) => (
@@ -186,6 +206,7 @@ import config from '../../site.config.mjs';
 <script>
   import { auDeverrouillage } from '../lib/chargement';
   import { base } from '../lib/ui';
+  import { etatDuJour } from '../lib/odyssee-jour';
 
   /*
      La salutation est le seul élément personnel du menu, et elle se charge
@@ -193,6 +214,27 @@ import config from '../../site.config.mjs';
      n'existe pas avant. Son absence n'est pas un défaut — « Bonjour. » est une
      salutation complète.
   */
+  /*
+     La revue due ou manquée, en tête. On réutilise les règles du jour plutôt
+     que de recalculer ici : deux calculs de la même chose finissent par se
+     contredire, et c'est l'écran d'accueil qui aurait tort.
+  */
+  auDeverrouillage(async () => {
+    try {
+      const etat = await etatDuJour();
+      const quoi = etat.suggestions.find(
+        (suggestion: { regle: string }) =>
+          suggestion.regle === 'revue' || suggestion.regle === 'revue-manquee',
+      );
+      if (quoi) {
+        document.getElementById('revue-due-texte')!.textContent = quoi.texte;
+        document.getElementById('revue-due')!.classList.replace('hidden', 'flex');
+      }
+    } catch {
+      /* L'accueil ne doit pas tomber parce qu'un bandeau n'a pas pu se peindre. */
+    }
+  });
+
   auDeverrouillage(async () => {
     /*
        La garde d'A.1 : mot de passe → *(première fois)* initialisation → menu.

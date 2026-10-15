@@ -77,3 +77,60 @@ export function libelles(moment: Moment): Libelles {
         : 'La revue d’aujourd’hui est déjà tenue. Vous pouvez la compléter.',
   };
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Les revues manquées
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * La limite de sept jours, tranchée par Alexis (décision 4).
+ *
+ * Au-delà, les jours sont classés « non revus » **sans relance**. Ce n'est
+ * pas une limite technique : c'est la différence entre un rappel et un
+ * reproche. Une application qui réclame la revue du 3 mars en avril ne
+ * rappelle plus rien, elle accuse.
+ */
+export const JOURS_RATTRAPABLES = 7;
+
+/**
+ * Les jours dont la revue manque, du plus ancien au plus récent.
+ *
+ * Le jour visé **n'en fait pas partie** : il n'est pas « manqué », il est en
+ * cours. En mode matin, le jour visé est déjà la veille — la revue d'hier
+ * n'est donc pas comptée comme manquée le matin, ce qui est précisément la
+ * promesse « un seul passage suffit ».
+ */
+export function revuesManquees(
+  joursTenus: readonly string[],
+  moment: Moment,
+  maintenant = new Date(),
+  reglages?: ReglagesJourLogique,
+): string[] {
+  const tenus = new Set(joursTenus);
+  const vise = jourVise(moment, maintenant, reglages);
+  const manques: string[] = [];
+  /* On part de la veille du jour visé : le jour visé lui-même est en cours. */
+  const curseur = new Date(`${vise}T12:00:00.000Z`);
+  for (let i = 0; i < JOURS_RATTRAPABLES; i += 1) {
+    curseur.setUTCDate(curseur.getUTCDate() - 1);
+    const jour = curseur.toISOString().slice(0, 10);
+    if (!tenus.has(jour)) manques.push(jour);
+  }
+  return manques.reverse();
+}
+
+/**
+ * Le rappel, en une phrase, ou rien.
+ *
+ * **Un seul rappel pour plusieurs jours** : la décision 4 l'exige, et la
+ * raison est la même que la limite de sept jours. Une notification par jour
+ * manqué transformerait une semaine chargée en liste de reproches.
+ *
+ * Le libellé reste neutre (interdit 3) : il dit un nombre, jamais ce que la
+ * revue contient.
+ */
+export function rappelDeRevue(manques: readonly string[]): string | null {
+  if (!manques.length) return null;
+  if (manques.length === 1) return '1 revue en attente';
+  return `${manques.length} revues en attente`;
+}

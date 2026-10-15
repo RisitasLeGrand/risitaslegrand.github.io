@@ -15,6 +15,9 @@
  */
 import { COUCHER_PAR_DEFAUT, LEVER_PAR_DEFAUT, fenetreDeLaRevue } from '../src/lib/odyssee/jour';
 import {
+  JOURS_RATTRAPABLES,
+  rappelDeRevue,
+  revuesManquees,
   MOMENT_PAR_DEFAUT,
   jourVise,
   libelles,
@@ -122,6 +125,54 @@ v('une heure illisible retombe sur le repli', fenetreDeLaRevue('soir', undefined
    laisse deviner.
 */
 v('le matin se ferme à midi', fenetreDeLaRevue('matin', '05:00', undefined)?.a, 12 * 60);
+
+console.log('\n  E — les revues manquées');
+
+const le12 = new Date('2026-03-12T12:00:00.000Z');
+
+/* Tout tenu : rien à rattraper. */
+const tousTenus = ['2026-03-05','2026-03-06','2026-03-07','2026-03-08','2026-03-09','2026-03-10','2026-03-11'];
+v('rien à rattraper quand tout est tenu', revuesManquees(tousTenus, 'soir', le12), []);
+v('et donc aucun rappel', rappelDeRevue(revuesManquees(tousTenus, 'soir', le12)), null);
+
+/* Trois jours manqués : UN seul rappel, comme la décision 4 l'exige. */
+const troisManques = tousTenus.filter((j) => !['2026-03-09','2026-03-10','2026-03-11'].includes(j));
+v('trois jours manqués sont relevés', revuesManquees(troisManques, 'soir', le12).length, 3);
+v('et ils donnent UN seul rappel', rappelDeRevue(revuesManquees(troisManques, 'soir', le12)), '3 revues en attente');
+v('un seul jour manqué se dit au singulier', rappelDeRevue(['2026-03-11']), '1 revue en attente');
+
+/* Le jour visé n'est pas « manqué » : il est en cours. */
+v(
+  'le jour visé n’est jamais compté comme manqué',
+  revuesManquees([], 'soir', le12).includes('2026-03-12'),
+  false,
+);
+/*
+   En mode matin, le jour visé est DÉJÀ la veille : la revue d'hier n'est donc
+   pas comptée comme manquée le matin. C'est la promesse « un seul passage
+   suffit », vérifiée plutôt que supposée.
+*/
+v(
+  'le matin, la veille n’est pas comptée comme manquée',
+  revuesManquees([], 'matin', le12).includes('2026-03-11'),
+  false,
+);
+
+/* La limite de sept jours : au-delà, plus de relance. */
+v('au plus sept jours sont rattrapables', revuesManquees([], 'soir', le12).length, JOURS_RATTRAPABLES);
+v(
+  'le huitième jour en arrière n’est plus réclamé',
+  revuesManquees([], 'soir', le12).includes('2026-03-04'),
+  false,
+);
+v('le plus ancien rattrapable est le septième', revuesManquees([], 'soir', le12)[0], '2026-03-05');
+
+/* Le libellé reste neutre : un nombre, jamais un contenu. */
+v(
+  'le rappel ne dit rien du contenu (interdit 3)',
+  /revue|revues/.test(rappelDeRevue(['a','b']) ?? '') && !/humeur|note|journal|santé/i.test(rappelDeRevue(['a','b']) ?? ''),
+  true,
+);
 
 console.log(`\n${echecs ? '\x1b[31m✗' : '\x1b[32m✓'} ${echecs} échec(s)\x1b[0m\n`);
 process.exit(echecs ? 1 : 0);

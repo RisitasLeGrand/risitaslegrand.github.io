@@ -225,7 +225,8 @@ export type IdRegle =
   | 'agenda-en-conflit'
   | 'domaine-delaisse'
   | 'releve-a-faire'
-  | 'revue';
+  | 'revue'
+  | 'revue-manquee';
 
 export interface Regle {
   id: IdRegle;
@@ -290,6 +291,14 @@ export const REGLES: readonly Regle[] = [
     raison:
       'Un agenda dit ce qui était prévu. Sans relevé, le site devrait supposer, et un taux de ' +
       'réalisation supposé ne vaut rien. La question se pose une fois, après coup, jamais avant.',
+  },
+  {
+    id: 'revue-manquee',
+    intitule: 'Des revues passées n’ont pas été tenues',
+    raison:
+      'Un SEUL rappel groupé, sur sept jours au plus. Une notification par jour ' +
+      'manqué transformerait une semaine chargée en liste de reproches, et au-delà ' +
+      'de sept jours un rappel n’en est plus un : c’est une accusation.',
   },
   {
     id: 'revue',
@@ -399,6 +408,13 @@ export interface OptionsSuggestions {
   moment?: 'matin' | 'soir';
   /** La revue du jour visé a-t-elle déjà été tenue ? */
   revueFaite?: boolean;
+  /**
+   * Le rappel groupé des revues manquées, déjà rédigé, ou rien.
+   *
+   * Rédigé en amont plutôt que calculé ici : cette fonction ne lit aucune
+   * base, et c'est ce qui la rend éprouvable sans navigateur.
+   */
+  rappelDeRevue?: string | null;
 }
 
 const heures = (secondes: number) => Math.round((secondes / 3600) * 10) / 10;
@@ -558,6 +574,16 @@ export function queFaireMaintenant(
         cible: { quoi: 'revue', id: options.aujourdhui },
       });
     }
+  }
+
+  /* --- Les revues manquées, en UN rappel ------------------------------------ */
+  if (options.rappelDeRevue) {
+    brutes.push({
+      regle: 'revue-manquee',
+      texte: options.rappelDeRevue,
+      parceQue: 'Vous pouvez y revenir, chacune à sa date.',
+      cible: { quoi: 'revue', id: options.aujourdhui },
+    });
   }
 
   /* --- Tri par priorité de règle, puis plafond -----------------------------

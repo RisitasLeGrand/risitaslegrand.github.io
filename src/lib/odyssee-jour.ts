@@ -107,6 +107,16 @@ async function momentDeLaRevue(): Promise<'matin' | 'soir'> {
   return lireMoment((await champ('moment-revue'))?.valeur);
 }
 
+/** Le rappel groupé des revues manquées, ou rien. Sept jours au plus. */
+async function rappelDesRevues(moment: 'matin' | 'soir', maintenant: Date): Promise<string | null> {
+  const [{ toutesLesRevues }, { rappelDeRevue, revuesManquees }] = await Promise.all([
+    import('./odyssee/donnees'),
+    import('./odyssee/moment-revue'),
+  ]);
+  const tenues = (await toutesLesRevues()).filter((r) => r.type === 'soir').map((r) => r.jour);
+  return rappelDeRevue(revuesManquees(tenues, moment, maintenant));
+}
+
 /** Tout ce que le tableau de bord affiche, lu à un seul instant. */
 export async function etatDuJour(maintenant = new Date()): Promise<EtatDuJour> {
   const reglages = await reglagesJourLogiqueLocaux();
@@ -161,7 +171,17 @@ export async function etatDuJour(maintenant = new Date()): Promise<EtatDuJour> {
   const lePlancher = plancherDuJour(quetes, { aujourdhui, semaine, actifs });
   const quoi = queFaireMaintenant(
     { quetes, taches, evenementsDuJour, faits },
-    { maintenant, aujourdhui, semaine, actifs, coucher, lever, moment, revueFaite },
+    {
+      maintenant,
+      aujourdhui,
+      semaine,
+      actifs,
+      coucher,
+      lever,
+      moment,
+      revueFaite,
+      rappelDeRevue: await rappelDesRevues(moment, maintenant),
+    },
   );
 
   const plan = planTenu(taches, evenementsDeLaFenetre, { jours, maintenant, actifs });
