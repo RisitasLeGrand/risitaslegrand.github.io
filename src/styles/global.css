@@ -747,6 +747,44 @@ button:not(:disabled):active,
   transition: none;
 }
 
+/*
+   **Le remplissage d'arrivée, qui n'avait jamais lieu — A2 du prompt 37.**
+
+   Le mécanisme posait bien `scaleX(0)` comme valeur de départ, mais aucune
+   jauge ne partait jamais de là. Trois façons de rater la transition, toutes
+   constatées :
+     • la valeur est écrite pendant que le conteneur est encore caché, puis le
+       conteneur est révélé (le tableau de bord des révisions) ;
+     • l'élément est CRÉÉ avec sa valeur, en une seule insertion (bibliothèque,
+       jalons, muscles) ;
+     • dans les deux cas, le navigateur n'a jamais vu l'état intermédiaire, donc
+       il n'y a rien à interpoler.
+
+   `@starting-style` donne cet état manquant : la valeur avec laquelle
+   l'élément entre dans l'arbre rendu, qu'il vienne d'être inséré ou qu'il
+   sorte d'un `display: none`.
+
+   **Le `!important` n'est pas une facilité, il est nécessaire, et c'est
+   mesuré.** La valeur de ces jauges est posée en `style=` en ligne. Dans le
+   style de départ, une déclaration en ligne l'emporte sur une règle de classe :
+   essayé sans `!important`, la jauge affiche directement 0,8 et aucune
+   transition ne court ; avec, elle part de 0 et passe par 0,178 à 60 ms. Une
+   règle d'auteur `!important` est le seul moyen de battre le style en ligne.
+
+   **Les barres de séance en sont exclues**, et c'est la demande : elles
+   passent d'une étape à la suivante. Leur faire jouer un remplissage à chaque
+   question serait une animation en boucle déguisée. La jauge d'Odyssée l'est
+   aussi, pour la raison écrite plus haut — elle reflète une donnée du coffre.
+
+   Sous mouvement réduit, rien à prévoir : le socle ramène la durée à 0,01 ms,
+   donc la jauge est posée à sa valeur sans remplissage.
+*/
+@starting-style {
+  .jauge-remplissage:not(.jauge-seance):not(.jauge-sans-animation) {
+    transform: scaleX(0) !important;
+  }
+}
+
 /* --- Barre de défilement -------------------------------------------------- */
 /* Discrète et accordée au thème, sur la page comme sur les zones défilantes.
    Deux écritures pour deux familles de navigateurs, puisant dans les mêmes

@@ -325,6 +325,142 @@ console.log('\n  E — la jauge d’Odyssée, sous coffre, n’anime rien');
   );
 }
 
+/* --- F. Le remplissage d'arrivée, OBSERVÉ (A2 du prompt 37) -------------- */
+/*
+   **Ce que les sections précédentes ne disaient pas.** Elles vérifient que le
+   mécanisme est en place et que l'échelle est juste. Aucune ne regardait si la
+   jauge se remplit réellement — et elle ne se remplissait jamais : la valeur
+   était posée pendant que le conteneur était caché, ou l'élément créé avec sa
+   valeur. Le navigateur n'a alors aucun état de départ à interpoler.
+
+   **On échantillonne la transformation calculée pendant le remplissage.** Une
+   jauge qui saute à sa valeur est à 0,8 dès la première mesure ; une jauge qui
+   se remplit est quelque part entre les deux. C'est la seule observation qui
+   distingue les deux cas — lire la feuille de style ne l'aurait pas fait, et
+   c'est précisément l'erreur que ce lot corrige ailleurs.
+
+   **Portée de ce contrôle, dite franchement.** Il éprouve le MÉCANISME, sur un
+   élément inséré dans une vraie page et donc soumis au vrai socle, selon les
+   deux scénarios constatés (révélation d'un conteneur caché, insertion déjà à
+   la valeur). Il n'éprouve pas les écrans eux-mêmes, qui demandent un profil et
+   des données : c'est la section A bis qui garantit que leurs jauges portent
+   bien la classe. Les deux ensemble couvrent la chaîne ; ni l'une ni l'autre
+   seule.
+*/
+
+console.log('\n  F — le remplissage d’arrivée, observé');
+
+/** Insère une jauge comme le font les écrans, la révèle, et échantillonne. */
+const observerLeRemplissage = async (p, classes, { creerDejaVisible = false } = {}) =>
+  p.evaluate(
+    async ([classes, creerDejaVisible]) => {
+      const dehors = document.createElement('div');
+      dehors.id = 'essai-jauge-boite';
+      if (!creerDejaVisible) dehors.style.display = 'none';
+      document.body.append(dehors);
+      /* La piste, puis le remplissage : la même forme que la bibliothèque. */
+      dehors.innerHTML =
+        '<div style="width:200px" class="overflow-hidden rounded-full">' +
+        `<div id="essai-jauge" class="h-1.5 ${classes}" style="transform:scaleX(0.8)"></div>` +
+        '</div>';
+      const jauge = document.getElementById('essai-jauge');
+      if (!creerDejaVisible) {
+        /* Le conteneur était caché quand la valeur a été posée : on révèle,
+           exactement comme le tableau de bord des révisions. */
+        dehors.style.display = 'block';
+      }
+      const echelle = () => {
+        const m = new DOMMatrixReadOnly(echelleCalculee(jauge));
+        return m.a;
+      };
+      function echelleCalculee(e) {
+        const t = getComputedStyle(e).transform;
+        return t === 'none' ? 'matrix(1,0,0,1,0,0)' : t;
+      }
+      const duree = getComputedStyle(jauge).transitionDuration;
+      const attendre = (ms) => new Promise((r) => setTimeout(r, ms));
+      await attendre(60);
+      const tot = echelle();
+      await attendre(500);
+      const tard = echelle();
+      dehors.remove();
+      return { tot, tard, duree };
+    },
+    [classes, creerDejaVisible],
+  );
+
+{
+  const ctxF = await nav.newContext({ viewport: { width: 390, height: 844 } });
+  const pf = await ctxF.newPage();
+  await pf.goto(`${RACINE}/`, { waitUntil: 'networkidle' });
+
+  /* 1. Conteneur révélé — le cas du tableau de bord des révisions. */
+  const revele = await observerLeRemplissage(pf, 'jauge-remplissage');
+  v(
+    `révélation d’un conteneur caché : la jauge est EN COURS à 60 ms (${revele.tot.toFixed(3)})`,
+    revele.tot > 0.02 && revele.tot < 0.7,
+    true,
+  );
+  v(
+    `et elle atteint sa valeur (${revele.tard.toFixed(3)})`,
+    Math.abs(revele.tard - 0.8) < 0.02,
+    true,
+  );
+  v(
+    `son remplissage ne dépasse pas 300 ms (${revele.duree})`,
+    Math.max(...String(revele.duree).split(',').map((x) => secondes(x))) <= 0.3,
+    true,
+  );
+
+  /* 2. Élément créé déjà visible, à sa valeur — le cas de la bibliothèque. */
+  const insere = await observerLeRemplissage(pf, 'jauge-remplissage', {
+    creerDejaVisible: true,
+  });
+  v(
+    `insertion déjà à la valeur : la jauge est EN COURS à 60 ms (${insere.tot.toFixed(3)})`,
+    insere.tot > 0.02 && insere.tot < 0.7,
+    true,
+  );
+
+  /* 3. Une barre de SÉANCE ne joue pas de remplissage d'arrivée : elle passe
+        d'une étape à la suivante, et un remplissage à chaque question serait
+        une animation en boucle déguisée. */
+  const seance = await observerLeRemplissage(pf, 'jauge-remplissage jauge-seance');
+  v(
+    `une barre de séance, elle, est posée d’emblée (${seance.tot.toFixed(3)})`,
+    Math.abs(seance.tot - 0.8) < 0.02,
+    true,
+  );
+
+  /* 4. Et la jauge exclue — celle d'Odyssée — n'anime rien non plus. */
+  const sansAnimation = await observerLeRemplissage(
+    pf,
+    'jauge-remplissage jauge-sans-animation',
+  );
+  v(
+    `la jauge « sans animation » reste posée (${sansAnimation.tot.toFixed(3)})`,
+    Math.abs(sansAnimation.tot - 0.8) < 0.02,
+    true,
+  );
+
+  await ctxF.close();
+
+  /* 5. Sous mouvement réduit, la valeur est posée, pas remplie. */
+  const sobreF = await nav.newContext({
+    viewport: { width: 390, height: 844 },
+    reducedMotion: 'reduce',
+  });
+  const ps = await sobreF.newPage();
+  await ps.goto(`${RACINE}/`, { waitUntil: 'networkidle' });
+  const sobreLu = await observerLeRemplissage(ps, 'jauge-remplissage');
+  v(
+    `sous mouvement réduit, la jauge est posée d’emblée (${sobreLu.tot.toFixed(3)})`,
+    Math.abs(sobreLu.tot - 0.8) < 0.02,
+    true,
+  );
+  await sobreF.close();
+}
+
 await nav.close();
 console.log(`\n${echecs ? '\x1b[31m✗' : '\x1b[32m✓'} ${echecs} échec(s)\x1b[0m\n`);
 process.exit(echecs ? 1 : 0);
