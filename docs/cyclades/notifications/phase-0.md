@@ -73,6 +73,35 @@ Six colonnes, comme le prompt les nomme. « Neutre » = « Cyclades : un
 | 12 Pointage à reporter | non | **le nombre seul** | le nombre seul | **non** | exclue | efface ses éléments |
 | — Cycle et sa sensibilité | **exclu** | **exclu** | **exclu** | **exclu** | exclu | sans objet |
 
+### Rectification du 15 octobre 2026 — anomalie N-1, option A signée
+
+La colonne « panneau coffre fermé » ci-dessus **n'était pas réalisable** : le
+magasin ne laissait en clair que l'`id`. Elle est corrigée ici, et le tableau
+d'origine reste au-dessus pour que l'écart se voie.
+
+Avec `genre` en clair — et **lui seul** en plus de l'`id` —, coffre fermé le
+centre sait combien d'éléments existent et de quel genre, **et rien d'autre**.
+Il ne peut pas distinguer ses sources. La colonne devient donc, pour toutes les
+sources qui ont un élément dans le magasin :
+
+| Source | Panneau coffre fermé, rectifié |
+|---|---|
+| 1 Questions à trancher | compté dans « N questions à trancher » |
+| 2, 3, 4, 5, 6, 8, 9, 10, 11 | compté dans « N informations », sans une ligne qui les nomme |
+| 7 Rappel de sauvegarde | texte entier — il n'a pas d'élément : `noyau/coffre.ts` le calcule hors du centre |
+| 12 Pointage à reporter | le nombre seul — `combienDeReports()` le rend sans le coffre |
+
+**Deux conséquences qui vont dans le bon sens, et une qui coûte.**
+
+La ligne 6 voulait « rien, parce que son titre vit dans Psyché » : coffre
+fermé, le centre **ne peut pas** distinguer la veille d'une autre source, donc
+rien de Psyché ne peut filtrer — la protection est obtenue par construction au
+lieu d'être obtenue par une règle qu'il aurait fallu tenir. Même chose pour la
+ligne 2 et son nombre d'opérations.
+
+Ce qui coûte : « 3 revues en attente » et « Synchronisation effectuée » ne
+s'affichent plus coffre fermé. Ils reviennent intacts coffre ouvert.
+
 **Trois lignes méritent leur justification.** La 2 perd son nombre
 d'opérations : « Reçu : 1 opération » peut révéler une saisie sensible faite
 sur l'autre appareil (décision 5). La 6 n'affiche rien coffre fermé parce

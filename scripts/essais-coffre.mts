@@ -120,10 +120,28 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    reste chiffré, par la boîte aux lettres et non par le coffre.
 */
 v('vingt-sept magasins scellés', MAGASINS_SCELLES.length, 27);
+/*
+   Le centre : l'identifiant ET le genre, pas un champ de plus.
+
+   N-1, option A. Le genre vaut « à trancher » ou « à savoir », et il est en
+   clair pour que la pastille existe coffre fermé. L'assertion nomme les deux
+   champs attendus plutôt que leur nombre : ajouter `source` ou `creeLe` ferait
+   toujours deux, puis trois, sans que personne le remarque.
+*/
 v(
-  'le centre de notifications en est, avec son seul identifiant en clair',
+  'le centre de notifications en est, avec son identifiant et son genre en clair',
   MAGASINS_SCELLES.find((m) => m.magasin === 'centreElements')?.clairs,
-  ['id'],
+  ['id', 'genre'],
+);
+v(
+  'et surtout PAS la source, que le § 4.1 interdit en clair',
+  MAGASINS_SCELLES.find((m) => m.magasin === 'centreElements')?.clairs.includes('source'),
+  false,
+);
+v(
+  'ni une date, même au jour',
+  MAGASINS_SCELLES.find((m) => m.magasin === 'centreElements')?.clairs.includes('creeLe'),
+  false,
 );
 v(
   'et les reports n’en sont plus — leur chiffrement est asymétrique',

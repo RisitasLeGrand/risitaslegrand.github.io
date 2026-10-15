@@ -141,8 +141,26 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
   {
     magasin: 'centreElements',
     pourquoi:
-      'L’existence même d’un élément renseigne sur l’usage : savoir qu’un signal est né de Psyché un mardi en dit déjà trop. Le § 4.1 du prompt 32 met donc tout le magasin sous coffre.',
-    clairs: ['id'],
+      'L’existence même d’un élément renseigne sur l’usage : savoir qu’un signal est né de Psyché un mardi en dit déjà trop. Le § 4.1 du prompt 32 met donc tout le magasin sous coffre — sauf le genre, qui ne vaut que « à trancher » ou « à savoir ».',
+    /*
+       `genre` en clair : anomalie N-1, option A signée le 15 octobre 2026.
+
+       La phase 2 n’avait laissé que l’`id`, en justifiant qu’« un index serait
+       en clair ». C’était une sur-lecture : le § 4.1 autorise des index clairs,
+       il les veut **sans domaine, sans source et sans date fine**. Le genre
+       n’est aucun des trois.
+
+       Sans lui, le centre ne pouvait rien montrer coffre fermé — et le coffre
+       de Cyclades se demande écran par écran, donc fermé est l’état ordinaire
+       du site, en-tête compris. La pastille était irréalisable.
+
+       Ce que le genre ajoute à ce qui fuite déjà : une ligne par élément existe
+       de toute façon, donc le **nombre** est lisible sans clé. Le genre en
+       partage ce nombre en deux classes qui ne nomment aucun domaine. Et le
+       filtre d’entrée (`notifications/filtre-cycle.ts`) écarte toute source
+       sensible au cycle avant écriture : cette répartition n’en dit donc rien.
+    */
+    clairs: ['id', 'genre'],
   },
   {
     magasin: 'odysseeComptes',

@@ -6,7 +6,7 @@ correctif silencieux**.
 
 | # | Anomalie | Statut |
 |---|---|---|
-| N-1 | Coffre fermé, le centre ne peut lire **aucun** de ses champs sauf l'`id` : ni la pastille ni la colonne « panneau coffre fermé » du tableau de sensibilité ne sont réalisables en l'état | **ouverte — arbitrage soumis** |
+| N-1 | Coffre fermé, le centre ne peut lire **aucun** de ses champs sauf l'`id` : ni la pastille ni la colonne « panneau coffre fermé » du tableau de sensibilité ne sont réalisables en l'état | **close — option A signée le 15 octobre 2026**, motif d'Alexis : « Le genre n'est pas une donnée sensible ». `clairs: ['id', 'genre']`. Aucune migration : le magasin n'avait pas d'écrivain, donc pas un enregistrement. Tableau de sensibilité rectifié. |
 
 ---
 
@@ -90,3 +90,28 @@ A, plus deux écritures à tenir cohérentes. Strictement moins bon que A.
 Les lignes 2, 6 et 8 perdent leur libellé coffre fermé : elles passent à la
 mention « État chiffré — ouvrez le coffre pour le voir ». Le tableau sera
 rectifié, pas réécrit — la version d'origine reste lisible dans l'historique.
+
+
+---
+
+## N-1 — ce qui a été fait, le 15 octobre 2026
+
+Option **A** signée. Appliqué :
+
+- `coffre.ts` : `clairs: ['id', 'genre']`, avec le raisonnement du § 4.1 écrit
+  au-dessus de la déclaration ;
+- `essais-coffre.mts` : l'assertion nomme les deux champs attendus **et** en
+  refuse nommément deux autres — `source` et `creeLe`. Compter les champs
+  aurait laissé passer un échange ; deux sabotages le vérifient ;
+- `phase-0.md` : la colonne « panneau coffre fermé » est rectifiée sous le
+  tableau d'origine, qui reste lisible.
+
+**Aucune migration n'était nécessaire**, et c'est constaté : aucun fichier de
+`src/` n'écrit dans `centreElements` hors de sa déclaration. Le magasin est
+vide partout.
+
+Deux effets que l'option A offre en plus de ce qu'elle promettait : coffre
+fermé, le centre ne pouvant pas distinguer ses sources, **rien de Psyché ne
+peut filtrer** et le nombre d'opérations d'une fusion non plus. Ce que la
+décision 5 et la ligne 6 du tableau demandaient comme règles à tenir est
+désormais vrai par construction.
