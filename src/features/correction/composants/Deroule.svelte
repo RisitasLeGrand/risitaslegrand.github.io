@@ -83,22 +83,47 @@
 <div class="my-3">
   {@render children?.(visibles)}
 
-  {#key visibles}
-  {#if etapeCourante}
+  <!--
+     LA RÉGION « aria-live » EST FIXE, ET SEUL SON CONTENU EST RECRÉÉ — A15 du
+     prompt 37.
+
+     Elle était à l'intérieur du bloc `{#key}` : à chaque étape, l'ancien
+     paragraphe était détruit et un nouveau inséré, région comprise. Or un
+     lecteur d'écran surveille les régions qui existaient DÉJÀ ; une région
+     créée en même temps que son texte n'est pas une mise à jour mais une
+     apparition, et plusieurs lecteurs ne l'annoncent pas. L'annonce de
+     « Étape n sur m » était donc muette une fois sur deux, au mieux.
+
+     La région vit maintenant hors de la clé. Seul le `<span>` intérieur, qui
+     porte l'animation, est remplacé — et c'est bien lui qu'il fallait
+     remplacer : sans cela, rien ne relancerait le fondu d'étape.
+
+     NON VÉRIFIÉ : aucun lecteur d'écran n'a été essayé ici, et le prompt le
+     classait déjà parmi les points non vérifiés. Ce qui est constaté, c'est la
+     structure ; ce qui est attendu, c'est l'annonce.
+  -->
+  {#if total > 0}
     <p
-      class="etape-revelee mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm
+      class="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2.5 text-sm
         text-slate-800 dark:border-slate-800 dark:bg-slate-900/50 dark:text-slate-200"
       aria-live="polite"
     >
-      <span class="font-semibold">Étape {etapeCourante.rang} sur {total}</span>
-      {#if etapeCourante.loi}
-        <span class="ml-1 text-xs text-slate-500 dark:text-slate-400">({etapeCourante.loi})</span>
-      {/if}
-      <br />
-      {etapeCourante.legende}
+      {#key visibles}
+        {#if etapeCourante}
+          <span class="etape-revelee block">
+            <span class="font-semibold">Étape {etapeCourante.rang} sur {total}</span>
+            {#if etapeCourante.loi}
+              <span class="ml-1 text-xs text-slate-500 dark:text-slate-400"
+                >({etapeCourante.loi})</span
+              >
+            {/if}
+            <br />
+            {etapeCourante.legende}
+          </span>
+        {/if}
+      {/key}
     </p>
   {/if}
-  {/key}
 
   {#if total > 1}
     <div class="mt-2 flex flex-wrap items-center gap-2">
@@ -152,6 +177,12 @@
      contenu change. Sans clé, rien ne relancerait l'animation, et l'étape
      suivante apparaîtrait sèchement. La clé force un remplacement, donc une
      animation neuve à chaque pas.
+
+     **La clé n'entoure que le `<span>` intérieur**, et plus le paragraphe :
+     celui-ci porte `aria-live` et doit survivre aux étapes, sinon le lecteur
+     d'écran voit paraître une région neuve au lieu d'une région mise à jour
+     (A15). L'animation, elle, a seulement besoin que l'élément qui la porte
+     soit remplacé — c'est le cas du `<span>`.
 
      **Le sens ne dépend pas de l'animation.** « Étape n sur m » et la légende
      sont écrites, et la zone est `aria-live` : un lecteur d'écran annonce le
