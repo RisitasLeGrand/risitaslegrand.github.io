@@ -294,6 +294,41 @@ export const TYPES: readonly TypeDeFait[] = [
     description: 'Une tâche terminée, avec son domaine et son échéance.',
   }),
   T({
+    id: 'odyssee.occurrence',
+    libelle: 'Occurrence d’une tâche répétée',
+    proprietaire: 'odyssee',
+    domaine: 'ordre',
+    nature: 'aucune',
+    description:
+      'Une exception d’une série : pointée, abandonnée, déplacée ou modifiée. Les occurrences ordinaires sont calculées et ne sont pas des faits.',
+  }),
+  T({
+    id: 'odyssee.etape-cochee',
+    libelle: 'Étape cochée',
+    proprietaire: 'odyssee',
+    domaine: 'ordre',
+    nature: 'aucune',
+    description: 'Une étape d’une tâche, cochée pour une occurrence donnée.',
+  }),
+  T({
+    id: 'odyssee.exception-scellee',
+    libelle: 'Exception d’une tâche sensible',
+    proprietaire: 'odyssee',
+    domaine: 'ordre',
+    nature: 'aucune',
+    description:
+      'Une occurrence ou une étape cochée d’une tâche liée à une branche sous coffre. Scellée, donc son contenu n’est pas lisible sans le mot de passe.',
+  }),
+  T({
+    id: 'odyssee.report',
+    libelle: 'Pointage en attente de report',
+    proprietaire: 'odyssee',
+    domaine: 'ordre',
+    nature: 'aucune',
+    description:
+      'Un pointage retenu coffre fermé, gardé avec son heure, à écrire dans sa branche à la prochaine ouverture.',
+  }),
+  T({
     id: 'odyssee.quete',
     libelle: 'Quête accomplie',
     proprietaire: 'odyssee',

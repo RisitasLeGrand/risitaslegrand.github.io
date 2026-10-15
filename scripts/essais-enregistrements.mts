@@ -132,12 +132,16 @@ v(
    les compter — un compte qui bouge se corrige sans rien apprendre, une liste
    nommée dit lequel manque.
 */
-v('quarante-et-un magasins journalisés', MAGASINS_JOURNALISES.length, 41);
+v('quarante-cinq magasins journalisés', MAGASINS_JOURNALISES.length, 45);
 v(
-  'et les vingt-huit d’Odyssée y sont',
+  'et les trente-deux d’Odyssée y sont',
   MAGASINS_JOURNALISES.filter((m) => m.magasin.startsWith('odyssee')).map((m) => m.magasin),
   [
     'odysseeTaches',
+    'odysseeOccurrences',
+    'odysseeEtapesCochees',
+    'odysseeExceptionsScellees',
+    'odysseeReports',
     'odysseeQuetes',
     'odysseeEvenements',
     'odysseeFocus',

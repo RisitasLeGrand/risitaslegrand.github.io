@@ -312,6 +312,38 @@ export const MAGASINS_JOURNALISES: readonly MagasinJournalise[] = [
      Si l'usage le dément, `combiner` est là pour ça, comme pour les fiches.
   */
   M({ magasin: 'odysseeTaches', type: 'odyssee.tache', clef: 'id', libelle: 'Tâche' }),
+  /*
+     Les exceptions des séries (prompt 38). Socle PARTAGÉ, et c'est le point
+     qui fait tenir la fusion : l'identifiant d'une occurrence est une clé
+     métier — « tâche / jour » —, donc deux appareils qui pointent la même
+     occurrence visent la même cible et produisent une seule opération. Un
+     socle « appareil » en aurait fait deux, et l'écran aurait affiché deux
+     fois « fait » pour un seul geste.
+  */
+  M({
+    magasin: 'odysseeOccurrences',
+    type: 'odyssee.occurrence',
+    clef: 'id',
+    libelle: 'Occurrence',
+  }),
+  M({
+    magasin: 'odysseeEtapesCochees',
+    type: 'odyssee.etape-cochee',
+    clef: 'id',
+    libelle: 'Étape cochée',
+  }),
+  M({
+    magasin: 'odysseeExceptionsScellees',
+    type: 'odyssee.exception-scellee',
+    clef: 'id',
+    libelle: 'Exception sensible',
+  }),
+  M({
+    magasin: 'odysseeReports',
+    type: 'odyssee.report',
+    clef: 'id',
+    libelle: 'Report en attente',
+  }),
   M({ magasin: 'odysseeQuetes', type: 'odyssee.quete', clef: 'id', libelle: 'Quête' }),
   M({
     magasin: 'odysseeEvenements',

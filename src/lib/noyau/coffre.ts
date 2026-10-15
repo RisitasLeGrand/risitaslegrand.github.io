@@ -105,6 +105,30 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
     clairs: ['id', 'jour', 'majLe'],
   },
   {
+    magasin: 'odysseeExceptionsScellees',
+    pourquoi:
+      'Une occurrence liée à une branche sous coffre dit un rythme — « chaque jour à 8 h, quelque chose de sensible » — et un rythme se lit sans rien comprendre d’autre. Décision 3 du prompt 38.',
+    /*
+       Rien d'autre que la clé et la date d'écriture. Pas de `jour` ici,
+       contrairement aux autres magasins scellés : le jour EST l'information
+       qu'on protège. On renonce donc à l'index, et on parcourt — ce magasin
+       ne porte que les exceptions des tâches sensibles, il reste petit.
+
+       L'identifiant, lui, vaut « tâche / jour » et reste en clair, puisque
+       c'est la clé. La protection est donc PARTIELLE, et le maillon faible
+       n'est pas ici : la tâche elle-même vit en clair dans `odysseeTaches`,
+       avec son titre et son lien. Le dire vaut mieux que de le masquer
+       derrière une clé opaque qui laisserait la vraie porte ouverte.
+    */
+    clairs: ['id', 'majLe'],
+  },
+  {
+    magasin: 'odysseeReports',
+    pourquoi:
+      'Un report en attente est, par construction, la trace qu’un geste a été fait dans une branche scellée alors que le coffre était fermé. En clair, il annulerait la décision qu’il sert.',
+    clairs: ['id', 'majLe'],
+  },
+  {
     magasin: 'odysseeComptes',
     pourquoi: 'Finances : un intitulé de compte et son type se lisent d’un coup d’œil.',
     clairs: ['id', 'majLe'],

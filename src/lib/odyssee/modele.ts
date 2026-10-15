@@ -32,6 +32,7 @@
  * 2 h » appartient à la veille, et seule la conversion explicite le sait.
  */
 import type { IdDomaine } from '../noyau/domaines';
+import type { Serie } from './repetition';
 
 /** L'identité commune : un ULID, et de quoi fusionner. */
 export interface Possede {
@@ -74,6 +75,216 @@ export interface Tache extends Possede {
   /** Texte libre, jamais obligatoire. */
   note: string;
   creeeLe: string;
+
+  /* --- Prompt 38 : la répétition, les étapes, le lien de branche ---------
+     Les quatre champs sont FACULTATIFS, et c'est ce qui rend la migration
+     inutile : une tâche écrite avant ce lot reste valide telle quelle, et
+     `undefined` s'y lit « tâche simple, sans étapes, sans lien ». Les rendre
+     obligatoires aurait imposé de réécrire chaque ligne existante pour y
+     poser des valeurs vides — une migration destructive pour rien. */
+
+  /**
+   * La série qui engendre les occurrences, ou rien pour une tâche unique.
+   *
+   * Nommée `serie` et non `repetition` : le type `Serie` porte déjà un champ
+   * `repetition` qui est la **règle**, et `tache.repetition.repetition.type`
+   * aurait été illisible. La série est le tout — ancre, règle, fin, heure ;
+   * la répétition n'en est que la règle.
+   *
+   * **Une tâche à série laisse `echeance` à `null`.** Les deux porteraient la
+   * même information sous deux formes, et la première qui change ferait
+   * mentir l'autre. L'échéance d'une tâche répétée est celle de chacune de
+   * ses occurrences, calculée, jamais stockée.
+   */
+  serie?: Serie | null;
+
+  /**
+   * Les étapes à cocher, dans l'ordre. Vide ou absent pour une tâche simple.
+   *
+   * Portées **par la tâche** et non par un magasin : une étape n'existe pas
+   * sans sa tâche, elle n'a pas de vie propre, et la liste se lit toujours
+   * entière. Ce qui est journalisé à part, c'est le **cochage** — parce que
+   * lui dépend de l'occurrence, et que deux appareils peuvent en cocher
+   * chacun un.
+   */
+  etapes?: readonly Etape[];
+
+  /** Le lien vers une branche, ou rien. Voir `LienDeBranche`. */
+  lien?: LienDeBranche | null;
+
+  /**
+   * Une occurrence manquée est-elle rattrapable ?
+   *
+   * Décision 3 du prompt 38 : par défaut une occurrence manquée passe « non
+   * faite » et **ne s'accumule pas** — trente occurrences manquées ne font
+   * pas trente tâches en retard. Ce drapeau est l'exception par tâche, pour
+   * celles qu'il faut vraiment rattraper.
+   */
+  reporter?: boolean;
+}
+
+/**
+ * Une étape d'une tâche à étapes.
+ *
+ * `rang` plutôt que l'ordre du tableau : réordonner par déplacement dans le
+ * tableau ferait de chaque réordonnancement une réécriture complète de la
+ * tâche, donc un conflit garanti dès que deux appareils en réordonnent une.
+ * Un rang par étape laisse la fusion travailler champ par champ.
+ */
+export interface Etape {
+  /** ULID, stable pour la vie de l'étape : c'est lui que le cochage vise. */
+  id: string;
+  intitule: string;
+  /** Croissant. Pas forcément contigu — on insère entre deux. */
+  rang: number;
+}
+
+/**
+ * Le lien d'une tâche vers une branche, et ce que « pointer » y veut dire.
+ *
+ * `action` est l'identifiant d'un geste de la branche (« séance de sport »,
+ * « check-in »), pas une phrase. Les paramètres figés à la création du lien
+ * viendront en phase 5 ; ils ne sont pas ici parce qu'aucune décision ne les
+ * a encore définis, et qu'un champ inventé d'avance est un champ qu'on
+ * remplit mal.
+ */
+export interface LienDeBranche {
+  /** L'identifiant de la branche, tel que les faits le portent. */
+  branche: string;
+  /** Le geste visé dans cette branche. */
+  action: string;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Les occurrences — prompt 38
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** Ce qui est arrivé à une occurrence, et qui justifie de l'enregistrer. */
+export type EtatDOccurrence = 'pointee' | 'abandonnee' | 'deplacee' | 'modifiee';
+
+/**
+ * Une **exception** d'une série : la seule chose qu'on enregistre.
+ *
+ * Les occurrences ordinaires sont **calculées** par `odyssee/repetition.ts` et
+ * ne touchent jamais la base. N'existent ici que celles qui s'écartent de la
+ * règle — pointée, abandonnée, déplacée, modifiée.
+ *
+ * ## Pourquoi un enregistrement à part, et non un champ de la série
+ *
+ * Si les exceptions vivaient **dans** la tâche, « l'appareil A déplace
+ * l'occurrence du 12 » et « l'appareil B change l'heure de la série »
+ * seraient deux écritures sur la **même cible**, et la seconde effacerait la
+ * première en silence, sans conflit levé. Deux cibles distinctes, deux
+ * écritures qui survivent.
+ *
+ * ## Pourquoi l'identifiant est déterministe, et non un ULID
+ *
+ * `id` vaut `«tacheId»/«jourPrevu»`. C'est la contrepartie exacte du
+ * raisonnement ci-dessus : deux appareils qui pointent **la même** occurrence
+ * doivent viser la **même** cible, sans quoi la fusion garderait deux lignes
+ * pour un seul geste et l'écran afficherait deux fois « fait ». La règle de
+ * fusion — pour chaque cible, la dernière opération l'emporte et porte tout
+ * l'enregistrement — fait alors exactement ce qu'il faut.
+ *
+ * C'est une dérogation assumée à l'ULID de `Possede` : l'identifiant est ici
+ * une **clé métier**, parce que la cible de fusion doit l'être.
+ *
+ * ## Aucun texte libre, et c'est une contrainte, pas un oubli
+ *
+ * Décision 3 du prompt 38 : les occurrences voyagent « en clair et sans
+ * libellé ». Un champ de note suffirait à faire fuiter ce que le magasin
+ * scellé protège. `motifAbandon` est une énumération fermée, pas du texte.
+ */
+export interface Occurrence extends Possede {
+  tacheId: string;
+  /** Le jour logique où la règle la prévoyait. Avec `tacheId`, la clé. */
+  jourPrevu: string;
+  etat: EtatDOccurrence;
+  /** « Déplacée » : le jour logique d'arrivée. `null` sinon. */
+  jourPorte: string | null;
+  /** « Modifiée » : l'heure murale qui remplace celle de la série. `null` sinon. */
+  heure: string | null;
+  /** L'instant du geste — pointage ou abandon. `null` pour un simple déplacement. */
+  le: string | null;
+  /** Exigé à l'abandon, `null` sinon. Une énumération, jamais du texte. */
+  motifAbandon: MotifNonFait | null;
+}
+
+/**
+ * Une étape cochée, pour **une occurrence donnée**.
+ *
+ * « Chaque occurrence repart d'une liste décochée » : c'est ce que dit le
+ * prompt, et c'est ce que cette forme impose. Le cochage ne vit pas dans
+ * l'étape — qui est portée par la tâche et vaut pour toutes les occurrences —
+ * mais dans un enregistrement qui porte le jour.
+ *
+ * Identifiant déterministe, pour la même raison que l'occurrence :
+ * `«tacheId»/«jourPrevu»/«etapeId»`.
+ */
+export interface EtapeCochee extends Possede {
+  tacheId: string;
+  jourPrevu: string;
+  etapeId: string;
+  /** L'instant du cochage. */
+  le: string;
+}
+
+/**
+ * Une exception d'une tâche liée à une branche **sous coffre**.
+ *
+ * Décision 3 du prompt 38, dans la variante retenue : les occurrences voyagent
+ * en clair et sans libellé, **sauf** celles des tâches liées à une branche
+ * scellée, qui sont scellées aussi — une occurrence quotidienne à 8 h liée à
+ * une branche sensible révèle un rythme, même sans libellé.
+ *
+ * ## Pourquoi un seul magasin pour deux formes
+ *
+ * Le scellement est déclaré **par magasin**, jamais par enregistrement :
+ * `sceller()` lève si le magasin n'est pas déclaré scellé, et tout ce qui
+ * n'est pas listé clair part dans le chiffré. Il faut donc un magasin à part
+ * pour ce qui doit être scellé — mais **un seul suffit pour les deux formes**,
+ * puisque tout, sauf `id` et `majLe`, finit dans le même bloc chiffré opaque.
+ * Deux magasins scellés auraient dupliqué la déclaration, le contrôle et la
+ * sauvegarde pour une distinction que le chiffrement efface.
+ *
+ * ## Ce que ce scellement NE protège PAS, et il faut le dire
+ *
+ * L'identifiant reste en clair — c'est la clé, `controlerCoffre()` l'exige —
+ * et il vaut `«tacheId»/«jourPrevu»`. Il révèle donc qu'il s'est passé quelque
+ * chose pour cette tâche ce jour-là.
+ *
+ * **Ce n'est pas une fuite nouvelle** : la tâche elle-même vit en clair dans
+ * `odysseeTaches`, avec son titre et son lien de branche. Autrement dit, la
+ * protection apportée ici est **partielle par construction**, et le maillon
+ * faible est la tâche, pas son occurrence. Le dire est plus utile que de
+ * bâtir une clé opaque qui protégerait une porte en en laissant une autre
+ * grande ouverte à côté. C'est une ligne pour le tableau suivant.
+ */
+export type ExceptionScellee =
+  | ({ genre: 'occurrence' } & Occurrence)
+  | ({ genre: 'etape' } & EtapeCochee);
+
+/**
+ * Un pointage retenu **coffre fermé**, à reporter à son ouverture.
+ *
+ * Décision 5 du prompt 38 : pointer doit rester un geste, même quand la
+ * branche visée est scellée et que le coffre est fermé. Le pointage est donc
+ * gardé ici, avec son heure, et reporté dans la branche à la prochaine
+ * ouverture.
+ *
+ * Ce magasin est **scellé** : il porte, par construction, le fait qu'un geste
+ * a été fait dans une branche sensible. Le laisser en clair annulerait la
+ * décision qu'il sert.
+ */
+export interface ReportEnAttente extends Possede {
+  tacheId: string;
+  jourPrevu: string;
+  /** L'instant du geste. C'est lui qu'on garde — « fait à 8 h 05 ». */
+  le: string;
+  /** La branche où l'écriture devra avoir lieu. */
+  branche: string;
+  /** L'instant du report effectif, ou `null` tant qu'il attend. */
+  reporteLe: string | null;
 }
 
 /* ════════════════════════════════════════════════════════════════════════

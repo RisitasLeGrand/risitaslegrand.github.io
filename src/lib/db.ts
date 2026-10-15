@@ -20,7 +20,17 @@ import { signalerEcriture } from './sync/signal-ecriture';
    chargement. Les types, eux, sont effacés à la compilation.
 */
 import type { EntreeRevision } from './noyau/revisions';
-import type { Evenement, Focus, Quete, Revue, Tache } from './odyssee/modele';
+import type {
+  Evenement,
+  EtapeCochee,
+  ExceptionScellee,
+  Focus,
+  Occurrence,
+  Quete,
+  ReportEnAttente,
+  Revue,
+  Tache,
+} from './odyssee/modele';
 import type { Blessure, Exercice, Phase, Seance as SeanceSport } from './sport/modele';
 import type { Programme as ProgrammeSport } from './sport/programmes';
 import type { Trajectoire } from './odyssee/trajectoires';
@@ -613,6 +623,30 @@ interface SchemaRevinsp extends DBSchema {
      que du nom et des index pour ouvrir la base.
   */
   odysseeTaches: { key: string; value: Tache; indexes: { echeance: string; faiteLe: string } };
+  /*
+     Prompt 38. Les occurrences ordinaires sont CALCULÉES et ne sont jamais
+     écrites : seules les exceptions existent ici — pointée, abandonnée,
+     déplacée, modifiée.
+  */
+  odysseeOccurrences: {
+    key: string;
+    value: Occurrence;
+    indexes: { tacheId: string; jourPrevu: string };
+  };
+  odysseeEtapesCochees: {
+    key: string;
+    value: EtapeCochee;
+    indexes: { tacheId: string; jourPrevu: string };
+  };
+  /*
+     Les mêmes, pour les tâches liées à une branche sous coffre (décision 3).
+     Aucun index : un index se lit en clair, et c'est précisément le rythme
+     qu'il faudrait indexer qu'on cherche à cacher. Ce magasin ne porte que
+     les exceptions des tâches sensibles — il reste petit, et un parcours
+     complet y coûte moins qu'une fuite.
+  */
+  odysseeExceptionsScellees: { key: string; value: ExceptionScellee };
+  odysseeReports: { key: string; value: ReportEnAttente };
   odysseeQuetes: { key: string; value: Quete };
   odysseeEvenements: { key: string; value: Evenement; indexes: { debut: string } };
   odysseeFocus: { key: string; value: Focus; indexes: { debut: string } };
@@ -765,7 +799,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 31;
+const VERSION = 32;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1491,6 +1525,41 @@ function ouvrirAuSchema(nom: string, version: number) {
          * existant aurait inventé un passé.
          */
         base.createObjectStore('actualitesLues', { keyPath: 'id' });
+      }
+      if (vers(32)) {
+        /*
+         * Les tâches récurrentes, leurs étapes et le report coffre fermé
+         * (prompt 38, phase 2).
+         *
+         * **Aucune reprise de données, et c'est une propriété, pas un oubli.**
+         * Les quatre champs ajoutés à `Tache` — `serie`, `etapes`, `lien`,
+         * `reporter` — sont facultatifs : une tâche écrite avant aujourd'hui
+         * reste valide telle quelle, et `undefined` s'y lit « tâche simple ».
+         * Réécrire chaque tâche pour y poser des valeurs vides aurait été une
+         * migration destructive sans contrepartie.
+         *
+         * Les quatre magasins naissent vides. Un magasin vide se lit « aucune
+         * exception », ce qui est exactement la vérité : avant ce lot, aucune
+         * série n'existait, donc aucune occurrence ne s'en écartait.
+         *
+         * Les deux magasins en clair portent un index sur `tacheId` et un sur
+         * `jourPrevu` : l'écran des tâches lit par tâche, le calendrier lit
+         * par jour, et sans index chacun parcourrait toute la table.
+         *
+         * Les deux magasins scellés n'ont aucun index. Un index se lit en
+         * clair — c'est tout son intérêt — et ici ce qu'il faudrait indexer
+         * est justement ce qu'on cache.
+         */
+        const occurrences = base.createObjectStore('odysseeOccurrences', { keyPath: 'id' });
+        occurrences.createIndex('tacheId', 'tacheId');
+        occurrences.createIndex('jourPrevu', 'jourPrevu');
+
+        const cochees = base.createObjectStore('odysseeEtapesCochees', { keyPath: 'id' });
+        cochees.createIndex('tacheId', 'tacheId');
+        cochees.createIndex('jourPrevu', 'jourPrevu');
+
+        base.createObjectStore('odysseeExceptionsScellees', { keyPath: 'id' });
+        base.createObjectStore('odysseeReports', { keyPath: 'id' });
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -2332,6 +2401,16 @@ export const MAGASINS_PROGRESSION = [
      derrière lui en disant le contraire.
   */
   'odysseeTaches',
+  /*
+     Les exceptions des séries (prompt 38). Elles entrent dans la sauvegarde
+     pour la même raison que les tâches : une sauvegarde qui oublierait les
+     occurrences pointées rendrait une base où tout serait à refaire, et un
+     effacement qui les laisserait derrière lui mentirait.
+  */
+  'odysseeOccurrences',
+  'odysseeEtapesCochees',
+  'odysseeExceptionsScellees',
+  'odysseeReports',
   'odysseeQuetes',
   'odysseeEvenements',
   'odysseeFocus',

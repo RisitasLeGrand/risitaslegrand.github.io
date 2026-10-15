@@ -313,6 +313,26 @@ v(
     'odysseeVeilleSignaux', 'odysseeVeilleReglages',
     // Les échelles, depuis la version 25. Scellées.
     'odysseePassations',
+    /*
+       DEUX ENTRÉES QUI MANQUAIENT, ajoutées le 15 octobre 2026 avec les
+       magasins du prompt 38. Elles existaient dans la base depuis les
+       versions 29 et 31 et n'avaient jamais été portées ici : cet essai était
+       donc rouge, et il l'était pour une raison périmée.
+
+       La correction est **déclarée**, pas silencieuse. Un contrôle rouge
+       qu'on sait rouge pour une mauvaise raison est un contrôle qu'on apprend
+       à ignorer, et un contrôle qu'on ignore ne protège plus rien — ce lot
+       l'a vérifié deux fois sur ses propres essais.
+    */
+    'odysseeConditions',
+    'actualitesLues',
+    /*
+       Les tâches récurrentes, depuis la version 32 (prompt 38). Les deux
+       premiers sont en clair et indexés ; les deux derniers sont scellés et
+       sans index, parce qu'ici l'index porterait justement ce qu'on cache.
+    */
+    'odysseeOccurrences', 'odysseeEtapesCochees',
+    'odysseeExceptionsScellees', 'odysseeReports',
   ].sort(),
 );
 

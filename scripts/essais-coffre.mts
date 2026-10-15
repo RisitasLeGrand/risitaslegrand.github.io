@@ -112,7 +112,7 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    magasin qui **disparaîtrait** du registre — c'est-à-dire qui cesserait
    d'être chiffré — se verrait aussi.
 */
-v('vingt-cinq magasins scellés', MAGASINS_SCELLES.length, 25);
+v('vingt-sept magasins scellés', MAGASINS_SCELLES.length, 27);
 v(
   'le journal de ressentis en fait partie',
   MAGASINS_SCELLES.some((m) => m.magasin === 'odysseeRessentis'),
