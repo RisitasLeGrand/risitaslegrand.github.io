@@ -167,13 +167,10 @@ import Base from '../../layouts/Base.astro';
       'dark:bg-slate-950';
     bloc.dataset.tache = tache.id;
     bloc.dataset.etat = tache.faiteLe ? 'faite' : tache.abandonneeLe ? 'abandonnee' : 'ouverte';
-    /* Le nom par lequel le navigateur reconnaîtra cette carte d'une repeinte à
-       l'autre, et la fera glisser jusqu'à sa nouvelle place (prompt 34, A3).
-       L'appariement se fait par ce nom, pas par identité d'objet : il survit
-       donc au « innerHTML = '' » de `peindre()`, qui détruit et recrée tout.
-       Préfixé, parce qu'un identifiant peut commencer par un chiffre et qu'un
-       nom de transition doit être un identifiant CSS valide. */
-    bloc.style.viewTransitionName = `tache-${tache.id}`;
+    /* Plus de `view-transition-name` ici : l'appariement se fait désormais par
+       `data-tache`, que `peindre()` relève avant et après l'écriture. Le nom
+       servait à l'API de transition, abandonnée en A5 parce qu'elle rendait la
+       liste insensible au doigt pendant qu'elle glissait. */
 
     const titre = ligne(
       tache.titre,
@@ -289,18 +286,33 @@ import Base from '../../layouts/Base.astro';
    * Repeint les trois zones — et fait glisser les cartes vers leur nouvelle
    * place au lieu de les laisser sauter (prompt 34, A3).
    *
-   * **Pourquoi pas `animate:flip`.** Le plan l'annonçait, et le relevé l'a
-   * écarté : cette liste n'est pas un composant Svelte, elle est peinte ici par
-   * `innerHTML`. L'équivalent natif est `startViewTransition`, déjà retenu par
-   * la décision 1 pour les transitions de page, et qui n'ajoute aucune
-   * dépendance (interdit n° 6). Le navigateur apparie les cartes par leur
-   * `view-transition-name`, posé dans `carte()`.
+   * **POURQUOI CE N'EST PLUS `startViewTransition` — A5 du prompt 37.**
    *
-   * **La lecture de la base reste hors de la transition.** Pendant une
-   * transition, l'écran est figé sur sa photographie ; y enfermer un accès à
-   * IndexedDB ferait payer à l'utilisateur une attente qui n'a rien d'une
-   * animation, et l'interdit n° 5 l'exclut. On lit d'abord, on n'enveloppe que
-   * l'écriture dans le DOM.
+   * Le glissement était confié à l'API de transition. Elle fige l'écran sur une
+   * photographie, et pendant ce temps **le contenu réel n'est plus testable au
+   * pointeur** : mesuré ici, `elementFromPoint` au centre exact d'un bouton
+   * « Faite » renvoie l'élément racine à 40, 100 et 200 ms après la première
+   * action, puis le bouton de nouveau à 1 200 ms. Un appui tombé dans cet
+   * intervalle est perdu, et la liste n'en garde aucune trace.
+   *
+   * J'ai d'abord essayé `skipTransition()` au `pointerdown`, que le prompt
+   * proposait. **Mesuré : cela ne suffit pas.** Le test d'impact de l'appui a
+   * déjà eu lieu quand le gestionnaire s'exécute ; l'appui est perdu quand
+   * même. J'ai aussi essayé `::view-transition { pointer-events: none }` au cas
+   * où la couche intercepterait : aucun effet, ce n'est pas elle.
+   *
+   * Reste la seconde voie que le prompt autorise : **animer les vraies cartes**.
+   * On relève leur place avant l'écriture, on écrit, on relève la nouvelle, et
+   * on joue l'écart par une transformation. Les cartes restent les cartes :
+   * elles sont dans le document, sensibles au doigt, et un appui tombe sur ce
+   * qu'on voit. Elles ne passent plus non plus au-dessus de la barre d'onglets,
+   * puisqu'elles n'entrent dans aucune couche supérieure.
+   *
+   * **La lecture de la base reste hors de l'animation**, comme avant : on lit
+   * d'abord, on n'anime que ce qui suit l'écriture (interdit n° 5).
+   *
+   * **Durée et courbe viennent des jetons**, lus sur la racine — et non des
+   * 250 ms en `ease` que le navigateur appliquait par défaut.
    */
   async function peindre() {
     const taches = await toutesLesTaches();
@@ -329,14 +341,43 @@ import Base from '../../layouts/Base.astro';
       $('vue').classList.remove('hidden');
     };
 
-    // Sur un navigateur sans l'API, on écrit directement : la liste se repeint
-    // d'un coup, comme avant ce lot. Aucun repli à écrire.
-    const demarrer = document.startViewTransition?.bind(document);
-    if (!demarrer) return ecrire();
-    await demarrer(ecrire).finished.catch(() => {
-      /* Une transition interrompue — une seconde action pendant la première —
-         n'est pas une erreur : la liste est à jour dans tous les cas. */
-    });
+    /* Où sont les cartes AVANT l'écriture. */
+    const avant = new Map<string, DOMRect>();
+    for (const el of document.querySelectorAll<HTMLElement>('[data-tache]')) {
+      avant.set(el.dataset.tache!, el.getBoundingClientRect());
+    }
+
+    ecrire();
+
+    /*
+       Sous mouvement réduit — réglage du système OU interrupteur de
+       l'application, le plus restrictif l'emporte — la liste se repeint d'un
+       coup. C'est aussi le repli d'un navigateur sans `Element.animate`.
+    */
+    const reduit =
+      window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ||
+      document.documentElement.getAttribute('data-animations') === 'reduites';
+    if (reduit) return;
+
+    const racine = getComputedStyle(document.documentElement);
+    const duree =
+      Number.parseFloat(racine.getPropertyValue('--duree-moyenne').trim()) || 200;
+    const courbe = racine.getPropertyValue('--courbe-entree').trim() || 'ease-out';
+
+    for (const el of document.querySelectorAll<HTMLElement>('[data-tache]')) {
+      const vieux = avant.get(el.dataset.tache!);
+      if (!vieux) continue;
+      const neuf = el.getBoundingClientRect();
+      const dx = vieux.left - neuf.left;
+      const dy = vieux.top - neuf.top;
+      /* Moins d'un pixel : rien n'a bougé, et une animation nulle coûterait
+         une couche de composition pour rien. */
+      if (Math.abs(dx) < 1 && Math.abs(dy) < 1) continue;
+      el.animate?.(
+        [{ transform: `translate(${dx}px, ${dy}px)` }, { transform: 'none' }],
+        { duration: duree, easing: courbe },
+      );
+    }
   }
 
   auDeverrouillage(
