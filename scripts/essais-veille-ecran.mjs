@@ -242,8 +242,25 @@ vrai('le message le dit explicitement',
   (await page.textContent('#reglages-dit')).includes('rien ne sera rattrapé'));
 await page.reload({ waitUntil: 'networkidle' });
 await page.waitForSelector('#vue:not(.hidden)', { timeout: 40000 });
-await page.fill('#mdp-coffre', MDP);
-await page.click('#ouvrir-coffre');
+
+/*
+   LE COFFRE NE SE REDEMANDE PLUS APRÈS UN RECHARGEMENT — prompt 35.
+
+   Cet essai ressaisissait le mot de passe ici, et attendait un champ que la
+   mémoire de session n'affiche plus : il tombait en échec de délai. Même
+   cause que dans « essais:echelles:ecran ». On vérifie l'inverse — le coffre
+   est déjà ouvert —, avec un repli pour le cas où le formulaire reparaîtrait
+   (navigation privée, stockage refusé).
+*/
+const coffreRedemande = await page
+  .locator('#mdp-coffre')
+  .isVisible()
+  .catch(() => false);
+faux('le coffre se redemande après un rechargement', coffreRedemande);
+if (coffreRedemande) {
+  await page.fill('#mdp-coffre', MDP);
+  await page.click('#ouvrir-coffre');
+}
 await page.waitForSelector('#coffre-ouvert:not(.hidden)', { timeout: 20000 });
 faux('après rechargement, la veille est toujours éteinte', await page.isChecked('#activer'));
 

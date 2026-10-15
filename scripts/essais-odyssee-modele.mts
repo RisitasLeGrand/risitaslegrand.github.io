@@ -634,10 +634,24 @@ const options = {
 }
 
 {
+  /*
+     L'IDENTIFIANT DE LA RÈGLE A CHANGÉ, ET DEUX CONTRÔLES PASSAIENT À VIDE.
+
+     La phase 2 du prompt 36 a renommé « revue-du-soir » en « revue » : la
+     revue peut se tenir le matin OU le soir, et le nom portait une heure que
+     la règle ne porte plus. Les trois contrôles ci-dessous filtraient encore
+     l'ancien identifiant.
+
+     Un seul a échoué — celui qui attend UNE suggestion. Les deux autres
+     attendent ZÉRO : ils l'obtenaient parce que l'identifiant ne correspondait
+     à rien, et sont restés verts en ne regardant plus rien. C'est le défaut
+     que tout ce lot traque, trouvé cette fois dans mon propre travail du
+     prompt 36, et seulement parce que la batterie entière a été relancée.
+  */
   const tot = queFaireMaintenant(base, { ...options, coucher: '23:00' });
   v(
-    'la revue du soir n’est pas proposée à midi',
-    tot.suggestions.filter((s) => s.regle === 'revue-du-soir').length,
+    'la revue n’est pas proposée à midi',
+    tot.suggestions.filter((s) => s.regle === 'revue').length,
     0,
   );
   const soir = queFaireMaintenant(base, {
@@ -647,7 +661,7 @@ const options = {
   });
   v(
     'elle l’est moins de deux heures avant le coucher',
-    soir.suggestions.filter((s) => s.regle === 'revue-du-soir').length,
+    soir.suggestions.filter((s) => s.regle === 'revue').length,
     1,
   );
   const faite = queFaireMaintenant(base, {
@@ -656,7 +670,7 @@ const options = {
     coucher: '23:00',
     revueFaite: true,
   });
-  v('et plus une fois faite', faite.suggestions.filter((s) => s.regle === 'revue-du-soir').length, 0);
+  v('et plus une fois faite', faite.suggestions.filter((s) => s.regle === 'revue').length, 0);
 }
 
 {
