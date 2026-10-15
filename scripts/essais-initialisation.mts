@@ -149,10 +149,13 @@ v(
 console.log('\n\x1b[1mLe parcours : ce qui reste à poser\x1b[0m');
 
 const socle = questionsDuSocle();
-/* Dix-sept depuis l'ajout de l'année de naissance. Le parcours ne compte que
-   les champs qu'il pose : le mois, la majorité déclarée et les usages coupés
-   se demandent au moment du besoin et n'en sont pas. */
-v('le socle fait dix-sept questions', socle.length, 17);
+/* Dix-huit depuis l'ajout du moment de la revue (commit 477e526, prompt 36
+   phase 1), dix-sept avant lui. Ce commit n'avait pas relancé cette suite :
+   le nombre est donc resté faux pendant un temps, et c'est corrigé ici, pas
+   découvert. Le parcours ne compte que les champs qu'il pose : le mois, la
+   majorité déclarée et les usages coupés se demandent au moment du besoin et
+   n'en sont pas. */
+v('le socle fait dix-huit questions', socle.length, 18);
 
 const vierge = parcours([]);
 v('tout reste à poser sur une base vierge', vierge.restantes.length, socle.length);
@@ -190,7 +193,7 @@ v('un report levé remet la question dans la file', repris.prochaine?.declare.ch
 console.log('\n\x1b[1mLes écrans : une question, même quand elle règle deux champs\x1b[0m');
 
 const ecrans = enEcrans(vierge.restantes);
-v('dix-sept champs tiennent en seize écrans', ecrans.length, socle.length - 1);
+v('dix-huit champs tiennent en dix-sept écrans', ecrans.length, socle.length - 1);
 const ecranFuseau = ecrans.find((e) => e.etapes.some((x) => x.declare.champ === 'fuseau'));
 v('la langue et le fuseau partagent leur écran', ecranFuseau?.etapes.length, 2);
 v(

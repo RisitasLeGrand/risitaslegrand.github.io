@@ -84,13 +84,15 @@ console.log('\nLE CATALOGUE DES CHAMPS TIENT');
 
 v('aucun problème de catalogue', controlerChamps(BRANCHES_CONNUES), []);
 v('le prénom est le seul champ obligatoire', CHAMPS.filter((c) => c.obligatoire).map((c) => c.champ), ['prenom']);
-/* Dix-sept depuis l'ajout de l'année de naissance, et vingt champs en tout :
-   le mois, la majorité déclarée et les usages coupés se demandent au moment du
-   besoin et ne sont donc **pas** des questions. Les deux nombres sont vérifiés
-   séparément, parce que les confondre ferait annoncer à l'avancement un
-   dénominateur que personne ne peut atteindre. */
-v('dix-sept questions au socle', questionsDuSocle().length, 17);
-v('vingt champs au socle', champsDuSocle().length, 20);
+/* Dix-huit depuis l'ajout du moment de la revue (commit 477e526), et
+   vingt-et-un champs en tout : le mois, la majorité déclarée et les usages
+   coupés se demandent au moment du besoin et ne sont donc **pas** des
+   questions. Les deux nombres sont vérifiés séparément, parce que les
+   confondre ferait annoncer à l'avancement un dénominateur que personne ne
+   peut atteindre — et c'est précisément l'écart de trois que l'assertion
+   suivante nomme. */
+v('dix-huit questions au socle', questionsDuSocle().length, 18);
+v('vingt-et-un champs au socle', champsDuSocle().length, 21);
 v(
   'et les trois de l’écart sont bien ceux qui se demandent au besoin',
   champsDuSocle().filter((c) => c.demandeAuBesoin).map((c) => c.champ),
@@ -284,14 +286,14 @@ console.log('\nL’AVANCEMENT SE LIT, POUR POUVOIR REPRENDRE');
 
 {
   const etat = avancement([ecrire('prenom', 'Alexis', 10), ecrire('lever', '07:00', 20)]);
-  v('deux réponses sur dix-sept', [etat.repondus, etat.total], [2, 17]);
+  v('deux réponses sur dix-huit', [etat.repondus, etat.total], [2, 18]);
   v('le prénom est posé', etat.prenomPose, true);
   v('et les restants sont dans l’ordre des questions', etat.restants[0].champ, 'nom');
   v('l’initialisation n’est pas marquée', etat.initialisation, null);
 
   const vide = avancement([]);
   v('sans rien, rien n’est posé', [vide.repondus, vide.prenomPose], [0, false]);
-  v('et toutes les questions du socle restent', vide.restants.length, 17);
+  v('et toutes les questions du socle restent', vide.restants.length, 18);
 }
 
 console.log('\nLA VALIDATION VÉRIFIE LA FORME, PAS LE CONTENU');
