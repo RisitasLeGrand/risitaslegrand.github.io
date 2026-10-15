@@ -208,7 +208,7 @@ export const BRANCHES: Branche[] = [
       { id: 'calendrier', nom: 'Agenda', description: 'Mon calendrier.', chemin: '/odyssee/calendrier/', icone: '🗓️' },
       { id: 'taches', nom: 'Tâches', chemin: '/odyssee/taches/', icone: '✅' },
       { id: 'quetes', nom: 'Quêtes', chemin: '/odyssee/quetes/', icone: '🔁' },
-      { id: 'revue', nom: 'Revue du soir', court: 'Revue', chemin: '/odyssee/revue/', icone: '🌙' },
+      { id: 'revue', nom: 'Revue', court: 'Revue', chemin: '/odyssee/revue/', icone: '🌙' },
       { id: 'corps', nom: 'Corps', chemin: '/odyssee/corps/', icone: '🫀' },
       { id: 'psyche', nom: 'Psyché', chemin: '/odyssee/psyche/', icone: '🫧' },
       { id: 'veille', nom: 'Repère de rythme de vie', court: 'Repère', chemin: '/odyssee/veille/', icone: '🧿' },

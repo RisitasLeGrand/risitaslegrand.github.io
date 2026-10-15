@@ -225,6 +225,23 @@ export const CHAMPS: readonly ChampDeclare[] = [
       'L’heure à laquelle votre journée change de date — une séance finie à minuit trente compte pour la soirée écoulée.',
   }),
   C({
+    /*
+       Le moment de la revue : 'matin' ou 'soir'.
+       
+       Un champ de profil et non un réglage caché, parce que c'est une
+       préférence qui change ce que la revue DEMANDE — le matin, elle porte
+       sur la veille — et non sa seule apparence. Nature « texte » faute de
+       nature « choix » au catalogue ; la lecture refuse toute autre valeur
+       que les deux attendues, de sorte qu'une saisie libre ne peut pas
+       produire un troisième comportement.
+    */
+    champ: 'moment-revue',
+    libelle: 'Moment de ma revue',
+    nature: 'texte',
+    question: 'Préférez-vous faire votre revue le matin ou le soir ?',
+    porteeParDefaut: 'toutes',
+  }),
+  C({
     champ: 'coucher',
     libelle: 'Heure de coucher',
     nature: 'heure',

@@ -28,7 +28,7 @@ import Base from '../../layouts/Base.astro';
 
 <Base titre="Revue du soir" actif="revue">
   <div class="mx-auto max-w-2xl">
-    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Revue du soir</h1>
+    <h1 id="titre-revue" class="text-2xl font-bold text-slate-900 dark:text-white">Revue</h1>
     <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
       Moins de trente secondes. Une seule réponse suffit : la tenir compte plus que de la bien
       remplir.
@@ -47,7 +47,7 @@ import Base from '../../layouts/Base.astro';
       </p>
 
       <section>
-        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+        <h2 id="titre-plan" class="text-lg font-semibold text-slate-900 dark:text-white">
           Ce qui était prévu aujourd’hui
         </h2>
         <p id="resume-plan" class="mt-1 text-sm text-slate-600 dark:text-slate-300"></p>
@@ -61,7 +61,7 @@ import Base from '../../layouts/Base.astro';
         <h2 class="text-lg font-semibold text-slate-900 dark:text-white">En trois phrases</h2>
         <label class="block text-sm">
           <span class="block font-medium text-slate-800 dark:text-slate-100">
-            Qu’est-ce qui a compté aujourd’hui&nbsp;?
+            <span id="libelle-compte">Qu’est-ce qui a compté aujourd’hui&nbsp;?</span>
           </span>
           <textarea
             id="compte"
@@ -113,6 +113,8 @@ import Base from '../../layouts/Base.astro';
   import { auDeverrouillage } from '../../lib/chargement';
   import { etatDuJour } from '../../lib/odyssee-jour';
   import { ecrireRevue, relever, revueDu } from '../../lib/odyssee/donnees';
+  import { champ } from '../../lib/profil';
+  import { jourVise, libelles, lireMoment, type Moment } from '../../lib/odyssee/moment-revue';
   import {
     MOTIFS,
     type Evenement,
@@ -214,9 +216,26 @@ import Base from '../../layouts/Base.astro';
     await peindre();
   }
 
+  /*
+     Le moment est relu à chaque peinture : il se règle depuis le profil, et
+     un écran qui garderait l'ancien afficherait « hier » là où la personne
+     vient de demander « aujourd'hui ».
+  */
+  let moment: Moment = 'soir';
+
   async function peindre() {
     const etat = await etatDuJour();
-    jour = etat.aujourdhui;
+    moment = lireMoment((await champ('moment-revue'))?.valeur);
+    /*
+       LE point de V1 : le matin, la revue porte sur LA VEILLE. Prendre
+       « aujourd'hui » ici et écrire « hier » dans les libellés produirait
+       exactement le « aujourd'hui faux » que l'interdit vise.
+    */
+    jour = jourVise(moment, new Date());
+    const mots = libelles(moment);
+    $('titre-plan').textContent = mots.titrePlan;
+    $('libelle-compte').textContent = mots.questionCompte;
+    $('deja').textContent = mots.dejaTenue;
 
     const p = etat.plan;
     $('resume-plan').textContent =
@@ -231,6 +250,16 @@ import Base from '../../layouts/Base.astro';
     $('rien-a-relever').classList.toggle('hidden', etat.aRelever.length > 0);
     for (const evenement of etat.aRelever) zone.appendChild(carteDeReleve(evenement));
 
+    /*
+       Le type stocké reste « soir » : il nomme la SORTE de revue — la
+       quotidienne, par opposition à la semaine, au mois, au trimestre et à
+       l'année — et non l'heure à laquelle on la tient. C'est ce qui permet
+       au prompt de tenir sa promesse : « la revue du matin de J+1 EST la
+       revue de J, un seul passage suffit ». Le jour visé distingue, le moment
+       ne fait que décider quand on la propose et comment on la nomme.
+       Introduire un type « matin » créerait deux enregistrements pour une
+       seule journée, et la promesse tomberait.
+    */
     const deja = await revueDu('soir', jour);
     $('deja').classList.toggle('hidden', !deja);
     if (deja) {
