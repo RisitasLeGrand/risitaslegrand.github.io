@@ -61,13 +61,6 @@ const EXCEPTIONS = [
     pourquoi: 'Prompt 32, phase 3. Se branche à la phase 5, avec les résolveurs de source.',
   },
   {
-    chemin: 'src/lib/odyssee/retour-de-branche.ts',
-    depuis: '2026-10-15',
-    pourquoi:
-      'Anomalie A-11. Le prompt 39 tranche son sort : soit il est appelé, soit la ' +
-      'dérivation à la lecture le remplace et il est supprimé. Pas de troisième issue.',
-  },
-  {
     chemin: 'src/lib/noyau/permissions.ts',
     depuis: '2026-10-15',
     pourquoi: 'Anomalie A-12, trouvée par ce script même. Intégrée au prompt 39.',
