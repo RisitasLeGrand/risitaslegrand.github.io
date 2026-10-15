@@ -169,8 +169,21 @@ export interface LienDeBranche {
    Les occurrences — prompt 38
    ══════════════════════════════════════════════════════════════════════════ */
 
-/** Ce qui est arrivé à une occurrence, et qui justifie de l'enregistrer. */
-export type EtatDOccurrence = 'pointee' | 'abandonnee' | 'deplacee' | 'modifiee';
+/**
+ * Ce qui est arrivé à une occurrence, et qui justifie de l'enregistrer.
+ *
+ * `depointee` est venue avec le prompt 39, et elle n'est pas un doublon de
+ * `abandonnee`. Abandonner, c'est renoncer, et cela exige un motif.
+ * Dépointer, c'est **retirer une affirmation** : la branche a produit un
+ * fait, le centre en a déduit que l'occurrence était faite, et la personne
+ * dit que non. Sans cet état, la seule façon de contredire la déduction
+ * serait d'effacer le fait de la branche — c'est-à-dire de supprimer une
+ * séance de sport depuis la liste des tâches.
+ *
+ * C'est la même forme que série et exception ont déjà partout ici :
+ * **l'exception fait autorité, le calcul n'est que le défaut.**
+ */
+export type EtatDOccurrence = 'pointee' | 'abandonnee' | 'deplacee' | 'modifiee' | 'depointee';
 
 /**
  * Une **exception** d'une série : la seule chose qu'on enregistre.
@@ -704,8 +717,8 @@ export function controlerOccurrence(o: Occurrence): string[] {
   if (o.etat !== 'abandonnee' && o.motifAbandon) {
     problemes.push('Une occurrence qui n’est pas abandonnée ne porte pas de motif d’abandon.');
   }
-  if ((o.etat === 'pointee' || o.etat === 'abandonnee') && !o.le) {
-    problemes.push('Un pointage et un abandon ont une heure : c’est ce qu’ils gardent.');
+  if ((o.etat === 'pointee' || o.etat === 'abandonnee' || o.etat === 'depointee') && !o.le) {
+    problemes.push('Un pointage, un abandon et un dépointage ont une heure : c’est ce qu’ils gardent.');
   }
   return problemes;
 }
