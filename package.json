@@ -186,7 +186,8 @@
     "essais:explicatives": "node scripts/essais-explicatives-navigateur.mjs",
     "essais:jauges": "node scripts/essais-jauges-navigateur.mjs",
     "essais:pointage-partage": "tsx scripts/essais-pointage-partage.mts",
-    "essais:retour-de-branche": "tsx scripts/essais-retour-de-branche.mts"
+    "essais:retour-de-branche": "tsx scripts/essais-retour-de-branche.mts",
+    "essais:coffre-ferme": "tsx scripts/essais-coffre-ferme.mts"
   },
   "repository": {
     "type": "git",
