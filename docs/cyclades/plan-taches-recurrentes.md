@@ -195,3 +195,63 @@ n'afficher que la première occurrence. C'est un écart visible à l'usage.
 
 Ta validation du plan, et ton arbitrage sur **R-a** (Santé), **R-b** (sceller
 ou non) et **R-c** (le check-in vide). Les autres réserves, je les porte.
+
+---
+
+# Phase 0 — le relevé des onze cibles
+
+*15 octobre 2026, après ton « Je valide ». **Exécuté et constaté** : chaque
+forme ci-dessous a été ouverte dans le code, pas déduite.*
+
+Un champ est dit **obligatoire** quand le type ne l'autorise ni à manquer ni à
+valoir `null`. C'est la seule définition qui compte ici : ce sont les champs
+qu'un pointage venu du calendrier devra remplir, et lui seul saura les
+remplir.
+
+| Branche | Enregistrement | Fichier | Obligatoires | Facultatifs ou `null` |
+|---|---|---|---|---|
+| Sport | `Seance` | `sport/modele.ts:196` | `id`, `jour`, `debut`, `statut`, `series[]`, `majLe` | `fin`, `difficulte`, `note`, `programmeId` |
+| Révisions | `Seance` (séance de cartes) | `db.ts:400` | `theme`, `jour`, `statut`, `secondes`, `etendue` | `id`, `termineeLe`, `fiches` |
+| Révisions | `SessionDgfip` (QCM) | `db.ts` | `le`, `posees`, `bonnes`, `mauvaises`, `abstentions`, `points`, `maximum`, `parRubrique` | `id` |
+| Cognitif | `SessionNBack` | `db.ts:263` | `le`, `n`, `dimensions`, `nombreEpreuves`, `taux`, `reperees`, `aReperer`, `erreurs`, `secondes` | `id`, `titre`, `statut` |
+| Cognitif | `SessionRelationnelle` | `db.ts:302` | `le`, `items`, `tentes`, `reussis`, `secondes` | `id` |
+| Cognitif | `SessionVeridical` | `db.ts:359` | `le`, `famille`, `mode`, `charge`, `essais`, `reussis`, `paires`, `seuilMedian`, `secondes` | `id` |
+| Odyssée | `Quete` | `odyssee/modele.ts` | `titre`, `domaine`, `cadence`, `active`, `tenues[]`, `creeeLe` | — |
+| Odyssée | `Focus` | `odyssee/modele.ts` | `domaine`, `debut`, `fin`, `secondes`, `interrompue` | `tacheId` |
+| Odyssée | `Revue` | `odyssee/modele.ts` | `type`, `jour`, `reponses` | — |
+| Corps | `Pesee` | `odyssee/modele.ts` | `id`, `jour`, `le`, `kg`, `note`, `majLe` | — |
+| Corps | `Nuit` | `odyssee/modele.ts` | `id`, `jour`, `coucher`, `lever`, `note`, `majLe` | `qualite`, `reveils` |
+| Corps | `Repas` | `odyssee/modele.ts` | `id`, `jour`, `le`, `moment`, `intitule`, `note`, `majLe` | `kcal`, `proteines`, `glucides`, `lipides` |
+| Corps | `Boisson` | `odyssee/modele.ts` | `id`, `jour`, `le`, `mL`, `majLe` | — |
+| Psyché | `Checkin` | `odyssee/psyche.ts` | `id`, `jour`, `le`, `majLe` | `humeur`, `energie`, `stress`, `motivation`, `note` |
+| Finances | `OperationBancaire` | `odyssee/finances.ts` | `id`, `compteId`, `jour`, `centimes`, `libelle`, `categorie`, `majLe` | `transfertAvec` |
+| Finances | `Pointage` | `odyssee/pointage.ts:282` | `id`, `operationId`, `statut`, `parts[]`, `auteur`, `pourquoi`, `appareil`, `decideLe`, `majLe` | `vendeurNom`, `typeId`, `versionDuDictionnaire`, `importId`, `precedent` |
+| **Santé** | **—** | **—** | **aucune cible** | voir R-a |
+
+## Les quatre constats que ce relevé ajoute au plan
+
+**1. Deux cibles sont hors de portée d'un pointage depuis le calendrier, et
+ce n'est pas une réserve nouvelle mais une précision de la décision 4.**
+`SessionDgfip` et `SessionVeridical` exigent des chiffres de résultat —
+`bonnes`, `seuilMedian` — qu'un geste de pointage ne peut pas inventer. Une
+tâche « faire un QCM » liée à cette branche ne pourra donc pas *créer* la
+session ; elle pourra seulement **se faire cocher** par une session existante
+(sens branche → tâche, phase 6). Le sens calendrier → branche s'arrêtera aux
+cibles dont tous les champs obligatoires sont, soit portés par le geste, soit
+déductibles du jour.
+
+**2. `Mesure` n'est pas une cible.** Le `Mesure` de `odyssee/indicateurs.ts`
+est un **agrégat calculé**, pas un enregistrement. Le magasin
+`odysseeMesures` du tableau de la réponse 1 porte les mesures corporelles,
+et sa forme vit dans `odyssee/corps.ts`. Je corrige ici ma propre ligne.
+
+**3. `Pointage` (Finances) porte `pourquoi` obligatoire.** Un pointage créé
+par le calendrier devra donc écrire une raison en clair. C'est une bonne
+contrainte — elle oblige à dire « pointé depuis le calendrier » plutôt qu'à
+laisser une ligne sans origine — et elle est satisfaisable sans rien
+inventer.
+
+**4. La ligne Santé reste vide.** Rien n'a changé depuis le plan : il n'y a
+pas de magasin de prises. **R-a n'est pas arbitrée, je ne l'arbitre pas, et
+je ne crée pas de journal de prises sur une inférence.** Tout ce qui en
+dépend reste hors de ce lot.
