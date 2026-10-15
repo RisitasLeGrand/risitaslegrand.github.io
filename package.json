@@ -189,7 +189,8 @@
     "essais:retour-de-branche": "tsx scripts/essais-retour-de-branche.mts",
     "essais:coffre-ferme": "tsx scripts/essais-coffre-ferme.mts",
     "essais:revue": "tsx scripts/essais-revue.mts",
-    "essais:boite-aux-lettres": "tsx scripts/essais-boite-aux-lettres.mts"
+    "essais:boite-aux-lettres": "tsx scripts/essais-boite-aux-lettres.mts",
+    "essais:boite-du-coffre": "tsx scripts/essais-boite-du-coffre.mts"
   },
   "repository": {
     "type": "git",
