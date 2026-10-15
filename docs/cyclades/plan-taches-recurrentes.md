@@ -497,7 +497,54 @@ demandait — et non par une relecture.
 | N° | Constat | Suite |
 |---|---|---|
 | A-14 | **Le magasin scellé des exceptions était en écriture seule, et les écrans écrivaient en clair ce qu'il fallait sceller.** Deux moitiés, une seule cause : aucun écran ne choisissait le magasin. **(a)** `odysseeExceptionsScellees` n'était lu par personne — aucun appel à `exceptionsScellees()` hors de son propre fichier. Or `pointerDepuisLeCalendrier` y range l'exception de toute tâche liée à une branche sous coffre. Un dépointage sur une tâche sensible s'écrivait donc et ne se voyait **jamais** : l'écran continuait de déduire « faite » du fait de branche, que lui se lit. L'exception doit faire autorité ; elle ne le pouvait pas, faute d'être lue. **(b)** `taches.astro` écrivait dépointages et renoncements avec `ecrireOccurrence`, donc **en clair**, y compris pour une tâche scellée. Une ligne en clair « tâche X, le 14, dépointée » rend un rythme lisible sans la clé — ce que la décision 3 refuse, et ce que `magasinDeLException` existait pour empêcher. | **Corrigée** (`b181503`). `exceptionsDeLaFenetre()` lit les deux magasins et **ne lève pas** coffre fermé : un scellé illisible est l'état normal, pas une panne, et lever ici obligerait chaque écran à entourer sa lecture d'un `try` — qui finit par avaler autre chose. `ecrireLException()` et `retirerLePointage()` choisissent le magasin, une fois, pour les deux écrans. |
-| A-15 | **Le moteur de la phase 5a cherchait le fait de branche au mauvais jour.** Il passait `jourPrevu` à `pointageDeLOccurrence`, pas le jour d'arrivée. Pour une occurrence déplacée du 20 septembre au 15 octobre, il cherchait donc une séance le 20 septembre, alors qu'elle a eu lieu le 15 : l'occurrence restait « à faire » le jour où elle avait justement été faite. | **Corrigée** (`b181503`). Mes seize assertions de la 5a ne le voyaient pas, et c'est la leçon : elles éprouvaient le **déplacement** et la **dérivation** séparément, jamais ensemble. Deux règles justes prises une à une peuvent se contredire à leur jointure, et c'est la jointure qu'il faut éprouver. Même famille qu'A-9, à plus petite échelle. |
+| A-15 | **Le moteur de la phase 5a cherchait le fait de branche au mauvais jour.** Il passait `jourPrevu` à `pointageDeLOccurrence`, pas le jour d'arrivée. Pour une occurrence déplacée du 20 septembre au 15 octobre, il cherchait donc une séance le 20 septembre, alors qu'elle a eu lieu le 15 : l'occurrence restait « à faire » le jour où elle avait justement été faite. | **Corrigée** (`b181503`). Mes seize assertions de la 5a ne le voyaient pas, et c'est la leçon : elles éprouvaient le **déplacement** et la **dérivation** séparément, jamais ensemble. Deux règles justes prises une à une peuvent se contredire à leur jointure, et c'est la jointure qu'il faut éprouver. Même famille qu'A-9, à plus petite échelle. **Essai de jointure ajouté le 15 octobre** : déplacement et dérivation ensemble, au même jour d'arrivée, cinq assertions. Remettre `jourPrevu` à la place du jour d'arrivée en fait échouer trois — le sabotage reproduit le défaut d'origine. |
+
+### A-14 b — aucune version publiée n'a pu écrire ces lignes. **Vu sur `gh-pages`.**
+
+Question posée : une version **publiée** a-t-elle pu écrire, dans la base
+réelle, des lignes en clair pour une tâche scellée ? Si oui, il y aurait
+des lignes à nettoyer sur l'appareil d'Alexis, et c'est un critère
+d'arrêt. La réponse est **non**, et elle est constatée, pas déduite.
+
+**Ce qui a été fait** : `git fetch origin gh-pages`, puis extraction de
+l'arbre publié et recherche dans les paquets livrés. La branche publiée
+est `e2584b7`, « Publication 2026-10-14 15:13 » — la date attendue.
+
+**Le contrôle de la méthode d'abord**, parce qu'un zéro ne vaut que si
+l'on sait qu'un non-zéro était possible. Les noms de magasins sont des
+chaînes littérales passées à `db.transaction(…)` : la minification ne les
+touche pas. Vérifié : `odysseeTaches` paraît dans 5 fichiers du bundle,
+`odysseeEvenements` dans 5, `sportSeances` dans 5, `odysseeQuetes` et
+`odysseeRevues` dans 4. Les noms survivent bien.
+
+**Le relevé** :
+
+| Magasin cherché dans le bundle publié | Fichiers |
+|---|---|
+| `odysseeOccurrences` | **0** |
+| `odysseeExceptionsScellees` | **0** |
+| `odysseeEtapesCochees` | **0** |
+| `odysseeReports` | **0** |
+| `depointee` | **0** |
+
+Et le schéma publié lui-même (`_astro/db.*.js`) déclare 38 magasins
+d'Odyssée, **dont aucun des quatre**. Les magasins n'existaient donc pas :
+aucun appareil ayant exécuté la version publiée n'a pu y écrire une ligne,
+ni en clair ni autrement.
+
+**La datation le confirme indépendamment.** Les quatre modules en cause
+sont nés le **15 octobre**, entre 11 h 05 et 12 h 04 UTC :
+`donnees-occurrences.ts` (`0187745`, 11:05), `modification-serie.ts`
+(`c8db077`, 11:28), `liaison-branches.ts` (`96e4b91`, 11:51),
+`pointage-partage.ts` (`d72d19d`, 12:04). La publication date du
+**14 octobre à 15 h 13**, soit près de vingt heures plus tôt.
+
+**Conclusion** : A-14 b était un défaut réel du code sur `main`, corrigé
+avant toute publication. **Rien à nettoyer, rien à annoncer à Alexis comme
+risque sur ses données.** Le critère d'arrêt n'est pas déclenché. La règle
+qui s'en dégage est simple et vaut pour la suite : *une anomalie de
+confidentialité se date contre la dernière publication, pas contre
+`main`.*
 
 ### A-8 — close le 15 octobre 2026
 

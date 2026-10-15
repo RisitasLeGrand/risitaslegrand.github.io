@@ -235,6 +235,65 @@ console.log('\n\x1b[1mL’heure : la série la donne, l’exception la reprend\x
   );
 }
 
+console.log('\n\x1b[1mLa jointure : déplacement ET dérivation ensemble — anomalie A-15\x1b[0m');
+{
+  /*
+     CE BLOC EXISTE PARCE QUE SON ABSENCE A COÛTÉ UNE ANOMALIE.
+
+     La phase 5a éprouvait le déplacement d'un côté et la dérivation de
+     l'autre, jamais les deux à la fois. Le moteur cherchait donc le fait
+     de branche au jour que la RÈGLE prévoyait, et une occurrence déplacée
+     restait « à faire » le jour où elle avait justement été faite. Deux
+     propriétés justes prises séparément ne prouvent pas leur combinaison,
+     et c'est la jointure qu'il faut éprouver.
+  */
+  const liee = tache({
+    id: '01J',
+    titre: 'Courir',
+    lien: { action: ACTIONS_LIABLES[0].id, cible: null },
+    /* La série commence AVANT le jour prévu, sinon il n'y a rien à déplacer. */
+    serie: {
+      depuis: '2026-09-01',
+      repetition: { type: 'jours', tous: 1 },
+      fin: { type: 'jamais' },
+      heure: null,
+    },
+  });
+  const action = ACTIONS_LIABLES[0].id;
+
+  const deplacement: ExceptionLue = {
+    tacheId: '01J',
+    jourPrevu: '2026-09-20',
+    etat: 'deplacee',
+    jourPorte: '2026-10-15',
+    heure: null,
+  };
+
+  /* Le fait existe au jour D'ARRIVÉE : c'est là que la séance a eu lieu. */
+  const auJourDArrivee = occurrencesDeLaFenetre([liee], '2026-10-15', '2026-10-15', {
+    exceptions: [deplacement],
+    faits: [{ type: action, jourLogique: '2026-10-15' }],
+    coffreOuvert: true,
+  });
+  v('l’occurrence déplacée est bien là', auJourDArrivee.length >= 1, true);
+  const arrivee = auJourDArrivee.find((o) => o.jourPrevu === '2026-09-20');
+  v('et c’est bien celle qui vient du 20 septembre', Boolean(arrivee), true);
+  v('elle est FAITE, parce que la séance est du jour d’arrivée', arrivee?.faite, true);
+  v('et elle le tient de sa branche, pas d’une exception', arrivee?.origine, 'branche');
+
+  /* Le fait au jour que la règle prévoyait ne la fait PAS : on a couru ailleurs. */
+  const auJourPrevu = occurrencesDeLaFenetre([liee], '2026-10-15', '2026-10-15', {
+    exceptions: [deplacement],
+    faits: [{ type: action, jourLogique: '2026-09-20' }],
+    coffreOuvert: true,
+  });
+  v(
+    'un fait resté au jour prévu ne la fait pas : elle n’y est plus',
+    auJourPrevu.find((o) => o.jourPrevu === '2026-09-20')?.faite,
+    false,
+  );
+}
+
 console.log(
   echecs === 0 ? '\n\x1b[32mTous les essais passent.\x1b[0m\n' : `\n\x1b[31m${echecs} échec(s).\x1b[0m\n`,
 );
