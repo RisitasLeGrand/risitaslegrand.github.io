@@ -314,17 +314,29 @@ v(
     // Les échelles, depuis la version 25. Scellées.
     'odysseePassations',
     /*
-       DEUX ENTRÉES QUI MANQUAIENT, ajoutées le 15 octobre 2026 avec les
-       magasins du prompt 38. Elles existaient dans la base depuis les
-       versions 29 et 31 et n'avaient jamais été portées ici : cet essai était
-       donc rouge, et il l'était pour une raison périmée.
+       SEPT ENTRÉES QUI MANQUAIENT, ajoutées le 15 octobre 2026 avec les
+       magasins du prompt 38.
+
+       Elles couvrent TROIS versions de schéma consécutives — 29, 30 et 31 —
+       passées sans que cette liste soit tenue à jour. Cet essai était donc
+       rouge depuis la version 29, et il l'était pour une raison qui n'avait
+       rien à voir avec ce qu'il prétend vérifier.
 
        La correction est **déclarée**, pas silencieuse. Un contrôle rouge
        qu'on sait rouge pour une mauvaise raison est un contrôle qu'on apprend
-       à ignorer, et un contrôle qu'on ignore ne protège plus rien — ce lot
-       l'a vérifié deux fois sur ses propres essais.
+       à ignorer, et un contrôle qu'on ignore ne protège plus rien.
+
+       J'ai d'abord annoncé « deux entrées », en lisant une sortie tronquée
+       au lieu de comparer les deux ensembles. Il y en avait sept. Le compte
+       exact est ci-dessous, et il vient d'une comparaison, pas d'un coup
+       d'œil.
     */
-    'odysseeConditions',
+    // Santé, version 29.
+    'odysseeTraitements', 'odysseePrelevements', 'odysseeResultats',
+    'odysseeSymptomes', 'odysseeConditions',
+    // Version 30.
+    'odysseeRessentis',
+    // Les actualités marquées lues, version 31.
     'actualitesLues',
     /*
        Les tâches récurrentes, depuis la version 32 (prompt 38). Les deux
