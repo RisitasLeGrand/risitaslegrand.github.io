@@ -45,6 +45,17 @@ export interface ActionLiable {
   sens: SensDuLien;
   /** Son magasin est-il scellé ? Décide du rangement des exceptions. */
   sousCoffre: boolean;
+  /**
+   * Son type de fait compte-t-il dans l'activité (`TYPES_SERIE`) ?
+   *
+   * Recopié ici plutôt qu'importé, et ce n'est pas de la duplication
+   * paresseuse : importer `activite.ts` depuis le registre ferait dépendre
+   * une politique de pointage du moteur d'XP, alors que c'est l'inverse qui
+   * a un sens. Le champ est une **affirmation sur l'autre module**, et
+   * `essais:retour-de-branche` compare les deux ensembles : si l'un bouge
+   * sans l'autre, la suite rougit.
+   */
+  compteDansLActivite: boolean;
   /** Pourquoi ce sens-là, et sur quelle décision. */
   pourquoi: string;
 }
@@ -66,6 +77,7 @@ export const ACTIONS_LIABLES: readonly ActionLiable[] = [
     libelle: 'Une séance de sport',
     sens: 'deux-sens',
     sousCoffre: false,
+    compteDansLActivite: true,
     pourquoi:
       'Une séance peut naître sans séries : « à compléter » est un état légal du modèle, et c’est exactement le cas prévu par le prompt.',
   }),
@@ -75,6 +87,7 @@ export const ACTIONS_LIABLES: readonly ActionLiable[] = [
     libelle: 'Une séance de révision',
     sens: 'branche-vers-tache',
     sousCoffre: false,
+    compteDansLActivite: true,
     pourquoi:
       'Décision 5 du 15 octobre, prise au mot : « faire la séance dans la branche coche la tâche ; pointer la tâche ne crée pas de séance. » Et la raison technique suit la décision : une séance de révision porte `secondes`, une durée mesurée dont le fait déduit son instant de début. La justifier par « un thème, un jour et un statut » était une erreur de ma part, corrigée ici : il y avait un quatrième champ, et c’était une mesure.',
   }),
@@ -84,6 +97,7 @@ export const ACTIONS_LIABLES: readonly ActionLiable[] = [
     libelle: 'Un QCM',
     sens: 'branche-vers-tache',
     sousCoffre: false,
+    compteDansLActivite: true,
     pourquoi:
       'Décision 5 du 15 octobre : une session de QCM exige posées, bonnes, mauvaises, abstentions, points et maximum. Un geste ne peut pas les inventer, et des zéros fausseraient l’historique — un zéro n’est pas une absence.',
   }),
@@ -93,6 +107,7 @@ export const ACTIONS_LIABLES: readonly ActionLiable[] = [
     libelle: 'Un entraînement cognitif',
     sens: 'branche-vers-tache',
     sousCoffre: false,
+    compteDansLActivite: true,
     pourquoi:
       'Même raison : une session de Veridical Mapping exige un seuil médian, une charge et des essais réussis.',
   }),
@@ -102,6 +117,7 @@ export const ACTIONS_LIABLES: readonly ActionLiable[] = [
     libelle: 'Une quête tenue',
     sens: 'deux-sens',
     sousCoffre: false,
+    compteDansLActivite: true,
     pourquoi: 'Tenir une quête est un geste, et il ne porte qu’un jour.',
   }),
   A({
@@ -110,6 +126,7 @@ export const ACTIONS_LIABLES: readonly ActionLiable[] = [
     libelle: 'Un temps de concentration',
     sens: 'branche-vers-tache',
     sousCoffre: false,
+    compteDansLActivite: true,
     pourquoi:
       'Un focus porte une durée mesurée. La créer d’un geste reviendrait à déclarer un temps qu’on n’a pas passé.',
   }),
@@ -119,6 +136,7 @@ export const ACTIONS_LIABLES: readonly ActionLiable[] = [
     libelle: 'Une pesée',
     sens: 'branche-vers-tache',
     sousCoffre: false,
+    compteDansLActivite: false,
     pourquoi: 'Une pesée porte un poids. Il se mesure, il ne se pointe pas.',
   }),
   A({
@@ -127,6 +145,7 @@ export const ACTIONS_LIABLES: readonly ActionLiable[] = [
     libelle: 'Une boisson',
     sens: 'branche-vers-tache',
     sousCoffre: false,
+    compteDansLActivite: false,
     pourquoi: 'Une boisson porte un volume, qui se saisit.',
   }),
   A({
@@ -135,6 +154,7 @@ export const ACTIONS_LIABLES: readonly ActionLiable[] = [
     libelle: 'Un check-in',
     sens: 'ouvre-ecran',
     sousCoffre: true,
+    compteDansLActivite: true,
     pourquoi:
       'Décision 4 du 15 octobre : un check-in vide est légal, et compterait comme fait sans rien mesurer. Pointer ouvre l’écran ; rien n’est écrit tant que rien n’est répondu.',
   }),
@@ -144,6 +164,7 @@ export const ACTIONS_LIABLES: readonly ActionLiable[] = [
     libelle: 'Un pointage budgétaire',
     sens: 'ouvre-ecran',
     sousCoffre: true,
+    compteDansLActivite: false,
     pourquoi:
       'Un pointage vise une opération précise, qu’un geste de calendrier ne choisit pas. Et le champ « pourquoi » reçoit un texte neutre (décision 6 du 15 octobre).',
   }),
@@ -153,6 +174,7 @@ export const ACTIONS_LIABLES: readonly ActionLiable[] = [
     libelle: 'Une prise déclarée',
     sens: 'hors-du-lot',
     sousCoffre: true,
+    compteDansLActivite: false,
     pourquoi:
       'Décision 1 du 15 octobre : Santé reste hors des liens dans ce lot. Le magasin des prises existe pourtant — c’est une erreur que j’avais faite et qui est corrigée — donc ce lien est techniquement constructible. Il attend une décision, pas une capacité.',
   }),
@@ -183,13 +205,20 @@ export const ouvreLEcran = (id: string): boolean => PAR_ID.get(id)?.sens === 'ou
 /**
  * Faire le fait dans la branche coche-t-il la tâche liée ?
  *
- * Vrai pour `deux-sens` **et** `branche-vers-tache` : c'est le sens qui
- * marche toujours, puisqu'il ne demande rien d'autre que de constater un
- * fait déjà écrit.
+ * Vrai pour **tout sauf `hors-du-lot`**, et c'est une correction : cette
+ * fonction rendait d'abord `false` pour `ouvre-ecran`, par symétrie avec le
+ * sens aller. La symétrie était fausse. `ouvre-ecran` dit que **pointer la
+ * tâche n'écrit rien** — l'écran s'ouvre, la personne répond, et le fait
+ * naît là. Si ce fait ne cochait pas la tâche, l'aller-retour ne se
+ * refermerait jamais : on ouvrirait l'écran depuis le calendrier, on
+ * remplirait son check-in, et la tâche resterait ouverte pour toujours.
+ *
+ * Constater un fait déjà écrit ne demande rien à personne. Le seul refus
+ * qui tienne est celui d'une branche que le lot ne traite pas.
  */
 export const cocheLaTache = (id: string): boolean => {
   const sens = PAR_ID.get(id)?.sens;
-  return sens === 'deux-sens' || sens === 'branche-vers-tache';
+  return sens === 'deux-sens' || sens === 'branche-vers-tache' || sens === 'ouvre-ecran';
 };
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -238,3 +267,29 @@ export const magasinDeLException = (
  * remplit finit par recevoir un titre.
  */
 export const LIBELLE_NEUTRE_DU_POINTAGE = 'Pointé depuis le calendrier';
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Phase 6 — la tâche liée cède son fait à sa branche
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * La tâche renonce-t-elle à produire son propre fait `odyssee.tache` ?
+ *
+ * C'est la règle qui empêche le double comptage dans le sens
+ * branche → tâche, et il faut la dire parce qu'elle n'est pas symétrique de
+ * la phase 5. Au pointage depuis le calendrier, l'occurrence ne compte pas,
+ * donc un seul fait naît. Ici, le fait de branche **existe déjà** : si clore
+ * la tâche liée écrivait en plus son `odyssee.tache`, une séance de sport
+ * vaudrait deux faits comptés pour un seul geste.
+ *
+ * La tâche cède donc son fait — mais **seulement quand la branche en produit
+ * un qui compte**. Une tâche liée à une pesée ou à une prise déclarée ne
+ * cède rien : ces faits-là ne sont pas dans `TYPES_SERIE`, et la faire taire
+ * reviendrait à supprimer son activité sans rien mettre à la place.
+ *
+ * Dit autrement : **la comptabilité d'une tâche liée vit dans sa branche**,
+ * et c'est la même phrase qui justifiera, en phase 8, de ne compter
+ * l'occurrence que des tâches **non** liées (décision du 15 octobre).
+ */
+export const laTacheCedeSonFait = (tache: Tache): boolean =>
+  Boolean(tache.lien && actionLiable(tache.lien.action)?.compteDansLActivite);

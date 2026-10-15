@@ -29,6 +29,7 @@
  * du rangement, c'est un retour sur soi, et la classer en « Ordre » gonflerait
  * ce domaine d'un geste qui ne lui appartient pas.
  */
+import { laTacheCedeSonFait } from './liaison-branches';
 import { jourLogique, type ReglagesJourLogique } from '../noyau/jour-logique';
 import { valider, type Fait, type Fiabilite, type Source } from '../noyau/faits';
 import {
@@ -117,8 +118,20 @@ export function projeterFaitsOdyssee(
      ce jour-là, ce qui ne peut pas le faire changer de journée.
   */
   let tachesSansDomaine = 0;
+  let tachesCedantLeurFait = 0;
   for (const tache of taches) {
     if (!tache.faiteLe) continue;
+    /*
+       Une tâche liée à une action comptée ne produit pas son propre fait :
+       sa branche en a déjà écrit un, et les deux compteraient. Le compteur
+       n'est pas un manque — rien ne manque, un fait a bien été écrit
+       ailleurs — mais il se rend quand même, pour qu'un écart d'XP puisse
+       s'expliquer sans relire ce fichier.
+    */
+    if (laTacheCedeSonFait(tache)) {
+      tachesCedantLeurFait += 1;
+      continue;
+    }
     if (!tache.domaine) {
       tachesSansDomaine += 1;
       continue;
@@ -146,6 +159,12 @@ export function projeterFaitsOdyssee(
     quoi: 'Tâches closes sans domaine',
     combien: tachesSansDomaine,
     consequence: 'Elles ne comptent dans aucun domaine de la roue d’équilibre.',
+  });
+  manques.push({
+    quoi: 'Tâches closes ayant cédé leur fait à leur branche',
+    combien: tachesCedantLeurFait,
+    consequence:
+      'Leur activité est comptée une fois, dans la branche visée — jamais deux.',
   });
 
   /* --- Quêtes tenues : un fait par jour tenu ----------------------------- */

@@ -99,8 +99,18 @@ v('et n’écrit rien', ecritDansLaBranche('odyssee.checkin'), false);
    Et surtout : un check-in NON RÉPONDU ne coche pas la tâche. Si c'était le
    cas, ouvrir l'écran puis le fermer vaudrait pour « fait », et la décision
    serait vidée de son sens.
+
+   Cette exigence tenait ici sur un `cocheLaTache` à `false`, et c'était le
+   mauvais garde-fou — corrigé en phase 6. `cocheLaTache` ne répond pas à
+   « ouvrir l'écran coche-t-il ? » mais à « un fait écrit dans la branche
+   coche-t-il ? ». Un check-in fermé sans réponse n'écrit aucun fait : rien
+   n'appelle le retour de branche, et la tâche reste ouverte. C'est
+   l'ABSENCE DE FAIT qui protège, pas un refus déclaré — et un refus
+   déclaré, lui, cassait l'aller-retour : on ouvrait l'écran depuis le
+   calendrier, on répondait, et la tâche ne se cochait jamais.
 */
-v('et ouvrir l’écran ne coche pas la tâche', cocheLaTache('odyssee.checkin'), false);
+v('un check-in réellement écrit coche sa tâche', cocheLaTache('odyssee.checkin'), true);
+v('et rien n’est écrit tant que rien n’est répondu', ecritDansLaBranche('odyssee.checkin'), false);
 
 /* Décision 1 : Santé hors des liens dans ce lot. */
 v('Santé n’écrit pas', ecritDansLaBranche('odyssee.medicament'), false);
