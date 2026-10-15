@@ -178,6 +178,17 @@ import Base from '../../layouts/Base.astro';
   import { coffreOuvert, rangementDeLaBoite } from '../../lib/coffre';
   import { gesteSousCoffre } from '../../lib/odyssee/coffre-ferme';
   import { pointerDepuisLeCalendrier } from '../../lib/odyssee/pointage-partage';
+  /*
+     Le sens branche → tâche — prompt 39, C2. Il ne s'écrit pas, il se
+     relit : une occurrence liée est faite quand un fait compté de son
+     action existe ce jour-là. L'exception, elle, fait toujours autorité.
+  */
+  import { faitsDuJour } from '../../lib/odyssee/faits-du-jour';
+  import {
+    gesteDeRetrait,
+    pointageDeLOccurrence,
+    type FaitObserve,
+  } from '../../lib/odyssee/pointage-derive';
   import {
     LIBELLE_PORTEE,
     planifierAbandon,
@@ -211,6 +222,10 @@ import Base from '../../layouts/Base.astro';
      mentirait.
   */
   let pointagesAffiches: { tacheId: string; jourPrevu: string; etat: string }[] = [];
+  /** Les faits du jour, pour le sens branche → tâche. Bornés à la journée. */
+  let faitsAffiches: FaitObserve[] = [];
+  /** Les branches qu'on n'a pas pu lire — scellées, coffre fermé. */
+  let branchesIllisibles: string[] = [];
   /* Les cochages de toutes les occurrences affichées, relus à chaque peinture. */
   let tousLesCochages: EtapeCochee[] = [];
 
@@ -810,10 +825,39 @@ import Base from '../../layouts/Base.astro';
          « Faite » serait un mensonge ; on propose de défaire.
       */
       if (pointeeAujourdhui(tache)) {
-        const defaire = bouton('Pas finalement');
+        /*
+           Défaire n'est pas un seul geste — prompt 39, C1.
+
+           Si c'est nous qui avons pointé, on efface notre exception et il
+           ne reste rien. Si c'est la branche qui l'a dit, effacer ne
+           servirait à rien : l'affichage suivant relirait le fait et
+           recocherait. Il faut alors écrire une exception qui contredit,
+           sans toucher à la séance elle-même.
+        */
+        const geste = gesteDeRetrait(etatDuJour(tache));
+        const jour = jourDeLOccurrence(tache, aujourdhui);
+        const defaire = bouton(geste === 'ecrire-un-depointage' ? 'Ce n’était pas ça' : 'Pas finalement');
         defaire.dataset.depointer = tache.id;
+        defaire.title =
+          geste === 'ecrire-un-depointage'
+            ? 'Retire la coche sans toucher à ce que la branche a enregistré.'
+            : 'Efface le pointage que vous avez fait ici.';
         defaire.addEventListener('click', () =>
-          void agirPuisPeindre(() => oublierOccurrence(tache.id, jourDeLOccurrence(tache, aujourdhui))),
+          void agirPuisPeindre(async () => {
+            if (geste === 'effacer-l-exception') {
+              await oublierOccurrence(tache.id, jour);
+              return;
+            }
+            await ecrireOccurrence({
+              tacheId: tache.id,
+              jourPrevu: jour,
+              etat: 'depointee',
+              jourPorte: null,
+              heure: null,
+              le: new Date().toISOString(),
+              motifAbandon: null,
+            });
+          }),
         );
         actions.appendChild(defaire);
       } else {
@@ -993,14 +1037,26 @@ import Base from '../../layouts/Base.astro';
    * sur cet appareil — on lève alors, plutôt que de laisser croire que le
    * geste a été gardé.
    */
-  /** L'occurrence du jour de cette tâche répétée est-elle déjà pointée ? */
-  const pointeeAujourdhui = (tache: Tache): boolean => {
-    if (!tache.serie) return false;
+  /**
+   * L'état de pointage de l'occurrence du jour — exception ou branche.
+   *
+   * Une seule source pour la carte entière : le libellé, le bouton et son
+   * nom en découlent. Les lire séparément les ferait diverger le jour où
+   * l'un des trois changerait.
+   */
+  const etatDuJour = (tache: Tache) => {
     const jour = jourDeLOccurrence(tache, aujourdhui);
-    return pointagesAffiches.some(
-      (o) => o.tacheId === tache.id && o.jourPrevu === jour && o.etat === 'pointee',
-    );
+    const exception = pointagesAffiches.find((o) => o.tacheId === tache.id && o.jourPrevu === jour);
+    return pointageDeLOccurrence(tache, jour, {
+      exception: exception ? { etat: exception.etat as EtatDOccurrence } : null,
+      faits: faitsAffiches,
+      coffreOuvert: coffreOuvert(),
+    });
   };
+
+  /** L'occurrence du jour de cette tâche répétée est-elle faite ? */
+  const pointeeAujourdhui = (tache: Tache): boolean =>
+    Boolean(tache.serie) && etatDuJour(tache).faite;
 
   async function pointerLaTache(tache: Tache): Promise<void> {
     if (!tache.serie) {
@@ -1094,6 +1150,18 @@ import Base from '../../layouts/Base.astro';
        jour est le même pour toutes (celui d'aujourd'hui), donc une requête.
     */
     pointagesAffiches = taches.some((t) => t.serie) ? await occurrencesDuJour(aujourdhui) : [];
+    /*
+       Les faits du jour, pour les tâches liées seulement. Les projeter sans
+       tâche liée serait une lecture de branche qu'aucun affichage ne demande.
+    */
+    if (taches.some((t) => t.lien)) {
+      const fenetre = await faitsDuJour(aujourdhui);
+      faitsAffiches = fenetre.faits;
+      branchesIllisibles = fenetre.branchesIllisibles;
+    } else {
+      faitsAffiches = [];
+      branchesIllisibles = [];
+    }
     const ouvertes = taches.filter((t) => !t.faiteLe && !t.abandonneeLe);
     const retard = ouvertes.filter((t) => t.echeance && t.echeance < aujourdhui);
     const aFaire = ouvertes.filter((t) => !retard.includes(t));
