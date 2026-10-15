@@ -87,6 +87,31 @@ export const CHAMP_DATE: Record<string, string | null> = {
      ligne par chose arrivée, à une date : ils se découpent.
   */
   odysseeTaches: null,
+  /*
+     Les exceptions des séries (prompt 38). Elles se découpent, contrairement
+     à la tâche qui les porte : une occurrence est **une ligne par chose
+     arrivée, à une date**, exactement comme une revue.
+
+     Les deux magasins en clair se découpent sur `jourPrevu`, le jour logique
+     que la règle prévoyait.
+
+     LES DEUX SCELLÉS SE DÉCOUPENT SUR `majLe`, ET C'EST UNE APPROXIMATION
+     ASSUMÉE. Leur jour logique est **dans le chiffré** — c'est tout l'objet
+     de la décision 3 —, donc inatteignable coffre fermé, donc inutilisable
+     pour découper. `majLe` est la seule date qu'ils exposent en clair : elle
+     dit quand la ligne a été écrite, non quand la chose a eu lieu. Les deux
+     coïncident presque toujours, et l'écart ne peut jouer que sur une
+     exception pointée longtemps après coup.
+
+     L'autre choix aurait été `null` — « jamais découpée ». Il aurait fait
+     passer le contrôle tout aussi bien, et laissé des exceptions scellées
+     derrière un effacement qui se dit complet. Une approximation qu'on écrit
+     vaut mieux qu'un oubli qui se tait.
+  */
+  odysseeOccurrences: 'jourPrevu',
+  odysseeEtapesCochees: 'jourPrevu',
+  odysseeExceptionsScellees: 'majLe',
+  odysseeReports: 'majLe',
   odysseeQuetes: null,
   odysseeEvenements: 'debut',
   odysseeFocus: 'debut',
@@ -235,6 +260,10 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
     description: 'Tâches, quêtes, agenda, temps de concentration et revues.',
     magasins: [
       'odysseeTaches',
+      'odysseeOccurrences',
+      'odysseeEtapesCochees',
+      'odysseeExceptionsScellees',
+      'odysseeReports',
       'odysseeQuetes',
       'odysseeEvenements',
       'odysseeFocus',
