@@ -13,6 +13,7 @@
  * veille » et que « le matin dit hier » laisserait passer l'inversion des
  * deux.
  */
+import { COUCHER_PAR_DEFAUT, LEVER_PAR_DEFAUT, fenetreDeLaRevue } from '../src/lib/odyssee/jour';
 import {
   MOMENT_PAR_DEFAUT,
   jourVise,
@@ -82,6 +83,45 @@ v(
   Object.values(libelles('matin')).some((t) => t.includes('aujourd’hui')),
   false,
 );
+
+console.log('\n  D — la fenêtre d’ouverture');
+
+v('le soir, deux heures avant le coucher déclaré', fenetreDeLaRevue('soir', undefined, '23:00'), {
+  de: 21 * 60,
+  a: 23 * 60,
+  parceQue: 'Moins de deux heures avant votre heure de coucher.',
+});
+v('le matin, du lever déclaré à midi', fenetreDeLaRevue('matin', '07:30', undefined), {
+  de: 7 * 60 + 30,
+  a: 12 * 60,
+  parceQue: 'Depuis votre heure de lever, et jusqu’à midi.',
+});
+
+/*
+   LE défaut réparé. Avant le 15 octobre, sans heure de coucher déclarée, la
+   revue n'était JAMAIS proposée : elle disparaissait sans rien dire. Le
+   contrôle exige donc une fenêtre, et pas « null ».
+*/
+const sansRien = fenetreDeLaRevue('soir', undefined, undefined);
+v('sans heure de coucher, la revue est tout de même proposée', sansRien !== null, true);
+v('le repli du soir est 20 h', sansRien?.a, 20 * 60);
+v('et il est DIT, pas silencieux', /faute d’heure de coucher déclarée/.test(sansRien?.parceQue ?? ''), true);
+
+const matinSansRien = fenetreDeLaRevue('matin', undefined, undefined);
+v('le repli du matin est 6 h', matinSansRien?.de, 6 * 60);
+v('et il est dit aussi', /faute d’heure de lever déclarée/.test(matinSansRien?.parceQue ?? ''), true);
+
+v('les deux replis sont les valeurs tranchées par Alexis', [LEVER_PAR_DEFAUT, COUCHER_PAR_DEFAUT], ['06:00', '20:00']);
+
+/* Une heure mal formée ne doit pas produire une fenêtre absurde. */
+v('une heure illisible retombe sur le repli', fenetreDeLaRevue('soir', undefined, 'vingt heures')?.a, 20 * 60);
+
+/*
+   Et la borne haute du matin n'est pas décorative : une « revue du matin »
+   proposée à dix-sept heures porterait sur la veille sans que rien ne le
+   laisse deviner.
+*/
+v('le matin se ferme à midi', fenetreDeLaRevue('matin', '05:00', undefined)?.a, 12 * 60);
 
 console.log(`\n${echecs ? '\x1b[31m✗' : '\x1b[32m✓'} ${echecs} échec(s)\x1b[0m\n`);
 process.exit(echecs ? 1 : 0);

@@ -225,7 +225,7 @@ export type IdRegle =
   | 'agenda-en-conflit'
   | 'domaine-delaisse'
   | 'releve-a-faire'
-  | 'revue-du-soir';
+  | 'revue';
 
 export interface Regle {
   id: IdRegle;
@@ -292,9 +292,12 @@ export const REGLES: readonly Regle[] = [
       'réalisation supposé ne vaut rien. La question se pose une fois, après coup, jamais avant.',
   },
   {
-    id: 'revue-du-soir',
-    intitule: 'La revue du soir n’est pas faite',
-    raison: 'Proposée seulement après l’heure du coucher moins deux heures, jamais le matin.',
+    id: 'revue',
+    intitule: 'La revue n’est pas faite',
+    raison:
+      'Proposée dans sa fenêtre : le matin depuis le lever et jusqu’à midi, ' +
+      'le soir dans les deux heures avant le coucher. Les replis — 6 h et 20 h — ' +
+      'vivent dans la règle, jamais dans le profil.',
   },
 ];
 
@@ -310,6 +313,66 @@ export interface Suggestion {
   cible?: { quoi: 'tache' | 'quete' | 'evenement' | 'revue' | 'releve'; id: string };
 }
 
+/**
+ * Les heures par défaut, et pourquoi elles vivent ICI.
+ *
+ * Écrire 20 h dans le champ `coucher` du profil reviendrait à faire dire à la
+ * personne une heure qu'elle n'a jamais déclarée. Toute la branche distingue
+ * le déclaré du déduit ; un repli est une règle de produit, et sa place est
+ * dans la règle.
+ *
+ * Et ce repli répare un défaut constaté le 14 octobre : **sans heure de
+ * coucher déclarée, la revue n'était jamais proposée**. Elle disparaissait
+ * sans rien dire, ce qui est la pire façon de ne pas marcher.
+ */
+export const LEVER_PAR_DEFAUT = '06:00';
+export const COUCHER_PAR_DEFAUT = '20:00';
+
+/** Minutes depuis minuit, ou `null` si l'heure n'est pas une heure. */
+function enMinutes(heure: string | undefined, repli: string): number | null {
+  const [h, m] = (heure && /^\d{2}:\d{2}$/.test(heure) ? heure : repli).split(':').map(Number);
+  return Number.isFinite(h) && Number.isFinite(m) ? h * 60 + m : null;
+}
+
+/**
+ * Quand la revue est proposée, selon le moment choisi.
+ *
+ * *Le soir* : les deux heures qui précèdent le coucher, et pas avant —
+ * proposer une revue du soir à neuf heures du matin n'a aucun sens, et la
+ * proposer après l'heure du coucher revient à retenir quelqu'un qui allait
+ * dormir.
+ *
+ * *Le matin* : à partir du lever, et jusqu'à midi. La borne haute n'est pas
+ * décorative : une « revue du matin » proposée à dix-sept heures porterait
+ * sur la veille sans que rien ne le laisse deviner.
+ */
+export function fenetreDeLaRevue(
+  moment: 'matin' | 'soir',
+  lever: string | undefined,
+  coucher: string | undefined,
+): { de: number; a: number; parceQue: string } | null {
+  if (moment === 'matin') {
+    const debut = enMinutes(lever, LEVER_PAR_DEFAUT);
+    if (debut === null) return null;
+    return {
+      de: debut,
+      a: 12 * 60,
+      parceQue: lever
+        ? 'Depuis votre heure de lever, et jusqu’à midi.'
+        : `Depuis ${LEVER_PAR_DEFAUT.replace(':', ' h ')}, faute d’heure de lever déclarée.`,
+    };
+  }
+  const fin = enMinutes(coucher, COUCHER_PAR_DEFAUT);
+  if (fin === null) return null;
+  return {
+    de: fin - 120,
+    a: fin,
+    parceQue: coucher
+      ? 'Moins de deux heures avant votre heure de coucher.'
+      : `Moins de deux heures avant ${COUCHER_PAR_DEFAUT.replace(':', ' h ')}, faute d’heure de coucher déclarée.`,
+  };
+}
+
 /** Seuils de la règle « journée surchargée ». */
 export const HEURES_SURCHARGE = 9;
 /** Un événement est « imminent » dans ce délai. */
@@ -323,9 +386,18 @@ export interface OptionsSuggestions {
   aujourdhui: string;
   semaine: readonly string[];
   actifs: readonly IdDomaine[];
-  /** Heure de coucher déclarée, « HH:MM ». Absente : la revue du soir n'est jamais proposée. */
+  /**
+   * Heure de coucher déclarée, « HH:MM ».
+   *
+   * Absente, la revue **est tout de même proposée** depuis le 15 octobre :
+   * un repli vit dans la règle. Avant, elle disparaissait sans rien dire.
+   */
   coucher?: string;
-  /** La revue du soir a-t-elle déjà été tenue aujourd'hui ? */
+  /** Heure de lever déclarée, « HH:MM ». Même repli en son absence. */
+  lever?: string;
+  /** Le moment choisi pour la revue. Sans préférence : le soir. */
+  moment?: 'matin' | 'soir';
+  /** La revue du jour visé a-t-elle déjà été tenue ? */
   revueFaite?: boolean;
 }
 
@@ -474,26 +546,17 @@ export function queFaireMaintenant(
     });
   }
 
-  /* --- La revue du soir ----------------------------------------------------- */
-  if (options.coucher && !options.revueFaite) {
-    const [h, m] = options.coucher.split(':').map(Number);
-    if (Number.isFinite(h) && Number.isFinite(m)) {
-      const minutesCourantes =
-        options.maintenant.getHours() * 60 + options.maintenant.getMinutes();
-      /*
-         Deux heures avant le coucher, et pas avant : proposer une revue du
-         soir à neuf heures du matin n'a aucun sens, et la proposer après
-         l'heure du coucher revient à retenir quelqu'un qui allait dormir.
-      */
-      const ouverture = h * 60 + m - 120;
-      if (minutesCourantes >= ouverture && minutesCourantes < h * 60 + m) {
-        brutes.push({
-          regle: 'revue-du-soir',
-          texte: 'La revue du soir',
-          parceQue: 'Moins de deux heures avant votre heure de coucher.',
-          cible: { quoi: 'revue', id: options.aujourdhui },
-        });
-      }
+  /* --- La revue ------------------------------------------------------------- */
+  if (!options.revueFaite) {
+    const minutesCourantes = options.maintenant.getHours() * 60 + options.maintenant.getMinutes();
+    const fenetre = fenetreDeLaRevue(options.moment ?? 'soir', options.lever, options.coucher);
+    if (fenetre && minutesCourantes >= fenetre.de && minutesCourantes < fenetre.a) {
+      brutes.push({
+        regle: 'revue',
+        texte: 'La revue',
+        parceQue: fenetre.parceQue,
+        cible: { quoi: 'revue', id: options.aujourdhui },
+      });
     }
   }
 

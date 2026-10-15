@@ -97,9 +97,14 @@ async function ciblesDeLaRoue(): Promise<Record<string, number>> {
   return cibles;
 }
 
-async function heureDeCoucher(): Promise<string | undefined> {
-  const valeur = (await champ('coucher'))?.valeur;
+async function heureDeclaree(nom: 'lever' | 'coucher'): Promise<string | undefined> {
+  const valeur = (await champ(nom))?.valeur;
   return typeof valeur === 'string' && /^\d{2}:\d{2}$/.test(valeur) ? valeur : undefined;
+}
+
+async function momentDeLaRevue(): Promise<'matin' | 'soir'> {
+  const { lireMoment } = await import('./odyssee/moment-revue');
+  return lireMoment((await champ('moment-revue'))?.valeur);
 }
 
 /** Tout ce que le tableau de bord affiche, lu à un seul instant. */
@@ -123,13 +128,15 @@ export async function etatDuJour(maintenant = new Date()): Promise<EtatDuJour> {
      reviendrait à dire « tu négliges ton corps » à quelqu'un qui vient de
      s'entraîner et de peser.
   */
-  const [publication, taches, quetes, actifs, cibles, coucher] = await Promise.all([
+  const [publication, taches, quetes, actifs, cibles, coucher, lever, moment] = await Promise.all([
     publierTousLesFaits({ reglages }),
     toutesLesTaches(),
     toutesLesQuetes(),
     domainesActifs(),
     ciblesDeLaRoue(),
-    heureDeCoucher(),
+    heureDeclaree('coucher'),
+    heureDeclaree('lever'),
+    momentDeLaRevue(),
   ]);
   const faits = publication.faits;
 
@@ -154,7 +161,7 @@ export async function etatDuJour(maintenant = new Date()): Promise<EtatDuJour> {
   const lePlancher = plancherDuJour(quetes, { aujourdhui, semaine, actifs });
   const quoi = queFaireMaintenant(
     { quetes, taches, evenementsDuJour, faits },
-    { maintenant, aujourdhui, semaine, actifs, coucher, revueFaite },
+    { maintenant, aujourdhui, semaine, actifs, coucher, lever, moment, revueFaite },
   );
 
   const plan = planTenu(taches, evenementsDeLaFenetre, { jours, maintenant, actifs });
