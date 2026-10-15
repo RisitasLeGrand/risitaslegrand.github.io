@@ -188,7 +188,8 @@
     "essais:pointage-partage": "tsx scripts/essais-pointage-partage.mts",
     "essais:retour-de-branche": "tsx scripts/essais-retour-de-branche.mts",
     "essais:coffre-ferme": "tsx scripts/essais-coffre-ferme.mts",
-    "essais:revue": "tsx scripts/essais-revue.mts"
+    "essais:revue": "tsx scripts/essais-revue.mts",
+    "essais:boite-aux-lettres": "tsx scripts/essais-boite-aux-lettres.mts"
   },
   "repository": {
     "type": "git",
