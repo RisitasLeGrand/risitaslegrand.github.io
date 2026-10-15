@@ -117,6 +117,7 @@
     "essais:repetition": "tsx scripts/essais-repetition.mts",
     "essais:etapes": "tsx scripts/essais-etapes.mts",
     "essais:modification-serie": "tsx scripts/essais-modification-serie.mts",
+    "essais:liaison-branches": "tsx scripts/essais-liaison-branches.mts",
     "essais:sport": "tsx scripts/essais-sport.mts",
     "essais:sport:navigateur": "node scripts/essais-sport-navigateur.mjs",
     "essais:corps": "tsx scripts/essais-corps.mts",
