@@ -190,7 +190,8 @@
     "essais:coffre-ferme": "tsx scripts/essais-coffre-ferme.mts",
     "essais:revue": "tsx scripts/essais-revue.mts",
     "essais:boite-aux-lettres": "tsx scripts/essais-boite-aux-lettres.mts",
-    "essais:boite-du-coffre": "tsx scripts/essais-boite-du-coffre.mts"
+    "essais:boite-du-coffre": "tsx scripts/essais-boite-du-coffre.mts",
+    "essais:fusion-occurrences": "tsx scripts/essais-fusion-occurrences.mts"
   },
   "repository": {
     "type": "git",
