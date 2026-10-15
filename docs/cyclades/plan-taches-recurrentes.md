@@ -255,3 +255,52 @@ inventer.
 pas de magasin de prises. **R-a n'est pas arbitrée, je ne l'arbitre pas, et
 je ne crée pas de journal de prises sur une inférence.** Tout ce qui en
 dépend reste hors de ce lot.
+
+---
+
+# Les treize décisions, tranchées par Alexis le 15 octobre
+
+*Reçues dans ma conversation, donc exécutoires. Consignées ici parce qu'elles
+commandent les phases 2 à 9, et qu'une décision qui ne vit que dans un fil de
+conversation est une décision perdue.*
+
+| | Tranché | Conséquence pour le lot |
+|---|---|---|
+| **D1** | **Santé hors des liens dans ce lot.** L'étape se coche, sans rien écrire dans Santé. Les autres branches sont liées normalement. | Aucune écriture dans `odysseeMedicaments` depuis le calendrier. Voir la réserve ci-dessous. |
+| **D2** | **Go pour la phase 2**, avec un essai de sauvegarde et de restauration **avant et après**. | Condition d'exécution, pas une formalité : la mesure « avant » précède la première ligne touchant `enregistrements.ts`. |
+| **D3** | Reports **scellés** ; occurrences **en clair et sans libellé**, *sauf* celles des tâches liées à une branche sous coffre, **scellées aussi**. | C'est la variante du pilote, meilleure que ma proposition : une occurrence quotidienne à 8 h liée à une branche scellée révèle un rythme, même sans libellé. Impose que la tâche porte son lien **avant** que l'occurrence soit écrite. |
+| **D4** | Pointer **ouvre** l'écran de check-in ; rien n'est écrit tant que rien n'est répondu. | Psyché n'est jamais écrite par un geste de pointage. |
+| **D5** | **Pas de réponse.** | Voir la réserve ci-dessous. Bloque les phases 5 et 6 pour Révisions et Veridical Mapping, pas les phases 2 à 4. |
+| **D6** | Un texte neutre, **sans le titre de la tâche** : « Pointé depuis le calendrier ». | `Pointage.pourquoi` ne reçoit jamais de titre. |
+| **D7** | Santé validée **par étapes** : compléter la phase 1, puis 2 et 3 dès la collecte, puis 4 en s'appuyant sur le prompt 38 ; chaque phase présentée avant d'être lancée. | Hors de ce lot. |
+| **D8** | Consigner la clause NooTopics : date, les deux conditions, la portée, **sans aucun nom**. | À faire dans `plan-molecules.md`. |
+| **D9** | Le **code s'aligne sur la source** (PHQ-9). | Corrige un essai rouge. |
+| **D10** | Je retrouve le changement en cause, je montre la liste des questions, **puis** on tranche. | Pas de correctif avant la liste. |
+| **D11** | Audio des 175 fiches : en tâche de fond, **après** le prompt 38 et l'audit. | Hors de ce lot. |
+| **D12** | Mettre à jour l'adresse du dépôt ; **garder le garde-fou tel quel**. | |
+| **D13** | CLS résiduel : au prompt de corrections qui suivra l'audit. | Hors de ce lot. |
+
+## Deux réserves que je dois écrire, et non taire
+
+**R-1 — D1 et D7 ont été tranchées sur une prémisse que j'avais fausse.** Je
+suis l'auteur de l'erreur : j'ai écrit qu'aucun magasin de prises n'existait.
+`odysseeMedicaments` **est** le journal des prises (`Prise`,
+`odyssee/sensible.ts:46`), scellé, journalisé, desservi par
+`donnees-sensible.ts`. Ce qui manque est le triplet molécule / traitement /
+prise de H.2, non le journal.
+
+La formulation retenue — « le lien Santé viendra avec le journal des prises »
+— désigne donc quelque chose qui existe déjà, et D7 dit « compléter la phase 1
+(journal des prises) » alors que ce qui reste à compléter est le triplet.
+
+**Je n'en déduis rien.** Le choix « Santé hors des liens dans ce lot » reste
+parfaitement tenable : il est simplement devenu un choix, là où je l'avais
+présenté comme une contrainte technique. **Je l'applique tel quel** et je
+signale qu'il mérite d'être reconfirmé en connaissance de cause. Tant qu'il
+n'est pas rouvert, aucune ligne de ce lot n'écrit dans Santé.
+
+**R-2 — D5 n'a pas été tranchée.** La liste passe de 4 à 6. D5 portait sur
+`SessionDgfip` et `SessionVeridical`, qui exigent des résultats qu'un geste de
+pointage ne peut pas inventer. Sans réponse, **les phases 5 et 6 ne sont pas
+exécutables pour ces deux cibles**. Les phases 2, 3 et 4 n'en dépendent pas :
+je les mène, et je m'arrête là si D5 n'est pas tranchée d'ici là.
