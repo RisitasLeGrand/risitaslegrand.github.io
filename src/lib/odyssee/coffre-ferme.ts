@@ -70,6 +70,8 @@ export const MENTION_ETAT_SCELLE = 'État chiffré — ouvrez le coffre pour le 
 export type GesteSousCoffre =
   /** Le geste s'écrit, en clair ou sous scellé selon le magasin. */
   | { quoi: 'ecrire'; magasin: 'odysseeOccurrences' | 'odysseeExceptionsScellees' }
+  /** Le geste est gardé chiffré et rejoué à l'ouverture — A-6, option D. */
+  | { quoi: 'reporter' }
   /** Le geste est impossible. `pourquoi` s'affiche tel quel. */
   | { quoi: 'impossible'; pourquoi: string };
 
@@ -81,14 +83,25 @@ export type GesteSousCoffre =
  * erreur pour l'apprendre, et une erreur attrapée finit toujours par être
  * confondue avec une panne.
  */
-export function gesteSousCoffre(tache: Tache, coffreOuvert: boolean): GesteSousCoffre {
+export function gesteSousCoffre(
+  tache: Tache,
+  coffreOuvert: boolean,
+  boiteDisponible = false,
+): GesteSousCoffre {
   const magasin = magasinDeLException(tache);
   if (magasin === 'odysseeOccurrences') return { quoi: 'ecrire', magasin };
   if (coffreOuvert) return { quoi: 'ecrire', magasin };
+  /*
+     A-6, option D : le geste est gardé chiffré plutôt que refusé. Il faut
+     pour cela qu'une boîte existe — donc que le coffre ait été ouvert au
+     moins une fois sur cet appareil. Sans elle, le refus demeure, et c'est
+     préférable à un geste qu'on dirait gardé sans l'avoir gardé.
+  */
+  if (boiteDisponible) return { quoi: 'reporter' };
   return {
     quoi: 'impossible',
     pourquoi:
-      'Cette tâche touche une branche chiffrée. Ouvrez le coffre pour la pointer.',
+      'Cette tâche touche une branche chiffrée, et ce navigateur n’a pas encore de boîte. Ouvrez le coffre une fois pour pouvoir la pointer plus tard.',
   };
 }
 

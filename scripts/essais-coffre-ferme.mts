@@ -85,12 +85,28 @@ v(
   gesteSousCoffre(tache('odyssee.checkin'), true),
   { quoi: 'ecrire', magasin: 'odysseeExceptionsScellees' },
 );
-const refus = gesteSousCoffre(tache('odyssee.checkin'), false);
-v('et se refuse, coffre fermé', refus.quoi, 'impossible');
+/*
+   A-6, option D. Coffre fermé, le geste n'est plus refusé : il est GARDÉ
+   chiffré, à condition qu'une boîte existe sur cet appareil. Sans boîte —
+   coffre jamais ouvert ici — le refus demeure, et c'est préférable à un
+   geste qu'on dirait gardé sans l'avoir gardé.
+*/
 v(
-  'le refus dit quoi faire, pas « erreur »',
+  'coffre fermé avec une boîte, le geste est gardé pour plus tard',
+  gesteSousCoffre(tache('odyssee.checkin'), false, true),
+  { quoi: 'reporter' },
+);
+const refus = gesteSousCoffre(tache('odyssee.checkin'), false, false);
+v('coffre fermé sans boîte, il se refuse', refus.quoi, 'impossible');
+v(
+  'et le refus dit quoi faire, pas « erreur »',
   (refus as { pourquoi: string }).pourquoi,
-  'Cette tâche touche une branche chiffrée. Ouvrez le coffre pour la pointer.',
+  'Cette tâche touche une branche chiffrée, et ce navigateur n’a pas encore de boîte. Ouvrez le coffre une fois pour pouvoir la pointer plus tard.',
+);
+v(
+  'une tâche ordinaire s’écrit, boîte ou pas',
+  gesteSousCoffre(tache('sport.seance'), false, true),
+  { quoi: 'ecrire', magasin: 'odysseeOccurrences' },
 );
 
 const lot = [tache('sport.seance', 'A'), tache('odyssee.checkin', 'B'), tache(undefined, 'C')];

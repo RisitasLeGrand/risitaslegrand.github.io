@@ -122,12 +122,22 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
     */
     clairs: ['id', 'majLe'],
   },
-  {
-    magasin: 'odysseeReports',
-    pourquoi:
-      'Un report en attente est, par construction, la trace qu’un geste a été fait dans une branche scellée alors que le coffre était fermé. En clair, il annulerait la décision qu’il sert.',
-    clairs: ['id', 'majLe'],
-  },
+  /*
+     `odysseeReports` A QUITTÉ CETTE LISTE — A-6, option D, signée le
+     15 octobre.
+
+     Il y figurait pour la bonne raison : un report en attente est la trace
+     qu'un geste a eu lieu dans une branche scellée. Mais le sceller sous la
+     clé du coffre rendait son écriture impossible COFFRE FERMÉ, c'est-à-dire
+     dans le seul cas où il sert. Le magasin exigeait la condition qu'il
+     devait contourner.
+
+     Il n'est pas descellé pour autant : son contenu est chiffré par la
+     **boîte aux lettres** (`noyau/boite-aux-lettres.ts`), dont la clé
+     publique est en clair et la privée scellée. Écrire ne demande rien ;
+     lire demande le coffre. Le magasin ne porte donc qu'un pli opaque sous
+     une clé tirée au hasard — ni date, ni tâche, ni branche.
+  */
   {
     magasin: 'odysseeComptes',
     pourquoi: 'Finances : un intitulé de compte et son type se lisent d’un coup d’œil.',

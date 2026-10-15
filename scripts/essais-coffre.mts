@@ -112,7 +112,19 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    magasin qui **disparaîtrait** du registre — c'est-à-dire qui cesserait
    d'être chiffré — se verrait aussi.
 */
-v('vingt-sept magasins scellés', MAGASINS_SCELLES.length, 27);
+/*
+   Vingt-six depuis A-6, option D : `odysseeReports` a quitté la liste le
+   15 octobre. Il y figurait pour la bonne raison — un report est la trace
+   qu'un geste a eu lieu dans une branche scellée — mais le sceller rendait
+   son écriture impossible coffre fermé, le seul cas où il sert. Son contenu
+   reste chiffré, par la boîte aux lettres et non par le coffre.
+*/
+v('vingt-six magasins scellés', MAGASINS_SCELLES.length, 26);
+v(
+  'et les reports n’en sont plus — leur chiffrement est asymétrique',
+  MAGASINS_SCELLES.some((m) => m.magasin === 'odysseeReports'),
+  false,
+);
 v(
   'le journal de ressentis en fait partie',
   MAGASINS_SCELLES.some((m) => m.magasin === 'odysseeRessentis'),

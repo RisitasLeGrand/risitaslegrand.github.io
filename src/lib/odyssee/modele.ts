@@ -1,3 +1,4 @@
+import type { Pli } from '../noyau/boite-aux-lettres';
 /**
  * Ce qu'Odyssée possède en propre.
  *
@@ -285,15 +286,39 @@ export type ExceptionScellee =
  * a été fait dans une branche sensible. Le laisser en clair annulerait la
  * décision qu'il sert.
  */
-export interface ReportEnAttente extends Possede {
+/**
+ * Ce qu'un report CONTIENT — et qui n'est jamais écrit tel quel.
+ *
+ * Ce contenu part chiffré dans la boîte aux lettres. Il porte l'instant du
+ * geste, « fait à 8 h 05 », parce que c'est précisément ce que la décision 5
+ * demande de garder, et que le chiffrement asymétrique permet de le garder
+ * sans le livrer.
+ */
+export interface ContenuDuReport {
   tacheId: string;
   jourPrevu: string;
-  /** L'instant du geste. C'est lui qu'on garde — « fait à 8 h 05 ». */
+  /** L'instant du geste. */
   le: string;
   /** La branche où l'écriture devra avoir lieu. */
   branche: string;
-  /** L'instant du report effectif, ou `null` tant qu'il attend. */
-  reporteLe: string | null;
+}
+
+/**
+ * Ce qu'un report EST, dans la base : un pli opaque, et rien d'autre.
+ *
+ * Pas de `majLe`, et c'est voulu malgré la règle commune. Une date
+ * d'écriture en clair dirait qu'un geste a eu lieu ce jour-là, ce que le
+ * scellement par branche a pour objet de cacher — la file trahirait alors ce
+ * qu'elle sert. Le prix est que ce magasin sort de la rétention par date :
+ * un pli ne se découpe pas, il se supprime au report.
+ *
+ * `id` est tiré au hasard, jamais `tâche/jour` : la clé dirait tout avant
+ * déchiffrement. On y perd la convergence de fusion, et c'est au report de
+ * retrouver l'idempotence une fois le pli relevé.
+ */
+export interface ReportEnAttente {
+  id: string;
+  pli: Pli;
 }
 
 /* ════════════════════════════════════════════════════════════════════════

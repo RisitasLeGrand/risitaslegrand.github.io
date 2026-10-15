@@ -111,7 +111,15 @@ export const CHAMP_DATE: Record<string, string | null> = {
   odysseeOccurrences: 'jourPrevu',
   odysseeEtapesCochees: 'jourPrevu',
   odysseeExceptionsScellees: 'majLe',
-  odysseeReports: 'majLe',
+  /*
+     `null` — « jamais découpé », et pour une fois ce n'est pas une
+     approximation. Un report ne porte AUCUNE date : en mettre une en clair
+     dirait qu'un geste a eu lieu ce jour-là (A-6, option D). Un pli ne se
+     découpe donc pas par l'âge, il se supprime au moment du report. Un
+     magasin qui ne grossit que le temps d'un coffre fermé n'a pas besoin de
+     rétention.
+  */
+  odysseeReports: null,
   odysseeQuetes: null,
   odysseeEvenements: 'debut',
   odysseeFocus: 'debut',

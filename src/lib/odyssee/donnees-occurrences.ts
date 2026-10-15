@@ -36,6 +36,7 @@ import {
   type EtapeCochee,
   type ExceptionScellee,
   type Occurrence,
+  type ContenuDuReport,
   type ReportEnAttente,
 } from './modele';
 
@@ -227,30 +228,86 @@ export async function oublierExceptionScellee(id: string): Promise<void> {
    Les reports en attente
    ══════════════════════════════════════════════════════════════════════════ */
 
-/** Tous les reports, ouverts. **Lève si le coffre est fermé.** */
-export async function tousLesReports(): Promise<ReportEnAttente[]> {
-  const cle = exigerLeCoffre();
-  const rangees = (await (await db()).getAll('odysseeReports')) as unknown as Record<
-    string,
-    unknown
-  >[];
-  return Promise.all(rangees.map((r) => ouvrir<ReportEnAttente>(cle, r)));
+/* ══════════════════════════════════════════════════════════════════════════
+   Les reports en attente — A-6, option D
+   ══════════════════════════════════════════════════════════════════════════
+
+   Trois fonctions, et la première est celle qui donne son sens au lot :
+   **déposer n'exige pas le coffre**. C'était impossible tant que le magasin
+   était scellé ; la boîte aux lettres le permet.
+*/
+
+/**
+ * Dépose un geste pour plus tard. **N'exige pas le coffre.**
+ *
+ * Rend `false` s'il n'y a pas de boîte sur cet appareil — le coffre n'y a
+ * jamais été ouvert, donc aucune paire n'a pu naître. L'écran doit le dire
+ * plutôt que de laisser croire que le geste est gardé.
+ */
+export async function deposerUnReport(contenu: ContenuDuReport): Promise<boolean> {
+  const { publiqueDeLaBoite } = await import('../noyau/boite-du-coffre');
+  const { cleOpaque, deposer } = await import('../noyau/boite-aux-lettres');
+  const publique = await publiqueDeLaBoite(rangementDeLaBoite());
+  if (!publique) return false;
+  const report: ReportEnAttente = {
+    id: cleOpaque(),
+    pli: await deposer(publique, contenu as unknown as Record<string, unknown>),
+  };
+  await (await db()).put('odysseeReports', report);
+  /*
+     PAS DE `journaliser()` ICI, et c'est délibéré. Le journal des opérations
+     porte le nom du magasin et l'identifiant de la ligne en clair ; il
+     n'ajouterait rien à ce que le magasin montre déjà — un pli existe — mais
+     il le ferait voyager dans les paquets de synchronisation, où un pli
+     illisible par l'autre appareil n'a rien à faire. Un report est local au
+     coffre qui pourra l'ouvrir.
+  */
+  return true;
 }
 
-/** Ceux qui attendent encore d'être écrits dans leur branche. */
-export const reportsEnAttente = async (): Promise<ReportEnAttente[]> =>
-  (await tousLesReports()).filter((r) => r.reporteLe === null);
-
-/** Écrit ou met à jour un report. **Lève si le coffre est fermé.** */
-export async function ecrireReport(r: ReportEnAttente): Promise<ReportEnAttente> {
-  const cle = exigerLeCoffre();
-  const avec = { ...r, id: idOccurrence(r.tacheId, r.jourPrevu), majLe: maintenant() };
-  const scelle = await sceller(
-    cle,
-    'odysseeReports',
-    avec as unknown as Record<string, unknown>,
-  );
-  await (await db()).put('odysseeReports', scelle as unknown as ReportEnAttente);
-  await journaliser('odysseeReports', scelle);
-  return avec;
+/** Combien de plis attendent. Lisible **coffre fermé** : seul le nombre sort. */
+export async function combienDeReports(): Promise<number> {
+  return (await db()).count('odysseeReports');
 }
+
+/**
+ * Relève tout ce qui peut l'être. **Exige le coffre.**
+ *
+ * Rend les contenus relevés ET le nombre de plis illisibles. Ces derniers
+ * sont ceux d'une boîte périmée — mot de passe changé — et ils ne sont
+ * **pas supprimés** : un geste perdu sans trace est pire qu'un geste refusé.
+ */
+export async function releverLesReports(): Promise<{
+  contenus: { id: string; contenu: ContenuDuReport }[];
+  illisibles: number;
+}> {
+  const cle = exigerLeCoffre();
+  const { priveeDeLaBoite } = await import('../noyau/boite-du-coffre');
+  const { relever } = await import('../noyau/boite-aux-lettres');
+  const privee = await priveeDeLaBoite(rangementDeLaBoite(), cle);
+  const plis = await (await db()).getAll('odysseeReports');
+  if (!privee) return { contenus: [], illisibles: plis.length };
+
+  const contenus: { id: string; contenu: ContenuDuReport }[] = [];
+  let illisibles = 0;
+  for (const report of plis) {
+    try {
+      contenus.push({ id: report.id, contenu: await relever<ContenuDuReport>(privee, report.pli) });
+    } catch {
+      illisibles += 1;
+    }
+  }
+  return { contenus, illisibles };
+}
+
+/** Supprime un pli une fois son geste rejoué. N'exige pas le coffre : effacer n'est pas lire. */
+export async function oublierUnReport(id: string): Promise<void> {
+  await (await db()).delete('odysseeReports', id);
+}
+
+/** Le rangement de la paire, adossé au magasin d'état en clair. */
+const rangementDeLaBoite = () => ({
+  lire: async (clef: string) => (await (await db()).get('etat', clef)) as string | undefined,
+  ecrire: async (clef: string, valeur: string) => void (await (await db()).put('etat', valeur, clef)),
+  effacer: async (clef: string) => void (await (await db()).delete('etat', clef)),
+});
