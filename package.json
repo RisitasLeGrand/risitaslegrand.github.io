@@ -196,6 +196,7 @@
     "essais:taches-parcours": "node scripts/essais-taches-parcours.mjs",
     "essais:orphelins": "node scripts/essais-orphelins.mjs",
     "essais:pointage-derive": "tsx scripts/essais-pointage-derive.mts",
+    "essais:occurrences-fenetre": "tsx scripts/essais-occurrences-fenetre.mts",
     "essais:filtre-cycle": "tsx scripts/essais-filtre-cycle.mts",
     "essais:centre-modele": "tsx scripts/essais-centre-modele.mts",
     "essais:centre-recalcul": "tsx scripts/essais-centre-recalcul.mts"
