@@ -153,8 +153,32 @@ await page.waitForFunction(
 console.log('\nL’HISTORIQUE SURVIT AU RECHARGEMENT');
 await page.reload({ waitUntil: 'networkidle' });
 await page.waitForSelector('#vue:not(.hidden)', { timeout: 40000 });
-await page.fill('#mdp-coffre', MDP);
-await page.click('#ouvrir-coffre');
+
+/*
+   CET INVARIANT A ÉTÉ REMPLACÉ PAR UNE DÉCISION, PAS PAR UN RELÂCHEMENT.
+
+   L'essai ressaisissait le mot de passe du coffre après le rechargement : il
+   supposait qu'un rechargement referme le coffre. Le prompt 35 a livré la
+   MÉMOIRE DE SESSION — la clé encapsulée vit dans « sessionStorage » —, donc
+   le coffre se rouvre tout seul dans le même onglet, et le formulaire n'est
+   même plus affiché. L'essai attendait un champ invisible jusqu'à expiration.
+
+   Exiger encore la ressaisie reviendrait à exiger que la fonctionnalité ne
+   marche pas. Ce qui est vérifié maintenant est plus fort : le coffre est
+   DÉJÀ ouvert après le rechargement — c'est la promesse du prompt 35 — et
+   l'historique est là. Le repli couvre le cas où le formulaire reparaîtrait
+   (navigation privée, stockage refusé) : on ressaisit alors, et le contrôle
+   le dit.
+*/
+const formulaireReparu = await page
+  .locator('#mdp-coffre')
+  .isVisible()
+  .catch(() => false);
+vrai('le coffre est resté ouvert après le rechargement (mémoire de session)', !formulaireReparu);
+if (formulaireReparu) {
+  await page.fill('#mdp-coffre', MDP);
+  await page.click('#ouvrir-coffre');
+}
 await page.waitForFunction(
   () => document.querySelector('[data-dernier="phq9"]').textContent.includes('Score'),
   { timeout: 20000 });
