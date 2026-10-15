@@ -341,3 +341,13 @@ un correctif silencieux. Les deux premières viennent de moi.
 - **Le calendrier se dessine entièrement coffre fermé.** Les occurrences sont calculées depuis la série, qui vit en clair : seules les **exceptions** des tâches liées à une branche sous coffre manquent. Trois actions sur onze sont dans ce cas. C'est l'écart qui donne sa valeur à la décision 3 — si tout devenait illisible, le chiffrement par branche n'aurait servi à rien.
 - **Ce qu'on ne peut pas lire est dit, jamais deviné.** Une occurrence dont l'exception est scellée ne s'affiche pas « à faire » : ce serait une affirmation fausse. `lisibiliteDeLOccurrence` rend `scellee`, qui veut dire « on ne peut pas savoir », et non « il n'y a rien ».
 - **Les libellés ne portent aucun titre** (décision 6), et l'essai ne se contente pas de lire la constante : il refuse toute marque d'interpolation, parce qu'un gabarit finit par être rempli.
+
+### Comment A-6 sera tranchée
+
+Un artefact de décision contresignable lui est consacré, hors du dépôt : un
+acte par page, les trois options avec leurs conséquences, ma recommandation,
+et deux blocs de signature — Alexis décide, le Pilote donne un avis. Seule la
+signature d'Alexis autorise à toucher au scellement ; un contreseing absent
+ne bloque rien. C'est la forme retenue pour **tout** arbitrage à venir.
+
+Quelle que soit l'issue, un seul point du code change : `gesteSousCoffre()`.
