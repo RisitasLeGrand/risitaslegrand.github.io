@@ -32,7 +32,7 @@
  * 2 h » appartient à la veille, et seule la conversion explicite le sait.
  */
 import type { IdDomaine } from '../noyau/domaines';
-import type { Serie } from './repetition';
+import { problemesDeLaSerie, type Serie } from './repetition';
 
 /** L'identité commune : un ULID, et de quoi fusionner. */
 export interface Possede {
@@ -595,6 +595,94 @@ export function controlerTache(t: Tache): string[] {
   if (t.faiteLe !== null && !/^\d{4}-\d{2}-\d{2}$/.test(t.faiteLe)) {
     problemes.push('La date de clôture doit être un jour au format AAAA-MM-JJ.');
   }
+
+  /* --- Prompt 38 ---------------------------------------------------------- */
+
+  if (t.serie) {
+    problemes.push(...problemesDeLaSerie(t.serie));
+    /*
+       L'échéance et la série porteraient la même information sous deux
+       formes, et la première qui change ferait mentir l'autre. L'échéance
+       d'une tâche répétée est celle de chacune de ses occurrences, calculée.
+    */
+    if (t.echeance !== null) {
+      problemes.push('Une tâche répétée ne porte pas d’échéance : ses occurrences en tiennent lieu.');
+    }
+  }
+
+  if (t.etapes?.length) {
+    const vus = new Set<string>();
+    for (const e of t.etapes) {
+      if (!e.intitule.trim()) problemes.push('Une étape a besoin d’un intitulé.');
+      if (vus.has(e.id)) problemes.push(`Deux étapes portent l’identifiant « ${e.id} ».`);
+      vus.add(e.id);
+      if (!Number.isFinite(e.rang)) problemes.push('Le rang d’une étape doit être un nombre.');
+    }
+  }
+
+  return problemes;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Les clés déterministes des exceptions — prompt 38
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * La clé d'une occurrence : `«tacheId»/«jourPrevu»`.
+ *
+ * Déterministe **à dessein**, et c'est ce qui fait tenir la fusion : deux
+ * appareils qui pointent la même occurrence doivent viser la même cible. Un
+ * ULID tiré au hasard de chaque côté en aurait fait deux, et l'écran aurait
+ * affiché deux fois « fait » pour un seul geste.
+ *
+ * La barre oblique sépare sans ambiguïté : un ULID n'en contient pas, un jour
+ * logique non plus.
+ */
+export const idOccurrence = (tacheId: string, jourPrevu: string): string =>
+  `${tacheId}/${jourPrevu}`;
+
+/** La clé d'un cochage : `«tacheId»/«jourPrevu»/«etapeId»`. Même raison. */
+export const idEtapeCochee = (tacheId: string, jourPrevu: string, etapeId: string): string =>
+  `${tacheId}/${jourPrevu}/${etapeId}`;
+
+const JOUR = /^\d{4}-\d{2}-\d{2}$/;
+
+export function controlerOccurrence(o: Occurrence): string[] {
+  const problemes: string[] = [];
+  if (o.id !== idOccurrence(o.tacheId, o.jourPrevu)) {
+    problemes.push('L’identifiant d’une occurrence est « tâche/jour » : il n’est pas libre.');
+  }
+  if (!JOUR.test(o.jourPrevu)) problemes.push('Le jour prévu doit être au format AAAA-MM-JJ.');
+  if (o.etat === 'deplacee' && !o.jourPorte) {
+    problemes.push('Une occurrence déplacée dit où elle est portée.');
+  }
+  if (o.etat !== 'deplacee' && o.jourPorte) {
+    problemes.push('Seule une occurrence déplacée porte un jour d’arrivée.');
+  }
+  if (o.etat === 'modifiee' && !o.heure) {
+    problemes.push('Une occurrence modifiée dit quelle heure remplace celle de la série.');
+  }
+  /* Même exigence que pour la tâche : renoncer sans dire pourquoi n'est qu'une
+     disparition. */
+  if (o.etat === 'abandonnee' && !o.motifAbandon) {
+    problemes.push('Dire pourquoi vous y renoncez fait partie du renoncement.');
+  }
+  if (o.etat !== 'abandonnee' && o.motifAbandon) {
+    problemes.push('Une occurrence qui n’est pas abandonnée ne porte pas de motif d’abandon.');
+  }
+  if ((o.etat === 'pointee' || o.etat === 'abandonnee') && !o.le) {
+    problemes.push('Un pointage et un abandon ont une heure : c’est ce qu’ils gardent.');
+  }
+  return problemes;
+}
+
+export function controlerEtapeCochee(c: EtapeCochee): string[] {
+  const problemes: string[] = [];
+  if (c.id !== idEtapeCochee(c.tacheId, c.jourPrevu, c.etapeId)) {
+    problemes.push('L’identifiant d’un cochage est « tâche/jour/étape » : il n’est pas libre.');
+  }
+  if (!JOUR.test(c.jourPrevu)) problemes.push('Le jour prévu doit être au format AAAA-MM-JJ.');
+  if (!c.le) problemes.push('Un cochage a une heure.');
   return problemes;
 }
 
