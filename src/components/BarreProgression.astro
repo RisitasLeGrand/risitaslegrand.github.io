@@ -26,7 +26,7 @@
 >
   <div
     id="barre-progression-jauge"
-    class="jauge-remplissage h-full duration-200 ease-out"
+    class="jauge-remplissage h-full"
   >
   </div>
 </div>
@@ -34,7 +34,19 @@
 <style>
   /* La couleur suit le thème actif : Bleu France en clair, indigo clair en
      sombre — ce sont les tokens « --etat-* » définis par la charte. */
+  /*
+     A8 — LES CLASSES TAILWIND ÉTAIENT MORTES, et la barre durait 300 ms.
+
+     Elle portait « duration-200 ease-out ». Mais « .jauge-remplissage » écrit
+     la transition en raccourci, hors couche, et le raccourci l'emportait :
+     la barre tenait les 300 ms de « --duree-longue », pas les 200 annoncés.
+     Deux classes qui ne faisaient rien, et un chiffre faux dans l'inventaire.
+
+     On les retire et on redit la durée ici, en jeton. Une seule source.
+  */
   #barre-progression-jauge {
+    transition-duration: var(--duree-moyenne);
+    transition-timing-function: var(--courbe-sortie);
     background-color: var(--etat-action);
     box-shadow: 0 0 8px color-mix(in srgb, var(--etat-action) 60%, transparent);
   }
@@ -47,9 +59,12 @@
     box-shadow: 0 0 8px color-mix(in srgb, var(--etat-accent) 60%, transparent);
   }
 
+  /* Le fondu de sortie tenait 350 ms, au-dessus du plafond de 300 (interdit
+     n° 5). Il passe au jeton moyen, 200 ms — une barre qui a fini son travail
+     n'a pas à se faire attendre. */
   #barre-progression[data-etat='termine'] {
     opacity: 0;
-    transition: opacity 0.35s ease-out;
+    transition: opacity var(--duree-moyenne) var(--courbe-sortie);
   }
 
   @media (prefers-reduced-motion: reduce) {

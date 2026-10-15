@@ -82,7 +82,14 @@ import Base from '../layouts/Base.astro';
     padding-inline: 1rem;
     font-size: 0.875rem;
     font-weight: 500;
-    transition: all 150ms;
+    /* A10 : les propriétés sont nommées, et les durées viennent des jetons.
+       « all » transitionne aussi ce qu'on n'a pas voulu — une largeur, une
+       hauteur — et c'est ainsi que l'interdit sur « width » se viole sans
+       qu'aucun fichier ne contienne le mot. */
+    transition:
+      color var(--duree-courte) var(--courbe-sortie),
+      background-color var(--duree-courte) var(--courbe-sortie),
+      border-color var(--duree-courte) var(--courbe-sortie);
     border-color: var(--color-slate-300, #cbd5e1);
   }
   .periode[aria-pressed='true'] {

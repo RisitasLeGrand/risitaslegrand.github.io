@@ -39,6 +39,17 @@
   --text-xs: 0.875rem;
   --text-sm: 1rem;
   --text-base: 1.0625rem;
+
+  /*
+     A11 — LA DURÉE ET LA COURBE PAR DÉFAUT DE TAILWIND VIENNENT DES JETONS.
+
+     La classe « transition » de Tailwind appliquait ses propres 150 ms en
+     « ease ». Les liens les gardaient, les boutons ne les avaient plus (voir
+     plus bas) : deux rythmes pour le même geste, sur la même page. On aligne
+     le défaut sur l'échelle du socle plutôt que de répandre des classes.
+  */
+  --default-transition-duration: 120ms;
+  --default-transition-timing-function: cubic-bezier(0.4, 0, 1, 1);
 }
 
 /* --- L'échelle des animations (prompt 34, famille A6) -------------------- */
@@ -48,8 +59,9 @@
    choisir, et les pages finissent par ne plus bouger au même rythme.
 
    Le plafond de 300 ms vient de l'interdit n° 5 du prompt — aucune animation
-   ne retarde une action. Seul un retour explicite de succès peut aller jusqu'à
-   600 ms, d'où « --duree-succes », à n'employer que là.
+   ne retarde une action. Seul un retour explicite de succès pourrait aller
+   jusqu'à 600 ms, d'où « --duree-succes » — réservée, et aujourd'hui employée
+   nulle part.
 
    « --sortie » est plus rapide que « --entree » : ce qui se ferme doit libérer
    l'écran sans se faire attendre, ce qui s'ouvre peut prendre le temps d'être
@@ -59,6 +71,10 @@
   --duree-courte: 120ms;
   --duree-moyenne: 200ms;
   --duree-longue: 300ms;
+  /* RÉSERVÉE, INUTILISÉE À DESSEIN (A13). Aucun retour de succès ne dure
+     encore 600 ms : la coche de la bulle emploie la durée moyenne, et c'est
+     bien ainsi. On garde le jeton nommé plutôt que de laisser le jour où un
+     tel retour existera le faire naître en chiffre écrit à la main. */
   --duree-succes: 600ms;
 
   --courbe-entree: cubic-bezier(0.22, 0.61, 0.36, 1);
@@ -227,7 +243,9 @@ body {
   border-right: 2px solid currentColor;
   border-bottom: 2px solid currentColor;
   transform: rotate(45deg);
-  transition: transform 150ms ease;
+  /* A13 : aux jetons, comme tout le reste — 150 ms en « ease » ne venaient
+     d'aucune échelle. */
+  transition: transform var(--duree-courte) var(--courbe-sortie);
 }
 .depliant[open] > summary::after {
   transform: rotate(-135deg);
@@ -503,8 +521,11 @@ dfn.terme-glossaire:focus-visible {
     opacity: 1;
   }
 }
+/* A13 : ce qui ARRIVE dure 200 ms, dit la règle du socle. Le dépliant
+   s'ouvrait en 120 ms — la durée de ce qui part. On aligne sur la règle
+   plutôt que l'inverse : un contenu qui paraît mérite d'être suivi de l'œil. */
 details[open] > :not(summary) {
-  animation: paraitre var(--duree-courte) var(--courbe-entree);
+  animation: paraitre var(--duree-moyenne) var(--courbe-entree);
 }
 
 /* Les boîtes de dialogue natives, et leur fond.
@@ -579,9 +600,27 @@ dialog[open]::backdrop {
    est purement déclarative, aucun script ne s'interpose entre le doigt et
    l'action.
 */
+/*
+   A11 — ET LE FONDU DE SURVOL REVIENT AVEC LA PRESSION.
+
+   Cette règle écrivait « transition » en raccourci. Écrite hors couche, elle
+   l'emportait sur la classe « transition » de Tailwind, qui vit dans une
+   couche d'utilitaires : les boutons gagnaient le retour de pression et
+   perdaient le fondu de couleur au survol, que les liens gardaient. Deux
+   comportements pour deux éléments voisins, sans que personne l'ait voulu.
+
+   Les propriétés sont donc nommées une à une, pression comprise. On ne
+   remplace plus rien : on ajoute.
+*/
 button:not(:disabled),
 [role='button']:not([aria-disabled='true']) {
-  transition: transform var(--duree-courte) var(--courbe-sortie);
+  transition:
+    transform var(--duree-courte) var(--courbe-sortie),
+    color var(--duree-courte) var(--courbe-sortie),
+    background-color var(--duree-courte) var(--courbe-sortie),
+    border-color var(--duree-courte) var(--courbe-sortie),
+    box-shadow var(--duree-courte) var(--courbe-sortie),
+    opacity var(--duree-courte) var(--courbe-sortie);
 }
 button:not(:disabled):active,
 [role='button']:not([aria-disabled='true']):active {
@@ -718,9 +757,9 @@ button:not(:disabled):active,
    Vingt jauges écrites chacune à sa façon, c'était vingt occasions d'oublier
    la règle. Avec une classe commune, la vingt-et-unième en hérite.
 */
-.jauge {
-  overflow: hidden;
-}
+/* A13 : la classe « .jauge » a été retirée — elle n'était employée nulle
+   part. Les pistes posent leur « overflow-hidden » en classe Tailwind, là où
+   elles sont écrites, ce qui se lit mieux qu'une classe à part. */
 
 .jauge-remplissage {
   width: 100%;

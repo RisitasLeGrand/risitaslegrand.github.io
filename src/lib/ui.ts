@@ -54,7 +54,19 @@ export function notifier(message: string, variante: 'info' | 'succes' | 'badge' 
   if (!zone) {
     zone = document.createElement('div');
     zone.id = 'zone-notifications';
-    zone.className = 'pointer-events-none fixed inset-x-0 bottom-4 z-50 flex flex-col items-center gap-2 px-4';
+    /*
+       A14 — LA BULLE PASSE AU-DESSUS DE LA BARRE D'ONGLETS.
+
+       À 390 px, « bottom-4 » la plaçait sur la barre fixe du bas, qu'elle
+       couvrait pendant environ 2,7 s. Une notification n'a pas à masquer la
+       navigation : on dégage la hauteur de la barre (57 px) plus la marge.
+       Au-delà de 640 px la barre n'existe pas, et la bulle reprend sa place.
+
+       Antérieur au lot des animations : c'est la position qui était fausse,
+       pas la durée.
+    */
+    zone.className =
+      'pointer-events-none fixed inset-x-0 bottom-20 z-50 flex flex-col items-center gap-2 px-4 sm:bottom-4';
     zone.setAttribute('aria-live', 'polite');
     document.body.appendChild(zone);
   }

@@ -161,7 +161,12 @@ import Base from '../layouts/Base.astro';
     font-size: 0.875rem;
     font-weight: 500;
     border-color: var(--color-slate-300, #cbd5e1);
-    transition: all 150ms;
+    /* A10 : propriétés nommées, durées aux jetons — voir le même correctif
+       dans « syntheses.astro ». */
+    transition:
+      color var(--duree-courte) var(--courbe-sortie),
+      background-color var(--duree-courte) var(--courbe-sortie),
+      border-color var(--duree-courte) var(--courbe-sortie);
   }
   .choix[aria-pressed='true'] {
     border-color: var(--color-indigo-600, #4f46e5);
