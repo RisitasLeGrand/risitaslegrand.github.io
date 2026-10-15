@@ -61,14 +61,6 @@ const EXCEPTIONS = [
     pourquoi: 'Prompt 32, phase 3. Se branche à la phase 5, avec les résolveurs de source.',
   },
   {
-    chemin: 'src/lib/odyssee/occurrences-de-la-fenetre.ts',
-    depuis: '2026-10-15',
-    pourquoi:
-      'Prompt 39, phase 5. Le moteur précède son écran d’un commit, et la règle ' +
-      'du pilote veut que l’exception soit inscrite dans le MÊME commit que le ' +
-      'module — pas après. Elle part quand le calendrier l’appelle.',
-  },
-  {
     chemin: 'src/lib/noyau/permissions.ts',
     depuis: '2026-10-15',
     pourquoi: 'Anomalie A-12, trouvée par ce script même. Intégrée au prompt 39.',

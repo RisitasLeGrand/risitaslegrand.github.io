@@ -35,7 +35,9 @@
  * geste lui-même. C'est le registre qui le dit (`sens: 'deux-sens'`), et ce
  * module ne fait que l'exécuter : il n'a pas de liste à lui.
  */
+import { coffreOuvert, rangementDeLaBoite } from '../coffre';
 import { jourLogique } from '../noyau/jour-logique';
+import { gesteSousCoffre } from './coffre-ferme';
 import {
   LIBELLE_NEUTRE_DU_POINTAGE,
   actionLiable,
@@ -43,6 +45,7 @@ import {
   magasinDeLException,
   ouvreLEcran,
 } from './liaison-branches';
+import { idOccurrence } from './modele';
 import type { Occurrence, Tache } from './modele';
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -169,6 +172,160 @@ export async function pointerDepuisLeCalendrier(
       : await donnees.ecrireOccurrence(exception);
 
   return { occurrence, magasin, geste: await gesteDeBranche(tache, le) };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Le geste complet, coffre compris — les DEUX écrans qui pointent
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Ce qu'un pointage a réellement fait, dit à l'écran qui l'a demandé.
+ *
+ * Le refus est une **valeur**, comme dans `gesteSousCoffre` et pour la même
+ * raison : deux écrans doivent afficher la même phrase, et une phrase qui
+ * voyage dans une exception finit par être affichée comme une panne par
+ * l'un et avalée par l'autre.
+ */
+export type GestePointe =
+  | { quoi: 'pointe'; resultat: ResultatDuPointage }
+  /** Gardé chiffré, à rejouer à l'ouverture du coffre — A-6, option D. */
+  | { quoi: 'reporte' }
+  | { quoi: 'refuse'; pourquoi: string };
+
+/**
+ * Pointer l'occurrence d'une tâche répétée, **coffre compris**.
+ *
+ * ## Pourquoi cette fonction n'est pas dans l'écran
+ *
+ * Elle y était, dans `taches.astro`, et le calendrier allait en recevoir une
+ * copie. Or ce qu'elle enchaîne n'est pas de la mise en page : l'état du
+ * coffre, l'existence d'une boîte sur cet appareil, le choix entre écrire et
+ * reporter. Deux copies auraient divergé, et la divergence n'aurait pas été
+ * cosmétique — l'un des deux écrans aurait fini par écrire en clair ce que
+ * l'autre scelle, ou par jeter un geste que l'autre garde.
+ *
+ * L'écran garde ce qui lui revient : dire le résultat.
+ */
+export async function pointerLOccurrence(
+  tache: Tache,
+  jourPrevu: string,
+  options: { le?: Date } = {},
+): Promise<GestePointe> {
+  const le = options.le ?? new Date();
+
+  const { publiqueDeLaBoite } = await import('../noyau/boite-du-coffre');
+  const boiteDisponible = Boolean(await publiqueDeLaBoite(rangementDeLaBoite()));
+  const geste = gesteSousCoffre(tache, coffreOuvert(), boiteDisponible);
+
+  if (geste.quoi === 'impossible') return { quoi: 'refuse', pourquoi: geste.pourquoi };
+
+  if (geste.quoi === 'reporter') {
+    const donnees = await import('./donnees-occurrences');
+    const garde = await donnees.deposerUnReport({
+      tacheId: tache.id,
+      jourPrevu,
+      le: le.toISOString(),
+      branche: tache.lien?.action ?? '',
+    });
+    /*
+       `deposerUnReport` rend `false` quand il n'y a pas de boîte. On le dit
+       plutôt que de laisser croire que le geste a été gardé : un geste perdu
+       en silence est pire qu'un geste refusé.
+    */
+    if (!garde) {
+      return {
+        quoi: 'refuse',
+        pourquoi:
+          'Le geste n’a pas pu être gardé : ce navigateur n’a pas de boîte. ' +
+          'Ouvrez le coffre une fois, puis réessayez.',
+      };
+    }
+    return { quoi: 'reporte' };
+  }
+
+  return { quoi: 'pointe', resultat: await pointerDepuisLeCalendrier(tache, jourPrevu, { le }) };
+}
+
+/**
+ * Écrire une exception **dans le bon magasin** — anomalie A-14.
+ *
+ * Toute exception d'une tâche liée à une branche sous coffre est scellée :
+ * `magasinDeLException` le dit, et c'est la décision 3 qui le veut, parce
+ * qu'une ligne en clair « tâche X, le 14, abandonnée » rend un rythme
+ * lisible sans la clé. Les écrans appelaient `ecrireOccurrence` directement,
+ * donc écrivaient toujours en clair ; ils passent par ici désormais.
+ *
+ * **Lève si le coffre est fermé sur une tâche scellée** : il n'y a pas de
+ * repli acceptable. Écrire en clair annulerait la protection, et ne rien
+ * écrire ferait croire le geste enregistré.
+ */
+export async function ecrireLException(
+  tache: Tache,
+  exception: Omit<Occurrence, 'id' | 'majLe'>,
+): Promise<void> {
+  const donnees = await import('./donnees-occurrences');
+  if (magasinDeLException(tache) === 'odysseeExceptionsScellees') {
+    await donnees.ecrireExceptionScellee({ genre: 'occurrence', id: '', majLe: '', ...exception });
+    return;
+  }
+  await donnees.ecrireOccurrence(exception);
+}
+
+/**
+ * Défaire un pointage — C1, option D, et seconde moitié de l'anomalie A-14.
+ *
+ * ## Le magasin se choisit, il ne se suppose pas
+ *
+ * `taches.astro` écrivait le dépointage avec `ecrireOccurrence`, donc **en
+ * clair**, y compris pour une tâche liée à une branche sous coffre. Une
+ * ligne en clair portant « tâche X, le 14, dépointée » rend le rythme
+ * lisible sans la clé — exactement ce que la décision 3 refuse, et ce que
+ * `magasinDeLException` existe pour empêcher. Le choix du magasin est donc
+ * fait ici, une fois, pour les deux écrans.
+ *
+ * ## Deux gestes, pas un
+ *
+ * `gesteDeRetrait` les distingue, et la distinction porte tout :
+ *
+ * - **effacer l'exception** quand c'est l'exception qui disait « faite ».
+ *   L'occurrence redevient ce que la règle en dit ;
+ * - **écrire un dépointage** quand c'est la branche qui le dit. Effacer ne
+ *   servirait à rien — l'affichage suivant relirait le fait et recocherait.
+ *   Il faut une exception qui **contredit**, sans toucher à la séance : la
+ *   séance a eu lieu, et le calendrier n'a pas à la défaire.
+ *
+ * **Lève si le coffre est fermé sur une tâche scellée**, parce qu'il n'y a
+ * alors rien à proposer : l'occurrence est `inconnu`, donc pas « faite »,
+ * donc `gesteDeRetrait` rend `rien-a-defaire` et l'écran n'offre pas le
+ * bouton. Si malgré tout l'appel arrive, mieux vaut une erreur visible
+ * qu'une écriture en clair.
+ */
+export async function retirerLePointage(
+  tache: Tache,
+  jourPrevu: string,
+  geste: 'effacer-l-exception' | 'ecrire-un-depointage',
+  options: { le?: Date } = {},
+): Promise<void> {
+  const donnees = await import('./donnees-occurrences');
+  const scelle = magasinDeLException(tache) === 'odysseeExceptionsScellees';
+
+  if (geste === 'effacer-l-exception') {
+    /* Effacer n'est pas lire : aucune des deux suppressions n'exige le coffre. */
+    if (scelle) await donnees.oublierExceptionScellee(idOccurrence(tache.id, jourPrevu));
+    else await donnees.oublierOccurrence(tache.id, jourPrevu);
+    return;
+  }
+
+  const depointage: Omit<Occurrence, 'id' | 'majLe'> = {
+    tacheId: tache.id,
+    jourPrevu,
+    etat: 'depointee',
+    jourPorte: null,
+    heure: null,
+    le: (options.le ?? new Date()).toISOString(),
+    motifAbandon: null,
+  };
+  await ecrireLException(tache, depointage);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

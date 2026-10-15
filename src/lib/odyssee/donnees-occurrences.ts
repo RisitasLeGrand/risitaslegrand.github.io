@@ -26,6 +26,7 @@
  * pointage coffre fermé est l'objet des reports, et c'est la phase 7.
  */
 import { db } from '../db';
+import { dansLaFenetre } from './occurrences-de-la-fenetre';
 import { exigerLeCoffre, rangementDeLaBoite } from '../coffre';
 import { ouvrir, sceller } from '../noyau/coffre';
 import {
@@ -97,6 +98,50 @@ export async function occurrencesDuMagasinClair(): Promise<Occurrence[]> {
 /** Les exceptions d'un jour logique, toutes tâches confondues. */
 export async function occurrencesDuJour(jourPrevu: string): Promise<Occurrence[]> {
   return (await db()).getAllFromIndex('odysseeOccurrences', 'jourPrevu', jourPrevu);
+}
+
+/**
+ * Les exceptions d'une fenêtre de jours, **des deux magasins** — anomalie A-14.
+ *
+ * ## Ce qui était cassé
+ *
+ * Jusqu'ici personne ne lisait `odysseeExceptionsScellees`. Le vérifier est
+ * une recherche d'une ligne : aucun appel à `exceptionsScellees()` hors de
+ * ce fichier. Or `pointerDepuisLeCalendrier` y range l'exception de toute
+ * tâche liée à une branche sous coffre. Le magasin était donc **en écriture
+ * seule**, et la conséquence est précise : un dépointage sur une tâche
+ * sensible s'écrivait et ne se voyait jamais — l'écran continuait de
+ * déduire « faite » du fait de branche, que lui se lit. L'exception doit
+ * faire autorité ; elle ne le pouvait pas, faute d'être lue.
+ *
+ * ## Ce que cette fonction lit, et ce qu'elle refuse de deviner
+ *
+ * **Coffre fermé, elle ne rend que le clair.** Elle ne lève pas : une
+ * exception scellée illisible n'est pas une panne, c'est l'état normal d'un
+ * coffre fermé, et le moteur d'affichage marque l'occurrence `scellee` de
+ * son côté. Lever ici obligerait chaque écran à entourer sa lecture d'un
+ * `try`, et un `try` finit par avaler autre chose.
+ *
+ * **La fenêtre est élargie par l'appelant, pas par nous.** La borne est
+ * celle de `fenetreElargie()`, et elle doit être la même qu'au déroulé de
+ * la règle : deux bornes différentes feraient manquer l'exception d'une
+ * occurrence déplacée de loin, qui paraîtrait alors au jour que la règle
+ * prévoyait — c'est-à-dire là où elle n'est plus.
+ *
+ * **Le magasin scellé se parcourt en entier.** Il n'a pas d'index sur le
+ * jour, et c'est voulu : le jour est dans le chiffré. Il reste petit.
+ */
+export async function exceptionsDeLaFenetre(
+  du: string,
+  au: string,
+  options: { coffreOuvert: boolean },
+): Promise<Occurrence[]> {
+  const clair = (await occurrencesDuMagasinClair()).filter((o) => dansLaFenetre(o, du, au));
+  if (!options.coffreOuvert) return clair;
+  const scellees = (await exceptionsScellees()).filter(
+    (e): e is { genre: 'occurrence' } & Occurrence => e.genre === 'occurrence',
+  );
+  return [...clair, ...scellees.filter((o) => dansLaFenetre(o, du, au))];
 }
 
 /**

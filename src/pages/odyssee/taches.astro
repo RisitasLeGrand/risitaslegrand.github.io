@@ -160,11 +160,8 @@ import Base from '../../layouts/Base.astro';
     cocherEtape,
     cochagesDuJour,
     decocherEtape,
-    deposerUnReport,
-    ecrireOccurrence,
     occurrencesDeLaTache,
     occurrencesDuJour,
-    oublierOccurrence,
   } from '../../lib/odyssee/donnees-occurrences';
   /*
      Les trois moteurs des phases 5 à 7 du prompt 38 — anomalie A-9.
@@ -175,9 +172,12 @@ import Base from '../../layouts/Base.astro';
      qui les appelle désormais, parce que c'est le seul qui connaisse les
      séries.
   */
-  import { coffreOuvert, rangementDeLaBoite } from '../../lib/coffre';
-  import { gesteSousCoffre } from '../../lib/odyssee/coffre-ferme';
-  import { pointerDepuisLeCalendrier } from '../../lib/odyssee/pointage-partage';
+  import { coffreOuvert } from '../../lib/coffre';
+  import {
+    ecrireLException,
+    pointerLOccurrence,
+    retirerLePointage,
+  } from '../../lib/odyssee/pointage-partage';
   /*
      Le sens branche → tâche — prompt 39, C2. Il ne s'écrit pas, il se
      relit : une occurrence liée est faite quand un fait compté de son
@@ -195,7 +195,7 @@ import Base from '../../layouts/Base.astro';
     planifierModification,
     type Portee,
   } from '../../lib/odyssee/modification-serie';
-  import type { EtapeCochee } from '../../lib/odyssee/modele';
+  import type { EtapeCochee, EtatDOccurrence } from '../../lib/odyssee/modele';
   /*
      Les champs de série vivent dans leur propre module depuis le prompt 39 :
      le calendrier les monte aussi, et un formulaire recopié aurait divergé.
@@ -503,7 +503,8 @@ import Base from '../../layouts/Base.astro';
             exceptions,
             aujourdhui,
           );
-          if (plan.occurrence) await ecrireOccurrence(plan.occurrence);
+          /* Le magasin se choisit : une tâche scellée n'écrit pas en clair (A-14). */
+          if (plan.occurrence) await ecrireLException(tache, plan.occurrence);
           if (plan.tache) await ecrireTache(plan.tache);
           /* La seconde moitié d'une scission naît comme une tâche neuve :
              elle a besoin d'un identifiant et d'une date de création, que le
@@ -615,21 +616,16 @@ import Base from '../../layouts/Base.astro';
           actions.appendChild(note);
         }
         defaire.addEventListener('click', () =>
-          void agirPuisPeindre(async () => {
-            if (geste === 'effacer-l-exception') {
-              await oublierOccurrence(tache.id, jour);
-              return;
-            }
-            await ecrireOccurrence({
-              tacheId: tache.id,
-              jourPrevu: jour,
-              etat: 'depointee',
-              jourPorte: null,
-              heure: null,
-              le: new Date().toISOString(),
-              motifAbandon: null,
-            });
-          }),
+          /*
+             Le magasin se choisit dans `retirerLePointage` : écrire ici
+             mettait le dépointage d'une tâche scellée EN CLAIR — anomalie
+             A-14, seconde moitié.
+          */
+          void agirPuisPeindre(() =>
+            geste === 'rien-a-defaire'
+              ? Promise.resolve()
+              : retirerLePointage(tache, jour, geste),
+          ),
         );
         actions.appendChild(defaire);
       } else {
@@ -749,7 +745,8 @@ import Base from '../../layouts/Base.astro';
             motif,
             new Date().toISOString(),
           );
-          if (plan.occurrence) await ecrireOccurrence(plan.occurrence);
+          /* Le magasin se choisit : une tâche scellée n'écrit pas en clair (A-14). */
+          if (plan.occurrence) await ecrireLException(tache, plan.occurrence);
           if (plan.tache) await ecrireTache(plan.tache);
         });
       });
@@ -836,31 +833,14 @@ import Base from '../../layouts/Base.astro';
       return;
     }
 
-    const { publiqueDeLaBoite } = await import('../../lib/noyau/boite-du-coffre');
-    const boiteDisponible = Boolean(await publiqueDeLaBoite(rangementDeLaBoite()));
-    const geste = gesteSousCoffre(tache, coffreOuvert(), boiteDisponible);
-
-    if (geste.quoi === 'impossible') throw new Error(geste.pourquoi);
-
-    const jour = jourDeLOccurrence(tache, aujourdhui);
-
-    if (geste.quoi === 'reporter') {
-      const garde = await deposerUnReport({
-        tacheId: tache.id,
-        jourPrevu: jour,
-        le: new Date().toISOString(),
-        branche: tache.lien?.action ?? '',
-      });
-      if (!garde) {
-        throw new Error(
-          'Le geste n’a pas pu être gardé : ce navigateur n’a pas de boîte. ' +
-            'Ouvrez le coffre une fois, puis réessayez.',
-        );
-      }
-      return;
-    }
-
-    await pointerDepuisLeCalendrier(tache, jour);
+    /*
+       Le geste complet — coffre, boîte, report — vit dans
+       `pointage-partage.ts` depuis le prompt 39 : le calendrier pointe
+       aussi, et deux copies de cet enchaînement auraient divergé là où
+       la divergence coûte le plus cher.
+    */
+    const geste = await pointerLOccurrence(tache, jourDeLOccurrence(tache, aujourdhui));
+    if (geste.quoi === 'refuse') throw new Error(geste.pourquoi);
   }
 
   async function agirPuisPeindre(action: () => Promise<unknown>) {
@@ -1054,10 +1034,48 @@ import Base from '../../layouts/Base.astro';
           monterLesChampsDeSerie();
           ($('repeter') as HTMLDetailsElement).open = false;
           $('erreur-ajout').classList.add('hidden');
+          /*
+             Venu du calendrier, on y retourne — sur le jour d'origine.
+             Après l'écriture, jamais avant : partir d'abord laisserait
+             croire la tâche créée si l'écriture avait échoué.
+          */
+          if (retour) location.assign(retour);
         });
       });
 
+      /*
+         ARRIVÉE DEPUIS LE CALENDRIER — prompt 39, C3.
+
+         Le calendrier n'ouvre pas un second formulaire de création : il
+         emmène ici, avec le jour choisi et la série déjà dépliée. Trois
+         paramètres, et chacun est vérifié avant d'être cru.
+
+         `retour` surtout : c'est une adresse qui vient de la barre du
+         navigateur, donc de n'importe où. On n'accepte qu'un chemin
+         **interne** — il commence par « / » et pas par « // », qui
+         désignerait un autre site. Sans ce contrôle, un lien forgé
+         renverrait ailleurs après l'enregistrement, et l'écran aurait
+         l'air d'y envoyer de lui-même.
+      */
+      const parametres = new URLSearchParams(location.search);
+      const jourDemande = parametres.get('jour');
+      const retourDemande = parametres.get('retour');
+      const retour =
+        retourDemande && retourDemande.startsWith('/') && !retourDemande.startsWith('//')
+          ? retourDemande
+          : null;
+
       monterLesChampsDeSerie();
+
+      if (jourDemande && /^\d{4}-\d{2}-\d{2}$/.test(jourDemande)) {
+        ($('echeance') as HTMLInputElement).value = jourDemande;
+      }
+      if (parametres.get('serie') === '1') {
+        ($('repeter') as HTMLDetailsElement).open = true;
+        /* Remonté APRÈS l'échéance : c'est elle qui ancre la règle. */
+        monterLesChampsDeSerie();
+      }
+
       /* L'échéance est l'ancre de la règle : la changer change le libellé
          d'une série mensuelle ou annuelle, et l'aperçu doit le dire. */
       for (const evenement of ['change', 'input']) {

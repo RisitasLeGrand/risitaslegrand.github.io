@@ -20,6 +20,8 @@
  *   liste de tâches.
  */
 import {
+  dansLaFenetre,
+  fenetreElargie,
   occurrencesDeLaFenetre,
   occurrencesDuJourAffichees,
   type ExceptionLue,
@@ -154,6 +156,83 @@ console.log('\n\x1b[1mL’ordre est stable\x1b[0m');
   const b = tache({ id: '01B', titre: 'Abeille' });
   const r = occurrencesDeLaFenetre([a, b], '2026-10-14', '2026-10-14', vide);
   v('à jour égal, par titre', r.map((o) => o.titre), ['Abeille', 'Zèbre']);
+}
+
+console.log('\n\x1b[1mLa fenêtre élargie, que le lecteur d’exceptions doit partager\x1b[0m');
+{
+  /*
+     Ce bloc existe parce que la borne est maintenant lue à DEUX endroits :
+     ici pour dérouler la règle, et dans `donnees-occurrences.ts` pour lire
+     les exceptions. Deux bornes différentes feraient manquer l'exception
+     d'une occurrence déplacée de loin — l'occurrence paraîtrait au jour que
+     la règle prévoyait, alors qu'elle a été déplacée.
+  */
+  v('un mois entier de part et d’autre', fenetreElargie('2026-10-14', '2026-10-15'), [
+    '2026-09-13',
+    '2026-11-15',
+  ]);
+  v('la borne franchit un changement d’année', fenetreElargie('2027-01-05', '2027-01-05'), [
+    '2026-12-05',
+    '2027-02-05',
+  ]);
+
+  const prevue = { jourPrevu: '2026-10-20', jourPorte: null };
+  v('une exception du jour est dans la fenêtre', dansLaFenetre(prevue, '2026-10-14', '2026-10-21'), true);
+  v('hors fenêtre, elle n’y est pas', dansLaFenetre(prevue, '2026-10-01', '2026-10-05'), false);
+
+  const venueDeLoin = { jourPrevu: '2026-09-20', jourPorte: '2026-10-15' };
+  v(
+    'une occurrence déplacée DANS la fenêtre y est, par son jour d’arrivée',
+    dansLaFenetre(venueDeLoin, '2026-10-14', '2026-10-15'),
+    true,
+  );
+  v(
+    'et elle y est aussi par son jour prévu, lu dans la fenêtre élargie',
+    dansLaFenetre(venueDeLoin, ...fenetreElargie('2026-10-14', '2026-10-15')),
+    true,
+  );
+  const partieAilleurs = { jourPrevu: '2026-10-15', jourPorte: '2026-12-01' };
+  v(
+    'une occurrence partie ailleurs reste lue, sinon on la montrerait restée',
+    dansLaFenetre(partieAilleurs, '2026-10-14', '2026-10-15'),
+    true,
+  );
+}
+
+console.log('\n\x1b[1mL’heure : la série la donne, l’exception la reprend\x1b[0m');
+{
+  const t = tache({
+    id: '01H',
+    titre: 'Courir',
+    serie: {
+      depuis: '2026-10-01',
+      repetition: { type: 'jours', tous: 1 },
+      fin: { type: 'jamais' },
+      heure: '08:00',
+    },
+  });
+  const sansException = occurrencesDeLaFenetre([t], '2026-10-14', '2026-10-14', vide);
+  v('la série porte l’heure', sansException[0].heure, '08:00');
+
+  const decalee: ExceptionLue = {
+    tacheId: '01H',
+    jourPrevu: '2026-10-14',
+    etat: 'modifiee',
+    jourPorte: null,
+    heure: '19:30',
+  };
+  const avec = occurrencesDeLaFenetre([t], '2026-10-14', '2026-10-14', {
+    ...vide,
+    exceptions: [decalee],
+  });
+  v('l’exception la reprend — sinon le rendez-vous est manqué', avec[0].heure, '19:30');
+
+  const muette = tache({ id: '01M', titre: 'Lire' });
+  v(
+    'sans heure, rien n’est inventé',
+    occurrencesDeLaFenetre([muette], '2026-10-14', '2026-10-14', vide)[0].heure,
+    null,
+  );
 }
 
 console.log(

@@ -47,6 +47,8 @@ export interface ExceptionLue {
   jourPrevu: string;
   etat: EtatDOccurrence;
   jourPorte: string | null;
+  /** « Modifiée » : l'heure murale qui remplace celle de la série. */
+  heure?: string | null;
 }
 
 export interface OccurrenceAffichee {
@@ -63,6 +65,16 @@ export interface OccurrenceAffichee {
   origine: OrigineDuPointage;
   abandonnee: boolean;
   deplacee: boolean;
+  /**
+   * L'heure murale `HH:MM`, ou `null` quand la série n'en porte pas.
+   *
+   * **L'exception l'emporte** quand elle en pose une : c'est la règle
+   * « l'exception fait autorité, le calcul n'est que le défaut », et une
+   * occurrence décalée à 19 h affichée à 8 h serait un rendez-vous manqué.
+   */
+  heure: string | null;
+  /** La tâche vise une branche. Le calendrier le signale, sans la nommer. */
+  liee: boolean;
 }
 
 export interface ContexteDeFenetre {
@@ -77,6 +89,47 @@ export interface ContexteDeFenetre {
  * Les tâches sans série n'en produisent aucune : elles se font une fois, et
  * le calendrier n'est pas une liste de tâches.
  */
+/**
+ * De combien de jours on déroule la règle **au-delà** de la fenêtre.
+ *
+ * Une occurrence prévue avant le début peut avoir été déplacée dedans. Sans
+ * cet élargissement elle manquerait, et le calendrier mentirait par omission
+ * sur un déplacement que la personne a elle-même fait.
+ *
+ * Trente et un jours, parce que c'est le plus long mois : un déplacement
+ * au-delà d'un mois entier n'est plus un report, c'est une autre occurrence.
+ * La borne est **dite** plutôt que devinée, et l'appelant qui lit les
+ * exceptions doit lire la même — d'où `fenetreElargie`, exportée.
+ */
+export const MARGE_DE_DEPLACEMENT = 31;
+
+/** Les bornes à lire pour une fenêtre affichée de `du` à `au`, inclus. */
+export function fenetreElargie(du: string, au: string): [string, string] {
+  const decale = (jour: string, sens: 1 | -1) => {
+    const d = new Date(`${jour}T12:00:00Z`);
+    d.setUTCDate(d.getUTCDate() + sens * MARGE_DE_DEPLACEMENT);
+    return d.toISOString().slice(0, 10);
+  };
+  return [decale(du, -1), decale(au, 1)];
+}
+
+/**
+ * Une exception tombe-t-elle dans la fenêtre élargie ?
+ *
+ * **Les deux jours comptent.** Une occurrence prévue le 3 et déplacée au 20
+ * appartient à la lecture du 3 comme à celle du 20 : la première dit que la
+ * règle y prévoyait quelque chose, la seconde la montre. Ne regarder que
+ * `jourPrevu` perdrait l'exception d'un déplacement venu de loin ; ne
+ * regarder que `jourPorte` perdrait toutes les autres, qui ne le portent pas.
+ */
+export const dansLaFenetre = (
+  exception: { jourPrevu: string; jourPorte: string | null },
+  du: string,
+  au: string,
+): boolean =>
+  (exception.jourPrevu >= du && exception.jourPrevu <= au) ||
+  (exception.jourPorte !== null && exception.jourPorte >= du && exception.jourPorte <= au);
+
 export function occurrencesDeLaFenetre(
   taches: readonly Tache[],
   du: string,
@@ -97,20 +150,25 @@ export function occurrencesDeLaFenetre(
        elle manquerait, et le calendrier mentirait par omission sur un
        déplacement que la personne a elle-même fait.
     */
-    const marge = 31;
-    const elargi = (jour: string, sens: 1 | -1) => {
-      const d = new Date(`${jour}T12:00:00Z`);
-      d.setUTCDate(d.getUTCDate() + sens * marge);
-      return d.toISOString().slice(0, 10);
-    };
+    const [debut, fin] = fenetreElargie(du, au);
 
-    for (const jourPrevu of occurrences(tache.serie, elargi(du, -1), elargi(au, 1))) {
+    for (const jourPrevu of occurrences(tache.serie, debut, fin)) {
       const exception = siennes.find((e) => e.jourPrevu === jourPrevu);
       const deplacee = exception?.etat === 'deplacee' && Boolean(exception.jourPorte);
       const jour = deplacee ? exception!.jourPorte! : jourPrevu;
       if (jour < du || jour > au) continue;
 
-      const pointage = pointageDeLOccurrence(tache, jourPrevu, {
+      /*
+         LE JOUR D'ARRIVÉE, pas celui que la règle prévoyait — anomalie A-15,
+         trouvée en branchant le calendrier sur ce moteur.
+
+         La phase 5a passait `jourPrevu`. Pour une occurrence déplacée du 20
+         septembre au 15 octobre, elle cherchait donc un fait de branche le
+         20 septembre, alors que la séance a eu lieu le 15 : l'occurrence
+         restait « à faire » le jour où elle avait justement été faite. Le
+         pointage dérivé se lit au jour où l'occurrence se présente.
+      */
+      const pointage = pointageDeLOccurrence(tache, jour, {
         exception: exception ? { etat: exception.etat } : null,
         faits: contexte.faits,
         coffreOuvert: contexte.coffreOuvert,
@@ -127,6 +185,8 @@ export function occurrencesDeLaFenetre(
         origine: pointage.origine,
         abandonnee: exception?.etat === 'abandonnee',
         deplacee,
+        heure: exception?.heure ?? tache.serie.heure,
+        liee: Boolean(tache.lien),
       });
     }
   }
