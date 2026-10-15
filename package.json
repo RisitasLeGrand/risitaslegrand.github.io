@@ -199,7 +199,9 @@
     "essais:occurrences-fenetre": "tsx scripts/essais-occurrences-fenetre.mts",
     "essais:filtre-cycle": "tsx scripts/essais-filtre-cycle.mts",
     "essais:centre-modele": "tsx scripts/essais-centre-modele.mts",
-    "essais:centre-recalcul": "tsx scripts/essais-centre-recalcul.mts"
+    "essais:centre-recalcul": "tsx scripts/essais-centre-recalcul.mts",
+    "essais:calendrier-occurrences": "node scripts/essais-calendrier-occurrences.mjs",
+    "mesure:occurrences-mois": "tsx scripts/mesure-occurrences-mois.mts"
   },
   "repository": {
     "type": "git",

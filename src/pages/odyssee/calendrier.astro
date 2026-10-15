@@ -194,6 +194,41 @@ import Base from '../../layouts/Base.astro';
     type Realisation,
   } from '../../lib/odyssee/modele';
   import { lireIcs, rapprocher, versFichierIcs } from '../../lib/odyssee/ics';
+  /*
+     LES OCCURRENCES DES TÂCHES RÉPÉTÉES — prompt 39, C3, et anomalie A-8.
+
+     Le prompt 38 demandait déjà que « le calendrier montre les occurrences
+     futures » ; cet écran ne montrait que des événements. La différence
+     n'est pas cosmétique : une tâche qui se répète n'avait aucun endroit où
+     se voir à l'avance, donc aucun endroit où se préparer.
+
+     Rien n'est déroulé ici. `occurrencesDeLaFenetre` rend une liste déjà
+     résolue — déplacements appliqués, exceptions lues, état du coffre pris
+     en compte —, et cet écran ne décide que de la mise en page.
+  */
+  import { toutesLesTaches, ecrireTache } from '../../lib/odyssee/donnees';
+  import { exceptionsDeLaFenetre } from '../../lib/odyssee/donnees-occurrences';
+  import {
+    fenetreElargie,
+    occurrencesDeLaFenetre,
+    type OccurrenceAffichee,
+  } from '../../lib/odyssee/occurrences-de-la-fenetre';
+  import { faitsEntre } from '../../lib/odyssee/faits-du-jour';
+  import { gesteDeRetrait } from '../../lib/odyssee/pointage-derive';
+  import {
+    ecrireLException,
+    pointerLOccurrence,
+    retirerLePointage,
+  } from '../../lib/odyssee/pointage-partage';
+  import { MENTION_ETAT_SCELLE } from '../../lib/odyssee/coffre-ferme';
+  import {
+    LIBELLE_PORTEE,
+    planifierAbandon,
+    type Portee,
+  } from '../../lib/odyssee/modification-serie';
+  import { coffreOuvert } from '../../lib/coffre';
+  import { base } from '../../lib/ui';
+  import type { Tache } from '../../lib/odyssee/modele';
   import { HEURES_SURCHARGE } from '../../lib/odyssee/jour';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
@@ -206,7 +241,20 @@ import Base from '../../layouts/Base.astro';
   let vue: Vue = 'semaine';
   /** Le jour d'ancrage de la vue, au format AAAA-MM-JJ. */
   let ancre = '';
+  /** Le jour logique courant, figé à l'ouverture. Sert à dire « en retard ». */
+  let aujourdhui = '';
   let actifs: string[] = [];
+  /** Les tâches, gardées pour retrouver celle d'une occurrence qu'on pointe. */
+  let taches: Tache[] = [];
+  /** Les occurrences de la fenêtre courante, déjà résolues. */
+  let occurrencesAffichees: OccurrenceAffichee[] = [];
+  /*
+     Les branches qu'on n'a pas pu lire — coffre fermé, le plus souvent.
+     Elles ne sont JAMAIS affichées par leur nom : la mention d'état scellé
+     dit qu'on ne sait pas, et nommer la branche dirait déjà quelque chose.
+     Elles sont gardées pour l'essai, qui vérifie qu'on ne les tait pas.
+  */
+  let branchesIllisibles: string[] = [];
 
   const ajouterJours = (jour: string, n: number) =>
     new Date(Date.parse(`${jour}T00:00:00.000Z`) + n * 86400000).toISOString().slice(0, 10);
@@ -384,6 +432,381 @@ import Base from '../../layouts/Base.astro';
   }
 
   /* ──────────────────────────────────────────────────────────────────────
+     Les tâches prévues — prompt 39, C3
+     ────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * Charge les occurrences de la fenêtre affichée.
+   *
+   * ## Trois lectures, et une borne qu'il faut partager
+   *
+   * Les exceptions sont lues sur la fenêtre **élargie**, celle du déroulé :
+   * une occurrence prévue avant le début peut avoir été déplacée dedans, et
+   * son exception se range au jour que la règle prévoyait. Lire sur la seule
+   * fenêtre affichée perdrait cette exception, et l'occurrence paraîtrait là
+   * où elle n'est plus. `fenetreElargie` est donc appelée ici ET dans le
+   * moteur, parce que les deux doivent dire la même chose.
+   *
+   * Les faits, eux, se lisent sur la fenêtre **affichée** : une occurrence
+   * ne se voit faite qu'au jour où elle se présente.
+   *
+   * ## Rien n'est lu quand rien n'est à montrer
+   *
+   * Sans aucune tâche répétée, on s'arrête : projeter les faits de six
+   * branches pour n'afficher aucune ligne serait une lecture de données
+   * sensibles qu'aucun affichage ne demande.
+   */
+  async function chargerLesOccurrences(du: string, au: string): Promise<void> {
+    taches = await toutesLesTaches();
+    if (!taches.some((t) => t.serie && !t.abandonneeLe)) {
+      occurrencesAffichees = [];
+      branchesIllisibles = [];
+      return;
+    }
+    const ouvert = coffreOuvert();
+    const [debut, fin] = fenetreElargie(du, au);
+    const exceptions = await exceptionsDeLaFenetre(debut, fin, { coffreOuvert: ouvert });
+    const fenetreDeFaits = await faitsEntre(du, au);
+    branchesIllisibles = fenetreDeFaits.branchesIllisibles;
+    occurrencesAffichees = occurrencesDeLaFenetre(taches, du, au, {
+      exceptions,
+      faits: fenetreDeFaits.faits,
+      coffreOuvert: ouvert,
+    });
+  }
+
+  /** En retard : passée, pas faite, pas abandonnée — et **lisible**. */
+  const enRetard = (o: OccurrenceAffichee) =>
+    o.lisible && !o.faite && !o.abandonnee && o.jour < aujourdhui;
+
+  /**
+   * La ligne compacte de la vue mois.
+   *
+   * Décision 2 du pilote : « le jour affiche ses événements en entier, puis
+   * une seule ligne compacte ». Une tâche quotidienne produit trente lignes
+   * dans un mois ; les mêler aux rendez-vous noierait les rendez-vous, et
+   * un agenda qu'on ne lit plus ne sert à rien. Rien n'est caché pour
+   * autant : le compte est là, et la vue jour donne le détail.
+   *
+   * Décision 5 : coffre fermé, les occurrences scellées **comptent**, sans
+   * rien dire de plus. Elles ne sont jamais dites en retard — on ne le sait
+   * pas, et l'affirmer serait inventer.
+   */
+  function ligneCompacteDuMois(duJour: readonly OccurrenceAffichee[], jour: string): HTMLElement {
+    const bouton = document.createElement('button');
+    bouton.type = 'button';
+    bouton.dataset.compacteTaches = jour;
+    bouton.className =
+      'mt-1 flex min-h-11 w-full items-center gap-2 rounded-lg border border-dashed ' +
+      'border-slate-300 px-3 text-left text-xs text-slate-600 transition ' +
+      'hover:border-indigo-400 dark:border-slate-700 dark:text-slate-300';
+
+    const compte = document.createElement('span');
+    compte.textContent = `${duJour.length} tâche${duJour.length > 1 ? 's' : ''}`;
+    bouton.appendChild(compte);
+
+    const tard = duJour.filter(enRetard).length;
+    if (tard) {
+      const repere = document.createElement('span');
+      repere.dataset.repereRetard = jour;
+      repere.className = 'text-amber-700 dark:text-amber-300';
+      repere.textContent = `· ${tard} en retard`;
+      bouton.appendChild(repere);
+    }
+    if (duJour.some((o) => o.liee)) {
+      /*
+         Un repère, pas un libellé : dire « liée à Sport » nommerait la
+         branche sur un écran qui n'a pas à la nommer. Le nom passe par
+         `title` et `aria-label`, pour qui le demande.
+      */
+      const lien = document.createElement('span');
+      lien.dataset.repereLien = jour;
+      lien.className = 'text-indigo-600 dark:text-indigo-400';
+      lien.setAttribute('aria-label', 'Dont une liée à une branche');
+      lien.title = 'Dont une liée à une branche';
+      lien.textContent = '◆';
+      bouton.appendChild(lien);
+    }
+
+    const aller = document.createElement('span');
+    aller.className = 'ml-auto text-slate-400 dark:text-slate-500';
+    aller.textContent = 'voir le jour →';
+    bouton.appendChild(aller);
+
+    bouton.addEventListener('click', () => {
+      vue = 'jour';
+      ancre = jour;
+      void peindre();
+    });
+    return bouton;
+  }
+
+  /**
+   * Une occurrence, en vue jour ou semaine.
+   *
+   * Les gestes ne sont pas réimplémentés : `pointerLOccurrence` et
+   * `retirerLePointage` sont ceux de l'écran des tâches, et c'est voulu —
+   * le choix du magasin, le report coffre fermé et la distinction entre
+   * effacer une exception et en écrire une qui contredit sont des règles,
+   * pas de l'affichage. Deux copies auraient divergé là où ça coûte.
+   */
+  function carteDOccurrence(o: OccurrenceAffichee): HTMLElement {
+    const tache = taches.find((t) => t.id === o.tacheId);
+    const carte = document.createElement('div');
+    carte.dataset.occurrence = `${o.tacheId}:${o.jour}`;
+    carte.className =
+      'rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 ' +
+      'dark:bg-slate-950';
+
+    const entete = document.createElement('div');
+    entete.className = 'flex flex-wrap items-baseline gap-2';
+    const quand = document.createElement('span');
+    quand.className = 'font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400';
+    /* L'heure n'est affichée que si la série en porte une (décision 1). */
+    quand.textContent = o.heure ?? 'dans la journée';
+    const titre = document.createElement('span');
+    titre.className = 'font-medium text-slate-900 dark:text-white';
+    titre.textContent = o.titre;
+    const domaine = document.createElement('span');
+    domaine.className = 'ml-auto text-xs text-slate-400 dark:text-slate-500';
+    domaine.textContent = libelleDuDomaine(o.domaine);
+    entete.append(quand, titre, domaine);
+    carte.appendChild(entete);
+
+    if (o.deplacee) {
+      carte.appendChild(
+        ligne(
+          `Déplacée depuis le ${new Date(`${o.jourPrevu}T12:00:00Z`).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long' })}.`,
+          'mt-0.5 text-xs text-slate-500 dark:text-slate-400',
+        ),
+      );
+    }
+
+    if (!o.lisible) {
+      /* Décision 3 : on sait qu'il y a quelque chose, pas ce que c'est. */
+      const mention = ligne(
+        MENTION_ETAT_SCELLE,
+        'mt-2 text-xs text-slate-500 dark:text-slate-400',
+      );
+      mention.dataset.scellee = o.tacheId;
+      carte.appendChild(mention);
+      return carte;
+    }
+
+    if (o.abandonnee) {
+      carte.appendChild(ligne('Renoncé.', 'mt-2 text-xs text-slate-500 dark:text-slate-400'));
+      return carte;
+    }
+
+    const actions = document.createElement('div');
+    actions.className = 'mt-2 flex flex-wrap items-center gap-2';
+
+    if (o.faite) {
+      const geste = gesteDeRetrait({ faite: true, origine: o.origine, lisible: true });
+      const defaire = document.createElement('button');
+      defaire.type = 'button';
+      defaire.dataset.depointer = `${o.tacheId}:${o.jour}`;
+      defaire.className =
+        'min-h-11 rounded-lg border border-slate-300 px-3 text-sm transition ' +
+        'hover:border-indigo-400 dark:border-slate-700';
+      defaire.textContent = geste === 'ecrire-un-depointage' ? 'Ce n’était pas ça' : 'Pas finalement';
+      if (geste === 'ecrire-un-depointage') {
+        /*
+           Dit AVANT le geste, et visible : une infobulle ne s'ouvre pas au
+           doigt, et c'est au doigt que ce bouton sera pressé.
+        */
+        const note = ligne(
+          'Fait depuis sa branche. « Ce n’était pas ça » retire la coche ici ; la séance reste comptée.',
+          'mt-1 w-full text-xs text-slate-500 dark:text-slate-400',
+        );
+        note.dataset.notePointage = o.tacheId;
+        actions.appendChild(note);
+      }
+      defaire.addEventListener('click', () => {
+        if (!tache || geste === 'rien-a-defaire') return;
+        void agirSurUneOccurrence(() => retirerLePointage(tache, o.jourPrevu, geste));
+      });
+      actions.appendChild(defaire);
+    } else {
+      const faire = document.createElement('button');
+      faire.type = 'button';
+      faire.dataset.pointer = `${o.tacheId}:${o.jour}`;
+      faire.className =
+        'min-h-11 rounded-lg bg-indigo-600 px-3 text-sm font-medium text-white transition ' +
+        'hover:bg-indigo-700';
+      faire.textContent = 'Faite';
+      faire.addEventListener('click', () => {
+        if (!tache) return;
+        void agirSurUneOccurrence(async () => {
+          const geste = await pointerLOccurrence(tache, o.jourPrevu);
+          if (geste.quoi === 'refuse') throw new Error(geste.pourquoi);
+          if (geste.quoi === 'reporte') {
+            direRapport([
+              { texte: 'Gardé chiffré : le pointage sera repris à l’ouverture du coffre.' },
+            ]);
+          }
+        });
+      });
+      actions.appendChild(faire);
+      if (tache) actions.appendChild(renoncementDeLOccurrence(tache, o, carte));
+    }
+
+    carte.appendChild(actions);
+    return carte;
+  }
+
+  /**
+   * « J'y renonce », avec sa portée — prompt 38, et c'est ici que se joue
+   * « aucune série réécrite en silence ».
+   *
+   * Rien n'est présélectionné, et l'avertissement affiché vient du **plan**,
+   * pas d'une phrase écrite à la main qui pourrait mentir sur ce que le code
+   * va faire. C'est le même `planifierAbandon` que l'écran des tâches : la
+   * décision est partagée, seule la mise en page est ici.
+   */
+  function renoncementDeLOccurrence(
+    tache: Tache,
+    o: OccurrenceAffichee,
+    carte: HTMLElement,
+  ): HTMLElement {
+    const renoncer = document.createElement('button');
+    renoncer.type = 'button';
+    renoncer.dataset.renoncer = `${o.tacheId}:${o.jour}`;
+    renoncer.className =
+      'min-h-11 rounded-lg border border-slate-300 px-3 text-sm transition ' +
+      'hover:border-indigo-400 dark:border-slate-700';
+    renoncer.textContent = 'J’y renonce';
+
+    const choix = document.createElement('div');
+    choix.className = 'mt-2 hidden w-full';
+    choix.dataset.choixRenoncement = `${o.tacheId}:${o.jour}`;
+
+    const select = document.createElement('select');
+    select.dataset.motif = `${o.tacheId}:${o.jour}`;
+    select.className =
+      'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm ' +
+      'dark:border-slate-700 dark:bg-slate-950';
+    const vide = document.createElement('option');
+    vide.value = '';
+    vide.textContent = 'Pourquoi y renoncez-vous ? (obligatoire)';
+    select.appendChild(vide);
+    for (const m of MOTIFS) {
+      const option = document.createElement('option');
+      option.value = m.id;
+      option.textContent = m.libelle;
+      option.title = m.precision;
+      select.appendChild(option);
+    }
+
+    let portee: Portee | null = null;
+    const avertissement = ligne('', 'mt-2 hidden text-sm text-amber-700 dark:text-amber-300');
+    const groupe = document.createElement('fieldset');
+    groupe.className = 'mt-2';
+    groupe.dataset.portee = `${o.tacheId}:${o.jour}`;
+    const legende = document.createElement('legend');
+    legende.className = 'text-sm text-slate-700 dark:text-slate-200';
+    legende.textContent = 'À quoi cela s’applique-t-il ?';
+    groupe.appendChild(legende);
+    for (const pp of ['cette-fois', 'celle-ci-et-suivantes', 'toute-la-serie'] as const) {
+      const label = document.createElement('label');
+      label.className = 'flex min-h-11 cursor-pointer items-center gap-2 text-sm';
+      const radio = document.createElement('input');
+      radio.type = 'radio';
+      radio.name = `portee-${o.tacheId}-${o.jour}`;
+      radio.value = pp;
+      radio.className = 'size-4 accent-indigo-600';
+      radio.addEventListener('change', () => {
+        portee = pp;
+        const plan = planifierAbandon(
+          tache,
+          o.jourPrevu,
+          pp,
+          (select.value || 'imprevu') as MotifNonFait,
+          new Date().toISOString(),
+        );
+        avertissement.textContent = plan.avertissements.join(' ');
+        avertissement.classList.toggle('hidden', plan.avertissements.length === 0);
+      });
+      const texte = document.createElement('span');
+      texte.textContent = LIBELLE_PORTEE[pp];
+      label.append(radio, texte);
+      groupe.appendChild(label);
+    }
+
+    const erreur = ligne('', 'mt-2 hidden text-sm text-rose-700 dark:text-rose-300');
+    const confirmer = document.createElement('button');
+    confirmer.type = 'button';
+    confirmer.dataset.confirmer = `${o.tacheId}:${o.jour}`;
+    confirmer.className =
+      'mt-2 min-h-11 rounded-lg border border-slate-300 px-3 text-sm transition ' +
+      'hover:border-indigo-400 dark:border-slate-700';
+    confirmer.textContent = 'Confirmer le renoncement';
+    confirmer.addEventListener('click', () => {
+      if (!select.value) {
+        erreur.textContent = 'Dire pourquoi vous y renoncez fait partie du renoncement.';
+        erreur.classList.remove('hidden');
+        return;
+      }
+      if (!portee) {
+        erreur.textContent = 'Cette tâche se répète : dites à quoi le renoncement s’applique.';
+        erreur.classList.remove('hidden');
+        return;
+      }
+      const plan = planifierAbandon(
+        tache,
+        o.jourPrevu,
+        portee,
+        select.value as MotifNonFait,
+        new Date().toISOString(),
+      );
+      void agirSurUneOccurrence(async () => {
+        if (plan.occurrence) await ecrireLException(tache, plan.occurrence);
+        if (plan.tache) await ecrireTache(plan.tache);
+      });
+    });
+
+    renoncer.addEventListener('click', () => choix.classList.remove('hidden'));
+    choix.append(select, groupe, confirmer, erreur, avertissement);
+    carte.appendChild(choix);
+    return renoncer;
+  }
+
+  /**
+   * Le bouton « Programmer une tâche répétée » — C3, et la réponse du pilote.
+   *
+   * Il **emmène** sur l'écran des tâches plutôt que de monter ici un second
+   * formulaire de création : une tâche a aussi un titre, un domaine et un
+   * lien éventuel, et le calendrier serait devenu un doublon de l'écran des
+   * tâches, que le prompt ne demande pas. Le jour part prérempli, la série
+   * part dépliée, et l'enregistrement ramène au calendrier sur ce jour-là.
+   */
+  function boutonProgrammer(jour: string): HTMLElement {
+    const lien = document.createElement('a');
+    lien.dataset.programmer = jour;
+    const retour = encodeURIComponent(`${base}/odyssee/calendrier/?jour=${jour}`);
+    lien.href = `${base}/odyssee/taches/?jour=${jour}&serie=1&retour=${retour}`;
+    lien.className =
+      'mt-2 inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-3 ' +
+      'text-xs text-slate-600 transition hover:border-indigo-400 ' +
+      'dark:border-slate-700 dark:text-slate-300';
+    lien.textContent = 'Programmer une tâche répétée ce jour-là';
+    return lien;
+  }
+
+  /** Agit, puis repeint — en disant l'échec au lieu de le laisser passer. */
+  async function agirSurUneOccurrence(action: () => Promise<unknown>): Promise<void> {
+    try {
+      await action();
+    } catch (erreur) {
+      direRapport([
+        { texte: erreur instanceof Error ? erreur.message : String(erreur), ton: 'alerte' },
+      ]);
+      return;
+    }
+    await peindre();
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
      Le rendu
      ────────────────────────────────────────────────────────────────────── */
   async function peindre() {
@@ -399,9 +822,18 @@ import Base from '../../layouts/Base.astro';
     );
     const maintenant = Date.now();
 
+    await chargerLesOccurrences(jours[0], jours[jours.length - 1]);
+
     const zone = $('jours');
     zone.innerHTML = '';
-    $('aucun').classList.toggle('hidden', evenements.length > 0);
+    /*
+       « Rien de prévu » ne doit plus se dire quand des tâches le sont :
+       l'écran aurait annoncé un jour vide au-dessus d'une liste de tâches.
+    */
+    $('aucun').classList.toggle(
+      'hidden',
+      evenements.length > 0 || occurrencesAffichees.length > 0,
+    );
 
     const alertes = $('alertes');
     alertes.innerHTML = '';
@@ -410,8 +842,14 @@ import Base from '../../layouts/Base.astro';
       const duJour = evenements
         .filter((e) => e.debut.slice(0, 10) === jour)
         .sort((a, b) => a.debut.localeCompare(b.debut));
-      // En vue mois, un jour vide n'a pas besoin d'une ligne : c'est du bruit.
-      if (!duJour.length && vue === 'mois') continue;
+      const occurrencesDuJour = occurrencesAffichees.filter((o) => o.jour === jour);
+      /*
+         En vue mois, un jour vide n'a pas besoin d'une ligne : c'est du
+         bruit. Mais un jour qui porte une occurrence n'est PAS vide, et le
+         sauter était le défaut d'origine — le calendrier montrait un mois
+         sans rien le jour d'une séance prévue.
+      */
+      if (!duJour.length && !occurrencesDuJour.length && vue === 'mois') continue;
 
       const bloc = document.createElement('section');
       bloc.dataset.jour = jour;
@@ -447,10 +885,17 @@ import Base from '../../layouts/Base.astro';
         bloc.appendChild(conflit);
       }
 
-      if (!duJour.length) {
+      if (!duJour.length && !occurrencesDuJour.length) {
         bloc.appendChild(ligne('—', 'mt-1 text-sm text-slate-400 dark:text-slate-600'));
+        if (vue !== 'mois') bloc.appendChild(boutonProgrammer(jour));
         zone.appendChild(bloc);
         continue;
+      }
+
+      if (!duJour.length) {
+        bloc.appendChild(
+          ligne('Aucun rendez-vous.', 'mt-1 text-sm text-slate-400 dark:text-slate-600'),
+        );
       }
 
       const liste = document.createElement('div');
@@ -501,7 +946,37 @@ import Base from '../../layouts/Base.astro';
 
         liste.appendChild(carte);
       }
-      bloc.appendChild(liste);
+      if (duJour.length) bloc.appendChild(liste);
+
+      /*
+         LES TÂCHES PRÉVUES, SOUS LES ÉVÉNEMENTS ET NON MÊLÉES À EUX.
+
+         Ce ne sont pas des rendez-vous : une occurrence n'a ni durée ni
+         lieu, elle ne peut pas entrer en conflit avec une autre, et la
+         compter dans la surcharge de la journée fausserait l'avertissement
+         « journée très chargée ». Deux listes, donc, et deux intitulés.
+      */
+      if (occurrencesDuJour.length) {
+        if (vue === 'mois') {
+          bloc.appendChild(ligneCompacteDuMois(occurrencesDuJour, jour));
+        } else {
+          const intitule = document.createElement('h4');
+          intitule.dataset.titreTaches = jour;
+          intitule.className =
+            'mt-3 text-xs font-semibold uppercase tracking-wide text-slate-500 ' +
+            'dark:text-slate-400';
+          intitule.textContent = 'Tâches prévues';
+          bloc.appendChild(intitule);
+          const listeDesTaches = document.createElement('div');
+          listeDesTaches.className = 'mt-2 space-y-2';
+          listeDesTaches.dataset.taches = jour;
+          for (const o of occurrencesDuJour) listeDesTaches.appendChild(carteDOccurrence(o));
+          bloc.appendChild(listeDesTaches);
+        }
+      }
+
+      if (vue !== 'mois') bloc.appendChild(boutonProgrammer(jour));
+
       zone.appendChild(bloc);
     }
     $('vue-calendrier').classList.remove('hidden');
@@ -581,7 +1056,17 @@ import Base from '../../layouts/Base.astro';
   auDeverrouillage(
     async () => {
       actifs = await domainesActifs();
-      ancre = jourLogique(new Date(), await reglagesJourLogiqueLocaux());
+      aujourdhui = jourLogique(new Date(), await reglagesJourLogiqueLocaux());
+      /*
+         `?jour=` ramène le calendrier là où on l'avait quitté : c'est le
+         retour du bouton « Programmer une tâche répétée », qui emmène sur
+         l'écran des tâches et doit revenir sur le jour d'origine. Un
+         paramètre mal formé est ignoré plutôt que corrigé — on n'invente
+         pas une date à partir de ce qu'on n'a pas compris.
+      */
+      const demande = new URLSearchParams(location.search).get('jour');
+      ancre = demande && /^\d{4}-\d{2}-\d{2}$/.test(demande) ? demande : aujourdhui;
+      if (demande) vue = 'jour';
 
       const select = $('domaine') as HTMLSelectElement;
       for (const d of DOMAINES) {
@@ -608,10 +1093,8 @@ import Base from '../../layouts/Base.astro';
         void peindre();
       });
       $('aujourdhui').addEventListener('click', () => {
-        void (async () => {
-          ancre = jourLogique(new Date(), await reglagesJourLogiqueLocaux());
-          await peindre();
-        })();
+        ancre = aujourdhui;
+        void peindre();
       });
 
       $('ajout').addEventListener('submit', (evenement) => {
