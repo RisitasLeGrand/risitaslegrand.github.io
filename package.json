@@ -192,7 +192,8 @@
     "essais:boite-aux-lettres": "tsx scripts/essais-boite-aux-lettres.mts",
     "essais:boite-du-coffre": "tsx scripts/essais-boite-du-coffre.mts",
     "essais:fusion-occurrences": "tsx scripts/essais-fusion-occurrences.mts",
-    "essais:taches-recurrentes-ecran": "node scripts/essais-taches-recurrentes-ecran.mjs"
+    "essais:taches-recurrentes-ecran": "node scripts/essais-taches-recurrentes-ecran.mjs",
+    "essais:filtre-cycle": "tsx scripts/essais-filtre-cycle.mts"
   },
   "repository": {
     "type": "git",
