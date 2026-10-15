@@ -10,6 +10,7 @@
  */
 import {
   avancement,
+  jourDeLOccurrence,
   cochagesDeLOccurrence,
   cochees,
   deplacer,
@@ -232,6 +233,35 @@ v(
   ['L’identifiant d’un cochage est « tâche/jour/étape » : il n’est pas libre.'],
 );
 v('et cochees() rend bien l’ensemble', [...cochees(hier)], ['a', 'b', 'c']);
+
+/* ══════════════════════════════════════════════════════════════════════════
+   À quelle occurrence un cochage appartient-il ?
+   ══════════════════════════════════════════════════════════════════════════ */
+
+console.log('\nLE JOUR DE L’OCCURRENCE');
+
+const base = {
+  id: 'T1', titre: 'Dossier', domaine: 'ordre', echeance: null,
+  faiteLe: null, abandonneeLe: null, motifAbandon: null, note: '',
+  creeeLe: '2026-10-10T09:00:00.000Z', majLe: '2026-10-10T09:00:00.000Z',
+} as const;
+
+const repetee = { ...base, serie: { depuis: '2026-10-01', repetition: { type: 'jours', tous: 1 }, fin: { type: 'jamais' }, heure: null } } as const;
+
+v('une tâche répétée suit le jour demandé', jourDeLOccurrence(repetee, '2026-10-15'), '2026-10-15');
+
+/*
+   Une tâche SIMPLE s'ancre sur son jour de création, et les deux autres
+   candidates sont des pièges :
+   — le jour du moment décocherait la liste chaque nuit ;
+   — l'échéance SE MODIFIE, et repousser l'échéance d'une tâche à moitié
+     cochée orphelinerait tous ses cochages d'un coup.
+*/
+v('une tâche simple s’ancre sur sa création', jourDeLOccurrence(base, '2026-10-15'), '2026-10-10');
+v('et le jour demandé n’y change rien : la liste ne se décoche pas la nuit',
+  jourDeLOccurrence(base, '2026-10-16'), jourDeLOccurrence(base, '2026-10-15'));
+v('déplacer l’échéance ne déplace pas l’ancre',
+  jourDeLOccurrence({ ...base, echeance: '2026-12-01' }), jourDeLOccurrence(base));
 
 console.log(`\n${echecs ? '\x1b[31m✗' : '\x1b[32m✓'} ${echecs} échec(s)\x1b[0m\n`);
 process.exit(echecs ? 1 : 0);

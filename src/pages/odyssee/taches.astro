@@ -126,6 +126,20 @@ import Base from '../../layouts/Base.astro';
     toutesLesTaches,
   } from '../../lib/odyssee/donnees';
   import { MOTIFS, libelleDuMotif, type MotifNonFait, type Tache } from '../../lib/odyssee/modele';
+  import {
+    avancement,
+    cochagesDeLOccurrence,
+    cochees,
+    etapesOrdonnees,
+    jourDeLOccurrence,
+    seClotToutSeul,
+  } from '../../lib/odyssee/etapes';
+  import {
+    cocherEtape,
+    cochagesDuJour,
+    decocherEtape,
+  } from '../../lib/odyssee/donnees-occurrences';
+  import type { EtapeCochee } from '../../lib/odyssee/modele';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
   import { DOMAINES, libelleDuDomaine } from '../../lib/noyau/domaines';
@@ -134,6 +148,8 @@ import Base from '../../layouts/Base.astro';
 
   let actifs: string[] = [];
   let aujourdhui = '';
+  /* Les cochages de toutes les occurrences affichées, relus à chaque peinture. */
+  let tousLesCochages: EtapeCochee[] = [];
 
   function ligne(texte: string, classe: string): HTMLParagraphElement {
     const p = document.createElement('p');
@@ -151,6 +167,96 @@ import Base from '../../layouts/Base.astro';
       classe;
     b.textContent = libelle;
     return b;
+  }
+
+  /**
+   * La liste à cocher d'une tâche à étapes — phase 3 du prompt 38.
+   *
+   * ## Le jour, et pourquoi il est calculé et non pris du calendrier
+   *
+   * Les cochages appartiennent à une **occurrence**, pas à la tâche :
+   * « chaque occurrence repart d'une liste décochée ». `jourDeLOccurrence()`
+   * donne la bonne ancre — le jour courant pour une tâche répétée, le jour de
+   * création pour une tâche simple, dont la liste ne doit surtout pas se
+   * décocher chaque nuit.
+   *
+   * ## La clôture automatique, et le geste qui la précède
+   *
+   * Décision 2c : la tâche se clôt **d'elle-même** quand toutes ses étapes
+   * sont cochées, et reste clôturable **à la main** à tout moment. La première
+   * moitié est ici, après l'écriture du cochage et non avant : clore d'abord
+   * aurait fermé la tâche sur une écriture qui pouvait encore échouer.
+   *
+   * Décocher ne rouvre rien tout seul. Rouvrir est un geste, et le déduire
+   * d'un décochage ferait ressusciter une tâche close hier parce qu'on a
+   * corrigé une étape aujourd'hui.
+   */
+  function listeDesEtapes(tache: Tache): HTMLElement {
+    const jour = jourDeLOccurrence(tache, aujourdhui);
+    const siennes = cochagesDeLOccurrence(tousLesCochages, tache.id, jour);
+    const faites = cochees(siennes);
+    const etapes = tache.etapes ?? [];
+    const etat = avancement(etapes, siennes);
+
+    const bloc = document.createElement('div');
+    bloc.className = 'mt-2';
+    bloc.dataset.etapesDe = tache.id;
+
+    const compteur = ligne(
+      etat.texte,
+      'text-xs font-medium tabular-nums text-slate-500 dark:text-slate-400',
+    );
+    compteur.dataset.avancement = tache.id;
+    bloc.appendChild(compteur);
+
+    const liste = document.createElement('ul');
+    liste.className = 'mt-1 space-y-1';
+    for (const etape of etapesOrdonnees(etapes)) {
+      const li = document.createElement('li');
+      const label = document.createElement('label');
+      /* min-h-11 : la cible tactile du socle, cochage compris. */
+      label.className = 'flex min-h-11 cursor-pointer items-center gap-2 text-sm';
+
+      const case_ = document.createElement('input');
+      case_.type = 'checkbox';
+      case_.className = 'size-5 shrink-0 accent-indigo-600';
+      case_.checked = faites.has(etape.id);
+      case_.dataset.etape = `${tache.id}/${etape.id}`;
+      case_.disabled = Boolean(tache.faiteLe || tache.abandonneeLe);
+
+      const texte = document.createElement('span');
+      texte.textContent = etape.intitule;
+      texte.className = case_.checked
+        ? 'text-slate-400 line-through dark:text-slate-500'
+        : 'text-slate-700 dark:text-slate-200';
+
+      case_.addEventListener('change', () => {
+        void agirPuisPeindre(async () => {
+          if (case_.checked) await cocherEtape(tache.id, jour, etape.id);
+          else await decocherEtape(tache.id, jour, etape.id);
+
+          /*
+             Relu depuis la base plutôt que déduit de l'état de la case : une
+             écriture peut échouer, et l'avancement doit dire ce qui est
+             enregistré, non ce qui a été cliqué.
+          */
+          const apres = cochagesDeLOccurrence(
+            await cochagesDuJour(jour),
+            tache.id,
+            jour,
+          );
+          if (!tache.faiteLe && !tache.abandonneeLe && seClotToutSeul(etapes, apres)) {
+            await clore(tache.id, true);
+          }
+        });
+      });
+
+      label.append(case_, texte);
+      li.appendChild(label);
+      liste.appendChild(li);
+    }
+    bloc.appendChild(liste);
+    return bloc;
   }
 
   /**
@@ -193,6 +299,8 @@ import Base from '../../layouts/Base.astro';
     bloc.appendChild(
       ligne(detail.join(' · '), 'mt-0.5 text-xs text-slate-400 dark:text-slate-500'),
     );
+
+    if (tache.etapes?.length) bloc.appendChild(listeDesEtapes(tache));
 
     const actions = document.createElement('div');
     actions.className = 'mt-2 flex flex-wrap gap-2';
@@ -316,6 +424,14 @@ import Base from '../../layouts/Base.astro';
    */
   async function peindre() {
     const taches = await toutesLesTaches();
+    /*
+       Les cochages de toutes les occurrences affichées, en une passe. Lire par
+       tâche aurait fait une requête par carte ; lire par jour ne suffit pas,
+       puisqu'une tâche simple s'ancre sur son jour de création. On réunit donc
+       les jours dont on a besoin.
+    */
+    const jours = new Set(taches.filter((t) => t.etapes?.length).map((t) => jourDeLOccurrence(t, aujourdhui)));
+    tousLesCochages = (await Promise.all([...jours].map((j) => cochagesDuJour(j)))).flat();
     const ouvertes = taches.filter((t) => !t.faiteLe && !t.abandonneeLe);
     const retard = ouvertes.filter((t) => t.echeance && t.echeance < aujourdhui);
     const aFaire = ouvertes.filter((t) => !retard.includes(t));

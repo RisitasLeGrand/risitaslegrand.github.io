@@ -28,7 +28,38 @@
  * doublé le magasin pour n'ajouter aucune information — et aurait créé une
  * donnée nouvelle, « non faite à telle heure », que personne n'a saisie.
  */
-import type { Etape, EtapeCochee } from './modele';
+import { jourLogique } from '../noyau/jour-logique';
+import type { Etape, EtapeCochee, Tache } from './modele';
+
+/* ══════════════════════════════════════════════════════════════════════════
+   À quelle occurrence un cochage appartient-il ?
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Le jour qui identifie l'occurrence d'une tâche — la clé des cochages.
+ *
+ * ## Une tâche répétée : le jour de l'occurrence, évidemment
+ *
+ * C'est tout l'objet des séries, et c'est ce qui fait repartir la liste
+ * décochée chaque jour.
+ *
+ * ## Une tâche SIMPLE : le jour de sa création, et c'est moins évident
+ *
+ * Une tâche unique n'a qu'une occurrence, et ses cochages doivent **tenir
+ * dans le temps** : une liste à cocher commencée lundi se retrouve mardi. Il
+ * faut donc une ancre **constante**, et trois candidates se présentent :
+ *
+ * - *le jour du moment* — faux : la liste se décocherait toute seule chaque
+ *   nuit, ce qui est exactement le comportement d'une tâche répétée, appliqué
+ *   à une tâche qui ne l'est pas ;
+ * - *l'échéance* — faux aussi, et plus sournoisement : elle **se modifie**.
+ *   Repousser l'échéance d'une tâche à moitié cochée orphelinerait tous ses
+ *   cochages d'un coup, et la liste se viderait sans que rien ne l'annonce ;
+ * - *le jour de création* — immuable, répliqué tel quel entre appareils, et
+ *   unique à la tâche. C'est celui-ci.
+ */
+export const jourDeLOccurrence = (tache: Tache, jour?: string): string =>
+  tache.serie ? (jour ?? jourLogique()) : jourLogique(new Date(tache.creeeLe));
 
 /* ══════════════════════════════════════════════════════════════════════════
    Lire
