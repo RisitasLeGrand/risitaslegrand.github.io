@@ -284,6 +284,55 @@ console.log("\n  D — l'interrupteur de l'application, système au repos");
   await normal.close();
 }
 
+/* --- E bis. Les enchaînements pilotés en JavaScript (A6) ----------------- */
+/*
+   Le socle neutralise durées et répétitions par `!important`, ce qui suffit à
+   tout ce qui est animé en CSS. Un enchaînement piloté par un minuteur, lui,
+   y échappe : il doit LIRE le réglage. `Deroule.svelte` ne lisait que
+   `matchMedia`, et la « Lecture automatique » continuait donc de défiler quand
+   l'interrupteur de l'application était mis.
+
+   Vérifié à la lecture de la source, et c'est assumé : l'écran de correction
+   demande une séance et des réponses fausses pour exister. Ce que l'on veut
+   figer est une règle d'écriture — qui lit un réglage de mouvement lit les
+   deux —, et elle se lit entièrement dans la source.
+*/
+
+console.log('\n  E bis — les enchaînements pilotés lisent les DEUX réglages');
+
+{
+  const { readFileSync: lire, readdirSync: lister, statSync: etat } = await import('node:fs');
+  const { join } = await import('node:path');
+  const fichiers = [];
+  const parcourir = (d) => {
+    for (const e of lister(d)) {
+      const c = join(d, e);
+      if (etat(c).isDirectory()) parcourir(c);
+      else if (/\.(astro|svelte|ts)$/.test(e)) fichiers.push(c);
+    }
+  };
+  parcourir('src');
+
+  const fautifs = [];
+  for (const f of fichiers) {
+    /*
+       LES BLOCS DE STYLE SONT RETIRÉS AVANT L'EXAMEN, et c'est une correction.
+       Ma première écriture lisait le fichier entier : `Deroule.svelte` porte
+       « data-animations » dans son `<style>`, en sélecteur CSS, et le contrôle
+       restait donc vert devant le défaut même qu'il devait voir. Un contrôle
+       qu'on n'a pas vu échouer ne prouve rien — celui-ci a été remis à l'épreuve
+       sur la version fautive, et il la signale.
+    */
+    const texte = lire(f, 'utf8').replace(/<style[^>]*>[\s\S]*?<\/style>/g, '');
+    /* Une lecture JavaScript du réglage du système, pas une règle @media. */
+    if (!/matchMedia\(\s*['"`]\(prefers-reduced-motion/.test(texte)) continue;
+    if (!/data-animations/.test(texte)) {
+      fautifs.push(`${f} : lit « prefers-reduced-motion » sans lire « data-animations »`);
+    }
+  }
+  v('aucun lecteur ne connaît qu’un seul des deux réglages', fautifs, []);
+}
+
 /* --- E. Le fond des boîtes de dialogue (A4 du prompt 37) ----------------- */
 /*
    **Pourquoi ce contrôle manquait.** Les blocs de mouvement réduit visent

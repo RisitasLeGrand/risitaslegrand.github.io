@@ -31,10 +31,30 @@
 
   let visibles = $state(1);
 
+  /*
+     LES DEUX RÉGLAGES, ET LE PLUS RESTRICTIF L'EMPORTE (A6 du prompt 37).
+
+     Ce composant ne lisait que `matchMedia`. L'interrupteur « Réduire les
+     animations » de l'écran des préférences n'agit pas sur lui : il pose
+     `data-animations="reduites"` sur la racine, et le socle s'en sert pour
+     neutraliser durées et répétitions par `!important`. Un enchaînement piloté
+     en JavaScript, lui, échappe à cette neutralisation : la lecture automatique
+     du déroulé continuait de défiler alors que l'interrupteur était mis.
+
+     C'est bien ce que le socle annonce — « le plus restrictif des deux
+     l'emporte, puisque chacun neutralise sans que l'autre puisse rétablir » —,
+     et c'était faux ici. On lit donc les deux.
+
+     Lu une fois, à la construction : comme pour `matchMedia` auparavant, un
+     composant DÉJÀ monté ne suivra pas un changement de réglage. Les corrections
+     étant montées à l'ouverture, l'écart ne se voit qu'en basculant
+     l'interrupteur avec un déroulé ouvert.
+  */
   const animationsReduites =
     typeof window !== 'undefined' &&
-    typeof window.matchMedia === 'function' &&
-    window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    ((typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches) ||
+      document.documentElement.getAttribute('data-animations') === 'reduites');
 
   let lecture = $state(false);
   let minuteur: ReturnType<typeof setInterval> | undefined;
