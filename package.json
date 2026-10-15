@@ -194,7 +194,8 @@
     "essais:fusion-occurrences": "tsx scripts/essais-fusion-occurrences.mts",
     "essais:taches-recurrentes-ecran": "node scripts/essais-taches-recurrentes-ecran.mjs",
     "essais:filtre-cycle": "tsx scripts/essais-filtre-cycle.mts",
-    "essais:centre-modele": "tsx scripts/essais-centre-modele.mts"
+    "essais:centre-modele": "tsx scripts/essais-centre-modele.mts",
+    "essais:centre-recalcul": "tsx scripts/essais-centre-recalcul.mts"
   },
   "repository": {
     "type": "git",
