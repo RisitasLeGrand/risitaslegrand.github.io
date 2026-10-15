@@ -418,3 +418,44 @@ privée n'existe en clair nulle part, et après un changement de mot de passe
 un report est rejoué ou **signalé**, jamais perdu en silence —
 `assurerLaBoite()` refuse de renouveler une paire périmée, et
 `rejouerLesReports()` rend le nombre de plis illisibles sans les supprimer.
+
+## Phase 9 — ce qui est enfin constaté, et ce qui ne l'est pas
+
+### La fusion sur deux appareils
+
+Le modèle l'affirmait depuis la phase 2 ; c'est maintenant éprouvé. Deux
+appareils qui pointent la même occurrence hors ligne visent la **même cible**
+de fusion, donc écrivent la même clé, donc une seule ligne. Un témoin le
+montre à l'envers : deux clés tirées au sort font deux cibles pour un seul
+geste — le moteur n'y peut rien, c'est la clé qui décide.
+
+Et une exception vit hors de la tâche, donc « A déplace l'occurrence du 12 »
+et « B change l'heure de la série » survivent toutes les deux. Dans la
+tâche, la seconde écriture aurait effacé la première **sans conflit levé**.
+
+### Le premier contrôle automatisé d'un écran de ce lot
+
+Signalé manquant à chaque commit depuis la phase 1, il existe. Les huit
+phases précédentes ont éprouvé des moteurs purs ; aucune n'avait ouvert la
+page. **Un moteur juste derrière un écran qui ne l'appelle pas donne un site
+faux dont tous les essais sont verts.**
+
+Il vérifie ce qu'aucun essai pur ne peut dire : que les champs de série
+existent dans la page, et surtout qu'ils **se découvrent selon le rythme
+choisi** — « certains jours de la semaine » montre les sept cases, « tous
+les N jours » montre le pas et range les cases, « jamais » ne montre ni
+l'un ni l'autre. Le moteur sait qu'une règle hebdomadaire porte des jours ;
+il ne sait pas si l'écran montre la case. Sabotage constaté rouge : une case
+à cocher qui ne se découvre jamais rend la règle hebdomadaire inatteignable.
+
+### Ce qui n'est PAS couvert, et qu'il faut dire
+
+- **Un seul écran sur les trois** du lot. `/odyssee/taches/` est contrôlé ;
+  le calendrier et la Revue ne le sont pas.
+- **Aucun parcours complet** : créer une tâche répétée, la pointer, vérifier
+  l'occurrence écrite. Le contrôle s'arrête au formulaire.
+- **Aucune capture.** Les écrans du lot n'ont rien à montrer tant qu'aucune
+  donnée ne les traverse, et des captures d'écrans vides ne prouveraient
+  rien — c'est la même raison qu'aux prompts 35 et 36.
+- **Le coffre fermé n'est pas éprouvé à l'écran.** Les trois modules qui le
+  gèrent le sont ; la page qui les appelle, non.
