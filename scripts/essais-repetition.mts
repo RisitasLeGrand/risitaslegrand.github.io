@@ -23,6 +23,7 @@
 import { jourLogique, heureLocale } from '../src/lib/noyau/jour-logique';
 import {
   instantDeLOccurrence,
+  libelleDeLaSerie,
   occurrences,
   occurrencesAvant,
   problemesDeLaSerie,
@@ -486,6 +487,47 @@ v('scinder après la fin ne rend aucune suite', scinderLaSerie(finie, '2026-02-0
 /* ══════════════════════════════════════════════════════════════════════════
    La validation
    ══════════════════════════════════════════════════════════════════════════ */
+
+console.log('\nDIRE LA SÉRIE EN FRANÇAIS');
+
+/*
+   Ce libellé n'est pas décoratif : le prompt interdit qu'une série soit
+   « réécrite en silence », et une personne ne peut confirmer que ce qu'elle
+   comprend. Il est une pièce du consentement.
+*/
+const dire = (r: Repetition, depuis = '2026-01-05', fin: Fin = { type: 'jamais' }, heure: string | null = null) =>
+  libelleDeLaSerie(serie(depuis, r, fin, heure));
+
+v('chaque jour', dire({ type: 'jours', tous: 1 }), 'chaque jour');
+v('tous les trois jours', dire({ type: 'jours', tous: 3 }), 'tous les 3 jours');
+v('un seul jour de la semaine', dire({ type: 'semaines', tous: 1, jours: [1] }), 'chaque lundi');
+v(
+  'trois jours de la semaine',
+  dire({ type: 'semaines', tous: 1, jours: [1, 3, 5] }),
+  'chaque lundi, mercredi et vendredi',
+);
+v(
+  'une semaine sur deux',
+  dire({ type: 'semaines', tous: 2, jours: [1] }),
+  'lundi, toutes les 2 semaines',
+);
+v('le quantième', dire({ type: 'mois-date' }), 'le 5 de chaque mois');
+v('le rang', dire({ type: 'mois-rang' }), 'le premier lundi de chaque mois');
+v('le dernier', dire({ type: 'mois-rang' }, '2026-01-26'), 'le dernier lundi de chaque mois');
+v('chaque année', dire({ type: 'annee' }, '2026-07-14'), 'chaque année le 14 juillet');
+/* « 8 h », pas « 08:00 » : c'est ainsi qu'on le dit. */
+v('l’heure ronde', dire({ type: 'jours', tous: 1 }, '2026-01-05', { type: 'jamais' }, '08:00'), 'chaque jour à 8 h');
+v('l’heure avec minutes', dire({ type: 'jours', tous: 1 }, '2026-01-05', { type: 'jamais' }, '08:30'), 'chaque jour à 8 h 30');
+v(
+  'la fin à une date',
+  dire({ type: 'jours', tous: 1 }, '2026-01-05', { type: 'date', jusquAu: '2026-03-01' }),
+  'chaque jour, jusqu’au 2026-03-01',
+);
+v(
+  'la fin après N fois',
+  dire({ type: 'jours', tous: 1 }, '2026-01-05', { type: 'fois', nombre: 12 }),
+  'chaque jour, 12 fois',
+);
 
 console.log('\nLA VALIDATION');
 

@@ -90,11 +90,16 @@ export async function occurrencesDuJour(jourPrevu: string): Promise<Occurrence[]
 /**
  * Écrit une exception en clair.
  *
- * L'identifiant est **recalculé** à partir de la tâche et du jour, et non pris
- * tel quel : c'est la clé de fusion, et un appelant qui la poserait à côté
- * ferait silencieusement deux lignes pour un seul geste.
+ * L'identifiant n'est pas un paramètre : il se **calcule** à partir de la
+ * tâche et du jour. C'est la clé de fusion, et un appelant qui la poserait à
+ * côté ferait silencieusement deux lignes pour un seul geste. Le type le dit
+ * — `Omit<Occurrence, 'id' | 'majLe'>` — plutôt que de l'accepter puis de
+ * l'écraser en silence, ce qui aurait obligé les appelants à inventer une
+ * valeur factice.
  */
-export async function ecrireOccurrence(o: Occurrence): Promise<Occurrence> {
+export async function ecrireOccurrence(
+  o: Omit<Occurrence, 'id' | 'majLe'>,
+): Promise<Occurrence> {
   const avec = { ...o, id: idOccurrence(o.tacheId, o.jourPrevu), majLe: maintenant() };
   exiger(controlerOccurrence(avec));
   await (await db()).put('odysseeOccurrences', avec);

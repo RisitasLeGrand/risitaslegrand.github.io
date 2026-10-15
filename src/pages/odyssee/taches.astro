@@ -77,6 +77,93 @@ import Base from '../../layouts/Base.astro';
             Ajouter
           </button>
         </div>
+        <!--
+          « Répéter » — prompt 38, R1. Replié par défaut : la grande majorité
+          des tâches ne se répètent pas, et imposer six champs de plus à
+          chacune ferait payer à tout le monde le coût d'un cas minoritaire.
+        -->
+        <details id="repeter" class="mt-3">
+          <summary class="min-h-11 cursor-pointer text-sm text-slate-700 dark:text-slate-200">
+            Répéter
+          </summary>
+          <div class="mt-2 flex flex-wrap items-end gap-3">
+            <label class="text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Rythme</span>
+              <select
+                id="regle"
+                class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+              >
+                <option value="">Jamais</option>
+                <option value="jours">Tous les N jours</option>
+                <option value="semaines">Certains jours de la semaine</option>
+                <option value="mois-date">Chaque mois, le même quantième</option>
+                <option value="mois-rang">Chaque mois, le même rang</option>
+                <option value="annee">Chaque année</option>
+              </select>
+            </label>
+            <label id="bloc-tous" class="hidden text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Tous les</span>
+              <input
+                id="tous"
+                type="number"
+                min="1"
+                max="365"
+                value="1"
+                class="mt-1 min-h-11 w-20 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+              />
+            </label>
+            <fieldset id="bloc-jours" class="hidden text-sm">
+              <legend class="text-slate-700 dark:text-slate-200">Quels jours</legend>
+              <div id="jours-semaine" class="mt-1 flex flex-wrap gap-1"></div>
+            </fieldset>
+            <label class="text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">À quelle heure</span>
+              <input
+                id="heure"
+                type="time"
+                class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+              />
+            </label>
+            <label class="text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Jusqu’à quand</span>
+              <select
+                id="fin"
+                class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+              >
+                <option value="jamais">Sans fin</option>
+                <option value="date">Jusqu’à une date</option>
+                <option value="fois">Après N fois</option>
+              </select>
+            </label>
+            <label id="bloc-fin-date" class="hidden text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Date de fin</span>
+              <input
+                id="fin-date"
+                type="date"
+                class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+              />
+            </label>
+            <label id="bloc-fin-fois" class="hidden text-sm">
+              <span class="block text-slate-700 dark:text-slate-200">Combien de fois</span>
+              <input
+                id="fin-fois"
+                type="number"
+                min="1"
+                max="999"
+                value="10"
+                class="mt-1 min-h-11 w-24 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+              />
+            </label>
+          </div>
+          <!--
+            Le libellé en clair. Il n'est pas décoratif : une personne ne peut
+            confirmer que ce qu'elle comprend, et « toutes les 2 semaines, le
+            lundi » se comprend là où une structure de données ne se comprend
+            pas.
+          -->
+          <p id="apercu-serie" class="mt-2 text-xs text-indigo-700 dark:text-indigo-300"></p>
+        </details>
+
         <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
           Sans date, la tâche reste une intention : elle ne compte pas dans le suivi du plan, et
           ne vous sera pas reprochée.
@@ -122,6 +209,7 @@ import Base from '../../layouts/Base.astro';
     abandonner,
     ajouterTache,
     clore,
+    ecrireTache,
     supprimerTache,
     toutesLesTaches,
   } from '../../lib/odyssee/donnees';
@@ -138,8 +226,22 @@ import Base from '../../layouts/Base.astro';
     cocherEtape,
     cochagesDuJour,
     decocherEtape,
+    ecrireOccurrence,
   } from '../../lib/odyssee/donnees-occurrences';
+  import {
+    LIBELLE_PORTEE,
+    planifierAbandon,
+    type Portee,
+  } from '../../lib/odyssee/modification-serie';
   import type { EtapeCochee } from '../../lib/odyssee/modele';
+  import {
+    libelleDeLaSerie,
+    problemesDeLaSerie,
+    type Fin,
+    type JourSemaine,
+    type Repetition,
+    type Serie,
+  } from '../../lib/odyssee/repetition';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
   import { DOMAINES, libelleDuDomaine } from '../../lib/noyau/domaines';
@@ -167,6 +269,118 @@ import Base from '../../layouts/Base.astro';
       classe;
     b.textContent = libelle;
     return b;
+  }
+
+  /* ══════════════════════════════════════════════════════════════════════
+     « Répéter » — prompt 38, R1
+     ══════════════════════════════════════════════════════════════════════ */
+
+  const NOMS_JOURS = ['D', 'L', 'M', 'M', 'J', 'V', 'S'];
+  const COMPLETS = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+
+  /** Les sept cases des jours de la semaine, posées une fois. */
+  function poserLesJours() {
+    const zone = $('jours-semaine');
+    /* Lundi d'abord : c'est l'ordre français, même si 0 reste dimanche dans
+       les données — la convention de `Date.getUTCDay()`, que le dépôt suit. */
+    for (const j of [1, 2, 3, 4, 5, 6, 0]) {
+      const label = document.createElement('label');
+      label.className =
+        'flex min-h-11 w-11 cursor-pointer items-center justify-center rounded-lg ' +
+        'border border-slate-300 text-sm dark:border-slate-700';
+      label.title = COMPLETS[j];
+      const case_ = document.createElement('input');
+      case_.type = 'checkbox';
+      case_.className = 'sr-only';
+      case_.dataset.jour = String(j);
+      const texte = document.createElement('span');
+      texte.textContent = NOMS_JOURS[j];
+      const peindreCase = () => {
+        label.classList.toggle('border-indigo-500', case_.checked);
+        label.classList.toggle('bg-indigo-50', case_.checked);
+        label.classList.toggle('dark:bg-indigo-950', case_.checked);
+      };
+      case_.addEventListener('change', () => {
+        peindreCase();
+        rafraichirApercu();
+      });
+      peindreCase();
+      label.append(case_, texte);
+      zone.appendChild(label);
+    }
+  }
+
+  const joursCoches = (): JourSemaine[] =>
+    [...$('jours-semaine').querySelectorAll<HTMLInputElement>('input[data-jour]')]
+      .filter((c) => c.checked)
+      .map((c) => Number(c.dataset.jour) as JourSemaine);
+
+  /**
+   * La série décrite par le formulaire, ou `null` si « Jamais ».
+   *
+   * `depuis` vient de l'échéance quand elle est donnée, du jour courant
+   * sinon : c'est l'ancre de la règle, et pour les règles mensuelles et
+   * annuelle c'est **elle** qui porte le quantième et le rang. Le dire ici
+   * importe, parce que l'aperçu en dépend et qu'une personne qui change la
+   * date voit son libellé changer.
+   */
+  function serieDuFormulaire(): Serie | null {
+    const type = ($('regle') as HTMLSelectElement).value;
+    if (!type) return null;
+    const tous = Math.max(1, Number(($('tous') as HTMLInputElement).value) || 1);
+    const repetition: Repetition =
+      type === 'jours'
+        ? { type: 'jours', tous }
+        : type === 'semaines'
+          ? { type: 'semaines', tous, jours: joursCoches() }
+          : type === 'mois-date'
+            ? { type: 'mois-date' }
+            : type === 'mois-rang'
+              ? { type: 'mois-rang' }
+              : { type: 'annee' };
+
+    const quelleFin = ($('fin') as HTMLSelectElement).value;
+    const fin: Fin =
+      quelleFin === 'date'
+        ? { type: 'date', jusquAu: ($('fin-date') as HTMLInputElement).value }
+        : quelleFin === 'fois'
+          ? { type: 'fois', nombre: Math.max(1, Number(($('fin-fois') as HTMLInputElement).value) || 1) }
+          : { type: 'jamais' };
+
+    return {
+      depuis: ($('echeance') as HTMLInputElement).value || aujourdhui,
+      repetition,
+      fin,
+      heure: ($('heure') as HTMLInputElement).value || null,
+    };
+  }
+
+  /**
+   * Montre ce que la série veut dire, ou ce qui lui manque.
+   *
+   * Les problèmes sont affichés **pendant** la saisie et non à l'envoi : un
+   * refus après coup oblige à retrouver ce qu'on avait voulu dire.
+   */
+  function rafraichirApercu() {
+    const type = ($('regle') as HTMLSelectElement).value;
+    $('bloc-tous').classList.toggle('hidden', type !== 'jours' && type !== 'semaines');
+    $('bloc-jours').classList.toggle('hidden', type !== 'semaines');
+    const quelleFin = ($('fin') as HTMLSelectElement).value;
+    $('bloc-fin-date').classList.toggle('hidden', quelleFin !== 'date');
+    $('bloc-fin-fois').classList.toggle('hidden', quelleFin !== 'fois');
+
+    const apercu = $('apercu-serie');
+    const serie = serieDuFormulaire();
+    if (!serie) {
+      apercu.textContent = '';
+      return;
+    }
+    const problemes = problemesDeLaSerie(serie);
+    apercu.textContent = problemes.length ? problemes.join(' ') : libelleDeLaSerie(serie);
+    apercu.classList.toggle('text-rose-700', problemes.length > 0);
+    apercu.classList.toggle('dark:text-rose-300', problemes.length > 0);
+    apercu.classList.toggle('text-indigo-700', problemes.length === 0);
+    apercu.classList.toggle('dark:text-indigo-300', problemes.length === 0);
   }
 
   /**
@@ -288,6 +502,9 @@ import Base from '../../layouts/Base.astro';
     bloc.appendChild(titre);
 
     const detail: string[] = [libelleDuDomaine(tache.domaine)];
+    /* La série AVANT l'échéance : c'est la chose la plus structurante de la
+       tâche, et une tâche répétée n'a de toute façon pas d'échéance. */
+    if (tache.serie) detail.push(libelleDeLaSerie(tache.serie));
     if (tache.echeance) detail.push(`pour le ${tache.echeance}`);
     if (tache.faiteLe) detail.push(`faite le ${tache.faiteLe}`);
     if (tache.abandonneeLe) {
@@ -331,6 +548,63 @@ import Base from '../../layouts/Base.astro';
         option.title = m.precision;
         select.appendChild(option);
       }
+      /*
+         LE CHOIX DE LA PORTÉE — prompt 38, et c'est ici que se joue « aucune
+         série réécrite en silence ».
+
+         Il n'apparaît que pour une tâche répétée : le proposer à une tâche
+         unique poserait une question dont les trois réponses sont la même, et
+         habituerait à cliquer sans lire — ce qui est exactement la façon dont
+         un consentement devient une formalité.
+
+         Rien n'est présélectionné. La portée la plus destructrice est la
+         dernière, et aucune n'est le défaut : c'est une décision, pas un
+         réglage.
+      */
+      let portee: Portee | null = null;
+      const avertissement = ligne('', 'mt-2 hidden text-sm text-amber-700 dark:text-amber-300');
+
+      if (tache.serie) {
+        const groupe = document.createElement('fieldset');
+        groupe.className = 'mt-2';
+        groupe.dataset.portee = tache.id;
+        const legende = document.createElement('legend');
+        legende.className = 'text-sm text-slate-700 dark:text-slate-200';
+        legende.textContent = 'À quoi cela s’applique-t-il ?';
+        groupe.appendChild(legende);
+        for (const p of ['cette-fois', 'celle-ci-et-suivantes', 'toute-la-serie'] as const) {
+          const label = document.createElement('label');
+          label.className = 'flex min-h-11 cursor-pointer items-center gap-2 text-sm';
+          const radio = document.createElement('input');
+          radio.type = 'radio';
+          radio.name = `portee-${tache.id}`;
+          radio.value = p;
+          radio.className = 'size-4 accent-indigo-600';
+          radio.addEventListener('change', () => {
+            portee = p;
+            /*
+               L'avertissement est montré AVANT la confirmation, et il vient du
+               plan — non d'un texte écrit à la main qui pourrait mentir sur ce
+               que le code va faire.
+            */
+            const plan = planifierAbandon(
+              tache,
+              aujourdhui,
+              p,
+              (select.value || 'imprevu') as MotifNonFait,
+              new Date().toISOString(),
+            );
+            avertissement.textContent = plan.avertissements.join(' ');
+            avertissement.classList.toggle('hidden', plan.avertissements.length === 0);
+          });
+          const texte = document.createElement('span');
+          texte.textContent = LIBELLE_PORTEE[p];
+          label.append(radio, texte);
+          groupe.appendChild(label);
+        }
+        choix.appendChild(groupe);
+      }
+
       const confirmer = bouton('Confirmer le renoncement', 'mt-2');
       confirmer.dataset.confirmer = tache.id;
       const erreur = ligne('', 'mt-2 hidden text-sm text-rose-700 dark:text-rose-300');
@@ -340,12 +614,36 @@ import Base from '../../layouts/Base.astro';
           erreur.classList.remove('hidden');
           return;
         }
-        void agirPuisPeindre(() =>
-          abandonner(tache.id, true, select.value as MotifNonFait),
-        );
+        if (tache.serie && !portee) {
+          erreur.textContent =
+            'Cette tâche se répète : dites à quoi le renoncement s’applique.';
+          erreur.classList.remove('hidden');
+          return;
+        }
+        const motif = select.value as MotifNonFait;
+        void agirPuisPeindre(async () => {
+          if (!tache.serie) {
+            await abandonner(tache.id, true, motif);
+            return;
+          }
+          /*
+             On applique LE PLAN, et rien d'autre. L'écran ne décide pas de ce
+             qu'il écrit : il exécute ce qu'il vient de montrer. C'est la seule
+             façon que l'avertissement affiché corresponde à ce qui se passe.
+          */
+          const plan = planifierAbandon(
+            tache,
+            aujourdhui,
+            portee!,
+            motif,
+            new Date().toISOString(),
+          );
+          if (plan.occurrence) await ecrireOccurrence(plan.occurrence);
+          if (plan.tache) await ecrireTache(plan.tache);
+        });
       });
       renoncer.addEventListener('click', () => choix.classList.remove('hidden'));
-      choix.append(select, confirmer, erreur);
+      choix.append(select, confirmer, erreur, avertissement);
       actions.append(renoncer);
       bloc.append(actions, choix);
       return bloc;
@@ -531,13 +829,35 @@ import Base from '../../layouts/Base.astro';
         const titre = ($('titre') as HTMLInputElement).value.trim();
         if (!titre) return;
         const echeance = ($('echeance') as HTMLInputElement).value || null;
+        const serie = serieDuFormulaire();
+        /*
+           Une tâche répétée NE PORTE PAS d'échéance : `controlerTache()` les
+           refuse ensemble. L'échéance saisie sert ici d'ancre à la série —
+           c'est elle qui porte le quantième d'une règle mensuelle — puis elle
+           s'efface, parce que ce sont les occurrences qui en tiennent lieu.
+        */
         void agirPuisPeindre(async () => {
-          await ajouterTache({ titre, domaine: select.value, echeance });
+          await ajouterTache({
+            titre,
+            domaine: select.value,
+            echeance: serie ? null : echeance,
+            serie,
+          });
           ($('titre') as HTMLInputElement).value = '';
           ($('echeance') as HTMLInputElement).value = '';
+          ($('regle') as HTMLSelectElement).value = '';
+          ($('repeter') as HTMLDetailsElement).open = false;
+          rafraichirApercu();
           $('erreur-ajout').classList.add('hidden');
         });
       });
+
+      poserLesJours();
+      for (const id of ['regle', 'tous', 'fin', 'fin-date', 'fin-fois', 'heure', 'echeance']) {
+        $(id).addEventListener('change', rafraichirApercu);
+        $(id).addEventListener('input', rafraichirApercu);
+      }
+      rafraichirApercu();
 
       await peindre();
     },

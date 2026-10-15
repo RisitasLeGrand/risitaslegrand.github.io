@@ -39,9 +39,11 @@ import {
   type Revue,
   type MotifNonFait,
   type Realisation,
+  type Etape,
   type Tache,
   type TypeDeRevue,
 } from './modele';
+import type { Serie } from './repetition';
 
 type MagasinOdyssee =
   | 'odysseeTaches'
@@ -79,6 +81,16 @@ export interface TacheNeuve {
   domaine: IdDomaine;
   echeance?: string | null;
   note?: string;
+  /**
+   * La série, pour une tâche répétée (prompt 38).
+   *
+   * Une tâche qui en porte une laisse `echeance` à `null` : `controlerTache()`
+   * refuse les deux ensemble, parce qu'elles porteraient la même information
+   * sous deux formes et que la première qui change ferait mentir l'autre.
+   */
+  serie?: Serie | null;
+  /** Les étapes à cocher, pour une tâche à étapes (prompt 38). */
+  etapes?: readonly Etape[];
 }
 
 export async function ajouterTache(neuve: TacheNeuve): Promise<Tache> {
@@ -93,6 +105,8 @@ export async function ajouterTache(neuve: TacheNeuve): Promise<Tache> {
     note: neuve.note ?? '',
     creeeLe: maintenant(),
     majLe: maintenant(),
+    ...(neuve.serie ? { serie: neuve.serie } : {}),
+    ...(neuve.etapes?.length ? { etapes: neuve.etapes } : {}),
   };
   const problemes = controlerTache(tache);
   if (problemes.length) throw new Error(problemes.join(' '));

@@ -411,6 +411,81 @@ export function scinderLaSerie(
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   Dire la série en français
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const JOURS_SEMAINE = [
+  'dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi',
+] as const;
+
+const RANGS = ['', 'premier', 'deuxième', 'troisième', 'quatrième'] as const;
+
+const quantieme = (jour: string) => Number(jour.split('-')[2]);
+
+const MOIS = [
+  '', 'janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+  'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre',
+] as const;
+
+/**
+ * La série, en une phrase lisible : « chaque jour à 8 h », « le premier lundi
+ * de chaque mois, 12 fois ».
+ *
+ * Elle existe pour une raison précise, et pas pour faire joli : le prompt
+ * interdit qu'une série soit « réécrite en silence ». Une personne ne peut
+ * confirmer que ce qu'elle comprend, et « {"type":"semaines","tous":2} » ne
+ * se comprend pas. Ce libellé est donc une pièce du consentement, au même
+ * titre que les avertissements du plan.
+ */
+export function libelleDeLaSerie(serie: Serie): string {
+  const r = serie.repetition;
+  let quand: string;
+
+  switch (r.type) {
+    case 'jours':
+      quand = r.tous === 1 ? 'chaque jour' : `tous les ${r.tous} jours`;
+      break;
+    case 'semaines': {
+      const noms = [...r.jours].sort().map((j) => JOURS_SEMAINE[j]);
+      const liste =
+        noms.length === 1
+          ? noms[0]
+          : `${noms.slice(0, -1).join(', ')} et ${noms[noms.length - 1]}`;
+      quand = r.tous === 1 ? `chaque ${liste}` : `${liste}, toutes les ${r.tous} semaines`;
+      break;
+    }
+    case 'mois-date':
+      quand = `le ${quantieme(serie.depuis)} de chaque mois`;
+      break;
+    case 'mois-rang': {
+      const [a, m, j] = serie.depuis.split('-').map(Number);
+      const jourSemaine = new Date(Date.UTC(a, m - 1, j)).getUTCDay();
+      const dernier = j + 7 > new Date(Date.UTC(a, m, 0)).getUTCDate();
+      const rang = dernier ? 'dernier' : RANGS[Math.ceil(j / 7)];
+      quand = `le ${rang} ${JOURS_SEMAINE[jourSemaine]} de chaque mois`;
+      break;
+    }
+    case 'annee': {
+      const [, m, j] = serie.depuis.split('-').map(Number);
+      quand = `chaque année le ${j} ${MOIS[m]}`;
+      break;
+    }
+  }
+
+  /* L'heure. « 8 h » plutôt que « 08:00 » : c'est ainsi qu'on la dit. */
+  if (serie.heure) {
+    const [h, min] = serie.heure.split(':');
+    quand += ` à ${Number(h)} h${min === '00' ? '' : ` ${min}`}`;
+  }
+
+  if (serie.fin.type === 'date') quand += `, jusqu’au ${serie.fin.jusquAu}`;
+  if (serie.fin.type === 'fois') {
+    quand += `, ${serie.fin.nombre} fois`;
+  }
+  return quand;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    Validation
    ══════════════════════════════════════════════════════════════════════════ */
 
