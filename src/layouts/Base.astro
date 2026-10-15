@@ -87,6 +87,62 @@ const CSS_TRANSITIONS = `@view-transition { navigation: auto }
 ::view-transition-new(root) {
   animation-duration: var(--duree-moyenne, 200ms);
   animation-timing-function: var(--courbe-entree, ease-out);
+}
+
+/* --- Le cadre reste immobile (A12), et rien ne passe dessus (A5) ---------
+
+   SANS CE BLOC, L'EN-TÊTE ET LA BARRE D'ONGLETS SE DÉDOUBLENT. Ils font partie
+   de la capture « root » : pendant le fondu, la photographie de la page
+   sortante et celle de la page entrante sont toutes deux à l'écran, donc le
+   cadre aussi, deux fois. Leur donner un nom les sort de « root » et en fait un
+   groupe à part, apparié d'une page à l'autre.
+
+   « display: none » sur l'ancien plutôt qu'une absence d'animation sur les deux :
+   ce cadre est translucide (fond à 90 % et flou d'arrière-plan), et deux couches
+   translucides superposées ne donnent pas la même teinte qu'une seule. On ne
+   garde donc que le nouveau, qui ne bouge pas.
+
+   LE Z-INDEX RÈGLE L'AUTRE MOITIÉ D'A5. Les groupes de transition vivent dans la
+   couche supérieure, au-dessus du z-40 de la barre d'onglets : les cartes de la
+   liste des tâches lui passaient donc par-dessus en glissant. Nommer le cadre le
+   met dans le même arbre qu'elles, où l'ordre se règle, et 100 le place au-dessus
+   des groupes anonymes.
+
+   ATTENTION, LE PIÈGE DE CE FICHIER : cette feuille est un littéral de gabarit
+   JavaScript. Un accent grave dans un commentaire le referme et casse le build —
+   c'est arrivé en écrivant ce bloc. On cite donc avec des guillemets français.
+
+   Rien de tout cela n'est émis sur les pages sous coffre : ce bloc vit dans la
+   feuille conditionnelle, qui n'y est pas écrite. */
+#entete-principal {
+  view-transition-name: entete-principal;
+}
+#barre-du-bas {
+  view-transition-name: barre-du-bas;
+}
+::view-transition-group(entete-principal),
+::view-transition-group(barre-du-bas) {
+  z-index: 100;
+}
+::view-transition-old(entete-principal),
+::view-transition-old(barre-du-bas) {
+  display: none;
+}
+::view-transition-new(entete-principal),
+::view-transition-new(barre-du-bas) {
+  animation: none;
+}
+
+/* --- La durée et la courbe viennent des jetons (A5) ----------------------
+
+   Les groupes nommés par la liste des tâches — une carte, un nom — glissaient
+   à la durée et à la courbe par défaut du navigateur : 250 ms en « ease« , deux
+   valeurs qui ne viennent d'aucun jeton. Le sélecteur universel les couvre
+   toutes, y compris les cartes créées plus tard. « root » garde ses propres
+   règles, écrites plus haut et plus spécifiques. */
+::view-transition-group(*) {
+  animation-duration: var(--duree-moyenne, 200ms);
+  animation-timing-function: var(--courbe-entree, ease-out);
 }`;
 const enteteVoulu = entete ?? (sansNavigation ? 'aucun' : 'complet');
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
@@ -285,7 +341,10 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
       </a>
       {
         enteteVoulu === 'complet' && (
-          <header class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+          <header
+            id="entete-principal"
+            class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90"
+          >
             <div class="bandeau-tricolore"></div>
             <TemoinCoffre />
             {/*
@@ -587,7 +646,10 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
 
       {
         enteteVoulu === 'leger' && (
-          <header class="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90">
+          <header
+            id="entete-principal"
+            class="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90"
+          >
             <div class="bandeau-tricolore"></div>
             <TemoinCoffre />
             <div class="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
