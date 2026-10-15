@@ -658,15 +658,30 @@ button:not(:disabled):active,
   animation: paraitre var(--duree-moyenne) var(--courbe-entree);
 }
 
-#chargement {
-  opacity: 1;
-  transition:
-    opacity var(--duree-courte) var(--courbe-sortie),
-    display var(--duree-courte) allow-discrete;
-}
+/*
+   A1 du prompt 37 — LE FONDU DE SORTIE EST RETIRÉ, et c'est un retour arrière
+   sur ma propre phase 5.
+
+   Il reposait sur `allow-discrete`, qui garde l'élément AFFICHÉ le temps du
+   fondu. Pendant ces 120 ms, le texte d'attente reste donc **dans le flux**,
+   sous le contenu qui vient de paraître, et pousse tout ce qui le suit avant
+   de disparaître. Mesuré en 390 × 844 : le décalage cumulé passait de 0,018 à
+   0,119 sur la bibliothèque, de 0,098 à 0,614 sur la recherche.
+
+   Les deux sorties que l'audit laissait ouvertes étaient « sortir le texte du
+   flux pendant le fondu » ou « renoncer au fondu ». Sortir du flux veut dire
+   le positionner en absolu sur quarante-six pages dont je ne connais pas les
+   blocs conteneurs : je corrigerais un décalage mesuré par un risque non
+   mesuré. Le fondu d'un message d'attente est une petite douceur ; un
+   décalage de 0,6 est un défaut. L'échange n'est pas douteux.
+
+   Ce qui reste : l'arrivée du contenu, elle, paraît toujours en fondu
+   (`#vue` ci-dessus). C'est le saut que l'A5 visait, et il est toujours
+   adouci. Seule la disparition du texte d'attente redevient immédiate — ce
+   qu'elle était avant le lot.
+*/
 #chargement.hidden {
   display: none;
-  opacity: 0;
 }
 
 /* --- Les jauges (prompt 34, arbitrage du 14 octobre) ---------------------- */
