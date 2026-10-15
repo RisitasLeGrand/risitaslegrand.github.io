@@ -37,13 +37,37 @@
  *
  * Ce que ce choix protège, et il faut le dire précisément :
  *
- * | Menace | Protégée ? |
- * |---|---|
- * | Un autre profil du navigateur, un autre compte de la machine | **oui** |
- * | Un outil d'inspection ouvert après coup, onglet fermé | **oui** |
- * | Un ordinateur partagé, repris plus tard | **oui** |
- * | Une sauvegarde du disque, un vol de la machine éteinte | **oui** |
- * | Une extension **active dans l'onglet ouvert** | **non** |
+ * | Menace | Session seule | Mémorisé sur l'appareil |
+ * |---|---|---|
+ * | Un autre profil du navigateur, un autre compte de la machine | **oui** | **oui** |
+ * | Un outil d'inspection ouvert après coup, onglet fermé | **oui** | **non** |
+ * | Un ordinateur partagé, repris plus tard | **oui** | **NON** |
+ * | Une sauvegarde du disque, un vol de la machine **éteinte** | **oui** | **non** |
+ * | Un vol de la machine **allumée et déverrouillée** | **non** | **non** |
+ * | Une extension **active dans l'onglet ouvert** | **non** | **non** |
+ * | Un script exécuté sur notre origine (XSS) | **non** | **non** |
+ *
+ * Trois lignes méritent d'être lues deux fois.
+ *
+ * **« Ordinateur partagé » passe de oui à NON avec la mémorisation**, et
+ * c'est tout l'objet de l'avertissement affiché sous la case : quiconque
+ * utilise cet appareil et ce navigateur ouvrira le coffre sans le mot de
+ * passe. Ce n'est pas un effet de bord, c'est la fonction demandée.
+ *
+ * **L'encapsulation ne protège de rien contre un script sur notre origine.**
+ * Ce script appelle `unwrapKey` avec la clé non extractible et obtient le
+ * même résultat que nous : « non extractible » empêche de **copier** la clé,
+ * pas de **s'en servir**. Le gain porte uniquement sur la lecture *passive*
+ * du stockage — copie de profil, copie de disque, outil d'inspection.
+ *
+ * **Limite NON VÉRIFIÉE** : certains navigateurs restaurent `sessionStorage`
+ * avec un onglet rouvert, ou au redémarrage. Cela relève de l'enveloppe du
+ * navigateur, hors de portée d'un pilotage automatisé — un contrôle
+ * automatique serait asymétrique au point d'être trompeur, puisqu'un résultat
+ * négatif ne prouverait rien. C'est donc écrit ici comme réserve plutôt que
+ * mesuré faussement. L'enveloppe de session étant renouvelée à chaque
+ * ouverture et détruite à la fermeture, un chiffré ainsi restauré serait de
+ * toute façon inutilisable.
  *
  * La dernière ligne est la limite réelle, et elle était déjà là : la clé du
  * **contenu** est mémorisée en `localStorage` quand « rester connecté » est
