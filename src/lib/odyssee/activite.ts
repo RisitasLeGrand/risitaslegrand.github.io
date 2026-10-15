@@ -376,6 +376,16 @@ export const TYPES_SERIE: readonly string[] = [
   'sport.seance',
   'odyssee.focus',
   'odyssee.tache',
+  /*
+     Décision d'Alexis du 15 octobre : une occurrence pointée compte, mais
+     SEULEMENT si sa tâche n'est pas liée. Le filtre ne peut pas vivre ici —
+     une liste de types ne sait pas regarder la tâche d'origine — il vit à la
+     projection (`faits-odyssee.ts`), qui n'émet tout simplement pas ce fait
+     pour une tâche liée. Le type peut donc figurer ici sans réserve : un
+     fait `odyssee.occurrence` qui existe est, par construction, celui d'une
+     tâche non liée.
+  */
+  'odyssee.occurrence',
   'odyssee.quete',
   'odyssee.checkin',
   'odyssee.revue',

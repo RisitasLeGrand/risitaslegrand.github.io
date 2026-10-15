@@ -99,17 +99,18 @@ for (const id of actionsEcrivables()) {
 console.log('\nUn fait par geste, jamais deux');
 
 /*
-   Les quatre types de ce lot. Si l'un d'eux entrait dans TYPES_SERIE, un
-   pointage lié compterait deux fois : son occurrence et son fait de branche.
+   Trois des quatre types de ce lot ne comptent jamais. Le quatrième,
+   `odyssee.occurrence`, compte depuis la phase 8 — mais la protection n'a
+   pas disparu, elle a CHANGÉ DE PLACE. Elle était ici, dans la liste des
+   types comptés ; elle est désormais à la projection, qui n'émet pas ce
+   fait pour une tâche liée. Un `odyssee.occurrence` qui existe est donc,
+   par construction, celui d'une tâche non liée, et le compter ne double
+   rien. Le contrôle de ce déplacement est dans `essais:revue`.
 */
-for (const type of [
-  'odyssee.occurrence',
-  'odyssee.etape-cochee',
-  'odyssee.exception-scellee',
-  'odyssee.report',
-]) {
+for (const type of ['odyssee.etape-cochee', 'odyssee.exception-scellee', 'odyssee.report']) {
   v(`${type} ne compte pas dans l’activité`, TYPES_SERIE.includes(type), false);
 }
+v('odyssee.occurrence compte, depuis la phase 8', TYPES_SERIE.includes('odyssee.occurrence'), true);
 
 v(
   'les faits que le pointage écrit, eux, comptent — sinon le geste ne vaudrait rien',

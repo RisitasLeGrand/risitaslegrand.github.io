@@ -351,3 +351,38 @@ signature d'Alexis autorise à toucher au scellement ; un contreseing absent
 ne bloque rien. C'est la forme retenue pour **tout** arbitrage à venir.
 
 Quelle que soit l'issue, un seul point du code change : `gesteSousCoffre()`.
+
+## Phase 8 — la Revue et les indicateurs
+
+La décision d'Alexis sur A-3 (« compter l'occurrence seulement si la tâche
+n'est pas liée ») est appliquée, et la façon dont elle l'est mérite d'être
+dite, parce qu'elle déplace une protection sans l'affaiblir.
+
+**Le filtre vit à la projection, pas dans la liste des types comptés.** Une
+liste de types ne sait pas regarder la tâche d'origine — c'est ce qui rendait
+l'option C la plus chère des trois. La projection, elle, a la tâche sous la
+main : elle n'émet tout simplement pas `odyssee.occurrence` pour une tâche
+liée. Le type peut donc entrer dans `TYPES_SERIE` sans réserve, parce qu'un
+fait qui existe est, par construction, celui d'une tâche non liée.
+
+**Le garde-fou de la phase 5 a donc changé de place**, et son essai le dit :
+il n'affirme plus « ce type ne compte pas » mais « ce type compte, et c'est
+l'absence de fait qui protège ». Un sabotage qui ferait émettre la projection
+pour les tâches liées ramènerait le double comptage sans que la liste des
+types bouge — c'est exactement ce que `essais:revue` surveille.
+
+**Le prédicat est celui de la phase 6**, `laTacheCedeSonFait`, et c'est
+voulu : une seule règle, énoncée une fois, appliquée aux deux sens. Une tâche
+liée à une pesée ou à un pointage budgétaire ne cède rien et compte donc ici
+aussi — sa branche n'écrit aucun fait compté.
+
+**Ce que le coffre fermé empêche est dit.** La projection ne lit que le
+magasin clair et ne réclame jamais le coffre. Les exceptions scellées non
+lues sont rendues en manque chiffré, pas passées sous silence : coffre fermé,
+une occurrence de pointage budgétaire ne compte pas, et on sait combien.
+
+### Ce qui reste de la phase 8
+
+Les **écrans** de la Revue ne sont pas touchés : ils liront ces faits comme
+les autres, et leur contrôle automatisé n'existe toujours pas — c'est la
+phase 9.

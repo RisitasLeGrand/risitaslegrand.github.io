@@ -82,6 +82,17 @@ export async function occurrencesDeLaTache(tacheId: string): Promise<Occurrence[
   return (await db()).getAllFromIndex('odysseeOccurrences', 'tacheId', tacheId);
 }
 
+/**
+ * Toutes les exceptions **en clair**, sans toucher au magasin scellé.
+ *
+ * C'est ce que lit la projection des faits : elle n'a pas besoin du coffre,
+ * et ne doit pas le réclamer. Une exception qui manque ici est scellée, donc
+ * liée à une branche sous coffre — la projection le compte en manque.
+ */
+export async function occurrencesDuMagasinClair(): Promise<Occurrence[]> {
+  return (await db()).getAll('odysseeOccurrences');
+}
+
 /** Les exceptions d'un jour logique, toutes tâches confondues. */
 export async function occurrencesDuJour(jourPrevu: string): Promise<Occurrence[]> {
   return (await db()).getAllFromIndex('odysseeOccurrences', 'jourPrevu', jourPrevu);

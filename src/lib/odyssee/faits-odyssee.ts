@@ -39,7 +39,15 @@ import {
   tousLesEvenements,
   toutesLesTaches,
 } from './donnees';
-import { dureeDeLEvenement, type Evenement, type Focus, type Quete, type Revue, type Tache } from './modele';
+import {
+  dureeDeLEvenement,
+  type Evenement,
+  type Focus,
+  type Occurrence,
+  type Quete,
+  type Revue,
+  type Tache,
+} from './modele';
 import type { Manque, OptionsPublication, Publication } from './faits-revisions';
 
 export const BRANCHE = 'odyssee';
@@ -74,6 +82,16 @@ export interface ContenuOdyssee {
   evenements: readonly Evenement[];
   focus: readonly Focus[];
   revues: readonly Revue[];
+  /**
+   * Les exceptions d'occurrence que l'appelant a pu lire — phase 8.
+   *
+   * Pas forcément toutes : celles des tâches liées à une branche sous coffre
+   * sont scellées, et restent fermées si le coffre l'est. D'où le compteur
+   * qui suit, plutôt qu'une liste silencieusement incomplète.
+   */
+  occurrences?: readonly Occurrence[];
+  /** Combien d'exceptions n'ont pas pu être ouvertes. Rendu en manque. */
+  occurrencesIllisibles?: number;
 }
 
 /**
@@ -94,7 +112,19 @@ export async function publierFaitsOdyssee(
     toutLeFocus(),
     toutesLesRevues(),
   ]);
-  return projeterFaitsOdyssee({ taches, quetes, evenements, focus, revues }, options);
+  /*
+     Les occurrences en clair suffisent presque toujours : une tâche dont
+     l'exception est scellée est liée à une branche sous coffre, et la
+     plupart de ces liens cèdent déjà leur fait. Le reste — le pointage
+     budgétaire, qui est scellé SANS être compté — se perd coffre fermé, et
+     c'est dit en manque plutôt que tu.
+  */
+  const { occurrencesDuMagasinClair } = await import('./donnees-occurrences');
+  const occurrences = await occurrencesDuMagasinClair();
+  return projeterFaitsOdyssee(
+    { taches, quetes, evenements, focus, revues, occurrences },
+    options,
+  );
 }
 
 /**
@@ -165,6 +195,66 @@ export function projeterFaitsOdyssee(
     combien: tachesCedantLeurFait,
     consequence:
       'Leur activité est comptée une fois, dans la branche visée — jamais deux.',
+  });
+
+  /* --- Occurrences pointées : décision d'Alexis du 15 octobre ------------
+     « Compter l'occurrence SEULEMENT si la tâche n'est pas liée. »
+
+     Le filtre est posé ici, à la PROJECTION, et non dans la liste des types
+     comptés. C'est ce qui permet à `odyssee.occurrence` d'entrer dans
+     `TYPES_SERIE` sans ramener le double comptage : le fait n'existe tout
+     simplement pas pour une tâche liée. Mettre le filtre dans la liste
+     aurait été impossible — une liste de types ne sait pas regarder la
+     tâche d'origine.
+
+     Le prédicat est le MÊME qu'en phase 6 (`laTacheCedeSonFait`), et c'est
+     voulu : une seule règle, énoncée une fois, appliquée aux deux sens. Une
+     tâche liée à une pesée ne cède rien et compte donc ici aussi — sa
+     branche n'écrit aucun fait compté.
+  */
+  const parId = new Map(taches.map((t) => [t.id, t]));
+  let occurrencesSansTache = 0;
+  let occurrencesCedees = 0;
+  for (const occurrence of contenu.occurrences ?? []) {
+    if (occurrence.etat !== 'pointee') continue;
+    const tache = parId.get(occurrence.tacheId);
+    if (!tache) {
+      occurrencesSansTache += 1;
+      continue;
+    }
+    if (laTacheCedeSonFait(tache)) {
+      occurrencesCedees += 1;
+      continue;
+    }
+    if (!tache.domaine) {
+      tachesSansDomaine += 1;
+      continue;
+    }
+    brouillons.push({
+      id: `odyssee.occurrence:${occurrence.tacheId}:${occurrence.jourPrevu}`,
+      type: 'odyssee.occurrence',
+      domaine: tache.domaine,
+      debut: midiDu(occurrence.jourPrevu),
+      source: 'manuel',
+      fiabilite: 'confirme',
+      details: { titre: tache.titre },
+    });
+  }
+  manques.push({
+    quoi: 'Occurrences pointées sans tâche connue',
+    combien: occurrencesSansTache,
+    consequence: 'Elles ne comptent nulle part — la tâche a été supprimée depuis.',
+  });
+  manques.push({
+    quoi: 'Occurrences pointées d’une tâche liée',
+    combien: occurrencesCedees,
+    consequence: 'Comptées dans leur branche, et nulle part ailleurs.',
+  });
+  manques.push({
+    quoi: 'Exceptions scellées non lues',
+    combien: contenu.occurrencesIllisibles ?? 0,
+    consequence:
+      'Coffre fermé, les exceptions des branches chiffrées restent closes et ne comptent pas.',
   });
 
   /* --- Quêtes tenues : un fait par jour tenu ----------------------------- */
