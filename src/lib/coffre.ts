@@ -304,6 +304,39 @@ export function oublierLAppareil(): void {
   fermerLeCoffre();
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   La boîte aux lettres — A-6, option D
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Le rangement de la paire, adossé au magasin d'état en clair.
+ *
+ * Exporté pour que la couche de données des reports s'en serve aussi : deux
+ * définitions de « où vit la paire » finiraient par diverger, et le jour où
+ * elles divergeraient, les plis deviendraient illisibles sans que rien ne
+ * le dise.
+ */
+export const rangementDeLaBoite = () => ({
+  lire: async (clef: string) => (await db()).get('etat', clef) as Promise<string | undefined>,
+  ecrire: async (clef: string, valeur: string) => void (await (await db()).put('etat', valeur, clef)),
+  effacer: async (clef: string) => void (await (await db()).delete('etat', clef)),
+});
+
+/**
+ * L'état de la boîte, pour les écrans. Exige le coffre ouvert.
+ *
+ * Rend `'ferme'` plutôt que de lever : un écran qui demande l'état de la
+ * boîte coffre fermé pose une question légitime, et la réponse est « je ne
+ * peux pas savoir ».
+ */
+export async function etatDeLaBoiteDuCoffre(): Promise<
+  'ferme' | 'absente' | 'utilisable' | 'perimee'
+> {
+  if (!cleMemoire) return 'ferme';
+  const { etatDeLaBoite } = await import('./noyau/boite-du-coffre');
+  return etatDeLaBoite(rangementDeLaBoite(), cleMemoire);
+}
+
 /** La clé du coffre, ou `null` si le coffre est fermé. */
 export const cleDuCoffre = (): CryptoKey | null => cleMemoire;
 
@@ -328,6 +361,24 @@ export async function ouvrirLeCoffre(
     return 'Mot de passe incorrect.';
   }
   cleMemoire = await deriver(motDePasse);
+  /*
+     A-6, option D : la boîte aux lettres naît ici, à la première ouverture,
+     parce qu'il faut la clé du coffre pour sceller sa privée. Ensuite elle
+     DURE — `assurerLaBoite` ne remplace rien si une paire existe déjà, et
+     refuse de renouveler une paire périmée, ce qui rendrait les plis en
+     attente illisibles sans un mot.
+
+     L'échec n'empêche pas d'ouvrir le coffre. Une boîte absente ne coûte
+     que le report d'un geste ; une ouverture qui échoue coûte l'accès à
+     tout. `etatDeLaBoiteDuCoffre()` dira ce qu'il en est quand on le lui
+     demandera.
+  */
+  try {
+    const { assurerLaBoite } = await import('./noyau/boite-du-coffre');
+    await assurerLaBoite(rangementDeLaBoite(), cleMemoire);
+  } catch {
+    // La boîte manquera, et l'écran le dira. Le coffre, lui, est ouvert.
+  }
   /*
      L'enveloppe est renouvelée à chaque ouverture : un chiffré d'une session
      précédente, restauré par le navigateur ou copié, cesse d'être ouvrable.

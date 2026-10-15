@@ -26,7 +26,7 @@
  * pointage coffre fermé est l'objet des reports, et c'est la phase 7.
  */
 import { db } from '../db';
-import { exigerLeCoffre } from '../coffre';
+import { exigerLeCoffre, rangementDeLaBoite } from '../coffre';
 import { ouvrir, sceller } from '../noyau/coffre';
 import {
   controlerEtapeCochee,
@@ -305,9 +305,60 @@ export async function oublierUnReport(id: string): Promise<void> {
   await (await db()).delete('odysseeReports', id);
 }
 
-/** Le rangement de la paire, adossé au magasin d'état en clair. */
-const rangementDeLaBoite = () => ({
-  lire: async (clef: string) => (await (await db()).get('etat', clef)) as string | undefined,
-  ecrire: async (clef: string, valeur: string) => void (await (await db()).put('etat', valeur, clef)),
-  effacer: async (clef: string) => void (await (await db()).delete('etat', clef)),
-});
+
+/**
+ * Rejoue les plis à l'ouverture du coffre — le dernier geste de l'option D.
+ *
+ * Chaque contenu relevé devient l'exception scellée qu'il aurait été si le
+ * coffre avait été ouvert au moment du geste, **avec son instant d'origine**
+ * — c'est tout l'objet de la décision 5 : le geste est gardé, pas reconstruit
+ * à l'heure du rejeu.
+ *
+ * ## Trois façons de finir, et aucune n'est silencieuse
+ *
+ * - `rejoues` : les plis écrits puis supprimés ;
+ * - `illisibles` : ceux d'une boîte périmée. **Ils ne sont pas supprimés.**
+ *   Le mot de passe a changé, leur contenu est perdu, mais leur existence
+ *   est rendue pour que l'écran puisse le dire — et qu'Alexis décide de les
+ *   jeter lui-même ;
+ * - `echecs` : relevés mais refusés à l'écriture, par exemple une tâche
+ *   supprimée depuis. Conservés aussi, pour la même raison.
+ *
+ * ## L'idempotence, retrouvée ici et pas avant
+ *
+ * Les plis n'ont pas de clé métier : deux appareils hors ligne peuvent avoir
+ * déposé le même geste. C'est à l'écriture que cela se résout — l'exception
+ * porte, elle, la clé déterministe `tâche/jour`, donc deux plis du même
+ * geste écrivent la même ligne, et la seconde écriture ne fait que la
+ * réécrire à l'identique.
+ */
+export async function rejouerLesReports(): Promise<{
+  rejoues: number;
+  illisibles: number;
+  echecs: number;
+}> {
+  const { contenus, illisibles } = await releverLesReports();
+  let rejoues = 0;
+  let echecs = 0;
+  for (const { id, contenu } of contenus) {
+    try {
+      await ecrireExceptionScellee({
+        genre: 'occurrence',
+        id: '',
+        majLe: '',
+        tacheId: contenu.tacheId,
+        jourPrevu: contenu.jourPrevu,
+        etat: 'pointee',
+        jourPorte: null,
+        heure: null,
+        le: contenu.le,
+        motifAbandon: null,
+      });
+      await oublierUnReport(id);
+      rejoues += 1;
+    } catch {
+      echecs += 1;
+    }
+  }
+  return { rejoues, illisibles, echecs };
+}

@@ -386,3 +386,35 @@ une occurrence de pointage budgétaire ne compte pas, et on sait combien.
 Les **écrans** de la Revue ne sont pas touchés : ils liront ces faits comme
 les autres, et leur contrôle automatisé n'existe toujours pas — c'est la
 phase 9.
+
+## A-6 — tranchée le 15 octobre : option D
+
+Alexis a signé l'option D sur l'acte contresignable, après lecture de l'avis
+du Pilote. **Le Pilote a refusé mes trois options et en a proposé une
+quatrième**, que je n'avais pas vue, et il a eu raison sur un point que
+j'avais manqué : mon option A n'était pas un repli neutre, c'était
+l'abandon silencieux de la décision 5 du prompt, qui demandait un report
+coffre fermé.
+
+**Le principe.** Une paire de clés asymétrique : la publique en clair, la
+privée scellée sous la clé du coffre. Écrire ne demande que la publique,
+donc rien ; lire demande la privée, donc le coffre. Une boîte aux lettres —
+la fente est ouverte, la porte ne s'ouvre qu'avec la clé.
+
+**Ce que cela a coûté, règle par règle.** Le pli ne porte ni date
+d'écriture (elle dirait qu'un geste a eu lieu ce jour-là), ni clé métier
+(`tâche/jour` dirait tout avant déchiffrement), ni entrée au journal des
+opérations (un pli qu'aucun autre appareil ne peut ouvrir n'a rien à faire
+dans un paquet de synchronisation). Le magasin sort donc de la rétention par
+date et de la convergence de fusion ; l'idempotence est retrouvée au rejeu,
+l'exception écrite portant, elle, la clé déterministe.
+
+**Ce qui reste visible, et qui est dit :** qu'un pli existe. Pas sa taille —
+le contenu est rembourré à 256 octets.
+
+**Les trois contrôles demandés par le Pilote** sont couverts : rien n'est
+lisible sans la privée (cinq assertions qui décodent avant de chercher), la
+privée n'existe en clair nulle part, et après un changement de mot de passe
+un report est rejoué ou **signalé**, jamais perdu en silence —
+`assurerLaBoite()` refuse de renouveler une paire périmée, et
+`rejouerLesReports()` rend le nombre de plis illisibles sans les supprimer.
