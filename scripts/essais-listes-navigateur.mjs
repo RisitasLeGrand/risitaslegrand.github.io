@@ -119,15 +119,31 @@ const ctx = await nav.newContext({ viewport: { width: 390, height: 844 } });
    seul moyen de savoir que la repeinte y passe, sans modifier l'application
    pour les besoins de l'essai. L'original est appelé derrière, pour ne rien
    changer au comportement observé. */
+/*
+   CE QUE CET ESSAI INSTRUMENTE A CHANGÉ — A5 du prompt 37.
+
+   Il comptait les appels à `startViewTransition`. Cette API figeait l'écran
+   sur une photographie, et pendant ce temps le contenu réel n'était plus
+   testable au pointeur : un appui tombé dans l'intervalle était perdu, mesuré
+   à 40, 100 et 200 ms. La liste anime donc maintenant les VRAIES cartes, qui
+   restent dans le document et sous le doigt.
+
+   Compter les transitions de document reviendrait donc à exiger le défaut.
+   On compte à la place les animations jouées sur les cartes, par le même
+   procédé : on enveloppe `Element.animate` et on relève ce qui passe.
+*/
 await ctx.addInitScript(() => {
-  window.__transitionsLancees = 0;
-  const original = document.startViewTransition?.bind(document);
-  if (original) {
-    document.startViewTransition = (...args) => {
-      window.__transitionsLancees += 1;
-      return original(...args);
-    };
-  }
+  window.__glissements = 0;
+  window.__dureesGlissement = [];
+  const original = Element.prototype.animate;
+  Element.prototype.animate = function (...args) {
+    if (this.dataset && this.dataset.tache) {
+      window.__glissements += 1;
+      const o = args[1];
+      window.__dureesGlissement.push(typeof o === 'number' ? o : (o?.duration ?? 0));
+    }
+    return original.apply(this, args);
+  };
 });
 
 const page = await ctx.newPage();
@@ -144,7 +160,7 @@ await page.locator('#ajout').waitFor({ state: 'visible', timeout: 20000 });
 /* Trois tâches synthétiques — aucune donnée réelle, interdit n° 7. Trois pour
    qu'en clore une déplace vraiment les autres ; avec une seule, rien ne
    glisserait et le contrôle serait vert sans objet. */
-console.log('\n  B — les cartes portent un nom de transition stable');
+console.log('\n  B — les cartes portent un identifiant stable');
 
 for (const titre of ['Essai — alpha', 'Essai — bêta', 'Essai — gamma']) {
   await page.fill('#titre', titre);
@@ -156,30 +172,41 @@ const cartes = page.locator('[data-tache]');
 const combien = await cartes.count();
 v('trois tâches synthétiques sont en place', combien >= 3, true);
 
-const noms = await page.$$eval('[data-tache]', (e) =>
-  e.map((x) => getComputedStyle(x).viewTransitionName),
-);
+/*
+   C'est par `data-tache` que la repeinte apparie les cartes d'un état à
+   l'autre : elle relève leur place avant l'écriture, puis la compare après.
+   Un identifiant vide ou répété ferait glisser la mauvaise carte — ou
+   aucune. Le `view-transition-name` d'avant servait au même appariement,
+   mais pour une API abandonnée en A5.
+*/
+const noms = await page.$$eval('[data-tache]', (e) => e.map((x) => x.dataset.tache));
 v(
-  'chaque carte porte un nom',
-  noms.every((n) => n && n !== 'none'),
+  'chaque carte porte un identifiant',
+  noms.every((n) => typeof n === 'string' && n.length > 0),
   true,
 );
-v('et les noms sont tous distincts', new Set(noms).size, noms.length);
+v('et les identifiants sont tous distincts', new Set(noms).size, noms.length);
 
 /* --- C. Clore une tâche passe par une transition ------------------------- */
 
 console.log('\n  C — clore une tâche fait glisser la liste');
 
 await page.evaluate(() => {
-  window.__transitionsLancees = 0;
+  window.__glissements = 0;
+  window.__dureesGlissement = [];
 });
 await page.click('[data-faire]');
 await page.waitForTimeout(700);
-v(
-  'la repeinte passe par une transition de même document',
-  await page.evaluate(() => window.__transitionsLancees),
-  1,
-);
+const glissements = await page.evaluate(() => window.__glissements);
+v('les cartes restantes glissent vers leur nouvelle place', glissements >= 1, true);
+{
+  const durees = await page.evaluate(() => window.__dureesGlissement);
+  v(
+    `et la durée vient des jetons, pas du navigateur (${durees.join(', ')} ms)`,
+    durees.every((d) => d === 200),
+    true,
+  );
+}
 v(
   'la tâche a bien changé de zone',
   await page.locator('#closes [data-tache]').count(),
@@ -209,20 +236,15 @@ const chronometrerUneCloture = async (mouvement) => {
     reducedMotion: mouvement,
   });
   await c.addInitScript(() => {
-    window.__dureeListe = null;
-    const original = document.startViewTransition?.bind(document);
-    if (original) {
-      document.startViewTransition = (...args) => {
-        const debut = performance.now();
-        const t = original(...args);
-        t.finished
-          .then(() => {
-            window.__dureeListe = Math.round(performance.now() - debut);
-          })
-          .catch(() => {});
-        return t;
-      };
-    }
+    window.__dureeListe = 0;
+    const original = Element.prototype.animate;
+    Element.prototype.animate = function (...args) {
+      if (this.dataset && this.dataset.tache) {
+        const o = args[1];
+        window.__dureeListe += typeof o === 'number' ? o : (o?.duration ?? 0);
+      }
+      return original.apply(this, args);
+    };
   });
   const q = await c.newPage();
   await q.goto(`${RACINE}/odyssee/taches/`, { waitUntil: 'networkidle' });
@@ -238,7 +260,7 @@ const chronometrerUneCloture = async (mouvement) => {
   await q.locator('[data-faire]').first().waitFor({ state: 'visible', timeout: 20000 });
 
   await q.evaluate(() => {
-    window.__dureeListe = null;
+    window.__dureeListe = 0;
   });
   await q.click('[data-faire]');
   await q.waitForTimeout(900);

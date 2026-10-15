@@ -359,9 +359,25 @@ import Base from '../../layouts/Base.astro';
       document.documentElement.getAttribute('data-animations') === 'reduites';
     if (reduit) return;
 
+    /*
+       LIRE L'UNITÉ, PAS SEULEMENT LE NOMBRE.
+
+       Le jeton est écrit « 200ms » dans la feuille, mais le minificateur CSS
+       le republie en « .2s ». Ma première écriture faisait un `parseFloat`
+       sans regarder l'unité : elle obtenait 0,2 et animait les cartes pendant
+       0,2 MILLISECONDE. Elles sautaient donc exactement comme avant, et ni
+       moi ni mon essai de gestes ne l'avons vu — il mesurait que le bouton
+       restait atteignable, pas que la carte glissait. C'est « essais:listes »,
+       une fois remis au nouveau mécanisme, qui l'a relevé.
+    */
     const racine = getComputedStyle(document.documentElement);
-    const duree =
-      Number.parseFloat(racine.getPropertyValue('--duree-moyenne').trim()) || 200;
+    const enMillisecondes = (brut: string, defaut: number) => {
+      const texte = brut.trim();
+      const nombre = Number.parseFloat(texte);
+      if (!Number.isFinite(nombre)) return defaut;
+      return /ms$/i.test(texte) ? nombre : nombre * 1000;
+    };
+    const duree = enMillisecondes(racine.getPropertyValue('--duree-moyenne'), 200);
     const courbe = racine.getPropertyValue('--courbe-entree').trim() || 'ease-out';
 
     for (const el of document.querySelectorAll<HTMLElement>('[data-tache]')) {
