@@ -369,7 +369,12 @@ dfn.terme-glossaire:focus-visible {
   }
   *,
   *::before,
-  *::after {
+  *::after,
+  /* `*` ne sélectionne pas `::backdrop` : le fond des boîtes de dialogue
+     natives est engendré par le navigateur et n'est pas un enfant de
+     l'élément. Sans cette ligne il gardait son fondu — mesuré à ~190 ms sous
+     mouvement réduit, soit presque la durée normale (A4 du prompt 37). */
+  *::backdrop {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
@@ -388,7 +393,10 @@ dfn.terme-glossaire:focus-visible {
 }
 :root[data-animations='reduites'] *,
 :root[data-animations='reduites'] *::before,
-:root[data-animations='reduites'] *::after {
+:root[data-animations='reduites'] *::after,
+/* Même raison que ci-dessus : l'interrupteur doit porter aussi loin que le
+   réglage du système, sinon « le plus restrictif des deux » devient faux. */
+:root[data-animations='reduites'] *::backdrop {
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;

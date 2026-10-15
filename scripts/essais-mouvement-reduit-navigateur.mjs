@@ -284,6 +284,76 @@ console.log("\n  D — l'interrupteur de l'application, système au repos");
   await normal.close();
 }
 
+/* --- E. Le fond des boîtes de dialogue (A4 du prompt 37) ----------------- */
+/*
+   **Pourquoi ce contrôle manquait.** Les blocs de mouvement réduit visent
+   `*`, `*::before` et `*::after`. `::backdrop` n'est dans aucun des trois :
+   c'est un pseudo-élément engendré par le navigateur pour la couche
+   supérieure, et il n'est pas un descendant de la boîte. Le fond gardait donc
+   son fondu — l'audit l'a mesuré à ~190 ms sous mouvement réduit, soit la
+   durée moyenne presque entière.
+
+   On le mesure par la seule voie qui dise la vérité : `getComputedStyle` sur
+   le pseudo-élément d'un `<dialog>` réellement ouvert. Une boîte fermée n'a
+   pas de fond, et lire la feuille de style ne dirait que ce qui y est écrit,
+   pas ce que le navigateur applique.
+
+   Les deux mécanismes sont éprouvés séparément : le réglage du système et
+   l'interrupteur de l'application. Il serait trop facile de n'en corriger
+   qu'un.
+*/
+
+console.log('\n  E — le fond des boîtes de dialogue');
+
+for (const cas of [
+  { nom: 'réglage du système', reducedMotion: 'reduce', interrupteur: false },
+  { nom: "interrupteur de l'application", reducedMotion: 'no-preference', interrupteur: true },
+]) {
+  const ctx = await nav.newContext({
+    viewport: { width: 390, height: 844 },
+    reducedMotion: cas.reducedMotion,
+  });
+  const p = await ctx.newPage();
+  if (cas.interrupteur) {
+    await p.addInitScript(() => {
+      try {
+        localStorage.setItem('revinsp.animations', 'reduites');
+      } catch {
+        /* Une fenêtre privée n'empêche pas le reste du contrôle. */
+      }
+    });
+  }
+  await p.goto(`${RACINE}/`, { waitUntil: 'networkidle' });
+
+  const lu = await p.evaluate(() => {
+    const boite = document.createElement('dialog');
+    boite.id = 'essai-fond';
+    document.body.append(boite);
+    boite.showModal();
+    const fond = getComputedStyle(boite, '::backdrop');
+    const boiteCalculee = getComputedStyle(boite);
+    const releve = {
+      fondTransition: fond.transitionDuration,
+      fondAnimation: fond.animationDuration,
+      boiteTransition: boiteCalculee.transitionDuration,
+    };
+    boite.close();
+    boite.remove();
+    return releve;
+  });
+
+  const plusLongue = (brut) =>
+    Math.max(...String(brut).split(',').map((x) => secondes(x)));
+
+  v(`${cas.nom} — le fond ne transitionne plus`, plusLongue(lu.fondTransition) <= 0.001, true);
+  v(`${cas.nom} — ni ne s'anime`, plusLongue(lu.fondAnimation) <= 0.001, true);
+  /* Et la boîte elle-même, qui était déjà couverte : si elle devient rouge,
+     c'est le bloc entier qui a cassé, pas seulement la ligne ajoutée. */
+  v(`${cas.nom} — la boîte non plus`, plusLongue(lu.boiteTransition) <= 0.001, true);
+
+  await ctx.close();
+}
+
 await nav.close();
 console.log(`\n${echecs ? '\x1b[31m✗' : '\x1b[32m✓'} ${echecs} échec(s)\x1b[0m\n`);
 process.exit(echecs ? 1 : 0);
