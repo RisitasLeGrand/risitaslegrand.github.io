@@ -484,3 +484,68 @@ quelle en dessous, et j'ajoute ici ce qu'elle taisait.
   rien — c'est la même raison qu'aux prompts 35 et 36.
 - **Le coffre fermé n'est pas éprouvé à l'écran.** Les trois modules qui le
   gèrent le sont ; la page qui les appelle, non.
+
+---
+
+## Anomalies relevées en construisant — prompt 39, phase 5 (calendrier)
+
+Règle d'audit §4.2 : une anomalie nouvelle devient une ligne de tableau, pas
+un correctif silencieux. Les deux qui suivent ont été trouvées **en
+branchant le calendrier**, c'est-à-dire par le geste même que le lot
+demandait — et non par une relecture.
+
+| N° | Constat | Suite |
+|---|---|---|
+| A-14 | **Le magasin scellé des exceptions était en écriture seule, et les écrans écrivaient en clair ce qu'il fallait sceller.** Deux moitiés, une seule cause : aucun écran ne choisissait le magasin. **(a)** `odysseeExceptionsScellees` n'était lu par personne — aucun appel à `exceptionsScellees()` hors de son propre fichier. Or `pointerDepuisLeCalendrier` y range l'exception de toute tâche liée à une branche sous coffre. Un dépointage sur une tâche sensible s'écrivait donc et ne se voyait **jamais** : l'écran continuait de déduire « faite » du fait de branche, que lui se lit. L'exception doit faire autorité ; elle ne le pouvait pas, faute d'être lue. **(b)** `taches.astro` écrivait dépointages et renoncements avec `ecrireOccurrence`, donc **en clair**, y compris pour une tâche scellée. Une ligne en clair « tâche X, le 14, dépointée » rend un rythme lisible sans la clé — ce que la décision 3 refuse, et ce que `magasinDeLException` existait pour empêcher. | **Corrigée** (`b181503`). `exceptionsDeLaFenetre()` lit les deux magasins et **ne lève pas** coffre fermé : un scellé illisible est l'état normal, pas une panne, et lever ici obligerait chaque écran à entourer sa lecture d'un `try` — qui finit par avaler autre chose. `ecrireLException()` et `retirerLePointage()` choisissent le magasin, une fois, pour les deux écrans. |
+| A-15 | **Le moteur de la phase 5a cherchait le fait de branche au mauvais jour.** Il passait `jourPrevu` à `pointageDeLOccurrence`, pas le jour d'arrivée. Pour une occurrence déplacée du 20 septembre au 15 octobre, il cherchait donc une séance le 20 septembre, alors qu'elle a eu lieu le 15 : l'occurrence restait « à faire » le jour où elle avait justement été faite. | **Corrigée** (`b181503`). Mes seize assertions de la 5a ne le voyaient pas, et c'est la leçon : elles éprouvaient le **déplacement** et la **dérivation** séparément, jamais ensemble. Deux règles justes prises une à une peuvent se contredire à leur jointure, et c'est la jointure qu'il faut éprouver. Même famille qu'A-9, à plus petite échelle. |
+
+### A-8 — close le 15 octobre 2026
+
+**Le calendrier montre les occurrences** (`aa94f32`) : une seconde liste
+« Tâches prévues » sous les événements en vues jour et semaine, une ligne
+compacte « n tâches » en vue mois, et un jour qui ne porte qu'une occurrence
+n'est plus sauté. Pointer, défaire et renoncer y passent par les mêmes
+fonctions que l'écran des tâches.
+
+**Ce qui reste hors du lot, et c'est l'arbitrage rendu** : la récurrence des
+**événements** d'agenda. Un événement n'est pas une tâche ; la répétition a
+été conçue pour les tâches, et le calendrier montre désormais les deux.
+
+### Le coût, mesuré plutôt que supposé
+
+`npm run mesure:occurrences-mois`. Volume d'un an — 12 tâches répétées,
+1 104 exceptions, 400 faits :
+
+| Vue | Coût par affichage |
+|---|---|
+| jour | 9,7 ms |
+| semaine (7 jours) | 9,8 ms |
+| mois (30 jours) | 9,9 ms |
+| mois, à cinq ans (5 520 exceptions) | 12,9 ms |
+
+Le seuil fixé est de **50 ms**. Il n'est pas atteint, donc **aucun cache
+n'est posé** : un cache ajouté sans mesure ajoute un second état à tenir
+juste, donc un second endroit où se tromper. Le repli — un calcul mémorisé,
+invalidé à l'écriture d'un fait — reste en réserve.
+
+Les trois premiers chiffres sont presque égaux, et cela dit **où va le
+temps** : non pas dans la fenêtre affichée, mais dans la fenêtre **élargie**
+de 93 jours, déroulée à l'identique dans les trois cas, et dans le tri des
+exceptions par tâche, qui parcourt tout le lot. Le facteur est donc le
+volume d'exceptions, pas la vue — vérifié à cinq ans.
+
+**Ce n'est pas `bench-storage`**, qui pèse le stockage et le temps de
+chargement d'un écran. C'est la part de calcul que la phase 5 ajoute, et
+rien d'autre.
+
+### Ce qui n'est toujours PAS couvert, après la phase 5
+
+- **La portée sur une occurrence du calendrier n'a pas d'essai de
+  navigateur.** Le plan qu'elle applique (`planifierAbandon`) est éprouvé en
+  module ; le formulaire qui le monte ne l'est que par lecture.
+- **Aucune capture** des écrans du lot. Phase 6.
+- **`npm run verifier` (astro check) n'est pas vert sur `main`** : neuf
+  erreurs, toutes antérieures à ce lot et hors de lui (`Base.astro`,
+  `glossaire.astro`, `molecule.astro`). Dix avant la phase 5, neuf après —
+  une refermée au passage, aucune ajoutée. **Ce contrôle ne garde rien
+  aujourd'hui**, et il faut le savoir avant de s'y fier.
