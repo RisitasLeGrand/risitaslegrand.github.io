@@ -172,87 +172,6 @@ const SIMPLIFIEE: Record<string, Forme[]> = {
    Forme complète
    ══════════════════════════════════════════════════════════════════════════ */
 
-/**
- * Les mêmes muscles, avec le détail de contour qui les fait lire.
- *
- * Trois partis pris, et ils sont assumés.
- *
- * **Les ancrages ne bougent pas.** Une zone cliquable qui se déplacerait
- * d'une forme à l'autre ferait rater la cible à qui change de réglage. Le
- * détail s'ajoute à l'intérieur de la même empreinte.
- *
- * **Le détail passe par des sous-chemins, pas par des traits.** Les six
- * segments des abdominaux, les deux chefs du mollet, les deux vastes du
- * quadriceps sont des contours fermés distincts dans un même `d`. Un trait
- * séparateur demanderait un `stroke` que la coloration par volume écraserait ;
- * des blocs restent lisibles quelle que soit la couleur.
- *
- * **Ce n'est toujours pas une planche d'anatomie.** Les proportions sont
- * usuelles, les contours plausibles, et c'est tout ce que la fonction
- * demande : reconnaître où l'on clique, et voir ce qui a travaillé.
- */
-const COMPLETE: Record<string, Forme[]> = {
-  /* --- Face avant --------------------------------------------------------- */
-  cou: [c('M 92 44 L 108 44 Q 113 47 112 54 Q 110 60 104 62 L 96 62 Q 90 60 88 54 Q 87 47 92 44 Z', 87, 44, 26, 18)],
-
-  // Bord claviculaire droit en haut, fente sternale marquée au bord interne,
-  // attache basse plus fuyante : trois traits qui suffisent à lire un pectoral.
-  pectoraux: paire(c('M 63 78 L 86 75 Q 96 78 99 87 Q 99 94 96 99 Q 88 104 78 102 Q 68 99 64 93 Q 61 85 63 78 Z M 97 88 Q 93 92 90 97', 61, 75, 38, 29)),
-
-  // Trois chefs suggérés par deux renflements du bord externe.
-  'deltoide-anterieur': paire(c('M 44 83 Q 44 73 51 68 Q 60 65 66 72 Q 69 78 68 85 Q 66 92 59 93 Q 49 92 44 83 Z', 44, 65, 25, 28)),
-  'deltoide-lateral': paire(c('M 38 93 Q 37 83 44 79 Q 52 79 56 87 Q 57 96 54 102 Q 46 105 41 100 Q 38 97 38 93 Z', 37, 79, 20, 26)),
-
-  // Le ventre du biceps est haut et court, le tendon s'étire vers le coude.
-  biceps: paire(c('M 37 113 Q 38 104 46 103 Q 54 105 56 115 Q 55 126 51 133 L 48 141 Q 43 141 41 135 Q 38 125 37 113 Z', 37, 103, 19, 38)),
-  'avant-bras': paire(c('M 33 151 Q 34 143 41 141 Q 49 144 50 155 Q 49 166 46 174 L 43 183 Q 37 182 35 174 Q 33 162 33 151 Z', 33, 141, 17, 42)),
-
-  // Six segments et la ligne blanche : l'abdomen se lit d'un coup d'œil.
-  abdominaux: [c(
-    'M 87 114 L 98 114 L 98 127 L 87 127 Z M 102 114 L 113 114 L 113 127 L 102 127 Z ' +
-      'M 87 130 L 98 130 L 98 143 L 87 143 Z M 102 130 L 113 130 L 113 143 L 102 143 Z ' +
-      'M 88 146 L 98 146 Q 98 157 93 158 Q 88 156 88 146 Z ' +
-      'M 102 146 L 112 146 Q 112 156 107 158 Q 102 157 102 146 Z',
-    87, 114, 26, 44,
-  )],
-  obliques: paire(c('M 66 121 Q 68 114 74 114 Q 81 118 82 129 L 82 146 Q 81 156 74 158 Q 68 155 66 146 Q 65 133 66 121 Z', 65, 114, 17, 44)),
-
-  // Deux vastes séparés : le latéral large et bombé, le médial descendant bas
-  // vers le genou — c'est la paire qui fait reconnaître une cuisse.
-  quadriceps: paire(c(
-    'M 67 201 Q 68 190 78 187 Q 85 189 86 200 L 85 250 Q 82 266 75 270 Q 69 266 68 250 Z ' +
-      'M 89 192 Q 96 192 99 203 L 98 252 Q 95 271 88 274 Q 84 269 85 254 Z',
-    67, 187, 32, 87,
-  )),
-  adducteurs: paire(c('M 88 195 Q 89 187 95 186 Q 100 190 101 199 L 101 226 Q 99 236 94 238 Q 89 234 88 224 Z', 88, 186, 13, 52)),
-
-  /* --- Face arrière ------------------------------------------------------- */
-
-  // Le trapèze en losange : pointe haute à la nuque, deux angles aux épaules,
-  // pointe basse entre les omoplates.
-  trapezes: [c('M 100 61 Q 116 63 128 70 Q 127 79 118 86 L 100 92 L 82 86 Q 73 79 72 70 Q 84 63 100 61 Z', 72, 61, 56, 31)],
-  'deltoide-posterieur': paire(c('M 43 87 Q 43 76 50 71 Q 59 68 65 76 Q 68 82 67 89 Q 65 96 58 97 Q 48 95 43 87 Z', 43, 68, 25, 29)),
-
-  // Le grand dorsal en V : large sous l'aisselle, pincé vers la taille.
-  dorsaux: paire(c('M 63 100 Q 68 92 80 92 Q 93 97 99 106 L 99 128 Q 90 139 80 141 Q 71 136 67 125 Q 63 112 63 100 Z', 63, 92, 36, 49)),
-  triceps: paire(c('M 37 115 Q 38 106 46 104 Q 55 107 56 118 Q 55 128 52 135 L 48 144 Q 43 143 41 136 Q 38 126 37 115 Z', 37, 104, 19, 40)),
-  lombaires: [c('M 85 152 Q 88 147 94 148 L 106 148 Q 112 147 115 152 Q 117 161 115 169 Q 112 174 106 174 L 94 174 Q 88 174 85 169 Q 83 161 85 152 Z', 83, 147, 34, 27)],
-  fessiers: paire(c('M 68 189 Q 68 177 81 174 Q 94 175 100 186 Q 102 197 96 204 Q 84 209 74 203 Q 68 197 68 189 Z', 68, 174, 34, 35)),
-
-  // Deux faisceaux, séparés jusqu'au creux poplité.
-  'ischio-jambiers': paire(c(
-    'M 70 217 Q 71 207 80 205 Q 86 208 87 218 L 86 262 Q 83 280 78 284 Q 73 279 71 262 Z ' +
-      'M 90 208 Q 97 210 99 220 L 97 262 Q 94 280 88 283 Q 85 276 86 262 Z',
-    70, 205, 29, 79,
-  )),
-
-  // Les deux chefs du gastrocnémien, inégaux comme ils le sont.
-  mollets: paire(c(
-    'M 74 309 Q 75 298 83 295 Q 88 299 88 310 L 87 334 Q 85 348 82 353 Q 77 349 75 334 Z ' +
-      'M 90 299 Q 96 301 97 310 L 95 332 Q 93 346 88 351 Q 86 344 87 332 Z',
-    74, 295, 23, 58,
-  )),
-};
 
 /* ══════════════════════════════════════════════════════════════════════════
    La silhouette
@@ -265,9 +184,11 @@ const COMPLETE: Record<string, Forme[]> = {
  * un oubli : elle ne désigne aucun muscle, elle sert d'appui visuel, et
  * l'exposer ajouterait au parcours clavier une étape qui ne mène nulle part.
  *
- * Deux versions, comme les muscles. La simplifiée garde des membres droits ;
- * la complète galbe les cuisses, creuse la taille et marque les chevilles —
- * ce qui fait la différence entre un bonhomme et une silhouette.
+ * Une seule version, depuis la décision 1 du 14 octobre : membres droits,
+ * contours sobres. La forme dite « complète » a été retirée — à la taille
+ * affichée elle ne se distinguait presque pas de celle-ci, et ses contours
+ * n'étaient pas anatomiquement crédibles. Une forme complète digne de ce nom
+ * pourra faire l'objet d'un lot à part, d'après une source légitime.
  */
 const SILHOUETTE_SIMPLIFIEE: Forme[] = [
   c('M 100 7 Q 119 7 120 29 Q 119 51 100 53 Q 81 51 80 29 Q 81 7 100 7 Z', 80, 7, 40, 46),
@@ -276,44 +197,25 @@ const SILHOUETTE_SIMPLIFIEE: Forme[] = [
   ...paire(c('M 69 194 Q 68 230 73 262 Q 76 290 77 316 Q 78 340 79 357 Q 86 362 93 357 Q 94 340 95 316 Q 96 290 98 262 Q 101 230 100 194 Z', 68, 194, 33, 168)),
 ];
 
-const SILHOUETTE_COMPLETE: Forme[] = [
-  c('M 100 7 Q 118 8 120 28 Q 120 44 110 51 L 110 58 L 90 58 L 90 51 Q 80 44 80 28 Q 82 8 100 7 Z', 80, 7, 40, 51),
-  // Taille creusée, épaules élargies, bassin repris : c'est ce galbe, et non
-  // le détail des muscles, qui fait lire une silhouette plutôt qu'un gabarit.
-  c('M 88 58 L 112 58 Q 132 64 137 88 L 134 118 Q 130 138 127 152 Q 130 172 127 192 L 73 192 Q 70 172 73 152 Q 70 138 66 118 L 63 88 Q 68 64 88 58 Z', 63, 58, 74, 134),
-  ...paire(c('M 65 74 Q 47 80 43 102 Q 39 126 35 148 Q 32 168 30 185 Q 36 193 48 190 Q 50 170 53 150 Q 56 128 59 106 Q 62 88 69 79 Z', 30, 74, 39, 119)),
-  ...paire(c('M 68 194 Q 67 228 72 258 Q 76 284 77 310 Q 79 334 80 357 Q 86 362 93 357 Q 95 334 96 310 Q 97 284 99 258 Q 102 228 101 194 Z', 67, 194, 35, 168)),
-];
 
 /* ══════════════════════════════════════════════════════════════════════════
-   Le choix de la forme
+   Les formes publiées
    ══════════════════════════════════════════════════════════════════════════ */
 
-export type FormeDuCorps = 'simplifiee' | 'complete';
+/*
+   UNE SEULE FORME, depuis la décision 1 du 14 octobre 2026.
 
-/** Décision 6 d'Alexis, 14 octobre 2026 : simplifiée partout par défaut. */
-export const FORME_PAR_DEFAUT: FormeDuCorps = 'simplifiee';
+   Il y en avait deux, et un sélecteur pour en changer. À la taille réellement
+   affichée, la forme « complète » se distinguait à peine de la simplifiée, et
+   ses contours ne tenaient pas comme anatomie. Un réglage qui ne change rien
+   de perceptible est une question posée pour rien.
 
-export const LIBELLE_FORME: Record<FormeDuCorps, string> = {
-  simplifiee: 'Simplifiée',
-  complete: 'Complète',
-};
-
-/** Les formes des muscles, pour la forme demandée. */
-export function formesDuCorps(forme: FormeDuCorps = FORME_PAR_DEFAUT): Record<string, Forme[]> {
-  return forme === 'complete' ? COMPLETE : SIMPLIFIEE;
-}
-
-/** La silhouette, pour la forme demandée. */
-export function silhouetteDuCorps(forme: FormeDuCorps = FORME_PAR_DEFAUT): Forme[] {
-  return forme === 'complete' ? SILHOUETTE_COMPLETE : SILHOUETTE_SIMPLIFIEE;
-}
-
-/**
- * Les formes par défaut, pour tout ce qui n'a pas à connaître le réglage.
- * Conservé sous son nom d'origine : les appelants qui ne choisissent pas
- * continuent de fonctionner, et obtiennent la forme par défaut.
- */
+   Ont disparu avec elle : le type « FormeDuCorps », « FORME_PAR_DEFAUT »,
+   « LIBELLE_FORME », « formesDuCorps », « silhouetteDuCorps », les tracés
+   « COMPLETE » et « SILHOUETTE_COMPLETE », et le sélecteur de l'écran des
+   exercices. Les deux exports ci-dessous gardent leur nom : les appelants qui
+   ne choisissaient pas continuent de fonctionner sans rien changer.
+*/
 export const FORMES: Record<string, Forme[]> = SIMPLIFIEE;
 export const SILHOUETTE: Forme[] = SILHOUETTE_SIMPLIFIEE;
 
@@ -388,16 +290,12 @@ function pointsDuChemin(d: string): Array<[number, number]> {
  * Un muscle déclaré sans forme serait invisible sur le schéma tout en
  * existant dans les cases à cocher : les deux représentations cesseraient de
  * dire la même chose, ce qui est précisément ce que l'alternative accessible
- * doit empêcher. Et un muscle présent dans une seule des deux formes ne se
- * verrait qu'au changement de réglage, c'est-à-dire trop tard.
+ * doit empêcher.
  */
 export function controlerSchema(): string[] {
   const problemes: string[] = [];
 
-  for (const [nom, jeu] of [
-    ['simplifiée', SIMPLIFIEE],
-    ['complète', COMPLETE],
-  ] as const) {
+  for (const [nom, jeu] of [['simplifiée', SIMPLIFIEE]] as const) {
     for (const m of MUSCLES) {
       const formes = jeu[m.id];
       if (!formes || !formes.length) {
@@ -428,31 +326,13 @@ export function controlerSchema(): string[] {
     }
   }
 
-  // Les deux jeux doivent couvrir exactement les mêmes muscles : sans cela,
-  // changer de forme ferait disparaître une zone cliquable.
-  const aSimplifiee = Object.keys(SIMPLIFIEE).sort().join('|');
-  const aComplete = Object.keys(COMPLETE).sort().join('|');
-  if (aSimplifiee !== aComplete) {
-    problemes.push('Les deux formes ne couvrent pas les mêmes muscles.');
-  }
-
   /*
-     Et le même NOMBRE de chemins par muscle. La page rend un seul jeu de
-     balises et change le `d` au changement de réglage : si un muscle avait
-     deux chemins d'un côté et un seul de l'autre, la bascule laisserait une
-     forme orpheline à l'écran. C'est le genre de défaut qu'on ne voit qu'en
-     basculant, c'est-à-dire rarement.
+     TROIS CONTRÔLES ONT DISPARU AVEC LA FORME COMPLÈTE, et c'est normal, pas
+     un allègement : ils comparaient les deux jeux entre eux — mêmes muscles,
+     même nombre de chemins par muscle, même nombre de pièces de silhouette.
+     Avec un seul jeu, ils n'ont plus rien à comparer. Tout ce qui portait sur
+     la justesse d'un jeu pris isolément est conservé.
   */
-  for (const m of MUSCLES) {
-    const a = SIMPLIFIEE[m.id]?.length ?? 0;
-    const b = COMPLETE[m.id]?.length ?? 0;
-    if (a !== b) {
-      problemes.push(`« ${m.id} » a ${a} chemin(s) en simplifiée et ${b} en complète.`);
-    }
-  }
-  if (SILHOUETTE_SIMPLIFIEE.length !== SILHOUETTE_COMPLETE.length) {
-    problemes.push('Les deux silhouettes n’ont pas le même nombre de pièces.');
-  }
 
   /*
      Les deux faces doivent porter des muscles : une face vide serait un
@@ -465,7 +345,7 @@ export function controlerSchema(): string[] {
 
   // Le reflet doit être sa propre réciproque : sans cela, un côté dériverait
   // de l'autre sans que rien ne le signale.
-  for (const jeu of [SIMPLIFIEE, COMPLETE]) {
+  for (const jeu of [SIMPLIFIEE]) {
     for (const [id, formes] of Object.entries(jeu)) {
       for (const f of formes) {
         if (miroir(miroir(f.d)).replace(/\s+/g, ' ') !== f.d.replace(/\s+/g, ' ')) {

@@ -29,6 +29,7 @@
     "essais:decalage": "node scripts/essais-decalage.mjs",
     "essais:taches-gestes": "node scripts/essais-taches-gestes.mjs",
     "essais:cadre": "node scripts/essais-cadre-transition.mjs",
+    "essais:muscles": "node scripts/essais-muscles.mjs",
     "essais:revue-deja": "tsx scripts/essais-revue-deja.mts",
     "essais:revue-moment": "tsx scripts/essais-revue-moment.mts",
     "essais:export-coffre": "node scripts/essais-export-coffre.mjs",

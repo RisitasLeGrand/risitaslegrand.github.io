@@ -46,13 +46,12 @@ import {
 } from '../src/lib/sport/programmes';
 import {
   ETATS,
-  FORME_PAR_DEFAUT,
+  FORMES,
+  SILHOUETTE,
   controlerSchema,
   etatSuivant,
-  formesDuCorps,
   miroir,
   musclesDeLaFace,
-  silhouetteDuCorps,
 } from '../src/lib/sport/schema-corps';
 import { projeterFaitsSport } from '../src/lib/sport/faits-sport';
 import type { Seance } from '../src/lib/sport/modele';
@@ -650,40 +649,24 @@ console.log('\nLE SCHÉMA DU CORPS COUVRE LE MODÈLE');
 v('le schéma ne pose aucun problème', controlerSchema(), []);
 
 /*
-   Les deux formes du schéma — prompt 34, phase 6.
+   LA FORME DU SCHÉMA — décision 1 du 14 octobre 2026.
 
-   `controlerSchema()` couvre déjà la parité des deux jeux, leurs boîtes et la
-   réciprocité du reflet. Ce qui suit vérifie ce qu'il ne peut pas voir de
-   l'intérieur : que le défaut est bien celui qu'Alexis a tranché, et que les
-   deux jeux sont effectivement DIFFÉRENTS. Sans ce dernier point, livrer deux
-   fois le même dessin passerait tous les autres contrôles.
+   Il y en avait deux, et cinq contrôles comparaient leurs tracés : que le
+   défaut soit la simplifiée, qu'aucun muscle n'ait le même dessin des deux
+   côtés, que les silhouettes diffèrent, que la complète porte des
+   sous-chemins. La forme complète est retirée : ces contrôles n'ont plus de
+   second terme, et les garder en les adaptant reviendrait à comparer un jeu
+   avec lui-même.
+
+   Ce qui les remplace est ce qui reste vrai et vérifiable : il n'y a QU'UNE
+   forme, publiée sous deux noms stables, et elle est complète au sens où
+   chaque muscle déclaré y est dessiné. Le reste — boîtes, débordements,
+   réciprocité du reflet — est déjà couvert par `controlerSchema()` ci-dessus.
 */
-v('le défaut est la forme simplifiée (décision 6)', FORME_PAR_DEFAUT, 'simplifiee');
 {
-  const simple = formesDuCorps('simplifiee');
-  const detail = formesDuCorps('complete');
-  const identiques = Object.keys(simple).filter(
-    (id) => (simple[id] ?? []).map((f) => f.d).join('|') === (detail[id] ?? []).map((f) => f.d).join('|'),
-  );
-  v('aucun muscle n’a le même tracé dans les deux formes', identiques, []);
-  v(
-    'la silhouette non plus',
-    silhouetteDuCorps('simplifiee').map((f) => f.d).join('|') ===
-      silhouetteDuCorps('complete').map((f) => f.d).join('|'),
-    false,
-  );
-
-  /*
-     Et la forme complète porte bien du détail : au moins un muscle y est
-     dessiné en plusieurs sous-chemins — les segments des abdominaux, les deux
-     vastes, les deux chefs du mollet. Un « détail » qui ne serait qu'un
-     contour un peu différent ne mériterait pas son nom.
-  */
-  const sousChemins = (d: string) => (d.match(/M/g) ?? []).length;
-  const detailles = Object.entries(detail).filter(([, formes]) =>
-    formes.some((f) => sousChemins(f.d) > 1),
-  );
-  v('la forme complète dessine des sous-chemins', detailles.length >= 3, true);
+  const sansForme = MUSCLES.filter((m) => !(FORMES[m.id] ?? []).length).map((m) => m.id);
+  v('chaque muscle déclaré est dessiné', sansForme, []);
+  v('la silhouette a ses pièces', SILHOUETTE.length > 0, true);
 }
 
 /* Le reflet, éprouvé sur des cas écrits à la main plutôt que sur les données
