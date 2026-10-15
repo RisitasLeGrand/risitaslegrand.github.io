@@ -73,10 +73,10 @@ export const ACTIONS_LIABLES: readonly ActionLiable[] = [
     id: 'revision.seance',
     branche: 'revisions',
     libelle: 'Une séance de révision',
-    sens: 'deux-sens',
+    sens: 'branche-vers-tache',
     sousCoffre: false,
     pourquoi:
-      'Une séance de cartes se crée avec un thème, un jour et un statut : rien qui demande d’inventer un résultat.',
+      'Décision 5 du 15 octobre, prise au mot : « faire la séance dans la branche coche la tâche ; pointer la tâche ne crée pas de séance. » Et la raison technique suit la décision : une séance de révision porte `secondes`, une durée mesurée dont le fait déduit son instant de début. La justifier par « un thème, un jour et un statut » était une erreur de ma part, corrigée ici : il y avait un quatrième champ, et c’était une mesure.',
   }),
   A({
     id: 'revision.qcm',

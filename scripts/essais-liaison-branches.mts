@@ -118,8 +118,15 @@ v(
 
 /* Ce qui marche dans les deux sens. */
 v('une séance de sport se crée d’un geste', ecritDansLaBranche('sport.seance'), true);
-v('une séance de révision aussi', ecritDansLaBranche('revision.seance'), true);
 v('une quête aussi', ecritDansLaBranche('odyssee.quete'), true);
+/*
+   Et plus la séance de révision : elle portait ici un `true` fondé sur une
+   affirmation fausse de ma part — « un thème, un jour et un statut ». Elle
+   porte aussi `secondes`, une durée mesurée. La décision 5 du 15 octobre dit
+   d'ailleurs la même chose, et en toutes lettres.
+*/
+v('une séance de révision, non', ecritDansLaBranche('revision.seance'), false);
+v('mais la faire coche la tâche', cocheLaTache('revision.seance'), true);
 
 /* ══════════════════════════════════════════════════════════════════════════
    Le refus par défaut
