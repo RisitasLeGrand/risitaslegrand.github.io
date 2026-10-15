@@ -111,6 +111,47 @@ const TRANSITIONNE_LA_LARGEUR = /\btransition-all\b|\btransition-\[width\]|trans
   );
 }
 
+/*
+   **Ce que les deux contrôles ci-dessus ne voyaient pas**, et c'est l'A3 du
+   prompt 37. `apparier.astro` posait sa largeur par une CLASSE Tailwind (`w-0`)
+   et non par un attribut `style`, tandis que son script posait un `scaleX`. La
+   barre faisait donc 0 px de large à 60 % d'avancement : invisible, sans
+   qu'aucune des deux expressions régulières ne s'en émeuve.
+
+   La règle réellement en jeu n'est pas « ne pas écrire width » : c'est que tout
+   élément piloté par `scaleX` emploie le mécanisme partagé, qui lui donne sa
+   largeur pleine et son origine à gauche. On la vérifie donc telle quelle.
+*/
+
+console.log('\n  A bis — tout élément piloté par scaleX emploie le mécanisme');
+
+{
+  const fautifs = [];
+  for (const f of fichiers) {
+    const texte = readFileSync(f, 'utf8');
+    /* Les identifiants pilotés : `$('barre').style.transform = …scaleX(…)` ou
+       la forme longue avec getElementById, éventuellement transtypée. */
+    const pilote = /(?:\$\(|getElementById\()\s*'([^']+)'[^\n]*?\.style\.transform\s*=\s*[^\n]*scaleX/g;
+    for (const trouve of texte.matchAll(pilote)) {
+      const id = trouve[1];
+      /* La balise qui porte cet identifiant, attributs compris, sur plusieurs
+         lignes : les balises sont reformatées par le formateur. */
+      const balise = new RegExp(`<[a-zA-Z][^>]*\\bid=["']${id}["'][^>]*>`, 's').exec(texte);
+      if (!balise) {
+        /* L'identifiant n'est pas dans ce fichier : on ne conclut pas. */
+        continue;
+      }
+      if (!/jauge-remplissage/.test(balise[0])) {
+        fautifs.push(`${f} : #${id} reçoit un scaleX sans porter « jauge-remplissage »`);
+      }
+      if (/\bw-0\b/.test(balise[0])) {
+        fautifs.push(`${f} : #${id} garde « w-0 », donc reste large de 0 px`);
+      }
+    }
+  }
+  v('aucun élément piloté par scaleX n’ignore le mécanisme partagé', fautifs, []);
+}
+
 /* --- B. Le mécanisme est partagé, pas recopié ---------------------------- */
 /*
    Vingt jauges écrites chacune à sa façon, c'est vingt occasions d'oublier la
