@@ -224,7 +224,14 @@ import Base from '../../layouts/Base.astro';
   let pointagesAffiches: { tacheId: string; jourPrevu: string; etat: string }[] = [];
   /** Les faits du jour, pour le sens branche → tâche. Bornés à la journée. */
   let faitsAffiches: FaitObserve[] = [];
-  /** Les branches qu'on n'a pas pu lire — scellées, coffre fermé. */
+  /**
+   * Les branches qu'on n'a pas pu lire — scellées, coffre fermé.
+   *
+   * **Elles ne s'affichent pas nommées.** Coffre fermé, dire « Psyché n'a
+   * pas pu être lue » révélerait l'existence d'un lien vers Psyché sur une
+   * carte qui ne le montre pas autrement. La mention reste neutre ; ce
+   * décompte sert au diagnostic, pas à l'écran.
+   */
   let branchesIllisibles: string[] = [];
   /* Les cochages de toutes les occurrences affichées, relus à chaque peinture. */
   let tousLesCochages: EtapeCochee[] = [];
@@ -842,6 +849,19 @@ import Base from '../../layouts/Base.astro';
           geste === 'ecrire-un-depointage'
             ? 'Retire la coche sans toucher à ce que la branche a enregistré.'
             : 'Efface le pointage que vous avez fait ici.';
+        /*
+           La même chose, mais VISIBLE. Une infobulle ne s'ouvre pas au
+           doigt, et c'est au doigt que ce bouton sera pressé. Dire après
+           coup « votre séance est toujours là » ne vaut pas la dire avant.
+        */
+        if (geste === 'ecrire-un-depointage') {
+          const note = document.createElement('p');
+          note.className = 'mt-2 w-full text-xs text-slate-500 dark:text-slate-400';
+          note.dataset.notePointage = tache.id;
+          note.textContent =
+            'Fait depuis sa branche. « Ce n’était pas ça » retire la coche ici ; la séance reste comptée.';
+          actions.appendChild(note);
+        }
         defaire.addEventListener('click', () =>
           void agirPuisPeindre(async () => {
             if (geste === 'effacer-l-exception') {

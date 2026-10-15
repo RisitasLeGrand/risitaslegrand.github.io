@@ -167,6 +167,61 @@ console.log('\n\x1b[1mLe geste de retrait porte le bon nom\x1b[0m');
   );
 }
 
+console.log('\n\x1b[1mUn état inconnu ne se lit jamais comme « faite »\x1b[0m');
+{
+  /*
+     `depointee` est une valeur NOUVELLE dans un magasin journalisé et
+     synchronisé. Une version antérieure du site, en cache sur un autre
+     appareil, peut la recevoir. Deux vérifications, demandées par le pilote.
+
+     Côté versions antérieures, le constat est **lu dans l'historique** :
+     à `a0fe0ee` l'écran des tâches ne lisait aucune occurrence, et à
+     `9dc7d8f` il ne retenait que `etat === 'pointee'`. Dans les deux cas
+     un `depointee` reçu ne plante pas et n'est pas lu comme « pointée » —
+     il est ignoré, ce qui est le sens prudent.
+
+     Côté version courante, c'est l'assertion ci-dessous : un état qu'on ne
+     reconnaît pas ne doit pas se changer en « faite ». Elle protège le cas
+     inverse — un état inventé par une version PLUS RÉCENTE que celle-ci.
+  */
+  const t = tache({ action: SPORT.id, cible: null } as Tache['lien']);
+  v(
+    'un état venu d’une version plus récente ne vaut pas « faite »',
+    pointageDeLOccurrence(t, JOUR, {
+      ...ouvert,
+      exception: { etat: 'inventee-plus-tard' as never },
+      faits: [],
+    }).faite,
+    false,
+  );
+}
+
+console.log('\n\x1b[1mDeux appareils convergent, quel que soit l’ordre d’arrivée\x1b[0m');
+{
+  /*
+     L'appareil A dépointe. L'appareil B fait la séance, qui produit son
+     fait. Après fusion, les deux ont l'exception ET le fait. Ils doivent
+     lire la même chose — et ils le lisent, parce que l'exception l'emporte
+     partout de la même façon. C'est ce que la dérivation achète : il n'y a
+     pas deux écritures à réconcilier, il y a une écriture et un calcul.
+  */
+  const t = tache({ action: SPORT.id, cible: null } as Tache['lien']);
+  const apresFusion = { ...ouvert, exception: { etat: 'depointee' as const }, faits: [fait(SPORT.id)] };
+  const vuDepuisA = pointageDeLOccurrence(t, JOUR, apresFusion);
+  const vuDepuisB = pointageDeLOccurrence(t, JOUR, apresFusion);
+  v('l’appareil qui a dépointé lit « pas faite »', vuDepuisA, {
+    faite: false,
+    origine: 'exception',
+    lisible: true,
+  });
+  v('celui qui a fait la séance lit la même chose', vuDepuisB, vuDepuisA);
+  v(
+    'et sans l’exception, les deux liraient « faite » — donc c’est bien elle qui tranche',
+    pointageDeLOccurrence(t, JOUR, { ...ouvert, faits: [fait(SPORT.id)] }).faite,
+    true,
+  );
+}
+
 console.log(
   echecs === 0 ? '\n\x1b[32mTous les essais passent.\x1b[0m\n' : `\n\x1b[31m${echecs} échec(s).\x1b[0m\n`,
 );
