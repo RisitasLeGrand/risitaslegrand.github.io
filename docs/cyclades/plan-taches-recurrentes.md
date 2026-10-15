@@ -335,10 +335,13 @@ un correctif silencieux. Les deux premières viennent de moi.
 |---|---|---|
 | A-6 | **Le magasin des reports en attente ne peut pas servir à ce pour quoi il a été fait.** `odysseeReports` a été créé en phase 2 pour garder un geste fait **coffre fermé** et l'écrire à l'ouverture. Il est **scellé** : `ecrireReport` et `tousLesReports` appellent `exigerLeCoffre()`, qui lève coffre fermé. Le magasin exige donc la condition qu'il était censé contourner. C'est une erreur de conception de ma part, pas une limite du coffre. | **Ouvert — arbitrage d'Alexis, parce que la ligne touche le chiffrement.** Le desceller n'est pas un détail : une file en clair portant « tâche T, jour J, branche psyché » révèle qu'un check-in a eu lieu ce jour-là, ce que l'exception scellée a précisément pour objet de cacher. La trace serait transitoire — effacée au report — mais elle existerait. Rien n'est écrit en attendant. |
 | A-7 | **En conséquence, le geste sur une tâche sous coffre, coffre fermé, est refusé** au lieu d'être reporté. | **Livré ainsi, et dit.** `gesteSousCoffre()` rend le refus comme une **valeur** avec sa raison affichable, plutôt que de laisser `exigerLeCoffre()` lever une exception à la figure de l'écran — une erreur attrapée finit toujours par être confondue avec une panne. Le jour où A-6 est tranchée, c'est ce point unique qui change. |
+| A-8 | **`calendrier.astro` ne porte ni « Répéter » ni la portée**, alors que la ligne de la phase 4 du plan le nommait avec `taches.astro`. Constaté : le fichier ne contient aucune occurrence des mots `serie`, `repet`, `portee`. L'interface de série vit uniquement dans `taches.astro`. Les **événements** d'agenda ne se répètent donc pas. | **Ouverte.** Ce n'est pas forcément un manque : un événement n'est pas une tâche, et la répétition a été conçue pour les tâches. Mais le plan l'annonçait, et le compte rendu ne l'a pas démenti. À trancher : les événements doivent-ils se répéter, ou la ligne du plan était-elle trop large ? |
+| A-9 | **Les phases 5, 6 et 7 ne sont appelées par aucun écran.** `pointage-partage.ts`, `retour-de-branche.ts`, `coffre-ferme.ts` et le registre `liaison-branches.ts` n'ont pour seuls importateurs que leurs propres scripts d'essai — zéro occurrence dans `src/pages/`, `src/components/` et `src/layouts/`. Leurs essais sont verts et leur code est mort. Conséquence visible, mesurée par `essais:taches-parcours` : le bouton « Faite » appelle `clore(tache.id, true)` quelle que soit la tâche, donc **une tâche répétée pointée une fois ne revient jamais**, aucune occurrence n'est écrite, aucun fait n'est rendu à la branche. | **Ouverte — je ne la corrige pas de moi-même.** Brancher ces moteurs change ce qui est **écrit en base** à chaque pointage : § 4.2, j'attends un go. Le contrôle `essais:taches-parcours` est livré **rouge** et le restera jusque-là ; ses assertions disent ce qui devrait être, pas ce qui est. |
+| A-10 | **Une phrase de mon compte rendu de la phase 7 était fausse.** « Le calendrier se dessine entièrement coffre fermé. Les occurrences sont calculées depuis la série… » : `calendrier.astro` ne calcule **aucune** occurrence. Il ne lit que `evenementsEntre()`. La phrase est vraie de `taches.astro`, seul écran qui importe `repetition.ts`. | **Rectifiée ci-dessous**, pas supprimée. Même faute que les trois de la phase 0 du prompt 32 : conclure d'un module à l'écran qui est censé l'appeler, sans ouvrir l'écran. |
 
 ### Ce que la phase 7 livre malgré A-6
 
-- **Le calendrier se dessine entièrement coffre fermé.** Les occurrences sont calculées depuis la série, qui vit en clair : seules les **exceptions** des tâches liées à une branche sous coffre manquent. Trois actions sur onze sont dans ce cas. C'est l'écart qui donne sa valeur à la décision 3 — si tout devenait illisible, le chiffrement par branche n'aurait servi à rien.
+- ~~**Le calendrier se dessine entièrement coffre fermé.** Les occurrences sont calculées depuis la série, qui vit en clair : seules les **exceptions** des tâches liées à une branche sous coffre manquent.~~ **Faux, rectifié le 15 octobre 2026 — anomalie A-10.** `calendrier.astro` ne calcule aucune occurrence : il dessine des **événements** d'agenda, et rien d'autre. La phrase est vraie de **`taches.astro`**, seul écran qui importe `repetition.ts` : là, les occurrences sont bien calculées depuis la série, qui vit en clair, et seules les exceptions des tâches liées à une branche sous coffre manquent. Trois actions sur onze sont dans ce cas. C'est l'écart qui donne sa valeur à la décision 3 — si tout devenait illisible, le chiffrement par branche n'aurait servi à rien.
 - **Ce qu'on ne peut pas lire est dit, jamais deviné.** Une occurrence dont l'exception est scellée ne s'affiche pas « à faire » : ce serait une affirmation fausse. `lisibiliteDeLOccurrence` rend `scellee`, qui veut dire « on ne peut pas savoir », et non « il n'y a rien ».
 - **Les libellés ne portent aucun titre** (décision 6), et l'essai ne se contente pas de lire la constante : il refuse toute marque d'interpolation, parce qu'un gabarit finit par être rempli.
 
@@ -447,6 +450,23 @@ les N jours » montre le pas et range les cases, « jamais » ne montre ni
 l'un ni l'autre. Le moteur sait qu'une règle hebdomadaire porte des jours ;
 il ne sait pas si l'écran montre la case. Sabotage constaté rouge : une case
 à cocher qui ne se découvre jamais rend la règle hebdomadaire inatteignable.
+
+### Ce qui n'est PAS couvert — relu le 15 octobre 2026
+
+La liste ci-dessous était **en dessous de la vérité**. Écrire le parcours
+complet que je déclarais manquant a montré que le manque n'était pas un
+trou dans les preuves mais un trou dans la livraison : trois phases de
+moteur sans aucun appelant (A-9). Je laisse la liste d'origine telle
+quelle en dessous, et j'ajoute ici ce qu'elle taisait.
+
+- **`essais:taches-parcours` est livré rouge**, sur quatre assertions, et
+  c'est le constat d'A-9 : aucune occurrence écrite au pointage, la tâche
+  répétée close pour toujours. Il est vert sur la moitié « création », donc
+  il échoue pour la raison et non pour un montage défaillant.
+- **Le calendrier et la Revue restent sans contrôle automatisé.** Je ne les
+  ai pas ajoutés dans le même geste : corriger A-9 changera ce que ces
+  écrans affichent, et un contrôle écrit avant la correction mesurerait un
+  état transitoire.
 
 ### Ce qui n'est PAS couvert, et qu'il faut dire
 
