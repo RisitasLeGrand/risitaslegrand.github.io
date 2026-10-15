@@ -184,7 +184,8 @@
     "essais:retours": "node scripts/essais-retours-navigateur.mjs",
     "essais:chargements": "node scripts/essais-chargements-navigateur.mjs",
     "essais:explicatives": "node scripts/essais-explicatives-navigateur.mjs",
-    "essais:jauges": "node scripts/essais-jauges-navigateur.mjs"
+    "essais:jauges": "node scripts/essais-jauges-navigateur.mjs",
+    "essais:pointage-partage": "tsx scripts/essais-pointage-partage.mts"
   },
   "repository": {
     "type": "git",

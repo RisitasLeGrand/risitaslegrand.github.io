@@ -153,6 +153,15 @@ export interface LienDeBranche {
   branche: string;
   /** Le geste visé dans cette branche. */
   action: string;
+  /**
+   * L'objet précis que le geste touche, quand la branche en exige un.
+   *
+   * Une quête se tient : encore faut-il savoir **laquelle**. Sans cible, le
+   * pointage ne choisit pas au hasard, il ne fait rien et le dit. Le champ
+   * est optionnel parce que la plupart des actions n'en ont pas besoin —
+   * une séance de sport se crée sans viser une séance existante.
+   */
+  cible?: string | null;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
