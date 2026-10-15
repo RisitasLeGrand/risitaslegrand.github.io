@@ -139,6 +139,12 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
      une clé tirée au hasard — ni date, ni tâche, ni branche.
   */
   {
+    magasin: 'centreElements',
+    pourquoi:
+      'L’existence même d’un élément renseigne sur l’usage : savoir qu’un signal est né de Psyché un mardi en dit déjà trop. Le § 4.1 du prompt 32 met donc tout le magasin sous coffre.',
+    clairs: ['id'],
+  },
+  {
     magasin: 'odysseeComptes',
     pourquoi: 'Finances : un intitulé de compte et son type se lisent d’un coup d’œil.',
     clairs: ['id', 'majLe'],

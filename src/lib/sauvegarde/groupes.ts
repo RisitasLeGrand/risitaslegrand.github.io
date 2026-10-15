@@ -120,6 +120,14 @@ export const CHAMP_DATE: Record<string, string | null> = {
      rétention.
   */
   odysseeReports: null,
+  /*
+     `null` aussi, et pour une raison propre : la rétention du centre n'est
+     pas celle des sauvegardes. Elle vit dans le centre lui-même (30 jours
+     pour archiver, 180 pour supprimer, réglables — décision 7), et elle
+     refuse de toucher une question ouverte, ce qu'un découpage par date
+     ferait sans le savoir.
+  */
+  centreElements: null,
   odysseeQuetes: null,
   odysseeEvenements: 'debut',
   odysseeFocus: 'debut',
@@ -272,6 +280,7 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
       'odysseeEtapesCochees',
       'odysseeExceptionsScellees',
       'odysseeReports',
+      'centreElements',
       'odysseeQuetes',
       'odysseeEvenements',
       'odysseeFocus',

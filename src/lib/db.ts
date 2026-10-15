@@ -28,6 +28,9 @@ import type {
   Occurrence,
   Quete,
   ReportEnAttente,
+} from './odyssee/modele';
+import type { ElementDuCentre } from './notifications/modele';
+import type {
   Revue,
   Tache,
 } from './odyssee/modele';
@@ -647,6 +650,7 @@ interface SchemaRevinsp extends DBSchema {
   */
   odysseeExceptionsScellees: { key: string; value: ExceptionScellee };
   odysseeReports: { key: string; value: ReportEnAttente };
+  centreElements: { key: string; value: ElementDuCentre };
   odysseeQuetes: { key: string; value: Quete };
   odysseeEvenements: { key: string; value: Evenement; indexes: { debut: string } };
   odysseeFocus: { key: string; value: Focus; indexes: { debut: string } };
@@ -799,7 +803,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 32;
+const VERSION = 33;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1560,6 +1564,17 @@ function ouvrirAuSchema(nom: string, version: number) {
 
         base.createObjectStore('odysseeExceptionsScellees', { keyPath: 'id' });
         base.createObjectStore('odysseeReports', { keyPath: 'id' });
+      }
+      /*
+         v33 — le centre de notifications (prompt 32, phase 2).
+
+         Aucun index : le magasin porte quelques centaines de lignes et se
+         lit en entier. Un index sur `source` ou sur `creeLe` serait en
+         clair, et le § 4.1 l'interdit — « ni domaine, ni source, ni date
+         fine » dans les index.
+      */
+      if (vers(33)) {
+        base.createObjectStore('centreElements', { keyPath: 'id' });
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -2411,6 +2426,15 @@ export const MAGASINS_PROGRESSION = [
   'odysseeEtapesCochees',
   'odysseeExceptionsScellees',
   'odysseeReports',
+  /*
+     Le centre entre ici pour être EFFAÇABLE — l'effacement ne touche que
+     les magasins de cette liste —, et il est retiré de la sauvegarde par
+     `MAGASINS_HORS_SAUVEGARDE` juste en dessous. La décision 8 du prompt 32
+     l'exclut de toute sauvegarde ; le § 1 n° 9 exige que l'effacement d'une
+     source emporte ses éléments. Les deux ne tiennent qu'en séparant les
+     deux usages de cette liste, qui les confondait.
+  */
+  'centreElements',
   'odysseeQuetes',
   'odysseeEvenements',
   'odysseeFocus',
@@ -2454,6 +2478,27 @@ export const MAGASINS_PROGRESSION = [
   'odysseePointages',
   'odysseeTaxonomie',
 ] as const;
+
+/**
+ * Ce qui est effaçable mais **jamais sauvegardé** — prompt 32, décision 8.
+ *
+ * `MAGASINS_PROGRESSION` servait aux deux à la fois, et les deux usages ont
+ * divergé le jour où un magasin a dû être effaçable sans être sauvegardé.
+ * Le centre de notifications est ce cas : il ne porte aucune donnée propre,
+ * seulement des références, et **il se recalcule depuis ses sources**. Le
+ * sauvegarder reviendrait à restaurer un état lu qui ne correspondrait plus
+ * à rien.
+ *
+ * La liste est volontairement minuscule. Un magasin n'y entre que s'il est
+ * reconstructible intégralement : tout autre magasin absent d'une
+ * sauvegarde serait une perte.
+ */
+export const MAGASINS_HORS_SAUVEGARDE: readonly string[] = ['centreElements'];
+
+/** Ce qu'une sauvegarde emporte vraiment. */
+export const MAGASINS_SAUVEGARDES: readonly string[] = MAGASINS_PROGRESSION.filter(
+  (nom) => !MAGASINS_HORS_SAUVEGARDE.includes(nom),
+);
 
 /** Vide tous les magasins de progression, dans une seule transaction. */
 async function viderProgression(base: Awaited<ReturnType<typeof db>>) {

@@ -12,7 +12,8 @@
  * l'occupation parce qu'il faut bien la savoir, mais elle insiste sur la
  * sauvegarde, qui est la seule chose qui protège.
  */
-import { MAGASINS_PROGRESSION, exporterMagasins } from './db';
+import { MAGASINS_PROGRESSION,
+  MAGASINS_SAUVEGARDES, exporterMagasins } from './db';
 
 /* ══════════════════════════════════════════════════════════════════════════
    Occupation
@@ -140,7 +141,7 @@ export interface DetailStockage {
  * un geste et non au chargement de la page.
  */
 export async function detailStockage(reel: number | null): Promise<DetailStockage> {
-  const magasins = await exporterMagasins(MAGASINS_PROGRESSION);
+  const magasins = await exporterMagasins(MAGASINS_SAUVEGARDES);
   const poids = Object.entries(magasins)
     .map(([nom, enregistrements]) => ({
       nom,

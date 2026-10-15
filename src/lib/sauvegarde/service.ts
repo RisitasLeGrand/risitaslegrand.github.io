@@ -10,6 +10,7 @@
 import config from '../../../site.config.mjs';
 import {
   MAGASINS_PROGRESSION,
+  MAGASINS_SAUVEGARDES,
   ecrireDerniereSauvegarde,
   exporterMagasins,
   lireDerniereSauvegarde,
@@ -43,7 +44,8 @@ export function brancheRevisions(): BrancheSauvegardee {
   return {
     id: ID_BRANCHE_PAR_DEFAUT,
     schema: SCHEMA_REVISIONS,
-    magasins: [...MAGASINS_PROGRESSION],
+    /* Décision 8 du prompt 32 : le centre se recalcule, il ne se sauvegarde pas. */
+    magasins: [...MAGASINS_SAUVEGARDES],
   };
 }
 

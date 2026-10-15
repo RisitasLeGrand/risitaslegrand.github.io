@@ -119,7 +119,12 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    son écriture impossible coffre fermé, le seul cas où il sert. Son contenu
    reste chiffré, par la boîte aux lettres et non par le coffre.
 */
-v('vingt-six magasins scellés', MAGASINS_SCELLES.length, 26);
+v('vingt-sept magasins scellés', MAGASINS_SCELLES.length, 27);
+v(
+  'le centre de notifications en est, avec son seul identifiant en clair',
+  MAGASINS_SCELLES.find((m) => m.magasin === 'centreElements')?.clairs,
+  ['id'],
+);
 v(
   'et les reports n’en sont plus — leur chiffrement est asymétrique',
   MAGASINS_SCELLES.some((m) => m.magasin === 'odysseeReports'),
