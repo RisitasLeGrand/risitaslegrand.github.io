@@ -176,6 +176,18 @@ export interface OptionsFenetre {
   maintenant?: Date;
   /** Les réglages du jour logique, s'ils sont déjà connus de l'appelant. */
   reglages?: { heureBascule: number; fuseau: string };
+  /**
+   * Restreindre les branches lues. Par défaut, toutes.
+   *
+   * Ajouté pour l'export vers une IA, et pour une raison qui vaut d'être
+   * écrite : depuis que Finances publie ses faits, les données du coffre
+   * entrent **d'office** dans la fenêtre, donc dans la synthèse, donc dans
+   * l'export — sans que personne ait coché quoi que ce soit. L'interdit 4 du
+   * prompt 35 dit l'inverse : « rien ne sort sans mon geste ». Il fallait
+   * donc pouvoir demander moins que tout, et c'est à l'appelant qui **fait
+   * sortir** les données de le demander, pas aux écrans qui les affichent.
+   */
+  sources?: readonly string[];
 }
 
 /** Rassemble tout ce que les indicateurs lisent, pour une période donnée. */
@@ -205,7 +217,12 @@ export async function rassembler(p: Periode, options: OptionsFenetre = {}): Prom
          une couverture de mesure à zéro ne se distingue pas d'un domaine
          qu'on néglige.
       */
-      publierTousLesFaits({ de: p.de, a: p.a, reglages }),
+      publierTousLesFaits({
+        de: p.de,
+        a: p.a,
+        reglages,
+        ...(options.sources ? { sources: options.sources as never } : {}),
+      }),
       etatActivite({ reglages, maintenant }),
       tableauDeNiveaux(),
       comptesParMatiere(),

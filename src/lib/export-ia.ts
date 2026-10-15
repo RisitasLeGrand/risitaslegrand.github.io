@@ -31,6 +31,7 @@ import { compactagesDeclares, perimetre } from './sync/compaction';
 import { jourLogique } from './noyau/jour-logique';
 import {
   CATEGORIES,
+  CATEGORIES_SOUS_COFFRE,
   categoriesParDefaut,
   construire,
   controlerExport,
@@ -200,10 +201,36 @@ export async function construireExport(options: OptionsExport = {}): Promise<Exp
   const portee: Portee = options.portee ?? { quoi: 'globale' };
   const categories = options.categories ?? categoriesParDefaut();
 
-  const fenetre = await rassembler(p, { maintenant, reglages });
+  /*
+     LES BRANCHES QUE CET EXPORT A LE DROIT DE LIRE.
+     
+     Les quatre branches ordinaires toujours ; les deux branches sous coffre
+     **seulement si leur case est cochée**. Sans ce filtre, Psyché et Finances
+     entreraient dans la synthèse d'office — elles publient leurs faits comme
+     les autres — et se retrouveraient dans le fichier produit sans que
+     personne l'ait demandé. C'est très exactement ce que l'interdit 4
+     proscrit : « rien ne sort sans mon geste ».
+     
+     Le filtre est posé ICI, au point de sortie, et non dans les écrans :
+     c'est l'export qui fait sortir les données, c'est donc à lui de restreindre.
+  */
+  const sources = [
+    'revisions',
+    'odyssee',
+    'corps',
+    'sport',
+    ...(categories.includes('psyche') ? ['psyche'] : []),
+    ...(categories.includes('finances') ? ['finances'] : []),
+  ];
+
+  const fenetre = await rassembler(p, { maintenant, reglages, sources });
   const vue = synthese(p, fenetre, portee);
   const avantPeriode = precedente(p);
-  const avant = synthese(avantPeriode, await rassembler(avantPeriode, { maintenant, reglages }), portee);
+  const avant = synthese(
+    avantPeriode,
+    await rassembler(avantPeriode, { maintenant, reglages, sources }),
+    portee,
+  );
 
   /* Les séries : celles des indicateurs mesurés, sauf demande contraire. */
   const voulues =
@@ -214,7 +241,7 @@ export async function construireExport(options: OptionsExport = {}): Promise<Exp
       const indic = INDICATEURS.find((i) => i.id === id);
       if (!indic) continue;
       try {
-        const points = await serieDe(id, p.de, p.a, { maintenant, reglages });
+        const points = await serieDe(id, p.de, p.a, { maintenant, reglages, sources });
         if (points.length) series.push({ indicateur: id, unite: indic.unite, points });
       } catch (erreur) {
         console.warn(`Série indisponible pour « ${id} » :`, erreur);
@@ -384,5 +411,5 @@ export async function noterExport(resultat: Export): Promise<EntreeJournalExport
   return { ...entree, appareil: await lireAppareil() };
 }
 
-export { CATEGORIES, categoriesParDefaut };
+export { CATEGORIES, CATEGORIES_SOUS_COFFRE, categoriesParDefaut };
 export type { Estimation, FichierExporte, Manifeste, VecteurDeVersions };

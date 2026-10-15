@@ -182,6 +182,7 @@ import Base from '../layouts/Base.astro';
   import { echapper } from '../lib/ui';
   import {
     CATEGORIES,
+    CATEGORIES_SOUS_COFFRE,
     PSEUDONYME_PAR_DEFAUT,
     categoriesParDefaut,
     construireExport,
@@ -190,6 +191,7 @@ import Base from '../layouts/Base.astro';
     type Export,
   } from '../lib/export-ia';
   import type { TypePeriode } from '../lib/odyssee/syntheses';
+  import { coffreOuvert, reprendreLeCoffre, surCoffre } from '../lib/coffre';
 
   const $ = (id: string) => document.getElementById(id)!;
 
@@ -205,7 +207,15 @@ import Base from '../layouts/Base.astro';
   function peindreCategories() {
     const zone = $('categories');
     zone.textContent = '';
+    /*
+       Le coffre est relu à chaque peinture : il peut s'ouvrir ou se fermer
+       pendant qu'on est sur cet écran, et une case restée cochable après une
+       fermeture promettrait un export qui ne pourrait pas se faire.
+    */
+    const ouvert = coffreOuvert();
     for (const c of CATEGORIES) {
+      const sousCoffre = CATEGORIES_SOUS_COFFRE.includes(c.id);
+      const indisponible = sousCoffre && !ouvert;
       const ligne = document.createElement('label');
       ligne.className =
         'flex items-start gap-3 rounded-xl border px-4 py-3 ' +
@@ -216,7 +226,9 @@ import Base from '../layouts/Base.astro';
       case_.type = 'checkbox';
       case_.className = 'mt-1 h-5 w-5';
       case_.dataset.categorie = c.id;
-      case_.checked = retenues.has(c.id);
+      case_.checked = retenues.has(c.id) && !indisponible;
+      case_.disabled = indisponible;
+      if (indisponible) retenues.delete(c.id);
       case_.addEventListener('change', () => {
         /*
            La confirmation par catégorie de E.7, et seulement pour les
@@ -248,6 +260,20 @@ import Base from '../layouts/Base.astro';
       description.className = 'block text-sm text-slate-500 dark:text-slate-400';
       description.textContent = c.description;
       texte.append(nom, description);
+
+      /*
+         Le manque NOMMÉ, et non une case grise sans explication : « le coffre
+         est fermé » et « il n'y a rien à exporter » ne doivent pas se lire de
+         la même façon. C'est la même règle qu'à l'écran pour les faits.
+      */
+      if (indisponible) {
+        ligne.className += ' opacity-60';
+        const manque = document.createElement('span');
+        manque.className = 'mt-1 block text-sm font-medium text-amber-800 dark:text-amber-200';
+        manque.textContent =
+          'Coffre fermé : cette catégorie ne peut pas être exportée. Ouvrez le coffre pour la proposer.';
+        texte.append(manque);
+      }
       ligne.append(case_, texte);
       zone.appendChild(ligne);
     }
@@ -410,7 +436,16 @@ import Base from '../layouts/Base.astro';
 
   auDeverrouillage(async () => {
     ($('pseudonyme') as HTMLInputElement).value = PSEUDONYME_PAR_DEFAUT;
+    /*
+       Le coffre est repris AVANT la première peinture : sans cela, les deux
+       catégories sous coffre paraîtraient indisponibles sur une page où il
+       est pourtant ouvert pour l'onglet, et on promettrait un refus qui n'a
+       pas lieu d'être.
+    */
+    await reprendreLeCoffre();
     peindreCategories();
+    /* Et il peut s'ouvrir ou se fermer pendant qu'on est là. */
+    surCoffre(() => peindreCategories());
     await peindreJournal();
   });
 </script>

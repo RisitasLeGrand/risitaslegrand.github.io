@@ -130,18 +130,37 @@ export const CATEGORIES: readonly Categorie[] = [
   {
     id: 'psyche',
     libelle: 'Psyché',
-    description: 'Humeur, énergie, stress, journal. Rien de tout cela n’existe encore.',
+    description:
+      'Les indicateurs tirés de la psyché : humeur, énergie, stress, charge perçue, ' +
+      'et le nombre de caractères du journal — jamais son texte. Coffre ouvert seulement.',
     sensible: true,
     parDefaut: false,
   },
   {
     id: 'finances',
     libelle: 'Finances',
-    description: 'Comptes, budget, patrimoine. Rien de tout cela n’existe encore.',
+    description:
+      'Les indicateurs tirés des finances : montant, jour et catégorie des opérations, ' +
+      'valorisations des comptes. Jamais le libellé d’une opération, jamais un numéro ' +
+      'de compte. Coffre ouvert seulement.',
     sensible: true,
     parDefaut: false,
   },
 ];
+
+/**
+ * Les catégories dont les données vivent dans le coffre.
+ *
+ * Déclarées ici et non devinées d'un nom : une catégorie qui changerait de
+ * libellé ne doit pas changer de régime au passage. Coffre fermé, elles ne
+ * sont pas cochables — et l'écran dit pourquoi, au lieu de les exporter vides.
+ * Une catégorie sensible exportée vide se lirait « il n'y a rien », ce qui est
+ * faux et bien plus trompeur qu'un refus.
+ *
+ * « sante » n'y figure pas encore : la branche n'est pas construite, et la
+ * décision 3 d'Alexis la renvoie au lot Santé.
+ */
+export const CATEGORIES_SOUS_COFFRE: readonly string[] = ['psyche', 'finances'];
 
 export const categorie = (id: string): Categorie | undefined =>
   CATEGORIES.find((c) => c.id === id);
