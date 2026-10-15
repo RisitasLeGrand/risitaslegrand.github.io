@@ -160,9 +160,24 @@ import Base from '../../layouts/Base.astro';
     cocherEtape,
     cochagesDuJour,
     decocherEtape,
+    deposerUnReport,
     ecrireOccurrence,
     occurrencesDeLaTache,
+    occurrencesDuJour,
+    oublierOccurrence,
   } from '../../lib/odyssee/donnees-occurrences';
+  /*
+     Les trois moteurs des phases 5 à 7 du prompt 38 — anomalie A-9.
+
+     Ils existaient, éprouvés et verts, et **aucun écran ne les appelait** :
+     le bouton « Faite » clôturait la tâche quelle que soit sa nature, donc
+     une tâche répétée pointée une fois ne revenait jamais. C'est cet écran
+     qui les appelle désormais, parce que c'est le seul qui connaisse les
+     séries.
+  */
+  import { coffreOuvert, rangementDeLaBoite } from '../../lib/coffre';
+  import { gesteSousCoffre } from '../../lib/odyssee/coffre-ferme';
+  import { pointerDepuisLeCalendrier } from '../../lib/odyssee/pointage-partage';
   import {
     LIBELLE_PORTEE,
     planifierAbandon,
@@ -186,6 +201,16 @@ import Base from '../../layouts/Base.astro';
 
   let actifs: string[] = [];
   let aujourdhui = '';
+  /*
+     Les occurrences pointées des jours affichés — A-9.
+
+     Depuis que le pointage d'une tâche répétée écrit une occurrence au lieu
+     de clore la tâche, la carte ne peut plus lire son état sur `faiteLe` :
+     la tâche reste ouverte, c'est son occurrence du jour qui est faite. Sans
+     cette lecture, le bouton « Faite » resterait proposé après coup, et il
+     mentirait.
+  */
+  let pointagesAffiches: { tacheId: string; jourPrevu: string; etat: string }[] = [];
   /* Les cochages de toutes les occurrences affichées, relus à chaque peinture. */
   let tousLesCochages: EtapeCochee[] = [];
 
@@ -762,6 +787,7 @@ import Base from '../../layouts/Base.astro';
     if (tache.serie) detail.push(libelleDeLaSerie(tache.serie));
     if (tache.echeance) detail.push(`pour le ${tache.echeance}`);
     if (tache.faiteLe) detail.push(`faite le ${tache.faiteLe}`);
+    else if (pointeeAujourdhui(tache)) detail.push('faite aujourd’hui');
     if (tache.abandonneeLe) {
       detail.push(
         `abandonnée le ${tache.abandonneeLe}` +
@@ -778,10 +804,24 @@ import Base from '../../layouts/Base.astro';
     actions.className = 'mt-2 flex flex-wrap gap-2';
 
     if (!tache.faiteLe && !tache.abandonneeLe) {
-      const faite = bouton('Faite');
-      faite.dataset.faire = tache.id;
-      faite.addEventListener('click', () => void agirPuisPeindre(() => clore(tache.id, true)));
-      actions.appendChild(faite);
+      /*
+         Une tâche répétée pointée aujourd'hui n'est pas close — sa série
+         continue — mais son occurrence du jour est faite. Reproposer
+         « Faite » serait un mensonge ; on propose de défaire.
+      */
+      if (pointeeAujourdhui(tache)) {
+        const defaire = bouton('Pas finalement');
+        defaire.dataset.depointer = tache.id;
+        defaire.addEventListener('click', () =>
+          void agirPuisPeindre(() => oublierOccurrence(tache.id, jourDeLOccurrence(tache, aujourdhui))),
+        );
+        actions.appendChild(defaire);
+      } else {
+        const faite = bouton('Faite');
+        faite.dataset.faire = tache.id;
+        faite.addEventListener('click', () => void agirPuisPeindre(() => pointerLaTache(tache)));
+        actions.appendChild(faite);
+      }
 
       const renoncer = bouton('J’y renonce');
       renoncer.dataset.renoncer = tache.id;
@@ -932,6 +972,69 @@ import Base from '../../layouts/Base.astro';
     return bloc;
   }
 
+  /**
+   * Pointer une tâche — anomalie A-9, option A signée le 15 octobre 2026.
+   *
+   * Trois cas, et l'ordre des questions porte toute la règle :
+   *
+   * 1. **sans série, on clôt.** Une tâche qui se fait une fois est finie
+   *    quand elle est faite ; il n'y a pas d'occurrence à écrire, et lui en
+   *    fabriquer une inventerait une série que personne n'a demandée ;
+   * 2. **avec série, c'est l'occurrence du jour qu'on pointe**, jamais la
+   *    série. `pointerDepuisLeCalendrier` écrit l'exception d'abord, puis
+   *    rend son fait à la branche si la tâche en vise une — un fait par
+   *    geste, jamais deux ;
+   * 3. **sous coffre fermé**, `gesteSousCoffre` décide, et il rend un refus
+   *    comme une **valeur** : la raison s'affiche, rien n'est lancé à la
+   *    figure de l'écran.
+   *
+   * Le report (A-6, option D) dépose un pli chiffré que la réouverture du
+   * coffre rejouera. `deposerUnReport` rend `false` s'il n'y a pas de boîte
+   * sur cet appareil — on lève alors, plutôt que de laisser croire que le
+   * geste a été gardé.
+   */
+  /** L'occurrence du jour de cette tâche répétée est-elle déjà pointée ? */
+  const pointeeAujourdhui = (tache: Tache): boolean => {
+    if (!tache.serie) return false;
+    const jour = jourDeLOccurrence(tache, aujourdhui);
+    return pointagesAffiches.some(
+      (o) => o.tacheId === tache.id && o.jourPrevu === jour && o.etat === 'pointee',
+    );
+  };
+
+  async function pointerLaTache(tache: Tache): Promise<void> {
+    if (!tache.serie) {
+      await clore(tache.id, true);
+      return;
+    }
+
+    const { publiqueDeLaBoite } = await import('../../lib/noyau/boite-du-coffre');
+    const boiteDisponible = Boolean(await publiqueDeLaBoite(rangementDeLaBoite()));
+    const geste = gesteSousCoffre(tache, coffreOuvert(), boiteDisponible);
+
+    if (geste.quoi === 'impossible') throw new Error(geste.pourquoi);
+
+    const jour = jourDeLOccurrence(tache, aujourdhui);
+
+    if (geste.quoi === 'reporter') {
+      const garde = await deposerUnReport({
+        tacheId: tache.id,
+        jourPrevu: jour,
+        le: new Date().toISOString(),
+        branche: tache.lien?.action ?? '',
+      });
+      if (!garde) {
+        throw new Error(
+          'Le geste n’a pas pu être gardé : ce navigateur n’a pas de boîte. ' +
+            'Ouvrez le coffre une fois, puis réessayez.',
+        );
+      }
+      return;
+    }
+
+    await pointerDepuisLeCalendrier(tache, jour);
+  }
+
   async function agirPuisPeindre(action: () => Promise<unknown>) {
     try {
       await action();
@@ -986,6 +1089,11 @@ import Base from '../../layouts/Base.astro';
     */
     const jours = new Set(taches.filter((t) => t.etapes?.length).map((t) => jourDeLOccurrence(t, aujourdhui)));
     tousLesCochages = (await Promise.all([...jours].map((j) => cochagesDuJour(j)))).flat();
+    /*
+       Les occurrences pointées, pour les tâches répétées seulement — A-9. Le
+       jour est le même pour toutes (celui d'aujourd'hui), donc une requête.
+    */
+    pointagesAffiches = taches.some((t) => t.serie) ? await occurrencesDuJour(aujourdhui) : [];
     const ouvertes = taches.filter((t) => !t.faiteLe && !t.abandonneeLe);
     const retard = ouvertes.filter((t) => t.echeance && t.echeance < aujourdhui);
     const aFaire = ouvertes.filter((t) => !retard.includes(t));

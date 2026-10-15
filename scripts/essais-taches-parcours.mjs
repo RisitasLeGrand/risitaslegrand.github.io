@@ -3,31 +3,26 @@
  *
  *   npm run essais:taches-parcours
  *
- * **Ce contrôle est rouge, et il doit l'être.** Il n'éprouve pas un moteur :
- * il éprouve la chaîne entière, de l'écran jusqu'à ce qui est écrit en base.
- * Je l'avais déclaré manquant au compte rendu de la phase 9 — « aucun
- * parcours complet : créer une tâche répétée, la pointer, vérifier
- * l'occurrence écrite » — et l'écrire a montré ce que son absence cachait :
+ * Il n'éprouve pas un moteur : il éprouve la chaîne entière, de l'écran
+ * jusqu'à ce qui est écrit en base. Je l'avais déclaré manquant au compte
+ * rendu de la phase 9 — « aucun parcours complet : créer une tâche répétée,
+ * la pointer, vérifier l'occurrence écrite » — et l'écrire a montré ce que
+ * son absence cachait :
  *
  * > Les phases 5, 6 et 7 du prompt 38 — `pointage-partage.ts`,
  * > `retour-de-branche.ts`, `coffre-ferme.ts` et le registre
- * > `liaison-branches.ts` — **ne sont appelées par aucun écran**. Leurs
- * > essais sont verts et leur code est mort.
+ * > `liaison-branches.ts` — **n'étaient appelées par aucun écran**. Leurs
+ * > essais étaient verts et leur code était mort.
  *
- * Conséquence visible, et c'est ce que les assertions ci-dessous mesurent :
- * le bouton « Faite » appelle `clore(tache.id, true)` quelle que soit la
- * tâche. Une tâche répétée pointée une fois porte dès lors un `faiteLe`,
- * sort de la liste des ouvertes et **n'y revient jamais** ; aucune
- * occurrence n'est écrite ; aucun fait n'est rendu à la branche.
+ * Le bouton « Faite » appelait `clore(tache.id, true)` quelle que soit la
+ * tâche : une tâche répétée pointée une fois portait un `faiteLe`, sortait
+ * de la liste des ouvertes et **n'y revenait jamais**.
  *
- * Les assertions disent donc ce qui **devrait** être, pas ce qui est. C'est
- * délibéré : figer le comportement observé en assertion verte est l'erreur
- * exacte que la phase 5 avait commise avec A-4, et que la phase 6 avait dû
- * défaire. Un contrôle qui se contente de décrire le défaut ne le signale
- * plus.
- *
- * Il passera au vert quand l'anomalie A-9 sera corrigée — pas avant, et
- * aucune de ses lignes ne doit être assouplie pour l'y aider.
+ * **Livré rouge le 15 octobre 2026, passé vert le même jour** une fois
+ * l'option A d'A-9 signée et l'écran câblé. Ses assertions n'ont pas bougé
+ * pour l'y aider : elles disaient déjà ce qui devait être. La seule
+ * correction qu'elles ont reçue est la mienne — je filtrais sur un champ
+ * `jour` qui n'existe pas, là où le modèle dit `jourPrevu`.
  */
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
@@ -124,11 +119,18 @@ const pointee = apresPointage.taches.find((t) => t.id === creee.id);
    occurrence, pas sur la série. Deux choses doivent se produire, et aucune
    ne se produit aujourd'hui.
 */
-v(
-  'une occurrence du jour est écrite',
-  apresPointage.occurrences.filter((o) => o.tacheId === creee.id && o.jour === AUJOURDHUI).length,
-  1,
+/*
+   Le champ s'appelle `jourPrevu`, pas `jour`. Première écriture de ce
+   contrôle, je l'avais nommé `jour` : l'assertion restait rouge alors que
+   l'occurrence était bel et bien écrite, et l'écran affichait « faite
+   aujourd'hui ». Un contrôle qui se trompe de champ accuse le code à tort,
+   ce qui est aussi coûteux que de l'absoudre à tort.
+*/
+const occurrencesDuJour = apresPointage.occurrences.filter(
+  (o) => o.tacheId === creee.id && o.jourPrevu === AUJOURDHUI,
 );
+v('une occurrence du jour est écrite', occurrencesDuJour.length, 1);
+v('et elle est pointée, pas abandonnée', occurrencesDuJour[0]?.etat ?? null, 'pointee');
 v('et la tâche elle-même n’est PAS close : la série continue', pointee?.faiteLe ?? null, null);
 
 /* ── 3. Elle revient demain ────────────────────────────────────────────── */
@@ -144,6 +146,18 @@ v(
   'et elle n’est pas rangée dans les closes',
   (await page.locator('#closes').innerText()).includes('Parcours bout en bout'),
   false,
+);
+/*
+   La moitié visible du geste. Écrire l'occurrence sans le dire laisserait
+   « Faite » proposé une seconde fois sur une tâche déjà faite — le bouton
+   mentirait, et un deuxième clic réécrirait la même occurrence sans que
+   rien ne l'indique.
+*/
+vrai('la carte dit « faite aujourd’hui »', ouvertesApres.includes('faite aujourd’hui'));
+vrai(
+  'et propose de défaire, non de refaire',
+  (await page.locator(`[data-depointer="${creee.id}"]`).count()) === 1 &&
+    (await page.locator(`[data-faire="${creee.id}"]`).count()) === 0,
 );
 
 await nav.close();
