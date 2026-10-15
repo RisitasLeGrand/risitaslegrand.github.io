@@ -52,6 +52,10 @@ import Base from '../../layouts/Base.astro';
         </h2>
         <p id="resume-plan" class="mt-1 text-sm text-slate-600 dark:text-slate-300"></p>
         <div id="a-relever" class="mt-3 space-y-2"></div>
+        <div id="deja-servi" class="mt-4 hidden">
+          <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Déjà fait</h3>
+          <ul id="deja-servi-liste" class="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-300"></ul>
+        </div>
         <p id="rien-a-relever" class="hidden text-sm text-slate-500 dark:text-slate-400">
           Rien n’attend de réponse.
         </p>
@@ -115,6 +119,7 @@ import Base from '../../layouts/Base.astro';
   import { ecrireRevue, relever, revueDu } from '../../lib/odyssee/donnees';
   import { champ } from '../../lib/profil';
   import { jourVise, libelles, lireMoment, type Moment } from '../../lib/odyssee/moment-revue';
+  import { dejaServi } from '../../lib/odyssee/deja-servi';
   import {
     MOTIFS,
     type Evenement,
@@ -260,6 +265,27 @@ import Base from '../../layouts/Base.astro';
        Introduire un type « matin » créerait deux enregistrements pour une
        seule journée, et la promesse tomberait.
     */
+    /*
+       Ce qui est déjà servi : une ligne cochée, SANS question. Le module ne
+       reconnaît que des types déclarés un par un — reconnaître par motif
+       ferait taire demain une question qu'on n'a pas examinée.
+    */
+    const servies = dejaServi(etat.faits, jour);
+    $('deja-servi').classList.toggle('hidden', servies.length === 0);
+    const liste = $('deja-servi-liste');
+    liste.innerHTML = '';
+    for (const ligne of servies) {
+      const li = document.createElement('li');
+      li.className = 'flex items-start gap-2';
+      const coche = document.createElement('span');
+      coche.setAttribute('aria-hidden', 'true');
+      coche.textContent = '✓';
+      const texte = document.createElement('span');
+      texte.textContent = ligne.libelle;
+      li.append(coche, texte);
+      liste.appendChild(li);
+    }
+
     const deja = await revueDu('soir', jour);
     $('deja').classList.toggle('hidden', !deja);
     if (deja) {
