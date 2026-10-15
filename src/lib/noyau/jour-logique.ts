@@ -181,8 +181,34 @@ export function debutDuJourLogique(
   reglages: Partial<ReglagesJourLogique> = {},
 ): Date {
   const { heureBascule, fuseau } = { ...REGLAGES_PAR_DEFAUT, ...reglages };
+  return instantLocal(jour, heureBascule, 0, fuseau);
+}
+
+/**
+ * L'instant correspondant à une heure murale, un jour **du calendrier** donné.
+ *
+ * C'est la mécanique de `debutDuJourLogique` rendue générale : elle y servait
+ * pour la seule heure de bascule, et la répétition des tâches en a besoin pour
+ * n'importe quelle heure (« la tâche de 8 h »). Les deux règles du changement
+ * d'heure — l'heure sautée, l'heure dédoublée — sont décrites ci-dessus et
+ * valent telles quelles ici : **il n'en existe qu'une seule implémentation**,
+ * et c'est délibéré. Deux copies de cette résolution finiraient par diverger
+ * sur l'un des deux jours de l'année où elle compte, et l'écart serait
+ * invisible les trois cent soixante-trois autres.
+ *
+ * Attention : `jour` est un jour **du calendrier**, pas un jour logique. Une
+ * occurrence de 2 h appartient au jour logique de la veille ; c'est à
+ * l'appelant de faire cette conversion, parce que lui seul sait s'il tient une
+ * heure murale ou une heure logique.
+ */
+export function instantLocal(
+  jour: string,
+  heure: number,
+  minute: number,
+  fuseau = FUSEAU_PAR_DEFAUT,
+): Date {
   const [annee, mois, j] = jour.split('-').map(Number);
-  const voulu = Date.UTC(annee, mois - 1, j, heureBascule, 0, 0);
+  const voulu = Date.UTC(annee, mois - 1, j, heure, minute, 0);
 
   /*
    * Les deux décalages possibles autour de l'instant visé. Douze heures de part
@@ -204,14 +230,14 @@ export function debutDuJourLogique(
     .map((d) => voulu - d)
     .filter((t) => {
       const l = heureLocale(new Date(t), fuseau);
-      return l.jour === j && l.heure === heureBascule && l.minute === 0;
+      return l.jour === j && l.heure === heure && l.minute === minute;
     });
   if (valides.length) return new Date(Math.min(...valides));
 
   /*
-   * L'heure voulue n'existe pas : la journée commence au premier instant où
-   * elle peut commencer, c'est-à-dire à celui du saut. C'est l'instant obtenu
-   * avec le **plus petit** décalage, celui d'avant le changement.
+   * L'heure voulue n'existe pas : on rend le premier instant où elle pourrait
+   * commencer, c'est-à-dire celui du saut. C'est l'instant obtenu avec le
+   * **plus petit** décalage, celui d'avant le changement.
    */
   return new Date(voulu - Math.min(...decalages));
 }
