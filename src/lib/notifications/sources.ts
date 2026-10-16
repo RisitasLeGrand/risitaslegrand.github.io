@@ -34,6 +34,23 @@ export type BrancheDeSource = 'revisions' | 'odyssee' | 'sport' | 'aucune';
 export interface RouteDeSource {
   /** L'identifiant, le même que dans `filtre-cycle.ts`. */
   id: string;
+  /**
+   * Cette source a-t-elle le droit d'émettre une **notification du
+   * système** ?
+   *
+   * C'est une interdiction distincte du filtre du cycle, et elle lui est
+   * orthogonale : `filtre-cycle.ts` décide de l'entrée au centre, ceci
+   * décide du droit d'interrompre. Deux sources sont admises au centre et
+   * muettes au système — la veille du rythme (le 27 l'interdit) et
+   * l'apprentissage étendu (le 25). Les confondre avec le filtre du cycle
+   * aurait été commode et faux : elles n'ont rien à voir avec le cycle, et
+   * les y ranger aurait rendu la raison de leur silence incompréhensible
+   * à la première relecture.
+   *
+   * Le champ est **obligatoire**, sans valeur par défaut : une source
+   * nouvelle oblige à répondre à la question plutôt qu'à l'hériter.
+   */
+  peutNotifier: boolean;
   /** Le nom du groupe dans le panneau. Neutre, et au pluriel. */
   libelle: string;
   /** La branche, pour le filtre du § 3.1. */
@@ -61,18 +78,20 @@ const R = (r: RouteDeSource): RouteDeSource => r;
  * n'alimentent pas encore le centre, et `alimentation.ts` dit lesquelles.
  */
 export const ROUTES: readonly RouteDeSource[] = [
-  R({ id: 'question-a-trancher', libelle: 'Questions à trancher', branche: 'aucune', vers: '/appareils/#conflits' }),
-  R({ id: 'avis-de-fusion', libelle: 'Synchronisation', branche: 'aucune', vers: '/appareils/' }),
-  R({ id: 'proposition', libelle: 'Propositions', branche: 'aucune', vers: '/profil/' }),
-  R({ id: 'avertissement-avant-analyse', libelle: 'Avant une analyse', branche: 'aucune', vers: '/exporter-ia/' }),
-  R({ id: 'rappel-de-prise', libelle: 'Rappels de prise', branche: 'odyssee', vers: '/odyssee/sante/' }),
-  R({ id: 'veille-du-rythme', libelle: 'Veille du rythme', branche: 'odyssee', vers: null }),
-  R({ id: 'rappel-de-sauvegarde', libelle: 'Sauvegarde', branche: 'aucune', vers: '/stockage/' }),
-  R({ id: 'revue-manquee', libelle: 'Revues en attente', branche: 'odyssee', vers: '/odyssee/' }),
-  R({ id: 'occurrence-manquee', libelle: 'Occurrences manquées', branche: 'odyssee', vers: '/odyssee/calendrier/' }),
-  R({ id: 'pointage-a-reporter', libelle: 'Gestes à reporter', branche: 'odyssee', vers: '/odyssee/' }),
-  R({ id: 'apprentissage-etendu', libelle: 'Apprentissage étendu', branche: 'aucune', vers: '/profil/' }),
-  R({ id: 'trajectoire', libelle: 'Trajectoires', branche: 'aucune', vers: '/syntheses/' }),
+  R({ id: 'question-a-trancher', peutNotifier: true, libelle: 'Questions à trancher', branche: 'aucune', vers: '/appareils/#conflits' }),
+  R({ id: 'avis-de-fusion', peutNotifier: true, libelle: 'Synchronisation', branche: 'aucune', vers: '/appareils/' }),
+  R({ id: 'proposition', peutNotifier: true, libelle: 'Propositions', branche: 'aucune', vers: '/profil/' }),
+  R({ id: 'avertissement-avant-analyse', peutNotifier: true, libelle: 'Avant une analyse', branche: 'aucune', vers: '/exporter-ia/' }),
+  R({ id: 'rappel-de-prise', peutNotifier: true, libelle: 'Rappels de prise', branche: 'odyssee', vers: '/odyssee/sante/' }),
+  /* Muette : « jamais de notification du système — le 27 l’interdit ». */
+  R({ id: 'veille-du-rythme', peutNotifier: false, libelle: 'Veille du rythme', branche: 'odyssee', vers: null }),
+  R({ id: 'rappel-de-sauvegarde', peutNotifier: true, libelle: 'Sauvegarde', branche: 'aucune', vers: '/stockage/' }),
+  R({ id: 'revue-manquee', peutNotifier: true, libelle: 'Revues en attente', branche: 'odyssee', vers: '/odyssee/' }),
+  R({ id: 'occurrence-manquee', peutNotifier: true, libelle: 'Occurrences manquées', branche: 'odyssee', vers: '/odyssee/calendrier/' }),
+  R({ id: 'pointage-a-reporter', peutNotifier: true, libelle: 'Gestes à reporter', branche: 'odyssee', vers: '/odyssee/' }),
+  /* Muette : « jamais par notification du système (le 25) ». */
+  R({ id: 'apprentissage-etendu', peutNotifier: false, libelle: 'Apprentissage étendu', branche: 'aucune', vers: '/profil/' }),
+  R({ id: 'trajectoire', peutNotifier: true, libelle: 'Trajectoires', branche: 'aucune', vers: '/syntheses/' }),
   /*
      Les deux sources du cycle ont une ligne, et c'est délibéré : le filtre
      les écarte à l'écriture, donc aucun élément ne les portera jamais. Les
@@ -80,8 +99,8 @@ export const ROUTES: readonly RouteDeSource[] = [
      comparera les deux registres ; les nommer dit qu'elles sont connues et
      qu'elles n'arrivent pas.
   */
-  R({ id: 'journal-du-cycle', libelle: 'Journal', branche: 'aucune', vers: null }),
-  R({ id: 'statut-du-cycle', libelle: 'Statut', branche: 'aucune', vers: null }),
+  R({ id: 'journal-du-cycle', peutNotifier: false, libelle: 'Journal', branche: 'aucune', vers: null }),
+  R({ id: 'statut-du-cycle', peutNotifier: false, libelle: 'Statut', branche: 'aucune', vers: null }),
 ];
 
 const PAR_ID = new Map(ROUTES.map((r) => [r.id, r]));
@@ -95,7 +114,17 @@ const PAR_ID = new Map(ROUTES.map((r) => [r.id, r]));
  * honnête : on voit qu'il manque une déclaration.
  */
 export const routeDeLaSource = (id: string): RouteDeSource =>
-  PAR_ID.get(id) ?? { id, libelle: id, branche: 'aucune', vers: null };
+  /*
+     Le repli est MUET. Une source inconnue n'a le droit ni d'interrompre
+     ni de se faire proposer : le défaut du droit d'interrompre est le
+     refus, comme celui du filtre du cycle, même si le défaut de
+     l'affichage est l'indulgence. Les deux règles cohabitent dans la même
+     ligne, et c'est la seule manière qu'aucune ne soit oubliée.
+  */
+  PAR_ID.get(id) ?? { id, peutNotifier: false, libelle: id, branche: 'aucune', vers: null };
+
+/** Les sources qui ont le droit d'émettre une notification du système. */
+export const peutNotifier = (id: string): boolean => routeDeLaSource(id).peutNotifier;
 
 /** Les branches qui ont au moins une source, pour peupler le filtre. */
 export const branchesDesSources = (): BrancheDeSource[] => [

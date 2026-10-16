@@ -47,6 +47,7 @@
  * apprend à toutes les ignorer, y compris celle qui comptait.
  */
 import { suitLaSensibiliteDuCycle } from './filtre-cycle';
+import { peutNotifier } from './sources';
 import { avertir, demanderPermission, etatPermission, type EtatPermission } from '../sync/notification';
 import type { ElementDuCentre } from './modele';
 
@@ -203,6 +204,8 @@ function prendreLeVerrou(nom: string): Verrou | null {
 /* ── L'émission ─────────────────────────────────────────────────────── */
 
 export type RefusDEmission =
+  /** La source n'a pas le droit d'interrompre, quoi qu'on règle. */
+  | 'source-muette'
   | 'source-inactive'
   | 'cycle'
   | 'permission'
@@ -231,10 +234,31 @@ export type Emission = { quoi: 'emise' } | { quoi: 'refusee'; pourquoi: RefusDEm
  * question sera tranchée.
  */
 export async function emettre(element: ElementDuCentre, jour: string): Promise<Emission> {
-  if (!sourceActivee(element.source)) return { quoi: 'refusee', pourquoi: 'source-inactive' };
   if (suitLaSensibiliteDuCycle({ source: element.source, refSource: element.refSource })) {
     return { quoi: 'refusee', pourquoi: 'cycle' };
   }
+  /*
+     Puis le droit d'interrompre, **avant le réglage** : deux sources sont
+     admises au centre et interdites de notification — la veille du rythme
+     (le 27) et l'apprentissage étendu (le 25). Les tester après
+     l'activation laisserait croire qu'un réglage peut les délier, et un
+     écran finirait par les proposer. C'est exactement ce qui est arrivé :
+     l'écran du § 3.4 les offrait toutes les douze.
+
+     L'ordre entre les deux n'est pas indifférent, bien que les deux
+     refusent. Le cycle passe **en premier** parce que c'est l'interdiction
+     qui doit tenir seule : si `peutNotifier` repassait un jour à un défaut
+     permissif, le § 1 n° 3 attraperait encore, et le contrôle dirait
+     toujours « cycle » plutôt que de changer de raison sans qu'on le voie.
+  */
+  if (!peutNotifier(element.source)) return { quoi: 'refusee', pourquoi: 'source-muette' };
+  /*
+     Le réglage ne vient qu'après les deux interdictions. Une source
+     interdite reste interdite activée ; l'inverse — tester le réglage
+     d'abord — ferait dépendre une règle de confidentialité d'une case à
+     cocher.
+  */
+  if (!sourceActivee(element.source)) return { quoi: 'refusee', pourquoi: 'source-inactive' };
   if (etatPermission() !== 'accordee') return { quoi: 'refusee', pourquoi: 'permission' };
   if (compteDuJour(jour).emises >= PLAFOND_PAR_JOUR) {
     return { quoi: 'refusee', pourquoi: 'plafond' };
@@ -268,25 +292,45 @@ export async function emettre(element: ElementDuCentre, jour: string): Promise<E
 }
 
 /**
+ * Ce qu'on referme.
+ *
+ * Un seul critère, trois formes, parce que deux fonctions qui ne
+ * diffèrent que par un filtre finissent par diverger sur le reste —
+ * l'une apprendrait à traverser le *service worker* absent, l'autre non.
+ */
+export type ARefermer =
+  /** Tout : c'est le verrouillage de Cyclades. */
+  | { toutes: true }
+  /** Celles-ci précisément. */
+  | { ces: readonly string[] }
+  /** Toutes sauf celles-ci : les questions encore ouvertes restent. */
+  | { saufCes: readonly string[] };
+
+/**
  * Referme les notifications déjà affichées sur **cet** appareil.
  *
  * Le § 3.5 pose la contrainte et sa limite : une notification affichée ne
  * peut être retirée que par une page ouverte sur l'appareil qui l'affiche.
- * Cyclades les referme donc à la prochaine ouverture — pour les éléments
- * qui ne sont plus à trancher — et **toutes** au verrouillage.
+ * Cyclades les referme donc à la prochaine ouverture — celles dont la
+ * question est tranchée — et **toutes** au verrouillage.
  *
- * `ids` vide ferme tout. C'est le cas du verrouillage, et il est nommé
- * ainsi plutôt que par un second export : deux fonctions qui diffèrent par
- * un filtre finissent par diverger sur le reste.
+ * Pourquoi le verrouillage ferme tout : une notification survit à la
+ * fermeture de l'onglet, et elle porte l'identifiant d'un élément. La
+ * laisser sur l'écran après qu'on a verrouillé reviendrait à laisser une
+ * trace de ce qu'on vient précisément de mettre à l'abri.
+ *
+ * Rend le nombre fermé, et ne lève jamais : sans *service worker*, il n'y
+ * a rien d'affiché à retirer, et ce n'est pas une panne.
  */
-export async function refermer(ids: readonly string[] = []): Promise<number> {
+export async function refermer(critere: ARefermer): Promise<number> {
   try {
     const enregistrement = await navigator.serviceWorker?.getRegistration();
     if (!enregistrement) return 0;
     const affichees = await enregistrement.getNotifications();
     let fermees = 0;
     for (const notification of affichees) {
-      if (ids.length && !ids.includes(notification.tag)) continue;
+      if ('ces' in critere && !critere.ces.includes(notification.tag)) continue;
+      if ('saufCes' in critere && critere.saufCes.includes(notification.tag)) continue;
       notification.close();
       fermees += 1;
     }
