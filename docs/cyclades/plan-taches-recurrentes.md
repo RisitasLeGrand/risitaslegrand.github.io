@@ -596,3 +596,139 @@ rien d'autre.
   `glossaire.astro`, `molecule.astro`). Dix avant la phase 5, neuf après —
   une refermée au passage, aucune ajoutée. **Ce contrôle ne garde rien
   aujourd'hui**, et il faut le savoir avant de s'y fier.
+
+---
+
+## Prompt 39, phase 6 — la Revue, le tableau de bord, et reprendre une série
+
+Chaque affirmation est marquée **[vu]** — constaté à l'écran, dans un
+navigateur — ou **[lu]** — établi par lecture du code. Rien n'est supposé.
+
+### Une porte unique pour trois écrans
+
+**[lu]** `occurrences-lues.ts` enchaîne les trois lectures — les tâches, les
+exceptions des **deux** magasins, les faits — puis appelle le moteur. Le
+calendrier, le tableau de bord et la Revue passent par elle.
+
+La raison est celle d'A-14, et elle est récente : *une règle tenue à
+plusieurs endroits finit par n'être tenue qu'à certains*. Trois copies de cet
+enchaînement, et la troisième aurait oublié d'élargir la fenêtre, ou de lire
+le magasin scellé.
+
+**[lu]** Deux économies, dites plutôt que tues. `etatDuJour` projette déjà
+tous les faits pour la roue et lit déjà les tâches ; il les **passe** au lieu
+de les faire relire. Aucune seconde projection par peinture du tableau de
+bord.
+
+**[lu]** Ce qui n'est jamais économisé : la fenêtre élargie et les deux
+magasins. Et les branches illisibles sont **rendues**, jamais avalées — un
+`catch` muet ferait passer « je n'ai pas pu lire » pour « il n'y a rien ».
+
+### Le tableau de bord — option B, et c'est une absence qu'il faut prouver
+
+**[vu]** Un bloc « Tâches prévues », un compte (« 1 faite sur 2 »), une ligne
+par occurrence avec son état. **Aucun bouton.**
+
+**[vu]** L'essai compte les boutons du bloc et exige **zéro**. C'est le genre
+d'exigence qu'aucun essai de module ne sait porter : rien, dans un moteur,
+n'empêche un écran d'ajouter un bouton.
+
+Pourquoi cette absence : un « Faite » ici signifierait la même chose en
+apparence et **moins en vérité** — sans la portée, sans l'avertissement tiré
+du plan, sans le report coffre fermé. Un lien mène à l'écran qui, lui, pointe.
+
+**[lu]** Les occurrences illisibles sont comptées **à part**, jamais parmi
+les manques : coffre fermé, on ne sait pas si elles ont été faites, et les
+ranger du côté des échecs transformerait le chiffrement en reproche.
+
+### La Revue — elle compte, et ne repose pas ce qui est fait
+
+**[vu]** Une ligne « Tâches répétées : n faite(s) sur m », puis la liste de ce
+qui reste **dû**. Une fois pointée, l'occurrence quitte cette liste et rejoint
+« Déjà fait ».
+
+**[lu]** La Revue calcule sur **le jour visé**, pas sur aujourd'hui. Le matin,
+elle porte sur la veille ; reprendre `etat.occurrences` telle quelle aurait
+montré les tâches du jour sous un titre disant « hier » — le « aujourd'hui
+faux » de l'interdit V1, déplacé d'un cran.
+
+**[lu]** Les occurrences faites **depuis leur branche** ne sont pas ajoutées à
+« Déjà fait » : leur fait y figure déjà sous son propre libellé, et la ligne
+serait un doublon.
+
+### « Reprendre la série » — la règle du pilote, et pourquoi l'ancre bouge
+
+**[vu]** Sur une tâche répétée close, le bouton se nomme « Reprendre la
+série » et une ligne le précède : « La série repart le *jour*. Ce qui était
+prévu pendant la pause n'est ni dû ni en retard. »
+
+**[lu]** `planifierReprise` pose `serie.depuis` au **prochain jour que la
+règle d'origine produit à partir d'aujourd'hui**, et non à aujourd'hui.
+
+La distinction n'est pas cosmétique : `depuis` est l'**ancre** de la règle —
+c'est lui qui porte le quantième d'une mensuelle. Y poser aujourd'hui ferait
+d'une tâche du 3 de chaque mois une tâche du 16. **[vu]** L'essai le vérifie
+sur une mensuelle du 3 : elle repart un 3 de novembre.
+
+**[lu]** Une série dont la règle ne prévoit plus aucun jour n'est pas
+rallongée d'autorité : le bouton se tait et dit pourquoi.
+
+**[lu]** La phrase affichée vient du **plan**, pas de l'écran. Un libellé
+écrit à la main finirait par promettre autre chose que ce que le code fait.
+
+### Les captures
+
+**[vu]** Dix captures dans `audit/captures/prompt-39/`, en 390 × 844 et
+1280 × 800, sur données synthétiques semées **par les écrans eux-mêmes** —
+jamais par une écriture détournée en base. Une capture d'un état que
+l'application ne sait pas produire ne prouverait rien.
+
+**[vu]** Aucun débordement horizontal à 390 px sur les quatre écrans :
+`scrollWidth` vaut 390 partout. Vérifié par mesure après qu'une capture m'eut
+fait croire le contraire — le bouton du calendrier est pleine largeur, pas
+rogné.
+
+### Les contrôles, et ce que les sabotages ont appris
+
+**[vu]** `essais:phase6-ecrans`, neuf : 21 assertions vertes.
+
+Trois sabotages, et le troisième a enseigné deux fois :
+
+| Sabotage | Résultat |
+|---|---|
+| un bouton « Faite » sur le tableau de bord | rouge, 1 assertion |
+| la Revue cesse de filtrer ce qui est fait | rouge, 1 assertion |
+| la reprise ne replanifie plus la série | rouge, 3 assertions |
+
+**Le troisième s'est d'abord effondré** sur un délai de trente secondes au
+lieu de nommer la ligne fautive : l'assertion lisait un texte sans vérifier
+que l'élément existait. Corrigée — on compte, **puis** on lit. *Un contrôle
+qui s'effondre renseigne moins qu'un contrôle qui accuse.*
+
+**Un trou dans mes propres essais, trouvé par sabotage.** Sur
+`planifierReprise`, remplacer `depuis: prochaine` par `depuis: aujourdhui` ne
+faisait **rougir aucune assertion**. Je vérifiais `prochaine` sur le cas
+mensuel et `depuis` sur le cas quotidien — où les deux valeurs se confondent.
+La mensuelle se serait déplacée du 3 au 16 sans que rien ne le dise.
+Assertion ajoutée ; le sabotage rougit désormais.
+
+C'est la deuxième fois dans ce lot, et c'est la même règle : **deux
+propriétés éprouvées séparément ne prouvent pas leur rencontre.** A-15 en
+venait déjà.
+
+**[vu]** Les trois suites de navigateur antérieures restent vertes après ce
+lot. **[vu]** Onze suites de module vertes. **[vu]** Construction sortie 0,
+`.env.local` absent après chacune (`ls` sortie 2).
+
+### Ce qui n'est toujours PAS couvert
+
+- **La portée sur une occurrence du calendrier** n'a pas d'essai de
+  navigateur. Le plan qu'elle applique est éprouvé en module ; le formulaire
+  qui le monte ne l'est que par lecture. Annoncé en phase 5, toujours vrai.
+- **Le coffre fermé n'est pas éprouvé à l'écran** sur ces trois écrans. Les
+  modules qui le gèrent le sont ; les pages qui les appellent, non. Il
+  faudrait une tâche liée à une branche scellée et un coffre refermé en
+  cours de parcours.
+- **`npm run verifier` reste rouge** : neuf erreurs, toutes antérieures à ce
+  lot et hors de lui. Inscrit au lot « reliquats 30 et 31 », à refermer
+  **avant** les molécules puisque `molecule.astro` en porte une.

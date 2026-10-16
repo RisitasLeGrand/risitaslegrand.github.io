@@ -51,6 +51,20 @@ import Base from '../../layouts/Base.astro';
           Ce qui était prévu aujourd’hui
         </h2>
         <p id="resume-plan" class="mt-1 text-sm text-slate-600 dark:text-slate-300"></p>
+        <!--
+          Les tâches répétées du jour visé — prompt 38, « la Revue les
+          compte », et prompt 39, C4. Un compte, puis ce qui reste dû.
+          Aucun bouton : la revue tient en moins de trente secondes, et
+          pointer se fait là où l'on voit la portée et le renoncement.
+        -->
+        <p
+          id="compte-occurrences"
+          class="mt-1 hidden text-sm text-slate-600 dark:text-slate-300"
+        ></p>
+        <ul
+          id="occurrences-dues"
+          class="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-300"
+        ></ul>
         <div id="a-relever" class="mt-3 space-y-2"></div>
         <div id="deja-servi" class="mt-4 hidden">
           <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Déjà fait</h3>
@@ -120,6 +134,10 @@ import Base from '../../layouts/Base.astro';
   import { champ } from '../../lib/profil';
   import { jourVise, libelles, lireMoment, type Moment } from '../../lib/odyssee/moment-revue';
   import { dejaServi } from '../../lib/odyssee/deja-servi';
+  import {
+    compterLesOccurrences,
+    occurrencesDuJour,
+  } from '../../lib/odyssee/occurrences-lues';
   import {
     MOTIFS,
     type Evenement,
@@ -250,6 +268,58 @@ import Base from '../../layouts/Base.astro';
           ? `${p.prevus} moment(s) prévu(s), aucun relevé.`
           : `${Math.round(p.taux * 100)} % tenu sur sept jours — ${p.nonReleves} sans réponse.`;
 
+    /*
+       LES OCCURRENCES DU JOUR VISÉ, et non celles d'aujourd'hui.
+
+       `etat.occurrences` porte celles d'aujourd'hui ; le matin, la revue
+       porte sur la veille. Les reprendre telles quelles afficherait les
+       tâches du jour sous un titre qui dit « hier » — le « aujourd'hui
+       faux » que l'interdit de V1 vise, déplacé d'un cran.
+
+       Les faits, eux, sont réutilisés : `publierTousLesFaits` ne borne
+       pas sa fenêtre, et le moteur filtre lui-même sur le jour logique.
+    */
+    const { occurrences } = await occurrencesDuJour(jour, { faits: etat.faits });
+    const compte = compterLesOccurrences(occurrences);
+    $('compte-occurrences').classList.toggle('hidden', compte.prevues === 0);
+    if (compte.prevues) {
+      const morceaux = [
+        `${compte.faites} faite${compte.faites > 1 ? 's' : ''} sur ${compte.prevues}`,
+      ];
+      if (compte.renoncees) {
+        morceaux.push(`${compte.renoncees} renoncée${compte.renoncees > 1 ? 's' : ''}`);
+      }
+      /*
+         Dit, et non tu. Une occurrence scellée n'est ni faite ni manquée :
+         elle est illisible, et la taire laisserait croire le compte complet.
+      */
+      if (compte.illisibles) {
+        morceaux.push(`${compte.illisibles} sous coffre fermé`);
+      }
+      $('compte-occurrences').textContent = `Tâches répétées : ${morceaux.join(' · ')}.`;
+    }
+
+    /*
+       Ce qui reste DÛ, nommé. Ce qui est fait ne revient pas : c'est la
+       règle « ce qui est déjà servi n'est pas reposé », et une occurrence
+       faite réapparaissant ici serait une question déguisée.
+    */
+    const dues = $('occurrences-dues');
+    dues.innerHTML = '';
+    for (const o of occurrences) {
+      if (!o.lisible || o.faite || o.abandonnee) continue;
+      const li = document.createElement('li');
+      li.dataset.occurrenceDue = o.tacheId;
+      li.className = 'flex items-start gap-2';
+      const puce = document.createElement('span');
+      puce.setAttribute('aria-hidden', 'true');
+      puce.textContent = '·';
+      const texte = document.createElement('span');
+      texte.textContent = o.heure ? `${o.titre} — ${o.heure}` : o.titre;
+      li.append(puce, texte);
+      dues.appendChild(li);
+    }
+
     const zone = $('a-relever');
     zone.innerHTML = '';
     $('rien-a-relever').classList.toggle('hidden', etat.aRelever.length > 0);
@@ -270,7 +340,21 @@ import Base from '../../layouts/Base.astro';
        reconnaît que des types déclarés un par un — reconnaître par motif
        ferait taire demain une question qu'on n'a pas examinée.
     */
-    const servies = dejaServi(etat.faits, jour);
+    /*
+       Les occurrences faites rejoignent « Déjà fait », au même titre que
+       les faits de branche. Une tâche répétée pointée ce jour-là EST une
+       chose faite, et la laisser hors de cette liste ferait croire que la
+       journée est plus vide qu'elle n'a été.
+
+       Celles faites DEPUIS LEUR BRANCHE n'y sont pas ajoutées : leur fait
+       y figure déjà sous son propre libellé, et la ligne serait un doublon.
+    */
+    const servies = [
+      ...dejaServi(etat.faits, jour),
+      ...occurrences
+        .filter((o) => o.lisible && o.faite && o.origine === 'exception')
+        .map((o) => ({ libelle: o.titre })),
+    ];
     $('deja-servi').classList.toggle('hidden', servies.length === 0);
     const liste = $('deja-servi-liste');
     liste.innerHTML = '';

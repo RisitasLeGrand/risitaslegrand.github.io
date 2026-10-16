@@ -104,6 +104,29 @@ import Base from '../../layouts/Base.astro';
         </p>
       </section>
 
+      <!--
+        Les tâches répétées prévues aujourd'hui — prompt 39, C4, option B.
+
+        Ce tableau de bord MONTRE, il ne pointe pas. Le pointage vit sur
+        l'écran des tâches et sur le calendrier, où l'on voit la portée, le
+        renoncement et ce qu'un geste écrit. Un bouton « Faite » ici
+        signifierait la même chose en apparence et moins en vérité : sans
+        la portée, sans l'avertissement, sans le report coffre fermé.
+      -->
+      <section id="bloc-occurrences" class="hidden">
+        <div class="flex flex-wrap items-baseline gap-3">
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Tâches prévues</h2>
+          <a
+            id="lien-taches"
+            href="/odyssee/taches/"
+            class="text-sm text-indigo-700 underline underline-offset-4 dark:text-indigo-300"
+            >Les pointer</a
+          >
+        </div>
+        <p id="compte-occurrences" class="mt-1 text-sm text-slate-600 dark:text-slate-300"></p>
+        <div id="occurrences" class="mt-3 space-y-2"></div>
+      </section>
+
       <!-- Le focus -->
       <section
         class="rounded-2xl border border-slate-200 bg-slate-50 p-5 dark:border-slate-800 dark:bg-slate-900"
@@ -166,6 +189,8 @@ import Base from '../../layouts/Base.astro';
   import { ajouterFocus, relever, tenir } from '../../lib/odyssee/donnees';
   import { regle } from '../../lib/odyssee/jour';
   import { DOMAINES, libelleDuDomaine } from '../../lib/noyau/domaines';
+  import { compterLesOccurrences } from '../../lib/odyssee/occurrences-lues';
+  import { MENTION_ETAT_SCELLE } from '../../lib/odyssee/coffre-ferme';
   import {
     MOTIFS,
     dureeDeLEvenement,
@@ -563,6 +588,82 @@ import Base from '../../layouts/Base.astro';
   }
 
   /* ──────────────────────────────────────────────────────────────────────
+     Les tâches répétées prévues — prompt 39, C4, option B
+     ────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * Montre les occurrences du jour, **sans bouton**.
+   *
+   * ## Pourquoi un compte avant la liste
+   *
+   * « 2 faites sur 4 » se lit d'un coup d'œil, et c'est ce qu'on vient
+   * chercher sur un tableau de bord. La liste répond ensuite au « lesquelles ».
+   *
+   * ## Ce que le compte ne fait pas
+   *
+   * Il ne range pas les occurrences illisibles du côté des manques. Coffre
+   * fermé, on ne sait pas si elles ont été faites ; les compter comme non
+   * faites transformerait le chiffrement en reproche. Elles ont leur propre
+   * mention, et elle dit ce qu'elle est : une ignorance.
+   */
+  function peindreOccurrences(etat: EtatDuJour) {
+    const bloc = $('bloc-occurrences');
+    bloc.classList.toggle('hidden', etat.occurrences.length === 0);
+    if (!etat.occurrences.length) return;
+
+    const compte = compterLesOccurrences(etat.occurrences);
+    const morceaux = [
+      `${compte.faites} faite${compte.faites > 1 ? 's' : ''} sur ${compte.prevues}`,
+    ];
+    if (compte.renoncees) {
+      morceaux.push(`${compte.renoncees} renoncée${compte.renoncees > 1 ? 's' : ''}`);
+    }
+    if (compte.illisibles) {
+      morceaux.push(
+        `${compte.illisibles} sous coffre fermé${compte.illisibles > 1 ? 's' : ''}`,
+      );
+    }
+    $('compte-occurrences').textContent = `${morceaux.join(' · ')}.`;
+
+    const zone = $('occurrences');
+    zone.innerHTML = '';
+    for (const o of etat.occurrences) {
+      const carte = document.createElement('div');
+      carte.dataset.occurrence = o.tacheId;
+      carte.className =
+        'flex min-h-11 flex-wrap items-baseline gap-3 rounded-xl border border-slate-200 ' +
+        'px-4 py-2 dark:border-slate-800';
+
+      const marque = document.createElement('span');
+      marque.className = 'font-mono text-xs tabular-nums text-slate-500 dark:text-slate-400';
+      marque.setAttribute('aria-hidden', 'true');
+      marque.textContent = !o.lisible ? '?' : o.abandonnee ? '—' : o.faite ? '✓' : '·';
+
+      const titre = document.createElement('span');
+      titre.className = 'text-sm text-slate-800 dark:text-slate-100';
+      titre.textContent = o.titre;
+
+      const etatDit = document.createElement('span');
+      etatDit.className = 'ml-auto text-xs text-slate-400 dark:text-slate-500';
+      etatDit.dataset.etatOccurrence = o.tacheId;
+      etatDit.textContent = !o.lisible
+        ? MENTION_ETAT_SCELLE
+        : o.abandonnee
+          ? 'renoncée'
+          : o.faite
+            ? o.origine === 'branche'
+              ? 'faite depuis sa branche'
+              : 'faite'
+            : o.heure
+              ? `à ${o.heure}`
+              : 'dans la journée';
+
+      carte.append(marque, titre, etatDit);
+      zone.appendChild(carte);
+    }
+  }
+
+  /* ──────────────────────────────────────────────────────────────────────
      Le focus
      ────────────────────────────────────────────────────────────────────── */
   let depart: Date | null = null;
@@ -640,6 +741,7 @@ import Base from '../../layouts/Base.astro';
     peindrePlancher(etat);
     peindreRoue(etat);
     peindreAgenda(etat);
+    peindreOccurrences(etat);
 
     // Le choix de domaine du focus ne propose que les domaines **actifs** :
     // voir « jour.ts » — un domaine en pause se tait, y compris à la saisie.

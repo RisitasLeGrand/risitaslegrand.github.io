@@ -269,3 +269,85 @@ export function planifierAbandon(
     ],
   };
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Reprendre une série close — prompt 39, C4
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export type PlanDeReprise =
+  | { quoi: 'reprise'; tache: Tache; prochaine: string; dit: string }
+  | { quoi: 'impossible'; pourquoi: string };
+
+/**
+ * Rouvrir une tâche répétée close, et faire repartir sa série **devant**.
+ *
+ * ## La règle, et ce qu'elle refuse
+ *
+ * La série reprend **au prochain jour prévu à partir d'aujourd'hui**. Les
+ * occurrences passées pendant la clôture ne sont ni dues ni en retard.
+ *
+ * C'est la décision du pilote, et elle a une raison : **une clôture n'est
+ * pas un oubli.** Faire remonter trois semaines d'occurrences « en retard »
+ * au moment précis où l'on reprend punirait le geste qu'on veut encourager.
+ *
+ * ## Pourquoi `depuis` reçoit le prochain jour, et non aujourd'hui
+ *
+ * `depuis` est l'**ancre** de la règle : c'est lui qui porte le quantième
+ * d'une règle mensuelle et la phase d'un « tous les trois jours ». Y poser
+ * aujourd'hui déplacerait la série — une tâche du 3 de chaque mois
+ * deviendrait une tâche du 16. En y posant le prochain jour **que la règle
+ * d'origine produit**, l'ancre reste un jour que la règle reconnaît, et le
+ * rythme est conservé.
+ *
+ * ## Quand c'est impossible, on le dit plutôt que de bricoler
+ *
+ * Une série dont la fin est passée n'a pas de prochain jour. On ne la
+ * rallonge pas d'autorité : la tâche se rouvre alors sans série, ou pas du
+ * tout, et c'est à la personne de décider. Le refus porte sa raison.
+ */
+export function planifierReprise(tache: Tache, aujourdhui: string): PlanDeReprise {
+  if (!tache.serie) {
+    return { quoi: 'impossible', pourquoi: 'Cette tâche ne se répète pas.' };
+  }
+  if (!tache.faiteLe && !tache.abandonneeLe) {
+    return { quoi: 'impossible', pourquoi: 'Cette tâche n’est pas close.' };
+  }
+
+  const prochaine = prochaineOccurrence(tache.serie, aujourdhui);
+  if (!prochaine) {
+    return {
+      quoi: 'impossible',
+      pourquoi:
+        'La règle de cette série ne prévoit plus aucun jour. Modifiez sa fin, ou créez une nouvelle tâche.',
+    };
+  }
+
+  return {
+    quoi: 'reprise',
+    tache: {
+      ...tache,
+      faiteLe: null,
+      abandonneeLe: null,
+      motifAbandon: null,
+      serie: { ...tache.serie, depuis: prochaine },
+    },
+    prochaine,
+    /*
+       La phrase est rendue par le plan, et non écrite dans l'écran : ce qui
+       est annoncé doit venir de ce qui va être fait. Un libellé écrit à la
+       main finirait par promettre autre chose que le code n'exécute.
+    */
+    dit:
+      `La série repart le ${jourEnFrancais(prochaine)}. ` +
+      'Ce qui était prévu pendant la pause n’est ni dû ni en retard.',
+  };
+}
+
+/** Un jour logique, dit comme on le lit. */
+function jourEnFrancais(jour: string): string {
+  return new Date(`${jour}T12:00:00Z`).toLocaleDateString('fr-FR', {
+    weekday: 'long',
+    day: 'numeric',
+    month: 'long',
+  });
+}

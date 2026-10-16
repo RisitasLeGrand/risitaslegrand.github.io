@@ -32,6 +32,8 @@ import {
   toutesLesTaches,
 } from './odyssee/donnees';
 import type { Evenement, Quete, Tache } from './odyssee/modele';
+import { occurrencesDuJour } from './odyssee/occurrences-lues';
+import type { OccurrenceAffichee } from './odyssee/occurrences-de-la-fenetre';
 import {
   JOURS_DE_LA_ROUE,
   couverture,
@@ -64,6 +66,15 @@ export interface EtatDuJour {
   plan: PlanTenu;
   /** Les moments passés dont le relevé manque, à n'importe quel jour de la fenêtre. */
   aRelever: Evenement[];
+  /**
+   * Les occurrences des tâches répétées, pour aujourd'hui — prompt 39, C4.
+   *
+   * Elles sont ici et non dans chaque écran parce que le tableau de bord et
+   * la Revue doivent en montrer **les mêmes**. Et elles ne coûtent presque
+   * rien de plus : les faits et les tâches sont déjà lus pour la roue et les
+   * suggestions, et `occurrencesLues` les accepte plutôt que de les relire.
+   */
+  occurrences: OccurrenceAffichee[];
   evenementsDuJour: Evenement[];
   taches: Tache[];
   quetes: Quete[];
@@ -184,6 +195,14 @@ export async function etatDuJour(maintenant = new Date()): Promise<EtatDuJour> {
     },
   );
 
+  /*
+     Les occurrences du jour, avec les faits et les tâches DÉJÀ lus plus
+     haut : aucune seconde projection, aucune seconde lecture des tâches.
+     Le coffre fermé ne lève rien — les occurrences scellées reviennent
+     illisibles, et chaque écran décide comment le dire.
+  */
+  const { occurrences } = await occurrencesDuJour(aujourdhui, { taches, faits });
+
   const plan = planTenu(taches, evenementsDeLaFenetre, { jours, maintenant, actifs });
   const aRelever = evenementsDeLaFenetre
     .filter(
@@ -196,6 +215,7 @@ export async function etatDuJour(maintenant = new Date()): Promise<EtatDuJour> {
     .sort((a, b) => b.debut.localeCompare(a.debut));
 
   return {
+    occurrences,
     aujourdhui,
     jours,
     semaine,

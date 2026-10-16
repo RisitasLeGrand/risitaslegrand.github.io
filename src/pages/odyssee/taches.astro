@@ -193,6 +193,7 @@ import Base from '../../layouts/Base.astro';
     LIBELLE_PORTEE,
     planifierAbandon,
     planifierModification,
+    planifierReprise,
     type Portee,
   } from '../../lib/odyssee/modification-serie';
   import type { EtapeCochee, EtatDOccurrence } from '../../lib/odyssee/modele';
@@ -758,10 +759,43 @@ import Base from '../../layouts/Base.astro';
       return bloc;
     }
 
-    const rouvrir = bouton('Rouvrir');
+    /*
+       REPRENDRE UNE SÉRIE — prompt 39, C4.
+
+       Une tâche close qui porte une série ne se « rouvre » pas comme une
+       tâche simple : la rouvrir telle quelle la ferait repartir depuis son
+       ancre d'origine, et trois semaines d'occurrences remonteraient « en
+       retard » au moment même où l'on reprend. Une clôture n'est pas un
+       oubli, et le dire ainsi punirait le geste qu'on veut encourager.
+
+       Le plan décide, l'écran exécute et **affiche ce que le plan dit** —
+       jamais une phrase écrite à la main, qui finirait par promettre autre
+       chose que ce que le code fait.
+    */
+    const plan = tache.serie ? planifierReprise(tache, aujourdhui) : null;
+
+    const rouvrir = bouton(tache.serie ? 'Reprendre la série' : 'Rouvrir');
     rouvrir.dataset.rouvrir = tache.id;
+    if (plan?.quoi === 'impossible') {
+      /*
+         Une série dont la règle ne prévoit plus aucun jour. On ne la
+         rallonge pas d'autorité : le bouton se tait et dit pourquoi,
+         plutôt que de rouvrir une série qui ne reviendrait jamais.
+      */
+      rouvrir.disabled = true;
+      rouvrir.className += ' cursor-not-allowed opacity-50';
+      rouvrir.title = plan.pourquoi;
+    }
     rouvrir.addEventListener('click', () =>
       void agirPuisPeindre(async () => {
+        if (plan?.quoi === 'impossible') throw new Error(plan.pourquoi);
+        if (plan?.quoi === 'reprise') {
+          /* Une seule écriture : la tâche réécrite porte déjà les deux
+             levées et la nouvelle ancre. Deux écritures laisseraient un
+             instant une tâche à moitié reprise. */
+          await ecrireTache(plan.tache);
+          return;
+        }
         /*
            Rouvrir défait les deux sorties, et dans cet ordre : lever l'abandon
            efface le motif, puis la clôture est levée. Les inverser laisserait
@@ -773,6 +807,19 @@ import Base from '../../layouts/Base.astro';
       }),
     );
     actions.appendChild(rouvrir);
+
+    /* Dit AVANT le geste, en une ligne, et visible — pas une infobulle. */
+    if (plan) {
+      const dit = ligne(
+        plan.quoi === 'reprise' ? plan.dit : plan.pourquoi,
+        'mt-2 w-full text-xs ' +
+          (plan.quoi === 'reprise'
+            ? 'text-slate-500 dark:text-slate-400'
+            : 'text-amber-700 dark:text-amber-300'),
+      );
+      dit.dataset.ditReprise = tache.id;
+      actions.appendChild(dit);
+    }
 
     const supprimer = bouton('Supprimer', 'text-rose-700 dark:text-rose-300');
     supprimer.dataset.supprimer = tache.id;

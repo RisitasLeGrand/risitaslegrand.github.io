@@ -16,6 +16,7 @@ import {
   LIBELLE_PORTEE,
   planifierAbandon,
   planifierModification,
+  planifierReprise,
   pointagesOrphelins,
 } from '../src/lib/odyssee/modification-serie';
 import { occurrences, type Serie } from '../src/lib/odyssee/repetition';
@@ -211,6 +212,96 @@ v('avec son motif', tout.tache?.motifAbandon, 'trop-ambitieux');
 */
 v('et la série reste là : abandonner n’est pas supprimer', tout.tache?.serie, quotidienne);
 v('ce qui est dit', tout.avertissements.length, 1);
+
+console.log('\nREPRENDRE UNE SÉRIE CLOSE — prompt 39, C4');
+{
+  const AUJOURDHUI = '2026-10-16';
+
+  /* Une tâche quotidienne, close il y a trois semaines. */
+  const close: Tache = {
+    ...tache(),
+    faiteLe: '2026-09-25T18:00:00.000Z',
+  };
+  const reprise = planifierReprise(close, AUJOURDHUI);
+  v('la reprise est possible', reprise.quoi, 'reprise');
+  if (reprise.quoi === 'reprise') {
+    v('la tâche n’est plus close', reprise.tache.faiteLe, null);
+    v('ni abandonnée', reprise.tache.abandonneeLe, null);
+    /*
+       LE CŒUR DE LA RÈGLE. La série repart AUJOURD'HUI, pas le 25 septembre.
+       Sans cela, trois semaines d'occurrences remonteraient « en retard » au
+       moment même où l'on reprend.
+    */
+    v('la série repart au prochain jour prévu', reprise.prochaine, AUJOURDHUI);
+    v('et l’ancre de la règle le dit', reprise.tache.serie?.depuis, AUJOURDHUI);
+    v('la règle elle-même n’a pas bougé', reprise.tache.serie?.repetition, quotidienne.repetition);
+    v('l’heure non plus', reprise.tache.serie?.heure, '08:00');
+    v(
+      'et la phrase affichée vient du plan, pas de l’écran',
+      reprise.dit.includes('ni dû ni en retard'),
+      true,
+    );
+  }
+
+  /*
+     UNE RÈGLE MENSUELLE : l'ancre doit rester un jour que la règle
+     reconnaît. Y poser « aujourd'hui » ferait d'une tâche du 3 de chaque
+     mois une tâche du 16 — la série serait déplacée sans que personne
+     l'ait demandé.
+  */
+  const mensuelle: Serie = {
+    depuis: '2026-07-03',
+    repetition: { type: 'mois-date' },
+    fin: { type: 'jamais' },
+    heure: null,
+  };
+  const closeMensuelle: Tache = {
+    ...tache(mensuelle),
+    abandonneeLe: '2026-08-10T10:00:00.000Z',
+    motifAbandon: 'imprevu',
+  };
+  const repriseMensuelle = planifierReprise(closeMensuelle, AUJOURDHUI);
+  v('la mensuelle reprend aussi', repriseMensuelle.quoi, 'reprise');
+  if (repriseMensuelle.quoi === 'reprise') {
+    v(
+      'et elle repart un 3, pas un 16 : le quantième est conservé',
+      repriseMensuelle.prochaine,
+      '2026-11-03',
+    );
+    /*
+       ET L'ANCRE ÉCRITE, sur CE cas-ci.
+
+       Première écriture, je vérifiais `prochaine` sur la mensuelle et
+       `depuis` sur la quotidienne. Or pour la quotidienne les deux valeurs
+       se confondent — le prochain jour EST aujourd'hui. Remplacer
+       `depuis: prochaine` par `depuis: aujourdhui` ne faisait donc rougir
+       aucune assertion, et la mensuelle se serait déplacée du 3 au 16 sans
+       que rien ne le dise. Deux propriétés éprouvées sur deux cas
+       différents ne prouvent pas leur rencontre.
+    */
+    v(
+      'l’ancre écrite est le 3 de novembre, et non aujourd’hui',
+      repriseMensuelle.tache.serie?.depuis,
+      '2026-11-03',
+    );
+    v('le motif d’abandon est effacé', repriseMensuelle.tache.motifAbandon, null);
+  }
+
+  /* Une série dont la fin est passée n'a pas de prochain jour. */
+  const finie: Tache = {
+    ...tache({ ...quotidienne, fin: { type: 'date', jusquAu: '2026-10-05' } }),
+    faiteLe: '2026-10-05T18:00:00.000Z',
+  };
+  const refus = planifierReprise(finie, AUJOURDHUI);
+  v('une série finie ne se rallonge pas d’autorité', refus.quoi, 'impossible');
+  if (refus.quoi === 'impossible') {
+    v('et le refus porte sa raison', refus.pourquoi.length > 0, true);
+  }
+
+  /* Les deux refus de forme. */
+  v('une tâche sans série ne se « reprend » pas', planifierReprise({ ...tache(null), faiteLe: '2026-10-05T18:00:00.000Z' }, AUJOURDHUI).quoi, 'impossible');
+  v('une tâche ouverte non plus', planifierReprise(tache(), AUJOURDHUI).quoi, 'impossible');
+}
 
 console.log('\nLES LIBELLÉS');
 v('les trois portées, et pas une de plus', Object.keys(LIBELLE_PORTEE).length, 3);

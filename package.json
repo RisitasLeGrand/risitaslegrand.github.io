@@ -201,7 +201,10 @@
     "essais:centre-modele": "tsx scripts/essais-centre-modele.mts",
     "essais:centre-recalcul": "tsx scripts/essais-centre-recalcul.mts",
     "essais:calendrier-occurrences": "node scripts/essais-calendrier-occurrences.mjs",
-    "mesure:occurrences-mois": "tsx scripts/mesure-occurrences-mois.mts"
+    "mesure:occurrences-mois": "tsx scripts/mesure-occurrences-mois.mts",
+    "essais:occurrences-lues": "tsx scripts/essais-occurrences-lues.mts",
+    "essais:phase6-ecrans": "node scripts/essais-phase6-ecrans.mjs",
+    "captures:39": "node scripts/captures-prompt-39.mjs"
   },
   "repository": {
     "type": "git",
