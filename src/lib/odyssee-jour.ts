@@ -32,7 +32,7 @@ import {
   toutesLesTaches,
 } from './odyssee/donnees';
 import type { Evenement, Quete, Tache } from './odyssee/modele';
-import { occurrencesDuJour } from './odyssee/occurrences-lues';
+import { enRetard, occurrencesLues } from './odyssee/occurrences-lues';
 import type { OccurrenceAffichee } from './odyssee/occurrences-de-la-fenetre';
 import {
   JOURS_DE_LA_ROUE,
@@ -82,6 +82,23 @@ export interface EtatDuJour {
   faits: Fait[];
   /** La revue du soir est-elle faite ? */
   revueFaite: boolean;
+  /**
+   * Les jours dont la revue manque, sept au plus — et non le rappel seul.
+   *
+   * Le tableau de bord n'affiche qu'une phrase groupée, mais le centre de
+   * notifications a besoin des jours : un élément par jour, pour que
+   * tenir la revue de mardi fasse disparaître mardi. Les exposer coûte
+   * zéro lecture de plus, puisqu'ils sont déjà calculés pour le rappel.
+   */
+  revuesManquees: string[];
+  /**
+   * Les occurrences dépassées de la fenêtre, sur les mêmes sept jours.
+   *
+   * La fenêtre est celle de la roue, et non le seul jour : une occurrence
+   * du jour n'est jamais en retard, donc un tableau de bord qui ne lirait
+   * qu'aujourd'hui n'en trouverait jamais aucune.
+   */
+  occurrencesEnRetard: OccurrenceAffichee[];
 }
 
 /**
@@ -118,14 +135,25 @@ async function momentDeLaRevue(): Promise<'matin' | 'soir'> {
   return lireMoment((await champ('moment-revue'))?.valeur);
 }
 
-/** Le rappel groupé des revues manquées, ou rien. Sept jours au plus. */
-async function rappelDesRevues(moment: 'matin' | 'soir', maintenant: Date): Promise<string | null> {
+/**
+ * Les revues qui manquent, et le rappel groupé qui en découle.
+ *
+ * Les deux ensemble, parce que deux appelants n'en veulent pas la même
+ * forme : l'écran veut une phrase, le centre de notifications veut les
+ * jours. Les recalculer séparément relirait toutes les revues deux fois,
+ * et surtout permettrait aux deux de diverger.
+ */
+async function revuesEnAttente(
+  moment: 'matin' | 'soir',
+  maintenant: Date,
+): Promise<{ manques: string[]; rappel: string | null }> {
   const [{ toutesLesRevues }, { rappelDeRevue, revuesManquees }] = await Promise.all([
     import('./odyssee/donnees'),
     import('./odyssee/moment-revue'),
   ]);
   const tenues = (await toutesLesRevues()).filter((r) => r.type === 'soir').map((r) => r.jour);
-  return rappelDeRevue(revuesManquees(tenues, moment, maintenant));
+  const manques = revuesManquees(tenues, moment, maintenant);
+  return { manques, rappel: rappelDeRevue(manques) };
 }
 
 /** Tout ce que le tableau de bord affiche, lu à un seul instant. */
@@ -177,6 +205,7 @@ export async function etatDuJour(maintenant = new Date()): Promise<EtatDuJour> {
     finDuJour,
   );
   const revueFaite = Boolean(await revueDu('soir', aujourdhui));
+  const revues = await revuesEnAttente(moment, maintenant);
 
   const laRoue = roue(faits, { actifs, cibles, jours });
   const lePlancher = plancherDuJour(quetes, { aujourdhui, semaine, actifs });
@@ -191,7 +220,7 @@ export async function etatDuJour(maintenant = new Date()): Promise<EtatDuJour> {
       lever,
       moment,
       revueFaite,
-      rappelDeRevue: await rappelDesRevues(moment, maintenant),
+      rappelDeRevue: revues.rappel,
     },
   );
 
@@ -201,7 +230,18 @@ export async function etatDuJour(maintenant = new Date()): Promise<EtatDuJour> {
      Le coffre fermé ne lève rien — les occurrences scellées reviennent
      illisibles, et chaque écran décide comment le dire.
   */
-  const { occurrences } = await occurrencesDuJour(aujourdhui, { taches, faits });
+  /*
+     Sur les sept jours, et non sur le seul jour. Le tableau de bord
+     n'affiche que les occurrences d'aujourd'hui — on les filtre juste
+     après —, mais « en retard » ne peut se voir que sur les jours
+     précédents, et relire la fenêtre une seconde fois pour cela aurait
+     doublé la lecture des tâches et des exceptions.
+  */
+  const fenetreDOccurrences = await occurrencesLues(jours[0], aujourdhui, { taches, faits });
+  const occurrences = fenetreDOccurrences.occurrences.filter((o) => o.jour === aujourdhui);
+  const occurrencesEnRetard = fenetreDOccurrences.occurrences.filter((o) =>
+    enRetard(o, aujourdhui),
+  );
 
   const plan = planTenu(taches, evenementsDeLaFenetre, { jours, maintenant, actifs });
   const aRelever = evenementsDeLaFenetre
@@ -233,5 +273,7 @@ export async function etatDuJour(maintenant = new Date()): Promise<EtatDuJour> {
     quetes,
     faits,
     revueFaite,
+    revuesManquees: revues.manques,
+    occurrencesEnRetard,
   };
 }

@@ -1,7 +1,7 @@
 /**
  * Ce qui alimente le centre — prompt 32, phase 2.
  *
- * ## Deux sources, et pas douze
+ * ## Cinq sources, et pas douze
  *
  * Le plan de la phase 2 le dit : « branchés **d'abord** sur les avis de
  * fusion et les questions à trancher, puis sur les autres sources une par
@@ -9,16 +9,21 @@
  * essai ne couvre, et douze occasions de laisser passer du contenu là où
  * le § 2.3 n'en veut pas.
  *
- * Les dix autres sont **nommées dans `sources.ts`** et absentes ici : un
+ * La phase 3 en ajoute trois, choisies pour ce qu'elles ne demandent pas :
+ * la sauvegarde, les revues manquées et les occurrences en retard ont un
+ * producteur **pur** et un signal **sans contenu**. Rien à déchiffrer pour
+ * décider, rien à taire une fois décidé.
+ *
+ * Les sept autres sont **nommées dans `sources.ts`** et absentes ici : un
  * registre de routage complet et une alimentation partielle, c'est ce qui
  * permet de dire exactement ce qui est branché, et de le vérifier.
  *
  * ## Le recensement est idempotent, parce qu'il tourne à chaque page
  *
- * `recenser()` s'appelle au chargement de n'importe quel écran de branche.
- * Un conflit encore ouvert au troisième chargement ne doit pas produire
- * trois éléments : l'identifiant dérive de `source + refSource`
- * (`idDeLElement`), donc le même conflit rend toujours la même clé, et le
+ * Les recensements s'appellent au chargement d'écrans ordinaires. Un
+ * conflit encore ouvert au troisième chargement ne doit pas produire trois
+ * éléments : l'identifiant dérive de `source + refSource`
+ * (`idDeLElement`), donc la même chose rend toujours la même clé, et le
  * `put` écrase au lieu d'empiler. C'est la raison d'être de l'empreinte
  * déterministe, et c'est ici qu'elle sert.
  *
@@ -26,20 +31,22 @@
  *
  * Le § 1 n° 8 dit qu'une question quitte le compteur **à la résolution de
  * sa source**. C'est donc ici, et nulle part ailleurs, que la sortie se
- * fait : le recensement compare les conflits ouverts aux éléments présents
- * et supprime ceux qui n'ont plus de conflit. Sans cette moitié, le § 1
+ * fait : `synchroniser` compare ce que la source affirme aux éléments
+ * présents et supprime ceux qu'elle n'affirme plus — une revue tenue, une
+ * occurrence rattrapée, une sauvegarde faite. Sans cette moitié, le § 1
  * n° 8 ferait du centre une liste qui ne décroît jamais — et un compteur
  * qui ne redescend pas finit par ne plus être lu.
  */
 import { jourLogique } from '../noyau/jour-logique';
 import {
-  aTrancherLisibles,
   centreLisible,
   deposer,
+  elementsDuCentre,
   oublier,
   type Depot,
 } from './donnees';
-import { idDeLElement, type ElementDuCentre } from './modele';
+import { idDeLElement, type ElementDuCentre, type GenreDElement } from './modele';
+import type { Insistance } from '../noyau/coffre';
 
 /** La source des conflits de synchronisation et des désaccords de branche. */
 export const SOURCE_CONFLITS = 'question-a-trancher';
@@ -56,60 +63,80 @@ export interface Recensement {
 }
 
 /**
- * Recense les questions à trancher, et retire celles qui ne le sont plus.
+ * Une intention de dépôt : ce qu'une source dit qu'il faudrait trouver.
+ *
+ * Pas un élément : ni `id` (c'est une empreinte, donc un calcul), ni
+ * `creeLe` (c'est au magasin de le garder), ni `etat` (c'est à la
+ * personne). Cette séparation est ce qui rend les producteurs
+ * **purs** — ils se contrôlent sans base, sans coffre et sans horloge —
+ * et laisse l'écriture en un seul endroit, où le `creeLe` du premier
+ * dépôt survit.
+ */
+export interface Intention {
+  refSource: string;
+  genre: GenreDElement;
+  regroupement: string | null;
+}
+
+/**
+ * Met le magasin d'accord avec ce qu'une source affirme, dans les deux sens.
+ *
+ * Ce que `recenser` faisait pour les conflits, et que les autres sources
+ * demandent mot pour mot : déposer ce qui manque, **retirer ce qui n'est
+ * plus attendu**. La seconde moitié est celle qu'on oublie, et son absence
+ * ne se voit pas tout de suite — elle se voit trois mois plus tard, sur un
+ * centre qui ne décroît jamais.
+ *
+ * Le retrait ne touche que `source` : chaque source est maîtresse de ses
+ * éléments et d'aucun autre. Sans cette borne, brancher une source
+ * viderait les autres.
  *
  * **Coffre fermé, ne fait rien.** Écrire demande de sceller, donc une clé.
- * Un recensement qui échouerait à moitié laisserait le magasin en désaccord
- * avec les conflits réels, et le § 3.2 n'attend de toute façon rien du
- * centre coffre fermé — pas même une mise à jour silencieuse.
  */
-export async function recenser(
-  conflitsOuverts: readonly { type: string; cible: string }[],
+export async function synchroniser(
+  source: string,
+  attendues: readonly Intention[],
 ): Promise<Recensement> {
   if (!centreLisible()) return { deposes: 0, retires: 0, silence: 'coffre-ferme' };
 
   const jour = jourLogique();
+  /*
+     Une seule lecture du magasin, et non une par intention : la version
+     précédente relisait tout à chaque tour, ce qui tenait tant qu'il n'y
+     avait qu'une poignée de conflits et aurait fini par se voir.
+  */
+  const presents = new Map((await elementsDuCentre()).map((e) => [e.id, e]));
+
   const attendus = new Map<string, ElementDuCentre>();
-  for (const conflit of conflitsOuverts) {
-    /*
-       La référence est `type:cible`, et c'est ce que l'écran des conflits
-       sait retrouver. Elle ne porte aucune valeur en désaccord — seulement
-       de quoi la rechercher là où le coffre est déjà ouvert.
-    */
-    const refSource = `${conflit.type}:${conflit.cible}`;
-    const id = await idDeLElement(SOURCE_CONFLITS, refSource);
+  for (const intention of attendues) {
+    const id = await idDeLElement(source, intention.refSource);
+    const dejaLa = presents.get(id);
     attendus.set(id, {
       id,
-      source: SOURCE_CONFLITS,
-      refSource,
-      genre: 'a-trancher',
-      creeLe: jour,
-      etat: 'non_lu',
+      source,
+      refSource: intention.refSource,
+      genre: intention.genre,
       /*
-         Pas de regroupement : chaque question se tranche séparément, et
-         « 3 questions » cacherait qu'il y en a une de plus qu'hier. Le § 3.3
-         exclut d'ailleurs explicitement le § 1 n° 8 du budget d'attention.
+         Le `creeLe` du premier dépôt survit : la rétention s'y réfère, et
+         un élément qui se redaterait à chaque page ne vieillirait jamais.
+         L'état aussi — sinon archiver un élément ne tiendrait pas jusqu'au
+         prochain chargement, ce qui est la définition d'un bouton qui ment.
       */
-      regroupement: null,
+      creeLe: dejaLa?.creeLe ?? jour,
+      etat: dejaLa?.etat ?? 'non_lu',
+      regroupement: intention.regroupement,
     });
   }
 
   let deposes = 0;
   for (const element of attendus.values()) {
-    /*
-       Le `creeLe` du premier dépôt doit survivre : la rétention s'y réfère,
-       et un conflit vieux de trois mois qui se redaterait à chaque page ne
-       vieillirait jamais. (Il n'est pas purgé pour autant — § 1 n° 8 —,
-       mais l'ancienneté est ce qui le fait remonter dans la liste.)
-    */
-    const dejaLa = (await aTrancherLisibles()).find((e) => e.id === element.id);
-    const resultat: Depot = await deposer(dejaLa ? { ...element, creeLe: dejaLa.creeLe, etat: dejaLa.etat } : element);
+    const resultat: Depot = await deposer(element);
     if (resultat.quoi === 'depose') deposes += 1;
   }
 
   let retires = 0;
-  for (const present of await aTrancherLisibles()) {
-    if (present.source !== SOURCE_CONFLITS) continue;
+  for (const present of presents.values()) {
+    if (present.source !== source) continue;
     if (attendus.has(present.id)) continue;
     await oublier(present.id);
     retires += 1;
@@ -117,6 +144,36 @@ export async function recenser(
 
   return { deposes, retires, silence: null };
 }
+
+/**
+ * Recense les questions à trancher, et retire celles qui ne le sont plus.
+ *
+ * **Coffre fermé, ne fait rien.** Écrire demande de sceller, donc une clé.
+ * Un recensement qui échouerait à moitié laisserait le magasin en désaccord
+ * avec les conflits réels, et le § 3.2 n'attend de toute façon rien du
+ * centre coffre fermé — pas même une mise à jour silencieuse.
+ */
+export const recenser = (
+  conflitsOuverts: readonly { type: string; cible: string }[],
+): Promise<Recensement> =>
+  synchroniser(
+    SOURCE_CONFLITS,
+    conflitsOuverts.map((conflit) => ({
+      /*
+         La référence est `type:cible`, et c'est ce que l'écran des conflits
+         sait retrouver. Elle ne porte aucune valeur en désaccord — seulement
+         de quoi la rechercher là où le coffre est déjà ouvert.
+      */
+      refSource: `${conflit.type}:${conflit.cible}`,
+      genre: 'a-trancher' as const,
+      /*
+         Pas de regroupement : chaque question se tranche séparément, et
+         « 3 questions » cacherait qu'il y en a une de plus qu'hier. Le § 3.3
+         exclut d'ailleurs explicitement le § 1 n° 8 du budget d'attention.
+      */
+      regroupement: null,
+    })),
+  );
 
 /**
  * Dépose l'avis d'une fusion automatique.
@@ -146,3 +203,102 @@ export async function signalerUneFusion(lot: string): Promise<Depot> {
     regroupement: SOURCE_FUSION,
   });
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Phase 3 — les trois sources dont le producteur est pur et le signal sans
+   contenu : la sauvegarde, les revues manquées, les occurrences en retard.
+
+   Elles viennent les premières parce qu'elles n'ouvrent aucun coffre pour
+   décider, et que ce qu'elles déposent ne révèle rien de plus que son
+   existence. Les sources scellées — rappel de prise, trajectoires — ont
+   leurs propres questions, et les mêler à celles-ci aurait fait un lot où
+   l'on ne saurait plus quelle précaution protège quoi.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** La source du rappel de sauvegarde, la seule sans aucune sensibilité. */
+export const SOURCE_SAUVEGARDE = 'rappel-de-sauvegarde';
+/** La source des revues du soir non tenues. */
+export const SOURCE_REVUE = 'revue-manquee';
+/** La source des occurrences de série dépassées. */
+export const SOURCE_OCCURRENCE = 'occurrence-manquee';
+
+/**
+ * La référence unique du rappel de sauvegarde.
+ *
+ * **Constante, et non l'insistance.** Le rappel « se renforce » avec le
+ * temps ; si la référence portait le degré, passer de discret à insistant
+ * fabriquerait un second élément et le premier resterait là. Un seul état,
+ * une seule référence : il entre quand il y a lieu, il sort quand il n'y a
+ * plus lieu, et son ancienneté est celle du premier jour où il a eu lieu —
+ * ce qui est exactement ce qu'on veut lire.
+ */
+export const REF_SAUVEGARDE = 'etat';
+
+/**
+ * Le rappel de sauvegarde entre-t-il au centre ?
+ *
+ * Oui dès qu'il y a quelque chose à dire, quel que soit le degré. Le degré
+ * **ne voyage pas** : il se recalcule à l'affichage, comme tout le reste
+ * (§ 2.3), et le stocker aurait fait du centre le seul endroit du dépôt où
+ * un « urgent » peut survivre à la sauvegarde qui l'a réglé.
+ */
+export const intentionsDeSauvegarde = (insistance: Insistance): Intention[] =>
+  insistance === 'aucune'
+    ? []
+    : [{ refSource: REF_SAUVEGARDE, genre: 'a-savoir', regroupement: null }];
+
+/**
+ * Une intention par jour de revue manquée, toutes regroupées.
+ *
+ * Un élément par jour, et non un seul pour « 3 revues » : tenir la revue
+ * de mardi doit faire disparaître mardi, pas attendre que les trois soient
+ * rattrapées. Le regroupement est ce qui rend quand même « et 2 autres »
+ * possible à l'affichage — c'est le § 3.3, et il travaille sur des
+ * éléments distincts, pas sur un élément qui compte.
+ *
+ * Les jours viennent de `revuesManquees`, qui ne remonte que sept jours :
+ * une revue plus ancienne n'est plus rattrapable, son élément n'est donc
+ * plus attendu et `synchroniser` le retire. Ce n'est pas un oubli, c'est la
+ * même borne, vue depuis le centre.
+ */
+export const intentionsDesRevues = (joursManques: readonly string[]): Intention[] =>
+  joursManques.map((jour) => ({
+    refSource: jour,
+    genre: 'a-savoir' as const,
+    regroupement: SOURCE_REVUE,
+  }));
+
+/**
+ * Une intention par occurrence en retard.
+ *
+ * La référence est `tâche:jour prévu`, **jamais le titre** : le § 2.3 ne
+ * veut pas de contenu, et un intitulé de tâche en est. Le jour prévu, et
+ * non le jour d'affichage : une occurrence déplacée reste la même, et la
+ * redéposer sous une autre clé à chaque déplacement empilerait des
+ * doublons d'une seule chose.
+ *
+ * Le prompt 38 veut ce signal « une fois, jamais accumulé » : c'est ce que
+ * donne une référence stable, puisque le même retard rend toujours la même
+ * empreinte et que le dépôt écrase au lieu d'empiler.
+ */
+export const intentionsDesOccurrences = (
+  enRetard: readonly { tacheId: string; jourPrevu: string }[],
+): Intention[] =>
+  enRetard.map((o) => ({
+    refSource: `${o.tacheId}:${o.jourPrevu}`,
+    genre: 'a-savoir' as const,
+    regroupement: SOURCE_OCCURRENCE,
+  }));
+
+/** Dépose ou retire le rappel de sauvegarde, selon son insistance. */
+export const signalerLaSauvegarde = (insistance: Insistance): Promise<Recensement> =>
+  synchroniser(SOURCE_SAUVEGARDE, intentionsDeSauvegarde(insistance));
+
+/** Met le centre d'accord avec les revues qui manquent. */
+export const recenserLesRevues = (joursManques: readonly string[]): Promise<Recensement> =>
+  synchroniser(SOURCE_REVUE, intentionsDesRevues(joursManques));
+
+/** Met le centre d'accord avec les occurrences en retard. */
+export const recenserLesOccurrences = (
+  enRetard: readonly { tacheId: string; jourPrevu: string }[],
+): Promise<Recensement> => synchroniser(SOURCE_OCCURRENCE, intentionsDesOccurrences(enRetard));

@@ -416,6 +416,23 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     };
     zone.className = `rounded-xl px-4 py-3 text-sm ${fond[rappel.insistance]}`;
     zone.textContent = rappel.message.replaceAll('**', '');
+
+    /*
+       Et le centre de notifications l'apprend — prompt 32, phase 3. Même
+       raison qu'au Corps : le rappel se calcule déjà ici, et seule son
+       insistance passe. Le message, lui, reste à l'écran — un élément du
+       centre ne porte pas de texte (§ 2.3).
+    */
+    void (async () => {
+      try {
+        const { signalerLaSauvegarde } = await import(
+          '../../lib/notifications/alimentation'
+        );
+        await signalerLaSauvegarde(rappel.insistance);
+      } catch {
+        /* Un centre indisponible ne doit pas effacer le rappel à l'écran. */
+      }
+    })();
   }
 
   function peindre() {

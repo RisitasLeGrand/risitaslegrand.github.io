@@ -802,6 +802,24 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     };
     zone.className = `mt-3 rounded-xl px-4 py-3 text-sm ${fond[rappel.insistance]}`;
     zone.textContent = rappel.message.replaceAll('**', '');
+
+    /*
+       Et le centre de notifications l'apprend — prompt 32, phase 3. Ici
+       plutôt qu'ailleurs parce que c'est ici que le rappel se calcule
+       déjà : le recalculer dans le centre ferait deux lectures et, un
+       jour, deux réponses différentes. Seule l'insistance passe, jamais
+       le message : le § 2.3 ne veut pas de texte dans un élément.
+    */
+    void (async () => {
+      try {
+        const { signalerLaSauvegarde } = await import(
+          '../../lib/notifications/alimentation'
+        );
+        await signalerLaSauvegarde(rappel.insistance);
+      } catch {
+        /* Un centre indisponible ne doit pas effacer le rappel à l'écran. */
+      }
+    })();
   }
 
   function peindreCoffre() {

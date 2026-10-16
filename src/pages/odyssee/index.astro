@@ -756,6 +756,25 @@ import Base from '../../layouts/Base.astro';
       }
     }
     $('vue').classList.remove('hidden');
+
+    /*
+       Le centre de notifications, nourri depuis l'état déjà lu — prompt 32,
+       phase 3. Sans `await` et sans bloquer la peinture : le centre est un
+       lieu supplémentaire, et un tableau de bord qui attendrait une
+       écriture scellée pour s'afficher aurait échangé l'essentiel contre
+       l'accessoire. Coffre fermé, `synchroniser` ne fait rien de lui-même.
+    */
+    void (async () => {
+      try {
+        const { recenserLesOccurrences, recenserLesRevues } = await import(
+          '../../lib/notifications/alimentation'
+        );
+        await recenserLesRevues(etat.revuesManquees);
+        await recenserLesOccurrences(etat.occurrencesEnRetard);
+      } catch {
+        /* Le centre n'est jamais une raison de casser l'écran d'origine. */
+      }
+    })();
   }
 
   auDeverrouillage(

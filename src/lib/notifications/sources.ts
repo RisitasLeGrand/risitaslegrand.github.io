@@ -71,11 +71,13 @@ const R = (r: RouteDeSource): RouteDeSource => r;
 /**
  * Les sources, et où elles mènent.
  *
- * **Deux sont branchées à ce lot** (phase 2 : « d'abord sur les avis de
- * fusion et les questions à trancher »). Les autres figurent avec leur
- * route parce qu'elles existent déjà dans le code et qu'un registre qui
- * ne les nommerait pas les ferait passer pour inconnues ; elles
- * n'alimentent pas encore le centre, et `alimentation.ts` dit lesquelles.
+ * **Cinq sont branchées** : les deux de la phase 2 (« d'abord sur les
+ * avis de fusion et les questions à trancher »), puis les trois de la
+ * phase 3 — sauvegarde, revues manquées, occurrences en retard. Les
+ * autres figurent avec leur route parce qu'elles existent déjà dans le
+ * code et qu'un registre qui ne les nommerait pas les ferait passer pour
+ * inconnues ; elles n'alimentent pas encore le centre, et
+ * `alimentation.ts` dit lesquelles.
  */
 export const ROUTES: readonly RouteDeSource[] = [
   R({ id: 'question-a-trancher', peutNotifier: true, libelle: 'Questions à trancher', branche: 'aucune', vers: '/appareils/#conflits' }),

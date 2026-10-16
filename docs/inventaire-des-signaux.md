@@ -30,9 +30,9 @@ tableau de bord, une recherche — n'en sont pas.
 | `avertissement-avant-analyse` | `noyau/avertissements.ts` → `avertissement()` | Un export d'IA qui touche corps, psyché ou finances | un par export | le domaine visé | `/exporter-ia/` | local au geste | non | oui, à brancher |
 | `rappel-de-prise` | `odyssee/sensible.ts` → `prisesDuJour()` | Une prise déclarée non pointée | la cadence des prises | **la molécule**, et par elle le traitement | `/odyssee/sante/` | sous coffre, donc local à l'ouverture | non | oui, sauf classes du cycle |
 | `veille-du-rythme` | `odyssee/veille.astro` et son moteur | Le « rappel discret » unique de 5.1 du 27 | la cadence de 5.6 du 27 | le rythme de vie | hors de Psyché, titre neutre | sous coffre | non | oui — **et muette** (le 27) |
-| `rappel-de-sauvegarde` | `noyau/coffre.ts` ligne 604 → condition bloquante | Une donnée scellée existe et la sauvegarde est ancienne | aucun ; il se renforce | **aucune** : ne porte sur aucune donnée | `/stockage/` | l'état de sauvegarde est local | non | oui, à brancher |
-| `revue-manquee` | `odyssee-jour.ts` → `rappelDeRevue(revuesManquees(...))` | Une revue du soir non tenue | groupé en « N revues » | le fait d'avoir une revue, pas son contenu | liste d'Odyssée et accueil | sous coffre | non | oui, à brancher (prompt 36) |
-| `occurrence-manquee` | `odyssee/occurrences-lues.ts` → `enRetard()` | Une occurrence de série dépassée | **une fois, jamais accumulée** (prompt 38) | la tâche | `/odyssee/calendrier/` | les pointages voyagent | non | oui, à brancher |
+| `rappel-de-sauvegarde` | `noyau/coffre.ts` ligne 604 → condition bloquante | Une donnée scellée existe et la sauvegarde est ancienne | aucun ; il se renforce | **aucune** : ne porte sur aucune donnée | `/stockage/` | l'état de sauvegarde est local | non | **oui** — branchée, phase 3 |
+| `revue-manquee` | `odyssee-jour.ts` → `rappelDeRevue(revuesManquees(...))` | Une revue du soir non tenue | groupé en « N revues » | le fait d'avoir une revue, pas son contenu | liste d'Odyssée et accueil | sous coffre | non | **oui** — branchée, phase 3 (prompt 36) |
+| `occurrence-manquee` | `odyssee/occurrences-lues.ts` → `enRetard()` | Une occurrence de série dépassée | **une fois, jamais accumulée** (prompt 38) | la tâche | `/odyssee/calendrier/` | les pointages voyagent | non | **oui** — branchée, phase 3 |
 | `pointage-a-reporter` | `odyssee/modele.ts` — pointages retenus coffre fermé | Un geste fait coffre fermé | un compteur, pas une liste | **le contenu est chiffré** : seul le nombre sort | `/odyssee/` | local tant que le coffre est fermé | non | oui, à brancher |
 | `apprentissage-etendu` | `consentement-apprentissage.ts` | Le consentement n'a jamais été demandé | un, J.5 du 25 | le fait qu'on observe | `/profil/` | le consentement voyage | non | oui — **et muet** (le 25) |
 | `trajectoire` | `odyssee/trajectoires.ts` | Une trajectoire atteinte ou abandonnée | `PLAFOND_ACTIVES = 3` | l'objectif suivi | `/syntheses/` | sous coffre | non | oui, à brancher |
@@ -64,9 +64,32 @@ Quatre lignes ne figuraient pas au tableau de départ.
 
 ## Ce qui n'est pas branché, et ce que cela coûte
 
-Dix sources sur douze attendent leur alimentation. Tant qu'elles ne sont
-pas branchées, **elles continuent de s'afficher là où elles sont
-aujourd'hui** : rien n'est perdu, rien n'est silencieux. Le centre est un
+Sept sources sur douze attendent leur alimentation — la phase 3 en a
+branché trois de plus : la sauvegarde, les revues manquées et les
+occurrences en retard, choisies parce que leur producteur est pur et leur
+signal sans contenu. Tant que les autres ne sont pas branchées, **elles
+continuent de s'afficher là où elles sont aujourd'hui** : rien n'est
+perdu, rien n'est silencieux. Le centre est un
 lieu supplémentaire, pas un remplacement — sauf pour la veille du rythme,
 dont le § 2.2 dit que l'entrée du centre **est** le rappel discret unique,
 et qui sera donc un déplacement et non un ajout.
+
+## Ce que la phase 3 apprend sur les lieux d'alimentation
+
+Une source n'est pas branchée « quelque part » : elle est branchée **là
+où son signal se calcule déjà**. Les trois de cette phase le montrent.
+
+- Le rappel de sauvegarde se calcule au Corps et à la Psyché, et c'est de
+  là qu'il entre. Le recalculer dans le centre aurait fait deux lectures,
+  et un jour deux réponses différentes.
+- Les revues manquées et les occurrences en retard viennent toutes deux
+  d'`etatDuJour`, qui les connaissait déjà — à une nuance près : la
+  fenêtre des occurrences a dû passer du seul jour aux sept jours de la
+  roue, parce qu'une occurrence d'aujourd'hui n'est jamais en retard et
+  qu'un tableau de bord qui ne lisait qu'aujourd'hui n'en aurait jamais
+  trouvé aucune.
+
+La conséquence se dit franchement : **le centre apprend quand l'écran
+d'origine est ouvert**, pas avant. C'est un délai, pas une perte — le
+signal reste affiché là où il l'était —, et c'est le prix de n'avoir
+qu'un seul endroit qui décide, par source, s'il y a quelque chose à dire.

@@ -248,16 +248,32 @@ console.log('\n\x1b[1m2. CE QUI EST ÉCRIT SUR LE DISQUE (§ 4.1)\x1b[0m');
      contrôle qui accuse. La première version lisait `[0].champs` et
      plantait sur un tableau vide, masquant la ligne en cause.
   */
-  v('un element a ete depose', enregistrements.length, 1);
+  /*
+     Une question, et une seule. On compte par GENRE et non en tout : depuis
+     la phase 3, l'ouverture du coffre passe par `/odyssee/corps/`, qui
+     dépose le rappel de sauvegarde — un élément « à savoir » parfaitement
+     légitime, et c'est d'ailleurs la preuve que cette troisième source
+     arrive jusqu'au magasin. Compter le total aurait fait accuser cet
+     essai pour un dépôt correct, ce qui est la pire espèce de rouge.
+  */
+  const questions = enregistrements.filter((e) => e.genre === 'a-trancher');
+  v('une question a été déposée', questions.length, 1);
+  vrai(
+    'et le rappel de sauvegarde l’accompagne (source branchée en phase 3)',
+    enregistrements.some((e) => e.genre === 'a-savoir'),
+  );
   /*
      Le § 4.1 interdit domaine, source et date fine dans les index en clair.
      Seuls `id`, `genre` et `scelle` ont le droit d'y être — `genre` par la
-     décision N-1 option A, qui fait vivre la pastille coffre fermé.
+     décision N-1 option A, qui fait vivre la pastille coffre fermé. La
+     règle vaut pour TOUS les éléments, pas pour le premier : une source
+     nouvelle qui laisserait un champ en clair se verrait ici.
   */
-  if (enregistrements.length) {
-    v('les champs en clair sont exactement ceux prévus', enregistrements[0].champs, ['genre', 'id', 'scelle']);
-    v('et le genre est celui d’une question', enregistrements[0].genre, 'a-trancher');
-  }
+  v(
+    'les champs en clair sont exactement ceux prévus, pour chacun',
+    [...new Set(enregistrements.map((e) => JSON.stringify(e.champs)))],
+    [JSON.stringify(['genre', 'id', 'scelle'])],
+  );
 }
 
 console.log('\n\x1b[1m3. LA PASTILLE COMPTE, ET LE PANNEAU S’OUVRE\x1b[0m');
@@ -270,11 +286,15 @@ await ouvrir(B, '/revisions/', '#centre-notifications');
   await B.page.click('#centre-bouton');
   await B.page.waitForSelector('#centre-panneau:not([hidden])', { timeout: 20000 });
   const lignes = await B.page.locator('#centre-liste li').count();
-  v('une ligne dans le panneau', lignes, 1);
-  vrai(
-    'sous le titre du groupe de sa source',
-    (await B.page.textContent('#centre-liste')).includes('Questions à trancher'),
-  );
+  /*
+     Deux lignes : la question, et le rappel de sauvegarde que la phase 3
+     branche. On n'exige pas « une », qui serait faux, ni « au moins une »,
+     qui ne dirait rien — on exige les deux groupes attendus, nommés.
+  */
+  vrai(`le panneau liste la question et le rappel (${lignes})`, lignes >= 2);
+  const groupes = await B.page.textContent('#centre-liste');
+  vrai('sous le titre du groupe de sa source', groupes.includes('Questions à trancher'));
+  vrai('et le rappel de sauvegarde a le sien', groupes.includes('Sauvegarde'));
   /*
      Le § 2.3 veut un élément sans contenu : la ligne ne doit donc PAS
      contenir le texte de la note en désaccord, ni le nom du magasin.
@@ -348,6 +368,115 @@ console.log('\n\x1b[1m5. COFFRE FERMÉ : UNE MENTION FIXE, ET AUCUN NOMBRE (§ 3
     v('et pas la moindre mention « chiffré »', /chiffr/i.test(panneau), false);
   }
 }
+
+console.log('\n\x1b[1m6. LES REVUES MANQUÉES ENTRENT VRAIMENT — PHASE 3\x1b[0m');
+{
+  /*
+     Le coffre a été fermé par la section 5 ; on le rouvre, sans quoi
+     `synchroniser` refuserait poliment et la section mesurerait ce refus
+     en croyant mesurer un dépôt. Une prémisse d'essai se lit.
+  */
+  await ouvrirLeCoffre(B);
+  vrai(
+    'le coffre est bien rouvert avant de mesurer un dépôt',
+    await B.page.evaluate(
+      () => !document.getElementById('temoin-coffre')?.classList.contains('hidden'),
+    ),
+  );
+
+  /** Combien d'éléments « à savoir » le disque porte. */
+  const aSavoir = async () => (await magasinDuCentre(B)).filter((e) => e.genre === 'a-savoir').length;
+  const attendreAuMoins = async (combien) => {
+    for (let i = 0; i < 40; i += 1) {
+      if ((await aSavoir()) >= combien) break;
+      await B.page.waitForTimeout(500);
+    }
+    return aSavoir();
+  };
+
+  /*
+     Un ÉCART, et non un compte — et c'est une sonde que j'ai dû corriger.
+     Le disque ne montre que le `genre` ; toutes les sources de phase 3
+     déposent du « à savoir », et le rappel de sauvegarde vient d'être
+     déposé par `/odyssee/corps/`, que `ouvrirLeCoffre` traverse. Un
+     `>= 1` restait donc vert alors que les revues étaient débranchées :
+     une barrière cachée par une autre, la sixième fois sur ce chantier.
+     Constaté par sabotage, pas supposé.
+
+     On relève donc le compte AVANT la visite du tableau de bord, et on
+     exige qu'il augmente. Ce qui augmente ne peut venir que de là.
+  */
+  const avant = await aSavoir();
+  await ouvrir(B, '/odyssee/', '#vue:not(.hidden)');
+  const premier = await attendreAuMoins(avant + 1);
+  vrai(
+    `le tableau de bord dépose des revues manquées (${premier - avant} de plus)`,
+    premier > avant,
+  );
+
+  /*
+     L'idempotence, par l'exécution et non par la lecture du code : la
+     même page rechargée ne doit pas empiler une seconde série. C'est
+     l'empreinte déterministe qui le garantit, et c'est ici qu'on le voit.
+  */
+  await ouvrir(B, '/odyssee/', '#vue:not(.hidden)');
+  await B.page.waitForTimeout(3000);
+  v('un second passage n’en ajoute aucune', await aSavoir(), premier);
+
+  if (premier >= 1) {
+    await B.page.click('#centre-bouton');
+    await B.page.waitForSelector('#centre-panneau:not([hidden])', { timeout: 20000 });
+    const panneau = await B.page.textContent('#centre-liste');
+    vrai('le panneau les range sous « Revues en attente »', panneau.includes('Revues en attente'));
+    /*
+       Le § 2.3 encore : la référence est un jour, et le jour ne doit pas
+       s'afficher. On cherche une date au format du magasin, pas une date
+       quelconque — le panneau a le droit de dire « il y a trois jours ».
+    */
+    v('aucune date brute n’apparaît', /\d{4}-\d{2}-\d{2}/.test(panneau), false);
+    await B.page.click('#centre-bouton');
+  }
+}
+
+console.log('\n\x1b[1m7. TRANCHER UNE QUESTION LA RETIRE — § 1 n° 8, L’AUTRE MOITIÉ\x1b[0m');
+{
+  /*
+     La moitié qu'aucune section ne prouvait : « une question quitte le
+     compteur à la résolution de sa source ». Elle vit dans
+     `synchroniser`, donc la prouver ici la prouve pour les cinq sources
+     branchées — c'est la raison d'avoir un seul chemin d'écriture.
+  */
+  await ouvrir(B, '/appareils/', '#ecran:not(.hidden)');
+  await B.page.waitForSelector('[data-issue="retenue"]', { timeout: 40000 });
+  const avant = (await magasinDuCentre(B)).filter((e) => e.genre === 'a-trancher').length;
+  vrai('une question est bien présente avant qu’on la tranche', avant >= 1);
+
+  await B.page.locator('[data-issue="retenue"]').first().click();
+  await B.page.waitForTimeout(3000);
+
+  /*
+     Le retrait se fait au recensement suivant, pas au clic : `recenser`
+     tourne au chargement d'un écran. On recharge donc, comme la vie le
+     ferait, et c'est aussi ce qui prouve que le retrait ne dépend pas
+     d'un état gardé en mémoire par la page qui a tranché.
+  */
+  await ouvrir(B, '/appareils/', '#ecran:not(.hidden)');
+  let reste = avant;
+  for (let i = 0; i < 40; i += 1) {
+    reste = (await magasinDuCentre(B)).filter((e) => e.genre === 'a-trancher').length;
+    if (reste < avant) break;
+    await B.page.waitForTimeout(500);
+  }
+  v('la question tranchée a quitté le magasin', reste, avant - 1);
+
+  await ouvrir(B, '/revisions/', '#centre-notifications');
+  v(
+    'et la pastille ne l’annonce plus',
+    await B.page.locator('#centre-pastille').isVisible(),
+    false,
+  );
+}
+
 
 await nav.close();
 console.log(
