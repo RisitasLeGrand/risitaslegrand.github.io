@@ -383,14 +383,20 @@ import {
       }
     })();
 
-    const lien = $('lien-biblio') as HTMLAnchorElement;
+    /*
+       `lienBiblio`, et non `lien` : ce nom-là masquait l'aide `lien()`
+       importée en tête de module, et l'appel de la ligne 428 levait
+       « lien is not a function ». La page restait donc sur « chargement »,
+       et `astro check` le disait depuis le début dans ses neuf erreurs.
+    */
+    const lienBiblio = $('lien-biblio') as HTMLAnchorElement;
     if (!vu) {
       /*
          Tant que l'avertissement n'a pas été lu, le lien ne navigue pas : il
          déplie l'avertissement. Un avertissement qu'on peut traverser sans le
          voir n'avertit personne.
       */
-      lien.addEventListener('click', (e) => {
+      lienBiblio.addEventListener('click', (e) => {
         e.preventDefault();
         $('avertissement-biblio').classList.remove('hidden');
         ($('confirmer-sortie') as HTMLButtonElement).focus();
@@ -403,7 +409,7 @@ import {
             /* stockage refusé : l'avertissement reviendra, ce qui est le bon défaut */
           }
         }
-        window.open(lien.href, '_blank', 'noopener,noreferrer');
+        window.open(lienBiblio.href, '_blank', 'noopener,noreferrer');
       });
     }
 

@@ -473,17 +473,21 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
                    Ce qui se perdrait sans contrepartie, c'est de savoir où
                    l'on est — d'où le nom de la page, juste au-dessus.
                 */}
+                {/*
+                   Plus de `overflow-x-auto` sur la barre ci-dessous : il n'y a
+                   plus rien à faire défiler, et surtout il **coupait les
+                   panneaux** des groupes, qui sont positionnés en absolu et
+                   doivent déborder de la barre pour s'afficher. Un menu
+                   déroulant dans un conteneur qui masque le débordement est
+                   un menu qui s'ouvre dans une fente.
+
+                   Le commentaire est ICI et non entre deux attributs : le
+                   compilateur l'y tolérait, `astro check` non, et deux de ses
+                   neuf erreurs venaient de ces quatre lignes.
+                */}
                 <nav
                   id="navigation-principale"
                   aria-label="Navigation principale"
-                  {/*
-                     Plus de `overflow-x-auto` : il n'y a plus rien à faire
-                     défiler, et surtout il **coupait les panneaux** des
-                     groupes, qui sont positionnés en absolu et doivent
-                     déborder de la barre pour s'afficher. Un menu déroulant
-                     dans un conteneur qui masque le débordement est un menu
-                     qui s'ouvre dans une fente.
-                  */}
                   class="-mx-1 hidden min-w-0 flex-1 flex-wrap gap-1 px-1 sm:flex"
                 >
                   {/*

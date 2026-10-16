@@ -106,7 +106,7 @@ import Base from '../layouts/Base.astro';
   */
   let socleCarte = 64;
   let pixelParSigne = 0.42;
-  const estimer = (nb, signes) => Math.round(56 + nb * (socleCarte + 8) + signes * pixelParSigne);
+  const estimer = (nb: number, signes: number) => Math.round(56 + nb * (socleCarte + 8) + signes * pixelParSigne);
 
   function calibrer() {
     const points = [];
@@ -133,7 +133,7 @@ import Base from '../layouts/Base.astro';
         }
       }
     }
-    for (const section of document.querySelectorAll('section[id^="lettre-"]')) {
+    for (const section of document.querySelectorAll<HTMLElement>('section[id^="lettre-"]')) {
       const nb = section.querySelectorAll('dt').length;
       const signes = Number(section.dataset.signes ?? 0);
       if (nb) section.style.containIntrinsicSize = `auto ${estimer(nb, signes)}px`;
@@ -155,7 +155,7 @@ import Base from '../layouts/Base.astro';
      avec les corrections.
   */
   let abandonner = () => {};
-  function allerA(lettre) {
+  function allerA(lettre: string) {
     let vivant = true;
     abandonner();
     abandonner = () => {
@@ -170,7 +170,7 @@ import Base from '../layouts/Base.astro';
     */
     const RENDEZ_VOUS = [0, 16, 50, 120, 250, 450];
     let stable = 0;
-    const viser = (i) => {
+    const viser = (i: number) => {
       if (!vivant) return;
       const section = document.getElementById(`lettre-${lettre}`);
       if (!section) return;
