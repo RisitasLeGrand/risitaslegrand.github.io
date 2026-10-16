@@ -1,0 +1,1 @@
+function e(e){return e.replace(/[ \t]+([?!;])/g,` $1`).replace(/[ \t]+:/g,`\xA0:`).replace(/«[ \t]+/g,`«\xA0`).replace(/[ \t]+»/g,`\xA0»`)}export{e as t};

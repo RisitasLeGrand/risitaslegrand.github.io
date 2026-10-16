@@ -1,0 +1,1 @@
+function e(e){let t=()=>{let t=e.scrollLeft>2,n=e.scrollLeft+e.clientWidth<e.scrollWidth-2;e.dataset.deborde=t&&n?`deux`:t?`debut`:n?`fin`:`aucun`};return e.addEventListener(`scroll`,t,{passive:!0}),window.addEventListener(`resize`,t),`ResizeObserver`in window&&new ResizeObserver(t).observe(e),t(),t}export{e as t};
