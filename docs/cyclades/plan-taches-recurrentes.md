@@ -871,3 +871,52 @@ désormais atteint depuis un écran.
 
 Ces trois lignes restent dans le code et à l'écran tant qu'elles sont
 vraies.
+
+---
+
+## Reliquats des prompts 35 et 36 — relevé du 16 octobre 2026
+
+Comparaison exigence par exigence. **[vu]** = constaté à l'écran ou par
+exécution. **[lu]** = établi par lecture du code.
+
+### Prompt 35 — coffre ouvert pour la session, données du coffre dans l'analyse
+
+| Exigence | État |
+|---|---|
+| **P1** — case « Garder le coffre ouvert », témoin dans l'en-tête, « Fermer le coffre » partout | **[lu] tenu.** `TemoinCoffre.astro` porte le témoin, son libellé et le bouton. |
+| **P1 bis** — case « Mémoriser sur cet appareil », décochée par défaut | **[lu] tenu.** `FormulaireCoffre.astro`. |
+| **P1 bis** — clé d'encapsulation **non extractible** dans IndexedDB | **[lu] tenu.** `coffre-cles.ts` : `extractable: false`, et le commentaire dit pourquoi. |
+| **P1 bis** — « Oublier le coffre sur cet appareil » | **[lu] tenu.** `oublierLAppareil()` est branché sur un bouton du témoin. *Je l'avais d'abord noté absent : ma recherche portait sur le libellé du prompt, pas sur celui du code. Un relevé qui cherche la formule et non la fonction conclut trop vite.* |
+| **P1 bis** — le témoin distingue « session » et « mémorisé sur cet appareil » | **[lu] tenu.** Les deux libellés sont dans `TemoinCoffre.astro`. |
+| **P2** — Psyché et Finances dans l'analyse, manque nommé coffre fermé | **[lu] tenu.** `faits-branches.ts`, `publierPsycheOuLeDire` et `publierFinancesOuLeDire`. |
+| **P2** — **médicaments et statut hormonal** dans l'analyse | **[lu] MANQUE.** `SourceDeFaits` compte six sources ; ni les médicaments ni le statut hormonal n'en font partie, et **aucun publieur n'existe** pour eux (`faits-*.ts` : revisions, odyssee, corps, finances, psyche). La décision 3 les demandait, « seulement dans les indicateurs et les règles de désaccord, sans synthèse rédigée qui les nomme hors coffre ». |
+
+### Prompt 36 — la revue devient le check-up
+
+| Exigence | État |
+|---|---|
+| **V1** — préférence matin / soir | **[lu] tenu.** `moment-revue.ts`, lu par la Revue et par les règles du jour. |
+| **V1** — libellés « hier » ou « aujourd'hui », jamais un « aujourd'hui » faux | **[lu] tenu.** `libelles(moment)`. |
+| **V1** — le nom est **« Revue » partout** | **Corrigé ce jour.** Le `<h1>` disait « Revue », mais le titre de page disait encore « Revue du soir » — donc l'onglet du navigateur et l'en-tête. La décision 1 était *tranchée* ; c'était un reliquat d'un seul mot, à l'endroit exact que le prompt nommait. |
+| **V2** — ce qui est déjà servi n'est pas redemandé | **[vu] tenu**, et étendu aux occurrences en phase 6. |
+| **V3** — la revue manquée est rappelée le lendemain | **[lu] tenu.** `rappelDesRevues`, règle `revue-manquee`. |
+| **V4** — la revue sur l'accueil quand elle est due | **[lu] tenu.** `#revue-due` sur `index.astro`. |
+| **V4 / décision 2** — **pastille sur l'onglet Odyssée** | **[lu] MANQUE.** La seule pastille de la barre est `pastille-sync`. La recommandation de la décision 2 était « en tête de l'accueil **plus un badge sur l'onglet Odyssée** » ; la première moitié est faite, la seconde non. |
+
+### Ce que je retiens de ce relevé
+
+Deux manques réels, et ils ne se ressemblent pas.
+
+**Les médicaments et le statut hormonal** touchent le coffre et une
+décision signée : je ne les branche pas dans ce lot sans accord, parce
+qu'ajouter une source scellée à l'analyse globale fait entrer des données
+de santé dans des calculs qui en étaient exempts. C'est exactement le
+genre de ligne que la règle §4.2 veut voir s'arrêter et demander.
+
+**La pastille** est une finition d'interface, sans effet sur les données.
+Elle entre au prochain lot d'interface.
+
+Et une leçon de méthode : j'ai d'abord noté « Oublier le coffre » absent
+parce que je cherchais **le libellé du prompt** au lieu de **la fonction
+du code**. Un relevé qui cherche la formule et non la chose conclut trop
+vite — dans les deux sens.
