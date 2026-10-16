@@ -5,6 +5,7 @@
  */
 import '../styles/global.css';
 import Verrou from '../components/Verrou.astro';
+import CentreNotifications from '../components/CentreNotifications.astro';
 import CommutateurTheme from '../components/CommutateurTheme.astro';
 import BarreProgression from '../components/BarreProgression.astro';
 import PiedDePage from '../components/PiedDePage.astro';
@@ -578,6 +579,21 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
                   <span id="pastille-sync" aria-hidden="true" class="block h-2 w-2 rounded-full bg-slate-400"></span>
                   <span id="texte-sync" class="sr-only"></span>
                 </span>
+                {/*
+                   Le centre de notifications, **dans l'en-tête complet
+                   seulement** (§ 3.1 du 32).
+
+                   Le menu de garde n'en porte pas, et ce n'est pas un
+                   oubli : il est au-dessus des branches, on n'y fait rien,
+                   et un compteur d'actions à faire y inviterait à agir
+                   depuis un écran qui ne sait rien faire. La même règle
+                   que le ruban d'onglets, qui n'y est pas non plus.
+
+                   Il est voisin du témoin de synchronisation, et c'est
+                   voulu : les deux disent l'état de ce qui s'est passé
+                   ailleurs, l'un en continu, l'autre à la demande.
+                */}
+                <CentreNotifications />
                 <CommutateurTheme />
                 {/*
                    « Cet espace » : les écrans qui ne sont d'aucune branche.

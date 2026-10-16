@@ -1,0 +1,369 @@
+---
+/**
+ * Le centre de notifications, dans l'en-tête des branches — prompt 32,
+ * phase 2.
+ *
+ * ## Pourquoi dans l'en-tête des branches, et pas sur le menu de garde
+ *
+ * Le § 3.1 le demande, et la raison tient en une phrase : le menu est
+ * au-dessus des branches, on n'y fait rien — y mettre un compteur
+ * d'actions à faire inviterait à agir depuis un écran qui ne sait rien
+ * faire. L'en-tête léger n'en porte donc pas, et c'est la même règle qui
+ * place déjà le ruban d'onglets.
+ *
+ * ## Le compteur vit coffre fermé, la liste non
+ *
+ * `comptesDuCentre()` lit le `genre`, laissé en clair par la décision N-1
+ * option A, et ne déchiffre rien. La pastille est donc juste dès la
+ * première image, sans mot de passe. Le panneau, lui, exige le coffre :
+ * coffre fermé il affiche **une mention fixe, sans nombre** (§ 3.2) — et
+ * surtout il ne dit pas « 0 élément », qui serait un mensonge, ni
+ * « contenu chiffré », qui serait un aveu.
+ *
+ * Les deux ne se contredisent pas : le compteur dit *combien de questions
+ * attendent*, le panneau dit *lesquelles*. La première information est au
+ * clair par décision signée, la seconde ne l'est pas.
+ *
+ * ## « Archiver » n'apparaît pas sur une question
+ *
+ * Le § 1 n° 8 interdit de ranger une question à trancher. Le bouton n'est
+ * donc pas désactivé, il est **absent** : un bouton grisé invite à
+ * chercher comment l'activer, et la bonne réponse est qu'il n'y en a pas.
+ * On sort d'une question en la tranchant, sur l'écran d'origine, et le
+ * lien y mène.
+ *
+ * ## Cibles de 44 px, et feuille sur téléphone
+ *
+ * `cible-tactile-pleine` est la classe du projet ; la feuille est le même
+ * panneau, ancré en bas et pleine largeur sous `sm`. Une seule structure,
+ * deux mises en forme — comme l'en-tête lui-même.
+ */
+---
+
+<div id="centre-notifications" class="relative shrink-0">
+  <button
+    type="button"
+    id="centre-bouton"
+    aria-haspopup="dialog"
+    aria-expanded="false"
+    aria-controls="centre-panneau"
+    class="cible-tactile-pleine relative rounded-lg text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+  >
+    <span aria-hidden="true">🔔</span>
+    {/*
+       La pastille est cachée tant qu'il n'y a rien : un « 0 » permanent
+       apprend à ne plus regarder l'endroit où le nombre s'affiche.
+    */}
+    <span
+      id="centre-pastille"
+      hidden
+      aria-hidden="true"
+      class="absolute -right-0.5 -top-0.5 min-w-[1.15rem] rounded-full bg-rose-600 px-1 text-center text-[0.7rem] font-semibold leading-[1.15rem] text-white"
+    ></span>
+    <span class="sr-only" id="centre-bouton-texte">Centre de notifications</span>
+  </button>
+
+  {/*
+     `hidden` et non `display:none` en style : la consigne du projet veut
+     qu'on bascule `el.hidden`, et un panneau caché par une classe se
+     retrouve lisible par les lecteurs d'écran si la classe saute.
+  */}
+  <div
+    id="centre-panneau"
+    hidden
+    role="dialog"
+    aria-modal="false"
+    aria-labelledby="centre-titre"
+    class="fixed inset-x-0 bottom-0 z-50 max-h-[80vh] overflow-y-auto rounded-t-2xl border border-slate-200 bg-white p-3 shadow-2xl sm:absolute sm:inset-x-auto sm:bottom-auto sm:right-0 sm:mt-1 sm:max-h-[70vh] sm:w-96 sm:rounded-xl dark:border-slate-700 dark:bg-slate-900"
+  >
+    <div class="mb-2 flex items-center justify-between gap-2">
+      <h2 id="centre-titre" class="text-sm font-semibold text-slate-900 dark:text-white">
+        Centre de notifications
+      </h2>
+      <button
+        type="button"
+        id="centre-fermer"
+        class="cible-tactile rounded-lg px-2 text-sm text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
+      >
+        <span aria-hidden="true">✕</span><span class="sr-only">Fermer le centre</span>
+      </button>
+    </div>
+
+    {/*
+       Le filtre par branche (§ 3.1). Un `<select>` et non des onglets :
+       quatre choix en haut d'un panneau de 384 px coûteraient la moitié de
+       sa largeur, et ce filtre se règle une fois, pas à chaque regard.
+    */}
+    <label class="mb-2 flex items-center gap-2 text-xs text-slate-600 dark:text-slate-300">
+      <span>Branche</span>
+      <select
+        id="centre-filtre"
+        class="cible-tactile min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+      >
+        <option value="">Toutes</option>
+        <option value="revisions">Révisions</option>
+        <option value="odyssee">Odyssée</option>
+        <option value="sport">Sport</option>
+        <option value="aucune">Cet espace</option>
+      </select>
+    </label>
+
+    <p
+      id="centre-coffre-ferme"
+      hidden
+      class="rounded-lg bg-amber-50 p-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-100"
+    >
+      Certains éléments ne sont visibles que coffre ouvert.
+    </p>
+
+    <p id="centre-vide" hidden class="p-2 text-xs text-slate-500 dark:text-slate-400">
+      Rien à signaler.
+    </p>
+
+    <div id="centre-liste" class="space-y-3"></div>
+
+    <div class="mt-3 border-t border-slate-200 pt-2 dark:border-slate-700">
+      <button
+        type="button"
+        id="centre-tout-lu"
+        class="cible-tactile w-full rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+      >
+        Tout marquer comme lu
+      </button>
+      {/*
+         Dit une fois, sous le bouton qui pourrait laisser croire le
+         contraire : « tout » ne veut pas dire les questions.
+      */}
+      <p class="px-3 pt-1 text-[0.7rem] text-slate-500 dark:text-slate-400">
+        Les questions à trancher restent : elles se ferment en y répondant.
+      </p>
+    </div>
+  </div>
+</div>
+
+<script>
+  import { base } from '../lib/ui';
+  import { surCoffre } from '../lib/coffre';
+  import {
+    archiver,
+    centreLisible,
+    comptesDuCentre,
+    elementsDuCentre,
+    marquerLu,
+  } from '../lib/notifications/donnees';
+  import { peutEtreRange, type ElementDuCentre } from '../lib/notifications/modele';
+  import { routeDeLaSource } from '../lib/notifications/sources';
+
+  const racine = document.getElementById('centre-notifications');
+  const bouton = document.getElementById('centre-bouton');
+  const pastille = document.getElementById('centre-pastille');
+  const panneau = document.getElementById('centre-panneau');
+  const liste = document.getElementById('centre-liste');
+  const vide = document.getElementById('centre-vide');
+  const mentionCoffre = document.getElementById('centre-coffre-ferme');
+  const filtre = document.getElementById('centre-filtre') as HTMLSelectElement | null;
+  const fermer = document.getElementById('centre-fermer');
+  const toutLu = document.getElementById('centre-tout-lu');
+  const texteBouton = document.getElementById('centre-bouton-texte');
+
+  if (racine && bouton && pastille && panneau && liste && vide && mentionCoffre && filtre) {
+    /** « 9+ » au-delà de neuf (§ 3.1). Un nombre exact à deux chiffres ne
+        change aucune décision, et il élargit la pastille. */
+    const plafonne = (n: number) => (n > 9 ? '9+' : String(n));
+
+    const peindreLaPastille = async () => {
+      /*
+         Ne lève jamais : la pastille est dans l'en-tête de quarante-quatre
+         pages, et une erreur ici les casserait toutes. Une base absente ou
+         un magasin trop vieux rendent zéro, donc rien d'affiché.
+      */
+      let aTrancher = 0;
+      try {
+        aTrancher = (await comptesDuCentre()).aTrancher;
+      } catch {
+        aTrancher = 0;
+      }
+      pastille.hidden = aTrancher === 0;
+      pastille.textContent = plafonne(aTrancher);
+      if (texteBouton) {
+        texteBouton.textContent =
+          aTrancher === 0
+            ? 'Centre de notifications — rien à trancher'
+            : `Centre de notifications — ${aTrancher} question(s) à trancher`;
+      }
+    };
+
+    const dessiner = async () => {
+      liste.replaceChildren();
+      const ouvert = centreLisible();
+      mentionCoffre.hidden = ouvert;
+      if (!ouvert) {
+        /*
+           Coffre fermé : la mention fixe, et RIEN d'autre. Pas de « 0 »,
+           pas de « n éléments chiffrés » — le § 3.2 interdit le nombre, et
+           « rien à signaler » affirmerait quelque chose de faux.
+        */
+        vide.hidden = true;
+        return;
+      }
+
+      let elements: ElementDuCentre[] = [];
+      try {
+        elements = await elementsDuCentre();
+      } catch {
+        elements = [];
+      }
+      const voulue = filtre.value;
+      const retenus = elements
+        .filter((e) => e.etat !== 'archive')
+        .filter((e) => !voulue || routeDeLaSource(e.source).branche === voulue)
+        /* Du plus récent au plus ancien (§ 3.1). À jour égal, par identifiant,
+           pour que deux rendus successifs donnent le même ordre. */
+        .sort((a, b) => (b.creeLe === a.creeLe ? a.id.localeCompare(b.id) : b.creeLe.localeCompare(a.creeLe)));
+
+      vide.hidden = retenus.length > 0;
+      if (!retenus.length) return;
+
+      /* Regroupés par source (§ 3.1), dans l'ordre d'apparition — donc par
+         récence du plus récent de chaque groupe. */
+      const groupes = new Map<string, ElementDuCentre[]>();
+      for (const e of retenus) {
+        const paquet = groupes.get(e.source);
+        if (paquet) paquet.push(e);
+        else groupes.set(e.source, [e]);
+      }
+
+      for (const [source, membres] of groupes) {
+        const route = routeDeLaSource(source);
+        const section = document.createElement('section');
+
+        const titre = document.createElement('h3');
+        titre.className =
+          'mb-1 text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400';
+        titre.textContent = route.libelle;
+        section.append(titre);
+
+        const ul = document.createElement('ul');
+        ul.className = 'space-y-1';
+        for (const element of membres) {
+          const li = document.createElement('li');
+          li.className =
+            'flex items-center gap-1 rounded-lg border border-slate-200 p-1 dark:border-slate-700';
+          li.dataset.element = element.id;
+          li.dataset.genre = element.genre;
+
+          /*
+             Le libellé de la ligne est celui du GENRE, pas du contenu : le
+             § 2.3 veut un élément sans contenu, et le détail attend sur
+             l'écran d'origine. « Non lu » se marque par le gras, pas par un
+             mot de plus.
+          */
+          const intitule = element.genre === 'a-trancher' ? 'Une question à trancher' : 'Une information';
+          if (route.vers) {
+            const a = document.createElement('a');
+            a.href = `${base}${route.vers}`;
+            a.className =
+              'cible-tactile min-w-0 flex-1 gap-2 rounded-lg px-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800';
+            a.textContent = intitule;
+            if (element.etat === 'non_lu') a.classList.add('font-medium');
+            li.append(a);
+          } else {
+            /* Sans écran d'origine : visible, et sans lien. Voir `sources.ts`. */
+            const span = document.createElement('span');
+            span.className = 'min-w-0 flex-1 px-2 text-sm text-slate-700 dark:text-slate-200';
+            span.textContent = intitule;
+            li.append(span);
+          }
+
+          if (element.etat === 'non_lu') {
+            const lu = document.createElement('button');
+            lu.type = 'button';
+            lu.className =
+              'cible-tactile shrink-0 rounded-lg px-2 text-xs text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800';
+            lu.innerHTML = '<span aria-hidden="true">👁️</span>';
+            lu.title = 'Marquer comme lu';
+            lu.append(Object.assign(document.createElement('span'), {
+              className: 'sr-only',
+              textContent: `Marquer comme lu : ${intitule}`,
+            }));
+            lu.addEventListener('click', async () => {
+              await marquerLu(element.id);
+              await rafraichir();
+            });
+            li.append(lu);
+          }
+
+          /* Absent, pas désactivé, pour une question (§ 1 n° 8). */
+          if (peutEtreRange(element)) {
+            const ranger = document.createElement('button');
+            ranger.type = 'button';
+            ranger.className =
+              'cible-tactile shrink-0 rounded-lg px-2 text-xs text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800';
+            ranger.innerHTML = '<span aria-hidden="true">📥</span>';
+            ranger.title = 'Archiver';
+            ranger.append(Object.assign(document.createElement('span'), {
+              className: 'sr-only',
+              textContent: `Archiver : ${intitule}`,
+            }));
+            ranger.addEventListener('click', async () => {
+              await archiver(element.id);
+              await rafraichir();
+            });
+            li.append(ranger);
+          }
+
+          ul.append(li);
+        }
+        section.append(ul);
+        liste.append(section);
+      }
+    };
+
+    const rafraichir = async () => {
+      await peindreLaPastille();
+      if (!panneau.hidden) await dessiner();
+    };
+
+    const basculer = async (ouvrir: boolean) => {
+      panneau.hidden = !ouvrir;
+      bouton.setAttribute('aria-expanded', String(ouvrir));
+      if (ouvrir) await dessiner();
+    };
+
+    bouton.addEventListener('click', () => void basculer(panneau.hidden === true));
+    fermer?.addEventListener('click', () => void basculer(false));
+    filtre.addEventListener('change', () => void dessiner());
+
+    toutLu?.addEventListener('click', async () => {
+      if (!centreLisible()) return;
+      for (const element of await elementsDuCentre()) {
+        /*
+           `marquerLu` refuse déjà une question — on ne le devine pas ici,
+           on le laisse refuser. Deux endroits qui décident de la même règle
+           finissent par ne plus être d'accord.
+        */
+        if (element.etat === 'non_lu') await marquerLu(element.id);
+      }
+      await rafraichir();
+    });
+
+    /* Échappement et clic au-dehors : les deux sorties attendues d'un panneau. */
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && !panneau.hidden) void basculer(false);
+    });
+    document.addEventListener('click', (e) => {
+      if (panneau.hidden) return;
+      if (e.target instanceof Node && !racine.contains(e.target)) void basculer(false);
+    });
+
+    void peindreLaPastille();
+    /*
+       Le coffre s'ouvre ou se ferme pendant la vie de la page : le panneau
+       doit suivre, sinon il affiche la mention alors que le coffre est
+       ouvert — ou pire, l'inverse. `surCoffre` est l'abonnement du projet ;
+       un événement `window` maison aurait marché aussi et aurait fait un
+       second mécanisme à tenir à jour.
+    */
+    surCoffre(() => void rafraichir());
+  }
+</script>
