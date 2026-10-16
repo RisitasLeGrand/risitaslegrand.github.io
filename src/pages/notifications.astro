@@ -1,0 +1,204 @@
+---
+/**
+ * Page « Notifications » — prompt 32, § 3.4.
+ *
+ * ## Un écran qui dit la vérité, et c'est sa raison d'être
+ *
+ * Le § 3.4 ne demande pas un écran de réglages : il demande un écran
+ * « qui dit la vérité ». La vérité est désagréable et elle est dite en
+ * haut, avant les interrupteurs, pas en note de bas de page :
+ *
+ * - **elles n'arrivent que page ouverte.** Cyclades n'a pas de serveur,
+ *   donc pas de Web Push — ni vrai ni imité (décision du 11 octobre). Une
+ *   notification ne part que depuis un onglet vivant ;
+ * - **le réglage ne voyage pas.** Il vit sur cet appareil, parce qu'une
+ *   notification est émise par un appareil ;
+ * - **le texte ne dira jamais rien.** « Cyclades : un élément à voir »,
+ *   pour toutes les sources, sans exception — la liste des sources à
+ *   texte détaillé est vide, et elle le restera.
+ *
+ * Dire cela avant de proposer d'activer, c'est accepter que la réponse
+ * soit non. C'est le prix d'un réglage qu'on ne regrette pas.
+ *
+ * ## L'état réel, pas l'état supposé
+ *
+ * La ligne de permission vient de `etatPermission()` et se relit à chaque
+ * peinture. Un écran qui afficherait « activé » parce qu'on a coché la
+ * case, alors que le navigateur a refusé, serait exactement le mensonge
+ * que le § 3.4 veut empêcher.
+ */
+import Base from '../layouts/Base.astro';
+---
+
+<Base titre="Notifications" actif="profil" entete="leger">
+  <h1 class="mb-5 text-2xl font-bold text-slate-900 dark:text-white">Notifications</h1>
+
+  {/*
+     La vérité d'abord. Trois faits, et aucun n'est flatteur — c'est
+     pourquoi ils sont au-dessus des interrupteurs et non en dessous.
+  */}
+  <section class="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-950/40">
+    <h2 class="mb-2 text-lg font-semibold text-amber-900 dark:text-amber-200">
+      Ce que ces notifications peuvent, et ce qu’elles ne peuvent pas
+    </h2>
+    <p class="max-w-3xl text-sm leading-relaxed text-amber-900/90 dark:text-amber-200/90">
+      <strong>Elles n’arrivent que pendant qu’une page de Cyclades est ouverte
+      sur cet appareil.</strong> Pour un rappel à heure fixe, utilisez l’agenda.
+    </p>
+    <p class="mt-3 max-w-3xl text-sm leading-relaxed text-amber-900/90 dark:text-amber-200/90">
+      Cyclades n’a pas de serveur : il ne peut donc pas vous envoyer une
+      notification quand le site est fermé, et il ne fait pas semblant de le
+      pouvoir.
+    </p>
+    <p class="mt-3 max-w-3xl text-sm leading-relaxed text-amber-900/90 dark:text-amber-200/90">
+      <strong>Ces réglages ne se synchronisent pas.</strong> Ils valent pour cet
+      appareil seulement : une notification est émise par un appareil, et
+      activer un rappel sur votre téléphone ne doit pas faire sonner un
+      ordinateur resté allumé ailleurs. Vous les referez sur chaque appareil.
+    </p>
+  </section>
+
+  {/* Le texte, montré tel quel : on ne demande pas d'autoriser à l'aveugle. */}
+  <section class="mb-6 rounded-2xl border border-slate-200 p-5 dark:border-slate-700">
+    <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+      Ce qu’une notification affichera
+    </h2>
+    <p class="mb-3 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+      Toujours ce texte, pour toutes les sources, sans exception : ni domaine,
+      ni valeur, ni molécule, ni montant, ni nombre, ni date. Un écran
+      verrouillé se lit par-dessus l’épaule.
+    </p>
+    <div class="max-w-md rounded-xl border border-slate-300 bg-slate-50 p-3 dark:border-slate-600 dark:bg-slate-800">
+      <p class="text-sm font-semibold text-slate-900 dark:text-white" id="apercu-titre"></p>
+      <p class="text-sm text-slate-600 dark:text-slate-300" id="apercu-corps"></p>
+    </div>
+    <p class="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+      Au plus <strong id="apercu-plafond"></strong> par jour. Au-delà, les
+      éléments restent dans le centre de notifications : rien n’est caché, seul
+      le droit de vous interrompre est plafonné.
+    </p>
+  </section>
+
+  {/* L'état réel de la permission, par appareil (§ 3.4). */}
+  <section class="mb-6 rounded-2xl border border-slate-200 p-5 dark:border-slate-700">
+    <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+      Sur cet appareil
+    </h2>
+    <p id="etat-permission" class="text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+      Lecture de l’état…
+    </p>
+    <p id="etat-explication" class="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300"></p>
+  </section>
+
+  <section class="rounded-2xl border border-slate-200 p-5 dark:border-slate-700">
+    <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">Par source</h2>
+    <p class="mb-4 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+      Tout est <strong>désactivé par défaut</strong>. La permission du navigateur
+      ne vous sera demandée qu’au moment où vous activerez la première.
+    </p>
+    <ul id="liste-sources" class="space-y-1"></ul>
+  </section>
+</Base>
+
+<script>
+  import {
+    CORPS_NEUTRE,
+    PLAFOND_PAR_JOUR,
+    TITRE_NEUTRE,
+    reglerLaSource,
+    sourcesActivees,
+  } from '../lib/notifications/emission';
+  import { etatPermission, type EtatPermission } from '../lib/sync/notification';
+  import { SOURCES_DECLAREES, suitLaSensibiliteDuCycle } from '../lib/notifications/filtre-cycle';
+  import { peutNotifier, routeDeLaSource } from '../lib/notifications/sources';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  $('apercu-titre').textContent = TITRE_NEUTRE;
+  $('apercu-corps').textContent = CORPS_NEUTRE;
+  $('apercu-plafond').textContent = `${PLAFOND_PAR_JOUR} notifications`;
+
+  /*
+     Chaque état dit ce qu'il implique ET ce qu'on peut y faire. « Refusée »
+     tout court laisserait chercher dans Cyclades un bouton qui n'y est pas :
+     un refus se lève dans les réglages du navigateur, pas ici.
+  */
+  const EXPLICATIONS: Record<EtatPermission, string> = {
+    accordee:
+      'Les sources que vous activez ci-dessous pourront donc s’afficher, tant qu’une page est ouverte.',
+    refusee:
+      'Vous avez refusé les notifications pour ce site. Cyclades ne peut pas revenir sur ce refus : il se lève dans les réglages de votre navigateur, à la ligne de ce site. Vos choix ci-dessous restent enregistrés et reprendront effet ensuite.',
+    'a-demander':
+      'Elle vous sera demandée quand vous activerez la première source, et pas avant.',
+    indisponible:
+      'Ce navigateur ne propose pas de notifications. Le centre de notifications, lui, fonctionne normalement — c’est seulement l’affichage par le système qui manque.',
+  };
+
+  const LIBELLES: Record<EtatPermission, string> = {
+    accordee: 'Permission accordée.',
+    refusee: 'Permission refusée.',
+    'a-demander': 'Permission pas encore demandée.',
+    indisponible: 'Notifications indisponibles sur cet appareil.',
+  };
+
+  function peindreLEtat() {
+    const etat = etatPermission();
+    $('etat-permission').textContent = LIBELLES[etat];
+    $('etat-explication').textContent = EXPLICATIONS[etat];
+  }
+
+  /*
+     Les sources proposées sont celles que le filtre ADMET. Celles qui
+     suivent la sensibilité du cycle ne figurent pas : un interrupteur
+     désactivé « Journal du cycle » dirait à qui regarde l'écran que ce
+     module existe et qu'on s'en sert. Le § 1 n° 3 veut qu'elles soient
+     hors de toute notification ; les voir ici serait déjà trop.
+
+     Et celles qui n'ont pas le droit d'interrompre n'y sont pas non plus
+     — la veille du rythme (le 27) et l'apprentissage étendu (le 25).
+     Proposer un interrupteur sans effet est pire que de ne rien proposer :
+     on croit avoir activé.
+  */
+  const PROPOSEES = SOURCES_DECLAREES.filter(
+    (s) => !suitLaSensibiliteDuCycle({ source: s.id }) && peutNotifier(s.id),
+  );
+
+  function peindreLesSources() {
+    const actives = new Set(sourcesActivees());
+    const liste = $('liste-sources');
+    liste.replaceChildren();
+    for (const source of PROPOSEES) {
+      const route = routeDeLaSource(source.id);
+      const li = document.createElement('li');
+      const label = document.createElement('label');
+      label.className =
+        'flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 transition hover:bg-slate-100 dark:hover:bg-slate-800';
+      const case_ = document.createElement('input');
+      case_.type = 'checkbox';
+      case_.className = 'h-4 w-4 shrink-0 rounded border-slate-300';
+      case_.checked = actives.has(source.id);
+      case_.dataset.source = source.id;
+      const texte = document.createElement('span');
+      texte.className = 'text-sm text-slate-700 dark:text-slate-200';
+      texte.textContent = route.libelle;
+      label.append(case_, texte);
+      li.append(label);
+      liste.append(li);
+
+      case_.addEventListener('change', async () => {
+        await reglerLaSource(source.id, case_.checked);
+        /*
+           On repeint depuis le magasin, pas depuis la case : si
+           l'enregistrement a échoué — stockage refusé en navigation
+           privée —, la case doit revenir d'elle-même. Faire confiance à
+           la case serait afficher une réussite qu'on n'a pas.
+        */
+        peindreLEtat();
+        peindreLesSources();
+      });
+    }
+  }
+
+  peindreLEtat();
+  peindreLesSources();
+</script>

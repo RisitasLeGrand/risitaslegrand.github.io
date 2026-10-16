@@ -288,6 +288,13 @@ export const ECRANS_COMMUNS: readonly Onglet[] = [
   { id: 'profil', nom: 'Mon profil', chemin: '/profil/', icone: '🪪' },
   { id: 'appareils', nom: 'Appareils', description: 'Appareils et synchronisation.', chemin: '/appareils/', icone: '📱' },
   { id: 'stockage', nom: 'Stockage', chemin: '/stockage/', icone: '🗄️' },
+  {
+    id: 'notifications',
+    nom: 'Notifications',
+    description: 'Ce que le système affiche, source par source.',
+    chemin: '/notifications/',
+    icone: '🔔',
+  },
   { id: 'exporter-ia', nom: 'Exporter pour une IA', chemin: '/exporter-ia/', icone: '📤' },
   { id: 'importer-analyse', nom: 'Importer une analyse', chemin: '/importer-analyse/', icone: '📥' },
 ];

@@ -151,6 +151,7 @@
     elementsDuCentre,
     marquerLu,
   } from '../lib/notifications/donnees';
+  import { refermer } from '../lib/notifications/emission';
   import { peutEtreRange, type ElementDuCentre } from '../lib/notifications/modele';
   import { routeDeLaSource } from '../lib/notifications/sources';
 
@@ -364,6 +365,39 @@
        un événement `window` maison aurait marché aussi et aurait fait un
        second mécanisme à tenir à jour.
     */
-    surCoffre(() => void rafraichir());
+    surCoffre((ouvert) => {
+      void rafraichir();
+      /*
+         **Au verrouillage, on referme tout** (§ 3.5).
+
+         Une notification du système survit à la fermeture de l'onglet et
+         porte l'identifiant d'un élément. La laisser affichée après avoir
+         verrouillé Cyclades reviendrait à laisser sur l'écran une trace de
+         ce qu'on vient précisément de mettre à l'abri.
+      */
+      if (!ouvert) void refermer({ toutes: true });
+    });
+
+    /*
+       À l'ouverture d'une page, on referme celles dont la question n'est
+       plus à trancher — et SEULEMENT celles-là.
+
+       C'est l'autre moitié du § 3.5 : une notification affichée ne se
+       retire que depuis l'appareil qui l'affiche, donc au prochain passage.
+       On ferme par complément plutôt que par liste : ce qu'on connaît, ce
+       sont les questions encore ouvertes ; tout le reste est périmé, y
+       compris ce qu'un autre onglet a affiché et qu'on n'a jamais vu.
+    */
+    void (async () => {
+      if (!centreLisible()) return;
+      try {
+        const encore = (await elementsDuCentre())
+          .filter((e) => e.genre === 'a-trancher' && e.etat !== 'archive')
+          .map((e) => e.id);
+        await refermer({ saufCes: encore });
+      } catch {
+        /* Rien d'affiché, ou pas de service worker : il n'y a rien à retirer. */
+      }
+    })();
   }
 </script>
