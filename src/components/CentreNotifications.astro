@@ -137,6 +137,20 @@
       <p class="px-3 pt-1 text-[0.7rem] text-slate-500 dark:text-slate-400">
         Les questions à trancher restent : elles se ferment en y répondant.
       </p>
+      {/*
+         Le « résumé du jour » du § 3.3. Caché tant que rien n'est replié :
+         un bouton qui ne changerait rien se clique une fois, puis plus
+         jamais — et il ne serait plus vu le jour où il sert.
+      */}
+      <button
+        type="button"
+        id="centre-resume"
+        hidden
+        aria-pressed="false"
+        class="cible-tactile mt-1 w-full rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+      >
+        Voir le résumé du jour
+      </button>
     </div>
   </div>
 </div>
@@ -151,7 +165,10 @@
     elementsDuCentre,
     marquerLu,
   } from '../lib/notifications/donnees';
+  import { appliquerLeBudget, libelleDuRegroupement } from '../lib/notifications/budget';
   import { refermer } from '../lib/notifications/emission';
+  import { retentionReglee } from '../lib/notifications/retention';
+  import { jourLogique } from '../lib/noyau/jour-logique';
   import { peutEtreRange, type ElementDuCentre } from '../lib/notifications/modele';
   import { routeDeLaSource } from '../lib/notifications/sources';
 
@@ -165,6 +182,9 @@
   const filtre = document.getElementById('centre-filtre') as HTMLSelectElement | null;
   const fermer = document.getElementById('centre-fermer');
   const toutLu = document.getElementById('centre-tout-lu');
+  const resume = document.getElementById('centre-resume');
+  /** Le « résumé du jour » est-il demandé ? Par ouverture, pas mémorisé. */
+  let resumeDemande = false;
   const texteBouton = document.getElementById('centre-bouton-texte');
 
   if (racine && bouton && pastille && panneau && liste && vide && mentionCoffre && filtre) {
@@ -191,6 +211,28 @@
           aTrancher === 0
             ? 'Centre de notifications — rien à trancher'
             : `Centre de notifications — ${aTrancher} question(s) à trancher`;
+      }
+    };
+
+    /*
+       Le ménage (§ 3.6) tourne **à l'ouverture du panneau**, pas au
+       chargement de chaque page.
+
+       Deux raisons. Il exige le coffre, donc il échouerait la plupart du
+       temps en en-tête ; et il écrit, donc le faire à chaque page ferait
+       payer une transaction à quarante-quatre écrans pour un ménage qui
+       n'a rien à faire. À l'ouverture du panneau, le coffre est le plus
+       souvent ouvert, et c'est le seul moment où le résultat se voit.
+    */
+    let menageFait = false;
+    const faireLeMenage = async () => {
+      if (menageFait || !centreLisible()) return;
+      menageFait = true;
+      try {
+        const { appliquerLaRetention } = await import('../lib/notifications/donnees');
+        await appliquerLaRetention(jourLogique(), retentionReglee());
+      } catch {
+        /* Un ménage qui échoue ne doit pas empêcher le panneau de s'ouvrir. */
       }
     };
 
@@ -222,13 +264,28 @@
            pour que deux rendus successifs donnent le même ordre. */
         .sort((a, b) => (b.creeLe === a.creeLe ? a.id.localeCompare(b.id) : b.creeLe.localeCompare(a.creeLe)));
 
-      vide.hidden = retenus.length > 0;
-      if (!retenus.length) return;
+      /*
+         Le budget d'attention (§ 3.3) s'applique ICI, après le tri et le
+         filtre, et avant le regroupement par source. L'ordre compte : le
+         plafond porte sur ce qui sera affiché, donc sur la liste déjà
+         réduite par le filtre de branche — sinon un filtre resserré
+         laisserait des lignes « et N autres » sans rien devant.
+      */
+      const budget = appliquerLeBudget(retenus, jourLogique(), { resumeDuJour: resumeDemande });
+      const replies = new Map(budget.regroupes.map((r) => [r.source, r.combien]));
+      if (resume) {
+        resume.hidden = budget.regroupes.length === 0 && !resumeDemande;
+        resume.textContent = resumeDemande ? 'Revenir à la liste courte' : 'Voir le résumé du jour';
+        resume.setAttribute('aria-pressed', String(resumeDemande));
+      }
+
+      vide.hidden = budget.montres.length > 0;
+      if (!budget.montres.length) return;
 
       /* Regroupés par source (§ 3.1), dans l'ordre d'apparition — donc par
          récence du plus récent de chaque groupe. */
       const groupes = new Map<string, ElementDuCentre[]>();
-      for (const e of retenus) {
+      for (const e of budget.montres) {
         const paquet = groupes.get(e.source);
         if (paquet) paquet.push(e);
         else groupes.set(e.source, [e]);
@@ -315,6 +372,20 @@
 
           ul.append(li);
         }
+        /*
+           « et 4 autres » : un compte, et rien d'autre. Pas de bouton pour
+           déplier source par source — le § 3.3 propose UN geste, le résumé
+           du jour, et multiplier les déplis rendrait le plafond décoratif.
+        */
+        const combien = replies.get(source);
+        if (combien) {
+          const reste = document.createElement('li');
+          reste.className = 'px-2 py-1 text-xs text-slate-500 dark:text-slate-400';
+          reste.dataset.regroupement = source;
+          reste.textContent = libelleDuRegroupement(combien);
+          ul.append(reste);
+        }
+
         section.append(ul);
         liste.append(section);
       }
@@ -326,14 +397,27 @@
     };
 
     const basculer = async (ouvrir: boolean) => {
+      /*
+         Le résumé retombe à chaque fermeture. Le mémoriser ferait un
+         réglage permanent d'un geste ponctuel, et le budget d'attention
+         ne tiendrait plus que par l'oubli de l'avoir désactivé.
+      */
+      if (!ouvrir) resumeDemande = false;
       panneau.hidden = !ouvrir;
       bouton.setAttribute('aria-expanded', String(ouvrir));
-      if (ouvrir) await dessiner();
+      if (ouvrir) {
+        await faireLeMenage();
+        await dessiner();
+      }
     };
 
     bouton.addEventListener('click', () => void basculer(panneau.hidden === true));
     fermer?.addEventListener('click', () => void basculer(false));
     filtre.addEventListener('change', () => void dessiner());
+    resume?.addEventListener('click', () => {
+      resumeDemande = !resumeDemande;
+      void dessiner();
+    });
 
     toutLu?.addEventListener('click', async () => {
       if (!centreLisible()) return;

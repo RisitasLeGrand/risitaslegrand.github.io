@@ -90,6 +90,58 @@ import Base from '../layouts/Base.astro';
     <p id="etat-explication" class="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300"></p>
   </section>
 
+  {/* § 3.6 — la rétention, réglable, et jamais sur une question ouverte. */}
+  <section class="mb-6 rounded-2xl border border-slate-200 p-5 dark:border-slate-700">
+    <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">
+      Ce que le centre garde
+    </h2>
+    <p class="mb-4 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+      Les éléments lus sont rangés après un délai, puis supprimés après un
+      second. <strong>Jamais une question à trancher</strong> : elle reste tant
+      qu’elle n’est pas résolue, quelle que soit la durée réglée ici. Ce réglage
+      vaut pour cet appareil, comme le reste de cette page.
+    </p>
+    <div class="flex flex-wrap items-end gap-4">
+      <label class="text-sm text-slate-700 dark:text-slate-200">
+        <span class="mb-1 block">Ranger après</span>
+        <input
+          id="retention-archiver"
+          type="number"
+          min="1"
+          max="3650"
+          class="h-11 w-28 rounded-lg border border-slate-300 bg-white px-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+        />
+        <span class="ml-1 text-xs text-slate-500 dark:text-slate-400">jours</span>
+      </label>
+      <label class="text-sm text-slate-700 dark:text-slate-200">
+        <span class="mb-1 block">Supprimer après</span>
+        <input
+          id="retention-supprimer"
+          type="number"
+          min="1"
+          max="3650"
+          class="h-11 w-28 rounded-lg border border-slate-300 bg-white px-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+        />
+        <span class="ml-1 text-xs text-slate-500 dark:text-slate-400">jours</span>
+      </label>
+      <button
+        type="button"
+        id="retention-enregistrer"
+        class="h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+      >
+        Enregistrer
+      </button>
+      <button
+        type="button"
+        id="retention-defaut"
+        class="h-11 rounded-lg px-3 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+      >
+        Revenir au réglage livré
+      </button>
+    </div>
+    <p id="retention-message" class="mt-3 max-w-3xl text-sm" role="status"></p>
+  </section>
+
   <section class="rounded-2xl border border-slate-200 p-5 dark:border-slate-700">
     <h2 class="mb-2 text-lg font-semibold text-slate-900 dark:text-white">Par source</h2>
     <p class="mb-4 max-w-3xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
@@ -111,6 +163,11 @@ import Base from '../layouts/Base.astro';
   import { etatPermission, type EtatPermission } from '../lib/sync/notification';
   import { SOURCES_DECLAREES, suitLaSensibiliteDuCycle } from '../lib/notifications/filtre-cycle';
   import { peutNotifier, routeDeLaSource } from '../lib/notifications/sources';
+  import {
+    reglerLaRetention,
+    retablirLaRetention,
+    retentionReglee,
+  } from '../lib/notifications/retention';
 
   const $ = (id: string) => document.getElementById(id)!;
 
@@ -199,6 +256,44 @@ import Base from '../layouts/Base.astro';
     }
   }
 
+  /* ── La rétention (§ 3.6) ─────────────────────────────────────────── */
+
+  const champArchiver = $('retention-archiver') as HTMLInputElement;
+  const champSupprimer = $('retention-supprimer') as HTMLInputElement;
+  const messageRetention = $('retention-message');
+
+  function peindreLaRetention(motif?: string, bon = true) {
+    const r = retentionReglee();
+    champArchiver.value = String(r.archiverApres);
+    champSupprimer.value = String(r.supprimerApres);
+    messageRetention.textContent = motif ?? '';
+    messageRetention.className = `mt-3 max-w-3xl text-sm ${
+      bon ? 'text-emerald-700 dark:text-emerald-300' : 'text-rose-700 dark:text-rose-300'
+    }`;
+  }
+
+  $('retention-enregistrer').addEventListener('click', () => {
+    const verdict = reglerLaRetention({
+      archiverApres: Number(champArchiver.value),
+      supprimerApres: Number(champSupprimer.value),
+    });
+    /*
+       Sur refus, on REPEINT depuis le magasin : les champs reviennent à ce
+       qui est réellement enregistré, et le motif dit pourquoi. Laisser la
+       saisie refusée à l'écran ferait croire qu'elle s'applique.
+    */
+    peindreLaRetention(
+      verdict.recevable ? 'Réglage enregistré.' : verdict.motif,
+      verdict.recevable,
+    );
+  });
+
+  $('retention-defaut').addEventListener('click', () => {
+    retablirLaRetention();
+    peindreLaRetention('Réglage livré rétabli : 30 jours, puis 180.');
+  });
+
   peindreLEtat();
   peindreLesSources();
+  peindreLaRetention();
 </script>
