@@ -474,8 +474,12 @@ import Base from '../layouts/Base.astro';
           import('../lib/noyau/avertissements'),
           import('../lib/notifications/alimentation'),
         ]);
+        const { jourLogique } = await import('../lib/noyau/jour-logique');
         await recenserLesAvertissements(
-          analyses.filter((a) => analysePorteUnAvertissement(a.analyse)).map((a) => a.id),
+          analyses
+            .filter((a) => analysePorteUnAvertissement(a.analyse))
+            .map((a) => ({ id: a.id, importeeLe: a.importeeLe })),
+          jourLogique(),
         );
       } catch {
         /* Le centre n'est jamais une raison de casser l'écran d'origine. */

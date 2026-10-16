@@ -539,6 +539,25 @@ const parDomaine = Object.keys(DOMAINES).map((d) => ({
     dernier = tour;
     $('statut').textContent = formulerLeStatut(tour, tour.etat);
 
+    /*
+       Le centre — prompt 32, phase 5, et c'est un DÉPLACEMENT : le § 2.2
+       dit que l'entrée du centre EST le rappel discret unique du 5.1 du
+       27. Seulement quand la décision est « montrer » : un repère en
+       attente ou sous silence n'est pas un rappel, et le déposer quand
+       même ferait du centre le contournement des quatre règles du
+       silence. La source est muette au système, et `sources.ts` le garde.
+    */
+    void (async () => {
+      try {
+        const { signalerLaVeille } = await import('../../lib/notifications/alimentation');
+        await signalerLaVeille(
+          tour.decision.quoi === 'montrer' ? tour.decision.signal.id : null,
+        );
+      } catch {
+        /* Le centre n'est jamais une raison de casser l'écran d'origine. */
+      }
+    })();
+
     const manques = $('manques');
     manques.innerHTML = '';
     const insuffisant = tour.verdict?.quoi === 'donnees-insuffisantes';

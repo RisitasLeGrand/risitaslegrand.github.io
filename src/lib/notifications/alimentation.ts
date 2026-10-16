@@ -1,7 +1,7 @@
 /**
  * Ce qui alimente le centre — prompt 32, phase 2.
  *
- * ## Huit sources, et pas douze d'un coup
+ * ## Dix sources branchées, deux impossibles, et pas douze d'un coup
  *
  * Le plan de la phase 2 le dit : « branchés **d'abord** sur les avis de
  * fusion et les questions à trancher, puis sur les autres sources une par
@@ -19,9 +19,12 @@
  * pour décider et dont la référence est un identifiant de mécanisme :
  * une règle, une analyse, un état. Jamais une valeur.
  *
- * Les quatre autres sont **nommées dans `sources.ts`** et absentes ici : un
- * registre de routage complet et une alimentation partielle, c'est ce qui
- * permet de dire exactement ce qui est branché, et de le vérifier.
+ * La phase 5 en branche deux sous coffre — trajectoires closes, veille du
+ * rythme — et **en déclare deux impossibles** : `SOURCES_NON_BRANCHEES`
+ * dit pourquoi, et un contrôle tient la liste dans les deux sens. Les
+ * deux dernières sont celles du cycle, que le filtre écarte à l'écriture.
+ * Un registre de routage complet et une alimentation explicite, c'est ce
+ * qui permet de dire exactement ce qui est branché, et de le vérifier.
  *
  * ## Le recensement est idempotent, parce qu'il tourne à chaque page
  *
@@ -358,12 +361,18 @@ export const intentionsDeProposition = (regle: string | null): Intention[] =>
  * Regroupées : importer deux analyses en un jour est banal, et deux
  * lignes identiques de plus dans le panneau le seraient moins.
  */
-export const intentionsDAvertissement = (idsDAnalyse: readonly string[]): Intention[] =>
-  idsDAnalyse.map((id) => ({
-    refSource: id,
-    genre: 'a-savoir' as const,
-    regroupement: SOURCE_AVERTISSEMENT,
-  }));
+export const intentionsDAvertissement = (
+  analysesAverties: readonly { id: string; importeeLe: string }[],
+  aujourdHui: string,
+): Intention[] =>
+  analysesAverties
+    /* A-19 : sans cette borne, l'élément ressusciterait après la purge. */
+    .filter((a) => estRecent(a.importeeLe, aujourdHui))
+    .map((a) => ({
+      refSource: a.id,
+      genre: 'a-savoir' as const,
+      regroupement: SOURCE_AVERTISSEMENT,
+    }));
 
 /**
  * La demande de consentement, tant qu'elle n'a jamais été posée.
@@ -388,10 +397,159 @@ export const signalerUneProposition = (regle: string | null): Promise<Recensemen
 
 /** Met le centre d'accord avec les analyses conservées qui avertissent. */
 export const recenserLesAvertissements = (
-  idsDAnalyse: readonly string[],
+  analysesAverties: readonly { id: string; importeeLe: string }[],
+  aujourdHui: string,
 ): Promise<Recensement> =>
-  synchroniser(SOURCE_AVERTISSEMENT, intentionsDAvertissement(idsDAnalyse));
+  synchroniser(SOURCE_AVERTISSEMENT, intentionsDAvertissement(analysesAverties, aujourdHui));
 
 /** Dépose ou retire la demande de consentement à l'apprentissage étendu. */
 export const signalerLApprentissage = (jamaisDemande: boolean): Promise<Recensement> =>
   synchroniser(SOURCE_APPRENTISSAGE, intentionsDApprentissage(jamaisDemande));
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Phase 5 — les sources sous coffre, et deux manques nommés.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** La source des trajectoires closes. */
+export const SOURCE_TRAJECTOIRE = 'trajectoire';
+/** La source du rappel discret de la veille du rythme. Muette (le 27). */
+export const SOURCE_VEILLE = 'veille-du-rythme';
+
+/**
+ * Combien de jours un événement **clos** reste une nouvelle.
+ *
+ * ## L'anomalie A-19, trouvée en écrivant cette phase
+ *
+ * Une source dont la condition est **permanente** ressuscite ses éléments.
+ * Une trajectoire atteinte le reste pour toujours ; une analyse conservée
+ * reste conservée. La rétention supprime l'élément au bout de
+ * `supprimerApres` jours, le recensement suivant le redépose avec la date
+ * du jour, et il revient **non lu** — un élément qu'on a rangé, qui
+ * reparaît des mois plus tard comme s'il était neuf. C'est pire que du
+ * bruit : c'est un centre auquel on cesse de croire.
+ *
+ * Les sources de la phase 3 n'avaient pas le défaut, et c'est ce qui me
+ * l'a caché : une revue manquée sort de la fenêtre de rattrapage au bout
+ * de sept jours, une occurrence rattrapée cesse d'être en retard, une
+ * sauvegarde faite éteint son rappel. Toutes trois ont une condition qui
+ * **s'éteint**. `avertissement-avant-analyse`, livré en phase 4, ne l'a
+ * pas : le défaut est donc corrigé ici pour les deux sources concernées,
+ * et dit plutôt que rattrapé en silence.
+ *
+ * Trente jours, et non la durée de rétention : un événement entre au
+ * centre tant qu'il est une nouvelle, puis il sort **par sa source**, ce
+ * qui est la seule sortie que `synchroniser` sache rendre définitive.
+ */
+export const JOURS_AU_CENTRE = 30;
+
+/**
+ * L'événement est-il encore une nouvelle ?
+ *
+ * Compare des **jours calendaires**, pas des jours logiques : la borne est
+ * de trente jours, et la frontière de 4 h du matin ne change rien à
+ * trente. Lire l'instant exact pour l'arrondir ensuite n'aurait ajouté
+ * qu'une dépendance.
+ */
+export const estRecent = (
+  quand: string | null,
+  aujourdHui: string,
+  jours = JOURS_AU_CENTRE,
+): boolean => {
+  if (!quand) return false;
+  const debut = Date.parse(`${quand.slice(0, 10)}T00:00:00Z`);
+  const fin = Date.parse(`${aujourdHui.slice(0, 10)}T00:00:00Z`);
+  if (!Number.isFinite(debut) || !Number.isFinite(fin)) return false;
+  return (fin - debut) / 86_400_000 < jours;
+};
+
+/**
+ * Une intention par trajectoire close récemment.
+ *
+ * Atteinte ou abandonnée : les deux méritent d'être vues, et le centre ne
+ * dit pas laquelle — « Trajectoires » est le libellé du groupe, et
+ * l'écran des synthèses montre le reste. Une trajectoire **refusée** n'y
+ * est pas : refuser est déjà une réponse, et la rappeler reviendrait à
+ * reposer la question (même règle que pour le consentement).
+ *
+ * La référence est l'identifiant, jamais l'intitulé : « Dormir avant
+ * minuit » est un objectif, donc une donnée de vie.
+ */
+export const intentionsDeTrajectoires = (
+  closes: readonly { id: string; statut: string; closeLe: string | null }[],
+  aujourdHui: string,
+): Intention[] =>
+  closes
+    .filter(
+      (t) =>
+        (t.statut === 'atteinte' || t.statut === 'abandonnee') &&
+        estRecent(t.closeLe, aujourdHui),
+    )
+    .map((t) => ({
+      refSource: t.id,
+      genre: 'a-savoir' as const,
+      regroupement: SOURCE_TRAJECTOIRE,
+    }));
+
+/**
+ * Le repère de veille à montrer, s'il y en a un.
+ *
+ * **C'est un déplacement, pas un ajout** : le § 2.2 dit que l'entrée du
+ * centre EST le rappel discret unique du 5.1 du 27. D'où la forme — un
+ * seul élément, jamais deux, puisque le signal lui-même n'autorise qu'un
+ * repère ouvert à la fois.
+ *
+ * Et la source est **muette** au système : le 27 l'interdit, `sources.ts`
+ * le garde par `peutNotifier: false`. Un rappel discret qui ferait sonner
+ * le téléphone ne serait plus discret ; c'est tout le sens du mot.
+ *
+ * La référence est l'identifiant du signal. Ni l'indicateur, ni le
+ * domaine, ni la sensibilité : la carte de la veille les montre, sur son
+ * écran, coffre ouvert.
+ */
+export const intentionsDeVeille = (idDuRepere: string | null): Intention[] =>
+  idDuRepere ? [{ refSource: idDuRepere, genre: 'a-savoir', regroupement: null }] : [];
+
+/** Met le centre d'accord avec les trajectoires closes récemment. */
+export const recenserLesTrajectoires = (
+  closes: readonly { id: string; statut: string; closeLe: string | null }[],
+  aujourdHui: string,
+): Promise<Recensement> =>
+  synchroniser(SOURCE_TRAJECTOIRE, intentionsDeTrajectoires(closes, aujourdHui));
+
+/** Dépose ou retire le rappel discret de la veille du rythme. */
+export const signalerLaVeille = (idDuRepere: string | null): Promise<Recensement> =>
+  synchroniser(SOURCE_VEILLE, intentionsDeVeille(idDuRepere));
+
+/**
+ * Les deux sources du § 2.2 qu'on ne peut pas brancher, et pourquoi.
+ *
+ * Déclarées, pas tues. Le § 2.2 les annonce « à brancher », et un lot qui
+ * les laisserait simplement de côté ferait croire à un oubli — ou, pire,
+ * laisserait quelqu'un les brancher sans retrouver ce qui l'en empêche.
+ *
+ * - **`rappel-de-prise`** demanderait de savoir ce qui était *prévu*. Or
+ *   la posologie d'un traitement est du **texte libre** (« 1 comprimé le
+ *   matin »), et la décision 12 pose qu'une prise est « isolée, sans
+ *   schéma ni rappel ». `prisesDuJour()` — que mon propre inventaire
+ *   donnait pour producteur — est un **constat** : il dit ce qui a été
+ *   pris, jamais ce qui manque, et son module le déclare. Brancher cette
+ *   source supposerait d'inventer un modèle de posologie, c'est-à-dire de
+ *   décider pour quelqu'un d'autre quand il a oublié un médicament. Ce
+ *   n'est pas une lacune technique.
+ * - **`pointage-a-reporter`** existe exactement quand le coffre est
+ *   **fermé** — c'est sa définition. Or le centre n'écrit rien coffre
+ *   fermé (le magasin est scellé), et le § 3.2 lui interdit d'afficher le
+ *   moindre nombre dans cet état. La source et le lieu sont donc
+ *   incompatibles par construction, et pas par oubli. S'y ajoute que
+ *   `combienDeReports` et `rejouerLesReports` ne sont appelés par aucun
+ *   écran : le report n'a pas encore d'interface, et une notification qui
+ *   mènerait à un écran incapable d'agir vaudrait moins que rien.
+ *
+ * Le contrôle `essais:centre-alimentation` tient cette liste : si l'une
+ * de ces sources se met à alimenter le centre, la déclaration ment et
+ * doit tomber.
+ */
+export const SOURCES_NON_BRANCHEES: readonly string[] = [
+  'rappel-de-prise',
+  'pointage-a-reporter',
+];

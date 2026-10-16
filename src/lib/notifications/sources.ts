@@ -71,14 +71,15 @@ const R = (r: RouteDeSource): RouteDeSource => r;
 /**
  * Les sources, et où elles mènent.
  *
- * **Huit sont branchées** : les deux de la phase 2 (« d'abord sur les
- * avis de fusion et les questions à trancher »), les trois de la phase 3
- * — sauvegarde, revues manquées, occurrences en retard — et les trois de
- * la phase 4 — proposition, avertissement avant analyse, apprentissage
- * étendu. Les autres figurent avec leur route parce qu'elles existent déjà dans le
- * code et qu'un registre qui ne les nommerait pas les ferait passer pour
- * inconnues ; elles n'alimentent pas encore le centre, et
- * `alimentation.ts` dit lesquelles.
+ * **Dix sont branchées** : les deux de la phase 2 (« d'abord sur les avis
+ * de fusion et les questions à trancher »), les trois de la phase 3 —
+ * sauvegarde, revues manquées, occurrences en retard —, les trois de la
+ * phase 4 — proposition, avertissement avant analyse, apprentissage
+ * étendu — et les deux de la phase 5 — trajectoires closes, veille du
+ * rythme. Les quatre autres gardent leur route et ne l'utilisent pas :
+ * deux sont du cycle et n'arriveront jamais, deux sont des **manques
+ * nommés** que `SOURCES_NON_BRANCHEES` déclare avec leurs raisons. Les
+ * laisser sans ligne les ferait passer pour inconnues.
  */
 export const ROUTES: readonly RouteDeSource[] = [
   R({ id: 'question-a-trancher', peutNotifier: true, libelle: 'Questions à trancher', branche: 'aucune', vers: '/appareils/#conflits' }),

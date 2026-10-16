@@ -23,19 +23,31 @@ import {
   REF_SAUVEGARDE,
   SOURCE_OCCURRENCE,
   SOURCE_REVUE,
+  JOURS_AU_CENTRE,
+  SOURCES_NON_BRANCHEES,
   SOURCE_APPRENTISSAGE,
   SOURCE_AVERTISSEMENT,
+  SOURCE_CONFLITS,
+  SOURCE_FUSION,
+  SOURCE_TRAJECTOIRE,
+  SOURCE_VEILLE,
   SOURCE_PROPOSITION,
   SOURCE_SAUVEGARDE,
   intentionsDApprentissage,
   intentionsDAvertissement,
   intentionsDeProposition,
   intentionsDeSauvegarde,
+  intentionsDeTrajectoires,
+  intentionsDeVeille,
+  estRecent,
   intentionsDesOccurrences,
   intentionsDesRevues,
   type Intention,
 } from '../src/lib/notifications/alimentation';
 import { SOURCES_DECLAREES } from '../src/lib/notifications/filtre-cycle';
+
+/** Le jour de référence des contrôles de fraîcheur. Figé : un essai qui dépend de l'horloge ment un jour sur mille. */
+const AUJOURDHUI = '2026-10-16';
 import { analysePorteUnAvertissement } from '../src/lib/noyau/avertissements';
 import { ROUTES, peutNotifier } from '../src/lib/notifications/sources';
 
@@ -222,8 +234,14 @@ console.log('\x1b[1m\n7. L’AVERTISSEMENT : L’ANALYSE, JAMAIS LE DOMAINE\x1b[
     v(`un document informe ne lève pas (${JSON.stringify(informe) ?? 'undefined'})`, analysePorteUnAvertissement(informe), false);
   }
 
-  v('aucune analyse avertie, aucune intention', intentionsDAvertissement([]), []);
-  const deux = intentionsDAvertissement(['analyse-1', 'analyse-2']);
+  v('aucune analyse avertie, aucune intention', intentionsDAvertissement([], AUJOURDHUI), []);
+  const deux = intentionsDAvertissement(
+    [
+      { id: 'analyse-1', importeeLe: '2026-10-15T09:00:00.000Z' },
+      { id: 'analyse-2', importeeLe: '2026-10-16T09:00:00.000Z' },
+    ],
+    AUJOURDHUI,
+  );
   v('une intention par analyse', deux.map((i) => i.refSource), ['analyse-1', 'analyse-2']);
   v('toutes regroupées', [...new Set(deux.map((i) => i.regroupement))], [SOURCE_AVERTISSEMENT]);
   /*
@@ -251,6 +269,118 @@ console.log('\x1b[1m\n8. L’APPRENTISSAGE : TANT QUE LA QUESTION N’A PAS ÉT�
   */
   v('une réponse donnée : plus rien', intentionsDApprentissage(false), []);
   v('aucun champ de plus', champsDe(une), [CHAMPS]);
+}
+
+
+console.log('\x1b[1m\n9. LES ÉVÉNEMENTS CLOS SORTENT — ANOMALIE A-19\x1b[0m');
+{
+  /*
+     Le défaut : une source dont la condition est permanente ressuscite
+     ses éléments après la purge de rétention. Trouvé en écrivant la
+     phase 5, corrigé pour les deux sources concernées — la trajectoire
+     close et l'analyse conservée —, et éprouvé ici d'abord sur la borne
+     elle-même, puis sur chacune des deux.
+  */
+  v('le jour même est récent', estRecent(AUJOURDHUI, AUJOURDHUI), true);
+  v('la veille aussi', estRecent('2026-10-15', AUJOURDHUI), true);
+  v(`${JOURS_AU_CENTRE - 1} jours encore`, estRecent('2026-09-18', AUJOURDHUI), true);
+  v(`${JOURS_AU_CENTRE} jours, non`, estRecent('2026-09-16', AUJOURDHUI), false);
+  v('un an, non', estRecent('2025-10-16', AUJOURDHUI), false);
+  v('jamais clos, non', estRecent(null, AUJOURDHUI), false);
+  v('une date illisible, non', estRecent('avant-hier', AUJOURDHUI), false);
+
+  v(
+    'une analyse importée il y a un an n’est plus attendue',
+    intentionsDAvertissement([{ id: 'vieille', importeeLe: '2025-10-16T09:00:00.000Z' }], AUJOURDHUI),
+    [],
+  );
+}
+
+console.log('\x1b[1m\n10. LES TRAJECTOIRES : CLOSES, RÉCENTES, ET SANS INTITULÉ\x1b[0m');
+{
+  const t = (id: string, statut: string, closeLe: string | null, intitule: string) =>
+    ({ id, statut, closeLe, intitule }) as unknown as {
+      id: string;
+      statut: string;
+      closeLe: string | null;
+    };
+  const toutes = [
+    t('tr-1', 'atteinte', '2026-10-14', 'Dormir avant minuit'),
+    t('tr-2', 'abandonnee', '2026-10-10', 'Courir trois fois par semaine'),
+    t('tr-3', 'active', null, 'Lire une heure par jour'),
+    t('tr-4', 'refusee', '2026-10-12', 'Arrêter le café'),
+    t('tr-5', 'atteinte', '2025-01-01', 'Objectif de l’an dernier'),
+  ];
+  const retenues = intentionsDeTrajectoires(toutes, AUJOURDHUI);
+  /*
+     Quatre exclusions, chacune pour sa raison : l'active n'est pas close,
+     la refusée est une réponse déjà donnée, l'ancienne n'est plus une
+     nouvelle. On vérifie la liste entière plutôt qu'un compte — un compte
+     juste pour de mauvaises raisons reste vert.
+  */
+  v('deux trajectoires entrent, et ce sont les bonnes', retenues.map((i) => i.refSource), ['tr-1', 'tr-2']);
+  v('toutes regroupées', [...new Set(retenues.map((i) => i.regroupement))], [SOURCE_TRAJECTOIRE]);
+  vrai('aucun intitulé n’apparaît', !/Dormir|Courir|café|Lire/.test(JSON.stringify(retenues)));
+  vrai('et aucun statut non plus', !/atteinte|abandonnee/.test(JSON.stringify(retenues)));
+  v('aucun champ de plus', champsDe(retenues), [CHAMPS, CHAMPS]);
+}
+
+console.log('\x1b[1m\n11. LA VEILLE DU RYTHME : UN SEUL REPÈRE, ET MUETTE\x1b[0m');
+{
+  v('aucun repère à montrer, aucune intention', intentionsDeVeille(null), []);
+  const une = intentionsDeVeille('signal-42');
+  v('un repère, une intention', une.length, 1);
+  v('la référence est l’identifiant du signal', une[0].refSource, 'signal-42');
+  v('pas de regroupement — il n’y en a jamais deux', une[0].regroupement, null);
+  /*
+     L'interdiction du 27 : un rappel DISCRET qui ferait sonner le
+     téléphone ne serait plus discret. Éprouvée ici, là où la source est
+     branchée, et non seulement dans le registre.
+  */
+  v('et la source reste muette', peutNotifier(SOURCE_VEILLE), false);
+  v('aucun champ de plus', champsDe(une), [CHAMPS]);
+}
+
+console.log('\x1b[1m\n12. LES DEUX SOURCES QU’ON NE BRANCHE PAS — MANQUES NOMMÉS\x1b[0m');
+{
+  v(
+    'elles sont deux, et déclarées',
+    [...SOURCES_NON_BRANCHEES].sort(),
+    ['pointage-a-reporter', 'rappel-de-prise'],
+  );
+  v(
+    'elles existent bien au registre des sources',
+    SOURCES_NON_BRANCHEES.filter((id) => !SOURCES_DECLAREES.some((s) => s.id === id)),
+    [],
+  );
+  /*
+     Dans les deux sens, comme pour les règles de désaccord : si l'une de
+     ces sources se met à alimenter le centre, la déclaration ment. On
+     cherche son identifiant parmi les constantes de source réellement
+     branchées — la liste est courte, et l'oublier se verrait.
+  */
+  const branchees = [
+    SOURCE_CONFLITS, SOURCE_FUSION, SOURCE_SAUVEGARDE, SOURCE_REVUE, SOURCE_OCCURRENCE,
+    SOURCE_PROPOSITION, SOURCE_AVERTISSEMENT, SOURCE_APPRENTISSAGE,
+    SOURCE_TRAJECTOIRE, SOURCE_VEILLE,
+  ];
+  v('aucune des deux n’est branchée', branchees.filter((id) => SOURCES_NON_BRANCHEES.includes(id)), []);
+  /*
+     Et le compte boucle : douze sources déclarées, dix branchées, deux
+     nommées comme impossibles. Un écart ici veut dire qu'une source a
+     été ajoutée sans être rangée d'un côté ou de l'autre.
+  */
+  v(
+    'les douze sources sont toutes rangées',
+    SOURCES_DECLAREES.map((s) => s.id).filter(
+      (id) =>
+        !branchees.includes(id) &&
+        !SOURCES_NON_BRANCHEES.includes(id) &&
+        id !== 'journal-du-cycle' &&
+        id !== 'statut-du-cycle',
+    ),
+    [],
+  );
 }
 
 console.log(

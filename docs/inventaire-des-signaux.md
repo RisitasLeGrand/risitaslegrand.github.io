@@ -28,14 +28,14 @@ tableau de bord, une recherche — n'en sont pas.
 | `avis-de-fusion` | `sync/veille.ts` → `surFusion` | Une fusion automatique qui a apporté quelque chose | une par lot (`marque`) | le **nombre** d'opérations trahissait une saisie (décision 5) | notification du système | la fusion est locale, l'avis aussi | non | **oui** — branchée, phase 2 |
 | `proposition` | `adaptation.ts` → `propositionLocale()` | Un écart d'usage observé, avec consentement | **une par semaine**, toutes catégories (§ 1 n° 6) | le domaine de l'écart | `/profil/` | le refus voyage par le journal | non | **oui** — branchée, phase 4 |
 | `avertissement-avant-analyse` | `noyau/avertissements.ts` → `avertissement()` | Un export d'IA qui touche corps, psyché ou finances | un par export | le domaine visé | `/exporter-ia/` | local au geste | non | **oui** — branchée, phase 4 |
-| `rappel-de-prise` | `odyssee/sensible.ts` → `prisesDuJour()` | Une prise déclarée non pointée | la cadence des prises | **la molécule**, et par elle le traitement | `/odyssee/sante/` | sous coffre, donc local à l'ouverture | non | oui, sauf classes du cycle |
-| `veille-du-rythme` | `odyssee/veille.astro` et son moteur | Le « rappel discret » unique de 5.1 du 27 | la cadence de 5.6 du 27 | le rythme de vie | hors de Psyché, titre neutre | sous coffre | non | oui — **et muette** (le 27) |
+| `rappel-de-prise` | **—** : `prisesDuJour()` est un **constat**, pas un producteur (correction de ma part) | Une prise déclarée non pointée — mais rien ne sait ce qui était *prévu* : la posologie est du texte libre, et la décision 12 pose « sans schéma ni rappel » | la cadence des prises | **la molécule**, et par elle le traitement | `/odyssee/sante/` | sous coffre, donc local à l'ouverture | non | **non — manque nommé** (phase 5) |
+| `veille-du-rythme` | `odyssee/veille.astro` et son moteur | Le « rappel discret » unique de 5.1 du 27 | la cadence de 5.6 du 27 | le rythme de vie | hors de Psyché, titre neutre | sous coffre | non | **oui** — branchée, phase 5, **et muette** (le 27) |
 | `rappel-de-sauvegarde` | `noyau/coffre.ts` ligne 604 → condition bloquante | Une donnée scellée existe et la sauvegarde est ancienne | aucun ; il se renforce | **aucune** : ne porte sur aucune donnée | `/stockage/` | l'état de sauvegarde est local | non | **oui** — branchée, phase 3 |
 | `revue-manquee` | `odyssee-jour.ts` → `rappelDeRevue(revuesManquees(...))` | Une revue du soir non tenue | groupé en « N revues » | le fait d'avoir une revue, pas son contenu | liste d'Odyssée et accueil | sous coffre | non | **oui** — branchée, phase 3 (prompt 36) |
 | `occurrence-manquee` | `odyssee/occurrences-lues.ts` → `enRetard()` | Une occurrence de série dépassée | **une fois, jamais accumulée** (prompt 38) | la tâche | `/odyssee/calendrier/` | les pointages voyagent | non | **oui** — branchée, phase 3 |
-| `pointage-a-reporter` | `odyssee/modele.ts` — pointages retenus coffre fermé | Un geste fait coffre fermé | un compteur, pas une liste | **le contenu est chiffré** : seul le nombre sort | `/odyssee/` | local tant que le coffre est fermé | non | oui, à brancher |
+| `pointage-a-reporter` | `odyssee/modele.ts` — pointages retenus coffre fermé | Un geste fait coffre fermé | un compteur, pas une liste | **le contenu est chiffré** : seul le nombre sort | **aucun** : `combienDeReports` et `rejouerLesReports` ne sont appelés par aucun écran (correction de ma part) | local tant que le coffre est fermé | non | **non — manque nommé** (phase 5) |
 | `apprentissage-etendu` | `consentement-apprentissage.ts` | Le consentement n'a jamais été demandé | un, J.5 du 25 | le fait qu'on observe | `/profil/` | le consentement voyage | non | **oui** — branchée, phase 4, **et muette** (le 25) |
-| `trajectoire` | `odyssee/trajectoires.ts` | Une trajectoire atteinte ou abandonnée | `PLAFOND_ACTIVES = 3` | l'objectif suivi | `/syntheses/` | sous coffre | non | oui, à brancher |
+| `trajectoire` | `odyssee/trajectoires.ts` | Une trajectoire atteinte ou abandonnée | `PLAFOND_ACTIVES = 3` | l'objectif suivi | `/syntheses/` | sous coffre | non | **oui** — branchée, phase 5 |
 | Alertes molécules, orientation santé | `odyssee/molecules.ts`, H.7 et H.10 du 25 | Un conflit entre molécules | — | **très forte** | écran Santé | sous coffre | **oui** (15, 112) | **renvoi seulement**, titre neutre |
 | Ressources de détresse | E.2 du 22 (3114) | Un score d'échelle bas | — | **très forte** | écran Psyché | sous coffre | **oui** | hors du centre (§ 1 n° 7) |
 | Nouvelles Actualités | chaîne des actualités | Une publication | — | aucune | `/actualites/` | contenu public | non | **non — écartée** (décision 2) |
@@ -64,15 +64,19 @@ Quatre lignes ne figuraient pas au tableau de départ.
 
 ## Ce qui n'est pas branché, et ce que cela coûte
 
-Quatre sources sur douze attendent leur alimentation. La phase 3 en a
+**Aucune source n'attend plus son alimentation, et deux ne l'auront
+pas.** La phase 3 en a
 branché trois — sauvegarde, revues manquées, occurrences en retard —,
 choisies parce que leur producteur est pur et leur signal sans contenu ;
 la phase 4 trois autres — proposition, avertissement avant analyse,
 apprentissage étendu —, qui ne touchent aucun magasin scellé pour décider
 et dont la référence est toujours un **identifiant de mécanisme** : une
-règle, une analyse, un état. Restent les quatre sources sous coffre.
-Tant qu'elles ne sont pas branchées, **elles continuent de s'afficher là
-où elles sont aujourd'hui** : rien n'est perdu, rien n'est silencieux. Le centre est un
+règle, une analyse, un état. La phase 5 en branche deux sous coffre —
+trajectoires closes et veille du rythme — et **en déclare deux
+impossibles**, `rappel-de-prise` et `pointage-a-reporter`, pour des
+raisons qui ne sont pas techniques et qui sont dites plus bas. Celles-là
+continuent de s'afficher là où elles sont aujourd'hui, quand elles le
+sont : rien n'est perdu, rien n'est silencieux. Le centre est un
 lieu supplémentaire, pas un remplacement — sauf pour la veille du rythme,
 dont le § 2.2 dit que l'entrée du centre **est** le rappel discret unique,
 et qui sera donc un déplacement et non un ajout.
@@ -115,3 +119,37 @@ sensible et une référence qui ne l'est pas.
 
 Une règle s'en dégage, et elle vaudra pour les quatre sources scellées :
 **la référence nomme l'objet, jamais ce qu'il contient.**
+
+## La phase 5, et deux colonnes que j'avais mal remplies
+
+Deux sources ne seront pas branchées, et la raison tient dans ce que
+l'inventaire disait d'elles — mal.
+
+**`rappel-de-prise`.** J'avais mis `prisesDuJour()` en producteur. En le
+lisant, ce n'en est pas un : son module déclare « aucune comparaison à
+une posologie, aucune alerte d'oubli — le module ne sait pas ce qui était
+prévu, et c'est délibéré ». La posologie d'un traitement est du **texte
+libre**, et la décision 12 pose qu'une prise est « isolée, sans schéma ni
+rappel ». Brancher cette source demanderait d'inventer un modèle de
+posologie, c'est-à-dire de décider pour quelqu'un quand il a oublié un
+médicament. La colonne passe à `—`, qui est la convention de cet
+inventaire pour « décrit dans un prompt, absent du code ».
+
+**`pointage-a-reporter`.** J'avais mis `/odyssee/` en affichage. Rien ne
+l'affiche : `combienDeReports` et `rejouerLesReports` ne sont appelés par
+aucun écran. Et surtout, ce signal existe **exactement quand le coffre
+est fermé**, alors que le centre n'écrit rien dans cet état et que le
+§ 3.2 lui interdit d'afficher le moindre nombre. La source et le lieu
+sont incompatibles par construction.
+
+Les deux sont déclarées dans `SOURCES_NON_BRANCHEES`, et un contrôle
+tient la liste dans les deux sens — comme pour les règles de désaccord.
+
+**Une anomalie trouvée en chemin, A-19.** Une source dont la condition est
+permanente ressuscite ses éléments : la rétention supprime, le
+recensement suivant redépose, et un élément rangé il y a six mois
+reparaît comme neuf. Les trois sources de la phase 3 n'avaient pas le
+défaut — leur condition s'éteint —, ce qui me l'avait caché. Les
+trajectoires closes et les analyses conservées l'avaient : elles sortent
+désormais du centre au bout de trente jours, **par leur source**, qui est
+la seule sortie définitive.

@@ -571,6 +571,24 @@ import { DOMAINES } from '../../lib/noyau/domaines';
     trajectoires = lesTrajectoires;
     series = construireToutes(publication.faits);
 
+    /*
+       Le centre de notifications — prompt 32, phase 5. Les trajectoires
+       closes depuis peu, par leur identifiant : ni l'intitulé, qui est un
+       objectif de vie, ni le statut, qui dirait si elle a été atteinte ou
+       abandonnée. « Trajectoires » suffit à faire ouvrir cet écran.
+    */
+    void (async () => {
+      try {
+        const [{ recenserLesTrajectoires }, { jourLogique }] = await Promise.all([
+          import('../../lib/notifications/alimentation'),
+          import('../../lib/noyau/jour-logique'),
+        ]);
+        await recenserLesTrajectoires(lesTrajectoires, jourLogique());
+      } catch {
+        /* Le centre n'est jamais une raison de casser l'écran d'origine. */
+      }
+    })();
+
     const decalages = ($('decalages') as HTMLInputElement).checked ? [0, 1] : [0];
     const exploration = explorer(series, { decalages });
 
