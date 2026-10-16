@@ -61,6 +61,31 @@ class NotificationDouble {
  */
 let occupeParUnAutreOnglet = false;
 let tenu = false;
+
+/**
+ * Les notifications que le *service worker* dit afficher.
+ *
+ * `refermer` ne peut pas se prouver autrement : il interroge
+ * `getNotifications()` et appelle `close()` sur une partie. Sans doublure,
+ * on ne saurait que ce qu'il n'a pas jeté — ce qui n'est pas la même chose
+ * que ce qu'il a fermé.
+ */
+let auTableau: { tag: string; fermee: boolean }[] = [];
+const serviceWorkerDouble = {
+  getRegistration: async () => ({
+    getNotifications: async () =>
+      auTableau
+        .filter((n) => !n.fermee)
+        .map((n) => ({
+          tag: n.tag,
+          close: () => {
+            n.fermee = true;
+          },
+        })),
+  }),
+};
+/** `false` : pas de *service worker* du tout. */
+let serviceWorkerPresent = false;
 /** `null` : l'API n'existe pas du tout — vieux navigateur. */
 let apiVerrous: boolean = true;
 
@@ -92,14 +117,15 @@ Object.defineProperty(g, 'navigator', {
               }
             },
           },
-          serviceWorker: undefined,
+          serviceWorker: serviceWorkerPresent ? serviceWorkerDouble : undefined,
         }
-      : { serviceWorker: undefined },
+      : { serviceWorker: serviceWorkerPresent ? serviceWorkerDouble : undefined },
   configurable: true,
 });
 
 const {
   CORPS_NEUTRE,
+  refermer,
   PLAFOND_PAR_JOUR,
   TITRE_NEUTRE,
   emettre,
@@ -109,6 +135,7 @@ const {
 } = await import('../src/lib/notifications/emission');
 
 import type { ElementDuCentre } from '../src/lib/notifications/modele';
+import { peutNotifier } from '../src/lib/notifications/sources';
 
 let echecs = 0;
 const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
@@ -142,6 +169,8 @@ const repartir = () => {
   occupeParUnAutreOnglet = false;
   tenu = false;
   apiVerrous = true;
+  auTableau = [];
+  serviceWorkerPresent = false;
 };
 
 console.log('\n\x1b[1m1. Désactivées par défaut (§ 3.4)\x1b[0m');
@@ -213,6 +242,46 @@ console.log('\n\x1b[1m4. Le cycle est refusé même source activée (§ 1 n° 3)
     await emettre(element('source-inventee'), JOUR),
     { quoi: 'refusee', pourquoi: 'cycle' },
   );
+}
+
+console.log('\n\x1b[1m4 bis. Deux sources sont admises au centre et MUETTES au système\x1b[0m');
+{
+  /*
+     Le défaut qui a été trouvé en regardant l'écran, pas en lisant le
+     code : la veille du rythme (le 27) et l'apprentissage étendu (le 25)
+     n'ont pas le droit d'émettre, et l'écran du § 3.4 les proposait
+     — avec dix autres — parce que seul le filtre du cycle était consulté.
+     Une interdiction qui n'a pas de garde n'est pas une interdiction.
+  */
+  for (const muette of ['veille-du-rythme', 'apprentissage-etendu']) {
+    repartir();
+    permission = 'granted';
+    /* On force l'activation, que l'écran ne propose plus : le garde doit
+       tenir même si quelqu'un écrit le réglage à la main. */
+    magasin.set('cyclades.notifications.sources', JSON.stringify([muette]));
+    v(
+      `« ${muette} » refuse, et pour la bonne raison`,
+      await emettre(element(muette), JOUR),
+      { quoi: 'refusee', pourquoi: 'source-muette' },
+    );
+    v('rien affiché', affichees.length, 0);
+  }
+
+  /* Et une source ordinaire, elle, n'est pas muette. */
+  repartir();
+  permission = 'granted';
+  await reglerLaSource('revue-manquee', true);
+  v('une source ordinaire émet', (await emettre(element('revue-manquee'), JOUR)).quoi, 'emise');
+
+  /*
+     Le repli du registre s'éprouve ICI, sur le registre, et pas à travers
+     `emettre` : pour une source inconnue, le filtre du cycle refuse avant
+     même qu'on y arrive, de sorte qu'un repli bavard ne changerait rien au
+     résultat — le sabotage restait vert. Deux barrières l'une derrière
+     l'autre : la seconde ne se teste pas en frappant sur la première.
+  */
+  v('le repli d’une source inconnue est muet', peutNotifier('source-inventee'), false);
+  v('et une source déclarée garde sa valeur', peutNotifier('revue-manquee'), true);
 }
 
 console.log('\n\x1b[1m5. Le libellé ne dit rien (§ 1 n° 2, décision 3)\x1b[0m');
@@ -306,6 +375,47 @@ console.log('\n\x1b[1m8. Le verrou est relâché, même sur un refus tardif\x1b[
     (await emettre(element('avis-de-fusion', 'd'.repeat(32)), JOUR)).quoi,
     'emise',
   );
+}
+
+console.log('\n\x1b[1m9. Refermer : tout au verrouillage, le reste par complément (§ 3.5)\x1b[0m');
+{
+  const ouvertes = () => auTableau.filter((n) => !n.fermee).map((n) => n.tag).sort();
+
+  repartir();
+  serviceWorkerPresent = true;
+  auTableau = [
+    { tag: 'q1', fermee: false },
+    { tag: 'q2', fermee: false },
+    { tag: 'q3', fermee: false },
+  ];
+  /*
+     Le cas de l'ouverture d'une page : q2 est encore à trancher, les deux
+     autres sont tranchées. On ferme par COMPLÉMENT, pour attraper aussi ce
+     qu'un autre onglet a affiché et qu'on n'a jamais vu.
+  */
+  v('deux fermées par complément', await refermer({ saufCes: ['q2'] }), 2);
+  v('la question encore ouverte reste', ouvertes(), ['q2']);
+
+  /* Le verrouillage, maintenant : tout part. */
+  auTableau = [
+    { tag: 'q1', fermee: false },
+    { tag: 'q2', fermee: false },
+  ];
+  v('le verrouillage ferme tout', await refermer({ toutes: true }), 2);
+  v('il ne reste rien', ouvertes(), []);
+
+  /* Et le ciblage exact, pour une seule. */
+  auTableau = [
+    { tag: 'q1', fermee: false },
+    { tag: 'q2', fermee: false },
+  ];
+  v('une seule, nommément', await refermer({ ces: ['q1'] }), 1);
+  v('l’autre est intacte', ouvertes(), ['q2']);
+
+  /* Sans service worker, rien à retirer — et surtout, pas d'exception. */
+  repartir();
+  serviceWorkerPresent = false;
+  v('sans service worker, zéro et pas d’erreur', await refermer({ toutes: true }), 0);
 }
 
 console.log(
