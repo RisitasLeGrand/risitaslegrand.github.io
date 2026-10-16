@@ -51,3 +51,34 @@ par une source de premier rang avant qu'une valeur entre dans le catalogue.
 | Base de données publique des médicaments, ANSM, HAS | agence | statut en France, RCP | *à faire, molécule par molécule* |
 | EFSA, ANSES | agence | limites supérieures de sécurité des vitamines | *à faire, nutriment par nutriment* |
 | Liste de l'Agence mondiale antidopage | agence | `statut_antidopage` | *à faire, version datée* |
+
+---
+
+## Les cinq premières fiches, et d'où elles viennent — 16 octobre 2026
+
+La collecte du pilote du 14 octobre a livré ce que ce registre attendait
+« à faire, molécule par molécule ». Cinq RCP en sont sortis exploitables,
+et le catalogue les porte.
+
+| Fiche | Source lue | Ce que j'y ai lu |
+|---|---|---|
+| Testostérone énantate | RCP Androtardyl, 15 p. | deux demi-vies : 4,5 jours (ester, testostérone plasmatique) et 7,8 jours (métabolites) |
+| Testostérone undécanoate | RCP Nebido, 17 p. | 90 ± 40 jours (dépôt) et environ une heure (testostérone, hommes âgés) |
+| Modafinil | RCP Modiodal, 18 p. | 15 heures, demi-vie d'élimination efficace après doses multiples |
+| N-acétylcystéine | RCP Fluimucil 600, 10 p. | **aucune demi-vie** — constaté sur le texte entier, pas supposé |
+| Caféine | RCP citrate de caféine Cooper, 8 p. | 36 à 144 heures **chez le nouveau-né** : le produit est une apnée du prématuré |
+
+Chaque fiche cite le chemin du fichier déposé et son empreinte SHA-256.
+`npm run essais:catalogue-molecules` relit les PDF, recalcule les
+empreintes, et **retrouve chaque durée dans son document** — une valeur
+absente de sa source est signalée, aussi vraisemblable soit-elle.
+
+**Le statut antidopage reste inconnu pour les cinq.** La liste de l'AMA
+n'est pas dans la collecte : la ligne ci-dessus reste donc *à faire*, et
+aucun RCP ne la remplace. Les déduire du bon sens serait les inventer.
+
+**Ce que la collecte contient aussi et qui n'est pas encore exploité** :
+le Thésaurus des interactions de septembre 2023 avec ses index par
+substance et par classe, le différentiel, les références nutritionnelles
+de l'ANSES et l'aperçu des limites supérieures de l'EFSA. De quoi lever
+deux autres lignes *à faire* de ce registre.

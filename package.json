@@ -214,6 +214,7 @@
     "essais:rejeu:navigateur": "node scripts/essais-rejeu-coffre.mjs",
     "essais:pastille:navigateur": "node scripts/essais-pastille-revue.mjs",
     "essais:molecule:navigateur": "node scripts/essais-molecule-navigateur.mjs",
+    "essais:catalogue-molecules": "tsx scripts/essais-catalogue-molecules.mts",
     "essais:centre-alimentation": "tsx scripts/essais-centre-alimentation.mts",
     "essais:centre-donnees": "tsx scripts/essais-centre-donnees.mts",
     "essais:centre:navigateur": "node scripts/essais-centre-navigateur.mjs",

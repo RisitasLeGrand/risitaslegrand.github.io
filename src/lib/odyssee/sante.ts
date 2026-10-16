@@ -171,16 +171,183 @@ export function controlerFiche(f: FicheMolecule): string[] {
   return problemes;
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   Le premier lot du catalogue — phase 2, 16 octobre 2026
+
+   **Le blocage est levé, et il l'était depuis deux jours sans que ce
+   fichier le sache.** L'en-tête disait que la phase 2 attendait les RCP et
+   le Thésaurus ; ils sont arrivés le 14 octobre dans la collecte du
+   pilote, rangée hors du dépôt public. Cinq RCP exploitables s'y
+   trouvaient, et le Thésaurus de septembre 2023 avec ses deux index.
+
+   **Chaque valeur ci-dessous a été lue dans le PDF**, pas rappelée de
+   mémoire : le texte est extrait du fichier déposé, l'empreinte SHA-256
+   est celle du fichier lu, et la phrase citée se retrouve dans le
+   document. C'est la règle apprise sur les échelles de la psyché, où
+   trois relevés confiés à des modèles externes avaient été rejetés — deux
+   donnaient huit items faux sur neuf en ayant l'air parfaitement
+   plausibles.
+
+   ## Ce que ces cinq fiches apprennent, et qui vaut pour les suivantes
+
+   - **Une demi-vie n'existe pas seule.** L'énantate en a deux dans le même
+     RCP — 4,5 jours pour la libération de l'ester, 7,8 jours pour les
+     métabolites — et l'undécanoate aussi, 90 ± 40 jours pour le dépôt
+     contre environ une heure pour la testostérone elle-même. Écrire un
+     seul nombre sans dire duquel on parle serait faux tout en étant
+     exact. Le champ est une chaîne : il porte donc la précision.
+   - **Une valeur juste peut tromper par sa population.** Le seul RCP de
+     caféine de la collecte est un citrate pour l'apnée du **nouveau-né**,
+     et ses 36 à 144 heures ne décrivent pas un adulte. La fiche le dit
+     dans la valeur même, plutôt que de laisser l'écran le supposer.
+   - **Un RCP peut ne pas répondre.** Celui de la N-acétylcystéine ne
+     mentionne aucune demi-vie. C'est un `inconnue` **constaté**, pas
+     supposé, et c'est la seule espèce d'inconnue qui vaille.
+   - **Le statut antidopage reste inconnu pour les cinq.** La liste des
+     interdictions de l'AMA n'est pas dans la collecte : c'est le point
+     2.4 des sources à atteindre, et aucun RCP ne la remplace. Les
+     déduire du bon sens — « un stéroïde anabolisant, voyons » — serait
+     exactement la valeur inventée que ce module empêche.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** Le dossier de dépôt, hors du dépôt public. Cité pour que la source se retrouve. */
+const COLLECTE =
+  'sources/collecte-pilote-2026-10-14/documents/collecte-01-sante-D2-D8-D9-E1-E2-E3-G1-G2';
+
+/** Le jour où j'ai lu ces PDF et calculé leurs empreintes. */
+const LU_LE = '2026-10-16';
+
+const rcp = (nom: string, fichier: string, empreinte: string): Source => ({
+  nom,
+  ou: `${COLLECTE}/${fichier}`,
+  le: LU_LE,
+  empreinte,
+});
+
 /**
- * Le catalogue livré : **vide**, et il le dit.
- *
- * Ce n'est pas un oubli de phase 1. Le catalogue est la phase 2, et la
- * phase 2 attend les RCP et le Thésaurus, qui attendent eux-mêmes un accès
- * réseau ou un dépôt de fichiers (`sources-a-atteindre.md`, lot 2). Un
- * catalogue pré-rempli « en attendant » serait exactement la valeur inventée
- * que tout ce module est fait pour empêcher.
+ * Pourquoi le statut antidopage est inconnu partout, et le restera tant que
+ * la liste n'aura pas été déposée. Une constante, pour que la raison soit la
+ * même sur chaque fiche — cinq formulations voisines finiraient par se
+ * contredire sur le motif.
  */
-export const CATALOGUE: readonly FicheMolecule[] = [];
+const SANS_LISTE_ANTIDOPAGE =
+  'La liste des interdictions de l’AMA n’est pas dans la collecte — point 2.4 des ' +
+  'sources à atteindre. Aucun RCP ne la remplace, et la déduire serait l’inventer.';
+
+const SOURCE_ANDROTARDYL = rcp(
+  'RCP Androtardyl (testostérone énantate)',
+  'E1-rcp-testosterone-enantate-androtardyl.pdf',
+  '9a38f64c4f3f5c718f4229f9f517f5bb7e09a93fea005a7d75e281d018fb5747',
+);
+const SOURCE_NEBIDO = rcp(
+  'RCP Nebido (testostérone undécanoate)',
+  'E1-rcp-testosterone-undecanoate-nebido.pdf',
+  'dc1123e4b627adf35ce6c543ad5ccb3a6de701582fc413ab3181fb6ca51c382c',
+);
+const SOURCE_MODIODAL = rcp(
+  'RCP Modiodal (modafinil)',
+  'E1-rcp-modafinil-modiodal.pdf',
+  'afc15aaca04eb561d05a0c3b91df26de43ec762e7654fce5722cec54cded7a7f',
+);
+const SOURCE_FLUIMUCIL = rcp(
+  'RCP Fluimucil 600 (N-acétylcystéine)',
+  'E1-rcp-n-acetylcysteine-fluimucil-600.pdf',
+  '641bc623c22fe26ea88aa23c179802a9e807a0cc3db8e6110e891e5779327bf0',
+);
+const SOURCE_CAFEINE = rcp(
+  'RCP citrate de caféine Cooper',
+  'E1-rcp-cafeine-citrate-de-cafeine-cooper.pdf',
+  '3b932cf72729ba80254e35984bb4bac52a9f5844aee03a762a81d08291c8c432',
+);
+
+/**
+ * Le catalogue. Cinq fiches, et dix-neuf molécules visées.
+ *
+ * Les quatorze autres n'y sont pas parce que leur source n'est pas arrivée,
+ * et non parce que je les aurais oubliées : le plan nomme déjà les neuf dont
+ * la demi-vie restera « inconnue » faute de source primaire atteignable.
+ * Une fiche absente se voit ; une fiche présente et creuse se croit.
+ */
+export const CATALOGUE: readonly FicheMolecule[] = [
+  {
+    id: 'testosterone-enantate',
+    nom: 'Testostérone énantate',
+    synonymes: ['Androtardyl', 'énanthate de testostérone'],
+    /*
+       Deux demi-vies dans le même RCP, et la fiche porte les deux. Garder
+       la seule plus courte ferait croire à une sortie rapide ; garder la
+       seule plus longue, à une rémanence du produit actif.
+    */
+    demiVie: sourcee(
+      'environ 4,5 jours pour la libération de l’ester et la décroissance de la ' +
+        'testostérone plasmatique ; 7,8 jours pour l’élimination des métabolites',
+      SOURCE_ANDROTARDYL,
+    ),
+    maturite: sourcee('autorisee', SOURCE_ANDROTARDYL),
+    donneesHumaines: sourcee(true, SOURCE_ANDROTARDYL),
+    antidopage: inconnue(SANS_LISTE_ANTIDOPAGE),
+  },
+  {
+    id: 'testosterone-undecanoate',
+    nom: 'Testostérone undécanoate',
+    synonymes: ['Nebido', 'undécanoate de testostérone'],
+    demiVie: sourcee(
+      'environ 90 ± 40 jours pour le dépôt intramusculaire ; environ une heure pour ' +
+        'l’élimination de la testostérone elle-même, mesurée chez des hommes âgés',
+      SOURCE_NEBIDO,
+    ),
+    maturite: sourcee('autorisee', SOURCE_NEBIDO),
+    donneesHumaines: sourcee(true, SOURCE_NEBIDO),
+    antidopage: inconnue(SANS_LISTE_ANTIDOPAGE),
+  },
+  {
+    id: 'modafinil',
+    nom: 'Modafinil',
+    synonymes: ['Modiodal'],
+    demiVie: sourcee(
+      'environ 15 heures — demi-vie d’élimination efficace après doses multiples, chez l’adulte',
+      SOURCE_MODIODAL,
+    ),
+    maturite: sourcee('autorisee', SOURCE_MODIODAL),
+    donneesHumaines: sourcee(true, SOURCE_MODIODAL),
+    antidopage: inconnue(SANS_LISTE_ANTIDOPAGE),
+  },
+  {
+    id: 'n-acetylcysteine',
+    nom: 'N-acétylcystéine',
+    synonymes: ['NAC', 'Fluimucil'],
+    /*
+       Constaté, pas supposé : le RCP déposé ne porte aucune mention de
+       demi-vie. La recherche a été faite sur le texte entier du PDF.
+    */
+    demiVie: inconnue(
+      'Le RCP de Fluimucil 600 déposé dans la collecte ne mentionne aucune demi-vie. ' +
+        'Une autre source serait nécessaire ; elle n’est pas arrivée.',
+    ),
+    maturite: sourcee('autorisee', SOURCE_FLUIMUCIL),
+    donneesHumaines: sourcee(true, SOURCE_FLUIMUCIL),
+    antidopage: inconnue(SANS_LISTE_ANTIDOPAGE),
+  },
+  {
+    id: 'cafeine',
+    nom: 'Caféine',
+    synonymes: ['citrate de caféine'],
+    /*
+       La valeur est juste et ne décrit pas un adulte : le seul RCP de
+       caféine de la collecte est un citrate pour l’apnée du nouveau-né.
+       La population entre donc DANS la valeur, où personne ne peut la
+       manquer, plutôt qu’en note de bas de page.
+    */
+    demiVie: sourcee(
+      'de 36 à 144 heures **chez le nouveau-né** — le seul RCP déposé est un citrate ' +
+        'pour l’apnée du prématuré, et cette valeur ne décrit pas un adulte',
+      SOURCE_CAFEINE,
+    ),
+    maturite: sourcee('autorisee', SOURCE_CAFEINE),
+    donneesHumaines: sourcee(true, SOURCE_CAFEINE),
+    antidopage: inconnue(SANS_LISTE_ANTIDOPAGE),
+  },
+];
 
 export const POURQUOI_CATALOGUE_VIDE =
   'Aucune fiche de molécule n’est publiée : leurs valeurs demandent des sources ' +
