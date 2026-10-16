@@ -204,7 +204,8 @@
     "mesure:occurrences-mois": "tsx scripts/mesure-occurrences-mois.mts",
     "essais:occurrences-lues": "tsx scripts/essais-occurrences-lues.mts",
     "essais:phase6-ecrans": "node scripts/essais-phase6-ecrans.mjs",
-    "captures:39": "node scripts/captures-prompt-39.mjs"
+    "captures:39": "node scripts/captures-prompt-39.mjs",
+    "essais:branche-vers-tache": "node scripts/essais-branche-vers-tache.mjs"
   },
   "repository": {
     "type": "git",

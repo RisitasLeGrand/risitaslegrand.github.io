@@ -732,3 +732,65 @@ lot. **[vu]** Onze suites de module vertes. **[vu]** Construction sortie 0,
 - **`npm run verifier` reste rouge** : neuf erreurs, toutes antérieures à ce
   lot et hors de lui. Inscrit au lot « reliquats 30 et 31 », à refermer
   **avant** les molécules puisque `molecule.astro` en porte une.
+
+---
+
+## A-16 — aucune tâche liée ne pouvait exister
+
+Trouvée en écrivant le contrôle que le prompt 39 demandait pour C2, et que
+je n'avais pas écrit : « on fait l'action dans la branche, puis on constate
+la tâche cochée à l'écran ».
+
+**[lu]** Le constat, vérifiable en deux recherches : **quatorze** endroits
+lisent `tache.lien`. **Zéro** l'écrit. `TacheNeuve` ne portait pas le champ,
+`ajouterTache` ne le transmettait pas, et le formulaire n'offrait aucun
+choix.
+
+Conséquence : **aucune tâche liée ne pouvait exister dans l'application.**
+Tout le mécanisme branche ↔ tâche — le registre `liaison-branches.ts`, les
+écrivains de `pointage-partage.ts`, la dérivation de la phase 2, les trois
+écrans branchés en phases 5 et 6 — était hors d'atteinte d'un utilisateur.
+
+C'est **la même forme qu'A-9** : des moteurs branchés les uns aux autres, et
+aucune porte d'entrée. Et c'est le même révélateur : le contrôle que je
+déclarais manquant.
+
+La leçon est plus dure que la précédente. Après A-9, j'ai ajouté
+`essais:orphelins`, qui trouve un module qu'aucun écran n'importe. Il ne
+trouve **pas** ce cas-ci : `liaison-branches.ts` est bel et bien importé par
+`taches.astro`. Le module était atteint ; c'est la **donnée** qu'il lit qui
+ne pouvait pas naître. *Un contrôle d'atteignabilité des modules ne dit rien
+de l'atteignabilité des états.*
+
+### Corrigé
+
+**[lu]** `TacheNeuve.lien`, transmis par `ajouterTache`. **[vu]** Un champ
+« Relier à » dans le formulaire, vide par défaut, dont les options viennent
+**du registre** et non d'une liste écrite à la main — deux sources auraient
+divergé au premier ajout. Les actions « hors-du-lot » ne sont pas proposées :
+elles ne produisent ni écriture ni cochage.
+
+### C2 — le contrôle de bout en bout, enfin
+
+**[vu]** `essais:branche-vers-tache`, 22 assertions. Le parcours entier, par
+les écrans : créer une tâche répétée liée à une séance de sport, aller dans
+la branche Sport, ouvrir puis clore une séance, revenir aux tâches.
+
+Ce qui est constaté, et qui est le cœur de la dérivation :
+
+- **aucune occurrence n'est écrite** — rien ne s'écrit, tout se relit ;
+- l'écran ne propose plus de pointer, mais de **défaire** ;
+- le bouton se nomme « Ce n'était pas ça », pas « Pas finalement », parce
+  que la source est la branche et non une exception ;
+- une ligne dit que « la séance reste comptée » ;
+- **[vu]** le tableau de bord affiche « faite depuis sa branche » et le
+  calendrier propose de défaire. Les trois écrans disent la même chose.
+
+**[vu]** Sabotage : retirer `lien` de `ajouterTache` — exactement l'état
+d'avant A-16 — fait rougir trois assertions.
+
+**[vu]** Deux de mes assertions étaient fausses à la première écriture : je
+devinais le nom du champ de clôture d'une séance (`finLe`, `closeLe`) au
+lieu de lire le modèle, qui dit `fin` et `statut: 'terminee'`. Corrigé dans
+l'essai, pas dans le code. Troisième fois dans ce lot qu'une assertion
+accuse à tort : **une prémisse d'essai se lit, elle ne se devine pas.**

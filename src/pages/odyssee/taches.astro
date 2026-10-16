@@ -61,6 +61,22 @@ import Base from '../../layouts/Base.astro';
               class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
             ></select>
           </label>
+          <!--
+            « Relier à » — anomalie A-16.
+
+            Sans ce champ, aucune tâche liée ne pouvait exister : quatorze
+            endroits lisaient `tache.lien`, rien ne l'écrivait, et tout le
+            mécanisme branche ↔ tâche était hors d'atteinte. Le champ est
+            facultatif et vide par défaut : la grande majorité des tâches
+            ne visent aucune branche.
+          -->
+          <label class="text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Relier à</span>
+            <select
+              id="lien"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+            ></select>
+          </label>
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Pour quand</span>
             <input
@@ -183,6 +199,7 @@ import Base from '../../layouts/Base.astro';
      relit : une occurrence liée est faite quand un fait compté de son
      action existe ce jour-là. L'exception, elle, fait toujours autorité.
   */
+  import { ACTIONS_LIABLES } from '../../lib/odyssee/liaison-branches';
   import { faitsDuJour } from '../../lib/odyssee/faits-du-jour';
   import {
     gesteDeRetrait,
@@ -1068,14 +1085,24 @@ import Base from '../../layouts/Base.astro';
            s'efface, parce que ce sont les occurrences qui en tiennent lieu.
         */
         void agirPuisPeindre(async () => {
+          const vise = choixDuLien.value
+            ? ACTIONS_LIABLES.find((a) => a.id === choixDuLien.value)
+            : null;
           await ajouterTache({
             titre,
             domaine: select.value,
             echeance: serie ? null : echeance,
             serie,
+            /*
+               La branche vient du registre, jamais du champ : c'est lui qui
+               sait à quelle branche une action appartient, et deux sources
+               auraient fini par se contredire.
+            */
+            lien: vise ? { branche: vise.branche, action: vise.id, cible: null } : null,
           });
           ($('titre') as HTMLInputElement).value = '';
           ($('echeance') as HTMLInputElement).value = '';
+          choixDuLien.value = '';
           /* Les champs repartent à neuf : laisser la règle en place ferait
              répéter la tâche suivante sans que personne l'ait demandé. */
           monterLesChampsDeSerie();
@@ -1111,6 +1138,31 @@ import Base from '../../layouts/Base.astro';
         retourDemande && retourDemande.startsWith('/') && !retourDemande.startsWith('//')
           ? retourDemande
           : null;
+
+      /*
+         LES GESTES QU'UNE TÂCHE PEUT VISER — A-16.
+
+         Le registre fait foi, et l'écran ne choisit pas : proposer ici une
+         liste écrite à la main aurait divergé du registre au premier ajout,
+         et une tâche aurait visé une action qu'aucun écrivain ne sert.
+
+         Les actions « hors-du-lot » ne sont pas proposées : elles ne
+         produisent ni écriture ni cochage, et les offrir promettrait une
+         liaison qui n'arriverait jamais.
+      */
+      const choixDuLien = $('lien') as HTMLSelectElement;
+      const aucun = document.createElement('option');
+      aucun.value = '';
+      aucun.textContent = 'Aucune branche';
+      choixDuLien.appendChild(aucun);
+      for (const action of ACTIONS_LIABLES) {
+        if (action.sens === 'hors-du-lot') continue;
+        const option = document.createElement('option');
+        option.value = action.id;
+        option.textContent = action.libelle;
+        option.title = action.pourquoi;
+        choixDuLien.appendChild(option);
+      }
 
       monterLesChampsDeSerie();
 

@@ -40,6 +40,7 @@ import {
   type MotifNonFait,
   type Realisation,
   type Etape,
+  type LienDeBranche,
   type Tache,
   type TypeDeRevue,
 } from './modele';
@@ -89,6 +90,19 @@ export interface TacheNeuve {
    * sous deux formes et que la première qui change ferait mentir l'autre.
    */
   serie?: Serie | null;
+  /**
+   * Le geste de branche que cette tâche vise — anomalie A-16.
+   *
+   * Il manquait ici, et le manque était total : `TacheNeuve` ne portait pas
+   * ce champ, aucun écran n'en posait un, et **aucune tâche liée ne pouvait
+   * donc exister**. Quatorze endroits lisaient `tache.lien` ; rien ne
+   * l'écrivait. Tout le mécanisme branche ↔ tâche — le registre, les
+   * écrivains, la dérivation — était hors d'atteinte d'un utilisateur.
+   *
+   * Même famille qu'A-9, et elle se reconnaît à la même forme : des moteurs
+   * branchés les uns aux autres, et aucune porte d'entrée.
+   */
+  lien?: LienDeBranche | null;
   /** Les étapes à cocher, pour une tâche à étapes (prompt 38). */
   etapes?: readonly Etape[];
 }
@@ -106,6 +120,7 @@ export async function ajouterTache(neuve: TacheNeuve): Promise<Tache> {
     creeeLe: maintenant(),
     majLe: maintenant(),
     ...(neuve.serie ? { serie: neuve.serie } : {}),
+    ...(neuve.lien ? { lien: neuve.lien } : {}),
     ...(neuve.etapes?.length ? { etapes: neuve.etapes } : {}),
   };
   const problemes = controlerTache(tache);
