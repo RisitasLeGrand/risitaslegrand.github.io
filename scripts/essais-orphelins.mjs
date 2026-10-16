@@ -51,11 +51,6 @@ const EXCEPTIONS = [
       'L’appeler depuis un écran serait le défaut, pas l’inverse.',
   },
   {
-    chemin: 'src/lib/notifications/filtre-cycle.ts',
-    depuis: '2026-10-15',
-    pourquoi: 'Prompt 32, phase 1. Se branche à la phase 4, le centre et sa pastille.',
-  },
-  {
     chemin: 'src/lib/notifications/recalcul.ts',
     depuis: '2026-10-15',
     pourquoi: 'Prompt 32, phase 3. Se branche à la phase 5, avec les résolveurs de source.',
