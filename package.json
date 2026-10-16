@@ -214,7 +214,8 @@
     "essais:centre-donnees": "tsx scripts/essais-centre-donnees.mts",
     "essais:centre:navigateur": "node scripts/essais-centre-navigateur.mjs",
     "essais:emission": "tsx scripts/essais-emission.mts",
-    "essais:retention": "tsx scripts/essais-retention.mts"
+    "essais:retention": "tsx scripts/essais-retention.mts",
+    "essais:jamais-partage": "tsx scripts/essais-jamais-partage.mts"
   },
   "repository": {
     "type": "git",
