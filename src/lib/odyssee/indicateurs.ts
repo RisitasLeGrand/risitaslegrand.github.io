@@ -597,6 +597,63 @@ export const INDICATEURS: readonly Indicateur[] = [
       };
     },
   }),
+
+  /**
+   * Traitements : un COMPTE, et rien d'autre.
+   *
+   * L'amendement signé le 16 octobre fait entrer les traitements dans les
+   * indicateurs, coffre ouvert. Ce que cet indicateur a le droit de dire
+   * est étroitement borné par le contrat du type `odyssee.medicament` :
+   * « Enregistrement seul […] Aucun conseil, aucune dose proposée. »
+   *
+   * D'où deux choix qui ne sont pas des détails de forme.
+   *
+   * `sens: 'neutre'` — ni plus ni moins n'est « mieux ». Déclarer
+   * `haut-mieux` ferait de l'observance une performance, et un jour sans
+   * prise une contre-performance ; `bas-mieux` serait pire encore. Le
+   * logiciel ne sait pas ce qui était prévu, et c'est délibéré.
+   *
+   * `cible: 'jamais-proposee'` — proposer une cible de prises serait un
+   * acte médical rendu par un programme qui ne connaît ni l'ordonnance ni
+   * la personne. Le mécanisme de proposition existe et sait se taire ; on
+   * le lui demande ici explicitement plutôt que d'espérer qu'il s'abstienne.
+   *
+   * Le fait publié ne nomme pas la molécule ; cet indicateur ne peut donc
+   * pas la nommer. Il compte des JOURS, pas des prises : un jour à six
+   * prises et un jour à une prise comptent pareil, parce que le nombre de
+   * prises d'un jour dépend de ce qui est pris — et qu'il ne le sait pas.
+   */
+  I({
+    id: 'corps.jours-avec-prise',
+    libelle: 'Jours avec une prise notée',
+    domaine: 'corps',
+    formule:
+      'Nombre de jours logiques de la fenêtre portant au moins une prise notée, sans distinguer laquelle.',
+    unite: 'jours',
+    frequence: 'jour',
+    sens: 'neutre',
+    cible: 'jamais-proposee',
+    sources: ['odyssee.medicament'],
+    minimumDePoints: 1,
+    calcul: (f) => {
+      const retenus = f.faits.filter(
+        (x) => dansLaFenetre(f, x) && x.type === 'odyssee.medicament',
+      );
+      /*
+         `null` et non zéro : coffre fermé, le publieur ne rend rien, et
+         zéro se lirait « aucune prise ce mois-ci » — l'inverse de la
+         vérité, qui est « on n'en sait rien ».
+      */
+      if (!retenus.length) return null;
+      const jours = new Set(retenus.map((x) => x.jourLogique));
+      return {
+        valeur: jours.size,
+        effectif: retenus.length,
+        joursRenseignes: jours.size,
+        dernierJour: [...jours].sort().pop(),
+      };
+    },
+  }),
 ];
 
 const PAR_ID = new Map(INDICATEURS.map((i) => [i.id, i]));

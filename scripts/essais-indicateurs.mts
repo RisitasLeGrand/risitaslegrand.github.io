@@ -106,16 +106,30 @@ v(
   controlerCatalogue(DOMAINES.map((d) => d.id)),
   [],
 );
-v('quinze indicateurs sont déclarés', INDICATEURS.length, 15);
+v('seize indicateurs sont déclarés', INDICATEURS.length, 16);
 v(
-  'dont quatorze mesures et la couverture',
+  'dont quinze mesures et la couverture',
   INDICATEURS.filter((i) => i.id !== 'tr.couverture-mesure').length,
-  14,
+  15,
 );
 v('cinq pour Cognition', indicateursDuDomaine('cognition').length, 5);
 v('six pour Connaissances', indicateursDuDomaine('connaissances').length, 6);
 v('quatre transverses', indicateursDuDomaine('transverse').length, 4);
-v('trois domaines sont couverts', domainesCouverts(), ['cognition', 'connaissances', 'transverse']);
+/*
+   Quatre domaines depuis l'amendement du 16 octobre : « corps » entre avec
+   `corps.jours-avec-prise`, qui est déclaré en fin de catalogue.
+
+   L'ordre attendu est celui de la DÉCLARATION, pas l'ordre alphabétique :
+   `domainesCouverts()` ne trie pas. Je l'avais écrit trié, et l'essai a
+   accusé — une prémisse se lit, elle ne se devine pas, y compris dans un
+   essai qu'on vient d'écrire.
+*/
+v('quatre domaines sont couverts', domainesCouverts(), [
+  'cognition',
+  'connaissances',
+  'transverse',
+  'corps',
+]);
 v('un indicateur inconnu n’existe pas', indicateur('corps.poids'), undefined);
 v('un identifiant connu se retrouve', indicateur('tr.serie')?.libelle, 'Série de jours');
 vrai(
@@ -136,9 +150,14 @@ v(
   [],
 );
 v(
-  'et trois indicateurs sont déclarés neutres',
+  'et quatre indicateurs sont déclarés neutres',
   INDICATEURS.filter((i) => i.sens === 'neutre').map((i) => i.id),
-  ['sav.niveau-estime', 'sav.taux-bonnes', 'sav.courbe-oubli'],
+  /*
+     `corps.jours-avec-prise` est neutre par décision, pas par défaut :
+     déclarer « haut-mieux » ferait de l'observance une performance, et un
+     jour sans prise une contre-performance. Voir son commentaire.
+  */
+  ['sav.niveau-estime', 'sav.taux-bonnes', 'sav.courbe-oubli', 'corps.jours-avec-prise'],
 );
 
 /* ══════════════════════════════════════════════════════════════════════════ */
@@ -329,9 +348,9 @@ const troisJours = [
   /* La couverture s'exclut du dénominateur : quatorze, pas quinze. */
   const f: Fenetre = { ...SEMAINE, faits: troisJours };
   const couverture = evaluer(indicateur('tr.couverture-mesure')!, f);
-  v('la couverture compte sur quatorze indicateurs', couverture.mesure?.parClef?.declares, 14);
+  v('la couverture compte sur quinze indicateurs', couverture.mesure?.parClef?.declares, 15);
   v('deux se calculent avec les seuls faits', couverture.mesure?.parClef?.calculables, 2);
-  proche('soit une couverture de 2/14', couverture.mesure?.valeur ?? -1, 2 / 14);
+  proche('soit une couverture de 2/15', couverture.mesure?.valeur ?? -1, 2 / 15);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════ */
@@ -478,19 +497,25 @@ const fenetrePleine: Fenetre = {
 
 {
   const vue = synthese(p, fenetrePleine);
-  v('la synthèse porte les quinze indicateurs', vue.evaluations.length, 15);
+  v('la synthèse porte les seize indicateurs', vue.evaluations.length, 16);
   /*
      Huit mesures : trois des faits, deux des cartes, trois de l'activité, plus
      la couverture — qui, elle, se calcule toujours.
   */
   v('huit rendent une mesure', vue.evaluations.filter((e) => e.mesure).length, 8);
-  proche('la couverture est de 8 sur 15', vue.couverture, 8 / 15);
-  v('et les sept manques sont nommés', vue.manques.length, 7);
+  /*
+     Huit manques depuis l'amendement : le jeu de cet essai ne sème aucune
+     prise, donc `corps.jours-avec-prise` rend `null` — « on n'en sait
+     rien », et non zéro. C'est exactement le comportement voulu, et il se
+     compte ici comme un manque de plus.
+  */
+  proche('la couverture est de 8 sur 16', vue.couverture, 8 / 16);
+  v('et les huit manques sont nommés', vue.manques.length, 8);
   vrai(
     'chaque manque dit quelle source attendre',
     vue.manques.every((m) => m.pourquoi.includes('Pas de donnée')),
   );
-  v('la couverture est détaillée par domaine', vue.parDomaine.length, 3);
+  v('la couverture est détaillée par domaine', vue.parDomaine.length, 4);
   const cognition = vue.parDomaine.find((d) => d.domaine === 'cognition');
   v('Cognition déclare cinq indicateurs', cognition?.declares, 5);
   v('et en mesure quatre', cognition?.mesures, 4);
