@@ -217,7 +217,8 @@
     "essais:retention": "tsx scripts/essais-retention.mts",
     "essais:jamais-partage": "tsx scripts/essais-jamais-partage.mts",
     "essais:faits-sensible": "tsx scripts/essais-faits-sensible.mts",
-    "essais:faits-branches-sensible": "tsx scripts/essais-faits-branches-sensible.mts"
+    "essais:faits-branches-sensible": "tsx scripts/essais-faits-branches-sensible.mts",
+    "essais:sensible:parcours": "node scripts/essais-sensible-parcours.mjs"
   },
   "repository": {
     "type": "git",
