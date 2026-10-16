@@ -9,10 +9,13 @@
  * notifications ; le statut hormonal reste soumis au filtre du cycle. »
  *
  * Quatre conditions, quatre sections, et la plus importante est la
- * deuxième : **le fait voyage hors du coffre**. Il part au journal
- * d'opérations, qui se réplique et qu'une sauvegarde emporte. Un nom de
- * molécule qui s'y glisserait ne serait pas une fuite d'écran — ce serait
- * une fuite durable, recopiée sur chaque appareil.
+ * deuxième : **le fait est l'objet de frontière**. Il n'est pas persisté
+ * — j'avais écrit le contraire, et c'était faux : les faits sont des
+ * projections, recalculées depuis les magasins scellés. Mais c'est lui
+ * que reçoivent l'export, les indicateurs, les règles de désaccord et
+ * tout consommateur à venir. Un nom de molécule qui s'y glisserait
+ * sortirait par la première porte qui s'ouvrirait, et la garde de sortie
+ * ne protège que celles qu'on a nommées.
  *
  * Le contrôle ne cherche donc pas le nom dans un champ connu : il **sérialise
  * le fait entier** et cherche le nom dedans. Une sonde qui regarderait

@@ -11,11 +11,24 @@
  *
  * ## 1. Le fait ne nomme pas la molécule, et c'est la garde centrale
  *
- * Un fait **sort du coffre**. Il part au journal d'opérations, qui se
- * réplique entre appareils et entre dans les sauvegardes. Mettre le nom du
- * médicament dans `valeur` ou dans `details` reviendrait donc à écrire
- * « sans texte qui les nomme hors du coffre » puis à faire exactement
- * l'inverse.
+ * **Correction d'une erreur de ma part, laissée ici parce qu'elle éclaire
+ * la règle.** J'avais écrit que le fait « part au journal d'opérations,
+ * qui se réplique et entre dans les sauvegardes ». C'est faux : il n'y a
+ * pas de magasin de faits, et le dépôt l'a refusé explicitement — les
+ * faits sont des **projections**, recalculées en mémoire depuis les
+ * magasins scellés, donc coffre ouvert. Ils ne voyagent pas et ne
+ * persistent nulle part.
+ *
+ * La règle tient quand même, et pour une raison plus simple : le fait est
+ * **l'objet de frontière**. C'est lui que reçoivent l'export, les
+ * indicateurs, les règles de désaccord, et tout consommateur à venir — y
+ * compris ceux que personne n'a encore écrits. Le nom qu'il porterait
+ * sortirait par la première de ces portes qui s'ouvrirait, et la garde de
+ * `jamais-partage.ts` protège les deux qu'on connaît, pas la troisième.
+ *
+ * Ne pas mettre le nom dans le fait est donc la seule protection qui ne
+ * dépende d'aucune énumération. C'était le bon geste ; ce n'était pas la
+ * bonne raison.
  *
  * Le fait dit donc **qu'une prise a eu lieu**, jamais laquelle : une
  * valeur, `prise`, et un compte du jour. C'est maigre, et c'est assez pour
