@@ -124,6 +124,44 @@ export const TYPES_EXCLUSIFS: readonly string[] = [
 /** L'écart de poids au-delà duquel deux pesées du même jour se contredisent. */
 export const ECART_POIDS_KG = 2;
 
+/**
+ * Les types qu'aucune règle ne lit, et pourquoi — un manque nommé.
+ *
+ * L'amendement du 16 octobre 2026 autorise les traitements et le statut
+ * hormonal « seulement dans les indicateurs et les règles de désaccord ».
+ * L'indicateur existe — `corps.jours-avec-prise`. La règle, non, et ce
+ * n'est pas un oubli : je n'en ai trouvé aucune qui soit honnête. Les
+ * quatre candidates, et ce qui tue chacune :
+ *
+ * - **Un statut dont la fin précède le début** est déjà refusé par
+ *   `valider`, à la projection. Une règle qui le chercherait ici ne
+ *   rencontrerait jamais rien : elle ne voit que des faits recevables.
+ * - **Deux prises le même jour** ne se contredisent pas. On prend
+ *   plusieurs traitements, et plusieurs fois le même. Les distinguer
+ *   demanderait le nom de la molécule, que le fait ne porte pas — par
+ *   décision, et c'est la garde centrale du lot. Une telle règle
+ *   accuserait une journée normale, et un contrôle qui accuse à tort se
+ *   fait désactiver.
+ * - **Deux statuts qui se chevauchent** ne sont pas contradictoires : un
+ *   traitement et une substance coexistent sans peine. La nature est une
+ *   catégorie, pas une exclusivité.
+ * - **Tout le reste est médical** — une prise un jour de maladie, un écart
+ *   de posologie, l'interaction de deux produits. Cyclades n'a pas à en
+ *   juger, et l'interdiction du texte hors coffre lui en ôte de toute
+ *   façon les moyens.
+ *
+ * Une moitié de la décision reste donc sans objet. Elle est déclarée ici
+ * plutôt que tue, et `essais:desaccords` la tient dans les deux sens : si
+ * une règle se met à lire l'un de ces types, cette liste doit changer ;
+ * si le publieur sensible émet un type qui n'y figure pas, il doit
+ * recevoir sa règle ou sa ligne. Un manque surveillé vaut mieux qu'une
+ * règle qui ment.
+ */
+export const TYPES_SANS_REGLE: readonly string[] = [
+  'odyssee.medicament',
+  'odyssee.statut-hormonal',
+];
+
 export const REGLES_DESACCORD: readonly RegleDesaccord[] = [
   {
     id: 'chevauchement-exclusif',

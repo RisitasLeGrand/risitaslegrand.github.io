@@ -10,11 +10,13 @@ import {
   ECART_POIDS_KG,
   REGLES_DESACCORD,
   TYPES_EXCLUSIFS,
+  TYPES_SANS_REGLE,
   construireArbitrage,
   detecter,
   etatPourIndicateur,
   trierDesaccords,
 } from '../src/lib/odyssee/desaccords';
+import { projeterFaitsSensibles } from '../src/lib/odyssee/faits-sensible';
 import { TYPE_RESOLUTION } from '../src/lib/noyau/corrections';
 import { SEUIL_EXPLOITABLE, fiabilite, integrite } from '../src/lib/odyssee/fiabilite';
 import { typeDeFait, type Fait } from '../src/lib/noyau/faits';
@@ -88,6 +90,68 @@ v(
   [...TYPES_EXCLUSIFS].sort(),
   ['odyssee.focus', 'revision.seance', 'sport.seance'],
 );
+
+console.log('\nLE MANQUE DÉCLARÉ : DEUX TYPES QU’AUCUNE RÈGLE NE LIT');
+
+/*
+   Dans les deux sens, parce qu'une liste de manques se périme des deux
+   côtés. À gauche : aucune règle ne lit ces types — si l'une s'y met, la
+   déclaration ment et doit tomber. À droite : le publieur sensible n'émet
+   rien qui n'y figure — si un troisième type sensible apparaît, il lui
+   faut sa règle ou sa ligne.
+
+   Ce que ce contrôle **ne voit pas** : un type émis par une branche que le
+   gabarit ci-dessous n'exerce pas. Il lit ce que le publieur rend sur une
+   prise et sur un statut, pas ce qu'il rendrait ailleurs. D'où la dernière
+   assertion : un gabarit qui ne produirait rien rendrait les précédentes
+   vides, et une liste vide passe toutes les épreuves d'absence.
+*/
+v(
+  'aucune règle ne lit un type déclaré sans règle',
+  REGLES_DESACCORD.filter((r) =>
+    [...r.types, ...(r.etale ?? [])].some((t) => TYPES_SANS_REGLE.includes(t)),
+  ).map((r) => r.id),
+  [],
+);
+v(
+  'les types déclarés sans règle sont des types connus',
+  TYPES_SANS_REGLE.filter((t) => !typeDeFait(t)),
+  [],
+);
+{
+  const sensibles = projeterFaitsSensibles({
+    prises: [
+      {
+        id: 'p1',
+        nom: 'Zorbitrex',
+        dose: '42 mg',
+        voie: 'orale',
+        motif: 'motif-inventé-du-contrôle',
+        note: '',
+        le: '2026-10-16T08:00:00.000Z',
+        jour: '2026-10-16',
+        majLe: '2026-10-16T08:00:00.000Z',
+      },
+    ],
+    statuts: [
+      {
+        id: 's1',
+        nature: 'traitement',
+        intitule: 'Protocole Flibustine',
+        debut: '2026-10-01T00:00:00.000Z',
+        fin: null,
+        note: '',
+        majLe: '2026-10-01T00:00:00.000Z',
+      },
+    ],
+  });
+  v(
+    'le publieur sensible n’émet aucun type hors de cette liste',
+    [...new Set(sensibles.faits.map((f) => f.type))].filter((t) => !TYPES_SANS_REGLE.includes(t)),
+    [],
+  );
+  v('et le gabarit produit bien deux faits', sensibles.faits.length, 2);
+}
 
 console.log('\nCHAQUE RÈGLE SE DÉCLENCHE SUR UN CAS CONSTRUIT');
 
