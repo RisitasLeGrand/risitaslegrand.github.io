@@ -179,17 +179,41 @@ for (const ecran of ECRANS) {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
-   M5 — la largeur, sur TOUTES les routes, coffre ouvert
+   M5 — la largeur ET les cibles, sur TOUTES les routes, aux trois tailles,
+   coffre réellement ouvert
    ══════════════════════════════════════════════════════════════════════════
 
-   M2 couvre les écrans que cette liste nomme. M5 couvre le site entier, et il
-   ouvre le coffre — sans quoi il ne mesurerait rien.
+   M2 couvre les douze écrans que la liste nomme, à une seule largeur. M5
+   couvre le site entier, à 360, 390 et 430 px.
 
-   Ce n'est pas une précaution théorique : le 14 octobre, un balayage des 54
-   routes coffre fermé a rendu « aucun débordement », alors que deux pages
-   débordaient bel et bien de 10 et 6 px. Les pages étaient vides, voilà tout.
-   Un contrôle de largeur qui ne déverrouille pas mesure une coquille, et il
-   est vert pour toujours.
+   LE COFFRE, ET L'AVEU QUI VA AVEC. Ce bloc portait depuis le 14 octobre un
+   commentaire affirmant « il ouvre le coffre — sans quoi il ne mesurerait
+   rien », avec le récit de la leçon : un balayage coffre fermé avait rendu
+   « aucun débordement » sur deux pages qui débordaient, parce qu'elles
+   étaient vides. Le commentaire était juste et **le code ne l'a jamais
+   fait** : le fichier ne contenait pas une seule occurrence de
+   « mdp-coffre ». Les branches scellées — Corps, Psyché, Finances, Santé —
+   n'ont donc jamais été mesurées autrement que vides. Une sonde textuelle
+   prouve qu'un garde-fou est cité, jamais qu'il agit, et c'était ici le
+   commentaire qui citait. Le coffre est maintenant ouvert, et la prémisse
+   est affirmée avant la première mesure plutôt que supposée.
+
+   LE PLANCHER EST À 44 px, et non plus 24 (décision 4 du prompt 41). Le
+   seuil de 24 ne venait d'aucune décision d'Alexis : il venait d'un
+   commentaire de ce fichier citant WCAG 2.2 AA. Deux exemptions, et deux
+   seulement :
+
+   — le lien posé au fil d'une phrase, que WCAG 2.5.8 exempte explicitement ;
+   — ce qui porte « cible-minimale », qui est la liste d'exceptions motivées
+     que la décision réclame. Elle existait déjà, avec sa raison écrite dans
+     la feuille de style : la mention de source sous un indicateur, qu'on
+     suit une fois par mois, et à qui 44 px coûteraient trente pixels sur
+     chaque tuile d'un tableau de bord qui en compte dix.
+
+   POURQUOI LES TROIS TAILLES. À 360 px, le libellé de plusieurs dépliants
+   s'enroule sur deux lignes et la boîte dépasse 44 px par accident ; à 430
+   il tient sur une ligne et retombe à 23. Mesurer à une seule largeur
+   déclare conformes des cibles qui ne le sont pas.
 */
 {
   const { readdirSync, statSync } = await import('node:fs');
@@ -205,28 +229,90 @@ for (const ecran of ECRANS) {
   parcourir('dist', '/');
   routes.sort();
 
-  const larges = [];
-  for (const r of routes) {
-    await page.goto(`${RACINE}${r}`, { waitUntil: 'networkidle', timeout: 25000 });
-    const verrou = page.locator('#champ-mdp');
-    if (await verrou.isVisible().catch(() => false)) {
-      await page.fill('#champ-mdp', MDP);
-      await page.click('#bouton-verrou');
-      await page.waitForTimeout(900);
+  for (const largeur of [360, 390, 430]) {
+    const ctx = await nav.newContext({
+      viewport: { width: largeur, height: 844 },
+      hasTouch: true,
+      isMobile: true,
+    });
+    const p = await ctx.newPage();
+    await franchirInitialisation(p, RACINE, MDP);
+
+    await p.goto(`${RACINE}/odyssee/corps/`, { waitUntil: 'networkidle' });
+    if (await p.locator('#mdp-coffre').isVisible().catch(() => false)) {
+      await p.fill('#mdp-coffre', MDP);
+      await p.click('#ouvrir-coffre');
     }
-    const m = await page.evaluate(() => ({
-      largeur: document.documentElement.scrollWidth,
-      fenetre: document.documentElement.clientWidth,
-      coupables: [...document.querySelectorAll('body *')]
-        .filter((e) => e.getBoundingClientRect().right > document.documentElement.clientWidth + 1)
-        .slice(0, 2)
-        .map((e) => `${e.tagName}.${(e.className || '').toString().slice(0, 30)}`),
-    }));
-    if (m.largeur > m.fenetre) {
-      larges.push(`${r} ${m.largeur}/${m.fenetre} px (${m.coupables.join(', ')})`);
+    await p.waitForSelector('#temoin-coffre:not(.hidden)', { timeout: 40000 }).catch(() => {});
+    verifier(
+      `${largeur} px — le coffre est ouvert avant la première mesure`,
+      await p.evaluate(
+        () => !document.getElementById('temoin-coffre')?.classList.contains('hidden'),
+      ),
+      true,
+    );
+
+    const larges = [];
+    const petites = [];
+    let mesurees = 0;
+    for (const r of routes) {
+      await p.goto(`${RACINE}${r}`, { waitUntil: 'networkidle', timeout: 25000 }).catch(() => {});
+      if (await p.locator('#champ-mdp').isVisible().catch(() => false)) {
+        await p.fill('#champ-mdp', MDP);
+        await p.click('#bouton-verrou');
+        await p.waitForTimeout(900);
+      }
+      await p.waitForTimeout(400);
+      const m = await p.evaluate((confort) => {
+        const racine = document.documentElement;
+        const coupables = [...document.querySelectorAll('body *')]
+          .filter((e) => e.getBoundingClientRect().right > racine.clientWidth + 1)
+          .filter((e) => !e.closest('[class*="overflow-x-auto"], [class*="overflow-x-scroll"]'))
+          .slice(0, 2)
+          .map((e) => `${e.tagName}.${(e.className || '').toString().slice(0, 30)}`);
+
+        /** Le lien posé au fil d'une phrase : exempté par WCAG 2.5.8. */
+        const enLigne = (x) => {
+          if (x.tagName !== 'A') return false;
+          const bloc = x.parentElement;
+          if (!bloc) return false;
+          return ((bloc.textContent ?? '').replace(x.textContent ?? '', '').trim()).length > 0;
+        };
+
+        const isolees = [...document.querySelectorAll('a[href], button:not([disabled]), summary')]
+          .filter((x) => x.getClientRects().length > 0 && !x.closest('#ecran-verrou'))
+          .filter((x) => !enLigne(x))
+          // L'exception motivée, portée par la cible elle-même.
+          .filter((x) => !x.classList.contains('cible-minimale'));
+
+        return {
+          large: racine.scrollWidth > racine.clientWidth,
+          largeur: racine.scrollWidth,
+          fenetre: racine.clientWidth,
+          coupables,
+          total: isolees.length,
+          fautives: isolees
+            .filter((x) => x.getBoundingClientRect().height < confort)
+            .map(
+              (x) =>
+                `${x.tagName.toLowerCase()} « ${(x.textContent ?? '').trim().slice(0, 26)} » ` +
+                `${Math.round(x.getBoundingClientRect().height)}px`,
+            ),
+        };
+      }, CONFORT);
+
+      mesurees += m.total;
+      if (m.large) {
+        larges.push(`${r} ${m.largeur}/${m.fenetre} px (${m.coupables.join(', ')})`);
+      }
+      for (const f of m.fautives) petites.push(`${r} ${f}`);
     }
+
+    verifier(`M5 — ${largeur} px : aucune des ${routes.length} routes ne déborde`, larges, []);
+    verifier(`M6 — ${largeur} px : aucune cible isolée sous ${CONFORT} px`, petites, []);
+    console.log(`  (${mesurees} cibles isolées mesurées à ${largeur} px)`);
+    await ctx.close();
   }
-  verifier(`M5 — aucune des ${routes.length} routes ne déborde, coffre ouvert`, larges, []);
 }
 
 await contexte.close();

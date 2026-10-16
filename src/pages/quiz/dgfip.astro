@@ -44,9 +44,22 @@ import { base } from '../../lib/ui';
         </label>
         <!-- Rempli au chargement : seuls les formats que la banque peut
              réellement tirer sont proposés. -->
+        <!--
+          « w-full » avant le plafond : 22 rem valent 352 px, et un écran de
+          360 px n'offre que 328 px de colonne une fois ses marges prises. La
+          liste débordait donc de 6 px, et toute la page avec elle. Le plafond
+          reste utile au-delà : sans lui, la liste s'étirerait sur la largeur
+          d'une tablette pour afficher « Catégorie B — 30 questions ».
+
+          Le bouton « Plus » de la barre du bas ressortait lui aussi à 366 px.
+          Il n'y était pour rien : une barre fixe s'étire à la largeur du
+          document une fois qu'autre chose l'a élargi. Corriger ce qu'on voit
+          dépasser en premier aurait traité le symptôme — c'est la leçon du
+          14 octobre, et elle a resservi.
+        -->
         <select
           id="format-dgfip"
-          class="max-w-[22rem] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+          class="w-full max-w-[22rem] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
         ></select>
       </div>
       <button

@@ -191,6 +191,35 @@ body {
   input:not([type='checkbox']):not([type='radio']):not([type='hidden']) {
     min-height: 2.75rem;
   }
+
+  /* Les dépliants, d'un coup et partout, pour la même raison.
+
+     Vingt `summary` mesuraient 23 ou 24 px — « Déclarer quelque chose »,
+     « Historique et provenance », les cinq replis de Repère de rythme de
+     vie. Un `summary` est une cible par définition, comme un contrôle de
+     formulaire : on ne le lit pas au fil d'une phrase, on appuie dessus
+     pour ouvrir. L'exemption de WCAG 2.5.8 ne le concerne donc jamais, et
+     les reprendre un par un aurait produit vingt correctifs identiques
+     dont le vingt-et-unième dépliant se serait passé.
+
+     POURQUOI CE DÉFAUT SE CACHAIT. À 360 px, le libellé de plusieurs
+     d'entre eux s'enroulait sur deux lignes et la boîte dépassait 44 px
+     **par accident** : la mesure les déclarait conformes. À 430 px le
+     texte tient sur une ligne et la boîte retombe à 23. Le compte montait
+     donc avec la largeur — 26, puis 30, puis 32 — ce qui n'a rien
+     d'un paradoxe : c'est l'absence de toute hauteur minimale, masquée
+     aux petites largeurs par l'enroulement du texte.
+
+     `align-content` centre la ligne dans la boîte sans toucher au
+     `display` : passer ces dépliants en `flex` leur retirerait le
+     triangle natif, que quatorze d'entre eux affichent. Là où le
+     navigateur ne connaît pas encore `align-content` sur un bloc, le
+     texte se pose en haut d'une boîte de 44 px — la cible est atteinte,
+     seul le centrage manque. */
+  summary {
+    min-height: 2.75rem;
+    align-content: center;
+  }
 }
 
 /* --- Texte sécable -------------------------------------------------------- */
