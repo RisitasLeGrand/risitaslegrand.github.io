@@ -43,6 +43,8 @@ import {
   sortDeLaRetention,
   type ElementDuCentre,
 } from '../src/lib/notifications/modele';
+import { SOURCES_DECLAREES } from '../src/lib/notifications/filtre-cycle';
+import { ROUTES } from '../src/lib/notifications/sources';
 
 let echecs = 0;
 const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
@@ -191,6 +193,70 @@ console.log(
     /return changerLEtat\(id, 'lu'\)/.test(sansCommentaires) &&
       /return changerLEtat\(id, 'archive'\)/.test(sansCommentaires),
   );
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Phase 2 : le routage, l'en-tête, et l'avis de fusion
+   ══════════════════════════════════════════════════════════════════════════ */
+
+console.log('\n\x1b[1m7. Le pont entre les deux registres\x1b[0m');
+{
+  /*
+     Les deux registres ont des défauts opposés — refus pour le filtre,
+     affichage dégradé pour le routage — et c'est voulu. Mais une source
+     ADMISE par le filtre et inconnue du routage s'afficherait sous son
+     identifiant brut : « rappel-de-prise » au lieu de « Rappels de prise ».
+     Le contrôle ne compare donc pas les deux listes : il vérifie le seul
+     sens qui coûte quelque chose.
+  */
+  const admises = SOURCES_DECLAREES.map((s) => s.id);
+  const routees = new Set(ROUTES.map((r) => r.id));
+  v('toute source déclarée a une route', admises.filter((id) => !routees.has(id)), []);
+
+  /* Et aucune route ne mène à un chemin qui ne ressemble pas à un chemin. */
+  v(
+    'les routes sont des chemins internes, absolus, sans schéma',
+    ROUTES.filter((r) => r.vers !== null && !/^\/[\w/#-]*$/.test(r.vers)).map((r) => r.id),
+    [],
+  );
+}
+
+console.log('\n\x1b[1m8. L’avis de fusion ne cite plus aucun nombre (décision 5)\x1b[0m');
+{
+  const veille = readFileSync('src/lib/sync/veille.ts', 'utf8');
+  const appel = veille.slice(veille.indexOf('await avertir({'), veille.indexOf('marque: `fusion-'));
+  vrai('l’appel à `avertir` existe', appel.length > 0);
+  /*
+     Le défaut visé, mot pour mot : « Reçu : 1 opération ». On cherche donc
+     une interpolation du rapport dans le corps, pas le mot « opération » —
+     un texte fixe qui dirait « des opérations » serait admissible.
+  */
+  v(
+    'le corps n’interpole rien du rapport reçu',
+    /\$\{\s*recu\./.test(appel),
+    false,
+  );
+  vrai('et il garde le droit d’annuler, qui n’est pas une donnée', appel.includes('sept jours'));
+}
+
+console.log('\n\x1b[1m9. Le centre n’est pas sur le menu de garde (§ 3.1)\x1b[0m');
+{
+  const gabarit = readFileSync('src/layouts/Base.astro', 'utf8');
+  /*
+     Compter, et non chercher : une seule pose, dans l'en-tête complet. Deux
+     poses voudraient dire que l'en-tête léger en a une aussi, et c'est
+     exactement ce que le § 3.1 écarte.
+  */
+  v('le composant est posé une fois et une seule', (gabarit.match(/<CentreNotifications \/>/g) ?? []).length, 1);
+  /*
+     Et cette pose est du côté complet. Le repère : elle précède le premier
+     `CommutateurTheme`, qui est celui de l'en-tête complet — le léger vient
+     après dans le fichier.
+  */
+  const pose = gabarit.indexOf('<CentreNotifications />');
+  const themes = [...gabarit.matchAll(/<CommutateurTheme \/>/g)].map((m) => m.index ?? -1);
+  vrai('elle est dans l’en-tête complet, le premier des deux', pose > 0 && pose < themes[0]);
+  vrai('et l’en-tête léger n’en a pas', themes.length === 2 && pose < themes[1] && pose < themes[0]);
 }
 
 console.log(
