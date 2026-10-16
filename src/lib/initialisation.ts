@@ -128,7 +128,24 @@ export async function porteLocale(branche?: string): Promise<Porte> {
 export interface Observe {
   observation: Observation;
   deductions: Deduction[];
+  /**
+   * Pourquoi rien n'a été observé, quand c'est le cas — anomalie A-13.
+   *
+   * Rendu comme une **valeur** et non par une exception : un appelant qui
+   * doit afficher « vous ne l'avez pas autorisé » n'a pas à attraper une
+   * erreur pour l'apprendre, et une erreur attrapée finit toujours par
+   * être confondue avec une panne.
+   */
+  silence?: 'sans-consentement';
 }
+
+/**
+ * Une observation vide, quand le consentement manque.
+ *
+ * Zéro fait, zéro semaine : pas « une observation faible », **aucune**.
+ * Les deux se ressemblent à l'écran, et la différence est tout le sujet.
+ */
+const RIEN_OBSERVE: Observation = observer([], {});
 
 /**
  * Observe l'usage et en tire les propositions de l'initialisation allégée.
@@ -139,6 +156,24 @@ export interface Observe {
  * d'observation — inutile de projeter cinq ans pour mesurer huit semaines.
  */
 export async function observerUsage(options: { semaines?: number } = {}): Promise<Observe> {
+  /*
+     LA PORTE, ET ELLE EST ICI — anomalie A-13, correction du pilote.
+
+     Elle pourrait être chez les appelants : `propositionLocale`, l'écran
+     du profil, l'accueil. Elle y serait fausse. Un appelant de plus, un
+     jour, et l'observation repart sans que personne l'ait voulu — c'est
+     exactement ainsi que cette anomalie est née, le 12 octobre, d'une
+     fonction qu'on a branchée sans se demander ce qu'elle lisait.
+
+     Elle est donc dans la fonction qui lit. On ne peut pas l'appeler sans
+     passer par elle, et le `return` précède **toute** lecture de faits :
+     sans consentement, `publierFaitsRevisions` n'est même pas importé.
+  */
+  const { consentementLocal } = await import('./consentement-apprentissage');
+  if (!(await consentementLocal()).accorde) {
+    return { observation: RIEN_OBSERVE, deductions: [], silence: 'sans-consentement' };
+  }
+
   const [{ publierFaitsRevisions }, { tableauDeNiveaux }, { parcoursCourant }, { DOMAINES_ACTIFS_PAR_DEFAUT }] =
     await Promise.all([
       import('./odyssee/faits-revisions'),

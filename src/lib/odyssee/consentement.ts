@@ -17,10 +17,45 @@
  *
  * ## Ce que ce module ne fait pas
  *
- * Il ne lit ni n'écrit rien. Aucun état, aucun magasin : les interrupteurs et
- * le journal d'accès viennent avec la phase 13. Ici il n'y a que des mots et
- * des listes de ce qui pourra être coché — de quoi relire et contester avant
- * qu'une ligne de code ne les applique.
+ * Il ne lit ni n'écrit rien. Aucun état, aucun magasin. Ici il n'y a que des
+ * mots et des listes de ce qui pourra être coché — de quoi relire et
+ * contester avant qu'une ligne de code ne les applique.
+ *
+ * ## CE QUI N'EXISTE PAS, AU 16 OCTOBRE 2026 — anomalie A-13
+ *
+ * Ce bloc est daté et factuel, et il est ici parce qu'un texte de
+ * consentement qui promet plus que le code ne tient est pire qu'un texte
+ * absent : il rassure à tort.
+ *
+ * **Ce qui existe désormais** : l'interrupteur maître. Sans accord,
+ * `observerUsage()` ne lit aucun fait et rend son silence — la garde est
+ * dans la fonction qui lit, et `essais:consentement-porte` vérifie
+ * qu'aucun autre chemin n'observe. La révocation l'emporte sur l'accord
+ * d'un appareil resté hors ligne (`consentement-etat.ts`).
+ *
+ * **Ce qui n'existe pas** :
+ *
+ * - **les interrupteurs par domaine et par source** que
+ *   `DOMAINES_DU_CONSENTEMENT` et `SOURCES_DU_CONSENTEMENT` énumèrent.
+ *   Huit domaines et quatre sources y sont listés ; **un seul domaine est
+ *   effectivement observé** — les Révisions, par `publierFaitsRevisions`.
+ *   L'interrupteur maître le couvre donc entièrement. La promesse
+ *   granulaire est tenue par l'absence de ce qu'elle gouvernerait, et non
+ *   par un interrupteur fantôme. `essais:consentement-porte` échoue si
+ *   l'observation vient un jour à lire une autre branche ;
+ * - **le journal d'accès** que `commentArreter` annonce (« Un journal vous
+ *   montre ce qui a été lu, et quand »). Il n'y en a pas ;
+ * - **le choix d'effacer ou de conserver les observations** à la
+ *   révocation. Il est sans objet aujourd'hui : l'observation est
+ *   **calculée à chaque lecture, jamais stockée**. Seules les décisions
+ *   prises sur les propositions sont journalisées, et ce sont des réponses
+ *   de la personne, non des observations sur elle ;
+ * - **le rappel périodique** que `RAPPEL` décrit. Les constantes existent,
+ *   rien ne les lit.
+ *
+ * Tant que ces quatre lignes sont vraies, elles restent ici. Les effacer
+ * sans construire ce qu'elles nomment serait la faute que tout ce bloc
+ * existe pour empêcher.
  */
 
 /** Les trois paragraphes, lisibles en une minute. L'ordre compte. */
