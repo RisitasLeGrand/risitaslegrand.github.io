@@ -212,6 +212,24 @@ export async function purgerLaSource(source: string): Promise<number> {
 }
 
 /**
+ * Retire un élément parce que **sa source est résolue**.
+ *
+ * C'est l'autre moitié du § 1 n° 8, et la seule porte de sortie d'une
+ * question à trancher. `archiver` la refuse — on ne fait pas taire une
+ * question en la regardant ; la rétention la refuse aussi, quel que soit
+ * son âge. Il fallait donc un geste qui dise la bonne raison : le conflit
+ * n'existe plus, l'élément non plus.
+ *
+ * N'exige pas le coffre et ne déchiffre rien : supprimer par clé ne
+ * demande pas de lire. Un recenseur peut donc nettoyer ce qu'il a déposé
+ * sans ouvrir, et `recenser` refuse de son côté pour une autre raison —
+ * il doit *écrire*, donc sceller.
+ */
+export async function oublier(id: string): Promise<void> {
+  await (await db()).delete(MAGASIN, id);
+}
+
+/**
  * Applique la rétention : archive à 30 jours, supprime à 180 (décision 7).
  *
  * Jamais sur une question ouverte — `sortDeLaRetention` le garantit, et
