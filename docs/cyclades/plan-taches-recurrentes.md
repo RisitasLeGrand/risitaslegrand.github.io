@@ -901,7 +901,7 @@ exécution. **[lu]** = établi par lecture du code.
 | **V2** — ce qui est déjà servi n'est pas redemandé | **[vu] tenu**, et étendu aux occurrences en phase 6. |
 | **V3** — la revue manquée est rappelée le lendemain | **[lu] tenu.** `rappelDesRevues`, règle `revue-manquee`. |
 | **V4** — la revue sur l'accueil quand elle est due | **[lu] tenu.** `#revue-due` sur `index.astro`. |
-| **V4 / décision 2** — **pastille sur l'onglet Odyssée** | **[lu] MANQUE.** La seule pastille de la barre est `pastille-sync`. La recommandation de la décision 2 était « en tête de l'accueil **plus un badge sur l'onglet Odyssée** » ; la première moitié est faite, la seconde non. |
+| **V4 / décision 2** — **pastille sur l'onglet Odyssée** | **[vu] tenu — livré le 16 octobre 2026.** `#pastille-revue`, dans le lien de la branche Odyssée et sur elle seule. Un point, pas un nombre : il n'y a qu'une revue par jour, et un compteur qui ne compte qu'à un n'apprend rien ; le libellé accessible dit la chose en toutes lettres. Le verdict vient de `revueASignaler`, qui **reprend** les deux règles de l'accueil — fenêtre de la revue due, rappel des manquées — au lieu d'en écrire de secondes. Éprouvé dans les deux états par `essais:pastille:navigateur`, et les deux sabotages accusent. |
 
 ### Ce que je retiens de ce relevé
 

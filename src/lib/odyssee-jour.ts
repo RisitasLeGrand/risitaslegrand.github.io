@@ -38,6 +38,7 @@ import {
   JOURS_DE_LA_ROUE,
   couverture,
   derniersJours,
+  fenetreDeLaRevue,
   plancherDuJour,
   planTenu,
   queFaireMaintenant,
@@ -154,6 +155,51 @@ async function revuesEnAttente(
   const tenues = (await toutesLesRevues()).filter((r) => r.type === 'soir').map((r) => r.jour);
   const manques = revuesManquees(tenues, moment, maintenant);
   return { manques, rappel: rappelDeRevue(manques) };
+}
+
+/**
+ * La revue est-elle à signaler, maintenant ? — reliquat V4 / décision 2.
+ *
+ * La pastille de l'onglet Odyssée a besoin d'un oui ou non, sur **chaque
+ * page**. `etatDuJour()` répond à la question, mais il lit tous les faits,
+ * toutes les tâches, toutes les quêtes et sept jours d'occurrences : le
+ * payer dans l'en-tête de chaque écran serait acheter un point coloré au
+ * prix d'un tableau de bord.
+ *
+ * Alors on reprend **les mêmes règles** — `fenetreDeLaRevue` pour la revue
+ * due, `revuesManquees` pour le rappel — avec les seules trois lectures
+ * dont elles dépendent : le moment choisi, les revues tenues, les heures
+ * déclarées. Ce n'est pas un second calcul de la même chose : c'est le
+ * même, nourri de moins. Si la règle change, les deux changent ensemble,
+ * et c'est exactement ce que l'accueil se gardait de perdre.
+ *
+ * Rend `false` sur échec : un point qui s'allume parce qu'une lecture a
+ * raté appelle à un écran où il n'y a rien.
+ */
+export async function revueASignaler(maintenant = new Date()): Promise<boolean> {
+  try {
+    const reglages = await reglagesJourLogiqueLocaux();
+    const aujourdhui = jourLogique(maintenant, reglages);
+    const [moment, faite, lever, coucher] = await Promise.all([
+      momentDeLaRevue(),
+      revueDu('soir', aujourdhui),
+      heureDeclaree('lever'),
+      heureDeclaree('coucher'),
+    ]);
+    if (!faite) {
+      const fenetre = fenetreDeLaRevue(moment, lever, coucher);
+      const minutes = maintenant.getHours() * 60 + maintenant.getMinutes();
+      if (fenetre && minutes >= fenetre.de && minutes < fenetre.a) return true;
+    }
+    /*
+       Et les manquées, qui valent rappel même hors de la fenêtre du jour :
+       c'est la seconde des deux règles que l'accueil retient, et en omettre
+       une ferait de la pastille un sous-ensemble silencieux du bandeau.
+    */
+    return (await revuesEnAttente(moment, maintenant)).manques.length > 0;
+  } catch {
+    return false;
+  }
 }
 
 /** Tout ce que le tableau de bord affiche, lu à un seul instant. */

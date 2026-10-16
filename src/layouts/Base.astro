@@ -415,6 +415,31 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
                     <span class="sr-only">
                       {b.id === brancheCourante.id ? `${b.libelle} — branche courante` : `Aller dans ${b.libelle}`}
                     </span>
+                    {/*
+                       La pastille de la revue — V4 / décision 2 du 36. Le
+                       bandeau de l'accueil disait déjà « la revue vous
+                       attend » ; il fallait encore qu'on le voie depuis une
+                       page de Révisions, où l'accueil n'est pas sous les yeux.
+
+                       Un POINT, pas un nombre. Il n'y a qu'une revue par jour :
+                       un compteur dirait « 1 » tous les soirs, et un compteur
+                       qui ne compte qu'à un n'apprend rien. Le libellé
+                       accessible, lui, dit la chose en toutes lettres — la
+                       même règle que le témoin de synchronisation, deux
+                       éléments plus loin.
+
+                       Sur Odyssée seulement : la revue est à elle, et une
+                       pastille sur chaque branche serait une décoration.
+                    */}
+                    {b.id === 'odyssee' && (
+                      <span id="pastille-revue" class="hidden" role="status" aria-live="polite">
+                        <span
+                          aria-hidden="true"
+                          class="block h-2 w-2 rounded-full bg-indigo-500"
+                        ></span>
+                        <span class="sr-only">La revue vous attend.</span>
+                      </span>
+                    )}
                   </a>
                 ))}
               </div>
@@ -937,6 +962,29 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
         texte.textContent = MOTS[etat] ?? '';
         temoin.title = MOTS[etat] ?? '';
       }
+
+      /*
+         La pastille de la revue, sur l'onglet Odyssée.
+
+         Après le déverrouillage, parce que les revues tenues vivent dans la
+         base chiffrée : avant, on ne sait pas, et un point qui s'allume
+         faute de savoir vaut moins que pas de point du tout.
+
+         `revueASignaler` reprend les deux règles de l'accueil — la fenêtre
+         de la revue due, le rappel des manquées. Elle les reprend plutôt
+         que de les refaire : deux calculs de la même chose finissent par se
+         contredire, et c'est la barre qui aurait tort.
+      */
+      quandDeverrouille(async () => {
+        const pastille = document.getElementById('pastille-revue');
+        if (!pastille) return;
+        try {
+          const { revueASignaler } = await import('../lib/odyssee-jour');
+          if (await revueASignaler()) pastille.classList.replace('hidden', 'inline-flex');
+        } catch {
+          /* La barre ne tombe pas parce qu'un point n'a pas pu se peindre. */
+        }
+      });
 
       /*
          Le cache hors ligne (D-025, point 1).

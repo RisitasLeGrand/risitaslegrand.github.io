@@ -211,6 +211,7 @@
     "essais:consentement-ecran": "node scripts/essais-consentement-ecran.mjs",
     "essais:semis": "node scripts/essais-semis.mjs",
     "essais:champs-orphelins": "node scripts/essais-champs-orphelins.mjs",
+    "essais:pastille:navigateur": "node scripts/essais-pastille-revue.mjs",
     "essais:molecule:navigateur": "node scripts/essais-molecule-navigateur.mjs",
     "essais:centre-alimentation": "tsx scripts/essais-centre-alimentation.mts",
     "essais:centre-donnees": "tsx scripts/essais-centre-donnees.mts",
