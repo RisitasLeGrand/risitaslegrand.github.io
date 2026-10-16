@@ -64,6 +64,26 @@ import {
 
   <div id="chargement" class="py-16 text-center text-slate-400">Lecture de la fiche…</div>
 
+  <!--
+    L'index du catalogue, quand l'adresse ne nomme aucune molécule (M10).
+
+    Sans lui, cette page n'était atteignable **que** depuis un traitement
+    déclaré — donc pas du tout sur un appareil qui n'en porte aucun, et pas
+    davantage pour le contrôle de la carte des écrans. Une page dont la seule
+    porte dépend des données de la personne est orpheline la moitié du temps.
+
+    Les noms du catalogue sont ceux d'une référence publique — un RCP, le
+    Thésaurus de l'ANSM — et non des données d'Alexis. Ce qui est à lui, c'est
+    le **lien** entre une molécule et lui, et celui-là passe par
+    « ?traitement=<identifiant> », jamais par un nom dans une adresse.
+  -->
+  <section id="index-molecules" class="hidden mt-5">
+    <p class="text-sm text-slate-600 dark:text-slate-300">
+      Les fiches documentées. Chacune cite sa source et sa date de lecture.
+    </p>
+    <ul id="liste-catalogue" class="mt-3 space-y-1"></ul>
+  </section>
+
   <div id="fiche" class="hidden mt-5 space-y-6">
     <!-- Le bandeau de la molécule sans fiche (décision 13). -->
     <section
@@ -304,6 +324,33 @@ import {
     const traitementId = parametreUrl('traitement') ?? '';
     const traitements = await tousLesTraitements();
     const traitement = traitements.find((t) => t.id === traitementId) ?? null;
+
+    /*
+       Aucune molécule nommée : on montre l'index du catalogue plutôt qu'une
+       fiche vide intitulée « Molécule », qui ne disait rien et ne menait
+       nulle part.
+    */
+    if (!traitement && !parametreUrl('nom')) {
+      $('chargement').classList.add('hidden');
+      $('fiche').classList.add('hidden');
+      $('index-molecules').classList.remove('hidden');
+      const liste = $('liste-catalogue');
+      liste.replaceChildren();
+      for (const f of CATALOGUE) {
+        const li = document.createElement('li');
+        const a = document.createElement('a');
+        a.href = lien(`/odyssee/molecule/?nom=${encodeURIComponent(f.nom)}`);
+        a.className =
+          'cible-tactile w-full rounded-lg border border-slate-200 px-3 text-sm ' +
+          'text-indigo-700 underline dark:border-slate-800 dark:text-indigo-300';
+        a.textContent = f.nom;
+        li.appendChild(a);
+        liste.appendChild(li);
+      }
+      return;
+    }
+    $('index-molecules').classList.add('hidden');
+
     const nom = traitement?.nom ?? parametreUrl('nom') ?? 'Molécule';
 
     $('titre-molecule').textContent = nom;
@@ -311,10 +358,11 @@ import {
     $('nom-a-copier').textContent = nom;
 
     /*
-       Le catalogue est vide : toute molécule est donc « sans fiche », et le
-       bandeau s'affiche. Le code n'en fait pas l'hypothèse pour autant — il
-       cherche, et c'est la recherche qui échoue. Le jour où une fiche
-       existera, rien ici ne changera.
+       Le catalogue portait zéro fiche quand cette page a été écrite, et cinq
+       depuis le 16 octobre. Rien n'a changé ici, et c'était le but : le code
+       cherche, et le bandeau s'affiche quand la recherche échoue. Une
+       molécule déclarée hors catalogue reste donc « sans fiche », ce qui est
+       exact et le restera.
     */
     const fiche = CATALOGUE.find((f) => f.nom.toLowerCase() === nom.toLowerCase()) ?? null;
     $('bandeau-sans-fiche').classList.toggle('hidden', Boolean(fiche));
