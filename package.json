@@ -207,7 +207,8 @@
     "captures:39": "node scripts/captures-prompt-39.mjs",
     "essais:branche-vers-tache": "node scripts/essais-branche-vers-tache.mjs",
     "essais:consentement-etat": "tsx scripts/essais-consentement-etat.mts",
-    "essais:consentement-porte": "tsx scripts/essais-consentement-porte.mts"
+    "essais:consentement-porte": "tsx scripts/essais-consentement-porte.mts",
+    "essais:consentement-ecran": "node scripts/essais-consentement-ecran.mjs"
   },
   "repository": {
     "type": "git",

@@ -65,13 +65,6 @@ const EXCEPTIONS = [
     depuis: '2026-10-15',
     pourquoi: 'Anomalie A-12, trouvée par ce script même. Intégrée au prompt 39.',
   },
-  {
-    chemin: 'src/lib/odyssee/consentement.ts',
-    depuis: '2026-10-15',
-    pourquoi:
-      'Anomalie A-13, trouvée par ce script même. Aucun écran ne demande ce ' +
-      'consentement aujourd’hui. Intégrée au prompt 39.',
-  },
 ];
 
 const tous = (dir, out = []) => {

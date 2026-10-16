@@ -356,7 +356,17 @@ export type Silence =
   /** Les écarts connus ont tous été reportés, et reviendront. */
   | { pourquoi: 'ajourne'; joursRestants: number }
   /** Les écarts connus portent tous sur des questions refusées. */
-  | { pourquoi: 'tout-refuse' };
+  | { pourquoi: 'tout-refuse' }
+  /**
+   * L'apprentissage étendu n'a pas été autorisé — anomalie A-13.
+   *
+   * Distinct de `aucun-ecart`, et la distinction est tout le sujet : sans
+   * consentement, rien n'est observé, donc aucun écart ne PEUT être
+   * trouvé. Dire « aucun écart » serait rendre l'absence de permission
+   * sous les traits d'un constat, et c'est exactement le mensonge que
+   * cette anomalie a produit pendant quatre jours.
+   */
+  | { pourquoi: 'sans-consentement' };
 
 export interface Choix {
   proposition: Proposition | null;

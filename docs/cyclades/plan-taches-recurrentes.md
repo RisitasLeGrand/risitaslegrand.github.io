@@ -794,3 +794,80 @@ devinais le nom du champ de clôture d'une séance (`finLe`, `closeLe`) au
 lieu de lire le modèle, qui dit `fin` et `statut: 'terminee'`. Corrigé dans
 l'essai, pas dans le code. Troisième fois dans ce lot qu'une assertion
 accuse à tort : **une prémisse d'essai se lit, elle ne se devine pas.**
+
+---
+
+## A-13 — le consentement a sa porte, et son écran
+
+**[lu]** Le constat de départ : depuis le 12 octobre, `observerUsage()`
+observait l'usage sans qu'aucun écran ait jamais demandé l'autorisation,
+pendant que `consentement.ts` portait un texte promettant « vous n'avez
+jamais à l'autoriser ». La promesse de **confidentialité** tenait — rien
+ne quitte l'appareil. C'est la promesse de **consentement** qui ne tenait
+pas.
+
+### La porte est dans la fonction qui lit
+
+**[lu]** La garde est dans `observerUsage()`, pas chez ses appelants. Une
+garde chez les appelants laisse passer l'appelant suivant — et c'est
+exactement ainsi que cette anomalie est née, d'une fonction branchée sans
+qu'on se demande ce qu'elle lisait. Le `return` précède toute lecture :
+sans consentement, `publierFaitsRevisions` n'est même pas importé.
+
+### La révocation l'emporte
+
+**[lu]** Cyclades fusionne par journal répliqué, dernier écrivain gagne.
+Appliquée à un consentement, cette règle produit la panne qu'il ne faut
+pas : on révoque sur un appareil, un autre resté hors ligne réécrit
+l'accord plus tard, et le consentement revient tout seul.
+
+La règle retenue : **un accord ne lève une révocation que s'il la nomme.**
+Un appareil qui n'a jamais vu la révocation ne peut pas la nommer.
+**[vu]** L'écran, lui, la nomme : une réautorisation après révocation
+porte bien son `remplace`.
+
+### L'écran, et ce qu'il dit de lui-même
+
+**[vu]** Le défaut est le refus : « Jamais autorisé », et aucun bouton de
+révocation puisqu'il n'y a rien à révoquer. **[vu]** Les trois paragraphes
+sont **cités**, et la phrase qui engage y figure mot pour mot.
+
+**[vu]** L'adaptation ne déguise plus l'absence de permission : elle dit
+« rien n'est observé, donc aucun écart ne peut être trouvé », et non
+« aucun écart ». La distinction est tout le sujet — un constat et une
+permission manquante ne se ressemblent qu'à l'écran.
+
+**[vu]** Ce qui n'existe pas est écrit **à l'écran**, pas seulement en
+commentaire : les interrupteurs par domaine et par source, le journal
+d'accès, le rappel périodique. Et le fait que le choix d'effacer à la
+révocation est sans objet, les observations étant recalculées à chaque
+lecture et jamais stockées.
+
+### Les contrôles
+
+**[vu]** `essais:consentement-etat`, 18 assertions sur la règle
+d'absorption, dont le cas hors ligne **dans les deux ordres d'arrivée**.
+**[vu]** `essais:consentement-porte`, 10 assertions structurelles :
+`observer()` et `deduire()` ne sont joignables que par la porte, la garde
+précède la publication, un retour les sépare. **[vu]**
+`essais:consentement-ecran`, 20 assertions de bout en bout.
+
+Cinq sabotages rouges : « dernier écrivain gagne » rétabli (3 échecs),
+une seule révocation retenue (3), la garde déplacée après la publication
+(2), un second observateur ailleurs (1), le silence qui redevient
+« aucun écart » (1).
+
+**[vu]** `essais:orphelins` a de nouveau fait son travail : il a refusé le
+commit tant que l'exception d'A-13 restait, `consentement.ts` étant
+désormais atteint depuis un écran.
+
+### Ce qui reste de A-13
+
+- **les interrupteurs par domaine et par source** ne sont pas construits,
+  et la note datée le dit. Une seule branche est observée ; l'interrupteur
+  maître la couvre entièrement ;
+- **le journal d'accès** n'existe pas ;
+- **le rappel périodique** n'existe pas.
+
+Ces trois lignes restent dans le code et à l'écran tant qu'elles sont
+vraies.

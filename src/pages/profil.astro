@@ -113,6 +113,60 @@ import Base from '../layouts/Base.astro';
       <div id="reglages" class="space-y-2"></div>
     </section>
 
+    <!-- ── L'apprentissage étendu, et son consentement (A-13) ──────────── -->
+    <!--
+      L'ÉCRAN QUI MANQUAIT.
+
+      Le texte de `consentement.ts` existait depuis le 12 octobre et
+      promettait « vous n'avez jamais à l'autoriser ». Personne ne
+      l'autorisait, et l'observation tournait quand même. Cet écran est la
+      moitié manquante.
+
+      Les trois paragraphes sont **cités**, jamais reformulés : c'est la
+      raison d'être du module, et un résumé écrit ici deviendrait une
+      quatrième version du texte que personne n'a acceptée.
+    -->
+    <section class="mt-10">
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">
+        L’apprentissage étendu
+      </h2>
+      <p
+        id="consentement-etat"
+        class="mb-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
+      >
+        Chargement…
+      </p>
+
+      <details id="consentement-texte" class="mt-3">
+        <summary class="min-h-11 cursor-pointer text-sm text-indigo-700 underline underline-offset-4 dark:text-indigo-300">
+          Lire ce que cela veut dire, en entier
+        </summary>
+        <div id="consentement-paragraphes" class="mt-3 space-y-3 text-sm text-slate-600 dark:text-slate-300"></div>
+        <div
+          id="consentement-manques"
+          class="mt-4 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/30 dark:text-amber-100"
+        ></div>
+      </details>
+
+      <div class="mt-4 flex flex-wrap gap-2">
+        <button
+          id="consentement-accorder"
+          type="button"
+          class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+        >
+          Autoriser
+        </button>
+        <button
+          id="consentement-revoquer"
+          type="button"
+          class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+        >
+          Révoquer
+        </button>
+      </div>
+      <p id="consentement-message" class="mt-3 hidden text-sm"></p>
+    </section>
+
     <!-- ── L'adaptation (A.8) ─────────────────────────────────────────── -->
     <section class="mt-10">
       <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">L’adaptation</h2>
@@ -397,6 +451,87 @@ import Base from '../layouts/Base.astro';
     remise: 'défaite par une réinitialisation',
   };
 
+  /* ──────────────────────────────────────────────────────────────────────
+     Le consentement à l'apprentissage étendu — A-13
+     ────────────────────────────────────────────────────────────────────── */
+
+  /**
+   * Peint l'état, le texte cité, et ce qui n'existe pas.
+   *
+   * ## Le bouton « Autoriser » est refait à chaque peinture
+   *
+   * Et c'est nécessaire : `accorderLApprentissage` doit nommer la
+   * révocation qu'elle lève, et cette révocation peut venir d'un autre
+   * appareil entre deux affichages. Un gestionnaire posé une fois avec un
+   * état figé écrirait un accord qui ne lèverait rien, et la personne
+   * croirait avoir réautorisé.
+   */
+  async function peindreConsentement(): Promise<void> {
+    const { consentementLocal } = await import('../lib/consentement-apprentissage');
+    const { TEXTE_DE_CONSENTEMENT, DOMAINES_DU_CONSENTEMENT } = await import(
+      '../lib/odyssee/consentement'
+    );
+    const etat = await consentementLocal();
+
+    const quand = (iso: string) =>
+      new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
+
+    $('consentement-etat').textContent = etat.accorde
+      ? `Autorisé depuis le ${quand(etat.depuis!)}. Cyclades observe vos révisions pour vous proposer des réglages.`
+      : etat.depuis
+        ? `Révoqué le ${quand(etat.depuis)}. Rien n’est observé, et le reste de Cyclades fonctionne.`
+        : 'Jamais autorisé. Rien n’est observé, et le reste de Cyclades fonctionne.';
+
+    /* Les trois paragraphes, cités tels quels. Aucun résumé. */
+    const zone = $('consentement-paragraphes');
+    zone.innerHTML = '';
+    for (const cle of ['ceQueCycladesLit', 'ceQuiNeChangeJamais', 'commentArreter'] as const) {
+      const p = document.createElement('p');
+      p.dataset.paragraphe = cle;
+      p.textContent = TEXTE_DE_CONSENTEMENT[cle];
+      zone.appendChild(p);
+    }
+
+    /*
+       CE QUI N'EXISTE PAS, à l'écran et pas seulement dans un commentaire.
+       Le texte cité promet des interrupteurs par domaine et un journal
+       d'accès ; ni l'un ni l'autre n'est construit. Taire l'écart ici
+       reviendrait à faire accepter un texte plus large que ce qui est fait.
+    */
+    $('consentement-manques').textContent =
+      'Ce qui n’existe pas encore, au 16 octobre 2026 : les interrupteurs par domaine et ' +
+      `par source (le texte en annonce ${DOMAINES_DU_CONSENTEMENT.length} ; une seule branche, ` +
+      'les Révisions, est réellement observée, et l’autorisation ci-dessus la couvre ' +
+      'entièrement), le journal de ce qui a été lu, et le rappel périodique. ' +
+      'Le choix d’effacer les observations à la révocation est sans objet : elles sont ' +
+      'recalculées à chaque lecture et ne sont jamais stockées.';
+
+    $('consentement-accorder').classList.toggle('hidden', etat.accorde);
+    $('consentement-revoquer').classList.toggle('hidden', !etat.accorde);
+  }
+
+  async function changerLeConsentement(quoi: 'accorder' | 'revoquer'): Promise<void> {
+    const message = $('consentement-message');
+    try {
+      const module = await import('../lib/consentement-apprentissage');
+      const etat =
+        quoi === 'accorder'
+          ? await module.accorderLApprentissage()
+          : await module.revoquerLApprentissage();
+      message.textContent = etat.accorde
+        ? 'Autorisé. Vous pouvez révoquer à tout moment, sans justification.'
+        : 'Révoqué. Plus rien n’est observé.';
+      message.className = 'mt-3 text-sm text-slate-600 dark:text-slate-300';
+    } catch (erreur) {
+      message.textContent = erreur instanceof Error ? erreur.message : String(erreur);
+      message.className = 'mt-3 text-sm text-rose-700 dark:text-rose-300';
+    }
+    message.classList.remove('hidden');
+    await peindreConsentement();
+    /* L'adaptation suit : son silence change de raison. */
+    await peindreAdaptation();
+  }
+
   /** L'état de l'adaptation : l'écart connu, ou le silence et sa raison. */
   async function peindreAdaptation(): Promise<void> {
     const { decisionsLocales, propositionLocale } = await import('../lib/adaptation');
@@ -408,6 +543,8 @@ import Base from '../layouts/Base.astro';
 
     $('adaptation-etat').textContent = proposition
       ? 'Une question vous attend sur le menu.'
+      : silence?.pourquoi === 'sans-consentement'
+        ? 'L’apprentissage étendu n’est pas autorisé : rien n’est observé, donc aucun écart ne peut être trouvé.'
       : silence?.pourquoi === 'aucun-ecart'
         ? 'Rien à signaler : ce que vous avez déclaré et ce que l’usage montre se tiennent.'
         : silence?.pourquoi === 'trop-tot'
@@ -580,6 +717,23 @@ import Base from '../layouts/Base.astro';
        avant, pas après. Leur échec n'emporte pas la page.
     */
     await peindreReglages().catch((e) => console.warn('Réglages déduits indisponibles :', e));
+    /*
+       Le consentement AVANT l'adaptation : c'est lui qui décide si
+       l'adaptation a quelque chose à dire, et l'afficher après donnerait
+       un instant où l'écran annonce un silence dont il ne dit pas encore
+       la cause.
+    */
+    $('consentement-accorder').addEventListener('click', () =>
+      void changerLeConsentement('accorder'),
+    );
+    $('consentement-revoquer').addEventListener('click', () =>
+      void changerLeConsentement('revoquer'),
+    );
+    await peindreConsentement().catch((e) => {
+      console.warn('Consentement indisponible :', e);
+      $('consentement-etat').textContent =
+        'L’état du consentement n’a pas pu être lu. Rien n’est observé tant qu’il ne l’est pas.';
+    });
     await peindreAdaptation().catch((e) => {
       console.warn('Adaptation indisponible :', e);
       $('adaptation-etat').textContent = 'L’adaptation n’a pas pu être calculée sur cet appareil.';

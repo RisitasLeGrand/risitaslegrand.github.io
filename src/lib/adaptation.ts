@@ -83,7 +83,15 @@ export async function propositionLocale(): Promise<Choix> {
   const operations = await toutesLesOperations();
   const profil = lireProfil(operations);
   const lire = lectureDe(profil);
-  const { observation } = await observerUsage();
+  const { observation, silence } = await observerUsage();
+  /*
+     Sans consentement, on le DIT. Laisser `proposer` conclure « aucun
+     écart » sur une observation vide rendrait l'absence de permission
+     sous les traits d'un constat.
+  */
+  if (silence === 'sans-consentement') {
+    return { proposition: null, silence: { pourquoi: 'sans-consentement' }, ecarts: [] };
+  }
   return proposer({
     observation,
     lire,
