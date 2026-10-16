@@ -964,6 +964,38 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
       }
 
       /*
+         Le rejeu des plis à l'ouverture du coffre — A-6 option D, signée le
+         15 octobre : « un report est rejoué ou signalé, jamais perdu en
+         silence ». Le moteur existait et personne ne l'appelait.
+
+         Ici, dans la mise en page, et non dans un écran d'Odyssée : on
+         ouvre le coffre où l'on veut — au Corps, à la Psyché, aux
+         Finances —, et un rejeu qui n'aurait lieu que sur le tableau de
+         bord d'Odyssée tiendrait la promesse une fois sur cinq.
+
+         L'abonnement ne coûte rien : le module ne charge la couche de
+         données qu'au moment où le coffre s'ouvre.
+      */
+      quandDeverrouille(async () => {
+        try {
+          const { brancherLeRejeu, rejouerMaintenant } = await import(
+            '../lib/odyssee/rejeu-au-coffre'
+          );
+          brancherLeRejeu();
+          /*
+             Et une fois tout de suite : le coffre peut déjà être ouvert
+             quand la page se charge — mémorisé sur l'appareil, ou ouvert
+             sur l'écran précédent. S'abonner sans rejouer laisserait les
+             plis attendre la prochaine fermeture-réouverture.
+          */
+          const { coffreOuvert } = await import('../lib/coffre');
+          if (coffreOuvert()) await rejouerMaintenant();
+        } catch {
+          /* Un rejeu qui échoue ne doit pas emporter la barre. */
+        }
+      });
+
+      /*
          La pastille de la revue, sur l'onglet Odyssée.
 
          Après le déverrouillage, parce que les revues tenues vivent dans la

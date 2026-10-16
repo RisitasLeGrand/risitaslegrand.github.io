@@ -109,10 +109,28 @@ reliquat du prompt 38, pas du 32.
 Conséquence pratique : un pointage fait coffre fermé est bien retenu,
 mais rien ne le rejoue à l'ouverture, et rien ne dit qu'il attend.
 
-**À trancher** : l'inscrire à l'ordre des travaux, ou le laisser dormir.
+**Tranché, et je m'étais trompé en le posant.** Ce n'était pas un choix
+ouvert : A-6 option D, signée le 15 octobre, dit qu'« un report est rejoué
+ou **signalé**, jamais perdu en silence ». Une promesse signée dont
+l'appelant manque n'est pas une option, c'est une dette. **Livré le 16
+octobre** : le rejeu est branché à l'ouverture du coffre, dans la mise en
+page — on ouvre le coffre où l'on veut —, et le tableau de bord porte une
+mention neutre, coffre ouvert seulement, pour ce qui n'a pas pu être
+rejoué. Un parcours de navigateur le prouve de bout en bout.
 
-**Pas de recommandation ferme** : cela dépend de l'usage réel du pointage
-coffre fermé, et je ne l'observe pas.
+**Et il a découvert mieux — anomalie A-20, ouverte.** Le calendrier
+s'arrête un cran plus tôt : sur une occurrence illisible — branche
+scellée, coffre fermé — il affiche « État chiffré » puis rend la carte
+**avant toute action**. Il n'offre donc aucun moyen de pointer, et le
+dépôt du pli y est inatteignable. L'écran des tâches, lui, l'offre, et
+c'est par lui que le parcours passe. Autrement dit : option D était non
+tenue des **deux** côtés, et seul l'un des deux est réparé.
+
+**À trancher** : ce qu'un calendrier doit offrir sur une occurrence
+illisible. Montrer « Faite » sans montrer l'état se défend — le rejeu est
+idempotent, la clé `tâche/jour` est déterministe, pointer deux fois écrit
+la même ligne. Mais ce qu'un écran montre d'une branche scellée est une
+décision d'Alexis, pas une correction de confort, et je ne l'ai pas prise.
 
 ---
 

@@ -46,6 +46,24 @@ import Base from '../../layouts/Base.astro';
       >
       </p>
 
+      <!--
+        Les gestes en attente — A-6 option D, « rejoué ou signalé, jamais
+        perdu en silence ».
+
+        Coffre OUVERT seulement, et c'est ce qui rend la mention lisible :
+        le rejeu a eu lieu juste avant, donc ce qui reste est ce qui n'a
+        pas pu être rejoué — une boîte périmée, une tâche disparue. Coffre
+        fermé, un nombre ici dirait qu'un geste a eu lieu, et le
+        scellement des branches a précisément pour objet de le taire.
+
+        Neutre : un compte, jamais la tâche ni le jour.
+      -->
+      <p
+        id="gestes-en-attente"
+        class="hidden rounded-2xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-100"
+      >
+      </p>
+
       <!-- Que faire maintenant -->
       <section>
         <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
@@ -756,6 +774,50 @@ import Base from '../../layouts/Base.astro';
       }
     }
     $('vue').classList.remove('hidden');
+
+    /*
+       Les gestes gardés coffre fermé — A-6 option D. On DEMANDE le rejeu
+       avant de compter : la mise en page l'a déjà lancé à l'ouverture,
+       mais le verrou du module fait que ce second appel attend le même
+       travail au lieu d'en refaire un. Sans cela, on compterait les plis
+       pendant qu'ils sont rejoués, et la mention annoncerait une attente
+       qui n'existe déjà plus.
+    */
+    void (async () => {
+      const zone = $('gestes-en-attente');
+      try {
+        const { coffreOuvert } = await import('../../lib/coffre');
+        if (!coffreOuvert()) {
+          zone.classList.add('hidden');
+          return;
+        }
+        const { rejouerMaintenant } = await import('../../lib/odyssee/rejeu-au-coffre');
+        const { combienDeReports } = await import('../../lib/odyssee/donnees-occurrences');
+        const rejeu = await rejouerMaintenant();
+        const restants = await combienDeReports();
+        /*
+           Trois messages, et jamais « tout va bien » : un bandeau qui
+           félicite se lit une fois puis s'ignore. Il n'y a de texte que
+           lorsqu'il reste quelque chose à dire.
+        */
+        if (rejeu.panne) {
+          zone.textContent =
+            'Les gestes gardés hors coffre n’ont pas pu être relus. Rien n’est perdu : ' +
+            'rouvrez le coffre pour réessayer.';
+        } else if (restants > 0) {
+          zone.textContent =
+            `${restants} geste${restants > 1 ? 's' : ''} en attente n’${restants > 1 ? 'ont' : 'a'} pas pu être ` +
+            'reporté' + (restants > 1 ? 's' : '') + '. Ils sont gardés, pas effacés : ' +
+            'un mot de passe changé rend leur contenu illisible, et c’est à vous de décider de les jeter.';
+        } else {
+          zone.classList.add('hidden');
+          return;
+        }
+        zone.classList.remove('hidden');
+      } catch {
+        /* Le tableau de bord ne tombe pas parce qu'une mention n'a pas pu se peindre. */
+      }
+    })();
 
     /*
        Le centre de notifications, nourri depuis l'état déjà lu — prompt 32,
