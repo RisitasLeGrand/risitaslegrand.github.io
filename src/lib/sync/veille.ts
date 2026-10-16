@@ -56,14 +56,38 @@ export async function veiller(): Promise<Veille | null> {
            notifications, ce qui est le meilleur moyen de rater celle qui
            compte.
         */
+        /*
+           **Plus aucun nombre** — décision 5 du prompt 32.
+
+           Le texte disait « Reçu : 1 opération et 0 révision ». Sur l'écran
+           verrouillé d'un téléphone, cela apprend qu'une seule saisie a été
+           faite sur l'autre appareil ce soir-là, et une saisie unique en dit
+           déjà long sur ce qu'on y a noté (6.5 du 30). Le volume reçu reste
+           consultable sur l'écran des appareils, où le coffre est ouvert.
+
+           « Annulable pendant sept jours » reste : c'est un droit, pas une
+           donnée, et le perdre ferait croire la fusion définitive.
+        */
         await avertir({
-          titre: 'Synchronisé automatiquement',
-          corps:
-            `Reçu : ${recu.recues} opération(s) et ${recu.revisionsRecues} révision(s). ` +
-            'Annulable pendant sept jours.',
+          titre: 'Synchronisation effectuée',
+          corps: 'Annulable pendant sept jours.',
           vers: lien('/appareils/'),
           marque: `fusion-${recu.lot}`,
         });
+
+        /*
+           Et la fusion se dépose au centre, en plus de la notification du
+           système : celle-ci n'arrive que si une page est ouverte et que la
+           permission est accordée, donc elle se rate. Le centre, lui,
+           attend. Un échec de dépôt — coffre fermé — ne doit pas faire
+           échouer la fusion, qui, elle, a réussi.
+        */
+        try {
+          const { signalerUneFusion } = await import('../notifications/alimentation');
+          await signalerUneFusion(recu.lot);
+        } catch {
+          /* Coffre fermé ou magasin absent : la fusion reste faite. */
+        }
       },
     });
     return courante;

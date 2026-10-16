@@ -915,6 +915,34 @@ import Base from '../layouts/Base.astro';
 
   async function peindreConflits() {
     const { ouverts } = await conflitsALire();
+
+    /*
+       Le centre de notifications se recense **ici** (prompt 32, phase 2), et
+       pas dans le composant de l'en-tête.
+
+       C'est l'architecture choisie : les sources déposent, le centre ne va
+       rien chercher. Un centre qui lirait les conflits lui-même ferait payer
+       à chacune des quarante-quatre pages le coût du journal d'opérations,
+       pour un compteur qui, la plupart du temps, vaut zéro.
+
+       Cet écran, lui, a déjà le journal en main. Le recensement est donc
+       gratuit, et il tombe au bon moment : à l'ouverture de l'écran des
+       conflits, et après chaque réponse — c'est exactement quand un conflit
+       naît ou disparaît.
+
+       Il ne doit jamais empêcher les conflits de s'afficher : une erreur de
+       dépôt serait doublement coûteuse, puisqu'elle masquerait la question
+       qu'elle était censée signaler.
+    */
+    void (async () => {
+      try {
+        const { recenser } = await import('../lib/notifications/alimentation');
+        await recenser(ouverts);
+      } catch {
+        /* Coffre fermé, ou magasin absent : l'écran reste complet. */
+      }
+    })();
+
     if (!ouverts.length) {
       /*
          Vider **puis** masquer. Masquer sans vider laisse les anciens conflits
