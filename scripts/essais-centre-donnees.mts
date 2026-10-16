@@ -259,6 +259,33 @@ console.log('\n\x1b[1m9. Le centre n’est pas sur le menu de garde (§ 3.1)\x1b
   vrai('et l’en-tête léger n’en a pas', themes.length === 2 && pose < themes[1] && pose < themes[0]);
 }
 
+console.log('\n\x1b[1m10. L’inventaire du § 2.1 suit le code\x1b[0m');
+{
+  /*
+     Un inventaire qu'aucun contrôle ne tient devient faux à la première
+     source ajoutée, et il est alors pire qu'absent : on le lit en croyant
+     qu'il dit l'état des lieux. On n'éprouve donc pas sa prose — elle est
+     du jugement, et c'est sa valeur — mais sa COUVERTURE.
+  */
+  const inventaire = readFileSync('docs/inventaire-des-signaux.md', 'utf8');
+  const absentes = ROUTES.map((r) => r.id).filter((id) => !inventaire.includes(`\`${id}\``));
+  v('toute source du registre figure à l’inventaire', absentes, []);
+
+  /*
+     Et l'inverse : une ligne d'inventaire qui nommerait un identifiant
+     inconnu du registre désignerait une source qu'aucun filtre ne garde.
+  */
+  const connues = new Set(ROUTES.map((r) => r.id));
+  const citees = [...inventaire.matchAll(/`([a-z][a-z-]+-[a-z-]+)`/g)].map((m) => m[1]);
+  const inventees = [...new Set(citees)].filter((id) => !connues.has(id));
+  v('et l’inventaire n’invente aucune source', inventees, []);
+
+  /* Les quatre lignes que l'inventaire AJOUTE au § 2.2 sont nommées. */
+  for (const ajout of ['Témoin du coffre', 'Ressources de détresse']) {
+    vrai(`« ${ajout} » est inventorié`, inventaire.includes(ajout));
+  }
+}
+
 console.log(
   echecs === 0
     ? '\n\x1b[32mTous les essais passent.\x1b[0m\n'
