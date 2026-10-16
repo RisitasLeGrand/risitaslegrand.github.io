@@ -210,7 +210,8 @@
     "essais:consentement-porte": "tsx scripts/essais-consentement-porte.mts",
     "essais:consentement-ecran": "node scripts/essais-consentement-ecran.mjs",
     "essais:semis": "node scripts/essais-semis.mjs",
-    "essais:champs-orphelins": "node scripts/essais-champs-orphelins.mjs"
+    "essais:champs-orphelins": "node scripts/essais-champs-orphelins.mjs",
+    "essais:centre-donnees": "tsx scripts/essais-centre-donnees.mts"
   },
   "repository": {
     "type": "git",
