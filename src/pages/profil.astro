@@ -482,6 +482,20 @@ import Base from '../layouts/Base.astro';
         ? `Révoqué le ${quand(etat.depuis)}. Rien n’est observé, et le reste de Cyclades fonctionne.`
         : 'Jamais autorisé. Rien n’est observé, et le reste de Cyclades fonctionne.';
 
+    /*
+       Le centre de notifications — prompt 32, phase 4. « Jamais demandé »
+       se lit `depuis === null` : ni accord, ni révocation. Un refus est
+       une réponse, et reposer la question serait harceler.
+    */
+    void (async () => {
+      try {
+        const { signalerLApprentissage } = await import('../lib/notifications/alimentation');
+        await signalerLApprentissage(etat.depuis === null);
+      } catch {
+        /* Le centre n'est jamais une raison de casser l'écran d'origine. */
+      }
+    })();
+
     /* Les trois paragraphes, cités tels quels. Aucun résumé. */
     const zone = $('consentement-paragraphes');
     zone.innerHTML = '';
@@ -540,6 +554,21 @@ import Base from '../layouts/Base.astro';
       propositionLocale(),
       decisionsLocales(),
     ]);
+
+    /*
+       Le centre — phase 4. La RÈGLE seule, jamais la valeur proposée, et
+       seulement la proposition du jour : les écarts connus mais ajournés
+       restent sur cet écran, où leur délai est dit. Les porter au centre
+       contournerait le plafond d'une question par semaine.
+    */
+    void (async () => {
+      try {
+        const { signalerUneProposition } = await import('../lib/notifications/alimentation');
+        await signalerUneProposition(proposition?.regle ?? null);
+      } catch {
+        /* Le centre n'est jamais une raison de casser l'écran d'origine. */
+      }
+    })();
 
     $('adaptation-etat').textContent = proposition
       ? 'Une question vous attend sur le menu.'

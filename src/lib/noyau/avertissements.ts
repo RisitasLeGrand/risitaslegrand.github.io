@@ -127,3 +127,35 @@ export function controlerAvertissements(): string[] {
   }
   return problemes;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   L'avertissement vu de l'analyse entière — prompt 32, phase 4
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Une analyse conservée porte-t-elle au moins un avertissement ?
+ *
+ * Le centre de notifications a besoin d'un **oui ou non** là où l'écran a
+ * besoin d'une phrase par proposition. La question se pose donc ici, où la
+ * règle vit déjà : la poser ailleurs reviendrait à réécrire
+ * `DOMAINES_A_AVERTISSEMENT` une seconde fois, et deux listes finissent
+ * par différer — c'est précisément ce genre d'écart qui laisse passer une
+ * proposition de santé sans son garde-fou.
+ *
+ * Le document est une donnée externe, produite par une IA et jamais
+ * vérifiée : chaque champ est lu défensivement, et un document informe
+ * rend `false` plutôt que de lever. Un avertissement qu'on n'a pas su
+ * calculer ne doit pas empêcher d'afficher l'analyse.
+ */
+export function analysePorteUnAvertissement(analyse: unknown): boolean {
+  const propositions = (analyse as { propositions?: unknown })?.propositions;
+  if (!Array.isArray(propositions)) return false;
+  return propositions.some((brut) => {
+    const p = brut as Record<string, unknown>;
+    return avertissement({
+      domaine: typeof p?.domaine === 'string' ? p.domaine : '',
+      nature: typeof p?.nature === 'string' ? p.nature : '',
+      avertissementDeclare: p?.avertissement_professionnel === true,
+    }).afficher;
+  });
+}

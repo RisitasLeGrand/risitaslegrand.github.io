@@ -460,6 +460,28 @@ import Base from '../layouts/Base.astro';
 
   async function peindreConservees() {
     const analyses = await analysesConservees();
+
+    /*
+       Le centre — prompt 32, phase 4. L'identifiant de l'analyse, jamais
+       le domaine averti : « une analyse demande un avis professionnel »
+       suffit à faire ouvrir cet écran, et lequel de ses conseils le
+       demande est l'affaire de cet écran. Une analyse supprimée cesse
+       d'être attendue, donc `synchroniser` retire son élément.
+    */
+    void (async () => {
+      try {
+        const [{ analysePorteUnAvertissement }, { recenserLesAvertissements }] = await Promise.all([
+          import('../lib/noyau/avertissements'),
+          import('../lib/notifications/alimentation'),
+        ]);
+        await recenserLesAvertissements(
+          analyses.filter((a) => analysePorteUnAvertissement(a.analyse)).map((a) => a.id),
+        );
+      } catch {
+        /* Le centre n'est jamais une raison de casser l'écran d'origine. */
+      }
+    })();
+
     const zone = $('conservees');
     zone.textContent = '';
     $('aucune-analyse').classList.toggle('hidden', analyses.length > 0);

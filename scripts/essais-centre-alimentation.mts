@@ -19,16 +19,24 @@
  * renseigne moins qu'un contrôle qui accuse.
  */
 import {
+  REF_APPRENTISSAGE,
   REF_SAUVEGARDE,
   SOURCE_OCCURRENCE,
   SOURCE_REVUE,
+  SOURCE_APPRENTISSAGE,
+  SOURCE_AVERTISSEMENT,
+  SOURCE_PROPOSITION,
   SOURCE_SAUVEGARDE,
+  intentionsDApprentissage,
+  intentionsDAvertissement,
+  intentionsDeProposition,
   intentionsDeSauvegarde,
   intentionsDesOccurrences,
   intentionsDesRevues,
   type Intention,
 } from '../src/lib/notifications/alimentation';
 import { SOURCES_DECLAREES } from '../src/lib/notifications/filtre-cycle';
+import { analysePorteUnAvertissement } from '../src/lib/noyau/avertissements';
 import { ROUTES, peutNotifier } from '../src/lib/notifications/sources';
 
 let echecs = 0;
@@ -147,6 +155,102 @@ console.log('\n\x1b[1m4. LES OCCURRENCES : LE JOUR PRÉVU, JAMAIS LE TITRE\x1b[0
     new Set(intentionsDesOccurrences([deplacee, { ...deplacee }]).map((i) => i.refSource)).size,
     1,
   );
+}
+
+
+console.log('\x1b[1m\n5. LES TROIS SOURCES DU PROFIL ET DES ANALYSES — PHASE 4\x1b[0m');
+{
+  const trois = [SOURCE_PROPOSITION, SOURCE_AVERTISSEMENT, SOURCE_APPRENTISSAGE];
+  v(
+    'chacune est déclarée et routée',
+    trois.filter(
+      (id) => !SOURCES_DECLAREES.some((s) => s.id === id) || !ROUTES.some((r) => r.id === id),
+    ),
+    [],
+  );
+  /*
+     Et celle-ci est MUETTE, contrairement aux trois de la phase 3 : le
+     prompt 25 interdit la notification du système pour l'apprentissage
+     étendu. On l'exige ici, où l'on branche la source, plutôt que de
+     s'en remettre au registre — c'est l'anomalie A-17 qui a appris que
+     les interdictions non éprouvées se perdent.
+  */
+  v('et l’apprentissage étendu reste muet', peutNotifier(SOURCE_APPRENTISSAGE), false);
+  v('la proposition, elle, a le droit d’interrompre', peutNotifier(SOURCE_PROPOSITION), true);
+}
+
+console.log('\x1b[1m\n6. LA PROPOSITION : LA RÈGLE, JAMAIS LA VALEUR\x1b[0m');
+{
+  v('aucune proposition aujourd’hui, aucune intention', intentionsDeProposition(null), []);
+  const une = intentionsDeProposition('coucher-observe');
+  v('la référence est l’identifiant de la règle', une[0].refSource, 'coucher-observe');
+  v('pas de regroupement — il n’y en a jamais deux', une[0].regroupement, null);
+  v('aucun champ de plus', champsDe(une), [CHAMPS]);
+}
+
+console.log('\x1b[1m\n7. L’AVERTISSEMENT : L’ANALYSE, JAMAIS LE DOMAINE\x1b[0m');
+{
+  /*
+     Le prédicat d'abord, parce que c'est lui qui décide. Deux chemins
+     mènent à l'avertissement — la règle locale et le champ de l'IA — et
+     on éprouve les deux séparément : celui de l'IA seul passerait
+     inaperçu si on ne testait qu'un domaine sensible.
+  */
+  v(
+    'un domaine sensible suffit',
+    analysePorteUnAvertissement({ propositions: [{ domaine: 'psyche', nature: 'habitude' }] }),
+    true,
+  );
+  v(
+    'le champ de l’IA seul suffit aussi',
+    analysePorteUnAvertissement({
+      propositions: [{ domaine: 'revisions', nature: 'habitude', avertissement_professionnel: true }],
+    }),
+    true,
+  );
+  v(
+    'une analyse anodine n’avertit pas',
+    analysePorteUnAvertissement({ propositions: [{ domaine: 'revisions', nature: 'habitude' }] }),
+    false,
+  );
+  /*
+     Le document vient d'une IA et n'est jamais vérifié : informe, il doit
+     rendre `false` et non lever. Une exception ici empêcherait l'écran
+     d'afficher l'analyse entière.
+  */
+  for (const informe of [null, undefined, {}, { propositions: 'oui' }, { propositions: [null, 3] }]) {
+    v(`un document informe ne lève pas (${JSON.stringify(informe) ?? 'undefined'})`, analysePorteUnAvertissement(informe), false);
+  }
+
+  v('aucune analyse avertie, aucune intention', intentionsDAvertissement([]), []);
+  const deux = intentionsDAvertissement(['analyse-1', 'analyse-2']);
+  v('une intention par analyse', deux.map((i) => i.refSource), ['analyse-1', 'analyse-2']);
+  v('toutes regroupées', [...new Set(deux.map((i) => i.regroupement))], [SOURCE_AVERTISSEMENT]);
+  /*
+     Le domaine averti est ce que l'inventaire note comme sensible pour
+     cette source. On le cherche dans la sérialisation entière, et pas
+     seulement dans la référence.
+  */
+  vrai(
+    'aucun domaine n’apparaît',
+    !/corps|psyche|finances/.test(JSON.stringify(deux)),
+  );
+  v('aucun champ de plus', champsDe(deux), [CHAMPS, CHAMPS]);
+}
+
+console.log('\x1b[1m\n8. L’APPRENTISSAGE : TANT QUE LA QUESTION N’A PAS ÉTÉ POSÉE\x1b[0m');
+{
+  const une = intentionsDApprentissage(true);
+  v('jamais demandé : une intention', une.length, 1);
+  v('sa référence est constante', une[0].refSource, REF_APPRENTISSAGE);
+  /*
+     La règle qui compte : une réponse — accord OU refus — ferme la
+     question. L'appelant passe `depuis === null`, et non « non
+     accordé » ; ici on éprouve que `false` ne dépose rien, ce qui est la
+     moitié vérifiable sans la base.
+  */
+  v('une réponse donnée : plus rien', intentionsDApprentissage(false), []);
+  v('aucun champ de plus', champsDe(une), [CHAMPS]);
 }
 
 console.log(

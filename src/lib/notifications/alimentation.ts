@@ -1,7 +1,7 @@
 /**
  * Ce qui alimente le centre — prompt 32, phase 2.
  *
- * ## Cinq sources, et pas douze
+ * ## Huit sources, et pas douze d'un coup
  *
  * Le plan de la phase 2 le dit : « branchés **d'abord** sur les avis de
  * fusion et les questions à trancher, puis sur les autres sources une par
@@ -14,7 +14,12 @@
  * producteur **pur** et un signal **sans contenu**. Rien à déchiffrer pour
  * décider, rien à taire une fois décidé.
  *
- * Les sept autres sont **nommées dans `sources.ts`** et absentes ici : un
+ * La phase 4 en ajoute trois de plus — proposition, avertissement avant
+ * analyse, apprentissage étendu —, qui ne touchent aucun magasin scellé
+ * pour décider et dont la référence est un identifiant de mécanisme :
+ * une règle, une analyse, un état. Jamais une valeur.
+ *
+ * Les quatre autres sont **nommées dans `sources.ts`** et absentes ici : un
  * registre de routage complet et une alimentation partielle, c'est ce qui
  * permet de dire exactement ce qui est branché, et de le vérifier.
  *
@@ -302,3 +307,91 @@ export const recenserLesRevues = (joursManques: readonly string[]): Promise<Rece
 export const recenserLesOccurrences = (
   enRetard: readonly { tacheId: string; jourPrevu: string }[],
 ): Promise<Recensement> => synchroniser(SOURCE_OCCURRENCE, intentionsDesOccurrences(enRetard));
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Phase 4 — les trois sources du profil et des analyses.
+
+   Elles ne touchent aucun magasin scellé pour décider : le journal
+   d'opérations et les analyses conservées suffisent. Ce qu'elles ont en
+   commun, et qui justifie de les prendre ensemble, est la nature de leur
+   référence : un identifiant de RÈGLE, un identifiant d'ANALYSE, un état
+   unique. Aucune valeur, aucun domaine, aucun chiffre.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** La source des propositions d'adaptation. */
+export const SOURCE_PROPOSITION = 'proposition';
+/** La source de l'avertissement qui précède une analyse importée. */
+export const SOURCE_AVERTISSEMENT = 'avertissement-avant-analyse';
+/** La source de la demande de consentement à l'apprentissage étendu. */
+export const SOURCE_APPRENTISSAGE = 'apprentissage-etendu';
+
+/** La référence unique de la demande de consentement. */
+export const REF_APPRENTISSAGE = 'jamais-demande';
+
+/**
+ * La proposition du jour, s'il y en a une.
+ *
+ * La référence est **l'identifiant de la règle**, jamais la valeur
+ * proposée. Une règle est un mécanisme ; « coucher à 23 h 15 » est une
+ * donnée de vie, et le § 2.3 n'en veut pas dans un élément. L'écran du
+ * profil, lui, recalcule la proposition entière et l'affiche.
+ *
+ * Pas de regroupement : le plafond du § 1 n° 6 est d'**une par semaine**,
+ * toutes catégories. Regrouper ce qui ne peut pas être deux ne ferait
+ * qu'ajouter un titre de groupe à une liste d'un élément. Les écarts
+ * connus mais non proposés n'entrent pas non plus : le centre dirait
+ * « il y a quelque chose » d'une chose que le profil a décidé de taire
+ * aujourd'hui, ce qui contournerait le plafond au lieu de le servir.
+ */
+export const intentionsDeProposition = (regle: string | null): Intention[] =>
+  regle ? [{ refSource: regle, genre: 'a-savoir', regroupement: null }] : [];
+
+/**
+ * Une intention par analyse conservée qui porte un avertissement.
+ *
+ * La référence est l'identifiant de l'analyse : il mène à l'écran qui la
+ * montre, et il ne dit pas **quel** domaine est averti — le domaine est
+ * justement ce que l'inventaire note comme sensible pour cette source.
+ * « Une analyse demande un avis professionnel » suffit à faire ouvrir
+ * l'écran ; lequel de ses conseils le demande est l'affaire de l'écran.
+ *
+ * Regroupées : importer deux analyses en un jour est banal, et deux
+ * lignes identiques de plus dans le panneau le seraient moins.
+ */
+export const intentionsDAvertissement = (idsDAnalyse: readonly string[]): Intention[] =>
+  idsDAnalyse.map((id) => ({
+    refSource: id,
+    genre: 'a-savoir' as const,
+    regroupement: SOURCE_AVERTISSEMENT,
+  }));
+
+/**
+ * La demande de consentement, tant qu'elle n'a jamais été posée.
+ *
+ * `jamaisDemande` vaut « rien n'a été dit » — ni accord, ni révocation.
+ * Un refus est une réponse : il ferme la question, et la reposer serait
+ * harceler. C'est pour cela que la condition n'est pas « non accordé ».
+ *
+ * La source est **muette** au système (le 25), et `sources.ts` le garde
+ * par `peutNotifier: false` ; rien n'est à redire ici, et surtout rien
+ * n'est à redire DEUX fois — une interdiction écrite à deux endroits
+ * finit par n'être vraie qu'à un seul.
+ */
+export const intentionsDApprentissage = (jamaisDemande: boolean): Intention[] =>
+  jamaisDemande
+    ? [{ refSource: REF_APPRENTISSAGE, genre: 'a-savoir', regroupement: null }]
+    : [];
+
+/** Met le centre d'accord avec la proposition du jour. */
+export const signalerUneProposition = (regle: string | null): Promise<Recensement> =>
+  synchroniser(SOURCE_PROPOSITION, intentionsDeProposition(regle));
+
+/** Met le centre d'accord avec les analyses conservées qui avertissent. */
+export const recenserLesAvertissements = (
+  idsDAnalyse: readonly string[],
+): Promise<Recensement> =>
+  synchroniser(SOURCE_AVERTISSEMENT, intentionsDAvertissement(idsDAnalyse));
+
+/** Dépose ou retire la demande de consentement à l'apprentissage étendu. */
+export const signalerLApprentissage = (jamaisDemande: boolean): Promise<Recensement> =>
+  synchroniser(SOURCE_APPRENTISSAGE, intentionsDApprentissage(jamaisDemande));
