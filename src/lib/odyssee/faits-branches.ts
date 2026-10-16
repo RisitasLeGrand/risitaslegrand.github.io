@@ -35,7 +35,28 @@ import { publierFaitsOdyssee } from './faits-odyssee';
 import { publierFaitsCorps } from './faits-corps';
 
 /** Les branches publiables, dans l'ordre où elles sont assemblées. */
-export type SourceDeFaits = 'revisions' | 'odyssee' | 'corps' | 'sport' | 'psyche' | 'finances';
+export type SourceDeFaits =
+  | 'revisions'
+  | 'odyssee'
+  | 'corps'
+  | 'sport'
+  | 'psyche'
+  | 'finances'
+  /**
+   * Traitements et statut hormonal — amendement signé le 16 octobre 2026.
+   *
+   * **Une source à part, et pas un morceau de `corps`.** L'export nomme
+   * ses sources une par une, et `corps` y figure toujours ; les ranger
+   * là-dedans les aurait fait sortir d'office, et seul le tamis de type
+   * les aurait retenus. Une source distincte, que l'export ne nomme
+   * jamais, met une seconde barrière devant la première.
+   *
+   * Les deux sont éprouvées **séparément** : le tamis dans
+   * `essais:jamais-partage`, la séparation ici. Deux barrières l'une
+   * derrière l'autre ne se testent pas en frappant sur la première — ce
+   * prompt l'a appris trois fois.
+   */
+  | 'sensible';
 
 export const SOURCES: readonly SourceDeFaits[] = [
   'revisions',
@@ -44,6 +65,7 @@ export const SOURCES: readonly SourceDeFaits[] = [
   'sport',
   'psyche',
   'finances',
+  'sensible',
 ];
 
 export interface OptionsToutesBranches extends OptionsPublication {
@@ -73,6 +95,19 @@ export async function publierTousLesFaits(
   }
   if (sources.includes('psyche')) travaux.push(publierPsycheOuLeDire(reste));
   if (sources.includes('finances')) travaux.push(publierFinancesOuLeDire(reste));
+  /*
+     Les traitements et le statut hormonal. `publierFaitsSensibles` rend
+     une publication vide et un manque nommé quand le coffre est fermé,
+     donc il n'y a rien à rattraper ici — contrairement à Psyché et
+     Finances, dont la lecture lève.
+  */
+  if (sources.includes('sensible')) {
+    travaux.push(
+      import('./faits-sensible').then(({ publierFaitsSensibles }) =>
+        publierFaitsSensibles(reste),
+      ),
+    );
+  }
 
   return fusionner(await Promise.all(travaux));
 }

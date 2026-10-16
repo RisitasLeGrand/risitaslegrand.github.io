@@ -28,6 +28,7 @@ import { operation, SANS_LOT } from './noyau/operations';
 import { ulid } from './noyau/ulid';
 import { prochaineHlc } from './sync/horloge-locale';
 import { compactagesDeclares, perimetre } from './sync/compaction';
+import { retirerCeQuiNeSortPas } from './noyau/jamais-partage';
 import { jourLogique } from './noyau/jour-logique';
 import {
   CATEGORIES,
@@ -223,7 +224,25 @@ export async function construireExport(options: OptionsExport = {}): Promise<Exp
     ...(categories.includes('finances') ? ['finances'] : []),
   ];
 
-  const fenetre = await rassembler(p, { maintenant, reglages, sources });
+  /*
+     LA SECONDE BARRIÈRE, ET ELLE N'EST PAS REDONDANTE.
+
+     La liste `sources` ci-dessus ne nomme pas « sensible », donc les
+     traitements et le statut hormonal ne devraient pas arriver jusqu'ici.
+     Le tamis de type les retire quand même, et pour une raison précise :
+     la liste est une énumération que quelqu'un étendra un jour — en
+     ajoutant une branche, en passant `sources` depuis un appelant, en
+     réécrivant ce filtre. Le tamis, lui, ne dépend d'aucune énumération :
+     il nomme les deux types que l'amendement signé interdit de faire
+     sortir, et il tient quoi qu'on fasse au-dessus.
+
+     Les deux barrières sont éprouvées **séparément** — le tamis dans
+     `essais:jamais-partage`, la séparation des sources dans
+     `essais:faits-branches-sensible`. Les tester l'une à travers l'autre
+     ne prouverait que la première ; ce prompt l'a appris trois fois.
+  */
+  const brute = await rassembler(p, { maintenant, reglages, sources });
+  const fenetre = { ...brute, faits: retirerCeQuiNeSortPas(brute.faits) };
   const vue = synthese(p, fenetre, portee);
   const avantPeriode = precedente(p);
   const avant = synthese(
