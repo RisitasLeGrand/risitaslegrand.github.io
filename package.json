@@ -212,7 +212,8 @@
     "essais:semis": "node scripts/essais-semis.mjs",
     "essais:champs-orphelins": "node scripts/essais-champs-orphelins.mjs",
     "essais:centre-donnees": "tsx scripts/essais-centre-donnees.mts",
-    "essais:centre:navigateur": "node scripts/essais-centre-navigateur.mjs"
+    "essais:centre:navigateur": "node scripts/essais-centre-navigateur.mjs",
+    "essais:emission": "tsx scripts/essais-emission.mts"
   },
   "repository": {
     "type": "git",

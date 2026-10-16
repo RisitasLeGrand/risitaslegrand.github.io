@@ -1,0 +1,316 @@
+/**
+ * Les notifications du système : ce qui les retient — prompt 32, phase 3.
+ *
+ *   npm run essais:emission
+ *
+ * Contrôle **par exécution**, et non par lecture de source : le module
+ * ne tient qu'à trois objets du navigateur — `localStorage`, `Notification`
+ * et `navigator.locks` —, qui se doublent. La leçon de la phase 1 est
+ * appliquée d'emblée : une sonde textuelle dit qu'un garde-fou est cité,
+ * jamais qu'il agit, et ici c'est l'agir qui compte, parce qu'un défaut se
+ * voit sur l'écran verrouillé d'un téléphone.
+ *
+ * Six refus à éprouver, et chacun protège d'une chose différente :
+ * la source non activée (§ 3.4, désactivées par défaut), le cycle
+ * (§ 1 n° 3), la permission absente, le plafond du jour (§ 3.3), un autre
+ * onglet (§ 3.5), et l'absence de verrou. Plus le libellé lui-même, qui
+ * est la seule chose que l'écran verrouillé montre.
+ */
+
+/* ── Les doublures, posées avant d'importer le module ───────────────── */
+
+let magasin = new Map<string, string>();
+const localStorageDouble = {
+  getItem: (c: string) => magasin.get(c) ?? null,
+  setItem: (c: string, v: string) => void magasin.set(c, v),
+  removeItem: (c: string) => void magasin.delete(c),
+  clear: () => magasin.clear(),
+  key: () => null,
+  length: 0,
+};
+
+let permission: NotificationPermission = 'default';
+let demandes = 0;
+const affichees: { titre: string; options: NotificationOptions }[] = [];
+
+class NotificationDouble {
+  static get permission() {
+    return permission;
+  }
+  static async requestPermission(): Promise<NotificationPermission> {
+    demandes += 1;
+    return permission;
+  }
+  constructor(titre: string, options: NotificationOptions = {}) {
+    affichees.push({ titre, options });
+  }
+}
+
+/**
+ * Le verrou, et il est **réellement tenu**.
+ *
+ * La première doublure se contentait de rendre un jeton selon un drapeau
+ * que personne ne mettait à jour : elle rendait donc toujours le verrou
+ * libre, et le sabotage « ne jamais relâcher » restait vert. Une doublure
+ * qui ne modélise pas ce qu'elle double ne prouve rien — c'est la même
+ * faute que la sonde textuelle de la phase 1, sous un autre costume.
+ *
+ * Ici, le verrou est pris tant que la promesse du corps n'est pas tenue,
+ * exactement comme l'API Web Locks : une seconde demande pendant ce temps
+ * reçoit `null`.
+ */
+let occupeParUnAutreOnglet = false;
+let tenu = false;
+/** `null` : l'API n'existe pas du tout — vieux navigateur. */
+let apiVerrous: boolean = true;
+
+const g = globalThis as Record<string, unknown>;
+g.localStorage = localStorageDouble;
+g.Notification = NotificationDouble;
+/*
+   `navigator` est un accesseur en lecture seule sous Node : on le
+   REDÉFINIT, on ne l'affecte pas. L'affectation jetait « has only a
+   getter » — et un essai qui plante avant sa première ligne ne dit rien
+   du code qu'il devait éprouver.
+*/
+Object.defineProperty(g, 'navigator', {
+  get: () =>
+    apiVerrous
+      ? {
+          locks: {
+            request: async (
+              _nom: string,
+              _o: { ifAvailable?: boolean },
+              corps: (verrou: unknown) => Promise<void>,
+            ) => {
+              if (occupeParUnAutreOnglet || tenu) return corps(null);
+              tenu = true;
+              try {
+                return await corps({});
+              } finally {
+                tenu = false;
+              }
+            },
+          },
+          serviceWorker: undefined,
+        }
+      : { serviceWorker: undefined },
+  configurable: true,
+});
+
+const {
+  CORPS_NEUTRE,
+  PLAFOND_PAR_JOUR,
+  TITRE_NEUTRE,
+  emettre,
+  reglerLaSource,
+  sourceActivee,
+  sourcesActivees,
+} = await import('../src/lib/notifications/emission');
+
+import type { ElementDuCentre } from '../src/lib/notifications/modele';
+
+let echecs = 0;
+const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
+  const a = JSON.stringify(obtenu);
+  const b = JSON.stringify(attendu);
+  if (a === b) {
+    console.log(`  \x1b[32m✓\x1b[0m ${intitule}`);
+    return;
+  }
+  echecs += 1;
+  console.log(`  \x1b[31m✗\x1b[0m ${intitule}\n      obtenu  ${a}\n      attendu ${b}`);
+};
+const vrai = (t: string, c: boolean) => v(t, c, true);
+
+const JOUR = '2026-10-16';
+const element = (source: string, id = 'a'.repeat(32)): ElementDuCentre => ({
+  id,
+  source,
+  refSource: 'quelconque',
+  genre: 'a-trancher',
+  creeLe: JOUR,
+  etat: 'non_lu',
+  regroupement: null,
+});
+
+const repartir = () => {
+  magasin = new Map();
+  permission = 'default';
+  demandes = 0;
+  affichees.length = 0;
+  occupeParUnAutreOnglet = false;
+  tenu = false;
+  apiVerrous = true;
+};
+
+console.log('\n\x1b[1m1. Désactivées par défaut (§ 3.4)\x1b[0m');
+{
+  repartir();
+  v('aucune source activée au départ', sourcesActivees(), []);
+  v(
+    'et rien ne s’émet, même permission accordée',
+    (permission = 'granted', await emettre(element('avis-de-fusion'), JOUR)),
+    { quoi: 'refusee', pourquoi: 'source-inactive' },
+  );
+  v('aucune notification affichée', affichees.length, 0);
+}
+
+console.log('\n\x1b[1m2. La permission n’est demandée qu’au premier oui\x1b[0m');
+{
+  repartir();
+  v('aucune demande avant le premier réglage', demandes, 0);
+  await reglerLaSource('avis-de-fusion', true);
+  v('la première activation demande', demandes, 1);
+  await reglerLaSource('revue-manquee', true);
+  v('la seconde ne redemande pas', demandes, 1);
+  vrai('les deux sont activées', sourceActivee('avis-de-fusion') && sourceActivee('revue-manquee'));
+
+  /* Et tout désactiver puis réactiver redemande : c'est de nouveau « la
+     première », et le navigateur a pu être réinitialisé entre-temps. */
+  await reglerLaSource('avis-de-fusion', false);
+  await reglerLaSource('revue-manquee', false);
+  v('plus aucune source', sourcesActivees(), []);
+  await reglerLaSource('avis-de-fusion', true);
+  v('la première d’un nouveau cycle redemande', demandes, 2);
+}
+
+console.log('\n\x1b[1m3. Une permission refusée ne casse rien (§ 3.4)\x1b[0m');
+{
+  repartir();
+  permission = 'denied';
+  const { etat } = await reglerLaSource('avis-de-fusion', true);
+  v('l’état réel est rendu', etat, 'refusee');
+  vrai('et le choix reste enregistré', sourceActivee('avis-de-fusion'));
+  v(
+    'l’émission refuse proprement',
+    await emettre(element('avis-de-fusion'), JOUR),
+    { quoi: 'refusee', pourquoi: 'permission' },
+  );
+}
+
+console.log('\n\x1b[1m4. Le cycle est refusé même source activée (§ 1 n° 3)\x1b[0m');
+{
+  repartir();
+  permission = 'granted';
+  /*
+     On force l'activation d'une source du cycle dans le magasin, ce
+     qu'aucun écran ne propose — c'est exactement le but : la troisième
+     porte du § 1 n° 3 doit tenir seule, sans compter sur les deux autres.
+  */
+  magasin.set('cyclades.notifications.sources', JSON.stringify(['journal-du-cycle']));
+  v(
+    'refusé pour le cycle, pas pour la source',
+    await emettre(element('journal-du-cycle'), JOUR),
+    { quoi: 'refusee', pourquoi: 'cycle' },
+  );
+  v('rien n’a été affiché', affichees.length, 0);
+
+  /* Et une source inconnue l'est aussi — le filtre refuse par défaut. */
+  magasin.set('cyclades.notifications.sources', JSON.stringify(['source-inventee']));
+  v(
+    'une source inconnue est traitée comme sensible',
+    await emettre(element('source-inventee'), JOUR),
+    { quoi: 'refusee', pourquoi: 'cycle' },
+  );
+}
+
+console.log('\n\x1b[1m5. Le libellé ne dit rien (§ 1 n° 2, décision 3)\x1b[0m');
+{
+  repartir();
+  permission = 'granted';
+  await reglerLaSource('avis-de-fusion', true);
+  const id = 'b'.repeat(32);
+  v('émise', await emettre(element('avis-de-fusion', id), JOUR), { quoi: 'emise' });
+  v('une seule notification', affichees.length, 1);
+  v('le titre est le libellé neutre', affichees[0].titre, TITRE_NEUTRE);
+  v('le corps aussi', affichees[0].options.body, CORPS_NEUTRE);
+  /*
+     Le défaut visé : un chiffre, un nom de domaine, une source. On lit le
+     texte RÉELLEMENT affiché, pas la constante — c'est ce que l'écran
+     verrouillé montre.
+  */
+  const texte = `${affichees[0].titre} ${affichees[0].options.body ?? ''}`;
+  v('aucun chiffre', /\d/.test(texte), false);
+  v('aucun nom de source', /fusion|revue|cycle|santé|sport/i.test(texte), false);
+  /* L'étiquette est l'identifiant, pour refermer celle-ci et pas une autre. */
+  v('l’étiquette est l’identifiant de l’élément', affichees[0].options.tag, id);
+}
+
+console.log('\n\x1b[1m6. Le plafond du jour (§ 3.3)\x1b[0m');
+{
+  repartir();
+  permission = 'granted';
+  await reglerLaSource('avis-de-fusion', true);
+  const resultats: string[] = [];
+  for (let i = 0; i < PLAFOND_PAR_JOUR + 2; i += 1) {
+    const r = await emettre(element('avis-de-fusion', String(i).padStart(32, '0')), JOUR);
+    resultats.push(r.quoi === 'emise' ? 'emise' : r.pourquoi);
+  }
+  v(
+    `${PLAFOND_PAR_JOUR} passent, les suivantes sont plafonnées`,
+    resultats,
+    [...Array(PLAFOND_PAR_JOUR).fill('emise'), 'plafond', 'plafond'],
+  );
+  v('et autant de notifications affichées', affichees.length, PLAFOND_PAR_JOUR);
+
+  /* Le lendemain repart à zéro : le plafond est quotidien, pas définitif. */
+  v(
+    'le lendemain, ça repasse',
+    (await emettre(element('avis-de-fusion'), '2026-10-17')).quoi,
+    'emise',
+  );
+}
+
+console.log('\n\x1b[1m7. Un seul émetteur par appareil (§ 3.5)\x1b[0m');
+{
+  repartir();
+  permission = 'granted';
+  await reglerLaSource('avis-de-fusion', true);
+  occupeParUnAutreOnglet = true;
+  v(
+    'un autre onglet tient le verrou : on n’émet pas',
+    await emettre(element('avis-de-fusion'), JOUR),
+    { quoi: 'refusee', pourquoi: 'autre-onglet' },
+  );
+  v('rien affiché', affichees.length, 0);
+
+  /* Sans l'API du tout, on s'abstient aussi : trois notifications
+     identiques valent moins que zéro. */
+  repartir();
+  permission = 'granted';
+  await reglerLaSource('avis-de-fusion', true);
+  apiVerrous = false;
+  v(
+    'sans API de verrous, on s’abstient',
+    await emettre(element('avis-de-fusion'), JOUR),
+    { quoi: 'refusee', pourquoi: 'sans-verrou' },
+  );
+  v('rien affiché', affichees.length, 0);
+}
+
+console.log('\n\x1b[1m8. Le verrou est relâché, même sur un refus tardif\x1b[0m');
+{
+  repartir();
+  permission = 'granted';
+  await reglerLaSource('avis-de-fusion', true);
+  /*
+     Deux émissions de suite : si la première gardait le verrou, la seconde
+     se verrait refuser « autre-onglet » alors qu'il n'y a qu'un onglet.
+     C'est le genre de fuite qui ne se voit qu'à la deuxième notification.
+  */
+  await emettre(element('avis-de-fusion', 'c'.repeat(32)), JOUR);
+  v('le verrou n’est plus tenu après la première', tenu, false);
+  v(
+    'et la seconde passe, donc il a bien été rendu',
+    (await emettre(element('avis-de-fusion', 'd'.repeat(32)), JOUR)).quoi,
+    'emise',
+  );
+}
+
+console.log(
+  echecs === 0
+    ? '\n\x1b[32mTous les essais passent.\x1b[0m\n'
+    : `\n\x1b[31m${echecs} échec(s).\x1b[0m\n`,
+);
+process.exit(echecs === 0 ? 0 : 1);
