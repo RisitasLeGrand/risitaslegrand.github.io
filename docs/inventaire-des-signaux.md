@@ -28,7 +28,7 @@ tableau de bord, une recherche — n'en sont pas.
 | `avis-de-fusion` | `sync/veille.ts` → `surFusion` | Une fusion automatique qui a apporté quelque chose | une par lot (`marque`) | le **nombre** d'opérations trahissait une saisie (décision 5) | notification du système | la fusion est locale, l'avis aussi | non | **oui** — branchée, phase 2 |
 | `proposition` | `adaptation.ts` → `propositionLocale()` | Un écart d'usage observé, avec consentement | **une par semaine**, toutes catégories (§ 1 n° 6) | le domaine de l'écart | `/profil/` | le refus voyage par le journal | non | **oui** — branchée, phase 4 |
 | `avertissement-avant-analyse` | `noyau/avertissements.ts` → `avertissement()` | Un export d'IA qui touche corps, psyché ou finances | un par export | le domaine visé | `/exporter-ia/` | local au geste | non | **oui** — branchée, phase 4 |
-| `rappel-de-prise` | **—** : `prisesDuJour()` est un **constat**, pas un producteur (correction de ma part) | Une prise déclarée non pointée — mais rien ne sait ce qui était *prévu* : la posologie est du texte libre, et la décision 12 pose « sans schéma ni rappel » | la cadence des prises | **la molécule**, et par elle le traitement | `/odyssee/sante/` | sous coffre, donc local à l'ouverture | non | **non — manque nommé** (phase 5) |
+| `rappel-de-prise` | **—** : `prisesDuJour()` est un **constat**, pas un producteur (correction de ma part) | Une prise déclarée non pointée — mais rien ne sait ce qui était *prévu* : la posologie est du texte libre, et la décision 12 pose « sans schéma ni rappel » | la cadence des prises | **la molécule**, et par elle le traitement | `/odyssee/sante/` | sous coffre, donc local à l'ouverture | non | **non — différé** (signé le 16 octobre : pas de rappel sans posologie structurée) |
 | `veille-du-rythme` | `odyssee/veille.astro` et son moteur | Le « rappel discret » unique de 5.1 du 27 | la cadence de 5.6 du 27 | le rythme de vie | hors de Psyché, titre neutre | sous coffre | non | **oui** — branchée, phase 5, **et muette** (le 27) |
 | `rappel-de-sauvegarde` | `noyau/coffre.ts` ligne 604 → condition bloquante | Une donnée scellée existe et la sauvegarde est ancienne | aucun ; il se renforce | **aucune** : ne porte sur aucune donnée | `/stockage/` | l'état de sauvegarde est local | non | **oui** — branchée, phase 3 |
 | `revue-manquee` | `odyssee-jour.ts` → `rappelDeRevue(revuesManquees(...))` | Une revue du soir non tenue | groupé en « N revues » | le fait d'avoir une revue, pas son contenu | liste d'Odyssée et accueil | sous coffre | non | **oui** — branchée, phase 3 (prompt 36) |
@@ -125,7 +125,17 @@ Une règle s'en dégage, et elle vaudra pour les quatre sources scellées :
 Deux sources ne seront pas branchées, et la raison tient dans ce que
 l'inventaire disait d'elles — mal.
 
-**`rappel-de-prise`.** J'avais mis `prisesDuJour()` en producteur. En le
+**`rappel-de-prise` — différé, et signé le 16 octobre.** Alexis a tranché :
+« Accepter : pas de rappel de prise tant qu'il n'y a pas de posologie
+structurée. » Cette réponse **précise et reporte** sa décision 3 du prompt
+32, qui disait « rappels de prise oui, en libellé neutre » : le libellé
+neutre reste la règle le jour où la source existera, et ce jour-là dépend
+d'un modèle de posologie lisible par la machine, qui n'existe pas et que
+je n'inventerai pas seul. La source reste donc non branchée, sans aucun
+code nouveau. Ce n'est plus « impossible » : c'est **ajourné**, et la
+condition de levée est nommée.
+
+**Pourquoi j'avais écrit « impossible ».** J'avais mis `prisesDuJour()` en producteur. En le
 lisant, ce n'en est pas un : son module déclare « aucune comparaison à
 une posologie, aucune alerte d'oubli — le module ne sait pas ce qui était
 prévu, et c'est délibéré ». La posologie d'un traitement est du **texte

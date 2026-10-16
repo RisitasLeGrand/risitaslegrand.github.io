@@ -1,4 +1,7 @@
-# Six décisions en attente — 16 octobre 2026
+# Six décisions — 16 octobre 2026
+
+*Trois refermées le jour même (D-1, D-3, D-6), une livrée (D-5), deux
+encore ouvertes (D-2, et A-20 née de D-5).*
 
 *Remontée au pilote, écrite ici parce que le canal direct était fermé au
 moment de l'écrire : le serveur de liaison était déconnecté et aucune
@@ -32,12 +35,13 @@ liste dans les deux sens.
   moindre nombre. La source et le lieu sont incompatibles par
   construction.
 
-**À trancher** : accepter les deux manques nommés, ou demander une autre
-lecture.
-
-**Recommandation : accepter.** Le premier touche des données de santé et
-relève d'Alexis seul ; le second est bloqué par une contrainte de
-conception, pas par un oubli.
+**Tranché le 16 octobre.** `pointage-a-reporter` est accepté comme
+impossible, pour une contrainte de conception. `rappel-de-prise` est
+**différé** et non refusé : « pas de rappel de prise tant qu'il n'y a pas
+de posologie structurée ». La condition de levée est donc nommée, et la
+décision 3 du prompt 32 — « rappels de prise oui, en libellé neutre » —
+garde sa valeur pour le jour où elle sera remplie. Aucun code nouveau ;
+l'inventaire des signaux porte la ligne.
 
 ---
 
@@ -150,9 +154,10 @@ médical.
 Le pilote a répondu « accepté ». **Alexis ne s'est jamais prononcé**, et
 c'est sa moitié de l'amendement qu'il a signé.
 
-**À trancher** : confirmer que le manque nommé tient. Rien n'attend ce feu
-vert pour avancer — le code est en place et éprouvé —, mais la ligne porte
-sur une décision signée, et il me paraît juste qu'il la referme lui-même.
+**Tranché le 16 octobre** : « Accepter : l'indicateur seul, sans règle de
+désaccord. » `TYPES_SANS_REGLE` reste en l'état, avec ses quatre raisons
+et son contrôle dans les deux sens. La moitié ouverte de l'amendement est
+refermée.
 
 ---
 
