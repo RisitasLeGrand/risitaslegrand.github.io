@@ -31,6 +31,12 @@
 import { execFileSync } from 'node:child_process';
 import { existsSync } from 'node:fs';
 import { CATALOGUE, controlerFiche } from '../src/lib/odyssee/sante';
+import {
+  ABSENTES_DU_THESAURUS,
+  INTERACTIONS,
+  NIVEAUX_ANSM,
+  controlerPaire,
+} from '../src/lib/odyssee/molecules';
 
 let echecs = 0;
 const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
@@ -82,6 +88,26 @@ const couplesDe = (texte: string): string[] =>
   [...texte.matchAll(/(\d+(?:[,.]\d+)?)\s*(jours?|heures?|minutes?|semaines?|mois|ans?)/gi)].map(
     (m) => `${m[1]} ${m[2]}`.toLowerCase(),
   );
+
+/** Le texte d'un PDF, **page par page**, pour vérifier une citation de page. */
+const cachePages = new Map<string, string[]>();
+function pageDuPdf(chemin: string): string[] {
+  if (!cachePages.has(chemin)) {
+    const sortie = execFileSync(
+      'python3',
+      [
+        '-I',
+        '-c',
+        `import sys,json,pypdf
+print(json.dumps([pg.extract_text() or '' for pg in pypdf.PdfReader(sys.argv[1]).pages]))`,
+        chemin,
+      ],
+      { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 },
+    );
+    cachePages.set(chemin, JSON.parse(sortie) as string[]);
+  }
+  return cachePages.get(chemin)!;
+}
 
 /** Le document, lu une fois par fichier. */
 const cache = new Map<string, { empreinte: string; texte: string }>();
@@ -182,6 +208,117 @@ if (manquants.length === [...new Set(sources.map((s) => s.ou))].length && manqua
       /demi[-\s]vie/i.test(doc.texte),
       false,
     );
+  }
+}
+
+
+console.log('\x1b[1m\n5. LES INTERACTIONS — LE NIVEAU, ET RIEN DU TEXTE\x1b[0m');
+{
+  vrai(`il y en a (${INTERACTIONS.length})`, INTERACTIONS.length > 0);
+  v(
+    'chaque paire passe son propre contrôle',
+    INTERACTIONS.flatMap((p) => controlerPaire(p)),
+    [],
+  );
+  /*
+     Décision 8 : le dépôt public ne porte que des faits dérivés. Le
+     niveau est un fait — quatre valeurs possibles —, le mécanisme et la
+     conduite à tenir sont le TEXTE du Thésaurus, et ils n'ont rien à
+     faire ici. On exige donc que chaque gravité soit exactement l'un des
+     quatre niveaux, et pas une phrase.
+  */
+  const niveaux = Object.values(NIVEAUX_ANSM) as string[];
+  v(
+    'chaque gravité est exactement un des quatre niveaux de l’ANSM',
+    INTERACTIONS.filter((p) => !(p.gravite?.connue && niveaux.includes(p.gravite.valeur))).map(
+      (p) => `${p.a} × ${p.b}`,
+    ),
+    [],
+  );
+  /*
+     La sonde qui garde la décision 8 : aucun mot du Thésaurus ne doit
+     avoir glissé dans le dépôt. On cherche les tournures propres à ses
+     paragraphes de conduite — « surveillance clinique », « risque de »,
+     « par augmentation de » — dans TOUT ce que les paires portent.
+     Trouvée verte, elle ne prouve pas l'absence de toute recopie ; elle
+     attrape celle qu'on fait sans y penser, en collant une ligne de plus
+     « pour que ce soit plus clair ».
+  */
+  const texteDesPaires = JSON.stringify(INTERACTIONS).toLowerCase();
+  const tournures = [
+    'surveillance clinique',
+    'adaptation éventuelle',
+    'risque de',
+    'par augmentation',
+    'par diminution',
+    'métabolisme hépatique',
+  ].filter((t) => texteDesPaires.includes(t));
+  v('aucune tournure du Thésaurus n’a glissé dans les paires', tournures, []);
+
+  /*
+     Les deux sens, encore. Une molécule déclarée absente du Thésaurus ne
+     doit porter aucune paire : si elle en portait une, c'est que l'une
+     des deux affirmations est fausse, et on ne saurait pas laquelle.
+  */
+  v(
+    'une molécule déclarée absente du Thésaurus ne porte aucune paire',
+    INTERACTIONS.filter((p) =>
+      ABSENTES_DU_THESAURUS.some((m) => p.a.includes(m) || p.b.includes(m)),
+    ).map((p) => `${p.a} × ${p.b}`),
+    [],
+  );
+  /*
+     Et l'absence se vérifie dans le document : la N-acétylcystéine ne
+     doit pas figurer à l'index des substances. Sans cette ligne,
+     `ABSENTES_DU_THESAURUS` serait une affirmation que rien ne contrôle.
+  */
+  const index =
+    'sources/collecte-pilote-2026-10-14/documents/' +
+    'collecte-01-sante-D2-D8-D9-E1-E2-E3-G1-G2/E2-ansm-thesaurus-septembre-2023-index-substances.pdf';
+  if (existsSync(index)) {
+    const texte = document(index).texte.toLowerCase();
+    v(
+      'et l’index des substances ne la mentionne effectivement pas',
+      /ac[ée]tylcyst[ée]ine/.test(texte),
+      false,
+    );
+  } else {
+    nonExecute('l’index des substances n’est pas là : l’absence n’est pas vérifiée');
+  }
+}
+
+console.log('\x1b[1m\n6. LES PAGES CITÉES PORTENT BIEN CE QU’ON LEUR FAIT DIRE\x1b[0m');
+{
+  const thesaurus = INTERACTIONS[0]?.gravite;
+  if (!thesaurus?.connue || !existsSync(thesaurus.source.ou)) {
+    nonExecute('le Thésaurus n’est pas sur cette machine : sondes de page non exécutées.');
+  } else {
+    /*
+       La sonde la plus forte du lot, et celle qui a coûté le plus à
+       écrire. Pour chaque paire, on ouvre LA PAGE citée et on y cherche
+       les deux substances. Une page fausse — un copier-coller de numéro,
+       une entrée déplacée d'une version à l'autre — devient rouge, et
+       c'est exactement le défaut qu'une relecture humaine ne voit pas.
+    */
+    const parPage = new Map<number, string[]>();
+    for (const p of INTERACTIONS) {
+      if (!p.gravite?.connue) continue;
+      const m = /p\. (\d+)$/.exec(p.gravite.source.nom);
+      if (!m) {
+        v(`la source de ${p.a} × ${p.b} cite une page`, p.gravite.source.nom, 'une page');
+        continue;
+      }
+      const page = Number(m[1]);
+      parPage.set(page, [...(parPage.get(page) ?? []), p.a, p.b]);
+    }
+    const texteDuPdf = pageDuPdf(thesaurus.source.ou);
+    for (const [page, substances] of [...parPage].sort((x, y) => x[0] - y[0])) {
+      const t = (texteDuPdf[page - 1] ?? '').toLowerCase().normalize('NFD').replace(/\p{M}/gu, '');
+      const absentes = [...new Set(substances)].filter(
+        (s) => !t.includes(s.toLowerCase().normalize('NFD').replace(/\p{M}/gu, '')),
+      );
+      v(`page ${page} : toutes les substances citées y figurent`, absentes, []);
+    }
   }
 }
 

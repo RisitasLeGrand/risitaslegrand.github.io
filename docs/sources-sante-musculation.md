@@ -41,7 +41,7 @@ par une source de premier rang avant qu'une valeur entre dans le catalogue.
 | Pages encyclopédiques « Modafinil », « Piracetam », « Theanine » | encyclopédie | demi-vies de nootropes | *à faire* |
 | Pages encyclopédiques du lot de douze | encyclopédie | maturité clinique, demi-vies | *à faire* |
 | ACD856, *Eur J Clin Pharmacol*, 2024, DOI 10.1007/s00228-024-03645-1 | essai, source primaire | demi-vie ≈ 20 h, dose unique | *à relire en entier* |
-| Thésaurus des interactions, ANSM, version du 15 septembre 2023 | agence | niveaux d'interaction | *lien seulement — voir décision 8* |
+| Thésaurus des interactions, ANSM, version de septembre 2023 | agence | niveaux d'interaction | **lu le 16 octobre 2026** — PDF déposé, 263 p., empreinte consignée. Onze paires dérivées, décision 8 respectée : le niveau et la page, jamais le texte |
 | Bhasin et coll., 2018, Endocrine Society | recommandation | repères de suivi sous testostérone | *texte intégral à lire* |
 | Schoenfeld, Ogborn, Krieger, 2016 | méta-analyse | relation volume / hypertrophie | *à lire* |
 | Pelland et coll., SportRxiv v2, 4 octobre 2024 | préprint | volume et fréquence | *non évalué par les pairs — à signaler comme tel* |
@@ -82,3 +82,30 @@ le Thésaurus des interactions de septembre 2023 avec ses index par
 substance et par classe, le différentiel, les références nutritionnelles
 de l'ANSES et l'aperçu des limites supérieures de l'EFSA. De quoi lever
 deux autres lignes *à faire* de ce registre.
+
+## Les onze premières interactions — 16 octobre 2026
+
+Le Thésaurus de septembre 2023 a été lu. Onze paires en sortent, et ce
+sont **toutes** celles qu'il donne pour les molécules du catalogue :
+deux pour les androgènes — la classe sous laquelle il traite la
+testostérone, avec l'androstanolone et la noréthandrolone —, deux pour le
+modafinil, sept pour la caféine.
+
+**La décision 8 commande la forme.** Chaque paire porte les deux
+substances, le **niveau** que l'ANSM lui donne, et la page où le lire.
+Pas une ligne du mécanisme, pas un mot de la conduite à tenir : ce sont
+eux, le contenu du Thésaurus, et c'est à l'agence de les publier. Le
+niveau, lui, est un fait à quatre valeurs, et c'est ce dont Cyclades a
+besoin pour alerter.
+
+Le contrôle ouvre **la page citée** et y cherche les deux substances :
+une page fausse devient rouge. Il cherche aussi, dans l'autre sens, les
+tournures propres aux paragraphes du Thésaurus — « surveillance
+clinique », « par augmentation de » — pour attraper la recopie qu'on fait
+sans y penser.
+
+**La N-acétylcystéine n'a aucune entrée** à l'index des substances. Ce
+n'est pas une absence d'interaction : c'est une absence du document, et
+`ABSENTES_DU_THESAURUS` le déclare pour que l'écran dise « non
+documentée » plutôt que « étudiée sans interaction ». Le contrôle vérifie
+cette absence dans l'index lui-même.

@@ -432,3 +432,115 @@ export const BANDEAU_SANS_FICHE =
   'été examinés par l’application. L’absence d’alerte ne signifie pas l’absence de risque.';
 
 export const NON_DOCUMENTE = 'Non documenté';
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Les interactions connues — phase 2, 16 octobre 2026
+
+   **Des faits dérivés, jamais une recopie.** C'est la décision 8 du plan,
+   et elle commande la forme de tout ce qui suit : le dépôt est public, le
+   Thésaurus de l'ANSM ne l'est pas sous cette forme. Chaque paire porte
+   donc trois choses — les deux substances, le **niveau** que l'agence lui
+   donne, et où le lire. Pas une ligne du mécanisme, pas un mot de la
+   conduite à tenir : ce sont eux, le contenu du Thésaurus, et c'est à
+   l'ANSM de les publier.
+
+   Le niveau, lui, est un fait : quatre valeurs possibles, une par paire,
+   et c'est précisément ce que Cyclades a besoin de savoir pour alerter.
+
+   ## D'où vient ce premier lot
+
+   Du Thésaurus de **septembre 2023**, déposé dans la collecte du pilote
+   du 14 octobre. Onze paires, qui sont toutes celles que le document
+   donne pour les trois molécules du catalogue qui y figurent. La
+   N-acétylcystéine n'a **aucune entrée** à l'index des substances — ce
+   n'est pas un oubli de ma part, et ce n'est pas non plus une absence
+   d'interaction : c'est une absence du document, ce qui n'est pas la
+   même chose et que le statut `non-documentee` dit exactement.
+
+   La testostérone, elle, n'a pas d'entrée propre : l'index renvoie à la
+   classe **androgènes**, et c'est sous ce nom que le Thésaurus la traite
+   — avec l'androstanolone et la noréthandrolone. Les paires portent donc
+   le nom de la classe, parce que c'est ce que la source dit ; prétendre
+   que l'entrée vise la testostérone seule serait la surinterpréter.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** Le document, cité une fois. Son empreinte vaut pour les onze paires. */
+const THESAURUS: Source = {
+  nom: 'Thésaurus des interactions médicamenteuses, ANSM, version de septembre 2023',
+  ou:
+    'sources/collecte-pilote-2026-10-14/documents/' +
+    'collecte-01-sante-D2-D8-D9-E1-E2-E3-G1-G2/E2-ansm-thesaurus-interactions-septembre-2023.pdf',
+  le: '2026-10-16',
+  empreinte: '0db64c85e805a8cf03c304d2c378045a50766d7c2faed6911871eaf091df4f37',
+};
+
+/**
+ * Les quatre niveaux de l'ANSM, écrits comme l'agence les écrit.
+ *
+ * Une constante par niveau, et non une chaîne recopiée onze fois : onze
+ * occurrences d'« Association déconseillée » finiraient par comporter une
+ * variante, et c'est sur une variante qu'un écran cesse de reconnaître la
+ * gravité qu'il doit afficher en rouge.
+ */
+export const NIVEAUX_ANSM = {
+  contreIndication: 'Contre-indication',
+  deconseillee: 'Association déconseillée',
+  precaution: 'Précaution d’emploi',
+  aPrendreEnCompte: 'À prendre en compte',
+} as const;
+
+/** Une paire documentée par le Thésaurus : le niveau, et la page où le lire. */
+const duThesaurus = (
+  a: string,
+  b: string,
+  niveau: string,
+  page: number,
+): PaireInteraction => ({
+  a,
+  b,
+  statut: 'documentee',
+  base: null,
+  gravite: {
+    connue: true,
+    valeur: niveau,
+    source: { ...THESAURUS, nom: `${THESAURUS.nom}, p. ${page}` },
+  },
+});
+
+/**
+ * Les interactions du premier lot.
+ *
+ * **Onze, et pas une de plus.** Ce que le Thésaurus donne pour les
+ * molécules du catalogue, exhaustivement, et rien d'ailleurs. Une douzième
+ * paire « de bon sens » serait une paire inventée, et le prompt 25 range
+ * ce genre d'invention parmi les dangers, pas parmi les services.
+ */
+export const INTERACTIONS: readonly PaireInteraction[] = [
+  /* Androgènes — la classe sous laquelle le Thésaurus traite la testostérone. */
+  duThesaurus('androgènes', 'antivitamines K', NIVEAUX_ANSM.precaution, 17),
+  duThesaurus('androgènes', 'inducteurs enzymatiques', NIVEAUX_ANSM.precaution, 17),
+
+  /* Modafinil — entrée en propre. */
+  duThesaurus('modafinil', 'ciclosporine', NIVEAUX_ANSM.deconseillee, 177),
+  duThesaurus('modafinil', 'estroprogestatifs contraceptifs', NIVEAUX_ANSM.deconseillee, 177),
+
+  /* Caféine — entrée en propre, sept paires. */
+  duThesaurus('caféine', 'ciprofloxacine', NIVEAUX_ANSM.aPrendreEnCompte, 47),
+  duThesaurus('caféine', 'dipyridamole', NIVEAUX_ANSM.precaution, 47),
+  duThesaurus('caféine', 'énoxacine', NIVEAUX_ANSM.deconseillee, 47),
+  duThesaurus('caféine', 'lithium', NIVEAUX_ANSM.aPrendreEnCompte, 47),
+  duThesaurus('caféine', 'méxilétine', NIVEAUX_ANSM.aPrendreEnCompte, 47),
+  duThesaurus('caféine', 'norfloxacine', NIVEAUX_ANSM.aPrendreEnCompte, 47),
+  duThesaurus('caféine', 'stiripentol', NIVEAUX_ANSM.precaution, 47),
+];
+
+/**
+ * Les molécules du catalogue que le Thésaurus ne connaît pas.
+ *
+ * Déclarées, parce que « absent du document » et « sans interaction » se
+ * ressemblent à l'écran et ne se ressemblent pas du tout. Une molécule
+ * d'ici doit rendre `non-documentee`, qui veut dire « personne n'a
+ * publié », et jamais `etudiee-sans-interaction`, qui voudrait dire
+ * « quelqu'un a cherché et n'a rien trouvé ».
+ */
+export const ABSENTES_DU_THESAURUS: readonly string[] = ['n-acétylcystéine'];
