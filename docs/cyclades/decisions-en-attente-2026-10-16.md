@@ -317,3 +317,67 @@ aux miens, chacun marqué « déjà vu », « nouveau » ou « contesté ». Deu
 sont déjà traités : **M-20** (le nom de molécule dans le titre d'onglet et
 dans l'adresse) est corrigé et éprouvé ; **M-09** l'est pour sa part
 « Cog-Training ».
+
+---
+
+# Prompt 44 — les sept constats, vérifiés dans le code (17 octobre)
+
+*Le prompt demande de confirmer, infirmer ou nuancer chaque constat avant
+tout plan. Fait, et un constat ressort plus grave que son énoncé.*
+
+| | constat | verdict |
+|---|---|---|
+| 1 | empreinte SHA-256 sans sel livrée au navigateur | **confirmé, et aggravé** |
+| 2 | coffre à 310 000 itérations | **confirmé** |
+| 3 | rien ne verrouille, « rester connecté » coché, clé en clair | **confirmé, et le commentaire ment** |
+| 4 | rien ne dit qu'un mot de passe perdu perd tout | non instruit |
+| 5 | changer le mot de passe ne rechiffre pas le coffre | non instruit |
+| 6 | le script accepte moins de 15 caractères | **confirmé, et pire** |
+| 7 | effacement et export ne redemandent rien | **confirmé** |
+
+## 1 — aggravé : l'empreinte a DEUX usages, pas un
+
+`site.config.mjs` porte `motDePasseHash`, une empreinte SHA-256 **sans
+sel**. Vérifié : elle est dans un fichier du site construit, et dans un
+fichier de la branche `gh-pages` publiée.
+
+Le prompt cite `auth.ts:94`. Il en manque un second, et c'est lui qui
+complique la correction : **`coffre.ts:360` en fait la seule vérification
+du coffre**, qui n'a pas de témoin chiffré. La retirer là ferait accepter
+n'importe quel mot de passe et dériver une clé fausse — ce que le
+commentaire du fichier redoute en toutes lettres : « un coffre qui accepte
+n'importe quelle clé fabrique des données perdues ».
+
+**Conséquence sur l'ordre des travaux** : retirer l'empreinte du paquet
+livré **exige** de donner d'abord un témoin au coffre. Le point 1 du 44
+dépend donc du point 2, et les deux touchent au coffre.
+
+**Et sur la gravité.** J'avais écrit à Alexis « quelques heures » en ne
+regardant que PBKDF2 et ses 600 000 itérations. C'était faux par
+omission : une empreinte SHA-256 sans sel se teste par dizaines de
+milliards par seconde sur une carte graphique ordinaire. Pour un mot de
+passe court, c'est **instantané**, et les 600 000 itérations n'y changent
+rien puisqu'on ne passe plus par elles.
+
+## 3 — et le commentaire dit le contraire du code
+
+`auth.ts` lignes 9 à 11 : « par défaut dans sessionStorage ». Mais la case
+« Rester connecté sur cet appareil » de `Verrou.astro` porte `checked`, et
+`auth.ts` écrit dans `localStorage` quand elle l'est. Le défaut réel est
+donc `localStorage`, en clair, et le commentaire énonce l'inverse.
+
+Même classe que A-23 : un commentaire qui décrit une précaution que le
+code ne prend pas. C'est la troisième fois en deux jours, et cela mérite
+d'être compté comme un défaut de méthode plutôt que comme trois accidents.
+
+## 6 — nuancé par le bas
+
+Le script n'exige pas 15 caractères ; il n'exige rien. Il **avertit** sous
+huit, et poursuit. Lu à `changer-mot-de-passe.mjs:94`.
+
+## Ce que je ne fais pas, et pourquoi
+
+Les points 1 à 5 touchent au coffre ou au verrou. Le prompt 44 le
+reconnaît et le pilote aussi. J'attends la ligne d'Alexis dans ma
+conversation avant d'y toucher — sa phrase « Continue le développement »
+autorise le travail en cours, pas une modification du coffre.
