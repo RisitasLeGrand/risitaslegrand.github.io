@@ -13,6 +13,7 @@ import SelecteurParcours from '../components/SelecteurParcours.astro';
 import config from '../../site.config.mjs';
 import TemoinCoffre from '../components/TemoinCoffre.astro';
 import CadenasCoffre from '../components/CadenasCoffre.astro';
+import FlecheRetour from '../components/FlecheRetour.astro';
 import {
   branchesDisponibles,
   brancheDuChemin,
@@ -225,6 +226,18 @@ const porteeDuPied =
 const estLeMenu = Astro.url.pathname.replace(/\/+$/, '') === base;
 const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
 
+/*
+   La flèche de retour paraît partout sauf au menu — qui n'a pas de parent — et
+   dans l'initialisation, où `sansNavigation` dit qu'on est dans un parcours
+   d'accueil et qu'une porte de sortie dessert la personne.
+
+   Quand elle paraît, le logo s'efface **sous 640 px** : la rangée du haut
+   porte déjà six cibles pour 330 px sur un écran de 360, et une septième la
+   ferait déborder. C'est un échange, pas un ajout — et le menu que le logo
+   offrait entre dans la feuille « Plus », à deux touches au lieu d'une.
+*/
+const flecheVisible = !estLeMenu && !sansNavigation;
+
 ---
 
 <!doctype html>
@@ -385,15 +398,25 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
                 l'intérieur d'une branche.
               */}
               <div class="flex shrink-0 items-center gap-1 font-semibold text-slate-900 sm:gap-1.5 dark:text-white">
-                <a
-                  href={`${base}/`}
-                  title="Menu de Cyclades"
-                  class="cible-tactile-pleine gap-2 rounded-lg px-1 transition hover:text-indigo-600 dark:hover:text-indigo-400"
-                >
-                  <span class="text-lg" aria-hidden="true">🗂️</span>
-                  <span class="hidden sm:inline">{config.titre}</span>
-                  <span class="sr-only">Menu de {config.titre}</span>
-                </a>
+                {flecheVisible && <FlecheRetour />}
+                {/*
+                   Le conteneur porte « hidden sm:flex », et non le lien
+                   lui-même : `global.css` règle `.cible-tactile-pleine.hidden`
+                   à `display: none` hors des couches d'utilitaires, de sorte
+                   qu'un `sm:inline-flex` posé sur le lien ne gagnerait jamais
+                   et que le logo disparaîtrait à **toutes** les largeurs.
+                */}
+                <div class:list={['items-center', flecheVisible ? 'hidden sm:flex' : 'flex']}>
+                  <a
+                    href={`${base}/`}
+                    title="Menu de Cyclades"
+                    class="cible-tactile-pleine gap-2 rounded-lg px-1 transition hover:text-indigo-600 dark:hover:text-indigo-400"
+                  >
+                    <span class="text-lg" aria-hidden="true">🗂️</span>
+                    <span class="hidden sm:inline">{config.titre}</span>
+                    <span class="sr-only">Menu de {config.titre}</span>
+                  </a>
+                </div>
                 <span class="hidden text-slate-400 sm:inline dark:text-slate-500" aria-hidden="true">·</span>
                 {/*
                    Les trois branches, **toujours dans le même ordre**, la
@@ -707,6 +730,12 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
             <div class="bandeau-tricolore"></div>
             <TemoinCoffre />
             <div class="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
+              {/*
+                 Ici la flèche s'ajoute sans rien remplacer : l'en-tête léger
+                 ne porte que quatre cibles, et il a la place. Le logo y reste
+                 donc le retour au menu, à une touche.
+              */}
+              {flecheVisible && <FlecheRetour />}
               {retourAuMenu ? (
                 <a
                   href={`${base}/`}
@@ -877,6 +906,21 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
             </ul>
             <h3 class="mt-4 mb-1 etiquette text-slate-500 dark:text-slate-400">Cet espace</h3>
             <ul class="space-y-1">
+              {/*
+                 « Menu » est ici parce que la flèche de retour a pris la place
+                 du logo dans l'en-tête, sous 640 px. Sans cette entrée, le menu
+                 deviendrait inatteignable depuis l'intérieur d'une branche sur
+                 téléphone : l'échange serait une perte, et non un échange.
+              */}
+              <li>
+                <a
+                  href={`${base}/`}
+                  class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 dark:text-slate-200"
+                >
+                  <span aria-hidden="true">🗂️</span>
+                  <span>Menu</span>
+                </a>
+              </li>
               {ECRANS_COMMUNS.map((o) => (
                 <li>
                   <a

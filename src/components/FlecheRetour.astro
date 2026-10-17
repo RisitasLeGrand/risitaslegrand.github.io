@@ -1,0 +1,79 @@
+---
+/**
+ * La flèche de retour, en tête de chaque écran sauf le menu.
+ *
+ * ## Un lien, et non un bouton
+ *
+ * Sa destination dépend de l'historique au moment du clic, ce qui plaide pour
+ * un bouton. Mais un bouton sans JavaScript ne fait rien, et le retour est la
+ * sortie de secours d'un écran : il doit marcher même quand le reste ne marche
+ * pas. C'est donc un lien vers le **parent logique**, que le script détourne
+ * vers l'historique quand il y a un écran précédent dans Cyclades. Sans script,
+ * il reste un retour hiérarchique correct ; avec, il se comporte comme la
+ * flèche d'une application.
+ *
+ * ## Où elle se place, et ce qu'elle a remplacé
+ *
+ * Sous 640 px, elle prend la place du logo dans l'en-tête complet. Ce n'est pas
+ * un arbitrage de goût : la rangée du haut porte déjà six cibles pour 330 px
+ * sur un écran de 360, et le commentaire de `Base.astro` dit pourquoi on ne
+ * peut pas en ajouter une septième. La seconde ligne, elle, fait 23 px — y
+ * loger une cible de 44 px coûterait **+21 px d'en-tête sur chaque page**,
+ * c'est-à-dire l'inverse de ce que l'ergonomie mobile demande.
+ *
+ * Le logo menait au menu. Pour ne rien perdre, « Menu » entre dans la feuille
+ * « Plus » : sur téléphone, le menu passe de une à deux touches. C'est le prix,
+ * et il est dit.
+ */
+import { nomDuParent, normaliser, parentLogique } from '../lib/retour';
+import { base } from '../lib/ui';
+
+const sansBase = normaliser(Astro.url.pathname.startsWith(base) ? Astro.url.pathname.slice(base.length) : Astro.url.pathname);
+const parent = parentLogique(sansBase);
+const nom = nomDuParent(sansBase);
+---
+
+{
+  parent !== null && (
+    <a
+      id="fleche-retour"
+      href={`${base}${parent}`}
+      data-base={base}
+      data-chemin={sansBase}
+      class="cible-tactile-pleine shrink-0 rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-indigo-400"
+    >
+      <span aria-hidden="true" class="text-lg leading-none">←</span>
+      <span class="sr-only">Revenir à {nom}</span>
+    </a>
+  )
+}
+
+<script>
+  import { profondeurDeLEntree, revenir } from '../lib/retour';
+
+  /*
+     On numérote l'entrée **dès le chargement**, et pas seulement au clic : la
+     profondeur de l'entrée suivante se calcule à partir de celle-ci, donc une
+     page qu'on traverse sans toucher la flèche doit tout de même se compter.
+     Sans cet appel, deux pages visitées puis un clic donneraient une
+     profondeur de 2 au lieu de 3, et le recul s'arrêterait trop tôt.
+  */
+  profondeurDeLEntree();
+
+  const fleche = document.getElementById('fleche-retour');
+  if (fleche instanceof HTMLAnchorElement) {
+    fleche.addEventListener('click', (evenement) => {
+      /*
+         On laisse passer les clics qui veulent un nouvel onglet — milieu,
+         Ctrl, Commande, Maj. Les détourner vers `history.back()` ouvrirait
+         l'écran courant dans l'onglet voulu et reculerait dans celui-ci : deux
+         surprises pour un geste.
+      */
+      if (evenement.defaultPrevented) return;
+      const e = evenement as MouseEvent;
+      if (e.button !== 0 || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey) return;
+      evenement.preventDefault();
+      revenir(fleche.dataset.base ?? '', fleche.dataset.chemin ?? '/');
+    });
+  }
+</script>
