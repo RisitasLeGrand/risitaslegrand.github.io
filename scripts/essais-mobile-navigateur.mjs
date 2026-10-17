@@ -442,6 +442,65 @@ for (const ecran of ECRANS) {
       await p.evaluate(() => document.getElementById('encoche-simulee')?.remove());
     }
 
+    /* ════════════════════════════════════════════════════════════════════
+       M10bis — la hauteur de l'en-tête collant, sous cliquet
+       ════════════════════════════════════════════════════════════════════
+
+       M13 veut un en-tête collant sous 15 % de la hauteur. Il n'y est pas,
+       et le chiffre dépend d'un état que j'avais d'abord confondu :
+
+         coffre fermé, ou bandeau masqué : 138 px (19 %) sur Odyssée et
+           Sport, 159 px (21 %) sur Révisions, qui porte une barre d'onglets ;
+         coffre ouvert, bandeau affiché  : 243 px (33 %) et 264 px (36 %).
+
+       Le bandeau vaut donc à lui seul plus de cent pixels à 360 px, où son
+       libellé passe sur plusieurs lignes — davantage que les 57 px mesurés
+       à 390. C'est ce que le geste « Masquer » rend, et c'est la raison
+       pour laquelle Alexis l'a demandé.
+
+       La batterie tourne coffre ouvert : les plafonds ci-dessous sont donc
+       ceux de l'état le plus chargé.
+
+       CE CONTRÔLE NE CERTIFIE DONC PAS LA CIBLE. Il pose un cliquet : la
+       hauteur d'aujourd'hui ne doit pas grandir. C'est un garde-fou plus
+       modeste qu'un objectif, et le dire évite de le prendre pour ce qu'il
+       n'est pas.
+
+       POURQUOI PAS MIEUX, AUJOURD'HUI. Fusionner les deux rangées a été
+       tenté et abandonné, pour une raison arithmétique écrite dans
+       `Base.astro` : six cibles de 44 px, leurs écarts et les marges font
+       330 px quand la colonne en offre 328. Forcée sur une rangée, la mise
+       en page débordait de 28 px sur quarante-quatre pages. Le cadenas du
+       coffre ajoute une septième cible depuis aujourd'hui.
+
+       Descendre sous 15 % demande donc de retirer une cible de la rangée,
+       pas de la réarranger — et c'est un choix de produit, pas un
+       correctif. */
+    {
+      const PLAFONDS = { '/odyssee/': 243, '/sport/': 243, '/revisions/': 264 };
+      const trop = [];
+      for (const [route, plafond] of Object.entries(PLAFONDS)) {
+        await p.goto(`${RACINE}${route}`, { waitUntil: 'networkidle' }).catch(() => {});
+        if (await p.locator('#champ-mdp').isVisible().catch(() => false)) {
+          await p.fill('#champ-mdp', MDP);
+          await p.click('#bouton-verrou');
+          await p.waitForTimeout(800);
+        }
+        await p.waitForTimeout(300);
+        const h = await p.evaluate(
+          () =>
+            Math.round(
+              document.getElementById('entete-principal')?.getBoundingClientRect().height ?? 0,
+            ),
+        );
+        // Le cliquet ne vaut qu'à la largeur où il a été posé.
+        if (largeur === 360 && h > plafond) trop.push(`${route} ${h} px > ${plafond}`);
+      }
+      if (largeur === 360) {
+        verifier("M10bis — 360 px : l'en-tête collant ne grandit pas", trop, []);
+      }
+    }
+
     verifier(`M5 — ${largeur} px : aucune des ${routes.length} routes ne déborde`, larges, []);
     verifier(`M6 — ${largeur} px : aucune cible isolée sous ${CONFORT} px`, petites, []);
     verifier(`M7 — ${largeur} px : aucun champ sous 16 px (iOS zoomerait)`, champsPetits, []);
