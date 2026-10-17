@@ -99,14 +99,30 @@ console.log('\nCOFFRE OUVERT : LE BANDEAU, PUIS LA SAISIE');
   await page.click('#ouvrir-coffre');
   await page.waitForSelector('#coffre-ouvert', { state: 'visible', timeout: 20000 });
 
+  /*
+     A-21, VUE DE CE CÔTÉ-CI. Ces trois constats affirmaient que le bandeau
+     dit « Aucune fiche de molécule n'est publiée ». C'était vrai le jour où
+     ils ont été écrits ; depuis le 16 octobre, cinq fiches le sont, chacune
+     lue dans son RCP. Le contrôle était donc **vert sur un mensonge**, et il
+     aurait empêché de le corriger : changer la phrase l'aurait fait rougir.
+
+     Un essai qui fige le texte d'hier défend l'erreur d'aujourd'hui. Ce qu'il
+     doit vérifier, ce n'est pas la phrase exacte, c'est ce qu'elle promet :
+     dire pourquoi cette molécule-ci n'a pas de fiche, ne pas nier celles qui
+     existent, et ne pas laisser croire qu'il faut attendre.
+  */
   const bandeau = await page.textContent('#bandeau-catalogue');
   vrai(
-    'le bandeau dit qu’aucune fiche n’est publiée',
-    bandeau.includes('Aucune fiche de molécule'),
+    'le bandeau explique pourquoi CETTE molécule n’a pas de fiche',
+    bandeau.includes('pas encore de fiche'),
   );
   vrai(
-    'et pourquoi : les sources primaires manquent',
-    bandeau.includes('sources') && bandeau.includes('primaires'),
+    'et pourquoi : une source primaire manque',
+    bandeau.includes('source') && bandeau.includes('primaire'),
+  );
+  vrai(
+    'il ne nie pas les fiches qui existent',
+    !bandeau.includes('Aucune fiche de molécule'),
   );
   vrai(
     'tout en disant qu’on peut déclarer un traitement sans attendre',

@@ -349,10 +349,21 @@ export const CATALOGUE: readonly FicheMolecule[] = [
   },
 ];
 
+/*
+   A-21. Ce texte disait « Aucune fiche de molécule n'est publiée », ce qui
+   était vrai à l'écriture et faux depuis le 16 octobre : cinq fiches sont
+   publiées, chacune lue dans son RCP, avec onze interactions tirées du
+   Thésaurus de l'ANSM. Une phrase que l'application montre et qui ment vaut
+   moins que pas de phrase du tout — elle apprend à se méfier du reste.
+
+   Le nom de la constante est gardé : il nomme l'emplacement — « pourquoi
+   telle molécule n'a pas de fiche » — et non l'état du catalogue.
+*/
 export const POURQUOI_CATALOGUE_VIDE =
-  'Aucune fiche de molécule n’est publiée : leurs valeurs demandent des sources ' +
-  'primaires (RCP, Thésaurus des interactions) qui ne sont pas encore au dossier. ' +
-  'Vous pouvez déclarer un traitement par son nom sans attendre.';
+  'Cette molécule n’a pas encore de fiche : ses valeurs demandent une source ' +
+  'primaire (RCP, Thésaurus des interactions) qui n’est pas au dossier. ' +
+  'Vous pouvez déclarer un traitement par son nom sans attendre, et consulter ' +
+  'les fiches déjà documentées depuis « Les fiches de molécules documentées ».';
 
 /* ══════════════════════════════════════════════════════════════════════════
    Ce que la personne déclare

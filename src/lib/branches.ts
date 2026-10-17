@@ -162,7 +162,14 @@ export const BRANCHES: Branche[] = [
       { id: 'quiz', nom: 'Quiz', chemin: '/quiz/', icone: '🎯' },
       { id: 'positionnement', nom: 'Niveau', description: 'Le prétest de positionnement.', chemin: '/positionnement/', icone: '🎚️' },
       { id: 'journal', nom: 'Erreurs', description: 'Le journal des erreurs à reprendre.', chemin: '/journal/', icone: '🩹' },
-      { id: 'cog-training', nom: 'Cog-Training', description: 'L’entraînement cognitif.', chemin: '/cog-training/', icone: '🧩' },
+      /*
+         « Entraînement cognitif » et non « Cog-Training » : le nom anglais
+         ne disait rien de ce qu'on y fait, et la description répétait en
+         français ce que le nom aurait dû dire. Le chemin ne bouge pas —
+         `/cog-training/` est écrit dans des manifestes chiffrés —, et le
+         nom court est un préfixe du nom, comme le registre l'exige.
+      */
+      { id: 'cog-training', nom: 'Entraînement cognitif', court: 'Entraînement', chemin: '/cog-training/', icone: '🧩' },
       { id: 'recherche', nom: 'Recherche', chemin: '/recherche/', icone: '🔎' },
       { id: 'statistiques', nom: 'Statistiques', chemin: '/statistiques/', icone: '📈' },
       { id: 'glossaire', nom: 'Glossaire', chemin: '/glossaire/', icone: '📖' },
