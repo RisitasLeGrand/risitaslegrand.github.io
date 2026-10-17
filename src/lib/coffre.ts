@@ -95,6 +95,11 @@
 import { db } from './db';
 import { sha256Hex } from './crypto';
 import {
+  CLEF_DELAI,
+  DELAI_PAR_DEFAUT_MS,
+  VerrouAutomatique,
+} from './noyau/verrou-automatique';
+import {
   APPAREIL,
   SESSION,
   desencapsuler,
@@ -431,4 +436,88 @@ export function exigerLeCoffre(): CryptoKey {
     );
   }
   return cleMemoire;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Le verrouillage automatique
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Branche le verrou automatique sur la page.
+ *
+ * La décision vit dans `noyau/verrou-automatique`, qui ne connaît ni clic ni
+ * onglet ; ici on lui donne seulement de quoi savoir l'heure, l'état du
+ * coffre, et comment le refermer.
+ *
+ * ## Trois déclencheurs, et le deuxième est le seul qui compte vraiment
+ *
+ * - Un **minuteur**, pour le cas ordinaire : l'écran reste allumé, personne ne
+ *   touche rien.
+ * - Le **retour de l'onglet** (`visibilitychange`), et c'est là que se joue le
+ *   vrai danger : une machine en veille n'exécute pas ses minuteurs. Trois
+ *   heures de veille, et aucun `setInterval` ne s'est déclenché. Le module
+ *   compare deux horodatages précisément pour que ce retour suffise.
+ * - Le **`pageshow`**, pour le retour depuis le cache de page, où le script ne
+ *   se rejoue pas et où le minuteur n'a pas tourné non plus.
+ *
+ * ## Ce qui compte comme activité
+ *
+ * Des gestes, pas du mouvement : un clic, une touche, une saisie, un défilement
+ * volontaire. Pas `mousemove` — un chat sur le clavier, un écran tactile posé
+ * sur une table, et le coffre resterait ouvert toute la nuit « parce qu'il y
+ * avait de l'activité ».
+ */
+export function brancherLeVerrouAutomatique(delaiMs?: number): () => void {
+  if (typeof document === 'undefined') return () => {};
+
+  const verrou = new VerrouAutomatique(
+    {
+      maintenant: () => Date.now(),
+      coffreOuvert: () => cleMemoire !== null,
+      fermer: () => fermerLeCoffre(),
+    },
+    delaiMs ?? DELAI_PAR_DEFAUT_MS,
+  );
+
+  const activite = () => verrou.activite();
+  const verifier = () => void verrou.verifier();
+
+  const gestes = ['pointerdown', 'keydown', 'wheel'] as const;
+  for (const geste of gestes) document.addEventListener(geste, activite, { passive: true });
+
+  const auRetour = () => {
+    if (document.visibilityState === 'visible') verifier();
+  };
+  document.addEventListener('visibilitychange', auRetour);
+  window.addEventListener('pageshow', verifier);
+
+  /*
+     Toutes les trente secondes : assez fin pour que le verrou tombe dans la
+     minute qui suit son échéance, assez rare pour ne rien coûter. La précision
+     n'a pas d'intérêt ici — personne ne compte les secondes avant la fermeture
+     de son coffre.
+  */
+  const minuteur = window.setInterval(verifier, 30_000);
+
+  return () => {
+    for (const geste of gestes) document.removeEventListener(geste, activite);
+    document.removeEventListener('visibilitychange', auRetour);
+    window.removeEventListener('pageshow', verifier);
+    window.clearInterval(minuteur);
+  };
+}
+
+/** Le délai retenu sur cet appareil, ou celui par défaut. */
+export async function delaiDuVerrouAutomatique(): Promise<number> {
+  try {
+    const garde = (await (await db()).get('etat', CLEF_DELAI)) as number | undefined;
+    return typeof garde === 'number' && Number.isFinite(garde) ? garde : DELAI_PAR_DEFAUT_MS;
+  } catch {
+    return DELAI_PAR_DEFAUT_MS;
+  }
+}
+
+/** Enregistre le délai. Zéro désactive le verrou, et c'est un choix valide. */
+export async function reglerLeDelaiDuVerrou(ms: number): Promise<void> {
+  await (await db()).put('etat', ms, CLEF_DELAI);
 }

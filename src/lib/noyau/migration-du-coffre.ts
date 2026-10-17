@@ -314,7 +314,7 @@ async function echanger(rangement: RangementDesMagasins): Promise<number> {
  * Lève si la relecture trouve le moindre écart — et lève **avant** d'avoir
  * effacé quoi que ce soit, ce qui est tout l'intérêt de l'ordre des passes.
  */
-export async function reprendreLeCoffre(
+export async function reprendreLeChiffrementDuCoffre(
   rangement: RangementDesMagasins,
   ancienne: CryptoKey,
   neuve: CryptoKey,

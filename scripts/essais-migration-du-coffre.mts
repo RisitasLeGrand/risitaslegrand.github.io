@@ -20,7 +20,7 @@ import {
 import {
   CLEF_JOURNAL,
   magasinsAReprendre,
-  reprendreLeCoffre,
+  reprendreLeChiffrementDuCoffre,
   type JournalDeMigration,
   type RangementDesMagasins,
 } from '../src/lib/noyau/migration-du-coffre';
@@ -142,7 +142,7 @@ console.log('\nUNE REPRISE COMPLÈTE REND TOUT LISIBLE SOUS LA CLÉ NEUVE, ET EL
   const b = base();
   await remplir(b, ancienne);
 
-  const compte = await reprendreLeCoffre(b.port, ancienne, neuve);
+  const compte = await reprendreLeChiffrementDuCoffre(b.port, ancienne, neuve);
   v('douze enregistrements repris', compte.enregistrements, 12);
   v('le journal dit que c’est fini', b.journal?.passe, 'fini');
 
@@ -178,7 +178,7 @@ console.log('\nUNE COUPURE NE PERD JAMAIS RIEN, À AUCUN MOMENT');
     const b = base(coupe);
     await remplir(b, ancienne);
     try {
-      await reprendreLeCoffre(b.port, ancienne, neuve);
+      await reprendreLeChiffrementDuCoffre(b.port, ancienne, neuve);
     } catch (e) {
       if ((e as Error).message !== 'COUPURE') throw e;
     }
@@ -195,7 +195,7 @@ console.log('\nUNE COUPURE NE PERD JAMAIS RIEN, À AUCUN MOMENT');
       const sain = base();
       sain.magasins.clear();
       for (const [m, c] of b.magasins) sain.magasins.set(m, new Map(c));
-      await reprendreLeCoffre(sain.port, ancienne, neuve);
+      await reprendreLeChiffrementDuCoffre(sain.port, ancienne, neuve);
       const apres = await toutEstLisible(sain, [neuve]);
       if (apres.length > 0) reprises.push(`coupure ${coupe} : ${apres.join(', ')}`);
     } catch (e) {
@@ -249,7 +249,7 @@ console.log('\nUNE COPIE QUI SE CORROMPT APRÈS COUP ARRÊTE TOUT, AVANT LE MOIN
 
   let leve = '';
   try {
-    await reprendreLeCoffre(b.port, ancienne, neuve);
+    await reprendreLeChiffrementDuCoffre(b.port, ancienne, neuve);
   } catch (e) {
     leve = (e as Error).message;
   }
@@ -270,7 +270,7 @@ console.log('\nLE JOURNAL DIT OÙ L’ON EN EST');
   const b = base(5);
   await remplir(b, ancienne);
   try {
-    await reprendreLeCoffre(b.port, ancienne, neuve);
+    await reprendreLeChiffrementDuCoffre(b.port, ancienne, neuve);
   } catch {
     /* coupure attendue */
   }

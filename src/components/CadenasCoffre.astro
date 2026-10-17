@@ -63,8 +63,30 @@
 </div>
 
 <script>
-  import { fermerLeCoffre, modeDuCoffre, oublierLAppareil, reprendreLeCoffre, surCoffre } from '../lib/coffre';
+  import {
+    brancherLeVerrouAutomatique,
+    delaiDuVerrouAutomatique,
+    fermerLeCoffre,
+    modeDuCoffre,
+    oublierLAppareil,
+    reprendreLeCoffre,
+    surCoffre,
+  } from '../lib/coffre';
   import { afficherLeBandeau, bandeauVoulu, surBandeau } from '../lib/coffre-bandeau';
+
+  /*
+     Le verrou automatique se branche ici parce que ce composant est monté
+     dans les DEUX en-têtes, donc sur toute page où le coffre peut être
+     ouvert. Le brancher dans la mise en page aurait marché aussi ; le mettre
+     à côté du cadenas garde ensemble les deux façons de refermer le coffre,
+     celle qu'on choisit et celle qui arrive toute seule.
+
+     Le délai est lu avant de brancher, et non après : brancher d'abord
+     poserait le verrou à quinze minutes pendant le temps de la lecture, et
+     une personne qui l'a désactivé verrait son coffre se fermer quand même
+     si elle rechargeait au mauvais moment.
+  */
+  delaiDuVerrouAutomatique().then((delai) => brancherLeVerrouAutomatique(delai));
 
   const zone = document.getElementById('cadenas-coffre');
   const bouton = document.getElementById('cadenas-coffre-bouton');
