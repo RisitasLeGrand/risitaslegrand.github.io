@@ -7,7 +7,7 @@
     "contenu": "node scripts/podcasts.mjs && node scripts/verifier-corrections.mjs && node scripts/build-content.mjs",
     "molecules:registre": "node scripts/construire-registre-molecules.mjs",
     "dev": "npm run contenu && astro dev",
-    "build": "npm run contenu && astro build",
+    "build": "npm run verifier && npm run contenu && astro build",
     "preview": "astro preview",
     "deploy": "npm run build && node scripts/deploy.mjs",
     "podcasts": "node scripts/podcasts.mjs",

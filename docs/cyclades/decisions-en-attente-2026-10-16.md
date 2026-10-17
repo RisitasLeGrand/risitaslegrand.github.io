@@ -271,3 +271,49 @@ sombre.
 17 octobre », relayée par messages inter-sessions. Les citations d'Alexis
 sont reproduites telles que le pilote les a transmises ; je ne les ai pas
 reçues de sa main.*
+
+---
+
+# Alexis a tranché, dans ma conversation — 17 octobre
+
+« J'approuve D-2 (b), ainsi que M14, le bandeau du coffre et le thème sur
+tous les menus, tels que le pilote les a transmis. »
+
+Les quatre points du B et du C ci-dessus sont donc **levés**, et par sa
+main. Ce qui suit n'attend plus personne.
+
+## D-2 — refermée
+
+`verifier` entre dans `npm run build`, et il passe **en premier** : un
+défaut de typage arrête la construction avant qu'elle ne produise quoi que
+ce soit. Pas de chaîne d'intégration sur le dépôt public, pas de
+`verifier.yml` — le fichier préparé hier n'a plus d'objet, et le refus du
+classifieur qui le bloquait devient sans conséquence.
+
+Mesuré, et non estimé :
+
+| | durée |
+|---|---|
+| construction avant | 142 s |
+| construction après | **161 s** |
+| coût réel | **+19 s, soit +13 %** |
+
+Éprouvé sur le défaut qu'il vise, et non sur du code sain : une annotation
+de type fausse glissée dans `sante.ts` fait sortir `npm run build` en
+code 1, sans rien construire. C'est aussi vrai de `npm run deploy`, qui
+enchaîne sur `build` — on ne peut donc plus publier un site dont les types
+ne tiennent pas.
+
+**D-2 est close.** Elle était ouverte depuis le 16 octobre.
+
+## Ce qui entre dans le lot, maintenant approuvé
+
+M14 (l'audit du centre de notifications), le bandeau du coffre avec ses
+deux gestes et son réglage persistant, et le thème sur tous les menus.
+Ordre : M13 et M11 en cours, puis M12, puis M14, puis M5 à M9.
+
+S'y ajoutent les 52 constats de l'audit indépendant du pilote, à confronter
+aux miens, chacun marqué « déjà vu », « nouveau » ou « contesté ». Deux
+sont déjà traités : **M-20** (le nom de molécule dans le titre d'onglet et
+dans l'adresse) est corrigé et éprouvé ; **M-09** l'est pour sa part
+« Cog-Training ».
