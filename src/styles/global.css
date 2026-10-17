@@ -220,6 +220,48 @@ body {
     min-height: 2.75rem;
     align-content: center;
   }
+
+  /* Seize pixels dans les champs de saisie.
+
+     Sous 16 px, iOS **zoome la page** à la mise au point d'un champ : la
+     colonne saute, le clavier monte, et il faut repincer pour revoir le
+     bouton qui valide.
+
+     COMBIEN DE CHAMPS, AU JUSTE. L'inventaire du prompt 41 en annonçait
+     soixante-dix-sept. Le chiffre était faux en substance : soixante-seize
+     d'entre eux sont des **boutons radio** — les échelles de Psyché, les
+     notes de séance — qui ne portent pas de texte et ne déclenchent aucun
+     zoom. Un seul champ de saisie était concerné, `textarea#brut` de
+     `/importer-analyse/`.
+
+     Établi en retirant chaque bloc tour à tour et en regardant ce que le
+     contrôle accuse : le premier seul retiré, rien ; les deux retirés, ce
+     textarea. Le premier bloc ne corrige donc rien aujourd'hui, il
+     **prévient** — un champ futur sans classe de taille hériterait des
+     14 px de son conteneur, et personne ne le verrait avant un iPhone. Il
+     est gardé pour cela, et non pour un défaut qu'il aurait réparé.
+
+     Le second existe parce qu'une utilitaire de taille vaut 0,1,0 en
+     spécificité contre 0,0,1 pour un sélecteur d'élément : sans lui, la
+     règle d'élément perdrait contre `text-sm`.
+
+     Cases et radios restent dehors, pour la raison déjà écrite plus haut :
+     leur cible est l'étiquette qui les entoure. Sous « pointer: coarse »
+     seulement — sur un écran de bureau, rien ne zoome. */
+  input:not([type='checkbox']):not([type='radio']):not([type='hidden']),
+  select,
+  textarea {
+    font-size: 1rem;
+  }
+
+  input.text-xs,
+  input.text-sm,
+  select.text-xs,
+  select.text-sm,
+  textarea.text-xs,
+  textarea.text-sm {
+    font-size: 1rem;
+  }
 }
 
 /* --- Texte sécable -------------------------------------------------------- */

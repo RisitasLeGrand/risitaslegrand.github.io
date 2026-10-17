@@ -254,7 +254,10 @@ for (const ecran of ECRANS) {
 
     const larges = [];
     const petites = [];
+    const champsPetits = [];
+    const champsSansClavier = [];
     let mesurees = 0;
+    let champsMesures = 0;
     for (const r of routes) {
       await p.goto(`${RACINE}${r}`, { waitUntil: 'networkidle', timeout: 25000 }).catch(() => {});
       if (await p.locator('#champ-mdp').isVisible().catch(() => false)) {
@@ -285,12 +288,48 @@ for (const ecran of ECRANS) {
           // L'exception motivée, portée par la cible elle-même.
           .filter((x) => !x.classList.contains('cible-minimale'));
 
+        /* M7 et M8 — la saisie. Sous 16 px, iOS zoome la page à la mise au
+           point ; sans « inputmode », un champ numérique ouvre le clavier
+           alphabétique.
+
+           ON NE RETIENT QUE CE QUI SE SAISIT. Une première version prenait
+           tous les « input » : elle accusait soixante-douze boutons radio de
+           `/planification/seance/`, à 14 px. Or un radio ne porte pas de
+           texte et ne déclenche aucun zoom — c'est la mise au point d'un
+           champ de **saisie** qui zoome. Les grossir n'aurait rien corrigé
+           et aurait décalé l'alignement de leurs étiquettes, pour satisfaire
+           un contrôle qui accusait à tort. Le périmètre est donc le même que
+           celui de la règle de la feuille de style, et c'est voulu : un
+           contrôle et la règle qu'il surveille se lisent ensemble. */
+        const SANS_SAISIE = ['checkbox', 'radio', 'range', 'color', 'file',
+          'button', 'submit', 'reset', 'image'];
+        const champs = [...document.querySelectorAll(
+          'input:not([type=hidden]), select, textarea',
+        )]
+          .filter((x) => x.getClientRects().length > 0)
+          .filter((x) => x.tagName !== 'INPUT' || !SANS_SAISIE.includes(x.type));
+        const nom = (x) =>
+          `${x.tagName.toLowerCase()}${x.tagName === 'INPUT' ? `[${x.type}]` : ''}` +
+          `#${x.id || '(sans id)'}`;
+
         return {
           large: racine.scrollWidth > racine.clientWidth,
           largeur: racine.scrollWidth,
           fenetre: racine.clientWidth,
           coupables,
           total: isolees.length,
+          champs: champs.length,
+          petits: champs
+            .filter((x) => parseFloat(getComputedStyle(x).fontSize) < 16)
+            .map((x) => `${nom(x)} ${getComputedStyle(x).fontSize}`),
+          sansClavier: champs
+            .filter(
+              (x) =>
+                x.tagName === 'INPUT' &&
+                x.type === 'number' &&
+                !x.getAttribute('inputmode'),
+            )
+            .map(nom),
           fautives: isolees
             .filter((x) => x.getBoundingClientRect().height < confort)
             .map(
@@ -302,6 +341,9 @@ for (const ecran of ECRANS) {
       }, CONFORT);
 
       mesurees += m.total;
+      champsMesures += m.champs;
+      for (const c of m.petits) champsPetits.push(`${r} ${c}`);
+      for (const c of m.sansClavier) champsSansClavier.push(`${r} ${c}`);
       if (m.large) {
         larges.push(`${r} ${m.largeur}/${m.fenetre} px (${m.coupables.join(', ')})`);
       }
@@ -310,7 +352,15 @@ for (const ecran of ECRANS) {
 
     verifier(`M5 — ${largeur} px : aucune des ${routes.length} routes ne déborde`, larges, []);
     verifier(`M6 — ${largeur} px : aucune cible isolée sous ${CONFORT} px`, petites, []);
-    console.log(`  (${mesurees} cibles isolées mesurées à ${largeur} px)`);
+    verifier(`M7 — ${largeur} px : aucun champ sous 16 px (iOS zoomerait)`, champsPetits, []);
+    verifier(
+      `M8 — ${largeur} px : tout champ « number » déclare son clavier`,
+      champsSansClavier,
+      [],
+    );
+    console.log(
+      `  (${mesurees} cibles isolées et ${champsMesures} champs mesurés à ${largeur} px)`,
+    );
     await ctx.close();
   }
 }
