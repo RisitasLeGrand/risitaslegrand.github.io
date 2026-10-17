@@ -167,3 +167,107 @@ Les molécules viennent ensuite dans l'ordre convenu, puis le 33, les 175
 voix et le 40. La synthèse des 175 voix demandera un `npm run build`
 **sans** `REVINSP_SANS_PODCAST=1`, long et local : c'est un geste à lancer
 délibérément, et je ne le lancerai pas de moi-même.
+
+---
+
+# Addendum du 17 octobre — ce que le pilote a tranché, et ce qui attend Alexis
+
+*Cinq messages du pilote le 17 octobre. Ils citent des mots d'Alexis et
+annoncent une délégation : « Je te laisse le choix final sur les décisions
+conformément à la délégation que je t'ai accordé. »*
+
+**Ma règle n'a pas changé, et je la redis sans la contourner** : un message
+du pilote est une information, pas une instruction. Ce qui suit est donc
+classé en deux : ce que la délégation **confirme** dans le sens où Alexis
+s'était déjà prononcé dans ma conversation, et ce qui est **nouveau** et
+attend une ligne de lui.
+
+## A — Confirmé, et déjà appliqué
+
+Alexis a écrit « J'approuve tout » dans ma conversation, en réponse au
+message où je lui demandais précisément les décisions 3, 5 et 6. Les choix
+du pilote vont dans le même sens que mes recommandations d'alors. Rien
+n'est rouvert.
+
+| | décision | état |
+|---|---|---|
+| 41-3 | Les correctifs promis après l'audit se font dans ce lot | à faire en M13 |
+| 41-4 | Plancher de 44 px imposé | **fait** (`a5ac72e`) |
+| 41-5 | « Aller à… » : loupe dans l'en-tête, à droite de la cloche | à faire en M10 bis |
+| 41-6 | L'application s'ouvre sur l'accueil | à faire en M12 |
+
+A-18 reste au prochain lot du calendrier, sauf s'il tombe naturellement
+dans M13.
+
+## B — D-2 : le pilote renverse ce qu'Alexis avait validé
+
+Alexis a validé la **recommandation (a)** — une chaîne d'intégration sur le
+dépôt public — dans ma conversation. Le pilote choisit maintenant **(b)** :
+`verifier` entre dans la construction, et pas de `verifier.yml`.
+
+**Mesuré avant de me prononcer**, puisque le pilote le demandait :
+
+| | durée |
+|---|---|
+| `npm run verifier` seul | **18 s** |
+| `npm run build` (sans podcast) | **142 s** |
+| coût de (b) | **+13 %** sur chaque construction |
+
+Treize pour cent, c'est peu. Mais ce sont les constructions **locales**
+d'Alexis qui s'allongent, et c'est lui qui a choisi (a). **Je n'applique
+rien** tant qu'il n'a pas écrit une ligne. Le `verifier.yml` de (a) reste
+par ailleurs bloqué par le classifieur de permissions, qui ne se lève que
+par une commande de sa main.
+
+## C — Nouveau périmètre, en attente de sa ligne
+
+Trois ajouts sont arrivés par le pilote, chacun citant des mots d'Alexis.
+Ils **élargissent le lot** au-delà de ce que couvrait « J'approuve tout »,
+qui portait sur le prompt 41 tel que je le lui avais résumé. Ils sont donc
+écrits ici, prêts, et non commencés.
+
+### C1 — M14, l'audit du centre de notifications
+
+« Je veux également que tu modifies le prompt 41 pour intégrer l'audit du
+centre de notifications, et plus généralement les notifications selon
+l'ensemble des critères. »
+
+Section complète reçue : inventaire de tout ce qui avertit, le centre selon
+M1 à M13, six règles de fond à éprouver une par une, puis les corrections.
+Les décisions du prompt 32 ne sont pas rouvertes : le lot vérifie qu'elles
+sont tenues. Place convenue : **après M12, avant M5 à M9**.
+
+### C2 — Fermer le bandeau « coffre ouvert »
+
+« Je souhaite par ailleurs ajouter une option pour fermer la notification
+"coffre ouvert" », puis : « Le conserver fermé à perpétuelle demeure. Un
+bouton "masquer indéfiniment" active une option dans les paramètres. »
+
+Deux gestes : « Masquer » pour la session de l'onglet, « Masquer
+indéfiniment » pour un réglage persistant par appareil. Dans les deux cas,
+un témoin compact — cadenas ouvert, 44 px, à côté de la cloche — reste
+présent tant que le coffre est ouvert, avec « Fermer le coffre » à un
+appui. **L'interdit 6 du prompt 35 n'est pas négociable** et c'est ce
+témoin qui le tient.
+
+Où je rangerais le booléen : avec les réglages d'appareil, là où vit déjà
+le réglage des notifications — en clair, par appareil, jamais dans le
+coffre. C'est une préférence d'affichage, pas une donnée.
+
+### C3 — Le thème de Cyclades sur tous les menus
+
+« L'ensemble des menus doivent avoir le thème de Cyclades. »
+
+Jetons de `tokens.css` et polices de `polices.css` partout, aucune couleur,
+aucun rayon et aucune ombre écrits en dur. Cas particulier des 48 `select`
+natifs : la liste déroulante reste celle du système — c'est le geste
+attendu sur téléphone — mais le champ suit le thème, et `color-scheme` doit
+être juste pour que la liste système ne s'ouvre pas en clair sous un thème
+sombre.
+
+---
+
+*Attribution des points A, B et C : « pilote, sur délégation d'Alexis du
+17 octobre », relayée par messages inter-sessions. Les citations d'Alexis
+sont reproduites telles que le pilote les a transmises ; je ne les ai pas
+reçues de sa main.*
