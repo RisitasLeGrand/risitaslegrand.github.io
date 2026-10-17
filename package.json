@@ -225,7 +225,8 @@
     "essais:faits-branches-sensible": "tsx scripts/essais-faits-branches-sensible.mts",
     "essais:sensible:parcours": "node scripts/essais-sensible-parcours.mjs",
     "essais:carte-ecrans": "node scripts/essais-carte-ecrans.mjs",
-    "essais:bandeau-coffre": "node scripts/essais-bandeau-coffre.mjs"
+    "essais:bandeau-coffre": "node scripts/essais-bandeau-coffre.mjs",
+    "essais:theme-menus": "node scripts/essais-theme-menus.mjs"
   },
   "repository": {
     "type": "git",
