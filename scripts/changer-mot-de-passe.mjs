@@ -86,16 +86,42 @@ if (empreinte === actuelle) {
   process.exit(0);
 }
 
-/*
-   Un avertissement, pas un refus : la longueur d'un mot de passe est une
-   décision de la personne, et un script qui refuse d'obéir pour son bien finit
-   par être contourné d'une façon pire.
-*/
-if (motDePasse.length < 8) {
+/**
+ * Un refus, et non plus un avertissement.
+ *
+ * Ce script avertissait sous huit signes et poursuivait. L'argument écrit
+ * ici était bon : « un script qui refuse d'obéir pour son bien finit par être
+ * contourné d'une façon pire ». Ce qui a changé n'est pas l'argument, c'est
+ * le fait sur lequel il reposait.
+ *
+ * `site.config.mjs` porte une empreinte **SHA-256 sans sel**, et ce fichier
+ * part dans le paquet construit, donc dans la branche publiée. Une empreinte
+ * sans sel se teste par dizaines de milliards par seconde sur une carte
+ * graphique ordinaire : sous quinze signes, le mot de passe se retrouve en
+ * un temps qui ne se compte pas en heures mais en secondes, et les 310 000
+ * itérations du coffre n'y changent rien puisqu'on ne passe plus par elles.
+ *
+ * Un avertissement laisse croire qu'on arbitre entre commodité et sécurité.
+ * Ici il n'y a pas d'arbitrage : sous quinze signes, la protection n'existe
+ * pas. Le refus dit la vérité, l'avertissement la maquillait.
+ *
+ * Il tombera quand l'empreinte quittera le paquet livré — c'est le point 1 du
+ * prompt 44, et il reste dû.
+ */
+const LONGUEUR_MINIMALE = 15;
+
+if (motDePasse.length < LONGUEUR_MINIMALE) {
   console.log(
-    `\n${rouge('!')} Ce mot de passe fait ${motDePasse.length} signes. ` +
-      'Il protège tout le contenu du dépôt public.',
+    `\n${rouge('✗')} Ce mot de passe fait ${motDePasse.length} signes, ` +
+      `il en faut au moins ${LONGUEUR_MINIMALE}.\n\n` +
+      '  Son empreinte SHA-256 part SANS SEL dans le paquet publié. Qui tient\n' +
+      '  la branche publiée peut la tester par milliards par seconde : sous\n' +
+      '  quinze signes, le mot de passe se retrouve en quelques secondes, et\n' +
+      '  tout le contenu du dépôt avec lui.\n\n' +
+      '  Une phrase de quatre ou cinq mots fait l’affaire, et se retient mieux\n' +
+      '  qu’une suite de signes.\n',
   );
+  process.exit(1);
 }
 
 const source = await readFile(CHEMIN_CONFIG, 'utf8');
