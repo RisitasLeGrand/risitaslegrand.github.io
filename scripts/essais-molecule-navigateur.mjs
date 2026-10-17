@@ -116,6 +116,51 @@ v('et l’écran « coffre fermé » n’est pas celui qu’on mesure', await pa
 const href = await page.getAttribute('#vers-bibliographie', 'href');
 vrai(`le lien vers la bibliographie porte une adresse (${href})`, typeof href === 'string' && href.includes('/odyssee/bibliographie/'));
 
+/* ══════════════════════════════════════════════════════════════════════════
+   M-20 — le nom d'une molécule ne sort pas du coffre par le titre ni par
+   l'adresse
+   ══════════════════════════════════════════════════════════════════════════
+
+   L'interdit 1 du prompt 41 : « coffre fermé, aucun texte en clair de plus
+   qu'aujourd'hui, y compris dans un titre de page ». Le titre d'onglet
+   portait « <molécule> · Cyclades », et le nom venait du magasin scellé
+   quand on ouvrait la fiche depuis un traitement déclaré. Il restait dans
+   l'onglet, dans la liste des onglets et dans l'historique — après la
+   fermeture du coffre comprise.
+
+   On mesure donc les deux sorties possibles : le titre, et l'adresse. */
+{
+  const titre = await page.title();
+  v('le titre d’onglet ne porte aucun nom de molécule', titre, 'Molécule · Cyclades');
+
+  await aller('/odyssee/molecule/');
+  await page.waitForSelector('#index-molecules:not(.hidden)', { timeout: 30000 });
+  const entrees = await page.locator('#liste-catalogue button').count();
+  vrai(`l’index propose les fiches du catalogue (${entrees})`, entrees > 0);
+  v(
+    'ses entrées sont des boutons et non des liens',
+    await page.locator('#liste-catalogue a').count(),
+    0,
+  );
+
+  await page.locator('#liste-catalogue button').first().click();
+  await page.waitForSelector('#fiche:not(.hidden)', { timeout: 30000 });
+  v(
+    'ouvrir une fiche depuis l’index n’écrit aucun nom dans l’adresse',
+    new URL(page.url()).search,
+    '',
+  );
+  v(
+    'et le titre d’onglet reste muet',
+    await page.title(),
+    'Molécule · Cyclades',
+  );
+  vrai(
+    'la fiche ouverte depuis l’index affiche bien son nom DANS la page',
+    ((await page.textContent('#titre-molecule')) ?? '').trim().length > 0,
+  );
+}
+
 v('aucune erreur de script', erreurs, []);
 
 await nav.close();

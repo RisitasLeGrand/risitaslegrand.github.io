@@ -336,25 +336,69 @@ import {
       $('index-molecules').classList.remove('hidden');
       const liste = $('liste-catalogue');
       liste.replaceChildren();
+      /*
+         DES BOUTONS, ET NON DES LIENS — M-20.
+
+         Hier, ces entrées étaient des liens « ?nom=<nom de la molécule> ».
+         Je m'étais convaincu que c'était sans conséquence : les noms du
+         catalogue sont une référence publique, et le lien entre une molécule
+         et Alexis passe par un identifiant. J'avais tort sur un point que je
+         n'avais pas regardé — une adresse entre dans l'historique du
+         navigateur, qui n'est pas sous coffre, et elle y reste après la
+         fermeture du coffre. Savoir quelles fiches quelqu'un ouvre sur un
+         écran de santé en dit déjà trop.
+
+         Un bouton qui peint la fiche sur place ne laisse ni adresse, ni
+         entrée d'historique, et c'est en prime le geste le plus rapide.
+      */
       for (const f of CATALOGUE) {
         const li = document.createElement('li');
-        const a = document.createElement('a');
-        a.href = lien(`/odyssee/molecule/?nom=${encodeURIComponent(f.nom)}`);
-        a.className =
-          'cible-tactile w-full rounded-lg border border-slate-200 px-3 text-sm ' +
+        const bouton = document.createElement('button');
+        bouton.type = 'button';
+        bouton.className =
+          'cible-tactile w-full rounded-lg border border-slate-200 px-3 text-left text-sm ' +
           'text-indigo-700 underline dark:border-slate-800 dark:text-indigo-300';
-        a.textContent = f.nom;
-        li.appendChild(a);
+        bouton.textContent = f.nom;
+        bouton.addEventListener('click', () => {
+          $('index-molecules').classList.add('hidden');
+          void peindreLaFiche(f.nom, null);
+        });
+        li.appendChild(bouton);
         liste.appendChild(li);
       }
       return;
     }
     $('index-molecules').classList.add('hidden');
 
-    const nom = traitement?.nom ?? parametreUrl('nom') ?? 'Molécule';
+    await peindreLaFiche(traitement?.nom ?? parametreUrl('nom') ?? 'Molécule', traitement);
+  }
 
+  /**
+   * Peint une fiche, qu'elle vienne d'un traitement déclaré ou de l'index.
+   *
+   * Séparée de `rendreLaFiche` depuis M-20 : l'index la rappelle sur place,
+   * au lieu de recharger la page avec le nom de la molécule dans l'adresse.
+   * Sans traitement, le journal reste fermé — on peut lire une fiche sans
+   * pour autant déclarer qu'on en prend.
+   */
+  async function peindreLaFiche(
+    nom: string,
+    traitement: Awaited<ReturnType<typeof tousLesTraitements>>[number] | null,
+  ) {
     $('titre-molecule').textContent = nom;
-    document.title = `${nom} · Cyclades`;
+    /*
+       LE TITRE D'ONGLET RESTE MUET — M-20, et c'est l'interdit 1 du prompt 41
+       au mot près : « coffre fermé, aucun texte en clair de plus
+       qu'aujourd'hui, y compris dans un titre de page ».
+
+       Il portait « <molécule> · Cyclades ». Quand la page est ouverte depuis
+       un traitement déclaré, ce nom vient du magasin **scellé** : le coffre
+       le protégeait au repos, et le titre le publiait dans l'onglet, dans la
+       liste des onglets, dans l'historique — et il y restait une fois le
+       coffre refermé. Le nom s'affiche dans la page, derrière le coffre, et
+       nulle part ailleurs.
+    */
+    document.title = 'Molécule · Cyclades';
     $('nom-a-copier').textContent = nom;
 
     /*
