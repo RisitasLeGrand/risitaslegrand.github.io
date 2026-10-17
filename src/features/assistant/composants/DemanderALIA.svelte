@@ -167,7 +167,7 @@
 >
   <form method="dialog" class="sr-only"><button type="submit">Fermer</button></form>
 
-  <div class="max-h-[86vh] overflow-y-auto p-5">
+  <div class="max-h-[86dvh] overflow-y-auto p-5">
     <header class="flex flex-wrap items-baseline justify-between gap-2">
       <h2 class="text-lg font-semibold">{titre}</h2>
       <button

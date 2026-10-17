@@ -230,7 +230,14 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
 <html lang="fr">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <!--
+      « viewport-fit=cover » : la page va jusqu'aux bords de l'écran, bandes
+      réservées comprises. Sans lui, la barre du bas d'un iPhone à encoche
+      flotte au-dessus d'un ruban gris, et le fond du site s'arrête avant le
+      bord. Avec lui, c'est à la feuille de style d'écarter les commandes de
+      la poignée d'accueil : les quatre variables « --sur-* » s'en chargent.
+    -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <!-- Non-indexation : aucun moteur ne doit référencer ce site. -->
     <meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
     <meta name="googlebot" content="noindex, nofollow" />
@@ -344,7 +351,7 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
         enteteVoulu === 'complet' && (
           <header
             id="entete-principal"
-            class="sticky top-0 z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90"
+            class="entete-sur sticky z-40 border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90"
           >
             <div class="bandeau-tricolore"></div>
             <TemoinCoffre />
@@ -786,7 +793,7 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
         <nav
           id="barre-du-bas"
           aria-label="Navigation de la branche"
-          class="fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-200 bg-white/95 backdrop-blur sm:hidden dark:border-slate-800 dark:bg-slate-900/95"
+          class="barre-sure fixed inset-x-0 bottom-0 z-40 flex border-t border-slate-200 bg-white/95 backdrop-blur sm:hidden dark:border-slate-800 dark:bg-slate-900/95"
         >
           {principaux.map((o) => (
             <a
@@ -824,7 +831,7 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
           aria-modal="true"
           aria-label="Tous les écrans"
         >
-          <div class="absolute inset-x-0 bottom-0 max-h-[80vh] overflow-y-auto rounded-t-2xl bg-white p-4 dark:bg-slate-900">
+          <div class="feuille-sure absolute inset-x-0 bottom-0 max-h-[80dvh] overflow-y-auto rounded-t-2xl bg-white p-4 dark:bg-slate-900">
             <div class="mb-3 flex items-center justify-between">
               <h2 class="text-base font-semibold text-slate-900 dark:text-white">
                 {brancheCourante.libelle}
@@ -879,7 +886,12 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
         tabindex="-1"
         class:list={[
           'mx-auto max-w-6xl px-4 py-8',
-          enteteVoulu === 'complet' ? 'pb-24 sm:pb-8' : '',
+          /*
+             « contenu-sur » ajoute la poignée d'accueil aux 6 rem qui
+             dégagent déjà la barre du bas : sans elle, la dernière ligne
+             d'une page se lit sous la poignée.
+          */
+          enteteVoulu === 'complet' ? 'contenu-sur pb-24 sm:pb-8' : '',
         ]}
       >
         <slot />

@@ -67,7 +67,36 @@
    l'écran sans se faire attendre, ce qui s'ouvre peut prendre le temps d'être
    compris.
 */
+/* --- Les quatre marges sûres ---------------------------------------------
+
+   Un iPhone à encoche réserve quatre bandes : la barre d'état en haut, la
+   poignée d'accueil en bas, et deux bords latéraux en paysage. Sans
+   « viewport-fit=cover », le navigateur garde ces bandes pour lui et la page
+   s'arrête avant — propre, mais la barre du bas flotte au-dessus d'un ruban
+   gris. Avec « cover », la page va jusqu'au bord, et c'est à nous de ne pas
+   mettre un bouton sous la poignée.
+
+   POURQUOI DES VARIABLES, ET NON « env() » ÉCRIT PARTOUT. Un essai ne peut
+   pas donner une encoche à un navigateur sans écran. Avec « env() » écrit en
+   vingt endroits, le seul contrôle possible serait de relire le texte des
+   règles — or une sonde textuelle prouve qu'un garde-fou est cité, jamais
+   qu'il agit. On l'a appris à ses dépens hier : un commentaire affirmait que
+   l'essai ouvrait le coffre, et il ne l'ouvrait pas.
+
+   Avec ces quatre variables, l'essai écrit « --sur-bas: 34px » dans la
+   racine et **mesure** que la barre du bas remonte de 34 px, que rien ne
+   passe dessous, et que le contenu ne se retrouve pas caché. Le mécanisme
+   est éprouvé pour de bon, sur un écran qui n'a pas d'encoche.
+
+   La valeur de repli est zéro : sur tout appareil sans bande réservée,
+   « env() » rend zéro et rien ne bouge.
+*/
 :root {
+  --sur-haut: env(safe-area-inset-top, 0px);
+  --sur-bas: env(safe-area-inset-bottom, 0px);
+  --sur-gauche: env(safe-area-inset-left, 0px);
+  --sur-droite: env(safe-area-inset-right, 0px);
+
   --duree-courte: 120ms;
   --duree-moyenne: 200ms;
   --duree-longue: 300ms;
@@ -261,6 +290,50 @@ body {
   textarea.text-xs,
   textarea.text-sm {
     font-size: 1rem;
+  }
+}
+
+/* --- Ce qui touche les bords de l'écran ---------------------------------- */
+/* Quatre endroits seulement touchent un bord, et chacun le traite à sa façon.
+
+   LA BARRE DU BAS garde son fond jusqu'au bord — un ruban blanc sous une
+   barre blanche se verrait — et écarte ses **boutons** de la poignée par son
+   rembourrage. Ses côtés aussi : en paysage, l'encoche mange un bord.
+
+   L'EN-TÊTE COLLANT se colle **sous** la barre d'état et non au bord de
+   l'écran, sinon son premier texte passe derrière l'heure et la batterie.
+
+   LES FEUILLES qui montent du bas s'arrêtent avant la poignée, faute de quoi
+   leur dernier bouton est à moitié dessous.
+
+   LE CONTENU ajoute la poignée aux six rem qui dégagent déjà la barre.
+
+   La hauteur des feuilles est en « dvh » et non « vh » : sur mobile, « vh »
+   se mesure sur la fenêtre barre d'adresse **rétractée**, ce qui fait une
+   feuille plus haute que l'écran tant qu'elle est déployée. */
+.barre-sure {
+  padding-bottom: var(--sur-bas);
+  padding-left: var(--sur-gauche);
+  padding-right: var(--sur-droite);
+}
+
+.entete-sur {
+  top: var(--sur-haut);
+}
+
+.feuille-sure {
+  padding-bottom: calc(1rem + var(--sur-bas));
+}
+
+.contenu-sur {
+  padding-bottom: calc(6rem + var(--sur-bas));
+}
+
+@media (min-width: 640px) {
+  /* Au-delà du téléphone, la barre du bas n'existe plus : le contenu reprend
+     son rembourrage ordinaire, la poignée en plus si l'appareil en a une. */
+  .contenu-sur {
+    padding-bottom: calc(2rem + var(--sur-bas));
   }
 }
 

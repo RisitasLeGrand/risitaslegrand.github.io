@@ -350,6 +350,98 @@ for (const ecran of ECRANS) {
       for (const f of m.fautives) petites.push(`${r} ${f}`);
     }
 
+    /* ════════════════════════════════════════════════════════════════════
+       M9 — l'encoche et la poignée d'accueil
+       ════════════════════════════════════════════════════════════════════
+
+       Un essai ne peut pas donner une encoche à un navigateur sans écran.
+       C'est pourquoi les quatre bandes réservées passent par des variables
+       (`--sur-haut`, `--sur-bas`, `--sur-gauche`, `--sur-droite`) plutôt que
+       par `env()` écrit en vingt endroits : ici on leur donne une valeur et
+       on **mesure** ce qui bouge.
+
+       Relire le texte des règles prouverait qu'elles sont écrites, jamais
+       qu'elles agissent — et c'est exactement l'erreur trouvée hier dans ce
+       fichier, où un commentaire affirmait ouvrir le coffre sans le faire.
+
+       Les valeurs sont celles d'un iPhone à encoche en portrait : 47 px en
+       haut, 34 px pour la poignée. */
+    {
+      await p.goto(`${RACINE}/odyssee/`, { waitUntil: 'networkidle' }).catch(() => {});
+      if (await p.locator('#champ-mdp').isVisible().catch(() => false)) {
+        await p.fill('#champ-mdp', MDP);
+        await p.click('#bouton-verrou');
+        await p.waitForTimeout(900);
+      }
+      await p.waitForTimeout(400);
+
+      const avant = await p.evaluate(() => {
+        const barre = document.getElementById('barre-du-bas');
+        return barre ? Math.round(parseFloat(getComputedStyle(barre).paddingBottom)) : null;
+      });
+      verifier(
+        `${largeur} px — sans encoche, la barre du bas ne s'écarte de rien`,
+        avant,
+        0,
+      );
+
+      const apres = await p.evaluate(() => {
+        const style = document.createElement('style');
+        style.id = 'encoche-simulee';
+        style.textContent =
+          ':root{--sur-haut:47px;--sur-bas:34px;--sur-gauche:0px;--sur-droite:0px}';
+        document.head.appendChild(style);
+        const barre = document.getElementById('barre-du-bas');
+        const entete = document.querySelector('.entete-sur');
+        const principal = document.getElementById('contenu-principal');
+        const r = barre?.getBoundingClientRect();
+        const premier = barre?.querySelector('a');
+        const rp = premier?.getBoundingClientRect();
+        return {
+          rembourrageBarre: barre
+            ? Math.round(parseFloat(getComputedStyle(barre).paddingBottom))
+            : null,
+          // Le fond de la barre touche toujours le bas de l'écran…
+          basDeLaBarre: r ? Math.round(r.bottom) : null,
+          hauteurFenetre: Math.round(document.documentElement.clientHeight),
+          // …mais son premier bouton s'arrête au-dessus de la poignée.
+          basDuBouton: rp ? Math.round(rp.bottom) : null,
+          hautEntete: entete ? Math.round(parseFloat(getComputedStyle(entete).top)) : null,
+          basContenu: principal
+            ? Math.round(parseFloat(getComputedStyle(principal).paddingBottom))
+            : null,
+        };
+      });
+
+      verifier(
+        `${largeur} px — la barre du bas écarte ses boutons de la poignée`,
+        apres.rembourrageBarre,
+        34,
+      );
+      verifier(
+        `${largeur} px — son fond touche quand même le bord de l'écran`,
+        apres.basDeLaBarre,
+        apres.hauteurFenetre,
+      );
+      verifier(
+        `${largeur} px — aucun bouton de la barre sous la poignée`,
+        apres.basDuBouton !== null && apres.basDuBouton <= apres.hauteurFenetre - 34,
+        true,
+      );
+      verifier(
+        `${largeur} px — l'en-tête collant se colle sous la barre d'état`,
+        apres.hautEntete,
+        47,
+      );
+      verifier(
+        `${largeur} px — le contenu dégage la barre ET la poignée`,
+        apres.basContenu,
+        96 + 34,
+      );
+
+      await p.evaluate(() => document.getElementById('encoche-simulee')?.remove());
+    }
+
     verifier(`M5 — ${largeur} px : aucune des ${routes.length} routes ne déborde`, larges, []);
     verifier(`M6 — ${largeur} px : aucune cible isolée sous ${CONFORT} px`, petites, []);
     verifier(`M7 — ${largeur} px : aucun champ sous 16 px (iOS zoomerait)`, champsPetits, []);
