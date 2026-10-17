@@ -1,0 +1,129 @@
+---
+/**
+ * Le cadenas compact, dans la rangée d'actions de l'en-tête.
+ *
+ * **Pourquoi il existe.** Le bandeau ambre prend 57 px, soit 7,7 % d'un
+ * écran de téléphone, et Alexis a demandé à pouvoir le fermer. Mais
+ * l'interdit 6 du prompt 35 veut « Fermer le coffre » atteignable *partout
+ * où le coffre est ouvert*, et il n'est pas négociable : on ne peut donc pas
+ * se contenter de masquer le bandeau, il faut que le geste survive ailleurs.
+ *
+ * Ce cadenas est cet ailleurs. Il est présent dès que le coffre est ouvert,
+ * **que le bandeau soit affiché ou non**, et il porte les mêmes gestes :
+ * fermer, oublier l'appareil, et revoir le bandeau.
+ *
+ * **Pourquoi un menu et non trois boutons.** Trois boutons dans une rangée
+ * qui porte déjà la cloche, le thème et le menu, à 360 px, c'est la rangée
+ * qui déborde. Le menu tient en une cible de 44 px et ne coûte un appui de
+ * plus qu'à qui veut autre chose que « voir que le coffre est ouvert ».
+ */
+---
+
+<div id="cadenas-coffre" class="relative hidden">
+  <button
+    id="cadenas-coffre-bouton"
+    type="button"
+    aria-haspopup="menu"
+    aria-expanded="false"
+    aria-label="Coffre ouvert"
+    title="Coffre ouvert"
+    class="cible-tactile-pleine rounded-lg px-2 text-amber-700 transition hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40"
+  >
+    <span aria-hidden="true">🔓</span>
+  </button>
+
+  <div
+    id="cadenas-coffre-menu"
+    role="menu"
+    aria-label="Coffre"
+    class="absolute right-0 z-50 mt-1 hidden w-60 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"
+  >
+    <button
+      id="cadenas-fermer"
+      type="button"
+      role="menuitem"
+      class="cible-tactile w-full rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+      >Fermer le coffre</button
+    >
+    <button
+      id="cadenas-oublier"
+      type="button"
+      role="menuitem"
+      class="cible-tactile hidden w-full rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+      >Oublier sur cet appareil</button
+    >
+    <button
+      id="cadenas-afficher-bandeau"
+      type="button"
+      role="menuitem"
+      class="cible-tactile hidden w-full rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+      >Afficher le bandeau</button
+    >
+  </div>
+</div>
+
+<script>
+  import { fermerLeCoffre, modeDuCoffre, oublierLAppareil, reprendreLeCoffre, surCoffre } from '../lib/coffre';
+  import { afficherLeBandeau, bandeauVoulu, surBandeau } from '../lib/coffre-bandeau';
+
+  const zone = document.getElementById('cadenas-coffre');
+  const bouton = document.getElementById('cadenas-coffre-bouton');
+  const menu = document.getElementById('cadenas-coffre-menu');
+  const oublier = document.getElementById('cadenas-oublier');
+  const afficher = document.getElementById('cadenas-afficher-bandeau');
+
+  if (zone && bouton && menu && oublier && afficher) {
+    const fermerLeMenu = () => {
+      menu.classList.add('hidden');
+      bouton.setAttribute('aria-expanded', 'false');
+    };
+
+    const peindre = (ouvert: boolean) => {
+      zone.classList.toggle('hidden', !ouvert);
+      if (!ouvert) {
+        fermerLeMenu();
+        return;
+      }
+      oublier.classList.toggle('hidden', modeDuCoffre() !== 'appareil');
+      /*
+         « Afficher le bandeau » n'a de sens que s'il est masqué. Le proposer
+         toujours ferait un menu dont une entrée sur trois ne fait rien.
+      */
+      afficher.classList.toggle('hidden', bandeauVoulu());
+    };
+
+    surCoffre(peindre);
+    surBandeau(() => peindre(!zone.classList.contains('hidden')));
+    void reprendreLeCoffre().then(peindre);
+
+    bouton.addEventListener('click', () => {
+      const ouvert = menu.classList.toggle('hidden') === false;
+      bouton.setAttribute('aria-expanded', String(ouvert));
+    });
+
+    document.getElementById('cadenas-fermer')?.addEventListener('click', () => {
+      fermerLeMenu();
+      void fermerLeCoffre();
+    });
+    oublier.addEventListener('click', () => {
+      fermerLeMenu();
+      void oublierLAppareil();
+    });
+    afficher.addEventListener('click', () => {
+      afficherLeBandeau();
+      fermerLeMenu();
+    });
+
+    /* Échap referme, et rend le focus au bouton : le laisser tomber sur BODY
+       perd la place de qui navigue au clavier. */
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || menu.classList.contains('hidden')) return;
+      fermerLeMenu();
+      bouton.focus();
+    });
+
+    document.addEventListener('click', (e) => {
+      if (!zone.contains(e.target as Node)) fermerLeMenu();
+    });
+  }
+</script>

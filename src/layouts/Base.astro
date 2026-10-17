@@ -12,6 +12,7 @@ import PiedDePage from '../components/PiedDePage.astro';
 import SelecteurParcours from '../components/SelecteurParcours.astro';
 import config from '../../site.config.mjs';
 import TemoinCoffre from '../components/TemoinCoffre.astro';
+import CadenasCoffre from '../components/CadenasCoffre.astro';
 import {
   branchesDisponibles,
   brancheDuChemin,
@@ -629,6 +630,7 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
                    voulu : les deux disent l'état de ce qui s'est passé
                    ailleurs, l'un en continu, l'autre à la demande.
                 */}
+                <CadenasCoffre />
                 <CentreNotifications />
                 <CommutateurTheme />
                 {/*
@@ -722,6 +724,16 @@ const retourAuMenu = enteteVoulu === 'leger' && !estLeMenu && !sansNavigation;
                 </span>
               )}
               <div class="flex flex-1 justify-end gap-1">
+                {/*
+                   Le cadenas est ici AUSSI, et c'est l'interdit 6 du
+                   prompt 35 : « Fermer le coffre » doit être atteignable
+                   partout où le coffre est ouvert. L'en-tête léger n'a pas
+                   la cloche — l'audit du pilote le relève —, mais il a des
+                   écrans sous coffre. Le laisser de côté ici rendrait le
+                   masquage du bandeau capable de faire disparaître le
+                   geste, ce que la décision interdit expressément.
+                */}
+                <CadenasCoffre />
                 <CommutateurTheme />
                 <details class="groupe-onglets relative shrink-0">
                   <summary

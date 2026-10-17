@@ -32,14 +32,26 @@
     <button
       id="temoin-coffre-fermer"
       type="button"
-      class="min-h-8 rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40"
+      class="cible-tactile rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40"
       >Fermer le coffre</button
     >
     <button
       id="temoin-coffre-oublier"
       type="button"
-      class="hidden min-h-8 rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40"
+      class="cible-tactile hidden rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40"
       >Oublier sur cet appareil</button
+    >
+    <button
+      id="temoin-coffre-masquer"
+      type="button"
+      class="cible-tactile rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40"
+      >Masquer</button
+    >
+    <button
+      id="temoin-coffre-masquer-toujours"
+      type="button"
+      class="cible-tactile rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40"
+      >Masquer indéfiniment</button
     >
   </div>
 </div>
@@ -47,14 +59,31 @@
 <script>
   import { fermerLeCoffre, modeDuCoffre, oublierLAppareil, reprendreLeCoffre, surCoffre } from '../lib/coffre';
   import { demarrerLeRelais, marquerSessionEtendue } from '../lib/coffre-relais';
+  import {
+    bandeauVoulu,
+    masquerIndefiniment,
+    masquerPourLaSession,
+    surBandeau,
+  } from '../lib/coffre-bandeau';
 
   const temoin = document.getElementById('temoin-coffre');
   const libelle = document.getElementById('temoin-coffre-libelle');
   const oublier = document.getElementById('temoin-coffre-oublier');
 
   if (temoin && libelle && oublier) {
+    /*
+       Le bandeau paraît si le coffre est ouvert ET si on le veut. Le second
+       terme est nouveau : il prend 57 px, mesurés, soit 7,7 % d'un écran de
+       téléphone, et Alexis a demandé à pouvoir le fermer.
+
+       Masquer ne ferme pas le coffre, et ne retire pas le geste : le cadenas
+       compact de l'en-tête porte « Fermer le coffre » dans les deux cas.
+       L'interdit 6 du prompt 35 tient par lui, pas par ce bandeau.
+    */
+    let coffreOuvert = false;
     const peindre = (ouvert: boolean) => {
-      temoin.classList.toggle('hidden', !ouvert);
+      coffreOuvert = ouvert;
+      temoin.classList.toggle('hidden', !ouvert || !bandeauVoulu());
       if (!ouvert) return;
       /*
          La portée est décidée à l'ouverture, par la case du formulaire. Elle
@@ -72,8 +101,15 @@
     };
 
     surCoffre(peindre);
+    surBandeau(() => peindre(coffreOuvert));
     document.getElementById('temoin-coffre-fermer')?.addEventListener('click', () => fermerLeCoffre());
     oublier.addEventListener('click', () => oublierLAppareil());
+    document
+      .getElementById('temoin-coffre-masquer')
+      ?.addEventListener('click', () => masquerPourLaSession());
+    document
+      .getElementById('temoin-coffre-masquer-toujours')
+      ?.addEventListener('click', () => masquerIndefiniment());
 
     /*
        Le témoin doit être juste dès la première peinture, y compris sur une

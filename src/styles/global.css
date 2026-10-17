@@ -188,6 +188,24 @@ body {
   @apply inline-flex items-center;
 }
 
+/* Et le piège que ces trois classes tendaient.
+
+   Elles posent `display: inline-flex` depuis ce fichier, hors de la couche
+   des utilitaires : à spécificité égale, c'est la dernière déclarée qui
+   gagne, et c'est la nôtre. Un élément portant « cible-tactile hidden »
+   était donc **visible**, le `hidden` de Tailwind n'ayant aucun effet.
+
+   Trouvé par l'essai du témoin de coffre, qui a rougi sur « Oublier sur cet
+   appareil » : le bouton s'affichait en mode session, où il n'y a rien à
+   oublier. Le défaut était latent — il n'est apparu que le jour où ces
+   boutons ont reçu une vraie cible tactile —, et il aurait frappé n'importe
+   quel élément caché portant la classe, dont le menu du cadenas. */
+.cible-tactile.hidden,
+.cible-tactile-pleine.hidden,
+.cible-minimale.hidden {
+  display: none;
+}
+
 @media (pointer: coarse) {
   .cible-tactile,
   .cible-tactile-pleine {
