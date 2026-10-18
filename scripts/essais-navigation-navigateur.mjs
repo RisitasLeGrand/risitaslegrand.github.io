@@ -14,6 +14,20 @@
  * 1280 comme à 390 px — soit directement, soit en ouvrant un groupe ou la
  * feuille « Plus ».
  *
+ * ## Deux surfaces, et non une
+ *
+ * Depuis M15 (17 octobre), au-dessus de 1024 px et avec un pointeur fin, le
+ * ruban horizontal cède la place à une **barre latérale** : `global.css`
+ * cache l'un (`.sans-laterale`) et montre l'autre. Le contrôle ne regardait
+ * que le ruban, et déclarait donc les vingt-neuf onglets des trois branches
+ * inatteignables à 1280 px — alors qu'ils sont tous là, à gauche. Un contrôle
+ * qui accuse à tort se fait désactiver.
+ *
+ * Il relève maintenant les deux surfaces, et vérifie en plus ce que M15
+ * promet dans son propre commentaire : « le même registre que le ruban
+ * horizontal, dans le même ordre ». Deux navigations qui diffèrent d'un écran
+ * à l'autre font deux applications.
+ *
  * ## Et l'ordre des branches
  *
  * Il changeait d'une page à l'autre, la courante passant en tête. Le contrôle
@@ -65,6 +79,9 @@ async function deverrouiller(page, chemin) {
   }
 }
 
+/** branche → ce que rendent les deux surfaces, à 1280 px et pointeur fin. */
+const surfaceFine = new Map();
+
 console.log('\n\x1b[1mN2 — À 1280 PX, TOUS LES ONGLETS SONT ATTEIGNABLES\x1b[0m\n');
 {
   const { contexte, page } = await ouvrir({ width: 1280, height: 900 }, false);
@@ -75,15 +92,22 @@ console.log('\n\x1b[1mN2 — À 1280 PX, TOUS LES ONGLETS SONT ATTEIGNABLES\x1b[
       for (const d of document.querySelectorAll('nav#navigation-principale details')) d.open = true;
     });
     await page.waitForTimeout(200);
-    const atteignables = await page.evaluate(() =>
-      [...document.querySelectorAll('nav#navigation-principale a')]
-        .filter((a) => a.getClientRects().length > 0)
-        .map((a) => new URL(a.href).pathname.replace(/\/$/, '') || '/'),
-    );
+    const releve = await page.evaluate(() => {
+      const lire = (sel) =>
+        [...document.querySelectorAll(`${sel} a`)]
+          .filter((a) => a.getClientRects().length > 0)
+          .map((a) => new URL(a.href).pathname.replace(/\/$/, '') || '/');
+      return { ruban: lire('nav#navigation-principale'), laterale: lire('nav#barre-laterale') };
+    });
+    const atteignables = [...releve.ruban, ...releve.laterale];
+    // Un essai qui parcourt zéro élément ne prouve rien : il faut qu'au moins
+    // l'une des deux surfaces ait répondu.
+    v(`${b.libelle} : une navigation de branche est rendue`, atteignables.length > 0, true);
     const manquants = b.onglets
       .map((o) => o.chemin.replace(/\/$/, '') || '/')
       .filter((c) => !atteignables.includes(c));
     v(`${b.libelle} : ses ${b.onglets.length} onglets sont atteignables`, manquants, []);
+    surfaceFine.set(b.id, releve);
   }
 
   /* Et la barre elle-même ne déborde plus de son conteneur. */
@@ -93,6 +117,40 @@ console.log('\n\x1b[1mN2 — À 1280 PX, TOUS LES ONGLETS SONT ATTEIGNABLES\x1b[
     return n ? n.scrollWidth - n.clientWidth : -1;
   });
   v(`la barre ne déborde pas (débordement ${debord} px)`, debord <= 0, true);
+  await contexte.close();
+}
+
+console.log('\n\x1b[1mN2 bis — LES DEUX SURFACES DISENT LA MÊME CHOSE\x1b[0m\n');
+{
+  /*
+     La promesse écrite de M15 : « le même registre que le ruban horizontal,
+     dans le même ordre ». Elle ne pouvait pas se vérifier dans un seul
+     contexte, puisque `global.css` n'en montre jamais qu'une à la fois — le
+     ruban sous pointeur grossier, la barre latérale sous pointeur fin. On
+     ouvre donc la MÊME largeur deux fois, et on compare.
+  */
+  const { contexte, page } = await ouvrir({ width: 1280, height: 900 }, true);
+  for (const b of BRANCHES) {
+    await deverrouiller(page, b.racine);
+    await page.evaluate(() => {
+      for (const d of document.querySelectorAll('nav#navigation-principale details')) d.open = true;
+    });
+    await page.waitForTimeout(200);
+    const ruban = await page.evaluate(() =>
+      [...document.querySelectorAll('nav#navigation-principale a')]
+        .filter((a) => a.getClientRects().length > 0)
+        .map((a) => new URL(a.href).pathname.replace(/\/$/, '') || '/'),
+    );
+    const laterale = surfaceFine.get(b.id)?.laterale ?? [];
+    const sien = (c) => b.onglets.some((o) => (o.chemin.replace(/\/$/, '') || '/') === c);
+    v(`${b.libelle} : la barre latérale a répondu`, laterale.length > 0, true);
+    v(`${b.libelle} : le ruban a répondu`, ruban.length > 0, true);
+    v(
+      `${b.libelle} : les deux portent ses onglets dans le même ordre`,
+      laterale.filter(sien),
+      ruban.filter(sien),
+    );
+  }
   await contexte.close();
 }
 

@@ -197,6 +197,25 @@ const branches = branchesDisponibles();
    sans faire glisser une barre dont rien ne disait qu'elle glissait.
 */
 const entrees = entreesDeLaBarre(brancheCourante);
+
+/*
+   Les onglets de la branche **dans l'ordre du ruban**, groupes aplatis.
+
+   Les trois surfaces qui listent une branche — le ruban, la barre latérale
+   de l'ordinateur et la feuille « Plus » — doivent dire la même chose dans
+   le même ordre ; c'est la promesse écrite de M15, et elle était fausse.
+   Mesuré le 18 octobre à 1280 px : sur Révisions, le ruban finissait par
+   « Statistiques, Recherche, Glossaire, Cog-Training » et la barre latérale
+   par « Cog-Training, Recherche, Statistiques, Glossaire » ; sur Odyssée,
+   « Échelles » et « Veille » étaient permutées.
+
+   La cause n'est pas une faute de frappe : `entreesDeLaBarre` pose un
+   groupe à la place de son PREMIER membre et y range ensuite tous les
+   autres, tandis que les deux autres surfaces lisaient `onglets` brut. Une
+   seule des deux lectures peut être la bonne, et c'est celle du ruban, qui
+   garde les parents de chaque groupe ensemble.
+*/
+const ongletsEnOrdreDuRuban = entrees.flatMap((e) => (e.sorte === 'onglet' ? [e.onglet] : e.membres));
 const idsDeLEntree = (e: EntreeDeBarre) =>
   e.sorte === 'onglet' ? [e.onglet.id] : e.membres.map((o) => o.id);
 const principaux = ongletsPrincipaux(brancheCourante);
@@ -435,6 +454,29 @@ const flecheVisible = !estLeMenu && !sansNavigation;
     {!sansVerrou && <Verrou />}
 
     {/*
+       Le lien d'évitement passe DEVANT la barre latérale.
+
+       Relevé le 18 octobre à 1280 px, clavier seul : la barre latérale
+       arrivée avec M15 vit hors de « #application », donc avant le lien,
+       et c'est elle qui recevait le premier coup de tabulation. Un lien
+       d'évitement placé derrière douze entrées de navigation n'évite plus
+       rien — c'est précisément le bloc qu'il doit permettre de sauter.
+
+       Il porte la même règle d'effacement que la barre, pour la même
+       raison qu'elle : tant que le verrou n'est pas levé, il mènerait à un
+       contenu caché.
+    */}
+    <a
+      href="#contenu-principal"
+      class:list={[
+        'sr-only rounded-br-lg bg-indigo-600 px-4 py-3 font-medium text-white focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-50',
+        sansVerrou ? '' : 'apres-le-verrou',
+      ]}
+    >
+      Aller au contenu
+    </a>
+
+    {/*
        La barre latérale de l'ordinateur (M15).
 
        Elle vit DEHORS de « #application », et ce n'est pas un détail : ce
@@ -453,7 +495,21 @@ const flecheVisible = !estLeMenu && !sansNavigation;
       <nav
         id="barre-laterale"
         aria-label="Navigation de la branche"
-        class="barre-laterale fixed inset-y-0 left-0 z-30 w-60 flex-col gap-1 overflow-y-auto border-r border-slate-200 bg-white px-3 py-4 dark:border-slate-800 dark:bg-slate-900"
+        class:list={[
+          'barre-laterale fixed inset-y-0 left-0 z-30 w-60 flex-col gap-1 overflow-y-auto border-r border-slate-200 bg-white px-3 py-4 dark:border-slate-800 dark:bg-slate-900',
+          /*
+             Mesuré le 18 octobre à 1280 px, page verrouillée : la
+             tabulation sortait du formulaire du verrou et entrait dans les
+             douze entrées de la barre latérale, derrière l'écran de
+             connexion. Elles étaient cachées à l'œil par un calque, pas au
+             clavier — et une navigation qu'on peut parcourir avant d'avoir
+             donné le mot de passe n'est pas une navigation cachée.
+
+             `#application` portait déjà `hidden` pour cela ; la barre vit
+             dehors et n'en bénéficiait pas.
+          */
+          sansVerrou ? '' : 'apres-le-verrou',
+        ]}
       >
         <a
           href={`${base}/`}
@@ -465,7 +521,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
         <p class="etiquette px-3 pb-1 text-slate-500 dark:text-slate-400">
           {brancheCourante.libelle}
         </p>
-        {brancheCourante.onglets.map((o) => (
+        {ongletsEnOrdreDuRuban.map((o) => (
           <a
             href={`${base}${o.chemin}`}
             data-onglet={o.chemin}
@@ -518,12 +574,6 @@ const flecheVisible = !estLeMenu && !sansNavigation;
          propre zone, effaçant la page entière. C'est l'essai « essais:pretest »
          qui l'a vu, pas la relecture.
       */}
-      <a
-        href="#contenu-principal"
-        class="sr-only rounded-br-lg bg-indigo-600 px-4 py-3 font-medium text-white focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-50"
-      >
-        Aller au contenu
-      </a>
       {
         enteteVoulu === 'complet' && (
           <Fragment>
@@ -774,21 +824,46 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                   */}
                   {entrees.map((e) =>
                     e.sorte === 'onglet' ? (
-                      <a
-                        href={`${base}${e.onglet.chemin}`}
-                        data-onglet={e.onglet.chemin}
-                        title={e.onglet.description ?? e.onglet.nom}
-                        aria-current={actif === e.onglet.id ? 'page' : undefined}
-                        class:list={[
-                          'cible-tactile-pleine hidden shrink-0 gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition sm:inline-flex',
-                          actif === e.onglet.id
-                            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
-                            : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
-                        ]}
-                      >
-                        <span aria-hidden="true">{e.onglet.icone}</span>
-                        <span>{e.onglet.nom}</span>
-                      </a>
+                      /*
+                         Le « hidden sm:… » est sur un conteneur, et non sur le
+                         lien — le même piège que le logo quelques lignes plus
+                         haut, et il avait mordu ici sans qu'on le voie.
+
+                         `global.css` règle `.cible-tactile-pleine.hidden` à
+                         `display: none` hors des couches d'utilitaires : le
+                         `sm:inline-flex` posé sur le lien ne gagnait jamais, et
+                         les onglets de premier niveau — ceux qui ne sont dans
+                         aucun groupe — étaient cachés à TOUTES les largeurs.
+
+                         Mesuré le 18 octobre à 1280 px, pointeur grossier :
+                         le ruban de Révisions montrait 9 écrans sur 11, sans
+                         « Tableau de bord » ni « Planning ». Entre 640 et
+                         1023 px, où la barre du bas et la feuille « Plus »
+                         sont déjà masquées, ces deux écrans n'étaient dans
+                         aucune navigation du haut.
+
+                         `sm:contents` et non `sm:inline` : au-dessus de
+                         640 px le conteneur s'efface de la mise en page, et le
+                         lien redevient un enfant direct du ruban, exactement
+                         comme avant.
+                      */
+                      <span class="hidden sm:contents">
+                        <a
+                          href={`${base}${e.onglet.chemin}`}
+                          data-onglet={e.onglet.chemin}
+                          title={e.onglet.description ?? e.onglet.nom}
+                          aria-current={actif === e.onglet.id ? 'page' : undefined}
+                          class:list={[
+                            'cible-tactile-pleine shrink-0 gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition',
+                            actif === e.onglet.id
+                              ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                              : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
+                          ]}
+                        >
+                          <span aria-hidden="true">{e.onglet.icone}</span>
+                          <span>{e.onglet.nom}</span>
+                        </a>
+                      </span>
                     ) : (
                       <details
                         class="groupe-onglets hidden shrink-0 sm:block"
@@ -1100,7 +1175,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
               </button>
             </div>
             <ul class="space-y-1">
-              {brancheCourante.onglets.map((o) => (
+              {ongletsEnOrdreDuRuban.map((o) => (
                 <li>
                   <a
                     href={`${base}${o.chemin}`}

@@ -1188,3 +1188,20 @@ button:not(:disabled):active,
     padding-left: var(--laterale);
   }
 }
+
+/* Ce qui n'existe qu'une fois le verrou levé.
+   ---------------------------------------------------------------------------
+   `#application` est masqué par une classe que le script du verrou retire.
+   Deux éléments vivent DEHORS de ce conteneur et doivent suivre la même
+   règle : le lien d'évitement, qui mènerait à un contenu caché, et la barre
+   latérale de l'ordinateur, dont les douze entrées se parcouraient à la
+   tabulation derrière l'écran de connexion — invisibles à l'œil, offertes au
+   clavier.
+
+   `data-verrou` est posé sur <html> par `lib/auth.ts` à l'ouverture de la
+   session. La classe n'est appliquée qu'aux pages qui ont un verrou : sur une
+   page rendue avec `sansVerrou`, l'attribut n'arrive jamais, et la règle les
+   effacerait pour toujours. */
+:root:not([data-verrou='ouvert']) .apres-le-verrou {
+  display: none;
+}
