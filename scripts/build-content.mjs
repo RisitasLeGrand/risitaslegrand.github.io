@@ -31,6 +31,13 @@ import { sha256Hex, deriverCle, selAleatoire, chiffrerJson, chiffrerBinaire, idS
 /** Gzip, niveau maximal : le fichier est écrit une fois et lu souvent. */
 const comprimerGzip = async (octets) => gzipSync(octets, { level: 9 });
 import { audioDisponible, SUFFIXE_SCRIPT } from './podcasts.mjs';
+/*
+   Le registre des parcours est en TypeScript, et Node 22 le lit tel quel.
+   On l'importe donc plutôt que de recopier les racines ici : deux listes
+   finiraient par diverger, et le jour où elles divergeraient, des fiches
+   changeraient de parcours sans que rien ne le dise.
+*/
+import { PARCOURS } from '../src/lib/parcours/registre.ts';
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dossierContenu = path.join(racine, 'content');
@@ -164,6 +171,55 @@ async function listerFiches(dossier, base = dossier) {
     }
   }
   return fichiers.sort();
+}
+
+/**
+ * À quel parcours appartient une fiche, d'après l'endroit où elle est rangée.
+ *
+ * ## Le défaut que cette fonction commence à corriger
+ *
+ * `racineContenu` est déclaré depuis des semaines dans le registre des
+ * parcours — `''` pour l'INSP, `dgfip-b`, `dgfip-a`, `dgfip-ap` — et
+ * **aucun code ne le lisait**. Constaté par l'agent de contenu, vérifié :
+ * `grep -rn "racineContenu" src scripts` ne rendait que les cinq occurrences
+ * de sa propre déclaration.
+ *
+ * Conséquence concrète : deux fiches déposées dans `content/dgfip-a/`
+ * apparaissaient comme une **matière de plus du parcours INSP**, à côté du
+ * droit public et de l'économie, parce que la hiérarchie se reconstruit
+ * depuis `matiere`/`fascicule` et que rien ne savait d'où venait la fiche.
+ *
+ * ## Ce que cette fonction fait, et ce qu'elle ne fait pas
+ *
+ * Elle **dérive** le parcours du premier segment du chemin, et le manifeste
+ * le porte désormais pour chaque fiche. L'information existe donc, et un
+ * essai la vérifie.
+ *
+ * Elle ne **filtre** rien : la bibliothèque continue d'afficher toutes les
+ * matières. Ce second pas change ce qui s'affiche tous les jours, et il se
+ * fait à part, avec ses propres essais — pas glissé dans le même geste qu'une
+ * correction de chargeur.
+ *
+ * ## Le plus long préfixe, et pourquoi
+ *
+ * Si un parcours s'appelait `dgfip` et un autre `dgfip-a`, le plus court
+ * capterait les fiches du second. On trie donc par longueur décroissante. Le
+ * cas ne se présente pas aujourd'hui ; la règle évite qu'il surprenne demain.
+ */
+function parcoursDuChemin(relatif) {
+  const normalise = relatif.split(path.sep).join('/');
+  const racines = PARCOURS.filter((p) => p.racineContenu !== '').sort(
+    (a, b) => b.racineContenu.length - a.racineContenu.length,
+  );
+  for (const p of racines) {
+    if (normalise.startsWith(`${p.racineContenu}/`)) return p.id;
+  }
+  /*
+     Pas de sous-dossier reconnu : la fiche est à la racine, donc à l'INSP,
+     dont `racineContenu` vaut précisément `''`. On le lit dans le registre
+     plutôt que d'écrire « insp » en dur : une seule source de vérité.
+  */
+  return PARCOURS.find((p) => p.racineContenu === '')?.id ?? 'insp';
 }
 
 /** Charge content/glossaire.yml (optionnel). */
@@ -435,6 +491,7 @@ async function main() {
     fiches.push({
       id: ficheId,
       chemin: relatif,
+      parcours: parcoursDuChemin(relatif),
       titre: fm.data.titre,
       matiere: fm.data.matiere,
       fascicule: fm.data.fascicule,
@@ -503,6 +560,14 @@ async function main() {
         fiches: liste.map((f) => ({
           id: f.id,
           titre: f.titre,
+          /*
+             Le parcours d'où vient la fiche, dérivé de son dossier. Le
+             manifeste le PORTE ; rien ne le filtre encore, et c'est dit en
+             toutes lettres à `parcoursDuChemin`. Sans ce champ, la
+             bibliothèque ne pourra jamais filtrer, parce qu'elle ne lit que
+             le manifeste.
+          */
+          parcours: f.parcours,
           ordre: f.ordre,
           tags: f.tags,
           nbFlashcards: f.flashcards.length,
@@ -736,6 +801,13 @@ async function main() {
       'ordre', // porté par le manifeste
       'texteRecherche', // porté par l'index de recherche
       'motsCours', // porté par le manifeste
+      /*
+         Porté par le manifeste, comme « ordre » : la bibliothèque doit
+         pouvoir filtrer par parcours AVANT de déchiffrer quoi que ce soit.
+         Le mettre dans la charge chiffrée de chaque fiche obligerait à les
+         ouvrir toutes pour savoir lesquelles afficher.
+      */
+      'parcours',
     ]);
     const oublies = Object.keys(f).filter((c) => !(c in charge) && !ECARTES_DU_CLIENT.has(c));
     if (oublies.length) {
