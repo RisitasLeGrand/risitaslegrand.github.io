@@ -27,7 +27,7 @@ import matter from 'gray-matter';
 import YAML from 'yaml';
 import config from '../site.config.mjs';
 import { decouperSections } from './lib/markdown.mjs';
-import { ecrireScript, VERSION_SCRIPT } from './lib/podcast.mjs';
+import { ecrireScript, fuitesDuScript, VERSION_SCRIPT } from './lib/podcast.mjs';
 import { idStable, sha256Hex } from './lib/crypto.mjs';
 import { cheminModele, formatAudio, MOTEURS } from './lib/voix.mjs';
 
@@ -198,6 +198,36 @@ async function main() {
       await rm(cheminAudio(ficheId), { force: true });
       await rm(path.join(dossierAudio, `${ficheId}.json`), { force: true });
       continue;
+    }
+
+    /*
+       RIEN DE TECHNIQUE NE DOIT SE FAIRE ENTENDRE (prompt 43, lot 2).
+
+       La synthèse ne saute rien : une accolade, une balise ou une clé
+       d'en-tête restée dans le texte sera prononcée. Et l'audio est produit
+       une fois, chiffré, publié — une fuite découverte après coup ne se
+       corrige qu'en régénérant, c'est-à-dire en heures de machine. Le bon
+       moment pour refuser est donc ici, avant la synthèse.
+
+       On arrête toute la construction plutôt que de passer la fiche : une
+       fiche silencieusement ignorée se remarque beaucoup moins qu'un build
+       rouge, et c'est précisément ce qu'on ne veut pas. La règle est celle
+       de `npm run essais:scripts-parles`, écrite une seule fois dans
+       `lib/podcast.mjs`.
+    */
+    const fuites = fuitesDuScript(script.paragraphes);
+    if (fuites.length) {
+      const dites = fuites
+        .slice(0, 5)
+        .map((f) => `    §${f.rang} — ${f.nom} — … ${f.extrait}`)
+        .join('\n');
+      throw new Error(
+        `Fuite technique dans le script parlé de « ${relatif} » : ` +
+          `${fuites.length} occurrence(s). Rien n'a été synthétisé.\n${dites}` +
+          (fuites.length > 5 ? `\n    … et ${fuites.length - 5} autres` : '') +
+          '\n  Corrigez la fiche, puis relancez. Le détail complet :' +
+          ' npm run essais:scripts-parles',
+      );
     }
 
     // L'empreinte couvre le texte dit ET la version du réécriveur : modifier

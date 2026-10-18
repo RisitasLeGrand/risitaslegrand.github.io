@@ -655,3 +655,76 @@ export function ecrireScript({ titre, matiere, fascicule, cours, glossaire }) {
     secondesEstimees: Math.round((mots / MOTS_PAR_MINUTE) * 60),
   };
 }
+
+/* ════════════════════════════════════════════════════════════════════════ */
+/*  LE GARDE-FOU ANTI-FUITE (prompt 43, lot 2)                              */
+/* ════════════════════════════════════════════════════════════════════════ */
+
+/*
+   CE QU'ON NE VEUT JAMAIS ENTENDRE. Un script parlé est lu à voix haute par
+   une synthèse qui ne saute rien : tout ce qui reste de la syntaxe du
+   Markdown, du HTML ou de l'en-tête d'une fiche sera PRONONCÉ. « accolade
+   dièse », « deux astérisques », « h deux », « http deux points slash
+   slash » — et la personne qui écoute, elle, n'a aucun moyen de savoir que
+   c'est une coquille et non une phrase du cours.
+
+   La règle est donc en deux endroits et une seule définition : cette table
+   sert au contrôle (`npm run essais:scripts-parles`) ET à la construction,
+   qui refuse de produire un audio à partir d'un script fautif. Si les deux
+   divergeaient un jour, le contrôle passerait au vert sur un audio déjà
+   livré faux.
+
+   CE QUI N'EST PAS UNE FUITE, et il faut le dire, parce que la première
+   version de ce garde-fou s'y est trompée. « Sources : Insee » est une
+   phrase française parfaitement normale, et la typographie française met
+   une espace avant le deux-points. Une clé d'en-tête, elle, s'écrit
+   « titre: » — minuscules, collée au deux-points, en tête de ligne. C'est
+   cette forme-là, et elle seule, qu'on refuse.
+*/
+export const MOTIFS_DE_FUITE = [
+  { nom: 'attribut d’accolade « {# »', motif: /\{#/ },
+  { nom: 'attribut d’accolade « {: »', motif: /\{:/ },
+  { nom: 'commentaire HTML', motif: /<!--|-->/ },
+  { nom: 'balise HTML', motif: /<\/?[a-z][a-z0-9]*(?:\s[^>]*)?>/i },
+  { nom: 'dièse de titre Markdown', motif: /(?:^|\n)\s*#{1,6}\s/ },
+  { nom: 'astérisques de Markdown', motif: /\*\*|(?:^|\s)\*\S/ },
+  { nom: 'accent grave', motif: /`/ },
+  { nom: 'lien Markdown', motif: /\]\(/ },
+  { nom: 'crochets doubles', motif: /\[\[|\]\]/ },
+  { nom: 'adresse web', motif: /https?:\/\/|\bwww\./ },
+  { nom: 'séparateur de tableau', motif: /\|\s*-{3,}/ },
+  { nom: 'barre de tableau', motif: /\s\|\s/ },
+  { nom: 'conteneur « ::: »', motif: /:::/ },
+  { nom: 'chevron de citation', motif: /(?:^|\n)\s*>\s/ },
+  {
+    /* Minuscules ASCII, collées au deux-points, en tête de ligne : la forme
+       d'une clé d'en-tête, jamais celle d'une phrase française. */
+    nom: 'clé d’en-tête technique',
+    motif: /(?:^|\n)[a-z_][a-z0-9_]*:(?:\s|$)/,
+  },
+];
+
+/**
+ * Les fuites techniques d'un script parlé, chacune nommée et située.
+ *
+ * Rend un tableau vide quand tout est dicible. Chaque entrée porte le rang
+ * du paragraphe, le nom du motif, et l'extrait fautif avec son voisinage —
+ * de quoi retrouver la ligne dans la fiche sans la chercher.
+ */
+export function fuitesDuScript(paragraphes) {
+  const fuites = [];
+  (paragraphes ?? []).forEach((paragraphe, rang) => {
+    for (const { nom, motif } of MOTIFS_DE_FUITE) {
+      const trouve = motif.exec(paragraphe);
+      if (!trouve) continue;
+      fuites.push({
+        rang,
+        nom,
+        extrait: paragraphe
+          .slice(Math.max(0, trouve.index - 40), trouve.index + 60)
+          .replace(/\n/g, '⏎'),
+      });
+    }
+  });
+  return fuites;
+}
