@@ -2,13 +2,14 @@
 
 ## Limites générales de la recherche
 
-- **Demande tronquée.** Le prompt 47 s'arrête à « Full body sur 2 et 3 jours ; ». La suite de R2 et le format de rendu n'ont pas été reçus. D06 et D07 ont été ajoutés pour la mise en perspective.
-- **Dépôt non consulté.** Le modèle de Cyclades est pris tel que le pilote l'a relevé (commit `0c5b8c0`). Les 18 muscles de `MUSCLES` ne sont pas connus du dossier.
+- **Demande tronquée, puis complétée.** Le prompt 47 s'arrêtait à « Full body sur 2 et 3 jours ; ». Le complément 47 bis (18/10) a donné la suite : R2 bis (fiches D08 et D09), R3 (modèles) et R4 (exercices à ajouter), rendus dans `03-modeles.md`. D06 et D07 ont été ajoutés pour la mise en perspective.
+- **Dépôt non consulté.** Le modèle de Cyclades est pris tel que le pilote l'a relevé (commit `0c5b8c0`). Les 18 muscles de `MUSCLES` ne sont pas connus du dossier ; le classement des exercices en muscles principaux et secondaires de `03-modeles.md` est une convention du dossier.
 - **Quota et débit.** Chaque agent disposait de 14 recherches web, toutes consommées. Europe PMC, OpenAlex et Crossref ont renvoyé de nombreux refus de débit (HTTP 429) ; PubMed et PMC refusent les robots ; Taylor & Francis, journals.lww.com et certaines pages Springer étaient illisibles. Aucun blocage n'a été contourné. Une requête Crossref de l'auteur du dossier pour la version publiée de Pelland a aussi été refusée (429).
 - **Sources à lire en texte complet avant de figer des valeurs** : la prise de position ACSM 2026 (Med Sci Sports Exerc 2026;58(4):851-872, DOI 10.1249/MSS.0000000000003897) et la version publiée de Pelland (Sports Med 2026;56(2):481-505, DOI 10.1007/s40279-025-02344-w).
 - **Références de mémoire non retrouvées ou non lues** (citées par le pilote ou par l'agent) : voir les sections « Pistes non confirmées » ci-dessous. Elles ne figurent dans aucun tableau.
-- **Écarts entre agents, tranchés ou signalés** : ACSM 2009, 4-5 jours (résumé) ou 4-6 (texte intégral) pour les avancés ; Pelland, prépublication ou publiée (les deux existent) ; auteur principal de l'ACSM 2026 (Currier, Phillips dernier auteur).
-- **Notes de terrain à ne pas utiliser comme preuve** : le repère de 75 % de l'ancien 1RM sur 13 semaines pour la reprise (blog), les 6 séries par séance d'un coach, les repères MEV/MRV, les chiffres de PHUL et PHAT.
+- **Écarts entre agents, tranchés ou signalés** : ACSM 2009, 4-5 jours (résumé) ou 4-6 (texte intégral) pour les avancés ; Pelland, prépublication ou publiée (les deux existent) ; auteur principal de l'ACSM 2026 (Currier, Phillips dernier auteur) ; effectif de Heaselgrave 2019 (49 ou 51).
+- **Notes de terrain à ne pas utiliser comme preuve** : le repère de 75 % de l'ancien 1RM sur 13 semaines pour la reprise (blog), les 6 séries par séance d'un coach, les repères MEV/MRV, les chiffres de PHUL et PHAT, et les chiffres de spécialisation de D09 (Alpha Progression, RP Strength).
+- **Complément 47 bis (D08, D09).** Les numéros D08-23 à D08-30 ne sont pas attribués. Résumés reconstruits via OpenAlex (ordre des mots déduit). Prépublications, résumé de congrès et mémoires universitaires non publiés en revue : voir `00-synthese.md`, point 5.
 
 
 Ce fichier reprend, partie par partie, les sections « Pistes non confirmées » et « Non trouvé / non lu / doutes / écarté » des agents de recherche. Rien de ce qui figure ici n'est présenté comme établi dans les tableaux.
@@ -311,3 +312,92 @@ Ce fichier reprend, partie par partie, les sections « Pistes non confirmées »
 - **Hors champ** : aucune prescription médicale ni nutrition chiffrée. Le seul ordre de grandeur de volume « 4 séries », « 10 séries », « 12 séries » est un volume d'entraînement, pas un apport alimentaire.
 - **Calculs du documentaliste** (signalés dans les lignes concernées) : environ 5 séries par séance pour 10 séries sur 2 séances (D04-07) et environ 3 à 4 séries par séance pour 10 séries sur 3 séances (fiche D05). Ils ne figurent dans aucune source.
 - **Quota** : 14 recherches web sur 14 utilisées ; le reste par lecture directe de pages.
+
+
+---
+
+## Maison, poids du corps, pompes, leviers de progression, élastiques (D08-01 à D08-22), complément 47 bis
+
+
+### Pistes non confirmées
+
+- **Détails du tableau 1 de Kassiano 2025 (D08-13).** Une copie PDF du même article, hébergée par un site tiers (fisiologiadelejercicio.com), indique 200 participants au total (7 études d'hommes seuls, 2 de femmes seules), 4 à 12 semaines (26 semaines pour une étude), 1 à 3 séances par semaine, 2 à 4 séries par exercice, 2 à 15 répétitions, et nomme deux études qui mesurent l'hypertrophie (épaisseur musculaire ; masse maigre à la DXA). Je n'ai pas écrit ces chiffres dans le tableau : le statut des droits de cet hébergeur n'est pas vérifié. À confirmer sur Springer Link (DOI 10.1007/s40279-024-02169-z).
+- **Études citées dans la revue de Wilk 2021 (D08-12)** (Tanimoto et Ishii 2006 ; Tanimoto 2008 ; Schuenke 2012 ; Pereira 2016 et autres) : connues par le résumé automatique de la page, non lues une à une. Elles ne sont pas citées dans les tableaux.
+- **Lasevicius et coll. 2018, European Journal of Sport Science** (DOI 10.1080/17461391.2018.1450898) : la fiche de dépôt lue (bdpi.usp.br) ne contient pas le résumé ; la comparaison 20 % / 40 % / 60 % / 80 % du 1RM n'est pas lue (déjà signalée par H03-07).
+- **Titres vus seulement dans une liste de résultats OpenAlex, non lus [extrait]** : « Effect of different eccentric tempos on hypertrophy and strength of the lower limbs » (Biology of Sport, DOI 10.5114/biolsport.2022.105335) ; « Resistance training with slow speed of movement is better for hypertrophy and muscle strength gains than fast speed of movement » (2016, dépôt LA Referencia, sans DOI affiché) ; « Influence of 8-weeks of supervised static stretching or resistance training of pectoral major muscles on maximal strength, muscle thickness and range of motion » (European Journal of Applied Physiology, DOI 10.1007/s00421-023-05413-y) ; « Effects of 10-week walking and walking with home-based resistance training on muscle quality, muscle size, and physical functional tests in healthy older individuals » (European Review of Aging and Physical Activity, DOI 10.1186/s11556-018-0201-2) ; « Hip thrust and back squat training elicit similar gluteus muscle hypertrophy and transfer similarly to the deadlift » (Frontiers in Physiology, DOI 10.3389/fphys.2023.1279170) ; « Effects of Low-Load, Elastic Band Resistance Training Combined With Blood Flow Restriction on Muscle Size and Arterial Stiffness in Older Adults » (J Gerontol A, DOI 10.1093/gerona/glu084). Aucun chiffre n'en est tiré.
+- **Protocole précis de Kikuchi et Nakazato (D08-01)** : séries, répétitions, repos, proximité de l'échec ne figurent pas dans le résumé lu ; le texte complet (PMC) n'a pas été ouvert.
+
+---
+
+
+### Non trouvé / non lu / doutes / écarté
+
+**Non trouvé (après recherche).**
+- Aucune **méta-analyse ni revue systématique** sur l'entraînement au poids du corps ou la calisthénie pour l'hypertrophie d'adultes sains. La seule « revue » trouvée (Santos 2020, Research, Society and Development, 6 études, aucune valeur chiffrée dans le résumé) est lue et **écartée comme preuve faible**.
+- Aucun **essai d'hypertrophie** sur les pompes **lestées**, **pieds surélevés** ou **mains rapprochées**. Le seul document lu sur une variante surélevée est un EMG (Okilanda 2024, 20 hommes, mains sur une barre et pieds sur une plateforme à 18 cm, activité du grand pectoral 350,63 contre 311,44, t = −0,89, non significatif) : mécaniste, faible, écarté.
+- Aucun essai de pompes ou de poids du corps avec **mesure de masse chez des femmes entraînées** ; les seules données chez des femmes sont D08-04 (répétitions), D08-06 (squat, sédentaires) et D08-16 (adultes âgés, répartition par sexe non lue).
+- Aucune étude lue sur **jusqu'où progresser sans surcharge** (plafond du poids du corps chez des pratiquants avancés) ni sur la **limite des haltères légers** à long terme (plus de 12 semaines).
+- **Haltères légers, 20 à 40 répétitions** : en dehors de H03-04 (20-25 répétitions), D08-14 (environ 34 répétitions à 30 % du 1RM) et D08-15 (30 % du 1RM, répétitions non données), rien de plus spécifique. **RIR chiffré** pour les charges légères : non trouvé.
+- **Réduction du repos, séries supplémentaires, pauses** comme leviers propres au matériel léger : voir H05 et H01 ; aucune étude spécifique au matériel léger ou au poids du corps trouvée.
+
+**Non lu, refusé ou limité.**
+- **Quota de recherche web** : les 14 recherches WebSearch ont été utilisées. Les compléments ont été obtenus par WebFetch sur des pages dont l'adresse avait été vue, et par l'API publique d'OpenAlex (voie permise pour vérifier titres, DOI, dates, aussi utilisée ici pour repérer des titres et lire des résumés).
+- **Europe PMC** : l'API a répondu une fois (Kotarsky) puis refusé par « 429 » (trop de requêtes) à plusieurs reprises ; je n'ai pas insisté.
+- **Thieme (Usui)** et **NDSU (Kotarsky, mémoire de master)** : écrans anti-robots ; non contournés. **PMC / PubMed** : non ouverts (refus des robots, indiqué par le brief). Texte complet de Kotarsky 2018 payant, non lu.
+- **Frontiers (fphys.2020.00893)** : réponse binaire illisible, non retenu.
+
+**Doutes de lecture.**
+- Kikuchi 2017 : valeurs du grand pectoral identiques dans les deux groupes dans le résumé (D08-01) ; Wei 2023 : plusieurs incohérences internes (D08-06) ; Kojic 2025 : unités mm² / cm² (D08-11) ; Lopes 2020 : statistiques incohérentes et effectifs 182 / 140 (D08-20) ; Lacerda 2021 : nombre de séances par semaine contradictoire (D08-10) ; McLeod 2023 : contradiction sur la vitesse de contraction (D08-08) ; Martins 2015 : allongement du tube (D08-19).
+- Résumés reconstruits via OpenAlex (D08-03, D08-09, D08-14, D08-15, D08-08) : l'ordre des mots est déduit, les nombres cités sont ceux qui n'étaient pas ambigus.
+- Les auteurs de Lasevicius 2022 et de McLeod 2023 : seuls le premier et le dernier sont connus (OpenAlex, liste complète non lue).
+
+**Écarté.**
+- **Glavas 2025 (BMC Geriatrics)** : adultes de 60 à 89 ans avec obésité, entraînement à domicile pendant un régime amaigrissant, masse maigre en baisse dans les deux groupes (population et contexte alimentaire trop éloignés) ; non retenu.
+- **Vojinovic 2023 (Kinesiology)** : élastiques contre poids libres pour la vitesse de lancer au handball ; ne mesure pas l'hypertrophie ; non retenu.
+- **Dopage** : aucune source lue n'en parle ; rien à écarter. **Médical / nutrition** : D08-22 porte sur une population avec diabète de type 2 ; elle est citée pour le protocole à domicile et l'adhésion, **sans aucune prescription médicale** ni donnée nutritionnelle.
+
+
+---
+
+## Maison, choix d'exercices par muscle, remplacements (D08-31 à D08-54), complément 47 bis
+
+
+### Pistes non confirmées
+
+- **Hip thrust, soulevé jambes tendues et squat en EMG (Neto et coll., J Strength Cond Res 33(10):2595-2601, 2019)** : connu seulement par une page de blog (strengthlog.com) qui rapporte 8 hommes ayant au moins un an de musculation, charges de 60 kg et de 1RM, et un classement du grand fessier et du biceps fémoral (hip thrust, puis soulevé jambes tendues, puis squat) sans chiffre. L'article n'a pas été lu (la vérification Crossref a échoué). Aucun chiffre repris dans les tableaux.
+- **Rowing inversé (Fenwick, Brown et McGill, 2009), rowing buste penché (Swann et Barry, 2025), rowing à la barre (Fischer et coll., 2025), résumé de congrès (Fusco et coll., 2025)** : connus seulement par la revue de Di Fonza 2026 (D08-44). Études originales non lues.
+- **Traction contre tirage vertical, EMG** : une page de blog (fitnessvolt.com) apparue dans les résultats n'a pas été ouverte ; aucune affirmation reprise.
+- **Thèse de Clayton 2021 (variantes du soulevé jambes tendues, IRM fonctionnelle et EMG)** : la page de dépôt ne donne ni participants, ni variantes, ni résultats ; le PDF n'a pas été ouvert.
+- **Position « l'unilatéral est supérieur »** : citée par le résumé de Kassiano 2025 sans être nommée ; non lue.
+
+
+### Non trouvé / non lu / doutes / écarté
+
+- **Non trouvé (recherches faites, 14 recherches web utilisées)** : essai d'hypertrophie opposant squat bulgare, fente ou montée sur banc au squat à la barre ou à la presse (les essais du tableau 1 de Kassiano 2025 mesurent le 1RM) ; hip thrust à une jambe ou avec haltère ; curl glissé au sol (sliding leg curl) ; soulevé jambes tendues explicitement aux haltères ; rowing à un bras à l'haltère (EMG ou hypertrophie ; la revue de 2026 ne le mentionne pas) ; traction contre tirage vertical sur l'hypertrophie ; développé au sol (floor press) à l'haltère ; écarté contre développé sur l'hypertrophie du pectoral ; extension du triceps à l'haltère au-dessus de la tête (seule la poulie est testée, H07-11) ; hypertrophie des abdominaux par gainage ou relevés de jambes ; équivalence élastique contre haltère sur l'**hypertrophie** (seule la force est rapportée) ; hauteur de marche ou amplitude de l'élévation sur marche pour le mollet.
+- **Pages refusées ou illisibles** : l'interface publique d'Europe PMC (HTTP 429, limitation de débit) a refusé la demande sur PMC8136570 (non lue, contenu inconnu) ; l'interface Crossref a refusé deux demandes (HTTP 429) et en a échoué une (erreur du client), ce qui a empêché de vérifier Neto 2019 et la revue qui publie Kassiano 2024. Aucune nouvelle tentative, conformément à l'instruction du proxy. PubMed et PMC non ouverts (refus des robots, connu).
+- **Doutes** : la revue de Kassiano 2024 sur les mollets n'est pas nommée par la page lue (seulement l'éditeur et l'ISSN) ; l'étude de Larsen 2025 imprime des intervalles de crédibilité incohérents (non repris) ; la date de Di Fonza 2026 diffère entre le corps de la page (12 août 2026) et les métadonnées (2026/9) ; Kim 2015 imprime une valeur p de 0,44 qui contredit sa conclusion (probablement une coquille de la page) ; Mackey 2021 ne précise pas à quel 1RM se rapporte le 35 % du squat bulgare ; Sweeney 2014 ne rend pas le sens de l'écart du développé haltères sur le deltoïde antérieur ; la prépublication sur le curl nordique (D08-37) a une version publiée (J Strength Cond Res 2025), repérée à la relecture et lue en résumé seulement ; la page lue n'affichait pas les auteurs ; la page de Gavanda 2024 ne rend pas les valeurs numériques ; plusieurs lignes reposent sur des résumés d'articles et non sur le texte intégral (statut indiqué).
+- **Limites de la preuve** : la plupart des essais de croissance sont chez des non-entraînés ou de jeunes adultes, sur 6 à 12 semaines ; plusieurs lignes d'activation viennent de mémoires universitaires non publiés en revue (Edelburg 2017, Sweeney 2014) ; l'EMG n'établit pas l'hypertrophie (rappelé par Di Fonza 2026).
+- **Écarté** : aucune source lue ne mentionne de produit dopant ; aucune prescription médicale ni nutrition chiffrée reprise. La restriction du flux sanguin (Gavanda 2024) est citée comme protocole mais écartée comme recommandation (matériel hors du cadre « maison »).
+- **Structure du dossier** : les lignes D08-01 à D08-30 sont d'un autre agent ; cette partie ne les cite pas (les renvois « H… » visent le CSV existant, lignes lues dans le CSV existant, sources originales non relues ici).
+
+
+---
+
+## Spécialisation d'un muscle en retard (D09), complément 47 bis
+
+
+### Pistes non confirmées
+
+- **Rønnestad et coll.** (une série contre trois séries, haut et bas du corps, hommes entraînés) : seule une adresse PubMed (pubmed.ncbi.nlm.nih.gov/17313291) est apparue dans un résultat de recherche, sans titre lisible ; elle est refusée aux robots. Je ne sais pas si elle correspond à cet essai ; aucune valeur n'est donnée.
+- **Analyse de Krieger** (plafond d'environ 10 séries par muscle et par séance) : la page Alpha Progression la cite (phrase lue, D09-07) mais l'analyse elle-même n'a pas été lue ; les plafonds retenus viennent de D03-06 et H01-19.
+- **Modified German Volume Training** (Amirthalingam 2017, Hackett 2018) : cités par la page Alpha Progression ; Amirthalingam apparaît aussi dans le tableau de Baz-Valle (n=19, 6 semaines, au moins 1 an d'expérience, groupes à 18 et 28 séries de biceps et triceps par semaine ; alignement des colonnes incertain) ; études non lues.
+- **Pages vues seulement en résultat de recherche** [extrait] : boxrox.com (« How many sets a week do you need for bigger arms »), weightology.net (revue du volume), lyfta.app, muscleevo.net, j3university.com, x-rep.com (« lagging muscle groups »), strengthframework.beehiiv.com ; résumé de congrès WKU « Fat free mass increases regardless of training volume after eight weeks » (digitalcommons.wku.edu/ijesab/vol16/iss3/58). Aucun chiffre repris.
+- **Optimum de 5 à 10 séries par muscle** selon la page Henselmans 2018 (qui relaie Barbalho et coll.) : appuyé sur un essai écarté, aucun chiffre repris (voir section 5).
+
+
+### Non trouvé / non lu / doutes / écarté
+
+- **Non trouvé** : (1) un essai ou une revue nommant la « spécialisation » ou la « priorisation » d'un muscle avec réduction des autres muscles ; (2) la limite du volume total hebdomadaire et la fatigue globale en fonction du volume ajouté sur un muscle (D09-22) ; (3) l'équilibre entre jambes et haut du corps (D09-23) ; (4) une comparaison directe petits muscles / grands muscles à volume égal (D09-24) ; (5) le délai de détection de l'hypertrophie chez des **entraînés** (les seules données lues portent sur des non entraînés, D09-16, ou sur 10 semaines, D09-17) ; (6) le risque articulaire ou la monotonie d'une phase (D09-25) ; (7) une source sur le retour du volume de spécialisation au volume normal (D09-20).
+- **Non lu** : Rønnestad (adresse PubMed refusée aux robots ; Europe PMC REST : refus « 429 » à deux reprises ; OpenAlex : recherche par titre sans résultat puis refus « 429 » ; Crossref : refus « 429 » sur une recherche par titre, requête trop longue sur une autre) ; DeFreitas et coll. 2011, *An examination of the time course of training-induced skeletal muscle hypertrophy*, Eur J Appl Physiol, DOI 10.1007/s00421-011-1905-4 (adresse vue dans OpenAlex, résumé absent de la notice, page Springer en erreur) : [non lue] ; Tavares 2017 sur le site de l'éditeur (page Taylor & Francis en erreur : résumé lu par OpenAlex) ; PMC6016534 (contrôle anti-robot) ; Frontiers Physiol 2018 (page du fichier epub illisible, remplacée par la page complète, essai de fréquence sans rapport, non cité) ; DOI de Hammarström dans le journal : tentative via doi.org en erreur « 429 », version publiée non vérifiée ; version publiée de Robinson 2025 non trouvée.
+- **Doutes** : (a) Moreno 2024 est un résumé de congrès, sans texte complet ; valeurs identiques à deux sites, effectifs par condition absents ; (b) Robinson 2025 est financé par Renaissance Periodization, avec des auteurs du secteur ; le résumé donne le sens (avantage détectable du haut volume pour l'hypertrophie, non pour la force maximale), la page Biolayne le confirme ; (c) Hammarström : les chiffres de la page de Nuckols (3,59 contre 5,21 % et 22 contre 29 %) diffèrent de la prépublication (3,7 contre 5,2 %) ; le résumé de la version publiée (J Physiol 2020) reprend les chiffres de la prépublication ; (d) page Alpha Progression : éditeur d'une application, auteur indiqué, longueur d'un cycle en semaines absente, plafond par séance attribué à une analyse non lue ; (e) la page RP annonce « 3-4 mois » pour trois mésocycles de 4 à 6 semaines plus un déload (15 à 21 semaines par calcul) ; (f) la page RP de 2025 (jusqu'à 30 séries par semaine) et la page RP de 2017 (H01-26, maximum récupérable de 18 séries pour le triceps) ne s'accordent pas ; (g) Heaselgrave : 49 ou 51 participants ; (h) la page de transcription de Henselmans 2026 ne nomme pas l'étude qu'elle décrit : [non lue].
+- **Écarté** : **Barbalho et coll. (2018-2019)**, essais à 5, 10, 15 et 20 séries par semaine chez des entraînés et des entraînées (relayés par le blog de P. Gentil, la page Henselmans de 2018 et la page de Nuckols). La page de Stronger By Science lue le 18/10/2026 mentionne une note de l'éditeur indiquant que les données de ces travaux ont été mises en cause ; je n'ai pas vérifié la nature de cette note. Je n'en tire aucun chiffre, et la ligne D09-24 le signale. **Dopage, médical, nutrition chiffrée** : aucune des pages lues ne propose de produit dopant ni de prescription médicale ; l'essai de Stock 2017 mentionne une prise de lait dans son protocole, non reprise (nutrition chiffrée hors champ) ; Alpha Progression pose le déficit calorique comme condition d'exclusion (contexte de phase, D09-26), sans chiffre repris.
