@@ -60,9 +60,30 @@ interface Props {
    * oubliée fonctionnerait, elle fuirait seulement.
    */
   coffre?: boolean;
+  /**
+   * La page se lit **sans** le mot de passe du site.
+   *
+   * Une seule page l'emploie, et elle serait absurde autrement : « Mot de
+   * passe perdu ». La mettre derrière le mot de passe en ferait le piège
+   * classique — la notice de secours enfermée dans ce dont elle explique la
+   * sortie.
+   *
+   * Conséquence assumée : cette page est lisible par qui ouvre l'adresse du
+   * site. Elle ne doit donc porter **aucune donnée**, seulement des
+   * explications — ce qui est le cas, et ce qui doit le rester si quelqu'un
+   * ajoute un jour ce drapeau ailleurs.
+   */
+  sansVerrou?: boolean;
 }
 
-const { titre, actif, sansNavigation = false, entete, coffre = false } = Astro.props;
+const {
+  titre,
+  actif,
+  sansNavigation = false,
+  entete,
+  coffre = false,
+  sansVerrou = false,
+} = Astro.props;
 
 /*
    La feuille des transitions entre pages, passée telle quelle par `set:html`.
@@ -332,9 +353,9 @@ const flecheVisible = !estLeMenu && !sansNavigation;
 
   <body>
     <BarreProgression />
-    <Verrou />
+    {!sansVerrou && <Verrou />}
 
-    <div id="application" class="hidden min-h-screen">
+    <div id="application" class={sansVerrou ? 'min-h-screen' : 'hidden min-h-screen'}>
       {/*
          Le lien d'évitement, premier arrêt de tabulation de la page.
 
@@ -961,6 +982,14 @@ const flecheVisible = !estLeMenu && !sansNavigation;
       import { masquerDebordement } from '../lib/defilement';
       import { initGlossaireGlobal } from '../lib/glossaire';
       import { suivreTemps } from '../lib/temps';
+      import { brancherLeVoile } from '../lib/voile';
+
+      /*
+         Le voile est branché ici, dans la mise en page, et non page par page :
+         une seule page oubliée suffirait à rendre la mesure inutile, puisque
+         c'est précisément celle qu'on aurait sous les yeux en quittant.
+      */
+      brancherLeVoile();
 
       initGlossaireGlobal();
 

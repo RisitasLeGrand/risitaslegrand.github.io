@@ -1,0 +1,182 @@
+---
+/**
+ * « Mot de passe perdu » — la fiche qui dit non, et qui dit pourquoi.
+ *
+ * ## Pourquoi cette page existe
+ *
+ * Cyclades n'a ni serveur, ni compte, ni adresse de secours. Il n'y a donc
+ * aucun « lien de réinitialisation » à envoyer, et il n'y en aura pas : ce
+ * n'est pas une fonctionnalité manquante, c'est la conséquence directe du
+ * chiffrement de bout en bout. Le mot de passe **est** la clé ; personne
+ * d'autre ne l'a, pas même le site.
+ *
+ * Une personne qui découvre cela au moment où elle a perdu son mot de passe
+ * le découvre trop tard. Cette page existe pour qu'elle puisse le lire
+ * **avant**, depuis les deux écrans de saisie, et pour qu'elle sache ce qui
+ * reste possible le jour où cela arrive — car il reste quelque chose, et
+ * c'est différent pour chacun des deux mots de passe.
+ *
+ * Elle est volontairement écrite sans jargon et sans adoucir : une page de
+ * secours qui laisse espérer une récupération impossible fait perdre les
+ * heures qu'il aurait fallu passer à sauver ce qui était encore sauvable.
+ */
+import Base from '../layouts/Base.astro';
+import { base } from '../lib/ui';
+---
+
+{/*
+   `sansVerrou` : la fiche se lit sans le mot de passe, sinon elle serait le
+   piège classique — la notice de secours enfermée dans ce dont elle explique
+   la sortie. `sansNavigation` : l'en-tête ne proposerait que des destinations
+   verrouillées à quelqu'un qui n'a pas pu entrer ; un lien de retour explicite,
+   en bas, dit mieux où aller.
+*/}
+<Base titre="Mot de passe perdu" sansVerrou sansNavigation>
+  <h1 class="mb-2 text-2xl font-bold text-slate-900 dark:text-white">Mot de passe perdu</h1>
+  <p class="mb-6 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+    Il n’y a pas de lien de réinitialisation, et il n’y en aura pas. Cyclades n’a ni serveur
+    ni compte : le mot de passe <strong>est</strong> la clé de déchiffrement, et personne
+    d’autre ne la détient — pas même le site. Ce qui suit dit exactement ce qui reste
+    possible, selon le mot de passe perdu.
+  </p>
+
+  <!-- ── Le mot de passe du site ──────────────────────────────────────── -->
+  <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+      Le mot de passe du site
+    </h2>
+    <p class="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+      C’est celui de l’écran d’entrée. Il ouvre les fiches, les quiz et tout le contenu
+      publié.
+    </p>
+    <p class="mt-3 text-sm font-medium text-slate-900 dark:text-white">Ce qui est perdu</p>
+    <p class="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+      Le contenu publié, sur tout appareil où il n’a pas déjà été saisi. Il est chiffré avec
+      une clé dérivée de ce mot de passe ; sans lui, les fichiers du site restent des octets.
+    </p>
+    <p class="mt-3 text-sm font-medium text-slate-900 dark:text-white">Ce qui reste</p>
+    <ul class="mt-1 list-disc space-y-1 pl-5 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+      <li>
+        <strong>Le contenu se reconstruit.</strong> Les fiches en clair vivent dans le dossier
+        <code class="rounded bg-slate-100 px-1 dark:bg-slate-800">content/</code> de
+        l’ordinateur où le site est fabriqué. Un nouveau mot de passe, une reconstruction, une
+        publication, et le site rouvre.
+      </li>
+      <li>
+        <strong>Un appareil déjà ouvert l’est encore.</strong> La clé y est mémorisée : tant
+        qu’on n’y a pas cliqué « Verrouiller », les écrans fonctionnent. C’est là qu’il faut
+        aller d’abord, et faire une sauvegarde
+        <code class="rounded bg-slate-100 px-1 dark:bg-slate-800">.cyclades</code>
+        avant toute autre chose.
+      </li>
+    </ul>
+  </section>
+
+  <!-- ── Le mot de passe du coffre ────────────────────────────────────── -->
+  <section class="mb-6 rounded-2xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/30">
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+      Le mot de passe du coffre
+    </h2>
+    <p class="mt-1 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+      C’est celui qui ouvre la psyché, la santé, les finances et les traitements. Il n’existe
+      qu’une fois la bascule faite ; avant elle, le coffre s’ouvre avec le mot de passe du
+      site.
+    </p>
+    <p class="mt-3 text-sm font-medium text-slate-900 dark:text-white">Ce qui est perdu</p>
+    <p class="mt-1 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+      Les données scellées, et il faut le dire sans détour : <strong>définitivement</strong>.
+      La clé qui les chiffre est tirée au sort, elle n’est écrite nulle part en clair, et le
+      seul exemplaire qui existe est enveloppé sous ce mot de passe. Aucun calcul, aucune
+      réinstallation, aucune manipulation du navigateur ne la retrouve.
+    </p>
+    <p class="mt-3 text-sm font-medium text-slate-900 dark:text-white">Ce qui reste</p>
+    <ul class="mt-1 list-disc space-y-1 pl-5 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+      <li>
+        <strong>La sauvegarde faite avant la bascule.</strong> L’écran de bascule en exige
+        une, et la chiffre avec le mot de passe du <em>site</em> — précisément pour qu’elle
+        reste ouvrable le jour où le nouveau mot de passe se perd. C’est la porte de secours,
+        et c’est la seule.
+      </li>
+      <li>
+        <strong>Le reste du site n’est pas touché.</strong> Révisions, Odyssée, sport et
+        progression ne sont pas scellés : ils s’ouvrent avec le mot de passe du site.
+      </li>
+    </ul>
+  </section>
+
+  <!-- ── Les sauvegardes ──────────────────────────────────────────────── -->
+  <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+      Les sauvegardes <code class="rounded bg-slate-100 px-1 text-base dark:bg-slate-800">.cyclades</code>
+    </h2>
+    <p class="mt-1 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+      Chaque fichier porte <strong>son propre sel</strong> et s’ouvre avec le mot de passe de
+      sa date, pas avec celui d’aujourd’hui. Changer de mot de passe ne rend donc pas les
+      anciennes sauvegardes illisibles — et ne les protège pas non plus du mot de passe
+      d’alors. C’est la même pièce vue des deux côtés : un changement protège l’avenir, jamais
+      le passé.
+    </p>
+  </section>
+
+  <!-- ── Les limites des protections ──────────────────────────────────── -->
+  <section class="mb-6 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+      Ce que les protections ne font pas
+    </h2>
+    <ul class="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+      <li>
+        <strong>Le voile sur l’écran quitté réduit la fenêtre, il ne la ferme pas.</strong>
+        Quand l’application passe en arrière-plan, un écran opaque recouvre la page pour que
+        la vignette du sélecteur d’applications ne montre rien. Mais le système prend cette
+        vignette quand il le décide : rien ne garantit que le voile soit posé à temps, en
+        particulier sur iPhone.
+      </li>
+      <li>
+        <strong>Rien n’empêche une capture d’écran.</strong> Aucune page web ne le peut.
+      </li>
+      <li>
+        <strong>Mémoriser le coffre sur un appareil, c’est l’ouvrir à qui s’en sert.</strong>
+        La case le dit, et elle dit vrai : le coffre se rouvrira sans mot de passe pour
+        quiconque utilise ce navigateur. « Oublier sur cet appareil » défait ce choix.
+      </li>
+      <li>
+        <strong>Retirer un appareil n’est pas une révocation.</strong> Les paquets de
+        synchronisation déjà transmis et les sauvegardes déjà faites restent ouvrables avec le
+        mot de passe de leur date.
+      </li>
+    </ul>
+  </section>
+
+  <!-- ── Quoi faire maintenant ────────────────────────────────────────── -->
+  <section class="rounded-2xl border border-indigo-200 bg-indigo-50 p-5 dark:border-indigo-900 dark:bg-indigo-950/30">
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+      Si c’est en train d’arriver
+    </h2>
+    <ol class="mt-2 list-decimal space-y-2 pl-5 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+      <li>
+        <strong>Ne verrouillez rien et ne fermez rien.</strong> Cherchez un appareil où le site
+        est encore ouvert ; c’est la seule chose qui presse.
+      </li>
+      <li>
+        Depuis cet appareil, faites une sauvegarde
+        <code class="rounded bg-indigo-100 px-1 dark:bg-indigo-900/60">.cyclades</code>
+        et mettez-la à l’abri. Choisissez un mot de passe que vous venez de noter.
+      </li>
+      <li>
+        Cherchez les sauvegardes déjà faites : chacune s’ouvre avec le mot de passe de sa
+        date, et l’une d’elles est peut-être plus récente que vous ne le croyez.
+      </li>
+      <li>
+        Alors seulement, reconstruisez le site avec un nouveau mot de passe, et restaurez.
+      </li>
+    </ol>
+  </section>
+
+  <p class="mt-6">
+    <a
+      href={`${base}/`}
+      class="cible-tactile inline-flex items-center rounded-lg border border-slate-300 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+      >Retour à l’accueil</a
+    >
+  </p>
+</Base>

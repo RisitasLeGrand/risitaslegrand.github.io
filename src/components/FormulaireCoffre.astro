@@ -24,6 +24,8 @@ interface Props {
    */
   nu?: boolean;
 }
+import { base } from '../lib/ui';
+
 const { raison, nu = false } = Astro.props;
 const cadre = nu
   ? 'mt-4 hidden'
@@ -74,6 +76,18 @@ const cadre = nu
     >Ouvrir</button
   >
   <p id="erreur-coffre" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+  {/*
+     Le coffre est celui des deux mots de passe dont la perte est
+     irrémédiable : la clé des données n'existe qu'enveloppée sous lui. Le
+     lien doit donc être ici, et pas seulement sur l'écran d'entrée.
+  */}
+  <p class="mt-2 text-xs">
+    <a
+      href={`${base}/mot-de-passe-perdu/`}
+      class="text-slate-500 underline underline-offset-2 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+      >Mot de passe perdu ?</a
+    >
+  </p>
 </section>
 
 <script>
