@@ -154,6 +154,12 @@ export async function audioDisponible(ficheId) {
     octets: (await stat(chemin)).size,
     secondes: meta?.secondes ?? null,
     empreinte: meta?.empreinte ?? null,
+    /*
+       Les repères de partie, s'ils ont été mesurés (prompt 46, P2). `null`
+       pour un audio produit avant ce prompt : le build ne publiera alors
+       aucune liste de parties, et la fiche s'écoutera comme aujourd'hui.
+    */
+    parties: Array.isArray(meta?.parties) && meta.parties.length ? meta.parties : null,
   };
 }
 
@@ -205,6 +211,13 @@ async function main() {
         config.podcast.format,
         config.podcast.bitrate,
         script.paragraphes.join('\n'),
+        /*
+           Les repères comptent dans l'empreinte : corriger un identifiant de
+           partie ne change pas une syllabe du texte dit, mais change ce que
+           la synthèse doit noter. Sans cette ligne, l'audio garderait des
+           repères qui ne désignent plus rien.
+        */
+        JSON.stringify(script.parties),
       ].join('|'),
     );
 
@@ -214,11 +227,37 @@ async function main() {
       `titre: ${JSON.stringify(data.titre)}`,
       `mots: ${script.mots}`,
       `duree_estimee_min: ${Math.round(script.secondesEstimees / 60)}`,
+      /*
+         LES PARTIES VOYAGENT AVEC LE SCRIPT (prompt 46, P2).
+
+         Chaque entrée dit : la partie « id » commence au paragraphe de rang
+         « paragraphe » dans ce fichier-ci. C'est écrit là, et pas dans le
+         fichier de tâches, pour que la synthèse tire les paragraphes et
+         leurs repères d'une seule et même source. Deux sources, et le jour
+         où l'une se décale, les repères tombent à côté sans que rien ne le
+         dise.
+
+         Une seule ligne, en JSON — qui est du YAML valide, et que la
+         synthèse relit sans analyseur YAML, donc sans dépendance nouvelle
+         (interdit 5).
+      */
+      `parties: ${JSON.stringify(script.parties)}`,
       `empreinte: ${empreinte}`,
       '---',
       '',
       '<!-- Script parlé engendré par « npm run podcasts ». Ne pas modifier à la main :',
       '     toute correction doit se faire dans la fiche, ou dans scripts/lib/podcast.mjs. -->',
+      /*
+         DEUX LIGNES VIDES, ET C'EST UNE CORRECTION.
+
+         La synthèse découpe le script sur les lignes vides. Il n'y en avait
+         qu'une après ce commentaire : le commentaire et la phrase d'accueil
+         ne faisaient donc qu'un seul paragraphe, et « Script parlé engendré
+         par npm run podcasts, ne pas modifier à la main » s'entendait au
+         début de chaque fiche audio. Constaté en passant l'en-tête à
+         « lire_script » du script de synthèse.
+      */
+      '',
       '',
     ].join('\n');
     await writeFile(cheminScript, entete + script.paragraphes.join('\n\n') + '\n');
@@ -363,6 +402,11 @@ async function synthetiser(taches, ffmpeg, t0) {
                 secondes: resultat.secondes,
                 octets: resultat.octets,
                 moteur: config.podcast.moteur,
+                /* Les repères de partie, en secondes, mesurés sur les
+                   échantillons réellement produits (prompt 46, P2). Absents
+                   d'un audio synthétisé avant ce prompt, et c'est admis :
+                   la fiche s'écoute alors d'un bloc, comme avant. */
+                ...(resultat.parties?.length ? { parties: resultat.parties } : {}),
                 genereLe: new Date().toISOString(),
               }),
             );

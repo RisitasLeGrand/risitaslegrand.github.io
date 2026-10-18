@@ -857,7 +857,22 @@ async function main() {
       // Le lecteur a besoin de la durée et du poids AVANT de télécharger :
       // c'est ce qui permet d'annoncer « 12 min, 3 Mo » sur le bouton.
       podcast: f.podcast
-        ? { secondes: f.podcast.secondes, octets: f.podcast.octets, type: f.podcast.type }
+        ? {
+            secondes: f.podcast.secondes,
+            octets: f.podcast.octets,
+            type: f.podcast.type,
+            /*
+               Les repères de partie voyagent CHIFFRÉS, avec le reste de la
+               fiche (prompt 46, P2, et interdit 2) : la seconde où commence
+               « II. Le contrôle de constitutionnalité » dit déjà beaucoup du
+               plan du cours, et le plan d'un cours est du contenu.
+
+               Le champ est absent quand la synthèse n'a rien mesuré — audio
+               produit avant ce prompt. Son absence veut dire « la fiche
+               entière », comme partout ailleurs dans le prompt 46.
+            */
+            ...(f.podcast.parties ? { parties: f.podcast.parties } : {}),
+          }
         : null,
     };
 

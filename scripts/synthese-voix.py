@@ -59,14 +59,53 @@ def identifiant_de_voix(modele: str, nom: str) -> int:
 
 
 def lire_script(chemin: str) -> list[str]:
-    """Paragraphes d'un fichier « .podcast.md », front-matter écarté."""
+    """
+    Paragraphes d'un fichier « .podcast.md », front-matter écarté.
+
+    Les commentaires HTML sont écartés eux aussi, et ce n'est pas une
+    précaution de principe : le script parlé s'ouvre sur « Script parlé
+    engendré par npm run podcasts. Ne pas modifier à la main… », et cette
+    phrase se faisait entendre au début de chaque fiche audio. Le rang des
+    paragraphes restants est celui que le réécriveur a compté, et c'est de
+    lui que dépendent les repères de partie : écarter ici, et pas plus tard,
+    est donc la seule place juste.
+    """
     with open(chemin, encoding="utf8") as f:
         brut = f.read()
     if brut.startswith("---"):
         fin = brut.find("\n---", 3)
         if fin != -1:
             brut = brut[brut.find("\n", fin + 1) + 1 :]
-    return [p.strip() for p in re.split(r"\n\s*\n", brut) if p.strip()]
+    morceaux = (p.strip() for p in re.split(r"\n\s*\n", brut))
+    return [p for p in morceaux if p and not re.fullmatch(r"<!--.*?-->", p, re.S)]
+
+
+def lire_reperes(chemin: str) -> list[dict]:
+    """
+    Les parties déclarées dans le front-matter du script parlé : pour chacune,
+    son identifiant stable et le RANG DU PARAGRAPHE où elle commence à se dire
+    (prompt 46, P2).
+
+    Lu à la main, sans analyseur YAML : la ligne est écrite en JSON par
+    « scripts/podcasts.mjs », et ajouter une dépendance Python pour relire une
+    ligne qu'on écrit soi-même contreviendrait à l'interdit 5. Un script écrit
+    avant ce prompt n'a pas la ligne : il n'a alors aucun repère, et sa fiche
+    s'écoute d'un bloc, comme avant.
+    """
+    with open(chemin, encoding="utf8") as f:
+        brut = f.read()
+    if not brut.startswith("---"):
+        return []
+    fin = brut.find("\n---", 3)
+    entete = brut[:fin] if fin != -1 else brut
+    trouve = re.search(r"^parties:\s*(\[.*\])\s*$", entete, re.M)
+    if not trouve:
+        return []
+    try:
+        reperes = json.loads(trouve.group(1))
+    except ValueError:
+        return []
+    return [r for r in reperes if isinstance(r, dict) and "id" in r and "paragraphe" in r]
 
 
 def silence(secondes: float, taux: int) -> bytes:
@@ -134,17 +173,44 @@ class MoteurKokoro:
         yield (self.np.array(son.samples) * 32767).astype("<i2").tobytes()
 
 
-def synthetiser(moteur, paragraphes, args):
-    """Concatène les phrases synthétisées, avec les silences intercalaires."""
+def synthetiser(moteur, paragraphes, args, parties=()):
+    """
+    Concatène les phrases synthétisées, avec les silences intercalaires.
+
+    Retourne aussi les REPÈRES DE PARTIE (prompt 46, P2) : pour chaque partie
+    du cours, la seconde où sa relance commence à se dire. On la connaît
+    exactement, et non à peu près — la seconde est le nombre d'échantillons
+    déjà écrits divisé par le taux d'échantillonnage, et tout ce qui précède
+    a bien été écrit. Aucune estimation de débit n'intervient.
+
+    Le repère est posé APRÈS la respiration qui sépare deux paragraphes :
+    sauter à une partie doit tomber sur la parole, pas sur un demi-silence.
+
+    « parties » vient du script parlé, sous la forme [{id, paragraphe}] où
+    « paragraphe » est un rang dans la liste reçue ici.
+    """
+    debuts = {}
+    for partie in parties:
+        debuts.setdefault(int(partie["paragraphe"]), []).append(partie["id"])
+
     morceaux = []
+    echantillons = 0  # 2 octets par échantillon (PCM 16 bits mono)
+    reperes = []
     for i, paragraphe in enumerate(paragraphes):
         if i:
-            morceaux.append(silence(args.silence_paragraphe / 1000, moteur.taux))
+            respiration = silence(args.silence_paragraphe / 1000, moteur.taux)
+            morceaux.append(respiration)
+            echantillons += len(respiration) // 2
+        for identifiant in debuts.get(i, ()):
+            reperes.append({"id": identifiant, "debut": round(echantillons / moteur.taux, 2)})
         for j, bloc in enumerate(moteur.phrases(paragraphe)):
             if j:
-                morceaux.append(silence(args.silence_phrase / 1000, moteur.taux))
+                souffle = silence(args.silence_phrase / 1000, moteur.taux)
+                morceaux.append(souffle)
+                echantillons += len(souffle) // 2
             morceaux.append(bloc)
-    return b"".join(morceaux)
+            echantillons += len(bloc) // 2
+    return b"".join(morceaux), reperes
 
 
 # Réglages d'encodage, par format. Opus : le débit demandé est une moyenne
@@ -205,12 +271,18 @@ def main() -> int:
 
     for tache in taches:
         try:
-            brut = synthetiser(moteur, lire_script(tache["script"]), args)
+            brut, reperes = synthetiser(
+                moteur,
+                lire_script(tache["script"]),
+                args,
+                lire_reperes(tache["script"]),
+            )
             encoder(args.ffmpeg, brut, moteur.taux, tache["sortie"], args.bitrate, args.format)
             print(json.dumps({
                 "id": tache["id"],
                 "secondes": round(len(brut) / 2 / moteur.taux, 1),
                 "octets": os.path.getsize(tache["sortie"]),
+                "parties": reperes,
             }), flush=True)
         except Exception as erreur:  # une fiche en échec n'arrête pas les autres
             print(json.dumps({"id": tache["id"], "erreur": str(erreur)}), flush=True)

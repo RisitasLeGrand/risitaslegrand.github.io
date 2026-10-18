@@ -82,6 +82,8 @@
     "bench-storage": "node scripts/bench-storage.mjs",
     "themes": "tsx scripts/construire-themes.mts",
     "essais:parties-fiche": "tsx scripts/essais-parties-fiche.mts",
+    "essais:reperes-audio": "tsx scripts/essais-reperes-audio.mts",
+    "essais:parties-client": "tsx scripts/essais-parties-client.mts",
     "parties:identifiants": "node scripts/ajouter-identifiants-parties.mjs",
     "captures:42": "tsx scripts/captures-prompt-42.mjs",
     "essais:parametres-navigateur": "tsx scripts/essais-parametres-navigateur.mts",

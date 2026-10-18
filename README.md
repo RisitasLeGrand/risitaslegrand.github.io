@@ -167,7 +167,7 @@ tags: [santé mondiale, gouvernance, OMS]
 
 Le texte de référence, en Markdown. Les sous-titres se notent `###`.
 
-### I. Première partie
+### I. Première partie {#i-premiere-partie}
 
 Du texte, des **listes**, des tableaux, des *italiques*…
 
@@ -179,6 +179,7 @@ La version condensée, à relire rapidement.
 
 - q: "La question posée ?"
   r: "La réponse attendue."
+  partie: i-premiere-partie
 - q: "Une autre question ?"
   r: "Une autre réponse."
 
@@ -191,7 +192,35 @@ La version condensée, à relire rapidement.
     - "Troisième proposition"
   reponse: "Deuxième proposition"
   explication: "Facultatif : s'affiche après la réponse."
+  partie: i-premiere-partie
 ```
+
+### Les parties d'une fiche
+
+Chaque titre de niveau 2 ou 3 du « Cours complet » est une **partie** : un
+morceau qu'on peut lire, écouter ou réviser seul. Son identifiant s'écrit à
+côté du titre, entre accolades — `{#i-premiere-partie}` — et il ne bouge
+plus, même si le titre est corrigé. C'est tout l'intérêt : l'ancre d'un titre
+se fabrique à partir de son texte, si bien que corriger une coquille la
+change, et détache du même coup le repère audio de la partie, les cartes qui
+s'y rattachent et les séances qui disent l'avoir vue.
+
+`npm run parties:identifiants` les pose une fois pour toutes sur les fiches
+existantes, d'après l'ancre actuelle — tous les liens déjà enregistrés
+continuent donc de tomber juste. Le script est idempotent et ne touche que
+`content/`.
+
+Une carte et une question de quiz peuvent ensuite désigner la partie dont
+elles relèvent, par un champ `partie:` **facultatif**. Son absence veut dire
+« la fiche entière », et c'est le cas par défaut : en cas de doute, on laisse
+le champ vide plutôt que de deviner. Le build refuse deux parties du même
+identifiant dans une fiche, et une carte qui cite une partie qui n'existe
+pas ; un titre encore sans identifiant est toléré et signalé en fin de
+construction.
+
+La synthèse vocale note, en plus, la seconde où chaque partie commence à se
+dire ; ces repères sont chiffrés avec la fiche. Une fiche audio produite
+avant cette version n'en a pas, et s'écoute d'un bloc.
 
 ### Détail des champs
 

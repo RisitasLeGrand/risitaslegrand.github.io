@@ -13,7 +13,7 @@ de la gouvernance sanitaire mondiale. Elle a mis à l'épreuve le multilatérali
 sanitaire construit depuis 1948 autour de l'Organisation mondiale de la santé
 (OMS), tout en accélérant des dynamiques de compétition entre puissances.
 
-### I. Un cadre juridique ancien, révélé insuffisant
+### I. Un cadre juridique ancien, révélé insuffisant {#i-un-cadre-juridique-ancien-révélé-insuffisant}
 
 Le règlement sanitaire international, révisé en 2005 à la suite de l'épisode du
 SRAS, impose aux États parties de notifier à l'OMS tout événement susceptible de
@@ -32,7 +32,7 @@ Trois limites structurelles sont apparues :
 3. **La faiblesse des moyens.** Le budget de l'OMS repose majoritairement sur des
    contributions volontaires fléchées, qui limitent son autonomie.
 
-### II. Une crise qui recompose les rapports de puissance
+### II. Une crise qui recompose les rapports de puissance {#ii-une-crise-qui-recompose-les-rapports-de-puissance}
 
 La diplomatie sanitaire est devenue un instrument de soft power : dons de
 masques, exportations de vaccins, financement de capacités de production. La
@@ -44,7 +44,7 @@ Le dispositif COVAX, conçu pour mutualiser l'achat et la distribution, n'a atte
 qu'une fraction de ses objectifs initiaux, faute d'approvisionnement et en raison
 du préemption des doses par les pays à revenu élevé.
 
-### III. Vers une refondation de la gouvernance sanitaire ?
+### III. Vers une refondation de la gouvernance sanitaire ? {#iii-vers-une-refondation-de-la-gouvernance-sanitaire-}
 
 Les négociations engagées à partir de 2021 sur un accord international relatif à
 la prévention des pandémies visent à corriger ces défauts : partage des agents
