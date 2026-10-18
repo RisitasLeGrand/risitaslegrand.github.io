@@ -175,6 +175,7 @@ import Base from '../../layouts/Base.astro';
 </style>
 
 <script>
+  import { jourISO } from '../../lib/db';
   import { agirPuisPeindre } from '../../lib/agir';
   import { auDeverrouillage } from '../../lib/chargement';
   import { unSeulGeste } from '../../lib/geste';
@@ -1048,7 +1049,7 @@ import Base from '../../layouts/Base.astro';
     const fichier = versFichierIcs(evenements);
     const lien = document.createElement('a');
     lien.href = URL.createObjectURL(new Blob([fichier], { type: 'text/calendar' }));
-    lien.download = `cyclades-agenda-${new Date().toISOString().slice(0, 10)}.ics`;
+    lien.download = `cyclades-agenda-${jourISO()}.ics`;
     lien.click();
     URL.revokeObjectURL(lien.href);
     direRapport([{ texte: `${evenements.length} moment(s) exporté(s).` }]);

@@ -77,6 +77,7 @@ import LienReglages from '../../components/LienReglages.astro';
 </Base>
 
 <script>
+  import { jourISO } from '../../lib/db';
   import { auDeverrouillage } from '../../lib/chargement';
   import { euros } from '../../lib/odyssee/finances';
   import { occurrences, TOLERANCE_PAR_DEFAUT } from '../../lib/odyssee/budget';
@@ -104,7 +105,15 @@ import LienReglages from '../../components/LienReglages.astro';
     z.classList.remove('hidden');
   };
 
-  const aujourdHui = new Date().toISOString().slice(0, 10);
+  /*
+     D7 du 43 : « aujourd'hui » se lit sur l'horloge de la personne, pas sur
+     UTC. `new Date().toISOString()` rend le jour **à Greenwich**, et Paris est
+     en avance : entre minuit et deux heures du matin, le calcul naïf rendait
+     donc **la veille**. `jourISO` corrige le décalage du fuseau à l'instant
+     considéré — changement d'heure compris — et existait depuis le début :
+     c'est elle qu'emploient déjà la planification et les QCM.
+  */
+  const aujourdHui = jourISO();
   let reglages: ReglagesConsommateurs;
 
   /* ── Les données, une fois le coffre ouvert ───────────────────────────── */

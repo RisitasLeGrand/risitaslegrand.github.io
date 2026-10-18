@@ -214,7 +214,24 @@ console.log('\nUN MAUVAIS MOT DE PASSE EST REFUSÉ, SANS RIEN CASSER');
 page.on('dialog', (d) => d.accept());
 await page.fill('#mdp-restauration', 'pas-le-bon-mot-de-passe');
 await page.uncheck('#avec-instantane');
+/*
+   « Appliquer » passe par la boîte commune depuis que `src/lib/boite.ts`
+   remplace les quinze `confirm()` du site. L'essai ne le savait pas : il
+   cliquait, la boîte s'ouvrait, et le clic suivant tombait dessus — un
+   « dialog intercepts pointer events » pendant trente secondes, puis une
+   panne. Le contrôle suivait un écran qui n'existe plus.
+
+   La confirmation fait donc partie du geste, comme pour la personne. On
+   attend le bouton d'action, on l'appuie, et l'on constate la suite.
+*/
+const confirmerLeRemplacement = async () => {
+  const action = page.locator('dialog.boite button', { hasText: 'Remplacer' }).first();
+  await action.waitFor({ state: 'visible', timeout: 10_000 });
+  await action.click();
+};
+
 await page.click('#appliquer-cyclades');
+await confirmerLeRemplacement();
 await page.waitForTimeout(3000);
 const refus = (await page.locator('#message-cyclades').textContent()) ?? '';
 v('le refus est expliqué', /n’ouvre pas cette sauvegarde/i.test(refus), true);
@@ -225,6 +242,7 @@ console.log('\nRESTAURER');
 
 await page.fill('#mdp-restauration', MDP);
 await page.click('#appliquer-cyclades');
+await confirmerLeRemplacement();
 await page.waitForTimeout(6000);
 
 const seances = await lire('seances');

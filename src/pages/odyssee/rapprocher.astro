@@ -270,6 +270,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 </Base>
 
 <script>
+  import { jourISO } from '../../lib/db';
   import { auDeverrouillage } from '../../lib/chargement';
   import { centimesDe, euros, type OperationBancaire } from '../../lib/odyssee/finances';
   import { reconcilier } from '../../lib/odyssee/finances';
@@ -378,7 +379,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
    * midi comme à minuit — c'est exactement la faute qui avait fait passer un
    * essai de calendrier seulement l'après-midi.
    */
-  const aujourdHui = new Date().toISOString().slice(0, 10);
+  const aujourdHui = jourISO();
 
   let axe: 'ligne' | 'categorie' | 'mois' = 'ligne';
   let filtre: 'tout' | 'a-pointer' | 'a-rapprocher' | 'a-revoir' = 'tout';

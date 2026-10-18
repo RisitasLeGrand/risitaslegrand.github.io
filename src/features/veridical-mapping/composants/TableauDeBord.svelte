@@ -18,7 +18,7 @@
    * rampe claire inversée.
    */
   import { confirmer } from '../../../lib/boite';
-  import { effacerVeridical, type SeuilVeridical, type SessionVeridical } from '../../../lib/db';
+  import { effacerVeridical, jourISO, type SessionVeridical, type SeuilVeridical } from '../../../lib/db';
   import { DIMENSIONS, dimensionsDeFamille, type Famille } from '../dimensions';
   import { INTITULES_STATUT } from '../escalier';
   import { arbreCouvrant, idArete } from '../hub';
@@ -123,7 +123,7 @@
     );
     const lien = document.createElement('a');
     lien.href = URL.createObjectURL(new Blob([contenu], { type: 'application/json' }));
-    lien.download = `veridical-mapping-${new Date().toISOString().slice(0, 10)}.json`;
+    lien.download = `veridical-mapping-${jourISO()}.json`;
     lien.click();
     URL.revokeObjectURL(lien.href);
   }

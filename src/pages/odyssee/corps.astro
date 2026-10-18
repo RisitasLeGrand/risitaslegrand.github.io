@@ -408,7 +408,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     surCoffre,
   } from '../../lib/coffre';
   import { rappelDeSauvegarde } from '../../lib/noyau/coffre';
-  import { lireDerniereSauvegarde } from '../../lib/db';
+  import { jourISO, lireDerniereSauvegarde } from '../../lib/db';
   import {
     NATURES,
     VOIES,
@@ -993,7 +993,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       };
       ($('coucher') as HTMLInputElement).value = local(hier, 23, 0);
       ($('lever') as HTMLInputElement).value = local(maintenant, 7, 0);
-      ($('debut-sante') as HTMLInputElement).value = new Date().toISOString().slice(0, 10);
+      ($('debut-sante') as HTMLInputElement).value = jourISO();
 
       $('intensite').addEventListener('input', () => {
         $('intensite-valeur').textContent = ($('intensite') as HTMLInputElement).value;

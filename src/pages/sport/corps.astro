@@ -153,6 +153,9 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
 </Base>
 
 <script>
+  /* Alias : cet écran a déjà un « jourISO » à lui, qui met en forme une
+     date, et deux noms pour deux choses valent mieux qu'une collision. */
+  import { jourISO as leJourLocal } from '../../lib/db';
   import { auDeverrouillage } from '../../lib/chargement';
   import { unSeulGeste } from '../../lib/geste';
   import {
@@ -177,7 +180,15 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
   const $ = (id: string) => document.getElementById(id)!;
   const jourISO = (iso: string) =>
     new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
-  const aujourdhui = () => new Date().toISOString().slice(0, 10);
+  /*
+     D7 du 43 : « aujourd'hui » se lit sur l'horloge de la personne, pas sur
+     UTC. `new Date().toISOString()` rend le jour **à Greenwich**, et Paris est
+     en avance : entre minuit et deux heures du matin, le calcul naïf rendait
+     donc **la veille**. `jourISO` corrige le décalage du fuseau à l'instant
+     considéré — changement d'heure compris — et existait depuis le début :
+     c'est elle qu'emploient déjà la planification et les QCM.
+  */
+  const aujourdhui = () => leJourLocal();
 
   let blessures: Blessure[] = [];
   let phases: Phase[] = [];

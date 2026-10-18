@@ -260,6 +260,7 @@ import {
 </Base>
 
 <script>
+  import { jourISO } from '../../lib/db';
   import { auDeverrouillage } from '../../lib/chargement';
   import { unSeulGeste } from '../../lib/geste';
   import { coffreOuvert, ouvrirLeCoffre, surCoffre } from '../../lib/coffre';
@@ -457,7 +458,7 @@ import {
       void unSeulGeste(e.currentTarget as Element, () =>
         ecrireRessenti({
           traitementId: traitement.id,
-          jour: lire('r-jour') || new Date().toISOString().slice(0, 10),
+          jour: lire('r-jour') || jourISO(),
           ressenti: lire('r-ressenti'),
           indesirable: lire('r-indesirable'),
           tolerance: lire('r-tolerance'),

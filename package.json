@@ -264,7 +264,8 @@
     "essais:redemande": "node scripts/essais-redemande.mjs",
     "essais:bascule-branchement": "node scripts/essais-bascule-branchement.mjs",
     "essais:echecs-dits": "tsx scripts/essais-echecs-dits.mts",
-    "essais:restauration-atomique": "tsx scripts/essais-restauration-atomique.mts"
+    "essais:restauration-atomique": "tsx scripts/essais-restauration-atomique.mts",
+    "essais:dates-locales": "tsx scripts/essais-dates-locales.mts"
   },
   "repository": {
     "type": "git",
