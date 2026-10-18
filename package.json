@@ -242,6 +242,7 @@
     "essais:gestes": "node scripts/essais-gestes.mjs",
     "essais:double-appui": "node scripts/essais-double-appui.mjs",
     "essais:tirer-rafraichir": "node scripts/essais-tirer-rafraichir.mjs",
+    "essais:registre-gestes": "tsx scripts/essais-registre-gestes.mts",
     "essais:retour:navigateur": "node scripts/essais-retour-navigateur.mjs",
     "essais:voile": "node scripts/essais-voile-et-fiche.mjs",
     "essais:redemande": "node scripts/essais-redemande.mjs",
