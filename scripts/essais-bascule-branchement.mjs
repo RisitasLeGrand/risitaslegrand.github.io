@@ -301,7 +301,27 @@ verifier(
   false,
 );
 
+/*
+   Et le mot de passe du COFFRE, lui, ne doit PAS ouvrir : sa clé est juste,
+   mais elle n'ouvre encore aucune donnée. Ouvrir sur un coffre vide
+   d'apparence serait la pire des réponses — elle ressemble à une perte.
+*/
+await page.close();
+page = await ctx2.newPage();
+await page.goto(`${BASE}/odyssee/corps/`, { waitUntil: 'networkidle' });
+await saisirLeCoffre(MDP_COFFRE);
+verifier('le mot de passe du coffre n’ouvre pas sur du vide', await ferme(), true);
+const erreur = await page.textContent('#erreur-coffre');
+console.log(`      message du cadenas : ${erreur}`);
+verifier(
+  'et le refus nomme la bascule interrompue, au lieu de dire « incorrect »',
+  /bascule a été interrompue/.test(erreur ?? ''),
+  true,
+);
+
 /* Et la relance ne doit pas poser une SECONDE enveloppe par-dessus. */
+await saisirLeCoffre(MDP);
+verifier('prémisse de la relance : le coffre est rouvert au mot de passe du site', await ferme(), false);
 await page.goto(`${BASE}/coffre/bascule/`, { waitUntil: 'networkidle' });
 page.once('dialog', (d) => void d.accept(MDP));
 const attendu2 = page.waitForEvent('download', { timeout: 60000 });

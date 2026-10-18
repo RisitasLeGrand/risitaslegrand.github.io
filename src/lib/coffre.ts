@@ -460,6 +460,8 @@ export async function ouvrirLeCoffre(
   if (!motDePasse) return 'Saisissez le mot de passe.';
   const rangement = rangementDeLaBoite();
   let cle: CryptoKey | null = null;
+  /** Le mot de passe a ouvert l'enveloppe, mais sa clé n'ouvre aucune donnée. */
+  let enveloppeSansDonnees = false;
 
   if (await enveloppePosee(rangement)) {
     /*
@@ -473,14 +475,15 @@ export async function ouvrirLeCoffre(
        la **bascule interrompue** qui l'impose : l'enveloppe est posée avant
        que les enregistrements soient repris, si bien qu'entre les deux elle
        livre une clé parfaitement valide qui n'ouvre encore rien. S'en
-       contenter enfermerait les données derrière une clé juste — le contraire
-       de ce que cette fonction doit garantir.
+       contenter ouvrirait un coffre vide d'apparence, ce qui est la pire des
+       réponses : elle ressemble à une perte.
     */
-    if (
-      donnees &&
-      ((await laCleOuvreLeCoffre(donnees)) || !(await leCoffreContientQuelqueChose()))
-    ) {
-      cle = donnees;
+    if (donnees) {
+      if ((await laCleOuvreLeCoffre(donnees)) || !(await leCoffreContientQuelqueChose())) {
+        cle = donnees;
+      } else {
+        enveloppeSansDonnees = true;
+      }
     }
   }
 
@@ -494,7 +497,17 @@ export async function ouvrirLeCoffre(
     */
     const candidate = await deriver(motDePasse);
     if (!(await laCleOuvreLeCoffre(candidate)) && (await leCoffreContientQuelqueChose())) {
-      return 'Mot de passe incorrect.';
+      /*
+         Deux refus, et ils ne disent pas la même chose. « Incorrect » serait
+         faux dans le second cas — le mot de passe est juste, c'est la bascule
+         qui n'est pas allée au bout — et laisserait croire à un mot de passe
+         perdu devant un coffre parfaitement sain.
+      */
+      return enveloppeSansDonnees
+        ? 'Ce mot de passe ouvre bien l’enveloppe du coffre, mais aucune donnée n’a encore ' +
+            'été reprise sous cette clé : une bascule a été interrompue. Ouvrez avec le mot ' +
+            'de passe du site, puis reprenez la bascule.'
+        : 'Mot de passe incorrect.';
     }
     /*
        On réutilise la clé déjà dérivée pour la vérification, et c'est ce que
