@@ -31,12 +31,10 @@
  * écrit sur l'écran des appareils, et aucun des deux ne doit laisser croire
  * qu'un retrait d'appareil est une révocation.
  */
-import { readFile, writeFile } from 'node:fs/promises';
+import { readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { sha256Hex } from './lib/crypto.mjs';
-import config from '../site.config.mjs';
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CHEMIN_CONFIG = path.join(racine, 'site.config.mjs');
@@ -75,16 +73,21 @@ const motDePasse = (ligne ?? '')
 
 if (!motDePasse) arret('« .env.local » ne contient pas de SITE_PASSWORD utilisable.');
 
-const empreinte = await sha256Hex(motDePasse);
-const actuelle = config.motDePasseHash.toLowerCase();
+/*
+   Ce script ne sait plus dire « c'est déjà le mot de passe actuel », et c'est
+   la contrepartie assumée du retrait de l'empreinte : il n'existe plus nulle
+   part de quoi reconnaître le mot de passe sans l'essayer.
 
-if (empreinte === actuelle) {
-  console.log(
-    `\n${vert('✓')} Le mot de passe de « .env.local » est déjà celui du site : ` +
-      'rien à changer.\n',
-  );
-  process.exit(0);
-}
+   Le dire vaut mieux que le simuler. Relancer sur le même mot de passe ne
+   casse rien — la date est réécrite, le témoin local est refait à
+   l'identique — mais la date de changement sera fausse, et c'est elle qui
+   permet de savoir quelle sauvegarde s'ouvre avec quoi.
+*/
+console.log(
+  `\n  Rappel : ce script ne peut plus vérifier que le mot de passe est\n` +
+    `  nouveau — l'empreinte a quitté le dépôt. Si c'est le même qu'avant,\n` +
+    `  interrompez maintenant : la date de changement deviendrait fausse.\n`,
+);
 
 /**
  * Un refus, et non plus un avertissement.
@@ -127,11 +130,21 @@ if (motDePasse.length < LONGUEUR_MINIMALE) {
 const source = await readFile(CHEMIN_CONFIG, 'utf8');
 const aujourdhui = new Date().toISOString().slice(0, 10);
 
-const motifHash = /(motDePasseHash:\s*')([0-9a-f]{64})(')/;
-if (!motifHash.test(source)) {
-  arret('« motDePasseHash » est introuvable dans site.config.mjs — rien n’a été écrit.');
-}
-let sortie = source.replace(motifHash, `$1${empreinte}$3`);
+/*
+   Plus d'empreinte à écrire : elle a quitté `site.config.mjs` le 17 octobre
+   2026 (prompt 44, point 1), parce que ce fichier part dans le paquet publié
+   et qu'une empreinte SHA-256 sans sel publiée rend le mot de passe trouvable
+   en quelques secondes.
+
+   Ce script ne recopie donc plus rien d'un secret. Il date le changement, et
+   il efface le **témoin local** de construction pour que le prochain build le
+   recrée sur le nouveau mot de passe — sans quoi le build refuserait de
+   passer, en croyant à une faute de frappe.
+*/
+const TEMOIN_LOCAL = '.temoin-mot-de-passe.local.json';
+await rm(TEMOIN_LOCAL, { force: true });
+
+let sortie = source;
 
 const motifDate = /(motDePasseChangeLe:\s*')(\d{4}-\d{2}-\d{2})(')/;
 if (motifDate.test(sortie)) {
@@ -143,14 +156,15 @@ if (motifDate.test(sortie)) {
 await writeFile(CHEMIN_CONFIG, sortie, 'utf8');
 
 console.log(`
-${vert('✓')} site.config.mjs mis à jour : nouvelle empreinte, changement daté du ${aujourdhui}.
+${vert('✓')} Changement daté du ${aujourdhui} dans site.config.mjs, et témoin local
+  de construction effacé : le prochain build le recréera sur ce mot de passe.
 
 ${gras('Il reste trois choses, et la troisième n’est pas automatisable.')}
 
   1. ${gras('npm run deploy')}
-     Rechiffre le contenu avec le nouveau mot de passe et publie. Le build
-     refuse de passer si « .env.local » et site.config.mjs ne s’accordent pas,
-     donc une erreur de recopie ne peut pas atteindre le site.
+     Rechiffre le contenu avec le nouveau mot de passe et publie. Le témoin
+     local venant d’être effacé, ce build le recrée sans rien demander ; les
+     suivants refuseront un mot de passe différent de celui-ci.
 
   2. ${gras('rm -f .env.local')}
      Le mot de passe ne doit pas rester sur le disque après le build.

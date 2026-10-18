@@ -51,21 +51,37 @@ export default {
   /** Branche de publication utilisée par « npm run deploy ». */
   brancheDeploiement: 'gh-pages',
 
-  /**
-   * Empreinte SHA-256 (hexadécimal minuscule) du mot de passe.
-   * Pour la recalculer après un changement de mot de passe :
-   *     npm run hash
-   *
-   * Changé le 11 octobre 2026, le mot de passe précédent ayant été publié par
-   * inadvertance dans huit scripts d'essai suivis par Git (voir le commit
-   * « Le mot de passe du site était en clair dans huit fichiers suivis »).
-   *
-   * Conséquence à traiter par la sauvegarde `.cyclades` : une sauvegarde
-   * chiffrée faite avant cette date ne s'ouvre qu'avec l'ANCIEN mot de passe.
-   * Le dialogue de restauration doit donc accepter un mot de passe différent
-   * de l'actuel, et le dire.
-   */
-  motDePasseHash: '6647465f369de295df6dae01243529600f2bc27e3a41a099d21d9400d56ad253',
+  /*
+     « motDePasseHash » a été RETIRÉ le 17 octobre 2026. Point 1 du prompt 44.
+
+     C'était une empreinte SHA-256 **sans sel** du mot de passe, et ce fichier
+     part dans le paquet construit, donc dans la branche publiée. Une empreinte
+     sans sel se teste par dizaines de milliards par seconde sur une carte
+     graphique ordinaire : pour un mot de passe court, le retrouver prenait
+     quelques secondes — et avec lui tout le contenu du dépôt. Les 600 000
+     itérations de PBKDF2 ci-dessous n'y changeaient rien, puisqu'un attaquant
+     ne passait plus par elles.
+
+     Elle ne servait qu'à choisir entre deux messages d'erreur. La vraie
+     vérification existait déjà : dériver la clé et ouvrir le témoin chiffré
+     publié avec le contenu. C'est désormais la seule, pour le site comme pour
+     le coffre, et « essais:aucune-empreinte » refuse qu'une empreinte du mot
+     de passe réapparaisse dans « dist/ ».
+
+     La garde de construction — ne pas republier tout le contenu sous un mot de
+     passe différent par mégarde — n'a pas disparu : son témoin a déménagé dans
+     « .temoin-mot-de-passe.local.json », salé, à 600 000 itérations, ignoré
+     par Git et jamais publié.
+
+     DEUX CHOSES QUE CE RETRAIT NE RÈGLE PAS, et qu'il faut dire :
+
+     1. L'empreinte reste dans l'HISTORIQUE Git et dans les paquets déjà
+        publiés. Le mot de passe actuel doit donc être tenu pour exposé tant
+        qu'il n'a pas changé. C'est une décision d'Alexis.
+     2. Une sauvegarde « .cyclades » chiffrée avant le 11 octobre 2026 ne
+        s'ouvre qu'avec l'ANCIEN mot de passe. Le dialogue de restauration
+        doit accepter un mot de passe différent de l'actuel, et le dire.
+  */
 
   /**
    * Date du dernier changement de mot de passe, au format AAAA-MM-JJ.

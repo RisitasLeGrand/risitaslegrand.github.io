@@ -36,3 +36,8 @@ npm-debug.log*
 # Les fascicules sources : même règle que « content/ » — ils ne sortent jamais
 # de la machine. Le dépôt de publication est public.
 sources/
+
+# Le témoin local du mot de passe de construction. Il ne quitte jamais la
+# machine qui construit : publié ou commité, il rendrait le mot de passe
+# attaquable hors ligne.
+.temoin-mot-de-passe.local.json

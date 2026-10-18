@@ -1,14 +1,29 @@
 /**
  * Écran de connexion et gestion de la clé de déchiffrement.
  *
- * Deux mécanismes complémentaires, comme prévu :
- *  1. la saisie du mot de passe est vérifiée par comparaison SHA-256 ;
- *  2. la même saisie sert à dériver la clé AES qui déchiffre réellement le
- *     contenu — sans elle, les fichiers publiés restent illisibles.
+ * Un seul mécanisme, et c'est le bon : la saisie dérive une clé AES par
+ * PBKDF2, et cette clé doit ouvrir le **témoin chiffré** publié avec le
+ * contenu. Réussir, c'est pouvoir déchiffrer ; il n'y a rien d'autre à
+ * vérifier.
  *
- * La clé dérivée peut être mémorisée pour éviter de retaper le mot de passe :
- *  - par défaut dans sessionStorage (effacée à la fermeture de l'onglet) ;
- *  - dans localStorage si l'utilisateur coche « rester connecté ».
+ * Il y en avait deux. La première comparait une empreinte SHA-256 **sans
+ * sel** du mot de passe, embarquée dans `site.config.mjs` et donc dans le
+ * paquet publié. Elle ne servait qu'à choisir entre deux messages d'erreur,
+ * et elle coûtait tout : une empreinte sans sel se teste par dizaines de
+ * milliards par seconde sur une carte graphique ordinaire. Elle est partie
+ * (prompt 44, point 1), et un essai refuse désormais qu'une empreinte du mot
+ * de passe réapparaisse dans `dist/`.
+ *
+ * ## Où vit la clé mémorisée, et ce que le commentaire disait de faux
+ *
+ * Il annonçait « par défaut dans sessionStorage ». C'était inexact : la case
+ * « Rester connecté sur cet appareil » est cochée d'avance, et `auth.ts`
+ * écrit alors dans `localStorage`. Le défaut réel est donc `localStorage`,
+ * et c'est ce que dit maintenant cette ligne — constat 3 du prompt 44.
+ *
+ *  - `localStorage` quand « rester connecté » est coché, ce qui est le cas
+ *    par défaut : la clé survit à la fermeture du navigateur ;
+ *  - `sessionStorage` sinon : effacée à la fermeture de l'onglet.
  */
 import config from '../../site.config.mjs';
 import {
@@ -23,7 +38,6 @@ import { chargerParametresCle, viderCache } from './contenu';
 import { oublierCleActualites } from './actualites';
 
 const CLE_STOCKAGE = 'revinsp.cle';
-const HASH_ATTENDU = (config as { motDePasseHash: string }).motDePasseHash.toLowerCase();
 
 /** Nom de l'événement annonçant que le contenu peut être déchiffré. */
 export const EVENEMENT_DEVERROUILLE = 'revinsp:deverrouille';
@@ -90,17 +104,21 @@ export async function estDeverrouille(): Promise<boolean> {
 export async function deverrouiller(motDePasse: string, persistant: boolean): Promise<string | null> {
   if (!motDePasse) return 'Saisissez le mot de passe.';
 
-  // Étape 1 — vérification de l'empreinte (retour immédiat et message clair).
-  const empreinte = await sha256Hex(motDePasse);
-  if (empreinte !== HASH_ATTENDU) return 'Mot de passe incorrect.';
+  /*
+     Une seule vérification, et c'est la vraie : dériver la clé, puis tenter
+     d'ouvrir le témoin chiffré publié avec le contenu.
 
-  // Étape 2 — dérivation de la clé et vérification sur le témoin chiffré.
+     Le message perd en précision — on ne distingue plus « mot de passe faux »
+     de « site construit avec un autre mot de passe ». C'était tout le service
+     que rendait l'empreinte publiée, et il ne valait pas son prix. Le message
+     dit donc les deux possibilités, au lieu de faire semblant de trancher.
+  */
   const p = await params();
   const cle = await deriverCle(motDePasse, p);
   if (!(await cleValide(cle, p))) {
     return (
-      'Le mot de passe est reconnu mais ne déchiffre pas le contenu publié. ' +
-      'Le site a probablement été construit avec un autre mot de passe : relancez « npm run deploy ».'
+      'Mot de passe incorrect — ou site construit avec un autre mot de passe. ' +
+      'Si vous êtes sûr du mot de passe, relancez « npm run deploy ».'
     );
   }
 

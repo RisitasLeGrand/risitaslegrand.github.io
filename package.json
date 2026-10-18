@@ -12,7 +12,6 @@
     "deploy": "npm run build && node scripts/deploy.mjs",
     "podcasts": "node scripts/podcasts.mjs",
     "podcasts:installer": "node scripts/installer-voix.mjs",
-    "hash": "node scripts/hash.mjs",
     "actualites:cles": "node scripts/actualites-cles.mjs",
     "actualites:local": "node scripts/actualites-local.mjs",
     "actualites:lire": "node scripts/dechiffrer-actualite.mjs",

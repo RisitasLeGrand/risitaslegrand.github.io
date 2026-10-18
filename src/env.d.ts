@@ -6,7 +6,6 @@ declare module '*/site.config.mjs' {
     titre: string;
     base: string;
     brancheDeploiement: string;
-    motDePasseHash: string;
     motDePasseChangeLe: string;
     crypto: {
       iterations: number;

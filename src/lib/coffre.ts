@@ -348,24 +348,108 @@ export const cleDuCoffre = (): CryptoKey | null => cleMemoire;
 export const coffreOuvert = (): boolean => cleMemoire !== null;
 
 /**
+ * La clé dérivée ouvre-t-elle vraiment ce coffre ?
+ *
+ * ## Pourquoi cette fonction existe
+ *
+ * L'ouverture se vérifiait par une empreinte SHA-256 **sans sel** du mot de
+ * passe du site, publiée dans le paquet. C'était à la fois la seule
+ * vérification du coffre et le plus grave des sept constats du prompt 44 : la
+ * retirer sans rien mettre à la place aurait fait accepter n'importe quel mot
+ * de passe et dériver une clé fausse — et « un coffre qui accepte n'importe
+ * quelle clé fabrique des données perdues ».
+ *
+ * ## Le témoin, c'est le coffre lui-même
+ *
+ * Plutôt que de fabriquer un témoin à côté — qui peut diverger de la vraie
+ * clé — on ouvre **un enregistrement scellé déjà là**. Il est authentique par
+ * construction : s'il s'ouvre, la clé est la bonne ; s'il résiste,
+ * l'authentification AES-GCM a refusé, et c'est un vrai refus, pas une
+ * comparaison.
+ *
+ * ## Le cas du coffre vide
+ *
+ * Aucun enregistrement scellé : il n'y a rien à vérifier, et rien à perdre.
+ * On accepte. Le premier enregistrement écrit devient le témoin des
+ * ouvertures suivantes — et si le mot de passe était faux, il n'y avait de
+ * toute façon aucune donnée antérieure qu'il puisse rendre illisible.
+ *
+ * C'est la seule porte laissée ouverte, et elle est bornée par ce qu'elle
+ * risque : rien.
+ */
+async function laCleOuvreLeCoffre(cle: CryptoKey): Promise<boolean> {
+  const { MAGASINS_SCELLES, ouvrir: ouvrirUnScelle } = await import('./noyau/coffre');
+  const base = await db();
+  for (const { magasin } of MAGASINS_SCELLES) {
+    let enregistrements: Record<string, unknown>[];
+    try {
+      enregistrements = (await base.getAll(magasin as never)) as Record<string, unknown>[];
+    } catch {
+      // Magasin absent de cette version du schéma : il n'apprend rien.
+      continue;
+    }
+    for (const enregistrement of enregistrements) {
+      if (!enregistrement?.scelle) continue;
+      try {
+        await ouvrirUnScelle(cle, enregistrement);
+        return true;
+      } catch {
+        /*
+           Ce scellé ne s'ouvre pas. On ne conclut pas tout de suite : un
+           enregistrement abîmé ferait rejeter un mot de passe juste. On
+           continue, et c'est l'absence TOTALE d'ouverture qui tranche.
+        */
+      }
+    }
+  }
+  /*
+     Aucun scellé ouvert. Deux cas que ce booléen ne distingue pas, et
+     l'appelant s'en charge : coffre vide (rien à vérifier) ou mot de passe
+     faux (tout a résisté).
+  */
+  return false;
+}
+
+/** Y a-t-il seulement quelque chose à vérifier ? */
+async function leCoffreContientQuelqueChose(): Promise<boolean> {
+  const { MAGASINS_SCELLES } = await import('./noyau/coffre');
+  const base = await db();
+  for (const { magasin } of MAGASINS_SCELLES) {
+    try {
+      const tout = (await base.getAll(magasin as never)) as Record<string, unknown>[];
+      if (tout.some((e) => e?.scelle)) return true;
+    } catch {
+      continue;
+    }
+  }
+  return false;
+}
+
+/**
  * Ouvre le coffre.
  *
- * Le mot de passe est vérifié **avant** la dérivation, par la même empreinte
- * que l'écran de connexion : sans cela, un mot de passe faux produirait une
- * clé fausse, qui chiffrerait de nouveaux enregistrements illisibles par la
- * suite. Un coffre qui accepte n'importe quelle clé fabrique des données
- * perdues.
+ * Le mot de passe est éprouvé **après** la dérivation, en ouvrant un
+ * enregistrement réel. L'ordre a changé — on dérivait après avoir comparé une
+ * empreinte, on vérifie maintenant en déchiffrant — et le coût aussi : il faut
+ * payer les itérations PBKDF2 avant de savoir. C'est précisément ce qu'on
+ * veut : sans ce coût, un essai de mot de passe est gratuit.
  */
 export async function ouvrirLeCoffre(
   motDePasse: string,
   options: { memoriserAppareil?: boolean } = {},
 ): Promise<string | null> {
   if (!motDePasse) return 'Saisissez le mot de passe.';
-  const config = (await import('../../site.config.mjs')).default as { motDePasseHash: string };
-  if ((await sha256Hex(motDePasse)) !== config.motDePasseHash.toLowerCase()) {
+  const candidate = await deriver(motDePasse);
+  if (!(await laCleOuvreLeCoffre(candidate)) && (await leCoffreContientQuelqueChose())) {
     return 'Mot de passe incorrect.';
   }
-  cleMemoire = await deriver(motDePasse);
+  /*
+     On réutilise la clé déjà dérivée pour la vérification, et c'est ce que
+     l'ancien code ne pouvait pas faire : il comparait une empreinte, puis
+     dérivait. Dériver une seconde fois ici coûterait 310 000 itérations de
+     plus à chaque ouverture, pour obtenir exactement la même clé.
+  */
+  cleMemoire = candidate;
   /*
      A-6, option D : la boîte aux lettres naît ici, à la première ouverture,
      parce qu'il faut la clé du coffre pour sceller sa privée. Ensuite elle

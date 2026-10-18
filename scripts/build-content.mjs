@@ -75,18 +75,75 @@ async function lireMotDePasse() {
   }
   if (!motDePasse) echouer('Le mot de passe défini dans « .env.local » est vide.');
 
-  const empreinte = await sha256Hex(motDePasse);
-  if (empreinte !== config.motDePasseHash.toLowerCase()) {
+  await verifierContreLeTemoinLocal(motDePasse);
+  return motDePasse;
+}
+
+/**
+ * Le témoin **local** : construire deux fois de suite avec deux mots de passe
+ * différents, sans s'en apercevoir.
+ *
+ * ## Ce qu'il remplace, et pourquoi
+ *
+ * Cette garde comparait une empreinte SHA-256 sans sel rangée dans
+ * `site.config.mjs`. Elle était utile — elle attrape la faute de frappe qui
+ * republierait tout le contenu sous un mot de passe qu'on croit connaître —
+ * mais `site.config.mjs` part dans le paquet publié, et une empreinte sans
+ * sel publiée rend le mot de passe trouvable en quelques secondes.
+ *
+ * La garde reste, son témoin déménage : un fichier **ignoré par Git et jamais
+ * publié**, à côté de `.env.local`, qui vit sur la machine qui construit et
+ * nulle part ailleurs. Même raisonnement que `.env.local` lui-même : le
+ * secret de construction n'a aucune raison de voyager.
+ *
+ * ## Et il est salé, et lent
+ *
+ * PBKDF2, 600 000 itérations, sel tiré au sort. Même s'il fuitait, il ne
+ * donnerait pas le mot de passe pour le prix d'un balayage de carte
+ * graphique. Un témoin local n'est pas une raison d'être négligent.
+ *
+ * ## Absent, il ne bloque pas
+ *
+ * Première construction sur une machine neuve : le fichier n'existe pas. On
+ * le crée et on laisse passer — il n'y avait rien à comparer, et refuser
+ * empêcherait simplement de construire. Le message le dit, plutôt que de
+ * faire comme si la vérification avait eu lieu.
+ */
+async function verifierContreLeTemoinLocal(motDePasse) {
+  const { createHash, pbkdf2Sync, randomBytes } = await import('node:crypto');
+  const { existsSync, readFileSync, writeFileSync } = await import('node:fs');
+  void createHash;
+
+  const CHEMIN = '.temoin-mot-de-passe.local.json';
+  const ITERATIONS = 600000;
+
+  const derive = (sel) =>
+    pbkdf2Sync(motDePasse, Buffer.from(sel, 'hex'), ITERATIONS, 32, 'sha256').toString('hex');
+
+  if (!existsSync(CHEMIN)) {
+    const sel = randomBytes(16).toString('hex');
+    writeFileSync(
+      CHEMIN,
+      `${JSON.stringify({ sel, iterations: ITERATIONS, verificateur: derive(sel) }, null, 2)}\n`,
+    );
+    console.log(
+      `  Témoin local créé (${CHEMIN}, ignoré par Git). Les constructions\n` +
+        '  suivantes refuseront un mot de passe différent de celui-ci.',
+    );
+    return;
+  }
+
+  const temoin = JSON.parse(readFileSync(CHEMIN, 'utf8'));
+  if (derive(temoin.sel) !== temoin.verificateur) {
     echouer(
-      'Le mot de passe de « .env.local » ne correspond pas à l\'empreinte\n' +
-        'enregistrée dans « site.config.mjs ».\n' +
-        `  attendu : ${config.motDePasseHash}\n` +
-        `  obtenu  : ${empreinte}\n\n` +
-        '  Si vous venez de changer de mot de passe, mettez à jour\n' +
-        '  « motDePasseHash » dans site.config.mjs (npm run hash).',
+      'Le mot de passe de « .env.local » n’est pas celui des constructions\n' +
+        'précédentes sur cette machine.\n\n' +
+        '  Construire ainsi republierait TOUT le contenu sous un autre mot de\n' +
+        '  passe, et les sauvegardes faites avant ne s’ouvriraient plus avec.\n\n' +
+        `  Si le changement est voulu, supprimez « ${CHEMIN} »\n` +
+        '  et relancez : le témoin sera recréé sur le nouveau mot de passe.',
     );
   }
-  return motDePasse;
 }
 
 /**
