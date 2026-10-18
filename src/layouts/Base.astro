@@ -1267,7 +1267,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
         <slot />
       </main>
 
-      {enteteVoulu !== 'aucun' && <PiedDePage portee={porteeDuPied} />}
+      {enteteVoulu !== 'aucun' && <PiedDePage portee={porteeDuPied} barreDuBas={enteteVoulu === 'complet'} />}
     </div>
 
     <script>
