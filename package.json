@@ -263,7 +263,8 @@
     "essais:voile": "node scripts/essais-voile-et-fiche.mjs",
     "essais:redemande": "node scripts/essais-redemande.mjs",
     "essais:bascule-branchement": "node scripts/essais-bascule-branchement.mjs",
-    "essais:echecs-dits": "tsx scripts/essais-echecs-dits.mts"
+    "essais:echecs-dits": "tsx scripts/essais-echecs-dits.mts",
+    "essais:restauration-atomique": "tsx scripts/essais-restauration-atomique.mts"
   },
   "repository": {
     "type": "git",

@@ -2664,14 +2664,70 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
   }
   const base = await db();
 
+  /*
+     ╔══════════════════════════════════════════════════════════════════════╗
+     ║  UNE SEULE TRANSACTION — A5 du prompt 43                             ║
+     ╚══════════════════════════════════════════════════════════════════════╝
+
+     Avant ce lot, cette fonction vidait la progression puis enchaînait une
+     centaine d'écritures **indépendantes**. Une coupure au milieu — l'onglet
+     fermé, le téléphone qui s'endort, la base pleine à la soixantième carte —
+     laissait la base ni ancienne ni nouvelle : les cartes restaurées, les
+     fiches vides, le journal perdu. C'est la pire des trois issues, et c'était
+     la plus probable pour un import de cinq ans de révisions.
+
+     Tout passe maintenant par une transaction unique sur `MAGASINS_PROGRESSION`,
+     le vidage compris.
+
+     **Et la transaction ne suffit pas.** Mesuré par l'essai, et c'est le genre
+     de chose qu'on croit acquis : quand une erreur est levée par *notre* code
+     au milieu — une donnée refusée, une base pleine qui remonte par une
+     exception, un défaut — IndexedDB n'annule rien. Les requêtes déjà passées
+     n'ont plus de requête en attente derrière elles, la transaction se valide
+     d'office, et la base garde le vidage plus les quelques écritures faites.
+     L'essai a montré exactement cela : une carte restaurée, les deux d'avant
+     disparues. Il faut donc **annuler explicitement** — `tx.abort()` — puis
+     relancer l'erreur d'origine. Le navigateur annule de lui-même quand c'est
+     une *requête* qui échoue ; il ne devine pas nos exceptions.
+
+     **Ce qui en découle, et qu'il faut savoir en lisant la suite** : on
+     n'attend plus rien d'autre que les requêtes de cette transaction. Attendre
+     une promesse étrangère — un chiffrement, une lecture de fichier — rendrait
+     la main au navigateur, qui validerait la transaction d'office et la
+     fermerait au milieu. C'est pourquoi les lectures passent par
+     `tx.objectStore(...)` et non par `base`, et pourquoi les trois réglages de
+     la fin sont écrits ici puis seulement **notés** au registre de
+     synchronisation, après la validation.
+  */
+  const tx = base.transaction(MAGASINS_PROGRESSION, 'readwrite');
+
   // « Remplacement » veut dire ce qu'il dit : on efface **toute** la progression
   // locale avant de restaurer, sans quoi les magasins non vidés accumuleraient
-  // les enregistrements importés par-dessus les anciens.
-  if (mode === 'remplacement') await viderProgression(base);
+  // les enregistrements importés par-dessus les anciens. Le vidage est dans la
+  // transaction : annulée, il est annulé avec elle.
+  if (mode === 'remplacement') {
+    await Promise.all(MAGASINS_PROGRESSION.map((nom) => tx.objectStore(nom).clear()));
+  }
 
-  const profilLocal = await lireProfil();
+  /*
+     Tout le corps est dans un `try`, et c'est l'annulation qui compte, pas
+     l'élégance : une exception de notre côté ne fait rien annuler au
+     navigateur, il faut le lui demander.
+
+     La restauration n'est **pas** découpée en une fonction à part, bien que
+     cela éviterait d'indenter deux cents lignes : le type de la transaction
+     d'`idb` ne se nomme pas sans importer ses génériques, et une signature
+     approximative — j'ai essayé — rend vingt-neuf erreurs de typage et perd
+     précisément la vérification qui rend ce code lisible. Un cran
+     d'indentation est moins cher.
+  */
+  try {
+  const profilLocal: Profil = {
+    ...PROFIL_PAR_DEFAUT,
+    ...(((await tx.objectStore('etat').get('profil')) as Partial<Profil> | undefined) ?? {}),
+  };
   const profilImporte = { ...PROFIL_PAR_DEFAUT, ...(donnees.profil ?? {}) };
-  await ecrireProfil(
+  await tx.objectStore('etat').put(
     mode === 'remplacement'
       ? profilImporte
       : {
@@ -2686,19 +2742,20 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
           badges: [...new Set([...profilLocal.badges, ...profilImporte.badges])],
           creeLe: [profilLocal.creeLe, profilImporte.creeLe].filter(Boolean).sort()[0],
         },
+    'profil',
   );
 
   for (const carte of donnees.cartes ?? []) {
-    const locale = mode === 'fusion' ? await base.get('cartes', carte.id) : undefined;
+    const locale = mode === 'fusion' ? await tx.objectStore('cartes').get(carte.id) : undefined;
     // En fusion, on garde la révision la plus récente.
     const gagnante =
       locale && (locale.derniereRevision ?? '') > (carte.derniereRevision ?? '') ? locale : carte;
-    await base.put('cartes', gagnante);
+    await tx.objectStore('cartes').put(gagnante);
   }
 
   for (const fiche of donnees.fiches ?? []) {
-    const locale = mode === 'fusion' ? await base.get('fiches', fiche.id) : undefined;
-    await base.put('fiches', {
+    const locale = mode === 'fusion' ? await tx.objectStore('fiches').get(fiche.id) : undefined;
+    await tx.objectStore('fiches').put({
       ...fiche,
       lu: Boolean(locale?.lu || fiche.lu),
       secondes: Math.max(locale?.secondes ?? 0, fiche.secondes ?? 0),
@@ -2713,19 +2770,17 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
   // Moyenner deux estimations indépendantes donnerait une note qu'aucune des
   // deux histoires ne justifie.
   for (const competence of donnees.competences ?? []) {
-    const locale = mode === 'fusion' ? await base.get('competences', competence.clef) : undefined;
-    await base.put(
-      'competences',
-      locale && locale.majLe > competence.majLe ? locale : competence,
+    const locale = mode === 'fusion' ? await tx.objectStore('competences').get(competence.clef) : undefined;
+    await tx.objectStore('competences').put(locale && locale.majLe > competence.majLe ? locale : competence,
     );
   }
   for (const item of donnees.difficultes ?? []) {
-    const locale = mode === 'fusion' ? await base.get('difficultes', item.id) : undefined;
-    await base.put('difficultes', locale && locale.majLe > item.majLe ? locale : item);
+    const locale = mode === 'fusion' ? await tx.objectStore('difficultes').get(item.id) : undefined;
+    await tx.objectStore('difficultes').put(locale && locale.majLe > item.majLe ? locale : item);
   }
 
   for (const entree of donnees.journal ?? []) {
-    const locale = mode === 'fusion' ? await base.get('journal', entree.id) : undefined;
+    const locale = mode === 'fusion' ? await tx.objectStore('journal').get(entree.id) : undefined;
     // En fusion, l'entrée la plus récemment fautive l'emporte — et une entrée
     // encore ouverte d'un côté le reste : perdre un point faible à l'occasion
     // d'une restauration serait perdre précisément ce que le journal garde.
@@ -2733,60 +2788,60 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
       locale && (locale.derniereErreurLe ?? '') > (entree.derniereErreurLe ?? '') ? locale : entree;
     if (locale && (!locale.fermeeLe || !entree.fermeeLe)) {
       const { fermeeLe: _refermee, ...ouverte } = gagnante;
-      await base.put('journal', { ...ouverte, reussites: 0, derniereSession: null });
+      await tx.objectStore('journal').put({ ...ouverte, reussites: 0, derniereSession: null });
     } else {
-      await base.put('journal', gagnante);
+      await tx.objectStore('journal').put(gagnante);
     }
   }
 
   if (mode === 'fusion') {
     // Les résultats de quiz sont des événements : on ne dédoublonne que par
     // couple (fiche, horodatage) pour éviter les doublons d'import répété.
-    const existants = new Set((await base.getAll('quiz')).map((q) => `${q.ficheId}|${q.le}`));
+    const existants = new Set((await tx.objectStore('quiz').getAll()).map((q) => `${q.ficheId}|${q.le}`));
     for (const q of donnees.quiz ?? []) {
       if (existants.has(`${q.ficheId}|${q.le}`)) continue;
       const { id: _ignore, ...sansId } = q;
-      await base.add('quiz', identifie(sansId) as ResultatQuiz);
+      await tx.objectStore('quiz').add(identifie(sansId) as ResultatQuiz);
     }
     // Les séances sont identifiées par le couple (jour, thème) : deux séances
     // du même thème le même jour sont forcément la même.
-    const seancesExistantes = new Set((await base.getAll('seances')).map((s) => `${s.jour}|${s.theme}`));
+    const seancesExistantes = new Set((await tx.objectStore('seances').getAll()).map((s) => `${s.jour}|${s.theme}`));
     for (const seance of donnees.seances ?? []) {
       if (seancesExistantes.has(`${seance.jour}|${seance.theme}`)) continue;
       const { id: _ignore, ...sansId } = seance;
-      await base.add('seances', identifie(sansId) as Seance);
+      await tx.objectStore('seances').add(identifie(sansId) as Seance);
     }
-    const sessionsExistantes = new Set((await base.getAll('nback')).map((s) => s.le));
+    const sessionsExistantes = new Set((await tx.objectStore('nback').getAll()).map((s) => s.le));
     for (const session of donnees.nback ?? []) {
       if (sessionsExistantes.has(session.le)) continue;
       const { id: _ignore, ...sansId } = session;
-      await base.add('nback', identifie(sansId) as SessionNBack);
+      await tx.objectStore('nback').add(identifie(sansId) as SessionNBack);
     }
-    const relationnellesExistantes = new Set((await base.getAll('relationnel')).map((s) => s.le));
+    const relationnellesExistantes = new Set((await tx.objectStore('relationnel').getAll()).map((s) => s.le));
     for (const session of donnees.relationnel ?? []) {
       if (relationnellesExistantes.has(session.le)) continue;
       const { id: _ignore, ...sansId } = session;
-      await base.add('relationnel', identifie(sansId) as SessionRelationnelle);
+      await tx.objectStore('relationnel').add(identifie(sansId) as SessionRelationnelle);
     }
     // Les seuils ne s'additionnent pas : on garde celui dont l'escalier a vu le
     // plus d'essais, puisque c'est lui le mieux estimé.
     for (const seuil of donnees.vmSeuils ?? []) {
-      const local = await base.get('vmSeuils', seuil.id);
+      const local = await tx.objectStore('vmSeuils').get(seuil.id);
       if (!local || seuil.escalier.essais > local.escalier.essais) {
-        await base.put('vmSeuils', seuil);
+        await tx.objectStore('vmSeuils').put(seuil);
       }
     }
-    const vmExistantes = new Set((await base.getAll('vmSessions')).map((s) => s.le));
+    const vmExistantes = new Set((await tx.objectStore('vmSessions').getAll()).map((s) => s.le));
     for (const session of donnees.vmSessions ?? []) {
       if (vmExistantes.has(session.le)) continue;
       const { id: _ignore, ...sansId } = session;
-      await base.add('vmSessions', identifie(sansId) as SessionVeridical);
+      await tx.objectStore('vmSessions').add(identifie(sansId) as SessionVeridical);
     }
     // QCM DGFiP : les compteurs par question s'additionnent, l'appareil le
     // plus avancé n'étant pas forcément le même selon la question.
     for (const etat of donnees.qcmDgfip ?? []) {
-      const local = await base.get('qcmDgfip', etat.id);
-      await base.put('qcmDgfip', {
+      const local = await tx.objectStore('qcmDgfip').get(etat.id);
+      await tx.objectStore('qcmDgfip').put({
         id: etat.id,
         rubriqueId: etat.rubriqueId || local?.rubriqueId || '',
         vues: Math.max(local?.vues ?? 0, etat.vues),
@@ -2797,15 +2852,15 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
           !local || etat.derniereLe > local.derniereLe ? etat.derniereLe : local.derniereLe,
       });
     }
-    const sessionsDgfipExistantes = new Set((await base.getAll('qcmSessions')).map((s) => s.le));
+    const sessionsDgfipExistantes = new Set((await tx.objectStore('qcmSessions').getAll()).map((s) => s.le));
     for (const session of donnees.qcmSessions ?? []) {
       if (sessionsDgfipExistantes.has(session.le)) continue;
       const { id: _ignore, ...sansId } = session;
-      await base.add('qcmSessions', identifie(sansId) as SessionDgfip);
+      await tx.objectStore('qcmSessions').add(identifie(sansId) as SessionDgfip);
     }
     for (const j of donnees.jours ?? []) {
-      const local = await base.get('jours', j.jour);
-      await base.put('jours', {
+      const local = await tx.objectStore('jours').get(j.jour);
+      await tx.objectStore('jours').put({
         jour: j.jour,
         xp: Math.max(local?.xp ?? 0, j.xp),
         cartes: Math.max(local?.cartes ?? 0, j.cartes),
@@ -2818,48 +2873,84 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
   } else {
     for (const q of donnees.quiz ?? []) {
       const { id: _ignore, ...sansId } = q;
-      await base.add('quiz', identifie(sansId) as ResultatQuiz);
+      await tx.objectStore('quiz').add(identifie(sansId) as ResultatQuiz);
     }
-    for (const j of donnees.jours ?? []) await base.put('jours', j);
+    for (const j of donnees.jours ?? []) await tx.objectStore('jours').put(j);
     for (const session of donnees.nback ?? []) {
       const { id: _ignore, ...sansId } = session;
-      await base.add('nback', identifie(sansId) as SessionNBack);
+      await tx.objectStore('nback').add(identifie(sansId) as SessionNBack);
     }
     for (const seance of donnees.seances ?? []) {
       const { id: _ignore, ...sansId } = seance;
-      await base.add('seances', identifie(sansId) as Seance);
+      await tx.objectStore('seances').add(identifie(sansId) as Seance);
     }
-    for (const etat of donnees.qcmDgfip ?? []) await base.put('qcmDgfip', etat);
+    for (const etat of donnees.qcmDgfip ?? []) await tx.objectStore('qcmDgfip').put(etat);
     for (const session of donnees.qcmSessions ?? []) {
       const { id: _ignore, ...sansId } = session;
-      await base.add('qcmSessions', identifie(sansId) as SessionDgfip);
+      await tx.objectStore('qcmSessions').add(identifie(sansId) as SessionDgfip);
     }
     for (const session of donnees.relationnel ?? []) {
       const { id: _ignore, ...sansId } = session;
-      await base.add('relationnel', identifie(sansId) as SessionRelationnelle);
+      await tx.objectStore('relationnel').add(identifie(sansId) as SessionRelationnelle);
     }
-    for (const seuil of donnees.vmSeuils ?? []) await base.put('vmSeuils', seuil);
+    for (const seuil of donnees.vmSeuils ?? []) await tx.objectStore('vmSeuils').put(seuil);
     for (const session of donnees.vmSessions ?? []) {
       const { id: _ignore, ...sansId } = session;
-      await base.add('vmSessions', identifie(sansId) as SessionVeridical);
+      await tx.objectStore('vmSessions').add(identifie(sansId) as SessionVeridical);
     }
   }
 
   // Les demandes d'aide, dans les deux modes : une trace ne se fusionne pas,
   // elle s'ajoute, et le couple horodatage + item suffit à ne pas la doubler.
   const aidesConnues = new Set(
-    (await base.getAll('aides')).map((a) => `${a.le}|${a.itemId ?? ''}`),
+    (await tx.objectStore('aides').getAll()).map((a) => `${a.le}|${a.itemId ?? ''}`),
   );
   for (const aide of donnees.aides ?? []) {
     if (aidesConnues.has(`${aide.le}|${aide.itemId ?? ''}`)) continue;
     const { id: _ignore, ...sansId } = aide;
-    await base.add('aides', identifie(sansId) as AideDemandee);
+    await tx.objectStore('aides').add(identifie(sansId) as AideDemandee);
   }
 
-  if (donnees.planification) await ecrireReglagesPlanification(donnees.planification);
-  if (donnees.reglagesSession) await ecrireReglagesSession(donnees.reglagesSession);
+  /*
+     Les trois réglages passent par la transaction, et non par leurs fonctions
+     d'écriture : celles-ci ouvrent chacune la leur, ce qui rouvrirait la porte
+     qu'on vient de fermer. Leur second geste — la note au registre de
+     synchronisation — n'est pas de la progression et attend la validation.
+  */
+  if (donnees.planification)
+    await tx.objectStore('etat').put(donnees.planification, 'planification');
+  if (donnees.reglagesSession)
+    await tx.objectStore('etat').put(donnees.reglagesSession, 'reglagesSession');
   for (const [exercice, selection] of Object.entries(donnees.selections ?? {})) {
-    if (selection) await ecrireSelectionEntrainement(exercice, selection);
+    if (selection) await tx.objectStore('etat').put(selection, clefSelection(exercice));
+  }
+
+    /*
+       Le point de bascule : tant que cette ligne n'a pas rendu, rien n'est
+       acquis ; passée, tout l'est.
+    */
+    await tx.done;
+  } catch (erreur) {
+    /*
+       L'annulation explicite, et la raison d'origine conservée. `abort()` jette
+       si la transaction est déjà close — c'est le cas quand l'échec venait
+       d'une requête, que le navigateur a déjà annulée — et ce second échec ne
+       doit pas masquer le premier.
+    */
+    try {
+      tx.abort();
+    } catch {
+      /* déjà annulée, ou déjà validée : rien à faire de plus */
+    }
+    throw erreur;
+  }
+
+  /* Après la validation seulement : les notes au registre de synchronisation. */
+  if (donnees.planification) await noterReglageSynchronise('planification', donnees.planification);
+  if (donnees.reglagesSession)
+    await noterReglageSynchronise('reglagesSession', donnees.reglagesSession);
+  for (const [exercice, selection] of Object.entries(donnees.selections ?? {})) {
+    if (selection) await noterReglageSynchronise(clefSelection(exercice), selection);
   }
 }
 
