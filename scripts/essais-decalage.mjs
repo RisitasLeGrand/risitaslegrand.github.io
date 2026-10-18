@@ -63,12 +63,32 @@ import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
 
-/** Mesuré au commit e964ba5 (parent du lot), bridé ×4, trois fois de suite. */
+/*
+   LES PLAFONDS ONT ÉTÉ RESSERRÉS, PARCE QUE L'INSTRUMENT NE VOYAIT PLUS.
+
+   Ils valaient le relevé d'avant le lot des animations, mesuré au commit
+   e964ba5 : 0,211 pour la bibliothèque, 0,170 pour la recherche, 0,134 pour
+   les quiz, 0,365 pour les statistiques. C'étaient des plafonds de
+   non-régression, et ils ont fait leur travail.
+
+   Mais l'épreuve de l'instrument, en bas de ce fichier, réinjecte le fondu
+   retiré par A1 et exige que la mesure dépasse le plafond. Elle a cessé de le
+   dépasser : le fondu rend aujourd'hui 0,136 à 0,169, sous des plafonds restés
+   à leur niveau d'avant. Le contrôle ne voyait donc plus la régression qu'il
+   surveille, et il l'a dit — c'est exactement ce pour quoi cette épreuve
+   existe, et c'est pourquoi on ne la désactive pas.
+
+   Les pages, elles, mesurent **0,000 à 0,004** aujourd'hui. Entre 0,004 et
+   0,136, un plafond unique à 0,05 laisse douze fois de marge aux pages et
+   deux fois à la détection. Il est au passage deux fois plus strict que le
+   seuil « bon » de 0,1 communément retenu.
+*/
+const PLAFOND = 0.05;
 const PLAFONDS = {
-  '/bibliotheque/': 0.211,
-  '/recherche/': 0.17,
-  '/quiz/cours/': 0.134,
-  '/statistiques/': 0.365,
+  '/bibliotheque/': PLAFOND,
+  '/recherche/': PLAFOND,
+  '/quiz/cours/': PLAFOND,
+  '/statistiques/': PLAFOND,
 };
 
 /** Une marge de mesure : le CLS reste un calcul en virgule flottante. */
@@ -151,7 +171,7 @@ const mesurer = async (route, { sabotage = false, mouvementReduit = false } = {}
 for (const [route, plafond] of Object.entries(PLAFONDS)) {
   const cls = await mesurer(route);
   v(
-    `${route.padEnd(18)} CLS ${cls.toFixed(3)} ≤ ${plafond.toFixed(3)} (avant le lot) + ${MARGE}`,
+    `${route.padEnd(18)} CLS ${cls.toFixed(3)} ≤ ${plafond.toFixed(3)} + ${MARGE}`,
     cls <= plafond + MARGE,
   );
 }
