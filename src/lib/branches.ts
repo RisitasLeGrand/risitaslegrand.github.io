@@ -162,14 +162,6 @@ export const BRANCHES: Branche[] = [
       { id: 'quiz', nom: 'Quiz', chemin: '/quiz/', icone: '🎯' },
       { id: 'positionnement', nom: 'Niveau', description: 'Le prétest de positionnement.', chemin: '/positionnement/', icone: '🎚️' },
       { id: 'journal', nom: 'Erreurs', description: 'Le journal des erreurs à reprendre.', chemin: '/journal/', icone: '🩹' },
-      /*
-         « Entraînement cognitif » et non « Cog-Training » : le nom anglais
-         ne disait rien de ce qu'on y fait, et la description répétait en
-         français ce que le nom aurait dû dire. Le chemin ne bouge pas —
-         `/cog-training/` est écrit dans des manifestes chiffrés —, et le
-         nom court est un préfixe du nom, comme le registre l'exige.
-      */
-      { id: 'cog-training', nom: 'Entraînement cognitif', court: 'Entraînement', chemin: '/cog-training/', icone: '🧩' },
       { id: 'recherche', nom: 'Recherche', chemin: '/recherche/', icone: '🔎' },
       { id: 'statistiques', nom: 'Statistiques', chemin: '/statistiques/', icone: '📈' },
       { id: 'glossaire', nom: 'Glossaire', chemin: '/glossaire/', icone: '📖' },
@@ -184,7 +176,7 @@ export const BRANCHES: Branche[] = [
     groupes: [
       { id: 'apprendre', nom: 'Apprendre', icone: '📚', membres: ['bibliotheque', 'flashcards', 'quiz'] },
       { id: 'mesurer', nom: 'Mesurer', icone: '📈', membres: ['positionnement', 'journal', 'statistiques'] },
-      { id: 'outils', nom: 'Outils', icone: '🧰', membres: ['recherche', 'glossaire', 'cog-training'] },
+      { id: 'outils', nom: 'Outils', icone: '🧰', membres: ['recherche', 'glossaire'] },
     ],
     principaux: ['accueil', 'bibliotheque', 'flashcards', 'quiz'],
     annexes: [
@@ -276,6 +268,79 @@ export const BRANCHES: Branche[] = [
       { id: 'suivre', nom: 'Suivre', icone: '📈', membres: ['force', 'etat'] },
     ],
     principaux: ['accueil', 'seance', 'exercices', 'force'],
+  },
+  /*
+     LA QUATRIÈME BRANCHE — consigne du pilote relayée le 18/10 : « Branche
+     "Entraînement cognitif" à part entière : 4ᵉ entrée de BRANCHES, sortie
+     de Révisions > Outils. » Deux consignes antérieures — la rattacher à
+     Odyssée, puis en faire un écran commun — sont annulées par celle-ci.
+
+     ## Pourquoi elle sort de Révisions
+
+     Elle y était un onglet du groupe « Outils », à côté de la recherche et
+     du glossaire. Or ce n'est pas un outil au service des révisions : ces
+     trois exercices ne touchent pas au programme du concours, ne lisent
+     aucune fiche, et leur propre accueil le dit — « indépendants du
+     programme ». Un outil sert la branche qui le loge ; celui-ci ne servait
+     que lui-même.
+
+     ## Les chemins ne bougent pas
+
+     `/cog-training/` et ses trois écrans gardent leur adresse. Elle est
+     écrite dans des manifestes chiffrés et dans des faits déjà enregistrés ;
+     la renommer pour faire joli casserait en silence ce qui existe. La
+     racine d'une branche n'a pas à ressembler à son nom.
+
+     ## Les noms viennent de l'accueil, pas de l'anglais
+
+     L'accueil nomme déjà les trois exercices par ce qu'ils travaillent :
+     « Mémoire de travail », « Raisonnement relationnel », « Correspondance
+     perceptive ». Ce sont ces noms-là qui montent dans la barre — les
+     titres anglais restent sur chaque écran, où ils désignent le protocole.
+     Chaque nom court est un préfixe de son nom, comme le registre l'exige.
+
+     ## Pas de groupes
+
+     Quatre onglets tiennent dans la barre du bas sans repli. Un groupe pour
+     deux exercices n'ajouterait qu'un niveau à traverser.
+  */
+  {
+    id: 'cognitif',
+    libelle: 'Entraînement cognitif',
+    icone: '🧩',
+    description:
+      'Mémoire de travail, raisonnement relationnel, correspondance perceptive. ' +
+      'Indépendant du programme du concours.',
+    racine: '/cog-training/',
+    disponible: true,
+    onglets: [
+      { id: 'accueil', nom: 'Tableau de bord', court: 'Tableau', chemin: '/cog-training/', icone: '🏠' },
+      {
+        id: 'memoire',
+        nom: 'Mémoire de travail',
+        court: 'Mémoire',
+        description: 'Quad N-Back : quatre flux en parallèle.',
+        chemin: '/cog-training/quad-n-back/',
+        icone: '🧩',
+      },
+      {
+        id: 'raisonnement',
+        nom: 'Raisonnement relationnel',
+        court: 'Raisonnement',
+        description: 'Inférer une règle qu’aucun énoncé ne nomme.',
+        chemin: '/cog-training/relational-reasoning/',
+        icone: '🧠',
+      },
+      {
+        id: 'correspondance',
+        nom: 'Correspondance perceptive',
+        court: 'Correspondance',
+        description: 'Mettre deux échelles perceptives en vis-à-vis.',
+        chemin: '/cog-training/veridical-mapping/',
+        icone: '🎚️',
+      },
+    ],
+    principaux: ['accueil', 'memoire', 'raisonnement', 'correspondance'],
   },
 ];
 
