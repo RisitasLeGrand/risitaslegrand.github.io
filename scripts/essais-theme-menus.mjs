@@ -89,8 +89,49 @@ const verifier = (quoi, obtenu, attendu) => {
 */
 const tokens = readFileSync(resolve(ICI, '..', 'src', 'styles', 'tokens.css'), 'utf8');
 
-const nomsJetons = [...tokens.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map((m) => m[1]);
+/*
+   DEUXIÈME LEÇON, ET ELLE EST PIRE QUE LA PREMIÈRE. Jusqu'au 18 octobre,
+   les couleurs étaient écrites dans `tokens.css` et c'est là que ce
+   contrôle allait les chercher. Depuis `ae1291b`, elles sont **engendrées**
+   dans `src/styles/theme-defaut.css` par `npm run themes`, et `tokens.css`
+   ne garde que la typographie et les rayons. Le contrôle a continué de lire
+   `tokens.css` — et y a trouvé **zéro** jeton de couleur. Une palette vide
+   ne contient aucune des couleurs mesurées : il a donc accusé les dix
+   surfaces de navigation, aux trois tailles, dans les deux thèmes.
+
+   Le symptôme était « le site est faux partout ». La cause était « l'essai
+   ne sait plus où regarder ». C'est exactement le défaut que la première
+   leçon décrivait, et il est revenu par l'autre bout : un contrôle qui
+   accuse tout n'accuse rien. La ligne « palette : N jetons de couleur »
+   imprimée plus bas existe pour cela — **si N vaut zéro, ce n'est pas le
+   site qui est en cause.**
+
+   On lit donc les noms là où ils vivent maintenant. `theme-defaut.css`
+   porte Égée dans ses deux modes, et Égée est le thème que cet essai
+   mesure : les treize autres sont chargés à la demande par `data-palette`,
+   qu'on ne pose pas ici.
+*/
+const themeDefaut = readFileSync(
+  resolve(ICI, '..', 'src', 'styles', 'theme-defaut.css'),
+  'utf8',
+);
+
+const nomsJetons = [
+  ...new Set(
+    [...tokens.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm), ...themeDefaut.matchAll(/^\s*(--[a-z0-9-]+)\s*:/gm)].map(
+      (m) => m[1],
+    ),
+  ),
+];
 const nomsCouleurs = nomsJetons.filter((n) => !/radius|font|duree|courbe|espace/.test(n));
+if (nomsCouleurs.length === 0) {
+  console.log(
+    "\x1b[31m✗\x1b[0m PANNE — aucun jeton de couleur trouvé : les couleurs ont encore " +
+      'déménagé, et cet essai mesurerait contre une palette vide. Il refuse de rendre ' +
+      'un verdict plutôt que d’accuser tout le site.',
+  );
+  process.exit(1);
+}
 const rayonsJetons = new Set(['0px', '9999px']);
 for (const m of tokens.matchAll(/--radius-[a-z0-9]+:\s*([0-9.]+)rem/g)) {
   rayonsJetons.add(`${Number.parseFloat(m[1]) * 16}px`);
