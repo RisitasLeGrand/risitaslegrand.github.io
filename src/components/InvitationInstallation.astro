@@ -1,0 +1,116 @@
+---
+/**
+ * L'invitation à installer Cyclades sur l'écran d'accueil.
+ *
+ * Elle vit sur le **menu**, et nulle part ailleurs. Une invitation posée sur
+ * chaque page serait vue dix fois par jour pour un geste qu'on ne fait qu'une
+ * fois : c'est la définition d'une nuisance. Le menu est la porte d'entrée,
+ * donc l'endroit où l'on regarde ce que le site propose.
+ *
+ * Elle naît cachée et ne paraît que lorsque la situation est connue — ce qui
+ * peut prendre quelques secondes sur Android, le temps que le navigateur se
+ * décide à émettre son événement.
+ */
+---
+
+<section
+  id="invitation-installation"
+  class="mt-8 hidden rounded-2xl border border-indigo-200 bg-indigo-50 p-4 dark:border-indigo-900 dark:bg-indigo-950/40"
+>
+  <div class="flex flex-wrap items-start justify-between gap-3">
+    <div class="min-w-0">
+      <h2 class="font-semibold text-slate-900 dark:text-white">
+        Installer Cyclades sur cet appareil
+      </h2>
+      <p id="invitation-texte" class="mt-1 max-w-xl text-sm leading-relaxed text-slate-600 dark:text-slate-300"></p>
+      {/*
+         Le chemin d'iOS est écrit en toutes lettres plutôt qu'en icônes : le
+         pictogramme du partage change de dessin selon la version, et une
+         consigne illustrée par une icône fausse est pire qu'une consigne en
+         mots.
+      */}
+      <ol
+        id="invitation-ios"
+        class="mt-2 hidden list-decimal space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300"
+      >
+        <li>Touchez le bouton <strong>Partager</strong>, en bas de Safari.</li>
+        <li>Faites défiler, puis choisissez <strong>Sur l’écran d’accueil</strong>.</li>
+        <li>Validez par <strong>Ajouter</strong>.</li>
+      </ol>
+    </div>
+    <div class="flex flex-wrap gap-2">
+      <button
+        id="invitation-installer"
+        type="button"
+        class="cible-tactile hidden rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+        >Installer</button
+      >
+      <button
+        id="invitation-refuser"
+        type="button"
+        class="cible-tactile rounded-lg border border-indigo-300 px-4 text-sm font-medium text-indigo-900 transition hover:bg-indigo-100 dark:border-indigo-800 dark:text-indigo-200 dark:hover:bg-indigo-900/50"
+        >Non merci</button
+      >
+    </div>
+  </div>
+  <p id="invitation-message" class="mt-2 hidden text-sm text-slate-600 dark:text-slate-300"></p>
+</section>
+
+<script>
+  import { observerLInstallation, refuserLInstallation } from '../lib/installation';
+
+  const zone = document.getElementById('invitation-installation');
+  const texte = document.getElementById('invitation-texte');
+  const chemin = document.getElementById('invitation-ios');
+  const installer = document.getElementById('invitation-installer') as HTMLButtonElement | null;
+  const refuser = document.getElementById('invitation-refuser');
+  const message = document.getElementById('invitation-message');
+
+  if (zone && texte && chemin && installer && refuser && message) {
+    observerLInstallation((situation) => {
+      if (situation.quoi === 'installee' || situation.quoi === 'rien') {
+        zone.classList.add('hidden');
+        return;
+      }
+
+      if (situation.quoi === 'manuelle') {
+        texte.textContent =
+          'Safari ne sait pas le faire tout seul : le chemin tient en trois gestes, et ' +
+          'Cyclades s’ouvrira ensuite en plein écran, sans barre d’adresse.';
+        chemin.classList.remove('hidden');
+        installer.classList.add('hidden');
+        zone.classList.remove('hidden');
+        return;
+      }
+
+      texte.textContent =
+        'Cyclades s’ouvrira alors en plein écran, depuis son icône, et fonctionnera hors ligne. ' +
+        'Rien n’est envoyé nulle part : l’installation ne fait que poser un raccourci.';
+      chemin.classList.add('hidden');
+      installer.classList.remove('hidden');
+      zone.classList.remove('hidden');
+
+      installer.onclick = async () => {
+        installer.disabled = true;
+        const issue = await situation.installer();
+        /*
+           Un refus dans l'invite native n'est pas un refus de l'invitation :
+           la personne peut vouloir y revenir. On ne garde donc rien, et on
+           réarme le bouton.
+        */
+        if (issue === 'acceptee') {
+          zone.classList.add('hidden');
+          return;
+        }
+        installer.disabled = false;
+        message.textContent = 'Installation annulée. L’invitation reste là si vous changez d’avis.';
+        message.classList.remove('hidden');
+      };
+    });
+
+    refuser.addEventListener('click', () => {
+      refuserLInstallation();
+      zone.classList.add('hidden');
+    });
+  }
+</script>

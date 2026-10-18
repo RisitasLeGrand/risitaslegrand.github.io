@@ -28,6 +28,7 @@
  * qui mène à une page vide ne renseigne personne : il promet.
  */
 import Base from '../layouts/Base.astro';
+import InvitationInstallation from '../components/InvitationInstallation.astro';
 import { BRANCHES } from '../lib/branches';
 import { base } from '../lib/ui';
 import config from '../../site.config.mjs';
@@ -200,6 +201,8 @@ import config from '../../site.config.mjs';
         Sauvegarde
       </a>
     </nav>
+
+    <InvitationInstallation />
   </div>
 </Base>
 

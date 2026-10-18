@@ -225,7 +225,13 @@
     "essais:sensible:parcours": "node scripts/essais-sensible-parcours.mjs",
     "essais:carte-ecrans": "node scripts/essais-carte-ecrans.mjs",
     "essais:bandeau-coffre": "node scripts/essais-bandeau-coffre.mjs",
-    "essais:theme-menus": "node scripts/essais-theme-menus.mjs"
+    "essais:theme-menus": "node scripts/essais-theme-menus.mjs",
+    "icones": "node scripts/icones.mjs",
+    "essais:installation": "node scripts/essais-installation.mjs",
+    "essais:invitation": "node scripts/essais-invitation.mjs",
+    "essais:voile": "node scripts/essais-voile-et-fiche.mjs",
+    "essais:redemande": "node scripts/essais-redemande.mjs",
+    "essais:bascule-branchement": "node scripts/essais-bascule-branchement.mjs"
   },
   "repository": {
     "type": "git",

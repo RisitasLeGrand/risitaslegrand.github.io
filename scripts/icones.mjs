@@ -140,5 +140,34 @@ if (process.argv[1] && process.argv[1].endsWith('icones.mjs')) {
   writeFileSync(path.join(DOCS, 'orbite.svg'), `${orbite(512)}\n`);
   await png(orbite(512), 256, path.join(DOCS, 'orbite-256.png'));
 
-  console.log('Icônes écrites : public/ (retenue) et docs/cyclades/icone/ (les trois).');
+  /*
+     La planche de comparaison, et c'est elle qui porte l'argument : chaque
+     variante en grand ET en petit, le petit agrandi au plus proche voisin
+     pour qu'on voie ce que l'écran d'accueil en fera. Regarder trois icônes
+     à 512 pixels ne dit rien du choix ; les regarder à 48 le dit en entier.
+  */
+  const COTE = 256;
+  const PETIT = 160;
+  const MARGE = 24;
+  const largeur = MARGE + 3 * (COTE + MARGE);
+  const hauteur = MARGE * 3 + COTE + PETIT;
+  const calques = [];
+  let x = MARGE;
+  for (const dessin of [orbite, archipel, houle]) {
+    const svg = dessin(512);
+    calques.push({ input: await sharp(Buffer.from(svg)).resize(COTE, COTE).png().toBuffer(), left: x, top: MARGE });
+    const minuscule = await sharp(Buffer.from(svg)).resize(48, 48).png().toBuffer();
+    calques.push({
+      input: await sharp(minuscule).resize(PETIT, PETIT, { kernel: 'nearest' }).png().toBuffer(),
+      left: x + (COTE - PETIT) / 2,
+      top: MARGE * 2 + COTE,
+    });
+    x += COTE + MARGE;
+  }
+  await sharp({ create: { width: largeur, height: hauteur, channels: 4, background: '#e2e8f0' } })
+    .composite(calques)
+    .png()
+    .toFile(path.join(DOCS, 'planche.png'));
+
+  console.log('Icônes écrites : public/ (retenue), docs/cyclades/icone/ (les trois + la planche).');
 }
