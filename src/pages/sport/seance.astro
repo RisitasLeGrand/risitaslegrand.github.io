@@ -194,6 +194,8 @@ import Base from '../../layouts/Base.astro';
 </Base>
 
 <script>
+  import { proposerLAnnulation } from '../../lib/annulation';
+  import { unSeulGeste } from '../../lib/geste';
   import { auDeverrouillage } from '../../lib/chargement';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
@@ -560,14 +562,14 @@ import Base from '../../layouts/Base.astro';
         choix.appendChild(option);
       }
 
-      $('commencer').addEventListener('click', () => {
-        void (async () => {
+      $('commencer').addEventListener('click', (evenement) => {
+        void unSeulGeste(evenement.currentTarget as Element, async () => {
           seance = await ouvrirSeance(choix.value || null);
           seances = [...seances.filter((s) => s.id !== seance!.id), seance];
           await prendreLeVerrou();
           await peindre();
           $('exercice').focus();
-        })();
+        });
       });
 
       $('exercice').addEventListener('change', () => void direLaProposition());
@@ -600,9 +602,20 @@ import Base from '../../layouts/Base.astro';
         void direLaProposition();
       });
 
+      /*
+         M6 — un geste, une série.
+
+         Mesuré le 18 octobre : deux appuis à 0, 60, 150 et 300 ms d'écart
+         n'écrivaient déjà qu'une série. Mais pas pour une bonne raison :
+         `enregistrerSerie()` vide « Répétitions », ce champ porte `required`,
+         et c'est la validation native qui refusait la seconde soumission. Le
+         jour où l'on garderait les répétitions comme on garde déjà la charge,
+         le double appui aurait écrit deux séries en silence. La garantie est
+         maintenant explicite, et un essai la mord.
+      */
       $('saisie').addEventListener('submit', (evenement) => {
         evenement.preventDefault();
-        void (async () => {
+        void unSeulGeste(evenement.currentTarget as Element, async () => {
           try {
             await enregistrerSerie();
             $('erreur').classList.add('hidden');
@@ -610,11 +623,11 @@ import Base from '../../layouts/Base.astro';
             $('erreur').textContent = erreur instanceof Error ? erreur.message : String(erreur);
             $('erreur').classList.remove('hidden');
           }
-        })();
+        });
       });
 
-      $('annuler-serie').addEventListener('click', () => {
-        void (async () => {
+      $('annuler-serie').addEventListener('click', (evenement) => {
+        void unSeulGeste(evenement.currentTarget as Element, async () => {
           if (!seance) return;
           const avec = await retirerDerniereSerie(seance.id);
           if (!avec) return;
@@ -622,11 +635,11 @@ import Base from '../../layouts/Base.astro';
           seances = seances.map((s) => (s.id === avec.id ? avec : s));
           peindreSeries();
           battre();
-        })();
+        });
       });
 
-      $('terminer').addEventListener('click', () => {
-        void (async () => {
+      $('terminer').addEventListener('click', (evenement) => {
+        void unSeulGeste(evenement.currentTarget as Element, async () => {
           if (!seance) return;
           await cloreSeance(seance.id, {
             difficulte: Number(($('difficulte') as HTMLInputElement).value),
@@ -636,17 +649,62 @@ import Base from '../../layouts/Base.astro';
           seance = null;
           await rendreLeVerrou();
           await recharger();
-        })();
+        });
       });
 
-      $('abandonner').addEventListener('click', () => {
-        void (async () => {
-          if (!seance) return;
-          await supprimerSeance(seance.id);
+      /*
+         M6 — « Supprimer cette séance » s'annule, et ne demande rien.
+
+         C'est le premier cas nommé par le 43. Avant, l'appui supprimait
+         séance, séries et minutes de repos, sans un mot et sans retour
+         possible. Une fenêtre de confirmation aurait été la réponse facile,
+         et la mauvaise : elle coûte un geste à chaque fois, y compris les
+         quatre-vingt-dix-neuf fois où l'on est sûr de soi.
+
+         Le bandeau fait l'inverse — il ne coûte rien quand on est sûr, et il
+         rattrape la centième. Et il **retarde** la suppression au lieu de la
+         défaire : rien n'est détruit avant la fin du délai, donc rien ne peut
+         être mal reconstruit. Quitter l'écran exécute la suppression tout de
+         suite plutôt que de la perdre.
+      */
+      $('abandonner').addEventListener('click', (evenement) => {
+        void unSeulGeste(evenement.currentTarget as Element, async () => {
+          const condamnee = seance;
+          if (!condamnee) return;
+          const combien = condamnee.series?.length ?? 0;
+          /*
+             L'écran se vide tout de suite, mais **sans `recharger()`**, et
+             c'est le piège du délai : `recharger()` relit la séance en cours
+             dans le magasin, où elle est encore puisque la suppression
+             n'est pas partie. L'écran se remplissait donc à nouveau, une
+             fraction de seconde après s'être vidé. On repeint à partir de
+             l'état en mémoire, qui est le bon.
+          */
           seance = null;
+          seances = seances.filter((s) => s.id !== condamnee.id);
           await rendreLeVerrou();
-          await recharger();
-        })();
+          await peindre();
+          proposerLAnnulation({
+            texte:
+              combien === 0
+                ? 'Séance supprimée.'
+                : combien === 1
+                  ? 'Séance supprimée, avec sa série.'
+                  : `Séance supprimée, avec ses ${combien} séries.`,
+            agir: async () => {
+              await supprimerSeance(condamnee.id);
+              /* Une fois la suppression partie, relire le magasin est sûr —
+                 et c'est ce qui remet les dernières séances à jour. */
+              if (seance === null) await recharger();
+            },
+            defaire: async () => {
+              seance = condamnee;
+              seances = [...seances.filter((s) => s.id !== condamnee.id), condamnee];
+              await prendreLeVerrou();
+              await peindre();
+            },
+          });
+        });
       });
 
       /*
