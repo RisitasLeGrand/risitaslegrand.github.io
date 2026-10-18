@@ -107,6 +107,7 @@ import {
   oublierLEncapsulation,
   renouvelerLEncapsulationDeSession,
 } from './coffre-cles';
+import { enveloppePosee, ouvrirLEnveloppe } from './noyau/enveloppe-du-coffre';
 
 const CLEF_SEL = 'coffre.sel';
 const CLEF_SESSION = 'cyclades.coffre';
@@ -426,30 +427,85 @@ async function leCoffreContientQuelqueChose(): Promise<boolean> {
 }
 
 /**
- * Ouvre le coffre.
+ * Ouvre le coffre, par l'une de ses deux portes.
  *
- * Le mot de passe est éprouvé **après** la dérivation, en ouvrant un
- * enregistrement réel. L'ordre a changé — on dérivait après avoir comparé une
- * empreinte, on vérifie maintenant en déchiffrant — et le coût aussi : il faut
- * payer les itérations PBKDF2 avant de savoir. C'est précisément ce qu'on
- * veut : sans ce coût, un essai de mot de passe est gratuit.
+ * ## Deux portes, et laquelle d'abord
+ *
+ * Depuis la bascule, la clé des données n'est plus dérivée d'un mot de passe :
+ * elle est tirée au sort et rangée **sous enveloppe**, laquelle est fermée par
+ * le mot de passe du coffre. Un coffre basculé s'ouvre donc en défaisant son
+ * enveloppe, jamais en dérivant.
+ *
+ * Un coffre qui n'a pas encore basculé n'a pas d'enveloppe et garde l'ancienne
+ * porte : dériver, puis éprouver la clé obtenue sur un enregistrement réel.
+ *
+ * L'enveloppe passe en premier, et ce n'est pas une question de goût : après
+ * une bascule, plus rien ne s'ouvre avec la clé dérivée, si bien qu'essayer
+ * l'ancienne porte d'abord coûterait 310 000 itérations pour obtenir une clé
+ * qui n'ouvre rien.
+ *
+ * ## Le défaut que ce branchement corrige
+ *
+ * L'écran de bascule rechiffrait déjà tout sous la clé encapsulée, et cette
+ * fonction continuait de dériver. Une fois la bascule faite, le cadenas aurait
+ * donc refusé **tous** les mots de passe — le bon compris — et les données
+ * n'auraient plus été atteignables que le temps de l'onglet où la bascule
+ * avait eu lieu. Les données n'étaient pas perdues ; leur accès l'était, ce
+ * qui revient au même pour qui ferme son navigateur.
  */
 export async function ouvrirLeCoffre(
   motDePasse: string,
   options: { memoriserAppareil?: boolean } = {},
 ): Promise<string | null> {
   if (!motDePasse) return 'Saisissez le mot de passe.';
-  const candidate = await deriver(motDePasse);
-  if (!(await laCleOuvreLeCoffre(candidate)) && (await leCoffreContientQuelqueChose())) {
-    return 'Mot de passe incorrect.';
+  const rangement = rangementDeLaBoite();
+  let cle: CryptoKey | null = null;
+
+  if (await enveloppePosee(rangement)) {
+    /*
+       AES-KW authentifie : un mot de passe faux fait **rejeter** le
+       désencapsulage au lieu de produire une clé fausse. Le refus est donc un
+       vrai refus, et non une comparaison.
+    */
+    const donnees = await ouvrirLEnveloppe(rangement, motDePasse);
+    /*
+       Mais une enveloppe ouverte ne suffit pas à conclure, et c'est le cas de
+       la **bascule interrompue** qui l'impose : l'enveloppe est posée avant
+       que les enregistrements soient repris, si bien qu'entre les deux elle
+       livre une clé parfaitement valide qui n'ouvre encore rien. S'en
+       contenter enfermerait les données derrière une clé juste — le contraire
+       de ce que cette fonction doit garantir.
+    */
+    if (
+      donnees &&
+      ((await laCleOuvreLeCoffre(donnees)) || !(await leCoffreContientQuelqueChose()))
+    ) {
+      cle = donnees;
+    }
   }
-  /*
-     On réutilise la clé déjà dérivée pour la vérification, et c'est ce que
-     l'ancien code ne pouvait pas faire : il comparait une empreinte, puis
-     dérivait. Dériver une seconde fois ici coûterait 310 000 itérations de
-     plus à chaque ouverture, pour obtenir exactement la même clé.
-  */
-  cleMemoire = candidate;
+
+  if (!cle) {
+    /*
+       L'ancienne porte, qui reste ouverte tant qu'un enregistrement se lit
+       sous la clé dérivée. Pendant une bascule inachevée, les deux mots de
+       passe ouvrent donc le coffre, chacun la part qui lui revient : c'est
+       l'invariant de la migration — « à tout instant, chaque enregistrement
+       est lisible sous au moins une clé » — vu depuis le cadenas.
+    */
+    const candidate = await deriver(motDePasse);
+    if (!(await laCleOuvreLeCoffre(candidate)) && (await leCoffreContientQuelqueChose())) {
+      return 'Mot de passe incorrect.';
+    }
+    /*
+       On réutilise la clé déjà dérivée pour la vérification, et c'est ce que
+       l'ancien code ne pouvait pas faire : il comparait une empreinte, puis
+       dérivait. Dériver une seconde fois ici coûterait 310 000 itérations de
+       plus à chaque ouverture, pour obtenir exactement la même clé.
+    */
+    cle = candidate;
+  }
+
+  cleMemoire = cle;
   /*
      A-6, option D : la boîte aux lettres naît ici, à la première ouverture,
      parce qu'il faut la clé du coffre pour sceller sa privée. Ensuite elle
@@ -491,6 +547,38 @@ export async function ouvrirLeCoffre(
   }
   abonnes.forEach((f) => f(true));
   return null;
+}
+
+/**
+ * Adopte une clé de données neuve, sans repasser par un mot de passe.
+ *
+ * Un seul appelant, et il faut dire lequel : l'écran de bascule. Il vient de
+ * rechiffrer les enregistrements sous une clé que ce module ne connaît pas, et
+ * tant qu'il ne la connaît pas, l'onglet en cours continue de sceller ses
+ * écritures avec l'ancienne — c'est-à-dire d'écrire des enregistrements que la
+ * prochaine ouverture ne saura plus lire. Le rechiffrement serait juste et les
+ * minutes qui le suivent fabriqueraient la perte qu'il évite.
+ *
+ * La mémorisation sur l'appareil suit la clé, et **seulement si elle était en
+ * usage** : la poser sans qu'elle l'ait été imposerait un choix que personne
+ * n'a fait, et la laisser tomber alors qu'elle l'était redemanderait un mot de
+ * passe au prochain départ sans que rien ne l'explique.
+ */
+export async function adopterLaCleDuCoffre(cle: CryptoKey): Promise<void> {
+  const memorisaitLAppareil = modeDuCoffre() === 'appareil';
+  cleMemoire = cle;
+  if (MEMORISER) {
+    await renouvelerLEncapsulationDeSession();
+    await retenir(cle);
+  }
+  if (memorisaitLAppareil) {
+    try {
+      localStorage.setItem(CLEF_APPAREIL, await encapsuler(cle, APPAREIL));
+    } catch {
+      // Stockage refusé : il faudra retaper le mot de passe au prochain départ.
+    }
+  }
+  abonnes.forEach((f) => f(true));
 }
 
 /** Referme le coffre. Appelé par le verrouillage de la session. */

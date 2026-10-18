@@ -158,9 +158,13 @@ import Base from '../../layouts/Base.astro';
   </section>
 </Base>
 <script>
-  import { apercu, fabriquer } from '../../lib/sauvegarde/service';
-  import { cleDuCoffre, coffreOuvert } from '../../lib/coffre';
-  import { poserLEnveloppe } from '../../lib/noyau/enveloppe-du-coffre';
+  import { apercu, fabriquer, noterSauvegardeReussie } from '../../lib/sauvegarde/service';
+  import { adopterLaCleDuCoffre, cleDuCoffre, coffreOuvert } from '../../lib/coffre';
+  import {
+    enveloppePosee,
+    ouvrirLEnveloppe,
+    poserLEnveloppe,
+  } from '../../lib/noyau/enveloppe-du-coffre';
   import {
     magasinsAReprendre,
     reprendreLeChiffrementDuCoffre,
@@ -239,15 +243,33 @@ import Base from '../../layouts/Base.astro';
         return;
       }
       const { sauvegarde, nom } = await fabriquer(mdpSite || null);
+      /*
+         `sauvegarde.octets`, et surtout pas `sauvegarde` : c'est un objet qui
+         porte l'en-tête, les tailles et l'empreinte autour des octets. Le
+         donner tel quel à `Blob` le passe par `String()`, ce qui produit un
+         fichier de quinze octets — « [object Object] » — que l'étape 2 refuse
+         ensuite à juste titre. Un `as unknown as BlobPart` avait fait taire le
+         compilateur sur exactement cette erreur.
+      */
+      const url = URL.createObjectURL(
+        new Blob([sauvegarde.octets], { type: 'application/octet-stream' }),
+      );
       const lien = document.createElement('a');
-      lien.href = URL.createObjectURL(new Blob([sauvegarde as unknown as BlobPart]));
+      lien.href = url;
       lien.download = nom;
       lien.click();
-      URL.revokeObjectURL(lien.href);
+      URL.revokeObjectURL(url);
+      /*
+         La sauvegarde est notée au registre, comme sur l'écran de
+         progression : c'en est une vraie, et ne pas la noter ferait réclamer
+         une sauvegarde à quelqu'un qui vient d'en faire une.
+      */
+      await noterSauvegardeReussie();
       marquerFaite('1');
       dire(
         'message-sauvegarde',
-        `« ${nom} » est parti dans vos téléchargements. Mettez-le à l’abri, puis passez à l’étape 2.`,
+        `« ${nom} » (${sauvegarde.tailleFichier} octets) est parti dans vos téléchargements. ` +
+          'Mettez-le à l’abri, puis passez à l’étape 2.',
         'ok',
       );
     } catch (e) {
@@ -332,11 +354,47 @@ import Base from '../../layouts/Base.astro';
     avancement.classList.remove('hidden');
 
     try {
-      const neuve = await poserLEnveloppe(
-        rangementDesCles(),
-        ($('mdp-nouveau') as HTMLInputElement).value,
-      );
+      const cles = rangementDesCles();
+      const motDePasseDuCoffre = ($('mdp-nouveau') as HTMLInputElement).value;
+      /*
+         Une enveloppe déjà posée est REPRISE, jamais refaite.
+
+         « Vous pouvez relancer », dit le message d'échec, et c'est une
+         invitation qu'il fallait rendre sûre : `poserLEnveloppe` tire une clé
+         de données NEUVE à chaque appel. Relancer après un arrêt à mi-course
+         aurait donc remplacé la clé sous laquelle les premiers
+         enregistrements venaient d'être recopiés — et ceux-là seraient
+         devenus illisibles, par le geste même qui prétendait réparer.
+
+         On reprend donc l'enveloppe en place. Si elle refuse de s'ouvrir,
+         c'est que le mot de passe saisi n'est pas celui de la bascule
+         interrompue : on s'arrête, et on le dit, plutôt que d'en poser une
+         seconde par-dessus.
+      */
+      const neuve = (await enveloppePosee(cles))
+        ? await ouvrirLEnveloppe(cles, motDePasseDuCoffre)
+        : await poserLEnveloppe(cles, motDePasseDuCoffre);
+      if (!neuve) {
+        dire(
+          'message-bascule',
+          'Une bascule a déjà été commencée sur cet appareil, et ce mot de passe n’ouvre pas ' +
+            'son enveloppe. Saisissez celui que vous aviez choisi alors — il n’en faut pas un ' +
+            'autre, sans quoi ce qui a déjà été rechiffré deviendrait illisible.',
+          'echec',
+        );
+        bouton.disabled = false;
+        return;
+      }
       const compte = await reprendreLeChiffrementDuCoffre(rangementDesMagasins(), ancienne, neuve);
+      /*
+         La clé passe au module du coffre **avant** le message de fin, et non
+         après : entre le rechiffrement et cette ligne, le coffre vivant tient
+         encore l'ancienne clé, et toute écriture faite dans cet intervalle
+         serait scellée avec une clé que plus rien ne rouvrira. L'intervalle
+         doit donc être le plus court possible, et surtout ne pas contenir
+         d'attente.
+      */
+      await adopterLaCleDuCoffre(neuve);
       avancement.textContent =
         `${compte.enregistrements} enregistrements rechiffrés sur ` +
         `${compte.magasins} magasins. ${compte.vides.length} magasins étaient vides.`;
@@ -387,8 +445,31 @@ import Base from '../../layouts/Base.astro';
           valeur: valeurs[i] as Record<string, unknown>,
         }));
       },
-      ecrire: async (magasin: string, clef: IDBValidKey, valeur: Record<string, unknown>) =>
-        void (await (await db()).put(magasin as never, valeur as never, clef as never)),
+      /*
+         La clé n'est passée QUE si le magasin n'en porte pas en ligne.
+
+         Un magasin déclaré avec un `keyPath` tire sa clé de l'enregistrement
+         lui-même, et IndexedDB **rejette** alors une clé explicite : « The
+         object store uses in-line keys and the key parameter was provided ».
+         La bascule s'arrêtait donc au tout premier enregistrement, en disant
+         « Arrêté sans rien effacer » — ce qui était vrai, mais laissait une
+         enveloppe posée sur des données non reprises.
+
+         Le port de Node, lui, acceptait les deux formes : c'est pourquoi les
+         essais de module étaient verts et que seul un essai de navigateur
+         pouvait trouver cela.
+      */
+      ecrire: async (magasin: string, clef: IDBValidKey, valeur: Record<string, unknown>) => {
+        const base = await db();
+        const transaction = base.transaction(magasin as never, 'readwrite');
+        const ouvert = transaction.store as unknown as {
+          keyPath: string | string[] | null;
+          put: (v: unknown, k?: IDBValidKey) => Promise<unknown>;
+        };
+        if (ouvert.keyPath === null) await ouvert.put(valeur, clef);
+        else await ouvert.put(valeur);
+        await transaction.done;
+      },
       lireJournal: async () => (await db()).get('etat', 'coffre.migration') as never,
       ecrireJournal: async (j: unknown) =>
         void (await (await db()).put('etat', j as never, 'coffre.migration')),
