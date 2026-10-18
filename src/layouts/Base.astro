@@ -202,6 +202,38 @@ const idsDeLEntree = (e: EntreeDeBarre) =>
 const principaux = ongletsPrincipaux(brancheCourante);
 
 /*
+   Ce que la feuille « Plus » doit porter pour que M5 tienne.
+
+   Mesuré le 18 octobre, à 360 × 740, en ne comptant que ce que le pouce a
+   sous les yeux en bas — un lien de la barre du bas vaut un geste, un lien
+   de la feuille « Plus » en vaut deux :
+
+     dans une branche   tout écran quotidien à 1 ou 2 gestes
+     d'une branche      à une autre : JAMAIS, à aucun prix
+
+   La barre du bas ne porte que les onglets de la branche courante, et la
+   feuille ne portait qu'eux aussi : depuis Sport, Odyssée et Révisions
+   étaient hors de portée du bas de l'écran. Le changement de branche vivait
+   dans l'en-tête seul, c'est-à-dire en haut, là où le pouce n'est pas.
+
+   Deux ajouts, et aucun dans la barre elle-même (interdit 3) :
+
+   1. **Les autres branches.** Leur racine est alors à deux gestes, et tout
+      écran de leur barre du bas à trois.
+   2. **La revue du soir**, hors d'Odyssée. C'est le seul écran quotidien
+      qui n'est dans aucune barre du bas : sans ce raccourci, il resterait
+      à quatre gestes depuis Sport ou Révisions — deux pour entrer dans
+      Odyssée, deux pour rouvrir une feuille. C'est le raccourci que M5
+      demande de proposer plutôt que de toucher à la barre, et c'est aussi
+      ce que demande le constat M-12.
+*/
+const autresBranches = branches.filter((b) => b.id !== brancheCourante.id);
+const revueAilleurs =
+  brancheCourante.id === 'odyssee'
+    ? null
+    : (branches.find((b) => b.id === 'odyssee')?.onglets.find((o) => o.id === 'revue') ?? null);
+
+/*
    Le nom de la page courante, pour le téléphone.
 
    Sous « sm », la barre du bas porte déjà `principaux` — exactement la même
@@ -1085,6 +1117,31 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                   </a>
                 </li>
               ))}
+            </ul>
+            <h3 class="mt-4 mb-1 etiquette text-slate-500 dark:text-slate-400">Aller ailleurs</h3>
+            <ul class="space-y-1">
+              {autresBranches.map((b) => (
+                <li>
+                  <a
+                    href={`${base}${b.racine}`}
+                    class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 dark:text-slate-200"
+                  >
+                    <span aria-hidden="true">{b.icone}</span>
+                    <span>{b.libelle}</span>
+                  </a>
+                </li>
+              ))}
+              {revueAilleurs && (
+                <li>
+                  <a
+                    href={`${base}${revueAilleurs.chemin}`}
+                    class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 dark:text-slate-200"
+                  >
+                    <span aria-hidden="true">{revueAilleurs.icone}</span>
+                    <span>Revue du soir</span>
+                  </a>
+                </li>
+              )}
             </ul>
             <h3 class="mt-4 mb-1 etiquette text-slate-500 dark:text-slate-400">Cet espace</h3>
             <ul class="space-y-1">
