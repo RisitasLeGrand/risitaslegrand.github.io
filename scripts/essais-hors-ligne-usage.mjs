@@ -179,6 +179,49 @@ const ecran = await page.evaluate(() => ({
 }));
 verifier('l’écran est rendu, pas le verrou', ecran, { vue: true, verrou: false });
 
+/*
+   LES HUIT AUTRES ÉCRANS QUOTIDIENS. Le prompt dit « les écrans
+   quotidiens », au pluriel : n'en éprouver qu'un laisserait les autres sans
+   garantie, et c'est justement sur les deux qui lisent du contenu chiffré —
+   Flashcards et Révisions — qu'on aurait pu croire le hors-ligne
+   impossible. Mesuré le 18 octobre : les neuf s'ouvrent, verrou masqué,
+   contenu rendu.
+*/
+const AUTRES = [
+  '/odyssee/',
+  '/odyssee/revue/',
+  '/odyssee/calendrier/',
+  '/odyssee/corps/',
+  '/flashcards/',
+  '/revisions/',
+  '/sport/seance/',
+  '/sport/',
+];
+for (const chemin of AUTRES) {
+  const st = await page
+    .goto(`${RACINE}${chemin}`, { waitUntil: 'load', timeout: 60000 })
+    .then((r) => r?.status() ?? 0, () => 0);
+  if (st !== 200) {
+    console.log(`\x1b[31m✗\x1b[0m ${chemin} — ne s’ouvre pas hors ligne (${st})`);
+    rouges += 1;
+    continue;
+  }
+  await page.waitForTimeout(3000);
+  const rendu = await page.evaluate(() => ({
+    verrou: Boolean(document.getElementById('champ-mdp')?.offsetParent),
+    /* Le volume du texte rendu : un écran vide s'ouvrirait sans rien dire. */
+    signes: (document.querySelector('main')?.innerText || '').replace(/\s+/g, ' ').trim().length,
+  }));
+  verifier(`${chemin} — s’ouvre, verrou masqué, contenu rendu`, {
+    verrou: rendu.verrou,
+    garni: rendu.signes > 100,
+  }, { verrou: false, garni: true });
+}
+
+/* On revient à l'écran des tâches pour y écrire. */
+await page.goto(`${RACINE}/odyssee/taches/`, { waitUntil: 'load', timeout: 60000 }).catch(() => {});
+await page.waitForTimeout(3000);
+
 /* L'écriture, qui est la moitié oubliée de « s'ouvrir hors ligne ». */
 const champ = page.locator('#titre');
 if (!(await champ.isVisible().catch(() => false))) {
