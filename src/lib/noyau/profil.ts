@@ -105,6 +105,27 @@ export interface ChampDeclare {
    * se change au hasard.
    */
   regle?: string;
+  /**
+   * Ce champ **ne sort jamais** : ni dans l'export pour une IA, ni dans le
+   * prompt de « Demander à l'IA », quelle que soit la case cochée.
+   *
+   * POURQUOI LE DRAPEAU EST ICI, et non dans l'export. L'export ne peut pas
+   * nommer les trois champs de naissance : l'essai sur le graphe d'imports
+   * l'interdit à tout fichier hors de cette courte liste, et c'est cette
+   * interdiction qui rend vraie la promesse « pas de lecture silencieuse ».
+   * Un export qui les nommerait pour les exclure serait indistinguable, pour
+   * ce contrôle, d'un export qui les nomme pour les lire. Le drapeau se
+   * déclare donc au catalogue, et l'export ne connaît qu'une liste de noms
+   * qu'il n'a pas écrite.
+   *
+   * POURQUOI UN DRAPEAU ET NON UNE PORTÉE VIDE. `porteeParDefaut: []`
+   * empêche une BRANCHE de lire le champ ; il n'empêche rien à la sortie,
+   * et les cinq champs concernés l'ont déjà sans que cela ait suffi —
+   * l'année de naissance sortait quand la case « Profil » était cochée,
+   * alors que le registre des usages promettait « L'année n'y figure
+   * jamais ». Deux questions différentes, deux déclarations.
+   */
+  jamaisExporte?: boolean;
 }
 
 const C = (c: ChampDeclare): ChampDeclare => c;
@@ -119,6 +140,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   /* --- Socle commun ------------------------------------------------------- */
   C({
     champ: 'prenom',
+    jamaisExporte: true,
     libelle: 'Prénom',
     nature: 'texte',
     question: 'Comment doit-on vous appeler ?',
@@ -129,6 +151,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'nom',
+    jamaisExporte: true,
     libelle: 'Nom',
     nature: 'texte',
     question: 'Et votre nom, si vous voulez le donner ?',
@@ -136,6 +159,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'naissanceAnnee',
+    jamaisExporte: true,
     libelle: 'Année de naissance',
     nature: 'nombre',
     question: 'Quelle est votre année de naissance ?',
@@ -150,6 +174,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'naissanceMois',
+    jamaisExporte: true,
     libelle: 'Mois de naissance',
     nature: 'nombre',
     question: 'Et le mois ?',
@@ -162,6 +187,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'majeurDeclare',
+    jamaisExporte: true,
     libelle: 'Majorité déclarée',
     nature: 'booleen',
     question: 'Êtes-vous majeur(e) ?',
@@ -448,6 +474,70 @@ export const CHAMPS: readonly ChampDeclare[] = [
 const PAR_CHAMP = new Map(CHAMPS.map((c) => [c.champ, c]));
 
 export const champDeclare = (champ: string): ChampDeclare | undefined => PAR_CHAMP.get(champ);
+
+/**
+ * Les champs de profil qui ne sortent jamais du site.
+ *
+ * Déduite du catalogue, et non recopiée : un champ nouveau marqué
+ * `jamaisExporte` est exclu sans qu'aucun autre fichier ait à être touché,
+ * et un champ qui perdrait le drapeau le perdrait visiblement, dans la
+ * déclaration elle-même.
+ */
+export const CHAMPS_JAMAIS_EXPORTES: readonly string[] = CHAMPS.filter(
+  (c) => c.jamaisExporte === true,
+).map((c) => c.champ);
+
+/**
+ * Les champs qui relèvent de la case « Objectifs » et non de la case
+ * « Profil ».
+ *
+ * Déclarés ici, avec les champs eux-mêmes, et non dans l'export : c'est une
+ * propriété du champ, pas une propriété de l'écran qui l'exporte.
+ */
+export const CHAMPS_OBJECTIF: readonly string[] = [
+  'objectifsAnnee',
+  'objectifsVie',
+  'tempsParSemaine',
+  'tempsParDomaine',
+  'heuresRevision',
+  'ciblesEquilibre',
+  'datesEpreuves',
+];
+
+/**
+ * Qui va où, dans un export : la règle, sans base de données.
+ *
+ * Fonction pure, et c'est tout l'intérêt — la règle qui décide ce qui sort
+ * se lit et s'éprouve sans navigateur, sans coffre et sans profil réel. Le
+ * module d'export ne fait plus que lui passer ce qu'il a lu.
+ *
+ * Trois sorts, dans cet ordre, et l'ordre compte :
+ *
+ * 1. un champ marqué `jamaisExporte` ne sort pas, **quelles que soient les
+ *    cases cochées** — c'est le sens de « jamais » ;
+ * 2. un champ d'objectif sort si, et seulement si, « objectifs » est coché ;
+ * 3. tout le reste sort si « profil » est coché.
+ *
+ * Mettre l'interdiction en premier n'est pas une élégance : si un champ
+ * marqué `jamaisExporte` figurait aussi parmi les objectifs, l'ordre
+ * inverse le ferait sortir.
+ */
+export function repartirProfilPourExport(
+  champs: Iterable<readonly [string, unknown]>,
+  categories: readonly string[],
+): { profil: Record<string, unknown>; objectifs: Record<string, unknown> } {
+  const profil: Record<string, unknown> = {};
+  const objectifs: Record<string, unknown> = {};
+  for (const [nom, valeur] of champs) {
+    if (CHAMPS_JAMAIS_EXPORTES.includes(nom)) continue;
+    if (CHAMPS_OBJECTIF.includes(nom)) {
+      if (categories.includes('objectifs')) objectifs[nom] = valeur;
+      continue;
+    }
+    if (categories.includes('profil')) profil[nom] = valeur;
+  }
+  return { profil, objectifs };
+}
 
 /** Les champs du socle commun, dans l'ordre de l'initialisation. */
 export const champsDuSocle = (): ChampDeclare[] => CHAMPS.filter((c) => !c.brancheDOrigine);

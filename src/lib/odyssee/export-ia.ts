@@ -98,9 +98,18 @@ export const CATEGORIES: readonly Categorie[] = [
   },
   {
     id: 'profil',
-    libelle: 'Profil (hors prénom et nom)',
+    /*
+       U1 DU 43. L'ancien libellé disait « hors prénom et nom », et c'était
+       exact au mot et faux au fond : l'année de naissance, le mois et la
+       majorité déclarée sortaient avec cette case. Le libellé ne mentait
+       pas, il taisait — ce qui, sur une case qui fait sortir des données,
+       revient au même. Il dit maintenant les trois choses qui ne sortent
+       jamais, et le code s'y tient (`CHAMPS_JAMAIS_EXPORTES`).
+    */
+    libelle: 'Profil (hors identité et âge)',
     description:
-      'Votre rythme, vos plages de travail, vos domaines suivis. Jamais votre prénom ni votre nom.',
+      'Votre rythme, vos jours et plages de travail, vos domaines, vos matières. ' +
+      'Jamais votre prénom, votre nom ni votre âge.',
     sensible: false,
     parDefaut: false,
   },

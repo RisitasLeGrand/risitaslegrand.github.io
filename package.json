@@ -268,7 +268,8 @@
     "essais:echecs-dits": "tsx scripts/essais-echecs-dits.mts",
     "essais:restauration-atomique": "tsx scripts/essais-restauration-atomique.mts",
     "essais:dates-locales": "tsx scripts/essais-dates-locales.mts",
-    "essais:scripts-parles": "node scripts/essais-scripts-parles.mjs"
+    "essais:scripts-parles": "node scripts/essais-scripts-parles.mjs",
+    "essais:export-sans-age": "tsx scripts/essais-export-sans-age.mts"
   },
   "repository": {
     "type": "git",

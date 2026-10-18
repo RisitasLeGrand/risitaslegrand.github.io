@@ -368,6 +368,7 @@ async function lireAnalysesPourExport(): Promise<AnalysePrecedente[]> {
 
 async function lireProfilPourExport(categories: readonly string[]) {
   const { profilLocal } = await import('./profil');
+  const { repartirProfilPourExport } = await import('./noyau/profil');
   const champs = await profilLocal();
   const interdits: string[] = [];
   for (const nom of ['prenom', 'nom']) {
@@ -375,19 +376,33 @@ async function lireProfilPourExport(categories: readonly string[]) {
     if (typeof valeur === 'string' && valeur.trim().length >= 3) interdits.push(valeur.trim());
   }
 
-  const profil: Record<string, unknown> = {};
-  const objectifs: Record<string, unknown> = {};
-  const CHAMPS_OBJECTIF = ['objectifsAnnee', 'objectifsVie', 'tempsParSemaine', 'tempsParDomaine', 'heuresRevision', 'ciblesEquilibre', 'datesEpreuves'];
-  for (const [nom, valeur] of champs) {
-    // Le prénom et le nom ne traversent jamais ce module, quelle que soit la
-    // sélection : A.5 ne laisse pas de case à cocher là-dessus.
-    if (nom === 'prenom' || nom === 'nom') continue;
-    if (CHAMPS_OBJECTIF.includes(nom)) {
-      if (categories.includes('objectifs')) objectifs[nom] = valeur.valeur;
-      continue;
-    }
-    if (categories.includes('profil')) profil[nom] = valeur.valeur;
-  }
+  /*
+     CE QUI SORT, ET CE QUI NE SORT JAMAIS : la règle est dans le noyau.
+
+     Elle y est pour deux raisons, et la seconde est la plus forte.
+
+     D'abord parce qu'une règle pure s'éprouve sans base : on lui passe des
+     champs, elle rend deux objets, et l'essai se lit en une ligne.
+
+     Ensuite parce que ce module n'a PAS LE DROIT de nommer les trois champs
+     de naissance. L'essai sur le graphe d'imports l'interdit à tout fichier
+     hors d'une courte liste, et c'est cette interdiction qui rend vraie la
+     promesse « pas de lecture silencieuse ». Un export qui les nommerait
+     pour les exclure serait, pour ce contrôle, indistinguable d'un export
+     qui les nomme pour les lire. Le catalogue les marque `jamaisExporte`,
+     et ce module ne connaît qu'une liste de noms qu'il n'a pas écrite.
+
+     U1 DU 43, ET LE DÉFAUT CORRIGÉ. Cette fonction n'écartait que le prénom
+     et le nom. L'année de naissance, le mois et la majorité déclarée
+     sortaient dès que la case « Profil » était cochée — alors que le
+     registre des usages promet, mot pour mot, « L'année n'y figure
+     jamais ». La promesse était fausse à la lettre, et la case ne les
+     mentionnait pas : personne ne pouvait le voir à l'écran.
+  */
+  const { profil, objectifs } = repartirProfilPourExport(
+    [...champs].map(([nom, valeur]) => [nom, valeur.valeur] as const),
+    categories,
+  );
   return { profil, objectifs, interdits };
 }
 
