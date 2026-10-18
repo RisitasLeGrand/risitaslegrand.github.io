@@ -13,14 +13,14 @@ respect de la loi au sens formel : il englobe l'ensemble des normes qui
 s'imposent à l'action administrative, ce que traduit l'expression « bloc de
 légalité ».
 
-### I. Le contenu du bloc de légalité
+### I. Le contenu du bloc de légalité {#i-le-contenu-du-bloc-de-légalité}
 
 Il comprend les normes constitutionnelles, les engagements internationaux, les
 lois, les principes généraux du droit dégagés par le juge administratif
 (*Aramu*, 1945) et les règlements. La gouvernance administrative s'exerce donc
 sous contrainte juridique continue.
 
-### II. Les modalités du contrôle
+### II. Les modalités du contrôle {#ii-les-modalités-du-contrôle}
 
 Le recours pour excès de pouvoir permet à tout intéressé de demander
 l'annulation d'un acte administratif unilatéral. Le juge examine quatre cas
@@ -32,7 +32,7 @@ L'intensité du contrôle varie : contrôle restreint (erreur manifeste), contr�
 normal, contrôle de proportionnalité dans les domaines touchant aux libertés
 fondamentales.
 
-### III. Les aménagements au principe
+### III. Les aménagements au principe {#iii-les-aménagements-au-principe}
 
 Les circonstances exceptionnelles (*Heyriès*, 1918) et la théorie des actes de
 gouvernement limitent la portée du contrôle. Ces aménagements demeurent
