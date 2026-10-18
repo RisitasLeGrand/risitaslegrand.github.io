@@ -384,6 +384,44 @@ body {
   padding-bottom: calc(6rem + var(--sur-bas));
 }
 
+/*
+   LA PLACE RÉSERVÉE AU CONTENU QUI N'EST PAS ENCORE DÉCHIFFRÉ — M7.
+
+   ## Ce qui a été mesuré, le 18 octobre
+
+   Le CLS dépassait le seuil de 0,1 sur LES NEUF écrans quotidiens, de 0,216
+   à 0,495. Une seule cause, la même partout, relevée image par image sur
+   `/odyssee/calendrier/` :
+
+     114 ms  le pied de page est peint à 566 px — VISIBLE dans 740 px
+     129 ms  il descend à 589 px
+     223 ms  le contenu déchiffré arrive, il saute à 2 180 px
+
+   Entre la première peinture et le déchiffrement, la page ne contient que
+   son squelette et une ligne « Lecture de l'agenda… ». Le pied de page se
+   peint donc en plein écran, puis se fait chasser de 1 600 px. C'est tout
+   le CLS, et ce n'est rien d'autre : les cartes, les listes et les en-têtes
+   ne bougent pas.
+
+   ## Pourquoi réserver la place plutôt que cacher le pied
+
+   Cacher le pied jusqu'au déchiffrement l'enlèverait aussi à qui ne
+   déchiffre pas — coffre fermé, erreur de lecture — et le pied porte le
+   retour en arrière et les liens de secours. Réserver la hauteur ne retire
+   rien : le pied existe dès la première image, simplement hors de l'écran,
+   là où il sera de toute façon une fois le contenu arrivé.
+
+   `100svh` et non `100vh` : sur téléphone, `vh` compte la barre d'adresse
+   rétractée, donc une hauteur que l'écran n'a pas tant qu'on n'a pas
+   défilé. `svh` prend la plus petite, celle qu'on a vraiment à l'ouverture.
+
+   Le rembourrage est compris dans la hauteur : la feuille de styles pose
+   `box-sizing: border-box` partout.
+*/
+#contenu-principal {
+  min-block-size: 100svh;
+}
+
 @media (min-width: 640px) {
   /* Au-delà du téléphone, la barre du bas n'existe plus : le contenu reprend
      son rembourrage ordinaire, la poignée en plus si l'appareil en a une. */
