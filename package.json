@@ -80,6 +80,7 @@
     "essais:xss": "node scripts/essais-xss-actualites.mjs",
     "essais:sauvegarde": "node scripts/essais-sauvegarde.mjs",
     "bench-storage": "node scripts/bench-storage.mjs",
+    "inventaire:reglages": "node scripts/inventaire-reglages.mjs",
     "mesure:vitesse": "node scripts/mesure-vitesse.mjs",
     "diagnostic:cls": "node scripts/diagnostic-cls.mjs",
     "essais:cls": "node scripts/essais-cls.mjs",
