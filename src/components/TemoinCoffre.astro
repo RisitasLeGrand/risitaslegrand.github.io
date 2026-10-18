@@ -19,40 +19,58 @@
  */
 ---
 
+{/*
+   **Une seule rangée sur un téléphone.** Mesuré le 18 octobre à 360 px : les
+   cinq libellés passaient à la ligne deux fois et le bandeau faisait 105 px,
+   et non les 57 annoncés plus haut. `flex-nowrap` et un libellé qui se coupe
+   le garantissent à toute largeur, au lieu de l'espérer d'un comptage de
+   caractères.
+
+   **Ce qui descend dans le menu du cadenas sous « sm ».** « Oublier sur cet
+   appareil » y est déjà ; « Masquer indéfiniment » y est ajouté. Le
+   conteneur est `hidden sm:contents` et non `hidden sm:inline` : en
+   `contents`, les boutons redeviennent des cases de la rangée au-dessus de
+   640 px, exactement comme avant, et le `hidden` que le script pose sur
+   « Oublier » continue de le gouverner à l'intérieur.
+*/}
 <div
   id="temoin-coffre"
   class="hidden border-b border-amber-300 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-950/40"
 >
-  <div class="mx-auto flex max-w-5xl flex-wrap items-center gap-x-3 gap-y-1 px-4 py-1.5">
-    <span class="flex items-center gap-1.5 text-xs font-medium text-amber-900 dark:text-amber-100">
+  <div class="mx-auto flex max-w-5xl flex-nowrap items-center gap-x-3 gap-y-1 px-4 py-1.5 sm:flex-wrap">
+    <span
+      class="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-medium text-amber-900 sm:flex-none dark:text-amber-100"
+    >
       <span aria-hidden="true">🔓</span>
-      <span id="temoin-coffre-libelle">Coffre ouvert</span>
+      <span id="temoin-coffre-libelle" class="truncate">Coffre ouvert</span>
     </span>
-    <span class="grow"></span>
+    <span class="hidden grow sm:block"></span>
     <button
       id="temoin-coffre-fermer"
       type="button"
-      class="cible-tactile rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40"
+      class="cible-tactile shrink-0 rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40"
       >Fermer le coffre</button
-    >
-    <button
-      id="temoin-coffre-oublier"
-      type="button"
-      class="cible-tactile hidden rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40"
-      >Oublier sur cet appareil</button
     >
     <button
       id="temoin-coffre-masquer"
       type="button"
-      class="cible-tactile rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40"
+      class="cible-tactile shrink-0 rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40"
       >Masquer</button
     >
-    <button
-      id="temoin-coffre-masquer-toujours"
-      type="button"
-      class="cible-tactile rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40"
-      >Masquer indéfiniment</button
-    >
+    <span class="hidden sm:contents">
+      <button
+        id="temoin-coffre-oublier"
+        type="button"
+        class="cible-tactile hidden rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40"
+        >Oublier sur cet appareil</button
+      >
+      <button
+        id="temoin-coffre-masquer-toujours"
+        type="button"
+        class="cible-tactile rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40"
+        >Masquer indéfiniment</button
+      >
+    </span>
   </div>
 </div>
 

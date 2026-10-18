@@ -61,6 +61,20 @@ import { base } from '../lib/ui';
       >Afficher le bandeau</button
     >
     {/*
+       Le miroir du précédent, et il est arrivé avec M5 : sous 640 px, le
+       bandeau n'affiche plus que « Fermer le coffre » et « Masquer », faute
+       de largeur pour cinq libellés sur une rangée. « Masquer indéfiniment »
+       doit donc exister ailleurs, sinon le réglage deviendrait inatteignable
+       sur l'appareil qui en a le plus besoin.
+    */}
+    <button
+      id="cadenas-masquer-toujours"
+      type="button"
+      role="menuitem"
+      class="cible-tactile hidden w-full rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+      >Masquer le bandeau indéfiniment</button
+    >
+    {/*
        La bascule vit dans le menu du cadenas, et non dans « Stockage », parce
        que c'est un geste DU COFFRE : on y arrive en pensant au coffre, pas en
        pensant à la place disque. Elle est séparée des trois autres par un
@@ -88,7 +102,12 @@ import { base } from '../lib/ui';
     reprendreLeCoffre,
     surCoffre,
   } from '../lib/coffre';
-  import { afficherLeBandeau, bandeauVoulu, surBandeau } from '../lib/coffre-bandeau';
+  import {
+    afficherLeBandeau,
+    bandeauVoulu,
+    masquerIndefiniment,
+    surBandeau,
+  } from '../lib/coffre-bandeau';
   import { calqueFerme, calqueOuvert } from '../lib/calques';
 
   /*
@@ -110,8 +129,9 @@ import { base } from '../lib/ui';
   const menu = document.getElementById('cadenas-coffre-menu');
   const oublier = document.getElementById('cadenas-oublier');
   const afficher = document.getElementById('cadenas-afficher-bandeau');
+  const masquerToujours = document.getElementById('cadenas-masquer-toujours');
 
-  if (zone && bouton && menu && oublier && afficher) {
+  if (zone && bouton && menu && oublier && afficher && masquerToujours) {
     const fermerLeMenu = () => {
       menu.classList.add('hidden');
       bouton.setAttribute('aria-expanded', 'false');
@@ -130,6 +150,7 @@ import { base } from '../lib/ui';
          toujours ferait un menu dont une entrée sur trois ne fait rien.
       */
       afficher.classList.toggle('hidden', bandeauVoulu());
+      masquerToujours.classList.toggle('hidden', !bandeauVoulu());
     };
 
     surCoffre(peindre);
@@ -154,6 +175,10 @@ import { base } from '../lib/ui';
     });
     afficher.addEventListener('click', () => {
       afficherLeBandeau();
+      fermerLeMenu();
+    });
+    masquerToujours.addEventListener('click', () => {
+      masquerIndefiniment();
       fermerLeMenu();
     });
 
