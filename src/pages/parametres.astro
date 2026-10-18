@@ -250,8 +250,17 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
           ? 'border-indigo-600 bg-indigo-600'
           : 'border-slate-300 bg-slate-200 dark:border-slate-600 dark:bg-slate-700');
       const pastille = document.createElement('span');
+      /*
+         A10 du 43 : « transition-all » est interdit, et l'essai des finitions
+         l'avait relevé ici sans que je le voie — c'est du 42, écrit par moi.
+         La raison de l'interdit : « all » fait transitionner tout ce qui
+         change, y compris ce qu'on n'a pas prévu, et le jour où une règle de
+         thème touche la couleur ou la bordure de cette pastille, elle se met
+         à fondre sans que personne l'ait demandé. Ce qui bouge ici, c'est sa
+         position : on le nomme.
+      */
       pastille.className =
-        'pointer-events-none absolute h-5 w-5 rounded-full bg-white transition-all ' +
+        'pointer-events-none absolute h-5 w-5 rounded-full bg-white transition-[left] ' +
         (valeur ? 'left-6' : 'left-1');
       bouton.appendChild(pastille);
       bouton.addEventListener('click', () => void appliquer(!valeur));

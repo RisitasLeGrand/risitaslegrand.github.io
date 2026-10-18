@@ -139,19 +139,39 @@ console.log('\n  A10 — plus aucun « transition: all » ni « transition-all �
 
 console.log('\n  A11 — liens et boutons au même rythme');
 {
+  /*
+     ON INTERROGE TOUS LES LIENS, PAS LE PREMIER.
+
+     Cette assertion lisait `document.querySelector('a.cible-tactile')` — le
+     premier lien tactile du document. Elle est passée au rouge quand ce
+     premier-là s'est trouvé être « Mot de passe perdu ? », le seul des
+     vingt-et-un liens de l'accueil à ne pas porter la classe « transition » :
+     il changeait de couleur d'un coup là où ses vingt voisins fondaient. Les
+     deux avaient tort. Le site, parce qu'un lien était hors du rythme — c'est
+     exactement ce que A11 voulait finir. Et l'essai, parce qu'une règle
+     d'uniformité ne se vérifie pas sur l'élément qui se présente le premier :
+     elle se vérifie sur tous. Il relève donc maintenant les liens **hors du
+     compte**, et les nomme.
+  */
   const lu = await page.evaluate(() => {
-    const a = document.querySelector('a.cible-tactile');
+    const liens = [...document.querySelectorAll('a.cible-tactile')];
     const b = document.querySelector('button:not(:disabled)');
-    const ca = getComputedStyle(a);
     const cb = getComputedStyle(b);
+    const horsDuRythme = liens
+      .filter((a) => getComputedStyle(a).transitionDuration !== '0.12s')
+      .map((a) => `${(a.textContent ?? '').trim().slice(0, 30)} → ${getComputedStyle(a).transitionDuration}`);
+    const premier = liens[0] ? getComputedStyle(liens[0]) : null;
     return {
-      lienDuree: ca.transitionDuration,
-      lienCourbe: ca.transitionTimingFunction,
+      combien: liens.length,
+      horsDuRythme,
+      lienDuree: premier ? premier.transitionDuration : 'aucun lien',
+      lienCourbe: premier ? premier.transitionTimingFunction : '',
       boutonDuree: cb.transitionDuration,
       boutonCourbe: cb.transitionTimingFunction,
       boutonProps: cb.transitionProperty,
     };
   });
+  v(`les ${lu.combien} liens tactiles suivent tous le jeton court`, lu.horsDuRythme, []);
   v(`le lien suit le jeton court (${lu.lienDuree})`, secondes(lu.lienDuree), 0.12);
   v(`le bouton aussi (${lu.boutonDuree})`, secondes(lu.boutonDuree), 0.12);
   v('et la même courbe', lu.lienCourbe.split(',')[0].trim(), lu.boutonCourbe.split(',')[0].trim());
