@@ -80,6 +80,7 @@
     "essais:xss": "node scripts/essais-xss-actualites.mjs",
     "essais:sauvegarde": "node scripts/essais-sauvegarde.mjs",
     "bench-storage": "node scripts/bench-storage.mjs",
+    "mesure:vitesse": "node scripts/mesure-vitesse.mjs",
     "bouclage-ia": "node scripts/bouclage-ia.mjs",
     "mesure:migration": "node scripts/mesure-migration.mjs",
     "essais:sauvegarde:format": "tsx scripts/essais-sauvegarde-format.mts",
