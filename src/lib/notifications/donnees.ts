@@ -41,6 +41,8 @@ import { db } from '../db';
 import { coffreOuvert, exigerLeCoffre } from '../coffre';
 import { ouvrir, sceller } from '../noyau/coffre';
 import { suitLaSensibiliteDuCycle } from './filtre-cycle';
+import { emettre } from './emission';
+import { jourLogique } from '../noyau/jour-logique';
 import {
   RETENTION_PAR_DEFAUT,
   compteDansLaPastille,
@@ -153,8 +155,41 @@ export async function deposer(
   }
 
   const cle = exigerLeCoffre();
+  const base = await db();
+  /*
+     Est-il NEUF ? La question se pose avant l'écriture, et elle se pose ici
+     plutôt que chez l'appelant : `deposer` est la porte unique du magasin, et
+     la nouveauté calculée ailleurs finirait par diverger d'un appelant à
+     l'autre. L'identifiant est un champ clair du scellé, donc lisible sans la
+     clé.
+  */
+  const deja = Boolean(await base.get(MAGASIN, element.id));
   const scelle = await sceller(cle, MAGASIN, element as unknown as Record<string, unknown>);
-  await (await db()).put(MAGASIN, scelle as unknown as ElementDuCentre);
+  await base.put(MAGASIN, scelle as unknown as ElementDuCentre);
+
+  /*
+     LA TROISIÈME PORTE (§ 1 n° 3 : le centre, le compteur, la notification).
+
+     `emettre` existait, avec ses six refus et son plafond quotidien — et
+     **personne ne l'appelait**. Le centre se remplissait donc en silence :
+     la seule façon d'apprendre qu'une question attendait était d'ouvrir le
+     centre, c'est-à-dire de savoir déjà qu'il y avait quelque chose dedans.
+
+     Elle est appelée ici, et seulement pour un élément NEUF : réémettre à
+     chaque recensement ferait sonner le téléphone à chaque page pour une
+     question posée une fois.
+
+     Son échec n'annule pas le dépôt. Une notification qui ne part pas coûte
+     un signal ; un dépôt annulé coûte l'élément lui-même, et c'est lui qui
+     porte la question.
+  */
+  if (!deja) {
+    try {
+      await emettre(element, jourLogique());
+    } catch {
+      // Le service worker manque, ou le navigateur refuse : le centre, lui, a reçu.
+    }
+  }
   return { quoi: 'depose', element };
 }
 
