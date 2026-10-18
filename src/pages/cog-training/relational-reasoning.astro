@@ -7,6 +7,7 @@
  * chaîne de build et une seule base de progression.
  */
 import Base from '../../layouts/Base.astro';
+import LienReglages from '../../components/LienReglages.astro';
 import RelationalReasoning from '../../features/relational-reasoning/composants/RelationalReasoning.svelte';
 ---
 
@@ -19,6 +20,7 @@ import RelationalReasoning from '../../features/relational-reasoning/composants/
       >← Entraînement cognitif</a
     >
     <h1 class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">Raisonnement relationnel</h1>
+    <LienReglages section="cognitif" class="mt-2" />
     <p class="text-sm font-medium text-slate-500 dark:text-slate-400">Relational Reasoning</p>
     <p class="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
       Un réseau de relations vous est montré sans que la règle qui le régit soit nommée : à vous de

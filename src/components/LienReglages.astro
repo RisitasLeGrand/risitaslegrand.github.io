@@ -1,0 +1,53 @@
+---
+/**
+ * « Réglages de cet écran » — le lien vers la bonne section de Paramètres.
+ *
+ * P3 du prompt 42 : « Depuis chaque écran à réglages, un lien “Réglages de
+ * cet écran” ouvre la bonne section par une ancre, puis permet de revenir. »
+ * Revenir est déjà acquis — la flèche de retour du gabarit et le geste
+ * arrière du navigateur ramènent ici — donc ce composant ne fait qu'une
+ * chose, et la fait partout pareil.
+ *
+ * L'ancre est l'identifiant de la section, et les sections sont celles du
+ * catalogue : un identifiant inventé ouvrirait la page en haut, sans rien
+ * dire. `essais:reglages-orphelins` vérifie que chaque écran cité par le
+ * catalogue porte bien ce lien.
+ */
+import { SECTIONS } from '../lib/parametres/catalogue';
+
+interface Props {
+  /** L'identifiant d'une section de `catalogue.ts`. */
+  section: string;
+  /** Texte de remplacement, quand « cet écran » serait ambigu. */
+  texte?: string;
+  class?: string;
+}
+
+const { section, texte, class: classe = '' } = Astro.props;
+const connue = SECTIONS.find((s) => s.id === section);
+if (!connue) throw new Error(`Section de réglages inconnue : « ${section} ».`);
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+---
+
+<!--
+  LE LIEN EST SEUL DANS SON PARAGRAPHE, et la mention de section vit dans le
+  suivant. Ce n'est pas une préférence de mise en page : `essais:mobile`
+  (M4, D-041) interdit qu'un lien **au fil d'une phrase** porte
+  « cible-tactile », parce que les 44 px de la classe fabriquent au milieu
+  d'un paragraphe une boîte plus haute que la ligne, et que WCAG 2.5.8
+  exempte justement ces liens-là. La première version mettait les deux dans
+  le même paragraphe, et le contrôle l'a relevée sur quatre écrans.
+-->
+<div class={classe}>
+  <p class="text-sm">
+    <a
+      href={`${base}/parametres/#${section}`}
+      data-lien-reglages={section}
+      class="cible-tactile gap-1.5 font-medium text-slate-700 underline decoration-slate-400 underline-offset-2 dark:text-slate-200"
+    >
+      <span aria-hidden="true">⚙️</span>
+      {texte ?? 'Réglages de cet écran'}
+    </a>
+  </p>
+  <p class="text-xs text-slate-500 dark:text-slate-400">Section « {connue.titre} » des paramètres.</p>
+</div>

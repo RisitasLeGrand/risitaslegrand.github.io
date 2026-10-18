@@ -13,12 +13,14 @@
  * **avant** la fusion, et l'annulation est offerte sept jours.
  */
 import Base from '../layouts/Base.astro';
+import LienReglages from '../components/LienReglages.astro';
 ---
 
 <Base titre="Appareils" actif="progression">
   <h1 class="mb-2 text-2xl font-bold text-slate-900 dark:text-white">
     Appareils et synchronisation
   </h1>
+  <LienReglages section="appareils" class="mt-2" />
   <p class="mb-8 max-w-3xl text-slate-600 dark:text-slate-300">
     Utiliser Cyclades sur deux appareils, en transportant un fichier de l’un à
     l’autre. <strong>Ce n’est pas une sauvegarde</strong> : la synchronisation

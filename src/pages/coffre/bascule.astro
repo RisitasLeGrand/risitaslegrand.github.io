@@ -29,12 +29,14 @@
  * page.
  */
 import Base from '../../layouts/Base.astro';
+import LienReglages from '../../components/LienReglages.astro';
 ---
 
 <Base titre="Mot de passe du coffre" actif="progression" entete="leger">
   <h1 class="mb-2 text-2xl font-bold text-slate-900 dark:text-white">
     Donner au coffre son propre mot de passe
   </h1>
+  <LienReglages section="coffre" class="mt-2" />
   <p class="mb-6 max-w-2xl text-slate-600 dark:text-slate-300">
     Aujourd’hui, le coffre s’ouvre avec le mot de passe du site. Cette page lui
     en donne un distinct, et rechiffre vos données sous une clé que le mot de

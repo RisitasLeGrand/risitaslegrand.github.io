@@ -1,0 +1,358 @@
+---
+/**
+ * « Paramètres » — tous les réglages du site, au même endroit.
+ *
+ * Le prompt 42 le dit en une phrase : « une seule page, où l'on trouve,
+ * comprend et change n'importe quel réglage, sans rien perdre de ce qui
+ * existe ». Les trois verbes commandent trois choix de cette page :
+ *
+ * - **trouver** : une recherche en tête, et dix sections ancrées, de sorte
+ *   qu'un écran puisse pointer droit sur la sienne (`/parametres/#sport`) ;
+ * - **comprendre** : chaque ligne dit ce que le réglage fait, où sa valeur
+ *   vit (« Ce téléphone seulement », « Tous vos appareils », « Protégé par
+ *   le coffre ») et sa valeur par défaut, avec « Rétablir » dès qu'elle en
+ *   diffère ;
+ * - **changer** : les réglages à effet immédiat sont des interrupteurs, sans
+ *   bouton « Enregistrer ».
+ *
+ * ## Ce que la page ne fait pas
+ *
+ * Elle **n'écrit aucune clé elle-même**. Chaque réglage passe par
+ * `src/lib/parametres/acces.ts`, qui appelle la fonction de la branche —
+ * celle que l'écran d'origine appelait déjà. C'est l'interdit n° 2, et il
+ * tient le reste : un réglage écrit à deux endroits finit par mentir à l'un
+ * des deux.
+ *
+ * Elle ne déplace rien non plus : les écrans d'origine gardent leurs
+ * réglages du geste quotidien (décision 2), et un lien « Réglages de cet
+ * écran » y mène ici. Ce qui n'est pas un réglage — la liste des appareils,
+ * l'état du stockage, les notifications reçues — reste sur son écran, et la
+ * page centrale n'en montre que l'entrée.
+ *
+ * ## Coffre fermé
+ *
+ * Les réglages sous coffre s'affichent, sous leur libellé, **sans leur
+ * valeur**, avec de quoi ouvrir le coffre. C'est la demande du prompt, et
+ * c'est aussi la seule conduite honnête : les cacher ferait croire qu'ils
+ * n'existent pas, et les lire les sortirait du coffre.
+ */
+import Base from '../layouts/Base.astro';
+import { REGLAGES, SECTIONS, reglagesDe } from '../lib/parametres/catalogue';
+import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
+---
+
+<Base titre="Paramètres">
+  <div class="mx-auto max-w-3xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Paramètres</h1>
+    <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      Tous les réglages de Cyclades, avec ce qu’ils font et jusqu’où ils vont. Les changements
+      prennent effet tout de suite : il n’y a rien à enregistrer.
+    </p>
+
+    <!-- ── La recherche ──────────────────────────────────────────────── -->
+    <div class="mt-5">
+      <label for="recherche-reglage" class="sr-only">Chercher un réglage</label>
+      <input
+        id="recherche-reglage"
+        type="search"
+        inputmode="search"
+        autocomplete="off"
+        placeholder="Chercher un réglage…"
+        class="cible-tactile w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-base text-slate-900 placeholder:text-slate-400 dark:border-slate-700 dark:bg-slate-900 dark:text-white"
+      />
+      <p id="resultat-recherche" class="mt-2 text-sm text-slate-500 dark:text-slate-400" role="status"></p>
+    </div>
+
+    <!-- ── Les sections, en raccourci ────────────────────────────────── -->
+    <nav aria-label="Sections des paramètres" class="mt-5">
+      <ul class="flex flex-wrap gap-2">
+        {
+          SECTIONS.map((s) => (
+            <li>
+              <a
+                href={`#${s.id}`}
+                class="cible-tactile inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
+              >
+                <span aria-hidden="true">{s.icone}</span>
+                {s.titre}
+              </a>
+            </li>
+          ))
+        }
+      </ul>
+    </nav>
+
+    <!-- ── Les sections ──────────────────────────────────────────────── -->
+    {
+      SECTIONS.map((section) => (
+        <section id={section.id} class="mt-10 scroll-mt-24" data-section>
+          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+            <span aria-hidden="true">{section.icone}</span> {section.titre}
+          </h2>
+          <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">{section.propos}</p>
+          <div class="space-y-2">
+            {reglagesDe(section.id).map((r) => (
+              <div
+                {/*
+                   L'identifiant est préfixé, et ce n'est pas une coquetterie :
+                   `essais:structure` a trouvé un « appareils » en double, la
+                   section et le réglage portant le même nom. Deux éléments de
+                   même identifiant, c'est une ancre qui mène au hasard et un
+                   lecteur d'écran qui désigne le mauvais.
+                */}
+                id={`reglage-${r.id}`}
+                data-reglage={r.id}
+                data-libelle={r.libelle}
+                data-sert={r.aQuoiCaSert}
+                data-nature={r.nature.genre}
+                data-sous-coffre={r.sousCoffre ? 'oui' : 'non'}
+                class="scroll-mt-24 rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900"
+              >
+                <div class="flex flex-wrap items-start justify-between gap-x-4 gap-y-2">
+                  <div class="min-w-0 flex-1">
+                    <p class="font-medium text-slate-900 dark:text-white">{r.libelle}</p>
+                    <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{r.aQuoiCaSert}</p>
+                    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                      <span class="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">
+                        {DIRE_LA_PORTEE[r.portee]}
+                      </span>
+                      {r.ecran && (
+                        <>
+                          {' '}
+                          <a
+                            href={r.ecran}
+                            data-ecran
+                            class="cible-minimale underline decoration-slate-400 underline-offset-2"
+                          >
+                            Voir l’écran
+                          </a>
+                        </>
+                      )}
+                    </p>
+                  </div>
+                  <div class="flex shrink-0 items-center gap-2" data-commande>
+                    {r.nature.genre === 'ailleurs' ? (
+                      <a
+                        href={r.nature.vers}
+                        data-vers
+                        class="cible-tactile rounded-lg border border-slate-300 px-3 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+                      >
+                        {r.nature.texte}
+                      </a>
+                    ) : (
+                      <span class="text-sm text-slate-400">…</span>
+                    )}
+                  </div>
+                </div>
+                <p data-message class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300" role="status" />
+              </div>
+            ))}
+          </div>
+        </section>
+      ))
+    }
+
+    <p class="mt-10 text-xs text-slate-500 dark:text-slate-400">
+      Cyclades, publication <span id="version-publication">…</span>.
+      <span id="compte-reglages">{REGLAGES.length} réglages</span> sur cette page.
+    </p>
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../lib/chargement';
+  import { chargerParametresCle } from '../lib/contenu';
+  import { coffreOuvert, surCoffre } from '../lib/coffre';
+  import { ACCES } from '../lib/parametres/acces';
+  import { REGLAGES } from '../lib/parametres/catalogue';
+  import { lien } from '../lib/ui';
+
+  const par = new Map(REGLAGES.map((r) => [r.id, r]));
+
+  /** Les liens écrits en dur dans le HTML doivent porter la base du site. */
+  for (const a of document.querySelectorAll<HTMLAnchorElement>('a[data-ecran], a[data-vers]')) {
+    a.href = lien(a.getAttribute('href') ?? '/');
+  }
+
+  const bloc = (id: string) => document.querySelector<HTMLElement>(`[data-reglage="${id}"]`);
+  const commande = (id: string) => bloc(id)?.querySelector<HTMLElement>('[data-commande]');
+  const message = (id: string) => bloc(id)?.querySelector<HTMLElement>('[data-message]');
+
+  function dire(id: string, texte: string) {
+    const p = message(id);
+    if (!p) return;
+    p.textContent = texte;
+    p.classList.toggle('hidden', texte === '');
+  }
+
+  /** Construit la commande d'un réglage, et la remplit. */
+  async function monter(id: string) {
+    const reglage = par.get(id);
+    const acces = ACCES[id];
+    const zone = commande(id);
+    if (!reglage || !acces || !zone) return;
+
+    /*
+       COFFRE FERMÉ : LE LIBELLÉ, PAS LA VALEUR.
+
+       La condition porte sur l'état du coffre et sur ce que le catalogue
+       déclare, **pas** sur une exception de lecture. L'essai l'a montré :
+       l'indicateur d'activation de la Santé se lit sans le coffre — il vit
+       en clair dans `etat`, et c'est voulu, un consentement ne se
+       synchronise pas. Attendre une erreur revenait donc à afficher la
+       valeur d'un réglage que le prompt veut muet coffre fermé.
+    */
+    if (reglage.sousCoffre && !coffreOuvert()) {
+      zone.innerHTML = '';
+      dire(id, 'Protégé par le coffre : ouvrez-le pour voir et changer ce réglage.');
+      return;
+    }
+
+    let valeur: unknown;
+    try {
+      valeur = await acces.lire();
+    } catch {
+      /* Lecture impossible malgré tout : on le dit, et l'on n'invente pas
+         une valeur. Une case décochée ferait croire au réglage éteint. */
+      zone.innerHTML = '';
+      dire(id, 'Valeur illisible pour l’instant : rien n’a été changé.');
+      return;
+    }
+    dire(id, '');
+    zone.innerHTML = '';
+
+    const appliquer = async (neuve: unknown) => {
+      try {
+        await acces.ecrire(neuve);
+        dire(id, '');
+      } catch (erreur) {
+        dire(id, (erreur as Error)?.message ?? 'Changement refusé.');
+      }
+      await monter(id);
+    };
+
+    if (reglage.nature.genre === 'interrupteur') {
+      const bouton = document.createElement('button');
+      bouton.type = 'button';
+      bouton.setAttribute('role', 'switch');
+      bouton.setAttribute('aria-checked', String(Boolean(valeur)));
+      bouton.setAttribute('aria-label', reglage.libelle);
+      bouton.className =
+        'cible-tactile relative inline-flex h-7 w-12 items-center rounded-full border transition ' +
+        (valeur
+          ? 'border-indigo-600 bg-indigo-600'
+          : 'border-slate-300 bg-slate-200 dark:border-slate-600 dark:bg-slate-700');
+      const pastille = document.createElement('span');
+      pastille.className =
+        'pointer-events-none absolute h-5 w-5 rounded-full bg-white transition-all ' +
+        (valeur ? 'left-6' : 'left-1');
+      bouton.appendChild(pastille);
+      bouton.addEventListener('click', () => void appliquer(!valeur));
+      zone.appendChild(bouton);
+    } else if (reglage.nature.genre === 'choix') {
+      const select = document.createElement('select');
+      select.className =
+        'cible-tactile rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white';
+      select.setAttribute('aria-label', reglage.libelle);
+      for (const option of reglage.nature.options) {
+        const o = document.createElement('option');
+        o.value = option.valeur;
+        o.textContent = option.libelle;
+        select.appendChild(o);
+      }
+      select.value = String(valeur);
+      select.addEventListener('change', () => void appliquer(select.value));
+      zone.appendChild(select);
+    } else if (reglage.nature.genre === 'nombre' || reglage.nature.genre === 'heure') {
+      const champ = document.createElement('input');
+      champ.className =
+        'cible-tactile w-28 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-600 dark:bg-slate-900 dark:text-white';
+      champ.setAttribute('aria-label', reglage.libelle);
+      if (reglage.nature.genre === 'nombre') {
+        champ.type = 'number';
+        champ.inputMode = 'numeric';
+        champ.min = String(reglage.nature.min);
+        champ.max = String(reglage.nature.max);
+      } else {
+        champ.type = 'time';
+      }
+      champ.value = String(valeur ?? '');
+      champ.addEventListener('change', () => void appliquer(champ.value));
+      zone.appendChild(champ);
+      if (reglage.nature.genre === 'nombre' && reglage.nature.unite) {
+        const unite = document.createElement('span');
+        unite.className = 'text-sm text-slate-500 dark:text-slate-400';
+        unite.textContent = reglage.nature.unite;
+        zone.appendChild(unite);
+      }
+    }
+
+    /* « Rétablir » n'apparaît que si la valeur diffère du défaut : un bouton
+       toujours là invite à cliquer sans raison, et ne dit plus rien. */
+    if (
+      reglage.defaut !== null &&
+      JSON.stringify(valeur) !== JSON.stringify(reglage.defaut) &&
+      reglage.nature.genre !== 'ailleurs'
+    ) {
+      const retablir = document.createElement('button');
+      retablir.type = 'button';
+      retablir.className =
+        'cible-tactile rounded-lg px-2 py-1 text-xs font-medium text-slate-600 underline underline-offset-2 dark:text-slate-300';
+      retablir.textContent = 'Rétablir';
+      retablir.setAttribute('aria-label', `Rétablir « ${reglage.libelle} »`);
+      retablir.addEventListener('click', () => void appliquer(reglage.defaut));
+      zone.appendChild(retablir);
+    }
+  }
+
+  async function monterTout() {
+    for (const r of REGLAGES) if (ACCES[r.id]) await monter(r.id);
+  }
+
+  /* ── La recherche ─────────────────────────────────────────────────────── */
+
+  const sansAccent = (texte: string) =>
+    texte
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase();
+
+  const champRecherche = document.getElementById('recherche-reglage') as HTMLInputElement;
+  const resultat = document.getElementById('resultat-recherche')!;
+
+  champRecherche.addEventListener('input', () => {
+    const q = sansAccent(champRecherche.value.trim());
+    let vus = 0;
+    for (const bloc of document.querySelectorAll<HTMLElement>('[data-reglage]')) {
+      const texte = sansAccent(`${bloc.dataset.libelle} ${bloc.dataset.sert}`);
+      const garde = q === '' || texte.includes(q);
+      bloc.hidden = !garde;
+      if (garde) vus += 1;
+    }
+    /* Une section dont tous les réglages sont masqués s'efface aussi : un
+       titre seul, sans rien dessous, se lit comme une section vide. */
+    for (const section of document.querySelectorAll<HTMLElement>('[data-section]')) {
+      const reste = [...section.querySelectorAll<HTMLElement>('[data-reglage]')].some(
+        (b) => !b.hidden,
+      );
+      section.hidden = !reste;
+    }
+    resultat.textContent =
+      q === '' ? '' : vus === 0 ? 'Aucun réglage ne correspond.' : `${vus} réglage(s) trouvé(s).`;
+  });
+
+  /* ── La version de publication (43, B4) ───────────────────────────────── */
+
+  void chargerParametresCle()
+    .then((p) => {
+      document.getElementById('version-publication')!.textContent = p.version ?? 'inconnue';
+    })
+    .catch(() => {
+      document.getElementById('version-publication')!.textContent = 'inconnue';
+    });
+
+  /* Les valeurs ne se lisent qu'une fois la session ouverte ; et le coffre
+     peut s'ouvrir ou se refermer pendant qu'on est sur la page. */
+  auDeverrouillage(() => void monterTout());
+  surCoffre(() => void monterTout());
+</script>

@@ -76,6 +76,71 @@ function constantes(texte) {
   return table;
 }
 
+/**
+ * Les constantes **importées** d'un autre module, résolues d'un niveau.
+ *
+ * Sans cela, `localStorage.setItem(CLEF_AVERTISSEMENT_VU, 'oui')` dans
+ * `molecule.astro` était relevé comme « clé variable » : la constante est
+ * déclarée dans `bibliotheque-externe.ts`. Un niveau suffit — aucune clé du
+ * dépôt n'est réexportée deux fois — et au-delà, on retomberait sur un
+ * résolveur de modules, c'est-à-dire sur un compilateur.
+ */
+function constantesImportees(chemin, texte) {
+  const table = new Map();
+  for (const [, noms, module] of texte.matchAll(
+    /import\s*\{([^}]*)\}\s*from\s*'(\.[^']*)'/g,
+  )) {
+    const voulus = noms
+      .split(',')
+      .map((n) => n.trim().split(/\s+as\s+/)[0].trim())
+      .filter((n) => /^[A-Z_][A-Z0-9_]*$/.test(n));
+    if (voulus.length === 0) continue;
+    const base = join(chemin, '..', module);
+    for (const essai of [`${base}.ts`, `${base}.js`, `${base}/index.ts`]) {
+      let source;
+      try {
+        source = sansCommentaires(readFileSync(essai, 'utf8'));
+      } catch {
+        continue;
+      }
+      for (const nom of voulus) {
+        const trouve = source.match(
+          new RegExp(`export\\s+const\\s+${nom}\\s*(?::[^=]+)?=\\s*'([^']*)'`),
+        );
+        if (trouve) table.set(nom, trouve[1]);
+      }
+      break;
+    }
+  }
+  return table;
+}
+
+/**
+ * Les fonctions locales qui enveloppent `setItem` ou `getItem`.
+ *
+ * Plusieurs modules écrivent `ecrireLocal(CLE_PALETTE, valeur)`, où
+ * `ecrireLocal` est un `const ecrireLocal = (cle, v) => localStorage.setItem(cle, v)`
+ * à trois lignes plus haut. L'inventaire relevait alors une « clé variable :
+ * cle », c'est-à-dire rien. On repère donc ces enveloppes — une seule
+ * profondeur — et l'on traite leurs appels comme des `setItem`.
+ */
+function enveloppes(texte) {
+  const sortie = [];
+  /* Deux écritures : la flèche affectée à une constante, et la fonction
+     déclarée — le script d'amorçage du gabarit emploie la seconde. */
+  const motifs = [
+    /\bconst\s+([A-Za-z_$][\w$]*)\s*=\s*\(\s*([A-Za-z_$][\w$]*)[^)]*\)\s*(?::[^=]*)?=>\s*\{?([\s\S]{0,400}?)\n\s*\}?;/g,
+    /\bfunction\s+([A-Za-z_$][\w$]*)\s*\(\s*([A-Za-z_$][\w$]*)[^)]*\)\s*\{([\s\S]{0,400}?)\n\s*\}/g,
+  ];
+  for (const [, nom, premier, corps] of motifs.flatMap((m) => [...texte.matchAll(m)])) {
+    const ecrit = new RegExp(`(localStorage|sessionStorage)\\.setItem\\(\\s*${premier}\\b`).exec(corps);
+    const lit = new RegExp(`(localStorage|sessionStorage)\\.getItem\\(\\s*${premier}\\b`).exec(corps);
+    if (ecrit) sortie.push({ nom, parametre: premier, stockage: ecrit[1], sens: 'ecrit' });
+    else if (lit) sortie.push({ nom, parametre: premier, stockage: lit[1], sens: 'lit' });
+  }
+  return sortie;
+}
+
 const resoudre = (brut, table) => {
   const texte = brut.trim();
   const litteral = texte.match(/^'([^']*)'$/);
@@ -188,17 +253,37 @@ export function cles() {
 
   for (const chemin of fichiers()) {
     const texte = sansCommentaires(readFileSync(chemin, 'utf8'));
-    const locales = constantes(texte);
+    const locales = new Map([...constantesImportees(chemin, texte), ...constantes(texte)]);
     const scelle = /\bsceller\s*\(/.test(texte);
+
+    /* Les enveloppes locales d'abord : `ecrireLocal(CLE, …)` vaut un
+       `setItem(CLE, …)`, et sans cela la clé ne serait pas relevée. */
+    for (const enveloppe of enveloppes(texte)) {
+      for (const args of appels(texte, `${enveloppe.nom}(`)) {
+        const { cle, sure } = resoudre(args[0] ?? '', locales);
+        if (cle.startsWith('clé variable')) continue;
+        const e = entree(enveloppe.stockage, cle);
+        if (enveloppe.sens === 'ecrit') e.ecrivains.add(chemin);
+        else e.lecteurs.add(chemin);
+        e.sure &&= sure;
+      }
+    }
+
+    /* Le corps d'une enveloppe écrit `setItem(cle, …)` où `cle` est son
+       paramètre : c'est l'enveloppe elle-même, pas une clé. On l'ignore,
+       sans quoi l'inventaire inventerait une clé nommée « cle ». */
+    const parametres = new Set(enveloppes(texte).map((e) => e.parametre));
 
     for (const stockage of ['localStorage', 'sessionStorage']) {
       for (const args of appels(texte, `${stockage}.setItem(`)) {
+        if (parametres.has((args[0] ?? '').trim())) continue;
         const { cle, sure } = resoudre(args[0] ?? '', locales);
         const e = entree(stockage, cle);
         e.ecrivains.add(chemin);
         e.sure &&= sure;
       }
       for (const args of appels(texte, `${stockage}.getItem(`)) {
+        if (parametres.has((args[0] ?? '').trim())) continue;
         const { cle } = resoudre(args[0] ?? '', locales);
         entree(stockage, cle).lecteurs.add(chemin);
       }

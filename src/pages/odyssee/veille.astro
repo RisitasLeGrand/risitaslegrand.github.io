@@ -22,6 +22,7 @@
  * mesurer quelqu'un ou de lui donner un numéro à appeler.
  */
 import Base from '../../layouts/Base.astro';
+import LienReglages from '../../components/LienReglages.astro';
 import { RESSOURCES } from '../../lib/odyssee/psyche';
 import { CATALOGUE, DOMAINES, JOURS_DE_REFERENCE } from '../../lib/odyssee/veille';
 import { REGLAGES } from '../../lib/odyssee/moteur-veille';
@@ -45,6 +46,7 @@ const parDomaine = Object.keys(DOMAINES).map((d) => ({
 <Base titre="Repère de rythme de vie" actif="psyche" coffre>
   <div class="mx-auto max-w-3xl">
     <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Repère de rythme de vie</h1>
+    <LienReglages section="odyssee" class="mt-2" />
     <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
       Compare ce que vous enregistrez déjà à <strong>votre propre habitude</strong>. La seule
       référence est vous-même, jamais une moyenne de population.

@@ -9,12 +9,14 @@
  * page parle d'abord.
  */
 import Base from '../layouts/Base.astro';
+import LienReglages from '../components/LienReglages.astro';
 ---
 
 <Base titre="Stockage" actif="progression">
   <!-- Le titre vit hors des deux blocs : une page qui n'annonce son sujet
        qu'une fois la base lue n'a pas de titre pour qui arrive au clavier. -->
   <h1 class="mb-5 text-2xl font-bold text-slate-900 dark:text-white">Stockage</h1>
+  <LienReglages section="donnees" class="mt-2" />
 
   <div id="chargement" class="py-20 text-center text-slate-400">Lecture de l’espace de stockage…</div>
 

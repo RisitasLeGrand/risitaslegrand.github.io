@@ -36,6 +36,7 @@
  * chargés. Une séance se fait en sous-sol.
  */
 import Base from '../../layouts/Base.astro';
+import LienReglages from '../../components/LienReglages.astro';
 ---
 
 <Base titre="Séance" actif="seance">
@@ -48,6 +49,7 @@ import Base from '../../layouts/Base.astro';
       <!-- Aucune séance en cours -->
       <section id="repos" class="hidden">
         <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Ma séance</h1>
+        <LienReglages section="sport" class="mt-2" />
         <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
           Rien en cours. La séance s’enregistre série par série, et se reprend telle quelle si
           l’écran s’éteint.
@@ -180,6 +182,14 @@ import Base from '../../layouts/Base.astro';
               class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"></textarea>
           </label>
           <div class="mt-3 flex flex-wrap gap-3">
+            <!--
+              Le bouton de variante du thème Séance (addendum du 42, § 2) :
+              il ne s'affiche que pendant une séance, et ne vaut que pour
+              elle. Le thème choisi revient à la fin.
+            -->
+            <button id="variante-seance" type="button" hidden
+              class="cible-tactile min-h-11 rounded-lg border border-slate-300 px-4 text-sm text-slate-700 dark:border-slate-600 dark:text-slate-200"
+            ></button>
             <button id="terminer" type="button"
               class="min-h-11 rounded-lg bg-emerald-700 px-5 text-sm font-medium text-white transition hover:bg-emerald-800"
               >Terminer la séance</button>
@@ -196,6 +206,14 @@ import Base from '../../layouts/Base.astro';
 <script>
   import { proposerLAnnulation } from '../../lib/annulation';
   import { unSeulGeste } from '../../lib/geste';
+  import { ecranAllumeVoulu, themeDeSeanceVoulu } from '../../lib/parametres/acces';
+  import {
+    poserLeThemeDeSeance,
+    retirerLeThemeDeSeance,
+    themeDeSeanceActif,
+    varianteDeDepart,
+    type VarianteDeSeance,
+  } from '../../lib/theme';
   import { auDeverrouillage } from '../../lib/chargement';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
@@ -298,6 +316,9 @@ import Base from '../../layouts/Base.astro';
   let verrou: WakeLockSentinel | null = null;
 
   async function prendreLeVerrou() {
+    /* « Garder l'écran allumé » est un réglage, activé par défaut
+       (Paramètres > Sport). Décoché, on ne demande rien au navigateur. */
+    if (!ecranAllumeVoulu()) return;
     if (!('wakeLock' in navigator)) {
       $('veille').textContent =
         'Ce navigateur ne sait pas garder l’écran allumé : pensez à régler la mise en veille.';
@@ -322,6 +343,51 @@ import Base from '../../layouts/Base.astro';
     }
     verrou = null;
   }
+
+  /* ── Le thème Séance ───────────────────────────────────────────────────── */
+
+  /*
+     Il s'active au lancement et s'arrête à la fin ou à l'abandon.
+
+     La VARIANTE est figée au lancement : « Plein soleil » si le mode en
+     cours est clair, « Salle » s'il est sombre. Elle ne suit pas l'heure
+     ensuite — une salle ne s'éclaire pas parce qu'il est 21 h —, et le
+     bouton ci-dessous la change pour cette séance seulement.
+
+     Il ne fuit sur aucun autre écran : l'attribut vit sur `<html>`, qui est
+     remplacé à chaque navigation, et `pagehide` le retire pour le cas du
+     retour arrière vers une page gardée en mémoire.
+  */
+  function demarrerLeTheme() {
+    if (!themeDeSeanceVoulu()) return;
+    poserLeThemeDeSeance(varianteDeDepart());
+    majBoutonDeVariante();
+  }
+
+  function arreterLeTheme() {
+    retirerLeThemeDeSeance();
+    majBoutonDeVariante();
+  }
+
+  function majBoutonDeVariante() {
+    const bouton = document.getElementById('variante-seance');
+    if (!bouton) return;
+    const actif = themeDeSeanceActif();
+    bouton.hidden = actif === null;
+    bouton.textContent =
+      actif === 'seance-salle' ? 'Passer en « Plein soleil »' : 'Passer en « Salle »';
+  }
+
+  document.getElementById('variante-seance')?.addEventListener('click', () => {
+    const actif = themeDeSeanceActif();
+    if (!actif) return;
+    const autre: VarianteDeSeance =
+      actif === 'seance-salle' ? 'seance-soleil' : 'seance-salle';
+    poserLeThemeDeSeance(autre);
+    majBoutonDeVariante();
+  });
+
+  window.addEventListener('pagehide', () => retirerLeThemeDeSeance());
 
   /* ── Le rendu ──────────────────────────────────────────────────────────── */
 
@@ -552,6 +618,12 @@ import Base from '../../layouts/Base.astro';
 
       await recharger();
 
+      /* Une séance en cours retrouvée au chargement — on a rechargé la page
+         en pleine séance — reprend son thème : sans cela, le thème Séance
+         disparaîtrait au premier rafraîchissement, et l'écran changerait de
+         couleur au milieu d'une série. */
+      if (seance) demarrerLeTheme();
+
       // Le choix de programme, sur l'écran de repos.
       const choix = $('programme') as HTMLSelectElement;
       for (const p of programmes) {
@@ -566,6 +638,7 @@ import Base from '../../layouts/Base.astro';
         void unSeulGeste(evenement.currentTarget as Element, async () => {
           seance = await ouvrirSeance(choix.value || null);
           seances = [...seances.filter((s) => s.id !== seance!.id), seance];
+          demarrerLeTheme();
           await prendreLeVerrou();
           await peindre();
           $('exercice').focus();
@@ -647,6 +720,7 @@ import Base from '../../layouts/Base.astro';
           });
           ($('note') as HTMLTextAreaElement).value = '';
           seance = null;
+          arreterLeTheme();
           await rendreLeVerrou();
           await recharger();
         });
@@ -682,6 +756,7 @@ import Base from '../../layouts/Base.astro';
           */
           seance = null;
           seances = seances.filter((s) => s.id !== condamnee.id);
+          arreterLeTheme();
           await rendreLeVerrou();
           await peindre();
           proposerLAnnulation({

@@ -28,10 +28,12 @@
  * que le § 3.4 veut empêcher.
  */
 import Base from '../layouts/Base.astro';
+import LienReglages from '../components/LienReglages.astro';
 ---
 
 <Base titre="Notifications" actif="profil" entete="leger">
   <h1 class="mb-5 text-2xl font-bold text-slate-900 dark:text-white">Notifications</h1>
+  <LienReglages section="notifications" class="mt-2" />
 
   {/*
      La vérité d'abord. Trois faits, et aucun n'est flatteur — c'est

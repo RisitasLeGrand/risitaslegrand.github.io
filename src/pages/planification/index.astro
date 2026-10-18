@@ -9,6 +9,7 @@
  *   3. les réglages de rotation — quelle matière tombe quel jour.
  */
 import Base from '../../layouts/Base.astro';
+import LienReglages from '../../components/LienReglages.astro';
 import Section from '../../components/Section.astro';
 ---
 
@@ -63,6 +64,7 @@ import Section from '../../components/Section.astro';
     <section>
       <div class="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
         <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Aujourd'hui</h1>
+        <LienReglages section="revisions" class="mt-2" />
         <p id="date-du-jour" class="text-sm text-slate-500 dark:text-slate-400"></p>
       </div>
 

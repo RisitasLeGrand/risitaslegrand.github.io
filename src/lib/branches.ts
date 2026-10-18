@@ -357,6 +357,13 @@ export const BRANCHES: Branche[] = [
  * parcours ne mène nulle part de compréhensible.
  */
 export const ECRANS_COMMUNS: readonly Onglet[] = [
+  {
+    id: 'parametres',
+    nom: 'Paramètres',
+    description: 'Tous les réglages du site, au même endroit.',
+    chemin: '/parametres/',
+    icone: '⚙️',
+  },
   { id: 'profil', nom: 'Mon profil', chemin: '/profil/', icone: '🪪' },
   { id: 'appareils', nom: 'Appareils', description: 'Appareils et synchronisation.', chemin: '/appareils/', icone: '📱' },
   { id: 'stockage', nom: 'Stockage', chemin: '/stockage/', icone: '🗄️' },

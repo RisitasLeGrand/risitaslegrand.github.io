@@ -20,11 +20,13 @@
  * budget. Seuls les aperçus, qui lisent des données réelles, l'exigent.
  */
 import Base from '../../layouts/Base.astro';
+import LienReglages from '../../components/LienReglages.astro';
 ---
 
 <Base titre="Qui lit mon budget" actif="finances" coffre>
   <div class="mx-auto max-w-3xl">
     <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Qui lit mon budget</h1>
+    <LienReglages section="odyssee" class="mt-2" />
     <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
       Sept endroits de Cyclades peuvent lire quelque chose de vos finances. Chacun dit en toutes
       lettres ce qu’il voit, et vous pouvez le vérifier : « Voir ce qu’il reçoit » affiche la
