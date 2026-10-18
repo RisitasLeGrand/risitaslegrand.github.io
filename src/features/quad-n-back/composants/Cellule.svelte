@@ -12,7 +12,7 @@
    * et les formes sont dessinées en SVG inline au lieu d'URL de blob — ce qui
    * évite de créer des objets jamais libérés.
    */
-  import { SHAPES, LIGHT_PALETTE, DARK_PALETTE } from '../moteur/constantes.js';
+  import { SHAPES, LIGHT_PALETTE, DARK_PALETTE, FACES } from '../moteur/constantes.js';
   import { createVoronoiSvg } from '../moteur/voronoi.js';
   import { createArtSvg } from '../moteur/generative.js';
 
@@ -47,23 +47,23 @@
     forme || motif
       ? sombre
         ? couleur
-          ? '#FDFDFD'
-          : '#EEEEEE'
-        : '#FAFAFA'
+          ? FACES.sombre.support
+          : FACES.sombre.supportColore
+        : FACES.clair.support
       : couleur
         ? palette[couleur]
         : sombre
-          ? '#FDFDFD'
-          : '#313131',
+          ? FACES.sombre.support
+          : FACES.clair.pleine,
   );
 
   const trace = $derived(forme ? SHAPES[forme] : null);
 
   /** Remplissage de la forme : la couleur du tirage, ou le ton neutre « inner ». */
   const remplissage = $derived(
-    couleur ? palette[couleur] : sombre ? '#FFFFFF' : '#313131',
+    couleur ? palette[couleur] : sombre ? FACES.sombre.pleine : FACES.clair.pleine,
   );
-  const contour = $derived(sombre ? '#333' : '#222');
+  const contour = $derived(sombre ? FACES.sombre.contour : FACES.clair.contour);
 
   /** Le cœur du dessin déborde moins pour le cœur : réglage repris tel quel. */
   const tailleForme = $derived(forme === 'heart' ? '100% 95%' : '80% 80%');
@@ -130,11 +130,13 @@
     background-position: center;
     background-repeat: no-repeat;
     /*
-      Les faces reprennent le ton très clair de quad-box (#FAFAFA), proche du
-      fond de page du site : sans un contour franc, le cube disparaîtrait et
-      la dimension « position » deviendrait illisible.
+      Les faces reprennent le ton très clair de quad-box, proche du fond de
+      page du site : sans un contour franc, le cube disparaîtrait et la
+      dimension « position » deviendrait illisible. Le contour vient du
+      jeton d'ombre, qui est sombre dans les quatorze thèmes — les faces,
+      elles, restent celles de l'exercice (voir `moteur/constantes.js`).
     */
-    box-shadow: inset 0 0 0 1.5px rgb(15 23 42 / 0.55);
+    box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--etat-ombre) 55%, transparent);
   }
 
   /* Les six faces du cube, à une demi-arête du centre. */

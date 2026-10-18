@@ -19,6 +19,7 @@
  * application **différente** : une seconde icône apparaîtrait à côté de la
  * première, et l'ancienne resterait installée sur son ancienne adresse.
  */
+import { THEME_PAR_DEFAUT, theme } from '../lib/themes';
 import type { APIRoute } from 'astro';
 import config from '../../site.config.mjs';
 
@@ -43,12 +44,18 @@ export const GET: APIRoute = () =>
         display: 'standalone',
         orientation: 'portrait-primary',
         /*
-           Le fond de l'écran de lancement est l'indigo du site, et non le
-           blanc : le lancement se fait ainsi sans l'éclair blanc qui, sur un
-           téléphone en thème sombre, réveille autant qu'une lampe.
+           Les couleurs du lancement viennent d'Égée, thème par défaut, et
+           sont LUES dans `src/lib/themes.ts` plutôt que recopiées : un
+           manifeste est un fichier statique, que le système lit avant tout
+           CSS et qu'aucun thème ne peut rattraper ; au moins ne dira-t-il
+           pas autre chose que le thème par défaut du site.
+
+           Le fond du lancement est le fond clair d'Égée et non du blanc pur,
+           pour la même raison qu'avant : un éclair blanc, sur un téléphone
+           en thème sombre, réveille autant qu'une lampe.
         */
-        background_color: '#4f46e5',
-        theme_color: '#4f46e5',
+        background_color: theme(THEME_PAR_DEFAUT).clair!.fond,
+        theme_color: theme(THEME_PAR_DEFAUT).clair!.fond,
         icons: [
           { src: `${base}/icone-192.png`, sizes: '192x192', type: 'image/png', purpose: 'any' },
           { src: `${base}/icone-512.png`, sizes: '512x512', type: 'image/png', purpose: 'any' },

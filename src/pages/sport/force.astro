@@ -183,20 +183,20 @@ import { PHASES } from '../../lib/sport/modele';
      lieu de garder l'indigo de défaut.
   */
   const COULEUR_PHASE: Record<TypeDePhase, string> = {
-    'prise-de-masse': 'var(--color-indigo-500, #6366f1)',
-    seche: 'var(--color-amber-500, #f59e0b)',
-    maintien: 'var(--color-slate-500, #64748b)',
-    deload: 'var(--color-teal-500, #14b8a6)',
-    reprise: 'var(--color-purple-500, #a855f7)',
+    'prise-de-masse': 'var(--color-indigo-500)',
+    seche: 'var(--color-amber-500)',
+    maintien: 'var(--color-slate-500)',
+    deload: 'var(--color-teal-500)',
+    reprise: 'var(--color-purple-500)',
   };
 
   /** La couleur d'action : celle des liens et de l'onglet actif. */
-  const COULEUR_COURBE = 'var(--color-indigo-600, #4f46e5)';
+  const COULEUR_COURBE = 'var(--color-indigo-600)';
 
   /*
      Le fond du creux.
 
-     C'était `var(--color-bg, #ffffff)` — mais `--color-bg` **n'est défini
+     C'était `var(--color-bg)` — mais `--color-bg` **n'est défini
      nulle part** : ni dans `tokens.css`, ni par Tailwind. Le repli
      s'appliquait donc toujours, et un point « peu fiable » se rendait en
      blanc plein sur la carte sombre : exactement l'inverse de ce que la
@@ -204,7 +204,7 @@ import { PHASES } from '../../lib/sport/modele';
      `--etat-fond-eleve` est le jeton du fond de carte, défini dans les deux
      thèmes — c'est lui qui rend le creux creux.
   */
-  const COULEUR_CREUX = 'var(--etat-fond-eleve, #ffffff)';
+  const COULEUR_CREUX = 'var(--etat-fond-eleve)';
 
   function tracer(points: readonly PointDeForce[]) {
     const zone = $('graphique');

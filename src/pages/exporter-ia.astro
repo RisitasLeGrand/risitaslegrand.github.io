@@ -160,7 +160,7 @@ import Base from '../layouts/Base.astro';
     padding-inline: 1rem;
     font-size: 0.875rem;
     font-weight: 500;
-    border-color: var(--color-slate-300, #cbd5e1);
+    border-color: var(--color-slate-300);
     /* A10 : propriétés nommées, durées aux jetons — voir le même correctif
        dans « syntheses.astro ». */
     transition:
@@ -169,16 +169,16 @@ import Base from '../layouts/Base.astro';
       border-color var(--duree-courte) var(--courbe-sortie);
   }
   .choix[aria-pressed='true'] {
-    border-color: var(--color-indigo-600, #4f46e5);
-    background: var(--color-indigo-50, #eef2ff);
-    color: var(--color-indigo-800, #3730a3);
+    border-color: var(--color-indigo-600);
+    background: var(--color-indigo-50);
+    color: var(--color-indigo-800);
   }
   :global(.dark) .choix {
-    border-color: var(--color-slate-700, #334155);
+    border-color: var(--color-slate-700);
   }
   :global(.dark) .choix[aria-pressed='true'] {
-    background: color-mix(in srgb, var(--color-indigo-950, #1e1b4b) 50%, transparent);
-    color: var(--color-indigo-200, #c7d2fe);
+    background: color-mix(in srgb, var(--color-indigo-950) 50%, transparent);
+    color: var(--color-indigo-200);
   }
 </style>
 

@@ -623,7 +623,9 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
     const lisse = document.createElementNS(SVG, 'polyline');
     lisse.setAttribute('fill', 'none');
-    lisse.setAttribute('stroke', '#4f46e5');
+    /* `stroke` est un attribut de présentation : il n'accepte pas `var()`.
+       On passe donc par le style en ligne, qui, lui, le résout. */
+    lisse.style.stroke = 'var(--etat-action)';
     lisse.setAttribute('stroke-width', '2.5');
     lisse.setAttribute('stroke-linejoin', 'round');
     lisse.setAttribute('points', serie.map((p, i) => `${x(i)},${y(p.moyenne)}`).join(' '));

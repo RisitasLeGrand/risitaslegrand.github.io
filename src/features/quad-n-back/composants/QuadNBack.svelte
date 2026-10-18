@@ -21,6 +21,7 @@
     PROGRESSION_DEFAUT,
   } from '../moteur/nback.js';
   import { lecteurAudio } from '../moteur/audio.js';
+  import { RETOURS } from '../moteur/constantes.js';
   import { ajouterSessionNBack, toutesLesSessionsNBack } from '../../../lib/db';
   import { gagnerXp, xpNBack } from '../../../lib/gamification';
   import { notifier } from '../../../lib/ui';
@@ -472,15 +473,12 @@
 
   onDestroy(nettoyerMinuteurs);
 
-  /**
-   * Couleurs des retours, reprises telles quelles de quad-box (app.css).
-   * La couleur de texte est choisie pour rester lisible sur chaque fond.
-   */
-  const COULEURS_RETOUR = {
-    reussite: { clair: ['#93C82E', '#14290a'], sombre: ['#386D38', '#f8fafc'] },
-    echec: { clair: ['#EE3527', '#ffffff'], sombre: ['#9F2323', '#f8fafc'] },
-    oubli: { clair: ['#F49F31', '#2a1a05'], sombre: ['#a6712c', '#f8fafc'] },
-  };
+  /*
+     Les couleurs des retours sont rangées avec les stimuli, dans
+     `moteur/constantes.js` : ce sont les couleurs de l'épreuve, et c'est le
+     seul fichier de l'exercice où une couleur s'écrit.
+  */
+  const COULEURS_RETOUR = RETOURS;
 
   /** Style en ligne d'un bouton de réponse selon son état. */
   function styleRetour(cle) {
@@ -824,9 +822,9 @@
 
     {#if reglages.retourImmediat}
       <p class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center text-xs text-slate-400">
-        <span><span class="inline-block h-2.5 w-2.5 rounded-sm align-middle" style="background:#93C82E"></span> correct</span>
-        <span><span class="inline-block h-2.5 w-2.5 rounded-sm align-middle" style="background:#EE3527"></span> incorrect</span>
-        <span><span class="inline-block h-2.5 w-2.5 rounded-sm align-middle" style="background:#F49F31"></span> correspondance manquée</span>
+        <span><span class="inline-block h-2.5 w-2.5 rounded-sm align-middle" style="background:{RETOURS.reussite.clair[0]}"></span> correct</span>
+        <span><span class="inline-block h-2.5 w-2.5 rounded-sm align-middle" style="background:{RETOURS.echec.clair[0]}"></span> incorrect</span>
+        <span><span class="inline-block h-2.5 w-2.5 rounded-sm align-middle" style="background:{RETOURS.oubli.clair[0]}"></span> correspondance manquée</span>
       </p>
     {/if}
 

@@ -61,13 +61,20 @@ function creer(): HTMLElement {
     'align-items:center',
     'justify-content:center',
     /*
-       Opaque, et d'une couleur posée en dur. On ne lit pas les variables de
-       thème ici : au moment où le voile est posé, la page part en arrière-plan
-       et une lecture de style calculé peut coûter un reflow qu'on n'a plus le
-       temps de payer. Le gris très sombre convient aux deux thèmes.
+       Opaque, et aux couleurs du thème.
+       
+       La première version posait un bleu ardoise très sombre en dur, avec
+       cette raison : au
+       moment où le voile est posé, la page part en arrière-plan et une
+       lecture de style calculé coûterait un reflow qu'on n'a plus le temps
+       de payer. La raison était juste pour une **lecture** ; elle ne valait
+       pas pour une écriture. Écrire « var(--etat-fond) » dans un style en
+       ligne ne lit rien : c'est le moteur de style qui résoudra la variable,
+       au moment où il peindra. Le voile suit donc les quatorze thèmes, et ne
+       coûte toujours rien.
     */
-    'background:#0f172a',
-    'color:#cbd5e1',
+    'background:var(--etat-fond)',
+    'color:var(--etat-texte-faible)',
     'font:600 1rem/1.4 system-ui,sans-serif',
     'letter-spacing:0.02em',
   ].join(';');

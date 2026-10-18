@@ -4,6 +4,7 @@
  * Le contenu de la page n'est rendu qu'une fois la session déverrouillée.
  */
 import '../styles/global.css';
+import { THEME_PAR_DEFAUT, theme } from '../lib/themes';
 import Verrou from '../components/Verrou.astro';
 import CentreNotifications from '../components/CentreNotifications.astro';
 import CommutateurTheme from '../components/CommutateurTheme.astro';
@@ -99,6 +100,14 @@ const {
    le soustrait au pipeline CSS d'Astro, qui n'a pas à connaître une règle
    qu'il pourrait écarter.
 */
+/*
+   La couleur de la barre du navigateur, avant que le script d'amorçage ne
+   l'ajuste au thème choisi. Elle est LUE dans le catalogue des thèmes :
+   la recopier en ferait la seule couleur littérale du gabarit, et elle se
+   périmerait au premier ajustement d'Égée.
+*/
+const COULEUR_DE_BARRE = theme(THEME_PAR_DEFAUT).clair!.fond;
+
 const CSS_TRANSITIONS = `@view-transition { navigation: auto }
 
 /* Sobre (décision 2) : un fondu seul, aux durées du socle A6, sans glissement
@@ -357,7 +366,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
     */}
     <link rel="manifest" href={`${base}/manifeste.webmanifest`} />
     <link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
-    <meta name="theme-color" content="#4f46e5" />
+    <meta name="theme-color" content={COULEUR_DE_BARRE} />
     {/*
        iOS, et ses trois balises propriétaires. La seconde vaut une
        explication : « black-translucent » fait passer le contenu SOUS la

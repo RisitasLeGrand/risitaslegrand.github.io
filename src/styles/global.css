@@ -1,6 +1,10 @@
 @import 'tailwindcss';
 @import './polices.css';
 @import './tokens.css';
+/* Les couleurs d'Égée et du thème Séance, engendrées par « npm run themes ».
+   Les treize autres thèmes sont dans public/themes/ et ne sont chargés que
+   si on les choisit : seul le thème actif pèse sur le premier affichage. */
+@import './theme-defaut.css';
 @plugin '@tailwindcss/typography';
 
 /* Le thème sombre est piloté par l'attribut data-theme posé sur <html>.
@@ -1306,7 +1310,10 @@ button:not(:disabled):active,
 }
 
 .boite::backdrop {
-  background: rgb(2 6 23 / 55%);
+  /* Le voile derrière une boîte : l'ombre du thème, à 55 %. Il était écrit
+     en dur, au slate-950 d'alors, et restait donc bleuté
+     dans les quatorze thèmes. */
+  background: color-mix(in srgb, var(--etat-ombre) 55%, transparent);
 }
 
 .boite-feuille {
@@ -1509,7 +1516,7 @@ button:not(:disabled):active,
   border-radius: var(--radius-xl);
   background: var(--etat-texte-fort);
   color: var(--etat-fond-eleve);
-  box-shadow: 0 10px 25px -10px rgb(0 0 0 / 45%);
+  box-shadow: 0 10px 25px -10px color-mix(in srgb, var(--etat-ombre) 45%, transparent);
   animation: boite-monte var(--duree-moyenne) var(--courbe-entree);
 }
 
@@ -1545,5 +1552,8 @@ button:not(:disabled):active,
 }
 
 .bandeau-annulation-bouton:hover {
-  background: rgb(255 255 255 / 15%);
+  /* Le bandeau est posé sur « --etat-texte-fort » et écrit en
+     « --etat-fond-eleve » : son survol se teinte de sa propre couleur de
+     texte, et suit donc le thème sans rien connaître de lui. */
+  background: color-mix(in srgb, currentColor 15%, transparent);
 }

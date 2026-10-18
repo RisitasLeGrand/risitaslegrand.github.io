@@ -329,19 +329,19 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
   }
 
   .zone {
-    fill: var(--color-slate-400, #94a3b8);
+    fill: var(--color-slate-400);
     cursor: pointer;
     /* Durée et courbe aux jetons (A7, écart 1) : 120 ms en dur ne disait pas
        d'où venait ce chiffre, et le socle ne pouvait pas le suivre. */
     transition: fill var(--duree-courte) var(--courbe-sortie);
   }
-  .zone:hover { fill: var(--color-indigo-400, #818cf8); }
+  .zone:hover { fill: var(--color-indigo-400); }
   .zone:focus-visible {
-    outline: 2px solid var(--color-indigo-600, #4f46e5);
+    outline: 2px solid var(--color-indigo-600);
     outline-offset: 2px;
   }
-  .zone[data-etat='principal'] { fill: var(--color-indigo-600, #4f46e5); }
-  .zone[data-etat='secondaire'] { fill: var(--color-indigo-300, #a5b4fc); }
+  .zone[data-etat='principal'] { fill: var(--color-indigo-600); }
+  .zone[data-etat='secondaire'] { fill: var(--color-indigo-300); }
 </style>
 
 <script>

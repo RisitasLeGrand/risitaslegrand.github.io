@@ -79,6 +79,43 @@ export const DARK_PALETTE = {
 }
 
 
+/*
+ * ── Les couleurs propres à l'exercice ───────────────────────────────────
+ *
+ * Elles sont écrites ici, en dur, et c'est voulu : ce sont des **stimuli**,
+ * pas des éléments d'interface. Le Quad N-Back demande de distinguer huit
+ * couleurs ; si elles suivaient le thème, elles cesseraient d'être
+ * comparables d'une séance à l'autre, et dans Ardoise — sans couleur vive —
+ * la dimension « couleur » disparaîtrait purement et simplement. Les faces
+ * du cube et les retours sont du même ordre : ils portent le sens de
+ * l'épreuve, comme le dessin d'une icône.
+ *
+ * C'est le seul fichier de l'exercice où une couleur est écrite ;
+ * `essais:couleurs-jetons` le déclare en exception, avec cette raison.
+ */
+
+/**
+ * Les faces du cube et leurs contours, repris de quad-box.
+ *
+ * Une forme ou un motif impose une face claire qui leur sert de support ;
+ * sans eux, c'est la face elle-même qui porte la couleur du tirage.
+ */
+export const FACES = {
+  clair: { support: '#FAFAFA', pleine: '#313131', contour: '#222' },
+  sombre: { support: '#FDFDFD', supportColore: '#EEEEEE', pleine: '#FFFFFF', contour: '#333' },
+}
+
+/**
+ * Les retours immédiats : fond et texte, choisis pour que le texte reste
+ * lisible sur chaque fond. Repris de quad-box (app.css).
+ */
+export const RETOURS = {
+  reussite: { clair: ['#93C82E', '#14290a'], sombre: ['#386D38', '#f8fafc'] },
+  echec: { clair: ['#EE3527', '#ffffff'], sombre: ['#9F2323', '#f8fafc'] },
+  oubli: { clair: ['#F49F31', '#2a1a05'], sombre: ['#a6712c', '#f8fafc'] },
+}
+
+
 export const COLOR_POOL = Object.keys(LIGHT_PALETTE);
 export const SHAPE_POOL = Object.keys(SHAPES);
 
