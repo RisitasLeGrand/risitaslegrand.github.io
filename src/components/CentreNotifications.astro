@@ -157,6 +157,7 @@
 
 <script>
   import { base } from '../lib/ui';
+  import { calqueFerme, calqueOuvert } from '../lib/calques';
   import { surCoffre } from '../lib/coffre';
   import {
     archiver,
@@ -463,6 +464,9 @@
       if (ouvrir) placer();
       panneau.hidden = !ouvrir;
       bouton.setAttribute('aria-expanded', String(ouvrir));
+      /* M5 : le retour arrière referme le panneau au lieu de quitter la page. */
+      if (ouvrir) calqueOuvert('centre', () => void basculer(false));
+      else calqueFerme('centre');
       if (ouvrir) {
         await faireLeMenage();
         await dessiner();

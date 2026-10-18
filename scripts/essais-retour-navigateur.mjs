@@ -80,6 +80,7 @@ const page = await ctx.newPage();
 await franchirInitialisation(page, BASE, MDP);
 
 const sans = [];
+const autreSortie = [];
 const tropPetites = [];
 const sansNom = [];
 for (const route of ROUTES) {
@@ -111,6 +112,34 @@ for (const route of ROUTES) {
     continue;
   }
   if (!etat.present || !etat.visible) {
+    /*
+       Pas de flèche. Avant d'accuser, on vérifie ce que la flèche sert à
+       garantir : qu'on ne reste jamais coincé. Une page peut l'honorer
+       autrement — « /mot-de-passe-perdu/ » se lit SANS le mot de passe, et
+       un en-tête dont tous les liens mènent à des écrans verrouillés ne
+       servirait personne ; elle porte donc un lien de retour explicite dans
+       son corps.
+
+       On mesure ce lien, on ne le suppose pas : visible, et menant à
+       l'accueil. Les pages qui passent par là sont nommées plus bas, pour
+       que l'exception ne devienne jamais silencieuse.
+    */
+    const sortie = await page.evaluate((racine) => {
+      const liens = [...document.querySelectorAll('a[href]')];
+      return liens.some((a) => {
+        const r = a.getBoundingClientRect();
+        if (r.width <= 0 || r.height <= 0) return false;
+        try {
+          return new URL(a.href, location.href).pathname === racine;
+        } catch {
+          return false;
+        }
+      });
+    }, new URL(`${BASE}/`).pathname);
+    if (sortie) {
+      autreSortie.push(route);
+      continue;
+    }
     sans.push(route);
     continue;
   }
@@ -119,7 +148,17 @@ for (const route of ROUTES) {
   }
   if (!/^Revenir à .+/.test(etat.nom)) sansNom.push(`${route} « ${etat.nom} »`);
 }
-verifier('aucune page sans flèche', sans, []);
+verifier('aucune page sans flèche ni autre porte de sortie', sans, []);
+console.log(
+  `      pages sans flèche mais avec un lien de retour explicite : ${autreSortie.length}` +
+    (autreSortie.length ? ` — ${autreSortie.join(', ')}` : ''),
+);
+/*
+   La garde de la garde : si un jour toutes les pages passaient par cette
+   porte dérobée, le contrôle ne contrôlerait plus rien. Une poignée
+   d'exceptions nommées, pas davantage.
+*/
+verifier('et ces exceptions restent rares', autreSortie.length <= 2, true);
 verifier('R2 — aucune flèche sous 44 px à 360 px', tropPetites, []);
 verifier('R3 — chaque flèche dit sa destination à voix haute', sansNom, []);
 

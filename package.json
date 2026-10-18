@@ -234,6 +234,7 @@
     "essais:laterale": "node scripts/essais-laterale.mjs",
     "essais:refus-dit": "node scripts/essais-refus-dit.mjs",
     "essais:centre-m14": "node scripts/essais-centre-m14.mjs",
+    "essais:calques": "node scripts/essais-calques.mjs",
     "essais:voile": "node scripts/essais-voile-et-fiche.mjs",
     "essais:redemande": "node scripts/essais-redemande.mjs",
     "essais:bascule-branchement": "node scripts/essais-bascule-branchement.mjs"

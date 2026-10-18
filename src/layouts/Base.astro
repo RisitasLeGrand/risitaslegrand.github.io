@@ -1279,6 +1279,8 @@ const flecheVisible = !estLeMenu && !sansNavigation;
 </html>
 
 <script>
+  import { calqueFerme, calqueOuvert } from '../lib/calques';
+
   /*
      Trois gestes que le navigateur ne donne pas seul.
 
@@ -1312,6 +1314,14 @@ const flecheVisible = !estLeMenu && !sansNavigation;
     ouvrir?.setAttribute('aria-expanded', String(ouverte));
     if (ouverte) (feuille?.querySelector('a') as HTMLElement | null)?.focus();
     else ouvrir?.focus();
+    /*
+       M5 : le retour arrière du système ferme la feuille avant de quitter la
+       page. Sans ces deux lignes, il quittait l'écran avec la feuille encore
+       ouverte par-dessus — on revenait donc en arrière sans l'avoir voulu, et
+       on perdait sa place.
+    */
+    if (ouverte) calqueOuvert('feuille-plus', () => basculerFeuille(false));
+    else calqueFerme('feuille-plus');
   };
 
   ouvrir?.addEventListener('click', () => basculerFeuille(true));

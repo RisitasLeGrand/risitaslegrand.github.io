@@ -89,6 +89,7 @@ import { base } from '../lib/ui';
     surCoffre,
   } from '../lib/coffre';
   import { afficherLeBandeau, bandeauVoulu, surBandeau } from '../lib/coffre-bandeau';
+  import { calqueFerme, calqueOuvert } from '../lib/calques';
 
   /*
      Le verrou automatique se branche ici parce que ce composant est monté
@@ -114,6 +115,7 @@ import { base } from '../lib/ui';
     const fermerLeMenu = () => {
       menu.classList.add('hidden');
       bouton.setAttribute('aria-expanded', 'false');
+      calqueFerme('cadenas');
     };
 
     const peindre = (ouvert: boolean) => {
@@ -137,6 +139,9 @@ import { base } from '../lib/ui';
     bouton.addEventListener('click', () => {
       const ouvert = menu.classList.toggle('hidden') === false;
       bouton.setAttribute('aria-expanded', String(ouvert));
+      /* M5 : le retour arrière referme le menu plutôt que de quitter l'écran. */
+      if (ouvert) calqueOuvert('cadenas', fermerLeMenu);
+      else calqueFerme('cadenas');
     });
 
     document.getElementById('cadenas-fermer')?.addEventListener('click', () => {
