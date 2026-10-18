@@ -187,11 +187,30 @@ body {
   font-family: var(--font-serif);
 }
 
-/* --- Bandeau tricolore --------------------------------------------------- */
-/* Rappel discret des couleurs nationales, sans reprendre le bloc-marque de
-   l'État (logo et « République Française »), réservé à ses services. */
+/* --- Le filet du haut ----------------------------------------------------- */
+/*
+   IL ÉTAIT TRICOLORE DANS TOUS LES THÈMES, ET C'EST L'USAGE QUE LE § 1 DE
+   L'ADDENDUM DEMANDE DE SIGNALER.
+
+   Deux pixels de haut, en trois bandes : action, fond, accent. Or
+   « --etat-accent » est désormais la couleur d'**erreur** de chaque thème —
+   l'addendum le dit : « il devient l'erreur ; signaler chaque usage qui
+   n'était pas une erreur ». Celui-ci n'en était pas un : c'était un rappel
+   des couleurs nationales, qui a un sens sous République et aucun sous
+   Papier, Olivier ou Nuit de Délos, où il peignait un trait rouge en haut
+   de chaque écran sans rien vouloir dire.
+
+   Il devient donc un filet uni, à la couleur d'action du thème — et il
+   reste tricolore **sous République**, dont c'est précisément l'identité :
+   « l'allure des sites de l'État, celle des débuts ». La classe garde son
+   nom, qui reste juste là où elle est tricolore, et le CSS dit le reste.
+*/
 .bandeau-tricolore {
   height: 2px;
+  background: var(--etat-action);
+}
+
+:root[data-palette='republique'] .bandeau-tricolore {
   background: linear-gradient(
     to right,
     var(--etat-action) 0 33.333%,
