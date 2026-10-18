@@ -134,12 +134,50 @@ if (toucheApple) {
   verifier('à la taille qu’iOS réclame', width, 180);
 }
 
+/*
+   DEUX QUESTIONS, ET LA PREMIÈRE VERSION LES CONFONDAIT. Elle comparait le
+   contenu **vivant** de la balise au `theme_color` **figé** du manifeste, et
+   exigeait l'égalité. Depuis la bascule jour/nuit, `theme.ts` réécrit cette
+   balise à chaque pose de thème, pour que la barre du navigateur suive le
+   fond de l'écran. La nuit, le vivant est sombre et le manifeste reste clair :
+   l'essai échouait, et il n'échouait que la nuit. Un contrôle qui ne passe
+   qu'à certaines heures ne garde rien — il attend simplement le matin.
+
+   Les deux questions sont distinctes, et toutes deux valent d'être posées.
+
+   1. CE QUI EST SERVI, avant tout script : c'est cette valeur-là qui colore
+      la barre « avant l'installation », comme le dit le commentaire du
+      gabarit, et sur les navigateurs qui ne lisent le manifeste qu'à
+      l'installation. Elle doit être celle du manifeste, sinon la barre
+      change de couleur à l'installation. On la lit dans le HTML brut, sans
+      navigateur, pour qu'aucun script ne puisse l'avoir déjà réécrite.
+   2. CE QUI EST VIVANT, après le thème : la barre doit porter le fond de
+      l'écran courant, quel que soit le thème et quelle que soit l'heure.
+*/
+const htmlServi = await (await page.request.get(`${BASE}/`)).text();
 verifier(
-  'la page porte aussi « theme-color », pour la barre avant installation',
-  await page.evaluate(
-    () => document.querySelector('meta[name="theme-color"]')?.getAttribute('content') ?? null,
-  ),
+  'le HTML servi porte le « theme-color » du manifeste, pour la barre avant installation',
+  /<meta[^>]+name="theme-color"[^>]+content="([^"]+)"/.exec(htmlServi)?.[1] ??
+    /<meta[^>]+content="([^"]+)"[^>]+name="theme-color"/.exec(htmlServi)?.[1] ??
+    null,
   manifeste.theme_color,
+);
+/*
+   Les deux côtés viennent de la page : on vérifie qu'ils COÏNCIDENT, pas
+   qu'ils valent telle couleur — celle-là dépend de l'heure, et c'est
+   précisément ce qu'on ne veut plus juger ici. La comparaison est
+   insensible à la casse : le thème écrit « #F7F5F0 », le style calculé
+   rend ce qu'il trouve, et « #f7f5f0 » est la même couleur.
+*/
+const [barreVivante, fondCourant] = await page.evaluate(() => {
+  const vu = document.querySelector('meta[name="theme-color"]')?.getAttribute('content') ?? null;
+  const fond = getComputedStyle(document.documentElement).getPropertyValue('--etat-fond').trim();
+  return [vu ? vu.toLowerCase() : null, fond ? fond.toLowerCase() : null];
+});
+verifier(
+  `et la balise vivante suit le fond du thème courant, à toute heure (ici ${fondCourant})`,
+  barreVivante,
+  fondCourant,
 );
 
 await nav.close();
