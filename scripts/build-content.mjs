@@ -22,9 +22,17 @@ import {
 } from './lib/schema.mjs';
 import { indexerFichesParChemin, resoudreRappels } from './lib/rappels.mjs';
 import { motDeLEpreuve } from './lib/pretest.mjs';
+import { defautsDesParties, titresSansIdentifiant } from './lib/parties.mjs';
 import { dechiffrerAvecMotDePasse } from './lib/secret.mjs';
 import { construireIndexGlossaire, idTerme } from './lib/glossaire.mjs';
-import { decouperSections, rendreHtml, texteBrut, extraireSommaire } from './lib/markdown.mjs';
+import {
+  decouperSections,
+  extraireParties,
+  extraireSommaire,
+  poserLesIdentifiants,
+  rendreHtml,
+  texteBrut,
+} from './lib/markdown.mjs';
 import { gzipSync } from 'node:zlib';
 import { sha256Hex, deriverCle, selAleatoire, chiffrerJson, chiffrerBinaire, idStable, b64 } from './lib/crypto.mjs';
 
@@ -52,6 +60,14 @@ const couleur = {
 
 const avertissements = [];
 const erreurs = [];
+/*
+   Les fiches dont un titre de partie n'a pas encore d'identifiant écrit.
+   Toléré pendant la transition du prompt 46, et **dit** : un titre sans
+   identifiant garde une ancre dérivée de son texte, donc une ancre qui
+   changera si le titre est corrigé — ce que tout le prompt existe pour
+   éviter.
+*/
+const partiesSansIdentifiant = [];
 
 function echouer(message) {
   console.error(`\n${couleur.rouge('✖ ' + message)}\n`);
@@ -396,11 +412,26 @@ async function main() {
     // et survit aux rebuilds (la progression enregistrée reste valable).
     const ficheId = await idStable(relatif);
 
+    /*
+       LES PARTIES DE LA FICHE (prompt 46, P1).
+
+       Les marqueurs « {#identifiant} » sont retirés du Markdown avant le
+       rendu, puis reposés sur les titres du HTML. L'ancienne ancre — celle
+       que fabrique `rehype-slug` depuis le texte du titre — reste
+       atteignable, posée sur une balise vide juste avant : des liens vers
+       elle existent déjà, et un identifiant stable qui casserait les anciens
+       liens aurait tout gâché au premier jour.
+    */
+    const { markdown: coursPropre, parties: partiesDeclarees } = extraireParties(sections.cours);
+
     const dejaVus = new Set();
-    const coursHtml = rendreHtml(sections.cours, indexGlossaire, {
-      premiereOccurrenceSeulement: config.glossaire.premiereOccurrenceSeulement,
-      dejaVus,
-    });
+    const coursHtml = poserLesIdentifiants(
+      rendreHtml(coursPropre, indexGlossaire, {
+        premiereOccurrenceSeulement: config.glossaire.premiereOccurrenceSeulement,
+        dejaVus,
+      }),
+      partiesDeclarees,
+    );
     const ficheHtml = rendreHtml(sections.fiche, indexGlossaire, {
       premiereOccurrenceSeulement: config.glossaire.premiereOccurrenceSeulement,
       dejaVus: new Set(),
@@ -488,6 +519,33 @@ async function main() {
       .replace(/\s+/g, ' ')
       .trim();
 
+    /*
+       Les parties, telles que le site les servira : on les relit dans le
+       HTML rendu plutôt que dans le Markdown, parce que c'est le HTML qui
+       porte les identifiants réellement posés. Une liste tirée du Markdown
+       aurait pu diverger du document servi, et c'est exactement le genre
+       d'écart qu'on ne découvre qu'au moment où un repère audio tombe à côté.
+    */
+    const sommaire = extraireSommaire(coursHtml || ficheHtml);
+    const parties = sommaire.map((s, i) => ({
+      ...s,
+      /* Déclaré dans le Markdown, ou simplement dérivé du titre : le second
+         cas est toléré pendant la transition, et signalé plus bas. */
+      declare: Boolean(partiesDeclarees[i]?.id),
+    }));
+
+    erreurs.push(
+      ...defautsDesParties(relatif, parties, [
+        ['## Flashcards', flashcards],
+        ['## Quiz', quiz],
+        ['## Prétest', pretest],
+      ]),
+    );
+    const sansIdentifiant = titresSansIdentifiant(parties);
+    if (sansIdentifiant > 0) {
+      partiesSansIdentifiant.push({ chemin: relatif, combien: sansIdentifiant });
+    }
+
     fiches.push({
       id: ficheId,
       chemin: relatif,
@@ -499,7 +557,8 @@ async function main() {
       tags: fm.data.tags,
       coursHtml,
       ficheHtml,
-      sommaire: extraireSommaire(coursHtml || ficheHtml),
+      sommaire,
+      parties,
       flashcards,
       quiz,
       pretest,
@@ -530,6 +589,15 @@ async function main() {
   for (const q of banqueDgfip.questions) {
     erreurs.push(
       ...resoudreRappels(q.correction, indexFiches, `QCM DGFiP, rubrique « ${q.rubrique} »`),
+    );
+  }
+
+  if (partiesSansIdentifiant.length) {
+    const titres = partiesSansIdentifiant.reduce((somme, f) => somme + f.combien, 0);
+    avertissements.push(
+      `${titres} titre(s) de partie sans identifiant écrit, dans ` +
+        `${partiesSansIdentifiant.length} fiche(s). Leur ancre est dérivée du titre et changera ` +
+        's\u2019il est corrigé : « npm run parties:identifiants » les pose une fois pour toutes.',
     );
   }
 
@@ -782,6 +850,7 @@ async function main() {
       coursHtml: f.coursHtml,
       ficheHtml: f.ficheHtml,
       sommaire: f.sommaire,
+      parties: f.parties,
       flashcards: f.flashcards,
       quiz: f.quiz,
       pretest: f.pretest,

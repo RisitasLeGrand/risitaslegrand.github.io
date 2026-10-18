@@ -61,6 +61,13 @@ export interface Flashcard {
   id: string;
   question: string;
   reponse: string;
+  /**
+   * La partie de la fiche dont elle relève (prompt 46, P4). Facultative :
+   * son absence veut dire « la fiche entière », ce qui est le cas de tout
+   * ce qui a été écrit avant — et le restera tant qu'une lecture humaine
+   * n'aura pas tranché, le rattachement ne se devinant pas.
+   */
+  partie?: string;
 }
 
 /**
@@ -104,6 +111,8 @@ export interface QuestionQuiz {
   bonnes: number[];
   explication?: string;
   correction?: Correction;
+  /** La partie de la fiche dont elle relève (prompt 46, P4), s'il y en a une. */
+  partie?: string;
 }
 
 export interface Fiche {
@@ -115,6 +124,17 @@ export interface Fiche {
   coursHtml: string;
   ficheHtml: string;
   sommaire: { niveau: number; id: string; titre: string }[];
+  /**
+   * Les parties de la fiche : un titre de niveau 2 ou 3 du cours, avec son
+   * identifiant **stable** (prompt 46, P1). `declare` dit si cet identifiant
+   * est écrit dans le Markdown ou seulement dérivé du titre — dans le second
+   * cas, il changera si le titre est corrigé, et c'est ce que la transition
+   * doit finir de supprimer.
+   *
+   * Facultatif : une fiche construite avant le prompt 46 n'en a pas, et son
+   * absence veut dire « on ne sait pas découper cette fiche ».
+   */
+  parties?: { niveau: number; id: string; titre: string; declare: boolean }[];
   flashcards: Flashcard[];
   quiz: QuestionQuiz[];
   /**

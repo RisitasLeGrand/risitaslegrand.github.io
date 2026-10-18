@@ -103,3 +103,94 @@ export function extraireSommaire(html) {
   }
   return sommaire;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Les parties d'une fiche (prompt 46, P1)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * L'identifiant d'une partie, écrit à côté de son titre.
+ *
+ * ## Pourquoi un identifiant écrit, et pas l'ancre
+ *
+ * L'ancre d'un titre est fabriquée à partir de son texte. Corriger une
+ * faute dans « Contraintes de s'adapter » change donc l'ancre, et avec elle
+ * tout ce qui s'y rattache : un repère audio, une carte rattachée à la
+ * partie, une séance qui dit l'avoir vue. L'identifiant, lui, est écrit une
+ * fois et ne bouge plus — c'est la condition de tout le reste du prompt 46.
+ *
+ * ## Pourquoi cette syntaxe, et pas `{#id}` de Markdown étendu
+ *
+ * `{#id}` est la syntaxe des attributs de titre, mais `remark` ne la connaît
+ * pas sans greffon, et l'interdit 5 défend d'ajouter une dépendance. Le
+ * marqueur est donc retiré **avant** le rendu, par cette fonction, et
+ * l'identifiant reposé **après** sur le bon titre. Le rendu ne voit jamais
+ * la syntaxe, et personne n'a à l'apprendre à `remark`.
+ */
+/*
+   Les lettres accentuées sont admises, et ce n'est pas une largesse : les
+   ancres actuelles en portent — « …françaises… », « …connaît… » —, et
+   l'identifiant posé par `npm run parties:identifiants` EST l'ancre
+   actuelle, pour que les liens déjà enregistrés continuent de tomber juste.
+   Une expression restreinte à l'ASCII ne reconnaissait pas ces marqueurs :
+   le premier passage les écrivait, le second les réécrivait par-dessus, et
+   le rendu affichait « {#…} » dans le titre. Mesuré sur 423 fiches.
+*/
+const MARQUEUR = /\s*\{#([\p{L}\p{N}][\p{L}\p{N}_-]*)\}\s*$/u;
+
+/**
+ * Sépare le Markdown d'un cours de ses identifiants de partie.
+ *
+ * Rend le Markdown **sans les marqueurs** — c'est lui qu'on rend en HTML —
+ * et la liste des parties dans l'ordre des titres, avec, pour chacune, le
+ * niveau, le titre nettoyé, et l'identifiant déclaré ou `null`.
+ *
+ * Un titre de niveau 4 n'est pas une partie : la décision 2 du prompt le
+ * dit, « le niveau 4 reste à l'intérieur de sa partie ».
+ */
+export function extraireParties(markdown) {
+  if (!markdown?.trim()) return { markdown: markdown ?? '', parties: [] };
+  const lignes = markdown.split(/\r?\n/);
+  const parties = [];
+  let dansBlocCode = false;
+
+  const propres = lignes.map((ligne) => {
+    if (/^\s*(```|~~~)/.test(ligne)) dansBlocCode = !dansBlocCode;
+    if (dansBlocCode) return ligne;
+    const titre = /^(#{2,3})\s+(.+?)\s*$/.exec(ligne);
+    if (!titre) return ligne;
+    const marque = MARQUEUR.exec(titre[2]);
+    const texte = marque ? titre[2].replace(MARQUEUR, '') : titre[2];
+    parties.push({
+      niveau: titre[1].length,
+      titre: texte.trim(),
+      id: marque ? marque[1] : null,
+    });
+    return `${titre[1]} ${texte.trim()}`;
+  });
+
+  return { markdown: propres.join('\n'), parties };
+}
+
+/**
+ * Pose les identifiants déclarés sur les titres du HTML rendu.
+ *
+ * L'ancienne ancre — celle que `rehype-slug` fabrique depuis le texte —
+ * reste atteignable : elle est posée sur une balise vide juste avant le
+ * titre. Le prompt l'exige, et pour une raison concrète : des liens vers
+ * ces ancres sont déjà enregistrés, dans des corrections de QCM comme dans
+ * les favoris de qui révise. Un identifiant stable ne vaut rien s'il casse
+ * ce qui pointait vers l'ancien.
+ */
+export function poserLesIdentifiants(html, parties) {
+  let i = 0;
+  return html.replace(/<h([23])\s+id="([^"]+)"([^>]*)>/g, (entier, niveau, ancre, reste) => {
+    const partie = parties[i];
+    i += 1;
+    if (!partie?.id || partie.id === ancre) return entier;
+    return (
+      `<span id="${ancre}" class="ancre-ancienne" aria-hidden="true"></span>` +
+      `<h${niveau} id="${partie.id}"${reste}>`
+    );
+  });
+}

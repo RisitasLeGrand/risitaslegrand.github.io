@@ -18,12 +18,26 @@ export const frontMatterSchema = z.object({
   tags: z.array(z.string()).default([]),
 });
 
+/**
+ * L'identifiant d'une partie de fiche, tel qu'une carte ou un QCM le cite
+ * (prompt 46, P4). Facultatif : son absence veut dire « la fiche entière »,
+ * et c'est le cas par défaut de tout ce qui a été écrit avant.
+ */
+const partieCitee = z
+  .string()
+  .regex(
+    /^[\p{L}\p{N}][\p{L}\p{N}_-]*$/u,
+    'un identifiant de partie s’écrit en lettres, chiffres, tirets et soulignés',
+  )
+  .optional();
+
 export const flashcardSchema = z
   .object({
     q: z.string().optional(),
     question: z.string().optional(),
     r: z.string().optional(),
     reponse: z.string().optional(),
+    partie: partieCitee,
   })
   .transform((v, ctx) => {
     const question = v.q ?? v.question;
@@ -36,7 +50,11 @@ export const flashcardSchema = z
       ctx.addIssue({ code: 'custom', message: `flashcard « ${question} » sans « r: » (réponse)` });
       return z.NEVER;
     }
-    return { question: String(question).trim(), reponse: String(reponse).trim() };
+    return {
+      question: String(question).trim(),
+      reponse: String(reponse).trim(),
+      ...(v.partie ? { partie: v.partie } : {}),
+    };
   });
 
 /**
@@ -255,6 +273,7 @@ export const quizSchema = z
     reponses: z.array(z.union([z.string(), z.number()])).optional(),
     explication: z.string().optional(),
     correction: correctionSchema.optional(),
+    partie: partieCitee,
   })
   .transform((v, ctx) => {
     const options = v.options.map((o) => String(o).trim());
@@ -291,6 +310,7 @@ export const quizSchema = z
       bonnes,
       explication: v.explication?.trim(),
       correction: v.correction,
+      ...(v.partie ? { partie: v.partie } : {}),
     };
   });
 
