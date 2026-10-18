@@ -240,6 +240,7 @@
     "essais:defilement-rendu": "node scripts/essais-defilement-rendu.mjs",
     "essais:boite": "node scripts/essais-boite.mjs",
     "essais:gestes": "node scripts/essais-gestes.mjs",
+    "essais:double-appui": "node scripts/essais-double-appui.mjs",
     "essais:retour:navigateur": "node scripts/essais-retour-navigateur.mjs",
     "essais:voile": "node scripts/essais-voile-et-fiche.mjs",
     "essais:redemande": "node scripts/essais-redemande.mjs",

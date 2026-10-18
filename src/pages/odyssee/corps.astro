@@ -352,6 +352,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { unSeulGeste } from '../../lib/geste';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
   import {
@@ -920,16 +921,42 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     await peindreRappel();
   }
 
-  const essayer = (travail: () => Promise<unknown>) => {
-    void (async () => {
-      try {
-        await travail();
-        taire();
-        await recharger();
-      } catch (erreur) {
-        dire(erreur);
-      }
-    })();
+  const essayer = async (travail: () => Promise<unknown>) => {
+    try {
+      await travail();
+      taire();
+      await recharger();
+    } catch (erreur) {
+      dire(erreur);
+    }
+  };
+
+  /**
+   * Un appui, une écriture — M6.
+   *
+   * ## Ce qui a été mesuré ici, le 18 octobre
+   *
+   * Deux appuis sur un verre d'eau, à 0, 60, 150 et 300 ms d'écart :
+   * **deux boissons** à chaque fois. « J'ai dormi » : **deux nuits**. La
+   * pesée : deux pesées à 0 ms, puis une seule au-delà — non par
+   * protection, mais parce que son gestionnaire vide `#kg` et que le
+   * second appui se fait refuser par le contrôle de saisie. Une garantie
+   * qui tient au champ vidé n'en est pas une : elle tombe dès que les deux
+   * appuis sont assez rapprochés, et c'est justement le cas qu'on craint.
+   *
+   * Aucun de ces boutons n'est dans un formulaire, donc aucun ne
+   * bénéficiait même de l'accident qui couvrait la séance de Sport. Ils
+   * passent tous par `unSeulGeste`, qui refuse le recouvrement **et**
+   * impose un repos après la fin.
+   *
+   * Le bouton appuyé sert de clé : deux verres d'eau voulus, à une seconde
+   * d'écart, passent toujours — un garde-fou qui accuse à tort se fait
+   * désactiver, et on perd les deux.
+   */
+  const surAppui = (id: string, travail: () => Promise<unknown>) => {
+    $(id).addEventListener('click', (evenement) => {
+      void unSeulGeste(evenement.currentTarget as Element, () => essayer(travail));
+    });
   };
 
   auDeverrouillage(
@@ -957,89 +984,81 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
         $(champ).addEventListener('input', direMacros);
       }
 
-      $('peser').addEventListener('click', () =>
-        essayer(async () => {
-          const kg = Number(($('kg') as HTMLInputElement).value);
-          await ecrirePesee(kg);
-          ($('kg') as HTMLInputElement).value = '';
-        }),
-      );
+      surAppui('peser', async () => {
+        const kg = Number(($('kg') as HTMLInputElement).value);
+        await ecrirePesee(kg);
+        ($('kg') as HTMLInputElement).value = '';
+      });
 
-      $('mesurer').addEventListener('click', () =>
-        essayer(async () => {
-          await ecrireMesure(
-            ($('quoi') as HTMLSelectElement).value as QuoiMesurer,
-            Number(($('cm') as HTMLInputElement).value),
-          );
-          ($('cm') as HTMLInputElement).value = '';
-        }),
-      );
+      surAppui('mesurer', async () => {
+        await ecrireMesure(
+          ($('quoi') as HTMLSelectElement).value as QuoiMesurer,
+          Number(($('cm') as HTMLInputElement).value),
+        );
+        ($('cm') as HTMLInputElement).value = '';
+      });
 
-      $('dormir').addEventListener('click', () =>
-        essayer(async () => {
-          const qualite = ($('qualite') as HTMLSelectElement).value;
-          const reveils = ($('reveils') as HTMLInputElement).value;
-          await ecrireNuit(
-            new Date(($('coucher') as HTMLInputElement).value).toISOString(),
-            new Date(($('lever') as HTMLInputElement).value).toISOString(),
-            {
-              qualite: qualite === '' ? null : Number(qualite),
-              reveils: reveils === '' ? null : Number(reveils),
-            },
-          );
-        }),
-      );
+      surAppui('dormir', async () => {
+        const qualite = ($('qualite') as HTMLSelectElement).value;
+        const reveils = ($('reveils') as HTMLInputElement).value;
+        await ecrireNuit(
+          new Date(($('coucher') as HTMLInputElement).value).toISOString(),
+          new Date(($('lever') as HTMLInputElement).value).toISOString(),
+          {
+            qualite: qualite === '' ? null : Number(qualite),
+            reveils: reveils === '' ? null : Number(reveils),
+          },
+        );
+      });
 
-      $('manger').addEventListener('click', () =>
-        essayer(async () => {
-          const lire = (id: string) => {
-            const v = ($(id) as HTMLInputElement).value;
-            return v === '' ? null : Number(v);
-          };
-          await ecrireRepas({
-            moment: ($('moment') as HTMLSelectElement).value as MomentDuRepas,
-            intitule: ($('intitule') as HTMLInputElement).value.trim(),
-            kcal: lire('kcal'),
-            proteines: lire('proteines'),
-            glucides: lire('glucides'),
-            lipides: lire('lipides'),
-            note: '',
-          });
-          for (const id of ['intitule', 'kcal', 'proteines', 'glucides', 'lipides']) {
-            ($(id) as HTMLInputElement).value = '';
-          }
-          direMacros();
-        }),
-      );
+      surAppui('manger', async () => {
+        const lire = (id: string) => {
+          const v = ($(id) as HTMLInputElement).value;
+          return v === '' ? null : Number(v);
+        };
+        await ecrireRepas({
+          moment: ($('moment') as HTMLSelectElement).value as MomentDuRepas,
+          intitule: ($('intitule') as HTMLInputElement).value.trim(),
+          kcal: lire('kcal'),
+          proteines: lire('proteines'),
+          glucides: lire('glucides'),
+          lipides: lire('lipides'),
+          note: '',
+        });
+        for (const id of ['intitule', 'kcal', 'proteines', 'glucides', 'lipides']) {
+          ($(id) as HTMLInputElement).value = '';
+        }
+        direMacros();
+      });
 
       for (const b of document.querySelectorAll<HTMLButtonElement>('[data-verre]')) {
-        b.addEventListener('click', () => essayer(() => ecrireBoisson(Number(b.dataset.verre))));
+        b.addEventListener('click', (evenement) => {
+          void unSeulGeste(evenement.currentTarget as Element, () =>
+            essayer(() => ecrireBoisson(Number(b.dataset.verre))),
+          );
+        });
       }
-      $('annuler-verre').addEventListener('click', () =>
-        essayer(async () => {
-          const derniere = [...boissons]
-            .filter((b) => b.jour === aujourdhui)
-            .sort((a, b) => a.le.localeCompare(b.le))
-            .at(-1);
-          if (derniere) await supprimerBoisson(derniere.id);
-        }),
-      );
+      surAppui('annuler-verre', async () => {
+        const derniere = [...boissons]
+          .filter((b) => b.jour === aujourdhui)
+          .sort((a, b) => a.le.localeCompare(b.le))
+          .at(-1);
+        if (derniere) await supprimerBoisson(derniere.id);
+      });
 
-      $('declarer-sante').addEventListener('click', () =>
-        essayer(async () => {
-          await ecrireSante({
-            intitule: ($('intitule-sante') as HTMLInputElement).value.trim(),
-            // Midi : une date sans heure prise à minuit UTC bascule de jour en France.
-            debut: `${($('debut-sante') as HTMLInputElement).value}T12:00:00.000Z`,
-            fin: null,
-            intensite: Number(($('intensite') as HTMLInputElement).value),
-            empecheEffort: ($('empeche') as HTMLInputElement).checked,
-            note: '',
-          });
-          ($('intitule-sante') as HTMLInputElement).value = '';
-          ($('empeche') as HTMLInputElement).checked = false;
-        }),
-      );
+      surAppui('declarer-sante', async () => {
+        await ecrireSante({
+          intitule: ($('intitule-sante') as HTMLInputElement).value.trim(),
+          // Midi : une date sans heure prise à minuit UTC bascule de jour en France.
+          debut: `${($('debut-sante') as HTMLInputElement).value}T12:00:00.000Z`,
+          fin: null,
+          intensite: Number(($('intensite') as HTMLInputElement).value),
+          empecheEffort: ($('empeche') as HTMLInputElement).checked,
+          note: '',
+        });
+        ($('intitule-sante') as HTMLInputElement).value = '';
+        ($('empeche') as HTMLInputElement).checked = false;
+      });
 
       $('ouvrir-coffre').addEventListener('click', () => {
         void (async () => {
@@ -1071,30 +1090,26 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
         void recharger();
       });
 
-      $('noter-prise').addEventListener('click', () =>
-        essayer(async () => {
-          await ecrirePrise(
-            ($('nom-prise') as HTMLInputElement).value,
-            ($('dose') as HTMLInputElement).value,
-            {
-              voie: ($('voie') as HTMLSelectElement).value as VoieDAdministration,
-              motif: ($('motif-prise') as HTMLInputElement).value.trim(),
-            },
-          );
-          for (const id of ['nom-prise', 'dose', 'motif-prise']) {
-            ($(id) as HTMLInputElement).value = '';
-          }
-        }),
-      );
+      surAppui('noter-prise', async () => {
+        await ecrirePrise(
+          ($('nom-prise') as HTMLInputElement).value,
+          ($('dose') as HTMLInputElement).value,
+          {
+            voie: ($('voie') as HTMLSelectElement).value as VoieDAdministration,
+            motif: ($('motif-prise') as HTMLInputElement).value.trim(),
+          },
+        );
+        for (const id of ['nom-prise', 'dose', 'motif-prise']) {
+          ($(id) as HTMLInputElement).value = '';
+        }
+      });
 
-      $('noter-statut').addEventListener('click', () =>
-        essayer(async () => {
-          await ecrireStatut(($('intitule-statut') as HTMLInputElement).value, {
-            nature: ($('nature') as HTMLSelectElement).value as NatureDuStatut,
-          });
-          ($('intitule-statut') as HTMLInputElement).value = '';
-        }),
-      );
+      surAppui('noter-statut', async () => {
+        await ecrireStatut(($('intitule-statut') as HTMLInputElement).value, {
+          nature: ($('nature') as HTMLSelectElement).value as NatureDuStatut,
+        });
+        ($('intitule-statut') as HTMLInputElement).value = '';
+      });
 
       /* Si le coffre se referme ailleurs — verrouillage de la session —, suivre. */
       surCoffre(() => {
