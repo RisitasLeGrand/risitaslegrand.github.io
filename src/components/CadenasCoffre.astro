@@ -17,6 +17,7 @@
  * qui déborde. Le menu tient en une cible de 44 px et ne coûte un appui de
  * plus qu'à qui veut autre chose que « voir que le coffre est ouvert ».
  */
+import { base } from '../lib/ui';
 ---
 
 <div id="cadenas-coffre" class="relative hidden">
@@ -58,6 +59,21 @@
       role="menuitem"
       class="cible-tactile hidden w-full rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
       >Afficher le bandeau</button
+    >
+    {/*
+       La bascule vit dans le menu du cadenas, et non dans « Stockage », parce
+       que c'est un geste DU COFFRE : on y arrive en pensant au coffre, pas en
+       pensant à la place disque. Elle est séparée des trois autres par un
+       filet, parce qu'elle ne se range pas avec elles — les trois premières se
+       défont, celle-ci rechiffre.
+    */}
+    <hr class="my-1 border-slate-200 dark:border-slate-700" />
+    <a
+      id="cadenas-bascule"
+      href={`${base}/coffre/bascule/`}
+      role="menuitem"
+      class="cible-tactile w-full rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+      >Mot de passe du coffre…</a
     >
   </div>
 </div>

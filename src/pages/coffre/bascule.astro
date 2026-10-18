@@ -1,0 +1,400 @@
+---
+/**
+ * La bascule du coffre : lui donner son propre mot de passe.
+ *
+ * ## Ce que cet écran fait, et pourquoi il est si lent à le faire
+ *
+ * Aujourd'hui le coffre s'ouvre avec le **mot de passe du site** — celui qu'on
+ * tape plusieurs fois par jour et qu'on confie à son navigateur. Cet écran lui
+ * en donne un propre, distinct, à 600 000 itérations, et rechiffre les données
+ * sous une clé que le mot de passe du site ne produit pas.
+ *
+ * C'est la seule opération de tout ce chantier qui **touche aux données**.
+ * Alexis l'a assortie d'une condition, et elle est tenue ici : « après une
+ * sauvegarde confirmée et sans perte de données ».
+ *
+ * ## La sauvegarde ne se coche pas, elle se prouve
+ *
+ * Une case « j'ai fait une sauvegarde » ne prouve rien : on la coche en
+ * pensant l'avoir faite. Cet écran demande donc de **redonner le fichier**, et
+ * l'ouvre pour de vrai — `apercu()` lit son en-tête, compte ses
+ * enregistrements, et refuse s'il est tronqué. Un fichier qu'on peut rouvrir
+ * est un fichier qui existe ; c'est la seule preuve qui vaille.
+ *
+ * ## Ce qui ne peut pas être rattrapé
+ *
+ * Le mot de passe du coffre n'est écrit nulle part et ne se retrouve pas.
+ * Perdu, les données le sont aussi — c'est le premier coût listé par la
+ * décision 3, et l'écran le dit en toutes lettres plutôt qu'en note de bas de
+ * page.
+ */
+import Base from '../../layouts/Base.astro';
+---
+
+<Base titre="Mot de passe du coffre" actif="progression" entete="leger">
+  <h1 class="mb-2 text-2xl font-bold text-slate-900 dark:text-white">
+    Donner au coffre son propre mot de passe
+  </h1>
+  <p class="mb-6 max-w-2xl text-slate-600 dark:text-slate-300">
+    Aujourd’hui, le coffre s’ouvre avec le mot de passe du site. Cette page lui
+    en donne un distinct, et rechiffre vos données sous une clé que le mot de
+    passe du site ne peut plus produire.
+  </p>
+
+  <!--
+    Les trois étapes sont visibles d'emblée, y compris celles qu'on ne peut pas
+    encore faire. Masquer la suite donnerait l'impression d'un formulaire court,
+    alors que c'est une opération en trois temps dont on doit voir la fin avant
+    de commencer.
+  -->
+
+  <section class="mb-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+    <h2 class="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
+      <span class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-700 data-[faite=oui]:bg-emerald-600 data-[faite=oui]:text-white dark:bg-slate-700 dark:text-slate-100" data-etape="1">1</span> Faire une sauvegarde
+    </h2>
+    <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+      Elle contient tout, y compris ce que le coffre protège. Gardez-la ailleurs
+      que sur cet appareil.
+    </p>
+    <button
+      id="faire-sauvegarde"
+      type="button"
+      class="cible-tactile mt-3 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+    >
+      Télécharger une sauvegarde
+    </button>
+    <p id="message-sauvegarde" class="mt-3 hidden text-sm"></p>
+  </section>
+
+  <section class="mb-4 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+    <h2 class="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
+      <span class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-700 data-[faite=oui]:bg-emerald-600 data-[faite=oui]:text-white dark:bg-slate-700 dark:text-slate-100" data-etape="2">2</span> Prouver qu’elle est bien arrivée
+    </h2>
+    <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+      Retrouvez le fichier que vous venez d’enregistrer et redonnez-le ici. Il
+      sera <strong>ouvert et vérifié</strong>, sans rien restaurer. Une case à
+      cocher ne prouverait rien ; un fichier qu’on rouvre, si.
+    </p>
+    <label class="mt-3 inline-block">
+      <span class="sr-only">Choisir le fichier de sauvegarde</span>
+      <input
+        id="fichier-preuve"
+        type="file"
+        accept=".cyclades,application/octet-stream"
+        class="cible-tactile block w-full max-w-md text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-slate-100 file:px-4 file:py-2 file:text-sm file:font-medium dark:text-slate-200 dark:file:bg-slate-800 dark:file:text-slate-100"
+      />
+    </label>
+    <p id="message-preuve" class="mt-3 hidden text-sm"></p>
+  </section>
+
+  <section
+    id="section-mot-de-passe"
+    class="mb-4 rounded-2xl border border-slate-200 bg-white p-5 opacity-50 dark:border-slate-800 dark:bg-slate-900"
+    aria-disabled="true"
+  >
+    <h2 class="flex items-center gap-2 font-semibold text-slate-900 dark:text-white">
+      <span class="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-slate-200 text-xs font-bold text-slate-700 data-[faite=oui]:bg-emerald-600 data-[faite=oui]:text-white dark:bg-slate-700 dark:text-slate-100" data-etape="3">3</span> Choisir le mot de passe du coffre
+    </h2>
+
+    <!--
+      L'avertissement est ICI, au-dessus du champ, et non en note sous le
+      bouton : c'est avant de choisir qu'il faut savoir ce qu'on risque.
+    -->
+    <div class="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-100">
+      <strong>Ce mot de passe ne se retrouve pas.</strong> Il n’est écrit nulle
+      part, ni sur cet appareil ni ailleurs — c’est ce qui fait qu’un coffre est
+      un coffre. Si vous l’oubliez, Psyché, Finances, Santé et vos traitements
+      deviennent <strong>définitivement illisibles</strong>. La sauvegarde de
+      l’étape 1 restera ouvrable avec le mot de passe du site : c’est votre
+      seule porte de secours, et c’est pourquoi elle est exigée d’abord.
+    </div>
+
+    <div class="mt-4 grid max-w-md gap-3">
+      <label class="block text-sm">
+        <span class="font-medium text-slate-800 dark:text-slate-100">Mot de passe du coffre</span>
+        <input
+          id="mdp-nouveau"
+          type="password"
+          autocomplete="new-password"
+          disabled
+          class="mt-1 cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+        />
+      </label>
+      <label class="block text-sm">
+        <span class="font-medium text-slate-800 dark:text-slate-100">Le même, pour écarter la faute de frappe</span>
+        <input
+          id="mdp-confirmation"
+          type="password"
+          autocomplete="new-password"
+          disabled
+          class="mt-1 cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+        />
+      </label>
+      <p id="message-mdp" class="text-sm text-slate-500 dark:text-slate-400">
+        Au moins 15 signes. Une phrase de quatre ou cinq mots fait l’affaire, et
+        se retient mieux qu’une suite de signes.
+      </p>
+    </div>
+  </section>
+
+  <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+    <h2 class="font-semibold text-slate-900 dark:text-white">Lancer la bascule</h2>
+    <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+      Les données sont rechiffrées en trois passes : copier à côté, tout relire,
+      puis seulement échanger. Rien n’est effacé avant que tout ait été relu
+      sous la nouvelle clé. Une interruption ne perd rien et la reprise
+      recommence.
+    </p>
+    <button
+      id="lancer-bascule"
+      type="button"
+      disabled
+      class="cible-tactile mt-3 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-700"
+    >
+      Rechiffrer le coffre
+    </button>
+    <p id="message-bascule" class="mt-3 hidden text-sm"></p>
+    <div id="avancement" class="mt-3 hidden text-sm text-slate-600 dark:text-slate-300"></div>
+  </section>
+</Base>
+<script>
+  import { apercu, fabriquer } from '../../lib/sauvegarde/service';
+  import { cleDuCoffre, coffreOuvert } from '../../lib/coffre';
+  import { poserLEnveloppe } from '../../lib/noyau/enveloppe-du-coffre';
+  import {
+    magasinsAReprendre,
+    reprendreLeChiffrementDuCoffre,
+  } from '../../lib/noyau/migration-du-coffre';
+  import { db } from '../../lib/db';
+
+  /** Au moins quinze signes, pour la même raison que le mot de passe du site. */
+  const LONGUEUR_MINIMALE = 15;
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const dire = (id: string, texte: string, ton: 'neutre' | 'ok' | 'echec') => {
+    const e = $(id);
+    e.textContent = texte;
+    e.className = `mt-3 text-sm ${
+      ton === 'ok'
+        ? 'text-emerald-700 dark:text-emerald-400'
+        : ton === 'echec'
+          ? 'text-red-700 dark:text-red-400'
+          : 'text-slate-600 dark:text-slate-300'
+    }`;
+  };
+  const marquerFaite = (n: string) =>
+    document.querySelector(`.etape[data-etape="${n}"]`)?.setAttribute('data-faite', 'oui');
+
+  /*
+     L'état de la garde. Trois verrous, et le bouton final ne s'allume que
+     lorsque les trois sont tombés. Les garder en mémoire plutôt qu'en
+     attribut d'élément évite qu'un coup d'inspecteur les ouvre — ce n'est pas
+     une protection contre un attaquant, qui a mieux à faire, mais contre la
+     curiosité qui coûte des données.
+  */
+  let preuveFaite = false;
+  let motDePasseValide = false;
+
+  const reevaluer = () => {
+    const mdp = ($('mdp-nouveau') as HTMLInputElement).value;
+    const conf = ($('mdp-confirmation') as HTMLInputElement).value;
+    motDePasseValide = mdp.length >= LONGUEUR_MINIMALE && mdp === conf;
+
+    if (mdp.length === 0 && conf.length === 0) {
+      dire(
+        'message-mdp',
+        `Au moins ${LONGUEUR_MINIMALE} signes. Une phrase de quatre ou cinq mots fait l’affaire.`,
+        'neutre',
+      );
+    } else if (mdp.length < LONGUEUR_MINIMALE) {
+      dire('message-mdp', `${mdp.length} signes sur ${LONGUEUR_MINIMALE} au minimum.`, 'echec');
+    } else if (mdp !== conf) {
+      dire('message-mdp', 'Les deux saisies diffèrent.', 'echec');
+    } else {
+      dire('message-mdp', 'Les deux saisies concordent.', 'ok');
+      marquerFaite('3');
+    }
+    ($('lancer-bascule') as HTMLButtonElement).disabled = !(preuveFaite && motDePasseValide);
+  };
+
+  /* ── Étape 1 : fabriquer la sauvegarde ─────────────────────────────── */
+
+  $('faire-sauvegarde').addEventListener('click', async () => {
+    dire('message-sauvegarde', 'Lecture de la base et chiffrement…', 'neutre');
+    try {
+      /*
+         On chiffre la sauvegarde avec le mot de passe du SITE, celui qui
+         ouvre encore le coffre à cet instant. C'est délibéré : cette
+         sauvegarde est la porte de secours si le nouveau mot de passe se
+         perd, et la chiffrer avec le nouveau en ferait une porte fermée par
+         la clef qu'on vient d'égarer.
+      */
+      const mdpSite = window.prompt(
+        'Mot de passe du site, pour chiffrer cette sauvegarde.\n\n' +
+          'C’est volontairement l’ancien : cette sauvegarde est votre porte de\n' +
+          'secours si le nouveau mot de passe du coffre se perd.',
+      );
+      if (mdpSite === null) {
+        dire('message-sauvegarde', 'Annulé. Rien n’a été écrit.', 'neutre');
+        return;
+      }
+      const { sauvegarde, nom } = await fabriquer(mdpSite || null);
+      const lien = document.createElement('a');
+      lien.href = URL.createObjectURL(new Blob([sauvegarde as unknown as BlobPart]));
+      lien.download = nom;
+      lien.click();
+      URL.revokeObjectURL(lien.href);
+      marquerFaite('1');
+      dire(
+        'message-sauvegarde',
+        `« ${nom} » est parti dans vos téléchargements. Mettez-le à l’abri, puis passez à l’étape 2.`,
+        'ok',
+      );
+    } catch (e) {
+      dire('message-sauvegarde', `Échec : ${(e as Error).message}`, 'echec');
+    }
+  });
+
+  /* ── Étape 2 : la preuve, qui est une vraie lecture ────────────────── */
+
+  $('fichier-preuve').addEventListener('change', async (ev) => {
+    const fichier = (ev.target as HTMLInputElement).files?.[0];
+    if (!fichier) return;
+    dire('message-preuve', 'Ouverture du fichier…', 'neutre');
+    try {
+      const octets = new Uint8Array(await fichier.arrayBuffer());
+      const vu = await apercu(octets);
+      /*
+         On n'accepte pas n'importe quel fichier : `apercu` lit l'en-tête et
+         compte. Un fichier tronqué, ou d'un autre format, lève ici — et c'est
+         précisément ce qu'on veut savoir AVANT de rechiffrer.
+      */
+      if (!vu.enregistrements) {
+        dire(
+          'message-preuve',
+          'Ce fichier s’ouvre mais n’annonce aucun enregistrement. Ce n’est pas une sauvegarde utilisable.',
+          'echec',
+        );
+        return;
+      }
+      preuveFaite = true;
+      marquerFaite('2');
+      const section = $('section-mot-de-passe');
+      section.classList.remove('opacity-50');
+      section.removeAttribute('aria-disabled');
+      for (const id of ['mdp-nouveau', 'mdp-confirmation']) {
+        ($(id) as HTMLInputElement).disabled = false;
+      }
+      dire(
+        'message-preuve',
+        `Lu et vérifié : ${vu.enregistrements} enregistrements, datée du ${new Date(
+          vu.entete.creeLe,
+        ).toLocaleString('fr-FR')}. La sauvegarde existe.`,
+        'ok',
+      );
+      reevaluer();
+    } catch (e) {
+      dire(
+        'message-preuve',
+        `Ce fichier n’a pas pu être lu comme une sauvegarde Cyclades : ${(e as Error).message}`,
+        'echec',
+      );
+    }
+  });
+
+  for (const id of ['mdp-nouveau', 'mdp-confirmation']) {
+    $(id).addEventListener('input', reevaluer);
+  }
+
+  /* ── La bascule elle-même ──────────────────────────────────────────── */
+
+  $('lancer-bascule').addEventListener('click', async () => {
+    if (!preuveFaite || !motDePasseValide) return;
+
+    if (!coffreOuvert()) {
+      dire(
+        'message-bascule',
+        'Le coffre doit être ouvert pour être rechiffré : ses données ne sont lisibles que par lui. Ouvrez-le, puis revenez.',
+        'echec',
+      );
+      return;
+    }
+    const ancienne = cleDuCoffre();
+    if (!ancienne) {
+      dire('message-bascule', 'La clé du coffre n’est pas en mémoire. Rouvrez le coffre.', 'echec');
+      return;
+    }
+
+    const bouton = $('lancer-bascule') as HTMLButtonElement;
+    bouton.disabled = true;
+    dire('message-bascule', 'Rechiffrement en cours. Ne fermez pas cet onglet.', 'neutre');
+    const avancement = $('avancement');
+    avancement.classList.remove('hidden');
+
+    try {
+      const neuve = await poserLEnveloppe(
+        rangementDesCles(),
+        ($('mdp-nouveau') as HTMLInputElement).value,
+      );
+      const compte = await reprendreLeChiffrementDuCoffre(rangementDesMagasins(), ancienne, neuve);
+      avancement.textContent =
+        `${compte.enregistrements} enregistrements rechiffrés sur ` +
+        `${compte.magasins} magasins. ${compte.vides.length} magasins étaient vides.`;
+      dire(
+        'message-bascule',
+        'Terminé. Le coffre a désormais son propre mot de passe : le mot de passe du site ne l’ouvre plus.',
+        'ok',
+      );
+      marquerFaite('3');
+    } catch (e) {
+      /*
+         L'échec est dit en entier, et il faut le dire sans adoucir : la
+         migration lève AVANT d'effacer quoi que ce soit, donc à cet instant
+         les données sont intactes sous l'ancienne clé. C'est une bonne
+         nouvelle et elle doit s'entendre comme telle.
+      */
+      dire(
+        'message-bascule',
+        `Arrêté sans rien effacer : ${(e as Error).message}\n\n` +
+          'Vos données restent lisibles avec le mot de passe du site. Vous pouvez relancer.',
+        'echec',
+      );
+      bouton.disabled = false;
+    }
+  });
+
+  /*
+     Les deux ports vers IndexedDB. Ils sont déclarés ici, au plus près de
+     l'usage : les modules de clés et de migration sont purs exprès, pour
+     rester éprouvables en Node, et c'est à l'écran de les brancher.
+  */
+  function rangementDesCles() {
+    return {
+      lire: async (c: string) => (await db()).get('etat', c) as Promise<string | undefined>,
+      ecrire: async (c: string, v: string) => void (await (await db()).put('etat', v, c)),
+      effacer: async (c: string) => void (await (await db()).delete('etat', c)),
+    };
+  }
+
+  function rangementDesMagasins() {
+    return {
+      lireTout: async (magasin: string) => {
+        const base = await db();
+        const clefs = await base.getAllKeys(magasin as never);
+        const valeurs = await base.getAll(magasin as never);
+        return clefs.map((clef, i) => ({
+          clef,
+          valeur: valeurs[i] as Record<string, unknown>,
+        }));
+      },
+      ecrire: async (magasin: string, clef: IDBValidKey, valeur: Record<string, unknown>) =>
+        void (await (await db()).put(magasin as never, valeur as never, clef as never)),
+      lireJournal: async () => (await db()).get('etat', 'coffre.migration') as never,
+      ecrireJournal: async (j: unknown) =>
+        void (await (await db()).put('etat', j as never, 'coffre.migration')),
+    };
+  }
+
+  void magasinsAReprendre;
+  reevaluer();
+</script>
