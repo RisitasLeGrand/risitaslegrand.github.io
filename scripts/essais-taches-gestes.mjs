@@ -68,10 +68,24 @@ if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
 }
 await page.locator('#vue').waitFor({ state: 'visible', timeout: 25000 });
 
+/*
+   HUIT CENTS MILLISECONDES, ET NON QUATRE CENTS.
+
+   Cette préparation attendait 400 ms entre deux créations, et n'obtenait que
+   deux tâches sur trois. Ce n'était pas un défaut du site : `unSeulGeste`
+   impose un repos de 600 ms après la fin d'une action, parce qu'un rebond de
+   pouce arrive en moins de 300 ms (mesuré, `src/lib/geste.ts`). La troisième
+   frappe tombait dans ce repos et était écartée — exactement ce que le
+   garde-fou doit faire.
+
+   L'essai se faisait donc rattraper par la règle qu'il est venu vérifier. On
+   attend au-delà du repos, comme une personne qui relit son écran entre deux
+   ajouts.
+*/
 for (const titre of ['Alpha', 'Beta', 'Gamma']) {
   await page.fill('#titre', titre);
   await page.press('#titre', 'Enter');
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(800);
 }
 v('trois tâches ouvertes au départ', await page.locator('[data-faire]').count(), 3);
 
