@@ -267,18 +267,43 @@ console.log("\n  D — l'interrupteur de l'application, système au repos");
   v("l'interrupteur neutralise la durée", secondes(apres.duree) <= 0.001, true);
   v("l'interrupteur neutralise les répétitions", apres.repetitions, '1');
 
-  // Et la case de l'écran des préférences reflète bien cet état.
-  await p.goto(`${RACINE}/profil/`, { waitUntil: 'networkidle' });
-  const verrouProfil = p.locator('#champ-mdp');
-  if (await verrouProfil.isVisible().catch(() => false)) {
+  /*
+     Et la commande de l'écran des réglages reflète bien cet état.
+
+     CE QUI AVAIT CHANGÉ SOUS CET ESSAI. Il allait sur `/profil/` chercher une
+     case `#reduire-animations`. Depuis « une seule page de réglages » (42 P2
+     et P3), ce réglage vit sur `/parametres/`, dans un bloc
+     `#reglage-animations` dont la commande est un bouton `role="switch"`
+     construit à l'affichage — plus une case cochable. L'ancien sélecteur ne
+     trouvait donc rien, et l'essai annonçait « la case existe : obtenu 0 »
+     comme si la préférence avait disparu. Elle n'avait pas disparu : elle
+     avait déménagé, et c'est moi qui l'avais déplacée.
+
+     On interroge donc ce que l'écran rend vraiment : le bloc, puis l'état que
+     son interrupteur annonce aux lecteurs d'écran. `aria-checked` est le bon
+     témoin — c'est à la fois ce que la technique d'assistance lit et ce que
+     le bouton tient pour vrai.
+  */
+  await p.goto(`${RACINE}/parametres/`, { waitUntil: 'networkidle' });
+  /* Le site entier est derrière le mot de passe : sans ce passage, l'écran
+     rendu est celui du verrou, et aucune commande n'est montée. */
+  const verrouReglages = p.locator('#champ-mdp');
+  if (await verrouReglages.isVisible().catch(() => false)) {
     await p.fill('#champ-mdp', MDP);
     await p.click('#bouton-verrou');
-    await p.waitForTimeout(400);
+    await p.waitForTimeout(800);
   }
-  const coche = p.locator('#reduire-animations');
-  v('la case existe dans les préférences', await coche.count(), 1);
-  if (await coche.count()) {
-    v('la case reflète le réglage enregistré', await coche.isChecked(), true);
+  const bloc = p.locator('#reglage-animations');
+  v('le réglage est présent sur l’écran des réglages', await bloc.count(), 1);
+  const interrupteur = bloc.locator('[role="switch"]');
+  await interrupteur.waitFor({ state: 'visible', timeout: 10_000 }).catch(() => {});
+  v('et il porte un interrupteur', await interrupteur.count(), 1);
+  if (await interrupteur.count()) {
+    v(
+      'qui reflète le réglage enregistré',
+      await interrupteur.getAttribute('aria-checked'),
+      'true',
+    );
   }
 
   await normal.close();
