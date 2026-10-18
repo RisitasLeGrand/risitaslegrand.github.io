@@ -402,7 +402,70 @@ const flecheVisible = !estLeMenu && !sansNavigation;
     <BarreProgression />
     {!sansVerrou && <Verrou />}
 
-    <div id="application" class={sansVerrou ? 'min-h-screen' : 'hidden min-h-screen'}>
+    {/*
+       La barre latérale de l'ordinateur (M15).
+
+       Elle vit DEHORS de « #application », et ce n'est pas un détail : ce
+       conteneur porte le décalage qu'elle impose, et une barre placée dedans
+       se décalerait d'elle-même.
+
+       Elle ne paraît qu'en médiarequête — largeur ET pointeur fin —, jamais
+       par une classe conditionnelle calculée au serveur : la largeur d'un
+       écran ne se connaît pas à la construction, et un site statique servi à
+       tous ne peut pas deviner le pointeur.
+
+       Le même registre que le ruban horizontal, dans le même ordre : deux
+       navigations qui diffèrent d'un écran à l'autre font deux applications.
+    */}
+    {enteteVoulu === 'complet' && !sansVerrou && (
+      <nav
+        id="barre-laterale"
+        aria-label="Navigation de la branche"
+        class="barre-laterale fixed inset-y-0 left-0 z-30 w-60 flex-col gap-1 overflow-y-auto border-r border-slate-200 bg-white px-3 py-4 dark:border-slate-800 dark:bg-slate-900"
+      >
+        <a
+          href={`${base}/`}
+          class="mb-2 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
+        >
+          <span aria-hidden="true">🏛️</span>
+          <span>{config.titre}</span>
+        </a>
+        <p class="etiquette px-3 pb-1 text-slate-500 dark:text-slate-400">
+          {brancheCourante.libelle}
+        </p>
+        {brancheCourante.onglets.map((o) => (
+          <a
+            href={`${base}${o.chemin}`}
+            data-onglet={o.chemin}
+            aria-current={actif === o.id ? 'page' : undefined}
+            class:list={[
+              'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition',
+              actif === o.id
+                ? 'bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
+            ]}
+          >
+            <span aria-hidden="true">{o.icone}</span>
+            <span class="min-w-0 truncate">{o.nom}</span>
+          </a>
+        ))}
+        <p class="etiquette mt-3 px-3 pb-1 text-slate-500 dark:text-slate-400">Cet espace</p>
+        {ECRANS_COMMUNS.map((o) => (
+          <a
+            href={`${base}${o.chemin}`}
+            class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+          >
+            <span aria-hidden="true">{o.icone}</span>
+            <span class="min-w-0 truncate">{o.nom}</span>
+          </a>
+        ))}
+      </nav>
+    )}
+
+    <div
+      id="application"
+      class={sansVerrou ? 'decale-laterale min-h-screen' : 'decale-laterale hidden min-h-screen'}
+    >
       {/*
          Le lien d'évitement, premier arrêt de tabulation de la page.
 
@@ -612,7 +675,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                 <nav
                   id="navigation-principale"
                   aria-label="Navigation principale"
-                  class="-mx-1 hidden min-w-0 flex-1 flex-wrap gap-1 px-1 sm:flex"
+                  class="sans-laterale -mx-1 hidden min-w-0 flex-1 flex-wrap gap-1 px-1 sm:flex"
                 >
                   {/*
                      Un nom par écran, le même partout.

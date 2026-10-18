@@ -78,8 +78,20 @@ for (const p of pages) {
   ) {
     avecCoffre.push(nom);
   }
-  // La déclaration au gabarit, sous ses deux écritures possibles.
-  if (/<Base[^>]*\bcoffre\b/s.test(source)) declarees.push(nom);
+  /*
+     La déclaration au gabarit — l'ATTRIBUT, et non le mot.
+
+     Le motif précédent cherchait « coffre » n'importe où dans la balise
+     ouvrante. Il accusait donc « coffre/bascule.astro », dont le titre est
+     « Mot de passe du coffre » : la page ne déclarait rien du tout, et le
+     contrôle la montrait du doigt. Un contrôle qui accuse à tort se fait
+     désactiver par celui qui le lit, et il a raison de le faire.
+
+     Ce motif exige qu'un blanc précède le mot et qu'un caractère d'attribut
+     le suive — espace, « = », « > » ou « /> ». Un guillemet ne convient pas,
+     ce qui écarte les titres et les descriptions.
+  */
+  if (/<Base\b[^>]*\scoffre\s*(=|\/?>|\s)/s.test(source)) declarees.push(nom);
 }
 
 console.log('\nCOFFRE ET TRANSITIONS ENTRE PAGES');

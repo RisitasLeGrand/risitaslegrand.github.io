@@ -259,19 +259,23 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
     $('#ouvrir-coffre').addEventListener('click', async () => {
       const champ = document.getElementById('mdp-coffre') as HTMLInputElement;
-      try {
-        await ouvrirLeCoffre(champ.value, {
-            memoriserAppareil:
-              (document.getElementById('coffre-appareil') as HTMLInputElement | null)?.checked ??
-              false,
-          });
-        champ.value = '';
-        $('#erreur-coffre').classList.add('hidden');
-        if (montrerLeCoffre()) for (const e of ECHELLES) await peindreHistorique(e.id);
-      } catch {
-        $('#erreur-coffre').textContent = 'Mot de passe refusé.';
+      /*
+         « ouvrirLeCoffre » REND un message ; elle ne lève pas. Le « try »
+         d'avant n'attrapait donc rien : un mot de passe faux ne disait rien
+         du tout, et l'écran restait fermé sans un mot.
+      */
+      const souci = await ouvrirLeCoffre(champ.value, {
+        memoriserAppareil:
+          (document.getElementById('coffre-appareil') as HTMLInputElement | null)?.checked ?? false,
+      });
+      if (souci) {
+        $('#erreur-coffre').textContent = souci;
         $('#erreur-coffre').classList.remove('hidden');
+        return;
       }
+      champ.value = '';
+      $('#erreur-coffre').classList.add('hidden');
+      if (montrerLeCoffre()) for (const e of ECHELLES) await peindreHistorique(e.id);
     });
 
     for (const b of document.querySelectorAll<HTMLElement>('[data-commencer]')) {

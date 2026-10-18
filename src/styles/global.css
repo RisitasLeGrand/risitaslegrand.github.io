@@ -1144,3 +1144,47 @@ button:not(:disabled):active,
 .differe {
   content-visibility: auto;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   L'ordinateur : une barre latérale, et pas seulement un écran plus large
+   ══════════════════════════════════════════════════════════════════════════
+
+   La condition porte sur DEUX choses, et les deux comptent.
+
+   « min-width: 1024px » ne suffit pas : une tablette tenue en paysage mesure
+   aussi 1024 pixels, et s'y pilote au doigt. Lui prendre sa barre du bas —
+   atteignable au pouce — pour une barre latérale haute et étroite serait une
+   régression, et exactement la régression que le référentiel mobile interdit.
+
+   « pointer: fine » dit le pointeur précis : souris ou pavé. C'est lui qui
+   distingue l'ordinateur de la tablette large, et c'est la même médiarequête
+   qui, en négatif, pose le plancher de 44 px des cibles tactiles.
+
+   Rien ici n'est écrit en utilitaires Tailwind : il n'existe pas de variante
+   qui combine une largeur et un type de pointeur, et une variante inventée
+   se serait appliquée à la tablette.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+.barre-laterale {
+  display: none;
+}
+
+@media (min-width: 1024px) and (pointer: fine) {
+  :root {
+    --laterale: 15rem;
+  }
+
+  .barre-laterale {
+    display: flex;
+  }
+
+  /* Ce que la latérale remplace : le ruban horizontal et son sélecteur. */
+  .sans-laterale {
+    display: none !important;
+  }
+
+  /* Le contenu se décale d'autant, sinon la latérale le recouvre. */
+  .decale-laterale {
+    padding-left: var(--laterale);
+  }
+}

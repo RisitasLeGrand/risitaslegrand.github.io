@@ -704,19 +704,25 @@ const parDomaine = Object.keys(DOMAINES).map((d) => ({
 
     $('ouvrir-coffre').addEventListener('click', async () => {
       const mdp = ($('mdp-coffre') as HTMLInputElement).value;
-      try {
-        await ouvrirLeCoffre(mdp, {
-            memoriserAppareil:
-              (document.getElementById('coffre-appareil') as HTMLInputElement | null)?.checked ??
-              false,
-          });
-        ($('mdp-coffre') as HTMLInputElement).value = '';
-        $('erreur-coffre').classList.add('hidden');
-        if (montrerLeCoffre()) await peindre();
-      } catch {
-        $('erreur-coffre').textContent = 'Mot de passe refusé.';
+      /*
+         « ouvrirLeCoffre » REND un message ; elle ne lève pas. Le « try »
+         d'avant n'attrapait donc rien : un mot de passe faux ne disait rien
+         du tout, et l'écran restait fermé sans un mot. Depuis que le refus
+         distingue « incorrect » d'« une bascule a été interrompue », le
+         taire coûterait encore plus cher.
+      */
+      const souci = await ouvrirLeCoffre(mdp, {
+        memoriserAppareil:
+          (document.getElementById('coffre-appareil') as HTMLInputElement | null)?.checked ?? false,
+      });
+      if (souci) {
+        $('erreur-coffre').textContent = souci;
         $('erreur-coffre').classList.remove('hidden');
+        return;
       }
+      ($('mdp-coffre') as HTMLInputElement).value = '';
+      $('erreur-coffre').classList.add('hidden');
+      if (montrerLeCoffre()) await peindre();
     });
 
     $('activer').addEventListener('change', async (e) => {

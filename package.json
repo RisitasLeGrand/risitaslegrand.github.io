@@ -231,6 +231,8 @@
     "essais:invitation": "node scripts/essais-invitation.mjs",
     "essais:piles": "tsx scripts/essais-piles.mts",
     "essais:piles:navigateur": "node scripts/essais-piles-navigateur.mjs",
+    "essais:laterale": "node scripts/essais-laterale.mjs",
+    "essais:refus-dit": "node scripts/essais-refus-dit.mjs",
     "essais:voile": "node scripts/essais-voile-et-fiche.mjs",
     "essais:redemande": "node scripts/essais-redemande.mjs",
     "essais:bascule-branchement": "node scripts/essais-bascule-branchement.mjs"
