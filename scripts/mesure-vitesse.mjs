@@ -225,11 +225,20 @@ const GESTES = [
     coffre: true,
     cible: '#tout-confirmer',
     note:
-      'CORRECTION DE LA LISTE. Noter une dépense à la main n’existe pas dans ' +
-      'Cyclades : les opérations entrent par l’import d’un relevé bancaire, et ' +
-      '`ecrireOperations` n’a qu’un seul appelant, le chemin d’import ' +
-      '(finances.astro:350). Le geste d’argent fréquent est le pointage de la ' +
-      'file « à rapprocher », et c’est lui qui est mesuré.',
+      'CORRECTION DE LA LISTE, et geste NON MESURABLE aujourd’hui. Noter une ' +
+      'dépense à la main n’existe pas dans Cyclades : les opérations entrent ' +
+      'par l’import d’un relevé bancaire, et `ecrireOperations` n’a qu’un seul ' +
+      'appelant, le chemin d’import (finances.astro:350). Le geste d’argent ' +
+      'fréquent est donc le pointage de la file « à rapprocher » — mais il ' +
+      'reste hors de portée du banc, pour deux raisons qui se cumulent et qui ' +
+      'sont toutes deux voulues : (1) les magasins de Finances sont SCELLÉS ' +
+      '(décision 3, `donnees-finances.ts` passe tout par `sceller`), donc on ne ' +
+      'peut rien y semer depuis l’extérieur du coffre ; (2) la seule entrée est ' +
+      'l’import d’un relevé PDF, que `lireReleve` lit par la géométrie du ' +
+      'document — fabriquer un PDF que le lecteur accepte est un banc à soi ' +
+      'seul. Le bouton « Tout confirmer » reste donc désactivé avec un profil ' +
+      'synthétique, et le banc le rapporte comme non mesuré plutôt que comme ' +
+      'rapide. C’est une limite écrite, pas un trou caché.',
   },
   {
     n: 5,
