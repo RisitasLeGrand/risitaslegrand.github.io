@@ -169,6 +169,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { unSeulGeste } from '../../lib/geste';
   import { coffreOuvert, ouvrirLeCoffre } from '../../lib/coffre';
   import { ECHELLES, echelle, noter, type IdEchelle } from '../../lib/odyssee/echelles';
   import { ecrirePassation, historique } from '../../lib/odyssee/donnees-echelles';
@@ -297,31 +298,42 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       });
     }
 
+    /*
+       Un appui, une écriture — M6. « Enregistrer » dépose une passation à
+       identifiant neuf : deux appuis rapprochés en déposaient deux, et une
+       échelle passée deux fois dans la même seconde fausse la série que
+       l'écran trace. Le bouton cache son questionnaire après coup, mais ce
+       masquage arrive une fois l'écriture finie — trop tard pour le second
+       appui. `unSeulGeste` prend le bouton pour clé : chaque échelle garde
+       la sienne, et passer PHQ-9 juste après WHO-5 reste possible.
+    */
     for (const b of document.querySelectorAll<HTMLElement>('[data-enregistrer]')) {
-      b.addEventListener('click', async () => {
-        const id = b.dataset.enregistrer as IdEchelle;
-        const reponses = lire(id);
-        const manquants = reponses.filter((r) => r === null).length;
-        /*
-           On enregistre quand même un questionnaire incomplet : ce qui a été
-           répondu l'a été, et l'effacer parce qu'il manque un item serait
-           perdre une saisie réelle. C'est le **score** qui reste null, pas la
-           passation.
-        */
-        if (manquants) {
-          $(`[data-manque="${id}"]`).textContent =
-            `${manquants} réponse(s) manquante(s) : la passation est enregistrée, mais sans score.`;
-        }
-        const gene = id === 'phq9'
-          ? (document.querySelector<HTMLInputElement>('input[name="phq9-gene"]:checked')?.value ?? null)
-          : null;
-        await ecrirePassation(id, reponses, { gene });
-        $(`[data-questionnaire="${id}"]`).classList.add('hidden');
-        document.querySelector<HTMLElement>(`[data-commencer="${id}"]`)!.classList.remove('hidden');
-        for (const i of document.querySelectorAll<HTMLInputElement>(`input[name^="${id}-"]`)) {
-          i.checked = false;
-        }
-        await peindreHistorique(id);
+      b.addEventListener('click', (evenement) => {
+        void unSeulGeste(evenement.currentTarget as Element, async () => {
+          const id = b.dataset.enregistrer as IdEchelle;
+          const reponses = lire(id);
+          const manquants = reponses.filter((r) => r === null).length;
+          /*
+             On enregistre quand même un questionnaire incomplet : ce qui a été
+             répondu l'a été, et l'effacer parce qu'il manque un item serait
+             perdre une saisie réelle. C'est le **score** qui reste null, pas la
+             passation.
+          */
+          if (manquants) {
+            $(`[data-manque="${id}"]`).textContent =
+              `${manquants} réponse(s) manquante(s) : la passation est enregistrée, mais sans score.`;
+          }
+          const gene = id === 'phq9'
+            ? (document.querySelector<HTMLInputElement>('input[name="phq9-gene"]:checked')?.value ?? null)
+            : null;
+          await ecrirePassation(id, reponses, { gene });
+          $(`[data-questionnaire="${id}"]`).classList.add('hidden');
+          document.querySelector<HTMLElement>(`[data-commencer="${id}"]`)!.classList.remove('hidden');
+          for (const i of document.querySelectorAll<HTMLInputElement>(`input[name^="${id}-"]`)) {
+            i.checked = false;
+          }
+          await peindreHistorique(id);
+        });
       });
     }
   });

@@ -347,6 +347,7 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
 <script>
   import { confirmer } from '../../lib/boite';
   import { auDeverrouillage } from '../../lib/chargement';
+  import { unSeulGeste } from '../../lib/geste';
   import {
     ecrireExercice,
     installerBibliotheque,
@@ -584,7 +585,13 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
 
       $('ajout').addEventListener('submit', (evenement) => {
         evenement.preventDefault();
-        void (async () => {
+        /*
+           Un envoi, une écriture — M6. `ecrireExercice` frappe un identifiant
+           neuf : deux envois rapprochés posaient deux fois le même exercice
+           dans la bibliothèque, et la fenêtre ne se referme qu'une fois
+           l'écriture finie — trop tard pour retenir le second appui.
+        */
+        void unSeulGeste(evenement.currentTarget as Element, async () => {
           try {
             await ecrireExercice({
               nom: ($('nom') as HTMLInputElement).value.trim(),
@@ -608,7 +615,7 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
               erreur instanceof Error ? erreur.message : String(erreur);
             $('erreur').classList.remove('hidden');
           }
-        })();
+        });
       });
 
       await recharger();

@@ -203,6 +203,7 @@ import Base from '../../layouts/Base.astro';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { unSeulGeste } from '../../lib/geste';
   import { etatDuJour, type EtatDuJour } from '../../lib/odyssee-jour';
   import { ajouterFocus, relever, tenir } from '../../lib/odyssee/donnees';
   import { regle } from '../../lib/odyssee/jour';
@@ -842,7 +843,16 @@ import Base from '../../layouts/Base.astro';
   auDeverrouillage(
     async () => {
       $('focus-demarrer').addEventListener('click', demarrerFocus);
-      $('focus-arreter').addEventListener('click', () => void arreterFocus());
+      /*
+         Un appui, une écriture — M6. « Arrêter » écrit un focus à identifiant
+         neuf. Sa garde `if (!depart) return` ne suffit pas : `depart` n'est
+         remis à null qu'**après** l'écriture, si bien que deux appuis à
+         quelques dizaines de millisecondes passaient tous les deux la garde
+         et déposaient deux séances de focus pour une seule.
+      */
+      $('focus-arreter').addEventListener('click', (evenement) => {
+        void unSeulGeste(evenement.currentTarget as Element, arreterFocus);
+      });
       await rafraichir();
     },
     { zoneChargement: '#chargement-odyssee' },

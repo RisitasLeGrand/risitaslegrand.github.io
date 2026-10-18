@@ -176,6 +176,7 @@ import Base from '../../layouts/Base.astro';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { unSeulGeste } from '../../lib/geste';
   import { domainesActifs } from '../../lib/odyssee-jour';
   import {
     ecrireEvenement,
@@ -1099,7 +1100,13 @@ import Base from '../../layouts/Base.astro';
 
       $('ajout').addEventListener('submit', (evenement) => {
         evenement.preventDefault();
-        void (async () => {
+        /*
+           Un envoi, une écriture — M6. `ecrireEvenement` frappe un
+           identifiant neuf : deux envois rapprochés posaient deux rendez-vous
+           au même créneau, et le champ n'est vidé qu'une fois l'écriture
+           finie — trop tard pour le second appui.
+        */
+        void unSeulGeste(evenement.currentTarget as Element, async () => {
           const titre = ($('titre') as HTMLInputElement).value.trim();
           const debut = ($('debut') as HTMLInputElement).value;
           const fin = ($('fin') as HTMLInputElement).value;
@@ -1128,7 +1135,7 @@ import Base from '../../layouts/Base.astro';
               erreur instanceof Error ? erreur.message : String(erreur);
             $('erreur').classList.remove('hidden');
           }
-        })();
+        });
       });
 
       ($('fichier') as HTMLInputElement).addEventListener('change', (evenement) => {

@@ -240,6 +240,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { unSeulGeste } from '../../lib/geste';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import { coffreOuvert, ouvrirLeCoffre, reprendreLeCoffre, surCoffre } from '../../lib/coffre';
   import { heuresDepuisLaDernierePrise, situerDansLIntervalle } from '../../lib/odyssee/sante';
@@ -535,61 +536,58 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
         })();
       });
 
-      $('form-traitement').addEventListener('submit', (e) => {
-        e.preventDefault();
-        void ecrireTraitement(valeur('t-nom'), valeur('t-debut'), {
+      /**
+       * Un envoi, une écriture — M6.
+       *
+       * Les quatre formulaires de cet écran écrivent chacun une ligne à
+       * identifiant neuf : un traitement, un prélèvement, un symptôme, une
+       * condition. Le champ vidé après coup ne protège pas du double appui
+       * rapproché — il n'est vidé qu'une fois l'écriture finie, et le second
+       * appui a eu lieu avant. `unSeulGeste` prend le formulaire pour clé, et
+       * désactive son bouton d'envoi le temps de l'écriture.
+       */
+      const surEnvoi = (id: string, travail: () => Promise<unknown>) => {
+        $(id).addEventListener('submit', (evenement) => {
+          evenement.preventDefault();
+          void unSeulGeste(evenement.currentTarget as Element, travail).catch(dire);
+        });
+      };
+
+      surEnvoi('form-traitement', async () => {
+        await ecrireTraitement(valeur('t-nom'), valeur('t-debut'), {
           posologie: valeur('t-posologie'),
           origine: valeur('t-origine') as 'moi' | 'prescrit',
           prescripteur: valeur('t-prescripteur'),
           sporadique: ($('t-sporadique') as HTMLInputElement).checked,
-        })
-          .then(() => {
-            ($('t-nom') as HTMLInputElement).value = '';
-            ($('t-posologie') as HTMLInputElement).value = '';
-            ($('t-prescripteur') as HTMLInputElement).value = '';
-            ($('t-sporadique') as HTMLInputElement).checked = false;
-            return peindre();
-          })
-          .catch(dire);
+        });
+        ($('t-nom') as HTMLInputElement).value = '';
+        ($('t-posologie') as HTMLInputElement).value = '';
+        ($('t-prescripteur') as HTMLInputElement).value = '';
+        ($('t-sporadique') as HTMLInputElement).checked = false;
+        await peindre();
       });
 
-      $('form-prelevement').addEventListener('submit', (e) => {
-        e.preventDefault();
-        void ecrirePrelevement(valeur('p-jour'), {
+      surEnvoi('form-prelevement', async () => {
+        await ecrirePrelevement(valeur('p-jour'), {
           le: new Date().toISOString(),
           laboratoire: valeur('p-labo'),
           contexte: valeur('p-contexte'),
-        })
-          .then(() => {
-            ($('p-labo') as HTMLInputElement).value = '';
-            ($('p-contexte') as HTMLInputElement).value = '';
-            return peindre();
-          })
-          .catch(dire);
+        });
+        ($('p-labo') as HTMLInputElement).value = '';
+        ($('p-contexte') as HTMLInputElement).value = '';
+        await peindre();
       });
 
-      $('form-symptome').addEventListener('submit', (e) => {
-        e.preventDefault();
-        void ecrireSymptome(
-          valeur('s-jour'),
-          valeur('s-intitule'),
-          Number(valeur('s-intensite')),
-        )
-          .then(() => {
-            ($('s-intitule') as HTMLInputElement).value = '';
-            return peindre();
-          })
-          .catch(dire);
+      surEnvoi('form-symptome', async () => {
+        await ecrireSymptome(valeur('s-jour'), valeur('s-intitule'), Number(valeur('s-intensite')));
+        ($('s-intitule') as HTMLInputElement).value = '';
+        await peindre();
       });
 
-      $('form-condition').addEventListener('submit', (e) => {
-        e.preventDefault();
-        void ecrireCondition(valeur('c-intitule'), valeur('c-debut'))
-          .then(() => {
-            ($('c-intitule') as HTMLInputElement).value = '';
-            return peindre();
-          })
-          .catch(dire);
+      surEnvoi('form-condition', async () => {
+        await ecrireCondition(valeur('c-intitule'), valeur('c-debut'));
+        ($('c-intitule') as HTMLInputElement).value = '';
+        await peindre();
       });
 
       /*

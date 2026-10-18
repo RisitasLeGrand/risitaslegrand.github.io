@@ -177,6 +177,7 @@ import { MUSCLES } from '../../lib/sport/modele';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { unSeulGeste } from '../../lib/geste';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
   import {
@@ -601,8 +602,13 @@ import { MUSCLES } from '../../lib/sport/modele';
         peindreSeances();
       });
       $('fenetre').addEventListener('change', () => void peindreVolumes());
-      $('enregistrer').addEventListener('click', () => {
-        void (async () => {
+      /*
+         Un appui, une écriture — M6. « Enregistrer » un programme neuf frappe
+         un identifiant neuf : deux appuis rapprochés en créaient deux copies,
+         et l'éditeur ne se referme qu'une fois l'écriture finie.
+      */
+      $('enregistrer').addEventListener('click', (evenement) => {
+        void unSeulGeste(evenement.currentTarget as Element, async () => {
           try {
             await ecrireProgramme(lireBrouillon());
             $('erreur').classList.add('hidden');
@@ -612,7 +618,7 @@ import { MUSCLES } from '../../lib/sport/modele';
             $('erreur').textContent = erreur instanceof Error ? erreur.message : String(erreur);
             $('erreur').classList.remove('hidden');
           }
-        })();
+        });
       });
 
       await recharger();

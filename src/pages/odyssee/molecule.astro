@@ -261,6 +261,7 @@ import {
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { unSeulGeste } from '../../lib/geste';
   import { coffreOuvert, ouvrirLeCoffre, surCoffre } from '../../lib/coffre';
   import {
     ecrireRessenti,
@@ -444,25 +445,32 @@ import {
       }
     }
 
+    /*
+       Un envoi, une écriture — M6. `ecrireRessenti` frappe un identifiant
+       neuf : deux envois rapprochés notaient deux fois le même ressenti du
+       jour, et les champs ne sont vidés qu'une fois l'écriture finie.
+    */
     $('form-ressenti').addEventListener('submit', (e) => {
       e.preventDefault();
       if (!traitement) return;
       const lire = (id: string) => ($(id) as HTMLInputElement).value.trim();
-      void ecrireRessenti({
-        traitementId: traitement.id,
-        jour: lire('r-jour') || new Date().toISOString().slice(0, 10),
-        ressenti: lire('r-ressenti'),
-        indesirable: lire('r-indesirable'),
-        tolerance: lire('r-tolerance'),
-        note: '',
-      })
-        .then(() => {
-          for (const id of ['r-ressenti', 'r-indesirable', 'r-tolerance']) {
-            ($(id) as HTMLInputElement).value = '';
-          }
-          return peindreJournal();
+      void unSeulGeste(e.currentTarget as Element, () =>
+        ecrireRessenti({
+          traitementId: traitement.id,
+          jour: lire('r-jour') || new Date().toISOString().slice(0, 10),
+          ressenti: lire('r-ressenti'),
+          indesirable: lire('r-indesirable'),
+          tolerance: lire('r-tolerance'),
+          note: '',
         })
-        .catch((err) => notifier(String(err instanceof Error ? err.message : err)));
+          .then(() => {
+            for (const id of ['r-ressenti', 'r-indesirable', 'r-tolerance']) {
+              ($(id) as HTMLInputElement).value = '';
+            }
+            return peindreJournal();
+          })
+          .catch((err) => notifier(String(err instanceof Error ? err.message : err))),
+      );
     });
 
     /* ── La passerelle ────────────────────────────────────────────── */

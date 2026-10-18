@@ -228,6 +228,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { unSeulGeste } from '../../lib/geste';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import {
     DIMENSIONS,
@@ -464,16 +465,29 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     await peindreRappel();
   }
 
-  const essayer = (travail: () => Promise<unknown>) => {
-    void (async () => {
-      try {
-        await travail();
-        taire();
-        await recharger();
-      } catch (erreur) {
-        dire(erreur);
-      }
-    })();
+  const essayer = async (travail: () => Promise<unknown>) => {
+    try {
+      await travail();
+      taire();
+      await recharger();
+    } catch (erreur) {
+      dire(erreur);
+    }
+  };
+
+  /**
+   * Un appui, une écriture — M6, comme sur l'écran Corps.
+   *
+   * Les trois boutons de cet écran écrivent chacun une ligne à
+   * identifiant neuf : un check-in, un bilan de la semaine, une entrée
+   * de journal. Aucun n'est dans un formulaire, donc rien ne retenait le
+   * second appui d'un pouce qui rebondit. Le bouton sert de clé, si bien
+   * que deux entrées de journal **voulues** passent toujours.
+   */
+  const surAppui = (id: string, travail: () => Promise<unknown>) => {
+    $(id).addEventListener('click', (evenement) => {
+      void unSeulGeste(evenement.currentTarget as Element, () => essayer(travail));
+    });
   };
 
   auDeverrouillage(
@@ -492,35 +506,29 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
         });
       }
 
-      $('enregistrer').addEventListener('click', () =>
-        essayer(async () => {
-          await ecrireCheckin({
-            humeur: lire('humeur'),
-            energie: lire('energie'),
-            stress: lire('stress'),
-            motivation: lire('motivation'),
-            note: ($('note') as HTMLInputElement).value.trim(),
-          });
-        }),
-      );
+      surAppui('enregistrer', async () => {
+        await ecrireCheckin({
+          humeur: lire('humeur'),
+          energie: lire('energie'),
+          stress: lire('stress'),
+          motivation: lire('motivation'),
+          note: ($('note') as HTMLInputElement).value.trim(),
+        });
+      });
 
-      $('enregistrer-hebdo').addEventListener('click', () =>
-        essayer(async () => {
-          await ecrireHebdo({
-            porte: ($('porte') as HTMLTextAreaElement).value,
-            pese: ($('pese') as HTMLTextAreaElement).value,
-            besoin: ($('besoin') as HTMLTextAreaElement).value,
-          });
-        }),
-      );
+      surAppui('enregistrer-hebdo', async () => {
+        await ecrireHebdo({
+          porte: ($('porte') as HTMLTextAreaElement).value,
+          pese: ($('pese') as HTMLTextAreaElement).value,
+          besoin: ($('besoin') as HTMLTextAreaElement).value,
+        });
+      });
 
-      $('ecrire').addEventListener('click', () =>
-        essayer(async () => {
-          const champ = $('entree') as HTMLTextAreaElement;
-          await ecrireEntree(champ.value);
-          champ.value = '';
-        }),
-      );
+      surAppui('ecrire', async () => {
+        const champ = $('entree') as HTMLTextAreaElement;
+        await ecrireEntree(champ.value);
+        champ.value = '';
+      });
 
       $('ouvrir-coffre').addEventListener('click', () => {
         void (async () => {

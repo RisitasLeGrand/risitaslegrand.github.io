@@ -154,6 +154,7 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { unSeulGeste } from '../../lib/geste';
   import {
     cloreLaPhaseEnCours,
     ecrireBlessure,
@@ -287,8 +288,14 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
         $('intensite-valeur').textContent = ($('intensite') as HTMLInputElement).value;
       });
 
-      $('declarer').addEventListener('click', () => {
-        void (async () => {
+      /*
+         Un appui, une écriture — M6. « Déclarer » et « Ouvrir une phase »
+         frappent chacun un identifiant neuf : deux appuis rapprochés
+         déclaraient deux fois la même blessure, ou ouvraient deux phases au
+         même jour — et la seconde refermait la première.
+      */
+      $('declarer').addEventListener('click', (evenement) => {
+        void unSeulGeste(evenement.currentTarget as Element, async () => {
           const muscles = [...document.querySelectorAll<HTMLInputElement>('[data-muscle]')]
             .filter((c) => c.checked)
             .map((c) => c.dataset.muscle!);
@@ -306,11 +313,11 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
           }
           ($('note-blessure') as HTMLTextAreaElement).value = '';
           await recharger();
-        })();
+        });
       });
 
-      $('ouvrir-phase').addEventListener('click', () => {
-        void (async () => {
+      $('ouvrir-phase').addEventListener('click', (evenement) => {
+        void unSeulGeste(evenement.currentTarget as Element, async () => {
           const debut = ($('debut-phase') as HTMLInputElement).value || aujourdhui();
           await cloreLaPhaseEnCours(new Date(`${debut}T12:00:00.000Z`));
           await ecrirePhase(
@@ -318,7 +325,7 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
             `${debut}T12:00:00.000Z`,
           );
           await recharger();
-        })();
+        });
       });
 
       $('clore-phase').addEventListener('click', () => {

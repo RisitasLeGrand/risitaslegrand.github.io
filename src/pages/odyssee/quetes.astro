@@ -99,6 +99,7 @@ import Base from '../../layouts/Base.astro';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { unSeulGeste } from '../../lib/geste';
   import { domainesActifs } from '../../lib/odyssee-jour';
   import {
     ajouterQuete,
@@ -264,11 +265,18 @@ import Base from '../../layouts/Base.astro';
         const titre = ($('titre') as HTMLInputElement).value.trim();
         if (!titre) return;
         const cadence = ($('cadence') as HTMLSelectElement).value as Cadence;
-        void agir(async () => {
-          await ajouterQuete({ titre, domaine: select.value, cadence });
-          ($('titre') as HTMLInputElement).value = '';
-          $('erreur').classList.add('hidden');
-        });
+        /*
+           Un envoi, une écriture — M6. `ajouterQuete` frappe un identifiant
+           neuf : deux envois rapprochés créaient deux quêtes jumelles, et le
+           champ n'est vidé qu'une fois l'écriture finie.
+        */
+        void unSeulGeste(evenement.currentTarget as Element, () =>
+          agir(async () => {
+            await ajouterQuete({ titre, domaine: select.value, cadence });
+            ($('titre') as HTMLInputElement).value = '';
+            $('erreur').classList.add('hidden');
+          }),
+        );
       });
 
       await peindre();

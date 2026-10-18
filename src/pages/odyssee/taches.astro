@@ -154,6 +154,7 @@ import Base from '../../layouts/Base.astro';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { unSeulGeste } from '../../lib/geste';
   import { domainesActifs } from '../../lib/odyssee-jour';
   import {
     abandonner,
@@ -1079,12 +1080,21 @@ import Base from '../../layouts/Base.astro';
         const echeance = ($('echeance') as HTMLInputElement).value || null;
         const serie = serieNeuve?.lire() ?? null;
         /*
+           Un envoi, une écriture — M6. `ajouterTache` frappe un identifiant
+           neuf à chaque appel : deux envois rapprochés créaient deux tâches
+           jumelles. Le champ vidé après coup n'y pouvait rien, puisqu'il
+           n'est vidé qu'une fois l'écriture finie. Le formulaire sert de
+           clé, et son bouton d'envoi est désactivé le temps de l'écriture.
+        */
+        const formulaire = evenement.currentTarget as Element;
+        /*
            Une tâche répétée NE PORTE PAS d'échéance : `controlerTache()` les
            refuse ensemble. L'échéance saisie sert ici d'ancre à la série —
            c'est elle qui porte le quantième d'une règle mensuelle — puis elle
            s'efface, parce que ce sont les occurrences qui en tiennent lieu.
         */
-        void agirPuisPeindre(async () => {
+        void unSeulGeste(formulaire, () =>
+          agirPuisPeindre(async () => {
           const vise = choixDuLien.value
             ? ACTIONS_LIABLES.find((a) => a.id === choixDuLien.value)
             : null;
@@ -1114,7 +1124,8 @@ import Base from '../../layouts/Base.astro';
              croire la tâche créée si l'écriture avait échoué.
           */
           if (retour) location.assign(retour);
-        });
+          }),
+        );
       });
 
       /*

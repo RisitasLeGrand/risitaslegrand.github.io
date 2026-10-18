@@ -19,6 +19,23 @@
  * base `revinsp`. C'est la seule mesure qui ne se laisse pas tromper par un
  * rendu qui agrège.
  *
+ * ## Ce que le sabotage a montré, et ce que chaque ligne vaut donc
+ *
+ * `unSeulGeste` rendu passe-plat, les trente contrôles ne virent pas tous
+ * au rouge : **douze** le font, et ce sont ceux-là qui prouvent le
+ * garde-fou. Les douze autres restent verts parce qu'ils mesurent un
+ * accident plutôt qu'une protection.
+ *
+ *   - Les quatre écarts des **boutons hors formulaire** (verre d'eau,
+ *     « J'ai dormi ») virent tous au rouge : rien ne les protégeait.
+ *   - Les **envois de formulaire** (tâche, quête, rendez-vous, pesée) ne
+ *     virent au rouge **qu'à 0 ms**. Au-delà, la validation native refuse
+ *     le second envoi, parce que le champ requis vient d'être vidé. Ces
+ *     neuf lignes-là ne prouvent donc pas le garde-fou ; elles gardent
+ *     l'accident, et signaleront le jour où un écran cessera de vider son
+ *     champ. C'est utile, mais ce n'est pas la même preuve, et il ne faut
+ *     pas les lire comme telle.
+ *
  * ## Le revers est mesuré aussi
  *
  * Un garde-fou qui refuse le second verre **voulu** est un défaut, pas une
@@ -164,6 +181,34 @@ const GESTES = [
     chemin: '/odyssee/corps/',
     selecteur: '#dormir',
     magasin: 'odysseeNuits',
+  },
+  {
+    nom: 'Tâches — « Ajouter » une tâche',
+    chemin: '/odyssee/taches/',
+    selecteur: '#ajout button[type=submit]',
+    magasin: 'odysseeTaches',
+    preparer: async (page) => {
+      await page.fill('#titre', 'Arroser les plantes');
+    },
+  },
+  {
+    nom: 'Quêtes — « Ajouter » une quête',
+    chemin: '/odyssee/quetes/',
+    selecteur: '#ajout button[type=submit]',
+    magasin: 'odysseeQuetes',
+    preparer: async (page) => {
+      await page.fill('#titre', 'Marcher une heure');
+    },
+  },
+  {
+    nom: 'Calendrier — « Ajouter » un rendez-vous',
+    chemin: '/odyssee/calendrier/',
+    selecteur: '#ajout button[type=submit]',
+    magasin: 'odysseeEvenements',
+    preparer: async (page) => {
+      await page.fill('#titre', 'Rendez-vous');
+      await page.fill('#debut', '2026-11-12T10:00');
+    },
   },
   {
     nom: 'Corps — « Enregistrer » la pesée',
