@@ -229,6 +229,8 @@
     "icones": "node scripts/icones.mjs",
     "essais:installation": "node scripts/essais-installation.mjs",
     "essais:invitation": "node scripts/essais-invitation.mjs",
+    "essais:piles": "tsx scripts/essais-piles.mts",
+    "essais:piles:navigateur": "node scripts/essais-piles-navigateur.mjs",
     "essais:voile": "node scripts/essais-voile-et-fiche.mjs",
     "essais:redemande": "node scripts/essais-redemande.mjs",
     "essais:bascule-branchement": "node scripts/essais-bascule-branchement.mjs"

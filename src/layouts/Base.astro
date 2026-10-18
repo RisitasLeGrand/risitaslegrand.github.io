@@ -318,6 +318,27 @@ const flecheVisible = !estLeMenu && !sansNavigation;
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content={config.titre} />
     <script is:inline>
+      /*
+         Le mode application, posé avant le premier rendu (M15).
+
+         `data-application="oui"` sur la racine dit que la page tourne hors du
+         navigateur — depuis l'écran d'accueil. Le poser ici et non dans un
+         module importé n'est pas un détail : une feuille de style qui
+         s'appuie dessus doit pouvoir le lire au premier calcul, sinon la
+         première image de la page est celle du mauvais mode.
+
+         Deux épreuves, parce qu'elles ne couvrent pas les mêmes systèmes :
+         « display-mode: standalone » est la réponse du standard, et
+         « navigator.standalone » celle d'iOS, qui ne l'implémente pas.
+      */
+      try {
+        var enApplication =
+          (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+          navigator.standalone === true;
+        if (enApplication) document.documentElement.dataset.application = 'oui';
+      } catch (e) {
+        /* Rien : l'absence de l'attribut vaut « dans le navigateur ». */
+      }
       // Applique le thème avant le premier rendu pour éviter tout clignotement.
       // Trois choix possibles : « clair », « sombre » et « systeme ». Seul le
       // thème résolu (clair ou sombre) est écrit dans « data-theme » ; le choix
@@ -612,6 +633,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                     e.sorte === 'onglet' ? (
                       <a
                         href={`${base}${e.onglet.chemin}`}
+                        data-onglet={e.onglet.chemin}
                         title={e.onglet.description ?? e.onglet.nom}
                         aria-current={actif === e.onglet.id ? 'page' : undefined}
                         class:list={[
@@ -886,6 +908,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
           {principaux.map((o) => (
             <a
               href={`${base}${o.chemin}`}
+              data-onglet={o.chemin}
               aria-current={actif === o.id ? 'page' : undefined}
               class:list={[
                 'flex min-h-14 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1 text-xs font-medium transition',
@@ -1009,6 +1032,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
       import { initGlossaireGlobal } from '../lib/glossaire';
       import { suivreTemps } from '../lib/temps';
       import { brancherLeVoile } from '../lib/voile';
+      import { brancherLesPiles } from '../lib/piles-navigateur';
 
       /*
          Le voile est branché ici, dans la mise en page, et non page par page :
@@ -1016,6 +1040,12 @@ const flecheVisible = !estLeMenu && !sansNavigation;
          c'est précisément celle qu'on aurait sous les yeux en quittant.
       */
       brancherLeVoile();
+      /*
+         Les piles par onglet (M15). Branchées dans la mise en page pour la
+         même raison que le voile : une page oubliée suffirait à faire perdre
+         la position, et c'est justement celle d'où l'on partait.
+      */
+      brancherLesPiles(import.meta.env.BASE_URL);
 
       initGlossaireGlobal();
 
