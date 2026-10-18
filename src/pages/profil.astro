@@ -219,6 +219,7 @@ import Base from '../layouts/Base.astro';
 <script>
   import { auDeverrouillage } from '../lib/chargement';
   import { echapper, pluriel } from '../lib/ui';
+  import { redemanderLeMotDePasse } from '../lib/redemande';
   import { BRANCHES, branche } from '../lib/branches';
   import {
     avancementLocal,
@@ -698,12 +699,27 @@ import Base from '../layouts/Base.astro';
   }
 
   $('effacer-profil').addEventListener('click', async () => {
+    /*
+       Le mot de passe, et non plus un « confirm ». Celui-ci protégeait du
+       clic à côté, et de rien d'autre : l'effacement part aussi vers les
+       autres appareils à la prochaine synchronisation, et rien ne le
+       rattrape de là-bas. Ce que la redemande vise, c'est l'ordinateur
+       déverrouillé prêté deux minutes — le même cas que la décision 3.
+    */
     if (
-      !window.confirm(
-        'Supprimer tout le profil ?\n\nTous les champs seront effacés, sur cet appareil et sur ' +
-          'les autres à la prochaine synchronisation. Vos données de révision ne sont pas touchées.',
-      )
+      !(await redemanderLeMotDePasse({
+        titre: 'Supprimer tout le profil',
+        consequence:
+          'Tous les champs du profil seront effacés, sur cet appareil et sur les autres à la ' +
+          'prochaine synchronisation. Vos données de révision, de sport et d’Odyssée ne sont ' +
+          'pas touchées.',
+        action: 'Supprimer tout le profil',
+      }))
     ) {
+      const message = $('message-effacement');
+      message.className = 'mt-3 text-sm text-slate-700 dark:text-slate-200';
+      message.textContent = 'Rien n’a été supprimé.';
+      message.classList.remove('hidden');
       return;
     }
     const combien = await supprimerProfil();

@@ -378,8 +378,19 @@ import Base from '../layouts/Base.astro';
     type Prevision,
   } from '../lib/sync/service';
   import { revenirAvantMigration } from '../lib/db';
+  import { redemanderLeMotDePasse, type Redemande } from '../lib/redemande';
 
   const $ = (id: string) => document.getElementById(id)!;
+
+  /** La même question pour les deux formats : seul le nom du format change. */
+  const QUESTION_EXPORT = (format: string): Redemande => ({
+    titre: `Exporter en ${format}, en clair`,
+    consequence:
+      'Le fichier produit n’est pas chiffré : qui l’ouvre lit tout, sans mot de passe. ' +
+      'Il reste dans vos téléchargements jusqu’à ce que vous l’en retiriez.',
+    action: `Exporter en ${format}`,
+    ton: 'sortie',
+  });
 
   const octets = (n: number | null) => {
     if (n === null) return 'inconnu';
@@ -591,7 +602,24 @@ import Base from '../layouts/Base.astro';
         dire('message-effacement', `Sauvegarde impossible, rien n’a été effacé : ${(e as Error).message}`, 'echec');
         return;
       }
-    } else if (!confirm('Effacer sans sauvegarde ? Cette action est définitive et sans recours.')) {
+    } else if (
+      /*
+         Effacer sans sauvegarde demande le mot de passe, et non plus un
+         « confirm ». Les deux branches sont ainsi à égalité : celle qui
+         sauvegarde prouvait déjà la connaissance du mot de passe, puisqu'il
+         chiffre la sauvegarde. Celle-ci ne prouvait rien, alors qu'elle est
+         la plus définitive des deux.
+      */
+      !(await redemanderLeMotDePasse({
+        titre: 'Effacer sans sauvegarder',
+        consequence:
+          `${cibleCourante.groupes.length} domaine(s) vont être effacés définitivement, sans ` +
+          'aucun fichier pour revenir en arrière. Un effacement est la seule opération du ' +
+          'site qui soit sans recours.',
+        action: 'Effacer définitivement',
+      }))
+    ) {
+      dire('message-effacement', 'Rien n’a été effacé.', 'neutre');
       return;
     }
 
@@ -746,6 +774,17 @@ import Base from '../layouts/Base.astro';
     $('exporter-csv').addEventListener('click', async () => {
       const [id] = choisis('groupe-export');
       if (!id) return;
+      /*
+         Un export en clair écrit sur le disque, sans chiffrement et sans mot
+         de passe, ce que tout le reste du site passe son temps à chiffrer.
+         Il mérite donc la même redemande qu'un effacement : ce n'est pas la
+         maladresse qu'on craint ici, c'est l'ordinateur déverrouillé prêté
+         deux minutes avec le site déjà ouvert.
+      */
+      if (!(await redemanderLeMotDePasse(QUESTION_EXPORT('CSV')))) {
+        dire('message-export', 'Rien n’a été exporté.', 'neutre');
+        return;
+      }
       dire('message-export', 'Lecture et mise en forme…', 'neutre');
       try {
         const fichiers = await exporterGroupeCsv(id);
@@ -769,6 +808,10 @@ import Base from '../layouts/Base.astro';
     $('exporter-json').addEventListener('click', async () => {
       const [id] = choisis('groupe-export');
       if (!id) return;
+      if (!(await redemanderLeMotDePasse(QUESTION_EXPORT('JSON')))) {
+        dire('message-export', 'Rien n’a été exporté.', 'neutre');
+        return;
+      }
       dire('message-export', 'Lecture et mise en forme…', 'neutre');
       try {
         const fichier = await exporterGroupeJson(id);
