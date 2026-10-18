@@ -113,6 +113,43 @@
 html {
   scroll-behavior: smooth;
   -webkit-text-size-adjust: 100%;
+  /*
+     LE TIRER-POUR-RAFRAÎCHIR DU NAVIGATEUR — M6, dernière règle.
+
+     « Le tirer-pour-rafraîchir ne fait pas perdre une saisie. » Sur
+     Android, le geste recharge la page dès qu'on tire vers le bas en haut
+     de l'écran. Ici, ce rechargement ne peut rien apporter — Cyclades ne
+     lit rien d'un serveur, tout vient de la base locale — et il peut tout
+     coûter : le texte en cours dans la revue du soir, le poids tapé et pas
+     encore enregistré, l'intitulé d'une tâche à demi écrit.
+
+     POURQUOI EMPÊCHER LE GESTE PLUTÔT QUE SAUVEGARDER LE BROUILLON.
+
+     Garder les saisies en cours dans `localStorage` ou `sessionStorage`
+     les écrirait **en clair**, et plusieurs de ces écrans — Psyché, Santé,
+     Molécule, Finances, Échelles — portent précisément les données que la
+     décision 3 scelle. Un brouillon en clair annulerait le chiffrement au
+     repos pour le texte le plus intime, qui est celui qu'on tape le plus
+     lentement et qu'on perdrait le plus volontiers. Et un mécanisme qui
+     protégerait les écrans en clair sans protéger les autres serait un
+     piège : on finirait par compter dessus partout.
+
+     Retirer le geste ne retire rien d'utile. Le rechargement reste
+     disponible par le bouton du navigateur, qui demande un geste
+     délibéré, et la position de défilement est rendue au retour (M5).
+
+     `contain` et non `none` : les zones qui défilent sur elles-mêmes —
+     feuilles du bas, dépliants — gardent leur propre comportement, déjà
+     posé plus bas dans ce fichier.
+
+     CE QUE LA MESURE PEUT ET NE PEUT PAS DIRE. Le geste appartient au
+     navigateur, pas à la page : Chrome sans tête ne l'implémente pas, et
+     aucun essai ne peut donc le déclencher. `essais-tirer-rafraichir`
+     mesure la propriété calculée sur l'élément qui défile, écran par
+     écran — c'est un constat sur la règle qui gouverne le geste, pas sur
+     le geste lui-même, et il est écrit ainsi.
+  */
+  overscroll-behavior-y: contain;
 }
 
 body {
