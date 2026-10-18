@@ -29,9 +29,19 @@
  * changé un réglage que la personne n'a pas touché. Ici, le menu annonce la
  * conséquence avant le geste.
  *
- * La palette, elle, ne se choisit pas ici : elle est dans
- * Paramètres > Affichage, avec ses quatorze aperçus.
+ * La palette, elle, ne se choisit pas ici : elle est dans la section
+ * « Affichage » des paramètres, avec ses quatorze aperçus.
+ *
+ * ## Le chemin du retour (décision du 18 octobre, 19 h 52)
+ *
+ * Annoncer qu'un geste arrête la bascule ne suffit pas : il faut dire où on la
+ * remet. La note porte donc le chemin, et ce chemin est un **lien** plutôt
+ * qu'un itinéraire à lire — la section « Affichage » a une ancre, autant s'en
+ * servir. Le lien est au fil d'une phrase : il prend « cible-minimale » (24 px,
+ * le plancher de WCAG 2.5.8) et non « cible-tactile », que `essais:mobile`
+ * interdit justement là (M4, D-041).
  */
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 ---
 
 <div class="relative">
@@ -70,7 +80,12 @@
       Thème d'affichage
     </p>
     <p id="note-bascule" hidden class="px-2 pb-1.5 text-xs text-slate-500 dark:text-slate-400">
-      Clair le jour, sombre la nuit : choisir un mode ici arrête cette bascule.
+      Clair le jour, sombre la nuit : choisir un mode ici arrête cette bascule. Vous pourrez la
+      réactiver dans la <a
+        href={`${base}/parametres/#affichage`}
+        class="cible-minimale underline decoration-slate-400 underline-offset-2"
+        >section « Affichage » des paramètres</a
+      >.
     </p>
     {
       [

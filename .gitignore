@@ -41,3 +41,6 @@ sources/
 # machine qui construit : publié ou commité, il rendrait le mot de passe
 # attaquable hors ligne.
 .temoin-mot-de-passe.local.json
+
+# Les worktrees des agents : du travail en cours, jamais du dépôt.
+.claude/worktrees/

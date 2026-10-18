@@ -115,15 +115,130 @@ void surProgression;
 await page.goto(`${RACINE}/progression/`, { waitUntil: 'networkidle' });
 await page.waitForTimeout(1200);
 const surSonEcran = await page
-  .locator('#plafond-cartes, [name="plafondCartes"], #cartes-par-seance')
+  .locator('#plafond-cartes')
   .first()
   .inputValue()
   .catch(() => null);
+/*
+   L'assertion disait d'abord « ou n'a pas ce champ, auquel cas la base fait
+   foi ». C'était une porte de sortie : si le champ disparaissait de
+   `/progression/`, l'essai restait vert. Le champ existe
+   (`progression.astro:30`), on l'exige donc.
+*/
+verifier('et l’écran d’origine montre la même valeur', surSonEcran, '42');
+
+/* ── 1 bis. Le sens inverse, et le second écran à doublons ───────────────── */
+
+/*
+   Décision du pilote du 18 octobre : les doublons de `progression.astro` et de
+   `notifications.astro` sont **gardés**, « à condition d'utiliser les mêmes
+   clés et les mêmes fonctions », et un essai doit vérifier « que la même
+   valeur s'affiche aux deux endroits après un changement fait à l'un ».
+   « À l'un » : dans les deux sens, donc, et pas seulement de la page centrale
+   vers l'écran. Un réglage écrit par deux chemins qui divergent est pire
+   qu'un réglage absent — on croit l'avoir changé.
+*/
+console.log('\nLE MÊME RÉGLAGE, DANS L’AUTRE SENS');
+
+/* On est déjà sur /progression/ : on y change la valeur, puis on la relit
+   sur la page centrale. */
+const cartesSurEcran = page.locator('#plafond-cartes');
+await cartesSurEcran.waitFor({ state: 'visible', timeout: 10_000 });
+await cartesSurEcran.fill('65');
+await cartesSurEcran.dispatchEvent('change');
+await page.waitForTimeout(900);
+
+await page.goto(`${RACINE}/parametres/`, { waitUntil: 'networkidle' });
+await page.waitForTimeout(1500);
 verifier(
-  'et l’écran d’origine la montre (ou n’a pas ce champ, auquel cas la base fait foi)',
-  surSonEcran === null || surSonEcran === '42',
+  'changée sur /progression/, la valeur se lit sur la page centrale',
+  await page.locator('[data-reglage="plafond-cartes"] input[type=number]').inputValue(),
+  '65',
+);
+
+/* Et le second écran à doublons : la rétention des notifications. */
+await page.goto(`${RACINE}/notifications/`, { waitUntil: 'networkidle' });
+await page.waitForTimeout(1200);
+const archiverSurEcran = page.locator('#retention-archiver');
+await archiverSurEcran.waitFor({ state: 'visible', timeout: 10_000 });
+await archiverSurEcran.fill('11');
+await archiverSurEcran.dispatchEvent('change');
+await page.locator('#retention-enregistrer').click().catch(() => {});
+await page.waitForTimeout(900);
+
+await page.goto(`${RACINE}/parametres/`, { waitUntil: 'networkidle' });
+await page.waitForTimeout(1500);
+verifier(
+  'changée sur /notifications/, « Archiver après » se lit sur la page centrale',
+  await page.locator('[data-reglage="retention-archiver"] input[type=number]').inputValue(),
+  '11',
+);
+
+/* Puis l'aller, sur ce même réglage : la page centrale écrit là où l'écran
+   lit. On remet 7 jours, la valeur d'usine, ce qui sert aussi de nettoyage. */
+const archiverAuCentre = page.locator('[data-reglage="retention-archiver"] input[type=number]');
+await archiverAuCentre.fill('9');
+await archiverAuCentre.dispatchEvent('change');
+await page.waitForTimeout(800);
+await page.goto(`${RACINE}/notifications/`, { waitUntil: 'networkidle' });
+await page.waitForTimeout(1200);
+verifier(
+  'et changée au centre, elle se lit sur /notifications/',
+  await page.locator('#retention-archiver').inputValue(),
+  '9',
+);
+
+/* ── 1 ter. La note du commutateur dit où remettre la bascule ───────────── */
+
+/*
+   Décision du pilote du 18 octobre : annoncer qu'un geste arrête la bascule ne
+   suffit pas, il faut dire où on la remet. La note le dit **et** y mène.
+
+   L'essai vit ici, et non dans `essais:themes-navigateur` : celui-là ouvre la
+   page sans franchir le coffre, et l'en-tête n'y est pas affiché — la note
+   s'y mesurait à 0 × 0 px, ce qui ne prouve rien. Ici le coffre est ouvert,
+   donc l'en-tête existe et la note se voit pour de bon.
+*/
+console.log('\nLA NOTE DU COMMUTATEUR');
+await page.goto(`${RACINE}/parametres/`, { waitUntil: 'networkidle' });
+await page.waitForTimeout(800);
+await page.locator('#bouton-theme').click();
+await page.waitForTimeout(300);
+const note = page.locator('#note-bascule');
+verifier('la note se voit quand la bascule est active', await note.isVisible(), true);
+verifier(
+  'elle dit où réactiver la bascule',
+  /réactiver dans la section « Affichage » des paramètres/.test(
+    ((await note.textContent()) ?? '').replace(/\s+/g, ' '),
+  ),
   true,
 );
+/* `.catch(() => null)` et un délai court : sans eux, une note sans lien fait
+   une panne de trente secondes au lieu d'un rouge lisible. */
+const cheminNote = await note
+  .locator('a')
+  .first()
+  .getAttribute('href', { timeout: 2000 })
+  .catch(() => null);
+verifier(
+  'et le chemin est un lien vers la bonne section',
+  cheminNote?.endsWith('/parametres/#affichage') ?? false,
+  true,
+);
+
+/* Bascule éteinte, la note n'a plus de sens : elle disparaît. */
+await page.evaluate(() => localStorage.setItem('revinsp.bascule-jour-nuit', 'non'));
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(800);
+await page.locator('#bouton-theme').click();
+await page.waitForTimeout(300);
+verifier(
+  'bascule éteinte, la note ne paraît plus',
+  await page.locator('#note-bascule').isVisible(),
+  false,
+);
+await page.evaluate(() => localStorage.removeItem('revinsp.bascule-jour-nuit'));
+await page.keyboard.press('Escape');
 
 /* ── 2. « Rétablir » ─────────────────────────────────────────────────────── */
 

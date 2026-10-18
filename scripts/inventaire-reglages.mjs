@@ -24,6 +24,21 @@ dire('## Les règles de portée');
 dire();
 for (const [nom, regle] of Object.entries(i.regles)) dire(`- **${nom}** — ${regle}`);
 dire();
+dire('### Les exceptions nommées');
+dire();
+dire(
+  'La première règle se lit **au module** : c’est trop large d’un cran. Chaque',
+);
+dire(
+  'faux positif connu est nommé ici, avec sa raison, et `essais:reglages-orphelins`',
+);
+dire('échoue si une autre clé en clair paraît dans un module qui scelle.');
+dire();
+const exceptions = Object.entries(i.exceptions);
+if (exceptions.length === 0) dire('Aucune.');
+else
+  for (const [id, e] of exceptions) dire(`- \`${id}\` → **${e.portee}**. ${e.raison}`);
+dire();
 dire(`## Les ${i.cles.length} clés de réglage`);
 dire();
 dire('| Stockage | Clé | Portée | Écrit par | Lu par |');

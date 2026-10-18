@@ -90,16 +90,23 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
             <span aria-hidden="true">{section.icone}</span> {section.titre}
           </h2>
           <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">{section.propos}</p>
+          <!--
+            L'IDENTIFIANT EST PRÉFIXÉ, et ce n'est pas une coquetterie :
+            `essais:structure` a trouvé un « appareils » en double, la section
+            et le réglage portant le même nom. Deux éléments de même
+            identifiant, c'est une ancre qui mène au hasard et un lecteur
+            d'écran qui désigne le mauvais.
+
+            Ce commentaire était d'abord écrit en accolades **entre les
+            attributs** du div. L'analyseur d'Astro le refuse là : `astro
+            check` le disait déjà au 42, et je ne l'avais pas regardé. Le
+            placer juste avant l'expression ne va pas non plus — la portée de
+            « r » s'y perd, et dix-neuf erreurs remplacent les deux. Un
+            commentaire HTML, hors de l'expression, est le seul endroit sûr.
+          -->
           <div class="space-y-2">
             {reglagesDe(section.id).map((r) => (
               <div
-                {/*
-                   L'identifiant est préfixé, et ce n'est pas une coquetterie :
-                   `essais:structure` a trouvé un « appareils » en double, la
-                   section et le réglage portant le même nom. Deux éléments de
-                   même identifiant, c'est une ancre qui mène au hasard et un
-                   lecteur d'écran qui désigne le mauvais.
-                */}
                 id={`reglage-${r.id}`}
                 data-reglage={r.id}
                 data-libelle={r.libelle}

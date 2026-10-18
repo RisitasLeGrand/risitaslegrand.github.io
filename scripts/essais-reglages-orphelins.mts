@@ -27,7 +27,7 @@
  * sur l'écran d'origine. Ici on ne mesure que la couverture.
  */
 import { readFileSync } from 'node:fs';
-import { inventaire } from './lib/inventaire-reglages.mjs';
+import { EXCEPTIONS_DE_PORTEE, inventaire, suspectes } from './lib/inventaire-reglages.mjs';
 import { REGLAGES } from '../src/lib/parametres/catalogue.ts';
 
 /** Les clés qui ne se règlent pas : de l'état, pas des réglages. */
@@ -142,6 +142,43 @@ for (const [cle, raison] of declarees)
     dire(
       `l’exception « ${cle} » ne sert plus : plus rien ne l’écrit (sa raison était : ${raison}).`,
     );
+
+/* ── Le garde-fou de la règle de portée ──────────────────────────────────── */
+
+/*
+   La première règle de portée se lit au module : un fichier qui appelle
+   `sceller(` quelque part voit toutes ses clés rangées « sous coffre ». C'est
+   trop large d'un cran, et `sante.active` en est la preuve — un drapeau en
+   clair dans un module qui scelle ses données.
+
+   Le pilote a tranché le 18 octobre : la limite est **bornée**, pas seulement
+   décrite. Chaque faux positif est nommé dans `EXCEPTIONS_DE_PORTEE` avec sa
+   raison, et toute autre clé écrite en clair par un module qui scelle fait
+   échouer cet essai. Deux réparations sont alors possibles, et une seule est
+   bonne selon le cas : passer l'écriture par `sceller(`, ou déclarer
+   l'exception si le clair est voulu.
+*/
+console.log('\nLA PORTÉE NE MENT QUE LÀ OÙ ON L’A DIT');
+const reglagesReleves = inventaire().cles;
+for (const e of suspectes(reglagesReleves))
+  dire(
+    `${e.stockage}::${e.cle} est écrite **en clair** par un module qui scelle ` +
+      `(${e.ecrivains.map((f: string) => f.replace('src/', '')).join(', ')}). ` +
+      'La portée affichée dirait « sous coffre » à tort. Scellez l’écriture, ou ' +
+      'déclarez-la dans EXCEPTIONS_DE_PORTEE avec sa raison.',
+  );
+
+/* Une exception de portée qui ne correspond plus à rien est un mensonge qui
+   dort, comme pour l'état technique : on la fait échouer aussi. */
+for (const id of Object.keys(EXCEPTIONS_DE_PORTEE))
+  if (!reglagesReleves.some((e: { stockage: string; cle: string }) => `${e.stockage}::${e.cle}` === id))
+    dire(`l’exception de portée « ${id} » ne sert plus : plus rien n’écrit cette clé.`);
+
+if (suspectes(reglagesReleves).length === 0)
+  console.log(
+    `\x1b[32m✓\x1b[0m aucune clé en clair non déclarée dans un module qui scelle ` +
+      `(${Object.keys(EXCEPTIONS_DE_PORTEE).length} exception(s) nommée(s))`,
+  );
 
 /* Un réglage du catalogue qui ne correspond à aucune écriture relevée est
    l'erreur symétrique : la page afficherait un réglage que rien ne stocke. */

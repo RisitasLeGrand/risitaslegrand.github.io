@@ -52,6 +52,58 @@ export const REGLES_DE_PORTEE = {
   'cet appareil': 'tout le reste : la valeur ne quitte pas cet appareil',
 };
 
+/**
+ * Les exceptions nommées à la règle de portée, et pourquoi.
+ *
+ * La première règle se lit **au module** : si un fichier appelle `sceller(`
+ * quelque part, toutes les clés qu'il écrit sont rangées « sous coffre ».
+ * C'est trop large d'un cran, et le 42 l'a dit en le livrant : un module peut
+ * sceller ses données et garder, à côté, un drapeau en clair.
+ *
+ * Décrire la limite ne suffisait pas — le pilote l'a tranché le 18 octobre :
+ * chaque faux positif connu est **nommé ici, avec sa raison**, et
+ * `suspectes()` fait échouer l'essai dès qu'un autre apparaît. La méthode est
+ * ainsi bornée au lieu d'être seulement commentée.
+ */
+export const EXCEPTIONS_DE_PORTEE = {
+  'IndexedDB/etat::sante.active': {
+    portee: 'cet appareil',
+    raison:
+      'Le drapeau d’activation de la Santé est écrit en clair : `put(\'etat\', ' +
+      '{ active, le }, \'sante.active\')`, sans passer par `sceller(`. Le module ' +
+      'scelle ses données de santé, pas ce drapeau — et c’est voulu, puisqu’il faut ' +
+      'pouvoir savoir que l’espace est éteint sans ouvrir le coffre. Portée réelle : ' +
+      'cet appareil seulement.',
+  },
+};
+
+/**
+ * Une valeur passe-t-elle par le coffre, à cette écriture-là ?
+ *
+ * Deux formes acceptées, et pas une de plus : l'appel direct
+ * (`put(m, await sceller(…), c)`) et la variable qui en vient
+ * (`const scelle = await sceller(…)` puis `put(m, scelle, c)`). Tout le reste
+ * — un objet littéral, un argument reçu — compte pour une écriture en clair.
+ *
+ * Ce contrôle ne remplace pas la règle au module : une valeur scellée trois
+ * fonctions plus haut passerait ici pour claire, et rétrograder sa portée
+ * dirait « cet appareil » d'une donnée protégée, ce qui est le mensonge
+ * dangereux. Il ne sert donc qu'à **lever un soupçon**, jamais à décider.
+ */
+function valeurScellee(valeur, texte) {
+  const brut = (valeur ?? '').trim();
+  if (/\bsceller\s*\(/.test(brut)) return true;
+  /* `scelle as unknown as Reglages & { id: string }` est la même variable que
+     `scelle` : la transtypie de TypeScript ne change pas ce qui est écrit.
+     Sans ce nettoyage, le premier essai a pris la veille du rythme de vie
+     pour une écriture en clair — elle scelle pourtant bel et bien. */
+  const noyau = brut.replace(/^\(+/, '').replace(/\)+$/, '').replace(/^await\s+/, '');
+  const sansCast = noyau.replace(/\s+as\s+[\s\S]*$/, '').trim();
+  const identifiant = sansCast.match(/^[A-Za-z_$][\w$]*$/)?.[0];
+  if (!identifiant) return false;
+  return new RegExp(`\\b(?:const|let|var)\\s+${identifiant}\\s*=[^;]*\\bsceller\\s*\\(`).test(texte);
+}
+
 export function fichiers(racine = RACINE) {
   const sortie = [];
   for (const entree of readdirSync(racine)) {
@@ -246,6 +298,7 @@ export function cles() {
         ecrivains: new Set(),
         lecteurs: new Set(),
         scelle: false,
+        suspecte: false,
         sure: true,
       });
     return table.get(id);
@@ -298,6 +351,8 @@ export function cles() {
       const e = entree(`IndexedDB/${magasin}`, cle);
       e.ecrivains.add(chemin);
       e.scelle ||= scelle;
+      /* Le module scelle, mais pas cette écriture-là : on le note. */
+      e.suspecte ||= scelle && !valeurScellee(args[1], texte);
       e.sure &&= sure;
     }
     for (const args of appels(texte, '.get(')) {
@@ -313,11 +368,7 @@ export function cles() {
       ...e,
       ecrivains: [...e.ecrivains].sort(),
       lecteurs: [...e.lecteurs].sort(),
-      portee: e.scelle
-        ? 'sous coffre'
-        : synchronises.includes(e.cle) || e.cle.startsWith('selection:')
-          ? 'tous les appareils'
-          : 'cet appareil',
+      ...portee(e, synchronises),
     }))
     .sort((a, b) => (a.stockage + a.cle).localeCompare(b.stockage + b.cle));
 }
@@ -330,6 +381,37 @@ export function cles() {
  * `ecrireRepas`, qui écrivent des données et ne règlent rien. Un inventaire
  * qui mélange les deux ne se lit plus.
  */
+/**
+ * La portée d'une clé, et l'exception qui s'y applique s'il y en a une.
+ *
+ * Une exception nommée l'emporte sur la règle, et dit laquelle : la sortie
+ * porte alors sa raison, pour qu'on lise la portée réelle et non celle que la
+ * règle aurait devinée.
+ */
+function portee(e, synchronises) {
+  const exception = EXCEPTIONS_DE_PORTEE[`${e.stockage}::${e.cle}`];
+  if (exception) return { portee: exception.portee, exception: exception.raison, suspecte: false };
+  return {
+    portee: e.scelle
+      ? 'sous coffre'
+      : synchronises.includes(e.cle) || e.cle.startsWith('selection:')
+        ? 'tous les appareils'
+        : 'cet appareil',
+  };
+}
+
+/**
+ * Les clés écrites en clair par un module qui scelle, et non déclarées.
+ *
+ * C'est le garde-fou de la règle au module : tant que cette liste est vide,
+ * la règle ne mentit que là où on l'a dit. Dès qu'une clé y entre, soit la
+ * portée affichée est fausse, soit l'écriture doit passer par `sceller(`.
+ * `essais:reglages-orphelins` échoue dans les deux cas.
+ */
+export function suspectes(releve = cles().filter(estReglage)) {
+  return releve.filter((e) => e.suspecte);
+}
+
 export function ecrans(reglages = cles().filter(estReglage)) {
   const porteurs = new Set(reglages.flatMap((c) => c.ecrivains));
   const sortie = [];
@@ -377,5 +459,6 @@ export function inventaire() {
     formes: formes(),
     ecrans: ecrans(reglages),
     regles: REGLES_DE_PORTEE,
+    exceptions: EXCEPTIONS_DE_PORTEE,
   };
 }
