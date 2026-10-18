@@ -45,6 +45,37 @@ let publication = null;
 const nomDuCache = () => (publication ? `${PREFIXE}${publication}` : null);
 
 /**
+ * RETROUVER LA PUBLICATION APRÈS UN REDÉMARRAGE — M8, première cause.
+ *
+ * Un service worker est arrêté dès qu'il se tait, et relancé au premier
+ * événement. `publication` étant une variable de module, elle repart à
+ * `null` à chaque réveil, et `nomDuCache()` avec elle : le worker ne
+ * servait alors plus rien, même pour des fichiers qu'il avait gardés.
+ *
+ * Hors ligne, c'est fatal : la page qui aurait pu le renseigner ne peut pas
+ * se charger sans lui. Le worker attendait une annonce que seule une page
+ * chargée peut faire, et la page attendait un worker qui s'était tu.
+ *
+ * Il n'a pourtant besoin de rien de neuf pour se souvenir : le nom du cache
+ * PORTE la publication. S'il n'en existe qu'un, c'est forcément celui de la
+ * publication courante — `purgerLesAutres` a effacé les autres à la
+ * dernière annonce. Le worker le reprend donc, et la page corrigera si elle
+ * annonce autre chose.
+ *
+ * Deux caches ou plus : on ne devine pas. Cela ne devrait pas arriver, et
+ * choisir au hasard resservirait peut-être du contenu chiffré avec une clé
+ * qui n'est plus la bonne — exactement ce que tout ce mécanisme empêche.
+ */
+async function nomDuCacheRetrouve() {
+  const connu = nomDuCache();
+  if (connu) return connu;
+  const noms = (await caches.keys()).filter((n) => n.startsWith(PREFIXE));
+  if (noms.length !== 1) return null;
+  publication = noms[0].slice(PREFIXE.length);
+  return noms[0];
+}
+
+/**
  * Efface tout cache d'une autre publication.
  *
  * C'est le mécanisme entier de l'invalidation : il n'y a pas de date
@@ -94,8 +125,19 @@ self.addEventListener('fetch', (evenement) => {
   if (url.origin !== self.location.origin) return;
   if (estLaCle(url)) return;
 
-  const nom = nomDuCache();
-  if (!nom) return;
+  /*
+     On répond toujours nous-mêmes, parce que retrouver la publication demande
+     de lire `caches.keys()`, donc d'attendre. `respondWith` veut une promesse,
+     pas un résultat : on la lui donne. Quand il n'y a rien à servir, la
+     promesse rend un `fetch` ordinaire — ce que le navigateur aurait fait si
+     l'on s'était tu.
+  */
+  evenement.respondWith(repondre(evenement, requete, url));
+});
+
+async function repondre(evenement, requete, url) {
+  const nom = await nomDuCacheRetrouve();
+  if (!nom) return fetch(requete);
 
   /*
      Une navigation passe par le réseau d'abord : hors ligne, on sert la
@@ -104,13 +146,14 @@ self.addEventListener('fetch', (evenement) => {
      nouvelle se fasse connaître, on aurait servi l'ancienne.
   */
   if (requete.mode === 'navigate') {
-    evenement.respondWith(
-      reseauPuisCache(requete, nom).catch(async () => {
-        const cache = await caches.open(nom);
-        return (await cache.match(requete)) ?? (await cache.match(requete, { ignoreSearch: true })) ?? Response.error();
-      }),
-    );
-    return;
+    return reseauPuisCache(requete, nom).catch(async () => {
+      const cache = await caches.open(nom);
+      return (
+        (await cache.match(requete)) ??
+        (await cache.match(requete, { ignoreSearch: true })) ??
+        Response.error()
+      );
+    });
   }
 
   /*
@@ -119,15 +162,10 @@ self.addEventListener('fetch', (evenement) => {
      rend l'ouverture immédiate.
   */
   if (estDeLaCoquille(url)) {
-    evenement.respondWith(
-      (async () => {
-        const cache = await caches.open(nom);
-        const gardee = await cache.match(requete);
-        if (gardee) return gardee;
-        return reseauPuisCache(requete, nom);
-      })(),
-    );
-    return;
+    const cache = await caches.open(nom);
+    const gardee = await cache.match(requete);
+    if (gardee) return gardee;
+    return reseauPuisCache(requete, nom);
   }
 
   /*
@@ -135,19 +173,15 @@ self.addEventListener('fetch', (evenement) => {
      le cache que s'il y a **été mis exprès**. Le worker ne garde jamais de
      lui-même ce qu'il voit passer.
   */
-  evenement.respondWith(
-    (async () => {
-      const cache = await caches.open(nom);
-      const gardee = await cache.match(requete);
-      if (gardee) {
-        /* Rafraîchir en arrière-plan : la réponse est déjà partie. */
-        evenement.waitUntil(reseauPuisCache(requete, nom).catch(() => undefined));
-        return gardee;
-      }
-      return fetch(requete);
-    })(),
-  );
-});
+  const cache = await caches.open(nom);
+  const gardee = await cache.match(requete);
+  if (gardee) {
+    /* Rafraîchir en arrière-plan : la réponse est déjà partie. */
+    evenement.waitUntil(reseauPuisCache(requete, nom).catch(() => undefined));
+    return gardee;
+  }
+  return fetch(requete);
+}
 
 // Prendre la main sans attendre la fermeture des onglets : ce worker n'a aucun
 // état à préserver d'une version à l'autre, donc rien à perdre à être remplacé.

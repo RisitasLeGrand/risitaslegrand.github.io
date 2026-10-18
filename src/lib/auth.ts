@@ -74,22 +74,61 @@ function effacerStockage() {
   }
 }
 
-/** Retourne la clé en mémoire, en la restaurant depuis le stockage si besoin. */
+/**
+ * Retourne la clé en mémoire, en la restaurant depuis le stockage si besoin.
+ *
+ * ## Ne jamais effacer la clé parce que le réseau manque — M8, troisième cause
+ *
+ * La version précédente enveloppait tout dans un seul `try`, et son `catch`
+ * effaçait le stockage. Or `params()` lit `cle.json` par le réseau : hors
+ * ligne, elle lève. On tombait donc dans ce `catch`, et l'on EFFAÇAIT une
+ * clé parfaitement valide.
+ *
+ * Mesuré le 18 octobre : déverrouillé en ligne, clé mémorisée présente ;
+ * passage en mode avion et rechargement, clé mémorisée **absente** et
+ * l'écran redemandant le mot de passe. Le mode avion ne bloquait pas
+ * seulement la lecture — il détruisait la session, et il fallait retaper le
+ * mot de passe au retour du réseau.
+ *
+ * Les trois cas sont désormais distingués, parce qu'ils n'appellent pas la
+ * même conclusion :
+ *
+ * - **la valeur stockée n'est pas une clé** : elle ne le redeviendra pas,
+ *   on efface ;
+ * - **les paramètres sont illisibles** (réseau absent, et pas de copie de
+ *   secours) : on ne SAIT PAS si la clé est périmée, donc on ne conclut
+ *   rien et on n'efface rien. La clé est rendue : elle ouvre les données
+ *   locales, qui sont l'essentiel de l'usage hors ligne ;
+ * - **les paramètres sont lus et la clé ne correspond pas** : elle est bien
+ *   périmée, et c'est le seul cas qui justifie d'effacer.
+ */
 export async function obtenirCle(): Promise<CryptoKey | null> {
   if (cleMemoire) return cleMemoire;
   const memorisee = lireStockage();
   if (!memorisee) return null;
+
+  let cle: CryptoKey;
   try {
-    const cle = await importerCle(memorisee);
-    if (await cleValide(cle, await params())) {
-      cleMemoire = cle;
-      return cle;
-    }
-    // Clé obsolète (contenu republi é avec un autre mot de passe) : on repart de zéro.
-    effacerStockage();
+    cle = await importerCle(memorisee);
   } catch {
     effacerStockage();
+    return null;
   }
+
+  let attendus: ParametresCle;
+  try {
+    attendus = await params();
+  } catch {
+    cleMemoire = cle;
+    return cle;
+  }
+
+  if (await cleValide(cle, attendus)) {
+    cleMemoire = cle;
+    return cle;
+  }
+  // Clé obsolète (contenu republié avec un autre mot de passe) : on repart de zéro.
+  effacerStockage();
   return null;
 }
 

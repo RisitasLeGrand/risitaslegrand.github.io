@@ -209,11 +209,61 @@ let promesseParametres: Promise<ParametresPublics> | null = null;
  * Toujours revalidé auprès du serveur : c'est ce fichier qui porte le numéro
  * de publication dont dépendent toutes les autres URL.
  */
+/**
+ * La copie de secours des paramètres publics — M8, deuxième cause.
+ *
+ * `cle.json` n'est jamais mis en cache par le service worker, et c'est
+ * voulu : c'est lui qui porte le numéro de publication, donc la preuve de sa
+ * propre fraîcheur. Le cacher reviendrait à mémoriser cette preuve, et à
+ * resservir indéfiniment une version périmée.
+ *
+ * Mais hors ligne, ce refus coûtait tout : la lecture échouait, et l'échec
+ * remontait jusqu'à `obtenirCle`, qui en concluait que la clé mémorisée
+ * était périmée et l'effaçait. Passer en mode avion faisait donc perdre sa
+ * session — et il fallait retaper le mot de passe au retour du réseau.
+ *
+ * La page garde donc sa propre copie, qui ne change rien au contrat du
+ * worker : **le réseau est toujours essayé en premier**, et la copie ne
+ * sert que lorsqu'il ne répond pas. Une publication nouvelle est donc
+ * toujours vue dès qu'on est en ligne.
+ *
+ * Ce que cette copie contient n'est pas un secret : `cle.json` est servi en
+ * clair par le site à qui le demande. Elle porte le sel, le nombre
+ * d'itérations, la version et le témoin chiffré — tout ce que le visiteur
+ * reçoit déjà. Elle ne contient ni clé, ni mot de passe.
+ */
+const CLE_SECOURS = 'cyclades.parametres-publics';
+
+function garderLesParametres(p: ParametresPublics): void {
+  try {
+    localStorage.setItem(CLE_SECOURS, JSON.stringify(p));
+  } catch {
+    /* Navigation privée, quota : on s'en passe. */
+  }
+}
+
+function parametresDeSecours(): ParametresPublics | null {
+  try {
+    const brut = localStorage.getItem(CLE_SECOURS);
+    return brut ? (JSON.parse(brut) as ParametresPublics) : null;
+  } catch {
+    return null;
+  }
+}
+
 export function chargerParametresCle(): Promise<ParametresPublics> {
   promesseParametres ??= (async () => {
-    const reponse = await fetch(urlData('cle.json'), { cache: 'no-cache' });
-    if (!reponse.ok) throw new Error('Paramètres de chiffrement introuvables (data/cle.json).');
-    return reponse.json() as Promise<ParametresPublics>;
+    try {
+      const reponse = await fetch(urlData('cle.json'), { cache: 'no-cache' });
+      if (!reponse.ok) throw new Error('Paramètres de chiffrement introuvables (data/cle.json).');
+      const params = (await reponse.json()) as ParametresPublics;
+      garderLesParametres(params);
+      return params;
+    } catch (erreur) {
+      const secours = parametresDeSecours();
+      if (secours) return secours;
+      throw erreur;
+    }
   })().catch((erreur) => {
     promesseParametres = null; // un échec réseau ne doit pas être mémorisé
     throw erreur;
