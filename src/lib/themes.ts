@@ -67,6 +67,18 @@ export const GROUPES: { id: Groupe; nom: string }[] = [
 
 export const THEME_PAR_DEFAUT = 'egee';
 
+/**
+ * Les heures d'usine de la bascule jour/nuit.
+ *
+ * Elles sont ici, et non dans `theme.ts`, pour que le catalogue des
+ * réglages puisse les lire sans embarquer le module d'exécution — qui lit
+ * `import.meta.env` et ne s'importe donc pas hors d'un navigateur ou d'une
+ * construction. `theme.ts` les réexporte, de sorte que rien ne change pour
+ * ses appelants.
+ */
+export const LEVER_PAR_DEFAUT = '07:00';
+export const COUCHER_PAR_DEFAUT = '21:00';
+
 export const THEMES: Theme[] = [
   {
     id: 'egee',

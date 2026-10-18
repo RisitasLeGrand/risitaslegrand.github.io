@@ -5,6 +5,27 @@
    Les treize autres thèmes sont dans public/themes/ et ne sont chargés que
    si on les choisit : seul le thème actif pèse sur le premier affichage. */
 @import './theme-defaut.css';
+
+/*
+   Le fondu de la bascule jour/nuit (addendum du 42, § 1 bis).
+
+   « La bascule se fait sans rechargement, à l'heure dite ; le fondu est
+   court et supprimé avec le mouvement réduit. » Il porte sur les deux
+   surfaces qui couvrent l'écran — le fond de la page et sa couleur de
+   texte —, et sur rien d'autre : animer toutes les couleurs ferait traîner
+   chaque survol de bouton derrière un fondu de 200 ms.
+
+   Il est **désactivé pendant le premier rendu** par l'absence de classe :
+   une transition posée sur `:root` au chargement ferait apparaître la page
+   en fondu depuis le thème précédent, ce qui est l'éclair qu'on évite.
+   L'attribut `data-theme` change sans transition la première fois,
+   puisqu'il est posé avant que la feuille ne s'applique.
+*/
+html {
+  transition:
+    background-color var(--duree-moyenne, 200ms) var(--courbe-sortie, ease),
+    color var(--duree-moyenne, 200ms) var(--courbe-sortie, ease);
+}
 @plugin '@tailwindcss/typography';
 
 /* Le thème sombre est piloté par l'attribut data-theme posé sur <html>.

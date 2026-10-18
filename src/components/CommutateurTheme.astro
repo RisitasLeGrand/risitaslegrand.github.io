@@ -16,6 +16,21 @@
  *
  * Le choix par défaut, en l'absence de valeur enregistrée, est « sombre » :
  * l'expérience existante ne change pas tant que rien n'est choisi.
+ *
+ * ## Depuis le 42 : la bascule jour/nuit passe devant
+ *
+ * Quand la bascule automatique est active — et elle l'est par défaut —, le
+ * mode ne vient plus d'ici mais de l'heure. Le menu le dit, et choisir un
+ * mode **arrête la bascule**. C'est un choix de conception, et il mérite
+ * d'être défendu : les trois autres conduites possibles étaient pires.
+ * Griser les options aurait laissé un menu mort sans dire pourquoi ;
+ * appliquer le mode jusqu'à la prochaine bascule l'aurait fait disparaître
+ * tout seul une heure plus tard ; et arrêter la bascule en silence aurait
+ * changé un réglage que la personne n'a pas touché. Ici, le menu annonce la
+ * conséquence avant le geste.
+ *
+ * La palette, elle, ne se choisit pas ici : elle est dans
+ * Paramètres > Affichage, avec ses quatorze aperçus.
  */
 ---
 
@@ -54,6 +69,9 @@
     <p class="px-2 py-1.5 text-xs font-bold tracking-wide text-slate-500 uppercase dark:text-slate-400">
       Thème d'affichage
     </p>
+    <p id="note-bascule" hidden class="px-2 pb-1.5 text-xs text-slate-500 dark:text-slate-400">
+      Clair le jour, sombre la nuit : choisir un mode ici arrête cette bascule.
+    </p>
     {
       [
         { valeur: 'clair', libelle: 'Clair', detail: 'Palette institutionnelle' },
@@ -81,56 +99,30 @@
 </div>
 
 <script>
-  const CLE = 'revinsp.theme';
+  import {
+    appliquer,
+    ecrireBascule,
+    ecrireChoixDeMode,
+    lireBascule,
+    lireChoixDeMode,
+    modeVoulu,
+    surveillerLHeure,
+    type Choix,
+  } from '../lib/theme';
+
   const bouton = document.getElementById('bouton-theme');
   const menu = document.getElementById('menu-theme');
-  const options = Array.from(
-    document.querySelectorAll<HTMLButtonElement>('[data-choix-theme]'),
-  );
-  const media = window.matchMedia('(prefers-color-scheme: dark)');
+  const note = document.getElementById('note-bascule');
+  const options = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-choix-theme]'));
 
-  type Choix = 'clair' | 'sombre' | 'systeme';
-
-  function lireChoix(): Choix {
-    try {
-      const brut = localStorage.getItem(CLE);
-      if (brut === 'clair' || brut === 'sombre' || brut === 'systeme') return brut;
-    } catch {
-      /* navigation privée : on retombe sur le défaut */
-    }
-    return 'sombre';
-  }
-
-  /** Traduit le choix en thème effectivement rendu. */
-  function resoudre(choix: Choix): 'clair' | 'sombre' {
-    if (choix === 'systeme') return media.matches ? 'sombre' : 'clair';
-    return choix;
-  }
-
-  function appliquer(choix: Choix, memoriser: boolean) {
-    const rendu = resoudre(choix);
-    const racine = document.documentElement;
-    racine.setAttribute('data-theme', rendu);
-    racine.setAttribute('data-theme-choix', choix);
-    // Les contrôles natifs (ascenseurs, champs de formulaire) suivent aussi.
-    racine.style.colorScheme = rendu === 'sombre' ? 'dark' : 'light';
-
+  /** Reflète l'état courant sur les options et la note. */
+  function refleter() {
+    const bascule = lireBascule();
+    if (note) note.hidden = !bascule;
+    const actif = bascule ? modeVoulu() : lireChoixDeMode();
     for (const option of options) {
-      option.setAttribute('aria-pressed', String(option.dataset.choixTheme === choix));
+      option.setAttribute('aria-pressed', String(!bascule && option.dataset.choixTheme === actif));
     }
-
-    if (memoriser) {
-      try {
-        localStorage.setItem(CLE, choix);
-      } catch {
-        /* navigation privée : le choix ne vaudra que pour cette page */
-      }
-    }
-
-    // Les exercices qui dessinent leurs propres stimuli (canevas, SVG) ont
-    // besoin de connaître le thème : la couleur du fond conditionne la
-    // luminosité et la teinte qu'ils peuvent rendre fidèlement.
-    document.dispatchEvent(new CustomEvent('revinsp:theme', { detail: { theme: rendu } }));
   }
 
   function ouvrir(ouvert: boolean) {
@@ -140,12 +132,20 @@
 
   bouton?.addEventListener('click', (evenement) => {
     evenement.stopPropagation();
+    refleter();
     ouvrir(Boolean(menu!.hidden));
   });
 
   for (const option of options) {
     option.addEventListener('click', () => {
-      appliquer(option.dataset.choixTheme as Choix, true);
+      /*
+         L'ordre compte : on arrête la bascule AVANT d'écrire le choix, sinon
+         `ecrireChoixDeMode` appliquerait un mode que la bascule écraserait
+         dans la foulée, et le clic n'aurait rien fait de visible.
+      */
+      if (lireBascule()) ecrireBascule(false);
+      ecrireChoixDeMode(option.dataset.choixTheme as Choix);
+      refleter();
       ouvrir(false);
       bouton?.focus();
     });
@@ -162,15 +162,12 @@
     }
   });
 
-  // En mode « système », un changement de préférence de l'appareil s'applique
-  // immédiatement, sans rechargement.
-  media.addEventListener('change', () => {
-    if (lireChoix() === 'systeme') appliquer('systeme', false);
-  });
-
-  // Aligne l'état visible des options sur le choix déjà appliqué par le script
-  // d'amorçage du gabarit (qui s'exécute avant le premier rendu).
-  appliquer(lireChoix(), false);
+  /* La bascule de l'heure, et le mode « système », sont surveillés par le
+     module : ici on ne fait que suivre ce qu'il applique. */
+  surveillerLHeure();
+  document.addEventListener('revinsp:theme', refleter);
+  appliquer();
+  refleter();
 </script>
 
 <style>

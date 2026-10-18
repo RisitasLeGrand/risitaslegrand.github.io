@@ -4,7 +4,7 @@
  * Le contenu de la page n'est rendu qu'une fois la session déverrouillée.
  */
 import '../styles/global.css';
-import { THEME_PAR_DEFAUT, theme } from '../lib/themes';
+import { THEMES, THEME_PAR_DEFAUT, modesDe, theme } from '../lib/themes';
 import Verrou from '../components/Verrou.astro';
 import CentreNotifications from '../components/CentreNotifications.astro';
 import CommutateurTheme from '../components/CommutateurTheme.astro';
@@ -107,6 +107,22 @@ const {
    périmerait au premier ajustement d'Égée.
 */
 const COULEUR_DE_BARRE = theme(THEME_PAR_DEFAUT).clair!.fond;
+
+/*
+   Le catalogue que lit le script d'amorçage : pour chaque thème, les modes
+   qu'il possède en propre. C'est tout ce dont l'amorçage a besoin pour
+   appliquer le relais d'Égée — Papier n'a pas de mode sombre, Soir et Nuit
+   de Délos pas de mode clair — sans embarquer les quatorze palettes.
+
+   Il est DÉRIVÉ du catalogue des thèmes, pas recopié : une liste recopiée
+   dans un script en ligne est précisément le genre de double qui se périme
+   sans bruit, et ici le prix de la péremption serait un éclair de couleur
+   au chargement.
+*/
+const CATALOGUE_THEMES = Object.fromEntries(
+  THEMES.map((t) => [t.id, modesDe(t)]),
+) as Record<string, string[]>;
+const BASE_THEMES = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/themes`;
 
 const CSS_TRANSITIONS = `@view-transition { navigation: auto }
 
@@ -377,7 +393,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="apple-mobile-web-app-title" content={config.titre} />
-    <script is:inline>
+    <script is:inline define:vars={{ CATALOGUE_THEMES, BASE_THEMES }}>
       /*
          Le mode application, posé avant le premier rendu (M15).
 
@@ -399,31 +415,101 @@ const flecheVisible = !estLeMenu && !sansNavigation;
       } catch (e) {
         /* Rien : l'absence de l'attribut vaut « dans le navigateur ». */
       }
-      // Applique le thème avant le premier rendu pour éviter tout clignotement.
-      // Trois choix possibles : « clair », « sombre » et « systeme ». Seul le
-      // thème résolu (clair ou sombre) est écrit dans « data-theme » ; le choix
-      // d'origine est conservé dans « data-theme-choix » pour le commutateur.
-      // En l'absence de choix enregistré, on reste sur le thème sombre, qui est
-      // celui du site depuis toujours.
-      (function () {
-        var choix = 'sombre';
-        try {
-          var brut = localStorage.getItem('revinsp.theme');
-          if (brut === 'clair' || brut === 'sombre' || brut === 'systeme') choix = brut;
-        } catch (e) {
-          /* navigation privée : on garde le défaut */
-        }
-        var rendu =
-          choix === 'systeme'
-            ? window.matchMedia('(prefers-color-scheme: dark)').matches
-              ? 'sombre'
-              : 'clair'
-            : choix;
-        var racine = document.documentElement;
-        racine.setAttribute('data-theme', rendu);
-        racine.setAttribute('data-theme-choix', choix);
-        racine.style.colorScheme = rendu === 'sombre' ? 'dark' : 'light';
+      /*
+         LE THÈME, AVANT LE PREMIER RENDU.
 
+         Quatre choses décident de ce qu'on voit, et toutes doivent être
+         connues avant que la page apparaisse, sinon elle s'ouvre dans un
+         thème et passe dans un autre sous les yeux :
+
+           1. la BASCULE jour/nuit (`revinsp.bascule-jour-nuit`), active par
+              défaut — c'est la demande d'Alexis, et elle l'emporte sur le
+              « Système par défaut » du 43 ;
+           2. sinon le CHOIX habituel (`revinsp.theme` : clair, sombre ou
+              « systeme ») ;
+           3. la PALETTE (`revinsp.palette`), l'un des quatorze thèmes,
+              absente = Égée ;
+           4. le RELAIS : si la palette n'a pas le mode voulu, Égée le rend.
+
+         Les heures de la bascule viennent du réglage s'il existe, sinon de
+         la copie de « Ma journée » que le site tient à jour, sinon de 7 h et
+         21 h. Elles sont dans `localStorage` et non dans IndexedDB pour une
+         seule raison : ce script est synchrone, et IndexedDB ne l'est pas.
+
+         Tout ceci est écrit deux fois — ici en ligne, et dans
+         `src/lib/theme.ts` pour la suite de la vie de la page. C'est un
+         doublon assumé et le seul possible : un module importé s'exécute
+         après le premier rendu, et c'est le premier rendu qu'on protège.
+         L'essai `essais:theme-amorcage` compare les deux réponses sur les
+         mêmes entrées, pour qu'elles ne divergent pas en silence.
+      */
+      (function () {
+        var racine = document.documentElement;
+        function lire(cle) {
+          try {
+            return localStorage.getItem(cle);
+          } catch (e) {
+            return null;
+          }
+        }
+        var heureValide = /^([01]\d|2[0-3]):[0-5]\d$/;
+        var bascule = lire('revinsp.bascule-jour-nuit') !== 'non';
+        var choix = lire('revinsp.theme');
+        if (choix !== 'clair' && choix !== 'sombre' && choix !== 'systeme') choix = 'sombre';
+        var mode;
+        if (bascule) {
+          var brut = lire('revinsp.heures-bascule') || lire('revinsp.heures-journee') || '';
+          var parts = brut.split('|');
+          var lever = heureValide.test(parts[0]) ? parts[0] : '07:00';
+          var coucher = heureValide.test(parts[1]) ? parts[1] : '21:00';
+          var now = new Date();
+          var minute = now.getHours() * 60 + now.getMinutes();
+          var lm = Number(lever.slice(0, 2)) * 60 + Number(lever.slice(3, 5));
+          var cm = Number(coucher.slice(0, 2)) * 60 + Number(coucher.slice(3, 5));
+          /* Qui se couche à 1 h et se lève à 7 h a une journée qui ne
+             contient pas minuit : on compare dans le bon sens. */
+          var jour = lm <= cm ? minute >= lm && minute < cm : minute >= lm || minute < cm;
+          mode = jour ? 'clair' : 'sombre';
+        } else {
+          mode =
+            choix === 'systeme'
+              ? window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'sombre'
+                : 'clair'
+              : choix;
+        }
+        var choisie = lire('revinsp.palette');
+        if (!choisie || !CATALOGUE_THEMES[choisie]) choisie = 'egee';
+        var effective = CATALOGUE_THEMES[choisie].indexOf(mode) === -1 ? 'egee' : choisie;
+
+        racine.setAttribute('data-theme', mode);
+        racine.setAttribute('data-theme-choix', bascule ? 'bascule' : choix);
+        racine.setAttribute('data-palette', effective);
+        racine.setAttribute('data-palette-choisie', choisie);
+        racine.style.colorScheme = mode === 'sombre' ? 'dark' : 'light';
+
+        /*
+           La feuille du thème choisi, posée ici et pas plus tard.
+
+           Égée et Séance sont dans le paquet principal ; les treize autres
+           sont des fichiers à part, et un seul est chargé — c'est la règle
+           « seul le thème actif est chargé ». Inséré pendant l'analyse du
+           document, un lien de feuille de style bloque le premier rendu
+           jusqu'à son chargement : c'est ce qui évite l'éclair d'Égée avant
+           Papier. Le fichier fait 9 Kio, 1,3 Kio compressé, et vient du
+           cache dès la deuxième page.
+        */
+        if (effective !== 'egee') {
+          var feuille = document.createElement('link');
+          feuille.rel = 'stylesheet';
+          feuille.id = 'feuille-theme';
+          feuille.href = BASE_THEMES + '/' + effective + '.css';
+          document.head.appendChild(feuille);
+        }
+      })();
+
+      (function () {
+        var racine = document.documentElement;
         // Animations : même principe, et pour la même raison — appliqué avant
         // le premier rendu, sinon une animation aurait le temps de jouer avant
         // que le réglage soit lu. Deux valeurs seulement : « reduites » et
@@ -1286,6 +1372,8 @@ const flecheVisible = !estLeMenu && !sansNavigation;
       import { suivreTemps } from '../lib/temps';
       import { brancherLeVoile } from '../lib/voile';
       import { brancherLesPiles } from '../lib/piles-navigateur';
+      import { miroirDesHeures, surveillerLHeure } from '../lib/theme';
+      import { champ } from '../lib/profil';
 
       /*
          Le voile est branché ici, dans la mise en page, et non page par page :
@@ -1293,6 +1381,28 @@ const flecheVisible = !estLeMenu && !sansNavigation;
          c'est précisément celle qu'on aurait sous les yeux en quittant.
       */
       brancherLeVoile();
+      /*
+         La bascule jour/nuit, une fois la page affichée.
+
+         Le script d'amorçage a déjà posé le bon mode ; celui-ci veille à ce
+         qu'il le reste : la vérification est à la minute, et au retour au
+         premier plan — un téléphone posé sur la table endort ses minuteurs,
+         et la page reprise à 21 h 30 serait restée claire jusqu'à la minute
+         suivante.
+      */
+      surveillerLHeure();
+      /*
+         La copie des heures de « Ma journée » pour le prochain amorçage, qui
+         est synchrone et ne peut pas lire IndexedDB. Le profil reste la
+         source : cette copie n'est jamais écrite par la personne. Elle n'est
+         rafraîchie qu'une fois la session déverrouillée, puisque le profil
+         n'est lisible qu'alors.
+      */
+      quandDeverrouille(() => {
+        void Promise.all([champ('lever'), champ('coucher')]).then(([lever, coucher]) => {
+          miroirDesHeures(lever?.valeur, coucher?.valeur);
+        });
+      });
       /*
          Les piles par onglet (M15). Branchées dans la mise en page pour la
          même raison que le voile : une page oubliée suffirait à faire perdre
