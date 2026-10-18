@@ -352,6 +352,12 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import {
+    agirPuisPeindre,
+    direLEchec,
+    effacerLEchec,
+    messageDUneErreur,
+  } from '../../lib/agir';
   import { unSeulGeste } from '../../lib/geste';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
@@ -451,11 +457,18 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       month: 'short',
     });
 
-  function dire(erreur: unknown) {
-    $('erreur').textContent = erreur instanceof Error ? erreur.message : String(erreur);
-    $('erreur').classList.remove('hidden');
-  }
-  const taire = () => $('erreur').classList.add('hidden');
+  /*
+     A1 et A2 du 43 : l'échec passe par la porte commune.
+
+     Cette fonction écrivait le `message` brut de l'erreur dans un paragraphe
+     sans `role` : rien n'était annoncé au lecteur d'écran (A1), et une base
+     pleine s'affichait « Quota dépassé. », ce qui ne dit pas quoi faire (A2).
+     `direLEchec` pose le rôle sur la zone et `messageDUneErreur` traduit les
+     pannes connues. La zone, elle, ne bouge pas : elle est déjà sous les
+     formulaires, au bon endroit.
+  */
+  const dire = (erreur: unknown) => direLEchec(messageDUneErreur(erreur), 'erreur');
+  const taire = () => effacerLEchec('erreur');
 
   function carte(libelle: string, valeur: string, note: string): HTMLDivElement {
     const bloc = document.createElement('div');
@@ -560,7 +573,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       const actions = document.createElement('td');
       actions.className = 'py-1.5 pl-3 text-right';
       actions.appendChild(
-        bouton('Supprimer', () => void supprimerPesee(pesee.id).then(recharger)),
+        bouton('Supprimer', () => void agirPuisPeindre(() => supprimerPesee(pesee.id), { peindre: recharger, zone: 'erreur' })),
       );
       tr.appendChild(actions);
       corps.appendChild(tr);
@@ -653,7 +666,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       li.dataset.mesure = m.id;
       const texte = document.createElement('span');
       texte.textContent = `${MESURES[m.quoi]} — ${nombre(m.cm)} cm, ${jourLong(m.jour)}`;
-      li.append(texte, bouton('Supprimer', () => void supprimerMesure(m.id).then(recharger)));
+      li.append(texte, bouton('Supprimer', () => void agirPuisPeindre(() => supprimerMesure(m.id), { peindre: recharger, zone: 'erreur' })));
       liste.appendChild(li);
     }
   }
@@ -673,7 +686,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
         `${jourLong(n.jour)} — ${duree === null ? '?' : heures(duree)}` +
         (n.qualite !== null ? `, qualité ${n.qualite}/5` : '') +
         (n.reveils !== null ? `, ${n.reveils} réveil${n.reveils > 1 ? 's' : ''}` : '');
-      li.append(texte, bouton('Supprimer', () => void supprimerNuit(n.id).then(recharger)));
+      li.append(texte, bouton('Supprimer', () => void agirPuisPeindre(() => supprimerNuit(n.id), { peindre: recharger, zone: 'erreur' })));
       liste.appendChild(li);
     }
   }
@@ -701,7 +714,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
         alerte.textContent = `(les macros disent ${kcalDesMacros(r)} kcal)`;
         li.appendChild(alerte);
       }
-      li.appendChild(bouton('Supprimer', () => void supprimerRepas(r.id).then(recharger)));
+      li.appendChild(bouton('Supprimer', () => void agirPuisPeindre(() => supprimerRepas(r.id), { peindre: recharger, zone: 'erreur' })));
       liste.appendChild(li);
     }
   }
@@ -759,10 +772,13 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       actions.append(
         bouton(
           e.fin ? 'Rouvrir' : 'C’est passé',
-          () => void (e.fin ? rouvrirSante(e.id) : refermerSante(e.id)).then(recharger),
+          () => void agirPuisPeindre(() => (e.fin ? rouvrirSante(e.id) : refermerSante(e.id)), {
+            peindre: recharger,
+            zone: 'erreur',
+          }),
           'text-indigo-700 dark:text-indigo-300',
         ),
-        bouton('Supprimer', () => void supprimerSante(e.id).then(recharger)),
+        bouton('Supprimer', () => void agirPuisPeindre(() => supprimerSante(e.id), { peindre: recharger, zone: 'erreur' })),
       );
       bloc.appendChild(actions);
       zone.appendChild(bloc);
@@ -850,7 +866,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
           bouton(`Retirer ${new Date(prise.le).toLocaleTimeString('fr-FR', {
             hour: '2-digit',
             minute: '2-digit',
-          })}`, () => void supprimerPrise(prise.id).then(recharger)),
+          })}`, () => void agirPuisPeindre(() => supprimerPrise(prise.id), { peindre: recharger, zone: 'erreur' })),
         );
       }
       liste.appendChild(li);
@@ -876,11 +892,11 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       li.appendChild(texte);
       if (!statut.fin) {
         li.appendChild(
-          bouton('Terminé', () => void refermerStatut(statut.id).then(recharger),
+          bouton('Terminé', () => void agirPuisPeindre(() => refermerStatut(statut.id), { peindre: recharger, zone: 'erreur' }),
             'text-indigo-700 dark:text-indigo-300'),
         );
       }
-      li.appendChild(bouton('Supprimer', () => void supprimerStatut(statut.id).then(recharger)));
+      li.appendChild(bouton('Supprimer', () => void agirPuisPeindre(() => supprimerStatut(statut.id), { peindre: recharger, zone: 'erreur' })));
       zone.appendChild(li);
     }
   }

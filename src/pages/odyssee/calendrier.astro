@@ -175,6 +175,7 @@ import Base from '../../layouts/Base.astro';
 </style>
 
 <script>
+  import { agirPuisPeindre } from '../../lib/agir';
   import { auDeverrouillage } from '../../lib/chargement';
   import { unSeulGeste } from '../../lib/geste';
   import { domainesActifs } from '../../lib/odyssee-jour';
@@ -941,7 +942,7 @@ import Base from '../../layouts/Base.astro';
         supprimer.className = 'mt-2 text-xs text-rose-700 underline dark:text-rose-300';
         supprimer.textContent = 'Supprimer';
         supprimer.addEventListener('click', () =>
-          void supprimerEvenement(evenement.id).then(peindre),
+          void agirPuisPeindre(() => supprimerEvenement(evenement.id), { peindre }),
         );
         carte.appendChild(supprimer);
 

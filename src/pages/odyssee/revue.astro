@@ -128,6 +128,7 @@ import Base from '../../layouts/Base.astro';
 </Base>
 
 <script>
+  import { agirPuisPeindre } from '../../lib/agir';
   import { auDeverrouillage } from '../../lib/chargement';
   import { etatDuJour } from '../../lib/odyssee-jour';
   import { ecrireRevue, relever, revueDu } from '../../lib/odyssee/donnees';
@@ -407,7 +408,18 @@ import Base from '../../layouts/Base.astro';
             return;
           }
           $('erreur').classList.add('hidden');
-          await ecrireRevue('soir', jour, reponses);
+          /*
+             A1 du 43 : l'écriture passe par la porte commune. Sans elle, un
+             « ecrireRevue » qui échoue — coffre refermé entre-temps, espace
+             plein — laissait l'écran dire « Revue enregistrée » au-dessus
+             d'une revue qui n'existait pas. La zone « erreur » de cet écran
+             est réutilisée : elle est déjà au bon endroit, sous les questions.
+          */
+          const abouti = await agirPuisPeindre(
+            () => ecrireRevue('soir', jour, reponses),
+            { zone: 'erreur' },
+          );
+          if (!abouti) return;
           const secondes = Math.round((Date.now() - ouverte) / 1000);
           $('dit').textContent = 'Revue enregistrée.';
           /*

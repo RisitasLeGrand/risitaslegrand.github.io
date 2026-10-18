@@ -1366,6 +1366,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
     </div>
 
     <script>
+      import { poserLeFiletDErreurs } from '../lib/agir';
       import { quandDeverrouille, verrouiller } from '../lib/auth';
       import { brancherLeDefilement, masquerDebordement } from '../lib/defilement';
       import { initGlossaireGlobal } from '../lib/glossaire';
@@ -1374,6 +1375,18 @@ const flecheVisible = !estLeMenu && !sansNavigation;
       import { brancherLesPiles } from '../lib/piles-navigateur';
       import { miroirDesHeures, surveillerLHeure } from '../lib/theme';
       import { champ } from '../lib/profil';
+
+      /*
+         LE FILET DES ERREURS NON ATTRAPÉES — A1 du prompt 43 (T09-19, T15-04).
+
+         Il vient **avant** tout le reste du script, et c'est le seul ordre qui
+         ait un sens : une erreur levée par une des initialisations suivantes
+         doit tomber dans le filet, pas à côté. Il ne remplace pas
+         `agirPuisPeindre` — un échec attendu se dit avec les mots de l'écran
+         qui l'a provoqué — et sa seule promesse est que rien ne tombe en
+         silence.
+      */
+      poserLeFiletDErreurs();
 
       /*
          Le voile est branché ici, dans la mise en page, et non page par page :

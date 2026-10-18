@@ -204,6 +204,7 @@ import LienReglages from '../../components/LienReglages.astro';
 </Base>
 
 <script>
+  import { agirPuisPeindre } from '../../lib/agir';
   import { proposerLAnnulation } from '../../lib/annulation';
   import { unSeulGeste } from '../../lib/geste';
   import { ecranAllumeVoulu, themeDeSeanceVoulu } from '../../lib/parametres/acces';
@@ -635,14 +636,26 @@ import LienReglages from '../../components/LienReglages.astro';
       }
 
       $('commencer').addEventListener('click', (evenement) => {
-        void unSeulGeste(evenement.currentTarget as Element, async () => {
-          seance = await ouvrirSeance(choix.value || null);
-          seances = [...seances.filter((s) => s.id !== seance!.id), seance];
-          demarrerLeTheme();
-          await prendreLeVerrou();
-          await peindre();
-          $('exercice').focus();
-        });
+        /*
+           A1 du 43 : « unSeulGeste » protège du double appui, pas de l'échec.
+           Il a un « finally », pas de « catch », et le « void » du site
+           d'appel avalait le rejet : une séance qu'on n'arrivait pas à ouvrir
+           laissait l'écran tel quel, bouton réactivé, sans un mot. La porte
+           commune dit l'échec et ne repeint qu'en cas de réussite.
+        */
+        void unSeulGeste(evenement.currentTarget as Element, () =>
+          agirPuisPeindre(async () => {
+            seance = await ouvrirSeance(choix.value || null);
+            seances = [...seances.filter((s) => s.id !== seance!.id), seance];
+            demarrerLeTheme();
+            await prendreLeVerrou();
+          }, {
+            peindre: async () => {
+              await peindre();
+              $('exercice').focus();
+            },
+          }),
+        );
       });
 
       $('exercice').addEventListener('change', () => void direLaProposition());
