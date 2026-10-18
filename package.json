@@ -238,6 +238,7 @@
     "essais:entetes-collants": "node scripts/essais-entetes-collants.mjs",
     "essais:gestes-quotidiens": "node scripts/essais-gestes-quotidiens.mjs",
     "essais:defilement-rendu": "node scripts/essais-defilement-rendu.mjs",
+    "essais:boite": "node scripts/essais-boite.mjs",
     "essais:retour:navigateur": "node scripts/essais-retour-navigateur.mjs",
     "essais:voile": "node scripts/essais-voile-et-fiche.mjs",
     "essais:redemande": "node scripts/essais-redemande.mjs",

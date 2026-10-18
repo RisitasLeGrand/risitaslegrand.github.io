@@ -351,6 +351,7 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
+  import { confirmer } from '../lib/boite';
   import { auDeverrouillage } from '../lib/chargement';
   import { lien, notifier } from '../lib/ui';
   import {
@@ -681,12 +682,15 @@ import Base from '../layouts/Base.astro';
 
     $('revenir-migration').addEventListener('click', async () => {
       const combien = Object.values(i.magasins).reduce((somme, m) => somme + m.length, 0);
-      const confirme = window.confirm(
-        `Revenir à l’instantané du ${new Date(i.le).toLocaleString('fr-FR')} ?\n\n` +
+      const confirme = await confirmer({
+        titre: `Revenir à l’instantané du ${new Date(i.le).toLocaleString('fr-FR')} ?`,
+        texte:
           `La base repassera en version ${i.deVersion} avec ses ${combien} ` +
-          `enregistrements d’alors. Tout ce qui a été saisi depuis sera perdu, ` +
-          `et cette opération ne s’annule pas.`,
-      );
+          'enregistrements d’alors. Tout ce qui a été saisi depuis sera perdu, ' +
+          'et cette opération ne s’annule pas.',
+        action: 'Revenir à l’instantané',
+        destructrice: true,
+      });
       if (!confirme) return;
       const bouton = $('revenir-migration') as HTMLButtonElement;
       bouton.disabled = true;

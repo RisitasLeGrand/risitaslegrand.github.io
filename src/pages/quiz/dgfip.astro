@@ -179,6 +179,7 @@ import { base } from '../../lib/ui';
 </Base>
 
 <script>
+  import { confirmer } from '../../lib/boite';
   import { auDeverrouillage } from '../../lib/chargement';
   import { chargerBanqueDgfip, chargerManifeste, type BanqueDgfip } from '../../lib/contenu';
   import {
@@ -613,12 +614,24 @@ import { base } from '../../lib/ui';
          friction sans objet.
       */
       const commencee = choix.some((c) => c.length > 0);
+      /*
+         Deux issues ici, et non trois. Le point C3 du prompt 43 en veut une
+         troisième — « Garder pour plus tard » —, mais c'est une fonction et
+         non un habillage : il faudrait enregistrer une épreuve inachevée, ce
+         qu'aucun magasin ne sait faire aujourd'hui. Ce lot-ci ne change que la
+         fenêtre ; la troisième issue est à faire avec le 43.
+      */
       if (
         commencee &&
-        !window.confirm(
-          'Quitter l’épreuve ? Les réponses déjà données seront perdues : une épreuve ' +
-            'n’est enregistrée qu’une fois terminée.',
-        )
+        !(await confirmer({
+          titre: 'Quitter l’épreuve ?',
+          texte:
+            'Les réponses déjà données seront perdues : une épreuve n’est ' +
+            'enregistrée qu’une fois terminée.',
+          action: 'Quitter et perdre les réponses',
+          annuler: 'Continuer l’épreuve',
+          destructrice: true,
+        }))
       ) {
         return;
       }

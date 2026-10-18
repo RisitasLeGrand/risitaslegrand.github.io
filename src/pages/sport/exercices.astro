@@ -345,6 +345,7 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
 </style>
 
 <script>
+  import { confirmer } from '../../lib/boite';
   import { auDeverrouillage } from '../../lib/chargement';
   import {
     ecrireExercice,
@@ -484,13 +485,16 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
       supprimer.className =
         'cible-tactile-pleine w-full rounded-lg px-3 text-left text-sm text-rose-700 transition hover:bg-rose-50 dark:text-rose-300 dark:hover:bg-rose-950/40';
       supprimer.textContent = 'Supprimer…';
-      supprimer.addEventListener('click', () => {
+      supprimer.addEventListener('click', async () => {
         menu.open = false;
-        const sur = window.confirm(
-          `Supprimer « ${nomComplet} » ?\n\n` +
+        const sur = await confirmer({
+          titre: `Supprimer « ${nomComplet} » ?`,
+          texte:
             'Les séries déjà enregistrées ne sont pas effacées, mais l’exercice ' +
             'disparaît de la bibliothèque et sa courbe de force n’est plus consultable.',
-        );
+          action: 'Supprimer cet exercice',
+          destructrice: true,
+        });
         if (sur) void supprimerExercice(exercice.id).then(recharger);
       });
       panneau.appendChild(supprimer);

@@ -1205,3 +1205,209 @@ button:not(:disabled):active,
 :root:not([data-verrou='ouvert']) .apres-le-verrou {
   display: none;
 }
+
+/* La boîte commune (M5, et la section C du 43)
+   ---------------------------------------------------------------------------
+   Une feuille qui monte du bas sur un téléphone, une carte centrée au-dessus
+   de 640 px. Le même composant dans les deux cas : c'est la mise en forme qui
+   diffère, jamais la promesse.
+
+   `<dialog>` vit dans la couche supérieure, au-dessus de tout `z-index` : les
+   règles ci-dessous n'ont donc aucune pile à disputer, et c'est pour cela
+   qu'on ne refait pas un calque à la main. */
+.boite {
+  margin: 0;
+  max-width: none;
+  max-height: none;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--etat-texte);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+}
+
+.boite::backdrop {
+  background: rgb(2 6 23 / 55%);
+}
+
+.boite-feuille {
+  width: 100%;
+  max-width: 32rem;
+  max-height: 85dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--etat-fond-eleve);
+  border: 1px solid var(--etat-bordure);
+  border-bottom: 0;
+  border-radius: var(--radius-3xl) var(--radius-3xl) 0 0;
+  padding: 0.5rem 1rem 1rem;
+  /* La feuille monte. Le mouvement réduit l'annule par la règle générale,
+     qui met toutes les durées à zéro. */
+  animation: boite-monte var(--duree-moyenne) var(--courbe-entree);
+}
+
+@keyframes boite-monte {
+  from {
+    transform: translateY(1.5rem);
+    opacity: 0;
+  }
+}
+
+/* La poignée : elle dit « ceci monte du bas ». Elle ne se touche pas — le
+   geste de balayage reste facultatif (M5), c'est le bouton qui ferme. */
+.boite-poignee {
+  width: 2.25rem;
+  height: 0.25rem;
+  margin: 0 auto 0.5rem;
+  border-radius: 9999px;
+  background: var(--etat-bordure-forte);
+}
+
+.boite-entete {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 0.75rem;
+}
+
+.boite-titre {
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: var(--etat-texte-fort);
+  margin: 0;
+  text-wrap: balance;
+}
+
+.boite-fermer {
+  flex: none;
+  margin: -0.25rem -0.5rem 0 0;
+  border-radius: var(--radius-xl);
+  color: var(--etat-texte-faible);
+  font-size: 1rem;
+}
+
+.boite-fermer:hover {
+  background: var(--etat-fond-alt);
+  color: var(--etat-texte);
+}
+
+.boite-texte {
+  margin: 0.5rem 0 0;
+  font-size: 0.875rem;
+  line-height: 1.55;
+  color: var(--etat-texte);
+}
+
+.boite-etiquette {
+  display: block;
+  margin-top: 0.875rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: var(--etat-texte);
+}
+
+.boite-champ {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.75rem;
+  /* 16 px au moins : en dessous, iOS zoome à la mise au point. */
+  font-size: 1rem;
+  font-family: inherit;
+  color: var(--etat-texte-fort);
+  background: var(--etat-fond);
+  border: 1px solid var(--etat-bordure-forte);
+  border-radius: var(--radius-xl);
+}
+
+.boite-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin-top: 1.25rem;
+}
+
+.boite-bouton {
+  flex: 1 1 8rem;
+  justify-content: center;
+  padding: 0 1rem;
+  border-radius: var(--radius-xl);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  border: 1px solid transparent;
+  cursor: pointer;
+}
+
+/* « Annuler » à gauche (décision 1 du 43) alors qu'il est second dans le
+   DOM : c'est l'ordre du DOM qui décide de ce que la touche Entrée
+   déclenche, et l'ordre à l'écran qui décide de ce que le pouce trouve. */
+.boite-annuler {
+  order: 1;
+  background: var(--etat-fond-alt);
+  color: var(--etat-texte);
+  border-color: var(--etat-bordure);
+}
+
+.boite-principale {
+  order: 2;
+  background: var(--etat-action);
+  color: var(--etat-fond-eleve);
+}
+
+.boite-destructrice {
+  order: 2;
+  background: transparent;
+  color: var(--etat-accent);
+  border-color: var(--etat-accent);
+  font-weight: 600;
+}
+
+.boite-annuler:hover {
+  background: var(--etat-bordure);
+}
+
+.boite-principale:hover {
+  background: var(--etat-action-forte);
+}
+
+.boite-destructrice:hover {
+  background: var(--etat-action-fond);
+}
+
+/* Au-dessus de 640 px, ce n'est plus une feuille mais une carte centrée. */
+@media (min-width: 640px) {
+  .boite {
+    align-items: center;
+  }
+
+  .boite-feuille {
+    border: 1px solid var(--etat-bordure);
+    border-radius: var(--radius-3xl);
+    padding: 1rem 1.25rem 1.25rem;
+    animation-name: boite-parait;
+  }
+
+  .boite-poignee {
+    display: none;
+  }
+
+  .boite-actions {
+    justify-content: flex-end;
+  }
+
+  .boite-bouton {
+    flex: 0 0 auto;
+  }
+}
+
+@keyframes boite-parait {
+  from {
+    transform: scale(0.98);
+    opacity: 0;
+  }
+}

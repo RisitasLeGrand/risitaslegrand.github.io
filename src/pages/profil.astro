@@ -217,6 +217,7 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
+  import { avertir, confirmer, demanderUnTexte } from '../lib/boite';
   import { auDeverrouillage } from '../lib/chargement';
   import { echapper, pluriel } from '../lib/ui';
   import { redemanderLeMotDePasse } from '../lib/redemande';
@@ -364,7 +365,15 @@ import Base from '../layouts/Base.astro';
       'hover:bg-amber-50 dark:border-slate-700 dark:text-amber-200 dark:hover:bg-amber-950/40';
     supprimer.textContent = 'Supprimer';
     supprimer.addEventListener('click', async () => {
-      if (!window.confirm(`Supprimer « ${valeur.declare.libelle} » ?`)) return;
+      const sur = await confirmer({
+        titre: `Supprimer « ${valeur.declare.libelle} » ?`,
+        texte:
+          'Ce champ est retiré de votre profil. Les écrans qui s’en servaient ' +
+          'reviennent à leur valeur par défaut. Vous pouvez le renseigner à nouveau.',
+        action: 'Supprimer ce champ',
+        destructrice: true,
+      });
+      if (!sur) return;
       await supprimerChamp(valeur.champ);
       await peindre();
     });
@@ -375,13 +384,14 @@ import Base from '../layouts/Base.astro';
   }
 
   /**
-   * La saisie, par une invite du navigateur.
+   * La saisie, dans la boîte commune.
    *
-   * Assumé, et provisoire : l'écran d'initialisation de la phase suivante
-   * portera les vrais champs — molettes d'heure, boutons à bascule, curseurs.
-   * Mettre ici un formulaire complet par nature de champ aurait dupliqué ce
-   * travail pour le jeter ensuite, et laisser « Mon profil » en lecture seule
-   * aurait été pire : A.3 demande qu'on puisse corriger **à tout moment**.
+   * Elle passait par `window.prompt`, qui ne porte pas d'étiquette, ne se
+   * laisse ni habiller ni annoncer, et surgit en haut de l'écran. Reste
+   * provisoire ce qui l'était déjà : un seul champ texte pour toutes les
+   * natures. Le point D2 du prompt 43 demande des champs propres, par nature,
+   * et notamment la correction d'une répartition sans écrire de JSON ; c'est
+   * un lot de formulaire, pas un lot de fenêtre, et il vient après.
    */
   async function demander(champ: string, question: string, actuelle: unknown): Promise<void> {
     const { champDeclare } = await import('../lib/noyau/profil');
@@ -392,7 +402,14 @@ import Base from '../layouts/Base.astro';
         : actuelle && typeof actuelle === 'object'
           ? JSON.stringify(actuelle)
           : String(actuelle ?? '');
-    const saisie = window.prompt(question, depart);
+    const saisie = await demanderUnTexte({
+      titre: question,
+      texte: declare.nature === 'repartition' ? 'Forme attendue : {"cognition": 10}' : undefined,
+      etiquette: declare.libelle,
+      valeur: depart,
+      multiligne: declare.nature === 'repartition',
+      action: 'Enregistrer',
+    });
     if (saisie === null) return;
     let valeur: unknown = saisie.trim();
     if (declare.nature === 'nombre') valeur = Number(saisie.replace(',', '.'));
@@ -406,14 +423,20 @@ import Base from '../layouts/Base.astro';
       try {
         valeur = JSON.parse(saisie);
       } catch {
-        window.alert('Forme attendue : {"cognition": 10}');
+        await avertir({
+          titre: 'Cette répartition n’a pas pu être lue',
+          texte: 'Forme attendue : {"cognition": 10}',
+        });
         return;
       }
     }
     try {
       await ecrireChamp(champ, valeur);
     } catch (erreur) {
-      window.alert((erreur as Error).message);
+      await avertir({
+        titre: 'Ce champ n’a pas été enregistré',
+        texte: (erreur as Error).message,
+      });
       return;
     }
     await peindre();
@@ -731,11 +754,14 @@ import Base from '../layouts/Base.astro';
 
   $('reinitialiser-adaptation').addEventListener('click', async () => {
     if (
-      !window.confirm(
-        'Réinitialiser l’adaptation ?\n\nLes réglages qu’une proposition acceptée avait changés ' +
-          'reviennent à la valeur que vous aviez déclarée — pas à une valeur par défaut. Les ' +
+      !(await confirmer({
+        titre: 'Réinitialiser l’adaptation ?',
+        texte:
+          'Les réglages qu’une proposition acceptée avait changés reviennent à la ' +
+          'valeur que vous aviez déclarée — pas à une valeur par défaut. Les ' +
           'questions que vous avez refusées restent refusées.',
-      )
+        action: 'Réinitialiser l’adaptation',
+      }))
     ) {
       return;
     }

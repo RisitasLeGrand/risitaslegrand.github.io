@@ -466,6 +466,7 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
+  import { confirmer, demanderUnTexte } from '../lib/boite';
   import { auDeverrouillage } from '../lib/chargement';
   import { echapper } from '../lib/ui';
   import { empreinteLisible } from '../lib/noyau/empreinte';
@@ -836,13 +837,16 @@ import Base from '../layouts/Base.astro';
       bouton.addEventListener('click', async () => {
         const lot = bouton.dataset.lot!;
         const details = (await lotsRecus()).find((l) => l.lot === lot) as LotRecu;
-        const confirme = window.confirm(
-          `Annuler la synchronisation du ${new Date(details.le).toLocaleString('fr-FR')} ?\n\n` +
+        const confirme = await confirmer({
+          titre: `Annuler la synchronisation du ${new Date(details.le).toLocaleString('fr-FR')} ?`,
+          texte:
             `Seront retirées ${details.operations} opération(s) et ${details.revisions} ` +
-            `révision(s) reçues dans cette synchronisation, et elles seules. ` +
-            `${details.cartes.length} carte(s) seront recalculées.\n\n` +
-            `Ce que vous avez saisi ici depuis n’est pas touché.`,
-        );
+            'révision(s) reçues dans cette synchronisation, et elles seules. ' +
+            `${details.cartes.length} carte(s) seront recalculées. ` +
+            'Ce que vous avez saisi ici depuis n’est pas touché.',
+          action: 'Annuler cette synchronisation',
+          destructrice: true,
+        });
         if (!confirme) return;
         bouton.disabled = true;
         try {
@@ -1005,12 +1009,20 @@ import Base from '../layouts/Base.astro';
         const issue = bouton.dataset.issue as 'retenue' | 'toutes-justes' | 'ignore';
         let precision: string | undefined;
         if (issue !== 'retenue') {
-          const question =
-            issue === 'toutes-justes'
-              ? 'En quoi les deux sont-elles justes ? (deux pesées dans la journée, par exemple)'
-              : 'Pourquoi ne pas trancher maintenant ?';
-          precision = window.prompt(question) ?? undefined;
-          // Une annulation de l'invite n'est pas une réponse : on ne journalise
+          const justes = issue === 'toutes-justes';
+          precision =
+            (await demanderUnTexte({
+              titre: justes ? 'Les deux valeurs sont justes' : 'Garder ce désaccord pour plus tard',
+              texte: justes
+                ? 'Ce motif est journalisé : il dira, plus tard, pourquoi deux valeurs ' +
+                  'différentes coexistent sans erreur.'
+                : 'Le désaccord reste ouvert et reviendra. Le motif dit pourquoi il attend.',
+              etiquette: justes
+                ? 'En quoi les deux sont-elles justes ? (deux pesées dans la journée, par exemple)'
+                : 'Pourquoi ne pas trancher maintenant ?',
+              action: 'Enregistrer ce motif',
+            })) ?? undefined;
+          // Une annulation de la boîte n'est pas une réponse : on ne journalise
           // rien plutôt que d'enregistrer un motif vide.
           if (!precision?.trim()) return;
         }

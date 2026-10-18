@@ -17,6 +17,7 @@
    * Le mode sombre a ses propres pas, choisis contre le fond sombre, et non la
    * rampe claire inversée.
    */
+  import { confirmer } from '../../../lib/boite';
   import { effacerVeridical, type SeuilVeridical, type SessionVeridical } from '../../../lib/db';
   import { DIMENSIONS, dimensionsDeFamille, type Famille } from '../dimensions';
   import { INTITULES_STATUT } from '../escalier';
@@ -128,7 +129,15 @@
   }
 
   async function effacer() {
-    if (!confirm('Effacer tous les seuils et le journal de Veridical Mapping ? Le reste de votre progression n’est pas touché.')) return;
+    const sur = await confirmer({
+      titre: 'Effacer les seuils et le journal de Veridical Mapping ?',
+      texte:
+        'Partent : les seuils mesurés et le journal des séances de ce module. ' +
+        'Reste : tout le reste de votre progression, qui n’est pas touché.',
+      action: 'Effacer ce module',
+      destructrice: true,
+    });
+    if (!sur) return;
     await effacerVeridical();
     efface = true;
   }

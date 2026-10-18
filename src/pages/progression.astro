@@ -223,6 +223,7 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
+  import { confirmer } from '../lib/boite';
   import { auDeverrouillage } from '../lib/chargement';
   import {
     importerTout,
@@ -505,7 +506,18 @@ import Base from '../layouts/Base.astro';
       dire('message-sauvegarde', 'Saisissez le mot de passe du site, ou décochez le chiffrement.', 'echec');
       return;
     }
-    if (sans && !confirm('Ce fichier ne sera pas chiffré : vos notes de séance y seront lisibles. Continuer ?')) {
+    if (
+      sans &&
+      !(await confirmer({
+        titre: 'Enregistrer cette sauvegarde en clair ?',
+        texte:
+          'Le fichier ne sera pas chiffré : vos notes de séance, vos mesures et ' +
+          'tout ce que contient la sauvegarde seront lisibles par qui ouvrira le ' +
+          'fichier. Ne le faites que si vous le rangez vous-même en lieu sûr.',
+        action: 'Enregistrer en clair',
+        destructrice: true,
+      }))
+    ) {
       return;
     }
 
@@ -598,7 +610,17 @@ import Base from '../layouts/Base.astro';
     const mdp = ($('mdp-restauration') as HTMLInputElement).value;
     const avecInstantane = ($('avec-instantane') as HTMLInputElement).checked;
 
-    if (!confirm('Remplacer toute la progression de ce navigateur par cette sauvegarde ?')) return;
+    const remplacer = await confirmer({
+      titre: 'Remplacer toute la progression de ce navigateur ?',
+      texte:
+        'Ce qui est enregistré ici sera écrasé par le contenu de la sauvegarde. ' +
+        (avecInstantane
+          ? 'Un instantané de l’état actuel est pris avant, et permet de revenir en arrière.'
+          : 'Aucun instantané ne sera pris : l’état actuel sera perdu.'),
+      action: 'Remplacer',
+      destructrice: true,
+    });
+    if (!remplacer) return;
 
     bouton.disabled = true;
     dire('message-cyclades', 'Déchiffrement et restauration en cours…', 'neutre');
@@ -682,8 +704,28 @@ import Base from '../layouts/Base.astro';
     });
 
     $('reinitialiser').addEventListener('click', async () => {
-      if (!confirm('Effacer définitivement toute la progression de ce navigateur ?')) return;
-      if (!confirm('Dernière confirmation : cette action est irréversible.')) return;
+      /*
+         Une seule boîte, là où il y en avait deux.
+
+         Deux `confirm()` enchaînés passaient pour de la prudence : ils n'en
+         étaient pas. La touche Entrée validait « OK » dans les deux, de sorte
+         que deux pressions distraites effaçaient tout — et aucune des deux ne
+         disait ce qui partait. La boîte commune protège davantage : le bouton
+         destructeur n'est pas un bouton de soumission, Entrée ne peut donc pas
+         le déclencher, le focus arrive sur « Annuler », et la liste de ce qui
+         part est écrite.
+      */
+      const certain = await confirmer({
+        titre: 'Tout effacer sur ce navigateur ?',
+        texte:
+          'Partent : les séances, les révisions, les notes, les mesures et les ' +
+          'réglages enregistrés dans ce navigateur. Restent : les fiches du site, ' +
+          'et tout ce qui se trouve dans une sauvegarde déjà enregistrée ailleurs. ' +
+          'Cette action est irréversible.',
+        action: 'Tout effacer',
+        destructrice: true,
+      });
+      if (!certain) return;
       await toutEffacer();
       await afficherResume();
       notifier('Progression effacée', 'info');

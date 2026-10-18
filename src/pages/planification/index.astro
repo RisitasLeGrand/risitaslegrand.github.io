@@ -119,6 +119,7 @@ import Section from '../../components/Section.astro';
 </Base>
 
 <script>
+  import { avertir } from '../../lib/boite';
   import { auDeverrouillage } from '../../lib/chargement';
   import { parcoursCourant } from '../../lib/parcours/courant';
   import { raisonNonPlanifiable } from '../../lib/parcours/registre';
@@ -349,7 +350,10 @@ import Section from '../../components/Section.astro';
               await echanger(entree.jour, ajouterJours(entree.jour, 1));
               await peindrePlanning(aujourdhui);
             } catch (e) {
-              alert((e as Error).message);
+              await avertir({
+                titre: 'Le décalage n’a pas été appliqué',
+                texte: (e as Error).message,
+              });
             }
           });
           actions.appendChild(decaler);

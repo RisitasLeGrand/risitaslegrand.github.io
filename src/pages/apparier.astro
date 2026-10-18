@@ -276,6 +276,7 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
+  import { confirmer } from '../lib/boite';
   import { auDeverrouillage } from '../lib/chargement';
   import {
     appairageMemorise,
@@ -491,7 +492,15 @@ import Base from '../layouts/Base.astro';
     $('synchroniser').addEventListener('click', () => void lancerEchange());
 
     $('oublier').addEventListener('click', async () => {
-      if (!confirm('Oublier cet appairage ? Il faudra scanner un nouveau QR.')) return;
+      const sur = await confirmer({
+        titre: 'Oublier cet appairage ?',
+        texte:
+          'Cet ordinateur ne sera plus reconnu. Il faudra scanner un nouveau ' +
+          'QR pour le réapparier. Aucune donnée déjà synchronisée n’est perdue.',
+        action: 'Oublier cet appairage',
+        destructrice: true,
+      });
+      if (!sur) return;
       await salon?.quitter().catch(() => {});
       salon = null;
       await oublierAppairage();

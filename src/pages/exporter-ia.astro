@@ -183,6 +183,7 @@ import Base from '../layouts/Base.astro';
 </style>
 
 <script>
+  import { avertir, confirmer } from '../lib/boite';
   import { auDeverrouillage } from '../lib/chargement';
   import { echapper } from '../lib/ui';
   import {
@@ -234,17 +235,21 @@ import Base from '../layouts/Base.astro';
       case_.checked = retenues.has(c.id) && !indisponible;
       case_.disabled = indisponible;
       if (indisponible) retenues.delete(c.id);
-      case_.addEventListener('change', () => {
+      case_.addEventListener('change', async () => {
         /*
            La confirmation par catégorie de E.7, et seulement pour les
            sensibles : demander confirmation à chaque case rendrait la
            demande invisible à force d'être répétée.
         */
         if (case_.checked && c.sensible) {
-          const accord = window.confirm(
-            `« ${c.libelle} » est une catégorie sensible.\n\n${c.description}\n\n` +
-              'Elle partira dans un fichier que vous confierez à un service extérieur. Confirmer ?',
-          );
+          const accord = await confirmer({
+            titre: `« ${c.libelle} » est une catégorie sensible`,
+            texte:
+              `${c.description} Elle partira dans un fichier que vous confierez à ` +
+              'un service extérieur, qui pourra le conserver.',
+            action: 'Inclure quand même',
+            destructrice: true,
+          });
           if (!accord) {
             case_.checked = false;
             return;
@@ -408,7 +413,10 @@ import Base from '../layouts/Base.astro';
   async function ecrire(unique: boolean) {
     if (!dernier) return;
     if (dernier.problemes.length) {
-      window.alert(`L’export est refusé :\n\n${dernier.problemes.join('\n')}`);
+      await avertir({
+        titre: 'L’export est refusé',
+        texte: dernier.problemes.join(' · '),
+      });
       return;
     }
     if (unique) {
