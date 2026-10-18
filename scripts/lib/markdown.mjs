@@ -139,6 +139,24 @@ export function extraireSommaire(html) {
 const MARQUEUR = /\s*\{#([\p{L}\p{N}][\p{L}\p{N}_-]*)\}\s*$/u;
 
 /**
+ * Sépare le texte d'un titre de l'identifiant écrit à côté de lui.
+ *
+ * Exportée parce que deux chaînes lisent les mêmes titres : celle du site,
+ * qui rend le HTML, et celle des fiches audio, qui en fait des relances
+ * parlées (prompt 46, P2). La seconde a besoin des deux morceaux au même
+ * endroit — l'identifiant pour poser le repère, le texte pour le dire — et
+ * recopier l'expression du marqueur là-bas aurait suffi à ce qu'un jour
+ * l'une des deux copies reconnaisse ce que l'autre laisse passer.
+ */
+export function separerIdentifiant(titre) {
+  const brut = titre ?? '';
+  const marque = MARQUEUR.exec(brut);
+  return marque
+    ? { texte: brut.replace(MARQUEUR, '').trim(), id: marque[1] }
+    : { texte: brut.trim(), id: null };
+}
+
+/**
  * Sépare le Markdown d'un cours de ses identifiants de partie.
  *
  * Rend le Markdown **sans les marqueurs** — c'est lui qu'on rend en HTML —
@@ -159,14 +177,9 @@ export function extraireParties(markdown) {
     if (dansBlocCode) return ligne;
     const titre = /^(#{2,3})\s+(.+?)\s*$/.exec(ligne);
     if (!titre) return ligne;
-    const marque = MARQUEUR.exec(titre[2]);
-    const texte = marque ? titre[2].replace(MARQUEUR, '') : titre[2];
-    parties.push({
-      niveau: titre[1].length,
-      titre: texte.trim(),
-      id: marque ? marque[1] : null,
-    });
-    return `${titre[1]} ${texte.trim()}`;
+    const { texte, id } = separerIdentifiant(titre[2]);
+    parties.push({ niveau: titre[1].length, titre: texte, id });
+    return `${titre[1]} ${texte}`;
   });
 
   return { markdown: propres.join('\n'), parties };

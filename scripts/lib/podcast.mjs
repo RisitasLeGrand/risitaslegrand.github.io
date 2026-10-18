@@ -23,9 +23,20 @@ import { unified } from 'unified';
 import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
 import { construireIndexGlossaire, normaliser } from './glossaire.mjs';
+import { separerIdentifiant } from './markdown.mjs';
 
-/** Version du réécriveur : la changer force la régénération de tous les scripts. */
-export const VERSION_SCRIPT = 4;
+/**
+ * Version du réécriveur : la changer force la régénération de tous les scripts.
+ *
+ * 5 (prompt 46, P2) : le marqueur d'identifiant de partie — « {#…} », posé à
+ * côté des titres par P1 — était jusqu'ici DIT À VOIX HAUTE au milieu de la
+ * relance, et l'en-tête du script parlé commençait au même paragraphe que la
+ * phrase d'accueil, si bien que le commentaire « Script parlé engendré par
+ * npm run podcasts… » se faisait entendre en ouverture de chaque fiche. Les
+ * deux sont corrigés ici, et chaque script porte désormais la liste des
+ * paragraphes où une partie commence, pour que la synthèse en note le repère.
+ */
+export const VERSION_SCRIPT = 5;
 
 /* ══════════════════════════════════════════════════════════════════════════
    Tirage reproductible
@@ -293,7 +304,7 @@ function derniereGrandePartie(arbre, cible) {
   let courante = '';
   for (const noeud of arbre.children) {
     if (noeud === cible) break;
-    if (noeud.type === 'heading' && noeud.depth <= 3) courante = texteDe(noeud);
+    if (noeud.type === 'heading' && noeud.depth <= 3) courante = separerIdentifiant(texteDe(noeud)).texte;
   }
   return courante;
 }
@@ -301,13 +312,19 @@ function derniereGrandePartie(arbre, cible) {
 /**
  * Convertit le Markdown d'un cours en paragraphes parlés.
  * Un paragraphe du tableau retourné = une respiration à l'écoute.
+ *
+ * Chaque paragraphe porte, en plus de son texte, la partie dont il ouvre la
+ * lecture (prompt 46, P2) — `null` pour tous les autres. C'est ce fil-là qui
+ * permet à la synthèse de savoir, en cumulant les échantillons, à quelle
+ * seconde chaque partie commence : sans lui, le script parlé est une suite de
+ * paragraphes anonymes et le découpage du cours est perdu en route.
  */
 function paragraphesDuCours(markdown, cle) {
   const arbre = unified().use(remarkParse).use(remarkGfm).parse(markdown);
   const sortie = [];
-  const ajouter = (texte, titre = false) => {
+  const ajouter = (texte, titre = false, partie = null) => {
     const t = texte.trim();
-    if (t) sortie.push({ texte: t, titre });
+    if (t) sortie.push({ texte: t, titre, partie });
   };
 
   // Rang de chaque titre parmi ses frères de même niveau : « Premier temps »,
@@ -325,12 +342,22 @@ function paragraphesDuCours(markdown, cle) {
 
   for (const noeud of arbre.children) {
     switch (noeud.type) {
-      case 'heading':
+      case 'heading': {
+        /*
+           L'identifiant se lit ICI, sur le nœud qui produit la relance, et
+           non dans une liste extraite ailleurs qu'il faudrait recaler : le
+           texte dit et le repère viennent alors forcément du même titre.
+           Un titre de niveau 4 n'est pas une partie (décision 2) — son
+           marqueur, s'il en portait un, serait simplement retiré du texte dit.
+        */
+        const { texte: titreNet, id } = separerIdentifiant(texteDe(noeud));
         ajouter(
-          relance(noeud.depth, texteDe(noeud), rangs.get(noeud) ?? 0, totaux.get(cleDe(noeud)) ?? 1, cle),
+          relance(noeud.depth, titreNet, rangs.get(noeud) ?? 0, totaux.get(cleDe(noeud)) ?? 1, cle),
           true,
+          noeud.depth <= 3 ? id : null,
         );
         break;
+      }
 
       case 'paragraph':
         ajouter(phrase(texteDe(noeud)));
@@ -472,6 +499,12 @@ function definitionDite(definition) {
  * L'explication est dite juste après le paragraphe où le mot apparaît, comme
  * une parenthèse du formateur — plutôt qu'insérée au milieu de la phrase, qui
  * deviendrait illisible. Un sigle est d'abord développé.
+ *
+ * Entre et sort des paragraphes de la même forme — `{ texte, titre, partie }`.
+ * Elle rendait auparavant des CHAÎNES quand le glossaire était vide, et des
+ * objets sinon : le script parlé d'un dépôt sans glossaire s'écrivait alors
+ * « [object Object] », paragraphe après paragraphe. Le défaut ne se voyait
+ * pas parce que le glossaire réel n'est jamais vide.
  */
 function expliquerNotions(paragraphes, glossaire, cle) {
   if (!glossaire?.length) return paragraphes;
@@ -483,8 +516,9 @@ function expliquerNotions(paragraphes, glossaire, cle) {
   const expliques = new Set();
   const sortie = [];
 
-  for (const { texte: paragraphe, titre } of paragraphes) {
-    sortie.push(paragraphe);
+  for (const entree of paragraphes) {
+    const { texte: paragraphe, titre } = entree;
+    sortie.push(entree);
     if (titre) continue; // une relance de titre ne s'interrompt pas
     const gloses = [];
     for (const occurrence of paragraphe.matchAll(regex)) {
@@ -506,7 +540,9 @@ function expliquerNotions(paragraphes, glossaire, cle) {
         : `${majusculeInitiale(parler(terme.terme))}.`;
       gloses.push(`${amorce(sigle ? 'ce sigle' : 'ce terme')} ${enonce} ${definitionDite(terme.definition)}`);
     }
-    for (const glose of gloses) sortie.push(glose);
+    /* Une glose appartient à la partie en cours, mais n'en ouvre aucune :
+       elle ne porte donc jamais de repère. */
+    for (const glose of gloses) sortie.push({ texte: glose, titre: false, partie: null });
   }
   return sortie;
 }
@@ -594,11 +630,27 @@ export function ecrireScript({ titre, matiere, fascicule, cours, glossaire }) {
     'Et quand vous serez prêt, la fiche simplifiée, les flashcards et le quiz vous attendent. À très bientôt.',
   ].join(' ');
 
-  const paragraphes = [ouverture, ...corps, cloture];
+  const paragraphes = [ouverture, ...corps.map((p) => p.texte), cloture];
   const mots = paragraphes.join(' ').split(/\s+/).filter(Boolean).length;
+
+  /*
+     OÙ CHAQUE PARTIE COMMENCE À SE DIRE (prompt 46, P2).
+
+     Un rang de paragraphe, pas une seconde : à ce stade personne ne sait
+     combien de temps durera la parole. C'est la synthèse qui convertira,
+     en cumulant les échantillons qu'elle produit — seul endroit où le
+     chiffre est exact plutôt qu'estimé.
+
+     Le décalage de 1 n'est pas un détail : la phrase d'accueil occupe le
+     paragraphe 0, et le corps commence au suivant.
+  */
+  const parties = corps
+    .map((p, i) => (p.partie ? { id: p.partie, paragraphe: i + 1 } : null))
+    .filter(Boolean);
 
   return {
     paragraphes,
+    parties,
     mots,
     secondesEstimees: Math.round((mots / MOTS_PAR_MINUTE) * 60),
   };
