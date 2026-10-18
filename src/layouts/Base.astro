@@ -1272,7 +1272,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
 
     <script>
       import { quandDeverrouille, verrouiller } from '../lib/auth';
-      import { masquerDebordement } from '../lib/defilement';
+      import { brancherLeDefilement, masquerDebordement } from '../lib/defilement';
       import { initGlossaireGlobal } from '../lib/glossaire';
       import { suivreTemps } from '../lib/temps';
       import { brancherLeVoile } from '../lib/voile';
@@ -1290,6 +1290,12 @@ const flecheVisible = !estLeMenu && !sansNavigation;
          la position, et c'est justement celle d'où l'on partait.
       */
       brancherLesPiles(import.meta.env.BASE_URL);
+      /*
+         La position de défilement rendue au retour (M5). Même endroit, même
+         raison : c'est la page qu'on quitte qui doit avoir noté sa position,
+         et il n'y en a aucune qu'on puisse se permettre d'oublier.
+      */
+      brancherLeDefilement();
 
       initGlossaireGlobal();
 
