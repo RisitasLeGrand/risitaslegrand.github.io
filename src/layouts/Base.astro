@@ -291,6 +291,32 @@ const flecheVisible = !estLeMenu && !sansNavigation;
       {titre} · {enteteVoulu === 'complet' ? `${brancheCourante.libelle} · ` : ''}{config.titre}
     </title>
     <link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
+    {/*
+       L'installation sur un écran d'accueil (M12).
+
+       `apple-touch-icon` est indispensable et n'a pas d'équivalent dans le
+       manifeste : iOS ne lit pas celui-ci pour l'icône de l'écran d'accueil.
+       Sans cette ligne, il fabrique une vignette de la page, c'est-à-dire une
+       capture illisible — et, sur un site chiffré, une capture de ce qui était
+       à l'écran.
+
+       `theme_color` est dans le manifeste, mais la balise reste nécessaire :
+       elle colore la barre du navigateur **avant** l'installation, et sur les
+       navigateurs qui ne lisent le manifeste qu'à l'installation.
+    */}
+    <link rel="manifest" href={`${base}/manifeste.webmanifest`} />
+    <link rel="apple-touch-icon" href={`${base}/apple-touch-icon.png`} />
+    <meta name="theme-color" content="#4f46e5" />
+    {/*
+       iOS, et ses trois balises propriétaires. La seconde vaut une
+       explication : « black-translucent » fait passer le contenu SOUS la
+       barre d'état, ce que la mise en page sait faire puisqu'elle porte déjà
+       « viewport-fit=cover » et les marges de zone sûre.
+    */}
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content={config.titre} />
     <script is:inline>
       // Applique le thème avant le premier rendu pour éviter tout clignotement.
       // Trois choix possibles : « clair », « sombre » et « systeme ». Seul le
