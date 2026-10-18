@@ -143,7 +143,21 @@ export interface Fiche {
    */
   pretest?: QuestionQuiz[];
   /** Durée, poids et format de la fiche audio, connus avant de la télécharger. */
-  podcast: { secondes: number | null; octets: number; type: string } | null;
+  podcast: {
+    secondes: number | null;
+    octets: number;
+    type: string;
+    /**
+     * Où commence chaque partie dans la fiche audio, en secondes depuis le
+     * début (prompt 46, P2). `id` est l'identifiant stable de la partie,
+     * celui que porte aussi `Fiche.parties`.
+     *
+     * Facultatif, et son absence se lit « on ne sait pas découper cet
+     * audio » : une fiche synthétisée avant le prompt 46 n'en a pas, et
+     * s'écoute d'un bloc, exactement comme auparavant.
+     */
+    parties?: { id: string; debut: number }[];
+  } | null;
 }
 
 export interface RubriqueDgfip {
