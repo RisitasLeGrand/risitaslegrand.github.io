@@ -114,9 +114,24 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
                        « 5 » que personne n'a choisi. C'est la différence entre
                        l'absence et le zéro, appliquée à un curseur.
                     */}
+                    {/*
+                       LA DIMENSION EST DANS LE NOM, PAS SEULEMENT AU-DESSUS
+                       (prompt 43, E7).
+
+                       Les quatre cases portaient le seul mot « noter ». À
+                       l'œil, la colonne de gauche dit laquelle ; au lecteur
+                       d'écran, c'était « noter » quatre fois de suite, et
+                       rien pour les distinguer.
+
+                       Le mot visible ne change pas — la colonne est étroite,
+                       et répéter « noter l'humeur » à côté de « Humeur »
+                       alourdirait l'écran pour tout le monde. C'est le nom
+                       ACCESSIBLE qui porte la dimension, par un texte réservé
+                       aux technologies d'assistance.
+                    */}
                     <label class="flex shrink-0 items-center gap-1.5 text-xs text-slate-600 dark:text-slate-300">
                       <input type="checkbox" data-active={d} class="size-4 accent-indigo-600" />
-                      noter
+                      noter<span class="sr-only">{'\u00a0'}{DIMENSIONS[d].libelle}</span>
                     </label>
                   </div>
                 </div>
