@@ -23,24 +23,37 @@ pas ce genre de conséquence.
   reste rouge sur cette seule assertion, avec son diagnostic au tableau. Les
   autres contrôles de l'essai passent, dont « aucune graduation française
   n'est employée » et « la phrase cite le manuel au lieu de juger ».
-### Tranché le 19 octobre par le pilote
+### Tranché le 19 octobre, en deux temps
 
-- **Prendre le texte exact de la source déjà au dépôt**, celle que cite
-  l'échelle. S'il n'y a qu'une source anglaise — Kroenke et coll., 2001,
-  « moderately severe » —, afficher **« modérément sévère »**, avec dans
-  l'aide la mention « traduction non validée, source : Kroenke 2001 ».
-  L'essai doit faire citer la source, et ne porter aucun mot choisi au jugé.
-  **Les seuils ne changent pas.**
-- La validation française du PHQ-9 est déjà demandée à Alexis (D8) ; son
-  libellé remplacera celui-ci quand elle arrivera.
-- **Ce que cette décision coûte, et il faut le dire.** `essais:echelles:ecran`
-  porte aujourd'hui l'assertion « aucune graduation française n'est
-  employée », qui refuse `modéré|sévère|léger`. Afficher « modérément
-  sévère » la met en contradiction : elle sera remplacée par un contrôle qui
-  exige la mention de traduction non validée ET la citation de la source,
-  c'est-à-dire ce qui protégeait vraiment — qu'un libellé français ne passe
-  pas pour une citation validée. Ce n'est pas un assouplissement : l'essai
-  demandera davantage qu'avant, mais autre chose.
+**Premier temps.** Le pilote a décidé de traduire le palier en français,
+puis les cinq paliers, avec la mention « traduction non validée ».
+
+**Second temps : il a retiré cette décision**, après que je lui ai montré ce
+que je n'avais pas vu moi-même en la lui signalant d'abord comme une simple
+assertion d'essai — `src/lib/odyssee/echelles.ts` porte un contrôle qui
+**refuse toute étiquette accentuée**, avec sa raison écrite : « traduites,
+elles cesseraient d'être une citation pour devenir un jugement ». Le même
+commentaire rappelle que « léger », « modéré » et « sévère » sont refusés
+ailleurs dans Psyché par `MOTS_INTERDITS`. La garde est donc restée entière,
+le GAD-7 n'a pas bougé, et l'exception déclarée que je proposais n'a pas été
+retenue — ce qui est le bon choix tant qu'aucune source française validée
+n'existe.
+
+**Ce que le rouge cachait vraiment, et personne ne l'avait vu.** Le désaccord
+n'était pas entre le code et le manuel : il était **entre deux essais du
+dépôt**. `essais:echelles.mts`, contrôle 4.5, exige « Moderately Severe »
+et écrit pourquoi — « la casse est celle de la table 4 du manuel, qui écrit
+"Moderately Severe" sur deux lignes ; la phrase en prose du manuel écrit la
+même chose en minuscules ; comme le module cite la table, c'est la casse de
+la table qui fait foi ». `essais:echelles:ecran` attendait la minuscule,
+sans raison écrite. **C'est l'essai d'écran qui avait tort**, et c'est lui
+qui a été corrigé : le code n'a pas changé d'un caractère.
+
+**Ce qui reste, et que je ne tais pas.** Le manuel d'instructions du PHQ-9
+n'est pas dans `sources/`. Ce qui est constaté est l'accord du code avec
+l'essai et avec la raison écrite au contrôle 4.5, non l'accord avec le
+document lui-même. Déposer ce manuel dans `sources/` fermerait la question
+pour de bon ; c'est le geste d'Alexis.
 
 ## 2. Un geste délibéré refusé par le garde-fou du rebond ne dit rien
 

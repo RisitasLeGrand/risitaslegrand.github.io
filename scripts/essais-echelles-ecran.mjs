@@ -103,8 +103,29 @@ await page.waitForFunction(
 {
   const dit = await page.textContent('[data-dernier="phq9"]');
   vrai('le score est affiché sur son maximum', dit.includes('Score : 18 sur 27'));
-  vrai('la tranche est citée, dans la langue de la source',
-    dit.includes('« Moderately severe »'));
+  /*
+     LA CASSE VIENT DE LA TABLE 4, ET C'EST L'ESSAI QUI AVAIT TORT.
+
+     Cet essai attendait « Moderately severe » ; le module écrit
+     « Moderately Severe ». Les deux prétendaient citer la même source, et
+     c'est ce désaccord INTERNE — non un désaccord entre le code et le
+     manuel — qui a tenu ce contrôle au rouge.
+
+     Le départage est écrit dans `essais-echelles.mts`, au contrôle 4.5 :
+     « La casse est celle de la table 4 du manuel, qui écrit "Moderately
+     Severe" sur deux lignes. La phrase en prose du manuel écrit la même
+     chose en minuscules ; comme le module cite la table, c'est la casse de
+     la table qui fait foi. Le relevé portait la minuscule : corrigé. »
+     L'écran cite le même palier que le module : il cite donc la table, et
+     la capitale avec.
+
+     Ce que cela coûte en honnêteté, et je ne le tais pas : le manuel n'est
+     pas dans `sources/`. Ce qui est constaté ici est l'accord de l'écran
+     avec le module et avec la raison écrite au contrôle 4.5, non l'accord
+     avec le document lui-même.
+  */
+  vrai('la tranche est citée, dans la langue et la casse de la source',
+    dit.includes('« Moderately Severe »'));
   vrai('et la phrase cite le manuel au lieu de juger',
     dit.includes('Le manuel place ce score dans la tranche qu’il nomme'));
   faux('aucune graduation française n’est employée', /modéré|sévère|léger/i.test(dit));
