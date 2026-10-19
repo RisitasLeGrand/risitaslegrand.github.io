@@ -1171,6 +1171,6 @@
   Une boîte modale n'appartient pas à un écran : elle appartient au composant.
   Rendue ici, elle est hors de portée de tout ce que les écrans empilent.
 -->
-<CommentCaMarche enBoite={consigneOuverte} fermer={() => (consigneOuverte = false)}>
+<CommentCaMarche boiteSeule enBoite={consigneOuverte} fermer={() => (consigneOuverte = false)}>
   {@render consigne()}
 </CommentCaMarche>

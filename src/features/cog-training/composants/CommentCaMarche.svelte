@@ -35,11 +35,21 @@
     ouvert?: boolean;
     /** Rendu dans une boîte, pendant la partie, au lieu de l'encart replié. */
     enBoite?: boolean;
+    /**
+     * Cette instance est LA BOÎTE, et rien d'autre.
+     *
+     * Sans ce drapeau, l'instance posée au niveau du composant rendait le
+     * dépliant quand elle n'était pas ouverte — et l'écran de réglages
+     * affichait DEUX encarts « Comment ça marche » identiques. C'est une sonde
+     * qui l'a montré, en listant les dépliants de la page : la duplication ne
+     * saute pas aux yeux quand les deux disent la même chose.
+     */
+    boiteSeule?: boolean;
     /** Appelé quand la boîte se ferme — l'exercice y reprend sa partie. */
     fermer?: () => void;
   }
 
-  let { children, ouvert = false, enBoite = false, fermer }: Props = $props();
+  let { children, ouvert = false, enBoite = false, boiteSeule = false, fermer }: Props = $props();
 
   let boite = $state<HTMLDialogElement | null>(null);
 
@@ -76,7 +86,7 @@
       >Reprendre</button>
     </div>
   </dialog>
-{:else}
+{:else if !boiteSeule}
   <details open={ouvert} class="mb-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900">
     <summary class="cursor-pointer text-sm font-semibold text-slate-900 dark:text-white">
       Comment ça marche

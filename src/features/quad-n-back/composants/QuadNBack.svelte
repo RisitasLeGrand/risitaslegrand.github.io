@@ -863,7 +863,7 @@
         {minutes((reglages.epreuves * reglages.dureeEpreuve) / 1000)}
       </p>
 
-      <details class="mt-4">
+      <details data-pli-reglages class="mt-4">
         <summary class="cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-200">
           Réglages
         </summary>
@@ -1456,6 +1456,6 @@
   Une boîte modale n'appartient pas à un écran : elle appartient au composant.
   Rendue ici, elle est hors de portée de tout ce que les écrans empilent.
 -->
-<CommentCaMarche enBoite={consigneEnPause} fermer={reprendreApresLaConsigne}>
+<CommentCaMarche boiteSeule enBoite={consigneEnPause} fermer={reprendreApresLaConsigne}>
   {@render consigne()}
 </CommentCaMarche>
