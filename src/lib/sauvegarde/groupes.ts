@@ -321,6 +321,20 @@ export const CHAMP_DATE: Record<string, string | null> = {
   odysseePrelevements: 'jour',
   odysseeResultats: null,
   odysseeSymptomes: 'jour',
+  /*
+     LES CRÉNEAUX MARQUÉS — une ligne par traitement, par jour et par heure.
+
+     C'est un historique, et non un état courant : « Prévu à 8 h, noté à
+     8 h 12 » est un constat daté, qui ne se réécrit pas. Le champ est `jour`,
+     le jour LOGIQUE du créneau, comme chez ses voisins de Santé
+     (`odysseeMedicaments`, `odysseePrelevements`, `odysseeSymptomes`) — et non
+     `le`, qui porte l'instant réel du geste. Une période se demande sur le
+     jour du traitement, pas sur la minute où la case a été cochée.
+
+     Déclaré à la fusion de claude/p52-mol, où il manquait. Relevé par l'agent
+     C sur `main`, par l'essai d'effacement que le socle contient désormais.
+  */
+  odysseeCreneaux: 'jour',
   odysseeTraitements: null,
   odysseeConditions: null,
   /* Un ressenti est daté du jour où on l'écrit : il s'élague comme un
@@ -475,6 +489,7 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
       'odysseeMedicaments',
       'odysseeHormonal',
       'odysseeTraitements',
+      'odysseeCreneaux',
       'odysseePrelevements',
       'odysseeResultats',
       'odysseeSymptomes',

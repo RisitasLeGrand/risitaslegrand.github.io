@@ -318,6 +318,7 @@ console.log('\nUNE DESCRIPTION NOMME CE QUE SON GROUPE EMPORTE');
 const MOTS_DU_MAGASIN: Record<string, readonly string[]> = {
   odysseeSante: ['santé'],
   odysseeTraitements: ['traitement'],
+  odysseeCreneaux: ['traitement'],
   odysseeMedicaments: ['traitement', 'médicament'],
   odysseePrelevements: ['prélèvement', 'analyse'],
   odysseeResultats: ['résultat', 'analyse'],
