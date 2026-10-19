@@ -68,6 +68,15 @@ const ETAT_TECHNIQUE: { cle: string; raison: string }[] = [
     raison: 'le refus de la proposition d’installation, qui ne se repropose pas',
   },
   {
+    cle: 'localStorage::revinsp.persistance-demandee-le',
+    raison:
+      'la date de la dernière demande de stockage persistant (A4 du 43) : elle ' +
+      'tient le délai d’une semaine entre deux demandes. Ce n’est pas un réglage — ' +
+      'personne ne choisit cette date, et la permission elle-même est accordée ou ' +
+      'refusée par le navigateur, pas par nous. L’état accordé/refusé, lui, S’AFFICHE ' +
+      'sur la page Stockage.',
+  },
+  {
     cle: 'localStorage::revinsp.assistant.avertissement-vu',
     raison: 'l’avertissement du volet « Demander à l’IA », vu une fois',
   },
