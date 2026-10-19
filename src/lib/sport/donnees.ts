@@ -15,7 +15,7 @@
  *
  * ## La bibliothèque livrée
  *
- * Trente exercices courants, posés à la première ouverture et marqués
+ * Trente-huit exercices courants, posés à la première ouverture et marqués
  * `fourni`. Ils ne sont pas figés : on peut les modifier et les supprimer. Ce
  * qu'ils évitent est la page blanche — un carnet d'entraînement vide qui
  * demande de saisir « développé couché » avant de pouvoir noter la première
@@ -303,12 +303,16 @@ const F = (
 });
 
 /**
- * Trente exercices courants.
+ * Trente-huit exercices courants.
  *
  * Choisis pour couvrir les dix-huit muscles du schéma avec le moins d'entrées
  * possible, et non pour faire une encyclopédie : une bibliothèque de trois
  * cents exercices est aussi décourageante qu'une bibliothèque vide, parce
  * qu'on y cherche plus longtemps qu'on ne saisirait.
+ *
+ * Trente et une jusqu'au prompt 48, qui en ajoute sept pour la maison — voir
+ * leur bloc en fin de liste. Le compte est tenu par `essais:sport`, qui
+ * vérifie aussi que les sept sont bien ceux-là.
  */
 export const BIBLIOTHEQUE: readonly Livre[] = [
   F('Développé couché', 'barre', ['pectoraux'], ['triceps', 'deltoide-anterieur']),
@@ -389,6 +393,47 @@ export const BIBLIOTHEQUE: readonly Livre[] = [
     principaux: ['quadriceps', 'mollets'],
     secondaires: ['ischio-jambiers', 'fessiers'],
   },
+
+  /* ────────────────────────────────────────────────────────────────────────
+     LES SEPT DE LA MAISON — ajoutés pour le modèle « Maison » (prompt 48).
+
+     Le dossier du 18 octobre (`docs/cyclades/sport/03-modeles.md`, point 9)
+     en demande sept, et il les sépare en deux : **quatre sont nécessaires**
+     — pompes, rowing à un bras, soulevé de terre jambes tendues aux haltères,
+     mollets à une jambe —, sans lesquels un grand groupe du modèle Maison
+     tombe à zéro ou presque ; **trois sont facultatifs** — développé
+     d'épaules, hip thrust à l'haltère, extension du triceps au-dessus de la
+     tête —, sans lesquels aucune cible ne passe sous quatre séries mais
+     toutes baissent. Alexis a tranché le 18 : les sept.
+
+     Les modèles de salle n'en ajoutent aucun.
+
+     ## Leurs muscles viennent du dossier, et c'est dit
+
+     Partout ailleurs, la règle est que les muscles d'un exercice viennent de
+     cette bibliothèque et non de la convention du dossier. Ces sept-là sont
+     la seule exception possible : ils n'existaient pas ici, il n'y a donc
+     rien à préférer à la convention du dossier. Elle est donc reprise telle
+     quelle, et le compte rendu des écarts le mentionne.
+
+     ## Un exercice par équipement, et pourquoi deux « hip thrust »
+
+     « Hip thrust (haltère) » est un exercice distinct de « Hip thrust
+     (barre) », et ce n'est pas une redondance : l'équipement fait partie de
+     l'identité de comparaison (`identiteDeComparaison`, `modele.ts`). Les
+     confondre inventerait une progression le jour où l'on passe de l'un à
+     l'autre. Même raison pour les deux soulevés de terre jambes tendues et
+     les deux séries de mollets.
+  */
+  F('Pompes', 'sol', ['pectoraux'], ['deltoide-anterieur', 'triceps'], { unite: 'corps' }),
+  F('Rowing à un bras', 'haltère', ['dorsaux'], ['trapezes', 'deltoide-posterieur', 'biceps'], {
+    lateralite: 'unilateral',
+  }),
+  F('Soulevé de terre jambes tendues', 'haltères', ['ischio-jambiers'], ['fessiers', 'lombaires']),
+  F('Mollets debout à une jambe', 'haltère', ['mollets'], [], { lateralite: 'unilateral' }),
+  F('Développé épaules', 'haltères', ['deltoide-anterieur'], ['deltoide-lateral', 'triceps']),
+  F('Hip thrust', 'haltère', ['fessiers'], ['ischio-jambiers']),
+  F('Extension triceps au-dessus de la tête', 'haltère', ['triceps'], []),
 ];
 
 /**

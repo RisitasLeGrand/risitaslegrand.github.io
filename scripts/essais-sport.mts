@@ -617,7 +617,55 @@ const videSport = { seances: [], exercices: [exercice()], phases: [], blessures:
    ════════════════════════════════════════════════════════════════════════ */
 console.log('\nLA BIBLIOTHÈQUE LIVRÉE');
 
-v('trente et un exercices sont livrés', BIBLIOTHEQUE.length, 31);
+/*
+   TRENTE-HUIT, et non plus trente et un.
+
+   Le prompt 48 en ajoute sept pour le modèle « Maison » (dossier du 18
+   octobre, point 9 ; décision 10 d'Alexis). Le compte n'est pas une
+   coquetterie : il garde la bibliothèque contre un ajout distrait, et c'est
+   le genre de garde-fou qu'on a envie de relâcher le jour où il rougit.
+
+   On lui rend donc son objet en plus serré : le compte, ET la présence
+   nommée des sept, avec leur équipement. Un compte seul se satisferait de
+   sept exercices quelconques.
+*/
+v('trente-huit exercices sont livrés', BIBLIOTHEQUE.length, 38);
+{
+  const LES_SEPT_DE_LA_MAISON = [
+    ['Pompes', 'sol'],
+    ['Rowing à un bras', 'haltère'],
+    ['Soulevé de terre jambes tendues', 'haltères'],
+    ['Mollets debout à une jambe', 'haltère'],
+    ['Développé épaules', 'haltères'],
+    ['Hip thrust', 'haltère'],
+    ['Extension triceps au-dessus de la tête', 'haltère'],
+  ];
+  const manquants = LES_SEPT_DE_LA_MAISON.filter(
+    ([nom, equipement]) =>
+      !BIBLIOTHEQUE.some((e) => e.nom === nom && e.equipement === equipement),
+  ).map(([nom, equipement]) => `${nom} (${equipement})`);
+  v('dont les sept du modèle « Maison »', manquants, []);
+
+  /*
+     Les quatre nécessaires sont unilatéraux ou au poids du corps, et leur
+     latéralité commande le compte du volume : une série unilatérale compte
+     pour les deux côtés (convention du dossier). La confondre avec un
+     exercice bilatéral doublerait ou diviserait le volume d'un muscle.
+  */
+  const lateralites = LES_SEPT_DE_LA_MAISON.map(([nom, equipement]) => {
+    const e = BIBLIOTHEQUE.find((x) => x.nom === nom && x.equipement === equipement);
+    return `${nom} : ${e?.lateralite ?? 'absent'}`;
+  });
+  v('et leur latéralité est celle du dossier', lateralites, [
+    'Pompes : bilateral',
+    'Rowing à un bras : unilateral',
+    'Soulevé de terre jambes tendues : bilateral',
+    'Mollets debout à une jambe : unilateral',
+    'Développé épaules : bilateral',
+    'Hip thrust : bilateral',
+    'Extension triceps au-dessus de la tête : bilateral',
+  ]);
+}
 {
   const problemes = BIBLIOTHEQUE.flatMap((livre, rang) =>
     controlerExercice({ ...livre, id: `L${rang}`, fourni: true, majLe: '' }).map(
