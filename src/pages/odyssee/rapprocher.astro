@@ -270,6 +270,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 </Base>
 
 <script>
+  import { defilerVers } from '../../lib/defilement';
   import { jourISO } from '../../lib/db';
   import { auDeverrouillage } from '../../lib/chargement';
   import { centimesDe, euros, type OperationBancaire } from '../../lib/odyssee/finances';
@@ -1332,7 +1333,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     const allerA = (lequel: typeof filtre) => {
       filtre = lequel;
       appliquerLeFiltre();
-      $('titre-file').scrollIntoView({ behavior: 'smooth', block: 'start' });
+      defilerVers($('titre-file'), 'start');
     };
 
     ligne(cr.pointees, 'pointées automatiquement', [

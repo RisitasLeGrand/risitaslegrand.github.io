@@ -385,6 +385,7 @@ const parDomaine = Object.keys(DOMAINES).map((d) => ({
 </Base>
 
 <script>
+  import { defilerVers } from '../../lib/defilement';
   import { auDeverrouillage } from '../../lib/chargement';
   import { coffreOuvert, ouvrirLeCoffre } from '../../lib/coffre';
   import { CATALOGUE } from '../../lib/odyssee/veille';
@@ -785,7 +786,7 @@ const parDomaine = Object.keys(DOMAINES).map((d) => ({
     $('composer-synthese').addEventListener('click', async () => {
       synthese = await syntheseAMontrer();
       peindreLaSynthese(synthese);
-      $('synthese').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      defilerVers($('synthese'), 'nearest');
     });
 
     $('telecharger-synthese').addEventListener('click', () => {
@@ -807,7 +808,7 @@ const parDomaine = Object.keys(DOMAINES).map((d) => ({
 
     $('bouton-pourquoi').addEventListener('click', () => {
       $('pourquoi').classList.toggle('hidden');
-      $('pourquoi').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      defilerVers($('pourquoi'), 'nearest');
     });
   });
 </script>

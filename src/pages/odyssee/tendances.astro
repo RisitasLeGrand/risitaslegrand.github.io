@@ -173,6 +173,7 @@ import { DOMAINES } from '../../lib/noyau/domaines';
 </Base>
 
 <script>
+  import { defilerVers } from '../../lib/defilement';
   import { auDeverrouillage } from '../../lib/chargement';
   import { unSeulGeste } from '../../lib/geste';
   import { jourLogique } from '../../lib/noyau/jour-logique';
@@ -268,7 +269,7 @@ import { DOMAINES } from '../../lib/noyau/domaines';
       ($('intitule') as HTMLInputElement).value = piste.enonce.split(' sur ')[0];
       ($('pourquoi') as HTMLInputElement).value = 'Vérifier si cela tient dans la durée.';
       ($('intitule') as HTMLInputElement).dataset.origine = piste.id;
-      $('intitule').scrollIntoView({ behavior: 'smooth', block: 'center' });
+      defilerVers($('intitule'), 'center');
       ($('intitule') as HTMLInputElement).focus();
     });
 

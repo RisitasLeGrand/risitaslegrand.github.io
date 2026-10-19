@@ -195,6 +195,7 @@
     "essais:nombre-saisi": "tsx scripts/essais-nombre-saisi.mts",
     "essais:bulle:navigateur": "node scripts/essais-bulle-navigateur.mjs",
     "essais:epreuve-gardee:navigateur": "node scripts/essais-epreuve-gardee-navigateur.mjs",
+    "essais:defilement": "tsx scripts/essais-defilement.mts",
     "essais:voiles": "tsx scripts/essais-voiles-de-dialogue.mts",
     "essais:epreuve-en-cours": "tsx scripts/essais-epreuve-en-cours.mts",
     "essais:erreur-de-champ:navigateur": "node scripts/essais-erreur-de-champ-navigateur.mjs",
