@@ -231,7 +231,15 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
           <strong>Ce qui part dans un export pour une IA.</strong> Seulement si vous cochez la
           case correspondante, et jamais votre prénom, votre nom, votre année ou votre mois de
           naissance, ni votre majorité déclarée : ces cinq réponses ne sortent pas, quelle que
-          soit la case. Votre prénom et votre nom sont même lus pour être <strong>retirés</strong>
+          soit la case. Votre prénom et votre nom sont même lus pour être <strong>retirés</strong>{' '}
+          <!--
+             L'ESPACE EST EXPLICITE, ET IL LE FAUT.
+
+             Le compilateur mange le blanc entre une balise et le mot suivant :
+             le texte rendu disait « retirésdes textes libres ». Attrapé par
+             `essais:espaces` sur le site construit, avant la poussée — c'est
+             exactement pour cela que le socle existe.
+          -->
           des textes libres que l’export emporte.
         </p>
         <p id="confidentialite-export"></p>

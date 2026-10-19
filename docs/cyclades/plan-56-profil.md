@@ -288,43 +288,55 @@ sauté, désactivé ni allégé.
 
 ## 4. Compte rendu, constat par constat
 
-Tenu à jour à mesure. « Mesuré » veut dire exécuté et observé ; « lu » veut
-dire lu dans le code sans l'exécuter.
+Tenu à jour à mesure, et arrêté au 19 octobre, après la fusion de `main` et la
+refonte de la page. « Mesuré » veut dire exécuté et observé ; « lu » veut dire
+lu dans le code sans l'exécuter.
 
 ### Les bloquants
 
 | Constat | État | Comment, et où |
 |---|---|---|
-| **B1** la portée « Lisible par » ne restreint rien | **corrigé dans le catalogue, l'écran suit** | La table `luPar` déclare les lecteurs réels, champ par champ ; `essais-lu-par.mts` la confronte au code dans trois sens. Le retrait des 52 cases et la ligne « Lu par : … » sont dans `profil.astro`, **bloqué** jusqu'à l'A7 du 58. |
-| **B2** six réglages déduits sur huit non appliqués | **corrigé, et le compte rectifié : cinq sur huit** | Chaque réglage déclare `applique` ; `reglagesAppliques()` rend les trois réels. La phrase fausse sur la série est retirée de la cause. Le filtre d'affichage attend `profil.astro`. |
-| **B3** l'âge part dans l'export | **toujours corrigé (U1)** | Vérifié : les cinq champs portent `jamaisExporte`, l'interdiction passe en premier, et le contrôle du graphe d'imports tient. En plus, l'export ne nomme plus lui-même le prénom et le nom : il importe `CHAMPS_A_CAVIARDER`. |
-| **B4** l'initialisation enregistre une réponse non donnée | **toujours corrigé (U2)** | Vérifié sur la saisie des dates, qui rend `undefined`. Et la règle est étendue : vider une heure dans Paramètres **supprime** le champ au lieu d'écrire l'heure d'usine. |
-| **B5** un champ de branche vide ne se renseigne pas depuis le profil | **à faire** | `questionsDeBranche()` sépare « ce qu'on pose » de « tous les champs de la branche », ce qui est la moitié mécanique du travail. L'autre moitié est l'écran, bloqué. |
+| **B1** la portée « Lisible par » ne restreint rien | **corrigé** | Les 52 cases sont parties, et avec elles la ligne « Utilisé par » qui se calculait sur la même portée. À leur place, « Lu par », dérivée de deux déclarations : la table du catalogue, et le registre des usages pour l'âge. `essais-lu-par.mts` confronte la première au code dans trois sens ; l'essai de navigateur constate qu'il ne reste **plus une seule case**. |
+| **B2** six réglages déduits sur huit non appliqués | **corrigé, et le compte rectifié : cinq sur huit** | Chaque réglage déclare `applique` ; l'écran n'affiche que les trois réels. La phrase fausse sur la série est retirée de la cause elle-même. L'essai de navigateur vérifie **nommément** que l'objectif hebdomadaire a disparu. |
+| **B3** l'âge part dans l'export | **toujours corrigé (U1)** | Vérifié : les cinq champs portent `jamaisExporte`, l'interdiction passe en premier, le contrôle du graphe d'imports tient. En plus, l'export ne nomme plus lui-même le prénom et le nom : il importe `CHAMPS_A_CAVIARDER`. |
+| **B4** l'initialisation enregistre une réponse non donnée | **toujours corrigé (U2)**, et étendu | Vérifié sur la saisie des dates. Et vider une heure dans Paramètres **supprime** le champ au lieu d'écrire l'heure d'usine. |
+| **B5** un champ de branche vide ne se renseigne pas depuis le profil | **corrigé** | Une seule carte pour les champs remplis et les champs vides, à leur place déclarée. Mesuré au navigateur : les heures de révision renseignées depuis le bloc Révisions. |
 
 ### Les gênants
 
 | Constat | État | Comment |
 |---|---|---|
-| **G1** tri alphabétique, neuf écrans de long | **à faire** (P1) | Bloqué : `profil.astro`. |
-| **G2** valeurs brutes et jargon | **en partie** | Le jargon est parti des phrases du catalogue (« le jour logique »), et « 07:00 » se dit « 7 h » dans Paramètres. Les valeurs de l'écran du profil attendent P7. |
-| **G3** cases de portée de 16 px | **sans objet après P3** | Les cases disparaissent avec la portée. |
-| **G4** le compteur se lit comme une complétude | **à faire** (P9) | Bloqué. Le dénominateur a déjà changé de sens : huit questions posées au lieu de dix-huit. |
-| **G5** faux 07:00 dans Ma journée, et une troisième copie | **corrigé** | `siVide` déclare ce que le vide veut dire ; « Passer au clair à » suit Ma journée quand il est vide. Mesuré au navigateur : 25 verts. |
+| **G1** tri alphabétique, neuf écrans de long | **corrigé** | Trois blocs du socle plus un bloc repliable par branche, le groupe de chaque champ déclaré au catalogue, l'ordre du catalogue à l'intérieur, et un sommaire de cinq ancres. Un champ vide qu'aucun lecteur ne lit n'est pas montré du tout. |
+| **G2** valeurs brutes et jargon | **corrigé** | « 6 h 30 », « 8 h par semaine », « INSP : 15 mars 2027 », les libellés des domaines et des parcours, plus de chasse fixe. Un identifiant inconnu reste tel quel plutôt que d'être inventé. Le jargon est parti des phrases du catalogue (« le jour logique »). |
+| **G3** cases de portée de 16 px | **sans objet** | Les cases ont disparu avec la portée. |
+| **G4** le compteur se lit comme une complétude | **corrigé** | Une ligne neutre, sans dénominateur ni pourcentage ni « incomplet ». L'essai vérifie les trois absences. |
+| **G5** faux 07:00 dans Ma journée, et une troisième copie | **corrigé** | `siVide` déclare ce que le vide veut dire ; « Passer au clair à » suit Ma journée quand il est vide. Mesuré au navigateur, 25 verts. |
 | **G6** le moment de la revue en texte libre | **corrigé** | Choix fermé sur les deux valeurs que `lireMoment` reconnaît, avec une aide par réponse. |
 | **G7** promesses fausses sur les cartes | **corrigé** | Six phrases retirées, et un invariant du catalogue interdit d'en écrire une sur un champ que rien ne lit. |
-| **G8** la boîte de saisie unique | **signalé, couvert par le 43** | L'exemple `{"cognition": 10}` s'affiche toujours pour les dates d'épreuves (`profil.astro:413`). |
-| **G9** « et mon sexe » sans champ pour le sexe | **corrigé** | Titre, libellé, question et trois commentaires. Reste le lien de `profil.astro`, déclaré dans l'essai avec sa raison. |
+| **G8** la boîte de saisie unique | **signalé, reste au 43** | L'exemple `{"cognition": 10}` s'affiche toujours devant les dates d'épreuves, où il est faux (`profil.astro`, dans `demander()`). Le pilote a tranché : la saisie appartient au 43. |
+| **G9** « et mon sexe » sans champ pour le sexe | **corrigé** | Titre, libellé, question, trois commentaires, et le lien du profil. Plus aucun fichier ne porte l'ancien titre, et l'essai l'affirme. |
 
 ### Les mineurs
 
 | Constat | État |
 |---|---|
-| **M1** date du consentement écrite en dur | **à faire**, bloqué (`profil.astro`) |
-| **M2** pas de `role="status"` sur les messages | **à faire**, bloqué |
-| **M3** le renvoi « Affichage » coupe la page | **à faire**, bloqué |
-| **M4** l'aide du lever dit le contraire du code | **corrigé** : « une heure avant votre lever, entre 2 h et 6 h », au catalogue des champs et à celui des réglages |
-| **M5** la copie locale des heures n'est pas dite | **en partie** : les phrases de Paramètres disent désormais que Ma journée est la source et que l'heure donnée ici ne vaut que sur cet appareil. Le paragraphe Confidentialité (P14) attend `profil.astro`. |
-| **M6** « Supprimer » ambré sur chaque carte | **à faire**, bloqué |
+| **M1** date du consentement écrite en dur | **corrigé** : elle est partie, et non calculée — « aujourd'hui » aurait prétendu que la liste des manques avait été revue ce matin. Le compte de domaines vient du module. |
+| **M2** pas de `role="status"` sur les messages | **corrigé** : les quatre zones de message en portent. |
+| **M3** le renvoi « Affichage » coupe la page | **corrigé** : retiré. Le lien vers Paramètres, Ma journée est dans le bloc « Votre journée », où il dit que c'est la même donnée. |
+| **M4** l'aide du lever dit le contraire du code | **corrigé** : « une heure avant votre lever, entre 2 h et 6 h », aux deux catalogues. |
+| **M5** la copie locale des heures n'est pas dite | **corrigé** : le paragraphe Confidentialité le dit, et dit pourquoi. |
+| **M6** « Supprimer » ambré sur chaque carte | **corrigé** : neutre sur la carte, l'ambre seulement dans la boîte. |
+
+### Les décisions d'Alexis
+
+| Décision | État |
+|---|---|
+| **1** retirer les 52 cases | **faite** |
+| **2** ne plus demander les champs inutiles, garder les réponses | **faite** : **23** champs, et non 14 — le chiffre de l'audit comptait des lignes de tableau. Le socle passe de 18 questions à 8, Révisions de 6 à 2, Sport de 5 à 0, Odyssée de 5 à 1. Une réponse déjà donnée reste visible, modifiable, avec sa mention. Un champ redevient demandé dès qu'un lecteur est déclaré : c'est le même `aUnUsage` qui décide des deux. |
+| **3** compte à rebours sur l'accueil de Révisions | **le module, son essai et l'interrupteur sont faits** ; l'insertion attend la fusion de `claude/p46-55`, qui modifie `revisions/index.astro` (règle 4 du chantier, accordé par le pilote). |
+| **4** garder les deux moments séparés, mieux nommés | **faite** : « Moment de ma revue (Odyssée) » et « Heure préférée pour réviser », les mêmes mots aux trois écrans. |
+| **5** une seule source : Ma journée | **faite** — et elle l'était déjà pour moitié. Ce qui restait : le faux défaut, et la vraie troisième copie. |
+| **6** retirer « et mon sexe » du titre | **faite** |
 
 ### Ce que l'audit ne dit pas, et que la confrontation a trouvé
 
@@ -333,13 +345,51 @@ dire lu dans le code sans l'exécuter.
    l'affichage de l'écran. Et aucune fonction ne lit l'âge aujourd'hui —
    `etatDeLaPersonne` et `contextePersonne` n'ont qu'un appelant, l'écran
    lui-même. La phrase du champ a été corrigée ; le défaut de la porte est
-   signalé au pilote, avec son correctif, parce qu'il appartient au prompt qui
-   l'a construite.
-2. **`essais:reglages-orphelins` rougit sur `origin/main`** : le commit
-   `2462447` (B-3 du 58) écrit `etat/reglagesSync` dans
-   `lib/sauvegarde/effacement.ts` sans déclarer la clé. Signalé, non touché.
-3. **Le catalogue porte 37 champs**, non 36 : l'audit réunit les matières
+   signalé au pilote avec son correctif, parce qu'il appartient au prompt qui
+   l'a construite et au fichier d'un autre agent.
+2. **Deux rouges d'`origin/main`**, signalés sans attribution — ce conteneur
+   est cloné en superficiel, et `git log -- <chemin>` y attribue faussement :
+   `essais:reglages-orphelins` refuse `etat/reglagesSync` et
+   `etat/fusionEnCours`, deux clés écrites sans être déclarées au catalogue des
+   réglages.
+3. **La fusion de `main` a révélé un effacement silencieux** :
+   `progression.astro` écrivait les réglages de session avec un littéral à deux
+   propriétés, et `ecrireReglagesSession` écrit l'objet entier. Mon
+   interrupteur aurait été remis à son défaut à chaque changement de plafond.
+   Corrigé en deux lignes, dans le fichier du constructeur, parce que c'est mon
+   changement qui l'a rendu faux.
+4. **Le catalogue porte 37 champs**, non 36 : l'audit réunit les matières
    fortes et les faibles sur une ligne.
-4. **La langue et le fuseau partageaient un écran.** La langue n'étant plus
-   demandée, la question a dû changer de phrase pour ne pas annoncer un
-   réglage qu'elle ne fait plus.
+5. **La langue et le fuseau partageaient un écran.** La langue n'étant plus
+   demandée, la question a dû changer de phrase pour ne pas annoncer un réglage
+   qu'elle ne fait plus.
+
+### Deux défauts de moi, trouvés par les essais et non par relecture
+
+1. La phrase « Non renseigné : 7 h par défaut », posée dans la zone de commande
+   d'un réglage, **faisait déborder la page à 610 px pour 360** : la rangée est
+   `flex shrink-0` et ne se replie pas. Vu par `essais:mobile:navigateur` sur
+   les trois largeurs, corrigé en la plaçant dans la colonne de texte.
+2. Mon module d'affichage portait trois listes de noms de champs, dont
+   `naissanceAnnee` : **le contrôle du graphe d'imports l'a refusé**. Je n'ai
+   pas allongé la liste des six fichiers autorisés — les trois listes étaient
+   des propriétés des champs, et elles sont passées au catalogue.
+
+### Les essais, et ce qu'ils gardent
+
+| Essai | Verts | Ce qu'il garde |
+|---|---|---|
+| `essais:lu-par` | 160 | La table des lecteurs confrontée au code dans trois sens, la ceinture des littéraux, la seconde source pour l'âge, et qu'aucun champ ne soit déclaré aux deux endroits. |
+| `essais:profil:navigateur` | 66 | Le plan de page lu dans le document, l'absence de compteur, un champ vide renseigné depuis sa carte, « Lu par » à l'écran, plus une seule case, un champ de branche renseigné, un champ plus demandé qui garde sa valeur, les trois déductions, la confidentialité, 44 px. |
+| `essais:ma-journee` | 55 | Les déclarations d'une seule source, le choix fermé confronté à `lireMoment`, l'aide du lever. |
+| `essais:ma-journee:navigateur` | 25 | Une heure changée se voit aux trois endroits ; vider écrit une suppression. |
+| `essais:compte-a-rebours` | 66 | L'arithmétique des jours au changement d'heure, les formats, l'absence de pression, l'interrupteur. |
+| `essais:profil-lisible` | 52 | Les valeurs dites en français, et jamais « [object Object] », « NaN » ni « Invalid Date ». |
+| `essais:reglages-appliques` | 30 | Déclaré appliqué donc appliqué, déclaré non appliqué donc nommé par personne. |
+
+### Ce qui reste
+
+- L'insertion du compte à rebours sur l'accueil de Révisions, après la fusion
+  de `claude/p46-55`, avec son essai « il disparaît quand on le désactive » et
+  le contrôle coffre fermé.
+- Les captures de la page refaite, à joindre au compte rendu.
