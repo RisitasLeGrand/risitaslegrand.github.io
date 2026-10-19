@@ -32,6 +32,15 @@
  * instants que la personne a elle-même saisis.
  */
 
+/*
+   Le seul import de ce module. `sante.ts` était un module feuille ; il
+   emprunte au noyau le type de la population visée et la fabrique de son
+   absence, parce que le § 3.3 du prompt du cycle demande qu'un repère
+   sourcé porte à qui il s'applique — et qu'une seconde définition de cette
+   notion, ici, se désynchroniserait de celle du noyau.
+*/
+import { populationNonLue, type PopulationVisee } from '../noyau/population';
+
 /* ══════════════════════════════════════════════════════════════════════════
    La valeur sourcée, ou pas
    ══════════════════════════════════════════════════════════════════════════ */
@@ -45,6 +54,19 @@ export interface Source {
   le: string;
   /** L'empreinte SHA-256 du document retenu, quand il a été conservé. */
   empreinte?: string;
+  /**
+   * À qui ce document s'applique, ou pourquoi on ne le sait pas.
+   *
+   * **Obligatoire**, et c'est la même raison qui rend `ValeurSourcee` une
+   * union : avec un champ facultatif, on peut citer une source sans dire
+   * qui elle vise, et rien ne s'en aperçoit avant l'écran — où le repère
+   * s'affiche comme s'il concernait tout le monde. Le § 3.3 du prompt du
+   * cycle demande l'inverse : un repère sourcé porte sa population.
+   *
+   * `populationNonLue(...)` est la réponse honnête quand le document
+   * n'a pas été relu pour cela, et c'est aujourd'hui le cas de tous.
+   */
+  populationVisee: PopulationVisee;
 }
 
 /**
@@ -217,11 +239,26 @@ const COLLECTE =
 /** Le jour où j'ai lu ces PDF et calculé leurs empreintes. */
 const LU_LE = '2026-10-16';
 
+/**
+ * La raison, la même pour les cinq RCP.
+ *
+ * Un RCP dit à qui le médicament est indiqué — c'est sa section 4.1 — et
+ * cette phrase est donc **lisible**, contrairement aux demi-vies, qui
+ * demanderaient une lecture pharmacocinétique. Mais les PDF sont dans
+ * `sources/`, hors du dépôt public et absents de ce conteneur : personne ne
+ * les a relus pour cela. Déduire la population de l'intitulé du médicament
+ * serait l'inventer, exactement comme le statut antidopage.
+ */
+const POPULATION_NON_RELUE =
+  'les RCP sont dans la collecte déposée hors du dépôt, et aucun n’a été relu pour sa ' +
+  'section 4.1 — celle qui dit à qui le médicament est indiqué.';
+
 const rcp = (nom: string, fichier: string, empreinte: string): Source => ({
   nom,
   ou: `${COLLECTE}/${fichier}`,
   le: LU_LE,
   empreinte,
+  populationVisee: populationNonLue(POPULATION_NON_RELUE),
 });
 
 /**

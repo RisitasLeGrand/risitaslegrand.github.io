@@ -23,8 +23,10 @@ import {
   CATALOGUE,
   type FicheMolecule,
   type Resultat,
+  type Source,
   type Traitement,
 } from '../src/lib/odyssee/sante';
+import { populationNonLue } from '../src/lib/noyau/population';
 
 let echecs = 0;
 const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
@@ -40,7 +42,12 @@ const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
 const vrai = (t: string, c: boolean) => v(t, c, true);
 const faux = (t: string, c: boolean) => v(t, c, false);
 
-const SOURCE = { nom: 'RCP', ou: 'https://exemple.test/rcp', le: '2026-10-13' };
+const SOURCE: Source = {
+  nom: 'RCP',
+  ou: 'https://exemple.test/rcp',
+  le: '2026-10-13',
+  populationVisee: populationNonLue('fixture d’essai : aucune population à lire.'),
+};
 
 console.log('\nLA VALEUR SOURCÉE, OU PAS');
 
@@ -97,7 +104,11 @@ v(
   'une demi-vie connue sans source est refusée',
   controlerFiche(
     fiche({
-      demiVie: { connue: true, valeur: '5 j', source: { nom: '', ou: '', le: '' } },
+      demiVie: {
+        connue: true,
+        valeur: '5 j',
+        source: { nom: '', ou: '', le: '', populationVisee: populationNonLue('') },
+      },
     }),
   ),
   ['La demi-vie de « Exemple » se dit connue sans dire d’où elle vient.'],

@@ -178,6 +178,7 @@
     "essais:sante": "tsx scripts/essais-sante.mts",
     "essais:schema": "tsx scripts/essais-schema.mts",
     "essais:vocabulaire": "tsx scripts/essais-vocabulaire.mts",
+    "essais:population": "tsx scripts/essais-population.mts",
     "essais:molecules": "tsx scripts/essais-molecules.mts",
     "essais:bibliotheque": "node scripts/essais-bibliotheque.mjs",
     "essais:sante:navigateur": "node scripts/essais-sante-navigateur.mjs",
