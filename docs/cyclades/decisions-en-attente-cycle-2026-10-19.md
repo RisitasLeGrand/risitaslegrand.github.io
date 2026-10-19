@@ -208,23 +208,93 @@ calcul n'est livré.
 
 ---
 
-## 5. La matrice de permissions B.2 — **à vérifier avant la fiche de cycle**
+## 5. La matrice de permissions B.2 — **vérifiée le 19 octobre : elle n'est branchée à rien**
 
-Le § 11 du plan de phase 0 le déclare comme un angle mort : « je sais que le
+Le § 11 du plan de phase 0 le déclarait comme un angle mort : « je sais que le
 contrat de faits porte `proprietaire` et `domaine` pour les 36 types ; je n'ai
 pas vérifié que la matrice couvre toutes les lectures inter-branches que 4.7
-restreint ».
+restreint ». La vérification est faite, avant d'entrer dans le lot de la fiche
+comme prévu. Voici ce qui a été constaté dans le code, et non supposé.
 
-Or la fiche de cycle lit d'autres domaines, et la maquette 8.3 impose de
-distinguer « domaine non autorisé » de « non mesuré » — deux lignes distinctes,
-parce que les confondre laisserait croire qu'un domaine coupé est un domaine
-vide.
+### Ce qui existe
 
-**Qui tranche** : le pilote d'abord, Alexis ensuite si la matrice doit changer.
+`src/lib/noyau/permissions.ts` porte la matrice complète : les défauts de B.2
+(« Odyssée lit tout ; Sport lit de la diète, du sommeil, du poids, de l'état de
+santé général et d'une mesure de stress/fatigue agrégée ; Révisions lit peu »),
+le type dérivé `odyssee.charge-percue` qui évite à Sport de lire la psyché,
+`peutLire`, `typesLisibles`, `filtrerPourLecture`, et un `controlerMatrice` qui
+garde la cohérence de la table. Le refus est le défaut : tout ce qui n'est pas
+listé est refusé.
 
-**Ce que le code fait en attendant** : la vérification est faite **avant**
-d'entrer dans le lot de la fiche, et son résultat remonté. Aucune lecture
-inter-branches n'est écrite avant cela.
+### Ce qui n'existe pas : un appelant
+
+**Aucun fichier de `src/` n'importe `permissions.ts`.** Le module est d'ailleurs
+déclaré orphelin dans `essais:orphelins` depuis le 15 octobre. Ni `peutLire`,
+ni `typesLisibles`, ni `filtrerPourLecture` ne sont appelés nulle part.
+
+Toute lecture en travers passe par deux modules qui **n'appliquent aucune
+matrice** :
+
+- `odyssee/faits-branches.ts` (`publierTousLesFaits`) ;
+- `odyssee/faits-du-jour.ts` (`faitsEntre`).
+
+Les deux rendent les faits de **toutes** les branches, et ne reçoivent aucune
+branche lectrice. Le seul paramètre qui ressemble à une permission est
+`sources`, et il est **choisi par le lecteur** : un appelant qui veut tout
+n'écrit rien et reçoit tout. C'est l'inverse d'une permission.
+
+### Pourquoi cela n'a encore rien cassé
+
+Les consommateurs sont tous des surfaces d'Odyssée — `odyssee-jour.ts`,
+`indicateurs.ts`, `tendances.astro`, `calendrier.astro`, `occurrences-lues.ts`.
+Or B.2 dit « Odyssée lit tout ». La matrice est donc inappliquée parce
+qu'aucun lecteur non-Odyssée n'existe : vérifié, **aucun module de `src/lib/sport/`
+ne lit de fait d'Odyssée**.
+
+Il n'y a donc **aucune violation de B.2 aujourd'hui**, et la matrice n'est pas
+fausse — elle n'est pas branchée. La différence compte : il n'y a rien à
+corriger en urgence, et il y a tout à brancher avant le premier lecteur.
+
+### Les trois conséquences pour la suite, et elles sont concrètes
+
+1. **D.5 et 4.7 ne sont pas tenables en l'état.** « Sport ne lit que les
+   fenêtres passées du cycle ; aucun statut, aucun bilan hormonal sexuel,
+   aucune molécule contraceptive. » Le jour où Sport lira, il passera par
+   `publierTousLesFaits`, qui ne filtre rien : il recevrait aussi les
+   check-ins, le journal et les finances. La restriction de 4.7 serait écrite
+   dans un module que personne n'appelle.
+
+2. **La fiche de cycle a besoin de trois états, et il n'y en a que deux.** La
+   maquette 8.3 impose de distinguer « domaine non autorisé » de « non
+   mesuré ». Aujourd'hui `faitsEntre` rend `branchesIllisibles` et
+   `publierTousLesFaits` rend des `Manque` — les deux disent « je n'ai pas pu
+   lire », typiquement un coffre fermé. Rien ne dit « je n'avais pas le droit ».
+   Un `Manque` pourrait porter la phrase, mais aucun code ne la produit, et
+   rien ne la distingue structurellement d'un coffre fermé. Les confondre
+   laisserait croire qu'un domaine coupé est un domaine vide, ce que la
+   maquette refuse précisément.
+
+3. **Les faits ne sont pas stockés, ils sont projetés**, par six publieurs. Cela
+   lève une inquiétude que j'avais : publier un type de fait pour les fenêtres
+   passées du cycle **n'oblige pas à journaliser**, donc ne ferait pas
+   synchroniser le cycle contre la décision 18. Le chemin reste donc ouvert,
+   mais il passe par les deux points ci-dessus.
+
+### Ce que je propose, et qui tranche
+
+**À brancher avant toute lecture inter-branches**, et c'est un changement dans
+un module partagé qu'Odyssée utilise partout :
+
+- `publierTousLesFaits` et `faitsEntre` reçoivent une **branche lectrice**
+  obligatoire — obligatoire et non facultative, parce qu'un paramètre
+  facultatif garde le trou par défaut ;
+- ils appliquent `filtrerPourLecture` ;
+- et ils rendent les trois états séparément : mesuré, non mesuré, **non
+  autorisé**, ce dernier nommant le domaine.
+
+**Qui tranche** : le pilote pour le branchement, Alexis si la matrice elle-même
+doit changer. Ce chantier-ci n'a écrit aucune lecture inter-branches, comme le
+plan le demandait.
 
 ---
 
