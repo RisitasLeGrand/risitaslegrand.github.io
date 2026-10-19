@@ -697,10 +697,16 @@
       </p>
       <div class="mt-2 flex gap-2">
         {#each [1, 2, 3] as n (n)}
+          <!--
+            44 px de côté au moins (P15) : trois boutons de 32 px collés les
+            uns aux autres se ratent, et le réglage qu'on croit avoir touché
+            n'est pas celui qui change.
+          -->
           <button
             type="button"
             onclick={() => (reglages.charge = n)}
-            class="rounded-lg border px-3 py-2 text-sm font-medium
+            aria-pressed={reglages.charge === n}
+            class="min-h-11 min-w-11 rounded-lg border px-3 py-2 text-sm font-medium
               {reglages.charge === n
                 ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300'
                 : 'border-slate-200 text-slate-700 dark:border-slate-800 dark:text-slate-300'}"
@@ -711,6 +717,19 @@
 
     <fieldset class="mt-4 space-y-2">
       <legend class="text-sm font-medium text-slate-700 dark:text-slate-200">Variantes</legend>
+      <!--
+        « SANS SON » (P12) : l'exercice tire des paires sonores par défaut, et
+        sur un appareil muet elles sont injouables. Avant cette case, la seule
+        issue était de changer de famille d'échelles — c'est-à-dire de changer
+        d'exercice pour contourner un haut-parleur.
+      -->
+      <label class="flex cursor-pointer items-start gap-2 text-sm text-slate-700 dark:text-slate-200">
+        <input type="checkbox" bind:checked={reglages.sansSon} class="mt-1" />
+        <span>
+          <strong class="font-medium">Sans son</strong> — n'utiliser que des échelles
+          visuelles. À cocher si cet appareil ne joue pas de son.
+        </span>
+      </label>
       <label class="flex cursor-pointer items-start gap-2 text-sm text-slate-700 dark:text-slate-200">
         <input type="checkbox" bind:checked={reglages.bruit} class="mt-1" />
         <span>
@@ -742,17 +761,16 @@
         {repartition.aretes} paire{repartition.aretes > 1 ? 's' : ''}
         <span class="text-slate-400">(arête{repartition.aretes > 1 ? 's' : ''})</span>
         à parcourir, soit environ
-        {repartition.parArete.toFixed(0)} essai{repartition.parArete >= 2 ? 's' : ''} chacune.
-        {#if repartition.suffisant}
-          De quoi faire progresser les écarts qui se resserrent (escaliers) ; un plus petit écart
-          que vous distinguez (seuil) demande une trentaine d'essais par paire, cumulés d'une
-          session à l'autre.
-        {:else}
-          <strong>C'est peu pour mesurer un plus petit écart (seuil)</strong> — il en faut une
-          trentaine par paire.
-          Les escaliers avancent tout de même, puisqu'ils reprennent où ils s'étaient arrêtés, mais
-          les paires qui relient tout (arbre couvrant), ou une session plus longue,
+        {Math.round(repartition.parArete)} essai{repartition.parArete >= 2 ? 's' : ''} chacune.
+        {#if repartition.trop}
+          <strong>C'est trop peu pour faire bouger quoi que ce soit</strong> — sous cinq essais par
+          paire, l'écart qui se resserre (escalier) n'a pas la place d'avancer.
+          Les paires qui relient tout (arbre couvrant), ou une session plus longue,
           concentreraient mieux les essais.
+        {:else}
+          Les écarts se resserrent d'une session à l'autre : un plus petit écart que vous
+          distinguez (seuil) demande une trentaine d'essais par paire, cumulés. Cette session y
+          contribue, elle n'a pas à y suffire seule.
         {/if}
       </p>
     {/if}
@@ -803,10 +821,19 @@
       <div class="jauge-remplissage jauge-seance h-full bg-indigo-500" style="transform: scaleX({faits / enJeu.essais})"></div>
     </div>
 
-    {#if essai.arete.vers.modalite === 'auditive' && !sonPret}
+    <!--
+      L'AVERTISSEMENT COUVRE AUSSI LA RÉFÉRENCE (P12).
+
+      Il ne regardait que « vers », la modalité des propositions. Quand c'est
+      la RÉFÉRENCE qui est sonore — « de » —, l'essai était tout aussi
+      injouable sans haut-parleur, et rien ne le disait : on comparait deux
+      ronds à un son qu'on n'entendait pas.
+    -->
+    {#if (essai.arete.vers.modalite === 'auditive' || essai.arete.de.modalite === 'auditive') && !sonPret}
       <p class="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800
         dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
         Le son n'a pas pu démarrer sur cet appareil : les paires sonores ne seront pas jouables.
+        La case « Sans son » des réglages les écarte.
       </p>
     {/if}
 

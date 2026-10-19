@@ -1002,6 +1002,70 @@ for (const exercice of EXERCICES) {
   }
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   L5 — RÉGLAGES, TOUCHER, ACCESSIBILITÉ
+   ════════════════════════════════════════════════════════════════════════
+
+   Trois choses qui ne se lisent pas dans la source : que le résumé des
+   réglages paraisse AVANT leur détail, que les cibles d'appui atteignent le
+   plancher du 42, et que la lettre de touche disparaisse au doigt — ce dernier
+   point dépend d'une requête média, donc du contexte, donc du navigateur.
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nL5 — RÉGLAGES, TOUCHER, ACCESSIBILITÉ');
+
+{
+  let contexte;
+  try {
+    const ouvert = await ouvrir(TAILLES[0], MODES[0], 'quad-n-back');
+    contexte = ouvert.contexte;
+    const page = ouvert.page;
+    /*
+       On attend le bouton de lancement, et non « h2 » : la page en porte cinq,
+       dont certains cachés, et Playwright s'arrête sur le premier — qui ne
+       devient jamais visible. L'essai expirait en annonçant une panne là où il
+       n'y avait qu'un sélecteur trop large.
+    */
+    const lancer = page.getByRole('button', { name: /^Commencer$/ }).first();
+    await lancer.waitFor({ state: 'visible', timeout: 30000 });
+
+    /* P4 : le résumé est visible, le détail est replié. */
+    const resume = await page.locator('section').filter({ hasText: 'Réglages de la session' }).first().innerText();
+    vrai('le résumé des réglages dit le nombre de dimensions', /\d dimensions?/.test(resume));
+    vrai('et les tours en arrière, dans les mots du glossaire', /tours? en arrière \(n = \d\)/.test(resume));
+    vrai('et le rythme avec une virgule décimale', /2,5\s*s/.test(resume));
+    faux('aucun « 2.5 s »', /2\.5\s*s/.test(resume));
+
+    const detail = page.locator('details').filter({ hasText: 'Réglages' }).first();
+    faux('le détail des réglages est replié', await detail.evaluate((d) => d.open));
+
+    /* P13 : la lettre de touche ne paraît pas au doigt. */
+    await lancer.click();
+    const zone = page.locator('[data-zone-de-jeu]').first();
+    await zone.waitFor({ state: 'visible', timeout: 30000 });
+    v('aucune lettre de clavier visible au doigt', await zone.locator('kbd:visible').count(), 0);
+
+    /*
+       Et les cibles d'appui atteignent 44 px. Mesuré sur le rectangle rendu :
+       une classe « min-h-11 » ne garantit rien si un parent la contraint.
+    */
+    const trop = await zone.locator('button').evaluateAll((noeuds) =>
+      noeuds
+        .filter((b) => b.offsetParent !== null)
+        .map((b) => {
+          const r = b.getBoundingClientRect();
+          return { nom: (b.getAttribute('aria-label') ?? b.textContent ?? '').trim().slice(0, 28), h: Math.round(r.height), l: Math.round(r.width) };
+        })
+        .filter((b) => b.h < 44 || b.l < 44),
+    );
+    v(`toutes les cibles d'appui atteignent 44 px`, trop, []);
+
+    await contexte.close();
+  } catch (erreur) {
+    direPanne('Mémoire · L5', erreur);
+    await contexte?.close().catch(() => {});
+  }
+}
+
 await nav.close();
 console.log(
   echecs

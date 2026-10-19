@@ -56,6 +56,14 @@ export interface Reglages {
   bruit: boolean;
   /** Ne montrer qu'une partie de la référence. */
   partiel: boolean;
+  /**
+   * N'utiliser que des échelles visuelles.
+   *
+   * Facultatif, et c'est délibéré : aucun réglage enregistré ne le porte, donc
+   * aucune migration. Absent, il vaut « faux » — l'exercice se comporte comme
+   * avant.
+   */
+  sansSon?: boolean;
 }
 
 export const REGLAGES_PAR_DEFAUT: Reglages = {
@@ -67,6 +75,7 @@ export const REGLAGES_PAR_DEFAUT: Reglages = {
   horsFamille: false,
   bruit: false,
   partiel: false,
+  sansSon: false,
 };
 
 export interface Candidat {
@@ -147,7 +156,17 @@ export function vivierDAretes(
   reglages: Reglages,
   essaisDeLaPaire: (a: string, b: string) => number,
 ): Arete[] {
-  const toutes = aretesDeFamille(reglages.famille);
+  /*
+     « Sans son » écarte toute paire dont un côté s'entend. Le filtre est posé
+     ICI, sur le vivier, et non au tirage : un vivier qui contient des paires
+     injouables finirait par en tirer une, et l'écran annoncerait un essai
+     qu'on ne peut pas faire.
+  */
+  const toutes = aretesDeFamille(reglages.famille).filter(
+    (arete) =>
+      !reglages.sansSon ||
+      (arete.de.modalite === 'visuelle' && arete.vers.modalite === 'visuelle'),
+  );
   const base =
     reglages.mode === 'exhaustif'
       ? toutes

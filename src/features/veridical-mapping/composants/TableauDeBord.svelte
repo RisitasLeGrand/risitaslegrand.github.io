@@ -223,8 +223,10 @@
 
     {#if detail}
       <p class="mt-2 rounded border border-slate-200 p-2 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300">
-        <strong>{detail.de} → {detail.vers}</strong> — {detail.escalier.essais} essai(s),
-        {detail.escalier.reussis} réussi(s), {detail.escalier.inversions.length} inversion(s),
+        <strong>{detail.de} → {detail.vers}</strong> — {detail.escalier.essais} essai{detail.escalier.essais > 1 ? 's' : ''},
+        {detail.escalier.reussis} réussi{detail.escalier.reussis > 1 ? 's' : ''},
+          {detail.escalier.inversions.length}
+          inversion{detail.escalier.inversions.length > 1 ? 's' : ''},
         {INTITULES_STATUT[detail.statut]}{#if detail.seuil}, seuil {detail.seuil.toFixed(2)} pas{/if}.
         {#if detail.horsFamille}<span class="text-amber-700 dark:text-amber-300"> Paire hors famille.</span>{/if}
       </p>
@@ -292,7 +294,7 @@
         En pas. Une courbe qui descend est un progrès : le seuil devient plus fin.
       </p>
       <svg viewBox="0 0 {LARGEUR} {HAUTEUR}" class="mt-2 h-auto w-full max-w-xl" role="img"
-        aria-label="Seuil médian sur {courbe.length} session(s)">
+        aria-label="Écart médian sur {courbe.length} session{courbe.length > 1 ? 's' : ''}">
         <line x1={MARGE.gauche} y1={ordonnee(0)} x2={LARGEUR - MARGE.droite} y2={ordonnee(0)}
           class="stroke-slate-200 dark:stroke-slate-700" stroke-width="1" />
         <text x="4" y={ordonnee(maximum) + 4} class="fill-slate-400 text-xs">{maximum.toFixed(0)}</text>

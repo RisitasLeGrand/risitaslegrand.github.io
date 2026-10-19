@@ -23,6 +23,7 @@
   import { lecteurAudio } from '../moteur/audio.js';
   import { RETOURS } from '../moteur/constantes.js';
   import { amenerLaZone } from '../../cog-training/zone-de-jeu';
+  import { confirmer } from '../../../lib/boite';
   import CommentCaMarche from '../../cog-training/composants/CommentCaMarche.svelte';
   import Glossaire from '../../cog-training/composants/Glossaire.svelte';
   import { ajouterSessionNBack, toutesLesSessionsNBack } from '../../../lib/db';
@@ -186,6 +187,9 @@
   let astuce = $state('');
   let astuceVue = $state(false);
 
+  /** Le son n'a pas pu jouer : la dimension est retirée, et on le dit (P12). */
+  let sonEnPanne = $state(false);
+
   /** La consigne est ouverte pendant la partie : la partie est en pause (P2 du 51). */
   let consigneEnPause = $state(false);
 
@@ -348,6 +352,26 @@
   function lancerUnePartie(parametres) {
     if (parametres.dimensions.length === 0) return;
     enJeu = { ...parametres };
+    sonEnPanne = false;
+    lecteurAudio.oublierLEchec();
+    /*
+       L'écran apprend l'échec de lecture, et en tire la seule conséquence
+       honnête : la dimension Son sort de la partie EN COURS. La laisser
+       compterait des oublis que personne ne pouvait éviter, et le score
+       reprocherait à la personne un haut-parleur muet.
+    */
+    lecteurAudio.surEchec = () => {
+      if (!enJeu.dimensions.includes('son')) return;
+      sonEnPanne = true;
+      enJeu = { ...enJeu, dimensions: enJeu.dimensions.filter((d) => d !== 'son') };
+      if (partie) {
+        partie = {
+          ...partie,
+          meta: { ...partie.meta, dimensions: partie.meta.dimensions.filter((d) => d !== 'son') },
+        };
+      }
+      retours = retoursNeutres();
+    };
     // Indispensable pour le redémarrage en cours de partie : sans cela, les
     // minuteurs de la session abandonnée continueraient de faire défiler les
     // épreuves de la nouvelle.
@@ -569,6 +593,23 @@
    *
    * La partie abandonnée n'est pas enregistrée, comme tout abandon.
    */
+  /**
+   * Recommencer, mais pas par surprise.
+   *
+   * Le bouton est collé à la jauge de progression : le viser et le manquer
+   * coûtait la partie en cours, sans rien demander. La confirmation dit ce
+   * qu'on perd — c'est le même soin qu'« Arrêter », qui est moins grave.
+   */
+  async function recommencerApresConfirmation() {
+    const oui = await confirmer({
+      titre: 'Recommencer la partie ?',
+      texte: 'La partie en cours est abandonnée et ne sera pas enregistrée.',
+      action: 'Recommencer',
+      annuler: 'Continuer',
+    });
+    if (oui) recommencer();
+  }
+
   function recommencer() {
     commencer();
   }
@@ -781,9 +822,32 @@
     <CommentCaMarche ouvert={historique.length === 0}>{@render consigne()}</CommentCaMarche>
     <Glossaire ou="memoire" />
     <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-      <h2 class="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Réglages de la session</h2>
+      <!--
+        LE RÉSUMÉ D'ABORD, LE DÉTAIL REPLIÉ (P4, adapté à la décision 1).
 
-      <div class="grid gap-5 sm:grid-cols-2">
+        L'écran s'ouvrait sur quatre dimensions, cinq curseurs, un tableau de
+        touches et deux seuils de progression — avant la moindre phrase sur la
+        tâche. Les valeurs par défaut ne changent pas, la décision 1 l'interdit
+        et elles sont bonnes : ce qui change, c'est qu'on n'a plus à les lire
+        pour commencer.
+
+        Le résumé les dit en une ligne, dans les mots du glossaire — « 2 tours
+        en arrière » et non « n = 2 ».
+      -->
+      <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Réglages de la session</h2>
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+        {reglages.dimensions.length} dimension{reglages.dimensions.length > 1 ? 's' : ''} ·
+        {reglages.n} tour{reglages.n > 1 ? 's' : ''} en arrière (n = {reglages.n}) ·
+        grille {reglages.grille3D ? '3D' : '2D'} ·
+        {secondes(reglages.dureeEpreuve / 1000)} par épreuve ·
+        {minutes((reglages.epreuves * reglages.dureeEpreuve) / 1000)}
+      </p>
+
+      <details class="mt-4">
+        <summary class="cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-200">
+          Réglages
+        </summary>
+      <div class="mt-3 grid gap-5 sm:grid-cols-2">
         <div>
           <label for="niveau-n" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
             <strong>{reglages.n} tour{reglages.n > 1 ? 's' : ''} en arrière</strong>
@@ -946,7 +1010,8 @@
           <div class="mt-3 grid gap-4 sm:grid-cols-2">
             <div>
               <label for="seuil-montee" class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                Monter après <strong>{reglages.progression.partiesMontee}</strong> partie(s) à
+                Monter après <strong>{reglages.progression.partiesMontee}</strong>
+                partie{reglages.progression.partiesMontee > 1 ? 's' : ''} à
                 <strong>{reglages.progression.seuilMontee} %</strong> ou plus
               </label>
               <input id="seuil-montee" type="range" min="50" max="100" step="5" bind:value={reglages.progression.seuilMontee} class="w-full accent-emerald-600" />
@@ -954,7 +1019,8 @@
             </div>
             <div>
               <label for="seuil-descente" class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
-                Descendre après <strong>{reglages.progression.partiesDescente}</strong> partie(s) sous
+                Descendre après <strong>{reglages.progression.partiesDescente}</strong>
+                partie{reglages.progression.partiesDescente > 1 ? 's' : ''} sous
                 <strong>{reglages.progression.seuilDescente} %</strong>
               </label>
               <input id="seuil-descente" type="range" min="10" max="80" step="5" bind:value={reglages.progression.seuilDescente} class="w-full accent-amber-600" />
@@ -967,6 +1033,8 @@
           </p>
         {/if}
       </fieldset>
+
+      </details>
 
       <!--
         « ESSAYER D'ABORD » D'ABORD, tant qu'aucune partie n'a été jouée.
@@ -1084,14 +1152,30 @@
         <span class="sm:hidden">Consigne</span>
         <span class="hidden sm:inline">Revoir la consigne</span>
       </button>
+      <!--
+        LE ↻ EST NOMMÉ, ASSEZ GRAND, ET IL DEMANDE CONFIRMATION (P13).
+
+        Trois défauts dans un seul bouton. Sous « sm », il n'affichait que le
+        signe : un lecteur d'écran annonçait « ↻ », et le « title » n'est pas
+        lu au doigt. Il mesurait moins de 44 px, le plancher du 42 pour une
+        cible tactile — et il est COLLÉ à la jauge, donc le rater coûte la
+        partie en cours. Enfin il abandonnait sans rien demander, alors
+        qu'« Arrêter », juste à côté, est moins destructeur.
+      -->
       <button
-        onclick={recommencer}
+        onclick={recommencerApresConfirmation}
+        aria-label="Recommencer la partie"
         title="Abandonner et relancer une partie avec les mêmes réglages"
-        class="shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+        class="shrink-0 min-h-11 min-w-11 rounded-lg border border-slate-300 px-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
       >
-        ↻ <span class="hidden sm:inline">Recommencer</span>
+        <span aria-hidden="true">↻</span>
+        <span class="hidden sm:inline">Recommencer</span>
       </button>
-      <div class="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+      <!--
+        La jauge garde une largeur minimale : réductible à zéro, elle
+        disparaissait dès que la rangée se serrait, et la progression avec elle.
+      -->
+      <div class="h-2 min-w-16 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
         <div class="jauge-remplissage jauge-seance h-full rounded-full bg-indigo-500" style="transform: scaleX({progression / 100})"></div>
       </div>
       <span class="text-sm font-medium tabular-nums text-slate-500 dark:text-slate-400">
@@ -1147,12 +1231,51 @@
               : 'bg-slate-100 text-slate-700 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700'}"
         >
           {dimension.libelle}
-          <kbd class="mt-1 block text-xs font-normal opacity-60">
-            {etat === 'reussite' ? '✓' : etat === 'echec' ? '✗' : etat === 'oubli' ? '⌛' : libelleTouche(reglages.touches[dimension.cle])}
-          </kbd>
+          <!--
+            LE SIGNE ET LA LETTRE DE TOUCHE PARTAGEAIENT UN SEUL EMPLACEMENT,
+            à « opacity-60 » tous les deux. Deux ennuis dans un :
+
+            — le ✓ ✗ ⌛ est le VERDICT, et un verdict à demi effacé ne vaut pas
+              mieux qu'une couleur seule, qui est le reproche de P14 ;
+            — la lettre de touche n'a rien à faire sur un écran tactile, qui
+              n'a pas de clavier (P13), mais la masquer aurait masqué le signe
+              avec elle, puisque c'était le même élément.
+
+            Ils sont donc séparés : le signe à pleine opacité, la lettre
+            discrète et cachée au doigt.
+          -->
+          {#if etat !== 'neutre'}
+            <span class="mt-1 block text-xs font-semibold" aria-hidden="true">
+              {etat === 'reussite' ? '✓' : etat === 'echec' ? '✗' : '⌛'}
+            </span>
+          {:else}
+            <!--
+              « pointer-fine » est une variante de Tailwind 4 : la lettre de
+              touche n'apparaît que là où un pointeur précis existe, donc là où
+              un clavier est plausible. Au doigt elle disparaît — c'est P13, et
+              c'est aussi ce qui rendait la consigne fausse sur téléphone.
+            -->
+            <kbd class="mt-1 hidden text-xs font-normal opacity-60 pointer-fine:block">
+              {libelleTouche(reglages.touches[dimension.cle])}
+            </kbd>
+          {/if}
         </button>
       {/each}
     </div>
+    {#if sonEnPanne}
+      <!--
+        LE BANDEAU DU CONSTAT P12. Il paraît pendant la partie et non à la
+        fin : à la fin, il ne reste qu'un score inexplicable.
+      -->
+      <p
+        role="status"
+        class="rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-200"
+      >
+        Le son ne joue pas sur cet appareil (mode silencieux ?). La dimension Son a
+        été retirée de cette partie.
+      </p>
+    {/if}
+
     <p class="sr-only" aria-live="polite">{annonceRetour}</p>
 
     {#if astuce}
@@ -1164,10 +1287,30 @@
 
 
     {#if reglages.retourImmediat}
+      <!--
+        LA LÉGENDE SUIT LE MODE SOMBRE, CE QU'ELLE NE FAISAIT PAS.
+
+        Les trois pastilles lisaient « RETOURS.<etat>.clair[0] » sans
+        condition, alors que les boutons qu'elles expliquent passent par
+        « sombre ? 'sombre' : 'clair' ». En mode sombre, la légende montrait
+        donc les couleurs du mode clair et ne correspondait plus à ce qu'elle
+        légendait. Le défaut est antérieur à ce lot, et l'audit ne le voit pas.
+
+        Chaque pastille porte aussi son SIGNE : la légende d'un code couleur
+        qui ne montre que des couleurs ne sert à rien à qui ne les distingue
+        pas.
+      -->
       <p class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center text-xs text-slate-400">
-        <span><span class="inline-block h-2.5 w-2.5 rounded-sm align-middle" style="background:{RETOURS.reussite.clair[0]}"></span> correct</span>
-        <span><span class="inline-block h-2.5 w-2.5 rounded-sm align-middle" style="background:{RETOURS.echec.clair[0]}"></span> incorrect</span>
-        <span><span class="inline-block h-2.5 w-2.5 rounded-sm align-middle" style="background:{RETOURS.oubli.clair[0]}"></span> correspondance manquée</span>
+        {#each [['reussite', '✓', 'correct'], ['echec', '✗', 'incorrect'], ['oubli', '⌛', 'correspondance manquée']] as [etat, signe, libelle] (etat)}
+          <span>
+            <span
+              class="inline-block h-2.5 w-2.5 rounded-sm align-middle"
+              style="background:{RETOURS[etat][sombre ? 'sombre' : 'clair'][0]}"
+            ></span>
+            <span aria-hidden="true">{signe}</span>
+            {libelle}
+          </span>
+        {/each}
       </p>
     {/if}
 
