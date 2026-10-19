@@ -135,8 +135,10 @@ export async function compterLaVisite(route: string): Promise<void> {
     const base = await db();
     const rangees = (await base.getAll(MAGASIN)) as unknown as Record<string, unknown>[];
     for (const rangee of rangees) {
-      const visite = await ouvrir<Visite>(cle, rangee);
-      if (visite.route !== route) continue;
+      /* Même raison qu'à la lecture : un enregistrement d'une clé précédente
+         ne doit pas empêcher de compter la visite d'aujourd'hui. */
+      const visite = await ouvrir<Visite>(cle, rangee).catch(() => null);
+      if (!visite || visite.route !== route) continue;
       const suivante: Visite = { id: visite.id, route: visite.route, compte: visite.compte + 1 };
       /* Le contrôle est sur le CHEMIN D'ÉCRITURE, et pas seulement dans un
          essai : un enregistrement lu d'une version future, qui porterait un
@@ -171,7 +173,19 @@ export async function visitesComptees(): Promise<Visite[]> {
   const { ouvrir } = await import('./noyau/coffre');
   const base = await db();
   const rangees = (await base.getAll(MAGASIN)) as unknown as Record<string, unknown>[];
-  const visites = await Promise.all(rangees.map((r) => ouvrir<Visite>(cle, r)));
+  /*
+     UN ENREGISTREMENT ILLISIBLE NE DOIT PAS EMPORTER L'ÉCRAN.
+
+     « Promise.all » rejette au premier refus, et un refus est possible : un
+     enregistrement scellé sous une clé précédente — mot de passe changé,
+     coffre refait — ne s'ouvrira plus jamais. Avec « all », la section
+     entière tombait, et avec elle la page qui l'affiche, pour un compteur de
+     diagnostic. On écarte ce qu'on ne sait pas lire, et le reste s'affiche.
+  */
+  const lues = await Promise.all(
+    rangees.map((r) => ouvrir<Visite>(cle, r).catch(() => null)),
+  );
+  const visites = lues.filter((v): v is Visite => v !== null);
   return visites.sort((a, b) => b.compte - a.compte || a.route.localeCompare(b.route));
 }
 
