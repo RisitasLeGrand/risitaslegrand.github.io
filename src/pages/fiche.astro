@@ -93,6 +93,12 @@ import LienReglages from '../components/LienReglages.astro';
         <div class="sticky top-32">
           <p class="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">Sommaire</p>
           <nav id="sommaire" class="defilement-fin max-h-[60dvh] space-y-1 overflow-y-auto text-sm"></nav>
+          <!-- Le suivi des parties vues (prompt 46, P5) -->
+          <p
+            id="suivi-parties"
+            class="mt-3 hidden border-t border-slate-200 pt-3 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400"
+            role="status"
+          ></p>
         </div>
       </aside>
 
@@ -191,6 +197,7 @@ import LienReglages from '../components/LienReglages.astro';
     }
     if (vue === 'cours') poserBoutonsDEcoute(conteneur);
     poserBoutonsDeSection(conteneur);
+    if (vue === 'cours') void afficherSuiviDesParties();
 
     try {
       localStorage.setItem('revinsp.vue-fiche', vue);
@@ -239,6 +246,49 @@ import LienReglages from '../components/LienReglages.astro';
       );
       titre.appendChild(rangee);
     });
+  }
+
+  /**
+   * Les parties vues, et celles qui restent (prompt 46, P5).
+   *
+   * Deux sources, parce qu'il y a deux manières de voir une partie : une
+   * séance qui dit l'avoir travaillée, et une écoute qui l'a dépassée. Une
+   * partie dont l'audio est derrière la position d'écoute a été entendue, et
+   * ce serait mentir que de l'annoncer « à voir ».
+   *
+   * Le compte reste MUET quand aucune partie n'a été vue : une fiche jamais
+   * ouverte n'a pas besoin qu'on lui annonce « 0 partie sur 3 », qui ressemble
+   * à un reproche là où il n'y a rien à reprocher.
+   */
+  async function afficherSuiviDesParties() {
+    const cible = document.getElementById('suivi-parties');
+    const parties = fiche.parties ?? [];
+    if (!cible || parties.length < 2) return;
+
+    const { toutesLesSeances, lirePositionPodcast } = await import('../lib/db');
+    const { suiviDesParties } = await import('../lib/seance-parties');
+    const { partiesEcoutables, partieCourante } = await import('../lib/podcast');
+
+    const suivi = suiviDesParties(await toutesLesSeances(), fiche.id);
+    const vues = new Set(suivi.vues);
+    if (suivi.ficheEntiere) for (const p of parties) vues.add(p.id);
+
+    /* Ce que l'écoute a dépassé : les parties qui commencent avant la position. */
+    const position = await lirePositionPodcast(fiche.id).catch(() => null);
+    if (position) {
+      const ecoutables = partiesEcoutables(fiche);
+      const atteinte = partieCourante(ecoutables, position.secondes);
+      for (let i = 0; i < atteinte; i++) vues.add(ecoutables[i].id);
+    }
+
+    const combien = parties.filter((p) => vues.has(p.id)).length;
+    if (!combien) return;
+    cible.textContent =
+      combien >= parties.length
+        ? `Les ${parties.length} parties ont été vues.`
+        : `${combien} partie${combien > 1 ? 's' : ''} vue${combien > 1 ? 's' : ''} ` +
+          `sur ${parties.length}.`;
+    cible.classList.remove('hidden');
   }
 
   /**

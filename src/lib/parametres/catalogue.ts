@@ -28,7 +28,7 @@ import { REGLAGES_CONTENU_PAR_DEFAUT, REGLAGES_NIVEAU_PAR_DEFAUT } from '../nive
 import { PLAFOND_JOURS, PLANCHER_JOURS } from '../notifications/retention';
 import { RETENTION_PAR_DEFAUT } from '../notifications/modele';
 import { COUCHER_PAR_DEFAUT, LEVER_PAR_DEFAUT, THEMES } from '../themes';
-import { CLE_VITESSE, VITESSE_PAR_DEFAUT, VITESSES } from '../podcast-vitesses';
+import { CLE_VITESSE, VITESSE_PAR_DEFAUT, VITESSES } from '../podcast-noyau';
 import type { Reglage, Section } from './modele';
 
 export const SECTIONS: Section[] = [
@@ -397,6 +397,18 @@ export const REGLAGES: Reglage[] = [
     nature: { genre: 'nombre', min: 5, max: 200, unite: 'questions' },
     defaut: 20,
     ecran: '/progression/',
+  },
+  {
+    id: 'decouper-par-parties',
+    libelle: 'Répartir une longue fiche sur plusieurs séances',
+    aQuoiCaSert:
+      'Partie par partie, plutôt qu’une fiche entière d’un bloc. Désactivé par défaut.',
+    section: 'revisions',
+    portee: 'tous',
+    stockage: 'IndexedDB/etat::planification',
+    nature: interrupteur,
+    defaut: false,
+    ecran: '/planification/',
   },
   {
     id: 'rotation',

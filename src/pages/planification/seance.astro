@@ -174,12 +174,24 @@ import Base from '../../layouts/Base.astro';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
-  import { jourISO, tousLesEtatsFiches, type Seance } from '../../lib/db';
+  import {
+    jourISO,
+    lireReglagesPlanification,
+    tousLesEtatsFiches,
+    toutesLesSeances,
+    type Seance,
+  } from '../../lib/db';
   import { chargerFiche, chargerManifeste } from '../../lib/contenu';
   import { aProposer, montrer as montrerPretest } from '../../lib/pretest';
   import { pourLaSeance } from '../../lib/journal';
   import { chargerItems, montrer as montrerJournal } from '../../lib/journal-revision';
-  import { formaterDuree, lien, parametreUrl } from '../../lib/ui';
+  import { formaterDuree, lien, parametreUrl, pluriel } from '../../lib/ui';
+  import {
+    dureeEstimeeDeLaPartie,
+    encoderParties,
+    partiesAProposer,
+    suiviDesParties,
+  } from '../../lib/seance-parties';
   import { boutonAssistant } from '../../features/assistant/monter';
   import { contexteSeance } from '../../features/assistant/fournisseurs';
   import {
@@ -191,6 +203,7 @@ import Base from '../../layouts/Base.astro';
     terminer,
     theme as themeParId,
     xpSeance,
+    type FicheProposee,
     type TexteDeSeance,
   } from '../../lib/planification';
   import { lireNotesSeances, type NoteSeance } from '../../lib/db';
@@ -221,6 +234,18 @@ import Base from '../../layouts/Base.astro';
   let minuterie: number | null = null;
 
   /* ── Minuteur ─────────────────────────────────────────────────────── */
+
+/**
+   * La durée que vise une séance, en secondes.
+   *
+   * La méthode vise « 30 min à 1 h » — c'est le repère affiché sous le
+   * minuteur, et le seuil à partir duquel il dit « durée atteinte ». On prend
+   * la borne BASSE pour répartir une longue fiche : un découpage calculé sur
+   * une heure proposerait une séance qu'on n'a, la plupart du temps, pas le
+   * temps de finir, et une partie entamée puis abandonnée est pire qu'une
+   * partie remise à demain.
+   */
+  const SECONDES_VISEES = 1800;
 
   function afficherMinuteur() {
     const m = String(Math.floor(secondes / 60)).padStart(2, '0');
@@ -264,8 +289,36 @@ import Base from '../../layouts/Base.astro';
     const fiches = [...document.querySelectorAll<HTMLInputElement>('[data-fiche]:checked')].map(
       (c) => c.dataset.fiche!,
     );
+    /*
+       Les parties cochées (prompt 46, P5). Le champ reste ABSENT quand
+       aucune ne l'est : son absence veut dire « la fiche entière », et
+       écrire un tableau vide serait dire « aucune partie vue », c'est-à-dire
+       le contraire.
+
+       Les cases d'un volet jamais ouvert n'existent pas dans le document :
+       ce qui avait été coché lors d'une visite précédente serait donc perdu
+       au premier enregistrement. On repart donc de ce que la séance porte
+       déjà, et l'on ne remplace que ce dont le volet est ouvert.
+    */
+    const voletsOuverts = new Set(
+      [...document.querySelectorAll<HTMLInputElement>('[data-partie-fiche]')].map(
+        (c) => c.dataset.partieFiche!,
+      ),
+    );
+    const parties = [
+      ...(seance.parties ?? []).filter((p) => !voletsOuverts.has(p.fiche)),
+      ...[...document.querySelectorAll<HTMLInputElement>('[data-partie-fiche]:checked')].map(
+        (c) => ({ fiche: c.dataset.partieFiche!, partie: c.dataset.partie! }),
+      ),
+    ].filter((p) => fiches.includes(p.fiche));
+
     return {
-      seance: { ...seance, fiches, secondes: Math.max(seance.secondes, secondes) },
+      seance: {
+        ...seance,
+        fiches,
+        ...(parties.length ? { parties } : {}),
+        secondes: Math.max(seance.secondes, secondes),
+      },
       texte: { note: ($('note') as HTMLTextAreaElement).value, restitutions },
     };
   }
@@ -424,8 +477,19 @@ import Base from '../../layouts/Base.astro';
       marque.append(case_, document.createTextNode('Travaillée pendant cette séance'));
 
       carte.append(ouvrir, marque);
+      /*
+         Le choix des parties n'est proposé que si la fiche en a, et la liste
+         ne se charge qu'À L'OUVERTURE du volet : les parties vivent dans la
+         charge utile CHIFFRÉE de la fiche, pas dans le manifeste, et déplier
+         d'office toutes les fiches de la matière déchiffrerait la matière
+         entière pour une séance qui porte sur deux fiches. C'est la même
+         règle que pour le prétest juste en dessous.
+      */
+      if (fiche.nbParties) carte.appendChild(voletDesParties(fiche.id));
       grille.appendChild(carte);
     }
+
+    await proposerUnDecoupage(fiches.filter((f) => proposees.has(f.id) && f.nbParties > 2));
 
     // Prétest de la fiche du jour, en tête de cette étape. On ne le propose que
     // pour la première fiche proposée qui en a un et ne l'a pas déjà reçu :
@@ -459,6 +523,189 @@ import Base from '../../layouts/Base.astro';
       $('etat-sauvegarde').textContent = 'Séance enregistrée : vous pourrez la reprendre plus tard.';
     });
     $('terminer').addEventListener('click', cloturer);
+  }
+
+  /**
+   * Répartir une longue fiche sur plusieurs séances (prompt 46, P5).
+   *
+   * **Désactivé par défaut** (décision 3) : sans le réglage, cette fonction
+   * ne fait rien du tout, et la séance propose les fiches entières comme
+   * avant. Allumé, elle ouvre le volet des parties de la fiche proposée et
+   * y coche celles qui tiennent dans la séance, en reprenant là où les
+   * séances précédentes s'étaient arrêtées.
+   *
+   * Elle **propose** et n'impose pas : les cases restent décochables, et
+   * décocher tout rend la fiche entière. C'est pour cela qu'elle coche des
+   * cases au lieu de filtrer la liste — un filtre ne se discute pas.
+   */
+  async function proposerUnDecoupage(candidates: FicheProposee[]) {
+    if (!candidates.length) return;
+    const reglages = await lireReglagesPlanification();
+    if (!reglages?.decouperParParties) return;
+
+    /* Ce que la séance peut absorber : sa durée visée, moins ce qui est fait. */
+    const cible = Math.max(0, SECONDES_VISEES - secondes);
+    if (cible <= 0) return;
+
+    const passees = await toutesLesSeances();
+    for (const candidate of candidates) {
+      const complete = await chargerFiche(candidate.id).catch(() => null);
+      const parties = complete?.parties ?? [];
+      if (parties.length < 2) continue;
+
+      const suivi = suiviDesParties(passees, candidate.id);
+      if (suivi.ficheEntiere) continue; // déjà vue en entier : rien à répartir
+
+      /*
+         La durée de chaque partie : le repère audio quand il existe — une
+         mesure —, le nombre de mots sinon. Les mots de la fiche ne sont
+         connus qu'en gros, par le manifeste : on les répartit donc à parts
+         égales entre les parties, ce qui est franchement une approximation,
+         et c'est pourquoi le repère audio passe devant quand il est là.
+         Voir `dureeEstimeeDeLaPartie`.
+      */
+      const reperes = new Map((complete?.podcast?.parties ?? []).map((p) => [p.id, p.debut]));
+      const motsParPartie = Math.round(candidate.nbMots / parties.length);
+      const mesurees = parties.map((partie, i) => ({
+        id: partie.id,
+        secondes: dureeEstimeeDeLaPartie({
+          mots: motsParPartie,
+          debut: reperes.get(partie.id) ?? null,
+          debutSuivante: reperes.get(parties[i + 1]?.id ?? '') ?? null,
+          dureeTotale: complete?.podcast?.secondes ?? null,
+        }),
+      }));
+
+      const aProposerIci = partiesAProposer(mesurees, suivi.vues, cible);
+      if (!aProposerIci.length) continue;
+
+      /* On ouvre le volet : cocher des cases que personne ne voit serait pire
+         que ne rien proposer. Le volet charge alors sa liste tout seul. */
+      const volet = document.querySelector<HTMLDetailsElement>(
+        `details[data-volet-fiche="${CSS.escape(candidate.id)}"]`,
+      );
+      if (!volet) continue;
+      volet.open = true;
+      /* Le volet remplit ses cases dans un gestionnaire asynchrone : on
+         attend qu'elles existent avant de les cocher. */
+      for (let essai = 0; essai < 40; essai++) {
+        if (volet.querySelector('[data-partie]')) break;
+        await new Promise((r) => setTimeout(r, 50));
+      }
+      let cochee = false;
+      for (const id of aProposerIci) {
+        const case_ = volet.querySelector<HTMLInputElement>(
+          `[data-partie="${CSS.escape(id)}"]`,
+        );
+        if (case_ && !case_.checked) {
+          case_.checked = true;
+          cochee = true;
+        }
+      }
+      if (cochee) {
+        const caseFiche = document.querySelector<HTMLInputElement>(
+          `[data-fiche="${CSS.escape(candidate.id)}"]`,
+        );
+        if (caseFiche && !caseFiche.checked) caseFiche.checked = true;
+        const note = document.createElement('p');
+        note.className = 'mt-1 text-xs text-indigo-700 dark:text-indigo-300';
+        note.textContent =
+          'Proposé : ces parties-là pour aujourd’hui, la suite une prochaine fois. ' +
+          'Décochez tout pour travailler la fiche entière.';
+        volet.appendChild(note);
+        void sauvegarderBientot();
+      }
+    }
+  }
+
+  /**
+   * Le volet « Travailler seulement certaines parties » (prompt 46, P5).
+   *
+   * « Toute la fiche » reste le choix par défaut (décision 3) : le volet est
+   * replié, aucune case n'est cochée, et une séance qui n'y touche pas se
+   * comporte exactement comme avant ce prompt.
+   *
+   * Les titres des parties vivent dans la charge utile chiffrée de la fiche.
+   * Ils ne sont donc chargés qu'à la PREMIÈRE ouverture du volet, et une
+   * seule fois : déplier d'office les dix fiches d'une matière pour afficher
+   * des cases que personne ne cochera déchiffrerait la matière entière.
+   */
+  function voletDesParties(ficheId: string): HTMLElement {
+    const volet = document.createElement('details');
+    volet.dataset.voletFiche = ficheId;
+    volet.className = 'mt-2 border-t border-slate-100 pt-2 dark:border-slate-800';
+
+    const titre = document.createElement('summary');
+    titre.className =
+      'cible-tactile flex min-h-11 cursor-pointer items-center text-xs font-medium ' +
+      'text-slate-600 dark:text-slate-300';
+    titre.textContent = 'Travailler seulement certaines parties';
+
+    const hote = document.createElement('div');
+    hote.className = 'mt-1 space-y-0.5';
+    const attente = document.createElement('p');
+    attente.className = 'text-xs text-slate-500 dark:text-slate-400';
+    attente.textContent = 'Déchiffrement des parties…';
+    hote.appendChild(attente);
+
+    volet.append(titre, hote);
+
+    let chargees = false;
+    volet.addEventListener('toggle', async () => {
+      if (!volet.open || chargees) return;
+      chargees = true;
+      const complete = await chargerFiche(ficheId).catch(() => null);
+      const parties = complete?.parties ?? [];
+      hote.replaceChildren();
+      if (!parties.length) {
+        const vide = document.createElement('p');
+        vide.className = 'text-xs text-slate-500 dark:text-slate-400';
+        vide.textContent = 'Cette fiche n’est pas découpée en parties.';
+        hote.appendChild(vide);
+        return;
+      }
+
+      const dejaVues = new Set(
+        (seance.parties ?? []).filter((p) => p.fiche === ficheId).map((p) => p.partie),
+      );
+      const rappel = document.createElement('p');
+      rappel.className = 'text-xs text-slate-500 dark:text-slate-400';
+      rappel.textContent =
+        'Sans case cochée, la séance porte sur toute la fiche — c’est le choix par défaut.';
+      hote.appendChild(rappel);
+
+      for (const partie of parties) {
+        const ligne = document.createElement('label');
+        ligne.className =
+          'flex min-h-11 cursor-pointer items-center gap-2 text-xs text-slate-600 ' +
+          'dark:text-slate-300';
+        const case_ = document.createElement('input');
+        case_.type = 'checkbox';
+        case_.dataset.partieFiche = ficheId;
+        case_.dataset.partie = partie.id;
+        case_.checked = dejaVues.has(partie.id);
+        case_.className = 'h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500';
+        case_.addEventListener('change', () => {
+          /*
+             Cocher une partie veut dire « j'ai travaillé cette fiche » :
+             sans la case de la fiche, la séance retiendrait une partie
+             d'une fiche qu'elle ne dit pas avoir ouverte, et les rappels
+             des séances suivantes ne la verraient jamais.
+          */
+          if (case_.checked) {
+            const caseFiche = document.querySelector<HTMLInputElement>(
+              `[data-fiche="${CSS.escape(ficheId)}"]`,
+            );
+            if (caseFiche && !caseFiche.checked) caseFiche.checked = true;
+          }
+          void sauvegarderBientot();
+        });
+        ligne.append(case_, document.createTextNode(partie.titre));
+        hote.appendChild(ligne);
+      }
+    });
+
+    return volet;
   }
 
   /** Bloc de restitution d'une séance antérieure, notes masquées par défaut. */
@@ -513,12 +760,23 @@ import Base from '../../layouts/Base.astro';
     // l'époque, il n'y a rien à cibler : seule la feuille blanche reste.
     const ciblees = passee.fiches ?? [];
     if (ciblees.length) {
-      const parametre = `?fiches=${ciblees.map(encodeURIComponent).join(',')}`;
+      /*
+         Les PARTIES réellement couvertes ce jour-là voyagent avec les fiches
+         (prompt 46, P5). Une séance ancienne n'en a pas : le paramètre est
+         alors absent, et le rappel porte sur les fiches entières — ce qui est
+         exactement ce qui s'était passé.
+      */
+      const partiesPassees = passee.parties ?? [];
+      const parametre =
+        `?fiches=${ciblees.map(encodeURIComponent).join(',')}` +
+        (partiesPassees.length ? `&parties=${encoderParties(partiesPassees)}` : '');
       const actions = document.createElement('div');
       actions.className = 'mt-3 flex flex-wrap items-center gap-2';
       const intro = document.createElement('span');
       intro.className = 'text-xs text-slate-500 dark:text-slate-400';
-      intro.textContent = `Au choix, sur les ${ciblees.length} fiche(s) de ce jour-là :`;
+      intro.textContent = partiesPassees.length
+        ? `Au choix, sur les ${pluriel(partiesPassees.length, 'partie')} vues ce jour-là :`
+        : `Au choix, sur ${pluriel(ciblees.length, 'fiche')} de ce jour-là :`;
       actions.appendChild(intro);
       for (const [etiquette, chemin] of [
         ['Flashcards', '/flashcards/'],
@@ -546,9 +804,13 @@ import Base from '../../layouts/Base.astro';
     const signes = valeur.length;
     const mots = valeur ? valeur.split(/\s+/).length : 0;
     // Une page dactylographiée tourne autour de 1 500 signes.
-    const pages = (signes / 1500).toFixed(1);
+    const pages = new Intl.NumberFormat('fr-FR', {
+      minimumFractionDigits: 1,
+      maximumFractionDigits: 1,
+    }).format(signes / 1500);
     $('compteur-note').textContent =
-      `${mots} mot(s) · ${signes} signe(s) · environ ${pages} page(s) — objectif : 1 à 2 pages.`;
+      `${pluriel(mots, 'mot')} · ${pluriel(signes, 'signe')} · environ ${pages} ` +
+      `${signes / 1500 >= 2 ? 'pages' : 'page'} — objectif : 1 à 2 pages.`;
   }
 
   async function cloturer() {

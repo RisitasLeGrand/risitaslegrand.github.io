@@ -125,6 +125,12 @@ import { base } from '../../lib/ui';
   import { ajouterResultatQuiz, lireReglagesSession, tousLesResultatsQuiz } from '../../lib/db';
   import { gagnerXp, xpQuiz } from '../../lib/gamification';
   import { formaterDate, lien, marquerOption, melanger, notifier, parametreUrl, pluriel } from '../../lib/ui';
+  import {
+    analyserParties,
+    partiesDeLaFiche,
+    restreindreAuxParties,
+    SEUIL_QUESTIONS,
+  } from '../../lib/seance-parties';
   import { signalerErreur } from '../../lib/journal';
   import { insecables } from '../../lib/typographie';
   import { enregistrerReponse, ordonnerParZoneProximale } from '../../lib/niveau';
@@ -239,6 +245,37 @@ import { base } from '../../lib/ui';
         });
       }
     }
+    /*
+       La restriction aux parties cochées (prompt 46, P5), AVANT le plafond :
+       filtrer après coup ne laisserait pas le seuil aller chercher son
+       complément dans les questions que le plafond venait d'écarter.
+
+       Le seuil se juge fiche par fiche : deux parties maigres de deux fiches
+       différentes ne se complètent pas l'une l'autre, chacune puise dans sa
+       propre fiche.
+    */
+    const partiesVoulues = analyserParties(parametreUrl('parties'));
+    const retenues: QuestionPosee[] = [];
+    if (partiesVoulues.length) {
+      const parFiche = new Map<string, QuestionPosee[]>();
+      for (const q of toutes) {
+        const liste = parFiche.get(q.ficheId);
+        if (liste) liste.push(q);
+        else parFiche.set(q.ficheId, [q]);
+      }
+      for (const [idFiche, questions] of parFiche) {
+        retenues.push(
+          ...restreindreAuxParties(
+            questions,
+            partiesDeLaFiche(partiesVoulues, idFiche),
+            SEUIL_QUESTIONS,
+          ).retenus,
+        );
+      }
+      toutes.length = 0;
+      toutes.push(...retenues);
+    }
+
     // Zone proximale : elle ne départage que des questions d'un même sujet.
     // Sur un tirage qui mélange plusieurs matières, leurs difficultés estimées
     // ne sont pas comparables, et le tirage reste aléatoire.

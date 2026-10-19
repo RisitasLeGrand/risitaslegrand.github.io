@@ -12,7 +12,12 @@
  * sur leur écran, et la page centrale n'en montre que le chemin.
  */
 import { delaiDuVerrouAutomatique, modeDuCoffre, oublierLAppareil, reglerLeDelaiDuVerrou } from '../coffre';
-import { ecrireReglagesSession, lireReglagesSession } from '../db';
+import {
+  ecrireReglagesPlanification,
+  ecrireReglagesSession,
+  lireReglagesPlanification,
+  lireReglagesSession,
+} from '../db';
 import {
   ecrireReglagesContenu,
   ecrireReglagesNiveau,
@@ -35,7 +40,7 @@ import {
   lirePalette,
   type Choix,
 } from '../theme';
-import { CLE_VITESSE, VITESSE_PAR_DEFAUT, VITESSES } from '../podcast-vitesses';
+import { CLE_VITESSE, VITESSE_PAR_DEFAUT, VITESSES } from '../podcast-noyau';
 import type { Acces } from './modele';
 
 /* ── Deux réglages locaux, lus par la séance de sport ────────────────────── */
@@ -183,6 +188,15 @@ export const ACCES: Record<string, Acces> = {
       ],
     ),
   ),
+  'decouper-par-parties': {
+    lire: async () => (await lireReglagesPlanification())?.decouperParParties ?? false,
+    ecrire: async (v) =>
+      ecrireReglagesPlanification({
+        trimestreEcarte: null,
+        ...((await lireReglagesPlanification()) ?? {}),
+        decouperParParties: Boolean(v),
+      }),
+  },
   'plafond-cartes': {
     lire: async () => (await lireReglagesSession()).plafondCartes,
     ecrire: async (v) =>

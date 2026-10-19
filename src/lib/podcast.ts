@@ -29,7 +29,15 @@
  */
 import { chargerBinaire, type Fiche } from './contenu';
 import { ecrirePositionPodcast, lirePositionPodcast, supprimerPositionPodcast } from './db';
-import { CLE_VITESSE, VITESSE_PAR_DEFAUT, VITESSES } from './podcast-vitesses';
+import {
+  CLE_VITESSE,
+  horodatage,
+  partieCourante,
+  partiesEcoutables,
+  VITESSE_PAR_DEFAUT,
+  VITESSES,
+  type PartieEcoutable,
+} from './podcast-noyau';
 import { formaterDuree } from './ui';
 
 /**
@@ -45,11 +53,20 @@ import { formaterDuree } from './ui';
 const CLE_POSITION_ANCIENNE = 'revinsp.podcast.position';
 
 /*
-   La vitesse de diction (prompt 55, N°13) est déclarée dans son propre
-   fichier, sans dépendances : la page des réglages la lit elle aussi, et
-   elle ne peut pas importer ce module-ci. Voir `podcast-vitesses.ts`.
+   Ce qui se calcule sans écran vit dans `podcast-noyau.ts`, sans aucune
+   dépendance : la page des réglages et un essai dans Node le lisent, et ni
+   l'une ni l'autre ne peut importer ce module-ci, qui touche le DOM et la
+   base. Réexporté ici pour que les pages n'aient qu'une porte d'entrée.
 */
-export { CLE_VITESSE, VITESSE_PAR_DEFAUT, VITESSES } from './podcast-vitesses';
+export {
+  horodatage,
+  partieCourante,
+  partiesEcoutables,
+  CLE_VITESSE,
+  VITESSE_PAR_DEFAUT,
+  VITESSES,
+  type PartieEcoutable,
+} from './podcast-noyau';
 
 /**
  * Au retour, on recule de trois secondes pour retrouver le fil (P3).
@@ -72,28 +89,6 @@ function liberer() {
     URL.revokeObjectURL(urlCourante);
     urlCourante = null;
   }
-}
-
-/* ══════════════════════════════════════════════════════════════════════════
-   Mise en forme
-   ══════════════════════════════════════════════════════════════════════════ */
-
-const DEUX_CHIFFRES = new Intl.NumberFormat('fr-FR', { minimumIntegerDigits: 2 });
-
-/**
- * L'heure de début d'une partie : « 4:12 », ou « 1:04:12 » passé l'heure.
- *
- * C'est un repère de lecteur audio, pas une durée en français : on garde
- * donc les deux-points, que tout le monde lit, et non « 4 min 12 s ».
- */
-export function horodatage(secondes: number): string {
-  const total = Math.max(0, Math.floor(secondes));
-  const s = total % 60;
-  const m = Math.floor(total / 60) % 60;
-  const h = Math.floor(total / 3600);
-  return h
-    ? `${h}:${DEUX_CHIFFRES.format(m)}:${DEUX_CHIFFRES.format(s)}`
-    : `${m}:${DEUX_CHIFFRES.format(s)}`;
 }
 
 /** « 12 min · 1,5 Mo », pour annoncer le téléchargement avant de le lancer. */
@@ -172,46 +167,6 @@ async function reprendreAnciennesPositions(): Promise<void> {
   } catch {
     /* la base est indisponible : on retentera, et la clé reste */
   }
-}
-
-/* ══════════════════════════════════════════════════════════════════════════
-   Les parties du lecteur
-   ══════════════════════════════════════════════════════════════════════════ */
-
-/** Une partie telle que le lecteur l'utilise : un titre, et une seconde. */
-export interface PartieEcoutable {
-  id: string;
-  titre: string;
-  debut: number;
-}
-
-/**
- * Les parties réellement écoutables d'une fiche, dans l'ordre de l'audio.
- *
- * Deux sources, et il faut les deux : `fiche.parties` porte les titres,
- * `fiche.podcast.parties` porte les secondes. Une partie dont l'audio n'a
- * pas de repère ne peut pas être atteinte — elle est donc absente de la
- * liste, plutôt que présente et inerte. C'est le cas d'une fiche audio
- * synthétisée avant le prompt 46.
- */
-export function partiesEcoutables(fiche: Fiche): PartieEcoutable[] {
-  const reperes = fiche.podcast?.parties;
-  if (!reperes?.length) return [];
-  const titres = new Map((fiche.parties ?? []).map((p) => [p.id, p.titre]));
-  return reperes
-    .filter((r) => titres.has(r.id))
-    .map((r) => ({ id: r.id, titre: titres.get(r.id)!, debut: r.debut }))
-    .sort((a, b) => a.debut - b.debut);
-}
-
-/** Rang de la partie en cours à une seconde donnée, ou -1 avant la première. */
-export function partieCourante(parties: PartieEcoutable[], seconde: number): number {
-  let rang = -1;
-  for (let i = 0; i < parties.length; i++) {
-    if (parties[i].debut <= seconde + 0.001) rang = i;
-    else break;
-  }
-  return rang;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

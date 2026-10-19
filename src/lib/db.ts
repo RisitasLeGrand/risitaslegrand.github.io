@@ -434,6 +434,21 @@ export interface Seance {
    * et non sur la matière entière.
    */
   fiches?: string[];
+  /**
+   * Les PARTIES réellement couvertes, quand la séance n'a porté que sur
+   * certaines d'entre elles (prompt 46, P5).
+   *
+   * Facultatif, et son absence a un sens précis : **la fiche entière**. Une
+   * séance enregistrée avant ce prompt n'a pas ce champ, et vaut donc pour la
+   * fiche entière — ce qui est exactement ce qui s'est passé, puisque les
+   * séances par partie n'existaient pas. Rien à migrer, et surtout rien à
+   * inventer : remplir ce champ pour les séances anciennes aurait fabriqué un
+   * passé plus précis que le vrai.
+   *
+   * Une fiche peut figurer dans `fiches` sans figurer ici : c'est le cas
+   * normal d'une fiche travaillée en entier.
+   */
+  parties?: { fiche: string; partie: string }[];
   /** Séance étendue du 1er du mois : rappel n-1 à n-4. */
   etendue: boolean;
 }
@@ -2555,6 +2570,15 @@ export interface ReglagesPlanification {
   rotation?: string[];
   /** Dernier trimestre pour lequel la suggestion a été écartée (ex. « 2026-T1 »). */
   trimestreEcarte: string | null;
+  /**
+   * Répartir une longue fiche sur plusieurs séances, partie par partie
+   * (prompt 46, P5).
+   *
+   * **Désactivé par défaut** (décision 3), et son absence vaut `false` : une
+   * planification existante ne change pas de comportement du jour au
+   * lendemain parce qu'un champ est apparu. Qui le veut l'allume.
+   */
+  decouperParParties?: boolean;
 }
 
 export async function lireReglagesPlanification(): Promise<ReglagesPlanification | null> {
