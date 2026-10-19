@@ -247,7 +247,8 @@ import LienReglages from '../components/LienReglages.astro';
   <section class="mt-8 rounded-2xl border border-red-200 bg-red-50/60 p-5 dark:border-red-900 dark:bg-red-950/30">
     <h2 class="mb-1 text-lg font-semibold text-red-900 dark:text-red-200">Réinitialiser</h2>
     <p class="mb-4 text-sm text-red-800/80 dark:text-red-300/80">
-      Efface définitivement toute la progression de ce navigateur. Les fiches, elles, ne sont pas touchées.
+      Efface définitivement toute la progression de ce navigateur. Les fiches, elles, ne sont pas
+      touchées. Le détail de ce qui part, avec les nombres, est rappelé avant que vous confirmiez.
     </p>
     <button id="reinitialiser" class="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 dark:border-red-800 dark:bg-transparent dark:text-red-300">
       Effacer ma progression
@@ -846,13 +847,38 @@ import LienReglages from '../components/LienReglages.astro';
          le déclencher, le focus arrive sur « Annuler », et la liste de ce qui
          part est écrite.
       */
+      /*
+         A7 DU 43 — DIRE CE QU'ON EFFACE, AVEC DES NOMBRES.
+
+         Le texte nommait déjà les CATÉGORIES — séances, révisions, notes,
+         mesures, réglages — et c'était déjà mieux que les deux `confirm()`
+         d'avant. Mais « les révisions » ne dit pas s'il y en a trois ou
+         trois mille, et c'est la seule chose qui permette de mesurer ce
+         qu'on s'apprête à perdre.
+
+         Les nombres sont lus ici, juste avant de demander : affichés depuis
+         le résumé de la page, ils pourraient dater d'une séance entière.
+      */
+      const [cartesA, quizA, joursA] = await Promise.all([
+        toutesLesCartes(),
+        tousLesResultatsQuiz(),
+        tousLesJours(),
+      ]);
+      const etat = await etatSauvegarde();
       const certain = await confirmer({
         titre: 'Tout effacer sur ce navigateur ?',
         texte:
-          'Partent : les séances, les révisions, les notes, les mesures et les ' +
-          'réglages enregistrés dans ce navigateur. Restent : les fiches du site, ' +
-          'et tout ce qui se trouve dans une sauvegarde déjà enregistrée ailleurs. ' +
-          'Cette action est irréversible.',
+          `Partent : ${cartesA.length} carte(s) suivie(s), ${quizA.length} quiz, ` +
+          `${joursA.length} journée(s) de temps passé, les séances, les notes, les ` +
+          'mesures et les réglages enregistrés dans ce navigateur. Restent : les ' +
+          'fiches du site, et tout ce qui se trouve dans une sauvegarde déjà ' +
+          'enregistrée ailleurs. ' +
+          (etat.derniere
+            ? `Votre dernière sauvegarde confirmée date du ${new Date(etat.derniere).toLocaleString('fr-FR')}` +
+              (etat.jours !== null && etat.jours > 0 ? `, il y a ${etat.jours} jour(s).` : '.')
+            : 'ATTENTION : aucune sauvegarde n’a jamais été confirmée depuis ce navigateur, ' +
+              'donc rien de tout cela n’existe ailleurs.') +
+          ' Cette action est irréversible.',
         action: 'Tout effacer',
         destructrice: true,
       });

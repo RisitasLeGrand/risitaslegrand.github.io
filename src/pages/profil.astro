@@ -723,12 +723,37 @@ import LienReglages from '../components/LienReglages.astro';
        rattrape de là-bas. Ce que la redemande vise, c'est l'ordinateur
        déverrouillé prêté deux minutes — le même cas que la décision 3.
     */
+    /*
+       A7 DU 43 — DIRE CE QU'ON EFFACE, AVEC DES NOMBRES ET DES NOMS.
+
+       « Tous les champs du profil » est vrai et creux : on ne sait pas s'il
+       y en a deux ou trente, ni lesquels. Le compte n'était donné qu'APRÈS
+       — « 14 champ(s) supprimé(s) » — c'est-à-dire au moment où il ne sert
+       plus à décider.
+
+       On le lit donc avant, et on nomme les premiers champs : un libellé
+       reconnu (« Prénom », « Année de naissance ») arrête la main mieux
+       qu'un nombre seul.
+    */
+    const { champDeclare: libelleDuChamp } = await import('../lib/noyau/profil');
+    const avantEffacement = await profilLocal();
+    const nomsRemplis = [...avantEffacement.keys()]
+      .map((nom) => libelleDuChamp(nom)?.libelle ?? nom)
+      .sort((a, b) => a.localeCompare(b, 'fr'));
+    const apercuDesNoms = nomsRemplis.slice(0, 6).join(', ');
     if (
       !(await redemanderLeMotDePasse({
         titre: 'Supprimer tout le profil',
         consequence:
-          'Tous les champs du profil seront effacés, sur cet appareil et sur les autres à la ' +
-          'prochaine synchronisation. Vos données de révision, de sport et d’Odyssée ne sont ' +
+          (nomsRemplis.length
+            ? `${pluriel(nomsRemplis.length, 'champ')} renseigné(s) seront effacés` +
+              (apercuDesNoms
+                ? ` — dont ${apercuDesNoms}${nomsRemplis.length > 6 ? `, et ${nomsRemplis.length - 6} autre(s)` : ''}`
+                : '') +
+              '. '
+            : 'Aucun champ n’est renseigné : il n’y a rien à effacer. ') +
+          'L’effacement part aussi vers vos autres appareils à la prochaine ' +
+          'synchronisation. Vos données de révision, de sport et d’Odyssée ne sont ' +
           'pas touchées.',
         action: 'Supprimer tout le profil',
       }))
