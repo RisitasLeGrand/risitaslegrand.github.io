@@ -58,7 +58,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
         <div class="mt-3 flex flex-wrap items-end gap-3">
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Poids du jour</span>
-            <input id="kg" type="number" min="20" max="400" step="0.1" inputmode="decimal"
+            <input id="kg" type="text" inputmode="decimal" data-min="20" data-max="400"
               class="mt-1 min-h-11 w-32 rounded-lg border border-slate-300 bg-white px-3 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
           </label>
           <button id="peser" type="button"
@@ -95,7 +95,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
           </label>
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Centimètres</span>
-            <input id="cm" type="number" min="1" max="300" step="0.5" inputmode="decimal"
+            <input id="cm" type="text" inputmode="decimal" data-min="1" data-max="300"
               class="mt-1 min-h-11 w-28 rounded-lg border border-slate-300 bg-white px-3 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
           </label>
           <button id="mesurer" type="button"
@@ -351,6 +351,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 </Base>
 
 <script>
+  import { nombreDuChamp } from '../../lib/nombre-saisi';
   import { auDeverrouillage } from '../../lib/chargement';
   import {
     agirPuisPeindre,
@@ -1016,17 +1017,26 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
         $(champ).addEventListener('input', direMacros);
       }
 
+      /*
+         D4 du 43 : la saisie passe par l'analyseur commun, qui accepte la
+         virgule. Avant, `Number('')` valait zéro et `Number('72,5')` valait
+         `NaN` : appuyer sur « Enregistrer » avec un champ vide écrivait une
+         pesée à 0 kg au journal, sans un mot. On n'écrit plus rien.
+
+         Ce que D4 ne fait pas encore : le dire. Le message au pied du champ
+         arrive avec D2, qui pose « aria-invalid » et la zone d'erreur.
+      */
       surAppui('peser', async () => {
-        const kg = Number(($('kg') as HTMLInputElement).value);
+        const kg = nombreDuChamp($('kg') as HTMLInputElement);
+        if (kg === null) return;
         await ecrirePesee(kg);
         ($('kg') as HTMLInputElement).value = '';
       });
 
       surAppui('mesurer', async () => {
-        await ecrireMesure(
-          ($('quoi') as HTMLSelectElement).value as QuoiMesurer,
-          Number(($('cm') as HTMLInputElement).value),
-        );
+        const cm = nombreDuChamp($('cm') as HTMLInputElement);
+        if (cm === null) return;
+        await ecrireMesure(($('quoi') as HTMLSelectElement).value as QuoiMesurer, cm);
         ($('cm') as HTMLInputElement).value = '';
       });
 

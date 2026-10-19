@@ -142,7 +142,7 @@ import LienReglages from '../../components/LienReglages.astro';
           <div class="mt-3 flex flex-wrap items-end gap-3">
             <label class="text-sm">
               <span class="block text-slate-700 dark:text-slate-200">Charge</span>
-              <input id="charge" type="number" min="0" step="0.5" inputmode="decimal"
+              <input id="charge" type="text" inputmode="decimal" data-min="0"
                 class="mt-1 min-h-12 w-28 rounded-lg border border-slate-300 bg-white px-3 text-lg tabular-nums dark:border-slate-700 dark:bg-slate-950" />
             </label>
             <label class="text-sm">
@@ -231,6 +231,10 @@ import LienReglages from '../../components/LienReglages.astro';
 </Base>
 
 <script>
+  /* D4 du 43 : la charge se tape avec une virgule sur un clavier français ;
+     l'analyseur commun la lit, et rend « null » sur une saisie illisible —
+     exactement là où le code mettait « null » sur un champ vide. */
+  import { nombreDuChamp } from '../../lib/nombre-saisi';
   import { agirPuisPeindre } from '../../lib/agir';
   import { proposerLAnnulation } from '../../lib/annulation';
   import { unSeulGeste } from '../../lib/geste';
@@ -442,9 +446,9 @@ import LienReglages from '../../components/LienReglages.astro';
   }
 
   function direEstimation() {
-    const charge = ($('charge') as HTMLInputElement).value;
+    const charge = nombreDuChamp($('charge') as HTMLInputElement);
     const reps = Number(($('repetitions') as HTMLInputElement).value);
-    const estimation = maximumEstime(charge === '' ? null : Number(charge), reps);
+    const estimation = maximumEstime(charge, reps);
     if (!estimation) {
       $('estimation').textContent = '';
       return;
@@ -613,13 +617,13 @@ import LienReglages from '../../components/LienReglages.astro';
   async function enregistrerSerie() {
     if (!seance) return;
     const exerciceId = ($('exercice') as HTMLSelectElement).value;
-    const charge = ($('charge') as HTMLInputElement).value;
+    const charge = nombreDuChamp($('charge') as HTMLInputElement);
     const reserveBrute = ($('reserve') as HTMLSelectElement).value;
     const depuis = dernierInstant();
 
     const serie: Serie = {
       exerciceId,
-      charge: charge === '' ? null : Number(charge),
+      charge,
       repetitions: Number(($('repetitions') as HTMLInputElement).value),
       echec: ($('echec') as HTMLInputElement).checked,
       reserve: reserveBrute === '' ? null : Number(reserveBrute),
@@ -709,14 +713,9 @@ import LienReglages from '../../components/LienReglages.astro';
 
       $('refuser').addEventListener('click', () => {
         if (!proposition) return;
-        const charge = ($('charge') as HTMLInputElement).value;
+        const charge = nombreDuChamp($('charge') as HTMLInputElement);
         retenirRefus(
-          refuser(
-            proposition.exerciceId,
-            proposition.sorte,
-            aujourdhui,
-            charge === '' ? null : Number(charge),
-          ),
+          refuser(proposition.exerciceId, proposition.sorte, aujourdhui, charge),
           aujourdhui,
         );
         void direLaProposition();
