@@ -537,6 +537,66 @@ try {
   vrai('prémisse : la session « sans cartes neuves » a servi des cartes', servies > 0);
   v('et aucune n\u2019était inédite', ineditesServies, 0);
 
+  console.log('\nF6 — « OUI » ET « NON » ONT LE MÊME POIDS');
+  await aller('/');
+  /*
+     Le bloc est RÉVÉLÉ à la main, et il faut le dire : une proposition ne
+     paraît qu'une fois par semaine au plus, et attendre la conjonction
+     rendrait cet essai muet la plupart du temps. Ce qui est mesuré est la
+     MISE EN FORME, qui ne dépend pas de la façon dont le bloc a été montré.
+  */
+  await page.evaluate(() => {
+    document.getElementById('proposition')?.classList.remove('hidden');
+  });
+  await page.waitForTimeout(200);
+
+  const styles = await page.evaluate(() =>
+    ['proposition-oui', 'proposition-plus-tard', 'proposition-non'].map((id) => {
+      const bouton = document.getElementById(id);
+      if (!bouton) return null;
+      const s = getComputedStyle(bouton);
+      return {
+        fond: s.backgroundColor,
+        texte: s.color,
+        bordure: `${s.borderTopWidth} ${s.borderTopColor}`,
+        graisse: s.fontWeight,
+        taille: s.fontSize,
+        hauteur: Math.round(bouton.getBoundingClientRect().height),
+      };
+    }),
+  );
+  vrai('les trois réponses sont à l\u2019écran', styles.every(Boolean));
+  const [oui, plusTard, non] = styles;
+  v('« Oui » et « Non » ont le même fond', oui?.fond, non?.fond);
+  v('la même couleur de texte', oui?.texte, non?.texte);
+  v('la même bordure', oui?.bordure, non?.bordure);
+  v('la même graisse', oui?.graisse, non?.graisse);
+  v('la même taille de texte', oui?.taille, non?.taille);
+  v('et « Plus tard » ne se distingue pas non plus', plusTard?.fond, oui?.fond);
+  /*
+     Ce contrôle a d'abord cherché un soulignement, parce que « Non » était
+     un mot souligné. Mesuré sur la construction d'avant : VERT des deux
+     côtés — le soulignement ne venait qu'au survol, et « textDecorationLine »
+     au repos vaut « none ». Il ne prouvait rien, et il est remplacé par ce
+     qui rend l'égalité vraie plutôt que déclarée : une seule mise en forme,
+     écrite une fois.
+  */
+  v(
+    'les trois réponses partagent une seule mise en forme',
+    await page.evaluate(
+      () =>
+        new Set(
+          ['proposition-oui', 'proposition-plus-tard', 'proposition-non'].map(
+            (id) => document.getElementById(id)?.className ?? '',
+          ),
+        ).size,
+    ),
+    1,
+  );
+  vrai(
+    'les trois tiennent le plancher de 44 px',
+    styles.every((s) => s && s.hauteur >= 44),
+  );
 } finally {
   await contexte.close();
   await nav.close();
