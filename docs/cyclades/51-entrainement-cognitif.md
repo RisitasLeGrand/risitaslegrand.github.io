@@ -141,4 +141,9 @@ les produire. C'est un manquement, et je ne le présente pas autrement.
 Ce que j'ai fait à la place, et qui ne le remplace pas tout à fait : la branche
 n'avait **aucun** essai de navigateur, et en écrire un de quatre-vingt-dix-neuf
 contrôles constate à chaque passage ce qu'une capture ne montre qu'une fois.
-Les captures d'après restent à prendre.
+
+Les captures d'après sont prises : trente images, aux trois largeurs du 41 et
+dans les deux modes d'Égée, sur l'accueil, les trois écrans de réglages et le
+glossaire ouvert sur une entrée — le seul endroit où P9 se voit. Le script
+contrôle aussi le débordement en largeur à chaque prise, ce qui vaut mieux
+qu'un œil sur trente images : aucune anomalie.
