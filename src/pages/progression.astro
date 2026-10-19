@@ -477,7 +477,14 @@ import LienReglages from '../components/LienReglages.astro';
     const enregistrer = async () => {
       // db.ts borne les valeurs entre 5 et 200 ; on relit ce qui a réellement
       // été retenu pour que les champs ne mentent pas sur l'état enregistré.
+      //
+      // ON RELIT AVANT D'ÉCRIRE, et les deux champs de cet écran sont les
+      // seuls modifiés. `ecrireReglagesSession` écrit l'objet entier : un
+      // littéral à deux propriétés effacerait les autres réglages de session
+      // en silence, et le premier d'entre eux — le compte à rebours du
+      // prompt 56 — serait remis à son défaut à chaque enregistrement.
       await ecrireReglagesSession({
+        ...(await lireReglagesSession()),
         plafondCartes: Number(cartes.value),
         plafondQuestions: Number(questions.value),
       });
