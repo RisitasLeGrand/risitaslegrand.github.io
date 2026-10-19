@@ -406,9 +406,27 @@ comme un oubli, alors que c'est de la minimisation : ils ne sont posés qu'au
 moment où une fonction en a besoin. Le bouton « Renseigner » reste, parce que
 répondre d'avance est le droit de la personne.
 
+### Le socle
+
+**16 verts, 0 rouge, 11 min**, sur l'arbre poussé. Le passage précédent en
+donnait 15 : `essais:mobile:navigateur` tenait le quatrième de mes défauts, les
+deux liens de phrase, et il est vert depuis le correctif. Aucun rouge ne reste,
+donc aucun à confronter au tableau des anomalies.
+
+Hors socle, `essais:reglages-orphelins` garde deux rouges qui ne sont pas de
+cette branche : `etat/reglagesSync` et `etat/fusionEnCours`, non déclarés au
+catalogue des réglages. Ils ont été remontés sans attribution — l'historique de
+ce conteneur est tronqué et ne permet pas de dire qui les a posés — et `main`
+les a corrigés depuis, par `f4c346c`.
+
 ### Ce qui reste
 
 - L'insertion du compte à rebours sur l'accueil de Révisions, après la fusion
   de `claude/p46-55`, avec son essai « il disparaît quand on le désactive » et
-  le contrôle coffre fermé.
-- Les captures de la page refaite, à joindre au compte rendu.
+  le contrôle coffre fermé. Au moment d'écrire, `src/pages/revisions/index.astro`
+  est au même objet sur `origin/main` et sur cette branche : la fusion n'a pas
+  eu lieu.
+- Les captures, avant et après, au téléphone et à l'ordinateur, de Ma journée,
+  de la bascule du thème, de « Qui utilise mon âge », de l'initialisation et du
+  profil. Elles sont prises sur l'arbre final ; elles vivent hors du dépôt,
+  dans un conteneur éphémère, et ne sont pas commitées.
