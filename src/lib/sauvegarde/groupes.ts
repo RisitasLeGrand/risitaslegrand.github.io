@@ -250,6 +250,25 @@ export const CHAMP_DATE: Record<string, string | null> = {
   odysseeEtapesCochees: 'jourPrevu',
   odysseeExceptionsScellees: 'majLe',
   /*
+     LE SUIVI PERSONNEL, et le même choix que la ligne au-dessus, pour la
+     même raison et avec la même franchise.
+
+     Le jour auquel une saisie se rapporte est dans la VALEUR, donc chiffré :
+     un découpage par âge ne peut pas le lire sans le coffre. `majLe` dit
+     quand la ligne a été écrite, non le jour qu'elle décrit. Les deux
+     coïncident presque toujours — une saisie rétroactive est l'exception.
+
+     `null` aurait passé le contrôle aussi bien, et laissé des saisies
+     derrière un effacement qui se dit complet. Une approximation qu'on écrit
+     vaut mieux qu'un oubli qui se tait.
+
+     Les réglages, eux, sont `null` sans approximation : un enregistrement
+     unique qui dit si le module est actif ne se découpe pas par l'âge. Il
+     s'efface avec le groupe, entièrement ou pas du tout.
+  */
+  odysseeCycleJournal: 'majLe',
+  odysseeCycleReglages: null,
+  /*
      `null` — « jamais découpé », et pour une fois ce n'est pas une
      approximation. Un report ne porte AUCUNE date : en mettre une en clair
      dirait qu'un geste a eu lieu ce jour-là (A-6, option D). Un pli ne se
@@ -438,6 +457,16 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
       'odysseeSymptomes',
       'odysseeConditions',
       'odysseeRessentis',
+      /*
+         Le suivi personnel entre dans le groupe « Odyssée » et NE REÇOIT PAS
+         DE GROUPE PROPRE. Un groupe « Suivi personnel » sur l'écran
+         d'effacement nommerait le module à qui regarde par-dessus l'épaule,
+         ce que la décision 4.8 — la discrétion — interdit. C'est aussi la
+         convention déjà suivie ici : ce groupe efface le journal de Psyché,
+         les traitements et les comptes sans les énumérer dans son libellé.
+      */
+      'odysseeCycleJournal',
+      'odysseeCycleReglages',
       'odysseeCheckins',
       'odysseeComptes',
       'odysseeValorisations',

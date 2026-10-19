@@ -65,6 +65,7 @@ const sansCommentaires = (texte: string) =>
 
 const SOURCE = sansCommentaires(readFileSync('src/lib/db.ts', 'utf8'));
 const COFFRE = sansCommentaires(readFileSync('src/lib/noyau/coffre.ts', 'utf8'));
+const GROUPES = sansCommentaires(readFileSync('src/lib/sauvegarde/groupes.ts', 'utf8'));
 
 let echecs = 0;
 const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
@@ -99,7 +100,7 @@ v('aucun bloc ne dépasse la version déclarée', auDela, []);
 */
 v('et la version courante en a un', numeros.includes(declaree), true);
 
-console.log('\nTROIS DÉCLARATIONS PAR MAGASIN, ET AUCUNE QUI MANQUE');
+console.log('\nQUATRE DÉCLARATIONS PAR MAGASIN, ET AUCUNE QUI MANQUE');
 
 /**
  * Les magasins qu'une migration crée.
@@ -159,10 +160,36 @@ v('aucun magasin scellé n’échappe à l’effacement et à la sauvegarde', mo
 v('aucun nom listé ne désigne un magasin inexistant', moins(progression, crees), []);
 v('aucun magasin créé n’échappe à l’effacement et à la sauvegarde', moins(crees, progression), []);
 
+/*
+   LE QUATRIÈME ENDROIT, et je ne le connaissais pas en écrivant la première
+   version de ce contrôle.
+
+   `essais:effacement` l'a trouvé pour moi au lot suivant : deux magasins
+   neufs, déclarés aux trois endroits que ce contrôle gardait, et pourtant
+   quatre rouges — l'écran d'effacement range les magasins par GROUPES, et un
+   magasin sans groupe n'est ni effacé ni restitué par cet écran. Un magasin
+   a aussi besoin d'une ligne dans `CHAMP_DATE`, qui dit par quel champ une
+   rétention le découpe, ou d'un `null` qui dit qu'elle ne le découpe pas.
+
+   Le contrôle les garde maintenant, pour que le prochain magasin n'ait pas à
+   le redécouvrir par un essai voisin.
+*/
+const dansUnGroupe = new Set(
+  [...GROUPES.matchAll(/magasins: \[([^\]]*)\]/g)].flatMap((bloc) =>
+    [...bloc[1].matchAll(/'([^']+)'/g)].map((m) => m[1]),
+  ),
+);
+const avecChampDate = new Set(
+  [...GROUPES.matchAll(/^\s{2}(\w+): (?:'[^']*'|null),$/gm)].map((m) => m[1]),
+);
+
+v('aucun magasin créé n’échappe à un groupe d’effacement', moins(crees, dansUnGroupe), []);
+v('aucun magasin créé ne manque sa règle de rétention', moins(crees, avecChampDate), []);
+
 console.log(
   echecs === 0
     ? `\n\x1b[32mLe schéma est en version ${declaree}, ${numeros.length} migrations, aucun doublon. ` +
-        `${crees.size} magasins, dont ${scelles.size} scellés, tous déclarés aux trois endroits.\x1b[0m\n`
+        `${crees.size} magasins, dont ${scelles.size} scellés, tous déclarés aux quatre endroits.\x1b[0m\n`
     : `\n\x1b[31m${echecs} en échec.\x1b[0m\n`,
 );
 process.exit(echecs === 0 ? 0 : 1);

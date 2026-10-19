@@ -20,6 +20,7 @@ import { signalerEcriture } from './sync/signal-ecriture';
    chargement. Les types, eux, sont effacés à la compilation.
 */
 import type { EntreeRevision } from './noyau/revisions';
+import type { ReglagesDuCycle, SaisieDuCycle } from './odyssee/cycle';
 import type {
   Evenement,
   EtapeCochee,
@@ -651,6 +652,18 @@ interface SchemaRevinsp extends DBSchema {
   odysseeExceptionsScellees: { key: string; value: ExceptionScellee };
   odysseeReports: { key: string; value: ReportEnAttente };
   centreElements: { key: string; value: ElementDuCentre };
+  /*
+     Le suivi personnel (phases 2 à 5 du plan profil/cycle). Scellés dès leur
+     création, pour la raison déjà écrite deux fois ici : une donnée sensible
+     écrite en clair reste en clair dans les instantanés de migration déjà
+     pris, et on ne la rattrape pas.
+
+     AUCUN INDEX SUR LE JOURNAL, et c'est le point de ce magasin. Sa clé est
+     l'empreinte du jour ; un index sur `jour` réécrirait en clair exactement
+     ce que la clé cache, et la liste des clés redirait le rythme.
+  */
+  odysseeCycleJournal: { key: string; value: SaisieDuCycle };
+  odysseeCycleReglages: { key: string; value: ReglagesDuCycle };
   odysseeQuetes: { key: string; value: Quete };
   odysseeEvenements: { key: string; value: Evenement; indexes: { debut: string } };
   odysseeFocus: { key: string; value: Focus; indexes: { debut: string } };
@@ -803,7 +816,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 33;
+const VERSION = 37;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1578,6 +1591,21 @@ function ouvrirAuSchema(nom: string, version: number) {
       */
       if (vers(33)) {
         base.createObjectStore('centreElements', { keyPath: 'id' });
+      }
+      /*
+         37 — le suivi personnel. Le numéro est celui que le pilote a
+         attribué ; 34 à 36 sont pris par d'autres branches en vol, et
+         commencer en haut d'une plage la rendrait inutilisable puisque les
+         numéros doivent croître.
+
+         Deux magasins et non un : les réglages doivent pouvoir être lus pour
+         décider ce qu'un écran propose, alors que le journal ne doit être
+         ouvert que par l'écran du suivi. Les mélanger obligerait à ouvrir le
+         journal pour savoir si le module est actif.
+      */
+      if (vers(37)) {
+        base.createObjectStore('odysseeCycleJournal', { keyPath: 'id' });
+        base.createObjectStore('odysseeCycleReglages', { keyPath: 'id' });
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -2540,6 +2568,16 @@ export const MAGASINS_PROGRESSION = [
      source emporte ses éléments. Les deux ne tiennent qu'en séparant les
      deux usages de cette liste, qui les confondait.
   */
+  /*
+     Le suivi personnel entre dans la progression, donc il est EFFAÇABLE et
+     SAUVEGARDÉ. Les deux sont voulus : « effacer mes données » qui le
+     laisserait derrière lui mentirait, et une sauvegarde qui l'oublierait
+     rendrait à la restauration une base amputée en annonçant une
+     restauration complète. Le fichier est chiffré, et les magasins restent
+     scellés à l'intérieur.
+  */
+  'odysseeCycleJournal',
+  'odysseeCycleReglages',
   'centreElements',
   'odysseeQuetes',
   'odysseeEvenements',

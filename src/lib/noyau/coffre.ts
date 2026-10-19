@@ -296,6 +296,40 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
       'autres reste dehors.',
     clairs: ['id', 'traitementId', 'jour', 'majLe'],
   },
+  /*
+     LE SUIVI PERSONNEL. Deux magasins, deux régimes de champs clairs, et la
+     différence est tout l'intérêt.
+
+     Le journal porte `id` et `majLe`, et RIEN D'AUTRE. Pas de `jour`, alors
+     que tous ses voisins en ont un : sa clé est déjà l'empreinte du jour, et
+     laisser la date en clair à côté réécrirait exactement ce que l'empreinte
+     cache. Une liste de clés qui dirait « 1er, 2, 3, 28 octobre » livrerait
+     le rythme sans qu'on ouvre une seule valeur — et un rythme se lit sans
+     rien comprendre d'autre. Même geste qu'`odysseeExceptionsScellees`.
+
+     Le prix est réel et assumé : aucune lecture par plage de dates, donc une
+     lecture par jour voulu. Trente et une pour un mois, ce qui est le coût
+     d'une page.
+
+     Les réglages, eux, n'ont qu'un enregistrement et une clé fixe. Il n'y a
+     rien à cacher dans leur clé, et leur valeur est scellée comme les
+     autres : savoir que le suivi est actif est déjà une information.
+  */
+  {
+    magasin: 'odysseeCycleJournal',
+    pourquoi:
+      'Le suivi personnel : des saisies quotidiennes dont la seule existence renseigne sur le ' +
+      'corps de la personne. C’est la donnée que le § 6.1 du prompt 30 protège avant toutes les ' +
+      'autres.',
+    clairs: ['id', 'majLe'],
+  },
+  {
+    magasin: 'odysseeCycleReglages',
+    pourquoi:
+      'Que le suivi personnel soit actif est déjà une information, et elle se lit en un coup ' +
+      'd’œil. Scellée comme ce qu’elle protège.',
+    clairs: ['id', 'majLe'],
+  },
 ];
 
 const PAR_MAGASIN = new Map(MAGASINS_SCELLES.map((m) => [m.magasin, m]));

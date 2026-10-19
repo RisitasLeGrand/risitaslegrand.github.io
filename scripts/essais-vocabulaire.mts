@@ -272,9 +272,14 @@ console.log('\n3. LES MOTS INTERDITS, SUR LA SURFACE DU SUIVI');
  * que chaque fichier du dépôt dont le nom désigne le suivi y figure — la
  * liste ne peut pas prendre du retard sans le dire.
  */
-const SURFACE_DU_SUIVI: readonly string[] = ['src/lib/odyssee/chaines-du-suivi.ts'];
+const SURFACE_DU_SUIVI: readonly string[] = [
+  'src/lib/odyssee/chaines-du-suivi.ts',
+  'src/lib/odyssee/cycle.ts',
+  'src/lib/odyssee/cycle-confidentialite.ts',
+];
 
-const designeLeSuivi = (chemin: string) => /chaines-du-suivi|suivi-personnel|cycle-menstruel/.test(chemin);
+const designeLeSuivi = (chemin: string) =>
+  /chaines-du-suivi|suivi-personnel|odyssee\/cycle(-|\.)/.test(chemin);
 const oublies = tousLesFichiers
   .map((c) => c.replace(/\\/g, '/'))
   .filter((c) => designeLeSuivi(c) && !SURFACE_DU_SUIVI.includes(c));
@@ -289,8 +294,26 @@ for (const chemin of SURFACE_DU_SUIVI) {
      dix mots, et `LIBELLES_AUTORISES_CYCLE_OU_PHASE` est l'objet du contrôle
      suivant, pas de celui-ci.
   */
+  /*
+     LES LISTES DE PROHIBITION DU FICHIER LUI-MÊME SONT RETIRÉES, par leur
+     NOM et non une par une.
+
+     C'est la troisième fois que le motif se présente, et la deuxième dans ce
+     chantier : une liste qui nomme ce qu'elle interdit contient par
+     construction ce qu'elle interdit. `MOTS_INTERDITS_SUIVI` au lot 1, puis
+     `JAMAIS_CALCULE` au lot 4 — « fenêtre fertile », « jours sûrs » — qui a
+     fait rougir ce contrôle à sa première exécution sur le fichier du cycle.
+
+     La convention de nom du dépôt est celle que `essais:schema` emploie
+     déjà : INTERDIT, ECARTE, PROSCRIT, et JAMAIS pour les calculs refusés.
+     Nommer les listes une par une ici obligerait à y penser à chaque lot,
+     ce qui est précisément ce qu'un essai sert à ne plus avoir à faire.
+  */
   const sansSesPropresListes = source
-    .replace(/export const MOTS_INTERDITS_SUIVI[\s\S]*?\n\];/, '')
+    .replace(
+      /export const [A-Z_]*(INTERDIT|ECARTE|PROSCRIT|JAMAIS)[A-Z_]*[\s\S]*?\n\];/g,
+      '',
+    )
     .replace(/export const LIBELLES_AUTORISES_CYCLE_OU_PHASE[\s\S]*?\n\];/, '')
     /*
        ET LA LISTE BLANCHE, parce que le § 9 ne la soumet qu'aux tournures :
@@ -332,6 +355,8 @@ console.log('\n4. « CYCLE » ET « PHASE » DANS LA ZONE OÙ LES DEUX SENS COEX
 const ZONE_AMBIGUE: readonly string[] = [
   'src/lib/odyssee/sensible.ts',
   'src/lib/odyssee/chaines-du-suivi.ts',
+  'src/lib/odyssee/cycle.ts',
+  'src/lib/odyssee/cycle-confidentialite.ts',
 ];
 
 const estUnLibelle = (chaine: string) =>
