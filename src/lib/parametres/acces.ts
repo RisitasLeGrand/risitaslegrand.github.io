@@ -23,7 +23,7 @@ import {
 } from '../niveau';
 import { reglerLaRetention, retentionReglee } from '../notifications/retention';
 import { activerLaSante, santeActive } from '../odyssee/donnees-sante';
-import { champ, ecrireChamp } from '../profil';
+import { champ, ecrireChamp, supprimerChamp } from '../profil';
 import {
   ecrireBascule,
   ecrireChoixDeMode,
@@ -31,10 +31,10 @@ import {
   ecrirePalette,
   heuresDeBascule,
   heuresReglees,
-  oublierLesHeures,
   lireBascule,
   lireChoixDeMode,
   lirePalette,
+  oublierLesHeures,
   type Choix,
 } from '../theme';
 import type { Acces } from './modele';
@@ -100,7 +100,6 @@ const champDeProfil = (nom: string, defaut = ''): Acces => ({
   ecrire: async (v) => {
     const valeur = String(v ?? '').trim();
     if (!valeur) {
-      const { supprimerChamp } = await import('../profil');
       await supprimerChamp(nom);
       return;
     }
