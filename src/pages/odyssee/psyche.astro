@@ -262,14 +262,9 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
   } from '../../lib/coffre';
   import { rappelDeSauvegarde } from '../../lib/noyau/coffre';
   import { lireDerniereSauvegarde } from '../../lib/db';
+  import { agirPuisPeindre } from '../../lib/agir';
 
   const $ = (id: string) => document.getElementById(id)!;
-  const dire = (e: unknown) => {
-    const zone = $('erreur');
-    zone.textContent = e instanceof Error ? e.message : String(e);
-    zone.classList.remove('hidden');
-  };
-  const taire = () => $('erreur').classList.add('hidden');
 
   let checkins: Checkin[] = [];
   let hebdos: CheckinHebdo[] = [];
@@ -465,15 +460,28 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     await peindreRappel();
   }
 
-  const essayer = async (travail: () => Promise<unknown>) => {
-    try {
-      await travail();
-      taire();
-      await recharger();
-    } catch (erreur) {
-      dire(erreur);
-    }
-  };
+  /*
+     LA PORTE COMMUNE (43, section A), et un seul chemin pour « agir, puis
+     repeindre ».
+
+     Cet écran disait déjà ses échecs — et c'est pour cela qu'il valait
+     d'être repris : il les disait À SA FAÇON. Son ancien `dire` posait
+     `zone.textContent = String(e)`, c'est-à-dire le message brut de
+     l'exception : « QuotaExceededError », « The transaction was aborted ».
+     Et la zone ne portant pas de rôle, aucun lecteur d'écran ne l'annonçait.
+     Un écran qui parle mal n'est pas plus honnête qu'un écran muet ; il est
+     seulement plus difficile à soupçonner.
+
+     Ce que la porte apporte, en trois points :
+     - la traduction en une phrase utile — l'espace plein a la sienne, qui
+       dit où libérer de la place et que rien n'a été enregistré ;
+     - `role="alert"` posé sur la zone de l'écran, qui ne l'avait pas ;
+     - le REPEINT protégé lui aussi. Une écriture qui réussit et une
+       relecture qui échoue laissaient l'écran figé sans un mot : le même
+       défaut, une ligne plus bas.
+  */
+  const essayer = (travail: () => Promise<unknown>) =>
+    agirPuisPeindre(travail, { peindre: recharger, zone: 'erreur' });
 
   /**
    * Un appui, une écriture — M6, comme sur l'écran Corps.

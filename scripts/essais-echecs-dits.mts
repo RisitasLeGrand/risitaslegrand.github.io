@@ -240,6 +240,65 @@ console.log('\nLE FILET');
   await ctx.close();
 }
 
+/* ── 5. Psyché passe par la même porte (43, lot 2) ───────────────────────── */
+
+/*
+   POURQUOI CET ÉCRAN EN PARTICULIER. Il disait déjà ses échecs — et c'est
+   pour cela qu'il valait d'être repris : il les disait à sa façon.
+   `zone.textContent = String(e)` affichait le message brut d'une exception,
+   « QuotaExceededError », et sans rôle sur la zone, aucun lecteur d'écran ne
+   l'annonçait. Un écran qui parle mal n'est pas plus honnête qu'un écran
+   muet, il est seulement plus difficile à soupçonner.
+
+   Psyché est sous coffre : l'essai l'ouvre comme une personne le ferait.
+*/
+console.log('\nPSYCHÉ, PAR LA MÊME PORTE');
+{
+  const { ctx, page } = await ouvrir();
+  await page.goto(`${RACINE}/odyssee/psyche/`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1200);
+  if (await page.locator('#mdp-coffre').isVisible().catch(() => false)) {
+    await page.fill('#mdp-coffre', MDP);
+    await page.click('#ouvrir-coffre');
+    await page.waitForTimeout(2500);
+  }
+  const ouvert = await page.locator('#coffre-ouvert').isVisible().catch(() => false);
+  verifier('le coffre de Psyché s’ouvre', ouvert, true);
+
+  if (ouvert) {
+    await page.evaluate(saboterLesEcritures('QuotaExceededError'));
+    await page.locator('#entree').fill('Une entrée d’essai, qui ne doit pas être perdue en silence.');
+    await page.locator('#ecrire').click();
+    await page.waitForTimeout(1500);
+
+    const visible = page.locator('#echec-de-page:visible, [role="alert"]:visible').first();
+    const parue = (await visible.count()) > 0;
+    verifier('l’échec est dit', parue, true);
+    const dit = (parue ? ((await visible.textContent()) ?? '') : '').replace(/\s+/g, ' ');
+    verifier('en français, et non par le nom de l’exception', /QuotaExceededError/.test(dit), false);
+    verifier('l’écran parle d’espace plein', /espace .* plein/i.test(dit), true);
+    verifier('il dit où libérer de la place', /Stockage/.test(dit), true);
+    verifier('et que rien n’a été enregistré', /rien n’a été enregistré/.test(dit), true);
+    verifier(
+      'la zone porte role="alert", donc elle s’annonce',
+      parue ? await visible.getAttribute('role') : null,
+      'alert',
+    );
+  } else {
+    for (const quoi of [
+      'l’échec est dit',
+      'en français, et non par le nom de l’exception',
+      'l’écran parle d’espace plein',
+      'il dit où libérer de la place',
+      'et que rien n’a été enregistré',
+      'la zone porte role="alert", donc elle s’annonce',
+    ]) {
+      verifier(quoi, 'coffre resté fermé', true);
+    }
+  }
+  await ctx.close();
+}
+
 await nav.close();
 console.log(rouges === 0 ? '\n\x1b[32mTout est vert.\x1b[0m' : `\n\x1b[31m${rouges} rouge(s).\x1b[0m`);
 process.exit(rouges === 0 ? 0 : 1);
