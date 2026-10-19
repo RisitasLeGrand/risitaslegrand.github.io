@@ -55,6 +55,15 @@ const v = (intitule, obtenu, attendu) => {
   console.log(`  \x1b[31m✗\x1b[0m ${intitule}\n      obtenu  ${a}\n      attendu ${b}`);
 };
 const vrai = (intitule, condition) => v(intitule, condition === true, true);
+/*
+   `faux` passe quand la condition est fausse. La première écriture comparait
+   « condition === false » à « false », ce qui ne passait QUE si la condition
+   était vraie : l'aide affirmait exactement le contraire de son nom. Elle a
+   fait rougir un bilan dont le texte, imprimé juste à côté, ne contenait pas
+   ce que l'essai prétendait y trouver — c'est l'écart entre le verdict et la
+   mesure qui l'a dénoncée.
+*/
+const faux = (intitule, condition) => v(intitule, condition === false, true);
 
 /*
    Une panne est un échec, et elle se dit en rouge. Sans ce filet, une
@@ -444,6 +453,139 @@ for (const exercice of EXERCICES) {
     await reprendre.click();
     await page.waitForTimeout(400);
     v('la boîte se referme', await page.locator('dialog[open]').count(), 0);
+
+    await contexte.close();
+  } catch (erreur) {
+    direPanne(ou, erreur);
+    await contexte?.close().catch(() => {});
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   L2 — LA DÉCOUVERTE N'ÉCRIT RIEN
+   ════════════════════════════════════════════════════════════════════════
+
+   L'interdit 3 du prompt est le plus strict du lot : ni score, ni niveau, ni
+   statistique, ni XP, ni fait, ni journal. On ne le vérifie donc pas en
+   lisant le code — un chemin d'écriture oublié ne se voit pas — mais en
+   comparant la base AVANT et APRÈS une découverte menée jusqu'au bout.
+
+   Et la même mesure prouve la seconde chose : la découverte est détectée par
+   un magasin VIDE. Si elle écrivait, elle se retirerait elle-même la raison
+   d'être proposée. Les deux règles tiennent ou tombent ensemble.
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nL2 — LA DÉCOUVERTE DE MÉMOIRE N’ÉCRIT RIEN');
+
+{
+  const ou = 'Mémoire · découverte';
+  let contexte;
+  try {
+    const ouvert = await ouvrir(TAILLES[1], MODES[0], 'quad-n-back');
+    contexte = ouvert.contexte;
+    const page = ouvert.page;
+
+    /* L'état de la base, lu comme la page le lirait. */
+    const etatDeLaBase = () =>
+      page.evaluate(
+        () =>
+          new Promise((tenir) => {
+            const requete = indexedDB.open('revinsp');
+            requete.onsuccess = () => {
+              const base = requete.result;
+              const noms = [...base.objectStoreNames];
+              const vises = noms.filter((n) =>
+                ['nback', 'relationnel', 'vmSeuils', 'xp', 'faits', 'journal'].includes(n),
+              );
+              if (!vises.length) {
+                tenir({});
+                return;
+              }
+              const tx = base.transaction(vises, 'readonly');
+              const sortie = {};
+              let restants = vises.length;
+              for (const nom of vises) {
+                const compte = tx.objectStore(nom).count();
+                compte.onsuccess = () => {
+                  sortie[nom] = compte.result;
+                  restants -= 1;
+                  if (restants === 0) tenir(sortie);
+                };
+              }
+            };
+            requete.onerror = () => tenir({ erreur: true });
+          }),
+      );
+
+    const avant = await etatDeLaBase();
+    vrai(`${ou} — la base est lisible avant`, !avant.erreur);
+
+    /* La découverte est proposée, et sa durée est dite. */
+    const essayer = page.getByRole('button', { name: /^Essayer d’abord|^Essayer d'abord/ }).first();
+    await essayer.waitFor({ state: 'visible', timeout: 30000 });
+    const libelle = (await essayer.innerText()).trim();
+    vrai(`« ${libelle} » annonce une durée`, /\d/.test(libelle));
+
+    /*
+       L'HORLOGE EST INSTALLÉE AVANT LE LANCEMENT, et l'ordre n'est pas un
+       détail : `clock.install` ne gouverne que les minuteurs posés APRÈS
+       elle. Installée après le clic, elle laissait la boucle des épreuves
+       tourner sur l'horloge réelle, `runFor` n'avançait rien, et la partie
+       n'atteignait jamais son bilan — un essai qui mesurait l'installation de
+       l'horloge plutôt que la découverte.
+    */
+    await page.clock.install();
+    await essayer.click();
+    await page.locator('[data-zone-de-jeu]').first().waitFor({ state: 'visible', timeout: 30000 });
+
+    /*
+       Les réglages de la vraie partie ne doivent pas avoir bougé : la décision
+       1 l'interdit. La pastille de l'écran de jeu dit le n de la PARTIE, qui
+       doit valoir 1 en découverte — et l'écran de réglages devra toujours
+       afficher 2 à la sortie.
+    */
+    const pastille = await page.locator('[data-zone-de-jeu]').first().innerText();
+    vrai('la découverte tourne à n = 1', /n = 1\b/.test(pastille));
+
+    /*
+       Douze tours à trois secondes : on avance l'horloge plutôt que d'attendre
+       trente-six secondes. `runFor` et non `fastForward` : le second ne
+       déclenche chaque minuteur qu'une fois, et la boucle des épreuves en pose
+       un par tour.
+    */
+    await page.clock.runFor(12 * 3000 + 4000);
+
+    const titre = page.locator('h2', { hasText: 'Découverte terminée' }).first();
+    await titre.waitFor({ state: 'visible', timeout: 15000 });
+    vrai('la découverte se termine sur son propre bilan', await titre.isVisible());
+
+    /*
+       Le texte est lu DANS le bilan, et non dans la page : l'écran de réglages
+       porte un historique où « XP » figure légitimement, et le chercher
+       partout faisait rougir un bilan parfaitement muet sur les points.
+    */
+    const bilan = await titre.locator('..').innerText();
+
+    /*
+       ET LA DÉCOUVERTE A BIEN QUELQUE CHOSE À REPÉRER. Ce contrôle existe
+       parce que son absence a coûté cher : le taux de correspondance était
+       écrit en fraction là où le réglage attend un pourcentage, la partie ne
+       contenait aucune répétition, et le bilan annonçait « 0 répétition sur
+       0 » sans qu'aucune erreur ne soit levée. Une découverte sans rien à
+       trouver n'apprend rien, et c'est le seul contrôle qui le dise.
+    */
+    const aReperer = Number((bilan.match(/sur (\d+)/) ?? [])[1] ?? 0);
+    vrai(`la découverte propose ${aReperer} répétitions à repérer`, aReperer > 0);
+    vrai(
+      "et elle dit que rien n'a été enregistré",
+      /Rien n’a été enregistré|Rien n'a été enregistré/.test(bilan),
+    );
+    faux(
+      `aucun XP n’est annoncé dans le bilan — « ${bilan.replace(/\n+/g, ' | ')} »`,
+      /\bXP\b/.test(bilan),
+    );
+
+    const apres = await etatDeLaBase();
+    v("la base n'a pas changé", apres, avant);
 
     await contexte.close();
   } catch (erreur) {

@@ -77,6 +77,85 @@
   let debutSession = 0;
   let minuteurs = [];
 
+  /*
+     LES RÉGLAGES DE LA DÉCOUVERTE, et pourquoi ils vivent à part.
+
+     La décision 1 interdit de toucher aux valeurs par défaut de l'exercice.
+     Une découverte qui les écraserait les rendrait au mieux à l'identique, au
+     pire plus du tout — et le prix d'une erreur serait payé par quelqu'un qui
+     vient d'essayer. Elle ne les lit donc pas : elle a les siens, en dur,
+     ceux du constat P3.
+  */
+  const DECOUVERTE = {
+    n: 1,
+    epreuves: 12,
+    dimensions: ['position'],
+    grille3D: false,
+    dureeEpreuve: 3000,
+    retourImmediat: true,
+    /*
+       UN POURCENTAGE, PAS UNE FRACTION. J'avais écrit 0,3 en croyant dire
+       « trois sur dix » : le réglage s'exprime en pourcent — 25 par défaut,
+       comme quad-box — et 0,3 vaut donc trois pour mille. La découverte
+       n'avait RIEN à repérer, son bilan annonçait « 0 répétition sur 0 », et
+       l'astuce du constat P3, qui attend le premier tour comparable, ne
+       pouvait jamais paraître. Une découverte sans rien à trouver n'apprend
+       rien, et aucune erreur ne le signalait.
+
+       40 plutôt que 25 : la découverte doit montrer vite ce qu'est une
+       répétition, et douze tours ne laissent pas la place d'attendre.
+    */
+    tauxCorrespondance: 40,
+    interference: 0,
+    sourceMotif: 'voronoi',
+    decouverte: true,
+  };
+
+  /**
+   * Ce que la partie EN COURS suit, et qui n'est pas forcément les réglages.
+   *
+   * Pendant une partie, le rythme, la profondeur et le retour immédiat se
+   * lisaient dans `reglages` — ce qui marchait tant qu'une seule sorte de
+   * partie existait. Une découverte à 3 s par tour aurait alors défilé au
+   * rythme de 2,5 s de la vraie partie, et son retour immédiat aurait dépendu
+   * d'une case réglée pour une autre partie. Pire : régler les dimensions
+   * pendant qu'une partie court aurait changé la partie en cours.
+   *
+   * `enJeu` est posé au lancement et ne bouge plus. `partie.meta` porte déjà
+   * `n`, les dimensions et la grille ; ce qui manquait, c'est le rythme et le
+   * retour.
+   */
+  let enJeu = $state({ ...REGLAGES_DEFAUT, decouverte: false });
+
+  /**
+   * La durée de la découverte, en clair, déduite de ses réglages.
+   *
+   * `Intl` et non `toFixed` : c'est la règle du format, et une durée arrondie
+   * à la dizaine de secondes se lit mieux qu'une seconde près — personne ne
+   * compte « 36 secondes ».
+   */
+  const dureeDecouverte = (() => {
+    const secondes = (DECOUVERTE.epreuves * DECOUVERTE.dureeEpreuve) / 1000;
+    if (secondes < 90) {
+      const dizaines = Math.round(secondes / 10) * 10;
+      return `environ ${new Intl.NumberFormat('fr-FR').format(dizaines)} secondes`;
+    }
+    const minutes = Math.round(secondes / 60);
+    return `environ ${new Intl.NumberFormat('fr-FR').format(minutes)} minutes`;
+  })();
+
+  /*
+     L'ASTUCE DE LA DÉCOUVERTE, montrée UNE FOIS.
+
+     Le constat P3 veut qu'au premier tour comparable une phrase dise quoi
+     faire. Une fois, et pas à chaque correspondance : répétée, elle
+     répondrait à la place de la personne et la découverte n'apprendrait plus
+     rien. Elle n'existe que dans la découverte — dans une vraie partie, ce
+     serait souffler la réponse.
+  */
+  let astuce = $state('');
+  let astuceVue = $state(false);
+
   /** La consigne est ouverte pendant la partie : la partie est en pause (P2 du 51). */
   let consigneEnPause = $state(false);
 
@@ -182,7 +261,7 @@
   }
 
   const retoursNeutres = () =>
-    Object.fromEntries(reglages.dimensions.map((cle) => [cle, 'neutre']));
+    Object.fromEntries(enJeu.dimensions.map((cle) => [cle, 'neutre']));
 
   /**
    * Fin d'une épreuve : les correspondances qui n'ont pas été signalées
@@ -191,7 +270,7 @@
    * puis s'efface au bout d'une demi-seconde.
    */
   function detecterOublis(indiceEpreuve) {
-    if (!reglages.retourImmediat || !partie || indiceEpreuve < 0) return;
+    if (!enJeu.retourImmediat || !partie || indiceEpreuve < 0) return;
     const epreuve = partie.epreuves[indiceEpreuve];
     if (!epreuve) return;
 
@@ -218,13 +297,37 @@
     minuteurs.push(setTimeout(fn, delai));
   }
 
+  /** Lance la vraie partie, aux réglages de la personne. */
   function commencer() {
     if (reglages.dimensions.length === 0) return;
+    lancerUnePartie({ ...reglages, decouverte: false });
+  }
+
+  /**
+   * Lance la partie découverte, aux réglages du constat P3.
+   *
+   * Elle n'écrit rien : le garde-fou existait déjà dans `terminer`, qui
+   * n'enregistre qu'une partie « terminee ». La découverte s'achève sur une
+   * autre cause, et sort donc avant la première écriture — aucune session,
+   * aucun XP, aucun badge, aucun jalon de progression.
+   */
+  function commencerLaDecouverte() {
+    lancerUnePartie(DECOUVERTE);
+  }
+
+  function lancerUnePartie(parametres) {
+    if (parametres.dimensions.length === 0) return;
+    enJeu = { ...parametres };
     // Indispensable pour le redémarrage en cours de partie : sans cela, les
     // minuteurs de la session abandonnée continueraient de faire défiler les
     // épreuves de la nouvelle.
     nettoyerMinuteurs();
-    memoriserReglages();
+    /*
+       Les réglages ne sont mémorisés que pour une vraie partie : la décision 1
+       veut que ceux de l'exercice restent intacts, et la découverte n'a pas à
+       devenir le nouveau défaut de qui l'essaie une fois.
+    */
+    if (!enJeu.decouverte) memoriserReglages();
 
     // Le déverrouillage audio part avec le geste de l'utilisateur — condition
     // des navigateurs mobiles — mais on ne l'attend pas : la promesse peut
@@ -234,15 +337,17 @@
     void lecteurAudio.debloquer();
 
     partie = genererPartie({
-      n: reglages.n,
-      epreuves: reglages.epreuves,
-      dimensions: [...reglages.dimensions],
-      grille3D: reglages.grille3D,
-      tauxCorrespondance: reglages.tauxCorrespondance,
-      interference: reglages.interference,
-      sourceMotif: reglages.sourceMotif,
+      n: enJeu.n,
+      epreuves: enJeu.epreuves,
+      dimensions: [...enJeu.dimensions],
+      grille3D: enJeu.grille3D,
+      tauxCorrespondance: enJeu.tauxCorrespondance,
+      interference: enJeu.interference,
+      sourceMotif: enJeu.sourceMotif,
     });
     index = -1;
+    astuce = '';
+    astuceVue = false;
     signalees = {};
     retours = retoursNeutres();
     bilan = null;
@@ -273,19 +378,32 @@
 
     index += 1;
     if (!partie || index >= partie.epreuves.length) {
-      void terminer('terminee');
+      void terminer(enJeu.decouverte ? 'decouverte' : 'terminee');
       return;
     }
 
     signalees = {};
     visible = true;
     const epreuve = partie.epreuves[index];
-    if (reglages.dimensions.includes('son')) lecteurAudio.jouer(epreuve.son);
+
+    /*
+       L'astuce paraît au premier tour où une comparaison est possible ET où
+       la position se répète : c'est le seul tour où la phrase est vraie. La
+       montrer plus tôt parlerait d'un tour qui n'a rien à comparer.
+    */
+    if (enJeu.decouverte && !astuceVue && index >= partie.meta.n && epreuve.correspondances.includes('position')) {
+      astuce = 'Ce carré est à la même place qu’au tour précédent : c’est le moment de toucher Position.';
+      astuceVue = true;
+    } else if (astuce && index > 0) {
+      astuce = '';
+    }
+
+    if (enJeu.dimensions.includes('son')) lecteurAudio.jouer(epreuve.son);
 
     // Le stimulus reste affiché la moitié du temps d'épreuve : l'intervalle
     // vide oblige à mémoriser plutôt qu'à comparer visuellement.
-    planifier(() => (visible = false), reglages.dureeEpreuve * 0.5);
-    planifier(epreuveSuivante, reglages.dureeEpreuve);
+    planifier(() => (visible = false), enJeu.dureeEpreuve * 0.5);
+    planifier(epreuveSuivante, enJeu.dureeEpreuve);
   }
 
   /*
@@ -315,10 +433,10 @@
     const mien = (lancement += 1);
     const epreuve = partie.epreuves[index];
     visible = true;
-    if (reglages.dimensions.includes('son')) lecteurAudio.jouer(epreuve.son);
+    if (enJeu.dimensions.includes('son')) lecteurAudio.jouer(epreuve.son);
     if (mien !== lancement) return;
-    planifier(() => (visible = false), reglages.dureeEpreuve * 0.5);
-    planifier(epreuveSuivante, reglages.dureeEpreuve);
+    planifier(() => (visible = false), enJeu.dureeEpreuve * 0.5);
+    planifier(epreuveSuivante, enJeu.dureeEpreuve);
   }
 
   function signaler(dimension) {
@@ -331,7 +449,7 @@
 
     // Les n premières épreuves n'ont pas de point de comparaison : y répondre
     // ne compte pas dans le score, le retour reste donc neutre.
-    if (!reglages.retourImmediat || index < partie.meta.n) return;
+    if (!enJeu.retourImmediat || index < partie.meta.n) return;
     const juste = partie.epreuves[index].correspondances.includes(dimension);
     retours = { ...retours, [dimension]: juste ? 'reussite' : 'echec' };
   }
@@ -810,13 +928,37 @@
         {/if}
       </fieldset>
 
-      <button
-        onclick={commencer}
-        disabled={reglages.dimensions.length === 0}
-        class="mt-6 w-full rounded-lg bg-indigo-600 px-5 py-3 font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50 sm:w-auto"
-      >
-        Commencer la session
-      </button>
+      <!--
+        « ESSAYER D'ABORD » D'ABORD, tant qu'aucune partie n'a été jouée.
+
+        L'ordre des deux boutons suit la demande : la découverte est proposée
+        en premier tant que l'historique est vide, et passe derrière ensuite.
+        Elle ne disparaît jamais — on peut vouloir y revenir.
+
+        LA DURÉE EST CALCULÉE, PAS RECOPIÉE. L'audit écrit « Essayer d'abord
+        (1 minute) ». Douze tours à trois secondes font trente-six secondes :
+        annoncer une minute surestimerait de près des deux tiers, et c'est le
+        genre de chiffre qu'on ne corrige plus. Il se déduit donc de
+        « DECOUVERTE », et suivra si ses valeurs changent.
+      -->
+      <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap {historique.length === 0 ? 'sm:flex-row-reverse sm:justify-end' : ''}">
+        <button
+          type="button"
+          onclick={commencer}
+          disabled={reglages.dimensions.length === 0}
+          class="w-full rounded-lg bg-indigo-600 px-5 py-3 font-medium text-white transition hover:bg-indigo-700 disabled:opacity-50 sm:w-auto"
+        >
+          Commencer
+        </button>
+        <button
+          type="button"
+          onclick={commencerLaDecouverte}
+          class="w-full rounded-lg border border-slate-300 px-5 py-3 font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto"
+        >
+          Essayer d'abord ({dureeDecouverte})
+        </button>
+      </div>
+
       <p class="mt-2 text-xs text-slate-400">
         Raccourci : <kbd class="rounded border border-slate-300 px-1 dark:border-slate-600">Entrée</kbd>
         lance la session, <kbd class="rounded border border-slate-300 px-1 dark:border-slate-600">Échap</kbd> l'interrompt.
@@ -973,6 +1115,13 @@
     </div>
     <p class="sr-only" aria-live="polite">{annonceRetour}</p>
 
+    {#if astuce}
+      <p
+        role="status"
+        class="rounded-lg border border-slate-200 px-3 py-2 text-center text-sm font-medium text-slate-700 dark:border-slate-700 dark:text-slate-200"
+      >{astuce}</p>
+    {/if}
+
 
     {#if reglages.retourImmediat}
       <p class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center text-xs text-slate-400">
@@ -989,7 +1138,20 @@
   </div>
 {:else if ecran === 'bilan'}
   <div class="py-6 text-center">
-    {#if bilan.cause !== 'terminee'}
+    <!--
+      TROIS FINS, ET NON DEUX. Une découverte n'est pas une session
+      interrompue : elle est allée au bout, elle ne compte simplement pas.
+      Les confondre sous « Session interrompue » dirait à quelqu'un qui vient
+      de tout faire correctement qu'il a abandonné.
+    -->
+    {#if bilan.cause === 'decouverte'}
+      <h2 class="text-xl font-bold text-slate-900 dark:text-white">Découverte terminée</h2>
+      <p class="mx-auto mt-2 max-w-md text-sm text-slate-600 dark:text-slate-300">
+        Vous avez repéré {bilan.reperees} répétition{bilan.reperees > 1 ? 's' : ''} sur
+        {bilan.aReperer}. Rien n'a été enregistré : ni résultat, ni niveau, ni points.
+        Quand vous voudrez que cela compte, touchez « Commencer ».
+      </p>
+    {:else if bilan.cause !== 'terminee'}
       <p class="text-4xl">⏸️</p>
       <h2 class="mt-3 text-xl font-bold text-slate-900 dark:text-white">Session interrompue</h2>
       <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
