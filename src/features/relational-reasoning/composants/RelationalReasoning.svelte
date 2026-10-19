@@ -25,6 +25,7 @@
   import { confirmer } from '../../../lib/boite';
   import { amenerLaZone } from '../../cog-training/zone-de-jeu';
   import CommentCaMarche from '../../cog-training/composants/CommentCaMarche.svelte';
+  import Glossaire from '../../cog-training/composants/Glossaire.svelte';
   import MonEntrainement from '../../cog-training/composants/MonEntrainement.svelte';
   import type { GroupeUnites } from '../../cog-training/unites';
   import { gagnerXp, xpRelationnel } from '../../../lib/gamification';
@@ -607,11 +608,11 @@
       resultats[resultats.length - 1]?.donnee ?? null,
     );
     ouvrirAssistant({
-      titre: 'Préparer une question pour une IA — Relational Reasoning',
-      matiere: 'Cog-Training',
+      titre: 'Préparer une question pour une IA — Raisonnement relationnel',
+      matiere: 'Entraînement cognitif',
       construireContexte: async () =>
         contexteCogTraining({
-          exercice: 'Relational Reasoning',
+          exercice: 'Raisonnement relationnel',
           moteur: moteur
             ? { nom: moteur.nom, resume: moteur.resume, famille: moteur.categorie }
             : undefined,
@@ -660,6 +661,7 @@
   <p class="py-16 text-center text-sm text-slate-400">Lecture de votre progression…</p>
 {:else if etape === 'accueil'}
   <CommentCaMarche ouvert={traces.length === 0}>{@render consigne()}</CommentCaMarche>
+    <Glossaire ou="raisonnement" />
   <section class="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
@@ -759,7 +761,7 @@
 {:else if etape === 'question' && question}
   <section bind:this={zoneDeJeu} data-zone-de-jeu>
     <div class="mb-4 flex items-center justify-between gap-4">
-      <p class="text-xs font-medium uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
+      <p class="text-xs font-medium tracking-wide text-indigo-700 dark:text-indigo-300">
         {nomMoteur(question.item.moteur)}{question.second ? ' — second temps' : ''}
       </p>
       <div class="flex items-center gap-3">
@@ -1082,7 +1084,7 @@
 
     {#if manques.length}
       <h3 class="mt-6 text-sm font-semibold text-slate-900 dark:text-white">
-        Les {manques.length} item{manques.length > 1 ? 's' : ''} à revoir
+        Les {manques.length} question{manques.length > 1 ? 's' : ''} à revoir
       </h3>
       <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
         Relire une explication juste après la session vaut mieux que la remettre à plus tard.
@@ -1090,7 +1092,7 @@
       <ul class="mt-3 space-y-3">
         {#each manques as manque, i (i)}
           <li class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-            <p class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <p class="text-xs font-medium tracking-wide text-slate-500 dark:text-slate-400">
               {nomMoteur(manque.question.item.moteur)}
               {#if manque.note > 0}— {Math.round(manque.note * 100)} %{/if}
             </p>
@@ -1129,14 +1131,14 @@
         {/each}
       </ul>
     {:else}
-      <p class="mt-4 text-sm text-emerald-700 dark:text-emerald-300">Aucun item manqué.</p>
+      <p class="mt-4 text-sm text-emerald-700 dark:text-emerald-300">Aucune question manquée.</p>
     {/if}
 
     <button
       type="button"
       onclick={() => (etape = 'accueil')}
       class="mt-6 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
-    >Nouvelle session</button>
+    >Retour aux réglages</button>
   </section>
 {/if}
 

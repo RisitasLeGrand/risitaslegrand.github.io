@@ -923,6 +923,85 @@ console.log('\nP7 (SUITE) — UNE SESSION MENÉE AU BOUT N’EN ENREGISTRE QU’
   }
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   L4 — L'ACCUEIL DIT PAR OÙ COMMENCER, ET LES MOTS SONT UNIFIÉS
+   ════════════════════════════════════════════════════════════════════════
+
+   L'essai de vocabulaire, « essais:mots-cog », lit la source et voit tous les
+   cas, y compris ceux qu'un tirage montre une fois sur cent. Celui-ci
+   complète par ce qui ne se lit pas dans la source : que l'accueil affiche
+   bien ce qu'on attend, et que le glossaire s'ouvre depuis chaque exercice.
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nL4 — L’ACCUEIL ET LES MOTS');
+
+{
+  let contexte;
+  try {
+    const ouvert = await ouvrir(TAILLES[0], MODES[0], '');
+    contexte = ouvert.contexte;
+    const page = ouvert.page;
+    await page.goto(`${BASE}/cog-training/`, { waitUntil: 'networkidle' });
+    if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
+      await page.fill('#champ-mdp', MDP);
+      await page.click('#bouton-verrou');
+      await page.waitForLoadState('networkidle');
+    }
+    await page.waitForSelector('#exercices:not(.hidden)', { timeout: 30000 });
+    const texte = await page.locator('main').innerText();
+
+    vrai('l’accueil dit par où commencer', /Nouveau \?/.test(texte));
+    vrai('et nomme Raisonnement relationnel', /Commencez par\s+Raisonnement relationnel/.test(texte));
+    vrai('chaque carte dit sa durée et son matériel', (texte.match(/Durée et matériel/g) ?? []).length === 3);
+    vrai(
+      'et ce que l’exercice fait travailler',
+      (texte.match(/Ce que l’exercice fait travailler|Ce que l'exercice fait travailler/g) ?? []).length === 3,
+    );
+    faux('aucun « Utile pour »', /Utile pour/.test(texte));
+    faux('aucun « Tableau de bord »', /Tableau de bord/.test(texte));
+
+    /* Le français en titre, l'anglais en petit dessous (décision 3). */
+    const titres = await page.locator('#exercices h2').allInnerTexts();
+    v(
+      'les titres de carte sont en français',
+      titres.map((t) => t.trim()),
+      ['Mémoire de travail', 'Raisonnement relationnel', 'Correspondance perceptive'],
+    );
+    vrai('et les noms anglais sont là, en dessous', /Quad N-Back/.test(texte));
+
+    await contexte.close();
+  } catch (erreur) {
+    direPanne('Accueil', erreur);
+    await contexte?.close().catch(() => {});
+  }
+}
+
+for (const exercice of EXERCICES) {
+  let contexte;
+  try {
+    const ouvert = await ouvrir(TAILLES[0], MODES[0], exercice.route);
+    contexte = ouvert.contexte;
+    const page = ouvert.page;
+
+    const glossaire = page.locator('details').filter({ hasText: 'Les mots de ces exercices' }).first();
+    await glossaire.waitFor({ state: 'visible', timeout: 30000 });
+    await glossaire.locator('summary').click();
+    const contenu = await glossaire.innerText();
+    vrai(`${exercice.nom} — le glossaire s’ouvre`, contenu.length > 200);
+    vrai(
+      'et il range les trois exercices',
+      ['Mémoire de travail', 'Raisonnement relationnel', 'Correspondance perceptive'].every((n) =>
+        contenu.includes(n),
+      ),
+    );
+    vrai('en disant que le mot simple porte le sens', /Le mot simple porte le sens/.test(contenu));
+
+    await contexte.close();
+  } catch (erreur) {
+    direPanne(`${exercice.nom} · glossaire`, erreur);
+    await contexte?.close().catch(() => {});
+  }
+}
+
 await nav.close();
 console.log(
   echecs

@@ -29,6 +29,7 @@
   import { confirmer } from '../../../lib/boite';
   import { amenerLaZone } from '../../cog-training/zone-de-jeu';
   import CommentCaMarche from '../../cog-training/composants/CommentCaMarche.svelte';
+  import Glossaire from '../../cog-training/composants/Glossaire.svelte';
   import { gagnerXp, xpVeridical } from '../../../lib/gamification';
   import { debloquer, disponible } from '../audio';
   import { NOMS_FAMILLES, dimensionParId, type Famille } from '../dimensions';
@@ -188,11 +189,11 @@
     const corriges = corrigerEssai(essai, choix);
     const premier = corriges[0];
     ouvrirAssistant({
-      titre: 'Préparer une question pour une IA — Veridical Mapping',
-      matiere: 'Cog-Training',
+      titre: 'Préparer une question pour une IA — Correspondance perceptive',
+      matiere: 'Entraînement cognitif',
       construireContexte: async () =>
         contexteCogTraining({
-          exercice: 'Veridical Mapping',
+          exercice: 'Correspondance perceptive',
           moteur: {
             nom: `${essai!.arete.de.nom} → ${essai!.arete.vers.nom}`,
             resume:
@@ -593,6 +594,7 @@
   <p class="py-16 text-center text-sm text-slate-400">Lecture de vos seuils…</p>
 {:else if etape === 'accueil'}
   <CommentCaMarche ouvert={sessions.length === 0}>{@render consigne()}</CommentCaMarche>
+    <Glossaire ou="correspondance" />
   <section class="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <h2 class="font-semibold text-slate-900 dark:text-white">Régler la session</h2>
@@ -601,7 +603,7 @@
         onclick={() => (tableauOuvert = !tableauOuvert)}
         class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700
           hover:border-indigo-300 dark:border-slate-700 dark:text-slate-200"
-      >{tableauOuvert ? 'Masquer le tableau de bord' : 'Tableau de bord'}</button>
+      >{tableauOuvert ? 'Masquer mes seuils' : 'Mes seuils'}</button>
     </div>
 
     {#if tableauOuvert}
@@ -686,7 +688,9 @@
     </div>
 
     <fieldset class="mt-4">
-      <legend class="text-sm font-medium text-slate-700 dark:text-slate-200">Charge</legend>
+      <legend class="text-sm font-medium text-slate-700 dark:text-slate-200">
+        Correspondances par écran <span class="font-normal text-slate-400">(charge)</span>
+      </legend>
       <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
         Nombre de correspondances à tenir sur le même écran. Elle ne change pas la mesure du seuil,
         et ne s'applique qu'aux paires entièrement visuelles — un son se joue l'un après l'autre.
@@ -735,15 +739,20 @@
         {repartition.suffisant
           ? 'border-slate-200 text-slate-500 dark:border-slate-800 dark:text-slate-400'
           : 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200'}">
-        {repartition.aretes} arête{repartition.aretes > 1 ? 's' : ''} à parcourir, soit environ
+        {repartition.aretes} paire{repartition.aretes > 1 ? 's' : ''}
+        <span class="text-slate-400">(arête{repartition.aretes > 1 ? 's' : ''})</span>
+        à parcourir, soit environ
         {repartition.parArete.toFixed(0)} essai{repartition.parArete >= 2 ? 's' : ''} chacune.
         {#if repartition.suffisant}
-          De quoi faire progresser les escaliers ; un seuil demande une trentaine d'essais par arête,
-          cumulés d'une session à l'autre.
+          De quoi faire progresser les écarts qui se resserrent (escaliers) ; un plus petit écart
+          que vous distinguez (seuil) demande une trentaine d'essais par paire, cumulés d'une
+          session à l'autre.
         {:else}
-          <strong>C'est peu pour mesurer un seuil</strong> — il en faut une trentaine par arête.
+          <strong>C'est peu pour mesurer un plus petit écart (seuil)</strong> — il en faut une
+          trentaine par paire.
           Les escaliers avancent tout de même, puisqu'ils reprennent où ils s'étaient arrêtés, mais
-          l'arbre couvrant ou une session plus longue concentreraient mieux les essais.
+          les paires qui relient tout (arbre couvrant), ou une session plus longue,
+          concentreraient mieux les essais.
         {/if}
       </p>
     {/if}
@@ -771,9 +780,10 @@
         onclick={arreter}
         class="shrink-0 text-sm text-slate-500 hover:underline dark:text-slate-400"
       >← Arrêter</button>
-      <p class="text-xs font-medium uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
+      <p class="text-xs font-medium tracking-wide text-indigo-700 dark:text-indigo-300">
         {essai.arete.de.nom} → {essai.arete.vers.nom}
-        {#if essai.arete.transmodale}<span class="text-slate-400"> · transmodale</span>{/if}
+        {#if essai.arete.transmodale}<span class="text-slate-400">
+          · entre la vue et l'ouïe (transmodale)</span>{/if}
       </p>
       <!--
         Pas de pause : un essai attend sa réponse, aucune horloge ne court.
@@ -810,8 +820,24 @@
         couple de {essai.arete.vers.nom.toLowerCase()} reproduit <strong class="font-medium">le
         même écart</strong> ? La position ne compte pas : seule compte la distance entre les deux.
       {:else}
-        Lequel des deux {essai.arete.vers.nom.toLowerCase()} est au même niveau que
-        la référence en {essai.arete.de.nom.toLowerCase()} ?
+        <!--
+          LA PHRASE FAUTIVE DU CONSTAT P17, CORRIGÉE.
+
+          Elle s'écrivait « Lequel des deux intensité sonore est au même niveau
+          que la référence en taille ? » : le nom de la dimension est au
+          singulier et servait de nom pluriel, et « au même niveau » ne dit pas
+          niveau de quoi.
+
+          L'audit propose un nom pluriel par dimension — « sons », « ronds »,
+          « carrés ». Aucun n'existe dans le code, et les inventer demanderait
+          de déclarer ce que chaque dimension DESSINE, ce qu'aucune source ne
+          dit. J'emploie « propositions », qui est déjà le mot de l'écran : la
+          consigne de P2 et le verdict de P5 le disent tous deux. Écart
+          signalé.
+        -->
+        Laquelle des deux propositions en {essai.arete.vers.nom.toLowerCase()} est
+        à la même place sur son échelle que la référence en
+        {essai.arete.de.nom.toLowerCase()} ?
       {/if}
     </p>
 
@@ -1027,9 +1053,9 @@
       </p>
     {/if}
     <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-      Un taux de réussite proche de 70 % est le signe que l'escalier travaille au bon endroit : il
-      resserre l'écart jusqu'au point où l'on se trompe environ une fois sur trois. Un taux bien
-      plus haut voudrait dire que l'écart n'est pas encore assez fin.
+      Un taux de réussite proche de 70 % est le signe que l'écart qui se resserre (escalier)
+      travaille au bon endroit : il resserre l'écart jusqu'au point où l'on se trompe environ une
+      fois sur trois. Un taux bien plus haut voudrait dire que l'écart n'est pas encore assez fin.
     </p>
 
     <!--
@@ -1069,7 +1095,7 @@
       type="button"
       onclick={() => (etape = 'accueil')}
       class="mt-6 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
-    >Nouvelle session</button>
+    >Retour aux réglages</button>
   </section>
 {/if}
 

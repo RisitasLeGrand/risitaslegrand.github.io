@@ -22,7 +22,7 @@
 
 <div class="mt-4 space-y-5 border-t border-slate-200 pt-4 text-sm dark:border-slate-800">
   <p class="text-slate-600 dark:text-slate-300">
-    {stats.items} item{stats.items > 1 ? 's' : ''} joué{stats.items > 1 ? 's' : ''},
+    {stats.items} question{stats.items > 1 ? 's' : ''} jouée{stats.items > 1 ? 's' : ''},
     {stats.reussis} entièrement réussi{stats.reussis > 1 ? 's' : ''}, note moyenne
     {pourcent(stats.moyenne)}.
   </p>
@@ -41,7 +41,7 @@
           {#if !ligne.debloquee}
             <span class="text-xs text-slate-500 dark:text-slate-400">
               {#if ligne.resteItems > 0}
-                encore {ligne.resteItems} item{ligne.resteItems > 1 ? 's' : ''} sur l'exercice
+                encore {ligne.resteItems} question{ligne.resteItems > 1 ? 's' : ''} sur ce type de question
                 d'ouverture
               {:else}
                 {pourcent(ligne.taux)} sur les {CONDITIONS_MAITRISE.fenetre} derniers —
@@ -58,10 +58,10 @@
     <section>
       <h3 class="font-semibold text-slate-900 dark:text-white">Par exercice</h3>
       <table class="mt-2 w-full text-left">
-        <thead class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <thead class="text-xs tracking-wide text-slate-500 dark:text-slate-400">
           <tr>
             <th scope="col" class="pb-1 font-medium">Exercice</th>
-            <th scope="col" class="pb-1 text-right font-medium">Échelon</th>
+            <th scope="col" class="pb-1 text-right font-medium">Niveau</th>
             <th scope="col" class="pb-1 text-right font-medium">Items</th>
             <th scope="col" class="pb-1 text-right font-medium">Note</th>
           </tr>
@@ -88,10 +88,11 @@
     <section>
       <h3 class="font-semibold text-slate-900 dark:text-white">Par système</h3>
       <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-        C'est ici qu'on repère une algèbre mal comprise plutôt qu'une difficulté de raisonnement.
+        C'est ici qu'on repère une règle que suit une relation (algèbre) mal comprise,
+        plutôt qu'une difficulté de raisonnement.
       </p>
       <table class="mt-2 w-full text-left">
-        <thead class="text-xs uppercase tracking-wide text-slate-500 dark:text-slate-400">
+        <thead class="text-xs tracking-wide text-slate-500 dark:text-slate-400">
           <tr>
             <th scope="col" class="pb-1 font-medium">Système</th>
             <th scope="col" class="pb-1 text-right font-medium">Items</th>

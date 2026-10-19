@@ -24,6 +24,7 @@
   import { RETOURS } from '../moteur/constantes.js';
   import { amenerLaZone } from '../../cog-training/zone-de-jeu';
   import CommentCaMarche from '../../cog-training/composants/CommentCaMarche.svelte';
+  import Glossaire from '../../cog-training/composants/Glossaire.svelte';
   import { ajouterSessionNBack, toutesLesSessionsNBack } from '../../../lib/db';
   import { gagnerXp, xpNBack } from '../../../lib/gamification';
   import { notifier } from '../../../lib/ui';
@@ -144,6 +145,24 @@
    */
   const pourcent = (part) =>
     new Intl.NumberFormat('fr-FR', { style: 'percent', maximumFractionDigits: 0 }).format(part);
+
+  /** Des secondes, avec la virgule et l'espace insécable que `Intl` pose. */
+  const secondes = (valeur) =>
+    new Intl.NumberFormat('fr-FR', {
+      style: 'unit',
+      unit: 'second',
+      unitDisplay: 'narrow',
+      maximumFractionDigits: 1,
+    }).format(valeur);
+
+  /** Des minutes, même règle. */
+  const minutes = (enSecondes) =>
+    new Intl.NumberFormat('fr-FR', {
+      style: 'unit',
+      unit: 'minute',
+      unitDisplay: 'short',
+      maximumFractionDigits: 1,
+    }).format(enSecondes / 60);
 
   const dureeDecouverte = (() => {
     const secondes = (DECOUVERTE.epreuves * DECOUVERTE.dureeEpreuve) / 1000;
@@ -760,13 +779,15 @@
       « historique » est déjà lu pour l'écran : rien n'est écrit pour le savoir.
     -->
     <CommentCaMarche ouvert={historique.length === 0}>{@render consigne()}</CommentCaMarche>
+    <Glossaire ou="memoire" />
     <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
       <h2 class="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Réglages de la session</h2>
 
       <div class="grid gap-5 sm:grid-cols-2">
         <div>
           <label for="niveau-n" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
-            Profondeur : <strong>n = {reglages.n}</strong>
+            <strong>{reglages.n} tour{reglages.n > 1 ? 's' : ''} en arrière</strong>
+            <span class="font-normal text-slate-400">(n = {reglages.n})</span>
           </label>
           <input id="niveau-n" type="range" min="1" max="9" bind:value={reglages.n} class="w-full accent-indigo-600" />
           <p class="mt-1 text-xs text-slate-400">
@@ -780,13 +801,19 @@
           </label>
           <input id="nb-epreuves" type="range" min="10" max="60" step="2" bind:value={reglages.epreuves} class="w-full accent-indigo-600" />
           <p class="mt-1 text-xs text-slate-400">
-            Durée estimée : {Math.round((reglages.epreuves * reglages.dureeEpreuve) / 1000 / 6) / 10} min
+            Durée estimée : {minutes((reglages.epreuves * reglages.dureeEpreuve) / 1000)}
           </p>
         </div>
 
         <div>
           <label for="duree" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
-            Rythme : <strong>{(reglages.dureeEpreuve / 1000).toFixed(1)} s</strong> par épreuve
+            <!--
+              « 2,5 s » ET NON « 2.5 s » : le point décimal venait de
+              « toFixed », que le format proscrit. « Intl » met la virgule ET
+              l'espace insécable devant l'unité, ce qu'une concaténation à la
+              main n'aurait pas fait.
+            -->
+            Rythme : <strong>{secondes(reglages.dureeEpreuve / 1000)}</strong> par épreuve
           </label>
           <input id="duree" type="range" min="1500" max="5000" step="250" bind:value={reglages.dureeEpreuve} class="w-full accent-indigo-600" />
         </div>
@@ -800,7 +827,9 @@
 
         <div>
           <label for="interf" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
-            Interférence : <strong>{reglages.interference} %</strong>
+            Répétitions presque justes
+            <span class="font-normal text-slate-400">(interférence)</span> :
+            <strong>{reglages.interference} %</strong>
           </label>
           <input id="interf" type="range" min="0" max="60" step="5" bind:value={reglages.interference} class="w-full accent-indigo-600" />
           <p class="mt-1 text-xs text-slate-400">
@@ -989,7 +1018,7 @@
           {#each historique as session (session.id)}
             <div class="flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm dark:border-slate-800 dark:bg-slate-900">
               <span class="font-medium text-slate-800 dark:text-slate-100">
-                n = {session.n}
+                {session.n} tour{session.n > 1 ? 's' : ''} en arrière (n = {session.n})
                 <span class="ml-1 font-normal text-slate-400">{nomMode(session.titre)}</span>
               </span>
               <span class="text-xs text-slate-400">
@@ -1081,11 +1110,11 @@
           autant le dire, sinon l'absence de verdict passe pour une panne.
         -->
         <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-          amorçage
+          premiers tours <span class="font-normal">(amorçage)</span>
         </span>
       {/if}
       <span class="rounded-full bg-slate-900 px-2.5 py-0.5 text-xs font-semibold text-white dark:bg-white dark:text-slate-900">
-        n = {partie?.meta.n}
+        {partie?.meta.n} tour{(partie?.meta.n ?? 1) > 1 ? 's' : ''} en arrière (n = {partie?.meta.n})
       </span>
     </div>
 
@@ -1144,7 +1173,7 @@
 
     <p class="text-center text-xs text-slate-400">
       Signalez une correspondance avec l'épreuve {partie?.meta.n} rangs plus tôt.
-      « ↻ » relance une partie identique, Échap arrête.
+      « ↻ » recommence une nouvelle partie avec les mêmes réglages, Échap arrête.
     </p>
   </div>
 {:else if ecran === 'bilan'}
@@ -1236,11 +1265,17 @@
     {/if}
 
     <div class="mt-8 flex flex-wrap justify-center gap-3">
+      <!--
+        « REJOUER », PARCE QUE C'EST CE QUE FAIT CE BOUTON : il relance une
+        partie aux mêmes réglages, sans repasser par l'écran de réglages. Son
+        voisin, lui, y retourne. Les deux s'appelaient « Nouvelle session » et
+        « Réglages », ce qui laissait croire que le premier ouvrait un choix.
+      -->
       <button onclick={commencer} class="rounded-lg bg-indigo-600 px-5 py-2.5 font-medium text-white transition hover:bg-indigo-700">
-        Nouvelle session
+        Rejouer
       </button>
       <button onclick={retourAccueil} class="rounded-lg border border-slate-300 px-5 py-2.5 font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">
-        Réglages
+        Retour aux réglages
       </button>
     </div>
   </div>
