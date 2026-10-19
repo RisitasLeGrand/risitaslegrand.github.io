@@ -211,6 +211,24 @@ export const CHAMP_DATE: Record<string, string | null> = {
   // effacerait l'état d'une carte sous prétexte qu'elle est ancienne.
   cartes: null,
   fiches: null,
+  /*
+     L'ÉCOUTE EN COURS : UN SIGNET, PAS UN HISTORIQUE.
+
+     Le magasin porte une ligne par fiche, réécrite à chaque écoute, et son
+     `majLe` dit quand on l'a touchée pour la dernière fois. On pourrait donc
+     le découper par période — et c'est tentant, puisque la date existe.
+
+     Il reste à `null`, et le motif est l'asymétrie du risque. Si ce choix est
+     mauvais, un effacement par période laisse les signets ET LE DIT, par le
+     refus que l'écran affiche. Si l'autre choix l'était, il détruirait des
+     signets que personne ne pensait désigner. Un refus visible coûte une
+     phrase ; une destruction silencieuse coûte la donnée.
+
+     C'est une décision prise à la fusion de claude/p46-55, faute de
+     déclaration dans la branche. Elle se renverse d'une ligne si l'agent C ou
+     le pilote la juge mauvaise.
+  */
+  podcastPositions: null,
   competences: null,
   difficultes: null,
   qcmDgfip: null,
