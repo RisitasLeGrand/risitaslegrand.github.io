@@ -39,6 +39,8 @@ const v = (titre, obtenu, attendu) => {
 };
 const vrai = (titre, c) => v(titre, c, true);
 const faux = (titre, c) => v(titre, c, false);
+/** Ce qu'on a lu, sans en faire un verdict : utile quand l'essai échoue. */
+const mesure = (quoi, valeur) => console.log(`  \x1b[36m·\x1b[0m ${quoi} : ${valeur}`);
 
 const contexte = await nav.newContext();
 const page = await contexte.newPage();
@@ -478,6 +480,168 @@ console.log('\nL’EXPORT PRODUIT UN FICHIER, ET IL NE DIT RIEN DE TROP');
     [],
   );
   vrai('et l’écran dit ce qui a été exporté', await page.locator('#export-fait').isVisible());
+}
+
+console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
+
+{
+  /*
+     Le créneau doit être DÉJÀ PASSÉ pour qu'un oubli existe, et on ne peut
+     pas remonter l'horloge du navigateur. On pose donc l'heure prévue trois
+     heures avant maintenant, avec un délai de trente minutes.
+
+     Deux cas où ce décalage change de jour logique — la journée de Cyclades
+     bascule à 4 h — et où l'essai ne mesurerait pas ce qu'il croit. Il le
+     DIT alors au lieu de rougir ou de passer en silence : un essai qui se
+     saute sans le dire est un essai qu'on croit vert.
+  */
+  /*
+     La vraie condition n'est pas « il est assez tard », c'est « le créneau
+     tombe dans le MÊME jour logique que maintenant ». Mon premier garde-fou
+     refusait sur l'heure murale, et il s'est sauté sur 4 h 45 — une heure
+     qui tombe pourtant dans le bon jour, puisque la journée de Cyclades
+     bascule à 4 h. Il mesure maintenant ce qu'il devait mesurer.
+  */
+  const jourLogiqueDe = (d) => {
+    const x = new Date(d);
+    if (x.getHours() < 4) x.setDate(x.getDate() - 1);
+    return `${x.getFullYear()}-${String(x.getMonth() + 1).padStart(2, '0')}-${String(x.getDate()).padStart(2, '0')}`;
+  };
+  const maintenant = new Date();
+  /* Trois heures de recul d'abord, une seule ensuite : il faut seulement que
+     le délai de trente minutes soit dépassé. */
+  const h = [3, 1]
+    .map((recul) => new Date(maintenant.getTime() - recul * 3_600_000))
+    .find((candidat) => jourLogiqueDe(candidat) === jourLogiqueDe(maintenant));
+  const heure = h
+    ? `${String(h.getHours()).padStart(2, '0')}:${String(h.getMinutes()).padStart(2, '0')}`
+    : '';
+
+  if (!h) {
+    console.log(
+      '\x1b[36m·\x1b[0m non mesuré : à cette heure-ci, aucun créneau passé ne tombe dans le ' +
+        'jour logique courant, et l’essai mesurerait autre chose que ce qu’il annonce.',
+    );
+  } else {
+    /* Un second traitement, pour ne pas défaire ce que les essais d'au-dessus
+       ont établi sur le premier. */
+    await page.fill('#t-nom', 'Traitement du matin');
+    await page.click('#form-traitement button[type="submit"]');
+    await page.waitForTimeout(1200);
+
+    const bloc = page.locator('#traitements li', { hasText: 'Traitement du matin' });
+    await bloc.locator('details').first().locator('summary').click();
+    await page.waitForTimeout(300);
+    await bloc.locator('input[type="time"]').fill(heure);
+    await bloc.locator('button:has-text("Ajouter cette heure")').click();
+    await bloc.locator('details').first().locator('button[type="submit"]').click();
+    await page.waitForTimeout(1500);
+
+    const reglage = bloc.locator('details').nth(1);
+    await reglage.locator('summary').click();
+    await page.waitForTimeout(300);
+    await reglage.locator('input[type="checkbox"]').first().check();
+    await page.waitForTimeout(200);
+    await reglage.locator('input[type="checkbox"]').nth(1).check();
+    await page.waitForTimeout(200);
+    await reglage.locator('select').nth(2).selectOption('30');
+    await reglage.locator('button[type="submit"]').click();
+    await page.waitForTimeout(2000);
+
+    const ligne = page.locator('#creneaux li', { hasText: 'Traitement du matin' });
+    const texte = await ligne.textContent();
+    mesure('la ligne du créneau oublié', JSON.stringify(texte));
+    /*
+       LE TEXTE DU RAPPEL, et il remplace la ligne ordinaire au lieu de s'y
+       ajouter : « Prévu à 8 h » suivi de « prévue à 8 h, rien n'est noté »
+       dirait deux fois la même chose, et la répétition ferait du constat
+       une insistance.
+    */
+    vrai('il dit que rien n’est noté', texte.includes('rien n’est noté'));
+    vrai('et rappelle l’heure prévue', texte.includes('prévue à'));
+    faux('sans répéter « Prévu à »', texte.includes('Prévu à'));
+    /*
+       AUCUN CONSEIL DE RATTRAPAGE, AUCUN DÉCOMPTE. C'est l'interdit § 1
+       n° 2 et n° 3 sur le seul texte que le rappel produise.
+    */
+    v(
+      'il ne conseille rien et ne compte rien',
+      [/(?<!vous )\bprenez\b/i, /\bdoublez\b/i, /\bsautez\b/i, /\brattrapez\b/i, /depuis \d+/i]
+        .filter((r) => r.test(texte))
+        .map(String),
+      [],
+    );
+    /* Et les deux appuis sont toujours là : un rappel est une relance, pas
+       un état qui enlèverait le moyen de répondre. */
+    v(
+      'les deux appuis restent offerts',
+      await ligne.locator('button').evaluateAll((b) => b.map((x) => x.textContent)),
+      ['Pris', 'Pas aujourd’hui'],
+    );
+
+    /*
+       CE QUI EST DÉPOSÉ AU CENTRE. On lit le magasin tel qu'une extension
+       ou un curieux le lirait : seuls l'identifiant — une empreinte — et le
+       genre y sont en clair. La source, la référence, donc le traitement et
+       l'heure, sont dans le bloc chiffré.
+    */
+    const centre = await page.evaluate(
+      () =>
+        new Promise((resoudre, rejeter) => {
+          const d = indexedDB.open('revinsp');
+          d.onerror = () => rejeter(d.error);
+          d.onsuccess = () => {
+            const tx = d.result.transaction('centreElements', 'readonly');
+            const tout = tx.objectStore('centreElements').getAll();
+            tout.onsuccess = () => resoudre(tout.result);
+            tout.onerror = () => rejeter(tout.error);
+          };
+        }),
+    );
+    v('un élément déposé au centre, et un seul', centre.length, 1);
+    vrai('sa clé est une empreinte, pas une référence lisible', /^[0-9a-f]{32}$/.test(centre[0].id));
+    /*
+       Genre « à savoir » et non « à trancher » : une question à trancher ne
+       quitte jamais le compteur tant qu'elle n'est pas résolue, et une
+       prise sans réponse n'est pas une question — ne rien répondre est une
+       réponse. En faire une question aurait fabriqué le compteur d'oublis
+       que l'interdit § 1 n° 3 refuse.
+    */
+    v('son genre ne compte pas dans la pastille', centre[0].genre, 'a-savoir');
+    v(
+      'et rien d’autre n’est lisible sans la clé',
+      Object.keys(centre[0]).filter((k) => !['id', 'genre', 'scelle', 'iv', 'majLe'].includes(k)),
+      [],
+    );
+    const brut = JSON.stringify(centre[0]);
+    v(
+      'ni le traitement, ni l’heure, ni le nom de la source',
+      ['Traitement du matin', heure, 'rappel-de-prise'].filter((m) => brut.includes(m)),
+      [],
+    );
+
+    /*
+       RÉPONDRE RETIRE LE RAPPEL. C'est la seconde moitié du recensement,
+       celle qu'on oublie : sans elle, le centre ne décroîtrait jamais, et
+       un compteur qui ne redescend pas finit par ne plus être lu.
+    */
+    await ligne.locator('button:has-text("Pas aujourd’hui")').click();
+    await page.waitForTimeout(9000);
+    const apresReponse = await page.evaluate(
+      () =>
+        new Promise((resoudre, rejeter) => {
+          const d = indexedDB.open('revinsp');
+          d.onerror = () => rejeter(d.error);
+          d.onsuccess = () => {
+            const tx = d.result.transaction('centreElements', 'readonly');
+            const tout = tx.objectStore('centreElements').count();
+            tout.onsuccess = () => resoudre(tout.result);
+            tout.onerror = () => rejeter(tout.error);
+          };
+        }),
+    );
+    v('une réponse retire le rappel du centre', apresReponse, 0);
+  }
 }
 
 console.log('\nREFERMER LE COFFRE REFERME L’ÉCRAN');

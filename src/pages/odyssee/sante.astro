@@ -311,6 +311,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     type Traitement,
   } from '../../lib/odyssee/sante';
   import type { JourSemaine } from '../../lib/odyssee/repetition';
+  import { creneauxOublies, texteDuRappelDOubli } from '../../lib/odyssee/rappels';
   import { ATTRIBUTION } from '../../lib/odyssee/bibliotheque-externe';
   import { lien } from '../../lib/ui';
   import { chercher, type EntreeRegistre } from '../../lib/odyssee/molecules';
@@ -420,6 +421,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     creneau: CreneauPrevu,
     rendu: RenduDeCreneau,
     attendu: boolean,
+    oublie: boolean,
   ): HTMLLIElement {
     const li = document.createElement('li');
     li.className =
@@ -440,13 +442,26 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     */
     sous.className = 'mt-0.5 text-xs text-slate-500 dark:text-slate-400';
     const quantite = traitement.schema?.quantite ?? '';
+    /*
+       LE TEXTE DU RAPPEL D'OUBLI EST ICI, et c'est le seul endroit où il
+       s'écrit en toutes lettres. Au centre de notifications, l'élément ne
+       porte aucun texte (§ 2.3 du prompt 32) ; en notification du système,
+       le libellé est une constante unique. Ce qui reste est l'écran, où le
+       coffre est déjà ouvert — ce que P4 appelle « sous coffre ».
+
+       Il REMPLACE la ligne ordinaire au lieu de s'y ajouter : « Prévu à
+       8 h » suivi de « prévue à 8 h, rien n'est noté » dirait deux fois la
+       même chose, et la répétition ferait du constat une insistance.
+    */
     const prevu = `Prévu à ${enHeure(creneau.heure)}${quantite ? ` · ${quantite}` : ''}`;
     sous.textContent =
       rendu.etat === 'pris'
         ? `${prevu} · Noté à ${instantEnHeure(rendu.le)}`
         : rendu.etat === 'pas-aujourdhui'
           ? `${prevu} · Pas aujourd’hui`
-          : prevu;
+          : oublie
+            ? `${texteDuRappelDOubli(traitement, creneau.heure)}${quantite ? ` · ${quantite}` : ''}`
+            : prevu;
     gauche.append(titre, sous);
     li.append(gauche);
 
@@ -553,6 +568,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   function peindreLesCreneaux(
     traitements: readonly Traitement[],
     marques: readonly MarqueDeCreneau[],
+    oublies: readonly string[],
   ): void {
     const zone = $('creneaux');
     zone.replaceChildren();
@@ -570,7 +586,15 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
     for (const { t, c } of duJour) {
       const attendu = enAttente.get(cleDuCreneau(c));
-      zone.append(ligneDeCreneau(t, c, attendu ?? etatDuCreneau(c, marques), Boolean(attendu)));
+      zone.append(
+        ligneDeCreneau(
+          t,
+          c,
+          attendu ?? etatDuCreneau(c, marques),
+          Boolean(attendu),
+          !attendu && oublies.includes(cleDuCreneau(c)),
+        ),
+      );
     }
   }
 
@@ -1121,8 +1145,32 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
         toutesLesMarques(),
       ]);
 
-    peindreLesCreneaux(traitements, marques);
+    /*
+       LES RAPPELS D'OUBLI, calculés ici et déposés au centre.
+
+       Le recensement est idempotent : l'identifiant d'un élément dérive de
+       sa source et de sa référence, et `deposer` n'émet que pour un élément
+       NEUF. Rafraîchir cet écran dix fois ne fait donc pas dix
+       notifications — c'est « une seule relance par créneau », obtenue sans
+       aucun code de garde.
+
+       Et c'est bien ici qu'il faut le faire, faute de mieux : ce calcul lit
+       des traitements et des créneaux scellés, donc il exige le coffre
+       ouvert. Un service worker réveillé en arrière-plan n'y arriverait
+       pas — il n'a pas accès au stockage de session où vit la clé. C'est la
+       limite que l'écran du réglage annonce.
+    */
+    const oublies = creneauxOublies(traitements, marques, new Date(), AUJOURDHUI);
+    peindreLesCreneaux(traitements, marques, oublies.map((o) => `${o.traitementId}|${o.jour}|${o.heure}`));
     peindreLExport(traitements);
+    void (async () => {
+      const { recenserLesOublis } = await import('../../lib/notifications/alimentation');
+      await recenserLesOublis(oublies.map((o) => o.ref));
+    })().catch(() => {
+      /* Le centre est hors d'atteinte : l'écran, lui, a déjà tout montré.
+         Une notification qui ne part pas coûte un signal ; un écran qui
+         plante pour cela coûte la page entière. */
+    });
 
     const zoneT = $('traitements');
     zoneT.replaceChildren();

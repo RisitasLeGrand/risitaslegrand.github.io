@@ -35,6 +35,7 @@ import {
   controlerLExportDesRappels,
   rappelsEnIcs,
 } from '../src/lib/odyssee/rappels-ics';
+import { creneauxOublies, texteDuRappelDOubli } from '../src/lib/odyssee/rappels';
 import { MAGASINS_SCELLES } from '../src/lib/noyau/coffre';
 
 let echecs = 0;
@@ -619,6 +620,215 @@ v('le réglage par défaut ne sonne pas', [reglageParDefaut().actif, reglageParD
   false,
 ]);
 v('et le délai d’oubli par défaut est de deux heures', reglageParDefaut().delaiOubli, 120);
+
+console.log('\nLE RAPPEL D’OUBLI — IL PART UNE FOIS, APRÈS LE DÉLAI, ET JAMAIS SANS RAISON');
+
+/*
+   Tout est figé : le jour, l'heure prévue, l'instant d'observation. Un essai
+   qui lirait l'horloge serait vert la nuit et rouge le matin, et on finirait
+   par le croire capricieux plutôt que juste.
+
+   Le 19 octobre 2026 est en heure d'été : 8 h murales valent 06:00 UTC.
+*/
+const JOUR = '2026-10-19';
+const A_8H = '2026-10-19T06:00:00.000Z';
+const apres = (minutes: number) => new Date(Date.parse(A_8H) + minutes * 60_000);
+
+const quiSeRappelle = (modifications: Partial<ReglageDeRappel> = {}): Traitement =>
+  traitement({
+    schema: quotidien(['08:00']),
+    rappel: { ...reglageParDefaut(), actif: true, oubli: true, ...modifications },
+  });
+
+const marqueDe = (heure: string, etat: 'pris' | 'pas-aujourdhui'): MarqueDeCreneau => ({
+  id: 'b'.repeat(32),
+  traitementId: 't1',
+  jour: JOUR,
+  heure,
+  etat,
+  priseId: etat === 'pris' ? 'creneau-' + 'b'.repeat(32) : null,
+  le: A_8H,
+  majLe: A_8H,
+});
+
+const refs = (...args: Parameters<typeof creneauxOublies>) =>
+  creneauxOublies(...args).map((o) => o.ref);
+
+{
+  const t = quiSeRappelle();
+  /* Le délai par défaut est de deux heures : rien avant, et à la minute. */
+  v('rien à l’heure prévue', refs([t], [], apres(0), JOUR), []);
+  v('rien après une heure', refs([t], [], apres(60), JOUR), []);
+  v('rien une minute avant le délai', refs([t], [], apres(119), JOUR), []);
+  v('et le rappel à deux heures pile', refs([t], [], apres(120), JOUR), ['t1|2026-10-19|08:00']);
+  v('il tient après', refs([t], [], apres(300), JOUR), ['t1|2026-10-19|08:00']);
+}
+
+{
+  /* Le délai est celui que la personne a choisi, pas celui de Cyclades. */
+  const court = quiSeRappelle({ delaiOubli: 30 });
+  v('un délai de trente minutes part à trente minutes', refs([court], [], apres(30), JOUR), [
+    't1|2026-10-19|08:00',
+  ]);
+  const long = quiSeRappelle({ delaiOubli: 240 });
+  v('et un délai de quatre heures ne part pas à trois', refs([long], [], apres(180), JOUR), []);
+}
+
+console.log('\nJAMAIS SI QUELQUE CHOSE EST NOTÉ');
+
+{
+  const t = quiSeRappelle();
+  v('« Pris » éteint le rappel', refs([t], [marqueDe('08:00', 'pris')], apres(300), JOUR), []);
+  /*
+     « Pas aujourd'hui » l'éteint AUSSI, et c'est le point : c'est une
+     réponse, pas une absence de réponse. Un rappel qui insisterait après
+     elle serait exactement le reproche que l'interdit § 1 n° 3 refuse.
+  */
+  v(
+    '« Pas aujourd’hui » l’éteint aussi',
+    refs([t], [marqueDe('08:00', 'pas-aujourdhui')], apres(300), JOUR),
+    [],
+  );
+  /* Une marque sur un AUTRE créneau ne répond pas pour celui-ci. */
+  v(
+    'une réponse donnée à 20 h ne vaut pas pour celle de 8 h',
+    refs([t], [marqueDe('20:00', 'pris')], apres(300), JOUR),
+    ['t1|2026-10-19|08:00'],
+  );
+}
+
+console.log('\nJAMAIS SANS LE DEMANDER, ET JAMAIS POUR UNE PRISE SPORADIQUE');
+
+v(
+  'un traitement sans réglage ne rappelle rien',
+  refs([traitement({ schema: quotidien(['08:00']) })], [], apres(300), JOUR),
+  [],
+);
+v(
+  '« Me rappeler » seul ne suffit pas : le rappel d’oubli est un second choix',
+  refs([quiSeRappelle({ oubli: false })], [], apres(300), JOUR),
+  [],
+);
+/*
+   JAMAIS POUR UNE PRISE SPORADIQUE — interdit § 1, et décision 12. Le refus
+   vient de `creneauxDuJour`, qui ne rend aucun créneau : une seule
+   implémentation de la règle, et non deux qui finiraient par diverger.
+*/
+v(
+  'jamais pour une prise sporadique, même réglée pour rappeler',
+  refs(
+    [
+      traitement({
+        sporadique: true,
+        schema: quotidien(['08:00']),
+        rappel: { ...reglageParDefaut(), actif: true, oubli: true },
+      }),
+    ],
+    [],
+    apres(300),
+    JOUR,
+  ),
+  [],
+);
+v(
+  'ni hors de la période du traitement',
+  refs([quiSeRappelle()], [], apres(300), '2026-09-30'),
+  [],
+);
+
+console.log('\nAU PLUS UN PAR TRAITEMENT ET PAR JOUR');
+
+{
+  /*
+     Matin ET soir sans réponse : UN rappel, sur le plus ancien. Deux auraient
+     été deux interruptions pour un même traitement le même jour, et la
+     pente vers le compteur d'oublis commence là.
+
+     L'observation est faite à 23 h, soit trois heures après le créneau de
+     20 h : les deux délais sont donc passés.
+  */
+  const t = traitement({
+    schema: quotidien(['08:00', '20:00']),
+    rappel: { ...reglageParDefaut(), actif: true, oubli: true },
+  });
+  v(
+    'deux créneaux sans réponse ne font qu’un rappel',
+    refs([t], [], new Date('2026-10-19T21:00:00.000Z'), JOUR),
+    ['t1|2026-10-19|08:00'],
+  );
+  /*
+     Et si le matin a reçu sa réponse, c'est le soir qui est rappelé : le
+     « plus ancien » se recalcule, il n'est pas figé.
+  */
+  v(
+    'le matin répondu, c’est le soir qui est rappelé',
+    refs([t], [marqueDe('08:00', 'pris')], new Date('2026-10-19T21:00:00.000Z'), JOUR),
+    ['t1|2026-10-19|20:00'],
+  );
+}
+
+{
+  /* Deux traitements font deux rappels : la limite est par traitement. */
+  const a = quiSeRappelle();
+  const b: Traitement = { ...quiSeRappelle(), id: 't2', nom: 'Magnésium' };
+  v('deux traitements, deux rappels', refs([a, b], [], apres(300), JOUR).sort(), [
+    't1|2026-10-19|08:00',
+    't2|2026-10-19|08:00',
+  ]);
+}
+
+console.log('\nAUCUN HISTORIQUE : LE PRODUCTEUR NE REGARDE QUE LE JOUR DEMANDÉ');
+
+{
+  /*
+     LA FORME MÊME DU MODULE EST L'INTERDIT § 1 n° 3. Un producteur qui
+     remonterait dans le temps serait un compteur d'oublis déguisé : trente
+     créneaux sans réponse feraient trente lignes au centre, et ces trente
+     lignes seraient un reproche quel que soit leur texte.
+
+     On le vérifie en demandant un jour ancien : on obtient le créneau de CE
+     jour-là et rien d'autre — jamais une accumulation.
+  */
+  const t = quiSeRappelle();
+  v(
+    'un jour ancien ne rend que son propre créneau',
+    refs([t], [], new Date('2026-10-19T21:00:00.000Z'), '2026-10-05'),
+    ['t1|2026-10-05|08:00'],
+  );
+}
+
+console.log('\nLE TEXTE DU RAPPEL NE CONSEILLE RIEN');
+
+{
+  const t = quiSeRappelle({ libelle: 'explicite' });
+  v(
+    'en explicite : le nom, l’heure prévue, et que rien n’est noté',
+    texteDuRappelDOubli(t, '08:00'),
+    'Créatine : prévue à 8 h, rien n’est noté.',
+  );
+  v(
+    'en neutre : rien qui nomme le traitement',
+    texteDuRappelDOubli(quiSeRappelle(), '08:00'),
+    'Une prise : prévue à 8 h, rien n’est noté.',
+  );
+  v('et l’heure se lit à la française', texteDuRappelDOubli(t, '20:30'), 'Créatine : prévue à 20 h 30, rien n’est noté.');
+  /*
+     Aucun conseil de rattrapage, et la sonde de la phase 7 le vérifie sur ce
+     texte-ci comme sur ceux de l'écran.
+  */
+  const ordres = [/(?<!vous )\bprenez\b/i, /\bdoublez\b/i, /\bsautez\b/i, /\brattrapez\b/i, /devriez/i];
+  v(
+    'le texte n’ordonne rien',
+    ordres.filter((r) => r.test(texteDuRappelDOubli(t, '08:00'))).map(String),
+    [],
+  );
+  /* Ni décompte, ni durée écoulée : « rien n'est noté », et c'est tout. */
+  v(
+    'et ne compte rien',
+    /\d+\s*(fois|oubli|jour|%)/i.test(texteDuRappelDOubli(t, '08:00')),
+    false,
+  );
+}
 
 console.log(
   echecs === 0
