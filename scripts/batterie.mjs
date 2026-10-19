@@ -1,6 +1,9 @@
 #!/usr/bin/env node
 /**
- * La batterie complète : les 234 essais, dans l'ordre, et un verdict.
+ * La batterie complète, ou le socle seul : les essais dans l'ordre, et un verdict.
+ *
+ *   npm run batterie   # les 235
+ *   npm run socle      # les seize transversaux, onze minutes
  *
  *   npm run batterie
  *
@@ -210,7 +213,13 @@ for (const nom of noms) {
   reprisSansCode.push(nom);
 }
 
-console.log(`\nBATTERIE COMPLÈTE — ${noms.length} essais, aperçu sur ${ADRESSE}`);
+/*
+   Le titre dit lequel des deux passages tourne. Un journal qui annonce
+   « batterie complète » après seize essais mentirait de la même façon qu'un
+   faux vert : sur ce qui a été mesuré.
+*/
+const INTITULE = SOCLE_SEUL ? 'SOCLE' : 'BATTERIE COMPLÈTE';
+console.log(`\n${INTITULE} — ${noms.length} essais, aperçu sur ${ADRESSE}`);
 console.log(`Journaux : ${journal}`);
 const dejaJuges = noms.filter((n) => verdicts[n]).length;
 if (dejaJuges > 0) {
@@ -285,7 +294,10 @@ for (const [index, nom] of noms.entries()) {
 }
 
 const minutes = ((Date.now() - debut) / 60_000).toFixed(0);
-console.log(`\nbatterie complète : ${verts} verts ; ${rouges.length} rouges (${minutes} min)`);
+console.log(
+  `\n${SOCLE_SEUL ? 'socle' : 'batterie complète'} : ${verts} verts ; ` +
+    `${rouges.length} rouges (${minutes} min)`,
+);
 if (rouges.length > 0) {
   console.log(`rouges : ${rouges.join(' ')}`);
   console.log(

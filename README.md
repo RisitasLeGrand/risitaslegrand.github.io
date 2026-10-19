@@ -573,12 +573,52 @@ npx astro preview stop && npx astro preview --port 4321 &
 SITE_PASSWORD='<le mot de passe>' npm run batterie
 ```
 
-**La règle de travail : batterie complète avant chaque poussée et avant chaque
-fusion.** Une branche ne rejoint `main` qu'après une batterie passée sur la
-branche, main déjà fusionné dedans, et lue : ses rouges doivent tous figurer
-déjà au tableau des anomalies, et **aucun rouge nouveau** n'est admis. Le
-message de la fusion porte le compte : `batterie complète : N verts ; rouges ⊂
-tableau v2`.
+### Deux cadences, et pourquoi il en faut deux
+
+La batterie complète demande **une demi-heure** quand elle reprend un journal,
+**quatre heures** quand elle repart de zéro. La passer avant chaque poussée
+coûterait plus que ce qu'elle garde. Deux cadences, donc :
+
+**La batterie complète** (`npm run batterie`, 235 essais) tourne à la fin de
+chaque prompt, avant chaque fusion d'une branche dans `main`, et avant de
+lancer des agents en parallèle. Une branche ne rejoint `main` qu'après une
+batterie passée sur la branche, `main` déjà fusionné dedans, et **lue** : ses
+rouges doivent tous figurer au tableau des anomalies, et **aucun rouge
+nouveau** n'est admis. Un rouge nouveau se corrige avant toute autre chose, en
+remontant au commit qui l'a introduit. Le message de la fusion porte le
+compte : `batterie complète : N verts ; rouges ⊂ tableau`.
+
+**Le socle** (`npm run socle`, 16 essais transversaux, **11 minutes** mesurées)
+tourne avant chaque poussée, avec `npx astro check` et les essais du périmètre
+touché. Le message du commit porte : `essais ciblés : N verts ; socle : N
+verts`.
+
+Le socle ne remplace pas la batterie : il attrape ce qu'une modification locale
+casse **ailleurs**, et c'est le seul genre de dégât qu'on ne voit pas en
+relisant son propre diff. Ce qu'il garde, essai par essai :
+
+| Essai | Ce qu'il garde |
+|---|---|
+| `essais:structure` | un titre de niveau 1 par écran, un titre d'onglet unique |
+| `essais:espaces` | aucun mot collé à une balise en ligne, dans le site construit |
+| `essais:mots-colles:navigateur` | les mêmes, mesurés dans la page vivante |
+| `essais:typographie` | apostrophes, espaces insécables, accords sans « (s) » |
+| `essais:accessibilite:navigateur` | rôles, noms accessibles, ordre de tabulation |
+| `essais:mobile:navigateur` | 360 px : aucun débordement, cibles atteignables |
+| `essais:mouvement-reduit` | le réglage d'animations existe, et il est respecté |
+| `essais:themes-navigateur` | les quatorze thèmes s'appliquent pour de vrai |
+| `essais:themes-a-jour` | le catalogue et les feuilles engendrées concordent |
+| `essais:contrastes-themes` | WCAG AA dans chaque thème |
+| `essais:couleurs-jetons` | aucune couleur littérale hors des jetons |
+| `essais:theme-menus` | aucun menu hors palette, et refus de juger à vide |
+| `essais:coffre-ferme` | coffre fermé, rien de sensible n'apparaît |
+| `essais:echecs-dits` | un échec est dit, jamais avalé |
+| `essais:refus-dit` | un mot de passe de coffre refusé est dit, sur chaque page |
+| `essais:carte-ecrans` | aucun écran orphelin, aucun au-delà de trois appuis |
+
+La liste vit dans `scripts/batterie.mjs`, et la commande **refuse de tourner**
+si l'un de ces noms n'existe plus : un socle qui rétrécit en silence continue
+d'annoncer qu'il garde seize choses.
 
 Trois précautions, chacune pour une erreur déjà commise :
 
