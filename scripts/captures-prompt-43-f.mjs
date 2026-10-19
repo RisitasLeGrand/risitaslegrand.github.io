@@ -159,8 +159,30 @@ for (const taille of TAILLES) {
     await aller('/revisions/');
     await semerLeProfil(page, PROFIL_EN_PERIL);
     await aller('/revisions/');
-    if (!(await page.locator('#alerte-streak:not(.hidden)').count())) {
-      anomalies.push(`${ou} : aucun bandeau de série en péril (semis sans effet, ou jour de repos)`);
+
+    /*
+       LA PRÉMISSE EST LA SÉRIE, PAS LE BANDEAU.
+
+       La première version exigeait le bandeau « votre série s'arrête ce
+       soir » : c'était juste AVANT le lot, et faux APRÈS, puisque F1 le
+       retire. Les six prises d'après rendaient donc six anomalies pour un
+       défaut corrigé.
+
+       Ce qui vaut dans les deux moments est que le semis ait pris : la
+       série de sept jours doit être à l'écran. Le bandeau, lui, est exigé
+       avant et INTERDIT après — ce qui fait de ces captures une mesure, et
+       plus seulement une image.
+    */
+    const serie = (await page.locator('#streak').innerText().catch(() => '')).trim();
+    if (serie !== '7') {
+      anomalies.push(`${ou} : le semis n'a pas pris (série « ${serie} » au lieu de 7)`);
+    }
+    const bandeau = await page.locator('#alerte-streak:not(.hidden)').count();
+    if (MOMENT === 'avant' && !bandeau) {
+      anomalies.push(`${ou} : aucun bandeau de pression à montrer (jour de repos ?)`);
+    }
+    if (MOMENT === 'apres' && bandeau) {
+      anomalies.push(`${ou} : le bandeau de pression est toujours là`);
     }
     await prendre('revisions-serie-en-peril');
 
