@@ -27,7 +27,13 @@
  * Ce que le transport manuel éprouve dès maintenant, c'est ce qui compte le
  * plus : les faits, les révisions, et le recalcul de l'état FSRS.
  */
-import { db, ecrireCarte, ecrireReglageBrut, lireAppareil } from '../db';
+import {
+  db,
+  ecrireCarte,
+  ecrireReglageBrut,
+  effacerReglageBrut,
+  lireAppareil,
+} from '../db';
 import { signalerEcriture } from './signal-ecriture';
 import type { EntreeRevision } from '../noyau/revisions';
 import type { Operation } from '../noyau/operations';
@@ -408,7 +414,17 @@ export async function fusionnerPaquet(
   */
   for (const champ of resultat.reglagesChanges) {
     const gagnant = resultat.etat.reglages[champ];
-    if (gagnant) await ecrireReglageBrut(champ, gagnant.valeur);
+    if (!gagnant) continue;
+    /*
+       A7 DU 58 — UNE PIERRE TOMBALE SUPPRIME, ELLE N'ÉCRIT PAS.
+
+       Écrire `valeur` ici rangerait `null` sous la clé, et le site lirait un
+       réglage « réglé à rien » au lieu d'un réglage absent. Les deux ne
+       veulent pas dire la même chose : un profil absent se réinitialise, un
+       profil `null` casse la lecture.
+    */
+    if (gagnant.efface) await effacerReglageBrut(champ);
+    else await ecrireReglageBrut(champ, gagnant.valeur);
   }
 
   /*

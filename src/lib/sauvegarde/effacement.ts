@@ -293,28 +293,37 @@ export async function effacer(cible: Cible): Promise<ResultatEffacement> {
   }
 
   /*
-     Le registre versionné perd les entrées des réglages effacés. On le réécrit
-     une fois, après la boucle, plutôt qu'à chaque clé : c'est une seule valeur
+     Le registre versionné reçoit une PIERRE TOMBALE par réglage effacé — A7.
+
+     Le registre garde une copie horodatée de chaque réglage synchronisé.
+     Retirer l'entrée ne suffisait pas : le registre est fusionné champ par
+     champ, et un champ absent chez l'un se prend simplement chez l'autre. Le
+     profil effacé revenait donc à la première synchronisation, avec sa valeur
+     et son horloge — un effacement qui se défait tout seul.
+
+     La marque est horodatée comme une écriture, donc elle gagne par l'horloge,
+     et l'autre appareil supprime la clé à son tour. C'est ce que veut dire
+     « l'effacement ciblé se propage », et c'est ce que l'écran annonce.
+
+     On réécrit le registre une fois, après la boucle : c'est une seule valeur
      dans `etat`, et la réécrire vingt fois n'aurait servi qu'à multiplier les
      occasions de la perdre à moitié.
-
-     Aucune pierre tombale n'est posée : un autre appareil qui porte encore le
-     réglage le renverra. C'est le sujet de l'A7 — « l'effacement ciblé dit
-     qu'il se propage » — et il n'est pas tranché ici.
   */
   if (registreARetirer.length) {
     const registre = (await base.get('etat', 'reglagesSync')) as
-      | Record<string, unknown>
+      | Record<string, { valeur: unknown; hlc: string; appareil: string; efface?: true }>
       | undefined;
     if (registre) {
-      let touche = false;
-      for (const clef of registreARetirer) {
-        if (clef in registre) {
-          delete registre[clef];
-          touche = true;
+      const concernees = registreARetirer.filter((clef) => clef in registre);
+      if (concernees.length) {
+        const { prochaineHlc } = await import('../sync/horloge-locale');
+        const { lireAppareil } = await import('../db');
+        const appareil = await lireAppareil();
+        for (const clef of concernees) {
+          registre[clef] = { valeur: null, hlc: await prochaineHlc(), appareil, efface: true };
         }
+        await base.put('etat', registre as never, 'reglagesSync' as never);
       }
-      if (touche) await base.put('etat', registre as never, 'reglagesSync' as never);
     }
   }
 

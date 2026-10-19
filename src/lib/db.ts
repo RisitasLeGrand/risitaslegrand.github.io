@@ -1927,6 +1927,18 @@ export async function ecrireReglageBrut(champ: string, valeur: unknown): Promise
   await (await db()).put('etat', valeur as never, champ as never);
 }
 
+/**
+ * Supprime un réglage, sans le tamponner — A7 du 58.
+ *
+ * Le pendant de la fonction ci-dessus, pour une **pierre tombale** reçue d'un
+ * autre appareil : un effacement ciblé qui se propage. On supprime la clé au
+ * lieu d'y ranger `null`, parce qu'un réglage absent et un réglage valant
+ * `null` ne veulent pas dire la même chose pour les lecteurs.
+ */
+export async function effacerReglageBrut(champ: string): Promise<void> {
+  await (await db()).delete('etat', champ as never);
+}
+
 /* --- Journal de révisions et journal d'opérations -------------------------- */
 
 /**

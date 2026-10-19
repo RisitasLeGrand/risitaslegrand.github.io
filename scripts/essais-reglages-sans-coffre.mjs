@@ -133,6 +133,17 @@ await page.evaluate(
         const etat = tx.objectStore('etat');
         etat.put({ prenom: 'Essai', majLe: '2026-10-19T10:00:00.000Z' }, 'profil');
         etat.put({ unites: ['a'], items: 12, ordre: 'entrelace', modeLibre: false }, 'selection:nback');
+        /* Le registre versionné, tel que la synchronisation le tient. */
+        etat.put(
+          {
+            profil: {
+              valeur: { prenom: 'Essai' },
+              hlc: '0000000000001-0000-ESSAI',
+              appareil: 'ESSAI',
+            },
+          },
+          'reglagesSync',
+        );
         tx.oncomplete = () => {
           base.close();
           ok();
@@ -249,6 +260,41 @@ v(
   'aucune clé technique présente n’a disparu',
   pose.filter(estTechnique).filter((c) => !apres.includes(c)),
   [],
+);
+
+/* ── L'effacement ciblé se propage — A7 du 58 ─────────────────────────── */
+
+console.log('\nL’EFFACEMENT CIBLÉ POSE UNE PIERRE TOMBALE');
+
+/*
+   Sans pierre tombale, l'effacement ne se propageait pas. Le registre
+   versionné est fusionné champ par champ : un champ absent chez l'un se prend
+   simplement chez l'autre, donc le profil effacé revenait à la première
+   synchronisation, avec sa valeur et son horloge. Retirer l'entrée ne suffit
+   pas ; il faut une marque horodatée, qui gagne par l'horloge.
+*/
+const registre = await page.evaluate(
+  () =>
+    new Promise((ok) => {
+      const r = indexedDB.open('revinsp');
+      r.onsuccess = () => {
+        const base = r.result;
+        const q = base.transaction('etat').objectStore('etat').get('reglagesSync');
+        q.onsuccess = () => {
+          base.close();
+          ok(q.result ?? null);
+        };
+      };
+    }),
+);
+v('le registre existe toujours', registre !== null, true);
+v('l’entrée du profil n’est pas retirée', 'profil' in (registre ?? {}), true);
+v('elle porte la marque d’effacement', registre?.profil?.efface, true);
+v('elle ne transporte plus aucune valeur', registre?.profil?.valeur, null);
+v(
+  'et son horloge a avancé',
+  (registre?.profil?.hlc ?? '') > '0000000000001-0000-ESSAI',
+  true,
 );
 
 /* ── Et c'est la seule question qui compte ────────────────────────────── */

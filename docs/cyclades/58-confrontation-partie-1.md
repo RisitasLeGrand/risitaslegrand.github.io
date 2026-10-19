@@ -215,3 +215,58 @@ réussie n'est notée qu'à la confirmation, pour la même raison.
 manquait. Rouge avant le correctif : aucune boîte ne s'ouvrait, et les onze
 enregistrements partaient sans qu'on ait pu dire que le fichier n'était pas
 là.
+
+## Avancement — A7 et G-2, livrés le 19 octobre
+
+**Les quatre endroits.** « Tout effacer » ne vidait que les magasins de la
+base `revinsp`. Sonde du 19 octobre, devenue essai : `localStorage` intact,
+Cache Storage intact, les autres bases IndexedDB intactes — alors que la
+phrase de confirmation annonçait « les réglages enregistrés dans ce
+navigateur ». Désormais partent aussi les deux stockages de l'onglet, les
+caches de la coquille hors ligne, `revinsp-instantanes` (qui garde une copie
+complète de la base) et `cyclades-cles`.
+
+L'essai a **deux moitiés**, parce qu'un effacement se trompe de deux façons.
+Ne pas assez effacer, c'est le défaut corrigé. Trop effacer, en emportant ce
+qui n'est pas à nous, en serait un autre : un témoin étranger est donc posé à
+côté de chaque témoin à nous, et il doit survivre. Il survit.
+
+**Les libellés disent la portée.** « Effacer ma progression » annonçait moins
+que ce qui part, et « Réinitialiser » ne disait rien. Le bouton et le titre
+s'appellent maintenant « Tout effacer sur cet appareil ». La phrase nomme les
+quatre endroits, et l'écran annonce ensuite le compte de chacun.
+
+**G-2 : la boîte dit ce qui NE part pas.** Si l'appareil est appairé, elle
+dit que les autres appareils liés gardent leurs données et que la première
+synchronisation renverra ici ce qui vient d'être effacé. C'est là qu'une
+personne se trompe, et le dire après coup serait inutile.
+
+**Délier est un geste séparé**, et il ne s'offre que s'il a un sens : le
+bouton reste caché quand aucun appairage n'est mémorisé. Proposer de couper
+un lien qui n'existe pas ferait croire qu'il existe. Délier n'efface rien, ni
+ici ni ailleurs, et l'écran le dit.
+
+**La pierre tombale, et l'essai à deux appareils.** L'effacement ciblé pose
+une marque d'effacement sur l'entrée du registre versionné, horodatée comme
+une écriture. Elle gagne par l'horloge, donc l'autre appareil supprime la clé
+à son tour. À l'application, elle **supprime la clé** au lieu d'écrire
+`null` : un profil absent se réinitialise, un profil `null` casse la lecture.
+
+L'essai de fusion appelle le moteur **des deux côtés** — un effacement qui ne
+se propagerait que dans un sens laisserait les deux appareils en désaccord
+permanent — et vérifie le cas symétrique : un réglage **remis** après
+l'effacement gagne, sinon un effacement d'hier empêcherait d'écrire
+aujourd'hui, pour toujours.
+
+**Ce que je n'ai pas obtenu, et je le dis.** L'essai de fusion ne rougit pas
+avant le correctif : le moteur transporte déjà les champs qu'il ne connaît
+pas, donc la règle de propagation passait « par accident ». Ce qui manquait
+était le type et, surtout, l'application — écrire au lieu de supprimer. C'est
+l'essai de navigateur qui porte le rouge : avant, l'entrée du registre était
+simplement retirée, et l'essai constate maintenant la marque, l'absence de
+valeur et l'horloge qui a avancé.
+
+**Et l'écran de l'effacement ciblé dit qu'il se propage.** C'est l'écart le
+plus utile entre les deux effacements, et il n'était écrit nulle part : une
+personne qui veut retirer une donnée de partout doit passer par l'effacement
+ciblé, et non par le bouton qui semble plus radical.
