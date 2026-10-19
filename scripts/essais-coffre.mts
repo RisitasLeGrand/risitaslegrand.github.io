@@ -119,7 +119,13 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    son écriture impossible coffre fermé, le seul cas où il sert. Son contenu
    reste chiffré, par la boîte aux lettres et non par le coffre.
 */
-v('vingt-sept magasins scellés', MAGASINS_SCELLES.length, 27);
+/*
+   Vingt-huit depuis la phase 4 de Santé (52 P2) : `odysseeCreneaux`, ce qui a
+   été noté d’un créneau prévu. Sa clé est une empreinte et non
+   « traitement / jour / heure », parce qu’une clé en clair aurait dit le
+   rythme des prises — « tous les jours à 8 h » — sans qu’on ouvre le coffre.
+*/
+v('vingt-huit magasins scellés', MAGASINS_SCELLES.length, 28);
 /*
    Le centre : l'identifiant ET le genre, pas un champ de plus.
 
