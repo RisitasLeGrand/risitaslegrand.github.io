@@ -112,14 +112,56 @@ await page.waitForSelector('#vue:not(.hidden)', { timeout: 60000 });
   const titre = (await page.locator('#titre-periode').textContent()) ?? '';
   vrai('la période est nommée', /^Semaine du \d+ \w+ \d{4}$/.test(titre.trim()));
   const couverture = (await page.locator('#couverture').textContent()) ?? '';
-  vrai('la couverture est annoncée sur quinze indicateurs', couverture.includes('sur 15'));
+  /*
+     LE TOTAL NE SE FIGE PAS. L'essai attendait « sur 15 », juste le jour où
+     il a été écrit : le catalogue des indicateurs a grandi depuis, et
+     l'essai accusait l'écran d'un total faux. Le catalogue ne fait que
+     s'allonger, donc la borne basse garde la propriété — « la couverture
+     est annoncée sur le catalogue entier » — sans se périmer au prochain
+     indicateur ajouté. Le NOMBRE d'indicateurs se contrôle au catalogue,
+     par « essais:indicateurs » (contrôle de module).
+  */
+  const surCombien = Number(/sur (\d+)/.exec(couverture)?.[1] ?? 0);
+  vrai(
+    `la couverture est annoncée sur le catalogue entier (sur ${surCombien})`,
+    surCombien >= 15,
+  );
   vrai('et elle dit pourquoi les autres manquent', couverture.includes('attendent une branche'));
 }
 {
   const puces = await page.$$eval('#par-domaine span', (els) =>
     els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()),
   );
-  v('trois domaines sont détaillés', puces.length, 3);
+  /*
+     UN DÉTAIL PAR DOMAINE ACTIF — lu dans la source, et non figé à trois.
+     Un quatrième domaine est actif par défaut depuis que la liste a changé ;
+     l'essai réclamait trois puces et en trouvait quatre, c'est-à-dire la
+     bonne réponse.
+  */
+  const { readFileSync } = await import('node:fs');
+  /*
+     La bonne référence est le CATALOGUE DES INDICATEURS, et non la liste des
+     domaines actifs : « parDomaine » se construit sur les domaines que les
+     indicateurs retenus mentionnent (`odyssee/syntheses.ts`). Ma première
+     version comparait aux domaines actifs par défaut — cinq — et réclamait
+     donc une puce de plus que l'écran n'en a à montrer.
+  */
+  const catalogue = readFileSync('src/lib/odyssee/indicateurs.ts', 'utf8');
+  const domainesDuCatalogue = new Set(
+    [...catalogue.matchAll(/domaine: '([a-z]+)'/g)].map((m) => m[1]),
+  );
+  if (domainesDuCatalogue.size === 0) {
+    console.log(
+      '\x1b[31m✗\x1b[0m PANNE — aucun domaine trouvé dans le catalogue des indicateurs : ' +
+        'cet essai ne sait plus à combien de puces comparer.',
+    );
+    process.exit(1);
+  }
+  v(
+    `un détail par domaine du catalogue (${[...domainesDuCatalogue].sort().join(', ')})`,
+    puces.length,
+    domainesDuCatalogue.size,
+  );
   vrai(
     'et chacun dit ses mesurés sur ses déclarés',
     puces.every((p) => /\d+\/\d+ mesurés/.test(p)),
