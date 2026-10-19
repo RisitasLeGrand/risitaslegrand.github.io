@@ -289,6 +289,15 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
     clairs: ['id', 'debut', 'majLe'],
   },
   {
+    magasin: 'odysseeCreneaux',
+    pourquoi:
+      'Santé, phase 4 : ce qui a été noté d’un créneau prévu. Le rythme des prises est ' +
+      'au moins aussi parlant que le nom du traitement — « tous les jours à 8 h » dit la ' +
+      'régularité d’un traitement qu’on ne nomme même pas. La clé elle-même est une ' +
+      'empreinte, parce qu’une clé en clair aurait dit ce rythme sans qu’on ouvre rien.',
+    clairs: ['id', 'majLe'],
+  },
+  {
     magasin: 'odysseeRessentis',
     pourquoi:
       'Santé : ce qu’une personne ressent sous un traitement nommé en dit autant que le ' +

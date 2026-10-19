@@ -4,10 +4,19 @@
  *
  * ## Ce que cet écran montre aujourd'hui, et pourquoi
  *
- * Presque rien, et il le dit. Le catalogue est vide : aucune demi-vie, aucun
- * effet, aucune interaction, aucune limite, aucune dose n'a pu être sourcée
- * depuis la machine qui construit ce site — toutes les sources primaires
- * (RCP, agences, PubMed, Europe PMC, PubChem) y sont injoignables.
+ * Peu de choses, et il dit lesquelles. Les sources primaires restent
+ * injoignables depuis la machine qui construit ce site — PubMed, Europe PMC,
+ * PubChem, les agences —, donc aucune limite de sécurité et aucune dose
+ * étudiée n'a pu être sourcée.
+ *
+ * **Deux choses y figurent pourtant, et c'est une correction.** Cinq fiches
+ * sont arrivées le 16 octobre, lues dans leur RCP, et ONZE INTERACTIONS avec
+ * elles, tirées du Thésaurus de l'ANSM. Cet en-tête disait encore « aucune
+ * interaction n'a pu être sourcée », et l'écran n'en montrait aucune : elles
+ * existaient, justes et invisibles, pendant trois jours. C'est l'anomalie
+ * A-21 une seconde fois — une phrase que l'application montre et qui ment
+ * vaut moins que pas de phrase du tout, parce qu'elle apprend à se méfier
+ * du reste.
  *
  * L'écran existe quand même, et complet, pour une raison : la **forme** est
  * ce qui empêchera plus tard d'écrire n'importe quoi. Chaque section porte
@@ -114,6 +123,24 @@ import {
           <dd id="v-demi-vie" class="text-sm text-slate-700 dark:text-slate-200">{NON_DOCUMENTE}</dd>
         </div>
       </dl>
+    </section>
+
+    <!--
+      Les interactions connues.
+
+      DÉPLIÉE, et non rangée sous « Exhaustif » avec les limites et les
+      doses. Celles-là sont vides et le resteront jusqu'à ce qu'une source
+      arrive ; celles-ci sont documentées, sourcées et nommées, et une
+      contre-indication derrière un pli est une contre-indication qu'on ne
+      lit pas. C'est le même raisonnement que la hiérarchie anti-fatigue de
+      la décision 3.10 : documentées dépliées, toujours en tête.
+    -->
+    <section id="bloc-interactions">
+      <h2 class="etiquette text-slate-500 dark:text-slate-400">Interactions connues</h2>
+      <p id="interactions-etat" class="mt-1 text-sm text-slate-600 dark:text-slate-300"></p>
+      <p id="interactions-sous" class="mt-1 hidden text-xs text-slate-500 dark:text-slate-400"></p>
+      <ul id="interactions" class="mt-2 space-y-2"></ul>
+      <p id="interactions-source" class="mt-2 hidden text-xs text-slate-500 dark:text-slate-400"></p>
     </section>
 
     <!-- Profondeurs 2 et 3 : repliées, pour ne pas submerger (2.6). -->
@@ -260,7 +287,13 @@ import {
   } from '../../lib/odyssee/donnees-sante';
   import { CLEF_AVERTISSEMENT_VU } from '../../lib/odyssee/bibliotheque-externe';
   import { direLEchec } from '../../lib/erreur-de-champ';
-  import { NON_DOCUMENTE } from '../../lib/odyssee/molecules';
+  import {
+    ABSENTE_DU_THESAURUS,
+    INTERACTIONS_NON_RELIEES,
+    NIVEAUX_ANSM,
+    NON_DOCUMENTE,
+    interactionsDeLaFiche,
+  } from '../../lib/odyssee/molecules';
   import { CATALOGUE } from '../../lib/odyssee/sante';
   import { formaterDate, lien, notifier, parametreUrl, pluriel } from '../../lib/ui';
 
@@ -311,6 +344,120 @@ import {
     });
     await rendreLaFiche();
   });
+
+
+  /**
+   * Les interactions d'une fiche, ou la raison de leur absence.
+   *
+   * Trois états, trois phrases, et aucune ne se confond avec une autre :
+   * « documentées » montre la liste ; « absente du document » dit que le
+   * Thésaurus a été lu et ne traite pas cette molécule ; « non reliée » dit
+   * que personne n'a regardé. Les deux dernières se ressemblent à l'œil et
+   * ne disent pas du tout la même chose — c'est la distinction que
+   * `ABSENTES_DU_THESAURUS` existe pour tenir, et la perdre à l'écran
+   * reviendrait à ne l'avoir jamais faite.
+   *
+   * Une molécule hors catalogue n'a pas d'identifiant : elle est « non
+   * reliée », ce qui est exact.
+   */
+  function peindreLesInteractions(idFiche: string | null) {
+    const zone = $('interactions');
+    const etat = $('interactions-etat');
+    const sous = $('interactions-sous');
+    const source = $('interactions-source');
+    zone.replaceChildren();
+    sous.classList.add('hidden');
+    source.classList.add('hidden');
+
+    const resultat = idFiche ? interactionsDeLaFiche(idFiche) : { etat: 'non-reliee' as const };
+
+    if (resultat.etat === 'absente-du-thesaurus') {
+      etat.textContent = ABSENTE_DU_THESAURUS;
+      return;
+    }
+    if (resultat.etat === 'non-reliee') {
+      etat.textContent = INTERACTIONS_NON_RELIEES;
+      return;
+    }
+
+    etat.textContent =
+      resultat.paires.length === 1
+        ? 'Une interaction documentée par le Thésaurus des interactions de l’ANSM.'
+        : `${resultat.paires.length} interactions documentées par le Thésaurus des interactions de l’ANSM.`;
+
+    /*
+       SOUS QUEL NOM, et ce n'est pas un détail d'érudition. Le Thésaurus ne
+       traite pas la testostérone : il traite la classe « androgènes », avec
+       l'androstanolone et la noréthandrolone. Montrer ces paires sans le
+       dire laisserait croire que l'entrée vise cet ester-là.
+    */
+    sous.textContent = `Traitée par le document sous : ${resultat.sous.join(', ')}.`;
+    sous.classList.remove('hidden');
+
+    for (const paire of resultat.paires) {
+      const li = document.createElement('li');
+      li.className = 'rounded-xl border border-slate-200 p-3 dark:border-slate-800';
+      li.dataset.avec = paire.b;
+
+      const haut = document.createElement('div');
+      haut.className = 'flex flex-wrap items-baseline justify-between gap-2';
+
+      const avec = document.createElement('p');
+      avec.className = 'font-medium text-slate-900 dark:text-white';
+      avec.textContent = `Avec ${paire.b}`;
+
+      const niveau = paire.gravite?.connue ? paire.gravite.valeur : NON_DOCUMENTE;
+      const badge = document.createElement('span');
+      /*
+         LA COULEUR SUIT LA GRAVITÉ, et elle ne la devine pas : les quatre
+         libellés viennent de `NIVEAUX_ANSM`, comparés à la constante et non
+         à une chaîne recopiée. Une variante d'écriture ferait retomber une
+         contre-indication dans le gris de la dernière ligne.
+
+         C'est la seule couleur de cet écran, et elle ne juge pas la
+         personne — elle reprend le classement de l'agence.
+      */
+      badge.className =
+        'rounded-lg px-2 py-0.5 text-xs font-medium ' +
+        (niveau === NIVEAUX_ANSM.contreIndication
+          ? 'bg-rose-100 text-rose-900 dark:bg-rose-950/60 dark:text-rose-100'
+          : niveau === NIVEAUX_ANSM.deconseillee
+            ? 'bg-amber-100 text-amber-900 dark:bg-amber-950/60 dark:text-amber-100'
+            : 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-200');
+      badge.textContent = niveau;
+      badge.dataset.niveau = niveau;
+
+      haut.append(avec, badge);
+      li.append(haut);
+
+      /*
+         LA CITATION SOUS CHAQUE PAIRE, page comprise. Une gravité sans sa
+         source serait exactement la valeur non sourcée que tout ce domaine
+         est construit pour empêcher — et ici elle porterait sur une
+         association médicamenteuse.
+      */
+      if (paire.gravite?.connue) {
+        const citation = document.createElement('p');
+        citation.className = 'mt-1 text-xs text-slate-500 dark:text-slate-400';
+        citation.textContent = `${paire.gravite.source.nom}, consulté le ${paire.gravite.source.le}`;
+        li.append(citation);
+      }
+      zone.append(li);
+    }
+
+    /*
+       CE QUE LA LISTE NE DIT PAS. Le Thésaurus n'est plus mis à jour depuis
+       septembre 2023, et c'est le seul document consulté : une interaction
+       absente d'ici n'est pas une interaction inexistante. Le dire une fois
+       sous la liste vaut mieux que de le répéter sous chaque ligne, où on
+       cesserait de le lire.
+    */
+    source.textContent =
+      'Ce document n’est plus mis à jour depuis septembre 2023, et c’est le seul consulté. ' +
+      'Une interaction qui n’y figure pas n’est pas une interaction inexistante. ' +
+      'À aborder avec un médecin ou un pharmacien.';
+    source.classList.remove('hidden');
+  }
 
   async function rendreLaFiche() {
     const traitementId = parametreUrl('traitement') ?? '';
@@ -406,6 +553,7 @@ import {
     if (fiche) {
       $('v-demi-vie').textContent = fiche.demiVie.connue ? fiche.demiVie.valeur : NON_DOCUMENTE;
     }
+    peindreLesInteractions(fiche?.id ?? null);
 
     /* ── Le journal ───────────────────────────────────────────────── */
 
