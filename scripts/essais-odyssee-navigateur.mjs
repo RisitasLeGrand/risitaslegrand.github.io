@@ -23,6 +23,7 @@ import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { MAGASINS_V14, schemaV14 } from './lib/base-ancienne.mjs';
+import { liensDeNavigation } from './lib/navigation-essais.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -694,9 +695,16 @@ await page.waitForSelector('#vue:not(.hidden)', { timeout: 40000 });
      connaît plus aucun écran : c'est le critère d'extensibilité que la
      phase 8 posait — ajouter une branche ne doit pas demander d'y toucher.
   */
-  const onglets = await page.$$eval('#navigation-principale a', (els) =>
-    els.map((e) => e.getAttribute('href') ?? ''),
-  );
+  /*
+     LA SURFACE RENDUE, ET NON LE RUBAN SEUL.
+
+     L'essai lisait `#navigation-principale`. Depuis la barre latérale, ce
+     ruban est caché à 1280 px avec une souris — le contexte même de cet
+     essai — et la latérale porte les mêmes onglets. La question posée ici
+     n'a pas changé : la branche courante montre-t-elle SES écrans ?
+  */
+  const { chemins: onglets, surface } = await liensDeNavigation(page);
+  console.log(`      navigation lue : ${surface}`);
   vrai('la barre montre les écrans d’Odyssée', onglets.some((h) => h.includes('/odyssee/taches/')));
   faux('et non ceux de Révisions', onglets.some((h) => h.includes('/flashcards/')));
   vrai('« Mes synthèses » y est, car Odyssée les lit', onglets.some((h) => h.includes('/syntheses/')));
@@ -712,11 +720,8 @@ vrai(
 
 await page.goto(`${RACINE}/flashcards/`, { waitUntil: 'networkidle' });
 await deverrouiller();
-await page.waitForSelector('#navigation-principale', { timeout: 40000 });
 {
-  const onglets = await page.$$eval('#navigation-principale a', (els) =>
-    els.map((e) => e.getAttribute('href') ?? ''),
-  );
+  const { chemins: onglets } = await liensDeNavigation(page);
   // Et réciproquement : un écran de Révisions montre la barre de Révisions.
   vrai('un écran de Révisions garde sa barre', onglets.some((h) => h.includes('/flashcards/')));
   faux('sans les écrans d’Odyssée', onglets.some((h) => h.includes('/odyssee/taches/')));

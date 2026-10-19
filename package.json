@@ -127,7 +127,7 @@
     "essais:initialisation": "tsx scripts/essais-initialisation.mts",
     "essais:initialisation:navigateur": "node scripts/essais-initialisation-navigateur.mjs",
     "essais:profil": "tsx scripts/essais-profil.mts",
-    "essais:profil:navigateur": "node scripts/essais-profil-navigateur.mjs",
+    "essais:profil:navigateur": "tsx scripts/essais-profil-navigateur.mjs",
     "essais:certification": "tsx scripts/essais-certification.mts",
     "essais:certification:navigateur": "node scripts/essais-certification-navigateur.mjs",
     "essais:odyssee:navigateur": "node scripts/essais-odyssee-navigateur.mjs",

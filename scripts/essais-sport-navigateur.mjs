@@ -20,6 +20,8 @@
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import { repondreALaBoite } from './lib/boite-essais.mjs';
+import { liensDeNavigation } from './lib/navigation-essais.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -79,13 +81,17 @@ await deverrouiller();
 await page.waitForSelector('#vue:not(.hidden)', { timeout: 30000 });
 
 /*
-   Le **ruban d'onglets**, et non n'importe quelle barre de liens : le pied de
-   page est un plan du site et liste les trois branches partout, ce qui est
-   voulu. C'est le ruban qui doit porter la branche courante.
+   La **navigation de branche**, et non n'importe quelle barre de liens : le
+   pied de page est un plan du site et liste les branches partout, ce qui est
+   voulu. C'est la navigation de branche qui doit porter la branche courante.
+
+   Elle a deux surfaces depuis D-010 — le ruban horizontal et la barre
+   latérale —, et `global.css` cache le ruban à 1280 px avec une souris, le
+   contexte même de cet essai. Lire la surface rendue, c'est poser la question
+   d'origine ; attendre le ruban, c'était attendre quarante secondes un
+   élément que le site a raison de cacher.
 */
-const onglets = await page.$$eval('#navigation-principale a', (els) =>
-  els.map((e) => new URL(e.href).pathname),
-);
+const { chemins: onglets } = await liensDeNavigation(page);
 vrai('la séance est dans le ruban', onglets.some((c) => c.endsWith('/sport/seance/')));
 vrai('les exercices aussi', onglets.some((c) => c.endsWith('/sport/exercices/')));
 /*
@@ -236,6 +242,57 @@ v(
   true,
 );
 
+/*
+   UN SECOND EXERCICE, PARCE QUE LA SUPPRESSION VA EN MANGER UN.
+
+   La section suivante supprime une ligne, et la section 3 ouvre une séance.
+   Avec un seul exercice en bibliothèque, la suppression la vidait : la séance
+   s'ouvrait alors sur un `<select>` sans aucune option, et comme il est
+   `required`, le navigateur refusait la soumission — l'essai attendait quinze
+   secondes une série qui ne pouvait pas s'écrire. C'était l'essai qui se
+   privait de sa propre prémisse, pas l'écran qui cessait de marcher.
+
+   (Que cette séance n'ait rien à dire quand la bibliothèque est vide est en
+   revanche une anomalie de l'écran, et elle est consignée comme telle.)
+*/
+/*
+   Et il faut ATTENDRE LE REPOS avant de le créer : « unSeulGeste » (A1 du 43)
+   ignore un second geste sur le même formulaire dans les 600 ms qui suivent
+   un geste abouti. Le script enchaînait les deux créations en moins de
+   300 ms — ce qu'aucune main ne fait —, la seconde soumission était donc
+   prise pour un rebond de pouce et ignorée, à juste titre. Mesuré : le clic
+   et l'événement « submit » avaient bien lieu sans que rien ne s'écrive, et
+   un second clic, quinze secondes plus tard, écrivait.
+*/
+await page.waitForTimeout(700);
+await page.click('#ouvrir-ajout');
+await page.waitForSelector('#fenetre-ajout[open]', { timeout: 15000 });
+await page.fill('#nom', 'Presse essai');
+/* Un exercice sollicite au moins un muscle principal — `controlerExercice`
+   le refuse sinon, et l'écran a raison de le refuser. */
+await page.selectOption('[data-case="quadriceps"]', 'principal');
+await page.click('#ajout button[type="submit"]');
+/*
+   Le troisième argument, et non le second : `waitForFunction(fn, arg, options)`
+   — passer les options à la place de l'argument laissait le délai par défaut
+   de 30 s, et l'essai mettait deux fois le temps annoncé à échouer.
+*/
+await page.waitForFunction(
+  () => [...document.querySelectorAll('#liste p')].some((p) => p.textContent.includes('Presse essai')),
+  undefined,
+  { timeout: 15000 },
+);
+/*
+   Au moins deux, et non deux : `installerBibliotheque()` pose une
+   bibliothèque fournie au déverrouillage. Figer son compte ici le ferait
+   rougir au premier exercice ajouté à la bibliothèque livrée ; ce qui
+   compte est qu'il reste de quoi tenir une séance après la suppression.
+*/
+vrai(
+  'au moins deux exercices sont en bibliothèque avant la suppression',
+  (await page.evaluate(() => document.querySelectorAll('#liste [data-exercice]').length)) >= 2,
+);
+
 /* ── « Supprimer » est derrière un menu, et pose une question ─────────── */
 v(
   'aucun « Supprimer » n’est visible d’emblée sur les lignes',
@@ -273,11 +330,13 @@ v(
    Le refus doit **garder** l'exercice : une suppression qui part quand même
    après un « Annuler » est pire que pas de confirmation du tout.
 */
-page.once('dialog', (d) => void d.dismiss());
 const avantRefus = await page.evaluate(
   () => document.querySelectorAll('#liste [data-exercice]').length,
 );
 await page.click('#liste [data-supprimer]');
+/* La confirmation est la boîte commune depuis la section C du 43, plus une
+   fenêtre native : on y répond par le verbe du bouton. « Annuler », ici. */
+await repondreALaBoite(page, 'Annuler');
 await page.waitForTimeout(600);
 v(
   'refuser la confirmation ne supprime rien',
@@ -285,9 +344,9 @@ v(
   avantRefus,
 );
 
-page.once('dialog', (d) => void d.accept());
 await page.click('#liste [data-exercice] .menu-actions > summary');
 await page.click('#liste [data-supprimer]');
+await repondreALaBoite(page, 'Supprimer cet exercice');
 await page.waitForTimeout(800);
 v(
   'accepter supprime une ligne',
@@ -307,6 +366,13 @@ await page.click('#commencer');
 await page.waitForSelector('#encours:not(.hidden)', { timeout: 15000 });
 
 async function serie(repetitions, charge) {
+  /*
+     Le repos de « unSeulGeste » est de 600 ms après un geste ABOUTI (A1 du
+     43) : deux séries écrites coup sur coup par le script seraient prises
+     pour un double appui, et la seconde serait ignorée — à juste titre. Une
+     main attend ; l'essai attend donc aussi.
+  */
+  await page.waitForTimeout(700);
   await page.fill('#charge', String(charge));
   await page.fill('#repetitions', String(repetitions));
   const avant = await page.$$eval('#series li', (l) => l.length);

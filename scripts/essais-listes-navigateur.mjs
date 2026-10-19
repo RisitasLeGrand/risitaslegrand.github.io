@@ -162,10 +162,23 @@ await page.locator('#ajout').waitFor({ state: 'visible', timeout: 20000 });
    glisserait et le contrôle serait vert sans objet. */
 console.log('\n  B — les cartes portent un identifiant stable');
 
+/*
+   SEPT CENTS MILLISECONDES, ET NON DEUX CENT CINQUANTE.
+
+   « unSeulGeste » (A1 du 43) ignore un second geste sur le même formulaire
+   dans les 600 ms qui suivent un geste abouti : c'est la garde contre le
+   rebond du pouce. À 250 ms d'intervalle, les deuxième et troisième ajouts
+   étaient donc écartés — à juste titre —, une seule tâche existait, et
+   l'essai rougissait sur une prémisse qu'il s'était lui-même privé de poser.
+
+   Une main qui saisit trois titres met plus d'une seconde entre deux. On
+   attend donc le repos, et l'essai mesure à nouveau ce qu'il vise : des
+   cartes qui glissent quand on en clôt une.
+*/
 for (const titre of ['Essai — alpha', 'Essai — bêta', 'Essai — gamma']) {
   await page.fill('#titre', titre);
   await page.click('#ajout button[type="submit"]');
-  await page.waitForTimeout(250);
+  await page.waitForTimeout(700);
 }
 
 const cartes = page.locator('[data-tache]');

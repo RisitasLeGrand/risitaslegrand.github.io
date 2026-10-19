@@ -13,6 +13,8 @@
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { repondreALaBoite, repondreAuChamp } from './lib/boite-essais.mjs';
+import { BRANCHES } from '../src/lib/branches.ts';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -41,19 +43,23 @@ page.on('console', (m) => {
   if (m.type() === 'error') console.log('CONSOLE:', m.text().slice(0, 250));
 });
 
-/**
- * La réponse à la prochaine invite du navigateur.
- *
- * L'écran « Mon profil » saisit par `window.prompt` et confirme par
- * `window.confirm` — assumé et provisoire, l'écran d'initialisation portera les
- * vrais champs. Playwright referme toute boîte par défaut, ce qui vaudrait
- * « annuler » : l'essai répond donc explicitement, et l'oubli se verrait.
- */
-let reponse = null;
+/*
+   PLUS AUCUNE FENÊTRE NATIVE — section C du prompt 43.
+
+   « Mon profil » saisissait par `window.prompt` et confirmait par
+   `window.confirm`. Les deux sont remplacés par la boîte commune
+   (`src/lib/boite.ts`), un `<dialog>` ouvert en modal : on y répond par le
+   VERBE du bouton, via `scripts/lib/boite-essais.mjs`.
+
+   Le guetteur ci-dessous ne répond plus à la place de l'écran : il signale
+   une fenêtre native qui reparaîtrait. Elle arrêterait le modal attendu, et
+   l'essai expirerait dix lignes plus loin sans dire pourquoi.
+*/
+let fenetresNatives = 0;
 page.on('dialog', async (d) => {
-  if (d.type() === 'prompt') await d.accept(reponse ?? '');
-  else if (reponse === false) await d.dismiss();
-  else await d.accept();
+  fenetresNatives += 1;
+  console.log(`FENÊTRE NATIVE INATTENDUE (${d.type()}) : ${d.message().slice(0, 120)}`);
+  await d.dismiss().catch(() => undefined);
 });
 
 async function aller(chemin, selecteur) {
@@ -84,17 +90,30 @@ await aller('/', '[data-branche="revisions"]');
       texte: e.textContent.replace(/\s+/g, ' ').trim(),
     })),
   );
-  v('trois branches sont proposées', cartes.length, 3);
   /*
-     Odyssée et Sport se sont ouvertes le 12 octobre 2026. Les trois branches
-     sont donc cliquables, et l'essai le vérifie plutôt que de le supposer :
-     c'est exactement la ligne qui a rattrapé l'ouverture d'Odyssée, quand les
-     écrans existaient et que la navigation n'y menait pas.
+     LE COMPTE VIENT DU REGISTRE, PAS D'UN CHIFFRE RECOPIÉ.
+
+     L'essai figeait « trois ». La quatrième branche — Entraînement cognitif,
+     consigne du pilote du 18/10 — l'a mis au rouge, alors que le menu la
+     proposait correctement : l'essai mesurait la mémoire de son auteur, pas
+     l'écran. La référence est donc `BRANCHES`, qui est ce que le menu peint,
+     et le contrôle refuse de juger si elle revient vide.
+  */
+  const attendues = BRANCHES.map((b) => b.id).sort();
+  const ouvertes = BRANCHES.filter((b) => b.disponible).map((b) => b.id).sort();
+  vrai('le registre des branches a bien été lu', attendues.length > 0);
+  v('le menu propose toutes les branches du registre', cartes.map((c) => c.branche).sort(), attendues);
+  /*
+     Odyssée et Sport se sont ouvertes le 12 octobre 2026, Entraînement
+     cognitif est née ouverte. Les branches `disponible` sont donc cliquables,
+     et l'essai le vérifie plutôt que de le supposer : c'est exactement la
+     ligne qui a rattrapé l'ouverture d'Odyssée, quand les écrans existaient
+     et que la navigation n'y menait pas.
   */
   v(
-    'les trois branches sont ouvertes',
+    'les branches ouvertes du registre sont cliquables',
     cartes.filter((c) => c.cliquable).map((c) => c.branche).sort(),
-    ['odyssee', 'revisions', 'sport'],
+    ouvertes,
   );
   vrai(
     'aucune n’annonce plus « Bientôt »',
@@ -140,19 +159,34 @@ console.log('\nUN CHAMP SE POSE, ET LA SALUTATION SUIT');
 
 await aller('/profil/', '#avancement');
 
+/*
+   LE TOTAL EST LU UNE FOIS, PUIS COMPARÉ À LUI-MÊME.
+
+   L'essai figeait dix-sept. Le socle en compte dix-huit depuis que l'année de
+   naissance s'est ajoutée, et l'essai est passé au rouge sans qu'aucun écran
+   ait cessé de marcher. Ce qui compte n'est pas le chiffre, c'est l'ACCORD
+   entre les deux endroits qui l'annoncent : la phrase d'avancement et la liste
+   des restants. Un socle qui grandit n'a plus à faire rougir l'essai ; une
+   liste qui diverge de sa phrase, si.
+
+   Le mois, la majorité déclarée et les usages coupés ne sont toujours pas des
+   questions : ils se demandent au moment du besoin, et les compter rendrait le
+   total inatteignable.
+*/
+let socle = 0;
 {
   const avancement = await page.textContent('#avancement');
-  /* Dix-sept depuis l'ajout de l'année de naissance. Le mois, la majorité
-     déclarée et les usages coupés ne sont pas des questions : ils se demandent
-     au moment du besoin, et les compter rendrait le total inatteignable. */
-  vrai('l’avancement est annoncé', avancement.includes('0 réponse(s) sur 17'));
+  const annonce = avancement.match(/0 réponse\(s\) sur (\d+)/);
+  vrai('l’avancement est annoncé, et il annonce un total', !!annonce);
+  socle = annonce ? Number(annonce[1]) : 0;
+  vrai('le total annoncé n’est pas nul', socle > 0);
   vrai('et le prénom est signalé comme attendu', avancement.includes('prénom'));
   const restants = await page.$$eval('#restants > div', (els) => els.length);
-  v('les dix-sept questions du socle restent à poser', restants, 17);
+  v('autant de questions à poser que le total annoncé', restants, socle);
 }
 
-reponse = 'Alexis';
 await page.locator('#restants button', { hasText: 'Renseigner' }).first().click();
+await repondreAuChamp(page, 'Alexis', 'Enregistrer');
 await page.waitForTimeout(1500);
 
 {
@@ -167,7 +201,7 @@ await page.waitForTimeout(1500);
     champs[0].texte.includes('aucune branche'),
   );
   const restants = await page.$$eval('#restants > div', (els) => els.length);
-  v('seize questions restent', restants, 16);
+  v('une question de moins reste à poser', restants, socle - 1);
 }
 
 await aller('/', '#salutation');
@@ -200,8 +234,11 @@ await aller('/profil/', '#champs > div');
 
 console.log('\nUN CHAMP SE SUPPRIME, ET REVIENT DANS LES RESTANTS');
 
-reponse = true;
-await page.locator('#champs > div[data-champ="prenom"] button', { hasText: 'Supprimer' }).click();
+await page
+  .locator('#champs > div[data-champ="prenom"] button', { hasText: 'Supprimer' })
+  .first()
+  .click();
+await repondreALaBoite(page, 'Supprimer ce champ');
 await page.waitForTimeout(1500);
 
 {
@@ -209,11 +246,13 @@ await page.waitForTimeout(1500);
   v('plus aucun champ renseigné', champs, 0);
   vrai('l’écran le dit', await page.locator('#aucun-champ').isVisible());
   const restants = await page.$$eval('#restants > div', (els) => els.length);
-  v('et les dix-sept questions sont à nouveau à poser', restants, 17);
+  v('et tout le socle est à nouveau à poser', restants, socle);
 
   await aller('/', '#salutation');
   v('le menu ne salue plus par le prénom', (await page.textContent('#salutation')).trim(), 'Bonjour.');
 }
+
+v('aucune fenêtre native n’a été ouverte', fenetresNatives, 0);
 
 console.log(
   echecs
