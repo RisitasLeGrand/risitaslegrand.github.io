@@ -829,7 +829,10 @@ export let derniereMigration: (ResultatInstantane & { echec?: string }) | null =
  */
 async function ouvrir(): Promise<IDBPDatabase<SchemaRevinsp>> {
   derniereMigration = await instantanerSiMigration(NOM_BASE, VERSION);
-  return ouvrirAuSchema(NOM_BASE, VERSION);
+  const base = await ouvrirAuSchema(NOM_BASE, VERSION);
+  /* A8 : retenue pour pouvoir la fermer si un autre onglet veut migrer. */
+  baseOuverte = base;
+  return base;
 }
 
 export function db() {
@@ -1606,7 +1609,110 @@ function ouvrirAuSchema(nom: string, version: number) {
         }
       }
     },
+
+    /* ══════════════════════════════════════════════════════════════════
+       A8 DU 43 — QUAND DEUX ONGLETS NE S'ENTENDENT PAS
+       ══════════════════════════════════════════════════════════════════
+
+       IndexedDB ne sait pas changer de version pendant qu'une autre
+       connexion est ouverte. Deux situations, symétriques, et sans
+       gestionnaire elles se vivaient toutes deux comme une panne muette.
+
+       `blocked` : NOUS voulons migrer, un autre onglet tient encore la
+       base à l'ancienne version. L'ouverture ne rejette pas : elle
+       **attend**, indéfiniment. L'écran reste sur « Déchiffrement en
+       cours… » et rien ne dit pourquoi — c'est exactement le symptôme que
+       le prompt 22 avait traqué ailleurs, et il pouvait revenir par là.
+
+       `blocking` : un AUTRE onglet veut migrer, et c'est nous qui tenons la
+       base. Si nous ne lâchons pas, c'est l'autre onglet qui attend
+       indéfiniment. On ferme donc notre connexion — l'autre peut passer —
+       et on le dit, parce qu'une page dont la base vient d'être fermée ne
+       peut plus rien écrire sans recharger.
+
+       `terminated` : le navigateur a coupé la connexion de lui-même (mise
+       en veille sur iOS, éviction de mémoire). Le dire plutôt que de
+       laisser la prochaine écriture échouer sans contexte.
+
+       POURQUOI PASSER PAR LA PORTE COMMUNE. Ces trois cas arrivent hors de
+       tout geste : aucun écran n'a de zone pour eux. `direLEchec` sans
+       zone pose la région commune, avec son rôle d'alerte — c'est
+       précisément ce pour quoi elle existe.
+
+       L'import est dynamique : `db.ts` est chargé par des essais de module
+       qui tournent sous Node, sans `document`. Un import statique de la
+       porte les ferait tomber à la lecture du fichier.
+    */
+    blocked(versionActuelle, versionVoulue) {
+      void direEnDehorsDeTouteAction(
+        `Cyclades doit mettre sa base à jour (version ${versionActuelle ?? '?'} vers ` +
+          `${versionVoulue ?? VERSION}), mais un autre onglet l’utilise encore. ` +
+          'Fermez les autres onglets de Cyclades, puis rechargez cette page. ' +
+          'Rien n’a été modifié.',
+      );
+    },
+
+    blocking(versionActuelle, versionVoulue) {
+      void direEnDehorsDeTouteAction(
+        `Un autre onglet met la base à jour (version ${versionActuelle ?? '?'} vers ` +
+          `${versionVoulue ?? VERSION}). Cette page a fermé sa connexion pour le ` +
+          'laisser passer : rechargez-la avant de continuer, sinon rien ne ' +
+          's’enregistrera.',
+      );
+      /*
+         Fermer, et vider le cache d'ouverture. Sans le second, `db()`
+         rendrait indéfiniment la promesse d'une base fermée, et chaque
+         écriture échouerait sur « InvalidStateError » sans que rien ne
+         relie cette erreur à la cause.
+      */
+      try {
+        baseOuverte?.close();
+      } catch {
+        /* déjà fermée : rien à faire */
+      }
+      promesse = null;
+    },
+
+    terminated() {
+      void direEnDehorsDeTouteAction(
+        'Le navigateur a fermé la base de Cyclades, probablement pour libérer de ' +
+          'la mémoire. Rechargez la page : rien n’est perdu de ce qui était déjà ' +
+          'enregistré, mais rien de nouveau ne s’enregistrera avant.',
+      );
+      promesse = null;
+    },
   });
+}
+
+/**
+ * La connexion courante, pour pouvoir la fermer quand un autre onglet migre.
+ *
+ * Tenue à part de `promesse` : au moment où `blocking` se déclenche, il faut
+ * fermer **tout de suite**, sans attendre une promesse qui peut déjà être
+ * résolue ailleurs.
+ */
+let baseOuverte: IDBPDatabase<SchemaRevinsp> | null = null;
+
+/**
+ * Dire quelque chose qui n'arrive pendant aucun geste.
+ *
+ * Les trois cas d'A8 surviennent hors de toute action : personne n'a cliqué,
+ * aucun écran n'a de zone pour eux. La porte commune pose alors sa région,
+ * avec son rôle d'alerte.
+ *
+ * Silencieuse hors navigateur : `db.ts` est chargé par des essais de module
+ * qui tournent sous Node, et un `document` manquant ne doit pas les faire
+ * tomber.
+ */
+async function direEnDehorsDeTouteAction(message: string): Promise<void> {
+  if (typeof document === 'undefined') return;
+  try {
+    const { direLEchec } = await import('./agir');
+    direLEchec(message);
+  } catch {
+    /* la porte n'a pas pu être chargée : au moins la console en gardera trace */
+    console.warn(message);
+  }
 }
 
 /**
