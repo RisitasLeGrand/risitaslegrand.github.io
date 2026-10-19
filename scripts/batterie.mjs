@@ -29,7 +29,7 @@
  * et la comparaison au tableau des anomalies reste un geste humain.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync as lireFichier, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
@@ -76,9 +76,70 @@ if (!sert) {
 
 /* ── Le passage ────────────────────────────────────────────────────────── */
 
-const journal = mkdtempSync(join(tmpdir(), 'batterie-'));
+/*
+   REPRENDRE UNE BATTERIE INTERROMPUE — 19 octobre.
+
+   Le conteneur a redémarré au 151ᵉ essai sur 235, après deux heures et
+   demie. Tout refaire aurait coûté deux heures et demie de plus pour
+   remesurer la même construction, et la règle « batterie complète avant
+   chaque poussée » serait devenue impraticable au premier incident.
+
+   `BATTERIE_JOURNAL` désigne un journal existant : les essais qui y ont
+   déjà un verdict sont REPRIS tels quels, et seuls les autres tournent.
+   C'est juste à une condition, qui ne se devine pas et qui est donc
+   rappelée à l'écran : la construction servie doit être la même. Reprendre
+   un journal après un `astro build` mesurerait deux sites à la fois.
+
+   Les verdicts s'écrivent au fur et à mesure, et non à la fin : un journal
+   d'une batterie tuée en route doit rester exploitable, sinon il ne sert à
+   rien le jour où il sert.
+*/
+const journal = process.env.BATTERIE_JOURNAL ?? mkdtempSync(join(tmpdir(), 'batterie-'));
+if (!existsSync(journal)) mkdirSync(journal, { recursive: true });
+const cheminDesVerdicts = join(journal, 'verdicts.json');
+
+let verdicts = {};
+if (existsSync(cheminDesVerdicts)) {
+  try {
+    verdicts = JSON.parse(lireFichier(cheminDesVerdicts, 'utf8'));
+  } catch {
+    /* Journal illisible : on remesure tout plutôt que de deviner. */
+    verdicts = {};
+  }
+}
+
+/*
+   Les journaux de la batterie tuée au redémarrage n'ont pas de verdict
+   écrit — le fichier n'existait pas encore. On les relit, et on les juge
+   sur ce que le journal porte : la croix rouge, ou une signature de panne.
+   Le code de sortie, lui, est perdu : c'est dit, essai par essai, dans le
+   récapitulatif, parce qu'un juge amputé qui se présente comme entier est
+   pire qu'un essai relancé.
+*/
+const PANNE = /\n(?:node:internal|.*Error: |npm error )/;
+const reprisSansCode = [];
+for (const nom of noms) {
+  if (verdicts[nom]) continue;
+  const fichier = join(journal, `${nom.replace(/[:/]/g, '-')}.log`);
+  if (!existsSync(fichier)) continue;
+  const texte = lireFichier(fichier, 'utf8');
+  const croix = /\u001b\[31m✗/.test(texte);
+  const panne = PANNE.test(texte);
+  verdicts[nom] = { code: null, croix: croix || panne, repris: true };
+  reprisSansCode.push(nom);
+}
+
 console.log(`\nBATTERIE COMPLÈTE — ${noms.length} essais, aperçu sur ${ADRESSE}`);
-console.log(`Journaux : ${journal}\n`);
+console.log(`Journaux : ${journal}`);
+const dejaJuges = noms.filter((n) => verdicts[n]).length;
+if (dejaJuges > 0) {
+  console.log(
+    `Repris du journal : ${dejaJuges} essais (dont ${reprisSansCode.length} jugés sur leur ` +
+      'journal seul, code de sortie perdu).\n' +
+      '  Valable À LA SEULE CONDITION que la construction servie soit la même.',
+  );
+}
+console.log('');
 
 const rouges = [];
 let verts = 0;
@@ -86,6 +147,19 @@ const debut = Date.now();
 
 for (const [index, nom] of noms.entries()) {
   const compteur = `${String(index + 1).padStart(3, ' ')}/${noms.length}`;
+
+  /* Déjà jugé : on reprend le verdict, on ne relance pas. */
+  const connu = verdicts[nom];
+  if (connu) {
+    if (connu.croix || (connu.code !== null && connu.code !== 0)) {
+      rouges.push(nom);
+      console.log(`  \x1b[31m✗\x1b[0m ${compteur} ${nom} (repris du journal)`);
+    } else {
+      verts += 1;
+      console.log(`  \x1b[32m✓\x1b[0m ${compteur} ${nom} (repris)`);
+    }
+    continue;
+  }
   let sortie = '';
   let code = 0;
   const depart = Date.now();
@@ -102,6 +176,8 @@ for (const [index, nom] of noms.entries()) {
     if (erreur.signal) sortie += `\n[batterie] interrompu après ${DELAI_MS} ms (${erreur.signal})`;
   }
   writeFileSync(join(journal, `${nom.replace(/[:/]/g, '-')}.log`), sortie);
+  verdicts[nom] = { code, croix: /\u001b\[31m✗/.test(sortie) };
+  writeFileSync(cheminDesVerdicts, JSON.stringify(verdicts, null, 1));
 
   /*
      Deux juges, et non un seul : le code de sortie, et la présence d'une
