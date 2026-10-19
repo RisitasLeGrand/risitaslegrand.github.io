@@ -9,6 +9,21 @@
  * rafraîchie à moitié, ce qui serait la meilleure façon d'afficher les thèmes
  * d'un parcours avec les fiches d'un autre.
  *
+ * ## CHOISIR N'EST PAS APPLIQUER (prompt 43, E6)
+ *
+ * Le changement partait sur l'événement `change` de la liste, et rechargeait
+ * la page dans la foulée. Or une liste déroulante se parcourt AU CLAVIER : sur
+ * la plupart des navigateurs, chaque flèche sur une liste fermée change la
+ * valeur — donc, ici, changeait le parcours préparé et rechargeait tout le
+ * site, avant même d'avoir vu les autres choix. Au doigt comme à la souris, un
+ * choix effleuré faisait la même chose.
+ *
+ * Choisir et appliquer sont donc séparés. La liste ne fait plus que choisir ;
+ * un bouton paraît à côté d'elle dès que le choix diffère du parcours courant,
+ * et c'est lui qui applique. Tant qu'on ne l'actionne pas, rien n'a changé :
+ * quitter la page sans l'actionner laisse le parcours d'avant, et la liste s'y
+ * remet au chargement suivant.
+ *
  * Un parcours dont le référentiel n'est pas établi reste choisissable : il n'est
  * pas vide par accident, il attend ses sources, et le lui cacher n'avancerait à
  * rien.
@@ -44,6 +59,22 @@ import { PARCOURS } from '../lib/parcours/registre';
     ))
   }
 </select>
+{/*
+   Le bouton d'application : caché tant que le choix est celui qui vaut.
+
+   Il est dans le document dès le départ, et non créé au moment du choix :
+   un élément inséré dans l'en-tête déplace ce qui l'entoure et peut passer
+   sous le doigt qui visait autre chose. Caché puis montré, il prend sa
+   place une fois pour toutes.
+*/}
+<button
+  id="appliquer-parcours"
+  type="button"
+  hidden
+  class="min-h-11 shrink-0 rounded-lg bg-indigo-600 px-2.5 text-sm font-medium text-white transition hover:bg-indigo-700"
+>
+  Appliquer
+</button>
 
 <script>
   import { PARCOURS } from '../lib/parcours/registre';
@@ -83,8 +114,34 @@ import { PARCOURS } from '../lib/parcours/registre';
       /* Navigation privée, stockage refusé : l'annonce saute, pas le reste. */
     }
 
-    selecteur.addEventListener('change', () => {
+    /*
+       LA LISTE CHOISIT, LE BOUTON APPLIQUE.
+
+       `change` ne fait plus qu'une chose : montrer ou cacher le bouton. Rien
+       n'est écrit, rien n'est rechargé — ce qui rend la flèche du clavier
+       inoffensive, et c'est tout l'objet du point E6.
+    */
+    const appliquer = document.getElementById('appliquer-parcours') as HTMLButtonElement | null;
+
+    const majBouton = () => {
+      if (!appliquer) return;
+      const change = selecteur.value !== idParcoursCourant();
+      appliquer.hidden = !change;
+      /* Le nom dit CE QU'ON APPLIQUE : « Appliquer » seul, entendu après une
+         liste dont on vient de changer la valeur sans la voir, ne dit pas
+         vers quoi l'on va. */
+      appliquer.setAttribute(
+        'aria-label',
+        change ? `Appliquer le parcours ${nomDe(selecteur.value)}` : 'Appliquer le parcours',
+      );
+    };
+
+    selecteur.addEventListener('change', majBouton);
+    majBouton();
+
+    appliquer?.addEventListener('click', () => {
       const avant = idParcoursCourant();
+      if (selecteur.value === avant) return;
       definirParcoursCourant(selecteur.value);
       try {
         sessionStorage.setItem(MEMO, avant);
