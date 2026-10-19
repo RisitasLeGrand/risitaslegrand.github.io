@@ -381,7 +381,17 @@ export async function effacer(cible: Cible): Promise<ResultatEffacement> {
         for (const clef of concernees) {
           registre[clef] = { valeur: null, hlc: await prochaineHlc(), appareil, efface: true };
         }
-        await base.put('etat', registre as never, 'reglagesSync' as never);
+        /*
+           LA CLÉ RESTE UN LITTÉRAL NU, SANS TRANSTYPAGE.
+
+           `essais:reglages-orphelins` relève les clés d'état en lisant le
+           code : un littéral enveloppé dans un `as never` lui devient une
+           « clé variable », donc une clé inconnue du catalogue — et il rougit,
+           alors que `reglagesSync` y est déclaré depuis toujours. Le
+           transtypage portait sur la valeur, pas sur la clé : il n'avait
+           aucune raison d'être là.
+        */
+        await base.put('etat', registre as never, 'reglagesSync');
       }
     }
   }

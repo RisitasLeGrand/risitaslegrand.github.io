@@ -39,6 +39,15 @@ const ETAT_TECHNIQUE: { cle: string; raison: string }[] = [
   { cle: 'IndexedDB/etat::lotsRecus', raison: 'les lots de synchronisation déjà reçus' },
   { cle: 'IndexedDB/etat::derniereVeille', raison: 'l’empreinte de la dernière veille de fond' },
   { cle: 'IndexedDB/etat::reglagesSync', raison: 'le registre versionné des réglages synchronisés' },
+  {
+    cle: 'IndexedDB/etat::fusionEnCours',
+    raison:
+      'la liste du travail qu’une fusion interrompue a laissé en chemin (B-4 du ' +
+      '58) : les cibles à matérialiser et les cartes à recalculer. Personne ne la ' +
+      'choisit, et elle ne survit pas à la reprise — elle est posée par la ' +
+      'transaction du journal et retirée dès que le travail est fini. Elle ' +
+      'S’AFFICHE, mais sur /appareils/ et comme une alerte, pas comme un réglage.',
+  },
   { cle: 'IndexedDB/etat::socleActivite', raison: 'le socle d’XP recalculé, pas un réglage' },
   { cle: 'IndexedDB/etat::coffre.migration', raison: 'l’avancement d’une bascule de coffre' },
   {
