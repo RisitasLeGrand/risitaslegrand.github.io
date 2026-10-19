@@ -30,7 +30,36 @@
  * - dates laissées en ISO (`AAAA-MM-JJ`), qui se trient correctement partout.
  */
 import { exporterMagasins } from '../db';
-import { GROUPES, groupe, type GroupeDeMagasins } from './groupes';
+import { GROUPES, clefVisee, groupe, type GroupeDeMagasins } from './groupes';
+
+/**
+ * Les magasins d'un groupe, restreints à ses clés quand il en déclare — B-3
+ * du 58.
+ *
+ * Le groupe « Réglages et profil » ne désigne plus le magasin `etat` entier
+ * mais une liste blanche de ses clés. Sans ce filtre, l'export « en clair »
+ * continuerait à sortir le secret d'appairage, le sel et l'enveloppe de la
+ * clé du coffre — c'est le constat G-8 du même audit, et il se règle ici,
+ * d'une seule ligne, parce que la liste est déclarée au même endroit que
+ * l'effacement.
+ */
+async function magasinsDuGroupe(g: GroupeDeMagasins): Promise<Record<string, unknown[]>> {
+  const magasins = await exporterMagasins(g.magasins);
+  if (!g.clefs) return magasins;
+  const filtres: Record<string, unknown[]> = {};
+  for (const [nom, enregistrements] of Object.entries(magasins)) {
+    const visees = g.clefs[nom];
+    if (!visees) {
+      filtres[nom] = enregistrements;
+      continue;
+    }
+    filtres[nom] = enregistrements.filter((e) => {
+      const clef = (e as { clef?: unknown }).clef;
+      return typeof clef === 'string' && clefVisee(clef, visees);
+    });
+  }
+  return filtres;
+}
 
 /* ══════════════════════════════════════════════════════════════════════════
    Aplatissement
@@ -144,7 +173,7 @@ export async function exporterGroupeCsv(
 ): Promise<FichierExporte[]> {
   const g = groupe(idGroupe);
   if (!g) throw new Error(`Groupe inconnu : ${idGroupe}`);
-  const magasins = await exporterMagasins(g.magasins);
+  const magasins = await magasinsDuGroupe(g);
   const date = horodatageDeNom(quand);
   return Object.entries(magasins)
     .filter(([, enregistrements]) => enregistrements.length > 0)
@@ -168,7 +197,7 @@ export async function exporterGroupeJson(
 ): Promise<FichierExporte> {
   const g = groupe(idGroupe);
   if (!g) throw new Error(`Groupe inconnu : ${idGroupe}`);
-  const magasins = await exporterMagasins(g.magasins);
+  const magasins = await magasinsDuGroupe(g);
   const total = Object.values(magasins).reduce((s, v) => s + v.length, 0);
   const contenu = JSON.stringify(
     {
@@ -196,7 +225,7 @@ export async function exporterGroupeJson(
 export async function comptesParGroupe(): Promise<Map<string, number>> {
   const sortie = new Map<string, number>();
   for (const g of GROUPES) {
-    const magasins = await exporterMagasins(g.magasins);
+    const magasins = await magasinsDuGroupe(g);
     sortie.set(
       g.id,
       Object.values(magasins).reduce((s, v) => s + v.length, 0),

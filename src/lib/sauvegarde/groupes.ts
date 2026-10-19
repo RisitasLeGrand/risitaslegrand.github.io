@@ -28,7 +28,140 @@ export interface GroupeDeMagasins {
   libelle: string;
   description: string;
   magasins: readonly string[];
+  /**
+   * Les seules clés visées, **par magasin** — anomalie B-3 du 58.
+   *
+   * Un magasin absent de cette table est désigné **entier**, et c'est le cas
+   * de tous sauf `etat`. `etat` est un magasin clé-valeur fourre-tout : il
+   * porte à la fois des réglages qui appartiennent à la personne, des clés
+   * qui appartiennent à un domaine, et des clés techniques sans lesquelles
+   * l'application ne sait plus qui elle est.
+   *
+   * La table est indexée par magasin, et non posée à plat sur le groupe,
+   * parce qu'un groupe comme « Odyssée » désigne quarante-quatre magasins
+   * entiers **et** quatre clés d'`etat` : une liste unique aurait restreint
+   * les quarante-quatre aux quatre.
+   */
+  clefs?: Readonly<Record<string, ClefsVisees>>;
 }
+
+/**
+ * Les clés d'un magasin que vise un groupe : des noms exacts, et des
+ * préfixes pour les clés dont le nom contient une variable.
+ */
+export interface ClefsVisees {
+  exactes: readonly string[];
+  prefixes?: readonly string[];
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Les clés d'« etat », et pourquoi elles ne se valent pas — B-3 du 58
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Les clés d'`etat` que la personne peut effacer et exporter.
+ *
+ * ## Le défaut que cette liste corrige
+ *
+ * Le groupe « Réglages et profil » désignait le magasin `etat` **entier**.
+ * Mesuré le 19 octobre sur une base neuve, `etat` porte exactement deux
+ * clés : `appareil` et `horloge`. Autrement dit, un écran qui promettait
+ * d'effacer « XP, série, badges, rotation, plafonds de session, parcours »
+ * retirait l'identité de l'appareil et son horloge logique — et, dès que le
+ * coffre avait servi, l'enveloppe de sa clé. Le coffre ne se rouvrait plus,
+ * avec le bon mot de passe, et rien ne prévenait.
+ *
+ * ## Pourquoi une liste BLANCHE, et non une liste noire
+ *
+ * Les deux erreurs possibles ne se valent pas. Une liste blanche qui oublie
+ * une clé personnelle laisse une donnée non effacée : « Tout effacer » la
+ * reprendra, et l'écran peut le dire. Une liste noire qui oublie une clé
+ * technique condamne le coffre, sans recours. On choisit donc l'erreur qui
+ * se rattrape.
+ *
+ * Une clé absente de cette liste n'est **pas** effacée par l'effacement
+ * ciblé et n'est **pas** exportée. C'est délibéré, et c'est dit à l'écran.
+ */
+export const CLEFS_PERSONNELLES_ETAT: readonly string[] = [
+  'profil',
+  'reglagesSession',
+  'reglagesContenu',
+  'reglagesNiveau',
+  'planification',
+];
+
+/**
+ * Les réglages dont le nom porte une variable.
+ *
+ * `selection:<exercice>` : un réglage d'entraînement par exercice cognitif.
+ * Une liste de noms exacts l'aurait manqué, et l'aurait manqué en silence.
+ */
+export const PREFIXES_PERSONNELS_ETAT: readonly string[] = ['selection:'];
+
+/**
+ * Les clés d'`etat` qui appartiennent à un domaine, et non aux réglages.
+ *
+ * Elles s'effacent et s'exportent avec leur domaine — « Odyssée » — parce
+ * que c'est là qu'une personne les cherche : l'activation de Santé n'est pas
+ * un réglage de séance, et le socle d'activité est de la progression.
+ */
+export const CLEFS_ODYSSEE_ETAT: readonly string[] = [
+  'sante.active',
+  'socleActivite',
+  'dossier-releves',
+  'dossier-releves-vus',
+];
+
+/**
+ * Les clés techniques, nommées pour que l'oubli se voie.
+ *
+ * Cette liste ne filtre pas — ce sont les listes blanches qui filtrent — mais
+ * elle **contrôle** : un essai vérifie qu'aucune d'elles n'a glissé dans une
+ * liste blanche, et qu'aucune clé écrite par le code n'échappe aux deux
+ * classements. Le jour où une clé nouvelle apparaîtra sans être rangée, la
+ * batterie le dira avant la personne qui efface.
+ *
+ * Pourquoi chacune est intouchable :
+ * - `appareil` : l'identité de cet appareil, portée par les opérations déjà
+ *   écrites ; en changer rend leur ordre de fusion incohérent ;
+ * - `horloge` : l'horloge logique hybride, qui ne doit jamais reculer ;
+ * - `appairage`, `certification`, `dossier-partage`, `appareilsVus`,
+ *   `lotsRecus`, `derniereVeille` : l'appairage et son état, dont le secret
+ *   partagé — G-8 du 58 : il ne doit pas non plus sortir dans un export ;
+ * - `reglagesSync` : le registre versionné des réglages. Il n'est pas un
+ *   réglage : c'est la machinerie qui les fait converger. L'effacement y
+ *   retire les entrées des clés effacées, plutôt que de jeter le registre ;
+ * - préfixe `coffre.` : `coffre.sel`, `coffre.sel-enveloppe`,
+ *   `coffre.enveloppe`, `coffre.migration`, et le délai de verrouillage
+ *   automatique. C'est le cœur de la B-3 : les effacer condamnait le coffre,
+ *   avec le bon mot de passe, sans recours ;
+ * - préfixe `boite.` : `boite.privee` et `boite.publique`, la paire de clés de
+ *   la boîte aux lettres de cet appareil, la privée scellée sous la clé du
+ *   coffre. Les effacer rend les plis en attente illisibles — définitivement,
+ *   et c'est une perte, pas une gêne.
+ */
+export const PREFIXES_TECHNIQUES_ETAT: readonly string[] = ['coffre.', 'boite.'];
+export const CLEFS_TECHNIQUES_ETAT: readonly string[] = [
+  'appareil',
+  'horloge',
+  'appairage',
+  'certification',
+  'dossier-partage',
+  'appareilsVus',
+  'lotsRecus',
+  'derniereVeille',
+  'reglagesSync',
+];
+
+/** Une clé d'`etat` est-elle technique, c'est-à-dire intouchable à la carte ? */
+export const estTechnique = (clef: string): boolean =>
+  CLEFS_TECHNIQUES_ETAT.includes(clef) ||
+  PREFIXES_TECHNIQUES_ETAT.some((prefixe) => clef.startsWith(prefixe));
+
+/** Une clé tombe-t-elle dans ce que vise un groupe ? */
+export const clefVisee = (clef: string, visees: ClefsVisees): boolean =>
+  visees.exactes.includes(clef) ||
+  (visees.prefixes ?? []).some((prefixe) => clef.startsWith(prefixe));
 
 /**
  * Le champ portant la date d'un enregistrement, par magasin.
@@ -318,7 +451,9 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
       'odysseeReglesPointage',
       'odysseePointages',
       'odysseeTaxonomie',
+      'etat',
     ],
+    clefs: { etat: { exactes: CLEFS_ODYSSEE_ETAT } },
   },
   {
     id: 'sport',
@@ -329,8 +464,15 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
   {
     id: 'reglages',
     libelle: 'Réglages et profil',
-    description: 'XP, série, badges, rotation, plafonds de session, parcours.',
+    description:
+      'Votre profil, vos réglages de séance, de contenu, de niveau et ' +
+      'd’entraînement, votre planification. L’identité de cet appareil, son ' +
+      'appairage et la clé de votre coffre ne sont pas touchés : ce ne sont ' +
+      'pas des réglages.',
     magasins: ['etat'],
+    clefs: {
+      etat: { exactes: CLEFS_PERSONNELLES_ETAT, prefixes: PREFIXES_PERSONNELS_ETAT },
+    },
   },
 ];
 

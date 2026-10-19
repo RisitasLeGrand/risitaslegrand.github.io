@@ -73,3 +73,59 @@ La partie 2 (clé de coffre partagée, Santé synchronisée, identité d'apparei
 « Mes données ») ne sont pas touchées ici. **Recoupement annoncé** : la
 partie 2 prévoit de journaliser et sceller les six magasins de Santé, et
 l'agent B travaille exactement là. C'est à la fusion que cela se tranche.
+
+---
+
+## Avancement — B-3, livré le 19 octobre
+
+**Le rouge, d'abord.** L'essai `essais:reglages-sans-coffre` a été écrit
+avant le correctif et exécuté contre une construction de `main` sans lui. Il
+part de `/odyssee/psyche/`, ouvre un vrai coffre avec un vrai mot de passe,
+pose deux réglages, puis efface « Réglages et profil » depuis l'écran de
+`/stockage/`, en cliquant ce que la personne clique.
+
+Mesuré avant le correctif : l'écran annonce « etat — 6 sur 6 », puis
+« 6 enregistrement(s) effacés ». Le sel du coffre, ses enveloppes et
+l'identité de l'appareil partent avec les deux réglages.
+
+**Un constat qui n'était pas au prompt.** Après cet effacement, l'écran sous
+coffre ne redemande même plus le mot de passe : un coffre dont le sel a
+disparu ne se distingue pas d'un coffre jamais créé. La personne n'a donc
+aucun message, et aucune occasion de comprendre que ses données chiffrées
+sont devenues inatteignables. Le correctif empêche la situation ; **il ne la
+signale pas**, et aucun écran ne la signalerait aujourd'hui. C'est une ligne
+du prochain tableau, pas une correction silencieuse.
+
+**Ce qui est écrit.** Un groupe peut désormais ne désigner que certaines
+**clés** d'un magasin, par noms exacts et par préfixes, et la table est
+indexée par magasin — « Odyssée » désigne quarante-quatre magasins entiers
+et quatre clés d'`etat`, ce qu'une liste unique n'aurait pas permis.
+L'effacement et l'export lisible suivent la même déclaration.
+
+Quatre clés ont changé de domaine : le socle d'activité, l'activation de
+Santé et les deux clés du dossier de relevés n'étaient effaçables que sous
+le libellé « Réglages et profil », qui ne les décrit pas. Elles reviennent à
+Odyssée, qui porte déjà leurs données.
+
+Un réglage porte un nom variable (`selection:<exercice>`) : une liste de
+noms exacts l'aurait manqué en silence, d'où les préfixes.
+
+Le registre versionné des réglages perd les entrées des clés effacées. Sans
+cela, le profil effacé serait revenu à la première synchronisation, avec sa
+valeur et son horloge. **Aucune pierre tombale n'est posée** : un autre
+appareil qui porte encore le réglage le renverra. C'est le sujet de l'A7, et
+il n'est pas tranché ici.
+
+**G-8 est réglé par la même déclaration** : l'export lisible honore les clés
+visées, donc ni le sel, ni les enveloppes, ni le secret d'appairage ne
+sortent plus en clair.
+
+**Les garde-fous.** Deux essais, et ils ne se recouvrent pas. Le premier
+compare des listes, hors navigateur : aucune clé technique dans une liste
+blanche, aucun préfixe personnel qui attrape une clé technique, deux groupes
+qui ne visent jamais la même clé, et un magasin partagé que personne ne
+prend entier. Le second constate le comportement, dans un navigateur : le
+coffre se referme et se rouvre avec le bon mot de passe, après l'effacement.
+Il relève aussi toutes les clés réellement présentes dans `etat` et refuse
+qu'une seule échappe au classement — c'est ce contrôle-là qui parlera le
+jour où une clé nouvelle apparaîtra.

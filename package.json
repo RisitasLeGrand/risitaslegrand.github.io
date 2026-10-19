@@ -67,6 +67,7 @@
     "essais:fusion": "tsx scripts/essais-fusion.mts",
     "essais:simulateur": "tsx scripts/essais-simulateur.mts",
     "essais:effacement:navigateur": "node scripts/essais-effacement-navigateur.mjs",
+    "essais:reglages-sans-coffre": "tsx scripts/essais-reglages-sans-coffre.mjs",
     "essais:correctifs": "node scripts/essais-correctifs.mjs",
     "essais:veridical": "tsx scripts/essais-veridical.mts",
     "contrastes": "node scripts/verifier-contrastes.mjs",

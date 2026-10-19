@@ -12,11 +12,19 @@
 import { aplatir, versCsv, BOM } from '../src/lib/sauvegarde/export-lisible';
 import {
   CHAMP_DATE,
+  CLEFS_ODYSSEE_ETAT,
+  CLEFS_PERSONNELLES_ETAT,
+  CLEFS_TECHNIQUES_ETAT,
   GROUPES,
+  PREFIXES_PERSONNELS_ETAT,
+  PREFIXES_TECHNIQUES_ETAT,
+  clefVisee,
   dateDe,
   dateDecoupable,
+  estTechnique,
   groupe,
   groupeDuMagasin,
+  type ClefsVisees,
 } from '../src/lib/sauvegarde/groupes';
 import { MAGASINS_PROGRESSION } from '../src/lib/db';
 
@@ -46,11 +54,38 @@ v(
   MAGASINS_PROGRESSION.filter((nom) => !couverts.includes(nom)),
   [],
 );
+/*
+ * Depuis la B-3 du 58, un magasin PEUT appartenir à deux groupes — mais
+ * seulement si chacun n'y désigne que des clés, et des clés disjointes.
+ * `etat` est dans ce cas : « Réglages et profil » y prend les réglages,
+ * « Odyssée » y prend l'activation de Santé et le socle d'activité. Deux
+ * groupes qui prendraient le même magasin entier, en revanche, le
+ * compteraient deux fois à l'export et l'effaceraient deux fois.
+ */
+const partages = [...new Set(couverts.filter((nom, i) => couverts.indexOf(nom) !== i))];
 v(
-  'aucun magasin n’est dans deux groupes',
-  couverts.filter((nom, i) => couverts.indexOf(nom) !== i),
+  'un magasin partagé n’est jamais pris entier par deux groupes',
+  partages.filter((nom) =>
+    GROUPES.filter((g) => g.magasins.includes(nom)).some((g) => !g.clefs?.[nom]),
+  ),
   [],
 );
+const chevauchements: string[] = [];
+for (const nom of partages) {
+  const visees = GROUPES.filter((g) => g.magasins.includes(nom)).map(
+    (g) => [g.id, g.clefs?.[nom]] as const,
+  );
+  for (const [idA, a] of visees) {
+    for (const [idB, b] of visees) {
+      if (idA >= idB || !a || !b) continue;
+      // Une clé exacte de l'un ne doit tomber ni dans les clés ni dans les
+      // préfixes de l'autre, et réciproquement.
+      for (const clef of a.exactes) if (clefVisee(clef, b)) chevauchements.push(`${nom}/${clef}`);
+      for (const clef of b.exactes) if (clefVisee(clef, a)) chevauchements.push(`${nom}/${clef}`);
+    }
+  }
+}
+v('deux groupes ne visent jamais la même clé', chevauchements, []);
 v(
   'aucun groupe ne nomme un magasin qui n’existe pas',
   couverts.filter((nom) => !MAGASINS_PROGRESSION.includes(nom as never)),
@@ -65,6 +100,75 @@ v('les identifiants de groupe sont uniques', new Set(GROUPES.map((g) => g.id)).s
 for (const nom of MAGASINS_PROGRESSION) {
   v(`« ${nom} » retrouve son groupe`, groupeDuMagasin(nom)?.magasins.includes(nom), true);
 }
+
+console.log('\nLES CLÉS D’« ETAT » : AUCUNE CLÉ TECHNIQUE DANS UNE LISTE BLANCHE');
+
+/*
+ * L'anomalie B-3 du 58, et le contrôle qui l'empêche de revenir.
+ *
+ * « Réglages et profil » désignait le magasin `etat` entier. Or `etat` porte
+ * aussi le sel et l'enveloppe de la clé du coffre, l'identité de l'appareil,
+ * son horloge logique et la paire de clés de sa boîte aux lettres. Effacer
+ * « ses réglages » rendait donc le coffre illisible — avec le bon mot de
+ * passe, et sans un mot d'avertissement.
+ *
+ * Ces contrôles sont de la mécanique pure : ils comparent des listes. Le
+ * contrôle qui prouve le comportement est dans
+ * `essais-reglages-sans-coffre.mjs`, où l'on efface vraiment, puis où l'on
+ * rouvre vraiment le coffre.
+ */
+const blanches = [...CLEFS_PERSONNELLES_ETAT, ...CLEFS_ODYSSEE_ETAT];
+v('aucune clé technique n’a glissé dans une liste blanche', blanches.filter(estTechnique), []);
+v(
+  'aucun préfixe personnel n’attrape une clé technique',
+  CLEFS_TECHNIQUES_ETAT.filter((clef) =>
+    PREFIXES_PERSONNELS_ETAT.some((prefixe) => clef.startsWith(prefixe)),
+  ),
+  [],
+);
+v(
+  'aucun préfixe personnel ne recoupe un préfixe technique',
+  PREFIXES_PERSONNELS_ETAT.filter((p) =>
+    PREFIXES_TECHNIQUES_ETAT.some((t) => p.startsWith(t) || t.startsWith(p)),
+  ),
+  [],
+);
+v('aucune clé blanche n’est déclarée deux fois', new Set(blanches).size, blanches.length);
+
+/*
+ * Les quatre clés dont la perte est irréparable, nommées une à une. Une liste
+ * qui se contente de « il y a des clés techniques » laisserait passer le jour
+ * où l'une d'elles sort du classement.
+ */
+for (const clef of [
+  'coffre.sel',
+  'coffre.enveloppe',
+  'coffre.sel-enveloppe',
+  'boite.privee',
+  'appareil',
+  'horloge',
+]) {
+  v(`« ${clef} » est technique`, estTechnique(clef), true);
+}
+
+/*
+ * Et le piège inverse : un réglage dont le nom porte une variable. Une liste
+ * de noms exacts aurait manqué `selection:nback`, en silence.
+ */
+const reglages = groupe('reglages');
+const viseesReglages = reglages?.clefs?.etat as ClefsVisees;
+v('« selection:nback » est un réglage visé', clefVisee('selection:nback', viseesReglages), true);
+v('« coffre.sel » n’est pas visé par les réglages', clefVisee('coffre.sel', viseesReglages), false);
+v(
+  '« socleActivite » n’est pas visé par les réglages',
+  clefVisee('socleActivite', viseesReglages),
+  false,
+);
+v(
+  '« socleActivite » est visé par Odyssée',
+  clefVisee('socleActivite', groupe('odyssee')?.clefs?.etat as ClefsVisees),
+  true,
+);
 
 console.log('\nLA DATE EST LUE DANS LE CHAMP DÉCLARÉ, ET NULLE PART AILLEURS');
 

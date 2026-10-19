@@ -16,7 +16,7 @@
  * reste quand la personne s'est trompée de groupe.
  */
 import { MAGASINS_PROGRESSION, db } from '../db';
-import { CHAMP_DATE, dateDe, groupe } from './groupes';
+import { CHAMP_DATE, clefVisee, dateDe, groupe, type ClefsVisees } from './groupes';
 import { cibleDe, magasinJournalise } from '../noyau/enregistrements';
 
 /** Le filtre d'un effacement. Un groupe, et éventuellement une période. */
@@ -62,6 +62,47 @@ function magasinsDe(cible: Cible): string[] {
   return MAGASINS_PROGRESSION.filter((nom) => voulus.has(nom));
 }
 
+/**
+ * Les clés visées dans un magasin, ou `null` quand c'est le magasin entier.
+ *
+ * B-3 du 58 : le groupe « Réglages et profil » ne désigne plus le magasin
+ * `etat`, mais une liste blanche de ses clés. Un magasin reste entier dès
+ * qu'un SEUL des groupes demandés le désigne entier : deux cibles qui se
+ * recouvrent ne doivent pas se restreindre l'une l'autre.
+ */
+function viseesDe(cible: Cible, magasin: string): ClefsVisees | null {
+  const exactes = new Set<string>();
+  const prefixes = new Set<string>();
+  for (const id of cible.groupes) {
+    const g = groupe(id);
+    if (!g || !g.magasins.includes(magasin)) continue;
+    const visees = g.clefs?.[magasin];
+    // Un seul groupe qui prend le magasin entier l'emporte : on ne peut pas
+    // effacer « moins » que ce que la personne a demandé.
+    if (!visees) return null;
+    for (const clef of visees.exactes) exactes.add(clef);
+    for (const prefixe of visees.prefixes ?? []) prefixes.add(prefixe);
+  }
+  return { exactes: [...exactes], prefixes: [...prefixes] };
+}
+
+/**
+ * Les clés présentes dans le magasin que la cible désigne vraiment.
+ *
+ * Les préfixes obligent à passer par les clés réelles : `selection:nback` est
+ * un réglage, et aucune liste de noms exacts ne peut l'énumérer d'avance.
+ */
+async function clefsPresentes(
+  base: Awaited<ReturnType<typeof db>>,
+  magasin: string,
+  visees: ClefsVisees,
+): Promise<string[]> {
+  const toutes = (await base.getAllKeys(magasin as never)) as unknown as unknown[];
+  return toutes
+    .filter((clef): clef is string => typeof clef === 'string')
+    .filter((clef) => clefVisee(clef, visees));
+}
+
 /** Un enregistrement tombe-t-il dans la période demandée ? */
 function dansLaPeriode(magasin: string, enregistrement: unknown, cible: Cible): boolean {
   if (!cible.depuis && !cible.jusqua) return true;
@@ -87,6 +128,27 @@ export async function compter(cible: Cible): Promise<Decompte> {
 
   for (const nom of noms) {
     const magasin = nom as (typeof MAGASINS_PROGRESSION)[number];
+    const visees = viseesDe(cible, nom);
+    /*
+       Quand le groupe ne désigne que des clés (B-3), on compte les clés
+       visées **présentes**, et le total reste celui du magasin : annoncer
+       « 14 sur 14 » pour un magasin dont on n'effacera que deux entrées
+       serait exactement le mensonge que ce correctif retire, et annoncer
+       « 2 sur 2 » en serait un autre.
+
+       La période garde la main : `etat` porte un état courant et non un
+       historique, donc une période ne le découpe pas, et le magasin tombe
+       dans le refus ci-dessous — comme avant la B-3. Restreindre aux clés
+       sans regarder la période aurait effacé TOUS les réglages sous
+       prétexte qu'on en demandait une tranche.
+    */
+    if (visees && !(avecPeriode && CHAMP_DATE[nom] === null)) {
+      const presentes = await clefsPresentes(base, nom, visees);
+      const total = (await base.getAllKeys(magasin)).length;
+      sortie.parMagasin.push({ magasin: nom, vises: presentes.length, total });
+      sortie.vises += presentes.length;
+      continue;
+    }
     const tous = await base.getAll(magasin);
     const total = tous.length;
 
@@ -155,9 +217,35 @@ export async function effacer(cible: Cible): Promise<ResultatEffacement> {
   */
   const supprimees: string[] = [];
 
+  /*
+     Les réglages effacés doivent aussi quitter le registre versionné
+     (`etat/reglagesSync`), qui garde une copie horodatée de chaque réglage
+     synchronisé. Le registre n'est pas un réglage : c'est la machinerie qui
+     les fait converger, et le jeter casserait la convergence. Mais le laisser
+     intact aurait fait revenir le profil effacé à la première synchronisation,
+     avec sa valeur et son horloge — un effacement qui se défait tout seul.
+  */
+  const registreARetirer: string[] = [];
+
   for (const nom of noms) {
     const magasin = nom as (typeof MAGASINS_PROGRESSION)[number];
     const journalise = magasinJournalise(nom);
+    const visees = viseesDe(cible, nom);
+
+    /*
+       B-3 du 58 : clé par clé, jamais `clear()`. Le magasin `etat` porte
+       l'identité de l'appareil, son horloge logique et l'enveloppe de la clé
+       du coffre ; les vider rendait le coffre illisible avec le bon mot de
+       passe, sous un libellé qui annonçait des réglages.
+    */
+    if (visees && !(avecPeriode && CHAMP_DATE[nom] === null)) {
+      const presentes = await clefsPresentes(base, nom, visees);
+      for (const clef of presentes) await base.delete(magasin, clef as never);
+      effaces[nom] = presentes.length;
+      total += presentes.length;
+      if (nom === 'etat') registreARetirer.push(...presentes);
+      continue;
+    }
 
     if (avecPeriode && CHAMP_DATE[nom] === null) {
       refuses.push({
@@ -202,6 +290,32 @@ export async function effacer(cible: Cible): Promise<ResultatEffacement> {
     await tx.done;
     effaces[nom] = combien;
     total += combien;
+  }
+
+  /*
+     Le registre versionné perd les entrées des réglages effacés. On le réécrit
+     une fois, après la boucle, plutôt qu'à chaque clé : c'est une seule valeur
+     dans `etat`, et la réécrire vingt fois n'aurait servi qu'à multiplier les
+     occasions de la perdre à moitié.
+
+     Aucune pierre tombale n'est posée : un autre appareil qui porte encore le
+     réglage le renverra. C'est le sujet de l'A7 — « l'effacement ciblé dit
+     qu'il se propage » — et il n'est pas tranché ici.
+  */
+  if (registreARetirer.length) {
+    const registre = (await base.get('etat', 'reglagesSync')) as
+      | Record<string, unknown>
+      | undefined;
+    if (registre) {
+      let touche = false;
+      for (const clef of registreARetirer) {
+        if (clef in registre) {
+          delete registre[clef];
+          touche = true;
+        }
+      }
+      if (touche) await base.put('etat', registre as never, 'reglagesSync' as never);
+    }
   }
 
   /*
