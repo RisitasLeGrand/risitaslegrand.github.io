@@ -127,6 +127,12 @@ Aucune proposition contestée sur le fond.
 
 ### Les deux choses que je n'ai pas faites comme demandé
 
+> **Écarts acceptés par le pilote, 19/10.** Les deux tournures ci-dessous lui
+> ont été remontées et il les a validées telles quelles : le silence déclaré
+> dans l'en-tête plutôt que dans le texte dit, et la règle de N°8 appliquée
+> seulement là où le genre est connu par la table close — la virgule sinon,
+> « conforme à l'interdit 1 ».
+
 **1. Le silence de N°3 n'est pas un marqueur dans le texte.** Le prompt en
 propose un, « par exemple `[[silence 4000]]` ». Or le garde-fou anti-fuite du
 43 refuse déjà les crochets doubles — et il a raison, puisque tout ce qui
@@ -196,6 +202,34 @@ la documentation du dépôt**, pas mesuré par moi — le modèle Kokoro pèse 3
 et n'était pas installable utilement ici.
 
 ---
+
+## L'arbitrage du pilote sur la version de schéma (19/10)
+
+La montée de `db.ts` vers **34** n'était pas une précaution : relevé sur le
+distant, l'agent B était **aussi** en 34 sur `claude/p52-mol`, avec un bloc
+`vers(34)` différent — le magasin `odysseeCreneaux` du lot Santé.
+
+Le défaut qu'aurait produit une double fusion mérite d'être écrit, parce qu'il
+est silencieux : `vers(n)` ne s'exécute que si `ancienneVersion < n`. Chez une
+personne dont la base a déjà atteint 34 par la première fusion, le bloc 34 de
+la seconde **n'aurait jamais tourné** — son magasin n'aurait pas été créé, et
+la première écriture aurait échoué. Aucune des deux branches ne rougit
+séparément, et aucune relecture de diff ne le voit : c'est la propriété que
+défend le commentaire de `ouvrirAuSchema` — « ouvrir à la version N produit
+exactement le schéma de la version N » — que deux 34 différents rendaient
+fausse.
+
+Attribution arrêtée par le pilote :
+
+| Version | À qui |
+|---|---|
+| 34 | **cette branche** (`podcastPositions`) — poussée et vérifiée |
+| 35 | agent B, `claude/p52-mol` |
+| 36 et au-delà | réservés au constructeur (prompt 58) |
+| — | l'agent A ne touche pas à `db.ts` |
+
+Rien à changer ici, donc. Le contrôle que les numéros sont distincts et
+croissants, et que la base s'ouvre depuis la 33, se fait à la fusion.
 
 ## Ce qui reste à faire, et qui n'est pas à moi
 
