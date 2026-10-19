@@ -16,13 +16,17 @@
  * lancez « astro preview » avant ce script.
  */
 import { chromium } from 'playwright-core';
+import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
 
+/* Le binaire se cherche, il ne se nomme pas : le numéro de version du
+   conteneur change, et un chemin écrit en dur rougit sans que le site ait
+   rien. C'est l'outillage posé sur main le 19 octobre. */
 const nav = await chromium.launch({
-  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  executablePath: cheminDuNavigateur(),
   args: ['--no-sandbox'],
 });
 

@@ -17,6 +17,7 @@
  * « astro preview » avant ce script.
  */
 import { chromium } from 'playwright-core';
+import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 import { accorderLApprentissage } from './lib/consentement-essais.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
@@ -24,7 +25,8 @@ const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
 
 const nav = await chromium.launch({
-  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  /* Cherché, non nommé : voir `lib/chromium-essais.mjs`. */
+  executablePath: cheminDuNavigateur(),
   args: ['--no-sandbox'],
 });
 
