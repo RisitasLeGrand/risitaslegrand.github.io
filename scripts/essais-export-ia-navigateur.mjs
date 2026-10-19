@@ -14,6 +14,7 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { repondreALaBoite } from './lib/boite-essais.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -43,12 +44,22 @@ page.on('console', (m) => {
   if (m.type() === 'error') console.log('CONSOLE:', m.text().slice(0, 250));
 });
 
-/** La réponse aux confirmations : refus par défaut, pour que l'oubli se voie. */
-let accepterDialogues = false;
-page.on('dialog', async (d) => {
-  if (accepterDialogues) await d.accept();
-  else await d.dismiss();
-});
+/**
+ * La réponse aux confirmations, depuis la boîte commune (C1 du 43).
+ *
+ * Les quinze `confirm()` du site ont été remplacés par un `<dialog>` modal.
+ * Cet essai écoutait encore `page.on('dialog')`, c'est-à-dire la fenêtre
+ * native : elle ne s'ouvre plus, donc plus rien ne répondait, la case
+ * sensible restait décochée par accident — l'assertion passait pour la
+ * mauvaise raison — et la feuille restée ouverte arrêtait le clic suivant
+ * (« dialog.boite … intercepts pointer events »).
+ *
+ * On répond donc à la boîte, par le LIBELLÉ du bouton : « Inclure quand
+ * même » pour accepter, « Annuler » pour refuser. Le refus reste le défaut,
+ * pour que l'oubli se voie.
+ */
+const repondre = async (accepter) =>
+  repondreALaBoite(page, accepter ? 'Inclure quand même' : 'Annuler');
 
 await page.goto(`${RACINE}/robots.txt`);
 await page.evaluate(
@@ -123,16 +134,14 @@ await page.waitForSelector('#categories input[type="checkbox"]', { timeout: 4000
 }
 {
   /* Cocher une sensible demande confirmation, et un refus la laisse décochée. */
-  accepterDialogues = false;
   await page.click('#categories input[data-categorie="sante"]');
-  await page.waitForTimeout(200);
+  await repondre(false);
   faux(
     'une confirmation refusée laisse la catégorie sensible décochée',
     await page.locator('#categories input[data-categorie="sante"]').isChecked(),
   );
-  accepterDialogues = true;
   await page.click('#categories input[data-categorie="sante"]');
-  await page.waitForTimeout(200);
+  await repondre(true);
   vrai(
     'une confirmation acceptée la coche',
     await page.locator('#categories input[data-categorie="sante"]').isChecked(),
@@ -146,10 +155,18 @@ await page.waitForSelector('#categories input[type="checkbox"]', { timeout: 4000
   );
 }
 {
-  /* Une case non sensible ne demande aucune confirmation. */
-  accepterDialogues = false;
+  /*
+     Une case non sensible ne demande aucune confirmation. On le MESURE :
+     aucune boîte ne doit s'ouvrir, et la case doit être cochée. Attendre
+     une boîte qui ne vient pas serait attendre trente secondes ; on
+     constate donc son absence, puis l'effet.
+  */
   await page.click('#categories input[data-categorie="profil"]');
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(400);
+  faux(
+    'une catégorie non sensible n’ouvre aucune boîte',
+    await page.locator('dialog.boite[open]').isVisible().catch(() => false),
+  );
   vrai(
     'une catégorie non sensible se coche sans confirmation',
     await page.locator('#categories input[data-categorie="profil"]').isChecked(),

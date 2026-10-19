@@ -24,6 +24,7 @@
  */
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { repondreALaBoite } from './lib/boite-essais.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -57,6 +58,11 @@ async function appareil(nom) {
    * referme toute boîte de dialogue par défaut, ce qui vaut « non » : sans ce
    * gestionnaire, l'essai mesurerait une annulation qui n'a jamais eu lieu.
    */
+  /*
+     Les fenêtres natives ont disparu avec C1 ; cet écouteur ne garde plus
+     que les cas qu'aucun écran n'ouvre, et il ne coûte rien. On répond à la
+     boîte commune là où elle paraît, explicitement.
+  */
   page.on('dialog', (d) => void d.accept());
   return { nom, contexte, page };
 }
@@ -395,6 +401,16 @@ console.log('\nANNULER UNE FUSION DÉFAIT CE QU’ELLE A ÉCRIT');
   await ouvrir(C, '/appareils/', '#ecran:not(.hidden)');
   await C.page.waitForSelector('.annuler', { timeout: 40000 });
   await C.page.locator('.annuler').first().click();
+  /*
+     LA BOÎTE COMMUNE (C1 du 43). « Annuler » ouvre maintenant une
+     confirmation qui nomme ce qui sera retiré — opérations, révisions,
+     cartes recalculées — et le message d'annulation ne s'écrit qu'APRÈS la
+     réponse. L'essai écoutait encore la fenêtre native : il attendait donc
+     quarante secondes un message qu'il n'avait pas demandé.
+
+     Le bouton dit l'action, et c'est par là qu'on le désigne.
+  */
+  await repondreALaBoite(C.page, 'Annuler cette synchronisation');
   await C.page.waitForSelector('#message-annulation:not(.hidden)', { timeout: 40000 });
   await C.page.waitForFunction(
     () => !document.getElementById('message-annulation').textContent.includes('en cours'),
