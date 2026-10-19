@@ -80,8 +80,84 @@ calcul de durée de cycle, aucune plage estimée, aucune fenêtre, aucune
 statistique — ce n'est pas un manque de travail, c'est l'absence délibérée de
 tout chiffre qu'une réponse pourrait démentir.
 
-**Ce qui sera proposé, et quand** : au lot qui construit les cycles et les
-statistiques personnelles, chiffré et motivé, en une seule fois.
+**Ce que le code fait maintenant, et c'est une précision** : l'algorithme de
+dérivation des cycles est écrit et mesuré (`odyssee/cycles.ts`,
+`npm run essais:cycles`), mais il **reçoit ses chiffres en paramètres** et les
+portes publiques refusent. `cyclesDeLHistorique`,
+`statistiquesDeLHistorique` et `fenetresDeLHistorique` rendent aujourd'hui
+`{ impossible: 'parametres-non-tranches', manquants: [...] }`. Un essai vérifie
+que la valeur proposée n'est lue **qu'à un seul endroit**, derrière le
+contrôle `applique`, et que les chiffres employés par les essais ne sont
+aucune des propositions — sans quoi une proposition pourrait devenir la valeur
+qui fait passer une mesure, et plus personne ne saurait si elle a été choisie
+ou héritée.
+
+Le jour où la réponse arrive : `applique: true` avec la valeur retenue, et
+rien d'autre à changer.
+
+### Les six chiffres, et ce que chacun décide
+
+Chaque motivation dit **ce qui change si on prend autrement**, pour qu'on
+puisse répondre sans relire le code.
+
+**1. `jours-pour-ouvrir` — proposé : **2** jours.**
+Combien de jours de saignement consécutifs, au moins « Légers », ouvrent un
+cycle. La décision 8 exclut les « traces isolées », et « isolé » demande un
+chiffre. Deux jours écartent le saignement d'un jour sans écarter des règles
+courtes, qui existent. À un jour, un saignement isolé ouvrirait un cycle et
+fausserait toutes les durées ; à trois, des règles de deux jours ne seraient
+jamais comptées et l'écran dirait « aucun cycle » à quelqu'un qui en a.
+
+**2. `ecart-minimal-entre-j1` — proposé : **15** jours.**
+L'écart minimal entre deux J1 pour compter deux cycles et non un seul. Sans ce
+seuil, un saignement de milieu de cycle ouvrirait un second cycle et
+diviserait la durée par deux. Quinze jours est la moitié d'un cycle de trente :
+en dessous, deux débuts sont plus probablement un seul épisode interrompu. Plus
+bas, les durées se morcellent ; plus haut, deux cycles réellement courts se
+confondent en un.
+
+**3. `duree-maximale-fiable` — proposé : **90** jours.**
+La durée au-delà de laquelle un cycle est dit non clos plutôt que long. Un
+écart de plusieurs mois entre deux J1 est plus souvent une saisie manquée
+qu'un cycle long, et le compter comme une durée abîmerait la médiane.
+Quatre-vingt-dix jours laisse passer les cycles longs réels — ils existent, et
+les écarter serait effacer la personne au profit d'une jolie statistique — tout
+en écartant les trous d'usage. **Le cycle reste affiché** ; il n'entre pas dans
+les statistiques, et l'écran dira pourquoi.
+
+**4. `cycles-avant-une-mediane` — proposé : **3** cycles.**
+Combien de cycles complets et fiables avant d'afficher une médiane. Une médiane
+sur deux cycles est un chiffre qui a l'air d'un savoir. Trois est le minimum
+pour qu'une valeur centrale ait un sens, et c'est aussi trois mois d'attente
+avant que l'écran montre quoi que ce soit — ce qui est long. Plus haut, l'écran
+reste muet une demi-année ; plus bas, il affirme. Les extrêmes, eux, sont
+rendus dès le premier cycle : ce sont des faits, pas une valeur centrale.
+
+**5. `largeur-fenetre-avant` — proposé : **5** jours.**
+La largeur de la fenêtre « avant les règles », en jours avant un J1 **passé**.
+Explicitement renvoyée à Alexis par la décision 8. Cinq jours couvrent la
+période que les gens décrivent le plus souvent, sans s'étendre assez pour que
+la fenêtre recouvre la moitié du cycle — à quoi elle ne distinguerait plus
+rien. Cette fenêtre est passée : elle se calcule sur un J1 qui a eu lieu,
+jamais sur un J1 attendu, et c'est la décision 12 qui l'impose.
+
+**6. `delai-du-constat-de-retard` — proposé : **7** jours.**
+Au bout de combien de jours après la fin de la plage estimée le constat de
+retard paraît. C'est le « [N] jours » de la chaîne imposée `retard.constat`.
+Sept jours laissent passer la variation ordinaire d'un cycle sans laisser
+quelqu'un sans phrase pendant des semaines. Plus bas, le constat paraît pour
+une variation banale et inquiète ; plus haut, il ne paraît plus quand il
+servirait. Le constat reste un **fait affiché**, sans signal codé : décision 11,
+tant qu'aucune source n'est atteignable.
+
+### Une chose qu'aucun de ces chiffres ne règle
+
+Rien ici ne dit ce qu'est un cycle **normal**, et rien ne le dira : aucune
+source n'est atteignable, et un chiffre de référence sans source est
+exactement ce que le § 1 n° 6 interdit. Les statistiques portent sur la seule
+base de la personne (décision 16, « contexte affiché seulement »). Si Alexis
+veut un jour une comparaison, il faudra d'abord une source — et c'est une autre
+décision.
 
 ---
 

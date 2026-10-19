@@ -51,6 +51,17 @@ const EXCEPTIONS = [
       'L’appeler depuis un écran serait le défaut, pas l’inverse.',
   },
   {
+    chemin: 'src/lib/odyssee/cycles.ts',
+    depuis: '2026-10-19',
+    pourquoi:
+      'Dérivation des cycles, statistiques et fenêtres du suivi personnel. Écrit et mesuré, ' +
+      'mais branché à AUCUN écran, et c’est la décision 24 du plan de phase 0 : « aucun ' +
+      'paramètre appliqué avant ta réponse ». Ses portes publiques refusent tant qu’Alexis ' +
+      'n’a pas tranché les six chiffres, donc un écran qui l’appellerait n’afficherait rien. ' +
+      'Une dette datée, pas un choix assumé : `essais:cycles` rougit le jour où un paramètre ' +
+      'est appliqué sans que cette exception soit retirée.',
+  },
+  {
     chemin: 'src/lib/notifications/recalcul.ts',
     depuis: '2026-10-15',
     pourquoi: 'Prompt 32, phase 3. Se branche à la phase 5, avec les résolveurs de source.',
