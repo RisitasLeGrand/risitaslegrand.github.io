@@ -62,6 +62,14 @@ const SEMIS_DECLARES = [
   { fichier: 'essais-odyssee-navigateur.mjs', permanent: true, pourquoi: 'Les règles du jour s’éprouvent sur une fenêtre de sept jours révolus.' },
   { fichier: 'essais-initialisation-navigateur.mjs', permanent: true, pourquoi: 'L’initialisation allégée part d’une installation existante.' },
   {
+    fichier: 'essais-bibliotheque-vide.mjs',
+    permanent: true,
+    pourquoi:
+      'Une bibliothèque d’exercices vide. L’écran sait la produire, en trente-' +
+      'deux suppressions confirmées une à une, mais ce n’est pas ce qui est ' +
+      'éprouvé : c’est ce que la séance DIT une fois la bibliothèque vide.',
+  },
+  {
     fichier: 'essais-bascule-branchement.mjs',
     permanent: true,
     pourquoi:

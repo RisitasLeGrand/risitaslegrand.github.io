@@ -96,6 +96,24 @@ import LienReglages from '../../components/LienReglages.astro';
           </div>
         </div>
 
+        <!--
+           BIBLIOTHÈQUE VIDE : ON LE DIT, ET ON DONNE LA PORTE — anomalie A-43-1.
+
+           Le choix d'exercice est « required » et se peint depuis la
+           bibliothèque. Vide, il n'avait aucune option : le navigateur
+           refusait la soumission, et l'écran ne disait rien. On voyait un
+           formulaire complet qui n'enregistrait rien, sans un mot.
+
+           Le formulaire cède donc la place à une phrase et à un lien. Le cas
+           est atteignable : une bibliothèque qu'on vide, ou une installation
+           dont la bibliothèque fournie n'a pas été posée.
+        -->
+        <p id="bibliotheque-vide" class="mt-4 hidden rounded-2xl border border-slate-200 bg-white p-4 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-950 dark:text-slate-300">
+          Aucun exercice dans votre bibliothèque pour l’instant.
+          <a href="/sport/exercices/" class="ml-1 inline-flex min-h-11 items-center text-indigo-700 underline dark:text-indigo-300"
+            >Ajouter un exercice</a>
+        </p>
+
         <!-- La saisie -->
         <form id="saisie" class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950">
           <label class="block text-sm">
@@ -405,6 +423,13 @@ import LienReglages from '../../components/LienReglages.astro';
       select.appendChild(option);
     }
     if (garde) select.value = garde;
+    /*
+       Bibliothèque vide : le formulaire s'efface et la phrase paraît (A-43-1).
+       On ne laisse pas à l'écran un formulaire que le navigateur refusera.
+    */
+    const vide = exercices.length === 0;
+    $('saisie').classList.toggle('hidden', vide);
+    $('bibliotheque-vide').classList.toggle('hidden', !vide);
   }
 
   function direEstimation() {

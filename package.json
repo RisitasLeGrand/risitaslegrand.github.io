@@ -137,6 +137,7 @@
     "essais:modification-serie": "tsx scripts/essais-modification-serie.mts",
     "essais:liaison-branches": "tsx scripts/essais-liaison-branches.mts",
     "essais:sport": "tsx scripts/essais-sport.mts",
+    "essais:bibliotheque-vide": "node scripts/essais-bibliotheque-vide.mjs",
     "essais:sport:navigateur": "node scripts/essais-sport-navigateur.mjs",
     "essais:corps": "tsx scripts/essais-corps.mts",
     "essais:tendances": "tsx scripts/essais-tendances.mts",
