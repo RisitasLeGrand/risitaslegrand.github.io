@@ -939,13 +939,27 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     await peindreRappel();
   }
 
+  /*
+     Rend `false` quand le geste a ÉCHOUÉ, et c'est ce que `unSeulGeste`
+     attend pour ne pas poser son repos de 600 ms (voir `lib/geste.ts`).
+
+     Sans cette valeur de retour, un refus était indiscernable d'une
+     réussite une fois l'exception attrapée ici, et le repos s'appliquait
+     quand même. Parcours constaté le 19 octobre : on saisit 5 kg, le modèle
+     refuse (« attendu entre 20 et 400 »), on corrige en 78,4, on réappuie —
+     et le second appui, tombé dans le repos, était ignoré SANS un mot. La
+     correction la plus naturelle qui soit se perdait, et l'écran gardait un
+     message d'erreur qui désignait un poids déjà corrigé.
+  */
   const essayer = async (travail: () => Promise<unknown>) => {
     try {
       await travail();
       taire();
       await recharger();
+      return true;
     } catch (erreur) {
       dire(erreur);
+      return false;
     }
   };
 

@@ -102,15 +102,47 @@ export async function unSeulGeste<T>(
   const desactiveAvant = bouton instanceof HTMLButtonElement ? bouton.disabled : null;
   if (bouton instanceof HTMLButtonElement) bouton.disabled = true;
 
+  /*
+     LE REPOS NE COMPTE QUE POUR UN GESTE QUI A ABOUTI — corrigé le 19
+     octobre, sur un défaut trouvé par « essais:tendances:navigateur ».
+
+     Le repos existe contre le REBOND : un second appui si proche du premier
+     qu'il ne peut être qu'un doigt qui a glissé, et qui écrirait deux fois
+     la même chose. Il était posé dans un « finally », donc aussi après un
+     geste REFUSÉ — et c'est là qu'il devenait faux.
+
+     Le parcours constaté : on saisit 5 kg, le modèle refuse (« attendu
+     entre 20 et 400 »), on corrige en 78,4 et on réappuie. Ce second appui
+     tombait dans les 600 ms de repos, il était donc ignoré — sans un mot, et
+     sans rien écrire. L'écran gardait l'ancien message d'erreur, qui
+     désignait un poids qu'on venait de corriger. La correction la plus
+     naturelle qui soit était perdue en silence.
+
+     Un geste qui a échoué n'a rien écrit : un second appui ne peut donc rien
+     dupliquer, et il n'y a rien à protéger. On ne note l'heure de fin que
+     lorsque l'action a abouti ; sinon, on libère seulement le verrou de
+     concurrence.
+
+     « Abouti » veut dire : l'action n'a pas levé, ET elle n'a pas rendu
+     `false`. Le second cas est la convention de `agirPuisPeindre`, la porte
+     commune par laquelle passent les gestes d'écran : elle attrape
+     l'exception pour l'AFFICHER et rend `false`. Sans cette seconde
+     condition, un refus resterait invisible d'ici — l'action aurait
+     « réussi » du point de vue de ce module alors que l'écran affiche un
+     échec, et c'est exactement ce qui faisait perdre la pesée corrigée.
+  */
+  let aAbouti = false;
   try {
-    return await action();
+    const resultat = await action();
+    aAbouti = resultat !== false;
+    return resultat;
   } finally {
     if (parCle) {
       sansControle.delete(controle);
-      finiAParCle.set(controle, performance.now());
+      if (aAbouti) finiAParCle.set(controle, performance.now());
     } else {
       enCours.delete(controle);
-      finiA.set(controle, performance.now());
+      if (aAbouti) finiA.set(controle, performance.now());
     }
     if (bouton instanceof HTMLButtonElement && desactiveAvant !== null) {
       bouton.disabled = desactiveAvant;

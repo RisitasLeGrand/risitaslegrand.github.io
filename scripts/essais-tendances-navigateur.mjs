@@ -330,6 +330,24 @@ console.log('\nLA QUATRIÈME TRAJECTOIRE EST REFUSÉE, AVEC SA RAISON');
 
 await page.click('details:has(#intitule) summary');
 async function ouvrir(nom) {
+  /*
+     LE REPOS DE 600 ms ENTRE DEUX GESTES VOULUS — A1 du 43, `lib/geste.ts`.
+
+     « unSeulGeste » refuse un second appui trop proche du premier, pour
+     qu'un doigt qui glisse n'écrive pas deux fois. L'essai, lui, enchaînait
+     trois créations en quelques dizaines de millisecondes : les deux
+     dernières étaient ignorées, et la liste n'augmentait jamais.
+
+     Personne ne peut saisir un intitulé et un « pourquoi » en moins de
+     600 ms : le garde-fou est juste, et c'est l'essai qui allait plus vite
+     qu'une main. Il attend donc, comme une main attend.
+
+     À TRANCHER (noté au pilote) : ce refus est SILENCIEUX. C'est voulu pour
+     un rebond — dire quelque chose à chaque doigt qui glisse serait du
+     bruit — mais un geste délibéré refusé sans un mot reste un cas que la
+     règle « un échec est dit, jamais avalé » n'a pas tranché.
+  */
+  await page.waitForTimeout(700);
   await page.fill('#intitule', nom);
   await page.fill('#pourquoi', 'Pour voir.');
   await page.click('#ouvrir');
