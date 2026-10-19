@@ -62,7 +62,7 @@ export function redemanderLeMotDePasse(demande: Redemande): Promise<boolean> {
     const dialogue = document.createElement('dialog');
     dialogue.className =
       'max-w-md rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-xl ' +
-      'backdrop:bg-slate-900/40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
+      'voile-du-theme dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
 
     const corps = document.createElement('form');
     corps.method = 'dialog';

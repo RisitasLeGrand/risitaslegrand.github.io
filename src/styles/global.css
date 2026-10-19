@@ -1349,10 +1349,22 @@ button:not(:disabled):active,
   justify-content: center;
 }
 
-.boite::backdrop {
-  /* Le voile derrière une boîte : l'ombre du thème, à 55 %. Il était écrit
-     en dur, au slate-950 d'alors, et restait donc bleuté
-     dans les quatorze thèmes. */
+/*
+   Le voile derrière une boîte modale : l'ombre du thème, à 55 %.
+
+   Il était écrit en dur, au slate-950 d'alors, et restait donc bleuté dans
+   les quatorze thèmes. Deux autres `<dialog>` l'avaient encore en dur — le
+   détail d'un exercice et la redemande du mot de passe : la même valeur était
+   revenue par une autre porte, ce qu'une correction ponctuelle ne pouvait pas
+   empêcher.
+
+   Les deux sélecteurs partagent **une seule règle**, et non deux règles
+   jumelles : deux déclarations de la même valeur dérivent, et c'est
+   exactement ce qui s'était passé. « essais:voiles » tient les deux bouts —
+   aucune couleur de voile en dur dans `src`, et une seule déclaration ici.
+*/
+.boite::backdrop,
+.voile-du-theme::backdrop {
   background: color-mix(in srgb, var(--etat-ombre) 55%, transparent);
 }
 
