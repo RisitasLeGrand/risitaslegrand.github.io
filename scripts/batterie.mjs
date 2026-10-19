@@ -111,11 +111,37 @@ if (existsSync(cheminDesVerdicts)) {
 /*
    Les journaux de la batterie tuée au redémarrage n'ont pas de verdict
    écrit — le fichier n'existait pas encore. On les relit, et on les juge
-   sur ce que le journal porte : la croix rouge, ou une signature de panne.
+   sur ce que le journal porte : une croix en tête de ligne, ou une signature
+   de panne.
    Le code de sortie, lui, est perdu : c'est dit, essai par essai, dans le
    récapitulatif, parce qu'un juge amputé qui se présente comme entier est
    pire qu'un essai relancé.
 */
+/**
+ * Une ligne d'échec, c'est une ligne qui COMMENCE par une croix.
+ *
+ * Il a fallu trois états du monde pour arriver à cette règle, et les deux
+ * premières versions du juge se sont trompées, chacune dans un sens :
+ *
+ * - la plupart des essais écrivent leur croix en rouge : la chercher ainsi
+ *   les attrape ;
+ * - « essais:retours » écrit, dans un libellé VERT, « et ✗ pour une réponse
+ *   fausse ». Il décrit le signe, il ne l'émet pas : chercher la croix nue le
+ *   déclarait rouge à tort — un faux rouge ;
+ * - « essais:sante » écrit sa croix SANS couleur, en tête de ligne. Chercher
+ *   la croix rouge l'a donc compté VERT alors qu'il est rouge — un faux vert,
+ *   pire, et c'est la batterie elle-même qui l'a montré : elle annonçait 215
+ *   verts là où il y en avait 214.
+ *
+ * La POSITION tranche les trois : une ligne d'échec porte sa croix en tête,
+ * un libellé qui parle de la croix la porte au milieu. On retire donc les
+ * séquences d'échappement et l'indentation, puis on regarde le premier
+ * caractère visible.
+ */
+const sansCouleur = (ligne) => ligne.replace(/\u001b\[[0-9;]*m/g, '').trim();
+const lignesDEchec = (texte) =>
+  texte.split('\n').filter((l) => sansCouleur(l).startsWith('✗'));
+
 const PANNE = /\n(?:node:internal|.*Error: |npm error )/;
 const reprisSansCode = [];
 for (const nom of noms) {
@@ -123,7 +149,7 @@ for (const nom of noms) {
   const fichier = join(journal, `${nom.replace(/[:/]/g, '-')}.log`);
   if (!existsSync(fichier)) continue;
   const texte = lireFichier(fichier, 'utf8');
-  const croix = /\u001b\[31m✗/.test(texte);
+  const croix = lignesDEchec(texte).length > 0;
   const panne = PANNE.test(texte);
   verdicts[nom] = { code: null, croix: croix || panne, repris: true };
   reprisSansCode.push(nom);
@@ -176,23 +202,20 @@ for (const [index, nom] of noms.entries()) {
     if (erreur.signal) sortie += `\n[batterie] interrompu après ${DELAI_MS} ms (${erreur.signal})`;
   }
   writeFileSync(join(journal, `${nom.replace(/[:/]/g, '-')}.log`), sortie);
-  verdicts[nom] = { code, croix: /\u001b\[31m✗/.test(sortie) };
+  verdicts[nom] = { code, croix: lignesDEchec(sortie).length > 0 };
   writeFileSync(cheminDesVerdicts, JSON.stringify(verdicts, null, 1));
 
   /*
      Deux juges, et non un seul : le code de sortie, et la présence d'une
-     croix ROUGE. Certains essais rendent 0 en affichant des croix — c'est un
+     croix EN TÊTE DE LIGNE. Certains essais rendent 0 en affichant des croix — c'est un
      défaut de ces essais, consigné ailleurs, mais la batterie ne doit pas
      s'en rendre complice en les comptant verts.
 
-     Pourquoi la couleur compte. « essais:retours » affiche, dans un libellé
-     VERT, « et ✗ pour une réponse fausse » : il décrit le signe, il ne
-     l'émet pas. Chercher la croix nue le déclarait donc rouge alors qu'il
-     finit sur « 0 échec(s) » et rend 0 — un rouge fabriqué par l'instrument,
-     du même genre que les deux essais fantômes du 19 octobre. Les lignes
-     d'échec, elles, écrivent toutes la croix en rouge.
+     Le juge est décrit au-dessus de « lignesDEchec » : ni la croix nue, qui
+     fabriquait un faux rouge, ni la croix rouge, qui a fabriqué un faux
+     vert, mais la croix en tête de ligne.
   */
-  const croix = /\u001b\[31m✗/.test(sortie);
+  const croix = lignesDEchec(sortie).length > 0;
   const secondes = ((Date.now() - depart) / 1000).toFixed(0);
   if (code === 0 && !croix) {
     verts += 1;
@@ -200,7 +223,7 @@ for (const [index, nom] of noms.entries()) {
   } else {
     rouges.push(nom);
     console.log(`  \x1b[31m✗\x1b[0m ${compteur} ${nom} (code ${code}, ${secondes} s)`);
-    for (const ligne of sortie.split('\n').filter((l) => /\u001b\[31m✗/.test(l)).slice(0, 3)) {
+    for (const ligne of lignesDEchec(sortie).slice(0, 3)) {
       console.log(`        ${ligne.trim().slice(0, 160)}`);
     }
   }
