@@ -95,7 +95,7 @@ ou héritée.
 Le jour où la réponse arrive : `applique: true` avec la valeur retenue, et
 rien d'autre à changer.
 
-### Les six chiffres, et ce que chacun décide
+### Les huit chiffres, et ce que chacun décide
 
 Chaque motivation dit **ce qui change si on prend autrement**, pour qu'on
 puisse répondre sans relire le code.
@@ -149,6 +149,40 @@ quelqu'un sans phrase pendant des semaines. Plus bas, le constat paraît pour
 une variation banale et inquiète ; plus haut, il ne paraît plus quand il
 servirait. Le constat reste un **fait affiché**, sans signal codé : décision 11,
 tant qu'aucune source n'est atteignable.
+
+**7. `tolerance-de-comparaison-des-dates` — proposé : **1** jours.**
+La tolérance appliquée quand une durée est comparée à un repère. Demandée par
+le 4.4.3 : « les dates étant saisies à la main (± 1 ou 2 jours), précise la
+tolérance appliquée aux comparaisons ». Un jour est le minimum qui ait un sens :
+sans tolérance, un cycle de 39 jours serait dit « au-delà du repère de 38 »
+alors qu'un seul jour de saisie approximative suffit à l'expliquer. À deux
+jours, la tolérance devient plus large que l'écart qu'elle couvre et le repère
+ne distingue plus rien.
+
+**Attention** : aucun repère publié n'est encore dans Cyclades. Le 4.4.3
+demande de re-vérifier chaque nombre FIGO à la source — « re-vérifie chaque
+nombre à la source, y compris la correction de 2019 » — et personne ne l'a
+fait. Cette tolérance n'a donc rien à comparer aujourd'hui ; elle est proposée
+pour que la réponse soit prête quand les repères arriveront.
+
+**8. `fenetre-par-defaut` — proposé : **12** mois.**
+La fenêtre d'étude par défaut des statistiques. Le 4.4.2 propose « les
+12 derniers mois (règle de produit) », donc la valeur est la sienne. Douze mois
+donnent une dizaine de cycles chez la plupart des gens — assez pour une
+médiane, assez court pour que ce qui a changé il y a trois ans ne pèse pas sur
+ce qu'on lit aujourd'hui. Plus court, la médiane devient instable ; plus long,
+elle décrit quelqu'un qu'on n'est plus.
+
+Le prompt ajoute un avertissement qu'il faut répéter : **la fenêtre et la
+mesure que le FIGO 2018 retient pour la régularité n'ont pas été lues**, et si
+elles diffèrent, ce sont celles de la source qui s'appliquent — au seul tableau
+des repères (4.4.3), pas à cette fenêtre-ci.
+
+La fenêtre est comptée depuis le **dernier jour saisi**, et non depuis
+aujourd'hui. Une personne qui n'a rien noté depuis six mois verrait sinon une
+fenêtre à moitié vide, et une médiane calculée sur ce qui reste serait
+présentée comme celle des douze derniers mois. La fenêtre décrit ce qu'on a
+regardé, pas le calendrier.
 
 ### Une chose qu'aucun de ces chiffres ne règle
 

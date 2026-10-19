@@ -195,6 +195,49 @@ export const USAGES: readonly UsageDeclare[] = [
     revuLe: '2026-10-19',
   },
   {
+    /*
+       LES STATISTIQUES DU SUIVI SONT FERMÉES AUX MINEURS, et le journal reste.
+
+       4.1 du prompt 30, décision 5 : « sous 18 ans, mode "journal seul" :
+       saisie des règles et des symptômes, **sans statistiques de cycle, sans
+       comparaison à un repère, sans estimation, sans signal d'orientation**,
+       mais **avec les symptômes d'urgence** ». La raison y est donnée : les
+       repères vérifiés visent « la période de reproduction », leur validité
+       chez l'adolescente n'est pas vérifiée, et ceux des adolescentes ne
+       s'obtiennent pas en extrapolant.
+
+       Donc : saisir reste possible, calculer ne l'est pas. Ce n'est pas la
+       même chose que fermer le module, et c'est la variante que la décision 5
+       a écartée.
+
+       ÂGE INCONNU = FERMÉ. `franchit` rend « indeterminable » quand rien n'est
+       déclaré, et la porte le traduit en `'inconnu'`. Un défaut ouvert aurait
+       donné les statistiques à qui n'a rien déclaré, c'est-à-dire à tout le
+       monde au premier jour.
+
+       LE SENS DE LA DÉPENDANCE, dit une fois pour qu'on ne s'en inquiète pas
+       en le découvrant : l'âge vient du profil commun, **en clair**, alors que
+       le suivi est sous coffre. C'est le suivi qui lit l'âge, jamais l'inverse
+       — rien du cycle ne remonte vers le profil, et fermer une surface du
+       suivi ne révèle rien, puisque la fermeture est muette.
+    */
+    id: 'suivi.statistiques-majeur',
+    rubrique: 'Suivi personnel',
+    clesLues: ['majeur'],
+    but: 'Fermer les statistiques, les fenêtres et les estimations du suivi sous 18 ans.',
+    effetVisible:
+      'Le journal reste : on saisit ses règles et ses symptômes. Aucune statistique, aucune ' +
+      'fenêtre, aucune estimation. Les repères « Quand consulter » restent accessibles à tous.',
+    fondement: { type: 'regle-de-produit' },
+    population: 'sans objet',
+    defaut: 'actif',
+    siInconnu:
+      'Les statistiques ne sont pas calculées. L’âge inconnu ferme, comme un âge sous 18 ans : ' +
+      'un défaut ouvert les donnerait à qui n’a rien déclaré.',
+    deriveS2: false,
+    revuLe: '2026-10-19',
+  },
+  {
     id: 'sante.substances-majeur',
     rubrique: 'Santé',
     clesLues: ['majeur'],

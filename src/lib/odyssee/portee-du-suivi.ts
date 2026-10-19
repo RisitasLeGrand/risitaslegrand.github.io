@@ -30,6 +30,7 @@ import { jourLogique } from '../noyau/jour-logique';
 import { leSuiviEstVisible } from './sexe';
 
 const USAGE = 'profil.question-cycle';
+const USAGE_DES_STATISTIQUES = 'suivi.statistiques-majeur';
 
 /** Les usages que la personne a coupés, ou aucun si la liste est illisible. */
 async function usagesCoupes(): Promise<string[]> {
@@ -60,6 +61,45 @@ export async function leSuiviEstVisibleMaintenant(): Promise<boolean> {
     const [etat, coupes] = await Promise.all([etatDeLaPersonne(), usagesCoupes()]);
     const contexte = contextePersonne(USAGE, etat, jourLogique(new Date()), coupes);
     return leSuiviEstVisible(contexte, coffreOuvert());
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Les statistiques du suivi sont-elles ouvertes ? **Journal seul sous 18 ans.**
+ *
+ * 4.1 du prompt 30, décision 5 : sous 18 ans, « mode journal seul : saisie des
+ * règles et des symptômes, sans statistiques de cycle, sans comparaison à un
+ * repère, sans estimation, sans signal d'orientation, mais avec les symptômes
+ * d'urgence ». Saisir reste possible ; calculer ne l'est pas.
+ *
+ * ## Deux portes, et il faut passer les deux
+ *
+ * Le suivi doit d'abord être visible — sinon la question ne se pose pas — et
+ * la personne doit être majeure. Les deux conditions passent par la porte du
+ * registre, chacune sous son usage déclaré :
+ * `profil.question-cycle` pour la visibilité, `suivi.statistiques-majeur`
+ * pour les statistiques. Deux usages et non un, parce que ce ne sont pas les
+ * mêmes données lues ni les mêmes raisons, et que l'écran « Qui utilise mon
+ * âge et mon sexe » doit pouvoir les montrer séparément — et les couper
+ * séparément.
+ *
+ * `'oui'` et rien d'autre ouvre : `'non'`, `'inconnu'`, un usage coupé et
+ * toute erreur ferment. L'âge inconnu ferme comme un âge sous 18 ans, parce
+ * qu'un défaut ouvert donnerait les statistiques à qui n'a rien déclaré.
+ */
+export async function lesStatistiquesSontOuvertes(): Promise<boolean> {
+  if (!(await leSuiviEstVisibleMaintenant())) return false;
+  try {
+    const [etat, coupes] = await Promise.all([etatDeLaPersonne(), usagesCoupes()]);
+    const contexte = contextePersonne(
+      USAGE_DES_STATISTIQUES,
+      etat,
+      jourLogique(new Date()),
+      coupes,
+    );
+    return contexte.majeur === 'oui';
   } catch {
     return false;
   }
