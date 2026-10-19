@@ -75,6 +75,40 @@ export function controlerPrise(p: Prise): string[] {
   return problemes;
 }
 
+/**
+ * Les natures de statut, et pourquoi la clé `cycle` n'a pas été renommée.
+ *
+ * `cycle` signifie **cure** : la période pendant laquelle on prend quelque
+ * chose. C'est le sens du mot dans ce domaine, et le libellé affiché le dit
+ * désormais — « Phase de cure ».
+ *
+ * ## Le second temps de la décision B n'a pas eu lieu, et c'est délibéré
+ *
+ * Le plan de phase 0 prévoyait de renommer **la clé** avec l'arrivée du
+ * module de suivi, « qui impose de toute façon un changement de schéma : la
+ * migration voyage avec lui ». La prémisse ne tient pas : `nature` est à
+ * l'intérieur du scellé, la clé du coffre vit en mémoire, et le bloc
+ * `upgrade` de `db.ts` ne l'a pas. **Une migration de schéma ne peut pas lire
+ * ce champ, donc pas le réécrire.**
+ *
+ * Il aurait fallu une conversion paresseuse coffre ouvert — une seconde
+ * opération qui touche des données de santé chiffrées, après
+ * `migration-du-coffre.ts` qu'Alexis a conditionnée à une sauvegarde
+ * confirmée — plus une période à deux clés, plus `NATURES_ECARTEES` à faire
+ * fonctionner sur les deux noms puisque c'est un filtre de confidentialité
+ * accroché à cette chaîne.
+ *
+ * Le coût était un mécanisme de réécriture de données chiffrées ; le
+ * bénéfice, le confort d'un relecteur. Le pilote a tranché le 19 octobre :
+ * **on ne renomme pas.** L'ambiguïté que la décision visait est levée par le
+ * libellé, et le risque de collision est écarté autrement — les statuts que
+ * le suivi ajoutera porteront `contraception`, `grossesse`, `allaitement` et
+ * `menopause`, dont aucun ne ressemble à `cycle`.
+ *
+ * L'option de la conversion reste ouverte, et elle est inscrite dans
+ * `docs/cyclades/decisions-en-attente-cycle-2026-10-19.md` : elle demanderait
+ * une sauvegarde confirmée par Alexis.
+ */
 export type NatureDuStatut = 'traitement' | 'cycle' | 'substance' | 'autre';
 
 /**

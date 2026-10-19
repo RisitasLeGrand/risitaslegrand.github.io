@@ -118,7 +118,87 @@ inter-branches n'est écrite avant cela.
 
 ---
 
-## 6. Ce qui n'attend rien, et ne doit pas se retrouver ici
+## 6. Décision B, second temps : la clé `cycle` n'est pas renommée — **tranché**
+
+Le plan de phase 0 prévoyait de renommer la clé `cycle` de `StatutHormonal`
+« avec l'arrivée du module, qui impose de toute façon un changement de
+schéma : la migration voyage avec lui ».
+
+**La prémisse ne tient pas**, et c'est mesuré : `nature` est à l'intérieur du
+scellé, la clé du coffre vit en mémoire, et le bloc `upgrade` de `db.ts` ne
+l'a pas. Une migration de schéma ne peut pas lire ce champ, donc pas le
+réécrire.
+
+Il aurait fallu une **conversion paresseuse coffre ouvert** : une seconde
+opération touchant des données de santé chiffrées, après
+`migration-du-coffre.ts` — la seule du dépôt de cette espèce, qu'Alexis avait
+conditionnée à une sauvegarde confirmée. Plus une période à deux clés, et
+`NATURES_ECARTEES` à faire fonctionner sur les deux noms, puisque c'est un
+filtre de confidentialité accroché à cette chaîne.
+
+**Tranché par le pilote le 19 octobre : on ne renomme pas.** Le libellé
+affiché est déjà « Phase de cure », donc l'ambiguïté que la décision visait
+est levée. Le risque de collision est écarté autrement : les statuts que le
+suivi ajoutera porteront `contraception`, `grossesse`, `allaitement` et
+`menopause`.
+
+**Si Alexis préfère la conversion** — l'option (b) — elle demande une
+**sauvegarde confirmée** avant toute réécriture, par la même règle qu'il a
+posée pour le rechiffrement du coffre. Rien n'est fait dans ce sens, et rien
+ne le sera sans sa parole.
+
+---
+
+## 7. « Modules disponibles » : une surface que le registre décrit et qui n'existe pas
+
+`registre-usages.ts` nomme cet écran deux fois : dans l'`effetVisible` de
+`profil.modules-a-seuil` — « Le module n'apparaît pas dans "Modules
+disponibles" » — et dans le `siInconnu` de `profil.question-cycle` — « Le
+module reste accessible depuis "Modules disponibles", sous un libellé
+neutre ». **Aucun écran ne porte ce nom**, vérifié sur tout `src/`.
+
+La formulation du registre **reste telle quelle**, avec un commentaire qui dit
+qu'elle désigne une surface à construire. L'adoucir aurait fait reculer la
+déclaration devant l'implémentation, alors que c'est l'implémentation qui doit
+venir.
+
+**Qui tranche** : le constructeur, à qui l'écran appartient (phase 1).
+
+**Ce que le code fait en attendant** : le suivi personnel s'atteint par une
+**ligne neutre depuis l'écran Corps**, qui est déjà sous coffre et où le
+registre dit que la question du cycle se pose. Décision du pilote,
+19 octobre, option (c). L'entrée de branche sous Odyssée — un libellé
+« Suivi personnel » dans la navigation — sera demandée au constructeur quand
+le module aura ses écrans à lui ; `branches.ts` n'est pas touché.
+
+---
+
+## 8. Le sexe déclaré n'est stocké nulle part
+
+La porte `etatDeLaPersonne()` rend `sexe: null`, et ce n'est pas un oubli de
+ce chantier : **aucun magasin du dépôt ne stocke ce champ.** Ni `profil.ts` ni
+`initialisation.ts` ne le déclarent, vérifié ligne par ligne. Le plan de
+phase 0 le range dans Odyssée > Corps sous coffre, et la phase 1 n'a livré que
+les trois champs d'âge.
+
+**La conséquence est visible, et le registre l'avait déjà prévue** :
+`profil.question-cycle` lit `sexe_physio`, donc la question du suivi n'est
+**jamais posée d'office**. Son `siInconnu` dit exactement ce qui se passe
+alors. Le module fonctionne ; il ne se propose pas tout seul.
+
+**Qui tranche** : le pilote, puis le constructeur si le champ relève de la
+phase 1. Créer son magasin serait une vingtaine de lignes, mais la forme — un
+magasin scellé propre, ou un champ d'un magasin existant du corps — est une
+décision d'architecture qui appartient à qui possède la phase 1.
+
+**Ce que le code fait en attendant** : il rend `null` honnêtement, et le
+balayage du graphe d'imports garde **déjà** le nom `sexe` et `aUnCycle`, pour
+que le jour où ils seront créés, aucun écran ne puisse les lire en
+contournant la porte.
+
+---
+
+## 9. Ce qui n'attend rien, et ne doit pas se retrouver ici
 
 Par symétrie, et pour qu'on ne vienne pas chercher une décision là où il n'y en
 a pas :

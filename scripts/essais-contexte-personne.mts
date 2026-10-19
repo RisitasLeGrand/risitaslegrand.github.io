@@ -278,10 +278,41 @@ const AUTORISES = new Set([
   'src/lib/noyau/profil.ts',
   'src/lib/noyau/initialisation.ts',
   'src/lib/etat-personne.ts',
+  /*
+     LES TROIS ENTRÉES AJOUTÉES PAR LE SUIVI PERSONNEL, chacune avec sa
+     raison, et le compte affirmé plus bas passe de 6 à 9.
+
+     La protection de la phase 1 ne couvrait que les trois champs d'âge :
+     `sexe`, `aUnCycle` et le statut hormonal — les deux plus sensibles —
+     étaient hors du balayage, simplement parce qu'ils n'existaient pas
+     encore. Les ajouter fait mordre l'essai sur tout fichier qui les nomme,
+     ce qui est l'effet recherché, et oblige donc à déclarer les trois
+     fichiers qui ont le droit de les nommer.
+
+     `cycle.ts` DÉCLARE la forme des réglages, comme `profil.ts` déclare le
+     catalogue : il nomme `actif`, pas une valeur de personne.
+     `donnees-cycle.ts` et `donnees-sensible.ts` SONT la machinerie de
+     lecture sous coffre — ce sont elles que la porte appelle, et il n'y a pas
+     d'autre chemin vers ces magasins.
+
+     Je n'ai pas baissé l'affirmation de taille pour faire passer l'essai :
+     je l'ai remplacée par le nouveau compte, avec ces raisons. Baisser une
+     affirmation de garde est la façon la plus discrète de la désarmer.
+  */
+  'src/lib/odyssee/cycle.ts',
+  'src/lib/odyssee/donnees-cycle.ts',
+  'src/lib/odyssee/donnees-sensible.ts',
 ]);
 
-/** Ce qu'aucun autre fichier ne doit nommer. */
-const CHAMPS_BRUTS = /\b(naissanceAnnee|naissanceMois|majeurDeclare)\b/;
+/**
+ * Ce qu'aucun autre fichier ne doit nommer.
+ *
+ * Les trois champs d'âge de la phase 1, et les trois du corps que la porte
+ * sert depuis le lot 5b. `sexe` y est bien qu'aucun magasin ne le stocke
+ * encore : le jour où il sera créé, le balayage le garde déjà.
+ */
+const CHAMPS_BRUTS =
+  /\b(naissanceAnnee|naissanceMois|majeurDeclare|suiviCycleActif|statutHormonal|aUnCycle)\b/;
 const IMPORT_AGE = /from\s+['"][^'"]*noyau\/(age|seuils-age)['"]/;
 
 const fichiers: string[] = [];
@@ -306,7 +337,22 @@ for (const chemin of fichiers) {
 }
 
 v(`aucun des ${fichiers.length} fichiers de src/ ne contourne la porte`, fautes, []);
-v('la liste des modules autorisés n’a pas grossi en silence', AUTORISES.size, 6);
+v('la liste des modules autorisés n’a pas grossi en silence', AUTORISES.size, 9);
+/*
+   ET LE BALAYAGE COUVRE BIEN LES SIX CHAMPS. Sans cette assertion, retirer un
+   nom du motif passerait inaperçu : la liste d'autorisés garderait sa taille,
+   les fautes resteraient vides, et le champ retiré serait libre partout.
+*/
+for (const champBrut of [
+  'naissanceAnnee',
+  'naissanceMois',
+  'majeurDeclare',
+  'suiviCycleActif',
+  'statutHormonal',
+  'aUnCycle',
+]) {
+  v(`« ${champBrut} » est bien gardé par le balayage`, CHAMPS_BRUTS.test(champBrut), true);
+}
 
 /* ══════════════════════════════════════════════════════════════════════════
    7. Les champs, dans le profil commun

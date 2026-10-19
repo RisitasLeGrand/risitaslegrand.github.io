@@ -138,6 +138,14 @@ export const USAGES: readonly UsageDeclare[] = [
     rubrique: 'Profil',
     clesLues: ['majeur'],
     but: 'Ne pas proposer les modules que Cyclades réserve aux majeurs.',
+    /*
+       « Modules disponibles » est une SURFACE À CONSTRUIRE (phase 1), et la
+       formulation reste telle quelle plutôt que d'être adoucie : elle dit ce
+       que l'usage fera, et c'est à l'écran de venir, non à la déclaration de
+       reculer. Relevé le 19 octobre, inscrit aux décisions en attente du
+       cycle. En attendant, le suivi personnel s'atteint par une ligne neutre
+       depuis l'écran Corps.
+    */
     effetVisible: 'Le module n’apparaît pas dans « Modules disponibles ».',
     fondement: { type: 'regle-de-produit' },
     population: 'sans objet',
