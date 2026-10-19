@@ -102,6 +102,95 @@ export async function demanderPersistance(): Promise<boolean> {
   }
 }
 
+/**
+ * La clé qui retient la date de la dernière demande.
+ *
+ * Dans `localStorage` et non en base : la demande concerne CE navigateur sur
+ * CET appareil, et ne doit pas voyager dans une sauvegarde ni se
+ * synchroniser. Un appareil qui a refusé n'apprend rien à un autre.
+ */
+export const CLE_PERSISTANCE_DEMANDEE = 'revinsp.persistance-demandee-le';
+
+/**
+ * Une semaine entre deux demandes.
+ *
+ * Pourquoi réitérer du tout : Chromium accorde la persistance sur des
+ * signaux d'engagement qui s'accumulent — visites répétées, installation sur
+ * l'écran d'accueil, notifications acceptées. Un refus aujourd'hui n'est pas
+ * un refus définitif, et ne jamais redemander condamne à vivre avec le
+ * premier non.
+ *
+ * Pourquoi ne pas redemander à chaque fois : l'appel n'est pas gratuit pour
+ * le navigateur, et sur Safari il peut afficher une invite. Une fois par
+ * semaine suffit à suivre l'engagement sans harceler.
+ */
+export const DELAI_ENTRE_DEMANDES_MS = 7 * 86_400_000;
+
+export interface SuiteDeDemande extends Persistance {
+  /** La demande a-t-elle été faite maintenant ? */
+  demandee: boolean;
+  /** Pourquoi elle ne l'a pas été, quand elle ne l'a pas été. */
+  raison: 'accorde-deja' | 'indisponible' | 'trop-recent' | 'demandee';
+}
+
+/**
+ * Demande la persistance **de lui-même**, au bon moment (A4 du prompt 43).
+ *
+ * ## Pourquoi cette fonction existe
+ *
+ * `demanderPersistance()` existait, et un seul bouton l'appelait, sur la page
+ * Stockage. Personne n'allant sur cette page, personne ne demandait : la
+ * permission qui empêche le navigateur d'effacer les données pour faire de la
+ * place n'était, en pratique, jamais demandée.
+ *
+ * ## Pourquoi APRÈS une sauvegarde confirmée, et pas au démarrage
+ *
+ * Les navigateurs accordent la persistance sur l'engagement. Demander à la
+ * première ouverture, quand rien n'a encore été fait, c'est demander au
+ * moment où le refus est le plus probable — et un refus coûte la semaine de
+ * délai. Juste après qu'une sauvegarde a été faite ET retrouvée, la personne
+ * vient de poser un geste délibéré : c'est le meilleur moment, et c'est aussi
+ * celui où la promesse est la plus honnête, puisque la vraie protection
+ * (le fichier hors de l'appareil) existe désormais.
+ *
+ * ## Ce qu'un accord ne fait pas, et il faut le redire
+ *
+ * Il réduit le risque d'éviction automatique. Il n'empêche ni un effacement
+ * à la main, ni un changement d'appareil, ni une perte du mot de passe. La
+ * sauvegarde reste la seule protection réelle.
+ */
+export async function assurerLaPersistance(
+  maintenant = Date.now(),
+): Promise<SuiteDeDemande> {
+  const etat = await lirePersistance();
+  if (!etat.disponible) return { ...etat, demandee: false, raison: 'indisponible' };
+  if (etat.accorde) return { ...etat, demandee: false, raison: 'accorde-deja' };
+
+  /*
+     `localStorage` peut jeter — fenêtre privée, données de site bloquées. Un
+     stockage illisible ne doit pas empêcher la demande : au pire on
+     redemandera plus souvent que prévu, ce qui est moins grave que de ne
+     jamais demander.
+  */
+  let dernier = 0;
+  try {
+    dernier = Number(localStorage.getItem(CLE_PERSISTANCE_DEMANDEE)) || 0;
+  } catch {
+    dernier = 0;
+  }
+  if (dernier && maintenant - dernier < DELAI_ENTRE_DEMANDES_MS) {
+    return { ...etat, demandee: false, raison: 'trop-recent' };
+  }
+
+  const accorde = await demanderPersistance();
+  try {
+    localStorage.setItem(CLE_PERSISTANCE_DEMANDEE, String(maintenant));
+  } catch {
+    /* rien : la demande a eu lieu, c'est seulement sa date qu'on perd */
+  }
+  return { disponible: true, accorde, demandee: true, raison: 'demandee' };
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    Détail par magasin
    ══════════════════════════════════════════════════════════════════════════ */

@@ -134,7 +134,7 @@ import LienReglages from '../components/LienReglages.astro';
       <p class="text-sm text-amber-900 dark:text-amber-100">
         Ouvrez vos téléchargements et vérifiez que le fichier y est, avec une
         taille qui n’est pas nulle. Tant que vous ne l’avez pas confirmé,
-        Cyclades continue de compter les jours depuis la dernière sauvegarde
+        Cyclades continue de compter les jours depuis la dernière sauvegarde{' '}
         <strong>confirmée</strong>.
       </p>
       <div class="mt-3 flex flex-wrap gap-2">
@@ -738,6 +738,22 @@ import LienReglages from '../components/LienReglages.astro';
           'succes',
         );
         notifier('Sauvegarde confirmée', 'succes');
+
+        /*
+           A4 DU 43 — ON DEMANDE LA PERSISTANCE ICI, et nulle part ailleurs.
+
+           Les navigateurs l'accordent sur l'engagement. Juste après qu'une
+           sauvegarde a été faite ET retrouvée, la personne vient de poser un
+           geste délibéré : c'est le moment où l'accord est le plus probable,
+           et aussi celui où la promesse est la plus honnête — la vraie
+           protection, le fichier hors de l'appareil, existe désormais.
+
+           Silencieux exprès : un refus est un cas ordinaire, et l'annoncer
+           inquiéterait pour rien. La page Stockage dit l'état, et c'est là
+           qu'on va le voir.
+        */
+        const { assurerLaPersistance } = await import('../lib/stockage');
+        void assurerLaPersistance().catch(() => {});
       })();
     });
 
