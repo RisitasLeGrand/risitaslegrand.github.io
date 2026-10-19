@@ -91,13 +91,41 @@ vrai(
   (await page.textContent('#vue')).includes('le temps de l’onglet'),
 );
 
-/* Un poids impossible : refusé par le contrôle du modèle, pas par l'écran. */
+/*
+   Un poids impossible est refusé AU PIED DU CHAMP depuis D2 du prompt 43.
+
+   Avant, il remontait jusqu'au modèle, qui levait, et le message s'affichait
+   dans la zone d'erreur commune de l'écran — loin du champ, et sans dire
+   lequel. L'écran le refuse maintenant lui-même, avec « aria-invalid » et un
+   message relié au champ, qui nomme les bornes. Le contrôle du modèle n'a pas
+   bougé : il reste la garde de dernier recours, et c'est lui qui protège une
+   écriture venue d'ailleurs que de cet écran.
+
+   L'essai suit donc le message là où il est désormais, et vérifie en plus ce
+   qu'il ne vérifiait pas : que le champ est marqué invalide.
+*/
 await page.fill('#kg', '5');
 await page.click('#peser');
-await page.waitForSelector('#erreur:not(.hidden)', { timeout: 15000 });
+await page.waitForFunction(
+  () => document.getElementById('kg')?.getAttribute('aria-invalid') === 'true',
+  undefined,
+  { timeout: 15000 },
+);
 vrai(
-  'cinq kilos sont refusés, avec la raison',
-  (await page.textContent('#erreur')).includes('n’est pas possible'),
+  'cinq kilos sont refusés, et le champ est marqué invalide',
+  (await page.getAttribute('#kg', 'aria-invalid')) === 'true',
+);
+vrai(
+  'le message est au pied du champ, et il nomme les bornes',
+  (
+    await page.evaluate(() => {
+      const decrit = document.getElementById('kg')?.getAttribute('aria-describedby') ?? '';
+      return decrit
+        .split(/\s+/)
+        .map((x) => document.getElementById(x)?.textContent ?? '')
+        .join(' ');
+    })
+  ).includes('entre 20 et 400 kg'),
 );
 
 /* Un poids ordinaire passe. */
