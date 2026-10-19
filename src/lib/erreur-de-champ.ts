@@ -34,6 +34,8 @@
  * une phrase à la place.
  */
 
+import { messageDUneErreur } from './agir';
+
 /** Le préfixe des zones de message, pour les retrouver sans les confondre. */
 const PREFIXE = 'erreur-de-champ-';
 
@@ -146,12 +148,26 @@ export function controlerAvantEnvoi(
 }
 
 /**
- * Dit un échec venu d'une exception, sans montrer son texte brut.
+ * Dit un échec venu d'une exception, au pied du champ.
  *
- * L'exception part dans la console, où elle sert à qui débogue ; l'écran
- * reçoit une phrase écrite pour être lue.
+ * ## Pourquoi ce n'est pas une phrase écrite ici
+ *
+ * J'avais d'abord remplacé le message de l'exception par une phrase à moi.
+ * C'était une erreur, et c'est `agir.ts` qui me l'a montrée : le dépôt a déjà
+ * tranché, et sa règle est plus fine que « jamais le texte d'une `Error` ».
+ * Elle dit : jamais le texte brut **quand on sait faire mieux**, mais jamais
+ * non plus une reformulation à la place d'un message de domaine — « Ce fichier
+ * n'est pas une sauvegarde valide » est écrit exprès pour être lu, et le
+ * remplacer par « une erreur est survenue » ferait perdre à la personne la
+ * seule phrase qui lui apprenait quelque chose.
+ *
+ * `messageDUneErreur` applique cette règle : elle connaît le disque plein, et
+ * remplace un message vide ou technique par une phrase utile. On l'emploie
+ * plutôt que d'en écrire une seconde version ici.
+ *
+ * L'exception elle-même part dans la console, où elle sert à qui débogue.
  */
-export function direLEchec(champ: HTMLElement, phrase: string, cause: unknown): void {
-  console.warn(phrase, cause);
-  direLErreur(champ, phrase);
+export function direLEchec(champ: HTMLElement, cause: unknown): void {
+  console.warn('Échec sur un champ :', cause);
+  direLErreur(champ, messageDUneErreur(cause));
 }

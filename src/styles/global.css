@@ -1534,6 +1534,23 @@ button:not(:disabled):active,
   }
 }
 
+/* La zone des bulles de notification (C4 du 43)
+   ---------------------------------------------------------------------------
+   Au-dessus de la barre du bas ET de l'encoche. « bottom-20 » valait 80 px,
+   soit la barre (3,5 rem) plus une marge, mais rien n'y ajoutait la poignée
+   d'accueil : la bulle finissait dessous, là où le doigt appartient au
+   système. Au-delà de 640 px la barre n'existe pas, et la bulle reprend sa
+   place — l'encoche, elle, reste comptée. */
+.zone-notifications {
+  bottom: calc(3.5rem + 0.75rem + var(--sur-bas));
+}
+
+@media (min-width: 640px) {
+  .zone-notifications {
+    bottom: calc(1rem + var(--sur-bas));
+  }
+}
+
 /* Le bandeau d'annulation (M6)
    ---------------------------------------------------------------------------
    En bas, au-dessus de la barre de navigation : c'est là que le pouce est, et

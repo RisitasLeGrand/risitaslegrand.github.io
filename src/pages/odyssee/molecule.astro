@@ -259,6 +259,7 @@ import {
     tousLesTraitements,
   } from '../../lib/odyssee/donnees-sante';
   import { CLEF_AVERTISSEMENT_VU } from '../../lib/odyssee/bibliotheque-externe';
+  import { direLEchec } from '../../lib/erreur-de-champ';
   import { NON_DOCUMENTE } from '../../lib/odyssee/molecules';
   import { CATALOGUE } from '../../lib/odyssee/sante';
   import { formaterDate, lien, notifier, parametreUrl, pluriel } from '../../lib/ui';
@@ -470,7 +471,18 @@ import {
             }
             return peindreJournal();
           })
-          .catch((err) => notifier(String(err instanceof Error ? err.message : err))),
+          /*
+             C4 et D2 du 43 : l'échec ne part plus dans une bulle, et son
+             texte brut ne s'affiche plus.
+
+             Une bulle s'efface ; un ressenti qui n'a pas été enregistré est
+             précisément ce qu'il faut pouvoir relire à tête reposée, et le
+             message disparaissait en 2,6 s. Il va désormais au pied du
+             formulaire, dans une zone annoncée qui reste. Et c'est une
+             phrase écrite pour être lue : l'exception part dans la console,
+             où elle sert à qui débogue.
+          */
+          .catch((err) => direLEchec($('r-ressenti'), err)),
       );
     });
 

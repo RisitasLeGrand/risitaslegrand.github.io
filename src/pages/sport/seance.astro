@@ -236,6 +236,7 @@ import LienReglages from '../../components/LienReglages.astro';
      exactement là où le code mettait « null » sur un champ vide. */
   import { nombreDuChamp } from '../../lib/nombre-saisi';
   import { direLErreur, effacerLErreur, validerALaSortie } from '../../lib/erreur-de-champ';
+  import { messageDUneErreur } from '../../lib/agir';
   import { agirPuisPeindre } from '../../lib/agir';
   import { proposerLAnnulation } from '../../lib/annulation';
   import { unSeulGeste } from '../../lib/geste';
@@ -770,14 +771,17 @@ import LienReglages from '../../components/LienReglages.astro';
             return ecrite;
           } catch (erreur) {
             /*
-               D2 du 43 : jamais le texte brut d'une `Error` à l'écran. Il
-               nomme des fonctions, parfois des clés, et n'apprend rien à qui
-               lit. L'exception part dans la console, où elle sert à qui
-               débogue ; l'écran reçoit une phrase écrite pour être lue.
+               D2 du 43, par la porte du dépôt : `messageDUneErreur`.
+
+               L'écran affichait `erreur.message` tel quel — y compris le
+               texte d'une exception technique. Mais le remplacer par une
+               phrase à moi aurait fait perdre les messages de domaine, écrits
+               exprès pour être lus (« La séance n'a pas pu être retrouvée »).
+               `agir.ts` avait déjà tranché : on garde le message de domaine,
+               on remplace le vide et on connaît le disque plein.
             */
             console.warn('La série n’a pas pu être enregistrée :', erreur);
-            $('erreur').textContent =
-              'Cette série n’a pas pu être enregistrée. Vérifiez l’exercice et les répétitions, puis réessayez.';
+            $('erreur').textContent = messageDUneErreur(erreur);
             $('erreur').classList.remove('hidden');
             return false;
           }
