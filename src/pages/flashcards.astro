@@ -38,7 +38,6 @@ import { base } from '../lib/ui';
         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">acquises (&gt; 21 jours)</p>
       </div>
     </div>
-
     <div class="mt-6 flex flex-wrap items-end gap-3">
       <div class="min-w-0 flex-1 basis-56">
         <label for="choix-matiere" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Matière</label>
@@ -124,20 +123,40 @@ import { base } from '../lib/ui';
         au-delà : quatre boutons côte à côte à 360 px tronqueraient leurs
         libellés.
       -->
+      <!--
+        CHAQUE BOUTON DIT CE QU'IL VEUT DIRE (prompt 43, F4).
+
+        Quatre mots nus — Oublié, Difficile, Correct, Facile — laissaient
+        chacun deviner où placer sa réponse, et l'on apprenait la graduation
+        en la ratant. La phrase sous le mot n'est pas une aide : c'est la
+        définition, et c'est elle qui rend la note comparable d'un jour à
+        l'autre.
+
+        Elle dit ce qui s'est passé dans la tête, jamais ce que cela
+        rapporte : depuis ce lot, les quatre notes rapportent la même chose.
+      -->
       <div class="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <button data-note="oublie" class="rounded-xl bg-red-100 px-3 py-4 font-medium text-red-700 transition hover:bg-red-200 dark:bg-red-950 dark:text-red-300 dark:hover:bg-red-900">
-          Oublié<span class="mt-1 block text-xs font-normal opacity-70" data-delai-oublie></span>
+          Oublié<span class="mt-1 block text-xs leading-snug font-normal opacity-80">vous ne saviez pas</span><span class="mt-1 block text-xs font-normal opacity-70" data-delai-oublie></span>
         </button>
         <button data-note="difficile" class="rounded-xl bg-amber-100 px-3 py-4 font-medium text-amber-700 transition hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-300 dark:hover:bg-amber-900">
-          Difficile<span class="mt-1 block text-xs font-normal opacity-70" data-delai-difficile></span>
+          Difficile<span class="mt-1 block text-xs leading-snug font-normal opacity-80">retrouvé, mais avec peine</span><span class="mt-1 block text-xs font-normal opacity-70" data-delai-difficile></span>
         </button>
         <button data-note="correct" class="rounded-xl bg-sky-100 px-3 py-4 font-medium text-sky-800 transition hover:bg-sky-200 dark:bg-sky-950 dark:text-sky-300 dark:hover:bg-sky-900">
-          Correct<span class="mt-1 block text-xs font-normal opacity-70" data-delai-correct></span>
+          Correct<span class="mt-1 block text-xs leading-snug font-normal opacity-80">su, après un temps de réflexion</span><span class="mt-1 block text-xs font-normal opacity-70" data-delai-correct></span>
         </button>
         <button data-note="facile" class="rounded-xl bg-emerald-100 px-3 py-4 font-medium text-emerald-700 transition hover:bg-emerald-200 dark:bg-emerald-950 dark:text-emerald-300 dark:hover:bg-emerald-900">
-          Facile<span class="mt-1 block text-xs font-normal opacity-70" data-delai-facile></span>
+          Facile<span class="mt-1 block text-xs leading-snug font-normal opacity-80">su tout de suite</span><span class="mt-1 block text-xs font-normal opacity-70" data-delai-facile></span>
         </button>
       </div>
+      <!--
+        Et la règle qui vaut pour les quatre, dite une fois : la note ne
+        gouverne plus la récompense, seulement la date du prochain passage.
+      -->
+      <p class="mt-2 text-center text-xs text-slate-500 dark:text-slate-400">
+        Votre note choisit la date du prochain passage, et rien d’autre : les quatre rapportent
+        autant.
+      </p>
       <p class="mt-2 text-center text-xs text-slate-400">Raccourcis : 1 · 2 · 3 · 4</p>
     </div>
   </section>
@@ -161,6 +180,7 @@ import { base } from '../lib/ui';
 <script>
   import { auDeverrouillage } from '../lib/chargement';
   import { comptesFlashcards, fileDuJour, type CarteAReviser } from '../lib/agregats';
+
   import { aplatirFiches, chargerFiche, chargerManifeste } from '../lib/contenu';
   import {
     lireCarte,
@@ -186,6 +206,7 @@ import { base } from '../lib/ui';
   const compte: Record<Note, number> = { oublie: 0, difficile: 0, correct: 0, facile: 0 };
 
   const $ = (id: string) => document.getElementById(id)!;
+
 
   function afficherVue(nom: 'accueil-session' | 'session' | 'bilan') {
     for (const section of ['accueil-session', 'session', 'bilan']) {
@@ -319,8 +340,14 @@ import { base } from '../lib/ui';
       `${pluriel(notees, 'carte révisée', 'cartes révisées')}` +
       (serieEtXpAffichees() ? ` · +${xpSession} XP` : '') +
       ' · ' +
-      `${compte.facile} facile(s), ${compte.correct} correct(s), ` +
-      `${compte.difficile} difficile(s), ${compte.oublie} oublié(s)`;
+      /* Les accords sont faits : « facile(s) » n'est pas un pluriel, c'est
+         une parenthèse laissée à la personne qui lit. */
+      [
+        `${compte.facile} ${compte.facile > 1 ? 'faciles' : 'facile'}`,
+        `${compte.correct} ${compte.correct > 1 ? 'correctes' : 'correcte'}`,
+        `${compte.difficile} ${compte.difficile > 1 ? 'difficiles' : 'difficile'}`,
+        `${compte.oublie} ${compte.oublie > 1 ? 'oubliées' : 'oubliée'}`,
+      ].join(', ');
   }
 
   /**

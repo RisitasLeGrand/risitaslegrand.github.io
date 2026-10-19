@@ -126,6 +126,14 @@ const SEPT_JOURS_TRAVAILLES = {
   trimestreEcarte: null,
 };
 
+/** Une fiche est-elle atteignable, ici et maintenant, au doigt ? */
+const premiereFicheVisible = () =>
+  page
+    .locator('a[href*="/fiche/?id="]')
+    .first()
+    .isVisible()
+    .catch(() => false);
+
 const semerLeProfil = (profil) =>
   page.evaluate(async (profil) => {
     const base = await new Promise((ok, ko) => {
@@ -324,6 +332,116 @@ try {
     'la carte de la série est de retour',
     await page.locator('#carte-streak').isVisible().catch(() => false),
   );
+  console.log('\nF4 — LIRE N\u2019EST PAS MAÎTRISER');
+  await aller('/revisions/');
+  const maitriseAvant = (await page.locator('#maitrise').innerText().catch(() => '')).trim();
+  v('prémisse : la maîtrise part de zéro', maitriseAvant, '0 %');
+
+  /* Le geste réel : ouvrir une fiche depuis la bibliothèque et la marquer
+     lue. Écrire l'état en base aurait éprouvé le calcul sans éprouver le
+     chemin par lequel une personne y arrive. */
+  await aller('/bibliotheque/');
+  /*
+     LA BIBLIOTHÈQUE RANGE SES FICHES DANS DEUX DÉPLIANTS IMBRIQUÉS — la
+     matière, puis le fascicule. Le lien est dans le document dès le départ,
+     mais il ne mesure RIEN tant qu'ils sont fermés : une sonde l'a montré
+     (boîte de 0 × 0, deux « details » au-dessus), et le clic attendait
+     trente secondes un élément invisible. Pire, l'essai continuait ensuite
+     sur l'écran de la bibliothèque et son contrôle suivant passait au vert
+     sans avoir rien marqué.
+
+     On fait donc les deux gestes qu'une personne fait.
+  */
+  for (let i = 0; i < 4; i += 1) {
+    if (await premiereFicheVisible()) break;
+    /* Visés DANS LA LISTE : la mise en page porte elle aussi des dépliants,
+       et ouvrir « Cet espace — réglages et données » n'approche d'aucune
+       fiche. C'est la leçon du lot précédent, payée une fois déjà. */
+    const ferme = page.locator('#liste details:not([open]) > summary').first();
+    if (!(await ferme.count())) break;
+    await ferme.click().catch(() => {});
+    await page.waitForTimeout(250);
+  }
+  vrai('la bibliothèque offre une fiche', await premiereFicheVisible());
+  const premiereFiche = page.locator('a[href*="/fiche/?id="]').first();
+  await premiereFiche.click({ timeout: 10_000 }).catch(() => {});
+  await page.waitForLoadState('networkidle').catch(() => {});
+  await deverrouiller();
+  const boutonLu = page.locator('#bouton-lu');
+  /* Le bouton existe dès le rendu, mais son libellé n'est posé qu'une fois
+     l'état de la fiche lu en base : cliquer avant, c'est cliquer sur un
+     bouton qui ne sait pas encore ce qu'il fait. */
+  await boutonLu
+    .filter({ hasText: /Marquer comme lue|Fiche lue/ })
+    .first()
+    .waitFor({ timeout: 30_000 })
+    .catch(() => {});
+  await boutonLu.click({ timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(800);
+  v(
+    'prémisse : la fiche est marquée lue',
+    (await boutonLu.innerText().catch(() => '')).trim(),
+    '✓ Fiche lue',
+  );
+
+  await aller('/revisions/');
+  v(
+    'une fiche lue ne fait pas monter la jauge de maîtrise',
+    (await page.locator('#maitrise').innerText().catch(() => '')).trim(),
+    '0 %',
+  );
+
+  console.log('\nF4 — LES QUATRE NOTES RAPPORTENT AUTANT');
+  await aller('/flashcards/');
+  const taille = page.locator('#choix-taille');
+  /* La plus petite session offerte : l'essai doit noter toutes les cartes,
+     et il n'a aucune raison d'en noter quarante. */
+  const valeurs = await taille.locator('option').evaluateAll((os) => os.map((o) => o.value));
+  await taille.selectOption(valeurs.map(Number).sort((a, b) => a - b)[0]
+    ? String(valeurs.map(Number).sort((a, b) => a - b)[0])
+    : valeurs[0]);
+  await page.locator('#lancer').click();
+  await page.locator('#session:not(.hidden)').waitFor({ timeout: 90_000 });
+
+  /* Toutes les cartes notées « Facile », qui valait SEPT et vaut CINQ : un
+     mélange de notes aurait pu tomber en moyenne sur cinq et ne rien
+     prouver. */
+  /* Les définitions se lisent dans la session : c'est le seul endroit où
+     elles sont à l'écran. Sur l'accueil, le bloc de notation existe mais
+     reste caché, et « innerText » — qui ne rend que le visible — n'en
+     voyait rien. Le premier essai cherchait donc ces phrases sur l'écran
+     d'accueil, et rougissait sans qu'aucune faute soit du code. */
+  await page.locator('#carte').click().catch(() => {});
+  await page.waitForTimeout(300);
+  const notation = (await page.locator('#notation').innerText().catch(() => '')).toLowerCase();
+  vrai('« Oublié » dit ce qu\u2019il veut dire', notation.includes('vous ne saviez pas'));
+  vrai('« Difficile » aussi', notation.includes('retrouvé, mais avec peine'));
+  vrai('« Correct » aussi', notation.includes('su, après un temps de réflexion'));
+  vrai('« Facile » aussi', notation.includes('su tout de suite'));
+  vrai(
+    'et la règle est dite : la note choisit la date, pas la récompense',
+    notation.includes('les quatre rapportent'),
+  );
+
+  let notees = 0;
+  for (let i = 0; i < 60; i += 1) {
+    if (await page.locator('#bilan:not(.hidden)').count()) break;
+    await page.locator('#carte').click().catch(() => {});
+    await page.waitForTimeout(120);
+    const bouton = page.locator('[data-note="facile"]');
+    if (!(await bouton.isVisible().catch(() => false))) break;
+    await bouton.click();
+    notees += 1;
+    await page.waitForTimeout(150);
+  }
+  await page.waitForTimeout(400);
+  const bilan = (await page.locator('#bilan-detail').innerText().catch(() => '')).trim();
+  vrai('prémisse : des cartes ont été notées', notees > 0);
+  vrai(
+    `les ${notees} cartes « Facile » rapportent ${notees} × 5, et non × 7`,
+    bilan.includes(`+${notees * 5} XP`),
+  );
+
 } finally {
   await contexte.close();
   await nav.close();

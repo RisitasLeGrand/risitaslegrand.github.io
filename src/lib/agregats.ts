@@ -124,10 +124,25 @@ export async function construireVue(): Promise<Vue> {
       niveauxCartes[index++] = maitrise(etat);
     }
 
+    /*
+       LIRE N'EST PAS MAÎTRISER (prompt 43, F4).
+
+       La lecture valait 1 — la maîtrise pleine — dès que la fiche était
+       marquée lue. Une fiche parcourue en trente secondes comptait donc
+       autant qu'une fiche sue, et la jauge montait sans que rien n'ait été
+       éprouvé. C'est le contraire de ce qu'une jauge de maîtrise sert à
+       dire.
+
+       La maîtrise vient désormais de ce qui s'éprouve : les cartes et le
+       quiz. La lecture ne compte QUE là où il n'y a rien à éprouver — ni
+       carte, ni quiz —, parce qu'une telle fiche resterait sinon à zéro
+       pour toujours, ce qui n'est pas plus vrai. Qu'une fiche soit lue reste
+       dit ailleurs, et c'est là sa place : c'est une étape, pas une note.
+    */
     const composantes: number[] = [];
-    if (fiche.aCours || fiche.aFiche) composantes.push(lu ? 1 : 0);
     if (fiche.nbFlashcards > 0) composantes.push(moyenne(niveauxCartes));
     if (fiche.nbQuiz > 0) composantes.push(meilleurQuiz ?? 0);
+    if (!composantes.length && (fiche.aCours || fiche.aFiche)) composantes.push(lu ? 1 : 0);
 
     return {
       fiche,

@@ -187,15 +187,20 @@ export default {
   /** Points d'expérience attribués par action. */
   xp: {
     /**
-     * Quatre notes depuis le passage à FSRS. « Oublié » rapporte quelque chose :
-     * la tentative a eu lieu, et c'est elle qui fait progresser la trace — ne
-     * rien donner pousserait à cliquer « Difficile » sur une carte oubliée, ce
-     * qui fausserait l'ordonnanceur pour gagner trois points.
+     * UNE SEULE VALEUR, QUELLE QUE SOIT LA NOTE (prompt 43, F4).
+     *
+     * Les quatre notes rapportaient 3, 4, 5 et 7 points. La note dit à
+     * l'ordonnanceur quand revoir la carte ; la payer plus cher quand on se
+     * déclare à l'aise met en balance deux choses qui n'ont rien à voir, et
+     * pousse à surnoter — ce qui fausse FSRS pour gagner quatre points, donc
+     * fait revenir trop tard des cartes qu'on ne sait pas.
+     *
+     * La récompense porte désormais sur le geste : avoir révisé la carte.
+     * Cinq points, qui est l'ancienne valeur de « Correct » — ni l'inflation
+     * du maximum, ni la déflation du minimum, de sorte qu'un total d'hier et
+     * un total d'aujourd'hui restent comparables.
      */
-    flashcardOublie: 3,
-    flashcardDifficile: 4,
-    flashcardCorrect: 5,
-    flashcardFacile: 7,
+    flashcardRevue: 5,
     quizTermine: 10,
     quizBonneReponse: 2,
     ficheTerminee: 20,

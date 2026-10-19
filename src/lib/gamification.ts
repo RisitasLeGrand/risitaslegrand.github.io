@@ -168,13 +168,19 @@ export async function gagnerXp(
   };
 }
 
-export const xpFlashcard = (note: Note) =>
-  ({
-    oublie: XP.flashcardOublie,
-    difficile: XP.flashcardDifficile,
-    correct: XP.flashcardCorrect,
-    facile: XP.flashcardFacile,
-  })[note];
+/**
+ * L'XP d'une carte révisée — la MÊME pour les quatre notes (prompt 43, F4).
+ *
+ * La note est un renseignement donné à l'ordonnanceur : elle dit quand la
+ * carte doit revenir. La payer plus cher quand on se déclare à l'aise met en
+ * balance deux choses étrangères l'une à l'autre et pousse à surnoter, ce qui
+ * fausse FSRS pour gagner quatre points.
+ *
+ * La note reste le paramètre : la signature ne change pas, et c'est voulu —
+ * les appelants n'ont pas à savoir que le barème est devenu plat, et le jour
+ * où il cesserait de l'être, rien à l'écran n'aurait à bouger.
+ */
+export const xpFlashcard = (_note: Note) => XP.flashcardRevue;
 
 export const xpQuiz = (bonnes: number) => XP.quizTermine + bonnes * XP.quizBonneReponse;
 export const xpFiche = () => XP.ficheTerminee;

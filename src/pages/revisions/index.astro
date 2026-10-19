@@ -446,7 +446,7 @@ import Section from '../../components/Section.astro';
           <div class="h-full rounded-full bg-indigo-600 jauge-remplissage" style="transform:scaleX(${pourcent / 100})"></div>
         </div>
         <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-          ${matiere.fichesLues}/${matiere.fiches.length} fiche(s) lue(s)${matiere.cartesARevoir ? ` · ${matiere.cartesARevoir} carte(s) à revoir` : ''}
+          ${matiere.fichesLues}/${matiere.fiches.length} ${matiere.fiches.length > 1 ? 'fiches lues' : 'fiche lue'}${matiere.cartesARevoir ? ` · ${pluriel(matiere.cartesARevoir, 'carte à revoir', 'cartes à revoir')}` : ''}
         </p>`;
       carte.querySelectorAll('p')[1]!.textContent = matiere.nom;
       conteneur.appendChild(carte);
