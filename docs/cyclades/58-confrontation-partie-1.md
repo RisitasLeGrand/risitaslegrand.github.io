@@ -188,3 +188,30 @@ message brut de l'erreur. C'est exactement le constat G-13 — « ne jamais
 montrer un `Error.message` à l'écran ». L'essai vérifie donc seulement que
 l'écran **n'annonce pas une réussite** et qu'il dit quelque chose ; il ne
 prétend pas couvrir G-13, qui vient à son tour.
+
+## Avancement — B-5, livré le 19 octobre
+
+**Le défaut, en une phrase.** Le bouton « Sauvegarder d'abord, puis
+effacer » téléchargeait la sauvegarde, notait aussitôt « sauvegarde
+réussie », puis effaçait. Or un navigateur ne dit jamais si un
+téléchargement a abouti : pas d'événement, pas de promesse, pas d'accès au
+dossier de destination. C'est le constat A3 du 43, que l'écran de
+Progression respecte déjà en demandant à la personne de retrouver le
+fichier. Celui-ci ne le demandait pas.
+
+Sur un téléphone qui refuse le fichier, ou un disque plein, la sauvegarde
+n'existait donc pas et l'effacement avait lieu quand même. C'est le seul
+endroit du site où une promesse non tenue se paie par une perte sans
+recours, puisqu'on efface en s'appuyant sur une sauvegarde qui n'est
+peut-être pas là.
+
+**Ce qui est écrit.** La preuve est demandée avant d'effacer, par la boîte
+commune, avec deux réponses qui disent l'une et l'autre ce qu'elles font :
+« Je l'ai retrouvé, effacer » et « Je ne le trouve pas ». Un « je ne le
+trouve pas » n'efface rien et le dit. La date de dernière sauvegarde
+réussie n'est notée qu'à la confirmation, pour la même raison.
+
+**L'essai éprouve les deux réponses, et le refus d'abord** — c'est lui qui
+manquait. Rouge avant le correctif : aucune boîte ne s'ouvrait, et les onze
+enregistrements partaient sans qu'on ait pu dire que le fichier n'était pas
+là.

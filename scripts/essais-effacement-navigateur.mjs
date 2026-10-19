@@ -10,7 +10,7 @@
  */
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
-import { repondreALaRedemande } from './lib/boite-essais.mjs';
+import { repondreALaBoite, repondreALaRedemande } from './lib/boite-essais.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -199,15 +199,44 @@ v('ni le seuil', await compter('vmSeuils'), 1);
 
 console.log('\nEFFACER, SAUVEGARDE D’ABORD');
 
+/*
+   B-5 DU 58 — LA PREUVE A3 AVANT D'EFFACER.
+
+   « Sauvegarder d'abord, puis effacer » téléchargeait, notait « sauvegarde
+   réussie » et effaçait. Un navigateur ne dit jamais si un téléchargement a
+   abouti : sur un téléphone qui refuse le fichier, la sauvegarde n'existait
+   pas et l'effacement avait lieu quand même.
+
+   On éprouve donc les DEUX réponses, et le refus d'abord : c'est lui qui
+   doit ne rien effacer, et c'est lui qui manquait.
+*/
+await page.fill('#mdp-avant-effacement', MDP);
+const attenteRefus = page.waitForEvent('download', { timeout: 120000 });
+await page.click('#sauver-puis-effacer');
+const fichierRefuse = await attenteRefus;
+v(
+  'la sauvegarde de sécurité part avant l’effacement',
+  /^avant-effacement-cyclades-sauvegarde-/.test(fichierRefuse.suggestedFilename()),
+  true,
+);
+await repondreALaBoite(page, 'Je ne le trouve pas', { delai: 30000 });
+await page.waitForTimeout(2500);
+v('un « je ne le trouve pas » n’efface rien', await compter('nback'), 20);
+v('et la session de 2025 est toujours là', await compter('relationnel'), 1);
+const refusDit = (await page.locator('#message-effacement').textContent()) ?? '';
+v('et l’écran dit que rien n’a été effacé', /rien n’a été effacé/i.test(refusDit), true);
+
+/* Puis la même chose, confirmée. */
 await page.fill('#mdp-avant-effacement', MDP);
 const attente = page.waitForEvent('download', { timeout: 120000 });
 await page.click('#sauver-puis-effacer');
 const fichier = await attente;
 v(
-  'la sauvegarde de sécurité part avant l’effacement',
+  'la seconde sauvegarde part aussi',
   /^avant-effacement-cyclades-sauvegarde-/.test(fichier.suggestedFilename()),
   true,
 );
+await repondreALaBoite(page, 'Je l’ai retrouvé', { delai: 30000 });
 
 await page.waitForTimeout(4000);
 v('les dix sessions de 2025 sont parties', await compter('nback'), 10);

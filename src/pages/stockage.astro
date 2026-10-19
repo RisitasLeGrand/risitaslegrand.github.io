@@ -588,12 +588,55 @@ import LienReglages from '../components/LienReglages.astro';
         // La sauvegarde est binaire : elle ne passe pas par « telecharger »,
         // qui met en forme du texte.
         offrirLeFichier(sauvegarde.octets, `avant-effacement-${nom}`);
-        await noterSauvegardeReussie();
         ($('mdp-avant-effacement') as HTMLInputElement).value = '';
       } catch (e) {
         dire('message-effacement', `Sauvegarde impossible, rien n’a été effacé : ${(e as Error).message}`, 'echec');
         return;
       }
+
+      /*
+         B-5 DU 58 — « SAUVEGARDER D'ABORD » DOIT PASSER PAR LA PREUVE A3.
+
+         Ce chemin demandait le téléchargement, notait aussitôt « sauvegarde
+         réussie », puis effaçait. Or le web n'offre aucun moyen de savoir
+         qu'un téléchargement a abouti : pas d'événement, pas de promesse,
+         pas d'accès au dossier de destination. C'est précisément le constat
+         A3 du 43, et l'écran de Progression le respecte déjà en demandant à
+         la personne de retrouver le fichier.
+
+         Ici, il ne le demandait pas — et le bouton s'appelle pourtant
+         « Sauvegarder d'abord, puis effacer ». Sur un iPhone qui refuse le
+         fichier, ou un disque plein, la sauvegarde n'existait pas et
+         l'effacement avait lieu quand même. C'est le seul endroit du site
+         où une promesse non tenue se paie par une perte sans recours : on
+         efface en s'appuyant sur une sauvegarde qui n'est peut-être pas là.
+
+         La preuve est donc demandée AVANT d'effacer, et un « je ne le
+         trouve pas » n'efface rien. La date de dernière sauvegarde réussie
+         n'est notée qu'à la confirmation, pour la même raison.
+      */
+      const retrouvee = await confirmer({
+        titre: 'Avez-vous retrouvé le fichier de sauvegarde ?',
+        texte:
+          'Ouvrez vos téléchargements et vérifiez que le fichier y est, avec une taille ' +
+          'qui n’est pas nulle. Rien ne sera effacé tant que vous ne l’aurez pas ' +
+          'confirmé : un navigateur ne permet pas de savoir si un téléchargement a ' +
+          'abouti, et votre réponse est la seule preuve disponible.',
+        action: 'Je l’ai retrouvé, effacer',
+        annuler: 'Je ne le trouve pas',
+        destructrice: true,
+      });
+      if (!retrouvee) {
+        dire(
+          'message-effacement',
+          'Rien n’a été effacé. La sauvegarde n’étant pas confirmée, Cyclades continue ' +
+            'de compter les jours depuis la dernière sauvegarde confirmée. Réessayez, ou ' +
+            'effacez sans sauvegarder si c’est bien ce que vous voulez.',
+          'neutre',
+        );
+        return;
+      }
+      await noterSauvegardeReussie();
     } else if (
       /*
          Effacer sans sauvegarde demande le mot de passe, et non plus un
