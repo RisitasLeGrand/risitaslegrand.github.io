@@ -27,6 +27,7 @@
   } from '../../../lib/db';
   import { tick } from 'svelte';
   import { amenerLaZone } from '../../cog-training/zone-de-jeu';
+  import CommentCaMarche from '../../cog-training/composants/CommentCaMarche.svelte';
   import { gagnerXp, xpVeridical } from '../../../lib/gamification';
   import { debloquer, disponible } from '../audio';
   import { NOMS_FAMILLES, type Famille } from '../dimensions';
@@ -54,6 +55,9 @@
 
   let chargement = $state(true);
   let etape = $state<Etape>('accueil');
+
+  /** La consigne, ouverte en boîte pendant la session (P2 du 51). */
+  let consigneOuverte = $state(false);
 
   /** La zone de l'essai, amenée sous les yeux à chaque essai (P1 du 51). */
   let zoneDeJeu = $state<HTMLElement | null>(null);
@@ -328,6 +332,37 @@
     const parArete = reglages.essais / aretes;
     return { aretes, parArete, suffisant: parArete >= 24 };
   });
+  /*
+     LE VERDICT EN MOTS, parce que la couleur ne peut pas le porter seule.
+
+     Jusqu'ici, seul le cadre disait juste ou faux : « border-emerald-500 »
+     contre « border-rose-500 ». Qui ne distingue pas ces deux teintes — et
+     c'est la forme de daltonisme la plus répandue — n'avait AUCUN moyen de
+     savoir s'il avait répondu juste, ni laquelle était la bonne. Le verdict
+     n'était pas discret : il était absent.
+
+     Le texte du constat V1 suppose une seule proposition à départager. À
+     charge supérieure, l'essai en porte plusieurs, et nommer « la bonne
+     réponse » au singulier serait faux. La phrase s'adapte donc, et les
+     signes posés sur chaque cadre portent le détail.
+  */
+  const verdict = $derived.by(() => {
+    if (retour !== 'corrige' || !essai) return '';
+    const lignes = essai.sousEssais.map((sousEssai, i) => ({
+      juste: sousEssai.candidats[choix[i] ?? -1]?.juste === true,
+      attendue: sousEssai.candidats.findIndex((c) => c.juste) + 1,
+    }));
+    if (lignes.every((l) => l.juste)) return '✓ Juste.';
+    if (lignes.length === 1) {
+      return `✗ Ce n'était pas celle-là : la bonne réponse était la proposition ${lignes[0].attendue}.`;
+    }
+    const manquees = lignes
+      .map((l, i) => (l.juste ? null : `la ${i + 1}ʳᵉ demandait la proposition ${l.attendue}`))
+      .filter((texte): texte is string => texte !== null);
+    const justes = lignes.filter((l) => l.juste).length;
+    return `✗ ${justes} sur ${lignes.length} : ${manquees.join(', ')}.`;
+  });
+
   const chargeReelle = $derived(essai ? chargeAdmise(essai.arete, reglages.charge) : reglages.charge);
 
   /**
@@ -395,9 +430,36 @@
   });
 </script>
 
+{#snippet consigne()}
+  <!--
+    LE TEXTE DU CONSTAT P2, À UNE PHRASE PRÈS.
+
+    L'audit écrit « Toucher une proposition vaut réponse ». C'est vrai à charge
+    1 — `choisir` enchaîne sur `valider` sans clic superflu, et c'est le rythme
+    qu'une mesure de seuil demande. À charge supérieure, l'essai porte
+    plusieurs sous-essais et il faut toucher « Valider » : la phrase de l'audit
+    dirait alors d'attendre un enchaînement qui ne vient pas. Elle suit donc la
+    charge réelle. Le reste est mot pour mot.
+  -->
+  <p>
+    Vous voyez ou entendez une <strong>référence</strong>, par exemple un rond
+    plus ou moins grand. En dessous, deux <strong>propositions</strong> d'un
+    autre genre, par exemple deux sons plus ou moins forts. Choisissez celle
+    qui est à la même place sur son échelle : un grand rond va avec un son
+    fort, un petit rond avec un son faible.
+  </p>
+  <p class="mt-2">
+    {chargeReelle > 1
+      ? 'Répondez à chaque ligne, puis touchez « Valider ».'
+      : 'Toucher une proposition vaut réponse.'}
+    Plus vous réussissez, plus les deux propositions se ressemblent.
+  </p>
+{/snippet}
+
 {#if chargement}
   <p class="py-16 text-center text-sm text-slate-400">Lecture de vos seuils…</p>
 {:else if etape === 'accueil'}
+  <CommentCaMarche ouvert={sessions.length === 0}>{@render consigne()}</CommentCaMarche>
   <section class="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <h2 class="font-semibold text-slate-900 dark:text-white">Régler la session</h2>
@@ -566,6 +628,15 @@
         {essai.arete.de.nom} → {essai.arete.vers.nom}
         {#if essai.arete.transmodale}<span class="text-slate-400"> · transmodale</span>{/if}
       </p>
+      <!--
+        Pas de pause : un essai attend sa réponse, aucune horloge ne court.
+      -->
+      <button
+        type="button"
+        onclick={() => (consigneOuverte = true)}
+        class="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600
+          hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300"
+      >Revoir la consigne</button>
       <p class="text-xs text-slate-500 dark:text-slate-400">
         {faits} / {reglages.essais} · écart {essai.delta} pas
       </p>
@@ -653,6 +724,14 @@
                     : choix[i] === j
                       ? 'border-indigo-500'
                       : 'border-slate-200 hover:border-indigo-300 dark:border-slate-800'}
+              {@const signe =
+                retour !== 'corrige'
+                  ? ''
+                  : candidat.juste
+                    ? '✓'
+                    : choix[i] === j
+                      ? '✗'
+                      : ''}
               {#if candidat.stimulus.modalite === 'auditive'}
                 <!--
                   Un candidat sonore porte deux commandes distinctes : écouter et
@@ -661,29 +740,44 @@
                   de toute façon d'une réécoute sans répondre.
                 -->
                 <div class="rounded-lg border-2 p-2 transition {cadre}">
+                  {#if signe}
+                    <p class="mb-1 text-center text-base font-semibold leading-none">
+                      <span aria-hidden="true">{signe}</span>
+                      <span class="sr-only">{signe === '✓' ? 'bonne réponse' : 'votre réponse, inexacte'}</span>
+                    </p>
+                  {/if}
                   <Stimulus
                     stimulus={candidat.stimulus}
                     parasite={candidat.parasite}
-                    libelle="le candidat {j + 1}"
+                    libelle="la proposition {j + 1}"
                   />
                   <button
                     type="button"
                     onclick={() => choisir(i, j)}
                     disabled={retour === 'corrige'}
+                    aria-pressed={choix[i] === j}
+                    aria-label="Choisir la proposition {j + 1}"
                     class="mt-2 w-full rounded border border-slate-200 py-1.5 text-xs font-medium
                       text-slate-700 hover:border-indigo-300 disabled:opacity-50
                       dark:border-slate-700 dark:text-slate-200"
-                  >choisir</button>
+                  >Choisir</button>
                 </div>
               {:else}
                 <button
                   type="button"
                   onclick={() => choisir(i, j)}
                   disabled={retour === 'corrige'}
+                  aria-pressed={choix[i] === j}
                   class="rounded-lg border-2 p-2 transition {cadre}"
-                  aria-label="Choisir le candidat {j + 1}"
+                  aria-label="Choisir la proposition {j + 1}"
                 >
-                  <Stimulus stimulus={candidat.stimulus} parasite={candidat.parasite} libelle="le candidat {j + 1}" />
+                  {#if signe}
+                    <p class="mb-1 text-center text-base font-semibold leading-none">
+                      <span aria-hidden="true">{signe}</span>
+                      <span class="sr-only">{signe === '✓' ? 'bonne réponse' : 'votre réponse, inexacte'}</span>
+                    </p>
+                  {/if}
+                  <Stimulus stimulus={candidat.stimulus} parasite={candidat.parasite} libelle="la proposition {j + 1}" />
                 </button>
               {/if}
             {/each}
@@ -692,6 +786,20 @@
         </div>
       </div>
     {/each}
+
+    <!--
+      LE VERDICT, SOUS LES PROPOSITIONS ET DANS UNE SEULE RÉGION.
+
+      Une région par sous-essai se concurrenceraient à l'annonce : un lecteur
+      d'écran lit la dernière qui change, et les autres passent à la trappe.
+      Une seule région, au texte calculé, se lit en entier.
+    -->
+    {#if verdict}
+      <p
+        role="status"
+        class="mt-4 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium dark:border-slate-800"
+      >{verdict}</p>
+    {/if}
 
     <div class="mt-5 flex items-center gap-3">
       {#if retour === 'attente' && chargeReelle > 1}
@@ -771,3 +879,20 @@
     >Nouvelle session</button>
   </section>
 {/if}
+
+<!--
+  LA BOÎTE DE LA CONSIGNE VIT AU NIVEAU DU COMPOSANT, hors de tout écran.
+
+  Elle était d'abord rendue dans l'écran de jeu, à côté de la grille. Dans
+  Mémoire de travail, le clic sur « Reprendre » n'arrivait jamais : la grille
+  en rotation 3D crée son propre contexte d'empilement, et la boîte se
+  retrouvait derrière elle. Playwright trouvait le bouton, le voyait visible,
+  et attendait indéfiniment qu'il reçoive le pointeur — un écran sur lequel on
+  ne peut plus rien toucher, et aucune erreur pour le dire.
+
+  Une boîte modale n'appartient pas à un écran : elle appartient au composant.
+  Rendue ici, elle est hors de portée de tout ce que les écrans empilent.
+-->
+<CommentCaMarche enBoite={consigneOuverte} fermer={() => (consigneOuverte = false)}>
+  {@render consigne()}
+</CommentCaMarche>

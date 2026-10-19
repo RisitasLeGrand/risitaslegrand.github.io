@@ -23,6 +23,7 @@
   } from '../../../lib/db';
   import { tick } from 'svelte';
   import { amenerLaZone } from '../../cog-training/zone-de-jeu';
+  import CommentCaMarche from '../../cog-training/composants/CommentCaMarche.svelte';
   import MonEntrainement from '../../cog-training/composants/MonEntrainement.svelte';
   import type { GroupeUnites } from '../../cog-training/unites';
   import { gagnerXp, xpRelationnel } from '../../../lib/gamification';
@@ -62,6 +63,12 @@
   const CLE_TUTORIELS = 'revinsp:rr:tutoriels';
 
   let etape = $state<Etape>('accueil');
+
+  /** La consigne, ouverte en boîte pendant la session (P2 du 51). */
+  let consigneOuverte = $state(false);
+
+  /** Le verdict, pour lui donner le focus après « Valider » (P6 du 51). */
+  let zoneDeVerdict = $state<HTMLElement | null>(null);
 
   /** La zone de l'énoncé, amenée sous les yeux à chaque question (P1 du 51). */
   let zoneDeJeu = $state<HTMLElement | null>(null);
@@ -345,6 +352,14 @@
 
   function valider() {
     if (!repondu || corrige) return;
+    /*
+       Le focus part sur le verdict dès qu'il est rendu. `tick` est
+       indispensable : le bloc n'existe pas encore au moment de l'appel.
+    */
+    void (async () => {
+      await tick();
+      zoneDeVerdict?.focus();
+    })();
     resultats = [
       ...resultats,
       { question, note: noter(question.reponse, donnee()), donnee: donneePourCorrection() },
@@ -456,9 +471,37 @@
   const resumeMoteur = (id: string) => moteurParId(id)?.resume ?? '';
 </script>
 
+{#snippet consigne()}
+  <!--
+    LE TEXTE DU CONSTAT P2, À UN CHIFFRE PRÈS, ET LE CHIFFRE EST FAUX DEUX FOIS.
+
+    L'audit écrit « Une session compte 12 questions ». Or 12 est le nombre
+    d'ÉNONCÉS par défaut (`SELECTION_PAR_DEFAUT.items`), qui se règle ; et
+    `questionsDe` rend DEUX questions pour un énoncé à suite — une session de
+    douze énoncés en pose donc de douze à vingt-quatre. Annoncer « 12
+    questions » serait faux au réglage par défaut lui-même, dès qu'un énoncé à
+    suite est tiré. Le nombre affiché est donc celui du réglage, et la phrase
+    dit ce qu'il compte.
+
+    La durée, en revanche, est celle de l'audit : aucune session enregistrée ne
+    permet de la mesurer sur contenu d'exemple, et je ne remplace pas une
+    estimation par une autre.
+  -->
+  <p>
+    On vous montre quelques faits sur des personnes, des objets ou des mots
+    inventés. La règle qui les relie n'est pas dite : à vous de la trouver, puis
+    de répondre. Chaque réponse est corrigée aussitôt, avec l'explication.
+  </p>
+  <p class="mt-2">
+    Une session compte {selection.items} énoncés, et une dizaine de minutes.
+    Certains énoncés se poursuivent par une seconde question.
+  </p>
+{/snippet}
+
 {#if chargement}
   <p class="py-16 text-center text-sm text-slate-400">Lecture de votre progression…</p>
 {:else if etape === 'accueil'}
+  <CommentCaMarche ouvert={traces.length === 0}>{@render consigne()}</CommentCaMarche>
   <section class="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
@@ -546,8 +589,22 @@
       <p class="text-xs font-medium uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
         {nomMoteur(question.item.moteur)}{question.second ? ' — second temps' : ''}
       </p>
-      <p class="text-xs text-slate-500 dark:text-slate-400">{rang + 1} / {questions.length}</p>
+      <div class="flex items-center gap-3">
+        <!--
+          Pas de pause ici, et ce n'est pas un oubli : rien ne court dans
+          Raisonnement — une question attend sa réponse aussi longtemps qu'il
+          faut. Mettre en pause ce qui est déjà arrêté n'aurait rien à arrêter.
+        -->
+        <button
+          type="button"
+          onclick={() => (consigneOuverte = true)}
+          class="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600
+            hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300"
+        >Revoir la consigne</button>
+        <p class="text-xs text-slate-500 dark:text-slate-400">{rang + 1} / {questions.length}</p>
+      </div>
     </div>
+
 
     <div class="h-1 overflow-hidden rounded bg-slate-200 dark:bg-slate-800">
       <div class="jauge-remplissage jauge-seance h-full bg-indigo-500" style="transform: scaleX({rang / questions.length})"></div>
@@ -632,9 +689,21 @@
                 <option value={valeur}>{valeur}</option>
               {/each}
             </select>
-            {#if corrige && appariements[clef] !== question.reponse.paires[clef]}
+            <!--
+              UN SIGNE SUR CHAQUE LIGNE, et pas seulement sur les fausses.
+
+              Avant, le cadre portait seul la justesse, et « réponse : α »
+              n'apparaissait QUE sur les lignes manquées. Une ligne juste
+              n'était donc distinguée que par sa teinte : rien à lire, rien à
+              entendre. Marquer les deux cas coûte un caractère et rend la
+              correction lisible sans la vue.
+            -->
+            {#if corrige}
+              {@const juste = appariements[clef] === question.reponse.paires[clef]}
               <span class="text-xs text-slate-600 dark:text-slate-300">
-                réponse : {question.reponse.paires[clef]}
+                <span aria-hidden="true">{juste ? '✓' : '✗'}</span>
+                <span class="sr-only">{juste ? 'juste' : 'inexact'}</span>
+                {#if !juste}réponse : {question.reponse.paires[clef]}{/if}
               </span>
             {/if}
           </div>
@@ -645,7 +714,20 @@
     {#if corrige}
       {@const dernier = resultats[resultats.length - 1]}
       {@const note = dernier?.note ?? 0}
-      <div class="mt-5 rounded-lg border p-4 text-sm
+      <!--
+        Le verdict est annoncé ET prend le focus.
+
+        Les deux, parce qu'ils ne servent pas la même personne : la région
+        « status » lit le verdict à qui écoute, le focus amène au verdict qui
+        navigue au clavier — sans lui, « Valider » laissait le focus sur un
+        bouton disparu, et la tabulation reprenait au début de la page. C'est
+        « tabindex=-1 » qui le rend atteignable sans l'ajouter au parcours.
+      -->
+      <div
+        bind:this={zoneDeVerdict}
+        role="status"
+        tabindex="-1"
+        class="mt-5 rounded-lg border p-4 text-sm outline-none
         {note >= 1
           ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/30'
           : note > 0
@@ -821,3 +903,20 @@
     >Nouvelle session</button>
   </section>
 {/if}
+
+<!--
+  LA BOÎTE DE LA CONSIGNE VIT AU NIVEAU DU COMPOSANT, hors de tout écran.
+
+  Elle était d'abord rendue dans l'écran de jeu, à côté de la grille. Dans
+  Mémoire de travail, le clic sur « Reprendre » n'arrivait jamais : la grille
+  en rotation 3D crée son propre contexte d'empilement, et la boîte se
+  retrouvait derrière elle. Playwright trouvait le bouton, le voyait visible,
+  et attendait indéfiniment qu'il reçoive le pointeur — un écran sur lequel on
+  ne peut plus rien toucher, et aucune erreur pour le dire.
+
+  Une boîte modale n'appartient pas à un écran : elle appartient au composant.
+  Rendue ici, elle est hors de portée de tout ce que les écrans empilent.
+-->
+<CommentCaMarche enBoite={consigneOuverte} fermer={() => (consigneOuverte = false)}>
+  {@render consigne()}
+</CommentCaMarche>

@@ -23,6 +23,7 @@
   import { lecteurAudio } from '../moteur/audio.js';
   import { RETOURS } from '../moteur/constantes.js';
   import { amenerLaZone } from '../../cog-training/zone-de-jeu';
+  import CommentCaMarche from '../../cog-training/composants/CommentCaMarche.svelte';
   import { ajouterSessionNBack, toutesLesSessionsNBack } from '../../../lib/db';
   import { gagnerXp, xpNBack } from '../../../lib/gamification';
   import { notifier } from '../../../lib/ui';
@@ -75,6 +76,9 @@
   let sombre = $state(false);
   let debutSession = 0;
   let minuteurs = [];
+
+  /** La consigne est ouverte pendant la partie : la partie est en pause (P2 du 51). */
+  let consigneEnPause = $state(false);
 
   /** La zone de jeu, pour l'amener sous les yeux au lancement (P1 du 51). */
   let zoneDeJeu = $state(null);
@@ -280,6 +284,39 @@
 
     // Le stimulus reste affiché la moitié du temps d'épreuve : l'intervalle
     // vide oblige à mémoriser plutôt qu'à comparer visuellement.
+    planifier(() => (visible = false), reglages.dureeEpreuve * 0.5);
+    planifier(epreuveSuivante, reglages.dureeEpreuve);
+  }
+
+  /*
+     LA PAUSE REJOUE L'ÉPREUVE EN COURS, elle ne la saute pas.
+
+     L'épreuve se joue sur deux minuteurs : l'un cache le stimulus à mi-temps,
+     l'autre enchaîne. Les éteindre suffit à figer l'écran — mais reprendre par
+     « epreuveSuivante » appellerait `detecterOublis` sur l'épreuve interrompue
+     et compterait un OUBLI à qui vient de lire la consigne. Pénaliser la
+     lecture de la règle serait exactement le contraire de ce que ce lot
+     cherche.
+
+     On réarme donc les deux minuteurs sur le MÊME index, sans avancer et sans
+     détecter d'oubli : l'épreuve se rejoue en entier. Le prix est dit
+     franchement — ouvrir la consigne redonne du temps sur l'épreuve en cours.
+     C'est un prix qu'on paie volontiers pour ne pas punir une question.
+  */
+  function ouvrirLaConsigne() {
+    nettoyerMinuteurs();
+    consigneEnPause = true;
+  }
+
+  function reprendreApresLaConsigne() {
+    consigneEnPause = false;
+    if (ecran !== 'jeu' || !partie || index < 0 || index >= partie.epreuves.length) return;
+
+    const mien = (lancement += 1);
+    const epreuve = partie.epreuves[index];
+    visible = true;
+    if (reglages.dimensions.includes('son')) lecteurAudio.jouer(epreuve.son);
+    if (mien !== lancement) return;
     planifier(() => (visible = false), reglages.dureeEpreuve * 0.5);
     planifier(epreuveSuivante, reglages.dureeEpreuve);
   }
@@ -553,8 +590,47 @@
 
 <svelte:window on:keydown={surTouche} />
 
+{#snippet consigne()}
+  <!--
+    LE TEXTE DU CONSTAT P2, REPRIS MOT POUR MOT, À UN CHIFFRE PRÈS.
+
+    L'audit écrit « à la même place que deux tours plus tôt » et « les deux
+    premiers tours ». Les deux sont vrais à n = 2, qui est le réglage par
+    défaut et que la décision 1 laisse intact — mais n se règle de 1 à 5, et
+    la partie découverte tourne justement à n = 1. Figer « deux » rendrait la
+    consigne FAUSSE dans tous les autres cas, et fausse d'autant plus là où
+    elle sert le plus : au premier contact. Seul ce chiffre suit donc le
+    réglage ; le reste de la phrase est celui de l'audit.
+  -->
+  <p>
+    À chaque tour, un carré apparaît dans la grille, avec une couleur et une
+    forme, et une lettre est prononcée. Touchez <strong>Position</strong> si le
+    <!--
+      L'ÉLISION FAIT PARTIE DU CHIFFRE. Écrire « qu' » avant la variable
+      donnait « à la même place qu'2 tours plus tôt » : la sonde l'a lu à
+      l'écran. « que » et « qu'au » ne se choisissent pas séparément du reste
+      de la phrase, ils en font partie.
+    -->
+    carré est à la même place {reglages.n === 1
+      ? "qu'au tour précédent"
+      : `que ${reglages.n} tours plus tôt`}, <strong>Couleur</strong> si la couleur
+    est la même, et ainsi de suite. Ne touchez rien si rien ne se répète.
+  </p>
+  <p class="mt-2">
+    {reglages.n === 1 ? 'Le premier tour sert' : `Les ${reglages.n} premiers tours servent`}
+    à mémoriser : il n'y a encore rien à comparer.
+  </p>
+{/snippet}
+
 {#if ecran === 'accueil'}
   <div class="space-y-6">
+    <!--
+      Ouvert tant qu'aucune partie n'a été jouée, replié ensuite. Un encart
+      replié que personne n'ouvre ne vaut pas mieux que pas d'encart ; ouvert à
+      chaque visite, il devient l'obstacle que l'habitué referme vingt fois.
+      « historique » est déjà lu pour l'écran : rien n'est écrit pour le savoir.
+    -->
+    <CommentCaMarche ouvert={historique.length === 0}>{@render consigne()}</CommentCaMarche>
     <section class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
       <h2 class="mb-4 text-lg font-semibold text-slate-900 dark:text-white">Réglages de la session</h2>
 
@@ -783,12 +859,48 @@
   </div>
 {:else if ecran === 'jeu'}
   <div bind:this={zoneDeJeu} data-zone-de-jeu class="space-y-4">
-    <div class="flex items-center gap-3">
+    <!--
+      LA RANGÉE PASSE À LA LIGNE, ET CE N'EST PAS UNE PRÉCAUTION.
+
+      Elle porte deux boutons, une jauge, un compteur et jusqu'à deux
+      pastilles. Seule la jauge est réductible : le minimum des autres atteint
+      442 px, mesuré à 390. La page passait donc à 442 de large pendant la
+      seconde de battement — celle où « préparez-vous… » s'affiche —, et
+      emportait la barre de navigation du bas hors de l'écran. Transitoire,
+      donc jamais pris par une capture, et antérieur à ce lot.
+
+      « flex-wrap » laisse les pastilles descendre d'une ligne au lieu
+      d'élargir la page ; « min-w-0 » sur la jauge l'autorise à céder la place
+      avant que quoi que ce soit ne déborde.
+    -->
+    <div class="flex flex-wrap items-center gap-x-3 gap-y-2">
       <button
         onclick={abandonner}
         class="shrink-0 text-sm text-slate-500 hover:underline dark:text-slate-400"
       >
         ← Arrêter
+      </button>
+      <!--
+        LE LIBELLÉ SE RACCOURCIT, LE NOM ACCESSIBLE NE BOUGE PAS.
+
+        Écrit en toutes lettres et en « shrink-0 », ce bouton a fait déborder
+        la barre : avec « ← Arrêter » et « ↻ Recommencer », trois boutons
+        irréductibles dépassent 390 px. La page passait à 509 px de large et
+        emportait la barre de navigation du bas hors de l'écran — mesuré, pas
+        supposé, et c'est une régression que j'avais introduite.
+
+        Le voisin ↻ montrait déjà l'idiome : le texte disparaît sous « sm ».
+        L'« aria-label » garde le nom entier, pour que le lecteur d'écran et
+        l'essai entendent la même chose aux deux largeurs.
+      -->
+      <button
+        type="button"
+        onclick={ouvrirLaConsigne}
+        aria-label="Revoir la consigne"
+        class="shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+      >
+        <span class="sm:hidden">Consigne</span>
+        <span class="hidden sm:inline">Revoir la consigne</span>
       </button>
       <button
         onclick={recommencer}
@@ -797,7 +909,7 @@
       >
         ↻ <span class="hidden sm:inline">Recommencer</span>
       </button>
-      <div class="h-2 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
+      <div class="h-2 min-w-0 flex-1 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-800">
         <div class="jauge-remplissage jauge-seance h-full rounded-full bg-indigo-500" style="transform: scaleX({progression / 100})"></div>
       </div>
       <span class="text-sm font-medium tabular-nums text-slate-500 dark:text-slate-400">
@@ -860,6 +972,7 @@
       {/each}
     </div>
     <p class="sr-only" aria-live="polite">{annonceRetour}</p>
+
 
     {#if reglages.retourImmediat}
       <p class="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-center text-xs text-slate-400">
@@ -931,3 +1044,20 @@
     </div>
   </div>
 {/if}
+
+<!--
+  LA BOÎTE DE LA CONSIGNE VIT AU NIVEAU DU COMPOSANT, hors de tout écran.
+
+  Elle était d'abord rendue dans l'écran de jeu, à côté de la grille. Dans
+  Mémoire de travail, le clic sur « Reprendre » n'arrivait jamais : la grille
+  en rotation 3D crée son propre contexte d'empilement, et la boîte se
+  retrouvait derrière elle. Playwright trouvait le bouton, le voyait visible,
+  et attendait indéfiniment qu'il reçoive le pointeur — un écran sur lequel on
+  ne peut plus rien toucher, et aucune erreur pour le dire.
+
+  Une boîte modale n'appartient pas à un écran : elle appartient au composant.
+  Rendue ici, elle est hors de portée de tout ce que les écrans empilent.
+-->
+<CommentCaMarche enBoite={consigneEnPause} fermer={reprendreApresLaConsigne}>
+  {@render consigne()}
+</CommentCaMarche>
