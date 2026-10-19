@@ -48,28 +48,68 @@ export function parametreUrl(nom: string): string | null {
   return new URLSearchParams(window.location.search).get(nom);
 }
 
+/**
+ * La zone des bulles, et sa région vivante — POSÉE DÈS LE CHARGEMENT (M9).
+ *
+ * ## Le défaut que cela corrige, et pourquoi il était invisible
+ *
+ * Cette zone était créée PARESSEUSEMENT, au premier appel de `notifier` —
+ * c'est-à-dire dans le même tour de boucle que l'insertion de la bulle. Or un
+ * lecteur d'écran enregistre une région `aria-live` au moment où elle entre
+ * dans l'arbre d'accessibilité : du contenu inséré dans une région née à
+ * l'instant même n'est, en pratique, pas annoncé. VoiceOver et TalkBack
+ * perdaient donc la PREMIÈRE bulle de chaque page — et ces bulles sont
+ * justement ce par quoi l'application dit « pointage fait » ou signale une
+ * erreur.
+ *
+ * À l'œil, rien ne se voyait : la bulle s'affichait normalement. Le défaut
+ * n'existait que pour qui ne regarde pas l'écran, ce qui est exactement la
+ * raison pour laquelle M9 le nomme.
+ *
+ * La zone est donc créée à l'import de ce module, qu'on notifie ou non. Une
+ * `<div>` vide, sans événement de pointage, ne coûte rien ; une annonce
+ * perdue, si.
+ */
+function zoneDesNotifications(): HTMLElement | null {
+  if (typeof document === 'undefined' || !document.body) return null;
+  const existante = document.getElementById('zone-notifications');
+  if (existante) return existante;
+  const zone = document.createElement('div');
+  zone.id = 'zone-notifications';
+  /*
+     A14 — LA BULLE PASSE AU-DESSUS DE LA BARRE D'ONGLETS.
+
+     À 390 px, « bottom-4 » la plaçait sur la barre fixe du bas, qu'elle
+     couvrait pendant environ 2,7 s. Une notification n'a pas à masquer la
+     navigation : on dégage la hauteur de la barre (57 px) plus la marge.
+     Au-delà de 640 px la barre n'existe pas, et la bulle reprend sa place.
+
+     Antérieur au lot des animations : c'est la position qui était fausse,
+     pas la durée.
+  */
+  zone.className =
+    'pointer-events-none fixed inset-x-0 bottom-20 z-50 flex flex-col items-center gap-2 px-4 sm:bottom-4';
+  zone.setAttribute('aria-live', 'polite');
+  /*
+     « polite » et non « assertive » : une bulle informe, elle n'interrompt
+     pas. Et `aria-atomic` reste à sa valeur par défaut, pour que l'ajout
+     d'une bulle n'entraîne pas la relecture de celles encore à l'écran.
+  */
+  document.body.appendChild(zone);
+  return zone;
+}
+
+/*
+   Posée à l'import, et non au premier appel : c'est tout l'objet du correctif
+   ci-dessus. Les scripts de page sont des modules, donc différés : le corps
+   du document existe quand cette ligne s'exécute.
+*/
+zoneDesNotifications();
+
 /** Affiche un message éphémère en bas de l'écran (gains d'XP, badges…). */
 export function notifier(message: string, variante: 'info' | 'succes' | 'badge' = 'info') {
-  let zone = document.getElementById('zone-notifications');
-  if (!zone) {
-    zone = document.createElement('div');
-    zone.id = 'zone-notifications';
-    /*
-       A14 — LA BULLE PASSE AU-DESSUS DE LA BARRE D'ONGLETS.
-
-       À 390 px, « bottom-4 » la plaçait sur la barre fixe du bas, qu'elle
-       couvrait pendant environ 2,7 s. Une notification n'a pas à masquer la
-       navigation : on dégage la hauteur de la barre (57 px) plus la marge.
-       Au-delà de 640 px la barre n'existe pas, et la bulle reprend sa place.
-
-       Antérieur au lot des animations : c'est la position qui était fausse,
-       pas la durée.
-    */
-    zone.className =
-      'pointer-events-none fixed inset-x-0 bottom-20 z-50 flex flex-col items-center gap-2 px-4 sm:bottom-4';
-    zone.setAttribute('aria-live', 'polite');
-    document.body.appendChild(zone);
-  }
+  const zone = zoneDesNotifications();
+  if (!zone) return;
   const couleurs = {
     info: 'bg-slate-800 text-white',
     succes: 'bg-emerald-600 text-white',

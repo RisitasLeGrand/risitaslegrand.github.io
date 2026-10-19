@@ -483,6 +483,24 @@ l'oreille, qui ne peut ni revenir en arrière ni voir la page.
 `npm run essais:fiches-audio` éprouve ces règles, et mesure sur un fichier
 réellement encodé la sonie, la pause de partie et les repères de partie.
 
+### Le lecteur d'écran, sur le lecteur audio et les séances
+
+Deux règles valent d'être connues avant d'ajouter un bouton à ces écrans, et
+`npm run essais:acces-m9` les tient :
+
+- **Un nom accessible distinct par cible.** Trois boutons nommés « Écouter à
+  partir d'ici » sont, pour qui parcourt la page par sa liste de boutons, trois
+  boutons indiscernables : chacun nomme donc sa partie. De même pour les volets
+  d'une séance, qui nomment leur fiche. Et un repère se dit en mots dans un nom
+  accessible — « à 4 minutes 12 », parce que « 4:12 » s'entend « quatre
+  deux-points douze ».
+- **Une région vivante pour les événements, jamais pour un compteur.** Les
+  erreurs du lecteur s'annoncent ; le temps restant, non — il se réécrit
+  plusieurs fois par seconde, et annoncé il couvrirait la parole qu'on essaie
+  d'écouter. La zone des bulles, elle, est posée **dès le chargement** : une
+  région `aria-live` créée au moment même où l'on y insère du contenu n'est pas
+  annoncée, et la première bulle de chaque page était perdue.
+
 ### Ce que cela ajoute au dépôt — à lire avant de publier
 
 C'est le seul vrai coût de cette fonctionnalité, et il n'est pas négligeable :

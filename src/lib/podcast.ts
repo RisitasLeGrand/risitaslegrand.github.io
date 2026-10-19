@@ -32,6 +32,7 @@ import { ecrirePositionPodcast, lirePositionPodcast, supprimerPositionPodcast } 
 import {
   CLE_VITESSE,
   horodatage,
+  horodatageParle,
   partieCourante,
   partiesEcoutables,
   VITESSE_PAR_DEFAUT,
@@ -60,6 +61,7 @@ const CLE_POSITION_ANCIENNE = 'revinsp.podcast.position';
 */
 export {
   horodatage,
+  horodatageParle,
   partieCourante,
   partiesEcoutables,
   CLE_VITESSE,
@@ -277,6 +279,11 @@ export function installerLecteurPodcast(fiche: Fiche): LecteurPodcast | null {
          « aria-current » et non une simple couleur : la mise en évidence doit
          s'entendre au lecteur d'écran, pas seulement se voir.
       */
+      /*
+         `aria-current` vaut « true » et non « location » : les deux sont
+         admis, mais « true » est celui que VoiceOver et TalkBack annoncent
+         le plus uniformément — « actuel » plutôt qu'un silence.
+      */
       if (enCours) ligne.setAttribute('aria-current', 'true');
       else ligne.removeAttribute('aria-current');
     });
@@ -286,12 +293,27 @@ export function installerLecteurPodcast(fiche: Fiche): LecteurPodcast | null {
     if (!zoneParties || !parties.length) return;
     zoneParties.replaceChildren();
     const liste = document.createElement('ul');
+    /* M9 — la liste se nomme : « liste de 3 éléments » ne dit pas de quoi. */
+    liste.setAttribute('aria-label', 'Parties de la fiche audio');
     liste.className = 'mt-3 space-y-0.5';
     for (const partie of parties) {
       const item = document.createElement('li');
       const ligne = document.createElement('button');
       ligne.type = 'button';
       ligne.dataset.partie = partie.id;
+      /*
+         M9 — LE NOM ACCESSIBLE DIT L'HEURE EN MOTS.
+
+         Le texte visible est « 4:12 » suivi du titre : à l'œil, c'est le
+         repère qu'on attend d'un lecteur audio. À l'oreille, « 4:12 » se dit
+         « quatre deux-points douze », ou « quatre cent douze ». Le nom
+         accessible porte donc le geste et l'heure en français, et le visible
+         garde sa forme courte.
+      */
+      ligne.setAttribute(
+        'aria-label',
+        `Écouter « ${partie.titre} », à ${horodatageParle(partie.debut)}`,
+      );
       ligne.className =
         'flex w-full items-baseline gap-2 rounded-md px-2 py-1.5 text-left text-sm ' +
         'text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800';

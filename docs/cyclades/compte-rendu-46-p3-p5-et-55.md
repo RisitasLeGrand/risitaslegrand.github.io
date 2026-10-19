@@ -231,6 +231,65 @@ Attribution arrêtée par le pilote :
 Rien à changer ici, donc. Le contrôle que les numéros sont distincts et
 croissants, et que la base s'ouvre depuis la 33, se fait à la fusion.
 
+## M9 — le lecteur d'écran et le mouvement réduit
+
+Ajouté à ma feuille de route par décision d'Alexis du 19/10, à prendre après
+le 55 : il porte sur ce que les deux lots précédents ont ajouté, et le mesurer
+avant qu'ils existent n'aurait rien eu à mesurer.
+
+**Le défaut que M9 nomme, et qui était réel.** La zone des bulles — celle par
+laquelle l'application dit « pointage fait » ou signale une erreur — était
+créée **paresseusement**, au premier appel de `notifier`, c'est-à-dire dans le
+même tour de boucle que l'insertion de la bulle. Un lecteur d'écran enregistre
+une région `aria-live` au moment où elle entre dans l'arbre d'accessibilité :
+du contenu inséré dans une région née à l'instant même n'est, en pratique, pas
+annoncé. **La première bulle de chaque page était donc perdue** pour VoiceOver
+et TalkBack. À l'œil, rien ne se voyait — la bulle s'affichait normalement. Le
+défaut n'existait que pour qui ne regarde pas l'écran. La zone est désormais
+posée à l'import de `ui.ts`.
+
+**Trois ambiguïtés de nommage, corrigées.** Elles se ressemblent, et aucune ne
+se voit à l'œil, parce que l'écran donne par la position ce que le nom ne dit
+pas :
+
+| Où | Ce qu'un lecteur d'écran annonçait | Maintenant |
+|---|---|---|
+| Les boutons des titres du cours | trois fois « 🎧 Écouter à partir d'ici » — indiscernables | « Écouter à partir de « *titre de la partie* » » |
+| Les volets d'une séance | dix fois « Travailler seulement certaines parties » | « … de « *titre de la fiche* » » |
+| Les sauts du lecteur | « ↺ 15 s », soit la flèche épelée | « Reculer de 15 secondes » |
+
+Et les repères se disent en mots : « 4:12 » devient « à 4 minutes 12 », parce
+que `4:12` s'entend « quatre deux-points douze ».
+
+**Deux régions vivantes retirées, une ajoutée.** C'est le point de M9 sur
+« l'annonce des changements », et il se joue dans les deux sens :
+
+- `#podcast-reste` (« reste 6 min ») **était** une région vivante. Elle se
+  réécrit à chaque `timeupdate`, plusieurs fois par seconde : annoncée, elle
+  couvre la parole qu'on essaie d'écouter. Une fiche audio dont le compteur
+  parle par-dessus la voix est inutilisable. Retirée.
+- Le compte des parties vues, écrit une fois au rendu, était annoncé à
+  l'ouverture de chaque fiche, en travers du titre. Retiré.
+- `#podcast-info`, en revanche, **n'en était pas une** — et c'est par lui que
+  le lecteur dit « Lecture impossible » ou « format audio non lisible ». Sans
+  région vivante, qui ne voit pas l'écran appuie sur « Écouter » et n'apprend
+  jamais pourquoi rien ne vient. Ajoutée.
+
+**Le mouvement réduit** est respecté sans rien ajouter : les règles globales de
+`global.css` couvrent `transition-duration` par un sélecteur `*`, pour la
+préférence système **et** pour le réglage de l'application, et mes lots
+n'ajoutent aucune animation à images clés. Vérifié plutôt que supposé :
+l'essai mesure `transitionDuration` sous préférence émulée sur les quatre
+éléments ajoutés, et relève **0,01 ms** partout.
+
+L'essai `npm run essais:acces-m9` (**21 contrôles**) prend les noms dans
+l'arbre d'accessibilité du navigateur — `ariaSnapshot`, donc le calcul réel de
+la spécification — et non par une règle réécrite à la main, qui finirait par
+mesurer sa propre approximation. Il existe à part de `essais:accessibilite`
+parce que celui-ci déclare ne pas couvrir « les champs que du JavaScript crée
+après coup, et ceux qui vivent derrière une porte » : c'est exactement la
+nature de tout ce que ces lots ajoutent.
+
 ## Ce qui reste à faire, et qui n'est pas à moi
 
 - **La régénération complète de l'audio** : c'est ton geste, et le tien seul.

@@ -32,20 +32,34 @@ import LienReglages from '../components/LienReglages.astro';
           type="button"
           class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-60"
         >▶ Écouter la fiche</button>
-        <p id="podcast-info" class="text-sm text-slate-500 dark:text-slate-400"></p>
+        <!--
+          M9 — CELUI-LÀ, en revanche, s'annonce. C'est par lui que le lecteur
+          dit « Lecture impossible », « format audio non lisible », « fiche
+          audio pas encore disponible » : des erreurs, et elles ne changent
+          qu'à un événement. Sans région vivante, qui ne voit pas l'écran
+          appuie sur « Écouter » et n'apprend jamais pourquoi rien ne vient.
+        -->
+        <p id="podcast-info" role="status" class="text-sm text-slate-500 dark:text-slate-400"></p>
       </div>
       <audio id="podcast-lecteur" class="mt-3 hidden w-full" controls preload="none"></audio>
 
       <!-- Sauts de 15 s, vitesse de diction, temps restant (prompt 55, N°13) -->
       <div id="podcast-commandes" class="mt-2 hidden flex-wrap items-center gap-x-3 gap-y-2">
+        <!--
+          M9 — le nom accessible ne peut pas être une flèche. « ↺ 15 s » se lit
+          « quinze s » au mieux, et le glyphe épelé au pire : l'aria-label dit
+          le geste en mots, et la flèche reste pour l'œil.
+        -->
         <button
           id="podcast-recul"
           type="button"
+          aria-label="Reculer de 15 secondes"
           class="rounded-lg border border-slate-300 px-2.5 py-1 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
         >↺ 15 s</button>
         <button
           id="podcast-avance"
           type="button"
+          aria-label="Avancer de 15 secondes"
           class="rounded-lg border border-slate-300 px-2.5 py-1 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
         >↻ 15 s</button>
         <label class="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
@@ -55,10 +69,23 @@ import LienReglages from '../components/LienReglages.astro';
             class="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
           ></select>
         </label>
+        <!--
+          M9 — CE N'EST PAS UNE RÉGION VIVANTE, et c'en était une.
+
+          « reste 6 min » se réécrit à chaque `timeupdate`, soit plusieurs fois
+          par seconde. En `role="status"`, un lecteur d'écran annonce chaque
+          changement : la minute qui tombe, et toute la valse d'un déplacement
+          dans la piste. Une annonce par minute pendant quarante minutes
+          d'écoute n'informe pas, elle empêche d'écouter — ce qui est le
+          comble pour une fiche audio.
+
+          M9 demande d'annoncer « les changements (pointage fait, erreur) » :
+          des événements, pas un chronomètre. Le temps restant reste donc du
+          texte, lu à la demande comme le reste de la page.
+        -->
         <p
           id="podcast-reste"
           class="text-sm text-slate-500 tabular-nums dark:text-slate-400"
-          role="status"
         ></p>
       </div>
 
@@ -94,10 +121,15 @@ import LienReglages from '../components/LienReglages.astro';
           <p class="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">Sommaire</p>
           <nav id="sommaire" class="defilement-fin max-h-[60dvh] space-y-1 overflow-y-auto text-sm"></nav>
           <!-- Le suivi des parties vues (prompt 46, P5) -->
+          <!--
+            M9 — pas de `role="status"` : ce compte est écrit UNE FOIS au rendu
+            du cours, donc il serait annoncé à l'ouverture de chaque fiche, en
+            travers de la lecture du titre. C'est une information de la page,
+            pas un changement qui vient d'arriver.
+          -->
           <p
             id="suivi-parties"
             class="mt-3 hidden border-t border-slate-200 pt-3 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400"
-            role="status"
           ></p>
         </div>
       </aside>
@@ -314,6 +346,20 @@ import LienReglages from '../components/LienReglages.astro';
         'text-xs font-medium text-slate-600 transition hover:bg-slate-100 ' +
         'dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800';
       bouton.textContent = '🎧 Écouter à partir d’ici';
+      /*
+         M9 — UN NOM DISTINCT PAR BOUTON.
+
+         Une fiche à trois parties portait trois boutons dont le nom
+         accessible était identique, au casque près : « 🎧 Écouter à partir
+         d'ici ». Qui parcourt la page par la liste de ses boutons voyait
+         trois entrées indiscernables, et devait deviner laquelle mène où.
+         Le titre de la partie lève l'ambiguïté, et l'émoji sort du nom —
+         il serait lu « casque audio » avant chaque intitulé.
+      */
+      bouton.setAttribute(
+        'aria-label',
+        `Écouter à partir de « ${titre.dataset.titre || fiche.titre} »`,
+      );
       const partie = titre.id;
       bouton.addEventListener('click', () => {
         /*

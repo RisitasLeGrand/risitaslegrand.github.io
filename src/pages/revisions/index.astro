@@ -731,7 +731,7 @@ import Section from '../../components/Section.astro';
    */
   async function afficherEcoutes() {
     const { toutesLesPositionsPodcast } = await import('../../lib/db');
-    const { horodatage } = await import('../../lib/podcast');
+    const { horodatage, horodatageParle } = await import('../../lib/podcast');
     const positions = await toutesLesPositionsPodcast();
     if (!positions.length) return;
 
@@ -774,6 +774,19 @@ import Section from '../../components/Section.astro';
           : '';
       detail.textContent = `${fiche.matiere} · arrêté à ${horodatage(position.secondes)}${restant}`;
 
+      /*
+         M9 — le nom accessible, en une phrase.
+
+         Sans lui, le nom se compose par concaténation : « 🎧 Reprendre
+         l'écoute La hiérarchie des normes Droit public · arrêté à 1:09 ·
+         reste 6 min » — l'émoji lu « casque audio », l'heure lue « un
+         deux-points zéro neuf », et aucune ponctuation pour séparer. On dit
+         donc la même chose en français, et le visible garde sa forme brève.
+      */
+      carte.setAttribute(
+        'aria-label',
+        `Reprendre l’écoute de « ${fiche.titre} », arrêté à ${horodatageParle(position.secondes)}`,
+      );
       carte.append(etiquette, titre, detail);
       grille.appendChild(carte);
     }

@@ -485,7 +485,7 @@ import Base from '../../layouts/Base.astro';
          entière pour une séance qui porte sur deux fiches. C'est la même
          règle que pour le prétest juste en dessous.
       */
-      if (fiche.nbParties) carte.appendChild(voletDesParties(fiche.id));
+      if (fiche.nbParties) carte.appendChild(voletDesParties(fiche.id, fiche.titre));
       grille.appendChild(carte);
     }
 
@@ -630,7 +630,7 @@ import Base from '../../layouts/Base.astro';
    * seule fois : déplier d'office les dix fiches d'une matière pour afficher
    * des cases que personne ne cochera déchiffrerait la matière entière.
    */
-  function voletDesParties(ficheId: string): HTMLElement {
+  function voletDesParties(ficheId: string, titreDeLaFiche: string): HTMLElement {
     const volet = document.createElement('details');
     volet.dataset.voletFiche = ficheId;
     volet.className = 'mt-2 border-t border-slate-100 pt-2 dark:border-slate-800';
@@ -640,6 +640,20 @@ import Base from '../../layouts/Base.astro';
       'cible-tactile flex min-h-11 cursor-pointer items-center text-xs font-medium ' +
       'text-slate-600 dark:text-slate-300';
     titre.textContent = 'Travailler seulement certaines parties';
+    /*
+       M9 — UN NOM DISTINCT PAR VOLET.
+
+       Une séance propose une dizaine de fiches, et chacune portait un volet
+       au nom identique : « Travailler seulement certaines parties ». Qui
+       parcourt la page au lecteur d'écran entendait dix fois la même phrase,
+       sans savoir de quelle fiche il s'agissait — le titre de la fiche est
+       juste au-dessus à l'œil, mais rien ne le rattache au volet pour
+       l'oreille.
+    */
+    titre.setAttribute(
+      'aria-label',
+      `Travailler seulement certaines parties de « ${titreDeLaFiche} »`,
+    );
 
     const hote = document.createElement('div');
     hote.className = 'mt-1 space-y-0.5';
@@ -701,6 +715,17 @@ import Base from '../../layouts/Base.astro';
           void sauvegarderBientot();
         });
         ligne.append(case_, document.createTextNode(partie.titre));
+        /*
+           Deux fiches peuvent porter une partie de même titre — les
+           identifiants viennent des ancres, donc « I. Introduction » existe
+           plusieurs fois dans le contenu. Le nom accessible de la case porte
+           donc sa fiche, là où le texte visible reste court parce que le
+           titre de la fiche est déjà au-dessus.
+        */
+        case_.setAttribute(
+          'aria-label',
+          `${partie.titre} — ${titreDeLaFiche}`,
+        );
         hote.appendChild(ligne);
       }
     });

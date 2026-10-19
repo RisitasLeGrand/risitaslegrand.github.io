@@ -62,6 +62,30 @@ export function horodatage(secondes: number): string {
     : `${m}:${DEUX_CHIFFRES.format(s)}`;
 }
 
+/**
+ * Le même repère, mais DICIBLE — pour un lecteur d'écran (M9).
+ *
+ * « 4:12 » se lit à l'œil et s'entend mal : VoiceOver et TalkBack en font
+ * « quatre deux-points douze », ou « quatre cent douze », selon l'humeur et la
+ * langue. Un nom accessible doit donc porter les unités.
+ *
+ * Rendu : « 26 secondes », « 4 minutes 12 », « 1 heure 4 minutes ». Les
+ * secondes sont omises au-delà de l'heure : à ce stade elles n'aident plus à
+ * se repérer, et elles allongent une phrase déjà longue.
+ */
+export function horodatageParle(secondes: number): string {
+  const total = Math.max(0, Math.floor(secondes));
+  const s = total % 60;
+  const m = Math.floor(total / 60) % 60;
+  const h = Math.floor(total / 3600);
+  const morceaux: string[] = [];
+  if (h) morceaux.push(`${h} heure${h > 1 ? 's' : ''}`);
+  if (m) morceaux.push(`${m} minute${m > 1 ? 's' : ''}`);
+  /* Les secondes seules quand il n'y a rien d'autre, ou en appoint des minutes. */
+  if (!h && (s || !m)) morceaux.push(m ? String(s) : `${s} seconde${s > 1 ? 's' : ''}`);
+  return morceaux.join(' ');
+}
+
 /* ══════════════════════════════════════════════════════════════════════════
    Les parties écoutables (prompt 46, P3)
    ══════════════════════════════════════════════════════════════════════════ */
