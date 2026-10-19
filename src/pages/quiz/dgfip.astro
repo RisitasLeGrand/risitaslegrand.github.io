@@ -19,6 +19,38 @@ import { base } from '../../lib/ui';
       des sujets 2026, rubrique par rubrique.
     </p>
 
+    {/*
+       L'épreuve gardée pour plus tard (C3 du prompt 43).
+
+       En tête de l'accueil, parce que c'est la seule chose de cet écran qui
+       attend quelque chose de la personne. Caché tant qu'il n'y a rien à
+       reprendre : un bloc vide qui dit « aucune épreuve gardée » occuperait
+       l'écran pour ne rien apprendre.
+
+       Aucune couleur d'alerte, aucun compte à rebours : une épreuve gardée
+       n'expire pas, et rien ne presse de la reprendre.
+    */}
+    <div
+      id="reprise-dgfip"
+      class="mb-6 hidden rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900"
+    >
+      <p id="reprise-texte" class="text-sm text-slate-700 dark:text-slate-200"></p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button
+          id="reprendre-dgfip"
+          type="button"
+          class="cible-tactile rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+          >Reprendre l’épreuve</button
+        >
+        <button
+          id="jeter-dgfip"
+          type="button"
+          class="cible-tactile rounded-lg border border-slate-300 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          >Ne pas la reprendre</button
+        >
+      </div>
+    </div>
+
     <div class="mb-6 grid gap-3 sm:grid-cols-3">
       <div class="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 dark:border-emerald-900 dark:bg-emerald-950/40">
         <p class="text-lg font-bold text-emerald-700 tabular-nums dark:text-emerald-400">+1</p>
@@ -179,12 +211,20 @@ import { base } from '../../lib/ui';
 </Base>
 
 <script>
-  import { confirmer } from '../../lib/boite';
+  import { choisirUneIssue } from '../../lib/boite';
+  import {
+    PHRASE_DE_REFUS,
+    questionsDeLEpreuve,
+    refusDeReprise,
+  } from '../../lib/noyau/epreuve-en-cours';
   import { auDeverrouillage } from '../../lib/chargement';
   import { chargerBanqueDgfip, chargerManifeste, type BanqueDgfip } from '../../lib/contenu';
   import {
+    effacerEpreuveEnCours,
+    ecrireEpreuveEnCours,
     enregistrerSessionDgfip,
     etatsQuestionsDgfip,
+    lireEpreuveEnCours,
     toutesLesSessionsDgfip,
     type SessionDgfip,
   } from '../../lib/db';
@@ -193,6 +233,7 @@ import { base } from '../../lib/ui';
     composerSession,
     evaluer,
     FORMATS,
+    questionsServables,
     formaterPoints,
     noter,
     tailleReelle,
@@ -201,6 +242,7 @@ import { base } from '../../lib/ui';
     type ReponseSession,
   } from '../../lib/qcm';
   import { echapper, formaterDate, notifier, pluriel } from '../../lib/ui';
+  import { jourISO } from '../../lib/db';
   import { idParcoursCourant } from '../../lib/parcours/courant';
   import { MATIERE_DGFIP, signalerErreur } from '../../lib/journal';
   import { enregistrerReponse } from '../../lib/niveau';
@@ -216,6 +258,10 @@ import { base } from '../../lib/ui';
   /** Indices cochés pour chaque question, dans l'ordre du tirage. */
   let choix: number[][] = [];
   let position = 0;
+  /** Quand l'épreuve en cours a été commencée, pour la garder telle quelle. */
+  let debutDeLEpreuve = '';
+  /** Le format tiré, pour que la reprise le retrouve. */
+  let formatCourant = '';
 
   const $ = (id: string) => document.getElementById(id)!;
 
@@ -278,6 +324,92 @@ import { base } from '../../lib/ui';
     zone.appendChild(liste);
   }
 
+  // --- L'épreuve gardée pour plus tard (C3 du 43) -----------------------------
+
+  /**
+   * Montre, ou non, le bloc de reprise.
+   *
+   * Trois sorts, et ils ne se confondent pas : aucune épreuve gardée, et le
+   * bloc n'existe pas ; une épreuve reprenable, et il propose les deux
+   * gestes ; une épreuve que la banque ne permet plus de reprendre, et il le
+   * dit, efface le brouillon, et laisse « Commencer » juste en dessous.
+   *
+   * L'effacement d'un brouillon refusé est immédiat, et c'est voulu : le
+   * garder reviendrait à reposer la même question à chaque visite, avec la
+   * même réponse.
+   */
+  async function afficherReprise() {
+    const bloc = $('reprise-dgfip');
+    const gardee = await lireEpreuveEnCours();
+    bloc.classList.add('hidden');
+    if (!gardee || !banque) return;
+
+    /*
+       « Servables » se calcule avec la MÊME fonction qui compose une épreuve
+       neuve : si les deux divergeaient, on pourrait refuser une reprise que
+       le tirage aurait pourtant acceptée, ou l'inverse.
+    */
+    const connues = new Set(banque.questions.map((q) => q.id));
+    const servables = new Set(
+      questionsServables(banque, idParcoursCourant(), jourISO()).map((q) => q.id),
+    );
+    const refus = refusDeReprise(gardee, connues, servables);
+
+    for (const id of ['reprendre-dgfip', 'jeter-dgfip']) {
+      $(id).classList.toggle('hidden', refus !== null);
+    }
+    if (refus !== null) {
+      $('reprise-texte').textContent = PHRASE_DE_REFUS;
+      await effacerEpreuveEnCours();
+    } else {
+      const debut = new Date(gardee.le).toLocaleDateString('fr-FR', {
+        day: 'numeric',
+        month: 'long',
+      });
+      $('reprise-texte').textContent =
+        `Vous avez gardé une épreuve commencée le ${debut}, à la question ` +
+        `${gardee.position + 1} sur ${gardee.questionIds.length}.`;
+    }
+    bloc.classList.remove('hidden');
+  }
+
+  /** Reprend l'épreuve gardée, exactement où elle était. */
+  async function reprendre() {
+    const gardee = await lireEpreuveEnCours();
+    if (!gardee || !banque) return;
+    const parId = new Map(banque.questions.map((q) => [q.id, q]));
+    const reprises = questionsDeLEpreuve(gardee, parId);
+    if (!reprises) {
+      await afficherReprise();
+      return;
+    }
+    questions = reprises;
+    choix = gardee.choix.map((c) => [...c]);
+    position = gardee.position;
+    /* Le brouillon est consommé : on ne garde pas une épreuve qu'on est en
+       train de passer. Quitter à nouveau en écrira un neuf. */
+    await effacerEpreuveEnCours();
+    $('reprise-dgfip').classList.add('hidden');
+    afficherVue('epreuve');
+    afficherQuestion();
+  }
+
+  /** Garde l'épreuve en cours pour plus tard. */
+  async function garderPourPlusTard() {
+    await ecrireEpreuveEnCours({
+      le: debutDeLEpreuve,
+      formatId: formatCourant,
+      parcoursId: idParcoursCourant(),
+      questionIds: questions.map((q) => q.id),
+      /* L'ordre des propositions, sans quoi la reprise les remélangerait :
+         mêmes questions, autre écran, et des cases cochées qui sembleraient
+         avoir bougé toutes seules. */
+      ordres: questions.map((q) => [...q.ordre]),
+      choix: choix.map((c) => [...c]),
+      position,
+    });
+  }
+
   // --- Déroulé de l'épreuve --------------------------------------------------
 
   async function demarrer() {
@@ -294,6 +426,8 @@ import { base } from '../../lib/ui';
     if (!questions.length) return;
     choix = questions.map(() => []);
     position = 0;
+    debutDeLEpreuve = new Date().toISOString();
+    formatCourant = format.id;
     afficherVue('epreuve');
     afficherQuestion();
   }
@@ -369,6 +503,14 @@ import { base } from '../../lib/ui';
   // --- Résultat --------------------------------------------------------------
 
   async function terminer() {
+    /*
+       Le brouillon est consommé par la fin de l'épreuve : elle devient une
+       `SessionDgfip`, et garder les deux laisserait une épreuve « en cours »
+       qu'on a pourtant finie. Effacé en premier, avant l'écriture du
+       résultat : si l'écriture échouait, mieux vaut avoir perdu un brouillon
+       qu'en garder un qui ne correspond plus à rien.
+    */
+    await effacerEpreuveEnCours();
     const reponses: ReponseSession[] = questions.map((question, i) => ({
       question,
       choisis: choix[i],
@@ -577,6 +719,9 @@ import { base } from '../../lib/ui';
 
     banque = await chargerBanqueDgfip();
     afficherRubriques();
+    /* La reprise se propose dès l'ouverture, et avant l'historique : c'est la
+       seule chose de cet écran qui attend quelque chose de la personne. */
+    await afficherReprise();
     await afficherHistorique();
 
     // Un format dont les rubriques manquent encore ne doit pas être proposé ;
@@ -600,6 +745,11 @@ import { base } from '../../lib/ui';
       return;
     }
 
+    $('reprendre-dgfip').addEventListener('click', () => void reprendre());
+    $('jeter-dgfip').addEventListener('click', async () => {
+      await effacerEpreuveEnCours();
+      await afficherReprise();
+    });
     $('lancer-dgfip').addEventListener('click', () => void demarrer());
     $('rejouer-dgfip').addEventListener('click', () => void demarrer());
     $('suivant-dgfip').addEventListener('click', avancer);
@@ -615,27 +765,34 @@ import { base } from '../../lib/ui';
       */
       const commencee = choix.some((c) => c.length > 0);
       /*
-         Deux issues ici, et non trois. Le point C3 du prompt 43 en veut une
-         troisième — « Garder pour plus tard » —, mais c'est une fonction et
-         non un habillage : il faudrait enregistrer une épreuve inachevée, ce
-         qu'aucun magasin ne sait faire aujourd'hui. Ce lot-ci ne change que la
-         fenêtre ; la troisième issue est à faire avec le 43.
+         TROIS ISSUES, depuis C3 du prompt 43.
+
+         Le lot 1 n'en posait que deux, et sa note disait pourquoi : la
+         troisième n'est pas un habillage mais une fonction, et aucun magasin
+         ne savait garder une épreuve inachevée. Le magasin existe maintenant
+         (schéma 41), et la question cesse d'être « rester ou tout perdre ».
       */
-      if (
-        commencee &&
-        !(await confirmer({
+      if (commencee) {
+        const issue = await choisirUneIssue({
           titre: 'Quitter l’épreuve ?',
           texte:
-            'Les réponses déjà données seront perdues : une épreuve n’est ' +
-            'enregistrée qu’une fois terminée.',
-          action: 'Quitter et perdre les réponses',
-          annuler: 'Continuer l’épreuve',
-          destructrice: true,
-        }))
-      ) {
-        return;
+            'Vous êtes à la question ' +
+            `${position + 1} sur ${questions.length}. Une épreuve n’est notée ` +
+            'qu’une fois terminée ; gardée, elle vous attendra ici telle quelle.',
+          issues: [
+            { texte: 'Continuer l’épreuve', valeur: 'continuer', sorte: 'annuler' },
+            { texte: 'Garder pour plus tard', valeur: 'garder', sorte: 'principale' },
+            { texte: 'Abandonner', valeur: 'abandonner', sorte: 'destructrice' },
+          ],
+        });
+        /* Fermer la feuille sans choisir, c'est ne rien décider : on reste
+           dans l'épreuve, et surtout on n'efface rien. */
+        if (issue === null || issue === 'continuer') return;
+        if (issue === 'garder') await garderPourPlusTard();
+        else await effacerEpreuveEnCours();
       }
       afficherVue('accueil-dgfip');
+      await afficherReprise();
       await afficherHistorique();
     });
   });

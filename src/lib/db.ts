@@ -20,6 +20,8 @@ import { signalerEcriture } from './sync/signal-ecriture';
    chargement. Les types, eux, sont effacés à la compilation.
 */
 import type { EntreeRevision } from './noyau/revisions';
+import type { EpreuveEnCours } from './noyau/epreuve-en-cours';
+import { CLE_EPREUVE_EN_COURS } from './noyau/epreuve-en-cours';
 import type {
   Evenement,
   EtapeCochee,
@@ -648,6 +650,7 @@ interface SchemaRevinsp extends DBSchema {
   podcastPositions: { key: string; value: PositionPodcast };
   qcmDgfip: { key: string; value: EtatQuestionDgfip; indexes: { rubriqueId: string } };
   qcmSessions: { key: string; value: SessionDgfip; indexes: { le: string } };
+  epreuveDgfipEnCours: { key: string; value: EpreuveEnCours };
   relationnel: { key: string; value: SessionRelationnelle; indexes: { le: string } };
   vmSeuils: { key: string; value: SeuilVeridical; indexes: { famille: string } };
   vmSessions: { key: string; value: SessionVeridical; indexes: { le: string } };
@@ -853,7 +856,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 35;
+const VERSION = 41;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1683,6 +1686,26 @@ function ouvrirAuSchema(nom: string, version: number) {
          */
         base.createObjectStore('odysseeCreneaux', { keyPath: 'id' });
       }
+      if (vers(41)) {
+        /*
+         * L'épreuve DGFiP laissée en cours — C3 du prompt 43.
+         *
+         * **La 41 m'est attribuée par le pilote**, et les numéros 36 à 40
+         * sont réservés à d'autres branches en cours : le saut est voulu, et
+         * il est sans effet. Une base montée à 41 par ce chemin ne rejouera
+         * jamais les blocs 36 à 40 quand ils arriveront — c'est au
+         * constructeur de les ordonner à la fusion, comme il l'a fait pour
+         * la 34 et la 35.
+         *
+         * **Aucune reprise de données, et rien à reprendre** : avant ce lot,
+         * une épreuve quittée en cours était perdue, et aucun magasin n'en
+         * gardait trace. Un magasin vide se lit « aucune épreuve gardée »,
+         * ce qui est la vérité.
+         *
+         * Pas d'index : il n'y a qu'un enregistrement, de clé fixe.
+         */
+        base.createObjectStore('epreuveDgfipEnCours', { keyPath: 'id' });
+      }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
         // modèle neuf : convertir un historique SM-2 en stabilité et difficulté
@@ -2316,6 +2339,56 @@ export async function toutesLesSessionsDgfip(): Promise<SessionDgfip[]> {
   return (await db()).getAll('qcmSessions');
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   L'épreuve DGFiP gardée pour plus tard (C3 du prompt 43)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Lit l'épreuve gardée, ou `null`.
+ *
+ * Rend ce que le magasin porte, sans le contrôler : c'est
+ * `estLisible` — dans le noyau, donc éprouvable sans base — qui décide si la
+ * forme tient, et l'écran qui décide quoi en faire. Séparer les deux permet à
+ * l'essai de fabriquer une forme abîmée sans avoir à l'écrire en base.
+ */
+export async function lireEpreuveEnCours(): Promise<EpreuveEnCours | null> {
+  return (await (await db()).get('epreuveDgfipEnCours', CLE_EPREUVE_EN_COURS)) ?? null;
+}
+
+/**
+ * Garde une épreuve pour plus tard. Il n'y en a qu'une : celle-ci remplace
+ * la précédente.
+ *
+ * **Non journalisée, et c'est délibéré.** Un brouillon existe pour être
+ * consommé ou jeté ; le journal est un registre qui ne s'élague pas.
+ * Journaliser l'épreuve en cours garderait pour toujours la trace de chaque
+ * tentative abandonnée, et ferait traverser le réseau à un état qui n'a de
+ * sens que sur l'appareil où l'on s'est arrêté — reprendre une épreuve sur un
+ * autre téléphone n'est promis par personne. Arbitré avec le pilote le
+ * 19 octobre.
+ */
+export async function ecrireEpreuveEnCours(
+  epreuve: Omit<EpreuveEnCours, 'id' | 'majLe'>,
+): Promise<void> {
+  await (await db()).put('epreuveDgfipEnCours', {
+    ...epreuve,
+    id: CLE_EPREUVE_EN_COURS,
+    majLe: new Date().toISOString(),
+  });
+}
+
+/**
+ * Efface l'épreuve gardée.
+ *
+ * Trois chemins y mènent, et ils ne se confondent pas : l'épreuve terminée —
+ * elle devient une `SessionDgfip` —, l'abandon, et la reprise refusée parce
+ * que la banque a changé. Dans les trois cas il ne doit rien rester, et
+ * l'essai le lit dans la base plutôt que de croire cette fonction.
+ */
+export async function effacerEpreuveEnCours(): Promise<void> {
+  await (await db()).delete('epreuveDgfipEnCours', CLE_EPREUVE_EN_COURS);
+}
+
 export async function toutesLesSeances(): Promise<Seance[]> {
   const seances = await (await db()).getAll('seances');
   // Les identifiants sont des ULID : leur ordre lexicographique est l'ordre de
@@ -2678,6 +2751,14 @@ export const MAGASINS_PROGRESSION = [
   'podcastPositions',
   'qcmDgfip',
   'qcmSessions',
+  /*
+     L'épreuve DGFiP laissée en cours (C3 du 43). De la progression comme le
+     reste du QCM : une épreuve de quarante-cinq questions commencée et
+     gardée, c'est une demi-heure de travail. Elle s'efface avec son groupe,
+     et elle suit la sauvegarde — restaurer un appareil sans elle ferait
+     disparaître l'épreuve en cours sans le dire.
+  */
+  'epreuveDgfipEnCours',
   'relationnel',
   'vmSeuils',
   'vmSessions',

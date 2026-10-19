@@ -217,6 +217,59 @@ export function confirmer(d: Confirmation): Promise<boolean> {
   return ouvrir(boite, () => annuler).then((valeur) => valeur === 'oui');
 }
 
+/** Une issue proposée par la feuille des choix. */
+export interface IssueProposee {
+  /** Le verbe de l'issue, jamais « OK » ni « Oui ». */
+  texte: string;
+  /** Ce que la promesse rend si on la choisit. */
+  valeur: string;
+  /** Le rang visuel : « annuler » à gauche, les autres à droite. */
+  sorte?: 'principale' | 'annuler' | 'destructrice';
+}
+
+/**
+ * Propose PLUSIEURS issues, et rend celle qu'on a choisie — ou `null`.
+ *
+ * ## Pourquoi `confirmer` ne suffisait pas
+ *
+ * « Quitter l'épreuve ? » n'est pas une question à deux réponses. On peut
+ * vouloir continuer, garder pour plus tard, ou abandonner : poser la
+ * question en oui/non force à jeter le travail ou à rester, et c'est
+ * précisément le choix que C3 du prompt 43 refuse.
+ *
+ * Les règles de `confirmer` tiennent toutes : « Annuler » à gauche et prend
+ * le focus, les autres à droite ; une issue destructrice est en contour, et
+ * **la touche Entrée ne la déclenche jamais** — elle n'est pas un bouton de
+ * soumission. Tout ce qui ferme la feuille sans choisir — l'échappement, le
+ * retour arrière, un appui à côté — rend `null`, c'est-à-dire « je n'ai rien
+ * décidé », et non la première issue venue.
+ */
+export function choisirUneIssue(d: {
+  titre: string;
+  texte?: string;
+  issues: readonly IssueProposee[];
+}): Promise<string | null> {
+  const { boite, formulaire, actions, fermer } = coquille(d.titre, d.texte);
+
+  let aFocaliser: HTMLButtonElement | null = null;
+  for (const issue of d.issues) {
+    const sorte = issue.sorte ?? 'principale';
+    const b = bouton(issue.texte, { valeur: issue.valeur, sorte });
+    /* Une destructrice n'est pas un bouton de soumission : il faut donc lui
+       fermer la feuille à la main, comme le fait `confirmer`. */
+    if (sorte === 'destructrice') b.addEventListener('click', () => boite.close(issue.valeur));
+    if (sorte === 'annuler') aFocaliser ??= b;
+    actions.append(b);
+  }
+  formulaire.append(actions);
+  fermer.addEventListener('click', () => boite.close(''));
+
+  const valeurs = new Set(d.issues.map((i) => i.valeur));
+  return ouvrir(boite, () => aFocaliser).then((valeur) =>
+    valeurs.has(valeur) ? valeur : null,
+  );
+}
+
 /** Dit quelque chose, et attend qu'on l'ait lu. */
 export function avertir(d: Avertissement): Promise<void> {
   const { boite, formulaire, actions, fermer } = coquille(d.titre, d.texte);
