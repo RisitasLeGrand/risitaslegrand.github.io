@@ -130,6 +130,13 @@ Deux remarques qui demandent un arbitrage, posées au pilote :
   rebours le lit. Il reste donc demandé. Les champs qui ne sont plus demandés
   sont alors **22**.
 
+  *Tranché le 19 octobre à 16 h 30, par le code et non par un arbitrage : le
+  compte à rebours est entré sur l'accueil de Révisions, il déclare lire ce
+  champ, et `aUnUsage` l'a donc retiré de la liste. **Le compte est désormais
+  de 22**, et la liste ci-dessus en garde 23 pour mémoire de l'état d'avant.
+  Trois essais épinglaient les anciens nombres et sont passés au rouge : ils
+  sont remis, avec leur raison.*
+
   *Corrigé le 19 octobre, après comptage par le code : j'avais écrit 22 et 21
   en comptant de tête une liste qui en porte 23. Les nombres de ce paragraphe
   sont désormais ceux que rend `essais-lu-par.mts`.*
@@ -332,8 +339,8 @@ lu dans le code sans l'exécuter.
 | Décision | État |
 |---|---|
 | **1** retirer les 52 cases | **faite** |
-| **2** ne plus demander les champs inutiles, garder les réponses | **faite** : **23** champs, et non 14 — le chiffre de l'audit comptait des lignes de tableau. Le socle passe de 18 questions à 8, Révisions de 6 à 2, Sport de 5 à 0, Odyssée de 5 à 1. Une réponse déjà donnée reste visible, modifiable, avec sa mention. Un champ redevient demandé dès qu'un lecteur est déclaré : c'est le même `aUnUsage` qui décide des deux. |
-| **3** compte à rebours sur l'accueil de Révisions | **le module, son essai et l'interrupteur sont faits** ; l'insertion attend la fusion de `claude/p46-55`, qui modifie `revisions/index.astro` (règle 4 du chantier, accordé par le pilote). |
+| **2** ne plus demander les champs inutiles, garder les réponses | **faite** : **22** champs, et non 14 — le chiffre de l'audit comptait des lignes de tableau. Le relevé en donnait 23 ; la décision 3 en a rendu un, `datesEpreuves`, que le compte à rebours lit. Le socle passe de 18 questions à 8, Révisions de 6 à 3, Sport de 5 à 0, Odyssée de 5 à 1. Une réponse déjà donnée reste visible, modifiable, avec sa mention. Un champ redevient demandé dès qu'un lecteur est déclaré : c'est le même `aUnUsage` qui décide des deux. |
+| **3** compte à rebours sur l'accueil de Révisions | **faite** : le module, son essai pur, l'interrupteur, et le bloc en tête du tableau de bord avec ses trois états — une ligne par épreuve, une invitation sans date, une mise à jour proposée quand elles sont passées. Aucune couleur nulle part. L'insertion a été livrée sans attendre la fusion de `claude/p46-55` : `git merge-tree` montre que `revisions/index.astro` se fusionne sans conflit entre les deux branches. |
 | **4** garder les deux moments séparés, mieux nommés | **faite** : « Moment de ma revue (Odyssée) » et « Heure préférée pour réviser », les mêmes mots aux trois écrans. |
 | **5** une seule source : Ma journée | **faite** — et elle l'était déjà pour moitié. Ce qui restait : le faux défaut, et la vraie troisième copie. |
 | **6** retirer « et mon sexe » du titre | **faite** |
@@ -394,6 +401,7 @@ ciblé. Aucun ne se voyait en relisant le diff.
 | `essais:ma-journee` | 55 | Les déclarations d'une seule source, le choix fermé confronté à `lireMoment`, l'aide du lever. |
 | `essais:ma-journee:navigateur` | 25 | Une heure changée se voit aux trois endroits ; vider écrit une suppression. |
 | `essais:compte-a-rebours` | 66 | L'arithmétique des jours au changement d'heure, les formats, l'absence de pression, l'interrupteur. |
+| `essais:compte-a-rebours:navigateur` | 22 | Coffre fermé, rien ; sans date, une invitation à 44 px ; une date, la ligne exacte ; le réglage coupé, le bloc caché **et** vidé ; une date passée, une mise à jour proposée ; aucune classe d'alerte dans tout le bloc ; et il ne vit sur aucun autre écran. |
 | `essais:profil-lisible` | 52 | Les valeurs dites en français, et jamais « [object Object] », « NaN » ni « Invalid Date ». |
 | `essais:reglages-appliques` | 30 | Déclaré appliqué donc appliqué, déclaré non appliqué donc nommé par personne. |
 
@@ -421,11 +429,9 @@ les a corrigés depuis, par `f4c346c`.
 
 ### Ce qui reste
 
-- L'insertion du compte à rebours sur l'accueil de Révisions, après la fusion
-  de `claude/p46-55`, avec son essai « il disparaît quand on le désactive » et
-  le contrôle coffre fermé. Au moment d'écrire, `src/pages/revisions/index.astro`
-  est au même objet sur `origin/main` et sur cette branche : la fusion n'a pas
-  eu lieu.
+- Plus rien : l'insertion du compte à rebours a été livrée le 19 octobre à
+  16 h 30, avec `essais:compte-a-rebours:navigateur` — 22 verts, dont
+  « il disparaît quand on le désactive » et le contrôle coffre fermé.
 - Les captures, avant et après, au téléphone et à l'ordinateur, de Ma journée,
   de la bascule du thème, de « Qui utilise mon âge », de l'initialisation et du
   profil. Elles sont prises sur l'arbre final ; elles vivent hors du dépôt,
