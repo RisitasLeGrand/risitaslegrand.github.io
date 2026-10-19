@@ -21,6 +21,8 @@
     toutesLesSessionsRelationnelles,
     type SelectionEntrainement,
   } from '../../../lib/db';
+  import { tick } from 'svelte';
+  import { amenerLaZone } from '../../cog-training/zone-de-jeu';
   import MonEntrainement from '../../cog-training/composants/MonEntrainement.svelte';
   import type { GroupeUnites } from '../../cog-training/unites';
   import { gagnerXp, xpRelationnel } from '../../../lib/gamification';
@@ -60,6 +62,19 @@
   const CLE_TUTORIELS = 'revinsp:rr:tutoriels';
 
   let etape = $state<Etape>('accueil');
+
+  /** La zone de l'énoncé, amenée sous les yeux à chaque question (P1 du 51). */
+  let zoneDeJeu = $state<HTMLElement | null>(null);
+
+  /*
+     Rien ne démarre tout seul ici : aucune horloge ne court, et une question
+     attend sa réponse. Le défilement n'a donc pas à être attendu, contrairement
+     à Mémoire de travail, où la première épreuve défilait hors de l'écran.
+  */
+  async function montrerLEnonce() {
+    await tick();
+    void amenerLaZone(zoneDeJeu);
+  }
   let chargement = $state(true);
   let traces = $state<Trace[]>([]);
   let selection = $state<SelectionEntrainement>({ ...SELECTION_PAR_DEFAUT });
@@ -306,6 +321,7 @@
     debut = Date.now();
     reinitialiserReponse();
     etape = questions.length ? 'question' : 'accueil';
+    if (etape === 'question') void montrerLEnonce();
   }
 
   function reinitialiserReponse() {
@@ -350,6 +366,7 @@
       corrige = false;
       correctionOuverte = false;
       reinitialiserReponse();
+      void montrerLEnonce();
       return;
     }
     await terminer();
@@ -524,7 +541,7 @@
     >Commencer</button>
   </section>
 {:else if etape === 'question' && question}
-  <section>
+  <section bind:this={zoneDeJeu} data-zone-de-jeu>
     <div class="mb-4 flex items-center justify-between gap-4">
       <p class="text-xs font-medium uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
         {nomMoteur(question.item.moteur)}{question.second ? ' — second temps' : ''}

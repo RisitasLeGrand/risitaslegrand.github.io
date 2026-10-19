@@ -70,6 +70,7 @@
     "essais:reglages-sans-coffre": "tsx scripts/essais-reglages-sans-coffre.mjs",
     "essais:correctifs": "node scripts/essais-correctifs.mjs",
     "essais:veridical": "tsx scripts/essais-veridical.mts",
+    "essais:cog:navigateur": "node scripts/essais-cog-training-navigateur.mjs",
     "contrastes": "node scripts/verifier-contrastes.mjs",
     "contrastes:rendu": "node scripts/essais-contraste-rendu.mjs",
     "essais:correction": "tsx scripts/essais-correction.mts",

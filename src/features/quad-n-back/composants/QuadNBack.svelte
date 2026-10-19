@@ -7,7 +7,7 @@
    * gamification sont ceux du site — une seule base IndexedDB, un seul
    * système d'XP, de badges et de série de jours.
    */
-  import { onMount, onDestroy } from 'svelte';
+  import { onMount, onDestroy, tick } from 'svelte';
   import Grille from './Grille.svelte';
   import {
     genererPartie,
@@ -22,6 +22,7 @@
   } from '../moteur/nback.js';
   import { lecteurAudio } from '../moteur/audio.js';
   import { RETOURS } from '../moteur/constantes.js';
+  import { amenerLaZone } from '../../cog-training/zone-de-jeu';
   import { ajouterSessionNBack, toutesLesSessionsNBack } from '../../../lib/db';
   import { gagnerXp, xpNBack } from '../../../lib/gamification';
   import { notifier } from '../../../lib/ui';
@@ -74,6 +75,26 @@
   let sombre = $state(false);
   let debutSession = 0;
   let minuteurs = [];
+
+  /** La zone de jeu, pour l'amener sous les yeux au lancement (P1 du 51). */
+  let zoneDeJeu = $state(null);
+
+  /*
+     Le jeton de lancement.
+
+     Entre « Commencer » et la première épreuve, on attend désormais que la
+     zone de jeu soit visible — une attente, donc un intervalle pendant lequel
+     la personne peut relancer. « Recommencer » et « Arrêter » appellent
+     `nettoyerMinuteurs`, mais un minuteur PAS ENCORE POSÉ ne se nettoie pas :
+     l'ancien lancement reprendrait la main après coup et ferait défiler les
+     épreuves de la partie suivante. C'est exactement le défaut que le
+     commentaire de `commencer` signale déjà pour les minuteurs ; l'attente le
+     rouvrait par une autre porte.
+
+     Chaque lancement prend donc un numéro, et ne pose son minuteur que s'il
+     est encore le dernier.
+  */
+  let lancement = 0;
   /** Dimension dont on attend la nouvelle touche, ou null. */
   let captureTouche = $state(null);
   let messageTouche = $state('');
@@ -142,6 +163,12 @@
 
   // --- Déroulement de la partie ------------------------------------------
   function nettoyerMinuteurs() {
+    /*
+       Un lancement en attente de la zone de jeu n'a pas encore de minuteur à
+       éteindre : l'invalider demande de périmer son jeton. Sans cette ligne,
+       « Arrêter » pendant l'attente laisserait la partie démarrer juste après.
+    */
+    lancement += 1;
     for (const m of minuteurs) clearTimeout(m);
     minuteurs = [];
     if (minuteurOubli !== null) {
@@ -217,9 +244,23 @@
     bilan = null;
     debutSession = Date.now();
     ecran = 'jeu';
-    // Une seconde de battement avant la première épreuve : on ne doit pas
-    // rater un stimulus parce que l'écran vient de changer.
-    planifier(epreuveSuivante, 1000);
+
+    /*
+       La partie ne démarre qu'une fois la zone de jeu visible.
+
+       L'ordre compte : `tick` attend que l'écran de jeu soit rendu — sans lui
+       `zoneDeJeu` est encore nulle —, puis `amenerLaZone` ne rend la main que
+       lorsque la grille est effectivement sous les yeux. La seconde de
+       battement garde sa raison d'être par-dessus : on ne doit pas rater un
+       stimulus parce que l'écran vient de changer.
+    */
+    const mien = (lancement += 1);
+    void (async () => {
+      await tick();
+      await amenerLaZone(zoneDeJeu);
+      if (mien !== lancement || ecran !== 'jeu') return; // relancé ou quitté entre-temps
+      planifier(epreuveSuivante, 1000);
+    })();
   }
 
   function epreuveSuivante() {
@@ -741,7 +782,7 @@
     {/if}
   </div>
 {:else if ecran === 'jeu'}
-  <div class="space-y-4">
+  <div bind:this={zoneDeJeu} data-zone-de-jeu class="space-y-4">
     <div class="flex items-center gap-3">
       <button
         onclick={abandonner}

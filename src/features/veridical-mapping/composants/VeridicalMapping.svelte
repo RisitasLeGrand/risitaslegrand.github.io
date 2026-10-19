@@ -25,6 +25,8 @@
     type SeuilVeridical,
     type SessionVeridical,
   } from '../../../lib/db';
+  import { tick } from 'svelte';
+  import { amenerLaZone } from '../../cog-training/zone-de-jeu';
   import { gagnerXp, xpVeridical } from '../../../lib/gamification';
   import { debloquer, disponible } from '../audio';
   import { NOMS_FAMILLES, type Famille } from '../dimensions';
@@ -52,6 +54,9 @@
 
   let chargement = $state(true);
   let etape = $state<Etape>('accueil');
+
+  /** La zone de l'essai, amenée sous les yeux à chaque essai (P1 du 51). */
+  let zoneDeJeu = $state<HTMLElement | null>(null);
   let reglages = $state<Reglages>({ ...REGLAGES_PAR_DEFAUT });
   let seuils = $state<Record<string, SeuilVeridical>>({});
   let sessions = $state<SessionVeridical[]>([]);
@@ -195,6 +200,15 @@
   }
 
   function tirerSuivant() {
+    /*
+       Un seul point d'accroche pour P1 : `tirerSuivant` sert le premier essai
+       comme les suivants. Rien n'enchaîne sur un minuteur — « Essai suivant »
+       est un geste —, donc le défilement n'a pas à être attendu.
+    */
+    void (async () => {
+      await tick();
+      void amenerLaZone(zoneDeJeu);
+    })();
     const arete = vivier[Math.floor(Math.random() * vivier.length)];
     const etat = seuilDArete(arete).escalier;
     essai = tirerEssai(arete, etat.delta, reglages, hasard);
@@ -546,7 +560,7 @@
     >Commencer</button>
   </section>
 {:else if etape === 'essai' && essai}
-  <section>
+  <section bind:this={zoneDeJeu} data-zone-de-jeu>
     <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
       <p class="text-xs font-medium uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
         {essai.arete.de.nom} → {essai.arete.vers.nom}
