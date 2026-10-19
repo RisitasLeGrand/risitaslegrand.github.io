@@ -313,6 +313,75 @@ vrai(
   champsDeBranche('sport').length === 5 && questionsDeBranche('sport').length === 0,
 );
 
+console.log('\n7. LES PROMESSES AFFICHÉES (P12, DÉCISION 6)');
+
+/*
+   `regle` est la phrase qui dit, sous le champ, ce qu'il change dans
+   l'application. Un champ que rien ne lit ne change rien : la phrase était
+   alors une promesse que le code ne tenait pas. Le contrôle du catalogue le
+   refuse désormais, et on l'éprouve ici avec un cas construit.
+*/
+vrai(
+  'toute promesse affichée a un lecteur',
+  CHAMPS.every((c) => !c.regle || aUnUsage(c)),
+);
+v(
+  'les champs qui ont perdu la leur, nommés pour que personne ne la remette sans y penser',
+  ['formalite', 'joursTravail', 'styleAccompagnement', 'concours', 'heureRappel'].filter(
+    (nom) => CHAMPS.find((c) => c.champ === nom)?.regle !== undefined,
+  ),
+  [],
+);
+v(
+  'la salutation ne se coupe plus d’un réglage qui n’existe pas',
+  CHAMPS.find((c) => c.champ === 'prenom')?.regle,
+  'La salutation du menu.',
+);
+vrai(
+  'et aucune promesse ne nomme le jour logique, qui est un mot de code',
+  CHAMPS.every((c) => !/jour logique/.test(c.regle ?? '')),
+);
+
+/*
+   DÉCISION 6 : « et mon sexe » quitte le titre, le lien et le registre.
+
+   Le sexe ne se déclare nulle part dans Cyclades. La mention restante est
+   déclarée avec sa raison, et non tolérée en silence : le jour où elle part,
+   cette liste doit se vider — un rouge qui rappelle de la nettoyer.
+*/
+const ENCORE_LE_SEXE: Readonly<Record<string, string>> = {
+  'src/pages/profil.astro':
+    'le lien vers l’écran. Ce fichier attend la correction A7 du prompt 58, ' +
+    'qui arrive sur main : la règle 4 du chantier interdit de le travailler sur deux branches.',
+};
+/* Le titre, et le titre seul. Le registre explique ailleurs, en français,
+   pourquoi un calcul corporel tiré de l'âge et du sexe est écarté : c'est un
+   fondement, pas un titre, et la décision 6 ne le concerne pas.
+
+   Et le relevé porte sur TOUS les fichiers : les quatre écartés plus haut le
+   sont pour la détection des lecteurs — « Mon profil » affiche tous les champs
+   —, ce qui n'a rien à voir avec un titre. C'est justement là qu'il reste. */
+const avecLeSexe = fichiers.filter((chemin) =>
+  /Qui utilise mon âge et mon sexe/.test(codeDe(chemin)),
+);
+v(
+  'la mention du sexe ne subsiste que là où elle est déclarée',
+  trier(avecLeSexe),
+  trier(Object.keys(ENCORE_LE_SEXE)),
+);
+for (const [chemin, raison] of Object.entries(ENCORE_LE_SEXE)) {
+  vrai(`${chemin} : la raison est écrite`, raison.length > 40);
+}
+v(
+  'le champ des usages coupés ne nomme plus le sexe',
+  CHAMPS.find((c) => c.champ === 'usagesCoupes')?.libelle,
+  'Usages de mon âge que j’ai coupés',
+);
+vrai(
+  'ni sa question',
+  !/sexe/.test(CHAMPS.find((c) => c.champ === 'usagesCoupes')?.question ?? ''),
+);
+
 console.log(
   rouges
     ? `\n\x1b[31m${rouges} rouge(s).\x1b[0m`

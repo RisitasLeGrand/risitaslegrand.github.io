@@ -202,7 +202,10 @@ export const CHAMPS: readonly ChampDeclare[] = [
     // Le menu salue par le prénom ; aucune branche n'a besoin de le lire.
     porteeParDefaut: [],
     obligatoire: true,
-    regle: 'La salutation du menu, qui se coupe d’un réglage.',
+    /* P12 : « qui se coupe d'un réglage » est parti avec le réglage, qui
+       n'existe pas. Aucun catalogue n'en porte, et `index.astro` salue sans
+       rien vérifier. */
+    regle: 'La salutation du menu.',
   }),
   C({
     champ: 'nom',
@@ -224,7 +227,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
     luPar: [
       {
         module: 'src/lib/etat-personne.ts',
-        libelle: 'les fonctions qui ont besoin de votre âge, listées dans Qui utilise mon âge',
+        libelle: 'la seule porte par laquelle une fonction peut obtenir votre âge, détaillée dans Qui utilise mon âge',
       },
     ],
     jamaisExporte: true,
@@ -245,7 +248,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
     luPar: [
       {
         module: 'src/lib/etat-personne.ts',
-        libelle: 'les fonctions qui ont besoin de votre âge, listées dans Qui utilise mon âge',
+        libelle: 'la seule porte par laquelle une fonction peut obtenir votre âge, détaillée dans Qui utilise mon âge',
       },
     ],
     jamaisExporte: true,
@@ -264,7 +267,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
     luPar: [
       {
         module: 'src/lib/etat-personne.ts',
-        libelle: 'les fonctions réservées aux majeurs, listées dans Qui utilise mon âge',
+        libelle: 'la seule porte par laquelle une fonction peut savoir si vous êtes majeur, détaillée dans Qui utilise mon âge',
       },
     ],
     jamaisExporte: true,
@@ -285,17 +288,32 @@ export const CHAMPS: readonly ChampDeclare[] = [
         libelle: 'l’écran Qui utilise mon âge, qui coupe les usages que vous refusez',
       },
     ],
-    libelle: 'Usages de l’âge et du sexe que j’ai coupés',
+    /* Décision 6 : « et mon sexe » quitte le titre, le libellé et la
+       question. Le sexe ne se déclare nulle part dans Cyclades — il viendra
+       d'Odyssée > Corps, sous le coffre —, et l'annoncer ici laissait croire
+       à un champ qui n'existe pas (G9). */
+    libelle: 'Usages de mon âge que j’ai coupés',
     nature: 'liste',
-    question: 'Quels usages de votre âge et de votre sexe souhaitez-vous couper ?',
+    question: 'Quels usages de votre âge souhaitez-vous couper ?',
     porteeParDefaut: [],
     demandeAuBesoin:
-      'Depuis « Qui utilise mon âge et mon sexe », dans Mon profil. La question ne se ' +
+      'Depuis « Qui utilise mon âge », dans Mon profil. La question ne se ' +
       'pose pas à l’initialisation : couper un usage demande d’abord de voir lesquels ' +
       'existent.',
+    /*
+       LA PHRASE DISAIT PLUS QUE CE QUE LE CODE FAIT (interdit 2).
+
+       « Un usage coupé ne reçoit plus rien » suppose des consommateurs. Or la
+       porte — `contextePersonne` — ne prend pas les coupures en paramètre, et
+       aucune fonction ne lit l'âge aujourd'hui : `etatDeLaPersonne` et
+       `contextePersonne` n'ont qu'un appelant, l'écran lui-même. La coupure est
+       donc appliquée à l'affichage, et à rien d'autre. Signalé au pilote : le
+       jour où un consommateur arrivera, il recevra l'âge sans égard pour les
+       coupures tant que la porte ne les lira pas.
+    */
     regle:
-      'Un usage coupé ne reçoit plus rien, et l’écran le montre comme coupé plutôt que ' +
-      'comme absent.',
+      'Les usages que vous coupez sont montrés comme coupés. Aucune autre fonction ne ' +
+      'lit votre âge aujourd’hui.',
   }),
   C({
     champ: 'formalite',
@@ -303,7 +321,10 @@ export const CHAMPS: readonly ChampDeclare[] = [
     nature: 'texte',
     question: 'On se tutoie, ou on se vouvoie ?',
     porteeParDefaut: 'toutes',
-    regle: 'La façon dont les écrans s’adressent à vous.',
+    /* Pas de `regle` : rien ne lit ce champ. Il promettait « la façon dont les
+       écrans s'adressent à vous », et aucun écran ne la consulte — ils
+       vouvoient tous. La promesse revient le jour où un lecteur est déclaré,
+       et pas avant (G7, P12). */
   }),
   C({
     /*
@@ -337,7 +358,9 @@ export const CHAMPS: readonly ChampDeclare[] = [
        annonce un réglage qu'elle ne fait pas est exactement l'interdit 2. */
     question: 'Vos journées sont comptées à l’heure de Paris : c’est bien ça ?',
     porteeParDefaut: 'toutes',
-    regle: 'Le fuseau dans lequel le jour logique est compté.',
+    /* « Le jour logique » est le nom du mécanisme, pas une chose que l'on
+       sait lire : la phrase dit la même chose en français (G2). */
+    regle: 'Le fuseau dans lequel vos journées sont comptées.',
   }),
   C({
     champ: 'activite',
@@ -444,7 +467,9 @@ export const CHAMPS: readonly ChampDeclare[] = [
     nature: 'liste',
     question: 'Quels jours travaillez-vous ?',
     porteeParDefaut: 'toutes',
-    regle: 'Les créneaux proposés pour vos séances, et les jours de repos de la rotation.',
+    /* Pas de `regle` : le réglage déduit « jours de repos » en découle, et rien
+       ne l'applique — la rotation ne lit pas ce champ, et la série non plus
+       (constat B2). La phrase promettait les deux. */
   }),
   C({
     champ: 'plagesTravail',
@@ -515,7 +540,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
     nature: 'texte',
     question: 'Comment Cyclades doit-il vous accompagner ?',
     porteeParDefaut: 'toutes',
-    regle: 'La fréquence et le ton des avis locaux.',
+    /* Pas de `regle` : les avis locaux ne lisent pas ce champ (B2). */
   }),
 
   /* --- Extension : Révisions ---------------------------------------------- */
@@ -526,7 +551,8 @@ export const CHAMPS: readonly ChampDeclare[] = [
     question: 'Quel concours préparez-vous ?',
     porteeParDefaut: ['revisions', 'odyssee'],
     brancheDOrigine: 'revisions',
-    regle: 'Les parcours ouverts dans le registre.',
+    /* Pas de `regle` : le registre n'ouvre pas les parcours d'après ce champ —
+       le parcours courant se choisit dans Révisions (B2). */
   }),
   C({
     champ: 'datesEpreuves',
@@ -669,7 +695,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
     question: 'À quelle heure voulez-vous être relancé, si vous le voulez ?',
     porteeParDefaut: 'toutes',
     brancheDOrigine: 'odyssee',
-    regle: 'L’heure des avis locaux, quand vous en voulez.',
+    /* Pas de `regle` : aucun avis n'est posé à cette heure (B2). */
   }),
 ];
 
@@ -1205,6 +1231,21 @@ export function controlerChamps(branchesConnues: readonly string[]): string[] {
     const modules = (c.luPar ?? []).map((l) => l.module);
     if (new Set(modules).size !== modules.length) {
       problemes.push(`Le champ « ${c.champ} » déclare deux fois le même lecteur.`);
+    }
+    /*
+       UNE PROMESSE SUPPOSE UN LECTEUR (P12, interdit 2 du prompt 56).
+
+       `regle` dit à l'écran ce que le champ **règle** dans l'application. Un
+       champ que rien ne lit ne règle rien : la phrase était alors une promesse
+       que le code ne tenait pas, et quatre champs en portaient une — les jours
+       de travail, le style d'accompagnement, les concours et l'heure de
+       rappel. Le contrôle rend la faute impossible à rejouer sans le voir.
+    */
+    if (c.regle && !aUnUsage(c)) {
+      problemes.push(
+        `Le champ « ${c.champ} » annonce ce qu'il règle, mais rien ne le lit : ` +
+          'une promesse sans lecteur est interdite (P12 du prompt 56).',
+      );
     }
     /* Un champ obligatoire qu'on ne poserait plus serait une contradiction :
        l'initialisation l'attend, et le filtre l'aurait retiré. */

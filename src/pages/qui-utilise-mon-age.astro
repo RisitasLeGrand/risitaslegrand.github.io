@@ -1,6 +1,15 @@
 ---
 /**
- * Qui utilise mon âge et mon sexe — prompt de profil, âge et sexe, 2.6.
+ * Qui utilise mon âge — prompt de profil, âge et sexe, 2.6.
+ *
+ * ## Le titre, après la décision 6 du prompt 56
+ *
+ * Il disait « Qui utilise mon âge et mon sexe ». Le sexe ne se déclare nulle
+ * part dans Cyclades : il viendra d'Odyssée > Corps, sous le coffre et sous la
+ * matrice de permissions, et l'annoncer dans un titre laissait chercher un
+ * champ qui n'existe pas (G9 de l'audit). Les usages qui le liraient restent
+ * listés, marqués comme en attente d'une source — c'est la raison d'être de
+ * cet écran, et le corps de la page le dit en une phrase.
  *
  * ## Montrer, et montrer ce qui manque
  *
@@ -13,7 +22,7 @@
  * Les montrer quand même, marqués « en attente d'une source », est la seule
  * option honnête. Les cacher ferait de cet écran une liste de ce que Cyclades
  * fait, alors qu'il promet d'être la liste de ce qu'il **peut** faire de votre
- * âge et de votre sexe.
+ * âge.
  *
  * ## Quatre états, et aucun n'est le synonyme d'un autre
  *
@@ -34,14 +43,16 @@
 import Base from '../layouts/Base.astro';
 ---
 
-<Base titre="Qui utilise mon âge et mon sexe" entete="leger">
+<Base titre="Qui utilise mon âge" entete="leger">
   <div class="mx-auto max-w-3xl">
-    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">
-      Qui utilise mon âge et mon sexe
-    </h1>
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Qui utilise mon âge</h1>
     <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
-      Chaque endroit de Cyclades qui peut lire votre âge ou votre sexe est listé ici, avec ce
-      qu’il lit exactement, pourquoi, et un interrupteur. Rien ne lit ces champs sans y figurer.
+      Chaque endroit de Cyclades qui peut lire votre âge est listé ici, avec ce qu’il lit
+      exactement, pourquoi, et un interrupteur. Rien ne lit ce champ sans y figurer.
+    </p>
+    <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+      Certains usages liraient d’autres informations sensibles — le sexe, le suivi d’un cycle.
+      Aucun ne le peut : ces informations ne se déclarent nulle part dans Cyclades.
     </p>
     <p class="mt-1 text-sm">
       <a href="/profil/" class="cible-tactile underline">Retour à Mon profil</a>

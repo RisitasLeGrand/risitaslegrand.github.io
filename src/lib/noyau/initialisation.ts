@@ -596,7 +596,7 @@ export function enEcrans(etapes: readonly Etape[]): Question[] {
  */
 export const DYNAMIQUES: readonly string[] = [
   /* Ses options sont les entrées du registre des usages, construites par
-     l'écran « Qui utilise mon âge et mon sexe » — pas une liste fermée qu'on
+     l'écran « Qui utilise mon âge » — pas une liste fermée qu'on
      pourrait figer ici. */
   'usagesCoupes',
   'domainesActifs',
