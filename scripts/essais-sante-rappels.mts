@@ -13,19 +13,28 @@
  */
 import {
   controlerMarque,
+  controlerReglage,
   controlerSchema,
   controlerTraitement,
   creneauxDuJour,
   etatDuCreneau,
   idDuCreneau,
+  libelleDuRappel,
+  reglageParDefaut,
   rangerLesHeures,
   serieDuSchema,
   type CreneauPrevu,
   type MarqueDeCreneau,
+  type NiveauDeLibelle,
+  type ReglageDeRappel,
   type SchemaDePrise,
   type Traitement,
 } from '../src/lib/odyssee/sante';
 import { idDeLaPriseDuCreneau } from '../src/lib/odyssee/donnees-sante';
+import {
+  controlerLExportDesRappels,
+  rappelsEnIcs,
+} from '../src/lib/odyssee/rappels-ics';
 import { MAGASINS_SCELLES } from '../src/lib/noyau/coffre';
 
 let echecs = 0;
@@ -396,6 +405,220 @@ v(
   ['« Pas aujourd’hui » ne crée aucune prise.'],
 );
 v('une marque bien formée passe', controlerMarque(marque()), []);
+
+console.log('\nL’EXPORT VERS L’AGENDA — RRULE, VALARM, FUSEAU');
+
+/*
+   Le garde-fou d'abord : il est construit sur un traitement qui FUIRAIT si
+   rien ne l'en empêchait — nommé, prescrit, avec sa posologie, sa note et sa
+   quantité. En libellé neutre, qui est le défaut, rien de tout cela ne doit
+   sortir du fichier.
+*/
+v('le garde-fou de l’export ne trouve rien à redire', controlerLExportDesRappels(), []);
+
+const avecRappel = (
+  schema: SchemaDePrise,
+  rappel: Partial<ReglageDeRappel> = {},
+  autres: Partial<Traitement> = {},
+): Traitement =>
+  traitement({ schema, rappel: { ...reglageParDefaut(), actif: true, ...rappel }, ...autres });
+
+{
+  const fichier = rappelsEnIcs([avecRappel(quotidien(['08:00']))], new Date('2026-10-19T10:00:00Z'));
+  const lignes = fichier.split('\r\n');
+  const a = (prefixe: string) => lignes.filter((l) => l.startsWith(prefixe));
+
+  v('une seule heure prévue, un seul événement', a('BEGIN:VEVENT').length, 1);
+  v('l’heure murale est écrite avec son fuseau', a('DTSTART;TZID='), [
+    'DTSTART;TZID=Europe/Paris:20261001T080000',
+  ]);
+  v('la règle est quotidienne et sans fin', a('RRULE:FREQ=DAILY'), ['RRULE:FREQ=DAILY']);
+  v('l’alarme est posée à l’heure même', a('TRIGGER:'), ['TRIGGER:PT0S']);
+  v('et le libellé par défaut ne nomme rien', a('SUMMARY:'), ['SUMMARY:Rappel Cyclades']);
+  /*
+     LE POINT DU 25 OCTOBRE. Un RRULE quotidien posé sur un DTSTART en UTC
+     garderait l'heure UTC, donc décalerait l'heure murale d'une heure au
+     passage à l'heure d'hiver : un rappel de 8 h sonnerait à 9 h à partir du
+     25, tous les jours, sans que rien ne le dise. Le TZID et son VTIMEZONE
+     sont la seule parade, et ce sont les deux lignes qu'on vérifie.
+  */
+  v('le fuseau est décrit dans le fichier, et non laissé à deviner', a('TZID:Europe/Paris'), [
+    'TZID:Europe/Paris',
+  ]);
+  v(
+    'avec les deux bascules de la règle européenne',
+    [fichier.includes('BYMONTH=3;BYDAY=-1SU'), fichier.includes('BYMONTH=10;BYDAY=-1SU')],
+    [true, true],
+  );
+  v('le fichier finit par un CRLF', fichier.endsWith('\r\n'), true);
+}
+
+{
+  /* Deux heures : deux événements, et deux UID distincts. */
+  const fichier = rappelsEnIcs(
+    [avecRappel(quotidien(['08:00', '20:00']))],
+    new Date('2026-10-19T10:00:00Z'),
+  );
+  const uid = fichier.split('\r\n').filter((l) => l.startsWith('UID:'));
+  v('deux heures prévues, deux événements', uid.length, 2);
+  v('et deux identités distinctes, stables au réexport', new Set(uid).size, 2);
+  /*
+     L'UID dérive du traitement et de l'heure : réexporter met à jour au lieu
+     d'empiler. On le vérifie en réexportant à un autre instant — seul le
+     DTSTAMP doit changer.
+     */
+  const plusTard = rappelsEnIcs(
+    [avecRappel(quotidien(['08:00', '20:00']))],
+    new Date('2026-11-02T10:00:00Z'),
+  );
+  v('les identités survivent à un réexport', plusTard.split('\r\n').filter((l) => l.startsWith('UID:')), uid);
+}
+
+{
+  /* Lundi et jeudi, toutes les deux semaines, et un traitement qui finit. */
+  const fichier = rappelsEnIcs(
+    [
+      avecRappel(
+        {
+          repetition: { type: 'semaines', tous: 2, jours: [4, 1] },
+          heures: ['08:00'],
+          quantite: '',
+        },
+        {},
+        { fin: '2026-12-31' },
+      ),
+    ],
+    new Date('2026-10-19T10:00:00Z'),
+  );
+  /*
+     On filtre sur « FREQ=WEEKLY » et non sur « RRULE: » nu : le VTIMEZONE
+     porte lui-même deux règles de récurrence — les deux bascules annuelles
+     de l'heure d'été —, et les ramasser ici mêlerait la description du
+     fuseau à celle du schéma.
+  */
+  v(
+    'les jours de la semaine sont rendus dans l’ordre de la norme',
+    fichier.split('\r\n').filter((l) => l.startsWith('RRULE:FREQ=WEEKLY')),
+    ['RRULE:FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,TH;UNTIL=20261231T235959Z'],
+  );
+  /*
+     Le traitement commence le jeudi 1ᵉʳ octobre 2026. DTSTART doit être une
+     OCCURRENCE : posé sur un jour qui n'en est pas un, certains agendas y
+     ajoutent une prise que personne n'a prévue.
+  */
+  v(
+    'et le départ tombe sur une occurrence',
+    fichier.split('\r\n').filter((l) => l.startsWith('DTSTART;TZID=')),
+    ['DTSTART;TZID=Europe/Paris:20261001T080000'],
+  );
+}
+
+console.log('\nCE QUE L’EXPORT REFUSE D’ÉCRIRE');
+
+v(
+  'un rappel non demandé n’engendre rien',
+  rappelsEnIcs([traitement({ schema: quotidien(['08:00']) })], new Date('2026-10-19T10:00:00Z')),
+  '',
+);
+v(
+  'un rappel sans schéma non plus',
+  rappelsEnIcs([traitement({ rappel: { ...reglageParDefaut(), actif: true } })], new Date()),
+  '',
+);
+/*
+   JAMAIS POUR UNE PRISE SPORADIQUE — interdit § 1, et décision 12. Le refus
+   est au calcul de l'export, en plus de celui du schéma : un enregistrement
+   venu d'une synchronisation plus ancienne pourrait porter les deux.
+*/
+v(
+  'jamais pour une prise sporadique, même réglée pour sonner',
+  rappelsEnIcs(
+    [avecRappel(quotidien(['08:00']), {}, { sporadique: true })],
+    new Date('2026-10-19T10:00:00Z'),
+  ),
+  '',
+);
+
+{
+  /*
+     Un fuseau que ce module n'a pas vérifié fait REFUSER l'export, avec son
+     nom. Les règles d'heure d'été se changent par décision politique : en
+     inventer produirait des rappels faux d'une heure pendant six mois, et
+     une heure fausse ne se voit pas, là où un refus se lit.
+  */
+  let refus = '';
+  try {
+    rappelsEnIcs([avecRappel(quotidien(['08:00']))], new Date(), 'America/New_York');
+  } catch (e) {
+    refus = e instanceof Error ? e.name : 'autre';
+  }
+  v('un fuseau non décrit est refusé, et nommé', refus, 'FuseauNonDecrit');
+}
+
+console.log('\nLES TROIS NIVEAUX DE LIBELLÉ (§ 3.3 DU PLAN)');
+
+const titreDe = (t: Traitement) =>
+  rappelsEnIcs([t], new Date('2026-10-19T10:00:00Z'))
+    .split('\r\n')
+    .filter((l) => l.startsWith('SUMMARY:'));
+
+v('neutre, par défaut', titreDe(avecRappel(quotidien(['08:00']))), ['SUMMARY:Rappel Cyclades']);
+v(
+  'explicite, quand la personne le choisit',
+  titreDe(avecRappel(quotidien(['08:00']), { libelle: 'explicite' })),
+  ['SUMMARY:Créatine'],
+);
+v(
+  'personnalisé, dans ses mots',
+  titreDe(avecRappel(quotidien(['08:00']), { libelle: 'personnalise', texte: 'Le pot vert' })),
+  ['SUMMARY:Le pot vert'],
+);
+/*
+   LE REPLI EST TOUJOURS LE NEUTRE, et jamais le nom. Un niveau inconnu —
+   venu d'un enregistrement plus récent qu'une version installée — ne doit
+   pas révéler un traitement par accident. Quand on ne sait pas, on se tait.
+*/
+v(
+  'un niveau inconnu retombe sur le neutre, jamais sur le nom',
+  libelleDuRappel(
+    avecRappel(quotidien(['08:00']), { libelle: 'inconnu' as NiveauDeLibelle }),
+  ),
+  'Rappel Cyclades',
+);
+v(
+  'et un libellé personnalisé vide aussi',
+  libelleDuRappel(avecRappel(quotidien(['08:00']), { libelle: 'personnalise', texte: '   ' })),
+  'Rappel Cyclades',
+);
+
+console.log('\nLES CONTRÔLES DU RÉGLAGE REFUSENT');
+
+v(
+  'un libellé personnalisé sans texte',
+  controlerReglage({ ...reglageParDefaut(), libelle: 'personnalise' }),
+  ['Un libellé personnalisé a besoin de son texte.'],
+);
+v(
+  'un délai d’oubli qui n’est pas proposé',
+  controlerReglage({ ...reglageParDefaut(), delaiOubli: 17 }),
+  ['Délai de rappel inconnu : 17 minutes.'],
+);
+v(
+  'un rappel d’oubli sans rappel',
+  controlerReglage({ ...reglageParDefaut(), oubli: true }),
+  ['Un rappel d’oubli suppose un rappel : activez d’abord « Me rappeler ».'],
+);
+v(
+  'un rappel actif sur un traitement sans schéma',
+  controlerTraitement(traitement({ rappel: { ...reglageParDefaut(), actif: true } })),
+  ['Un rappel a besoin d’un schéma prévu : il n’aurait aucune heure à rappeler.'],
+);
+/* Les deux défauts du prompt : tout est éteint tant qu'on ne demande rien. */
+v('le réglage par défaut ne sonne pas', [reglageParDefaut().actif, reglageParDefaut().oubli], [
+  false,
+  false,
+]);
+v('et le délai d’oubli par défaut est de deux heures', reglageParDefaut().delaiOubli, 120);
 
 console.log(
   echecs === 0

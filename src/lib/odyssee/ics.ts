@@ -97,13 +97,34 @@ export const jourVersIcs = (jour: string) => jour.replace(/-/g, '');
  * l'`UID` qui le permet, et c'est pourquoi un événement saisi dans Cyclades
  * reçoit un UID dérivé de son identifiant plutôt qu'un tirage.
  */
-export function versFichierIcs(evenements: readonly Evenement[], maintenant = new Date()): string {
-  const lignes: string[] = [
+/**
+ * L'enveloppe d'un fichier `.ics` : l'en-tête, le corps, le pliage, les CRLF.
+ *
+ * Extraite pour que les rappels de prise (Santé, phase 4) puissent écrire
+ * leurs propres `VEVENT` — avec `RRULE`, `VALARM` et un `VTIMEZONE`, que
+ * cet écrivain-ci ne produit pas — **sans devenir un second écrivain**.
+ * `echeances-ics.ts` a déjà tranché ce point et il avait raison : deux
+ * écrivains finissent par diverger sur le pliage ou sur les CRLF, et
+ * produisent des fichiers qu'un agenda refuse pour des raisons invisibles.
+ *
+ * Ce qui reste commun est donc exactement ce qui se perdrait : le `PRODID`,
+ * le pliage à 75 octets, le CRLF final.
+ */
+export function envelopperIcs(corps: readonly string[]): string {
+  const lignes = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
     `PRODID:${PRODID}`,
     'CALSCALE:GREGORIAN',
+    ...corps,
+    'END:VCALENDAR',
   ];
+  // CRLF partout, y compris à la fin : un fichier sans CRLF final est refusé.
+  return lignes.map(plier).join('\r\n') + '\r\n';
+}
+
+export function versFichierIcs(evenements: readonly Evenement[], maintenant = new Date()): string {
+  const lignes: string[] = [];
   const horodatage = versIcs(maintenant.toISOString());
 
   for (const e of evenements) {
@@ -141,9 +162,7 @@ export function versFichierIcs(evenements: readonly Evenement[], maintenant = ne
     lignes.push('END:VEVENT');
   }
 
-  lignes.push('END:VCALENDAR');
-  // CRLF partout, y compris à la fin : un fichier sans CRLF final est refusé.
-  return lignes.map(plier).join('\r\n') + '\r\n';
+  return envelopperIcs(lignes);
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
