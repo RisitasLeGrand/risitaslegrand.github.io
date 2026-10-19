@@ -592,6 +592,9 @@ import LienReglages from '../components/LienReglages.astro';
      ────────────────────────────────────────────────────────────────────── */
 
   let aRestaurer: Uint8Array | null = null;
+  /* A6 : l'aperçu est gardé, pour que la confirmation puisse citer la date et
+     le nombre d'enregistrements de la sauvegarde sans les relire. */
+  let vuRestaurer: Awaited<ReturnType<typeof apercu>> | null = null;
 
   async function choisirFichier(fichier: File) {
     aRestaurer = null;
@@ -611,6 +614,7 @@ import LienReglages from '../components/LienReglages.astro';
       }
 
       aRestaurer = brut;
+      vuRestaurer = vue;
       definition('apercu-detail', [
         ['Faite le', new Date(vue.entete.creeLe).toLocaleString('fr-FR')],
         ['Version de Cyclades', vue.entete.versionApplication],
@@ -643,10 +647,44 @@ import LienReglages from '../components/LienReglages.astro';
     const mdp = ($('mdp-restauration') as HTMLInputElement).value;
     const avecInstantane = ($('avec-instantane') as HTMLInputElement).checked;
 
+    /*
+       A6 DU 43 — LA CONFIRMATION DIT CE QU'ON PERD, ET CE QU'ON PREND.
+
+       L'ancien texte disait « Ce qui est enregistré ici sera écrasé par le
+       contenu de la sauvegarde ». Vrai, et inutilisable : il ne dit ni de
+       QUAND datait la sauvegarde, ni ce qu'il y a à perdre. Or c'est
+       exactement là qu'une erreur coûte tout — restaurer une sauvegarde de
+       mars sur trois mois de travail, en croyant prendre la dernière.
+
+       On nomme donc les deux côtés, avec des nombres, au moment du choix.
+       Les deux viennent d'être lus : l'aperçu du fichier pour la sauvegarde,
+       la base pour l'état actuel. Pas d'estimation.
+    */
+    const quandLaSauvegarde = vuRestaurer
+      ? new Date(vuRestaurer.entete.creeLe).toLocaleString('fr-FR')
+      : 'date inconnue';
+    const ageEnJours = vuRestaurer
+      ? Math.floor((Date.now() - new Date(vuRestaurer.entete.creeLe).getTime()) / 86_400_000)
+      : null;
+    const combienDansLaSauvegarde = vuRestaurer ? vuRestaurer.enregistrements : null;
+    const [cartesIci, quizIci, joursIci] = await Promise.all([
+      toutesLesCartes(),
+      tousLesResultatsQuiz(),
+      tousLesJours(),
+    ]);
+    const combienIci = cartesIci.length + quizIci.length + joursIci.length;
+
     const remplacer = await confirmer({
       titre: 'Remplacer toute la progression de ce navigateur ?',
       texte:
-        'Ce qui est enregistré ici sera écrasé par le contenu de la sauvegarde. ' +
+        `La sauvegarde a été faite le ${quandLaSauvegarde}` +
+        (ageEnJours !== null && ageEnJours > 0 ? `, il y a ${ageEnJours} jour(s)` : '') +
+        (combienDansLaSauvegarde !== null
+          ? ` et porte ${combienDansLaSauvegarde} enregistrement(s).`
+          : '.') +
+        ` Ce navigateur en porte aujourd’hui ${combienIci} du même ordre ` +
+        `(${cartesIci.length} carte(s) suivie(s), ${quizIci.length} quiz, ` +
+        `${joursIci.length} journée(s) de temps passé) : tout cela sera écrasé. ` +
         (avecInstantane
           ? 'Un instantané de l’état actuel est pris avant, et permet de revenir en arrière.'
           : 'Aucun instantané ne sera pris : l’état actuel sera perdu.'),

@@ -215,6 +215,74 @@ const nav = await chromium.launch({
     false,
   );
   console.log(`      état final : « ${etat.slice(0, 80)} »`);
+
+  /* ── A6 : la confirmation de restauration dit ce qu'on perd ───────────── */
+
+  console.log('\n\x1b[1mLA RESTAURATION DIT DE QUAND DATE LA SAUVEGARDE, ET CE QU’ELLE ÉCRASE\x1b[0m\n');
+
+  /*
+     POURQUOI CE CONTRÔLE. L'ancien texte disait « Ce qui est enregistré ici
+     sera écrasé par le contenu de la sauvegarde ». Vrai, et inutilisable :
+     ni la date de la sauvegarde, ni ce qu'il y a à perdre. C'est pourtant là
+     qu'une erreur coûte tout — restaurer une sauvegarde de mars sur trois
+     mois de travail, en croyant prendre la dernière.
+
+     L'essai relit le fichier qu'il vient de télécharger, demande à
+     l'appliquer, et LIT LA BOÎTE sans la valider. Rien n'est restauré : ce
+     qu'on mesure est le texte du choix, pas son effet.
+  */
+  await page.setInputFiles('#fichier-cyclades', '/tmp/essai-sauvegarde-2.cyclades');
+  await page.waitForTimeout(2500);
+  const apercuVu = await page.locator('#apercu-cyclades').isVisible().catch(() => false);
+  v('le fichier relu est accepté et son aperçu s’affiche', apercuVu, true);
+
+  if (apercuVu) {
+    await page.fill('#mdp-restauration', MDP);
+    await page.click('#appliquer-cyclades');
+    await page.waitForTimeout(900);
+    const boite = page.locator('dialog.boite');
+    const parue = (await boite.count()) > 0 && (await boite.isVisible());
+    v('la confirmation s’ouvre', parue, true);
+    const dit = (parue ? ((await boite.textContent()) ?? '') : '').replace(/\s+/g, ' ');
+    v(
+      'elle dit QUAND la sauvegarde a été faite',
+      /a été faite le \d{2}\/\d{2}\/\d{4}/.test(dit),
+      true,
+    );
+    v(
+      'elle dit COMBIEN elle porte d’enregistrements',
+      /porte \d+ enregistrement/.test(dit),
+      true,
+    );
+    v(
+      'elle dit ce que ce navigateur porte aujourd’hui',
+      /navigateur en porte aujourd’hui \d+/.test(dit),
+      true,
+    );
+    v(
+      'et elle détaille en cartes, quiz et journées',
+      /carte\(s\) suivie\(s\)[\s\S]*quiz[\s\S]*journée\(s\)/.test(dit),
+      true,
+    );
+    v('elle parle de l’instantané', /instantané/.test(dit), true);
+    /* On annule : cet essai mesure le texte du choix, pas la restauration. */
+    const annuler = boite.locator('button', { hasText: /Annuler|Non|Fermer/ }).first();
+    if (await annuler.count()) await annuler.click();
+    await page.waitForTimeout(400);
+    v('et on peut en sortir sans rien restaurer', await boite.isVisible().catch(() => false), false);
+  } else {
+    for (const quoi of [
+      'la confirmation s’ouvre',
+      'elle dit QUAND la sauvegarde a été faite',
+      'elle dit COMBIEN elle porte d’enregistrements',
+      'elle dit ce que ce navigateur porte aujourd’hui',
+      'et elle détaille en cartes, quiz et journées',
+      'elle parle de l’instantané',
+      'et on peut en sortir sans rien restaurer',
+    ]) {
+      v(quoi, 'aperçu non affiché', true);
+    }
+  }
   await ctx.close();
 }
 
