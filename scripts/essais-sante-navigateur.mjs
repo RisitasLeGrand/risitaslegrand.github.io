@@ -21,6 +21,12 @@ import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
+/** Le jour logique, pour l'échéance d'une tâche : la journée bascule à 4 h. */
+const AUJOURDHUI_TACHES = (() => {
+  const d = new Date();
+  if (d.getHours() < 4) d.setDate(d.getDate() - 1);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+})();
 
 const nav = await chromium.launch({
   executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
@@ -642,6 +648,157 @@ console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
     );
     v('une réponse retire le rappel du centre', apresReponse, 0);
   }
+}
+
+console.log('\nLE LIEN TÂCHE ↔ PRISE — POINTER NOTE, DÉPOINTER RETIRE');
+
+{
+  /*
+     P5 du prompt 52, et la décision 1 du 15 octobre levée pour ce seul
+     lien. Il se constate de bout en bout ou pas du tout : la tâche vit sur
+     un écran, la prise dans un autre, et c'est précisément la traversée
+     qu'on veut éprouver.
+  */
+  const lirePrises = () =>
+    page.evaluate(
+      () =>
+        new Promise((resoudre, rejeter) => {
+          const d = indexedDB.open('revinsp');
+          d.onerror = () => rejeter(d.error);
+          d.onsuccess = () => {
+            const tx = d.result.transaction('odysseeMedicaments', 'readonly');
+            const tout = tx.objectStore('odysseeMedicaments').getAll();
+            tout.onsuccess = () => resoudre(tout.result.map((p) => p.id));
+            tout.onerror = () => rejeter(tout.error);
+          };
+        }),
+    );
+
+  const avant = await lirePrises();
+
+  const traitementId = await page.evaluate(
+    () =>
+      new Promise((resoudre, rejeter) => {
+        const d = indexedDB.open('revinsp');
+        d.onerror = () => rejeter(d.error);
+        d.onsuccess = () => {
+          const tx = d.result.transaction('odysseeTraitements', 'readonly');
+          const tout = tx.objectStore('odysseeTraitements').getAll();
+          tout.onsuccess = () => resoudre(tout.result[0]?.id ?? '');
+          tout.onerror = () => rejeter(tout.error);
+        };
+      }),
+  );
+
+  await aller('/odyssee/taches/', '#lien');
+  const proposees = await page.locator('#lien option').evaluateAll((o) => o.map((e) => e.value));
+  vrai('Santé est désormais proposée à l’écran', proposees.includes('odyssee.medicament'));
+
+  /* Le champ « Lequel » n'apparaît que pour l'action qui en demande un. */
+  faux('et le champ « Lequel » reste caché pour les autres', await page.locator('#ligne-cible').isVisible());
+  await page.selectOption('#lien', 'odyssee.medicament');
+  await page.waitForTimeout(800);
+  vrai('choisir Santé le découvre', await page.locator('#ligne-cible').isVisible());
+  const cibles = await page.locator('#cible option').evaluateAll((o) =>
+    o.map((e) => ({ valeur: e.value, texte: e.textContent })),
+  );
+  vrai('il propose le traitement déclaré', cibles.some((c) => c.texte === 'Exemple de traitement'));
+  /*
+     CE QUI EST RANGÉ EST L'IDENTIFIANT, JAMAIS LE NOM : la tâche vit en
+     clair, et y recopier le nom annulerait le scellement de Santé pour
+     cette ligne-là.
+  */
+  vrai('et sa valeur est un identifiant, pas un nom', cibles.some((c) => c.valeur === traitementId));
+
+  /*
+     LA TÂCHE DOIT ÊTRE RÉPÉTÉE, et ce n'est pas un détail d'essai : un lien
+     n'écrit dans sa branche qu'au pointage d'une OCCURRENCE.
+     `pointerLaTache` clôt simplement une tâche unique, sans passer par la
+     branche — mesuré ici, et vrai pour Sport et les quêtes comme pour
+     Santé. L'écran le dit désormais au lieu de le taire ; le mécanisme des
+     occurrences, lui, appartient au prompt 38 et n'est pas étendu ici.
+  */
+  vrai(
+    'sans répétition, l’écran avertit que rien ne sera enregistré',
+    await page.locator('#lien-sans-repetition').isVisible(),
+  );
+
+  await page.fill('#titre', 'Prise du matin');
+  await page.selectOption('#cible', traitementId);
+  await page
+    .locator('details', { hasText: 'Répéter' })
+    .first()
+    .evaluate((d) => d.setAttribute('open', ''));
+  await page.waitForTimeout(300);
+  faux(
+    'avec une répétition, l’avertissement tombe',
+    await page.locator('#lien-sans-repetition').isVisible(),
+  );
+  await page.selectOption('#champs-serie select[data-regle]', 'jours');
+  await page.locator('#champs-serie input[type="number"]').first().fill('1');
+  await page.click('#ajouter');
+  await page.waitForTimeout(1200);
+
+  const tache = await page.evaluate(
+    () =>
+      new Promise((resoudre, rejeter) => {
+        const d = indexedDB.open('revinsp');
+        d.onerror = () => rejeter(d.error);
+        d.onsuccess = () => {
+          const tx = d.result.transaction('odysseeTaches', 'readonly');
+          const tout = tx.objectStore('odysseeTaches').getAll();
+          tout.onsuccess = () =>
+            resoudre(tout.result.find((t) => t.titre === 'Prise du matin') ?? null);
+          tout.onerror = () => rejeter(tout.error);
+        };
+      }),
+  );
+  vrai('la tâche est créée', Boolean(tache));
+  v('elle vise le traitement par son identifiant', tache?.lien, {
+    branche: 'sante',
+    action: 'odyssee.medicament',
+    cible: traitementId,
+  });
+  vrai('et elle est répétée, donc elle a des occurrences à pointer', Boolean(tache?.serie));
+  /*
+     Et son titre ne nomme pas le traitement : c'est la personne qui l'écrit,
+     et rien de Cyclades ne l'y recopie. L'interdit du prompt — « une tâche
+     liée ne montre jamais le nom du traitement coffre fermé » — tient
+     d'abord à cela.
+  */
+  faux('et rien du traitement n’a été recopié en clair', JSON.stringify(tache).includes('Exemple de traitement'));
+
+  /* ── Pointer ── */
+  await page.locator(`[data-faire="${tache.id}"]`).click();
+  await page.waitForTimeout(2000);
+
+  const apresPointage = await lirePrises();
+  v('pointer la tâche note une prise, et une seule', apresPointage.length - avant.length, 1);
+  const nouvelle = apresPointage.find((id) => !avant.includes(id));
+  vrai('son identifiant dérive de la tâche et du jour', nouvelle.startsWith(`pointage-${tache.id}-`));
+
+  /* ── Dépointer ── */
+  const defaire = page.locator(`[data-depointer="${tache.id}"]`);
+  vrai('l’écran propose de défaire', await defaire.isVisible());
+  await defaire.click();
+  await page.waitForTimeout(2000);
+
+  const apresRetrait = await lirePrises();
+  v('défaire retire la prise qu’il avait créée', apresRetrait.length, avant.length);
+  /*
+     ET SEULEMENT CELLE-LÀ. Les prises notées plus haut — par « Pris » sur
+     un créneau — sont toujours là : elles n'ont pas été créées par ce
+     geste, et les effacer serait effacer une déclaration que personne n'a
+     reprise.
+  */
+  v('et seulement celle-là', apresRetrait.sort(), avant.sort());
+
+  /*
+     On revient sur Santé : le bloc suivant recharge la page courante pour
+     éprouver la fermeture du coffre, et il doit la recharger sur l'écran
+     dont il parle.
+  */
+  await aller('/odyssee/sante/', '#coffre-ouvert');
 }
 
 console.log('\nREFERMER LE COFFRE REFERME L’ÉCRAN');

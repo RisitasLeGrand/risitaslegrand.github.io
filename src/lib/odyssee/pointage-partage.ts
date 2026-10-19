@@ -79,7 +79,26 @@ export interface ResultatDuPointage {
  * atteindre fermerait un cycle, qu'un bundler résout en livrant un module à
  * moitié initialisé — une panne qui ne se voit qu'à l'exécution.
  */
-type Ecrivain = (tache: Tache, le: Date) => Promise<GesteDeBranche>;
+type Ecrivain = (tache: Tache, le: Date, jourPrevu: string) => Promise<GesteDeBranche>;
+
+/**
+ * L'identifiant du fait qu'un pointage crée, quand la branche en permet un
+ * de déterministe.
+ *
+ * Dérivé de la tâche et du jour prévu, et non tiré au sort : c'est ce qui
+ * rend le retrait EXACT. Défaire un pointage doit retirer la prise que ce
+ * pointage-là a créée, et aucune autre — ni celle de la veille, ni celle
+ * qu'on a saisie à la main le même jour. Avec un identifiant tiré au sort,
+ * il aurait fallu le retrouver, donc le ranger quelque part, donc tenir à
+ * jour un second registre qui finirait par mentir.
+ *
+ * Il ne révèle rien de neuf : la tâche vit en clair dans `odysseeTaches`,
+ * avec son titre et son lien, et le jour d'une prise est déjà un champ
+ * clair de son magasin. C'est la même protection partielle, et le même
+ * maillon faible, que les exceptions scellées du prompt 38.
+ */
+export const idDuFaitPointe = (tacheId: string, jourPrevu: string): string =>
+  `pointage-${tacheId}-${jourPrevu}`;
 
 const ECRIVAINS: Record<string, Ecrivain> = {
   /**
@@ -108,6 +127,43 @@ const ECRIVAINS: Record<string, Ecrivain> = {
    * doit nommer la quête visée — sans elle, il n'y a rien à tenir, et on ne
    * va pas en choisir une au hasard.
    */
+  /**
+   * Une prise déclarée — P5 du prompt 52, et la décision 1 du 15 octobre
+   * levée pour ce seul lien.
+   *
+   * Le lien doit nommer le traitement visé : sans lui, il n'y a rien à
+   * noter, et on ne va pas choisir un traitement au hasard dans le coffre
+   * de quelqu'un. C'est la même exigence que pour une quête, pour une
+   * raison plus sérieuse.
+   *
+   * La prise est notée **à l'heure du pointage**, et sa dose est la
+   * quantité que la personne avait elle-même déclarée dans son schéma —
+   * jamais une valeur que Cyclades choisirait.
+   */
+  'odyssee.medicament': async (tache, le, jourPrevu) => {
+    const cible = tache.lien?.cible;
+    if (!cible) {
+      return { quoi: 'rien', pourquoi: 'Le lien ne désigne aucun traitement.' };
+    }
+    const sante = await import('./donnees-sante');
+    const traitement = (await sante.tousLesTraitements()).find((t) => t.id === cible);
+    if (!traitement) {
+      return { quoi: 'rien', pourquoi: 'Le traitement lié n’existe plus.' };
+    }
+    const sensible = await import('./donnees-sensible');
+    const prise = await sensible.ecrirePrise(traitement.nom, traitement.schema?.quantite ?? '', {
+      id: idDuFaitPointe(tache.id, jourPrevu),
+      le,
+      traitementId: traitement.id,
+    });
+    return {
+      quoi: 'ecrit',
+      branche: 'sante',
+      action: 'odyssee.medicament',
+      reference: prise.id,
+    };
+  },
+
   'odyssee.quete': async (tache, le) => {
     const cible = tache.lien?.cible;
     if (!cible) {
@@ -171,7 +227,7 @@ export async function pointerDepuisLeCalendrier(
         })) as Occurrence)
       : await donnees.ecrireOccurrence(exception);
 
-  return { occurrence, magasin, geste: await gesteDeBranche(tache, le) };
+  return { occurrence, magasin, geste: await gesteDeBranche(tache, le, jourPrevu) };
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -313,6 +369,14 @@ export async function retirerLePointage(
     /* Effacer n'est pas lire : aucune des deux suppressions n'exige le coffre. */
     if (scelle) await donnees.oublierExceptionScellee(idOccurrence(tache.id, jourPrevu));
     else await donnees.oublierOccurrence(tache.id, jourPrevu);
+    /*
+       Et le fait de branche, quand cette action-là en permet le retrait.
+       L'exception d'abord : si l'effacement du fait échoue, l'occurrence est
+       déjà dépointée et l'écran dit la vérité sur ce qu'il montre. L'inverse
+       laisserait une prise effacée sous une tâche toujours cochée.
+    */
+    const effaceur = tache.lien ? EFFACEURS[tache.lien.action] : undefined;
+    if (effaceur) await effaceur(tache, jourPrevu);
     return;
   }
 
@@ -362,7 +426,11 @@ export function decisionDePointage(tache: Tache): DecisionDePointage {
   return { quoi: 'ecrire', branche: action.branche, action: lien.action };
 }
 
-async function gesteDeBranche(tache: Tache, le: Date): Promise<GesteDeBranche> {
+async function gesteDeBranche(
+  tache: Tache,
+  le: Date,
+  jourPrevu: string,
+): Promise<GesteDeBranche> {
   const decision = decisionDePointage(tache);
   if (decision.quoi !== 'ecrire') return decision;
 
@@ -377,8 +445,35 @@ async function gesteDeBranche(tache: Tache, le: Date): Promise<GesteDeBranche> {
       `Aucun écrivain pour l’action « ${decision.action} », pourtant déclarée deux-sens.`,
     );
   }
-  return ecrivain(tache, le);
+  return ecrivain(tache, le, jourPrevu);
 }
+
+/**
+ * Ce qu'un retrait efface dans la branche, action par action.
+ *
+ * **Vide sauf pour une seule action, et c'est une politique, pas un
+ * chantier inachevé.** Défaire un pointage ne doit pas effacer un fait que
+ * la personne a vécu : une séance de sport a eu lieu, et le calendrier n'a
+ * pas à la supprimer — c'est précisément pour cela que l'état `depointee`
+ * existe, qui CONTREDIT sans détruire.
+ *
+ * La prise d'un traitement est le cas contraire, et le prompt le tranche :
+ * « Défaire le pointage retire la prise qu'il avait créée, et seulement
+ * celle-là. » Elle le peut parce qu'elle n'a pas été vécue séparément du
+ * geste : elle n'existe QUE parce qu'on a coché la tâche, et son
+ * identifiant le dit.
+ */
+type Effaceur = (tache: Tache, jourPrevu: string) => Promise<void>;
+
+const EFFACEURS: Record<string, Effaceur> = {
+  'odyssee.medicament': async (tache, jourPrevu) => {
+    const sensible = await import('./donnees-sensible');
+    await sensible.supprimerPrise(idDuFaitPointe(tache.id, jourPrevu));
+  },
+};
+
+/** Les actions dont le retrait efface le fait de branche. Pour les essais. */
+export const actionsEffacables = (): string[] => Object.keys(EFFACEURS).sort();
 
 /** Le jour que pointe un geste sans jour explicite. */
 export const jourPointeParDefaut = (le = new Date()): string => jourLogique(le);

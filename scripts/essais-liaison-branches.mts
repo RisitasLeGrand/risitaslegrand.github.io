@@ -112,18 +112,40 @@ v('et n’écrit rien', ecritDansLaBranche('odyssee.checkin'), false);
 v('un check-in réellement écrit coche sa tâche', cocheLaTache('odyssee.checkin'), true);
 v('et rien n’est écrit tant que rien n’est répondu', ecritDansLaBranche('odyssee.checkin'), false);
 
-/* Décision 1 : Santé hors des liens dans ce lot. */
-v('Santé n’écrit pas', ecritDansLaBranche('odyssee.medicament'), false);
-v('Santé ne coche pas', cocheLaTache('odyssee.medicament'), false);
+/*
+   LA DÉCISION 1 DU 15 OCTOBRE EST LEVÉE POUR CE SEUL LIEN — Alexis, le
+   18 octobre : « Oui pour le lien ». Ces quatre constats mesuraient
+   « Santé est hors du lot », qui était vrai et ne l'est plus. Ils mesurent
+   désormais ce que la décision a réellement ouvert, et ils ont gagné les
+   deux garanties qui, elles, tiennent toujours : le lien reste SOUS COFFRE
+   et ne compte PAS dans l'activité (prompt 52, P5, mot pour mot).
+
+   La dernière est celle qui garde le « pour ce seul lien » : une seule
+   action de Santé est liable, et si quelqu'un en ajoutait une seconde sans
+   décision, elle rougirait.
+*/
+v('pointer une tâche liée note une prise', ecritDansLaBranche('odyssee.medicament'), true);
+v('et une prise notée coche la tâche', cocheLaTache('odyssee.medicament'), true);
 v(
-  'et Santé n’est pas proposée à l’écran',
+  'Santé est donc proposée à l’écran',
   actionsProposables().some((a) => a.branche === 'sante'),
+  true,
+);
+v('le sens est défini, et non plus en attente', actionLiable('odyssee.medicament')?.sens, 'deux-sens');
+v(
+  'le lien reste sous coffre : ses exceptions sont scellées',
+  actionLiable('odyssee.medicament')?.sousCoffre,
+  true,
+);
+v(
+  'et il ne compte pas dans l’activité — pointer ne rapporte rien',
+  actionLiable('odyssee.medicament')?.compteDansLActivite,
   false,
 );
 v(
-  'mais elle reste au registre, avec sa raison — ce n’est pas un trou',
-  actionLiable('odyssee.medicament')?.sens,
-  'hors-du-lot',
+  'une seule action de Santé est liable : la levée ne vaut que pour celle-là',
+  ACTIONS_LIABLES.filter((a) => a.branche === 'sante').map((a) => a.id),
+  ['odyssee.medicament'],
 );
 
 /* Ce qui marche dans les deux sens. */

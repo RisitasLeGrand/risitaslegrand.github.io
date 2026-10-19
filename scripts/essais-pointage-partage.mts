@@ -22,8 +22,14 @@ import {
   actionLiable,
   cocheLaTache,
   ecritDansLaBranche,
+  laTacheCedeSonFait,
 } from '../src/lib/odyssee/liaison-branches';
-import { actionsEcrivables, decisionDePointage } from '../src/lib/odyssee/pointage-partage';
+import {
+  actionsEcrivables,
+  actionsEffacables,
+  decisionDePointage,
+  idDuFaitPointe,
+} from '../src/lib/odyssee/pointage-partage';
 import type { Tache } from '../src/lib/odyssee/modele';
 
 let echecs = 0;
@@ -112,10 +118,73 @@ for (const type of ['odyssee.etape-cochee', 'odyssee.exception-scellee', 'odysse
 }
 v('odyssee.occurrence compte, depuis la phase 8', TYPES_SERIE.includes('odyssee.occurrence'), true);
 
+/*
+   CE CONTRÔLE DISAIT « TOUT FAIT ÉCRIT PAR UN POINTAGE COMPTE », et la
+   phrase tenait tant que les deux seules actions deux-sens étaient une
+   séance de sport et une quête. Alexis a tranché l'inverse pour le lien de
+   Santé (prompt 52, P5) : « Le lien est sous coffre et NE COMPTE PAS dans
+   l'activité. »
+
+   L'exigence réelle n'était pas que le fait compte — c'était qu'un geste ne
+   produise jamais rien, et qu'il ne produise jamais deux fois. Les deux
+   tiennent toujours, par deux chemins au lieu d'un :
+
+   - si le fait de branche compte, la tâche CÈDE le sien, et un geste vaut
+     un fait ;
+   - s'il ne compte pas, la tâche GARDE le sien, et un geste vaut encore un
+     fait.
+
+   Ce qui serait un défaut, c'est que les deux comptent — le geste vaudrait
+   double — ou qu'aucun ne compte — il ne vaudrait rien. Le contrôle mesure
+   donc exactement cela, action par action, et il est plus serré que celui
+   qu'il remplace : l'ancien laissait passer un fait qui compte alors que la
+   tâche garde aussi le sien.
+*/
+for (const id of actionsEcrivables()) {
+  const compteDansLaBranche = TYPES_SERIE.includes(id);
+  const laTacheGardeLeSien = !laTacheCedeSonFait(tache(id, 'c'));
+  v(
+    `${id} : un geste vaut exactement un fait compté`,
+    [compteDansLaBranche, laTacheGardeLeSien],
+    [compteDansLaBranche, !compteDansLaBranche],
+  );
+}
+
+/* ── 3 bis. Ce que défaire un pointage efface, et ce qu'il n'efface pas ── */
+console.log('\nDéfaire un pointage : ce qui s’efface, et ce qui ne s’efface pas');
+
+/*
+   UNE SEULE ACTION voit son fait effacé au retrait, et c'est une politique.
+   Défaire un pointage ne doit pas supprimer un fait que la personne a vécu :
+   une séance de sport a eu lieu, et c'est pour cela que l'état `depointee`
+   existe — il CONTREDIT sans détruire.
+
+   La prise d'un traitement est le cas contraire, et le prompt le tranche :
+   « Défaire le pointage retire la prise qu'il avait créée, et seulement
+   celle-là. » Elle n'a pas été vécue séparément du geste — elle n'existe
+   que parce qu'on a coché la tâche.
+*/
+v('une seule action efface son fait au retrait', actionsEffacables(), ['odyssee.medicament']);
 v(
-  'les faits que le pointage écrit, eux, comptent — sinon le geste ne vaudrait rien',
-  actionsEcrivables().filter((id) => !TYPES_SERIE.includes(id)),
+  'et elle est bien l’une de celles que le pointage écrit',
+  actionsEffacables().filter((id) => !actionsEcrivables().includes(id)),
   [],
+);
+/*
+   « ET SEULEMENT CELLE-LÀ » tient à l'identifiant : il dérive de la tâche
+   et du jour prévu, donc deux jours donnent deux prises, et deux tâches
+   aussi. Un identifiant tiré au sort aurait obligé à le ranger quelque
+   part, donc à tenir un second registre qui finirait par mentir.
+*/
+v('l’identifiant du fait pointé est déterministe', idDuFaitPointe('T1', '2026-10-19'), idDuFaitPointe('T1', '2026-10-19'));
+v(
+  'et distinct d’un jour à l’autre, comme d’une tâche à l’autre',
+  new Set([
+    idDuFaitPointe('T1', '2026-10-19'),
+    idDuFaitPointe('T1', '2026-10-20'),
+    idDuFaitPointe('T2', '2026-10-19'),
+  ]).size,
+  3,
 );
 
 /* ── 4. La correction du 15 octobre ────────────────────────────────────── */
