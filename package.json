@@ -127,6 +127,7 @@
     "essais:indicateurs:navigateur": "node scripts/essais-indicateurs-navigateur.mjs",
     "essais:initialisation": "tsx scripts/essais-initialisation.mts",
     "essais:initialisation:navigateur": "node scripts/essais-initialisation-navigateur.mjs",
+    "essais:profil-lisible": "tsx scripts/essais-profil-lisible.mts",
     "essais:profil": "tsx scripts/essais-profil.mts",
     "essais:lu-par": "tsx scripts/essais-lu-par.mts",
     "essais:compte-a-rebours": "tsx scripts/essais-compte-a-rebours.mts",

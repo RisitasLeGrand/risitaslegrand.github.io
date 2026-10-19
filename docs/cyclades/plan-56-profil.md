@@ -283,3 +283,63 @@ sauté, désactivé ni allégé.
    l'export **une fois**, dans le paragraphe Confidentialité (P14), et par
    champ une mention dérivée du catalogue — « part dans un export si vous
    cochez Profil » — plutôt qu'une ligne « Lu par ».
+
+---
+
+## 4. Compte rendu, constat par constat
+
+Tenu à jour à mesure. « Mesuré » veut dire exécuté et observé ; « lu » veut
+dire lu dans le code sans l'exécuter.
+
+### Les bloquants
+
+| Constat | État | Comment, et où |
+|---|---|---|
+| **B1** la portée « Lisible par » ne restreint rien | **corrigé dans le catalogue, l'écran suit** | La table `luPar` déclare les lecteurs réels, champ par champ ; `essais-lu-par.mts` la confronte au code dans trois sens. Le retrait des 52 cases et la ligne « Lu par : … » sont dans `profil.astro`, **bloqué** jusqu'à l'A7 du 58. |
+| **B2** six réglages déduits sur huit non appliqués | **corrigé, et le compte rectifié : cinq sur huit** | Chaque réglage déclare `applique` ; `reglagesAppliques()` rend les trois réels. La phrase fausse sur la série est retirée de la cause. Le filtre d'affichage attend `profil.astro`. |
+| **B3** l'âge part dans l'export | **toujours corrigé (U1)** | Vérifié : les cinq champs portent `jamaisExporte`, l'interdiction passe en premier, et le contrôle du graphe d'imports tient. En plus, l'export ne nomme plus lui-même le prénom et le nom : il importe `CHAMPS_A_CAVIARDER`. |
+| **B4** l'initialisation enregistre une réponse non donnée | **toujours corrigé (U2)** | Vérifié sur la saisie des dates, qui rend `undefined`. Et la règle est étendue : vider une heure dans Paramètres **supprime** le champ au lieu d'écrire l'heure d'usine. |
+| **B5** un champ de branche vide ne se renseigne pas depuis le profil | **à faire** | `questionsDeBranche()` sépare « ce qu'on pose » de « tous les champs de la branche », ce qui est la moitié mécanique du travail. L'autre moitié est l'écran, bloqué. |
+
+### Les gênants
+
+| Constat | État | Comment |
+|---|---|---|
+| **G1** tri alphabétique, neuf écrans de long | **à faire** (P1) | Bloqué : `profil.astro`. |
+| **G2** valeurs brutes et jargon | **en partie** | Le jargon est parti des phrases du catalogue (« le jour logique »), et « 07:00 » se dit « 7 h » dans Paramètres. Les valeurs de l'écran du profil attendent P7. |
+| **G3** cases de portée de 16 px | **sans objet après P3** | Les cases disparaissent avec la portée. |
+| **G4** le compteur se lit comme une complétude | **à faire** (P9) | Bloqué. Le dénominateur a déjà changé de sens : huit questions posées au lieu de dix-huit. |
+| **G5** faux 07:00 dans Ma journée, et une troisième copie | **corrigé** | `siVide` déclare ce que le vide veut dire ; « Passer au clair à » suit Ma journée quand il est vide. Mesuré au navigateur : 25 verts. |
+| **G6** le moment de la revue en texte libre | **corrigé** | Choix fermé sur les deux valeurs que `lireMoment` reconnaît, avec une aide par réponse. |
+| **G7** promesses fausses sur les cartes | **corrigé** | Six phrases retirées, et un invariant du catalogue interdit d'en écrire une sur un champ que rien ne lit. |
+| **G8** la boîte de saisie unique | **signalé, couvert par le 43** | L'exemple `{"cognition": 10}` s'affiche toujours pour les dates d'épreuves (`profil.astro:413`). |
+| **G9** « et mon sexe » sans champ pour le sexe | **corrigé** | Titre, libellé, question et trois commentaires. Reste le lien de `profil.astro`, déclaré dans l'essai avec sa raison. |
+
+### Les mineurs
+
+| Constat | État |
+|---|---|
+| **M1** date du consentement écrite en dur | **à faire**, bloqué (`profil.astro`) |
+| **M2** pas de `role="status"` sur les messages | **à faire**, bloqué |
+| **M3** le renvoi « Affichage » coupe la page | **à faire**, bloqué |
+| **M4** l'aide du lever dit le contraire du code | **corrigé** : « une heure avant votre lever, entre 2 h et 6 h », au catalogue des champs et à celui des réglages |
+| **M5** la copie locale des heures n'est pas dite | **en partie** : les phrases de Paramètres disent désormais que Ma journée est la source et que l'heure donnée ici ne vaut que sur cet appareil. Le paragraphe Confidentialité (P14) attend `profil.astro`. |
+| **M6** « Supprimer » ambré sur chaque carte | **à faire**, bloqué |
+
+### Ce que l'audit ne dit pas, et que la confrontation a trouvé
+
+1. **La porte de l'âge n'applique pas les coupures.** `contextePersonne` ne
+   prend pas `usagesCoupes` en paramètre : la coupure n'est appliquée qu'à
+   l'affichage de l'écran. Et aucune fonction ne lit l'âge aujourd'hui —
+   `etatDeLaPersonne` et `contextePersonne` n'ont qu'un appelant, l'écran
+   lui-même. La phrase du champ a été corrigée ; le défaut de la porte est
+   signalé au pilote, avec son correctif, parce qu'il appartient au prompt qui
+   l'a construite.
+2. **`essais:reglages-orphelins` rougit sur `origin/main`** : le commit
+   `2462447` (B-3 du 58) écrit `etat/reglagesSync` dans
+   `lib/sauvegarde/effacement.ts` sans déclarer la clé. Signalé, non touché.
+3. **Le catalogue porte 37 champs**, non 36 : l'audit réunit les matières
+   fortes et les faibles sur une ligne.
+4. **La langue et le fuseau partageaient un écran.** La langue n'étant plus
+   demandée, la question a dû changer de phrase pour ne pas annoncer un
+   réglage qu'elle ne fait plus.
