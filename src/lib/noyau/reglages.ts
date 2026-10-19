@@ -32,11 +32,52 @@ export const lectureDe =
   (champ) =>
     profil.get(champ)?.valeur;
 
+/**
+ * Ce qui applique un réglage, pour que l'écran puisse ne montrer que ceux-là.
+ *
+ * ## Le défaut nommé par l'audit, et pourquoi il tenait
+ *
+ * Huit réglages étaient affichés sous « Ce que Cyclades en déduit ». Cinq ne
+ * sont appliqués **nulle part** : les jours de repos, les créneaux, les
+ * parcours ouverts, les avis et l'objectif hebdomadaire. La page les
+ * présentait pourtant comme des conséquences de ce que la personne avait
+ * répondu, et l'un d'eux affirmait même « Un jour de repos ne casse pas votre
+ * série » — ce que la gamification ne fait pas, puisqu'elle ne lit jamais les
+ * jours de travail.
+ *
+ * Rien dans le code ne distinguait les trois réglages réels des cinq autres :
+ * la différence n'existait que dans la tête de qui avait écrit la fonction.
+ * Elle se déclare donc, et un essai la confronte au code.
+ *
+ * ## Pourquoi un symbole, et non une simple liste de fichiers
+ *
+ * Un fichier nommé prouve peu : il peut avoir cessé d'appliquer le réglage il y
+ * a six mois. Le symbole est ce par quoi il l'applique — `reglagesJourLogique`
+ * pour la bascule et le fuseau, `domainesActifs` pour les domaines. L'essai
+ * exige de le retrouver dans le fichier, et compte les écrans qui s'en
+ * servent : une porte que personne n'ouvre n'applique rien.
+ */
+export interface Application {
+  /** Les fichiers qui s'en servent, depuis la racine du dépôt. */
+  modules: readonly string[];
+  /** Le symbole par lequel ils s'en servent, que l'essai retrouve. */
+  symbole: string;
+}
+
 export interface Reglage {
   id: string;
   libelle: string;
   /** Les champs dont il découle. Vide : c'est un défaut, pas une déduction. */
   depuis: readonly string[];
+  /**
+   * Ce qui l'applique, ou `null` quand **rien** ne l'applique.
+   *
+   * `null` ne retire pas le réglage du code : il le retire de l'écran (P4 du
+   * prompt 56). La déduction reste calculée, reste éprouvée, et reparaîtra le
+   * jour où quelque chose s'en servira — ce jour-là, il faudra le déclarer
+   * ici, et l'essai le vérifiera.
+   */
+  applique: Application | null;
   /** La valeur du réglage, telle que l'application l'emploie. */
   valeur: unknown;
   /** Ce qui l'explique, en français. Toujours rempli. */
@@ -103,6 +144,7 @@ export function reglagesDeduits(lire: Lecture): Reglage[] {
     id: 'bascule-du-jour',
     libelle: 'Heure à laquelle votre journée change de date',
     depuis: ['lever'],
+    applique: { modules: ['src/lib/adaptation.ts'], symbole: 'reglagesJourLogique' },
     valeur: bascule,
     deduit: heureDe(lever) !== null,
     cause:
@@ -116,6 +158,7 @@ export function reglagesDeduits(lire: Lecture): Reglage[] {
     id: 'fuseau',
     libelle: 'Fuseau dans lequel les jours sont comptés',
     depuis: ['fuseau'],
+    applique: { modules: ['src/lib/adaptation.ts'], symbole: 'reglagesJourLogique' },
     valeur: fuseau,
     deduit: typeof lire('fuseau') === 'string',
     cause:
@@ -132,16 +175,27 @@ export function reglagesDeduits(lire: Lecture): Reglage[] {
     id: 'jours-de-repos',
     libelle: 'Jours proposés comme repos dans la rotation',
     depuis: ['joursTravail'],
+    /* Rien ne l'applique : la rotation ne lit pas `joursTravail`, et
+       `gamification.ts` ne le nomme jamais. La phrase « Un jour de repos ne
+       casse pas votre série » était donc fausse, et elle est partie. */
+    applique: null,
     valeur: joursTravail.length ? repos : [],
     deduit: joursTravail.length > 0,
+    /* « Un jour de repos ne casse pas votre série » était la seconde phrase.
+       `gamification.ts` ne lit pas `joursTravail` : la série se casse le même
+       jour pour tout le monde. P4 demande que ce texte disparaisse, et il
+       disparaît de la cause elle-même — pas seulement de l'écran. */
     cause: joursTravail.length
-      ? `${repos.length ? repos.join(', ') : 'aucun'} — ce sont les jours où vous ne travaillez pas. Un jour de repos ne casse pas votre série.`
+      ? `${repos.length ? repos.join(', ') : 'aucun'} — ce sont les jours où vous ne travaillez pas.`
       : 'Aucun, faute d’avoir dit quels jours vous travaillez.',
   });
   sorties.push({
     id: 'creneaux',
     libelle: 'Plages proposées pour vos séances',
     depuis: ['plagesTravail', 'momentRevision'],
+    /* Rien ne l'applique : aucun écran ne propose de créneau d'après ces
+       plages. */
+    applique: null,
     valeur: plages.length ? plages : [],
     deduit: plages.length > 0,
     cause: plages.length
@@ -155,6 +209,7 @@ export function reglagesDeduits(lire: Lecture): Reglage[] {
     id: 'domaines-affiches',
     libelle: 'Domaines affichés dans la roue et au menu',
     depuis: ['domainesActifs'],
+    applique: { modules: ['src/lib/odyssee-jour.ts'], symbole: 'domainesActifs' },
     valeur: domaines.length ? domaines : [...DOMAINES_ACTIFS_PAR_DEFAUT],
     deduit: domaines.length > 0,
     cause: domaines.length
@@ -168,6 +223,9 @@ export function reglagesDeduits(lire: Lecture): Reglage[] {
     id: 'parcours-ouverts',
     libelle: 'Parcours ouverts dans le registre',
     depuis: ['concours'],
+    /* Rien ne l'applique : le registre n'ouvre pas les parcours d'après ce
+       champ, et le parcours courant se choisit dans Révisions. */
+    applique: null,
     valeur: concours,
     deduit: concours.length > 0,
     cause: concours.length
@@ -183,6 +241,9 @@ export function reglagesDeduits(lire: Lecture): Reglage[] {
     id: 'avis-locaux',
     libelle: 'Fréquence et heure des avis',
     depuis: ['styleAccompagnement', 'heureRappel'],
+    /* Rien ne l'applique : aucun avis spontané n'est posé, ni à cette heure
+       ni à cette fréquence. */
+    applique: null,
     valeur: { parJour: avis.parJour, heure: heureDe(rappel) !== null ? rappel : null },
     deduit: Boolean(AVIS[style]) || heureDe(rappel) !== null,
     cause:
@@ -198,6 +259,9 @@ export function reglagesDeduits(lire: Lecture): Reglage[] {
     id: 'objectif-hebdomadaire',
     libelle: 'Objectif indicatif de l’histogramme, et plafond d’une séance',
     depuis: ['heuresRevision', 'tempsParSemaine'],
+    /* Rien ne l'applique : l'histogramme ne trace pas cette cible, et le
+       plafond d'une séance vient des réglages de séance. */
+    applique: null,
     valeur:
       objectif === null
         ? { heuresParSemaine: null, plafondSeanceMinutes: 120 }
@@ -216,6 +280,13 @@ export function reglagesDeduits(lire: Lecture): Reglage[] {
 
   return sorties;
 }
+
+/**
+ * Les réglages **appliqués**, et eux seuls : ce que l'écran a le droit de
+ * présenter comme une conséquence (P4 du prompt 56).
+ */
+export const reglagesAppliques = (lire: Lecture): Reglage[] =>
+  reglagesDeduits(lire).filter((r) => r.applique !== null);
 
 /** Les réglages du jour logique, tels que les moteurs les attendent. */
 export function reglagesJourLogique(lire: Lecture): { heureBascule: number; fuseau: string } {
@@ -242,6 +313,28 @@ export function controlerReglages(champsConnus: readonly string[]): string[] {
     for (const champ of reglage.depuis) {
       if (!champsConnus.includes(champ)) {
         problemes.push(`Le réglage « ${reglage.id} » découle de « ${champ} », qui n’est pas un champ.`);
+      }
+    }
+    /*
+       `applique` doit être déclaré, même à `null`. `undefined` voudrait dire
+       « on n'a pas regardé », et c'est exactement l'état d'où vient le défaut
+       B2 : cinq réglages affichés comme des conséquences sans que personne ait
+       vérifié qu'ils en étaient.
+    */
+    if (reglage.applique === undefined) {
+      problemes.push(`Le réglage « ${reglage.id} » ne dit pas si quelque chose l’applique.`);
+    }
+    if (reglage.applique) {
+      if (!reglage.applique.modules.length) {
+        problemes.push(`Le réglage « ${reglage.id} » se dit appliqué sans nommer par quoi.`);
+      }
+      if (reglage.applique.symbole.trim().length < 3) {
+        problemes.push(`Le réglage « ${reglage.id} » ne nomme pas le symbole qui l’applique.`);
+      }
+      for (const module of reglage.applique.modules) {
+        if (!module.startsWith('src/')) {
+          problemes.push(`Le réglage « ${reglage.id} » nomme « ${module} », hors de src/.`);
+        }
       }
     }
   }
