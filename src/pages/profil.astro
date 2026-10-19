@@ -438,6 +438,9 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
     return 'Part dans un export si vous cochez « Profil ».';
   }
 
+  /** L'appareil où l'on se trouve, pour dire « celui-ci » au lieu d'un code. */
+  let appareilCourant = '';
+
   /** Une ligne de métadonnée, en petit, sous la valeur. */
   function ligneFine(texte: string): HTMLElement {
     const p = document.createElement('p');
@@ -567,9 +570,6 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
     bloc.appendChild(actions);
     return bloc;
   }
-
-  /** L'appareil où l'on se trouve, pour dire « celui-ci » au lieu d'un code. */
-  let appareilCourant = '';
 
   /**
    * La saisie, dans la boîte commune.
