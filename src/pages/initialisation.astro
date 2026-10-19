@@ -353,37 +353,89 @@ import Base from '../layouts/Base.astro';
     };
   }
 
-  function heure(defaut: string): Saisie {
+  /*
+     U2 DU 43 — UNE HEURE NON RÉPONDUE N'EST PAS SEPT HEURES.
+
+     Cette saisie partait de « 07:00 » quand rien n'était connu. Le champ
+     n'étant jamais vide, `lire()` rendait toujours une valeur, et passer
+     l'écran sans y toucher ÉCRIVAIT sept heures au profil — avec la source
+     « declare », c'est-à-dire « la personne l'a dit ». Elle ne l'avait pas
+     dit. Et une heure de lever fausse déplace la bascule de journée, donc
+     la revue du soir, donc le compte des séances.
+
+     Elle part donc vide, et la note le dit. Une valeur déjà enregistrée est
+     bien reproposée : revenir sur une question ne doit pas effacer la
+     réponse d'avant.
+  */
+  function heure(declare: ChampDeclare, defaut: string | null): Saisie {
+    const enveloppe = document.createElement('div');
     const champ = document.createElement('input');
     champ.type = 'time';
     champ.step = '900';
-    champ.value = defaut;
+    champ.id = `saisie-${declare.champ}`;
+    champ.setAttribute('aria-labelledby', 'question');
+    champ.value = defaut ?? '';
     champ.className =
       'rounded-lg border border-slate-300 px-3 py-2 text-slate-900 ' +
       'dark:border-slate-700 dark:bg-slate-950 dark:text-white';
-    return { element: champ, lire: () => (champ.value ? champ.value : undefined) };
+    const note = document.createElement('p');
+    note.className = 'mt-2 text-xs text-slate-500 dark:text-slate-400';
+    note.textContent = 'Laissez vide si vous ne savez pas.';
+    enveloppe.append(champ, note);
+    return { element: enveloppe, lire: () => (champ.value ? champ.value : undefined) };
   }
 
-  function curseur(declare: ChampDeclare, defaut: number): Saisie {
+  /*
+     U2 DU 43 — UN CURSEUR NON TOUCHÉ N'A RIEN RÉPONDU.
+
+     `lire()` rendait `Number(champ.value)`, donc TOUJOURS un nombre : passer
+     l'écran sans toucher le curseur écrivait sa position de départ, zéro
+     quand rien n'était connu. Un zéro écrit « declare » est une réponse,
+     pas une absence de réponse — et il se propage aux déductions.
+
+     Un curseur n'a pas d'état vide : on en tient donc un, et on l'affiche.
+     Tant que la personne n'a pas bougé le curseur ET qu'aucune valeur
+     n'était enregistrée, l'écran dit « non répondu » et rien n'est écrit.
+     Une valeur déjà enregistrée compte, elle, comme une réponse : la
+     reproposer et ne pas la réécrire reviendrait à la perdre au prochain
+     passage.
+  */
+  function curseur(declare: ChampDeclare, defaut: number | null): Saisie {
     const bornes = BORNES[declare.champ] ?? { min: 0, max: 40, pas: 1, unite: '' };
     const enveloppe = document.createElement('div');
     const valeur = document.createElement('p');
     valeur.className = 'text-2xl font-semibold text-slate-900 dark:text-white';
     const champ = document.createElement('input');
     champ.type = 'range';
+    champ.id = `saisie-${declare.champ}`;
+    champ.setAttribute('aria-labelledby', 'question');
     champ.min = String(bornes.min);
     champ.max = String(bornes.max);
     champ.step = String(bornes.pas);
-    champ.value = String(Math.min(bornes.max, Math.max(bornes.min, defaut)));
+    const depart = defaut ?? Math.round((bornes.min + bornes.max) / 2);
+    champ.value = String(Math.min(bornes.max, Math.max(bornes.min, depart)));
     champ.className = 'mt-2 w-full';
+    let repondu = defaut !== null;
+    const note = document.createElement('p');
+    note.className = 'mt-2 text-xs text-slate-500 dark:text-slate-400';
+    note.textContent = 'Laissez vide si vous ne savez pas : touchez le curseur pour répondre.';
     const peindre = () => {
+      if (!repondu) {
+        valeur.textContent = 'non répondu';
+        note.classList.remove('hidden');
+        return;
+      }
       const n = Number(champ.value);
       valeur.textContent = `${n.toLocaleString('fr-FR')} ${bornes.unite}${n > 1 && bornes.unite === 'séance' ? 's' : ''}`;
+      note.classList.add('hidden');
     };
-    champ.addEventListener('input', peindre);
+    champ.addEventListener('input', () => {
+      repondu = true;
+      peindre();
+    });
     peindre();
-    enveloppe.append(valeur, champ);
-    return { element: enveloppe, lire: () => Number(champ.value) };
+    enveloppe.append(valeur, champ, note);
+    return { element: enveloppe, lire: () => (repondu ? Number(champ.value) : undefined) };
   }
 
   function repartition(champs: readonly { clef: string; libelle: string }[], defaut: Record<string, number>): Saisie {
@@ -429,13 +481,20 @@ import Base from '../layouts/Base.astro';
     return {
       element: enveloppe,
       lire: () => {
-        if (inconnu) return {};
+        /*
+           U2 DU 43. « Je ne sais pas encore » rendait `{}`, et la boucle
+           d'enregistrement écrivait cet objet vide : le profil portait alors
+           une répartition DÉCLARÉE et vide, ce qui n'est pas la même chose
+           qu'une répartition inconnue. Un « je ne sais pas » n'écrit rien.
+           Et si tous les curseurs sont à zéro, il n'y a rien à dire non plus.
+        */
+        if (inconnu) return undefined;
         const sortie: Record<string, number> = {};
         for (const [clef, champ] of curseurs) {
           const n = Number(champ.value);
           if (n > 0) sortie[clef] = n;
         }
-        return sortie;
+        return Object.keys(sortie).length ? sortie : undefined;
       },
     };
   }
@@ -468,9 +527,11 @@ import Base from '../layouts/Base.astro';
     return {
       element: enveloppe,
       lire: () => {
+        /* U2 DU 43 : aucune date saisie, rien à enregistrer — et surtout pas
+           un objet vide, qui se lirait comme « aucune épreuve ». */
         const sortie: Record<string, string> = {};
         for (const [clef, champ] of champs) if (champ.value) sortie[clef] = champ.value;
-        return sortie;
+        return Object.keys(sortie).length ? sortie : undefined;
       },
     };
   }
@@ -523,9 +584,9 @@ import Base from '../layouts/Base.astro';
     if (SAISIE_LIBRE_CHIFFREE.includes(champ)) {
       return nombreLibre(declare, typeof defaut === 'number' ? defaut : null);
     }
-    if (champ in BORNES) return curseur(declare, typeof defaut === 'number' ? defaut : 0);
+    if (champ in BORNES) return curseur(declare, typeof defaut === 'number' ? defaut : null);
     if (champ in MAXIMUM_LIGNES) return lignes(declare, Array.isArray(defaut) ? (defaut as string[]).map(String) : []);
-    if (declare.nature === 'heure') return heure(typeof defaut === 'string' ? defaut : '07:00');
+    if (declare.nature === 'heure') return heure(declare, typeof defaut === 'string' ? defaut : null);
     return texte(declare, typeof defaut === 'string' ? defaut : '');
   }
 
@@ -628,6 +689,31 @@ import Base from '../layouts/Base.astro';
       if (valeur === undefined) continue;
       if (typeof valeur === 'string' && !valeur) continue;
       if (Array.isArray(valeur) && !valeur.length) continue;
+      /*
+         U2 DU 43 — JAMAIS UN OBJET VIDE, et la garde est ici en plus d'être
+         dans chaque saisie. Les deux saisies qui rendent un objet la
+         portent déjà ; celle-ci tient pour les saisies qu'on n'a pas encore
+         écrites. Un `{}` enregistré se lit comme une déclaration — « aucune
+         épreuve », « aucune heure répartie » — et ce n'est pas ce qu'une
+         absence de réponse veut dire.
+      */
+      if (
+        valeur !== null &&
+        typeof valeur === 'object' &&
+        !Array.isArray(valeur) &&
+        !Object.keys(valeur as Record<string, unknown>).length
+      ) {
+        continue;
+      }
+      /*
+         PAS DE MIGRATION, ET LA RAISON TIENT EN UNE PHRASE : une valeur
+         déjà enregistrée par défaut est indistinguable d'une valeur
+         choisie. Sept heures du matin est un lever plausible ; zéro séance
+         par semaine aussi. Corriger les profils existants effacerait donc
+         de vraies réponses pour en retirer de fausses, sans pouvoir les
+         départager. Le défaut est arrêté à la source ; ce qui a été écrit
+         avant reste, et se corrige en repassant la question.
+      */
       try {
         /*
          * `confirme` et non `declare` : la valeur vient d'une observation que la
