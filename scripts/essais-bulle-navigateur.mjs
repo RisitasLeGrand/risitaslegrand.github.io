@@ -18,7 +18,17 @@
 import { chromium } from 'playwright-core';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
-import { DUREE_BULLE_MS } from '../src/lib/ui.ts';
+import { readFileSync } from 'node:fs';
+
+/*
+   La constante se LIT dans le fichier, elle ne s'importe pas : `ui.ts` touche
+   `import.meta.env` dès son premier import, ce qu'un script Node ne sait pas
+   fournir. Lire le littéral garde ce que l'import donnait — un essai qui cite
+   la valeur nommée et rougit si elle redescend — sans traîner tout Astro.
+*/
+const DUREE_BULLE_MS = Number(
+  /export const DUREE_BULLE_MS = (\d+)/.exec(readFileSync('src/lib/ui.ts', 'utf8'))?.[1] ?? 0,
+);
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -73,7 +83,10 @@ const surTelephone = await tactile.newPage();
   const bulle = await faireParaitreUneBulle(surTelephone);
   const mesures = await surTelephone.evaluate(() => {
     const bulle = document.querySelector('.bulle-notification');
-    const barre = document.querySelector('nav[class*="fixed"], .barre-onglets, footer nav');
+    /* La barre par son identifiant, et non par ses classes : « nav » et
+       « fixed » attrapent aussi les menus du pied de page, et c'est ce qui a
+       fait rougir cet essai sur une bulle pourtant bien placée. */
+    const barre = document.getElementById('barre-du-bas');
     const racine = getComputedStyle(document.documentElement);
     return {
       basDeLaBulle: bulle.getBoundingClientRect().bottom,
