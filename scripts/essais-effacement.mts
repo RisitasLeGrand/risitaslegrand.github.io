@@ -301,6 +301,50 @@ for (const g of GROUPES) {
 }
 v('un groupe inconnu ne se résout pas', groupe('inexistant'), undefined);
 
+console.log('\nUNE DESCRIPTION NOMME CE QUE SON GROUPE EMPORTE');
+
+/*
+ * L'écart relevé par le pilote le 19 octobre : « Odyssée » se décrivait comme
+ * « Tâches, quêtes, agenda, temps de concentration et revues » et emportait
+ * aussi les traitements, le journal de Psyché et les comptes. C'est la phrase
+ * que l'écran d'effacement montre.
+ *
+ * Le contrôle ne juge pas le style de la phrase — il serait illusoire de
+ * vérifier qu'une description est « complète ». Il vérifie ce qui compte : un
+ * magasin SENSIBLE est nommé par la description de son groupe. La table est
+ * déclarée ici, et un magasin sensible nouveau la fera rougir tant que la
+ * phrase ne le dira pas.
+ */
+const MOTS_DU_MAGASIN: Record<string, readonly string[]> = {
+  odysseeSante: ['santé'],
+  odysseeTraitements: ['traitement'],
+  odysseeMedicaments: ['traitement', 'médicament'],
+  odysseePrelevements: ['prélèvement', 'analyse'],
+  odysseeResultats: ['résultat', 'analyse'],
+  odysseeRessentis: ['ressenti', 'psyché'],
+  odysseeCheckins: ['psyché', 'échelle'],
+  odysseeJournal: ['journal'],
+  odysseeComptes: ['compte', 'finance'],
+  odysseeOperations: ['opération', 'finance'],
+  odysseeLignesBudget: ['budget', 'finance'],
+  odysseePointages: ['pointage', 'finance'],
+  odysseeVeilleSignaux: ['veille'],
+  odysseeNuits: ['nuit', 'corps'],
+  odysseeRepas: ['repas', 'corps'],
+  odysseePesees: ['poids', 'corps'],
+  odysseeMesures: ['mesure', 'corps'],
+};
+
+for (const [magasin, mots] of Object.entries(MOTS_DU_MAGASIN)) {
+  const g = GROUPES.find((groupe) => groupe.magasins.includes(magasin));
+  const phrase = (g?.description ?? '').toLowerCase();
+  v(
+    `« ${magasin} » est nommé par la description de son groupe`,
+    Boolean(g) && mots.some((mot) => phrase.includes(mot)),
+    true,
+  );
+}
+
 console.log('\nLA PHRASE QUI DIT LES RUBRIQUES (G-5 ET G-6 DU 58)');
 
 /*

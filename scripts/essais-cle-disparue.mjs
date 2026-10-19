@@ -230,6 +230,25 @@ v(
 console.log('\nET RIEN N’EST ÉCRIT PAR-DESSUS');
 
 await page.waitForTimeout(2000);
+
+/*
+   LE CONTRÔLE QUI MANQUAIT, ET QUI A COÛTÉ UN ROUGE EN BATTERIE.
+
+   Cette page — comme les huit autres sous coffre — porte son propre
+   abonnement, et fait `classList.toggle('hidden', ouvert)` sur
+   `#coffre-ferme`. Coffre fermé, elle RETIRE `hidden` : elle ré-affichait
+   donc le formulaire juste après que le signal l'avait caché. Lequel des deux
+   scripts arrive en dernier dépend de la vitesse des imports — seul en
+   batterie, machine chargée, le défaut est sorti.
+   Le correctif est une règle de style sur un attribut de racine ; ce contrôle
+   mesure donc la visibilité APRÈS le réveil des abonnements, et non à
+   l'instant où le signal paraît.
+*/
+v(
+  'et le formulaire reste retiré, les écrans réveillés',
+  await page.locator('#coffre-ferme').isVisible().catch(() => false),
+  false,
+);
 const apresVisite = await clefsDuCoffre();
 v('aucun sel neuf n’a été posé', apresVisite, []);
 v(

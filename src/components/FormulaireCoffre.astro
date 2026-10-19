@@ -82,6 +82,26 @@ const cadre = nu
   <p id="coffre-sans-cle-message" class="mt-3 hidden text-sm"></p>
 </section>
 
+{/*
+   POURQUOI UNE RÈGLE DE STYLE, ET NON UNE CLASSE POSÉE PAR LE SCRIPT.
+
+   Neuf pages sous coffre portent leur propre abonnement, et toutes font
+   `classList.toggle('hidden', ouvert)` sur `#coffre-ferme`. Coffre fermé,
+   elles RETIRENT `hidden` — donc elles ré-affichaient le formulaire juste
+   après que le signal l'avait caché. L'ordre décide, et l'ordre dépend de la
+   vitesse à laquelle chaque import se résout : seul l'essai en batterie,
+   machine chargée, l'a fait voir.
+
+   L'attribut est posé sur la racine, et la règle est globale : aucune classe
+   ajoutée ou retirée par une page ne peut la défaire. Les pages continuent de
+   piloter leur `hidden` comme avant, sans rien savoir de ce cas-ci.
+*/}
+<style is:global>
+  :root[data-coffre-sans-cle='1'] #coffre-ferme {
+    display: none !important;
+  }
+</style>
+
 <section id="coffre-ferme" class={cadre}>
   {!nu && <h2 class="text-lg font-semibold text-slate-900 dark:text-white">🔒 Ouvrir le coffre</h2>}
   {raison && <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{raison}</p>}
@@ -162,7 +182,13 @@ const cadre = nu
        Le formulaire d'ouverture disparaît : proposer un mot de passe qui ne
        peut rien ouvrir serait la cruauté de cet écran, et c'est exactement ce
        que faisait la version d'avant.
+
+       L'attribut de racine fait le travail — la règle de style plus haut dit
+       pourquoi. La classe est posée en plus, pour que l'élément soit cohérent
+       avec lui-même si une page lit son `hidden` ; mais ce n'est pas elle qui
+       tient, et une page peut la retirer sans conséquence.
     */
+    document.documentElement.dataset.coffreSansCle = '1';
     document.getElementById('coffre-ferme')?.classList.add('hidden');
 
     const combien = await combienDeScellesIllisibles();

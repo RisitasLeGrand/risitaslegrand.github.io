@@ -415,7 +415,25 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
   {
     id: 'odyssee',
     libelle: 'Odyssée',
-    description: 'Tâches, quêtes, agenda, temps de concentration et revues.',
+    /*
+       LA DESCRIPTION DISAIT LE QUART DE CE QUE LE GROUPE EMPORTE.
+
+       Elle s'arrêtait à « Tâches, quêtes, agenda, temps de concentration et
+       revues » — l'Odyssée des premiers jours. Depuis, le groupe a gagné le
+       corps, la santé et les traitements, Psyché, les finances et la veille :
+       quarante-quatre magasins. Or c'est cette phrase que l'écran
+       d'effacement montre. Une personne qui voulait retirer ses tâches
+       emportait ses analyses sans que rien ne l'en avertisse.
+
+       Écart relevé par le pilote le 19 octobre, corrigé avec G-5 et G-6,
+       puisque c'est le même principe : l'écran doit dire ce qu'il efface.
+    */
+    description:
+      'Tâches, quêtes, agenda, temps de concentration et revues ; le corps ' +
+      '(poids, mesures, nuits, repas, boissons) ; la santé, les traitements, les ' +
+      'prélèvements et leurs résultats ; Psyché (journal, ressentis, échelles) ; ' +
+      'les finances (comptes, opérations, budget, pointage) ; et la veille du ' +
+      'rythme de vie.',
     magasins: [
       'odysseeTaches',
       'odysseeOccurrences',
