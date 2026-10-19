@@ -207,6 +207,17 @@ export const REGLAGES: Reglage[] = [
     ecran: '/profil/',
   },
   {
+    id: 'serie-xp',
+    libelle: 'Afficher la série et l’XP',
+    aQuoiCaSert:
+      'Le compteur de jours d’affilée et les points d’expérience. Éteint, ils disparaissent des écrans ; rien n’est perdu, et le calcul continue.',
+    section: 'affichage',
+    portee: 'appareil',
+    stockage: 'localStorage::revinsp.serie-xp',
+    nature: interrupteur,
+    defaut: true,
+  },
+  {
     id: 'vue-fiche',
     libelle: 'Ouvrir les fiches en lecture continue',
     aQuoiCaSert: 'Plutôt que repliées section par section.',

@@ -168,6 +168,7 @@ import { base } from '../lib/ui';
     type Note,
   } from '../lib/db';
   import { gagnerXp, xpFlashcard } from '../lib/gamification';
+  import { serieEtXpAffichees } from '../lib/serie-xp';
   import { apercu, carteNeuve, delai, noterEtEnregistrer, NOTES } from '../lib/srs';
   import { signalerErreur } from '../lib/journal';
   import { enregistrerReponse, ordonnerParZoneProximale } from '../lib/niveau';
@@ -315,7 +316,9 @@ import { base } from '../lib/ui';
     $('barre-session').style.transform = 'scaleX(1)';
     afficherVue('bilan');
     $('bilan-detail').textContent =
-      `${pluriel(notees, 'carte révisée', 'cartes révisées')} · +${xpSession} XP · ` +
+      `${pluriel(notees, 'carte révisée', 'cartes révisées')}` +
+      (serieEtXpAffichees() ? ` · +${xpSession} XP` : '') +
+      ' · ' +
       `${compte.facile} facile(s), ${compte.correct} correct(s), ` +
       `${compte.difficile} difficile(s), ${compte.oublie} oublié(s)`;
   }

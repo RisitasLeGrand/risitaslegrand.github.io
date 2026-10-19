@@ -156,6 +156,7 @@ import LienReglages from '../components/LienReglages.astro';
   import { ecrireEtatFiche, lireEtatFiche } from '../lib/db';
   import { aProposer, montrer as montrerPretest } from '../lib/pretest';
   import { gagnerXp, xpFiche } from '../lib/gamification';
+  import { serieEtXpAffichees } from '../lib/serie-xp';
   import { activerGlossaire } from '../lib/glossaire';
   import { installerLecteurPodcast, type LecteurPodcast } from '../lib/podcast';
   import { lien, notifier, parametreUrl } from '../lib/ui';
@@ -420,9 +421,18 @@ import LienReglages from '../components/LienReglages.astro';
       secondes: etat?.secondes ?? 0,
     });
     const gain = await gagnerXp(xpFiche());
-    notifier(`+${gain.xpGagne} XP — fiche terminée`, 'succes');
+    /*
+       LA CONFIRMATION RESTE, LE CHIFFRE PART (F2).
+
+       Éteindre les scores ne doit pas éteindre le retour : savoir que la
+       fiche est enregistrée est un fait, pas une récompense. Seul le nombre
+       de points — et le niveau, qui n'est que l'XP sous un autre nom —
+       dépend du réglage.
+    */
+    const scores = serieEtXpAffichees();
+    notifier(scores ? `+${gain.xpGagne} XP — fiche terminée` : 'Fiche terminée', 'succes');
     for (const badge of gain.nouveauxBadges) notifier(`${badge.icone} Succès : ${badge.nom}`, 'badge');
-    if (gain.monteeDeNiveau) notifier(`🎉 Niveau ${gain.niveau.niveau} !`, 'succes');
+    if (gain.monteeDeNiveau && scores) notifier(`🎉 Niveau ${gain.niveau.niveau} !`, 'succes');
     majBoutonLu(true);
     bouton.blur();
   }

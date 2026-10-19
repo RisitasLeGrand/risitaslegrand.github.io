@@ -186,6 +186,7 @@ import Base from '../../layouts/Base.astro';
   import { pourLaSeance } from '../../lib/journal';
   import { chargerItems, montrer as montrerJournal } from '../../lib/journal-revision';
   import { formaterDuree, lien, parametreUrl, pluriel } from '../../lib/ui';
+  import { serieEtXpAffichees } from '../../lib/serie-xp';
   import {
     dureeEstimeeDeLaPartie,
     encoderParties,
@@ -847,8 +848,9 @@ import Base from '../../layouts/Base.astro';
 
     const bilan = $('bilan');
     bilan.textContent =
-      `Séance enregistrée — ${formaterDuree(seance.secondes)}, +${resultat.xpGagne} XP` +
-      (resultat.monteeDeNiveau ? ' · niveau supérieur atteint !' : '') +
+      `Séance enregistrée — ${formaterDuree(seance.secondes)}` +
+      (serieEtXpAffichees() ? `, +${resultat.xpGagne} XP` : '') +
+      (resultat.monteeDeNiveau && serieEtXpAffichees() ? ' · niveau supérieur atteint !' : '') +
       '. Elle vous sera proposée à restituer lors des prochaines séances de cette matière.';
     bilan.classList.remove('hidden');
     $('etiquette').textContent = 'Séance terminée';

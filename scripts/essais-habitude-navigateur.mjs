@@ -142,9 +142,19 @@ const semerLeProfil = (profil) =>
     base.close();
   }, profil);
 
-/** Le texte visible de la page, apostrophes ramenées à la droite. */
+/**
+ * Le texte visible de la page, EN MINUSCULES et apostrophes droites.
+ *
+ * `innerText` rend la casse APPLIQUÉE PAR LE STYLE : la classe « etiquette »
+ * met ses intitulés en capitales, et « Série en cours » s'y lit « SÉRIE EN
+ * COURS ». Un contrôle sensible à la casse était donc vert des deux côtés,
+ * avant comme après le correctif, et ne prouvait rien — il a fallu le
+ * mesurer sur la construction d'avant pour s'en apercevoir.
+ *
+ * Tout ce qui est cherché ici s'écrit donc en minuscules.
+ */
 const texteDeLaPage = async () =>
-  (await page.locator('body').innerText()).replace(/[’ʼ]/g, "'");
+  (await page.locator('body').innerText()).replace(/[’ʼ]/g, "'").toLowerCase();
 
 try {
   await aller('/');
@@ -175,7 +185,7 @@ try {
   faux("aucune relance « en relance une nouvelle »", texte.includes('relance une nouvelle'));
   vrai(
     'le compteur dit toujours ce qu’il sait : le record est affiché',
-    texte.includes('Record'),
+    texte.includes('record'),
   );
   console.log('\nF3 — UN JOUR OUBLIÉ PAR SEMAINE NE CASSE PLUS LA SÉRIE');
   await semer('planification', SEPT_JOURS_TRAVAILLES);
@@ -231,7 +241,88 @@ try {
   texte = await texteDeLaPage();
   vrai(
     'la règle est écrite sous le compteur',
-    texte.includes("Un jour oublié par semaine ne casse pas la série"),
+    texte.includes('un jour oublié par semaine ne casse pas la série'),
+  );
+  console.log('\nF2 — « AFFICHER LA SÉRIE ET L\u2019XP », ALLUMÉ PAR DÉFAUT');
+  await semerLeProfil({ ...PROFIL_EN_PERIL, xp: 540, dernierJourEtudie: jour(-1) });
+  await aller('/parametres/#affichage');
+  const interrupteur = page.locator('#reglage-serie-xp [role="switch"]');
+  /*
+     Les lectures sont bornées et rattrapées : quand le réglage n'existe pas
+     — c'était l'état d'avant ce lot —, l'essai doit rendre une suite de
+     rouges lisibles, et non une panne d'outillage au bout de trente
+     secondes d'attente.
+  */
+  const etatDe = (quoi) =>
+    page
+      .locator(quoi)
+      .getAttribute('aria-checked', { timeout: 2000 })
+      .catch(() => null);
+  const basculer = () =>
+    page
+      .locator('#reglage-serie-xp [role="switch"]')
+      .click({ timeout: 2000 })
+      .catch(() => {});
+
+  v('le réglage est à la page Paramètres, dans Affichage', await interrupteur.count(), 1);
+  v(
+    'il est allumé par défaut : rien n\u2019est retiré à personne',
+    await etatDe('#reglage-serie-xp [role="switch"]'),
+    'true',
+  );
+  vrai(
+    'le libellé dit ce qu\u2019il règle',
+    (await page.locator('#reglage-serie-xp').innerText({ timeout: 2000 }).catch(() => ''))
+      .toLowerCase()
+      .includes('afficher la série et l’xp'),
+  );
+
+  console.log('\nF2 — ÉTEINT, LES SCORES DISPARAISSENT DES ÉCRANS');
+  await basculer();
+  await page.waitForTimeout(300);
+  v('l\u2019interrupteur est éteint', await etatDe('#reglage-serie-xp [role="switch"]'), 'false');
+
+  await aller('/revisions/');
+  /* EXISTE, ET EST CACHÉE. « isHidden » rend vrai sur un élément ABSENT :
+     sans le compte, le contrôle serait vert sur une page qui n'aurait
+     jamais porté cette carte. */
+  vrai(
+    'la carte du niveau existe et est retirée de la vue',
+    (await page.locator('#carte-niveau').count()) === 1 &&
+      (await page.locator('#carte-niveau').isHidden().catch(() => false)),
+  );
+  vrai(
+    'la carte de la série existe et est retirée de la vue',
+    (await page.locator('#carte-streak').count()) === 1 &&
+      (await page.locator('#carte-streak').isHidden().catch(() => false)),
+  );
+  texte = await texteDeLaPage();
+  faux('aucun total d\u2019XP à l\u2019écran', texte.includes('xp au total'));
+  faux('aucun compteur de série', texte.includes('série en cours'));
+  vrai(
+    'la régularité reste : elle dit ce qu\u2019on a travaillé, pas ce qu\u2019on a marqué',
+    texte.includes('huit dernières semaines'),
+  );
+  faux('et sa légende ne nomme plus l\u2019XP', texte.includes("reflète l'xp gagné"));
+
+  await aller('/progression/');
+  texte = await texteDeLaPage();
+  faux('le récapitulatif ne porte plus la série record', texte.includes('série record'));
+  vrai('il porte toujours ce qui n\u2019est pas un score', texte.includes('cartes suivies'));
+
+  console.log('\nF2 — RALLUMÉ, RIEN N\u2019A ÉTÉ PERDU');
+  await aller('/parametres/#affichage');
+  await basculer();
+  await page.waitForTimeout(300);
+  await aller('/revisions/');
+  texte = await texteDeLaPage();
+  vrai(
+    'le total d\u2019XP est revenu intact : le calcul n\u2019avait pas cessé',
+    texte.includes('540 xp au total'),
+  );
+  vrai(
+    'la carte de la série est de retour',
+    await page.locator('#carte-streak').isVisible().catch(() => false),
   );
 } finally {
   await contexte.close();

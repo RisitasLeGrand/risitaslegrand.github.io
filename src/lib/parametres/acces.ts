@@ -27,6 +27,7 @@ import {
   type ReglagesNiveau,
 } from '../niveau';
 import { reglerLaRetention, retentionReglee } from '../notifications/retention';
+import { reglerSerieEtXp, serieEtXpAffichees } from '../serie-xp';
 import { activerLaSante, santeActive } from '../odyssee/donnees-sante';
 import { champ, ecrireChamp } from '../profil';
 import {
@@ -112,6 +113,10 @@ export const ACCES: Record<string, Acces> = {
          sinon le réglage ne prendrait qu'à la page suivante. */
       document.documentElement.setAttribute('data-animations', valeur);
     },
+  },
+  'serie-xp': {
+    lire: async () => serieEtXpAffichees(),
+    ecrire: async (v) => reglerSerieEtXp(Boolean(v)),
   },
   'vue-fiche': {
     lire: async () => lireLocal(CLE_VUE_FICHE) === 'continue',
