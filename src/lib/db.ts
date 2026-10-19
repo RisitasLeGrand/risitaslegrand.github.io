@@ -2675,24 +2675,62 @@ export async function remplacerMagasins(
   const connus = new Set<string>(MAGASINS_PROGRESSION);
   const inconnus = Object.keys(magasins).filter((nom) => !connus.has(nom));
 
-  await viderProgression(base);
+  /*
+     UNE SEULE TRANSACTION, LE VIDAGE COMPRIS — B-1 du 58.
 
+     Ce code vidait toute la progression hors transaction, puis réécrivait
+     magasin par magasin, une transaction par magasin. Mesuré : une coupure
+     au milieu laissait la base VIDÉE et la sauvegarde à moitié écrite —
+     c'est-à-dire le pire des deux états, puisque ni l'ancien ni le nouveau
+     n'est là. Une restauration est pourtant le geste qu'on fait quand on a
+     déjà perdu quelque chose.
+
+     Tout tient donc dans une transaction unique : si une écriture échoue,
+     `abort()` rend la base telle qu'elle était, à l'enregistrement près.
+     C'est la garantie qu'IndexedDB sait donner, et la seule qui vaille ici.
+
+     Deux précautions pour qu'elle tienne vraiment :
+     - **aucune attente étrangère à la transaction** entre deux écritures.
+       Une transaction IndexedDB se valide d'elle-même dès que la boucle
+       d'événements tourne sans requête en cours ; un `await` sur autre
+       chose qu'une de ses opérations la refermerait au milieu, et le
+       vidage serait acquis. C'est pourquoi l'instantané, la relecture du
+       fichier et le journal se font AVANT ou APRÈS, jamais ici ;
+     - **l'erreur d'origine est relancée**, et non celle de l'abandon : le
+       `tx.done` d'une transaction abandonnée échoue lui aussi, et le laisser
+       parler remplacerait la cause par sa conséquence.
+  */
+  const tx = base.transaction(MAGASINS_PROGRESSION, 'readwrite');
   const ecrits: Record<string, number> = {};
-  for (const nom of MAGASINS_PROGRESSION) {
-    const enregistrements = magasins[nom];
-    if (!Array.isArray(enregistrements)) continue;
-    const tx = base.transaction(nom, 'readwrite');
-    const magasin = tx.objectStore(nom);
-    for (const enr of enregistrements) {
-      if (nom === 'etat') {
-        const { clef, valeur } = enr as { clef: string; valeur: unknown };
-        if (typeof clef === 'string') await magasin.put(valeur as never, clef);
-      } else {
-        await magasin.put(enr as never);
+  try {
+    for (const nom of MAGASINS_PROGRESSION) {
+      const magasin = tx.objectStore(nom);
+      // « Remplacer » : chaque magasin connu est vidé, même si la sauvegarde
+      // ne le mentionne pas. C'était déjà le sens de `viderProgression`.
+      await magasin.clear();
+      const enregistrements = magasins[nom];
+      if (!Array.isArray(enregistrements)) continue;
+      for (const enr of enregistrements) {
+        if (nom === 'etat') {
+          const { clef, valeur } = enr as { clef: string; valeur: unknown };
+          if (typeof clef === 'string') await magasin.put(valeur as never, clef);
+        } else {
+          await magasin.put(enr as never);
+        }
       }
+      ecrits[nom] = enregistrements.length;
     }
     await tx.done;
-    ecrits[nom] = enregistrements.length;
+  } catch (cause) {
+    try {
+      tx.abort();
+    } catch {
+      // Déjà abandonnée ou déjà validée : il n'y a rien de plus à faire.
+    }
+    // On attend la fin de l'abandon pour que la base soit revenue en arrière
+    // avant que l'appelant ne la relise, et on ignore son erreur à elle.
+    await tx.done.catch(() => {});
+    throw cause;
   }
   return { ecrits, inconnus };
 }

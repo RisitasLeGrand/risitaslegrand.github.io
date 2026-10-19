@@ -33,6 +33,7 @@
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { repondreALaBoite } from './lib/boite-essais.mjs';
 
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
 const MDP = motDePasseEssais();
@@ -90,7 +91,11 @@ const nav = await chromium.launch({
   executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
   args: ['--no-sandbox'],
 });
-const ctx = await nav.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
+const ctx = await nav.newContext({
+  viewport: { width: 390, height: 844 },
+  hasTouch: true,
+  acceptDownloads: true,
+});
 const page = await ctx.newPage();
 await franchirInitialisation(page, RACINE, MDP);
 await page.goto(`${RACINE}/progression/`, { waitUntil: 'networkidle' });
@@ -166,6 +171,168 @@ verifier(
   apres.filter((id) => id.startsWith('apres-')),
   [],
 );
+
+/* ── 4. Le même invariant sur le chemin « .cyclades » — B-1 du 58 ────────── */
+
+/*
+ * Pourquoi cette seconde moitié existe.
+ *
+ * Tout ce qui précède éprouve `importerTout`, le chemin de l'ancien fichier
+ * JSON. Le chemin d'archive, celui que la personne utilise vraiment depuis
+ * la phase 2d, est `.cyclades` → `restaurer()` → `remplacerMagasins()`. Or
+ * il ne portait PAS l'invariant : `remplacerMagasins` vidait toute la
+ * progression hors transaction, puis réécrivait magasin par magasin, une
+ * transaction par magasin. Une coupure à la vingtième écriture laissait donc
+ * la base vidée, quelques magasins remplis, et le reste perdu — c'est-à-dire
+ * le pire des deux états, puisque ni l'ancien ni le nouveau n'est là.
+ *
+ * L'essai part de la route, fabrique une vraie sauvegarde par le bouton,
+ * change la base, puis restaure la sauvegarde avec une coupure armée.
+ */
+
+console.log('\nLE CHEMIN « .CYCLADES » — UNE VRAIE SAUVEGARDE');
+
+// On repart d'une base saine : la coupure précédente a été posée sur le
+// prototype, et elle resterait armée pour la suite.
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(1500);
+
+const cartesAvant = await cartesEnBase();
+verifier('la base porte bien l’état d’avant', cartesAvant, ['avant-1', 'avant-2']);
+
+await page.fill('#mdp-sauvegarde', MDP);
+const attendu = page.waitForEvent('download', { timeout: 120000 });
+await page.click('#sauvegarder');
+const fichier = await attendu;
+const { readFile } = await import('node:fs/promises');
+const octets = await readFile(await fichier.path());
+verifier('la sauvegarde est bien un fichier non vide', octets.byteLength > 0, true);
+verifier('et porte l’extension .cyclades', /\.cyclades$/.test(fichier.suggestedFilename()), true);
+
+/*
+   COMBIEN D'ÉCRITURES, AU FAIT ?
+
+   L'audit parlait d'une coupure « à la vingtième écriture ». Sur une base
+   d'essai, il n'y en a pas vingt, et une coupure armée à vingt ne coupe
+   jamais : l'essai passerait au vert sans avoir rien éprouvé. Le seuil est
+   donc DÉRIVÉ — on restaure une première fois en comptant, puis on coupe à
+   la moitié. Et si la restauration tient en moins de quatre écritures,
+   l'essai refuse de juger plutôt que de se déclarer vert.
+*/
+const restaurerCyclades = async () => {
+  await page.locator('#fichier-cyclades').setInputFiles({
+    name: 'essai.cyclades',
+    mimeType: 'application/octet-stream',
+    buffer: octets,
+  });
+  await page.waitForSelector('#apercu-cyclades:not(.hidden)', { timeout: 60000 });
+  await page.fill('#mdp-restauration', MDP);
+  /*
+     Sans instantané : il appelle `fabriquer()`, qui écrit la date de dernière
+     sauvegarde — donc des écritures de plus, et le seuil cesserait de dire ce
+     qu'il dit. L'instantané a son propre essai.
+  */
+  await page.locator('#avec-instantane').uncheck();
+  await page.click('#appliquer-cyclades');
+  /*
+     La boîte commune : remplacer toute la progression est destructeur, donc
+     l'écran demande. Un essai qui ne répond pas ne restaure rien — et c'est
+     ce qui a d'abord fait croire que la restauration tenait en zéro écriture.
+  */
+  await repondreALaBoite(page, 'Remplacer', { delai: 20000 });
+  await page.waitForTimeout(5000);
+};
+
+const compteur = async () =>
+  page.evaluate(`
+    (() => {
+      let vues = 0;
+      const vraiPut = IDBObjectStore.prototype.put;
+      window.__puts = () => vues;
+      IDBObjectStore.prototype.put = function (...args) {
+        vues += 1;
+        return vraiPut.apply(this, args);
+      };
+      return 'posé';
+    })();
+  `);
+
+await compteur();
+await restaurerCyclades();
+const total = Number(await page.evaluate('window.__puts()'));
+console.log(`      écritures d’une restauration complète : ${total}`);
+verifier('une restauration complète fait au moins quatre écritures', total >= 4, true);
+const seuil = Math.max(2, Math.floor(total / 2));
+console.log(`      la coupure sera armée à l’écriture n° ${seuil}`);
+
+/* L'état d'APRÈS : c'est lui qu'une restauration coupée ne doit pas abîmer. */
+console.log('\nUN ÉTAT DIFFÉRENT, QUE LA COUPURE NE DOIT PAS ABÎMER');
+await page.reload({ waitUntil: 'networkidle' });
+await page.waitForTimeout(1500);
+await page.locator('input[name="mode"][value="remplacement"]').check();
+await page.locator('#fichier').setInputFiles({
+  name: 'essai.json',
+  mimeType: 'application/json',
+  buffer: Buffer.from(sauvegarde(['pendant-1', 'pendant-2']), 'utf8'),
+});
+await page.waitForTimeout(1800);
+verifier('la base porte l’état intermédiaire', await cartesEnBase(), ['pendant-1', 'pendant-2']);
+
+console.log('\nLA COUPURE AU MILIEU DE LA RESTAURATION');
+const armee = await page.evaluate(`
+  (() => {
+    let vues = 0;
+    const vraiPut = IDBObjectStore.prototype.put;
+    window.__putsCyclades = () => vues;
+    IDBObjectStore.prototype.put = function (...args) {
+      vues += 1;
+      if (vues === ${seuil}) throw new DOMException('Coupure de l’essai.', 'AbortError');
+      return vraiPut.apply(this, args);
+    };
+    return 'posée';
+  })();
+`);
+verifier('la coupure est armée', armee, 'posée');
+
+await restaurerCyclades();
+
+const puts = Number(await page.evaluate('window.__putsCyclades()'));
+verifier(
+  'la coupure a bien coupé au milieu, et non avant la première écriture',
+  puts >= seuil,
+  true,
+);
+
+console.log('\nL’ÉTAT INTERMÉDIAIRE EST INTACT');
+const apresCyclades = await cartesEnBase();
+verifier('les deux cartes d’avant la restauration sont là', apresCyclades, [
+  'pendant-1',
+  'pendant-2',
+]);
+verifier(
+  'et rien de la sauvegarde restaurée n’est passé',
+  apresCyclades.filter((id) => id.startsWith('avant-')),
+  [],
+);
+verifier('la base n’est pas vide', apresCyclades.length > 0, true);
+
+const ditCyclades = (await page.locator('#message-cyclades').textContent()) ?? '';
+console.log(`      écran : ${ditCyclades.replace(/\s+/g, ' ').slice(0, 140)}`);
+/*
+   Ce que l'écran doit dire, et ce qu'on ne lui demande pas encore.
+
+   Il ne doit en aucun cas annoncer une réussite : c'est le contrôle qui
+   compte, et celui-là est tenu. En revanche il affiche aujourd'hui le
+   message brut de l'erreur, et c'est le constat G-13 du même audit — « ne
+   jamais montrer un Error.message à l'écran ». Il se corrige à son tour,
+   pas ici, et cet essai ne prétend donc pas le couvrir.
+*/
+verifier(
+  'l’écran n’annonce surtout pas une réussite',
+  /restauration faite/i.test(ditCyclades),
+  false,
+);
+verifier('et il dit quelque chose', ditCyclades.trim().length > 0, true);
 
 await nav.close();
 console.log(rouges === 0 ? '\n\x1b[32mTout est vert.\x1b[0m' : `\n\x1b[31m${rouges} rouge(s).\x1b[0m`);

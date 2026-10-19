@@ -129,3 +129,62 @@ coffre se referme et se rouvre avec le bon mot de passe, après l'effacement.
 Il relève aussi toutes les clés réellement présentes dans `etat` et refuse
 qu'une seule échappe au classement — c'est ce contrôle-là qui parlera le
 jour où une clé nouvelle apparaîtra.
+
+### Les deux constats, tranchés par le pilote sous délégation (19/10)
+
+Le pilote a tranché les deux constats ci-dessus dans le cadre du 58 et de la
+délégation d'Alexis.
+
+**Le registre de synchronisation : il faut la pierre tombale.** Le 58 pose
+que l'effacement **ciblé** se propage, et que son écran le dit. Un réglage
+effacé de façon ciblée doit donc partir aussi des autres appareils. La
+pierre tombale s'écrit avec A7/G-2, puisque c'est le même sujet, et l'essai
+simule deux appareils : un réglage effacé sur l'un ne revient pas quand
+l'autre se synchronise. « Tout effacer sur cet appareil » reste local, selon
+la décision 4 : là, pas de pierre tombale.
+
+**Le coffre sans clé : un signal, en petit, dans la partie 1.** Au
+démarrage, ou à l'ouverture d'un écran sous coffre, s'il existe des
+enregistrements scellés alors que le sel ou l'enveloppe manque, l'écran le
+dit en clair et propose la restauration. Il ne crée **jamais** un nouveau
+coffre par-dessus en silence : la création demande une confirmation qui cite
+ce message. L'essai part de la reproduction de B-3 sans le correctif.
+
+L'ordre ne change pas : B-1, B-5, A7/G-2 avec la pierre tombale, B-4, puis
+G-5, G-13 et G-10, et une batterie complète à la fin de la partie 1.
+
+## Avancement — B-1, livré le 19 octobre
+
+**Le rouge, d'abord, et sur le bon chemin.** L'essai de restauration
+atomique existait déjà, mais il n'éprouvait que l'ancien chemin JSON. Le
+chemin d'archive — `.cyclades` → `restaurer()` → `remplacerMagasins()` — ne
+portait pas l'invariant. L'essai a donc été étendu : il fabrique une vraie
+sauvegarde par le bouton de l'écran, met la base dans un autre état, puis
+restaure avec une coupure armée au milieu.
+
+Mesuré avant le correctif : après la coupure, le magasin des cartes est
+**vide**. Ni l'état d'avant, ni la sauvegarde. C'est le pire des deux états,
+et il arrive au moment précis où l'on restaure parce qu'on a déjà perdu
+quelque chose.
+
+**Le seuil de la coupure est dérivé, pas figé.** L'audit parlait d'un échec
+« à la vingtième écriture ». Sur une base d'essai, il n'y en a pas vingt :
+une coupure armée à vingt ne coupe jamais, et l'essai passerait au vert sans
+avoir rien éprouvé. L'essai compte donc les écritures d'une restauration
+complète, coupe à la moitié, et **refuse de juger** si une restauration tient
+en moins de quatre écritures.
+
+**Ce qui est écrit.** Une transaction unique, le vidage compris. Si une
+écriture échoue, `abort()` rend la base telle qu'elle était. Deux précautions
+sont écrites au-dessus du code, parce qu'elles sont faciles à défaire : aucune
+attente étrangère à la transaction entre deux écritures — une transaction
+IndexedDB se valide d'elle-même dès que la boucle d'événements tourne à vide,
+et le vidage serait alors acquis ; et c'est l'erreur d'origine qui est
+relancée, non celle de l'abandon, sans quoi la cause serait remplacée par sa
+conséquence.
+
+**Un constat en passant, pour G-13.** Après la coupure, l'écran affiche le
+message brut de l'erreur. C'est exactement le constat G-13 — « ne jamais
+montrer un `Error.message` à l'écran ». L'essai vérifie donc seulement que
+l'écran **n'annonce pas une réussite** et qu'il dit quelque chose ; il ne
+prétend pas couvrir G-13, qui vient à son tour.
