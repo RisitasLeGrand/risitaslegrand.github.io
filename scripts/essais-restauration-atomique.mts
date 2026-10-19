@@ -239,6 +239,26 @@ const restaurerCyclades = async () => {
      l'écran demande. Un essai qui ne répond pas ne restaure rien — et c'est
      ce qui a d'abord fait croire que la restauration tenait en zéro écriture.
   */
+  /*
+     G-5 ET G-6 DU 58 — LA BOÎTE EST LUE AVANT D'Y RÉPONDRE.
+
+     C'est la confirmation la plus dangereuse des deux : un effacement se voit
+     venir, une restauration se présente comme un gain. Elle annonçait la
+     somme de trois magasins — « ce navigateur en porte 31 » à quelqu'un qui en
+     portait quatre mille. On vérifie donc qu'elle énumère les rubriques et
+     qu'elle donne un total, avant de confirmer.
+  */
+  await page.waitForSelector('dialog.boite', { timeout: 20000 });
+  const texteDeLaBoite = ((await page.locator('dialog.boite').textContent()) ?? '').replace(
+    /\s+/g,
+    ' ',
+  );
+  verifier('la confirmation énumère les rubriques', /rubrique par rubrique/.test(texteDeLaBoite), true);
+  verifier(
+    'et elle donne un total de toutes les rubriques',
+    /enregistrement\(s\) en tout/.test(texteDeLaBoite),
+    true,
+  );
   await repondreALaBoite(page, 'Remplacer', { delai: 20000 });
   await page.waitForTimeout(5000);
 };

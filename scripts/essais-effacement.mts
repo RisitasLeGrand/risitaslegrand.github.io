@@ -10,6 +10,7 @@
  * `essais-effacement-navigateur.mjs`.
  */
 import { aplatir, versCsv, BOM } from '../src/lib/sauvegarde/export-lisible';
+import { direLesGroupes } from '../src/lib/sauvegarde/effacement';
 import {
   CHAMP_DATE,
   CLEFS_ODYSSEE_ETAT,
@@ -299,6 +300,34 @@ for (const g of GROUPES) {
   v(`« ${g.id} » nomme au moins un magasin`, g.magasins.length > 0, true);
 }
 v('un groupe inconnu ne se résout pas', groupe('inexistant'), undefined);
+
+console.log('\nLA PHRASE QUI DIT LES RUBRIQUES (G-5 ET G-6 DU 58)');
+
+/*
+ * La complétude du compte ne s'éprouve pas ici : elle repose sur l'invariant
+ * « aucun magasin n'est oublié », vérifié plus haut. Ce qui reste à éprouver
+ * est la PHRASE — et surtout qu'elle ne taise pas un total.
+ */
+{
+  const phrase = direLesGroupes([
+    { id: 'revisions', libelle: 'Révisions', vises: 17 },
+    { id: 'sport', libelle: 'Sport', vises: 0 },
+    { id: 'odyssee', libelle: 'Odyssée', vises: 4128 },
+  ]);
+  v('un groupe vide est tu', /Sport/.test(phrase), false);
+  v('un groupe plein est nommé avec son compte', /Révisions 17/.test(phrase), true);
+  v('les grands nombres sont lisibles', /Odyssée 4\u202f128|Odyssée 4 128/.test(phrase), true);
+  v('le total est toujours écrit', /4\u202f145|4 145/.test(phrase), true);
+}
+/*
+ * Le cas vide mérite son contrôle : une base neuve ne doit pas produire
+ * « — soit 0 enregistrement(s) en tout », qui se lit comme une panne.
+ */
+v(
+  'une base sans rien le dit simplement',
+  direLesGroupes([{ id: 'revisions', libelle: 'Révisions', vises: 0 }]),
+  'aucun enregistrement',
+);
 
 console.log(
   echecs

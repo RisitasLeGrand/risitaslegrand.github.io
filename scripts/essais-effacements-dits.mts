@@ -72,6 +72,29 @@ console.log('\n\x1b[1mEFFACER SA PROGRESSION : AVEC DES NOMBRES\x1b[0m\n');
   await page.waitForSelector('#reinitialiser', { timeout: 30000 });
 
   /*
+     DEUX ENREGISTREMENTS D'ODYSSÉE, SEMÉS À LA MAIN.
+
+     Sans eux, la rubrique serait vide, la boîte la tairait — à juste titre —
+     et l'essai mesurerait le cas qui ne prouve rien. Les écrire par l'écran
+     demanderait une tâche, une occurrence et un jour logique : ce n'est pas
+     ce qu'on éprouve ici, qui est le TEXTE du choix.
+  */
+  await page.evaluate(async () => {
+    const base = await new Promise<IDBDatabase>((ok) => {
+      const r = indexedDB.open('revinsp');
+      r.onsuccess = () => ok(r.result);
+    });
+    await new Promise<void>((ok, ko) => {
+      const tx = base.transaction('odysseeTaches', 'readwrite');
+      tx.objectStore('odysseeTaches').put({ id: 'G5-A', titre: 'Essai G-5 A' });
+      tx.objectStore('odysseeTaches').put({ id: 'G5-B', titre: 'Essai G-5 B' });
+      tx.oncomplete = () => ok();
+      tx.onerror = () => ko(tx.error);
+    });
+    base.close();
+  });
+
+  /*
      Le chapeau est lu sur la SECTION, et non sur le parent immédiat du
      bouton. A7 du 58 a mis deux boutons côte à côte — « Tout effacer sur cet
      appareil » et « Délier cet appareil » —, donc le parent immédiat est
@@ -107,6 +130,33 @@ console.log('\n\x1b[1mEFFACER SA PROGRESSION : AVEC DES NOMBRES\x1b[0m\n');
     'et, sans sauvegarde confirmée, elle avertit que rien n’existe ailleurs',
     /aucune sauvegarde n’a jamais été confirmée/.test(dit),
     true,
+  );
+  /*
+     G-5 ET G-6 DU 58 — LES RUBRIQUES, ET PAS SEULEMENT TROIS MAGASINS.
+
+     La somme d'avant valait `cartes + quiz + jours`. Odyssée — quarante-quatre
+     magasins — n'y était pas, non plus que Santé, Finances ni le profil. Deux
+     enregistrements d'Odyssée ont été semés plus haut : la boîte doit les
+     compter, et les nommer sous le libellé du groupe.
+  */
+  v('elle nomme la rubrique Odyssée', /Odyssée \d+/.test(dit), true);
+  /*
+     LE NOMBRE EST DÉRIVÉ, JAMAIS FIGÉ. Première version : j'attendais
+     « Odyssée 2 », pour les deux tâches semées. La boîte dit 3 — une clé
+     d'`etat` appartient aussi à Odyssée. L'essai avait tort, pas l'écran.
+     Ce qui compte est donc : la rubrique est comptée, elle inclut au moins
+     ce qu'on a semé, et le total s'accorde avec la somme des rubriques.
+  */
+  const odyssee = Number(/Odyssée (\d+)/.exec(dit)?.[1] ?? 0);
+  v('elle compte au moins les deux enregistrements semés', odyssee >= 2, true);
+  const rubriques = [...dit.matchAll(/([A-ZÉÀ][^,:.]*?) (\d+)(?=,| —)/g)].map((m) =>
+    Number(m[2]),
+  );
+  const total = Number(/soit ([\d\u202f ]+) enregistrement/.exec(dit)?.[1]?.replace(/\D/g, '') ?? -1);
+  v(
+    'et le total s’accorde avec la somme des rubriques nommées',
+    total,
+    rubriques.reduce((a, b) => a + b, 0),
   );
   v('elle dit que c’est irréversible', /irréversible/.test(dit), true);
 

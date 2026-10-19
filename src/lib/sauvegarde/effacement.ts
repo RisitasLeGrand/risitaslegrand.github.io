@@ -16,7 +16,7 @@
  * reste quand la personne s'est trompée de groupe.
  */
 import { MAGASINS_PROGRESSION, db } from '../db';
-import { CHAMP_DATE, clefVisee, dateDe, groupe, type ClefsVisees } from './groupes';
+import { CHAMP_DATE, GROUPES, clefVisee, dateDe, groupe, type ClefsVisees } from './groupes';
 import { cibleDe, magasinJournalise } from '../noyau/enregistrements';
 
 /** Le filtre d'un effacement. Un groupe, et éventuellement une période. */
@@ -111,6 +111,65 @@ function dansLaPeriode(magasin: string, enregistrement: unknown, cible: Cible): 
   if (cible.depuis && jour < cible.depuis) return false;
   if (cible.jusqua && jour > cible.jusqua) return false;
   return true;
+}
+
+/** Ce qu'un groupe porte aujourd'hui. */
+export interface CompteDeGroupe {
+  id: string;
+  libelle: string;
+  /** Combien d'enregistrements ce groupe porte. */
+  vises: number;
+}
+
+/**
+ * Compte **tous** les groupes, un par un (G-5 et G-6 du 58).
+ *
+ * ## Le défaut
+ *
+ * Les deux confirmations — « Tout effacer sur cet appareil » et « Remplacer
+ * toute la progression » — additionnaient trois magasins : les cartes, les
+ * quiz et les journées. Ni Odyssée, ni Santé, ni Finances, ni le profil. Une
+ * personne qui portait quatre mille enregistrements d'Odyssée lisait « 31 »,
+ * et décidait là-dessus.
+ *
+ * ## Pourquoi ce compte-ci ne peut plus rien oublier
+ *
+ * Il part de `GROUPES`, qui est la même déclaration que l'effacement et
+ * l'export lisible. Un magasin nouveau entre dans un groupe, donc dans ce
+ * compte, sans qu'une ligne soit à ajouter ici. Un magasin qui n'entrerait
+ * dans aucun groupe échapperait encore — c'est pourquoi un essai vérifie que
+ * les deux listes se recouvrent exactement. Au 19 octobre : 68 magasins, 68
+ * dans un groupe, aucun orphelin.
+ *
+ * Les groupes sont comptés **séparément**, et non en une cible unique : une
+ * cible qui les porterait tous rendrait un total juste et muet sur la
+ * répartition, alors que c'est la répartition qui fait décider — « Odyssée :
+ * 4 128 » arrête une main que « 4 159 » n'arrête pas.
+ */
+export async function compterParGroupe(): Promise<CompteDeGroupe[]> {
+  const sortie: CompteDeGroupe[] = [];
+  for (const g of GROUPES) {
+    const { vises } = await compter({ groupes: [g.id] });
+    sortie.push({ id: g.id, libelle: g.libelle, vises });
+  }
+  return sortie;
+}
+
+/**
+ * La phrase qui dit, rubrique par rubrique, ce que portent les groupes.
+ *
+ * Les groupes vides sont tus : « Sport : 0 » n'aide personne à décider, et
+ * noyer douze lignes utiles dans vingt lignes à zéro revient à ne rien dire.
+ * Le total, lui, est toujours écrit — c'est le seul nombre qu'on retient.
+ */
+export function direLesGroupes(comptes: readonly CompteDeGroupe[]): string {
+  const pleins = comptes.filter((c) => c.vises > 0);
+  const total = comptes.reduce((somme, c) => somme + c.vises, 0);
+  if (!pleins.length) return 'aucun enregistrement';
+  return (
+    pleins.map((c) => `${c.libelle} ${c.vises.toLocaleString('fr-FR')}`).join(', ') +
+    ` — soit ${total.toLocaleString('fr-FR')} enregistrement(s) en tout`
+  );
 }
 
 /**

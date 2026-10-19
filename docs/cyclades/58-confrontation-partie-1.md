@@ -401,3 +401,46 @@ depuis le journal » — la réparation complète, qui rejoue tout. `$()` aurait
 rendu le mien et laissé l'autre muet. Et le compte rendu de réussite était
 écrit **dans** la bannière, que la peinture d'état masque aussitôt : le texte
 était juste, et invisible. Il est sorti de la bannière.
+
+## Avancement — G-5 et G-6, livrés le 19 octobre
+
+**Le défaut.** Les deux confirmations — « Tout effacer sur cet appareil » et
+« Remplacer toute la progression » — additionnaient trois magasins : les
+cartes, les quiz et les journées. Ni Odyssée (quarante-quatre magasins), ni
+Santé, ni Finances, ni le profil. Une personne qui portait quatre mille
+enregistrements d'Odyssée lisait « 31 », et décidait là-dessus.
+
+**Des deux, la restauration était la plus dangereuse.** Un effacement se voit
+venir ; une restauration se présente comme un gain. « Ce navigateur en porte
+31 » faisait écraser Odyssée entière en croyant risquer trente et un
+enregistrements.
+
+**Ce qui est écrit.** Un compte **par groupe**, tiré de la même déclaration
+que l'effacement et l'export lisible. Un magasin nouveau entre dans un
+groupe, donc dans le compte, sans qu'une ligne soit à ajouter. Les groupes
+sont comptés séparément et non en une cible unique : un total juste et muet
+sur la répartition ne fait pas décider — « Odyssée : 4 128 » arrête une main
+que « 4 159 » n'arrête pas.
+
+**Et la complétude ne repose pas sur ma vigilance.** Elle repose sur
+l'invariant « aucun magasin n'est oublié », déjà vérifié par
+`essais:effacement` : un magasin qu'aucun groupe ne nomme fait rougir la
+batterie. Mesuré le 19 octobre : **68 magasins, 68 dans un groupe, aucun
+orphelin**. Je n'ai donc pas ajouté de garde-fou en double.
+
+**Les trois nombres de tête restent dits**, en détail et après les rubriques :
+ce sont ceux qu'on reconnaît, et les fondre dans un total aurait été reculer.
+
+**Le rouge, mesuré.** Contre une construction sans le correctif : trois
+contrôles rouges sur l'effacement (la rubrique Odyssée n'est pas nommée, son
+compte n'est pas donné, le total ne s'accorde avec rien) et deux sur la
+restauration (ni rubriques, ni total).
+
+**Deux corrections de ma part en route.** J'avais figé « Odyssée 2 » pour les
+deux enregistrements semés : la boîte dit 3, parce qu'une clé d'`etat`
+appartient aussi à Odyssée. L'essai dérive maintenant le nombre et vérifie
+surtout que **le total s'accorde avec la somme des rubriques nommées** — un
+contrôle qui vaut plus que le nombre lui-même. Et ma phrase disait « Dont 0
+carte(s) suivie(s), 0 quiz et 0 journée(s) » sur une base qui ne portait
+qu'Odyssée : trois zéros n'apprennent rien et font douter du reste. Le détail
+ne paraît plus que s'il a quelque chose à détailler.

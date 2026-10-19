@@ -293,6 +293,7 @@ import LienReglages from '../components/LienReglages.astro';
   } from '../lib/db';
   import { apercu, etatSauvegarde, fabriquer, noterSauvegardeReussie, restaurer } from '../lib/sauvegarde/service';
   import { toutEffacerSurCetAppareil } from '../lib/sauvegarde/effacement-total';
+  import { compterParGroupe, direLesGroupes } from '../lib/sauvegarde/effacement';
   import { appairageMemorise, oublierAppairage } from '../lib/sync/appairage';
   import { offrirLeFichier, TELECHARGEMENT_LANCE } from '../lib/telecharger';
   import { agirPuisPeindre } from '../lib/agir';
@@ -692,12 +693,22 @@ import LienReglages from '../components/LienReglages.astro';
       ? Math.floor((Date.now() - new Date(vuRestaurer.entete.creeLe).getTime()) / 86_400_000)
       : null;
     const combienDansLaSauvegarde = vuRestaurer ? vuRestaurer.enregistrements : null;
-    const [cartesIci, quizIci, joursIci] = await Promise.all([
+    /*
+       G-5 ET G-6 — ICI AUSSI, ET C'ÉTAIT LE PLUS GRAVE DES DEUX.
+
+       Un effacement se voit venir ; une restauration se présente comme un
+       gain. La somme d'avant — trois magasins — pouvait annoncer « ce
+       navigateur en porte 31 » à quelqu'un qui en portait quatre mille, et
+       le faire écraser Odyssée entière en croyant risquer trente et un
+       enregistrements.
+    */
+    const [cartesIci, quizIci, joursIci, groupesIci] = await Promise.all([
       toutesLesCartes(),
       tousLesResultatsQuiz(),
       tousLesJours(),
+      compterParGroupe(),
     ]);
-    const combienIci = cartesIci.length + quizIci.length + joursIci.length;
+    const combienIci = groupesIci.reduce((somme, g) => somme + g.vises, 0);
 
     const remplacer = await confirmer({
       titre: 'Remplacer toute la progression de ce navigateur ?',
@@ -707,9 +718,13 @@ import LienReglages from '../components/LienReglages.astro';
         (combienDansLaSauvegarde !== null
           ? ` et porte ${combienDansLaSauvegarde} enregistrement(s).`
           : '.') +
-        ` Ce navigateur en porte aujourd’hui ${combienIci} du même ordre ` +
-        `(${cartesIci.length} carte(s) suivie(s), ${quizIci.length} quiz, ` +
-        `${joursIci.length} journée(s) de temps passé) : tout cela sera écrasé. ` +
+        ` Ce navigateur en porte aujourd’hui ${combienIci.toLocaleString('fr-FR')}, ` +
+        `rubrique par rubrique : ${direLesGroupes(groupesIci)}` +
+        (cartesIci.length || quizIci.length || joursIci.length
+          ? `, dont ${cartesIci.length} carte(s) suivie(s), ${quizIci.length} quiz et ` +
+            `${joursIci.length} journée(s) de temps passé`
+          : '') +
+        '. Tout cela sera écrasé. ' +
         (avecInstantane
           ? 'Un instantané de l’état actuel est pris avant, et permet de revenir en arrière.'
           : 'Aucun instantané ne sera pris : l’état actuel sera perdu.'),
@@ -916,10 +931,23 @@ import LienReglages from '../components/LienReglages.astro';
          Les nombres sont lus ici, juste avant de demander : affichés depuis
          le résumé de la page, ils pourraient dater d'une séance entière.
       */
-      const [cartesA, quizA, joursA] = await Promise.all([
+      /*
+         G-5 ET G-6 DU 58 — COMPTER TOUTES LES RUBRIQUES, PAS TROIS MAGASINS.
+
+         La somme d'avant était `cartes + quiz + jours`. Ni Odyssée, ni Santé,
+         ni Finances, ni le profil : une personne qui portait quatre mille
+         enregistrements d'Odyssée lisait « 31 », et décidait là-dessus.
+
+         Le compte par groupe part de la même déclaration que l'effacement
+         lui-même, donc un magasin nouveau y entre sans qu'une ligne soit à
+         ajouter ici. Les trois nombres de tête restent dits à part : ce sont
+         ceux qu'on reconnaît, et les perdre dans un total serait reculer.
+      */
+      const [cartesA, quizA, joursA, groupesA] = await Promise.all([
         toutesLesCartes(),
         tousLesResultatsQuiz(),
         tousLesJours(),
+        compterParGroupe(),
       ]);
       const etat = await etatSauvegarde();
       /*
@@ -940,10 +968,20 @@ import LienReglages from '../components/LienReglages.astro';
       const certain = await confirmer({
         titre: 'Tout effacer sur cet appareil ?',
         texte:
-          `Partent : ${cartesA.length} carte(s) suivie(s), ${quizA.length} quiz, ` +
-          `${joursA.length} journée(s) de temps passé, les séances, les notes, les ` +
-          'mesures, les réglages de ce navigateur, les pages gardées pour la lecture ' +
-          'hors ligne, les instantanés d’avant migration et les clés de votre coffre. ' +
+          `Partent, rubrique par rubrique : ${direLesGroupes(groupesA)}. ` +
+          /*
+             « Dont 0 carte(s) suivie(s), 0 quiz et 0 journée(s) » : la phrase
+             le disait, sur une base qui ne portait qu'Odyssée. Trois zéros
+             n'apprennent rien et font douter du reste. Le détail ne paraît
+             donc que s'il a quelque chose à détailler.
+          */
+          (cartesA.length || quizA.length || joursA.length
+            ? `Dont ${cartesA.length} carte(s) suivie(s), ${quizA.length} quiz et ` +
+              `${joursA.length} journée(s) de temps passé. `
+            : '') +
+          'Partent aussi : les réglages de ' +
+          'ce navigateur, les pages gardées pour la lecture hors ligne, les instantanés ' +
+          'd’avant migration et les clés de votre coffre. ' +
           'Restent : les fiches du site, et tout ce qui se trouve dans une sauvegarde ' +
           'déjà enregistrée ailleurs. ' +
           (appairage
