@@ -15,6 +15,8 @@ import {
   nombreDit,
   valeurDite,
 } from '../src/lib/profil-lisible.ts';
+import { CHAMPS, champDeclare } from '../src/lib/noyau/profil.ts';
+import { BORNES } from '../src/lib/noyau/initialisation.ts';
 
 let rouges = 0;
 const v = (quoi: string, obtenu: unknown, attendu: unknown) => {
@@ -161,6 +163,45 @@ v(
   'et un autre appareil garde son nom',
   historiqueDit({ source: 'observe', version: 1, appareil: 'ABCD1234', appareilCourant: 'R7APGVC6' }),
   'observé, non confirmé, dernier appareil : ABCD1234',
+);
+
+console.log('\n8. LES DEUX UNITÉS NE SE CONTREDISENT PAS');
+
+/*
+   Deux déclarations, deux rôles : `BORNES.unite` est l'unité du curseur
+   — « 10 h » sous le pouce —, et `unite` au catalogue est celle de la phrase
+   — « 10 h par semaine ». Elles ne peuvent pas être fondues sans décider que
+   la phrase et le curseur disent la même chose, ce qui est faux. Elles peuvent
+   en revanche diverger en silence, et c'est ce que cet essai empêche.
+*/
+for (const [champ, bornes] of Object.entries(BORNES)) {
+  const unite = champDeclare(champ)?.unite;
+  vrai(`« ${champ} » porte une unité de phrase`, Boolean(unite));
+  vrai(
+    `et elle commence par celle du curseur (« ${bornes.unite} »)`,
+    (unite?.un ?? '').startsWith(bornes.unite),
+  );
+}
+
+/*
+   Et ce que le module attend du catalogue, le catalogue le porte : sans
+   `clefs`, un identifiant de domaine s'afficherait brut, et l'essai des
+   listes ne le verrait pas — il passe ses propres libellés.
+*/
+v(
+  'les champs dont les clés nomment un parcours',
+  CHAMPS.filter((c) => c.clefs === 'parcours').map((c) => c.champ),
+  ['concours', 'datesEpreuves'],
+);
+v(
+  'et ceux dont les clés nomment un domaine',
+  CHAMPS.filter((c) => c.clefs === 'domaines').map((c) => c.champ),
+  ['domainesActifs', 'tempsParDomaine', 'ciblesEquilibre'],
+);
+v(
+  'les deux champs qui ne se groupent pas sont les deux champs de naissance',
+  CHAMPS.filter((c) => c.sansGroupement).length,
+  2,
 );
 
 console.log(rouges ? `\n\x1b[31m${rouges} rouge(s).\x1b[0m` : '\n\x1b[32mTout est vert.\x1b[0m');

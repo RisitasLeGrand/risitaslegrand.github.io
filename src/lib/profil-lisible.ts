@@ -24,22 +24,28 @@
  * identifiant qu'on ne connaît plus reviendrait à prétendre savoir ce que la
  * personne avait choisi.
  */
-import { BORNES } from './noyau/initialisation';
+/**
+ * ## Ce module ne nomme aucun champ, et ce n'est pas un hasard
+ *
+ * Sa première version portait trois listes — « ces champs nomment des
+ * parcours », « ceux-là ne se groupent pas », « ceux-là sont en heures ». Elle
+ * nommait donc `naissanceAnnee`, et le contrôle du graphe d'imports l'a
+ * refusée : hors de six fichiers, nommer un champ brut est le premier geste de
+ * qui contourne la porte de l'âge. La règle avait raison, et ces trois listes
+ * étaient de toute façon des propriétés des champs. Elles sont au catalogue,
+ * et ce module ne lit que des déclarations.
+ */
+import { champDeclare } from './noyau/profil';
 
 export interface Libelles {
   parcours: readonly { id: string; libelle: string }[];
   domaines: readonly { id: string; libelle: string }[];
 }
 
-/** Les champs dont les clés — ou les entrées — nomment un parcours. */
-const PAR_PARCOURS: readonly string[] = ['concours', 'datesEpreuves'];
-
-/** Ceux dont les clés nomment un domaine. */
-const PAR_DOMAINE: readonly string[] = ['domainesActifs', 'tempsParDomaine', 'ciblesEquilibre'];
-
 const table = (champ: string, libelles: Libelles): Map<string, string> | null => {
-  if (PAR_PARCOURS.includes(champ)) return new Map(libelles.parcours.map((p) => [p.id, p.libelle]));
-  if (PAR_DOMAINE.includes(champ)) return new Map(libelles.domaines.map((d) => [d.id, d.libelle]));
+  const clefs = champDeclare(champ)?.clefs;
+  if (clefs === 'parcours') return new Map(libelles.parcours.map((p) => [p.id, p.libelle]));
+  if (clefs === 'domaines') return new Map(libelles.domaines.map((d) => [d.id, d.libelle]));
   return null;
 };
 
@@ -81,43 +87,23 @@ export function dateDite(valeur: string): string | null {
 }
 
 /**
- * Les champs dont le nombre **ne se groupe pas**.
- *
- * Une année s'écrit « 1990 », jamais « 1 990 ». `Intl` groupe par défaut, et
- * c'est juste pour une quantité : l'année de naissance n'en est pas une.
- */
-const SANS_GROUPEMENT: readonly string[] = ['naissanceAnnee', 'naissanceMois'];
-
-/**
- * L'unité des répartitions, que les bornes d'une question ne portent pas.
- *
- * `tempsParDomaine` et `ciblesEquilibre` se saisissent par un curseur d'heures,
- * et l'écran de l'initialisation affiche « N h » à côté. L'unité est déclarée
- * ici pour que « Mon profil » dise la même chose que la question — sans elle,
- * la même réponse se lisait « 3 » d'un côté et « 3 h » de l'autre.
- */
-const UNITE_DE_REPARTITION: Readonly<Record<string, string>> = {
-  tempsParDomaine: 'h',
-  ciblesEquilibre: 'h',
-};
-
-/**
- * Un nombre avec son unité, tirée des bornes de la question.
+ * Un nombre avec son unité, telle que le catalogue la déclare.
  *
  * `Intl` et non une concaténation : l'espace qui sépare les milliers est une
- * insécable fine, et c'est elle qu'attend le français. La table des unités est
- * celle de l'initialisation — un seul endroit où elle se décide.
+ * insécable fine, et c'est elle qu'attend le français. Une année, elle, ne se
+ * groupe pas — le catalogue le dit champ par champ.
+ *
+ * L'unité est déclarée au singulier et au pluriel plutôt que déduite : « h »
+ * ne s'accorde pas, « séance » s'accorde, et une règle qui devinerait l'un à
+ * partir de l'autre se tromperait au premier contre-exemple.
  */
 export function nombreDit(champ: string, valeur: number): string {
+  const declare = champDeclare(champ);
   const nombre = new Intl.NumberFormat('fr-FR', {
-    useGrouping: !SANS_GROUPEMENT.includes(champ),
+    useGrouping: declare?.sansGroupement !== true,
   }).format(valeur);
-  const unite = BORNES[champ]?.unite ?? UNITE_DE_REPARTITION[champ];
-  if (!unite) return nombre;
-  /* « séance » s'accorde ; « h » ne s'accorde pas. */
-  const pluriel = unite === 'h' || valeur <= 1 ? unite : `${unite}s`;
-  const parSemaine = ['tempsParSemaine', 'heuresRevision', 'frequenceSouhaitee'].includes(champ);
-  return `${nombre} ${pluriel}${parSemaine ? ' par semaine' : ''}`;
+  if (!declare?.unite) return nombre;
+  return `${nombre} ${valeur > 1 ? declare.unite.plusieurs : declare.unite.un}`;
 }
 
 /** Une liste, avec les libellés connus, et les autres tels quels. */

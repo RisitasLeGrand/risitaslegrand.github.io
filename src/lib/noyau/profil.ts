@@ -173,6 +173,36 @@ export interface ChampDeclare {
    * seconde liste à tenir à jour, et c'est tout l'intérêt.
    */
   luPar?: readonly LecteurDeChamp[];
+  /**
+   * Ce que ses clés — ou ses entrées — **nomment**.
+   *
+   * `concours` porte des identifiants de parcours, `tempsParDomaine` des
+   * identifiants de domaine. L'écran a besoin de le savoir pour dire « INSP »
+   * plutôt que `insp`, et c'est une propriété du champ, pas de l'écran.
+   *
+   * ET C'EST POURQUOI C'EST ICI. Un module d'affichage qui porterait la liste
+   * « ces champs-là nomment des parcours » nommerait des champs — ce que le
+   * contrôle du graphe d'imports interdit à tout fichier hors de six, parce
+   * que nommer `naissanceAnnee` est le premier geste de qui contourne la porte
+   * de l'âge. La règle a attrapé ma première version : elle a eu raison.
+   */
+  clefs?: 'parcours' | 'domaines';
+  /**
+   * Son nombre ne se groupe pas : c'est une année, pas une quantité.
+   *
+   * « 1990 », jamais « 1 990 ». `Intl` groupe par défaut, et le défaut est
+   * juste partout ailleurs.
+   */
+  sansGroupement?: true;
+  /**
+   * L'unité, telle que la phrase de « Mon profil » la porte — au singulier et
+   * au pluriel, parce que « séance » s'accorde et « h » non.
+   *
+   * Distincte de l'unité des bornes (`BORNES` dans `initialisation.ts`), qui
+   * est celle du curseur : « 10 h » sous le pouce, « 10 h par semaine » dans
+   * la phrase. Un essai vérifie que les deux ne se contredisent pas.
+   */
+  unite?: { un: string; plusieurs: string };
 }
 
 const C = (c: ChampDeclare): ChampDeclare => c;
@@ -224,6 +254,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'naissanceAnnee',
+    sansGroupement: true,
     luPar: [
       {
         module: 'src/lib/etat-personne.ts',
@@ -245,6 +276,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'naissanceMois',
+    sansGroupement: true,
     luPar: [
       {
         module: 'src/lib/etat-personne.ts',
@@ -494,6 +526,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'tempsParSemaine',
+    unite: { un: 'h par semaine', plusieurs: 'h par semaine' },
     luPar: [
       {
         module: 'src/lib/noyau/adaptation.ts',
@@ -507,6 +540,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'domainesActifs',
+    clefs: 'domaines',
     luPar: [
       {
         module: 'src/lib/odyssee-jour.ts',
@@ -529,6 +563,8 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'tempsParDomaine',
+    clefs: 'domaines',
+    unite: { un: 'h', plusieurs: 'h' },
     libelle: 'Temps par domaine',
     nature: 'repartition',
     question: 'Combien de temps par semaine pour chacun ?',
@@ -546,6 +582,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   /* --- Extension : Révisions ---------------------------------------------- */
   C({
     champ: 'concours',
+    clefs: 'parcours',
     libelle: 'Concours préparés',
     nature: 'liste',
     question: 'Quel concours préparez-vous ?',
@@ -556,6 +593,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'datesEpreuves',
+    clefs: 'parcours',
     libelle: 'Dates d’épreuves',
     nature: 'repartition',
     question: 'Quand sont les épreuves ?',
@@ -564,6 +602,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'heuresRevision',
+    unite: { un: 'h par semaine', plusieurs: 'h par semaine' },
     luPar: [
       {
         module: 'src/lib/noyau/adaptation.ts',
@@ -629,6 +668,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'frequenceSouhaitee',
+    unite: { un: 'séance par semaine', plusieurs: 'séances par semaine' },
     libelle: 'Séances par semaine souhaitées',
     nature: 'nombre',
     question: 'Combien de séances par semaine aimeriez-vous tenir ?',
@@ -655,6 +695,8 @@ export const CHAMPS: readonly ChampDeclare[] = [
   /* --- Extension : Odyssée ------------------------------------------------- */
   C({
     champ: 'ciblesEquilibre',
+    clefs: 'domaines',
+    unite: { un: 'h', plusieurs: 'h' },
     luPar: [
       { module: 'src/lib/odyssee-jour.ts', libelle: 'la roue d’équilibre d’Odyssée' },
     ],
@@ -1231,6 +1273,20 @@ export function controlerChamps(branchesConnues: readonly string[]): string[] {
     const modules = (c.luPar ?? []).map((l) => l.module);
     if (new Set(modules).size !== modules.length) {
       problemes.push(`Le champ « ${c.champ} » déclare deux fois le même lecteur.`);
+    }
+    if (c.clefs && c.nature !== 'liste' && c.nature !== 'repartition') {
+      problemes.push(
+        `Le champ « ${c.champ} » dit ce que ses clés nomment, mais il n’a ni liste ni répartition.`,
+      );
+    }
+    if (c.unite && c.nature !== 'nombre' && c.nature !== 'repartition') {
+      problemes.push(`Le champ « ${c.champ} » porte une unité sans porter de nombre.`);
+    }
+    if (c.unite && (!c.unite.un.trim() || !c.unite.plusieurs.trim())) {
+      problemes.push(`Le champ « ${c.champ} » porte une unité vide.`);
+    }
+    if (c.sansGroupement && c.nature !== 'nombre') {
+      problemes.push(`Le champ « ${c.champ} » refuse le groupement sans porter de nombre.`);
     }
     /*
        UNE PROMESSE SUPPOSE UN LECTEUR (P12, interdit 2 du prompt 56).
