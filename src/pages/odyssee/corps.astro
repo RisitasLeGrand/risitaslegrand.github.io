@@ -57,7 +57,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
         <p id="tendance" class="mt-1 text-sm text-slate-600 dark:text-slate-300"></p>
         <div class="mt-3 flex flex-wrap items-end gap-3">
           <label class="text-sm">
-            <span class="block text-slate-700 dark:text-slate-200">Poids du jour</span>
+            <span class="block text-slate-700 dark:text-slate-200">Poids du jour (kg)</span>
             <input id="kg" type="text" inputmode="decimal" data-min="20" data-max="400"
               class="mt-1 min-h-11 w-32 rounded-lg border border-slate-300 bg-white px-3 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
           </label>
@@ -94,7 +94,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
             </select>
           </label>
           <label class="text-sm">
-            <span class="block text-slate-700 dark:text-slate-200">Centimètres</span>
+            <span class="block text-slate-700 dark:text-slate-200">Mesure (cm)</span>
             <input id="cm" type="text" inputmode="decimal" data-min="1" data-max="300"
               class="mt-1 min-h-11 w-28 rounded-lg border border-slate-300 bg-white px-3 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
           </label>
@@ -352,6 +352,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
 <script>
   import { nombreDuChamp } from '../../lib/nombre-saisi';
+  import { direLErreur, effacerLErreur, validerALaSortie } from '../../lib/erreur-de-champ';
   import { auDeverrouillage } from '../../lib/chargement';
   import {
     agirPuisPeindre,
@@ -1021,20 +1022,48 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
          D4 du 43 : la saisie passe par l'analyseur commun, qui accepte la
          virgule. Avant, `Number('')` valait zéro et `Number('72,5')` valait
          `NaN` : appuyer sur « Enregistrer » avec un champ vide écrivait une
-         pesée à 0 kg au journal, sans un mot. On n'écrit plus rien.
+         pesée à 0 kg au journal, sans un mot.
 
-         Ce que D4 ne fait pas encore : le dire. Le message au pied du champ
-         arrive avec D2, qui pose « aria-invalid » et la zone d'erreur.
+         D2 : et maintenant on le dit, au pied du champ, avec « aria-invalid »
+         et le focus qui y revient. La phrase dit COMMENT corriger — les
+         bornes et la virgule — et non « valeur invalide ».
       */
+      const PHRASES: Record<string, string> = {
+        kg: 'Indiquez un poids entre 20 et 400 kg. La virgule est acceptée.',
+        cm: 'Indiquez une mesure entre 1 et 300 cm. La virgule est acceptée.',
+      };
+      for (const id of Object.keys(PHRASES)) {
+        const champ = $(id) as HTMLInputElement;
+        /* Un champ vide n'est pas une faute à la sortie : on n'a peut-être
+           rien voulu saisir. Il en devient une à l'envoi, et c'est là que la
+           phrase se dit. */
+        validerALaSortie(champ, (valeur) =>
+          valeur.trim() === '' || nombreDuChamp(champ) !== null ? null : PHRASES[id],
+        );
+      }
+
+      /** Lit le champ, ou dit pourquoi il ne se lit pas et y ramène le focus. */
+      function nombreOuPhrase(id: string): number | null {
+        const champ = $(id) as HTMLInputElement;
+        const valeur = nombreDuChamp(champ);
+        if (valeur === null) {
+          direLErreur(champ, PHRASES[id]);
+          champ.focus();
+          return null;
+        }
+        effacerLErreur(champ);
+        return valeur;
+      }
+
       surAppui('peser', async () => {
-        const kg = nombreDuChamp($('kg') as HTMLInputElement);
+        const kg = nombreOuPhrase('kg');
         if (kg === null) return;
         await ecrirePesee(kg);
         ($('kg') as HTMLInputElement).value = '';
       });
 
       surAppui('mesurer', async () => {
-        const cm = nombreDuChamp($('cm') as HTMLInputElement);
+        const cm = nombreOuPhrase('cm');
         if (cm === null) return;
         await ecrireMesure(($('quoi') as HTMLSelectElement).value as QuoiMesurer, cm);
         ($('cm') as HTMLInputElement).value = '';

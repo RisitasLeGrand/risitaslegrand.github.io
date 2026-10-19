@@ -141,7 +141,7 @@ import LienReglages from '../../components/LienReglages.astro';
 
           <div class="mt-3 flex flex-wrap items-end gap-3">
             <label class="text-sm">
-              <span class="block text-slate-700 dark:text-slate-200">Charge</span>
+              <span class="block text-slate-700 dark:text-slate-200">Charge (kg)</span>
               <input id="charge" type="text" inputmode="decimal" data-min="0"
                 class="mt-1 min-h-12 w-28 rounded-lg border border-slate-300 bg-white px-3 text-lg tabular-nums dark:border-slate-700 dark:bg-slate-950" />
             </label>
@@ -235,6 +235,7 @@ import LienReglages from '../../components/LienReglages.astro';
      l'analyseur commun la lit, et rend « null » sur une saisie illisible —
      exactement là où le code mettait « null » sur un champ vide. */
   import { nombreDuChamp } from '../../lib/nombre-saisi';
+  import { direLErreur, effacerLErreur, validerALaSortie } from '../../lib/erreur-de-champ';
   import { agirPuisPeindre } from '../../lib/agir';
   import { proposerLAnnulation } from '../../lib/annulation';
   import { unSeulGeste } from '../../lib/geste';
@@ -614,10 +615,26 @@ import LienReglages from '../../components/LienReglages.astro';
 
   /* ── Les actions ───────────────────────────────────────────────────────── */
 
+  /** La phrase dit comment corriger, et non que c'est faux (D2). */
+  const PHRASE_CHARGE = 'Indiquez une charge en kilogrammes, à partir de 0. La virgule est acceptée.';
+
   async function enregistrerSerie() {
     if (!seance) return;
     const exerciceId = ($('exercice') as HTMLSelectElement).value;
-    const charge = nombreDuChamp($('charge') as HTMLInputElement);
+    const champCharge = $('charge') as HTMLInputElement;
+    const charge = nombreDuChamp(champCharge);
+    /*
+       D2 : une charge tapée mais illisible n'est pas une série « au poids du
+       corps ». Sans ce contrôle, « 72,5 » mal lu devenait silencieusement une
+       série sans charge, et la progression s'en trouvait fausse sans que rien
+       le dise.
+    */
+    if (charge === null && champCharge.value.trim() !== '') {
+      direLErreur(champCharge, PHRASE_CHARGE);
+      champCharge.focus();
+      return;
+    }
+    effacerLErreur(champCharge);
     const reserveBrute = ($('reserve') as HTMLSelectElement).value;
     const depuis = dernierInstant();
 
@@ -700,6 +717,13 @@ import LienReglages from '../../components/LienReglages.astro';
       for (const champ of ['charge', 'repetitions']) {
         $(champ).addEventListener('input', direEstimation);
       }
+      /* D2 : à la SORTIE du champ, jamais pendant la frappe — « 7 » n'est pas
+         une charge invalide, c'est le début de « 72,5 ». */
+      validerALaSortie($('charge') as HTMLInputElement, (valeur) =>
+        valeur.trim() === '' || nombreDuChamp($('charge') as HTMLInputElement) !== null
+          ? null
+          : PHRASE_CHARGE,
+      );
       $('repos-cible').addEventListener('input', battre);
       $('difficulte').addEventListener('input', () => {
         $('difficulte-valeur').textContent = ($('difficulte') as HTMLInputElement).value;

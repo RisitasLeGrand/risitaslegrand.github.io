@@ -150,33 +150,22 @@ import {
       </div>
       <div id="liste-ressentis" class="mt-2 space-y-2"></div>
       <form id="form-ressenti" class="mt-3 grid gap-2 sm:grid-cols-2">
-        <input
-          id="r-jour"
-          type="date"
-          aria-label="Jour du ressenti"
-          class="min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-        />
-        <input
-          id="r-ressenti"
-          type="text"
-          aria-label="Ce que je ressens"
-          placeholder="Ce que je ressens"
-          class="min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-        />
-        <input
-          id="r-indesirable"
-          type="text"
-          aria-label="Effet que je tiens pour indésirable"
-          placeholder="Effet que je tiens pour indésirable"
-          class="min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-        />
-        <input
-          id="r-tolerance"
-          type="text"
-          aria-label="Tolérance, dans mes mots"
-          placeholder="Tolérance, dans mes mots"
-          class="min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700 dark:bg-slate-900"
-        />
+        <label class="text-sm">
+          <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Jour du ressenti</span>
+          <input id="r-jour" type="date" class="min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700 dark:bg-slate-900" />
+        </label>
+        <label class="text-sm">
+          <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Ce que je ressens (facultatif)</span>
+          <input id="r-ressenti" type="text" class="min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700 dark:bg-slate-900" />
+        </label>
+        <label class="text-sm">
+          <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Effet que je tiens pour indésirable (facultatif)</span>
+          <input id="r-indesirable" type="text" class="min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700 dark:bg-slate-900" />
+        </label>
+        <label class="text-sm">
+          <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Tolérance, dans mes mots (facultatif)</span>
+          <input id="r-tolerance" type="text" class="min-h-11 w-full rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700 dark:bg-slate-900" />
+        </label>
         <button
           id="r-noter"
           type="submit"
@@ -451,6 +440,17 @@ import {
        neuf : deux envois rapprochés notaient deux fois le même ressenti du
        jour, et les champs ne sont vidés qu'une fois l'écriture finie.
     */
+    /*
+       D1 du 43 : la date part remplie, à aujourd'hui.
+
+       Le code lisait déjà « le jour saisi, ou aujourd'hui » — mais l'écran ne
+       le disait pas : un champ de date vide laisse croire qu'on note un
+       ressenti sans date. Le pré-remplir ne change rien à ce qui s'écrit, et
+       montre le jour qu'on est en train de noter.
+    */
+    const jourDuRessenti = $('r-jour') as HTMLInputElement;
+    if (jourDuRessenti.value === '') jourDuRessenti.value = jourISO();
+
     $('form-ressenti').addEventListener('submit', (e) => {
       e.preventDefault();
       if (!traitement) return;

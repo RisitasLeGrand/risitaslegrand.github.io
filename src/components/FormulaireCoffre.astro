@@ -145,7 +145,12 @@ const cadre = nu
     class="mt-3 min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900"
     >Ouvrir</button
   >
-  <p id="erreur-coffre" class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
+  {/* D2 du 43 : « role="alert" » pour que l’échec soit annoncé, et non
+      seulement affiché. La zone reste dans le document, vide, plutôt que
+      d’être créée au moment de l’échec : une zone posée en même temps que
+      son texte n’est pas toujours annoncée. */}
+  <p id="erreur-coffre" role="alert"
+    class="mt-2 hidden text-sm text-rose-700 dark:text-rose-300"></p>
   {/*
      Le coffre est celui des deux mots de passe dont la perte est
      irrémédiable : la clé des données n'existe qu'enveloppée sous lui. Le
