@@ -682,8 +682,17 @@ export async function statutStreak() {
   const continuee =
     profil.dernierJourEtudie !== null &&
     (await serieContinuee(profil.dernierJourEtudie, aujourdhui));
-  const enPeril =
-    !etudieAujourdhui && !reposAujourdhui && continuee && profil.streakCourante > 0;
+  /*
+     « En péril » n'existe plus.
+
+     Le champ ne servait qu'au bandeau « votre série s'arrête ce soir », que
+     le point F du 43 retire. Le garder aurait laissé prête, calculée et
+     exportée, la grandeur qui ne sert qu'à presser — et c'est ainsi qu'un
+     bandeau revient six mois plus tard.
+
+     « Rompue », lui, reste : il ne presse personne, il dit au compteur
+     d'afficher zéro plutôt qu'un chiffre qui n'a plus cours.
+  */
   const rompue =
     !etudieAujourdhui &&
     !reposAujourdhui &&
@@ -695,7 +704,6 @@ export async function statutStreak() {
     courante: rompue ? 0 : profil.streakCourante,
     record: profil.streakRecord,
     etudieAujourdhui,
-    enPeril,
     rompue,
   };
 }

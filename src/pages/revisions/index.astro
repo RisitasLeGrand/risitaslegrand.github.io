@@ -186,8 +186,18 @@ import Section from '../../components/Section.astro';
       </a>
     </section>
 
-    <!-- Relance si la série est en péril -->
-    <div id="alerte-streak" class="hidden rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-200"></div>
+    <!--
+      ICI SE TROUVAIENT LES DEUX BANDEAUX DE PRESSION, ET ILS NE REVIENNENT PAS.
+
+      « ⏳ Votre série de N jours s'arrête ce soir si vous ne révisez pas » et
+      « La série s'est interrompue » : l'un pressait, l'autre reprochait, et
+      aucun des deux n'apprenait quoi que ce soit. Une journée sans révision
+      est une journée sans révision ; le compteur la dit déjà, et il la dit
+      sans menace ni regret.
+
+      Le point F du 43 les retire tous les deux. La place reste vide : rien ne
+      la remplace, parce que rien n'avait à y être.
+    -->
 
     <!-- Écoutes en cours (prompt 46, P3) : masqué tant qu'il n'y en a aucune,
          plutôt qu'une section vide qui occuperait l'écran pour rien. -->
@@ -326,14 +336,6 @@ import Section from '../../components/Section.astro';
       ? `Record : ${pluriel(streak.record, 'jour')}`
       : 'Révisez aujourd\'hui pour démarrer la série.';
 
-    const alerte = document.getElementById('alerte-streak')!;
-    if (streak.enPeril) {
-      alerte.textContent = `⏳ Votre série de ${pluriel(streak.courante, 'jour')} s'arrête ce soir si vous ne révisez pas. Quelques cartes suffisent.`;
-      alerte.classList.remove('hidden');
-    } else if (streak.rompue) {
-      alerte.textContent = `La série s'est interrompue (record : ${pluriel(streak.record, 'jour')}). Une session aujourd'hui en relance une nouvelle.`;
-      alerte.classList.remove('hidden');
-    }
     if (streak.etudieAujourdhui) {
       document.getElementById('carte-streak')!.classList.add('ring-2', 'ring-emerald-400');
     }
