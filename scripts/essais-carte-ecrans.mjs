@@ -62,6 +62,27 @@ const EXCEPTIONS_ORPHELINES = [
       'n’a pas eu lieu, et on n’y revient jamais ensuite. Un lien permanent ' +
       'vers elle proposerait de refaire ce qui est fait.',
   },
+  {
+    route: '/404/',
+    permanente: true,
+    pourquoi:
+      'On y arrive en se trompant d’adresse, ce qu’aucun lien ne peut ' +
+      'proposer. L’hébergeur la sert à la place de la page demandée ; un ' +
+      'lien vers elle inviterait à visiter l’erreur. Elle porte en revanche ' +
+      'la flèche de retour et un lien vers l’accueil, et « essais:404-hors-ligne » ' +
+      'le vérifie — c’est la SORTIE qui compte pour une page d’erreur, pas ' +
+      'l’entrée.',
+  },
+  {
+    route: '/hors-ligne/',
+    permanente: true,
+    pourquoi:
+      'Le service worker la sert à la place de l’écran demandé quand le ' +
+      'réseau manque et que rien n’est gardé : son entrée est une panne, pas ' +
+      'un lien. Y mener depuis un écran serait proposer de consulter la page ' +
+      'hors ligne alors qu’on est en ligne. Mêmes sorties que la 404, mêmes ' +
+      'contrôles dans « essais:404-hors-ligne ».',
+  },
 ];
 
 /** Les écrans du quotidien : deux appuis, et non trois. */
