@@ -1,4 +1,4 @@
-# Prompt 43, lot E — clavier, états annoncés, alternatives
+# Prompt 43, lots E et I — clavier, états annoncés, mesure d’usage
 
 **Établi le 19 octobre 2026, branche `claude/p43-e`, partie de `origin/main`
 à `5d74855`.**
@@ -101,3 +101,115 @@ ne se voient pas sur une image. Les captures servent ici à constater
 qu'**aucun écran n'a bougé** là où le lot ne corrige que la façon dont il
 s'annonce — sauf le bouton « Appliquer » de E6, qui est le seul changement
 visible du lot. Le contrôle de débordement, lui, mesure à chaque prise.
+
+
+---
+
+# Lot I — la mesure, et ce qu'elle a le droit de savoir
+
+**Ajouté le 19 octobre 2026, sur la même branche, le pilote l'ayant retiré au
+constructeur.**
+
+## I1 — un compteur de visites par écran
+
+### Le vrai sujet n'est pas le compteur, c'est la frontière
+
+`odyssee/usage.ts` tient un journal des sessions et **refuse nommément la
+route** : « savoir que quelqu'un a ouvert Cyclades à 3 h est une information de
+rythme ; savoir qu'il a ouvert *Ma psyché* à 3 h est une information sur lui ».
+La règle n'est pas un commentaire : une liste blanche de cinq champs la garde.
+
+Le compteur ne revient pas sur cette décision. Il se tient de l'autre côté de
+la ligne, et la ligne tient en une phrase, désormais écrite dans les deux
+modules et dans la déclaration du magasin scellé :
+
+> **Le compteur porte une route sans instant ; le journal d'usage porte un
+> instant sans route ; et rien ne peut joindre les deux.**
+
+Un essai la garde, `essais:frontiere-usage`, et il mord : ajouter « vuLe » à la
+liste blanche du compteur fait rougir quatre contrôles. Un garde-fou qu'on n'a
+pas vu mordre n'est pas un garde-fou.
+
+### Les choix de forme, et leur raison
+
+**La clé est tirée au hasard.** Une route en clair se lit sans rien ouvrir ;
+une empreinte de route se retrouve par force brute, puisqu'il n'y a que
+soixante routes et qu'elles sont publiques. La route vit dans la charge
+scellée ; incrémenter ouvre les soixante enregistrements, ce qui coûte
+quelques millisecondes une fois par visite.
+
+**Aucune date, pas même scellée.** Ce qu'on n'écrit pas ne fuit pas, et une
+date « pour plus tard » est précisément le champ qu'on finit par joindre.
+
+**Le point d'accroche est hors de l'en-tête**, comme le pilote l'exigeait :
+`auDeverrouillage`, dans `lib/chargement.ts`, que 54 des 59 écrans appellent.
+Il a une propriété que la mise en page n'a pas : il part quand la **session**
+est ouverte, donc jamais pour quelqu'un qui arrive sur l'écran de mot de passe
+et s'en va. Des cinq écrans restants, quatre sont des écrans d'erreur ou
+d'avant-ouverture ; le cinquième, `notifications`, compte lui-même en une
+ligne. `Base.astro` n'est pas touché.
+
+**Schéma 42**, et le saut est commenté : 38 est à l'agent B, 41 à l'agent C, et
+les trois coexistent à la fusion parce que chaque bloc est gardé par son propre
+`vers(n)`.
+
+**Hors de toute sauvegarde**, et non des seules non chiffrées. J'ai élargi
+`MAGASINS_HORS_SAUVEGARDE` d'un second motif **écrit** plutôt que d'étirer le
+premier : `visites` n'est pas reconstructible, il entre parce que sa perte ne
+coûte rien à la personne. Mieux vaut deux critères écrits qu'un critère
+élastique.
+
+**Il ne compte que coffre ouvert**, et l'écran l'écrit : c'est un échantillon,
+donc un classement, jamais un total d'ouvertures.
+
+### Deux essais dormaient, et le lot les a réveillés
+
+`essais:coffre` épinglait « vingt-sept magasins scellés » et en trouvait
+**vingt-huit avant ce lot** : `odysseeCreneaux` est entré au schéma 35 sans que
+le nombre soit remis. Il n'est pas au socle, et personne ne l'avait lancé.
+
+`essais:effacement` exige qu'un magasin nommé par un groupe existe dans
+`MAGASINS_PROGRESSION` — ce qui m'a appris que cette liste décide de
+l'effacement, et non de la sauvegarde.
+
+## I2 — les cinq fiches de geste
+
+| Geste | Appuis | Secondes | Retours |
+|---|---|---|---|
+| Poser une tâche, puis la clore | 2 | 1,7 | 0 |
+| Faire la revue du jour | 1 | 1,0 | 0 |
+| Réviser une carte | 3 | 1,1 | 0 |
+| Marquer une prise | 1 | 1,0 | 0 |
+| Pointer une dépense | 1 | 1,1 | 0 |
+
+Les fiches sont **écrites par le script**, dans `docs/cyclades/gestes/` : c'est
+la seule façon d'être sûr qu'aucun chiffre n'a été posé à la main, et la seule
+façon de les rejouer.
+
+**Deux gestes étaient « non mesurés », et c'était une paresse.** Le premier
+passage rendait « non mesuré » pour la prise et la dépense, faute de
+traitement déclaré et de relevé importé. C'était vrai et insuffisant : la
+prémisse est semable, et par le chemin réel — un PDF d'un mois fabriqué par le
+script et importé par l'écran Finances, un traitement déclaré par son
+formulaire.
+
+**Et la prise a appris quelque chose que le code seul ne disait pas** : un
+traitement déclaré ne suffit pas à faire un créneau, il lui faut un **schéma**.
+Une posologie écrite en toutes lettres n'en est pas un, et `creneauxDuJour`
+rend une liste vide sans lui. C'est la mesure qui l'a montré, en restant vide
+après le formulaire.
+
+**Ce que ces trois nombres valent** est écrit sur chaque fiche. Les appuis sont
+le chemin le plus court et ne dépendent ni de la machine ni de la personne.
+Les secondes mesurent la réponse de l'application à une suite d'appuis
+enchaînés par un script : **ce ne sont pas des secondes humaines**. Ma première
+rédaction parlait d'« un opérateur qui connaît l'écran » — c'était trop
+flatteur, l'opérateur est un script. La mention « testé par l'auteur seul »
+reste, puisqu'elle est exigée, mais accompagnée de sa portée exacte.
+
+## Captures du lot I
+
+Douze avant, douze après, dans `audit/captures/prompt-43-i/`. Deux états par
+taille et par mode, parce que l'écran en a deux qui ne disent pas la même
+chose : coffre fermé, le compteur ne peut rien montrer et le dit ; coffre
+ouvert, il montre son classement.
