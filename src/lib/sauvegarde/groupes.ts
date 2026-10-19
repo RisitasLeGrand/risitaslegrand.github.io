@@ -171,8 +171,13 @@ export const clefVisee = (clef: string, visees: ClefsVisees): boolean =>
 /**
  * Le champ portant la date d'un enregistrement, par magasin.
  *
- * `null` veut dire « état courant, sans historique » : le magasin ne se découpe
- * pas par période.
+ * `null` veut dire « ce magasin ne se découpe pas par période ». C'était
+ * **toujours** parce qu'il porte un état courant sans historique, et ce n'est
+ * plus vrai depuis le suivi personnel : `odysseeCycleJournal` est un
+ * historique, mais ses dates sont scellées et ses clés sont des empreintes,
+ * donc aucune date n'y est lisible sans le coffre. Le motif du refus se lit
+ * donc par magasin — `raisonDuRefusDeDecoupage` ci-dessous — et non par une
+ * phrase unique recopiée aux trois endroits qui l'affichaient.
  */
 export const CHAMP_DATE: Record<string, string | null> = {
   // Journaux et historiques : une ligne par événement, donc une date.
@@ -250,23 +255,24 @@ export const CHAMP_DATE: Record<string, string | null> = {
   odysseeEtapesCochees: 'jourPrevu',
   odysseeExceptionsScellees: 'majLe',
   /*
-     LE SUIVI PERSONNEL, et le même choix que la ligne au-dessus, pour la
-     même raison et avec la même franchise.
+     LE SUIVI PERSONNEL : `null` POUR LES DEUX, et la raison a changé depuis
+     le lot 4 — où j'avais écrit `majLe` pour le journal.
 
-     Le jour auquel une saisie se rapporte est dans la VALEUR, donc chiffré :
-     un découpage par âge ne peut pas le lire sans le coffre. `majLe` dit
-     quand la ligne a été écrite, non le jour qu'elle décrit. Les deux
-     coïncident presque toujours — une saisie rétroactive est l'exception.
+     Ce choix-là était faux, et doublement. `majLe` est une date, donc le
+     garder en clair pour pouvoir découper par période rendait en clair le
+     rythme que l'empreinte de la clé cache — ce que le § 6.9 du prompt 30
+     interdit nommément. Et je l'avais défendu comme « une approximation qu'on
+     écrit plutôt qu'un oubli qui se tait », ce qui était une bonne phrase
+     pour un mauvais choix.
 
-     `null` aurait passé le contrôle aussi bien, et laissé des saisies
-     derrière un effacement qui se dit complet. Une approximation qu'on écrit
-     vaut mieux qu'un oubli qui se tait.
-
-     Les réglages, eux, sont `null` sans approximation : un enregistrement
-     unique qui dit si le module est actif ne se découpe pas par l'âge. Il
-     s'efface avec le groupe, entièrement ou pas du tout.
+     `null` ici ne veut donc pas dire « on renonce à l'effacement par
+     période ». Il veut dire que cet effacement ne passe pas par le chemin en
+     clair : le module le fait coffre ouvert, en recalculant les empreintes
+     des jours de la plage (`effacerLaPeriode`, `odyssee/donnees-cycle.ts`).
+     La partie 1 point 10 du prompt 30 demande que le cycle soit « effaçable
+     par période par purge physique » ; il l'est, par là.
   */
-  odysseeCycleJournal: 'majLe',
+  odysseeCycleJournal: null,
   odysseeCycleReglages: null,
   /*
      `null` — « jamais découpé », et pour une fois ce n'est pas une
@@ -520,6 +526,30 @@ export function groupeDuMagasin(nom: string): GroupeDeMagasins | undefined {
 
 /** Un magasin peut-il se découper par période ? */
 export const dateDecoupable = (nom: string): string | null => CHAMP_DATE[nom] ?? null;
+
+const REFUS_PAR_DEFAUT =
+  'ce magasin porte un état courant et non un historique : une période ne le découpe pas';
+
+/**
+ * Pourquoi un magasin ne se découpe pas par période, en toute franchise.
+ *
+ * Ce qui est montré à la personne quand l'effacement laisse un magasin
+ * entier. La phrase par défaut vaut pour la quasi-totalité des magasins sans
+ * date ; les deux du suivi ont la leur, parce que la raison y est autre et
+ * qu'afficher « un état courant et non un historique » à propos d'un journal
+ * de saisies quotidiennes serait faux — dit à la personne, au moment où elle
+ * décide d'effacer.
+ */
+export const RAISONS_DU_REFUS_DE_DECOUPAGE: Record<string, string> = {
+  odysseeCycleJournal:
+    'ce journal est scellé et ses clés sont des empreintes : aucune date n’y est lisible ' +
+    'sans votre coffre, donc une période ne le découpe pas ici',
+  odysseeCycleReglages:
+    'ce magasin porte un réglage courant et non un historique : une période ne le découpe pas',
+};
+
+export const raisonDuRefusDeDecoupage = (nom: string): string =>
+  RAISONS_DU_REFUS_DE_DECOUPAGE[nom] ?? REFUS_PAR_DEFAUT;
 
 /**
  * La date d'un enregistrement, ramenée à `AAAA-MM-JJ`.

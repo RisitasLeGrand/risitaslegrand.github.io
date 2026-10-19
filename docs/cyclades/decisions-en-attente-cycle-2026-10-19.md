@@ -198,7 +198,86 @@ contournant la porte.
 
 ---
 
-## 9. Ce qui n'attend rien, et ne doit pas se retrouver ici
+## 9. La sauvegarde en clair ne déclare pas ses exclusions — **à trancher**
+
+Le § 6.9 du prompt 30 demande que « le cycle n'entre dans aucune sauvegarde non
+chiffrée, et l'écran le dit ». C'est fait : `magasinsDUneSauvegarde(false)`
+retire les deux magasins du suivi, et la case « Ne pas chiffrer ce fichier »
+(écran Progression) le dit.
+
+**Ce que cela coûte, et qui doit le décider.** `remplacerMagasins` (`db.ts`)
+vide chaque magasin connu, **même absent du fichier** — c'est le sens de
+« remplacer », et c'était déjà celui de `viderProgression`. Donc restaurer une
+sauvegarde non chiffrée **efface le suivi** au lieu de le laisser en place.
+L'écran le dit à l'endroit du choix, mais le dire ne suffit peut-être pas : une
+personne qui restaure a déjà perdu quelque chose, et c'est le plus mauvais
+moment pour découvrir qu'elle perd autre chose.
+
+Trois issues, et la première est celle que je recommande :
+
+1. **Le fichier déclare ses exclusions, et la restauration les respecte.** Un
+   champ de plus dans le format (`magasinsExclus`), que `remplacerMagasins` lit
+   pour laisser ces magasins intacts au lieu de les vider. C'est un changement
+   de format de sauvegarde, donc hors de ce lot, et il demande de décider ce
+   qu'une version ancienne fait d'un fichier qui porte ce champ.
+2. **Laisser comme c'est, l'écran le disant.** Le moins de code, et le risque
+   reste sur la personne.
+3. **Refuser la sauvegarde non chiffrée quand le suivi est actif.** Franc, mais
+   cela retire un choix que la personne avait, pour une raison qui ne la
+   concerne pas toute entière.
+
+Aucun paramètre de produit n'est appliqué ici : la décision 24 réserve cela à
+Alexis.
+
+---
+
+## 10. L'effacement par période du suivi passe par son écran, pas par le vôtre
+
+Pas une décision en attente, mais une **asymétrie à connaître** : elle se
+rattrape mal si on l'apprend par surprise.
+
+`dateDe` (`sauvegarde/groupes.ts`) lit le champ de date **dans l'enregistrement
+en clair**. Le journal du suivi n'en a aucun — le § 6.9 l'interdit, et c'est ce
+qui a corrigé mon `clairs: ['id', 'majLe']` du lot 4 —, donc son `CHAMP_DATE`
+vaut `null` et l'écran « Vos données » le **laisse entier** quand une période
+est demandée. C'est le conflit d'architecture que la décision 25 demande
+d'énoncer plutôt que de contourner.
+
+L'alternative est en place, et elle ne demande aucune date en clair : les clés
+du journal sont les empreintes déterministes des jours, donc le module efface
+une période en **recalculant les empreintes** des jours voulus
+(`effacerLaPeriode`, `odyssee/donnees-cycle.ts`), coffre ouvert. Un bloc replié
+« Effacer des saisies » sur l'écran du suivi l'offre à la personne, en deux
+temps — compter, puis effacer ce qui a été compté. Sans ce bloc,
+« effaçable par période » (partie 1 point 10) aurait été vrai pour un
+programmeur et faux pour la personne.
+
+Le motif du refus affiché sur « Vos données » a été corrigé par la même
+occasion : il disait « ce magasin porte un état courant et non un historique »,
+phrase recopiée à trois endroits et **fausse** pour un journal de saisies
+quotidiennes. Chaque magasin porte maintenant son motif
+(`raisonDuRefusDeDecoupage`).
+
+---
+
+## 11. Le même défaut existe ailleurs, hors de ce chantier — **à relayer**
+
+`odysseeExceptionsScellees` (`noyau/coffre.ts`) déclare `clairs: ['id',
+'majLe']`, avec un commentaire qui dit « Rien d'autre que la clé et la date
+d'écriture. Pas de `jour` ici » — c'est-à-dire **le raisonnement exact** qui
+m'avait fait écrire la même chose pour le journal du suivi, et la même faute :
+`majLe` est une date, donc la liste des `majLe` donne les jours où une
+exception de pointage a été posée.
+
+Ce n'est pas le même enjeu — une exception de pointage n'est pas une donnée de
+cycle —, et ce magasin n'appartient pas à ce chantier : rien n'est touché ici.
+Signalé pour que la session qui en a la charge en décide, sachant que le
+remède y est le même (`clairs: ['id']`, `CHAMP_DATE` à `null`, effacement par
+période dans le module) et que son coût y est le même aussi.
+
+---
+
+## 12. Ce qui n'attend rien, et ne doit pas se retrouver ici
 
 Par symétrie, et pour qu'on ne vienne pas chercher une décision là où il n'y en
 a pas :

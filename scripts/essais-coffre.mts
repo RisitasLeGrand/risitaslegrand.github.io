@@ -119,7 +119,20 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    son écriture impossible coffre fermé, le seul cas où il sert. Son contenu
    reste chiffré, par la boîte aux lettres et non par le coffre.
 */
-v('vingt-sept magasins scellés', MAGASINS_SCELLES.length, 27);
+/*
+   Vingt-neuf depuis le suivi personnel, le 19 octobre : `odysseeCycleJournal`
+   et `odysseeCycleReglages`.
+
+   ET CET ESSAI ÉTAIT ROUGE DEPUIS QUE JE LES AI AJOUTÉS, sans que je le
+   voie : les magasins sont arrivés dans un lot où j'ai lancé les essais que
+   je croyais concernés — le schéma, l'effacement, la confidentialité du
+   cycle — et pas celui-ci, qui n'est pas dans le socle. Le nombre écrit en
+   dur a fait exactement son office ; c'est moi qui ne l'ai pas écouté.
+
+   Le remonter de 27 à 29 n'affaiblit rien : l'exigence est qu'un magasin
+   scellé ajouté ou retiré se déclare ici, et elle reste entière.
+*/
+v('vingt-neuf magasins scellés', MAGASINS_SCELLES.length, 29);
 /*
    Le centre : l'identifiant ET le genre, pas un champ de plus.
 

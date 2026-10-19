@@ -139,6 +139,62 @@ import {
 
         <p id="confirmation" class="mt-3 text-sm text-slate-600 dark:text-slate-300" role="status"></p>
 
+        <!--
+             EFFACER UNE PÉRIODE, ET POURQUOI C'EST ICI ET PAS AILLEURS.
+
+             L'écran « Vos données » découpe par période en lisant une date
+             dans l'enregistrement en clair. Ce journal n'en a aucune — le
+             § 6.9 du prompt 30 l'interdit —, donc il y est laissé entier et
+             l'écran le dit. Sans ce bloc, « effaçable par période » (partie 1
+             point 10) serait vrai pour un programmeur et faux pour la
+             personne : seul le tout serait effaçable.
+
+             Replié, pour ne pas peser sur le chemin de saisie que la maquette
+             8.2 tient à trois appuis. Déplier n'est pas un appui de saisie.
+        -->
+        <details id="replier-effacement" class="mt-6 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+          <summary class="flex min-h-[44px] cursor-pointer items-center text-sm text-slate-600 dark:text-slate-300">
+            Effacer des saisies
+          </summary>
+          <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+            Les saisies de la période choisie sont retirées de cet appareil,
+            définitivement. Les deux dates sont comprises.
+          </p>
+          <div class="mt-3 flex flex-wrap gap-4">
+            <label class="text-sm text-slate-600 dark:text-slate-300">
+              Du
+              <input
+                id="effacer-du"
+                type="date"
+                class="mt-1 block min-h-[44px] rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+            <label class="text-sm text-slate-600 dark:text-slate-300">
+              Au
+              <input
+                id="effacer-au"
+                type="date"
+                class="mt-1 block min-h-[44px] rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+          </div>
+          <button
+            id="compter-periode"
+            type="button"
+            class="mt-3 min-h-[44px] rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 dark:border-slate-600 dark:text-slate-200"
+          >
+            Compter les saisies de cette période
+          </button>
+          <button
+            id="effacer-periode"
+            type="button"
+            class="mt-3 hidden min-h-[44px] rounded-md border border-slate-400 px-4 py-2 text-sm text-slate-800 dark:border-slate-500 dark:text-slate-100"
+          >
+            Effacer ces saisies
+          </button>
+          <p id="effacement-dit" class="mt-2 text-sm text-slate-600 dark:text-slate-300" role="status"></p>
+        </details>
+
         <button
           id="desactiver"
           type="button"
@@ -147,7 +203,8 @@ import {
           Désactiver ce suivi
         </button>
         <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-          Désactiver n’efface rien. Pour effacer, passez par vos données.
+          Désactiver n’efface rien : vos saisies restent. Pour les retirer,
+          effacez une période ci-dessus, ou tout le suivi depuis vos données.
         </p>
       </div>
 
@@ -233,7 +290,9 @@ import {
 <script>
   import {
     activerLeSuivi,
+    combienDansLaPeriode,
     desactiverLeSuivi,
+    effacerLaPeriode,
     lireLesReglages,
     noterLeJour,
     saisieDuJour,
@@ -344,6 +403,86 @@ import {
     void (async () => {
       try {
         await activerLeSuivi();
+        await peindre();
+      } catch (e) {
+        direLErreur(e);
+      }
+    })();
+  });
+
+  /*
+     EFFACER EN DEUX TEMPS : compter, puis effacer ce qui a été compté.
+
+     Un effacement ne se défait pas, et l'écran « Vos données » compte avant
+     d'appliquer pour cette raison. Le même geste ici : le premier appui dit
+     combien de saisies la période porte — sans en ouvrir aucune, `getKey` ne
+     lit pas les valeurs —, et c'est seulement après que le bouton d'effacement
+     paraît. Une période mal saisie se voit donc avant, et non après.
+
+     Le compte est refait à l'effacement, et le bouton se cache dès qu'une
+     date change : effacer « ces 4 saisies » après avoir modifié les bornes
+     effacerait autre chose que ce qui a été annoncé.
+  */
+  const direLEffacement = (texte: string) => {
+    $('effacement-dit').textContent = texte;
+  };
+
+  const bornesDEffacement = (): { du: string; au: string } | null => {
+    const du = ($('effacer-du') as HTMLInputElement).value;
+    const au = ($('effacer-au') as HTMLInputElement).value;
+    if (!du || !au) {
+      direLEffacement('Choisissez les deux dates.');
+      return null;
+    }
+    if (au < du) {
+      direLEffacement('La seconde date est avant la première.');
+      return null;
+    }
+    return { du, au };
+  };
+
+  const nombreDeSaisies = (combien: number) =>
+    combien === 1 ? 'une saisie' : `${combien.toLocaleString('fr-FR')} saisies`;
+
+  for (const champ of ['effacer-du', 'effacer-au']) {
+    $(champ).addEventListener('change', () => {
+      $('effacer-periode').classList.add('hidden');
+      direLEffacement('');
+    });
+  }
+
+  $('compter-periode').addEventListener('click', () => {
+    void (async () => {
+      const bornes = bornesDEffacement();
+      if (!bornes) return;
+      try {
+        const combien = await combienDansLaPeriode(bornes.du, bornes.au);
+        $('effacer-periode').classList.toggle('hidden', combien === 0);
+        direLEffacement(
+          combien === 0
+            ? 'Aucune saisie dans cette période.'
+            : `Cette période porte ${nombreDeSaisies(combien)}.`,
+        );
+      } catch (e) {
+        direLErreur(e);
+      }
+    })();
+  });
+
+  $('effacer-periode').addEventListener('click', () => {
+    void (async () => {
+      const bornes = bornesDEffacement();
+      if (!bornes) return;
+      try {
+        const parties = await effacerLaPeriode(bornes.du, bornes.au);
+        $('effacer-periode').classList.add('hidden');
+        direLEffacement(
+          parties === 0
+            ? 'Aucune saisie dans cette période.'
+            : parties === 1
+              ? 'Une saisie effacée.'
+              : `${parties.toLocaleString('fr-FR')} saisies effacées.`,
+        );
         await peindre();
       } catch (e) {
         direLErreur(e);

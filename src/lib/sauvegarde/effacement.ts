@@ -16,7 +16,14 @@
  * reste quand la personne s'est trompée de groupe.
  */
 import { MAGASINS_PROGRESSION, db } from '../db';
-import { CHAMP_DATE, clefVisee, dateDe, groupe, type ClefsVisees } from './groupes';
+import {
+  CHAMP_DATE,
+  clefVisee,
+  dateDe,
+  groupe,
+  raisonDuRefusDeDecoupage,
+  type ClefsVisees,
+} from './groupes';
 import { cibleDe, magasinJournalise } from '../noyau/enregistrements';
 
 /** Le filtre d'un effacement. Un groupe, et éventuellement une période. */
@@ -157,8 +164,7 @@ export async function compter(cible: Cible): Promise<Decompte> {
         magasin: nom,
         vises: 0,
         total,
-        refus:
-          'ce magasin porte un état courant et non un historique : une période ne le découpe pas',
+        refus: raisonDuRefusDeDecoupage(nom),
       };
       sortie.parMagasin.push(refus);
       sortie.refuses.push(refus);
@@ -252,8 +258,7 @@ export async function effacer(cible: Cible): Promise<ResultatEffacement> {
         magasin: nom,
         vises: 0,
         total: (await base.getAll(magasin)).length,
-        refus:
-          'ce magasin porte un état courant et non un historique : une période ne le découpe pas',
+        refus: raisonDuRefusDeDecoupage(nom),
       });
       continue;
     }

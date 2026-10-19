@@ -149,7 +149,7 @@ import Base from '../layouts/Base.astro';
     };
 
     function ligne(u: UsageDeclare, etat: EtatDeLaPersonne, jour: string): string {
-      const contexte = contextePersonne(u.id, etat, jour);
+      const contexte = contextePersonne(u.id, etat, jour, coupes);
       const quoi = etatDUsage(u.id, coupes, contexte);
       const badge = ETIQUETTE[quoi];
       const lit = u.clesLues.map((c) => CLES[c]).join(', ');
@@ -196,7 +196,7 @@ import Base from '../layouts/Base.astro';
         liste.insertAdjacentHTML(
           'beforeend',
           `<li class="rounded-2xl border border-dashed border-slate-300 p-4 text-sm text-slate-500 dark:border-slate-700 dark:text-slate-400">
-             ${caches} usage(s) sensible(s) replié(s). Cochez la case en haut pour les voir.
+             ${caches === 1 ? 'Un usage sensible est replié' : `${caches} usages sensibles sont repliés`}. Cochez la case en haut pour les voir.
            </li>`,
         );
       }

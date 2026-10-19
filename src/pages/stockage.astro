@@ -549,7 +549,9 @@ import LienReglages from '../components/LienReglages.astro';
     $('decompte-total').textContent =
       d.vises === 0
         ? 'Rien ne serait effacé avec ce choix.'
-        : `${d.vises.toLocaleString('fr-FR')} enregistrement(s) seraient effacés, définitivement.`;
+        : d.vises === 1
+          ? 'Un enregistrement serait effacé, définitivement.'
+          : `${d.vises.toLocaleString('fr-FR')} enregistrements seraient effacés, définitivement.`;
 
     const liste = $('decompte-detail');
     liste.replaceChildren();
@@ -561,10 +563,29 @@ import LienReglages from '../components/LienReglages.astro';
 
     const refus = $('decompte-refus');
     if (d.refuses.length) {
-      refus.textContent =
-        'Laissés entiers : ' +
-        d.refuses.map((m) => m.magasin).join(', ') +
-        ' — ces magasins portent un état courant et non un historique, une période ne les découpe pas.';
+      /*
+         Le motif de chaque magasin, et non une phrase unique pour tous.
+
+         Cette ligne recopiait « ces magasins portent un état courant et non un
+         historique », ce qui était vrai de tous les magasins refusés tant que
+         c'était la seule raison de refuser. Le journal du suivi personnel en
+         ajoute une autre — ses dates sont scellées —, et la phrase recopiée
+         devenait fausse à l'écran, dite à la personne au moment où elle
+         décide d'effacer. `compter` porte déjà le motif de chacun : il est
+         affiché tel quel.
+      */
+      refus.replaceChildren();
+      const titre = document.createElement('p');
+      titre.textContent = 'Laissés entiers :';
+      refus.appendChild(titre);
+      const detail = document.createElement('ul');
+      detail.className = 'mt-1 list-disc pl-5';
+      for (const m of d.refuses) {
+        const li = document.createElement('li');
+        li.textContent = `${m.magasin} — ${m.refus ?? 'une période ne le découpe pas'}`;
+        detail.appendChild(li);
+      }
+      refus.appendChild(detail);
       refus.classList.remove('hidden');
     } else {
       refus.classList.add('hidden');

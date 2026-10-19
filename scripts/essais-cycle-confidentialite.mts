@@ -5,7 +5,7 @@
  *
  * ## Pourquoi cet essai lit le code des gardiens
  *
- * `PORTES_GARDEES` décrit quatre portes et dit de chacune qu'elle est
+ * `PORTES_GARDEES` décrit cinq portes et dit de chacune qu'elle est
  * fermée. **Une porte qui se décrit fermée n'est pas une porte fermée.**
  * Cet essai ne lit donc pas la description : il va voir chaque gardien et
  * vérifie que le nom d'un magasin du suivi ne s'y trouve pas — ou, pour la
@@ -42,6 +42,13 @@ import {
   type SaisieDuCycle,
 } from '../src/lib/odyssee/cycle';
 import { MAGASINS_SCELLES } from '../src/lib/noyau/coffre';
+import {
+  MAGASINS_HORS_SAUVEGARDE_EN_CLAIR,
+  MAGASINS_SAUVEGARDES,
+  magasinsDUneSauvegarde,
+} from '../src/lib/db';
+import { CHAMP_DATE, raisonDuRefusDeDecoupage } from '../src/lib/sauvegarde/groupes';
+import { MAGASINS_JOURNALISES, magasinJournalise } from '../src/lib/noyau/enregistrements';
 
 let echecs = 0;
 const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
@@ -352,6 +359,213 @@ v(
   1,
 );
 
+/* ══════════════════════════════════════════════════════════════════════════ */
+console.log('\n7. AUCUN CHAMP D’INDEX EN CLAIR NE PORTE UNE DATE');
+
+/*
+   Le § 6.9 du prompt 30 : « aucun champ d'index en clair ne porte une date,
+   un statut ou un symptôme du cycle ».
+
+   C'est l'essai qui dit que j'avais tort au lot 4. J'y avais déclaré
+   `clairs: ['id', 'majLe']` en notant qu'il n'y avait pas de `jour` en clair
+   « alors que tous ses voisins en ont un » — sans voir que `majLe` est une
+   date lui aussi, et qu'une liste de `majLe` rend le rythme des saisies que
+   la clé opaque était censée cacher.
+
+   Ces deux-là rougissent si quelqu'un remet un champ de date en clair, ici
+   ou dans un magasin du suivi ajouté plus tard.
+*/
+const CHAMPS_QUI_SONT_DES_DATES = ['majLe', 'jour', 'le', 'debut', 'fin', 'activeLe', 'creeLe'];
+
+for (const nom of NOMS_DES_MAGASINS_DU_CYCLE) {
+  const declare = MAGASINS_SCELLES.find((m) => m.magasin === nom);
+  v(`« ${nom} » est déclaré scellé`, declare !== undefined, true);
+  v(`et ne laisse en clair que « id »`, declare?.clairs, ['id']);
+  const dates = (declare?.clairs ?? []).filter((c) => CHAMPS_QUI_SONT_DES_DATES.includes(c));
+  v(`donc aucun champ de date en clair`, dates, []);
+}
+
+/*
+   Et la conséquence, assumée : pas de champ de date en clair veut dire pas
+   de découpage par période par le chemin générique, qui lit ce champ dans
+   l'enregistrement en clair (`dateDe`, `sauvegarde/groupes.ts`). `null` est
+   donc la seule valeur juste ici, et la décision 25 demande de l'écrire
+   plutôt que de la contourner — c'est fait dans
+   `docs/cyclades/decisions-en-attente-cycle-2026-10-19.md`.
+*/
+for (const nom of NOMS_DES_MAGASINS_DU_CYCLE) {
+  v(
+    `« ${nom} » n’annonce aucun champ de date à la règle de rétention`,
+    (CHAMP_DATE as Record<string, string | null>)[nom] ?? null,
+    null,
+  );
+}
+
+/*
+   Et le motif du refus, qui est dit à la personne. Il affirmait « ce magasin
+   porte un état courant et non un historique », phrase recopiée aux trois
+   endroits qui l'affichaient — vraie de tous les magasins sans date tant que
+   c'était la seule raison de refuser, fausse pour un journal de saisies
+   quotidiennes. Un écran qui donne une raison fausse au moment où quelqu'un
+   décide d'effacer est pire qu'un écran qui n'en donne aucune.
+*/
+v(
+  'le journal ne se dit pas « un état courant »',
+  raisonDuRefusDeDecoupage('odysseeCycleJournal').includes('état courant'),
+  false,
+);
+v(
+  'et il dit la vraie raison : scellé, clés en empreintes',
+  /scellé[\s\S]*empreintes/.test(raisonDuRefusDeDecoupage('odysseeCycleJournal')),
+  true,
+);
+v(
+  'les autres magasins gardent le motif par défaut',
+  raisonDuRefusDeDecoupage('etat').includes('état courant'),
+  true,
+);
+v(
+  'et l’écran affiche le motif de chaque magasin, non une phrase unique',
+  readFileSync('src/pages/stockage.astro', 'utf8').includes('m.refus ??'),
+  true,
+);
+
+/*
+   Ce que le module met à la place : un effacement par période coffre ouvert,
+   qui recalcule les empreintes des jours voulus. Mesuré sur le code, puisque
+   l'exécuter demande une base et un coffre — `essais:suivi:navigateur` le
+   fait pour de vrai.
+*/
+const donneesCycle = source('src/lib/odyssee/donnees-cycle.ts');
+v(
+  'le module offre un effacement par période',
+  /export async function effacerLaPeriode\(/.test(donneesCycle),
+  true,
+);
+v(
+  'et il recalcule les empreintes au lieu de lire une date',
+  donneesCycle.includes('cleDuJourDeCycle') &&
+    !/getAll\('odysseeCycleJournal'\)[\s\S]{0,400}effacerLaPeriode/.test(donneesCycle),
+  true,
+);
+
+/* ══════════════════════════════════════════════════════════════════════════ */
+console.log('\n8. UNE SAUVEGARDE NON CHIFFRÉE N’EMPORTE PAS LE SUIVI');
+
+/*
+   Le § 6.9 encore : « le cycle n'entre dans aucune sauvegarde non chiffrée,
+   et l'écran le dit ». Au lot 4 j'avais écrit l'inverse en commentaire — « le
+   fichier est chiffré, et les magasins restent scellés à l'intérieur » —, ce
+   qui est vrai du cas chiffré seulement : la case « Ne pas chiffrer ce
+   fichier » existe, et son propre avertissement dit que le fichier sera
+   « lisible par quiconque l'ouvre ».
+*/
+v(
+  'la liste des exclus en clair est celle des magasins du suivi',
+  [...MAGASINS_HORS_SAUVEGARDE_EN_CLAIR].sort(),
+  [...NOMS_DES_MAGASINS_DU_CYCLE].sort(),
+);
+const enClair = magasinsDUneSauvegarde(false);
+const chiffree = magasinsDUneSauvegarde(true);
+for (const nom of NOMS_DES_MAGASINS_DU_CYCLE) {
+  v(`« ${nom} » part dans un fichier chiffré`, chiffree.includes(nom), true);
+  v(`et ne part pas dans un fichier en clair`, enClair.includes(nom), false);
+}
+v(
+  'et rien d’autre ne disparaît au passage',
+  MAGASINS_SAUVEGARDES.length - enClair.length,
+  NOMS_DES_MAGASINS_DU_CYCLE.length,
+);
+
+/*
+   La fabrique appelle bien la porte, et avec le bon critère. Lu sur le code
+   parce qu'exécuter `fabriquer` demande une base : ce qui est gardé ici,
+   c'est qu'un second chemin d'export ne puisse pas naître à côté.
+*/
+const serviceSauvegarde = source('src/lib/sauvegarde/service.ts');
+v(
+  'la fabrique décide depuis le mot de passe, et non depuis un drapeau à part',
+  serviceSauvegarde.includes('magasinsDUneSauvegarde(motDePasse !== null)'),
+  true,
+);
+v(
+  'et n’exporte plus la liste entière sans la filtrer',
+  /exporterMagasins\(\s*\)/.test(serviceSauvegarde),
+  false,
+);
+
+/*
+   « Et l'écran le dit. » La phrase est à l'endroit du choix — la case qu'on
+   décoche —, et non dans une page d'aide.
+*/
+const ecranProgression = readFileSync('src/pages/progression.astro', 'utf8');
+v(
+  'l’écran dit que le suivi ne part pas dans un fichier non chiffré',
+  /suivi personnel n’y sera pas[\s\S]{0,120}chiffré/.test(ecranProgression),
+  true,
+);
+v(
+  'et il dit aussi ce que restaurer un tel fichier fait au suivi',
+  /Restaurer un fichier non chiffré efface[\s\S]{0,40}suivi/.test(ecranProgression),
+  true,
+);
+
+/* ══════════════════════════════════════════════════════════════════════════ */
+console.log('\n9. LES VERSIONS ET LES CACHES');
+
+/*
+   La partie 1 point 10 du prompt 30 demande la « purge physique des
+   enregistrements, des versions et des caches ». Les enregistrements sont
+   mesurés plus haut. Restent les deux autres, et la réponse n'est pas la même
+   pour chacun : il n'y a rien à purger, et c'est par construction. Une
+   absence vaut d'être mesurée, sinon elle se perd au premier ajout.
+
+   LES VERSIONS. Le journal d'opérations (`operations`) garde une version par
+   écriture, et c'est lui que la synchronisation transporte. Un magasin n'y
+   entre que s'il est déclaré dans `MAGASINS_JOURNALISES`
+   (`noyau/enregistrements.ts`) — `journaliserEnregistrement` commence par
+   demander cette déclaration et ne fait rien sans elle. Les magasins du suivi
+   ne sont pas déclarés, donc aucune version du suivi n'existe : il n'y a pas
+   à la purger, il n'y a pas à l'écrire.
+
+   C'est la cinquième porte de `PORTES_GARDEES`, et c'est celle que j'avais
+   failli manquer : j'allais journaliser le suivi par imitation des modules
+   voisins, ce qui l'aurait synchronisé contre la décision 18 sans qu'aucun
+   nom de magasin apparaisse dans `sync/`.
+*/
+for (const nom of NOMS_DES_MAGASINS_DU_CYCLE) {
+  v(`« ${nom} » n’est pas déclaré journalisé`, magasinJournalise(nom), undefined);
+  v(
+    `donc il n’apparaît pas dans la liste des journalisés`,
+    MAGASINS_JOURNALISES.some((m) => m.magasin === nom),
+    false,
+  );
+}
+
+/*
+   LES CACHES. Mesuré, et non supposé : le service worker (`public/sw.js`) ne
+   met en cache que des **réponses HTTP**. Il n'ouvre aucune base — aucune
+   mention d'`indexedDB`, d'`openDB` ni d'`idb` —, et les données du suivi ne
+   voyagent jamais sur HTTP puisqu'elles ne quittent pas IndexedDB. Aucune
+   donnée du suivi n'entre donc dans le cache, et il n'y a rien à en purger.
+
+   Si un jour quelqu'un fait lire la base au service worker, ces deux-là
+   rougissent — c'est exactement le moment où il faudra reprendre ce
+   raisonnement.
+*/
+const sw = readFileSync('public/sw.js', 'utf8');
+v(
+  'le service worker n’ouvre aucune base',
+  /indexedDB|openDB|\bidb\b/.test(sw),
+  false,
+);
+v(
+  'et il ne connaît aucun magasin du suivi',
+  NOMS_DES_MAGASINS_DU_CYCLE.filter((nom) => sw.includes(nom)),
+  [],
+);
+
+/* ══════════════════════════════════════════════════════════════════════════ */
 console.log(
   echecs === 0
     ? `\n\x1b[32m${MAGASINS_DU_CYCLE.length} magasins scellés, ${PORTES_GARDEES.length} portes ` +

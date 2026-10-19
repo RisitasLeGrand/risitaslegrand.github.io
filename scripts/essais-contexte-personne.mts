@@ -32,6 +32,7 @@ import {
   controlerRegistre,
   usagesLisant,
   type EtatDeLaPersonne,
+  etatDUsage,
 } from '../src/lib/noyau/registre-usages';
 
 let echecs = 0;
@@ -196,37 +197,37 @@ const adulte: EtatDeLaPersonne = {
 
 v(
   'un consommateur absent du registre ne reçoit rien',
-  contextePersonne('module.inexistant', adulte, '2026-10-14'),
+  contextePersonne('module.inexistant', adulte, '2026-10-14', []),
   {},
 );
 v(
   'un consommateur qui ne lit que « majeur » ne reçoit pas l’âge',
-  contextePersonne('sante.substances-majeur', adulte, '2026-10-14'),
+  contextePersonne('sante.substances-majeur', adulte, '2026-10-14', []),
   { majeur: 'oui' },
 );
 v(
   'et ne reçoit pas non plus le sexe, qu’il n’a pas déclaré lire',
-  'sexe_physio' in contextePersonne('sante.substances-majeur', adulte, '2026-10-14'),
+  'sexe_physio' in contextePersonne('sante.substances-majeur', adulte, '2026-10-14', []),
   false,
 );
 v(
   'la tranche est calculée avec les bornes de ce consommateur-là',
-  contextePersonne('sante.intervalles-repli', adulte, '2026-10-14'),
+  contextePersonne('sante.intervalles-repli', adulte, '2026-10-14', []),
   { tranche_age: '18-39', sexe_physio: 'femme' },
 );
 v(
   'et un autre consommateur, d’autres bornes, la même personne',
-  contextePersonne('export.tranche-age', adulte, '2026-10-14').tranche_age,
+  contextePersonne('export.tranche-age', adulte, '2026-10-14', []).tranche_age,
   '30-39',
 );
 v(
   'donnée absente : « inconnu », jamais une valeur par défaut',
-  contextePersonne('sante.intervalles-repli', ETAT_VIERGE, '2026-10-14'),
+  contextePersonne('sante.intervalles-repli', ETAT_VIERGE, '2026-10-14', []),
   { tranche_age: 'inconnu', sexe_physio: 'inconnu' },
 );
 v(
   'majeur indéterminable se rend « inconnu », et non « non »',
-  contextePersonne('sante.substances-majeur', { ...ETAT_VIERGE, age: ne({ naissanceAnnee: 2008 }) }, '2026-10-14'),
+  contextePersonne('sante.substances-majeur', { ...ETAT_VIERGE, age: ne({ naissanceAnnee: 2008 }) }, '2026-10-14', []),
   { majeur: 'inconnu' },
 );
 v(
@@ -235,11 +236,65 @@ v(
   ['export.sexe', 'profil.question-cycle', 'sante.intervalles-repli'],
 );
 
+/* ──────────────────────────────────────────────────────────────────────────
+   Les coupures, qui n'étaient qu'une étiquette
+   ────────────────────────────────────────────────────────────────────────── */
+
+/*
+   Le registre promet, pour `usagesCoupes` : « Un usage coupé ne reçoit plus
+   rien, et l'écran le montre comme coupé plutôt que comme absent. » Les deux
+   moitiés sont mesurées ici, et la première ne l'était pas : la porte
+   calculait le contexte entier sans regarder les coupures.
+
+   Ces quatre-là rougissent si le paramètre disparaît ou s'il est ignoré —
+   c'est le sabotage qu'elles attendent.
+*/
+v(
+  'un usage coupé ne reçoit rien, pas même « inconnu »',
+  contextePersonne('sante.intervalles-repli', adulte, '2026-10-14', ['sante.intervalles-repli']),
+  {},
+);
+v(
+  'et couper un usage n’en coupe pas un autre',
+  contextePersonne('export.tranche-age', adulte, '2026-10-14', ['sante.intervalles-repli'])
+    .tranche_age,
+  '30-39',
+);
+v(
+  'la coupure vide l’objet, elle ne le remplit pas d’« inconnu »',
+  Object.keys(contextePersonne('export.tranche-age', adulte, '2026-10-14', ['export.tranche-age']))
+    .length,
+  0,
+);
+v(
+  'et l’écran le montre coupé, non absent : les deux moitiés de la promesse',
+  etatDUsage(
+    'sante.intervalles-repli',
+    ['sante.intervalles-repli'],
+    contextePersonne('sante.intervalles-repli', adulte, '2026-10-14', ['sante.intervalles-repli']),
+  ),
+  'coupe',
+);
+
+/*
+   Et tous les usages, un par un : aucun ne garde un chemin par lequel il
+   recevrait quelque chose malgré sa coupure. Écrit en boucle parce qu'un
+   usage ajouté demain doit entrer dans cette mesure sans que personne y
+   pense.
+*/
+let fuite: string | null = null;
+for (const u of USAGES) {
+  const c = contextePersonne(u.id, adulte, '2026-10-14', [u.id]);
+  const clefs = Object.keys(c);
+  if (clefs.length > 0) fuite = `${u.id} reçoit ${clefs.join(', ')} alors qu’il est coupé`;
+}
+v('aucun des usages déclarés ne reçoit quoi que ce soit une fois coupé', fuite, null);
+
 console.log('\n   Après suppression d’un champ, aucun consommateur ne casse');
 let planté: string | null = null;
 for (const u of USAGES) {
   try {
-    const c = contextePersonne(u.id, ETAT_VIERGE, '2026-10-14');
+    const c = contextePersonne(u.id, ETAT_VIERGE, '2026-10-14', []);
     for (const cle of u.clesLues) {
       if (!(cle in c)) planté = `${u.id} ne rend pas « ${cle} »`;
     }

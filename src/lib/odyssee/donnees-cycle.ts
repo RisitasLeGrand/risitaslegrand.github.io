@@ -229,3 +229,90 @@ export async function effacerLeJour(jour: string): Promise<void> {
   exigerLeCoffre();
   await (await db()).delete('odysseeCycleJournal', await cleDuJourDeCycle(jour));
 }
+
+const JOUR_EN_MS = 86_400_000;
+
+/**
+ * Les jours d'une plage, bornes incluses.
+ *
+ * `joursDeLaFenetre` (`odyssee/indicateurs.ts`) fait exactement cela, et je
+ * ne l'importe pas : ce module est la couche de données d'un magasin scellé,
+ * et `indicateurs.ts` est le module d'analyse. Lui emprunter une fonction
+ * créerait une arête de la donnée du cycle vers l'analyse — précisément le
+ * chemin dont le § 6 du prompt 30 demande qu'il n'existe pas. Six lignes
+ * recopiées coûtent moins qu'une dépendance qu'il faudra ensuite défendre.
+ */
+function joursDeLaPlage(du: string, au: string): string[] {
+  const jours: string[] = [];
+  const fin = Date.parse(`${au}T00:00:00Z`);
+  for (let t = Date.parse(`${du}T00:00:00Z`); t <= fin; t += JOUR_EN_MS) {
+    jours.push(new Date(t).toISOString().slice(0, 10));
+  }
+  return jours;
+}
+
+/**
+ * Efface les saisies d'une période, bornes incluses. Rend combien sont parties.
+ *
+ * ## Pourquoi cette fonction existe, et pourquoi elle est ici
+ *
+ * La partie 1 point 10 du prompt 30 demande que le cycle soit « effaçable par
+ * période par purge physique ». L'écran de données générique fait cela pour
+ * tous les magasins, en lisant le champ de date **dans l'enregistrement en
+ * clair** (`dateDe`, `sauvegarde/groupes.ts`). Ce magasin n'a plus de date en
+ * clair — le § 6.9 l'interdit — donc ce chemin-là ne peut pas le découper.
+ * C'est le conflit d'architecture que la décision 25 demande d'énoncer, et il
+ * est écrit dans `decisions-en-attente-cycle-2026-10-19.md`.
+ *
+ * L'effacement par période se fait donc **ici, coffre ouvert**, et sans
+ * aucune date en clair : les clés du journal sont les empreintes
+ * déterministes des jours, donc on recalcule les empreintes des jours voulus
+ * et on supprime celles-là. Rien n'est lu, rien n'est ouvert, rien n'est
+ * déchiffré — on ne demande pas à la base ce qu'elle contient, on lui dit
+ * quoi retirer.
+ *
+ * ## Ce que cela coûte, mesuré et non supposé
+ *
+ * Le coût est linéaire **en nombre de jours de la plage**, pas en nombre de
+ * saisies : une plage de dix ans fait 3 653 empreintes, même si une seule
+ * saisie existe. C'est le prix de la clé opaque, et il se paie au moment où
+ * quelqu'un efface, jamais quand il saisit.
+ *
+ * ## Une suppression de clé absente ne lève pas
+ *
+ * `delete` sur une clé qui n'existe pas réussit sans rien faire dans
+ * IndexedDB. Le compte rendu est donc fait de ce qui existait **avant** la
+ * suppression, lu sur les clés et non sur les valeurs : `getKey` dit si une
+ * empreinte est là sans rien ouvrir. Autrement la fonction annoncerait avoir
+ * effacé dix ans de vide.
+ */
+async function clefsPresentesDeLaPeriode(du: string, au: string): Promise<string[]> {
+  if (au < du) return [];
+  const base = await db();
+  const clefs = await Promise.all(joursDeLaPlage(du, au).map((j) => cleDuJourDeCycle(j)));
+  const presentes: string[] = [];
+  for (const k of clefs) {
+    if ((await base.getKey('odysseeCycleJournal', k)) !== undefined) presentes.push(k);
+  }
+  return presentes;
+}
+
+/**
+ * Combien de saisies une période porte, **sans en ouvrir aucune**.
+ *
+ * `getKey` dit si une empreinte est là ; elle ne lit pas la valeur, donc rien
+ * n'est déchiffré. C'est ce qui permet à l'écran d'annoncer un nombre avant
+ * d'effacer, sans faire de ce compte une lecture du journal.
+ */
+export async function combienDansLaPeriode(du: string, au: string): Promise<number> {
+  exigerLeCoffre();
+  return (await clefsPresentesDeLaPeriode(du, au)).length;
+}
+
+export async function effacerLaPeriode(du: string, au: string): Promise<number> {
+  exigerLeCoffre();
+  const base = await db();
+  const presentes = await clefsPresentesDeLaPeriode(du, au);
+  for (const k of presentes) await base.delete('odysseeCycleJournal', k);
+  return presentes.length;
+}

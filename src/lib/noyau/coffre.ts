@@ -321,14 +321,42 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
       'Le suivi personnel : des saisies quotidiennes dont la seule existence renseigne sur le ' +
       'corps de la personne. C’est la donnée que le § 6.1 du prompt 30 protège avant toutes les ' +
       'autres.',
-    clairs: ['id', 'majLe'],
+    /*
+       `id` SEUL, ET PAS DE `majLe`. C'est l'écart avec tous ses voisins, et il
+       corrige une faute que j'avais commise au lot 4.
+
+       J'avais écrit `['id', 'majLe']` en me félicitant qu'il n'y ait pas de
+       `jour` en clair « alors que tous ses voisins en ont un ». Vrai, et sans
+       portée : `majLe` EST une date — celle de l'écriture de la ligne. Une
+       liste de `majLe` donne les jours de saisie, c'est-à-dire exactement le
+       rythme que l'empreinte de la clé était censée cacher. La clé opaque ne
+       servait à rien, et je l'avais écrit comme une protection.
+
+       Le § 6.9 du prompt 30 l'interdit nommément : « aucun champ d'index en
+       clair ne porte une date, un statut ou un symptôme du cycle ».
+
+       CE QUE CELA COÛTE, et c'est la décision 25 qui demande de le dire :
+       `dateDe()` lit le champ de date DANS L'ENREGISTREMENT EN CLAIR, donc le
+       découpage par période de l'écran de données générique devient
+       impossible pour ce magasin — `CHAMP_DATE` y vaut maintenant `null`.
+       L'effacement par période se fait à la place DANS LE MODULE, coffre
+       ouvert, en recalculant les empreintes des jours de la plage. Aucune
+       date en clair n'est nécessaire pour cela : c'est la propriété de
+       l'empreinte déterministe, que je n'avais pas exploitée.
+    */
+    clairs: ['id'],
   },
   {
     magasin: 'odysseeCycleReglages',
     pourquoi:
       'Que le suivi personnel soit actif est déjà une information, et elle se lit en un coup ' +
       'd’œil. Scellée comme ce qu’elle protège.',
-    clairs: ['id', 'majLe'],
+    /*
+       Même raison, et elle vaut aussi ici : `majLe` sur les réglages dirait
+       QUAND le suivi a été activé ou désactivé. Un seul enregistrement, une
+       seule date, et elle en dit beaucoup.
+    */
+    clairs: ['id'],
   },
 ];
 

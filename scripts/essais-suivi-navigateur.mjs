@@ -24,6 +24,25 @@ const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
 const PAGE = '/odyssee/corps/suivi/';
 
+/*
+   LES BORNES DE LA MESURE D'EFFACEMENT, ET POURQUOI PAS « AUJOURD'HUI ».
+
+   Le jour auquel une saisie se rattache est le **jour logique**
+   (`noyau/jour-logique.ts`), qui bascule à une heure donnée : avant cette
+   heure, le jour logique est la veille du jour civil. Un essai qui remplirait
+   les deux bornes avec la date civile serait donc vert dans la journée et
+   rouge la nuit — et son rouge ne dirait rien du code.
+
+   La fenêtre couvre la veille et le lendemain : elle contient le jour logique
+   quelle que soit l'heure, et elle mesure en plus une période de plusieurs
+   jours, ce qui est le cas d'usage réel.
+*/
+const JOUR_MS = 86_400_000;
+const dateCivile = (decalage) =>
+  new Date(Date.now() + decalage * JOUR_MS).toISOString().slice(0, 10);
+const VEILLE = dateCivile(-1);
+const LENDEMAIN = dateCivile(1);
+
 const nav = await chromium.launch({
   executablePath: cheminDuNavigateur(),
   args: ['--no-sandbox'],
@@ -314,7 +333,30 @@ console.log('\n8. LES CIBLES TACTILES ET LA DÉSACTIVATION');
      Le bloc ACTIF, ici visible. Pas de filtre sur `h > 0` : tout bouton de ce
      bloc est à l'écran à ce moment-là, et en écarter un de hauteur nulle
      reviendrait à ne pas le mesurer.
+
+     MESURÉ, PARCE QUE JE L'AURAIS SUPPOSÉ DE TRAVERS : un bouton dans un
+     `<details>` FERMÉ garde `display: inline-block` et ses 44 px — Chromium
+     ne met pas sa boîte à zéro. Les boutons repliés sont donc bien mesurés
+     sans qu'on déplie, et le filtre absent ne cache rien.
+
+     `#effacer-periode`, lui, est caché par `class="hidden"` — donc
+     `display: none`, donc 0 — tant qu'aucun comptage n'a eu lieu. Il faut
+     l'offrir avant de le mesurer, sinon on mesure un bouton que personne ne
+     peut toucher : exactement la faute que la note du bloc inactif raconte.
   */
+  /*
+     Le replié s'ouvre comme une personne l'ouvrirait. Mesuré aussi, et c'est
+     l'autre moitié de la surprise ci-dessus : `getBoundingClientRect` donne
+     bien 44 px à un bouton replié, mais Playwright REFUSE de remplir un champ
+     qu'il juge invisible. Les deux ont raison chacun à leur façon, et il
+     fallait le constater plutôt que de supposer l'un depuis l'autre.
+  */
+  await page.click('#replier-effacement summary');
+  await page.fill('#effacer-du', VEILLE);
+  await page.fill('#effacer-au', LENDEMAIN);
+  await page.click('#compter-periode');
+  await page.waitForSelector('#effacer-periode', { state: 'visible', timeout: 20000 });
+
   const trop = await page.$$eval('#bloc-actif button', (boutons) =>
     boutons
       .map((b) => ({ texte: (b.textContent ?? '').trim().slice(0, 28), h: b.getBoundingClientRect().height }))
@@ -339,7 +381,122 @@ console.log('\n8. LES CIBLES TACTILES ET LA DÉSACTIVATION');
   vrai('la section des signes est toujours là', await page.locator('#signes').isVisible());
 }
 
-console.log('\n9. RIEN N’EST SORTI DU SITE');
+console.log('\n9. L’EFFACEMENT PAR PÉRIODE EST UNE PURGE PHYSIQUE');
+
+{
+  /*
+     La partie 1 point 10 du prompt 30 demande que le suivi soit « effaçable
+     par période par purge physique ». Ce qui est mesuré ici est la purge
+     elle-même, dans la base : combien de clés le journal porte avant, combien
+     après. Pas le texte d'une confirmation — une confirmation peut dire
+     « effacé » sans que rien ne le soit.
+
+     Pourquoi cela ne pouvait pas se mesurer ailleurs : `effacerLaPeriode`
+     demande le coffre, donc une base ouverte et une clé en mémoire. Node n'en
+     a pas, et le projet n'a pas de base en mémoire pour les essais.
+
+     Le comptage des clés est fait par `indexedDB` depuis la page, et non par
+     le module : si l'essai demandait au module combien il reste, il
+     mesurerait le module avec lui-même.
+  */
+  const clefsDuJournal = () =>
+    page.evaluate(
+      () =>
+        new Promise((resolve, rejeter) => {
+          const demande = indexedDB.open('revinsp');
+          demande.onerror = () => rejeter(demande.error);
+          demande.onsuccess = () => {
+            const base = demande.result;
+            const tx = base.transaction('odysseeCycleJournal', 'readonly');
+            const clefs = tx.objectStore('odysseeCycleJournal').getAllKeys();
+            clefs.onsuccess = () => {
+              resolve(clefs.result.map(String));
+              base.close();
+            };
+            clefs.onerror = () => rejeter(clefs.error);
+          };
+        }),
+    );
+
+  const avant = await clefsDuJournal();
+  v('une saisie, une clé dans le journal', avant.length, 1);
+  /*
+     La forme de la clé, et rien de plus ici : qu'aucune forme du jour ne s'y
+     lise est mesuré sur toutes les écritures possibles de la date par
+     `essais:cycle-confidentialite` (section 2). Chercher « 2026 » dans
+     trente-deux signes hexadécimaux le trouverait une fois sur deux mille
+     par hasard, et un essai qui rougit une fois sur deux mille est pire
+     qu'aucun essai.
+  */
+  v('et la clé est une empreinte de 32 signes', /^[0-9a-f]{32}$/.test(avant[0]), true);
+
+  /*
+     La période est rouverte — la section 8 l'a déjà remplie pour mesurer le
+     bouton, et son comptage reste valable.
+  */
+  await page.fill('#effacer-du', VEILLE);
+  await page.fill('#effacer-au', LENDEMAIN);
+  await page.click('#compter-periode');
+  await page.waitForSelector('#effacer-periode', { state: 'visible', timeout: 20000 });
+  v(
+    'le comptage annonce la saisie avant d’effacer',
+    normaliser(await page.textContent('#effacement-dit')),
+    'Cette période porte une saisie.',
+  );
+
+  await page.click('#effacer-periode');
+  await page.waitForFunction(
+    () => (document.getElementById('effacement-dit')?.textContent ?? '').includes('effacée'),
+    { timeout: 20000 },
+  );
+  v(
+    'et le compte rendu dit ce qui est parti',
+    normaliser(await page.textContent('#effacement-dit')),
+    'Une saisie effacée.',
+  );
+
+  const apres = await clefsDuJournal();
+  v('la clé n’est plus dans la base : la purge est physique', apres, []);
+  v(
+    'et l’écran ne montre plus de niveau choisi',
+    await page.getAttribute('#niveaux button[data-niveau="traces"]', 'aria-pressed'),
+    'false',
+  );
+
+  /*
+     Une période sans saisie ne propose pas d'effacer : le bouton reste caché,
+     et le message le dit. Sinon la personne appuierait sur « Effacer ces
+     saisies » pour rien, et ne saurait pas si quelque chose est parti.
+  */
+  await page.fill('#effacer-du', '2020-01-01');
+  await page.fill('#effacer-au', '2020-01-31');
+  await page.click('#compter-periode');
+  await page.waitForFunction(
+    () => (document.getElementById('effacement-dit')?.textContent ?? '').length > 0,
+    { timeout: 20000 },
+  );
+  v(
+    'une période vide le dit',
+    normaliser(await page.textContent('#effacement-dit')),
+    'Aucune saisie dans cette période.',
+  );
+  faux(
+    'et n’offre pas d’effacer',
+    await page.locator('#effacer-periode').isVisible(),
+  );
+
+  /* Des bornes à l'envers sont refusées avant toute écriture. */
+  await page.fill('#effacer-du', '2026-05-10');
+  await page.fill('#effacer-au', '2026-05-01');
+  await page.click('#compter-periode');
+  v(
+    'des bornes à l’envers sont refusées',
+    normaliser(await page.textContent('#effacement-dit')),
+    'La seconde date est avant la première.',
+  );
+}
+
+console.log('\n10. RIEN N’EST SORTI DU SITE');
 
 v('aucune requête hors du site', sorties, []);
 

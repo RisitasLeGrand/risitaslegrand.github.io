@@ -396,14 +396,43 @@ export interface Contexte {
  * Un consommateur absent du registre reçoit un objet vide : pas une erreur, pas
  * une valeur par défaut, rien (1 n° 15). L'essai sur le graphe d'imports est ce
  * qui transforme cette politesse en garantie.
+ *
+ * ## `usagesCoupes` est obligatoire, et c'était un trou
+ *
+ * Le registre déclare, pour le champ `usagesCoupes` (`noyau/profil.ts`) :
+ * « Un usage coupé ne reçoit plus rien, et l'écran le montre comme coupé
+ * plutôt que comme absent. » La seconde moitié était tenue — `etatDUsage`
+ * rend `'coupe'` — mais **pas la première** : cette fonction calculait le
+ * contexte entier sans jamais regarder les coupures. Un usage coupé recevait
+ * tout, et l'écran l'étiquetait « coupé ». La coupure était un libellé.
+ *
+ * Constaté par l'agent C, et le correctif est le paramètre ci-dessous.
+ *
+ * Il est **obligatoire et non facultatif**, ce qui casse les appels existants
+ * et c'est voulu : un paramètre facultatif garde le trou par défaut, et il
+ * suffit alors d'un nouvel appelant qui l'ignore pour que la promesse tombe
+ * à nouveau, sans que rien ne rougisse. Obligatoire, le compilateur demande
+ * à chaque appelant d'où viennent les coupures — question qui a une réponse
+ * dans tous les cas, `[]` compris quand il n'y en a pas.
  */
 export function contextePersonne(
   consommateurId: string,
   etat: EtatDeLaPersonne,
   jour: string,
+  usagesCoupes: readonly string[],
 ): Contexte {
   const u = PAR_ID.get(consommateurId);
   if (!u) return {};
+  /*
+     Un usage coupé reçoit un objet vide, c'est-à-dire la même chose qu'un
+     consommateur inconnu : rien, et non `'inconnu'`. La distinction est celle
+     que `Contexte` écrit plus haut — « tu n'as pas le droit de savoir » n'est
+     pas « personne ne sait » —, et c'est bien la première qui s'applique.
+
+     Avant la boucle, donc avant tout appel à `franchit` ou `trancheDAge` :
+     une coupure ne doit pas se contenter de jeter un résultat calculé.
+  */
+  if (usagesCoupes.includes(consommateurId)) return {};
   const contexte: Contexte = {};
   for (const cle of u.clesLues) {
     switch (cle) {
