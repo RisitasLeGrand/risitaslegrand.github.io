@@ -264,21 +264,36 @@ await aller('/revisions/', '#question, #dues');
 v('la branche mène à son module', new URL(page.url()).pathname, '/initialisation/');
 v('et le dit dans son étiquette', (await page.locator('#etiquette').textContent())?.includes('Révisions'), true);
 /*
-   DEUX QUESTIONS, ET NON SIX, depuis la décision 2 du 56. Le concours, les
-   dates d'épreuves et les deux listes de matières ne sont plus demandés :
-   rien ne lit leur réponse aujourd'hui. Restent les heures de révision et le
-   moment préféré, que l'adaptation lit pour comparer au réel.
+   TROIS QUESTIONS, ET NON SIX, depuis la décision 2 du 56 — puis la décision 3
+   en a ramené une. Le concours et les deux listes de matières ne sont plus
+   demandés : rien ne lit leur réponse. Les dates d'épreuves, elles, sont
+   revenues le 19 octobre, parce que le compte à rebours de l'accueil les lit :
+   c'est le même `aUnUsage` qui retire une question et qui la rend, et c'est
+   pour cela que ce nombre bouge ici sans que personne l'ait remis à la main.
 */
 v(
-  'la première question est celle des heures',
+  'la première question est celle des dates d’épreuves',
+  await question(),
+  'Quand sont les épreuves ?',
+);
+v('le module fait trois questions', await compteur(), '1 / 3');
+
+await page.click('#plus-tard');
+await page.waitForFunction(
+  () => document.getElementById('question')?.textContent?.includes('heures de révision'),
+  undefined,
+  { timeout: 15000 },
+);
+v(
+  'puis viennent les heures de révision',
   await question(),
   'Combien d’heures de révision par semaine ?',
 );
-v('le module fait deux questions', await compteur(), '1 / 2');
 
 await page.click('#plus-tard');
 await page.waitForFunction(
   () => document.getElementById('question')?.textContent?.includes('matin ou le soir'),
+  undefined,
   { timeout: 15000 },
 );
 /* « travailler » devient « réviser » : la question est celle des révisions, et

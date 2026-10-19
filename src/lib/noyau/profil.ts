@@ -638,6 +638,17 @@ export const CHAMPS: readonly ChampDeclare[] = [
     question: 'Quand sont les épreuves ?',
     porteeParDefaut: ['revisions', 'odyssee'],
     brancheDOrigine: 'revisions',
+    /* La décision 3 rend ce champ utile : sans elle, rien ne le lisait et il
+       tombait dans « plus demandé » comme les vingt-deux autres. Le compte à
+       rebours le lit, donc Cyclades le redemande — c'est le même `aUnUsage`
+       qui décide des deux, et c'est pour cela qu'ils ne peuvent pas diverger. */
+    luPar: [
+      {
+        module: 'src/pages/revisions/index.astro',
+        libelle: 'le compte à rebours de l’accueil de Révisions',
+      },
+    ],
+    regle: 'Le compte à rebours de l’accueil de Révisions, qu’un réglage coupe.',
   }),
   C({
     champ: 'heuresRevision',

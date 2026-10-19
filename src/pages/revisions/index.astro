@@ -24,6 +24,27 @@ import Section from '../../components/Section.astro';
   <div id="chargement" class="py-20 text-center text-slate-400">Déchiffrement du contenu…</div>
 
   <div id="tableau" class="hidden space-y-6">
+    {/*
+       Le compte à rebours vers les épreuves (décision 3 du prompt 56).
+
+       En tête, parce que c'est la seule ligne de cet écran qui ne dépend pas
+       de ce qu'on a fait aujourd'hui : elle situe tout le reste.
+
+       Aucune couleur, aucun « plus que », rien qui vire au rouge quand la date
+       approche — l'interdit 3 du prompt le proscrit, et la façon la plus sûre
+       de s'y tenir est de n'avoir aucun endroit où poser une couleur. Le bloc
+       reste « hidden » tant que le script n'a rien à y mettre : coffre fermé,
+       réglage coupé, ou aucune date connue d'un parcours.
+    */}
+    <section id="bloc-rebours" class="hidden" aria-labelledby="titre-rebours">
+      <h2 id="titre-rebours" class="sr-only">Vos épreuves</h2>
+      <div
+        id="rebours"
+        class="rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900"
+      >
+      </div>
+    </section>
+
     <!-- Bandeau niveau / XP / série -->
     <section class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
       <div class="rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 p-5 text-white shadow-sm">
@@ -269,7 +290,7 @@ import Section from '../../components/Section.astro';
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
   import { construireVue } from '../../lib/agregats';
-  import { lireProfil, tousLesJours, jourISO, ajouterJours } from '../../lib/db';
+  import { lireProfil, lireReglagesSession, tousLesJours, jourISO, ajouterJours } from '../../lib/db';
   import { BADGES, calculerNiveau, statutStreak, vueLongTerme } from '../../lib/gamification';
   import { formaterDuree, lien, pluriel } from '../../lib/ui';
   import { chargerDerniereSemaine, chargerFiches } from '../../lib/actualites';
@@ -458,6 +479,9 @@ import Section from '../../components/Section.astro';
     // --- Séance du jour ---
     await afficherSeanceDuJour();
 
+    // --- Compte à rebours vers les épreuves ---
+    await afficherCompteARebours();
+
     document.getElementById('chargement')!.classList.add('hidden');
     document.getElementById('tableau')!.classList.remove('hidden');
   }
@@ -579,6 +603,74 @@ import Section from '../../components/Section.astro';
 
     if (!terminee && !repos) await proposerPretest(seance.theme);
     if (!repos) void garderLesFichesDuJour(seance.theme);
+  }
+
+  /**
+   * Le compte à rebours vers les épreuves (décision 3 du prompt 56).
+   *
+   * ## Ce que cette fonction ne fait pas
+   *
+   * Elle ne calcule rien : l'arithmétique des jours vit dans
+   * `lib/compte-a-rebours.ts`, qui s'éprouve sans navigateur et franchit le
+   * changement d'heure. Ici il ne reste que trois décisions d'écran — montrer,
+   * inviter, ou se taire — et c'est tout ce que l'essai a à vérifier.
+   *
+   * ## Les trois raisons de se taire, et elles ne se confondent pas
+   *
+   * Le réglage coupé fait disparaître le bloc : c'est la promesse de l'entrée
+   * « Compte à rebours vers mes épreuves » des paramètres, et un essai la tient.
+   * Aucune date, ou des dates toutes passées, ne font pas disparaître le bloc :
+   * elles changent ce qu'il dit, parce que proposer de donner ses dates est
+   * précisément ce que l'entrée des paramètres annonce. Coffre fermé, enfin,
+   * rien ne s'affiche — mais pas d'ici : tout `#tableau` attend le
+   * déverrouillage, et le compte à rebours n'y fait pas exception.
+   *
+   * Les modules sont importés à la demande : un écran qui n'affiche pas le
+   * compte à rebours n'a pas à télécharger le registre des parcours.
+   */
+  async function afficherCompteARebours() {
+    const bloc = document.getElementById('bloc-rebours')!;
+    const zone = document.getElementById('rebours')!;
+    zone.replaceChildren();
+    bloc.classList.add('hidden');
+
+    if ((await lireReglagesSession()).compteARebours === false) return;
+
+    const [{ echeances }, { PARCOURS }, { champ }] = await Promise.all([
+      import('../../lib/compte-a-rebours'),
+      import('../../lib/parcours/registre'),
+      import('../../lib/profil'),
+    ]);
+    const etat = echeances(jourISO(), (await champ('datesEpreuves'))?.valeur, PARCOURS);
+
+    if (etat.etat === 'lignes') {
+      const liste = document.createElement('ul');
+      liste.className = 'space-y-1 text-sm text-slate-700 dark:text-slate-300';
+      for (const ligne of etat.lignes) {
+        const item = document.createElement('li');
+        /* `textContent` et non `innerHTML` : le libellé du parcours vient d'un
+           registre, mais la date vient du journal, donc d'un autre appareil. */
+        item.textContent = ligne.texte;
+        liste.appendChild(item);
+      }
+      zone.appendChild(liste);
+    } else {
+      const phrase = document.createElement('p');
+      phrase.className = 'text-sm text-slate-600 dark:text-slate-300';
+      phrase.textContent =
+        etat.etat === 'sans-date'
+          ? 'Vous n’avez pas dit quand sont vos épreuves.'
+          : 'Les dates d’épreuves que vous avez données sont passées.';
+      const vers = document.createElement('a');
+      vers.href = lien('/profil/');
+      vers.className =
+        'mt-1 inline-flex min-h-11 items-center text-sm font-medium text-indigo-600 ' +
+        'underline-offset-4 hover:underline dark:text-indigo-400';
+      vers.textContent = etat.etat === 'sans-date' ? 'Les renseigner' : 'Les mettre à jour';
+      zone.append(phrase, vers);
+    }
+
+    bloc.classList.remove('hidden');
   }
 
   /**

@@ -376,15 +376,27 @@ vrai(
 
 console.log('\n6. CE QUI N’EST PLUS DEMANDÉ (DÉCISION 2)');
 v('le catalogue tient trente-sept champs', CHAMPS.length, 37);
-v('quatorze champs ont un usage', CHAMPS.filter(aUnUsage).length, 14);
-v('vingt-trois ne sont plus demandés', CHAMPS_PLUS_DEMANDES.length, 23);
+/* Quinze, et non quatorze : la décision 3 a donné un lecteur à
+   `datesEpreuves` — le compte à rebours de l'accueil de Révisions. Ces deux
+   nombres bougent ensemble, et doivent le faire : leur somme est le catalogue. */
+v('quinze champs ont un usage', CHAMPS.filter(aUnUsage).length, 15);
+v('vingt-deux ne sont plus demandés', CHAMPS_PLUS_DEMANDES.length, 22);
+v(
+  'et les deux comptes couvrent le catalogue',
+  CHAMPS.filter(aUnUsage).length + CHAMPS_PLUS_DEMANDES.length,
+  CHAMPS.length,
+);
 v('le socle passe de dix-huit questions à huit', questionsDuSocle().length, 8);
 v(
   'les huit, dans l’ordre des questions',
   questionsDuSocle().map((c) => c.champ),
   ['prenom', 'naissanceAnnee', 'fuseau', 'lever', 'moment-revue', 'coucher', 'tempsParSemaine', 'domainesActifs'],
 );
-v('Révisions en pose deux', questionsDeBranche('revisions').map((c) => c.champ), [
+/* Trois depuis le compte à rebours : la question des dates d'épreuves revient
+   parce que quelque chose les lit enfin, et par le même chemin que les autres —
+   personne ne l'a remise à la main. */
+v('Révisions en pose trois', questionsDeBranche('revisions').map((c) => c.champ), [
+  'datesEpreuves',
   'heuresRevision',
   'momentRevision',
 ]);
