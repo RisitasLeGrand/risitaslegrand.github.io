@@ -133,6 +133,7 @@
     "essais:profil": "tsx scripts/essais-profil.mts",
     "essais:lu-par": "tsx scripts/essais-lu-par.mts",
     "essais:compte-a-rebours": "tsx scripts/essais-compte-a-rebours.mts",
+    "essais:compte-a-rebours:navigateur": "node scripts/essais-compte-a-rebours-navigateur.mjs",
     "essais:reglages-appliques": "tsx scripts/essais-reglages-appliques.mts",
     "essais:ma-journee": "tsx scripts/essais-ma-journee.mts",
     "essais:ma-journee:navigateur": "node scripts/essais-ma-journee-navigateur.mjs",
