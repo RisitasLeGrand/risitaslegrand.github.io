@@ -117,6 +117,35 @@ import Base from '../layouts/Base.astro';
       <div id="fragiles" class="space-y-2"></div>
     </section>
 
+    <!--
+      ── Les écrans les plus ouverts (prompt 43, lot I) ──────────────────
+
+      Ce qu'il sert à décider : par quel écran commencer quand on améliore
+      quelque chose. Un écran ouvert deux cents fois mérite qu'on s'occupe de
+      son bouton mal placé avant celui d'un écran ouvert trois fois.
+
+      Ce qu'il ne dit pas, et qui est dit à l'écran : il ne compte que coffre
+      ouvert, donc c'est un échantillon. La mesure est donc **relative** — un
+      classement —, jamais un total d'ouvertures de l'application.
+    -->
+    <section id="visites">
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">
+        Les écrans que vous ouvrez le plus
+      </h2>
+      <p class="mb-3 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+        Un compte par écran, sans aucune date et sans rien de ce que vous y faites. Il sert à
+        savoir quoi améliorer d’abord. Il n’est compté que <strong>coffre ouvert</strong>, et
+        ne quitte jamais cet appareil{'\u00a0'}: ni sauvegarde, ni synchronisation.
+      </p>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
+        <p id="visites-etat" class="text-sm text-slate-500 dark:text-slate-400"></p>
+        <ol id="visites-liste" class="mt-3 space-y-2"></ol>
+        <p class="mt-4 text-xs text-slate-400">
+          Pour l’effacer{'\u00a0'}: Stockage → Vos données → «{'\u00a0'}Mesure d’usage{'\u00a0'}».
+        </p>
+      </div>
+    </section>
+
     <!-- ── D'où vient l'XP : le moteur d'activité ────────────────────── -->
     <section id="activite">
       <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">D’où vient mon XP</h2>
@@ -224,6 +253,8 @@ import Base from '../layouts/Base.astro';
   import { formaterDuree, lien, pluriel } from '../lib/ui';
   import { chargerManifeste, MATIERE_CAS_PRATIQUE } from '../lib/contenu';
   import { comptesParMatiere } from '../lib/journal';
+  import { visitesComptees } from '../lib/visites';
+  import { coffreOuvert } from '../lib/coffre';
   import {
     AMORCES,
     calibrer,
@@ -719,8 +750,50 @@ import Base from '../layouts/Base.astro';
 
   // « auDeverrouillage » : barre de progression, garde-fou de 5 secondes et
   // exécution même si ce script arrive après l'ouverture de la session.
+  /**
+   * Les écrans les plus ouverts (prompt 43, lot I).
+   *
+   * Trois états, et aucun ne ment : coffre fermé, on ne peut rien lire et on
+   * le dit ; compteur vide, on dit pourquoi plutôt que d'afficher une liste
+   * vide ; sinon, le classement.
+   */
+  async function peindreLesVisites() {
+    const etat = $('visites-etat');
+    const liste = $('visites-liste');
+    liste.innerHTML = '';
+    if (!coffreOuvert()) {
+      etat.textContent =
+        'Coffre fermé : ce compte est rangé dedans, et il ne se lit pas sans la clé.';
+      return;
+    }
+    const visites = await visitesComptees();
+    if (!visites.length) {
+      etat.textContent =
+        'Rien de compté pour l’instant. Les visites faites coffre fermé ne sont pas comptées.';
+      return;
+    }
+    const total = visites.reduce((n, v) => n + v.compte, 0);
+    etat.textContent = `${pluriel(total, 'ouverture comptée', 'ouvertures comptées')} sur ${pluriel(
+      visites.length,
+      'écran',
+    )}.`;
+    for (const visite of visites) {
+      const li = document.createElement('li');
+      li.className = 'flex items-baseline justify-between gap-3 text-sm';
+      const nom = document.createElement('span');
+      nom.className = 'min-w-0 truncate text-slate-700 dark:text-slate-200';
+      nom.textContent = visite.route;
+      const compte = document.createElement('span');
+      compte.className = 'shrink-0 tabular-nums font-semibold text-slate-900 dark:text-white';
+      compte.textContent = String(visite.compte);
+      li.append(nom, compte);
+      liste.appendChild(li);
+    }
+  }
+
   auDeverrouillage(async () => {
     await afficher();
+    await peindreLesVisites();
     const faits = await peindreActivite();
     await peindreDesaccords(faits);
   });

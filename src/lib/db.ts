@@ -48,6 +48,7 @@ import type {
   Traitement,
 } from './odyssee/sante';
 import type { Checkin, CheckinHebdo, Entree } from './odyssee/psyche';
+import type { Visite } from './visites';
 import type { Session } from './odyssee/usage';
 import type { LigneDeBase } from './odyssee/veille';
 import type { ReglagesVeille, SignalEnregistre } from './odyssee/signal-veille';
@@ -746,6 +747,14 @@ interface SchemaRevinsp extends DBSchema {
      une vie, soit une fraction de seconde (voir la mesure du plan, 3.7).
   */
   odysseeCreneaux: { key: string; value: MarqueDeCreneau; indexes: Record<string, never> };
+  /*
+     Le compteur de visites par écran (prompt 43, lot I).
+
+     Aucun index, et la clé ne dit rien : elle est tirée au hasard, la route
+     vit dans la charge scellée. Un index — ou une clé parlante — aurait
+     rendu lisible, sans ouvrir le coffre, la liste des écrans fréquentés.
+  */
+  visites: { key: string; value: Visite; indexes: Record<string, never> };
   odysseeCheckins: { key: string; value: Checkin; indexes: { jour: string } };
   odysseeHebdos: { key: string; value: CheckinHebdo; indexes: { semaine: string } };
   odysseeJournal: { key: string; value: Entree; indexes: { jour: string } };
@@ -853,7 +862,16 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 35;
+/*
+   42, et non 36 : les numéros entre les deux sont attribués à d'autres
+   branches en cours (37-40 à l'agent B, pour le champ « sexe » et le suivi).
+   Deux migrations portant le même numéro ne se verraient ni en revue ni à
+   l'exécution — une base déjà montée par l'un des chemins ne rejouerait
+   jamais l'autre bloc, et le magasin manquant ne se signalerait qu'au premier
+   « getAll », loin de sa cause. Le pilote attribue les numéros ; celui-ci est
+   le mien.
+*/
+const VERSION = 42;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1682,6 +1700,20 @@ function ouvrirAuSchema(nom: string, version: number) {
          * Pas d'index : voir le type. La clé est une empreinte, donc muette.
          */
         base.createObjectStore('odysseeCreneaux', { keyPath: 'id' });
+      }
+      if (vers(42)) {
+        /*
+         * Le compteur de visites par écran — prompt 43, lot I, point 1.
+         *
+         * Il naît vide, et rien n'est repris : un compteur reconstitué
+         * depuis une autre source dirait un passé qu'on n'a pas mesuré.
+         *
+         * Pas d'index, et la clé est tirée au hasard. Une clé parlante — la
+         * route, ou son empreinte — aurait rendu la liste des écrans
+         * fréquentés lisible sans ouvrir le coffre ; et soixante routes
+         * publiques se retrouvent par force brute derrière une empreinte.
+         */
+        base.createObjectStore('visites', { keyPath: 'id' });
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -2766,6 +2798,12 @@ export const MAGASINS_PROGRESSION = [
   'odysseeReglesPointage',
   'odysseePointages',
   'odysseeTaxonomie',
+  /*
+     Le compteur de visites (prompt 43, lot I). Il est ici pour être EFFAÇABLE
+     — c'est cette liste qui décide de la remise à zéro et du remplacement —
+     et il est écarté des sauvegardes juste en dessous.
+  */
+  'visites',
 ] as const;
 
 /**
@@ -2781,8 +2819,21 @@ export const MAGASINS_PROGRESSION = [
  * La liste est volontairement minuscule. Un magasin n'y entre que s'il est
  * reconstructible intégralement : tout autre magasin absent d'une
  * sauvegarde serait une perte.
+ *
+ * ## Une seconde raison d'y entrer, et il faut la nommer plutôt que l'étendre
+ *
+ * `visites` n'est PAS reconstructible : un compteur perdu est perdu. Il entre
+ * ici pour l'autre motif, qui lui est propre — c'est une mesure de
+ * diagnostic, faite pour choisir quoi améliorer d'abord, et sa perte ne coûte
+ * rien à la personne. Le prétendre reconstructible aurait élargi le critère
+ * en silence ; mieux vaut deux critères écrits qu'un critère élastique.
+ *
+ * Il y a une conséquence, et elle est voulue : le point I du prompt 43 exige
+ * qu'il reste hors des sauvegardes NON CHIFFRÉES. Le tenir hors de TOUTES est
+ * plus strict, et évite d'avoir à distinguer les deux cas au moment où l'on
+ * écrit le fichier.
  */
-export const MAGASINS_HORS_SAUVEGARDE: readonly string[] = ['centreElements'];
+export const MAGASINS_HORS_SAUVEGARDE: readonly string[] = ['centreElements', 'visites'];
 
 /** Ce qu'une sauvegarde emporte vraiment. */
 export const MAGASINS_SAUVEGARDES: readonly string[] = MAGASINS_PROGRESSION.filter(

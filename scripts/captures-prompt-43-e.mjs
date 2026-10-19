@@ -56,6 +56,8 @@ const ECRANS = [
   { nom: 'psyche', route: '/odyssee/psyche/' },
   { nom: 'quad-n-back', route: '/cog-training/quad-n-back/' },
   { nom: 'entete-parcours', route: '/revisions/' },
+  /* Le lot I ajoute une section ici, et nulle part ailleurs. */
+  { nom: 'statistiques', route: '/statistiques/' },
 ];
 
 mkdirSync(DOSSIER, { recursive: true });

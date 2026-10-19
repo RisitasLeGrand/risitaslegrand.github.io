@@ -1,0 +1,145 @@
+/**
+ * Le compteur de visites par écran — prompt 43, lot I, point 1.
+ *
+ * ## À quoi il sert, et à quoi il ne sert pas
+ *
+ * À choisir quoi améliorer d'abord. Un écran ouvert deux cents fois mérite
+ * qu'on s'occupe de son bouton mal placé avant celui d'un écran ouvert trois
+ * fois. C'est tout : il ne note aucun geste, aucun contenu, aucun instant.
+ *
+ * ## La frontière avec le journal d'usage, qui est le vrai sujet
+ *
+ * `odyssee/usage.ts` tient déjà un journal des sessions, et il REFUSE
+ * nommément la route :
+ *
+ * > « Savoir que quelqu'un a ouvert Cyclades à 3 h est une information de
+ * > rythme ; savoir qu'il a ouvert "Ma psyché" à 3 h est une information sur
+ * > lui. »
+ *
+ * Ce module ne revient pas sur cette décision : il la respecte en se tenant
+ * de l'autre côté de la ligne.
+ *
+ * - le journal d'usage garde **des heures, sans route**, en clair ;
+ * - ce compteur garde **une route et un nombre, sans aucune date**, scellé.
+ *
+ * Aucun des deux ne dit « Psyché à 3 h ». Leur réunion non plus : il n'y a
+ * rien à joindre, puisque ce compteur ne porte aucun instant. C'est la raison
+ * pour laquelle aucune date n'est écrite ici, pas même scellée — ce qu'on
+ * n'écrit pas ne fuit pas, et une date « pour plus tard » est précisément le
+ * champ qu'on finit par joindre.
+ *
+ * ## Pourquoi la clé est tirée au hasard
+ *
+ * La tentation est d'indexer par la route, ou par son empreinte. Une route en
+ * clair se lit sans rien ouvrir ; une empreinte de route se retrouve par
+ * force brute, puisqu'il y a soixante routes et qu'elles sont publiques. La
+ * clé ne porte donc RIEN : elle est tirée au hasard, et la route vit dans la
+ * charge scellée.
+ *
+ * Le prix est qu'incrémenter demande d'ouvrir tous les enregistrements pour
+ * retrouver le bon. Ils sont au plus soixante, cela se compte en
+ * millisecondes, et c'est un prix qu'on paie une fois par visite.
+ *
+ * ## Il ne compte que coffre ouvert, et c'est dit à l'écran
+ *
+ * Écrire scellé demande la clé. Coffre fermé, la visite n'est pas comptée —
+ * le compteur est donc un ÉCHANTILLON, et l'écran qui l'affiche l'écrit en
+ * toutes lettres. Le journal d'usage a tranché l'inverse, en clair, pour la
+ * même raison et en connaissance de cause ; ici, ce qui serait écrit est plus
+ * parlant, donc on garde le sceau et l'on accepte de compter moins.
+ *
+ * ## Il ne voyage pas, et il n'entre dans aucune sauvegarde
+ *
+ * Pas d'opération au journal : deux appareils synchronisés ne doivent pas
+ * échanger ce qu'ils regardent. Et pas de sauvegarde du tout — pas seulement
+ * pas de sauvegarde en clair : une mesure de diagnostic qu'une restauration
+ * ne rend pas ne manque à personne.
+ */
+import { db } from './db';
+import { coffreOuvert, cleDuCoffre } from './coffre';
+
+const MAGASIN = 'visites';
+
+/** Une visite comptée : une route, un nombre, et rien d'autre. */
+export interface Visite {
+  /** Tiré au hasard. Il ne dit rien de la route — c'est tout son objet. */
+  id: string;
+  /** Le chemin de l'écran, sans paramètres ni ancre. */
+  route: string;
+  /** Combien de fois il a été ouvert, coffre ouvert. */
+  compte: number;
+}
+
+/**
+ * La route d'une adresse, réduite à ce qui nomme un écran.
+ *
+ * Les paramètres sont retirés, et ce n'est pas de la cosmétique :
+ * « /fiche/?id=8f66… » dirait QUELLE fiche a été lue, c'est-à-dire un
+ * contenu. Seul le gabarit de l'écran est compté.
+ */
+export function routeDe(url: string, base = ''): string {
+  try {
+    const chemin = new URL(url, 'http://local').pathname;
+    /* Le préfixe du site est retiré quand il en a un : « /cyclades/revisions »
+       et « /revisions » sont le même écran, et deux lignes pour un écran
+       fausseraient le classement que ce compteur sert à établir. Un préfixe
+       vide ou réduit à « / » ne retire rien. */
+    const prefixe = base.replace(/\/+$/, '');
+    const sansBase = prefixe && chemin.startsWith(prefixe) ? chemin.slice(prefixe.length) : chemin;
+    const propre = sansBase.replace(/\/+$/, '');
+    return propre.startsWith('/') ? propre : `/${propre}`;
+  } catch {
+    return '/';
+  }
+}
+
+/** Compte une visite. Ne lève jamais : un compteur ne casse pas un écran. */
+export async function compterLaVisite(route: string): Promise<void> {
+  try {
+    if (!coffreOuvert()) return;
+    const cle = cleDuCoffre();
+    if (!cle) return;
+    const { ouvrir, sceller } = await import('./noyau/coffre');
+    const base = await db();
+    const rangees = (await base.getAll(MAGASIN)) as unknown as Record<string, unknown>[];
+    for (const rangee of rangees) {
+      const visite = await ouvrir<Visite>(cle, rangee);
+      if (visite.route !== route) continue;
+      const scellee = await sceller(cle, MAGASIN, {
+        ...visite,
+        compte: visite.compte + 1,
+      } as unknown as Record<string, unknown>);
+      await base.put(MAGASIN, scellee as unknown as Visite);
+      return;
+    }
+    const neuve = await sceller(cle, MAGASIN, {
+      id: crypto.randomUUID(),
+      route,
+      compte: 1,
+    } as unknown as Record<string, unknown>);
+    await base.put(MAGASIN, neuve as unknown as Visite);
+  } catch {
+    /*
+       Une base pleine, un coffre refermé entre-temps, un magasin absent sur
+       une version plus ancienne : rien de tout cela ne justifie d'abîmer la
+       page qu'on vient d'ouvrir. La visite n'est pas comptée, et c'est tout.
+    */
+  }
+}
+
+/** Les visites comptées, de la plus fréquente à la moins. */
+export async function visitesComptees(): Promise<Visite[]> {
+  if (!coffreOuvert()) return [];
+  const cle = cleDuCoffre();
+  if (!cle) return [];
+  const { ouvrir } = await import('./noyau/coffre');
+  const base = await db();
+  const rangees = (await base.getAll(MAGASIN)) as unknown as Record<string, unknown>[];
+  const visites = await Promise.all(rangees.map((r) => ouvrir<Visite>(cle, r)));
+  return visites.sort((a, b) => b.compte - a.compte || a.route.localeCompare(b.route));
+}
+
+/** Efface tout le compteur. L'effacement par groupe passe, lui, par `groupes.ts`. */
+export async function oublierLesVisites(): Promise<void> {
+  await (await db()).clear(MAGASIN);
+}

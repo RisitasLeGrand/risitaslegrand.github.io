@@ -298,6 +298,18 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
     clairs: ['id', 'majLe'],
   },
   {
+    magasin: 'visites',
+    pourquoi:
+      'Le compteur de visites par écran (prompt 43, lot I). La liste des écrans ' +
+      'fréquentés dit ce qui préoccupe — « Psyché quarante fois ce mois-ci » est une ' +
+      'information sur la personne, pas sur le logiciel. C’est aussi pourquoi la clé est ' +
+      'tirée au hasard et ne porte pas la route : une empreinte de route se retrouve par ' +
+      'force brute, il n’y a que soixante routes et elles sont publiques.',
+    /* L'identifiant, et rien d'autre : ni la route, ni un nombre, ni une
+       date — ce magasin n'en porte aucune, même scellée. */
+    clairs: ['id'],
+  },
+  {
     magasin: 'odysseeRessentis',
     pourquoi:
       'Santé : ce qu’une personne ressent sous un traitement nommé en dit autant que le ' +

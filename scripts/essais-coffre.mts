@@ -119,7 +119,17 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    son écriture impossible coffre fermé, le seul cas où il sert. Son contenu
    reste chiffré, par la boîte aux lettres et non par le coffre.
 */
-v('vingt-sept magasins scellés', MAGASINS_SCELLES.length, 27);
+/*
+   VINGT-NEUF, ET LE COMPTE ÉTAIT DÉJÀ FAUX AVANT CE LOT.
+
+   Épinglé à 27, il en trouvait 28 sur « main » : `odysseeCreneaux` est entré
+   avec le schéma 35 sans que ce nombre soit remis. Cet essai n'est pas au
+   socle, et personne ne l'a lancé entre-temps — c'est exactement le genre de
+   rouge qui dort.
+
+   Le vingt-neuvième est `visites`, le compteur du prompt 43, lot I.
+*/
+v('vingt-neuf magasins scellés', MAGASINS_SCELLES.length, 29);
 /*
    Le centre : l'identifiant ET le genre, pas un champ de plus.
 
