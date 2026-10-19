@@ -38,6 +38,65 @@ import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
+import { pdfMinimal } from './lib/pdf-minimal.mjs';
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Les prémisses, semées PAR L'ÉCRAN et en données synthétiques
+   ══════════════════════════════════════════════════════════════════════════
+
+   Deux gestes n'existent pas sur une base vide : on ne marque pas une prise
+   sans traitement déclaré, on ne pointe pas une dépense sans relevé importé.
+   La première version de ce script rendait donc « non mesuré » pour les deux.
+
+   C'était vrai, et insuffisant : la prémisse est SEMABLE, et par le chemin
+   réel — un formulaire pour le traitement, un relevé PDF fabriqué pour les
+   opérations. Le semis n'est pas compté dans le geste : le chronomètre et le
+   compteur d'appuis partent APRÈS lui.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const X = { date: 62, valeur: 98, libelle: 161, debit: 440, credit: 515 };
+const entete = (y) => [
+  { x: 63, y, texte: 'Date' },
+  { x: 98, y, texte: 'Date valeur' },
+  { x: 161, y, texte: 'Operation' },
+  { x: 409, y, texte: 'Debit EUROS' },
+  { x: 480, y, texte: 'Credit EUROS' },
+];
+const ligneDeReleve = (y, jour, libelle, montant, debit) => [
+  { x: X.date, y, texte: jour },
+  { x: X.valeur, y, texte: jour },
+  { x: X.libelle, y, texte: libelle },
+  { x: debit ? X.debit : X.credit, y, texte: montant },
+];
+
+/** Un relevé d'un mois, inventé de bout en bout, dont le solde boucle. */
+function releveSynthetique(chemin) {
+  const ouverture = 100000;
+  const salaire = 235000;
+  const loyer = 78000;
+  const courses = 4390;
+  const solde = ouverture + salaire - loyer - courses;
+  const euro = (c) => {
+    const [entier, dec] = Math.abs(c / 100).toFixed(2).split('.');
+    return `${entier.replace(/\B(?=(\d{3})+(?!\d))/g, ' ')},${dec}`;
+  };
+  writeFileSync(
+    chemin,
+    pdfMinimal([
+      [
+        { x: 57, y: 740, texte: 'C/C CONTRAT PERSONNEL PARCOURS.J+ N 00055347 en euros (GD)' },
+        ...entete(720),
+        ...ligneDeReleve(700, '02/09/2026', 'VIR SALAIRE TRESOR PUBLIC', euro(salaire), false),
+        ...ligneDeReleve(688, '05/09/2026', 'VIR M DUPONT LOYER', euro(loyer), true),
+        ...ligneDeReleve(676, '03/09/2026', 'SARL LE PETIT MARCHE', euro(courses), true),
+        { x: 57, y: 656, texte: 'SOLDE CREDITEUR AU 31/08/2026' },
+        { x: 515, y: 656, texte: euro(ouverture) },
+        { x: 57, y: 636, texte: 'Ref : 009 SOLDE CREDITEUR AU 30/09/2026' },
+        { x: 515, y: 636, texte: euro(solde) },
+      ],
+    ]),
+  );
+}
 
 const MDP = motDePasseEssais();
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
@@ -220,7 +279,7 @@ const GESTES = [
     titre: 'Marquer une prise',
     ou: '/odyssee/sante/',
     protocole: [
-      'Ouvrir le coffre, que ce geste exige.',
+      'Prémisse, hors mesure : ouvrir le coffre, activer Santé si besoin, et déclarer un traitement synthétique par le formulaire de l’écran.',
       'Arriver sur « Santé » par son adresse.',
       'Appuyer sur la marque du premier créneau proposé.',
       'La mesure s’arrête quand le créneau est marqué.',
@@ -229,6 +288,47 @@ const GESTES = [
       const ouvert = await ouvrirLeCoffre();
       if (!ouvert) return { appuis: 0, retours: 0, debut: 0, fin: 0, empeche: 'le coffre ne s’ouvre pas' };
       await aller('/odyssee/sante/');
+
+      /* ── La prémisse, hors mesure ───────────────────────────────────── */
+      const activer = page.locator('#activer');
+      if (await activer.isVisible().catch(() => false)) {
+        await activer.click().catch(() => {});
+        await page.waitForTimeout(1200);
+      }
+      if (!(await page.locator('#creneaux button:visible').count())) {
+        const nom = page.locator('#t-nom');
+        if (await nom.isVisible().catch(() => false)) {
+          const jour = new Date().toISOString().slice(0, 10);
+          await nom.fill('Traitement synthétique de mesure');
+          await page.locator('#t-debut').fill(jour).catch(() => {});
+          await page.locator('#t-posologie').fill('1 comprimé le matin').catch(() => {});
+          await page.locator('#form-traitement button[type="submit"]').first().click().catch(() => {});
+          await page.waitForTimeout(1500);
+        }
+        /*
+           UN TRAITEMENT DÉCLARÉ NE SUFFIT PAS, et c'est la mesure qui l'a
+           appris : un créneau n'existe que si le traitement porte un
+           SCHÉMA — une posologie écrite en toutes lettres n'en est pas un,
+           et `creneauxDuJour` rend une liste vide sans lui. Le schéma se
+           pose par le dépliant « Prévoir un schéma », une heure à la fois.
+        */
+        const pli = page.locator('#traitements details').first();
+        if (await pli.count()) {
+          await pli.locator('summary').first().click().catch(() => {});
+          await page.waitForTimeout(400);
+          const heure = pli.locator('input[aria-label="Une heure à ajouter"]').first();
+          if (await heure.count()) {
+            await heure.fill('08:00').catch(() => {});
+            await pli.getByRole('button', { name: 'Ajouter cette heure' }).click().catch(() => {});
+            await page.waitForTimeout(300);
+            await pli.getByRole('button', { name: 'Enregistrer le schéma' }).click().catch(() => {});
+            await page.waitForTimeout(1200);
+          }
+        }
+        await aller('/odyssee/sante/');
+      }
+
+      /* ── Le geste ───────────────────────────────────────────────────── */
       const c = compteur(page);
       c.demarrer();
       const creneau = page.locator('#creneaux button:visible').first();
@@ -236,7 +336,7 @@ const GESTES = [
         return {
           ...c.mesure,
           empeche:
-            'aucun créneau n’est proposé : il faut un traitement déclaré, que ce conteneur ne porte pas',
+            'aucun créneau n’est proposé, même après avoir déclaré un traitement par le formulaire',
         };
       }
       await c.appuyer(creneau);
@@ -250,27 +350,51 @@ const GESTES = [
     titre: 'Pointer une dépense',
     ou: '/odyssee/rapprocher/',
     protocole: [
-      'Ouvrir le coffre, que ce geste exige.',
+      'Prémisse, hors mesure : ouvrir le coffre et importer un relevé synthétique d’un mois — trois opérations inventées, solde qui boucle — par l’écran « Finances ».',
       'Arriver sur « À rapprocher » par son adresse.',
-      'Appuyer sur la première ligne proposée au pointage.',
-      'La mesure s’arrête quand la ligne quitte la file.',
+      'Appuyer sur le premier geste proposé sur la première ligne.',
+      'La mesure s’arrête quand la file s’est repeinte.',
     ],
     async jouer({ page, aller, ouvrirLeCoffre }) {
       const ouvert = await ouvrirLeCoffre();
       if (!ouvert) return { appuis: 0, retours: 0, debut: 0, fin: 0, empeche: 'le coffre ne s’ouvre pas' };
+
+      /* ── La prémisse, hors mesure ───────────────────────────────────── */
+      await aller('/odyssee/finances/');
+      if (await page.locator('#coffre-ferme').isVisible().catch(() => false)) {
+        await page.locator('#mdp-coffre').fill(MDP);
+        await page.locator('#ouvrir-coffre').click().catch(() => {});
+        await page.waitForTimeout(1500);
+      }
+      const chemin = '/tmp/mesure-geste-releve.pdf';
+      releveSynthetique(chemin);
+      if (await page.locator('#fichier').count()) {
+        await page.setInputFiles('#fichier', chemin).catch(() => {});
+        await page.locator('#apercu:not(.hidden)').waitFor({ timeout: 90_000 }).catch(() => {});
+        await page.locator('#enregistrer').click({ timeout: 10_000 }).catch(() => {});
+        await page.locator('#resultat:not(.hidden)').waitFor({ timeout: 60_000 }).catch(() => {});
+      }
+
+      /* ── Le geste ───────────────────────────────────────────────────── */
       await aller('/odyssee/rapprocher/');
+      if (await page.locator('#coffre-ferme').isVisible().catch(() => false)) {
+        await page.locator('#mdp-coffre').fill(MDP);
+        await page.locator('#ouvrir-coffre').click().catch(() => {});
+        await page.waitForTimeout(1500);
+      }
       const c = compteur(page);
       c.demarrer();
-      const ligne = page.locator('#probables button:visible, #file button:visible').first();
+      const ligne = page
+        .locator('#probables button:visible, #file button:visible, [data-a-classer] button:visible')
+        .first();
       if (!(await ligne.count())) {
         return {
           ...c.mesure,
-          empeche:
-            'aucune ligne à pointer : il faut un relevé importé, que ce conteneur ne porte pas',
+          empeche: 'aucune ligne à pointer, même après avoir importé un relevé synthétique',
         };
       }
       await c.appuyer(ligne);
-      await page.waitForTimeout(800);
+      await page.waitForTimeout(900);
       c.arreter();
       return c.mesure;
     },
@@ -306,10 +430,24 @@ for (const geste of GESTES) {
     '',
     `**Mesuré le ${aujourdhui}, sur \`${geste.ou}\`, avec des données synthétiques.**`,
     '',
-    '> **Testé par l’auteur seul.** Un seul opérateur, qui connaît l’écran et sait',
-    '> d’avance où appuyer : les secondes sont un **plancher**, pas une moyenne, et',
-    '> les appuis sont le chemin le plus court, pas celui qu’on prend quand on',
-    '> cherche. Ce qui se compare d’une version à l’autre, ce sont les écarts.',
+    '> **Testé par l’auteur seul**, et par un script qu’il a écrit. Il faut en dire',
+    '> la portée exacte, sans quoi ces trois nombres se liraient pour ce qu’ils ne',
+    '> sont pas.',
+    '>',
+    '> Les **appuis** sont le chemin le plus court, pris par quelqu’un qui sait',
+    '> d’avance où appuyer — pas le chemin qu’on prend quand on cherche. C’est le',
+    '> nombre le plus solide des trois : il ne dépend ni de la machine ni de la',
+    '> personne.',
+    '>',
+    '> Les **secondes** mesurent la réponse de l’application à cette suite',
+    '> d’appuis, enchaînés par un script. Ce n’est donc **pas** le temps d’une',
+    '> personne : il n’y a ici ni hésitation, ni lecture, ni main qui se déplace.',
+    '> C’est un plancher, et il ne vaut que comparé à lui-même d’une version à',
+    '> l’autre.',
+    '>',
+    '> Les **retours en arrière** disent si le geste oblige à revenir sur ses pas.',
+    '> Zéro ne veut pas dire que personne ne revient : il veut dire que le chemin',
+    '> le plus court n’y oblige pas.',
     '',
     '## Protocole',
     '',
