@@ -26,6 +26,13 @@ import {
   type PaireInteraction,
 } from '../src/lib/odyssee/molecules';
 import { CATALOGUE, controlerFiche } from '../src/lib/odyssee/sante';
+import {
+  ABSENTE_DU_THESAURUS,
+  INTERACTIONS,
+  INTERACTIONS_NON_RELIEES,
+  controlerLiaisonAuThesaurus,
+  interactionsDeLaFiche,
+} from '../src/lib/odyssee/molecules';
 
 let rouges = 0;
 const v = (quoi: string, obtenu: unknown, attendu: unknown) => {
@@ -294,6 +301,142 @@ console.log('\n\x1b[1mCE QUI EST LIVRÉ PASSE LES CONTRÔLES CI-DESSUS\x1b[0m\n'
     v(`« ${livree.nom} » passe les contrôles de fiche`, controlerFiche(livree), []);
   }
 }
+
+
+console.log('\n\x1b[1mLES ONZE INTERACTIONS SONT ATTEIGNABLES DEPUIS UNE FICHE\x1b[0m');
+
+/*
+   LE DÉFAUT QUE CETTE SECTION GARDE. Les onze paires du Thésaurus existaient
+   depuis le 16 octobre et aucun écran ne les montrait : rien ne reliait un
+   identifiant de fiche (`testosterone-enantate`) aux noms sous lesquels le
+   document les indexe (« androgènes »). Elles étaient sourcées, justes et
+   invisibles.
+
+   Ce contrôle tient la liaison dans les DEUX sens : aucune fiche sans
+   réponse, aucune paire sans fiche.
+*/
+v('la table de liaison ne contredit ni le catalogue ni le document', controlerLiaisonAuThesaurus(CATALOGUE), []);
+
+{
+  /* Chaque fiche livrée rend un état, et jamais « non reliée » : une fiche
+     non reliée afficherait « non examinée » alors qu'on a lu le document. */
+  const etats = CATALOGUE.map((f) => [f.id, interactionsDeLaFiche(f.id).etat]);
+  v('aucune fiche livrée n’est laissée non reliée', etats.filter(([, e]) => e === 'non-reliee'), []);
+  v(
+    'et chacune rend l’état que la source impose',
+    Object.fromEntries(etats),
+    {
+      'testosterone-enantate': 'documentees',
+      'testosterone-undecanoate': 'documentees',
+      modafinil: 'documentees',
+      /* Lue, et absente du document : ce n'est pas « sans interaction ». */
+      'n-acetylcysteine': 'absente-du-thesaurus',
+      cafeine: 'documentees',
+    },
+  );
+}
+
+{
+  /* Les onze paires s'affichent toutes, et une seule fois chacune — à ceci
+     près que les deux esters partagent l'entrée de classe « androgènes »,
+     qui compte donc deux fois. */
+  const parFiche = CATALOGUE.map((f) => {
+    const r = interactionsDeLaFiche(f.id);
+    return r.etat === 'documentees' ? r.paires.length : 0;
+  });
+  v('les paires atteignables, fiche par fiche', parFiche, [2, 2, 2, 0, 7]);
+  const atteintes = new Set(
+    CATALOGUE.flatMap((f) => {
+      const r = interactionsDeLaFiche(f.id);
+      return r.etat === 'documentees' ? r.paires.map((p) => `${p.a}×${p.b}`) : [];
+    }),
+  );
+  v('et les onze du Thésaurus sont toutes atteintes', atteintes.size, INTERACTIONS.length);
+}
+
+{
+  /*
+     L'ORDRE EST CELUI DE LA GRAVITÉ, et c'est la hiérarchie anti-fatigue de
+     la décision 3.10 appliquée ici : le plus grave en tête, parce qu'une
+     association déconseillée en bas de liste est une ligne qu'on ne lit pas.
+     À gravité égale, l'alphabet — pas l'ordre de lecture du PDF, qui ne veut
+     rien dire pour qui regarde l'écran.
+  */
+  const r = interactionsDeLaFiche('cafeine');
+  const lignes = r.etat === 'documentees'
+    ? r.paires.map((p) => `${p.b} — ${p.gravite?.connue ? p.gravite.valeur : '?'}`)
+    : [];
+  v('la caféine, de la plus grave à la moins grave', lignes, [
+    'énoxacine — Association déconseillée',
+    'dipyridamole — Précaution d’emploi',
+    'stiripentol — Précaution d’emploi',
+    'ciprofloxacine — À prendre en compte',
+    'lithium — À prendre en compte',
+    'méxilétine — À prendre en compte',
+    'norfloxacine — À prendre en compte',
+  ]);
+}
+
+{
+  /*
+     SOUS QUEL NOM, et ce n'est pas de l'érudition. Le document ne traite pas
+     la testostérone : il traite la classe « androgènes », avec
+     l'androstanolone et la noréthandrolone. Montrer ces paires sans le dire
+     laisserait croire que l'entrée vise cet ester-là — ce que le catalogue
+     appelle lui-même surinterpréter la source.
+  */
+  const r = interactionsDeLaFiche('testosterone-enantate');
+  v('la testostérone dit sous quel nom elle est traitée', r.etat === 'documentees' ? r.sous : [], ['androgènes']);
+  const c = interactionsDeLaFiche('cafeine');
+  v('et la caféine, sous le sien', c.etat === 'documentees' ? c.sous : [], ['caféine']);
+}
+
+{
+  /* Chaque gravité affichée porte sa source et sa page : une gravité sans
+     source serait la valeur non sourcée que tout ce domaine empêche, et elle
+     porterait sur une association médicamenteuse. */
+  const sansSource = INTERACTIONS.filter((p) => !p.gravite?.connue || !p.gravite.source?.ou?.trim());
+  v('aucune gravité n’est affirmée sans sa source', sansSource.map((p) => `${p.a}×${p.b}`), []);
+  const sansPage = INTERACTIONS.filter((p) => p.gravite?.connue && !/p\. \d+/.test(p.gravite.source.nom));
+  v('et chacune cite la page où la relire', sansPage.map((p) => `${p.a}×${p.b}`), []);
+}
+
+{
+  /*
+     LE CONTRÔLE SE VALIDE SUR LE DÉFAUT QU'IL VISE : une fiche neuve que
+     personne n'a reliée doit faire rougir la liaison, sinon elle
+     s'afficherait « non examinée » sans que quiconque l'apprenne.
+  */
+  const avecUneFicheNeuve = controlerLiaisonAuThesaurus([
+    ...CATALOGUE,
+    { id: 'creatine', nom: 'Créatine' },
+  ]);
+  v('une fiche non reliée est refusée', avecUneFicheNeuve.length, 1);
+  v(
+    'et le refus dit quoi faire',
+    avecUneFicheNeuve[0]?.includes('Créatine') && avecUneFicheNeuve[0]?.includes('non reliée'),
+    true,
+  );
+}
+
+console.log('\n\x1b[1mLES TROIS ÉTATS NE SE CONFONDENT PAS\x1b[0m');
+
+/*
+   « Absente du document » et « non examinée » se ressemblent à l'œil et ne
+   disent pas du tout la même chose. Les deux phrases doivent donc différer,
+   et aucune ne doit affirmer l'absence d'interaction.
+*/
+v('les deux phrases sont distinctes', ABSENTE_DU_THESAURUS === INTERACTIONS_NON_RELIEES, false);
+v(
+  'l’absence de document ne se dit pas absence d’interaction',
+  ABSENTE_DU_THESAURUS.includes('absence de document'),
+  true,
+);
+v(
+  'et l’absence d’examen ne se dit pas absence de risque',
+  INTERACTIONS_NON_RELIEES.includes('ne signifie pas l’absence de risque'),
+  true,
+);
 
 if (rouges > 0) {
   console.log(`\n\x1b[31m${rouges} essai(s) en échec.\x1b[0m`);

@@ -172,11 +172,11 @@ export const ACTIONS_LIABLES: readonly ActionLiable[] = [
     id: 'odyssee.medicament',
     branche: 'sante',
     libelle: 'Une prise déclarée',
-    sens: 'hors-du-lot',
+    sens: 'deux-sens',
     sousCoffre: true,
     compteDansLActivite: false,
     pourquoi:
-      'Décision 1 du 15 octobre : Santé reste hors des liens dans ce lot. Le magasin des prises existe pourtant — c’est une erreur que j’avais faite et qui est corrigée — donc ce lien est techniquement constructible. Il attend une décision, pas une capacité.',
+      'Décision d’Alexis du 18 octobre, prise au mot : « Oui pour le lien ». La décision 1 du 15 octobre — « Santé reste hors des liens dans ce lot » — est levée POUR CE SEUL LIEN, et le reste de Santé y demeure. Le lien attendait une décision, pas une capacité : elle est prise, et le voici. Pointer la tâche note une prise à l’heure du pointage ; la prise porte un identifiant dérivé de la tâche et du jour, de sorte que défaire le pointage retire celle-là et aucune autre.',
   }),
 ];
 

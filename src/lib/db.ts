@@ -40,6 +40,7 @@ import type { Trajectoire } from './odyssee/trajectoires';
 import type { Prise, StatutHormonal } from './odyssee/sensible';
 import type {
   ConditionDeclaree,
+  MarqueDeCreneau,
   Prelevement,
   Ressenti,
   Resultat,
@@ -737,6 +738,14 @@ interface SchemaRevinsp extends DBSchema {
   actualitesLues: { key: string; value: ActualiteLue; indexes: Record<string, never> };
   odysseeConditions: { key: string; value: ConditionDeclaree; indexes: Record<string, never> };
   odysseeRessentis: { key: string; value: Ressenti; indexes: { traitementId: string } };
+  /*
+     Les créneaux marqués (Santé, phase 4). **Aucun index**, et c'est le
+     point : ce qu'il faudrait indexer — le traitement, le jour, l'heure —
+     est précisément ce que le scellement cache, et un index se lit en clair.
+     On ouvre le magasin entier et on filtre ; il se compte en milliers sur
+     une vie, soit une fraction de seconde (voir la mesure du plan, 3.7).
+  */
+  odysseeCreneaux: { key: string; value: MarqueDeCreneau; indexes: Record<string, never> };
   odysseeCheckins: { key: string; value: Checkin; indexes: { jour: string } };
   odysseeHebdos: { key: string; value: CheckinHebdo; indexes: { semaine: string } };
   odysseeJournal: { key: string; value: Entree; indexes: { jour: string } };
@@ -844,7 +853,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 34;
+const VERSION = 35;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1639,6 +1648,40 @@ function ouvrirAuSchema(nom: string, version: number) {
            écrit ce qu'elle contenait, puis la retire.
         */
         base.createObjectStore('podcastPositions', { keyPath: 'fiche' });
+      }
+      /*
+         RÉSOLU À LA FUSION : LES DEUX MIGRATIONS COEXISTENT.
+
+         Le conflit ne portait que sur la place, pas sur le fond : l'agent C
+         crée `podcastPositions` en 34, l'agent B `odysseeCreneaux` en 35, et
+         B avait vérifié l'attribution de la 34 dans la branche de C plutôt
+         que de la supposer. Les deux blocs se suivent donc, et la version
+         monte à 35 — une base arrêtée à 33 rejoue les deux, une base à 34
+         ne rejoue que la seconde.
+      */
+      if (vers(35)) {
+        /*
+         * Les créneaux marqués — Santé, phase 4, P2.
+         *
+         * **La 34 est attribuée à l'agent C**, qui y crée `podcastPositions`
+         * sur `claude/p46-55` — vérifié dans sa branche, pas supposé. Deux
+         * migrations portant le même numéro ne se verraient pas en revue et
+         * ne se verraient pas non plus à l'exécution : une base déjà montée
+         * à 34 par l'un des deux chemins ne rejouerait jamais l'autre bloc,
+         * et le magasin manquant ne se signalerait qu'au premier `getAll`,
+         * loin de sa cause. D'où cette 35, arbitrée par le pilote.
+         *
+         * **Aucune reprise de données.** Avant ce lot, aucun traitement
+         * n'avait de schéma prévu, donc aucun créneau n'existait, donc
+         * aucune réponse ne pouvait avoir été donnée. Un magasin vide se lit
+         * « rien n'est noté », ce qui est exactement la vérité — et c'est
+         * aussi la condition qui fait partir le rappel d'oubli, de sorte
+         * qu'une migration qui aurait inventé des marques aurait inventé des
+         * silences.
+         *
+         * Pas d'index : voir le type. La clé est une empreinte, donc muette.
+         */
+        base.createObjectStore('odysseeCreneaux', { keyPath: 'id' });
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -2704,6 +2747,7 @@ export const MAGASINS_PROGRESSION = [
   'odysseeSymptomes',
   'odysseeConditions',
   'odysseeRessentis',
+  'odysseeCreneaux',
   'odysseeCheckins',
   'odysseeHebdos',
   'odysseeJournal',

@@ -19,21 +19,28 @@ import { exigerLeCoffre } from '../coffre';
 import { ouvrir, sceller } from '../noyau/coffre';
 import {
   controlerCondition,
+  controlerMarque,
+  idDuCreneau,
   controlerPrelevement,
   controlerRessenti,
   controlerResultat,
   controlerSymptome,
   controlerTraitement,
   type ConditionDeclaree,
+  type EtatDeCreneau,
+  type MarqueDeCreneau,
   type OrigineDuTraitement,
+  type ReglageDeRappel,
   type Prelevement,
   type Ressenti,
   type Resultat,
+  type SchemaDePrise,
   type Symptome,
   type Traitement,
 } from './sante';
 
 type MagasinDeSante =
+  | 'odysseeCreneaux'
   | 'odysseeTraitements'
   | 'odysseePrelevements'
   | 'odysseeResultats'
@@ -137,6 +144,8 @@ export async function ecrireTraitement(
     posologie?: string;
     /** Une prise isolée : pas de fin, pas de schéma, pas de rappel. */
     sporadique?: boolean;
+    /** Le schéma prévu, ou rien. `controlerTraitement` refuse les deux ensemble. */
+    schema?: SchemaDePrise | null;
     fin?: string;
     note?: string;
   } = {},
@@ -149,6 +158,13 @@ export async function ecrireTraitement(
     prescripteur: options.prescripteur?.trim() ?? '',
     posologie: options.posologie?.trim() ?? '',
     sporadique: options.sporadique ?? false,
+    /*
+       `null` et non `undefined` : le traitement part dans un enregistrement
+       scellé qui sera relu par `JSON.parse`, et `undefined` y disparaît. Un
+       champ qui s'efface à l'écriture ne se distingue pas d'un champ qu'on
+       n'a pas voulu, et un retrait de schéma passerait pour un oubli.
+    */
+    schema: options.schema ?? null,
     debut,
     fin: options.fin ?? '',
     note: options.note ?? '',
@@ -160,6 +176,47 @@ export async function ecrireTraitement(
 
 export const tousLesTraitements = (): Promise<Traitement[]> =>
   toutOuvrir<Traitement>('odysseeTraitements');
+
+/**
+ * Pose ou retire le schéma prévu d'un traitement, **sans toucher au reste**.
+ *
+ * Une fonction à part, et non un appel à `ecrireTraitement` : celle-ci
+ * reconstruit l'objet entier à partir de ses options, et chaque champ non
+ * passé reprend son défaut. Appelée avec `{ id, schema }` seuls, elle
+ * effacerait la posologie, le prescripteur, l'origine, la fin et la note —
+ * silencieusement, puisque l'écriture réussirait. Le piège est réel et il
+ * est rendu inatteignable ici : on relit le traitement et on ne change
+ * qu'un champ.
+ *
+ * Rend `null` si le traitement n'existe plus : il a pu être supprimé sur un
+ * autre appareil entre la peinture de l'écran et l'appui. Le recréer à
+ * partir d'un formulaire ouvert ressusciterait un traitement que quelqu'un
+ * a voulu voir disparaître.
+ */
+export async function poserLeRappel(
+  id: string,
+  rappel: ReglageDeRappel | null,
+): Promise<Traitement | null> {
+  const traitement = (await tousLesTraitements()).find((t) => t.id === id);
+  if (!traitement) return null;
+  const modifie: Traitement = { ...traitement, rappel, majLe: maintenant() };
+  exiger(controlerTraitement(modifie));
+  return ranger('odysseeTraitements', modifie);
+}
+
+/**
+ * Même office que `poserLeRappel`, pour le schéma — et même piège évité.
+ */
+export async function poserLeSchema(
+  id: string,
+  schema: SchemaDePrise | null,
+): Promise<Traitement | null> {
+  const traitement = (await tousLesTraitements()).find((t) => t.id === id);
+  if (!traitement) return null;
+  const modifie: Traitement = { ...traitement, schema, majLe: maintenant() };
+  exiger(controlerTraitement(modifie));
+  return ranger('odysseeTraitements', modifie);
+}
 
 export const supprimerTraitement = (id: string): Promise<void> =>
   oublier('odysseeTraitements', id);
@@ -305,6 +362,100 @@ export async function combienDeSante(): Promise<number> {
     base.count('odysseeConditions'),
   ]);
   return comptes.reduce((s, n) => s + n, 0);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Les créneaux marqués — phase 4, P2
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * L'identifiant de la prise créée par « Pris » sur un créneau.
+ *
+ * **Dérivé du créneau, et non tiré au sort.** Un geste répété — le pouce qui
+ * rebondit, l'annulation suivie d'un second appui, deux appareils qui
+ * marquent le même créneau — doit écraser la même prise, jamais en empiler
+ * une seconde. `unSeulGeste` garde l'écran, mais il ne garde pas la
+ * synchronisation ; la clé déterministe garde les deux.
+ *
+ * Le préfixe rend la provenance lisible en relisant la base, et l'empreinte
+ * qui suit ne dit rien de plus que la clé du créneau, qui est muette.
+ */
+export const idDeLaPriseDuCreneau = (idCreneau: string): string => `creneau-${idCreneau}`;
+
+/**
+ * Note la réponse à un créneau, et la prise qui va avec s'il y en a une.
+ *
+ * Deux écritures pour « Pris » — la prise, puis la marque —, et l'ordre
+ * compte : la prise d'abord, parce qu'une marque qui désignerait une prise
+ * inexistante ferait croire à un enregistrement qui n'a pas eu lieu, alors
+ * qu'une prise sans marque est seulement une prise de plus, visible et
+ * vraie. Si la seconde écriture échoue, on perd le marquage du créneau, pas
+ * la trace du geste.
+ *
+ * `le` est **l'heure réelle**, et jamais l'heure prévue : c'est ce qui permet
+ * à l'écran de dire « prévu à 8 h, noté à 8 h 12 ». Recopier l'heure prévue
+ * aurait fabriqué une donnée en lui donnant l'air d'une observation.
+ */
+export async function noterLeCreneau(
+  traitement: Traitement,
+  jour: string,
+  heure: string,
+  etat: EtatDeCreneau,
+  options: { le?: Date; quantite?: string } = {},
+): Promise<MarqueDeCreneau> {
+  const le = options.le ?? new Date();
+  const id = await idDuCreneau(traitement.id, jour, heure);
+
+  let priseId: string | null = null;
+  if (etat === 'pris') {
+    priseId = idDeLaPriseDuCreneau(id);
+    const { ecrirePrise } = await import('./donnees-sensible');
+    await ecrirePrise(traitement.nom, options.quantite ?? traitement.schema?.quantite ?? '', {
+      id: priseId,
+      le,
+      traitementId: traitement.id,
+    });
+  }
+
+  const marque: MarqueDeCreneau = {
+    id,
+    traitementId: traitement.id,
+    jour,
+    heure,
+    etat,
+    priseId,
+    le: le.toISOString(),
+    majLe: maintenant(),
+  };
+  exiger(controlerMarque(marque));
+  return ranger('odysseeCreneaux', marque);
+}
+
+export const toutesLesMarques = (): Promise<MarqueDeCreneau[]> =>
+  toutOuvrir<MarqueDeCreneau>('odysseeCreneaux');
+
+/**
+ * Efface la réponse donnée à un créneau, et la prise qu'elle avait créée.
+ *
+ * C'est le défaire de P2, et il est **exact** : il ne retire que la prise
+ * dont la marque porte l'identifiant. Une prise saisie à la main le même
+ * jour, pour le même traitement, n'est pas touchée — elle n'a pas été
+ * créée par ce geste, et la défaire serait effacer une déclaration que
+ * personne n'a reprise.
+ *
+ * Rend le créneau à l'état « prévu », qui est l'**absence** de marque : c'est
+ * la même absence qu'avant le premier appui, et le rappel d'oubli la relira
+ * donc comme telle. Un état « effacé » rangé en base aurait fait du retour
+ * en arrière une troisième réponse.
+ */
+export async function effacerLaMarque(id: string): Promise<void> {
+  const marque = (await toutesLesMarques()).find((m) => m.id === id);
+  if (!marque) return;
+  if (marque.priseId) {
+    const { supprimerPrise } = await import('./donnees-sensible');
+    await supprimerPrise(marque.priseId);
+  }
+  await oublier('odysseeCreneaux', id);
 }
 
 /* ── Les ressentis, rattachés à un traitement (2.3) ───────────────────── */
