@@ -40,6 +40,7 @@ import type { Trajectoire } from './odyssee/trajectoires';
 import type { Prise, StatutHormonal } from './odyssee/sensible';
 import type {
   ConditionDeclaree,
+  MarqueDeCreneau,
   Prelevement,
   Ressenti,
   Resultat,
@@ -696,6 +697,14 @@ interface SchemaRevinsp extends DBSchema {
   actualitesLues: { key: string; value: ActualiteLue; indexes: Record<string, never> };
   odysseeConditions: { key: string; value: ConditionDeclaree; indexes: Record<string, never> };
   odysseeRessentis: { key: string; value: Ressenti; indexes: { traitementId: string } };
+  /*
+     Les créneaux marqués (Santé, phase 4). **Aucun index**, et c'est le
+     point : ce qu'il faudrait indexer — le traitement, le jour, l'heure —
+     est précisément ce que le scellement cache, et un index se lit en clair.
+     On ouvre le magasin entier et on filtre ; il se compte en milliers sur
+     une vie, soit une fraction de seconde (voir la mesure du plan, 3.7).
+  */
+  odysseeCreneaux: { key: string; value: MarqueDeCreneau; indexes: Record<string, never> };
   odysseeCheckins: { key: string; value: Checkin; indexes: { jour: string } };
   odysseeHebdos: { key: string; value: CheckinHebdo; indexes: { semaine: string } };
   odysseeJournal: { key: string; value: Entree; indexes: { jour: string } };
@@ -803,7 +812,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 33;
+const VERSION = 34;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1578,6 +1587,22 @@ function ouvrirAuSchema(nom: string, version: number) {
       */
       if (vers(33)) {
         base.createObjectStore('centreElements', { keyPath: 'id' });
+      }
+      if (vers(34)) {
+        /*
+         * Les créneaux marqués — Santé, phase 4, P2.
+         *
+         * **Aucune reprise de données.** Avant ce lot, aucun traitement
+         * n'avait de schéma prévu, donc aucun créneau n'existait, donc
+         * aucune réponse ne pouvait avoir été donnée. Un magasin vide se lit
+         * « rien n'est noté », ce qui est exactement la vérité — et c'est
+         * aussi la condition qui fait partir le rappel d'oubli, de sorte
+         * qu'une migration qui aurait inventé des marques aurait inventé des
+         * silences.
+         *
+         * Pas d'index : voir le type. La clé est une empreinte, donc muette.
+         */
+        base.createObjectStore('odysseeCreneaux', { keyPath: 'id' });
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -2565,6 +2590,7 @@ export const MAGASINS_PROGRESSION = [
   'odysseeSymptomes',
   'odysseeConditions',
   'odysseeRessentis',
+  'odysseeCreneaux',
   'odysseeCheckins',
   'odysseeHebdos',
   'odysseeJournal',

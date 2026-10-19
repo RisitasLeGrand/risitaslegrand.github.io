@@ -12,14 +12,21 @@
  * mesurent, c'est que l'emprunt est correct — pas que l'arithmétique l'est.
  */
 import {
+  controlerMarque,
   controlerSchema,
   controlerTraitement,
   creneauxDuJour,
+  etatDuCreneau,
+  idDuCreneau,
   rangerLesHeures,
   serieDuSchema,
+  type CreneauPrevu,
+  type MarqueDeCreneau,
   type SchemaDePrise,
   type Traitement,
 } from '../src/lib/odyssee/sante';
+import { idDeLaPriseDuCreneau } from '../src/lib/odyssee/donnees-sante';
+import { MAGASINS_SCELLES } from '../src/lib/noyau/coffre';
 
 let echecs = 0;
 const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
@@ -275,6 +282,120 @@ v('les heures se rangent, et le doublon tombe', rangerLesHeures(['20:00', '08:00
   '08:00',
   '20:00',
 ]);
+
+console.log('\nCE QUI EST NOTÉ D’UN CRÉNEAU');
+
+const creneau = (heure = '08:00'): CreneauPrevu => ({
+  traitementId: 't1',
+  jour: '2026-10-19',
+  heure,
+  instant: new Date('2026-10-19T06:00:00.000Z'),
+});
+
+const marque = (modifications: Partial<MarqueDeCreneau> = {}): MarqueDeCreneau => ({
+  id: 'a'.repeat(32),
+  traitementId: 't1',
+  jour: '2026-10-19',
+  heure: '08:00',
+  etat: 'pris',
+  priseId: 'creneau-' + 'a'.repeat(32),
+  le: '2026-10-19T06:12:00.000Z',
+  majLe: '2026-10-19T06:12:00.000Z',
+  ...modifications,
+});
+
+/*
+   « Prévu » est l'ABSENCE de marque, et c'est tout le mécanisme : le rappel
+   d'oubli lira ce silence, et il ne le lirait pas si un état « en attente »
+   était rangé en base.
+*/
+v('rien de noté : le créneau est prévu', etatDuCreneau(creneau(), []), { etat: 'prevu' });
+v(
+  'noté : l’heure rendue est l’heure RÉELLE, pas l’heure prévue',
+  etatDuCreneau(creneau(), [marque()]),
+  { etat: 'pris', le: '2026-10-19T06:12:00.000Z' },
+);
+v(
+  '« pas aujourd’hui » ne rend aucune heure, et aucun jugement',
+  etatDuCreneau(creneau(), [marque({ etat: 'pas-aujourdhui', priseId: null })]),
+  { etat: 'pas-aujourdhui' },
+);
+/*
+   Deux créneaux le même jour sont deux objets distincts : marquer celui de
+   8 h ne marque pas celui de 20 h. Sans cela, « matin et soir » se noterait
+   d'un seul appui, ce qui écrirait une prise qui n'a pas eu lieu.
+*/
+v(
+  'la marque de 8 h ne répond pas pour celle de 20 h',
+  etatDuCreneau(creneau('20:00'), [marque()]),
+  { etat: 'prevu' },
+);
+
+console.log('\nL’IDENTIFIANT D’UN CRÉNEAU EST UNE EMPREINTE');
+
+{
+  const a = await idDuCreneau('t1', '2026-10-19', '08:00');
+  const b = await idDuCreneau('t1', '2026-10-19', '08:00');
+  const autre = await idDuCreneau('t1', '2026-10-19', '20:00');
+  v('deux appels sur le même créneau donnent la même clé', a === b, true);
+  v('et deux créneaux différents, deux clés', a === autre, false);
+  v('la forme est celle qu’exige le contrôle', /^[0-9a-f]{32}$/.test(a), true);
+  /*
+     LE POINT QUI COMPTE. Les clés restent en clair dans la base — c'est par
+     elles qu'on retrouve un enregistrement sans l'ouvrir. Une clé lisible
+     dirait « tous les jours à 8 h pour ce traitement » sans aucune clé de
+     coffre, et le traitement, lui, est scellé. L'empreinte ne dit rien.
+  */
+  /*
+     On cherche le traitement et le jour, et non l'heure : « 08 » tomberait
+     par hasard dans trente-deux signes hexadécimaux une fois sur huit, et un
+     essai qui rougit une fois sur huit se fait désactiver. Les deux chaînes
+     cherchées ici, elles, ne peuvent pas apparaître par accident — et ce
+     sont les deux qui diraient le rythme.
+  */
+  v(
+    'elle ne porte ni le traitement, ni le jour',
+    [a.includes('t1'), a.includes('2026-10-19')],
+    [false, false],
+  );
+  v(
+    'la prise créée dérive du créneau, donc un second appui écrase au lieu d’empiler',
+    idDeLaPriseDuCreneau(a) === idDeLaPriseDuCreneau(b),
+    true,
+  );
+}
+
+console.log('\nLE MAGASIN DES CRÉNEAUX EST SCELLÉ, ET SA CLÉ EST MUETTE');
+
+/*
+   Lu dans la déclaration elle-même, et non dans une sonde textuelle : c'est
+   `MAGASINS_SCELLES` qui fait foi pour `sceller()`, donc c'est lui qu'il faut
+   interroger. Si quelqu'un ajoutait `jour` aux champs clairs pour se donner
+   un index, le rythme des prises redeviendrait lisible sans le coffre — et
+   cet essai rougirait.
+*/
+{
+  const declaration = MAGASINS_SCELLES.find((m) => m.magasin === 'odysseeCreneaux');
+  v('le magasin est déclaré scellé', Boolean(declaration), true);
+  v('et ne laisse en clair que la clé et la date de mise à jour', declaration?.clairs, [
+    'id',
+    'majLe',
+  ]);
+}
+
+console.log('\nLES CONTRÔLES D’UNE MARQUE REFUSENT');
+
+v(
+  'une clé qui n’est pas une empreinte',
+  controlerMarque(marque({ id: 't1/2026-10-19/08:00' })),
+  ['L’identifiant d’un créneau est une empreinte de 32 signes.'],
+);
+v(
+  '« pas aujourd’hui » qui porterait une prise',
+  controlerMarque(marque({ etat: 'pas-aujourdhui' })),
+  ['« Pas aujourd’hui » ne crée aucune prise.'],
+);
+v('une marque bien formée passe', controlerMarque(marque()), []);
 
 console.log(
   echecs === 0

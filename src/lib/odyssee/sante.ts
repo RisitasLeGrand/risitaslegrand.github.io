@@ -634,6 +634,145 @@ export function creneauxDuJour(
   }));
 }
 
+/* ── Ce qui est noté d'un créneau — phase 4, P2 ───────────────────────── */
+
+/**
+ * Les deux réponses possibles à un créneau prévu.
+ *
+ * `pas-aujourdhui` **n'est pas un échec**, et le vocabulaire le dit : ni
+ * « manqué », ni « oublié », ni « non pris ». L'interdit § 1 n° 3 est
+ * explicite — « "Pas aujourd'hui" est un choix comme un autre et ne laisse
+ * aucune marque négative ». Un nom de valeur qui jugerait finirait par se
+ * retrouver à l'écran, puis dans un compte.
+ *
+ * Il n'existe pas de troisième valeur pour « rien n'est noté » : c'est
+ * l'**absence** de marque, et il faut qu'elle le reste. Un état « en
+ * attente » rangé en base ferait du silence une donnée, et le rappel
+ * d'oubli se mettrait à dépendre de l'existence d'une ligne plutôt que de
+ * son absence.
+ */
+export type EtatDeCreneau = 'pris' | 'pas-aujourdhui';
+
+/**
+ * Ce que la personne a répondu à un créneau.
+ *
+ * ## Pourquoi un magasin à part, et pas un champ sur la prise
+ *
+ * `Prise` dit « une prise telle qu'elle a eu lieu », et son module ajoute :
+ * « `prevu` n'existe pas ». Y glisser un drapeau « pas pris » ferait du seul
+ * magasin qui soit un constat un magasin d'intentions — et `prisesDuJour()`,
+ * qui compte ce qui a été pris, compterait des non-prises.
+ *
+ * ## L'identifiant est une EMPREINTE, et c'est le point qui compte
+ *
+ * Les clés restent **en clair** dans la base : `controlerCoffre()` l'exige,
+ * puisque c'est par elles qu'on retrouve un enregistrement sans l'ouvrir. Un
+ * identifiant valant `t-01/2026-10-19/08:00` dirait donc, sans aucune clé,
+ * qu'il se passe quelque chose tous les jours à 8 h pour ce traitement.
+ * C'est exactement le rythme que le scellement protège, et ce serait une
+ * fuite **nouvelle** : le traitement, lui, est scellé.
+ *
+ * L'empreinte garde le déterminisme — deux appareils dérivent la même clé
+ * pour le même créneau, donc une marque se met à jour au lieu de se
+ * dupliquer — sans rien dire. C'est le mécanisme du centre de notifications
+ * (`notifications/modele.ts`), repris ici plutôt que réinventé.
+ */
+export interface MarqueDeCreneau {
+  /** L'empreinte de `traitementId ‧ jour ‧ heure`. Déterministe, et muette. */
+  id: string;
+  traitementId: string;
+  /** Le jour logique du créneau. */
+  jour: string;
+  /** L'heure **prévue**, « HH:MM ». */
+  heure: string;
+  etat: EtatDeCreneau;
+  /** La prise créée par « Pris », s'il y en a une. `null` pour « Pas aujourd'hui ». */
+  priseId: string | null;
+  /**
+   * L'instant du geste — **l'heure réelle**, pas l'heure prévue.
+   *
+   * Les deux diffèrent presque toujours, et c'est l'information : « Prévu à
+   * 8 h, noté à 8 h 12 » est un constat ; « Prévu à 8 h, noté à 8 h » serait
+   * une recopie de la prévision, c'est-à-dire une donnée fabriquée.
+   */
+  le: string;
+  majLe: string;
+}
+
+const encodeurDeCreneau = new TextEncoder();
+
+/**
+ * L'empreinte d'un créneau. Seize octets en hexadécimal, soit 32 signes.
+ *
+ * Même longueur et même raison qu'au centre : une collision demanderait 2^64
+ * créneaux pour une chance sur deux, et une vie de traitements en compte
+ * quelques dizaines de milliers.
+ */
+export async function idDuCreneau(
+  traitementId: string,
+  jour: string,
+  heure: string,
+): Promise<string> {
+  const brut = await crypto.subtle.digest(
+    'SHA-256',
+    encodeurDeCreneau.encode(`${traitementId}\u0000${jour}\u0000${heure}`),
+  );
+  return Array.from(new Uint8Array(brut).slice(0, 16))
+    .map((o) => o.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+export function controlerMarque(m: MarqueDeCreneau): string[] {
+  const problemes: string[] = [];
+  if (!/^[0-9a-f]{32}$/.test(m.id)) {
+    problemes.push('L’identifiant d’un créneau est une empreinte de 32 signes.');
+  }
+  if (!m.traitementId.trim()) problemes.push('Une marque se rattache à un traitement.');
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(m.jour)) problemes.push('Une marque appartient à un jour.');
+  if (!HEURE_MURALE.test(m.heure)) problemes.push(`« ${m.heure} » n’est pas une heure.`);
+  if (m.etat !== 'pris' && m.etat !== 'pas-aujourdhui') {
+    problemes.push(`État de créneau inconnu : « ${m.etat} ».`);
+  }
+  /*
+     Une marque « pas aujourd'hui » qui porterait une prise serait
+     contradictoire, et la contradiction se propagerait : le dépointage
+     effacerait une prise que le geste n'a pas créée.
+  */
+  if (m.etat === 'pas-aujourdhui' && m.priseId) {
+    problemes.push('« Pas aujourd’hui » ne crée aucune prise.');
+  }
+  return problemes;
+}
+
+/**
+ * Ce qu'un écran dit d'un créneau, sans avoir à choisir lui-même.
+ *
+ * `prevu` n'est **pas** un retard et ne doit jamais s'afficher comme tel : un
+ * créneau de 20 h regardé à 9 h est prévu, et un créneau de 8 h regardé à
+ * 23 h sans rien de noté l'est encore. Ce module ne sait pas ce qu'est un
+ * oubli — `rappels.ts` le saura, avec un délai que la personne aura choisi,
+ * et lui seul.
+ */
+export type RenduDeCreneau =
+  | { etat: 'prevu' }
+  | { etat: 'pris'; le: string }
+  | { etat: 'pas-aujourdhui' };
+
+export function etatDuCreneau(
+  creneau: CreneauPrevu,
+  marques: readonly MarqueDeCreneau[],
+): RenduDeCreneau {
+  const marque = marques.find(
+    (m) =>
+      m.traitementId === creneau.traitementId &&
+      m.jour === creneau.jour &&
+      m.heure === creneau.heure,
+  );
+  if (!marque) return { etat: 'prevu' };
+  if (marque.etat === 'pris') return { etat: 'pris', le: marque.le };
+  return { etat: 'pas-aujourdhui' };
+}
+
 /* ── Ce que je ressens, rattaché à ce que je prends (2.3) ─────────────── */
 
 /**

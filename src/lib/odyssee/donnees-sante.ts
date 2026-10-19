@@ -19,12 +19,16 @@ import { exigerLeCoffre } from '../coffre';
 import { ouvrir, sceller } from '../noyau/coffre';
 import {
   controlerCondition,
+  controlerMarque,
+  idDuCreneau,
   controlerPrelevement,
   controlerRessenti,
   controlerResultat,
   controlerSymptome,
   controlerTraitement,
   type ConditionDeclaree,
+  type EtatDeCreneau,
+  type MarqueDeCreneau,
   type OrigineDuTraitement,
   type Prelevement,
   type Ressenti,
@@ -35,6 +39,7 @@ import {
 } from './sante';
 
 type MagasinDeSante =
+  | 'odysseeCreneaux'
   | 'odysseeTraitements'
   | 'odysseePrelevements'
   | 'odysseeResultats'
@@ -315,6 +320,100 @@ export async function combienDeSante(): Promise<number> {
     base.count('odysseeConditions'),
   ]);
   return comptes.reduce((s, n) => s + n, 0);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Les créneaux marqués — phase 4, P2
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * L'identifiant de la prise créée par « Pris » sur un créneau.
+ *
+ * **Dérivé du créneau, et non tiré au sort.** Un geste répété — le pouce qui
+ * rebondit, l'annulation suivie d'un second appui, deux appareils qui
+ * marquent le même créneau — doit écraser la même prise, jamais en empiler
+ * une seconde. `unSeulGeste` garde l'écran, mais il ne garde pas la
+ * synchronisation ; la clé déterministe garde les deux.
+ *
+ * Le préfixe rend la provenance lisible en relisant la base, et l'empreinte
+ * qui suit ne dit rien de plus que la clé du créneau, qui est muette.
+ */
+export const idDeLaPriseDuCreneau = (idCreneau: string): string => `creneau-${idCreneau}`;
+
+/**
+ * Note la réponse à un créneau, et la prise qui va avec s'il y en a une.
+ *
+ * Deux écritures pour « Pris » — la prise, puis la marque —, et l'ordre
+ * compte : la prise d'abord, parce qu'une marque qui désignerait une prise
+ * inexistante ferait croire à un enregistrement qui n'a pas eu lieu, alors
+ * qu'une prise sans marque est seulement une prise de plus, visible et
+ * vraie. Si la seconde écriture échoue, on perd le marquage du créneau, pas
+ * la trace du geste.
+ *
+ * `le` est **l'heure réelle**, et jamais l'heure prévue : c'est ce qui permet
+ * à l'écran de dire « prévu à 8 h, noté à 8 h 12 ». Recopier l'heure prévue
+ * aurait fabriqué une donnée en lui donnant l'air d'une observation.
+ */
+export async function noterLeCreneau(
+  traitement: Traitement,
+  jour: string,
+  heure: string,
+  etat: EtatDeCreneau,
+  options: { le?: Date; quantite?: string } = {},
+): Promise<MarqueDeCreneau> {
+  const le = options.le ?? new Date();
+  const id = await idDuCreneau(traitement.id, jour, heure);
+
+  let priseId: string | null = null;
+  if (etat === 'pris') {
+    priseId = idDeLaPriseDuCreneau(id);
+    const { ecrirePrise } = await import('./donnees-sensible');
+    await ecrirePrise(traitement.nom, options.quantite ?? traitement.schema?.quantite ?? '', {
+      id: priseId,
+      le,
+      traitementId: traitement.id,
+    });
+  }
+
+  const marque: MarqueDeCreneau = {
+    id,
+    traitementId: traitement.id,
+    jour,
+    heure,
+    etat,
+    priseId,
+    le: le.toISOString(),
+    majLe: maintenant(),
+  };
+  exiger(controlerMarque(marque));
+  return ranger('odysseeCreneaux', marque);
+}
+
+export const toutesLesMarques = (): Promise<MarqueDeCreneau[]> =>
+  toutOuvrir<MarqueDeCreneau>('odysseeCreneaux');
+
+/**
+ * Efface la réponse donnée à un créneau, et la prise qu'elle avait créée.
+ *
+ * C'est le défaire de P2, et il est **exact** : il ne retire que la prise
+ * dont la marque porte l'identifiant. Une prise saisie à la main le même
+ * jour, pour le même traitement, n'est pas touchée — elle n'a pas été
+ * créée par ce geste, et la défaire serait effacer une déclaration que
+ * personne n'a reprise.
+ *
+ * Rend le créneau à l'état « prévu », qui est l'**absence** de marque : c'est
+ * la même absence qu'avant le premier appui, et le rappel d'oubli la relira
+ * donc comme telle. Un état « effacé » rangé en base aurait fait du retour
+ * en arrière une troisième réponse.
+ */
+export async function effacerLaMarque(id: string): Promise<void> {
+  const marque = (await toutesLesMarques()).find((m) => m.id === id);
+  if (!marque) return;
+  if (marque.priseId) {
+    const { supprimerPrise } = await import('./donnees-sensible');
+    await supprimerPrise(marque.priseId);
+  }
+  await oublier('odysseeCreneaux', id);
 }
 
 /* ── Les ressentis, rattachés à un traitement (2.3) ───────────────────── */
