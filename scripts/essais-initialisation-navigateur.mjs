@@ -17,6 +17,7 @@
  * « astro preview » avant ce script.
  */
 import { chromium } from 'playwright-core';
+import { accorderLApprentissage } from './lib/consentement-essais.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const MDP = motDePasseEssais();
@@ -357,6 +358,26 @@ const seme = await page2.evaluate(async () => {
   return seances.length;
 });
 v('huit séances sont semées dans le magasin', seme, 8);
+
+/*
+   LA PORTE DU CONSENTEMENT (A-13, `3cf4122`), et c'est elle qui faisait
+   six rouges.
+
+   `observerUsage()` rend « silence : sans-consentement » AVANT de lire le
+   moindre fait : semer huit séances ne suffit pas, et l'écran qui ne
+   montrait aucun constat avait raison de se taire. L'essai a été écrit
+   avant cette porte, et accusait l'écran d'un silence qui est une
+   garantie.
+
+   On accorde donc par l'interrupteur de « Mon profil », comme une personne
+   le ferait — jamais par une écriture directe en base, qui ferait un essai
+   cessant de remarquer que l'interrupteur est cassé.
+*/
+v(
+  'le consentement est accordé par l’écran, sans quoi rien n’est observé',
+  await accorderLApprentissage(page2, RACINE, MDP),
+  true,
+);
 
 await page2.goto(`${RACINE}/initialisation/`, { waitUntil: 'networkidle' });
 await page2.waitForSelector('#allegee:not(.hidden), #parcours:not(.hidden)', { timeout: 40000 });

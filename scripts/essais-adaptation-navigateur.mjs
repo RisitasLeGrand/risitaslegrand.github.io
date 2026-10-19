@@ -17,6 +17,8 @@
  * « astro preview » avant ce script.
  */
 import { chromium } from 'playwright-core';
+import { accorderLApprentissage } from './lib/consentement-essais.mjs';
+import { repondreALaBoite } from './lib/boite-essais.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const MDP = motDePasseEssais();
@@ -140,6 +142,15 @@ async function appareilEnEcart(nom) {
   await page.waitForTimeout(300);
   await page.click('#terminer');
   await page.waitForSelector('#aller-menu', { timeout: 20000 });
+
+  /*
+     LA PORTE DU CONSENTEMENT (A-13, `3cf4122`), sans laquelle rien n'est
+     observé. `observerUsage()` rend « silence : sans-consentement » avant
+     même de lire un fait : semer vingt-quatre séances ne suffit donc pas,
+     et l'écran qui se taisait avait raison. On accorde par l'interrupteur
+     de « Mon profil », comme une personne le ferait.
+  */
+  await accorderLApprentissage(page, RACINE, MDP);
 
   return { page, contexte, semees };
 }
@@ -268,6 +279,12 @@ await B.page.waitForFunction(
   { timeout: 40000 },
 );
 await B.page.click('#reinitialiser-adaptation');
+/*
+   LA BOÎTE COMMUNE (C1 du 43) : remettre l'adaptation à zéro demande
+   confirmation, et le message ne s'écrit qu'après. L'essai attendait donc
+   un message qu'il n'avait pas demandé.
+*/
+await repondreALaBoite(B.page, 'Réinitialiser l’adaptation');
 await B.page.waitForSelector('#message-adaptation:not(.hidden)', { timeout: 20000 });
 v(
   'la remise annonce ce qu’elle a fait',
