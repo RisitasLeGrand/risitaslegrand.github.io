@@ -30,6 +30,9 @@
   import { amenerLaZone } from '../../cog-training/zone-de-jeu';
   import CommentCaMarche from '../../cog-training/composants/CommentCaMarche.svelte';
   import Glossaire from '../../cog-training/composants/Glossaire.svelte';
+  import Terme from '../../cog-training/composants/Terme.svelte';
+  import { registreDesTermes, CLEF_TERMES_VUS } from '../../cog-training/termes-vus';
+  import { setContext } from 'svelte';
   import { gagnerXp, xpVeridical } from '../../../lib/gamification';
   import { debloquer, disponible } from '../audio';
   import { NOMS_FAMILLES, dimensionParId, type Famille } from '../dimensions';
@@ -57,6 +60,17 @@
 
   let chargement = $state(true);
   let etape = $state<Etape>('accueil');
+
+  /*
+     LE REGISTRE DES TERMES DÉJÀ VUS DANS L'ÉCRAN COURANT (P9).
+
+     Seule la première apparition d'un terme technique est interactive. Le
+     registre se vide au changement d'écran : « premier » veut dire premier de
+     CET écran, et quelqu'un qui lance directement une partie n'aurait jamais
+     vu un seul terme cliquable si le compte courait sur toute la session.
+  */
+  const termesVus = registreDesTermes();
+  setContext(CLEF_TERMES_VUS, termesVus);
 
   /*
      LA DÉCOUVERTE : quelques essais sur une seule paire visuelle, sans son.
@@ -297,6 +311,7 @@
     pairesVues = new Set();
     xpGagne = 0;
     debut = Date.now();
+    termesVus.vider();
     etape = 'essai';
     tirerSuivant();
   }
@@ -421,6 +436,7 @@
         : (mesures[mesures.length / 2 - 1] + mesures[mesures.length / 2]) / 2
       : null;
 
+    termesVus.vider();
     etape = 'bilan';
 
     /* Seconde garde : ni session, ni XP, ni badge pour une découverte. */
@@ -689,7 +705,7 @@
 
     <fieldset class="mt-4">
       <legend class="text-sm font-medium text-slate-700 dark:text-slate-200">
-        Correspondances par écran <span class="font-normal text-slate-400">(charge)</span>
+        <Terme technique="charge" simple="Correspondances par écran" />
       </legend>
       <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
         Nombre de correspondances à tenir sur le même écran. Elle ne change pas la mesure du seuil,
@@ -758,9 +774,10 @@
         {repartition.suffisant
           ? 'border-slate-200 text-slate-500 dark:border-slate-800 dark:text-slate-400'
           : 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200'}">
-        {repartition.aretes} paire{repartition.aretes > 1 ? 's' : ''}
-        <span class="text-slate-400">(arête{repartition.aretes > 1 ? 's' : ''})</span>
-        à parcourir, soit environ
+        <Terme
+          technique="arête"
+          simple="{repartition.aretes} paire{repartition.aretes > 1 ? 's' : ''}"
+        /> à parcourir, soit environ
         {Math.round(repartition.parArete)} essai{repartition.parArete >= 2 ? 's' : ''} chacune.
         {#if repartition.trop}
           <strong>C'est trop peu pour faire bouger quoi que ce soit</strong> — sous cinq essais par
@@ -801,7 +818,7 @@
       <p class="text-xs font-medium tracking-wide text-indigo-700 dark:text-indigo-300">
         {essai.arete.de.nom} → {essai.arete.vers.nom}
         {#if essai.arete.transmodale}<span class="text-slate-400">
-          · entre la vue et l'ouïe (transmodale)</span>{/if}
+          · <Terme technique="transmodale" /></span>{/if}
       </p>
       <!--
         Pas de pause : un essai attend sa réponse, aucune horloge ne court.

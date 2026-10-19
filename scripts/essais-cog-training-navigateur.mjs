@@ -1066,6 +1066,93 @@ console.log('\nL5 — RÉGLAGES, TOUCHER, ACCESSIBILITÉ');
   }
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   P9 — LE TERME TECHNIQUE EST LUI-MÊME LA COMMANDE
+   ════════════════════════════════════════════════════════════════════════
+
+   La règle arbitrée : à sa PREMIÈRE apparition dans un écran, le terme entre
+   parenthèses s'ouvre au toucher sur son entrée du glossaire ; les suivantes
+   restent du texte. Deux rouges à prévoir, et ce sont ceux demandés : une
+   deuxième occurrence interactive, ou un toucher qui n'ouvre pas la bonne
+   entrée.
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nP9 — LE TERME OUVRE SA DÉFINITION, UNE FOIS PAR ÉCRAN');
+
+for (const exercice of EXERCICES) {
+  let contexte;
+  try {
+    const ouvert = await ouvrir(TAILLES[1], MODES[0], exercice.route);
+    contexte = ouvert.contexte;
+    const page = ouvert.page;
+    await page.getByRole('button', { name: exercice.lancer }).first().waitFor({ state: 'visible', timeout: 30000 });
+
+    /* AUCUN TERME N'EST INTERACTIF DEUX FOIS DANS LE MÊME ÉCRAN. */
+    const doublons = await page.locator('button[data-terme]').evaluateAll((noeuds) => {
+      const vus = {};
+      for (const n of noeuds) {
+        const t = n.dataset.terme;
+        vus[t] = (vus[t] ?? 0) + 1;
+      }
+      return Object.entries(vus).filter(([, combien]) => combien > 1);
+    });
+    v(`${exercice.nom} — aucun terme interactif deux fois`, doublons, []);
+
+    const termes = page.locator('button[data-terme]');
+    const combien = await termes.count();
+    if (combien === 0) {
+      /* Pas de terme sur cet écran : rien à éprouver, et on le dit. */
+      vrai(`${exercice.nom} — aucun terme technique sur l'écran de réglages`, true);
+      await contexte.close();
+      continue;
+    }
+
+    /* LE NOM ACCESSIBLE DIT CE QUE LE BOUTON FAIT. */
+    const noms = await termes.evaluateAll((n) => n.map((b) => b.getAttribute('aria-label')));
+    v(
+      'chaque terme porte « Définition : … »',
+      noms.filter((nom) => !/^Définition : .+/.test(nom ?? '')),
+      [],
+    );
+
+    /* LA CIBLE TACTILE ATTEINT 44 px DE HAUTEUR EFFECTIVE, pseudo-élément compris. */
+    const trop = await termes.evaluateAll((noeuds) =>
+      noeuds
+        .map((b) => {
+          const apres = getComputedStyle(b, '::after');
+          const haut = parseFloat(apres.insetBlockStart || '0');
+          const bas = parseFloat(apres.insetBlockEnd || '0');
+          const r = b.getBoundingClientRect();
+          return { terme: b.dataset.terme, effective: Math.round(r.height - haut - bas) };
+        })
+        .filter((m) => m.effective < 44),
+    );
+    v('la zone touchable de chaque terme atteint 44 px', trop, []);
+
+    /* ET LE TOUCHER OUVRE LA BONNE ENTRÉE. */
+    const vise = await termes.first().getAttribute('data-terme');
+    await termes.first().click();
+    const entree = page.locator(`[data-entree="${vise}"]`);
+    await entree.waitFor({ state: 'visible', timeout: 15000 });
+    vrai(`toucher « ${vise} » ouvre son entrée`, await entree.isVisible());
+    vrai(
+      'et le focus y est allé',
+      await page.evaluate(
+        (t) => document.activeElement?.getAttribute('data-entree') === t,
+        vise,
+      ),
+    );
+    vrai(
+      'et elle est mise en évidence',
+      await entree.evaluate((e) => e.className.includes('ring-2')),
+    );
+
+    await contexte.close();
+  } catch (erreur) {
+    direPanne(`${exercice.nom} · P9`, erreur);
+    await contexte?.close().catch(() => {});
+  }
+}
+
 await nav.close();
 console.log(
   echecs

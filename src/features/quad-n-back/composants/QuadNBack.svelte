@@ -26,6 +26,9 @@
   import { confirmer } from '../../../lib/boite';
   import CommentCaMarche from '../../cog-training/composants/CommentCaMarche.svelte';
   import Glossaire from '../../cog-training/composants/Glossaire.svelte';
+  import Terme from '../../cog-training/composants/Terme.svelte';
+  import { registreDesTermes, CLEF_TERMES_VUS } from '../../cog-training/termes-vus';
+  import { setContext } from 'svelte';
   import { ajouterSessionNBack, toutesLesSessionsNBack } from '../../../lib/db';
   import { gagnerXp, xpNBack } from '../../../lib/gamification';
   import { notifier } from '../../../lib/ui';
@@ -56,6 +59,17 @@
 
   let reglages = $state({ ...REGLAGES_DEFAUT });
   let ecran = $state('accueil'); // accueil | jeu | bilan
+
+  /*
+     LE REGISTRE DES TERMES DÉJÀ VUS DANS L'ÉCRAN COURANT (P9).
+
+     Seule la première apparition d'un terme technique est interactive. Le
+     registre se vide au changement d'écran : « premier » veut dire premier de
+     CET écran, et quelqu'un qui lance directement une partie n'aurait jamais
+     vu un seul terme cliquable si le compte courait sur toute la session.
+  */
+  const termesVus = registreDesTermes();
+  setContext(CLEF_TERMES_VUS, termesVus);
   // $state.raw et non $state : un objet $state profond est un Proxy, et
   // IndexedDB refuse de sérialiser un Proxy (« could not be cloned »).
   // Seule la réaffectation de « partie » doit déclencher un rendu ; les
@@ -406,6 +420,7 @@
     retours = retoursNeutres();
     bilan = null;
     debutSession = Date.now();
+    termesVus.vider();
     ecran = 'jeu';
 
     /*
@@ -517,6 +532,7 @@
     const secondes = Math.round((Date.now() - debutSession) / 1000);
     const titre = titrePartie(partie.meta.dimensions);
     bilan = { ...score, cause, n: partie.meta.n, decision: 'stable', suivant: partie.meta.n };
+    termesVus.vider();
     ecran = 'bilan';
 
     // Une partie abandonnée n'est pas enregistrée : elle fausserait
@@ -837,7 +853,11 @@
       <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Réglages de la session</h2>
       <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
         {reglages.dimensions.length} dimension{reglages.dimensions.length > 1 ? 's' : ''} ·
-        {reglages.n} tour{reglages.n > 1 ? 's' : ''} en arrière (n = {reglages.n}) ·
+        <Terme
+          technique="n"
+          simple="{reglages.n} tour{reglages.n > 1 ? 's' : ''} en arrière"
+          forme="n = {reglages.n}"
+        /> ·
         grille {reglages.grille3D ? '3D' : '2D'} ·
         {secondes(reglages.dureeEpreuve / 1000)} par épreuve ·
         {minutes((reglages.epreuves * reglages.dureeEpreuve) / 1000)}
@@ -891,8 +911,7 @@
 
         <div>
           <label for="interf" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
-            Répétitions presque justes
-            <span class="font-normal text-slate-400">(interférence)</span> :
+            <Terme technique="interférence" simple="Répétitions presque justes" /> :
             <strong>{reglages.interference} %</strong>
           </label>
           <input id="interf" type="range" min="0" max="60" step="5" bind:value={reglages.interference} class="w-full accent-indigo-600" />
@@ -1194,7 +1213,7 @@
           autant le dire, sinon l'absence de verdict passe pour une panne.
         -->
         <span class="rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-semibold text-amber-800 dark:bg-amber-950 dark:text-amber-300">
-          premiers tours <span class="font-normal">(amorçage)</span>
+          <Terme technique="amorçage" />
         </span>
       {/if}
       <span class="rounded-full bg-slate-900 px-2.5 py-0.5 text-xs font-semibold text-white dark:bg-white dark:text-slate-900">

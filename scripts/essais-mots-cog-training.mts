@@ -27,7 +27,8 @@
  * où le fichier n'emploie plus le terme, l'exception doit disparaître avec
  * lui, sinon elle couvre un défaut futur que personne n'a décidé.
  */
-import { readFileSync } from 'node:fs';
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
 import { GLOSSAIRE } from '../src/features/cog-training/glossaire';
 
 const FICHIERS = [
@@ -44,6 +45,17 @@ const FICHIERS = [
   'src/pages/cog-training/index.astro',
 ];
 
+/**
+ * Les noms des types de questions, affichés à l'écran par « nomMoteur ».
+ *
+ * Ils sont examinés à part parce qu'ils ne sont pas du texte de composant : ce
+ * sont des champs « nom » déclarés dans les moteurs. Mon essai ne les regardait
+ * pas, et il était vert pendant que l'écran affichait « Isomorphisme partiel »
+ * et « Prémisse manquante ». Un essai qui ne voit pas la moitié de l'écran
+ * rassure à tort.
+ */
+const NOMS_DE_MOTEURS = 'src/features/relational-reasoning/moteurs';
+
 /** Un terme toléré seul dans un fichier, avec la raison. */
 interface Exception {
   fichier: string;
@@ -52,6 +64,18 @@ interface Exception {
 }
 
 const EXCEPTIONS: Exception[] = [
+  {
+    fichier: NOMS_DE_MOTEURS,
+    terme: '*',
+    raison:
+      'les noms des types de questions — « Algèbre cachée », « Isomorphisme ' +
+      'partiel », « Prémisse manquante »… — portent le jargon dans leur NOM, ' +
+      'et un nom n’est pas une phrase : « la règle que suit une relation ' +
+      '(algèbre) cachée » n’est pas un nom. Les renommer est une décision de ' +
+      'contenu sur vingt moteurs, hors du lot ; elle est remontée au Pilote. ' +
+      'Le glossaire couvre les termes, et cette exception existe pour que le ' +
+      'manque soit DÉCLARÉ plutôt qu’invisible',
+  },
   {
     fichier: 'src/features/veridical-mapping/composants/TableauDeBord.svelte',
     terme: 'seuil',
@@ -96,8 +120,29 @@ const vert = (texte: string) => console.log(`\x1b[32m✓\x1b[0m ${texte}`);
  */
 const memeApostrophe = (texte: string) => texte.replace(/[’‘`´]/g, "'");
 
+/**
+ * Les balises « Terme » sont remplacées par le texte qu'elles rendent.
+ *
+ * Sans cela, l'essai rougissait sur la forme la PLUS correcte : un
+ * « <Terme technique="seuil" /> » rend bien « le plus petit écart que vous
+ * distinguez (seuil) » à l'écran, mais la source du parent ne contient que la
+ * balise. L'essai aurait donc poussé à écrire le couple à la main — c'est-à-dire
+ * à défaire ce que la table centralise.
+ */
+function sansBalisesDeTerme(source: string): string {
+  return source.replace(
+    /<Terme\s+[^>]*technique="([^"]+)"[^>]*\/>/g,
+    (balise, technique: string) => {
+      const terme = GLOSSAIRE.find((t) => t.technique === technique);
+      const rendu = terme ? `${terme.simple} (${terme.technique})` : technique;
+      /* La longueur est conservée pour ne pas décaler les colonnes. */
+      return rendu.length <= balise.length ? rendu.padEnd(balise.length) : rendu;
+    },
+  );
+}
+
 function texteVisible(source: string): string[] {
-  return sansExpressions(source)
+  return sansBalisesDeTerme(sansExpressions(source))
     .replace(/<script[\s\S]*?<\/script>/g, (bloc) => bloc.replace(/[^\n]/g, ' '))
     /*
        Les blocs de style aussi : leurs commentaires « / * … * / » parlent de
@@ -189,6 +234,34 @@ for (const fichier of FICHIERS) {
       );
     });
   }
+}
+
+/*
+   LES NOMS DE MOTEURS SONT COMPTÉS, et le compte est affiché. Ils sont
+   couverts par une exception motivée, mais une exception muette est une
+   exception qu'on oublie : le nombre rappelle ce qui reste à décider.
+*/
+{
+  const noms: string[] = [];
+  const parcourir = (dossier: string) => {
+    for (const entree of readdirSync(dossier, { withFileTypes: true })) {
+      const chemin = join(dossier, entree.name);
+      if (entree.isDirectory()) parcourir(chemin);
+      else if (entree.name.endsWith('.ts')) {
+        for (const m of readFileSync(chemin, 'utf8').matchAll(/\bnom: '([^']+)'/g)) noms.push(m[1]);
+      }
+    }
+  };
+  parcourir(NOMS_DE_MOTEURS);
+  const avecJargon = noms.filter((nom) =>
+    GLOSSAIRE.some((t) => new RegExp(`\\b${t.technique}`, 'i').test(nom)),
+  );
+  exceptionsUtiles.add(`${NOMS_DE_MOTEURS}|*`);
+  console.log(
+    `\x1b[33m•\x1b[0m ${avecJargon.length} nom${avecJargon.length > 1 ? 's' : ''} de type de ` +
+      `question portent encore un terme technique : ${avecJargon.join(', ')} — ` +
+      'couverts par une exception motivée, décision remontée au Pilote.',
+  );
 }
 
 for (const e of EXCEPTIONS) {

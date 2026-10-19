@@ -13,6 +13,7 @@
   un, et l'arrondir en « raté » effacerait ce que le barème mesure.
 -->
 <script lang="ts">
+  import Terme from '../../cog-training/composants/Terme.svelte';
   import { CONDITIONS_MAITRISE, type Statistiques } from '../progression';
 
   let { stats }: { stats: Statistiques } = $props();
@@ -88,8 +89,8 @@
     <section>
       <h3 class="font-semibold text-slate-900 dark:text-white">Par système</h3>
       <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
-        C'est ici qu'on repère une règle que suit une relation (algèbre) mal comprise,
-        plutôt qu'une difficulté de raisonnement.
+        C'est ici qu'on repère une <Terme technique="algèbre" simple="règle que suit une relation" />
+        mal comprise, plutôt qu'une difficulté de raisonnement.
       </p>
       <table class="mt-2 w-full text-left">
         <thead class="text-xs tracking-wide text-slate-500 dark:text-slate-400">

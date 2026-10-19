@@ -26,6 +26,9 @@
   import { amenerLaZone } from '../../cog-training/zone-de-jeu';
   import CommentCaMarche from '../../cog-training/composants/CommentCaMarche.svelte';
   import Glossaire from '../../cog-training/composants/Glossaire.svelte';
+  import Terme from '../../cog-training/composants/Terme.svelte';
+  import { registreDesTermes, CLEF_TERMES_VUS } from '../../cog-training/termes-vus';
+  import { setContext } from 'svelte';
   import MonEntrainement from '../../cog-training/composants/MonEntrainement.svelte';
   import type { GroupeUnites } from '../../cog-training/unites';
   import { gagnerXp, xpRelationnel } from '../../../lib/gamification';
@@ -68,6 +71,17 @@
   const CLE_TUTORIELS = 'revinsp:rr:tutoriels';
 
   let etape = $state<Etape>('accueil');
+
+  /*
+     LE REGISTRE DES TERMES DÉJÀ VUS DANS L'ÉCRAN COURANT (P9).
+
+     Seule la première apparition d'un terme technique est interactive. Le
+     registre se vide au changement d'écran : « premier » veut dire premier de
+     CET écran, et quelqu'un qui lance directement une partie n'aurait jamais
+     vu un seul terme cliquable si le compte courait sur toute la session.
+  */
+  const termesVus = registreDesTermes();
+  setContext(CLEF_TERMES_VUS, termesVus);
 
   /*
      LA DÉCOUVERTE, et les deux types les plus concrets du constat P18.
@@ -429,6 +443,7 @@
     xpGagne = 0;
     debut = Date.now();
     reinitialiserReponse();
+    termesVus.vider();
     etape = questions.length ? 'question' : 'accueil';
     if (etape === 'question') {
       montrerLExempleSiBesoin();
@@ -543,6 +558,7 @@
        serait une garde à oublier à la prochaine.
     */
     if (decouverte) {
+      termesVus.vider();
       etape = 'bilan';
       return;
     }

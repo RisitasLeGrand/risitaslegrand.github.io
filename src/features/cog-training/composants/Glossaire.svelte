@@ -18,7 +18,9 @@
   focus.
 -->
 <script lang="ts">
+  import { tick } from 'svelte';
   import { GLOSSAIRE, type Terme } from '../glossaire';
+  import { glossaireOuvert } from '../glossaire-ouvert.svelte';
 
   interface Props {
     /** L'exercice courant : ses termes passent en premier. */
@@ -26,6 +28,33 @@
   }
 
   let { ou }: Props = $props();
+
+  let pli = $state<HTMLDetailsElement | null>(null);
+
+  /*
+     LE GLOSSAIRE S'OUVRE SUR LE TERME DEMANDÉ, et le focus y va.
+
+     Trois choses dans l'ordre, et l'ordre compte : déplier, attendre le rendu,
+     puis viser l'entrée. Viser avant le rendu ne trouverait rien — un
+     « details » replié ne rend pas son contenu dans tous les navigateurs.
+
+     Le focus se déplace parce qu'une région qui s'ouvre sans focus ne
+     s'annonce pas : on aurait touché un mot et, pour un lecteur d'écran, rien
+     ne se serait passé. L'entrée porte « tabindex=-1 » pour être atteignable
+     sans s'ajouter au parcours de tabulation.
+  */
+  $effect(() => {
+    const technique = glossaireOuvert.terme;
+    if (!technique || !pli) return;
+    pli.open = true;
+    void (async () => {
+      await tick();
+      const entree = pli?.querySelector<HTMLElement>(`[data-entree="${technique}"]`);
+      if (!entree) return;
+      entree.scrollIntoView({ block: 'center' });
+      entree.focus();
+    })();
+  });
 
   const NOMS: Record<Terme['ou'], string> = {
     memoire: 'Mémoire de travail',
@@ -49,6 +78,11 @@
 </script>
 
 <details
+  bind:this={pli}
+  ontoggle={() => {
+    /* Refermé à la main : le focus revient d'où il venait. */
+    if (pli && !pli.open && glossaireOuvert.terme) glossaireOuvert.fermer();
+  }}
   class="mt-4 rounded-xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900"
 >
   <summary class="cursor-pointer text-sm font-semibold text-slate-900 dark:text-white">
@@ -72,7 +106,14 @@
     </h3>
     <dl class="mt-1 space-y-1.5">
       {#each groupe.termes as terme (terme.technique)}
-        <div class="text-sm">
+        <div
+          data-entree={terme.technique}
+          tabindex="-1"
+          class="rounded-lg px-2 py-1 text-sm outline-none
+            {glossaireOuvert.terme === terme.technique
+            ? 'bg-indigo-50 ring-2 ring-indigo-400 dark:bg-indigo-950/50 dark:ring-indigo-600'
+            : ''}"
+        >
           <dt class="font-medium text-slate-800 dark:text-slate-100">
             {terme.simple}
             <span class="font-normal text-slate-500 dark:text-slate-400">({terme.technique})</span>
