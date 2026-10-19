@@ -30,10 +30,48 @@
  * ligne du tableau par ligne du tableau — c'est la même raison qui a fait
  * sortir la temporalité du QCM dans son propre module.
  */
-import type { Issue } from './qcm';
+import type { FormatEpreuve, Issue } from './qcm';
 
 /** Le nombre de zones du formulaire officiel, quel que soit le format. */
 export const ZONES_DU_FORMULAIRE = 60;
+
+/**
+ * Les minutes qu'on se donne par question, et d'où vient ce chiffre.
+ *
+ * ## Aucun arrêté ne donne la durée du QCM seul
+ *
+ * Les arrêtés donnent la durée de l'épreuve ENTIÈRE : 2 heures pour le QCM
+ * puis les QRC du contrôleur, 2 h 30 pour ceux de l'inspecteur
+ * (`docs/cyclades/programmes-dgfip.md`). Le découpage entre les deux parties
+ * n'y figure pas, et il fallait bien en choisir un.
+ *
+ * Le seul repère trouvé est celui du guide ENFiP, cité dans le même
+ * document : « deux minutes par question au plus, soit 1 h 20 pour le QCM »
+ * — pour quarante questions. On applique donc sa règle plutôt que sa somme,
+ * ce qui donne une durée cohérente quel que soit le format.
+ *
+ * C'est **un repère du guide, pas une durée réglementaire**, et l'écran le
+ * dit. Confirmé par le pilote le 19 octobre.
+ *
+ * Ces deux-là vivent ici, et non dans `qcm.ts`, pour la même raison que la
+ * temporalité : `qcm.ts` importe `./ui`, qui lit `import.meta.env` et
+ * n'existe donc que dans un navigateur. Une durée doit pouvoir s'éprouver
+ * en Node.
+ */
+export const MINUTES_PAR_QUESTION = 2;
+
+/** La durée d'une copie, en secondes, pour le compte à rebours. */
+export const secondesDuFormat = (format: Pick<FormatEpreuve, 'total'>): number =>
+  format.total * MINUTES_PAR_QUESTION * 60;
+
+/** « 1 h 30 », « 54 min » : la durée telle que l'écran l'annonce. */
+export function dureeEnClair(secondes: number): string {
+  const minutes = Math.round(secondes / 60);
+  if (minutes < 60) return `${minutes} min`;
+  const heures = Math.floor(minutes / 60);
+  const reste = minutes % 60;
+  return reste === 0 ? `${heures} h` : `${heures} h ${String(reste).padStart(2, '0')}`;
+}
 
 /**
  * Une ligne de la zone : les cases numérotées cochées, et « Ann ».
@@ -82,6 +120,37 @@ export function cocherAnn(zone: Zone, ligne: 'premiere' | 'seconde'): Zone {
   if (zone[ligne].ann) return zone;
   return { ...zone, [ligne]: { ...zone[ligne], ann: true } };
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Du numéro de case à l'indice d'option
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * La case numérotée « n » de la feuille porte quelle option ?
+ *
+ * ## Le décalage que ces deux fonctions existent pour empêcher
+ *
+ * Les propositions sont **mélangées** à l'affichage (`ordre`, posé par le
+ * tirage), pour qu'une question sue ne se reconnaisse pas à la place de sa
+ * réponse. La feuille, elle, numérote ses cases 1 à 4 dans l'ordre où les
+ * propositions sont imprimées. La case 1 ne désigne donc pas l'option 0.
+ *
+ * Confondre les deux ne casserait rien de visible : la copie se remplirait,
+ * la note se calculerait, et elle serait fausse — sur les seules questions
+ * dont l'ordre a changé, c'est-à-dire presque toutes. C'est exactement le
+ * genre de défaut qui ne se voit qu'en comptant à la main.
+ *
+ * La zone stocke des **indices d'option**, et non des numéros de case : ainsi
+ * la réponse retenue garde un sens une fois l'épreuve rangée dans
+ * l'historique, sans qu'il faille conserver l'ordre d'affichage pour la
+ * relire.
+ */
+export const optionDeLaCase = (ordre: readonly number[], numero: number): number | undefined =>
+  ordre[numero - 1];
+
+/** Et l'inverse : cette option est imprimée sur quelle case ? `0` si absente. */
+export const caseDeLOption = (ordre: readonly number[], option: number): number =>
+  ordre.indexOf(option) + 1;
 
 /* ══════════════════════════════════════════════════════════════════════════
    La lecture : quelle réponse la copie porte-t-elle ?
@@ -164,6 +233,17 @@ export function lireLaZone(zone: Zone): LectureDeZone {
 
   return { retenue: null, motif: 'sans-reponse' };
 }
+
+/**
+ * La ligne que la lecture a retenue.
+ *
+ * Utile à l'écran de fin, qui dit non seulement la réponse mais d'où elle
+ * vient : « 2ᵉ ligne » n'a pas la même leçon que « réponse multiple ». La
+ * règle est la même que celle de `lireLaZone` — la seconde ligne dès qu'elle
+ * est servie —, et la tenir en un seul endroit évite qu'elles divergent.
+ */
+export const ligneRetenue = (zone: Zone): 'premiere' | 'seconde' =>
+  ligneEstVide(zone.seconde) ? 'premiere' : 'seconde';
 
 /**
  * L'issue d'une zone au barème du concours : +1, −0,5, ou 0.
