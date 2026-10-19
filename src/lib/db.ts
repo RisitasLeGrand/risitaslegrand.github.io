@@ -812,7 +812,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 34;
+const VERSION = 35;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1588,9 +1588,17 @@ function ouvrirAuSchema(nom: string, version: number) {
       if (vers(33)) {
         base.createObjectStore('centreElements', { keyPath: 'id' });
       }
-      if (vers(34)) {
+      if (vers(35)) {
         /*
          * Les créneaux marqués — Santé, phase 4, P2.
+         *
+         * **La 34 est attribuée à l'agent C**, qui y crée `podcastPositions`
+         * sur `claude/p46-55` — vérifié dans sa branche, pas supposé. Deux
+         * migrations portant le même numéro ne se verraient pas en revue et
+         * ne se verraient pas non plus à l'exécution : une base déjà montée
+         * à 34 par l'un des deux chemins ne rejouerait jamais l'autre bloc,
+         * et le magasin manquant ne se signalerait qu'au premier `getAll`,
+         * loin de sa cause. D'où cette 35, arbitrée par le pilote.
          *
          * **Aucune reprise de données.** Avant ce lot, aucun traitement
          * n'avait de schéma prévu, donc aucun créneau n'existait, donc
