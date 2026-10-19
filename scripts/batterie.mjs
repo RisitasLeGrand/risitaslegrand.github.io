@@ -105,11 +105,18 @@ for (const [index, nom] of noms.entries()) {
 
   /*
      Deux juges, et non un seul : le code de sortie, et la présence d'une
-     croix. Certains essais rendent 0 en affichant des croix — c'est un défaut
-     de ces essais, consigné ailleurs, mais la batterie ne doit pas s'en rendre
-     complice en les comptant verts.
+     croix ROUGE. Certains essais rendent 0 en affichant des croix — c'est un
+     défaut de ces essais, consigné ailleurs, mais la batterie ne doit pas
+     s'en rendre complice en les comptant verts.
+
+     Pourquoi la couleur compte. « essais:retours » affiche, dans un libellé
+     VERT, « et ✗ pour une réponse fausse » : il décrit le signe, il ne
+     l'émet pas. Chercher la croix nue le déclarait donc rouge alors qu'il
+     finit sur « 0 échec(s) » et rend 0 — un rouge fabriqué par l'instrument,
+     du même genre que les deux essais fantômes du 19 octobre. Les lignes
+     d'échec, elles, écrivent toutes la croix en rouge.
   */
-  const croix = /✗/.test(sortie);
+  const croix = /\u001b\[31m✗/.test(sortie);
   const secondes = ((Date.now() - depart) / 1000).toFixed(0);
   if (code === 0 && !croix) {
     verts += 1;
@@ -117,7 +124,7 @@ for (const [index, nom] of noms.entries()) {
   } else {
     rouges.push(nom);
     console.log(`  \x1b[31m✗\x1b[0m ${compteur} ${nom} (code ${code}, ${secondes} s)`);
-    for (const ligne of sortie.split('\n').filter((l) => l.includes('✗')).slice(0, 3)) {
+    for (const ligne of sortie.split('\n').filter((l) => /\u001b\[31m✗/.test(l)).slice(0, 3)) {
       console.log(`        ${ligne.trim().slice(0, 160)}`);
     }
   }
