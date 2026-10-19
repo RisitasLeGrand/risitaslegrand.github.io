@@ -133,5 +133,25 @@
         {/each}
       </tbody>
     </table>
+
+    <!--
+      LA MATRICE EXPLIQUE SES SYMBOLES, ET CE SONT LES SIENS.
+
+      Le constat P18 demande la légende « X : la ligne a la relation avec la
+      colonne ; −X : elle ne l'a pas. » Ces deux symboles n'existent nulle part
+      dans le code : `blocMatrice` est le seul producteur de matrice, et ses
+      cases portent « · » sur la diagonale, « ? » quand la relation n'est pas
+      donnée, et sinon le nom bref de la relation. Recopier la légende de
+      l'audit aurait décrit une matrice qui n'est pas celle-là.
+
+      Elle est montrée toujours, et non seulement pendant la découverte : un
+      symbole inexpliqué l'est aussi pour qui n'a pas fait la découverte, et
+      c'est le genre de phrase qu'on lit une fois sans jamais la relire.
+    -->
+    <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+      Chaque case donne la relation de la ligne vers la colonne.
+      <span class="font-mono">·</span> : la même entité.
+      <span class="font-mono">?</span> : la relation n'est pas donnée.
+    </p>
   </div>
 {/if}

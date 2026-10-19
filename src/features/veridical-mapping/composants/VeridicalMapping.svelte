@@ -56,6 +56,41 @@
   let chargement = $state(true);
   let etape = $state<Etape>('accueil');
 
+  /*
+     LA DÉCOUVERTE : quelques essais sur une seule paire visuelle, sans son.
+
+     Six essais, charge 1, et les écarts repartent de zéro pour être larges.
+     « sans son » n'est pas un confort : la référence sonore demande un
+     appareil qui joue, et une découverte qui échoue faute de haut-parleur
+     n'apprend rien à personne.
+  */
+  const DECOUVERTE = { ...REGLAGES_PAR_DEFAUT, essais: 6, charge: 1, bruit: false, partiel: false };
+
+  let decouverte = $state(false);
+
+  /**
+   * Les réglages de la SESSION en cours, qui ne sont pas forcément ceux de
+   * l'écran.
+   *
+   * Même raison que dans Mémoire de travail : le nombre d'essais, la charge et
+   * la tâche se lisaient dans `reglages` pendant la session. Une découverte de
+   * six essais aurait alors tourné sur les quarante-huit réglés par la
+   * personne — et régler le curseur en cours de session aurait changé la
+   * session en cours.
+   */
+  let enJeu = $state<Reglages>({ ...REGLAGES_PAR_DEFAUT });
+
+  /*
+     Les paliers de la découverte vivent À PART de ceux de la personne.
+
+     Les écrire dans `seuils` aurait suffi à les faire paraître dans « Mes
+     seuils » — un panneau qui annonce des mesures — alors qu'une découverte ne
+     mesure rien. Et repartir d'un escalier neuf est ce qui donne les écarts
+     larges que la découverte demande : relire le palier atteint reviendrait à
+     poser d'emblée les écarts les plus fins.
+  */
+  let seuilsDecouverte = $state<Record<string, SeuilVeridical>>({});
+
   /** La consigne, ouverte en boîte pendant la session (P2 du 51). */
   let consigneOuverte = $state(false);
 
@@ -150,15 +185,16 @@
     });
   }
 
-  function clefSeuil(arete: Arete, tache: Reglages['tache'] = reglages.tache): string {
+  function clefSeuil(arete: Arete, tache: Reglages['tache'] = enJeu.tache): string {
     return tache === 'point' ? arete.id : `${arete.id}|${tache}`;
   }
 
   /** Le seuil d'une arête, créé à la volée s'il n'existe pas encore. */
   function seuilDArete(arete: Arete): SeuilVeridical {
     const clef = clefSeuil(arete);
+    const magasin = decouverte ? seuilsDecouverte : seuils;
     return (
-      seuils[clef] ?? {
+      magasin[clef] ?? {
         id: clef,
         famille: arete.de.famille,
         de: arete.de.id,
@@ -183,16 +219,46 @@
    */
   function essaisDeLaPaire(a: string, b: string): number {
     const cle = (de: string, vers: string) =>
-      reglages.tache === 'point' ? idArete(de, vers) : `${idArete(de, vers)}|${reglages.tache}`;
+      enJeu.tache === 'point' ? idArete(de, vers) : `${idArete(de, vers)}|${enJeu.tache}`;
     const aller = seuils[cle(a, b)]?.escalier.essais ?? 0;
     const retourr = seuils[cle(b, a)]?.escalier.essais ?? 0;
     return aller + retourr;
   }
 
   async function commencer() {
+    decouverte = false;
+    enJeu = { ...reglages };
     sonPret = disponible() ? await debloquer() : false;
-    vivier = vivierDAretes(reglages, essaisDeLaPaire);
+    vivier = vivierDAretes(enJeu, essaisDeLaPaire);
     if (!vivier.length) return;
+    preparer();
+  }
+
+  /**
+   * La découverte : quelques essais sur UNE SEULE paire visuelle, sans son.
+   *
+   * La paire est choisie visuelle des deux côtés, et non simplement « non
+   * transmodale » : deux dimensions sonores ne sont pas transmodales entre
+   * elles, et une découverte sans haut-parleur n'y montrerait rien. Si aucune
+   * paire visuelle n'existe, la découverte ne se lance pas plutôt que de se
+   * lancer muette.
+   *
+   * Elle n'écrit rien : les deux gardes sont posées, à l'essai et à la fin.
+   */
+  async function commencerLaDecouverte() {
+    decouverte = true;
+    enJeu = { ...DECOUVERTE };
+    sonPret = false;
+    seuilsDecouverte = {};
+    const visuelles = vivierDAretes(enJeu, () => 0).filter(
+      (a) => a.de.modalite === 'visuelle' && a.vers.modalite === 'visuelle',
+    );
+    if (!visuelles.length) return;
+    vivier = [visuelles[0]];
+    preparer();
+  }
+
+  function preparer() {
     faits = 0;
     reussis = 0;
     convergences = [];
@@ -202,6 +268,7 @@
     etape = 'essai';
     tirerSuivant();
   }
+
 
   function tirerSuivant() {
     /*
@@ -215,7 +282,7 @@
     })();
     const arete = vivier[Math.floor(Math.random() * vivier.length)];
     const etat = seuilDArete(arete).escalier;
-    essai = tirerEssai(arete, etat.delta, reglages, hasard);
+    essai = tirerEssai(arete, etat.delta, enJeu, hasard);
     choix = essai.sousEssais.map(() => null);
     retour = 'attente';
   }
@@ -254,7 +321,8 @@
       statut: apres,
       majLe: new Date().toISOString(),
     };
-    seuils = { ...seuils, [ligne.id]: ligne };
+    if (decouverte) seuilsDecouverte = { ...seuilsDecouverte, [ligne.id]: ligne };
+    else seuils = { ...seuils, [ligne.id]: ligne };
     pairesVues.add(ligne.id);
     if (avant !== 'converge' && apres === 'converge') convergences = [...convergences, ligne.id];
 
@@ -262,6 +330,14 @@
     reussis += justes;
     retour = 'corrige';
     correctionOuverte = false;
+
+    /*
+       CET EXERCICE ÉCRIT À CHAQUE ESSAI, et non seulement à la fin : c'est ce
+       qui le distingue des deux autres, et ce qui rend l'interdit 3 plus
+       facile à manquer ici. La garde est donc posée aux DEUX endroits —
+       celui-ci et `terminer` —, et non à la seule fin de session.
+    */
+    if (decouverte) return;
 
     try {
       await ecrireSeuilVeridical(ligne);
@@ -271,7 +347,7 @@
   }
 
   async function suivant() {
-    if (faits >= reglages.essais) {
+    if (faits >= enJeu.essais) {
       await terminer();
       return;
     }
@@ -292,6 +368,10 @@
       : null;
 
     etape = 'bilan';
+
+    /* Seconde garde : ni session, ni XP, ni badge pour une découverte. */
+    if (decouverte) return;
+
     try {
       await ajouterSessionVeridical({
         le: new Date().toISOString(),
@@ -363,7 +443,7 @@
     return `✗ ${justes} sur ${lignes.length} : ${manquees.join(', ')}.`;
   });
 
-  const chargeReelle = $derived(essai ? chargeAdmise(essai.arete, reglages.charge) : reglages.charge);
+  const chargeReelle = $derived(essai ? chargeAdmise(essai.arete, enJeu.charge) : enJeu.charge);
 
   /**
    * Les trois tâches, et celles qui sont réellement praticables dans la famille
@@ -615,11 +695,20 @@
       </p>
     {/if}
 
-    <button
-      type="button"
-      onclick={commencer}
-      class="mt-5 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
-    >Commencer</button>
+    <div class="mt-5 flex flex-wrap gap-3 {sessions.length === 0 ? 'flex-row-reverse justify-end' : ''}">
+      <button
+        type="button"
+        onclick={commencer}
+        class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+      >Commencer</button>
+      <button
+        type="button"
+        onclick={commencerLaDecouverte}
+        class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700
+          hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+      >Essayer d'abord ({DECOUVERTE.essais} essais, sans son)</button>
+    </div>
+
   </section>
 {:else if etape === 'essai' && essai}
   <section bind:this={zoneDeJeu} data-zone-de-jeu>
@@ -638,12 +727,12 @@
           hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300"
       >Revoir la consigne</button>
       <p class="text-xs text-slate-500 dark:text-slate-400">
-        {faits} / {reglages.essais} · écart {essai.delta} pas
+        {faits} / {enJeu.essais} · écart {essai.delta} pas
       </p>
     </div>
 
     <div class="h-1 overflow-hidden rounded bg-slate-200 dark:bg-slate-800">
-      <div class="jauge-remplissage jauge-seance h-full bg-indigo-500" style="transform: scaleX({faits / reglages.essais})"></div>
+      <div class="jauge-remplissage jauge-seance h-full bg-indigo-500" style="transform: scaleX({faits / enJeu.essais})"></div>
     </div>
 
     {#if essai.arete.vers.modalite === 'auditive' && !sonPret}
@@ -815,7 +904,7 @@
           type="button"
           onclick={suivant}
           class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
-        >{faits >= reglages.essais ? 'Voir le bilan' : 'Essai suivant'}</button>
+        >{faits >= enJeu.essais ? 'Voir le bilan' : 'Essai suivant'}</button>
         {#if aCorrectionDetaillee('veridical-mapping')}
           <button
             type="button"
@@ -853,17 +942,32 @@
   </section>
 {:else}
   <section>
-    <h2 class="font-semibold text-slate-900 dark:text-white">Bilan de la session</h2>
-    <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
-      {reussis} essai{reussis > 1 ? 's' : ''} réussi{reussis > 1 ? 's' : ''} sur {faits}.
-      {#if convergences.length}
-        <span class="font-medium text-emerald-700 dark:text-emerald-300">
-          {convergences.length} seuil{convergences.length > 1 ? 's' : ''}
-          stabilisé{convergences.length > 1 ? 's' : ''}.
-        </span>
-      {/if}
-      {#if xpGagne}<span class="font-medium text-indigo-700 dark:text-indigo-300">+{xpGagne} XP.</span>{/if}
-    </p>
+    <h2 class="font-semibold text-slate-900 dark:text-white">
+      {decouverte ? 'Découverte terminée' : 'Bilan de la session'}
+    </h2>
+    {#if decouverte}
+      <!--
+        Le bilan d'une découverte dit d'abord qu'elle ne mesure rien. Annoncer
+        un « seuil stabilisé » après six essais sur des écarts larges serait
+        faux deux fois : rien n'a été mesuré, et rien n'a été gardé.
+      -->
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+        {reussis} essai{reussis > 1 ? 's' : ''} réussi{reussis > 1 ? 's' : ''} sur {faits}.
+        Rien n'a été enregistré : ni seuil, ni résultat, ni points. Les écarts étaient
+        larges exprès. Quand vous voudrez mesurer pour de vrai, touchez « Commencer ».
+      </p>
+    {:else}
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+        {reussis} essai{reussis > 1 ? 's' : ''} réussi{reussis > 1 ? 's' : ''} sur {faits}.
+        {#if convergences.length}
+          <span class="font-medium text-emerald-700 dark:text-emerald-300">
+            {convergences.length} seuil{convergences.length > 1 ? 's' : ''}
+            stabilisé{convergences.length > 1 ? 's' : ''}.
+          </span>
+        {/if}
+        {#if xpGagne}<span class="font-medium text-indigo-700 dark:text-indigo-300">+{xpGagne} XP.</span>{/if}
+      </p>
+    {/if}
     <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
       Un taux de réussite proche de 70 % est le signe que l'escalier travaille au bon endroit : il
       resserre l'écart jusqu'au point où l'on se trompe environ une fois sur trois. Un taux bien

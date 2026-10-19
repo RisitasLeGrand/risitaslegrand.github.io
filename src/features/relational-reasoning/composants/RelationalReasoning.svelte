@@ -58,11 +58,26 @@
     enonce: Item['enonce'];
     reponse: Reponse;
     explication: string;
+    /** Exemple résolu de la découverte : montré corrigé, et qui ne compte pas. */
+    exemple?: boolean;
   }
 
   const CLE_TUTORIELS = 'revinsp:rr:tutoriels';
 
   let etape = $state<Etape>('accueil');
+
+  /*
+     LA DÉCOUVERTE, et les deux types les plus concrets du constat P18.
+
+     « Conclusion d'une chaîne » et « Compléter l'analogie » : deux énoncés qui
+     se lisent sans vocabulaire. Le mode libre les ouvre sans toucher aux
+     déblocages gagnés — c'est la raison d'être de ce mode, et la découverte
+     doit marcher sur un profil neuf comme sur un profil avancé.
+  */
+  const MOTEURS_DECOUVERTE = ['chaine-conclusion', 'completion-analogie'];
+  const QUESTIONS_DECOUVERTE = 6;
+
+  let decouverte = $state(false);
 
   /** La consigne, ouverte en boîte pendant la session (P2 du 51). */
   let consigneOuverte = $state(false);
@@ -315,12 +330,42 @@
   }
 
   function commencer() {
+    decouverte = false;
     const session = composerSession(traces, selection.items, undefined, {
       moteurs: retenus,
       ordre: selection.ordre,
       modeLibre: selection.modeLibre,
     });
-    questions = session.items.flatMap(questionsDe);
+    lancer(session.items.flatMap(questionsDe));
+  }
+
+  /**
+   * La découverte : six questions des deux types les plus concrets, dont la
+   * première est déjà résolue.
+   *
+   * Elle n'écrit rien — ni session, ni trace, ni XP —, et `terminer` en sort
+   * avant la première écriture.
+   */
+  function commencerLaDecouverte() {
+    decouverte = true;
+    const session = composerSession(traces, QUESTIONS_DECOUVERTE, undefined, {
+      moteurs: MOTEURS_DECOUVERTE,
+      ordre: 'entrelace',
+      modeLibre: true,
+    });
+    /*
+       Les questions sont tronquées à six : un énoncé à suite en rend deux, et
+       `composerSession` compte des ÉNONCÉS. Sans cette coupe, une découverte
+       de six énoncés pourrait poser douze questions — le double de ce que son
+       bouton annonce.
+    */
+    const posees = session.items.flatMap(questionsDe).slice(0, QUESTIONS_DECOUVERTE);
+    if (posees.length) posees[0] = { ...posees[0], exemple: true };
+    lancer(posees);
+  }
+
+  function lancer(posees: Question[]) {
+    questions = posees;
     rang = 0;
     corrige = false;
     resultats = [];
@@ -328,7 +373,27 @@
     debut = Date.now();
     reinitialiserReponse();
     etape = questions.length ? 'question' : 'accueil';
-    if (etape === 'question') void montrerLEnonce();
+    if (etape === 'question') {
+      montrerLExempleSiBesoin();
+      void montrerLEnonce();
+    }
+  }
+
+  /**
+   * L'exemple résolu : la bonne réponse est posée et la correction ouverte.
+   *
+   * Il ne passe pas par `valider` et n'ajoute donc aucun résultat : un exemple
+   * qu'on n'a pas cherché ne doit ni compter comme réussi — ce serait flatter
+   * — ni comme manqué — ce serait injuste. Il ne compte pas, voilà tout.
+   */
+  function montrerLExempleSiBesoin() {
+    const q = questions[rang];
+    if (!q?.exemple) return;
+    if (q.reponse.genre === 'unique') choixUnique = q.reponse.bonne;
+    else if (q.reponse.genre === 'multiple') choixMultiples = [...q.reponse.bonnes];
+    else appariements = { ...q.reponse.paires };
+    corrige = true;
+    correctionOuverte = true;
   }
 
   function reinitialiserReponse() {
@@ -381,6 +446,7 @@
       corrige = false;
       correctionOuverte = false;
       reinitialiserReponse();
+      montrerLExempleSiBesoin();
       void montrerLEnonce();
       return;
     }
@@ -388,6 +454,18 @@
   }
 
   async function terminer() {
+    /*
+       LA DÉCOUVERTE N'ÉCRIT RIEN, et contrairement à Mémoire de travail cet
+       exercice n'avait aucun garde-fou : « terminer » enregistrait la session,
+       les traces et l'XP sans condition. Le mettre ICI, avant le premier
+       calcul, plutôt qu'autour de chaque écriture : une garde par écriture
+       serait une garde à oublier à la prochaine.
+    */
+    if (decouverte) {
+      etape = 'bilan';
+      return;
+    }
+
     const secondes = Math.round((Date.now() - debut) / 1000);
     const reussis = resultats.filter((r) => r.note >= 1).length;
     const echelons = resultats.map(
@@ -575,13 +653,28 @@
       </p>
     {/if}
 
-    <button
-      type="button"
-      onclick={commencer}
-      disabled={retenus.length === 0}
-      class="mt-5 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white
-        hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
-    >Commencer</button>
+    <!--
+      « ESSAYER D'ABORD » EST EN PREMIER tant qu'aucune session n'a été jouée,
+      et derrière ensuite. Il n'est jamais désactivé, lui : la découverte
+      choisit ses propres types et n'a pas besoin de la sélection, alors que
+      « Commencer » exige au moins une unité cochée. C'est précisément ce qui
+      la rend utile à qui arrive et ne sait pas quoi cocher.
+    -->
+    <div class="mt-5 flex flex-wrap gap-3 {traces.length === 0 ? 'flex-row-reverse justify-end' : ''}">
+      <button
+        type="button"
+        onclick={commencer}
+        disabled={retenus.length === 0}
+        class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white
+          hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+      >Commencer</button>
+      <button
+        type="button"
+        onclick={commencerLaDecouverte}
+        class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700
+          hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+      >Essayer d'abord ({QUESTIONS_DECOUVERTE} questions, dont un exemple)</button>
+    </div>
   </section>
 {:else if etape === 'question' && question}
   <section bind:this={zoneDeJeu} data-zone-de-jeu>
@@ -605,6 +698,17 @@
       </div>
     </div>
 
+
+    {#if question.exemple}
+      <!--
+        L'EXEMPLE SE DIT AVANT D'ÊTRE LU. Une question déjà corrigée sans
+        prévenir passe pour une panne : on croit avoir répondu sans le vouloir.
+      -->
+      <p class="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-200">
+        <strong class="font-semibold">Exemple : voici comment lire l'énoncé.</strong>
+        La réponse est déjà cochée et expliquée. Les questions suivantes seront à vous.
+      </p>
+    {/if}
 
     <div class="h-1 overflow-hidden rounded bg-slate-200 dark:bg-slate-800">
       <div class="jauge-remplissage jauge-seance h-full bg-indigo-500" style="transform: scaleX({rang / questions.length})"></div>
@@ -837,12 +941,28 @@
   </section>
 {:else}
   <section>
-    <h2 class="font-semibold text-slate-900 dark:text-white">Bilan de la session</h2>
-    <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
-      {reussis} réponse{reussis > 1 ? 's' : ''} exacte{reussis > 1 ? 's' : ''} sur {resultats.length}{#if partielles},
-      et {partielles} partiellement juste{partielles > 1 ? 's' : ''}{/if}.
-      {#if xpGagne}<span class="font-medium text-indigo-700 dark:text-indigo-300">+{xpGagne} XP.</span>{/if}
-    </p>
+    <h2 class="font-semibold text-slate-900 dark:text-white">
+      {decouverte ? 'Découverte terminée' : 'Bilan de la session'}
+    </h2>
+    {#if decouverte}
+      <!--
+        Le bilan d'une découverte dit d'abord qu'elle ne compte pas. Le dire
+        APRÈS le score donnerait à lire un résultat avant d'apprendre qu'il
+        n'en est pas un.
+      -->
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+        Rien n'a été enregistré : ni résultat, ni niveau, ni points. Les explications
+        restent lisibles ci-dessous. Quand vous voudrez que cela compte, touchez
+        « Commencer ».
+      </p>
+    {/if}
+    {#if !decouverte}
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+        {reussis} réponse{reussis > 1 ? 's' : ''} exacte{reussis > 1 ? 's' : ''} sur {resultats.length}{#if partielles},
+        et {partielles} partiellement juste{partielles > 1 ? 's' : ''}{/if}.
+        {#if xpGagne}<span class="font-medium text-indigo-700 dark:text-indigo-300">+{xpGagne} XP.</span>{/if}
+      </p>
+    {/if}
 
     {#if manques.length}
       <h3 class="mt-6 text-sm font-semibold text-slate-900 dark:text-white">

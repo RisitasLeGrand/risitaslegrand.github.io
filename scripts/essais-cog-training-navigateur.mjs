@@ -594,6 +594,122 @@ console.log('\nL2 — LA DÉCOUVERTE DE MÉMOIRE N’ÉCRIT RIEN');
   }
 }
 
+/* ════════════════════════════════════════════════════════════════════════
+   L2 — LES DEUX AUTRES DÉCOUVERTES N'ÉCRIVENT RIEN NON PLUS
+   ════════════════════════════════════════════════════════════════════════
+
+   Raisonnement n'avait AUCUN garde-fou d'écriture, et Correspondance écrit à
+   CHAQUE essai et non seulement à la fin : deux raisons de mesurer plutôt que
+   de relire. On mène chaque découverte jusqu'au bout — en répondant, puisque
+   rien n'y court tout seul — et on compare la base.
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nL2 — RAISONNEMENT ET CORRESPONDANCE N’ÉCRIVENT RIEN');
+
+const etatDeLaBaseDe = (page) =>
+  page.evaluate(
+    () =>
+      new Promise((tenir) => {
+        const requete = indexedDB.open('revinsp');
+        requete.onsuccess = () => {
+          const base = requete.result;
+          const vises = [...base.objectStoreNames].filter((n) =>
+            ['nback', 'relationnel', 'vmSeuils', 'xp', 'faits', 'journal'].includes(n),
+          );
+          if (!vises.length) {
+            tenir({});
+            return;
+          }
+          const tx = base.transaction(vises, 'readonly');
+          const sortie = {};
+          let restants = vises.length;
+          for (const nom of vises) {
+            const compte = tx.objectStore(nom).count();
+            compte.onsuccess = () => {
+              sortie[nom] = compte.result;
+              restants -= 1;
+              if (restants === 0) tenir(sortie);
+            };
+          }
+        };
+        requete.onerror = () => tenir({ erreur: true });
+      }),
+  );
+
+for (const cas of [
+  { nom: 'Raisonnement', route: 'relational-reasoning' },
+  { nom: 'Correspondance', route: 'veridical-mapping' },
+]) {
+  let contexte;
+  try {
+    const ouvert = await ouvrir(TAILLES[1], MODES[0], cas.route);
+    contexte = ouvert.contexte;
+    const page = ouvert.page;
+
+    const avant = await etatDeLaBaseDe(page);
+
+    const essayer = page.getByRole('button', { name: /Essayer d’abord|Essayer d'abord/ }).first();
+    await essayer.waitFor({ state: 'visible', timeout: 30000 });
+    const libelle = (await essayer.innerText()).trim();
+    vrai(`${cas.nom} — « ${libelle} » annonce sa taille`, /\d/.test(libelle));
+    await essayer.click();
+
+    const zone = page.locator('[data-zone-de-jeu]').first();
+    await zone.waitFor({ state: 'visible', timeout: 30000 });
+
+    /*
+       On répond jusqu'au bilan. Trente tours au plus : c'est largement au-delà
+       des six annoncés, et une boucle bornée vaut mieux qu'une attente qui
+       pourrait ne jamais finir si un bouton changeait de nom.
+    */
+    let tours = 0;
+    while (tours < 30) {
+      tours += 1;
+      const fini = await page
+        .locator('h2', { hasText: 'Découverte terminée' })
+        .first()
+        .isVisible()
+        .catch(() => false);
+      if (fini) break;
+
+      const radios = zone.locator('input[type="radio"]:not(:disabled)');
+      const cases = zone.locator('input[type="checkbox"]:not(:disabled)');
+      const listes = zone.locator('select:not(:disabled)');
+      const propositions = zone.getByRole('button', { name: /^Choisir la proposition / });
+
+      if (await propositions.count()) await propositions.first().click();
+      else if (await radios.count()) await radios.first().check();
+      else if (await cases.count()) await cases.first().check();
+      else if (await listes.count()) {
+        const combien = await listes.count();
+        for (let i = 0; i < combien; i += 1) await listes.nth(i).selectOption({ index: 1 });
+      }
+
+      const avancer = page
+        .getByRole('button', { name: /^Valider$|^Question suivante$|^Essai suivant$|^Voir le bilan$/ })
+        .first();
+      if (await avancer.count()) await avancer.click();
+      await page.waitForTimeout(150);
+    }
+
+    const titre = page.locator('h2', { hasText: 'Découverte terminée' }).first();
+    await titre.waitFor({ state: 'visible', timeout: 20000 });
+    const bilan = await titre.locator('..').innerText();
+    vrai(
+      `${cas.nom} — le bilan dit que rien n'a été enregistré`,
+      /Rien n’a été enregistré|Rien n'a été enregistré/.test(bilan),
+    );
+    faux(`${cas.nom} — aucun XP dans le bilan`, /\bXP\b/.test(bilan));
+
+    const apres = await etatDeLaBaseDe(page);
+    v(`${cas.nom} — la base n'a pas changé`, apres, avant);
+
+    await contexte.close();
+  } catch (erreur) {
+    direPanne(`${cas.nom} · découverte`, erreur);
+    await contexte?.close().catch(() => {});
+  }
+}
+
 await nav.close();
 console.log(
   echecs
