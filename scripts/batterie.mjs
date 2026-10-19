@@ -153,8 +153,13 @@ if (!sert) {
   console.error(
     `✗ REFUS — rien ne répond sur ${ADRESSE}.\n` +
       '  Construisez puis lancez l’aperçu avant la batterie :\n' +
-      '    REVINSP_SANS_PODCAST=1 npx astro build   (avec .env.local, puis effacé)\n' +
+      '    node scripts/build-content.mjs            (le manifeste chiffré)\n' +
+      '    REVINSP_SANS_PODCAST=1 npx astro build    (avec .env.local, puis effacé)\n' +
       '    npx astro preview stop && npx astro preview --port 4321\n' +
+      '  La première ligne manquait à ce message, et son absence coûte cher sur\n' +
+      '  un conteneur neuf : le site se construit, l’aperçu répond, mais le\n' +
+      '  manifeste de contenu n’existe pas, donc le déverrouillage échoue — et\n' +
+      '  les essais de navigateur expirent sans dire pourquoi.\n' +
       '  Un aperçu d’un AUTRE répertoire de travail répondrait aussi : vérifiez\n' +
       '  qu’il sert bien le « dist/ » que vous venez de construire.',
   );

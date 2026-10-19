@@ -35,6 +35,7 @@ const verifier = (intitule, obtenu, attendu) => {
 /** Les routes construites, lues sur le disque plutôt que devinées. */
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 const routes = () => {
   const sortie = [];
   const parcourir = (dossier, prefixe) => {
@@ -66,7 +67,7 @@ process.on('unhandledRejection', (e) => {
   process.exit(1);
 });
 
-const nav = await chromium.launch({ executablePath: process.env.CHROMIUM });
+const nav = await chromium.launch({ executablePath: cheminDuNavigateur() });
 
 /* ──────────────────────────────────────────────────────────────────────────
    R1 · La flèche est là partout sauf au menu, et nulle part au menu

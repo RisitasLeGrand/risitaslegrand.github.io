@@ -19,6 +19,7 @@ import { chromium } from 'playwright-core';
 import { idStable } from './lib/crypto.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 
 const MDP = motDePasseEssais();
 
@@ -41,7 +42,7 @@ async function ficheSansPretest(racine = 'content') {
   }
   return null;
 }
-const nav = await chromium.launch({ executablePath: process.env.CHROMIUM, args: ['--no-sandbox'] });
+const nav = await chromium.launch({ executablePath: cheminDuNavigateur(), args: ['--no-sandbox'] });
 const ctx = await nav.newContext({ viewport: { width: 1100, height: 900 } });
 const page = await ctx.newPage();
 page.on('pageerror', (e) => console.log('PAGEERROR:', e.message.slice(0, 200)));

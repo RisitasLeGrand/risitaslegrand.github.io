@@ -21,6 +21,7 @@
 import { chromium } from 'playwright-core';
 import { repondreAuChamp } from './lib/boite-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 
 const BASE = 'http://localhost:4321';
 const MDP = process.env.SITE_PASSWORD;
@@ -49,7 +50,7 @@ process.on('unhandledRejection', (e) => {
   process.exit(1);
 });
 
-const nav = await chromium.launch({ executablePath: process.env.CHROMIUM });
+const nav = await chromium.launch({ executablePath: cheminDuNavigateur() });
 const ctx = await nav.newContext({ viewport: { width: 1280, height: 1000 }, acceptDownloads: true });
 const page = await ctx.newPage();
 await franchirInitialisation(page, BASE, MDP);

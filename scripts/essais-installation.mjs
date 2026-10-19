@@ -22,6 +22,7 @@ import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { chromium } from 'playwright-core';
 import sharp from '/home/user/revinsp/node_modules/sharp/dist/index.cjs';
+import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 
 const BASE = 'http://localhost:4321';
 const DIST = path.resolve('dist');
@@ -102,7 +103,7 @@ verifier(
 
 console.log('\nCE QUE LE NAVIGATEUR EN DIT, LUI');
 
-const nav = await chromium.launch({ executablePath: process.env.CHROMIUM });
+const nav = await chromium.launch({ executablePath: cheminDuNavigateur() });
 const ctx = await nav.newContext();
 const page = await ctx.newPage();
 await page.goto(`${BASE}/`, { waitUntil: 'networkidle' });
