@@ -263,6 +263,7 @@
     "essais:laterale": "node scripts/essais-laterale.mjs",
     "essais:refus-dit": "node scripts/essais-refus-dit.mjs",
     "essais:centre-m14": "node scripts/essais-centre-m14.mjs",
+    "essais:centre-panne": "node scripts/essais-centre-panne.mjs",
     "essais:calques": "node scripts/essais-calques.mjs",
     "essais:entetes-collants": "node scripts/essais-entetes-collants.mjs",
     "essais:gestes-quotidiens": "node scripts/essais-gestes-quotidiens.mjs",
