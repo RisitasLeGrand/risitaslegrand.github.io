@@ -79,6 +79,7 @@ import { base } from '../lib/ui';
 </div>
 
 <script>
+  import { poserLesYeux } from '../lib/mot-de-passe-visible';
   import { deverrouiller, estDeverrouille, signalerDeverrouillage, signalerVerrouillage } from '../lib/auth';
   import { demarrerChargement, echecChargement, terminerChargement } from '../lib/chargement';
 
@@ -164,4 +165,9 @@ import { base } from '../lib/ui';
     });
 
   document.addEventListener('revinsp:verrouille', afficherVerrou);
+
+  /* D3 du 43 : « Afficher » sur tous les champs de mot de passe de cet écran.
+     Posé une fois au chargement : les champs de ces écrans sont dans le
+     balisage, pas fabriqués au vol. */
+  poserLesYeux();
 </script>

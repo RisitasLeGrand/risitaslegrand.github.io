@@ -160,6 +160,7 @@ import LienReglages from '../../components/LienReglages.astro';
   </section>
 </Base>
 <script>
+  import { poserLesYeux } from '../../lib/mot-de-passe-visible';
   import { apercu, fabriquer, noterSauvegardeReussie } from '../../lib/sauvegarde/service';
   import { adopterLaCleDuCoffre, cleDuCoffre, coffreOuvert } from '../../lib/coffre';
   import {
@@ -474,4 +475,9 @@ import LienReglages from '../../components/LienReglages.astro';
 
   void magasinsAReprendre;
   reevaluer();
+
+  /* D3 du 43 : « Afficher » sur tous les champs de mot de passe de cet écran.
+     Posé une fois au chargement : les champs de ces écrans sont dans le
+     balisage, pas fabriqués au vol. */
+  poserLesYeux();
 </script>

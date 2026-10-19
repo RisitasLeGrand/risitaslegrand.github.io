@@ -77,6 +77,7 @@ import LienReglages from '../../components/LienReglages.astro';
 </Base>
 
 <script>
+  import { poserLesYeux } from '../../lib/mot-de-passe-visible';
   import { jourISO } from '../../lib/db';
   import { auDeverrouillage } from '../../lib/chargement';
   import { euros } from '../../lib/odyssee/finances';
@@ -359,4 +360,9 @@ import LienReglages from '../../components/LienReglages.astro';
     },
     { zoneChargement: '#chargement-consommateurs' },
   );
+
+  /* D3 du 43 : « Afficher » sur tous les champs de mot de passe de cet écran.
+     Posé une fois au chargement : les champs de ces écrans sont dans le
+     balisage, pas fabriqués au vol. */
+  poserLesYeux();
 </script>
