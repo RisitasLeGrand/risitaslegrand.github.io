@@ -90,9 +90,30 @@ await page.waitForURL('**/initialisation/', { timeout: 20000 }).catch(() => {});
 v('le menu renvoie à l’initialisation', new URL(page.url()).pathname, '/initialisation/');
 await page.waitForSelector('#question', { timeout: 40000 }).catch(() => {});
 v('et la première question est celle du prénom', await question(), 'Comment doit-on vous appeler ?');
-/* Seize écrans depuis l'ajout de l'année de naissance : dix-sept questions,
-   dont la langue et le fuseau qui partagent le leur. */
-v('l’avancement est annoncé', await compteur(), '1 / 16');
+/*
+   L'AVANCEMENT, SANS FIGER LE TOTAL.
+
+   L'essai attendait « 1 / 16 », chiffre juste le jour où il a été écrit.
+   Le socle commun a gagné une question depuis — il annonce « 1 / 17 » — et
+   l'essai accusait l'écran d'un compteur faux alors que c'est son attente
+   qui s'était périmée. Recopier 17 ne ferait que déplacer la date de
+   péremption.
+
+   La propriété éprouvée ici est le COMPTEUR, pas le catalogue : il
+   commence à 1, il avance d'une question à l'autre, et son total ne bouge
+   pas en route. On lit donc le total une fois, on le garde, et on le
+   compare à lui-même à l'écran suivant. Le nombre de questions, lui, se
+   contrôle là où il se décide — au catalogue du profil, par
+   « essais:contexte » et « essais:registre-gestes ».
+
+   La borne basse reste un garde-fou : un total d'une seule question
+   voudrait dire que le socle a disparu, et ce ne serait pas au compteur de
+   se taire là-dessus.
+*/
+const avancement = await compteur();
+const totalDesQuestions = Number(/^1 \/ (\d+)$/.exec(avancement ?? '')?.[1] ?? 0);
+v('l’avancement est annoncé, et il commence à 1', /^1 \/ \d+$/.test(avancement ?? ''), true);
+v(`et le total est crédible (${totalDesQuestions} questions)`, totalDesQuestions >= 10, true);
 faux('« Plus tard » n’est pas proposé sur le prénom', await page.locator('#plus-tard').isVisible());
 vrai('mais « Terminer maintenant » l’est', await page.locator('#terminer').isVisible());
 v(
@@ -124,15 +145,36 @@ await page.waitForFunction(
   { timeout: 15000 },
 );
 v('le prénom posé, on passe au nom', await question(), 'Et votre nom, si vous voulez le donner ?');
-v('le compteur avance', await compteur(), '2 / 16');
+v('le compteur avance, sur le même total', await compteur(), `2 / ${totalDesQuestions}`);
 vrai('et « Plus tard » apparaît', await page.locator('#plus-tard').isVisible());
 
+/*
+   L'ANNÉE DE NAISSANCE S'EST INTERCALÉE, et l'essai l'ignorait.
+
+   Elle est posée juste après le nom depuis le prompt 50 (âge et cycle) :
+   le parcours réel est prénom, nom, année de naissance, tutoiement. L'essai
+   attendait « tutoie » dès le report du nom, et expirait donc sur une
+   question parfaitement légitime.
+
+   On reporte les deux, et la propriété éprouvée ne change pas : « Plus
+   tard » avance sans écrire, autant de fois qu'on le demande.
+*/
+await page.click('#plus-tard');
+await page.waitForFunction(
+  () => document.getElementById('question')?.textContent?.includes('année de naissance'),
+  { timeout: 15000 },
+);
+v(
+  '« Plus tard » avance sans écrire : on passe à l’année de naissance',
+  await question(),
+  'Quelle est votre année de naissance ?',
+);
 await page.click('#plus-tard');
 await page.waitForFunction(
   () => document.getElementById('question')?.textContent?.includes('tutoie'),
   { timeout: 15000 },
 );
-v('« Plus tard » avance sans écrire', await question(), 'On se tutoie, ou on se vouvoie ?');
+v('et une seconde fois, sans rien écrire non plus', await question(), 'On se tutoie, ou on se vouvoie ?');
 
 /* La promesse du parcours : fermer, revenir, et retrouver le même endroit. */
 await aller('/initialisation/', '#question');
@@ -141,7 +183,23 @@ v(
   await question(),
   'On se tutoie, ou on se vouvoie ?',
 );
-v('et le parcours s’est raccourci d’autant', await compteur(), '1 / 13');
+/*
+   « Raccourci d'autant » se MESURE, au lieu de se figer : le reste à poser
+   doit avoir diminué du nombre de questions reportées, et le compteur doit
+   repartir de 1. Le nombre « 1 / 13 » était juste quand une seule question
+   était reportée ; il ne l'est plus dès qu'on en reporte deux, et il ne
+   dirait rien de plus que les deux propriétés ci-dessous.
+*/
+{
+  const apresReport = (await compteur()) ?? '';
+  const reste = Number(/^1 \/ (\d+)$/.exec(apresReport)?.[1] ?? 0);
+  v('le parcours repart de la première question restante', /^1 \/ \d+$/.test(apresReport), true);
+  v(
+    `et il s’est raccourci : ${reste} restantes sur ${totalDesQuestions}`,
+    reste > 0 && reste < totalDesQuestions,
+    true,
+  );
+}
 
 /* Un choix unique se valide d'un seul geste : pas de « Continuer » à chercher. */
 await page.click('[data-valeur="tu"]');
