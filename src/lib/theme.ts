@@ -111,6 +111,25 @@ export function heuresDeBascule(): { lever: string; coucher: string } {
   return { lever: LEVER_PAR_DEFAUT, coucher: COUCHER_PAR_DEFAUT };
 }
 
+/**
+ * Les heures **réglées sur cet appareil**, ou rien.
+ *
+ * `heuresDeBascule()` rend la valeur qui s'applique : le réglage local, sinon
+ * le miroir de « Ma journée », sinon 7 h et 21 h. C'est ce qu'il faut pour
+ * peindre le thème, et c'est précisément ce qu'il ne faut pas pour peindre le
+ * réglage — la page centrale affichait la valeur appliquée dans un champ
+ * modifiable, et personne ne pouvait savoir si elle venait de cet appareil ou
+ * de « Ma journée ». Un champ vide veut dire « suivre Ma journée », et il faut
+ * pouvoir le montrer vide (P10 du prompt 56).
+ */
+export function heuresReglees(): { lever: string; coucher: string } | null {
+  const brut = lire(CLE_HEURES);
+  if (!brut) return null;
+  const [lever, coucher] = brut.split('|');
+  if (!HEURE.test(lever ?? '') || !HEURE.test(coucher ?? '')) return null;
+  return { lever, coucher };
+}
+
 export function ecrireHeuresDeBascule(lever: string, coucher: string) {
   if (!HEURE.test(lever) || !HEURE.test(coucher)) return;
   ecrire(CLE_HEURES, `${lever}|${coucher}`);
@@ -130,11 +149,26 @@ export function oublierLesHeures() {
 /**
  * Recopie les heures de « Ma journée » pour le script d'amorçage.
  * Appelée par le site, jamais par la personne.
+ *
+ * ## Une heure sur deux suffit, depuis la décision 5 du prompt 56
+ *
+ * La copie exigeait les **deux** heures, et ne s'écrivait donc pas du tout
+ * quand une seule était renseignée : quelqu'un qui déclarait se lever à 6 h 30
+ * sans rien dire de son coucher voyait le thème basculer à 7 h, l'heure
+ * d'usine, sans que rien ne le dise. L'heure manquante est maintenant celle du
+ * repli — le même repli que le script d'amorçage applique de son côté —, et
+ * celle qui est déclarée est respectée.
+ *
+ * Les deux absentes ne s'écrivent pas : une copie qui ne porte que des heures
+ * d'usine ne dit rien de plus que leur absence.
  */
 export function miroirDesHeures(lever: unknown, coucher: unknown) {
-  if (typeof lever !== 'string' || typeof coucher !== 'string') return;
-  if (!HEURE.test(lever) || !HEURE.test(coucher)) return;
-  ecrire(CLE_MIROIR, `${lever}|${coucher}`);
+  const declare = (valeur: unknown): string | null =>
+    typeof valeur === 'string' && HEURE.test(valeur) ? valeur : null;
+  const l = declare(lever);
+  const c = declare(coucher);
+  if (!l && !c) return;
+  ecrire(CLE_MIROIR, `${l ?? LEVER_PAR_DEFAUT}|${c ?? COUCHER_PAR_DEFAUT}`);
 }
 
 /* ── Le mode rendu ───────────────────────────────────────────────────────── */

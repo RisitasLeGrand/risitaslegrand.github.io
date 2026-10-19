@@ -303,6 +303,23 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
       }
     }
 
+    /*
+       CE QUE VEUT DIRE UN CHAMP VIDE, DIT À CÔTÉ DU CHAMP (P10 du prompt 56).
+
+       « Ma journée » montrait 07:00 et 21:00 quand rien n'était renseigné, et
+       rien ne distinguait ces heures d'un choix. Elles sont maintenant vides
+       quand elles le sont, et la phrase déclarée au catalogue dit ce que
+       Cyclades fait à défaut de réponse — « Non renseigné : 7 h par défaut »,
+       ou, pour la bascule du thème, que « Ma journée » reprend la main.
+    */
+    if (reglage.siVide && (valeur === '' || valeur === null || valeur === undefined)) {
+      const note = document.createElement('p');
+      note.className = 'mt-1 w-full text-xs text-slate-500 dark:text-slate-400';
+      note.dataset.siVide = reglage.id;
+      note.textContent = reglage.siVide;
+      zone.appendChild(note);
+    }
+
     /* « Rétablir » n'apparaît que si la valeur diffère du défaut : un bouton
        toujours là invite à cliquer sans raison, et ne dit plus rien. */
     if (

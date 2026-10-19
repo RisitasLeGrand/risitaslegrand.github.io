@@ -28,6 +28,12 @@ import { REGLAGES_CONTENU_PAR_DEFAUT, REGLAGES_NIVEAU_PAR_DEFAUT } from '../nive
 import { PLAFOND_JOURS, PLANCHER_JOURS } from '../notifications/retention';
 import { RETENTION_PAR_DEFAUT } from '../notifications/modele';
 import { COUCHER_PAR_DEFAUT, LEVER_PAR_DEFAUT, THEMES } from '../themes';
+
+/** « 07:00 » se dit « 7 h » : l'heure ronde ne porte pas ses minutes (P7). */
+const enHeureDite = (heure: string): string => {
+  const [h, m] = heure.split(':');
+  return m === '00' ? `${Number(h)} h` : `${Number(h)} h ${m}`;
+};
 import type { Reglage, Section } from './modele';
 
 export const SECTIONS: Section[] = [
@@ -159,22 +165,27 @@ export const REGLAGES: Reglage[] = [
     id: 'heure-clair',
     libelle: 'Passer au clair à',
     aQuoiCaSert:
-      'L’heure du lever, reprise de « Ma journée ». La changer ici ne change pas « Ma journée ».',
+      'Laissez vide pour suivre votre heure de lever, dans « Ma journée ». Une heure donnée ici ne vaut que sur cet appareil, et fixe aussi celle du sombre.',
     section: 'affichage',
     portee: 'appareil',
     stockage: 'localStorage::revinsp.heures-bascule',
     nature: { genre: 'heure' },
-    defaut: LEVER_PAR_DEFAUT,
+    /* Le défaut est le vide, et « Rétablir » rend donc la main à « Ma
+       journée » au lieu d'inscrire 7 h sur cet appareil (P10). */
+    defaut: '',
+    siVide: `Votre heure de lever est utilisée, ou ${enHeureDite(LEVER_PAR_DEFAUT)} si elle n’est pas renseignée.`,
   },
   {
     id: 'heure-sombre',
     libelle: 'Passer au sombre à',
-    aQuoiCaSert: 'L’heure du coucher, reprise de « Ma journée ».',
+    aQuoiCaSert:
+      'Laissez vide pour suivre votre heure de coucher, dans « Ma journée ». Une heure donnée ici ne vaut que sur cet appareil, et fixe aussi celle du clair.',
     section: 'affichage',
     portee: 'appareil',
     stockage: 'localStorage::revinsp.heures-bascule',
     nature: { genre: 'heure' },
-    defaut: COUCHER_PAR_DEFAUT,
+    defaut: '',
+    siVide: `Votre heure de coucher est utilisée, ou ${enHeureDite(COUCHER_PAR_DEFAUT)} si elle n’est pas renseignée.`,
   },
   {
     id: 'mode',
@@ -221,29 +232,40 @@ export const REGLAGES: Reglage[] = [
   {
     id: 'lever',
     libelle: 'Heure de lever',
+    /* M4 du 56 : la journée ne change pas de date à l'heure du lever, mais
+       UNE HEURE AVANT, bornée entre 2 h et 6 h. L'ancienne phrase annonçait
+       la bascule à l'heure du lever, ce que le code n'a jamais fait. */
     aQuoiCaSert:
-      'Elle fixe le moment où la journée change de date : une séance finie à minuit trente compte pour la soirée écoulée.',
+      'Votre journée change de date une heure avant votre lever, entre 2 h et 6 h : une séance finie à minuit trente compte pour la soirée écoulée.',
     section: 'journee',
     portee: 'tous',
     stockage: 'IndexedDB/etat::profil',
     nature: { genre: 'heure' },
-    defaut: '07:00',
+    /* Le défaut déclaré est le vide, et non 7 h : « Rétablir » retire la
+       réponse au lieu d'écrire au journal une heure que personne n'a donnée
+       (P10). La phrase ci-dessous dit ce que Cyclades fait à défaut. */
+    defaut: '',
+    siVide: `Non renseigné : ${enHeureDite(LEVER_PAR_DEFAUT)} par défaut.`,
     ecran: '/profil/',
   },
   {
     id: 'coucher',
     libelle: 'Heure de coucher',
-    aQuoiCaSert: 'Elle sert à la revue du soir et à la bascule jour/nuit.',
+    aQuoiCaSert: 'Elle sert à la revue du soir et à la bascule entre le thème clair et le thème sombre.',
     section: 'journee',
     portee: 'tous',
     stockage: 'IndexedDB/etat::profil',
     nature: { genre: 'heure' },
-    defaut: '21:00',
+    defaut: '',
+    siVide: `Non renseigné : ${enHeureDite(COUCHER_PAR_DEFAUT)} par défaut.`,
     ecran: '/profil/',
   },
   {
     id: 'moment-revue',
-    libelle: 'Moment de ma revue',
+    /* Décision 4 du 56 : le même nom et les mêmes libellés qu'à
+       l'initialisation et dans « Mon profil ». Trois écrans qui nomment
+       différemment la même donnée font croire à trois réglages. */
+    libelle: 'Moment de ma revue (Odyssée)',
     aQuoiCaSert: 'Le matin, la revue porte sur la veille ; le soir, sur la journée qui s’achève.',
     section: 'journee',
     portee: 'tous',
@@ -251,8 +273,8 @@ export const REGLAGES: Reglage[] = [
     nature: {
       genre: 'choix',
       options: [
-        { valeur: 'matin', libelle: 'Le matin' },
-        { valeur: 'soir', libelle: 'Le soir' },
+        { valeur: 'matin', libelle: 'Le matin (sur la veille)' },
+        { valeur: 'soir', libelle: 'Le soir (sur la journée)' },
       ],
     },
     defaut: 'soir',

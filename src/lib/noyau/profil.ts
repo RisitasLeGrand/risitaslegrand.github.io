@@ -364,8 +364,19 @@ export const CHAMPS: readonly ChampDeclare[] = [
     nature: 'heure',
     question: 'À quelle heure vous levez-vous, d’habitude ?',
     porteeParDefaut: 'toutes',
+    /*
+       M4 DU 56 : LA PHRASE ÉTAIT FAUSSE, et d'une façon qui se vérifie.
+
+       Elle disait que la journée change de date à l'heure du lever. Le code
+       dit autre chose : `basculeDuJour` prend l'heure du lever MOINS UNE, et
+       la borne entre 2 h et 6 h. Quelqu'un qui se lève à 11 h voyait donc sa
+       journée changer à 6 h, et non à 11 h — et la phrase lui laissait croire
+       le contraire, ce qui est exactement le genre de réglage qu'on rechange
+       au hasard.
+    */
     regle:
-      'L’heure à laquelle votre journée change de date — une séance finie à minuit trente compte pour la soirée écoulée.',
+      'Votre journée change de date une heure avant votre lever, entre 2 h et 6 h : ' +
+      'une séance finie à minuit trente compte pour la soirée écoulée.',
   }),
   C({
     /*
@@ -379,6 +390,16 @@ export const CHAMPS: readonly ChampDeclare[] = [
        produire un troisième comportement.
     */
     champ: 'moment-revue',
+    /*
+       LE NOM, APRÈS LA DÉCISION 4 DU 56.
+
+       « Moment de ma revue » et « Moment de révision préféré » se
+       ressemblaient assez pour qu'on les prenne l'un pour l'autre, et
+       Alexis a tranché : les garder séparés, mieux nommés. Celui-ci dit
+       désormais la branche dont il vient, et la question dit ce que le
+       choix change — le jour sur lequel la revue porte, et non l'heure à
+       laquelle elle est proposée.
+    */
     luPar: [
       {
         module: 'src/lib/odyssee-jour.ts',
@@ -390,10 +411,13 @@ export const CHAMPS: readonly ChampDeclare[] = [
       },
       { module: 'src/lib/parametres/acces.ts', libelle: 'Paramètres, Ma journée' },
     ],
-    libelle: 'Moment de ma revue',
+    libelle: 'Moment de ma revue (Odyssée)',
     nature: 'texte',
-    question: 'Préférez-vous faire votre revue le matin ou le soir ?',
+    question: 'Faites-vous votre revue le matin, sur la veille, ou le soir, sur la journée ?',
     porteeParDefaut: 'toutes',
+    regle:
+      'Le jour sur lequel votre revue porte : la veille si vous la faites le matin, ' +
+      'la journée en cours si vous la faites le soir.',
   }),
   C({
     champ: 'coucher',
@@ -550,9 +574,12 @@ export const CHAMPS: readonly ChampDeclare[] = [
         libelle: 'la proposition qui compare ce moment à l’heure de vos séances',
       },
     ],
-    libelle: 'Moment de révision préféré',
+    /* Décision 4 : séparé de « Moment de ma revue », et nommé pour qu'on ne
+       les confonde plus. Celui-ci ne décide de rien dans la revue : il dit
+       quand vous préférez réviser, et l'adaptation le compare au réel. */
+    libelle: 'Heure préférée pour réviser',
     nature: 'texte',
-    question: 'Préférez-vous travailler le matin ou le soir ?',
+    question: 'Préférez-vous réviser le matin ou le soir ?',
     porteeParDefaut: ['revisions', 'odyssee'],
     brancheDOrigine: 'revisions',
   }),

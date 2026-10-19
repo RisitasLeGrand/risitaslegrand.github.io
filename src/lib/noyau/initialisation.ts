@@ -398,6 +398,19 @@ export const CHOIX: Readonly<Record<string, readonly Option[]>> = {
     { valeur: 'soir', libelle: 'Soir' },
     { valeur: 'variable', libelle: 'Ça dépend' },
   ],
+  /*
+     G6 : LA QUESTION SE POSAIT EN TEXTE LIBRE, ET SEULS DEUX MOTS ÉTAIENT LUS.
+
+     `lireMoment` ne reconnaît que « matin » et « soir », et replie tout le
+     reste sur le soir. Taper « le soir », avec l'article, donnait donc le même
+     résultat que ne rien taper — sans que rien le dise. Un choix fermé rend la
+     question honnête : les deux réponses possibles sont les deux réponses
+     lues, et l'aide dit ce que chacune change.
+  */
+  'moment-revue': [
+    { valeur: 'matin', libelle: 'Le matin (sur la veille)', aide: 'La revue porte alors sur la journée d’hier, puis donne un aperçu du jour.' },
+    { valeur: 'soir', libelle: 'Le soir (sur la journée)', aide: 'La revue porte sur la journée qui s’achève.' },
+  ],
   experienceSport: [
     { valeur: 'jamais', libelle: 'Jamais' },
     { valeur: 'moins-un-an', libelle: 'Depuis moins d’un an' },
