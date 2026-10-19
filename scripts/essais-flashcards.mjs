@@ -62,7 +62,22 @@ if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
 await page.locator('#accueil-session').waitFor({ state: 'visible', timeout: 30000 });
 await page.waitForTimeout(1500);
 v('aucune fiche ouverte', compteur(), 0);
-v('les compteurs sont pourtant remplis', Number(await page.locator('#nb-dues').textContent()) > 0, true);
+/*
+   LE COMPTEUR REGARDÉ A CHANGÉ DE SENS (prompt 43, F5), ET CET ESSAI SUIT.
+
+   « #nb-dues » comptait les cartes exigibles, inédites comprises : sur une
+   base neuve, il valait donc le site entier. Il dit maintenant « à revoir
+   aujourd'hui », c'est-à-dire les cartes DÉJÀ VUES dont l'échéance tombe
+   ce jour — zéro sur une base qui n'a jamais rien révisé, et c'est la
+   vérité, pas un défaut.
+
+   Ce que cet essai mesure n'a pas bougé d'un pouce : les compteurs se
+   remplissent SANS déchiffrer une seule fiche. Sur une base neuve, celui
+   qui porte ce nombre est « jamais révisées ».
+*/
+const compteurRempli = async () =>
+  Number(await page.locator('#nb-neuves').textContent()) > 0;
+v('les compteurs sont pourtant remplis', await compteurRempli(), true);
 
 console.log('\nCHANGEMENT DE MENU — pas davantage');
 compteur = depuis();
@@ -72,12 +87,30 @@ if (matieres > 1) {
   await page.waitForTimeout(1500);
 }
 v('aucune fiche ouverte', compteur(), 0);
-v('les compteurs ont suivi la sélection', Number(await page.locator('#nb-dues').textContent()) > 0, true);
+v('les compteurs ont suivi la sélection', await compteurRempli(), true);
 
 console.log('\nDÉMARRAGE — seulement ce qui est servi');
 await page.locator('#choix-matiere').selectOption({ index: 0 });
 await page.waitForTimeout(800);
 await page.locator('#choix-taille').selectOption('20');
+/*
+   LE PLAFOND NE PEUT PAS SERVIR PLUS QUE CE QUI EXISTE.
+
+   L'assertion disait « /20 » en dur. Elle est donc fausse partout où la
+   banque compte moins de vingt cartes — ce qui est le cas de tout
+   conteneur d'essai, où « content/ » n'est qu'un échantillon : mesuré
+   ici, treize cartes, et le compteur affiche « 1/13 ». Ce rouge-là ne
+   vient pas du lot F ; il vient de l'environnement, et il attendait qu'on
+   le regarde.
+
+   Le plafond se vérifie contre ce qui est offert : la session sert vingt
+   cartes, ou tout ce qu'il y a s'il y en a moins. Une file qui déborderait
+   le plafond rougit toujours.
+*/
+const offertes =
+  Number(await page.locator('#nb-dues').textContent()) +
+  Number(await page.locator('#nb-retard').textContent()) +
+  Number(await page.locator('#nb-neuves').textContent());
 compteur = depuis();
 const debut = Date.now();
 await page.locator('#lancer').click();
@@ -88,7 +121,11 @@ const ouvertes = compteur();
 console.log(`      ${ouvertes} fiche(s) ouverte(s) en ${ms} ms`);
 v('moins de dix fiches pour vingt cartes', ouvertes < 10, true);
 v('moins de cinq secondes', ms < 5000, true);
-v('la session compte bien vingt cartes', (await page.locator('#compteur').textContent())?.endsWith('/20'), true);
+v(
+  'la session sert le plafond, ou tout ce qui existe si c’est moins',
+  (await page.locator('#compteur').textContent())?.endsWith(`/${Math.min(20, offertes)}`),
+  true,
+);
 
 console.log('\nUNE CARTE NOTÉE, PUIS UNE SECONDE SESSION');
 await page.locator('#carte').click();
