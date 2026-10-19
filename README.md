@@ -559,6 +559,47 @@ npm run preview    # prévisualise le contenu de dist/
 npm run verifier   # contrôle des types (utile après une modification du code)
 ```
 
+### Les essais
+
+Le dépôt porte un peu plus de deux cents essais, tous nommés `essais:*`, et une
+commande qui les passe tous :
+
+```bash
+# 1. Construire, et servir ce qu'on vient de construire
+REVINSP_SANS_PODCAST=1 npx astro build      # .env.local présent, puis effacé
+npx astro preview stop && npx astro preview --port 4321 &
+
+# 2. La batterie complète
+SITE_PASSWORD='<le mot de passe>' npm run batterie
+```
+
+**La règle de travail : batterie complète avant chaque poussée et avant chaque
+fusion.** Une branche ne rejoint `main` qu'après une batterie passée sur la
+branche, main déjà fusionné dedans, et lue : ses rouges doivent tous figurer
+déjà au tableau des anomalies, et **aucun rouge nouveau** n'est admis. Le
+message de la fusion porte le compte : `batterie complète : N verts ; rouges ⊂
+tableau v2`.
+
+Trois précautions, chacune pour une erreur déjà commise :
+
+- **Reconstruire avant de mesurer.** Les essais de navigateur visitent
+  `dist/`, pas les sources. Mesurer sans reconstruire éprouve l'état d'avant,
+  et le verdict porte alors sur un site qui n'existe plus.
+- **Un seul aperçu.** Un `astro preview` oublié dans un autre répertoire de
+  travail répond lui aussi sur le port 4321 : la batterie mesure alors un
+  autre site que celui qu'on croit. `npx astro preview stop` avant de lancer
+  le bon — `kill` sur le processus laisse le démon dans un état où il se croit
+  encore en vie.
+- **Aucun essai n'est sauté, désactivé, mis en quarantaine ni assoupli** pour
+  obtenir du vert. Un essai rouge se corrige, ou s'inscrit au tableau des
+  anomalies avec son diagnostic ; il ne se tait pas.
+
+La batterie ne juge pas : elle nomme ses rouges, conserve le journal de chaque
+essai, et rend toujours 0. La comparaison au tableau des anomalies reste un
+geste humain. Elle refuse en revanche de tourner sans mot de passe ou sans
+aperçu, parce qu'elle rendrait alors des rouges qui n'appartiennent pas au
+site.
+
 L'exercice d'entraînement cognitif est écrit en **Svelte** (intégration
 `@astrojs/svelte`, installée avec le reste par `npm install`). Pour le tester :
 `npm run dev`, puis onglet **Cog-Training** — ou directement
