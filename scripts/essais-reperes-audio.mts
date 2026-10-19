@@ -35,6 +35,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import config from '../site.config.mjs';
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const avecLaVoix = process.argv.includes('--avec-la-voix');
@@ -149,13 +150,30 @@ class VoixDeLaboratoire:
                 valeurs[0] = 30000 - self.rang
             yield b"".join(int(v).to_bytes(2, "little", signed=True) for v in valeurs)
 
-args = types.SimpleNamespace(silence_paragraphe=560, silence_phrase=190)
+# Les réglages RÉELS, lus dans « site.config.mjs » et non recopiés ici.
+#
+# Ils l'étaient — « silence_paragraphe=560, silence_phrase=190 » —, et le jour
+# où le prompt 55 a ajouté « silencePartieMs » le banc est tombé sur un
+# attribut manquant : il décrivait une version du code qui n'existait plus.
+# Un banc qui recopie les réglages qu'il éprouve finit toujours par mesurer
+# autre chose que ce qui tourne.
+args = types.SimpleNamespace(
+    silence_paragraphe=${config.podcast.silenceParagrapheMs},
+    silence_phrase=${config.podcast.silencePhraseMs},
+    silence_partie=${config.podcast.silencePartieMs},
+    sonie=${config.podcast.sonie},
+)
 
 resultats = []
 for relatif in json.loads(dossier):
     paragraphes = sv.lire_script(relatif)
     reperes_declares = sv.lire_reperes(relatif)
-    brut, reperes = sv.synthetiser(VoixDeLaboratoire(), paragraphes, args, reperes_declares)
+    # Les silences déclarés comptent dans la position des repères : les
+    # omettre ici mesurerait un audio que la chaîne ne produit pas.
+    silences_declares = sv.lire_silences(relatif)
+    brut, reperes = sv.synthetiser(
+        VoixDeLaboratoire(), paragraphes, args, reperes_declares, silences_declares
+    )
     resultats.append({
         "fichier": relatif,
         "paragraphes": paragraphes,
@@ -188,7 +206,7 @@ type Resultat = {
 const mesures: Resultat[] = JSON.parse(
   execFileSync(
     'python3',
-    ['-I', cheminBanc, path.join(racine, 'scripts', 'synthese-voix.py'), JSON.stringify(SCRIPTS), cheminWav],
+    ['-I', '-B', cheminBanc, path.join(racine, 'scripts', 'synthese-voix.py'), JSON.stringify(SCRIPTS), cheminWav],
     { cwd: racine, encoding: 'utf8' },
   ),
 );
@@ -202,22 +220,65 @@ for (const m of mesures) {
     `déclarées ${m.declares.length}, mesurées ${m.reperes.length}`,
   );
   /*
-     Le repère doit désigner le paragraphe qui DIT le titre. On le vérifie sur
-     le texte : la relance d'un titre est la seule phrase courte du script qui
-     contient les mots du titre après un deux-points ou une préposition.
+     Le repère doit désigner le paragraphe qui DIT le titre de la partie.
+
+     On le vérifie en comparant au TITRE lui-même, et non à la ponctuation.
+     La version précédente cherchait « une phrase courte contenant un
+     deux-points ou une préposition » : une heuristique, qui a cessé de
+     tenir le jour où le prompt 55 a donné aux relances une variante
+     ponctuée d'un point — « Deuxième partie sur trois. Les modalités du
+     contrôle. » Elle désignait pourtant le bon paragraphe.
+
+     L'identifiant d'une partie est dérivé de l'ancre de son titre : ses
+     mots sont donc ceux du titre, et les retrouver dans le paragraphe est
+     la propriété qu'on veut vraiment — bien plus forte qu'un signe de
+     ponctuation.
   */
+  const sansAccents = (t: string) =>
+    t.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   for (const d of m.declares) {
     const paragraphe = m.paragraphes[d.paragraphe] ?? '';
+    /* L'identifiant commence par le numéro romain du titre : on l'écarte. */
+    const motsDuTitre = sansAccents(d.id)
+      .split('-')
+      .slice(1)
+      .filter((mot) => mot.length > 2);
+    /*
+       Les apostrophes sont RETIRÉES, et non remplacées par une espace :
+       l'ancre d'un titre les supprime, si bien que « l'architecture »
+       devient « larchitecture » dans l'identifiant. Les remplacer par une
+       espace donnait « l architecture », où le mot de l'identifiant ne se
+       retrouvait plus — et le contrôle accusait un repère parfaitement juste.
+    */
+    const dit = sansAccents(paragraphe).replace(/[^a-z0-9]+/g, '');
+    const retrouves = motsDuTitre.filter((mot) => dit.includes(mot));
     verifier(
-      `${nom} — le paragraphe ${d.paragraphe} est bien une relance de titre`,
-      paragraphe.length > 0 && paragraphe.length < 160 && /[:,]|par |avec |à /.test(paragraphe),
-      paragraphe.slice(0, 90),
+      `${nom} — le paragraphe ${d.paragraphe} dit bien le titre de la partie`,
+      paragraphe.length > 0 &&
+        paragraphe.length < 200 &&
+        motsDuTitre.length > 0 &&
+        retrouves.length === motsDuTitre.length,
+      `${retrouves.length}/${motsDuTitre.length} mots du titre — « ${paragraphe.slice(0, 80)} »`,
     );
   }
+  /*
+     L'objet de ce contrôle est le COMMENTAIRE D'EN-TÊTE, qui se faisait
+     entendre en ouverture de chaque fiche — « Script parlé engendré par npm
+     run podcasts. Ne pas modifier à la main… ». Il doit rester écarté.
+
+     Il cherchait « Bienvenue », parce que les trois accueils de l'époque
+     commençaient ainsi. Le prompt 55 (N°9) les a raccourcis à quinze mots et
+     le mot a disparu : le contrôle accusait alors l'en-tête d'être revenu,
+     alors qu'il mesurait en réalité le libellé d'un accueil. On vérifie donc
+     ce qu'on voulait vérifier.
+  */
+  const premier = m.paragraphes[0] ?? '';
   verifier(
-    `${nom} — le premier paragraphe est la phrase d’accueil, pas le commentaire d’en-tête`,
-    m.paragraphes[0]?.startsWith('Bienvenue') === true,
-    m.paragraphes[0]?.slice(0, 60),
+    `${nom} — le premier paragraphe est la parole, pas le commentaire d’en-tête`,
+    premier.length > 0 &&
+      !premier.startsWith('<!--') &&
+      !/Script parlé engendré|Ne pas modifier à la main/.test(premier),
+    premier.slice(0, 70),
   );
 }
 
@@ -309,15 +370,34 @@ writeFileSync(
 const sans: Resultat[] = JSON.parse(
   execFileSync(
     'python3',
-    ['-I', cheminBanc, path.join(racine, 'scripts', 'synthese-voix.py'), JSON.stringify([sansLigne]), cheminWav],
+    ['-I', '-B', cheminBanc, path.join(racine, 'scripts', 'synthese-voix.py'), JSON.stringify([sansLigne]), cheminWav],
     { cwd: racine, encoding: 'utf8' },
   ),
 );
 verifier('un script sans ligne « parties: » ne produit aucun repère', sans[0].reperes.length === 0);
+/*
+   CE QUE CE CONTRÔLE MESURE, ET CE QU'IL NE MESURE PLUS.
+
+   Il exigeait un audio IDENTIQUE à celui du même script avec ses repères.
+   C'était juste tant que les repères n'étaient que des métadonnées. Le
+   prompt 55 (N°2) a donné aux parties une PAUSE PLUS LONGUE — 1 400 ms au
+   lieu de 560 —, parce qu'un changement de sujet doit s'entendre avant de
+   se comprendre. Déclarer des parties change donc le son, exprès.
+
+   L'objet de P2 reste entier : « une fiche audio sans repères se lit comme
+   aujourd'hui ». On le mesure directement — sans repères, l'audio ne doit
+   contenir AUCUNE pause de partie, et sa durée doit être exactement celle
+   des paragraphes séparés par la respiration ordinaire. C'est plus strict
+   que la comparaison d'avant, qui se contentait d'une égalité entre deux
+   audios dont aucun n'était vérifié dans l'absolu.
+*/
+const ecartDeLaPause = (config.podcast.silencePartieMs - config.podcast.silenceParagrapheMs) / 1000;
+const partiesDuPremier = mesures[0].declares.length;
 verifier(
-  'et il produit exactement le même audio qu’avec',
-  Math.abs(sans[0].secondes - mesures[0].secondes) < 0.001,
-  `${sans[0].secondes} s contre ${mesures[0].secondes} s`,
+  'sans repères, aucune pause de partie dans l’audio',
+  Math.abs(mesures[0].secondes - sans[0].secondes - partiesDuPremier * ecartDeLaPause) < 0.01,
+  `${sans[0].secondes} s sans repères, ${mesures[0].secondes} s avec ` +
+    `${partiesDuPremier} parties, soit ${partiesDuPremier} × ${ecartDeLaPause.toFixed(3)} s d’écart attendu`,
 );
 
 /* ── Avec la vraie voix, sur demande ─────────────────────────────────────── */

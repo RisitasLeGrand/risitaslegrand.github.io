@@ -67,7 +67,13 @@ const ETAT_TECHNIQUE: { cle: string; raison: string }[] = [
   { cle: 'localStorage::cyclades.notifications.jour', raison: 'le compteur du plafond quotidien' },
   { cle: 'localStorage::cyclades.parametres-publics', raison: 'la copie de secours de cle.json' },
   { cle: 'localStorage::revinsp.temps-en-attente', raison: 'le temps passé, en attente d’écriture' },
-  { cle: 'localStorage::revinsp.podcast.position', raison: 'où l’écoute s’est arrêtée' },
+  {
+    cle: 'localStorage::revinsp.podcast.position',
+    raison:
+      'l’ANCIENNE position d’écoute : plus jamais écrite depuis le prompt 46 (P3), ' +
+      'seulement lue une fois puis retirée, le temps que les installations ' +
+      'existantes aient repris ce qu’elle contenait',
+  },
   {
     cle: 'localStorage::revinsp.bibliotheque.sections',
     raison: 'les sections repliées de la bibliothèque : un état d’écran, pas un réglage',

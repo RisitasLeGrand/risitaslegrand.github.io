@@ -647,6 +647,21 @@ async function main() {
           // Annoncé ici pour que la séance sache, sans rien déchiffrer, quelles
           // fiches valent la peine d'être ouvertes pour leur prétest.
           aPretest: f.pretest.length > 0,
+          /*
+             COMBIEN de parties, et non lesquelles (prompt 46, P5).
+
+             La séance a besoin de savoir s'il y a un choix de parties à
+             proposer, sans ouvrir la fiche. Un NOMBRE suffit à cela, là où
+             la liste des titres serait du contenu de fiche — et l'interdit 2
+             du prompt 46 est net : « une liste de titres de parties est du
+             contenu de fiche », et sa place est donc dans la charge utile de
+             la fiche. Le manifeste est chiffré comme elle — ce n'est pas une
+             question de secret —, mais il est chargé EN ENTIER par presque
+             chaque écran : y verser les titres de parties des 262 fiches
+             alourdirait toutes les pages pour une liste que seule la séance
+             déplie, deux fiches à la fois.
+          */
+          nbParties: (f.parties ?? []).length,
         })),
       });
     }

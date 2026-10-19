@@ -293,6 +293,14 @@ export interface FicheProposee {
   fascicule: string;
   /** La fiche propose-t-elle un prétest ? Voir `src/lib/pretest.ts`. */
   aPretest: boolean;
+  /**
+   * Combien de parties la fiche compte (prompt 46, P5) — de quoi savoir s'il
+   * y a un choix de parties à proposer, sans ouvrir la fiche. Zéro pour une
+   * fiche sans découpage, et pour un manifeste construit avant ce prompt.
+   */
+  nbParties: number;
+  /** Nombre de mots du cours : sert à estimer la durée d'une partie. */
+  nbMots: number;
 }
 
 /**
@@ -313,6 +321,8 @@ export function fichesDuTheme(manifeste: Manifeste, themeId: string): FichePropo
           matiere: m.nom,
           fascicule: f.nom,
           aPretest: fiche.aPretest ?? false,
+          nbParties: fiche.nbParties ?? 0,
+          nbMots: fiche.nbMots ?? 0,
         })),
       ),
     );

@@ -32,9 +32,65 @@ import LienReglages from '../components/LienReglages.astro';
           type="button"
           class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-60"
         >▶ Écouter la fiche</button>
-        <p id="podcast-info" class="text-sm text-slate-500 dark:text-slate-400"></p>
+        <!--
+          M9 — CELUI-LÀ, en revanche, s'annonce. C'est par lui que le lecteur
+          dit « Lecture impossible », « format audio non lisible », « fiche
+          audio pas encore disponible » : des erreurs, et elles ne changent
+          qu'à un événement. Sans région vivante, qui ne voit pas l'écran
+          appuie sur « Écouter » et n'apprend jamais pourquoi rien ne vient.
+        -->
+        <p id="podcast-info" role="status" class="text-sm text-slate-500 dark:text-slate-400"></p>
       </div>
       <audio id="podcast-lecteur" class="mt-3 hidden w-full" controls preload="none"></audio>
+
+      <!-- Sauts de 15 s, vitesse de diction, temps restant (prompt 55, N°13) -->
+      <div id="podcast-commandes" class="mt-2 hidden flex-wrap items-center gap-x-3 gap-y-2">
+        <!--
+          M9 — le nom accessible ne peut pas être une flèche. « ↺ 15 s » se lit
+          « quinze s » au mieux, et le glyphe épelé au pire : l'aria-label dit
+          le geste en mots, et la flèche reste pour l'œil.
+        -->
+        <button
+          id="podcast-recul"
+          type="button"
+          aria-label="Reculer de 15 secondes"
+          class="rounded-lg border border-slate-300 px-2.5 py-1 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+        >↺ 15 s</button>
+        <button
+          id="podcast-avance"
+          type="button"
+          aria-label="Avancer de 15 secondes"
+          class="rounded-lg border border-slate-300 px-2.5 py-1 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+        >↻ 15 s</button>
+        <label class="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
+          Vitesse
+          <select
+            id="podcast-vitesse"
+            class="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+          ></select>
+        </label>
+        <!--
+          M9 — CE N'EST PAS UNE RÉGION VIVANTE, et c'en était une.
+
+          « reste 6 min » se réécrit à chaque `timeupdate`, soit plusieurs fois
+          par seconde. En `role="status"`, un lecteur d'écran annonce chaque
+          changement : la minute qui tombe, et toute la valse d'un déplacement
+          dans la piste. Une annonce par minute pendant quarante minutes
+          d'écoute n'informe pas, elle empêche d'écouter — ce qui est le
+          comble pour une fiche audio.
+
+          M9 demande d'annoncer « les changements (pointage fait, erreur) » :
+          des événements, pas un chronomètre. Le temps restant reste donc du
+          texte, lu à la demande comme le reste de la page.
+        -->
+        <p
+          id="podcast-reste"
+          class="text-sm text-slate-500 tabular-nums dark:text-slate-400"
+        ></p>
+      </div>
+
+      <!-- Les parties de la fiche audio (prompt 46, P3) -->
+      <div id="podcast-parties" class="hidden"></div>
     </section>
 
     <!-- Bascule cours complet / fiche simplifiée -->
@@ -64,6 +120,17 @@ import LienReglages from '../components/LienReglages.astro';
         <div class="sticky top-32">
           <p class="mb-2 text-xs font-semibold tracking-wide text-slate-400 uppercase">Sommaire</p>
           <nav id="sommaire" class="defilement-fin max-h-[60dvh] space-y-1 overflow-y-auto text-sm"></nav>
+          <!-- Le suivi des parties vues (prompt 46, P5) -->
+          <!--
+            M9 — pas de `role="status"` : ce compte est écrit UNE FOIS au rendu
+            du cours, donc il serait annoncé à l'ouverture de chaque fiche, en
+            travers de la lecture du titre. C'est une information de la page,
+            pas un changement qui vient d'arriver.
+          -->
+          <p
+            id="suivi-parties"
+            class="mt-3 hidden border-t border-slate-200 pt-3 text-xs text-slate-500 dark:border-slate-800 dark:text-slate-400"
+          ></p>
         </div>
       </aside>
 
@@ -90,7 +157,7 @@ import LienReglages from '../components/LienReglages.astro';
   import { aProposer, montrer as montrerPretest } from '../lib/pretest';
   import { gagnerXp, xpFiche } from '../lib/gamification';
   import { activerGlossaire } from '../lib/glossaire';
-  import { installerLecteurPodcast } from '../lib/podcast';
+  import { installerLecteurPodcast, type LecteurPodcast } from '../lib/podcast';
   import { lien, notifier, parametreUrl } from '../lib/ui';
   import { boutonAssistant, ouvrirAssistant } from '../features/assistant/monter';
   import { contexteFiche } from '../features/assistant/fournisseurs';
@@ -98,6 +165,8 @@ import LienReglages from '../components/LienReglages.astro';
 
   let fiche: Fiche;
   let vue: 'cours' | 'simplifiee' = 'cours';
+  /** Le lecteur de fiche audio, s'il y en a un : « Écouter à partir d'ici ». */
+  let lecteurAudio: LecteurPodcast | null = null;
 
   const CLASSES_ACTIF = 'bg-slate-900 text-white dark:bg-white dark:text-slate-900';
   const CLASSES_INACTIF = 'text-slate-600 dark:text-slate-300';
@@ -128,6 +197,20 @@ import LienReglages from '../components/LienReglages.astro';
     vide.classList.add('hidden');
     // Le HTML vient du contenu déchiffré, produit par notre propre pipeline de build.
     conteneur.innerHTML = html;
+
+    /*
+       LE TITRE PROPRE, RELEVÉ AVANT QU'ON LUI AJOUTE QUOI QUE CE SOIT.
+
+       Deux boutons se posent ensuite dans chaque titre — l'assistant, et
+       « Écouter à partir d'ici ». Leur libellé entre alors dans le
+       `textContent` du titre, et qui le relit après coup obtient « Le
+       contrôle de constitutionnalité 🎧 Écouter à partir d'ici ». C'est ce
+       texte-là qui partait dans le contexte envoyé à une IA.
+    */
+    for (const titre of conteneur.querySelectorAll<HTMLElement>('h2, h3')) {
+      titre.dataset.titre = titre.textContent?.trim() ?? '';
+    }
+
     await activerGlossaire(conteneur);
 
     // Sommaire (uniquement pour le cours complet).
@@ -144,7 +227,9 @@ import LienReglages from '../components/LienReglages.astro';
         sommaire.appendChild(a);
       }
     }
+    if (vue === 'cours') poserBoutonsDEcoute(conteneur);
     poserBoutonsDeSection(conteneur);
+    if (vue === 'cours') void afficherSuiviDesParties();
 
     try {
       localStorage.setItem('revinsp.vue-fiche', vue);
@@ -174,14 +259,14 @@ import LienReglages from '../components/LienReglages.astro';
       rangee.appendChild(
         boutonAssistant(
           {
-            titre: `Préparer une question pour une IA — ${titre.textContent ?? fiche.titre}`,
+            titre: `Préparer une question pour une IA — ${titre.dataset.titre || fiche.titre}`,
             matiere: fiche.matiere,
             construireContexte: async (options) =>
               contexteFiche(
                 {
                   fiche,
                   passage: passageDeLaSection(titre),
-                  section: { titre: titre.textContent ?? '', rang: rang + 1, total: titres.length },
+                  section: { titre: titre.dataset.titre ?? '', rang: rang + 1, total: titres.length },
                   definitions: await definitionsDuPassage(passageDeLaSection(titre)),
                   voisines,
                 },
@@ -193,6 +278,100 @@ import LienReglages from '../components/LienReglages.astro';
       );
       titre.appendChild(rangee);
     });
+  }
+
+  /**
+   * Les parties vues, et celles qui restent (prompt 46, P5).
+   *
+   * Deux sources, parce qu'il y a deux manières de voir une partie : une
+   * séance qui dit l'avoir travaillée, et une écoute qui l'a dépassée. Une
+   * partie dont l'audio est derrière la position d'écoute a été entendue, et
+   * ce serait mentir que de l'annoncer « à voir ».
+   *
+   * Le compte reste MUET quand aucune partie n'a été vue : une fiche jamais
+   * ouverte n'a pas besoin qu'on lui annonce « 0 partie sur 3 », qui ressemble
+   * à un reproche là où il n'y a rien à reprocher.
+   */
+  async function afficherSuiviDesParties() {
+    const cible = document.getElementById('suivi-parties');
+    const parties = fiche.parties ?? [];
+    if (!cible || parties.length < 2) return;
+
+    const { toutesLesSeances, lirePositionPodcast } = await import('../lib/db');
+    const { suiviDesParties } = await import('../lib/seance-parties');
+    const { partiesEcoutables, partieCourante } = await import('../lib/podcast');
+
+    const suivi = suiviDesParties(await toutesLesSeances(), fiche.id);
+    const vues = new Set(suivi.vues);
+    if (suivi.ficheEntiere) for (const p of parties) vues.add(p.id);
+
+    /* Ce que l'écoute a dépassé : les parties qui commencent avant la position. */
+    const position = await lirePositionPodcast(fiche.id).catch(() => null);
+    if (position) {
+      const ecoutables = partiesEcoutables(fiche);
+      const atteinte = partieCourante(ecoutables, position.secondes);
+      for (let i = 0; i < atteinte; i++) vues.add(ecoutables[i].id);
+    }
+
+    const combien = parties.filter((p) => vues.has(p.id)).length;
+    if (!combien) return;
+    cible.textContent =
+      combien >= parties.length
+        ? `Les ${parties.length} parties ont été vues.`
+        : `${combien} partie${combien > 1 ? 's' : ''} vue${combien > 1 ? 's' : ''} ` +
+          `sur ${parties.length}.`;
+    cible.classList.remove('hidden');
+  }
+
+  /**
+   * « 🎧 Écouter à partir d'ici », sur chaque titre qui est une partie
+   * (prompt 46, P3).
+   *
+   * Le bouton n'apparaît que là où l'écoute peut VRAIMENT commencer : le
+   * titre doit porter l'identifiant d'une partie dont la fiche audio connaît
+   * le repère. Un titre de niveau 4, une fiche sans audio, une fiche audio
+   * synthétisée avant le prompt 46 n'en ont donc aucun — plutôt qu'un bouton
+   * qui ne ferait rien, ce qui est la pire des deux options.
+   */
+  function poserBoutonsDEcoute(conteneur: HTMLElement) {
+    const atteignables = new Set((lecteurAudio?.parties ?? []).map((p) => p.id));
+    if (!atteignables.size) return;
+    for (const titre of conteneur.querySelectorAll<HTMLElement>('h2[id], h3[id]')) {
+      if (!atteignables.has(titre.id) || titre.dataset.ecoute) continue;
+      titre.dataset.ecoute = 'oui';
+      const bouton = document.createElement('button');
+      bouton.type = 'button';
+      bouton.className =
+        'ml-3 inline-block align-middle rounded-lg border border-slate-300 px-2 py-0.5 ' +
+        'text-xs font-medium text-slate-600 transition hover:bg-slate-100 ' +
+        'dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800';
+      bouton.textContent = '🎧 Écouter à partir d’ici';
+      /*
+         M9 — UN NOM DISTINCT PAR BOUTON.
+
+         Une fiche à trois parties portait trois boutons dont le nom
+         accessible était identique, au casque près : « 🎧 Écouter à partir
+         d'ici ». Qui parcourt la page par la liste de ses boutons voyait
+         trois entrées indiscernables, et devait deviner laquelle mène où.
+         Le titre de la partie lève l'ambiguïté, et l'émoji sort du nom —
+         il serait lu « casque audio » avant chaque intitulé.
+      */
+      bouton.setAttribute(
+        'aria-label',
+        `Écouter à partir de « ${titre.dataset.titre || fiche.titre} »`,
+      );
+      const partie = titre.id;
+      bouton.addEventListener('click', () => {
+        /*
+           Le lecteur est en haut de la page : sauter au repère sans y
+           remonter laisserait la personne devant un titre, en train
+           d'entendre une voix dont rien ne montre la commande.
+        */
+        document.getElementById('podcast')?.scrollIntoView({ block: 'nearest' });
+        void lecteurAudio?.ecouterDepuis(partie);
+      });
+      titre.appendChild(bouton);
+    }
   }
 
   /** Le texte d'une section : du titre jusqu'au titre de même niveau suivant. */
@@ -362,7 +541,7 @@ import LienReglages from '../components/LienReglages.astro';
     }
 
     // Fiche audio (podcast), déchiffrée seulement si on la demande.
-    installerLecteurPodcast(fiche);
+    lecteurAudio = installerLecteurPodcast(fiche);
 
     // Boutons de révision contextuels.
     if (fiche.flashcards.length) {

@@ -292,6 +292,29 @@ export const MAGASINS_JOURNALISES: readonly MagasinJournalise[] = [
     combiner: combinerEtatDeFiche,
   }),
   /*
+     Où l'on s'est arrêté dans une fiche audio (prompt 46, P3).
+
+     Socle PARTAGÉ, pour la même raison que les occurrences d'Odyssée : la
+     clé est une clé métier — l'identifiant de la fiche —, donc deux
+     appareils qui écoutent la même fiche visent la même cible et produisent
+     une seule opération. Un socle « appareil » en aurait fait deux, et la
+     fiche se serait proposée deux fois « à reprendre », à deux endroits
+     différents.
+
+     Et donc, délibérément, **pas de `combiner`** : la dernière écriture
+     gagne. On pourrait croire qu'il faut garder la position la plus
+     avancée ; ce serait un contresens. Écouter jusqu'à la trentième minute
+     chez soi, puis revenir à la dixième dans le train pour réentendre un
+     passage, c'est vouloir reprendre à la dixième. La position n'est pas un
+     record à battre, c'est un signet.
+  */
+  M({
+    magasin: 'podcastPositions',
+    type: 'revision.podcast',
+    clef: 'fiche',
+    libelle: 'Écoute en cours',
+  }),
+  /*
      Odyssée. Les cinq magasins entrent dès leur création, et non après coup :
      une donnée écrite avant d'être inscrite ici ne voyagerait pas, et le
      socle de rattrapage devrait inventer une horloge pour elle.
