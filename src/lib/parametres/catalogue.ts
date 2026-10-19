@@ -375,6 +375,18 @@ export const REGLAGES: Reglage[] = [
     ecran: '/progression/',
   })),
   {
+    id: 'compte-a-rebours',
+    libelle: 'Compte à rebours vers mes épreuves',
+    aQuoiCaSert:
+      'Une ligne par épreuve à venir sur l’accueil de Révisions, avec la date et le temps qui reste. Sans date renseignée, une invitation à les donner.',
+    section: 'revisions',
+    portee: 'tous',
+    stockage: 'IndexedDB/etat::reglagesSession',
+    nature: interrupteur,
+    defaut: true,
+    ecran: '/revisions/',
+  },
+  {
     id: 'plafond-cartes',
     libelle: 'Cartes par séance, au plus',
     aQuoiCaSert: 'Au-delà, la séance s’arrête : mieux vaut finir que renoncer.',

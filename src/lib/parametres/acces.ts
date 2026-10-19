@@ -218,6 +218,11 @@ export const ACCES: Record<string, Acces> = {
       ],
     ),
   ),
+  'compte-a-rebours': champBooleen(
+    lireReglagesSession,
+    ecrireReglagesSession,
+    'compteARebours',
+  ),
   'plafond-cartes': {
     lire: async () => (await lireReglagesSession()).plafondCartes,
     ecrire: async (v) =>

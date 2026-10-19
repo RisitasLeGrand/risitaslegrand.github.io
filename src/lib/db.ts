@@ -2354,11 +2354,26 @@ export async function supprimerSeance(id: string) {
 export interface ReglagesSession {
   plafondCartes: number;
   plafondQuestions: number;
+  /**
+   * Le compte à rebours vers les épreuves, sur l'accueil de Révisions.
+   *
+   * Décision 3 du prompt 56, et décision d'Alexis : « Oui, sur l'accueil de
+   * Révisions ». Il est donc allumé par défaut, et se coupe d'ici.
+   *
+   * POURQUOI DANS CE MAGASIN, ET SANS MIGRATION. `reglagesSession` est un objet
+   * stocké sous une clé du magasin `etat` : y ajouter un champ ne change pas le
+   * schéma de la base, et `lireReglagesSession` fusionne déjà le défaut avec ce
+   * qui est stocké — une base écrite par une version antérieure rend donc le
+   * défaut, sans rien réécrire. L'interdit 1 du 56 exclut toute migration, et
+   * il n'en faut aucune.
+   */
+  compteARebours: boolean;
 }
 
 export const REGLAGES_SESSION_PAR_DEFAUT: ReglagesSession = {
   plafondCartes: 25,
   plafondQuestions: 20,
+  compteARebours: true,
 };
 
 export async function lireReglagesSession(): Promise<ReglagesSession> {
@@ -2369,6 +2384,9 @@ export async function lireReglagesSession(): Promise<ReglagesSession> {
   return {
     plafondCartes: Math.min(200, Math.max(5, Math.round(fusion.plafondCartes))),
     plafondQuestions: Math.min(200, Math.max(5, Math.round(fusion.plafondQuestions))),
+    /* Une valeur d'un autre type — venue d'une version future, ou d'une
+       synchronisation — ne doit pas rendre le réglage indécidable. */
+    compteARebours: fusion.compteARebours !== false,
   };
 }
 

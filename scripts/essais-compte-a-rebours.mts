@@ -26,6 +26,8 @@ import {
   echeances,
   joursEntre,
 } from '../src/lib/compte-a-rebours.ts';
+import { REGLAGES } from '../src/lib/parametres/catalogue.ts';
+import { REGLAGES_SESSION_PAR_DEFAUT } from '../src/lib/db.ts';
 
 let rouges = 0;
 const v = (quoi: string, obtenu: unknown, attendu: unknown) => {
@@ -212,6 +214,26 @@ console.log('\n7. AUCUN ROUGE, AUCUNE URGENCE, AUCUN REPROCHE');
     textes.every((t) => !/class|text-|bg-|#[0-9a-f]{3}/i.test(t)),
   );
 }
+
+console.log('\n8. L’INTERRUPTEUR, ET CE QUI SE PASSE SANS LUI');
+
+/*
+   Décision 3 : « Oui, sur l'accueil de Révisions », donc allumé par défaut, et
+   désactivable depuis Paramètres > Révisions. Le réglage vit dans l'objet
+   `reglagesSession`, sous une clé du magasin `etat` : y ajouter un champ ne
+   change pas le schéma de la base, et l'interdit 1 du 56 exclut toute
+   migration. Une base écrite par une version antérieure rend le défaut.
+*/
+const reglage = REGLAGES.find((r) => r.id === 'compte-a-rebours');
+vrai('le réglage est sur la page centrale', Boolean(reglage));
+v('dans la section Révisions', reglage?.section, 'revisions');
+v('c’est un interrupteur', reglage?.nature.genre, 'interrupteur');
+v('allumé par défaut', reglage?.defaut, true);
+v('il vaut sur tous les appareils', reglage?.portee, 'tous');
+v('et il dit où il agit', reglage?.ecran, '/revisions/');
+v('le défaut du magasin dit la même chose', REGLAGES_SESSION_PAR_DEFAUT.compteARebours, true);
+/* Et il ne peut pas devenir indécidable : seul `false` l'éteint. */
+v('seul un faux l’éteint', REGLAGES_SESSION_PAR_DEFAUT.compteARebours !== false, true);
 
 console.log(rouges ? `\n\x1b[31m${rouges} rouge(s).\x1b[0m` : '\n\x1b[32mTout est vert.\x1b[0m');
 process.exit(rouges ? 1 : 0);
