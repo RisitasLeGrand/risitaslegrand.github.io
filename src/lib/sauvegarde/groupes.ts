@@ -131,6 +131,10 @@ export const CLEFS_ODYSSEE_ETAT: readonly string[] = [
  * - `reglagesSync` : le registre versionné des réglages. Il n'est pas un
  *   réglage : c'est la machinerie qui les fait converger. L'effacement y
  *   retire les entrées des clés effacées, plutôt que de jeter le registre ;
+ * - `derniereSauvegarde` : la date de la dernière sauvegarde réussie. Ce
+ *   n'est pas un réglage mais un constat, et l'effacer ferait croire qu'on
+ *   n'a jamais sauvegardé — ou, pire, en remettrait la bannière à zéro au
+ *   moment précis où l'on vient de perdre des données ;
  * - préfixe `coffre.` : `coffre.sel`, `coffre.sel-enveloppe`,
  *   `coffre.enveloppe`, `coffre.migration`, et le délai de verrouillage
  *   automatique. C'est le cœur de la B-3 : les effacer condamnait le coffre,
@@ -151,6 +155,7 @@ export const CLEFS_TECHNIQUES_ETAT: readonly string[] = [
   'lotsRecus',
   'derniereVeille',
   'reglagesSync',
+  'derniereSauvegarde',
 ];
 
 /** Une clé d'`etat` est-elle technique, c'est-à-dire intouchable à la carte ? */

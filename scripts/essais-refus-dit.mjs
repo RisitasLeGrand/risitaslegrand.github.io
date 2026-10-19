@@ -65,7 +65,14 @@ console.log('\nLA PRÉMISSE : DES PAGES À COFFRE, TROUVÉES DANS LES SOURCES');
 console.log(`      ${chemins.length} page(s) : ${chemins.join(', ')}`);
 verifier('il y en a bien plusieurs', chemins.length >= 5, true);
 
-const nav = await chromium.launch({ executablePath: process.env.CHROMIUM });
+/*
+   Le même chemin de repli que ses voisins. Sans lui, cet essai rougissait
+   dès que CHROMIUM n'était pas posée dans l'environnement — un rouge qui ne
+   dit rien du site, et qui fait douter des vrais.
+*/
+const nav = await chromium.launch({
+  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+});
 const ctx = await nav.newContext({ viewport: { width: 1280, height: 900 } });
 const amorce = await ctx.newPage();
 await franchirInitialisation(amorce, BASE, MDP);

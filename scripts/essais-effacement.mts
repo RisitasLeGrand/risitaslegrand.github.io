@@ -170,6 +170,35 @@ v(
   true,
 );
 
+console.log('\nAUCUNE CLÉ ÉCRITE DANS LE CODE N’ÉCHAPPE AU CLASSEMENT');
+
+/*
+ * Le contrôle qui a trouvé `derniereSauvegarde`, oubliée des deux listes.
+ *
+ * Il balaie les sources à la recherche des clés d'`etat` écrites EN TOUTES
+ * LETTRES — `base.put('etat', valeur, 'profil')` — et vérifie que chacune
+ * est classée. Les clés nommées par une constante lui échappent, et c'est
+ * dit : celles-là sont couvertes par `essais:reglages-sans-coffre`, qui
+ * relève les clés réellement présentes dans une base vivante. Les deux
+ * contrôles se complètent ; aucun ne suffit seul.
+ */
+const { readFileSync } = await import('node:fs');
+const { globSync } = await import('node:fs');
+const sources = globSync('src/**/*.{ts,astro}');
+const litterales = new Set<string>();
+for (const chemin of sources) {
+  const texte = readFileSync(chemin, 'utf8');
+  for (const m of texte.matchAll(/\b(?:get|put|delete)\(\s*'etat'\s*,[^;]*?'([A-Za-z][\w.:-]*)'\s*\)/g)) {
+    litterales.add(m[1]);
+  }
+}
+v('le balayage trouve bien des clés', litterales.size > 0, true);
+v(
+  'chaque clé écrite en toutes lettres est classée',
+  [...litterales].filter((clef) => !estTechnique(clef) && !clefVisee(clef, viseesReglages)).sort(),
+  [],
+);
+
 console.log('\nLA DATE EST LUE DANS LE CHAMP DÉCLARÉ, ET NULLE PART AILLEURS');
 
 v('une session se date par « le »', dateDe('nback', { le: '2026-03-04T10:00:00.000Z' }), '2026-03-04');
