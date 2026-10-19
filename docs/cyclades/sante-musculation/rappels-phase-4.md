@@ -112,6 +112,13 @@ ne se voit pas, là où un refus se lit.
   sources autorisées à en dire plus est **vide** (décision 3 du prompt 32).
   J'ai gardé cette décision : le texte explicite s'affiche à l'écran et dans
   l'agenda, jamais sur un écran verrouillé. À confirmer ou à renverser.
+- **Trois libellés fixes de `molecules.ts` n'ont pas d'essai** —
+  `PROVENANCES`, `OBSERVATION_PERSONNELLE`, `FamilleMasquee`. C'est un choix,
+  pas un oubli : ils attendent des données qu'aucune source n'a encore
+  fournies, et un essai qui ne ferait que relire des chaînes constantes
+  serait du vert qui ne prouve rien. À couvrir le jour où une dose entrera.
+  *(Point approuvé par le pilote le 19 octobre.)*
+
 - **Les gestes « Pris » et « Pas aujourd'hui » dans le centre.** Le § 2.3 du
   prompt 32 veut un élément sans contenu, et la cloche est présente sur
   toutes les pages. Les deux boutons vivent donc sur l'écran Santé, où le
