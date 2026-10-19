@@ -19,6 +19,7 @@
  * les effacements du monde sans rien prouver.
  */
 import { chromium } from 'playwright-core';
+import { repondreAuChamp } from './lib/boite-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 
 const BASE = 'http://localhost:4321';
@@ -87,8 +88,22 @@ await page.goto(`${BASE}/profil/`, { waitUntil: 'networkidle' });
    signalé.
 */
 await page.waitForSelector('#restants button', { timeout: 20000 });
-page.once('dialog', (d) => void d.accept('Essai'));
 await page.locator('#restants button').first().click();
+/*
+   LA SAISIE PASSE PAR UN CHAMP, PLUS PAR UN « PROMPT » (C2 du 43).
+
+   « Renseigner » ouvrait un `prompt()` natif, que cet essai remplissait par
+   « d.accept('Essai') ». Les deux `prompt()` du site sont devenus des champs
+   dans la boîte commune, avec une étiquette visible et non un texte
+   d'invite. L'essai ne remplissait donc plus rien : la prémisse « le profil
+   n'est pas vide » tombait, et la boîte restée ouverte arrêtait le clic
+   suivant sur « Effacer mon profil ».
+
+   C'est exactement le défaut que cette garde a été écrite pour attraper,
+   une première fois le 17 octobre : « le profil est bien effacé » peut
+   passer sur un profil qui n'a jamais rien contenu.
+*/
+await repondreAuChamp(page, 'Essai', 'Enregistrer');
 await page.waitForTimeout(2500);
 const profilVide = () =>
   page.evaluate(() => {
