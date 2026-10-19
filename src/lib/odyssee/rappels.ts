@@ -34,8 +34,18 @@ import {
 } from './sante';
 import type { ReglagesJourLogique } from '../noyau/jour-logique';
 
-/** La source, telle que les deux registres du centre la nomment déjà. */
-export const SOURCE_RAPPEL_DE_PRISE = 'rappel-de-prise';
+/*
+   L'IDENTIFIANT DE LA SOURCE N'EST PAS ICI, et c'est délibéré.
+
+   Il était déclaré dans ce module ET dans `notifications/alimentation.ts`,
+   avec la même valeur — deux sources de vérité pour une chaîne, dont celle-ci
+   n'était appelée par personne. C'est le défaut classique : les deux ne
+   divergent pas tout de suite, elles divergent le jour où l'une est corrigée.
+
+   La source appartient aux registres du centre, qui en décident l'admission
+   et le routage. Ce module-ci produit des références ; il ne nomme pas la
+   source qui les portera.
+*/
 
 export interface CreneauOublie {
   traitementId: string;
