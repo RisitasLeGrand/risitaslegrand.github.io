@@ -11,7 +11,23 @@ Ce conteneur n'a ni téléphone, ni agenda, ni réseau sortant au-delà de
 GitHub et des dépôts de paquets. Tout ce qui concerne un appareil réel est
 donc non vérifié, et le restera jusqu'à ce que tu l'essaies toi-même.
 
-## 1. Application ouverte
+## 1. Deux défauts antérieurs, sortis en construisant ce lot
+
+*En tête à la demande du pilote : ils ne touchaient pas que Santé.*
+
+1. **`ecrirePrise()` n'écrivait jamais `traitementId`.** Le champ existait au
+   type depuis la phase 1 ; aucun chemin d'écriture ne le remplissait.
+   `heuresDepuisLaDernierePrise()` filtre dessus, et rendait donc `null` pour
+   tous les traitements, toujours : l'écran affichait « aucune prise
+   enregistrée » sous chacun, y compris sous celui dont on venait de noter une
+   prise. Corrigé en P2.
+2. **L'écran des tâches ne lisait qu'un magasin d'exceptions sur deux.** Il
+   appelait `occurrencesDuJour`, qui n'interroge que le magasin en clair,
+   alors que toute tâche liée à une branche sous coffre range son exception
+   dans le magasin scellé. Le pointage s'écrivait et ne se voyait jamais. Le
+   défaut touchait déjà Psyché et Finances. Corrigé en P5.
+
+## 2. Application ouverte
 
 | | État | Comment je le sais |
 |---|---|---|
@@ -23,23 +39,23 @@ donc non vérifié, et le restera jusqu'à ce que tu l'essaies toi-même.
 | Il dépose un élément au centre, et une réponse le retire | **constaté** | idem : le magasin `centreElements` est lu comme une extension le lirait |
 | Pointer une tâche liée note une prise ; défaire la retire | **constaté** | idem, de bout en bout, en lisant le magasin des prises |
 
-## 2. Application fermée — Android
+## 3. Application fermée — Android
 
 | | État | Comment je le sais |
 |---|---|---|
 | L'agenda sonne à l'heure prévue | **non vérifié** | il faut un téléphone et un agenda ; le FICHIER, lui, est constaté valide (RRULE, VALARM, VTIMEZONE, TZID) |
 | La notification de Cyclades part | **non vérifié** | elle demande que le navigateur réveille l'application, donc une application installée et *Periodic Background Sync* |
-| Le rappel d'oubli part | **non — et pas seulement faute d'essai** | voir § 4 |
+| Le rappel d'oubli part | **non — et pas seulement faute d'essai** | voir § 5 |
 
-## 3. Application fermée — iPhone
+## 4. Application fermée — iPhone
 
 | | État | Comment je le sais |
 |---|---|---|
 | L'agenda sonne à l'heure prévue | **non vérifié** | même raison qu'Android ; c'est la seule voie que le plan ait jamais annoncée pour iPhone (§ 5 n° 2) |
 | La notification de Cyclades part | **non** | *Periodic Background Sync* n'existe pas sur iOS, et iOS impose WebKit à tous les navigateurs. L'écran le dit. **Lu dans le code et dans le tableau de compatibilité**, non mesuré sur un appareil |
-| Le rappel d'oubli part | **non** | voir § 4 |
+| Le rappel d'oubli part | **non** | voir § 5 |
 
-## 4. La limite du rappel d'oubli, qui est plus sévère que celle annoncée
+## 5. La limite du rappel d'oubli, qui est plus sévère que celle annoncée
 
 Le prompt disait : « application fermée, le rappel d'oubli ne peut partir que
 si le navigateur réveille l'application (Android, application installée) ».
@@ -63,7 +79,7 @@ vient. L'agenda reste la seule voie qui sonne application fermée — et il ne
 sait pas si la prise a été notée : il sonne à l'heure prévue, jamais « en cas
 d'oubli ».
 
-## 5. Ce que le fichier d'agenda contient, constaté
+## 6. Ce que le fichier d'agenda contient, constaté
 
 Lu dans le fichier réellement téléchargé par le navigateur, et non dans le
 code qui l'écrit :
@@ -81,20 +97,6 @@ Un fuseau autre qu'Europe/Paris fait **refuser** l'export, avec son nom. Les
 règles d'heure d'été se changent par décision politique ; en inventer
 produirait des rappels faux d'une heure pendant six mois, et une heure fausse
 ne se voit pas, là où un refus se lit.
-
-## 6. Deux défauts antérieurs, sortis en construisant ce lot
-
-1. **`ecrirePrise()` n'écrivait jamais `traitementId`.** Le champ existait au
-   type depuis la phase 1 ; aucun chemin d'écriture ne le remplissait.
-   `heuresDepuisLaDernierePrise()` filtre dessus, et rendait donc `null` pour
-   tous les traitements, toujours : l'écran affichait « aucune prise
-   enregistrée » sous chacun, y compris sous celui dont on venait de noter une
-   prise. Corrigé en P2.
-2. **L'écran des tâches ne lisait qu'un magasin d'exceptions sur deux.** Il
-   appelait `occurrencesDuJour`, qui n'interroge que le magasin en clair,
-   alors que toute tâche liée à une branche sous coffre range son exception
-   dans le magasin scellé. Le pointage s'écrivait et ne se voyait jamais. Le
-   défaut touchait déjà Psyché et Finances. Corrigé en P5.
 
 ## 7. Ce qui reste à trancher par la session principale
 
