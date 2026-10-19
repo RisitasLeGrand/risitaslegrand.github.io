@@ -76,6 +76,35 @@ const SOCLE = [
   ['essais:carte-ecrans', 'aucun écran orphelin, aucun au-delà de trois appuis'],
 ];
 
+/**
+ * LES PRÉPARATIONS — ce qu'il faut avoir fait pour qu'un essai mesure.
+ *
+ * `essais:actualites:navigateur` mesure la LONGUEUR de l'archive des
+ * actualités. Or les actualités ne viennent pas du build : elles vivent
+ * chiffrées dans « actualites-data/ », et c'est la publication qui les copie
+ * à côté du site. En local, « dist/ » ne porte que les quelques entrées de
+ * démonstration — et l'essai disait donc « 1 période(s) seulement », en
+ * expliquant lui-même quoi lancer.
+ *
+ * Ce n'était un défaut ni du site ni de l'essai : c'était l'ordre du
+ * passage. La batterie joue donc la préparation avant l'essai qui en a
+ * besoin, une seule fois, et le dit.
+ *
+ * Pourquoi ici et non dans l'essai : parce que l'essai, lancé seul, doit
+ * continuer à REFUSER en expliquant — il est juste qu'un essai dise « il me
+ * manque ceci » plutôt que de modifier « dist/ » dans le dos de qui le
+ * lance. C'est le passage d'ensemble qui a la charge de l'ordre.
+ */
+const PREPARATIONS = {
+  'essais:actualites:navigateur': [
+    [
+      'actualites:dist',
+      'copie les actualités réelles dans « dist/ » et reconstruit leur ' +
+        'inventaire ; sans elles, l’archive mesurée fait une période',
+    ],
+  ],
+};
+
 const SOCLE_SEUL = process.argv.includes('--socle');
 
 /* Tout ce qui commence par « essais » : la liste ne se tient pas à la main. */
@@ -250,6 +279,28 @@ for (const [index, nom] of noms.entries()) {
     }
     continue;
   }
+  /*
+     La préparation d'abord, s'il y en a une. Son échec n'est pas avalé : un
+     essai lancé sans sa préparation mesurerait autre chose que ce qu'il dit,
+     et un rouge de cette sorte-là coûte une heure de diagnostic.
+  */
+  for (const [prep, pourquoi] of PREPARATIONS[nom] ?? []) {
+    console.log(`  \x1b[36m…\x1b[0m ${compteur} ${nom} — préparation « ${prep} » : ${pourquoi}`);
+    try {
+      execFileSync('npm', ['run', '--silent', prep], {
+        encoding: 'utf8',
+        timeout: DELAI_MS,
+        stdio: ['ignore', 'pipe', 'pipe'],
+        env: process.env,
+      });
+    } catch (erreur) {
+      console.log(
+        `  \x1b[31m✗\x1b[0m la préparation « ${prep} » a échoué : ` +
+          `${(erreur.stderr || erreur.stdout || erreur.message || '').toString().trim().slice(0, 300)}`,
+      );
+    }
+  }
+
   let sortie = '';
   let code = 0;
   const depart = Date.now();
