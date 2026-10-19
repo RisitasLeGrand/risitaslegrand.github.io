@@ -26,11 +26,12 @@
     type SessionVeridical,
   } from '../../../lib/db';
   import { tick } from 'svelte';
+  import { confirmer } from '../../../lib/boite';
   import { amenerLaZone } from '../../cog-training/zone-de-jeu';
   import CommentCaMarche from '../../cog-training/composants/CommentCaMarche.svelte';
   import { gagnerXp, xpVeridical } from '../../../lib/gamification';
   import { debloquer, disponible } from '../audio';
-  import { NOMS_FAMILLES, type Famille } from '../dimensions';
+  import { NOMS_FAMILLES, dimensionParId, type Famille } from '../dimensions';
   import { escalierNeuf, repondre, seuil as seuilDe, statut as statutDe } from '../escalier';
   import CorrectionPerceptive from '../../correction/composants/CorrectionPerceptive.svelte';
   import { aCorrectionDetaillee } from '../../correction/registre';
@@ -68,6 +69,13 @@
 
   let decouverte = $state(false);
 
+  /*
+     Même verrou que dans Raisonnement, et même constat : aucun geste
+     n'atteint aujourd'hui un double appel, puisque `terminer` change d'écran
+     avant sa première écriture. Précaution assumée, pas correction.
+  */
+  let terminee = $state(false);
+
   /**
    * Les réglages de la SESSION en cours, qui ne sont pas forcément ceux de
    * l'écran.
@@ -90,6 +98,28 @@
      poser d'emblée les écarts les plus fins.
   */
   let seuilsDecouverte = $state<Record<string, SeuilVeridical>>({});
+
+  /**
+   * Les écarts atteints sur les paires travaillées dans CETTE session.
+   *
+   * Lus dans `pairesVues`, et non dans tout le magasin : le bilan d'une
+   * session parle de cette session. Les paires sans mesure — trop peu
+   * d'essais pour qu'un palier se stabilise — sont écartées plutôt
+   * qu'affichées à zéro, qui se lirait comme un écart parfait alors que c'est
+   * une absence de mesure.
+   */
+  const ecarts = $derived.by(() => {
+    const magasin = decouverte ? seuilsDecouverte : seuils;
+    return [...pairesVues]
+      .map((id) => magasin[id])
+      .filter((ligne): ligne is SeuilVeridical => !!ligne && typeof ligne.seuil === 'number')
+      .map((ligne) => ({
+        id: ligne.id,
+        de: dimensionParId(ligne.de)?.nom ?? ligne.de,
+        vers: dimensionParId(ligne.vers)?.nom ?? ligne.vers,
+        pas: ligne.seuil as number,
+      }));
+  });
 
   /** La consigne, ouverte en boîte pendant la session (P2 du 51). */
   let consigneOuverte = $state(false);
@@ -259,6 +289,7 @@
   }
 
   function preparer() {
+    terminee = false;
     faits = 0;
     reussis = 0;
     convergences = [];
@@ -346,6 +377,25 @@
     }
   }
 
+  /**
+   * Arrêter la session, en gardant les réponses déjà données.
+   *
+   * Ici elles sont gardées par CONSTRUCTION : chaque essai écrit son palier
+   * au moment où l'on répond, et non à la fin. La phrase ne promet donc rien
+   * qu'il faille aller chercher — elle dit ce qui est déjà vrai, et que rien
+   * à l'écran ne disait.
+   */
+  async function arreter() {
+    const oui = await confirmer({
+      titre: 'Arrêter ?',
+      texte: 'Vos réponses sont gardées.',
+      action: 'Arrêter',
+      annuler: 'Continuer',
+    });
+    if (!oui) return;
+    await terminer();
+  }
+
   async function suivant() {
     if (faits >= enJeu.essais) {
       await terminer();
@@ -355,6 +405,9 @@
   }
 
   async function terminer() {
+    if (terminee) return;
+    terminee = true;
+
     const secondes = Math.round((Date.now() - debut) / 1000);
     const travaillees = [...pairesVues];
     const mesures = travaillees
@@ -713,6 +766,11 @@
 {:else if etape === 'essai' && essai}
   <section bind:this={zoneDeJeu} data-zone-de-jeu>
     <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
+      <button
+        type="button"
+        onclick={arreter}
+        class="shrink-0 text-sm text-slate-500 hover:underline dark:text-slate-400"
+      >← Arrêter</button>
       <p class="text-xs font-medium uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
         {essai.arete.de.nom} → {essai.arete.vers.nom}
         {#if essai.arete.transmodale}<span class="text-slate-400"> · transmodale</span>{/if}
@@ -973,6 +1031,37 @@
       resserre l'écart jusqu'au point où l'on se trompe environ une fois sur trois. Un taux bien
       plus haut voudrait dire que l'écart n'est pas encore assez fin.
     </p>
+
+    <!--
+      LA TROISIÈME LIGNE : CE QUI A BOUGÉ, PAIRE PAR PAIRE (constat P8).
+
+      Le bilan disait le taux et expliquait les 70 %, mais rien de ce qui avait
+      PROGRESSÉ : il fallait déplier le tableau de bord et comparer de tête
+      avec la session précédente. L'écart le plus fin atteint sur chaque paire
+      travaillée est la seule mesure que cet exercice produise ; la laisser
+      derrière un pli revenait à cacher son résultat.
+
+      « plus c'est petit, mieux vous distinguez » n'est pas une précaution de
+      style : un nombre qui BAISSE quand on progresse se lit à l'envers de
+      tous les autres scores de l'application.
+
+      Et les échelles sont nommées, pas identifiées : « Taille ↔ Luminosité »
+      et non « taille ↔ luminosite ».
+    -->
+    {#if ecarts.length}
+      <h3 class="mt-6 text-sm font-semibold text-slate-900 dark:text-white">Ce qui a bougé</h3>
+      <ul class="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-300">
+        {#each ecarts as ligne (ligne.id)}
+          <li>
+            {ligne.de} ↔ {ligne.vers} : votre écart le plus fin est maintenant de
+            <strong>{ligne.pas} pas</strong>
+            <span class="text-xs text-slate-500 dark:text-slate-400">
+              (plus c'est petit, mieux vous distinguez)
+            </span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
 
     <TableauDeBord {seuils} {sessions} {essaisDeLaPaire} />
 

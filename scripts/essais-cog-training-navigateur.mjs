@@ -32,6 +32,7 @@
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
+import { attendreLaBoite, repondreALaBoite } from './lib/boite-essais.mjs';
 
 const BASE = process.env.RACINE ?? 'http://localhost:4321';
 const MDP = process.env.SITE_PASSWORD;
@@ -706,6 +707,218 @@ for (const cas of [
     await contexte.close();
   } catch (erreur) {
     direPanne(`${cas.nom} · découverte`, erreur);
+    await contexte?.close().catch(() => {});
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   P7 — « ARRÊTER » GARDE LES RÉPONSES, ET NE COMPTE PAS DEUX FOIS
+   ════════════════════════════════════════════════════════════════════════
+
+   Deux choses à mesurer, et la seconde est celle que le prompt demande de
+   vérifier. « terminer » est appelé par « Arrêter » ET par le passage de la
+   dernière question : arrêter juste avant la fin pouvait enregistrer DEUX
+   sessions pour une. On compte donc les sessions avant et après, et on exige
+   exactement une de plus.
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nP7 — « ARRÊTER » GARDE LES RÉPONSES, SANS DOUBLE COMPTE');
+
+for (const cas of [
+  { nom: 'Raisonnement', route: 'relational-reasoning', magasin: 'relationnel' },
+  { nom: 'Correspondance', route: 'veridical-mapping', magasin: 'vmSeuils' },
+]) {
+  let contexte;
+  try {
+    const ouvert = await ouvrir(TAILLES[1], MODES[0], cas.route);
+    contexte = ouvert.contexte;
+    const page = ouvert.page;
+
+    const sessionsDe = () =>
+      page.evaluate(
+        () =>
+          new Promise((tenir) => {
+            const r = indexedDB.open('revinsp');
+            r.onsuccess = () => {
+              const base = r.result;
+              if (![...base.objectStoreNames].includes('relationnel')) {
+                tenir({ relationnel: 0, vmSessions: 0 });
+                return;
+              }
+              const noms = [...base.objectStoreNames].filter((n) =>
+                ['relationnel', 'vmSessions'].includes(n),
+              );
+              const tx = base.transaction(noms, 'readonly');
+              const sortie = {};
+              let restants = noms.length;
+              for (const nom of noms) {
+                const c = tx.objectStore(nom).count();
+                c.onsuccess = () => {
+                  sortie[nom] = c.result;
+                  restants -= 1;
+                  if (restants === 0) tenir(sortie);
+                };
+              }
+            };
+            r.onerror = () => tenir({ erreur: true });
+          }),
+      );
+
+    const avant = await sessionsDe();
+
+    /* La VRAIE session, pas la découverte : c'est elle qui enregistre. */
+    await page.getByRole('button', { name: /^Commencer$/ }).first().click();
+    const zone = page.locator('[data-zone-de-jeu]').first();
+    await zone.waitFor({ state: 'visible', timeout: 30000 });
+
+    /* Une réponse, pour qu'il y ait quelque chose à garder. */
+    const radios = zone.locator('input[type="radio"]:not(:disabled)');
+    const listes = zone.locator('select:not(:disabled)');
+    const propositions = zone.getByRole('button', { name: /^Choisir la proposition / });
+    if (await propositions.count()) await propositions.first().click();
+    else if (await radios.count()) await radios.first().check();
+    else {
+      const combien = await listes.count();
+      for (let i = 0; i < combien; i += 1) await listes.nth(i).selectOption({ index: 1 });
+    }
+    const valider = page.getByRole('button', { name: /^Valider$/ }).first();
+    if (await valider.count()) await valider.click();
+    await page.waitForTimeout(300);
+
+    /* Puis « Arrêter », et la confirmation dit ce qui est gardé. */
+    const arreter = page.getByRole('button', { name: /^← Arrêter$/ }).first();
+    await arreter.waitFor({ state: 'visible', timeout: 15000 });
+    await arreter.click();
+    await attendreLaBoite(page);
+    const texte = await page.locator('dialog.boite[open]').innerText();
+    vrai(
+      `${cas.nom} — la confirmation dit que les réponses sont gardées`,
+      /gardée|gardées/.test(texte),
+    );
+    await repondreALaBoite(page, 'Arrêter');
+
+    await page
+      .locator('h2', { hasText: 'Bilan de la session' })
+      .first()
+      .waitFor({ state: 'visible', timeout: 20000 });
+
+    const apres = await sessionsDe();
+    const clef = cas.nom === 'Raisonnement' ? 'relationnel' : 'vmSessions';
+
+    /*
+       Arrêter enregistre exactement une session : c'est la décision 2 —
+       les réponses déjà données sont gardées, et une seule fois.
+    */
+    if (clef in avant && clef in apres) {
+      v(`${cas.nom} — exactement une session de plus`, apres[clef] - avant[clef], 1);
+    } else {
+      vrai(`${cas.nom} — le magasin « ${clef} » a pu être lu`, false);
+    }
+    /*
+       Raisonnement enregistre une session ; Correspondance aussi, dans
+       « vmSessions ». Exactement UNE de plus : c'est le double comptage que
+       le verrou de `terminer` empêche.
+    */
+    await contexte.close();
+  } catch (erreur) {
+    direPanne(`${cas.nom} · Arrêter`, erreur);
+    await contexte?.close().catch(() => {});
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   P7 (SUITE) — UNE SESSION MENÉE AU BOUT N'EN ENREGISTRE QU'UNE
+   ════════════════════════════════════════════════════════════════════════
+
+   Ce que cet essai mesure, et ce qu'il ne mesure pas — dit ici parce que je
+   me suis trompé dessus.
+
+   Il mène la session à sa dernière question, touche DEUX FOIS « Voir le
+   bilan » sans attendre, et exige une seule session enregistrée. Il passe.
+   Mais il passe AUSSI quand on retire le verrou de `terminer` : mesuré. Le
+   double appel n'est donc pas atteignable au doigt, parce que `terminer` pose
+   « etape = bilan » avant son premier « await » et que le bouton disparaît
+   aussitôt.
+
+   Il reste utile pour ce qu'il dit vraiment : une session complète en
+   enregistre exactement une, et le double clic — geste banal sur un bouton
+   qu'on touche à chaque question — n'en fabrique pas une seconde. Il ne
+   prouve pas le verrou, et ne le prétend pas.
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nP7 (SUITE) — UNE SESSION MENÉE AU BOUT N’EN ENREGISTRE QU’UNE');
+
+{
+  let contexte;
+  try {
+    const ouvert = await ouvrir(TAILLES[1], MODES[0], 'relational-reasoning');
+    contexte = ouvert.contexte;
+    const page = ouvert.page;
+
+    const compter = () =>
+      page.evaluate(
+        () =>
+          new Promise((tenir) => {
+            const r = indexedDB.open('revinsp');
+            r.onsuccess = () => {
+              const base = r.result;
+              if (![...base.objectStoreNames].includes('relationnel')) {
+                tenir(null);
+                return;
+              }
+              const c = base.transaction('relationnel', 'readonly').objectStore('relationnel').count();
+              c.onsuccess = () => tenir(c.result);
+            };
+            r.onerror = () => tenir(null);
+          }),
+      );
+
+    const avant = await compter();
+    vrai('le magasin des sessions est lisible', avant !== null);
+
+    await page.getByRole('button', { name: /^Commencer$/ }).first().click();
+    const zone = page.locator('[data-zone-de-jeu]').first();
+    await zone.waitFor({ state: 'visible', timeout: 30000 });
+
+    /* On répond jusqu'à voir « Voir le bilan », au plus trente tours. */
+    let vu = false;
+    for (let tour = 0; tour < 30 && !vu; tour += 1) {
+      const radios = zone.locator('input[type="radio"]:not(:disabled)');
+      const cases = zone.locator('input[type="checkbox"]:not(:disabled)');
+      const listes = zone.locator('select:not(:disabled)');
+      if (await radios.count()) await radios.first().check();
+      else if (await cases.count()) await cases.first().check();
+      else {
+        const combien = await listes.count();
+        for (let i = 0; i < combien; i += 1) await listes.nth(i).selectOption({ index: 1 });
+      }
+      const valider = page.getByRole('button', { name: /^Valider$/ }).first();
+      if (await valider.count()) await valider.click();
+      await page.waitForTimeout(120);
+
+      const bilan = page.getByRole('button', { name: /^Voir le bilan$/ }).first();
+      if (await bilan.count()) {
+        vu = true;
+        /* Deux clics sans attendre entre les deux. */
+        await Promise.all([bilan.click(), bilan.click({ force: true })]).catch(() => {});
+        break;
+      }
+      const suivante = page.getByRole('button', { name: /^Question suivante$/ }).first();
+      if (await suivante.count()) await suivante.click();
+      await page.waitForTimeout(120);
+    }
+    vrai('la dernière question a été atteinte', vu);
+
+    await page
+      .locator('h2', { hasText: 'Bilan de la session' })
+      .first()
+      .waitFor({ state: 'visible', timeout: 20000 });
+    await page.waitForTimeout(600);
+
+    const apres = await compter();
+    v('une seule session enregistrée malgré les deux clics', apres - avant, 1);
+
+    await contexte.close();
+  } catch (erreur) {
+    direPanne('Raisonnement · double clic', erreur);
     await contexte?.close().catch(() => {});
   }
 }

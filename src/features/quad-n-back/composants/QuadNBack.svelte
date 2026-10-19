@@ -134,6 +134,17 @@
    * à la dizaine de secondes se lit mieux qu'une seconde près — personne ne
    * compte « 36 secondes ».
    */
+  /**
+   * Un pourcentage, par `Intl` et non par `toFixed` ni `Math.round` suivi
+   * d'un « % » posé à la main.
+   *
+   * C'est la règle du format, et elle a une raison ici : `Intl` met l'espace
+   * insécable avant le signe, que « ${x} % » n'a pas, et qu'un retour à la
+   * ligne entre le nombre et le signe rendrait visible.
+   */
+  const pourcent = (part) =>
+    new Intl.NumberFormat('fr-FR', { style: 'percent', maximumFractionDigits: 0 }).format(part);
+
   const dureeDecouverte = (() => {
     const secondes = (DECOUVERTE.epreuves * DECOUVERTE.dureeEpreuve) / 1000;
     if (secondes < 90) {
@@ -1158,19 +1169,31 @@
         Une session abandonnée n'est pas enregistrée.
       </p>
     {:else}
-      <p class="text-5xl">
-        {bilan.taux * 100 >= reglages.progression.seuilMontee
-          ? '🎯'
-          : bilan.taux * 100 >= reglages.progression.seuilDescente
-            ? '👍'
-            : '💪'}
-      </p>
-      <h2 class="mt-3 text-2xl font-bold text-slate-900 dark:text-white">
-        {Math.round(bilan.taux * 100)} % — n = {bilan.n}
+      <!--
+        L'EMOJI SEUL EST REMPLACÉ PAR UNE PHRASE (constat P8).
+
+        🎯 / 👍 / 💪 étaient le seul commentaire du résultat : trois images
+        qu'il fallait deviner, et dont la troisième — le bras musclé pour une
+        partie manquée — ressemble à un encouragement de consolation. La
+        phrase dit la même chose sans rien laisser à interpréter, et sans
+        reproche : l'audit relève justement l'absence de compteur
+        culpabilisant comme une chose à garder.
+      -->
+      <h2 class="text-2xl font-bold text-slate-900 dark:text-white">
+        {pourcent(bilan.taux)} — {bilan.n} tour{bilan.n > 1 ? 's' : ''} en arrière (n = {bilan.n})
       </h2>
-      <p class="mt-1 text-slate-500 dark:text-slate-400">
-        {bilan.reperees}/{bilan.aReperer} correspondance(s) repérée(s) · {bilan.erreurs} erreur(s) · +{compteAvant} XP
+      <p class="mx-auto mt-2 max-w-md text-sm text-slate-600 dark:text-slate-300">
+        Vous avez repéré <strong>{bilan.reperees}</strong>
+        répétition{bilan.reperees > 1 ? 's' : ''} sur <strong>{bilan.aReperer}</strong>,
+        {#if bilan.erreurs > 0}
+          et touché <strong>{bilan.erreurs}</strong> fois quand rien ne se répétait.
+        {:else}
+          sans toucher une seule fois quand rien ne se répétait.
+        {/if}
+        Le pourcentage compte vos bonnes réponses parmi toutes celles qui comptent :
+        touchez seulement quand vous êtes sûr.
       </p>
+      <p class="mt-1 text-xs text-slate-400">+{compteAvant} XP</p>
 
       <div class="mx-auto mt-6 max-w-md space-y-2 text-left">
         {#each Object.entries(bilan.parDimension) as [cle, detail] (cle)}
@@ -1178,21 +1201,37 @@
           <div class="rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm dark:border-slate-800 dark:bg-slate-900">
             <div class="flex items-center justify-between">
               <span class="font-medium text-slate-800 dark:text-slate-100">{libelle}</span>
-              <span class="font-semibold text-slate-500 dark:text-slate-400">{Math.round(detail.taux * 100)} %</span>
+              <span class="font-semibold text-slate-500 dark:text-slate-400">{pourcent(detail.taux)}</span>
             </div>
             <p class="mt-0.5 text-xs text-slate-400">
-              {detail.vraisPositifs} repérée(s) · {detail.oublis} oubli(s) · {detail.fauxPositifs} fausse(s) alerte(s)
+              {detail.vraisPositifs} repérée{detail.vraisPositifs > 1 ? 's' : ''} ·
+              {detail.oublis} oubli{detail.oublis > 1 ? 's' : ''} ·
+              {detail.fauxPositifs} fausse{detail.fauxPositifs > 1 ? 's' : ''}
+              alerte{detail.fauxPositifs > 1 ? 's' : ''}
             </p>
           </div>
         {/each}
       </div>
 
+      <!--
+        LA TROISIÈME LIGNE DIT LA SUITE, et la dit en toutes lettres.
+
+        « ↑ Prochaine session en n = 3 » demandait de savoir ce qu'est n, et de
+        deviner ce que vaut la flèche. Surtout, le cas « niveau inchangé » ne
+        disait pas CE QU'IL FAUDRAIT pour monter : on restait au même niveau
+        sans savoir à quoi il manquait quelque chose.
+      -->
       {#if bilan.decision !== 'stable'}
-        <p class="mt-5 text-sm font-medium {bilan.decision === 'montee' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}">
-          {bilan.decision === 'montee' ? '↑' : '↓'} Prochaine session en n = {bilan.suivant}
+        <p class="mt-5 text-sm font-medium {bilan.decision === 'montee' ? 'text-emerald-700 dark:text-emerald-300' : 'text-amber-700 dark:text-amber-300'}">
+          <span aria-hidden="true">{bilan.decision === 'montee' ? '↑' : '↓'}</span>
+          Vous passez à {bilan.suivant} tour{bilan.suivant > 1 ? 's' : ''} en arrière
+          (n = {bilan.suivant}).
         </p>
       {:else if reglages.progression.active}
-        <p class="mt-5 text-xs text-slate-400">Niveau inchangé : n = {bilan.n}</p>
+        <p class="mt-5 text-sm text-slate-600 dark:text-slate-300">
+          Pour passer à {bilan.n + 1} tour{bilan.n + 1 > 1 ? 's' : ''} en arrière :
+          une partie à {pourcent(reglages.progression.seuilMontee / 100)} ou plus.
+        </p>
       {/if}
     {/if}
 

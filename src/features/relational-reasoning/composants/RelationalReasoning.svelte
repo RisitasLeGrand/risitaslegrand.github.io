@@ -22,6 +22,7 @@
     type SelectionEntrainement,
   } from '../../../lib/db';
   import { tick } from 'svelte';
+  import { confirmer } from '../../../lib/boite';
   import { amenerLaZone } from '../../cog-training/zone-de-jeu';
   import CommentCaMarche from '../../cog-training/composants/CommentCaMarche.svelte';
   import MonEntrainement from '../../cog-training/composants/MonEntrainement.svelte';
@@ -38,6 +39,7 @@
     FAMILLES,
     etatDesMoteurs,
     itemsReussis,
+    echelonDeMoteur,
     prochainPalierSystemes,
     statistiques,
     type Trace,
@@ -78,6 +80,53 @@
   const QUESTIONS_DECOUVERTE = 6;
 
   let decouverte = $state(false);
+
+  /*
+     « terminer » ne s'exécute qu'une fois par session.
+
+     LE PROMPT DEMANDE DE VÉRIFIER QUE RIEN NE COMPTE DEUX FOIS. Vérifié, et
+     la réponse est : aujourd'hui, aucun geste n'y mène. « Arrêter » et le
+     passage de la dernière question appellent tous deux `terminer`, mais
+     celui-ci pose « etape = bilan » AVANT son premier `await` — le bouton
+     disparaît donc avant qu'un second clic puisse l'atteindre. Mesuré en
+     retirant ce verrou et en touchant deux fois « Voir le bilan » sans
+     attendre : une seule session, verrou ou pas.
+
+     Il reste quand même, et ce n'est pas de la superstition : il coûte deux
+     lignes, et il tombera à pic le jour où quelqu'un déplacera le changement
+     d'écran après une écriture. Mais il ne corrige aucun défaut constaté, et
+     je ne le présente pas comme tel.
+  */
+  let terminee = $state(false);
+
+  /**
+   * Les niveaux d'avant la session, par type de question.
+   *
+   * Pris au LANCEMENT, et non calculés après coup : `terminer` ajoute les
+   * nouvelles traces à `traces`, donc après lui il n'existe plus aucun moyen
+   * de savoir d'où l'on partait. Sans cette photo, « vous passez au niveau 3 »
+   * ne serait pas calculable — il faudrait relire la base d'avant, qui n'est
+   * plus là.
+   */
+  let niveauxAvant = $state<Record<string, number>>({});
+
+  /**
+   * Les niveaux qui ont bougé pendant la session.
+   *
+   * Une ligne par changement, et rien quand rien n'a bougé : annoncer
+   * « niveau inchangé » pour sept types de questions remplirait l'écran d'une
+   * information que personne ne cherche.
+   */
+  const montees = $derived.by(() =>
+    Object.entries(niveauxAvant)
+      .map(([id, avant]) => ({
+        nom: nomMoteur(id),
+        avant,
+        apres: echelonDeMoteur(traces, id),
+      }))
+      .filter((ligne) => ligne.apres !== ligne.avant),
+  );
+
 
   /** La consigne, ouverte en boîte pendant la session (P2 du 51). */
   let consigneOuverte = $state(false);
@@ -365,6 +414,13 @@
   }
 
   function lancer(posees: Question[]) {
+    terminee = false;
+    niveauxAvant = Object.fromEntries(
+      [...new Set(posees.map((q) => q.item.moteur))].map((id) => [
+        id,
+        echelonDeMoteur(traces, id),
+      ]),
+    );
     questions = posees;
     rang = 0;
     corrige = false;
@@ -440,6 +496,27 @@
       : [...choixMultiples, index];
   }
 
+  /**
+   * Arrêter la session en cours, en gardant ce qui a été corrigé.
+   *
+   * Décision 2 : les questions déjà corrigées sont gardées. Elles le sont
+   * naturellement — « terminer » enregistre `resultats`, qui ne contient que
+   * les questions validées —, mais il fallait le DIRE : sans la phrase, on
+   * suppose qu'arrêter annule, comme dans Mémoire de travail où l'abandon
+   * n'enregistre rien. Deux exercices voisins qui se comportent autrement sur
+   * le même mot méritent que chacun l'écrive.
+   */
+  async function arreter() {
+    const oui = await confirmer({
+      titre: 'Arrêter la session ?',
+      texte: 'Les questions déjà corrigées sont gardées.',
+      action: 'Arrêter',
+      annuler: 'Continuer',
+    });
+    if (!oui) return;
+    await terminer();
+  }
+
   async function suivant() {
     if (rang + 1 < questions.length) {
       rang += 1;
@@ -454,6 +531,9 @@
   }
 
   async function terminer() {
+    if (terminee) return;
+    terminee = true;
+
     /*
        LA DÉCOUVERTE N'ÉCRIT RIEN, et contrairement à Mémoire de travail cet
        exercice n'avait aucun garde-fou : « terminer » enregistrait la session,
@@ -683,6 +763,11 @@
         {nomMoteur(question.item.moteur)}{question.second ? ' — second temps' : ''}
       </p>
       <div class="flex items-center gap-3">
+        <button
+          type="button"
+          onclick={arreter}
+          class="shrink-0 text-sm text-slate-500 hover:underline dark:text-slate-400"
+        >← Arrêter</button>
         <!--
           Pas de pause ici, et ce n'est pas un oubli : rien ne court dans
           Raisonnement — une question attend sa réponse aussi longtemps qu'il
@@ -961,6 +1046,37 @@
         {reussis} réponse{reussis > 1 ? 's' : ''} exacte{reussis > 1 ? 's' : ''} sur {resultats.length}{#if partielles},
         et {partielles} partiellement juste{partielles > 1 ? 's' : ''}{/if}.
         {#if xpGagne}<span class="font-medium text-indigo-700 dark:text-indigo-300">+{xpGagne} XP.</span>{/if}
+      </p>
+    {/if}
+
+    <!--
+      LES DEUX LIGNES QUI MANQUAIENT (constat P8) : ce qui progresse, et la
+      suite.
+
+      Le bilan disait combien de réponses étaient exactes, puis listait les
+      items à revoir. Entre les deux, rien : ni les niveaux qui venaient de
+      bouger — l'information que la session produit — ni ce qu'il reste à
+      faire pour ouvrir le palier suivant. Il fallait retourner à l'écran de
+      réglages et comparer de tête.
+    -->
+    {#if !decouverte && montees.length}
+      <h3 class="mt-6 text-sm font-semibold text-slate-900 dark:text-white">Ce qui a bougé</h3>
+      <ul class="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-300">
+        {#each montees as ligne (ligne.nom)}
+          <li>
+            {ligne.nom} : vous
+            {ligne.apres > ligne.avant ? 'passez' : 'redescendez'} au niveau
+            <strong>{ligne.apres}</strong>.
+          </li>
+        {/each}
+      </ul>
+    {/if}
+
+    {#if !decouverte && palier}
+      <p class="mt-4 text-sm text-slate-600 dark:text-slate-300">
+        Prochaine étape : encore <strong>{palier.reste}</strong>
+        question{palier.reste > 1 ? 's' : ''} réussie{palier.reste > 1 ? 's' : ''}
+        pour ouvrir « {palier.palier.nom} ».
       </p>
     {/if}
 
