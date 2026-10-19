@@ -15,7 +15,7 @@ code », comme la règle C6 du 39 le demande.
 |---|---|---|
 | **C1** une seule boîte | **déjà fait** | `git grep -E '(window\.)?(confirm\|alert\|prompt)\('` sur `src/` ne rend que `boite.ts` (la boîte elle-même), `installation.ts` (`garde.prompt()`, l'API d'installation d'une application web, pas un dialogue), `coffre/bascule.astro:239` — **celui que l'interdit 1 exclut** — et deux commentaires. *Lu dans le code.* |
 | **C2** les deux `prompt()` | **moitié** | Celui des appareils est réservé au constructeur. Celui du profil n'est plus natif mais demande toujours **du JSON** : « Forme attendue : {"cognition": 10} ». *Lu dans le code.* |
-| **C3** quitter l'épreuve | **deux issues sur trois** | Le lot 1 a écrit en commentaire que « Garder pour plus tard » est une **fonction** et non un habillage : il faudrait enregistrer une épreuve inachevée, ce qu'aucun magasin ne sait faire. *Lu dans le code, et confirmé.* |
+| **C3** quitter l'épreuve | **fait** | Le lot 1 a écrit en commentaire que « Garder pour plus tard » est une **fonction** et non un habillage : il faudrait enregistrer une épreuve inachevée, ce qu'aucun magasin ne sait faire. *Lu dans le code, et confirmé.* |
 | **C4** les erreurs hors bulle | **fait** | `ui.ts` : la bulle dure **2 600 ms** là où le 43 en veut 5 000 au moins, et se place à `bottom-20 sm:bottom-4` plutôt que sur `--sur-bas`. *Lu dans le code.* |
 | **D1** étiquettes visibles | **fait** | voir § 2 |
 | **D2** erreurs reliées au champ | **fait** | voir § 2 |
@@ -105,6 +105,48 @@ Enfin sa place. `bottom-20` valait 80 px, soit la barre du bas plus une marge,
 bulle finissait dessous, là où le doigt appartient au système. La classe
 calcule désormais la barre, l'encoche (`--sur-bas`) et la marge.
 
+### C3 — « Garder pour plus tard », et l'épreuve qu'on retrouve telle quelle
+
+Quitter une épreuve commencée perdait les trente à quarante-cinq réponses déjà
+données : la question était « rester, ou tout perdre ». Le lot 1 avait posé la
+fenêtre à deux issues et écrit pourquoi la troisième manquait — ce n'est pas un
+habillage mais une fonction, et aucun magasin ne savait garder une épreuve
+inachevée. **Schéma 41**, magasin `epreuveDgfipEnCours`, un enregistrement de
+clé fixe, des identifiants de questions et non les énoncés, hors coffre comme
+`qcmSessions` — vérifié dans `MAGASINS_SCELLES` plutôt que supposé.
+
+**Non journalisé**, avec son motif à côté de la déclaration : un brouillon
+existe pour être consommé ou jeté, le journal est un registre qui ne s'élague
+pas. Trois chemins d'effacement, et aucun ne laisse rien : l'épreuve terminée
+le consomme, l'abandon l'efface, le groupe `qcm-dgfip` l'emporte.
+
+**La reprise refuse plutôt que de recomposer.** Si la banque a changé,
+recomposer une épreuve différente sous le même nom donnerait une note sur un
+sujet que la personne n'a pas commencé. Le bloc le dit sans le mot « erreur »,
+propose d'en lancer une neuve, et efface le brouillon — le garder reviendrait à
+reposer la même question à chaque visite.
+
+*Trouvé en écrivant, et absent de ma description au pilote* : l'ordre des
+propositions de chaque question, tiré au sort à la composition. Sans lui, la
+reprise les remélangerait — mêmes questions, autre écran, et des cases cochées
+qui sembleraient avoir bougé toutes seules.
+
+**Une boîte à plusieurs issues.** « Quitter l'épreuve ? » n'est pas une
+question à deux réponses, et `confirmer` n'en sait poser que deux.
+`choisirUneIssue` en pose autant qu'il en faut, avec les mêmes règles —
+« Annuler » à gauche et au focus, une destructrice qui n'est pas un bouton de
+soumission, de sorte que **la touche Entrée ne peut jamais abandonner une
+épreuve**.
+
+**L'essai se bâtit un laboratoire**, et c'est le point de méthode de ce lot.
+L'écran du QCM ne s'ouvre que si la banque existe ; ce conteneur n'en porte
+aucune, et le contenu est chiffré avec la clé du site, de sorte qu'aucune
+banque de contrebande ne peut être servie par le réseau. Le dépôt avait déjà la
+réponse : un `content/` tiré de `content-exemple/`, une banque synthétique de
+quatre questions, un mot de passe factice, un arbre de travail séparé, et tout
+effacé derrière. L'essai **refuse de démarrer si `content/` existe** ; il est
+inscrit à `EN_LABORATOIRE`.
+
 ---
 
 ## 3. Ce qui est listé sans être touché, et par quel interdit
@@ -117,6 +159,26 @@ calcule désormais la barre, l'encoche (`--sur-bas`) et la marge.
   dépôt grisé pour cause de formulaire incomplet. Le dégriser changerait la
   garde du coffre : l'interdit 1 dit de le **lister** sans y toucher.
 - **Le `window.prompt` de `coffre/bascule.astro`**, que le 43 exclut nommément.
+
+---
+
+### Un rouge qui n'est pas de ce lot
+
+`essais:effacement`, entré au socle avec la fusion de `main`, rend **trois
+rouges** : le magasin `odysseeCreneaux` n'est déclaré ni dans un groupe de
+sauvegarde, ni dans la table des dates. Vérifié en mettant les changements de
+ce lot de côté et en relançant l'essai sur `main` seul : les trois y sont déjà.
+Transmis au constructeur, qui le corrige sur `main`.
+
+### Un manquement de ma part
+
+Un `.env.local` portant le mot de passe du site a séjourné à la racine du
+conteneur de 11 h 52 à 20 h 15, alors que la règle est qu'il n'existe que le
+temps d'une construction. Il n'a jamais été commité — vérifié sur tout
+l'historique, pas seulement sur l'état courant — et jamais affiché. Effacé,
+absence vérifiée ; les constructions suivantes le créent et le suppriment
+**dans la même commande**, ce qui est la seule forme qui ne dépend pas de ma
+vigilance.
 
 ---
 
