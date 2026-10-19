@@ -73,23 +73,43 @@ await page.waitForFunction(
 await page.selectOption('#quiz-matiere', 'Économie');
 await page.waitForTimeout(800);
 await page.locator('#lancer-quiz').click();
-await page.waitForTimeout(2500);
+/*
+   Attendre la condition, et non un délai. Le 19 octobre, dans une batterie
+   complète, cet essai est tombé ici : 2500 ms d’attente fixe, aucune option à
+   l’écran, la boucle sortie au premier tour, et un « obtenu [] » trois lignes
+   plus bas. Dix lancements à la suite sur la même machine ont ensuite donné
+   814 à 829 ms, et 1300 ms sous seize fils de charge sur quatre cœurs : la
+   cause de ce dépassement n’est pas établie. Ce qui est établi, c’est que le
+   délai fixe n’était pas le sujet de l’essai — l’apparition des options, si.
+   Elle est donc exigée, au lieu d’être espérée.
+*/
+await page.locator('#quiz-options button').first().waitFor({ state: 'visible', timeout: 30000 });
+let repondues = 0;
 for (let i = 0; i < 6; i += 1) {
   const option = page.locator('#quiz-options button').first();
+  // Le quiz peut finir avant six questions : cette sortie-là est légitime.
   if (!(await option.isVisible().catch(() => false))) break;
   await option.click();
+  repondues += 1;
   await page.waitForTimeout(700);
   const suivant = page.locator('#quiz-suivant');
   if (await suivant.isVisible().catch(() => false)) await suivant.click();
   await page.waitForTimeout(700);
 }
 let competences = await lire('competences');
+/*
+   Dit avant les trois suivantes : sans réponse donnée, aucune des trois ne
+   mesure quoi que ce soit, et `matiere` plus bas vaudrait `undefined`. L’essai
+   tombait alors sur un TypeError, qui ne nomme pas ce qui a manqué.
+*/
+v('des questions ont été répondues', repondues > 0, true);
 const portees = new Set(competences.map((c) => c.portee));
 v('les trois portées sont alimentées', [...portees].sort(), ['fascicule', 'fiche', 'matiere']);
 v('des difficultés d’items sont estimées', (await lire('difficultes')).length > 0, true);
 const matiere = competences.find((c) => c.portee === 'matiere');
-v('la note a bougé depuis 1200', matiere.note !== 1200, true);
-v('les observations sont comptées', matiere.observations > 0, true);
+// `matiere?.note !== 1200` serait VRAI sur une base vide : le sabotage l’a montré.
+v('la note a bougé depuis 1200', typeof matiere?.note === 'number' && matiere.note !== 1200, true);
+v('les observations sont comptées', (matiere?.observations ?? 0) > 0, true);
 
 console.log('\nLE TABLEAU DE BORD RESTE PRUDENT');
 await page.goto('http://localhost:4321/statistiques', { waitUntil: 'networkidle' });
