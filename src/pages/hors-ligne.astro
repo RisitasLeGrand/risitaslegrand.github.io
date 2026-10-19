@@ -1,0 +1,120 @@
+---
+/**
+ * « Hors ligne » — la page servie quand le réseau manque (B3 du prompt 43).
+ *
+ * ## Ce qu'elle remplace
+ *
+ * Sans elle, une navigation qui échoue hors ligne rendait `Response.error()`,
+ * donc la page d'erreur du navigateur : « Vous n'êtes pas connecté à
+ * Internet », en dehors de Cyclades, sans dire ce qui reste possible — alors
+ * qu'il reste beaucoup, puisque la base et les fiches gardées sont locales.
+ *
+ * ## Hors du verrou, et c'est la condition pour qu'elle serve
+ *
+ * Le verrou vérifie le mot de passe contre `data/cle.json`, et le *service
+ * worker* ne met **jamais** ce fichier en cache — c'est lui qui porte la
+ * version de publication, et le cacher reviendrait à mémoriser la preuve de
+ * sa propre fraîcheur. Hors ligne, le verrou ne peut donc rien vérifier : une
+ * page hors ligne derrière le verrou serait une page qu'on ne peut pas lire
+ * au moment précis où elle sert.
+ *
+ * Elle ne porte donc aucune donnée — rien que des explications —, et cela
+ * doit le rester.
+ *
+ * ## Qui l'affiche
+ *
+ * Le *service worker* la garde dès que la page lui annonce la publication, et
+ * la sert en dernier recours quand une navigation échoue et que rien de
+ * l'adresse demandée n'est en cache. L'adresse de la barre reste celle qu'on
+ * demandait : « Réessayer » recharge donc bien l'écran voulu, et non celui-ci.
+ */
+import Base from '../layouts/Base.astro';
+import { base } from '../lib/ui';
+---
+
+<Base titre="Hors ligne" sansVerrou entete="leger">
+  <h1 class="mb-2 text-2xl font-bold text-slate-900 dark:text-white">Hors ligne</h1>
+  <p class="mb-6 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+    Cet écran n’a pas pu être chargé : le réseau ne répond pas, et il n’était pas gardé sur
+    cet appareil. Rien n’est perdu — tout ce qui est enregistré l’est localement, et le
+    restera.
+  </p>
+
+  <p class="mb-6 flex flex-wrap gap-2">
+    <button
+      id="reessayer"
+      type="button"
+      class="cible-tactile inline-flex items-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+      >Réessayer</button
+    >
+    <a
+      href={`${base}/`}
+      class="cible-tactile inline-flex items-center rounded-lg border border-slate-300 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+      >Retour à l’accueil</a
+    >
+  </p>
+
+  <section
+    class="mb-6 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+  >
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+      Ce qui marche sans réseau
+    </h2>
+    <ul
+      class="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-600 dark:text-slate-300"
+    >
+      <li>
+        <strong>Les écrans déjà ouverts</strong> dans cet onglet, et les fiches du jour que
+        Cyclades avait gardées à la dernière ouverture en ligne.
+      </li>
+      <li>
+        <strong>Tout ce qui s’enregistre</strong> : révisions, séances, notes, saisies. La
+        base vit sur cet appareil, pas sur un serveur.
+      </li>
+      <li>
+        <strong>Les sauvegardes</strong> : un fichier de sauvegarde se fabrique et se relit
+        hors ligne, puisque rien n’est envoyé nulle part.
+      </li>
+    </ul>
+  </section>
+
+  <section
+    class="mb-6 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+  >
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Ce qui attend le réseau</h2>
+    <ul
+      class="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-600 dark:text-slate-300"
+    >
+      <li>
+        <strong>Les fiches non gardées</strong>, les podcasts et les actualités : leurs
+        fichiers chiffrés se téléchargent à la demande.
+      </li>
+      <li>
+        <strong>Le premier déverrouillage</strong> sur cet appareil. Le mot de passe se
+        vérifie contre un fichier de la publication, qui n’est jamais mis en cache.
+      </li>
+      <li>
+        <strong>La synchronisation entre appareils</strong>, qui a besoin des deux appareils
+        en même temps.
+      </li>
+    </ul>
+  </section>
+
+  <p class="text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+    Dès que le réseau revient, « Réessayer » recharge l’écran demandé ; rien n’est à refaire.
+  </p>
+</Base>
+
+<script>
+  /*
+     Recharger l'adresse demandée, et non celle de cette page : le service
+     worker a servi ce document EN PLACE de l'écran voulu, dont l'adresse est
+     restée dans la barre. « location.reload() » retente donc exactement ce
+     qui a échoué.
+
+     Un bouton et non un lien : sa cible est l'adresse courante, qu'aucun
+     attribut ne peut nommer à la construction. Qui arrive ici sans
+     JavaScript garde le lien vers l'accueil, qui est à côté.
+  */
+  document.getElementById('reessayer')?.addEventListener('click', () => location.reload());
+</script>

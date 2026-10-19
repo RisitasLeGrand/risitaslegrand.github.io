@@ -30,6 +30,11 @@
  *    de conserver une fiche : seule la page sait lesquelles sont au programme
  *    du jour, et remplir le cache de tout ce qui passe le rendrait
  *    impossible à borner.
+ * 4. **Une seule page est gardée par le worker lui-même** : « /hors-ligne/ »,
+ *    au moment de l'annonce de publication, parce qu'elle doit être là
+ *    précisément quand plus rien ne répond. Elle ne porte aucune donnée — ni
+ *    chiffrée, ni en clair —, donc la garder ne crée pas le risque que la
+ *    règle 1 écarte : seulement un texte qui dit ce qui marche sans réseau.
  *
  * Il ne synchronise pas, et ne peut pas : « RTCPeerConnection » n'existe pas
  * ici. Il n'y a pas non plus de PUSH — Cyclades n'a pas de serveur pour en
@@ -99,6 +104,35 @@ const estDeLaCoquille = (url) =>
 const estLaCle = (url) => url.pathname.endsWith('/cle.json');
 
 /**
+ * L'adresse de la page « Hors ligne », dans la portée de ce worker.
+ *
+ * Elle est CALCULÉE depuis la portée et non écrite en dur : le site est servi
+ * sous une base — sur GitHub Pages, le nom du dépôt —, et un chemin absolu
+ * recopié ici serait juste en local et faux en ligne.
+ */
+const CHEMIN_HORS_LIGNE = new URL('hors-ligne/', self.registration.scope).href;
+
+/**
+ * Garder la page « Hors ligne », pour pouvoir la servir quand rien ne répond.
+ *
+ * Elle est gardée au moment où la page annonce sa publication, parce que
+ * c'est le seul moment où le worker a le droit de cacher quoi que ce soit :
+ * avant, le cache n'aurait pas de nom, donc rien ne saurait l'invalider.
+ *
+ * L'échec est silencieux. Ne pas réussir à garder cette page n'est pas une
+ * panne : c'est la page d'erreur du navigateur qui reprendra sa place, comme
+ * avant qu'elle existe.
+ */
+async function garderLaPageHorsLigne(nom) {
+  try {
+    const cache = await caches.open(nom);
+    await cache.add(new Request(CHEMIN_HORS_LIGNE, { cache: 'no-cache' }));
+  } catch {
+    /* Hors ligne au moment de l'annonce, quota plein : on n'insiste pas. */
+  }
+}
+
+/**
  * Répondre depuis le réseau, et garder la copie.
  *
  * Les erreurs sont avalées : un cache qui échoue à écrire ne doit pas faire
@@ -148,9 +182,19 @@ async function repondre(evenement, requete, url) {
   if (requete.mode === 'navigate') {
     return reseauPuisCache(requete, nom).catch(async () => {
       const cache = await caches.open(nom);
+      /*
+         B3 DU 43 — EN DERNIER RECOURS, LA PAGE « HORS LIGNE ».
+
+         `Response.error()` rendait la page d'erreur du navigateur : « Vous
+         n'êtes pas connecté à Internet », hors de Cyclades, sans dire ce qui
+         reste possible — alors qu'il reste la base, les fiches gardées et les
+         sauvegardes, qui sont toutes locales. Elle ne reste le dernier mot
+         que si la page hors ligne elle-même n'a pas pu être gardée.
+      */
       return (
         (await cache.match(requete)) ??
         (await cache.match(requete, { ignoreSearch: true })) ??
+        (await cache.match(CHEMIN_HORS_LIGNE)) ??
         Response.error()
       );
     });
@@ -205,7 +249,13 @@ self.addEventListener('message', (evenement) => {
   */
   if (message?.genre === 'cyclades:publication') {
     publication = typeof message.version === 'string' ? message.version : null;
-    evenement.waitUntil(purgerLesAutres());
+    evenement.waitUntil(
+      (async () => {
+        await purgerLesAutres();
+        const nom = nomDuCache();
+        if (nom) await garderLaPageHorsLigne(nom);
+      })(),
+    );
     return;
   }
 

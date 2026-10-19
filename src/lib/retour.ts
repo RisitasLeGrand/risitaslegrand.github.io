@@ -81,6 +81,16 @@ export function parentLogique(chemin: string): string | null {
   const c = normaliser(chemin);
   if (c === '/') return null;
 
+  /*
+     Les deux écrans qui n'appartiennent à aucune branche et ne figurent à
+     aucun menu : une adresse inconnue, et la page servie hors ligne. Ils ne
+     sont pas déclarés au registre — les y mettre les ferait paraître dans la
+     navigation, où ils n'ont rien à faire —, donc le repli par préfixe les
+     rangerait dans Révisions et la flèche dirait « Revenir à Révisions »
+     depuis une adresse qui n'en fait pas partie. Leur parent est l'accueil.
+  */
+  if (c === '/404/' || c === '/hors-ligne/') return '/';
+
   // Un écran commun — profil, appareils, stockage… — remonte au menu : il
   // n'appartient à aucune branche, c'est sa définition.
   if (ECRANS_COMMUNS.some((o) => normaliser(o.chemin) === c)) return '/';

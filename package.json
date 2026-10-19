@@ -275,7 +275,8 @@
     "essais:sauvegarde-confirmee": "tsx scripts/essais-sauvegarde-confirmee.mts",
     "essais:persistance": "tsx scripts/essais-persistance.mts",
     "essais:effacements-dits": "tsx scripts/essais-effacements-dits.mts",
-    "essais:base-concurrente": "tsx scripts/essais-base-concurrente.mts"
+    "essais:base-concurrente": "tsx scripts/essais-base-concurrente.mts",
+    "essais:404-hors-ligne": "tsx scripts/essais-404-hors-ligne.mts"
   },
   "repository": {
     "type": "git",

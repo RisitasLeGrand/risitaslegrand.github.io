@@ -1,0 +1,94 @@
+---
+/**
+ * « Page introuvable » — l'adresse qui ne mène nulle part (B3 du prompt 43).
+ *
+ * ## Pourquoi cette page existe
+ *
+ * Sans elle, GitHub Pages sert sa propre page d'erreur : un « 404 » en
+ * anglais, sur fond blanc, sans Cyclades autour et sans aucune sortie. Pour
+ * quelqu'un qui a suivi un vieux favori, le site paraît simplement cassé.
+ *
+ * Elle est **hors du verrou**, comme « Mot de passe perdu », et pour la même
+ * raison : demander un mot de passe avant d'annoncer qu'une adresse n'existe
+ * pas ne protège rien et égare tout le monde. Elle ne porte donc aucune
+ * donnée, seulement des explications et des liens — et cela doit le rester.
+ *
+ * ## L'en-tête léger, et pas le ruban
+ *
+ * Le ruban d'onglets appartient à une branche, et une adresse inconnue n'en a
+ * pas : par défaut, elle tomberait dans Révisions, et la page afficherait une
+ * navigation qui n'a rien à voir avec ce qu'on cherchait. L'en-tête léger
+ * porte le titre, le thème, le verrou et la flèche de retour — qui remonte à
+ * l'accueil, puisque `parentLogique` range cette page hors des branches.
+ */
+import Base from '../layouts/Base.astro';
+import { base } from '../lib/ui';
+---
+
+<Base titre="Page introuvable" sansVerrou entete="leger">
+  <h1 class="mb-2 text-2xl font-bold text-slate-900 dark:text-white">Page introuvable</h1>
+  <p class="mb-6 max-w-2xl text-sm leading-relaxed text-slate-600 dark:text-slate-300">
+    Cette adresse ne correspond à aucun écran de Cyclades. Rien n’est perdu et rien n’a
+    changé : c’est l’adresse qui ne mène nulle part.
+  </p>
+
+  <section
+    class="mb-6 rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900"
+  >
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
+      Les trois causes habituelles
+    </h2>
+    <ul
+      class="mt-2 list-disc space-y-2 pl-5 text-sm leading-relaxed text-slate-600 dark:text-slate-300"
+    >
+      <li>
+        <strong>Un favori d’une version précédente.</strong> Des écrans ont été renommés ou
+        déplacés dans une branche ; l’ancien chemin ne répond plus.
+      </li>
+      <li>
+        <strong>Une adresse recopiée en partie</strong>, coupée par un retour à la ligne dans
+        un message ou une note.
+      </li>
+      <li>
+        <strong>Une fiche qui n’est plus publiée.</strong> Le contenu est reconstruit à chaque
+        publication : une fiche retirée du dossier des fiches disparaît du site.
+      </li>
+    </ul>
+  </section>
+
+  <section
+    class="mb-6 rounded-2xl border border-indigo-200 bg-indigo-50 p-5 dark:border-indigo-900 dark:bg-indigo-950/30"
+  >
+    <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Où aller</h2>
+    <p class="mt-1 text-sm leading-relaxed text-slate-700 dark:text-slate-200">
+      La flèche en haut à gauche revient à l’écran précédent. Sinon :
+    </p>
+    <ul class="mt-3 flex flex-wrap gap-2">
+      <li>
+        <a
+          href={`${base}/`}
+          class="cible-tactile inline-flex items-center rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+          >Retour à l’accueil</a
+        >
+      </li>
+      <li>
+        <a
+          href={`${base}/recherche/`}
+          class="cible-tactile inline-flex items-center rounded-lg border border-slate-300 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          >Chercher une fiche</a
+        >
+      </li>
+      <li>
+        <a
+          href={`${base}/bibliotheque/`}
+          class="cible-tactile inline-flex items-center rounded-lg border border-slate-300 px-4 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+          >Parcourir la bibliothèque</a
+        >
+      </li>
+    </ul>
+    <p class="mt-3 text-xs leading-relaxed text-slate-600 dark:text-slate-300">
+      Ces deux derniers écrans demandent le mot de passe du site : ils affichent du contenu
+      chiffré.
+    </p>
+  </section>
+</Base>
