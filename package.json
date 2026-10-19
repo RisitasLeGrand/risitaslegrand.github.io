@@ -68,6 +68,8 @@
     "essais:simulateur": "tsx scripts/essais-simulateur.mts",
     "essais:effacement:navigateur": "node scripts/essais-effacement-navigateur.mjs",
     "essais:reglages-sans-coffre": "tsx scripts/essais-reglages-sans-coffre.mjs",
+    "essais:effacement-total": "node scripts/essais-effacement-total.mjs",
+    "essais:cle-disparue": "node scripts/essais-cle-disparue.mjs",
     "essais:correctifs": "node scripts/essais-correctifs.mjs",
     "essais:veridical": "tsx scripts/essais-veridical.mts",
     "contrastes": "node scripts/verifier-contrastes.mjs",
@@ -286,7 +288,8 @@
     "essais:persistance": "tsx scripts/essais-persistance.mts",
     "essais:effacements-dits": "tsx scripts/essais-effacements-dits.mts",
     "essais:base-concurrente": "tsx scripts/essais-base-concurrente.mts",
-    "essais:404-hors-ligne": "tsx scripts/essais-404-hors-ligne.mts"
+    "essais:404-hors-ligne": "tsx scripts/essais-404-hors-ligne.mts",
+    "essais:fusion-interrompue": "node scripts/essais-fusion-interrompue.mjs"
   },
   "repository": {
     "type": "git",

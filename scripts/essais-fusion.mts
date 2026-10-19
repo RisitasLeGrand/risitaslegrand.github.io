@@ -285,6 +285,72 @@ propriete(
 );
 
 /* ══════════════════════════════════════════════════════════════════════════
+   La pierre tombale d'un réglage effacé — A7 du 58
+   ══════════════════════════════════════════════════════════════════════════ */
+
+console.log('\nPierre tombale : un réglage effacé ne revient pas');
+
+/*
+ * L'effacement CIBLÉ se propage, et son écran le dit. Sans pierre tombale, il
+ * ne se propageait pas : le registre versionné est fusionné champ par champ,
+ * un champ absent chez l'un se prend chez l'autre, et le profil effacé
+ * revenait à la première synchronisation avec sa valeur et son horloge.
+ *
+ * Les deux appareils sont simulés par leurs deux états, et la fusion est
+ * appelée des DEUX CÔTÉS : un effacement qui ne se propagerait que dans un
+ * sens laisserait les deux appareils en désaccord permanent.
+ */
+const sansOperations = { operations: [] as Operation[] };
+
+/** A a effacé le profil ; B le porte encore, avec une horloge antérieure. */
+const aEfface = {
+  ...sansOperations,
+  reglages: {
+    profil: { valeur: null, hlc: '0000000000002-0000-A', appareil: 'A', efface: true as const },
+  },
+};
+const bLePorte = {
+  ...sansOperations,
+  reglages: {
+    profil: { valeur: { prenom: 'Essai' }, hlc: '0000000000001-0000-B', appareil: 'B' },
+  },
+};
+
+const vuDeA = fusionner(aEfface, bLePorte).etat.reglages.profil;
+const vuDeB = fusionner(bLePorte, aEfface).etat.reglages.profil;
+v('vu de A, la pierre tombale tient', vuDeA?.efface, true);
+v('vu de B, la pierre tombale gagne aussi', vuDeB?.efface, true);
+v('et les deux appareils voient la même chose', JSON.stringify(vuDeA), JSON.stringify(vuDeB));
+v(
+  'B apprend que le champ a changé, donc il l’applique',
+  fusionner(bLePorte, aEfface).reglagesChanges,
+  ['profil'],
+);
+
+/*
+ * Le cas symétrique, qui compte autant : la personne a REMIS un réglage après
+ * l'effacement. La valeur est alors plus récente que la pierre tombale, et
+ * c'est elle qui doit gagner — sinon un effacement d'hier empêcherait d'écrire
+ * aujourd'hui, pour toujours.
+ */
+const bLARemis = {
+  ...sansOperations,
+  reglages: {
+    profil: { valeur: { prenom: 'Remis' }, hlc: '0000000000003-0000-B', appareil: 'B' },
+  },
+};
+const apresRemise = fusionner(aEfface, bLARemis).etat.reglages.profil;
+v('un réglage remis après l’effacement gagne', apresRemise?.efface, undefined);
+v('et c’est bien la valeur remise', (apresRemise?.valeur as { prenom?: string })?.prenom, 'Remis');
+
+/*
+ * Et le garde-fou : une pierre tombale ne porte jamais de valeur. En laisser
+ * une passer ferait voyager en clair le réglage qu'on vient d'effacer — c'est
+ * tout l'inverse du but.
+ */
+v('une pierre tombale ne transporte aucune valeur', vuDeA?.valeur, null);
+
+/* ══════════════════════════════════════════════════════════════════════════
    Conflits
    ══════════════════════════════════════════════════════════════════════════ */
 

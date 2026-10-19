@@ -215,3 +215,189 @@ réussie n'est notée qu'à la confirmation, pour la même raison.
 manquait. Rouge avant le correctif : aucune boîte ne s'ouvrait, et les onze
 enregistrements partaient sans qu'on ait pu dire que le fichier n'était pas
 là.
+
+## Avancement — A7 et G-2, livrés le 19 octobre
+
+**Les quatre endroits.** « Tout effacer » ne vidait que les magasins de la
+base `revinsp`. Sonde du 19 octobre, devenue essai : `localStorage` intact,
+Cache Storage intact, les autres bases IndexedDB intactes — alors que la
+phrase de confirmation annonçait « les réglages enregistrés dans ce
+navigateur ». Désormais partent aussi les deux stockages de l'onglet, les
+caches de la coquille hors ligne, `revinsp-instantanes` (qui garde une copie
+complète de la base) et `cyclades-cles`.
+
+L'essai a **deux moitiés**, parce qu'un effacement se trompe de deux façons.
+Ne pas assez effacer, c'est le défaut corrigé. Trop effacer, en emportant ce
+qui n'est pas à nous, en serait un autre : un témoin étranger est donc posé à
+côté de chaque témoin à nous, et il doit survivre. Il survit.
+
+**Les libellés disent la portée.** « Effacer ma progression » annonçait moins
+que ce qui part, et « Réinitialiser » ne disait rien. Le bouton et le titre
+s'appellent maintenant « Tout effacer sur cet appareil ». La phrase nomme les
+quatre endroits, et l'écran annonce ensuite le compte de chacun.
+
+**G-2 : la boîte dit ce qui NE part pas.** Si l'appareil est appairé, elle
+dit que les autres appareils liés gardent leurs données et que la première
+synchronisation renverra ici ce qui vient d'être effacé. C'est là qu'une
+personne se trompe, et le dire après coup serait inutile.
+
+**Délier est un geste séparé**, et il ne s'offre que s'il a un sens : le
+bouton reste caché quand aucun appairage n'est mémorisé. Proposer de couper
+un lien qui n'existe pas ferait croire qu'il existe. Délier n'efface rien, ni
+ici ni ailleurs, et l'écran le dit.
+
+**La pierre tombale, et l'essai à deux appareils.** L'effacement ciblé pose
+une marque d'effacement sur l'entrée du registre versionné, horodatée comme
+une écriture. Elle gagne par l'horloge, donc l'autre appareil supprime la clé
+à son tour. À l'application, elle **supprime la clé** au lieu d'écrire
+`null` : un profil absent se réinitialise, un profil `null` casse la lecture.
+
+L'essai de fusion appelle le moteur **des deux côtés** — un effacement qui ne
+se propagerait que dans un sens laisserait les deux appareils en désaccord
+permanent — et vérifie le cas symétrique : un réglage **remis** après
+l'effacement gagne, sinon un effacement d'hier empêcherait d'écrire
+aujourd'hui, pour toujours.
+
+**Ce que je n'ai pas obtenu, et je le dis.** L'essai de fusion ne rougit pas
+avant le correctif : le moteur transporte déjà les champs qu'il ne connaît
+pas, donc la règle de propagation passait « par accident ». Ce qui manquait
+était le type et, surtout, l'application — écrire au lieu de supprimer. C'est
+l'essai de navigateur qui porte le rouge : avant, l'entrée du registre était
+simplement retirée, et l'essai constate maintenant la marque, l'absence de
+valeur et l'horloge qui a avancé.
+
+**Et l'écran de l'effacement ciblé dit qu'il se propage.** C'est l'écart le
+plus utile entre les deux effacements, et il n'était écrit nulle part : une
+personne qui veut retirer une donnée de partout doit passer par l'effacement
+ciblé, et non par le bouton qui semble plus radical.
+
+## Avancement — le coffre sans clé, livré le 19 octobre
+
+Le second constat tranché par le pilote. Ce n'est pas un des huit points :
+c'est l'anomalie que B-3 a révélée en passant, et qui n'était dans aucun
+prompt. Le correctif de B-3 empêche désormais d'arriver là par un
+effacement ciblé ; il reste tous les autres chemins — un nettoyage de site
+par le navigateur, un effacement manuel, une base en partie perdue.
+
+**Le mécanisme réel, et il est plus grave que ce que j'avais écrit.** Je
+disais « la personne n'a aucun message ». C'est exact, mais ce n'est pas le
+pire. `selLocal()` **crée un sel neuf** quand il n'en trouve aucun. Donc le
+premier mot de passe tapé après la disparition ne produisait pas une erreur :
+il créait un coffre **par-dessus** des données devenues illisibles, en
+silence, et avec l'air d'avoir réussi. Les enregistrements scellés restaient
+là, définitivement muets, au milieu de données neuves.
+
+**Le constat, et pourquoi trois conditions.** Le signal paraît si, et
+seulement si : des enregistrements scellés existent en base, **et** aucune
+enveloppe n'est posée, **et** aucun sel valide n'est présent. Aucune ne
+suffit seule. Un sel absent sur une base vierge, c'est le cas de tous les
+premiers jours ; des scellés sans enveloppe, c'est le cas normal d'un coffre
+mémorisé par mot de passe. C'est la conjonction qui ne peut pas arriver sans
+perte.
+
+**Où il est écrit : dans le formulaire partagé, une fois.** Les neuf écrans
+sous coffre passent par `FormulaireCoffre.astro`, donc le signal paraît
+partout d'un coup. Le recopier aurait reproduit l'écart du 14 octobre — six
+pages sur dix sans bouton de fermeture, parce qu'un bloc recopié n'évolue
+jamais partout.
+
+**Ce que l'écran dit, et ce qu'il retire.** Il dit que la clé a disparu,
+qu'**aucun mot de passe ne les rouvrira** — ce n'est pas un mot de passe
+oublié —, combien d'enregistrements sont dans ce cas, et il propose de
+restaurer une sauvegarde. Et il **retire le formulaire d'ouverture** :
+proposer un champ de mot de passe qui ne peut rien ouvrir, et qui en plus
+écrirait par-dessus, était exactement la cruauté de la version d'avant.
+
+**Repartir à zéro reste possible, jamais en silence.** Un bouton le nomme ;
+la confirmation cite le message, donne le même nombre que l'écran, et
+conseille la restauration d'abord. Un refus ne retire rien et ne pose aucun
+sel. L'ouverture du coffre refuse aussi, en amont de la dérivation : la
+fonction qui ouvrait créait le sel, c'est là qu'il fallait arrêter.
+
+**Le rouge d'abord.** L'essai part de la reproduction de B-3 sans le
+correctif, comme le pilote l'a demandé. Contre la version d'avant :
+`waitForSelector: Timeout 30000ms exceeded … locator('#coffre-sans-cle:not(.hidden)')`
+— rien ne paraissait. Quinze contrôles verts après.
+
+**Deux de mes assertions avaient tort, et c'est l'essai qui a cédé.**
+J'attendais un nombre figé ; le nombre réel est celui que la base porte, et
+ouvrir le coffre écrit son propre enregistrement scellé. L'essai dérive donc
+le nombre de la base et vérifie surtout que **l'écran et la confirmation
+disent le même**. Et je lisais le compte avant qu'il soit écrit : il l'est
+après l'affichage du bloc, d'où l'attente.
+
+## Avancement — B-4, livré le 19 octobre
+
+**Le défaut, et pourquoi il ne pouvait pas être réglé comme le prompt
+l'imaginait d'abord.** Le pilote laissait le choix : journal et
+matérialisation dans une seule transaction, **ou** rejeu au démarrage. La
+première branche est fermée, et pour une raison de moteur, pas de goût. La
+matérialisation relit tout le journal avant d'écrire, touche une cinquantaine
+de magasins, et certains de ses enregistrements passent par le coffre — donc
+par du chiffrement, donc par des `await` étrangers. Une transaction IndexedDB
+se referme dès que la boucle d'événements tourne sans requête en attente : un
+`await` qui n'est pas une requête de la transaction la clôt. Les deux ne
+peuvent pas tenir ensemble.
+
+**Ce qui peut être atomique, c'est le journal et la promesse.** La marque est
+donc posée **dans la transaction du journal elle-même** : si les opérations
+sont là, la liste du travail restant est là aussi. Elle porte les cibles à
+matérialiser et les cartes à recalculer, et elle ne tombe qu'après les deux.
+Elle est écrite sans `await` — c'est une requête de cette transaction, et
+l'attendre ferait tourner la boucle avant les deux boucles d'écriture, ce qui
+refermerait la transaction au milieu.
+
+**Le vrai dommage était l'écran, et c'est lui que le 58 visait.** L'empreinte
+d'état ne porte que sur les deux journaux et les réglages versionnés — c'est
+son rôle, et c'est juste. Elle était donc **égale** à celle de l'émetteur dès
+le `tx.done` du journal. L'écran annonçait « les deux appareils sont désormais
+identiques ✓ » alors que les séances, les notes et les mesures n'avaient pas
+été écrites. Désormais, « identiques » exige les deux : l'égalité des
+empreintes **et** l'absence de marque.
+
+**Le commentaire du code était faux, et il est retiré.** Il disait « le
+recalcul suivant rétablira la cohérence depuis ce qui a été écrit ». Aucun
+recalcul ne part tout seul, et un paquet suivant n'apporte plus ces
+opérations : elles sont déjà au journal, donc plus « reçues ». Rien ne
+rétablissait rien.
+
+**Trois chemins de réparation, et aucun n'efface les autres.** La bannière
+« Fusion interrompue : une partie a été reçue » paraît en tête de
+`/appareils/`, avec le compte des rubriques à ranger, le nom de l'appareil
+émetteur, la date, et un bouton « Reconstruire ». La veille d'arrière-plan
+rejoue au démarrage, à l'endroit précis où l'on vient de constater un
+appairage mémorisé **et** un mot de passe en mémoire — donc un coffre ouvert,
+ce dont la matérialisation a besoin. Et une fusion suivante **réunit** le
+reliquat à ses propres cibles : sans cela, une seconde interruption effacerait
+la liste de la première, et plus personne ne saurait quelles cibles manquent.
+
+**Deux listes, et elles ne se confondent pas.** Ce qu'il y a à recalculer
+inclut le reliquat ; ce qui part à l'historique des lots n'est que ce que ce
+lot-ci a apporté. Une annulation ne doit pas défaire les cartes d'une fusion
+d'avant qu'elle n'a fait que finir.
+
+**Une phrase est devenue fausse en route, et elle est corrigée.** L'aperçu
+d'un paquet dont l'empreinte égale la nôtre disait « ce paquet n'apporte rien,
+et le fusionner ne changera rien ». Avec une marque posée, fusionner **finit**
+le travail. L'aperçu le dit maintenant, et renvoie au bouton.
+
+**Le rouge, mesuré.** Contre une construction de `main` sans le correctif :
+`waitForSelector: Timeout 40000ms exceeded … locator('#fusion-interrompue:not(.hidden)')`.
+Vingt-quatre contrôles verts après.
+
+**Ce que l'essai éprouve, et ce qu'il n'éprouve pas.** L'interruption n'est
+pas provoquée en tuant l'onglet au bon millième de seconde : ce serait un
+essai qui passerait une fois sur dix. L'essai **écrit l'état que
+l'interruption laisse** — l'opération au journal, la marque posée, rien dans
+le magasin de domaine — puis mesure l'écran et la réparation. Que la marque
+soit bien posée par la transaction du journal, c'est *lu dans le code* ; ce
+qui est *constaté*, c'est le comportement dans cet état, et le fait qu'une
+vraie fusion de paquet réunit le reliquat au lieu de l'écraser — quatrième
+section de l'essai, à deux appareils et un paquet réel.
+
+**Deux erreurs de ma part, trouvées par l'essai.** Mon bouton reprenait
+l'identifiant `reconstruire`, que la page porte déjà pour « Reconstruire
+depuis le journal » — la réparation complète, qui rejoue tout. `$()` aurait
+rendu le mien et laissé l'autre muet. Et le compte rendu de réussite était
+écrit **dans** la bannière, que la peinture d'état masque aussitôt : le texte
+était juste, et invisible. Il est sorti de la bannière.

@@ -232,6 +232,25 @@ import LienReglages from '../components/LienReglages.astro';
         partirait : un effacement est la seule opération du site qui soit
         définitive sans recours.
       </p>
+      {/*
+         A7 DU 58 — DIRE QUE L'EFFACEMENT CIBLÉ SE PROPAGE.
+
+         C'est l'écart le plus utile entre les deux effacements, et il n'était
+         écrit nulle part. Celui-ci voyage : il pose une marque d'effacement
+         qui gagne par l'horloge, donc les autres appareils liés effacent à
+         leur tour. « Tout effacer sur cet appareil », à l'inverse, reste
+         local, et les autres appareils renvoient ce qui vient de partir.
+
+         Une personne qui veut retirer une donnée de PARTOUT doit donc passer
+         par ici, et non par le bouton qui semble plus radical.
+      */}
+      <p class="mb-4 max-w-3xl rounded-xl border border-red-300 bg-white/70 p-3 text-sm leading-relaxed text-red-900 dark:border-red-800 dark:bg-slate-900/60 dark:text-red-200">
+        <strong>Cet effacement se propage.</strong> Si cet appareil est lié à
+        d'autres, ils effaceront les mêmes données à la prochaine
+        synchronisation. C'est l'inverse de « Tout effacer sur cet appareil »,
+        qui reste local et que les autres appareils défont en vous renvoyant
+        leurs données.
+      </p>
 
       <fieldset class="mb-4">
         <legend class="mb-2 text-sm font-medium text-red-900 dark:text-red-200">

@@ -27,7 +27,13 @@
  * Ce que le transport manuel éprouve dès maintenant, c'est ce qui compte le
  * plus : les faits, les révisions, et le recalcul de l'état FSRS.
  */
-import { db, ecrireCarte, ecrireReglageBrut, lireAppareil } from '../db';
+import {
+  db,
+  ecrireCarte,
+  ecrireReglageBrut,
+  effacerReglageBrut,
+  lireAppareil,
+} from '../db';
 import { signalerEcriture } from './signal-ecriture';
 import type { EntreeRevision } from '../noyau/revisions';
 import type { Operation } from '../noyau/operations';
@@ -95,6 +101,12 @@ import {
 import type { Octets } from '../sauvegarde/format';
 import { estSocle as estSocleEnregistrement, lireCible } from '../noyau/enregistrements';
 import { materialiserFaitsDomaine, soclerFaitsDomaine } from './faits-domaine';
+import {
+  fusionInachevee,
+  marquerLaFusion,
+  oublierLaFusion,
+  type FusionInachevee,
+} from './reprise';
 
 const CLEF_REGLAGES = 'reglagesSync';
 const CLEF_LOTS = 'lotsRecus';
@@ -379,14 +391,63 @@ export async function fusionnerPaquet(
   const idsLocaux = new Set(local.revisions.map((r) => r.id));
   const revisionsRecues = journalRevisions.operations.filter((r) => !idsLocaux.has(r.id));
 
-  // Les écritures d'abord, en une transaction par magasin : si la seconde
-  // échoue, le recalcul suivant rétablira la cohérence depuis ce qui a été
-  // écrit, ce qu'un recalcul anticipé n'aurait pas pu faire.
+  /*
+     B-4 DU 58 — CE QUE LE JOURNAL REÇOIT, LA MARQUE LE PROMET.
+
+     Le journal s'écrit en une transaction ; la matérialisation ne peut pas y
+     tenir (elle relit tout le journal, touche une cinquantaine de magasins, et
+     passe par le coffre, donc par des `await` qui refermeraient la
+     transaction). La fenêtre entre les deux existe donc, et le commentaire
+     d'avant — « le recalcul suivant rétablira la cohérence » — était faux :
+     aucun recalcul ne part tout seul, et un paquet suivant n'apporte plus ces
+     opérations, puisqu'elles sont déjà au journal.
+
+     Ce qu'on peut rendre atomique, c'est le journal **et la promesse de le
+     matérialiser**. La marque est donc posée dans la même transaction : si les
+     opérations sont là, la liste du travail restant est là aussi.
+
+     Elle réunit ce qu'une fusion précédente n'avait pas fini : sans cela, une
+     seconde interruption effacerait la liste de la première, et ses cibles ne
+     seraient plus jamais matérialisées — personne ne saurait même lesquelles.
+  */
+  const enAttente = await fusionInachevee();
+  const ciblesRecues = [
+    ...new Set([
+      ...(enAttente?.cibles ?? []),
+      ...resultat.recues.map((o) => o.cible).filter((c) => lireCible(c) !== null),
+    ]),
+  ];
+  /*
+     Deux listes, et elles ne se confondent pas. `cartes` est ce qu'il y a à
+     recalculer, reliquat compris. `cartesDuLot` est ce que CE lot a apporté,
+     et c'est elle qui part à l'historique : une annulation ne doit défaire que
+     son lot, et pas les cartes d'une fusion d'avant qu'elle n'a fait que finir.
+  */
+  const cartesDuLot = [...new Set(revisionsRecues.map((r) => r.carteId))];
+  const cartes = [...new Set([...(enAttente?.cartes ?? []), ...cartesDuLot])];
+
   const tx = base.transaction(['operations', 'revisions', 'etat'], 'readwrite');
   for (const op of resultat.recues) await tx.objectStore('operations').put(op);
   for (const r of revisionsRecues) await tx.objectStore('revisions').put(r);
   if (resultat.reglagesChanges.length) {
     await tx.objectStore('etat').put(resultat.etat.reglages, CLEF_REGLAGES);
+  }
+  if (ciblesRecues.length || cartes.length) {
+    /*
+       Sans `await` : la marque est une requête de cette transaction, et
+       l'attendre ici ferait tourner la boucle d'événements avant les deux
+       boucles ci-dessus — ce qui refermerait la transaction au milieu. Elle est
+       attendue par `tx.done`, comme les autres.
+    */
+    const marque: FusionInachevee = {
+      lot,
+      cibles: ciblesRecues,
+      cartes,
+      le: new Date().toISOString(),
+      appareil: ouvert.metadonnees.appareil,
+      ...(ouvert.metadonnees.nomAppareil ? { nomAppareil: ouvert.metadonnees.nomAppareil } : {}),
+    };
+    marquerLaFusion(tx.objectStore('etat'), marque);
   }
   await tx.done;
 
@@ -408,7 +469,17 @@ export async function fusionnerPaquet(
   */
   for (const champ of resultat.reglagesChanges) {
     const gagnant = resultat.etat.reglages[champ];
-    if (gagnant) await ecrireReglageBrut(champ, gagnant.valeur);
+    if (!gagnant) continue;
+    /*
+       A7 DU 58 — UNE PIERRE TOMBALE SUPPRIME, ELLE N'ÉCRIT PAS.
+
+       Écrire `valeur` ici rangerait `null` sous la clé, et le site lirait un
+       réglage « réglé à rien » au lieu d'un réglage absent. Les deux ne
+       veulent pas dire la même chose : un profil absent se réinitialise, un
+       profil `null` casse la lecture.
+    */
+    if (gagnant.efface) await effacerReglageBrut(champ);
+    else await ecrireReglageBrut(champ, gagnant.valeur);
   }
 
   /*
@@ -417,12 +488,10 @@ export async function fusionnerPaquet(
      appliquée à un magasin : pour chaque cible touchée, la dernière opération
      gagne, et une suppression l'emporte sur ce qui la précède.
 
-     Seules les cibles que le paquet apportait sont matérialisées : rejouer tout
-     le journal serait juste et cher, et ne sert qu'à la réparation.
+     Seules les cibles que le paquet apportait sont matérialisées — plus celles
+     qu'une fusion interrompue avait laissées en chemin. Rejouer tout le journal
+     serait juste et cher, et ne sert qu'à la réparation.
   */
-  const ciblesRecues = [
-    ...new Set(resultat.recues.map((o) => o.cible).filter((c) => lireCible(c) !== null)),
-  ];
   const domaine = ciblesRecues.length
     ? await materialiserFaitsDomaine(ciblesRecues)
     : { ecrits: 0, effaces: 0, illisibles: [] };
@@ -438,7 +507,6 @@ export async function fusionnerPaquet(
      fait postérieur à la borne, elle, mérite son recalcul — l'exclure la
      laisserait sur un état périmé.
   */
-  const cartes = [...new Set(revisionsRecues.map((r) => r.carteId))];
   let recalculees = 0;
   for (const carteId of cartes) {
     const entrees = await (await db()).getAllFromIndex('revisions', 'carteId', carteId);
@@ -448,6 +516,13 @@ export async function fusionnerPaquet(
       recalculees += 1;
     }
   }
+
+  /*
+     Le travail promis est fait : la marque tombe. Elle ne tombe qu'ici, après
+     la matérialisation ET le recalcul — la retirer plus tôt rendrait une
+     interruption de la fin aussi invisible qu'avant.
+  */
+  await oublierLaFusion();
 
   /*
      Un lot n'est enregistré que s'il a **apporté quelque chose**. Une fusion
@@ -464,7 +539,7 @@ export async function fusionnerPaquet(
       nomAppareil: ouvert.metadonnees.nomAppareil,
       operations: resultat.recues.length,
       revisions: revisionsRecues.length,
-      cartes,
+      cartes: cartesDuLot,
       automatique: options.automatique || undefined,
     });
   }
@@ -529,7 +604,16 @@ export async function fusionnerPaquet(
     domaineEcrits: domaine.ecrits,
     domaineEffaces: domaine.effaces,
     effaceesParCompactage: effacees.operations + effacees.revisions,
-    identiques: complete === ouvert.metadonnees.empreinte,
+    /*
+       B-4 — « IDENTIQUES » NE SE DIT JAMAIS SUR LA SEULE EMPREINTE.
+
+       L'empreinte ne porte que sur les journaux et les réglages versionnés :
+       elle est donc égale à celle de l'émetteur dès que le journal est écrit,
+       matérialisation faite ou non. Une marque encore posée veut dire que des
+       enregistrements de domaine manquent toujours ici. Deux appareils dans
+       cet état ne sont pas identiques, et le dire serait un mensonge mesurable.
+    */
+    identiques: complete === ouvert.metadonnees.empreinte && !(await fusionInachevee()),
     empreinte: complete,
     empreinteDistante: ouvert.metadonnees.empreinte,
     appareilDistant: ouvert.metadonnees.appareil,

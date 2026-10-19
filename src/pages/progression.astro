@@ -244,15 +244,38 @@ import LienReglages from '../components/LienReglages.astro';
     </section>
   </div>
 
+  {/*
+     A7 ET G-2 DU 58 — LE LIBELLÉ DIT LA PORTÉE, ET LA PORTÉE EST L'APPAREIL.
+
+     « Effacer ma progression » annonçait moins que ce qui part, et
+     « Réinitialiser » ne dit rien du tout. Le bouton efface les quatre
+     endroits où ce site écrit sur cet appareil : les magasins, les deux
+     stockages de l'onglet, les caches hors ligne et les autres bases. Son
+     libellé le dit donc, et le titre aussi.
+
+     La déliaison est un bouton SÉPARÉ, et c'est délibéré. Les autres
+     appareils appairés gardent leurs données, et la première synchronisation
+     renverra ici ce qui vient d'être effacé. Confondre les deux gestes ferait
+     perdre l'appairage à qui voulait seulement repartir de zéro ici.
+  */}
   <section class="mt-8 rounded-2xl border border-red-200 bg-red-50/60 p-5 dark:border-red-900 dark:bg-red-950/30">
-    <h2 class="mb-1 text-lg font-semibold text-red-900 dark:text-red-200">Réinitialiser</h2>
+    <h2 class="mb-1 text-lg font-semibold text-red-900 dark:text-red-200">Tout effacer sur cet appareil</h2>
     <p class="mb-4 text-sm text-red-800/80 dark:text-red-300/80">
-      Efface définitivement toute la progression de ce navigateur. Les fiches, elles, ne sont pas
-      touchées. Le détail de ce qui part, avec les nombres, est rappelé avant que vous confirmiez.
+      Efface définitivement tout ce que ce site a enregistré sur cet appareil : la
+      progression, les réglages de ce navigateur, les pages gardées pour la lecture hors
+      ligne, les instantanés d'avant migration et les clés du coffre. Les fiches du site,
+      elles, ne sont pas touchées. Le détail de ce qui part, avec les nombres, est rappelé
+      avant que vous confirmiez.
     </p>
-    <button id="reinitialiser" class="rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 dark:border-red-800 dark:bg-transparent dark:text-red-300">
-      Effacer ma progression
-    </button>
+    <div class="flex flex-wrap gap-2">
+      <button id="reinitialiser" class="cible-tactile rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 dark:border-red-800 dark:bg-transparent dark:text-red-300">
+        Tout effacer sur cet appareil
+      </button>
+      <button id="delier-appareil" class="cible-tactile hidden rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-200">
+        Délier cet appareil
+      </button>
+    </div>
+    <p id="message-effacement-total" class="mt-3 hidden text-sm"></p>
   </section>
 </Base>
 
@@ -267,9 +290,10 @@ import LienReglages from '../components/LienReglages.astro';
     tousLesJours,
     tousLesResultatsQuiz,
     toutesLesCartes,
-    toutEffacer,
   } from '../lib/db';
   import { apercu, etatSauvegarde, fabriquer, noterSauvegardeReussie, restaurer } from '../lib/sauvegarde/service';
+  import { toutEffacerSurCetAppareil } from '../lib/sauvegarde/effacement-total';
+  import { appairageMemorise, oublierAppairage } from '../lib/sync/appairage';
   import { offrirLeFichier, TELECHARGEMENT_LANCE } from '../lib/telecharger';
   import { agirPuisPeindre } from '../lib/agir';
   import { SauvegardeRefusee } from '../lib/sauvegarde/format';
@@ -835,6 +859,39 @@ import LienReglages from '../components/LienReglages.astro';
       }
     });
 
+    /*
+       G-2 — DÉLIER EST UN GESTE À PART, ET IL NE S'OFFRE QUE S'IL A UN SENS.
+
+       Le bouton reste caché quand aucun appairage n'est mémorisé : proposer
+       de couper un lien qui n'existe pas ferait croire qu'il existe.
+    */
+    void (async () => {
+      if (!(await appairageMemorise())) return;
+      $('delier-appareil').classList.remove('hidden');
+    })();
+
+    $('delier-appareil').addEventListener('click', async () => {
+      const certain = await confirmer({
+        titre: 'Délier cet appareil ?',
+        texte:
+          'Cet appareil cessera d’échanger avec les autres. Rien n’est effacé, ni ici ' +
+          'ni ailleurs : les données déjà reçues restent, et celles qui n’ont pas encore ' +
+          'été échangées ne le seront plus. Vous pourrez réappairer plus tard, et ' +
+          'l’échange reprendra là où il s’était arrêté.',
+        action: 'Délier',
+        destructrice: true,
+      });
+      if (!certain) return;
+      await oublierAppairage();
+      $('delier-appareil').classList.add('hidden');
+      dire(
+        'message-effacement-total',
+        'Cet appareil est délié. Rien n’a été effacé.',
+        'succes',
+      );
+      notifier('Appareil délié', 'info');
+    });
+
     $('reinitialiser').addEventListener('click', async () => {
       /*
          Une seule boîte, là où il y en avait deux.
@@ -865,14 +922,35 @@ import LienReglages from '../components/LienReglages.astro';
         tousLesJours(),
       ]);
       const etat = await etatSauvegarde();
+      /*
+         A7 DU 58 — LA PHRASE DIT CE QUI PART, ET RIEN DE PLUS.
+
+         Elle annonçait « les réglages enregistrés dans ce navigateur ». Ceux
+         de localStorage survivaient. Depuis, l'effacement les emporte
+         vraiment, et la phrase peut les nommer sans mentir — ainsi que les
+         pages gardées hors ligne, les instantanés et les clés du coffre.
+
+         G-2 : elle dit aussi ce qui NE part pas, puisque c'est là qu'une
+         personne se trompe. Un autre appareil appairé garde ses données, et
+         la première synchronisation les renverra ici. Le dire après coup
+         serait inutile : c'est avant de confirmer que cela change la
+         décision.
+      */
+      const appairage = await appairageMemorise();
       const certain = await confirmer({
-        titre: 'Tout effacer sur ce navigateur ?',
+        titre: 'Tout effacer sur cet appareil ?',
         texte:
           `Partent : ${cartesA.length} carte(s) suivie(s), ${quizA.length} quiz, ` +
           `${joursA.length} journée(s) de temps passé, les séances, les notes, les ` +
-          'mesures et les réglages enregistrés dans ce navigateur. Restent : les ' +
-          'fiches du site, et tout ce qui se trouve dans une sauvegarde déjà ' +
-          'enregistrée ailleurs. ' +
+          'mesures, les réglages de ce navigateur, les pages gardées pour la lecture ' +
+          'hors ligne, les instantanés d’avant migration et les clés de votre coffre. ' +
+          'Restent : les fiches du site, et tout ce qui se trouve dans une sauvegarde ' +
+          'déjà enregistrée ailleurs. ' +
+          (appairage
+            ? 'Cet appareil est appairé : les autres appareils liés GARDENT leurs ' +
+              'données, et la première synchronisation renverra ici ce que vous venez ' +
+              'd’effacer. Pour couper ce lien, utilisez « Délier cet appareil » à côté. '
+            : '') +
           (etat.derniere
             ? `Votre dernière sauvegarde confirmée date du ${new Date(etat.derniere).toLocaleString('fr-FR')}` +
               (etat.jours !== null && etat.jours > 0 ? `, il y a ${etat.jours} jour(s).` : '.')
@@ -883,9 +961,19 @@ import LienReglages from '../components/LienReglages.astro';
         destructrice: true,
       });
       if (!certain) return;
-      await toutEffacer();
+      const releve = await toutEffacerSurCetAppareil();
       await afficherResume();
-      notifier('Progression effacée', 'info');
+      dire(
+        'message-effacement-total',
+        `${releve.enregistrements.toLocaleString('fr-FR')} enregistrement(s), ` +
+          `${releve.clefsLocales} réglage(s) de ce navigateur, ${releve.caches} cache(s) ` +
+          `hors ligne et ${releve.bases.length} base(s) annexe(s) ont été effacés.` +
+          (appairage
+            ? ' Cet appareil reste appairé : les autres appareils liés gardent leurs données.'
+            : ''),
+        'succes',
+      );
+      notifier('Tout a été effacé sur cet appareil', 'info');
     });
   });
 </script>

@@ -73,6 +73,7 @@ import { motDePasseRetenu } from './mot-de-passe-session';
 import { garderLEcranAllume } from './ecran-allume';
 import { rejoindre, type Salon } from './salon';
 import { empreinteLocale } from './service';
+import { reprendreLaFusion } from './reprise';
 import { surEcritureRegroupee } from './signal-ecriture';
 import { db } from '../db';
 
@@ -252,6 +253,25 @@ export async function demarrer(options: OptionsVeille = {}): Promise<Veille | nu
   if (!certifie) {
     dire('non-certifie');
     return null;
+  }
+
+  /*
+     B-4 DU 58 — LE REJEU AU DÉMARRAGE.
+
+     C'est le bon endroit, et il n'y en a pas de meilleur : on vient de
+     constater un appairage mémorisé ET un mot de passe en mémoire, donc le
+     coffre est ouvert — ce dont la matérialisation a besoin pour les magasins
+     scellés. Une fusion interrompue se finit donc ici, sans rien demander.
+
+     L'échec est avalé, et c'est voulu : la marque reste posée, la bannière de
+     `/appareils/` continue de le dire, et le bouton « Reconstruire » reste
+     utilisable. Faire échouer le démarrage de la veille, à l'inverse,
+     priverait la personne de la synchronisation ET de la réparation.
+  */
+  try {
+    await reprendreLaFusion();
+  } catch {
+    /* La marque survit : la réparation reste proposée à l'écran. */
   }
 
   let salon: Salon | null = null;

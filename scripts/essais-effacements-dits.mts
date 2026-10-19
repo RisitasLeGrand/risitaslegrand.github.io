@@ -71,9 +71,20 @@ console.log('\n\x1b[1mEFFACER SA PROGRESSION : AVEC DES NOMBRES\x1b[0m\n');
   await deverrouiller(page);
   await page.waitForSelector('#reinitialiser', { timeout: 30000 });
 
+  /*
+     Le chapeau est lu sur la SECTION, et non sur le parent immédiat du
+     bouton. A7 du 58 a mis deux boutons côte à côte — « Tout effacer sur cet
+     appareil » et « Délier cet appareil » —, donc le parent immédiat est
+     maintenant leur rangée, qui ne porte aucun texte. Viser la section dit
+     ce que ce contrôle veut dire : la phrase d'annonce est quelque part
+     au-dessus du bouton, pas collée à lui.
+  */
   v(
     'le chapeau de la section annonce que le détail viendra',
-    /nombres/.test((await page.locator('#reinitialiser').locator('xpath=..').textContent()) ?? ''),
+    /nombres/.test(
+      (await page.locator('#reinitialiser').locator('xpath=ancestor::section[1]').textContent()) ??
+        '',
+    ),
     true,
   );
 
