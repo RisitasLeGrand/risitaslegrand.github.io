@@ -175,6 +175,7 @@
     "essais:psyche:navigateur": "node scripts/essais-psyche-navigateur.mjs",
     "essais:sante": "tsx scripts/essais-sante.mts",
     "essais:sante-rappels": "tsx scripts/essais-sante-rappels.mts",
+    "essais:prescription": "tsx scripts/essais-prescription.mts",
     "essais:molecules": "tsx scripts/essais-molecules.mts",
     "essais:bibliotheque": "node scripts/essais-bibliotheque.mjs",
     "essais:sante:navigateur": "node scripts/essais-sante-navigateur.mjs",
