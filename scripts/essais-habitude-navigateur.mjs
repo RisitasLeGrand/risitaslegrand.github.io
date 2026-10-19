@@ -82,6 +82,50 @@ const aller = async (chemin) => {
   await page.waitForTimeout(400);
 };
 
+/**
+ * Écrit une valeur dans le magasin « etat », par la base, puis rend la main.
+ *
+ * Tout le semis de cet essai passe par là : un profil, une rotation. Rien
+ * d'autre n'est touché, et rien n'est réel.
+ */
+const semer = (clef, valeur) =>
+  page.evaluate(async ([clef, valeur]) => {
+    const base = await new Promise((ok, ko) => {
+      const r = indexedDB.open('revinsp');
+      r.onsuccess = () => ok(r.result);
+      r.onerror = () => ko(r.error);
+    });
+    await new Promise((ok, ko) => {
+      const tx = base.transaction('etat', 'readwrite');
+      tx.objectStore('etat').put(valeur, clef);
+      tx.oncomplete = () => ok();
+      tx.onerror = () => ko(tx.error);
+    });
+    base.close();
+  }, [clef, valeur]);
+
+/**
+ * Une semaine sans aucun jour de repos.
+ *
+ * La prémisse de F3 en dépend : un jour de repos n'est PAS un oubli, et la
+ * grâce n'aurait rien à absorber. En posant la rotation, l'essai ne dépend
+ * plus de ce que le parcours propose par défaut — ni de ce qu'il proposera.
+ */
+const SEPT_JOURS_TRAVAILLES = {
+  rotations: {
+    insp: [
+      'cas-pratique',
+      'droit-public',
+      'finances-publiques',
+      'economie',
+      'questions-europeennes',
+      'questions-internationales',
+      'questions-sociales',
+    ],
+  },
+  trimestreEcarte: null,
+};
+
 const semerLeProfil = (profil) =>
   page.evaluate(async (profil) => {
     const base = await new Promise((ok, ko) => {
@@ -132,6 +176,62 @@ try {
   vrai(
     'le compteur dit toujours ce qu’il sait : le record est affiché',
     texte.includes('Record'),
+  );
+  console.log('\nF3 — UN JOUR OUBLIÉ PAR SEMAINE NE CASSE PLUS LA SÉRIE');
+  await semer('planification', SEPT_JOURS_TRAVAILLES);
+
+  /* Un jour sauté, aucune grâce encore consommée : la série tient. */
+  await semerLeProfil({ ...PROFIL_EN_PERIL, streakCourante: 7, dernierJourEtudie: jour(-2) });
+  await aller('/revisions/');
+  v(
+    'un jour oublié, la série de sept jours est intacte',
+    (await page.locator('#streak').innerText().catch(() => '')).trim(),
+    '7',
+  );
+
+  /* La même situation, la grâce consommée avant-hier : la série tombe. Ce
+     contrôle est aussi la PRÉMISSE du précédent — si le jour sauté n'était
+     pas compté comme un oubli, celui-ci rougirait. */
+  await semerLeProfil({
+    ...PROFIL_EN_PERIL,
+    streakCourante: 7,
+    dernierJourEtudie: jour(-2),
+    graceUtiliseeLe: jour(-2),
+  });
+  await aller('/revisions/');
+  v(
+    'la grâce déjà consommée cette semaine : la série est rompue',
+    (await page.locator('#streak').innerText().catch(() => '')).trim(),
+    '0',
+  );
+
+  /* La grâce se renouvelle au bout de sept jours. */
+  await semerLeProfil({
+    ...PROFIL_EN_PERIL,
+    streakCourante: 7,
+    dernierJourEtudie: jour(-2),
+    graceUtiliseeLe: jour(-9),
+  });
+  await aller('/revisions/');
+  v(
+    'la grâce d\u2019il y a neuf jours est de nouveau disponible',
+    (await page.locator('#streak').innerText().catch(() => '')).trim(),
+    '7',
+  );
+
+  /* Deux jours oubliés d'affilée : la grâce absorbe l'accident, pas l'arrêt. */
+  await semerLeProfil({ ...PROFIL_EN_PERIL, streakCourante: 7, dernierJourEtudie: jour(-3) });
+  await aller('/revisions/');
+  v(
+    'deux jours oubliés : la série est rompue, grâce ou non',
+    (await page.locator('#streak').innerText().catch(() => '')).trim(),
+    '0',
+  );
+
+  texte = await texteDeLaPage();
+  vrai(
+    'la règle est écrite sous le compteur',
+    texte.includes("Un jour oublié par semaine ne casse pas la série"),
   );
 } finally {
   await contexte.close();
