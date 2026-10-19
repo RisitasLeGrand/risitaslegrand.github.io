@@ -416,10 +416,12 @@ répondre d'avance est le droit de la personne.
 
 ### Le socle
 
-**16 verts, 0 rouge, 11 min**, sur l'arbre poussé. Le passage précédent en
-donnait 15 : `essais:mobile:navigateur` tenait le quatrième de mes défauts, les
-deux liens de phrase, et il est vert depuis le correctif. Aucun rouge ne reste,
-donc aucun à confronter au tableau des anomalies.
+**16 verts, 0 rouge, 11 min**, deux fois : une première sur l'arbre remis avant
+le compte à rebours, une seconde après son insertion sur l'accueil de Révisions.
+Le passage d'avant en donnait 15 : `essais:mobile:navigateur` tenait le
+quatrième de mes défauts, les deux liens de phrase, et il est vert depuis le
+correctif. Aucun rouge ne reste, donc aucun à confronter au tableau des
+anomalies.
 
 Hors socle, `essais:reglages-orphelins` garde deux rouges qui ne sont pas de
 cette branche : `etat/reglagesSync` et `etat/fusionEnCours`, non déclarés au
