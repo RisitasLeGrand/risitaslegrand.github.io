@@ -477,7 +477,66 @@ console.log('\nUNE BLESSURE EST SIGNALÉE, JAMAIS RETIRÉE');
 }
 
 /* ════════════════════════════════════════════════════════════════════════
-   8. Aucune séance n'a été créée
+   8. Les étiquettes de l'éditeur suivent l'unité de l'exercice
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nLES ÉTIQUETTES SUIVENT L’UNITÉ');
+
+await allerAuxProgrammes();
+
+{
+  await page.click('#nouveau');
+  await page.waitForSelector('#editeur:not(.hidden)', { timeout: 15000 });
+
+  const etiquettes = () =>
+    page.locator('#seances label').evaluateAll((n) =>
+      n.map((l) => l.firstElementChild?.textContent).filter(Boolean),
+    );
+
+  /*
+     Le bloc neuf porte le premier exercice de la bibliothèque, qui se charge
+     en kilos : les étiquettes parlent donc de répétitions.
+  */
+  const auDepart = await etiquettes();
+  vrai('un exercice en kilos parle de répétitions', auDepart.includes('Rép. min'));
+  faux('et pas de secondes', auDepart.includes('Secondes min'));
+
+  /*
+     LE CAS QUI MOTIVE CE LOT : un maintien se compte en secondes, et
+     « Rép. min 30 » se lisait comme trente répétitions de planche.
+  */
+  const liste = page.locator('#seances select[aria-label="Exercice"]').first();
+  await liste.selectOption({ label: 'Gainage ventral · sol' });
+  const apres = await etiquettes();
+  vrai('un maintien parle de secondes', apres.includes('Secondes min'));
+  vrai('des deux côtés de la fourchette', apres.includes('Secondes max'));
+  faux('et plus de répétitions', apres.includes('Rép. min'));
+
+  /* Et le changement se fait dans les deux sens. */
+  await liste.selectOption({ label: 'Squat · barre' });
+  const retour = await etiquettes();
+  vrai('revenir à une charge rend les répétitions', retour.includes('Rép. min'));
+  faux('et retire les secondes', retour.includes('Secondes min'));
+
+  /*
+     Le format du bloc n'a pas changé : c'est l'étiquette seule. Un programme
+     enregistré depuis cet éditeur garde « repetitionsMin ».
+  */
+  await liste.selectOption({ label: 'Gainage ventral · sol' });
+  await page.fill('#nom', 'Essai des étiquettes');
+  await page.click('#enregistrer');
+  await page.waitForTimeout(1200);
+  const enregistre = (await magasin('sportProgrammes')).find(
+    (p) => p.nom === 'Essai des étiquettes',
+  );
+  vrai('le programme s’enregistre', enregistre !== undefined);
+  vrai(
+    'et le bloc garde « repetitionsMin »',
+    enregistre?.seances?.[0]?.blocs?.[0]?.repetitionsMin !== undefined,
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   9. Aucune séance n'a été créée
    ════════════════════════════════════════════════════════════════════════ */
 console.log('\nAUCUNE SÉANCE N’A ÉTÉ CRÉÉE');
 

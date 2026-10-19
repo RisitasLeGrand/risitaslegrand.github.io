@@ -517,6 +517,7 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
 
   function peindreSeances() {
     if (!brouillon) return;
+    const parExerciceId = new Map(exercices.map((e) => [e.id, e]));
     const zone = $('seances');
     zone.innerHTML = '';
 
@@ -552,10 +553,6 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
         ligne.className = 'mt-2 flex flex-wrap items-end gap-2';
 
         const select = choixExercice(bloc.exerciceId);
-        select.addEventListener('change', () => {
-          bloc.exerciceId = select.value;
-          direLesAbsents();
-        });
         ligne.appendChild(select);
 
         ligne.appendChild(
@@ -563,16 +560,44 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
             bloc.series = v ?? 1;
           }, { min: 1 }),
         );
-        ligne.appendChild(
-          champNombre(bloc.repetitionsMin, 'Rép. min', 'w-24', (v) => {
-            bloc.repetitionsMin = v ?? 1;
-          }, { min: 1 }),
-        );
-        ligne.appendChild(
-          champNombre(bloc.repetitionsMax, 'Rép. max', 'w-24', (v) => {
-            bloc.repetitionsMax = v ?? 1;
-          }, { min: 1 }),
-        );
+        const etiquetteMin = champNombre(bloc.repetitionsMin, 'Rép. min', 'w-24', (v) => {
+          bloc.repetitionsMin = v ?? 1;
+        }, { min: 1 });
+        const etiquetteMax = champNombre(bloc.repetitionsMax, 'Rép. max', 'w-24', (v) => {
+          bloc.repetitionsMax = v ?? 1;
+        }, { min: 1 });
+        ligne.append(etiquetteMin, etiquetteMax);
+
+        /*
+           LES ÉTIQUETTES SUIVENT L'UNITÉ DE L'EXERCICE.
+
+           `BlocPrevu` n'a qu'une fourchette de répétitions, et la convention
+           du dossier est « répétitions = secondes » pour les maintiens. Elle
+           ne fausse ni le volume ni les cibles — le volume compte des séries
+           —, mais elle faussait CET écran : un gainage s'y lisait « Rép. min
+           30 / Rép. max 60 », soit trente répétitions de planche.
+
+           Le format du bloc ne change pas, et c'est voulu : lui ajouter un
+           champ de durée obligerait à migrer tous les programmes existants.
+           Seule l'étiquette change. Accordé par le pilote le 19 octobre.
+        */
+        const majEtiquettes = () => {
+          const duree = parExerciceId.get(bloc.exerciceId)?.unite === 'duree';
+          etiquetteMin.firstElementChild!.textContent = duree ? 'Secondes min' : 'Rép. min';
+          etiquetteMax.firstElementChild!.textContent = duree ? 'Secondes max' : 'Rép. max';
+        };
+        majEtiquettes();
+
+        select.addEventListener('change', () => {
+          bloc.exerciceId = select.value;
+          /*
+             On remet les étiquettes à jour plutôt que de repeindre la séance :
+             repeindre déplacerait le focus hors de la liste qu'on vient
+             d'utiliser.
+          */
+          majEtiquettes();
+          direLesAbsents();
+        });
         ligne.appendChild(
           champNombre(bloc.repos, 'Repos (s)', 'w-24', (v) => {
             bloc.repos = v;
