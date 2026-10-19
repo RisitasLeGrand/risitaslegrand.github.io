@@ -71,6 +71,38 @@ export interface Visite {
 }
 
 /**
+ * Les seuls champs qu'une visite a le droit de porter.
+ *
+ * **Le compteur porte une route sans instant ; le journal d'usage porte un
+ * instant sans route ; et rien ne peut joindre les deux.** C'est la phrase
+ * qui tient toute la discrétion de ce module, et elle ne tient que si aucun
+ * des deux ne gagne le champ de l'autre.
+ *
+ * D'où cette liste blanche, calquée sur `CHAMPS_AUTORISES` d'`usage.ts` : la
+ * règle vit dans des données qu'un essai peut lire, et non dans un
+ * commentaire. Le jour où « juste une date, pour voir l'évolution »
+ * paraîtra raisonnable, c'est ici qu'il faudra l'écrire — et l'essai
+ * demandera pourquoi.
+ */
+export const CHAMPS_AUTORISES: readonly string[] = ['id', 'route', 'compte'];
+
+export function controlerVisite(v: Visite): string[] {
+  const problemes: string[] = [];
+  for (const champ of Object.keys(v)) {
+    if (!CHAMPS_AUTORISES.includes(champ)) {
+      problemes.push(`« ${champ} » n’est pas un champ autorisé d’une visite.`);
+    }
+  }
+  if (typeof v.route !== 'string' || !v.route.startsWith('/')) {
+    problemes.push('La route doit être un chemin.');
+  }
+  if (!Number.isInteger(v.compte) || v.compte < 1) {
+    problemes.push('Le compte doit être un entier positif.');
+  }
+  return problemes;
+}
+
+/**
  * La route d'une adresse, réduite à ce qui nomme un écran.
  *
  * Les paramètres sont retirés, et ce n'est pas de la cosmétique :
@@ -105,18 +137,22 @@ export async function compterLaVisite(route: string): Promise<void> {
     for (const rangee of rangees) {
       const visite = await ouvrir<Visite>(cle, rangee);
       if (visite.route !== route) continue;
-      const scellee = await sceller(cle, MAGASIN, {
-        ...visite,
-        compte: visite.compte + 1,
-      } as unknown as Record<string, unknown>);
+      const suivante: Visite = { id: visite.id, route: visite.route, compte: visite.compte + 1 };
+      /* Le contrôle est sur le CHEMIN D'ÉCRITURE, et pas seulement dans un
+         essai : un enregistrement lu d'une version future, qui porterait un
+         champ de plus, ne doit pas être réécrit tel quel. */
+      if (controlerVisite(suivante).length) return;
+      const scellee = await sceller(
+        cle,
+        MAGASIN,
+        suivante as unknown as Record<string, unknown>,
+      );
       await base.put(MAGASIN, scellee as unknown as Visite);
       return;
     }
-    const neuve = await sceller(cle, MAGASIN, {
-      id: crypto.randomUUID(),
-      route,
-      compte: 1,
-    } as unknown as Record<string, unknown>);
+    const premiere: Visite = { id: crypto.randomUUID(), route, compte: 1 };
+    if (controlerVisite(premiere).length) return;
+    const neuve = await sceller(cle, MAGASIN, premiere as unknown as Record<string, unknown>);
     await base.put(MAGASIN, neuve as unknown as Visite);
   } catch {
     /*

@@ -304,7 +304,9 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
       'fréquentés dit ce qui préoccupe — « Psyché quarante fois ce mois-ci » est une ' +
       'information sur la personne, pas sur le logiciel. C’est aussi pourquoi la clé est ' +
       'tirée au hasard et ne porte pas la route : une empreinte de route se retrouve par ' +
-      'force brute, il n’y a que soixante routes et elles sont publiques.',
+      'force brute, il n’y a que soixante routes et elles sont publiques. La frontière avec ' +
+      'le journal d’usage tient en une phrase : le compteur porte une route sans instant, le ' +
+      'journal un instant sans route, et rien ne peut joindre les deux.',
     /* L'identifiant, et rien d'autre : ni la route, ni un nombre, ni une
        date — ce magasin n'en porte aucune, même scellée. */
     clairs: ['id'],

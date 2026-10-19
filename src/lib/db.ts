@@ -863,13 +863,20 @@ interface SchemaRevinsp extends DBSchema {
 
 const NOM_BASE = 'revinsp';
 /*
-   42, et non 36 : les numéros entre les deux sont attribués à d'autres
-   branches en cours (37-40 à l'agent B, pour le champ « sexe » et le suivi).
-   Deux migrations portant le même numéro ne se verraient ni en revue ni à
-   l'exécution — une base déjà montée par l'un des chemins ne rejouerait
-   jamais l'autre bloc, et le magasin manquant ne se signalerait qu'au premier
-   « getAll », loin de sa cause. Le pilote attribue les numéros ; celui-ci est
-   le mien.
+   42, ET NON 36 — ET LE SAUT EST VOULU.
+
+   Les numéros intermédiaires sont attribués à des branches en cours : **38 à
+   l'agent B**, **41 à l'agent C**. Deux migrations portant le même numéro ne
+   se verraient ni en revue ni à l'exécution — une base déjà montée par l'un
+   des chemins ne rejouerait jamais l'autre bloc, et le magasin manquant ne se
+   signalerait qu'au premier « getAll », loin de sa cause.
+
+   Les trois coexistent à la fusion sans se gêner : chaque bloc est gardé par
+   son propre « vers(n) », qui compare l'ancienne version à la sienne. Une
+   base arrêtée à 35 rejouera 38, 41 et 42 dans l'ordre ; une base déjà montée
+   à 41 ne rejouera que la 42. La seule chose qui doit être vraie est que la
+   constante VERSION vaille le PLUS GRAND des numéros attribués — c'est 42
+   aujourd'hui, et ce sera à la fusion de le rester.
 */
 const VERSION = 42;
 
