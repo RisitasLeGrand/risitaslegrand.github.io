@@ -615,7 +615,7 @@ console.log('\nÀ ZÉRO, LA COPIE EST RAMASSÉE');
 await nav.close();
 console.log(
   echecs
-    ? `\n\x1b[31m${echecs} essai(s) en échec.\x1b[0m\n`
+    ? `\n\x1b[31m${echecs} essai${echecs > 1 ? 's' : ''} en échec.\x1b[0m\n`
     : '\n\x1b[32m✓ tout est vert\x1b[0m\n',
 );
 process.exit(echecs ? 1 : 0);
