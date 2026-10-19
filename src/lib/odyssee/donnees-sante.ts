@@ -30,6 +30,7 @@ import {
   type EtatDeCreneau,
   type MarqueDeCreneau,
   type OrigineDuTraitement,
+  type ReglageDeRappel,
   type Prelevement,
   type Ressenti,
   type Resultat,
@@ -191,6 +192,20 @@ export const tousLesTraitements = (): Promise<Traitement[]> =>
  * autre appareil entre la peinture de l'écran et l'appui. Le recréer à
  * partir d'un formulaire ouvert ressusciterait un traitement que quelqu'un
  * a voulu voir disparaître.
+ */
+export async function poserLeRappel(
+  id: string,
+  rappel: ReglageDeRappel | null,
+): Promise<Traitement | null> {
+  const traitement = (await tousLesTraitements()).find((t) => t.id === id);
+  if (!traitement) return null;
+  const modifie: Traitement = { ...traitement, rappel, majLe: maintenant() };
+  exiger(controlerTraitement(modifie));
+  return ranger('odysseeTraitements', modifie);
+}
+
+/**
+ * Même office que `poserLeRappel`, pour le schéma — et même piège évité.
  */
 export async function poserLeSchema(
   id: string,

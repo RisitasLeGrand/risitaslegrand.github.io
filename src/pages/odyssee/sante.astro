@@ -175,6 +175,26 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
         <ul id="traitements" class="mt-4 space-y-2"></ul>
 
         <!--
+          L'export vers l'agenda — P3.
+
+          Caché tant qu'aucun traitement ne demande de rappel par agenda : un
+          bouton qui produirait un fichier vide est pire qu'un bouton absent,
+          puisqu'il faut l'ouvrir pour apprendre qu'il n'y avait rien.
+        -->
+        <div id="export-agenda" class="mt-4 hidden rounded-2xl border border-slate-200 p-4 dark:border-slate-800">
+          <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Vos rappels dans votre agenda</h3>
+          <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+            Un événement récurrent avec alarme, par heure prévue. C’est la seule voie qui sonne
+            quand Cyclades est fermé. Réexporter met à jour les mêmes événements au lieu d’en
+            ajouter d’autres.
+          </p>
+          <button id="telecharger-agenda" type="button"
+            class="cible-tactile mt-3 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white"
+            >Exporter vers mon agenda</button>
+          <p id="export-fait" class="mt-2 hidden text-xs text-slate-600 dark:text-slate-300"></p>
+        </div>
+
+        <!--
           La porte permanente vers le catalogue (M10).
 
           Le lien « Voir la fiche » que porte chaque traitement ne naît que
@@ -276,11 +296,16 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     heuresDepuisLaDernierePrise,
     idDuCreneau,
     rangerLesHeures,
+    reglageParDefaut,
     situerDansLIntervalle,
+    AVERTISSEMENT_LIBELLE_EXPLICITE,
+    controlerReglage,
+    DELAIS_D_OUBLI,
     type CreneauPrevu,
     type EtatDeCreneau,
     type MarqueDeCreneau,
     type RenduDeCreneau,
+    type ReglageDeRappel,
     type RepetitionDePrise,
     type SchemaDePrise,
     type Traitement,
@@ -295,6 +320,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     activerLaSante,
     effacerLaMarque,
     noterLeCreneau,
+    poserLeRappel,
     poserLeSchema,
     toutesLesMarques,
     ecrireCondition,
@@ -768,6 +794,240 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     return bloc;
   }
 
+
+  /* ── Le réglage de rappel, sur chaque traitement — phase 4, P3 et P4 ── */
+
+  /**
+   * Ce que chaque voie fait vraiment, écrit à l'écran plutôt que promis.
+   *
+   * Le § 1 n° 6 l'exige — « ce qu'un site statique ne peut pas faire est dit
+   * à l'écran, pas promis » — et le plan l'avait anticipé : seul l'agenda
+   * sonne application fermée. Ces deux phrases sont la part du lot qui
+   * empêche la déception, et elles coûtent deux lignes.
+   */
+  const CE_QUE_FAIT_LA_VOIE: Record<string, string> = {
+    agenda:
+      'Un événement récurrent avec alarme, exporté dans votre agenda. C’est la seule voie qui ' +
+      'sonne quand Cyclades est fermé, y compris sur iPhone. En retour, votre agenda ne sait ' +
+      'pas si vous avez noté la prise : il sonne à l’heure prévue, jamais en cas d’oubli.',
+    notification:
+      'Une notification de Cyclades, qui part quand l’application est ouverte — ou quand le ' +
+      'navigateur la réveille, ce qu’il ne fait que sur Android avec l’application installée. ' +
+      'Sur iPhone, rien ne part tant que Cyclades est fermé.',
+  };
+
+  /**
+   * Le formulaire de rappel d'un traitement, replié lui aussi.
+   *
+   * **Absent tant qu'il n'y a pas de schéma** : un rappel sans heure prévue
+   * n'aurait rien à rappeler, et `controlerTraitement` le refuse de toute
+   * façon. Le proposer puis le refuser serait une porte peinte sur un mur.
+   */
+  function editeurDeRappel(t: Traitement): HTMLDetailsElement | null {
+    if (!t.schema || t.sporadique) return null;
+
+    const depart = t.rappel ?? reglageParDefaut();
+    const bloc = document.createElement('details');
+    bloc.className = 'mt-1 w-full';
+    const resume = document.createElement('summary');
+    resume.className = 'cible-tactile cursor-pointer text-xs text-indigo-700 dark:text-indigo-300';
+    resume.textContent = depart.actif ? 'Modifier le rappel' : 'Me rappeler ces prises';
+    bloc.append(resume);
+
+    const form = document.createElement('form');
+    form.className = 'mt-2 grid gap-2 rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-900';
+
+    const coche = (texte: string, etat: boolean) => {
+      const etiquette = document.createElement('label');
+      etiquette.className = 'flex items-start gap-2';
+      const boite = document.createElement('input');
+      boite.type = 'checkbox';
+      boite.className = 'mt-1 rounded';
+      boite.checked = etat;
+      etiquette.append(boite, document.createTextNode(texte));
+      return { etiquette, boite };
+    };
+
+    const actif = coche('Me rappeler', depart.actif);
+    const oubli = coche('Me le rappeler si je n’ai rien noté', depart.oubli);
+
+    const voie = document.createElement('select');
+    voie.className =
+      'cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+    voie.setAttribute('aria-label', 'Par quelle voie vous rappeler');
+    voie.append(new Option('Par mon agenda', 'agenda'), new Option('Par une notification de Cyclades', 'notification'));
+    voie.value = depart.voie;
+
+    const ceQueCaFait = document.createElement('p');
+    ceQueCaFait.className = 'text-xs text-slate-500 dark:text-slate-400';
+
+    const libelle = document.createElement('select');
+    libelle.className =
+      'cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+    libelle.setAttribute('aria-label', 'Ce que le rappel affiche');
+    libelle.append(
+      new Option('« Rappel Cyclades », sans autre mention', 'neutre'),
+      new Option('Le nom du traitement', 'explicite'),
+      new Option('Un texte de mon choix', 'personnalise'),
+    );
+    libelle.value = depart.libelle;
+
+    const texte = document.createElement('input');
+    texte.type = 'text';
+    texte.value = depart.texte;
+    texte.placeholder = 'Le texte du rappel';
+    texte.className =
+      'cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+    texte.setAttribute('aria-label', 'Le texte de votre rappel');
+
+    /*
+       L'AVERTISSEMENT DU § 3.3, et il n'est pas décoratif : choisir un
+       libellé qui nomme sans savoir que l'agenda est peut-être synchronisé
+       chez un tiers n'est pas un choix éclairé, et c'est le seul endroit où
+       Cyclades peut le dire.
+    */
+    const avertissement = document.createElement('p');
+    avertissement.className =
+      'rounded-lg bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-100';
+    avertissement.textContent = AVERTISSEMENT_LIBELLE_EXPLICITE;
+
+    const delai = document.createElement('select');
+    delai.className =
+      'cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+    delai.setAttribute('aria-label', 'Au bout de combien de temps vous le rappeler');
+    for (const minutes of DELAIS_D_OUBLI) {
+      delai.append(
+        new Option(minutes < 60 ? `${minutes} minutes après` : `${minutes / 60} h après`, String(minutes)),
+      );
+    }
+    delai.value = String(depart.delaiOubli);
+
+    const limite = document.createElement('p');
+    limite.className = 'text-xs text-slate-500 dark:text-slate-400';
+    /*
+       LA LIMITE DU RAPPEL D'OUBLI, dite en entier. Elle est plus sévère que
+       celle que j'avais annoncée : la clé du coffre vit dans
+       « sessionStorage », qui meurt avec l'onglet et qu'un service worker ne
+       peut pas lire. Même réveillé, il ne saurait lire ni le schéma ni les
+       prises, qui sont scellés. Le rappel d'oubli ne part donc que Cyclades
+       ouvert et coffre ouvert — et le dire vaut mieux que de le laisser
+       découvrir un matin où il n'est pas venu.
+    */
+    limite.textContent =
+      'Ce rappel ne peut partir que si Cyclades est ouvert et votre coffre déverrouillé : ' +
+      'ce qui était prévu est chiffré, et rien ne peut le relire sans votre mot de passe. ' +
+      'Votre agenda, lui, sonne à l’heure prévue même application fermée — mais il ne sait ' +
+      'pas si vous avez noté la prise.';
+
+    const montrerCeQuiVa = () => {
+      ceQueCaFait.textContent = CE_QUE_FAIT_LA_VOIE[voie.value] ?? '';
+      texte.classList.toggle('hidden', libelle.value !== 'personnalise');
+      avertissement.classList.toggle('hidden', libelle.value === 'neutre');
+      /*
+         Tout le reste disparaît quand le rappel est éteint : des réglages
+         visibles sous une case décochée laissent croire qu'ils agissent.
+      */
+      for (const element of [voie, ceQueCaFait, libelle, texte, avertissement, oubli.etiquette, delai, limite]) {
+        element.classList.toggle('hidden', !actif.boite.checked);
+      }
+      if (actif.boite.checked) {
+        texte.classList.toggle('hidden', libelle.value !== 'personnalise');
+        avertissement.classList.toggle('hidden', libelle.value === 'neutre');
+        delai.classList.toggle('hidden', !oubli.boite.checked);
+        limite.classList.toggle('hidden', !oubli.boite.checked);
+      }
+    };
+    for (const element of [actif.boite, oubli.boite, voie, libelle]) {
+      element.addEventListener('change', montrerCeQuiVa);
+    }
+
+    const enregistrer = document.createElement('button');
+    enregistrer.type = 'submit';
+    enregistrer.className =
+      'cible-tactile justify-self-start rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white';
+    enregistrer.textContent = 'Enregistrer ce réglage';
+
+    form.append(
+      actif.etiquette,
+      voie,
+      ceQueCaFait,
+      libelle,
+      texte,
+      avertissement,
+      oubli.etiquette,
+      delai,
+      limite,
+      enregistrer,
+    );
+    montrerCeQuiVa();
+
+    form.addEventListener('submit', (evenement) => {
+      evenement.preventDefault();
+      void unSeulGeste(form, async () => {
+        const reglage: ReglageDeRappel = {
+          actif: actif.boite.checked,
+          voie: voie.value as ReglageDeRappel['voie'],
+          libelle: libelle.value as ReglageDeRappel['libelle'],
+          texte: texte.value.trim(),
+          oubli: actif.boite.checked && oubli.boite.checked,
+          delaiOubli: Number(delai.value),
+        };
+        const problemes = controlerReglage(reglage);
+        if (problemes.length) {
+          dire(problemes.join(' '));
+          return;
+        }
+        await poserLeRappel(t.id, reglage.actif ? reglage : null);
+        await peindre();
+      }).catch(dire);
+    });
+
+    bloc.append(form);
+    return bloc;
+  }
+
+  /**
+   * Le bouton d'export vers l'agenda.
+   *
+   * Il n'apparaît **que** si au moins un traitement demande un rappel par
+   * agenda : un bouton qui produirait un fichier vide est pire qu'un bouton
+   * absent, puisqu'il faut l'ouvrir pour apprendre qu'il n'y avait rien.
+   */
+  function peindreLExport(traitements: readonly Traitement[]): void {
+    const zone = $('export-agenda');
+    const concernes = traitements.filter((t) => t.rappel?.actif && t.rappel.voie === 'agenda');
+    zone.classList.toggle('hidden', concernes.length === 0);
+    if (!concernes.length) return;
+
+    const bouton = $('telecharger-agenda');
+    bouton.onclick = () =>
+      void unSeulGeste(bouton, async () => {
+        const { rappelsEnIcs } = await import('../../lib/odyssee/rappels-ics');
+        const { offrirLeFichier } = await import('../../lib/telecharger');
+        let fichier = '';
+        try {
+          fichier = rappelsEnIcs(concernes);
+        } catch (e) {
+          /*
+             Un fuseau que Cyclades n'a pas vérifié : on le DIT, plutôt que
+             d'écrire des rappels faux d'une heure pendant six mois. Le
+             message de l'erreur est écrit pour être lu par la personne.
+          */
+          dire(e);
+          return;
+        }
+        if (!fichier) return;
+        offrirLeFichier(fichier, `rappels-${AUJOURDHUI}.ics`, 'text/calendar;charset=utf-8');
+        const dit = $('export-fait');
+        dit.classList.remove('hidden');
+        const combien = fichier.split('BEGIN:VEVENT').length - 1;
+        dit.textContent =
+          combien === 1
+            ? 'Un rappel exporté. Ouvrez le fichier pour l’ajouter à votre agenda.'
+            : `${combien} rappels exportés. Ouvrez le fichier pour les ajouter à votre agenda.`;
+      }).catch(dire);
+  }
+
   /* ── Le menu des molécules (2.8) ─────────────────────────────────── */
 
   /**
@@ -862,6 +1122,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       ]);
 
     peindreLesCreneaux(traitements, marques);
+    peindreLExport(traitements);
 
     const zoneT = $('traitements');
     zoneT.replaceChildren();
@@ -921,6 +1182,8 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
          désactivé laisserait croire qu'il suffit de décocher quelque chose.
       */
       if (!t.sporadique) li.appendChild(editeurDeSchema(t));
+      const rappel = editeurDeRappel(t);
+      if (rappel) li.appendChild(rappel);
       zoneT.appendChild(li);
     }
 

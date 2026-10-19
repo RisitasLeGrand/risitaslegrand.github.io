@@ -373,6 +373,113 @@ console.log('\nNI COMPTEUR, NI REPROCHE, NI VERBE DE PRESCRIPTION');
   );
 }
 
+console.log('\nLE RÉGLAGE DE RAPPEL, ET CE QU’IL DIT DE SES LIMITES');
+
+{
+  /*
+     Le bouton d'export n'apparaît QUE si un traitement demande un rappel
+     par agenda : un bouton qui produirait un fichier vide est pire qu'un
+     bouton absent, puisqu'il faut l'ouvrir pour apprendre qu'il n'y avait
+     rien.
+  */
+  faux('aucun rappel demandé : pas de bouton d’export', await page.locator('#export-agenda').isVisible());
+
+  const rappel = page.locator('#traitements details').nth(1);
+  await rappel.locator('summary').click();
+  await page.waitForTimeout(300);
+  vrai(
+    'le repli invite à régler un rappel, sans en avoir posé un',
+    (await rappel.locator('summary').textContent()).includes('Me rappeler'),
+  );
+
+  /*
+     TOUT EST ÉTEINT PAR DÉFAUT (décision 3), et les réglages suivants sont
+     cachés : des champs visibles sous une case décochée laisseraient croire
+     qu'ils agissent.
+  */
+  faux('la case « Me rappeler » est décochée', await rappel.locator('input[type="checkbox"]').first().isChecked());
+  faux('et la voie n’est pas encore proposée', await rappel.locator('select').first().isVisible());
+
+  await rappel.locator('input[type="checkbox"]').first().check();
+  await page.waitForTimeout(200);
+  vrai('cochée, elle découvre la voie', await rappel.locator('select').first().isVisible());
+
+  /*
+     CE QUE CHAQUE VOIE FAIT VRAIMENT, dit à l'écran (§ 1 n° 6 : ce qu'un
+     site statique ne peut pas faire est dit, pas promis).
+  */
+  const ditAgenda = await rappel.locator('p').first().textContent();
+  vrai('l’agenda est annoncé comme la seule voie qui sonne fermé', ditAgenda.includes('seule voie'));
+  vrai('et son angle mort est dit aussi', ditAgenda.includes('jamais en cas d’oubli'));
+
+  await rappel.locator('select').first().selectOption('notification');
+  await page.waitForTimeout(200);
+  const ditNotification = await rappel.locator('p').first().textContent();
+  vrai('la notification dit ce qu’elle ne fait pas sur iPhone', ditNotification.includes('iPhone'));
+  vrai('et qu’Android demande l’application installée', ditNotification.includes('installée'));
+  await rappel.locator('select').first().selectOption('agenda');
+
+  /* L'avertissement du § 3.3 n'apparaît que si le libellé nomme. */
+  const avertissement = rappel.locator('p', { hasText: 'synchronisé avec un service tiers' });
+  faux('en libellé neutre, aucun avertissement à donner', await avertissement.isVisible());
+  await rappel.locator('select').nth(1).selectOption('explicite');
+  await page.waitForTimeout(200);
+  vrai('le libellé explicite s’accompagne de son avertissement', await avertissement.isVisible());
+  await rappel.locator('select').nth(1).selectOption('neutre');
+
+  /* Le rappel d'oubli, et la limite qu'il faut dire. */
+  const oubliCase = rappel.locator('input[type="checkbox"]').nth(1);
+  faux('le rappel d’oubli est éteint lui aussi', await oubliCase.isChecked());
+  await oubliCase.check();
+  await page.waitForTimeout(200);
+  const limite = rappel.locator('p', { hasText: 'coffre déverrouillé' });
+  vrai('et la limite réelle du rappel d’oubli est dite', await limite.isVisible());
+  vrai(
+    'y compris qu’elle vient du chiffrement, et non d’un manque de soin',
+    (await limite.textContent()).includes('chiffré'),
+  );
+  const delai = rappel.locator('select').nth(2);
+  v('le délai par défaut est de deux heures', await delai.inputValue(), '120');
+
+  await rappel.locator('button[type="submit"]').click();
+  await page.waitForTimeout(1500);
+  vrai('réglé, le bouton d’export apparaît', await page.locator('#export-agenda').isVisible());
+}
+
+console.log('\nL’EXPORT PRODUIT UN FICHIER, ET IL NE DIT RIEN DE TROP');
+
+{
+  /*
+     On intercepte le téléchargement plutôt que de l'écrire sur le disque :
+     ce qu'on veut lire, c'est le CONTENU du fichier qui partirait dans un
+     agenda — lequel est, pour la plupart des gens, synchronisé chez un
+     tiers.
+  */
+  const attendu = page.waitForEvent('download', { timeout: 20000 });
+  await page.click('#telecharger-agenda');
+  const telechargement = await attendu;
+  const flux = await telechargement.createReadStream();
+  let ics = '';
+  for await (const morceau of flux) ics += morceau;
+
+  vrai('le fichier s’appelle comme un agenda', telechargement.suggestedFilename().endsWith('.ics'));
+  vrai('il porte une règle de récurrence', ics.includes('RRULE:FREQ=DAILY'));
+  vrai('et une alarme, qui est sa seule raison d’être', ics.includes('BEGIN:VALARM'));
+  vrai('l’heure est écrite avec son fuseau', ics.includes('DTSTART;TZID=Europe/Paris:'));
+  vrai('et le fuseau est décrit, non laissé à deviner', ics.includes('BEGIN:VTIMEZONE'));
+  vrai('le libellé par défaut ne nomme rien', ics.includes('SUMMARY:Rappel Cyclades'));
+  /*
+     LE POINT QUI COMPTE : ce fichier QUITTE l'appareil. En libellé neutre,
+     rien du traitement n'y figure.
+  */
+  v(
+    'ni le nom du traitement, ni sa posologie, ni sa quantité',
+    ['Exemple de traitement', '1 le matin', '5 g'].filter((m) => ics.includes(m)),
+    [],
+  );
+  vrai('et l’écran dit ce qui a été exporté', await page.locator('#export-fait').isVisible());
+}
+
 console.log('\nREFERMER LE COFFRE REFERME L’ÉCRAN');
 
 {
