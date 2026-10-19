@@ -69,14 +69,29 @@ export async function repondreAuChamp(page, valeur, verbe = 'Enregistrer', optio
  * retirée sans être ouverte ne doit pas compter.
  */
 export async function compterLesBoites(page) {
-  await page.addInitScript(() => {
+  const pose = `(() => {
+    if (globalThis.__boitesComptees) return globalThis.__boitesOuvertes ?? 0;
+    globalThis.__boitesComptees = true;
     globalThis.__boitesOuvertes = 0;
     const natif = HTMLDialogElement.prototype.showModal;
     HTMLDialogElement.prototype.showModal = function (...args) {
       if (this.classList.contains('boite')) globalThis.__boitesOuvertes += 1;
       return natif.apply(this, args);
     };
-  });
+    return 0;
+  })()`;
+  /*
+     DEUX POSES, ET IL EN FAUT DEUX.
+
+     `addInitScript` ne s'applique qu'aux documents chargés APRÈS lui :
+     posée seule, elle ne compte rien sur une page déjà ouverte — et c'est
+     le cas le plus fréquent, puisqu'un essai déverrouille d'abord. On pose
+     donc aussi l'enveloppe dans le document courant, et le garde
+     « __boitesComptees » empêche de compter deux fois si les deux poses se
+     rencontrent.
+  */
+  await page.addInitScript(`${pose};`);
+  await page.evaluate(pose).catch(() => undefined);
   return async () => (await page.evaluate('globalThis.__boitesOuvertes ?? 0')) ?? 0;
 }
 

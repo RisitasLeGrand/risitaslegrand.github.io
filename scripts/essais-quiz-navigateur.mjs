@@ -24,6 +24,7 @@
  * garde-fou qu'on peut franchir en disant non n'en est pas un.
  */
 import { chromium } from 'playwright-core';
+import { compterLesBoites, repondreALaBoite } from './lib/boite-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
@@ -128,15 +129,29 @@ console.log('\n\x1b[1mF3 — QUITTER UNE ÉPREUVE COMMENCÉE\x1b[0m\n');
   const hauteur = Math.round((await quitter.boundingBox()).height);
   verifier(`« Quitter » fait au moins 44 px de haut au doigt (ici ${hauteur})`, hauteur >= 44, true);
 
+  /*
+     LA BOÎTE COMMUNE, ET CE QU'ON COMPTE (C1 et C3 du 43).
+
+     « Quitter » posait une fenêtre native ; l'essai la comptait avec
+     « page.on('dialog') ». Depuis le 43, c'est la boîte commune : plus
+     aucune fenêtre native ne s'ouvre, donc le compteur restait à zéro et
+     l'assertion « après une réponse : une demande » lisait 0 au lieu de 1.
+     L'essai ne mesurait plus rien — ni la demande, ni son absence.
+
+     On compte donc les OUVERTURES de la boîte, en enveloppant
+     « showModal » : c'est l'ouverture qui est l'événement, et une boîte
+     posée puis retirée sans être ouverte ne doit pas compter. Le module
+     pose l'enveloppe dans le document COURANT et pour les suivants :
+     « addInitScript » seule ne compterait rien ici, la page étant déjà
+     chargée.
+  */
+  const boites = await compterLesBoites(page);
   let demandes = 0;
-  page.on('dialog', async (d) => {
-    demandes += 1;
-    await d.dismiss();
-  });
 
   // Rien de répondu : sortir ne demande rien, il n'y a rien à perdre.
   await quitter.click();
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(600);
+  demandes = await boites();
   verifier('épreuve vierge : aucune demande', demandes, 0);
   verifier('et l’on sort bien', await page.locator('#accueil-dgfip').isVisible(), true);
 
@@ -145,10 +160,10 @@ console.log('\n\x1b[1mF3 — QUITTER UNE ÉPREUVE COMMENCÉE\x1b[0m\n');
   await page.waitForSelector('#epreuve:not(.hidden)', { timeout: 60000 });
   await page.locator('#options-dgfip button').first().click();
   await page.waitForTimeout(300);
-  demandes = 0;
+  const avant = await boites();
   await quitter.click();
-  await page.waitForTimeout(400);
-  verifier('après une réponse : une demande', demandes, 1);
+  await repondreALaBoite(page, 'Continuer l’épreuve');
+  verifier('après une réponse : une demande', (await boites()) - avant, 1);
   verifier('et un refus laisse dans l’épreuve', await page.locator('#epreuve').isVisible(), true);
   await contexte.close();
 }
