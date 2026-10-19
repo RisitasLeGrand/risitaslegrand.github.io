@@ -29,6 +29,7 @@ import {
   type Prelevement,
   type Ressenti,
   type Resultat,
+  type SchemaDePrise,
   type Symptome,
   type Traitement,
 } from './sante';
@@ -137,6 +138,8 @@ export async function ecrireTraitement(
     posologie?: string;
     /** Une prise isolée : pas de fin, pas de schéma, pas de rappel. */
     sporadique?: boolean;
+    /** Le schéma prévu, ou rien. `controlerTraitement` refuse les deux ensemble. */
+    schema?: SchemaDePrise | null;
     fin?: string;
     note?: string;
   } = {},
@@ -149,6 +152,13 @@ export async function ecrireTraitement(
     prescripteur: options.prescripteur?.trim() ?? '',
     posologie: options.posologie?.trim() ?? '',
     sporadique: options.sporadique ?? false,
+    /*
+       `null` et non `undefined` : le traitement part dans un enregistrement
+       scellé qui sera relu par `JSON.parse`, et `undefined` y disparaît. Un
+       champ qui s'efface à l'écriture ne se distingue pas d'un champ qu'on
+       n'a pas voulu, et un retrait de schéma passerait pour un oubli.
+    */
+    schema: options.schema ?? null,
     debut,
     fin: options.fin ?? '',
     note: options.note ?? '',

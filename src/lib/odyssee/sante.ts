@@ -31,6 +31,13 @@
  * parce qu'il ne demande aucune source : c'est une soustraction entre deux
  * instants que la personne a elle-même saisis.
  */
+import {
+  instantDeLOccurrence,
+  suitLaRegle,
+  type Repetition,
+  type Serie,
+} from './repetition';
+import type { ReglagesJourLogique } from '../noyau/jour-logique';
 
 /* ══════════════════════════════════════════════════════════════════════════
    La valeur sourcée, ou pas
@@ -412,6 +419,16 @@ export interface Traitement {
    * là où il en lit une.
    */
   sporadique: boolean;
+  /**
+   * Le schéma prévu, ou rien — phase 4, P1.
+   *
+   * **Facultatif, et absent se lit « pas de schéma ».** Un traitement écrit
+   * avant ce lot reste valide tel quel et se comporte comme avant : aucun
+   * créneau, aucun rappel. Poser un schéma vide sur chaque ligne existante
+   * aurait été une migration qui touche des données pour y écrire une valeur
+   * déjà lisible dans leur absence — du risque sans contrepartie.
+   */
+  schema?: SchemaDePrise | null;
   debut: string;
   /** Vide tant qu'il court. */
   fin: string;
@@ -425,11 +442,197 @@ export function controlerTraitement(t: Traitement): string[] {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(t.debut)) problemes.push('Un traitement a une date de début.');
   if (t.fin && t.fin < t.debut) problemes.push('Un traitement ne finit pas avant de commencer.');
   if (!(t.origine in ORIGINES)) problemes.push(`Origine inconnue : « ${t.origine} ».`);
+  /*
+     Un schéma sur une prise sporadique est refusé **au contrôle**, et non
+     seulement masqué à l'écran. La décision 12 dit « pas de fin, pas de
+     schéma, pas de rappel » ; un objet qui porterait les deux serait
+     contradictoire, et c'est le genre de contradiction qui entre par un
+     import ou par une synchronisation, jamais par le formulaire.
+  */
+  if (t.schema && t.sporadique) {
+    problemes.push('Une prise sporadique n’a pas de schéma prévu : elle est isolée.');
+  }
+  if (t.schema) problemes.push(...controlerSchema(t.schema));
   return problemes;
 }
 
 export const traitementEnCours = (t: Traitement, jour: string): boolean =>
   t.debut <= jour && (!t.fin || t.fin >= jour);
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Le schéma prévu — phase 4, P1
+
+   La règle posée en phase 1 était « enregistrement seul », et elle tenait à
+   un fait : la posologie est du **texte libre**, donc rien ne sait ce qui
+   était prévu. Le 16 octobre, Alexis a signé la condition de sa levée —
+   « pas de rappel de prise tant qu'il n'y a pas de posologie structurée ».
+   Ce qui suit est cette posologie structurée, et rien de plus.
+
+   **Ce que le schéma n'est pas.** Il n'est pas une dose, pas une
+   recommandation, pas une correction. Il porte ce que la personne déclare :
+   des jours, des heures, et une quantité dans ses mots. Cyclades ne le
+   propose jamais, ne le compare à aucune fiche, et ne le modifie pas.
+
+   **Il reste facultatif.** Un traitement sans schéma se comporte exactement
+   comme avant ce lot — le champ est absent, et absent se lit « pas de
+   schéma ». Aucune ligne existante n'est réécrite.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * La règle des jours d'un schéma prévu.
+ *
+ * C'est un **sous-ensemble du calendrier existant**, et non un type nouveau :
+ * « tous les jours » s'écrit `{ type: 'jours', tous: 1 }`, « tous les trois
+ * jours » `{ type: 'jours', tous: 3 }`, « lundi et jeudi »
+ * `{ type: 'semaines', tous: 1, jours: [1, 4] }`.
+ *
+ * Réécrire ici une arithmétique de calendrier aurait produit une seconde
+ * implémentation du jour logique et du changement d'heure, c'est-à-dire deux
+ * codes qui divergent le 25 octobre et se ressemblent les trois cent
+ * soixante-quatre autres jours. `repetition.ts` porte déjà les deux règles,
+ * et il est éprouvé.
+ *
+ * Les formes mensuelles et annuelle de `Repetition` sont **exclues par le
+ * type**, parce que le prompt en demande trois et que la personne n'en verra
+ * que trois. Une quatrième forme que seul le modèle saurait construire serait
+ * une porte qu'aucun écran n'ouvre et qu'aucun essai ne garde.
+ */
+export type RepetitionDePrise = Extract<Repetition, { type: 'jours' } | { type: 'semaines' }>;
+
+/**
+ * Ce qu'une personne déclare prévoir pour un traitement.
+ *
+ * `heures` est une liste, parce que « matin et soir » est le cas ordinaire et
+ * qu'un champ unique aurait obligé à déclarer deux traitements pour une seule
+ * molécule — avec deux historiques de prises qu'on ne pourrait plus réunir.
+ *
+ * `quantite` est un texte libre affiché tel quel, pour la raison qui vaut
+ * déjà pour `posologie` : un nombre appellerait un calcul, le calcul une
+ * comparaison, et la comparaison serait l'avis que ce module n'a pas le droit
+ * de rendre.
+ */
+export interface SchemaDePrise {
+  repetition: RepetitionDePrise;
+  /** Les heures murales prévues, « HH:MM ». Au moins une, triées, sans doublon. */
+  heures: readonly string[];
+  /** « 5 g », « un comprimé ». Jamais lu comme un nombre. */
+  quantite: string;
+}
+
+/** Une heure murale, de `00:00` à `23:59`. */
+const HEURE_MURALE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/**
+ * Range les heures : triées, sans doublon.
+ *
+ * Deux fois « 08:00 » dans la même journée donnerait deux créneaux
+ * indiscernables — donc deux rappels pour une prise, et un « rien n'est
+ * noté » qui resterait vrai après qu'on a noté. Le doublon se retire à
+ * l'écriture plutôt que de se contourner à chaque lecture.
+ */
+export const rangerLesHeures = (heures: readonly string[]): string[] =>
+  [...new Set(heures.map((h) => h.trim()))].filter(Boolean).sort();
+
+export function controlerSchema(s: SchemaDePrise): string[] {
+  const problemes: string[] = [];
+  if (!s.heures.length) problemes.push('Un schéma prévu porte au moins une heure.');
+  for (const h of s.heures) {
+    if (!HEURE_MURALE.test(h)) problemes.push(`« ${h} » n’est pas une heure.`);
+  }
+  if (new Set(s.heures).size !== s.heures.length) {
+    problemes.push('Une même heure ne peut pas être prévue deux fois le même jour.');
+  }
+  const r = s.repetition;
+  if (!Number.isInteger(r.tous) || r.tous < 1) {
+    problemes.push('Une répétition se compte en nombres entiers, à partir de un.');
+  }
+  if (r.type === 'semaines') {
+    if (!r.jours.length) problemes.push('Un schéma par semaine nomme au moins un jour.');
+    if (r.jours.some((j) => !Number.isInteger(j) || j < 0 || j > 6)) {
+      problemes.push('Un jour de la semaine va de 0 (dimanche) à 6 (samedi).');
+    }
+  }
+  return problemes;
+}
+
+/**
+ * La série équivalente à un traitement : sa période **est** la fin de série.
+ *
+ * C'est la traduction qui permet de réutiliser `repetition.ts` sans y toucher,
+ * et elle n'invente rien : un traitement commence le `debut`, il s'arrête à
+ * la `fin` quand elle est posée, il court sans fin sinon. Les trois champs
+ * existaient déjà ; ils disaient déjà cela.
+ *
+ * `heure` est passée par l'appelant parce qu'un schéma en porte plusieurs et
+ * qu'une série n'en porte qu'une. C'est la seule entorse, et elle est locale :
+ * on construit une série par heure, le temps d'un calcul.
+ */
+export const serieDuSchema = (
+  t: Traitement,
+  schema: SchemaDePrise,
+  heure: string | null = null,
+): Serie => ({
+  depuis: t.debut,
+  repetition: schema.repetition,
+  fin: t.fin ? { type: 'date', jusquAu: t.fin } : { type: 'jamais' },
+  heure,
+});
+
+/**
+ * Un créneau prévu : un traitement, un jour logique, une heure.
+ *
+ * `instant` est calculé par `instantDeLOccurrence()`, qui porte déjà les deux
+ * conversions qui comptent et qu'on ne refait donc pas ici : le jour logique
+ * vers le jour du calendrier — une prise de 0 h 30 appartient à la veille,
+ * puisque la journée bascule à 4 h — et l'heure murale vers l'instant, avec
+ * l'heure sautée de mars et l'heure dédoublée d'octobre.
+ */
+export interface CreneauPrevu {
+  traitementId: string;
+  /** Le jour logique auquel le créneau appartient. */
+  jour: string;
+  /** L'heure murale, « HH:MM ». */
+  heure: string;
+  instant: Date;
+}
+
+/**
+ * Les créneaux prévus d'un traitement, un jour logique donné.
+ *
+ * Rend une liste vide dans quatre cas, et chacun est une règle :
+ *
+ * - **pas de schéma** : c'est le cas par défaut, et il ne change rien au
+ *   comportement d'avant ce lot ;
+ * - **traitement sporadique** : la décision 12 pose « pas de fin, pas de
+ *   schéma, pas de rappel », et l'interdit du § 1 la reprend mot pour mot.
+ *   Le refus est ici, au calcul, et non seulement à l'écran : un schéma posé
+ *   par un import ou une synchronisation ne doit pas produire de créneau non
+ *   plus ;
+ * - **hors de la période** du traitement ;
+ * - **jour qui ne suit pas la règle**.
+ */
+export function creneauxDuJour(
+  t: Traitement,
+  jour: string,
+  reglages: Partial<ReglagesJourLogique> = {},
+): CreneauPrevu[] {
+  const schema = t.schema;
+  if (!schema || t.sporadique) return [];
+  if (!traitementEnCours(t, jour)) return [];
+  if (!suitLaRegle(serieDuSchema(t, schema), jour)) return [];
+  return rangerLesHeures(schema.heures).map((heure) => ({
+    traitementId: t.id,
+    jour,
+    heure,
+    /*
+       `instantDeLOccurrence` ne rend `null` que pour une série sans heure, et
+       celle-ci en porte une. Le `!` dit cette lecture plutôt que de laisser
+       un `null` impossible remonter jusqu'aux écrans, où il faudrait le
+       traiter partout sans jamais pouvoir l'obtenir.
+    */
+    instant: instantDeLOccurrence(serieDuSchema(t, schema, heure), jour, reglages)!,
+  }));
+}
 
 /* ── Ce que je ressens, rattaché à ce que je prends (2.3) ─────────────── */
 
