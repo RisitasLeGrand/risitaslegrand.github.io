@@ -12,6 +12,7 @@
  * passer les octets de main à main ne prouverait rien du téléchargement.
  */
 import { chromium } from 'playwright-core';
+import { repondreALaBoite } from './lib/boite-essais.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { semer } from './lib/semer.mjs';
 
@@ -442,8 +443,21 @@ vrai('avec l’appareil qui les a saisies', texteConflit.includes('Téléphone')
 
 /* Ignorer sans motif ne doit rien enregistrer : une réponse sans explication ne
    se relit pas six mois plus tard. */
-a.page.once('dialog', (d) => d.dismiss());
 await a.page.click('button[data-issue="ignore"]');
+/*
+   LE MOTIF SE SAISIT DANS UN CHAMP (C2 du 43).
+
+   « Garder pour plus tard » demandait son motif par un `prompt()` natif, que
+   cet essai annulait par `d.dismiss()` pour éprouver qu'« une invite annulée
+   ne tranche rien ». C'est maintenant un champ dans la boîte commune : la
+   fenêtre native ne s'ouvre plus, donc l'annulation n'avait plus lieu, et la
+   feuille restée ouverte arrêtait les clics suivants — c'est le symptôme qui
+   a mis cet essai au rouge.
+
+   On renonce donc explicitement, par le bouton que l'écran propose, et la
+   propriété éprouvée est la même : un motif non donné ne tranche rien.
+*/
+await repondreALaBoite(a.page, 'Annuler');
 await a.page.waitForTimeout(500);
 v('une invite annulée ne tranche rien', (await a.page.$$('#liste-conflits > li')).length, 1);
 
@@ -512,6 +526,23 @@ await b.page.waitForSelector('#sauvegarder', { timeout: 30000 });
     undefined,
     { timeout: 60000 },
   );
+  /*
+     ET LA CONFIRMATION (A3 du 43), sans laquelle rien n'est déclaré.
+
+     Un clic de téléchargement ne prouve pas qu'un fichier est arrivé : le
+     web ne le dit pas, et l'écran ne promet donc plus « Sauvegarde
+     téléchargée ». Il annonce un téléchargement LANCÉ, puis demande
+     confirmation, et la date n'est notée — donc la sauvegarde n'est
+     déclarée au registre — que si la personne confirme avoir retrouvé le
+     fichier.
+
+     L'essai s'arrêtait au message de fin : le registre restait vide, et
+     « B voit sa propre sauvegarde » lisait faux. Il confirme maintenant,
+     comme une personne le ferait, puisque le fichier est bel et bien arrivé
+     — Playwright l'a reçu dans l'événement « download ».
+  */
+  await b.page.click('#sauvegarde-retrouvee');
+  await b.page.waitForTimeout(1500);
 }
 await b.page.goto(`${RACINE}/appareils/`, { waitUntil: 'networkidle' });
 await b.page.waitForSelector('#ecran:not(.hidden)', { timeout: 30000 });
@@ -558,8 +589,12 @@ vrai('les synchronisations reçues sont listées, avec un bouton d’annulation'
 */
 v('et le rejeu, qui n’a rien apporté, n’a pas laissé de ligne', lots.length, lotsAvantRejeu);
 
-a.page.once('dialog', (d) => d.accept());
 await lots[0].click();
+/*
+   Même boîte que dans « essais:faits-domaine » : annuler une
+   synchronisation demande confirmation, et le message ne s'écrit qu'après.
+*/
+await repondreALaBoite(a.page, 'Annuler cette synchronisation');
 await a.page.waitForSelector('#message-annulation:not(.hidden)', { timeout: 60000 });
 const messageAnnulation = await a.page.textContent('#message-annulation');
 vrai('l’annulation dit ce qu’elle a retiré', messageAnnulation.includes('retirées'));
@@ -585,8 +620,8 @@ vrai(
 let restants = (await a.page.$$('.annuler')).length;
 let garde = 0;
 while (restants > 0 && garde < 10) {
-  a.page.once('dialog', (d) => d.accept());
   await (await a.page.$$('.annuler'))[0].click();
+  await repondreALaBoite(a.page, 'Annuler cette synchronisation');
   await a.page.waitForFunction(
     (combien) => document.querySelectorAll('.annuler').length < combien,
     restants,
