@@ -55,9 +55,25 @@ v(
   { texte: 'inconnue', bandeau: true, precision: 'aucune source primaire atteignable' },
 );
 
-console.log('\nLE CATALOGUE EST VIDE, ET C’EST LE LIVRABLE');
+console.log('\nCE QUI EST LIVRÉ PASSE SES PROPRES CONTRÔLES');
 
-v('aucune fiche n’est livrée', CATALOGUE.length, 0);
+/*
+   L'ESSAI DISAIT « AUCUNE FICHE N'EST LIVRÉE ». CE N'EST PLUS VRAI.
+
+   Il constatait, à la date où il a été écrit, que le catalogue était vide, et
+   c'était alors le livrable : les contrôles étaient en place avant le
+   contenu. Cinq fiches sont arrivées depuis, et la constatation est devenue
+   une exigence de ne rien livrer — l'inverse de ce qu'elle voulait dire.
+
+   Ce qui la remplace est plus fort que ce qu'elle gardait : chaque fiche
+   livrée passe `controlerFiche`, un par un, et le contrôle refuse de juger si
+   le catalogue revient vide — un catalogue vidé par accident ne doit pas
+   faire passer cet essai au vert en silence.
+*/
+vrai('le catalogue livre des fiches', CATALOGUE.length > 0);
+for (const livree of CATALOGUE) {
+  v(`« ${livree.nom} » passe les contrôles`, controlerFiche(livree), []);
+}
 
 const fiche = (par: Partial<FicheMolecule> = {}): FicheMolecule => ({
   id: 'x',

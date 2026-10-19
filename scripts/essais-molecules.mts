@@ -1,10 +1,11 @@
 /**
  * Les contrôles du registre, des paires, des limites et des doses.
  *
- * Ces essais portent sur des **refus**. C'est voulu : le catalogue est vide,
- * il n'y a donc rien à valider, et tout l'intérêt de ces contrôles est qu'ils
- * soient déjà en place et déjà durs le jour où du contenu arrivera. Un
- * contrôle écrit après le contenu s'y adapte ; celui-ci est écrit avant.
+ * Ces essais portent d'abord sur des **refus**. C'est voulu : ils ont été
+ * écrits quand le catalogue était vide, pour être déjà en place et déjà durs
+ * le jour où du contenu arriverait. Un contrôle écrit après le contenu s'y
+ * adapte ; celui-ci a été écrit avant. Le contenu est arrivé — cinq fiches —,
+ * et la dernière section le fait passer par ces mêmes contrôles.
  *
  * Chaque cas de refus est accompagné du cas passant correspondant : un
  * contrôle qui refuse tout ne contrôle rien non plus.
@@ -24,7 +25,7 @@ import {
   type LimiteSourcee,
   type PaireInteraction,
 } from '../src/lib/odyssee/molecules';
-import { CATALOGUE } from '../src/lib/odyssee/sante';
+import { CATALOGUE, controlerFiche } from '../src/lib/odyssee/sante';
 
 let rouges = 0;
 const v = (quoi: string, obtenu: unknown, attendu: unknown) => {
@@ -273,14 +274,25 @@ console.log('\n\x1b[1mUNE LIGNE DE DOSE DÉCRIT UNE ÉTUDE, PAS UNE CONSIGNE\x1b
   }
 }
 
-console.log('\n\x1b[1mCE QUI EST LIVRÉ VIDE, ET LE DIT\x1b[0m\n');
+console.log('\n\x1b[1mCE QUI EST LIVRÉ PASSE LES CONTRÔLES CI-DESSUS\x1b[0m\n');
 {
   /*
-     Cet essai est une constatation, pas une exigence : il garde trace du fait
-     que le catalogue est vide à cette date, et sert d'alarme douce si
-     quelqu'un y glisse une fiche sans passer par les contrôles ci-dessus.
+     L'alarme douce a sonné, et elle avait raison.
+
+     Cet essai constatait que le catalogue était vide, en annonçant qu'il
+     servirait d'alarme si quelqu'un y glissait une fiche sans la faire passer
+     par les contrôles. Cinq fiches sont arrivées : l'alarme a fait son
+     travail, et c'est ici qu'elle se transforme en ce qu'elle annonçait —
+     chaque fiche livrée passe `controlerFiche`, nommément.
+
+     Le compte n'est pas figé : on vérifie qu'il y en a, pas combien. Un
+     chiffre recopié ici rougirait à la sixième fiche sans que rien ne soit
+     cassé.
   */
-  v('le catalogue de molécules est vide', CATALOGUE.length, 0);
+  v('le catalogue de molécules n’est pas vide', CATALOGUE.length > 0, true);
+  for (const livree of CATALOGUE) {
+    v(`« ${livree.nom} » passe les contrôles de fiche`, controlerFiche(livree), []);
+  }
 }
 
 if (rouges > 0) {
