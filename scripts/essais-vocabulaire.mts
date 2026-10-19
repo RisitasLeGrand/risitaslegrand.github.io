@@ -319,10 +319,11 @@ const SURFACE_DU_SUIVI: readonly string[] = [
   'src/lib/odyssee/cycle.ts',
   'src/lib/odyssee/cycle-confidentialite.ts',
   'src/lib/odyssee/cycle-signes-alerte.ts',
+  'src/lib/odyssee/donnees-cycle.ts',
 ];
 
 const designeLeSuivi = (chemin: string) =>
-  /chaines-du-suivi|suivi-personnel|odyssee\/cycle(-|\.)/.test(chemin);
+  /chaines-du-suivi|suivi-personnel|odyssee\/(donnees-)?cycle(-|\.)/.test(chemin);
 const oublies = tousLesFichiers
   .map((c) => c.replace(/\\/g, '/'))
   .filter((c) => designeLeSuivi(c) && !SURFACE_DU_SUIVI.includes(c));

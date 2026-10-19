@@ -190,6 +190,28 @@ export const PORTES_GARDEES: readonly PorteGardee[] = [
     pourquoi:
       'Décision 18 : non synchronisé par défaut. Le paquet ne transporte que le journal d’opérations et les révisions ; le cycle n’écrit dans ni l’un ni l’autre.',
   },
+  /*
+     LA CINQUIÈME PORTE, AJOUTÉE APRÈS COUP, et c'est celle qui montre
+     pourquoi les quatre premières ne suffisaient pas.
+
+     Les quatre se gardent en lisant le GARDIEN. Celle-ci ne se voit qu'en
+     lisant l'ÉCRIVAIN : tous les voisins scellés appellent `journaliser()`
+     après une écriture, ce qui pousse l'enregistrement dans le journal
+     d'opérations — que la synchronisation transporte. Le suivi serait donc
+     parti, contre la décision 18, sans qu'aucun nom de magasin apparaisse
+     dans `sync/`.
+
+     J'allais journaliser par mimétisme. Le gardien de cette porte est donc
+     la couche de données elle-même, et son essai vérifie qu'aucun fichier du
+     suivi n'appelle `faits-domaine`.
+  */
+  {
+    nom: 'Journal d’opérations',
+    gardien: 'src/lib/odyssee/donnees-cycle.ts',
+    regime: 'exclu',
+    pourquoi:
+      'Journaliser une écriture la pousse dans le journal d’opérations, que la synchronisation transporte. La couche de données du suivi ne journalise donc pas — la seule de son espèce, et le commentaire dit pourquoi.',
+  },
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════

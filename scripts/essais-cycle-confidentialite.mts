@@ -65,7 +65,7 @@ console.log('\n1. LA DÉCLARATION TIENT');
 
 v('le module ne relève aucun problème de forme', controlerLaConfidentialiteDuCycle(), []);
 v('deux magasins sont déclarés', MAGASINS_DU_CYCLE.length, 2);
-v('quatre portes sont nommées', PORTES_GARDEES.length, 4);
+v('cinq portes sont nommées', PORTES_GARDEES.length, 5);
 
 /*
    AUCUN MAGASIN DU SUIVI N'ÉCHAPPE AU SCELLÉ. C'est l'assertion que
@@ -124,7 +124,7 @@ v(
 );
 v('et la clé ne porte aucun séparateur de date', /[-/.]/.test(cle1), false);
 
-console.log('\n3. LES QUATRE PORTES, MESURÉES SUR LE CODE DES GARDIENS');
+console.log('\n3. LES CINQ PORTES, MESURÉES SUR LE CODE DES GARDIENS');
 
 /*
    PORTE 1 — l'export pour IA. Le cycle n'y a aucune catégorie, et le nom
@@ -192,6 +192,93 @@ for (const chemin of ['src/lib/sync/service.ts', 'src/lib/sync/paquet.ts']) {
     [],
   );
 }
+
+/*
+   PORTE 5 — LE JOURNAL D'OPÉRATIONS, que cet essai ne gardait pas.
+
+   Les quatre assertions précédentes vérifient que la couche de
+   synchronisation ne NOMME aucun magasin du suivi. C'était vrai, et
+   insuffisant : tous les voisins scellés appellent `journaliser()` après une
+   écriture, et `journaliserEnregistrement()` écrit dans le journal
+   d'opérations — qui est précisément ce que la synchronisation transporte.
+   L'en-tête de `donnees-sensible.ts` le dit : les magasins scellés
+   « voyagent, se sauvegardent et s'effacent par le même mécanisme ».
+
+   Journaliser le suivi l'aurait donc synchronisé, contre la décision 18,
+   SANS QU'AUCUN NOM DE MAGASIN N'APPARAISSE DANS `sync/`. Une porte qu'on ne
+   voit pas en lisant le gardien, mais en lisant l'écrivain.
+
+   Elle est gardée sur la couche de données du suivi : elle n'appelle rien de
+   `faits-domaine`, ni directement ni par un import dynamique.
+*/
+const donneesDuCycle = source('src/lib/odyssee/donnees-cycle.ts');
+v(
+  'journal d’opérations : la couche de données du suivi ne journalise pas',
+  /journaliser|faits-domaine/.test(donneesDuCycle),
+  false,
+);
+/*
+   ET LA SYMÉTRIE, pour que l'assertion ne devienne pas vraie par
+   déplacement : aucun autre fichier du suivi ne journalise non plus.
+*/
+const fichiersDuSuivi = [
+  'src/lib/odyssee/cycle.ts',
+  'src/lib/odyssee/cycle-confidentialite.ts',
+  'src/lib/odyssee/cycle-signes-alerte.ts',
+  'src/lib/odyssee/donnees-cycle.ts',
+];
+v(
+  'et aucun fichier du suivi ne journalise',
+  fichiersDuSuivi.filter((f) => /journaliser|faits-domaine/.test(source(f))),
+  [],
+);
+
+/*
+   LA COUCHE DE DONNÉES EXIGE LE COFFRE PARTOUT. Une seule fonction qui
+   l'oublierait écrirait en clair dans un magasin scellé — et `sceller()`
+   lèverait, mais seulement si elle est appelée. Une écriture directe
+   passerait.
+*/
+/*
+   LA DÉLÉGATION COMPTE, et il a fallu que l'assertion morde pour que je
+   l'écrive correctement. Sa première version exigeait un appel DIRECT à
+   `exigerLeCoffre()` : elle a rougi sur `activerLeSuivi` et
+   `desactiverLeSuivi`, qui délèguent à `lireLesReglages` et
+   `ecrireLesReglages` — lesquelles l'exigent toutes deux. Déléguer est
+   légitime, et plutôt mieux : un seul endroit porte la garde.
+
+   On calcule donc la fermeture : une fonction est sûre si elle appelle
+   `exigerLeCoffre()`, ou si elle n'appelle que des fonctions sûres du même
+   module. Desserrer l'assertion aurait été plus court et n'aurait plus rien
+   gardé.
+*/
+const corpsDe = (nom: string): string => {
+  const debut = donneesDuCycle.search(new RegExp(`(export )?async function ${nom}\\b`));
+  if (debut < 0) return '';
+  return donneesDuCycle.slice(debut, donneesDuCycle.indexOf('\n}', debut));
+};
+const toutesLesFonctions = [...donneesDuCycle.matchAll(/(?:export )?async function (\w+)/g)].map(
+  (m) => m[1],
+);
+const fonctionsExportees = [...donneesDuCycle.matchAll(/export async function (\w+)/g)].map(
+  (m) => m[1],
+);
+v('la couche de données expose des fonctions', fonctionsExportees.length > 5, true);
+
+const sures = new Set(toutesLesFonctions.filter((n) => corpsDe(n).includes('exigerLeCoffre()')));
+for (let passe = 0; passe < toutesLesFonctions.length; passe += 1) {
+  for (const nom of toutesLesFonctions) {
+    if (sures.has(nom)) continue;
+    const corps = corpsDe(nom);
+    const appelees = toutesLesFonctions.filter(
+      (autre) => autre !== nom && new RegExp(`\\b${autre}\\s*\\(`).test(corps),
+    );
+    if (appelees.length && appelees.every((a) => sures.has(a))) sures.add(nom);
+  }
+}
+/* `combienDeSaisies` compte des clés et n'ouvre rien : exemptée, nommément. */
+const sansCoffre = fonctionsExportees.filter((n) => n !== 'combienDeSaisies' && !sures.has(n));
+v('et chacune exige le coffre, directement ou par délégation', sansCoffre, []);
 
 console.log('\n4. CE QUI NE SERA JAMAIS CALCULÉ (DÉCISION 12)');
 
