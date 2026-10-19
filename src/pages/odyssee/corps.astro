@@ -955,10 +955,22 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
   */
   const essayer = async (travail: () => Promise<unknown>) => {
     try {
-      await travail();
+      /*
+         Le refus du travail se propage — D2 du 43.
+
+         `essayer` rendait `true` dès que rien n'avait levé, y compris quand
+         le travail avait REFUSÉ d'écrire (un poids illisible, un champ vide).
+         `unSeulGeste` comptait donc le geste comme abouti, notait son repos
+         de 600 ms, et avalait l'appui qui suivait la correction : on corrige
+         « abc » en « 72,5 », on réappuie, et il ne se passe rien — l'ancien
+         message restant sous un champ qu'on vient de corriger. C'est le
+         défaut que `geste.ts` décrit au 19 octobre, et il revenait par cette
+         porte-ci. Trouvé par l'essai de D2, pas en relisant le diff.
+      */
+      const resultat = await travail();
       taire();
       await recharger();
-      return true;
+      return resultat !== false;
     } catch (erreur) {
       dire(erreur);
       return false;
@@ -1055,18 +1067,30 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
         return valeur;
       }
 
+      /*
+         `return false` et non `return` : c'est la convention d'`unSeulGeste`
+         pour un geste REFUSÉ. Sans elle, le refus compterait comme un geste
+         abouti, le repos de 600 ms serait noté, et l'appui qui suit la
+         correction tomberait dedans — avalé sans un mot, l'ancien message
+         d'erreur restant à l'écran sous un poids qu'on vient de corriger.
+         C'est le défaut que `geste.ts` décrit au 19 octobre ; mes deux
+         gestes neufs seraient retombés dedans, et c'est l'essai de D2 qui
+         me l'a montré.
+      */
       surAppui('peser', async () => {
         const kg = nombreOuPhrase('kg');
-        if (kg === null) return;
+        if (kg === null) return false;
         await ecrirePesee(kg);
         ($('kg') as HTMLInputElement).value = '';
+        return true;
       });
 
       surAppui('mesurer', async () => {
         const cm = nombreOuPhrase('cm');
-        if (cm === null) return;
+        if (cm === null) return false;
         await ecrireMesure(($('quoi') as HTMLSelectElement).value as QuoiMesurer, cm);
         ($('cm') as HTMLInputElement).value = '';
+        return true;
       });
 
       surAppui('dormir', async () => {

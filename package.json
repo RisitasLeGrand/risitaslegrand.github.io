@@ -190,6 +190,7 @@
     "essais:hors-ligne-usage": "node scripts/essais-hors-ligne-usage.mjs",
     "essais:espaces": "node scripts/essais-espaces.mjs",
     "essais:nombre-saisi": "tsx scripts/essais-nombre-saisi.mts",
+    "essais:erreur-de-champ:navigateur": "node scripts/essais-erreur-de-champ-navigateur.mjs",
     "essais:etiquettes:navigateur": "node scripts/essais-etiquettes-visibles-navigateur.mjs",
     "essais:mot-de-passe-visible": "tsx scripts/essais-mot-de-passe-visible.mts",
     "essais:mot-de-passe-visible:navigateur": "node scripts/essais-mot-de-passe-visible-navigateur.mjs",

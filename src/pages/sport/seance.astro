@@ -618,8 +618,9 @@ import LienReglages from '../../components/LienReglages.astro';
   /** La phrase dit comment corriger, et non que c'est faux (D2). */
   const PHRASE_CHARGE = 'Indiquez une charge en kilogrammes, à partir de 0. La virgule est acceptée.';
 
-  async function enregistrerSerie() {
-    if (!seance) return;
+  /** Rend `false` quand rien n'a été écrit : c'est la convention du geste. */
+  async function enregistrerSerie(): Promise<boolean> {
+    if (!seance) return false;
     const exerciceId = ($('exercice') as HTMLSelectElement).value;
     const champCharge = $('charge') as HTMLInputElement;
     const charge = nombreDuChamp(champCharge);
@@ -632,7 +633,10 @@ import LienReglages from '../../components/LienReglages.astro';
     if (charge === null && champCharge.value.trim() !== '') {
       direLErreur(champCharge, PHRASE_CHARGE);
       champCharge.focus();
-      return;
+      /* `false` : la convention d'`unSeulGeste` pour un geste refusé. Un refus
+         compté comme abouti noterait le repos de 600 ms, et avalerait l'appui
+         qui suit la correction. */
+      return false;
     }
     effacerLErreur(champCharge);
     const reserveBrute = ($('reserve') as HTMLSelectElement).value;
@@ -665,6 +669,7 @@ import LienReglages from '../../components/LienReglages.astro';
     battre();
     await direLaProposition();
     ($('repetitions') as HTMLInputElement).focus();
+    return true;
   }
 
   auDeverrouillage(
@@ -760,11 +765,21 @@ import LienReglages from '../../components/LienReglages.astro';
         evenement.preventDefault();
         void unSeulGeste(evenement.currentTarget as Element, async () => {
           try {
-            await enregistrerSerie();
+            const ecrite = await enregistrerSerie();
             $('erreur').classList.add('hidden');
+            return ecrite;
           } catch (erreur) {
-            $('erreur').textContent = erreur instanceof Error ? erreur.message : String(erreur);
+            /*
+               D2 du 43 : jamais le texte brut d'une `Error` à l'écran. Il
+               nomme des fonctions, parfois des clés, et n'apprend rien à qui
+               lit. L'exception part dans la console, où elle sert à qui
+               débogue ; l'écran reçoit une phrase écrite pour être lue.
+            */
+            console.warn('La série n’a pas pu être enregistrée :', erreur);
+            $('erreur').textContent =
+              'Cette série n’a pas pu être enregistrée. Vérifiez l’exercice et les répétitions, puis réessayez.';
             $('erreur').classList.remove('hidden');
+            return false;
           }
         });
       });
