@@ -39,6 +39,7 @@ import { coffreOuvert } from '../coffre';
 import { toutesLesTaches } from './donnees';
 import { exceptionsDeLaFenetre } from './donnees-occurrences';
 import { faitsEntre } from './faits-du-jour';
+import { LECTRICES } from '../noyau/permissions';
 import {
   fenetreElargie,
   occurrencesDeLaFenetre,
@@ -78,7 +79,7 @@ export async function occurrencesLues(
   let faits = options.faits;
   let branchesIllisibles: string[] = [];
   if (!faits) {
-    const fenetre = await faitsEntre(du, au);
+    const fenetre = await faitsEntre(du, au, LECTRICES.odyssee);
     faits = fenetre.faits;
     branchesIllisibles = fenetre.branchesIllisibles;
   }

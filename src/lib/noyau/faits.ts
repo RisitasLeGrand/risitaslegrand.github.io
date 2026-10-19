@@ -430,7 +430,62 @@ export const TYPES: readonly TypeDeFait[] = [
     domaine: 'corps',
     nature: 'texte',
     sensible: true,
-    description: 'Période déclarative. Odyssée en est le propriétaire ; Sport la lit et la contextualise.',
+    /*
+       LA DESCRIPTION DISAIT « Sport la lit et la contextualise », ET 4.7 DIT
+       LE CONTRAIRE.
+
+       Le prompt 30, § 4.7 : « Sport ne lit **que les fenêtres passées** du
+       cycle ; aucun statut, aucun bilan hormonal sexuel, aucune molécule
+       contraceptive. » Et le plan de phase 0 donne la raison, ligne 143 : « le
+       statut hormonal à quatre valeurs est trop grossier et trahirait le
+       suivi » — quatre valeurs dont une est « cycle », donc le lire revient à
+       apprendre qu'un suivi existe.
+
+       La permission est retirée à Sport dans la matrice, et remplacée par
+       `odyssee.fenetre-de-cycle` ci-dessous, qui est ce que 4.7 et D.5
+       autorisent réellement. Rien ne casse : aucun module de Sport ne lisait
+       de fait d'Odyssée, vérifié.
+    */
+    description:
+      'Période déclarative. Odyssée en est le propriétaire, et Sport ne la lit PAS : le § 4.7 ' +
+      'lui refuse tout statut, parce que quatre valeurs dont « cycle » trahiraient le suivi.',
+  }),
+  T({
+    /*
+       LES FENÊTRES PASSÉES DU CYCLE — ce que 4.7 et D.5 autorisent à Sport, et
+       la seule chose du cycle qui sorte du module.
+
+       Déclaré sans écrivain, et c'est la convention de ce catalogue : « un type
+       déclaré sans écrivain ne produit aucun fait et ne coûte rien ; un type
+       inventé au moment d'écrire le premier fait aurait été inventé deux
+       fois. » Le publieur viendra avec l'écran des fenêtres, quand Alexis aura
+       tranché les chiffres de la décision 24.
+
+       **Passées**, et le nom le dit : 4.5 l'écrit deux fois — les fenêtres « ne
+       s'établissent qu'a posteriori, sur des cycles dont le J1 suivant est
+       observé », et « aucune fenêtre "avant les règles" n'est affichée pour le
+       futur ni pour le cycle en cours ». Un type qui porterait une fenêtre
+       attendue serait une prévision, donc la chose que la décision 12 refuse
+       sans levée possible.
+
+       **Sensible**, parce que c'en est une : une fenêtre de cycle dit qu'il y a
+       un cycle. Le drapeau ne l'empêche pas d'être lue par Sport — la matrice
+       la nomme explicitement — mais il la tient hors des partages, des prompts
+       d'IA et des lectures non déclarées, ce qui est exactement ce qu'on veut.
+
+       Ce qu'elle porte : des bornes de jours, et rien d'autre. Pas de niveau
+       de saignement, pas de symptôme, pas de statut. `nature: 'texte'` parce
+       qu'une fenêtre est un intervalle, pas un nombre.
+    */
+    id: 'odyssee.fenetre-de-cycle',
+    libelle: 'Fenêtre passée du cycle',
+    proprietaire: 'odyssee',
+    domaine: 'corps',
+    nature: 'texte',
+    sensible: true,
+    description:
+      'Bornes d’une fenêtre du suivi personnel, établie a posteriori sur un cycle dont le J1 ' +
+      'suivant est observé. Jamais une fenêtre attendue. Rien d’autre que des jours.',
   }),
   T({
     id: 'odyssee.sante',

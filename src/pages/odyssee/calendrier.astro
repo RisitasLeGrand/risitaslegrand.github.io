@@ -217,6 +217,7 @@ import Base from '../../layouts/Base.astro';
     type OccurrenceAffichee,
   } from '../../lib/odyssee/occurrences-de-la-fenetre';
   import { faitsEntre } from '../../lib/odyssee/faits-du-jour';
+  import { LECTRICES } from '../../lib/noyau/permissions';
   import { gesteDeRetrait } from '../../lib/odyssee/pointage-derive';
   import {
     ecrireLException,
@@ -470,7 +471,7 @@ import Base from '../../layouts/Base.astro';
     const ouvert = coffreOuvert();
     const [debut, fin] = fenetreElargie(du, au);
     const exceptions = await exceptionsDeLaFenetre(debut, fin, { coffreOuvert: ouvert });
-    const fenetreDeFaits = await faitsEntre(du, au);
+    const fenetreDeFaits = await faitsEntre(du, au, LECTRICES.odyssee);
     branchesIllisibles = fenetreDeFaits.branchesIllisibles;
     occurrencesAffichees = occurrencesDeLaFenetre(taches, du, au, {
       exceptions,

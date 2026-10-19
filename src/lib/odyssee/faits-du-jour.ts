@@ -24,11 +24,31 @@
  */
 
 import type { FaitObserve } from './pointage-derive';
+import {
+  MATRICE_PAR_DEFAUT,
+  domainesNonAutorises,
+  filtrerPourLecture,
+  type DomaineNonAutorise,
+  type Lectrice,
+  type Matrice,
+} from '../noyau/permissions';
 
 export interface FaitsDeLaFenetre {
   faits: FaitObserve[];
   /** Les branches dont la projection a échoué — typiquement, scellées et coffre fermé. */
   branchesIllisibles: string[];
+  /**
+   * Les domaines que la lectrice n'a pas le droit de lire, en entier ou en
+   * partie — **et ce n'est pas la même chose que `branchesIllisibles`**.
+   *
+   * `branchesIllisibles` dit « je n'ai pas pu lire » : un coffre fermé, une
+   * projection qui lève. `nonAutorises` dit « je n'avais pas le droit », et la
+   * réponse ne dépend pas des données : elle est la même pour une fenêtre
+   * pleine et pour une fenêtre vide. C'est ce que la maquette 8.3 demande de
+   * distinguer, parce que confondre les deux laisse croire qu'un domaine coupé
+   * est un domaine vide.
+   */
+  nonAutorises: DomaineNonAutorise[];
 }
 
 type Publieur = { branche: string; charger: () => Promise<{ faits: { type: string; jourLogique: string }[] }> };
@@ -53,8 +73,25 @@ const publieurs = (options: { de: string; a: string }): Publieur[] => [
   { branche: 'finances', charger: async () => (await import('./faits-finances')).publierFaitsFinances(options) },
 ];
 
-/** Les faits entre deux jours logiques, inclus. Ne lève jamais. */
-export async function faitsEntre(de: string, a: string): Promise<FaitsDeLaFenetre> {
+/**
+ * Les faits entre deux jours logiques, inclus. Ne lève jamais.
+ *
+ * `lectrice` est **obligatoire** : c'est le lot B.2. La matrice de lecture
+ * inter-branches existait et n'était appelée par personne ; ici elle l'est, et
+ * le compilateur demande à chaque appelant de se nommer. Un paramètre
+ * facultatif aurait gardé le trou par défaut.
+ *
+ * Le filtre s'applique **après** la projection, et la limite est dite dans
+ * `faits-branches.ts` : une lectrice qui n'a pas le droit de voir un domaine
+ * en provoque quand même la lecture, dont le résultat est jeté. Rien ne sort,
+ * mais le chemin existe.
+ */
+export async function faitsEntre(
+  de: string,
+  a: string,
+  lectrice: Lectrice,
+  matrice: Matrice = MATRICE_PAR_DEFAUT,
+): Promise<FaitsDeLaFenetre> {
   const resultats = await Promise.all(
     publieurs({ de, a }).map(async (p) => {
       try {
@@ -75,8 +112,13 @@ export async function faitsEntre(de: string, a: string): Promise<FaitsDeLaFenetr
     }
     for (const f of r.faits) faits.push({ type: f.type, jourLogique: f.jourLogique });
   }
-  return { faits, branchesIllisibles };
+  return {
+    faits: filtrerPourLecture(lectrice, faits, matrice),
+    branchesIllisibles,
+    nonAutorises: domainesNonAutorises(lectrice, matrice),
+  };
 }
 
 /** Raccourci pour un seul jour. */
-export const faitsDuJour = (jour: string): Promise<FaitsDeLaFenetre> => faitsEntre(jour, jour);
+export const faitsDuJour = (jour: string, lectrice: Lectrice): Promise<FaitsDeLaFenetre> =>
+  faitsEntre(jour, jour, lectrice);

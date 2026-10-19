@@ -55,11 +55,6 @@ const EXCEPTIONS = [
     depuis: '2026-10-15',
     pourquoi: 'Prompt 32, phase 3. Se branche à la phase 5, avec les résolveurs de source.',
   },
-  {
-    chemin: 'src/lib/noyau/permissions.ts',
-    depuis: '2026-10-15',
-    pourquoi: 'Anomalie A-12, trouvée par ce script même. Intégrée au prompt 39.',
-  },
 ];
 
 const tous = (dir, out = []) => {

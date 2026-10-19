@@ -119,7 +119,19 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    son écriture impossible coffre fermé, le seul cas où il sert. Son contenu
    reste chiffré, par la boîte aux lettres et non par le coffre.
 */
-v('vingt-sept magasins scellés', MAGASINS_SCELLES.length, 27);
+/*
+   VINGT-HUIT DEPUIS `odysseeCreneaux`, arrivé avec le prompt 52 le 19 octobre.
+
+   Et cette ligne était ROUGE SUR `main` depuis cette arrivée, sans que
+   personne le voie : `essais:coffre` n'est pas dans le socle, et le magasin
+   est entré par une fusion dont les essais ciblés ne l'incluaient pas. Le
+   nombre écrit en dur a fait son office ; il n'avait pas d'auditoire.
+
+   C'est la deuxième fois que ce compte attrape un magasin arrivé sans ses
+   déclarations, et la deuxième fois qu'il le dit à personne. Si cet essai
+   entrait au socle, il parlerait au bon moment — à proposer au pilote.
+*/
+v('vingt-huit magasins scellés', MAGASINS_SCELLES.length, 28);
 /*
    Le centre : l'identifiant ET le genre, pas un champ de plus.
 
@@ -357,7 +369,14 @@ console.log('\n\x1b[1mTOUT TYPE SENSIBLE EST SCELLÉ, OU DISPENSÉ AVEC SA RAISO
 
 {
   const typesSensibles = TYPES.filter((t) => t.sensible).map((t) => t.id);
-  vrai('treize types sont déclarés sensibles', typesSensibles.length === 13);
+  /*
+     QUATORZE DEPUIS `odyssee.fenetre-de-cycle`, déclaré avec le lot B.2 : une
+     fenêtre passée du cycle dit qu'il y a un cycle, donc elle est sensible. Le
+     drapeau ne l'empêche pas d'être lue par Sport — la matrice la nomme — mais
+     il la tient hors des partages, des prompts d'IA et des lectures non
+     déclarées.
+  */
+  vrai('quatorze types sont déclarés sensibles', typesSensibles.length === 14);
   v(
     'le registre réel est couvert',
     controlerCouvertureDesSensibles(MAGASINS_JOURNALISES, typesSensibles),

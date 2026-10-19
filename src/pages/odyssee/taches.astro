@@ -240,6 +240,7 @@ import Base from '../../layouts/Base.astro';
   */
   import { ACTIONS_LIABLES } from '../../lib/odyssee/liaison-branches';
   import { faitsDuJour } from '../../lib/odyssee/faits-du-jour';
+  import { LECTRICES } from '../../lib/noyau/permissions';
   import {
     gesteDeRetrait,
     pointageDeLOccurrence,
@@ -1030,7 +1031,7 @@ import Base from '../../layouts/Base.astro';
        tâche liée serait une lecture de branche qu'aucun affichage ne demande.
     */
     if (taches.some((t) => t.lien)) {
-      const fenetre = await faitsDuJour(aujourdhui);
+      const fenetre = await faitsDuJour(aujourdhui, LECTRICES.odyssee);
       faitsAffiches = fenetre.faits;
       branchesIllisibles = fenetre.branchesIllisibles;
     } else {
