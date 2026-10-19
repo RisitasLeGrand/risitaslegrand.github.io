@@ -270,3 +270,58 @@ valeur et l'horloge qui a avancé.
 plus utile entre les deux effacements, et il n'était écrit nulle part : une
 personne qui veut retirer une donnée de partout doit passer par l'effacement
 ciblé, et non par le bouton qui semble plus radical.
+
+## Avancement — le coffre sans clé, livré le 19 octobre
+
+Le second constat tranché par le pilote. Ce n'est pas un des huit points :
+c'est l'anomalie que B-3 a révélée en passant, et qui n'était dans aucun
+prompt. Le correctif de B-3 empêche désormais d'arriver là par un
+effacement ciblé ; il reste tous les autres chemins — un nettoyage de site
+par le navigateur, un effacement manuel, une base en partie perdue.
+
+**Le mécanisme réel, et il est plus grave que ce que j'avais écrit.** Je
+disais « la personne n'a aucun message ». C'est exact, mais ce n'est pas le
+pire. `selLocal()` **crée un sel neuf** quand il n'en trouve aucun. Donc le
+premier mot de passe tapé après la disparition ne produisait pas une erreur :
+il créait un coffre **par-dessus** des données devenues illisibles, en
+silence, et avec l'air d'avoir réussi. Les enregistrements scellés restaient
+là, définitivement muets, au milieu de données neuves.
+
+**Le constat, et pourquoi trois conditions.** Le signal paraît si, et
+seulement si : des enregistrements scellés existent en base, **et** aucune
+enveloppe n'est posée, **et** aucun sel valide n'est présent. Aucune ne
+suffit seule. Un sel absent sur une base vierge, c'est le cas de tous les
+premiers jours ; des scellés sans enveloppe, c'est le cas normal d'un coffre
+mémorisé par mot de passe. C'est la conjonction qui ne peut pas arriver sans
+perte.
+
+**Où il est écrit : dans le formulaire partagé, une fois.** Les neuf écrans
+sous coffre passent par `FormulaireCoffre.astro`, donc le signal paraît
+partout d'un coup. Le recopier aurait reproduit l'écart du 14 octobre — six
+pages sur dix sans bouton de fermeture, parce qu'un bloc recopié n'évolue
+jamais partout.
+
+**Ce que l'écran dit, et ce qu'il retire.** Il dit que la clé a disparu,
+qu'**aucun mot de passe ne les rouvrira** — ce n'est pas un mot de passe
+oublié —, combien d'enregistrements sont dans ce cas, et il propose de
+restaurer une sauvegarde. Et il **retire le formulaire d'ouverture** :
+proposer un champ de mot de passe qui ne peut rien ouvrir, et qui en plus
+écrirait par-dessus, était exactement la cruauté de la version d'avant.
+
+**Repartir à zéro reste possible, jamais en silence.** Un bouton le nomme ;
+la confirmation cite le message, donne le même nombre que l'écran, et
+conseille la restauration d'abord. Un refus ne retire rien et ne pose aucun
+sel. L'ouverture du coffre refuse aussi, en amont de la dérivation : la
+fonction qui ouvrait créait le sel, c'est là qu'il fallait arrêter.
+
+**Le rouge d'abord.** L'essai part de la reproduction de B-3 sans le
+correctif, comme le pilote l'a demandé. Contre la version d'avant :
+`waitForSelector: Timeout 30000ms exceeded … locator('#coffre-sans-cle:not(.hidden)')`
+— rien ne paraissait. Quinze contrôles verts après.
+
+**Deux de mes assertions avaient tort, et c'est l'essai qui a cédé.**
+J'attendais un nombre figé ; le nombre réel est celui que la base porte, et
+ouvrir le coffre écrit son propre enregistrement scellé. L'essai dérive donc
+le nombre de la base et vérifie surtout que **l'écran et la confirmation
+disent le même**. Et je lisais le compte avant qu'il soit écrit : il l'est
+après l'affichage du bloc, d'où l'attente.

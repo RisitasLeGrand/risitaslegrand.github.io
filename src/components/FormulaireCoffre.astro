@@ -32,6 +32,56 @@ const cadre = nu
   : 'hidden rounded-2xl border-2 border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900';
 ---
 
+{/*
+   A7 DU 58 — LE SIGNAL « LA CLÉ QUI LES OUVRE A DISPARU ».
+
+   Il est ici, dans le formulaire partagé, et nulle part ailleurs : les neuf
+   écrans sous coffre passent par ce bloc, donc le signal paraît partout d'un
+   coup. Le recopier aurait reproduit l'écart du 14 octobre — six pages sur
+   dix sans bouton de fermeture, parce qu'un bloc recopié n'évolue jamais
+   partout.
+
+   Il reste caché dans le cas normal, et il ne s'affiche que sur le constat
+   mesuré : des enregistrements scellés en base, aucune enveloppe, aucun sel.
+   Les trois conditions ensemble, parce qu'aucune ne suffit — un sel absent
+   sur une base vierge est le cas de tous les premiers jours.
+*/}
+<section
+  id="coffre-sans-cle"
+  class="hidden rounded-2xl border-2 border-amber-400 bg-amber-50 p-4 dark:border-amber-700 dark:bg-amber-950/40"
+>
+  <h2 class="text-lg font-semibold text-amber-900 dark:text-amber-100">
+    La clé de vos données chiffrées a disparu
+  </h2>
+  <p class="mt-2 text-sm leading-relaxed text-amber-900 dark:text-amber-100">
+    Des données chiffrées sont présentes sur cet appareil, mais la clé qui les
+    ouvre a disparu. Elles ne peuvent plus être lues ici, et <strong>aucun mot
+    de passe ne les rouvrira</strong> — ce n'est pas un mot de passe oublié,
+    c'est la clé elle-même qui n'est plus là. Restaurez une sauvegarde pour les
+    retrouver.
+  </p>
+  <p id="coffre-sans-cle-compte" class="mt-2 text-sm text-amber-900 dark:text-amber-100"></p>
+  <div class="mt-3 flex flex-wrap gap-2">
+    <a
+      href={`${base}/progression/#restaurer`}
+      class="cible-tactile rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-800"
+      >Restaurer une sauvegarde</a
+    >
+    {/*
+       Repartir à zéro est possible, mais jamais en silence : le bouton le
+       nomme, et la confirmation cite le message ci-dessus avec le nombre
+       d'enregistrements qui partiraient.
+    */}
+    <button
+      id="coffre-recreer"
+      type="button"
+      class="cible-tactile rounded-lg border border-amber-500 px-4 py-2 text-sm font-medium text-amber-900 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40"
+      >Repartir d'un coffre neuf</button
+    >
+  </div>
+  <p id="coffre-sans-cle-message" class="mt-3 hidden text-sm"></p>
+</section>
+
 <section id="coffre-ferme" class={cadre}>
   {!nu && <h2 class="text-lg font-semibold text-slate-900 dark:text-white">🔒 Ouvrir le coffre</h2>}
   {raison && <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{raison}</p>}
@@ -91,6 +141,80 @@ const cadre = nu
 </section>
 
 <script>
+  /*
+     A7 — LE CONSTAT EST FAIT À CHAQUE OUVERTURE DE PAGE SOUS COFFRE.
+
+     Pas au premier déverrouillage seulement : la clé peut disparaître entre
+     deux visites, et c'est même le cas le plus probable — un nettoyage de
+     site, un effacement trop large. Le constat coûte une lecture par magasin
+     scellé, et il s'arrête au premier enregistrement trouvé.
+  */
+  void (async () => {
+    const bloc = document.getElementById('coffre-sans-cle');
+    if (!bloc) return;
+    const { laCleDuCoffreADisparu, recreerLeCoffre, combienDeScellesIllisibles } = await import(
+      '../lib/coffre'
+    );
+    if (!(await laCleDuCoffreADisparu())) return;
+
+    bloc.classList.remove('hidden');
+    /*
+       Le formulaire d'ouverture disparaît : proposer un mot de passe qui ne
+       peut rien ouvrir serait la cruauté de cet écran, et c'est exactement ce
+       que faisait la version d'avant.
+    */
+    document.getElementById('coffre-ferme')?.classList.add('hidden');
+
+    const combien = await combienDeScellesIllisibles();
+    const compte = document.getElementById('coffre-sans-cle-compte');
+    if (compte) {
+      compte.textContent =
+        `${combien.toLocaleString('fr-FR')} enregistrement(s) chiffré(s) sont dans ce cas.`;
+    }
+
+    document.getElementById('coffre-recreer')?.addEventListener('click', () => {
+      void (async () => {
+        const { confirmer, demanderUnTexte } = await import('../lib/boite');
+        const certain = await confirmer({
+          titre: 'Repartir d’un coffre neuf ?',
+          texte:
+            'Les données chiffrées présentes sur cet appareil ne peuvent plus être lues : ' +
+            `la clé qui les ouvre a disparu. Repartir d’un coffre neuf retire ces ` +
+            `${combien.toLocaleString('fr-FR')} enregistrement(s), définitivement. ` +
+            'Si vous avez une sauvegarde, restaurez-la plutôt : elle contient la clé.',
+          action: 'Repartir d’un coffre neuf',
+          annuler: 'Annuler',
+          destructrice: true,
+        });
+        if (!certain) return;
+        const mdp = await demanderUnTexte({
+          titre: 'Mot de passe du nouveau coffre',
+          texte: 'Il protégera les données que vous enregistrerez à partir de maintenant.',
+          etiquette: 'Mot de passe',
+          action: 'Créer le coffre',
+          attributs: { type: 'password', autocomplete: 'new-password' },
+        });
+        if (!mdp) return;
+        const message = document.getElementById('coffre-sans-cle-message');
+        try {
+          const retires = await recreerLeCoffre(mdp);
+          if (message) {
+            message.textContent =
+              `Coffre neuf créé. ${retires.toLocaleString('fr-FR')} enregistrement(s) ` +
+              'illisibles ont été retirés.';
+            message.classList.remove('hidden');
+          }
+          location.reload();
+        } catch (e) {
+          if (message) {
+            message.textContent = (e as Error).message;
+            message.classList.remove('hidden');
+          }
+        }
+      })();
+    });
+  })();
+
   /*
      La seconde case ne paraît qu'une fois la première cochée : mémoriser sans
      garder ouvert n'aurait aucun sens, et proposer les deux de front

@@ -162,6 +162,101 @@ async function selLocal(): Promise<Uint8Array> {
 }
 
 /**
+ * Des données scellées sont là, mais la clé qui les ouvre a disparu — A7 du 58.
+ *
+ * ## Le défaut que ce constat rend visible
+ *
+ * `selLocal()` au-dessus **crée un sel neuf** quand il n'en trouve pas. Sur une
+ * base vierge, c'est exactement ce qu'il faut : le coffre naît à la première
+ * ouverture. Mais si des enregistrements scellés sont là et que le sel a
+ * disparu — effacement trop large, nettoyage de site, restauration partielle —
+ * alors le même code fabrique un sel neuf, dérive une clé neuve, et ouvre un
+ * coffre **vide d'apparence par-dessus les données existantes**.
+ *
+ * Mesuré le 19 octobre : l'écran ne redemandait même plus le mot de passe. Un
+ * coffre dont le sel a disparu ne ressemble pas à un coffre cassé, il ressemble
+ * à un coffre jamais créé. La personne n'avait donc ni message, ni occasion de
+ * comprendre que ses données chiffrées étaient devenues inatteignables — et le
+ * premier mot de passe saisi scellait l'affaire en créant le coffre d'à côté.
+ *
+ * ## Pourquoi c'est un constat, et non une réparation
+ *
+ * Il n'y a rien à réparer ici : sans le sel ni l'enveloppe, aucune clé ne se
+ * redérive, et aucun mot de passe au monde ne rouvre ces enregistrements. La
+ * seule issue est une sauvegarde. Ce que le code peut faire, et doit faire,
+ * c'est **le dire** et **ne rien écrire par-dessus**.
+ */
+export async function laCleDuCoffreADisparu(): Promise<boolean> {
+  if (!(await leCoffreContientQuelqueChose())) return false;
+  if (await enveloppePosee(rangementDeLaBoite())) return false;
+  const base = await db();
+  const sel = (await base.get('etat', CLEF_SEL)) as string | undefined;
+  return !(typeof sel === 'string' && sel.length >= 16);
+}
+
+/**
+ * Combien d'enregistrements scellés sont devenus illisibles.
+ *
+ * L'écran l'annonce avant de proposer quoi que ce soit : « des données » ne
+ * dit pas s'il y en a trois ou trois mille, et c'est la seule chose qui
+ * permette de mesurer ce qu'on a perdu — la même règle qu'A7 impose aux
+ * effacements.
+ */
+export async function combienDeScellesIllisibles(): Promise<number> {
+  const { MAGASINS_SCELLES } = await import('./noyau/coffre');
+  const base = await db();
+  let combien = 0;
+  for (const { magasin } of MAGASINS_SCELLES) {
+    try {
+      const tout = (await base.getAll(magasin as never)) as Record<string, unknown>[];
+      combien += tout.filter((e) => e?.scelle).length;
+    } catch {
+      continue;
+    }
+  }
+  return combien;
+}
+
+/**
+ * Repart d'un coffre neuf, en assumant la perte — A7 du 58.
+ *
+ * À n'appeler **qu'après** une confirmation qui cite le message de
+ * `laCleDuCoffreADisparu()`. C'est la seule issue quand la clé a disparu et
+ * qu'aucune sauvegarde n'existe : les enregistrements scellés restants sont
+ * illisibles par construction, et les garder ne protège rien — ils
+ * encombreraient la base en se faisant passer pour des données.
+ *
+ * Ils sont donc retirés, et le nombre est rendu pour que l'écran le dise. Un
+ * effacement qui ne se compte pas est un effacement qu'on ne mesure pas.
+ */
+export async function recreerLeCoffre(motDePasse: string): Promise<number> {
+  if (!motDePasse) throw new Error('Saisissez le mot de passe.');
+  const { MAGASINS_SCELLES } = await import('./noyau/coffre');
+  const base = await db();
+  let retires = 0;
+  for (const { magasin } of MAGASINS_SCELLES) {
+    try {
+      const tout = (await base.getAll(magasin as never)) as Record<string, unknown>[];
+      const clefs = (await base.getAllKeys(magasin as never)) as unknown[];
+      for (const [i, enregistrement] of tout.entries()) {
+        if (!enregistrement?.scelle) continue;
+        await base.delete(magasin as never, clefs[i] as never);
+        retires += 1;
+      }
+    } catch {
+      continue;
+    }
+  }
+  /*
+     Le sel naît ici, par `selLocal()`, et c'est maintenant sans danger : il
+     n'y a plus de données scellées à rendre inatteignables.
+  */
+  cleMemoire = await deriver(motDePasse);
+  abonnes.forEach((f) => f(true));
+  return retires;
+}
+
+/**
  * Dérive la clé du coffre depuis le mot de passe.
  *
  * Non extractible : `exportKey` échoue dessus. Ce n'est pas une protection
@@ -488,6 +583,28 @@ export async function ouvrirLeCoffre(
   }
 
   if (!cle) {
+    /*
+       A7 DU 58 — NE JAMAIS CRÉER UN COFFRE PAR-DESSUS DES DONNÉES SCELLÉES.
+
+       `deriver()` passe par `selLocal()`, qui POSE un sel neuf quand il n'en
+       trouve pas. Arriver ici sans sel et sans enveloppe, avec des
+       enregistrements scellés en base, voudrait donc dire : fabriquer un sel,
+       dériver une clé, ouvrir un coffre vide d'apparence, et rendre les
+       anciennes données définitivement inatteignables — en silence, au premier
+       mot de passe saisi.
+
+       On refuse avant d'écrire, et on le dit. La création d'un coffre neuf
+       reste possible, mais elle passe par `recreerLeCoffre()`, que l'écran
+       n'appelle qu'après une confirmation qui cite ce message.
+    */
+    if (await laCleDuCoffreADisparu()) {
+      return (
+        'Des données chiffrées sont présentes sur cet appareil, mais la clé qui les ouvre ' +
+        'a disparu. Elles ne peuvent plus être lues ici, et aucun mot de passe ne les ' +
+        'rouvrira. Restaurez une sauvegarde pour les retrouver.'
+      );
+    }
+
     /*
        L'ancienne porte, qui reste ouverte tant qu'un enregistrement se lit
        sous la clé dérivée. Pendant une bascule inachevée, les deux mots de
