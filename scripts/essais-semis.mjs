@@ -62,6 +62,46 @@ const SEMIS_DECLARES = [
   { fichier: 'essais-odyssee-navigateur.mjs', permanent: true, pourquoi: 'Les règles du jour s’éprouvent sur une fenêtre de sept jours révolus.' },
   { fichier: 'essais-initialisation-navigateur.mjs', permanent: true, pourquoi: 'L’initialisation allégée part d’une installation existante.' },
   {
+    fichier: 'essais-bascule-branchement.mjs',
+    permanent: true,
+    pourquoi:
+      'Une bascule INTERROMPUE : une enveloppe et son sel posés sans que le ' +
+      'reste ait suivi. Aucun écran ne produit un demi-changement de clé, et ' +
+      'c’est l’état devant lequel le cadenas doit encore ouvrir.',
+  },
+  {
+    fichier: 'essais-centre-navigateur.mjs',
+    permanent: true,
+    pourquoi:
+      'Deux opérations concurrentes sur la même note, venues de deux ' +
+      'appareils, à des horloges logiques choisies. Un désaccord suppose un ' +
+      'second appareil : il ne se fabrique pas depuis un seul écran.',
+  },
+  {
+    fichier: 'essais-pastille-revue.mjs',
+    permanent: true,
+    pourquoi:
+      'La pastille se regarde dans ses DEUX états, dont celui où la revue ' +
+      'd’un jour révolu existe déjà. L’écran ne sait pas écrire la revue ' +
+      'd’hier, et un témoin qui s’allume toujours ne dit rien.',
+  },
+  {
+    fichier: 'essais-rejeu-coffre.mjs',
+    permanent: true,
+    pourquoi:
+      'Une série quotidienne ancrée huit jours en arrière, pour qu’une ' +
+      'occurrence du jour existe à toute heure. L’écran ne crée pas une ' +
+      'série passée, et l’essai ne doit pas dépendre de l’horloge.',
+  },
+  {
+    fichier: 'essais-verrou-navigateur.mjs',
+    permanent: true,
+    pourquoi:
+      'Un délai de verrou de trois secondes. Le réel est de quinze minutes et ' +
+      'aucun réglage ne descend si bas : attendre quinze minutes ferait un ' +
+      'essai que personne ne lance.',
+  },
+  {
     fichier: 'essais-phase6-ecrans.mjs',
     permanent: true,
     pourquoi:
