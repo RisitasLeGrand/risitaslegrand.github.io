@@ -285,6 +285,35 @@ verifier(
   'la première partie ne dit pas « on passe à »',
   !relances.paragraphes.some((p) => /On passe à la première/.test(p)),
 );
+/*
+   LE PLAN À L'OUVERTURE. Il vient des titres de partie de la fiche, et il
+   doit s'y retrouver mot pour mot (interdit 1) : aucune rédaction libre.
+*/
+verifier(
+  'le plan est annoncé à l’ouverture, avec le nombre de parties',
+  /Trois parties :/.test(relances.paragraphes[0]),
+  relances.paragraphes[0],
+);
+verifier(
+  'et chaque titre du plan vient de la fiche',
+  ['le cadre ancien', 'une crise qui recompose les rapports', 'vers une refondation'].every((t) =>
+    relances.paragraphes[0].includes(t),
+  ),
+  relances.paragraphes[0],
+);
+verifier(
+  'une fiche à une seule partie n’annonce aucun plan',
+  !/partie(s)? :/.test(
+    ecrireScript({
+      titre: 'Seule',
+      matiere: 'Droit',
+      fascicule: 'F1',
+      cours: '### I. Un point {#i-un}\n\nDu texte.\n',
+      glossaire: [],
+      flashcards: [],
+    })!.paragraphes[0],
+  ),
+);
 verifier(
   'la pause de partie est réglée à 1 400 ms',
   config.podcast.silencePartieMs === 1400,
@@ -773,8 +802,24 @@ print(json.dumps({"reperes": reperes, "echantillons": len(brut) // 2, "taux": TA
     console.log(`  ${rouge('✗')} la sonie n’a pas pu être mesurée`);
     rouges += 1;
   } else {
+    /*
+       CE QUE CETTE MESURE PROUVE, ET CE QU'ELLE NE PROUVE PAS.
+
+       Elle prouve que la CHAÎNE est juste : le filtre est posé, les deux
+       passes s'enchaînent, et sur un signal maîtrisé la sonie tombe sur sa
+       cible au dixième de décibel. C'est ce qui a attrapé la passe unique,
+       qui arrivait à -14,1.
+
+       Elle ne prouve PAS que toute fiche réelle tombera à -16 pile. Sur les
+       trois fiches d'exemple réellement synthétisées, la mesure donne
+       -17,05, -17,15 et -16,94 LUFS : la voix sort avec des crêtes proches
+       de zéro, le plafond de crête à -1,5 dBTP limite donc le gain que
+       `loudnorm` peut appliquer, et l'intégrée atterrit un peu sous la
+       cible. Les paramètres du filtre sont ceux que le prompt fixe ; le
+       constat est donc rapporté à Alexis plutôt que corrigé en douce.
+    */
     verifier(
-      'la sonie du fichier encodé est de −16 LUFS (± 1)',
+      'la chaîne de sonie atteint sa cible sur un signal maîtrisé (−16 ± 1)',
       Math.abs(mesuree - config.podcast.sonie) <= 1,
       `${mesuree} LUFS`,
     );

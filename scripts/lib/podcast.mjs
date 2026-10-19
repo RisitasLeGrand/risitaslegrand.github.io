@@ -1194,11 +1194,27 @@ export function ecrireScript({ titre, matiere, fascicule, cours, glossaire, flas
   // « Fascicule 2 — Les acteurs… » : le tiret ne s'entend pas, la virgule si.
   const fasciculeDit = parler((fascicule ?? '').replace(/\s*[—–]\s*/, ', ')).replace(/[.\s]+$/, '');
 
+  /*
+     LE PLAN ANNONCÉ À L'OUVERTURE (prompt 55, N°2).
+
+     Il vient des titres de partie de la fiche, et de rien d'autre
+     (interdit 1). Il tient dans l'ouverture plutôt que dans un paragraphe
+     séparé : annoncé après l'invitation, il ferait une seconde ouverture,
+     et l'auditeur attendrait deux fois que le cours commence.
+
+     Vide quand la fiche n'a qu'une partie — « au programme : une partie »
+     serait comique — et vide aussi quand elle n'en a aucune.
+  */
+  const plan = planAnnonce(bruts.filter((p) => p.titreBrut).map((p) => p.titreBrut));
+
   const ouverture = [
     variante(ACCUEILS, cle)(titreDit),
     fasciculeDit ? `Nous sommes en ${matiereDite}, ${minusculeInitiale(fasciculeDit)}.` : `Nous sommes en ${matiereDite}.`,
+    plan,
     variante(INVITATIONS, cle + 'i'),
-  ].join(' ');
+  ]
+    .filter(Boolean)
+    .join(' ');
 
   const cloture = [
     /* « pour » appelle le titre nu : `apres('de', …)` y mettrait « de » ou
