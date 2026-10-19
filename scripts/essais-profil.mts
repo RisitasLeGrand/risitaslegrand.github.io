@@ -16,6 +16,7 @@ import {
   champDeCible,
   champDeclare,
   champsDeBranche,
+  aUnUsage,
   champsDuSocle,
   questionsDuSocle,
   cibleDuChamp,
@@ -84,19 +85,43 @@ console.log('\nLE CATALOGUE DES CHAMPS TIENT');
 
 v('aucun problème de catalogue', controlerChamps(BRANCHES_CONNUES), []);
 v('le prénom est le seul champ obligatoire', CHAMPS.filter((c) => c.obligatoire).map((c) => c.champ), ['prenom']);
-/* Dix-huit depuis l'ajout du moment de la revue (commit 477e526), et
-   vingt-et-un champs en tout : le mois, la majorité déclarée et les usages
-   coupés se demandent au moment du besoin et ne sont donc **pas** des
-   questions. Les deux nombres sont vérifiés séparément, parce que les
-   confondre ferait annoncer à l'avancement un dénominateur que personne ne
-   peut atteindre — et c'est précisément l'écart de trois que l'assertion
-   suivante nomme. */
-v('dix-huit questions au socle', questionsDuSocle().length, 18);
+/* Vingt-et-un champs au socle, et **huit** questions depuis la décision 2 du
+   prompt 56. Les treize autres se taisent pour deux raisons distinctes, et les
+   deux sont vérifiées séparément plutôt que confondues dans un seul nombre :
+
+   - trois se demandent au moment du besoin — le mois, la majorité déclarée et
+     les usages coupés ;
+   - dix ne sont plus demandés parce que **rien ne les lit**. Leur valeur reste
+     au catalogue, avec sa question, et une déclaration de lecteur suffit à
+     reposer la question : c'est `aUnUsage`, et `essais-lu-par.mts` confronte
+     cette déclaration au code.
+
+   Avant le 56, l'avancement annonçait « deux réponses sur dix-huit » en
+   comptant des questions dont la réponse ne servait à rien. */
+v('huit questions au socle', questionsDuSocle().length, 8);
 v('vingt-et-un champs au socle', champsDuSocle().length, 21);
 v(
   'et les trois de l’écart sont bien ceux qui se demandent au besoin',
   champsDuSocle().filter((c) => c.demandeAuBesoin).map((c) => c.champ),
   ['naissanceMois', 'majeurDeclare', 'usagesCoupes'],
+);
+v(
+  'les dix autres se taisent faute de lecteur, et on les nomme',
+  champsDuSocle()
+    .filter((c) => !c.demandeAuBesoin && !aUnUsage(c))
+    .map((c) => c.champ),
+  [
+    'nom',
+    'formalite',
+    'langue',
+    'activite',
+    'joursTravail',
+    'plagesTravail',
+    'objectifsAnnee',
+    'objectifsVie',
+    'tempsParDomaine',
+    'styleAccompagnement',
+  ],
 );
 v('six pour Révisions', champsDeBranche('revisions').length, 6);
 v('cinq pour Sport', champsDeBranche('sport').length, 5);
@@ -286,14 +311,16 @@ console.log('\nL’AVANCEMENT SE LIT, POUR POUVOIR REPRENDRE');
 
 {
   const etat = avancement([ecrire('prenom', 'Alexis', 10), ecrire('lever', '07:00', 20)]);
-  v('deux réponses sur dix-huit', [etat.repondus, etat.total], [2, 18]);
+  v('deux réponses sur huit', [etat.repondus, etat.total], [2, 8]);
   v('le prénom est posé', etat.prenomPose, true);
-  v('et les restants sont dans l’ordre des questions', etat.restants[0].champ, 'nom');
+  /* « nom » venait en premier avant le 56 : il n'est plus demandé, et c'est
+     l'année de naissance qui suit le prénom dans l'ordre des questions. */
+  v('et les restants sont dans l’ordre des questions', etat.restants[0].champ, 'naissanceAnnee');
   v('l’initialisation n’est pas marquée', etat.initialisation, null);
 
   const vide = avancement([]);
   v('sans rien, rien n’est posé', [vide.repondus, vide.prenomPose], [0, false]);
-  v('et toutes les questions du socle restent', vide.restants.length, 18);
+  v('et toutes les questions du socle restent', vide.restants.length, 8);
 }
 
 console.log('\nLA VALIDATION VÉRIFIE LA FORME, PAS LE CONTENU');

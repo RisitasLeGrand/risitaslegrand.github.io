@@ -113,7 +113,9 @@ un compte de **lignes** de son tableau, pas de champs : trois lignes en
 regroupent cinq et trois. En confrontant champ par champ — un relevé mécanique
 de toutes les lectures littérales dans `src/`, hors `noyau/profil.ts`,
 `noyau/initialisation.ts`, `initialisation.astro` et `profil.astro` —, j'obtiens
-**22 champs dont aucune lecture ne produit d'effet aujourd'hui** :
+**23 champs dont aucune lecture ne produit d'effet aujourd'hui** — et le
+catalogue en porte 37, non 36 : l'audit réunit les matières fortes et les
+matières faibles sur une seule ligne :
 
 `nom` (lu seulement pour être **retiré** d'un export), `formalite`, `langue`,
 `activite`, `joursTravail`, `plagesTravail`, `objectifsAnnee`, `objectifsVie`,
@@ -126,7 +128,11 @@ Deux remarques qui demandent un arbitrage, posées au pilote :
 
 - `datesEpreuves` **cesse** d'être inutile avec la décision 3 : le compte à
   rebours le lit. Il reste donc demandé. Les champs qui ne sont plus demandés
-  sont alors **21**.
+  sont alors **22**.
+
+  *Corrigé le 19 octobre, après comptage par le code : j'avais écrit 22 et 21
+  en comptant de tête une liste qui en porte 23. Les nombres de ce paragraphe
+  sont désormais ceux que rend `essais-lu-par.mts`.*
 - `matieresFortes` et `matieresFaibles` : l'observation **propose** une valeur
   pour eux, elle ne lit pas celle qui est déclarée. Rien ne lit la réponse.
   Ils tombent donc, à la lettre du critère, dans « plus demandés ».
@@ -269,7 +275,7 @@ sauté, désactivé ni allégé.
 2. **`revisions/index.astro`.** Fusionner `claude/p46-55` d'abord, ou je livre
    le module et son essai maintenant et l'insertion ensuite ? Je recommande la
    seconde : rien ne bloque, et le fichier n'est touché qu'une fois.
-3. **La liste des champs plus demandés** : 22 champs, 21 après le compte à
+3. **La liste des champs plus demandés** : 23 champs, 22 après le compte à
    rebours, et non 14. `matieresFortes` et `matieresFaibles` en font partie.
    Je confirme la liste du § 1 ?
 4. **« Lu par » et l'export.** Trente champs porteraient « Lu par : l'export

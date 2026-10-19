@@ -34,8 +34,8 @@ import { comparerOperations } from './operations';
 import {
   CHAMPS,
   PREFIXE_CIBLE,
-  champsDeBranche,
   champsDuSocle,
+  questionsDeBranche,
   questionsDuSocle,
   lireInitialisation,
   lireProfil,
@@ -207,9 +207,14 @@ export function parcours(
   /* Les champs demandés au moment du besoin ne sont pas du parcours : les y
      laisser reviendrait à collecter « au cas où » une donnée dont la minimisation
      impose qu'elle n'existe que si une fonction l'exige. `questionsDuSocle()`
-     porte ce filtre, et `avancement()` s'en sert aussi : un seul endroit. */
+     porte ce filtre, et `avancement()` s'en sert aussi : un seul endroit.
+
+     DÉCISION 2 DU 56. Le même endroit porte le second filtre : un champ que
+     rien ne lit n'est plus posé. Il n'est pas retiré du catalogue — sa valeur
+     reste visible et modifiable dans « Mon profil », et une déclaration de
+     lecteur suffit à reposer la question. */
   const champs = options.branche
-    ? champsDeBranche(options.branche).filter((c) => !c.demandeAuBesoin)
+    ? questionsDeBranche(options.branche)
     : questionsDuSocle();
 
   const etapes = champs.map((declare): Etape => {
@@ -525,11 +530,22 @@ export const SUGGESTIONS: Readonly<Record<string, readonly string[]>> = {
 /**
  * Les champs posés **ensemble**, sur un seul écran.
  *
- * La question 3 de `questions.md` — « Français, et heure de Paris : c'est bien
- * ça ? » — règle deux champs. Les poser séparément afficherait deux fois la
- * même phrase, et la seconde paraîtrait un bug.
+ * ## Pourquoi la liste est vide, et pourquoi le mécanisme reste
+ *
+ * Elle portait `['langue', 'fuseau']` : la question 3 de `questions.md` —
+ * « Français, et heure de Paris : c'est bien ça ? » — réglait deux champs, et
+ * les poser séparément aurait affiché deux fois la même phrase.
+ *
+ * La décision 2 du prompt 56 a dissous ce groupe : rien ne lit la langue, elle
+ * n'est donc plus demandée, et l'écran ne règle plus que le fuseau. Il ne
+ * reste aucun champ à grouper.
+ *
+ * Le mécanisme, lui, ne bouge pas : `enEcrans` regroupe sur la **question
+ * affichée**, et deux champs qui recevraient demain la même formulation
+ * seraient réunis sans qu'on ait à toucher cette liste. Elle ne sert plus
+ * qu'au contrôle, qui vérifie qu'un groupe déclaré partage bien sa question.
  */
-export const GROUPES: readonly (readonly string[])[] = [['langue', 'fuseau']];
+export const GROUPES: readonly (readonly string[])[] = [];
 
 export interface Question {
   /** Le texte affiché, commun aux champs du groupe. */

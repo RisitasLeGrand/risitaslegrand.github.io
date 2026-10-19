@@ -149,13 +149,13 @@ v(
 console.log('\n\x1b[1mLe parcours : ce qui reste à poser\x1b[0m');
 
 const socle = questionsDuSocle();
-/* Dix-huit depuis l'ajout du moment de la revue (commit 477e526, prompt 36
-   phase 1), dix-sept avant lui. Ce commit n'avait pas relancé cette suite :
-   le nombre est donc resté faux pendant un temps, et c'est corrigé ici, pas
-   découvert. Le parcours ne compte que les champs qu'il pose : le mois, la
-   majorité déclarée et les usages coupés se demandent au moment du besoin et
-   n'en sont pas. */
-v('le socle fait dix-huit questions', socle.length, 18);
+/* Huit depuis la décision 2 du prompt 56 ; dix-huit avant elle. Le parcours ne
+   compte que les champs qu'il pose, et deux filtres les écartent : le mois, la
+   majorité déclarée et les usages coupés se demandent au moment du besoin ;
+   dix autres ne sont plus demandés parce que rien ne lit leur réponse. Les dix
+   sont nommés dans `essais-profil.mts`, et `essais-lu-par.mts` confronte au
+   code la déclaration qui les écarte. */
+v('le socle fait huit questions', socle.length, 8);
 
 const vierge = parcours([]);
 v('tout reste à poser sur une base vierge', vierge.restantes.length, socle.length);
@@ -164,14 +164,17 @@ v('rien n’est réglé', vierge.reglees, 0);
 
 const unePosee = parcours([champ('prenom', 'Alexis', 1)]);
 v('un champ répondu sort des restantes', unePosee.restantes.length, socle.length - 1);
-v('et la suivante est posée', unePosee.prochaine?.declare.champ, 'nom');
+v('et la suivante est posée', unePosee.prochaine?.declare.champ, 'naissanceAnnee');
 vrai(
   'la valeur déjà posée est rendue avec l’étape',
   unePosee.etapes[0].deja?.valeur === 'Alexis',
 );
 
-const unReporte = parcours([champ('prenom', 'Alexis', 1), report('nom', 2)]);
-v('une question reportée ne se repose pas', unReporte.prochaine?.declare.champ, 'naissanceAnnee');
+/* Le report porte sur la deuxième question du socle. C'était « nom » avant la
+   décision 2 du 56 ; ce champ n'étant plus posé, un report sur lui ne reporte
+   plus rien — et l'essai, lui, serait passé en ne mesurant plus son objet. */
+const unReporte = parcours([champ('prenom', 'Alexis', 1), report('naissanceAnnee', 2)]);
+v('une question reportée ne se repose pas', unReporte.prochaine?.declare.champ, 'fuseau');
 v('mais elle compte comme réglée', unReporte.reglees, 2);
 vrai('et l’étape dit qu’elle est reportée', unReporte.etapes[1].reportee);
 
@@ -184,23 +187,50 @@ v('et rien n’est perdu : les étapes restent toutes là', toutReporte.etapes.l
 
 const repris = parcours([
   champ('prenom', 'Alexis', 1),
-  report('nom', 2),
-  leve('nom', 3),
+  report('naissanceAnnee', 2),
+  leve('naissanceAnnee', 3),
 ]);
-v('un report levé remet la question dans la file', repris.prochaine?.declare.champ, 'nom');
+v(
+  'un report levé remet la question dans la file',
+  repris.prochaine?.declare.champ,
+  'naissanceAnnee',
+);
 
 /* ══════════════════════════════════════════════════════════════════════════ */
 console.log('\n\x1b[1mLes écrans : une question, même quand elle règle deux champs\x1b[0m');
 
+/*
+   LE GROUPE A DISPARU, PAS LE MÉCANISME.
+
+   « Français, et heure de Paris : c'est bien ça ? » réglait la langue et le
+   fuseau sur un écran. La décision 2 du 56 ne demande plus la langue — rien ne
+   la lit —, et la question ne règle plus que le fuseau : huit questions font
+   donc huit écrans, et la phrase a changé pour ne plus annoncer un réglage
+   qu'elle ne fait pas.
+
+   Le regroupement, lui, reste éprouvé juste en dessous, sur deux étapes qui
+   partagent leur question. Le supprimer parce que plus aucun champ ne le
+   déclenche aurait laissé sans garde le jour où un groupe revient.
+*/
 const ecrans = enEcrans(vierge.restantes);
-v('dix-huit champs tiennent en dix-sept écrans', ecrans.length, socle.length - 1);
+v('huit questions font huit écrans', ecrans.length, socle.length);
 const ecranFuseau = ecrans.find((e) => e.etapes.some((x) => x.declare.champ === 'fuseau'));
-v('la langue et le fuseau partagent leur écran', ecranFuseau?.etapes.length, 2);
+v('le fuseau est seul sur son écran', ecranFuseau?.etapes.length, 1);
 v(
-  'et c’est bien la question 3',
+  'et sa question ne parle plus que des journées',
   ecranFuseau?.question,
-  'Français, et heure de Paris : c’est bien ça ?',
+  'Vos journées sont comptées à l’heure de Paris : c’est bien ça ?',
 );
+{
+  /* Deux étapes, une seule question : l'écran les réunit. */
+  const paire = enEcrans([
+    { declare: { ...socle[0], champ: 'a', question: 'Une seule phrase ?' }, reportee: false },
+    { declare: { ...socle[0], champ: 'b', question: 'Une seule phrase ?' }, reportee: false },
+    { declare: { ...socle[0], champ: 'c', question: 'Une autre ?' }, reportee: false },
+  ]);
+  v('deux champs qui partagent leur question tiennent un seul écran', paire.length, 2);
+  v('et c’est bien la paire qui est réunie', paire[0].etapes.length, 2);
+}
 vrai(
   'aucun écran ne répète sa question',
   new Set(ecrans.map((e) => e.question)).size === ecrans.length,
@@ -290,6 +320,9 @@ vrai(
   'les groupes ne nomment que des champs déclarés',
   GROUPES.flat().every((c) => socle.some((s) => s.champ === c)),
 );
+/* Et la liste est vide depuis que la langue n'est plus demandée : l'affirmer
+   évite qu'elle le soit par accident, sans que personne l'ait voulu. */
+v('plus aucun groupe à poser', GROUPES.length, 0);
 
 /* ══════════════════════════════════════════════════════════════════════════ */
 console.log('\n\x1b[1mLes domaines\x1b[0m');
