@@ -424,8 +424,14 @@ try {
   );
 
   let notees = 0;
+  let inedites = 0;
   for (let i = 0; i < 60; i += 1) {
     if (await page.locator('#bilan:not(.hidden)').count()) break;
+    if (
+      (await page.locator('#source-carte').innerText().catch(() => '')).includes('nouvelle carte')
+    ) {
+      inedites += 1;
+    }
     await page.locator('#carte').click().catch(() => {});
     await page.waitForTimeout(120);
     const bouton = page.locator('[data-note="facile"]');
@@ -441,6 +447,95 @@ try {
     `les ${notees} cartes « Facile » rapportent ${notees} × 5, et non × 7`,
     bilan.includes(`+${notees * 5} XP`),
   );
+
+  console.log('\nF5 — LE RETARD EST COMPTÉ À PART, ET IL EST PROPOSÉ DE SOUFFLER');
+  /* Cent une cartes en retard, clonées d'un état RÉEL écrit par la session
+     qu'on vient de faire : une carte inventée porterait un identifiant de
+     fiche que le manifeste ne connaît pas, et ne serait comptée nulle
+     part. */
+  const semis = await page.evaluate(async () => {
+    const base = await new Promise((ok, ko) => {
+      const r = indexedDB.open('revinsp');
+      r.onsuccess = () => ok(r.result);
+      r.onerror = () => ko(r.error);
+    });
+    const reelles = await new Promise((ok) => {
+      const q = base.transaction('cartes').objectStore('cartes').getAll();
+      q.onsuccess = () => ok(q.result);
+    });
+    if (!reelles.length) return { reelles: 0, clones: 0 };
+    const avant = new Date();
+    avant.setDate(avant.getDate() - 3);
+    const veille = avant.toISOString().slice(0, 10);
+    await new Promise((ok, ko) => {
+      const tx = base.transaction('cartes', 'readwrite');
+      const magasin = tx.objectStore('cartes');
+      /* Les cartes RÉELLES passent en retard : ce sont elles que la session
+         pourra servir, puisqu'elles existent dans une fiche. */
+      for (const carte of reelles) magasin.put({ ...carte, du: veille });
+      /* Et cent une clones, pour que le COMPTEUR franchisse le seuil. Elles
+         ne sont servies par aucune session — leur identifiant n'est dans
+         aucune fiche —, ce qui est exactement le cas d'une carte dont la
+         question a été réécrite. */
+      for (let i = 0; i < 101; i += 1) {
+        magasin.put({ ...reelles[0], id: `essai-retard-${i}`, du: veille, intervalle: 2 });
+      }
+      tx.oncomplete = () => ok();
+      tx.onerror = () => ko(tx.error);
+    });
+    base.close();
+    return { reelles: reelles.length, clones: 101 };
+  });
+  vrai('prémisse : des cartes réelles sont passées en retard', semis.reelles > 0);
+  v('prémisse : cent une cartes de plus sont en retard', semis.clones, 101);
+
+  await aller('/flashcards/');
+  vrai(
+    'le nombre « en retard » est affiché à part',
+    Number((await page.locator('#nb-retard').innerText().catch(() => '0')).trim()) >= 101,
+  );
+  v(
+    'et il ne gonfle pas le nombre du jour',
+    Number((await page.locator('#nb-dues').innerText().catch(() => '999')).trim()) < 101,
+    true,
+  );
+  vrai(
+    'au-delà de cent, l\u2019écran propose de laisser les cartes neuves',
+    await page.locator('#proposition-retard').isVisible().catch(() => false),
+  );
+  const sansNeuves = await page.locator('#lancer-sans-neuves').boundingBox({ timeout: 2000 }).catch(() => null);
+  vrai('la proposition porte un bouton', Boolean(sansNeuves));
+  v(
+    'qui tient le plancher de 44 px',
+    sansNeuves ? Math.round(sansNeuves.height) >= 44 : null,
+    true,
+  );
+
+  vrai(
+    'prémisse : une session ordinaire sert, elle, des cartes inédites',
+    inedites > 0,
+  );
+
+  await page.locator('#lancer-sans-neuves').click().catch(() => {});
+  await page.locator('#session:not(.hidden)').waitFor({ timeout: 90_000 }).catch(() => {});
+  /* La session entière est parcourue : une carte inédite servie en
+     troisième position ne doit pas échapper au contrôle. */
+  let servies = 0;
+  let ineditesServies = 0;
+  for (let i = 0; i < 60; i += 1) {
+    if (!(await page.locator('#session:not(.hidden)').count())) break;
+    const source = await page.locator('#source-carte').innerText().catch(() => '');
+    if (source.includes('nouvelle carte')) ineditesServies += 1;
+    servies += 1;
+    await page.locator('#carte').click().catch(() => {});
+    await page.waitForTimeout(120);
+    const bouton = page.locator('[data-note="correct"]');
+    if (!(await bouton.isVisible().catch(() => false))) break;
+    await bouton.click();
+    await page.waitForTimeout(150);
+  }
+  vrai('prémisse : la session « sans cartes neuves » a servi des cartes', servies > 0);
+  v('et aucune n\u2019était inédite', ineditesServies, 0);
 
 } finally {
   await contexte.close();

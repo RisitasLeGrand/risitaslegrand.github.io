@@ -273,6 +273,21 @@ async function fichesEnPortee(portee: PorteeFile) {
 export interface ComptesFlashcards {
   /** Cartes exigibles : celles dont l'échéance est atteinte, et les inédites. */
   dues: number;
+  /**
+   * Celles dont l'échéance tombe AUJOURD'HUI, et qui ont déjà été vues.
+   *
+   * C'est le travail du jour, et rien d'autre : ni les inédites, qu'on
+   * apprend au rythme qu'on choisit, ni le retard, qui vient d'hier.
+   */
+  aRevoir: number;
+  /**
+   * Celles dont l'échéance est PASSÉE.
+   *
+   * Affichées à part (prompt 43, F5) : fondues dans le nombre du jour, elles
+   * faisaient d'un retard de trois semaines une dette du matin — un nombre
+   * que personne ne peut tenir, et qui ne descend jamais.
+   */
+  enRetard: number;
   /** Parmi elles, celles jamais révisées. */
   neuves: number;
   /** Cartes acquises — plus de 21 jours d'intervalle —, toutes portées confondues. */
@@ -295,11 +310,16 @@ export async function comptesFlashcards(portee: PorteeFile = {}): Promise<Compte
   const retenues = new Set(candidates.map((f) => f.id));
 
   const connuesParFiche = new Map<string, number>();
-  let dues = 0;
+  let aRevoir = 0;
+  let enRetard = 0;
   for (const etat of etats) {
     if (!retenues.has(etat.ficheId)) continue;
     connuesParFiche.set(etat.ficheId, (connuesParFiche.get(etat.ficheId) ?? 0) + 1);
-    if (etat.du <= aujourdhui) dues += 1;
+    /* Les deux comptes sont DISJOINTS : une carte attendue hier est en
+       retard, pas « à revoir aujourd'hui ». Les additionner redonne les
+       exigibles, et les séparer dit laquelle des deux dettes on regarde. */
+    if (etat.du < aujourdhui) enRetard += 1;
+    else if (etat.du === aujourdhui) aRevoir += 1;
   }
 
   let neuves = 0;
@@ -308,7 +328,9 @@ export async function comptesFlashcards(portee: PorteeFile = {}): Promise<Compte
   }
 
   return {
-    dues: dues + neuves,
+    dues: aRevoir + enRetard + neuves,
+    aRevoir,
+    enRetard,
     neuves,
     acquises: etats.filter((e) => e.intervalle >= 21).length,
   };
@@ -332,10 +354,25 @@ export async function fileDuJour(
   options: PorteeFile & {
     limite?: number;
     inclureNonDues?: boolean;
+    /**
+     * Ne servir AUCUNE carte inédite (prompt 43, F5).
+     *
+     * Au-delà de cent cartes en retard, l'écran propose de s'en tenir à ce
+     * qu'on a déjà vu : ajouter des cartes neuves par-dessus un retard
+     * n'apprend rien et creuse le trou. C'est une proposition, jamais une
+     * décision prise à la place de la personne.
+     */
+    sansNeuves?: boolean;
     prioriser?: <T extends { id: string }>(cartes: T[]) => Promise<T[]>;
   } = {},
 ): Promise<CarteAReviser[]> {
-  const { limite = 0, inclureNonDues = false, prioriser, parties = null } = options;
+  const {
+    limite = 0,
+    inclureNonDues = false,
+    sansNeuves = false,
+    prioriser,
+    parties = null,
+  } = options;
   /*
      LE PLAFOND EST LEVÉ QUAND DES PARTIES SONT DEMANDÉES (prompt 46, P5).
 
@@ -409,6 +446,7 @@ export async function fileDuJour(
   // et on saute les fiches dont le manifeste indique qu'elles n'ont plus rien
   // d'inédit à offrir.
   for (const resume of candidates) {
+    if (sansNeuves) break;
     if (plafond > 0 && file.length >= plafond) break;
     if ((connuesParFiche.get(resume.id) ?? 0) >= resume.nbFlashcards) continue;
     const fiche = await ouvrir(resume.id);

@@ -24,10 +24,28 @@ import { base } from '../lib/ui';
       <p id="texte-rappel" class="mt-1 text-sm text-slate-700 dark:text-slate-200"></p>
     </div>
 
-    <div class="grid gap-4 sm:grid-cols-3">
+    <!--
+      QUATRE NOMBRES, ET TROIS DETTES QU'ON NE CONFOND PLUS (prompt 43, F5).
+
+      « Cartes dues aujourd'hui » comptait les cartes attendues, celles en
+      retard ET les milliers de cartes jamais ouvertes du site. Le nombre
+      affiché était donc une dette impossible à tenir, qui ne descendait
+      jamais — et qui tombait sur la personne au moment où elle venait
+      travailler.
+
+      Les trois sont désormais séparés, parce qu'ils ne demandent pas la même
+      chose : ce qui est attendu aujourd'hui se fait aujourd'hui ; ce qui est
+      en retard se rattrape quand on veut ; ce qui est inédit s'apprend au
+      rythme qu'on choisit.
+    -->
+    <div class="grid grid-cols-2 gap-4 sm:grid-cols-4">
       <div class="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <p class="text-3xl font-bold text-indigo-600 dark:text-indigo-400" id="nb-dues">0</p>
-        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">cartes dues aujourd'hui</p>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">à revoir aujourd'hui</p>
+      </div>
+      <div class="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+        <p class="text-3xl font-bold text-slate-900 dark:text-white" id="nb-retard">0</p>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">en retard</p>
       </div>
       <div class="rounded-2xl border border-slate-200 bg-white p-5 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <p class="text-3xl font-bold text-slate-900 dark:text-white" id="nb-neuves">0</p>
@@ -38,6 +56,34 @@ import { base } from '../lib/ui';
         <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">acquises (&gt; 21 jours)</p>
       </div>
     </div>
+
+    <!--
+      LA PROPOSITION DU GROS RETARD (F5).
+
+      Elle ne paraît qu'au-delà de cent cartes en retard, et elle propose —
+      elle ne décide pas. Ajouter des cartes neuves par-dessus un retard de
+      cette taille n'apprend rien et creuse le trou ; s'en tenir à ce qu'on a
+      déjà vu le réduit.
+    -->
+    <div
+      id="proposition-retard"
+      hidden
+      class="mt-4 rounded-2xl border border-slate-200 bg-white p-4 text-sm dark:border-slate-800 dark:bg-slate-900"
+    >
+      <p class="text-slate-700 dark:text-slate-200">
+        Vous avez <span id="retard-nombre" class="font-semibold">0</span> cartes en retard. Vous
+        pouvez laisser les cartes jamais révisées de côté le temps de rattraper{'\u00a0'}: la
+        session ne proposera alors que des cartes déjà vues.
+      </p>
+      <button
+        id="lancer-sans-neuves"
+        type="button"
+        class="cible-tactile mt-3 rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+      >
+        Réviser sans cartes neuves
+      </button>
+    </div>
+
     <div class="mt-6 flex flex-wrap items-end gap-3">
       <div class="min-w-0 flex-1 basis-56">
         <label for="choix-matiere" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">Matière</label>
@@ -207,6 +253,14 @@ import { base } from '../lib/ui';
 
   const $ = (id: string) => document.getElementById(id)!;
 
+  /**
+   * Au-delà de combien de cartes en retard la proposition paraît.
+   *
+   * Cent, comme le constat T16-15 le demande. Le nombre est écrit une fois,
+   * ici, et non au milieu d'une condition : c'est un seuil de confort, il
+   * sera rediscuté, et il doit se trouver.
+   */
+  const PLANCHER_PROPOSITION_RETARD = 100;
 
   function afficherVue(nom: 'accueil-session' | 'session' | 'bilan') {
     for (const section of ['accueil-session', 'session', 'bilan']) {
@@ -461,7 +515,7 @@ import { base } from '../lib/ui';
     return couples.length ? couples : null;
   }
 
-  async function demarrer(inclureNonDues: boolean) {
+  async function demarrer(inclureNonDues: boolean, sansNeuves = false) {
     const taille = Number(($('choix-taille') as HTMLSelectElement).value);
     const ficheId = parametreUrl('fiche');
     const ciblees = fichesCiblees();
@@ -494,6 +548,7 @@ import { base } from '../lib/ui';
           limite: taille,
           parties,
           inclureNonDues,
+          sansNeuves,
           prioriser: clefSujet
             ? (cartes) => ordonnerParZoneProximale(cartes, clefSujet)
             : undefined,
@@ -533,10 +588,18 @@ import { base } from '../lib/ui';
       ficheId,
       ficheIds: ciblees ?? menus.ficheIds,
     });
-    $('nb-dues').textContent = String(comptes.dues);
+    $('nb-dues').textContent = String(comptes.aRevoir);
+    $('nb-retard').textContent = String(comptes.enRetard);
     $('nb-neuves').textContent = String(comptes.neuves);
     $('nb-acquises').textContent = String(comptes.acquises);
     $('rien-a-faire').classList.toggle('hidden', comptes.dues > 0);
+
+    /* La proposition du gros retard : au-delà de cent, et seulement s'il
+       reste des cartes neuves à écarter — proposer d'en laisser de côté
+       quand il n'y en a aucune serait une offre sans objet. */
+    const proposition = $('proposition-retard');
+    proposition.hidden = !(comptes.enRetard > PLANCHER_PROPOSITION_RETARD && comptes.neuves > 0);
+    $('retard-nombre').textContent = String(comptes.enRetard);
   }
 
   async function initialiser() {
@@ -588,6 +651,7 @@ import { base } from '../lib/ui';
 
     $('lancer').addEventListener('click', () => void demarrer(false));
     $('lancer-libre').addEventListener('click', () => void demarrer(true));
+    $('lancer-sans-neuves').addEventListener('click', () => void demarrer(false, true));
     $('rejouer').addEventListener('click', () => {
       afficherVue('accueil-session');
       void rafraichirCompteurs();
