@@ -10,6 +10,7 @@
  */
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { repondreALaRedemande } from './lib/boite-essais.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -239,6 +240,20 @@ v(
 );
 
 await page.click('#effacer-sans');
+/*
+   LA REDEMANDE DU MOT DE PASSE — prompt 44, point 1.
+
+   « Effacer sans sauvegarder » ne se contente plus d'un « confirm » : il
+   demande le mot de passe du site, parce que c'est la branche la plus
+   définitive des deux et qu'elle ne prouvait rien, là où celle qui
+   sauvegarde le prouve en chiffrant la sauvegarde.
+
+   L'essai répondait encore à la fenêtre native, qui ne s'ouvre plus : rien
+   n'était effacé — « obtenu 10, attendu 0 » — et le dialogue resté ouvert
+   arrêtait le clic suivant, trente secondes plus loin, sur un message qui
+   ne nommait pas la cause.
+*/
+await repondreALaRedemande(page, MDP);
 await page.waitForTimeout(3000);
 v('le domaine est vide : n-back', await compter('nback'), 0);
 v('les seuils aussi', await compter('vmSeuils'), 0);
@@ -268,6 +283,14 @@ console.log('\nL’EXPORT LISIBLE PRODUIT DU CSV OUVRABLE');
 await page.check('input[name="groupe-export"][value="revisions"]');
 const attenteCsv = page.waitForEvent('download', { timeout: 60000 });
 await page.click('#exporter-csv');
+/*
+   Le second geste sans retour du prompt 44 : l'export EN CLAIR, qui écrit
+   sur le disque, sans chiffrement, ce que le reste du site passe son temps
+   à chiffrer. Il demande donc le mot de passe du site, lui aussi, et
+   l'attente du téléchargement se posait avant que le fichier ne puisse
+   partir.
+*/
+await repondreALaRedemande(page, MDP);
 const csv = await attenteCsv;
 v('le nom dit le domaine et le magasin', /^cyclades-revisions-cartes-/.test(csv.suggestedFilename()), true);
 v('et porte l’extension csv', /\.csv$/.test(csv.suggestedFilename()), true);
