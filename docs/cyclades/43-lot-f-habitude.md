@@ -97,13 +97,46 @@ relève les « (s) » du site servi ; or `question(s) à trancher`,
 invisibles pour lui. Je les ai accordés au passage, dans les fichiers que ce
 lot touchait déjà. Il en reste ailleurs, et l'essai ne les verra pas non plus.
 
+## Deux essais que ce lot rend caducs, et un rouge qui n'est pas à lui
+
+Ni l'un ni l'autre n'est assoupli : c'est la formule du site qui a changé, et
+ce sont les essais qui la suivent.
+
+**`essais:activite:navigateur`** épinglait « 12 pour les deux cartes (5 + 7) »,
+donc 140 d'XP recalculée, un niveau, une ventilation et une répartition au
+prorata. Le barème étant devenu plat, les deux cartes valent 10 et le total
+138. L'arithmétique est refaite à la main : 38 + 24 + 10 + 30 + 36.
+
+**`essais:flashcards`** regardait « #nb-dues » pour vérifier que les compteurs
+se remplissent sans déchiffrer une fiche. Ce compteur dit maintenant « à revoir
+aujourd'hui », et vaut zéro sur une base qui n'a jamais rien révisé. L'essai
+regarde « jamais révisées » ; ce qu'il mesure n'a pas bougé. Au passage, son
+assertion « la session compte bien vingt cartes » était écrite en dur et fausse
+partout où la banque en compte moins : ce conteneur n'en a que treize, et le
+compteur affiche « 1/13 ». Elle se mesure désormais contre ce qui est offert.
+
+**Et un rouge que je laisse, parce qu'il n'est pas du lot :**
+`essais:niveau:navigateur` attend une matière « Économie » que l'échantillon de
+`content/` de ce conteneur ne contient pas. Il échoue sur sa prémisse, avant
+d'atteindre quoi que ce soit que ce lot modifie.
+
 ## Mesures
 
+**Socle complet : 16 verts, 0 rouge (11 min)**, sur la construction de
+`e9bda9b`. Les trois commits qui ont suivi ne touchent que `scripts/` — le site
+mesuré est celui de la tête.
+
 `essais:centre-panne` — créé par ce lot : 16 contrôles, rouge quatre fois sur la
-construction d'avant. `essais:habitude:navigateur` — créé par ce lot : 43
+construction d'avant. `essais:habitude:navigateur` — créé par ce lot : 56
 contrôles, F1 à F6, rouge **trente-six fois** sur les constructions d'avant,
-point par point (F1 : 5, F3 : 3, F2 : 10, F4 : 7, F5 : 6, F6 : 4+1). Chaque
-point a été mesuré AVANT et APRÈS, sur sa propre construction.
+point par point (F1 : 5, F3 : 3, F2 : 10, F4 : 7, F5 : 6, F6 : 5). Chaque point
+a été mesuré AVANT et APRÈS, sur sa propre construction.
+
+Repassés verts dans le périmètre touché : `essais:srs`, `essais:niveau`,
+`essais:flashcards`, `essais:centre:navigateur`, `essais:centre-m14`,
+`essais:centre-donnees`, `essais:centre-modele`, `essais:centre-recalcul`,
+`essais:reglages-orphelins`, `essais:reglages-sans-coffre`,
+`essais:activite:navigateur`.
 
 `astro check` : 0 erreur, 0 avertissement.
 
@@ -118,3 +151,10 @@ Le semis est synthétique et n'écrit que dans le magasin « etat » : deux
 profils, parce que les deux bandeaux que F1 retire s'excluent l'un l'autre.
 Deux écrans sont révélés à la main et l'image le dit par son nom — la
 proposition de l'accueil ne paraît qu'une fois par semaine au plus.
+
+**La prémisse du script était fausse pour l'après**, et les six premières
+prises l'ont dit : il exigeait le bandeau de pression à chaque capture, ce qui
+était juste avant le lot et faux après. Ce qui vaut des deux côtés est que le
+semis ait pris — la série de sept jours à l'écran. Le bandeau est maintenant
+exigé avant et **interdit après** : ces captures sont devenues une mesure, et
+plus seulement une image.
