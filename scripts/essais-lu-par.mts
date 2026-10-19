@@ -443,35 +443,19 @@ vrai(
 );
 
 /*
-   DÉCISION 6 : « et mon sexe » quitte le titre, le lien et le registre.
+   DÉCISION 6 : « et mon sexe » a quitté le titre, le lien et le registre.
 
-   Le sexe ne se déclare nulle part dans Cyclades. La mention restante est
-   déclarée avec sa raison, et non tolérée en silence : le jour où elle part,
-   cette liste doit se vider — un rouge qui rappelle de la nettoyer.
+   Le sexe ne se déclare nulle part dans Cyclades. Une exception restait
+   déclarée ici — le lien de `profil.astro`, qui attendait la correction A7 du
+   58 pour être refait —, et elle a disparu avec la refonte de la page : la
+   liste est vide, et l'assertion dit maintenant qu'aucun fichier ne porte plus
+   l'ancien titre. C'était le bon rouge : il a rappelé de nettoyer la
+   déclaration au lieu de la laisser traîner.
 */
-const ENCORE_LE_SEXE: Readonly<Record<string, string>> = {
-  'src/pages/profil.astro':
-    'le lien vers l’écran. Ce fichier attend la correction A7 du prompt 58, ' +
-    'qui arrive sur main : la règle 4 du chantier interdit de le travailler sur deux branches.',
-};
-/* Le titre, et le titre seul. Le registre explique ailleurs, en français,
-   pourquoi un calcul corporel tiré de l'âge et du sexe est écarté : c'est un
-   fondement, pas un titre, et la décision 6 ne le concerne pas.
-
-   Et le relevé porte sur TOUS les fichiers : les quatre écartés plus haut le
-   sont pour la détection des lecteurs — « Mon profil » affiche tous les champs
-   —, ce qui n'a rien à voir avec un titre. C'est justement là qu'il reste. */
 const avecLeSexe = fichiers.filter((chemin) =>
   /Qui utilise mon âge et mon sexe/.test(codeDe(chemin)),
 );
-v(
-  'la mention du sexe ne subsiste que là où elle est déclarée',
-  trier(avecLeSexe),
-  trier(Object.keys(ENCORE_LE_SEXE)),
-);
-for (const [chemin, raison] of Object.entries(ENCORE_LE_SEXE)) {
-  vrai(`${chemin} : la raison est écrite`, raison.length > 40);
-}
+v('plus aucun fichier ne porte l’ancien titre', trier(avecLeSexe), []);
 v(
   'le champ des usages coupés ne nomme plus le sexe',
   CHAMPS.find((c) => c.champ === 'usagesCoupes')?.libelle,

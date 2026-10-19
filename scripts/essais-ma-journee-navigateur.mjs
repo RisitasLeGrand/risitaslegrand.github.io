@@ -147,15 +147,19 @@ await page.waitForFunction(
 v('la page centrale garde l’heure donnée', await champDuReglage('lever').inputValue(), '06:30');
 faux('et la phrase du vide disparaît', await noteDuReglage('lever').isVisible());
 
-await aller('/profil/', '#champs');
+await aller('/profil/', '[data-carte="lever"] [data-champ="lever"]');
 {
-  const texte = (
-    await page.$$eval('#champs > div', (els) =>
-      els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()),
-    )
-  ).join(' | ');
-  vrai('« Mon profil » montre la même heure', /Heure de lever[^|]*06:30/.test(texte));
-  vrai('et la dit déclarée, non observée', /Heure de lever[^|]*déclaré/.test(texte));
+  /* La carte du lever, dans le bloc « Votre journée ». La valeur est dite en
+     français depuis P7 : « 6 h 30 », et non « 06:30 » — c'est la même donnée,
+     écrite comme on l'écrit. */
+  v(
+    '« Mon profil » montre la même heure, dite en français',
+    (await page.textContent('[data-valeur="lever"]')).trim(),
+    '6 h 30',
+  );
+  const texte = (await page.textContent('[data-carte="lever"]')).replace(/\s+/g, ' ');
+  vrai('et la dit déclarée, non observée, dans son historique', texte.includes('déclaré'));
+  vrai('la ligne « Lu par » nomme Paramètres, Ma journée', texte.includes('Paramètres, Ma journée'));
 }
 
 /*
@@ -242,24 +246,23 @@ vrai('et la phrase du vide revient', await noteDuReglage('lever').isVisible());
 /* On attend « ce qui n'est pas renseigné », et non « ce qui l'est » : le
    profil est redevenu vide, et une zone vide n'a pas de hauteur — Playwright
    la voit donc comme cachée, à juste titre. */
-await aller('/profil/', '#restants > *');
+await aller('/profil/', '[data-carte="lever"] [data-champ="lever"]');
 {
-  const texte = (
-    await page.$$eval('#champs > div', (els) =>
-      els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()),
-    )
-  ).join(' | ');
-  faux('« Mon profil » ne montre plus l’heure de lever', /Heure de lever/.test(texte));
-  vrai('et il dit qu’il n’y a rien de renseigné', await page.locator('#aucun-champ').isVisible());
-}
-{
-  const restants = await page.$$eval('#restants > *', (els) =>
-    els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()),
+  /* La carte reste là — le champ est lu, donc toujours demandé —, mais elle
+     est vide et propose de renseigner. C'est la même carte pour les deux
+     états : la liste séparée « Ce qui n'est pas renseigné » a disparu avec le
+     plan de page, et c'est elle qui ne montrait jamais les champs de branche. */
+  v(
+    '« Mon profil » ne montre plus l’heure',
+    (await page.textContent('[data-valeur="lever"]')).trim(),
+    '—',
   );
   vrai(
-    'elle revient parmi ce qui n’est pas renseigné',
-    restants.some((r) => r.startsWith('Heure de lever')),
+    'et sa carte propose de la renseigner',
+    await page.locator('[data-carte="lever"] button', { hasText: 'Renseigner' }).first().isVisible(),
   );
+  const texte = (await page.textContent('[data-carte="lever"]')).replace(/\s+/g, ' ');
+  faux('plus d’historique sur un champ vide', texte.includes('Historique'));
 }
 /* Et surtout : aucune heure d'usine n'a été écrite à la place. */
 v(

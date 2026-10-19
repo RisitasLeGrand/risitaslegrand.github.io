@@ -123,6 +123,16 @@ export interface ChampDeclare {
   porteeParDefaut: Portee;
   /** La branche dont ce champ est l'extension, ou rien pour le socle commun. */
   brancheDOrigine?: string;
+  /**
+   * Le bloc de « Mon profil » où ce champ est montré (P1 du prompt 56).
+   *
+   * Les champs de branche n'en ont pas : leur bloc est leur branche. Les
+   * champs du socle en ont **un, obligatoirement** — le contrôle le vérifie —
+   * parce que l'écran les affichait par ordre alphabétique, socle et branches
+   * mêlés, sur neuf écrans de long. Un champ ajouté sans groupe se verrait
+   * tout de suite, au lieu d'atterrir au hasard de son initiale.
+   */
+  groupe?: 'vous' | 'journee' | 'objectifs';
   /** Obligatoire à l'initialisation. Un seul champ l'est. */
   obligatoire?: boolean;
   /**
@@ -238,6 +248,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   /* --- Socle commun ------------------------------------------------------- */
   C({
     champ: 'prenom',
+    groupe: 'vous',
     luPar: [
       { module: 'src/lib/profil.ts', libelle: 'la salutation du menu' },
       {
@@ -260,6 +271,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'nom',
+    groupe: 'vous',
     luPar: [
       {
         module: 'src/lib/export-ia.ts',
@@ -275,6 +287,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'naissanceAnnee',
+    groupe: 'vous',
     sansGroupement: true,
     clesDuRegistre: ['tranche_age', 'majeur'],
     jamaisExporte: true,
@@ -292,6 +305,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'naissanceMois',
+    groupe: 'vous',
     sansGroupement: true,
     /* Le mois ne sert qu'à lever l'incertitude d'un an : il alimente les mêmes
        clés que l'année, et seulement à la frontière d'un seuil. */
@@ -309,6 +323,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'majeurDeclare',
+    groupe: 'vous',
     clesDuRegistre: ['majeur'],
     jamaisExporte: true,
     libelle: 'Majorité déclarée',
@@ -322,6 +337,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'usagesCoupes',
+    groupe: 'vous',
     luPar: [
       {
         module: 'src/pages/qui-utilise-mon-age.astro',
@@ -357,6 +373,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'formalite',
+    groupe: 'vous',
     libelle: 'Tutoiement ou vouvoiement',
     nature: 'texte',
     question: 'On se tutoie, ou on se vouvoie ?',
@@ -379,6 +396,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
        comprend pas. Le champ garde sa valeur si elle existe.
     */
     champ: 'langue',
+    groupe: 'vous',
     libelle: 'Langue',
     nature: 'texte',
     question: 'Dans quelle langue utilisez-vous Cyclades ?',
@@ -386,6 +404,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'fuseau',
+    groupe: 'journee',
     luPar: [
       {
         module: 'src/lib/noyau/reglages.ts',
@@ -404,6 +423,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'activite',
+    groupe: 'vous',
     libelle: 'Ce que vous faites dans la vie',
     nature: 'texte',
     question: 'Qu’est-ce que vous faites dans la vie ?',
@@ -411,6 +431,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'lever',
+    groupe: 'journee',
     luPar: [
       {
         module: 'src/lib/noyau/reglages.ts',
@@ -453,6 +474,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
        produire un troisième comportement.
     */
     champ: 'moment-revue',
+    groupe: 'journee',
     /*
        LE NOM, APRÈS LA DÉCISION 4 DU 56.
 
@@ -484,6 +506,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'coucher',
+    groupe: 'journee',
     luPar: [
       {
         module: 'src/lib/noyau/adaptation.ts',
@@ -503,6 +526,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'joursTravail',
+    groupe: 'journee',
     libelle: 'Jours de travail',
     nature: 'liste',
     question: 'Quels jours travaillez-vous ?',
@@ -513,6 +537,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'plagesTravail',
+    groupe: 'journee',
     libelle: 'Plages de travail',
     nature: 'liste',
     question: 'Sur quelles plages ?',
@@ -520,6 +545,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'objectifsAnnee',
+    groupe: 'objectifs',
     libelle: 'Objectifs de l’année',
     nature: 'liste',
     question: 'Qu’est-ce que vous voulez obtenir cette année ?',
@@ -527,6 +553,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'objectifsVie',
+    groupe: 'objectifs',
     libelle: 'Objectifs de long terme',
     nature: 'liste',
     question: 'Et à plus long terme ?',
@@ -534,6 +561,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'tempsParSemaine',
+    groupe: 'objectifs',
     unite: { un: 'h par semaine', plusieurs: 'h par semaine' },
     luPar: [
       {
@@ -548,6 +576,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'domainesActifs',
+    groupe: 'objectifs',
     clefs: 'domaines',
     luPar: [
       {
@@ -571,6 +600,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'tempsParDomaine',
+    groupe: 'objectifs',
     clefs: 'domaines',
     unite: { un: 'h', plusieurs: 'h' },
     libelle: 'Temps par domaine',
@@ -580,6 +610,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'styleAccompagnement',
+    groupe: 'objectifs',
     libelle: 'Style d’accompagnement',
     nature: 'texte',
     question: 'Comment Cyclades doit-il vous accompagner ?',
@@ -1299,6 +1330,16 @@ export function controlerChamps(branchesConnues: readonly string[]): string[] {
     const modules = (c.luPar ?? []).map((l) => l.module);
     if (new Set(modules).size !== modules.length) {
       problemes.push(`Le champ « ${c.champ} » déclare deux fois le même lecteur.`);
+    }
+    if (!c.brancheDOrigine && !c.groupe) {
+      problemes.push(
+        `Le champ « ${c.champ} » n’est dans aucun bloc de « Mon profil » : il faut le placer.`,
+      );
+    }
+    if (c.brancheDOrigine && c.groupe) {
+      problemes.push(
+        `Le champ « ${c.champ} » vient d’une branche et déclare pourtant un bloc du socle.`,
+      );
     }
     if (c.clefs && c.nature !== 'liste' && c.nature !== 'repartition') {
       problemes.push(

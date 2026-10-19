@@ -306,30 +306,50 @@ v('et la branche ne redemande plus rien', new URL(page.url()).pathname, '/revisi
    ════════════════════════════════════════════════════════════════════════ */
 console.log('\nCE QUI EST ÉCRIT EST CE QUI A ÉTÉ RÉPONDU');
 
-await aller('/profil/', '#champs');
+await aller('/profil/', '[data-champ="prenom"]');
 {
-  const champs = await page.$$eval('#champs > div', (els) =>
-    els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()),
+  /*
+     LES CARTES, ET NON PLUS DEUX LISTES. Le plan de page du prompt 56 montre
+     chaque champ à sa place déclarée, rempli ou vide : « Ce qui est
+     renseigné » et « Ce qui n'est pas renseigné » ont disparu, et avec elles
+     le trou qui empêchait de renseigner un champ de branche (B5).
+  */
+  const remplies = await page.$$eval('[data-champ]:not([data-vide])', (els) =>
+    els.map((e) => e.dataset.champ),
   );
-  const texte = champs.join(' | ');
-  vrai('le prénom est là, déclaré', /Prénom.*Alexis.*déclaré/.test(texte));
-  vrai('le fuseau choisi aussi', /Fuseau.*Europe\/Paris/.test(texte));
-  vrai('et l’heure préférée, posée par le module', /Heure préférée pour réviser.*matin/.test(texte));
-  faux(
-    'l’année de naissance reportée n’a rien écrit',
-    /Année de naissance[^|]*déclaré/.test(texte),
+  v('trois réponses posées, et pas une de plus', remplies.sort(), [
+    'fuseau',
+    'momentRevision',
+    'prenom',
+  ]);
+  v('le prénom est là', (await page.textContent('[data-valeur="prenom"]')).trim(), 'Alexis');
+  v(
+    'le fuseau choisi aussi',
+    (await page.textContent('[data-valeur="fuseau"]')).trim(),
+    'Europe/Paris',
   );
-  /* Trois, et plus cinq : le tutoiement, la langue et le concours ne sont
-     plus demandés, donc plus posés, donc plus écrits. */
-  v('trois champs ont été posés, et pas un de plus', champs.length, 3);
-}
-{
-  const restants = await page.$$eval('#restants > *', (els) =>
-    els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()),
+  v(
+    'et l’heure préférée, posée par le module',
+    (await page.textContent('[data-valeur="momentRevision"]')).trim(),
+    'matin',
   );
   vrai(
-    'et une question reportée revient parmi ce qui n’est pas renseigné',
-    restants.some((r) => r.startsWith('Année de naissance')),
+    'le prénom se dit déclaré, dans son historique',
+    (await page.textContent('[data-carte="prenom"]')).includes('déclaré'),
+  );
+  /* L'année reportée n'a rien écrit : sa carte est là, vide, et propose de la
+     renseigner — c'est ce que « Plus tard » promet. */
+  v(
+    'l’année de naissance reportée n’a rien écrit',
+    (await page.textContent('[data-valeur="naissanceAnnee"]')).trim(),
+    '—',
+  );
+  vrai(
+    'et sa carte propose de la renseigner',
+    await page
+      .locator('[data-carte="naissanceAnnee"] button', { hasText: 'Renseigner' })
+      .first()
+      .isVisible(),
   );
 }
 
@@ -510,21 +530,16 @@ await page2.waitForFunction(
   { timeout: 15000 },
 );
 await page2.goto(`${RACINE}/profil/`, { waitUntil: 'networkidle' });
-await page2.waitForSelector('#champs', { timeout: 40000 });
+await page2.waitForSelector('[data-carte="tempsParSemaine"] [data-champ]', { timeout: 40000 });
 {
-  const texte = (
-    await page2.$$eval('#champs > div', (els) =>
-      els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()),
-    )
-  ).join(' | ');
+  /* La provenance est passée dans le dépliant « Historique » (P7) : on lit
+     donc la carte entière, dont le dépliant fait partie. */
+  const texte = (await page2.textContent('[data-carte="tempsParSemaine"]')).replace(/\s+/g, ' ');
   vrai(
     'une déduction confirmée est écrite comme « observé, puis confirmé »',
-    /Temps disponible[^|]*observé, puis confirmé/.test(texte),
+    texte.includes('observé, puis confirmé'),
   );
-  faux(
-    'et jamais comme une déclaration',
-    /Temps disponible[^|]*· déclaré/.test(texte),
-  );
+  faux('et jamais comme une déclaration', /\bdéclaré\b/.test(texte));
 }
 
 await nav.close();

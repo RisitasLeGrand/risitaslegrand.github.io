@@ -4,36 +4,116 @@
  *
  * A.3 fixe ce que l'écran doit dire pour chaque champ : sa valeur, **qui
  * l'utilise**, et de quoi restreindre sa portée. A.5 ajoute la suppression d'un
- * champ ou de tout le profil. Les trois sont ici, et rien d'autre : ce n'est pas
- * un tableau de bord, c'est un endroit où l'on vérifie et où l'on retire.
+ * champ ou de tout le profil.
  *
- * Le détail qui fait la différence entre un écran honnête et un formulaire :
- * chaque champ dit **d'où il vient** — déclaré, ou observé — et ce qu'il
- * **règle** dans l'application. Un réglage dont on ne voit pas la cause se
- * change au hasard.
+ * ## Ce que le prompt 56 a changé, et pourquoi
+ *
+ * L'écran affichait sous chaque champ « Utilisé par : Révisions, Odyssée » et
+ * 52 cases pour restreindre cette portée. Les deux étaient fausses :
+ * `profilDeBranche` — la seule fonction qui applique la portée — n'avait aucun
+ * appelant, et l'export ne la regardait pas davantage. Une promesse peut rester
+ * vraie au sens du type et fausse au sens de la personne pendant des mois.
+ *
+ * Les cases sont parties (décision 1 d'Alexis). À leur place, une ligne « Lu
+ * par » **dérivée** de deux déclarations : la table du catalogue pour la
+ * plupart des champs, le registre des usages pour l'âge. `essais:lu-par`
+ * confronte les deux au code, dans trois sens, et la ceinture des littéraux
+ * attrape une lecture écrite sous une forme qu'il ne connaît pas encore.
+ *
+ * ## Le plan de page, et pourquoi il est déclaré ailleurs
+ *
+ * Les champs étaient triés par ordre alphabétique, socle et branches mêlés, sur
+ * neuf écrans de long. Ils sont maintenant groupés — Vous, Votre journée, Vos
+ * objectifs, puis un bloc repliable par branche — et le groupe de chaque champ
+ * est **au catalogue**, à côté du champ. Un champ ajouté sans groupe fait
+ * échouer le contrôle au lieu d'atterrir au hasard de son initiale.
+ *
+ * ## Les champs vides sont ici, et non dans une liste à part
+ *
+ * Ils portent « — » et un bouton « Renseigner », à leur place dans leur bloc.
+ * La liste séparée « Ce qui n'est pas renseigné » ne montrait que le socle :
+ * une date d'épreuve vide n'y figurait pas, et ne pouvait donc être renseignée
+ * que par l'initialisation de branche, une seule fois dans la vie (B5).
+ *
+ * ## Ce que cet écran ne fait pas
+ *
+ * Il n'efface rien d'autre que le profil, et le bloc d'effacement est celui du
+ * prompt 58 : il n'a pas bougé d'un octet, il est seulement passé en dernier,
+ * ce que le plan de page demande.
  */
 import Base from '../layouts/Base.astro';
 import LienReglages from '../components/LienReglages.astro';
+import { BRANCHES } from '../lib/branches';
+import { CHAMPS } from '../lib/noyau/profil';
+
+/**
+ * Les trois blocs du socle, dans l'ordre du plan de page.
+ *
+ * Le propos de chacun est écrit ici et non deviné : un titre seul ne dit pas
+ * pourquoi ces réponses sont ensemble.
+ */
+const BLOCS = [
+  {
+    id: 'vous',
+    titre: 'Vous',
+    propos: 'Votre nom, votre âge, et la façon dont Cyclades vous parle.',
+  },
+  {
+    id: 'journee',
+    titre: 'Votre journée',
+    propos:
+      'Vos heures et le moment de votre revue. C’est la même donnée que dans Paramètres, Ma journée : la changer ici la change là-bas.',
+  },
+  {
+    id: 'objectifs',
+    titre: 'Vos objectifs',
+    propos: 'Ce que vous visez, le temps que vous pouvez y mettre, et les domaines que vous suivez.',
+  },
+] as const;
+
+const champsDuBloc = (groupe: string) => CHAMPS.filter((c) => c.groupe === groupe);
+
+/** Les branches qui ont des champs : une branche sans champ n'a pas de bloc. */
+const branchesAvecChamps = BRANCHES.filter((b) =>
+  CHAMPS.some((c) => c.brancheDOrigine === b.id),
+);
 ---
 
 <Base titre="Mon profil" entete="leger">
   <div class="mx-auto max-w-3xl">
     <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Mon profil</h1>
-    <LienReglages section="journee" class="mt-2" />
+    <p class="mt-2 max-w-2xl text-sm text-slate-600 dark:text-slate-300">
+      Ce que Cyclades sait de vous, à quoi cela sert, et comment le changer ou l’effacer. Tout
+      est facultatif.
+    </p>
     <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
       Ces informations restent sur vos appareils, chiffrées, et se synchronisent avec eux. Elles
       sont <strong>exclues par défaut</strong> des exports destinés à une IA.
     </p>
 
-    <p class="mt-3 text-sm">
-      <a href="/qui-utilise-mon-age/" class="font-medium text-slate-800 underline dark:text-slate-100"
-        >Qui utilise mon âge et mon sexe</a
-      >
-      <span class="text-slate-500 dark:text-slate-400">
-        — la liste de ce qui peut les lire, avec un interrupteur par ligne.</span
-      >
-    </p>
+    <!-- ── Le sommaire ─────────────────────────────────────────────────────
+         Cinq ancres, parce que la page reste longue : grouper les champs la
+         raccourcit, mais « Confidentialité » et « Effacer mon profil » sont
+         toujours en bas, et ce sont justement les deux qu'on vient chercher.
+    -->
+    <nav aria-label="Sommaire de la page" class="mt-4">
+      <ul class="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+        <li><a href="#vous" class="cible-tactile underline underline-offset-4">Vous</a></li>
+        <li><a href="#journee" class="cible-tactile underline underline-offset-4">Votre journée</a></li>
+        <li><a href="#objectifs" class="cible-tactile underline underline-offset-4">Vos objectifs</a></li>
+        <li><a href="#deductions" class="cible-tactile underline underline-offset-4">Ce que Cyclades en déduit</a></li>
+        <li><a href="#confidentialite" class="cible-tactile underline underline-offset-4">Confidentialité</a></li>
+      </ul>
+    </nav>
 
+    <!--
+      LA LIGNE NEUTRE QUI REMPLACE LE COMPTEUR (P9).
+
+      « 10 réponse(s) sur 18 au socle commun » se lisait comme une complétude,
+      et l'interdit 3 du prompt l'interdit : pas de pourcentage, pas de
+      « profil incomplet ». La ligne dit quand l'initialisation a été faite, et
+      que tout reste modifiable — rien de plus.
+    -->
     <p
       id="avancement"
       class="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
@@ -53,79 +133,146 @@ import LienReglages from '../components/LienReglages.astro';
       <div id="divergences" class="space-y-3"></div>
     </section>
 
-    <!-- ── Les champs ─────────────────────────────────────────────────── -->
-    <section class="mt-6">
-      <h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white">Ce qui est renseigné</h2>
-      <div id="champs" class="space-y-3"></div>
-      <p id="aucun-champ" class="hidden text-sm text-slate-500 dark:text-slate-400">
-        Rien n’est renseigné pour l’instant.
-      </p>
-    </section>
+    <!-- ── Les trois blocs du socle ───────────────────────────────────── -->
+    {
+      BLOCS.map((bloc) => (
+        <section id={bloc.id} class="mt-10 scroll-mt-24">
+          <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">{bloc.titre}</h2>
+          <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">{bloc.propos}</p>
+          {bloc.id === 'journee' && <LienReglages section="journee" class="mb-3" />}
+          {bloc.id === 'vous' && (
+            <p class="mb-3 text-sm">
+              <a
+                href="/qui-utilise-mon-age/"
+                data-ecran
+                class="cible-tactile font-medium text-slate-800 underline dark:text-slate-100"
+                >Qui utilise mon âge</a
+              >
+              <span class="text-slate-500 dark:text-slate-400">
+                — la liste de ce qui peut le lire, avec un interrupteur par ligne.</span
+              >
+            </p>
+          )}
+          <div class="space-y-3" data-champs={bloc.id}>
+            {champsDuBloc(bloc.id).map((c) => (
+              <div data-carte={c.champ} />
+            ))}
+          </div>
+        </section>
+      ))
+    }
 
-    <!-- ── Ce qui reste à dire ────────────────────────────────────────── -->
-    <section class="mt-8">
-      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">
-        Ce qui n’est pas renseigné
-      </h2>
-      <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-        Tout est facultatif, sauf le prénom. Rien ici n’est un reproche : un champ vide ne change
-        qu’une chose, c’est que Cyclades ne s’en sert pas.
-      </p>
-      <div id="restants" class="space-y-2"></div>
-    </section>
-
-    <!-- ── Ce que Cyclades en déduit (§3 de questions.md) ─────────────── -->
-    <!--
-      ── Affichage ────────────────────────────────────────────────────────
-
-      L'interrupteur « Réduire les animations » n'est plus ici : il est dans
-      Paramètres > Affichage, avec les autres réglages d'affichage. C'est la
-      décision 1 du prompt 42 — « leur contenu de réglage passe dans la page
-      centrale » —, et le réglage lui-même n'a pas bougé d'un octet : même
-      clé, même valeur, même effet, écrits par le même code.
-
-      Il reste un renvoi, parce qu'on vient le chercher ici depuis deux ans.
-    -->
+    <!-- ── Un bloc repliable par branche (P1, P2) ─────────────────────── -->
     <section class="mt-10">
-      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">Affichage</h2>
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">Par branche</h2>
       <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-        Le thème, le mode clair ou sombre, les animations et la vue des fiches sont réunis dans
-        les paramètres.
+        Les réponses propres à chaque branche. Elles n’étaient posées qu’à sa première ouverture,
+        une seule fois : elles se renseignent maintenant d’ici, à tout moment.
       </p>
-      <LienReglages section="affichage" texte="Ouvrir les réglages d’affichage" />
+      <div class="space-y-3">
+        {
+          branchesAvecChamps.map((b) => (
+            <details
+              data-branche={b.id}
+              class="rounded-2xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900"
+            >
+              <summary
+                class="flex min-h-11 cursor-pointer items-center justify-between gap-2 font-medium text-slate-900 dark:text-white"
+              >
+                <span>{b.libelle}</span>
+                <span data-compte={b.id} class="text-xs font-normal text-slate-500 dark:text-slate-400"
+                ></span>
+              </summary>
+              <div class="mt-3 space-y-3" data-champs={`branche-${b.id}`}>
+                {CHAMPS.filter((c) => c.brancheDOrigine === b.id).map((c) => (
+                  <div data-carte={c.champ} />
+                ))}
+              </div>
+            </details>
+          ))
+        }
+      </div>
     </section>
 
-    <section class="mt-10">
+    <!-- ── Ce que Cyclades en déduit (P4) ─────────────────────────────── -->
+    <section id="deductions" class="mt-10 scroll-mt-24">
       <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">
         Ce que Cyclades en déduit
       </h2>
+      <!--
+        P4 : SEULEMENT CE QUI EST APPLIQUÉ.
+
+        Huit réglages étaient affichés comme des conséquences de vos réponses.
+        Cinq ne sont appliqués nulle part — jours de repos, créneaux, parcours
+        ouverts, avis, objectif hebdomadaire —, et l'un affirmait même « Un jour
+        de repos ne casse pas votre série », que la gamification ne fait pas.
+        `reglagesAppliques()` ne rend que les trois réels, et chaque réglage
+        déclare qui l'applique ; `essais:reglages-appliques` le confronte au
+        code dans les deux sens.
+      -->
       <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
         Aucune de ces déductions ne modifie une donnée : elles changent des <strong>réglages</strong>.
         Chacune dit la réponse dont elle découle — un réglage dont on ne voit pas la cause se change
-        au hasard.
+        au hasard. Seules celles qui sont réellement appliquées sont ici.
       </p>
       <div id="reglages" class="space-y-2"></div>
     </section>
 
-    <!-- ── L'apprentissage étendu, et son consentement (A-13) ──────────── -->
+    <!-- ── Confidentialité (P14) ──────────────────────────────────────── -->
+    <section id="confidentialite" class="mt-10 scroll-mt-24">
+      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">Confidentialité</h2>
+      <div class="max-w-2xl space-y-2 text-sm text-slate-600 dark:text-slate-300">
+        <p>
+          <strong>Ce qui sort du coffre.</strong> Pour poser le thème clair ou sombre avant même
+          que la base soit ouverte, vos heures de lever et de coucher sont copiées en clair sur
+          cet appareil. Rien d’autre du profil ne l’est, et cette copie ne quitte pas l’appareil.
+        </p>
+        <p>
+          <strong>Ce qui part dans un export pour une IA.</strong> Seulement si vous cochez la
+          case correspondante, et jamais votre prénom, votre nom, votre année ou votre mois de
+          naissance, ni votre majorité déclarée : ces cinq réponses ne sortent pas, quelle que
+          soit la case. Votre prénom et votre nom sont même lus pour être <strong>retirés</strong>
+          des textes libres que l’export emporte.
+        </p>
+        <p id="confidentialite-export"></p>
+        <p>
+          <a
+            href="/qui-utilise-mon-age/"
+            data-ecran
+            class="cible-tactile font-medium text-slate-800 underline dark:text-slate-100"
+            >Qui utilise mon âge</a
+          >
+          <span class="text-slate-500 dark:text-slate-400">
+            — chaque endroit qui peut le lire, avec un interrupteur par ligne.</span
+          >
+        </p>
+      </div>
+    </section>
+
+    <!-- ── Ce que Cyclades observe (P1 : les deux réunis) ─────────────── -->
     <!--
-      L'ÉCRAN QUI MANQUAIT.
+      L'APPRENTISSAGE ÉTENDU ET L'ADAPTATION SOUS UN SEUL TITRE.
 
-      Le texte de `consentement.ts` existait depuis le 12 octobre et
-      promettait « vous n'avez jamais à l'autoriser ». Personne ne
-      l'autorisait, et l'observation tournait quand même. Cet écran est la
-      moitié manquante.
-
-      Les trois paragraphes sont **cités**, jamais reformulés : c'est la
-      raison d'être du module, et un résumé écrit ici deviendrait une
-      quatrième version du texte que personne n'a acceptée.
+      Ils faisaient deux sections voisines, et c'est le même sujet vu de deux
+      côtés : ce que Cyclades regarde, et ce qu'il en fait. Le plan de page du
+      56 les réunit. Rien de leur contenu ne change — les trois paragraphes du
+      consentement restent **cités**, jamais reformulés, parce qu'un résumé
+      écrit ici deviendrait une quatrième version d'un texte que personne n'a
+      accepté.
     -->
-    <section class="mt-10">
+    <section id="observation" class="mt-10 scroll-mt-24">
       <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">
-        L’apprentissage étendu
+        Ce que Cyclades observe
       </h2>
+      <p class="mb-4 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+        Ce qu’il regarde, et ce qu’il en fait. Les deux se coupent, et rien ne les rallume tout
+        seul.
+      </p>
+
+      <h3 class="mb-1 font-medium text-slate-900 dark:text-white">L’apprentissage étendu</h3>
       <p
         id="consentement-etat"
+        role="status"
         class="mb-3 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
       >
         Chargement…
@@ -158,12 +305,11 @@ import LienReglages from '../components/LienReglages.astro';
           Révoquer
         </button>
       </div>
-      <p id="consentement-message" class="mt-3 hidden text-sm"></p>
-    </section>
+      <!-- M2 : les trois zones de message portent « role=status », sans quoi
+           un lecteur d'écran n'annonce pas ce qui vient d'être enregistré. -->
+      <p id="consentement-message" role="status" class="mt-3 hidden text-sm"></p>
 
-    <!-- ── L'adaptation (A.8) ─────────────────────────────────────────── -->
-    <section class="mt-10">
-      <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">L’adaptation</h2>
+      <h3 class="mt-8 mb-1 font-medium text-slate-900 dark:text-white">L’adaptation</h3>
       <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
         Quand l’usage observé contredit ce que vous avez déclaré, Cyclades pose la question — une
         fois par semaine au plus, jamais en travers de votre chemin. Une question refusée ne revient
@@ -171,6 +317,7 @@ import LienReglages from '../components/LienReglages.astro';
       </p>
       <p
         id="adaptation-etat"
+        role="status"
         class="rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-300"
       >
         Chargement…
@@ -184,14 +331,23 @@ import LienReglages from '../components/LienReglages.astro';
       >
         Réinitialiser l’adaptation
       </button>
-      <p id="message-adaptation" class="mt-3 hidden text-sm"></p>
+      <p id="message-adaptation" role="status" class="mt-3 hidden text-sm"></p>
     </section>
 
-    <!-- ── Effacement ─────────────────────────────────────────────────── -->
+    <!-- ── Effacer mon profil, en dernier (plan de page du 56) ────────── -->
+    <!--
+      LE BLOC N'A PAS CHANGÉ, IL A CHANGÉ DE PLACE.
+
+      Son comportement appartient au prompt 58, qui tourne ailleurs : la
+      redemande du mot de passe, les noms des champs annoncés avant
+      l'effacement, le compte rendu après. Le 56 ne demande qu'une chose à son
+      sujet, et c'est une question d'ordre — qu'il soit le dernier de la page,
+      et non au milieu.
+    -->
     <section
       class="mt-10 rounded-2xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-900 dark:bg-amber-950/30"
     >
-      <h2 class="font-semibold text-slate-900 dark:text-white">Tout effacer</h2>
+      <h2 class="font-semibold text-slate-900 dark:text-white">Effacer mon profil</h2>
       <p class="mt-1 text-sm text-slate-700 dark:text-slate-200">
         Supprime <strong>tous</strong> les champs du profil. L’adaptation en tiendra compte : les
         réglages qui en découlaient reviennent à leur valeur par défaut, et les écrans cessent de
@@ -205,7 +361,7 @@ import LienReglages from '../components/LienReglages.astro';
       >
         Supprimer tout le profil
       </button>
-      <p id="message-effacement" class="mt-3 hidden text-sm"></p>
+      <p id="message-effacement" role="status" class="mt-3 hidden text-sm"></p>
     </section>
   </div>
 </Base>
@@ -215,177 +371,207 @@ import LienReglages from '../components/LienReglages.astro';
   import { auDeverrouillage } from '../lib/chargement';
   import { echapper, pluriel } from '../lib/ui';
   import { redemanderLeMotDePasse } from '../lib/redemande';
-  import { BRANCHES, branche } from '../lib/branches';
   import {
     avancementLocal,
-    branchesConnues,
     divergencesLocales,
     ecrireChamp,
     profilLocal,
-    restreindre,
     supprimerChamp,
     supprimerProfil,
   } from '../lib/profil';
-  import type { Portee, ValeurDeChamp } from '../lib/noyau/profil';
-  import { lecteurs, porteeInclut } from '../lib/noyau/profil';
+  import {
+    CHAMPS,
+    CHAMPS_JAMAIS_EXPORTES,
+    CHAMPS_OBJECTIF,
+    CHAMPS_PLUS_DEMANDES,
+    aUnUsage,
+  } from '../lib/noyau/profil';
+  import type { ChampDeclare, ValeurDeChamp } from '../lib/noyau/profil';
+  import { lecteursDuChamp } from '../lib/profil-lecteurs';
+  import { historiqueDit, valeurDite, type Libelles } from '../lib/profil-lisible';
 
   const $ = (id: string) => document.getElementById(id)!;
 
-  const nomDeBranche = (id: string) => branche(id)?.libelle ?? id;
-
   /**
-   * Les trois sources d'A.3, dites en français.
+   * Les libellés des parcours et des domaines, chargés une fois.
    *
-   * « Observé, puis confirmé » n'est pas « déclaré », et l'écran ne les confond
-   * pas : le jour où un réglage est faux, savoir si la personne l'a dit ou si
-   * Cyclades l'a déduit est la première chose à regarder.
+   * Par import dynamique : le registre des parcours porte les thèmes, les
+   * rotations et les référentiels, et cette page n'en veut que les noms. Les
+   * faire venir au chargement de l'écran les ferait payer à qui ne descend
+   * jamais jusqu'aux blocs de branche.
    */
-  const LIBELLE_SOURCE: Record<string, string> = {
-    declare: 'déclaré',
-    observe: 'observé, non confirmé',
-    confirme: 'observé, puis confirmé',
-  };
-
-  /**
-   * La valeur, en français.
-   *
-   * Et **échappée**, parce que ces valeurs sont saisies : « Qu'est-ce que vous
-   * faites dans la vie ? » accepte n'importe quel texte, et ce texte est ici
-   * inséré dans du HTML.
-   */
-  function lisible(valeur: unknown): string {
-    if (Array.isArray(valeur)) {
-      return valeur.length ? valeur.map((x) => echapper(String(x))).join(', ') : '—';
-    }
-    if (valeur && typeof valeur === 'object') {
-      const entrees = Object.entries(valeur as Record<string, unknown>);
-      return entrees.length
-        ? entrees.map(([c, v]) => `${echapper(c)} : ${echapper(String(v))}`).join(' · ')
-        : '—';
-    }
-    if (typeof valeur === 'boolean') return valeur ? 'oui' : 'non';
-    const texte = String(valeur ?? '').trim();
-    return texte ? echapper(texte) : '—';
+  let libelles: Libelles = { parcours: [], domaines: [] };
+  async function chargerLesLibelles(): Promise<void> {
+    if (libelles.parcours.length) return;
+    const [{ PARCOURS }, { DOMAINES }] = await Promise.all([
+      import('../lib/parcours/registre'),
+      import('../lib/noyau/domaines'),
+    ]);
+    libelles = {
+      parcours: PARCOURS.map((p) => ({ id: p.id, libelle: p.libelle })),
+      domaines: DOMAINES.map((d) => ({ id: d.id, libelle: d.libelle })),
+    };
   }
 
-  function peindreChamp(valeur: ValeurDeChamp): HTMLElement {
+  /**
+   * Ce qu'un champ devient dans un export, dit en une phrase.
+   *
+   * Dérivé du catalogue, et non écrit à la main : les trois sorts sont ceux de
+   * `repartirProfilPourExport`, et c'est la même liste qui décide. Dire
+   * l'export une fois par champ plutôt que de l'ajouter aux lecteurs est
+   * l'arbitrage du pilote : trente champs portant « Lu par : l'export pour une
+   * IA » auraient noyé les lecteurs réels.
+   */
+  function sortDeLExport(champ: string): string {
+    if (CHAMPS_JAMAIS_EXPORTES.includes(champ)) return 'Ne sort jamais dans un export.';
+    if (CHAMPS_OBJECTIF.includes(champ)) {
+      return 'Part dans un export si vous cochez « Objectifs ».';
+    }
+    return 'Part dans un export si vous cochez « Profil ».';
+  }
+
+  /** Une ligne de métadonnée, en petit, sous la valeur. */
+  function ligneFine(texte: string): HTMLElement {
+    const p = document.createElement('p');
+    p.className = 'mt-1 text-xs text-slate-500 dark:text-slate-400';
+    p.textContent = texte;
+    return p;
+  }
+
+  /**
+   * La carte d'un champ : sa valeur, qui la lit, ce qu'elle règle, et quoi en
+   * faire.
+   *
+   * Un seul chemin pour les champs remplis et les champs vides. Ils étaient
+   * peints par deux fonctions différentes, dans deux sections différentes, et
+   * c'est ce qui a permis à « Ce qui n'est pas renseigné » de ne jamais
+   * montrer un champ de branche (B5).
+   */
+  function peindreCarte(declare: ChampDeclare, valeur: ValeurDeChamp | undefined): HTMLElement {
     const bloc = document.createElement('div');
     bloc.className =
       'rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-900';
-    bloc.dataset.champ = valeur.champ;
+    bloc.dataset.champ = declare.champ;
+    if (!valeur) bloc.dataset.vide = 'oui';
 
-    const lus = lecteurs(valeur, branchesConnues());
     const entete = document.createElement('div');
     entete.className = 'flex flex-wrap items-baseline justify-between gap-2';
-    entete.innerHTML =
-      `<span class="font-medium text-slate-900 dark:text-white">${echapper(valeur.declare.libelle)}</span>` +
-      `<span class="font-mono text-sm text-slate-700 dark:text-slate-200">${lisible(valeur.valeur)}</span>`;
+    const nom = document.createElement('span');
+    nom.className = 'font-medium text-slate-900 dark:text-white';
+    nom.textContent = declare.libelle;
+    const dite = document.createElement('span');
+    /* Plus de chasse fixe : ce sont des réponses, pas du code (G2). */
+    dite.className = 'text-sm text-slate-700 dark:text-slate-200';
+    dite.dataset.valeur = declare.champ;
+    dite.textContent = valeur ? valeurDite(declare.champ, valeur.valeur, libelles) : '—';
+    entete.append(nom, dite);
+    bloc.appendChild(entete);
 
-    const meta = document.createElement('p');
-    meta.className = 'mt-1 text-xs text-slate-500 dark:text-slate-400';
-    meta.textContent =
-      `${LIBELLE_SOURCE[valeur.source]} · ` +
-      `version ${valeur.version} · posé sur ${valeur.appareil}`;
-
-    const portee = document.createElement('p');
-    portee.className = 'mt-1 text-xs text-slate-500 dark:text-slate-400';
-    portee.textContent = lus.length
-      ? `Utilisé par : ${lus.map(nomDeBranche).join(', ')}`
-      : 'Utilisé par : aucune branche — ce champ ne sert qu’aux écrans communs.';
-
-    bloc.append(entete, meta, portee);
-
-    if (valeur.declare.regle) {
-      const regle = document.createElement('p');
-      regle.className = 'mt-1 text-xs text-slate-500 dark:text-slate-400';
-      regle.textContent = `ⓘ ${valeur.declare.regle}`;
-      bloc.appendChild(regle);
+    /* ── La ligne « Lu par », dérivée des deux tables (P3) ──────────────── */
+    const lus = lecteursDuChamp(declare);
+    if (lus.length) {
+      const lecteurs = ligneFine(`Lu par : ${lus.join(', ')}.`);
+      lecteurs.dataset.luPar = declare.champ;
+      bloc.appendChild(lecteurs);
     }
 
-    /*
-       La portée se change par des cases, une par branche. Cocher **étend** la
-       portée, décocher la restreint : les deux sont offertes, parce qu'un champ
-       trop restreint est aussi gênant qu'un champ trop ouvert — et c'est la
-       personne qui sait lequel des deux la gêne.
-    */
-    const choix = document.createElement('div');
-    choix.className = 'mt-3 flex flex-wrap items-center gap-3';
-    const titre = document.createElement('span');
-    titre.className = 'text-xs text-slate-500 dark:text-slate-400';
-    titre.textContent = 'Lisible par :';
-    choix.appendChild(titre);
+    /* ── Ce que le champ règle, quand quelque chose le lit ──────────────── */
+    if (declare.regle) bloc.appendChild(ligneFine(`ⓘ ${declare.regle}`));
 
-    for (const b of BRANCHES) {
-      const etiquette = document.createElement('label');
-      etiquette.className = 'flex items-center gap-1.5 text-xs text-slate-700 dark:text-slate-200';
-      const case_ = document.createElement('input');
-      case_.type = 'checkbox';
-      case_.checked = porteeInclut(valeur.portee, b.id);
-      case_.className = 'h-4 w-4 rounded border-slate-300 dark:border-slate-700';
-      case_.addEventListener('change', async () => {
-        const voulues = BRANCHES.filter((autre) =>
-          autre.id === b.id
-            ? case_.checked
-            : (
-                choix.querySelector(
-                  `input[data-branche="${autre.id}"]`,
-                ) as HTMLInputElement | null
-              )?.checked,
-        ).map((autre) => autre.id);
-        const portee: Portee = voulues.length === BRANCHES.length ? 'toutes' : voulues;
-        await restreindre(valeur.champ, portee);
-        await peindre();
-      });
-      case_.dataset.branche = b.id;
-      etiquette.append(case_, document.createTextNode(b.libelle));
-      choix.appendChild(etiquette);
+    /* ── La mention des champs qu'on ne demande plus (décision 2) ───────── */
+    if (CHAMPS_PLUS_DEMANDES.includes(declare.champ)) {
+      const garde = ligneFine('Pas encore utilisé par Cyclades. Votre réponse est gardée.');
+      garde.dataset.gardee = declare.champ;
+      bloc.appendChild(garde);
     }
-    bloc.appendChild(choix);
 
+    bloc.appendChild(ligneFine(sortDeLExport(declare.champ)));
+
+    /* ── L'historique, replié (P7) ──────────────────────────────────────── */
+    if (valeur) {
+      const histoire = document.createElement('details');
+      histoire.className = 'mt-2';
+      const resume = document.createElement('summary');
+      resume.className =
+        'flex min-h-11 cursor-pointer items-center text-xs text-slate-500 dark:text-slate-400';
+      resume.textContent = 'Historique';
+      const corps = ligneFine(
+        historiqueDit({
+          source: valeur.source,
+          version: valeur.version,
+          appareil: valeur.appareil,
+          ...(appareilCourant ? { appareilCourant } : {}),
+        }),
+      );
+      histoire.append(resume, corps);
+      bloc.appendChild(histoire);
+    }
+
+    /* ── Les actions, toutes à 44 px de haut (P8) ───────────────────────── */
     const actions = document.createElement('div');
     actions.className = 'mt-3 flex flex-wrap gap-2';
-    const modifier = document.createElement('button');
-    modifier.type = 'button';
-    modifier.className =
+    const SECONDAIRE =
       'min-h-11 rounded-lg border border-slate-300 px-3 text-xs font-medium transition ' +
       'hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800';
-    modifier.textContent = 'Modifier';
-    modifier.addEventListener('click', () => void demander(valeur.champ, valeur.declare.question, valeur.valeur));
 
-    const supprimer = document.createElement('button');
-    supprimer.type = 'button';
-    supprimer.className =
-      'min-h-11 rounded-lg border border-slate-300 px-3 text-xs font-medium text-amber-900 transition ' +
-      'hover:bg-amber-50 dark:border-slate-700 dark:text-amber-200 dark:hover:bg-amber-950/40';
-    supprimer.textContent = 'Supprimer';
-    supprimer.addEventListener('click', async () => {
-      const sur = await confirmer({
-        titre: `Supprimer « ${valeur.declare.libelle} » ?`,
-        texte:
-          'Ce champ est retiré de votre profil. Les écrans qui s’en servaient ' +
-          'reviennent à leur valeur par défaut. Vous pouvez le renseigner à nouveau.',
-        action: 'Supprimer ce champ',
-        destructrice: true,
+    const changer = document.createElement('button');
+    changer.type = 'button';
+    changer.className = SECONDAIRE;
+    changer.textContent = valeur ? 'Modifier' : 'Renseigner';
+    changer.setAttribute(
+      'aria-label',
+      `${valeur ? 'Modifier' : 'Renseigner'} « ${declare.libelle} »`,
+    );
+    changer.addEventListener('click', () =>
+      void demander(declare.champ, declare.question, valeur ? valeur.valeur : ''),
+    );
+    actions.appendChild(changer);
+
+    if (valeur) {
+      /*
+         M6 : « SUPPRIMER » N'EST PLUS AMBRÉ.
+
+         La couleur d'alerte se répétait sur chaque carte — treize fois —, et
+         une alerte répétée treize fois n'alerte plus. Elle n'apparaît
+         maintenant que dans la boîte de confirmation, là où le geste se
+         décide.
+      */
+      const supprimer = document.createElement('button');
+      supprimer.type = 'button';
+      supprimer.className = SECONDAIRE;
+      supprimer.textContent = 'Supprimer';
+      supprimer.setAttribute('aria-label', `Supprimer « ${declare.libelle} »`);
+      supprimer.addEventListener('click', async () => {
+        const sur = await confirmer({
+          titre: `Supprimer « ${declare.libelle} » ?`,
+          texte:
+            'Ce champ est retiré de votre profil. Les écrans qui s’en servaient ' +
+            'reviennent à leur valeur par défaut. Vous pouvez le renseigner à nouveau.',
+          action: 'Supprimer ce champ',
+          destructrice: true,
+        });
+        if (!sur) return;
+        await supprimerChamp(declare.champ);
+        await peindre();
       });
-      if (!sur) return;
-      await supprimerChamp(valeur.champ);
-      await peindre();
-    });
-
-    actions.append(modifier, supprimer);
+      actions.appendChild(supprimer);
+    }
     bloc.appendChild(actions);
     return bloc;
   }
 
+  /** L'appareil où l'on se trouve, pour dire « celui-ci » au lieu d'un code. */
+  let appareilCourant = '';
+
   /**
    * La saisie, dans la boîte commune.
    *
-   * Elle passait par `window.prompt`, qui ne porte pas d'étiquette, ne se
-   * laisse ni habiller ni annoncer, et surgit en haut de l'écran. Reste
-   * provisoire ce qui l'était déjà : un seul champ texte pour toutes les
+   * Reste provisoire ce qui l'était déjà : un seul champ texte pour toutes les
    * natures. Le point D2 du prompt 43 demande des champs propres, par nature,
-   * et notamment la correction d'une répartition sans écrire de JSON ; c'est
-   * un lot de formulaire, pas un lot de fenêtre, et il vient après.
+   * et notamment la correction d'une répartition sans écrire de JSON ; c'est un
+   * lot de formulaire, et il vient de là. Signalé au compte rendu : l'exemple
+   * affiché pour une répartition parle de domaines, y compris devant les dates
+   * d'épreuves, où il est faux.
    */
   async function demander(champ: string, question: string, actuelle: unknown): Promise<void> {
     const { champDeclare } = await import('../lib/noyau/profil');
@@ -436,15 +622,24 @@ import LienReglages from '../components/LienReglages.astro';
     await peindre();
   }
 
-  /** Les réglages déduits, chacun avec sa cause. */
+  /**
+   * Les réglages déduits — **et appliqués** (P4).
+   *
+   * Cinq des huit ne sont appliqués nulle part, et la page les présentait
+   * pourtant comme des conséquences de ce qui avait été répondu.
+   * `reglagesAppliquesLocaux` ne rend que ceux dont le code déclare un
+   * applicateur, et `essais:reglages-appliques` confronte la déclaration au
+   * code dans les deux sens.
+   */
   async function peindreReglages(): Promise<void> {
-    const { reglagesLocaux } = await import('../lib/adaptation');
+    const { reglagesAppliquesLocaux } = await import('../lib/adaptation');
     const zone = $('reglages');
     zone.textContent = '';
-    for (const reglage of await reglagesLocaux()) {
+    for (const reglage of await reglagesAppliquesLocaux()) {
       const ligne = document.createElement('div');
       ligne.className =
         'rounded-xl border border-slate-200 bg-white px-4 py-3 dark:border-slate-800 dark:bg-slate-900';
+      ligne.dataset.reglage = reglage.id;
       const titre = document.createElement('p');
       titre.className = 'flex flex-wrap items-baseline gap-2';
       const nom = document.createElement('span');
@@ -529,9 +724,16 @@ import LienReglages from '../components/LienReglages.astro';
        Le texte cité promet des interrupteurs par domaine et un journal
        d'accès ; ni l'un ni l'autre n'est construit. Taire l'écart ici
        reviendrait à faire accepter un texte plus large que ce qui est fait.
+
+       M1 DU 56 : LA DATE EST PARTIE, et non calculée. Elle était écrite en
+       dur — « au 16 octobre 2026 » — et se démodait en silence. La calculer
+       sur « aujourd'hui » aurait été pire : la phrase aurait prétendu que la
+       liste avait été revue ce matin. Ce qui la tient à jour, c'est le compte
+       de domaines, qui vient du module, et l'essai qui constate qu'aucun
+       interrupteur par domaine n'existe.
     */
     $('consentement-manques').textContent =
-      'Ce qui n’existe pas encore, au 16 octobre 2026 : les interrupteurs par domaine et ' +
+      'Ce qui n’existe pas encore : les interrupteurs par domaine et ' +
       `par source (le texte en annonce ${DOMAINES_DU_CONSENTEMENT.length} ; une seule branche, ` +
       'les Révisions, est réellement observée, et l’autorisation ci-dessus la couvre ' +
       'entièrement), le journal de ce qui a été lu, et le rappel périodique. ' +
@@ -595,9 +797,9 @@ import LienReglages from '../components/LienReglages.astro';
       : silence?.pourquoi === 'aucun-ecart'
         ? 'Rien à signaler : ce que vous avez déclaré et ce que l’usage montre se tiennent.'
         : silence?.pourquoi === 'trop-tot'
-          ? `Un écart est connu, et il attendra ${silence.joursRestants} jour(s) : une question par semaine au plus.`
+          ? `Un écart est connu, et il attendra ${pluriel(silence.joursRestants ?? 0, 'jour')} : une question par semaine au plus.`
           : silence?.pourquoi === 'ajourne'
-            ? `Un écart est connu, et vous l’avez reporté : on en reparlera dans ${silence.joursRestants} jour(s).`
+            ? `Un écart est connu, et vous l’avez reporté : on en reparlera dans ${pluriel(silence.joursRestants ?? 0, 'jour')}.`
             : 'Les écarts connus portent sur des questions que vous avez refusées. Elles ne reviendront pas.';
 
     /*
@@ -635,51 +837,120 @@ import LienReglages from '../components/LienReglages.astro';
     }
   }
 
+  /* ──────────────────────────────────────────────────────────────────────
+     La peinture de la page
+     ────────────────────────────────────────────────────────────────────── */
+
   async function peindre(): Promise<void> {
-    const [profil, etat, divergences] = await Promise.all([
+    await chargerLesLibelles();
+    const { BRANCHES } = await import('../lib/branches');
+    const { lireAppareil } = await import('../lib/db');
+    const [profil, etat, divergences, appareil] = await Promise.all([
       profilLocal(),
       avancementLocal(),
       divergencesLocales(),
+      lireAppareil().catch(() => ''),
     ]);
+    appareilCourant = appareil;
 
+    /*
+       LA LIGNE NEUTRE (P9), et ce qu'elle ne dit pas.
+
+       Pas de compte, pas de dénominateur, pas de pourcentage : l'interdit 3 du
+       prompt les exclut tous les trois, et « 10 réponses sur 18 » se lisait
+       comme une complétude. Elle dit quand l'initialisation a eu lieu, et que
+       tout reste modifiable. Le prénom est nommé seulement s'il manque, parce
+       que c'est la seule réponse que l'initialisation attend — un fait, et non
+       un reproche.
+    */
+    const quand = (iso: string) =>
+      new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
     $('avancement').textContent =
-      `${etat.repondus} réponse(s) sur ${etat.total} au socle commun` +
-      (etat.prenomPose ? '' : ' — le prénom, la seule réponse attendue, n’est pas encore donné') +
       (etat.initialisation
-        ? `. Initialisation ${etat.initialisation.allegee ? 'allégée ' : ''}faite le ` +
-          `${new Date(etat.initialisation.termineeLe).toLocaleDateString('fr-FR')}.`
-        : '.');
+        ? `Initialisation ${etat.initialisation.allegee ? 'allégée ' : ''}faite le ` +
+          `${quand(etat.initialisation.termineeLe)}. `
+        : 'L’initialisation n’a pas encore été faite. ') +
+      'Vous pouvez compléter ou retirer ce que vous voulez, quand vous voulez.' +
+      (etat.prenomPose ? '' : ' Le prénom est la seule réponse attendue.');
 
-    const liste = $('champs');
-    liste.textContent = '';
-    for (const valeur of [...profil.values()].sort((a, b) =>
-      a.declare.libelle.localeCompare(b.declare.libelle),
-    )) {
-      liste.appendChild(peindreChamp(valeur));
-    }
-    $('aucun-champ').classList.toggle('hidden', profil.size > 0);
+    /* ── Les cartes, une par champ, à leur place déclarée ──────────────── */
+    for (const declare of CHAMPS) {
+      const hote = document.querySelector<HTMLElement>(`[data-carte="${declare.champ}"]`);
+      if (!hote) continue;
+      hote.textContent = '';
+      const valeur = profil.get(declare.champ);
+      /*
+         UN CHAMP VIDE QUE RIEN NE LIT N'EST PAS MONTRÉ.
 
-    const restants = $('restants');
-    restants.textContent = '';
-    for (const declare of etat.restants) {
-      const ligne = document.createElement('div');
-      ligne.className =
-        'flex flex-wrap items-center justify-between gap-2 rounded-xl border border-dashed ' +
-        'border-slate-300 px-4 py-2 text-sm dark:border-slate-700';
-      const texte = document.createElement('span');
-      texte.className = 'text-slate-600 dark:text-slate-300';
-      texte.textContent = declare.libelle + (declare.obligatoire ? ' (attendu)' : '');
-      const bouton = document.createElement('button');
-      bouton.type = 'button';
-      bouton.className =
-        'min-h-11 rounded-lg border border-slate-300 px-3 text-xs font-medium transition ' +
-        'hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800';
-      bouton.textContent = 'Renseigner';
-      bouton.addEventListener('click', () => void demander(declare.champ, declare.question, ''));
-      ligne.append(texte, bouton);
-      restants.appendChild(ligne);
+         Décision 2 : il n'est plus demandé, ni à l'initialisation ni comme « à
+         renseigner ». Lui faire une carte vide en ferait vingt-trois de plus,
+         chacune invitant à renseigner une réponse que rien ne lirait — c'est
+         l'inverse de ce que la décision demande. Rempli, il reste là, visible
+         et modifiable, avec sa mention.
+      */
+      if (!valeur && !aUnUsage(declare)) continue;
+      hote.appendChild(peindreCarte(declare, valeur));
     }
 
+    /* ── Le compte de chaque branche, et le mot quand il n'y a rien ────── */
+    for (const b of BRANCHES) {
+      const zone = document.querySelector<HTMLElement>(`[data-champs="branche-${b.id}"]`);
+      const compte = document.querySelector<HTMLElement>(`[data-compte="${b.id}"]`);
+      if (!zone) continue;
+      const cartes = zone.querySelectorAll('[data-champ]').length;
+      const remplies = zone.querySelectorAll('[data-champ]:not([data-vide])').length;
+      if (compte) {
+        compte.textContent = cartes
+          ? remplies
+            ? pluriel(remplies, 'réponse')
+            : 'rien de renseigné'
+          : 'plus rien n’est demandé ici';
+      }
+      /*
+         UN BLOC QUI PORTE DES RÉPONSES S'OUVRE, LA PREMIÈRE FOIS.
+
+         Repliable ne veut pas dire caché : une réponse déjà donnée que
+         personne ne voit est aussi perdue qu'une réponse effacée. On ouvre
+         donc le bloc qui en porte, et **une seule fois** — refaire le geste à
+         chaque peinture rouvrirait ce que la personne vient de replier.
+      */
+      const repli = zone.closest('details');
+      if (repli && !repli.dataset.vu) {
+        repli.dataset.vu = 'oui';
+        if (remplies > 0) repli.open = true;
+      }
+      const dejaDit = zone.querySelector('[data-rien]');
+      if (dejaDit) dejaDit.remove();
+      if (!cartes) {
+        const rien = ligneFine(
+          'Aucune de ces réponses n’est lue par Cyclades aujourd’hui : elles ne sont plus ' +
+            'demandées. Celles que vous avez données resteraient ici.',
+        );
+        rien.dataset.rien = b.id;
+        zone.appendChild(rien);
+      }
+    }
+
+    /*
+       CE QUI SORTIRAIT, COMPTÉ SUR CE QUI EST RENSEIGNÉ (P14).
+
+       Une phrase dérivée du catalogue, et non une promesse : les trois sorts
+       sont ceux de `repartirProfilPourExport`, et c'est la même liste qui
+       décide ici et là-bas.
+    */
+    const remplis = [...profil.keys()];
+    const jamais = remplis.filter((c) => CHAMPS_JAMAIS_EXPORTES.includes(c)).length;
+    const objectifs = remplis.filter(
+      (c) => !CHAMPS_JAMAIS_EXPORTES.includes(c) && CHAMPS_OBJECTIF.includes(c),
+    ).length;
+    const profilCoche = remplis.length - jamais - objectifs;
+    $('confidentialite-export').textContent = remplis.length
+      ? `Aujourd’hui : ${pluriel(profilCoche, 'réponse')} avec la case « Profil », ` +
+        `${pluriel(objectifs, 'réponse')} avec la case « Objectifs », et ` +
+        `${pluriel(jamais, 'réponse')} qui ne sortent jamais.`
+      : 'Rien n’est renseigné : un export n’emporterait aucune réponse de votre profil.';
+
+    /* ── Les divergences entre appareils (A.6) ─────────────────────────── */
     const bloc = $('bloc-divergences');
     const zone = $('divergences');
     zone.textContent = '';
@@ -696,7 +967,9 @@ import LienReglages from '../components/LienReglages.astro';
         const ligne = document.createElement('div');
         ligne.className = 'mt-2 flex flex-wrap items-baseline justify-between gap-2 text-sm';
         ligne.innerHTML =
-          `<span class="font-mono text-slate-700 dark:text-slate-200">${lisible(version.valeur)}</span>` +
+          `<span class="text-slate-700 dark:text-slate-200">${echapper(
+            valeurDite(divergence.champ, version.valeur, libelles),
+          )}</span>` +
           `<span class="text-xs text-slate-500 dark:text-slate-400">sur ${echapper(version.appareil)}</span>`;
         const garder = document.createElement('button');
         garder.type = 'button';
@@ -704,6 +977,10 @@ import LienReglages from '../components/LienReglages.astro';
           'min-h-11 rounded-lg border border-amber-400 px-3 text-xs font-medium text-amber-900 ' +
           'transition hover:bg-amber-100 dark:border-amber-700 dark:text-amber-200';
         garder.textContent = 'Garder celle-ci';
+        garder.setAttribute(
+          'aria-label',
+          `Garder « ${valeurDite(divergence.champ, version.valeur, libelles)} » pour ${divergence.declare.libelle}`,
+        );
         garder.addEventListener('click', async () => {
           await ecrireChamp(divergence.champ, version.valeur, { source: version.source });
           await peindre();
@@ -746,9 +1023,9 @@ import LienReglages from '../components/LienReglages.astro';
         titre: 'Supprimer tout le profil',
         consequence:
           (nomsRemplis.length
-            ? `${pluriel(nomsRemplis.length, 'champ')} renseigné(s) seront effacés` +
+            ? `${pluriel(nomsRemplis.length, 'champ')} renseignés seront effacés` +
               (apercuDesNoms
-                ? ` — dont ${apercuDesNoms}${nomsRemplis.length > 6 ? `, et ${nomsRemplis.length - 6} autre(s)` : ''}`
+                ? ` — dont ${apercuDesNoms}${nomsRemplis.length > 6 ? `, et ${pluriel(nomsRemplis.length - 6, 'autre')}` : ''}`
                 : '') +
               '. '
             : 'Aucun champ n’est renseigné : il n’y a rien à effacer. ') +
@@ -767,7 +1044,8 @@ import LienReglages from '../components/LienReglages.astro';
     const combien = await supprimerProfil();
     const message = $('message-effacement');
     message.className = 'mt-3 text-sm text-slate-700 dark:text-slate-200';
-    message.textContent = `${pluriel(combien, 'champ')} supprimé(s).`;
+    message.textContent = `${pluriel(combien, 'champ')} supprimés.`;
+    message.classList.remove('hidden');
     await peindre();
   });
 
@@ -792,7 +1070,7 @@ import LienReglages from '../components/LienReglages.astro';
     message.textContent = touches
       ? `${pluriel(remise.retablis.length, 'réglage')} remis à sa valeur déclarée` +
         (remise.supprimes.length
-          ? `, et ${pluriel(remise.supprimes.length, 'champ')} supprimé(s) faute d’avoir eu une valeur avant.`
+          ? `, et ${pluriel(remise.supprimes.length, 'champ')} supprimés faute d’avoir eu une valeur avant.`
           : '.')
       : 'Rien à défaire : aucune proposition n’a été acceptée.';
     message.classList.remove('hidden');
@@ -830,4 +1108,3 @@ import LienReglages from '../components/LienReglages.astro';
     });
   });
 </script>
-

@@ -223,14 +223,31 @@ await A.page.waitForFunction(
   vrai('et la décision prise est rappelée', decisions.includes('reportée'));
 }
 {
-  const reglages = await A.page.$$eval('#reglages > div', (els) =>
+  /*
+     P4 DU PROMPT 56 : SEULES LES DÉDUCTIONS APPLIQUÉES SONT AFFICHÉES.
+
+     L'écran en montrait huit, et cinq ne sont appliquées nulle part — jours de
+     repos, créneaux, parcours ouverts, avis, objectif hebdomadaire. Cet essai
+     en attendait huit, et mesurait donc la présence de cinq promesses fausses.
+     Il attend maintenant les trois réelles, et vérifie NOMMÉMENT que l'une des
+     cinq a disparu : c'est l'assertion qui aurait manqué si on s'était
+     contenté de changer un nombre.
+  */
+  const identifiants = await A.page.$$eval('#reglages [data-reglage]', (els) =>
+    els.map((e) => e.dataset.reglage),
+  );
+  v('trois réglages appliqués sont affichés', identifiants, [
+    'bascule-du-jour',
+    'fuseau',
+    'domaines-affiches',
+  ]);
+  const reglages = await A.page.$$eval('#reglages [data-reglage]', (els) =>
     els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()),
   );
-  v('huit réglages déduits sont affichés', reglages.length, 8);
   const texte = reglages.join(' | ');
   vrai(
-    'l’objectif hebdomadaire se dit déduit de la réponse donnée',
-    /Objectif indicatif[^|]*déduit de vos réponses/.test(texte),
+    'l’objectif hebdomadaire n’est plus affiché : rien ne l’applique',
+    !/Objectif indicatif/.test(texte),
   );
   vrai(
     'et la bascule du jour se dit par défaut, faute d’heure de lever',
@@ -258,20 +275,25 @@ vrai(
   (await B.page.locator('#proposition-reponse').textContent())?.includes('remettre comme avant'),
 );
 
+/* La carte du champ, à sa place déclarée depuis le plan de page du 56. La
+   provenance est dans le dépliant « Historique », qui fait partie de la
+   carte : on lit donc la carte entière. */
 const lireChamp = async (page) => {
   await page.goto(`${RACINE}/profil/`, { waitUntil: 'networkidle' });
-  await page.waitForSelector('#champs > div', { timeout: 40000 });
-  const champs = await page.$$eval('#champs > div', (els) =>
-    els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()),
-  );
-  return champs.find((c) => c.startsWith('Heures de révision')) ?? '';
+  /* « attaché » et non « visible » : la carte vit dans le bloc repliable de sa
+     branche, et son texte se lit même replié. */
+  await page.waitForSelector('[data-carte="heuresRevision"] [data-champ]', {
+    state: 'attached',
+    timeout: 40000,
+  });
+  return (await page.textContent('[data-carte="heuresRevision"]')).replace(/\s+/g, ' ').trim();
 };
 
 {
   const champ = await lireChamp(B.page);
   vrai('le champ porte désormais la valeur observée', champ.includes('6'));
   vrai('et la source dit qu’elle vient d’une observation', champ.includes('observé, puis confirmé'));
-  faux('jamais « déclaré »', / · déclaré/.test(champ));
+  faux('jamais « déclaré »', /\bdéclaré\b/.test(champ));
 }
 
 await B.page.waitForFunction(

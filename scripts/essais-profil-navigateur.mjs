@@ -4,13 +4,27 @@
  * Ce que cet essai couvre : que la racine soit bien un **menu** et non le
  * tableau de bord de Révisions, que l'accueil de Révisions ait suivi à
  * `/revisions/`, que le menu n'affiche **aucune** donnée personnelle hors le
- * prénom, qu'un champ de profil se pose, se restreigne et se supprime, et que
- * la salutation suive.
+ * prénom, qu'un champ de profil se pose et se supprime, et que la salutation
+ * suive.
+ *
+ * ## Ce que le prompt 56 y ajoute, et ce qu'il en retire
+ *
+ * Retiré : la portée. Les 52 cases « Lisible par » ne restreignaient rien —
+ * `profilDeBranche` n'avait aucun appelant — et elles sont parties (décision 1
+ * d'Alexis). L'essai ne vérifie donc plus qu'une case tient après
+ * rechargement : il vérifie qu'il n'y a **plus de case**, et que la ligne
+ * « Lu par » dit des lecteurs réels.
+ *
+ * Ajouté : le plan de page, un champ de branche qui se renseigne depuis le
+ * profil (B5), un champ qu'on ne demande plus mais qui garde sa valeur
+ * (décision 2), l'absence de tout compteur de complétude (interdit 3), et le
+ * paragraphe de confidentialité (P14).
  *
  * Playwright n'est pas une dépendance du projet : fournissez CHROMIUM et lancez
  * « astro preview » avant ce script.
  */
 import { chromium } from 'playwright-core';
+import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { repondreALaBoite, repondreAuChamp } from './lib/boite-essais.mjs';
@@ -20,7 +34,8 @@ const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
 
 const nav = await chromium.launch({
-  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  /* Cherché, non nommé : voir `lib/chromium-essais.mjs`. */
+  executablePath: cheminDuNavigateur(),
   args: ['--no-sandbox'],
 });
 
@@ -155,101 +170,278 @@ await page.click('header a[href="/"]');
 await page.waitForSelector('[data-branche="revisions"]', { timeout: 40000 });
 v('le menu revient', new URL(page.url()).pathname, '/');
 
-console.log('\nUN CHAMP SE POSE, ET LA SALUTATION SUIT');
+
+console.log('\nLE PLAN DE PAGE, DANS L’ORDRE (P1)');
 
 await aller('/profil/', '#avancement');
 
-/*
-   LE TOTAL EST LU UNE FOIS, PUIS COMPARÉ À LUI-MÊME.
-
-   L'essai figeait dix-sept. Le socle en compte dix-huit depuis que l'année de
-   naissance s'est ajoutée, et l'essai est passé au rouge sans qu'aucun écran
-   ait cessé de marcher. Ce qui compte n'est pas le chiffre, c'est l'ACCORD
-   entre les deux endroits qui l'annoncent : la phrase d'avancement et la liste
-   des restants. Un socle qui grandit n'a plus à faire rougir l'essai ; une
-   liste qui diverge de sa phrase, si.
-
-   Le mois, la majorité déclarée et les usages coupés ne sont toujours pas des
-   questions : ils se demandent au moment du besoin, et les compter rendrait le
-   total inatteignable.
-*/
-let socle = 0;
 {
-  const avancement = await page.textContent('#avancement');
-  const annonce = avancement.match(/0 réponse\(s\) sur (\d+)/);
-  vrai('l’avancement est annoncé, et il annonce un total', !!annonce);
-  socle = annonce ? Number(annonce[1]) : 0;
-  vrai('le total annoncé n’est pas nul', socle > 0);
-  vrai('et le prénom est signalé comme attendu', avancement.includes('prénom'));
-  const restants = await page.$$eval('#restants > div', (els) => els.length);
-  v('autant de questions à poser que le total annoncé', restants, socle);
-}
+  /*
+     L'ORDRE DES SECTIONS, LU DANS LE DOCUMENT.
 
-await page.locator('#restants button', { hasText: 'Renseigner' }).first().click();
-await repondreAuChamp(page, 'Alexis', 'Enregistrer');
-await page.waitForTimeout(1500);
-
-{
-  const champs = await page.$$eval('#champs > div', (els) =>
-    els.map((e) => ({ champ: e.dataset.champ, texte: e.textContent.replace(/\s+/g, ' ') })),
+     Le plan du prompt 56 n'est pas une préférence de mise en page : il met
+     « Effacer mon profil » en dernier et « Confidentialité » avant lui, et
+     c'est l'ordre dans lequel on vient les chercher. On lit donc les
+     identifiants dans l'ordre du document, et non leur présence.
+  */
+  const ordre = await page.$$eval('main section[id]', (els) => els.map((e) => e.id));
+  v(
+    'les sections paraissent dans l’ordre du plan',
+    ordre.filter((id) =>
+      ['vous', 'journee', 'objectifs', 'deductions', 'confidentialite', 'observation'].includes(id),
+    ),
+    ['vous', 'journee', 'objectifs', 'deductions', 'confidentialite', 'observation'],
   );
-  v('le prénom est désormais renseigné', champs.map((c) => c.champ), ['prenom']);
-  vrai('avec sa valeur', champs[0].texte.includes('Alexis'));
-  vrai('déclaré, et en version 1', champs[0].texte.includes('déclaré') && champs[0].texte.includes('version 1'));
   vrai(
-    'et l’écran dit qu’aucune branche ne le lit',
-    champs[0].texte.includes('aucune branche'),
+    'et le sommaire mène aux cinq ancres',
+    (await page.$$eval('nav[aria-label="Sommaire de la page"] a', (els) => els.length)) === 5,
   );
-  const restants = await page.$$eval('#restants > div', (els) => els.length);
-  v('une question de moins reste à poser', restants, socle - 1);
+  /* M3 : le renvoi « Affichage » ne coupe plus la page en deux. */
+  const texte = await page.locator('main').textContent();
+  vrai('plus de section « Affichage » au milieu du profil', !texte.includes('Ouvrir les réglages d’affichage'));
+  /* Et le lien vers Ma journée est là : le catalogue des réglages le cite. */
+  vrai(
+    'le bloc « Votre journée » renvoie à Paramètres',
+    await page.locator('#journee a[href*="parametres"]').first().isVisible(),
+  );
 }
 
-await aller('/', '#salutation');
-v('le menu salue par le prénom', (await page.textContent('#salutation')).trim(), 'Bonjour Alexis.');
-
-console.log('\nLA PORTÉE SE RESTREINT, ET ELLE TIENT');
-
-await aller('/profil/', '#champs > div');
+console.log('\nAUCUN COMPTEUR, AUCUNE COMPLÉTUDE (P9, INTERDIT 3)');
 
 {
-  // On ouvre le prénom à Révisions : la case de cette branche se coche.
-  const case_ = page.locator('#champs > div[data-champ="prenom"] input[data-branche="revisions"]');
-  v('la case de Révisions est décochée au départ', await case_.isChecked(), false);
-  await case_.check();
-  await page.waitForTimeout(1500);
-  v('elle reste cochée après repeinture', await case_.isChecked(), true);
+  const avancement = (await page.textContent('#avancement')).replace(/\s+/g, ' ').trim();
+  vrai('la ligne dit que tout reste modifiable', avancement.includes('quand vous voulez'));
+  vrai('aucun « sur N »', !/\bsur \d+/.test(avancement));
+  vrai('aucun pourcentage', !avancement.includes('%'));
+  vrai('aucun « incomplet »', !/incompl/i.test(avancement));
+  const page_ = (await page.locator('main').textContent()).replace(/\s+/g, ' ');
+  vrai('ni ailleurs dans la page', !/\d+ ?% / .test(page_) && !/réponse\(s\) sur/.test(page_));
+}
 
+console.log('\nUN CHAMP VIDE SE RENSEIGNE DEPUIS SA CARTE');
+
+{
+  /* Le prénom est vide et lu : sa carte est là, avec « — » et « Renseigner ». */
+  const carte = page.locator('[data-carte="prenom"] [data-champ="prenom"]');
+  vrai('la carte du prénom est dans le bloc « Vous »', await carte.isVisible());
+  v('sa valeur est un tiret', (await page.textContent('[data-valeur="prenom"]')).trim(), '—');
+  await page.locator('[data-carte="prenom"] button', { hasText: 'Renseigner' }).first().click();
+  await repondreAuChamp(page, 'Alexis', 'Enregistrer');
+  await page.waitForFunction(
+    () => document.querySelector('[data-valeur="prenom"]')?.textContent?.includes('Alexis'),
+    undefined,
+    { timeout: 15000 },
+  );
+  v('la valeur est écrite', (await page.textContent('[data-valeur="prenom"]')).trim(), 'Alexis');
+  const texte = (await page.textContent('[data-carte="prenom"]')).replace(/\s+/g, ' ');
+  vrai('et la ligne « Lu par » nomme la salutation', texte.includes('Lu par : la salutation du menu'));
+  vrai('la provenance est passée dans « Historique »', texte.includes('Historique'));
+  vrai('qui dit « déclaré »', texte.includes('déclaré'));
+  vrai('et plus aucune « version 1 » sur la carte elle-même', !texte.includes('version 1'));
+}
+
+console.log('\nPLUS DE CASES DE PORTÉE, ET PLUS DE « UTILISÉ PAR » (P3)');
+
+{
+  const texte = (await page.locator('main').textContent()).replace(/\s+/g, ' ');
+  vrai('plus de « Lisible par »', !texte.includes('Lisible par'));
+  vrai('plus de « Utilisé par »', !texte.includes('Utilisé par'));
+  v(
+    'plus une seule case à cocher dans les cartes',
+    await page.$$eval('[data-champ] input[type="checkbox"]', (els) => els.length),
+    0,
+  );
+  /* Et la ligne « Lu par » de l'âge vient du registre des usages. */
+  await page.locator('[data-carte="naissanceAnnee"] button', { hasText: 'Renseigner' }).first().click();
+  await repondreAuChamp(page, '1990', 'Enregistrer');
+  await page.waitForFunction(
+    () => document.querySelector('[data-valeur="naissanceAnnee"]')?.textContent?.includes('1990'),
+    undefined,
+    { timeout: 15000 },
+  );
+  const age = (await page.textContent('[data-carte="naissanceAnnee"]')).replace(/\s+/g, ' ');
+  vrai('l’année est dite sans séparateur de milliers', age.includes('1990'));
+  vrai(
+    'et ses lecteurs viennent du registre des usages',
+    age.includes('Lu par : les usages de votre âge dans') && age.includes('Qui utilise mon âge'),
+  );
+}
+
+console.log('\nUN CHAMP DE BRANCHE SE RENSEIGNE DEPUIS LE PROFIL (B5)');
+
+{
+  const bloc = page.locator('details[data-branche="revisions"]');
+  vrai('la branche Révisions a son bloc', await bloc.isVisible());
+  await bloc.locator('summary').click();
+  const carte = page.locator('[data-carte="heuresRevision"]');
+  vrai('et la carte des heures de révision y est', await carte.isVisible());
+  await carte.locator('button', { hasText: 'Renseigner' }).first().click();
+  await repondreAuChamp(page, '8', 'Enregistrer');
+  await page.waitForFunction(
+    () => document.querySelector('[data-valeur="heuresRevision"]')?.textContent?.includes('8'),
+    undefined,
+    { timeout: 15000 },
+  );
+  v(
+    'la valeur est dite avec son unité',
+    (await page.textContent('[data-valeur="heuresRevision"]')).trim(),
+    '8 h par semaine',
+  );
+  v(
+    'et le repli compte les réponses données',
+    (await page.textContent('[data-compte="revisions"]')).trim(),
+    '1 réponse',
+  );
+}
+
+console.log('\nUN CHAMP QU’ON NE DEMANDE PLUS GARDE SA VALEUR (DÉCISION 2)');
+
+{
+  /*
+     Le tutoiement n'est plus demandé : rien ne le lit. Sa carte n'est donc pas
+     là tant qu'il est vide — une carte vide inviterait à renseigner une
+     réponse que rien ne lirait. Mais une valeur déjà donnée reste visible et
+     modifiable, avec la mention qui dit qu'elle est gardée.
+  */
+  v(
+    'sa carte n’est pas là tant qu’il est vide',
+    await page.$$eval('[data-champ="formalite"]', (els) => els.length),
+    0,
+  );
+  /*
+     ON SÈME UNE RÉPONSE COMME UN PROFIL D'AVANT L'AURAIT LAISSÉE.
+
+     Il n'y a plus de chemin d'écran vers ce champ, et c'est voulu : il n'est
+     plus demandé. L'écrire par la base est donc le seul moyen d'éprouver la
+     seconde moitié de la décision 2 — « les garder s'ils sont remplis » —, et
+     c'est exactement le cas d'une personne qui a répondu la semaine dernière.
+     L'opération est écrite dans la forme que `lireProfil` lit : une horloge de
+     quinze chiffres, un tiret, quatre caractères.
+  */
+  await page.evaluate(
+    () =>
+      new Promise((ok, ko) => {
+        const r = indexedDB.open('revinsp');
+        r.onsuccess = () => {
+          const tx = r.result.transaction('operations', 'readwrite');
+          tx.objectStore('operations').put({
+            id: '01ESSAI56FORMALITE0000000000',
+            appareil: 'ESSAI56',
+            hlc: `${String(Date.now()).padStart(15, '0')}-0001`,
+            type: 'profil.champ',
+            cible: 'profil:formalite',
+            lot: '',
+            charge: { valeur: 'tu', source: 'declare' },
+          });
+          tx.oncomplete = () => ok();
+          tx.onerror = () => ko(tx.error);
+        };
+        r.onerror = () => ko(r.error);
+      }),
+  );
   await page.reload({ waitUntil: 'networkidle' });
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
     await page.click('#bouton-verrou');
   }
-  await page.waitForSelector('#champs > div', { timeout: 40000 });
-  const apres = page.locator('#champs > div[data-champ="prenom"] input[data-branche="revisions"]');
-  v('et après rechargement, la portée a bien été enregistrée', await apres.isChecked(), true);
-  const texte = await page.textContent('#champs');
-  vrai('l’écran nomme désormais Révisions comme lectrice', texte.includes('Utilisé par : Révisions'));
-  vrai('et la version a augmenté', texte.includes('version 2'));
+  await page.waitForSelector('[data-champ="formalite"]', { timeout: 40000 });
+  {
+    const texte = (await page.textContent('[data-carte="formalite"]')).replace(/\s+/g, ' ');
+    v('la réponse donnée reste visible', (await page.textContent('[data-valeur="formalite"]')).trim(), 'tu');
+    vrai(
+      'avec la mention qui dit qu’elle est gardée',
+      texte.includes('Pas encore utilisé par Cyclades. Votre réponse est gardée.'),
+    );
+    vrai('elle reste modifiable', texte.includes('Modifier'));
+    vrai('et supprimable', texte.includes('Supprimer'));
+    vrai('sans ligne « Lu par », puisque rien ne la lit', !texte.includes('Lu par'));
+  }
+
+  const sport = page.locator('details[data-branche="sport"]');
+  vrai('le bloc Sport existe toujours', await sport.isVisible());
+  v(
+    'et il dit que plus rien n’y est demandé',
+    (await page.textContent('[data-compte="sport"]')).trim(),
+    'plus rien n’est demandé ici',
+  );
+  const dedans = (await page.textContent('[data-champs="branche-sport"]')).replace(/\s+/g, ' ');
+  vrai(
+    'avec la raison, à l’intérieur',
+    dedans.includes('n’est lue par Cyclades aujourd’hui'),
+  );
+  v(
+    'et aucune carte vide à l’intérieur',
+    await page.$$eval('[data-champs="branche-sport"] [data-champ]', (els) => els.length),
+    0,
+  );
 }
 
-console.log('\nUN CHAMP SE SUPPRIME, ET REVIENT DANS LES RESTANTS');
+console.log('\nCE QUE CYCLADES EN DÉDUIT : SEULEMENT CE QUI EST APPLIQUÉ (P4)');
+
+{
+  const deduits = await page.$$eval('#reglages [data-reglage]', (els) =>
+    els.map((e) => e.dataset.reglage),
+  );
+  v('trois réglages, et trois seulement', deduits, [
+    'bascule-du-jour',
+    'fuseau',
+    'domaines-affiches',
+  ]);
+  const texte = (await page.textContent('#deductions')).replace(/\s+/g, ' ');
+  vrai('plus de jours de repos', !texte.includes('repos'));
+  vrai('plus de créneaux', !texte.includes('Plages proposées'));
+  vrai('plus de parcours ouverts', !texte.includes('Parcours ouverts'));
+  vrai('et plus la phrase fausse sur la série', !texte.includes('série'));
+}
+
+console.log('\nLA CONFIDENTIALITÉ DIT CE QUI SORT, ET CE QUI NE SORT JAMAIS (P14)');
+
+{
+  const texte = (await page.textContent('#confidentialite')).replace(/\s+/g, ' ');
+  vrai('la copie en clair des heures est dite', texte.includes('copiées en clair sur cet appareil'));
+  vrai('les cinq champs qui ne sortent jamais sont nommés', texte.includes('ne sortent pas'));
+  vrai('le caviardage du prénom est dit', texte.includes('retirés'));
+  vrai('le compte de ce qui sortirait est donné', /Aujourd’hui : \d+ réponse/.test(texte));
+  vrai('et le titre de l’écran de l’âge est le nouveau', texte.includes('Qui utilise mon âge'));
+  vrai('sans « et mon sexe »', !texte.includes('et mon sexe'));
+  const page_ = (await page.locator('main').textContent()).replace(/\s+/g, ' ');
+  vrai('nulle part dans la page', !page_.includes('et mon sexe'));
+}
+
+console.log('\nUN CHAMP SE SUPPRIME, ET SA CARTE REDEVIENT VIDE');
 
 await page
-  .locator('#champs > div[data-champ="prenom"] button', { hasText: 'Supprimer' })
+  .locator('[data-carte="prenom"] button', { hasText: 'Supprimer' })
   .first()
   .click();
 await repondreALaBoite(page, 'Supprimer ce champ');
-await page.waitForTimeout(1500);
+await page.waitForFunction(
+  () => document.querySelector('[data-valeur="prenom"]')?.textContent?.trim() === '—',
+  undefined,
+  { timeout: 15000 },
+);
 
 {
-  const champs = await page.$$eval('#champs > div', (els) => els.length);
-  v('plus aucun champ renseigné', champs, 0);
-  vrai('l’écran le dit', await page.locator('#aucun-champ').isVisible());
-  const restants = await page.$$eval('#restants > div', (els) => els.length);
-  v('et tout le socle est à nouveau à poser', restants, socle);
-
+  v('la carte est de nouveau vide', (await page.textContent('[data-valeur="prenom"]')).trim(), '—');
+  vrai(
+    'et elle propose de renseigner',
+    await page.locator('[data-carte="prenom"] button', { hasText: 'Renseigner' }).first().isVisible(),
+  );
   await aller('/', '#salutation');
   v('le menu ne salue plus par le prénom', (await page.textContent('#salutation')).trim(), 'Bonjour.');
+}
+
+console.log('\nLES CIBLES DES CARTES FONT 44 PX (P8)');
+
+await aller('/profil/', '[data-champ]');
+{
+  const petites = await page.$$eval('[data-champ] button, [data-champ] summary, details[data-branche] summary', (els) =>
+    els
+      .filter((e) => e.getClientRects().length > 0)
+      .filter((e) => e.getBoundingClientRect().height < 44)
+      .map((e) => `${e.tagName} « ${(e.textContent ?? '').trim().slice(0, 24)} » ${Math.round(e.getBoundingClientRect().height)}px`),
+  );
+  v('aucune cible sous 44 px dans les cartes', petites, []);
 }
 
 v('aucune fenêtre native n’a été ouverte', fenetresNatives, 0);

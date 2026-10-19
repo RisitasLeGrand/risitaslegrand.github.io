@@ -25,7 +25,13 @@ import {
   type Issue,
   type Proposition,
 } from './noyau/adaptation';
-import { lectureDe, reglagesDeduits, reglagesJourLogique, type Reglage } from './noyau/reglages';
+import {
+  lectureDe,
+  reglagesAppliques,
+  reglagesDeduits,
+  reglagesJourLogique,
+  type Reglage,
+} from './noyau/reglages';
 import { ecrireChamp, supprimerChamp } from './profil';
 import { observerUsage } from './initialisation';
 
@@ -50,6 +56,18 @@ async function journaliser(cible: string, type: string, charge: unknown) {
 
 export async function reglagesLocaux(): Promise<Reglage[]> {
   return reglagesDeduits(lectureDe(lireProfil(await toutesLesOperations())));
+}
+
+/**
+ * Les réglages déduits **que quelque chose applique** (P4 du prompt 56).
+ *
+ * « Mon profil » n'affiche que ceux-là. Les cinq autres restent calculés et
+ * éprouvés — la déduction est juste, elle n'a simplement aucun effet —, et la
+ * page cessait d'être honnête en les présentant comme des conséquences de ce
+ * qui avait été répondu.
+ */
+export async function reglagesAppliquesLocaux(): Promise<Reglage[]> {
+  return reglagesAppliques(lectureDe(lireProfil(await toutesLesOperations())));
 }
 
 /**
