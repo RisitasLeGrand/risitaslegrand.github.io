@@ -364,7 +364,7 @@ lu dans le code sans l'exécuter.
    demandée, la question a dû changer de phrase pour ne pas annoncer un réglage
    qu'elle ne fait plus.
 
-### Deux défauts de moi, trouvés par les essais et non par relecture
+### Quatre défauts de moi, trouvés par les essais et non par relecture
 
 1. La phrase « Non renseigné : 7 h par défaut », posée dans la zone de commande
    d'un réglage, **faisait déborder la page à 610 px pour 360** : la rangée est
@@ -374,18 +374,37 @@ lu dans le code sans l'exécuter.
    `naissanceAnnee` : **le contrôle du graphe d'imports l'a refusé**. Je n'ai
    pas allongé la liste des six fichiers autorisés — les trois listes étaient
    des propriétés des champs, et elles sont passées au catalogue.
+3. « sont même lus pour être **retirés**des textes libres » : le compilateur
+   mange le blanc entre une balise et le mot suivant. Le dépôt connaît le piège
+   — `d77b11c`, le même mois — et je l'ai refait. `essais:espaces` l'a vu sur
+   le site construit.
+4. Deux liens posés au fil d'une phrase portaient `cible-tactile`, que D-041
+   refuse : WCAG 2.5.8 exempte le lien en ligne du plancher de 24 px, et la
+   classe étire la ligne autour de lui. `essais:mobile:navigateur` l'a vu.
+
+Les quatre ont été attrapés **avant la poussée**, par le socle ou par un essai
+ciblé. Aucun ne se voyait en relisant le diff.
 
 ### Les essais, et ce qu'ils gardent
 
 | Essai | Verts | Ce qu'il garde |
 |---|---|---|
 | `essais:lu-par` | 160 | La table des lecteurs confrontée au code dans trois sens, la ceinture des littéraux, la seconde source pour l'âge, et qu'aucun champ ne soit déclaré aux deux endroits. |
-| `essais:profil:navigateur` | 66 | Le plan de page lu dans le document, l'absence de compteur, un champ vide renseigné depuis sa carte, « Lu par » à l'écran, plus une seule case, un champ de branche renseigné, un champ plus demandé qui garde sa valeur, les trois déductions, la confidentialité, 44 px. |
+| `essais:profil:navigateur` | 70 | Le plan de page lu dans le document, l'absence de compteur, un champ vide renseigné depuis sa carte, « Lu par » à l'écran, plus une seule case, un champ de branche renseigné, un champ plus demandé qui garde sa valeur, les trois déductions, la confidentialité, 44 px. |
 | `essais:ma-journee` | 55 | Les déclarations d'une seule source, le choix fermé confronté à `lireMoment`, l'aide du lever. |
 | `essais:ma-journee:navigateur` | 25 | Une heure changée se voit aux trois endroits ; vider écrit une suppression. |
 | `essais:compte-a-rebours` | 66 | L'arithmétique des jours au changement d'heure, les formats, l'absence de pression, l'interrupteur. |
 | `essais:profil-lisible` | 52 | Les valeurs dites en français, et jamais « [object Object] », « NaN » ni « Invalid Date ». |
 | `essais:reglages-appliques` | 30 | Déclaré appliqué donc appliqué, déclaré non appliqué donc nommé par personne. |
+
+### Une addition que l'audit ne demandait pas
+
+Les trois champs **demandés au besoin** — le mois de naissance, la majorité
+déclarée, les usages coupés — disent maintenant sur leur carte *quand* la
+question se pose, avec la phrase du catalogue. Sans cela, leur absence se lit
+comme un oubli, alors que c'est de la minimisation : ils ne sont posés qu'au
+moment où une fonction en a besoin. Le bouton « Renseigner » reste, parce que
+répondre d'avance est le droit de la personne.
 
 ### Ce qui reste
 
