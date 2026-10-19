@@ -1,0 +1,402 @@
+---
+/**
+ * Suivi personnel — l'écran du module, et la liste des signes d'alerte.
+ *
+ * ## Pourquoi cette adresse, et pourquoi ce titre
+ *
+ * `/odyssee/corps/suivi/` plutôt qu'une racine à soi. Deux raisons, et aucune
+ * n'est esthétique.
+ *
+ * La **discrétion** (4.8) veut que le mot « règles » n'apparaisse qu'à
+ * l'intérieur du module. Une adresse voyage : elle est dans l'historique, dans
+ * la barre, dans un signet. « suivi » ne dit rien.
+ *
+ * Et le **parent logique** se calcule par le plus long écran déclaré qui
+ * préfixe celui-ci (`noyau/retour.ts`). Sous `/odyssee/corps/`, la flèche de
+ * retour ramène à Corps — c'est-à-dire là d'où l'on vient, puisque c'est de là
+ * que part la ligne vers ce module. Une racine à soi aurait remonté à Odyssée,
+ * et aurait demandé une entrée dans `branches.ts`, qui n'est pas de ce lot.
+ *
+ * ## Ce que l'écran montre module désactivé, et pourquoi
+ *
+ * La liste des signes d'alerte, et le bloc de recours. C'est la décision C :
+ * ils partent « à tout âge, sous tout statut, module même désactivé ». Une
+ * information de sécurité qui attendrait qu'on active un module serait une
+ * information qu'on ne trouve pas le jour où elle sert.
+ *
+ * ## Ce que l'écran ne fait jamais
+ *
+ * Il n'a **aucune couleur d'alarme** et **aucun déclenchement** : la règle 5
+ * du complément D2 est explicite — « pas de rouge d'alarme, pas de score, pas
+ * de déduction à partir des données saisies. La liste ne se déclenche jamais
+ * toute seule d'après le suivi : elle est consultable, et le renvoi y mène ».
+ *
+ * Et il n'affiche aucun indicateur de volume, que la maquette 8.2 prévoyait
+ * sous « Abondants » : les seuls repères de volume de la collecte viennent de
+ * la source 5, que la règle 3 écarte.
+ */
+import Base from '../../../layouts/Base.astro';
+import FormulaireCoffre from '../../../components/FormulaireCoffre.astro';
+import { chaineImposee } from '../../../lib/odyssee/chaines-du-suivi';
+import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/cycle';
+import {
+  COLLECTE_LE,
+  NIVEAUX,
+  PAGES_CITEES,
+} from '../../../lib/odyssee/cycle-signes-alerte';
+
+---
+
+<Base titre="Suivi personnel" actif="corps" coffre>
+  <div class="mx-auto max-w-3xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Suivi personnel</h1>
+    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+      {chaineImposee('mention.ouverture-module')}
+    </p>
+
+    <!--
+      ══ Le coffre ══════════════════════════════════════════════════
+
+      Le composant porte LUI-MÊME l'identifiant `coffre-ferme` et son propre
+      pli. L'envelopper dans une section du même nom faisait un identifiant en
+      double — ce que Playwright a refusé en mode strict, et ce qu'aucun
+      lecteur n'aurait vu à l'œil.
+    -->
+    <div class="mt-6">
+      <FormulaireCoffre raison="Vos saisies, et jusqu’au fait que ce suivi soit actif." />
+    </div>
+
+    <section id="coffre-ouvert" class="mt-6 hidden">
+      <!-- ══ Le module est fermé ═════════════════════════════════════ -->
+      <div
+        id="bloc-inactif"
+        class="hidden rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800"
+      >
+        <h2 class="font-semibold text-slate-900 dark:text-white">Ce suivi n’est pas activé</h2>
+        <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+          Rien n’est enregistré tant que vous ne l’activez pas. En l’activant, vous pourrez noter
+          une saisie par jour, et rien d’autre ne change dans Cyclades.
+        </p>
+        <button
+          id="activer"
+          type="button"
+          class="mt-3 min-h-[44px] rounded-md bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700"
+        >
+          Activer ce suivi
+        </button>
+      </div>
+
+      <!-- ══ Le module est ouvert ════════════════════════════════════ -->
+      <div id="bloc-actif" class="hidden">
+        <h2 class="font-semibold text-slate-900 dark:text-white">Aujourd’hui</h2>
+        <p id="depuis" class="mt-1 text-sm text-slate-500 dark:text-slate-400"></p>
+
+        <fieldset class="mt-4">
+          <legend class="text-sm font-medium text-slate-700 dark:text-slate-200">Saignements</legend>
+          <div id="niveaux" class="mt-2 flex flex-wrap gap-2">
+            {
+              ORDRE_DES_NIVEAUX.map((niveau) => (
+                <button
+                  type="button"
+                  data-niveau={niveau}
+                  class="min-h-[44px] rounded-md border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  {NIVEAUX_DE_SAIGNEMENT[niveau]}
+                </button>
+              ))
+            }
+          </div>
+        </fieldset>
+
+        <button
+          id="debut"
+          type="button"
+          class="mt-3 min-h-[44px] w-full rounded-md border border-indigo-300 px-4 py-2 font-medium text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-slate-700 sm:w-auto"
+        >
+          Mes règles commencent aujourd’hui
+        </button>
+
+        <details class="mt-4 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+          <summary class="cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-200">
+            Note
+          </summary>
+          <label class="mt-2 block text-sm text-slate-600 dark:text-slate-300">
+            <span class="sr-only">Note du jour</span>
+            <textarea
+              id="note"
+              rows="3"
+              class="mt-1 w-full rounded-md border border-slate-300 p-2 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
+            ></textarea>
+          </label>
+          <button
+            id="noter"
+            type="button"
+            class="mt-2 min-h-[44px] rounded-md border border-slate-300 px-4 py-2 text-slate-700 dark:border-slate-600 dark:text-slate-200"
+          >
+            Enregistrer la note
+          </button>
+        </details>
+
+        <p id="confirmation" class="mt-3 text-sm text-slate-600 dark:text-slate-300" role="status"></p>
+
+        <button
+          id="desactiver"
+          type="button"
+          class="mt-6 min-h-[44px] text-sm text-slate-500 underline underline-offset-4 dark:text-slate-400"
+        >
+          Désactiver ce suivi
+        </button>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Désactiver n’efface rien. Pour effacer, passez par vos données.
+        </p>
+      </div>
+
+      <p id="erreur" class="mt-3 text-sm text-slate-600 dark:text-slate-300" role="status"></p>
+    </section>
+
+    <!-- ══ Quand consulter — visible même module désactivé ════════════ -->
+    <section id="signes" class="mt-10 border-t border-slate-200 pt-6 dark:border-slate-700">
+      <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Quand consulter</h2>
+      <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+        Les phrases ci-dessous sont citées telles quelles depuis les pages nommées en bas. Cyclades
+        n’en ajoute aucune et n’en déduit aucune de ce que vous saisissez.
+      </p>
+
+      {
+        NIVEAUX.map((niveau) => (
+          <div class="mt-6" data-niveau-alerte={niveau.id}>
+            <h3 class="font-semibold text-slate-800 dark:text-slate-100">{niveau.intitule}</h3>
+            {
+              niveau.groupes.map((groupe) => (
+                <div class="mt-3">
+                  {
+                    groupe.introduction && (
+                      <p class="text-sm text-slate-700 dark:text-slate-200">
+                        « {groupe.introduction.texte} »
+                        <span class="text-slate-500 dark:text-slate-400">
+                          {' '}(source {groupe.introduction.source})
+                        </span>
+                      </p>
+                    )
+                  }
+                  <ul class="mt-2 space-y-2">
+                    {
+                      groupe.items.map((item) => (
+                        <li class="text-sm text-slate-700 dark:text-slate-200">
+                          « {item.texte} »
+                          <span class="text-slate-500 dark:text-slate-400">
+                            {' '}(source {item.source})
+                          </span>
+                        </li>
+                      ))
+                    }
+                  </ul>
+                </div>
+              ))
+            }
+          </div>
+        ))
+      }
+
+      <!-- Règle 4 : source et date de chaque page, toujours visibles. -->
+      <div class="mt-8 rounded-lg bg-slate-50 p-4 text-sm dark:bg-slate-800">
+        <h3 class="font-medium text-slate-800 dark:text-slate-100">D’où viennent ces phrases</h3>
+        <ul class="mt-2 space-y-1 text-slate-600 dark:text-slate-300">
+          {
+            PAGES_CITEES.map((page) => (
+              <li>
+                Source {page.numero} — {page.site}, « {page.titre} », page mise à jour le{' '}
+                {page.misAJourLe}.{' '}
+                <a
+                  href={page.adresse}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  class="underline underline-offset-4"
+                >
+                  Ouvrir cette page
+                </a>{' '}
+                <span class="text-slate-500 dark:text-slate-400">
+                  — s’ouvre sur {page.site}.fr, hors de Cyclades.
+                </span>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="mt-3 text-slate-600 dark:text-slate-300">
+          Relevé le {COLLECTE_LE}. {chaineImposee('orientation.cloture')}
+        </p>
+      </div>
+    </section>
+  </div>
+</Base>
+
+<script>
+  import {
+    activerLeSuivi,
+    desactiverLeSuivi,
+    lireLesReglages,
+    noterLeJour,
+    saisieDuJour,
+  } from '../../../lib/odyssee/donnees-cycle';
+  import {
+    coffreOuvert,
+    fermerLeCoffre,
+    ouvrirLeCoffre,
+    reprendreLeCoffre,
+    surCoffre,
+  } from '../../../lib/coffre';
+  import { jourLogique } from '../../../lib/noyau/jour-logique';
+  import type { NiveauDeSaignement } from '../../../lib/odyssee/cycle';
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const aujourdhui = jourLogique(new Date());
+
+  /** Confirmation neutre, comme la maquette 8.2 la veut. */
+  const dire = (texte: string) => {
+    $('confirmation').textContent = texte;
+  };
+
+  const direLErreur = (e: unknown) => {
+    $('erreur').textContent = e instanceof Error ? e.message : String(e);
+  };
+
+  async function peindre() {
+    const ouvert = coffreOuvert();
+    $('coffre-ferme').classList.toggle('hidden', ouvert);
+    $('coffre-ouvert').classList.toggle('hidden', !ouvert);
+    if (!ouvert) return;
+
+    try {
+      const reglages = await lireLesReglages();
+      $('bloc-inactif').classList.toggle('hidden', reglages.actif);
+      $('bloc-actif').classList.toggle('hidden', !reglages.actif);
+      if (!reglages.actif) return;
+
+      $('depuis').textContent = reglages.activeLe
+        ? `Suivi actif depuis le ${reglages.activeLe}.`
+        : '';
+
+      const saisie = await saisieDuJour(aujourdhui);
+      for (const bouton of document.querySelectorAll<HTMLButtonElement>('#niveaux button')) {
+        const choisi = saisie?.niveau === bouton.dataset.niveau;
+        bouton.setAttribute('aria-pressed', String(choisi));
+        bouton.classList.toggle('border-indigo-600', choisi);
+        bouton.classList.toggle('font-semibold', choisi);
+      }
+      ($('note') as HTMLTextAreaElement).value = saisie?.note ?? '';
+      $('debut').setAttribute('aria-pressed', String(saisie?.debutDeclare ?? false));
+    } catch (e) {
+      direLErreur(e);
+    }
+  }
+
+  /**
+   * Un appui suffit, et c'est la mesure de la maquette 8.2.
+   *
+   * Le niveau s'enregistre au clic, sans bouton de validation : c'est ce qui
+   * fait tenir « trois appuis au plus depuis l'ouverture du module ». La note
+   * et le début déclaré gardent leur propre appui, parce qu'ils sont
+   * facultatifs.
+   */
+  async function marquer(niveau: NiveauDeSaignement, debutDeclare?: boolean) {
+    try {
+      const avant = await saisieDuJour(aujourdhui);
+      await noterLeJour(aujourdhui, niveau, {
+        note: ($('note') as HTMLTextAreaElement).value,
+        debutDeclare: debutDeclare ?? avant?.debutDeclare ?? false,
+      });
+      dire('Saisie enregistrée.');
+      await peindre();
+    } catch (e) {
+      direLErreur(e);
+    }
+  }
+
+  for (const bouton of document.querySelectorAll<HTMLButtonElement>('#niveaux button')) {
+    bouton.addEventListener('click', () => {
+      void marquer(bouton.dataset.niveau as NiveauDeSaignement);
+    });
+  }
+
+  /*
+     « Mes règles commencent aujourd'hui » pose le début ET un niveau, parce
+     qu'un début déclaré sans saignement est refusé par le contrôle du modèle.
+     « Traces » est le plus bas qui ait un sens ici ; la personne corrige d'un
+     appui si c'est plus.
+  */
+  $('debut').addEventListener('click', () => {
+    void (async () => {
+      const avant = await saisieDuJour(aujourdhui);
+      const niveau =
+        avant && avant.niveau !== 'aucun' ? avant.niveau : ('traces' as NiveauDeSaignement);
+      await marquer(niveau, true);
+    })();
+  });
+
+  $('noter').addEventListener('click', () => {
+    void (async () => {
+      const avant = await saisieDuJour(aujourdhui);
+      await marquer(avant?.niveau ?? 'aucun');
+    })();
+  });
+
+  $('activer').addEventListener('click', () => {
+    void (async () => {
+      try {
+        await activerLeSuivi();
+        await peindre();
+      } catch (e) {
+        direLErreur(e);
+      }
+    })();
+  });
+
+  $('desactiver').addEventListener('click', () => {
+    void (async () => {
+      try {
+        await desactiverLeSuivi();
+        dire('');
+        await peindre();
+      } catch (e) {
+        direLErreur(e);
+      }
+    })();
+  });
+
+  /*
+     LE FORMULAIRE DU COFFRE SE BRANCHE ICI, et ce n'est pas facultatif : le
+     composant rend le champ et le bouton, la PAGE ouvre le coffre. Je l'avais
+     oublié, et l'essai au navigateur l'a trouvé — l'écran montrait un
+     formulaire qui ne faisait rien, ce qu'aucune relecture de la mise en page
+     n'aurait signalé.
+  */
+  $('ouvrir-coffre').addEventListener('click', () => {
+    void (async () => {
+      const champ = $('mdp-coffre') as HTMLInputElement;
+      const erreur = await ouvrirLeCoffre(champ.value, {
+        memoriserAppareil:
+          (document.getElementById('coffre-appareil') as HTMLInputElement | null)?.checked ?? false,
+      });
+      $('erreur-coffre').classList.toggle('hidden', erreur === null);
+      if (erreur) {
+        $('erreur-coffre').textContent = erreur;
+        return;
+      }
+      champ.value = '';
+      await peindre();
+    })();
+  });
+  $('mdp-coffre').addEventListener('keydown', (evenement) => {
+    if ((evenement as KeyboardEvent).key === 'Enter') $('ouvrir-coffre').click();
+  });
+  document.getElementById('fermer-coffre')?.addEventListener('click', () => {
+    fermerLeCoffre();
+    void peindre();
+  });
+
+  surCoffre(() => void peindre());
+  void (async () => {
+    await reprendreLeCoffre();
+    await peindre();
+  })();
+</script>

@@ -39,12 +39,22 @@
  */
 export type NiveauDeSaignement = 'aucun' | 'traces' | 'leger' | 'moyen' | 'abondant';
 
+/**
+ * Les libellés, accordés au pluriel comme la maquette 8.2 les écrit.
+ *
+ * « Légers », « Moyens », « Abondants » s'accordent avec « saignements », qui
+ * est la question posée juste au-dessus. Le singulier aurait obligé l'écran à
+ * poser une question au singulier, ou à laisser un désaccord — et le format G
+ * demande des pluriels accordés, pas des parenthèses.
+ *
+ * « Aucun » reste au singulier : c'est une réponse qui se tient seule.
+ */
 export const NIVEAUX_DE_SAIGNEMENT: Record<NiveauDeSaignement, string> = {
   aucun: 'Aucun',
   traces: 'Traces',
-  leger: 'Léger',
-  moyen: 'Moyen',
-  abondant: 'Abondant',
+  leger: 'Légers',
+  moyen: 'Moyens',
+  abondant: 'Abondants',
 };
 
 /** L'ordre d'affichage, qui est celui de la maquette et non celui de l'objet. */

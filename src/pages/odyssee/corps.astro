@@ -40,6 +40,24 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       secondes par jour.
     </p>
 
+    <!--
+      LA LIGNE VERS LE SUIVI PERSONNEL, et son libellé est neutre exprès.
+
+      La décision 4.8 — la discrétion — veut que le mot « règles » n'apparaisse
+      qu'à l'intérieur du module. Cette ligne est donc la seule porte, et elle
+      ne nomme rien : ni la nature du suivi, ni ce qu'il enregistre.
+
+      Elle est ici plutôt que dans la navigation parce que « Modules
+      disponibles », que le registre des usages décrit, n'existe pas encore
+      comme écran, et parce que `branches.ts` n'appartient pas à ce lot. Elle
+      donne aussi à la page son parent logique : sous `/odyssee/corps/`, la
+      flèche de retour ramène ici.
+    -->
+    <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      Un <a href="/odyssee/corps/suivi/" class="font-medium text-indigo-700 underline underline-offset-4 dark:text-indigo-300">suivi personnel</a> existe aussi, sous coffre et désactivé tant que vous ne l’ouvrez pas.
+      Il porte une saisie par jour, et des repères sur le moment de consulter.
+    </p>
+
     <div id="chargement-corps" class="mt-6">
       <p class="text-sm text-slate-500 dark:text-slate-400">Lecture…</p>
     </div>

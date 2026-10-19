@@ -146,6 +146,49 @@ const litteraux = (source: string): string[] => {
   return vus;
 };
 
+/**
+ * Le texte d'un gabarit : ce qu'un écran affiche sans passer par une chaîne.
+ *
+ * ## Le trou que ceci comble, et il était large
+ *
+ * `litteraux()` lit les chaînes entre guillemets. Dans un `.astro` ou un
+ * `.svelte`, **l'essentiel de la prose affichée n'est pas une chaîne** : c'est
+ * du texte entre deux balises. La garde du lot 1 ne l'a jamais vu. Son
+ * verdict vert était juste sur ce qu'elle regardait, et elle regardait le
+ * code sans regarder l'écran.
+ *
+ * Trouvé par une contre-épreuve sur l'écran du suivi : une phrase maison
+ * portant « normal », posée dans le corps du gabarit, ne faisait rien rougir.
+ *
+ * ## Ce qui est retiré, et pourquoi chaque retrait est sûr
+ *
+ * Le frontmatter et les blocs `<script>` et `<style>` : leur contenu est déjà
+ * lu par `litteraux()`, et le reprendre ici le compterait deux fois. Les
+ * commentaires. Les expressions `{…}`, qui sont du code — leurs chaînes
+ * passent par `litteraux()`. Et les balises elles-mêmes, ce qui écarte du
+ * même geste les valeurs d'attributs : `class="font-normal"` n'est pas une
+ * phrase.
+ */
+const texteDeGabarit = (source: string): string[] => {
+  const sansCode = source
+    .replace(/^---[\s\S]*?\n---/, ' ')
+    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+    .replace(/<!--[\s\S]*?-->/g, ' ')
+    .replace(/\{[^{}]*\}/g, ' ')
+    .replace(/<[^>]*>/g, ' ');
+  return sansCode
+    .split('\n')
+    .map((ligne) => ligne.replace(/\s+/g, ' ').trim())
+    .filter((ligne) => ligne.length >= 4);
+};
+
+/** Tout ce qu'un fichier peut montrer : ses chaînes, et le texte de son gabarit. */
+const affichables = (chemin: string, source: string): string[] => [
+  ...litteraux(source),
+  ...(/\.(astro|svelte)$/.test(chemin) ? texteDeGabarit(source) : []),
+];
+
 const fichiersDe = (racine: string): string[] => {
   const vus: string[] = [];
   const parcourir = (dossier: string) => {
@@ -290,7 +333,8 @@ const fautesCausales: string[] = [];
 for (const chemin of tousLesFichiers) {
   const normalise = chemin.replace(/\\/g, '/');
   if (exempte.has(normalise)) continue;
-  for (const chaine of litteraux(readFileSync(chemin, 'utf8'))) {
+  const source = readFileSync(chemin, 'utf8');
+  for (const chaine of affichables(normalise, source)) {
     for (const terme of TOURNURES_CAUSALES) {
       if (!motif(terme).test(chaine)) continue;
       if (nie(chaine, terme)) continue;
@@ -320,10 +364,13 @@ const SURFACE_DU_SUIVI: readonly string[] = [
   'src/lib/odyssee/cycle-confidentialite.ts',
   'src/lib/odyssee/cycle-signes-alerte.ts',
   'src/lib/odyssee/donnees-cycle.ts',
+  'src/pages/odyssee/corps/suivi.astro',
 ];
 
 const designeLeSuivi = (chemin: string) =>
-  /chaines-du-suivi|suivi-personnel|odyssee\/(donnees-)?cycle(-|\.)/.test(chemin);
+  /chaines-du-suivi|suivi-personnel|odyssee\/(donnees-)?cycle(-|\.)|odyssee\/corps\/suivi\./.test(
+    chemin,
+  );
 const oublies = tousLesFichiers
   .map((c) => c.replace(/\\/g, '/'))
   .filter((c) => designeLeSuivi(c) && !SURFACE_DU_SUIVI.includes(c));
@@ -412,7 +459,7 @@ for (const chemin of SURFACE_DU_SUIVI) {
        qui l'écrit ainsi, pas Cyclades.
     */
     .replace(/export const CHAINES_IMPOSEES[\s\S]*?\n\} as const satisfies[^;]*;/, '');
-  for (const chaine of litteraux(sansSesPropresListes)) {
+  for (const chaine of affichables(chemin, sansSesPropresListes)) {
     for (const terme of MOTS_INTERDITS_SUIVI) {
       if (!motif(terme).test(chaine)) continue;
       if (estUneCitationProuvee(chaine)) continue;
