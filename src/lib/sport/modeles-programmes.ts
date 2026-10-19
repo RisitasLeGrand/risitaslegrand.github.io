@@ -77,6 +77,37 @@ export interface BlocDeModele {
   note: string;
 }
 
+/**
+ * Un exercice du modèle, vu du dossier : son matériel et ses remplaçants.
+ *
+ * L'équipement est celui que **le dossier** écrit (« haltères, banc incliné »),
+ * et non le champ `equipement` de la bibliothèque. Il est plus riche, et c'est
+ * ce qui permet de dire qu'un développé incliné demande un banc — la
+ * bibliothèque, elle, n'en dit rien.
+ *
+ * Les remplaçants sont **propres à chaque modèle**, et ce n'est pas une
+ * redondance : le modèle Maison propose un remplaçant de maison, les modèles
+ * de salle un remplaçant de salle. Une table globale donnerait la presse à
+ * cuisses à quelqu'un qui s'entraîne dans son salon.
+ */
+export interface ExerciceDuModele {
+  /** Le libellé du dossier, celui qu'emploient les blocs. */
+  libelle: string;
+  /** Le matériel, tel que le dossier le décrit. */
+  equipement: string;
+  unilateral: boolean;
+  /** Que faire sans le matériel. `null` : le dossier n'en propose pas. */
+  siPasLeMateriel: string | null;
+  /**
+   * Que faire en cas de gêne articulaire sur ce mouvement.
+   *
+   * Ce n'est **ni un diagnostic ni une prescription** : l'application propose
+   * une autre façon de solliciter le muscle, la personne choisit. C'est la
+   * formule du dossier, et elle est reprise telle quelle.
+   */
+  siGene: string | null;
+}
+
 export interface SeanceDeModele {
   nom: string;
   /** Minutes estimées hors échauffement : 40 s par série plus repos. */
@@ -107,11 +138,14 @@ export interface ModeleDeProgramme {
   /** Ce que la convention de muscles du dossier change, s'il la change. */
   sensibilite: string;
   seances: SeanceDeModele[];
+  /** Les exercices du modèle, avec leur matériel et leurs remplaçants. */
+  exercices: ExerciceDuModele[];
   /**
    * Les cibles hebdomadaires **du dossier**, pour mémoire.
    *
-   * Clefs : les libellés du dossier, qui sont ceux de `MUSCLES`. Ces valeurs
-   * ne sont jamais appliquées telles quelles — voir l'en-tête.
+   * Clefs : les identifiants de `MUSCLES`, comme `ciblesParMuscle` — et non
+   * les libellés du dossier, dont ils sont dérivés à la transcription. Ces
+   * valeurs ne sont jamais appliquées telles quelles ; voir l'en-tête.
    */
   ciblesDuDossier: Record<string, number>;
 }
@@ -137,6 +171,14 @@ const B = (
   deloadRir,
   note,
 });
+
+const E = (
+  libelle: string,
+  equipement: string,
+  unilateral: boolean,
+  siPasLeMateriel: string | null,
+  siGene: string | null,
+): ExerciceDuModele => ({ libelle, equipement, unilateral, siPasLeMateriel, siGene });
 
 /**
  * La règle de progression proposée, commune aux sept modèles (point 4).
@@ -224,6 +266,30 @@ export const MODELES_DE_PROGRAMMES: readonly ModeleDeProgramme[] = [
           B('gainage ventral', 2, 30, 60, 60, null, 1, null, 'Répétitions = secondes de maintien ; arrêter avant que la position se dégrade.'),
         ],
       },
+    ],
+    exercices: [
+      E('développé couché (barre)', 'barre, banc', false, 'développé incliné (haltères) si pas de barre ni de support', 'développé incliné (haltères), prise libre'),
+      E('développé incliné (haltères)', 'haltères, banc incliné', false, 'développé couché (barre) sans haltères lourds', 'écarté couché (haltères), amplitude réduite'),
+      E('dips (barres parallèles)', 'barres parallèles', false, 'développé incliné (haltères) sans barres parallèles', 'extension triceps à la poulie'),
+      E('développé militaire (barre)', 'barre', false, 'développé incliné (haltères)', 'élévations latérales (haltères)'),
+      E('élévations latérales (haltères)', 'haltères', false, 'pas d’équivalent présent (l’exercice peut se faire à la poulie : variante non présente)', 'développé militaire (barre), en secondaire'),
+      E('extension triceps à la poulie', 'poulie', false, 'barre au front (barre EZ)', 'dips (barres parallèles) en secondaire'),
+      E('gainage latéral', 'poids du corps', true, 'gainage ventral', 'gainage ventral'),
+      E('tractions pronation (barre fixe)', 'barre fixe', false, 'tirage vertical (poulie) sans barre fixe', 'rowing buste penché (barre)'),
+      E('rowing buste penché (barre)', 'barre', false, 'tirage horizontal (poulie)', 'tirage vertical (poulie), buste soutenu'),
+      E('tirage horizontal (poulie)', 'poulie basse', false, 'rowing buste penché (barre)', 'tirage vertical (poulie)'),
+      E('oiseau (haltères)', 'haltères', false, 'tirage horizontal (poulie)', null),
+      E('curl biceps (haltères)', 'haltères', false, 'curl marteau (haltères)', 'curl marteau (haltères), prise neutre'),
+      E('curl marteau (haltères)', 'haltères', false, 'curl biceps (haltères)', 'curl biceps (haltères)'),
+      E('relevés de jambes suspendu (barre fixe)', 'barre fixe', false, 'gainage ventral sans barre fixe', 'gainage ventral'),
+      E('squat (barre)', 'barre, support', false, 'presse à cuisses', 'fentes (haltères) ou presse à cuisses'),
+      E('soulevé de terre jambes tendues (barre)', 'barre', false, 'hip thrust (barre)', 'leg curl'),
+      E('presse à cuisses', 'machine', false, 'squat (barre)', 'fentes (haltères)'),
+      E('fentes (haltères)', 'haltères', true, 'presse à cuisses', 'presse à cuisses, charge réduite'),
+      E('hip thrust (barre)', 'barre, banc', false, 'soulevé de terre jambes tendues (barre)', 'fentes (haltères)'),
+      E('leg curl', 'machine', false, 'soulevé de terre jambes tendues (barre)', null),
+      E('mollets debout (machine)', 'machine', false, 'mollets debout à une jambe (haltère) sans machine, à ajouter', null),
+      E('gainage ventral', 'poids du corps', false, 'gainage latéral', 'relevés de jambes suspendu (barre fixe)'),
     ],
     ciblesDuDossier: {
       'pectoraux': 9,
@@ -332,6 +398,35 @@ export const MODELES_DE_PROGRAMMES: readonly ModeleDeProgramme[] = [
         ],
       },
     ],
+    exercices: [
+      E('développé couché (barre)', 'barre, banc', false, 'développé incliné (haltères) si pas de barre ni de support', 'développé incliné (haltères), prise libre'),
+      E('développé militaire (barre)', 'barre', false, 'développé incliné (haltères)', 'élévations latérales (haltères)'),
+      E('élévations latérales (haltères)', 'haltères', false, 'pas d’équivalent présent (l’exercice peut se faire à la poulie : variante non présente)', 'développé militaire (barre), en secondaire'),
+      E('extension triceps à la poulie', 'poulie', false, 'barre au front (barre EZ)', 'dips (barres parallèles) en secondaire'),
+      E('tractions pronation (barre fixe)', 'barre fixe', false, 'tirage vertical (poulie) sans barre fixe', 'rowing buste penché (barre)'),
+      E('rowing buste penché (barre)', 'barre', false, 'tirage horizontal (poulie)', 'tirage vertical (poulie), buste soutenu'),
+      E('oiseau (haltères)', 'haltères', false, 'tirage horizontal (poulie)', null),
+      E('curl biceps (haltères)', 'haltères', false, 'curl marteau (haltères)', 'curl marteau (haltères), prise neutre'),
+      E('relevés de jambes suspendu (barre fixe)', 'barre fixe', false, 'gainage ventral sans barre fixe', 'gainage ventral'),
+      E('squat (barre)', 'barre, support', false, 'presse à cuisses', 'fentes (haltères) ou presse à cuisses'),
+      E('presse à cuisses', 'machine', false, 'squat (barre)', 'fentes (haltères)'),
+      E('leg curl', 'machine', false, 'soulevé de terre jambes tendues (barre)', null),
+      E('mollets debout (machine)', 'machine', false, 'mollets debout à une jambe (haltère) sans machine, à ajouter', null),
+      E('gainage ventral', 'poids du corps', false, 'gainage latéral', 'relevés de jambes suspendu (barre fixe)'),
+      E('développé incliné (haltères)', 'haltères, banc incliné', false, 'développé couché (barre) sans haltères lourds', 'écarté couché (haltères), amplitude réduite'),
+      E('dips (barres parallèles)', 'barres parallèles', false, 'développé incliné (haltères) sans barres parallèles', 'extension triceps à la poulie'),
+      E('écarté couché (haltères)', 'haltères, banc', false, 'développé incliné (haltères)', null),
+      E('barre au front (barre EZ)', 'barre EZ, banc', false, 'extension triceps à la poulie', 'extension triceps à la poulie'),
+      E('tirage vertical (poulie)', 'poulie haute', false, 'tractions pronation (barre fixe)', 'tirage horizontal (poulie)'),
+      E('tirage horizontal (poulie)', 'poulie basse', false, 'rowing buste penché (barre)', 'tirage vertical (poulie)'),
+      E('shrugs (haltères)', 'haltères', false, 'pas d’équivalent présent', 'tirage horizontal (poulie), en secondaire'),
+      E('curl marteau (haltères)', 'haltères', false, 'curl biceps (haltères)', 'curl biceps (haltères)'),
+      E('soulevé de terre jambes tendues (barre)', 'barre', false, 'hip thrust (barre)', 'leg curl'),
+      E('fentes (haltères)', 'haltères', true, 'presse à cuisses', 'presse à cuisses, charge réduite'),
+      E('hip thrust (barre)', 'barre, banc', false, 'soulevé de terre jambes tendues (barre)', 'fentes (haltères)'),
+      E('adducteurs à la machine', 'machine', false, 'pas d’équivalent présent', null),
+      E('gainage latéral', 'poids du corps', true, 'gainage ventral', 'gainage ventral'),
+    ],
     ciblesDuDossier: {
       'pectoraux': 11,
       'deltoide-anterieur': 8.5,
@@ -420,6 +515,32 @@ export const MODELES_DE_PROGRAMMES: readonly ModeleDeProgramme[] = [
         ],
       },
     ],
+    exercices: [
+      E('développé couché (barre)', 'barre, banc', false, 'développé incliné (haltères) si pas de barre ni de support', 'développé incliné (haltères), prise libre'),
+      E('rowing buste penché (barre)', 'barre', false, 'tirage horizontal (poulie)', 'tirage vertical (poulie), buste soutenu'),
+      E('développé militaire (barre)', 'barre', false, 'développé incliné (haltères)', 'élévations latérales (haltères)'),
+      E('tirage vertical (poulie)', 'poulie haute', false, 'tractions pronation (barre fixe)', 'tirage horizontal (poulie)'),
+      E('élévations latérales (haltères)', 'haltères', false, 'pas d’équivalent présent (l’exercice peut se faire à la poulie : variante non présente)', 'développé militaire (barre), en secondaire'),
+      E('extension triceps à la poulie', 'poulie', false, 'barre au front (barre EZ)', 'dips (barres parallèles) en secondaire'),
+      E('curl biceps (haltères)', 'haltères', false, 'curl marteau (haltères)', 'curl marteau (haltères), prise neutre'),
+      E('squat (barre)', 'barre, support', false, 'presse à cuisses', 'fentes (haltères) ou presse à cuisses'),
+      E('soulevé de terre jambes tendues (barre)', 'barre', false, 'hip thrust (barre)', 'leg curl'),
+      E('leg curl', 'machine', false, 'soulevé de terre jambes tendues (barre)', null),
+      E('mollets debout (machine)', 'machine', false, 'mollets debout à une jambe (haltère) sans machine, à ajouter', null),
+      E('gainage ventral', 'poids du corps', false, 'gainage latéral', 'relevés de jambes suspendu (barre fixe)'),
+      E('développé incliné (haltères)', 'haltères, banc incliné', false, 'développé couché (barre) sans haltères lourds', 'écarté couché (haltères), amplitude réduite'),
+      E('tractions pronation (barre fixe)', 'barre fixe', false, 'tirage vertical (poulie) sans barre fixe', 'rowing buste penché (barre)'),
+      E('dips (barres parallèles)', 'barres parallèles', false, 'développé incliné (haltères) sans barres parallèles', 'extension triceps à la poulie'),
+      E('tirage horizontal (poulie)', 'poulie basse', false, 'rowing buste penché (barre)', 'tirage vertical (poulie)'),
+      E('oiseau (haltères)', 'haltères', false, 'tirage horizontal (poulie)', null),
+      E('barre au front (barre EZ)', 'barre EZ, banc', false, 'extension triceps à la poulie', 'extension triceps à la poulie'),
+      E('curl marteau (haltères)', 'haltères', false, 'curl biceps (haltères)', 'curl biceps (haltères)'),
+      E('presse à cuisses', 'machine', false, 'squat (barre)', 'fentes (haltères)'),
+      E('fentes (haltères)', 'haltères', true, 'presse à cuisses', 'presse à cuisses, charge réduite'),
+      E('hip thrust (barre)', 'barre, banc', false, 'soulevé de terre jambes tendues (barre)', 'fentes (haltères)'),
+      E('adducteurs à la machine', 'machine', false, 'pas d’équivalent présent', null),
+      E('relevés de jambes suspendu (barre fixe)', 'barre fixe', false, 'gainage ventral sans barre fixe', 'gainage ventral'),
+    ],
     ciblesDuDossier: {
       'pectoraux': 10,
       'deltoide-anterieur': 7,
@@ -498,6 +619,29 @@ export const MODELES_DE_PROGRAMMES: readonly ModeleDeProgramme[] = [
         ],
       },
     ],
+    exercices: [
+      E('squat (barre)', 'barre, support', false, 'presse à cuisses', 'fentes (haltères) ou presse à cuisses'),
+      E('développé couché (barre)', 'barre, banc', false, 'développé incliné (haltères) si pas de barre ni de support', 'développé incliné (haltères), prise libre'),
+      E('rowing buste penché (barre)', 'barre', false, 'tirage horizontal (poulie)', 'tirage vertical (poulie), buste soutenu'),
+      E('élévations latérales (haltères)', 'haltères', false, 'pas d’équivalent présent (l’exercice peut se faire à la poulie : variante non présente)', 'développé militaire (barre), en secondaire'),
+      E('curl biceps (haltères)', 'haltères', false, 'curl marteau (haltères)', 'curl marteau (haltères), prise neutre'),
+      E('extension triceps à la poulie', 'poulie', false, 'barre au front (barre EZ)', 'dips (barres parallèles) en secondaire'),
+      E('gainage ventral', 'poids du corps', false, 'gainage latéral', 'relevés de jambes suspendu (barre fixe)'),
+      E('presse à cuisses', 'machine', false, 'squat (barre)', 'fentes (haltères)'),
+      E('développé militaire (barre)', 'barre', false, 'développé incliné (haltères)', 'élévations latérales (haltères)'),
+      E('tirage vertical (poulie)', 'poulie haute', false, 'tractions pronation (barre fixe)', 'tirage horizontal (poulie)'),
+      E('leg curl', 'machine', false, 'soulevé de terre jambes tendues (barre)', null),
+      E('dips (barres parallèles)', 'barres parallèles', false, 'développé incliné (haltères) sans barres parallèles', 'extension triceps à la poulie'),
+      E('curl marteau (haltères)', 'haltères', false, 'curl biceps (haltères)', 'curl biceps (haltères)'),
+      E('mollets debout (machine)', 'machine', false, 'mollets debout à une jambe (haltère) sans machine, à ajouter', null),
+      E('soulevé de terre jambes tendues (barre)', 'barre', false, 'hip thrust (barre)', 'leg curl'),
+      E('développé incliné (haltères)', 'haltères, banc incliné', false, 'développé couché (barre) sans haltères lourds', 'écarté couché (haltères), amplitude réduite'),
+      E('tractions pronation (barre fixe)', 'barre fixe', false, 'tirage vertical (poulie) sans barre fixe', 'rowing buste penché (barre)'),
+      E('fentes (haltères)', 'haltères', true, 'presse à cuisses', 'presse à cuisses, charge réduite'),
+      E('oiseau (haltères)', 'haltères', false, 'tirage horizontal (poulie)', null),
+      E('barre au front (barre EZ)', 'barre EZ, banc', false, 'extension triceps à la poulie', 'extension triceps à la poulie'),
+      E('relevés de jambes suspendu (barre fixe)', 'barre fixe', false, 'gainage ventral sans barre fixe', 'gainage ventral'),
+    ],
     ciblesDuDossier: {
       'pectoraux': 9,
       'deltoide-anterieur': 7.5,
@@ -564,6 +708,23 @@ export const MODELES_DE_PROGRAMMES: readonly ModeleDeProgramme[] = [
           B('relevés de jambes suspendu (barre fixe)', 2, 8, 15, 60, '1-2', 1, '3-4'),
         ],
       },
+    ],
+    exercices: [
+      E('squat (barre)', 'barre, support', false, 'presse à cuisses', 'fentes (haltères) ou presse à cuisses'),
+      E('développé couché (barre)', 'barre, banc', false, 'développé incliné (haltères) si pas de barre ni de support', 'développé incliné (haltères), prise libre'),
+      E('rowing buste penché (barre)', 'barre', false, 'tirage horizontal (poulie)', 'tirage vertical (poulie), buste soutenu'),
+      E('leg curl', 'machine', false, 'soulevé de terre jambes tendues (barre)', null),
+      E('élévations latérales (haltères)', 'haltères', false, 'pas d’équivalent présent (l’exercice peut se faire à la poulie : variante non présente)', 'développé militaire (barre), en secondaire'),
+      E('curl biceps (haltères)', 'haltères', false, 'curl marteau (haltères)', 'curl marteau (haltères), prise neutre'),
+      E('gainage ventral', 'poids du corps', false, 'gainage latéral', 'relevés de jambes suspendu (barre fixe)'),
+      E('presse à cuisses', 'machine', false, 'squat (barre)', 'fentes (haltères)'),
+      E('développé incliné (haltères)', 'haltères, banc incliné', false, 'développé couché (barre) sans haltères lourds', 'écarté couché (haltères), amplitude réduite'),
+      E('tirage vertical (poulie)', 'poulie haute', false, 'tractions pronation (barre fixe)', 'tirage horizontal (poulie)'),
+      E('soulevé de terre jambes tendues (barre)', 'barre', false, 'hip thrust (barre)', 'leg curl'),
+      E('développé militaire (barre)', 'barre', false, 'développé incliné (haltères)', 'élévations latérales (haltères)'),
+      E('extension triceps à la poulie', 'poulie', false, 'barre au front (barre EZ)', 'dips (barres parallèles) en secondaire'),
+      E('mollets debout (machine)', 'machine', false, 'mollets debout à une jambe (haltère) sans machine, à ajouter', null),
+      E('relevés de jambes suspendu (barre fixe)', 'barre fixe', false, 'gainage ventral sans barre fixe', 'gainage ventral'),
     ],
     ciblesDuDossier: {
       'pectoraux': 6,
@@ -645,6 +806,21 @@ export const MODELES_DE_PROGRAMMES: readonly ModeleDeProgramme[] = [
           B('mollets debout à une jambe (haltère)', 4, 12, 20, 90, '1-2', 2, '3-4', 'Une série = les deux côtés faits (compte pour 1 série). Exercice à ajouter (R4).'),
         ],
       },
+    ],
+    exercices: [
+      E('pompes', 'poids du corps (sol)', false, 'développé incliné (haltères) si un banc est disponible', 'pompes mains surélevées ou à genoux (variantes plus faciles : D08-05)'),
+      E('fentes (haltères)', 'haltères', true, 'fentes avec le pied arrière sur une chaise (variante interchangeable pour l’hypertrophie : D08-31) ; presse à cuisses si une machine est disponible', 'fentes (haltères), amplitude réduite'),
+      E('rowing à un bras (haltère)', 'haltère, appui (chaise, banc)', true, 'tractions pronation (barre fixe) si une barre fixe est disponible ; tirage horizontal (poulie) si une poulie est disponible', 'rowing à un bras, buste soutenu par l’appui'),
+      E('développé épaules (haltères)', 'haltères', false, 'développé militaire (barre) si une barre est disponible', 'élévations latérales (haltères), en secondaire'),
+      E('élévations latérales (haltères)', 'haltères', false, 'élévations latérales à l’élastique ou à la sangle (force équivalente : D08-52 ; hypertrophie : non trouvé)', 'développé épaules (haltères), en secondaire'),
+      E('curl biceps (haltères)', 'haltères', false, 'curl marteau (haltères)', 'curl marteau (haltères), prise neutre'),
+      E('extension triceps au-dessus de la tête (haltère)', 'haltère', false, 'extension triceps à la poulie ou barre au front (barre EZ) si le matériel existe', 'pompes, en secondaire'),
+      E('gainage ventral', 'poids du corps', false, 'gainage latéral', 'relevés de jambes suspendu (barre fixe) si une barre fixe est disponible'),
+      E('soulevé de terre jambes tendues (haltères)', 'haltères', false, 'soulevé de terre jambes tendues (barre) si une barre est disponible', 'hip thrust (haltère)'),
+      E('curl marteau (haltères)', 'haltères', false, 'curl biceps (haltères)', 'curl biceps (haltères)'),
+      E('mollets debout à une jambe (haltère)', 'haltère, marche', true, 'mollets debout (machine) si une machine est disponible', null),
+      E('gainage latéral', 'poids du corps', true, 'gainage ventral', 'gainage ventral'),
+      E('hip thrust (haltère)', 'haltère, appui (canapé, banc, chaise)', false, 'hip thrust (barre) si barre et banc', 'soulevé de terre jambes tendues (haltères)'),
     ],
     ciblesDuDossier: {
       'pectoraux': 9,
@@ -734,6 +910,32 @@ export const MODELES_DE_PROGRAMMES: readonly ModeleDeProgramme[] = [
           B('élévations latérales (haltères)', 2, 12, 20, 75, '1-2', 1, '3-4', 'séries ajoutées pour le bloc de spécialisation (troisième passage du muscle visé)'),
         ],
       },
+    ],
+    exercices: [
+      E('développé couché (barre)', 'barre, banc', false, 'développé incliné (haltères) si pas de barre ni de support', 'développé incliné (haltères), prise libre'),
+      E('rowing buste penché (barre)', 'barre', false, 'tirage horizontal (poulie)', 'tirage vertical (poulie), buste soutenu'),
+      E('développé militaire (barre)', 'barre', false, 'développé incliné (haltères)', 'élévations latérales (haltères)'),
+      E('tirage vertical (poulie)', 'poulie haute', false, 'tractions pronation (barre fixe)', 'tirage horizontal (poulie)'),
+      E('élévations latérales (haltères)', 'haltères', false, 'pas d’équivalent présent (l’exercice peut se faire à la poulie : variante non présente)', 'développé militaire (barre), en secondaire'),
+      E('extension triceps à la poulie', 'poulie', false, 'barre au front (barre EZ)', 'dips (barres parallèles) en secondaire'),
+      E('curl biceps (haltères)', 'haltères', false, 'curl marteau (haltères)', 'curl marteau (haltères), prise neutre'),
+      E('squat (barre)', 'barre, support', false, 'presse à cuisses', 'fentes (haltères) ou presse à cuisses'),
+      E('soulevé de terre jambes tendues (barre)', 'barre', false, 'hip thrust (barre)', 'leg curl'),
+      E('leg curl', 'machine', false, 'soulevé de terre jambes tendues (barre)', null),
+      E('mollets debout (machine)', 'machine', false, 'mollets debout à une jambe (haltère) sans machine, à ajouter', null),
+      E('gainage ventral', 'poids du corps', false, 'gainage latéral', 'relevés de jambes suspendu (barre fixe)'),
+      E('développé incliné (haltères)', 'haltères, banc incliné', false, 'développé couché (barre) sans haltères lourds', 'écarté couché (haltères), amplitude réduite'),
+      E('tractions pronation (barre fixe)', 'barre fixe', false, 'tirage vertical (poulie) sans barre fixe', 'rowing buste penché (barre)'),
+      E('dips (barres parallèles)', 'barres parallèles', false, 'développé incliné (haltères) sans barres parallèles', 'extension triceps à la poulie'),
+      E('tirage horizontal (poulie)', 'poulie basse', false, 'rowing buste penché (barre)', 'tirage vertical (poulie)'),
+      E('oiseau (haltères)', 'haltères', false, 'tirage horizontal (poulie)', null),
+      E('barre au front (barre EZ)', 'barre EZ, banc', false, 'extension triceps à la poulie', 'extension triceps à la poulie'),
+      E('curl marteau (haltères)', 'haltères', false, 'curl biceps (haltères)', 'curl biceps (haltères)'),
+      E('presse à cuisses', 'machine', false, 'squat (barre)', 'fentes (haltères)'),
+      E('fentes (haltères)', 'haltères', true, 'presse à cuisses', 'presse à cuisses, charge réduite'),
+      E('hip thrust (barre)', 'barre, banc', false, 'soulevé de terre jambes tendues (barre)', 'fentes (haltères)'),
+      E('adducteurs à la machine', 'machine', false, 'pas d’équivalent présent', null),
+      E('relevés de jambes suspendu (barre fixe)', 'barre fixe', false, 'gainage ventral sans barre fixe', 'gainage ventral'),
     ],
     ciblesDuDossier: {
       'pectoraux': 10,

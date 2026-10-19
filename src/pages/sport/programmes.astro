@@ -18,6 +18,7 @@ import {
   MODELES_DE_PROGRAMMES,
   PROGRESSION,
 } from '../../lib/sport/modeles-programmes';
+import { EQUIPEMENTS } from '../../lib/sport/copie-de-modele';
 import { insecables } from '../../lib/typographie';
 
 /**
@@ -80,10 +81,37 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
       <section id="modeles">
         <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Partir d’un modèle</h2>
         <p class="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
-          Sept modèles tirés d’un dossier de recherche. Choisir l’un d’eux en fait une
+          Sept modèles tirés d’un dossier de recherche. Choisir l’un d’eux en fait une{' '}
           <strong>copie à vous</strong>, modifiable, qui ne devient pas votre programme suivi
           tant que vous ne le demandez pas. Aucune valeur n’est une obligation.
         </p>
+
+        <!--
+          LE MATÉRIEL, AVANT LA COPIE et non après.
+
+          Un modèle de salle copié tel quel chez quelqu'un qui n'a qu'une
+          paire d'haltères donne un programme qu'il ne peut pas faire, et des
+          cibles qui ne correspondent à rien. Le choix est donc en tête de
+          section, et il s'applique à la copie qu'on demande ensuite.
+        -->
+        <label class="mt-4 block text-sm">
+          <span class="block font-medium text-slate-700 dark:text-slate-200">
+            Le matériel dont vous disposez
+          </span>
+          <select
+            id="equipement-modeles"
+            class="mt-1 min-h-11 w-full max-w-[26rem] rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+          >
+            {
+              EQUIPEMENTS.map((e) => (
+                <option value={e.id}>{e.libelle}</option>
+              ))
+            }
+          </select>
+          <span id="equipement-detail" class="mt-1 block text-xs text-slate-500 dark:text-slate-400">
+            {EQUIPEMENTS[0].detail}
+          </span>
+        </label>
 
         <div class="mt-4 grid gap-4 lg:grid-cols-2">
           {
@@ -145,8 +173,8 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
                         Les muscles de chaque exercice
                       </span>{' '}
                       viennent de votre bibliothèque, et non du dossier : son classement a été
-                      écrit sans y avoir accès. Les cibles de la copie sont donc
-                      <strong> recalculées</strong>, et l’écart avec le dossier est consigné plutôt
+                      écrit sans y avoir accès. Les cibles de la copie sont donc{' '}
+                      <strong>recalculées</strong>, et l’écart avec le dossier est consigné plutôt
                       que rattrapé en silence. {insecables(modele.sensibilite)}
                     </p>
                     <p>
@@ -187,12 +215,12 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
                   pour que le lecteur d'écran l'annonce sans voler le focus :
                   la personne vient d'appuyer, elle sait où elle est.
                 -->
-                <p
+                <div
                   id={`etat-modele-${modele.cle}`}
                   role="status"
                   aria-live="polite"
                   class="mt-2 hidden text-sm"
-                ></p>
+                ></div>
               </article>
             ))
           }
@@ -345,6 +373,7 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
     supprimerProgramme,
     tousLesExercices,
     tousLesProgrammes,
+    toutesLesBlessures,
     toutesLesSeancesSport,
   } from '../../lib/sport/donnees';
   import {
@@ -355,7 +384,11 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
     type Serie,
   } from '../../lib/sport/modele';
   import { modeleParCle } from '../../lib/sport/modeles-programmes';
-  import { preparerLaCopie } from '../../lib/sport/copie-de-modele';
+  import {
+    EQUIPEMENTS,
+    preparerLaCopie,
+    type Equipement,
+  } from '../../lib/sport/copie-de-modele';
   import {
     comparerVolumes,
     musclesAbsents,
@@ -803,11 +836,48 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
     const zone = document.getElementById(`etat-modele-${cle}`);
     if (!modele || !zone) return;
 
+    zone.innerHTML = '';
+    zone.className = 'mt-2 space-y-2 text-sm';
+
+    const phrase = (texte: string, ton: 'bien' | 'mal' | 'neutre' = 'neutre') => {
+      const p = document.createElement('p');
+      p.textContent = texte;
+      p.className =
+        ton === 'mal'
+          ? 'text-rose-700 dark:text-rose-300'
+          : ton === 'bien'
+            ? 'text-emerald-700 dark:text-emerald-300'
+            : 'text-slate-600 dark:text-slate-300';
+      zone.appendChild(p);
+      return p;
+    };
+
+    /** Un titre et sa liste. Rien n'est affiché si la liste est vide. */
+    const liste = (titre: string, lignes: string[], ton: 'alerte' | 'neutre' = 'neutre') => {
+      if (!lignes.length) return;
+      const bloc = document.createElement('div');
+      bloc.className =
+        ton === 'alerte'
+          ? 'rounded-xl bg-amber-50 px-3 py-2 text-amber-900 dark:bg-amber-950/30 dark:text-amber-100'
+          : 'text-slate-600 dark:text-slate-300';
+      const t = document.createElement('p');
+      t.className = 'font-medium';
+      t.textContent = titre;
+      const ul = document.createElement('ul');
+      ul.className = 'mt-1 list-disc space-y-0.5 pl-5';
+      for (const ligne of lignes) {
+        const li = document.createElement('li');
+        li.textContent = ligne;
+        ul.appendChild(li);
+      }
+      bloc.append(t, ul);
+      zone.appendChild(bloc);
+    };
+
     const dire = (texte: string, erreur = false) => {
-      zone.textContent = texte;
-      zone.className = erreur
-        ? 'mt-2 text-sm text-rose-700 dark:text-rose-300'
-        : 'mt-2 text-sm text-emerald-700 dark:text-emerald-300';
+      zone.innerHTML = '';
+      zone.className = 'mt-2 space-y-2 text-sm';
+      phrase(texte, erreur ? 'mal' : 'bien');
     };
 
     try {
@@ -825,7 +895,17 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
       */
       if (await installerBibliotheque()) exercices = await tousLesExercices();
 
-      let copie = preparerLaCopie(modele, exercices);
+      const equipement = (($('equipement-modeles') as HTMLSelectElement).value ||
+        'salle') as Equipement;
+      /*
+         Les blessures sont lues à chaque copie, et non gardées en mémoire :
+         une gêne déclarée il y a trente secondes sur un autre écran doit
+         compter. Elles ne servent qu'à SIGNALER — rien n'est retiré.
+      */
+      const blessures = await toutesLesBlessures();
+      const options = { equipement, blessures };
+
+      let copie = preparerLaCopie(modele, exercices, options);
       const ajoutes: string[] = [];
 
       if (!copie.pret) {
@@ -843,7 +923,7 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
           ajoutes.push(livre.nom);
         }
         exercices = await tousLesExercices();
-        copie = preparerLaCopie(modele, exercices);
+        copie = preparerLaCopie(modele, exercices, options);
       }
 
       if (!copie.pret) {
@@ -865,6 +945,57 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
       dire(
         `« ${copie.programme.nom} » a été créé.${quoi} Il n’est pas votre programme suivi : ` +
           'le bouton « En faire mon programme actif » est sur sa carte, plus haut.',
+      );
+
+      /*
+         CE QUE LE MATÉRIEL A CHANGÉ, dit exercice par exercice. Un programme
+         adapté en silence est un programme dont on ne sait pas ce qu'il
+         contient.
+      */
+      liste(
+        'Remplacés, faute du matériel :',
+        copie.adaptation.remplaces.map((r) => `${r.libelle} → ${r.par}`),
+      );
+      if (copie.adaptation.sansRemplacant.length) {
+        /*
+           LE DIRE FRANCHEMENT. Le dossier n'écrit de remplaçants de maison
+           que pour son modèle Maison : un modèle de salle ne se convertit
+           pas, et prétendre le contraire donnerait un programme qu'on ne
+           peut pas faire. Les exercices concernés restent — on ne retire
+           rien en silence —, et la phrase dit où aller.
+        */
+        phrase(
+          `Ce modèle est écrit pour la salle : ${copie.adaptation.sansRemplacant.length} de ses ` +
+            'exercices n’ont pas d’équivalent avec ce matériel, et le dossier n’en propose pas. ' +
+            'Ils restent dans la copie, à vous de les remplacer ou de les retirer. Le modèle ' +
+            '« Maison, haltères et poids du corps » est écrit pour ce matériel.',
+          'neutre',
+        );
+      }
+      liste(
+        'Gardés, sans remplaçant possible :',
+        copie.adaptation.sansRemplacant.map(
+          (r) => `${r.libelle}${r.conseil ? ` — ce que propose le dossier : ${r.conseil}` : ''}`,
+        ),
+        'alerte',
+      );
+
+      /*
+         LES BLESSURES : signalées, jamais retirées. L'exercice reste dans le
+         programme, et c'est la personne qui décide.
+      */
+      liste(
+        'Ces exercices touchent une zone que vous avez déclarée douloureuse. Ils restent dans le programme ; à vous de voir :',
+        copie.blessures.map(
+          (b) =>
+            `${b.libelle} (${b.muscles.map(libelleDuMuscle).join(', ')})` +
+            (b.par
+              ? ` — autre façon de solliciter le muscle : ${b.par}`
+              : b.conseil
+                ? ` — ce que propose le dossier : ${b.conseil}`
+                : ''),
+        ),
+        'alerte',
       );
     } catch (erreur) {
       /*
@@ -898,6 +1029,11 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
          appuis rapprochés créent deux programmes, chacun avec son
          identifiant neuf, et rien ne les distingue.
       */
+      $('equipement-modeles').addEventListener('change', () => {
+        const choisi = ($('equipement-modeles') as HTMLSelectElement).value;
+        $('equipement-detail').textContent =
+          EQUIPEMENTS.find((e) => e.id === choisi)?.detail ?? '';
+      });
       for (const bouton of document.querySelectorAll<HTMLButtonElement>('[data-utiliser]')) {
         bouton.addEventListener('click', (evenement) => {
           void unSeulGeste(evenement.currentTarget as Element, () =>

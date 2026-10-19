@@ -308,7 +308,151 @@ const ABSENTS = [
 }
 
 /* ════════════════════════════════════════════════════════════════════════
-   6. Aucune séance n'a été créée
+   6. Le matériel : ce qui ne passe pas est remplacé, et dit
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nLE MATÉRIEL DONT ON DISPOSE');
+
+await allerAuxProgrammes();
+
+{
+  v(
+    'trois choix de matériel',
+    await page.locator('#equipement-modeles option').evaluateAll((n) => n.map((o) => o.value)),
+    ['salle', 'maison-complete', 'maison-halteres'],
+  );
+  vrai(
+    'le détail du premier choix est affiché',
+    (await page.locator('#equipement-detail').innerText()).includes('Barres'),
+  );
+  await page.selectOption('#equipement-modeles', 'maison-halteres');
+  vrai(
+    'et il suit le choix',
+    (await page.locator('#equipement-detail').innerText()).includes('haltères'),
+  );
+}
+
+{
+  /*
+     LE CAS DU PROMPT : « haltères seulement » doit remplacer tout exercice à
+     barre ou à machine, et l'écran doit dire lesquels.
+  */
+  const avant = (await magasin('sportProgrammes')).length;
+  await page.locator('[data-utiliser="M1"]').click();
+  await page.waitForSelector('#etat-modele-M1:not(.hidden)', { timeout: 20000 });
+
+  const compteRendu = await page.locator('#etat-modele-M1').innerText();
+  vrai('la copie est annoncée', compteRendu.includes('a été créé'));
+  vrai('et les remplacements sont dits', compteRendu.includes('Remplacés, faute du matériel'));
+  /*
+     Un modèle de salle ne se convertit pas : le dossier n'écrit des
+     remplaçants de maison que pour son modèle Maison. L'écran doit le dire
+     franchement plutôt que de livrer un programme à moitié impossible.
+  */
+  vrai('et l’écran dit que ce modèle est écrit pour la salle', compteRendu.includes('écrit pour la salle'));
+  vrai('il renvoie au modèle Maison', compteRendu.includes('Maison, haltères et poids du corps'));
+  vrai('et nomme ce qui reste sans remplaçant', compteRendu.includes('Gardés, sans remplaçant possible'));
+  v('un programme de plus', (await magasin('sportProgrammes')).length, avant + 1);
+
+  const copie = (await magasin('sportProgrammes')).at(-1);
+  const exos = await magasin('sportExercices');
+  const parId = new Map(exos.map((e) => [e.id, e]));
+  const materiels = new Set(
+    copie.seances.flatMap((s) => s.blocs.map((b) => parId.get(b.exerciceId)?.equipement)),
+  );
+  /*
+     L'INVARIANT, et il n'est pas « plus aucun matériel de salle » : les
+     exercices sans remplaçant sont GARDÉS, à dessein. Ce qui doit être vrai,
+     c'est que tout bloc demandant encore du matériel de salle est NOMMÉ dans
+     le compte rendu. Lire le compte rendu seul ne suffirait pas — il dit ce
+     qu'on a voulu faire, pas ce qui a été écrit ; lire les blocs seuls ne
+     suffirait pas non plus — ils ne disent pas si la personne a été avertie.
+  */
+  const deSalle = ['barre', 'barre EZ', 'poulie', 'machine', 'barres parallèles', 'barre fixe'];
+  const restants = [
+    ...new Set(
+      copie.seances
+        .flatMap((s) => s.blocs.map((b) => parId.get(b.exerciceId)))
+        .filter((e) => e && deSalle.includes(e.equipement))
+        .map((e) => e.nom),
+    ),
+  ];
+  vrai('il reste des exercices de salle, et c’est voulu', restants.length > 0);
+  v(
+    'chacun est nommé dans le compte rendu',
+    restants.filter((nom) => !compteRendu.toLowerCase().includes(nom.toLowerCase())),
+    [],
+  );
+  vrai('et il reste des blocs', copie.seances.reduce((n, s) => n + s.blocs.length, 0) > 0);
+  vrai('du matériel de maison est apparu', [...materiels].includes('haltères'));
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   7. Une blessure ouverte est signalée, jamais retirée
+   ════════════════════════════════════════════════════════════════════════ */
+console.log('\nUNE BLESSURE EST SIGNALÉE, JAMAIS RETIRÉE');
+
+{
+  await page.evaluate(
+    () =>
+      new Promise((ok, ko) => {
+        const d = indexedDB.open('revinsp');
+        d.onerror = () => ko(d.error);
+        d.onsuccess = () => {
+          const base = d.result;
+          const t = base.transaction('sportBlessures', 'readwrite');
+          t.objectStore('sportBlessures').put({
+            id: 'essai-blessure',
+            muscles: ['pectoraux'],
+            intensite: 5,
+            debut: new Date(Date.now() - 86400000).toISOString(),
+            fin: null,
+            note: '',
+            majLe: new Date().toISOString(),
+          });
+          t.oncomplete = () => {
+            base.close();
+            ok();
+          };
+          t.onerror = () => {
+            base.close();
+            ko(t.error);
+          };
+        };
+      }),
+  );
+
+  await allerAuxProgrammes();
+  await page.selectOption('#equipement-modeles', 'salle');
+  await page.locator('[data-utiliser="M3"]').click();
+  await page.waitForSelector('#etat-modele-M3:not(.hidden)', { timeout: 20000 });
+
+  const compteRendu = await page.locator('#etat-modele-M3').innerText();
+  vrai('la zone douloureuse est signalée', compteRendu.includes('zone que vous avez déclarée'));
+  vrai('le muscle est nommé', compteRendu.includes('Pectoraux'));
+  vrai(
+    'et il est dit que les exercices restent',
+    compteRendu.includes('restent dans le programme'),
+  );
+
+  const modeleM3 = await page.locator('#modele-M3').count();
+  v('la carte du modèle est toujours là', modeleM3, 1);
+
+  /*
+     RIEN N'A ÉTÉ RETIRÉ. C'est la règle non négociable de la branche, et
+     c'est la seule façon de la vérifier : compter les blocs écrits, et non
+     lire ce que l'écran prétend.
+  */
+  const copie = (await magasin('sportProgrammes')).find((p) => p.nom.startsWith('Haut / Bas'));
+  vrai('la copie existe', copie !== undefined);
+  v(
+    'et elle garde ses vingt-six blocs',
+    copie?.seances.reduce((n, s) => n + s.blocs.length, 0),
+    26,
+  );
+}
+
+/* ════════════════════════════════════════════════════════════════════════
+   8. Aucune séance n'a été créée
    ════════════════════════════════════════════════════════════════════════ */
 console.log('\nAUCUNE SÉANCE N’A ÉTÉ CRÉÉE');
 

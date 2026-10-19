@@ -38,12 +38,17 @@ import {
   COEFFICIENT_SECONDAIRE,
   MUSCLES,
   identiteDeComparaison,
+  musclesEmpeches,
+  type Blessure,
   type Exercice,
 } from './modele';
 import { volumePrevu, type BlocPrevu, type Programme, type SeanceType } from './programmes';
 import {
+  EXERCICES_DES_MODELES,
+  MODELES_DE_PROGRAMMES,
   identiteDeLExercice,
   type BlocDeModele,
+  type ExerciceDuModele,
   type IdentiteExercice,
   type ModeleDeProgramme,
 } from './modeles-programmes';
@@ -83,6 +88,7 @@ export interface ExercicesDuModele {
 export function exercicesDuModele(
   modele: ModeleDeProgramme,
   exercices: readonly Exercice[],
+  substitutions: Map<string, string> = new Map(),
 ): ExercicesDuModele {
   const parIdentite = new Map(exercices.map((e) => [identiteDeComparaison(e), e]));
   const resolus = new Map<string, Exercice>();
@@ -92,16 +98,22 @@ export function exercicesDuModele(
 
   for (const seance of modele.seances) {
     for (const bloc of seance.blocs) {
-      if (vus.has(bloc.exercice)) continue;
-      vus.add(bloc.exercice);
-      const identite = identiteDeLExercice(bloc.exercice);
+      /*
+         Le libellé EFFECTIF, après adaptation au matériel : c'est celui-là
+         qu'il faut retrouver ou créer. Résoudre le libellé d'origine ferait
+         créer un exercice à la barre pour quelqu'un qui n'en a pas.
+      */
+      const libelle = substitutions.get(bloc.exercice) ?? bloc.exercice;
+      if (vus.has(libelle)) continue;
+      vus.add(libelle);
+      const identite = identiteDeLExercice(libelle);
       if (!identite) {
-        orphelins.push(bloc.exercice);
+        orphelins.push(libelle);
         continue;
       }
       const existant = parIdentite.get(identiteDeComparaison(identite));
-      if (existant) resolus.set(bloc.exercice, existant);
-      else manquants.push({ libelle: bloc.exercice, identite });
+      if (existant) resolus.set(libelle, existant);
+      else manquants.push({ libelle, identite });
     }
   }
   return { resolus, manquants, orphelins };
@@ -167,13 +179,14 @@ const blocPrevu = (bloc: BlocDeModele, exerciceId: string): BlocPrevu => ({
 export function seancesDuModele(
   modele: ModeleDeProgramme,
   resolus: Map<string, Exercice>,
+  substitutions: Map<string, string> = new Map(),
 ): SeanceType[] {
   return modele.seances.map((seance, rang) => ({
     id: `${modele.cle}-${rang + 1}`,
     nom: seance.nom,
     blocs: seance.blocs
       .map((bloc) => {
-        const exercice = resolus.get(bloc.exercice);
+        const exercice = resolus.get(substitutions.get(bloc.exercice) ?? bloc.exercice);
         return exercice ? blocPrevu(bloc, exercice.id) : null;
       })
       .filter((b): b is BlocPrevu => b !== null),
@@ -197,12 +210,13 @@ export function ciblesDuModele(
   resolus: Map<string, Exercice>,
   exercices: readonly Exercice[],
   coefficient = COEFFICIENT_SECONDAIRE,
+  substitutions: Map<string, string> = new Map(),
 ): Record<string, number> {
   const provisoire: Programme = {
     id: 'provisoire',
     nom: modele.nom,
     description: '',
-    seances: seancesDuModele(modele, resolus),
+    seances: seancesDuModele(modele, resolus, substitutions),
     parSemaine: modele.parSemaine,
     actif: false,
     ciblesParMuscle: {},
@@ -274,6 +288,15 @@ export function ecartsDeCibles(
  */
 export const nomDeLaCopie = (modele: ModeleDeProgramme): string => `${modele.nom} (copie)`;
 
+export interface OptionsDeCopie {
+  /** Le matériel dont on dispose. Par défaut, la salle : le modèle tel quel. */
+  equipement?: Equipement;
+  /** Les blessures ouvertes, pour le signalement. Jamais pour retirer. */
+  blessures?: readonly Blessure[];
+  coefficient?: number;
+  maintenant?: Date;
+}
+
 export type Copie =
   | {
       /**
@@ -295,6 +318,10 @@ export type Copie =
       /** Le programme à écrire. Il n'est **pas** actif. */
       programme: Omit<Programme, 'id' | 'majLe'>;
       orphelins: string[];
+      /** Ce que le matériel choisi a fait changer, à dire à l'écran. */
+      adaptation: AdaptationALEquipement;
+      /** Les exercices qui touchent une zone blessée. Signalés, pas retirés. */
+      blessures: SignalementDeBlessure[];
     };
 
 /**
@@ -318,20 +345,351 @@ export type Copie =
 export function preparerLaCopie(
   modele: ModeleDeProgramme,
   exercices: readonly Exercice[],
-  coefficient = COEFFICIENT_SECONDAIRE,
+  options: OptionsDeCopie = {},
 ): Copie {
-  const { resolus, manquants, orphelins } = exercicesDuModele(modele, exercices);
+  const {
+    equipement = 'salle',
+    blessures = [],
+    coefficient = COEFFICIENT_SECONDAIRE,
+    maintenant = new Date(),
+  } = options;
+
+  /*
+     L'adaptation au matériel passe AVANT la résolution : c'est elle qui dit
+     quel exercice il faudra retrouver ou créer. Résoudre d'abord créerait des
+     exercices à la barre pour quelqu'un qui n'en a pas, et les laisserait
+     dans sa bibliothèque.
+  */
+  const adaptation = adapterALEquipement(modele, equipement);
+  const { resolus, manquants, orphelins } = exercicesDuModele(
+    modele,
+    exercices,
+    adaptation.substitutions,
+  );
   if (manquants.length) return { pret: false, aCreer: manquants, orphelins };
   return {
     pret: true,
     programme: {
       nom: nomDeLaCopie(modele),
       description: modele.description,
-      seances: seancesDuModele(modele, resolus),
+      seances: seancesDuModele(modele, resolus, adaptation.substitutions),
       parSemaine: modele.parSemaine,
       actif: false,
-      ciblesParMuscle: ciblesDuModele(modele, resolus, exercices, coefficient),
+      ciblesParMuscle: ciblesDuModele(
+        modele,
+        resolus,
+        exercices,
+        coefficient,
+        adaptation.substitutions,
+      ),
     },
     orphelins,
+    adaptation,
+    blessures: signalerLesBlessures(modele, resolus, exercices, blessures, maintenant),
   };
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   L'équipement dont on dispose
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export type Equipement = 'salle' | 'maison-complete' | 'maison-halteres';
+
+export const EQUIPEMENTS: readonly { id: Equipement; libelle: string; detail: string }[] = [
+  {
+    id: 'salle',
+    libelle: 'Salle',
+    detail: 'Barres, haltères, poulies, machines, banc, barres parallèles, barre de traction.',
+  },
+  {
+    id: 'maison-complete',
+    libelle: 'Maison avec barre de traction et banc',
+    detail: 'Une paire d’haltères, le poids du corps, un banc et une barre de traction.',
+  },
+  {
+    id: 'maison-halteres',
+    libelle: 'Maison avec haltères seulement',
+    detail: 'Une paire d’haltères, le poids du corps, un sol, une chaise ou une marche.',
+  },
+];
+
+/**
+ * Ce qu'un matériel demande.
+ *
+ * La lecture se fait sur l'équipement **du dossier** (« haltères, banc
+ * incliné ») et non sur celui de la bibliothèque (« haltères »), parce que
+ * le dossier seul distingue un développé incliné — qui demande un banc —
+ * d'un curl, qui n'en demande pas. C'est exactement la question 2 du
+ * dossier : avec un banc, le développé incliné et les écartés deviennent
+ * possibles ; avec une barre fixe, les tractions.
+ */
+type Materiel = 'rien' | 'halteres' | 'banc' | 'traction' | 'salle';
+
+const MATERIEL: Record<string, Materiel> = {
+  'poids du corps': 'rien',
+  sol: 'rien',
+  appui: 'rien',
+  marche: 'rien',
+  haltères: 'halteres',
+  haltère: 'halteres',
+  banc: 'banc',
+  'banc incliné': 'banc',
+  'barre fixe': 'traction',
+  barre: 'salle',
+  'barre EZ': 'salle',
+  support: 'salle',
+  poulie: 'salle',
+  'poulie basse': 'salle',
+  'poulie haute': 'salle',
+  machine: 'salle',
+  'barres parallèles': 'salle',
+};
+
+const DISPONIBLE: Record<Equipement, Materiel[]> = {
+  salle: ['rien', 'halteres', 'banc', 'traction', 'salle'],
+  'maison-complete': ['rien', 'halteres', 'banc', 'traction'],
+  'maison-halteres': ['rien', 'halteres'],
+};
+
+/**
+ * Les matériels qu'un exercice demande, lus dans la colonne du dossier.
+ *
+ * Les parenthèses sont retirées d'abord : « appui (chaise, banc) » porte des
+ * virgules qui ne séparent pas des matériels, et découper dessus ferait
+ * croire qu'un rowing à un bras demande un banc.
+ */
+function materielsDe(exercice: ExerciceDuModele): Materiel[] {
+  return exercice.equipement
+    .replace(/\([^)]*\)/g, '')
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean)
+    .map((t) => MATERIEL[t] ?? 'salle');
+}
+
+export const estPossibleAvec = (exercice: ExerciceDuModele, equipement: Equipement): boolean =>
+  materielsDe(exercice).every((m) => DISPONIBLE[equipement].includes(m));
+
+/**
+ * Le matériel de chaque exercice, tous modèles confondus.
+ *
+ * La colonne « équipement » du dossier est **identique d'un modèle à
+ * l'autre** pour les trente-quatre exercices — vérifié par
+ * `essais:modeles-sport` —, contrairement aux remplaçants, qui diffèrent à
+ * dessein. Une table globale est donc exacte ici, et elle est nécessaire :
+ * un remplaçant cité par un modèle n'est pas toujours décrit dans son propre
+ * tableau, et sans cette table il serait accepté sans vérification. C'est le
+ * défaut que l'essai de navigateur a trouvé : un squat remplacé par une barre
+ * au front, sur un programme censé ne demander que des haltères.
+ */
+const MATERIEL_PAR_LIBELLE: Map<string, Materiel[]> = new Map(
+  MODELES_DE_PROGRAMMES.flatMap((m) => m.exercices).map((e) => [e.libelle, materielsDe(e)]),
+);
+
+/** Ce libellé est-il faisable avec ce matériel ? `false` s'il est inconnu. */
+export function libelleEstPossibleAvec(libelle: string, equipement: Equipement): boolean {
+  const materiels = MATERIEL_PAR_LIBELLE.get(libelle);
+  /*
+     Un libellé inconnu n'est pas réputé faisable. Dans le doute, le
+     remplacement ne se fait pas : un exercice gardé et signalé se corrige,
+     un exercice impossible glissé dans un programme ne se voit pas.
+  */
+  if (!materiels) return false;
+  return materiels.every((m) => DISPONIBLE[equipement].includes(m));
+}
+
+/**
+ * Le libellé d'exercice qu'une phrase de remplacement désigne, s'il y en a un.
+ *
+ * Le dossier écrit ses remplaçants en prose : « tirage vertical (poulie) sans
+ * barre fixe ». On y reconnaît le libellé le plus long qui commence la
+ * phrase. Quand rien ne se reconnaît — « pas d'équivalent présent », « fentes
+ * avec le pied arrière sur une chaise » —, la phrase reste un conseil, et
+ * l'exercice n'est **pas** remplacé : inventer un remplaçant approximatif
+ * serait pire que de dire qu'on n'en a pas.
+ */
+export function remplacantReconnu(phrase: string | null): string | undefined {
+  if (!phrase) return undefined;
+  return [...EXERCICES_DES_MODELES]
+    .filter((libelle) => phrase.startsWith(libelle))
+    .sort((a, b) => b.length - a.length)[0];
+}
+
+export interface Remplacement {
+  /** L'exercice du modèle qui ne passe pas. */
+  libelle: string;
+  /** Le libellé qui le remplace, ou `null` : aucun remplaçant reconnu. */
+  par: string | null;
+  /** Ce que le dossier propose, en toutes lettres. */
+  conseil: string | null;
+}
+
+export interface AdaptationALEquipement {
+  /** Libellé d'origine → libellé de remplacement, pour les blocs. */
+  substitutions: Map<string, string>;
+  /** Ce qui a été remplacé, à dire à l'écran. */
+  remplaces: Remplacement[];
+  /**
+   * Ce qui ne passe pas et n'a pas de remplaçant reconnu.
+   *
+   * Ces blocs sont **gardés**, avec le conseil du dossier. Les retirer en
+   * silence ferait disparaître un muscle du programme sans que rien ne le
+   * dise, et c'est précisément ce que la branche ne fait jamais.
+   */
+  sansRemplacant: Remplacement[];
+}
+
+/**
+ * Adapte un modèle au matériel dont on dispose.
+ *
+ * Le remplaçant du dossier est **propre à chaque modèle** : le modèle Maison
+ * propose un remplaçant de maison, les modèles de salle un remplaçant de
+ * salle. Trois exercices divergent ainsi d'un modèle à l'autre, et une table
+ * globale donnerait la presse à cuisses à quelqu'un qui s'entraîne dans son
+ * salon.
+ *
+ * Un remplaçant lui-même impossible avec le matériel choisi n'est pas retenu :
+ * remplacer une machine par une autre machine ne résout rien.
+ */
+export function adapterALEquipement(
+  modele: ModeleDeProgramme,
+  equipement: Equipement,
+): AdaptationALEquipement {
+  const substitutions = new Map<string, string>();
+  const remplaces: Remplacement[] = [];
+  const sansRemplacant: Remplacement[] = [];
+
+  for (const exercice of modele.exercices) {
+    if (estPossibleAvec(exercice, equipement)) continue;
+    const candidat = remplacantReconnu(exercice.siPasLeMateriel);
+    const utilisable = candidat !== undefined && libelleEstPossibleAvec(candidat, equipement);
+    const ligne: Remplacement = {
+      libelle: exercice.libelle,
+      par: utilisable ? candidat! : null,
+      conseil: exercice.siPasLeMateriel,
+    };
+    if (utilisable) {
+      substitutions.set(exercice.libelle, candidat!);
+      remplaces.push(ligne);
+    } else {
+      sansRemplacant.push(ligne);
+    }
+  }
+  return { substitutions, remplaces, sansRemplacant };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Les blessures en cours
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export interface SignalementDeBlessure {
+  libelle: string;
+  /** Les muscles sous blessure ouverte que cet exercice sollicite. */
+  muscles: string[];
+  /** Le remplaçant reconnu, ou `null`. */
+  par: string | null;
+  /** Ce que le dossier propose en cas de gêne, en toutes lettres. */
+  conseil: string | null;
+}
+
+/**
+ * Les exercices du modèle qui touchent une zone blessée.
+ *
+ * ## Signalés, jamais retirés
+ *
+ * C'est la règle de la branche, et elle vaut ici comme ailleurs : Sport ne
+ * propose jamais de progresser sur un muscle douloureux, mais il n'efface
+ * rien non plus. Un exercice retiré en silence ferait disparaître un muscle
+ * du programme sans que la personne sache pourquoi, et elle ne pourrait pas
+ * décider le contraire.
+ *
+ * ## Les muscles viennent de la bibliothèque, pas du dossier
+ *
+ * `resolus` porte les exercices réels — ceux de la personne, qu'elle a pu
+ * modifier. Un signalement calculé sur la convention du dossier dirait qu'un
+ * squat n'engage pas les ischio-jambiers, alors que la bibliothèque les y
+ * compte : la gêne passerait inaperçue sur le mouvement le plus lourd du
+ * programme.
+ *
+ * Le conseil vient de la colonne « gêne articulaire courante » du dossier.
+ * Ce **n'est ni un diagnostic ni une prescription** : c'est une autre façon
+ * de solliciter le muscle, et la personne choisit.
+ */
+export function signalerLesBlessures(
+  modele: ModeleDeProgramme,
+  resolus: Map<string, Exercice>,
+  exercices: readonly Exercice[],
+  blessures: readonly Blessure[],
+  maintenant = new Date(),
+): SignalementDeBlessure[] {
+  const { muscles: empeches, general } = musclesEmpeches(blessures, maintenant);
+  if (!empeches.size && !general) return [];
+
+  const parLibelle = new Map(modele.exercices.map((e) => [e.libelle, e]));
+  const parIdentite = new Map(exercices.map((e) => [identiteDeComparaison(e), e]));
+  /**
+   * L'exercice réel qu'un libellé du dossier désigne, où qu'il soit.
+   *
+   * `resolus` ne porte que les exercices des blocs du modèle. Un remplaçant
+   * cité par la colonne « gêne articulaire » n'y est pas forcément — l'écarté
+   * couché est proposé par M1 sans qu'aucun de ses blocs l'emploie. Le
+   * chercher dans `resolus` seul le rendait introuvable, donc réputé sûr,
+   * donc proposé : un remplaçant qu'on n'a pas vérifié, présenté comme
+   * vérifié.
+   */
+  const reelDe = (libelle: string): Exercice | undefined => {
+    const deja = resolus.get(libelle);
+    if (deja) return deja;
+    const identite = identiteDeLExercice(libelle);
+    return identite ? parIdentite.get(identiteDeComparaison(identite)) : undefined;
+  };
+
+  const signalements: SignalementDeBlessure[] = [];
+
+  for (const exercice of modele.exercices) {
+    const reel = resolus.get(exercice.libelle);
+    if (!reel) continue;
+    /*
+       Une blessure sans muscle est générale — une grippe, une fatigue
+       extrême. Elle couvre tout, et c'est `musclesEmpeches` qui le dit ; la
+       traiter comme « aucun muscle concerné » laisserait proposer un squat
+       le jour où l'on est au lit.
+    */
+    const touches = general
+      ? [...reel.principaux, ...reel.secondaires]
+      : [...reel.principaux, ...reel.secondaires].filter((m) => empeches.has(m));
+    if (!touches.length) continue;
+
+    const conseil = parLibelle.get(exercice.libelle)?.siGene ?? null;
+    const candidat = remplacantReconnu(conseil);
+    signalements.push({
+      libelle: exercice.libelle,
+      muscles: touches,
+      /*
+          Un remplaçant qui touche lui aussi un muscle blessé n'en est pas un.
+          Le proposer reviendrait à déplacer la douleur en disant l'avoir
+          évitée.
+       */
+      par: candidat && estSansRisque(reelDe(candidat), empeches, general) ? candidat : null,
+      conseil,
+    });
+  }
+  return signalements;
+}
+
+/**
+ * Ce remplaçant évite-t-il la zone blessée ?
+ *
+ * Un exercice **introuvable** n'est pas sans risque : on n'en sait rien, et
+ * dans le doute le garde-fou retient plutôt qu'il ne laisse passer — c'est la
+ * même règle que `musclesEmpeches` applique à l'arrondi des dates. Une
+ * blessure générale ne laisse rien passer non plus.
+ */
+const estSansRisque = (
+  exercice: Exercice | undefined,
+  empeches: Set<string>,
+  general: boolean,
+): boolean => {
+  if (general || !exercice) return false;
+  return ![...exercice.principaux, ...exercice.secondaires].some((m) => empeches.has(m));
+};

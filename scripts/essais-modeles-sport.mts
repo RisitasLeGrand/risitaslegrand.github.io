@@ -39,6 +39,7 @@ import {
   MODELES_DE_PROGRAMMES,
   identiteDeLExercice,
   type BlocDeModele,
+  type ExerciceDuModele,
 } from '../src/lib/sport/modeles-programmes';
 
 const SOURCE = 'docs/cyclades/sport/03-modeles.md';
@@ -103,6 +104,7 @@ interface ModeleDuDossier {
   cle: string;
   fiche: Record<string, string>;
   seances: SeanceDuDossier[];
+  exercices: ExerciceDuModele[];
   cibles: Record<string, number>;
   sources?: string;
   limites?: string;
@@ -125,7 +127,7 @@ const modeles: ModeleDuDossier[] = [];
 
     const titre = /^### (M[1-7]) — (.+)$/.exec(ligne);
     if (titre) {
-      courant = { cle: titre[1], fiche: {}, seances: [], cibles: {} };
+      courant = { cle: titre[1], fiche: {}, seances: [], exercices: [], cibles: {} };
       modeles.push(courant);
       section = 'fiche';
       commence = false;
@@ -147,6 +149,17 @@ const modeles: ModeleDuDossier[] = [];
     }
     if (/^#### Cibles hebdomadaires/.test(ligne)) {
       section = 'cibles';
+      commence = false;
+      continue;
+    }
+    /*
+       Le titre EXACT, et lui seul : « Exercices du modèle Maison et appui de
+       la preuve » est un autre tableau, de forme différente, dans la fiche
+       D08. Le confondre ferait lire des muscles là où l'on attend des
+       exercices.
+    */
+    if (/^#### Exercices du modèle\s*$/.test(ligne)) {
+      section = 'exercices';
       commence = false;
       continue;
     }
@@ -219,6 +232,24 @@ const modeles: ModeleDuDossier[] = [];
         deloadSeries: Number(deload[1]),
         deloadRir: deloadRir[1] === '—' ? null : net(deloadRir[1]),
         note: net(c[9] ?? ''),
+      });
+    } else if (section === 'exercices') {
+      if (c[0] === 'Exercice') continue;
+      const deux =
+        /^autre équipement\s*:\s*(.+?)\s*;\s*gêne articulaire courante\s*:\s*(.+)$/.exec(c[6]);
+      const un = /^(.+?)\s*\(autre équipement et gêne articulaire\)$/.exec(c[6]);
+      const vide = (t: string) => (t === '—' ? null : net(t));
+      if (!deux && !un) {
+        echecs += 1;
+        console.log(`  \x1b[31m✗\x1b[0m ${courant.cle} : remplaçants illisibles — ${c[6]}`);
+        continue;
+      }
+      courant.exercices.push({
+        libelle: net(c[0]),
+        equipement: net(c[2]),
+        unilateral: c[5] === 'oui',
+        siPasLeMateriel: deux ? vide(deux[1]) : net(un![1]),
+        siGene: deux ? vide(deux[2]) : net(un![1]),
       });
     } else {
       if (c[0] === 'Muscle') continue;
@@ -328,11 +359,87 @@ for (const attendu of modeles) {
   }
 
   v(`${ou} : cibles du dossier`, obtenu.ciblesDuDossier, attendu.cibles);
+
+  /*
+     Les exercices du modèle, avec leur matériel et leurs remplaçants. Ils
+     sont propres à chaque modèle : le Maison propose un remplaçant de
+     maison, les modèles de salle un remplaçant de salle. Trois exercices
+     divergent ainsi d'un modèle à l'autre, et une table globale donnerait la
+     presse à cuisses à quelqu'un qui s'entraîne dans son salon.
+  */
+  v(
+    `${ou} : les exercices décrits`,
+    obtenu.exercices.map((e) => e.libelle),
+    attendu.exercices.map((e) => e.libelle),
+  );
+  for (const [i, e] of attendu.exercices.entries()) {
+    const o = obtenu.exercices[i];
+    if (!o) continue;
+    v(`${ou} / « ${e.libelle} »`, o, e);
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
    3. Les rattachements
    ══════════════════════════════════════════════════════════════════════════ */
+
+console.log('Les exercices du modèle');
+{
+  /*
+     Tout exercice employé par un bloc doit figurer dans la table des
+     exercices du modèle, sans quoi le choix d'équipement n'aurait rien à
+     dire de lui et le laisserait passer en silence.
+  */
+  for (const m of MODELES_DE_PROGRAMMES) {
+    const employes = new Set(m.seances.flatMap((s) => s.blocs.map((b) => b.exercice)));
+    const decrits = new Set(m.exercices.map((e) => e.libelle));
+    v(
+      `${m.cle} : chaque exercice employé est décrit`,
+      [...employes].filter((e) => !decrits.has(e)),
+      [],
+    );
+    v(
+      `${m.cle} : et aucun décrit sans être employé`,
+      [...decrits].filter((e) => !employes.has(e)),
+      [],
+    );
+  }
+}
+
+{
+  /*
+     La colonne « équipement » ne diverge PAS d'un modèle à l'autre, et
+     `copie-de-modele.ts` s'appuie là-dessus pour sa table globale de
+     matériel. Si elle divergeait un jour, cette table deviendrait fausse
+     pour l'un des deux modèles, en silence.
+  */
+  const parLibelle = new Map<string, Set<string>>();
+  for (const m of MODELES_DE_PROGRAMMES) {
+    for (const e of m.exercices) {
+      parLibelle.set(e.libelle, (parLibelle.get(e.libelle) ?? new Set()).add(e.equipement));
+    }
+  }
+  v(
+    'la colonne « équipement » est la même dans tous les modèles',
+    [...parLibelle.entries()].filter(([, s]) => s.size > 1).map(([l]) => l),
+    [],
+  );
+  /* Les remplaçants, eux, diffèrent à dessein : on vérifie qu'ils diffèrent. */
+  const remplacants = new Map<string, Set<string>>();
+  for (const m of MODELES_DE_PROGRAMMES) {
+    for (const e of m.exercices) {
+      remplacants.set(
+        e.libelle,
+        (remplacants.get(e.libelle) ?? new Set()).add(`${e.siPasLeMateriel}|${e.siGene}`),
+      );
+    }
+  }
+  v(
+    'trois exercices ont des remplaçants propres à leur modèle',
+    [...remplacants.entries()].filter(([, s]) => s.size > 1).map(([l]) => l).sort(),
+    ['fentes (haltères)', 'gainage ventral', 'élévations latérales (haltères)'],
+  );
+}
 
 console.log('Les rattachements');
 {
@@ -464,7 +571,11 @@ console.log('La forme des textes');
 const compte =
   MODELES_DE_PROGRAMMES.length +
   MODELES_DE_PROGRAMMES.reduce(
-    (n, m) => n + m.seances.length + m.seances.reduce((k, s) => k + s.blocs.length, 0),
+    (n, m) =>
+      n +
+      m.seances.length +
+      m.seances.reduce((k, s) => k + s.blocs.length, 0) +
+      m.exercices.length,
     0,
   );
 console.log(
@@ -472,7 +583,8 @@ console.log(
     ? `\n\x1b[31m${echecs} écart(s) entre la transcription et le dossier.\x1b[0m\n`
     : `\n\x1b[32m✓ transcription conforme\x1b[0m — ${MODELES_DE_PROGRAMMES.length} modèles, ` +
         `${MODELES_DE_PROGRAMMES.reduce((n, m) => n + m.seances.length, 0)} séances, ` +
-        `${MODELES_DE_PROGRAMMES.reduce((n, m) => n + m.seances.reduce((k, s) => k + s.blocs.length, 0), 0)} blocs ` +
+        `${MODELES_DE_PROGRAMMES.reduce((n, m) => n + m.seances.reduce((k, s) => k + s.blocs.length, 0), 0)} blocs, ` +
+        `${MODELES_DE_PROGRAMMES.reduce((n, m) => n + m.exercices.length, 0)} exercices décrits ` +
         `(${compte} objets comparés).\n`,
 );
 process.exit(echecs ? 1 : 0);

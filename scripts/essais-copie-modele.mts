@@ -32,15 +32,21 @@ import {
   type Exercice,
 } from '../src/lib/sport/modele';
 import { controlerProgramme, volumePrevu, type Programme } from '../src/lib/sport/programmes';
+import type { Blessure } from '../src/lib/sport/modele';
 import { MODELES_DE_PROGRAMMES } from '../src/lib/sport/modeles-programmes';
 import {
+  EQUIPEMENTS,
+  adapterALEquipement,
   ciblesDuModele,
   ecartsDeCibles,
+  estPossibleAvec,
   exercicesDuModele,
   noteDuBloc,
   nomDeLaCopie,
   preparerLaCopie,
+  remplacantReconnu,
   seancesDuModele,
+  signalerLesBlessures,
 } from '../src/lib/sport/copie-de-modele';
 
 let echecs = 0;
@@ -352,6 +358,220 @@ console.log('\nL’IDENTITÉ DE COMPARAISON');
       BIBLIOTHEQUE.filter((e) => e.nom === nom).map((e) => e.equipement).sort(),
       nom === 'Hip thrust' ? ['barre', 'haltère'] : ['barre', 'haltères'],
     );
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   7. L'équipement : ce qui ne passe pas est remplacé, et dit
+   ══════════════════════════════════════════════════════════════════════════ */
+console.log('\nL’ÉQUIPEMENT DONT ON DISPOSE');
+
+{
+  v('trois choix de matériel', EQUIPEMENTS.map((e) => e.id), [
+    'salle',
+    'maison-complete',
+    'maison-halteres',
+  ]);
+
+  const parLibelle = new Map(
+    MODELES_DE_PROGRAMMES.flatMap((m) => m.exercices.map((e) => [`${m.cle}/${e.libelle}`, e])),
+  );
+  const possible = (clef: string, ou: Parameters<typeof estPossibleAvec>[1]) =>
+    estPossibleAvec(parLibelle.get(clef)!, ou);
+
+  /* La salle ne refuse rien : c'est le modèle tel que le dossier l'écrit. */
+  for (const modele of MODELES_DE_PROGRAMMES) {
+    const refuses = modele.exercices.filter((e) => !estPossibleAvec(e, 'salle')).map((e) => e.libelle);
+    v(`${modele.cle} : la salle ne refuse aucun exercice`, refuses, []);
+  }
+
+  /*
+     « Haltères seulement » doit refuser TOUT ce qui demande une barre, une
+     poulie, une machine, un banc ou une barre de traction. C'est le cas qui
+     compte : un programme qu'on croit adapté et qui demande une poulie est
+     un programme qu'on ne peut pas faire.
+  */
+  faux('le squat à la barre ne passe pas aux haltères seuls', possible('M1/squat (barre)', 'maison-halteres'));
+  faux('ni la presse à cuisses', possible('M1/presse à cuisses', 'maison-halteres'));
+  faux('ni les tractions', possible('M1/tractions pronation (barre fixe)', 'maison-halteres'));
+  faux('ni le développé incliné, qui demande un banc', possible('M1/développé incliné (haltères)', 'maison-halteres'));
+  vrai('les fentes aux haltères passent', possible('M1/fentes (haltères)', 'maison-halteres'));
+  vrai('le gainage aussi', possible('M1/gainage ventral', 'maison-halteres'));
+  vrai('et les pompes', possible('M6/pompes', 'maison-halteres'));
+
+  /* Avec banc et barre de traction, les tractions et l'incliné reviennent. */
+  vrai('les tractions passent avec une barre de traction', possible('M1/tractions pronation (barre fixe)', 'maison-complete'));
+  vrai('le développé incliné passe avec un banc', possible('M1/développé incliné (haltères)', 'maison-complete'));
+  faux('mais pas le squat à la barre', possible('M1/squat (barre)', 'maison-complete'));
+
+  /*
+     Les parenthèses de la colonne du dossier ne sont pas des matériels :
+     « haltère, appui (chaise, banc) » ne demande pas de banc.
+  */
+  vrai(
+    'le rowing à un bras passe aux haltères seuls',
+    possible('M6/rowing à un bras (haltère)', 'maison-halteres'),
+  );
+}
+
+{
+  /* Le remplaçant se reconnaît dans la prose du dossier, ou pas du tout. */
+  v(
+    'un remplaçant nommé est reconnu',
+    remplacantReconnu('tirage vertical (poulie) sans barre fixe'),
+    'tirage vertical (poulie)',
+  );
+  v('et le libellé le plus long gagne', remplacantReconnu('mollets debout à une jambe (haltère) sans machine, à ajouter'), 'mollets debout à une jambe (haltère)');
+  v('une prose sans exercice nommé n’en donne aucun', remplacantReconnu('pas d’équivalent présent'), undefined);
+  v('et rien du tout non plus', remplacantReconnu(null), undefined);
+}
+
+{
+  /*
+     LE CAS DU PROMPT : « haltères seulement » doit remplacer tout exercice à
+     barre ou à machine. On vérifie qu'aucun n'est passé sous silence — soit
+     remplacé, soit signalé sans remplaçant, jamais ignoré.
+  */
+  const modele = MODELES_DE_PROGRAMMES.find((m) => m.cle === 'M1')!;
+  const a = adapterALEquipement(modele, 'maison-halteres');
+  const traites = new Set([
+    ...a.remplaces.map((r) => r.libelle),
+    ...a.sansRemplacant.map((r) => r.libelle),
+  ]);
+  const impossibles = modele.exercices
+    .filter((e) => !estPossibleAvec(e, 'maison-halteres'))
+    .map((e) => e.libelle);
+  v(
+    'tout exercice impossible est traité',
+    impossibles.filter((l) => !traites.has(l)),
+    [],
+  );
+  vrai('et il y en a', impossibles.length > 0);
+  v(
+    'aucun exercice possible n’est touché',
+    [...a.substitutions.keys()].filter((l) =>
+      estPossibleAvec(modele.exercices.find((e) => e.libelle === l)!, 'maison-halteres'),
+    ),
+    [],
+  );
+
+  /*
+     Un remplaçant lui-même impossible n'est pas retenu : remplacer une
+     machine par une autre machine ne résout rien.
+  */
+  const mauvais = [...a.substitutions.values()].filter((par) => {
+    const decrit = modele.exercices.find((e) => e.libelle === par);
+    return decrit !== undefined && !estPossibleAvec(decrit, 'maison-halteres');
+  });
+  v('aucun remplaçant n’est lui-même impossible', mauvais, []);
+
+  /* La salle ne remplace rien du tout. */
+  const salle = adapterALEquipement(modele, 'salle');
+  v('en salle, rien n’est remplacé', salle.remplaces.length + salle.sansRemplacant.length, 0);
+}
+
+{
+  /* La copie aux haltères seuls reste un programme valide. */
+  const exercices = livree();
+  const modele = MODELES_DE_PROGRAMMES.find((m) => m.cle === 'M3')!;
+  const copie = preparerLaCopie(modele, exercices, { equipement: 'maison-halteres' });
+  vrai('la copie aux haltères seuls est prête', copie.pret);
+  if (copie.pret) {
+    const programme: Programme = { ...copie.programme, id: 'h', majLe: '2026-10-19T00:00:00.000Z' };
+    v('et c’est un programme valide', controlerProgramme(programme), []);
+    vrai('des exercices ont été remplacés', copie.adaptation.remplaces.length > 0);
+    vrai('et l’écran a de quoi le dire', copie.adaptation.remplaces.every((r) => r.par !== null));
+    /*
+       Les cibles ont été recalculées sur les exercices remplacés, et non sur
+       ceux du dossier : sans cela, un programme de salon afficherait les
+       cibles d'un programme de salle.
+    */
+    const cibles = Object.values(programme.ciblesParMuscle);
+    vrai('et les cibles ne sont pas celles de la salle', JSON.stringify(cibles) !== JSON.stringify(Object.values(modele.ciblesDuDossier)));
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   8. Les blessures : signalées, jamais retirées
+   ══════════════════════════════════════════════════════════════════════════ */
+console.log('\nLES BLESSURES SONT SIGNALÉES, JAMAIS RETIRÉES');
+
+{
+  const exercices = livree();
+  const modele = MODELES_DE_PROGRAMMES.find((m) => m.cle === 'M1')!;
+  const { resolus } = exercicesDuModele(modele, exercices);
+
+  const blessure = (muscles: string[], fin: string | null = null): Blessure => ({
+    id: 'b1',
+    muscles,
+    intensite: 5,
+    debut: '2026-10-01T12:00:00.000Z',
+    fin,
+    note: '',
+    majLe: '2026-10-01T12:00:00.000Z',
+  });
+  const le = new Date('2026-10-19T10:00:00.000Z');
+
+  v('sans blessure, rien n’est signalé', signalerLesBlessures(modele, resolus, exercices, [], le), []);
+  v(
+    'une blessure refermée ne signale rien',
+    signalerLesBlessures(modele, resolus, exercices, [blessure(['pectoraux'], '2026-10-05T12:00:00.000Z')], le),
+    [],
+  );
+
+  {
+    const signales = signalerLesBlessures(modele, resolus, exercices, [blessure(['pectoraux'])], le);
+    vrai('une épaule douloureuse… pardon, un pectoral, se signale', signales.length > 0);
+    v(
+      'et seulement sur les exercices qui le sollicitent',
+      signales.map((s) => s.libelle).sort(),
+      ['développé couché (barre)', 'développé incliné (haltères)', 'dips (barres parallèles)'].sort(),
+    );
+    vrai('avec le muscle nommé', signales.every((s) => s.muscles.includes('pectoraux')));
+    vrai('et un conseil du dossier', signales.every((s) => s.conseil !== null));
+  }
+
+  {
+    /*
+       Un muscle SECONDAIRE blessé compte aussi. C'est le point qui fait la
+       différence avec la convention du dossier : la bibliothèque compte les
+       ischio-jambiers au squat, le dossier non. Une gêne aux ischio-jambiers
+       passerait donc inaperçue sur le mouvement le plus lourd du programme.
+    */
+    const signales = signalerLesBlessures(modele, resolus, exercices, [blessure(['ischio-jambiers'])], le);
+    vrai(
+      'le squat est signalé pour un muscle secondaire',
+      signales.some((s) => s.libelle === 'squat (barre)'),
+    );
+  }
+
+  {
+    /* Une blessure générale couvre tout. */
+    const signales = signalerLesBlessures(modele, resolus, exercices, [blessure([])], le);
+    v(
+      'une blessure générale signale tous les exercices',
+      signales.length,
+      modele.exercices.length,
+    );
+    v('et aucun remplaçant n’est proposé', signales.filter((s) => s.par !== null), []);
+  }
+
+  {
+    /* RIEN N'EST RETIRÉ : la copie garde tous ses blocs. */
+    const copie = preparerLaCopie(modele, exercices, {
+      blessures: [blessure(['pectoraux'])],
+      maintenant: le,
+    });
+    vrai('la copie est prête malgré la blessure', copie.pret);
+    if (copie.pret) {
+      v(
+        'et elle garde tous ses blocs',
+        copie.programme.seances.reduce((n, s) => n + s.blocs.length, 0),
+        modele.seances.reduce((n, s) => n + s.blocs.length, 0),
+      );
+      vrai('la blessure est signalée', copie.blessures.length > 0);
+    }
   }
 }
 
