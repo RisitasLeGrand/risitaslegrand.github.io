@@ -88,6 +88,7 @@
     "essais:parties-client": "tsx scripts/essais-parties-client.mts",
     "essais:lecteur-parties": "tsx scripts/essais-lecteur-parties.mts",
     "essais:seances-parties": "tsx scripts/essais-seances-parties.mts",
+    "essais:fiches-audio": "tsx scripts/essais-fiches-audio-plaisantes.mts",
     "parties:identifiants": "node scripts/ajouter-identifiants-parties.mjs",
     "captures:42": "tsx scripts/captures-prompt-42.mjs",
     "essais:parametres-navigateur": "tsx scripts/essais-parametres-navigateur.mts",

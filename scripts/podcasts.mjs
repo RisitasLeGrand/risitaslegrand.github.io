@@ -31,6 +31,40 @@ import { ecrireScript, fuitesDuScript, VERSION_SCRIPT } from './lib/podcast.mjs'
 import { idStable, sha256Hex } from './lib/crypto.mjs';
 import { cheminModele, formatAudio, MOTEURS } from './lib/voix.mjs';
 
+/**
+ * Les cartes d'une fiche, pour la question de rappel de fin de partie
+ * (prompt 55, N°3).
+ *
+ * TOLÉRANT PAR CONSTRUCTION, et ce n'est pas de la négligence : c'est
+ * `build-content.mjs` qui valide le bloc « ## Flashcards » et qui REFUSE la
+ * construction s'il est mal formé, avec le message qui dit où. Ici, une
+ * carte illisible ne doit faire perdre qu'une question de rappel, pas
+ * l'audio entier de la fiche — et surtout pas produire une seconde fois le
+ * même diagnostic, dans un autre vocabulaire, à un autre moment.
+ *
+ * On ne garde que ce dont la question a besoin : l'intitulé, la réponse et
+ * la partie. Le reste des champs ne regarde pas le script parlé.
+ */
+function cartesDeLaFiche(texte) {
+  if (!texte?.trim()) return [];
+  const nettoye = texte.replace(/^\s*```(?:ya?ml)?\s*$/gim, '').trim();
+  if (!nettoye) return [];
+  let donnees;
+  try {
+    donnees = YAML.parse(nettoye);
+  } catch {
+    return [];
+  }
+  if (!Array.isArray(donnees)) return [];
+  return donnees
+    .filter((c) => c && typeof c.question === 'string' && typeof c.reponse === 'string')
+    .map((c) => ({
+      question: c.question,
+      reponse: c.reponse,
+      partie: typeof c.partie === 'string' ? c.partie : undefined,
+    }));
+}
+
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dossierContenu = path.join(racine, 'content');
 export const dossierAudio = path.join(dossierContenu, '.audio');
@@ -187,6 +221,13 @@ async function main() {
       fascicule: data.fascicule,
       cours: sections.cours,
       glossaire,
+      /*
+         Les cartes de la fiche (prompt 55, N°3) : la question de rappel de
+         fin de partie vient de l'une d'elles, celle qui porte le champ
+         `partie` du prompt 46 (P4). Pas de carte rattachée, pas de
+         question — on n'en fabrique pas.
+      */
+      flashcards: cartesDeLaFiche(sections.flashcards),
     });
     const ficheId = await idStable(relatif);
     const cheminScript = complet.replace(/\.md$/, SUFFIXE_SCRIPT);
@@ -240,6 +281,21 @@ async function main() {
         config.podcast.vitesse,
         config.podcast.format,
         config.podcast.bitrate,
+        /*
+           LES RÉGLAGES DE PAUSE ET DE SONIE ENTRENT DANS L'EMPREINTE
+           (prompt 55, interdit 3).
+
+           Ils ne changent pas une syllabe du texte dit, mais ils changent le
+           SON produit : allonger la pause de partie ou viser une autre sonie
+           donne un fichier différent. Sans ces lignes, modifier l'un des
+           deux laisserait en place des audios produits avec l'ancien
+           réglage, et la bibliothèque mélangerait deux volumes — ce qui est
+           exactement le défaut que N°4 corrige.
+        */
+        config.podcast.silenceParagrapheMs,
+        config.podcast.silencePhraseMs,
+        config.podcast.silencePartieMs,
+        config.podcast.sonie,
         script.paragraphes.join('\n'),
         /*
            Les repères comptent dans l'empreinte : corriger un identifiant de
@@ -248,6 +304,8 @@ async function main() {
            repères qui ne désignent plus rien.
         */
         JSON.stringify(script.parties),
+        /* Les silences déclarés, pour la même raison que les repères. */
+        JSON.stringify(script.silences),
       ].join('|'),
     );
 
@@ -272,6 +330,17 @@ async function main() {
          (interdit 5).
       */
       `parties: ${JSON.stringify(script.parties)}`,
+      /*
+         LES SILENCES DÉCLARÉS (prompt 55, N°3).
+
+         « Le paragraphe de rang N est précédé de M millisecondes de silence
+         au lieu de la respiration ordinaire. » C'est ainsi que les quatre
+         secondes laissées pour chercher la réponse à une question de rappel
+         voyagent — et non par un marqueur dans le texte dit, qui serait
+         prononcé le jour où quelque chose l'oublierait, et qui obligerait à
+         percer une exception dans le garde-fou anti-fuite du prompt 43.
+      */
+      `silences: ${JSON.stringify(script.silences)}`,
       `empreinte: ${empreinte}`,
       '---',
       '',
@@ -399,6 +468,8 @@ async function synthetiser(taches, ffmpeg, t0) {
             '--vitesse', String(config.podcast.vitesse),
             '--silence-paragraphe', String(config.podcast.silenceParagrapheMs),
             '--silence-phrase', String(config.podcast.silencePhraseMs),
+            '--silence-partie', String(config.podcast.silencePartieMs),
+            '--sonie', String(config.podcast.sonie),
             '--bitrate', config.podcast.bitrate,
             '--format', config.podcast.format,
             '--ffmpeg', ffmpeg,
