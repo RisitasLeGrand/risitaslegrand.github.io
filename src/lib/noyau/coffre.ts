@@ -358,6 +358,20 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
     */
     clairs: ['id'],
   },
+  {
+    magasin: 'odysseeSexe',
+    pourquoi:
+      'Le sexe déclaré. Il décide de ce que l’application montre, donc le lire reviendrait à ' +
+      'savoir ce qu’elle montre à cette personne — et la réponse elle-même n’a pas à se lire ' +
+      'sans son coffre. Décision d’Alexis du 19 octobre, mêmes règles que le suivi.',
+    /*
+       `id` seul, et la même raison qu'au-dessus : `majLe` dirait quand la
+       réponse a été donnée ou changée. Rien de plus, surtout pas `reponse` —
+       un champ d'index en clair qui porte la réponse donnerait le sexe à
+       quiconque lit les clés, et c'est précisément ce que ce scellé refuse.
+    */
+    clairs: ['id'],
+  },
 ];
 
 const PAR_MAGASIN = new Map(MAGASINS_SCELLES.map((m) => [m.magasin, m]));

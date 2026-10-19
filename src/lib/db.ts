@@ -21,6 +21,7 @@ import { signalerEcriture } from './sync/signal-ecriture';
 */
 import type { EntreeRevision } from './noyau/revisions';
 import type { ReglagesDuCycle, SaisieDuCycle } from './odyssee/cycle';
+import type { SexeEnregistre } from './odyssee/sexe';
 import type {
   Evenement,
   EtapeCochee,
@@ -664,6 +665,14 @@ interface SchemaRevinsp extends DBSchema {
   */
   odysseeCycleJournal: { key: string; value: SaisieDuCycle };
   odysseeCycleReglages: { key: string; value: ReglagesDuCycle };
+  /*
+     LE SEXE DÉCLARÉ — décision d'Alexis du 19 octobre.
+
+     Un enregistrement, sous clé fixe, scellé. Aucun index : il n'y a rien à
+     parcourir, et un index sur la réponse donnerait le sexe en clair à
+     quiconque lit le schéma de la base.
+  */
+  odysseeSexe: { key: string; value: SexeEnregistre };
   odysseeQuetes: { key: string; value: Quete };
   odysseeEvenements: { key: string; value: Evenement; indexes: { debut: string } };
   odysseeFocus: { key: string; value: Focus; indexes: { debut: string } };
@@ -816,7 +825,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 37;
+const VERSION = 38;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1606,6 +1615,20 @@ function ouvrirAuSchema(nom: string, version: number) {
       if (vers(37)) {
         base.createObjectStore('odysseeCycleJournal', { keyPath: 'id' });
         base.createObjectStore('odysseeCycleReglages', { keyPath: 'id' });
+      }
+      /*
+         LE SEXE DÉCLARÉ, version 38.
+
+         Un magasin à part et non un champ des réglages du suivi, pour une
+         raison de dépendance : la réponse décide si le suivi est MONTRÉ, donc
+         elle se lit avant lui et sans lui. La ranger dans les réglages du
+         module obligerait à ouvrir le module pour savoir s'il faut l'ouvrir.
+
+         Aucune reprise de données : rien n'était stocké avant, `sexe` valait
+         `null` partout. La question se posera à qui ne l'a pas encore vue.
+      */
+      if (vers(38)) {
+        base.createObjectStore('odysseeSexe', { keyPath: 'id' });
       }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
@@ -2573,11 +2596,22 @@ export const MAGASINS_PROGRESSION = [
      SAUVEGARDÉ. Les deux sont voulus : « effacer mes données » qui le
      laisserait derrière lui mentirait, et une sauvegarde qui l'oublierait
      rendrait à la restauration une base amputée en annonçant une
-     restauration complète. Le fichier est chiffré, et les magasins restent
-     scellés à l'intérieur.
+     restauration complète.
+
+     CE COMMENTAIRE DISAIT ENSUITE, AU LOT 4 : « Le fichier est chiffré, et les
+     magasins restent scellés à l'intérieur. » C'était vrai du cas chiffré
+     seulement, et je l'avais écrit comme si c'était le seul : la case « Ne pas
+     chiffrer ce fichier » existe, et son propre avertissement dit que le
+     fichier sera lisible par quiconque l'ouvre. Le § 6.9 du prompt 30 refuse
+     que le cycle entre dans un tel fichier ; `MAGASINS_HORS_SAUVEGARDE_EN_CLAIR`
+     plus bas l'en retire, et cette liste-ci ne décide plus que de
+     l'effacement et de la sauvegarde chiffrée.
+
+     Le sexe déclaré suit les mêmes règles, par consigne du pilote.
   */
   'odysseeCycleJournal',
   'odysseeCycleReglages',
+  'odysseeSexe',
   'centreElements',
   'odysseeQuetes',
   'odysseeEvenements',
@@ -2687,6 +2721,16 @@ export const MAGASINS_SAUVEGARDES: readonly string[] = MAGASINS_PROGRESSION.filt
 export const MAGASINS_HORS_SAUVEGARDE_EN_CLAIR: readonly string[] = [
   'odysseeCycleJournal',
   'odysseeCycleReglages',
+  /*
+     `odysseeSexe` en est aussi, et le pilote l'a posé comme règle : le champ
+     `sexe` suit celles du suivi — sous coffre, hors sauvegarde non chiffrée,
+     aucun champ d'index en clair qui le révèle.
+
+     La raison vaut peut-être davantage ici : un fichier en clair qui porte un
+     magasin nommé `odysseeSexe` avec un seul enregistrement dit déjà que la
+     personne a répondu, avant tout contenu.
+  */
+  'odysseeSexe',
 ];
 
 /**

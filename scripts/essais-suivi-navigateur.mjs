@@ -23,6 +23,7 @@ import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
 const PAGE = '/odyssee/corps/suivi/';
+const PAGE_SIGNES = '/odyssee/corps/quand-consulter/';
 
 /*
    LES BORNES DE LA MESURE D'EFFACEMENT, ET POURQUOI PAS « AUJOURD'HUI ».
@@ -103,7 +104,68 @@ async function aller(chemin, selecteur) {
 
 /* ══════════════════════════════════════════════════════════════════════════ */
 
-console.log('\n1. LA PORTE EST UNE LIGNE NEUTRE DEPUIS CORPS');
+console.log('\n1. L’ADRESSE DIRECTE NE MONTRE RIEN, COFFRE FERMÉ ET SANS RÉPONSE');
+
+/*
+   CETTE SECTION A CHANGÉ DE SENS LE 19 OCTOBRE, et il faut le dire ici parce
+   qu'un essai réécrit sans explication ressemble à un essai affaibli.
+
+   Elle mesurait que « les signes d'alerte sont là coffre fermé et module
+   désactivé » — c'était la réponse à la collecte D2 : une personne qui saigne
+   beaucoup lisait les trois niveaux et les quatre sources sans rien
+   déverrouiller. Décision d'Alexis : le suivi, signes d'alerte compris,
+   n'apparaît que pour un sexe féminin déclaré, et pas coffre fermé puisque la
+   réponse ne peut alors pas être lue. L'écart et ce qu'il coûte sont consignés
+   dans `docs/cyclades/decisions-en-attente-cycle-2026-10-19.md`.
+
+   Le sélecteur d'attente est `#hors-portee`, qui est rendu — et non
+   `#dans-la-portee`, qui est masqué. On attend ce qui doit paraître.
+*/
+await aller(PAGE, '#hors-portee');
+{
+  vrai('la page neutre est là', await page.locator('#hors-portee').isVisible());
+  faux('et le suivi n’est pas rendu', await page.locator('#dans-la-portee').isVisible());
+  v(
+    'et la page du suivi ne porte plus les signes d’alerte : ils ont leur page',
+    await page.locator('#signes').count(),
+    0,
+  );
+  faux('ni le formulaire du coffre', await page.locator('#coffre-ferme').isVisible());
+
+  /*
+     LES MOTS, SUR LE TEXTE QU'UN ŒIL LIT — donc `innerText` et non
+     `textContent`.
+
+     MESURÉ, PARCE QUE JE L'AVAIS ÉCRIT FAUX : `textContent` rend aussi le
+     texte des éléments CACHÉS, donc tout le module, donc « règles ». La
+     première version de cet essai a rougi sur sa propre méthode.
+
+     Et ce rouge a dit quelque chose de vrai, qu'il faut écrire plutôt que de
+     le faire taire : LE MASQUAGE EST VISUEL. Le HTML servi à cette adresse
+     contient le module entier, quelle que soit la réponse — `#dans-la-portee`
+     est caché par une classe, pas absent. Quelqu'un qui lit le source de la
+     page le voit. Pour qu'il en soit autrement, il faudrait que ce contenu ne
+     soit pas rendu côté serveur mais injecté après la décision, ce qui est un
+     autre chantier. C'est inscrit dans
+     `docs/cyclades/decisions-en-attente-cycle-2026-10-19.md`.
+
+     « suivi » n'est pas interdit — nom neutre de la décision 20, et l'adresse
+     le porte de toute façon ; Alexis interdit « cycle ».
+  */
+  const rendu = normaliser(
+    await page.evaluate(() => document.querySelector('main')?.innerText ?? ''),
+  );
+  v(
+    'et rien dans le texte rendu ne trahit ce qu’elle cache',
+    ['cycle', 'règles', 'menstruel', 'féminin', 'masculin', 'sexe'].filter((mot) =>
+      new RegExp(mot, 'i').test(rendu),
+    ),
+    [],
+  );
+  vrai('elle renvoie vers Corps', (await page.locator('a[href="/odyssee/corps/"]').count()) > 0);
+}
+
+console.log('\n2. LA LIGNE DE CORPS N’EXISTE QUE POUR UNE RÉPONSE FÉMININE');
 
 /*
    Le sélecteur d'attente est propre à la page, et pas `h1` : le verrou du
@@ -112,12 +174,60 @@ console.log('\n1. LA PORTE EST UNE LIGNE NEUTRE DEPUIS CORPS');
    pour toujours, et le message parle d'un délai dépassé plutôt que de la
    cause.
 */
-await aller('/odyssee/corps/', 'a[href="/odyssee/corps/suivi/"]');
+/*
+   On attend `#mdp-coffre`, qui EST visible coffre fermé — et non
+   `#ligne-du-suivi`, qui doit justement rester caché. Attendre ce qui ne doit
+   pas paraître fait expirer l'essai en parlant d'un délai plutôt que d'un
+   défaut.
+*/
+await aller('/odyssee/corps/', '#mdp-coffre');
 {
+  faux('coffre fermé, aucune ligne ne mène au suivi', await page.locator('#ligne-du-suivi').isVisible());
+
+  await page.fill('#mdp-coffre', MDP);
+  await page.click('#ouvrir-coffre');
+  await page.waitForSelector('#reponses-sexe', { state: 'visible', timeout: 20000 });
+  faux(
+    'coffre ouvert mais sans réponse, toujours aucune ligne',
+    await page.locator('#ligne-du-suivi').isVisible(),
+  );
+
+  /* Masculin : rien. C'est la ligne que la décision d'Alexis demande. */
+  await page.click('#reponses-sexe button[data-sexe="masculin"]');
+  await page.waitForFunction(
+    () => document.getElementById('sexe-dit')?.textContent?.includes('Masculin') === true,
+    { timeout: 20000 },
+  );
+  faux('réponse masculine : aucune ligne', await page.locator('#ligne-du-suivi').isVisible());
+
+  /* Un refus de répondre : rien non plus, et la réponse est gardée. */
+  await page.click('#reponses-sexe button[data-sexe="sans-reponse"]');
+  await page.waitForFunction(
+    () => document.getElementById('sexe-dit')?.textContent?.includes('préfère') === true,
+    { timeout: 20000 },
+  );
+  faux('refus de répondre : aucune ligne', await page.locator('#ligne-du-suivi').isVisible());
+
+  /* Et l'adresse directe reste neutre tant que la réponse n'est pas féminine. */
+  await aller(PAGE, '#hors-portee');
+  vrai(
+    'et l’adresse directe reste neutre, coffre ouvert',
+    await page.locator('#hors-portee').isVisible(),
+  );
+  faux('le suivi n’est toujours pas rendu', await page.locator('#dans-la-portee').isVisible());
+
+  /* Féminin : la ligne paraît, et son libellé reste neutre. */
+  await aller('/odyssee/corps/', '#reponses-sexe');
+  await page.click('#reponses-sexe button[data-sexe="feminin"]');
+  await page.waitForFunction(
+    () => document.getElementById('ligne-du-suivi')?.classList.contains('hidden') === false,
+    { timeout: 20000 },
+  );
+  vrai('réponse féminine : la ligne paraît', await page.locator('#ligne-du-suivi').isVisible());
+
   const lien = page.locator('a[href="/odyssee/corps/suivi/"]');
-  vrai('une ligne mène au suivi', await lien.count() > 0);
-  const texte = normaliser(await lien.first().textContent());
-  v('et son libellé est neutre', texte, 'suivi personnel');
+  vrai('une ligne mène au suivi', (await lien.count()) > 0);
+  v('et son libellé est neutre', normaliser(await lien.first().textContent()), 'suivi personnel');
   /*
      LA DISCRÉTION DE 4.8, MESURÉE SUR L'ÉCRAN QUI PORTE LA PORTE. Le mot
      « règles » ne doit pas apparaître hors du module — et `corps.astro` est
@@ -127,23 +237,57 @@ await aller('/odyssee/corps/', 'a[href="/odyssee/corps/suivi/"]');
   faux('et l’écran Corps ne dit pas « règles »', /\brègles?\b/i.test(corps));
 }
 
-console.log('\n2. LES SIGNES D’ALERTE SONT LÀ COFFRE FERMÉ ET MODULE DÉSACTIVÉ');
+console.log('\n2 ter. « QUAND CONSULTER » EST ACCESSIBLE SANS CONDITION');
 
-await aller(PAGE, '#signes');
+/*
+   Choix d'Alexis du 19 octobre vers 17 h 10 — l'option 2. La restriction porte
+   sur le suivi ; « Quand consulter » reste accessible sans coffre, sans
+   déclaration, quel que soit le sexe.
+
+   La réponse enregistrée est « Féminin » à ce point de l'essai. On la remet
+   donc à « Masculin » pour mesurer le cas qui compte, puis on referme le
+   coffre : si la page s'ouvre dans ces conditions, elle s'ouvre pour tout le
+   monde.
+*/
+await aller('/odyssee/corps/', '#reponses-sexe');
+await page.click('#reponses-sexe button[data-sexe="masculin"]');
+await page.waitForFunction(
+  () => document.getElementById('ligne-du-suivi')?.classList.contains('hidden') === true,
+  { timeout: 20000 },
+);
+vrai(
+  'la ligne « Quand consulter » reste visible pour une réponse masculine',
+  await page.locator('a[href="/odyssee/corps/quand-consulter/"]').first().isVisible(),
+);
+await page.click('#fermer-coffre');
+await page.waitForSelector('#mdp-coffre', { state: 'visible', timeout: 20000 });
+vrai(
+  'et elle reste visible coffre refermé',
+  await page.locator('a[href="/odyssee/corps/quand-consulter/"]').first().isVisible(),
+);
+
+await aller(PAGE_SIGNES, '#signes');
 {
-  vrai('la section est visible', await page.locator('#signes').isVisible());
-  faux('alors que le coffre n’est pas ouvert', await page.locator('#coffre-ouvert').isVisible());
-  vrai('et le coffre est bien demandé', await page.locator('#coffre-ferme').isVisible());
+  vrai('la page s’ouvre, coffre fermé et réponse masculine', await page.locator('#signes').isVisible());
+  faux('aucun formulaire de coffre n’y est demandé', await page.locator('#mdp-coffre').isVisible());
 
-  const mention = normaliser(await page.textContent('main'));
-  vrai(
-    'la mention d’ouverture du module est affichée',
-    mention.includes(
-      normaliser(
-        'Cyclades n’est pas une méthode contraceptive, n’est pas un dispositif médical et ne ' +
-          'remplace pas un professionnel de santé.',
-      ),
-    ),
+  /*
+     ET ELLE NE SAIT PAS QUE LE SUIVI EXISTE. Pas de lien, pas même
+     conditionnel : un lien qui paraît pour certaines personnes et pas pour
+     d'autres est ce qui se remarque quand on compare deux écrans.
+  */
+  v(
+    'aucun lien vers le suivi',
+    await page.locator('a[href="/odyssee/corps/suivi/"]').count(),
+    0,
+  );
+  const rendu = normaliser(
+    await page.evaluate(() => document.querySelector('main')?.innerText ?? ''),
+  );
+  v(
+    'et aucune mention de son existence',
+    ['suivi personnel', 'cycle', 'menstruel'].filter((mot) => new RegExp(mot, 'i').test(rendu)),
+    [],
   );
 }
 
@@ -246,22 +390,60 @@ console.log('\n6. AUCUNE COULEUR D’ALARME (RÈGLE 5)');
   );
 }
 
-console.log('\n7. TROIS APPUIS AU PLUS DEPUIS L’OUVERTURE DU MODULE (MAQUETTE 8.2)');
+/*
+   ══ RETOUR DANS LA PORTÉE ════════════════════════════════════════════════
+
+   La section 2 ter a refermé le coffre et remis la réponse à « Masculin »
+   pour mesurer l'accès sans condition. Les sections qui suivent mesurent le
+   MODULE, donc il faut repasser par le chemin d'une personne concernée :
+   ouvrir le coffre sur Corps, répondre « Féminin », puis aller au suivi.
+
+   C'est écrit en clair plutôt que caché dans un utilitaire : un essai dont on
+   ne voit pas dans quel état il place le site mesure autre chose que ce qu'il
+   annonce, et c'est ainsi qu'on croit avoir vérifié un cas qu'on n'a jamais
+   atteint.
+*/
+await aller('/odyssee/corps/', '#mdp-coffre');
+await page.fill('#mdp-coffre', MDP);
+await page.click('#ouvrir-coffre');
+await page.waitForSelector('#reponses-sexe', { state: 'visible', timeout: 20000 });
+await page.click('#reponses-sexe button[data-sexe="feminin"]');
+await page.waitForFunction(
+  () => document.getElementById('ligne-du-suivi')?.classList.contains('hidden') === false,
+  { timeout: 20000 },
+);
+await aller(PAGE, '#dans-la-portee');
+
+console.log('\n7. DEUX APPUIS DEPUIS L’OUVERTURE DU MODULE (MAQUETTE 8.2)');
 
 {
   /*
-     Les appuis sont comptés depuis l'arrivée sur l'écran, et le déverrouillage
-     du coffre en fait partie : la personne ne choisit pas de le faire.
+     LE COMPTE EST PASSÉ DE TROIS À DEUX, ET CE N'EST PAS UN GAIN.
+
+     Les appuis étaient comptés depuis l'arrivée sur l'écran, le
+     déverrouillage du coffre compris, parce que la personne ne choisit pas de
+     le faire :
        1. ouvrir le coffre
        2. activer le suivi
        3. choisir un niveau
-     Et une fois le suivi activé, il n'en reste qu'un.
+
+     Depuis la décision d'Alexis, cet écran ne peut plus proposer d'ouvrir le
+     coffre : hors de portée, il ne rend que la page neutre, et il est hors de
+     portée tant que la réponse n'a pas pu être lue — c'est-à-dire tant que le
+     coffre est fermé. Le déverrouillage a donc lieu AILLEURS, sur l'écran
+     Corps, où la question est posée. Il reste deux appuis ici, et un appui de
+     plus avant d'arriver.
+
+     Le `FormulaireCoffre` de cette page est devenu inatteignable. Il est
+     laissé en place parce qu'il redeviendrait le bon chemin si la condition
+     changeait, et parce que le retirer serait un changement de gabarit dont
+     personne n'a besoin aujourd'hui. Mais il faut le savoir : c'est du
+     gabarit qui ne sert plus, et la maquette 8.2 est tenue à deux appuis, pas
+     à trois.
   */
   let appuis = 0;
-  await page.fill('#mdp-coffre', MDP);
-  await page.click('#ouvrir-coffre');
-  appuis += 1;
-  await page.waitForSelector('#coffre-ouvert', { state: 'visible', timeout: 20000 });
+  faux('le formulaire du coffre n’est plus atteignable ici', await page.locator('#coffre-ferme').isVisible());
+  vrai('le coffre est déjà ouvert, depuis Corps', await page.locator('#coffre-ouvert').isVisible());
 
   vrai('le module s’annonce inactif', await page.locator('#bloc-inactif').isVisible());
   faux('et rien n’est saisissable', await page.locator('#bloc-actif').isVisible());
@@ -301,7 +483,7 @@ console.log('\n7. TROIS APPUIS AU PLUS DEPUIS L’OUVERTURE DU MODULE (MAQUETTE 
     { timeout: 20000 },
   );
 
-  v('trois appuis, pas plus', appuis, 3);
+  v('deux appuis, pas plus', appuis, 2);
   v(
     'la confirmation est neutre',
     normaliser(await page.textContent('#confirmation')),
@@ -378,7 +560,12 @@ console.log('\n8. LES CIBLES TACTILES ET LA DÉSACTIVATION');
     await page.getAttribute('#niveaux button[data-niveau="traces"]', 'aria-pressed'),
     'true',
   );
-  vrai('la section des signes est toujours là', await page.locator('#signes').isVisible());
+  /*
+     Les signes d'alerte ne sont plus sur cette page — ils ont la leur, sans
+     condition. Ce qui doit rester après une désactivation est le MODULE
+     atteignable, et c'est ce qui est mesuré juste au-dessus.
+  */
+  v('et les signes ne sont pas revenus ici', await page.locator('#signes').count(), 0);
 }
 
 console.log('\n9. L’EFFACEMENT PAR PÉRIODE EST UNE PURGE PHYSIQUE');
@@ -496,14 +683,112 @@ console.log('\n9. L’EFFACEMENT PAR PÉRIODE EST UNE PURGE PHYSIQUE');
   );
 }
 
-console.log('\n10. RIEN N’EST SORTI DU SITE');
+console.log('\n10. CHANGER DE RÉPONSE MASQUE, SANS RIEN EFFACER');
+
+{
+  /*
+     Point 5 de la décision d'Alexis : « Si une personne passe de "Féminin" à
+     une autre réponse, les données du cycle déjà saisies ne sont ni effacées
+     ni montrées. Le suivi est seulement masqué. »
+
+     C'est la promesse la plus facile à casser sans le voir : il suffirait
+     qu'un écran efface « pour faire propre », ou que le masquage passe par un
+     effacement du magasin. Elle se mesure donc dans la base, et en deux
+     temps : masquer, puis revenir, et retrouver la saisie.
+
+     La section 9 a effacé la saisie du jour ; on en refait une, d'un appui.
+  */
+  await page.click('#niveaux button[data-niveau="moyen"]');
+  await page.waitForFunction(
+    () =>
+      document.querySelector('#niveaux button[data-niveau="moyen"]')?.getAttribute('aria-pressed') ===
+      'true',
+    { timeout: 20000 },
+  );
+
+  const combien = () =>
+    page.evaluate(
+      () =>
+        new Promise((resolve, rejeter) => {
+          const demande = indexedDB.open('revinsp');
+          demande.onerror = () => rejeter(demande.error);
+          demande.onsuccess = () => {
+            const base = demande.result;
+            const tx = base.transaction('odysseeCycleJournal', 'readonly');
+            const compte = tx.objectStore('odysseeCycleJournal').count();
+            compte.onsuccess = () => {
+              resolve(compte.result);
+              base.close();
+            };
+            compte.onerror = () => rejeter(compte.error);
+          };
+        }),
+    );
+
+  v('une saisie existe', await combien(), 1);
+
+  /* On passe à « Masculin ». */
+  await aller('/odyssee/corps/', '#reponses-sexe');
+  await page.click('#reponses-sexe button[data-sexe="masculin"]');
+  await page.waitForFunction(
+    () => document.getElementById('ligne-du-suivi')?.classList.contains('hidden') === true,
+    { timeout: 20000 },
+  );
+  faux('la ligne de Corps disparaît', await page.locator('#ligne-du-suivi').isVisible());
+
+  await aller(PAGE, '#hors-portee');
+  vrai('et l’adresse directe ne montre plus rien', await page.locator('#hors-portee').isVisible());
+  faux('le suivi n’est pas rendu', await page.locator('#dans-la-portee').isVisible());
+  v('MAIS LA SAISIE EST TOUJOURS EN BASE', await combien(), 1);
+
+  /* Et effacer la réponse n'efface pas davantage. */
+  await aller('/odyssee/corps/', '#reponses-sexe');
+  await page.click('#effacer-sexe');
+  await page.waitForFunction(
+    () => document.getElementById('sexe-dit')?.textContent === 'Réponse effacée.',
+    { timeout: 20000 },
+  );
+  v('effacer la réponse n’efface pas la saisie', await combien(), 1);
+  faux('et ne montre rien', await page.locator('#ligne-du-suivi').isVisible());
+
+  /* On revient à « Féminin » : la saisie est retrouvée telle quelle. */
+  await page.click('#reponses-sexe button[data-sexe="feminin"]');
+  await page.waitForFunction(
+    () => document.getElementById('ligne-du-suivi')?.classList.contains('hidden') === false,
+    { timeout: 20000 },
+  );
+  await aller(PAGE, '#dans-la-portee');
+  v(
+    'et la saisie est retrouvée, au niveau où elle était',
+    await page.getAttribute('#niveaux button[data-niveau="moyen"]', 'aria-pressed'),
+    'true',
+  );
+
+  /*
+     COFFRE REFERMÉ : rien, même pour une réponse féminine. C'est le dernier
+     cas du point 2 — « ou coffre fermé (on ne peut pas savoir) ».
+  */
+  await aller('/odyssee/corps/', '#fermer-coffre');
+  await page.click('#fermer-coffre');
+  await page.waitForFunction(
+    () => document.getElementById('ligne-du-suivi')?.classList.contains('hidden') === true,
+    { timeout: 20000 },
+  );
+  faux('coffre refermé, la ligne disparaît', await page.locator('#ligne-du-suivi').isVisible());
+
+  await aller(PAGE, '#hors-portee');
+  vrai('et l’adresse directe redevient neutre', await page.locator('#hors-portee').isVisible());
+  faux('le suivi n’est pas rendu', await page.locator('#dans-la-portee').isVisible());
+}
+
+console.log('\n11. RIEN N’EST SORTI DU SITE');
 
 v('aucune requête hors du site', sorties, []);
 
 await nav.close();
 console.log(
   echecs === 0
-    ? '\n\x1b[32mTrois appuis, citations fidèles, aucune alarme, aucune sortie.\x1b[0m\n'
+    ? '\n\x1b[32mDeux appuis, visible pour la seule réponse féminine, citations fidèles, aucune sortie.\x1b[0m\n'
     : `\n\x1b[31m${echecs} en échec.\x1b[0m\n`,
 );
 process.exit(echecs === 0 ? 0 : 1);

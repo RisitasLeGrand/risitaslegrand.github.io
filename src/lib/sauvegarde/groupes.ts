@@ -275,6 +275,14 @@ export const CHAMP_DATE: Record<string, string | null> = {
   odysseeCycleJournal: null,
   odysseeCycleReglages: null,
   /*
+     Le sexe déclaré : `null`, et sans approximation. Un enregistrement unique
+     qui porte une réponse ne se découpe pas par période, et `majLe` reste
+     dans le scellé — pour la raison écrite plus haut à propos du journal, qui
+     vaut ici aussi : une date en clair sur un enregistrement unique dirait
+     quand la réponse a été donnée ou changée.
+  */
+  odysseeSexe: null,
+  /*
      `null` — « jamais découpé », et pour une fois ce n'est pas une
      approximation. Un report ne porte AUCUNE date : en mettre une en clair
      dirait qu'un geste a eu lieu ce jour-là (A-6, option D). Un pli ne se
@@ -473,6 +481,13 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
       */
       'odysseeCycleJournal',
       'odysseeCycleReglages',
+      /*
+         Le sexe déclaré s'efface avec Odyssée, et non dans un groupe à lui :
+         un groupe « Sexe déclaré » dans la liste des groupes nommerait la
+         chose à quiconque ouvre l'écran d'effacement, ce que la même
+         discrétion 4.8 interdit.
+      */
+      'odysseeSexe',
       'odysseeCheckins',
       'odysseeComptes',
       'odysseeValorisations',
@@ -541,6 +556,8 @@ const REFUS_PAR_DEFAUT =
  * décide d'effacer.
  */
 export const RAISONS_DU_REFUS_DE_DECOUPAGE: Record<string, string> = {
+  odysseeSexe:
+    'ce magasin porte une réponse courante et non un historique : une période ne le découpe pas',
   odysseeCycleJournal:
     'ce journal est scellé et ses clés sont des empreintes : aucune date n’y est lisible ' +
     'sans votre coffre, donc une période ne le découpe pas ici',

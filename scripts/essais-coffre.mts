@@ -132,7 +132,12 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    Le remonter de 27 à 29 n'affaiblit rien : l'exigence est qu'un magasin
    scellé ajouté ou retiré se déclare ici, et elle reste entière.
 */
-v('vingt-neuf magasins scellés', MAGASINS_SCELLES.length, 29);
+/*
+   Trente depuis `odysseeSexe`, le 19 octobre : décision d'Alexis, le suivi ne
+   s'affiche que pour un sexe féminin déclaré, ce qui demande d'enregistrer la
+   réponse — et de la sceller.
+*/
+v('trente magasins scellés', MAGASINS_SCELLES.length, 30);
 /*
    Le centre : l'identifiant ET le genre, pas un champ de plus.
 

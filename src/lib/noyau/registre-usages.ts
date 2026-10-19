@@ -158,16 +158,41 @@ export const USAGES: readonly UsageDeclare[] = [
     id: 'profil.question-cycle',
     rubrique: 'Profil',
     clesLues: ['sexe_physio'],
-    but: 'Décider si la question du suivi du cycle est posée d’office.',
-    effetVisible: 'La question apparaît au chapitre « Mon corps ».',
+    /*
+       CET USAGE A CHANGÉ DE NATURE LE 19 OCTOBRE, et il faut le dire ici
+       parce que le registre est ce qu'une personne lit pour savoir ce que
+       l'application fait de son sexe.
+
+       Il décidait si la question du suivi était posée **d'office** : le
+       module restait accessible autrement, « sous un libellé neutre ». C'est
+       ce que le prompt 30 prévoyait, et ce que son `siInconnu` promettait.
+
+       La décision d'Alexis du 19 octobre remplace cela : « Le cycle menstruel
+       ne doit s'afficher QUE pour les utilisateurs féminins. » L'usage est
+       donc devenu une **restriction** — il ne décide plus d'une question
+       posée plus ou moins tôt, il décide de l'existence visible du module.
+       Il n'y a plus de libellé neutre de repli, et l'écart avec le prompt 30
+       est consigné dans
+       `docs/cyclades/decisions-en-attente-cycle-2026-10-19.md`.
+
+       La règle est tenue par une seule fonction, `leSuiviEstVisible`
+       (`odyssee/sexe.ts`), que tous les écrans appellent : quatre conditions
+       recopiées à quatre endroits donneraient trois endroits justes et un
+       oublié, et l'oubli est celui qui montre.
+    */
+    but: 'Restreindre le suivi du cycle au sexe féminin déclaré.',
+    effetVisible:
+      'Le suivi n’apparaît que pour une personne de sexe féminin : ni la ligne de l’écran ' +
+      'Corps, ni l’écran du suivi, ni les signes d’alerte, ni aucun accès futur.',
     fondement: { type: 'regle-de-produit' },
     population: 'sans objet',
     defaut: 'actif',
     siInconnu:
-      'La question n’est pas posée d’office. Le module reste accessible depuis ' +
-      '« Modules disponibles », sous un libellé neutre.',
+      'Le suivi n’est ni proposé ni accessible. C’est le cas d’une réponse « Je préfère ne ' +
+      'pas répondre », d’une question jamais posée, et d’un coffre fermé — où la réponse ne ' +
+      'peut pas être lue.',
     deriveS2: false,
-    revuLe: '2026-10-14',
+    revuLe: '2026-10-19',
   },
   {
     id: 'sante.substances-majeur',

@@ -1,6 +1,6 @@
 ---
 /**
- * Suivi personnel — l'écran du module, et la liste des signes d'alerte.
+ * Suivi personnel — l'écran du module, derrière sa porte.
  *
  * ## Pourquoi cette adresse, et pourquoi ce titre
  *
@@ -17,12 +17,26 @@
  * que part la ligne vers ce module. Une racine à soi aurait remonté à Odyssée,
  * et aurait demandé une entrée dans `branches.ts`, qui n'est pas de ce lot.
  *
+ * ## Les signes d'alerte ne sont plus ici, et c'est pour qu'ils servent
+ *
+ * Ils y étaient, visibles coffre fermé et module désactivé : décision C, « à
+ * tout âge, sous tout statut, module même désactivé » — une information de
+ * sécurité qui attendrait qu'on active un module serait une information qu'on
+ * ne trouve pas le jour où elle sert.
+ *
+ * La décision d'Alexis du 19 octobre a mis une porte devant cet écran : le
+ * suivi n'apparaît que pour un sexe féminin déclaré, coffre ouvert. Les signes
+ * se seraient refermés avec le reste, y compris pour une personne de sexe
+ * féminin qui n'avait pas encore ouvert son coffre. Alexis a tranché pour
+ * l'option 2 vers 17 h 10 : ils ont leur **propre écran**,
+ * `/odyssee/corps/quand-consulter/`, sans aucune condition, et cette page-ci
+ * n'y renvoie même pas — un lien conditionnel se remarque.
+ *
  * ## Ce que l'écran montre module désactivé, et pourquoi
  *
- * La liste des signes d'alerte, et le bloc de recours. C'est la décision C :
- * ils partent « à tout âge, sous tout statut, module même désactivé ». Une
- * information de sécurité qui attendrait qu'on active un module serait une
- * information qu'on ne trouve pas le jour où elle sert.
+ * Le bloc de recours, et la possibilité d'activer. Rien de plus : une personne
+ * qui arrive ici est déjà, par construction, une personne à qui le suivi
+ * s'adresse.
  *
  * ## Ce que l'écran ne fait jamais
  *
@@ -39,16 +53,48 @@ import Base from '../../../layouts/Base.astro';
 import FormulaireCoffre from '../../../components/FormulaireCoffre.astro';
 import { chaineImposee } from '../../../lib/odyssee/chaines-du-suivi';
 import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/cycle';
-import {
-  COLLECTE_LE,
-  NIVEAUX,
-  PAGES_CITEES,
-} from '../../../lib/odyssee/cycle-signes-alerte';
 
 ---
 
 <Base titre="Suivi personnel" actif="corps" coffre>
   <div class="mx-auto max-w-3xl">
+    <!--
+         ══ LA PORTE : hors de portée, cette page ne montre rien ══════════
+
+         Décision d'Alexis du 19 octobre : le suivi n'apparaît que pour un sexe
+         féminin déclaré, et « l'adresse directe montre une page neutre, sans le
+         mot "cycle", qui renvoie vers Corps. Aucun libellé neutre de repli. »
+
+         CE BLOC EST RENDU, L'AUTRE EST MASQUÉ. C'est le sens qui compte : un
+         script qui échoue, un navigateur sans JavaScript, un rendu interrompu
+         laissent la page neutre. L'inverse aurait montré le suivi le temps
+         d'un battement, ce qui suffit à le révéler.
+
+         Ce bloc ne dit pas POURQUOI. Pas « ce suivi ne vous concerne pas »,
+         pas « réservé aux personnes de sexe féminin » : ce serait dire qu'il
+         existe quelque chose derrière. L'absence est muette, et
+         `raisonDeMasquer` (`odyssee/sexe.ts`) existe pour les essais, jamais
+         pour ici — un essai vérifie qu'aucun écran ne l'appelle.
+
+         Le titre de la page et son adresse disent « suivi personnel », et cela
+         reste : c'est le nom neutre choisi par la décision 20 précisément
+         parce qu'il ne révèle rien, et l'adresse le porte de toute façon. Ce
+         qu'Alexis interdit ici est le mot « cycle », qui n'y est pas.
+    -->
+    <div id="hors-portee">
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Suivi personnel</h1>
+      <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">
+        Rien à afficher sur cette page.
+      </p>
+      <a
+        href="/odyssee/corps/"
+        class="mt-4 inline-flex min-h-11 items-center font-medium text-indigo-700 underline underline-offset-4 dark:text-indigo-300"
+        >Revenir à Corps</a
+      >
+    </div>
+    <!-- ══ FIN HORS PORTÉE ═══════════════════════════════════════════════ -->
+
+    <div id="dans-la-portee" class="hidden">
     <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Suivi personnel</h1>
     <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
       {chaineImposee('mention.ouverture-module')}
@@ -211,79 +257,7 @@ import {
       <p id="erreur" class="mt-3 text-sm text-slate-600 dark:text-slate-300" role="status"></p>
     </section>
 
-    <!-- ══ Quand consulter — visible même module désactivé ════════════ -->
-    <section id="signes" class="mt-10 border-t border-slate-200 pt-6 dark:border-slate-700">
-      <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Quand consulter</h2>
-      <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
-        Les phrases ci-dessous sont citées telles quelles depuis les pages nommées en bas. Cyclades
-        n’en ajoute aucune et n’en déduit aucune de ce que vous saisissez.
-      </p>
-
-      {
-        NIVEAUX.map((niveau) => (
-          <div class="mt-6" data-niveau-alerte={niveau.id}>
-            <h3 class="font-semibold text-slate-800 dark:text-slate-100">{niveau.intitule}</h3>
-            {
-              niveau.groupes.map((groupe) => (
-                <div class="mt-3">
-                  {
-                    groupe.introduction && (
-                      <p class="text-sm text-slate-700 dark:text-slate-200">
-                        « {groupe.introduction.texte} »
-                        <span class="text-slate-500 dark:text-slate-400">
-                          {' '}(source {groupe.introduction.source})
-                        </span>
-                      </p>
-                    )
-                  }
-                  <ul class="mt-2 space-y-2">
-                    {
-                      groupe.items.map((item) => (
-                        <li class="text-sm text-slate-700 dark:text-slate-200">
-                          « {item.texte} »
-                          <span class="text-slate-500 dark:text-slate-400">
-                            {' '}(source {item.source})
-                          </span>
-                        </li>
-                      ))
-                    }
-                  </ul>
-                </div>
-              ))
-            }
-          </div>
-        ))
-      }
-
-      <!-- Règle 4 : source et date de chaque page, toujours visibles. -->
-      <div class="mt-8 rounded-lg bg-slate-50 p-4 text-sm dark:bg-slate-800">
-        <h3 class="font-medium text-slate-800 dark:text-slate-100">D’où viennent ces phrases</h3>
-        <ul class="mt-2 space-y-1 text-slate-600 dark:text-slate-300">
-          {
-            PAGES_CITEES.map((page) => (
-              <li>
-                Source {page.numero} — {page.site}, « {page.titre} », page mise à jour le{' '}
-                {page.misAJourLe}.{' '}
-                <a
-                  href={page.adresse}
-                  target="_blank"
-                  rel="noreferrer noopener"
-                  class="underline underline-offset-4"
-                >
-                  Ouvrir cette page
-                </a>{' '}
-                <span class="text-slate-500 dark:text-slate-400">
-                  — s’ouvre sur {page.site}.fr, hors de Cyclades.
-                </span>
-              </li>
-            ))
-          }
-        </ul>
-        <p class="mt-3 text-slate-600 dark:text-slate-300">
-          Relevé le {COLLECTE_LE}. {chaineImposee('orientation.cloture')}
-        </p>
-      </div>
-    </section>
+    </div>
   </div>
 </Base>
 
@@ -305,6 +279,7 @@ import {
     surCoffre,
   } from '../../../lib/coffre';
   import { jourLogique } from '../../../lib/noyau/jour-logique';
+  import { leSuiviEstVisibleMaintenant } from '../../../lib/odyssee/portee-du-suivi';
   import type { NiveauDeSaignement } from '../../../lib/odyssee/cycle';
 
   const $ = (id: string) => document.getElementById(id)!;
@@ -320,6 +295,25 @@ import {
   };
 
   async function peindre() {
+    /*
+       LA PORTE D'ABORD, ET AVANT TOUTE LECTURE.
+
+       `leSuiviEstVisibleMaintenant()` passe par la porte du registre des
+       usages (`odyssee/portee-du-suivi.ts`) : c'est un usage déclaré du sexe,
+       pas la lecture de son propre champ. Hors de portée, cette fonction
+       rend la main sans avoir lu ni les réglages du suivi, ni une saisie —
+       une page qui cache ce qu'elle vient de déchiffrer n'est pas une page
+       qui ne montre rien.
+
+       Le formulaire du coffre est masqué lui aussi : il appartient au bloc
+       `dans-la-portee`, donc le proposer reviendrait à dire qu'il y a quelque
+       chose à déverrouiller ici.
+    */
+    const dansLaPortee = await leSuiviEstVisibleMaintenant();
+    $('hors-portee').classList.toggle('hidden', dansLaPortee);
+    $('dans-la-portee').classList.toggle('hidden', !dansLaPortee);
+    if (!dansLaPortee) return;
+
     const ouvert = coffreOuvert();
     $('coffre-ferme').classList.toggle('hidden', ouvert);
     $('coffre-ouvert').classList.toggle('hidden', !ouvert);

@@ -53,7 +53,44 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       donne aussi à la page son parent logique : sous `/odyssee/corps/`, la
       flèche de retour ramène ici.
     -->
+    <!--
+         CETTE LIGNE EST MASQUÉE PAR DÉFAUT, et c'est le changement du
+         19 octobre.
+
+         Elle était visible de tous. Décision d'Alexis : le suivi n'apparaît
+         que pour un sexe féminin déclaré. Elle part donc `hidden` dans le HTML
+         rendu — donc masquée avant même que le script tourne, et masquée si le
+         script ne tourne pas — et `leSuiviEstVisibleMaintenant()` est seul à
+         pouvoir la montrer.
+
+         Ce sens-là est le bon : un défaut de rendu, un script qui échoue, un
+         navigateur sans JavaScript laissent la ligne cachée. L'inverse
+         l'aurait montrée à tout le monde pendant une fraction de seconde, ce
+         qui suffit.
+    -->
+    <!--
+         CETTE LIGNE-CI N'A AUCUNE CONDITION, et c'est le choix d'Alexis du
+         19 octobre vers 17 h 10 — l'option 2.
+
+         « Quand consulter » est la seule partie de ce domaine qui ne soit pas
+         du suivi : des repères sur le moment de voir quelqu'un, cités d'ameli.
+         La première version de la décision les masquait avec le reste, ce qui
+         retirait à tout le monde — y compris à une personne de sexe féminin
+         qui n'avait pas encore ouvert son coffre — la page utile au moment où
+         elle l'est le plus.
+
+         Elle est donc visible sans coffre, sans déclaration, pour tout le
+         monde. Son libellé ne nomme ni le cycle ni le suivi, et la page vers
+         laquelle elle mène ne porte aucun lien vers le suivi : son existence
+         ne dit donc rien de qui que ce soit.
+    -->
     <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+      <a href="/odyssee/corps/quand-consulter/" class="font-medium text-indigo-700 underline underline-offset-4 dark:text-indigo-300">Quand consulter</a>{' '}
+      rassemble des repères cités de l’Assurance maladie sur les situations qui
+      méritent un avis médical. Rien n’y est déduit de ce que vous saisissez.
+    </p>
+
+    <p id="ligne-du-suivi" class="mt-2 hidden max-w-2xl text-sm text-slate-500 dark:text-slate-400">
       Un <a href="/odyssee/corps/suivi/" class="font-medium text-indigo-700 underline underline-offset-4 dark:text-indigo-300">suivi personnel</a> existe aussi, sous coffre et désactivé tant que vous ne l’ouvrez pas.
       Il porte une saisie par jour, et des repères sur le moment de consulter.
     </p>
@@ -297,6 +334,44 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
         <!-- Le coffre ouvert -->
         <div id="coffre-ouvert" class="mt-4 hidden space-y-6">
+          <!--
+               LA QUESTION DU SEXE, sous coffre et nulle part ailleurs.
+
+               Elle est ici parce que le plan de phase 0 range ce champ dans
+               Odyssée > Corps, et parce que la réponse est scellée : la poser
+               dans le profil commun, en clair, aurait mis en clair ce que le
+               coffre protège.
+
+               Sa formulation ne nomme ni le cycle ni le suivi. Une question
+               qui dirait « pour savoir si le suivi du cycle vous concerne »
+               révélerait le module à qui répond « Masculin », c'est-à-dire
+               exactement à qui la décision d'Alexis veut qu'il reste
+               invisible.
+          -->
+          <div id="bloc-sexe">
+            <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Mon corps</h3>
+            <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+              Certains repères de santé dépendent du sexe. Vous pouvez répondre, ou
+              non : cette réponse reste dans votre coffre, et vous pouvez la changer
+              ou l’effacer quand vous voulez.
+            </p>
+            <div id="reponses-sexe" class="mt-2 flex flex-wrap gap-2">
+              <button type="button" data-sexe="feminin" aria-pressed="false"
+                class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm text-slate-700 aria-pressed:border-indigo-500 aria-pressed:bg-indigo-50 dark:border-slate-600 dark:text-slate-200 dark:aria-pressed:bg-indigo-950"
+                >Féminin</button>
+              <button type="button" data-sexe="masculin" aria-pressed="false"
+                class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm text-slate-700 aria-pressed:border-indigo-500 aria-pressed:bg-indigo-50 dark:border-slate-600 dark:text-slate-200 dark:aria-pressed:bg-indigo-950"
+                >Masculin</button>
+              <button type="button" data-sexe="sans-reponse" aria-pressed="false"
+                class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm text-slate-700 aria-pressed:border-indigo-500 aria-pressed:bg-indigo-50 dark:border-slate-600 dark:text-slate-200 dark:aria-pressed:bg-indigo-950"
+                >Je préfère ne pas répondre</button>
+            </div>
+            <p id="sexe-dit" class="mt-2 text-sm text-slate-600 dark:text-slate-300" role="status"></p>
+            <button id="effacer-sexe" type="button"
+              class="mt-1 hidden min-h-11 text-sm text-slate-500 underline underline-offset-4 dark:text-slate-400"
+              >Effacer cette réponse</button>
+          </div>
+
           <div>
             <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Ce que j’ai pris</h3>
             <div class="mt-2 flex flex-wrap items-end gap-3">
@@ -426,6 +501,9 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     surCoffre,
   } from '../../lib/coffre';
   import { rappelDeSauvegarde } from '../../lib/noyau/coffre';
+  import { ecrireLeSexe, effacerLeSexe, reponseAAfficher } from '../../lib/odyssee/donnees-sexe';
+  import { LIBELLES_DU_SEXE } from '../../lib/odyssee/sexe';
+  import { leSuiviEstVisibleMaintenant } from '../../lib/odyssee/portee-du-suivi';
   import { jourISO, lireDerniereSauvegarde } from '../../lib/db';
   import {
     NATURES,
@@ -859,11 +937,85 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     })();
   }
 
+  /* ── Le sexe déclaré, et la ligne qu'il ouvre ──────────────────────────── */
+
+  /*
+     DEUX CHOSES SÉPARÉES, et il faut qu'elles le restent.
+
+     `peindreLaReponse` montre à la personne ce qu'elle a répondu : elle lit le
+     magasin, parce que cet écran est celui qui POSSÈDE le champ.
+
+     `peindreLaLigneDuSuivi` décide si le suivi apparaît : elle passe par
+     `leSuiviEstVisibleMaintenant()`, donc par la porte du registre des usages,
+     parce que c'est un USAGE du sexe et non la lecture de son propre champ.
+     Les confondre aurait été plus court d'une ligne, et aurait fait de cet
+     écran un contournement de la porte.
+  */
+  async function peindreLaReponse() {
+    const reponse = await reponseAAfficher();
+    const connue = reponse !== 'pas-de-coffre' && reponse !== null;
+    for (const bouton of document.querySelectorAll<HTMLButtonElement>('#reponses-sexe button')) {
+      bouton.setAttribute('aria-pressed', String(connue && bouton.dataset.sexe === reponse));
+    }
+    $('effacer-sexe').classList.toggle('hidden', !connue);
+    $('sexe-dit').textContent = connue
+      ? `Votre réponse : ${LIBELLES_DU_SEXE[reponse as keyof typeof LIBELLES_DU_SEXE]}.`
+      : '';
+  }
+
+  async function peindreLaLigneDuSuivi() {
+    const visible = await leSuiviEstVisibleMaintenant();
+    $('ligne-du-suivi').classList.toggle('hidden', !visible);
+  }
+
+  for (const bouton of document.querySelectorAll<HTMLButtonElement>('#reponses-sexe button')) {
+    bouton.addEventListener('click', () => {
+      void (async () => {
+        try {
+          await ecrireLeSexe(bouton.dataset.sexe as 'feminin' | 'masculin' | 'sans-reponse');
+          await peindreLaReponse();
+          await peindreLaLigneDuSuivi();
+        } catch (e) {
+          $('sexe-dit').textContent = e instanceof Error ? e.message : String(e);
+        }
+      })();
+    });
+  }
+
+  $('effacer-sexe').addEventListener('click', () => {
+    void (async () => {
+      try {
+        /*
+           Effacer la réponse n'efface RIEN d'autre — point 5 de la décision
+           d'Alexis. Les saisies déjà faites ne sont ni effacées ni montrées :
+           le suivi est seulement masqué, et toute suppression reste un geste
+           explicite, par l'effacement par période de l'écran du suivi ou par
+           le groupe Odyssée de « Vos données ».
+        */
+        await effacerLeSexe();
+        await peindreLaReponse();
+        await peindreLaLigneDuSuivi();
+        $('sexe-dit').textContent = 'Réponse effacée.';
+      } catch (e) {
+        $('sexe-dit').textContent = e instanceof Error ? e.message : String(e);
+      }
+    })();
+  });
+
   function peindreCoffre() {
     const ouvert = coffreOuvert();
     $('coffre-ferme').classList.toggle('hidden', ouvert);
     $('coffre-ouvert').classList.toggle('hidden', !ouvert);
+    /*
+       La ligne du suivi se repeint dans les DEUX sens : ouvrir le coffre peut
+       la faire paraître, le refermer doit la faire disparaître. Un `return`
+       placé avant aurait laissé la ligne visible après « Refermer le coffre
+       maintenant », ce qui est exactement le cas que la décision point 2
+       nomme — coffre fermé, on ne peut pas savoir, donc rien.
+    */
+    void peindreLaLigneDuSuivi();
     if (!ouvert) return;
+    void peindreLaReponse();
 
     const liste = $('prises');
     liste.innerHTML = '';

@@ -277,7 +277,97 @@ période dans le module) et que son coût y est le même aussi.
 
 ---
 
-## 12. Ce qui n'attend rien, et ne doit pas se retrouver ici
+## 12. Le suivi ne s'affiche que pour un sexe féminin — **décision d'Alexis, appliquée**
+
+Décision d'Alexis du 19 octobre, vers 16 h UTC, relayée par le pilote :
+« Le cycle menstruel ne doit s'afficher QUE pour les utilisateurs féminins. »
+Elle est appliquée. Ce qui suit est l'écart avec le prompt 30, comme le demande
+son point 7, et les conséquences que l'application a fait apparaître.
+
+### Ce que le prompt 30 prévoyait, et qui ne vaut plus
+
+Le registre des usages portait, pour `profil.question-cycle`, un `siInconnu`
+qui disait : « La question n'est pas posée d'office. Le module reste accessible
+depuis "Modules disponibles", sous un libellé neutre. » Le module existait donc
+pour tout le monde, et seule la **question** était ou non posée d'office.
+
+Désormais le module n'existe visiblement que pour une réponse « Féminin », et
+il n'y a **aucun libellé neutre de repli** — ni ligne sur l'écran Corps, ni
+écran, ni signes d'alerte, ni entrée dans « Modules disponibles » quand cet
+écran sera construit. L'usage a changé de nature : il restreint au lieu
+d'ordonner une question.
+
+### Ce que cela a coûté, et qu'Alexis doit savoir
+
+1. **« Quand consulter » reste accessible sans condition — tranché.** La
+   première version de la décision nommait les signes d'alerte parmi ce qui est
+   masqué. Cela retirait à tout le monde la seule partie de ce domaine qui
+   n'est pas du suivi : une personne qui saigne beaucoup, ou qui a une douleur
+   qu'elle ne s'explique pas, lisait les trois niveaux et les quatre sources
+   ameli **sans rien déverrouiller ni rien déclarer** — et une personne de sexe
+   féminin qui n'avait pas encore ouvert son coffre n'aurait rien vu, au moment
+   où elle en aurait eu le plus besoin.
+
+   Alexis a tranché le 19 octobre vers 17 h 10 pour l'option 2 : le suivi reste
+   restreint, « Quand consulter » reste accessible **sans coffre, sans
+   déclaration, quel que soit le sexe**. Ces phrases ont donc leur propre
+   écran, `/odyssee/corps/quand-consulter/`, lié depuis Corps par une ligne
+   sans condition.
+
+   Deux exigences tirent en sens opposés, et les deux sont mesurées : la page
+   ne se referme jamais (aucun appel à la règle de visibilité, aucun coffre
+   demandé), et elle ne révèle rien — **aucun lien vers le suivi, pas même
+   conditionnel**, parce qu'un lien qui paraît pour certaines personnes et pas
+   pour d'autres est précisément ce qui se remarque quand on compare deux
+   écrans. Son intitulé, son adresse et son contenu ne nomment ni le cycle ni
+   le suivi.
+
+2. **L'écran du suivi ne peut plus proposer d'ouvrir le coffre.** Hors de
+   portée, il ne rend que la page neutre ; et il est hors de portée tant que la
+   réponse n'a pas pu être lue, c'est-à-dire tant que le coffre est fermé. Le
+   déverrouillage a donc lieu sur l'écran Corps, où la question est posée. Le
+   chemin de la maquette 8.2 est passé de trois appuis à deux depuis cet écran,
+   plus un appui avant d'y arriver. Le `FormulaireCoffre` de cette page est
+   devenu inatteignable ; il est laissé en place, et c'est dit en commentaire.
+
+3. **Le masquage est visuel, pas une absence.** Le HTML servi à
+   `/odyssee/corps/suivi/` contient le module entier quelle que soit la
+   réponse : le bloc est caché par une classe, il n'est pas absent. Quelqu'un
+   qui lit le source de la page le voit. Pour qu'il en soit autrement, il
+   faudrait que ce contenu ne soit pas rendu côté serveur mais injecté après la
+   décision — un autre chantier, et une décision à prendre. **Tant qu'elle
+   n'est pas prise, il ne faut pas dire que le module est invisible : il est
+   masqué.**
+
+4. **`intersexe_ou_autre` n'a pas de réponse.** `SexePhysio`
+   (`noyau/registre-usages.ts`) connaît trois valeurs physiologiques, dont
+   `intersexe_ou_autre`. Les trois réponses d'Alexis — « Féminin », « Masculin »,
+   « Je préfère ne pas répondre » — ne l'offrent pas. Une personne dans ce cas
+   répondra donc « Je préfère ne pas répondre », et le suivi lui sera masqué.
+   Je n'ai pas inventé une quatrième réponse qu'Alexis n'a pas demandée, et je
+   n'ai pas retiré `intersexe_ou_autre` du type, que d'autres modules utilisent
+   pour leurs populations. À lever ou à garder.
+
+### Ce qui est tenu, et par quoi
+
+- Une seule fonction décide : `leSuiviEstVisible` (`odyssee/sexe.ts`), pure,
+  mesurée en table de vérité par `essais:sexe`. Elle reçoit un `Contexte` de la
+  porte du registre des usages, donc l'usage est réellement exercé et **couper
+  cet usage masque** au lieu de débloquer.
+- Elle est écrite en liste blanche : seul `'femme'` ouvre. Un état nouveau, une
+  lecture qui échoue, un champ illisible tombent du côté fermé.
+- Le sens du défaut est dans le gabarit : la page neutre est rendue, le contenu
+  part caché. Un script qui échoue laisse la page neutre.
+- Le champ suit les règles du suivi, par consigne du pilote : scellé, `clairs:
+  ['id']`, hors de toute sauvegarde non chiffrée, aucun champ d'index en clair,
+  non journalisé, effacé avec le groupe Odyssée.
+- Changer de réponse ou l'effacer **ne touche aucune saisie** : mesuré dans la
+  base par `essais:suivi:navigateur`, et le sabotage qui élargit l'effacement
+  fait rougir deux lignes.
+
+---
+
+## 13. Ce qui n'attend rien, et ne doit pas se retrouver ici
 
 Par symétrie, et pour qu'on ne vienne pas chercher une décision là où il n'y en
 a pas :

@@ -17,11 +17,10 @@
  *
  * ## Ce qui n'est pas encore là
  *
- * `sexe`, `aUnCycle` et le statut hormonal appartiennent à Odyssée > Corps,
- * sous coffre et sous la matrice de permissions (A.3, B.2). Leur lecture
- * arrivera avec la phase qui les crée. En attendant, ce module rend
- * honnêtement `null` : **pas une valeur par défaut**, pas « homme », pas
- * « femme ». Les consommateurs reçoivent `inconnu`, et les écrans le disent.
+ * `aUnCycle` n'est stocké nulle part, et ce module rend donc honnêtement
+ * `null` pour lui : **pas une valeur par défaut**, pas « oui », pas « non ».
+ * Les consommateurs reçoivent `inconnu`, et les écrans le disent. `sexe` et le
+ * statut hormonal, eux, sont lus — sous coffre, voir plus bas.
  */
 import { champ } from './profil';
 import type { EtatDeLaPersonne } from './noyau/registre-usages';
@@ -72,17 +71,18 @@ const sansLeverSiFerme = async <T>(lire: () => Promise<T>, defaut: T): Promise<T
  * hormonal viennent d'**Odyssée > Corps, sous coffre** — c'est ce que la
  * phase 1 avait laissé à « la phase qui les crée », et c'est celle-ci.
  *
- * `sexe` reste `null`, et ce n'est pas un oubli : **aucun magasin du dépôt ne
- * le stocke**. Ni `profil.ts` ni `initialisation.ts` ne le déclarent, vérifié
- * ligne par ligne. Le plan de phase 0 le range dans Odyssée > Corps sous
- * coffre, mais la phase 1 n'a livré que les trois champs d'âge.
+ * `sexe` **est lu maintenant**, et il ne l'était pas il y a quelques heures.
+ * J'avais écrit ici qu'aucun magasin du dépôt ne le stockait — c'était exact,
+ * vérifié ligne par ligne, et la conséquence était que
+ * `profil.question-cycle` ne pouvait jamais être actif. La décision d'Alexis
+ * du 19 octobre a changé la question : le suivi du cycle ne s'affiche que pour
+ * un sexe féminin, ce qui demande de savoir, donc d'enregistrer. Le champ
+ * existe depuis (`odyssee/sexe.ts`, magasin `odysseeSexe`, schéma 38), rangé
+ * dans Odyssée > Corps et sous coffre comme le plan de phase 0 le prévoyait.
  *
- * La conséquence est visible et déjà prévue par le registre :
- * `profil.question-cycle` lit `sexe_physio`, donc la question du suivi n'est
- * **jamais posée d'office**. Son `siInconnu` dit exactement ce qui se passe
- * alors — « La question n'est pas posée d'office. Le module reste accessible
- * depuis "Modules disponibles", sous un libellé neutre. » Le module
- * fonctionne, il ne se propose pas tout seul.
+ * `profil.question-cycle` n'est donc plus un usage qui ne s'allume jamais :
+ * c'est une **restriction**, et son effet visible est que le suivi n'apparaît
+ * pas sans cette réponse.
  */
 export async function etatDeLaPersonne(): Promise<EtatDeLaPersonne> {
   const [annee, mois, majeur] = await Promise.all([
@@ -91,7 +91,7 @@ export async function etatDeLaPersonne(): Promise<EtatDeLaPersonne> {
     champ('majeurDeclare'),
   ]);
 
-  const [suiviActif, statut] = await Promise.all([
+  const [suiviActif, statut, sexeDeclare] = await Promise.all([
     sansLeverSiFerme(async () => {
       const { lireLesReglages } = await import('./odyssee/donnees-cycle');
       return (await lireLesReglages()).actif;
@@ -111,6 +111,24 @@ export async function etatDeLaPersonne(): Promise<EtatDeLaPersonne> {
       const dernier = [...courants].sort((a, b) => b.debut.localeCompare(a.debut))[0];
       return dernier.intitule || null;
     }, null),
+    /*
+       LE SEXE DÉCLARÉ, depuis le 19 octobre — décision d'Alexis.
+
+       Il est lu sous coffre, comme les deux au-dessus, et traduit en
+       `SexePhysio` pour le registre : `'sans-reponse'` devient `null`, parce
+       que c'est la vérité du point de vue d'un consommateur — personne ne
+       sait. Le refus lui-même reste dans le magasin, pour que la question ne
+       se repose pas, et il n'a pas à voyager jusqu'ici.
+
+       Coffre fermé rend `null`, donc `inconnu` pour les consommateurs. Ce
+       n'est pas un défaut de repli : c'est la décision point 2, « on ne peut
+       pas savoir », et `leSuiviEstVisible` la traite comme telle.
+    */
+    sansLeverSiFerme<import('./noyau/registre-usages').SexePhysio | null>(async () => {
+      const { lireLeSexe } = await import('./odyssee/donnees-sexe');
+      const { versSexePhysio } = await import('./odyssee/sexe');
+      return versSexePhysio(await lireLeSexe());
+    }, null),
   ]);
 
   return {
@@ -120,6 +138,7 @@ export async function etatDeLaPersonne(): Promise<EtatDeLaPersonne> {
       naissanceMois: entier(mois?.valeur),
       majeurDeclare: booleen(majeur?.valeur),
     },
+    sexe: sexeDeclare,
     suiviCycleActif: suiviActif,
     statutHormonal: statut,
   };

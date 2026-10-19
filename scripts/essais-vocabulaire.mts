@@ -365,10 +365,35 @@ const SURFACE_DU_SUIVI: readonly string[] = [
   'src/lib/odyssee/cycle-signes-alerte.ts',
   'src/lib/odyssee/donnees-cycle.ts',
   'src/pages/odyssee/corps/suivi.astro',
+  /*
+     Les quatre arrivées du 19 octobre.
+
+     `quand-consulter.astro` porte les signes d'alerte, qui ont quitté l'écran
+     du suivi quand Alexis a décidé qu'ils restaient accessibles sans
+     condition. Les trois autres viennent du champ `sexe`, dont la réponse
+     décide si le suivi est montré.
+
+     Deux d'entre eux n'affichent rien — `donnees-sexe.ts` et
+     `portee-du-suivi.ts`. Ils sont balayés quand même, et c'est délibéré :
+     la règle « tout fichier du module est balayé » se tient d'elle-même,
+     alors que « tout fichier du module qui affiche quelque chose » demande de
+     juger, et c'est en jugeant qu'on laisse passer. Le balayage ne coûte
+     rien sur un fichier sans chaîne affichable.
+
+     CE QUI M'A FAIT LES AJOUTER : la nouvelle page était verte, et elle
+     n'était pas mesurée. Le détecteur ci-dessous ne reconnaissait pas son
+     nom, donc le contrôle « aucun fichier du suivi n'échappe » ne la
+     réclamait pas. Un garde-fou qui ne connaît pas un nom ne garde pas ce
+     nom, et il ne le dit pas.
+  */
+  'src/pages/odyssee/corps/quand-consulter.astro',
+  'src/lib/odyssee/sexe.ts',
+  'src/lib/odyssee/donnees-sexe.ts',
+  'src/lib/odyssee/portee-du-suivi.ts',
 ];
 
 const designeLeSuivi = (chemin: string) =>
-  /chaines-du-suivi|suivi-personnel|odyssee\/(donnees-)?cycle(-|\.)|odyssee\/corps\/suivi\./.test(
+  /chaines-du-suivi|suivi-personnel|odyssee\/(donnees-)?cycle(-|\.)|odyssee\/corps\/(suivi|quand-consulter)\.|odyssee\/(donnees-)?sexe\.|odyssee\/portee-du-suivi\./.test(
     chemin,
   );
 const oublies = tousLesFichiers

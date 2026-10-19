@@ -460,10 +460,31 @@ console.log('\n8. UNE SAUVEGARDE NON CHIFFRÉE N’EMPORTE PAS LE SUIVI');
    fichier » existe, et son propre avertissement dit que le fichier sera
    « lisible par quiconque l'ouvre ».
 */
+/*
+   LA LISTE DES EXCLUS EN CLAIR CONTIENT LES MAGASINS DU SUIVI, et depuis le
+   19 octobre elle en contient un de plus : `odysseeSexe`.
+
+   L'égalité stricte que cet essai affirmait d'abord était la bonne garde tant
+   que le suivi était seul concerné. Le pilote a posé que le champ `sexe` suit
+   les mêmes règles — sous coffre, hors sauvegarde non chiffrée, aucun champ
+   d'index en clair qui le révèle —, donc la liste est strictement plus grande.
+
+   L'exigence reste entière, et elle est écrite dans les deux sens : aucun
+   magasin du suivi ne manque à la liste (sinon il partirait en clair), et
+   aucun magasin n'y entre sans être nommé ici (sinon il disparaîtrait des
+   sauvegardes sans que personne l'ait voulu). `essais:sexe` garde la même
+   chose pour `odysseeSexe`, de son côté.
+*/
+const ATTENDUS_HORS_CLAIR = [...NOMS_DES_MAGASINS_DU_CYCLE, 'odysseeSexe'].sort();
 v(
-  'la liste des exclus en clair est celle des magasins du suivi',
+  'la liste des exclus en clair est celle du suivi et du sexe déclaré',
   [...MAGASINS_HORS_SAUVEGARDE_EN_CLAIR].sort(),
-  [...NOMS_DES_MAGASINS_DU_CYCLE].sort(),
+  ATTENDUS_HORS_CLAIR,
+);
+v(
+  'et aucun magasin du suivi n’y manque',
+  NOMS_DES_MAGASINS_DU_CYCLE.filter((nom) => !MAGASINS_HORS_SAUVEGARDE_EN_CLAIR.includes(nom)),
+  [],
 );
 const enClair = magasinsDUneSauvegarde(false);
 const chiffree = magasinsDUneSauvegarde(true);
@@ -474,7 +495,7 @@ for (const nom of NOMS_DES_MAGASINS_DU_CYCLE) {
 v(
   'et rien d’autre ne disparaît au passage',
   MAGASINS_SAUVEGARDES.length - enClair.length,
-  NOMS_DES_MAGASINS_DU_CYCLE.length,
+  ATTENDUS_HORS_CLAIR.length,
 );
 
 /*
