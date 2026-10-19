@@ -38,8 +38,63 @@ const ADRESSE = process.env.RACINE ?? 'http://localhost:4321';
 const DELAI_MS = Number(process.env.BATTERIE_DELAI_MS ?? 500_000);
 
 const scripts = JSON.parse(readFileSync('package.json', 'utf8')).scripts ?? {};
+
+/**
+ * LE SOCLE — les essais transversaux, à passer avant chaque poussée.
+ *
+ * La batterie complète demande une demi-heure quand elle se reprend, et
+ * quatre heures quand elle repart de zéro. La faire tourner avant chaque
+ * poussée coûterait plus que ce qu'elle garde : elle se lance donc à la fin
+ * de chaque prompt, avant chaque fusion de branche et avant le lancement des
+ * agents. Entre deux, c'est ce socle, avec « astro check » et les essais du
+ * périmètre touché.
+ *
+ * Le socle ne remplace pas la batterie : il attrape ce qu'une modification
+ * locale casse AILLEURS, et c'est le seul genre de dégât qu'on ne voit pas
+ * en relisant son propre diff. Chaque ligne porte donc ce qu'elle garde, et
+ * la liste se lit — elle ne s'allonge pas par réflexe.
+ */
+const SOCLE = [
+  ['essais:structure', 'un titre de niveau 1 par écran, un titre d’onglet unique'],
+  ['essais:espaces', 'aucun mot collé à une balise en ligne, dans le site construit'],
+  ['essais:mots-colles:navigateur', 'les mêmes, mesurés dans la page vivante'],
+  ['essais:typographie', 'apostrophes, espaces insécables, accords sans « (s) »'],
+  ['essais:accessibilite:navigateur', 'rôles, noms accessibles, ordre de tabulation'],
+  ['essais:mobile:navigateur', '360 px : aucun débordement, cibles atteignables'],
+  ['essais:mouvement-reduit', 'le réglage d’animations existe, et il est respecté'],
+  ['essais:themes-navigateur', 'les quatorze thèmes s’appliquent pour de vrai'],
+  ['essais:themes-a-jour', 'le catalogue et les feuilles engendrées concordent'],
+  ['essais:contrastes-themes', 'WCAG AA dans chaque thème'],
+  ['essais:couleurs-jetons', 'aucune couleur littérale hors des jetons'],
+  ['essais:theme-menus', 'aucun menu hors palette, et refus de juger à vide'],
+  ['essais:coffre-ferme', 'coffre fermé, rien de sensible n’apparaît'],
+  ['essais:echecs-dits', 'un échec est dit, jamais avalé'],
+  ['essais:refus-dit', 'un mot de passe de coffre refusé est dit, sur chaque page'],
+  ['essais:carte-ecrans', 'aucun écran orphelin, aucun au-delà de trois appuis'],
+];
+
+const SOCLE_SEUL = process.argv.includes('--socle');
+
 /* Tout ce qui commence par « essais » : la liste ne se tient pas à la main. */
-const noms = Object.keys(scripts).filter((n) => n.startsWith('essais'));
+const tous = Object.keys(scripts).filter((n) => n.startsWith('essais'));
+const noms = SOCLE_SEUL ? SOCLE.map(([n]) => n) : tous;
+
+if (SOCLE_SEUL) {
+  /*
+     Un nom du socle qui n'existe plus doit arrêter la commande, et non
+     disparaître du passage : un socle qui rétrécit en silence ne garde plus
+     ce qu'il annonce.
+  */
+  const inconnus = noms.filter((n) => !(n in scripts));
+  if (inconnus.length > 0) {
+    console.error(
+      `✗ REFUS — le socle nomme des essais qui n’existent pas : ${inconnus.join(', ')}.\n` +
+        '  Un essai renommé se renomme aussi dans le socle ; un essai retiré se retire\n' +
+        '  du socle avec la raison de son retrait.',
+    );
+    process.exit(1);
+  }
+}
 
 if (noms.length === 0) {
   console.error('✗ PANNE — aucun essai trouvé dans package.json.');

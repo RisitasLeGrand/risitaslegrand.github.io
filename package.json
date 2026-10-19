@@ -18,6 +18,7 @@
     "actualites:publier": "node scripts/publier-actualites.mjs",
     "verifier": "astro check",
     "batterie": "node scripts/batterie.mjs",
+    "socle": "node scripts/batterie.mjs --socle",
     "essais:relationnel": "tsx scripts/essais-relationnel.mts",
     "essais:srs": "tsx scripts/essais-srs.mts",
     "essais:niveau": "tsx scripts/essais-niveau.mts",
