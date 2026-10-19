@@ -2,6 +2,16 @@
 
 **Établi le 19 octobre 2026, branche `claude/p48-49`.**
 
+## Le défaut antérieur au prompt, corrigé au passage
+
+Le quota du tirage était calculé sur la banque entière et non sur les questions
+servables. Une rubrique dont le stock servable tombait sous son quota rendait
+une session plus courte que le format annoncé, sans rien dire. Le quota porte
+désormais sur les servables.
+
+Il ne produisait aucune erreur, seulement un écran vraisemblable : c'est
+pourquoi il a survécu aux relectures. Il se mesure, il ne se relit pas.
+
 ## Ce qui est en place
 
 L'écran de l'épreuve DGFiP se passe comme le concours : sujet entier sur une
@@ -26,13 +36,6 @@ n'est pas chargeable sous Node, donc rien de ce qu'il contenait n'était
 éprouvable hors navigateur. Les deux noms restent réexportés depuis `qcm.ts`,
 aucun appelant ne change — mais le commit sur `qcm.ts` est un déplacement et non
 un ajout, et c'est à savoir à la fusion.
-
-## Un défaut antérieur au prompt, corrigé au passage
-
-Le quota du tirage était calculé sur la banque entière et non sur les questions
-servables. Une rubrique dont le stock servable tombait sous son quota rendait
-une session plus courte que le format annoncé, sans rien dire. Le quota porte
-désormais sur les servables.
 
 ## Les deux situations que le tableau du prompt ne tranche pas
 
@@ -98,3 +101,9 @@ le jour où la banque changera, avec ses deux essais.
 C'est une limite de contenu et non de code. Les quotas ne bougent pas : ils
 reproduisent le sujet réel. Ce qui manque, ce sont des questions dans ces quatre
 rubriques.
+
+**Pour fiches-insp** : écrire des questions à quatre propositions en
+Environnement administratif et financier, Union européenne, Culture numérique et
+Anglais — ces quatre rubriques n'en comptent que 10, 10, 10 et 5, soit
+exactement le quota de la catégorie A, ce qui fige trente-cinq des quarante-cinq
+questions de chaque épreuve.
