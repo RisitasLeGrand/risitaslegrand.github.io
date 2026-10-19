@@ -139,6 +139,7 @@
     "essais:sport": "tsx scripts/essais-sport.mts",
     "essais:modeles-sport": "tsx scripts/essais-modeles-sport.mts",
     "essais:copie-modele": "tsx scripts/essais-copie-modele.mts",
+    "essais:modeles:navigateur": "node scripts/essais-modeles-navigateur.mjs",
     "essais:copie-concours": "tsx scripts/essais-copie-concours.mts",
     "essais:sport:navigateur": "node scripts/essais-sport-navigateur.mjs",
     "essais:corps": "tsx scripts/essais-corps.mts",

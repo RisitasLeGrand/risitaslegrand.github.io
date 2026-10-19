@@ -12,7 +12,30 @@
  * liste de ce qu'on a fait.
  */
 import Base from '../../layouts/Base.astro';
-import { MUSCLES } from '../../lib/sport/modele';
+import { COEFFICIENT_SECONDAIRE, MUSCLES } from '../../lib/sport/modele';
+import {
+  DELOAD,
+  MODELES_DE_PROGRAMMES,
+  PROGRESSION,
+} from '../../lib/sport/modeles-programmes';
+import { insecables } from '../../lib/typographie';
+
+/**
+ * La durée d'une séance, telle que le dossier la calcule.
+ *
+ * Les sept modèles vont de 29 à 63 minutes hors échauffement, et c'est
+ * affiché tel quel (décision 15) : pas de version courte pour l'instant.
+ */
+const duree = (minutes: number[]): string => {
+  const bas = Math.min(...minutes);
+  const haut = Math.max(...minutes);
+  return bas === haut ? `${bas} min par séance` : `de ${bas} à ${haut} min par séance`;
+};
+
+const lieu = (ou: 'salle' | 'maison'): string => (ou === 'salle' ? 'En salle' : 'À la maison');
+
+/** « 0,5 », et non « 0.5 » : la virgule décimale est française. */
+const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
 ---
 
 <Base titre="Programmes" actif="programmes">
@@ -40,6 +63,140 @@ import { MUSCLES } from '../../lib/sport/modele';
           Aucun programme. Un entraînement sans programme reste un entraînement — celui-ci sert à
           voir les trous, pas à autoriser les séances.
         </p>
+      </section>
+
+      <!--
+        PARTIR D'UN MODÈLE — rendu à la construction.
+
+        Les sept cartes sont du DOM servi, et non peint au chargement : le
+        catalogue ne dépend de rien de personnel, et un écran qui se remplit
+        sous les yeux coûte un saut de mise en page pour rien. Seuls les
+        boutons ont besoin du script.
+
+        Les textes passent par « insecables » : ils viennent d'un dossier
+        rédigé en Markdown, où les espaces devant « : » et « ; » sont des
+        espaces ordinaires.
+      -->
+      <section id="modeles">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Partir d’un modèle</h2>
+        <p class="mt-1 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
+          Sept modèles tirés d’un dossier de recherche. Choisir l’un d’eux en fait une
+          <strong>copie à vous</strong>, modifiable, qui ne devient pas votre programme suivi
+          tant que vous ne le demandez pas. Aucune valeur n’est une obligation.
+        </p>
+
+        <div class="mt-4 grid gap-4 lg:grid-cols-2">
+          {
+            MODELES_DE_PROGRAMMES.map((modele) => (
+              <article
+                id={`modele-${modele.cle}`}
+                data-modele={modele.cle}
+                class="flex flex-col rounded-2xl border border-slate-200 bg-white p-4 dark:border-slate-800 dark:bg-slate-950"
+              >
+                <div class="flex flex-wrap items-start justify-between gap-2">
+                  <h3 class="text-base font-semibold text-slate-900 dark:text-white">
+                    {insecables(modele.nom)}
+                  </h3>
+                  {modele.propose && (
+                    <span class="shrink-0 rounded-full bg-indigo-100 px-2.5 py-0.5 text-xs font-medium text-indigo-800 dark:bg-indigo-950 dark:text-indigo-200">
+                      {modele.propose}
+                    </span>
+                  )}
+                </div>
+
+                <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+                  {modele.parSemaine} séances par semaine · {duree(modele.seances.map((s) => s.minutes))}
+                  {' · '}
+                  {lieu(modele.equipement)}
+                </p>
+
+                <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+                  {insecables(modele.pourQui)}
+                </p>
+
+                {modele.avertissements.length > 0 && (
+                  <p class="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
+                    <span class="font-medium">À savoir</span> : {insecables(modele.avertissements.join(' ; '))}.
+                  </p>
+                )}
+
+                <!--
+                  « details » plutôt qu'un volet à la main : l'élément natif
+                  apporte le clavier, le rôle et l'annonce d'état sans une
+                  ligne de script.
+                -->
+                <details class="mt-3 text-sm">
+                  <summary class="cible-tactile cursor-pointer text-indigo-700 dark:text-indigo-300">
+                    Pourquoi ces valeurs
+                  </summary>
+                  <div class="mt-2 space-y-2 text-xs text-slate-600 dark:text-slate-300">
+                    <p>
+                      <span class="font-medium text-slate-900 dark:text-white">
+                        Ce que disent les sources
+                      </span>{' '}
+                      {insecables(modele.sources)}
+                    </p>
+                    <p>
+                      <span class="font-medium text-slate-900 dark:text-white">Limites</span>{' '}
+                      {insecables(modele.limites)}
+                    </p>
+                    <p>
+                      <span class="font-medium text-slate-900 dark:text-white">
+                        Les muscles de chaque exercice
+                      </span>{' '}
+                      viennent de votre bibliothèque, et non du dossier : son classement a été
+                      écrit sans y avoir accès. Les cibles de la copie sont donc
+                      <strong> recalculées</strong>, et l’écart avec le dossier est consigné plutôt
+                      que rattrapé en silence. {insecables(modele.sensibilite)}
+                    </p>
+                    <p>
+                      <span class="font-medium text-slate-900 dark:text-white">Progression</span>{' '}
+                      {insecables(PROGRESSION.join(' '))} C’est de la pratique de terrain, qu’aucune
+                      étude lue ne démontre.
+                    </p>
+                    <p>
+                      <span class="font-medium text-slate-900 dark:text-white">Déload</span>{' '}
+                      {insecables(DELOAD.join(' '))} Pratique d’entraîneurs, non démontrée : vous
+                      pouvez le refuser.
+                    </p>
+                    <p>
+                      <span class="font-medium text-slate-900 dark:text-white">Le coefficient</span>{' '}
+                      des muscles secondaires est de {coefficient} série. Le dossier note une
+                      estimation exploratoire autour de 0,32, et le dit discutable ; aucune cible ne
+                      repose sur elle seule.
+                    </p>
+                    <p>
+                      Dossier de recherche du 18 octobre 2026, découpage {modele.decoupage}. Les
+                      valeurs y sont des fourchettes et des options, jamais des obligations.
+                    </p>
+                  </div>
+                </details>
+
+                <div class="mt-4 flex flex-wrap items-center gap-3">
+                  <button
+                    type="button"
+                    data-utiliser={modele.cle}
+                    class="cible-tactile-pleine rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
+                  >
+                    Utiliser ce modèle
+                  </button>
+                </div>
+
+                <!--
+                  Le compte rendu de la copie, et ses échecs. « role=status »
+                  pour que le lecteur d'écran l'annonce sans voler le focus :
+                  la personne vient d'appuyer, elle sait où elle est.
+                -->
+                <p
+                  id={`etat-modele-${modele.cle}`}
+                  role="status"
+                  aria-live="polite"
+                  class="mt-2 hidden text-sm"
+                ></p>
+              </article>
+            ))
+          }
+        </div>
       </section>
 
       <!-- L'éditeur, caché tant qu'on n'édite rien -->
@@ -181,13 +338,24 @@ import { MUSCLES } from '../../lib/sport/modele';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
   import {
+    BIBLIOTHEQUE,
+    ecrireExercice,
+    installerBibliotheque,
     ecrireProgramme,
     supprimerProgramme,
     tousLesExercices,
     tousLesProgrammes,
     toutesLesSeancesSport,
   } from '../../lib/sport/donnees';
-  import { libelleDuMuscle, volumeParMuscle, type Exercice, type Serie } from '../../lib/sport/modele';
+  import {
+    identiteDeComparaison,
+    libelleDuMuscle,
+    volumeParMuscle,
+    type Exercice,
+    type Serie,
+  } from '../../lib/sport/modele';
+  import { modeleParCle } from '../../lib/sport/modeles-programmes';
+  import { preparerLaCopie } from '../../lib/sport/copie-de-modele';
   import {
     comparerVolumes,
     musclesAbsents,
@@ -474,6 +642,30 @@ import { MUSCLES } from '../../lib/sport/modele';
         void supprimerProgramme(programme.id).then(recharger);
       });
       actions.append(modifier, effacer);
+
+      /*
+         « En faire mon programme actif » — et rien d'automatique.
+
+         Une copie de modèle arrive inactive : le programme que l'on suit ne
+         change que par ce geste. `ecrireProgramme` éteint les autres, et les
+         garde enregistrés — on ne perd pas celui qu'on quitte.
+
+         Le bouton ne s'affiche pas sur le programme déjà suivi : proposer de
+         rendre actif ce qui l'est serait un bouton qui ne fait rien.
+      */
+      if (!programme.actif) {
+        const activer = document.createElement('button');
+        activer.type = 'button';
+        activer.className = 'text-xs text-indigo-700 underline dark:text-indigo-300';
+        activer.textContent = 'En faire mon programme actif';
+        activer.addEventListener('click', (evenement) => {
+          void unSeulGeste(evenement.currentTarget as Element, async () => {
+            await ecrireProgramme({ ...programme, actif: true });
+            await recharger();
+          });
+        });
+        actions.appendChild(activer);
+      }
       carte.appendChild(actions);
       zone.appendChild(carte);
     }
@@ -581,6 +773,111 @@ import { MUSCLES } from '../../lib/sport/modele';
         'Aucun programme suivi : la colonne « prévu » reste vide.';
   }
 
+  /* ── Partir d'un modèle ────────────────────────────────────────────────── */
+
+  /**
+   * Crée une copie du modèle, après avoir ajouté ce qui manque à la
+   * bibliothèque.
+   *
+   * ## Deux passes, et pourquoi
+   *
+   * `preparerLaCopie` refuse de rendre un programme tant qu'un exercice du
+   * modèle manque : calculer les cibles sans lui donnerait des nombres faux
+   * et plausibles — un modèle Maison sans les pompes afficherait des
+   * pectoraux à zéro. On crée donc ce qui manque, on relit la bibliothèque,
+   * et on redemande.
+   *
+   * Quelqu'un qui a ouvert Sport avant ce lot a trente et un exercices et non
+   * trente-huit : les sept de la maison lui manquent, et c'est le cas
+   * ordinaire, pas le cas limite.
+   *
+   * ## Sans doublon
+   *
+   * L'appariement se fait sur l'identité de comparaison — nom, équipement,
+   * variante, normalisés —, jamais sur le nom seul. C'est ce qui évite de
+   * créer un second « Hip thrust » à côté de celui qui porte déjà une
+   * progression.
+   */
+  async function utiliserLeModele(cle: string) {
+    const modele = modeleParCle(cle);
+    const zone = document.getElementById(`etat-modele-${cle}`);
+    if (!modele || !zone) return;
+
+    const dire = (texte: string, erreur = false) => {
+      zone.textContent = texte;
+      zone.className = erreur
+        ? 'mt-2 text-sm text-rose-700 dark:text-rose-300'
+        : 'mt-2 text-sm text-emerald-700 dark:text-emerald-300';
+    };
+
+    try {
+      /*
+         POSER LA BIBLIOTHÈQUE ENTIÈRE D'ABORD, s'il n'y en a pas.
+
+         `installerBibliotheque` ne pose qu'un magasin **vide** — à dessein :
+         quelqu'un qui a supprimé un exercice livré ne doit pas le voir
+         revenir. Mais la conséquence se retourne contre nous ici : si la
+         copie créait d'abord les vingt et un exercices de son modèle, le
+         magasin cesserait d'être vide, et les dix-sept autres ne seraient
+         plus jamais posés. Quelqu'un qui entre dans Sport par un modèle
+         plutôt que par « Mes exercices » se retrouverait avec une
+         bibliothèque amputée, sans que rien ne le dise.
+      */
+      if (await installerBibliotheque()) exercices = await tousLesExercices();
+
+      let copie = preparerLaCopie(modele, exercices);
+      const ajoutes: string[] = [];
+
+      if (!copie.pret) {
+        for (const { identite } of copie.aCreer) {
+          const livre = BIBLIOTHEQUE.find(
+            (e) => identiteDeComparaison(e) === identiteDeComparaison(identite),
+          );
+          /*
+             Un exercice que la bibliothèque livrée ne connaît pas serait une
+             faute de transcription, pas une situation à rattraper en
+             inventant un exercice au nom approximatif. On le dit.
+          */
+          if (!livre) continue;
+          await ecrireExercice({ ...livre, fourni: true });
+          ajoutes.push(livre.nom);
+        }
+        exercices = await tousLesExercices();
+        copie = preparerLaCopie(modele, exercices);
+      }
+
+      if (!copie.pret) {
+        dire(
+          'Ce modèle n’a pas pu être copié : ' +
+            `${copie.aCreer.length} de ses exercices sont introuvables dans la bibliothèque livrée. ` +
+            'Rien n’a été enregistré.',
+          true,
+        );
+        return;
+      }
+
+      await ecrireProgramme(copie.programme);
+      await recharger();
+
+      const quoi = ajoutes.length
+        ? ` ${ajoutes.length === 1 ? 'Un exercice a été ajouté' : `${ajoutes.length} exercices ont été ajoutés`} à votre bibliothèque : ${ajoutes.join(', ')}.`
+        : '';
+      dire(
+        `« ${copie.programme.nom} » a été créé.${quoi} Il n’est pas votre programme suivi : ` +
+          'le bouton « En faire mon programme actif » est sur sa carte, plus haut.',
+      );
+    } catch (erreur) {
+      /*
+         Un échec est dit, jamais avalé : écrire dans la base peut échouer
+         (quota, coffre refermé), et une copie qui n'existe pas doit se voir.
+      */
+      dire(
+        `Ce modèle n’a pas pu être copié : ${erreur instanceof Error ? erreur.message : String(erreur)}`,
+        true,
+      );
+    }
+  }
+
   async function recharger() {
     [exercices, programmes] = await Promise.all([tousLesExercices(), tousLesProgrammes()]);
     programmes.sort((a, b) => Number(b.actif) - Number(a.actif) || a.nom.localeCompare(b.nom, 'fr'));
@@ -596,6 +893,18 @@ import { MUSCLES } from '../../lib/sport/modele';
         ouvrirEditeur(actif ?? null);
       });
       $('annuler').addEventListener('click', fermerEditeur);
+      /*
+         Un appui, une copie — M6 du prompt 41. Sans `unSeulGeste`, deux
+         appuis rapprochés créent deux programmes, chacun avec son
+         identifiant neuf, et rien ne les distingue.
+      */
+      for (const bouton of document.querySelectorAll<HTMLButtonElement>('[data-utiliser]')) {
+        bouton.addEventListener('click', (evenement) => {
+          void unSeulGeste(evenement.currentTarget as Element, () =>
+            utiliserLeModele(bouton.dataset.utiliser!),
+          );
+        });
+      }
       $('ajouter-seance').addEventListener('click', () => {
         if (!brouillon) return;
         brouillon.seances.push(seanceNeuve(brouillon.seances.length + 1));
