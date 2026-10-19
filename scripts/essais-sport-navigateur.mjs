@@ -256,15 +256,12 @@ v(
    revanche une anomalie de l'écran, et elle est consignée comme telle.)
 */
 /*
-   Et il faut ATTENDRE LE REPOS avant de le créer : « unSeulGeste » (A1 du 43)
-   ignore un second geste sur le même formulaire dans les 600 ms qui suivent
-   un geste abouti. Le script enchaînait les deux créations en moins de
-   300 ms — ce qu'aucune main ne fait —, la seconde soumission était donc
-   prise pour un rebond de pouce et ignorée, à juste titre. Mesuré : le clic
-   et l'événement « submit » avaient bien lieu sans que rien ne s'écrive, et
-   un second clic, quinze secondes plus tard, écrivait.
+   Le repos du geste ne gêne plus cette seconde création : depuis le 19/10, il
+   est indexé par le contrôle ET par les données, et ce second exercice ne
+   porte ni le même nom ni le même muscle que le premier. Avant ce correctif,
+   la soumission était écartée en silence — le clic avait lieu, l'événement
+   « submit » avait lieu, et rien ne s'écrivait.
 */
-await page.waitForTimeout(700);
 await page.click('#ouvrir-ajout');
 await page.waitForSelector('#fenetre-ajout[open]', { timeout: 15000 });
 await page.fill('#nom', 'Presse essai');
@@ -367,10 +364,11 @@ await page.waitForSelector('#encours:not(.hidden)', { timeout: 15000 });
 
 async function serie(repetitions, charge) {
   /*
-     Le repos de « unSeulGeste » est de 600 ms après un geste ABOUTI (A1 du
-     43) : deux séries écrites coup sur coup par le script seraient prises
-     pour un double appui, et la seconde serait ignorée — à juste titre. Une
-     main attend ; l'essai attend donc aussi.
+     Ici l'attente reste nécessaire, et c'est voulu : deux séries de 8
+     répétitions à 60 kg portent EXACTEMENT les mêmes données. Le repos de
+     600 ms les prend donc pour un seul geste, ce qui est précisément son
+     objet depuis que l'empreinte le distingue des gestes différents. Une
+     main attend entre deux séries ; l'essai attend donc aussi.
   */
   await page.waitForTimeout(700);
   await page.fill('#charge', String(charge));

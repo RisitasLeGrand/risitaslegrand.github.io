@@ -50,13 +50,93 @@
  */
 const REPOS_MS = 600;
 
+/**
+ * Au-delà de ce délai, une empreinte ne peut plus valoir rebond : on l'oublie.
+ *
+ * Dix secondes, soit seize fois le repos : largement de quoi couvrir un repos
+ * allongé par un appelant, et assez court pour qu'une longue saisie ne laisse
+ * pas une liste d'empreintes derrière elle.
+ */
+const OUBLI_MS = 10_000;
+
 /** Les contrôles dont l'action est en cours, et l'instant de leur dernière fin. */
 const enCours = new WeakSet<Element>();
-const finiA = new WeakMap<Element, number>();
+/*
+   L'instant de fin est rangé PAR EMPREINTE, et non par contrôle seul —
+   décision du pilote du 19 octobre.
+
+   Le repos ne doit écarter qu'un double appui sur le même contrôle **avec les
+   mêmes données**. Indexé par le seul élément, il écartait aussi deux gestes
+   délibérés et différents : trois essais l'ont rencontré le 19 octobre, dont
+   un qui ajoutait « alpha », « bêta » et « gamma » à 250 ms d'intervalle et
+   n'en écrivait qu'un seul, sans un mot. Le clic avait lieu, l'événement
+   « submit » avait lieu, et rien ne s'écrivait.
+
+   L'empreinte est la valeur des champs du formulaire au moment du geste (voir
+   `empreinteDuControle`). Deux textes différents, deux empreintes, deux
+   écritures. Deux appuis sur le même texte, une seule.
+*/
+const finiA = new WeakMap<Element, Map<string, number>>();
 
 /** Les mêmes, pour les gestes désignés par une clé plutôt que par un élément. */
 const sansControle = new Map<string, boolean>();
-const finiAParCle = new Map<string, number>();
+const finiAParCle = new Map<string, Map<string, number>>();
+
+/**
+ * Ce qui distingue deux gestes sur un même contrôle : l'état de ses champs.
+ *
+ * `FormData` ne suffisait pas : elle ne retient que les champs qui portent un
+ * `name`, et les formulaires de Cyclades désignent les leurs par `id`. Elle
+ * aurait donc rendu la même empreinte vide pour tout le monde, ce qui est
+ * exactement le défaut qu'on corrige.
+ *
+ * Un contrôle sans champ — un bouton — rend une empreinte vide, et retrouve
+ * le comportement d'avant : deux appuis rapprochés sur « Supprimer » restent
+ * un seul geste, ce qui est le cas que le garde-fou vise en premier.
+ */
+function empreinteDuControle(controle: Element): string {
+  const champs = controle.querySelectorAll<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>(
+    'input, select, textarea',
+  );
+  const morceaux: string[] = [];
+  for (const champ of champs) {
+    const cle = champ.id || champ.getAttribute('name') || champ.getAttribute('data-champ') || '';
+    const valeur =
+      champ instanceof HTMLInputElement && (champ.type === 'checkbox' || champ.type === 'radio')
+        ? String(champ.checked)
+        : champ.value;
+    morceaux.push(`${cle}=${valeur}`);
+  }
+  return morceaux.join('\u001f');
+}
+
+/**
+ * Note l'instant de fin d'une empreinte, et borne la mémoire du contrôle.
+ *
+ * Un formulaire saisi cent fois garderait cent empreintes, dont quatre-vingt-
+ * dix-neuf périmées depuis longtemps : on ne garde que ce qui peut encore
+ * valoir rebond, c'est-à-dire les empreintes plus jeunes que le repos le plus
+ * long qu'un appelant puisse demander.
+ */
+function noter(connues: Map<string, number>, empreinte: string): void {
+  const maintenant = performance.now();
+  connues.set(empreinte, maintenant);
+  for (const [vue, quand] of connues) {
+    if (maintenant - quand > OUBLI_MS) connues.delete(vue);
+  }
+}
+
+/** La mémoire des empreintes d'un contrôle, posée vide si elle manque. */
+function memoire<C extends object | string>(
+  ou: { get(cle: C): Map<string, number> | undefined; set(cle: C, v: Map<string, number>): unknown },
+  cle: C,
+): Map<string, number> {
+  const connue = ou.get(cle);
+  if (connue) return connue;
+  const neuve = new Map<string, number>();
+  ou.set(cle, neuve);
+  return neuve;
+}
 
 /**
  * Exécute `action` une seule fois à la fois pour ce contrôle.
@@ -71,7 +151,7 @@ const finiAParCle = new Map<string, number>();
 export async function unSeulGeste<T>(
   controle: Element | string | null,
   action: () => Promise<T> | T,
-  options: { repos?: number } = {},
+  options: { repos?: number; empreinte?: string } = {},
 ): Promise<T | undefined> {
   if (!controle) return action();
 
@@ -80,9 +160,18 @@ export async function unSeulGeste<T>(
   const pris = parCle ? sansControle.get(controle) === true : enCours.has(controle);
   if (pris) return undefined;
 
+  /*
+     L'empreinte est donnée, ou lue sur les champs du contrôle. Un appelant qui
+     sait mieux que les champs ce qui distingue deux gestes — un identifiant de
+     ligne, par exemple — la passe lui-même.
+  */
+  const empreinte =
+    options.empreinte ?? (parCle ? '' : empreinteDuControle(controle as Element));
+
   /* Et le repos : le premier appel est fini, mais trop récemment pour que le
-     second soit autre chose qu'un rebond. */
-  const derniere = parCle ? finiAParCle.get(controle) : finiA.get(controle);
+     second soit autre chose qu'un rebond — à données égales. */
+  const reposDuControle = parCle ? finiAParCle.get(controle) : finiA.get(controle);
+  const derniere = reposDuControle?.get(empreinte);
   if (derniere !== undefined && performance.now() - derniere < repos) return undefined;
 
   if (typeof controle === 'string') sansControle.set(controle, true);
@@ -137,12 +226,12 @@ export async function unSeulGeste<T>(
     aAbouti = resultat !== false;
     return resultat;
   } finally {
-    if (parCle) {
+    if (typeof controle === 'string') {
       sansControle.delete(controle);
-      if (aAbouti) finiAParCle.set(controle, performance.now());
+      if (aAbouti) noter(memoire(finiAParCle, controle), empreinte);
     } else {
       enCours.delete(controle);
-      if (aAbouti) finiA.set(controle, performance.now());
+      if (aAbouti) noter(memoire(finiA, controle), empreinte);
     }
     if (bouton instanceof HTMLButtonElement && desactiveAvant !== null) {
       bouton.disabled = desactiveAvant;

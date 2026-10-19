@@ -163,22 +163,23 @@ await page.locator('#ajout').waitFor({ state: 'visible', timeout: 20000 });
 console.log('\n  B — les cartes portent un identifiant stable');
 
 /*
-   SEPT CENTS MILLISECONDES, ET NON DEUX CENT CINQUANTE.
+   DEUX CENT CINQUANTE MILLISECONDES, ET C'EST ASSEZ — DEPUIS LE 19 OCTOBRE.
 
-   « unSeulGeste » (A1 du 43) ignore un second geste sur le même formulaire
-   dans les 600 ms qui suivent un geste abouti : c'est la garde contre le
-   rebond du pouce. À 250 ms d'intervalle, les deuxième et troisième ajouts
-   étaient donc écartés — à juste titre —, une seule tâche existait, et
-   l'essai rougissait sur une prémisse qu'il s'était lui-même privé de poser.
+   Ces trois ajouts n'en écrivaient qu'un seul : « unSeulGeste » indexait son
+   repos de 600 ms par le seul formulaire, si bien que trois titres
+   DIFFÉRENTS passaient pour un pouce qui rebondit. L'essai rougissait sur
+   une prémisse qu'il s'était lui-même privé de poser, et rien ne le disait.
 
-   Une main qui saisit trois titres met plus d'une seconde entre deux. On
-   attend donc le repos, et l'essai mesure à nouveau ce qu'il vise : des
-   cartes qui glissent quand on en clôt une.
+   Le repos est désormais indexé par le contrôle ET par les données
+   (décision du pilote du 19/10) : trois titres distincts, trois écritures.
+   L'écart est donc laissé court, et cette boucle vaut maintenant aussi comme
+   constat du correctif — `essais:geste-empreinte` l'éprouve dans les deux
+   sens.
 */
 for (const titre of ['Essai — alpha', 'Essai — bêta', 'Essai — gamma']) {
   await page.fill('#titre', titre);
   await page.click('#ajout button[type="submit"]');
-  await page.waitForTimeout(700);
+  await page.waitForTimeout(250);
 }
 
 const cartes = page.locator('[data-tache]');

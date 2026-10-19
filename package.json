@@ -261,6 +261,7 @@
     "essais:defilement-rendu": "node scripts/essais-defilement-rendu.mjs",
     "essais:boite": "node scripts/essais-boite.mjs",
     "essais:gestes": "node scripts/essais-gestes.mjs",
+    "essais:geste-empreinte": "node scripts/essais-geste-empreinte.mjs",
     "essais:double-appui": "node scripts/essais-double-appui.mjs",
     "essais:tirer-rafraichir": "node scripts/essais-tirer-rafraichir.mjs",
     "essais:registre-gestes": "tsx scripts/essais-registre-gestes.mts",
