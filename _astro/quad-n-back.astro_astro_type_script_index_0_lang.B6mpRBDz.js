@@ -1,0 +1,1 @@
+import{a as e}from"./ui.MGwZnEwN.js";import{t}from"./chargement.3E6eRsRv.js";document.getElementById(`retour`).setAttribute(`href`,e(`/cog-training/`)),t(()=>{document.getElementById(`chargement`).classList.add(`hidden`),document.getElementById(`exercice`).classList.remove(`hidden`)});

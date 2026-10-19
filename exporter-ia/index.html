@@ -1,0 +1,252 @@
+<!DOCTYPE html><html lang="fr"><head><meta charset="utf-8"><!--
+      « viewport-fit=cover » : la page va jusqu'aux bords de l'écran, bandes
+      réservées comprises. Sans lui, la barre du bas d'un iPhone à encoche
+      flotte au-dessus d'un ruban gris, et le fond du site s'arrête avant le
+      bord. Avec lui, c'est à la feuille de style d'écarter les commandes de
+      la poignée d'accueil : les quatre variables « --sur-* » s'en chargent.
+    --><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><!-- Non-indexation : aucun moteur ne doit référencer ce site. --><meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex"><meta name="googlebot" content="noindex, nofollow"><meta name="referrer" content="no-referrer"><meta name="color-scheme" content="light dark"><title>
+      Exporter pour une IA · Cyclades
+    </title><link rel="icon" href="/favicon.svg" type="image/svg+xml"><link rel="manifest" href="/manifeste.webmanifest"><link rel="apple-touch-icon" href="/apple-touch-icon.png"><meta name="theme-color" content="#F7F5F0"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="Cyclades"><script>(function(){const CATALOGUE_THEMES = {"egee":["clair","sombre"],"republique":["clair","sombre"],"santorin":["clair","sombre"],"olivier":["clair","sombre"],"naxos":["clair","sombre"],"milos":["clair","sombre"],"amorgos":["clair","sombre"],"aube":["clair","sombre"],"papier":["clair"],"soir":["sombre"],"delos":["sombre"],"ardoise":["clair","sombre"],"contraste":["clair","sombre"],"adaptees":["clair","sombre"]};
+const BASE_THEMES = "/themes";
+
+      /*
+         Le mode application, posé avant le premier rendu (M15).
+
+         `data-application="oui"` sur la racine dit que la page tourne hors du
+         navigateur — depuis l'écran d'accueil. Le poser ici et non dans un
+         module importé n'est pas un détail : une feuille de style qui
+         s'appuie dessus doit pouvoir le lire au premier calcul, sinon la
+         première image de la page est celle du mauvais mode.
+
+         Deux épreuves, parce qu'elles ne couvrent pas les mêmes systèmes :
+         « display-mode: standalone » est la réponse du standard, et
+         « navigator.standalone » celle d'iOS, qui ne l'implémente pas.
+      */
+      try {
+        var enApplication =
+          (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) ||
+          navigator.standalone === true;
+        if (enApplication) document.documentElement.dataset.application = 'oui';
+      } catch (e) {
+        /* Rien : l'absence de l'attribut vaut « dans le navigateur ». */
+      }
+      /*
+         LE THÈME, AVANT LE PREMIER RENDU.
+
+         Quatre choses décident de ce qu'on voit, et toutes doivent être
+         connues avant que la page apparaisse, sinon elle s'ouvre dans un
+         thème et passe dans un autre sous les yeux :
+
+           1. la BASCULE jour/nuit (`revinsp.bascule-jour-nuit`), active par
+              défaut — c'est la demande d'Alexis, et elle l'emporte sur le
+              « Système par défaut » du 43 ;
+           2. sinon le CHOIX habituel (`revinsp.theme` : clair, sombre ou
+              « systeme ») ;
+           3. la PALETTE (`revinsp.palette`), l'un des quatorze thèmes,
+              absente = Égée ;
+           4. le RELAIS : si la palette n'a pas le mode voulu, Égée le rend.
+
+         Les heures de la bascule viennent du réglage s'il existe, sinon de
+         la copie de « Ma journée » que le site tient à jour, sinon de 7 h et
+         21 h. Elles sont dans `localStorage` et non dans IndexedDB pour une
+         seule raison : ce script est synchrone, et IndexedDB ne l'est pas.
+
+         Tout ceci est écrit deux fois — ici en ligne, et dans
+         `src/lib/theme.ts` pour la suite de la vie de la page. C'est un
+         doublon assumé et le seul possible : un module importé s'exécute
+         après le premier rendu, et c'est le premier rendu qu'on protège.
+         L'essai `essais:theme-amorcage` compare les deux réponses sur les
+         mêmes entrées, pour qu'elles ne divergent pas en silence.
+      */
+      (function () {
+        var racine = document.documentElement;
+        function lire(cle) {
+          try {
+            return localStorage.getItem(cle);
+          } catch (e) {
+            return null;
+          }
+        }
+        var heureValide = /^([01]\d|2[0-3]):[0-5]\d$/;
+        var bascule = lire('revinsp.bascule-jour-nuit') !== 'non';
+        var choix = lire('revinsp.theme');
+        if (choix !== 'clair' && choix !== 'sombre' && choix !== 'systeme') choix = 'sombre';
+        var mode;
+        if (bascule) {
+          var brut = lire('revinsp.heures-bascule') || lire('revinsp.heures-journee') || '';
+          var parts = brut.split('|');
+          var lever = heureValide.test(parts[0]) ? parts[0] : '07:00';
+          var coucher = heureValide.test(parts[1]) ? parts[1] : '21:00';
+          var now = new Date();
+          var minute = now.getHours() * 60 + now.getMinutes();
+          var lm = Number(lever.slice(0, 2)) * 60 + Number(lever.slice(3, 5));
+          var cm = Number(coucher.slice(0, 2)) * 60 + Number(coucher.slice(3, 5));
+          /* Qui se couche à 1 h et se lève à 7 h a une journée qui ne
+             contient pas minuit : on compare dans le bon sens. */
+          var jour = lm <= cm ? minute >= lm && minute < cm : minute >= lm || minute < cm;
+          mode = jour ? 'clair' : 'sombre';
+        } else {
+          mode =
+            choix === 'systeme'
+              ? window.matchMedia('(prefers-color-scheme: dark)').matches
+                ? 'sombre'
+                : 'clair'
+              : choix;
+        }
+        var choisie = lire('revinsp.palette');
+        if (!choisie || !CATALOGUE_THEMES[choisie]) choisie = 'egee';
+        var effective = CATALOGUE_THEMES[choisie].indexOf(mode) === -1 ? 'egee' : choisie;
+
+        racine.setAttribute('data-theme', mode);
+        racine.setAttribute('data-theme-choix', bascule ? 'bascule' : choix);
+        racine.setAttribute('data-palette', effective);
+        racine.setAttribute('data-palette-choisie', choisie);
+        racine.style.colorScheme = mode === 'sombre' ? 'dark' : 'light';
+
+        /*
+           La feuille du thème choisi, posée ici et pas plus tard.
+
+           Égée et Séance sont dans le paquet principal ; les treize autres
+           sont des fichiers à part, et un seul est chargé — c'est la règle
+           « seul le thème actif est chargé ». Inséré pendant l'analyse du
+           document, un lien de feuille de style bloque le premier rendu
+           jusqu'à son chargement : c'est ce qui évite l'éclair d'Égée avant
+           Papier. Le fichier fait 9 Kio, 1,3 Kio compressé, et vient du
+           cache dès la deuxième page.
+        */
+        if (effective !== 'egee') {
+          var feuille = document.createElement('link');
+          feuille.rel = 'stylesheet';
+          feuille.id = 'feuille-theme';
+          feuille.href = BASE_THEMES + '/' + effective + '.css';
+          document.head.appendChild(feuille);
+        }
+      })();
+
+      (function () {
+        var racine = document.documentElement;
+        // Animations : même principe, et pour la même raison — appliqué avant
+        // le premier rendu, sinon une animation aurait le temps de jouer avant
+        // que le réglage soit lu. Deux valeurs seulement : « reduites » et
+        // « completes ». Le réglage du système reste honoré de son côté par
+        // « prefers-reduced-motion » ; le plus restrictif des deux l'emporte,
+        // puisque chacun neutralise sans que l'autre puisse rétablir.
+        var animations = 'completes';
+        try {
+          var a = localStorage.getItem('revinsp.animations');
+          if (a === 'reduites' || a === 'completes') animations = a;
+        } catch (e) {
+          /* navigation privée : on garde le défaut */
+        }
+        racine.setAttribute('data-animations', animations);
+      })();
+    })();</script><style>@view-transition { navigation: auto }
+
+/* Sobre (décision 2) : un fondu seul, aux durées du socle A6, sans glissement
+   ni rebond. Le mouvement réduit est déjà couvert par le socle, qui ramène
+   ces durées à 0,01 ms. */
+::view-transition-old(root) {
+  animation-duration: var(--duree-courte, 120ms);
+  animation-timing-function: var(--courbe-sortie, ease-in);
+}
+::view-transition-new(root) {
+  animation-duration: var(--duree-moyenne, 200ms);
+  animation-timing-function: var(--courbe-entree, ease-out);
+}
+
+/* --- Le cadre reste immobile (A12), et rien ne passe dessus (A5) ---------
+
+   SANS CE BLOC, L'EN-TÊTE ET LA BARRE D'ONGLETS SE DÉDOUBLENT. Ils font partie
+   de la capture « root » : pendant le fondu, la photographie de la page
+   sortante et celle de la page entrante sont toutes deux à l'écran, donc le
+   cadre aussi, deux fois. Leur donner un nom les sort de « root » et en fait un
+   groupe à part, apparié d'une page à l'autre.
+
+   « display: none » sur l'ancien plutôt qu'une absence d'animation sur les deux :
+   ce cadre est translucide (fond à 90 % et flou d'arrière-plan), et deux couches
+   translucides superposées ne donnent pas la même teinte qu'une seule. On ne
+   garde donc que le nouveau, qui ne bouge pas.
+
+   LE Z-INDEX RÈGLE L'AUTRE MOITIÉ D'A5. Les groupes de transition vivent dans la
+   couche supérieure, au-dessus du z-40 de la barre d'onglets : les cartes de la
+   liste des tâches lui passaient donc par-dessus en glissant. Nommer le cadre le
+   met dans le même arbre qu'elles, où l'ordre se règle, et 100 le place au-dessus
+   des groupes anonymes.
+
+   ATTENTION, LE PIÈGE DE CE FICHIER : cette feuille est un littéral de gabarit
+   JavaScript. Un accent grave dans un commentaire le referme et casse le build —
+   c'est arrivé en écrivant ce bloc. On cite donc avec des guillemets français.
+
+   Rien de tout cela n'est émis sur les pages sous coffre : ce bloc vit dans la
+   feuille conditionnelle, qui n'y est pas écrite. */
+#entete-principal {
+  view-transition-name: entete-principal;
+}
+#barre-du-bas {
+  view-transition-name: barre-du-bas;
+}
+::view-transition-group(entete-principal),
+::view-transition-group(barre-du-bas) {
+  z-index: 100;
+}
+::view-transition-old(entete-principal),
+::view-transition-old(barre-du-bas) {
+  display: none;
+}
+::view-transition-new(entete-principal),
+::view-transition-new(barre-du-bas) {
+  animation: none;
+}
+
+/* --- La durée et la courbe viennent des jetons (A5) ----------------------
+
+   Les groupes nommés par la liste des tâches — une carte, un nom — glissaient
+   à la durée et à la courbe par défaut du navigateur : 250 ms en « ease« , deux
+   valeurs qui ne viennent d'aucun jeton. Le sélecteur universel les couvre
+   toutes, y compris les cartes créées plus tard. « root » garde ses propres
+   règles, écrites plus haut et plus spécifiques. */
+::view-transition-group(*) {
+  animation-duration: var(--duree-moyenne, 200ms);
+  animation-timing-function: var(--courbe-entree, ease-out);
+}</style><link rel="stylesheet" href="/_astro/Base.D_4qxPrV.css"><style>.choix[data-astro-cid-g5o2hh6b]{border-width:1px;border-color:var(--color-slate-300);min-height:2.75rem;transition:color var(--duree-courte) var(--courbe-sortie), background-color var(--duree-courte) var(--courbe-sortie), border-color var(--duree-courte) var(--courbe-sortie);border-radius:.5rem;padding-inline:1rem;font-size:.875rem;font-weight:500}.choix[data-astro-cid-g5o2hh6b][aria-pressed=true]{border-color:var(--color-indigo-600);background:var(--color-indigo-50);color:var(--color-indigo-800)}.dark .choix[data-astro-cid-g5o2hh6b]{border-color:var(--color-slate-700)}.dark .choix[data-astro-cid-g5o2hh6b][aria-pressed=true]{background:color-mix(in srgb, var(--color-indigo-950) 50%, transparent);color:var(--color-indigo-200)}
+@media (width<=640px){dialog.svelte-1b8e85f{border-radius:0;width:100vw;max-width:100vw;height:100dvh;max-height:100dvh}dialog.svelte-1b8e85f>div:where(.svelte-1b8e85f){max-height:100dvh}}
+</style></head><body><div id="barre-progression" role="progressbar" aria-label="Chargement de la page" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" data-etat="inactif" hidden class="pointer-events-none fixed inset-x-0 top-0 z-[200] h-[3px] bg-transparent" data-astro-cid-szi7cugp><div id="barre-progression-jauge" class="jauge-remplissage h-full" data-astro-cid-szi7cugp></div></div><div id="ecran-verrou" class="fixed inset-0 z-[100] hidden items-center justify-center bg-slate-900 px-4"><div class="w-full max-w-sm rounded-2xl bg-white p-8 shadow-2xl dark:bg-slate-800"><div class="mb-6 text-center"><div class="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-100 text-2xl dark:bg-indigo-950">🔐</div><h1 class="text-xl font-semibold text-slate-900 dark:text-white">Espace privé</h1><p class="mt-1 text-sm text-slate-500 dark:text-slate-400">Saisissez le mot de passe pour déchiffrer le contenu.</p></div><form id="formulaire-verrou" class="space-y-4" autocomplete="on"><div><label for="champ-mdp" class="sr-only">Mot de passe</label><input id="champ-mdp" name="password" type="password" autocomplete="current-password" required class="w-full rounded-lg border border-slate-300 bg-white px-4 py-3 text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:ring-indigo-900" placeholder="Mot de passe"></div><label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300"><input id="champ-memoriser" type="checkbox" checked class="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">Rester connecté sur cet appareil</label><p id="erreur-verrou" class="hidden text-sm text-red-600 dark:text-red-400" role="alert"></p><button type="submit" id="bouton-verrou" class="w-full rounded-lg bg-indigo-600 px-4 py-3 font-medium text-white transition hover:bg-indigo-700 focus:ring-2 focus:ring-indigo-300 focus:outline-none disabled:opacity-60">Déverrouiller</button></form><p class="mt-6 text-center text-xs text-slate-400 dark:text-slate-500">Le déchiffrement s'effectue dans le navigateur. Rien n'est envoyé sur un serveur.</p><p class="mt-2 text-center text-xs"><a href="/mot-de-passe-perdu/" class="cible-tactile text-slate-500 underline underline-offset-2 transition hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200">Mot de passe perdu ?</a></p></div></div><script type="module" src="/_astro/Verrou.astro_astro_type_script_index_0_lang.CL3Cgb5O.js"></script><a href="#contenu-principal" class="sr-only rounded-br-lg bg-indigo-600 px-4 py-3 font-medium text-white focus:not-sr-only focus:absolute focus:top-0 focus:left-0 focus:z-50 apres-le-verrou">Aller au contenu</a><div id="application" class="decale-laterale hidden min-h-screen"><header id="entete-principal" class="border-b border-slate-200 bg-white/90 backdrop-blur dark:border-slate-800 dark:bg-slate-900/90"><div class="bandeau-tricolore"></div><div id="temoin-coffre" class="hidden border-b border-amber-300 bg-amber-50 dark:border-amber-800/60 dark:bg-amber-950/40"><div class="mx-auto flex max-w-5xl flex-nowrap items-center gap-x-3 gap-y-1 px-4 py-1.5 sm:flex-wrap"><span class="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-medium text-amber-900 sm:flex-none dark:text-amber-100"><span aria-hidden="true">🔓</span><span id="temoin-coffre-libelle" class="truncate">Coffre ouvert</span></span><span class="hidden grow sm:block"></span><button id="temoin-coffre-fermer" type="button" class="cible-tactile shrink-0 rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40">Fermer le coffre</button><button id="temoin-coffre-masquer" type="button" class="cible-tactile shrink-0 rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40">Masquer</button><span class="hidden sm:contents"><button id="temoin-coffre-oublier" type="button" class="cible-tactile hidden rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40">Oublier sur cet appareil</button><button id="temoin-coffre-masquer-toujours" type="button" class="cible-tactile rounded px-2 text-xs font-medium text-amber-900 underline underline-offset-2 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40">Masquer indéfiniment</button></span></div></div><script type="module" src="/_astro/TemoinCoffre.astro_astro_type_script_index_0_lang.CcB4l0eY.js"></script><div class="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3"><a id="fleche-retour" href="/" data-base data-chemin="/exporter-ia/" class="cible-tactile-pleine shrink-0 rounded-lg text-slate-600 transition hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-indigo-400"><span aria-hidden="true" class="text-lg leading-none">←</span><span class="sr-only">Revenir à l’accueil</span></a><script type="module" src="/_astro/FlecheRetour.astro_astro_type_script_index_0_lang.B_kr4ndp.js"></script><a href="/" title="Menu de Cyclades" class="flex h-11 shrink-0 items-center gap-2 rounded-lg px-1 font-semibold text-slate-900 transition hover:text-indigo-600 dark:text-white dark:hover:text-indigo-400"><span class="text-lg" aria-hidden="true">🗂️</span><span>Cyclades</span><span class="sr-only">— revenir au menu</span></a><div class="flex flex-1 justify-end gap-1"><div id="cadenas-coffre" class="relative hidden"><button id="cadenas-coffre-bouton" type="button" aria-haspopup="menu" aria-expanded="false" aria-label="Coffre ouvert" title="Coffre ouvert" class="cible-tactile-pleine rounded-lg px-2 text-amber-700 transition hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40"><span aria-hidden="true">🔓</span></button><div id="cadenas-coffre-menu" role="menu" aria-label="Coffre" class="absolute right-0 z-50 mt-1 hidden w-60 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"><button id="cadenas-fermer" type="button" role="menuitem" class="cible-tactile w-full rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">Fermer le coffre</button><button id="cadenas-oublier" type="button" role="menuitem" class="cible-tactile hidden w-full rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">Oublier sur cet appareil</button><button id="cadenas-afficher-bandeau" type="button" role="menuitem" class="cible-tactile hidden w-full rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">Afficher le bandeau</button><button id="cadenas-masquer-toujours" type="button" role="menuitem" class="cible-tactile hidden w-full rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">Masquer le bandeau indéfiniment</button><hr class="my-1 border-slate-200 dark:border-slate-700"><a id="cadenas-bascule" href="/coffre/bascule/" role="menuitem" class="cible-tactile w-full rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800">Mot de passe du coffre…</a></div></div><script type="module" src="/_astro/CadenasCoffre.astro_astro_type_script_index_0_lang.B3Nu5Vae.js"></script><div class="relative" data-astro-cid-wlz43wsi><button id="bouton-theme" type="button" aria-haspopup="true" aria-expanded="false" aria-controls="menu-theme" title="Choisir le thème" aria-label="Choisir le thème d'affichage" class="flex h-11 w-11 items-center justify-center rounded-lg text-slate-500 transition hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-indigo-400" data-astro-cid-wlz43wsi><svg class="h-5 w-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true" data-astro-cid-wlz43wsi><circle cx="12" cy="12" r="9" data-astro-cid-wlz43wsi></circle><path d="M12 3v18" stroke-linecap="round" data-astro-cid-wlz43wsi></path><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor" stroke="none" data-astro-cid-wlz43wsi></path></svg></button><div id="menu-theme" role="group" aria-label="Thème d'affichage" hidden class="apparition apparition-glisse absolute right-0 z-50 mt-2 w-52 rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg dark:border-slate-700 dark:bg-slate-900" data-astro-cid-wlz43wsi><p class="px-2 py-1.5 text-xs font-bold tracking-wide text-slate-500 uppercase dark:text-slate-400" data-astro-cid-wlz43wsi>Thème d'affichage</p><p id="note-bascule" hidden class="px-2 pb-1.5 text-xs text-slate-500 dark:text-slate-400" data-astro-cid-wlz43wsi>Clair le jour, sombre la nuit : choisir un mode ici arrête cette bascule. Vous pourrez la réactiver dans la <a href="/parametres/#affichage" class="cible-minimale underline decoration-slate-400 underline-offset-2" data-astro-cid-wlz43wsi>section « Affichage » des paramètres</a>.</p><button type="button" data-choix-theme="clair" aria-pressed="false" class="group flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm transition hover:bg-slate-100 aria-pressed:bg-indigo-50 aria-pressed:text-indigo-700 dark:hover:bg-slate-800 dark:aria-pressed:bg-indigo-950 dark:aria-pressed:text-indigo-300" data-astro-cid-wlz43wsi><span aria-hidden="true" class="pastille-theme mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 border-slate-400 group-aria-pressed:border-indigo-600 dark:border-slate-500 dark:group-aria-pressed:border-indigo-400" data-astro-cid-wlz43wsi></span><span class="min-w-0" data-astro-cid-wlz43wsi><span class="block font-medium" data-astro-cid-wlz43wsi>Clair</span><span class="block text-xs text-slate-500 dark:text-slate-400" data-astro-cid-wlz43wsi>Palette institutionnelle</span></span></button><button type="button" data-choix-theme="sombre" aria-pressed="false" class="group flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm transition hover:bg-slate-100 aria-pressed:bg-indigo-50 aria-pressed:text-indigo-700 dark:hover:bg-slate-800 dark:aria-pressed:bg-indigo-950 dark:aria-pressed:text-indigo-300" data-astro-cid-wlz43wsi><span aria-hidden="true" class="pastille-theme mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 border-slate-400 group-aria-pressed:border-indigo-600 dark:border-slate-500 dark:group-aria-pressed:border-indigo-400" data-astro-cid-wlz43wsi></span><span class="min-w-0" data-astro-cid-wlz43wsi><span class="block font-medium" data-astro-cid-wlz43wsi>Sombre</span><span class="block text-xs text-slate-500 dark:text-slate-400" data-astro-cid-wlz43wsi>Confort en soirée</span></span></button><button type="button" data-choix-theme="systeme" aria-pressed="false" class="group flex w-full items-start gap-2 rounded-md px-2 py-2 text-left text-sm transition hover:bg-slate-100 aria-pressed:bg-indigo-50 aria-pressed:text-indigo-700 dark:hover:bg-slate-800 dark:aria-pressed:bg-indigo-950 dark:aria-pressed:text-indigo-300" data-astro-cid-wlz43wsi><span aria-hidden="true" class="pastille-theme mt-0.5 h-4 w-4 shrink-0 rounded-full border-2 border-slate-400 group-aria-pressed:border-indigo-600 dark:border-slate-500 dark:group-aria-pressed:border-indigo-400" data-astro-cid-wlz43wsi></span><span class="min-w-0" data-astro-cid-wlz43wsi><span class="block font-medium" data-astro-cid-wlz43wsi>Système</span><span class="block text-xs text-slate-500 dark:text-slate-400" data-astro-cid-wlz43wsi>Suit votre appareil</span></span></button></div></div><script type="module" src="/_astro/CommutateurTheme.astro_astro_type_script_index_0_lang.DpzlW4u4.js"></script><details class="groupe-onglets relative shrink-0"><summary class="cible-tactile-pleine list-none rounded-lg text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800" title="Cet espace"><span aria-hidden="true">⚙️</span><span class="sr-only">Cet espace — réglages et données</span></summary><ul class="absolute right-0 z-50 mt-1 min-w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900"><li><a href="/parametres/" title="Tous les réglages du site, au même endroit." class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"><span aria-hidden="true">⚙️</span><span>Paramètres</span></a></li><li><a href="/profil/" title="Mon profil" class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"><span aria-hidden="true">🪪</span><span>Mon profil</span></a></li><li><a href="/appareils/" title="Appareils et synchronisation." class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"><span aria-hidden="true">📱</span><span>Appareils</span></a></li><li><a href="/stockage/" title="Stockage" class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"><span aria-hidden="true">🗄️</span><span>Stockage</span></a></li><li><a href="/notifications/" title="Ce que le système affiche, source par source." class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"><span aria-hidden="true">🔔</span><span>Notifications</span></a></li><li><a href="/exporter-ia/" title="Exporter pour une IA" class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"><span aria-hidden="true">📤</span><span>Exporter pour une IA</span></a></li><li><a href="/importer-analyse/" title="Importer une analyse" class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"><span aria-hidden="true">📥</span><span>Importer une analyse</span></a></li><li><a href="/progression/" class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"><span aria-hidden="true">💾</span><span>Sauvegarde</span></a></li><li class="mt-1 border-t border-slate-200 pt-1 dark:border-slate-700"><button id="bouton-verrouiller" type="button" class="cible-tactile w-full gap-2 rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"><span aria-hidden="true">🔒</span><span>Verrouiller la session</span></button></li></ul></details></div></div></header><main id="contenu-principal" tabindex="-1" class="mx-auto max-w-6xl px-4 py-8"><div class="mx-auto max-w-3xl" data-astro-cid-g5o2hh6b><h1 class="text-2xl font-bold text-slate-900 dark:text-white" data-astro-cid-g5o2hh6b>Exporter pour une IA</h1><!--
+  LE LIEN EST SEUL DANS SON PARAGRAPHE, et la mention de section vit dans le
+  suivant. Ce n'est pas une préférence de mise en page : `essais:mobile`
+  (M4, D-041) interdit qu'un lien **au fil d'une phrase** porte
+  « cible-tactile », parce que les 44 px de la classe fabriquent au milieu
+  d'un paragraphe une boîte plus haute que la ligne, et que WCAG 2.5.8
+  exempte justement ces liens-là. La première version mettait les deux dans
+  le même paragraphe, et le contrôle l'a relevée sur quatre écrans.
+--><div class="mt-2"><p class="text-sm"><a href="/parametres/#donnees" data-lien-reglages="donnees" class="cible-tactile gap-1.5 font-medium text-slate-700 underline decoration-slate-400 underline-offset-2 dark:text-slate-200"><span aria-hidden="true">⚙️</span>Réglages de cet écran</a></p><p class="text-xs text-slate-500 dark:text-slate-400">Section « Données » des paramètres.</p></div><p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400" data-astro-cid-g5o2hh6b>Cyclades construit un dossier que <strong data-astro-cid-g5o2hh6b>vous</strong> confiez à l’IA de votre choix. Le site n’appelle aucun modèle et n’envoie rien : tout passe par des fichiers que vous téléchargez. Aucune copie de l’export n’est conservée — seul son identifiant est inscrit au journal.</p><!-- ── 1. La période ────────────────────────────────────────────────── --><section class="mt-8" data-astro-cid-g5o2hh6b><h2 class="mb-3 text-lg font-semibold text-slate-900 dark:text-white" data-astro-cid-g5o2hh6b>1. La période</h2><div class="flex flex-wrap gap-2" role="group" aria-label="Période" data-astro-cid-g5o2hh6b><button data-periode="semaine" type="button" class="choix" data-astro-cid-g5o2hh6b>Cette semaine</button><button data-periode="mois" type="button" class="choix" aria-pressed="true" data-astro-cid-g5o2hh6b>Ce mois</button><button data-periode="trimestre" type="button" class="choix" data-astro-cid-g5o2hh6b>Ce trimestre</button><button data-periode="annee" type="button" class="choix" data-astro-cid-g5o2hh6b>Cette année</button></div></section><!-- ── 2. Les catégories ────────────────────────────────────────────── --><section class="mt-8" data-astro-cid-g5o2hh6b><h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white" data-astro-cid-g5o2hh6b>2. Ce qui part, catégorie par catégorie</h2><p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400" data-astro-cid-g5o2hh6b>Les catégories sensibles sont décochées, et les textes libres aussi. Votre prénom et votre nom ne partent <strong data-astro-cid-g5o2hh6b>jamais</strong>, quelle que soit la sélection.</p><div id="categories" class="space-y-2" data-astro-cid-g5o2hh6b></div></section><!-- ── 3. Le pseudonyme ─────────────────────────────────────────────── --><section class="mt-8" data-astro-cid-g5o2hh6b><h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white" data-astro-cid-g5o2hh6b>3. Comment vous nommer</h2><p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400" data-astro-cid-g5o2hh6b>Le nom employé dans les textes de l’export. Laissez tel quel si vous n’en voulez pas.</p><input id="pseudonyme" aria-label="Nom employé dans les textes de l’export" type="text" autocomplete="off" class="w-full max-w-sm rounded-lg border border-slate-300 px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white" data-astro-cid-g5o2hh6b></section><!-- ── 4. L'aperçu ──────────────────────────────────────────────────── --><section class="mt-8" data-astro-cid-g5o2hh6b><h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white" data-astro-cid-g5o2hh6b>4. L’aperçu</h2><p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400" data-astro-cid-g5o2hh6b>Rien n’est téléchargé avant que vous ayez vu ce qui sort.</p><button id="apercevoir" type="button" class="min-h-11 rounded-lg bg-indigo-600 px-5 font-medium text-white transition hover:bg-indigo-700" data-astro-cid-g5o2hh6b>Construire l’aperçu</button><p id="attente" class="mt-3 hidden text-sm text-slate-500 dark:text-slate-400" data-astro-cid-g5o2hh6b>Calcul des indicateurs et des séries…</p><p id="erreur-export" class="mt-3 hidden text-sm text-red-600 dark:text-red-400" role="alert" data-astro-cid-g5o2hh6b></p><div id="apercu" class="mt-5 hidden space-y-4" data-astro-cid-g5o2hh6b><div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900" data-astro-cid-g5o2hh6b><p id="resume-export" class="text-sm text-slate-700 dark:text-slate-200" data-astro-cid-g5o2hh6b></p><p id="taille" class="mt-2 text-sm text-slate-600 dark:text-slate-300" data-astro-cid-g5o2hh6b></p><div id="decoupage" class="mt-3 hidden" data-astro-cid-g5o2hh6b><p class="text-sm font-medium text-amber-800 dark:text-amber-300" data-astro-cid-g5o2hh6b>Le volume dépasse ce qu’une IA lit raisonnablement d’un coup. Découpage proposé :</p><ul id="decoupage-liste" class="mt-1 list-disc pl-5 text-sm text-slate-700 dark:text-slate-200" data-astro-cid-g5o2hh6b></ul></div><p id="problemes" class="mt-3 hidden rounded-lg bg-red-50 px-3 py-2 text-sm text-red-800 dark:bg-red-950/40 dark:text-red-200" data-astro-cid-g5o2hh6b></p></div><div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900" data-astro-cid-g5o2hh6b><h3 class="font-semibold text-slate-900 dark:text-white" data-astro-cid-g5o2hh6b>Les fichiers</h3><div id="fichiers" class="mt-3 space-y-2" data-astro-cid-g5o2hh6b></div></div><div class="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900" data-astro-cid-g5o2hh6b><h3 class="font-semibold text-slate-900 dark:text-white" data-astro-cid-g5o2hh6b>Un coup d’œil au contenu</h3><p class="mt-1 text-sm text-slate-500 dark:text-slate-400" data-astro-cid-g5o2hh6b>Le début de chaque fichier, en texte échappé.</p><div id="extraits" class="mt-3 space-y-3" data-astro-cid-g5o2hh6b></div></div><div class="flex flex-wrap gap-3" data-astro-cid-g5o2hh6b><button id="telecharger" type="button" class="min-h-11 rounded-lg bg-indigo-600 px-5 font-medium text-white transition hover:bg-indigo-700" data-astro-cid-g5o2hh6b>Télécharger les fichiers</button><button id="telecharger-unique" type="button" class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800" data-astro-cid-g5o2hh6b>Un seul fichier Markdown</button></div><p id="message-export" class="hidden text-sm" data-astro-cid-g5o2hh6b></p></div></section><!-- ── Le journal ───────────────────────────────────────────────────── --><section class="mt-10" data-astro-cid-g5o2hh6b><h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white" data-astro-cid-g5o2hh6b>Journal des exports</h2><p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400" data-astro-cid-g5o2hh6b>L’identifiant, l’empreinte, la date et le périmètre — <strong data-astro-cid-g5o2hh6b>jamais le contenu</strong>. C’est ce qui permettra de rattacher une analyse importée à l’export dont elle répond.</p><div id="journal" class="space-y-2" data-astro-cid-g5o2hh6b></div><p id="journal-vide" class="text-sm text-slate-500 dark:text-slate-400" data-astro-cid-g5o2hh6b>Aucun export pour l’instant.</p></section></div></main><!--
+  LE PIED EST DISCRET — consigne d'Alexis du 18 octobre, relayée pendant M7 :
+  « Le pied de page doit être discret. »
+
+  ## Ce qu'il était, mesuré le 18 octobre à 360 × 740
+
+  1 190 px de haut : un bandeau tricolore, un panneau opaque posé sur le fond
+  de la page, trois colonnes à titres capitales grasses, treize liens, puis
+  trois paragraphes de mentions. Plus haut qu'un écran et demi, pour ce qui
+  est le dernier recours et non la destination.
+
+  ## Ce qu'il est devenu, et pourquoi chaque choix
+
+  - **Plus de bandeau tricolore ni de fond opaque.** Les deux attiraient
+    l'œil, et le second posait un rectangle clair en bas de chaque page. Il
+    ne reste qu'un filet d'un pixel ; le fond de la page passe au travers.
+  - **Les liens tiennent en lignes qui s'enroulent**, précédées d'une
+    étiquette menue, au lieu de colonnes à titres. À treize liens, une
+    colonne par thème coûtait plus de hauteur que les liens eux-mêmes.
+  - **Le texte est menu et de teinte secondaire**, pris sur les jetons :
+    `slate` est redéfini dans `tokens.css`, donc ces classes suivront les
+    thèmes à venir sans retouche — ce que la règle générale d'Alexis exige.
+  - **Les mentions se replient.** Trois paragraphes de clause juridique
+    n'ont rien à faire sous chaque écran dépliés ; un `<details>` les garde
+    à un geste, et **rien ne disparaît** : même texte, même place.
+  - **Les cibles gardent leurs 44 px** sous pointeur grossier, par
+    `cible-tactile`. Mesuré : treize liens sur treize à 44 px avant comme
+    après. L'étiquette de groupe n'est pas un lien et n'en a pas besoin.
+
+  Aucun lien, aucune route n'est retiré : l'inventaire des treize `href` est
+  identique avant et après, et il est comparé fichier contre fichier.
+--><footer class="mt-10 border-t border-slate-200 dark:border-slate-800"><div class="mx-auto max-w-6xl px-4 py-5"><nav aria-label="Les branches" class="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 last:mb-0"><h2 class="shrink-0 text-xs text-slate-400 dark:text-slate-500">Les branches</h2><a href="/revisions/" class="cible-tactile text-xs text-slate-500 underline-offset-4 transition hover:text-indigo-600 hover:underline dark:text-slate-400 dark:hover:text-indigo-400">🎓 Révisions</a><a href="/odyssee/" class="cible-tactile text-xs text-slate-500 underline-offset-4 transition hover:text-indigo-600 hover:underline dark:text-slate-400 dark:hover:text-indigo-400">🧭 Odyssée</a><a href="/sport/" class="cible-tactile text-xs text-slate-500 underline-offset-4 transition hover:text-indigo-600 hover:underline dark:text-slate-400 dark:hover:text-indigo-400">🏋️ Sport</a><a href="/cog-training/" class="cible-tactile text-xs text-slate-500 underline-offset-4 transition hover:text-indigo-600 hover:underline dark:text-slate-400 dark:hover:text-indigo-400">🧩 Entraînement cognitif</a></nav><nav aria-label="Cet espace" class="mb-2 flex flex-wrap items-baseline gap-x-3 gap-y-0.5 last:mb-0"><h2 class="shrink-0 text-xs text-slate-400 dark:text-slate-500">Cet espace</h2><a href="/parametres/" class="cible-tactile text-xs text-slate-500 underline-offset-4 transition hover:text-indigo-600 hover:underline dark:text-slate-400 dark:hover:text-indigo-400">Paramètres</a><a href="/profil/" class="cible-tactile text-xs text-slate-500 underline-offset-4 transition hover:text-indigo-600 hover:underline dark:text-slate-400 dark:hover:text-indigo-400">Mon profil</a><a href="/appareils/" class="cible-tactile text-xs text-slate-500 underline-offset-4 transition hover:text-indigo-600 hover:underline dark:text-slate-400 dark:hover:text-indigo-400">Appareils</a><a href="/stockage/" class="cible-tactile text-xs text-slate-500 underline-offset-4 transition hover:text-indigo-600 hover:underline dark:text-slate-400 dark:hover:text-indigo-400">Stockage</a><a href="/notifications/" class="cible-tactile text-xs text-slate-500 underline-offset-4 transition hover:text-indigo-600 hover:underline dark:text-slate-400 dark:hover:text-indigo-400">Notifications</a><a href="/exporter-ia/" class="cible-tactile text-xs text-slate-500 underline-offset-4 transition hover:text-indigo-600 hover:underline dark:text-slate-400 dark:hover:text-indigo-400">Exporter pour une IA</a><a href="/importer-analyse/" class="cible-tactile text-xs text-slate-500 underline-offset-4 transition hover:text-indigo-600 hover:underline dark:text-slate-400 dark:hover:text-indigo-400">Importer une analyse</a></nav><p class="mt-3 text-xs text-slate-400 dark:text-slate-500"><strong class="font-medium text-slate-500 dark:text-slate-400">Cyclades</strong> — espace de révision personnel, chiffré, sans compte ni mesure d'audience.</p><details class="mt-1"><summary class="cible-tactile cursor-pointer text-xs text-slate-400 underline-offset-4 hover:underline dark:text-slate-500">Mentions</summary><p class="mt-2 text-xs leading-relaxed text-slate-400 dark:text-slate-500">Site personnel, <strong>sans lien avec l'administration</strong> et sans caractère de service public. L'identité visuelle s'inspire de la charte graphique de l'État ; ni la typographie Marianne, ni le bloc-marque (logo et mention « République Française »), ni la présentation officielle de la devise ne sont repris — ces éléments sont réservés aux services de l'État.</p><p class="mt-2 text-xs leading-relaxed text-slate-400 dark:text-slate-500">Polices <strong>Public Sans</strong> et <strong>Spectral</strong>, sous licence SIL Open Font License, servies depuis ce site : aucune requête n'est adressée à un service tiers.</p></details></div></footer></div><script type="module" src="/_astro/Base.astro_astro_type_script_index_0_lang.DQ4wz7ON.js"></script></body></html><script type="module" src="/_astro/Base.astro_astro_type_script_index_1_lang.CW-18JMf.js"></script><script type="module" src="/_astro/exporter-ia.astro_astro_type_script_index_0_lang.BV1IWFYd.js"></script>

@@ -1,0 +1,1 @@
+import{a as e}from"./ui.MGwZnEwN.js";import{t}from"./chargement.3E6eRsRv.js";for(let t of document.querySelectorAll(`[data-exercice]`))t.href=e(`/cog-training/${t.dataset.exercice}/`);t(()=>{document.getElementById(`chargement`).classList.add(`hidden`),document.getElementById(`exercices`).classList.remove(`hidden`)});
