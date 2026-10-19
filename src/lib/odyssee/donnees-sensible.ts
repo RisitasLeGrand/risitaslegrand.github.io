@@ -71,6 +71,21 @@ export async function ecrirePrise(
     voie?: VoieDAdministration;
     motif?: string;
     note?: string;
+    /**
+     * Le traitement auquel cette prise se rattache.
+     *
+     * **Le champ existait au type depuis la phase 1 de Santé ; aucun chemin
+     * d'écriture ne le remplissait.** La conséquence ne se voyait pas en
+     * relisant le code : `heuresDepuisLaDernierePrise()` filtre sur lui, et
+     * rendait donc `null` pour tous les traitements, toujours — l'écran
+     * Santé affichait « aucune prise enregistrée » sous chaque traitement, y
+     * compris sous ceux dont on venait de noter une prise. Le seul calcul
+     * que la phase 1 revendiquait ne pouvait pas s'afficher.
+     *
+     * Il reste facultatif : une prise notée depuis « Mon corps » n'est
+     * rattachée à rien, et c'est la vérité pour elle.
+     */
+    traitementId?: string | null;
   } = {},
 ): Promise<Prise> {
   const cle = exigerLeCoffre();
@@ -80,6 +95,7 @@ export async function ecrirePrise(
     jour: jourLogique(le),
     le: le.toISOString(),
     nom: nom.trim(),
+    traitementId: options.traitementId ?? null,
     dose: dose.trim(),
     voie: options.voie ?? 'orale',
     motif: options.motif ?? '',

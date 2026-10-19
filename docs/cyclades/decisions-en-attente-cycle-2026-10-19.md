@@ -443,7 +443,92 @@ d'ordonner une question.
 
 ---
 
-## 13. Ce qui n'attend rien, et ne doit pas se retrouver ici
+## 13. Trois points tranchés par Alexis le 19 octobre au soir — **clos**
+
+Repris ici pour qu'on ne les rouvre pas, et pour que ce qui en découle se
+trouve.
+
+**a. Restauration d'une sauvegarde non chiffrée : issue A retenue.** Le fichier
+déclarera ses exclusions, et la restauration ne touchera pas aux magasins
+exclus. C'est un changement de **format**, confié au constructeur (partie 2 du
+58, format v2). Ce chantier-ci n'y touche pas : il **expose** la liste à
+consommer, `magasinsDUneSauvegarde(chiffree)` (`db.ts`), et ne modifie pas
+`remplacerMagasins`. Jusqu'à la v2 du format, la conséquence écrite au point 9
+reste vraie et l'écran la dit.
+
+**b. `intersexe_ou_autre` : trois réponses seulement.** La liste d'Alexis ne
+bouge pas, et le type `SexePhysio` n'est pas touché. Une personne intersexe ou
+autre répondra « Je préfère ne pas répondre », et le suivi lui sera masqué.
+C'est assumé.
+
+**c. Le masquage visuel suffit.** Pas d'injection côté client. Le HTML servi
+contient le module quelle que soit la réponse ; qui lit le source de la page le
+voit. Dire « masqué » et non « invisible » reste la formulation juste.
+
+---
+
+## 14. Les rappels de prise n'entrent plus au centre — **conséquence à connaître**
+
+Correctif du filtre du cycle, option (a), arbitrée par le pilote le 19 octobre
+à 12 h 46 et posée à la fusion du soir.
+
+**Ce qui était troué.** `rappel-de-prise` était déclaré « admis, SAUF pour une
+molécule de classe du cycle », et l'exception reposait sur la classe de la
+molécule. Or **aucune molécule ne porte de classe** : le registre
+(`odyssee/molecules.ts`) n'a pas cette notion, et rien ne pourra la renseigner
+avant qu'un RCP lu la fournisse. La condition ne se déclenchait donc jamais, et
+un rappel de prise de contraceptif entrait au centre sous le libellé
+« Rappels de prise ». Le trou était dans la **donnée manquante**, pas dans la
+logique — la façon la plus sûre de ne pas se faire voir —, et l'essai qui
+affirmait ce comportement sans interroger sa prémisse l'a tenu en place.
+
+**La ligne pour Alexis** : *les rappels de prise n'apparaissent pas au centre
+de notifications tant que la classe des molécules n'est pas sourcée.* C'est
+une fonction en moins, visible, plutôt qu'une fuite invisible.
+
+**Une question de produit qui reste ouverte, et qui n'est pas la mienne.** Une
+personne qui a réglé un rappel et ne reçoit rien mérite de savoir pourquoi. Il
+faudrait que l'écran où les rappels se règlent le dise. Cet écran appartient à
+Santé, pas à ce chantier : signalé plutôt que modifié.
+
+Un essai mesure que le registre des molécules ne porte toujours aucune classe.
+Il rougira le jour où une classe apparaîtra — et ce jour-là tout ce bloc doit
+être relu, parce que c'est le moment où le filtre recommence à pouvoir se
+tromper.
+
+---
+
+## 15. `odysseeCreneaux` échappait à l'effacement — **corrigé, et une question reste**
+
+Trouvé à la fusion de `main` du 19 octobre au soir, par un garde-fou écrit au
+lot 5d.
+
+`essais:schema` connaît depuis ce lot les **quatre** endroits où un magasin se
+déclare, dont le groupe d'effacement et la règle de rétention. La version de cet
+essai qui était sur `main` n'en gardait que trois. `odysseeCreneaux` (prompt 52)
+manquait aux deux derniers : « effacer mes données » laissait les créneaux
+marqués derrière lui **en se disant complet**. C'est exactement la classe de
+défaut pour laquelle le quatrième contrôle existe, et c'est la première fois
+qu'il sert.
+
+Corrigé : le magasin entre dans le groupe Odyssée et déclare sa date.
+
+**Ce qui reste ouvert, et c'est la même faute que la mienne.**
+`odysseeCreneaux` déclare `clairs: ['id', 'majLe']`, alors que le commentaire
+de son scellé dit que « la clé elle-même est une empreinte, parce qu'une clé en
+clair aurait dit ce rythme sans qu'on ouvre rien ». La liste des `majLe` rend ce
+rythme. C'est le raisonnement exact qui m'avait fait écrire `['id', 'majLe']`
+pour le journal du suivi, et la même erreur. Le remède est le même —
+`clairs: ['id']`, `CHAMP_DATE` à `null`, effacement par période dans le module —
+et il a le même coût. Ce magasin appartient au prompt 52 : **remonté, pas
+tranché ici.** Déclarer la date est en attendant la seule chose qui empêche un
+effacement incomplet.
+
+Même remarque, toujours ouverte, pour `odysseeExceptionsScellees` (point 11).
+
+---
+
+## 16. Ce qui n'attend rien, et ne doit pas se retrouver ici
 
 Par symétrie, et pour qu'on ne vienne pas chercher une décision là où il n'y en
 a pas :

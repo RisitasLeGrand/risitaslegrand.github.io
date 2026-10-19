@@ -172,6 +172,7 @@ import { base } from '../lib/ui';
   import { signalerErreur } from '../lib/journal';
   import { enregistrerReponse, ordonnerParZoneProximale } from '../lib/niveau';
   import { lien, melanger, notifier, parametreUrl, pluriel } from '../lib/ui';
+  import { analyserParties, type CouplePartie } from '../lib/seance-parties';
   import { insecables } from '../lib/typographie';
   import { boutonAssistant } from '../features/assistant/monter';
   import { contexteFlashcard } from '../features/assistant/fournisseurs';
@@ -418,10 +419,23 @@ import { base } from '../lib/ui';
     return ids.length ? ids : null;
   }
 
+  /**
+   * Parties d'une séance passée, sous la forme « ?parties=fiche:partie,… »
+   * (prompt 46, P5).
+   *
+   * Absent pour une séance ancienne, et le rappel porte alors sur les fiches
+   * entières — ce qui est exactement ce qui s'était passé ce jour-là.
+   */
+  function partiesCiblees(): CouplePartie[] | null {
+    const couples = analyserParties(parametreUrl('parties'));
+    return couples.length ? couples : null;
+  }
+
   async function demarrer(inclureNonDues: boolean) {
     const taille = Number(($('choix-taille') as HTMLSelectElement).value);
     const ficheId = parametreUrl('fiche');
     const ciblees = fichesCiblees();
+    const parties = partiesCiblees();
     const menus = selectionMenus();
     // Un rappel de séance impose ses fiches : les menus sont alors ignorés.
     const matiere = ciblees ? null : menus.matiere;
@@ -448,6 +462,7 @@ import { base } from '../lib/ui';
           ficheId,
           ficheIds,
           limite: taille,
+          parties,
           inclureNonDues,
           prioriser: clefSujet
             ? (cartes) => ordonnerParZoneProximale(cartes, clefSujet)

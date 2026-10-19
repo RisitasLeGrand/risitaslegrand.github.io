@@ -12,7 +12,12 @@
  * sur leur écran, et la page centrale n'en montre que le chemin.
  */
 import { delaiDuVerrouAutomatique, modeDuCoffre, oublierLAppareil, reglerLeDelaiDuVerrou } from '../coffre';
-import { ecrireReglagesSession, lireReglagesSession } from '../db';
+import {
+  ecrireReglagesPlanification,
+  ecrireReglagesSession,
+  lireReglagesPlanification,
+  lireReglagesSession,
+} from '../db';
 import {
   ecrireReglagesContenu,
   ecrireReglagesNiveau,
@@ -35,6 +40,7 @@ import {
   lirePalette,
   type Choix,
 } from '../theme';
+import { CLE_VITESSE, VITESSE_PAR_DEFAUT, VITESSES } from '../podcast-noyau';
 import type { Acces } from './modele';
 
 /* ── Deux réglages locaux, lus par la séance de sport ────────────────────── */
@@ -111,6 +117,19 @@ export const ACCES: Record<string, Acces> = {
     lire: async () => lireLocal(CLE_VUE_FICHE) === 'continue',
     ecrire: async (v) => ecrireLocal(CLE_VUE_FICHE, v ? 'continue' : 'sections'),
   },
+  'vitesse-ecoute': {
+    /*
+       La valeur est relue contre la liste : une clé abîmée à la main, ou
+       laissée par une version qui proposait une autre échelle, ferait sinon
+       lire une vitesse que le lecteur refuserait.
+    */
+    lire: async () => {
+      const brut = Number(lireLocal(CLE_VITESSE));
+      const connue = VITESSES.includes(brut as (typeof VITESSES)[number]);
+      return String(connue ? brut : VITESSE_PAR_DEFAUT);
+    },
+    ecrire: async (v) => ecrireLocal(CLE_VITESSE, String(v)),
+  },
 
   /* Ma journée */
   lever: champDeProfil('lever', '07:00'),
@@ -169,6 +188,15 @@ export const ACCES: Record<string, Acces> = {
       ],
     ),
   ),
+  'decouper-par-parties': {
+    lire: async () => (await lireReglagesPlanification())?.decouperParParties ?? false,
+    ecrire: async (v) =>
+      ecrireReglagesPlanification({
+        trimestreEcarte: null,
+        ...((await lireReglagesPlanification()) ?? {}),
+        decouperParParties: Boolean(v),
+      }),
+  },
   'plafond-cartes': {
     lire: async () => (await lireReglagesSession()).plafondCartes,
     ecrire: async (v) =>

@@ -20,6 +20,12 @@ import {
   tousLesResultatsQuiz,
   type EtatCarte,
 } from './db';
+import {
+  partiesDeLaFiche,
+  restreindreAuxParties,
+  SEUIL_CARTES,
+  type CouplePartie,
+} from './seance-parties';
 import { maitrise } from './srs';
 
 export interface ProgressionFiche {
@@ -188,6 +194,8 @@ export interface CarteAReviser {
   neuve: boolean;
   /** Nombre de jours de retard sur l'échéance ; 0 pour une carte neuve. */
   retard: number;
+  /** La partie de la fiche dont la carte relève (prompt 46, P4), s'il y en a. */
+  partie?: string;
 }
 
 interface PorteeFile {
@@ -195,12 +203,42 @@ interface PorteeFile {
   ficheId?: string | null;
   /** Restreint la file à un ensemble de fiches — rappel d'une séance passée. */
   ficheIds?: string[] | null;
+  /**
+   * Restreint la file à des PARTIES de fiches (prompt 46, P5).
+   *
+   * Le filtre s'applique là où la fiche est déjà ouverte, et AVANT le
+   * plafond : filtrer après coup rendrait une session plus courte que
+   * demandée, et surtout ne pourrait pas aller chercher le complément du
+   * seuil, qui est précisément dans les cartes que le plafond avait écartées.
+   *
+   * Vide ou absent : aucune restriction, et c'est le cas par défaut.
+   */
+  parties?: CouplePartie[] | null;
 }
 
 /** Les fiches du manifeste que la portée retient. */
 async function fichesEnPortee(portee: PorteeFile) {
-  const { matiere = null, ficheId = null, ficheIds = null } = portee;
-  const ensemble = ficheIds?.length ? new Set(ficheIds) : null;
+  const { matiere = null, ficheId = null, ficheIds = null, parties = null } = portee;
+  /*
+     LES PARTIES BORNENT LA PORTÉE À LEURS PROPRES FICHES.
+
+     Une sélection de parties nomme forcément ses fiches — c'est dans le
+     couple. S'en servir n'est pas une commodité : `fileDuJour` lève son
+     plafond de session quand des parties sont demandées, et ce plafond est
+     justement ce qui empêche de déchiffrer tout le site. Sans cette borne,
+     une adresse portant « ?parties=… » SANS « ?fiches=… » — bricolée à la
+     main, ou un lien que le code produirait un jour autrement — ouvrirait
+     toutes les fiches de la portée pour en garder quelques-unes.
+
+     Les deux bornes se cumulent quand elles sont là toutes les deux : on ne
+     prend que les fiches demandées ET nommées par les parties.
+  */
+  const nommeesParLesParties = parties?.length ? new Set(parties.map((p) => p.fiche)) : null;
+  const demandees = ficheIds?.length ? new Set(ficheIds) : null;
+  const ensemble =
+    demandees && nommeesParLesParties
+      ? new Set([...demandees].filter((id) => nommeesParLesParties.has(id)))
+      : (demandees ?? nommeesParLesParties);
   // Les fiches de méthodologie restent hors des files par défaut : elles
   // décrivent une épreuve, pas un savoir à retenir. Une fiche demandée
   // nommément fait exception — le bouton « réviser cette fiche » est un choix
@@ -282,7 +320,23 @@ export async function fileDuJour(
     prioriser?: <T extends { id: string }>(cartes: T[]) => Promise<T[]>;
   } = {},
 ): Promise<CarteAReviser[]> {
-  const { limite = 0, inclureNonDues = false, prioriser } = options;
+  const { limite = 0, inclureNonDues = false, prioriser, parties = null } = options;
+  /*
+     LE PLAFOND EST LEVÉ QUAND DES PARTIES SONT DEMANDÉES (prompt 46, P5).
+
+     Le plafond existe pour ne pas déchiffrer tout le site afin d'en garder
+     vingt cartes. Mais appliqué AVANT le filtre par partie, il écarte
+     justement les cartes dans lesquelles le seuil doit aller chercher son
+     complément : une partie de trois cartes resterait à trois, et l'on ne
+     saurait même pas que la fiche en avait d'autres.
+
+     Le lever ne rouvre pas la porte au défaut qu'il gardait : une sélection
+     de parties vient d'une séance, donc d'une poignée de fiches nommées —
+     c'est `ficheIds` qui borne alors le travail, et non le plafond. Le
+     plafond, lui, est réappliqué après le filtre, sur le résultat.
+  */
+  const restreintParParties = Boolean(parties?.length);
+  const plafond = restreintParParties ? 0 : limite;
   const [candidates, etats] = await Promise.all([fichesEnPortee(options), toutesLesCartes()]);
   const aujourdhui = jourISO();
   const retenues = new Set(candidates.map((f) => f.id));
@@ -307,7 +361,7 @@ export async function fileDuJour(
   // Les plus en retard d'abord : c'est ce qui compte quand la file déborde.
   exigibles.sort((a, b) => b.retard - a.retard);
   const ordonnees = prioriser ? await prioriser(exigibles) : exigibles;
-  const servies = limite > 0 ? ordonnees.slice(0, limite) : ordonnees;
+  const servies = plafond > 0 ? ordonnees.slice(0, plafond) : ordonnees;
 
   const ouvertes = new Map<string, Awaited<ReturnType<typeof chargerFiche>>>();
   const ouvrir = async (id: string) => {
@@ -331,6 +385,7 @@ export async function fileDuJour(
       matiere: matieres.get(fiche.id) ?? fiche.matiere,
       neuve: false,
       retard: choisie.retard,
+      ...(carte.partie ? { partie: carte.partie } : {}),
     });
   }
 
@@ -339,7 +394,7 @@ export async function fileDuJour(
   // et on saute les fiches dont le manifeste indique qu'elles n'ont plus rien
   // d'inédit à offrir.
   for (const resume of candidates) {
-    if (limite > 0 && file.length >= limite) break;
+    if (plafond > 0 && file.length >= plafond) break;
     if ((connuesParFiche.get(resume.id) ?? 0) >= resume.nbFlashcards) continue;
     const fiche = await ouvrir(resume.id);
     for (const carte of fiche.flashcards) {
@@ -353,10 +408,39 @@ export async function fileDuJour(
         matiere: resume.matiere,
         neuve: true,
         retard: 0,
+        ...(carte.partie ? { partie: carte.partie } : {}),
       });
-      if (limite > 0 && file.length >= limite) break;
+      if (plafond > 0 && file.length >= plafond) break;
     }
   }
 
-  return file;
+  if (!restreintParParties) return file;
+
+  /*
+     Le filtre par partie, fiche par fiche : le seuil se juge PAR FICHE, pas
+     sur la file entière. Deux parties maigres de deux fiches différentes ne
+     se complètent pas l'une l'autre — chacune va chercher son complément
+     dans sa propre fiche, qui est le seul endroit où le complément a un
+     rapport avec ce qu'on révise.
+
+     Une fiche dont aucune partie n'est cochée n'est pas restreinte : elle a
+     été travaillée en entier, et `restreindreAuxParties` le rend tel quel
+     devant un ensemble vide.
+  */
+  const parFiche = new Map<string, CarteAReviser[]>();
+  for (const carte of file) {
+    const liste = parFiche.get(carte.ficheId);
+    if (liste) liste.push(carte);
+    else parFiche.set(carte.ficheId, [carte]);
+  }
+  const gardees: CarteAReviser[] = [];
+  for (const [ficheId, cartes] of parFiche) {
+    gardees.push(
+      ...restreindreAuxParties(cartes, partiesDeLaFiche(parties!, ficheId), SEUIL_CARTES).retenus,
+    );
+  }
+  /* L'ordre de la file est celui du retard : le filtre ne doit pas le défaire. */
+  const rang = new Map(file.map((c, i) => [c.id, i]));
+  gardees.sort((a, b) => (rang.get(a.id) ?? 0) - (rang.get(b.id) ?? 0));
+  return limite > 0 ? gardees.slice(0, limite) : gardees;
 }

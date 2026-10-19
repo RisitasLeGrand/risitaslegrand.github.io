@@ -32,7 +32,16 @@
  * et la comparaison au tableau des anomalies reste un geste humain.
  */
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, mkdtempSync, readFileSync as lireFichier, writeFileSync } from 'node:fs';
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync as lireFichier,
+  rmSync,
+  statSync,
+  symlinkSync,
+  writeFileSync,
+} from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
@@ -74,6 +83,24 @@ const SOCLE = [
   ['essais:echecs-dits', 'un échec est dit, jamais avalé'],
   ['essais:refus-dit', 'un mot de passe de coffre refusé est dit, sur chaque page'],
   ['essais:carte-ecrans', 'aucun écran orphelin, aucun au-delà de trois appuis'],
+  /*
+     LES BALAYAGES DE SOURCE, ajoutés au socle le 19 octobre, avec l'accord du
+     pilote.
+
+     Ils ne demandent ni navigateur ni aperçu, et coûtent quelques secondes
+     chacun. Ce sont pourtant ceux qu'une écriture NOUVELLE fait rougir : une
+     clé d'état qu'on vient d'inventer, un magasin qu'on vient d'ajouter, un
+     essai qui sème sans le dire.
+
+     Ils manquaient, et cela s'est payé le même jour : deux clés d'état non
+     déclarées ont vécu sur `main` sans qu'un contrôle d'avant-poussée puisse
+     les voir — le socle ne les contenait pas, et la batterie complète coûte
+     une heure. C'est un agent qui les a signalées, pas la cadence.
+  */
+  ['essais:reglages-orphelins', 'aucune clé d’état écrite sans être déclarée'],
+  ['essais:effacement', 'aucun magasin sans groupe, sans date déclarée, sans description'],
+  ['essais:semis', 'aucun essai qui sème en base sans dire pourquoi'],
+  ['essais:enregistrements', 'le registre des magasins journalisés, nommé et non compté'],
 ];
 
 /**
@@ -164,6 +191,93 @@ if (!sert) {
       '  qu’il sert bien le « dist/ » que vous venez de construire.',
   );
   process.exit(1);
+}
+
+/* ── Le laboratoire ────────────────────────────────────────────────────── */
+
+/*
+   CINQ ESSAIS NE PEUVENT PAS TOURNER DANS L'ARBRE DE TRAVAIL, ET C'EST VOULU.
+
+   Ils bâtissent eux-mêmes un « content/ » depuis « content-exemple/ », avec un
+   mot de passe factice, servent sur le port 4322, puis effacent tout. Ils
+   REFUSENT donc de démarrer si « content/ », « .env.local » ou « public/data/ »
+   existent déjà — c'est-à-dire toujours, dans le répertoire où le travail se
+   fait. La batterie les comptait rouges, et la règle « aucun rouge avant de
+   fusionner » devenait inapplicable.
+
+   Les déplacer eux n'était pas la réponse : déplacer le « content/ » réel pour
+   leur faire de la place, non plus, puisqu'ils le suppriment en fin de course
+   et qu'il n'est pas dans Git.
+
+   La réponse est un **arbre de travail séparé**, pris sur le même commit. Il
+   ne porte aucun des trois fichiers, puisqu'aucun n'est suivi : leurs gardes
+   sont satisfaites sans qu'on touche à quoi que ce soit ici. `node_modules` y
+   est lié plutôt que réinstallé.
+
+   Le laboratoire n'est créé que si au moins un de ces essais doit tourner, et
+   il est retiré à la fin.
+*/
+const EN_LABORATOIRE = new Set([
+  'essais:acces-m9',
+  'essais:lecteur-parties',
+  'essais:seances-parties:navigateur',
+  'essais:parties-client',
+  'essais:reperes-audio',
+]);
+
+/*
+   Une batterie lancée DANS un laboratoire n'en crée pas un second : elle y est
+   déjà, et la récursion coûterait un arbre par essai.
+
+   Le signe est que « .git » y est un FICHIER, qui renvoie au dépôt principal,
+   et non un dossier. Une première version regardait seulement s'il existait :
+   il existe des deux côtés, et la détection ne détectait rien.
+*/
+const DANS_UN_LABORATOIRE = (() => {
+  try {
+    return statSync(join(process.cwd(), '.git')).isFile();
+  } catch {
+    return false;
+  }
+})();
+
+let laboratoire = null;
+function ouvrirLeLaboratoire() {
+  if (laboratoire !== null) return laboratoire;
+  const chemin = mkdtempSync(join(tmpdir(), 'labo-batterie-'));
+  try {
+    execFileSync('git', ['worktree', 'add', '--detach', chemin, 'HEAD'], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 300_000,
+    });
+    symlinkSync(join(process.cwd(), 'node_modules'), join(chemin, 'node_modules'));
+    laboratoire = chemin;
+  } catch (erreur) {
+    /*
+       L'échec n'est pas avalé : sans laboratoire, ces essais tomberaient sur
+       leur garde et seraient comptés rouges pour une raison qui n'est pas la
+       leur. On le dit une fois, et ils tournent là où ils sont.
+    */
+    console.log(
+      `  \x1b[33m—\x1b[0m le laboratoire n'a pas pu être ouvert : ` +
+        `${(erreur.stderr || erreur.message || '').toString().trim().slice(0, 200)}`,
+    );
+    laboratoire = false;
+  }
+  return laboratoire;
+}
+
+function fermerLeLaboratoire() {
+  if (!laboratoire) return;
+  try {
+    rmSync(join(laboratoire, 'node_modules'), { force: true });
+    execFileSync('git', ['worktree', 'remove', '--force', laboratoire], {
+      stdio: ['ignore', 'pipe', 'pipe'],
+      timeout: 120_000,
+    });
+  } catch {
+    /* Un laboratoire qui survit coûte de la place, pas une mesure fausse. */
+  }
 }
 
 /* ── Le passage ────────────────────────────────────────────────────────── */
@@ -306,6 +420,14 @@ for (const [index, nom] of noms.entries()) {
     }
   }
 
+  /*
+     Les essais de laboratoire tournent dans l'arbre séparé — voir plus haut.
+     Les autres tournent ici, et rien ne change pour eux.
+  */
+  const ou =
+    EN_LABORATOIRE.has(nom) && !DANS_UN_LABORATOIRE ? ouvrirLeLaboratoire() : null;
+  if (ou) console.log(`  \x1b[36m…\x1b[0m ${compteur} ${nom} — dans l'arbre de laboratoire`);
+
   let sortie = '';
   let code = 0;
   const depart = Date.now();
@@ -315,6 +437,7 @@ for (const [index, nom] of noms.entries()) {
       timeout: DELAI_MS,
       stdio: ['ignore', 'pipe', 'pipe'],
       env: process.env,
+      ...(ou ? { cwd: ou } : {}),
     });
   } catch (erreur) {
     code = erreur.status ?? (erreur.signal ? 124 : 1);
@@ -362,5 +485,6 @@ if (rouges.length > 0) {
   );
 }
 console.log(`Journaux conservés : ${journal}\n`);
+fermerLeLaboratoire();
 /* Le code de sortie ne juge pas : la batterie rapporte, l'humain tranche. */
 process.exit(0);

@@ -137,7 +137,8 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    s'affiche que pour un sexe féminin déclaré, ce qui demande d'enregistrer la
    réponse — et de la sceller.
 */
-v('trente magasins scellés', MAGASINS_SCELLES.length, 30);
+/* Trente et un depuis la fusion de `main` : `odysseeCreneaux` arrive du 52. */
+v('trente-et-un magasins scellés', MAGASINS_SCELLES.length, 31);
 /*
    Le centre : l'identifiant ET le genre, pas un champ de plus.
 

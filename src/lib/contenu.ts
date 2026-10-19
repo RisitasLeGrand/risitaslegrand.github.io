@@ -23,6 +23,18 @@ export interface FicheResume {
    * séance n'ait pas à déchiffrer une fiche entière afin de le découvrir.
    */
   aPretest?: boolean;
+  /**
+   * Combien de parties la fiche compte — et non lesquelles (prompt 46, P5).
+   *
+   * De quoi savoir s'il y a un choix de parties à proposer au lancement
+   * d'une séance, sans ouvrir la fiche. Les TITRES, eux, restent dans la
+   * charge utile de la fiche : l'interdit 2 du prompt 46 en fait du contenu
+   * de fiche, et le manifeste est chargé en entier par presque chaque écran.
+   *
+   * Absent d'un manifeste construit avant ce prompt : son absence se lit
+   * « aucun choix de partie à proposer ».
+   */
+  nbParties?: number;
 }
 
 export interface Fascicule {

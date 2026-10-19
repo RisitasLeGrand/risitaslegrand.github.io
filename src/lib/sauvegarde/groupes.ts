@@ -135,6 +135,9 @@ export const CLEFS_ODYSSEE_ETAT: readonly string[] = [
  *   n'est pas un réglage mais un constat, et l'effacer ferait croire qu'on
  *   n'a jamais sauvegardé — ou, pire, en remettrait la bannière à zéro au
  *   moment précis où l'on vient de perdre des données ;
+ * - `fusionEnCours` : la liste du travail qu'une fusion interrompue a laissé
+ *   en chemin (B-4 du 58). L'effacer perdrait la seule trace de ce qui reste
+ *   à matérialiser, et personne ne saurait même quelles cibles manquent ;
  * - préfixe `coffre.` : `coffre.sel`, `coffre.sel-enveloppe`,
  *   `coffre.enveloppe`, `coffre.migration`, et le délai de verrouillage
  *   automatique. C'est le cœur de la B-3 : les effacer condamnait le coffre,
@@ -156,6 +159,7 @@ export const CLEFS_TECHNIQUES_ETAT: readonly string[] = [
   'derniereVeille',
   'reglagesSync',
   'derniereSauvegarde',
+  'fusionEnCours',
 ];
 
 /** Une clé d'`etat` est-elle technique, c'est-à-dire intouchable à la carte ? */
@@ -212,6 +216,24 @@ export const CHAMP_DATE: Record<string, string | null> = {
   // effacerait l'état d'une carte sous prétexte qu'elle est ancienne.
   cartes: null,
   fiches: null,
+  /*
+     L'ÉCOUTE EN COURS : UN SIGNET, PAS UN HISTORIQUE.
+
+     Le magasin porte une ligne par fiche, réécrite à chaque écoute, et son
+     `majLe` dit quand on l'a touchée pour la dernière fois. On pourrait donc
+     le découper par période — et c'est tentant, puisque la date existe.
+
+     Il reste à `null`, et le motif est l'asymétrie du risque. Si ce choix est
+     mauvais, un effacement par période laisse les signets ET LE DIT, par le
+     refus que l'écran affiche. Si l'autre choix l'était, il détruirait des
+     signets que personne ne pensait désigner. Un refus visible coûte une
+     phrase ; une destruction silencieuse coûte la donnée.
+
+     C'est une décision prise à la fusion de claude/p46-55, faute de
+     déclaration dans la branche. Elle se renverse d'une ligne si l'agent C ou
+     le pilote la juge mauvaise.
+  */
+  podcastPositions: null,
   competences: null,
   difficultes: null,
   qcmDgfip: null,
@@ -272,6 +294,25 @@ export const CHAMP_DATE: Record<string, string | null> = {
      La partie 1 point 10 du prompt 30 demande que le cycle soit « effaçable
      par période par purge physique » ; il l'est, par là.
   */
+  /*
+     LES CRÉNEAUX MARQUÉS, et une question que je laisse ouverte en la disant.
+
+     `majLe` est déclaré en clair pour ce magasin (`noyau/coffre.ts`), donc le
+     découpage par période fonctionne par le chemin générique, et c'est ce qui
+     est déclaré ici. Sans cette ligne, un effacement par période laissait les
+     créneaux entiers en se disant complet — le défaut trouvé à la fusion.
+
+     MAIS c'est la même faute que celle que j'ai corrigée pour le journal du
+     suivi : `majLe` EST une date, et le commentaire de son scellé dit
+     pourtant que « la clé elle-même est une empreinte, parce qu'une clé en
+     clair aurait dit ce rythme sans qu'on ouvre rien ». La liste des `majLe`
+     rend ce rythme. Le remède est le même — `clairs: ['id']`, `null` ici, et
+     un effacement par période dans le module — et il a le même coût. Ce
+     magasin appartient au prompt 52 : la question est remontée au pilote
+     plutôt que tranchée ici, et déclarer la date est en attendant la seule
+     chose qui empêche un effacement incomplet.
+  */
+  odysseeCreneaux: 'majLe',
   odysseeCycleJournal: null,
   odysseeCycleReglages: null,
   /*
@@ -394,8 +435,10 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
   {
     id: 'revisions',
     libelle: 'Révisions',
-    description: 'Flashcards, fiches lues, actualités lues, quiz de cours, pointages quotidiens.',
-    magasins: ['cartes', 'fiches', 'quiz', 'jours', 'actualitesLues'],
+    description:
+      'Flashcards, fiches lues, écoutes en cours, actualités lues, quiz de cours, ' +
+      'pointages quotidiens.',
+    magasins: ['cartes', 'fiches', 'quiz', 'jours', 'actualitesLues', 'podcastPositions'],
   },
   {
     id: 'seances',
@@ -444,7 +487,25 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
   {
     id: 'odyssee',
     libelle: 'Odyssée',
-    description: 'Tâches, quêtes, agenda, temps de concentration et revues.',
+    /*
+       LA DESCRIPTION DISAIT LE QUART DE CE QUE LE GROUPE EMPORTE.
+
+       Elle s'arrêtait à « Tâches, quêtes, agenda, temps de concentration et
+       revues » — l'Odyssée des premiers jours. Depuis, le groupe a gagné le
+       corps, la santé et les traitements, Psyché, les finances et la veille :
+       quarante-quatre magasins. Or c'est cette phrase que l'écran
+       d'effacement montre. Une personne qui voulait retirer ses tâches
+       emportait ses analyses sans que rien ne l'en avertisse.
+
+       Écart relevé par le pilote le 19 octobre, corrigé avec G-5 et G-6,
+       puisque c'est le même principe : l'écran doit dire ce qu'il efface.
+    */
+    description:
+      'Tâches, quêtes, agenda, temps de concentration et revues ; le corps ' +
+      '(poids, mesures, nuits, repas, boissons) ; la santé, les traitements, les ' +
+      'prélèvements et leurs résultats ; Psyché (journal, ressentis, échelles) ; ' +
+      'les finances (comptes, opérations, budget, pointage) ; et la veille du ' +
+      'rythme de vie.',
     magasins: [
       'odysseeTaches',
       'odysseeOccurrences',
@@ -479,6 +540,21 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
          convention déjà suivie ici : ce groupe efface le journal de Psyché,
          les traitements et les comptes sans les énumérer dans son libellé.
       */
+      /*
+         `odysseeCreneaux` MANQUAIT À CE GROUPE, et personne ne l'avait vu.
+
+         Trouvé à la fusion du 19 octobre au soir : le magasin arrive de
+         `main` (prompt 52, mon propre travail), et `essais:schema` de cette
+         branche connaît depuis le lot 5d les QUATRE endroits de déclaration —
+         dont le groupe d'effacement et la règle de rétention. La version de
+         cet essai qui était sur `main` n'en gardait que trois, donc le trou a
+         pu partir : « effacer mes données » laissait les créneaux marqués
+         derrière lui, en se disant complet.
+
+         C'est exactement la classe de défaut pour laquelle le quatrième
+         contrôle a été écrit, et c'est la première fois qu'il sert.
+      */
+      'odysseeCreneaux',
       'odysseeCycleJournal',
       'odysseeCycleReglages',
       /*

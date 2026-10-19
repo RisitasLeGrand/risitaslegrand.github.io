@@ -222,6 +222,33 @@ La synthèse vocale note, en plus, la seconde où chaque partie commence à se
 dire ; ces repères sont chiffrés avec la fiche. Une fiche audio produite
 avant cette version n'en a pas, et s'écoute d'un bloc.
 
+**À la lecture**, ces repères donnent trois choses : la liste des parties sous
+le lecteur, où un appui saute à l'une d'elles ; un bouton « 🎧 Écouter à
+partir d'ici » sur chaque titre du cours qui est une partie atteignable ; et
+les commandes « partie précédente / suivante » de l'écran verrouillé. Celui-ci
+n'affiche jamais qu'un titre neutre, « Cyclades — fiche audio », le même pour
+toutes les fiches : un téléphone posé sur une table ne doit pas dire à la
+pièce ce que son propriétaire révise.
+
+L'endroit où l'écoute s'est arrêtée est enregistré dans le magasin
+`podcastPositions`, donc synchronisé et sauvegardé avec le reste de la
+progression. Il s'écrit au fil de l'eau et à chaque arrêt — pause, passage en
+arrière-plan, fermeture de la page —, et la reprise recule de trois secondes
+pour retrouver le fil. Une fiche écoutée jusqu'au bout perd sa position : la
+liste « Écoutes en cours » de l'accueil de Révisions dit donc ce qui est
+commencé, et non ce qui a été écouté.
+
+**En séance**, une fiche peut n'être travaillée que par parties. « Toute la
+fiche » reste le choix par défaut ; en cochant des parties, on restreint la
+lecture, les cartes et les QCM. Le seuil est de **5 cartes et 3 questions** :
+en dessous, la séance est complétée depuis le reste de la fiche, et l'écran le
+dit — « 4 cartes sur cette sélection, complétées par 1 de la fiche ». Les
+parties réellement vues sont retenues dans `Seance.parties`, un champ
+facultatif dont l'absence veut dire « la fiche entière » : une séance
+enregistrée avant ce prompt vaut donc pour la fiche entière, ce qui est la
+vérité. Le découpage automatique d'une longue fiche sur plusieurs séances est
+un réglage, **désactivé par défaut**.
+
 ### Détail des champs
 
 | Champ | Obligatoire | Remarque |
@@ -408,8 +435,15 @@ Dans `site.config.mjs`, section `podcast` :
 | `piper.voix` | `fr_FR-siwis-medium` et `fr_FR-upmc-medium` (féminines), `fr_FR-tom-medium` (masculine) |
 | `vitesse` | 1 = diction naturelle ; **en dessous, la lecture est plus lente et plus douce** |
 | `silenceParagrapheMs`, `silencePhraseMs` | les respirations |
+| `silencePartieMs` | la pause avant une nouvelle partie — plus longue qu'une respiration, parce qu'un changement de sujet s'entend avant de se comprendre |
+| `sonie` | la sonie visée à l'encodage, en LUFS. −16 est la cible usuelle de la parole en mobilité |
 | `format` | `'opus'` (recommandé) ou `'mp3'` pour un navigateur ancien |
 | `bitrate` | qualité et poids du fichier : `'16k'` en Opus équivaut à `'32k'` en MP3 |
+
+**Les cinq derniers entrent dans l'empreinte** : ils ne changent pas une
+syllabe du texte dit, mais ils changent le son produit. En changer un
+resynthétise donc tout, et c'est voulu — sans cela, la bibliothèque
+mélangerait deux volumes ou deux rythmes de pause.
 
 Après un changement de moteur, de voix ou de vitesse, relancez
 `npm run podcasts:installer` (si le modèle change) puis `npm run podcasts` :
@@ -417,6 +451,55 @@ l'empreinte enregistrée ne correspond plus, **toutes** les fiches sont donc
 resynthétisées. Pour la centaine de fiches actuelle, comptez **une bonne nuit
 avec Kokoro**, **quelques heures avec Piper**. La génération est **reprenable** :
 interrompue, elle repart des fiches qui manquent.
+
+### Ce qu'une fiche audio dit, et ce qu'elle ne dit pas
+
+Le script parlé n'est pas le cours lu à voix haute : il est réécrit pour
+l'oreille, qui ne peut ni revenir en arrière ni voir la page.
+
+- **Le plan est annoncé** à l'ouverture, et le rang de chaque partie au
+  passage : « Deuxième partie, sur trois : … ». Les deux nombres viennent des
+  titres de la fiche.
+- **Chaque partie se termine par un récapitulatif**, construit à partir de son
+  titre et de ses exergues, puis — s'il existe une carte rattachée à cette
+  partie — par une **question de rappel** : « Question : … », quatre secondes
+  de silence, « Réponse : … ». Pas de carte rattachée, pas de question : on
+  n'en fabrique pas une.
+- **Rien n'est inventé.** Plans, récapitulatifs, nombres d'éléments et
+  questions viennent de la fiche ou de ses cartes. Quand une information
+  manque, la phrase est omise, jamais complétée.
+- **Les sigles fiscaux** (IR, IS, TVA, CGI, LPF, CE, QPC) sont dits en entier
+  la première fois puis épelés. La table est explicite et close : un sigle
+  deviné serait développé faux. DGFiP, IFiP, LOLF et OMS se prononcent et
+  restent lus tels quels.
+- **Ce que l'audio ne peut pas lire est signalé** : une fiche qui contient un
+  schéma le dit une fois, « La fiche montre ici un schéma : vous le
+  retrouverez à l'écran ».
+- **Les silences ne sont jamais écrits dans le texte dit.** Ils sont déclarés
+  à part, dans l'en-tête du script, par rang de paragraphe. Tout ce qui reste
+  dans le texte sera prononcé : un marqueur oublié s'entendrait, et
+  `essais:scripts-parles` refuse d'ailleurs les crochets doubles.
+
+`npm run essais:fiches-audio` éprouve ces règles, et mesure sur un fichier
+réellement encodé la sonie, la pause de partie et les repères de partie.
+
+### Le lecteur d'écran, sur le lecteur audio et les séances
+
+Deux règles valent d'être connues avant d'ajouter un bouton à ces écrans, et
+`npm run essais:acces-m9` les tient :
+
+- **Un nom accessible distinct par cible.** Trois boutons nommés « Écouter à
+  partir d'ici » sont, pour qui parcourt la page par sa liste de boutons, trois
+  boutons indiscernables : chacun nomme donc sa partie. De même pour les volets
+  d'une séance, qui nomment leur fiche. Et un repère se dit en mots dans un nom
+  accessible — « à 4 minutes 12 », parce que « 4:12 » s'entend « quatre
+  deux-points douze ».
+- **Une région vivante pour les événements, jamais pour un compteur.** Les
+  erreurs du lecteur s'annoncent ; le temps restant, non — il se réécrit
+  plusieurs fois par seconde, et annoncé il couvrirait la parole qu'on essaie
+  d'écouter. La zone des bulles, elle, est posée **dès le chargement** : une
+  région `aria-live` créée au moment même où l'on y insère du contenu n'est pas
+  annoncée, et la première bulle de chaque page était perdue.
 
 ### Ce que cela ajoute au dépôt — à lire avant de publier
 

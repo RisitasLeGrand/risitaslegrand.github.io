@@ -175,6 +175,8 @@ const ATTENDUS = [
     'odysseeComptes',
     // Qui lit mon budget, depuis la phase 4 de Finances.
     'odysseeConsommateurs',
+    // Les créneaux marqués de Santé, depuis la phase 4. Scellés, clé opaque.
+    'odysseeCreneaux',
     'odysseeEvenements',
     'odysseeFocus',
     'odysseeHebdos',

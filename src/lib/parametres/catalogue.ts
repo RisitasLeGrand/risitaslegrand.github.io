@@ -28,6 +28,7 @@ import { REGLAGES_CONTENU_PAR_DEFAUT, REGLAGES_NIVEAU_PAR_DEFAUT } from '../nive
 import { PLAFOND_JOURS, PLANCHER_JOURS } from '../notifications/retention';
 import { RETENTION_PAR_DEFAUT } from '../notifications/modele';
 import { COUCHER_PAR_DEFAUT, LEVER_PAR_DEFAUT, THEMES } from '../themes';
+import { CLE_VITESSE, VITESSE_PAR_DEFAUT, VITESSES } from '../podcast-noyau';
 import type { Reglage, Section } from './modele';
 
 export const SECTIONS: Section[] = [
@@ -216,6 +217,29 @@ export const REGLAGES: Reglage[] = [
     defaut: false,
     ecran: '/fiche/',
   },
+  {
+    id: 'vitesse-ecoute',
+    libelle: 'Vitesse des fiches audio',
+    aQuoiCaSert: 'La diction des fiches écoutées. 1 = la voix telle qu’elle a été produite.',
+    section: 'affichage',
+    /*
+       Par APPAREIL, et c'est un choix. On n'écoute pas à la même vitesse sur
+       un téléphone dans la rue et au casque à son bureau ; synchroniser ce
+       réglage imposerait l'un des deux à l'autre.
+    */
+    portee: 'appareil',
+    stockage: `localStorage::${CLE_VITESSE}`,
+    nature: {
+      genre: 'choix',
+      options: VITESSES.map((v) => ({
+        valeur: String(v),
+        /* « × 1,25 » : virgule décimale française, jamais un point. */
+        libelle: `× ${new Intl.NumberFormat('fr-FR').format(v)}`,
+      })),
+    },
+    defaut: String(VITESSE_PAR_DEFAUT),
+    ecran: '/fiche/',
+  },
 
   /* ── Ma journée ────────────────────────────────────────────────────────── */
   {
@@ -373,6 +397,18 @@ export const REGLAGES: Reglage[] = [
     nature: { genre: 'nombre', min: 5, max: 200, unite: 'questions' },
     defaut: 20,
     ecran: '/progression/',
+  },
+  {
+    id: 'decouper-par-parties',
+    libelle: 'Répartir une longue fiche sur plusieurs séances',
+    aQuoiCaSert:
+      'Partie par partie, plutôt qu’une fiche entière d’un bloc. Désactivé par défaut.',
+    section: 'revisions',
+    portee: 'tous',
+    stockage: 'IndexedDB/etat::planification',
+    nature: interrupteur,
+    defaut: false,
+    ecran: '/planification/',
   },
   {
     id: 'rotation',

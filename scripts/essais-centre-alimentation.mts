@@ -25,6 +25,8 @@ import {
   SOURCE_REVUE,
   JOURS_AU_CENTRE,
   SOURCES_NON_BRANCHEES,
+  SOURCE_RAPPEL_DE_PRISE,
+  recenserLesOublis,
   SOURCE_APPRENTISSAGE,
   SOURCE_AVERTISSEMENT,
   SOURCE_CONFLITS,
@@ -341,15 +343,29 @@ console.log('\x1b[1m\n11. LA VEILLE DU RYTHME : UN SEUL REPÈRE, ET MUETTE\x1b[0
   v('aucun champ de plus', champsDe(une), [CHAMPS]);
 }
 
-console.log('\x1b[1m\n12. LES DEUX SOURCES QU’ON NE BRANCHE PAS — MANQUES NOMMÉS\x1b[0m');
+console.log('\x1b[1m\n12. LA SOURCE QU’ON NE BRANCHE PAS — MANQUE NOMMÉ\x1b[0m');
 {
+  /*
+     IL Y EN AVAIT DEUX, IL N'Y EN A PLUS QU'UNE, et ce contrôle a changé
+     d'objet sans rien perdre de son exigence.
+
+     `rappel-de-prise` était « différée » et non « impossible » : Alexis
+     avait signé, le 16 octobre, « pas de rappel de prise tant qu'il n'y a
+     pas de posologie structurée », et cette phrase nommait la condition de
+     sa levée. La phase 4 de Santé la remplit — `SchemaDePrise` est cette
+     posologie structurée. La source est donc branchée, et ce qui était
+     vrai hier serait faux aujourd'hui.
+
+     Ce qui est gardé est strictement ce qui était gardé : la liste est
+     honnête dans les DEUX sens, et chaque source déclarée est rangée d'un
+     côté ou de l'autre. Un contrôle de plus a été ajouté, qui n'existait
+     pas : que `rappel-de-prise` est bien branchée désormais. Sans lui,
+     retirer la source de la liste suffirait à faire passer le contrôle sans
+     que rien ne soit branché.
+  */
+  v('il n’en reste qu’une, et elle est déclarée', [...SOURCES_NON_BRANCHEES], ['pointage-a-reporter']);
   v(
-    'elles sont deux, et déclarées',
-    [...SOURCES_NON_BRANCHEES].sort(),
-    ['pointage-a-reporter', 'rappel-de-prise'],
-  );
-  v(
-    'elles existent bien au registre des sources',
+    'elle existe bien au registre des sources',
     SOURCES_NON_BRANCHEES.filter((id) => !SOURCES_DECLAREES.some((s) => s.id === id)),
     [],
   );
@@ -362,16 +378,24 @@ console.log('\x1b[1m\n12. LES DEUX SOURCES QU’ON NE BRANCHE PAS — MANQUES NO
   const branchees = [
     SOURCE_CONFLITS, SOURCE_FUSION, SOURCE_SAUVEGARDE, SOURCE_REVUE, SOURCE_OCCURRENCE,
     SOURCE_PROPOSITION, SOURCE_AVERTISSEMENT, SOURCE_APPRENTISSAGE,
-    SOURCE_TRAJECTOIRE, SOURCE_VEILLE,
+    SOURCE_TRAJECTOIRE, SOURCE_VEILLE, SOURCE_RAPPEL_DE_PRISE,
   ];
-  v('aucune des deux n’est branchée', branchees.filter((id) => SOURCES_NON_BRANCHEES.includes(id)), []);
+  v('elle n’est pas branchée', branchees.filter((id) => SOURCES_NON_BRANCHEES.includes(id)), []);
   /*
-     Et le compte boucle : douze sources déclarées, dix branchées, deux
-     nommées comme impossibles. Un écart ici veut dire qu'une source a
+     LE SENS INVERSE, qui est le contrôle ajouté : la source du rappel de
+     prise alimente bien le centre. Une constante exportée ne prouve rien
+     toute seule — on vérifie que le recenseur existe et qu'il porte cette
+     source-là.
+  */
+  v('et le rappel de prise, lui, est branché', SOURCE_RAPPEL_DE_PRISE, 'rappel-de-prise');
+  v('par un recenseur qui existe', typeof recenserLesOublis, 'function');
+  /*
+     Et le compte boucle : douze sources déclarées, onze branchées, une
+     nommée comme impossible. Un écart ici veut dire qu'une source a
      été ajoutée sans être rangée d'un côté ou de l'autre.
   */
   v(
-    'les douze sources sont toutes rangées',
+    'les douze sources sont toutes rangées, d’un côté ou de l’autre',
     SOURCES_DECLAREES.map((s) => s.id).filter(
       (id) =>
         !branchees.includes(id) &&

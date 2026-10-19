@@ -132,7 +132,37 @@ v(
    les compter — un compte qui bouge se corrige sans rien apprendre, une liste
    nommée dit lequel manque.
 */
-v('quarante-cinq magasins journalisés', MAGASINS_JOURNALISES.length, 45);
+/*
+   LE COMPTE NU A ÉTÉ REMPLACÉ PAR LA LISTE, pour la raison écrite juste
+   au-dessus et qu'il contredisait.
+
+   « Quarante-cinq » est devenu quarante-six à la fusion de claude/p46-55,
+   qui journalise l'écoute en cours. Corriger le nombre n'aurait rien appris
+   et se reproduirait à chaque magasin nouveau. La liste nommée, elle, dit
+   LEQUEL est entré ou sorti — c'est ce que le commentaire du dessus
+   réclamait, et que cette ligne-ci ne faisait pas.
+*/
+v(
+  'les magasins journalisés hors Odyssée sont nommés',
+  MAGASINS_JOURNALISES.map((m) => m.magasin).filter((m) => !m.startsWith('odyssee')),
+  [
+    'quiz',
+    'qcmSessions',
+    'nback',
+    'relationnel',
+    'vmSessions',
+    'seances',
+    'notes',
+    'fiches',
+    // L'écoute en cours, depuis le prompt 55 (fusion de claude/p46-55).
+    'podcastPositions',
+    'sportExercices',
+    'sportSeances',
+    'sportPhases',
+    'sportBlessures',
+    'sportProgrammes',
+  ],
+);
 v(
   'et les trente-deux d’Odyssée y sont',
   MAGASINS_JOURNALISES.filter((m) => m.magasin.startsWith('odyssee')).map((m) => m.magasin),

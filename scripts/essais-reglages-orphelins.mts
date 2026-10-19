@@ -39,6 +39,15 @@ const ETAT_TECHNIQUE: { cle: string; raison: string }[] = [
   { cle: 'IndexedDB/etat::lotsRecus', raison: 'les lots de synchronisation déjà reçus' },
   { cle: 'IndexedDB/etat::derniereVeille', raison: 'l’empreinte de la dernière veille de fond' },
   { cle: 'IndexedDB/etat::reglagesSync', raison: 'le registre versionné des réglages synchronisés' },
+  {
+    cle: 'IndexedDB/etat::fusionEnCours',
+    raison:
+      'la liste du travail qu’une fusion interrompue a laissé en chemin (B-4 du ' +
+      '58) : les cibles à matérialiser et les cartes à recalculer. Personne ne la ' +
+      'choisit, et elle ne survit pas à la reprise — elle est posée par la ' +
+      'transaction du journal et retirée dès que le travail est fini. Elle ' +
+      'S’AFFICHE, mais sur /appareils/ et comme une alerte, pas comme un réglage.',
+  },
   { cle: 'IndexedDB/etat::socleActivite', raison: 'le socle d’XP recalculé, pas un réglage' },
   { cle: 'IndexedDB/etat::coffre.migration', raison: 'l’avancement d’une bascule de coffre' },
   {
@@ -58,7 +67,13 @@ const ETAT_TECHNIQUE: { cle: string; raison: string }[] = [
   { cle: 'localStorage::cyclades.notifications.jour', raison: 'le compteur du plafond quotidien' },
   { cle: 'localStorage::cyclades.parametres-publics', raison: 'la copie de secours de cle.json' },
   { cle: 'localStorage::revinsp.temps-en-attente', raison: 'le temps passé, en attente d’écriture' },
-  { cle: 'localStorage::revinsp.podcast.position', raison: 'où l’écoute s’est arrêtée' },
+  {
+    cle: 'localStorage::revinsp.podcast.position',
+    raison:
+      'l’ANCIENNE position d’écoute : plus jamais écrite depuis le prompt 46 (P3), ' +
+      'seulement lue une fois puis retirée, le temps que les installations ' +
+      'existantes aient repris ce qu’elle contenait',
+  },
   {
     cle: 'localStorage::revinsp.bibliotheque.sections',
     raison: 'les sections repliées de la bibliothèque : un état d’écran, pas un réglage',

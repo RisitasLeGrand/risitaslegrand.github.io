@@ -64,6 +64,28 @@ export interface ChampRegle {
   /** Horloge logique encodée, qui se trie comme elle se compare. */
   hlc: string;
   appareil: string;
+  /**
+   * Pierre tombale : ce réglage a été **effacé**, pas mis à `null` — A7 du 58.
+   *
+   * Un effacement ciblé se propage, et son écran le dit. Sans pierre tombale,
+   * il ne se propageait pas : l'appareil qui portait encore le réglage le
+   * renvoyait à la première synchronisation, avec sa valeur et son horloge, et
+   * l'effacement se défaisait tout seul.
+   *
+   * Une absence ne peut pas porter cette information : le registre est fusionné
+   * champ par champ, et un champ absent chez l'un se prend simplement chez
+   * l'autre. Il faut donc une marque, horodatée comme une écriture, qui gagne
+   * par l'horloge comme n'importe quelle valeur plus récente.
+   *
+   * À l'application, une pierre tombale **supprime la clé** au lieu d'écrire
+   * `null` : écrire `null` ferait lire au site un réglage « réglé à rien »
+   * plutôt qu'un réglage absent, et les deux ne veulent pas dire la même chose
+   * — un profil absent se réinitialise, un profil `null` casse la lecture.
+   *
+   * Elle ne concerne QUE l'effacement ciblé. « Tout effacer sur cet appareil »
+   * reste local, par la décision 4 du 15 octobre, et n'en pose aucune.
+   */
+  efface?: true;
 }
 
 export type Reglages = Record<string, ChampRegle>;

@@ -558,3 +558,195 @@ export const INTERACTIONS: readonly PaireInteraction[] = [
  * « quelqu'un a cherché et n'a rien trouvé ».
  */
 export const ABSENTES_DU_THESAURUS: readonly string[] = ['n-acétylcystéine'];
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Relier une fiche du catalogue aux interactions du Thésaurus
+
+   Onze paires sourcées existaient depuis le 16 octobre, et **aucun écran ne
+   les montrait** : la fiche de molécule affirmait encore « aucune
+   interaction n'a pu être sourcée ». C'est l'anomalie A-21 une seconde fois,
+   au même endroit du raisonnement — une phrase que l'application montre et
+   qui ment vaut moins que pas de phrase du tout.
+
+   Ce qui manquait n'était pas l'affichage, c'était le **chaînon** : les
+   paires sont indexées par les noms du Thésaurus (« androgènes »,
+   « caféine »), les fiches par leur identifiant (`testosterone-enantate`).
+   Rapprocher les deux par ressemblance de chaînes aurait été une affirmation
+   pharmacologique rendue par un `includes()` — « testostérone ressemble à
+   androgènes » est faux comme méthode, même quand le résultat tombe juste.
+
+   La table ci-dessous est donc **déclarée**, ligne par ligne, avec ce qui la
+   fonde. C'est une affirmation sur le document, et elle se relit comme telle.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Sous quels noms le Thésaurus traite chaque fiche du catalogue.
+ *
+ * Une liste par fiche, parce qu'une molécule peut être traitée sous son nom
+ * **et** sous sa classe. Vide est interdit : une fiche sans nom déclaré n'est
+ * pas « sans interaction », elle est **non reliée**, et `controlerLiaison`
+ * refuse ce silence.
+ */
+export const NOMS_AU_THESAURUS: Readonly<Record<string, readonly string[]>> = {
+  /*
+     Le Thésaurus ne nomme pas les esters un par un : il traite la
+     testostérone sous la classe « androgènes », p. 17. C'est le document qui
+     le dit, pas moi — et c'est pour cela que les deux fiches d'ester
+     partagent la même entrée.
+  */
+  'testosterone-enantate': ['androgènes'],
+  'testosterone-undecanoate': ['androgènes'],
+  /* Entrées en propre, sous leur nom de molécule. */
+  modafinil: ['modafinil'],
+  cafeine: ['caféine'],
+  /*
+     Reliée elle aussi, et c'est le point : sans cette ligne, elle serait
+     « non reliée », ce qui veut dire « on n'a pas regardé ». Or on a
+     regardé — `ABSENTES_DU_THESAURUS` le dit — et le document ne la traite
+     pas. Les deux états ne se disent pas pareil à l'écran.
+  */
+  'n-acetylcysteine': ['n-acétylcystéine'],
+};
+
+/**
+ * Ce que l'écran dit d'une molécule que le Thésaurus ne traite pas.
+ *
+ * « Absente du document » et « sans interaction » se ressemblent à l'œil et
+ * ne se ressemblent pas du tout : la seconde affirmerait que quelqu'un a
+ * cherché et n'a rien trouvé. C'est la raison d'être d'`ABSENTES_DU_THESAURUS`,
+ * rendue visible.
+ */
+export const ABSENTE_DU_THESAURUS =
+  'Le Thésaurus des interactions de l’ANSM ne traite pas cette molécule. ' +
+  'Ce n’est pas une absence d’interaction : c’est une absence de document.';
+
+/** Ce qu'il dit d'une molécule qu'aucune source n'a encore reliée. */
+export const INTERACTIONS_NON_RELIEES =
+  'Les interactions de cette molécule n’ont pas été examinées. ' +
+  'L’absence d’alerte ne signifie pas l’absence de risque.';
+
+/**
+ * L'ordre d'affichage des niveaux de l'ANSM, du plus grave au moins grave.
+ *
+ * Dérivé de `NIVEAUX_ANSM` plutôt que recopié : une variante d'écriture
+ * ferait retomber une contre-indication en fin de liste, c'est-à-dire sous
+ * le pli, et c'est exactement la ligne qu'il ne faut pas manquer.
+ */
+export const ORDRE_GRAVITE: readonly string[] = [
+  NIVEAUX_ANSM.contreIndication,
+  NIVEAUX_ANSM.deconseillee,
+  NIVEAUX_ANSM.precaution,
+  NIVEAUX_ANSM.aPrendreEnCompte,
+];
+
+export type InteractionsDeLaFiche =
+  | {
+      etat: 'documentees';
+      paires: readonly PaireInteraction[];
+      /**
+       * Les noms sous lesquels le Thésaurus traite cette molécule.
+       *
+       * Rendu à l'écran, et pas seulement utilisé pour chercher. Le document
+       * ne traite pas la testostérone : il traite la classe **androgènes**,
+       * avec l'androstanolone et la noréthandrolone. Afficher ces paires sous
+       * « Testostérone énantate » sans dire sous quel nom elles ont été
+       * trouvées laisserait croire que l'entrée vise cet ester-là — ce que le
+       * commentaire du catalogue appelle, à juste titre, surinterpréter la
+       * source.
+       */
+      sous: readonly string[];
+    }
+  | { etat: 'absente-du-thesaurus' }
+  | { etat: 'non-reliee' };
+
+/**
+ * Les interactions d'une fiche, triées de la plus grave à la moins grave.
+ *
+ * Trois états, et aucun ne se confond avec un autre :
+ *
+ * - **documentées** : le Thésaurus en donne, les voici ;
+ * - **absente du document** : il a été lu, il ne la traite pas ;
+ * - **non reliée** : personne n'a encore regardé.
+ *
+ * À gravité égale, l'ordre est alphabétique — pas celui de la déclaration,
+ * qui est celui de la lecture du PDF et ne veut rien dire pour qui lit
+ * l'écran.
+ */
+export function interactionsDeLaFiche(idFiche: string): InteractionsDeLaFiche {
+  const noms = NOMS_AU_THESAURUS[idFiche];
+  if (!noms?.length) return { etat: 'non-reliee' };
+
+  const paires = INTERACTIONS.filter((p) => noms.includes(p.a));
+  if (!paires.length) return { etat: 'absente-du-thesaurus' };
+
+  const rang = (p: PaireInteraction) => {
+    const niveau = p.gravite?.connue ? p.gravite.valeur : '';
+    const i = ORDRE_GRAVITE.indexOf(niveau);
+    /* Un niveau non reconnu passe en tête, jamais à la fin : une gravité
+       qu'on ne sait pas classer se regarde, elle ne se range pas sous le pli. */
+    return i === -1 ? -1 : i;
+  };
+  return {
+    etat: 'documentees',
+    paires: [...paires].sort((x, y) => rang(x) - rang(y) || comparerNoms(x.b, y.b)),
+    /* Seulement les noms qui ont effectivement donné des paires : citer un
+       nom relié mais muet ferait croire qu'on en a tiré quelque chose. */
+    sous: noms.filter((n) => paires.some((p) => p.a === n)),
+  };
+}
+
+/**
+ * La table des noms dit-elle la vérité sur le catalogue et sur le document ?
+ *
+ * Quatre manières de mentir, et le contrôle les refuse toutes les quatre.
+ * Elles ont en commun de produire un écran **vraisemblable** : une fiche
+ * sans interaction a l'air d'une fiche sans interaction, qu'elle le soit ou
+ * qu'on ait oublié de la relier.
+ */
+export function controlerLiaisonAuThesaurus(fiches: readonly { id: string; nom: string }[]): string[] {
+  const problemes: string[] = [];
+
+  for (const f of fiches) {
+    const noms = NOMS_AU_THESAURUS[f.id];
+    if (!noms?.length) {
+      problemes.push(
+        `« ${f.nom} » n’est reliée à aucun nom du Thésaurus. Une fiche non reliée ` +
+          'affiche « non examinée » : si elle a été examinée, dites-le ; sinon, c’est exact.',
+      );
+      continue;
+    }
+    /*
+       Reliée, sans paire, et non déclarée absente : la table affirme que le
+       document la traite, et le document n'en dit rien. L'une des deux
+       affirmations est fausse, et l'écran montrerait « absente du document »
+       sans que personne l'ait constaté.
+    */
+    const aDesPaires = INTERACTIONS.some((p) => noms.includes(p.a));
+    const declareeAbsente = noms.every((n) => ABSENTES_DU_THESAURUS.includes(n));
+    if (!aDesPaires && !declareeAbsente) {
+      problemes.push(
+        `« ${f.nom} » est reliée au Thésaurus sans y avoir de paire, et sans être ` +
+          'déclarée absente. Ajoutez ses paires, ou inscrivez-la dans ABSENTES_DU_THESAURUS.',
+      );
+    }
+    if (aDesPaires && declareeAbsente) {
+      problemes.push(`« ${f.nom} » est déclarée absente du Thésaurus et y a pourtant des paires.`);
+    }
+  }
+
+  /*
+     Et le sens inverse : une paire dont le premier terme n'est relié à
+     aucune fiche ne s'affiche nulle part. Elle est sourcée, elle est juste,
+     et elle est invisible — c'est exactement le défaut que ce lot corrige.
+  */
+  const relies = new Set(Object.values(NOMS_AU_THESAURUS).flat());
+  for (const p of INTERACTIONS) {
+    if (!relies.has(p.a)) {
+      problemes.push(
+        `La paire « ${p.a} × ${p.b} » n’est reliée à aucune fiche : elle ne s’affichera nulle part.`,
+      );
+    }
+  }
+  return problemes;
+}
+

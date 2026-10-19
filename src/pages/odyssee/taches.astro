@@ -77,6 +77,43 @@ import Base from '../../layouts/Base.astro';
               class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
             ></select>
           </label>
+          <!--
+            La cible du lien — prompt 52, P5.
+
+            Une action qui vise un objet précis a besoin qu'on le nomme :
+            « cocher une tâche liée à un traitement note une prise » suppose
+            de savoir lequel. Sans cible, le pointage ne choisit pas au
+            hasard, il ne fait rien et le dit — ce qui est juste, mais
+            inutilisable tant que rien ne permet de la désigner.
+
+            Le champ reste caché pour les actions qui n'en demandent pas,
+            c'est-à-dire pour presque toutes.
+          -->
+          <label id="ligne-cible" class="hidden text-sm">
+            <span class="block text-slate-700 dark:text-slate-200">Lequel</span>
+            <select
+              id="cible"
+              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+            ></select>
+            <span id="cible-fermee" class="mt-1 block text-xs text-slate-500 dark:text-slate-400"></span>
+          </label>
+          <!--
+            CE QUE LE LIEN FAIT, ET QUAND IL NE FAIT RIEN.
+
+            Un lien n'écrit dans sa branche qu'au pointage d'une OCCURRENCE,
+            c'est-à-dire sur une tâche répétée : `pointerLaTache` clôt
+            simplement une tâche unique, sans passer par la branche. Ce
+            n'est pas propre à Santé — une tâche unique liée à une séance de
+            sport n'en crée aucune non plus —, et ce n'est pas corrigé ici :
+            le mécanisme des occurrences appartient au prompt 38, et
+            l'étendre aux tâches uniques changerait le comportement de deux
+            autres branches sans décision.
+
+            Ce qui est corrigé, c'est le silence. Un lien posé sur une tâche
+            sans répétition ne promettait rien et ne faisait rien ; il le
+            dit désormais.
+          -->
+          <p id="lien-sans-repetition" class="hidden text-xs text-amber-800 sm:col-span-2 dark:text-amber-200"></p>
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Pour quand</span>
             <input
@@ -178,7 +215,7 @@ import Base from '../../layouts/Base.astro';
     cochagesDuJour,
     decocherEtape,
     occurrencesDeLaTache,
-    occurrencesDuJour,
+    exceptionsDeLaFenetre,
   } from '../../lib/odyssee/donnees-occurrences';
   /*
      Les trois moteurs des phases 5 à 7 du prompt 38 — anomalie A-9.
@@ -190,6 +227,7 @@ import Base from '../../layouts/Base.astro';
      séries.
   */
   import { coffreOuvert } from '../../lib/coffre';
+  import { ecritDansLaBranche } from '../../lib/odyssee/liaison-branches';
   import {
     ecrireLException,
     pointerLOccurrence,
@@ -966,7 +1004,27 @@ import Base from '../../layouts/Base.astro';
        Les occurrences pointées, pour les tâches répétées seulement — A-9. Le
        jour est le même pour toutes (celui d'aujourd'hui), donc une requête.
     */
-    pointagesAffiches = taches.some((t) => t.serie) ? await occurrencesDuJour(aujourdhui) : [];
+    /*
+       LES DEUX MAGASINS, et non le seul magasin clair — défaut constaté en
+       branchant le lien de Santé (prompt 52, P5).
+
+       Cet écran lisait `occurrencesDuJour`, qui n'interroge que
+       `odysseeOccurrences`. Or `pointerDepuisLeCalendrier` range l'exception
+       de toute tâche liée à une branche SOUS COFFRE dans
+       `odysseeExceptionsScellees` — c'est `magasinDeLException` qui le veut,
+       et c'est la décision 3 du prompt 38. Le pointage s'écrivait donc, et
+       l'écran ne le voyait jamais : « Faite » restait proposé, et « défaire »
+       n'apparaissait pas.
+
+       Le défaut est antérieur à ce lot et touchait déjà Psyché et Finances,
+       dont les liens sont scellés eux aussi. Le calendrier, lui, lisait
+       correctement les deux magasins depuis l'anomalie A-14 ; cet écran-ci
+       est mis d'accord avec lui, et l'exception retrouve l'autorité que son
+       module lui donne.
+    */
+    pointagesAffiches = taches.some((t) => t.serie)
+      ? await exceptionsDeLaFenetre(aujourdhui, aujourdhui, { coffreOuvert: coffreOuvert() })
+      : [];
     /*
        Les faits du jour, pour les tâches liées seulement. Les projeter sans
        tâche liée serait une lecture de branche qu'aucun affichage ne demande.
@@ -1108,11 +1166,24 @@ import Base from '../../layouts/Base.astro';
                sait à quelle branche une action appartient, et deux sources
                auraient fini par se contredire.
             */
-            lien: vise ? { branche: vise.branche, action: vise.id, cible: null } : null,
+            lien: vise
+              ? {
+                  branche: vise.branche,
+                  action: vise.id,
+                  /*
+                     L'identifiant du traitement, jamais son nom : la tâche
+                     vit en clair, et y recopier « Créatine » annulerait le
+                     scellement de Santé pour cette ligne.
+                  */
+                  cible: vise.id === 'odyssee.medicament' ? choixDeLaCible.value || null : null,
+                }
+              : null,
           });
           ($('titre') as HTMLInputElement).value = '';
           ($('echeance') as HTMLInputElement).value = '';
           choixDuLien.value = '';
+          ligneCible.classList.add('hidden');
+          $('lien-sans-repetition').classList.add('hidden');
           /* Les champs repartent à neuf : laisser la règle en place ferait
              répéter la tâche suivante sans que personne l'ait demandé. */
           monterLesChampsDeSerie();
@@ -1174,6 +1245,74 @@ import Base from '../../layouts/Base.astro';
         option.title = action.pourquoi;
         choixDuLien.appendChild(option);
       }
+
+      /*
+         LA CIBLE DU LIEN — P5 du prompt 52.
+
+         Seule l'action de Santé en demande une aujourd'hui, et la liste
+         vient d'un magasin SCELLÉ. Deux conséquences dites à l'écran plutôt
+         que subies :
+
+         - coffre fermé, la liste est vide et la phrase explique pourquoi.
+           Proposer un menu vide sans raison ferait croire qu'il n'y a aucun
+           traitement, ce qui est exactement l'inverse de ce que le coffre
+           protège ;
+         - ce qui est rangé dans la tâche est l'IDENTIFIANT du traitement,
+           jamais son nom. La tâche vit en clair : y écrire « Créatine »
+           annulerait le scellement de Santé pour cette ligne-là. La
+           conséquence assumée est qu'un œil sans la clé voit qu'une tâche
+           vise un traitement — ce que l'action du lien disait déjà — mais
+           pas lequel.
+      */
+      const ligneCible = $('ligne-cible');
+      const choixDeLaCible = $('cible') as HTMLSelectElement;
+      const montrerLaCible = async () => {
+        const vise = ACTIONS_LIABLES.find((a) => a.id === choixDuLien.value);
+        const enDemande = vise?.id === 'odyssee.medicament';
+        ligneCible.classList.toggle('hidden', !enDemande);
+        if (!enDemande) return;
+
+        choixDeLaCible.innerHTML = '';
+        if (!coffreOuvert()) {
+          $('cible-fermee').textContent =
+            'Vos traitements sont chiffrés : ouvrez le coffre depuis l’espace Santé pour ' +
+            'en choisir un.';
+          return;
+        }
+        const { tousLesTraitements } = await import('../../lib/odyssee/donnees-sante');
+        const traitements = (await tousLesTraitements()).filter((t) => !t.sporadique);
+        $('cible-fermee').textContent = traitements.length
+          ? ''
+          : 'Aucun traitement déclaré : l’espace Santé en attend un avant de pouvoir le relier.';
+        for (const t of traitements) {
+          const option = document.createElement('option');
+          option.value = t.id;
+          option.textContent = t.nom;
+          choixDeLaCible.appendChild(option);
+        }
+      };
+      /*
+         Et l'avertissement, qui vaut pour toutes les branches qui écrivent :
+         sans répétition, pointer la tâche ne la fait que se clore.
+      */
+      const montrerLAvertissement = () => {
+        const vise = ACTIONS_LIABLES.find((a) => a.id === choixDuLien.value);
+        const ecrit = Boolean(vise && ecritDansLaBranche(vise.id));
+        const repete = ($('repeter') as HTMLDetailsElement).open;
+        const zone = $('lien-sans-repetition');
+        zone.classList.toggle('hidden', !ecrit || repete);
+        if (ecrit && !repete) {
+          zone.textContent =
+            `« ${vise?.libelle} » s’enregistre au pointage d’une occurrence, donc sur une tâche ` +
+            'répétée. Sans répétition, cocher cette tâche la clôt seulement, et rien n’est ' +
+            'enregistré dans sa branche.';
+        }
+      };
+      choixDuLien.addEventListener('change', () => {
+        montrerLAvertissement();
+        void montrerLaCible().catch(() => {});
+      });
+      $('repeter').addEventListener('toggle', montrerLAvertissement);
 
       monterLesChampsDeSerie();
 

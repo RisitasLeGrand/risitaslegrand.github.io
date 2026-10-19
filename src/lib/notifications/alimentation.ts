@@ -521,21 +521,61 @@ export const signalerLaVeille = (idDuRepere: string | null): Promise<Recensement
   synchroniser(SOURCE_VEILLE, intentionsDeVeille(idDuRepere));
 
 /**
- * Les deux sources du § 2.2 qu'on ne peut pas brancher, et pourquoi.
+ * La source du rappel de prise, branchée depuis la phase 4 de Santé.
  *
- * Déclarées, pas tues. Le § 2.2 les annonce « à brancher », et un lot qui
- * les laisserait simplement de côté ferait croire à un oubli — ou, pire,
- * laisserait quelqu'un les brancher sans retrouver ce qui l'en empêche.
+ * Elle a passé trois jours dans `SOURCES_NON_BRANCHEES`, avec une raison
+ * datée : « pas de rappel de prise tant qu'il n'y a pas de posologie
+ * structurée », signé par Alexis le 16 octobre. La condition de levée était
+ * nommée ; le prompt 52 la remplit. `SchemaDePrise` **est** cette posologie
+ * structurée, et `odyssee/rappels.ts` lit ce qui était prévu sans jamais
+ * l'inventer.
  *
- * - **`rappel-de-prise`** demanderait de savoir ce qui était *prévu*. Or
- *   la posologie d'un traitement est du **texte libre** (« 1 comprimé le
- *   matin »), et la décision 12 pose qu'une prise est « isolée, sans
- *   schéma ni rappel ». `prisesDuJour()` — que mon propre inventaire
- *   donnait pour producteur — est un **constat** : il dit ce qui a été
- *   pris, jamais ce qui manque, et son module le déclare. Brancher cette
- *   source supposerait d'inventer un modèle de posologie, c'est-à-dire de
- *   décider pour quelqu'un d'autre quand il a oublié un médicament. Ce
- *   n'est pas une lacune technique.
+ * Ce qui n'a pas changé : le libellé neutre reste la règle, `prisesDuJour()`
+ * reste un constat, et rien ici ne décide pour quelqu'un d'autre quand il a
+ * oublié un médicament — c'est la personne qui fixe le délai, et le rappel
+ * ne porte que sa propre déclaration.
+ */
+export const SOURCE_RAPPEL_DE_PRISE = 'rappel-de-prise';
+
+/**
+ * Dépose les rappels d'oubli du jour, et retire ceux qui ne le sont plus.
+ *
+ * Prend des **références toutes faites**, et non des traitements : les
+ * producteurs du centre ne connaissent aucune branche, et faire entrer les
+ * types de Santé ici ferait du centre un module qui sait ce qu'est une
+ * molécule. Le calcul vit dans `odyssee/rappels.ts`, où il appartient.
+ *
+ * Genre `a-savoir` et non `a-trancher` : une question à trancher ne quitte
+ * jamais le compteur tant qu'elle n'est pas résolue (§ 1 n° 8), et une prise
+ * sans réponse n'est pas une question — « pas aujourd'hui » est une réponse
+ * comme une autre, et ne rien répondre du tout en est une aussi. En faire
+ * une question à trancher aurait fabriqué le compteur d'oublis que
+ * l'interdit § 1 n° 3 refuse.
+ *
+ * Une seule relance par créneau sans aucun code de garde : l'identifiant
+ * d'un élément dérive de `source + refSource`, et `deposer` n'émet que pour
+ * un élément **neuf**. Recenser à chaque chargement de l'écran ne réémet
+ * donc rien.
+ */
+export const recenserLesOublis = (refs: readonly string[]): Promise<Recensement> =>
+  synchroniser(
+    SOURCE_RAPPEL_DE_PRISE,
+    refs.map((refSource) => ({ refSource, genre: 'a-savoir' as const, regroupement: null })),
+  );
+
+/**
+ * La source du § 2.2 qu'on ne peut pas brancher, et pourquoi.
+ *
+ * Déclarée, pas tue. Le § 2.2 l'annonce « à brancher », et un lot qui la
+ * laisserait simplement de côté ferait croire à un oubli — ou, pire,
+ * laisserait quelqu'un la brancher sans retrouver ce qui l'en empêche.
+ *
+ * `rappel-de-prise` y figurait et n'y est plus : sa condition de levée est
+ * remplie (voir `recenserLesOublis` ci-dessus). Elle était « différée » et
+ * non « impossible », et la distinction, qui avait l'air d'une nuance le
+ * 16 octobre, est exactement ce qui permet de la brancher aujourd'hui sans
+ * contredire personne.
+ *
  * - **`pointage-a-reporter`** existe exactement quand le coffre est
  *   **fermé** — c'est sa définition. Or le centre n'écrit rien coffre
  *   fermé (le magasin est scellé), et le § 3.2 lui interdit d'afficher le
@@ -549,7 +589,4 @@ export const signalerLaVeille = (idDuRepere: string | null): Promise<Recensement
  * de ces sources se met à alimenter le centre, la déclaration ment et
  * doit tomber.
  */
-export const SOURCES_NON_BRANCHEES: readonly string[] = [
-  'rappel-de-prise',
-  'pointage-a-reporter',
-];
+export const SOURCES_NON_BRANCHEES: readonly string[] = ['pointage-a-reporter'];

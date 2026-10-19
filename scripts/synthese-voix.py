@@ -108,6 +108,47 @@ def lire_reperes(chemin: str) -> list[dict]:
     return [r for r in reperes if isinstance(r, dict) and "id" in r and "paragraphe" in r]
 
 
+def lire_silences(chemin: str) -> dict[int, float]:
+    """
+    Les silences DÉCLARÉS du script parlé : { rang de paragraphe -> ms }
+    (prompt 55, N°3).
+
+    C'est ainsi que les quatre secondes entre « Question : … » et
+    « Réponse : … » voyagent, et non par un marqueur dans le texte.
+
+    LE POURQUOI, parce qu'il ne se devine pas. Tout ce qui reste dans le
+    texte dit sera PRONONCÉ : un « [[silence 4000]] » oublié s'entendrait
+    « crochet crochet silence quatre mille ». Le garde-fou anti-fuite du
+    prompt 43 refuse d'ailleurs déjà les crochets doubles, et poser le
+    marqueur dans le texte aurait obligé à y percer une exception — donc à
+    affaiblir le seul contrôle qui garde l'audio des fuites techniques.
+    Déclaré ici, le marqueur ne peut pas être dit : il n'est jamais un mot.
+
+    Lu à la main, sans analyseur YAML, exactement comme « parties » : la
+    ligne est écrite en JSON par « scripts/podcasts.mjs », et ajouter une
+    dépendance Python pour relire une ligne qu'on écrit soi-même
+    contreviendrait à l'interdit 6 du prompt 55.
+    """
+    with open(chemin, encoding="utf8") as f:
+        brut = f.read()
+    if not brut.startswith("---"):
+        return {}
+    fin = brut.find("\n---", 3)
+    entete = brut[:fin] if fin != -1 else brut
+    trouve = re.search(r"^silences:\s*(\[.*\])\s*$", entete, re.M)
+    if not trouve:
+        return {}
+    try:
+        declares = json.loads(trouve.group(1))
+    except ValueError:
+        return {}
+    return {
+        int(d["paragraphe"]): float(d["ms"])
+        for d in declares
+        if isinstance(d, dict) and "paragraphe" in d and "ms" in d
+    }
+
+
 def silence(secondes: float, taux: int) -> bytes:
     return b"\x00\x00" * int(secondes * taux)
 
@@ -173,7 +214,7 @@ class MoteurKokoro:
         yield (self.np.array(son.samples) * 32767).astype("<i2").tobytes()
 
 
-def synthetiser(moteur, paragraphes, args, parties=()):
+def synthetiser(moteur, paragraphes, args, parties=(), silences=None):
     """
     Concatène les phrases synthétisées, avec les silences intercalaires.
 
@@ -193,12 +234,30 @@ def synthetiser(moteur, paragraphes, args, parties=()):
     for partie in parties:
         debuts.setdefault(int(partie["paragraphe"]), []).append(partie["id"])
 
+    silences = silences or {}
     morceaux = []
     echantillons = 0  # 2 octets par échantillon (PCM 16 bits mono)
     reperes = []
     for i, paragraphe in enumerate(paragraphes):
         if i:
-            respiration = silence(args.silence_paragraphe / 1000, moteur.taux)
+            # Trois durées possibles, de la plus spécifique à la plus générale.
+            #
+            # 1. un silence DÉCLARÉ pour ce paragraphe — les quatre secondes
+            #    laissées pour chercher la réponse à une question (N°3) ;
+            # 2. le silence de PARTIE, quand ce paragraphe ouvre une partie :
+            #    un changement de sujet s'entend avant de se comprendre (N°2) ;
+            # 3. la respiration ordinaire entre deux paragraphes.
+            #
+            # Le repère de partie est posé APRÈS cette attente, plus bas :
+            # sauter à une partie doit tomber sur la parole, et non sur la
+            # fin d'un silence d'une seconde et demie.
+            if i in silences:
+                duree = silences[i]
+            elif i in debuts:
+                duree = args.silence_partie
+            else:
+                duree = args.silence_paragraphe
+            respiration = silence(duree / 1000, moteur.taux)
             morceaux.append(respiration)
             echantillons += len(respiration) // 2
         for identifiant in debuts.get(i, ()):
@@ -224,7 +283,9 @@ ENCODAGE = {
 }
 
 
-def encoder(ffmpeg: str, brut: bytes, taux: int, sortie: str, debit: str, format_: str) -> None:
+def encoder(
+    ffmpeg: str, brut: bytes, taux: int, sortie: str, debit: str, format_: str, sonie: float
+) -> None:
     """WAV en mémoire -> fichier compressé mono. Passe par un fichier
     temporaire : le fichier définitif n'apparaît qu'une fois complet."""
     with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as tmp:
@@ -236,9 +297,58 @@ def encoder(ffmpeg: str, brut: bytes, taux: int, sortie: str, debit: str, format
             w.setframerate(taux)
             w.writeframes(brut)
         provisoire = sortie + ".part"
+        # La sonie (prompt 55, N°4, décision 4) : les fiches sortaient trop
+        # bas, et il fallait monter le volume du téléphone pour les suivre.
+        # TP=-1.5 garde de la marge sous la saturation, LRA=11 laisse à la
+        # voix sa dynamique sans l'écraser.
+        #
+        # EN DEUX PASSES, et ce n'est pas un raffinement.
+        #
+        # En une seule passe, `loudnorm` normalise au fil de l'eau : il ne
+        # connaît pas encore la sonie du fichier quand il commence à le
+        # corriger, et il arrive à deux décibels de la cible. Mesuré sur
+        # l'essai : -14,1 LUFS pour une cible de -16, soit presque deux fois
+        # l'écart que le prompt tolère.
+        #
+        # La première passe ne produit aucun son : elle MESURE. La seconde
+        # applique un gain calculé, et tombe alors à un dixième de décibel
+        # près. Elle coûte une relecture du WAV — quelques secondes, contre
+        # plusieurs minutes de synthèse pour la même fiche, et contre une
+        # régénération complète si la sonie est fausse.
+        mesure = subprocess.run(
+            [ffmpeg, "-hide_banner", "-i", chemin_wav,
+             "-af", f"loudnorm=I={sonie}:TP=-1.5:LRA=11:print_format=json",
+             "-f", "null", "-"],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
+        # Le rapport part sur la sortie d'erreur, et ffmpeg rend 0.
+        mesures = {}
+        trouve = re.search(r"\{[^{}]*\"input_i\"[^{}]*\}", mesure.stderr, re.S)
+        if trouve:
+            try:
+                mesures = json.loads(trouve.group(0))
+            except ValueError:
+                mesures = {}
+
+        filtre = f"loudnorm=I={sonie}:TP=-1.5:LRA=11"
+        attendues = ("input_i", "input_tp", "input_lra", "input_thresh")
+        if all(mesures.get(c) not in (None, "-inf", "inf") for c in attendues):
+            filtre += (
+                f":measured_I={mesures['input_i']}"
+                f":measured_TP={mesures['input_tp']}"
+                f":measured_LRA={mesures['input_lra']}"
+                f":measured_thresh={mesures['input_thresh']}"
+                ":linear=true"
+            )
+        # Sans mesure exploitable — un fichier très court, ou entièrement
+        # silencieux —, on retombe sur la passe unique plutôt que d'échouer :
+        # une fiche au volume approximatif vaut mieux qu'une fiche absente.
+
         subprocess.run(
             [ffmpeg, "-y", "-loglevel", "error", "-i", chemin_wav,
-             "-ac", "1", "-b:a", debit, *ENCODAGE[format_], provisoire],
+             "-ac", "1", "-b:a", debit, "-af", filtre, *ENCODAGE[format_], provisoire],
             check=True,
         )
         os.replace(provisoire, sortie)
@@ -257,6 +367,8 @@ def main() -> int:
     a.add_argument("--vitesse", type=float, default=1.0)
     a.add_argument("--silence-paragraphe", type=float, default=520)
     a.add_argument("--silence-phrase", type=float, default=170)
+    a.add_argument("--silence-partie", type=float, default=1400)
+    a.add_argument("--sonie", type=float, default=-16)
     a.add_argument("--bitrate", default="16k")
     a.add_argument("--format", default="opus", choices=tuple(ENCODAGE))
     a.add_argument("--ffmpeg", default="ffmpeg")
@@ -276,8 +388,12 @@ def main() -> int:
                 lire_script(tache["script"]),
                 args,
                 lire_reperes(tache["script"]),
+                lire_silences(tache["script"]),
             )
-            encoder(args.ffmpeg, brut, moteur.taux, tache["sortie"], args.bitrate, args.format)
+            encoder(
+                args.ffmpeg, brut, moteur.taux, tache["sortie"],
+                args.bitrate, args.format, args.sonie,
+            )
             print(json.dumps({
                 "id": tache["id"],
                 "secondes": round(len(brut) / 2 / moteur.taux, 1),

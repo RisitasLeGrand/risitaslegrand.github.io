@@ -18,6 +18,7 @@
 import { MAGASINS_PROGRESSION, db } from '../db';
 import {
   CHAMP_DATE,
+  GROUPES,
   clefVisee,
   dateDe,
   groupe,
@@ -118,6 +119,65 @@ function dansLaPeriode(magasin: string, enregistrement: unknown, cible: Cible): 
   if (cible.depuis && jour < cible.depuis) return false;
   if (cible.jusqua && jour > cible.jusqua) return false;
   return true;
+}
+
+/** Ce qu'un groupe porte aujourd'hui. */
+export interface CompteDeGroupe {
+  id: string;
+  libelle: string;
+  /** Combien d'enregistrements ce groupe porte. */
+  vises: number;
+}
+
+/**
+ * Compte **tous** les groupes, un par un (G-5 et G-6 du 58).
+ *
+ * ## Le défaut
+ *
+ * Les deux confirmations — « Tout effacer sur cet appareil » et « Remplacer
+ * toute la progression » — additionnaient trois magasins : les cartes, les
+ * quiz et les journées. Ni Odyssée, ni Santé, ni Finances, ni le profil. Une
+ * personne qui portait quatre mille enregistrements d'Odyssée lisait « 31 »,
+ * et décidait là-dessus.
+ *
+ * ## Pourquoi ce compte-ci ne peut plus rien oublier
+ *
+ * Il part de `GROUPES`, qui est la même déclaration que l'effacement et
+ * l'export lisible. Un magasin nouveau entre dans un groupe, donc dans ce
+ * compte, sans qu'une ligne soit à ajouter ici. Un magasin qui n'entrerait
+ * dans aucun groupe échapperait encore — c'est pourquoi un essai vérifie que
+ * les deux listes se recouvrent exactement. Au 19 octobre : 68 magasins, 68
+ * dans un groupe, aucun orphelin.
+ *
+ * Les groupes sont comptés **séparément**, et non en une cible unique : une
+ * cible qui les porterait tous rendrait un total juste et muet sur la
+ * répartition, alors que c'est la répartition qui fait décider — « Odyssée :
+ * 4 128 » arrête une main que « 4 159 » n'arrête pas.
+ */
+export async function compterParGroupe(): Promise<CompteDeGroupe[]> {
+  const sortie: CompteDeGroupe[] = [];
+  for (const g of GROUPES) {
+    const { vises } = await compter({ groupes: [g.id] });
+    sortie.push({ id: g.id, libelle: g.libelle, vises });
+  }
+  return sortie;
+}
+
+/**
+ * La phrase qui dit, rubrique par rubrique, ce que portent les groupes.
+ *
+ * Les groupes vides sont tus : « Sport : 0 » n'aide personne à décider, et
+ * noyer douze lignes utiles dans vingt lignes à zéro revient à ne rien dire.
+ * Le total, lui, est toujours écrit — c'est le seul nombre qu'on retient.
+ */
+export function direLesGroupes(comptes: readonly CompteDeGroupe[]): string {
+  const pleins = comptes.filter((c) => c.vises > 0);
+  const total = comptes.reduce((somme, c) => somme + c.vises, 0);
+  if (!pleins.length) return 'aucun enregistrement';
+  return (
+    pleins.map((c) => `${c.libelle} ${c.vises.toLocaleString('fr-FR')}`).join(', ') +
+    ` — soit ${total.toLocaleString('fr-FR')} enregistrement(s) en tout`
+  );
 }
 
 /**
@@ -298,28 +358,47 @@ export async function effacer(cible: Cible): Promise<ResultatEffacement> {
   }
 
   /*
-     Le registre versionné perd les entrées des réglages effacés. On le réécrit
-     une fois, après la boucle, plutôt qu'à chaque clé : c'est une seule valeur
+     Le registre versionné reçoit une PIERRE TOMBALE par réglage effacé — A7.
+
+     Le registre garde une copie horodatée de chaque réglage synchronisé.
+     Retirer l'entrée ne suffisait pas : le registre est fusionné champ par
+     champ, et un champ absent chez l'un se prend simplement chez l'autre. Le
+     profil effacé revenait donc à la première synchronisation, avec sa valeur
+     et son horloge — un effacement qui se défait tout seul.
+
+     La marque est horodatée comme une écriture, donc elle gagne par l'horloge,
+     et l'autre appareil supprime la clé à son tour. C'est ce que veut dire
+     « l'effacement ciblé se propage », et c'est ce que l'écran annonce.
+
+     On réécrit le registre une fois, après la boucle : c'est une seule valeur
      dans `etat`, et la réécrire vingt fois n'aurait servi qu'à multiplier les
      occasions de la perdre à moitié.
-
-     Aucune pierre tombale n'est posée : un autre appareil qui porte encore le
-     réglage le renverra. C'est le sujet de l'A7 — « l'effacement ciblé dit
-     qu'il se propage » — et il n'est pas tranché ici.
   */
   if (registreARetirer.length) {
     const registre = (await base.get('etat', 'reglagesSync')) as
-      | Record<string, unknown>
+      | Record<string, { valeur: unknown; hlc: string; appareil: string; efface?: true }>
       | undefined;
     if (registre) {
-      let touche = false;
-      for (const clef of registreARetirer) {
-        if (clef in registre) {
-          delete registre[clef];
-          touche = true;
+      const concernees = registreARetirer.filter((clef) => clef in registre);
+      if (concernees.length) {
+        const { prochaineHlc } = await import('../sync/horloge-locale');
+        const { lireAppareil } = await import('../db');
+        const appareil = await lireAppareil();
+        for (const clef of concernees) {
+          registre[clef] = { valeur: null, hlc: await prochaineHlc(), appareil, efface: true };
         }
+        /*
+           LA CLÉ RESTE UN LITTÉRAL NU, SANS TRANSTYPAGE.
+
+           `essais:reglages-orphelins` relève les clés d'état en lisant le
+           code : un littéral enveloppé dans un `as never` lui devient une
+           « clé variable », donc une clé inconnue du catalogue — et il rougit,
+           alors que `reglagesSync` y est déclaré depuis toujours. Le
+           transtypage portait sur la valeur, pas sur la clé : il n'avait
+           aucune raison d'être là.
+        */
+        await base.put('etat', registre as never, 'reglagesSync');
       }
-      if (touche) await base.put('etat', registre as never, 'reglagesSync' as never);
     }
   }
 

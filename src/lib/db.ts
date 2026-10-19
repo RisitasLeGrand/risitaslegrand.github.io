@@ -42,6 +42,7 @@ import type { Trajectoire } from './odyssee/trajectoires';
 import type { Prise, StatutHormonal } from './odyssee/sensible';
 import type {
   ConditionDeclaree,
+  MarqueDeCreneau,
   Prelevement,
   Ressenti,
   Resultat,
@@ -436,6 +437,21 @@ export interface Seance {
    * et non sur la matière entière.
    */
   fiches?: string[];
+  /**
+   * Les PARTIES réellement couvertes, quand la séance n'a porté que sur
+   * certaines d'entre elles (prompt 46, P5).
+   *
+   * Facultatif, et son absence a un sens précis : **la fiche entière**. Une
+   * séance enregistrée avant ce prompt n'a pas ce champ, et vaut donc pour la
+   * fiche entière — ce qui est exactement ce qui s'est passé, puisque les
+   * séances par partie n'existaient pas. Rien à migrer, et surtout rien à
+   * inventer : remplir ce champ pour les séances anciennes aurait fabriqué un
+   * passé plus précis que le vrai.
+   *
+   * Une fiche peut figurer dans `fiches` sans figurer ici : c'est le cas
+   * normal d'une fiche travaillée en entier.
+   */
+  parties?: { fiche: string; partie: string }[];
   /** Séance étendue du 1er du mois : rappel n-1 à n-4. */
   etendue: boolean;
 }
@@ -453,6 +469,31 @@ export interface Seance {
  * (`docs/cyclades/sauvegarde.md`), et parce qu'un texte rédigé est précisément
  * la donnée qu'il ne faut pas écraser à l'aveugle.
  */
+/**
+ * Où l'on s'est arrêté dans une fiche audio (prompt 46, P3).
+ *
+ * Une entrée par fiche, et seulement pour une écoute EN COURS : la fin de
+ * l'écoute la supprime, comme l'ancienne clé `localStorage` le faisait. Le
+ * magasin dit donc « ce qui est commencé », jamais « ce qui a été écouté » —
+ * et c'est ce qui permet à « Écoutes en cours » de n'être pas, par ricochet,
+ * la liste des fiches qu'on a entendues.
+ */
+export interface PositionPodcast {
+  /** Identifiant de la fiche. Clé du magasin. */
+  fiche: string;
+  /** Position de lecture, en secondes depuis le début. */
+  secondes: number;
+  /**
+   * Durée totale de la fiche audio, en secondes, telle que le lecteur l'a
+   * connue. Facultative : un navigateur qui n'a pas encore lu les
+   * métadonnées ne la donne pas, et « reste 6 min » se taira plutôt que de
+   * se tromper.
+   */
+  duree?: number | null;
+  /** Dernière écriture, en ISO. Sert à ordonner « Écoutes en cours ». */
+  majLe: string;
+}
+
 export interface NoteSeance {
   /** L'identifiant stable de la séance. Voir « Seance.id ». */
   seanceId: string;
@@ -606,6 +647,7 @@ interface SchemaRevinsp extends DBSchema {
   nback: { key: string; value: SessionNBack; indexes: { le: string } };
   seances: { key: string; value: Seance; indexes: { jour: string; theme: string } };
   notes: { key: string; value: NoteSeance };
+  podcastPositions: { key: string; value: PositionPodcast };
   qcmDgfip: { key: string; value: EtatQuestionDgfip; indexes: { rubriqueId: string } };
   qcmSessions: { key: string; value: SessionDgfip; indexes: { le: string } };
   relationnel: { key: string; value: SessionRelationnelle; indexes: { le: string } };
@@ -718,6 +760,14 @@ interface SchemaRevinsp extends DBSchema {
   actualitesLues: { key: string; value: ActualiteLue; indexes: Record<string, never> };
   odysseeConditions: { key: string; value: ConditionDeclaree; indexes: Record<string, never> };
   odysseeRessentis: { key: string; value: Ressenti; indexes: { traitementId: string } };
+  /*
+     Les créneaux marqués (Santé, phase 4). **Aucun index**, et c'est le
+     point : ce qu'il faudrait indexer — le traitement, le jour, l'heure —
+     est précisément ce que le scellement cache, et un index se lit en clair.
+     On ouvre le magasin entier et on filtre ; il se compte en milliers sur
+     une vie, soit une fraction de seconde (voir la mesure du plan, 3.7).
+  */
+  odysseeCreneaux: { key: string; value: MarqueDeCreneau; indexes: Record<string, never> };
   odysseeCheckins: { key: string; value: Checkin; indexes: { jour: string } };
   odysseeHebdos: { key: string; value: CheckinHebdo; indexes: { semaine: string } };
   odysseeJournal: { key: string; value: Entree; indexes: { jour: string } };
@@ -1601,7 +1651,74 @@ function ouvrirAuSchema(nom: string, version: number) {
       if (vers(33)) {
         base.createObjectStore('centreElements', { keyPath: 'id' });
       }
+      if (vers(34)) {
+        /*
+           Où l'on s'est arrêté dans une fiche audio (prompt 46, P3).
+
+           La position vivait dans `localStorage`, sous
+           « revinsp.podcast.position ». Elle y était seule : ni synchronisée,
+           ni sauvegardée, donc perdue au changement d'appareil et absente
+           d'une restauration. La voici dans la base, avec le reste de la
+           progression.
+
+           Le magasin naît vide, et la reprise de l'ancienne clé ne se fait
+           PAS ici. Une transaction « versionchange » n'a pas le droit de
+           lire `localStorage` de façon fiable — et surtout, migrer à
+           l'ouverture de la base ferait porter à chaque démarrage le coût
+           d'une reprise qui n'a lieu qu'une fois. Elle se fait donc à
+           l'installation du lecteur, dans `podcast.ts`, qui lit la clé,
+           écrit ce qu'elle contenait, puis la retire.
+        */
+        base.createObjectStore('podcastPositions', { keyPath: 'fiche' });
+      }
       /*
+         RÉSOLU À LA FUSION : LES DEUX MIGRATIONS COEXISTENT.
+
+         Le conflit ne portait que sur la place, pas sur le fond : l'agent C
+         crée `podcastPositions` en 34, l'agent B `odysseeCreneaux` en 35, et
+         B avait vérifié l'attribution de la 34 dans la branche de C plutôt
+         que de la supposer. Les deux blocs se suivent donc, et la version
+         monte à 35 — une base arrêtée à 33 rejoue les deux, une base à 34
+         ne rejoue que la seconde.
+      */
+      if (vers(35)) {
+        /*
+         * Les créneaux marqués — Santé, phase 4, P2.
+         *
+         * **La 34 est attribuée à l'agent C**, qui y crée `podcastPositions`
+         * sur `claude/p46-55` — vérifié dans sa branche, pas supposé. Deux
+         * migrations portant le même numéro ne se verraient pas en revue et
+         * ne se verraient pas non plus à l'exécution : une base déjà montée
+         * à 34 par l'un des deux chemins ne rejouerait jamais l'autre bloc,
+         * et le magasin manquant ne se signalerait qu'au premier `getAll`,
+         * loin de sa cause. D'où cette 35, arbitrée par le pilote.
+         *
+         * **Aucune reprise de données.** Avant ce lot, aucun traitement
+         * n'avait de schéma prévu, donc aucun créneau n'existait, donc
+         * aucune réponse ne pouvait avoir été donnée. Un magasin vide se lit
+         * « rien n'est noté », ce qui est exactement la vérité — et c'est
+         * aussi la condition qui fait partir le rappel d'oubli, de sorte
+         * qu'une migration qui aurait inventé des marques aurait inventé des
+         * silences.
+         *
+         * Pas d'index : voir le type. La clé est une empreinte, donc muette.
+         */
+        base.createObjectStore('odysseeCreneaux', { keyPath: 'id' });
+      }
+      /*
+         RÉSOLU À LA FUSION DU 19 OCTOBRE AU SOIR : QUATRE MIGRATIONS COEXISTENT.
+
+         `main` apporte la 34 (`podcastPositions`, agent C) et la 35
+         (`odysseeCreneaux`, agent B, prompt 52). Cette branche apporte la 37
+         et la 38. Les quatre blocs se suivent dans l'ordre des numéros, et la
+         version monte à 38 : une base arrêtée à 33 rejoue les quatre, une
+         base à 35 ne rejoue que les deux dernières. Le conflit ne portait que
+         sur la place, comme la fois précédente.
+
+         La 36 reste au constructeur et n'est pas encore sur `main`. Son
+         absence ne gêne pas : les numéros doivent croître, ils n'ont pas à
+         être contigus.
+
          37 — le suivi personnel. Le numéro est celui que le pilote a
          attribué ; 34 à 36 sont pris par d'autres branches en vol, et
          commencer en haut d'une plage la rendrait inutilisable puisque les
@@ -1976,6 +2093,18 @@ export async function noterReglageSynchronise(champ: string, valeur: unknown): P
  */
 export async function ecrireReglageBrut(champ: string, valeur: unknown): Promise<void> {
   await (await db()).put('etat', valeur as never, champ as never);
+}
+
+/**
+ * Supprime un réglage, sans le tamponner — A7 du 58.
+ *
+ * Le pendant de la fonction ci-dessus, pour une **pierre tombale** reçue d'un
+ * autre appareil : un effacement ciblé qui se propage. On supprime la clé au
+ * lieu d'y ranger `null`, parce qu'un réglage absent et un réglage valant
+ * `null` ne veulent pas dire la même chose pour les lecteurs.
+ */
+export async function effacerReglageBrut(champ: string): Promise<void> {
+  await (await db()).delete('etat', champ as never);
 }
 
 /* --- Journal de révisions et journal d'opérations -------------------------- */
@@ -2392,6 +2521,57 @@ export async function supprimerSeance(id: string) {
   await journaliserSuppression([`seances:${id}`, `notes:${id}`]);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   Les positions d'écoute des fiches audio (prompt 46, P3)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export async function lirePositionPodcast(fiche: string): Promise<PositionPodcast | undefined> {
+  return (await db()).get('podcastPositions', fiche);
+}
+
+/** Les écoutes en cours, la plus récemment touchée d'abord. */
+export async function toutesLesPositionsPodcast(): Promise<PositionPodcast[]> {
+  const positions = await (await db()).getAll('podcastPositions');
+  return positions.sort((a, b) => (a.majLe < b.majLe ? 1 : a.majLe > b.majLe ? -1 : 0));
+}
+
+/**
+ * Écrit la position, et décide si elle doit VOYAGER.
+ *
+ * Les deux ne vont pas ensemble, et c'est tout l'objet de `journaliser` :
+ * le lecteur appelle cette fonction toutes les cinq secondes pendant
+ * l'écoute, et journaliser chaque appel ferait une opération de
+ * synchronisation par tranche de cinq secondes — des centaines par fiche,
+ * jamais dédoublonnables puisque la position change à chaque fois. C'est
+ * exactement la faute que `partieJournalisable` évite sur l'état d'une
+ * fiche, à un rythme dix fois pire.
+ *
+ * L'écriture locale, elle, a lieu à chaque appel : c'est elle qui fait la
+ * reprise après une fermeture brutale de l'onglet.
+ *
+ * Ce qui voyage est donc la position aux moments où l'écoute S'ARRÊTE —
+ * pause, passage en arrière-plan, fermeture de la page —, et c'est
+ * précisément ce dont un autre appareil a besoin pour reprendre le fil.
+ */
+export async function ecrirePositionPodcast(
+  position: PositionPodcast,
+  options: { journaliser?: boolean } = {},
+): Promise<void> {
+  await (await db()).put('podcastPositions', position);
+  if (options.journaliser) await journaliser('podcastPositions', position);
+}
+
+/** L'écoute est terminée : la position n'a plus d'objet et s'en va. */
+export async function supprimerPositionPodcast(fiche: string): Promise<void> {
+  await (await db()).delete('podcastPositions', fiche);
+  /*
+     Même raison que pour une séance : sans l'opération de suppression, la
+     position reviendrait à la première synchronisation, et une fiche écoutée
+     jusqu'au bout se proposerait de nouveau « à reprendre ».
+  */
+  await journaliserSuppression([`podcastPositions:${fiche}`]);
+}
+
 /* --- Réglages de session -------------------------------------------------- */
 
 /**
@@ -2509,6 +2689,15 @@ export interface ReglagesPlanification {
   rotation?: string[];
   /** Dernier trimestre pour lequel la suggestion a été écartée (ex. « 2026-T1 »). */
   trimestreEcarte: string | null;
+  /**
+   * Répartir une longue fiche sur plusieurs séances, partie par partie
+   * (prompt 46, P5).
+   *
+   * **Désactivé par défaut** (décision 3), et son absence vaut `false` : une
+   * planification existante ne change pas de comportement du jour au
+   * lendemain parce qu'un champ est apparu. Qui le veut l'allume.
+   */
+  decouperParParties?: boolean;
 }
 
 export async function lireReglagesPlanification(): Promise<ReglagesPlanification | null> {
@@ -2545,6 +2734,12 @@ export const MAGASINS_PROGRESSION = [
   'seances',
   // Le texte des séances : séparé pour la vitesse, inséparable pour le sens.
   'notes',
+  /*
+     Où l'on s'est arrêté dans une fiche audio (prompt 46, P3). De la
+     progression au sens plein : une reprise d'écoute perdue, c'est un cours
+     de quarante minutes à retrouver à l'oreille.
+  */
+  'podcastPositions',
   'qcmDgfip',
   'qcmSessions',
   'relationnel',
@@ -2637,6 +2832,7 @@ export const MAGASINS_PROGRESSION = [
   'odysseeSymptomes',
   'odysseeConditions',
   'odysseeRessentis',
+  'odysseeCreneaux',
   'odysseeCheckins',
   'odysseeHebdos',
   'odysseeJournal',

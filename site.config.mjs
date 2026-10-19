@@ -146,6 +146,35 @@ export default {
     silencePhraseMs: 190,
 
     /**
+     * Silence avant le début d'une PARTIE (prompt 55, N°2).
+     *
+     * Plus long qu'une respiration de paragraphe : une partie n'est pas un
+     * paragraphe de plus, c'est un changement de sujet, et l'oreille a besoin
+     * qu'on le lui dise avant même d'entendre « Deuxième partie, sur trois ».
+     * Mille quatre cents millisecondes, mesurés par l'audit comme le seuil
+     * au-delà duquel la coupure s'entend sans donner l'impression d'un blanc.
+     *
+     * Il entre dans l'empreinte du script : le changer force une
+     * régénération, puisque le son produit n'est plus le même.
+     */
+    silencePartieMs: 1400,
+
+    /**
+     * Sonie visée à l'encodage, en LUFS (prompt 55, N°4, décision 4).
+     *
+     * Les fiches audio sortaient nettement plus bas que ce qu'on entend
+     * ailleurs : il fallait monter le volume du téléphone pour les suivre,
+     * puis le redescendre en changeant d'application. −16 LUFS est la cible
+     * usuelle de la parole en mobilité — c'est le choix d'Alexis.
+     *
+     * Appliqué par le filtre `loudnorm` de ffmpeg, avec un plafond de crête
+     * à −1,5 dBTP pour garder de la marge, et une plage dynamique de 11.
+     *
+     * Dans l'empreinte, pour la même raison que les silences.
+     */
+    sonie: -16,
+
+    /**
      * Encodage : « opus » (recommandé) ou « mp3 » pour un navigateur ancien.
      * Opus à 16 kbit/s en mono reste net sur de la parole et pèse deux fois
      * moins qu'un MP3 à 32 — ce qui compte, pour des dizaines d'heures.

@@ -10,6 +10,7 @@
  * `essais-effacement-navigateur.mjs`.
  */
 import { aplatir, versCsv, BOM } from '../src/lib/sauvegarde/export-lisible';
+import { direLesGroupes } from '../src/lib/sauvegarde/effacement';
 import {
   CHAMP_DATE,
   CLEFS_ODYSSEE_ETAT,
@@ -299,6 +300,78 @@ for (const g of GROUPES) {
   v(`« ${g.id} » nomme au moins un magasin`, g.magasins.length > 0, true);
 }
 v('un groupe inconnu ne se résout pas', groupe('inexistant'), undefined);
+
+console.log('\nUNE DESCRIPTION NOMME CE QUE SON GROUPE EMPORTE');
+
+/*
+ * L'écart relevé par le pilote le 19 octobre : « Odyssée » se décrivait comme
+ * « Tâches, quêtes, agenda, temps de concentration et revues » et emportait
+ * aussi les traitements, le journal de Psyché et les comptes. C'est la phrase
+ * que l'écran d'effacement montre.
+ *
+ * Le contrôle ne juge pas le style de la phrase — il serait illusoire de
+ * vérifier qu'une description est « complète ». Il vérifie ce qui compte : un
+ * magasin SENSIBLE est nommé par la description de son groupe. La table est
+ * déclarée ici, et un magasin sensible nouveau la fera rougir tant que la
+ * phrase ne le dira pas.
+ */
+const MOTS_DU_MAGASIN: Record<string, readonly string[]> = {
+  odysseeSante: ['santé'],
+  odysseeTraitements: ['traitement'],
+  odysseeMedicaments: ['traitement', 'médicament'],
+  odysseePrelevements: ['prélèvement', 'analyse'],
+  odysseeResultats: ['résultat', 'analyse'],
+  odysseeRessentis: ['ressenti', 'psyché'],
+  odysseeCheckins: ['psyché', 'échelle'],
+  odysseeJournal: ['journal'],
+  odysseeComptes: ['compte', 'finance'],
+  odysseeOperations: ['opération', 'finance'],
+  odysseeLignesBudget: ['budget', 'finance'],
+  odysseePointages: ['pointage', 'finance'],
+  odysseeVeilleSignaux: ['veille'],
+  odysseeNuits: ['nuit', 'corps'],
+  odysseeRepas: ['repas', 'corps'],
+  odysseePesees: ['poids', 'corps'],
+  odysseeMesures: ['mesure', 'corps'],
+};
+
+for (const [magasin, mots] of Object.entries(MOTS_DU_MAGASIN)) {
+  const g = GROUPES.find((groupe) => groupe.magasins.includes(magasin));
+  const phrase = (g?.description ?? '').toLowerCase();
+  v(
+    `« ${magasin} » est nommé par la description de son groupe`,
+    Boolean(g) && mots.some((mot) => phrase.includes(mot)),
+    true,
+  );
+}
+
+console.log('\nLA PHRASE QUI DIT LES RUBRIQUES (G-5 ET G-6 DU 58)');
+
+/*
+ * La complétude du compte ne s'éprouve pas ici : elle repose sur l'invariant
+ * « aucun magasin n'est oublié », vérifié plus haut. Ce qui reste à éprouver
+ * est la PHRASE — et surtout qu'elle ne taise pas un total.
+ */
+{
+  const phrase = direLesGroupes([
+    { id: 'revisions', libelle: 'Révisions', vises: 17 },
+    { id: 'sport', libelle: 'Sport', vises: 0 },
+    { id: 'odyssee', libelle: 'Odyssée', vises: 4128 },
+  ]);
+  v('un groupe vide est tu', /Sport/.test(phrase), false);
+  v('un groupe plein est nommé avec son compte', /Révisions 17/.test(phrase), true);
+  v('les grands nombres sont lisibles', /Odyssée 4\u202f128|Odyssée 4 128/.test(phrase), true);
+  v('le total est toujours écrit', /4\u202f145|4 145/.test(phrase), true);
+}
+/*
+ * Le cas vide mérite son contrôle : une base neuve ne doit pas produire
+ * « — soit 0 enregistrement(s) en tout », qui se lit comme une panne.
+ */
+v(
+  'une base sans rien le dit simplement',
+  direLesGroupes([{ id: 'revisions', libelle: 'Révisions', vises: 0 }]),
+  'aucun enregistrement',
+);
 
 console.log(
   echecs

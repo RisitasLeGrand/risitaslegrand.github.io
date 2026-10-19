@@ -178,6 +178,21 @@ export const TYPES: readonly TypeDeFait[] = [
     description: 'Une fiche de cours marquée terminée, avec le temps passé dessus.',
   }),
   T({
+    id: 'revision.podcast',
+    libelle: 'Fiche audio en cours',
+    proprietaire: 'revisions',
+    domaine: 'connaissances',
+    nature: 'duree',
+    unite: 'secondes',
+    /*
+       Une fiche audio dépasse rarement l'heure, mais le plausible est tenu
+       large : une fiche très longue existe, et un plafond trop serré ferait
+       passer une écoute réelle pour une aberration.
+     */
+    plage: { possible: { min: 0 }, plausible: { max: 4 * 3600 } },
+    description: 'Où l’on s’est arrêté dans une fiche audio, pour reprendre le fil.',
+  }),
+  T({
     id: 'revision.pretest',
     libelle: 'Prétest tenté',
     proprietaire: 'revisions',
