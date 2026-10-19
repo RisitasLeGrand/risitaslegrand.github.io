@@ -237,6 +237,7 @@ import Base from '../../layouts/Base.astro';
   import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
   import { DOMAINES, libelleDuDomaine } from '../../lib/noyau/domaines';
   import { ulid } from '../../lib/noyau/ulid';
+  import { offrirLeFichier } from '../../lib/telecharger';
 
   const $ = (id: string) => document.getElementById(id)!;
 
@@ -1047,11 +1048,7 @@ import Base from '../../layouts/Base.astro';
   async function exporter() {
     const evenements = await tousLesEvenements();
     const fichier = versFichierIcs(evenements);
-    const lien = document.createElement('a');
-    lien.href = URL.createObjectURL(new Blob([fichier], { type: 'text/calendar' }));
-    lien.download = `cyclades-agenda-${jourISO()}.ics`;
-    lien.click();
-    URL.revokeObjectURL(lien.href);
+    offrirLeFichier(fichier, `cyclades-agenda-${jourISO()}.ics`, 'text/calendar');
     direRapport([{ texte: `${evenements.length} moment(s) exporté(s).` }]);
   }
 

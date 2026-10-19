@@ -409,6 +409,7 @@ const parDomaine = Object.keys(DOMAINES).map((d) => ({
   import { syntheseEnTexte, type Synthese } from '../../lib/odyssee/synthese-veille';
   import { tousLesCheckins } from '../../lib/odyssee/donnees-psyche';
   import { ECART_NOTABLE, ecartALaBase, ORDRE_DIMENSIONS, DIMENSIONS } from '../../lib/odyssee/psyche';
+  import { offrirLeFichier } from '../../lib/telecharger';
 
   const $ = (id: string) => document.getElementById(id)!;
   const parId = new Map(CATALOGUE.map((i) => [i.id, i]));
@@ -795,12 +796,11 @@ const parDomaine = Object.keys(DOMAINES).map((d) => ({
          un courriel, s'imprime et se relit dans dix ans — ce qu'aucun format
          fabriqué par une dépendance ne garantit.
       */
-      const lien = document.createElement('a');
-      const blob = new Blob([syntheseEnTexte(synthese)], { type: 'text/plain;charset=utf-8' });
-      lien.href = URL.createObjectURL(blob);
-      lien.download = `veille-synthese-${synthese.editeLe}.txt`;
-      lien.click();
-      URL.revokeObjectURL(lien.href);
+      offrirLeFichier(
+        syntheseEnTexte(synthese),
+        `veille-synthese-${synthese.editeLe}.txt`,
+        'text/plain;charset=utf-8',
+      );
     });
 
     $('imprimer-synthese').addEventListener('click', () => window.print());

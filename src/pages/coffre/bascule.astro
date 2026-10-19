@@ -172,6 +172,7 @@ import LienReglages from '../../components/LienReglages.astro';
     reprendreLeChiffrementDuCoffre,
   } from '../../lib/noyau/migration-du-coffre';
   import { db } from '../../lib/db';
+  import { offrirLeFichier } from '../../lib/telecharger';
 
   /** Au moins quinze signes, pour la même raison que le mot de passe du site. */
   const LONGUEUR_MINIMALE = 15;
@@ -253,14 +254,7 @@ import LienReglages from '../../components/LienReglages.astro';
          ensuite à juste titre. Un `as unknown as BlobPart` avait fait taire le
          compilateur sur exactement cette erreur.
       */
-      const url = URL.createObjectURL(
-        new Blob([sauvegarde.octets], { type: 'application/octet-stream' }),
-      );
-      const lien = document.createElement('a');
-      lien.href = url;
-      lien.download = nom;
-      lien.click();
-      URL.revokeObjectURL(url);
+      offrirLeFichier(sauvegarde.octets, nom);
       /*
          La sauvegarde est notée au registre, comme sur l'écran de
          progression : c'en est une vraie, et ne pas la noter ferait réclamer

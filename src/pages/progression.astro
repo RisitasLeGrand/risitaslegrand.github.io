@@ -117,6 +117,37 @@ import LienReglages from '../components/LienReglages.astro';
       Sauvegarder maintenant
     </button>
     <p id="message-sauvegarde" class="mt-3 hidden text-sm"></p>
+    {/*
+       A3 DU 43 — LA PREUVE, ET POURQUOI ELLE DOIT VENIR DE VOUS.
+
+       Le web n'offre aucun moyen de savoir qu'un téléchargement a abouti :
+       pas d'événement, pas de promesse, pas d'accès au dossier de
+       destination. Cet écran annonçait pourtant « Sauvegarde téléchargée »
+       aussitôt après avoir demandé le téléchargement, et notait la date de
+       la dernière sauvegarde réussie. Sur un iPhone qui refuse le fichier,
+       ou un disque plein, l'écran disait « c'est fait » et le compteur
+       repartait à zéro jour.
+
+       La seule preuve disponible est donc humaine, et elle se demande.
+    */}
+    <div id="confirmer-sauvegarde" class="mt-3 hidden rounded-xl border border-amber-300 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40">
+      <p class="text-sm text-amber-900 dark:text-amber-100">
+        Ouvrez vos téléchargements et vérifiez que le fichier y est, avec une
+        taille qui n’est pas nulle. Tant que vous ne l’avez pas confirmé,
+        Cyclades continue de compter les jours depuis la dernière sauvegarde
+        <strong>confirmée</strong>.
+      </p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        <button id="sauvegarde-retrouvee" type="button"
+          class="cible-tactile rounded-lg bg-emerald-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-emerald-800">
+          J’ai retrouvé le fichier
+        </button>
+        <button id="sauvegarde-introuvable" type="button"
+          class="cible-tactile rounded-lg border border-amber-400 px-4 py-2 text-sm font-medium text-amber-900 transition hover:bg-amber-100 dark:text-amber-100 dark:hover:bg-amber-900/40">
+          Je ne le trouve pas
+        </button>
+      </div>
+    </div>
     <dl id="recu-sauvegarde" class="mt-4 hidden grid-cols-2 gap-3 text-sm sm:grid"></dl>
 
     <p class="mt-4 text-sm text-slate-500 dark:text-slate-400">
@@ -238,6 +269,8 @@ import LienReglages from '../components/LienReglages.astro';
     toutEffacer,
   } from '../lib/db';
   import { apercu, etatSauvegarde, fabriquer, noterSauvegardeReussie, restaurer } from '../lib/sauvegarde/service';
+  import { offrirLeFichier, TELECHARGEMENT_LANCE } from '../lib/telecharger';
+  import { agirPuisPeindre } from '../lib/agir';
   import { SauvegardeRefusee } from '../lib/sauvegarde/format';
   import { calculerNiveau } from '../lib/gamification';
   import { formaterDuree, lien, notifier, pluriel } from '../lib/ui';
@@ -527,16 +560,7 @@ import LienReglages from '../components/LienReglages.astro';
     dire('message-sauvegarde', 'Compression et chiffrement en cours…', 'neutre');
     try {
       const { sauvegarde, nom } = await fabriquer(sans ? null : mdp);
-      const url = URL.createObjectURL(new Blob([sauvegarde.octets], { type: 'application/octet-stream' }));
-      const lien = document.createElement('a');
-      lien.href = url;
-      lien.download = nom;
-      lien.click();
-      URL.revokeObjectURL(url);
-
-      // La date n'est notée qu'ici : après que le fichier est réellement parti.
-      await noterSauvegardeReussie();
-      await peindreEtatSauvegarde();
+      offrirLeFichier(sauvegarde.octets, nom);
       ($('mdp-sauvegarde') as HTMLInputElement).value = '';
 
       definition('recu-sauvegarde', [
@@ -547,8 +571,15 @@ import LienReglages from '../components/LienReglages.astro';
         ['Chiffré', sauvegarde.entete.chiffrement ? 'oui (AES-GCM)' : 'non'],
         ['Empreinte', sauvegarde.empreinteCourte],
       ]);
-      dire('message-sauvegarde', 'Sauvegarde téléchargée. Rangez-la ailleurs que sur cet appareil.', 'succes');
-      notifier('Sauvegarde téléchargée', 'succes');
+      /*
+         A3 : on dit ce qui s'est passé — le téléchargement est LANCÉ — et
+         la date de dernière sauvegarde n'est notée qu'après confirmation.
+         L'ancien code notait ici, sous un commentaire qui affirmait « après
+         que le fichier est réellement parti » : le commentaire était faux,
+         et c'est lui qui rendait le défaut invisible en relecture.
+      */
+      dire('message-sauvegarde', TELECHARGEMENT_LANCE, 'neutre');
+      $('confirmer-sauvegarde').classList.remove('hidden');
     } catch (e) {
       dire('message-sauvegarde', `Sauvegarde impossible : ${(e as Error).message}`, 'echec');
     } finally {
@@ -635,14 +666,10 @@ import LienReglages from '../components/LienReglages.astro';
 
       // L'instantané part en fichier avant que l'écran ne change d'état.
       if (r.instantane) {
-        const url = URL.createObjectURL(
-          new Blob([r.instantane.sauvegarde.octets], { type: 'application/octet-stream' }),
+        offrirLeFichier(
+          r.instantane.sauvegarde.octets,
+          `avant-restauration-${r.instantane.nom}`,
         );
-        const lien = document.createElement('a');
-        lien.href = url;
-        lien.download = `avant-restauration-${r.instantane.nom}`;
-        lien.click();
-        URL.revokeObjectURL(url);
       }
 
       await afficherResume();
@@ -675,6 +702,54 @@ import LienReglages from '../components/LienReglages.astro';
 
     $('lien-stockage').setAttribute('href', lien('/stockage/'));
     $('sauvegarder').addEventListener('click', sauvegarder);
+
+    /*
+       A3 — LES DEUX RÉPONSES, et la seconde compte autant que la première.
+
+       « J'ai retrouvé le fichier » est la seule preuve que le web laisse :
+       c'est elle qui note la sauvegarde et remet le compteur à zéro.
+
+       « Je ne le trouve pas » ne se contente pas de fermer la boîte : elle
+       dit quoi faire, et le compteur de jours reste là où il était. Une
+       sauvegarde qu'on n'a pas retrouvée n'est pas une sauvegarde, et
+       l'écran ne doit pas laisser croire le contraire.
+    */
+    $('sauvegarde-retrouvee').addEventListener('click', () => {
+      void (async () => {
+        /*
+           LE MESSAGE EST ÉCRIT APRÈS, et ce n'est pas un détail de style.
+           `agirPuisPeindre` efface la zone quand l'action réussit — c'est
+           son travail, puisque la zone sert aussi à dire les échecs. Écrire
+           le succès À L'INTÉRIEUR de l'action le faisait donc effacer une
+           ligne plus loin : l'essai a trouvé la boîte de confirmation
+           refermée, la date notée, et aucun mot à l'écran.
+        */
+        const fait = await agirPuisPeindre(
+          async () => {
+            await noterSauvegardeReussie();
+            $('confirmer-sauvegarde').classList.add('hidden');
+          },
+          { peindre: peindreEtatSauvegarde, zone: 'message-sauvegarde' },
+        );
+        if (!fait) return;
+        dire(
+          'message-sauvegarde',
+          'Sauvegarde confirmée. Rangez-la ailleurs que sur cet appareil.',
+          'succes',
+        );
+        notifier('Sauvegarde confirmée', 'succes');
+      })();
+    });
+
+    $('sauvegarde-introuvable').addEventListener('click', () => {
+      $('confirmer-sauvegarde').classList.add('hidden');
+      dire(
+        'message-sauvegarde',
+        'Rien n’a été confirmé : le compteur de jours ne bouge pas. Réessayez, ' +
+          'ou passez par Stockage pour vérifier la place disponible.',
+        'echec',
+      );
+    });
     $('sans-chiffrement').addEventListener('change', () => {
       const sans = ($('sans-chiffrement') as HTMLInputElement).checked;
       ($('mdp-sauvegarde') as HTMLInputElement).disabled = sans;

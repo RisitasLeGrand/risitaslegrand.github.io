@@ -270,7 +270,8 @@
     "essais:dates-locales": "tsx scripts/essais-dates-locales.mts",
     "essais:scripts-parles": "node scripts/essais-scripts-parles.mjs",
     "essais:export-sans-age": "tsx scripts/essais-export-sans-age.mts",
-    "essais:initialisation-sans-defaut": "tsx scripts/essais-initialisation-sans-defaut.mts"
+    "essais:initialisation-sans-defaut": "tsx scripts/essais-initialisation-sans-defaut.mts",
+    "essais:sauvegarde-confirmee": "tsx scripts/essais-sauvegarde-confirmee.mts"
   },
   "repository": {
     "type": "git",

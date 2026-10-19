@@ -382,6 +382,7 @@ import LienReglages from '../components/LienReglages.astro';
   } from '../lib/sync/service';
   import { revenirAvantMigration } from '../lib/db';
   import { redemanderLeMotDePasse, type Redemande } from '../lib/redemande';
+  import { offrirLeFichier } from '../lib/telecharger';
 
   const $ = (id: string) => document.getElementById(id)!;
 
@@ -488,12 +489,7 @@ import LienReglages from '../components/LienReglages.astro';
    */
   async function telecharger(fichiers: FichierExporte[]) {
     for (const [i, f] of fichiers.entries()) {
-      const url = URL.createObjectURL(new Blob([f.contenu], { type: f.type }));
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = f.nom;
-      a.click();
-      URL.revokeObjectURL(url);
+      offrirLeFichier(f.contenu, f.nom, f.type);
       if (i < fichiers.length - 1) await new Promise((ok) => setTimeout(ok, 350));
     }
   }
@@ -591,14 +587,7 @@ import LienReglages from '../components/LienReglages.astro';
         const { sauvegarde, nom } = await fabriquer(mdp);
         // La sauvegarde est binaire : elle ne passe pas par « telecharger »,
         // qui met en forme du texte.
-        const url = URL.createObjectURL(
-          new Blob([sauvegarde.octets], { type: 'application/octet-stream' }),
-        );
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `avant-effacement-${nom}`;
-        a.click();
-        URL.revokeObjectURL(url);
+        offrirLeFichier(sauvegarde.octets, `avant-effacement-${nom}`);
         await noterSauvegardeReussie();
         ($('mdp-avant-effacement') as HTMLInputElement).value = '';
       } catch (e) {

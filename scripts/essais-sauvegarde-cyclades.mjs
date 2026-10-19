@@ -157,8 +157,33 @@ v(
 );
 
 await page.waitForTimeout(1500);
+/*
+   A3 DU 43 — LA DATE N'EST NOTÉE QU'APRÈS CONFIRMATION.
+
+   Cette assertion exigeait « Sauvegarde à jour » juste après le clic. Elle
+   figeait donc le défaut qu'A3 corrige : l'écran affirmait une sauvegarde
+   réussie alors que `click()` ne prouve rien — le fichier peut n'être jamais
+   arrivé, et sur iPhone cela arrive.
+
+   L'essai fait maintenant ce qu'une personne fait : il constate que le
+   téléchargement est lancé, que la date n'a pas encore bougé, puis il
+   confirme avoir retrouvé le fichier — ce qu'il a de fait sous la main,
+   puisqu'il vient de le lire pour en vérifier le contenu.
+*/
 v(
-  'l’écran note la sauvegarde',
+  'l’écran annonce un téléchargement lancé, pas une réussite',
+  /[Tt]éléchargement lancé/.test((await page.locator('#message-sauvegarde').textContent()) ?? ''),
+  true,
+);
+v(
+  'et la date n’est pas encore notée',
+  (await page.locator('#etat-sauvegarde-titre').textContent())?.trim(),
+  'Jamais sauvegardé',
+);
+await page.click('#sauvegarde-retrouvee');
+await page.waitForTimeout(1500);
+v(
+  'une fois le fichier retrouvé, l’écran note la sauvegarde',
   (await page.locator('#etat-sauvegarde-titre').textContent())?.trim(),
   'Sauvegarde à jour',
 );

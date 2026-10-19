@@ -511,6 +511,7 @@ import LienReglages from '../components/LienReglages.astro';
   import { enregistrerFait } from '../lib/sync/service';
   import { appairageMemorise } from '../lib/sync/appairage';
   import { motDePasseRetenu } from '../lib/sync/mot-de-passe-session';
+  import { offrirLeFichier } from '../lib/telecharger';
   import {
     autorisation,
     choisirDossier,
@@ -1268,14 +1269,7 @@ import LienReglages from '../components/LienReglages.astro';
            déclaré une fois, et voyage comme un fait. */
         const moi = (await registreAppareils()).find((a) => a.soi);
         const paquet = await fabriquerPaquet(mdp, { nomAppareil: moi?.nom });
-        const url = URL.createObjectURL(
-          new Blob([paquet.octets], { type: 'application/octet-stream' }),
-        );
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = paquet.nom;
-        a.click();
-        URL.revokeObjectURL(url);
+        offrirLeFichier(paquet.octets, paquet.nom);
         ($('mdp-envoi') as HTMLInputElement).value = '';
         dire(
           'message-envoi',

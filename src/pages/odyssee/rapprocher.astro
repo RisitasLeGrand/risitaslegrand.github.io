@@ -345,6 +345,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     retirerUnePart,
   } from '../../lib/odyssee/fractionnement';
   import type { PartPointee } from '../../lib/odyssee/pointage';
+  import { offrirLeFichier } from '../../lib/telecharger';
   import {
     annulerLesAutomatiques,
     annulerRapprochement,
@@ -2118,12 +2119,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     const texte = echeancesEnIcs(lignes, occ, options);
     const combien = texte.split('BEGIN:VEVENT').length - 1;
 
-    const lien = document.createElement('a');
-    const url = URL.createObjectURL(new Blob([texte], { type: 'text/calendar;charset=utf-8' }));
-    lien.href = url;
-    lien.download = `echeances-${aujourdHui}.ics`;
-    lien.click();
-    URL.revokeObjectURL(url);
+    offrirLeFichier(texte, `echeances-${aujourdHui}.ics`, 'text/calendar;charset=utf-8');
 
     const zone = $('resultat-ics');
     zone.classList.remove('hidden');

@@ -22,6 +22,7 @@
   import { DIMENSIONS, dimensionsDeFamille, type Famille } from '../dimensions';
   import { INTITULES_STATUT } from '../escalier';
   import { arbreCouvrant, idArete } from '../hub';
+  import { offrirLeFichier } from '../../../lib/telecharger';
 
   let {
     seuils = {} as Record<string, SeuilVeridical>,
@@ -121,11 +122,7 @@
       null,
       2,
     );
-    const lien = document.createElement('a');
-    lien.href = URL.createObjectURL(new Blob([contenu], { type: 'application/json' }));
-    lien.download = `veridical-mapping-${jourISO()}.json`;
-    lien.click();
-    URL.revokeObjectURL(lien.href);
+    offrirLeFichier(contenu, `veridical-mapping-${jourISO()}.json`, 'application/json');
   }
 
   async function effacer() {

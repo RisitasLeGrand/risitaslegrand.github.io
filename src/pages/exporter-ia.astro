@@ -200,6 +200,7 @@ import LienReglages from '../components/LienReglages.astro';
   } from '../lib/export-ia';
   import type { TypePeriode } from '../lib/odyssee/syntheses';
   import { coffreOuvert, reprendreLeCoffre, surCoffre } from '../lib/coffre';
+  import { offrirLeFichier } from '../lib/telecharger';
 
   const $ = (id: string) => document.getElementById(id)!;
 
@@ -312,14 +313,9 @@ import LienReglages from '../components/LienReglages.astro';
   }
 
   function telecharger(nom: string, type: string, contenu: string) {
-    const lien = document.createElement('a');
-    const url = URL.createObjectURL(new Blob([contenu], { type }));
-    lien.href = url;
     // Les sous-dossiers ne survivent pas à un téléchargement simple : le nom
     // aplati garde la trace du chemin plutôt que de la perdre.
-    lien.download = nom.replace('/', '-');
-    lien.click();
-    URL.revokeObjectURL(url);
+    offrirLeFichier(contenu, nom.replace('/', '-'), type);
   }
 
   async function apercevoir() {
