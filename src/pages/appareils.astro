@@ -30,6 +30,57 @@ import LienReglages from '../components/LienReglages.astro';
   <div id="chargement" class="py-20 text-center text-slate-400">Lecture de l’état…</div>
 
   <div id="ecran" class="hidden space-y-8">
+    {/*
+       B-4 DU 58 — « FUSION INTERROMPUE : UNE PARTIE A ÉTÉ REÇUE ».
+
+       En tête de l'écran, avant tout le reste : c'est l'état dans lequel les
+       données de cet appareil sont incomplètes, et aucune autre information de
+       cette page n'est plus urgente que celle-là. Le bloc ne paraît que si une
+       marque de fusion est posée, et il disparaît dès qu'elle tombe.
+    */}
+    <section
+      id="fusion-interrompue"
+      class="hidden rounded-2xl border-2 border-amber-400 bg-amber-50 p-5 dark:border-amber-700 dark:bg-amber-950/40"
+    >
+      <h2 class="text-lg font-semibold text-amber-900 dark:text-amber-100">
+        Fusion interrompue : une partie a été reçue
+      </h2>
+      <p class="mt-2 text-sm leading-relaxed text-amber-900 dark:text-amber-100">
+        Une synchronisation a écrit le journal des faits, puis s’est arrêtée
+        avant d’avoir rangé les enregistrements dans leurs rubriques. Rien n’est
+        perdu : tout est au journal, et <strong>Reconstruire</strong> le relit
+        pour finir le travail. En attendant, les rubriques concernées peuvent
+        afficher un état en retard, et cet appareil n’est pas identique à
+        l’autre.
+      </p>
+      <p id="fusion-interrompue-detail" class="mt-2 text-sm text-amber-900 dark:text-amber-100"></p>
+      <div class="mt-3 flex flex-wrap gap-2">
+        {/*
+           L'identifiant n'est PAS « reconstruire » : la page porte déjà un
+           bouton de ce nom, « Reconstruire depuis le journal », qui rejoue
+           TOUT — soixante mille révisions le cas échéant. Les deux se seraient
+           disputé l'identifiant, et `$('reconstruire')` aurait rendu celui-ci,
+           laissant l'autre muet. Deux réparations, deux portées : celle-ci ne
+           reprend que ce que la fusion interrompue a laissé, et c'est pour cela
+           qu'elle peut être proposée d'emblée.
+        */}
+        <button
+          id="reprendre-fusion"
+          type="button"
+          class="cible-tactile rounded-lg bg-amber-700 px-4 py-2 text-sm font-medium text-white transition hover:bg-amber-800"
+          >Reconstruire</button
+        >
+      </div>
+    </section>
+    {/*
+       LE COMPTE RENDU EST **HORS** DE LA BANNIÈRE, et ce n'est pas un détail de
+       mise en page : la reconstruction fait tomber la marque, donc `peindreEtat`
+       masque la bannière — et il emportait le message de réussite avec lui. La
+       personne voyait l'alerte disparaître sans jamais lire ce qui avait été
+       fait. C'est l'essai qui l'a montré : le texte était écrit, et invisible.
+    */}
+    <p id="fusion-interrompue-message" class="hidden text-sm"></p>
+
     <!-- ── La liaison directe, qui est le chemin le plus court ─────────── -->
     <section
       class="rounded-2xl border border-indigo-200 bg-indigo-50/60 p-5 dark:border-indigo-900 dark:bg-indigo-950/30"
@@ -472,6 +523,7 @@ import LienReglages from '../components/LienReglages.astro';
   import { auDeverrouillage } from '../lib/chargement';
   import { echapper } from '../lib/ui';
   import { empreinteLisible } from '../lib/noyau/empreinte';
+  import { fusionInachevee, reprendreLaFusion } from '../lib/sync/reprise';
   import {
     annulable,
     annulerFusion,
@@ -691,7 +743,34 @@ import LienReglages from '../components/LienReglages.astro';
     }
   }
 
+  /*
+     B-4 — LA BANNIÈRE SE PEINT À CHAQUE PEINTURE D'ÉTAT.
+
+     Donc à l'ouverture, et après chaque fusion : la marque peut apparaître
+     comme disparaître, et un bloc peint une seule fois resterait affiché après
+     avoir été reconstruit, ce qui ferait douter de la reconstruction.
+  */
+  async function peindreFusionInterrompue() {
+    const marque = await fusionInachevee();
+    const bloc = $('fusion-interrompue');
+    bloc.classList.toggle('hidden', !marque);
+    if (!marque) return;
+    const quand = new Date(marque.le).toLocaleString('fr-FR');
+    const qui = marque.nomAppareil ?? 'un appareil sans nom';
+    $('fusion-interrompue-detail').textContent =
+      `Paquet reçu de ${qui}, le ${quand} : ` +
+      `${marque.cibles.length.toLocaleString('fr-FR')} rubrique(s) à ranger` +
+      (marque.cartes.length
+        ? ` et ${marque.cartes.length.toLocaleString('fr-FR')} carte(s) à recalculer.`
+        : '.');
+  }
+
   async function peindreEtat() {
+    /*
+       Appelée d'ici, et non des dix endroits qui peignent l'état : en oublier
+       un laisserait la bannière mentir sur un écran et pas sur l'autre.
+    */
+    await peindreFusionInterrompue();
     const [{ lisible }, etat, registre, sauvegardes] = await Promise.all([
       empreinteLocale(),
       etatLocal(),
@@ -1056,6 +1135,69 @@ import LienReglages from '../components/LienReglages.astro';
   let noms = new Map<string, string>();
 
   let octetsRecus: Uint8Array | null = null;
+
+  /*
+     Un rendu à part, et ce n'est pas un caprice : `dire` peint en `amber-600`
+     pour un échec, ce qui se lit sur le fond blanc des autres sections mais
+     pas sur le fond ambre de cette bannière-ci. Deux tons qui tiennent sur
+     l'ambre, et la réussite reste distincte de l'échec.
+  */
+  function direReconstruction(texte: string, reussi: boolean) {
+    const e = $('fusion-interrompue-message');
+    e.textContent = texte;
+    e.className =
+      'text-sm font-medium ' +
+      (reussi
+        ? 'text-emerald-800 dark:text-emerald-300'
+        : 'text-rose-800 dark:text-rose-300');
+    e.classList.remove('hidden');
+  }
+
+  $('reprendre-fusion').addEventListener('click', () => {
+    void (async () => {
+      const bouton = $('reprendre-fusion') as HTMLButtonElement;
+      bouton.disabled = true;
+      bouton.textContent = 'Reconstruction…';
+      try {
+        const fait = await reprendreLaFusion();
+        /*
+           `null` veut dire qu'il n'y avait rien à reprendre : la marque est
+           tombée entre la peinture et le clic — un autre onglet a reconstruit,
+           ou une fusion a fini le travail. Le dire plutôt que de laisser croire
+           à une reconstruction qui n'a rien eu à faire.
+        */
+        direReconstruction(
+          fait
+            ? `Reconstruction faite : ${fait.ecrits.toLocaleString('fr-FR')} ` +
+                `enregistrement(s) écrit(s)` +
+                (fait.effaces ? `, ${fait.effaces.toLocaleString('fr-FR')} effacé(s)` : '') +
+                (fait.cartesRecalculees
+                  ? `, ${fait.cartesRecalculees.toLocaleString('fr-FR')} carte(s) recalculée(s)`
+                  : '') +
+                '.'
+            : 'Il n’y avait plus rien à reconstruire : le travail avait déjà été fini.',
+          true,
+        );
+        await peindreEtat();
+      } catch (erreur) {
+        /*
+           G-13 du 58 n'est pas encore livré, mais rien n'oblige à ajouter une
+           erreur brute de plus : le message dit ce qui s'est passé et ce qui
+           reste vrai — la marque est toujours là, donc rien n'est perdu.
+        */
+        direReconstruction(
+          'La reconstruction n’a pas pu aller au bout. Rien n’est perdu : le ' +
+            'journal est intact et la marque est toujours posée, donc ce bouton ' +
+            'reste utilisable. Réessayez, ou relancez une synchronisation.',
+          false,
+        );
+        console.error(erreur);
+      } finally {
+        bouton.disabled = false;
+        bouton.textContent = 'Reconstruire';
+      }
+    })();
+  });
 
   auDeverrouillage(async () => {
     peindreDateMotDePasse();
@@ -1468,9 +1610,22 @@ import LienReglages from '../components/LienReglages.astro';
           );
         }
         if (vu.metadonnees.empreinte === complete) {
+          /*
+             B-4 — « NE CHANGERA RIEN » DEVIENT FAUX QUAND UNE MARQUE EST POSÉE.
+
+             L'empreinte ne porte que sur les journaux : elle peut être égale
+             alors qu'une fusion interrompue a laissé des rubriques à ranger.
+             Fusionner finit alors le travail, puisque la fusion réunit le
+             reliquat à ce qu'elle reçoit. Promettre le contraire détournerait
+             de la seule manœuvre utile.
+          */
           avertissements.push(
-            'Les empreintes sont déjà identiques : ce paquet n’apporte rien, et le fusionner ' +
-              'ne changera rien. C’est sans danger.',
+            (await fusionInachevee())
+              ? 'Les empreintes sont déjà identiques, mais une fusion précédente n’a pas été ' +
+                'achevée : fusionner ce paquet finira de ranger ce qui manque. ' +
+                '« Reconstruire », en haut de cette page, fait la même chose sans fichier.'
+              : 'Les empreintes sont déjà identiques : ce paquet n’apporte rien, et le fusionner ' +
+                'ne changera rien. C’est sans danger.',
           );
         }
         if (avertissements.length) {

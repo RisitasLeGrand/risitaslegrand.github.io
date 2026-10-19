@@ -135,6 +135,9 @@ export const CLEFS_ODYSSEE_ETAT: readonly string[] = [
  *   n'est pas un réglage mais un constat, et l'effacer ferait croire qu'on
  *   n'a jamais sauvegardé — ou, pire, en remettrait la bannière à zéro au
  *   moment précis où l'on vient de perdre des données ;
+ * - `fusionEnCours` : la liste du travail qu'une fusion interrompue a laissé
+ *   en chemin (B-4 du 58). L'effacer perdrait la seule trace de ce qui reste
+ *   à matérialiser, et personne ne saurait même quelles cibles manquent ;
  * - préfixe `coffre.` : `coffre.sel`, `coffre.sel-enveloppe`,
  *   `coffre.enveloppe`, `coffre.migration`, et le délai de verrouillage
  *   automatique. C'est le cœur de la B-3 : les effacer condamnait le coffre,
@@ -156,6 +159,7 @@ export const CLEFS_TECHNIQUES_ETAT: readonly string[] = [
   'derniereVeille',
   'reglagesSync',
   'derniereSauvegarde',
+  'fusionEnCours',
 ];
 
 /** Une clé d'`etat` est-elle technique, c'est-à-dire intouchable à la carte ? */

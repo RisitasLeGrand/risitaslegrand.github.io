@@ -325,3 +325,79 @@ ouvrir le coffre écrit son propre enregistrement scellé. L'essai dérive donc
 le nombre de la base et vérifie surtout que **l'écran et la confirmation
 disent le même**. Et je lisais le compte avant qu'il soit écrit : il l'est
 après l'affichage du bloc, d'où l'attente.
+
+## Avancement — B-4, livré le 19 octobre
+
+**Le défaut, et pourquoi il ne pouvait pas être réglé comme le prompt
+l'imaginait d'abord.** Le pilote laissait le choix : journal et
+matérialisation dans une seule transaction, **ou** rejeu au démarrage. La
+première branche est fermée, et pour une raison de moteur, pas de goût. La
+matérialisation relit tout le journal avant d'écrire, touche une cinquantaine
+de magasins, et certains de ses enregistrements passent par le coffre — donc
+par du chiffrement, donc par des `await` étrangers. Une transaction IndexedDB
+se referme dès que la boucle d'événements tourne sans requête en attente : un
+`await` qui n'est pas une requête de la transaction la clôt. Les deux ne
+peuvent pas tenir ensemble.
+
+**Ce qui peut être atomique, c'est le journal et la promesse.** La marque est
+donc posée **dans la transaction du journal elle-même** : si les opérations
+sont là, la liste du travail restant est là aussi. Elle porte les cibles à
+matérialiser et les cartes à recalculer, et elle ne tombe qu'après les deux.
+Elle est écrite sans `await` — c'est une requête de cette transaction, et
+l'attendre ferait tourner la boucle avant les deux boucles d'écriture, ce qui
+refermerait la transaction au milieu.
+
+**Le vrai dommage était l'écran, et c'est lui que le 58 visait.** L'empreinte
+d'état ne porte que sur les deux journaux et les réglages versionnés — c'est
+son rôle, et c'est juste. Elle était donc **égale** à celle de l'émetteur dès
+le `tx.done` du journal. L'écran annonçait « les deux appareils sont désormais
+identiques ✓ » alors que les séances, les notes et les mesures n'avaient pas
+été écrites. Désormais, « identiques » exige les deux : l'égalité des
+empreintes **et** l'absence de marque.
+
+**Le commentaire du code était faux, et il est retiré.** Il disait « le
+recalcul suivant rétablira la cohérence depuis ce qui a été écrit ». Aucun
+recalcul ne part tout seul, et un paquet suivant n'apporte plus ces
+opérations : elles sont déjà au journal, donc plus « reçues ». Rien ne
+rétablissait rien.
+
+**Trois chemins de réparation, et aucun n'efface les autres.** La bannière
+« Fusion interrompue : une partie a été reçue » paraît en tête de
+`/appareils/`, avec le compte des rubriques à ranger, le nom de l'appareil
+émetteur, la date, et un bouton « Reconstruire ». La veille d'arrière-plan
+rejoue au démarrage, à l'endroit précis où l'on vient de constater un
+appairage mémorisé **et** un mot de passe en mémoire — donc un coffre ouvert,
+ce dont la matérialisation a besoin. Et une fusion suivante **réunit** le
+reliquat à ses propres cibles : sans cela, une seconde interruption effacerait
+la liste de la première, et plus personne ne saurait quelles cibles manquent.
+
+**Deux listes, et elles ne se confondent pas.** Ce qu'il y a à recalculer
+inclut le reliquat ; ce qui part à l'historique des lots n'est que ce que ce
+lot-ci a apporté. Une annulation ne doit pas défaire les cartes d'une fusion
+d'avant qu'elle n'a fait que finir.
+
+**Une phrase est devenue fausse en route, et elle est corrigée.** L'aperçu
+d'un paquet dont l'empreinte égale la nôtre disait « ce paquet n'apporte rien,
+et le fusionner ne changera rien ». Avec une marque posée, fusionner **finit**
+le travail. L'aperçu le dit maintenant, et renvoie au bouton.
+
+**Le rouge, mesuré.** Contre une construction de `main` sans le correctif :
+`waitForSelector: Timeout 40000ms exceeded … locator('#fusion-interrompue:not(.hidden)')`.
+Vingt-quatre contrôles verts après.
+
+**Ce que l'essai éprouve, et ce qu'il n'éprouve pas.** L'interruption n'est
+pas provoquée en tuant l'onglet au bon millième de seconde : ce serait un
+essai qui passerait une fois sur dix. L'essai **écrit l'état que
+l'interruption laisse** — l'opération au journal, la marque posée, rien dans
+le magasin de domaine — puis mesure l'écran et la réparation. Que la marque
+soit bien posée par la transaction du journal, c'est *lu dans le code* ; ce
+qui est *constaté*, c'est le comportement dans cet état, et le fait qu'une
+vraie fusion de paquet réunit le reliquat au lieu de l'écraser — quatrième
+section de l'essai, à deux appareils et un paquet réel.
+
+**Deux erreurs de ma part, trouvées par l'essai.** Mon bouton reprenait
+l'identifiant `reconstruire`, que la page porte déjà pour « Reconstruire
+depuis le journal » — la réparation complète, qui rejoue tout. `$()` aurait
+rendu le mien et laissé l'autre muet. Et le compte rendu de réussite était
+écrit **dans** la bannière, que la peinture d'état masque aussitôt : le texte
+était juste, et invisible. Il est sorti de la bannière.
