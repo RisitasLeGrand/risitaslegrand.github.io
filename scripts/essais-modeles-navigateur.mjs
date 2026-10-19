@@ -178,6 +178,31 @@ v('sept boutons « Utiliser ce modèle »', await page.locator('[data-utiliser]'
 }
 
 {
+  /*
+     CE QUE LE MODÈLE NE TRAVAILLE PAS, dit sur la carte AVANT la copie.
+     C'est le point que le pilote a tranché le 19 : on le dit, on n'ajoute
+     pas de bloc (décision 12). Avant, cela ne se voyait qu'après la copie,
+     sur l'écran du volume.
+  */
+  v(
+    'la carte nomme exactement ce que le modèle ne travaille pas',
+    await page.locator('#absents-modele-M1').innerText(),
+    'Ce modèle ne travaille pas 2 muscles, d’après votre bibliothèque : Adducteurs, Cou.',
+  );
+  /*
+     M2 travaille les adducteurs : sa carte ne les nomme pas. L'assertion
+     porte sur le texte ENTIER, et non sur « contient » : un message qui
+     listait les dix-huit muscles contenait « Adducteurs » lui aussi, et
+     passait le contrôle.
+  */
+  v(
+    'un modèle qui les travaille ne les nomme pas',
+    await page.locator('#absents-modele-M2').innerText(),
+    'Ce modèle ne travaille pas un muscle, d’après votre bibliothèque : Cou.',
+  );
+}
+
+{
   /* « Pourquoi ces valeurs » : un dépliant natif, donc au clavier d'office. */
   const details = page.locator('#modele-M1 details');
   faux('le dépliant est fermé au départ', await details.evaluate((d) => d.open));

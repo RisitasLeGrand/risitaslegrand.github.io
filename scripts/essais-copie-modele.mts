@@ -41,6 +41,7 @@ import {
   ecartsDeCibles,
   estPossibleAvec,
   exercicesDuModele,
+  musclesNonTravailles,
   noteDuBloc,
   nomDeLaCopie,
   preparerLaCopie,
@@ -572,6 +573,73 @@ console.log('\nLES BLESSURES SONT SIGNALÉES, JAMAIS RETIRÉES');
       );
       vrai('la blessure est signalée', copie.blessures.length > 0);
     }
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   9. Ce que le modèle ne travaille pas, dit avant la copie
+   ══════════════════════════════════════════════════════════════════════════ */
+console.log('\nCE QUE LE MODÈLE NE TRAVAILLE PAS');
+
+{
+  const exercices = livree();
+
+  /*
+     LE CAS QUI A MOTIVÉ CETTE LIGNE : les adducteurs tombent à zéro sur
+     quatre des sept modèles, une fois les muscles pris dans la bibliothèque
+     et non dans la convention du dossier. Avant, cela ne se voyait qu'après
+     la copie, sur l'écran du volume. Maintenant la carte le dit avant.
+  */
+  const sansAdducteurs = MODELES_DE_PROGRAMMES.filter((m) =>
+    musclesNonTravailles(m, exercices).includes('adducteurs'),
+  ).map((m) => m.cle);
+  v('quatre modèles ne travaillent pas les adducteurs', sansAdducteurs, ['M1', 'M4', 'M5', 'M6']);
+
+  /*
+     Le cou n'est programmé par aucun modèle, et le dossier le dit lui-même :
+     aucune source lue ne le concerne. C'est une information, pas une faute.
+  */
+  v(
+    'et aucun ne travaille le cou',
+    MODELES_DE_PROGRAMMES.filter((m) => !musclesNonTravailles(m, exercices).includes('cou')).map(
+      (m) => m.cle,
+    ),
+    [],
+  );
+
+  /* Le corps entier sur deux jours laisse aussi l'arrière des épaules. */
+  v(
+    'M5 laisse aussi l’arrière des épaules',
+    musclesNonTravailles(MODELES_DE_PROGRAMMES.find((m) => m.cle === 'M5')!, exercices),
+    ['deltoide-posterieur', 'adducteurs', 'cou'],
+  );
+
+  /* Les muscles nommés existent. */
+  v(
+    'tous les muscles nommés sont connus',
+    MODELES_DE_PROGRAMMES.flatMap((m) =>
+      musclesNonTravailles(m, exercices).filter((id) => !MUSCLES.some((mu) => mu.id === id)),
+    ),
+    [],
+  );
+
+  {
+    /*
+       Une bibliothèque amputée en laisse davantage : la phrase porte sur les
+       exercices de la personne, pas sur une liste figée. Sans les pompes, le
+       modèle Maison ne travaille plus les pectoraux.
+    */
+    const sansPompes = exercices.filter((e) => e.nom !== 'Pompes');
+    const maison = MODELES_DE_PROGRAMMES.find((m) => m.cle === 'M6')!;
+    vrai(
+      'sans les pompes, le modèle Maison ne travaille plus les pectoraux',
+      musclesNonTravailles(maison, sansPompes).includes('pectoraux'),
+    );
+    faux(
+      'alors qu’il les travaille avec',
+      musclesNonTravailles(maison, exercices).includes('pectoraux'),
+    );
   }
 }
 

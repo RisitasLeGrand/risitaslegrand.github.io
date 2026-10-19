@@ -237,6 +237,37 @@ export function ciblesDuModele(
   return cibles;
 }
 
+/**
+ * Les muscles qu'aucun exercice du modèle ne travaille.
+ *
+ * ## Pourquoi c'est dit AVANT la copie
+ *
+ * Recalculées depuis la bibliothèque, les cibles de certains modèles tombent
+ * à zéro sur un muscle que le dossier croyait travaillé : les adducteurs sur
+ * quatre des sept modèles, parce que la bibliothèque ne les compte ni au
+ * squat, ni aux fentes, ni à la presse à cuisses. `musclesAbsents()` le
+ * signale déjà une fois le programme écrit — mais après la copie, et sur un
+ * autre écran. La carte du modèle le dit donc avant, pour que le choix se
+ * fasse en connaissance de cause (décision du pilote, 19 octobre, dans le
+ * cadre de la décision 12 : on le dit, on n'ajoute pas de bloc).
+ *
+ * Le calcul porte sur les exercices **de la personne**, après adaptation au
+ * matériel : un modèle de salle réduit aux haltères ne travaille plus les
+ * mêmes muscles, et lui annoncer la liste de la salle serait faux.
+ */
+export function musclesNonTravailles(
+  modele: ModeleDeProgramme,
+  exercices: readonly Exercice[],
+  substitutions: Map<string, string> = new Map(),
+): string[] {
+  const { resolus } = exercicesDuModele(modele, exercices, substitutions);
+  const touches = new Set<string>();
+  for (const exercice of resolus.values()) {
+    for (const m of [...exercice.principaux, ...exercice.secondaires]) touches.add(m);
+  }
+  return MUSCLES.filter((m) => !touches.has(m.id)).map((m) => m.id);
+}
+
 export interface LigneDEcart {
   muscle: string;
   /** La cible annoncée par le dossier. */

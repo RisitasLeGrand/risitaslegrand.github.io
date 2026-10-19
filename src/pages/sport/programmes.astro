@@ -142,6 +142,20 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
                   {insecables(modele.pourQui)}
                 </p>
 
+                <!--
+                  LES MUSCLES QUE CE MODÈLE NE TRAVAILLE PAS, dits avant la
+                  copie et non après.
+
+                  Rempli par le script, et non à la construction : le calcul
+                  porte sur la bibliothèque de la personne et sur le matériel
+                  qu'elle a choisi. Annoncer la liste de la salle à qui
+                  s'entraîne aux haltères serait faux.
+                -->
+                <p
+                  id={`absents-modele-${modele.cle}`}
+                  class="mt-2 hidden text-sm text-slate-500 dark:text-slate-400"
+                ></p>
+
                 {modele.avertissements.length > 0 && (
                   <p class="mt-3 rounded-xl bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-100">
                     <span class="font-medium">À savoir</span> : {insecables(modele.avertissements.join(' ; '))}.
@@ -383,9 +397,11 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
     type Exercice,
     type Serie,
   } from '../../lib/sport/modele';
-  import { modeleParCle } from '../../lib/sport/modeles-programmes';
+  import { MODELES_DE_PROGRAMMES, modeleParCle } from '../../lib/sport/modeles-programmes';
   import {
     EQUIPEMENTS,
+    adapterALEquipement,
+    musclesNonTravailles,
     preparerLaCopie,
     type Equipement,
   } from '../../lib/sport/copie-de-modele';
@@ -1009,10 +1025,64 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
     }
   }
 
+  /** Le matériel choisi, « salle » tant que l'écran n'est pas monté. */
+  const equipementChoisi = (): Equipement =>
+    (($('equipement-modeles') as HTMLSelectElement | null)?.value || 'salle') as Equipement;
+
+  /**
+   * Dit, sur chaque carte, les muscles que le modèle ne travaille pas.
+   *
+   * Rejoué à chaque changement de matériel : un modèle de salle ramené aux
+   * haltères ne travaille plus les mêmes muscles, et la phrase doit suivre.
+   */
+  function direLesMusclesNonTravailles() {
+    const equipement = equipementChoisi();
+    /*
+       SANS BIBLIOTHÈQUE, ON SE TAIT.
+
+       La phrase porte sur les exercices de la personne. Sur une bibliothèque
+       vide, elle annonçait « ne travaille pas 18 muscles » — littéralement
+       vrai de la bibliothèque, et complètement faux du modèle. C'est l'essai
+       de navigateur qui l'a vu, sur un profil neuf. Mieux vaut ne rien dire
+       que dire une chose plausible et fausse.
+    */
+    const muette = exercices.length === 0;
+    for (const modele of MODELES_DE_PROGRAMMES) {
+      const zone = document.getElementById(`absents-modele-${modele.cle}`);
+      if (!zone) continue;
+      const { substitutions } = adapterALEquipement(modele, equipement);
+      const absents = muette ? [] : musclesNonTravailles(modele, exercices, substitutions);
+      zone.classList.toggle('hidden', absents.length === 0);
+      if (!absents.length) continue;
+      /*
+         « ne travaille pas » et non « oublie » : un modèle du haut du corps
+         est un modèle, et le dossier laisse le cou, les avant-bras et les
+         lombaires à la personne (décision 12). C'est une information, pas un
+         reproche.
+      */
+      zone.textContent =
+        absents.length === 1
+          ? `Ce modèle ne travaille pas un muscle, d’après votre bibliothèque : ${libelleDuMuscle(absents[0])}.`
+          : `Ce modèle ne travaille pas ${absents.length} muscles, d’après votre bibliothèque : ${absents.map(libelleDuMuscle).join(', ')}.`;
+    }
+  }
+
   async function recharger() {
+    /*
+       POSER LA BIBLIOTHÈQUE LIVRÉE, comme le fait « Mes exercices ».
+
+       Jusqu'ici, seul « /sport/exercices/ » la posait. Quelqu'un qui entre
+       dans Sport par les programmes n'avait donc aucun exercice : la phrase
+       « ce modèle ne travaille pas… » portait sur le vide, et la première
+       copie devait tout créer. `installerBibliotheque` ne touche qu'un
+       magasin VIDE — ce qu'on a supprimé ne revient pas —, donc l'appeler ici
+       ne défait rien.
+    */
+    await installerBibliotheque();
     [exercices, programmes] = await Promise.all([tousLesExercices(), tousLesProgrammes()]);
     programmes.sort((a, b) => Number(b.actif) - Number(a.actif) || a.nom.localeCompare(b.nom, 'fr'));
     peindreListe();
+    direLesMusclesNonTravailles();
     await peindreVolumes();
   }
 
@@ -1033,6 +1103,7 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
         const choisi = ($('equipement-modeles') as HTMLSelectElement).value;
         $('equipement-detail').textContent =
           EQUIPEMENTS.find((e) => e.id === choisi)?.detail ?? '';
+        direLesMusclesNonTravailles();
       });
       for (const bouton of document.querySelectorAll<HTMLButtonElement>('[data-utiliser]')) {
         bouton.addEventListener('click', (evenement) => {
