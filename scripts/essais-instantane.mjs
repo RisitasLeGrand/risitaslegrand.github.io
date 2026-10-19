@@ -21,6 +21,7 @@
  */
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
+import { repondreALaBoite } from './lib/boite-essais.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const MDP = motDePasseEssais();
@@ -234,8 +235,16 @@ await page.waitForSelector('#migration:not(.hidden)', { timeout: 20000 });
 const detail = await page.textContent('#migration-detail');
 v('la section « Dernière migration » nomme la version d’avant', detail.includes('11'), true);
 
-page.once('dialog', (d) => d.accept());
 await page.click('#revenir-migration');
+/*
+   LA BOÎTE COMMUNE (C1 du 43). Le retour arrière demande confirmation, et
+   la boîte dit ce qu'elle coûte : la version d'arrivée, le nombre
+   d'enregistrements d'alors, et que tout ce qui a été saisi depuis sera
+   perdu. Le message de succès ne s'écrit qu'APRÈS la réponse ; l'essai
+   répondait encore à la fenêtre native et attendait donc trente secondes un
+   message qu'il n'avait pas demandé.
+*/
+await repondreALaBoite(page, 'Revenir à l’instantané');
 await page.waitForSelector('#message-migration:not(.hidden)', { timeout: 30000 });
 const message = await page.textContent('#message-migration');
 v('le message annonce le retour', message.includes('revenue'), true);
@@ -276,76 +285,52 @@ const neuve = await lire(page);
 
 v(`une base neuve naît directement en version ${VERSION}`, neuve.version, VERSION);
 v('aucun instantané', neuve.instantanes.length, 0);
+/*
+   TOUS LES MAGASINS DÉCLARÉS, LUS DANS LA SOURCE ET NON RECOPIÉS.
+
+   La liste était tenue à la main, version par version, avec ses
+   commentaires. Elle a cessé d'être juste au magasin « centreElements »
+   (`329bd3b`, centre de notifications, version 24) : l'essai accusait alors
+   le premier bloc de migration d'avoir sauté, alors qu'il s'agissait d'un
+   magasin livré depuis, et parfaitement présent.
+
+   La référence est donc maintenant la SOURCE : tout ce que l'interface
+   `SchemaRevinsp` déclare. C'est exactement la propriété visée — « la base neuve
+   porte tous les magasins que le schéma déclare » — et une liste recopiée ne
+   pouvait que se périmer, puisqu'elle double une information qui vit
+   ailleurs.
+
+   Le garde-fou de la référence : si la lecture ne trouve rien, l'essai le
+   DIT et s'arrête, au lieu de comparer à une liste vide — ce qui passerait
+   au vert sur une base sans aucun magasin.
+*/
+const source = readFileSync('src/lib/db.ts', 'utf8');
+/*
+   La référence est l'INTERFACE du schéma, et non les appels à
+   `createObjectStore`. Cinq magasins du domaine Corps sont créés par une
+   boucle sur un tableau de noms : les chercher par leur appel littéral en
+   oubliait cinq, et l'essai accusait alors la base de magasins manquants
+   qu'elle avait. L'interface, elle, les déclare tous, un par ligne — c'est
+   la seule liste du dépôt qui soit à la fois complète et unique.
+*/
+const corpsDuSchema = source.slice(
+  source.indexOf('interface SchemaRevinsp'),
+  source.indexOf('\n}\n', source.indexOf('interface SchemaRevinsp')),
+);
+const declares = [
+  ...new Set([...corpsDuSchema.matchAll(/^ {2}([A-Za-z]\w*): \{/gm)].map((m) => m[1])),
+].sort();
+if (declares.length === 0) {
+  console.log(
+    '\x1b[31m✗\x1b[0m PANNE — aucun magasin trouvé dans « src/lib/db.ts » : ' +
+      'la création des magasins a changé de forme, et cet essai ne sait plus à quoi comparer.',
+  );
+  process.exit(1);
+}
 v(
-  'et tous les magasins sont là : le premier bloc de migration n’a pas sauté',
-  neuve.magasins,
-  [
-    'aides', 'cartes', 'competences', 'difficultes', 'etat', 'fiches', 'journal',
-    'jours', 'nback', 'notes', 'operations', 'qcmDgfip', 'qcmSessions', 'quiz',
-    'relationnel', 'revisions', 'seances', 'vmSeuils', 'vmSessions',
-    // Odyssée, depuis la version 15.
-    'odysseeTaches', 'odysseeQuetes', 'odysseeEvenements', 'odysseeFocus', 'odysseeRevues',
-    // Sport, depuis la version 16, et ses programmes depuis la 17.
-    'sportExercices', 'sportSeances', 'sportPhases', 'sportBlessures', 'sportProgrammes',
-    // Le domaine Corps d'Odyssée, depuis la version 18.
-    'odysseePesees', 'odysseeMesures', 'odysseeNuits', 'odysseeRepas', 'odysseeBoissons',
-    'odysseeSante', 'odysseeTrajectoires',
-    // Scellés depuis la décision 3.
-    'odysseeMedicaments', 'odysseeHormonal',
-    // Psyché, scellée, depuis la version 21.
-    'odysseeCheckins', 'odysseeHebdos', 'odysseeJournal',
-    // Finances, scellées, depuis la version 22.
-    'odysseeComptes', 'odysseeValorisations', 'odysseeOperations', 'odysseeLignesBudget',
-    // Les rapprochements, depuis la phase 3 de Finances.
-    'odysseeRapprochements',
-    // Et « Qui lit mon budget », depuis la phase 4.
-    'odysseeConsommateurs',
-    // Le pointage par type de vendeur, depuis la phase 3 bis.
-    'odysseeVendeurs', 'odysseeReglesPointage', 'odysseePointages', 'odysseeTaxonomie',
-    /*
-       La veille, depuis la version 23. Le journal d'usage n'est pas scellé —
-       un magasin scellé ne s'écrit que coffre ouvert, donc rarement, et le
-       journal n'enregistrerait qu'un échantillon biaisé. Voir
-       `SENSIBLES_EN_CLAIR` dans `noyau/coffre.ts`.
-    */
-    'odysseeUsage', 'odysseeVeilleBases',
-    // Le cycle de vie des repères, depuis la version 24. Scellés tous les deux.
-    'odysseeVeilleSignaux', 'odysseeVeilleReglages',
-    // Les échelles, depuis la version 25. Scellées.
-    'odysseePassations',
-    /*
-       SEPT ENTRÉES QUI MANQUAIENT, ajoutées le 15 octobre 2026 avec les
-       magasins du prompt 38.
-
-       Elles couvrent TROIS versions de schéma consécutives — 29, 30 et 31 —
-       passées sans que cette liste soit tenue à jour. Cet essai était donc
-       rouge depuis la version 29, et il l'était pour une raison qui n'avait
-       rien à voir avec ce qu'il prétend vérifier.
-
-       La correction est **déclarée**, pas silencieuse. Un contrôle rouge
-       qu'on sait rouge pour une mauvaise raison est un contrôle qu'on apprend
-       à ignorer, et un contrôle qu'on ignore ne protège plus rien.
-
-       J'ai d'abord annoncé « deux entrées », en lisant une sortie tronquée
-       au lieu de comparer les deux ensembles. Il y en avait sept. Le compte
-       exact est ci-dessous, et il vient d'une comparaison, pas d'un coup
-       d'œil.
-    */
-    // Santé, version 29.
-    'odysseeTraitements', 'odysseePrelevements', 'odysseeResultats',
-    'odysseeSymptomes', 'odysseeConditions',
-    // Version 30.
-    'odysseeRessentis',
-    // Les actualités marquées lues, version 31.
-    'actualitesLues',
-    /*
-       Les tâches récurrentes, depuis la version 32 (prompt 38). Les deux
-       premiers sont en clair et indexés ; les deux derniers sont scellés et
-       sans index, parce qu'ici l'index porterait justement ce qu'on cache.
-    */
-    'odysseeOccurrences', 'odysseeEtapesCochees',
-    'odysseeExceptionsScellees', 'odysseeReports',
-  ].sort(),
+  `et tous les magasins déclarés sont là (${declares.length}) : le premier bloc de migration n’a pas sauté`,
+  [...neuve.magasins].sort(),
+  declares,
 );
 
 console.log(
