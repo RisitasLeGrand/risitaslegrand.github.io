@@ -37,10 +37,11 @@ import {
   aUnUsage,
   champsDeBranche,
   controlerChamps,
-  lecteursDits,
   questionsDeBranche,
   questionsDuSocle,
 } from '../src/lib/noyau/profil.ts';
+import { lecteursDuChamp, rubriquesDuRegistre } from '../src/lib/profil-lecteurs.ts';
+import { CLES_SENSIBLES, USAGES, usagesLisant } from '../src/lib/noyau/registre-usages.ts';
 import { BRANCHES } from '../src/lib/branches.ts';
 
 let rouges = 0;
@@ -224,8 +225,20 @@ v(
 );
 
 console.log('\n3. LU, DONC DÉCLARÉ');
+/**
+ * La porte de l'âge : le seul fichier qui lise les trois champs de naissance.
+ *
+ * Ce n'est pas une exception à la règle « lu, donc déclaré » : c'est l'autre
+ * source. Le champ déclare les clés du registre, le registre nomme les usages
+ * qui les lisent, et `etat-personne.ts` est le guichet par lequel ils passent —
+ * le contrôle du graphe d'imports interdit à tout autre fichier de lire ces
+ * champs, et vérifie la taille de sa propre liste d'autorisés.
+ */
+const PORTE_DE_LAGE = 'src/lib/etat-personne.ts';
+
 const declarees = trier([
   ...CHAMPS.flatMap((c) => (c.luPar ?? []).map((l) => `${c.champ} → ${l.module}`)),
+  ...CHAMPS.filter((c) => c.clesDuRegistre?.length).map((c) => `${c.champ} → ${PORTE_DE_LAGE}`),
   ...LECTURES_SANS_EFFET.map(([champ, module]) => `${champ} → ${module}`),
 ]);
 v('toute lecture reconnue est déclarée', trier(lectures), declarees);
@@ -245,8 +258,8 @@ for (const [, , raison] of MENTIONS_SANS_LECTURE) {
 
 console.log('\n5. CE QUE L’ÉCRAN DIRA');
 for (const c of CHAMPS) {
-  const dits = lecteursDits(c);
-  if (!c.luPar) {
+  const dits = lecteursDuChamp(c);
+  if (!c.luPar && !c.clesDuRegistre) {
     v(`${c.champ} : aucune ligne « Lu par »`, dits, []);
     continue;
   }
@@ -260,7 +273,7 @@ for (const c of CHAMPS) {
 }
 v(
   'le lever nomme ses quatre lecteurs, fondus en quatre phrases',
-  lecteursDits(CHAMPS.find((c) => c.champ === 'lever')!),
+  lecteursDuChamp(CHAMPS.find((c) => c.champ === 'lever')!),
   [
     'l’heure à laquelle votre journée change de date',
     'la fenêtre de la revue (Odyssée)',
@@ -270,9 +283,96 @@ v(
 );
 v(
   'les domaines fondent deux modules en une seule phrase',
-  lecteursDits(CHAMPS.find((c) => c.champ === 'domainesActifs')!).length,
+  lecteursDuChamp(CHAMPS.find((c) => c.champ === 'domainesActifs')!).length,
   2,
 );
+
+/* ── La seconde source : le registre des usages ─────────────────────────── */
+console.log('\n5 bis. L’ÂGE VIENT DU REGISTRE, ET DE LUI SEUL');
+
+/*
+   L'arbitrage du pilote, après le constat du constructeur : l'âge — et demain
+   le sexe et le cycle — a déjà sa table de lecteurs, `registre-usages.ts`, qui
+   appartient à qui construit le cycle. La ligne « Lu par » en est DÉRIVÉE, et
+   ce fichier-là n'est pas touché. Tous les autres champs déclarent au
+   catalogue. Un champ aux deux endroits aurait deux listes à tenir d'accord,
+   et c'est exactement l'état que « Lu par » existe pour supprimer.
+*/
+const AGE = ['naissanceAnnee', 'naissanceMois', 'majeurDeclare'];
+for (const nom of AGE) {
+  const c = CHAMPS.find((x) => x.champ === nom)!;
+  vrai(`${nom} dérive ses lecteurs du registre`, (c.clesDuRegistre ?? []).length > 0);
+  v(`${nom} ne déclare aucun lecteur au catalogue`, c.luPar, undefined);
+  vrai(`${nom} garde donc un usage, et reste demandé`, aUnUsage(c));
+}
+v(
+  'aucun champ n’est déclaré aux deux endroits',
+  CHAMPS.filter(
+    (c) => c.clesDuRegistre?.length && (c.luPar ?? []).some((l) => l.protection !== true),
+  ).map((c) => c.champ),
+  [],
+);
+for (const c of CHAMPS) {
+  for (const cle of c.clesDuRegistre ?? []) {
+    vrai(
+      `${c.champ} : la clé « ${cle} » est lue par au moins un usage déclaré`,
+      usagesLisant(cle).length > 0,
+    );
+  }
+}
+/*
+   LA LIGNE DIT CE QUI MARCHE, ET COMPTE CE QUI ATTEND.
+
+   Six usages sur treize reposent sur une source que cet environnement ne sait
+   pas atteindre, et le registre le déclare. Les compter avec les autres ferait
+   dire à la ligne que sept rubriques lisent votre âge, alors que cinq le font.
+*/
+v(
+  'la ligne de l’année nomme les rubriques livrables, et compte celles qui attendent',
+  lecteursDuChamp(CHAMPS.find((c) => c.champ === 'naissanceAnnee')!),
+  [
+    'les usages de votre âge dans Révisions, Exports, Profil, Santé et Psyché, ' +
+      'et 4 autres qui attendent une source — tous listés dans Qui utilise mon âge',
+  ],
+);
+v(
+  'et celle de la majorité n’en compte aucune : ses trois usages marchent',
+  lecteursDuChamp(CHAMPS.find((c) => c.champ === 'majeurDeclare')!),
+  ['les usages de votre âge dans Profil, Santé et Psyché, listés dans Qui utilise mon âge'],
+);
+/*
+   LES USAGES SENSIBLES NE SORTENT PAS DE LEUR ÉCRAN (2.6 du prompt de l'âge).
+   Aucun ne lit ces clés aujourd'hui : l'assertion dit donc deux choses — que
+   rien ne fuit, et que le filtre existe avant le premier usage.
+*/
+for (const cle of CLES_SENSIBLES) {
+  v(`aucune rubrique n’est rendue pour « ${cle} »`, rubriquesDuRegistre([cle]), {
+    livrables: [],
+    enAttente: 0,
+  });
+}
+vrai(
+  'et aucun champ de profil ne déclare une clé sensible',
+  CHAMPS.every((c) => !(c.clesDuRegistre ?? []).some((cle) => CLES_SENSIBLES.includes(cle))),
+);
+/* Ce que la ligne affirme, compté sur le registre : cinq rubriques livrables
+   et quatre usages en attente, soit les neuf usages qui lisent l'âge. */
+{
+  const lisantLAge = USAGES.filter((u) =>
+    u.clesLues.some((c) => c === 'tranche_age' || c === 'majeur'),
+  );
+  v('neuf usages lisent l’âge', lisantLAge.length, 9);
+  v(
+    'dont quatre attendent une source',
+    lisantLAge.filter((u) => u.fondement.type === 'source-a-obtenir').length,
+    4,
+  );
+  v(
+    'et les cinq autres sont livrables',
+    rubriquesDuRegistre(['tranche_age', 'majeur']).livrables.length,
+    5,
+  );
+}
 
 console.log('\n6. CE QUI N’EST PLUS DEMANDÉ (DÉCISION 2)');
 v('le catalogue tient trente-sept champs', CHAMPS.length, 37);

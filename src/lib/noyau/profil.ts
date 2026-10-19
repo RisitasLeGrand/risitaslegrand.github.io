@@ -34,6 +34,7 @@
  * catalogue le vérifie plutôt que de le promettre.
  */
 import { comparerOperations, type Operation } from './operations';
+import type { CleDeContexte } from './registre-usages';
 
 /** Le type d'opération qui pose ou change un champ de profil. */
 export const TYPE_CHAMP_PROFIL = 'profil.champ';
@@ -188,6 +189,26 @@ export interface ChampDeclare {
    */
   clefs?: 'parcours' | 'domaines';
   /**
+   * Les clés du **registre des usages** que ce champ alimente.
+   *
+   * ## Pourquoi ces champs-là ne déclarent pas leurs lecteurs ici
+   *
+   * L'âge a déjà une table de lecteurs déclarés, et elle est ailleurs :
+   * `registre-usages.ts` nomme chaque usage, ce qu'il lit, à quoi il sert et
+   * ce qu'il fait quand il ne sait pas. C'est l'écran « Qui utilise mon âge ».
+   * En écrire une seconde ici ferait deux vérités du même fait, et la seconde
+   * finirait par mentir — exactement ce que la ligne « Lu par » est censée
+   * empêcher.
+   *
+   * Ce champ ne déclare donc que les **clés** qu'il alimente, et la ligne est
+   * dérivée du registre. Le registre appartient à qui construit le cycle : ce
+   * fichier ne le modifie pas, et l'arbitrage du pilote est explicite — l'âge,
+   * le sexe et le cycle viennent du registre, tout le reste de `luPar`.
+   *
+   * Le contrôle ci-dessous refuse un champ déclaré aux deux endroits.
+   */
+  clesDuRegistre?: readonly CleDeContexte[];
+  /**
    * Son nombre ne se groupe pas : c'est une année, pas une quantité.
    *
    * « 1990 », jamais « 1 990 ». `Intl` groupe par défaut, et le défaut est
@@ -255,12 +276,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   C({
     champ: 'naissanceAnnee',
     sansGroupement: true,
-    luPar: [
-      {
-        module: 'src/lib/etat-personne.ts',
-        libelle: 'la seule porte par laquelle une fonction peut obtenir votre âge, détaillée dans Qui utilise mon âge',
-      },
-    ],
+    clesDuRegistre: ['tranche_age', 'majeur'],
     jamaisExporte: true,
     libelle: 'Année de naissance',
     nature: 'nombre',
@@ -277,12 +293,9 @@ export const CHAMPS: readonly ChampDeclare[] = [
   C({
     champ: 'naissanceMois',
     sansGroupement: true,
-    luPar: [
-      {
-        module: 'src/lib/etat-personne.ts',
-        libelle: 'la seule porte par laquelle une fonction peut obtenir votre âge, détaillée dans Qui utilise mon âge',
-      },
-    ],
+    /* Le mois ne sert qu'à lever l'incertitude d'un an : il alimente les mêmes
+       clés que l'année, et seulement à la frontière d'un seuil. */
+    clesDuRegistre: ['tranche_age', 'majeur'],
     jamaisExporte: true,
     libelle: 'Mois de naissance',
     nature: 'nombre',
@@ -296,12 +309,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'majeurDeclare',
-    luPar: [
-      {
-        module: 'src/lib/etat-personne.ts',
-        libelle: 'la seule porte par laquelle une fonction peut savoir si vous êtes majeur, détaillée dans Qui utilise mon âge',
-      },
-    ],
+    clesDuRegistre: ['majeur'],
     jamaisExporte: true,
     libelle: 'Majorité déclarée',
     nature: 'booleen',
@@ -779,7 +787,7 @@ export const CHAMPS_A_CAVIARDER: readonly string[] = CHAMPS.filter((c) =>
  * en découlent au lieu d'être tenues à part.
  */
 export const aUnUsage = (c: ChampDeclare): boolean =>
-  (c.luPar ?? []).some((l) => l.protection !== true);
+  (c.luPar ?? []).some((l) => l.protection !== true) || (c.clesDuRegistre ?? []).length > 0;
 
 /**
  * Les champs qui ne sont plus demandés, faute de lecteur.
@@ -793,16 +801,15 @@ export const CHAMPS_PLUS_DEMANDES: readonly string[] = CHAMPS.filter(
   (c) => !aUnUsage(c) && !c.demandeAuBesoin,
 ).map((c) => c.champ);
 
-/**
- * Ce que l'écran affiche après « Lu par : », ou rien.
- *
- * Les libellés identiques sont fondus : deux fichiers qui servent le même
- * écran ne font qu'une ligne pour la personne, qui n'a pas à connaître la
- * découpe des modules.
- */
-export const lecteursDits = (c: ChampDeclare): string[] => [
-  ...new Set((c.luPar ?? []).map((l) => l.libelle)),
-];
+/*
+   CE QUE L'ÉCRAN AFFICHE APRÈS « LU PAR », et pourquoi ce n'est pas ici.
+
+   Il y a deux sources — cette table, et le registre des usages pour l'âge —,
+   et les réunir demande de lire le registre. Le catalogue n'a pas à en
+   dépendre à l'exécution : la réunion se fait dans `lib/profil-lecteurs.ts`,
+   qui ne nomme aucun champ et peut donc vivre hors des six fichiers autorisés
+   à nommer ceux de naissance.
+*/
 
 /**
  * Les champs qui relèvent de la case « Objectifs » et non de la case
@@ -1269,6 +1276,25 @@ export function controlerChamps(branchesConnues: readonly string[]): string[] {
       if (lecteur.libelle.trim().length < 10) {
         problemes.push(`Le lecteur « ${lecteur.module} » du champ « ${c.champ} » n’a pas de libellé lisible.`);
       }
+    }
+    /*
+       JAMAIS LES DEUX SOURCES POUR LE MÊME CHAMP.
+
+       Un champ dont les lecteurs seraient déclarés ici **et** dérivés du
+       registre aurait deux listes à tenir d'accord, et c'est l'état que la
+       ligne « Lu par » existe pour supprimer. La protection ne compte pas : un
+       lecteur qui retire la valeur d'un export n'est pas un usage.
+    */
+    if (c.clesDuRegistre?.length && (c.luPar ?? []).some((l) => l.protection !== true)) {
+      problemes.push(
+        `Le champ « ${c.champ} » déclare ses lecteurs au catalogue et les dérive du registre : ` +
+          'il faut choisir, sans quoi les deux listes finiront par se contredire.',
+      );
+    }
+    if (c.clesDuRegistre && !c.clesDuRegistre.length) {
+      problemes.push(
+        `Le champ « ${c.champ} » déclare une liste de clés vide : il faut l’omettre.`,
+      );
     }
     const modules = (c.luPar ?? []).map((l) => l.module);
     if (new Set(modules).size !== modules.length) {
