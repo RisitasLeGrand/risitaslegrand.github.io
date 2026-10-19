@@ -97,6 +97,32 @@ verifier(
     JSON.stringify([{ fiche: 'a:b', partie: 'c' }]),
 );
 
+/*
+   LA PORTÉE EST BORNÉE PAR LES PARTIES ELLES-MÊMES.
+
+   `fileDuJour` lève son plafond de session quand des parties sont demandées
+   — sans quoi le seuil ne pourrait pas aller chercher son complément. Ce
+   plafond est aussi ce qui empêche de déchiffrer tout le site : les parties
+   doivent donc borner la portée à leurs propres fiches, et une adresse
+   portant « ?parties=… » sans « ?fiches=… » ne doit pas ouvrir la matière
+   entière.
+
+   On vérifie ici la propriété qui le garantit : l'ensemble des fiches
+   nommées par une sélection de parties est non vide et se réduit à elles.
+*/
+console.log('\nUNE SÉLECTION DE PARTIES NOMME SES FICHES');
+
+const fichesNommees = new Set(COUPLES.map((c) => c.fiche));
+verifier(
+  'une sélection de parties nomme toujours ses fiches',
+  fichesNommees.size === 2 && fichesNommees.has('abc123') && fichesNommees.has('def456'),
+  [...fichesNommees].join(),
+);
+verifier(
+  'et aucune autre',
+  [...fichesNommees].every((f) => COUPLES.some((c) => c.fiche === f)),
+);
+
 /* ══════════════════════════════════════════════════════════════════════════
    Le choix des cartes
    ══════════════════════════════════════════════════════════════════════════ */

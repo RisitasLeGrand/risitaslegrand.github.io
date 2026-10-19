@@ -218,8 +218,27 @@ interface PorteeFile {
 
 /** Les fiches du manifeste que la portée retient. */
 async function fichesEnPortee(portee: PorteeFile) {
-  const { matiere = null, ficheId = null, ficheIds = null } = portee;
-  const ensemble = ficheIds?.length ? new Set(ficheIds) : null;
+  const { matiere = null, ficheId = null, ficheIds = null, parties = null } = portee;
+  /*
+     LES PARTIES BORNENT LA PORTÉE À LEURS PROPRES FICHES.
+
+     Une sélection de parties nomme forcément ses fiches — c'est dans le
+     couple. S'en servir n'est pas une commodité : `fileDuJour` lève son
+     plafond de session quand des parties sont demandées, et ce plafond est
+     justement ce qui empêche de déchiffrer tout le site. Sans cette borne,
+     une adresse portant « ?parties=… » SANS « ?fiches=… » — bricolée à la
+     main, ou un lien que le code produirait un jour autrement — ouvrirait
+     toutes les fiches de la portée pour en garder quelques-unes.
+
+     Les deux bornes se cumulent quand elles sont là toutes les deux : on ne
+     prend que les fiches demandées ET nommées par les parties.
+  */
+  const nommeesParLesParties = parties?.length ? new Set(parties.map((p) => p.fiche)) : null;
+  const demandees = ficheIds?.length ? new Set(ficheIds) : null;
+  const ensemble =
+    demandees && nommeesParLesParties
+      ? new Set([...demandees].filter((id) => nommeesParLesParties.has(id)))
+      : (demandees ?? nommeesParLesParties);
   // Les fiches de méthodologie restent hors des files par défaut : elles
   // décrivent une épreuve, pas un savoir à retenir. Une fiche demandée
   // nommément fait exception — le bouton « réviser cette fiche » est un choix

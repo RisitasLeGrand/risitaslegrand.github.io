@@ -206,6 +206,17 @@ et n'était pas installable utilement ici.
   contenu) : confié à l'agent `fiches-insp`. Sans lui, les questions de rappel
   de N°3 n'ont pas de matière, et le ciblage des séances par partie retombe
   sur le complément de la fiche.
+- **Un rouge qui n'est pas un rouge, et qu'il faut savoir lire.**
+  `npm run essais:scripts-parles` a deux parties : la règle, puis le corpus
+  réel. La seconde refuse de certifier un corpus qui n'est pas celui du dépôt
+  — elle exige « plusieurs centaines » de scripts. Conséquence : sur une
+  machine dont `content/` vient de `content-exemple/` (trois fiches), elle
+  rougit, alors que « aucune fuite technique » est vert juste au-dessus. Sans
+  `content/`, l'essai passe et le dit en jaune ; avec le contenu réel, il
+  passe. Ce n'est donc **pas** un rouge de cette branche : c'est un corpus de
+  laboratoire. Je ne l'ai pas touché — l'assouplir reviendrait à baisser son
+  exigence, et c'est précisément ce que la règle 5 interdit.
+
 - **Un essai de navigateur pour les séances par partie.** Les règles sont
   éprouvées (`essais:seances-parties`, 35 verts) et le lecteur l'est à l'écran
   (`essais:lecteur-parties`, 33 verts), mais le volet des parties en séance
