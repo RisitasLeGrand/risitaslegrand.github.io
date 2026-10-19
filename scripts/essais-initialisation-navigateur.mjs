@@ -227,10 +227,13 @@ await page.waitForFunction(
   () => document.getElementById('question')?.textContent?.includes('votre revue'),
   { timeout: 15000 },
 );
+/* La question a changé de phrase avec la décision 4 du 56 : elle dit
+   maintenant ce que le choix change, c'est-à-dire le jour sur lequel la revue
+   porte. */
 v(
   'la question suivante arrive',
   await question(),
-  'Préférez-vous faire votre revue le matin ou le soir ?',
+  'Faites-vous votre revue le matin, sur la veille, ou le soir, sur la journée ?',
 );
 
 await page.click('#terminer');
@@ -276,7 +279,10 @@ await page.waitForFunction(
   () => document.getElementById('question')?.textContent?.includes('matin ou le soir'),
   { timeout: 15000 },
 );
-v('on passe au moment préféré', await question(), 'Préférez-vous travailler le matin ou le soir ?');
+/* « travailler » devient « réviser » : la question est celle des révisions, et
+   « Moment de révision préféré » s'appelle désormais « Heure préférée pour
+   réviser » (décision 4). */
+v('on passe au moment préféré', await question(), 'Préférez-vous réviser le matin ou le soir ?');
 /*
    La dernière question répondue termine le module d'elle-même : il n'y a plus
    de « Terminer maintenant » à chercher, et l'écran de fin arrive seul. Le
@@ -306,7 +312,7 @@ await aller('/profil/', '#champs');
   const texte = champs.join(' | ');
   vrai('le prénom est là, déclaré', /Prénom.*Alexis.*déclaré/.test(texte));
   vrai('le fuseau choisi aussi', /Fuseau.*Europe\/Paris/.test(texte));
-  vrai('et le moment de révision, posé par le module', /Moment de révision.*matin/.test(texte));
+  vrai('et l’heure préférée, posée par le module', /Heure préférée pour réviser.*matin/.test(texte));
   faux(
     'l’année de naissance reportée n’a rien écrit',
     /Année de naissance[^|]*déclaré/.test(texte),
