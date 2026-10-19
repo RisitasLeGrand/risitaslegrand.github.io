@@ -25,9 +25,15 @@ varient et les espaces insécables ne sont pas garanties — par exemple avant
 **Qui tranche** : Alexis, en relisant les citations à l'œil contre les pages
 d'origine.
 
-**Ce que le code fait en attendant** : rien n'est affiché. Le lot qui construit
-l'écran des signes d'alerte attend par ailleurs le texte numéroté du complément
-D2, qui n'est pas dans le dépôt.
+**Ce que le code fait en attendant** : les vingt-neuf citations sont déclarées
+dans `odyssee/cycle-signes-alerte.ts` et vérifiées contre la collecte, mais
+**aucun écran ne les affiche encore** — l'écran arrive avec le module, parce
+que la règle 5 veut que la liste soit consultable depuis le renvoi et non
+posée à part.
+
+Le complément qui gouverne ces citations est versé à côté de la collecte,
+dans `collectes/D2-complement-regles-2026-10-19.md` : la règle et la citation
+se relisent au même endroit.
 
 **Ce que l'essai fera, et sa limite** : il comparera chaque phrase affichée à sa
 citation dans la collecte, après normalisation des **apostrophes et des espaces

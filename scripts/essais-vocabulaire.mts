@@ -96,13 +96,55 @@ const texteSeul = (source: string) =>
     .replace(/^\s*\/\/.*$/gm, '')
     .replace(/\$\{[^}]*\}/g, ' ');
 
-/** Les littéraux de chaîne d'un fichier : ce qui peut atteindre un écran. */
-const litteraux = (source: string): string[] =>
-  [
-    ...texteSeul(source).matchAll(
-      /'((?:[^'\\\n]|\\.){4,})'|"((?:[^"\\\n]|\\.){4,})"|`((?:[^`\\]|\\.){4,})`/g,
-    ),
-  ].map((m) => m[1] ?? m[2] ?? m[3] ?? '');
+/**
+ * Les littéraux de chaîne d'un fichier : ce qui peut atteindre un écran.
+ *
+ * ## Pourquoi un parcours et non une expression régulière
+ *
+ * La première version alternait trois motifs de guillemets. Elle a tenu tant
+ * que les fichiers balayés ne portaient pas de gabarit à accents graves, puis
+ * elle a rendu, sur le fichier des signes d'alerte, un « littéral » qui
+ * allait de l'accent grave fermant d'un gabarit à l'accent ouvrant du
+ * suivant — c'est-à-dire du code aggloméré, dans lequel un mot interdit peut
+ * apparaître sans qu'aucune phrase ne soit en faute, et dans lequel une vraie
+ * phrase peut disparaître.
+ *
+ * Un balayage dont l'extracteur se désynchronise ne mesure plus ce qu'il
+ * croit mesurer, dans les deux sens. Celui-ci parcourt les signes un par un
+ * en sachant dans quel genre de littéral il se trouve, et saute les
+ * échappements. C'est vingt lignes au lieu d'une, et c'est la pièce sur
+ * laquelle tout le reste repose.
+ */
+const litteraux = (source: string): string[] => {
+  const texte = texteSeul(source);
+  const vus: string[] = [];
+  let i = 0;
+  while (i < texte.length) {
+    const signe = texte[i];
+    if (signe !== "'" && signe !== '"' && signe !== '`') {
+      i += 1;
+      continue;
+    }
+    const fin = signe;
+    let j = i + 1;
+    let contenu = '';
+    while (j < texte.length) {
+      if (texte[j] === '\\') {
+        contenu += texte[j + 1] ?? '';
+        j += 2;
+        continue;
+      }
+      if (texte[j] === fin) break;
+      /* Un saut de ligne ferme un littéral simple, jamais un gabarit. */
+      if (texte[j] === '\n' && fin !== '`') break;
+      contenu += texte[j];
+      j += 1;
+    }
+    if (j < texte.length && texte[j] === fin && contenu.length >= 4) vus.push(contenu);
+    i = j + 1;
+  }
+  return vus;
+};
 
 const fichiersDe = (racine: string): string[] => {
   const vus: string[] = [];
@@ -276,6 +318,7 @@ const SURFACE_DU_SUIVI: readonly string[] = [
   'src/lib/odyssee/chaines-du-suivi.ts',
   'src/lib/odyssee/cycle.ts',
   'src/lib/odyssee/cycle-confidentialite.ts',
+  'src/lib/odyssee/cycle-signes-alerte.ts',
 ];
 
 const designeLeSuivi = (chemin: string) =>
@@ -284,6 +327,49 @@ const oublies = tousLesFichiers
   .map((c) => c.replace(/\\/g, '/'))
   .filter((c) => designeLeSuivi(c) && !SURFACE_DU_SUIVI.includes(c));
 v('aucun fichier du suivi n’échappe à la surface balayée', oublies, []);
+
+/**
+ * Les documents sourcés, et pourquoi ils servent d'exemption.
+ *
+ * ## Une citation prouvée, et non déclarée
+ *
+ * J'avais annoncé au pilote une exemption **structurelle** : les champs d'un
+ * objet `Citation` seraient exemptés, et rien d'autre. Elle tenait, mais elle
+ * reposait encore sur une déclaration — il suffisait d'appeler une phrase
+ * maison « citation » pour la faire passer.
+ *
+ * Celle-ci est plus forte, et plus simple : une chaîne est exemptée si elle
+ * **se retrouve mot pour mot dans un document de collecte**. C'est le test le
+ * plus dur qui existe pour « est-ce une citation ? », puisqu'il ne demande
+ * pas de croire l'auteur. Et il ne se contourne qu'en ajoutant la phrase à
+ * une collecte sourcée, c'est-à-dire par un geste visible en relecture.
+ *
+ * Les trois citations qui en bénéficient aujourd'hui portent « anormal » :
+ * « écoulement vaginal anormal », « règles anormalement abondantes »,
+ * « s'aggravent anormalement ». Elles viennent des pages ameli, et les
+ * réécrire serait cesser de citer.
+ */
+const collectes = readdirSync('docs/cyclades/collectes')
+  .filter((f) => f.endsWith('.md'))
+  .map((f) => readFileSync(join('docs/cyclades/collectes', f), 'utf8'))
+  .join('\n')
+  .replace(/[’‘`´]/g, "'")
+  .replace(/[\u00A0\u202F\u2009\u200A]/g, ' ')
+  .replace(/\s+/g, ' ');
+
+const estUneCitationProuvee = (chaine: string): boolean => {
+  const normalisee = chaine
+    .replace(/[’‘`´]/g, "'")
+    .replace(/[\u00A0\u202F\u2009\u200A]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  /*
+     Une chaîne très courte se retrouve par hasard dans n'importe quel
+     document. Le seuil écarte « fièvre ; » — qui ne porte d'ailleurs aucun
+     mot interdit — sans écarter aucune phrase réelle.
+  */
+  return normalisee.length >= 20 && collectes.includes(normalisee);
+};
 
 const fautesDeMots: string[] = [];
 for (const chemin of SURFACE_DU_SUIVI) {
@@ -327,7 +413,9 @@ for (const chemin of SURFACE_DU_SUIVI) {
     .replace(/export const CHAINES_IMPOSEES[\s\S]*?\n\} as const satisfies[^;]*;/, '');
   for (const chaine of litteraux(sansSesPropresListes)) {
     for (const terme of MOTS_INTERDITS_SUIVI) {
-      if (motif(terme).test(chaine)) fautesDeMots.push(`${chemin} → « ${terme} » dans « ${chaine.slice(0, 60)} »`);
+      if (!motif(terme).test(chaine)) continue;
+      if (estUneCitationProuvee(chaine)) continue;
+      fautesDeMots.push(`${chemin} → « ${terme} » dans « ${chaine.slice(0, 60)} »`);
     }
   }
 }
