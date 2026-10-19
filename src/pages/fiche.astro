@@ -35,6 +35,35 @@ import LienReglages from '../components/LienReglages.astro';
         <p id="podcast-info" class="text-sm text-slate-500 dark:text-slate-400"></p>
       </div>
       <audio id="podcast-lecteur" class="mt-3 hidden w-full" controls preload="none"></audio>
+
+      <!-- Sauts de 15 s, vitesse de diction, temps restant (prompt 55, N°13) -->
+      <div id="podcast-commandes" class="mt-2 hidden flex-wrap items-center gap-x-3 gap-y-2">
+        <button
+          id="podcast-recul"
+          type="button"
+          class="rounded-lg border border-slate-300 px-2.5 py-1 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+        >↺ 15 s</button>
+        <button
+          id="podcast-avance"
+          type="button"
+          class="rounded-lg border border-slate-300 px-2.5 py-1 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+        >↻ 15 s</button>
+        <label class="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
+          Vitesse
+          <select
+            id="podcast-vitesse"
+            class="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+          ></select>
+        </label>
+        <p
+          id="podcast-reste"
+          class="text-sm text-slate-500 tabular-nums dark:text-slate-400"
+          role="status"
+        ></p>
+      </div>
+
+      <!-- Les parties de la fiche audio (prompt 46, P3) -->
+      <div id="podcast-parties" class="hidden"></div>
     </section>
 
     <!-- Bascule cours complet / fiche simplifiée -->
@@ -90,7 +119,7 @@ import LienReglages from '../components/LienReglages.astro';
   import { aProposer, montrer as montrerPretest } from '../lib/pretest';
   import { gagnerXp, xpFiche } from '../lib/gamification';
   import { activerGlossaire } from '../lib/glossaire';
-  import { installerLecteurPodcast } from '../lib/podcast';
+  import { installerLecteurPodcast, type LecteurPodcast } from '../lib/podcast';
   import { lien, notifier, parametreUrl } from '../lib/ui';
   import { boutonAssistant, ouvrirAssistant } from '../features/assistant/monter';
   import { contexteFiche } from '../features/assistant/fournisseurs';
@@ -98,6 +127,8 @@ import LienReglages from '../components/LienReglages.astro';
 
   let fiche: Fiche;
   let vue: 'cours' | 'simplifiee' = 'cours';
+  /** Le lecteur de fiche audio, s'il y en a un : « Écouter à partir d'ici ». */
+  let lecteurAudio: LecteurPodcast | null = null;
 
   const CLASSES_ACTIF = 'bg-slate-900 text-white dark:bg-white dark:text-slate-900';
   const CLASSES_INACTIF = 'text-slate-600 dark:text-slate-300';
@@ -128,6 +159,20 @@ import LienReglages from '../components/LienReglages.astro';
     vide.classList.add('hidden');
     // Le HTML vient du contenu déchiffré, produit par notre propre pipeline de build.
     conteneur.innerHTML = html;
+
+    /*
+       LE TITRE PROPRE, RELEVÉ AVANT QU'ON LUI AJOUTE QUOI QUE CE SOIT.
+
+       Deux boutons se posent ensuite dans chaque titre — l'assistant, et
+       « Écouter à partir d'ici ». Leur libellé entre alors dans le
+       `textContent` du titre, et qui le relit après coup obtient « Le
+       contrôle de constitutionnalité 🎧 Écouter à partir d'ici ». C'est ce
+       texte-là qui partait dans le contexte envoyé à une IA.
+    */
+    for (const titre of conteneur.querySelectorAll<HTMLElement>('h2, h3')) {
+      titre.dataset.titre = titre.textContent?.trim() ?? '';
+    }
+
     await activerGlossaire(conteneur);
 
     // Sommaire (uniquement pour le cours complet).
@@ -144,6 +189,7 @@ import LienReglages from '../components/LienReglages.astro';
         sommaire.appendChild(a);
       }
     }
+    if (vue === 'cours') poserBoutonsDEcoute(conteneur);
     poserBoutonsDeSection(conteneur);
 
     try {
@@ -174,14 +220,14 @@ import LienReglages from '../components/LienReglages.astro';
       rangee.appendChild(
         boutonAssistant(
           {
-            titre: `Préparer une question pour une IA — ${titre.textContent ?? fiche.titre}`,
+            titre: `Préparer une question pour une IA — ${titre.dataset.titre || fiche.titre}`,
             matiere: fiche.matiere,
             construireContexte: async (options) =>
               contexteFiche(
                 {
                   fiche,
                   passage: passageDeLaSection(titre),
-                  section: { titre: titre.textContent ?? '', rang: rang + 1, total: titres.length },
+                  section: { titre: titre.dataset.titre ?? '', rang: rang + 1, total: titres.length },
                   definitions: await definitionsDuPassage(passageDeLaSection(titre)),
                   voisines,
                 },
@@ -193,6 +239,43 @@ import LienReglages from '../components/LienReglages.astro';
       );
       titre.appendChild(rangee);
     });
+  }
+
+  /**
+   * « 🎧 Écouter à partir d'ici », sur chaque titre qui est une partie
+   * (prompt 46, P3).
+   *
+   * Le bouton n'apparaît que là où l'écoute peut VRAIMENT commencer : le
+   * titre doit porter l'identifiant d'une partie dont la fiche audio connaît
+   * le repère. Un titre de niveau 4, une fiche sans audio, une fiche audio
+   * synthétisée avant le prompt 46 n'en ont donc aucun — plutôt qu'un bouton
+   * qui ne ferait rien, ce qui est la pire des deux options.
+   */
+  function poserBoutonsDEcoute(conteneur: HTMLElement) {
+    const atteignables = new Set((lecteurAudio?.parties ?? []).map((p) => p.id));
+    if (!atteignables.size) return;
+    for (const titre of conteneur.querySelectorAll<HTMLElement>('h2[id], h3[id]')) {
+      if (!atteignables.has(titre.id) || titre.dataset.ecoute) continue;
+      titre.dataset.ecoute = 'oui';
+      const bouton = document.createElement('button');
+      bouton.type = 'button';
+      bouton.className =
+        'ml-3 inline-block align-middle rounded-lg border border-slate-300 px-2 py-0.5 ' +
+        'text-xs font-medium text-slate-600 transition hover:bg-slate-100 ' +
+        'dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800';
+      bouton.textContent = '🎧 Écouter à partir d’ici';
+      const partie = titre.id;
+      bouton.addEventListener('click', () => {
+        /*
+           Le lecteur est en haut de la page : sauter au repère sans y
+           remonter laisserait la personne devant un titre, en train
+           d'entendre une voix dont rien ne montre la commande.
+        */
+        document.getElementById('podcast')?.scrollIntoView({ block: 'nearest' });
+        void lecteurAudio?.ecouterDepuis(partie);
+      });
+      titre.appendChild(bouton);
+    }
   }
 
   /** Le texte d'une section : du titre jusqu'au titre de même niveau suivant. */
@@ -362,7 +445,7 @@ import LienReglages from '../components/LienReglages.astro';
     }
 
     // Fiche audio (podcast), déchiffrée seulement si on la demande.
-    installerLecteurPodcast(fiche);
+    lecteurAudio = installerLecteurPodcast(fiche);
 
     // Boutons de révision contextuels.
     if (fiche.flashcards.length) {

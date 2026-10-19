@@ -223,8 +223,10 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
   {
     id: 'revisions',
     libelle: 'Révisions',
-    description: 'Flashcards, fiches lues, actualités lues, quiz de cours, pointages quotidiens.',
-    magasins: ['cartes', 'fiches', 'quiz', 'jours', 'actualitesLues'],
+    description:
+      'Flashcards, fiches lues, écoutes en cours, actualités lues, quiz de cours, ' +
+      'pointages quotidiens.',
+    magasins: ['cartes', 'fiches', 'quiz', 'jours', 'actualitesLues', 'podcastPositions'],
   },
   {
     id: 'seances',

@@ -451,6 +451,31 @@ export interface Seance {
  * (`docs/cyclades/sauvegarde.md`), et parce qu'un texte rédigé est précisément
  * la donnée qu'il ne faut pas écraser à l'aveugle.
  */
+/**
+ * Où l'on s'est arrêté dans une fiche audio (prompt 46, P3).
+ *
+ * Une entrée par fiche, et seulement pour une écoute EN COURS : la fin de
+ * l'écoute la supprime, comme l'ancienne clé `localStorage` le faisait. Le
+ * magasin dit donc « ce qui est commencé », jamais « ce qui a été écouté » —
+ * et c'est ce qui permet à « Écoutes en cours » de n'être pas, par ricochet,
+ * la liste des fiches qu'on a entendues.
+ */
+export interface PositionPodcast {
+  /** Identifiant de la fiche. Clé du magasin. */
+  fiche: string;
+  /** Position de lecture, en secondes depuis le début. */
+  secondes: number;
+  /**
+   * Durée totale de la fiche audio, en secondes, telle que le lecteur l'a
+   * connue. Facultative : un navigateur qui n'a pas encore lu les
+   * métadonnées ne la donne pas, et « reste 6 min » se taira plutôt que de
+   * se tromper.
+   */
+  duree?: number | null;
+  /** Dernière écriture, en ISO. Sert à ordonner « Écoutes en cours ». */
+  majLe: string;
+}
+
 export interface NoteSeance {
   /** L'identifiant stable de la séance. Voir « Seance.id ». */
   seanceId: string;
@@ -604,6 +629,7 @@ interface SchemaRevinsp extends DBSchema {
   nback: { key: string; value: SessionNBack; indexes: { le: string } };
   seances: { key: string; value: Seance; indexes: { jour: string; theme: string } };
   notes: { key: string; value: NoteSeance };
+  podcastPositions: { key: string; value: PositionPodcast };
   qcmDgfip: { key: string; value: EtatQuestionDgfip; indexes: { rubriqueId: string } };
   qcmSessions: { key: string; value: SessionDgfip; indexes: { le: string } };
   relationnel: { key: string; value: SessionRelationnelle; indexes: { le: string } };
@@ -803,7 +829,7 @@ interface SchemaRevinsp extends DBSchema {
 }
 
 const NOM_BASE = 'revinsp';
-const VERSION = 33;
+const VERSION = 34;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1579,6 +1605,26 @@ function ouvrirAuSchema(nom: string, version: number) {
       if (vers(33)) {
         base.createObjectStore('centreElements', { keyPath: 'id' });
       }
+      if (vers(34)) {
+        /*
+           Où l'on s'est arrêté dans une fiche audio (prompt 46, P3).
+
+           La position vivait dans `localStorage`, sous
+           « revinsp.podcast.position ». Elle y était seule : ni synchronisée,
+           ni sauvegardée, donc perdue au changement d'appareil et absente
+           d'une restauration. La voici dans la base, avec le reste de la
+           progression.
+
+           Le magasin naît vide, et la reprise de l'ancienne clé ne se fait
+           PAS ici. Une transaction « versionchange » n'a pas le droit de
+           lire `localStorage` de façon fiable — et surtout, migrer à
+           l'ouverture de la base ferait porter à chaque démarrage le coût
+           d'une reprise qui n'a lieu qu'une fois. Elle se fait donc à
+           l'installation du lecteur, dans `podcast.ts`, qui lit la clé,
+           écrit ce qu'elle contenait, puis la retire.
+        */
+        base.createObjectStore('podcastPositions', { keyPath: 'fiche' });
+      }
       if (ancienneVersion >= 1 && ancienneVersion < 7) {
         // FSRS remplace SM-2. Les cartes déjà vues repartent d'un état de
         // modèle neuf : convertir un historique SM-2 en stabilité et difficulté
@@ -2341,6 +2387,57 @@ export async function supprimerSeance(id: string) {
   await journaliserSuppression([`seances:${id}`, `notes:${id}`]);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   Les positions d'écoute des fiches audio (prompt 46, P3)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export async function lirePositionPodcast(fiche: string): Promise<PositionPodcast | undefined> {
+  return (await db()).get('podcastPositions', fiche);
+}
+
+/** Les écoutes en cours, la plus récemment touchée d'abord. */
+export async function toutesLesPositionsPodcast(): Promise<PositionPodcast[]> {
+  const positions = await (await db()).getAll('podcastPositions');
+  return positions.sort((a, b) => (a.majLe < b.majLe ? 1 : a.majLe > b.majLe ? -1 : 0));
+}
+
+/**
+ * Écrit la position, et décide si elle doit VOYAGER.
+ *
+ * Les deux ne vont pas ensemble, et c'est tout l'objet de `journaliser` :
+ * le lecteur appelle cette fonction toutes les cinq secondes pendant
+ * l'écoute, et journaliser chaque appel ferait une opération de
+ * synchronisation par tranche de cinq secondes — des centaines par fiche,
+ * jamais dédoublonnables puisque la position change à chaque fois. C'est
+ * exactement la faute que `partieJournalisable` évite sur l'état d'une
+ * fiche, à un rythme dix fois pire.
+ *
+ * L'écriture locale, elle, a lieu à chaque appel : c'est elle qui fait la
+ * reprise après une fermeture brutale de l'onglet.
+ *
+ * Ce qui voyage est donc la position aux moments où l'écoute S'ARRÊTE —
+ * pause, passage en arrière-plan, fermeture de la page —, et c'est
+ * précisément ce dont un autre appareil a besoin pour reprendre le fil.
+ */
+export async function ecrirePositionPodcast(
+  position: PositionPodcast,
+  options: { journaliser?: boolean } = {},
+): Promise<void> {
+  await (await db()).put('podcastPositions', position);
+  if (options.journaliser) await journaliser('podcastPositions', position);
+}
+
+/** L'écoute est terminée : la position n'a plus d'objet et s'en va. */
+export async function supprimerPositionPodcast(fiche: string): Promise<void> {
+  await (await db()).delete('podcastPositions', fiche);
+  /*
+     Même raison que pour une séance : sans l'opération de suppression, la
+     position reviendrait à la première synchronisation, et une fiche écoutée
+     jusqu'au bout se proposerait de nouveau « à reprendre ».
+  */
+  await journaliserSuppression([`podcastPositions:${fiche}`]);
+}
+
 /* --- Réglages de session -------------------------------------------------- */
 
 /**
@@ -2494,6 +2591,12 @@ export const MAGASINS_PROGRESSION = [
   'seances',
   // Le texte des séances : séparé pour la vitesse, inséparable pour le sens.
   'notes',
+  /*
+     Où l'on s'est arrêté dans une fiche audio (prompt 46, P3). De la
+     progression au sens plein : une reprise d'écoute perdue, c'est un cours
+     de quarante minutes à retrouver à l'oreille.
+  */
+  'podcastPositions',
   'qcmDgfip',
   'qcmSessions',
   'relationnel',

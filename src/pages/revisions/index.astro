@@ -189,6 +189,15 @@ import Section from '../../components/Section.astro';
     <!-- Relance si la série est en péril -->
     <div id="alerte-streak" class="hidden rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950/50 dark:text-amber-200"></div>
 
+    <!-- Écoutes en cours (prompt 46, P3) : masqué tant qu'il n'y en a aucune,
+         plutôt qu'une section vide qui occuperait l'écran pour rien. -->
+    <section id="bloc-ecoutes" class="hidden">
+      <div class="mb-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 class="text-lg font-bold text-slate-900 dark:text-white">Écoutes en cours</h2>
+      </div>
+      <div id="ecoutes" class="grid gap-3 sm:grid-cols-2"></div>
+    </section>
+
     <!-- Progression par matière -->
     <Section
       titre="Progression par matière"
@@ -706,6 +715,72 @@ import Section from '../../components/Section.astro';
 
   // « auDeverrouillage » : barre de progression, garde-fou de 5 secondes et
   // exécution même si ce script arrive après l'ouverture de la session.
+  /**
+   * « Écoutes en cours » (prompt 46, P3).
+   *
+   * Une fiche audio commencée et pas finie, avec où l'on en est et ce qui
+   * reste. Rien d'autre : une fiche écoutée jusqu'au bout n'a plus de
+   * position, donc ne figure pas ici — la liste dit « ce qui est commencé »,
+   * et non « ce que vous avez écouté ».
+   *
+   * Une position dont la fiche a disparu du manifeste est **ignorée en
+   * silence**, et sa position laissée en place : le contenu peut avoir été
+   * réorganisé, ou la fiche appartenir à un parcours qu'on ne sert pas
+   * aujourd'hui. L'effacer serait perdre une reprise pour une absence
+   * peut-être temporaire.
+   */
+  async function afficherEcoutes() {
+    const { toutesLesPositionsPodcast } = await import('../../lib/db');
+    const { horodatage } = await import('../../lib/podcast');
+    const positions = await toutesLesPositionsPodcast();
+    if (!positions.length) return;
+
+    const manifeste = await chargerManifeste();
+    const parId = new Map(aplatirFiches(manifeste).map((f) => [f.id, f]));
+    const grille = document.getElementById('ecoutes')!;
+    grille.replaceChildren();
+
+    let combien = 0;
+    for (const position of positions) {
+      const fiche = parId.get(position.fiche);
+      if (!fiche) continue;
+      combien += 1;
+
+      const carte = document.createElement('a');
+      carte.href = `${lien('/fiche/')}?id=${encodeURIComponent(fiche.id)}`;
+      carte.className =
+        'cible-tactile block rounded-xl border border-slate-200 bg-white p-4 shadow-sm ' +
+        'transition hover:border-indigo-300 dark:border-slate-800 dark:bg-slate-900 ' +
+        'dark:hover:border-indigo-700';
+
+      const etiquette = document.createElement('p');
+      etiquette.className = 'etiquette text-indigo-600 dark:text-indigo-400';
+      etiquette.textContent = '🎧 Reprendre l’écoute';
+
+      const titre = document.createElement('p');
+      titre.className = 'mt-1 font-semibold text-slate-900 dark:text-white';
+      titre.textContent = fiche.titre;
+
+      const detail = document.createElement('p');
+      detail.className = 'mt-1 text-sm text-slate-500 dark:text-slate-400';
+      /*
+         Le temps restant ne s'affiche que si la durée est connue : une
+         position reprise de l'ancienne clé `localStorage` n'en portait pas,
+         et annoncer « reste 0 min » serait faux.
+      */
+      const restant =
+        position.duree && position.duree > position.secondes
+          ? ` · reste ${formaterDuree(position.duree - position.secondes)}`
+          : '';
+      detail.textContent = `${fiche.matiere} · arrêté à ${horodatage(position.secondes)}${restant}`;
+
+      carte.append(etiquette, titre, detail);
+      grille.appendChild(carte);
+    }
+
+    if (combien) document.getElementById('bloc-ecoutes')!.classList.remove('hidden');
+  }
+
   auDeverrouillage(async () => {
     /*
        Les questions de la branche sont posées **à la première entrée**, et pas
@@ -729,5 +804,6 @@ import Section from '../../components/Section.astro';
     await afficher();
     // Un échec de la veille ne doit jamais empêcher l'affichage du tableau de bord.
     afficherActualites().catch((e) => console.warn('Actualités indisponibles :', e));
+    afficherEcoutes().catch((e) => console.warn('Écoutes en cours indisponibles :', e));
   });
 </script>

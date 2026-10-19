@@ -35,6 +35,7 @@ import {
   lirePalette,
   type Choix,
 } from '../theme';
+import { CLE_VITESSE, VITESSE_PAR_DEFAUT, VITESSES } from '../podcast-vitesses';
 import type { Acces } from './modele';
 
 /* ── Deux réglages locaux, lus par la séance de sport ────────────────────── */
@@ -110,6 +111,19 @@ export const ACCES: Record<string, Acces> = {
   'vue-fiche': {
     lire: async () => lireLocal(CLE_VUE_FICHE) === 'continue',
     ecrire: async (v) => ecrireLocal(CLE_VUE_FICHE, v ? 'continue' : 'sections'),
+  },
+  'vitesse-ecoute': {
+    /*
+       La valeur est relue contre la liste : une clé abîmée à la main, ou
+       laissée par une version qui proposait une autre échelle, ferait sinon
+       lire une vitesse que le lecteur refuserait.
+    */
+    lire: async () => {
+      const brut = Number(lireLocal(CLE_VITESSE));
+      const connue = VITESSES.includes(brut as (typeof VITESSES)[number]);
+      return String(connue ? brut : VITESSE_PAR_DEFAUT);
+    },
+    ecrire: async (v) => ecrireLocal(CLE_VITESSE, String(v)),
   },
 
   /* Ma journée */
