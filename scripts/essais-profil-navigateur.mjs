@@ -240,6 +240,32 @@ console.log('\nUN CHAMP VIDE SE RENSEIGNE DEPUIS SA CARTE');
   vrai('et plus aucune « version 1 » sur la carte elle-même', !texte.includes('version 1'));
 }
 
+console.log('\nUN CHAMP DEMANDÉ AU BESOIN DIT QUAND IL SE DEMANDE');
+
+{
+  /*
+     Le mois de naissance n'est pas posé à l'initialisation : il se demande au
+     moment où un seuil d'âge tombe sur l'année déclarée. Son absence se
+     lirait comme un oubli si l'écran ne disait pas pourquoi — et le bouton
+     reste, parce que répondre d'avance est le droit de la personne.
+  */
+  const carte = (await page.textContent('[data-carte="naissanceMois"]')).replace(/\s+/g, ' ');
+  vrai('la carte dit quand la question se pose', carte.includes('Demandé au besoin :'));
+  vrai('et pourquoi', carte.includes('seuil'));
+  vrai(
+    'le bouton « Renseigner » reste offert',
+    await page
+      .locator('[data-carte="naissanceMois"] button', { hasText: 'Renseigner' })
+      .first()
+      .isVisible(),
+  );
+  v(
+    'trois champs seulement se demandent au besoin',
+    await page.$$eval('[data-au-besoin]', (els) => els.map((e) => e.dataset.auBesoin).sort()),
+    ['majeurDeclare', 'naissanceMois', 'usagesCoupes'],
+  );
+}
+
 console.log('\nPLUS DE CASES DE PORTÉE, ET PLUS DE « UTILISÉ PAR » (P3)');
 
 {

@@ -140,12 +140,21 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
           <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">{bloc.titre}</h2>
           <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">{bloc.propos}</p>
           {bloc.id === 'journee' && <LienReglages section="journee" class="mb-3" />}
+          {/*
+             D-041 : UN LIEN POSÉ AU FIL D'UNE PHRASE NE PORTE PAS
+             « cible-tactile ».
+
+             WCAG 2.5.8 exempte le lien en ligne du plancher de 24 px, et la
+             classe étirerait la ligne autour de lui. `essais:mobile:navigateur`
+             le refuse, et il a eu raison de le refuser ici : les deux liens
+             vers « Qui utilise mon âge » sont suivis d'une phrase.
+          */}
           {bloc.id === 'vous' && (
             <p class="mb-3 text-sm">
               <a
                 href="/qui-utilise-mon-age/"
                 data-ecran
-                class="cible-tactile font-medium text-slate-800 underline dark:text-slate-100"
+                class="font-medium text-slate-800 underline dark:text-slate-100"
                 >Qui utilise mon âge</a
               >
               <span class="text-slate-500 dark:text-slate-400">
@@ -247,7 +256,7 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
           <a
             href="/qui-utilise-mon-age/"
             data-ecran
-            class="cible-tactile font-medium text-slate-800 underline dark:text-slate-100"
+            class="font-medium text-slate-800 underline dark:text-slate-100"
             >Qui utilise mon âge</a
           >
           <span class="text-slate-500 dark:text-slate-400">
@@ -488,6 +497,22 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
 
     /* ── Ce que le champ règle, quand quelque chose le lit ──────────────── */
     if (declare.regle) bloc.appendChild(ligneFine(`ⓘ ${declare.regle}`));
+
+    /*
+       QUAND LA QUESTION SE POSE, pour les champs demandés au besoin.
+
+       Le mois de naissance, la majorité déclarée et les usages coupés ne sont
+       pas posés à l'initialisation : ils se demandent au moment où une
+       fonction en a besoin, et c'est de la minimisation rendue mécanique
+       plutôt que promise. L'écran le dit, sinon leur absence se lit comme un
+       oubli — et le bouton reste, parce que répondre d'avance est le droit de
+       la personne, pas une fuite.
+    */
+    if (!valeur && declare.demandeAuBesoin) {
+      const quand = ligneFine(`Demandé au besoin : ${declare.demandeAuBesoin}`);
+      quand.dataset.auBesoin = declare.champ;
+      bloc.appendChild(quand);
+    }
 
     /* ── La mention des champs qu'on ne demande plus (décision 2) ───────── */
     if (CHAMPS_PLUS_DEMANDES.includes(declare.champ)) {
