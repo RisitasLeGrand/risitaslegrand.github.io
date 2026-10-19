@@ -176,6 +176,33 @@ export async function ecrireTraitement(
 export const tousLesTraitements = (): Promise<Traitement[]> =>
   toutOuvrir<Traitement>('odysseeTraitements');
 
+/**
+ * Pose ou retire le schéma prévu d'un traitement, **sans toucher au reste**.
+ *
+ * Une fonction à part, et non un appel à `ecrireTraitement` : celle-ci
+ * reconstruit l'objet entier à partir de ses options, et chaque champ non
+ * passé reprend son défaut. Appelée avec `{ id, schema }` seuls, elle
+ * effacerait la posologie, le prescripteur, l'origine, la fin et la note —
+ * silencieusement, puisque l'écriture réussirait. Le piège est réel et il
+ * est rendu inatteignable ici : on relit le traitement et on ne change
+ * qu'un champ.
+ *
+ * Rend `null` si le traitement n'existe plus : il a pu être supprimé sur un
+ * autre appareil entre la peinture de l'écran et l'appui. Le recréer à
+ * partir d'un formulaire ouvert ressusciterait un traitement que quelqu'un
+ * a voulu voir disparaître.
+ */
+export async function poserLeSchema(
+  id: string,
+  schema: SchemaDePrise | null,
+): Promise<Traitement | null> {
+  const traitement = (await tousLesTraitements()).find((t) => t.id === id);
+  if (!traitement) return null;
+  const modifie: Traitement = { ...traitement, schema, majLe: maintenant() };
+  exiger(controlerTraitement(modifie));
+  return ranger('odysseeTraitements', modifie);
+}
+
 export const supprimerTraitement = (id: string): Promise<void> =>
   oublier('odysseeTraitements', id);
 

@@ -45,9 +45,11 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       quelqu’un qui ouvre cet ordinateur.
     </p>
     <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-      <strong>Enregistrement seul.</strong> Aucune dose proposée, aucun rappel d’oubli, aucune
-      vérification d’interaction, aucune courbe projetée. Cet écran range ce que vous écrivez et
-      vous le rend ; il ne donne aucun avis.
+      <strong>Enregistrement seul.</strong> Aucune dose proposée, aucune vérification
+      d’interaction, aucune courbe projetée. Cet écran range ce que vous écrivez et vous le
+      rend ; il ne donne aucun avis. Si vous déclarez un schéma prévu, il vous rappelle <strong
+      >votre déclaration, telle que vous l’avez écrite</strong>, et jamais un conseil de
+      rattrapage.
     </p>
 
     <!-- ── Avant activation ──────────────────────────────────────────── -->
@@ -58,9 +60,9 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
         vous ne les ouvrez pas aussi : l’activation ne se synchronise pas.
       </p>
       <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
-        Ce qu’il permettrait : déclarer un traitement et sa période, marquer les prises, enregistrer
-        un prélèvement et ses résultats avec l’intervalle de votre laboratoire, noter un symptôme,
-        inscrire une condition qui dure.
+        Ce qu’il permettrait : déclarer un traitement et sa période, marquer les prises, prévoir
+        un schéma et s’en faire rappeler, enregistrer un prélèvement et ses résultats avec
+        l’intervalle de votre laboratoire, noter un symptôme, inscrire une condition qui dure.
       </p>
       <button id="activer" type="button"
         class="cible-tactile mt-4 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white dark:bg-slate-200 dark:text-slate-900"
@@ -86,6 +88,27 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
           Valeurs non sourcées
         </h2>
         <p id="bandeau-catalogue" class="mt-2 text-sm text-amber-900 dark:text-amber-100"></p>
+      </section>
+
+      <!--
+        Aujourd'hui — phase 4, P2.
+
+        En tête de l'écran, parce que c'est le geste quotidien : le prompt
+        veut « deux appuis au plus depuis l'accueil de Santé », et un bloc
+        placé après quatre formulaires en aurait demandé un de défilement.
+
+        Il reste caché tant qu'aucun traitement ne porte de schéma. Une
+        section vide intitulée « Aujourd'hui » apprendrait à sauter ce coin
+        de l'écran, et c'est le coin qu'on veut qu'on regarde.
+      -->
+      <section id="bloc-aujourdhui" class="hidden">
+        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Aujourd’hui</h2>
+        <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+          Ce que vous aviez prévu, et ce que vous en avez noté. «&nbsp;Pas aujourd’hui&nbsp;» est
+          une réponse comme une autre : rien n’est compté, rien ne vous est reproché, et aucune
+          trace négative n’en reste.
+        </p>
+        <ul id="creneaux" class="mt-3 space-y-2"></ul>
       </section>
 
       <!-- Traitements -->
@@ -243,9 +266,26 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
   import { unSeulGeste } from '../../lib/geste';
+  import { proposerLAnnulation } from '../../lib/annulation';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import { coffreOuvert, ouvrirLeCoffre, reprendreLeCoffre, surCoffre } from '../../lib/coffre';
-  import { heuresDepuisLaDernierePrise, situerDansLIntervalle } from '../../lib/odyssee/sante';
+  import {
+    controlerSchema,
+    creneauxDuJour,
+    etatDuCreneau,
+    heuresDepuisLaDernierePrise,
+    idDuCreneau,
+    rangerLesHeures,
+    situerDansLIntervalle,
+    type CreneauPrevu,
+    type EtatDeCreneau,
+    type MarqueDeCreneau,
+    type RenduDeCreneau,
+    type RepetitionDePrise,
+    type SchemaDePrise,
+    type Traitement,
+  } from '../../lib/odyssee/sante';
+  import type { JourSemaine } from '../../lib/odyssee/repetition';
   import { ATTRIBUTION } from '../../lib/odyssee/bibliotheque-externe';
   import { lien } from '../../lib/ui';
   import { chercher, type EntreeRegistre } from '../../lib/odyssee/molecules';
@@ -253,6 +293,10 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   import { toutesLesPrises } from '../../lib/odyssee/donnees-sensible';
   import {
     activerLaSante,
+    effacerLaMarque,
+    noterLeCreneau,
+    poserLeSchema,
+    toutesLesMarques,
     ecrireCondition,
     ecrirePrelevement,
     ecrireSymptome,
@@ -298,6 +342,430 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     bouton.addEventListener('click', () => void retirer().then(peindre).catch(dire));
     li.append(gauche, bouton);
     return li;
+  }
+
+  /* ── Les créneaux du jour — phase 4, P2 ──────────────────────────── */
+
+  /**
+   * Une heure murale à la française : « 8 h », « 8 h 12 », « 20 h 30 ».
+   *
+   * Les espaces sont **insécables** : « 8 h » coupé en fin de ligne laisserait
+   * un « 8 » orphelin au-dessus d'un « h ».
+   */
+  function enHeure(hhmm: string): string {
+    const [h, m] = hhmm.split(':').map(Number);
+    return m === 0 ? `${h} h` : `${h} h ${String(m).padStart(2, '0')}`;
+  }
+
+  /** L'heure murale d'un instant, dans la même forme. */
+  const instantEnHeure = (iso: string): string => {
+    const d = new Date(iso);
+    const hh = String(d.getHours()).padStart(2, '0');
+    return enHeure(`${hh}:${String(d.getMinutes()).padStart(2, '0')}`);
+  };
+
+  const cleDuCreneau = (c: CreneauPrevu) => `${c.traitementId}|${c.jour}|${c.heure}`;
+
+  /**
+   * Ce qui est **annoncé à l'écran mais pas encore écrit**.
+   *
+   * Le bandeau d'annulation ne défait rien : il retarde l'écriture de six
+   * secondes, et annuler consiste à ne pas partir. L'écran doit donc montrer
+   * tout de suite ce qui va être écrit, sans que ce soit en base — d'où ce
+   * registre, consulté par la peinture et vidé dans les deux issues.
+   *
+   * Tant qu'un créneau y figure, sa ligne ne porte **aucun bouton** : le
+   * chemin de retour est le bandeau, et en offrir un second ferait partir
+   * une suppression d'une marque qui n'existe pas encore.
+   */
+  const enAttente = new Map<string, RenduDeCreneau>();
+
+  /**
+   * Un créneau du jour, avec ses deux appuis.
+   *
+   * Le libellé visible est celui du prompt — « Pris », « Pas aujourd'hui » —
+   * et le nom accessible est une phrase entière. Les deux publics n'ont pas
+   * le même contexte : à l'œil, deux mots suffisent parce que la ligne porte
+   * déjà le nom et l'heure ; un lecteur d'écran, lui, annonce le bouton
+   * seul, et « Pris » n'y veut rien dire.
+   */
+  function ligneDeCreneau(
+    traitement: Traitement,
+    creneau: CreneauPrevu,
+    rendu: RenduDeCreneau,
+    attendu: boolean,
+  ): HTMLLIElement {
+    const li = document.createElement('li');
+    li.className =
+      'flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-200 p-3 dark:border-slate-800';
+    li.dataset.creneau = creneau.heure;
+    li.dataset.etat = rendu.etat;
+
+    const gauche = document.createElement('div');
+    const titre = document.createElement('p');
+    titre.className = 'font-medium text-slate-900 dark:text-white';
+    titre.textContent = traitement.nom;
+    const sous = document.createElement('p');
+    /*
+       AUCUNE COULEUR D'ÉCHEC, et c'est l'interdit § 1 n° 3 rendu visible :
+       un créneau sans réponse est gris comme les autres. Une pastille rouge
+       à 20 h sur une prise de 8 h serait le reproche que le texte a pris
+       soin d'éviter, rendu par la couleur.
+    */
+    sous.className = 'mt-0.5 text-xs text-slate-500 dark:text-slate-400';
+    const quantite = traitement.schema?.quantite ?? '';
+    const prevu = `Prévu à ${enHeure(creneau.heure)}${quantite ? ` · ${quantite}` : ''}`;
+    sous.textContent =
+      rendu.etat === 'pris'
+        ? `${prevu} · Noté à ${instantEnHeure(rendu.le)}`
+        : rendu.etat === 'pas-aujourdhui'
+          ? `${prevu} · Pas aujourd’hui`
+          : prevu;
+    gauche.append(titre, sous);
+    li.append(gauche);
+
+    if (attendu) return li;
+
+    const droite = document.createElement('div');
+    droite.className = 'flex gap-2';
+
+    if (rendu.etat === 'prevu') {
+      const gestes: [string, EtatDeCreneau, string][] = [
+        ['Pris', 'pris', `Noter la prise de ${traitement.nom} prévue à ${enHeure(creneau.heure)}`],
+        [
+          'Pas aujourd’hui',
+          'pas-aujourdhui',
+          `Noter que la prise de ${traitement.nom} prévue à ${enHeure(creneau.heure)} n’aura pas lieu aujourd’hui`,
+        ],
+      ];
+      for (const [libelle, etat, phrase] of gestes) {
+        const bouton = document.createElement('button');
+        bouton.type = 'button';
+        bouton.className =
+          etat === 'pris'
+            ? 'cible-tactile rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white'
+            : 'cible-tactile rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700';
+        bouton.textContent = libelle;
+        bouton.setAttribute('aria-label', phrase);
+        bouton.addEventListener('click', () => {
+          void unSeulGeste(bouton, () => marquer(traitement, creneau, etat)).catch(dire);
+        });
+        droite.append(bouton);
+      }
+    } else {
+      /*
+         Revenir en arrière après coup, et ce n'est pas une troisième
+         réponse : effacer la marque rend le créneau à l'ABSENCE, celle-là
+         même qu'il avait avant le premier appui — donc celle que le rappel
+         d'oubli relira comme « rien n'est noté ».
+      */
+      const reprendre = document.createElement('button');
+      reprendre.type = 'button';
+      reprendre.className =
+        'cible-tactile rounded-lg border border-slate-300 px-3 text-xs dark:border-slate-700';
+      reprendre.textContent = 'Reprendre';
+      reprendre.setAttribute(
+        'aria-label',
+        `Reprendre ce qui a été noté pour ${traitement.nom} à ${enHeure(creneau.heure)}`,
+      );
+      reprendre.addEventListener('click', () => {
+        void unSeulGeste(reprendre, async () => {
+          await effacerLaMarque(await idDuCreneau(traitement.id, creneau.jour, creneau.heure));
+          await peindre();
+        }).catch(dire);
+      });
+      droite.append(reprendre);
+    }
+
+    li.append(droite);
+    return li;
+  }
+
+  /**
+   * Note un créneau, avec les six secondes d'annulation.
+   *
+   * L'instant est pris **ici, au geste**, et passé à l'écriture. Le bandeau
+   * retarde celle-ci de six secondes ; sans ce passage, l'heure notée serait
+   * celle de l'expiration du bandeau et non celle du pouce. Six secondes ne
+   * changent rien à une prise — mais une donnée dont on sait qu'elle est
+   * fausse de six secondes est une donnée dont on ne sait plus de combien
+   * elle est fausse.
+   */
+  async function marquer(
+    traitement: Traitement,
+    creneau: CreneauPrevu,
+    etat: EtatDeCreneau,
+  ): Promise<void> {
+    const le = new Date();
+    const cle = cleDuCreneau(creneau);
+    enAttente.set(
+      cle,
+      etat === 'pris' ? { etat: 'pris', le: le.toISOString() } : { etat: 'pas-aujourdhui' },
+    );
+    proposerLAnnulation({
+      texte: etat === 'pris' ? 'Prise notée' : 'Noté : pas aujourd’hui',
+      agir: async () => {
+        try {
+          await noterLeCreneau(traitement, creneau.jour, creneau.heure, etat, { le });
+        } finally {
+          /* Vidé même en cas d'échec : laisser la ligne annoncer une écriture
+             qui n'a pas eu lieu serait le pire des deux états. L'erreur, elle,
+             s'affiche. */
+          enAttente.delete(cle);
+        }
+        await peindre();
+      },
+      defaire: () => {
+        enAttente.delete(cle);
+        void peindre().catch(dire);
+      },
+    });
+    await peindre();
+  }
+
+  /** Les créneaux du jour, tous traitements confondus, triés par heure. */
+  function peindreLesCreneaux(
+    traitements: readonly Traitement[],
+    marques: readonly MarqueDeCreneau[],
+  ): void {
+    const zone = $('creneaux');
+    zone.replaceChildren();
+
+    const duJour = traitements
+      .flatMap((t) => creneauxDuJour(t, AUJOURDHUI).map((c) => ({ t, c })))
+      .sort((a, b) => a.c.heure.localeCompare(b.c.heure) || a.t.nom.localeCompare(b.t.nom, 'fr'));
+
+    /*
+       Le bloc entier disparaît quand il n'y a rien : une section
+       « Aujourd'hui » vide apprendrait à sauter ce coin de l'écran, et c'est
+       le coin qu'on veut qu'on regarde.
+    */
+    $('bloc-aujourdhui').classList.toggle('hidden', duJour.length === 0);
+
+    for (const { t, c } of duJour) {
+      const attendu = enAttente.get(cleDuCreneau(c));
+      zone.append(ligneDeCreneau(t, c, attendu ?? etatDuCreneau(c, marques), Boolean(attendu)));
+    }
+  }
+
+  /* ── L'éditeur de schéma, sur chaque traitement — phase 4, P1 ────── */
+
+  /**
+   * Les jours de la semaine, dans l'ordre où on les lit.
+   *
+   * Le modèle compte à partir du dimanche (`0`), convention de
+   * `Date.getUTCDay()` que le dépôt emploie déjà. L'écran commence le lundi,
+   * et la traduction est faite ici — c'est le travail de l'écran, et le
+   * commentaire de `repetition.ts` le dit en toutes lettres.
+   */
+  const JOURS_AFFICHES: [JourSemaine, string][] = [
+    [1, 'lundi'],
+    [2, 'mardi'],
+    [3, 'mercredi'],
+    [4, 'jeudi'],
+    [5, 'vendredi'],
+    [6, 'samedi'],
+    [0, 'dimanche'],
+  ];
+
+  /**
+   * Le formulaire de schéma d'un traitement, replié par défaut.
+   *
+   * Replié parce que c'est un réglage qu'on pose une fois et qu'on ne relit
+   * jamais : déplié, il ferait de la liste des traitements un mur de cases à
+   * cocher, et le geste quotidien — répondre aux créneaux du jour — est en
+   * haut de l'écran, pas ici.
+   *
+   * **Absent pour une prise sporadique**, et pas seulement désactivé : la
+   * décision 12 dit qu'elle n'en a pas, et un formulaire grisé laisserait
+   * croire qu'il suffit de décocher quelque chose.
+   */
+  function editeurDeSchema(t: Traitement): HTMLDetailsElement {
+    const bloc = document.createElement('details');
+    bloc.className = 'mt-2 w-full';
+    const resume = document.createElement('summary');
+    resume.className = 'cible-tactile cursor-pointer text-xs text-indigo-700 dark:text-indigo-300';
+    resume.textContent = t.schema ? 'Modifier le schéma prévu' : 'Prévoir un schéma';
+    bloc.append(resume);
+
+    const form = document.createElement('form');
+    form.className = 'mt-2 grid gap-2 rounded-xl bg-slate-50 p-3 text-sm dark:bg-slate-900';
+
+    /* L'état en cours d'édition, jamais écrit avant l'envoi. */
+    let heures = [...(t.schema?.heures ?? [])];
+    const repetition = t.schema?.repetition ?? { type: 'jours' as const, tous: 1 };
+
+    const sorte = document.createElement('select');
+    sorte.className =
+      'cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+    sorte.setAttribute('aria-label', 'Rythme du schéma');
+    for (const [valeur, libelle] of [
+      ['jours', 'Tous les N jours'],
+      ['semaines', 'Certains jours de la semaine'],
+    ]) {
+      sorte.append(new Option(libelle, valeur));
+    }
+    sorte.value = repetition.type;
+
+    const tous = document.createElement('input');
+    tous.type = 'number';
+    tous.min = '1';
+    tous.step = '1';
+    tous.value = String(repetition.tous);
+    tous.className =
+      'cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+    tous.setAttribute('aria-label', 'Un jour sur combien');
+
+    const cases = document.createElement('fieldset');
+    cases.className = 'flex flex-wrap gap-3';
+    const legende = document.createElement('legend');
+    legende.className = 'text-xs text-slate-500 dark:text-slate-400';
+    legende.textContent = 'Les jours';
+    cases.append(legende);
+    const choisis = new Set<JourSemaine>(
+      repetition.type === 'semaines' ? repetition.jours : [],
+    );
+    for (const [valeur, libelle] of JOURS_AFFICHES) {
+      const etiquette = document.createElement('label');
+      etiquette.className = 'flex items-center gap-1 text-xs';
+      const boite = document.createElement('input');
+      boite.type = 'checkbox';
+      boite.className = 'rounded';
+      boite.checked = choisis.has(valeur);
+      boite.addEventListener('change', () => {
+        if (boite.checked) choisis.add(valeur);
+        else choisis.delete(valeur);
+      });
+      etiquette.append(boite, document.createTextNode(libelle));
+      cases.append(etiquette);
+    }
+
+    /* L'une ou l'autre, jamais les deux : deux règles visibles à la fois
+       laisseraient croire qu'elles se combinent. */
+    const montrerCeQuiVa = () => {
+      tous.classList.toggle('hidden', sorte.value !== 'jours');
+      cases.classList.toggle('hidden', sorte.value !== 'semaines');
+    };
+    sorte.addEventListener('change', montrerCeQuiVa);
+
+    const listeDHeures = document.createElement('ul');
+    listeDHeures.className = 'flex flex-wrap gap-2';
+    const peindreLesHeures = () => {
+      listeDHeures.replaceChildren();
+      for (const h of heures) {
+        const puce = document.createElement('li');
+        puce.className =
+          'flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 text-xs dark:border-slate-700';
+        puce.append(document.createTextNode(enHeure(h)));
+        const retirer = document.createElement('button');
+        retirer.type = 'button';
+        retirer.className = 'cible-tactile px-1';
+        retirer.textContent = '×';
+        retirer.setAttribute('aria-label', `Retirer l’heure de ${enHeure(h)}`);
+        retirer.addEventListener('click', () => {
+          heures = heures.filter((x) => x !== h);
+          peindreLesHeures();
+        });
+        puce.append(retirer);
+        listeDHeures.append(puce);
+      }
+    };
+    peindreLesHeures();
+
+    const heure = document.createElement('input');
+    heure.type = 'time';
+    heure.className =
+      'cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+    heure.setAttribute('aria-label', 'Une heure à ajouter');
+    const ajouter = document.createElement('button');
+    ajouter.type = 'button';
+    ajouter.className =
+      'cible-tactile rounded-lg border border-slate-300 px-3 text-xs dark:border-slate-700';
+    ajouter.textContent = 'Ajouter cette heure';
+    ajouter.addEventListener('click', () => {
+      if (!heure.value) return;
+      heures = rangerLesHeures([...heures, heure.value]);
+      heure.value = '';
+      peindreLesHeures();
+    });
+
+    const quantite = document.createElement('input');
+    quantite.type = 'text';
+    quantite.value = t.schema?.quantite ?? '';
+    quantite.placeholder = 'Quantité, dans vos mots — « 5 g »';
+    quantite.className =
+      'cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+    quantite.setAttribute('aria-label', 'Quantité prévue, en toutes lettres');
+
+    const enregistrer = document.createElement('button');
+    enregistrer.type = 'submit';
+    enregistrer.className =
+      'cible-tactile rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white';
+    enregistrer.textContent = 'Enregistrer le schéma';
+
+    const actions = document.createElement('div');
+    actions.className = 'flex flex-wrap gap-2';
+    actions.append(enregistrer);
+    if (t.schema) {
+      const oter = document.createElement('button');
+      oter.type = 'button';
+      oter.className =
+        'cible-tactile rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700';
+      oter.textContent = 'Retirer le schéma';
+      oter.setAttribute('aria-label', `Retirer le schéma prévu de ${t.nom}`);
+      /*
+         Retirer le schéma ne touche à aucune marque déjà posée : ce qui a
+         été noté a eu lieu, et l'effacer parce qu'on cesse de prévoir
+         réécrirait le passé.
+      */
+      oter.addEventListener('click', () => {
+        void unSeulGeste(oter, async () => {
+          await poserLeSchema(t.id, null);
+          await peindre();
+        }).catch(dire);
+      });
+      actions.append(oter);
+    }
+
+    const aide = document.createElement('p');
+    aide.className = 'text-xs text-slate-500 dark:text-slate-400';
+    aide.textContent =
+      'Ce que vous écrivez ici est votre déclaration. Cyclades ne la propose pas, ne la ' +
+      'compare à aucune fiche et ne la corrige jamais.';
+
+    form.append(sorte, tous, cases, listeDHeures, heure, ajouter, quantite, aide, actions);
+    montrerCeQuiVa();
+
+    form.addEventListener('submit', (evenement) => {
+      evenement.preventDefault();
+      void unSeulGeste(form, async () => {
+        const regle: RepetitionDePrise =
+          sorte.value === 'semaines'
+            ? { type: 'semaines', tous: 1, jours: [...choisis].sort() }
+            : { type: 'jours', tous: Number(tous.value) };
+        const schema: SchemaDePrise = {
+          repetition: regle,
+          heures: rangerLesHeures(heures),
+          quantite: quantite.value.trim(),
+        };
+        /*
+           Les problèmes sont dits à l'écran plutôt que levés : un schéma à
+           moitié rempli est l'état normal d'un formulaire qu'on est en train
+           de remplir, et une exception rouge en haut de page pour une heure
+           manquante serait disproportionnée.
+        */
+        const problemes = controlerSchema(schema);
+        if (problemes.length) {
+          dire(problemes.join(' '));
+          return;
+        }
+        await poserLeSchema(t.id, schema);
+        await peindre();
+      }).catch(dire);
+    });
+
+    bloc.append(form);
+    return bloc;
   }
 
   /* ── Le menu des molécules (2.8) ─────────────────────────────────── */
@@ -382,16 +850,18 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       __pourquoiCatalogueVide: string;
     }).__pourquoiCatalogueVide;
 
-    const [traitements, prelevements, resultats, symptomes, conditions, prises] = await Promise.all(
-      [
+    const [traitements, prelevements, resultats, symptomes, conditions, prises, marques] =
+      await Promise.all([
         tousLesTraitements(),
         tousLesPrelevements(),
         tousLesResultats(),
         tousLesSymptomes(),
         toutesLesConditions(),
         toutesLesPrises(),
-      ],
-    );
+        toutesLesMarques(),
+      ]);
+
+    peindreLesCreneaux(traitements, marques);
 
     const zoneT = $('traitements');
     zoneT.replaceChildren();
@@ -401,10 +871,26 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
          « Aucune prise enregistrée » et « il y a 3 h » sont deux informations
          différentes, et « 0 h » dirait la seconde à la place de la première.
       */
+      /*
+         « il y a 0 h » était la phrase rendue sous l'heure, et personne ne
+         l'avait jamais lue : `ecrirePrise` n'écrivant pas `traitementId`, ce
+         calcul rendait toujours `null`. La correction de P2 l'a rendue
+         atteignable, et donc visible — une prise notée à l'instant
+         s'affichait « dernière prise il y a 0 h ».
+
+         Les trois paliers disent ce que la personne lirait elle-même : moins
+         d'une heure, des heures, des jours. Au-delà de deux jours, l'heure
+         ne veut plus rien dire — « il y a 73 h » demande un calcul mental
+         pour apprendre qu'il s'agit d'avant-hier.
+      */
       const depuis =
         heures === null
           ? 'aucune prise enregistrée'
-          : `dernière prise il y a ${Math.round(heures)} h`;
+          : heures < 1
+            ? 'dernière prise il y a moins d’une heure'
+            : heures < 48
+              ? `dernière prise il y a ${Math.round(heures)} h`
+              : `dernière prise il y a ${Math.round(heures / 24)} jours`;
       const periode = t.fin ? `du ${t.debut} au ${t.fin}` : `depuis le ${t.debut}`;
       const li = ligne(
         t.nom,
@@ -428,6 +914,13 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
         'cible-tactile w-full rounded-lg px-3 text-xs text-indigo-700 underline dark:text-indigo-300';
       versFiche.textContent = 'Voir la fiche de la molécule';
       li.appendChild(versFiche);
+      /*
+         Le schéma prévu ne se propose qu'aux traitements qui peuvent en
+         porter un. Pour une prise sporadique, le formulaire est ABSENT et
+         non grisé : la décision 12 dit qu'elle n'en a pas, et un champ
+         désactivé laisserait croire qu'il suffit de décocher quelque chose.
+      */
+      if (!t.sporadique) li.appendChild(editeurDeSchema(t));
       zoneT.appendChild(li);
     }
 

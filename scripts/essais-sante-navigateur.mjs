@@ -184,6 +184,195 @@ console.log('\nCE QUI EST ÉCRIT EST CHIFFRÉ, ET LE RESTE');
   vrai('mais l’enregistrement existe bien', brut.length > 50);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   PHASE 4 — le schéma prévu et les deux appuis, vus à l'écran
+
+   C'est la règle C6 du prompt 39 : un essai part d'une route et constate le
+   résultat à l'écran. Les essais de Node prouvent le calcul des créneaux ;
+   seul celui-ci prouve qu'il arrive jusqu'à la page, et qu'un geste l'écrit.
+
+   Il se greffe sur le traitement déjà déclaré plus haut, plutôt que d'en
+   créer un second : les constats précédents comptent les lignes, et un
+   deuxième traitement les ferait rougir pour une raison sans rapport.
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Un élément en **position fixe** est-il à l'écran ?
+ *
+ * `offsetParent` vaut `null` pour tout élément positionné `fixed` — c'est la
+ * norme, et non un défaut du bandeau d'annulation. Une sonde qui s'y fierait
+ * le déclarerait invisible alors qu'il occupe le bas de l'écran. Mesuré dans
+ * ce conteneur avant d'écrire cette ligne.
+ */
+const visibleEnFixe = (id) =>
+  page.evaluate((x) => {
+    const e = document.getElementById(x);
+    if (!(e instanceof HTMLElement)) return false;
+    return e.getBoundingClientRect().height > 0 && getComputedStyle(e).visibility !== 'hidden';
+  }, id);
+
+console.log('\nLE SCHÉMA PRÉVU FAIT APPARAÎTRE LE CRÉNEAU DU JOUR');
+
+{
+  /*
+     Avant tout schéma, le bloc « Aujourd'hui » est ABSENT. Une section vide
+     portant ce titre apprendrait à sauter ce coin de l'écran, et c'est le
+     coin qu'on veut qu'on regarde.
+  */
+  faux('rien de prévu : le bloc du jour ne s’affiche pas', await page.locator('#bloc-aujourdhui').isVisible());
+
+  await page.click('#traitements details summary');
+  await page.waitForTimeout(300);
+  await page.fill('#traitements details input[type="time"]', '08:00');
+  await page.click('#traitements details button:has-text("Ajouter cette heure")');
+  await page.fill('#traitements details input[type="text"]', '5 g');
+  await page.click('#traitements details button[type="submit"]');
+  await page.waitForSelector('#bloc-aujourdhui', { state: 'visible', timeout: 20000 });
+
+  const creneau = await page.$eval('#creneaux li', (li) => ({
+    texte: li.textContent ?? '',
+    etat: li.dataset.etat,
+    boutons: [...li.querySelectorAll('button')].map((b) => b.textContent),
+  }));
+  v('le créneau est à l’état « prévu »', creneau.etat, 'prevu');
+  vrai('il porte le nom du traitement', creneau.texte.includes('Exemple de traitement'));
+  vrai('l’heure prévue, à la française', /Prévu à 8 h/.test(creneau.texte));
+  vrai('et la quantité déclarée, telle quelle', creneau.texte.includes('5 g'));
+  v('deux appuis, et eux seuls', creneau.boutons, ['Pris', 'Pas aujourd’hui']);
+}
+
+console.log('\n« PRIS » NOTE L’HEURE RÉELLE, APRÈS SIX SECONDES D’ANNULATION');
+
+{
+  await page.click('#creneaux li button:has-text("Pris")');
+  await page.waitForTimeout(600);
+
+  /*
+     Le bandeau ne défait rien : il RETARDE l'écriture de six secondes.
+     Pendant ce temps, la ligne annonce déjà ce qui sera écrit et ne porte
+     aucun bouton — le chemin de retour est le bandeau, et en offrir un
+     second ferait partir la suppression d'une marque qui n'existe pas.
+  */
+  const pendant = await page.$eval('#creneaux li', (li) => ({
+    etat: li.dataset.etat,
+    boutons: [...li.querySelectorAll('button')].map((b) => b.textContent),
+  }));
+  v('pendant le délai, la ligne annonce la prise', pendant.etat, 'pris');
+  v('et ne propose aucun autre chemin que le bandeau', pendant.boutons, []);
+  vrai('le bandeau d’annulation est bien à l’écran', await visibleEnFixe('bandeau-annulation'));
+
+  await page.waitForTimeout(8000);
+  const apres = await page.$eval('#creneaux li', (li) => ({
+    texte: li.textContent ?? '',
+    etat: li.dataset.etat,
+  }));
+  v('la prise est écrite', apres.etat, 'pris');
+  vrai('et l’écran dit à quelle heure elle a été notée', /Noté à \d+ h/.test(apres.texte));
+
+  /*
+     LE DÉFAUT CORRIGÉ EN P2, constaté ici et nulle part ailleurs.
+     `ecrirePrise` n'écrivait jamais `traitementId` : `heuresDepuisLaDernierePrise`
+     filtre dessus, donc rendait `null` pour tous les traitements, toujours.
+     L'essai d'au-dessus attend « aucune prise enregistrée » — et il avait
+     raison AVANT qu'une prise soit notée. Maintenant qu'il y en a une,
+     l'écran doit dire autre chose, et ne le pouvait pas jusqu'à ce lot.
+  */
+  const ligne = await page.$eval('#traitements li', (li) => li.textContent ?? '');
+  faux('le délai depuis la dernière prise n’est plus muet', ligne.includes('aucune prise enregistrée'));
+  vrai('il se lit en toutes lettres, et non « il y a 0 h »', ligne.includes('moins d’une heure'));
+}
+
+console.log('\n« PAS AUJOURD’HUI » NE LAISSE AUCUNE MARQUE NÉGATIVE');
+
+{
+  await page.click('#creneaux li button:has-text("Reprendre")');
+  await page.waitForTimeout(1500);
+  v(
+    'reprendre rend le créneau à l’absence, et non à un troisième état',
+    await page.$eval('#creneaux li', (li) => li.dataset.etat),
+    'prevu',
+  );
+
+  await page.click('#creneaux li button:has-text("Pas aujourd’hui")');
+  await page.waitForTimeout(8500);
+  const refus = await page.$eval('#creneaux li', (li) => ({
+    etat: li.dataset.etat,
+    classes: li.className,
+  }));
+  v('le choix est noté', refus.etat, 'pas-aujourdhui');
+  /*
+     AUCUNE COULEUR D'ÉCHEC (interdit § 1 n° 3) : la ligne garde la bordure
+     des autres. Un reproche rendu par la couleur serait celui que le texte
+     a pris soin d'éviter.
+  */
+  faux('et la ligne ne vire ni au rouge ni à l’orange', /rose|red|amber|orange/.test(refus.classes));
+}
+
+console.log('\nNI COMPTEUR, NI REPROCHE, NI VERBE DE PRESCRIPTION');
+
+{
+  const ecran = await page.evaluate(() => document.body.innerText);
+
+  /* Interdit § 1 n° 3 : aucun compteur d'oublis, aucune série, aucun
+     pourcentage d'observance. On cherche les formes qu'ils prendraient. */
+  v(
+    'aucun compteur, aucune série, aucun pourcentage d’observance',
+    [/observance/i, /\d+\s*%/, /\boubli[eé]?s?\b/i, /série de \d+/i, /\d+ *\/ *\d+ *prises/i]
+      .filter((r) => r.test(ecran))
+      .map(String),
+    [],
+  );
+  v(
+    'aucun mot de reproche',
+    ['manqué', 'manquée', 'raté', 'ratée', 'en retard', 'non pris'].filter((m) =>
+      ecran.toLowerCase().includes(m),
+    ),
+    [],
+  );
+
+  /*
+     L'interdit § 1 n° 2 : un rappel ne conseille rien. L'essai de la phase 7
+     portera cette règle sur TOUS les textes ; celui-ci la porte sur cet
+     écran, et il sera remplacé par lui — pas doublé.
+
+     La sonde vise l'IMPÉRATIF et non l'indicatif : la phrase d'accueil dit
+     « Ce que vous prenez, ce que vous faites doser », qui décrit ce que fait
+     la personne. Une première version cherchait « prenez » nu et rougissait
+     dessus. La distinction tient dans un mot — un impératif n'est pas
+     précédé de « vous » — et c'est la sonde qui a été affinée, pas la liste
+     qui a été raccourcie.
+  */
+  const PRESCRIPTIONS = [
+    /(?<!vous )\bprenez\b/i,
+    /(?<!tu )\bprends\b/i,
+    /(?<!vous )\bdoublez\b/i,
+    /(?<!vous )\bsautez\b/i,
+    /(?<!vous )\bavalez\b/i,
+    /(?<!vous )\baugmentez\b/i,
+    /(?<!vous )\bdiminuez\b/i,
+    /\barrêtez de prendre\b/i,
+    /vous devriez prendre/i,
+    /(?<!vous )\brattrapez\b/i,
+  ];
+  v('l’écran n’ordonne rien', PRESCRIPTIONS.filter((r) => r.test(ecran)).map(String), []);
+
+  /*
+     ET LA SONDE EST VALIDÉE SUR LE DÉFAUT QU'ELLE VISE. Une sonde affinée
+     peut l'être jusqu'à ne plus rien attraper, et elle resterait verte — le
+     seul genre de vert qui ne prouve rien.
+  */
+  v(
+    'et elle attraperait bien un conseil de rattrapage',
+    [
+      'Prenez-la maintenant.',
+      'Doublez la prochaine.',
+      'Sautez celle-ci.',
+      'Vous devriez prendre votre créatine.',
+    ].filter((phrase) => !PRESCRIPTIONS.some((r) => r.test(phrase))),
+    [],
+  );
+}
+
 console.log('\nREFERMER LE COFFRE REFERME L’ÉCRAN');
 
 {
@@ -201,6 +390,22 @@ console.log('\nREFERMER LE COFFRE REFERME L’ÉCRAN');
   await page.waitForSelector('#coffre-ferme', { state: 'visible', timeout: 20000 });
   faux('rien n’est lisible après rechargement', await page.locator('#coffre-ouvert').isVisible());
   faux('et l’espace reste activé', await page.locator('#pas-active').isVisible());
+  /*
+     PHASE 4. Le bloc du jour se referme avec le reste, et rien de ce qu'il
+     portait ne reste dans la page : ni le nom du traitement, ni l'heure
+     prévue, ni ce qui a été noté. C'est l'interdit § 1 n° 5 — coffre fermé,
+     aucun écran ne laisse lire le nom d'un traitement ni l'existence de
+     Santé.
+  */
+  faux('le bloc du jour est fermé lui aussi', await page.locator('#bloc-aujourdhui').isVisible());
+  const ferme = await page.evaluate(() => `${document.title}\n${document.body.innerText}`);
+  v(
+    'ni le traitement, ni son heure prévue, ni ce qui en a été noté',
+    ['Exemple de traitement', '5 g', 'Prévu à', 'Noté à', 'Pas aujourd’hui'].filter((m) =>
+      ferme.includes(m),
+    ),
+    [],
+  );
 }
 
 v('aucune requête n’est sortie du site', sorties, []);
