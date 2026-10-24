@@ -34,6 +34,8 @@
  * celui-là garde le résultat.
  */
 import { readFileSync } from 'node:fs';
+import { MAGASINS_SCELLES } from '../src/lib/noyau/coffre';
+import { CHAMP_DATE } from '../src/lib/sauvegarde/groupes';
 
 const SOURCE = readFileSync('src/lib/db.ts', 'utf8');
 
@@ -86,6 +88,54 @@ v('il naît dans une migration', SOURCE.includes("createObjectStore('odysseeCren
 v('il est dans la liste des magasins effaçables et sauvegardés', SOURCE.includes("'odysseeCreneaux',"), true);
 const coffre = readFileSync('src/lib/noyau/coffre.ts', 'utf8');
 v('et il est déclaré scellé', coffre.includes("magasin: 'odysseeCreneaux'"), true);
+
+console.log('\nUN MAGASIN SCELLÉ NE SE DÉCOUPE QUE SUR UNE DATE QU’IL EXPOSE');
+
+/*
+   LE GARDE-FOU QUI MANQUAIT, ET LE DÉFAUT QU'IL ATTRAPE.
+
+   `dateDe(magasin, enregistrement)` lit `CHAMP_DATE[magasin]` sur la ligne
+   BRUTE, telle que `getAll` la rend — donc avant tout déchiffrement. Pour un
+   magasin scellé, cela n'a de sens que si le champ nommé figure dans
+   `clairs` : sinon il est à l'intérieur du scellé, `dateDe` rend `null`,
+   `dansLaPeriode` rend `false`, et l'effacement par période passe à côté de
+   CHAQUE enregistrement en annonçant « 0 visé ». Un effacement qui se dit
+   fait et qui n'efface rien.
+
+   Ce n'était pas une hypothèse : `odysseeCreneaux` était dans cet état,
+   `CHAMP_DATE` à `jour` et `clairs: ['id', 'majLe']`. Aucun essai ne
+   rougissait, parce qu'aucun ne rapprochait les deux tables — chacune était
+   juste seule. Celui-ci les rapproche, et il aurait signalé le défaut à la
+   seconde où il a été écrit.
+
+   Il lit les vraies tables plutôt que la source : un `grep` sur du texte
+   dirait que le champ est cité quelque part, pas qu'il est dans `clairs`.
+*/
+for (const scelle of MAGASINS_SCELLES) {
+  const champ = CHAMP_DATE[scelle.magasin];
+  /*
+     L'intitulé dit le FAIT, pas la conclusion. Écrire « qui est en clair »
+     dans la ligne qui échoue ferait affirmer à l'essai l'inverse de ce qu'il
+     mesure, et un journal qui se contredit ne sert plus à diagnostiquer.
+  */
+  v(
+    `${scelle.magasin} : ${
+      champ === null || champ === undefined
+        ? 'jamais découpé'
+        : `découpé sur « ${champ} », qui doit être dans clairs [${scelle.clairs.join(', ')}]`
+    }`,
+    champ === null || champ === undefined || scelle.clairs.includes(champ),
+    true,
+  );
+}
+
+/*
+   L'autre sens : un magasin qui se découpe doit nommer un champ que la ligne
+   porte vraiment. Le contrôle ne peut pas le vérifier sans enregistrement,
+   mais il peut au moins refuser un nom vide.
+*/
+const champsVides = Object.entries(CHAMP_DATE).filter(([, c]) => c === '');
+v('aucun champ de découpage n’est la chaîne vide', champsVides.map(([m]) => m), []);
 
 console.log(
   echecs === 0

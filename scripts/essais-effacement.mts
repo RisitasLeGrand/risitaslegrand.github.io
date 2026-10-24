@@ -10,7 +10,9 @@
  * `essais-effacement-navigateur.mjs`.
  */
 import { aplatir, versCsv, BOM } from '../src/lib/sauvegarde/export-lisible';
-import { direLesGroupes } from '../src/lib/sauvegarde/effacement';
+import { DECOUPAGES_DE_MODULE, direLesGroupes } from '../src/lib/sauvegarde/effacement';
+import { marquesDeLaPeriode } from '../src/lib/odyssee/donnees-sante';
+import { MAGASINS_SCELLES } from '../src/lib/noyau/coffre';
 import {
   CHAMP_DATE,
   CLEFS_ODYSSEE_ETAT,
@@ -373,6 +375,112 @@ v(
   direLesGroupes([{ id: 'revisions', libelle: 'Révisions', vises: 0 }]),
   'aucun enregistrement',
 );
+
+console.log('\nUN MAGASIN SCELLÉ NE SE DÉCOUPE QUE SUR UNE DATE QU’IL EXPOSE');
+
+/*
+   LE DÉSACCORD QUI RENDAIT UN EFFACEMENT MUET.
+
+   `dateDe` lit `CHAMP_DATE[magasin]` sur la ligne BRUTE, avant tout
+   déchiffrement. Si le champ nommé est à l'intérieur du scellé, il rend
+   `null`, `dansLaPeriode` rend `false`, et l'effacement par période passe à
+   côté de CHAQUE enregistrement en annonçant « 0 visé ». `odysseeCreneaux`
+   était dans cet état — `CHAMP_DATE` à `jour`, `clairs` sans `jour` — et
+   aucun essai ne rougissait, parce qu'aucun ne rapprochait les deux tables.
+
+   Le garde-fou principal est dans `essais:schema`, qui balaie les 28 magasins
+   scellés. Celui-ci est le même contrôle vu du côté de l'effacement, et il
+   ajoute la conséquence : un magasin scellé sans date en clair doit soit être
+   un état courant, soit avoir un découpage dans son module. La troisième
+   possibilité — un historique scellé sans découpage nulle part — est
+   précisément le silence qu'on vient de retirer.
+*/
+for (const scelle of MAGASINS_SCELLES) {
+  const champ = CHAMP_DATE[scelle.magasin];
+  if (champ === null || champ === undefined) continue;
+  v(
+    `${scelle.magasin} se découpe sur « ${champ} », qui doit être en clair`,
+    scelle.clairs.includes(champ),
+    true,
+  );
+}
+
+v(
+  'les créneaux marqués ont leur découpage dans leur module',
+  Object.keys(DECOUPAGES_DE_MODULE),
+  ['odysseeCreneaux'],
+);
+
+/*
+   Et le décompte annoncé passe par la même fonction que l'effacement. Deux
+   chemins séparés auraient fini par diverger, et c'est le nombre annoncé
+   avant une confirmation définitive.
+*/
+v(
+  'un découpage de module rend un compte et un effacement',
+  Object.keys(await DECOUPAGES_DE_MODULE.odysseeCreneaux()).sort(),
+  ['compter', 'effacer'],
+);
+
+console.log('\nLE CHOIX DES CRÉNEAUX D’UNE PÉRIODE — LES DEUX BORNES INCLUSES');
+
+const marque = (jour: string) =>
+  ({
+    id: jour.replace(/-/g, ''),
+    traitementId: 't1',
+    jour,
+    heure: '08:00',
+    etat: 'pris',
+    priseId: null,
+    le: `${jour}T08:12:00.000Z`,
+    majLe: `${jour}T08:12:00.000Z`,
+  }) as Parameters<typeof marquesDeLaPeriode>[0][number];
+
+const JOURS = ['2026-09-30', '2026-10-01', '2026-10-15', '2026-10-31', '2026-11-01'];
+const toutes = JOURS.map(marque);
+const jours = (m: readonly { jour: string }[]) => m.map((x) => x.jour);
+
+v('sans borne, tout est visé', jours(marquesDeLaPeriode(toutes)), JOURS);
+v(
+  'du 1er au 31 octobre emporte les deux bornes',
+  jours(marquesDeLaPeriode(toutes, '2026-10-01', '2026-10-31')),
+  ['2026-10-01', '2026-10-15', '2026-10-31'],
+);
+v(
+  'une borne basse seule ne regarde pas en arrière',
+  jours(marquesDeLaPeriode(toutes, '2026-10-31')),
+  ['2026-10-31', '2026-11-01'],
+);
+v(
+  'une borne haute seule ne regarde pas en avant',
+  jours(marquesDeLaPeriode(toutes, undefined, '2026-10-01')),
+  ['2026-09-30', '2026-10-01'],
+);
+v(
+  'un seul jour ne prend que lui',
+  jours(marquesDeLaPeriode(toutes, '2026-10-15', '2026-10-15')),
+  ['2026-10-15'],
+);
+v('une période vide ne vise rien', marquesDeLaPeriode(toutes, '2027-01-01'), []);
+/*
+   Des bornes inversées rendent le vide, et non tout : « du 31 au 1er » est
+   une demande qui ne désigne aucun jour, et l'interpréter dans l'autre sens
+   effacerait un mois sur une faute de saisie.
+*/
+v('des bornes inversées ne visent rien', marquesDeLaPeriode(toutes, '2026-10-31', '2026-10-01'), []);
+/*
+   LE CHOIX SE FAIT SUR LE JOUR LOGIQUE, PAS SUR L'INSTANT DU GESTE. Un
+   créneau du 31 octobre noté le 1er novembre à 0 h 10 appartient au 31 : la
+   personne demande une période de traitement, pas une période de clics.
+*/
+{
+  const tardif = { ...marque('2026-10-31'), le: '2026-11-01T00:10:00.000Z' };
+  v(
+    'un créneau noté après minuit reste dans son jour',
+    jours(marquesDeLaPeriode([tardif], '2026-10-01', '2026-10-31')),
+    ['2026-10-31'],
+  );
+}
 
 console.log(
   echecs

@@ -16,7 +16,15 @@
  * reste quand la personne s'est trompée de groupe.
  */
 import { MAGASINS_PROGRESSION, db } from '../db';
-import { CHAMP_DATE, GROUPES, clefVisee, dateDe, groupe, type ClefsVisees } from './groupes';
+import {
+  CHAMP_DATE,
+  GROUPES,
+  clefVisee,
+  dateDe,
+  groupe,
+  raisonDuRefusDeDecoupage,
+  type ClefsVisees,
+} from './groupes';
 import { cibleDe, magasinJournalise } from '../noyau/enregistrements';
 
 /** Le filtre d'un effacement. Un groupe, et éventuellement une période. */
@@ -102,6 +110,61 @@ async function clefsPresentes(
     .filter((clef): clef is string => typeof clef === 'string')
     .filter((clef) => clefVisee(clef, visees));
 }
+
+/**
+ * Les magasins dont le découpage par période vit dans LEUR module.
+ *
+ * ## Pourquoi cette table existe
+ *
+ * Le découpage d'ici lit `CHAMP_DATE[magasin]` sur la ligne brute, telle que
+ * `getAll` la rend — donc avant tout déchiffrement. Un magasin scellé dont la
+ * date est à l'intérieur du scellé n'a aucune date lisible ici, et
+ * `CHAMP_DATE` y vaut `null`. Le découpage reste possible, mais il demande la
+ * clé du coffre, qui ne vit qu'en mémoire : il appartient donc au module.
+ *
+ * Deux refus étaient tentants, et tous deux coûtaient à la personne. Mettre
+ * la date en clair pour se donner un index aurait rendu lisible sans coffre
+ * exactement ce que le scellé protège. Laisser le magasin entier aurait
+ * retiré le découpage à qui le demande. Cette table est le troisième chemin :
+ * le mécanisme générique garde la décision et le compte, le module fournit le
+ * geste.
+ *
+ * ## Ce qu'elle promet, et ce qu'elle ne promet pas
+ *
+ * Chaque entrée LÈVE quand le coffre est fermé — c'est `exigerLeCoffre` qui
+ * lève, dans le module —, et l'appelant traduit ce refus en la phrase que
+ * `raisonDuRefusDeDecoupage` porte. Une période demandée coffre fermé laisse
+ * donc le magasin entier, et l'écran le dit ; elle n'efface jamais à moitié.
+ *
+ * L'import est dynamique, et à dessein : `sauvegarde/` ne doit pas dépendre
+ * d'`odyssee/` au chargement. Il est aussi la raison pour laquelle le
+ * garde-fou des orphelins ne voit pas ces fonctions — c'est ici, et dans
+ * `essais:effacement`, qu'elles sont tenues.
+ */
+interface DecoupageDuModule {
+  /** Compte les enregistrements de la période, sans rien toucher. */
+  compter: (depuis?: string, jusqua?: string) => Promise<number>;
+  /** Efface ceux de la période, et rend combien sont partis. */
+  effacer: (depuis?: string, jusqua?: string) => Promise<number>;
+}
+
+export const DECOUPAGES_DE_MODULE: Record<string, () => Promise<DecoupageDuModule>> = {
+  /*
+     Les créneaux marqués de Santé. Leur jour est scellé parce qu'un rythme de
+     prises se lit sans rien comprendre d'autre ; le module le relit la clé en
+     main. Les suppressions voyagent par `journaliserSuppressions`, que
+     `oublier()` appelle là-bas — ce magasin n'est pas dans
+     `MAGASINS_JOURNALISES`, donc le chemin générique n'en aurait produit
+     aucune.
+  */
+  odysseeCreneaux: async () => {
+    const module = await import('../odyssee/donnees-sante');
+    return {
+      compter: module.compterLesMarquesDeLaPeriode,
+      effacer: module.effacerLesMarquesDeLaPeriode,
+    };
+  },
+};
 
 /** Un enregistrement tombe-t-il dans la période demandée ? */
 function dansLaPeriode(magasin: string, enregistrement: unknown, cible: Cible): boolean {
@@ -212,12 +275,27 @@ export async function compter(cible: Cible): Promise<Decompte> {
     const total = tous.length;
 
     if (avecPeriode && CHAMP_DATE[nom] === null) {
+      /*
+         Le module d'abord, s'il en a un : lui seul peut lire la date d'un
+         magasin scellé. S'il lève — coffre fermé —, on retombe sur le refus,
+         qui dit pourquoi.
+      */
+      const decoupage = DECOUPAGES_DE_MODULE[nom];
+      if (decoupage) {
+        try {
+          const vises = await (await decoupage()).compter(cible.depuis, cible.jusqua);
+          sortie.parMagasin.push({ magasin: nom, vises, total });
+          sortie.vises += vises;
+          continue;
+        } catch {
+          // Coffre fermé, ou module indisponible : le refus ci-dessous le dit.
+        }
+      }
       const refus: CompteParMagasin = {
         magasin: nom,
         vises: 0,
         total,
-        refus:
-          'ce magasin porte un état courant et non un historique : une période ne le découpe pas',
+        refus: raisonDuRefusDeDecoupage(nom),
       };
       sortie.parMagasin.push(refus);
       sortie.refuses.push(refus);
@@ -307,12 +385,22 @@ export async function effacer(cible: Cible): Promise<ResultatEffacement> {
     }
 
     if (avecPeriode && CHAMP_DATE[nom] === null) {
+      const decoupage = DECOUPAGES_DE_MODULE[nom];
+      if (decoupage) {
+        try {
+          const partis = await (await decoupage()).effacer(cible.depuis, cible.jusqua);
+          effaces[nom] = partis;
+          total += partis;
+          continue;
+        } catch {
+          // Coffre fermé : rien n'est effacé, et le refus ci-dessous le dit.
+        }
+      }
       refuses.push({
         magasin: nom,
         vises: 0,
         total: (await base.getAll(magasin)).length,
-        refus:
-          'ce magasin porte un état courant et non un historique : une période ne le découpe pas',
+        refus: raisonDuRefusDeDecoupage(nom),
       });
       continue;
     }

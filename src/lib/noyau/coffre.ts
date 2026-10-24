@@ -295,7 +295,36 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
       'au moins aussi parlant que le nom du traitement — « tous les jours à 8 h » dit la ' +
       'régularité d’un traitement qu’on ne nomme même pas. La clé elle-même est une ' +
       'empreinte, parce qu’une clé en clair aurait dit ce rythme sans qu’on ouvre rien.',
-    clairs: ['id', 'majLe'],
+    /*
+       RIEN QUE LA CLÉ. `majLe` est parti à l'intérieur du scellé le 19
+       octobre, et pour deux raisons qui tiennent ensemble.
+
+       La première : il ne servait à rien ici. `CHAMP_DATE` nommait `jour`,
+       qui n'a jamais été en clair — donc `dateDe` rendait `null`, et
+       l'effacement par période passait à côté de chaque créneau en annonçant
+       « 0 visé ». `majLe` payait un coût sans rendre le service.
+
+       La seconde : il rendait justement ce que la clé opaque cache. Une suite
+       de dates d'écriture en clair dessine le rythme des prises — « une ligne
+       chaque matin » — sans qu'on ouvre quoi que ce soit. Garder la clé muette
+       et laisser la date parler à côté revenait à fermer la porte et laisser
+       la fenêtre.
+
+       `majLe` continue d'exister sur l'enregistrement : il voyage chiffré à
+       l'intérieur du scellé, et la synchronisation l'emporte comme avant.
+       PLUS EN CLAIR N'EST PAS PLUS TRANSPORTÉ.
+
+       CE CORRECTIF EST PROSPECTIF. Un `upgrade` de schéma ne peut pas le
+       rattraper : la clé du coffre ne vit qu'en mémoire, et une migration ne
+       peut ni lire ni réécrire un champ scellé. Les créneaux déjà écrits
+       gardent donc leur `majLe` en clair à côté du scellé jusqu'à leur
+       prochaine écriture. La lecture, elle, ne change pas : `ouvrir()` fusionne
+       le clair et le déchiffré, donc les deux formes se relisent. Une reprise
+       explicite, derrière une sauvegarde confirmée, est aux décisions en
+       attente — elle n'est pas écrite ici, parce qu'elle touche aux données
+       de la personne et que ce n'est pas à moi de la trancher.
+    */
+    clairs: ['id'],
   },
   {
     magasin: 'odysseeRessentis',

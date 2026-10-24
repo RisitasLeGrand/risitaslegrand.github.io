@@ -322,19 +322,33 @@ export const CHAMP_DATE: Record<string, string | null> = {
   odysseeResultats: null,
   odysseeSymptomes: 'jour',
   /*
-     LES CRÉNEAUX MARQUÉS — une ligne par traitement, par jour et par heure.
+     LES CRÉNEAUX MARQUÉS — `null`, ET LA RAISON N'EST PAS CELLE DES VOISINS.
 
-     C'est un historique, et non un état courant : « Prévu à 8 h, noté à
-     8 h 12 » est un constat daté, qui ne se réécrit pas. Le champ est `jour`,
-     le jour LOGIQUE du créneau, comme chez ses voisins de Santé
-     (`odysseeMedicaments`, `odysseePrelevements`, `odysseeSymptomes`) — et non
-     `le`, qui porte l'instant réel du geste. Une période se demande sur le
-     jour du traitement, pas sur la minute où la case a été cochée.
+     C'est bien un historique, et non un état courant : « Prévu à 8 h, noté à
+     8 h 12 » est un constat daté, qui ne se réécrit pas. Il devrait donc se
+     découper par période, et il portait `jour` pour cela.
 
-     Déclaré à la fusion de claude/p52-mol, où il manquait. Relevé par l'agent
-     C sur `main`, par l'essai d'effacement que le socle contient désormais.
+     IL NE LE POUVAIT PAS, ET LE DÉFAUT ÉTAIT MUET. `dateDe` lit le champ
+     nommé ici sur la ligne BRUTE, telle que `getAll` la rend, c'est-à-dire
+     avant tout déchiffrement. Or `jour` est à l'intérieur du scellé, et c'est
+     tout l'objet du magasin : « tous les jours à 8 h » dit la régularité d'un
+     traitement qu'on ne nomme même pas. `dateDe` rendait donc `null`,
+     `dansLaPeriode` rendait `false`, et un effacement par période passait à
+     côté de CHAQUE créneau en annonçant « 0 visé » — un effacement qui se
+     dit fait et qui n'efface rien. Mesuré le 19 octobre, pas supposé.
+
+     Mettre `jour` en clair pour réparer l'index aurait rendu lisible sans
+     coffre exactement ce que le scellé protège. C'est donc `null` ici, et le
+     découpage vit dans le module qui a la clé
+     (`effacerLesMarquesDeLaPeriode`, dans `odyssee/donnees-sante.ts`), que le
+     mécanisme générique appelle. La personne garde le découpage ; elle ne le
+     paie pas en confidentialité.
+
+     Le garde-fou qui manquait est désormais dans `essais:schema` : pour tout
+     magasin scellé, ce champ vaut `null` ou nomme un champ présent dans
+     `clairs`.
   */
-  odysseeCreneaux: 'jour',
+  odysseeCreneaux: null,
   odysseeTraitements: null,
   odysseeConditions: null,
   /* Un ressenti est daté du jour où on l'écrit : il s'élague comme un
@@ -548,6 +562,28 @@ export function groupeDuMagasin(nom: string): GroupeDeMagasins | undefined {
 
 /** Un magasin peut-il se découper par période ? */
 export const dateDecoupable = (nom: string): string | null => CHAMP_DATE[nom] ?? null;
+
+const REFUS_PAR_DEFAUT =
+  'ce magasin porte un état courant et non un historique : une période ne le découpe pas';
+
+/**
+ * Pourquoi un magasin ne se découpe pas par période, en toute franchise.
+ *
+ * Ce qui est montré à la personne quand l'effacement laisse un magasin
+ * entier. La phrase par défaut vaut pour la quasi-totalité des magasins sans
+ * date — ce sont des états courants. Les exceptions ont la leur, parce que la
+ * raison y est autre et qu'afficher « un état courant et non un historique »
+ * à propos d'un journal de saisies quotidiennes serait faux — dit à la
+ * personne, au moment où elle décide d'effacer.
+ */
+export const RAISONS_DU_REFUS_DE_DECOUPAGE: Record<string, string> = {
+  odysseeCreneaux:
+    'ses dates sont scellées : aucune n’est lisible sans votre coffre, et le découpage par ' +
+    'période demande donc un coffre ouvert',
+};
+
+export const raisonDuRefusDeDecoupage = (nom: string): string =>
+  RAISONS_DU_REFUS_DE_DECOUPAGE[nom] ?? REFUS_PAR_DEFAUT;
 
 /**
  * La date d'un enregistrement, ramenée à `AAAA-MM-JJ`.
