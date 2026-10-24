@@ -180,8 +180,15 @@ export async function publierTousLesFaits(
      et `sensible` publient tous des types d'Odyssée, découpés par domaine
      mais pas strictement), donc la correspondance ne se déduit pas : il
      faudrait la déclarer, et une déclaration de plus peut dériver. C'est un
-     changement à proposer, pas à décider ici ; il est inscrit aux décisions
-     en attente.
+     changement à proposer, pas à décider ici.
+
+     Où cette limite est consignée, exactement. Elle est écrite ICI et dans
+     `faits-du-jour.ts`, et nulle part ailleurs pour l'instant : le pilote l'a
+     notée le 19 octobre et a fixé qu'elle rejoindrait les décisions en attente
+     À LA FUSION de `claude/cycle-d2`, dont le document porte ce genre de
+     réserve. Écrire « elle est inscrite aux décisions en attente » avant cette
+     fusion serait renvoyer à une page qui ne la contient pas — et un
+     commentaire qui renvoie à côté finit par dispenser d'aller voir.
   */
   return {
     ...assemble,

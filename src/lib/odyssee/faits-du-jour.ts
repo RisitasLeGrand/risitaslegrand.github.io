@@ -81,10 +81,13 @@ const publieurs = (options: { de: string; a: string }): Publieur[] => [
  * le compilateur demande à chaque appelant de se nommer. Un paramètre
  * facultatif aurait gardé le trou par défaut.
  *
- * Le filtre s'applique **après** la projection, et la limite est dite dans
- * `faits-branches.ts` : une lectrice qui n'a pas le droit de voir un domaine
- * en provoque quand même la lecture, dont le résultat est jeté. Rien ne sort,
- * mais le chemin existe.
+ * Le filtre s'applique **après** la projection, et la limite est dite au long
+ * dans `faits-branches.ts`, avec ce qu'il faudrait pour la lever : une
+ * lectrice qui n'a pas le droit de voir un domaine en provoque quand même la
+ * lecture, dont le résultat est jeté. Rien ne sort, mais le chemin existe.
+ * Elle n'est consignée que dans ces deux fichiers ; elle rejoindra les
+ * décisions en attente à la fusion de `claude/cycle-d2`, comme le pilote l'a
+ * fixé le 19 octobre.
  */
 export async function faitsEntre(
   de: string,
