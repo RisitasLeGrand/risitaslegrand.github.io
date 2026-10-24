@@ -255,22 +255,26 @@ export const CHAMP_DATE: Record<string, string | null> = {
      Les deux magasins en clair se découpent sur `jourPrevu`, le jour logique
      que la règle prévoyait.
 
-     LES DEUX SCELLÉS SE DÉCOUPENT SUR `majLe`, ET C'EST UNE APPROXIMATION
-     ASSUMÉE. Leur jour logique est **dans le chiffré** — c'est tout l'objet
-     de la décision 3 —, donc inatteignable coffre fermé, donc inutilisable
-     pour découper. `majLe` est la seule date qu'ils exposent en clair : elle
-     dit quand la ligne a été écrite, non quand la chose a eu lieu. Les deux
-     coïncident presque toujours, et l'écart ne peut jouer que sur une
-     exception pointée longtemps après coup.
+     LE SCELLÉ SE DÉCOUPE SUR LE MÊME JOUR, ET DEPUIS LE 19 OCTOBRE
+     SEULEMENT. Ce qui était écrit ici disait « LES DEUX SCELLÉS », alors
+     qu'il n'y en a qu'un, et que leur jour logique était « dans le chiffré »,
+     alors que la clé primaire d'une exception vaut `«tacheId»/«jourPrevu»` :
+     le jour est EN CLAIR dans la clé, et un `getAllKeys` le rend sans coffre.
+     Deux affirmations fausses au service d'un troisième choix — découper sur
+     `majLe`, la date d'écriture — que son propre commentaire assumait comme
+     « une approximation », parce qu'une exception pointée longtemps après
+     coup tombait dans la mauvaise tranche.
 
-     L'autre choix aurait été `null` — « jamais découpée ». Il aurait fait
-     passer le contrôle tout aussi bien, et laissé des exceptions scellées
-     derrière un effacement qui se dit complet. Une approximation qu'on écrit
-     vaut mieux qu'un oubli qui se tait.
+     Il n'y a plus d'approximation à assumer. `majLe` est parti à l'intérieur
+     du scellé, donc plus aucun CHAMP de ce magasin ne porte de date, donc
+     `null` ici — `dateDe` lit des champs, pas des clés. Le découpage vit
+     dans le module (`effacerLesExceptionsDeLaPeriode`), il lit le jour dans
+     la clé, il est EXACT, et il ne demande pas le coffre. Les trois magasins
+     des exceptions se découpent enfin sur le même jour logique.
   */
   odysseeOccurrences: 'jourPrevu',
   odysseeEtapesCochees: 'jourPrevu',
-  odysseeExceptionsScellees: 'majLe',
+  odysseeExceptionsScellees: null,
   /*
      `null` — « jamais découpé », et pour une fois ce n'est pas une
      approximation. Un report ne porte AUCUNE date : en mettre une en clair
@@ -580,6 +584,13 @@ export const RAISONS_DU_REFUS_DE_DECOUPAGE: Record<string, string> = {
   odysseeCreneaux:
     'ses dates sont scellées : aucune n’est lisible sans votre coffre, et le découpage par ' +
     'période demande donc un coffre ouvert',
+  /*
+     Celui-ci ne demande pas le coffre — son jour est dans sa clé. Il ne
+     refuse donc que dans un cas : une clé dont le jour ne se lit pas. Il est
+     alors laissé ENTIER, et jamais effacé à moitié.
+  */
+  odysseeExceptionsScellees:
+    'l’une de ses clés ne livre pas son jour : il est laissé entier plutôt qu’effacé à moitié',
 };
 
 export const raisonDuRefusDeDecoupage = (nom: string): string =>

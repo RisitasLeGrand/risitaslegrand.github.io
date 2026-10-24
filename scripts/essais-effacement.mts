@@ -12,6 +12,13 @@
 import { aplatir, versCsv, BOM } from '../src/lib/sauvegarde/export-lisible';
 import { DECOUPAGES_DE_MODULE, direLesGroupes } from '../src/lib/sauvegarde/effacement';
 import { marquesDeLaPeriode } from '../src/lib/odyssee/donnees-sante';
+import {
+  REFUS_CLEF_ILLISIBLE,
+  clefsDExceptionDeLaPeriode,
+  jourDeLaClefDException,
+} from '../src/lib/odyssee/donnees-occurrences';
+import { idEtapeCochee, idOccurrence } from '../src/lib/odyssee/modele';
+import { ulid } from '../src/lib/noyau/ulid';
 import { MAGASINS_SCELLES } from '../src/lib/noyau/coffre';
 import {
   CHAMP_DATE,
@@ -23,6 +30,7 @@ import {
   PREFIXES_TECHNIQUES_ETAT,
   clefVisee,
   dateDe,
+  raisonDuRefusDeDecoupage,
   dateDecoupable,
   estTechnique,
   groupe,
@@ -405,22 +413,118 @@ for (const scelle of MAGASINS_SCELLES) {
   );
 }
 
+/*
+   LA TABLE EST DÉCLARÉE ICI AUSSI, ET À DESSEIN. Elle n'est pas dérivable :
+   « ce magasin porte un historique » est un jugement, pas une donnée du
+   code. Un magasin scellé nouveau dont la date n'est dans aucun champ clair
+   fera donc rougir cette ligne, et c'est le moment où il faut décider s'il
+   lui faut un découpage de module ou s'il est un état courant. Chacun porte
+   sa raison, parce que les deux ne sont pas la même.
+*/
+const DECOUPAGES_ATTENDUS: Record<string, string> = {
+  // Son jour est DANS le scellé : le module le relit la clé en main.
+  odysseeCreneaux: 'le jour est scellé',
+  // Son jour est dans la CLÉ, pas dans un champ : aucun coffre n'est requis.
+  odysseeExceptionsScellees: 'le jour est dans la clé',
+};
+
 v(
-  'les créneaux marqués ont leur découpage dans leur module',
-  Object.keys(DECOUPAGES_DE_MODULE),
-  ['odysseeCreneaux'],
+  'les magasins dont la date n’est dans aucun champ clair ont leur découpage de module',
+  Object.keys(DECOUPAGES_DE_MODULE).sort(),
+  Object.keys(DECOUPAGES_ATTENDUS).sort(),
 );
+
+for (const nom of Object.keys(DECOUPAGES_ATTENDUS)) {
+  v(`${nom} : CHAMP_DATE est nul, puisque ${DECOUPAGES_ATTENDUS[nom]}`, CHAMP_DATE[nom], null);
+}
 
 /*
    Et le décompte annoncé passe par la même fonction que l'effacement. Deux
    chemins séparés auraient fini par diverger, et c'est le nombre annoncé
    avant une confirmation définitive.
 */
-v(
-  'un découpage de module rend un compte et un effacement',
-  Object.keys(await DECOUPAGES_DE_MODULE.odysseeCreneaux()).sort(),
-  ['compter', 'effacer'],
-);
+for (const nom of Object.keys(DECOUPAGES_ATTENDUS)) {
+  v(
+    `${nom} : son découpage rend un compte et un effacement`,
+    Object.keys(await DECOUPAGES_DE_MODULE[nom]()).sort(),
+    ['compter', 'effacer'],
+  );
+}
+
+console.log('\nLE JOUR D’UNE EXCEPTION SCELLÉE SE LIT DANS SA CLÉ');
+
+/*
+   LA CLÉ N'EST PAS SCELLÉE, ET C'EST LA PIÈCE QUE DEUX COMMENTAIRES NIAIENT.
+
+   `odysseeExceptionsScellees` affirmait que « le jour est dans le chiffré »,
+   à deux endroits, et s'en servait pour justifier un découpage approximatif
+   sur `majLe`. La clé primaire vaut `«tacheId»/«jourPrevu»` : le jour est en
+   clair, un `getAllKeys` le rend sans coffre, et le découpage peut être
+   EXACT. Ces constats tiennent la lecture du jour, et le fait que les
+   identifiants de tâche — des ULID — ne contiennent pas de barre oblique.
+*/
+{
+  const tache = ulid();
+  v('un identifiant de tâche ne porte pas de barre oblique', tache.includes('/'), false);
+  v(
+    'le jour d’une occurrence se lit dans sa clé',
+    jourDeLaClefDException(idOccurrence(tache, '2026-10-15')),
+    '2026-10-15',
+  );
+  v(
+    'et celui d’un cochage aussi, malgré son troisième segment',
+    jourDeLaClefDException(idEtapeCochee(tache, '2026-10-15', 'etape-3')),
+    '2026-10-15',
+  );
+  v('une clé sans jour ne livre rien', jourDeLaClefDException('tache-seule'), null);
+  v(
+    'et un second segment qui n’est pas une date non plus',
+    jourDeLaClefDException('tache/pas-un-jour/etape'),
+    null,
+  );
+
+  const clefs = [
+    idOccurrence(tache, '2026-09-30'),
+    idOccurrence(tache, '2026-10-01'),
+    idEtapeCochee(tache, '2026-10-31', 'etape-1'),
+    idOccurrence(tache, '2026-11-01'),
+  ];
+  v(
+    'du 1er au 31 octobre emporte les deux bornes, cochages compris',
+    clefsDExceptionDeLaPeriode(clefs, '2026-10-01', '2026-10-31').visees,
+    [idOccurrence(tache, '2026-10-01'), idEtapeCochee(tache, '2026-10-31', 'etape-1')],
+  );
+  v('sans borne, tout est visé', clefsDExceptionDeLaPeriode(clefs).visees.length, 4);
+  v(
+    'des bornes inversées ne visent rien',
+    clefsDExceptionDeLaPeriode(clefs, '2026-10-31', '2026-10-01').visees,
+    [],
+  );
+
+  /*
+     ET UNE CLÉ ILLISIBLE N'EST PAS SAUTÉE EN SILENCE. C'est le défaut que ce
+     lot corrige, et l'écarter ici par commodité le réintroduirait par la
+     porte d'à côté : elle est comptée à part, et l'appelant refuse le
+     magasin entier plutôt que de l'effacer à moitié.
+  */
+  const partage = clefsDExceptionDeLaPeriode(
+    [...clefs, 'clef-sans-jour'],
+    '2026-10-01',
+    '2026-10-31',
+  );
+  v('une clé illisible est comptée à part', partage.illisibles, ['clef-sans-jour']);
+  v('et ne grossit pas les visées', partage.visees.length, 2);
+  v(
+    'le refus dit qu’on laisse entier plutôt qu’à moitié',
+    /entier/.test(REFUS_CLEF_ILLISIBLE) && /moitié/.test(REFUS_CLEF_ILLISIBLE),
+    true,
+  );
+  v(
+    'et l’écran porte la même raison pour ce magasin',
+    /moitié/.test(raisonDuRefusDeDecoupage('odysseeExceptionsScellees')),
+    true,
+  );
+}
 
 console.log('\nLE CHOIX DES CRÉNEAUX D’UNE PÉRIODE — LES DEUX BORNES INCLUSES');
 

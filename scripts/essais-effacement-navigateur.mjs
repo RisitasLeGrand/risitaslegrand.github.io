@@ -515,6 +515,124 @@ console.log('\nCOFFRE FERMÉ : LAISSÉ ENTIER, ET L’ÉCRAN DIT POURQUOI');
   v('le créneau est intact', await compter('odysseeCreneaux'), 1);
 }
 
+/* ── Les exceptions scellées : le jour est dans la clé ────────────────── */
+
+/*
+   L'AUTRE MAGASIN SCELLÉ SANS DATE EN CHAMP, ET IL SE DÉCOUPE AUTREMENT.
+
+   `odysseeExceptionsScellees` a sa clé primaire en clair — elle vaut
+   `«tacheId»/«jourPrevu»` —, donc son jour est lisible sans coffre. Son
+   découpage vit dans le module pour une autre raison que celui des créneaux :
+   non parce qu'il faut la clé du coffre, mais parce que la date n'est dans
+   aucun CHAMP, et que `dateDe` lit des champs.
+
+   D'où une différence de méthode assumée. Les créneaux devaient être marqués
+   par l'écran, parce que la forme du scellé était sous mesure. Ici le scellé
+   n'est jamais ouvert par l'effacement : seules les clés le sont. Semer les
+   lignes en base est donc une mesure valide de ce qui est testé, et le reste
+   du magasin est éprouvé ailleurs, dans `essais:fusion-occurrences`.
+*/
+
+console.log('\nLES EXCEPTIONS SCELLÉES SE DÉCOUPENT SUR LE JOUR DE LEUR CLÉ');
+
+const TACHE = '01JBQZ9X8K7M4N2P5R6S7T8V9W';
+const semerExceptions = (clefs) =>
+  page.evaluate(
+    (lignes) =>
+      new Promise((ok, ko) => {
+        const r = indexedDB.open('revinsp');
+        r.onsuccess = () => {
+          const base = r.result;
+          const tx = base.transaction('odysseeExceptionsScellees', 'readwrite');
+          const magasin = tx.objectStore('odysseeExceptionsScellees');
+          for (const id of lignes) {
+            magasin.put({ id, scelle: { iv: 'AAAA', charge: 'AAAA' } });
+          }
+          tx.oncomplete = () => {
+            base.close();
+            ok();
+          };
+          tx.onerror = () => ko(tx.error);
+        };
+      }),
+    clefs,
+  );
+
+await semerExceptions([
+  `${TACHE}/2024-06-01`,
+  `${TACHE}/${HIER}`,
+  `${TACHE}/${AUJOURDHUI}`,
+  `${TACHE}/${AUJOURDHUI}/etape-1`,
+]);
+v('quatre exceptions scellées sont en base', await compter('odysseeExceptionsScellees'), 4);
+
+{
+  /*
+     Le coffre est fermé depuis la section précédente, et c'est l'occasion de
+     mesurer les deux magasins ENSEMBLE : les créneaux sont laissés entiers
+     faute de clé, les exceptions sont comptées quand même. Les deux refus
+     possibles ne sont pas le même refus, et l'écran ne doit pas les
+     confondre.
+  */
+  const d = await compterLaPeriode(HIER, AUJOURDHUI);
+  v('les créneaux sont laissés entiers, coffre fermé', /odysseeCreneaux/.test(d.refus), true);
+  v('mais les exceptions sont comptées', /odysseeExceptionsScellees/.test(d.refus), false);
+  v('trois exceptions sur quatre sont visées', /odysseeExceptionsScellees — 3 sur 4/.test(d.detail), true);
+  v('et compter n’a rien touché', await compter('odysseeExceptionsScellees'), 4);
+
+  await page.click('#effacer-sans');
+  await repondreALaRedemande(page, MDP);
+  await page.waitForTimeout(3000);
+  v('les trois sont parties', await compter('odysseeExceptionsScellees'), 1);
+  /*
+     Et c'est bien celle de 2024 qui reste. Compter les survivants ne suffit
+     pas : « 1 sur 4 » serait vrai aussi si l'effacement avait pris la
+     mauvaise. On relit la clé.
+  */
+  const restantes = await page.evaluate(
+    () =>
+      new Promise((ok) => {
+        const r = indexedDB.open('revinsp');
+        r.onsuccess = () => {
+          const base = r.result;
+          const q = base
+            .transaction('odysseeExceptionsScellees')
+            .objectStore('odysseeExceptionsScellees')
+            .getAllKeys();
+          q.onsuccess = () => {
+            base.close();
+            ok(q.result);
+          };
+        };
+      }),
+  );
+  v('et celle qui reste est bien celle de 2024', restantes, [`${TACHE}/2024-06-01`]);
+}
+
+/* ── Une clé illisible fait laisser le magasin entier ─────────────────── */
+
+console.log('\nUNE CLÉ ILLISIBLE FAIT LAISSER LE MAGASIN ENTIER, ET NON À MOITIÉ');
+
+/*
+   Le garde-fou contre le défaut que ce lot corrige, vu de l'autre bord. Un
+   découpage qui écarterait en silence une clé dont il ne sait pas lire le
+   jour effacerait « 3 sur 4 » en annonçant avoir fait la période. Il refuse
+   le magasin ENTIER, et l'écran dit pourquoi.
+*/
+{
+  await semerExceptions([`${TACHE}/${AUJOURDHUI}`, 'clef-sans-jour']);
+  v('trois exceptions, dont une clé illisible', await compter('odysseeExceptionsScellees'), 3);
+
+  const d = await compterLaPeriode(HIER, AUJOURDHUI);
+  v('le magasin est annoncé laissé entier', /odysseeExceptionsScellees/.test(d.refus), true);
+  v('avec la raison — entier plutôt qu’à moitié', /moitié/.test(d.refus), true);
+
+  await page.click('#effacer-sans');
+  await repondreALaRedemande(page, MDP);
+  await page.waitForTimeout(3000);
+  v('et rien n’a été effacé de ce magasin', await compter('odysseeExceptionsScellees'), 3);
+}
+
 await nav.close();
 console.log(
   echecs

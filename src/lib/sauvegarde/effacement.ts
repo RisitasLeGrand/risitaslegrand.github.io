@@ -164,6 +164,21 @@ export const DECOUPAGES_DE_MODULE: Record<string, () => Promise<DecoupageDuModul
       effacer: module.effacerLesMarquesDeLaPeriode,
     };
   },
+  /*
+     Les exceptions scellées des séries. Ici le motif n'est PAS que la date
+     demande la clé du coffre : la clé primaire vaut `«tacheId»/«jourPrevu»`,
+     donc le jour est en clair et ce découpage ne demande rien. Le motif est
+     que la date n'est dans aucun CHAMP — elle est dans la CLÉ —, et que
+     `dateDe` lit des champs. Conséquence : ce magasin n'est jamais laissé
+     entier faute de coffre, et il n'a pas de phrase de refus.
+  */
+  odysseeExceptionsScellees: async () => {
+    const module = await import('../odyssee/donnees-occurrences');
+    return {
+      compter: module.compterLesExceptionsDeLaPeriode,
+      effacer: module.effacerLesExceptionsDeLaPeriode,
+    };
+  },
 };
 
 /** Un enregistrement tombe-t-il dans la période demandée ? */

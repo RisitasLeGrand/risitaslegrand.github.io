@@ -168,3 +168,62 @@ pour de bon ; c'est le geste d'Alexis.
   nomme un champ présent dans `clairs`. C'est l'assertion qui aurait attrapé
   ceci à la seconde où elle aurait existé, et elle est rouge sur l'état
   d'avant — vérifié avant de corriger, pas après.
+
+## 5. Les exceptions scellées : deux commentaires qui promettaient trop
+
+- **Ce qui était écrit, et qui est faux.** `src/lib/noyau/coffre.ts` disait de
+  `odysseeExceptionsScellees` : « Pas de `jour` ici […] : le jour EST
+  l'information qu'on protège. » `donnees-occurrences.ts` le disait deux fois :
+  « le jour est dans le chiffré ». `groupes.ts` en tirait un troisième choix —
+  découper sur `majLe` — en l'assumant comme « une approximation », et parlait
+  de « LES DEUX SCELLÉS » alors qu'il n'y en a qu'un.
+- **Ce que la clé dit.** La clé primaire d'une exception vaut
+  `«tacheId»/«jourPrevu»`, et `«tacheId»/«jourPrevu»/«etapeId»` pour un
+  cochage — `idOccurrence` et `idEtapeCochee` dans `modele.ts`. Une clé
+  primaire ne peut pas être scellée : **le jour est donc en clair**, et un
+  `getAllKeys` le rend sans coffre. Le commentaire du scellé l'admettait à
+  demi — « la protection est donc PARTIELLE » — tout en répétant au-dessus
+  l'inverse. Les trois textes sont corrigés.
+- **Ce que le correctif gagne, et il gagne deux fois.** `majLe` part à
+  l'intérieur du scellé : il ne protégeait rien et il exposait la date
+  d'**écriture**, c'est-à-dire le moment où la personne a pointé, qui n'est
+  pas dans la clé. `CHAMP_DATE` passe à `null`, puisque plus aucun champ ne
+  porte de date, et le découpage par période vit dans le module, sur le jour
+  de la clé : il est **exact** là où il était approximatif, et il ne demande
+  **pas** le coffre. Les trois magasins des exceptions se découpent enfin sur
+  le même jour logique.
+- **Une clé illisible ne fait jamais un effacement à moitié.** Si un jour ne
+  se lit pas dans une clé, le magasin est laissé **entier** et l'écran dit
+  pourquoi. En pratique le cas n'arrive pas — les identifiants de tâche sont
+  des ULID, sans barre oblique, et un essai le vérifie —, mais rien ne
+  l'impose au contrôle d'une exception, et écarter la clé en silence aurait
+  réintroduit par la porte d'à côté le défaut que ce lot corrige.
+
+### Ce qui reste pour Alexis, sur ce magasin et seulement lui
+
+- **Le journal garde l'ancienne forme, et plus longtemps que la base.** Ce
+  magasin est journalisé : `journaliser('odysseeExceptionsScellees', scelle)`
+  transporte l'enregistrement **scellé** entier, donc la charge reste
+  chiffrée, mais `majLe` y est en clair pour toutes les entrées déjà écrites.
+- **Ce qui existe pour le nettoyer, lu dans le code, rien exécuté.** Une
+  compaction existe — `src/lib/sync/compaction.ts` —, branchée à Stockage
+  (« Voir ce qui partirait », « Compacter maintenant »). Elle n'efface que
+  les entrées des cibles **supprimées** et leurs pierres tombales : jamais une
+  cible vivante, jamais une opération de compaction, jamais une cible dont une
+  opération dépasse la borne. `planifier()` part de l'ensemble des cibles
+  supprimées.
+- **Il n'existe aucune purge ni rotation par type de fait.** La granularité
+  est la cible — `magasin:id` —, pas le type. On ne peut donc pas purger « les
+  faits d'exception » seuls.
+- **Ce que coûterait l'issue.** Une exception supprimée voit ses entrées
+  partir à la première compaction ; une exception **vivante** garde l'ancienne
+  forme pour toujours. Nettoyer les vivantes exige de les supprimer puis de
+  les réécrire — c'est-à-dire l'option C, plus une compaction. Et la
+  compaction n'est pas gratuite : sa borne est la plus petite borne
+  **accusée** par les appareils du registre, et un appareil qui n'a jamais
+  rien accusé la fait refuser, en le nommant à l'écran.
+- **La question, en une phrase.** Faut-il une passe explicite — sauvegarde
+  chiffrée confirmée, réécriture annoncée et dénombrée, puis compaction — pour
+  retirer `majLe` du clair sur les exceptions déjà écrites et dans le journal,
+  ou laisse-t-on le temps faire ce travail à mesure des réécritures ? Rien
+  n'est écrit avant la réponse.
