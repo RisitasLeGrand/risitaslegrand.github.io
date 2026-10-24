@@ -101,6 +101,14 @@ const SOCLE = [
   ['essais:effacement', 'aucun magasin sans groupe, sans date déclarée, sans description'],
   ['essais:semis', 'aucun essai qui sème en base sans dire pourquoi'],
   ['essais:enregistrements', 'le registre des magasins journalisés, nommé et non compté'],
+  /*
+     Ajouté le 24 octobre, sur signalement du pilote. Celui-ci est resté ROUGE
+     sur « main » depuis la fusion du 52 sans que personne le voie : le compte
+     des magasins scellés disait 27 pour 28 réels, et seule une batterie
+     complète le montrait. C'est exactement le genre d'écriture nouvelle que le
+     socle est là pour attraper, et il coûte une seconde.
+  */
+  ['essais:coffre', 'le compte des magasins scellés, et leurs champs en clair'],
 ];
 
 /**
