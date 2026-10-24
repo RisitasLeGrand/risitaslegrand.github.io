@@ -147,6 +147,85 @@ quatre questions, un mot de passe factice, un arbre de travail séparé, et tout
 effacé derrière. L'essai **refuse de démarrer si `content/` existe** ; il est
 inscrit à `EN_LABORATOIRE`.
 
+## 2 bis. Les trois points confiés le 19 au soir
+
+### Le voile des dialogues hors thème
+
+Le `::backdrop` était écrit en dur au `slate-900` de Tailwind : il restait
+bleuté dans les quatorze thèmes, là où `.boite::backdrop` tire sa couleur de
+`--etat-ombre` depuis son propre correctif. La même valeur était revenue par
+une autre porte, ce qu'une correction ponctuelle ne pouvait pas empêcher.
+
+**Une seule règle, deux sélecteurs** — `.boite::backdrop,
+.voile-du-theme::backdrop` —, et non deux règles jumelles, qui dérivent. Le
+fondu et les durées réduites n'avaient rien à recevoir : `dialog::backdrop`
+s'applique à **tous** les dialogues, pas aux seules boîtes ; seule la couleur
+leur manquait.
+
+*Et la garde a trouvé un troisième dialogue.* La commande en nommait deux, mon
+propre relevé en avait trouvé deux — parce qu'il ne lisait que les `.astro` et
+les `.ts`. Le dialogue de l'assistant est un composant **Svelte**, et il
+portait le même voile. J'avais écrit au pilote « deux, et pas une troisième » :
+c'était faux, et c'est l'essai qui l'a dit, avant la poussée.
+
+### H2 — le mouvement réduit
+
+Six défilements `smooth` ne consultaient aucune préférence. Elle est pourtant
+respectée partout ailleurs, mais par la feuille de style — et un défilement
+demandé en JavaScript ne passe pas par elle.
+
+Une fonction, et non six `if` : le septième défilement serait reparti en
+`smooth`, parce que c'est la forme qu'on recopie en ajoutant un écran.
+
+*Ce que l'essai existant m'a refusé.* Ma première écriture ne lisait que le
+réglage du **système**. `essais:mouvement-reduit` tient une règle qu'aucun
+lecteur ne connaisse un seul des deux réglages : il y a aussi celui de
+l'application, `data-animations`. Quelqu'un qui coupe les animations dans
+Cyclades sans pouvoir le faire dans son système — un ordinateur partagé, un
+téléphone de service — aurait vu l'écran glisser quand même.
+
+*Et ce que j'ai failli détruire.* `src/lib/defilement.ts` **existait déjà** et
+portait deux fonctions que la mise en page et les statistiques importent. Je
+l'ai écrasé. Rien ne me l'a dit sur le moment : je lisais `astro check` avec
+`tail -3`, qui coupe la ligne des erreurs du résumé, et la construction ne
+contrôle pas les types. Les deux fonctions sont rendues à l'octet près, et mes
+exports sont ajoutés à la suite.
+
+La rotation 3D, enfin, n'est pas où la commande la situait — elle vit dans
+`Grille.svelte` — et elle était **déjà** coupée sous mouvement réduit, sans
+que personne le vérifie. L'essai le constate ; ce qui manquait est
+l'avertissement, désormais relié à la case qui l'allume.
+
+### H5 — les deux histogrammes des statistiques
+
+**La ligne annoncée est tracée.** « Ligne pointillée à 10 h » était écrit sous
+le graphique depuis le début, et aucun trait n'existait.
+
+**Les données en toutes lettres** : un tableau repliable avec sa légende sous
+chaque graphique. L'échéancier n'avait aucun nom accessible ; celui de
+l'histogramme *récitait* les douze semaines, ce qu'on ne peut ni relire ni
+comparer — il annonce maintenant, et renvoie au tableau.
+
+**3:1 sur leur fond, mesuré** et non supposé : les marques n'y étaient pas —
+vert à 2,54 sur blanc, et la tranche basse à 1,99 en clair et 1,80 en sombre,
+c'est-à-dire la barre des semaines faibles, celle qu'on a le plus besoin de
+voir. Les trois tranches se distinguent désormais par la **teinte** et non par
+la clarté d'une même couleur : trois marches d'une rampe indigo ne peuvent pas
+toutes tenir 3:1 sur blanc **et** sur l'ardoise foncée.
+
+**Ce que je n'ai pas fait** : chaque colonne n'est pas devenue un bouton. Ce
+serait la façon la plus directe de rendre la valeur « visible au toucher », et
+elle coûterait quarante-deux arrêts de tabulation sur cette page pour une
+information que le tableau porte mieux — on y compare deux lignes, ce qu'une
+bulle sur une barre ne permet pas.
+
+**Ce que j'ai balayé pour fixer le périmètre** : les seuls graphiques tracés du
+dépôt sont ceux de `sport/force.astro` et `odyssee/corps.astro`, et tous deux
+étaient **déjà conformes** — SVG en `aria-hidden`, `figure`, tableau des mêmes
+points, `caption`. Les autres « barres » du dépôt sont des jauges de
+progression, pas des graphiques. D'où le périmètre : les deux histogrammes de
+`statistiques.astro`.
+
 ---
 
 ## 3. Ce qui est listé sans être touché, et par quel interdit
