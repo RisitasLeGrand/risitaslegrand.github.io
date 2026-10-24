@@ -16,7 +16,7 @@ import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 const MDP = motDePasseEssais();
 const S = process.env.DOSSIER_ESSAIS ?? '/tmp';
 
-const nav = await chromium.launch({ executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome', args: ['--no-sandbox'] });
+const nav = await chromium.launch({ executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium', args: ['--no-sandbox'] });
 const ctx = await nav.newContext({ viewport: { width: 1000, height: 900 }, acceptDownloads: true });
 const page = await ctx.newPage();
 page.on('pageerror', (e) => console.log('PAGEERROR:', e.message.slice(0, 160)));

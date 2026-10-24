@@ -95,7 +95,7 @@ console.log('\n  B — les catégories sous coffre');
 console.log('\n  C — à l’écran, coffre fermé');
 
 const nav = await chromium.launch({
-  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium',
   args: ['--no-sandbox'],
 });
 const ctx = await nav.newContext({ viewport: { width: 1280, height: 900 } });

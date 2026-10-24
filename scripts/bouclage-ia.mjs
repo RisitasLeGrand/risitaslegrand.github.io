@@ -43,7 +43,7 @@ const comptes = Object.entries(jeu)
 console.log(`  jeu engendré : ${comptes.join(', ')}`);
 
 const nav = await chromium.launch({
-  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium',
   args: ['--no-sandbox'],
 });
 const contexte = await nav.newContext({ acceptDownloads: true });

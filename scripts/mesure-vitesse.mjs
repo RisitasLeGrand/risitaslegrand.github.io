@@ -86,7 +86,7 @@ const QUOTIDIENS = [
 ];
 
 const nav = await chromium.launch({
-  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium',
   args: ['--no-sandbox'],
 });
 const ctx = await nav.newContext({

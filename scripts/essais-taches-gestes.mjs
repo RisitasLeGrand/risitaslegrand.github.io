@@ -54,7 +54,7 @@ const v = (titre, obtenu, attendu) => {
 console.log('\nLISTE DES TÂCHES — LES GESTES PENDANT LE GLISSEMENT (A5)');
 
 const nav = await chromium.launch({
-  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium',
   args: ['--no-sandbox'],
 });
 const ctx = await nav.newContext({ viewport: { width: 390, height: 844 } });

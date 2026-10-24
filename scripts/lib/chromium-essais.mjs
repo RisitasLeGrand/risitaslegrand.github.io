@@ -5,7 +5,7 @@
  * ## Le piège, signalé le 19 octobre
  *
  * Les essais de navigateur portent le chemin du binaire en toutes lettres :
- * `process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome'`.
+ * `process.env.CHROMIUM ?? '/opt/pw-browsers/chromium'`.
  * Deux ennuis en découlent, et les deux produisent des rouges qui ne viennent
  * pas du site.
  *

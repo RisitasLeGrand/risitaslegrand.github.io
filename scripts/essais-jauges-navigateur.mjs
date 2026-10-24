@@ -190,7 +190,7 @@ console.log('\n  C — à l’écran, la proportion est juste');
    voir qu'une jauge ment, et elle ne coûte aucune donnée.
 */
 const nav = await chromium.launch({
-  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium',
   args: ['--no-sandbox'],
 });
 

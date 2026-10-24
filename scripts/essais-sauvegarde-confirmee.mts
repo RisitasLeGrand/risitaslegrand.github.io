@@ -136,7 +136,7 @@ for (const [chemin, raison] of Object.entries(AUTORISES)) {
 console.log('\n\x1b[1mL’ÉCRAN NE DIT PAS « RÉUSSI » AVANT D’EN SAVOIR QUELQUE CHOSE\x1b[0m\n');
 
 const nav = await chromium.launch({
-  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium',
   args: ['--no-sandbox'],
 });
 

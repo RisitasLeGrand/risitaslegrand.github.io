@@ -37,7 +37,7 @@ const nav = await chromium.launch({
      s'arrêtait avant d'avoir ouvert une page. Un essai qui ne démarre pas
      n'échoue pas : il disparaît, ce qui est pire.
   */
-  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium',
   args: ['--no-sandbox'],
 });
 const ctx = await nav.newContext({ viewport: { width: 1100, height: 1000 } });

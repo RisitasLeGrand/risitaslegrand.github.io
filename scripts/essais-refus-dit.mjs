@@ -71,7 +71,7 @@ verifier('il y en a bien plusieurs', chemins.length >= 5, true);
    dit rien du site, et qui fait douter des vrais.
 */
 const nav = await chromium.launch({
-  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium',
 });
 const ctx = await nav.newContext({ viewport: { width: 1280, height: 900 } });
 const amorce = await ctx.newPage();

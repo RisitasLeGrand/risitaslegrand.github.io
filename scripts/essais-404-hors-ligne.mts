@@ -75,7 +75,7 @@ v('et la flèche le dit', [nomDuParent('/404/'), nomDuParent('/hors-ligne/')], [
 console.log('\n\x1b[1mUNE ADRESSE INCONNUE RESTE DANS CYCLADES\x1b[0m\n');
 
 const nav = await chromium.launch({
-  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium',
   args: ['--no-sandbox'],
 });
 
