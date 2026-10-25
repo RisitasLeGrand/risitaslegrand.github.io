@@ -111,17 +111,27 @@ export interface Parcours {
    */
   rotationParDefaut: string[];
   /**
-   * Pourquoi ce parcours n'a aucun thème ALORS QUE son référentiel est établi.
+   * Ce qu'il faut savoir du programme de ce parcours, même quand il se planifie.
    *
-   * Un parcours sans thèmes dont le référentiel est `a-etablir` attend sa
-   * source, et `raisonNonPlanifiable` le dit très bien. Mais un parcours peut
-   * avoir une source officielle ET aucun thème : DGFiP A+, dont le programme a
-   * été abrogé. Lui servir « son programme n'est pas encore établi sur source
-   * officielle » serait faux, dit à la personne au moment où elle cherche quoi
-   * réviser. La phrase est donc déclarée par le parcours qui connaît sa raison,
-   * plutôt que devinée par un message générique.
+   * ## Pourquoi ce champ n'est pas une raison de refus
+   *
+   * Il a d'abord été écrit comme telle — « pourquoi ce parcours n'a aucun thème
+   * alors que son référentiel est établi » —, pour DGFiP A+, qui n'en avait
+   * aucun. Dès que A+ a reçu les quatre épreuves de l'article 1er, ce champ
+   * devenait mort : plus aucun parcours n'est sans thèmes, et la phrase se
+   * serait tue avec lui.
+   *
+   * Or ce qu'elle dit reste vrai et reste utile : le programme ANNEXÉ de A+ est
+   * abrogé depuis le 6 septembre 2025, ses thèmes viennent du seul article 1er,
+   * et ce sont des épreuves plutôt que des matières. Quelqu'un qui cherche « le
+   * programme de l'IPFiP » tombera sur un texte abrogé ; il vaut mieux le lui
+   * dire que de le laisser le découvrir.
+   *
+   * L'avertissement s'affiche donc avec le calendrier, et non à sa place. Il
+   * sert aussi de raison de repli si un parcours se retrouvait sans thèmes avec
+   * un référentiel établi — voir `raisonNonPlanifiable`.
    */
-  raisonSansThemes?: string;
+  avertissementDuProgramme?: string;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -349,23 +359,41 @@ const THEMES_DGFIP_A: ThemePlanification[] = [
       'Histoire et géographie',
     ],
   },
+  {
+    /*
+       AJOUTÉ LE 25 OCTOBRE, ET IL MANQUAIT POUR DEUX RAISONS À LA FOIS.
+
+       Le QCM porte l'organisation de la DGFiP dans son thème I — « les
+       institutions administratives », « la réforme de l'État », et au § 3.2
+       l'organisation administrative de la France. Et l'épreuve n° 2 du concours
+       INTERNE en fait son option 5, « budget, immobilier, gestion des
+       ressources humaines, logistique et organisation de la DGFiP », dont le
+       document note que la partie III « reprend mot pour mot, à la graphie
+       près » l'option 10 du concours de contrôleur.
+
+       Il porte donc le même identifiant et le même intitulé que chez DGFiP B :
+       c'est la même matière, et le lot de partage entre parcours s'appuiera
+       là-dessus. Avec lui, DGFiP A a sept thèmes pour sept jours.
+    */
+    id: 'environnement-dgfip',
+    nom: 'Environnement et organisation de la DGFiP',
+    court: 'Env. DGFiP',
+    icone: '🏛️',
+    matieres: ['Organisation de la DGFiP'],
+  },
 ];
 
 /*
-   Six thèmes, sept jours, et le septième jour ne reçoit AUCUNE proposition.
+   Sept thèmes, sept jours. Le dimanche prend l'option de QRC, qui est une
+   matière académique entière, comme le dimanche de l'INSP prend l'exercice le
+   plus long. Les cinq thèmes du QCM suivent du lundi au vendredi, dans l'ordre
+   de l'arrêté, et l'organisation de la DGFiP ferme la semaine.
 
-   Trois sorties étaient possibles et deux sont fausses. Répéter un thème
-   choisirait pour la personne la matière qui compte double, ce que l'arrêté ne
-   dit pas. Y mettre le repos affirmerait un jour de repos que personne n'a
-   décidé — et `rotation.ts` le refuserait de toute façon, puisque la rotation
-   par défaut ne peut nommer que les thèmes du parcours. Le tableau s'arrête
-   donc à six : `rotationParDefaut()` complète le septième jour par
-   `SANS_THEME`, qui veut dire « rien n'est proposé ce jour-là », et la page de
-   planification laisse la personne l'assigner.
-
-   Le dimanche prend l'option de QRC, qui est une matière académique entière,
-   comme le dimanche de l'INSP prend l'exercice le plus long. Les cinq thèmes
-   du QCM suivent du lundi au vendredi, dans l'ordre de l'arrêté.
+   La semaine était incomplète jusqu'au 25 octobre : six thèmes, et le samedi
+   sans proposition. Le septième thème ne vient pas d'un arrangement de
+   calendrier mais d'une lecture qui manquait — le QCM et l'option 5 de
+   l'interne portent tous deux l'organisation de la DGFiP. C'est le programme
+   qui remplit la semaine, non l'inverse.
 */
 const ROTATION_DGFIP_A = [
   'option-qrc', // dimanche
@@ -374,7 +402,118 @@ const ROTATION_DGFIP_A = [
   'culture-numerique', // mercredi
   'raisonnement-logique', // jeudi
   'anglais', // vendredi
-  // samedi : rien de proposé, et c'est dit plus haut.
+  'environnement-dgfip', // samedi
+];
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DGFiP A+ — l'article 1er, et lui seul, puisque l'annexe est abrogée
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/*
+   CE PARCOURS A DES THÈMES SANS AVOIR DE PROGRAMME, ET LA NUANCE EST TOUT.
+
+   L'annexe de programme de l'arrêté du 2 mars 2011 est ABROGÉE depuis le
+   6 septembre 2025 — article 2 de l'arrêté du 4 septembre 2025, état `ABROGE`
+   pour `LEGIARTI000030768328`. Chercher « le programme de l'IPFiP » aboutit
+   donc à un texte abrogé, et c'est un piège que la préparation doit connaître.
+
+   Ce qui reste en vigueur, c'est l'ARTICLE 1er, dans sa version du
+   22 décembre 2025, qui délimite encore les épreuves. Les thèmes ci-dessous
+   viennent de lui et de rien d'autre : ils décrivent des ÉPREUVES, non un
+   programme de connaissances, et l'avertissement du parcours le dit à la
+   personne au lieu de le laisser croire.
+
+   La conséquence pratique est que ces thèmes sont des métiers là où ceux de
+   l'INSP sont des matières académiques. On ne « révise » pas la fiscalité
+   professionnelle comme on révise le droit public ; on s'y prépare sur des cas
+   pratiques. Le registre n'a pas de place pour dire cela, et c'est à
+   l'avertissement de le porter.
+*/
+const THEMES_DGFIP_AP: ThemePlanification[] = [
+  {
+    /*
+       Épreuve n° 1, cinq heures, coefficient 6 : une note administrative « sur
+       un sujet relatif à l'environnement administratif, économique, financier
+       et social de la DGFiP, ainsi qu'aux politiques publiques dans lesquelles
+       la DGFiP intervient ». Un seul thème, parce que l'arrêté n'y découpe
+       rien.
+    */
+    id: 'environnement-et-politiques-publiques',
+    nom: 'Environnement administratif, économique, financier et social',
+    court: 'Env. et pol.',
+    icone: '🏛️',
+    matieres: ['Environnement administratif, économique, financier et social', 'Politiques publiques'],
+  },
+  {
+    /*
+       Épreuve n° 2, première partie, notée 15 points sur 20 : six options « au
+       choix du candidat ». Un seul thème, comme pour les options de QRC chez A
+       et B — six thèmes auraient proposé cinq séances par semaine sur des
+       métiers que personne ne prépare. Les intitulés sont ceux du texte, avec
+       ses élisions : « la gestion comptable et l'analyse financière », « la
+       gestion des ressources et l'organisation de la DGFiP ».
+    */
+    id: 'option-metier',
+    nom: 'Épreuve professionnelle',
+    court: 'Métier',
+    icone: '🔀',
+    matieres: [
+      'Fiscalité professionnelle',
+      'Fiscalité personnelle et patrimoniale',
+      'Gestion comptable et l’analyse financière',
+      'Gestion publique (État et collectivités locales)',
+      'Gestion des ressources et l’organisation de la DGFiP',
+      'Systèmes d’information',
+    ],
+  },
+  {
+    /*
+       Épreuve n° 2, seconde partie, notée 5 points sur 20, et COMMUNE à tous
+       les candidats : elle ne dépend d'aucune option, donc elle a son thème
+       propre. La ranger avec les six options aurait laissé croire qu'on peut
+       ne pas la préparer.
+    */
+    id: 'analyse-financiere',
+    nom: 'Analyse financière',
+    court: 'Analyse fin.',
+    icone: '📊',
+    matieres: ['Analyse financière'],
+  },
+  {
+    /*
+       L'oral, quarante minutes, coefficient 8 — le plus fort de l'épreuve. Il
+       a son thème parce qu'il se prépare, et parce que c'est la SEULE épreuve
+       notée des deux examens professionnels (§ 4.2 et § 4.3), où il n'y a ni
+       écrit ni programme de connaissances.
+    */
+    id: 'entretien-avec-le-jury',
+    nom: 'Entretien avec le jury',
+    court: 'Oral',
+    icone: '🎙️',
+    matieres: ['Entretien avec le jury'],
+  },
+];
+
+/*
+   Quatre thèmes, sept jours : trois jours ne reçoivent AUCUNE proposition, et
+   l'écran le dit case par case.
+
+   C'est volontaire et c'est honnête. L'arrêté ne délimite que quatre épreuves ;
+   en étaler quatre sur sept jours obligerait à en répéter trois, c'est-à-dire à
+   désigner les matières qui comptent double — ce que le texte ne dit pas, et
+   qui est précisément le genre d'invention que ce parcours doit éviter plus que
+   tout autre, puisque son programme a été retiré.
+
+   L'ordre suit le poids : l'épreuve professionnelle et la note administrative
+   pèsent chacune coefficient 6, l'oral 8, et l'analyse financière vaut cinq
+   points de l'épreuve n° 2.
+*/
+const ROTATION_DGFIP_AP = [
+  'option-metier', // dimanche
+  'environnement-et-politiques-publiques', // lundi
+  'analyse-financiere', // mardi
+  'entretien-avec-le-jury', // mercredi
+  // jeudi, vendredi, samedi : rien de proposé, et l'écran l'annonce.
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -457,29 +596,21 @@ export const PARCOURS: Parcours[] = [
       origine: 'officiel',
       source:
         'Arrêté du 2 mars 2011 (NOR BCRE1104996A, JORF n° 0055 du 6 mars 2011, ' +
-        'JORFTEXT000023662346), article 1er en vigueur depuis le 22 décembre 2025 ; son ' +
-        'annexe de programme est ABROGÉE depuis le 6 septembre 2025 par l’article 2 de ' +
-        'l’arrêté du 4 septembre 2025 (NOR ECOE2524347A) — lu au 14 octobre 2026 ; relevé ' +
-        'dans docs/cyclades/programmes-dgfip.md',
+        'JORFTEXT000023662346), article 1er, version du 22/12/2025 ; annexe abrogée le ' +
+        '06/09/2025 par l’article 2 de l’arrêté du 4 septembre 2025 (NOR ECOE2524347A) — lu ' +
+        'au 14 octobre 2026 ; relevé dans docs/cyclades/programmes-dgfip.md',
       verifieLe: '2026-10-17',
     },
-    /*
-       AUCUN THÈME, ET CE N'EST PLUS UNE ATTENTE. L'annexe de programme est
-       abrogée depuis le 6 septembre 2025 : les six options de l'épreuve n° 2 du
-       concours professionnel sont la seule délimitation en vigueur, et ce sont
-       des MÉTIERS — fiscalité professionnelle, gestion publique, systèmes
-       d'information — non des matières académiques. Les deux examens
-       professionnels, eux, n'ont qu'un oral et aucun programme de
-       connaissances. Fabriquer des thèmes ici reviendrait à inventer le
-       programme que l'État a retiré.
-    */
-    themes: [],
-    rotationParDefaut: [],
-    raisonSansThemes:
-      'Le programme de DGFiP A+ n’attend pas une source : il a été abrogé. Depuis le ' +
-      '6 septembre 2025, aucun programme n’est annexé au concours professionnel, et les deux ' +
-      'examens professionnels n’ont qu’un oral. La planification par thèmes n’a donc rien à ' +
-      'proposer ; les six options de l’épreuve n° 2 sont des métiers, pas des matières.',
+    themes: THEMES_DGFIP_AP,
+    rotationParDefaut: ROTATION_DGFIP_AP,
+    avertissementDuProgramme:
+      'Le programme annexé de ce concours a été abrogé le 6 septembre 2025 : chercher « le ' +
+      'programme de l’IPFiP » mène à un texte qui n’est plus en vigueur. Les quatre thèmes ' +
+      'ci-dessous viennent du seul article 1er de l’arrêté, dans sa version du 22 décembre ' +
+      '2025, qui délimite encore les épreuves. Ce sont donc des épreuves et des métiers, et ' +
+      'non un programme de connaissances : trois jours de la semaine restent sans proposition, ' +
+      'parce que l’arrêté n’en délimite que quatre. Les deux examens professionnels ouverts aux ' +
+      'inspecteurs n’ont, eux, qu’un oral.',
   },
 ];
 
@@ -521,7 +652,7 @@ export function raisonNonPlanifiable(p: Parcours): string | null {
   */
   if (p.referentiel.origine !== 'a-etablir') {
     return (
-      p.raisonSansThemes ??
+      p.avertissementDuProgramme ??
       `Le programme de ${p.libelle} ne donne aucun thème de planification, et la raison n’est pas déclarée. C’est un défaut du registre, non un état de ce concours.`
     );
   }

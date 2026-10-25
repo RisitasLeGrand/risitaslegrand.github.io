@@ -189,25 +189,88 @@ for (const p of DGFIP) {
 }
 
 /*
-   LE CAS QUI N'EST PAS UNE ATTENTE. DGFiP A+ a un référentiel officiel et
-   aucun thème, parce que son programme est ABROGÉ depuis le 6 septembre 2025.
-   Le contrôle vérifie que le registre et le document disent la même chose, car
-   c'est exactement le genre d'écart qui se creuse en silence : le document
-   pourrait être corrigé un jour sans que le registre suive.
+   LE CAS LE PLUS DÉLICAT DES TROIS : DES THÈMES SANS PROGRAMME.
+
+   DGFiP A+ a un référentiel officiel, et son programme ANNEXÉ est abrogé depuis
+   le 6 septembre 2025. Il a pourtant des thèmes depuis le 25 octobre, tirés du
+   seul article 1er, qui délimite encore les épreuves. Les deux faits tiennent
+   ensemble et c'est tout l'objet de ce bloc : des thèmes qui décrivent des
+   épreuves, pas un programme de connaissances, et une personne avertie que
+   chercher « le programme de l'IPFiP » mène à un texte retiré.
+
+   Si le document était corrigé un jour sans que le registre suive — ou
+   l'inverse —, c'est ici que l'écart se verrait. C'est exactement le genre
+   d'écart qui se creuse en silence.
 */
 const ap = PARCOURS.find((p) => p.id === 'dgfip-ap');
 v('DGFiP A+ existe', Boolean(ap), true);
 if (ap) {
   v('son référentiel est officiel', ap.referentiel.origine, 'officiel');
-  v('il n’a aucun thème', ap.themes.length, 0);
-  v('il n’est donc pas planifiable', planifiable(ap), false);
-  v('sa source dit l’abrogation', /ABROG/i.test(ap.referentiel.source ?? ''), true);
-  v('et le document aussi', /abrogé les dispositions suivantes/.test(SOURCE), true);
+  v('il porte les quatre épreuves de l’article 1er', ap.themes.length, 4);
+  v('il se planifie donc', planifiable(ap), true);
+  /*
+     Quatre thèmes et sept jours : trois jours sans proposition. Le contrôle
+     tient le chiffre parce qu'il est une conséquence du texte, non un choix de
+     calendrier — en étaler quatre sur sept aurait désigné les matières qui
+     comptent double.
+  */
+  v('sa rotation ne propose que quatre jours', ap.rotationParDefaut.length, 4);
+  v('sa source nomme l’article 1er et sa version', /article 1er, version du 22\/12\/2025/.test(ap.referentiel.source ?? ''), true);
+  v('et l’abrogation de l’annexe, datée', /annexe abrogée le 06\/09\/2025/.test(ap.referentiel.source ?? ''), true);
+  v('le document dit la même abrogation', /abrogé les dispositions suivantes/.test(SOURCE), true);
+  /*
+     L'AVERTISSEMENT EST LA PIÈCE QUI REND CE PARCOURS HONNÊTE. Sans lui, des
+     thèmes tirés de l'article 1er passeraient pour un programme. Il doit donc
+     dire l'abrogation ET d'où viennent les thèmes.
+  */
+  v('son avertissement dit l’abrogation', /abrog/i.test(ap.avertissementDuProgramme ?? ''), true);
   v(
-    'sa raison propre est déclarée, et elle dit « abrogé »',
-    /abrog/i.test(ap.raisonSansThemes ?? ''),
+    'et d’où viennent ses thèmes',
+    /article 1er/.test(ap.avertissementDuProgramme ?? ''),
     true,
   );
+  v(
+    'et que trois jours restent sans proposition',
+    /sans proposition/.test(ap.avertissementDuProgramme ?? ''),
+    true,
+  );
+  /*
+     Aucun autre parcours ne porte cet avertissement : B et A ont un programme
+     en vigueur, et leur en coller un affaiblirait celui qui compte.
+  */
+  v(
+    'et lui seul porte un avertissement',
+    PARCOURS.filter((p) => p.avertissementDuProgramme).map((p) => p.id),
+    ['dgfip-ap'],
+  );
+}
+
+/*
+   LE THÈME PARTAGÉ, REPÉRÉ MAIS PAS ENCORE PARTAGÉ.
+
+   `environnement-dgfip` existe chez DGFiP B et chez DGFiP A, avec le même
+   identifiant et le même intitulé : c'est la même matière, portée chez B par
+   l'oral et l'option 10 de l'interne, et chez A par le thème I du QCM et
+   l'option 5 de l'interne. Les deux déclarations sont donc VOULUES identiques,
+   et ce contrôle les y tient — une divergence d'intitulé rendrait le partage à
+   venir plus coûteux qu'il ne doit l'être.
+
+   Le partage réel — une fiche, un identifiant, un historique — est un lot à
+   part, et il n'est pas fait ici.
+*/
+{
+  const porteurs = PARCOURS.filter((p) => p.themes.some((t) => t.id === 'environnement-dgfip'));
+  v(
+    'l’organisation de la DGFiP est déclarée chez B et chez A',
+    porteurs.map((p) => p.id).sort(),
+    ['dgfip-a', 'dgfip-b'],
+  );
+  const intitules = new Set(
+    porteurs.flatMap((p) => p.themes.filter((t) => t.id === 'environnement-dgfip').map((t) => t.nom)),
+  );
+  v('et des deux côtés sous le même intitulé', [...intitules], [
+    'Environnement et organisation de la DGFiP',
+  ]);
 }
 
 console.log('\nLÀ OÙ L’ARRÊTÉ LAISSE UN CHOIX, LE REGISTRE NE TRANCHE PAS');
@@ -231,16 +294,27 @@ for (const p of DGFIP) {
    plusieurs, et cet essai le tient — un thème d'option ramené à une seule
    matière serait un choix déguisé en programme.
 */
+/*
+   Les deux formes d'option : `option-qrc` chez le contrôleur et l'inspecteur,
+   `option-metier` chez l'inspecteur principal, dont les six choix sont des
+   métiers. Le contrôle couvre les deux : n'en nommer qu'une aurait laissé
+   l'autre se réduire à une seule matière sans que rien ne le dise.
+*/
 for (const p of DGFIP) {
-  const option = p.themes.find((t) => t.id === 'option-qrc');
-  if (option) {
+  for (const option of p.themes.filter((t) => t.id.startsWith('option-'))) {
     v(
-      `${p.libelle} : le thème d’option laisse le choix entre plusieurs matières`,
+      `${p.libelle} · ${option.id} : le choix reste ouvert entre plusieurs matières`,
       option.matieres.length > 1,
       true,
     );
   }
 }
+
+v(
+  'et chaque parcours DGFiP porte bien une épreuve à option',
+  DGFIP.filter((p) => !p.themes.some((t) => t.id.startsWith('option-'))).map((p) => p.id),
+  [],
+);
 
 console.log(
   echecs === 0

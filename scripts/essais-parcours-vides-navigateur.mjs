@@ -115,6 +115,9 @@ async function ouvrirLaPlanification(idParcours) {
        l'exiger à sept aurait fait rougir l'essai sur son propre malentendu.
        Mesuré : quatorze sur un carnet ouvert du jour.
     */
+    avertissement: await page.locator('#avertissement-programme').isVisible(),
+    texteAvertissement:
+      (await page.locator('#texte-avertissement-programme').textContent().catch(() => '')) ?? '',
     semaine: await page.locator('#grille-rotation select').count(),
     rotation: (await page.locator('#grille-rotation').textContent().catch(() => '')) ?? '',
     sansProposition: await page
@@ -191,9 +194,16 @@ for (const [id, libelle, attendu] of [
   v('DGFiP B : ses sept thèmes remplissent la semaine', b.sansProposition, 0);
   faux('DGFiP B : aucune case ne dit « rien de proposé »', /Rien de proposé/.test(b.rotation));
 
+  /*
+     DGFiP A a reçu son septième thème le 25 octobre — l'organisation de la
+     DGFiP, portée par le thème I du QCM et l'option 5 de l'interne —, donc sa
+     semaine est pleine. Le cas « jour sans proposition » a migré vers A+, et
+     c'est là qu'il est mesuré. Le garder ici aurait fait rougir l'essai sur un
+     état que le programme ne produit plus.
+  */
   const a = await ouvrirLaPlanification('dgfip-a');
-  v('DGFiP A : un seul jour reste sans proposition', a.sansProposition, 1);
-  vrai('DGFiP A : et l’écran le dit au lieu d’afficher un thème', /Rien de proposé/.test(a.rotation));
+  v('DGFiP A : ses sept thèmes remplissent la semaine', a.sansProposition, 0);
+  faux('DGFiP A : aucune case ne dit « rien de proposé »', /Rien de proposé/.test(a.rotation));
   /*
      Le témoin de la correction : l'INSP a sept thèmes, donc aucune case vide,
      donc la phrase ne doit pas apparaître. Sans ce constat, une option ajoutée
@@ -204,24 +214,53 @@ for (const [id, libelle, attendu] of [
   faux('INSP : et la phrase ne s’affiche pas', /Rien de proposé/.test(insp.rotation));
 }
 
-/* ── 3. Référentiel officiel, aucun thème : l'abrogation ──────────────── */
+/* ── 3. Des thèmes sans programme : A+ avertit au lieu de se taire ────── */
 
-console.log('\nRÉFÉRENTIEL OFFICIEL ET AUCUN THÈME — LA VRAIE RAISON');
+console.log('\nDES THÈMES SANS PROGRAMME — A+ AVERTIT AU LIEU DE SE TAIRE');
 
+/*
+   LE CAS A CHANGÉ DE NATURE LE 25 OCTOBRE, ET L'ESSAI AVEC LUI.
+
+   A+ n'avait aucun thème, et affichait donc le bloc « Planification
+   indisponible » avec la raison de l'abrogation. Alexis veut le parcours servi :
+   il porte maintenant les quatre épreuves de l'article 1er, qui est la seule
+   délimitation en vigueur. Son calendrier s'ouvre donc, et le fait qui comptait
+   — le programme annexé est abrogé — ne doit pas disparaître avec le bloc qui le
+   portait. Il est passé dans un avertissement affiché AVEC le calendrier.
+
+   C'est le genre de glissement qui fait perdre une garantie sans qu'une seule
+   ligne rougisse : le bloc disparaît, sa phrase avec, et l'essai qui ne
+   mesurait que le bloc reste vert.
+*/
 {
   const e = await ouvrirLaPlanification('dgfip-ap');
-  faux('DGFiP A+ : le calendrier ne s’ouvre pas', e.calendrier);
-  vrai('DGFiP A+ : le bloc « indisponible » s’affiche', e.indisponible);
-  vrai('DGFiP A+ : et il dit l’abrogation', /abrog/i.test(e.raison));
+  vrai('DGFiP A+ : le calendrier s’ouvre', e.calendrier);
+  faux('DGFiP A+ : le bloc « indisponible » reste fermé', e.indisponible);
+  vrai('DGFiP A+ : mais l’avertissement s’affiche', e.avertissement);
+  vrai('DGFiP A+ : et il dit l’abrogation', /abrog/i.test(e.texteAvertissement));
+  vrai("DGFiP A+ : et d’où viennent ses thèmes", /article 1er/.test(e.texteAvertissement));
+  faux(
+    'DGFiP A+ : et ne prétend pas attendre une source',
+    /pas encore établi/.test(e.texteAvertissement),
+  );
   /*
-     LE CŒUR DE CE BLOC. Avant ce lot, A+ recevait « son programme n'est pas
-     encore établi sur source officielle ». Sa source EXISTE — l'arrêté du
-     2 mars 2011 —, et c'est son programme annexé qui a été abrogé le
-     6 septembre 2025. La phrase d'avant était donc fausse, dite à la personne
-     au moment où elle cherche quoi réviser.
+     Quatre épreuves, sept jours : trois jours sans proposition, annoncés case
+     par case. C'est ici que le compte se mesure, et non dans le registre seul.
   */
-  faux('DGFiP A+ : et ne prétend plus attendre une source', /pas encore établi/.test(e.raison));
-  vrai('DGFiP A+ : la raison n’est pas vide', e.raison.trim().length > 40);
+  v('DGFiP A+ : trois jours restent sans proposition', e.sansProposition, 3);
+  vrai('DGFiP A+ : et l’écran le dit', /Rien de proposé/.test(e.rotation));
+  vrai('DGFiP A+ : son épreuve professionnelle est au calendrier', e.planning.includes('Épreuve professionnelle'));
+}
+
+/*
+   ET L'AVERTISSEMENT NE S'AFFICHE QUE LÀ. Le coller partout affaiblirait celui
+   qui compte ; un bandeau permanent cesse d'être lu.
+*/
+console.log('\nET AUCUN AUTRE PARCOURS NE PORTE CET AVERTISSEMENT');
+
+for (const [id, libelle] of [['insp', 'INSP'], ['dgfip-b', 'DGFiP B'], ['dgfip-a', 'DGFiP A']]) {
+  const e = await ouvrirLaPlanification(id);
+  faux(`${libelle} : aucun avertissement de programme`, e.avertissement);
 }
 
 /* ── 4. Rien n'a levé ─────────────────────────────────────────────────── */

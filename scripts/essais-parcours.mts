@@ -22,6 +22,7 @@ import {
   parcoursOuDefaut,
   planifiable,
   raisonNonPlanifiable,
+  type Parcours,
 } from '../src/lib/parcours/registre';
 import { lienCours } from '../src/lib/parcours/lien-cours';
 import {
@@ -141,35 +142,92 @@ verifier(
 */
 const sansThemes = PARCOURS.filter((p) => !planifiable(p));
 
-verifier('des parcours restent sans thèmes de planification', sansThemes.length > 0, true);
+/*
+   TOUS LES PARCOURS SE PLANIFIENT AUJOURD'HUI, ET C'EST UN ÉTAT, PAS UNE RÈGLE.
+
+   Ce contrôle exigeait l'inverse — « des parcours restent sans thèmes » — et il
+   était juste deux fois de suite pour deux raisons différentes : DGFiP A et A+
+   attendaient leur référentiel, puis A+ seul restait sans thèmes, son programme
+   étant abrogé. Depuis que A+ porte les quatre épreuves de l'article 1er, plus
+   aucun parcours n'est sans thèmes.
+
+   L'exiger dans un sens ou dans l'autre serait une erreur de méthode : ni
+   « il en reste » ni « il n'en reste plus » n'est une propriété du produit. Ce
+   qui est une propriété, c'est que le chemin SANS THÈMES reste correct, et il
+   est éprouvé plus bas sur un parcours fabriqué — faute de quoi il cesserait
+   d'être mesuré le jour où il n'a plus d'occurrence réelle, c'est-à-dire
+   aujourd'hui.
+*/
+verifier(
+  'aujourd’hui, aucun parcours n’est sans thèmes',
+  sansThemes.map((p) => p.id),
+  [],
+);
 
 /*
-   Et la raison affichée ne confond pas les deux cas. Un parcours dont le
-   référentiel est établi et qui n'a pas de thèmes DOIT déclarer sa propre
-   raison : sans elle, `raisonNonPlanifiable` rend la phrase de repli qui
-   annonce un défaut du registre, et cet essai la refuse. C'est ce qui empêche
-   qu'un parcours futur hérite en silence du message « pas encore établi sur
-   source officielle » alors que sa source existe.
+   LE CHEMIN SANS THÈMES, ÉPROUVÉ SUR DES PARCOURS FABRIQUÉS.
+
+   Trois cas, et trois phrases qui ne disent pas la même chose. Les confondre
+   servirait à quelqu'un, au moment où il cherche quoi réviser, une raison qui
+   n'est pas la sienne.
 */
-for (const p of sansThemes) {
-  const etabli = p.referentiel.origine !== 'a-etablir';
+const fabriquer = (
+  id: string,
+  origine: Parcours['referentiel']['origine'],
+  avertissement?: string,
+): Parcours => ({
+  id,
+  libelle: id,
+  intitule: id,
+  concours: { phrase: id, sigle: id, voie: 'a-preciser' },
+  racineContenu: id,
+  referentiel:
+    origine === 'a-etablir'
+      ? { origine }
+      : { origine, source: 'source fabriquée pour l’essai', verifieLe: '2026-10-25' },
+  themes: [],
+  rotationParDefaut: [],
+  ...(avertissement ? { avertissementDuProgramme: avertissement } : {}),
+});
+
+{
+  const attend = fabriquer('attend-sa-source', 'a-etablir');
   verifier(
-    `${p.libelle} : sans thèmes, référentiel ${etabli ? 'établi' : 'à établir'} — sa raison est déclarée`,
-    etabli ? Boolean(p.raisonSansThemes?.length) : p.raisonSansThemes === undefined,
+    'sans thèmes et sans source : la phrase annonce l’attente',
+    /pas encore établi sur source officielle/.test(raisonNonPlanifiable(attend) ?? ''),
     true,
   );
-  if (etabli) {
-    verifier(
-      `${p.libelle} : sa raison est la sienne, et non le repli qui dénonce un défaut`,
-      raisonNonPlanifiable(p),
-      p.raisonSansThemes,
-    );
-    verifier(
-      `${p.libelle} : elle ne prétend pas attendre une source officielle`,
-      /pas encore établi/.test(raisonNonPlanifiable(p) ?? ''),
-      false,
-    );
-  }
+
+  const abroge = fabriquer('programme-retire', 'officiel', 'Son programme a été retiré.');
+  verifier(
+    'sans thèmes mais source établie : sa propre phrase est servie',
+    raisonNonPlanifiable(abroge),
+    'Son programme a été retiré.',
+  );
+  verifier(
+    'et elle ne prétend pas attendre une source',
+    /pas encore établi/.test(raisonNonPlanifiable(abroge) ?? ''),
+    false,
+  );
+
+  /*
+     LE TROISIÈME CAS EST UN DÉFAUT, ET LA PHRASE DOIT LE DIRE. Un parcours dont
+     la source est établie, qui n'a aucun thème et qui ne déclare pas pourquoi
+     est une déclaration incomplète. Improviser « pas encore établi » l'aurait
+     caché ; la phrase de repli l'annonce comme un défaut du registre.
+  */
+  const muet = fabriquer('etabli-mais-muet', 'officiel');
+  verifier(
+    'sans thèmes, source établie et aucune raison : le repli dénonce un défaut',
+    /défaut du registre/.test(raisonNonPlanifiable(muet) ?? ''),
+    true,
+  );
+
+  verifier(
+    'un parcours fabriqué sans thèmes rend sept jours sans thème',
+    rotationParDefaut(attend),
+    Array(7).fill(SANS_THEME),
+  );
 }
 
 for (const p of sansThemes) {
