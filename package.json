@@ -130,6 +130,7 @@
     "essais:themes-navigateur": "tsx scripts/essais-themes-navigateur.mts",
     "essais:themes-a-jour": "tsx scripts/essais-themes-a-jour.mts",
     "essais:contrastes-themes": "tsx scripts/essais-contrastes-themes.mts",
+    "essais:bulles:navigateur": "node scripts/essais-bulles-navigateur.mjs",
     "essais:couleurs-jetons": "node scripts/essais-couleurs-jetons.mjs",
     "inventaire:reglages": "node scripts/inventaire-reglages.mjs",
     "mesure:vitesse": "node scripts/mesure-vitesse.mjs",

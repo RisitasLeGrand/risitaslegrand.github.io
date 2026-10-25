@@ -33,6 +33,10 @@
  * `essais:contraste-rendu` s'en charge dans le navigateur, et c'est lui qui
  * fait foi pour ce qui est composé à l'écran.
  */
+import { readFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { contraste, oklch } from './lib/couleurs.mjs';
 import { declarations } from './construire-themes.mts';
 import { THEMES, THEMES_DE_SEANCE, type Mode, type Roles } from '../src/lib/themes.ts';
@@ -91,6 +95,104 @@ const COUPLES_SOMBRE: [string, string, number, string][] = [
   ['--etat-bordure-forte', '--etat-fond', 3, 'bordure de champ sur le fond'],
 ];
 
+/* ══════════════════════════════════════════════════════════════════════════
+   Les bulles de « notifier() »
+   ══════════════════════════════════════════════════════════════════════════
+
+   POURQUOI ELLES SONT LUES DANS « ui.ts » ET NON RECOPIÉES ICI.
+
+   C'est la doctrine de ce fichier, appliquée à un cas où elle a déjà servi :
+   une table recopiée se périme au premier ajustement. Si quelqu'un change
+   « bg-emerald-800 » pour autre chose, cet essai doit mesurer LE NOUVEAU
+   choix, pas l'ancien.
+
+   On ne peut pas importer « ui.ts » : il appelle « zoneDesNotifications() »
+   dès l'import, donc il touche le document, et il n'y en a pas ici. On lit
+   donc son texte, ce qui a l'avantage de ne rien exécuter.
+
+   CE QUI EST MESURÉ, ET POURQUOI DEUX FOIS.
+
+   1. Le TEXTE sur le fond de la bulle, seuil 4,5:1. Avant correction, au pire
+      cas des quatorze thèmes : « succes » 2,94:1 dans le thème « contraste »,
+      « badge » 2,24:1 dans « adaptées ». Les deux thèmes faits pour qui voit
+      mal étaient les pires.
+
+   2. Le BORD de la bulle contre le fond de page, seuil 3:1 — celui des
+      éléments non textuels. Sans cela, on raterait le défaut le plus grave :
+      en mode sombre des thèmes à fort contraste, « --color-slate-800 » et le
+      fond valent tous deux #000000, et la bulle d'information était
+      INVISIBLE — 1,00:1, c'est-à-dire la même couleur. Un texte parfaitement
+      contrasté sur une bulle qu'on ne voit pas reste un défaut.
+
+   ET POURQUOI LE BORD EST COMPOSITÉ. Il est écrit « border-white/50 » : un
+   blanc à moitié transparent. Ce que l'œil voit n'est ni le blanc ni le fond
+   de la bulle, mais leur mélange — c'est ce mélange qu'il faut mesurer, et le
+   calculer est la seule façon de mesurer ce que le navigateur affiche.
+*/
+const SOURCE_UI = readFileSync(
+  path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'src', 'lib', 'ui.ts'),
+  'utf8',
+);
+
+/** Une classe Tailwind de couleur, rendue en nom de jeton. */
+const jetonDe = (classe: string) => `--color-${classe.replace(/^(?:bg|text|border)-/, '')}`;
+
+/** Les trois bulles, lues dans « ui.ts ». */
+function bulles(): { variante: string; fond: string; texte: string }[] {
+  const trouvees = [...SOURCE_UI.matchAll(/^\s*(info|succes|badge):\s*'(bg-[\w-]+)\s+(text-[\w-]+)',$/gm)];
+  return trouvees.map(([, variante, fond, texte]) => ({
+    variante,
+    fond: jetonDe(fond),
+    texte: jetonDe(texte),
+  }));
+}
+
+/**
+ * Le bord de la bulle, tel que le navigateur le composite.
+ *
+ * Rend `null` s'il n'y a pas de bord à moitié transparent : l'absence est
+ * alors dite comme un défaut, et non passée sous silence.
+ */
+function bordComposite(fond: string): ((valeurDuFond: string) => string) | null {
+  const m = /border\s+border-(\w+)\/(\d+)/.exec(SOURCE_UI);
+  if (!m) return null;
+  const [, couleur, part] = m;
+  if (couleur !== 'white') return null;
+  const alpha = Number(part) / 100;
+  return (valeurDuFond: string) => {
+    const [r, v, b] = [1, 3, 5].map((i) => parseInt(valeurDuFond.slice(i, i + 2), 16));
+    const melange = (c: number) => Math.round(255 * alpha + c * (1 - alpha));
+    return '#' + [melange(r), melange(v), melange(b)].map((x) => x.toString(16).padStart(2, '0')).join('');
+  };
+}
+
+const LES_BULLES = bulles();
+const BORD = bordComposite('');
+
+/*
+   LES DEUX PRÉMISSES, DITES AVANT TOUT VERDICT.
+
+   Un essai qui lit son objet dans un fichier doit dire quand il ne l'a pas
+   trouvé. Sans ces deux lignes, un renommage dans « ui.ts » ferait rendre
+   zéro bulle, zéro assertion, et un vert parfaitement silencieux — la pire
+   des sorties, parce qu'elle ressemble à une réussite.
+*/
+if (LES_BULLES.length !== 3) {
+  console.log(
+    `\x1b[31m✗\x1b[0m les bulles de « ui.ts » ne sont plus lisibles : ${LES_BULLES.length} trouvée(s) au lieu de 3 — rien n’a été mesuré`,
+  );
+  rouges += 1;
+}
+if (!BORD) {
+  console.log(
+    '\x1b[31m✗\x1b[0m les bulles n’ont pas de bord à moitié transparent (« border border-white/NN ») :\n' +
+      '      sans lui, une bulle dont le fond vaut la couleur de la page est INVISIBLE, et\n' +
+      '      c’est le cas en mode sombre des thèmes à fort contraste, où « slate-800 » et le\n' +
+      '      fond valent tous deux #000000.',
+  );
+  rouges += 1;
+}
+
 function eprouver(nom: string, roles: Roles, mode: Mode) {
   const j = jetons(roles, mode);
   const sur = (a: string, b: string) => contraste(j[a], j[b]);
@@ -120,7 +222,39 @@ function eprouver(nom: string, roles: Roles, mode: Mode) {
   for (const [a, b, seuil, quoi] of mode === 'clair' ? COUPLES_CLAIR : COUPLES_SOMBRE)
     verifier(`${nom} ${mode} — ${quoi}`, sur(a, b), seuil);
 
-  /* 3. La monotonie des échelles. */
+  /* 3. Les bulles de « notifier() », lues dans « ui.ts ». */
+  for (const bulle of LES_BULLES) {
+    verifier(
+      `${nom} ${mode} — bulle « ${bulle.variante} » : son texte sur son fond`,
+      sur(bulle.texte, bulle.fond),
+      4.5,
+    );
+    /*
+       SE DÉTACHER DE LA PAGE : PAR LE FOND OU PAR LE BORD, ET LE PREMIER
+       ÉCRIT LE DISAIT MAL.
+
+       J'ai d'abord éprouvé le bord seul. Vingt-sept rouges, tous en thème
+       clair : un blanc à moitié transparent sur une bulle sombre composite en
+       gris moyen, et un gris moyen sur une page claire ne fait que 2,6 à
+       2,99:1. L'assertion était fausse, pas le site — en thème clair, c'est
+       le FOND de la bulle qui la détache, et il le fait de 8 à 13:1.
+
+       L'exigence juste est donc : la bulle se voit, par l'un OU l'autre. Le
+       bord sauve le cas noir sur noir, le fond sauve tout le reste, et c'est
+       le meilleur des deux qui compte — parce que l'œil, lui, voit le bord le
+       plus marqué.
+    */
+    const parLeFond = contraste(j[bulle.fond], j['--etat-fond']);
+    const parLeBord = BORD ? contraste(BORD(j[bulle.fond]), j['--etat-fond']) : 0;
+    verifier(
+      `${nom} ${mode} — bulle « ${bulle.variante} » se détache de la page ` +
+        `(fond ${parLeFond.toFixed(2)}:1, bord ${parLeBord.toFixed(2)}:1)`,
+      Math.max(parLeFond, parLeBord),
+      3,
+    );
+  }
+
+  /* 4. La monotonie des échelles. */
   const familles = new Set(
     Object.keys(j)
       .filter((k) => /^--color-[a-z]+-\d+$/.test(k))
