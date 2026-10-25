@@ -54,6 +54,79 @@ est que `.git` y est un *fichier* et non un dossier. Une première version
 regardait seulement s'il existait : il existe des deux côtés, et la détection
 ne détectait rien.
 
+## 3. Quand une attente de navigateur n'attend rien
+
+*Ajouté le 25 octobre, après le rouge intermittent de
+`essais:reglages-sans-coffre` sous la batterie.*
+
+Un essai attendait `#decompte:not(.hidden)` après avoir cliqué sur
+« Compter », puis lisait `#decompte-detail`. Vert en isolé, rouge sous la
+batterie, au même rang à chaque passage. **L'attente était déjà vraie avant le
+clic** : la phase précédente avait laissé le panneau visible — il se montre dès
+qu'il a un refus à dire — et son détail vide, le détail ne listant que les
+magasins non refusés. Le gestionnaire, lui, attend `compter()`, qui lit le
+magasin et déchiffre. Pendant cet await, l'essai lisait l'état d'avant.
+
+### Le critère, en deux conditions
+
+Une attente n'est dangereuse que si **les deux** sont réunies :
+
+- **(a)** sa condition était **déjà vraie** avant le geste ;
+- **(b)** le gestionnaire **cède la main** — un `await` — avant de peindre.
+
+**Sans (b), il n'y a rien à attraper.** Une peinture synchrone ne peut pas être
+surprise à mi-chemin : le navigateur ne rend pas la main entre deux
+instructions, et l'observateur de Playwright ne voit l'état qu'une fois la
+fonction entière terminée. L'ordre entre « démasquer » et « remplir » n'y
+change donc rien — c'est le piège de raisonnement qu'il faut éviter ici, et
+dans lequel je suis tombé deux fois avant de mesurer.
+
+### Les deux exemples à garder en tête
+
+**`finances`, synchrone, donc sain.** `peindreApercu` démasque `#apercu` puis
+écrit `#verdict` quatre lignes plus bas. L'ordre est « le mauvais », et
+pourtant rien n'est observable : la fonction est synchrone. Condition (b)
+absente. Ne pas « réparer ».
+
+**`suivi` ligne 627, latent, donc à reprendre quand même.** Les deux conditions
+y sont : `#effacer-periode` est déjà visible, la section 8 ayant rempli la même
+période pour mesurer la taille du bouton, et le gestionnaire attend
+`combienDansLaPeriode` avant d'écrire. Mais un retard de 500 ms injecté laisse
+l'ancienne version **au vert** : la section 8 compte la même période aux mêmes
+dates, et laisse dans l'annonce exactement la phrase attendue. La lecture
+périmée rend la bonne réponse **par construction**. L'assertion ne prouvait
+rien sans pour autant mentir, et c'est à ce titre qu'elle a été reprise.
+
+### La parade, et ce qu'elle n'est pas
+
+Ce n'est pas « attendre autre chose dans le même esprit » : n'importe quel état
+durable a le même défaut. Il faut une **post-condition qu'aucun passage
+antérieur ne peut avoir rendue vraie**. En pratique : effacer soi-même le
+message, faire le geste, puis attendre celui que le gestionnaire écrit en
+dernier. Et refuser une lecture vide plutôt que de la rendre à une assertion
+qui en tirera ce qu'elle peut.
+
+Une temporisation à l'aveugle — `waitForTimeout(400)` — n'est pas une parade :
+elle réduit le risque sans le supprimer, et elle cède exactement là où elle
+était censée protéger. Celle de l'auxiliaire des créneaux a cédé sous 500 ms.
+
+### Comment reconnaître le motif sans refaire le balayage
+
+Le motif brut — attendre un conteneur, puis lire un texte qu'il porte — donne
+**73 occurrences dans 35 essais**, dont presque aucune n'est fautive. Trois
+resserrements successifs, chacun sur une classe de faux positifs constatée :
+
+1. compter **par page**, et non par fichier : deux attentes du même sélecteur
+   peuvent être sur deux appareils neufs (`A.page` puis `B.page`) ;
+2. ne retenir que les occurrences **non premières** : un coffre est fermé au
+   chargement, et sa première ouverture est une vraie transition ;
+3. écarter celles qu'un `goto`, un contexte neuf ou une fermeture explicite
+   précède — le panneau y repart caché.
+
+Il reste **dix** cas, qu'on lit à la main en vérifiant (b) dans l'écran. Neuf
+étaient sains. Un relevé de 73 entrées n'aurait rien appris : *un contrôle qui
+ne contrôle rien finit par rassurer, ce qui est pire que son absence.*
+
 ## Ce qui reste hors d'atteinte ici
 
 `essais:fiches-audio` réclame `ffmpeg`. Il a été installé dans le conteneur
