@@ -90,7 +90,17 @@ const SENS = [
   ['importer', 'download', false],
   ['fiches-audio', 'headphones', false],
 
+  /* ── Les groupes de réglages ─────────────────────────────────────────── */
+  ['affichage', 'palette', false],
+  ['journee', 'sunrise', false],
+
   /* ── L'en-tête ───────────────────────────────────────────────────────── */
+  /*
+     Le menu de Cyclades — la racine, où l'on choisit sa branche. Il portait
+     deux émojis différents pour la MÊME destination, 🏛️ dans la barre latérale
+     et 🗂️ dans l'en-tête : un seul sens, donc une seule icône.
+  */
+  ['menu', 'layout-grid', false],
   ['retour', 'arrow-left', false],
   ['coffre-ferme', 'lock', true],
   ['coffre-ouvert', 'unlock', false],

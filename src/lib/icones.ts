@@ -254,6 +254,21 @@ export const ICONES = {
     pleine: false,
     lucide: 'headphones',
   },
+  'affichage': {
+    corps: '<path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z" /><circle cx="13.5" cy="6.5" r=".5" fill="currentColor" /><circle cx="17.5" cy="10.5" r=".5" fill="currentColor" /><circle cx="6.5" cy="12.5" r=".5" fill="currentColor" /><circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />',
+    pleine: false,
+    lucide: 'palette',
+  },
+  'journee': {
+    corps: '<path d="M12 2v8" /><path d="m4.93 10.93 1.41 1.41" /><path d="M2 18h2" /><path d="M20 18h2" /><path d="m19.07 10.93-1.41 1.41" /><path d="M22 22H2" /><path d="m8 6 4-4 4 4" /><path d="M16 18a4 4 0 0 0-8 0" />',
+    pleine: false,
+    lucide: 'sunrise',
+  },
+  'menu': {
+    corps: '<rect width="7" height="7" x="3" y="3" rx="1" /><rect width="7" height="7" x="14" y="3" rx="1" /><rect width="7" height="7" x="14" y="14" rx="1" /><rect width="7" height="7" x="3" y="14" rx="1" />',
+    pleine: false,
+    lucide: 'layout-grid',
+  },
   'retour': {
     corps: '<path d="m12 19-7-7 7-7" /><path d="M19 12H5" />',
     pleine: false,
