@@ -234,6 +234,84 @@ for (const ecran of ECRANS) {
   parcourir('dist', '/');
   routes.sort();
 
+  /* ════════════════════════════════════════════════════════════════════════
+     DEUX ÉCRANS QUI N'ONT RIEN À MONTRER SANS LEUR PARAMÈTRE
+     ════════════════════════════════════════════════════════════════════════
+
+     M5 visite bien les soixante-et-une routes de `dist/` — il les trouve en
+     parcourant le dossier, pas en les listant à la main, donc aucune ne
+     manque. Mais il les visite TOUJOURS SANS PARAMÈTRE, et neuf d'entre elles
+     en lisent un (`parametreUrl`). Deux ne montrent alors rien du tout :
+     `/fiche` reste au bloc « Déchiffrement de la fiche… », et
+     `/odyssee/molecule` à son écran d'attente. Elles étaient donc mesurées
+     VIDES, et une route couverte n'est pas une route éprouvée.
+
+     Le signalement venait d'une mesure de débordement sur `/fiche` que je n'ai
+     pas reproduite — page à la largeur de la fenêtre aux quatre largeurs, avec
+     et sans « Appliquer », sur la fiche au titre le plus long des 427. Le trou
+     de couverture, lui, était réel, et le voici fermé : ce qui est mesuré
+     maintenant est l'écran CHARGÉ.
+
+     L'identifiant de fiche est pris dans la bibliothèque, une seule fois et à
+     une largeur confortable : le coder en dur le ferait vieillir avec le
+     corpus, et le chercher à chaque largeur coûterait quatre fois le prix pour
+     la même réponse.
+  */
+  const cheminDUneFiche = await (async () => {
+    const ctx = await nav.newContext({ viewport: { width: 1280, height: 900 } });
+    const p = await ctx.newPage();
+    try {
+      await franchirInitialisation(p, RACINE, MDP);
+      await p.goto(`${RACINE}/bibliotheque/`, { waitUntil: 'networkidle' });
+
+      /*
+         DEUX PIÈGES, ET MES DEUX PREMIÈRES VERSIONS SONT TOMBÉES DEDANS.
+
+         Le premier : contrôler `#champ-mdp` juste après `networkidle` répond
+         « pas visible » alors que l'écran du verrou se peint un instant plus
+         tard — le corps de la page disait « Saisissez le mot de passe » quand
+         la sonde disait qu'il n'y avait pas de verrou. On attend donc que
+         l'une des deux choses apparaisse, et non un délai.
+
+         Le second : `waitForSelector` attend la VISIBILITÉ. Les liens de
+         fiches étaient déjà 425 dans le DOM — le journal de Playwright le
+         disait, « resolved to 425 elements » — et aucun n'était visible,
+         l'arbre de la bibliothèque étant replié. Or on ne veut qu'un `href` :
+         c'est la PRÉSENCE qui compte, pas la peinture.
+      */
+      await p.waitForFunction(
+        () =>
+          Boolean(document.querySelector('a[href*="/fiche"][href*="id="]')) ||
+          Boolean(document.getElementById('champ-mdp')),
+        null,
+        { timeout: 40000 },
+      );
+      if (await p.locator('#champ-mdp').isVisible().catch(() => false)) {
+        await p.fill('#champ-mdp', MDP);
+        await p.click('#bouton-verrou');
+        await p.waitForFunction(
+          () => Boolean(document.querySelector('a[href*="/fiche"][href*="id="]')),
+          null,
+          { timeout: 40000 },
+        );
+      }
+      return await p.$eval('a[href*="/fiche"][href*="id="]', (a) => a.getAttribute('href'));
+    } catch (erreur) {
+      /* La raison est DITE : un `catch` muet m'a coûté une exécution entière
+         de cet essai, qui dure six minutes. */
+      console.log(`      (repérage de la fiche : ${String(erreur?.message ?? erreur).slice(0, 120)})`);
+      return null;
+    } finally {
+      await ctx.close();
+    }
+  })();
+
+  verifier(
+    'M5ter — prémisse : une fiche du corpus est atteignable depuis la bibliothèque',
+    typeof cheminDUneFiche === 'string' && cheminDUneFiche.includes('id='),
+    true,
+  );
+
   for (const largeur of [360, 375, 390, 430]) {
     const ctx = await nav.newContext({
       viewport: { width: largeur, height: 844 },
@@ -585,6 +663,56 @@ for (const ecran of ECRANS) {
             true,
           );
         }
+      }
+    }
+
+    /* ── M5ter — les deux écrans, chargés ──────────────────────────────── */
+    {
+      const charges = [
+        ...(cheminDUneFiche ? [['une fiche du corpus', cheminDUneFiche]] : []),
+        /*
+           La molécule prend un NOM libre, pas un identifiant : on lui donne le
+           plus long du registre réel, parce qu'un nom long est le cas qui
+           pousse l'en-tête.
+        */
+        ['une molécule nommée', '/odyssee/molecule/?nom=Acide%20ac%C3%A9tylsalicylique'],
+      ];
+
+      for (const [quoi, chemin] of charges) {
+        await p.goto(`${RACINE}${chemin}`, { waitUntil: 'networkidle' }).catch(() => {});
+        if (await p.locator('#champ-mdp').isVisible().catch(() => false)) {
+          await p.fill('#champ-mdp', MDP);
+          await p.click('#bouton-verrou');
+          await p.waitForTimeout(1200);
+        }
+        await p.waitForTimeout(900);
+        const m = await p.evaluate(() => {
+          const r = document.documentElement;
+          const chargement = document.getElementById('chargement');
+          /* Qui dépasse, nommément : un débordement anonyme n'apprend rien. */
+          const coupables = [...document.querySelectorAll('body *')]
+            .filter((e) => {
+              const b = e.getBoundingClientRect();
+              return b.width > 0 && b.right > r.clientWidth + 1;
+            })
+            .slice(0, 4)
+            .map((e) => `${e.tagName.toLowerCase()}#${e.id || '-'}`);
+          return {
+            deborde: r.scrollWidth > r.clientWidth,
+            largeur: r.scrollWidth,
+            fenetre: r.clientWidth,
+            /* La prémisse : l'écran a VRAIMENT chargé. Sans elle, « ne déborde
+               pas » serait vrai d'un écran d'attente, et ne dirait rien. */
+            charge: !chargement || chargement.classList.contains('hidden'),
+            coupables,
+          };
+        });
+        verifier(`M5ter — ${largeur} px : ${quoi} a bien chargé`, m.charge, true);
+        verifier(
+          `M5ter — ${largeur} px : ${quoi} ne déborde pas`,
+          m.deborde ? `${m.largeur}/${m.fenetre} px (${m.coupables.join(', ')})` : 'non',
+          'non',
+        );
       }
     }
 
