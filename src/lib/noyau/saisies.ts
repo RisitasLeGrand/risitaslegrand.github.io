@@ -468,6 +468,31 @@ export function matieresDesParcours(): { valeur: string; libelle: string }[] {
     .map((m) => ({ valeur: m, libelle: m }));
 }
 
+/**
+ * Les domaines qu'une répartition par domaine doit montrer.
+ *
+ * `null` veut dire « on ne sait pas ce qui a été retenu » : c'est le cas à
+ * l'initialisation, où la question des domaines se pose avant mais où la
+ * réponse n'est pas encore relue, et le cas d'un profil qui n'y a pas répondu.
+ * On retombe alors sur les domaines actifs par défaut, qui sont la bonne
+ * réponse là.
+ *
+ * Une liste **vide** n'est pas `null`, et la distinction compte : elle veut
+ * dire « je n'en suis aucun », et elle est respectée. Les confondre
+ * réafficherait les domaines par défaut à quelqu'un qui les a tous coupés.
+ *
+ * L'ordre est celui du catalogue, jamais celui de la réponse : deux écrans qui
+ * listent les mêmes domaines dans un ordre différent se lisent comme deux
+ * listes différentes.
+ */
+export function domainesAMontrer(retenus: readonly string[] | null): ClefLibellee[] {
+  const gardes = retenus === null ? null : new Set(retenus);
+  return DOMAINES.filter((d) => (gardes ? gardes.has(d.id) : d.actifParDefaut)).map((d) => ({
+    clef: d.id,
+    libelle: d.libelle,
+  }));
+}
+
 /** Ce que l'écran appelant fournit à l'aiguillage. */
 export interface OptionsSaisiePourChamp {
   /**
@@ -477,6 +502,17 @@ export interface OptionsSaisiePourChamp {
   valider: () => void;
   /** Ce que fait « Je ne sais pas encore » sur une répartition. */
   surInconnu?: () => void;
+  /**
+   * Les domaines à montrer dans une répartition par domaine.
+   *
+   * Sans cette option, ce sont les domaines actifs **par défaut**. C'est juste
+   * à l'initialisation, où la question des domaines se pose avant et où rien
+   * n'a encore été coupé. Depuis « Mon profil », c'est faux : un domaine que
+   * la personne a coupé réapparaissait dans sa répartition d'heures, et lui
+   * demandait donc de répartir du temps sur quelque chose qu'elle avait
+   * justement retiré.
+   */
+  domaines?: readonly ClefLibellee[];
 }
 
 /**
@@ -502,14 +538,17 @@ export interface OptionsSaisiePourChamp {
  * verrait là où elle coûte le plus : un champ qu'on règle à l'initialisation
  * avec des curseurs et qu'on corrige ensuite dans un champ texte.
  *
- * ## UNE NUANCE NON TRANCHÉE, ET SIGNALÉE PLUTÔT QUE RÉGLÉE EN DOUCE
+ * ## QUELS DOMAINES UNE RÉPARTITION MONTRE
  *
- * Les répartitions par domaine prennent `DOMAINES.filter(actifParDefaut)` :
- * les domaines actifs **par défaut**, et non ceux que la personne a retenus.
- * À l'initialisation c'est sans conséquence, la question des domaines venant
- * avant. Depuis « Mon profil », quelqu'un qui a coupé un domaine peut encore
- * le voir ici. Le corriger changerait aussi l'initialisation ; la décision
- * revient au pilote, et le comportement reste donc celui d'avant.
+ * Par défaut, les domaines actifs **par défaut**. C'est juste à
+ * l'initialisation, où la question des domaines se pose avant et où rien n'a
+ * encore été coupé.
+ *
+ * Ce ne l'est pas depuis « Mon profil » : un domaine coupé réapparaissait
+ * dans la répartition d'heures, et demandait de répartir du temps sur ce
+ * qu'on venait de retirer. L'appelant passe donc `domaines` quand il sait
+ * lesquels ont été retenus, et l'option existe pour que ce soit l'écran qui
+ * le dise — ce module ne lit pas le profil.
  */
 export function saisiePourChamp(
   declare: ChampDeclare,
@@ -533,10 +572,7 @@ export function saisiePourChamp(
     return bascules(matieresDesParcours(), Array.isArray(defaut) ? (defaut as unknown[]) : []);
   }
   if (champ === 'tempsParDomaine' || champ === 'ciblesEquilibre') {
-    const actifs = DOMAINES.filter((d) => d.actifParDefaut).map((d) => ({
-      clef: d.id,
-      libelle: d.libelle,
-    }));
+    const actifs = options.domaines ?? domainesAMontrer(null);
     return repartition(actifs, (defaut as Record<string, number>) ?? {}, {
       unite: declare.unite?.un ?? 'h',
       surInconnu: options.surInconnu,

@@ -450,6 +450,20 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
 
   /** L'appareil où l'on se trouve, pour dire « celui-ci » au lieu d'un code. */
   let appareilCourant = '';
+  /*
+     LES DOMAINES RETENUS, RANGÉS PAR « peindre » COMME L'APPAREIL COURANT.
+
+     Une répartition par domaine montrait les domaines actifs PAR DÉFAUT. Un
+     domaine coupé y réapparaissait donc, et demandait de répartir du temps
+     sur ce qu'on venait justement de retirer.
+
+     `null` tant que rien n'a été lu, ou quand la personne n'a pas répondu à
+     la question des domaines : la saisie retombe alors sur les domaines par
+     défaut, c'est-à-dire sur le comportement de l'initialisation. Une liste
+     VIDE n'est pas la même chose — c'est « je n'en veux aucun », et elle est
+     respectée.
+  */
+  let domainesRetenus: readonly string[] | null = null;
 
   /** Une ligne de métadonnée, en petit, sous la valeur. */
   function ligneFine(texte: string): HTMLElement {
@@ -631,7 +645,7 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
    */
   async function demander(champ: string, question: string, actuelle: unknown): Promise<void> {
     const { champDeclare } = await import('../lib/noyau/profil');
-    const { saisiePourChamp } = await import('../lib/noyau/saisies');
+    const { saisiePourChamp, domainesAMontrer } = await import('../lib/noyau/saisies');
     const declare = champDeclare(champ)!;
 
     const reponse = await demanderUneSaisie({
@@ -641,7 +655,11 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
       etiquette: declare.nature === 'repartition' ? undefined : declare.libelle,
       action: 'Enregistrer',
       construire: (fermer) =>
-        saisiePourChamp(declare, actuelle, { valider: fermer, surInconnu: fermer }),
+        saisiePourChamp(declare, actuelle, {
+          valider: fermer,
+          surInconnu: fermer,
+          domaines: domainesAMontrer(domainesRetenus),
+        }),
     });
 
     if (reponse === null) return;
@@ -889,6 +907,8 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
       lireAppareil().catch(() => ''),
     ]);
     appareilCourant = appareil;
+    const ditDomaines = profil.get('domainesActifs')?.valeur;
+    domainesRetenus = Array.isArray(ditDomaines) ? ditDomaines.map(String) : null;
 
     /*
        LA LIGNE NEUTRE (P9), et ce qu'elle ne dit pas.
