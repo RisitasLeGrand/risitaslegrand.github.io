@@ -35,6 +35,7 @@ import { readFile, rm, writeFile } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { motDePasseDuTexte } from './lib/motdepasse.mjs';
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const CHEMIN_CONFIG = path.join(racine, 'site.config.mjs');
@@ -63,13 +64,19 @@ if (!existsSync(cheminEnv)) {
   );
 }
 
-const ligne = (await readFile(cheminEnv, 'utf8'))
-  .split(/\r?\n/)
-  .find((l) => /^\s*SITE_PASSWORD\s*=/.test(l));
-const motDePasse = (ligne ?? '')
-  .replace(/^\s*SITE_PASSWORD\s*=/, '')
-  .trim()
-  .replace(/^["']|["']$/g, '');
+/*
+   LA RÈGLE DE LECTURE VIENT DU MODULE PARTAGÉ, ET ICI PLUS QU'AILLEURS.
+
+   Ce script portait sa propre lecture, et elle retirait un guillemet d'un
+   côté sans exiger l'autre : `/^["']|["']$/g`. Un mot de passe qui commence
+   ou finit par une apostrophe était donc lu amputé — et ce script-ci est
+   celui qui RECHIFFRE tout le corpus avec ce qu'il a lu. Le site ne se
+   serait plus ouvert, avec aucun mot de passe, et rien ne l'aurait dit.
+
+   La règle est maintenant celle du build, mot pour mot, parce que c'est le
+   build qui devra relire ce que ce script écrit.
+*/
+const motDePasse = motDePasseDuTexte(await readFile(cheminEnv, 'utf8'));
 
 if (!motDePasse) arret('« .env.local » ne contient pas de SITE_PASSWORD utilisable.');
 

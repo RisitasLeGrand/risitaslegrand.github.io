@@ -19,21 +19,26 @@
  * trouve pas : un essai qui tournerait avec un mot de passe deviné échouerait de
  * façon illisible.
  */
-import { existsSync, readFileSync } from 'node:fs';
-import path from 'node:path';
+import { AIDE_MOT_DE_PASSE, lireMotDePasseEventuelSync } from './motdepasse.mjs';
 
-const RACINE = path.resolve(import.meta.dirname, '..', '..');
+/*
+   LA RÈGLE DE LECTURE N'EST PLUS ÉCRITE ICI, ET C'EST LE POINT.
 
-/** Lit SITE_PASSWORD dans `.env.local`, sans dépendance à un chargeur d'env. */
-function depuisEnvLocal() {
-  const chemin = path.join(RACINE, '.env.local');
-  if (!existsSync(chemin)) return null;
-  for (const ligne of readFileSync(chemin, 'utf8').split('\n')) {
-    const m = /^\s*SITE_PASSWORD\s*=\s*(.*)\s*$/.exec(ligne);
-    if (m) return m[1].replace(/^["']|["']$/g, '');
-  }
-  return null;
-}
+   Ce module portait sa propre lecture de `.env.local`, et elle divergeait de
+   celle du build sur trois points : elle coupait les lignes sur `\n` seul, ne
+   coupait pas les blancs autour de la valeur, et retirait un guillemet d'un
+   côté sans exiger l'autre.
+
+   Un `.env.local` écrit avec un retour de chariot donnait donc, ici, une
+   valeur terminée par ce retour de chariot, et au build la même valeur sans
+   lui. Le site se construit avec l'un, les essais
+   déverrouillent avec l'autre, et cent quarante-sept essais de navigateur
+   restent sur l'écran de déverrouillage sans qu'aucun message ne dise
+   pourquoi. Un espace final faisait de même.
+
+   La règle vit maintenant dans `lib/motdepasse.mjs`, une seule fois, et
+   `essais:mot-de-passe-une-source` vérifie qu'aucun fichier ne la réécrit.
+*/
 
 /**
  * Le mot de passe, ou l'arrêt du script.
@@ -43,14 +48,29 @@ function depuisEnvLocal() {
  * sur un sélecteur introuvable, ce qui n'apprend rien à personne.
  */
 export function motDePasseEssais() {
-  const mdp = process.env.SITE_PASSWORD || depuisEnvLocal();
+  const mdp = motDePasseEssaisOuNull();
   if (mdp) return mdp;
   console.error(
     '\n\x1b[31mMot de passe absent.\x1b[0m Cet essai déverrouille une page du site et a ' +
-      'besoin du mot de passe, qui n’est écrit nulle part dans le dépôt.\n\n' +
-      '  SITE_PASSWORD=… npm run <essai>\n\n' +
-      'ou bien pose-le dans .env.local (ignoré par Git) le temps de la session :\n\n' +
-      '  printf \'SITE_PASSWORD=…\\n\' > .env.local\n',
+      'besoin du mot de passe, qui n’est écrit nulle part dans le dépôt.\n\n  ' +
+      AIDE_MOT_DE_PASSE.split('\n').slice(1).join('\n  ') +
+      '\n',
   );
   process.exit(2);
+}
+
+/**
+ * Le mot de passe, ou `null` — sans arrêter le script.
+ *
+ * Un seul appelant en a besoin : `essais:secret`, qui tourne pour QUICONQUE,
+ * y compris sans le mot de passe. Son contrôle structurel passe toujours ; son
+ * contrôle exact — « aucun fichier suivi ne contient le mot de passe » — ne
+ * peut pas chercher ce qu'il ne connaît pas, et le dit alors.
+ *
+ * Aucun autre essai ne doit l'employer : un essai de navigateur sans mot de
+ * passe reste bloqué sur l'écran de déverrouillage et échoue trente secondes
+ * plus tard sur un sélecteur introuvable, ce qui n'apprend rien à personne.
+ */
+export function motDePasseEssaisOuNull() {
+  return lireMotDePasseEventuelSync();
 }

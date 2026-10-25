@@ -133,6 +133,13 @@ const SOCLE = [
      contre un faux `npm`, donc sans site et sans mot de passe réel.
   */
   ['essais:code-de-sortie', 'la batterie rend un code non nul sur un rouge, croix à code nul comprise'],
+  /*
+     Celui-ci entre parce que le mot de passe avait CINQ lecteurs, dont deux
+     qui rechiffrent ou chiffrent le corpus. Son balayage de source attrape
+     la sixième copie, celle qu'on écrira sans y penser : une copie de
+     quatre lignes a l'air juste, et une relecture ne l'attrape pas.
+  */
+  ['essais:mot-de-passe-une-source', 'une seule règle de lecture du mot de passe, et aucune copie'],
 ];
 
 /**
