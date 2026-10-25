@@ -122,17 +122,57 @@ verifier(
   [ID_PARCOURS_PAR_DEFAUT],
 );
 
-// --- 2. Un parcours sans référentiel ne plante pas ------------------------
+// --- 2. Un parcours sans thèmes ne plante pas, et dit la vraie raison -----
 
-const sansReferentiel = PARCOURS.filter((p) => !planifiable(p));
+/*
+   L'INTITULÉ DE CE BLOC A CHANGÉ LE 25 OCTOBRE, ET LA DEMANDE A MONTÉ.
 
-verifier(
-  'des parcours attendent encore leur référentiel officiel',
-  sansReferentiel.length > 0,
-  true,
-);
+   Il s'appelait « un parcours sans référentiel » et contrôlait que des
+   parcours « attendent encore leur référentiel officiel ». C'était vrai quand
+   DGFiP A et A+ portaient `origine: 'a-etablir'`. Depuis que les trois
+   référentiels DGFiP sont établis sur l'arrêté, A+ reste sans thèmes pour une
+   RAISON TOUT AUTRE : son programme a été abrogé le 6 septembre 2025. L'essai
+   serait resté vert sur une phrase devenue fausse — sans thèmes ne veut plus
+   dire sans source.
 
-for (const p of sansReferentiel) {
+   Il contrôle donc maintenant les deux choses séparément : qu'un parcours sans
+   thèmes se comporte bien, et que la raison qu'il affiche corresponde à son
+   référentiel.
+*/
+const sansThemes = PARCOURS.filter((p) => !planifiable(p));
+
+verifier('des parcours restent sans thèmes de planification', sansThemes.length > 0, true);
+
+/*
+   Et la raison affichée ne confond pas les deux cas. Un parcours dont le
+   référentiel est établi et qui n'a pas de thèmes DOIT déclarer sa propre
+   raison : sans elle, `raisonNonPlanifiable` rend la phrase de repli qui
+   annonce un défaut du registre, et cet essai la refuse. C'est ce qui empêche
+   qu'un parcours futur hérite en silence du message « pas encore établi sur
+   source officielle » alors que sa source existe.
+*/
+for (const p of sansThemes) {
+  const etabli = p.referentiel.origine !== 'a-etablir';
+  verifier(
+    `${p.libelle} : sans thèmes, référentiel ${etabli ? 'établi' : 'à établir'} — sa raison est déclarée`,
+    etabli ? Boolean(p.raisonSansThemes?.length) : p.raisonSansThemes === undefined,
+    true,
+  );
+  if (etabli) {
+    verifier(
+      `${p.libelle} : sa raison est la sienne, et non le repli qui dénonce un défaut`,
+      raisonNonPlanifiable(p),
+      p.raisonSansThemes,
+    );
+    verifier(
+      `${p.libelle} : elle ne prétend pas attendre une source officielle`,
+      /pas encore établi/.test(raisonNonPlanifiable(p) ?? ''),
+      false,
+    );
+  }
+}
+
+for (const p of sansThemes) {
   verifier(
     `${p.libelle} : sept jours sans thème`,
     rotationParDefaut(p),
