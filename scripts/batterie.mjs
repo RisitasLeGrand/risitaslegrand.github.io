@@ -254,6 +254,13 @@ const EN_LABORATOIRE = new Set([
      questions, et tombe donc sous la même garde que les cinq autres.
   */
   'essais:epreuve-gardee:navigateur',
+  /*
+     L'aller-retour de récupération construit `content/`, le publie, le
+     récupère, puis RECONSTRUIT depuis le récupéré. Il lui faut donc un arbre
+     à lui : lancé ici, il verrait le `content/` d'un autre essai de
+     laboratoire et se tairait sur sa garde.
+  */
+  'essais:recuperation-corpus',
 ]);
 
 /*

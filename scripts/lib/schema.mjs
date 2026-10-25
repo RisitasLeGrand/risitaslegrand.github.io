@@ -16,7 +16,63 @@ export const frontMatterSchema = z.object({
   titre: z.string().min(1, 'le champ « titre » est obligatoire'),
   ordre: z.coerce.number().int().default(999),
   tags: z.array(z.string()).default([]),
+  /**
+   * L'identifiant publié d'une fiche, quand son chemin d'origine est perdu.
+   *
+   * ## Pourquoi ce champ existe
+   *
+   * D'ordinaire `ficheId = idStable(cheminRelatif)` : l'identifiant se déduit
+   * du chemin, ne révèle rien, et survit aux reconstructions. C'est un bon
+   * choix, et il tient à une condition — que le chemin ne change pas.
+   *
+   * La perte de `content/` a cassé cette condition. Le corpus a été récupéré
+   * depuis la publication chiffrée, mais le chemin n'y est pas publié : pour
+   * une cinquantaine de fiches sur 427, il n'a pas pu être certifié. Replacées
+   * ailleurs, elles recevaient un identifiant NEUF — et toute la progression
+   * enregistrée dans le navigateur, rangée par identifiant de fiche, devenait
+   * orpheline. Leur fiche audio aussi, nommée par ce même identifiant : 33
+   * audios déjà synthétisés redevenaient introuvables.
+   *
+   * Ce champ permet à une fiche de déclarer l'identifiant sous lequel elle a
+   * été publiée. Le build l'emploie tel quel, et la progression de qui révise
+   * continue de tomber juste malgré un chemin approximatif.
+   *
+   * ## Ce qu'il ne faut pas en faire
+   *
+   * Ce n'est pas un identifiant à écrire sur une fiche neuve : une fiche neuve
+   * n'a pas d'identifiant antérieur, et en inventer un retirerait à `idStable`
+   * la seule chose qu'il garantit. Le champ est une réparation, pas une
+   * manière d'écrire. Deux fiches qui déclareraient le même identifiant se
+   * confondraient à l'écran, et le build le refuse.
+   */
+  id_publie: z
+    .string()
+    .regex(
+      /^[0-9a-f]{16}$/,
+      'un identifiant publié s’écrit en seize caractères hexadécimaux minuscules',
+    )
+    .optional(),
 });
+
+/**
+ * Les identifiants publiés déclarés deux fois.
+ *
+ * Deux fiches sous le même identifiant, c'est une fiche qui en écrase une
+ * autre : la bibliothèque n'en montre qu'une, et la progression des deux se
+ * mélange. Le contrôle vit ici, et non dans le build, pour être éprouvé sans
+ * construire quoi que ce soit.
+ */
+export function idsPubliesEnDouble(fiches) {
+  const vus = new Map();
+  for (const f of fiches) {
+    if (!f.id_publie) continue;
+    if (!vus.has(f.id_publie)) vus.set(f.id_publie, []);
+    vus.get(f.id_publie).push(f.chemin);
+  }
+  return [...vus.entries()]
+    .filter(([, chemins]) => chemins.length > 1)
+    .map(([id, chemins]) => ({ id, chemins }));
+}
 
 /**
  * L'identifiant d'une partie de fiche, tel qu'une carte ou un QCM le cite

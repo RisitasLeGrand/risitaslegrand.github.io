@@ -14,6 +14,7 @@ import matter from 'gray-matter';
 import YAML from 'yaml';
 import config from '../site.config.mjs';
 import {
+  idsPubliesEnDouble,
   frontMatterSchema,
   flashcardSchema,
   quizSchema,
@@ -389,9 +390,18 @@ async function main() {
       );
     }
 
-    // Identifiant opaque et stable : dérivé du chemin, il ne révèle rien
-    // et survit aux rebuilds (la progression enregistrée reste valable).
-    const ficheId = await idStable(relatif);
+    /*
+       Identifiant opaque et stable : dérivé du chemin, il ne révèle rien et
+       survit aux reconstructions — la progression enregistrée reste valable.
+
+       Sauf quand la fiche déclare « id_publie ». Ce cas vient de la
+       récupération du corpus : le chemin d'origine de certaines fiches n'a
+       pas pu être certifié, et les replacer ailleurs leur donnerait un
+       identifiant neuf, orphelinant la progression de qui révise et leur
+       fiche audio déjà synthétisée. Le champ est documenté dans
+       « lib/schema.mjs », avec ce qu'il ne faut pas en faire.
+    */
+    const ficheId = fm.data.id_publie ?? (await idStable(relatif));
 
     /*
        LES PARTIES DE LA FICHE (prompt 46, P1).
@@ -566,6 +576,19 @@ async function main() {
    * identifiant et de son titre, et une référence qui ne désigne rien arrête le
    * build plutôt que de donner un lien mort à qui vient de rater la question.
    */
+  /*
+     Deux fiches sous le même identifiant déclaré se confondent à l'écran, et
+     leur progression se mélange. On refuse AVANT de chiffrer quoi que ce
+     soit : un corpus publié avec deux fiches homonymes se répare moins bien
+     qu'un build qui s'arrête.
+  */
+  for (const { id, chemins } of idsPubliesEnDouble(fiches)) {
+    erreurs.push(
+      `« id_publie: ${id} » est déclaré par ${chemins.length} fiches : ${chemins.join(', ')}.\n` +
+        '  Un identifiant ne désigne qu\'une fiche ; deux fiches homonymes se confondraient.',
+    );
+  }
+
   const indexFiches = indexerFichesParChemin(fiches);
   for (const f of fiches) {
     for (const q of f.quiz) {
