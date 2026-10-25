@@ -156,11 +156,109 @@ const astroSous = (dossier: string): string[] =>
 
 const ecrans = [...astroSous('src/pages'), ...astroSous('src/components')];
 
-const brutes: string[] = [];
-const nues: string[] = [];
+/*
+   LE BALAYAGE LIT LE CODE, PAS CE QUI EN PARLE.
 
-for (const chemin of ecrans) {
-  const lignes = readFileSync(chemin, 'utf8').split('\n');
+   Premier jet : une lecture ligne à ligne. L’agent A l’a mis en défaut le
+   25 octobre avec un commentaire de sport/seance.astro qui CITAIT
+   « erreur.message » pour dire que l’écran ne l’affichait plus. Le balayage y
+   voyait une infraction. Reproduit ici avant correction.
+
+   Un garde-fou qui crie au loup est pire que pas de garde-fou : on apprend à
+   l’ignorer, et le jour où il a raison personne ne regarde.
+
+   D’où ce petit automate. Il blanchit les commentaires — // jusqu’au bout de
+   la ligne, et les blocs, y compris ceux du HTML — en gardant les positions,
+   de sorte que les numéros de ligne restent justes. Il ne blanchit PAS les
+   chaînes : une chaîne qui contiendrait « erreur.message » mériterait d’être
+   regardée de toute façon.
+
+   Il ne se laisse pas non plus enfermer dans l’angle mort inverse : du vrai
+   code posé après la fermeture d’un commentaire, sur la même ligne, est bien
+   rendu. Les deux sabotages plus bas l’éprouvent dans les deux sens.
+*/
+function sansCommentaires(source: string): string[] {
+  const sortie: string[] = [];
+  let ligne = '';
+  let i = 0;
+  let bloc: false | 'js' | 'html' = false;
+  let chaine: false | string = false;
+
+  const pousser = (c: string) => {
+    if (c === '\n') {
+      sortie.push(ligne);
+      ligne = '';
+    } else ligne += c;
+  };
+
+  while (i < source.length) {
+    const c = source[i];
+    const deux = source.slice(i, i + 2);
+
+    if (bloc) {
+      const fin = bloc === 'js' ? deux === '*/' : source.slice(i, i + 3) === '-->';
+      if (fin) {
+        const n = bloc === 'js' ? 2 : 3;
+        for (let k = 0; k < n; k += 1) pousser(' ');
+        i += n;
+        bloc = false;
+        continue;
+      }
+      pousser(c === '\n' ? '\n' : ' ');
+      i += 1;
+      continue;
+    }
+
+    if (chaine) {
+      pousser(c);
+      if (c === '\\') {
+        if (source[i + 1] !== undefined) pousser(source[i + 1]);
+        i += 2;
+        continue;
+      }
+      if (c === chaine) chaine = false;
+      i += 1;
+      continue;
+    }
+
+    if (c === "'" || c === '"' || c === '`') {
+      chaine = c;
+      pousser(c);
+      i += 1;
+      continue;
+    }
+    if (deux === '/*') {
+      bloc = 'js';
+      pousser(' ');
+      pousser(' ');
+      i += 2;
+      continue;
+    }
+    if (source.slice(i, i + 4) === '<!--') {
+      bloc = 'html';
+      for (let k = 0; k < 4; k += 1) pousser(' ');
+      i += 4;
+      continue;
+    }
+    if (deux === '//') {
+      while (i < source.length && source[i] !== '\n') {
+        pousser(' ');
+        i += 1;
+      }
+      continue;
+    }
+    pousser(c);
+    i += 1;
+  }
+  sortie.push(ligne);
+  return sortie;
+}
+
+/** Les deux infractions d’un fichier, une fois ses commentaires blanchis. */
+function infractions(chemin: string, source: string) {
+  const brutes: string[] = [];
+  const nues: string[] = [];
+  const lignes = sansCommentaires(source);
   lignes.forEach((ligne, i) => {
     if (/\w+ as Error\)\??\.message/.test(ligne) || /instanceof\s+Error\s*\?/.test(ligne))
       brutes.push(`${chemin}:${i + 1}`);
@@ -172,10 +270,43 @@ for (const chemin of ecrans) {
     const garde = /instanceof\s+([A-Z]\w+)/.exec(autour);
     if (!garde || garde[1] === 'Error') nues.push(`${chemin}:${i + 1}`);
   });
+  return { brutes, nues };
+}
+
+const brutes: string[] = [];
+const nues: string[] = [];
+for (const chemin of ecrans) {
+  const r = infractions(chemin, readFileSync(chemin, 'utf8'));
+  brutes.push(...r.brutes);
+  nues.push(...r.nues);
 }
 
 v('aucune lecture brute d’une Error inconnue, dans les écrans', brutes, []);
 v('aucune lecture nue sans garde de domaine', nues, []);
+
+console.log('\nLE BALAYAGE SE TROMPE-T-IL ? LES DEUX SENS');
+
+/*
+   Les deux sabotages demandés, posés à demeure plutôt que joués à la main.
+   Un balayage qui se durcit peut se durcir de travers : il faut éprouver qu’il
+   ne crie PAS à tort, ET qu’il crie encore quand il le doit.
+*/
+const prose = `<script>
+  /*
+     Cet écran n’affiche plus erreur.message brut, ni (e as Error).message.
+  */
+  // et erreur.message en commentaire de ligne non plus
+  <!-- ni erreur.message dans un commentaire HTML -->
+  const rien = 1;
+</script>`;
+const r1 = infractions('fixture-prose', prose);
+v('un commentaire qui PARLE du défaut n’est pas une infraction', [...r1.brutes, ...r1.nues], []);
+
+const ruse = `<script>
+  /* un commentaire */ const fuite = (erreur as Error).message;
+</script>`;
+const r2 = infractions('fixture-ruse', ruse);
+v('du vrai code après la fermeture d’un commentaire est bien vu', r2.brutes, ['fixture-ruse:2']);
 
 console.log(
   echecs === 0 ? '\n\u001b[32m✓ tout passe\u001b[0m' : `\n\u001b[31m✗ ${echecs} contrôles en échec\u001b[0m`,
