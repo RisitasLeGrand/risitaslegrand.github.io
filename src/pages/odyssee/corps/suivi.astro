@@ -186,6 +186,47 @@ import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/c
         <p id="confirmation" class="mt-3 text-sm text-slate-600 dark:text-slate-300" role="status"></p>
 
         <!--
+             CE QUE CYCLADES A OBSERVÉ — branché le 25 octobre, et pas avant.
+
+             Ce bloc lit `odyssee/cycles.ts`, qui existait depuis le 19 octobre
+             et n'était appelé par AUCUN écran. Ce n'était pas un oubli : ses
+             portes refusaient de calculer tant que les chiffres de produit
+             n'étaient pas tranchés (décision 24), donc un écran qui l'aurait
+             appelé n'aurait rien affiché. Le module portait pour cela une
+             exception datée dans `essais:orphelins`, qu'appliquer un chiffre
+             oblige à retirer.
+
+             Six chiffres sur huit sont tranchés : les cycles et les fenêtres
+             se calculent. Les STATISTIQUES, non — elles lisent la fenêtre
+             d'étude par défaut, dont le 4.4.2 dit que le repère FIGO n'a pas
+             été lu. Le bloc le dit au lieu de les taire : une médiane sur une
+             fenêtre non vérifiée serait un chiffre affirmé sans source.
+
+             CE QU'IL N'AFFICHE PAS, ET C'EST LA DÉCISION 12, NON LEVABLE :
+             aucune fenêtre fertile, aucune ovulation prédite, aucune date à
+             venir. Les trois fenêtres sont celles que le 4.5 nomme, sur des
+             cycles dont le J1 suivant est OBSERVÉ — donc du passé.
+        -->
+        <section id="bloc-observe" class="mt-6 hidden border-t border-slate-200 pt-6 dark:border-slate-700">
+          <h3 class="text-base font-semibold text-slate-900 dark:text-white">
+            Ce que Cyclades a observé
+          </h3>
+          <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Vos cycles reconstitués à partir de ce que vous avez noté. Rien n’est prévu ni
+            annoncé : chaque cycle est clos par un premier jour que vous avez saisi.
+          </p>
+
+          <p id="observe-vide" class="mt-3 hidden text-sm text-slate-600 dark:text-slate-300"></p>
+          <ul id="observe-cycles" class="mt-3 space-y-3"></ul>
+
+          <p
+            id="observe-statistiques"
+            class="mt-4 hidden rounded-lg border border-slate-300 bg-slate-50 p-3 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300"
+            role="note"
+          ></p>
+        </section>
+
+        <!--
              EFFACER UNE PÉRIODE, ET POURQUOI C'EST ICI ET PAS AILLEURS.
 
              L'écran « Vos données » découpe par période en lisant une date
@@ -270,6 +311,7 @@ import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/c
     lireLesReglages,
     noterLeJour,
     saisieDuJour,
+    toutesLesSaisies,
   } from '../../../lib/odyssee/donnees-cycle';
   import {
     coffreOuvert,
@@ -282,6 +324,13 @@ import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/c
   import { jourLogique } from '../../../lib/noyau/jour-logique';
   import { leSuiviEstVisibleMaintenant } from '../../../lib/odyssee/portee-du-suivi';
   import type { NiveauDeSaignement } from '../../../lib/odyssee/cycle';
+  import {
+    LIBELLES_DES_FENETRES,
+    cyclesDeLHistorique,
+    fenetresDeLHistorique,
+    parametre,
+    statistiquesDeLHistorique,
+  } from '../../../lib/odyssee/cycles';
 
   const $ = (id: string) => document.getElementById(id)!;
   const aujourdhui = jourLogique(new Date());
@@ -339,8 +388,147 @@ import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/c
       }
       ($('note') as HTMLTextAreaElement).value = saisie?.note ?? '';
       $('debut').setAttribute('aria-pressed', String(saisie?.debutDeclare ?? false));
+
+      await peindreCeQuiEstObserve();
     } catch (e) {
       direLErreur(e);
+    }
+  }
+
+  /**
+   * Les cycles observés, leurs fenêtres, et ce qui refuse encore.
+   *
+   * ## Pourquoi tout passe par les portes qui refusent
+   *
+   * `cyclesDeLHistorique` et `fenetresDeLHistorique` rendent soit un résultat,
+   * soit un refus motivé qui NOMME les paramètres manquants. On ne lit jamais
+   * `propose` directement : ce serait contourner la décision 24, et un essai
+   * balaie le module pour cela. Le refus est donc affiché tel quel, avec ses
+   * clés, plutôt que traduit en page vide.
+   *
+   * ## Ce que ce bloc n'affiche pas, et qui n'est pas négociable
+   *
+   * Aucune date à venir, aucune fenêtre fertile, aucune ovulation — décision
+   * 12. Les fenêtres viennent de `fenetresDeLHistorique`, qui ne les établit
+   * que sur des cycles dont le J1 suivant est OBSERVÉ : tout ce qui s'affiche
+   * ici a eu lieu. Et les libellés sont ceux que le 4.5 impose, lus dans
+   * `LIBELLES_DES_FENETRES` au lieu d'être recopiés — une recopie finit par
+   * dériver, et c'est sur ces trois mots que la décision 12 se tient.
+   */
+  async function peindreCeQuiEstObserve() {
+    const bloc = $('bloc-observe');
+    const liste = $('observe-cycles');
+    const vide = $('observe-vide');
+    const stats = $('observe-statistiques');
+    bloc.classList.remove('hidden');
+    liste.replaceChildren();
+
+    const saisies = await toutesLesSaisies();
+    const derives = cyclesDeLHistorique(saisies);
+
+    if ('impossible' in derives) {
+      /*
+         Le refus, nommé. Il ne devrait plus arriver pour les cycles — les
+         trois chiffres de dérivation sont tranchés —, mais le chemin reste :
+         un paramètre repassé en attente doit se voir, pas se taire.
+      */
+      vide.textContent = `Les cycles ne peuvent pas être reconstitués : ${derives.manquants.join(', ')} n’est pas tranché.`;
+      vide.classList.remove('hidden');
+      stats.classList.add('hidden');
+      return;
+    }
+
+    /*
+       UN CYCLE SEUL N'EST PAS UN CYCLE COMPLET. `cyclesDeLHistorique` rend
+       aussi le cycle en cours, dont le J1 suivant n'est pas observé : sa durée
+       est `null`, et l'afficher comme un nombre serait inventer une fin.
+    */
+    const fenetres = fenetresDeLHistorique(saisies);
+    const parAncre = new Map<string, string[]>();
+    if (!('impossible' in fenetres)) {
+      for (const f of fenetres.fenetres) {
+        const deja = parAncre.get(f.ancre) ?? [];
+        deja.push(`${LIBELLES_DES_FENETRES[f.genre]} du ${f.du} au ${f.au}`);
+        parAncre.set(f.ancre, deja);
+      }
+    }
+
+    if (derives.cycles.length === 0) {
+      /*
+         LA PHRASE DIT LA RÈGLE, ET NON « NOTEZ QUELQUE CHOSE ».
+
+         Elle disait d'abord « il faut au moins un premier jour de règles
+         noté » — servi à quelqu'un qui venait d'en noter un, puisqu'un seul
+         jour ne suffit pas : un J1 demande `jours-pour-ouvrir` jours civils
+         CONSÉCUTIFS de saignement franc (décision 8, « traces isolées
+         exclues »). Mesuré en navigateur : un jour noté donnait zéro cycle et
+         une phrase qui demandait de noter un jour.
+
+         Le chiffre est lu par la porte `parametre()`, et non recopié : le
+         jour où il change, la phrase change avec lui.
+      */
+      const jours = parametre('jours-pour-ouvrir');
+      vide.textContent =
+        jours === null
+          ? 'Aucun cycle n’est encore reconstitué.'
+          : `Aucun cycle n’est encore reconstitué : un premier jour de règles se reconnaît à ` +
+            `${jours} ${jours === 1 ? 'jour' : 'jours'} de suite de saignement net. Les traces ` +
+            `isolées qui précèdent les règles n’en ouvrent pas.`;
+      vide.classList.remove('hidden');
+    } else {
+      vide.classList.add('hidden');
+      for (const cycle of derives.cycles) {
+        const li = document.createElement('li');
+        li.className =
+          'rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700';
+
+        const titre = document.createElement('p');
+        titre.className = 'font-medium text-slate-900 dark:text-white';
+        titre.textContent = cycle.complet
+          ? `Cycle du ${cycle.debut} au ${cycle.fin} — ${cycle.duree} ${cycle.duree === 1 ? 'jour' : 'jours'}`
+          : `Cycle commencé le ${cycle.debut} — en cours`;
+        li.appendChild(titre);
+
+        const sesFenetres = parAncre.get(cycle.debut) ?? [];
+        if (sesFenetres.length) {
+          const ul = document.createElement('ul');
+          ul.className = 'mt-1 list-disc pl-5 text-slate-600 dark:text-slate-300';
+          for (const texte of sesFenetres) {
+            const sous = document.createElement('li');
+            sous.textContent = texte;
+            ul.appendChild(sous);
+          }
+          li.appendChild(ul);
+        } else if (!cycle.complet) {
+          /*
+             Un cycle en cours n'a pas de fenêtres, et ce n'est pas une
+             absence de données : le 4.5 interdit de les établir avant que le
+             J1 suivant soit observé. Le dire évite qu'on les croie perdues.
+          */
+          const note = document.createElement('p');
+          note.className = 'mt-1 text-slate-500 dark:text-slate-400';
+          note.textContent =
+            'Ses fenêtres ne s’établiront qu’une fois le prochain premier jour noté.';
+          li.appendChild(note);
+        }
+        liste.appendChild(li);
+      }
+    }
+
+    /*
+       LES STATISTIQUES REFUSENT ENCORE, ET POUR UN SEUL CHIFFRE. On affiche la
+       raison avec sa clé, parce qu'une section absente passerait pour un
+       oubli, et une section vide pour une panne.
+    */
+    const resume = statistiquesDeLHistorique(saisies);
+    if ('impossible' in resume) {
+      stats.textContent =
+        `Les statistiques — durée habituelle, régularité — ne sont pas calculées : ` +
+        `${resume.manquants.join(', ')} n’est pas tranché. Un repère publié doit être relu à sa ` +
+        `source avant qu’un chiffre soit affiché ici.`;
+      stats.classList.remove('hidden');
+    } else {
+      stats.classList.add('hidden');
     }
   }
 

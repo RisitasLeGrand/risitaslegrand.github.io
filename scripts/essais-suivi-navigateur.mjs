@@ -568,6 +568,86 @@ console.log('\n8. LES CIBLES TACTILES ET LA DÉSACTIVATION');
   v('et les signes ne sont pas revenus ici', await page.locator('#signes').count(), 0);
 }
 
+console.log('\n8 bis. CE QUE CYCLADES A OBSERVÉ — LE MODULE EST VRAIMENT APPELÉ');
+
+/*
+   POURQUOI CETTE SECTION EXISTE, ET CE QU'UN ESSAI DE NŒUD NE POUVAIT PAS DIRE.
+
+   `odyssee/cycles.ts` existait depuis le 19 octobre sans qu'aucun écran
+   l'appelle : ses portes refusaient tant que les chiffres de produit n'étaient
+   pas tranchés. Six le sont depuis le 25 octobre, le module est branché à cet
+   écran, et son exception d'orphelin est retirée.
+
+   `essais:orphelins` ne suffit pas à le garder : il suit les IMPORTS, pas les
+   appels. Mesuré par sabotage — retirer l'appel à `peindreCeQuiEstObserve()` en
+   laissant l'import laissait `essais:orphelins` ET `essais:cycles` au vert,
+   pour un écran qui n'affichait plus rien. Un module importé et jamais appelé
+   est un orphelin que le garde-fou ne voit pas.
+
+   C'est donc ici, sur la page peinte, que le branchement se tient.
+*/
+{
+  /*
+     UN SEUL JOUR NE FAIT PAS UN CYCLE, ET C'EST CE QUE CETTE SECTION MESURE.
+
+     Ma première version cliquait « premier jour », attendait un cycle, et
+     obtenait zéro. Le module avait raison : un J1 demande DEUX jours civils
+     consécutifs de saignement net — `jours-pour-ouvrir` vaut 2 —, et les
+     traces isolées n'en ouvrent aucun (décision 8). L'écran ne note que le
+     jour courant, donc un seul jour est tout ce qu'un essai de navigateur peut
+     saisir sans écrire en base à la place du module.
+
+     Ce cas vaut d'être tenu pour lui-même : c'est l'état d'une personne qui
+     vient de commencer, et l'écran doit lui dire la RÈGLE plutôt que de lui
+     demander de noter ce qu'elle vient de noter. La phrase a été corrigée pour
+     cela, et ce constat la garde.
+  */
+  await page.click('#debut');
+  await page.waitForTimeout(1200);
+
+  vrai('le bloc des cycles observés s’affiche', await page.locator('#bloc-observe').isVisible());
+
+  const cartes = await page.locator('#observe-cycles li').count();
+  v('un seul jour ne reconstitue aucun cycle', cartes, 0);
+
+  const vide = (await page.locator('#observe-vide').innerText().catch(() => '')) ?? '';
+  vrai('et l’écran dit la règle des jours consécutifs', /2 jours de suite/.test(vide));
+  vrai('en nommant les traces isolées', /traces isolées/.test(vide));
+  faux(
+    'il ne demande pas de noter un jour qui vient d’être noté',
+    /il faut au moins un premier jour/.test(vide),
+  );
+
+  /*
+     LES STATISTIQUES REFUSENT, ET L'ÉCRAN NOMME LE CHIFFRE QUI MANQUE. C'est
+     la 8ᵉ valeur, celle dont le 4.4.2 dit que le repère FIGO n'a pas été lu.
+     Une section absente passerait pour un oubli, une section vide pour une
+     panne.
+  */
+  const refusStats = (await page.locator('#observe-statistiques').innerText().catch(() => '')) ?? '';
+  vrai('le refus des statistiques est affiché', await page.locator('#observe-statistiques').isVisible());
+  vrai('et il nomme la fenêtre d’étude', /fenetre-par-defaut/.test(refusStats));
+  vrai('en disant qu’un repère doit être relu à sa source', /source/.test(refusStats));
+
+  /*
+     LA DÉCISION 12, NON LEVABLE, MESURÉE SUR LA PAGE RENDUE. Aucune fenêtre
+     fertile, aucune ovulation, aucune date à venir. On lit `innerText` et non
+     `textContent` : le second rend aussi ce qui est caché, et un mot interdit
+     masqué resterait un mot interdit servi au navigateur.
+  */
+  const toutLeBloc = (await page.locator('#bloc-observe').innerText()) ?? '';
+  for (const interdit of ['fertile', 'ovulation', 'féconda', 'prévision', 'prochaines règles']) {
+    faux(`le mot « ${interdit} » n’apparaît pas`, new RegExp(interdit, 'i').test(toutLeBloc));
+  }
+  /*
+     Et les trois libellés du 4.5 sont les seuls noms de fenêtre employés. On ne
+     peut pas les voir sur un cycle en cours — ils ne s'établissent qu'a
+     posteriori —, donc ce constat dit ce qu'il mesure : aucun AUTRE nom de
+     fenêtre n'est inventé ici.
+  */
+  faux('aucun nom de fenêtre n’est inventé', /phase (lutéale|folliculaire)/i.test(toutLeBloc));
+}
+
 console.log('\n9. L’EFFACEMENT PAR PÉRIODE EST UNE PURGE PHYSIQUE');
 
 {
