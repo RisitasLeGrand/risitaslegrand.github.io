@@ -229,6 +229,72 @@ execFileSync('mkdir', ['-p', dossierSanteOrigine]);
 const octetsBibliographie = Buffer.from(JSON.stringify(bibliographieOrigine));
 writeFileSync(path.join(dossierSanteOrigine, 'bibliographie.json'), octetsBibliographie);
 
+/*
+   Un registre de molécules de laboratoire — le TROISIÈME fichier de
+   `content/sante/`, et celui dont le retour était le plus lacunaire : il
+   revenait dans `annexes/`, à déplacer et à reformater à la main.
+
+   Il est écrit ici dans la forme exacte de son générateur, `JSON.stringify(…,
+   null, 2)` suivi d'un saut de ligne, parce que c'est cette forme-là dont
+   l'outil promet le retour octet pour octet. L'écrire autrement prouverait
+   autre chose que ce qui est promis.
+
+   Les clés sont celles que lit `src/lib/contenu.ts`, et aucune n'est un
+   entier : l'ordre des champs traverse donc `JSON.parse` sans être réagencé,
+   ce qui est la condition pour que la comparaison d'octets ait un sens.
+*/
+type Molecule = {
+  id: string;
+  nom: string;
+  alias: string[];
+  nomenclature: string | null;
+  fiche: boolean;
+  identiteVerifiee: boolean;
+};
+const moleculeDeLaboratoire = (
+  id: string,
+  nom: string,
+  reste: Partial<Omit<Molecule, 'id' | 'nom'>> = {},
+): Molecule => ({
+  id,
+  nom,
+  alias: reste.alias ?? [],
+  nomenclature: reste.nomenclature ?? null,
+  fiche: reste.fiche ?? false,
+  identiteVerifiee: reste.identiteVerifiee ?? false,
+});
+const registreOrigine = [
+  moleculeDeLaboratoire('acide-ascorbique', 'Acide ascorbique'),
+  moleculeDeLaboratoire('n-acetylcysteine', 'N-acétylcystéine', {
+    alias: ['NAC'],
+    nomenclature: 'C5H9NO3S',
+    fiche: true,
+    identiteVerifiee: true,
+  }),
+  moleculeDeLaboratoire('theanine', 'Théanine'),
+];
+const octetsRegistre = Buffer.from(JSON.stringify(registreOrigine, null, 2) + '\n');
+writeFileSync(path.join(dossierSanteOrigine, 'molecules.json'), octetsRegistre);
+
+/*
+   LA FORME DU GÉNÉRATEUR ET CELLE DE LA RÉCUPÉRATION DOIVENT S'ACCORDER.
+
+   Tout ce qui précède ne tient que si `npm run molecules:registre` écrit bien
+   dans cette forme : si son formatage changeait sans que la récupération suive,
+   l'aller-retour cesserait d'être exact et cet essai, qui code sa propre forme,
+   resterait vert. Cette vérification-là est la seule qui regarde les deux
+   écritures ensemble.
+*/
+const generateur = readFileSync(
+  path.join(racine, 'scripts', 'construire-registre-molecules.mjs'),
+  'utf8',
+);
+verifier(
+  'le générateur du registre écrit bien la forme que la récupération rend',
+  generateur.includes("JSON.stringify(registre, null, 2) + '\\n'"),
+  "attendu : JSON.stringify(registre, null, 2) + '\\n'",
+);
+
 const fichesOrigine = new Map<string, { brut: string; donnees: Record<string, unknown> }>();
 for (const relatif of listerFiches(path.join(racine, 'content'))) {
   const brut = readFileSync(path.join(racine, 'content', relatif), 'utf8');
@@ -483,6 +549,23 @@ verifier(
   existsSync(path.join(racine, 'public', 'data', 'bibliographie.bin')) &&
     readFileSync(path.join(racine, 'public', 'data', 'bibliographie.bin')).byteLength <
       octetsBibliographie.byteLength,
+);
+
+/* Le registre des molécules : il n'est pas reconstruit, seulement déchiffré,
+   donc il doit revenir à sa place dans `content/` et dans sa forme canonique —
+   la même preuve par empreinte que la bibliographie, et non une ressemblance. */
+const registreRecupere = path.join(dossierRecupere, 'sante', 'molecules.json');
+verifier('le registre des molécules est récupéré', existsSync(registreRecupere));
+verifier(
+  'et il revient dans content/sante/, non dans annexes/',
+  existsSync(registreRecupere) && !existsSync(path.join(sortieRecup, 'annexes', 'molecules.json')),
+);
+verifier(
+  'et il est identique octet pour octet',
+  existsSync(registreRecupere) && readFileSync(registreRecupere).equals(octetsRegistre),
+  existsSync(registreRecupere)
+    ? `${readFileSync(registreRecupere).byteLength} octets rendus sur ${octetsRegistre.byteLength}`
+    : '',
 );
 
 /* ══════════════════════════════════════════════════════════════════════════

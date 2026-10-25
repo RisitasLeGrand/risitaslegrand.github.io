@@ -895,9 +895,54 @@ async function main() {
     }
   }
 
+  /* ── Le registre des molécules, vers sa source ─────────────────────────
+     POURQUOI IL N'EST PAS UNE ANNEXE, ALORS QU'IL EST PUBLIÉ COMME ELLES.
+
+     `qcm-dgfip.json` et `recherche.json` sont fabriqués par le build : l'un
+     réagence la banque écrite en YAML, l'autre est un index tiré des fiches.
+     Les rendre « au format source » demanderait de deviner, et le rapport dit
+     pourquoi on livre plutôt le JSON publié.
+
+     Le registre, lui, EST un fichier de `content/sante/` : il est écrit par
+     `npm run molecules:registre`, publié tel quel, et rien ne le réagence en
+     route. Le laisser dans `annexes/` obligeait à le déplacer et à le
+     reformater à la main avant de pouvoir reconstruire le site — pour un
+     fichier qui n'avait jamais changé de forme.
+
+     CE QUE « IDENTIQUE » VEUT DIRE ICI, ET CE QU'IL NE VEUT PAS DIRE. La
+     bibliographie revient identique sans condition : ses octets sont publiés
+     tels quels. Le registre, lui, est publié en JSON déchiffré-rechiffré : ce
+     qui revient est sa forme CANONIQUE — celle que son générateur écrit,
+     `JSON.stringify(…, null, 2)` et un saut de ligne final. Un registre
+     reformaté à la main reviendra donc canonique, et non identique ; tant que
+     la forme est celle du générateur, le retour est exact octet pour octet, et
+     l'essai le prouve ainsi.
+  */
+  const registreChiffre = source.texte('molecules.json');
+  if (registreChiffre) {
+    try {
+      const clair = await ouvrirJson(cle, JSON.parse(registreChiffre) as Enveloppe);
+      const dossierSante = path.join(dossierFiches, 'sante');
+      await mkdir(dossierSante, { recursive: true });
+      await writeFile(
+        path.join(dossierSante, 'molecules.json'),
+        JSON.stringify(clair, null, 2) + '\n',
+      );
+      const noms = Array.isArray(clair) ? clair.length : 0;
+      console.error(
+        `  registre des molécules : ${noms.toLocaleString('fr-FR')} nom(s) rendus à ` +
+          'content/sante/molecules.json',
+      );
+    } catch (erreur) {
+      console.error(
+        `  registre des molécules : ILLISIBLE (${erreur instanceof Error ? erreur.message : erreur})`,
+      );
+    }
+  }
+
   // --- Les annexes, telles quelles ----------------------------------------
   const annexes = path.join(sortie, 'annexes');
-  for (const nom of ['qcm-dgfip.json', 'recherche.json', 'molecules.json']) {
+  for (const nom of ['qcm-dgfip.json', 'recherche.json']) {
     const brut = source.texte(nom);
     if (!brut) continue;
     try {
@@ -1124,10 +1169,15 @@ function rapport(
     '',
     '### 3.6 Ce qui n’est pas du contenu de fiche',
     '',
-    '`content/qcm-dgfip/*.yml`, l’index de recherche et les autres annexes sont',
-    'déchiffrés dans `annexes/`, **au format publié** (JSON), et non remis au format',
-    'source : leur forme source a des champs que la publication réagence, et deviner',
-    'serait pire que de livrer le JSON exact.',
+    '`content/qcm-dgfip/*.yml` et l’index de recherche sont déchiffrés dans',
+    '`annexes/`, **au format publié** (JSON), et non remis au format source : leur',
+    'forme source a des champs que la publication réagence, et deviner serait pire',
+    'que de livrer le JSON exact.',
+    '',
+    'Le glossaire, la bibliographie et le registre des molécules, eux, retournent',
+    'bien à leur place dans `content/` : rien ne les réagence en route. Le registre',
+    'revient dans sa forme canonique — celle qu’écrit `npm run molecules:registre` —',
+    'et non dans un formatage qui aurait été le vôtre.',
     '',
     '## 4. Les fiches à relire',
     '',
