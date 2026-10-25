@@ -35,6 +35,7 @@
  */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import path from 'node:path';
+import { sansCommentaires } from './lib/sans-commentaires.mjs';
 
 const racine = path.resolve(import.meta.dirname, '..');
 const vert = (t) => `\u001b[32m${t}\u001b[0m`;
@@ -83,6 +84,10 @@ const CLASSEMENT = {
   'src/pages/positionnement.astro': ['filtre', 'le positionnement propose'],
   'src/pages/fiche.astro': ['filtre', 'la fiche ouverte appartient au parcours courant'],
   'src/pages/actualites.astro': ['filtre', 'les actualités renvoient vers ce qu’on peut réviser'],
+  'src/pages/organigrammes.astro': [
+    'filtre',
+    'la page est servie aux trois parcours DGFiP et cachée pour l’INSP : elle propose à consulter ce que le parcours sert',
+  ],
 
   /* ── Ce qui raconte ou conserve ──────────────────────────────────────── */
   'src/lib/indicateurs.ts': [
@@ -116,7 +121,25 @@ const appelants = new Map();
 for (const abs of fichiersDe(path.join(racine, 'src'))) {
   const rel = path.relative(racine, abs);
   if (DEFINIT.has(rel)) continue;
-  const texte = readFileSync(abs, 'utf8');
+  /*
+     LE BALAYAGE LIT LE CODE, PAS CE QUI EN PARLE — et il l'a appris à ses
+     dépens le soir même de sa naissance.
+
+     « planification.ts » écrit, dans un commentaire qui explique qu'il ne
+     filtre plus : « chargerManifeste() rend désormais un manifeste réduit ».
+     Le balayage y voyait un appel, et refusait un fichier qui n'appelle rien.
+
+     Mon sabotage prétendait couvrir ce cas. Il était INERTE : il éprouvait une
+     mention SANS parenthèses, que le motif ne pouvait de toute façon pas
+     attraper. Le vrai cas — une mention AVEC parenthèses — passait. C'est la
+     troisième garde inerte que j'écris aujourd'hui, et la troisième que le
+     réel démasque.
+
+     « sansCommentaires » vient du module partagé : la même règle sert
+     « essais:erreurs-dites », qui s'est fait prendre par la même chose le
+     matin. Une règle recopiée finit par diverger.
+  */
+  const texte = sansCommentaires(readFileSync(abs, 'utf8')).join('\n');
   const complet = APPEL_COMPLET.test(texte);
   /*
      « chargerManifesteComplet( » contient « chargerManifeste » : on retire
@@ -174,10 +197,27 @@ verifier(
   APPEL_FILTRE.test('const m = await chargerManifeste();'.replace(/chargerManifesteComplet\s*\(/g, 'X(')),
   true,
 );
+/*
+   CE SABOTAGE ÉTAIT INERTE, et le voici tel qu'il doit être. Il éprouvait une
+   mention SANS parenthèses, que le motif ne peut pas attraper de toute façon :
+   il passait au vert sans rien garder. Le cas qui compte est la mention AVEC
+   parenthèses, celle que « planification.ts » écrit vraiment.
+*/
+const vuDansLeCode = (source) => APPEL_FILTRE.test(sansCommentaires(source).join('\n'));
 verifier(
-  'sabotage : une MENTION en commentaire n’est pas un appel',
-  APPEL_FILTRE.test(' * par `chargerManifeste`, qui filtre.'),
+  'sabotage : une mention « chargerManifeste() » en commentaire de bloc n’est pas un appel',
+  vuDansLeCode('  /* `chargerManifeste()` rend désormais un manifeste réduit. */'),
   false,
+);
+verifier(
+  'sabotage : la même en commentaire de ligne non plus',
+  vuDansLeCode('  // on n’appelle plus chargerManifeste() ici'),
+  false,
+);
+verifier(
+  'sabotage : mais du code après la fermeture d’un commentaire est bien vu',
+  vuDansLeCode('/* ceci */ const m = await chargerManifeste();'),
+  true,
 );
 
 console.log(

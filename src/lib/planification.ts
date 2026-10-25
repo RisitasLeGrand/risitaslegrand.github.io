@@ -29,8 +29,6 @@ import {
 } from './db';
 import { gagnerXp } from './gamification';
 import { jourDeLaSemaine, lireReglages, theme } from './rotation';
-import { ficheServieAuParcours } from './parcours/registre';
-import { parcoursCourant } from './parcours/courant';
 import type { Manifeste } from './contenu';
 
 /*
@@ -309,11 +307,7 @@ export interface FicheProposee {
  * Fiches de cours rattachées à un thème, dans l'ordre du programme.
  * C'est le « contenu du jour » proposé par la séance.
  */
-export function fichesDuTheme(
-  manifeste: Manifeste,
-  themeId: string,
-  parcours = parcoursCourant(),
-): FicheProposee[] {
+export function fichesDuTheme(manifeste: Manifeste, themeId: string): FicheProposee[] {
   const cible = theme(themeId);
   if (!cible) return [];
   const noms = new Set(cible.matieres.map((m) => m.toLowerCase()));
@@ -322,32 +316,37 @@ export function fichesDuTheme(
     .flatMap((m) =>
       m.fascicules.flatMap((f) =>
         /*
-           LE NOM DE LA MATIÈRE NE SUFFIT PAS À DÉSIGNER UNE FICHE.
+           LE NOM DE LA MATIÈRE NE SUFFIT PAS À DÉSIGNER UNE FICHE, ET LE TRI
+           SE FAIT EN AMONT.
 
            « Organisation de la DGFiP » est déclarée par DGFiP B et par DGFiP A,
-           et c'est voulu : c'est la même matière. Sans ce filtre, la séance de
-           B proposait la fiche rangée sous `dgfip-a/`, et celle de A la fiche
-           de `dgfip-b/` — le manifeste portait déjà de quoi trancher, et
-           personne ne le lisait.
+           et c'est voulu : c'est la même matière. Un samedi, la séance de B
+           proposait donc la fiche rangée sous `dgfip-a/`, et celle de A la
+           fiche de `dgfip-b/`.
 
-           Le filtre est ici et non dans `chargerManifeste` : scoper le
-           manifeste pour tout le site toucherait la bibliothèque, la recherche
-           et les statistiques d'un coup, et ces écrans n'ont pas la même
-           réponse — un historique FSRS ne change pas de parcours parce qu'on
-           change d'onglet. La séance, elle, PROPOSE : c'est le seul écran qui
-           doive trancher aujourd'hui.
+           J'avais filtré ICI, en écrivant que la séance était le seul écran qui
+           doive trancher. `filtre-du-manifeste.ts` a tranché autrement, et
+           mieux : `chargerManifeste()` rend désormais un manifeste réduit au
+           parcours ouvert, et il RECALCULE ses totaux — ce que mon filtre local
+           ne pouvait pas faire, et qui comptait, puisque `totaux.fiches` est lu
+           par les statistiques et par l'estimation de niveau. Un manifeste
+           filtré qui garderait les totaux d'origine annoncerait « 427 fiches »
+           à qui n'en voit que quatre.
+
+           Les deux écrans qui appellent cette fonction passent par
+           `chargerManifeste()`. Garder un second filtre ici aurait mis la même
+           règle à deux endroits, et le jour où les deux divergeraient, des
+           fiches changeraient de parcours sans que rien ne le dise.
         */
-        f.fiches
-          .filter((fiche) => ficheServieAuParcours(fiche, parcours.id))
-          .map((fiche) => ({
-            id: fiche.id,
-            titre: fiche.titre,
-            matiere: m.nom,
-            fascicule: f.nom,
-            aPretest: fiche.aPretest ?? false,
-            nbParties: fiche.nbParties ?? 0,
-            nbMots: fiche.nbMots ?? 0,
-          })),
+        f.fiches.map((fiche) => ({
+          id: fiche.id,
+          titre: fiche.titre,
+          matiere: m.nom,
+          fascicule: f.nom,
+          aPretest: fiche.aPretest ?? false,
+          nbParties: fiche.nbParties ?? 0,
+          nbMots: fiche.nbMots ?? 0,
+        })),
       ),
     );
 }
