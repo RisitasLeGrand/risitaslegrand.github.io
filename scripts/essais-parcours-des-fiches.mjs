@@ -312,7 +312,21 @@ v('aucune fiche sous un dossier que le registre ignore', dossiersInconnus, []);
    un `id_publie` déclaré doit se retrouver AU MANIFESTE, sans quoi le champ
    serait écrit pour rien et la réparation silencieusement perdue.
 */
-const ID_PUBLIE = /^id_publie:\s*([0-9a-f]{16})\s*$/m;
+/*
+   LES GUILLEMETS NE SONT PAS DÉCORATIFS.
+
+   « id_publie: 03893560309995e0 » sans guillemets est lu par YAML comme le
+   NOMBRE 3 893 560 309 995 : seize caractères hexadécimaux qui finissent par
+   « e » suivi de chiffres forment une écriture scientifique valable. L'outil
+   de récupération les met donc entre guillemets quand il le faut, et le corpus
+   réel porte au moins une fiche dans ce cas.
+
+   Une lecture qui ne les accepterait pas prendrait cette fiche pour une fiche
+   sans identifiant déclaré, lui attendrait l'empreinte de son chemin, et
+   rougirait sur une fiche parfaitement en règle. C'est le défaut que j'ai
+   d'abord écrit dans mon propre contrôle de vérification, avant de le voir.
+*/
+const ID_PUBLIE = /^id_publie:\s*["']?([0-9a-f]{16})["']?\s*$/m;
 const idsDeclares = new Map();
 const idsAttendus = new Set();
 for (const chemin of cheminsDuDisque) {

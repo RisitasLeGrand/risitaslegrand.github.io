@@ -4,6 +4,8 @@
  * pour la durée de l'onglet.
  */
 import { dechiffrerBinaire, dechiffrerJson, type Blob as BlobChiffre, type ParametresCle } from './crypto';
+import { idParcoursCourant } from './parcours/courant';
+import { manifestePourLeParcours } from './parcours/filtre-du-manifeste';
 import { obtenirCle } from './auth';
 
 export interface FicheResume {
@@ -35,6 +37,27 @@ export interface FicheResume {
    * « aucun choix de partie à proposer ».
    */
   nbParties?: number;
+  /**
+   * La racine de contenu sous laquelle la fiche est rangée — `''` pour l'INSP,
+   * `'commun'` pour la matière partagée entre les parcours DGFiP.
+   *
+   * Portée par le manifeste pour que la bibliothèque puisse filtrer AVANT de
+   * déchiffrer quoi que ce soit. Facultative : un manifeste construit avant le
+   * partage des matières ne la porte pas, et son absence ne doit pas vider une
+   * bibliothèque.
+   */
+  racine?: string;
+  /**
+   * Les parcours auxquels la fiche est servie, dérivés de sa racine par le
+   * registre au moment du build.
+   *
+   * C'est le champ sur lequel le filtre travaille. Il est facultatif pour la
+   * même raison que `racine`, et son absence se lit « on ne sait pas, donc on
+   * garde » : mieux vaut une fiche de trop qu'une bibliothèque vide.
+   */
+  parcoursServis?: string[];
+  /** La fiche sert-elle plus d'un parcours ? Dérivé de `parcoursServis`. */
+  partagee?: boolean;
 }
 
 export interface Fascicule {
@@ -448,7 +471,30 @@ export function chargerBibliographie(): Promise<Bibliographie> {
   return bibliographie;
 }
 
-export const chargerManifeste = () => charger<Manifeste>('manifeste.json');
+/**
+ * Le manifeste complet, tous parcours confondus.
+ *
+ * Réservé à ce qui doit voir le corpus entier : les essais, et un éventuel
+ * écran qui compterait les fiches d'un autre parcours. Tout le reste passe
+ * par `chargerManifeste`, qui filtre.
+ */
+export const chargerManifesteComplet = () => charger<Manifeste>('manifeste.json');
+
+/**
+ * Le manifeste du parcours ouvert.
+ *
+ * LE FILTRE EST ICI, ET NON DANS LES ÉCRANS. Quatorze fichiers chargent le
+ * manifeste ; un filtre posé écran par écran aurait été oublié par le
+ * quinzième, et une fiche d'un autre concours serait réapparue dans l'arbre
+ * sans que rien ne le signale. Le détail de la règle, et ce que « on ne sait
+ * pas » doit produire, sont dans « parcours/filtre-du-manifeste.ts ».
+ *
+ * Le filtre tourne à chaque appel plutôt qu'une fois : le manifeste brut, lui,
+ * reste en cache. C'est ce qui permet à un changement de parcours de prendre
+ * effet sans vider le cache ni recharger la page.
+ */
+export const chargerManifeste = async (): Promise<Manifeste> =>
+  manifestePourLeParcours(await chargerManifesteComplet(), idParcoursCourant());
 export const chargerFiche = (id: string) => charger<Fiche>(`fiches/${id}.json`);
 
 /**
