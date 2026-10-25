@@ -1,7 +1,13 @@
 /**
  * Des étiquettes visibles, et « (facultatif) » (D1 et D5 du prompt 43).
  *
- *   npx astro preview &  CHROMIUM=… SITE_PASSWORD=… npm run essais:etiquettes:navigateur
+ *   npx astro preview &  CHROMIUM=… npm run essais:etiquettes:navigateur
+ *
+ * Le mot de passe ne se donne PAS sur la ligne de commande : elle reste en
+ * clair dans le journal du terminal. Il se pose dans `.env.local`, ignoré
+ * par Git, et `motDePasseEssais()` l'y lit — c'est la source unique.
+ *
+ *   printf 'SITE_PASSWORD=…\n' > .env.local
  *
  * ## Ce qu'un relevé de fichiers ne pourrait pas dire
  *

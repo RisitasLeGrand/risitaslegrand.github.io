@@ -1,7 +1,13 @@
 /**
  * Un parcours planifiable et sans contenu : des états vides, jamais un écran mort.
  *
- *   SITE_PASSWORD=… npm run essais:parcours-vides:navigateur
+ *   npm run essais:parcours-vides:navigateur
+ *
+ * Le mot de passe ne se donne PAS sur la ligne de commande : elle reste en
+ * clair dans le journal du terminal. Il se pose dans `.env.local`, ignoré
+ * par Git, et `motDePasseEssais()` l'y lit — c'est la source unique.
+ *
+ *   printf 'SITE_PASSWORD=…\n' > .env.local
  *
  * ## Ce que ce contrôle garde, et pourquoi il naît maintenant
  *

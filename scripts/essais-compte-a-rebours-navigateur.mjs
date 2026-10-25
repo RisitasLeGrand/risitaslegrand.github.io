@@ -1,7 +1,13 @@
 /**
  * Le compte à rebours, sur l'écran où il vit.
  *
- *   npx astro preview &  CHROMIUM=… SITE_PASSWORD=… npm run essais:compte-a-rebours:navigateur
+ *   npx astro preview &  CHROMIUM=… npm run essais:compte-a-rebours:navigateur
+ *
+ * Le mot de passe ne se donne PAS sur la ligne de commande : elle reste en
+ * clair dans le journal du terminal. Il se pose dans `.env.local`, ignoré
+ * par Git, et `motDePasseEssais()` l'y lit — c'est la source unique.
+ *
+ *   printf 'SITE_PASSWORD=…\n' > .env.local
  *
  * L'essai pur (`essais:compte-a-rebours`) garde l'arithmétique : les jours
  * comptés sur des minuits UTC, les semaines au-delà de huit, les valeurs

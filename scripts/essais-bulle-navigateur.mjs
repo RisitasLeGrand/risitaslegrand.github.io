@@ -1,7 +1,13 @@
 /**
  * La bulle : assez longue pour être lue, et jamais sur la barre (C4 du 43).
  *
- *   npx astro preview &  CHROMIUM=… SITE_PASSWORD=… npm run essais:bulle:navigateur
+ *   npx astro preview &  CHROMIUM=… npm run essais:bulle:navigateur
+ *
+ * Le mot de passe ne se donne PAS sur la ligne de commande : elle reste en
+ * clair dans le journal du terminal. Il se pose dans `.env.local`, ignoré
+ * par Git, et `motDePasseEssais()` l'y lit — c'est la source unique.
+ *
+ *   printf 'SITE_PASSWORD=…\n' > .env.local
  *
  * Trois promesses du point C4, et aucune ne se lit dans le code :
  *

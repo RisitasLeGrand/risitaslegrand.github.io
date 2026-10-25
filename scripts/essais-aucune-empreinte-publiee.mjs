@@ -27,12 +27,9 @@
 import { createHash } from 'node:crypto';
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
-const MDP = process.env.SITE_PASSWORD;
-if (!MDP) {
-  console.error('SITE_PASSWORD manquant : cet essai ne peut pas chercher ce qu’il ne connaît pas.');
-  process.exit(1);
-}
+const MDP = motDePasseEssais();
 
 let echecs = 0;
 const verifier = (intitule, obtenu, attendu) => {

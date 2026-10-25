@@ -1,7 +1,13 @@
 /**
  * Entraînement cognitif, dans un vrai navigateur.
  *
- *   SITE_PASSWORD=… npm run essais:cog:navigateur
+ *   npm run essais:cog:navigateur
+ *
+ * Le mot de passe ne se donne PAS sur la ligne de commande : elle reste en
+ * clair dans le journal du terminal. Il se pose dans `.env.local`, ignoré
+ * par Git, et `motDePasseEssais()` l'y lit — c'est la source unique.
+ *
+ *   printf 'SITE_PASSWORD=…\n' > .env.local
  *
  * La branche n'avait aucun essai de navigateur : ses deux essais existants,
  * `essais:relationnel` et `essais:veridical`, éprouvent des moteurs purs. Or
@@ -33,13 +39,10 @@ import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 import { attendreLaBoite, repondreALaBoite } from './lib/boite-essais.mjs';
+import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const BASE = process.env.RACINE ?? 'http://localhost:4321';
-const MDP = process.env.SITE_PASSWORD;
-if (!MDP) {
-  console.error('SITE_PASSWORD manquant.');
-  process.exit(1);
-}
+const MDP = motDePasseEssais();
 
 /** La tolérance que « zone-de-jeu.ts » se donne, reprise pour ne pas en inventer une autre. */
 const TOLERANCE_HAUT = 4;

@@ -1,7 +1,13 @@
 /**
  * « Ma journée » dans un navigateur : une donnée, trois endroits.
  *
- *   npx astro preview &  CHROMIUM=… SITE_PASSWORD=… npm run essais:ma-journee:navigateur
+ *   npx astro preview &  CHROMIUM=… npm run essais:ma-journee:navigateur
+ *
+ * Le mot de passe ne se donne PAS sur la ligne de commande : elle reste en
+ * clair dans le journal du terminal. Il se pose dans `.env.local`, ignoré
+ * par Git, et `motDePasseEssais()` l'y lit — c'est la source unique.
+ *
+ *   printf 'SITE_PASSWORD=…\n' > .env.local
  *
  * Décision 5 du prompt 56 : « modifier à un endroit se voit aux trois ».
  * L'essai pur garde les déclarations ; celui-ci garde ce qu'aucune
