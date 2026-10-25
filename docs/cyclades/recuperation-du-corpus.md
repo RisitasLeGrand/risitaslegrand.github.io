@@ -29,8 +29,8 @@ Le résultat :
 
 | | |
 | --- | --- |
-| `<sortie>/content/` | le corpus au format source, à remettre en place |
-| `<sortie>/annexes/` | la banque de QCM et l'index, au format publié (JSON) |
+| `<sortie>/content/` | le corpus au format source, à remettre en place — fiches, glossaire, bibliographie, registre des molécules |
+| `<sortie>/annexes/` | la banque de QCM et l'index de recherche, au format publié (JSON) |
 | `<sortie>/a-relire/` | le HTML publié des sections à comparer à la main |
 | `<sortie>/RAPPORT.md` | ce qui est revenu, transformé, ou perdu, fiche par fiche |
 
