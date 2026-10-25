@@ -3,7 +3,8 @@
  *
  * ## Pourquoi cet outil existe
  *
- * `content/` — les fiches, le glossaire, la banque de QCM, les fiches audio —
+ * `content/` — les fiches, le glossaire, la banque de QCM, les fiches audio, la
+ * bibliographie —
  * n'a jamais été versionné : le dépôt est public, et le contenu est le seul
  * bien du projet. Le dossier a été perdu. Il n'en reste **qu'un exemplaire au
  * monde** : le site publié, chiffré, dans l'historique de `gh-pages`.
@@ -61,6 +62,7 @@ import { execFileSync } from 'node:child_process';
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { gunzipSync } from 'node:zlib';
 
 import config from '../site.config.mjs';
 import { deriverCle, idStable } from './lib/crypto.mjs';
@@ -852,6 +854,45 @@ async function main() {
         blocYaml(glossaire.map((g) => ({ terme: g.terme, formes: [], definition: g.definition }))) +
         '\n',
     );
+  }
+
+  /* ── La bibliographie, vers sa source ──────────────────────────────────
+     POURQUOI ELLE REVIENT ENTIÈRE, LÀ OÙ UNE FICHE NE REVIENT QU'À PEU PRÈS.
+
+     Une fiche est publiée en HTML : la récupérer demande d'inverser un rendu,
+     et c'est là que naissent les « à relire ». La bibliographie, elle, est
+     publiée telle quelle — ses octets JSON sont compressés puis chiffrés, et
+     rien n'est réécrit en route. Le retour est donc exact, octet pour octet,
+     et l'essai le prouve par une empreinte plutôt que par une comparaison
+     approximative.
+
+     L'ORDRE COMPTE, ET C'EST L'INVERSE DE CELUI DU BUILD. Le build comprime
+     puis chiffre, parce qu'un texte chiffré est du bruit qui ne se comprime
+     plus. On déchiffre donc d'abord, on décomprime ensuite.
+
+     Son absence n'est pas un échec : le site se construit sans, et l'écran le
+     dit. Une publication qui n'en porte pas est simplement une publication
+     d'avant la bibliographie.
+  */
+  const biblioChiffree = source.octets('bibliographie.bin');
+  if (biblioChiffree) {
+    try {
+      const comprime = await ouvrirBinaire(cle, biblioChiffree, tailleIv);
+      const clair = gunzipSync(comprime);
+      const dossierSante = path.join(dossierFiches, 'sante');
+      await mkdir(dossierSante, { recursive: true });
+      await writeFile(path.join(dossierSante, 'bibliographie.json'), clair);
+      console.error(
+        `  bibliographie : ${clair.byteLength.toLocaleString('fr-FR')} octets rendus à ` +
+          'content/sante/bibliographie.json',
+      );
+    } catch (erreur) {
+      /* Comme pour une annexe illisible : le corpus est ce qui compte, et le
+         message dit ce qui manque plutôt que de tout arrêter. */
+      console.error(
+        `  bibliographie : ILLISIBLE (${erreur instanceof Error ? erreur.message : erreur})`,
+      );
+    }
   }
 
   // --- Les annexes, telles quelles ----------------------------------------

@@ -202,6 +202,33 @@ writeFileSync(
   JSON.stringify({ empreinte: 'laboratoire', secondes: 153.8, octets: octetsAudio.length }),
 );
 
+/*
+   Une bibliographie de laboratoire, pour que l'aller-retour couvre le SECOND
+   binaire — celui qui est comprimé avant d'être chiffré.
+
+   Elle manquait, et l'outil ne la récupérait pas : le défaut a donc tenu
+   jusqu'à ce qu'un essai de navigateur rougisse sur un site reconstruit. Un
+   aller-retour qui ne porte pas un cas ne dit rien de ce cas.
+
+   Du JSON compressible, et non du bruit : la compression doit vraiment
+   mordre, sinon l'ordre « comprimer puis chiffrer » n'est pas éprouvé.
+*/
+const bibliographieOrigine = {
+  genereLe: '2026-10-25T00:00:00.000Z',
+  source: 'laboratoire',
+  entrees: Array.from({ length: 200 }, (_, i) => ({
+    id: `entree-${i}`,
+    titre: `Une étude de laboratoire numéro ${i}`,
+    revue: 'Journal du laboratoire',
+    annee: 2000 + (i % 26),
+    resume: 'Un résumé répétitif, pour que la compression ait prise. '.repeat(6),
+  })),
+};
+const dossierSanteOrigine = path.join(racine, 'content', 'sante');
+execFileSync('mkdir', ['-p', dossierSanteOrigine]);
+const octetsBibliographie = Buffer.from(JSON.stringify(bibliographieOrigine));
+writeFileSync(path.join(dossierSanteOrigine, 'bibliographie.json'), octetsBibliographie);
+
 const fichesOrigine = new Map<string, { brut: string; donnees: Record<string, unknown> }>();
 for (const relatif of listerFiches(path.join(racine, 'content'))) {
   const brut = readFileSync(path.join(racine, 'content', relatif), 'utf8');
@@ -438,6 +465,26 @@ verifier(
   existsSync(audioRecupere) && readFileSync(audioRecupere).equals(octetsAudio),
 );
 
+/* La bibliographie : comme l'audio, les octets publiés SONT les octets
+   source, comprimés puis chiffrés. Rien n'est reconstruit en route, donc le
+   retour doit être exact — et c'est une empreinte qui le dit, non une
+   ressemblance. */
+const biblioRecuperee = path.join(dossierRecupere, 'sante', 'bibliographie.json');
+verifier('la bibliographie est récupérée', existsSync(biblioRecuperee));
+verifier(
+  'et elle est identique octet pour octet',
+  existsSync(biblioRecuperee) && readFileSync(biblioRecuperee).equals(octetsBibliographie),
+  existsSync(biblioRecuperee)
+    ? `${readFileSync(biblioRecuperee).byteLength} octets rendus sur ${octetsBibliographie.byteLength}`
+    : '',
+);
+verifier(
+  'la compression a bien mordu avant le chiffrement',
+  existsSync(path.join(racine, 'public', 'data', 'bibliographie.bin')) &&
+    readFileSync(path.join(racine, 'public', 'data', 'bibliographie.bin')).byteLength <
+      octetsBibliographie.byteLength,
+);
+
 /* ══════════════════════════════════════════════════════════════════════════
    5. L'ÉPREUVE QUI TRANCHE : reconstruire depuis le récupéré
    ══════════════════════════════════════════════════════════════════════════ */
@@ -484,6 +531,36 @@ verifier(
   'la reconstruction publie le même nombre de fiches',
   refait.fiches.size === origine.fiches.size,
   `${refait.fiches.size} contre ${origine.fiches.size}`,
+);
+
+/*
+   LES MÊMES FICHIERS, ET PAS SEULEMENT LES MÊMES FICHES.
+
+   C'est le contrôle qui manquait, et son absence a coûté un rouge ailleurs.
+   Tout ce qui suit compare les fiches — leur compte, leurs identifiants, leurs
+   champs — et une publication peut donc perdre un fichier ENTIER sans qu'un
+   seul de ces contrôles bronche. C'est arrivé : l'outil ne récupérait pas
+   `bibliographie.bin`, le site reconstruit n'en publiait plus, et l'aller-
+   retour restait vert. Le défaut n'a été vu que par un essai de navigateur,
+   sur un site déjà reconstruit.
+
+   Comparer l'ensemble des noms publiés ferme la famille entière, et non le
+   seul cas connu : un glossaire, un registre de molécules ou une banque de
+   QCM qui disparaîtraient en route rougiraient ici.
+*/
+const nomsPublies = (dossier: string) =>
+  readdirSync(dossier)
+    .filter((n) => !['fiches', 'audio'].includes(n))
+    .sort();
+const avant = nomsPublies(path.join(racine, 'public', 'data-origine'));
+const apres = nomsPublies(path.join(racine, 'public', 'data'));
+verifier(
+  'elle publie exactement les mêmes fichiers',
+  avant.length === apres.length && avant.every((n, i) => n === apres[i]),
+  avant.length === apres.length && avant.every((n, i) => n === apres[i])
+    ? `${avant.length} fichier(s) : ${avant.join(', ')}`
+    : `manquant(s) : ${avant.filter((n) => !apres.includes(n)).join(', ') || 'aucun'} ; ` +
+      `en trop : ${apres.filter((n) => !avant.includes(n)).join(', ') || 'aucun'}`,
 );
 
 /*
