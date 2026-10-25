@@ -97,6 +97,38 @@ const CHERCHER = (exceptions) => {
 
 const sources = EXCEPTIONS.map((r) => r.source);
 const colles = [];
+/**
+ * Évalue dans la page, en survivant à une navigation qui tombe au même instant.
+ *
+ * ## Le rouge que cette fonction existe pour empêcher
+ *
+ * Le déverrouillage peut recharger la page. L'attente fixe de 900 ms qui le
+ * suivait tenait presque toujours — et pas toujours : sous la charge d'une
+ * batterie complète, la navigation est tombée pendant l'`evaluate`, qui a
+ * rendu « Execution context was destroyed, most likely because of a
+ * navigation ». L'essai s'est arrêté net au bout de cinq secondes, sur une
+ * exception, sans avoir mesuré une seule route.
+ *
+ * C'est le pire genre de rouge : il n'apprend rien sur le site, il coûte une
+ * batterie de douze minutes, et il pousse à conclure « flake » — ce qui n'est
+ * pas une cause. La cause est ici : une attente par durée là où il fallait
+ * attendre un ÉVÉNEMENT.
+ *
+ * On attend donc que le chargement se calme, et si le contexte a malgré tout
+ * été détruit, on réessaie une fois après ce même calme. Une seconde
+ * destruction serait un vrai défaut de la page, et elle remonte.
+ */
+const evaluerMalgreUneNavigation = async (fn, arg) => {
+  await page.waitForLoadState('networkidle').catch(() => {});
+  try {
+    return await page.evaluate(fn, arg);
+  } catch (erreur) {
+    if (!/Execution context was destroyed/.test(String(erreur?.message ?? erreur))) throw erreur;
+    await page.waitForLoadState('networkidle').catch(() => {});
+    return await page.evaluate(fn, arg);
+  }
+};
+
 for (const r of routes) {
   await page.goto(`${RACINE}${r}`, { waitUntil: 'networkidle', timeout: 20000 });
   const verrou = page.locator('#champ-mdp');
@@ -105,7 +137,7 @@ for (const r of routes) {
     await page.click('#bouton-verrou');
     await page.waitForTimeout(900);
   }
-  const trouves = await page.evaluate(CHERCHER, sources);
+  const trouves = await evaluerMalgreUneNavigation(CHERCHER, sources);
   for (const t of trouves) colles.push(`${r} → ${t}`);
 }
 
