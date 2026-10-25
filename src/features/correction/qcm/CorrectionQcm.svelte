@@ -89,7 +89,11 @@
        autant pour une correction rédigée que pour une correction calculée. -->
   <Visuel visuel={correction.visuel as TypeVisuel} />
 
-  <ul class="mt-3 space-y-1.5">
+  <!-- La liste porte un nom, et ce n'est pas qu'une commodité d'essai : un
+       lecteur d'écran annonce « liste de quatre éléments » sans dire de quoi,
+       et le visuel juste au-dessus a lui aussi sa légende en liste. Les deux
+       se distinguent maintenant à l'oreille comme au sélecteur. -->
+  <ul class="mt-3 space-y-1.5" aria-label="Verdict par option">
     {#each ordre as i (i)}
       {@const marqueur = marqueurDe(i)}
       {@const verdict = correction.par_option[i]}

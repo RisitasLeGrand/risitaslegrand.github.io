@@ -115,6 +115,8 @@ const correctionDgfip = (n) => `    correction:
           pourquoi: la deuxieme proposition ne convient pas, et voici pourquoi
         - verdict: faux
           pourquoi: la troisieme proposition ne convient pas davantage
+        - verdict: faux
+          pourquoi: la quatrieme proposition ne convient pas non plus
       detail: Developpement de laboratoire de la question numero ${n}, sans valeur de revision.
       rappel_de_cours:
         - ${FICHE}
@@ -147,17 +149,18 @@ const correctionDgfip = (n) => `    correction:
 const BANQUE = `rubrique: Laboratoire
 ordre: 1
 questions:
-${[1, 2, 3, 4]
+${Array.from({ length: 12 }, (_, i) => i + 1)
   .map(
     (n) => `  - question: Question de laboratoire numero ${n} ?
     options:
       - Premiere proposition ${n}
       - Deuxieme proposition ${n}
       - Troisieme proposition ${n}
+      - Quatrieme proposition ${n}
     reponse: Premiere proposition ${n}
     explication: Reponse de laboratoire, sans valeur de revision.
     categorie_origine: maison
-    incertain: Question de laboratoire : la reserve est la pour eprouver son affichage.
+    incertain: "Question de laboratoire : la reserve est la pour eprouver son affichage."
 ${correctionDgfip(n)}`,
   )
   .join('\n')}
@@ -214,9 +217,9 @@ function injecterLaCorrectionDeFiche() {
           - Annee
           - Ce qu elle apporte
         lignes:
-          - - 1974
+          - - "1974"
             - La saisine par soixante parlementaires
-          - - 2008
+          - - "2008"
             - La question prioritaire de constitutionnalite
         marques:
           - ligne: 0
@@ -270,6 +273,25 @@ try {
     detached: true,
     stdio: 'ignore',
   }).unref();
+
+  /*
+     ON ATTEND QUE L'APERÇU RÉPONDE, et ce n'est pas une précaution de style.
+
+     Les autres essais de laboratoire enchaînent sur le navigateur sans
+     attendre, et passent parce qu'il se trouve que le temps de lancement de
+     Chromium suffit. C'est une course gagnée par habitude : ici, la première
+     visite tombait sur un « connection refused ». Mieux vaut interroger
+     l'aperçu jusqu'à ce qu'il serve, et dire au bout de combien de temps on
+     renonce.
+  */
+  let sert = false;
+  for (let i = 0; i < 60 && !sert; i += 1) {
+    sert = await fetch(`${ADRESSE}/robots.txt`, { signal: AbortSignal.timeout(2000) })
+      .then((r) => r.ok)
+      .catch(() => false);
+    if (!sert) await new Promise((r) => setTimeout(r, 1000));
+  }
+  if (!sert) throw new Error(`l’aperçu n’a pas répondu sur ${ADRESSE} après une minute`);
 } catch (erreur) {
   console.log(`\n${rouge('✗ PANNE')} — le laboratoire n’a pas pu être construit.`);
   console.log(String(erreur?.message ?? erreur).slice(0, 900));
@@ -288,8 +310,20 @@ try {
 async function verifierLesSixChoses(section, ou, { resume, legende, confianceMoyenne, options }) {
   verifier(`${ou} · le résumé s'affiche`, (await section.locator('p').first().innerText()).includes(resume));
 
-  const lignes = section.locator('ul > li');
-  verifier(`${ou} · une ligne par option (${options})`, (await lignes.count()) === options);
+  /*
+     On vise la liste des verdicts PAR SON NOM, et non « la première liste de la
+     section ». Le visuel rend sa propre légende en liste — un élément par
+     marqueur employé — et un sélecteur large comptait donc six lignes pour
+     quatre options : quatre verdicts et deux entrées de légende. Le nom lève
+     l'ambiguïté, pour l'essai comme pour un lecteur d'écran.
+  */
+  const lignes = section.locator('ul[aria-label="Verdict par option"] > li');
+  const combien = await lignes.count();
+  verifier(
+    `${ou} · une ligne par option (${options})`,
+    combien === options,
+    combien === options ? '' : `${combien} ligne(s) trouvée(s) — ${(await section.innerHTML()).slice(0, 400)}`,
+  );
   const premiere = await lignes.first().innerText();
   verifier(`${ou} · chaque ligne porte son pourquoi`, /ne convient pas|clef|annee|revision|Constitution/i.test(premiere), premiere.slice(0, 70));
 
@@ -341,7 +375,9 @@ try {
   console.log(`\n${gras('1. LE QUIZ DE FICHE')}\n`);
   {
     const { contexte, page } = await ouvrir('/quiz/cours/', '#lancer-quiz');
-    await page.selectOption('#quiz-matiere', 'droit-public');
+    /* On laisse « Toutes » : la liste des matières est remplie au chargement
+       depuis les fiches servies, et le laboratoire n'en porte que trois. Tirer
+       vingt questions sur neuf disponibles les prend toutes, décor compris. */
     await page.selectOption('#quiz-taille', '20');
     await page.click('#lancer-quiz');
     await page.waitForSelector('#jeu:not(.hidden)', { timeout: 120000 });
@@ -412,7 +448,7 @@ try {
       resume: RESUME_DGFIP,
       legende: LEGENDE_DGFIP,
       confianceMoyenne: true,
-      options: 3,
+      options: 4,
     });
     await contexte.close();
   }
@@ -444,7 +480,7 @@ try {
       resume: RESUME_DGFIP,
       legende: LEGENDE_DGFIP,
       confianceMoyenne: true,
-      options: 3,
+      options: 4,
     });
     await contexte.close();
   }
