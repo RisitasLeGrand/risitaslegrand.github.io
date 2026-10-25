@@ -231,6 +231,14 @@ const EN_LABORATOIRE = new Set([
   'essais:seances-parties:navigateur',
   'essais:parties-client',
   'essais:reperes-audio',
+  /*
+     C3 du prompt 43. L'écran du QCM DGFiP ne s'ouvre que si la banque de
+     questions existe, et aucune n'est servie dans le conteneur de travail :
+     « Commencer » y est désactivé, donc aucune épreuve ne peut être
+     commencée ni gardée. Celui-ci se bâtit une banque synthétique de quatre
+     questions, et tombe donc sous la même garde que les cinq autres.
+  */
+  'essais:epreuve-gardee:navigateur',
 ]);
 
 /*

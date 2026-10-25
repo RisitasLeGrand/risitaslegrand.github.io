@@ -77,18 +77,21 @@ function zoneDesNotifications(): HTMLElement | null {
   const zone = document.createElement('div');
   zone.id = 'zone-notifications';
   /*
-     A14 — LA BULLE PASSE AU-DESSUS DE LA BARRE D'ONGLETS.
+     A14, PUIS C4 DU 43 — LA BULLE PASSE AU-DESSUS DE LA BARRE D'ONGLETS,
+     ET DE L'ENCOCHE.
 
      À 390 px, « bottom-4 » la plaçait sur la barre fixe du bas, qu'elle
-     couvrait pendant environ 2,7 s. Une notification n'a pas à masquer la
-     navigation : on dégage la hauteur de la barre (57 px) plus la marge.
-     Au-delà de 640 px la barre n'existe pas, et la bulle reprend sa place.
+     couvrait : une notification n'a pas à masquer la navigation. A14 avait
+     donc dégagé la hauteur de la barre plus la marge, en « bottom-20 » —
+     80 px, un arrondi.
 
-     Antérieur au lot des animations : c'est la position qui était fausse,
-     pas la durée.
+     Il manquait l'encoche. Sur un téléphone à poignée d'accueil, la bulle
+     finissait DANS la poignée, c'est-à-dire sous le doigt du système. La
+     classe calcule désormais la barre, `--sur-bas` et la marge, et retire la
+     barre au-delà de 640 px, où elle n'existe pas.
   */
   zone.className =
-    'pointer-events-none fixed inset-x-0 bottom-20 z-50 flex flex-col items-center gap-2 px-4 sm:bottom-4';
+    'zone-notifications pointer-events-none fixed inset-x-0 z-50 flex flex-col items-center gap-2 px-4';
   zone.setAttribute('aria-live', 'polite');
   /*
      « polite » et non « assertive » : une bulle informe, elle n'interrompt
@@ -106,6 +109,15 @@ function zoneDesNotifications(): HTMLElement | null {
 */
 zoneDesNotifications();
 
+/**
+ * Combien de temps une bulle reste à l'écran.
+ *
+ * Le 43 demande « 5 s au moins ». La valeur est nommée plutôt qu'écrite dans
+ * l'appel, pour qu'un essai puisse la citer et qu'elle ne redescende pas sans
+ * que quelqu'un s'en aperçoive.
+ */
+export const DUREE_BULLE_MS = 5000;
+
 /** Affiche un message éphémère en bas de l'écran (gains d'XP, badges…). */
 export function notifier(message: string, variante: 'info' | 'succes' | 'badge' = 'info') {
   const zone = zoneDesNotifications();
@@ -118,8 +130,14 @@ export function notifier(message: string, variante: 'info' | 'succes' | 'badge' 
 
   const bulle = document.createElement('div');
   bulle.className =
-    'bulle-notification pointer-events-auto flex items-center gap-2 rounded-full px-4 py-2 ' +
+    'bulle-notification pointer-events-auto flex cursor-pointer items-center gap-2 rounded-full px-4 py-2 ' +
     `text-sm font-medium shadow-lg ${couleurs}`;
+  /*
+     C4 : « elle se ferme d'un appui ». Une bulle qui couvre ce qu'on lit et
+     qu'on ne peut que subir est une interruption ; une bulle qu'on chasse du
+     doigt n'en est plus une. Le titre le dit, pour qui survole.
+  */
+  bulle.title = 'Appuyer pour fermer';
 
   /*
      La coche de la décision 3 : « célébrations discrètes ». Une coche, pas un
@@ -144,7 +162,9 @@ export function notifier(message: string, variante: 'info' | 'succes' | 'badge' 
   zone.appendChild(bulle);
   requestAnimationFrame(() => bulle.classList.add('parue'));
 
-  setTimeout(() => {
+  /** Range la bulle : à l'appui, comme à l'échéance. */
+  const ranger = () => {
+    if (!bulle.isConnected) return;
     bulle.classList.remove('parue');
     bulle.classList.add('sortante');
     // La durée de sortie vit dans la feuille de style, avec les autres jetons
@@ -153,7 +173,19 @@ export function notifier(message: string, variante: 'info' | 'succes' | 'badge' 
     // où la durée tombe à 0,01 ms et la bulle doit tout de même disparaître.
     const sortie = Number.parseFloat(getComputedStyle(bulle).transitionDuration) * 1000;
     setTimeout(() => bulle.remove(), Math.max(sortie, 0) + 40);
-  }, 2600);
+  };
+
+  bulle.addEventListener('click', ranger);
+  /*
+     C4 du 43 : CINQ SECONDES AU MOINS, là où la bulle en durait 2,6.
+
+     2,6 s suffisent à voir qu'il s'est passé quelque chose ; elles ne
+     suffisent pas à LIRE une phrase de dix mots, et encore moins à la lire
+     quand on vient de quitter l'écran des yeux pour appuyer. La règle du 43
+     est un plancher, pas une cible : on s'y tient, et l'appui permet de
+     couper court à qui a déjà lu.
+  */
+  setTimeout(ranger, DUREE_BULLE_MS);
 }
 
 /** L'état d'une option de QCM, une fois la réponse donnée. */

@@ -151,19 +151,34 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
         </div>
 
         <form id="form-traitement" class="mt-3 grid gap-2 sm:grid-cols-2">
-          <input id="t-nom" aria-label="Nom du traitement" type="text" placeholder="Nom" required
-            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
-          <input id="t-debut" aria-label="Début du traitement" type="date" required
-            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
-          <input id="t-posologie" aria-label="Posologie" type="text" placeholder="Posologie — « 1 comprimé le matin »"
-            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm sm:col-span-2 dark:border-slate-700 dark:bg-slate-950" />
-          <select id="t-origine" aria-label="Origine du traitement"
-            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
-            <option value="moi">De ma propre initiative</option>
-            <option value="prescrit">Prescrit</option>
-          </select>
-          <input id="t-prescripteur" aria-label="Prescripteur" type="text" placeholder="Prescripteur (facultatif)"
-            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          <label class="text-sm">
+            <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Nom du traitement</span>
+            <input id="t-nom" type="text" required
+              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Début du traitement</span>
+            <input id="t-debut" type="date" required
+              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <label class="text-sm sm:col-span-2">
+            <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Posologie (facultatif)</span>
+            <input id="t-posologie" type="text" placeholder="1 comprimé le matin"
+              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Origine du traitement</span>
+            <select id="t-origine"
+              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+              <option value="moi">De ma propre initiative</option>
+              <option value="prescrit">Prescrit</option>
+            </select>
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Prescripteur (facultatif)</span>
+            <input id="t-prescripteur" type="text"
+              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
           <label class="flex items-center gap-2 text-sm text-slate-600 sm:col-span-2 dark:text-slate-300">
             <input id="t-sporadique" type="checkbox" class="rounded" />
             <span>Prise sporadique — une prise isolée, sans schéma ni rappel</span>
@@ -223,12 +238,21 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
           se reconstitue pas six mois plus tard.
         </p>
         <form id="form-prelevement" class="mt-3 grid gap-2 sm:grid-cols-2">
-          <input id="p-jour" aria-label="Date du bilan" type="date" required
-            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
-          <input id="p-labo" aria-label="Laboratoire" type="text" placeholder="Laboratoire"
-            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
-          <input id="p-contexte" aria-label="Contexte du bilan" type="text" placeholder="Contexte"
-            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm sm:col-span-2 dark:border-slate-700 dark:bg-slate-950" />
+          <label class="text-sm">
+            <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Date du bilan</span>
+            <input id="p-jour" type="date" required
+              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Laboratoire (facultatif)</span>
+            <input id="p-labo" type="text"
+              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <label class="text-sm sm:col-span-2">
+            <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Contexte du bilan (facultatif)</span>
+            <input id="p-contexte" type="text" placeholder="à jeun, 3 h après la prise"
+              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
           <button type="submit"
             class="cible-tactile rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white sm:col-span-2"
             >Enregistrer ce prélèvement</button>
@@ -244,12 +268,21 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
           déclencher quoi que ce soit.
         </p>
         <form id="form-symptome" class="mt-3 grid gap-2 sm:grid-cols-3">
-          <input id="s-jour" aria-label="Date du symptôme" type="date" required
-            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
-          <input id="s-intitule" aria-label="Ce que vous ressentez" type="text" placeholder="Ce que vous ressentez" required
-            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
-          <input id="s-intensite" aria-label="Intensité, de 1 à 10" type="number" min="0" max="10" step="1" value="5"
-            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          <label class="text-sm">
+            <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Date du symptôme</span>
+            <input id="s-jour" type="date" required
+              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Ce que vous ressentez</span>
+            <input id="s-intitule" type="text" required
+              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Intensité, de 0 à 10</span>
+            <input id="s-intensite" type="number" min="0" max="10" step="1" inputmode="numeric" value="5"
+              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
           <button type="submit"
             class="cible-tactile rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white sm:col-span-3"
             >Noter ce symptôme</button>
@@ -265,10 +298,16 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
           Cyclades : c’est une ligne de contexte que vous écrivez pour vous.
         </p>
         <form id="form-condition" class="mt-3 grid gap-2 sm:grid-cols-2">
-          <input id="c-intitule" aria-label="Intitulé de la condition" type="text" placeholder="Intitulé" required
-            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
-          <input id="c-debut" aria-label="Début de la condition" type="date" required
-            class="cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          <label class="text-sm">
+            <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Intitulé de la condition</span>
+            <input id="c-intitule" type="text" required
+              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
+          <label class="text-sm">
+            <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Début de la condition</span>
+            <input id="c-debut" type="date" required
+              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          </label>
           <button type="submit"
             class="cible-tactile rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white sm:col-span-2"
             >Inscrire</button>

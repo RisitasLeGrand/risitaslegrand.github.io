@@ -276,6 +276,7 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
+  import { poserLesYeux } from '../lib/mot-de-passe-visible';
   import { confirmer } from '../lib/boite';
   import { auDeverrouillage } from '../lib/chargement';
   import {
@@ -737,4 +738,9 @@ import Base from '../layouts/Base.astro';
     $('ecran').classList.remove('hidden');
     $('chargement').classList.add('hidden');
   });
+
+  /* D3 du 43 : « Afficher » sur tous les champs de mot de passe de cet écran.
+     Posé une fois au chargement : les champs de ces écrans sont dans le
+     balisage, pas fabriqués au vol. */
+  poserLesYeux();
 </script>

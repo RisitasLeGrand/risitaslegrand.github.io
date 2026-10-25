@@ -1349,10 +1349,22 @@ button:not(:disabled):active,
   justify-content: center;
 }
 
-.boite::backdrop {
-  /* Le voile derrière une boîte : l'ombre du thème, à 55 %. Il était écrit
-     en dur, au slate-950 d'alors, et restait donc bleuté
-     dans les quatorze thèmes. */
+/*
+   Le voile derrière une boîte modale : l'ombre du thème, à 55 %.
+
+   Il était écrit en dur, au slate-950 d'alors, et restait donc bleuté dans
+   les quatorze thèmes. Deux autres `<dialog>` l'avaient encore en dur — le
+   détail d'un exercice et la redemande du mot de passe : la même valeur était
+   revenue par une autre porte, ce qu'une correction ponctuelle ne pouvait pas
+   empêcher.
+
+   Les deux sélecteurs partagent **une seule règle**, et non deux règles
+   jumelles : deux déclarations de la même valeur dérivent, et c'est
+   exactement ce qui s'était passé. « essais:voiles » tient les deux bouts —
+   aucune couleur de voile en dur dans `src`, et une seule déclaration ici.
+*/
+.boite::backdrop,
+.voile-du-theme::backdrop {
   background: color-mix(in srgb, var(--etat-ombre) 55%, transparent);
 }
 
@@ -1531,6 +1543,23 @@ button:not(:disabled):active,
   from {
     transform: scale(0.98);
     opacity: 0;
+  }
+}
+
+/* La zone des bulles de notification (C4 du 43)
+   ---------------------------------------------------------------------------
+   Au-dessus de la barre du bas ET de l'encoche. « bottom-20 » valait 80 px,
+   soit la barre (3,5 rem) plus une marge, mais rien n'y ajoutait la poignée
+   d'accueil : la bulle finissait dessous, là où le doigt appartient au
+   système. Au-delà de 640 px la barre n'existe pas, et la bulle reprend sa
+   place — l'encoche, elle, reste comptée. */
+.zone-notifications {
+  bottom: calc(3.5rem + 0.75rem + var(--sur-bas));
+}
+
+@media (min-width: 640px) {
+  .zone-notifications {
+    bottom: calc(1rem + var(--sur-bas));
   }
 }
 

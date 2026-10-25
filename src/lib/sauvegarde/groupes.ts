@@ -185,6 +185,9 @@ export const CHAMP_DATE: Record<string, string | null> = {
   relationnel: 'le',
   vmSessions: 'le',
   qcmSessions: 'le',
+  /* La date de DÉBUT de l'épreuve gardée, et non celle où on l'a gardée : un
+     effacement par période vise le moment où l'on a travaillé. */
+  epreuveDgfipEnCours: 'le',
   aides: 'le',
   jours: 'jour',
   seances: 'jour',
@@ -435,8 +438,8 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
   {
     id: 'qcm-dgfip',
     libelle: 'QCM DGFiP',
-    description: 'Historique de la banque de questions et des sessions.',
-    magasins: ['qcmDgfip', 'qcmSessions'],
+    description: 'Historique de la banque de questions, des sessions, et l’épreuve gardée pour plus tard.',
+    magasins: ['qcmDgfip', 'qcmSessions', 'epreuveDgfipEnCours'],
   },
   {
     id: 'niveau',

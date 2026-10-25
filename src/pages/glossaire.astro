@@ -58,6 +58,7 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
+  import { defilerEnHaut } from '../lib/defilement';
   import { auDeverrouillage } from '../lib/chargement';
   import { chargerGlossaire, type TermeGlossaire } from '../lib/contenu';
   import { normaliser } from '../lib/ui';
@@ -357,7 +358,7 @@ import Base from '../layouts/Base.astro';
        lettre R, et la touche Tab suivante l'y aurait ramené.
     */
     $('haut-de-page').addEventListener('click', () => {
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      defilerEnHaut();
       ($('filtre-glossaire') as HTMLInputElement).focus({ preventScroll: true });
     });
     window.addEventListener('resize', () => {

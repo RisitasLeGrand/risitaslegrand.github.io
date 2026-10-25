@@ -32,6 +32,7 @@
  * appellerait la fonction effacée directement. Elle protège contre une main
  * qui passe, et c'est exactement ce qu'elle prétend faire.
  */
+import { poserLoeil } from './mot-de-passe-visible';
 import { cleValide, deriverCle } from './crypto';
 import { chargerParametresCle } from './contenu';
 
@@ -61,7 +62,7 @@ export function redemanderLeMotDePasse(demande: Redemande): Promise<boolean> {
     const dialogue = document.createElement('dialog');
     dialogue.className =
       'max-w-md rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-xl ' +
-      'backdrop:bg-slate-900/40 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
+      'voile-du-theme dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100';
 
     const corps = document.createElement('form');
     corps.method = 'dialog';
@@ -87,6 +88,12 @@ export function redemanderLeMotDePasse(demande: Redemande): Promise<boolean> {
       'cible-tactile w-full rounded-lg border border-slate-300 px-3 text-sm ' +
       'dark:border-slate-700 dark:bg-slate-950';
     etiquette.append(legende, champ);
+    /* D3 du 43 : la redemande du mot de passe est un champ de mot de passe
+       comme les autres, et c'est même celui où une faute coûte le plus cher —
+       on y arrive au bout d'un geste sans retour. L'œil se pose après
+       l'insertion dans l'étiquette : il lui faut un parent pour y poser sa
+       rangée. */
+    poserLoeil(champ);
 
     const erreur = document.createElement('p');
     erreur.className = 'hidden text-sm text-rose-700 dark:text-rose-300';

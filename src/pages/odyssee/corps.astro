@@ -57,8 +57,8 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
         <p id="tendance" class="mt-1 text-sm text-slate-600 dark:text-slate-300"></p>
         <div class="mt-3 flex flex-wrap items-end gap-3">
           <label class="text-sm">
-            <span class="block text-slate-700 dark:text-slate-200">Poids du jour</span>
-            <input id="kg" type="number" min="20" max="400" step="0.1" inputmode="decimal"
+            <span class="block text-slate-700 dark:text-slate-200">Poids du jour (kg)</span>
+            <input id="kg" type="text" inputmode="decimal" data-min="20" data-max="400"
               class="mt-1 min-h-11 w-32 rounded-lg border border-slate-300 bg-white px-3 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
           </label>
           <button id="peser" type="button"
@@ -94,8 +94,8 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
             </select>
           </label>
           <label class="text-sm">
-            <span class="block text-slate-700 dark:text-slate-200">Centimètres</span>
-            <input id="cm" type="number" min="1" max="300" step="0.5" inputmode="decimal"
+            <span class="block text-slate-700 dark:text-slate-200">Mesure (cm)</span>
+            <input id="cm" type="text" inputmode="decimal" data-min="1" data-max="300"
               class="mt-1 min-h-11 w-28 rounded-lg border border-slate-300 bg-white px-3 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
           </label>
           <button id="mesurer" type="button"
@@ -351,6 +351,8 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 </Base>
 
 <script>
+  import { nombreDuChamp } from '../../lib/nombre-saisi';
+  import { direLErreur, effacerLErreur, validerALaSortie } from '../../lib/erreur-de-champ';
   import { auDeverrouillage } from '../../lib/chargement';
   import {
     agirPuisPeindre,
@@ -953,10 +955,22 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
   */
   const essayer = async (travail: () => Promise<unknown>) => {
     try {
-      await travail();
+      /*
+         Le refus du travail se propage — D2 du 43.
+
+         `essayer` rendait `true` dès que rien n'avait levé, y compris quand
+         le travail avait REFUSÉ d'écrire (un poids illisible, un champ vide).
+         `unSeulGeste` comptait donc le geste comme abouti, notait son repos
+         de 600 ms, et avalait l'appui qui suivait la correction : on corrige
+         « abc » en « 72,5 », on réappuie, et il ne se passe rien — l'ancien
+         message restant sous un champ qu'on vient de corriger. C'est le
+         défaut que `geste.ts` décrit au 19 octobre, et il revenait par cette
+         porte-ci. Trouvé par l'essai de D2, pas en relisant le diff.
+      */
+      const resultat = await travail();
       taire();
       await recharger();
-      return true;
+      return resultat !== false;
     } catch (erreur) {
       dire(erreur);
       return false;
@@ -1016,18 +1030,67 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
         $(champ).addEventListener('input', direMacros);
       }
 
+      /*
+         D4 du 43 : la saisie passe par l'analyseur commun, qui accepte la
+         virgule. Avant, `Number('')` valait zéro et `Number('72,5')` valait
+         `NaN` : appuyer sur « Enregistrer » avec un champ vide écrivait une
+         pesée à 0 kg au journal, sans un mot.
+
+         D2 : et maintenant on le dit, au pied du champ, avec « aria-invalid »
+         et le focus qui y revient. La phrase dit COMMENT corriger — les
+         bornes et la virgule — et non « valeur invalide ».
+      */
+      const PHRASES: Record<string, string> = {
+        kg: 'Indiquez un poids entre 20 et 400 kg. La virgule est acceptée.',
+        cm: 'Indiquez une mesure entre 1 et 300 cm. La virgule est acceptée.',
+      };
+      for (const id of Object.keys(PHRASES)) {
+        const champ = $(id) as HTMLInputElement;
+        /* Un champ vide n'est pas une faute à la sortie : on n'a peut-être
+           rien voulu saisir. Il en devient une à l'envoi, et c'est là que la
+           phrase se dit. */
+        validerALaSortie(champ, (valeur) =>
+          valeur.trim() === '' || nombreDuChamp(champ) !== null ? null : PHRASES[id],
+        );
+      }
+
+      /** Lit le champ, ou dit pourquoi il ne se lit pas et y ramène le focus. */
+      function nombreOuPhrase(id: string): number | null {
+        const champ = $(id) as HTMLInputElement;
+        const valeur = nombreDuChamp(champ);
+        if (valeur === null) {
+          direLErreur(champ, PHRASES[id]);
+          champ.focus();
+          return null;
+        }
+        effacerLErreur(champ);
+        return valeur;
+      }
+
+      /*
+         `return false` et non `return` : c'est la convention d'`unSeulGeste`
+         pour un geste REFUSÉ. Sans elle, le refus compterait comme un geste
+         abouti, le repos de 600 ms serait noté, et l'appui qui suit la
+         correction tomberait dedans — avalé sans un mot, l'ancien message
+         d'erreur restant à l'écran sous un poids qu'on vient de corriger.
+         C'est le défaut que `geste.ts` décrit au 19 octobre ; mes deux
+         gestes neufs seraient retombés dedans, et c'est l'essai de D2 qui
+         me l'a montré.
+      */
       surAppui('peser', async () => {
-        const kg = Number(($('kg') as HTMLInputElement).value);
+        const kg = nombreOuPhrase('kg');
+        if (kg === null) return false;
         await ecrirePesee(kg);
         ($('kg') as HTMLInputElement).value = '';
+        return true;
       });
 
       surAppui('mesurer', async () => {
-        await ecrireMesure(
-          ($('quoi') as HTMLSelectElement).value as QuoiMesurer,
-          Number(($('cm') as HTMLInputElement).value),
-        );
+        const cm = nombreOuPhrase('cm');
+        if (cm === null) return false;
+        await ecrireMesure(($('quoi') as HTMLSelectElement).value as QuoiMesurer, cm);
         ($('cm') as HTMLInputElement).value = '';
+        return true;
       });
 
       surAppui('dormir', async () => {

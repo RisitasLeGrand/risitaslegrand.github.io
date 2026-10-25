@@ -141,8 +141,8 @@ import LienReglages from '../../components/LienReglages.astro';
 
           <div class="mt-3 flex flex-wrap items-end gap-3">
             <label class="text-sm">
-              <span class="block text-slate-700 dark:text-slate-200">Charge</span>
-              <input id="charge" type="number" min="0" step="0.5" inputmode="decimal"
+              <span class="block text-slate-700 dark:text-slate-200">Charge (kg)</span>
+              <input id="charge" type="text" inputmode="decimal" data-min="0"
                 class="mt-1 min-h-12 w-28 rounded-lg border border-slate-300 bg-white px-3 text-lg tabular-nums dark:border-slate-700 dark:bg-slate-950" />
             </label>
             <label class="text-sm">
@@ -231,6 +231,12 @@ import LienReglages from '../../components/LienReglages.astro';
 </Base>
 
 <script>
+  /* D4 du 43 : la charge se tape avec une virgule sur un clavier français ;
+     l'analyseur commun la lit, et rend « null » sur une saisie illisible —
+     exactement là où le code mettait « null » sur un champ vide. */
+  import { nombreDuChamp } from '../../lib/nombre-saisi';
+  import { direLErreur, effacerLErreur, validerALaSortie } from '../../lib/erreur-de-champ';
+  import { messageDUneErreur } from '../../lib/agir';
   import { agirPuisPeindre } from '../../lib/agir';
   import { proposerLAnnulation } from '../../lib/annulation';
   import { unSeulGeste } from '../../lib/geste';
@@ -442,9 +448,9 @@ import LienReglages from '../../components/LienReglages.astro';
   }
 
   function direEstimation() {
-    const charge = ($('charge') as HTMLInputElement).value;
+    const charge = nombreDuChamp($('charge') as HTMLInputElement);
     const reps = Number(($('repetitions') as HTMLInputElement).value);
-    const estimation = maximumEstime(charge === '' ? null : Number(charge), reps);
+    const estimation = maximumEstime(charge, reps);
     if (!estimation) {
       $('estimation').textContent = '';
       return;
@@ -610,16 +616,36 @@ import LienReglages from '../../components/LienReglages.astro';
 
   /* ── Les actions ───────────────────────────────────────────────────────── */
 
-  async function enregistrerSerie() {
-    if (!seance) return;
+  /** La phrase dit comment corriger, et non que c'est faux (D2). */
+  const PHRASE_CHARGE = 'Indiquez une charge en kilogrammes, à partir de 0. La virgule est acceptée.';
+
+  /** Rend `false` quand rien n'a été écrit : c'est la convention du geste. */
+  async function enregistrerSerie(): Promise<boolean> {
+    if (!seance) return false;
     const exerciceId = ($('exercice') as HTMLSelectElement).value;
-    const charge = ($('charge') as HTMLInputElement).value;
+    const champCharge = $('charge') as HTMLInputElement;
+    const charge = nombreDuChamp(champCharge);
+    /*
+       D2 : une charge tapée mais illisible n'est pas une série « au poids du
+       corps ». Sans ce contrôle, « 72,5 » mal lu devenait silencieusement une
+       série sans charge, et la progression s'en trouvait fausse sans que rien
+       le dise.
+    */
+    if (charge === null && champCharge.value.trim() !== '') {
+      direLErreur(champCharge, PHRASE_CHARGE);
+      champCharge.focus();
+      /* `false` : la convention d'`unSeulGeste` pour un geste refusé. Un refus
+         compté comme abouti noterait le repos de 600 ms, et avalerait l'appui
+         qui suit la correction. */
+      return false;
+    }
+    effacerLErreur(champCharge);
     const reserveBrute = ($('reserve') as HTMLSelectElement).value;
     const depuis = dernierInstant();
 
     const serie: Serie = {
       exerciceId,
-      charge: charge === '' ? null : Number(charge),
+      charge,
       repetitions: Number(($('repetitions') as HTMLInputElement).value),
       echec: ($('echec') as HTMLInputElement).checked,
       reserve: reserveBrute === '' ? null : Number(reserveBrute),
@@ -644,6 +670,7 @@ import LienReglages from '../../components/LienReglages.astro';
     battre();
     await direLaProposition();
     ($('repetitions') as HTMLInputElement).focus();
+    return true;
   }
 
   auDeverrouillage(
@@ -696,6 +723,13 @@ import LienReglages from '../../components/LienReglages.astro';
       for (const champ of ['charge', 'repetitions']) {
         $(champ).addEventListener('input', direEstimation);
       }
+      /* D2 : à la SORTIE du champ, jamais pendant la frappe — « 7 » n'est pas
+         une charge invalide, c'est le début de « 72,5 ». */
+      validerALaSortie($('charge') as HTMLInputElement, (valeur) =>
+        valeur.trim() === '' || nombreDuChamp($('charge') as HTMLInputElement) !== null
+          ? null
+          : PHRASE_CHARGE,
+      );
       $('repos-cible').addEventListener('input', battre);
       $('difficulte').addEventListener('input', () => {
         $('difficulte-valeur').textContent = ($('difficulte') as HTMLInputElement).value;
@@ -709,14 +743,9 @@ import LienReglages from '../../components/LienReglages.astro';
 
       $('refuser').addEventListener('click', () => {
         if (!proposition) return;
-        const charge = ($('charge') as HTMLInputElement).value;
+        const charge = nombreDuChamp($('charge') as HTMLInputElement);
         retenirRefus(
-          refuser(
-            proposition.exerciceId,
-            proposition.sorte,
-            aujourdhui,
-            charge === '' ? null : Number(charge),
-          ),
+          refuser(proposition.exerciceId, proposition.sorte, aujourdhui, charge),
           aujourdhui,
         );
         void direLaProposition();
@@ -737,11 +766,24 @@ import LienReglages from '../../components/LienReglages.astro';
         evenement.preventDefault();
         void unSeulGeste(evenement.currentTarget as Element, async () => {
           try {
-            await enregistrerSerie();
+            const ecrite = await enregistrerSerie();
             $('erreur').classList.add('hidden');
+            return ecrite;
           } catch (erreur) {
-            $('erreur').textContent = erreur instanceof Error ? erreur.message : String(erreur);
+            /*
+               D2 du 43, par la porte du dépôt : `messageDUneErreur`.
+
+               L'écran affichait `erreur.message` tel quel — y compris le
+               texte d'une exception technique. Mais le remplacer par une
+               phrase à moi aurait fait perdre les messages de domaine, écrits
+               exprès pour être lus (« La séance n'a pas pu être retrouvée »).
+               `agir.ts` avait déjà tranché : on garde le message de domaine,
+               on remplace le vide et on connaît le disque plein.
+            */
+            console.warn('La série n’a pas pu être enregistrée :', erreur);
+            $('erreur').textContent = messageDUneErreur(erreur);
             $('erreur').classList.remove('hidden');
+            return false;
           }
         });
       });

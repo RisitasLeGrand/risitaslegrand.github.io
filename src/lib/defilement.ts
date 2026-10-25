@@ -189,3 +189,81 @@ export function brancherLeDefilement(): void {
   if (!cible) return;
   rendreLaPosition(cible);
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Défiler en respectant le mouvement réduit (H2 du prompt 43)
+   ══════════════════════════════════════════════════════════════════════════
+
+   Six endroits faisaient glisser la page avec `behavior: 'smooth'`, et aucun
+   ne consultait la préférence. Elle est pourtant respectée partout ailleurs —
+   mais par la feuille de style, et un défilement demandé en JavaScript ne
+   passe pas par elle. Il glissait donc quand même, et c'est précisément le
+   mouvement que cette préférence vise : il déplace l'écran entier.
+
+   Une fonction nommée, et non six `if` : le septième défilement serait reparti
+   en `smooth`, parce que c'est la forme qu'on recopie en ajoutant un écran.
+
+   Elle ne supprime pas le défilement, elle le rend **instantané**. La page va
+   au même endroit ; seul le trajet disparaît. Un défilement supprimé laisserait
+   la personne devant un écran qui n'a pas bougé, ce qui est une autre façon de
+   la perdre.
+
+   Ces fonctions vivent ici, avec le masque de débordement et la reprise de
+   position : c'est le module du défilement, et il n'y a pas de raison d'en
+   ouvrir un second.
+*/
+
+/**
+ * Le mouvement est-il à réduire ? **Deux réglages, et non un.**
+ *
+ * Celui du système — `prefers-reduced-motion` — et celui de l'application,
+ * porté par `data-animations` sur `<html>` (prompt 34). Ma première écriture
+ * ne lisait que le premier, et `essais:mouvement-reduit` l'a refusée : il
+ * tient une règle, qu'aucun lecteur ne connaisse un seul des deux. Elle est
+ * juste. Quelqu'un qui coupe les animations dans Cyclades sans pouvoir le
+ * faire dans son système — un ordinateur partagé, un téléphone de service —
+ * aurait vu l'écran glisser quand même, et le réglage de l'application
+ * n'aurait été qu'à moitié vrai.
+ *
+ * Lu à chaque appel, et non mis en cache : les deux se changent sans
+ * recharger la page, et une valeur retenue au chargement serait fausse pour
+ * le reste de la session. Le coût d'une lecture est nul devant un défilement.
+ */
+export function mouvementReduit(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    if (
+      typeof window.matchMedia === 'function' &&
+      window.matchMedia('(prefers-reduced-motion: reduce)').matches
+    ) {
+      return true;
+    }
+  } catch {
+    /* Pas de `matchMedia` : on ne sait pas, et on ne présume pas d'une
+       préférence qui protège quelqu'un. L'autre réglage, lui, se lit. */
+  }
+  try {
+    return document.documentElement.getAttribute('data-animations') === 'reduites';
+  } catch {
+    return false;
+  }
+}
+
+/** Le comportement à demander, selon la préférence. */
+export const allureDuDefilement = (): ScrollBehavior => (mouvementReduit() ? 'auto' : 'smooth');
+
+/**
+ * Amène un élément à l'écran.
+ *
+ * `bloc` est la position visée, comme pour `scrollIntoView` : « start » pour
+ * caler le haut, « center » pour centrer, « nearest » pour ne bouger que si
+ * c'est nécessaire.
+ */
+export function defilerVers(cible: Element | null, bloc: ScrollLogicalPosition = 'start'): void {
+  cible?.scrollIntoView({ block: bloc, behavior: allureDuDefilement() });
+}
+
+/** Remonte en haut de la page. */
+export function defilerEnHaut(): void {
+  window.scrollTo({ top: 0, behavior: allureDuDefilement() });
+}

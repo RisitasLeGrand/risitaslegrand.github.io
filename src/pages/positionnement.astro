@@ -45,6 +45,7 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
+  import { defilerVers } from '../lib/defilement';
   import { auDeverrouillage } from '../lib/chargement';
   import { chargerManifeste, type Manifeste, type QuestionQuiz } from '../lib/contenu';
   import { tousLesEtatsFiches } from '../lib/db';
@@ -371,7 +372,7 @@ import Base from '../layouts/Base.astro';
     pied.appendChild(relancer);
     hote.appendChild(pied);
 
-    hote.scrollIntoView({ block: 'start', behavior: 'smooth' });
+    defilerVers(hote, 'start');
   }
 
   async function initialiser() {

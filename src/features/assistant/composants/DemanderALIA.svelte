@@ -162,7 +162,7 @@
   bind:this={dialogue}
   onclose={fermer}
   class="m-auto w-[min(46rem,94vw)] max-w-none rounded-2xl bg-white p-0 text-slate-900
-    backdrop:bg-slate-900/50 dark:bg-slate-900 dark:text-white"
+    voile-du-theme dark:bg-slate-900 dark:text-white"
   aria-label={titre}
 >
   <form method="dialog" class="sr-only"><button type="submit">Fermer</button></form>

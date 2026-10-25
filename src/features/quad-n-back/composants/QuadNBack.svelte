@@ -922,9 +922,27 @@
 
         <div class="flex flex-col justify-end gap-2">
           <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-            <input type="checkbox" bind:checked={reglages.grille3D} class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
+            <input
+              type="checkbox"
+              bind:checked={reglages.grille3D}
+              aria-describedby="avertissement-rotation"
+              class="h-4 w-4 rounded border-slate-300 text-indigo-600"
+            />
             Grille 3D en rotation (27 positions)
           </label>
+          <!--
+            T25-14 du 43 : la rotation est PRÉVENUE, pas seulement désactivable.
+
+            Elle tourne lentement pendant toute la partie, et c'est un
+            mouvement d'écran entier : qui y est sensible doit le savoir avant
+            de commencer, et non le découvrir au premier tour. La phrase dit
+            aussi ce que le système fait tout seul, parce qu'une personne qui a
+            posé « mouvement réduit » n'a pas à se demander si le site l'écoute.
+          -->
+          <p id="avertissement-rotation" class="-mt-1 text-xs text-slate-500 dark:text-slate-400">
+            La grille tourne lentement pendant la partie. Si votre appareil est
+            réglé sur « mouvement réduit », elle reste immobile.
+          </p>
           <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
             <input type="checkbox" bind:checked={reglages.retourImmediat} class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
             Retour immédiat sur chaque réponse
