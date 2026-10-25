@@ -1453,7 +1453,26 @@ import { base } from '../../lib/ui';
     $('format-dgfip').addEventListener('change', () => {
       direLesAnnoncesDeLaCopie(($('presentation-dgfip') as HTMLSelectElement).value === 'copie');
     });
-    if (!peindreLesFormats()) return;
+    /*
+       LA PREMIÈRE PEINTURE NE DÉCIDE PLUS DU RESTE DE L'ÉCRAN.
+
+       Elle écrivait `if (!peindreLesFormats()) return;`, et c'était sans
+       conséquence tant qu'aucun réglage ne pouvait changer ce qu'elle trouve :
+       aucun format servable, aucun bouton utile, on s'arrêtait là.
+
+       La présentation du 49 a rendu ce retour nuisible, et le train l'a
+       montré. Son défaut vaut « copie » (décision 1), et une banque qui ne
+       peut pas servir de copie ne propose alors aucun format : on sortait
+       AVANT de brancher « Commencer ». La personne basculait sur « Une
+       question à la fois », les formats paraissaient, le bouton s'activait —
+       et l'appui ne faisait rien. Un bouton actif qui n'agit pas est pire
+       qu'un bouton désactivé, qui au moins dit la vérité.
+
+       La peinture ne fait donc plus que ce que son nom dit : elle remplit la
+       liste et active ou désactive « Commencer ». `demarrer()` garde sa propre
+       porte — pas de banque, pas de format, rien ne part.
+    */
+    peindreLesFormats();
 
     $('lancer-dgfip').addEventListener('click', () => void demarrer());
     /*
