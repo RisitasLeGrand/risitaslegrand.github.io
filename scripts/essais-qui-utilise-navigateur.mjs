@@ -56,7 +56,19 @@ await page.waitForSelector('#vue:not(.hidden)', { timeout: 30000 });
 /* --- 1. La liste est complète et lisible -------------------------------- */
 
 const lignes = await page.locator('#liste li[data-usage]').count();
-v('les onze usages déclarés sont listés', lignes, 11);
+/*
+   DOUZE depuis `suivi.statistiques-majeur`, entré le 19 octobre avec
+   `claude/cycle-d2` : il ferme les statistiques, les fenêtres et les
+   estimations du suivi sous 18 ans, et l'âge inconnu ferme comme un âge sous
+   18 ans.
+
+   Le nombre reste écrit en dur, et c'est tout l'office de cet essai : un
+   usage qu'on déclare au registre doit PARAÎTRE à l'écran que la personne lit
+   pour savoir ce qu'on fait de son âge. Le lire du registre lui-même le
+   rendrait tautologique — il dirait « l'écran liste ce que le registre
+   déclare » sans jamais compter ce que l'écran montre vraiment.
+*/
+v('les douze usages déclarés sont listés', lignes, 12);
 
 const premiere = page.locator('#liste li[data-usage]').first();
 const texte = await premiere.innerText();
