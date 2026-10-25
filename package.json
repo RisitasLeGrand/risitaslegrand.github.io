@@ -8,6 +8,8 @@
     "molecules:registre": "node scripts/construire-registre-molecules.mjs",
     "dev": "npm run contenu && astro dev",
     "build": "npm run verifier && npm run contenu && astro build",
+    "recuperer:corpus": "tsx scripts/recuperer-corpus.mts",
+    "essais:recuperation-corpus": "tsx scripts/essais-recuperation-corpus.mts",
     "preview": "astro preview",
     "deploy": "npm run build && node scripts/deploy.mjs",
     "podcasts": "node scripts/podcasts.mjs",

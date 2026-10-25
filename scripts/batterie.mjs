@@ -231,6 +231,13 @@ const EN_LABORATOIRE = new Set([
   'essais:seances-parties:navigateur',
   'essais:parties-client',
   'essais:reperes-audio',
+  /*
+     L'aller-retour de récupération construit `content/`, le publie, le
+     récupère, puis RECONSTRUIT depuis le récupéré. Il lui faut donc un arbre
+     à lui : lancé ici, il verrait le `content/` d'un autre essai de
+     laboratoire et se tairait sur sa garde.
+  */
+  'essais:recuperation-corpus',
 ]);
 
 /*
