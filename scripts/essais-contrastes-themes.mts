@@ -78,6 +78,39 @@ const COUPLES_CLAIR: [string, string, number, string][] = [
   ['--color-sky-900', '--color-sky-50', 4.5, 'text-sky-900 sur bg-sky-50'],
   ['--color-slate-300', '--color-white', 1.2, 'border-slate-300 sur bg-white (décor)'],
   ['--etat-bordure-forte', '--etat-fond', 3, 'bordure de champ sur le fond'],
+
+  /* ──────────────────────────────────────────────────────────────────────
+     REPRIS DE « npm run contrastes », QUI EST RETIRÉ.
+
+     Cet outil-là lisait ses teintes dans « [data-theme='clair'] » de
+     « tokens.css », où les couleurs ne sont plus depuis qu'elles sont
+     engendrées par thème. Dix-neuf de ses vingt-trois combinaisons claires
+     rendaient « teinte absente », et son total les comptait comme « sous le
+     seuil » — un faux verdict, et personne ne le voyait puisqu'il n'était pas
+     dans la batterie.
+
+     Ses combinaisons, elles, étaient justes. Elles sont donc reprises ici
+     avant le retrait, et chacune a d'abord été cherchée dans « src/ » : on
+     n'ajoute pas une exigence pour une classe que le site n'écrit plus. Les
+     seuils sont les siens — 3 pour une pastille, qui est un élément non
+     textuel, 1,1 pour une bordure de décor, qui doit seulement se distinguer.
+
+     Elles n'avaient jamais été éprouvées sur les thèmes engendrés : l'ancien
+     outil n'en connaissait qu'un, et son thème clair ne mesurait rien.
+     ────────────────────────────────────────────────────────────────────── */
+  ['--color-slate-800', '--color-slate-50', 4.5, 'text-slate-800 sur bg-slate-50 (texte courant)'],
+  ['--color-indigo-600', '--color-slate-50', 4.5, 'text-indigo-600 sur bg-slate-50'],
+  ['--color-indigo-700', '--color-white', 4.5, 'text-indigo-700 sur bg-white'],
+  ['--color-emerald-700', '--color-white', 4.5, 'domaine « économie » sur une carte'],
+  ['--color-cyan-700', '--color-white', 4.5, 'domaine « international » sur une carte'],
+  ['--color-emerald-500', '--color-white', 3, 'pastille « économie »'],
+  ['--color-amber-500', '--color-white', 3, 'pastille « finances publiques »'],
+  ['--color-rose-500', '--color-white', 3, 'pastille « social »'],
+  ['--color-indigo-500', '--color-white', 3, 'pastille « juridique »'],
+  ['--color-cyan-600', '--color-white', 3, 'pastille « international »'],
+  ['--color-red-800', '--color-red-50', 4.5, 'alerte : texte sur fond d’alerte'],
+  ['--color-white', '--color-red-600', 4.5, 'bouton d’alerte : texte sur rouge'],
+  ['--color-slate-200', '--color-slate-50', 1.1, 'bordure de carte sur le fond (décor)'],
 ];
 
 const COUPLES_SOMBRE: [string, string, number, string][] = [
@@ -93,6 +126,50 @@ const COUPLES_SOMBRE: [string, string, number, string][] = [
   ['--color-rose-300', '--color-rose-950', 4.5, 'dark:text-rose-300 sur rose-950'],
   ['--color-sky-200', '--color-sky-950', 4.5, 'dark:text-sky-200 sur sky-950'],
   ['--etat-bordure-forte', '--etat-fond', 3, 'bordure de champ sur le fond'],
+
+  /* ──────────────────────────────────────────────────────────────────────
+     REPRIS DE « npm run contrastes », QUI EST RETIRÉ.
+
+     Cet outil-là lisait ses teintes dans « [data-theme='clair'] » de
+     « tokens.css », où les couleurs ne sont plus depuis qu'elles sont
+     engendrées par thème. Dix-neuf de ses vingt-trois combinaisons claires
+     rendaient « teinte absente », et son total les comptait comme « sous le
+     seuil » — un faux verdict, et personne ne le voyait puisqu'il n'était pas
+     dans la batterie.
+
+     Ses combinaisons, elles, étaient justes. Elles sont donc reprises ici
+     avant le retrait, et chacune a d'abord été cherchée dans « src/ » : on
+     n'ajoute pas une exigence pour une classe que le site n'écrit plus. Les
+     seuils sont les siens — 3 pour une pastille, qui est un élément non
+     textuel, 1,1 pour une bordure de décor, qui doit seulement se distinguer.
+
+     Elles n'avaient jamais été éprouvées sur les thèmes engendrés : l'ancien
+     outil n'en connaissait qu'un, et son thème clair ne mesurait rien.
+     ────────────────────────────────────────────────────────────────────── */
+  ['--color-slate-200', '--color-slate-950', 4.5, 'dark:text-slate-200 sur le fond (texte courant)'],
+  ['--color-indigo-400', '--color-slate-950', 4.5, 'dark:text-indigo-400 sur le fond'],
+  ['--color-emerald-300', '--color-slate-900', 4.5, 'domaine « économie » sur une carte'],
+  ['--color-amber-300', '--color-slate-900', 4.5, 'domaine « finances publiques » sur une carte'],
+  ['--color-rose-300', '--color-slate-900', 4.5, 'domaine « social » sur une carte'],
+  ['--color-indigo-300', '--color-slate-900', 4.5, 'domaine « juridique » sur une carte'],
+  ['--color-cyan-300', '--color-slate-900', 4.5, 'domaine « international » sur une carte'],
+  ['--color-emerald-500', '--color-slate-900', 3, 'pastille « économie »'],
+  ['--color-amber-500', '--color-slate-900', 3, 'pastille « finances publiques »'],
+  ['--color-rose-500', '--color-slate-900', 3, 'pastille « social »'],
+  ['--color-indigo-500', '--color-slate-900', 3, 'pastille « juridique »'],
+  /*
+     LA PASTILLE « INTERNATIONAL » EST LA SEULE À PORTER UNE VARIANTE SOMBRE,
+     ET CE N'EST PAS UNE INCOHÉRENCE : C'EST LA SEULE QUI EN AVAIT BESOIN.
+
+     « bg-cyan-600 » sur une carte sombre rendait 3,00:1 dans le thème
+     République — c'est-à-dire 2,995, sous le plancher de 3:1 des éléments non
+     textuels, de cinq millièmes. Les quatre autres pastilles passent partout.
+     D'où « dark:bg-cyan-500 » dans « actualites.ts », et c'est ce cran-là que
+     ce couple éprouve.
+  */
+  ['--color-cyan-500', '--color-slate-900', 3, 'pastille « international » (variante sombre)'],
+  ['--color-red-400', '--color-red-950', 4.5, 'alerte : texte sur fond d’alerte'],
+  ['--color-slate-800', '--color-slate-950', 1.1, 'bordure de carte sur le fond (décor)'],
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════
