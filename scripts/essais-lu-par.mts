@@ -323,22 +323,31 @@ for (const c of CHAMPS) {
 /*
    LA LIGNE DIT CE QUI MARCHE, ET COMPTE CE QUI ATTEND.
 
-   Six usages sur treize reposent sur une source que cet environnement ne sait
-   pas atteindre, et le registre le déclare. Les compter avec les autres ferait
-   dire à la ligne que sept rubriques lisent votre âge, alors que cinq le font.
+   Six usages reposent sur une source que cet environnement ne sait pas
+   atteindre, et le registre le déclare. Les compter avec les autres ferait
+   dire à la ligne que sept rubriques lisent votre âge, alors que six le font.
+
+   « Suivi personnel » est entré dans les deux lignes le 19 octobre avec
+   `suivi.statistiques-majeur`, qui ferme les statistiques du suivi sous
+   18 ans : c'est un usage livrable, donc il se NOMME, et il ne grossit pas
+   le compte de ceux qui attendent.
 */
 v(
   'la ligne de l’année nomme les rubriques livrables, et compte celles qui attendent',
   lecteursDuChamp(CHAMPS.find((c) => c.champ === 'naissanceAnnee')!),
   [
-    'les usages de votre âge dans Révisions, Exports, Profil, Santé et Psyché, ' +
-      'et 4 autres qui attendent une source — tous listés dans Qui utilise mon âge',
+    'les usages de votre âge dans Révisions, Exports, Profil, Suivi personnel, ' +
+      'Santé et Psyché, et 4 autres qui attendent une source — tous listés dans ' +
+      'Qui utilise mon âge',
   ],
 );
 v(
-  'et celle de la majorité n’en compte aucune : ses trois usages marchent',
+  'et celle de la majorité n’en compte aucune : ses quatre usages marchent',
   lecteursDuChamp(CHAMPS.find((c) => c.champ === 'majeurDeclare')!),
-  ['les usages de votre âge dans Profil, Santé et Psyché, listés dans Qui utilise mon âge'],
+  [
+    'les usages de votre âge dans Profil, Suivi personnel, Santé et Psyché, ' +
+      'listés dans Qui utilise mon âge',
+  ],
 );
 /*
    LES USAGES SENSIBLES NE SORTENT PAS DE LEUR ÉCRAN (2.6 du prompt de l'âge).
@@ -355,22 +364,23 @@ vrai(
   'et aucun champ de profil ne déclare une clé sensible',
   CHAMPS.every((c) => !(c.clesDuRegistre ?? []).some((cle) => CLES_SENSIBLES.includes(cle))),
 );
-/* Ce que la ligne affirme, compté sur le registre : cinq rubriques livrables
-   et quatre usages en attente, soit les neuf usages qui lisent l'âge. */
+/* Ce que la ligne affirme, compté sur le registre : six rubriques livrables et
+   quatre usages en attente, soit les dix usages qui lisent l'âge. La dixième
+   est `suivi.statistiques-majeur`, venue de `claude/cycle-d2`. */
 {
   const lisantLAge = USAGES.filter((u) =>
     u.clesLues.some((c) => c === 'tranche_age' || c === 'majeur'),
   );
-  v('neuf usages lisent l’âge', lisantLAge.length, 9);
+  v('dix usages lisent l’âge', lisantLAge.length, 10);
   v(
     'dont quatre attendent une source',
     lisantLAge.filter((u) => u.fondement.type === 'source-a-obtenir').length,
     4,
   );
   v(
-    'et les cinq autres sont livrables',
+    'et les six autres sont livrables',
     rubriquesDuRegistre(['tranche_age', 'majeur']).livrables.length,
-    5,
+    6,
   );
 }
 

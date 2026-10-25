@@ -343,6 +343,17 @@ export const CHAMPS: readonly ChampDeclare[] = [
         module: 'src/pages/qui-utilise-mon-age.astro',
         libelle: 'l’écran Qui utilise mon âge, qui coupe les usages que vous refusez',
       },
+      {
+        /*
+           La portée du suivi personnel lit cette liste pour savoir si l'usage
+           `suivi.statistiques-majeur` est coupé. Elle n'était pas déclarée :
+           `essais:lu-par` l'a dit à la fusion du train, et il a raison — ce
+           registre est ce qu'une personne lit pour savoir QUI lit ses champs,
+           et un lecteur non déclaré y fait un trou muet.
+        */
+        module: 'src/lib/odyssee/portee-du-suivi.ts',
+        libelle: 'la portée du suivi personnel, qui respecte l’usage que vous avez coupé',
+      },
     ],
     /* Décision 6 : « et mon sexe » quitte le titre, le libellé et la
        question. Le sexe ne se déclare nulle part dans Cyclades — il viendra
