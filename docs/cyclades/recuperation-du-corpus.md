@@ -41,31 +41,36 @@ deuxième exemplaire au monde, et le premier en clair.
 
 ### Sur le corpus réel, de bout en bout
 
-La récupération a été exécutée sur `cec51b3`, puis le corpus récupéré a été
-**reconstruit** et les deux publications comparées champ par champ. Ce ne sont
-donc pas des estimations.
+La récupération a été exécutée sur `cec51b3`, le corpus récupéré a été
+**reconstruit**, et les deux publications comparées champ par champ. Ce ne sont
+pas des estimations.
 
 | | |
 | --- | --- |
 | Fiches récupérées | **427 sur 427** |
-| Fiches audio | **250 sur 250**, octet pour octet |
+| **Identifiants conservés après reconstruction** | **427 sur 427** |
+| Fiches audio républiées | **250 sur 250** |
+| Chemins certifiés par leur empreinte | 378 sur 427 |
+| Fiches portant `id_publie` | 49 |
 | Flashcards | 12 554 |
 | Questions de quiz | 6 235 |
 | Questions de prétest | 3 446 |
 | Termes de glossaire | 560 |
-| Chemins certifiés par leur empreinte | **376 sur 427** |
 | Le corpus récupéré se reconstruit | **oui**, sans erreur |
 
-Sur les 376 fiches qui gardent leur identifiant, la comparaison des deux
-publications déchiffrées donne : `titre`, `matiere`, `fascicule`, `tags`,
-`sommaire`, `parties`, `flashcards`, `quiz`, `pretest`, `podcast`
-**identiques, tous**. Le `quiz` inclut ses corrections imbriquées — `par_option`,
-`sources`, `visuel`, les renvois.
+Les 427 identifiants survivent : 378 parce que leur chemin a été retrouvé, 49
+parce qu'elles déclarent `id_publie`. Toute la progression enregistrée dans le
+navigateur reste donc valable, et les 250 fiches audio aussi — contre 217 avant
+que ce champ n'existe.
 
-Le texte rendu, hors soulignement du glossaire : **743 sections identiques sur
-752** (8 cours et 1 fiche simplifiée divergent, et elles sont nommées dans le
-rapport). 691 sections ne diffèrent que par le soulignement du glossaire,
-conséquence des `formes:` que la publication ne porte pas.
+La comparaison des deux publications déchiffrées donne : `titre`, `matiere`,
+`fascicule`, `tags`, `sommaire`, `parties`, `flashcards`, `quiz`, `pretest`,
+`podcast` **identiques, tous les 427**. Le `quiz` inclut ses corrections
+imbriquées — `par_option`, `sources`, `visuel`, les renvois.
+
+Le texte rendu, hors soulignement du glossaire : **843 sections identiques sur
+854**. Les 11 autres sont nommées dans le rapport, avec leur HTML publié gardé
+à côté dans `a-relire/`.
 
 ### En laboratoire, à chaque exécution
 
@@ -125,32 +130,39 @@ débarrassé de ses articles, et un préfixe, ça s'énumère. L'outil propose d
 large et ne retient que ce dont le SHA-256 tombe exactement juste : une
 proposition fausse est rejetée, jamais acceptée par ressemblance.
 
-**Mesuré : 376 chemins sur 427 sont certifiés**, en trois temps — la liste
-fournie s'il y en a une, puis les formes dérivables, puis l'énumération
-exhaustive des sous-suites ordonnées du titre. Ce dernier temps a été ajouté
-après mesure : les 284 chemins que les formes dérivables trouvaient ont servi
-d'échantillon d'apprentissage, et ils ont montré que 157 noms sont le titre
-entier, 30 un préfixe exact, et 97 une sous-suite ordonnée — des mots retirés
-au milieu, pas seulement à la fin. Énumérer les sous-suites a porté le compte
-de 284 à 376.
+**Mesuré : 378 chemins sur 427 sont certifiés**, en trois temps — la liste
+fournie s'il y en a une, les formes dérivables, puis l'énumération exhaustive
+des sous-suites ordonnées.
 
-**Les 51 restantes résistent à toute dérivation**, et c'est établi, pas
-supposé : leur nom n'est pas une sous-suite du titre, le numéro du fichier
-n'est pas en cause (éprouvé de 1 à 99), le dossier de fascicule n'est pas une
+Les 284 chemins que les seules formes dérivables trouvaient ont servi
+d'échantillon d'apprentissage : 157 noms sont le titre entier, 30 un préfixe
+exact, et **97 une sous-suite ordonnée** — des mots retirés au milieu, pas
+seulement à la fin. Énumérer les sous-suites a porté le compte à 376.
+
+Deux de plus sont venues de l'historique Git, et elles valent plus que leur
+nombre : `git log --all -p` ne contient que onze chemins de fiche en clair dans
+tout le dépôt, mais deux tombent juste et **apprennent la règle qui manquait**.
+`dgfip-a/organisation-dgfip/fiche-01-…` n'a pas de segment de matière — la
+racine du parcours tient ce rôle — et `organisation-dgfip` est une sous-suite de
+« Organisation de la DGFiP » : le DOSSIER est abrégé à la main comme les noms
+de fiche. La recherche énumère donc les deux côtés, sous un plafond, parce que
+le produit des deux énumérations atteint cent cinquante millions de candidats
+pour une seule fiche.
+
+**Les 49 restantes résistent à toute dérivation**, et c'est établi, pas
+supposé : leur nom n'est pas une sous-suite du titre, le numéro du fichier n'est
+pas en cause (éprouvé de 1 à 99), le dossier de fascicule n'est pas une
 abréviation de son propre titre, et elles ne se regroupent ni par parcours ni
 par matière. Ce sont des noms choisis à la main, hors de toute règle.
 
-Pour celles-là, deux conséquences concrètes : leur progression enregistrée
-devient orpheline, **et leur fiche audio aussi** — la reconstruction n'a
-retrouvé que 217 audios sur 250, les 33 manquants étant ceux de ces fiches,
-dont le nouvel identifiant ne désigne plus leur fichier.
-
-Toute liste d'anciens chemins les sauve sans risque : une sauvegarde, une
-capture de l'arborescence, un vieux `ls -R`. Elle se dépose dans un fichier, un
-chemin par ligne, et se repasse avec `--chemins`. Chaque ligne est éprouvée
-contre les identifiants publiés ; celles qui tombent juste certifient leur
-fiche, les autres sont ignorées sans dommage. **C'est ce qu'il faut chercher
-avant de reconstruire.**
+**Mais elles ne perdent plus rien pour autant.** Elles déclarent `id_publie`,
+et gardent donc leur identifiant, leur progression et leur fiche audio — c'est
+ce qui fait passer la reconstruction de 217 audios retrouvés à 250, et de 376
+identifiants conservés à 427. Le chemin exact reste préférable, et toute liste
+d'anciens chemins les certifiera sans risque : une sauvegarde, une capture de
+l'arborescence, un vieux `ls -R`, déposés un par ligne et repassés avec
+`--chemins`. Mais ce n'est plus une urgence : c'est du rangement, plus du
+sauvetage.
 
 **Les `formes:` du glossaire.** `glossaire.json` ne publie que
 `{terme, definition}` : les variantes déclinées sont perdues. Le
@@ -212,6 +224,34 @@ les fiches absentes de la reconstruction. Quand tous les identifiants
 changeaient, elle ne comparait rien et douze assertions passaient au vert sur
 un corpus qui n'avait pas été retrouvé. Un essai qui se tait quand il n'a rien
 mesuré est pire qu'un essai rouge ; il compte désormais ce qu'il compare.
+
+## Ce que le chiffrement du site protège, et ce qu'il ne protège pas
+
+Un fait mesuré pendant ce travail, et qui dépasse la récupération.
+
+**Le mot de passe du site fait cinq caractères.** Avec la PBKDF2-SHA256 à
+600 000 itérations du projet, l'espace entier se parcourt en une demi-heure sur
+un seul GPU en supposant majuscules et chiffres, en huit heures en
+alphanumérique sensible à la casse. Les 600 000 itérations multiplient le coût
+d'**un essai** ; elles ne multiplient pas le **nombre d'essais** à faire, et
+contre un mot de passe court elles n'achètent presque rien.
+
+Or les 412 Mo du corpus sont publiés chiffrés sous ce mot de passe dans un
+dépôt **public**. Le contenu est donc déjà lisible par qui clone `gh-pages` et
+accepte d'attendre quelques heures de calcul.
+
+Deux conséquences. D'abord, mettre le corpus à l'abri de la PERTE n'a pas
+demandé de publier quoi que ce soit : le texte des 427 fiches pèse 4,5 Mo
+compressé et a été remis directement. Ensuite, ranger une archive chiffrée avec
+ce même mot de passe dans ce même dépôt public donnerait l'apparence d'une
+protection, et non une protection — c'est écrit en tête de
+`scripts/archiver-corpus.mts` pour que personne ne s'y trompe plus tard.
+
+Le geste qui changerait réellement quelque chose est de passer à une vraie
+phrase de passe et de reconstruire. Il est devenu possible précisément parce
+que le corpus est récupéré. Il invalide les sauvegardes déjà faites par qui
+révise, et c'est donc une décision d'Alexis, pas une correction à glisser dans
+une branche.
 
 ## Un angle mort du dépôt, signalé au passage
 
