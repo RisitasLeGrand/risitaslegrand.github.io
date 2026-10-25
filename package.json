@@ -57,6 +57,7 @@
     "essais:transport": "node scripts/essais-transport-fichier.mjs",
     "essais:stockage": "node scripts/essais-stockage.mjs",
     "essais:effacement": "tsx scripts/essais-effacement.mts",
+    "essais:erreurs-dites": "tsx scripts/essais-erreurs-dites.mts",
     "essais:jour-logique": "tsx scripts/essais-jour-logique.mts",
     "essais:noyau": "tsx scripts/essais-noyau.mts",
     "essais:contexte": "tsx scripts/essais-contexte-personne.mts",
