@@ -45,6 +45,11 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
+import {
+  CODE_NON_MESURABLE,
+  estNonMesurable,
+  raisonNonMesurable,
+} from './lib/non-mesurable.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const ADRESSE = process.env.RACINE ?? 'http://localhost:4321';
@@ -452,7 +457,18 @@ for (const nom of noms) {
   const texte = lireFichier(fichier, 'utf8');
   const croix = lignesDEchec(texte).length > 0;
   const panne = PANNE.test(texte);
-  verdicts[nom] = { code: null, croix: croix || panne, repris: true };
+  verdicts[nom] = {
+    code: null,
+    croix: croix || panne,
+    /*
+       Le code de sortie est perdu, mais la LIGNE DE MARQUE est dans le journal :
+       un refus se reconnaît donc même ici, et il ne redevient pas un rouge
+       muet du seul fait qu'on relit un journal.
+    */
+    marque: estNonMesurable(texte),
+    raison: raisonNonMesurable(texte),
+    repris: true,
+  };
   reprisSansCode.push(nom);
 }
 
@@ -475,6 +491,21 @@ if (dejaJuges > 0) {
 console.log('');
 
 const rouges = [];
+/*
+   LE TROISIÈME SEAU, et pourquoi il n'est ni l'un ni l'autre.
+
+   Deux essais du dépôt ne peuvent rien dire sans le corpus réel — plus de cent
+   fiches au manifeste pour l'un, la matière « Économie » pour l'autre. Dans un
+   conteneur qui ne sert que le contenu d'exemple, ils rendaient un rouge
+   indistinguable d'un défaut du site.
+
+   Les compter verts aurait acheté un nombre flatteur contre une garantie
+   perdue : un essai vert AFFIRME quelque chose, et celui-là n'affirme rien.
+   Ils se comptent donc à part, et le verdict porte les trois nombres. Voir
+   « scripts/lib/non-mesurable.mjs », qui tient le code de sortie des deux
+   côtés pour qu'il ne puisse pas diverger.
+*/
+const nonMesurables = [];
 let verts = 0;
 const debut = Date.now();
 
@@ -484,7 +515,10 @@ for (const [index, nom] of noms.entries()) {
   /* Déjà jugé : on reprend le verdict, on ne relance pas. */
   const connu = verdicts[nom];
   if (connu) {
-    if (connu.croix || (connu.code !== null && connu.code !== 0)) {
+    if (!connu.croix && connu.marque && (connu.code === CODE_NON_MESURABLE || connu.code === null)) {
+      nonMesurables.push({ nom, raison: connu.raison ?? '' });
+      console.log(`  \x1b[33m⚠\x1b[0m ${compteur} ${nom} (non mesurable, repris)`);
+    } else if (connu.croix || (connu.code !== null && connu.code !== 0)) {
       rouges.push(nom);
       console.log(`  \x1b[31m✗\x1b[0m ${compteur} ${nom} (repris du journal)`);
     } else {
@@ -540,7 +574,12 @@ for (const [index, nom] of noms.entries()) {
     if (erreur.signal) sortie += `\n[batterie] interrompu après ${DELAI_MS} ms (${erreur.signal})`;
   }
   writeFileSync(join(journal, `${nom.replace(/[:/]/g, '-')}.log`), sortie);
-  verdicts[nom] = { code, croix: lignesDEchec(sortie).length > 0 };
+  verdicts[nom] = {
+    code,
+    croix: lignesDEchec(sortie).length > 0,
+    marque: estNonMesurable(sortie),
+    raison: raisonNonMesurable(sortie),
+  };
   writeFileSync(cheminDesVerdicts, JSON.stringify(verdicts, null, 1));
 
   /*
@@ -555,7 +594,22 @@ for (const [index, nom] of noms.entries()) {
   */
   const croix = lignesDEchec(sortie).length > 0;
   const secondes = ((Date.now() - depart) / 1000).toFixed(0);
-  if (code === 0 && !croix) {
+  /*
+     TROIS CONDITIONS, ET LA MARQUE EN EST UNE.
+
+     Un code 3 SANS la ligne de marque compte rouge : sans cette exigence, un
+     essai qui rendrait 3 par accident — un `process.exit` mal choisi, un outil
+     tiers — disparaîtrait du compte en silence, et c'est exactement ce que
+     cette convention existe pour empêcher.
+
+     Et la croix l'emporte toujours : un essai qui renonce ET affiche une croix
+     a mesuré quelque chose qui cloche avant de renoncer.
+  */
+  if (code === CODE_NON_MESURABLE && !croix && estNonMesurable(sortie)) {
+    nonMesurables.push({ nom, raison: raisonNonMesurable(sortie) });
+    console.log(`  \x1b[33m⚠\x1b[0m ${compteur} ${nom} (non mesurable, ${secondes} s)`);
+    console.log(`        ${raisonNonMesurable(sortie).slice(0, 150)}`);
+  } else if (code === 0 && !croix) {
     verts += 1;
     console.log(`  \x1b[32m✓\x1b[0m ${compteur} ${nom} (${secondes} s)`);
   } else {
@@ -570,8 +624,26 @@ for (const [index, nom] of noms.entries()) {
 const minutes = ((Date.now() - debut) / 60_000).toFixed(0);
 console.log(
   `\n${SOCLE_SEUL ? 'socle' : 'batterie complète'} : ${verts} verts ; ` +
-    `${rouges.length} rouges (${minutes} min)`,
+    `${rouges.length} rouges` +
+    (nonMesurables.length ? ` ; ${nonMesurables.length} non mesurables` : '') +
+    ` (${minutes} min)`,
 );
+if (nonMesurables.length > 0) {
+  console.log(
+    `non mesurables : ${nonMesurables.map(({ nom }) => nom).join(' ')}`,
+  );
+  /*
+     Avec leur RAISON, et non seulement leur nom : un nom oblige à ouvrir un
+     journal, une raison se lit sur place et dit s'il y a quelque chose à faire.
+  */
+  for (const { nom, raison } of nonMesurables) {
+    console.log(`  ${nom} — ${raison || 'raison non annoncée'}`);
+  }
+  console.log(
+    'Ceux-là n’ont RIEN mesuré : ils ne sont ni verts ni rouges, et le compte des\n' +
+      'verts ne les porte pas.',
+  );
+}
 if (rouges.length > 0) {
   console.log(`rouges : ${rouges.join(' ')}`);
   console.log(
