@@ -1,4 +1,5 @@
 ---
+import Icone from './Icone.astro';
 /**
  * Le centre de notifications, dans l'en-tête des branches — prompt 32,
  * phase 2.
@@ -49,7 +50,7 @@
     aria-controls="centre-panneau"
     class="cible-tactile-pleine relative rounded-lg text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
   >
-    <span aria-hidden="true">🔔</span>
+    <Icone nom="notifications" taille={20} />
     {/*
        La pastille est cachée tant qu'il n'y a rien : un « 0 » permanent
        apprend à ne plus regarder l'endroit où le nombre s'affiche.

@@ -103,6 +103,8 @@ const SENS = [
   ['filtrer', 'filter', true],
   ['restaurer', 'repeat', false],
   ['alerte', 'triangle-alert', true],
+  ['vu', 'eye', true],
+  ['ranger', 'archive', false],
 ];
 
 const source = process.argv[2];

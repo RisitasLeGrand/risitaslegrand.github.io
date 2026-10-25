@@ -25,6 +25,7 @@ interface Props {
   nu?: boolean;
 }
 import { base } from '../lib/ui';
+import Icone from './Icone.astro';
 
 const { raison, nu = false } = Astro.props;
 const cadre = nu
@@ -103,7 +104,12 @@ const cadre = nu
 </style>
 
 <section id="coffre-ferme" class={cadre}>
-  {!nu && <h2 class="text-lg font-semibold text-slate-900 dark:text-white">🔒 Ouvrir le coffre</h2>}
+  {!nu && (
+    <h2 class="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
+      <Icone nom="coffre-ferme" taille={20} />
+      <span>Ouvrir le coffre</span>
+    </h2>
+  )}
   {raison && <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">{raison}</p>}
   <label class="block text-sm">
     <span class="block text-slate-700 dark:text-slate-200">Mot de passe</span>
