@@ -612,6 +612,22 @@ console.log('\n8 bis. CE QUE CYCLADES A OBSERVÉ — LE MODULE EST VRAIMENT APPE
 
   const vide = (await page.locator('#observe-vide').innerText().catch(() => '')) ?? '';
   vrai('et l’écran dit la règle des jours consécutifs', /2 jours de suite/.test(vide));
+
+  /*
+     AUCUNE FICHE DE CYCLE N'EST PROPOSÉE ICI, ET C'EST LA RÈGLE.
+
+     La fiche du § 8.3 ne s'ouvre que pour un cycle CLOS : ses facteurs portent
+     sur une fenêtre dont la fin doit être connue, sinon la couverture
+     s'afficherait « sur 31 » avec un dénominateur inventé. Un cycle en cours,
+     ou aucun cycle, n'en reçoit donc aucune.
+
+     Ce que cet essai ne peut PAS mesurer, et qui est dit plutôt que tu : la
+     fiche elle-même. L'écran ne note que le jour courant, donc aucun cycle clos
+     n'est atteignable depuis un navigateur sans écrire en base à la place du
+     module — ce qui mesurerait le semis et non l'écran. Le contenu de la fiche
+     est tenu par `essais:facteurs-cycle`, sur les fonctions pures.
+  */
+  v('aucune fiche de cycle n’est proposée sans cycle clos', await page.locator('#observe-cycles details').count(), 0);
   vrai('en nommant les traces isolées', /traces isolées/.test(vide));
   faux(
     'il ne demande pas de noter un jour qui vient d’être noté',

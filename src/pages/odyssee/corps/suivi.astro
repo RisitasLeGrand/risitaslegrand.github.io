@@ -331,6 +331,14 @@ import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/c
     parametre,
     statistiquesDeLHistorique,
   } from '../../../lib/odyssee/cycles';
+  import {
+    BLOC_FINAL,
+    LIEN_NON_ETABLI,
+    classerLesFacteurs,
+    direLaCouverture,
+  } from '../../../lib/odyssee/facteurs-du-cycle';
+  import { faitsEntre } from '../../../lib/odyssee/faits-du-jour';
+  import { LECTRICES } from '../../../lib/noyau/permissions';
 
   const $ = (id: string) => document.getElementById(id)!;
   const aujourdhui = jourLogique(new Date());
@@ -392,6 +400,156 @@ import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/c
       await peindreCeQuiEstObserve();
     } catch (e) {
       direLErreur(e);
+    }
+  }
+
+  /**
+   * La fiche d'un cycle : trois blocs de facteurs, et un bloc final fixe.
+   *
+   * ## Ce qu'elle affiche, et ce qu'elle refuse d'afficher
+   *
+   * La maquette 8.3 montre des écarts chiffrés — « Sommeil 5 h 50 · habituel
+   * 7 h 10 ». Ces nombres ne sont pas atteignables : la projection des faits
+   * rend des `{ type, jourLogique }` et ne porte AUCUNE valeur. La fiche
+   * affiche donc la COUVERTURE, que le § 7 cite lui-même comme la moitié
+   * utile de la phrase, et elle dit ce qui manque au lieu de l'approcher. Une
+   * fiche qui montrerait un écart qu'elle n'a pas mesuré serait exactement ce
+   * que la décision 13 interdit.
+   *
+   * ## Les trois blocs, et pourquoi ils ne se confondent pas
+   *
+   * « Non mesuré » est une propriété du produit : Cyclades ne sait pas que
+   * quelqu'un s'est déplacé. « Non autorisé » est une propriété de la matrice
+   * de lecture, et ne dépend pas des données. Les confondre « laisserait croire
+   * qu'un domaine coupé est un domaine vide » — c'est la phrase du plan, et
+   * `classerLesFacteurs` la tient, avec son essai.
+   *
+   * ## La lectrice
+   *
+   * `LECTRICES.odyssee` : cette fiche est un écran d'Odyssée, et c'est la
+   * matrice du noyau qui décide ce qu'elle peut lire. Elle n'est pas passée en
+   * dur par commodité — le type est une union fermée, donc le compilateur
+   * refuse une lectrice inventée.
+   */
+  async function peindreLaFiche(corps: HTMLElement, du: string, au: string) {
+    try {
+      const fenetre = await faitsEntre(du, au, LECTRICES.odyssee);
+      const joursDuCycle =
+        Math.round(
+          (Date.parse(`${au}T00:00:00Z`) - Date.parse(`${du}T00:00:00Z`)) / 86_400_000,
+        ) + 1;
+      const classement = classerLesFacteurs({
+        faits: fenetre.faits,
+        nonAutorises: fenetre.nonAutorises,
+        joursDuCycle,
+      });
+
+      corps.replaceChildren();
+
+      const titre = (texte: string) => {
+        const h = document.createElement('p');
+        h.className = 'etiquette text-slate-500 dark:text-slate-400';
+        h.textContent = texte;
+        return h;
+      };
+
+      /* ── Observés ─────────────────────────────────────────────────── */
+      corps.appendChild(titre('Ce que Cyclades a observé'));
+      const observes = document.createElement('ul');
+      observes.className = 'space-y-2';
+      for (const classe of classement.observes) {
+        const li = document.createElement('li');
+        li.className = 'rounded border border-slate-200 p-2 dark:border-slate-700';
+        const nom = document.createElement('p');
+        nom.className = 'font-medium text-slate-800 dark:text-slate-100';
+        /*
+           L'unité du dénominateur suit le facteur : des nuits pour le sommeil,
+           des jours pour le reste. C'est l'appelant qui la passe, parce qu'un
+           module qui conjuguerait les noms de facteurs finirait par écrire
+           « 3 sommeils ».
+        */
+        const unite =
+          classe.facteur.id === 'sommeil'
+            ? { un: 'nuit renseignée', plusieurs: 'nuits renseignées' }
+            : { un: 'jour renseigné', plusieurs: 'jours renseignés' };
+        nom.textContent = `${classe.facteur.libelle} — ${direLaCouverture(classe, unite)}`;
+        li.appendChild(nom);
+
+        /*
+           LA PHRASE DE LA DÉCISION 13, SOUS CHAQUE FACTEUR. Elle est lue dans
+           le module et non recopiée : c'est elle qui empêche la fiche de se
+           lire comme une explication, et une recopie finirait par dériver.
+        */
+        const lien = document.createElement('p');
+        lien.className = 'mt-1 text-xs text-slate-500 dark:text-slate-400';
+        lien.textContent = `› ${LIEN_NON_ETABLI}`;
+        li.appendChild(lien);
+
+        if (classe.facteur.reserve) {
+          const reserve = document.createElement('p');
+          reserve.className = 'mt-1 text-xs text-slate-600 dark:text-slate-300';
+          reserve.textContent = `› ${classe.facteur.reserve}`;
+          li.appendChild(reserve);
+        }
+        observes.appendChild(li);
+      }
+      corps.appendChild(observes);
+
+      /* ── Non évalués : deux lignes distinctes ─────────────────────── */
+      if (classement.nonMesures.length || classement.nonAutorises.length) {
+        corps.appendChild(titre('Non évalués'));
+        const liste = document.createElement('ul');
+        liste.className = 'space-y-1 text-sm';
+
+        for (const classe of classement.nonMesures) {
+          const li = document.createElement('li');
+          li.className = 'text-slate-600 dark:text-slate-300';
+          li.textContent =
+            `${classe.facteur.libelle} — ${classe.facteur.reserve ?? 'Cyclades ne le mesure pas.'}`;
+          liste.appendChild(li);
+        }
+
+        for (const classe of classement.nonAutorises) {
+          /*
+             LA SECONDE LIGNE, ET ELLE NE DIT PAS LA MÊME CHOSE. Un domaine
+             coupé n'est pas un domaine vide : la personne peut l'ouvrir, et
+             l'écran nomme lequel. Ne pas les distinguer reviendrait à lui dire
+             que Cyclades ne mesure pas une chose qu'il mesure.
+          */
+          const li = document.createElement('li');
+          li.className = 'text-amber-800 dark:text-amber-300';
+          const noms = (classe.refus ?? []).map((r) => r.domaine).join(', ');
+          li.textContent =
+            `${classe.facteur.libelle} — domaine non autorisé : ${noms}. ` +
+            `Vous pouvez l’autoriser depuis « Qui lit mes données ».`;
+          liste.appendChild(li);
+        }
+        corps.appendChild(liste);
+      }
+
+      /*
+         LES BRANCHES ILLISIBLES NE SONT NI L'UN NI L'AUTRE. Un coffre fermé
+         n'est pas un refus de la matrice, et ce n'est pas non plus une absence
+         de mesure : c'est une lecture qui n'a pas pu avoir lieu. Le taire
+         laisserait une couverture incomplète passer pour complète.
+      */
+      if (fenetre.branchesIllisibles.length) {
+        const p = document.createElement('p');
+        p.className = 'text-sm text-slate-600 dark:text-slate-300';
+        p.textContent =
+          `Certaines branches n’ont pas pu être lues sur cette période : ` +
+          `${fenetre.branchesIllisibles.join(', ')}. Leur couverture n’est donc pas comptée.`;
+        corps.appendChild(p);
+      }
+
+      /* ── Le bloc final, fixe ──────────────────────────────────────── */
+      const final = document.createElement('p');
+      final.className =
+        'border-t border-slate-200 pt-2 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300';
+      final.textContent = BLOC_FINAL;
+      corps.appendChild(final);
+    } catch (e) {
+      corps.textContent = messageDUneErreur(e);
     }
   }
 
@@ -488,6 +646,41 @@ import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/c
           ? `Cycle du ${cycle.debut} au ${cycle.fin} — ${cycle.duree} ${cycle.duree === 1 ? 'jour' : 'jours'}`
           : `Cycle commencé le ${cycle.debut} — en cours`;
         li.appendChild(titre);
+
+        /*
+           LA FICHE DE CYCLE (MAQUETTE 8.3), DÉPLIABLE ET NON DÉPLIÉE.
+
+           Elle lit les faits de la fenêtre du cycle, donc elle coûte une
+           projection sur sept publieurs : la charger pour chaque cycle à
+           l'ouverture de l'écran ferait payer à tout le monde ce que personne
+           n'a demandé. Elle se remplit au premier dépli, une fois.
+
+           Elle n'est proposée que pour un cycle CLOS : un cycle en cours n'a
+           pas de fenêtre, et ses facteurs porteraient sur une période dont on
+           ne connaît pas la fin — une couverture « sur 31 » calculée sur un
+           dénominateur inventé.
+        */
+        if (cycle.complet && cycle.fin) {
+          const fiche = document.createElement('details');
+          fiche.className = 'mt-2';
+          const resume = document.createElement('summary');
+          resume.className =
+            'cursor-pointer text-indigo-700 underline decoration-dotted dark:text-indigo-300';
+          resume.textContent = 'Ce que Cyclades a observé sur ce cycle';
+          fiche.appendChild(resume);
+          const corps = document.createElement('div');
+          corps.className = 'mt-2 space-y-3';
+          corps.textContent = 'Lecture…';
+          fiche.appendChild(corps);
+          fiche.addEventListener(
+            'toggle',
+            () => {
+              if (fiche.open) void peindreLaFiche(corps, cycle.debut, cycle.fin as string);
+            },
+            { once: true },
+          );
+          li.appendChild(fiche);
+        }
 
         const sesFenetres = parAncre.get(cycle.debut) ?? [];
         if (sesFenetres.length) {
