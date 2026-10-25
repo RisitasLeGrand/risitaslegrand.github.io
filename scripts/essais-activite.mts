@@ -19,6 +19,7 @@ import {
   serie,
   type Multiplicateur,
 } from '../src/lib/odyssee/activite';
+import config from '../site.config.mjs';
 import { typeDeFait, valider, type Fait } from '../src/lib/noyau/faits';
 
 let echecs = 0;
@@ -110,13 +111,24 @@ v(
   40,
 );
 
-// Flashcards : le prix dépend de la note, et le fait porte la journée entière.
+/*
+   Flashcards : QUATRE NOTES, UN SEUL PRIX — et le fait porte la journée entière.
+
+   L'attente était `3 + 4 + 5 + 7`, du temps où la note faisait le prix. Le
+   point F4 du prompt 43 l'a aplatie : une note dit à l'ordonnanceur quand la
+   carte doit revenir, et la payer plus cher quand on se déclare à l'aise
+   pousse à surnoter, ce qui fausse FSRS pour gagner quatre points.
+
+   Le compte est donc `4 × XP.flashcardRevue`. Il est écrit ainsi plutôt qu'en
+   dur : si le barème bougeait, c'est le barème qu'on lirait, pas une somme à
+   refaire de tête.
+*/
 v(
-  'flashcards : quatre notes, quatre prix',
+  'flashcards : quatre notes, un seul prix',
   calculerXp([
     fait('revision.flashcards', '2026-03-02', { oublie: 1, difficile: 1, correct: 1, facile: 1 }, 4),
   ]).total,
-  3 + 4 + 5 + 7,
+  4 * config.xp.flashcardRevue,
 );
 v(
   'flashcards : dix cartes correctes',
