@@ -55,8 +55,8 @@ import YAML from 'yaml';
 
 import { deriverCle, idStable } from './lib/crypto.mjs';
 import { empreinteRapide } from './lib/chemin-de-fiche.mjs';
-import { blocYaml, questionEnSource } from './lib/fiche-en-source.mjs';
-import { quizSchema } from './lib/schema.mjs';
+import { blocYaml, frontMatter, questionEnSource } from './lib/fiche-en-source.mjs';
+import { frontMatterSchema, idsPubliesEnDouble, quizSchema } from './lib/schema.mjs';
 import { b64VersOctets } from './lib/secret.mjs';
 import { decouperSections } from './lib/markdown.mjs';
 import { formatAudio } from './lib/voix.mjs';
@@ -185,6 +185,69 @@ const avecObjet = quizSchema.safeParse({
 verifier(
   'le schéma REFUSE un renvoi déjà résolu — défaire la résolution est obligatoire',
   !avecObjet.success,
+);
+
+/*
+   « id_publie » : LE FILET DES FICHES DONT LE CHEMIN EST PERDU.
+
+   Une cinquantaine de fiches sur 427 n'ont pas pu voir leur chemin certifié.
+   Replacées ailleurs, elles recevaient un identifiant neuf — et la
+   progression enregistrée pour elles, comme leur fiche audio déjà
+   synthétisée, devenait orpheline. Ce champ leur permet de déclarer leur
+   identifiant publié.
+
+   Deux fiches sous le même identifiant se confondraient à l'écran et leur
+   progression se mélangerait : le doublon doit être REFUSÉ, et un format faux
+   aussi, sinon le champ devient une manière d'écrire au lieu d'une réparation.
+*/
+for (const [valeur, attendu] of [
+  ['0123456789abcdef', true],
+  ['0123456789ABCDEF', false],
+  ['abc', false],
+  ['0123456789abcdeg', false],
+  ['0123456789abcdef0', false],
+] as const) {
+  const lu = frontMatterSchema.safeParse({
+    matiere: 'M',
+    fascicule: 'F',
+    titre: 'T',
+    id_publie: valeur,
+  });
+  verifier(
+    `« id_publie: ${valeur} » est ${attendu ? 'accepté' : 'refusé'}`,
+    lu.success === attendu,
+  );
+}
+verifier(
+  'une fiche sans « id_publie » reste valable',
+  frontMatterSchema.safeParse({ matiere: 'M', fascicule: 'F', titre: 'T' }).success,
+);
+verifier(
+  'deux fiches sous le même « id_publie » sont signalées',
+  idsPubliesEnDouble([
+    { chemin: 'a.md', id_publie: '0123456789abcdef' },
+    { chemin: 'b.md', id_publie: '0123456789abcdef' },
+    { chemin: 'c.md' },
+  ]).length === 1,
+);
+verifier(
+  'et des identifiants distincts ne le sont pas',
+  idsPubliesEnDouble([
+    { chemin: 'a.md', id_publie: '0123456789abcdef' },
+    { chemin: 'b.md', id_publie: 'fedcba9876543210' },
+  ]).length === 0,
+);
+
+/* Le champ n'est écrit QUE pour une fiche au chemin incertain : sur une fiche
+   certifiée, il serait du bruit — `idStable` redonne déjà le bon identifiant. */
+const entete = { matiere: 'M', fascicule: 'F', titre: 'T', ordre: 1, tags: [] };
+verifier(
+  'le front-matter porte « id_publie » quand on le lui donne',
+  frontMatter({ ...entete, idPublie: '0123456789abcdef' }).includes('id_publie: 0123456789abcdef'),
+);
+verifier(
+  'et ne le porte pas sinon',
+  !frontMatter(entete).includes('id_publie'),
 );
 
 /* ── Le laboratoire ──────────────────────────────────────────────────────── */

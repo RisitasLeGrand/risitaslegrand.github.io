@@ -198,6 +198,25 @@ function* sousSuites(mots) {
 const MOTS_MAX = 18;
 
 /**
+ * Le nombre de candidats qu'on s'autorise par fiche.
+ *
+ * ## Pourquoi un plafond, et pourquoi il ne coûte presque rien
+ *
+ * Énumérer les sous-suites du DOSSIER et celles du NOM fait un produit : un
+ * fascicule de dix mots et un titre de quatorze donnent cent cinquante
+ * millions de candidats pour une seule fiche. Mesuré : la recherche ne rendait
+ * plus la main.
+ *
+ * Et ce coût tombe entièrement sur les fiches qui vont échouer, puisqu'une
+ * fiche qui se trouve se trouve tôt — les sous-suites sont rendues de la plus
+ * longue à la plus courte, et le titre entier est la forme la plus fréquente.
+ * Le plafond ne retire donc presque aucune trouvaille, et il rend la
+ * récupération exécutable : une recherche parfaite qui n'aboutit pas ne
+ * récupère rien du tout.
+ */
+const BUDGET_PAR_FICHE = 4_000_000;
+
+/**
  * La recherche exhaustive, pour les fiches que la recherche large a manquées.
  *
  * ## Pourquoi c'est sans danger, même en forçant
@@ -215,20 +234,72 @@ export function chercherParSousSuites(id, fiche) {
 
   const racine = racineDuParcours(fiche.parcours);
   const matiere = enTiret(fiche.matiere);
-  const numeroFascicule = /(\d+)/.exec(fiche.fascicule)?.[1] ?? '';
-  const dossiers = numeroFascicule
-    ? [`${matiere}/fascicule-${numeroFascicule}`, `${matiere}/${numeroFascicule}`]
-    : [matiere];
   const numeros = [
     String(fiche.ordre).padStart(2, '0'),
     String(fiche.ordre),
     String(fiche.ordre).padStart(3, '0'),
   ];
 
-  for (const base of sousSuites(mots)) {
-    for (const dossier of dossiers) {
+  /*
+     LE DOSSIER EST ABRÉGÉ À LA MAIN, LUI AUSSI.
+
+     Mesuré : « dgfip-a/organisation-dgfip/ » pour un fascicule intitulé
+     « Organisation de la DGFiP ». Pas de « fascicule-N » du tout, et
+     « organisation-dgfip » est une sous-suite du titre du fascicule — les
+     mots du milieu retirés, exactement comme pour les noms de fiche.
+
+     Ces deux chemins-là ont été retrouvés dans l'historique Git, pas
+     dérivés ; c'est en les lisant qu'on a vu la règle. On énumère donc les
+     deux côtés, et le produit reste petit parce qu'on essaie les sous-suites
+     les plus longues d'abord.
+  */
+  const motsFascicule = enTiret(fiche.fascicule)
+    .split('-')
+    .filter((m) => m && m !== 'fascicule' && !/^\d+$/.test(m));
+  const numeroFascicule = /(\d+)/.exec(fiche.fascicule)?.[1] ?? '';
+
+  /*
+     LE SEGMENT DE MATIÈRE N'EXISTE PAS TOUJOURS.
+
+     Mesuré sur « dgfip-a/organisation-dgfip/fiche-01-… » : trois segments, et
+     aucun pour la matière. La racine du parcours (« dgfip-a/ ») tient déjà ce
+     rôle, et répéter la matière derrière elle donnerait
+     « dgfip-a/dgfip-a/… », qui n'existe pas. On essaie donc les trois
+     préfixes possibles — racine et matière, racine seule, matière seule — sans
+     présumer lequel ce corpus a retenu.
+  */
+  const prefixes = [
+    ...new Set(
+      [`${racine}${matiere}`, racine.replace(/\/$/, ''), matiere].filter(Boolean),
+    ),
+  ];
+
+  /* Les formes du dossier de fascicule, « aucun dossier » comprise. */
+  const formesFascicule = [];
+  if (numeroFascicule) {
+    formesFascicule.push(`fascicule-${numeroFascicule}`, numeroFascicule);
+  }
+  if (motsFascicule.length && motsFascicule.length <= MOTS_MAX) {
+    for (const abrege of sousSuites(motsFascicule)) {
+      formesFascicule.push(abrege);
+      if (numeroFascicule) formesFascicule.push(`fascicule-${numeroFascicule}-${abrege}`);
+    }
+  }
+  formesFascicule.push('');
+
+  const dossiers = [];
+  for (const prefixe of prefixes) {
+    for (const forme of formesFascicule) {
+      dossiers.push(forme ? `${prefixe}/${forme}` : prefixe);
+    }
+  }
+
+  let budget = BUDGET_PAR_FICHE;
+  for (const dossier of [...new Set(dossiers)]) {
+    for (const base of sousSuites(mots)) {
       for (const n of numeros) {
-        const candidat = `${racine}${dossier}/fiche-${n}-${base}.md`;
+        if (budget-- <= 0) return null;
+        const candidat = `${dossier}/fiche-${n}-${base}.md`;
         if (empreinteRapide(candidat) === id) return candidat;
       }
     }

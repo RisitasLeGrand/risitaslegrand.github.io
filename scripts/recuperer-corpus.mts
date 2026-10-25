@@ -677,6 +677,10 @@ async function main() {
         titre: charge.titre,
         ordre,
         tags: charge.tags ?? [],
+        /* Le chemin n'est pas certifié : la fiche déclare l'identifiant sous
+           lequel elle a été publiée, et garde donc sa progression et son
+           audio malgré un chemin approximatif. */
+        ...(certain ? {} : { idPublie: id }),
       },
       cours: cours.markdown,
       fiche: simplifiee.markdown,

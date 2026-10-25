@@ -42,9 +42,24 @@ export function blocYaml(items) {
  * étiquettes. `yaml` respecte l'ordre d'insertion d'un objet, il suffit donc
  * de le construire dans le bon.
  */
-export function frontMatter({ matiere, fascicule, titre, ordre, tags }) {
+export function frontMatter({ matiere, fascicule, titre, ordre, tags, idPublie }) {
   return YAML.stringify(
-    { matiere, fascicule, titre, ordre, tags: tags ?? [] },
+    {
+      matiere,
+      fascicule,
+      titre,
+      ordre,
+      tags: tags ?? [],
+      /*
+         « id_publie » n'est écrit que pour une fiche dont le chemin d'origine
+         n'a pas pu être certifié. Sans lui, elle recevrait un identifiant
+         neuf au prochain build, et la progression enregistrée pour elle —
+         comme sa fiche audio déjà synthétisée — deviendrait orpheline. Sur
+         une fiche dont le chemin est certifié, le champ serait du bruit :
+         `idStable` redonne déjà le bon identifiant.
+      */
+      ...(idPublie ? { id_publie: idPublie } : {}),
+    },
     { lineWidth: 0 },
   ).trimEnd();
 }

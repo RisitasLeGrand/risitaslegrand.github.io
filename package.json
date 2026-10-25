@@ -9,6 +9,7 @@
     "dev": "npm run contenu && astro dev",
     "build": "npm run verifier && npm run contenu && astro build",
     "recuperer:corpus": "tsx scripts/recuperer-corpus.mts",
+    "archiver:corpus": "tsx scripts/archiver-corpus.mts",
     "essais:recuperation-corpus": "tsx scripts/essais-recuperation-corpus.mts",
     "preview": "astro preview",
     "deploy": "npm run build && node scripts/deploy.mjs",
