@@ -1626,3 +1626,40 @@ button:not(:disabled):active,
      texte, et suit donc le thème sans rien connaître de lui. */
   background: color-mix(in srgb, currentColor 15%, transparent);
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   LES FORMULES MATHÉMATIQUES (point e du 60)
+
+   Une formule hors ligne est LARGE. « \sqrt{x^2 + y^2} » en mode « display »
+   dépasse 390 px, et sans la règle ci-dessous elle n'élargit pas sa propre
+   boîte : elle élargit la PAGE, qui se met alors à défiler latéralement.
+   L'essai « essais:maths-ecran » l'a constaté à 390 px avant qu'on l'écrive,
+   et un défilement horizontal casse la lecture de toute la page, pas seulement
+   de la formule.
+
+   Le débordement est donc confié à la boîte de la formule, qui défile seule si
+   besoin. « overscroll-behavior-x » empêche ce défilement de se propager à la
+   page quand on arrive au bout, ce qui serait le même désagrément déplacé d'un
+   cran.
+
+   La couleur n'est PAS fixée ici, et c'est voulu : KaTeX hérite de
+   « currentColor », donc la formule prend la teinte du texte qui l'entoure et
+   suit les quatorze thèmes sans qu'aucun d'eux soit nommé. L'essai vérifie
+   cette égalité, et vérifie aussi que deux thèmes donnent deux valeurs — sans
+   quoi une teinte figée passerait pour de l'héritage.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.maths-bloc {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  /* Un peu d'air sous la formule quand une barre de défilement apparaît. */
+  padding-bottom: 0.25rem;
+}
+
+.maths-en-ligne {
+  /* En ligne, une formule trop large doit pouvoir passer à la ligne plutôt
+     que de pousser son paragraphe hors de l'écran. */
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}

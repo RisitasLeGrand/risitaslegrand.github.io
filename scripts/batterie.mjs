@@ -77,6 +77,15 @@ const SOCLE = [
   ['essais:espaces', 'aucun mot collé à une balise en ligne, dans le site construit'],
   ['essais:mots-colles:navigateur', 'les mêmes, mesurés dans la page vivante'],
   ['essais:typographie', 'apostrophes, espaces insécables, accords sans « (s) »'],
+  /*
+     Deux garanties que n'importe quelle retouche du rendu Markdown peut
+     défaire sans qu'on la voie : les 158 « $ » monétaires et les 100 ellipses
+     « \[…\] » du contenu ne doivent jamais devenir des formules, et le HTML
+     écrit à la main dans une fiche doit rester détruit — le rendu des
+     mathématiques ouvre « allowDangerousHtml » sur la sortie, et c'est cet
+     essai qui vérifie que la porte d'entrée, elle, est restée fermée.
+  */
+  ['essais:maths', 'le « $ » monétaire reste du texte, et le HTML d’auteur reste détruit'],
   ['essais:accessibilite:navigateur', 'rôles, noms accessibles, ordre de tabulation'],
   ['essais:mobile:navigateur', '360 px : aucun débordement, cibles atteignables'],
   ['essais:mouvement-reduit', 'le réglage d’animations existe, et il est respecté'],
@@ -320,6 +329,12 @@ const EN_LABORATOIRE = new Set([
   'essais:seances-parties:navigateur',
   'essais:parties-client',
   'essais:reperes-audio',
+  /*
+     Point e du 60. Les formules ne s'affichent que si une fiche en porte une,
+     et le conteneur de travail n'en a aucune : l'essai pose donc son propre
+     décor dans le contenu d'exemple, ce qui exige un arbre à part.
+  */
+  'essais:maths-ecran',
   /*
      C3 du prompt 43. L'écran du QCM DGFiP ne s'ouvre que si la banque de
      questions existe, et aucune n'est servie dans le conteneur de travail :

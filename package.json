@@ -359,7 +359,9 @@
     "essais:effacements-dits": "tsx scripts/essais-effacements-dits.mts",
     "essais:base-concurrente": "tsx scripts/essais-base-concurrente.mts",
     "essais:404-hors-ligne": "tsx scripts/essais-404-hors-ligne.mts",
-    "essais:fusion-interrompue": "node scripts/essais-fusion-interrompue.mjs"
+    "essais:fusion-interrompue": "node scripts/essais-fusion-interrompue.mjs",
+    "essais:maths": "node scripts/essais-maths.mjs",
+    "essais:maths-ecran": "node scripts/essais-maths-ecran-navigateur.mjs"
   },
   "repository": {
     "type": "git",
@@ -377,6 +379,7 @@
     "d3-shape": "^3.2.0",
     "idb": "^8.0.3",
     "jsqr": "^1.4.0",
+    "katex": "0.19.0",
     "pdfjs-dist": "^4.10.38",
     "qrcode-generator": "^2.0.4",
     "svelte": "^5.57.1",

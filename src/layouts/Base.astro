@@ -4,6 +4,19 @@
  * Le contenu de la page n'est rendu qu'une fois la session déverrouillée.
  */
 import '../styles/global.css';
+/*
+   La feuille de KaTeX, servie depuis le site et jamais depuis un CDN.
+
+   Importée ici plutôt que recopiée dans « public/ » : Vite réécrit les URL de
+   polices, les empreinte et les dépose sous « /_astro/ », que le service
+   worker tient pour de la coquille immuable. Les polices sont donc locales,
+   versionnées avec le reste, et le hors-ligne marche dès qu'une page portant
+   une formule a été visitée une fois.
+
+   Le JavaScript de KaTeX, lui, ne part pas : les formules sont rendues à la
+   CONSTRUCTION et le navigateur ne reçoit que du MathML déjà calculé.
+*/
+import 'katex/dist/katex.min.css';
 import { THEMES, THEME_PAR_DEFAUT, modesDe, theme } from '../lib/themes';
 import Verrou from '../components/Verrou.astro';
 import CentreNotifications from '../components/CentreNotifications.astro';
