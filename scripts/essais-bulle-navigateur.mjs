@@ -63,6 +63,12 @@ async function faireParaitreUneBulle(page) {
   const autre = options.find((o) => o && o !== courant);
   vrai('il existe un second parcours pour provoquer une bulle', Boolean(autre));
   await page.selectOption('#selecteur-parcours', autre);
+  /*
+     E6 du prompt 43 : la liste CHOISIT, le bouton APPLIQUE. Changer la
+     valeur n'écrit plus rien et ne recharge plus — la bulle paraît après
+     l'appui, au rechargement qui suit.
+  */
+  await page.click('#appliquer-parcours');
   const bulle = page.locator('.bulle-notification').first();
   await bulle.waitFor({ state: 'visible', timeout: 15000 });
   return bulle;

@@ -248,6 +248,12 @@ console.log('\n  F — le message de confirmation');
     v('il existe un second parcours pour provoquer un message', false, true);
   } else {
     await p.selectOption('#selecteur-parcours', autre);
+    /*
+       E6 du prompt 43 : la liste CHOISIT, le bouton APPLIQUE. Changer la
+       valeur n'écrit plus rien et ne recharge plus — la bulle paraît après
+       l'appui, au rechargement qui suit.
+    */
+    await p.click('#appliquer-parcours');
     const bulle = p.locator('.bulle-notification').first();
     const parue = await bulle
       .waitFor({ state: 'visible', timeout: 10000 })
