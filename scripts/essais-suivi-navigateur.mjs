@@ -819,6 +819,30 @@ console.log('\n10. CHANGER DE RÉPONSE MASQUE, SANS RIEN EFFACER');
   await aller(PAGE, '#hors-portee');
   vrai('et l’adresse directe ne montre plus rien', await page.locator('#hors-portee').isVisible());
   faux('le suivi n’est pas rendu', await page.locator('#dans-la-portee').isVisible());
+
+  /*
+     ET LE BLOC DES CYCLES OBSERVÉS NON PLUS — NOMMÉMENT.
+
+     Il est à l'intérieur de `#dans-la-portee`, donc le constat ci-dessus le
+     couvre déjà par transitivité. Il est pourtant nommé ici, parce que c'est
+     une décision d'Alexis — « le cycle ne s'affiche QUE pour un profil
+     féminin » — et qu'une garantie tenue par transitivité tombe sans bruit le
+     jour où quelqu'un déplace le bloc hors du conteneur. Un essai qui nomme la
+     chose survit au déplacement.
+
+     On lit `innerText` et non `textContent` : le masquage de cet écran est
+     VISUEL, pas une absence — le gabarit servi contient le module entier —, et
+     `textContent` rendrait donc des mots qu'aucun œil ne voit. C'est une leçon
+     déjà payée sur cet écran.
+  */
+  faux('le bloc des cycles observés est masqué', await page.locator('#bloc-observe').isVisible());
+  {
+    const vu = await page.evaluate(() => document.body.innerText);
+    for (const mot of ['Ce que Cyclades a observé', 'Cycle commencé', 'statistiques']) {
+      faux(`le mot « ${mot} » n’est pas lisible`, vu.includes(mot));
+    }
+  }
+
   v('MAIS LA SAISIE EST TOUJOURS EN BASE', await combien(), 1);
 
   /* Et effacer la réponse n'efface pas davantage. */
