@@ -27,6 +27,17 @@ const SECTIONS = new Map([
   ['pre-test', 'pretest'],
   ['pre test', 'pretest'],
   ['auto-questionnement', 'pretest'],
+  /*
+     « ## Organigrammes » — une section et non un visuel de correction.
+
+     Un organigramme de référence ne doit pas s'atteindre en répondant à une
+     question. Jusqu'ici un schéma ne vivait que dans la correction d'un QCM :
+     pour le consulter, il fallait tomber sur la bonne question et se tromper.
+     La section le sort de là et le rend consultable, sans rien changer au
+     rendu — c'est le même visuel « schema », avec ses deux lectures.
+  */
+  ['organigrammes', 'organigrammes'],
+  ['organigramme', 'organigrammes'],
 ]);
 
 /**
@@ -36,7 +47,7 @@ const SECTIONS = new Map([
  */
 export function decouperSections(corps) {
   const lignes = corps.split(/\r?\n/);
-  const sections = { cours: [], fiche: [], flashcards: [], quiz: [], pretest: [] };
+  const sections = { cours: [], fiche: [], flashcards: [], quiz: [], pretest: [], organigrammes: [] };
   const inconnues = [];
   let courante = null;
   let dansBlocCode = false;

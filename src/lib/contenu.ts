@@ -7,6 +7,7 @@ import { dechiffrerBinaire, dechiffrerJson, type Blob as BlobChiffre, type Param
 import { idParcoursCourant } from './parcours/courant';
 import { manifestePourLeParcours } from './parcours/filtre-du-manifeste';
 import { obtenirCle } from './auth';
+import type { DonneesSchema } from '../features/correction/visuels/types';
 
 export interface FicheResume {
   id: string;
@@ -82,6 +83,32 @@ export interface FicheResume {
   parcoursServis?: string[];
   /** La fiche sert-elle plus d'un parcours ? Dérivé de `parcoursServis`. */
   partagee?: boolean;
+  /**
+   * Combien d'organigrammes consultables la fiche porte — et non lesquels.
+   *
+   * La page des organigrammes a besoin de savoir où aller chercher sans
+   * déchiffrer les 427 fiches ; les données, elles, sont dans la charge utile
+   * de la fiche et ne sont lues qu'à l'ouverture. Absent d'un manifeste
+   * construit avant cette section : son absence se lit « aucun ».
+   */
+  nbOrganigrammes?: number;
+}
+
+/**
+ * Un organigramme consultable, tel que la fiche le porte.
+ *
+ * `source` et `date` ne sont pas facultatifs : un organigramme se consulte
+ * seul, des mois après avoir été écrit, et l'organisation d'une administration
+ * bouge. Le build refuse les deux absences — voir « lib/schema.mjs ».
+ */
+export interface Organigramme {
+  titre: string;
+  donnees: DonneesSchema;
+  alt: string;
+  legende?: string;
+  source: string;
+  /** « 2025-07 » ou « 2025-07-15 » : l'année et le mois au moins. */
+  date: string;
 }
 
 export interface Fascicule {
@@ -209,6 +236,13 @@ export interface Fiche {
    * fiches écrites avant la phase 10b n'en ont pas.
    */
   pretest?: QuestionQuiz[];
+  /**
+   * Les organigrammes consultables de la fiche (« ## Organigrammes »).
+   *
+   * Facultatif : les fiches écrites avant cette section n'en ont pas, et son
+   * absence se lit « aucun », jamais « on ne sait pas ».
+   */
+  organigrammes?: Organigramme[];
   /** Durée, poids et format de la fiche audio, connus avant de la télécharger. */
   podcast: {
     secondes: number | null;
