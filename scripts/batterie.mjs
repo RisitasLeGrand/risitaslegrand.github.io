@@ -2,10 +2,19 @@
 /**
  * La batterie complète, ou le socle seul : les essais dans l'ordre, et un verdict.
  *
- *   npm run batterie   # les 235
- *   npm run socle      # les seize transversaux, onze minutes
+ *   npm run batterie   # tout ce qui commence par « essais » — 316 au 25 octobre
+ *   npm run socle      # les 32 transversaux
  *
- *   npm run batterie
+ * CES DEUX NOMBRES SE PÉRIMENT, ET ILS S'ÉTAIENT PÉRIMÉS. Cette ligne
+ * annonçait « les 235 » et « les seize transversaux, onze minutes » alors que
+ * la batterie en découvrait 315 et que le socle en comptait 31 : un en-tête
+ * qui chiffre ce qu'il ne compte pas finit par mentir doucement. Le vrai
+ * compte, lui, est imprimé par la commande elle-même au début de chaque
+ * passage — c'est lui qui fait foi, et c'est là qu'il faut le lire.
+ *
+ * La durée du socle n'est plus écrite : « onze minutes » valait pour seize
+ * essais, et personne ne l'a remesurée depuis qu'il y en a deux fois plus.
+ * Mieux vaut pas de chiffre qu'un chiffre faux.
  *
  * ## Pourquoi cette commande existe
  *
@@ -99,6 +108,7 @@ const SOCLE = [
   ['essais:themes-navigateur', 'les quatorze thèmes s’appliquent pour de vrai'],
   ['essais:themes-a-jour', 'le catalogue et les feuilles engendrées concordent'],
   ['essais:contrastes-themes', 'WCAG AA dans chaque thème'],
+  ['essais:bulles:navigateur', 'les bulles : leurs classes existent, et elles se voient'],
   ['essais:couleurs-jetons', 'aucune couleur littérale hors des jetons'],
   ['essais:theme-menus', 'aucun menu hors palette, et refus de juger à vide'],
   ['essais:coffre-ferme', 'coffre fermé, rien de sensible n’apparaît'],

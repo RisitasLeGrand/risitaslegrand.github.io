@@ -1,14 +1,20 @@
 /**
  * Le contraste **des pages rendues**, dans les deux thèmes.
  *
- * ## Ce que l'autre script ne pouvait pas dire
+ * ## Ce que l'autre essai ne peut pas dire
  *
- * « npm run contrastes » lit les jetons de `tokens.css` et contrôle une liste
- * de combinaisons écrite à la main. Il prouve que **la palette** est bonne. Il
- * ne prouve pas qu'aucune page n'a posé une couleur hors de cette palette, ni
- * qu'une superposition imprévue — un texte clair sur une carte claire — ne
- * s'est pas formée au rendu. C'est la réserve que l'audit portait au constat
- * C-027, et c'est ce que ce script-ci lève.
+ * `essais:contrastes-themes` demande au générateur la valeur de chaque jeton
+ * et éprouve une liste de couples, sur les quatorze thèmes et leurs vingt-cinq
+ * modes. Il prouve que **la palette** est bonne. Il ne prouve pas qu'aucune
+ * page n'a posé une couleur hors de cette palette, ni qu'une superposition
+ * imprévue — un texte clair sur une carte claire — ne s'est pas formée au
+ * rendu. C'est la réserve que l'audit portait au constat C-027, et c'est ce
+ * que ce script-ci lève.
+ *
+ * (Cette phrase nommait « npm run contrastes », retiré le 25 octobre : il
+ * lisait ses teintes dans un sélecteur de `tokens.css` que les couleurs
+ * avaient quitté, et comptait « teinte absente » comme « sous le seuil ». Ses
+ * combinaisons vivent désormais dans `essais:contrastes-themes`.)
  *
  * ## La méthode, et ses deux pièges
  *
