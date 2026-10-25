@@ -157,6 +157,14 @@ const SOCLE = [
      chargé par la mise en page de TOUTES les pages.
   */
   ['essais:defilement-rendu', 'la position de défilement est rendue, exactement, sur chaque liste'],
+  /*
+     L'aller-retour de la banque QCM vers sa source YAML, demandé au socle
+     par le pilote avec la branche qui le livre. Il garde la seule chose
+     qu'on ne peut pas reconstituer : 540 questions dont 387 viennent
+     d'annales réelles. Un aller-retour qui perdrait un champ en silence ne
+     se verrait qu'à la publication suivante.
+  */
+  ['essais:qcm-source', 'la banque QCM revient à sa source YAML sans perdre un champ'],
 ];
 
 /**
