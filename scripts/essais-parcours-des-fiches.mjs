@@ -18,10 +18,10 @@
  *
  * Il tient aussi, depuis le 25 octobre, **l'invariant de la racine partagée** :
  * une fiche sous `content/commun/` a UN identifiant pour les trois parcours
- * DGFiP. Il le vérifie en recalculant `idStable` depuis le chemin sur disque et
- * en comparant au manifeste — donc sans faire confiance au manifeste pour se
- * juger lui-même, et sans toucher à `idStable`, dont dépend l'historique des
- * 262 fiches de l'INSP.
+ * DGFiP. Il le vérifie depuis le DISQUE — l'identifiant que la fiche déclare
+ * en `id_publie`, ou l'empreinte de son chemin — et le compare au manifeste,
+ * donc sans faire confiance au manifeste pour se juger lui-même, et sans
+ * toucher à `idStable`, dont dépend l'historique des 262 fiches de l'INSP.
  *
  * Il ne vérifie **pas** que la bibliothèque filtre : elle ne filtre pas
  * encore, et le prétendre serait mentir. Ces champs existent pour que ce second
@@ -288,13 +288,54 @@ const dossiersInconnus = [
 ].filter((d) => !FICHIERS_HORS_PARCOURS.has(d));
 v('aucune fiche sous un dossier que le registre ignore', dossiersInconnus, []);
 
-const idsAttendus = new Set(await Promise.all(cheminsDuDisque.map((c) => idStable(c))));
+/*
+   « ID_PUBLIE » CHANGE LA RÈGLE, ET CET ESSAI L'IGNORAIT.
+
+   Écrit avant ce champ, il exigeait que TOUT identifiant du manifeste soit
+   l'empreinte d'un chemin du disque. Or le build fait depuis
+   `ficheId = fm.data.id_publie ?? await idStable(relatif)` : une fiche qui
+   déclare son identifiant publié n'obéit plus à l'empreinte de son chemin,
+   et c'est exactement ce que le champ sert à faire — la récupération du
+   corpus a laissé une cinquantaine de fiches à un chemin non certifié, et
+   `id_publie` leur garde l'identifiant sous lequel elles ont été publiées,
+   donc leur progression et leur fiche audio.
+
+   L'essai rougissait donc sur les fiches que le champ répare, en annonçant
+   « ce n'est pas l'empreinte d'un chemin » — ce qui est vrai, et n'est pas un
+   défaut. Constaté ici le 25 octobre sur deux fiches récupérées, et il en
+   serait de même sur les 49 du corpus réel.
+
+   La demande n'est pas abaissée, elle est remise sur son objet : l'identifiant
+   d'une fiche est celui qu'elle déclare, ou l'empreinte de son chemin, et rien
+   d'autre. Un identifiant qui ne serait ni l'un ni l'autre reste un défaut. Et
+   une demande de plus apparaît, que l'ancienne version ne pouvait pas porter :
+   un `id_publie` déclaré doit se retrouver AU MANIFESTE, sans quoi le champ
+   serait écrit pour rien et la réparation silencieusement perdue.
+*/
+const ID_PUBLIE = /^id_publie:\s*([0-9a-f]{16})\s*$/m;
+const idsDeclares = new Map();
+const idsAttendus = new Set();
+for (const chemin of cheminsDuDisque) {
+  const entete = readFileSync(join('content', chemin), 'utf8').match(/^---\n([\s\S]*?)\n---/);
+  const declare = entete?.[1].match(ID_PUBLIE)?.[1];
+  if (declare) idsDeclares.set(chemin, declare);
+  idsAttendus.add(declare ?? (await idStable(chemin)));
+}
 const idsDuManifeste = new Set(toutes.map((f) => f.id));
 v(
-  'chaque identifiant du manifeste est l’empreinte d’un chemin du disque',
+  'chaque identifiant du manifeste est celui que la fiche déclare, ou l’empreinte de son chemin',
   [...idsDuManifeste].filter((id) => !idsAttendus.has(id)).slice(0, 5),
   [],
 );
+if (idsDeclares.size === 0) {
+  console.log('      \x1b[36m·\x1b[0m non mesuré : aucune fiche ne déclare « id_publie » dans ce corpus');
+} else {
+  v(
+    `les ${idsDeclares.size} « id_publie » déclarés se retrouvent au manifeste`,
+    [...idsDeclares].filter(([, id]) => !idsDuManifeste.has(id)).map(([c]) => c).slice(0, 5),
+    [],
+  );
+}
 v(
   'et aucun identifiant n’est porté deux fois',
   toutes.length - idsDuManifeste.size,
