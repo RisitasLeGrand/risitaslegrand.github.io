@@ -268,8 +268,31 @@ console.log('\n  C bis — chaque échelle est bien une proportion');
         if (valeur < 0 || valeur > 1) suspects.push(`${f} : scaleX(${expr})`);
         continue;
       }
-      // Une expression : elle doit ramener à une proportion.
-      if (!/\/\s*100|\/\s*\w+\.length|\/\s*questions|\/\s*file|\/\s*ecrans|\/\s*reglages/.test(expr)) {
+      /*
+         Une expression : elle DIVISE, et son `× 100` éventuel est défait.
+
+         Trois écritures se sont succédé ici, et les deux premières étaient
+         fausses. Je les laisse écrites parce que le chemin dit la règle mieux
+         que la règle seule.
+
+         1. Une LISTE DE DIVISEURS nommés — `/ 100`, `/ x.length`,
+            `/ questions`, `/ file`, `/ ecrans`, `/ reglages`. Elle a accusé
+            une conversion juste dès qu'un site neuf est arrivé :
+            `scaleX(faits / enJeu.essais)` est une proportion par construction,
+            mais son diviseur n'était pas dans la liste. Une liste de noms ne
+            se tient pas à jour toute seule, et un faux positif finit par faire
+            désactiver le contrôle entier.
+
+         2. « IL SUFFIT QU'ELLE DIVISE ». Un sabotage l'a démentie dans la
+            minute : `scaleX(Math.round((a / b) * 100))` divise, et reste cent
+            fois trop large.
+
+         3. Celle-ci. La multiplication par cent est permise à UNE condition,
+            qu'elle soit défaite : `Math.round(x * 100) / 100` est l'arrondi à
+            deux décimales employé par huit sites, et il rend bien une
+            proportion. Un `× 100` sans `/ 100` est la faute visée.
+      */
+      if (!expr.includes('/') || (/\*\s*100\b/.test(expr) && !/\/\s*100\b/.test(expr))) {
         suspects.push(`${f} : scaleX(${expr})`);
       }
     }
