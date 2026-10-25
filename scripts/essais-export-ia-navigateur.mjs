@@ -136,6 +136,25 @@ await page.waitForSelector('#categories input[type="checkbox"]', { timeout: 4000
   /* Cocher une sensible demande confirmation, et un refus la laisse décochée. */
   await page.click('#categories input[data-categorie="sante"]');
   await repondre(false);
+  /*
+     LE DIALOGUE PART AVANT L'EFFET, et c'est ce qui rendait cette assertion
+     capricieuse. `boite.ts` retire le `<dialog>` PUIS résout sa promesse — à
+     l'identique sur « main », vérifié — et l'écran décoche la case dans la
+     continuation, donc après. « Le dialogue a disparu », qui est le signal
+     que `repondreALaBoite` attend, n'est donc pas le signal de l'effet : le
+     reste était une course, gagnée par chance jusqu'ici.
+
+     On attend l'effet lui-même, une seconde au plus. Rien n'est assoupli :
+     si la case reste cochée, l'attente expire et l'assertion rougit.
+  */
+  await page
+    .waitForFunction(
+      () =>
+        document.querySelector('#categories input[data-categorie="sante"]')?.checked === false,
+      undefined,
+      { timeout: 1000 },
+    )
+    .catch(() => undefined);
   faux(
     'une confirmation refusée laisse la catégorie sensible décochée',
     await page.locator('#categories input[data-categorie="sante"]').isChecked(),
