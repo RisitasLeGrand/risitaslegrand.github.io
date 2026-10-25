@@ -27,6 +27,7 @@
  * un champ « vu dans la bibliothèque » suffirait à transformer le registre en
  * analyse, ce que la consigne « donnée morte » interdit.
  */
+import { SOURCE_FLUIMUCIL } from './sante';
 import type { Source, ValeurSourcee } from './sante';
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -332,6 +333,78 @@ export function controlerLimite(l: LimiteSourcee): string[] {
     problemes.push('Une dose maximale étudiée doit porter son libellé fixe.');
   }
   return problemes;
+}
+
+/*
+   ══════════════════════════════════════════════════════════════════════════
+   LES LIMITES LIVRÉES — une seule, et c'est une mesure, pas un renoncement
+   ══════════════════════════════════════════════════════════════════════════
+
+   La décision 7 du plan exige qu'une limite porte sa nature, sa valeur, sa
+   population, sa voie, sa source et sa date. La nature « rcp » dit
+   précisément « dose maximale du résumé des caractéristiques du produit » —
+   pas la posologie ordinaire, qui n'est pas un plafond.
+
+   Les HUIT RCP déposés dans la collecte ont été lus sur ce critère :
+   Androtardyl, Nebido, Modiodal, modafinil Viatris, Fluimucil 600, Hidonac
+   IV, citrate de caféine Cooper, Gencebok. **Un seul énonce une dose
+   maximale** — Fluimucil 600. Dans les sept autres, les occurrences de
+   « maximale » désignent des **concentrations plasmatiques** relevées en
+   pharmacocinétique, et non un plafond de dose : les prendre pour des limites
+   aurait transformé une mesure de sang en autorisation de dose.
+
+   Côté autorités, mesuré aussi : l'« Overview on Tolerable Upper Intake
+   Levels » de l'EFSA (version 11, août 2025) et le rapport de l'ANSES
+   (mars 2021) ne mentionnent la caféine **nulle part** — ce sont des
+   documents sur les vitamines et les minéraux. Aucune limite d'autorité
+   n'est donc disponible pour aucune des cinq molécules du catalogue.
+
+   D'où une seule entrée. Les quatre autres molécules affichent
+   « AUCUNE_LIMITE », dont la seconde phrase — « l'absence de limite n'est pas
+   une preuve d'innocuité » — dit exactement l'état des choses.
+*/
+export const LIMITES: Readonly<Record<string, readonly LimiteSourcee[]>> = {
+  'n-acetylcysteine': [
+    {
+      nature: 'rcp',
+      /*
+         Énoncé factuel, et volontairement pas la phrase du RCP. Le RCP écrit
+         « La dose journalière maximale ne doit pas dépasser 600 mg » : c'est
+         une prescription, que H.9 interdit d'afficher ici. On rapporte donc
+         le FAIT — le chiffre que le document porte — sans en reprendre le
+         verbe.
+      */
+      valeur: '600 mg par jour — dose journalière maximale portée par le RCP',
+      population:
+        'Adulte ; le même RCP indique que Fluimucil n’est pas indiqué avant 18 ans, ' +
+        'et contre-indiqué avant 2 ans',
+      voie: 'orale, sachet de 600 mg',
+      source: SOURCE_FLUIMUCIL,
+      date: '2024-06-26',
+    },
+  ],
+};
+
+/** Les limites d'une molécule, par son identifiant de catalogue. */
+export function limitesDe(id: string | null | undefined): readonly LimiteSourcee[] {
+  if (!id) return [];
+  return LIMITES[id] ?? [];
+}
+
+/**
+ * Une limite, dite en une phrase.
+ *
+ * La nature vient en tête parce que c'est elle qui qualifie le chiffre : une
+ * dose maximale de RCP et une limite d'autorité ne se lisent pas de la même
+ * façon, et la personne doit savoir laquelle elle a sous les yeux avant de
+ * lire le nombre.
+ */
+export function direLaLimite(l: LimiteSourcee): string {
+  return (
+    `${NATURES_LIMITE[l.nature]} : ${l.valeur}. ` +
+    `Population : ${l.population}. Voie : ${l.voie}. ` +
+    `${l.source.nom}, document du ${l.date}, consulté le ${l.source.le}.`
+  );
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
