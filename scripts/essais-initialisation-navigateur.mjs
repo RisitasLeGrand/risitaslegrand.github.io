@@ -5,8 +5,9 @@
  *
  * - qu'une base vierge **mène à l'initialisation** avant le menu, et qu'elle
  *   n'y mène plus une fois faite ;
- * - qu'il n'y ait **qu'une question à l'écran**, que le prénom soit le seul sans
- *   « Plus tard », et que « Terminer maintenant » soit là dès la première ;
+ * - qu'il n'y ait **qu'une question à l'écran**, que « Plus tard » soit offert
+ *   dès la première — le prénom en était privé tant qu'il était obligatoire —,
+ *   et que « Terminer maintenant » soit là dès la première aussi ;
  * - qu'une question reportée **ne soit pas reposée après rechargement** — c'est
  *   la promesse qui tient tout le parcours, et elle se vérifie en fermant ;
  * - que la première entrée dans Révisions pose **ses** questions, une fois ;
@@ -123,7 +124,11 @@ const avancement = await compteur();
 const totalDesQuestions = Number(/^1 \/ (\d+)$/.exec(avancement ?? '')?.[1] ?? 0);
 v('l’avancement est annoncé, et il commence à 1', /^1 \/ \d+$/.test(avancement ?? ''), true);
 v(`et le total est crédible (${totalDesQuestions} questions)`, totalDesQuestions >= 5, true);
-faux('« Plus tard » n’est pas proposé sur le prénom', await page.locator('#plus-tard').isVisible());
+/* D6 : ce contrôle disait l'inverse, et il avait raison de le dire — le bouton
+   était caché sur l'écran du prénom, seul champ obligatoire. La toute première
+   question du site était donc la seule sans sortie. Le prénom est devenu
+   facultatif, et la sortie est rendue. */
+vrai('« Plus tard » est proposé dès le prénom', await page.locator('#plus-tard').isVisible());
 vrai('mais « Terminer maintenant » l’est', await page.locator('#terminer').isVisible());
 v(
   'une seule question est à l’écran',
@@ -141,10 +146,33 @@ faux(
 console.log('\nRÉPONDRE, REPORTER, ET REVENIR AU MÊME ENDROIT');
 
 {
-  /* Le prénom est obligatoire : continuer sans rien écrire doit le dire. */
+  /*
+     D6 — CONTINUER SANS RIEN ÉCRIRE N'EST PLUS REFUSÉ.
+
+     L'écran répondait « Cette réponse est la seule qui soit attendue. » et
+     restait là : le prénom était le seul champ obligatoire. Il ne l'est plus,
+     donc continuer avance.
+
+     Et avancer sans répondre n'est PAS reporter. Rien n'est écrit, donc la
+     question revient au prochain passage — alors qu'une question reportée ne
+     revient pas, ce que la suite de cet essai vérifie quelques lignes plus
+     bas. Le contraste est le cœur de la chose : « Plus tard » est une
+     décision, passer outre n'en est pas une.
+  */
   await page.click('#valider');
-  vrai('un prénom vide est refusé, avec un motif', await page.locator('#erreur').isVisible());
-  v('et la question ne change pas', await question(), 'Comment doit-on vous appeler ?');
+  await page.waitForFunction(
+    () => document.getElementById('question')?.textContent?.includes('année de naissance'),
+    { timeout: 15000 },
+  );
+  faux('un prénom vide n’est plus refusé', await page.locator('#erreur').isVisible());
+  v('et l’écran avance', await question(), 'Quelle est votre année de naissance ?');
+
+  await aller('/initialisation/', '#question');
+  v(
+    'rien n’ayant été écrit, la question du prénom revient',
+    await question(),
+    'Comment doit-on vous appeler ?',
+  );
 }
 
 await page.fill('#saisie-prenom', 'Alexis');
