@@ -155,7 +155,11 @@ vrai(
   (await page.locator('#champ-mdp').getAttribute('type')) === 'text',
 );
 await oeilDe('champ-mdp').click();
-await page.fill('#champ-mdp', '');
+/* `clear()` et non `fill(…, '')` : `essais:secret` interdit toute chaîne
+   littérale passée au champ du mot de passe, et il a raison de ne pas faire
+   d'exception pour la chaîne vide — une exception se faufile. Vider le champ
+   se dit d'ailleurs mieux ainsi. */
+await page.locator('#champ-mdp').clear();
 
 /* ════════════════════════════════════════════════════════════════════════
    2. Les écrans qui demandent un mot de passe
