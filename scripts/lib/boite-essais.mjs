@@ -60,6 +60,52 @@ export async function repondreAuChamp(page, valeur, verbe = 'Enregistrer', optio
 }
 
 /**
+ * Remplit les dates d'une boîte de répartition, désignées par leur ÉTIQUETTE.
+ *
+ * ## Pourquoi cet auxiliaire s'ajoute à « repondreAuChamp »
+ *
+ * « repondreAuChamp » remplit UN champ. La boîte des dates d'épreuves en
+ * porte un par parcours — quatre aujourd'hui —, et lui donner une chaîne JSON
+ * échouait sur « Malformed value » : le JSON partait dans le premier
+ * `input[type=date]`, qui refuse tout ce qui n'est pas une date.
+ *
+ * Ce n'était pas une exigence trop forte, c'était un essai qui regardait au
+ * mauvais endroit : la section C du 43 a retiré le JSON de cette saisie —
+ * c'était bien son objet —, et l'essai est resté à l'ancienne forme. On lui
+ * rend donc son objet.
+ *
+ * ## Désignées par leur étiquette, et par rien d'autre
+ *
+ * Pas par leur position : « la deuxième date » cesserait de voir le jour où
+ * un parcours s'ajoute, et il s'en ajoute. Pas par un attribut `name` non
+ * plus — la saisie n'en pose pas. On lit donc les étiquettes telles qu'elles
+ * s'affichent et l'on compare le texte ENTIER : « DGFiP A » est un préfixe de
+ * « DGFiP AP », et une comparaison par sous-chaîne remplirait le mauvais
+ * champ sans rien dire.
+ *
+ * Une étiquette introuvable fait ÉCHOUER, avec la liste de celles qui
+ * existent : un essai qui écrirait dans le vide rendrait un vert sans objet.
+ */
+export async function repondreAuxDates(page, dates, verbe = 'Enregistrer', options = {}) {
+  const delai = options.delai ?? 10000;
+  await page.waitForSelector(`${BOITE}[open] input[type="date"]`, { timeout: delai });
+  const etiquettes = await page.$$eval(`${BOITE}[open] label`, (labels) =>
+    labels.map((l) => (l.querySelector('span')?.textContent ?? '').trim()),
+  );
+  for (const [etiquette, valeur] of Object.entries(dates)) {
+    const rang = etiquettes.indexOf(etiquette);
+    if (rang === -1) {
+      throw new Error(
+        `La boîte ne porte pas de date pour « ${etiquette} ». Étiquettes trouvées : ` +
+          `${etiquettes.map((e) => `« ${e} »`).join(', ')}.`,
+      );
+    }
+    await page.locator(`${BOITE}[open] label`).nth(rang).locator('input[type="date"]').fill(valeur);
+  }
+  await repondreALaBoite(page, verbe, options);
+}
+
+/**
  * Compte les ouvertures de boîte, pour les essais qui comptaient les
  * fenêtres natives.
  *
