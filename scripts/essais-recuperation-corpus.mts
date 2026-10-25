@@ -54,6 +54,9 @@ import matter from 'gray-matter';
 import YAML from 'yaml';
 
 import { deriverCle, idStable } from './lib/crypto.mjs';
+import { empreinteRapide } from './lib/chemin-de-fiche.mjs';
+import { blocYaml, questionEnSource } from './lib/fiche-en-source.mjs';
+import { quizSchema } from './lib/schema.mjs';
 import { b64VersOctets } from './lib/secret.mjs';
 import { decouperSections } from './lib/markdown.mjs';
 import { formatAudio } from './lib/voix.mjs';
@@ -76,6 +79,113 @@ function verifier(quoi: string, vrai: boolean, detail = '') {
   console.log(`${rouge('✗')} ${quoi}${detail ? `\n    ${detail}` : ''}`);
   rouges += 1;
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   0. LES INVARIANTS QUI NE DOIVENT JAMAIS ÊTRE SAUTÉS
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/*
+   Ces vérifications passent AVANT la garde du laboratoire, et c'est délibéré.
+
+   La garde fait sortir l'essai sans rien mesurer quand « content/ » existe —
+   ce qui est juste pour tout ce qui construit, et faux pour ce qui ne
+   construit rien. Les deux défauts les plus graves de cet outil se voient
+   ici, sans laboratoire : ils n'ont aucune raison d'être sautés parce qu'un
+   autre essai tourne à côté.
+*/
+console.log('\n0. LES INVARIANTS PURS');
+
+/*
+   L'EMPREINTE RAPIDE DOIT ÊTRE L'EMPREINTE DU DÉPÔT.
+
+   La recherche de chemin éprouve des millions de candidats et ne peut pas
+   attendre une promesse par candidat : elle emploie `node:crypto` au lieu de
+   `crypto.subtle`. Si les deux divergeaient d'un bit, la recherche
+   chercherait la mauvaise empreinte et ne trouverait plus RIEN — en silence,
+   sans erreur, en rendant simplement « chemin non certifié » pour les 427
+   fiches. Cette ligne est ce qui interdit à l'optimisation de dériver.
+*/
+for (const texte of [
+  'droit-public/fascicule-1/fiche-01-hierarchie-des-normes.md',
+  'questions-européennes/fascicule-3/fiche-12-é-à-ü-œ.md',
+  '',
+]) {
+  verifier(
+    `« empreinteRapide » = « idStable » pour ${JSON.stringify(texte.slice(0, 40))}`,
+    empreinteRapide(texte) === (await idStable(texte)),
+  );
+}
+
+/*
+   UNE CORRECTION IMBRIQUÉE DOIT SURVIVRE À L'ÉCRITURE EN SOURCE.
+
+   C'est le défaut qui a fait refuser le corpus réel en bloc : le YAML écrit à
+   la main rendait `par_option` — une liste d'objets — par la chaîne
+   « [object Object] », et le build répondait « expected array, received
+   string » sur des centaines de fiches. Les trois fiches de
+   « content-exemple » n'ont AUCUNE correction : l'aller-retour ne pouvait pas
+   le voir, et un corpus d'exemple est un échantillon, pas une garantie.
+
+   On éprouve donc la structure complète ici, contre le schéma du dépôt
+   lui-même, sans dépendre de ce que l'exemple contient.
+*/
+const CORRECTION_COMPLETE = {
+  resume: 'Un résumé qui tient en une phrase.',
+  par_option: [
+    { verdict: 'juste', pourquoi: 'parce que oui' },
+    { verdict: 'faux', pourquoi: "parce que non, avec une apostrophe" },
+  ],
+  detail: 'Un détail plus long, sur plusieurs idées.',
+  rappel_de_cours: ['droit-public/fascicule-1/fiche-01-hierarchie-des-normes'],
+  sources: [{ nom: 'Une source', url: 'https://example.org/a' }],
+  confiance: 'haute',
+  visuel: { type: 'aucun', raison_aucun: 'aucun dessin n’aiderait ici' },
+};
+
+const questionEcrite = blocYaml([
+  questionEnSource({
+    question: 'Une question à deux options ?',
+    options: ['oui', 'non'],
+    bonnes: [0],
+    explication: 'Une explication.',
+    correction: CORRECTION_COMPLETE,
+  }),
+]);
+verifier(
+  'aucun « [object Object] » dans le YAML écrit',
+  !questionEcrite.includes('[object Object]'),
+  questionEcrite.includes('[object Object]') ? questionEcrite.slice(0, 200) : undefined,
+);
+
+const relu = YAML.parse(questionEcrite) as unknown[];
+const valide = quizSchema.safeParse(relu[0]);
+verifier(
+  'le schéma du dépôt accepte la question réécrite',
+  valide.success,
+  valide.success ? undefined : JSON.stringify(valide.error.issues.slice(0, 3)),
+);
+if (valide.success) {
+  verifier(
+    'et « correction » revient structure pour structure',
+    JSON.stringify(valide.data.correction) === JSON.stringify(CORRECTION_COMPLETE),
+    JSON.stringify(valide.data.correction)?.slice(0, 200),
+  );
+}
+
+/*
+   UN RENVOI « rappel de cours » EST UN CHEMIN DANS LA SOURCE, UN OBJET DANS
+   LA PUBLICATION — et le schéma le dit, ce qui justifie de le défaire.
+*/
+const avecObjet = quizSchema.safeParse({
+  question: 'Une question ?',
+  options: ['a', 'b'],
+  reponse: 0,
+  correction: { ...CORRECTION_COMPLETE, rappel_de_cours: [{ id: 'abc', titre: 'Un titre' }] },
+});
+verifier(
+  'le schéma REFUSE un renvoi déjà résolu — défaire la résolution est obligatoire',
+  !avecObjet.success,
+);
 
 /* ── Le laboratoire ──────────────────────────────────────────────────────── */
 

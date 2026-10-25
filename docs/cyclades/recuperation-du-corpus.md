@@ -39,26 +39,48 @@ deuxième exemplaire au monde, et le premier en clair.
 
 ## Ce qui a été mesuré, et comment
 
-Sans le vrai mot de passe, l'outil est prouvé par un aller-retour complet sur
-`content-exemple/`, avec un mot de passe jetable :
-`npm run essais:recuperation-corpus` — 38 vérifications, toutes vertes.
+### Sur le corpus réel, de bout en bout
 
-L'essai construit le corpus d'exemple comme le vrai build le fait, le récupère
-avec l'outil, puis **reconstruit depuis le récupéré** et compare les deux
-publications déchiffrées, champ par champ. C'est cette dernière étape qui
-tranche : les comparaisons de fichiers disent si les sources se ressemblent,
-celle-là dit si **le site servirait les mêmes pages**.
+La récupération a été exécutée sur `cec51b3`, puis le corpus récupéré a été
+**reconstruit** et les deux publications comparées champ par champ. Ce ne sont
+donc pas des estimations.
 
-Résultat : `id`, `titre`, `matiere`, `fascicule`, `tags`, `sommaire`,
-`parties`, `flashcards`, `quiz`, `pretest` identiques ; `coursHtml` et
-`ficheHtml` identiques hors soulignement du glossaire ; l'audio octet pour
-octet ; et **chaque fiche garde son identifiant**.
+| | |
+| --- | --- |
+| Fiches récupérées | **427 sur 427** |
+| Fiches audio | **250 sur 250**, octet pour octet |
+| Flashcards | 12 554 |
+| Questions de quiz | 6 235 |
+| Questions de prétest | 3 446 |
+| Termes de glossaire | 560 |
+| Chemins certifiés par leur empreinte | **376 sur 427** |
+| Le corpus récupéré se reconstruit | **oui**, sans erreur |
 
-Sur la publication réelle `cec51b3`, vérifié sans aucun mot de passe : 427
-fiches, 250 audios (412 Mo), 427 enveloppes `{iv,ct}` sur 427, les 427 noms de
-fichier conformes à un identifiant de seize caractères hexadécimaux, en-tête
-PBKDF2-SHA256 à 600 000 itérations. L'outil lit cet arbre et annonce les mêmes
-nombres.
+Sur les 376 fiches qui gardent leur identifiant, la comparaison des deux
+publications déchiffrées donne : `titre`, `matiere`, `fascicule`, `tags`,
+`sommaire`, `parties`, `flashcards`, `quiz`, `pretest`, `podcast`
+**identiques, tous**. Le `quiz` inclut ses corrections imbriquées — `par_option`,
+`sources`, `visuel`, les renvois.
+
+Le texte rendu, hors soulignement du glossaire : **743 sections identiques sur
+752** (8 cours et 1 fiche simplifiée divergent, et elles sont nommées dans le
+rapport). 691 sections ne diffèrent que par le soulignement du glossaire,
+conséquence des `formes:` que la publication ne porte pas.
+
+### En laboratoire, à chaque exécution
+
+`npm run essais:recuperation-corpus` — 45 vérifications, toutes vertes, avec un
+mot de passe jetable sur `content-exemple`. Il construit, récupère, reconstruit
+depuis le récupéré, et compare les deux publications. Sept de ces
+vérifications passent **avant** la garde du laboratoire et ne peuvent donc
+jamais être sautées : ce sont celles qui tiennent les deux défauts les plus
+graves de l'outil (voir « Quatre défauts » plus bas).
+
+### Sur la publication, sans aucun mot de passe
+
+427 fiches, 250 audios (412 Mo), 427 enveloppes `{iv,ct}` sur 427, les 427 noms
+de fichier conformes à un identifiant de seize caractères hexadécimaux,
+en-tête PBKDF2-SHA256 à 600 000 itérations.
 
 ## Ce qui revient, et ce qui ne revient pas
 
@@ -103,13 +125,32 @@ débarrassé de ses articles, et un préfixe, ça s'énumère. L'outil propose d
 large et ne retient que ce dont le SHA-256 tombe exactement juste : une
 proposition fausse est rejetée, jamais acceptée par ressemblance.
 
-Sur les trois fiches d'exemple, les trois chemins sont retrouvés. **Rien ne
-garantit le même taux sur 427.** Le rapport donne le compte exact et nomme les
-fiches dont le chemin reste supposé. Pour celles-là, toute liste d'anciens
-chemins — une sauvegarde, une capture de l'arborescence, un vieux `ls -R` — se
-dépose dans un fichier et se repasse avec `--chemins` : chaque ligne est
-éprouvée, celles qui tombent juste certifient leur fiche, les autres sont
-ignorées sans dommage.
+**Mesuré : 376 chemins sur 427 sont certifiés**, en trois temps — la liste
+fournie s'il y en a une, puis les formes dérivables, puis l'énumération
+exhaustive des sous-suites ordonnées du titre. Ce dernier temps a été ajouté
+après mesure : les 284 chemins que les formes dérivables trouvaient ont servi
+d'échantillon d'apprentissage, et ils ont montré que 157 noms sont le titre
+entier, 30 un préfixe exact, et 97 une sous-suite ordonnée — des mots retirés
+au milieu, pas seulement à la fin. Énumérer les sous-suites a porté le compte
+de 284 à 376.
+
+**Les 51 restantes résistent à toute dérivation**, et c'est établi, pas
+supposé : leur nom n'est pas une sous-suite du titre, le numéro du fichier
+n'est pas en cause (éprouvé de 1 à 99), le dossier de fascicule n'est pas une
+abréviation de son propre titre, et elles ne se regroupent ni par parcours ni
+par matière. Ce sont des noms choisis à la main, hors de toute règle.
+
+Pour celles-là, deux conséquences concrètes : leur progression enregistrée
+devient orpheline, **et leur fiche audio aussi** — la reconstruction n'a
+retrouvé que 217 audios sur 250, les 33 manquants étant ceux de ces fiches,
+dont le nouvel identifiant ne désigne plus leur fichier.
+
+Toute liste d'anciens chemins les sauve sans risque : une sauvegarde, une
+capture de l'arborescence, un vieux `ls -R`. Elle se dépose dans un fichier, un
+chemin par ligne, et se repasse avec `--chemins`. Chaque ligne est éprouvée
+contre les identifiants publiés ; celles qui tombent juste certifient leur
+fiche, les autres sont ignorées sans dommage. **C'est ce qu'il faut chercher
+avant de reconstruire.**
 
 **Les `formes:` du glossaire.** `glossaire.json` ne publie que
 `{terme, definition}` : les variantes déclinées sont perdues. Le
@@ -132,24 +173,41 @@ l'empreinte qui dit à `npm run podcasts` qu'ils sont à jour. **`npm run
 podcasts` les croira périmés et voudra les resynthétiser** — ce qui coûte. Ne
 pas le lancer sans l'avoir décidé.
 
-## Deux défauts que l'aller-retour a trouvés, et qui seraient passés
+## Quatre défauts que la mesure a trouvés, et qui seraient tous passés
 
 Ils sont écrits ici parce que ce sont exactement les défauts qu'une lecture du
-code ne voit pas, et qu'un outil livré sans aller-retour aurait emportés.
+code ne voit pas, et qu'un outil livré sans aller-retour les aurait emportés.
 
-**Le repli en HTML verbatim détruisait la section.** La première version
+**1. Le repli en HTML verbatim détruisait la section.** La première version
 gardait le HTML publié tel quel quand la reconversion ne coïncidait pas, en se
 disant que « du HTML dans un Markdown reste du HTML ». C'est faux dans cette
 chaîne : `remark-rehype` tourne sans `allowDangerousHtml` et **jette** le HTML
 écrit à la main. Une section « gardée en verbatim » ne différait donc pas un
-peu — elle disparaissait entièrement, et le rapport la déclarait intacte. Le
-repli garde maintenant le Markdown converti, même imparfait, et le HTML publié
-va dans `a-relire/`.
+peu — elle disparaissait entièrement, et le rapport la déclarait intacte.
 
-**Les tableaux GFM n'étaient pas convertis**, et tombaient donc dans ce même
+**2. Les tableaux GFM n'étaient pas convertis**, et tombaient dans ce même
 repli : une synthèse en tableau comparatif revenait en page blanche.
 
-Et un troisième, dans l'essai lui-même : la comparaison champ par champ sautait
+**3. Le YAML écrit à la main écrasait toute structure imbriquée.** Celui-ci
+n'a été trouvé que sur le corpus réel. `correction.par_option` est une liste
+d'objets, `sources` et `visuel` en sont : un `String(valeur)` les écrivait
+`'[object Object]'`, et le build **refusait le corpus récupéré en bloc**. Le
+module emploie désormais `yaml`, déjà dans les dépendances de développement.
+
+Ce défaut dit quelque chose d'important sur la méthode : l'aller-retour ne
+portait que sur `content-exemple/`, et les trois fiches d'exemple n'ont aucune
+`correction`. **Un corpus d'exemple est un échantillon, pas une garantie.**
+Les vérifications du § 0 de l'essai éprouvent maintenant la structure complète
+contre le schéma du dépôt, sans dépendre de ce que l'exemple contient.
+
+**4. Les renvois « rappel de cours » devaient être défaits.** La source écrit
+un renvoi comme un chemin de fiche ; le build le résout en `{id, titre}`, et
+c'est la forme résolue que la publication porte. Sans la défaire, le schéma
+reçoit un objet là où il attend une chaîne et le build refuse tout. La défaire
+exige de connaître le chemin de la fiche visée, donc d'avoir examiné toutes les
+fiches d'abord : l'outil fonctionne en deux passes pour cette seule raison.
+
+Et un cinquième dans l'essai lui-même : la comparaison champ par champ sautait
 les fiches absentes de la reconstruction. Quand tous les identifiants
 changeaient, elle ne comparait rien et douze assertions passaient au vert sur
 un corpus qui n'avait pas été retrouvé. Un essai qui se tait quand il n'a rien

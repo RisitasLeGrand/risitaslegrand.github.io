@@ -71,7 +71,8 @@ import {
   rendreHtml,
 } from './lib/markdown.mjs';
 import { htmlVersMarkdown } from './lib/html-vers-markdown.mjs';
-import { cheminDeRepli, enTiret, retrouverLeChemin } from './lib/chemin-de-fiche.mjs';
+import { cheminDeRepli, retrouverLeChemin } from './lib/chemin-de-fiche.mjs';
+import { blocYaml, ficheEnSource } from './lib/fiche-en-source.mjs';
 
 const RACINE = path.resolve(import.meta.dirname, '..');
 const decodeur = new TextDecoder();
@@ -273,57 +274,6 @@ function normaliserPourComparaison(html: string): string {
    L'écriture d'une fiche au format source
    ══════════════════════════════════════════════════════════════════════════ */
 
-function citerYaml(valeur: string): string {
-  /* Une chaîne YAML entre apostrophes simples : le seul échappement est
-     l'apostrophe doublée. C'est la forme la plus sûre, et la plus lisible
-     pour qui relira la fiche à la main. */
-  return `'${valeur.replace(/'/g, "''")}'`;
-}
-
-function blocYaml(items: Record<string, unknown>[], indentation = ''): string {
-  const lignes: string[] = [];
-  for (const item of items) {
-    let premier = true;
-    for (const [cle, valeur] of Object.entries(item)) {
-      if (valeur === undefined) continue;
-      const tete = premier ? `${indentation}- ` : `${indentation}  `;
-      premier = false;
-      if (Array.isArray(valeur)) {
-        /*
-           UNE LISTE VIDE S'ÉCRIT « [] », PAS UNE CLÉ NUE.
-
-           « formes: » suivi de rien se relit `null`, et le schéma attend un
-           tableau : le glossaire récupéré était refusé par le build. Mesuré
-           par l'aller-retour, qui existe pour ça.
-        */
-        if (valeur.length === 0) {
-          lignes.push(`${tete}${cle}: []`);
-        } else {
-          lignes.push(`${tete}${cle}:`);
-          for (const v of valeur) lignes.push(`${indentation}    - ${citerYaml(String(v))}`);
-        }
-      } else if (typeof valeur === 'object' && valeur !== null) {
-        lignes.push(`${tete}${cle}:`);
-        for (const [k, v] of Object.entries(valeur)) {
-          if (v === undefined) continue;
-          lignes.push(`${indentation}    ${k}: ${citerYaml(String(v))}`);
-        }
-      } else if (typeof valeur === 'number' || typeof valeur === 'boolean') {
-        lignes.push(`${tete}${cle}: ${valeur}`);
-      } else {
-        const texte = String(valeur);
-        if (texte.includes('\n')) {
-          lignes.push(`${tete}${cle}: |`);
-          for (const l of texte.split('\n')) lignes.push(`${indentation}    ${l}`);
-        } else {
-          lignes.push(`${tete}${cle}: ${citerYaml(texte)}`);
-        }
-      }
-    }
-  }
-  return lignes.join('\n');
-}
-
 type Partie = { niveau: number; id: string; titre: string; declare?: boolean };
 type Charge = {
   id: string;
@@ -385,56 +335,54 @@ function reconstruireSection(
   if (!html?.trim()) return { markdown: '', verdict: 'vide', inconnues: [], htmlPublie: null };
 
   const idsDeclares = parties.filter((p) => p.declare).map((p) => p.id);
-  const { markdown, inconnues } = htmlVersMarkdown(html, { idsDeclares });
+  const vise = normaliserPourComparaison(html);
 
   /* Le chemin exact du build, refait à l'identique : retirer les marqueurs,
      rendre, reposer les identifiants. Tout écart ici invaliderait la
      comparaison et ferait tomber en « à relire » des fiches parfaitement
      récupérées. */
-  const { markdown: propre, parties: declarees } = avecIdentifiants
-    ? extraireParties(markdown)
-    : { markdown, parties: [] };
-  const rendu = poserLesIdentifiants(
-    rendreHtml(propre, indexGlossaire, {
-      premiereOccurrenceSeulement: config.glossaire.premiereOccurrenceSeulement,
-      dejaVus: new Set(),
-    }),
-    declarees,
-  );
+  const rendreComme = (markdown: string) => {
+    const { markdown: propre, parties: declarees } = avecIdentifiants
+      ? extraireParties(markdown)
+      : { markdown, parties: [] };
+    return poserLesIdentifiants(
+      rendreHtml(propre, indexGlossaire, {
+        premiereOccurrenceSeulement: config.glossaire.premiereOccurrenceSeulement,
+        dejaVus: new Set(),
+      }),
+      declarees,
+    );
+  };
 
-  const fidele = normaliserPourComparaison(rendu) === normaliserPourComparaison(html);
+  /*
+     ON PROPOSE PLUSIEURS ÉCRITURES, ET LA VÉRIFICATION CHOISIT.
+
+     Une liste publiée peut être mixte — des items serrés, d'autres espacés —
+     et aucune écriture Markdown uniforme ne redonne ce mélange. Deviner la
+     règle de `remark` serait fragile ; essayer les écritures possibles et
+     garder celle qui redonne EXACTEMENT le HTML publié ne l'est pas, parce
+     que c'est la même vérification qui sert de juge. La première variante
+     suffit presque toujours ; les suivantes ne coûtent que sur les sections
+     qui auraient échoué de toute façon.
+  */
+  let premier: { markdown: string; inconnues: string[] } | null = null;
+  for (const listesEspacees of ['auto', 'jamais', 'toujours'] as const) {
+    const essai = htmlVersMarkdown(html, { idsDeclares, listesEspacees });
+    premier ??= essai;
+    if (normaliserPourComparaison(rendreComme(essai.markdown)) === vise) {
+      return { markdown: essai.markdown, verdict: 'identique', inconnues: essai.inconnues, htmlPublie: null };
+    }
+  }
+
   return {
-    markdown,
-    verdict: fidele ? 'identique' : 'a-relire',
-    inconnues,
+    markdown: premier!.markdown,
+    verdict: 'a-relire',
+    inconnues: premier!.inconnues,
     /* Le HTML publié, gardé pour les sections à relire : c'est la seule
        référence qui existe encore, et elle ne doit pas disparaître dans
        l'écart entre le rendu et la source. */
-    htmlPublie: fidele ? null : html,
+    htmlPublie: html,
   };
-}
-
-/** Écrit la section « ## Quiz » ou « ## Prétest » au format source. */
-function sectionQuestions(questions: QuestionPubliee[]): string {
-  return blocYaml(
-    questions.map((q) => ({
-      question: q.question,
-      options: q.options,
-      /*
-         LA RÉPONSE REVIENT PAR SON RANG, PAS PAR SON TEXTE.
-
-         La publication ne porte que `bonnes: [index]` — le `reponse:` écrit
-         dans la source, texte ou rang, n'y est plus. Le schéma accepte les
-         deux ; on écrit le rang, qui est ce que la publication dit
-         exactement. Deux options au texte identique ne créent donc aucune
-         ambiguïté, là où réécrire le texte en aurait créé une.
-      */
-      ...(q.bonnes.length === 1 ? { reponse: q.bonnes[0] } : { reponses: q.bonnes }),
-      ...(q.explication ? { explication: q.explication } : {}),
-      ...(q.correction ? { correction: q.correction as Record<string, unknown> } : {}),
-      ...(q.partie ? { partie: q.partie } : {}),
-    })),
-  );
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -635,7 +583,30 @@ async function main() {
     inconnues: string[];
   };
   const lignes: Ligne[] = [];
+  /* Les renvois « rappel de cours » qui ne retrouvent pas leur fiche. */
+  const renvoisPerdus: string[] = [];
   const dossierFiches = path.join(sortie, 'content');
+
+  /*
+     DEUX PASSES, ET C'EST « rappel_de_cours » QUI LES IMPOSE.
+
+     Une correction de QCM peut renvoyer à une autre fiche. La source écrit ce
+     renvoi comme un CHEMIN (« droit-public/fascicule-1/fiche-01-… ») ; le
+     build le résout en `{id, titre}`, et c'est la forme résolue que la
+     publication porte. Pour réécrire la source, il faut donc refaire le
+     chemin inverse — et pour cela connaître le chemin de la fiche visée,
+     qui n'est établi qu'une fois toutes les fiches examinées.
+
+     D'où la première passe : déchiffrer et retrouver les chemins. La seconde
+     écrit, en défaisant les renvois. Sans cela le corpus récupéré ne se
+     reconstruit PAS : le schéma attend une chaîne et reçoit un objet, et le
+     build refuse tout en bloc. Mesuré sur le corpus réel — l'aller-retour sur
+     « content-exemple » ne pouvait pas le voir, l'exemple n'ayant aucune
+     correction.
+  */
+  type Recuperee = { id: string; chemin: string; certain: boolean; charge: Charge; ordre: number };
+  const recuperees: Recuperee[] = [];
+  const cheminParId = new Map<string, string>();
 
   for (const nom of identifiants) {
     const id = nom.replace(/\.json$/, '');
@@ -652,9 +623,41 @@ async function main() {
        fiche deviendra orpheline. */
     const reperage = { parcours, matiere: charge.matiere, fascicule: charge.fascicule, titre: charge.titre, ordre };
     const trouve = await retrouverLeChemin(id, reperage, parEmpreinte);
-    const certain = trouve.certain;
     const chemin = trouve.chemin ?? cheminDeRepli(reperage);
+    recuperees.push({ id, chemin, certain: trouve.certain, charge, ordre });
+    cheminParId.set(id, chemin);
+    if (recuperees.length % 50 === 0) {
+      console.error(`  chemins : ${recuperees.length}/${identifiants.length}…`);
+    }
+  }
 
+  /**
+   * Défait la résolution d'un renvoi « rappel de cours ».
+   *
+   * Un renvoi dont la fiche visée n'est pas parmi les récupérées ne peut pas
+   * redevenir un chemin : on garde alors le titre en commentaire plutôt que
+   * d'inventer un chemin, parce qu'un chemin inventé ferait échouer le build
+   * sur un message qui ne dirait pas pourquoi.
+   */
+  const defaireLesRenvois = (correction: unknown): unknown => {
+    if (!correction || typeof correction !== 'object') return correction;
+    const c = correction as { rappel_de_cours?: unknown };
+    if (!Array.isArray(c.rappel_de_cours)) return correction;
+    const refaits: string[] = [];
+    for (const renvoi of c.rappel_de_cours) {
+      if (typeof renvoi === 'string') {
+        refaits.push(renvoi);
+        continue;
+      }
+      const vise = (renvoi as { id?: string }).id;
+      const chemin = vise ? cheminParId.get(vise) : undefined;
+      if (chemin) refaits.push(chemin.replace(/\.md$/, ''));
+      else renvoisPerdus.push((renvoi as { titre?: string }).titre ?? String(vise ?? '?'));
+    }
+    return { ...correction, rappel_de_cours: refaits };
+  };
+
+  for (const { id, chemin, certain, charge, ordre } of recuperees) {
     const cours = reconstruireSection(charge.coursHtml, charge.parties ?? [], indexGlossaire, true);
     /* Les identifiants de partie sont relus dans `coursHtml || ficheHtml` par
        le build : quand il n'y a pas de cours, c'est la fiche simplifiée qui
@@ -667,49 +670,24 @@ async function main() {
       !charge.coursHtml,
     );
 
-    const morceaux: string[] = [
-      '---',
-      `matiere: ${citerYaml(charge.matiere)}`,
-      `fascicule: ${citerYaml(charge.fascicule)}`,
-      `titre: ${citerYaml(charge.titre)}`,
-      `ordre: ${ordre}`,
-      ...(charge.tags?.length
-        ? ['tags:', ...charge.tags.map((t) => `  - ${citerYaml(t)}`)]
-        : ['tags: []']),
-      '---',
-      '',
-    ];
-    if (cours.markdown) morceaux.push('## Cours complet', '', cours.markdown.trim(), '');
-    if (simplifiee.markdown)
-      morceaux.push('## Fiche simplifiée', '', simplifiee.markdown.trim(), '');
-    if (charge.flashcards?.length) {
-      morceaux.push(
-        '## Flashcards',
-        '',
-        blocYaml(
-          charge.flashcards.map((c) => ({
-            /*
-               La source écrivait peut-être « q: » et « r: » — le schéma
-               accepte les deux paires. La publication, elle, ne porte que
-               les noms longs : c'est donc eux qu'on réécrit. La fiche est
-               équivalente, pas identique au caractère près, et le rapport
-               le dit.
-            */
-            question: c.question,
-            reponse: c.reponse,
-            ...(c.partie ? { partie: c.partie } : {}),
-          })),
-        ),
-        '',
-      );
-    }
-    if (charge.quiz?.length) morceaux.push('## Quiz', '', sectionQuestions(charge.quiz), '');
-    if (charge.pretest?.length)
-      morceaux.push('## Prétest', '', sectionQuestions(charge.pretest), '');
+    const contenu = ficheEnSource({
+      entete: {
+        matiere: charge.matiere,
+        fascicule: charge.fascicule,
+        titre: charge.titre,
+        ordre,
+        tags: charge.tags ?? [],
+      },
+      cours: cours.markdown,
+      fiche: simplifiee.markdown,
+      flashcards: charge.flashcards,
+      quiz: (charge.quiz ?? []).map((q) => ({ ...q, correction: defaireLesRenvois(q.correction) })),
+      pretest: (charge.pretest ?? []).map((q) => ({ ...q, correction: defaireLesRenvois(q.correction) })),
+    });
 
     const destination = path.join(dossierFiches, chemin);
     await mkdir(path.dirname(destination), { recursive: true });
-    await writeFile(destination, morceaux.join('\n').replace(/\n{3,}/g, '\n\n'));
+    await writeFile(destination, contenu);
 
     /* Le HTML publié des sections à relire, gardé hors de `content/` : c'est
        la référence exacte, et sans elle une relecture se ferait de mémoire. */
@@ -779,7 +757,7 @@ async function main() {
       audio,
       inconnues: [...new Set([...cours.inconnues, ...simplifiee.inconnues])],
     });
-    if (lignes.length % 25 === 0) console.error(`  ${lignes.length}/${identifiants.length}…`);
+    if (lignes.length % 50 === 0) console.error(`  fiches : ${lignes.length}/${recuperees.length}…`);
   }
 
   // --- Le glossaire, au format source -------------------------------------
@@ -812,7 +790,10 @@ async function main() {
     }
   }
 
-  await writeFile(path.join(sortie, 'RAPPORT.md'), rapport(lignes, source, manifeste, glossaire));
+  await writeFile(
+    path.join(sortie, 'RAPPORT.md'),
+    rapport(lignes, source, manifeste, glossaire, renvoisPerdus),
+  );
   console.error(
     `\nTerminé. ${lignes.length} fiche(s) écrite(s) dans ${dossierFiches}\n` +
       `  Rapport : ${path.join(sortie, 'RAPPORT.md')}\n`,
@@ -849,6 +830,7 @@ function rapport(
   source: Source,
   manifeste: { genereLe?: string },
   glossaire: unknown[],
+  renvoisPerdus: string[],
 ): string {
   const n = lignes.length;
   const aRelire = lignes.filter((l) => l.cours === 'a-relire' || l.fiche === 'a-relire');
@@ -913,7 +895,25 @@ function rapport(
     'que le rang (`bonnes: [1]`), et c’est le rang qui est réécrit. Aucune ambiguïté —',
     'c’est même plus sûr qu’un texte, que deux options identiques rendraient incertain.',
     '',
-    '### 2.4 Le soulignement du glossaire est défait, et sera refait',
+    '### 2.4 Les renvois « rappel de cours » redeviennent des chemins',
+    '',
+    'La source écrit un renvoi comme un chemin de fiche ; le build le résout en',
+    '`{id, titre}`, et c’est la forme résolue que la publication porte. Elle est défaite',
+    'ici, en reprenant le chemin de la fiche visée — ce qui n’est possible que parce que',
+    'les chemins sont retrouvés (§ 3.1). **Sans cette étape le corpus ne se reconstruit',
+    'pas du tout** : le schéma attend une chaîne, reçoit un objet, et le build refuse en',
+    'bloc.',
+    '',
+    ...(renvoisPerdus.length
+      ? [
+          `⚠ ${t(renvoisPerdus.length)} renvoi(s) visent une fiche absente de la publication et`,
+          'n’ont pas pu être refaits ; ils sont retirés de leur correction :',
+          '',
+          ...[...new Set(renvoisPerdus)].slice(0, 20).map((r) => `- ${r}`),
+          '',
+        ]
+      : []),
+    '### 2.5 Le soulignement du glossaire est défait, et sera refait',
     '',
     '`<dfn data-terme=…>` est posé par le build, pas écrit dans la source : il est',
     'retiré. Le prochain build le reposera. La comparaison du § 1 est donc faite hors',

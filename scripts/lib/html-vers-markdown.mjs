@@ -58,7 +58,30 @@ export function decoderEntites(texte) {
  * caractère fautif, celui du début.
  */
 function proteger(texte) {
-  return texte.replace(/^(#{1,6}\s|[-+*>]\s|\d+[.)]\s|\|)/, (d) => '\\' + d);
+  /*
+     CHAQUE LIGNE, ET PAS SEULEMENT LA PREMIÈRE.
+
+     Un paragraphe publié peut contenir des retours à la ligne : « PIB = … +
+     formation brute de capital fixe + variation de stock ». Protégé sur sa
+     seule première ligne, il repartait en liste à puces au rendu suivant,
+     parce que « + » ouvre un item. Mesuré sur le corpus réel.
+  */
+  return texte
+    .split('\n')
+    .map((ligne) =>
+      ligne
+        /*
+           « \\1997) » NE S'ÉCRIT PAS : en CommonMark, le contre-oblique
+           n'échappe que la ponctuation ASCII. Devant un chiffre il reste
+           littéral, et c'est un contre-oblique VISIBLE qui s'ajoutait au
+           texte de la fiche. On échappe donc le point ou la parenthèse, qui
+           est bien de la ponctuation, et le marqueur ne vaut plus marqueur.
+           Mesuré sur le corpus réel.
+        */
+        .replace(/^(\s*)(\d+)([.)])(\s)/, (_, blanc, chiffres, ponctuation, apres) =>
+          `${blanc}${chiffres}\\${ponctuation}${apres}`)
+        .replace(/^(\s*)(#{1,6}\s|[-+*>]\s|\|)/, (_, blanc, d) => `${blanc}\\${d}`))
+    .join('\n');
 }
 
 /** Les caractères qu'un Markdown doit protéger pour se relire à l'identique. */
@@ -123,6 +146,11 @@ function lireAttributs(source) {
    L'arbre, rendu en Markdown
    ══════════════════════════════════════════════════════════════════════════ */
 
+/** Les balises qui font un bloc à l'intérieur d'un item de liste. */
+const EN_BLOC = new Set([
+  'p', 'ul', 'ol', 'blockquote', 'table', 'pre', 'h2', 'h3', 'h4', 'h5', 'h6',
+]);
+
 /** Les balises dont ce module sait rendre l'équivalent Markdown. */
 const CONNUES = new Set([
   'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'ul', 'ol', 'li', 'strong', 'b', 'em', 'i',
@@ -144,6 +172,25 @@ export const inconnuesRencontrees = new Set();
  */
 let idsDeclares = new Set();
 
+/**
+ * Comment rendre les listes : « auto », « toujours » ou « jamais » espacées.
+ *
+ * Une liste publiée peut être MIXTE — certains items en `<li>texte</li>`,
+ * d'autres en `<li><p>texte</p></li>` — et aucune écriture Markdown uniforme
+ * ne redonne ce mélange. Plutôt que de deviner la règle de `remark`, on
+ * propose les trois écritures et c'est la vérification par nouveau rendu qui
+ * tranche : celle qui redonne le HTML publié est la bonne, par construction.
+ */
+let listesEspacees = 'auto';
+
+/** L'unique enfant signifiant d'un nœud, ou `null` : le blanc ne compte pas. */
+function enfantUnique(n) {
+  const signifiants = (n.enfants ?? []).filter(
+    (e) => e.tag !== undefined || (e.texte ?? '').trim() !== '',
+  );
+  return signifiants.length === 1 ? signifiants[0] : null;
+}
+
 function enLigne(nœuds) {
   return nœuds.map((n) => rendreEnLigne(n)).join('');
 }
@@ -151,12 +198,36 @@ function enLigne(nœuds) {
 function rendreEnLigne(n) {
   if (n.texte !== undefined) return echapper(decoderEntites(n.texte));
   switch (n.tag) {
+    /*
+       L'ORDRE D'IMBRICATION DE L'EMPHASE, ET POURQUOI « _ » APPARAÎT ICI.
+
+       Mesuré sur le corpus réel : 81 sections sur 87 divergeaient pour cette
+       seule raison. `<strong><em>X</em></strong>` donnait `***X***`, et
+       `remark` relit `***X***` comme `<em><strong>X</strong></em>` —
+       l'imbrication s'inverse. Le texte rendu se ressemble, l'arbre non, et
+       la vérification par nouveau rendu le refusait à juste titre.
+
+       Deux délimiteurs distincts lèvent l'ambiguïté : `**_X_**` se relit
+       strong-dans-em, `_**X**_` l'inverse. On ne se sert de « _ » QUE dans ce
+       cas d'imbrication — en CommonMark, « _ » ne marque pas l'emphase au
+       milieu d'un mot, et l'employer partout casserait « d'_un_ ».
+    */
     case 'strong':
-    case 'b':
+    case 'b': {
+      const seul = enfantUnique(n);
+      if (seul && (seul.tag === 'em' || seul.tag === 'i')) {
+        return `**_${enLigne(seul.enfants)}_**`;
+      }
       return `**${enLigne(n.enfants)}**`;
+    }
     case 'em':
-    case 'i':
+    case 'i': {
+      const seul = enfantUnique(n);
+      if (seul && (seul.tag === 'strong' || seul.tag === 'b')) {
+        return `_**${enLigne(seul.enfants)}**_`;
+      }
       return `*${enLigne(n.enfants)}*`;
+    }
     case 'del':
     case 's':
       return `~~${enLigne(n.enfants)}~~`;
@@ -233,20 +304,70 @@ function rendreBloc(n, profondeur = 0) {
     case 'ol': {
       const ordonnee = n.tag === 'ol';
       const items = n.enfants.filter((e) => e.tag === 'li');
+      /*
+         `start` EST UNE INFORMATION, PAS UNE DÉCORATION.
+
+         Une énumération qui reprend à 3 — parce qu'un paragraphe l'a
+         interrompue — se republiait en repartant de 1. Le lecteur y perdait
+         le fil d'un plan en six points, et le nouveau rendu le signalait.
+      */
+      const depart = Number(n.attributs.start ?? 1) || 1;
+      /*
+         LISTE « ESPACÉE » OU « SERRÉE », ET LA LIGNE VIDE QUI LES SÉPARE.
+
+         `remark` rend `- a\n- b` en `<li>a</li>`, et `- a\n\n- b` en
+         `<li><p>a</p></li>`. La publication dit donc laquelle était écrite :
+         un `<p>` dans un item signifie liste espacée. Sans cette ligne vide,
+         une liste espacée se republiait serrée — même texte, arbre différent,
+         et la vérification refusait la section.
+      */
+      const espacee =
+        listesEspacees === 'toujours'
+          ? true
+          : listesEspacees === 'jamais'
+            ? false
+            : items.some((i) => i.enfants.some((e) => e.tag === 'p'));
       return items
         .map((item, rang) => {
-          const puce = ordonnee ? `${rang + 1}.` : '-';
-          const dedans = item.enfants
-            .map((e) => (e.tag === 'ul' || e.tag === 'ol' ? rendreBloc(e, profondeur + 1) : null))
-            .filter(Boolean);
-          const texte = enLigne(item.enfants.filter((e) => e.tag !== 'ul' && e.tag !== 'ol')).trim();
+          const puce = ordonnee ? `${rang + depart}.` : '-';
           const marge = ' '.repeat(puce.length + 1);
-          const suite = dedans.length
-            ? '\n' + dedans.join('\n').split('\n').map((l) => marge + l).join('\n')
-            : '';
-          return `${puce} ${texte.split('\n').join('\n' + marge)}${suite}`;
+          /*
+             UN ITEM PEUT CONTENIR DES BLOCS, ET PAS SEULEMENT DU TEXTE.
+
+             `remark-gfm` rend une liste « espacée » en `<li><p>…</p></li>`, et
+             un item peut porter une citation, un tableau, plusieurs
+             paragraphes. Traités en ligne, ils passaient en HTML brut — donc
+             jetés au rendu suivant, laissant des `<li></li>` vides. Mesuré sur
+             le corpus réel.
+          */
+          const blocs = [];
+          let enCours = [];
+          const viderEnCours = () => {
+            const texte = enLigne(enCours).trim();
+            enCours = [];
+            if (texte) blocs.push(texte);
+          };
+          for (const enfant of item.enfants) {
+            if (enfant.tag && EN_BLOC.has(enfant.tag)) {
+              viderEnCours();
+              const rendu = rendreBloc(enfant, profondeur + 1).trim();
+              if (rendu) blocs.push(rendu);
+            } else {
+              enCours.push(enfant);
+            }
+          }
+          viderEnCours();
+          const corps = blocs.join('\n\n') || '';
+          /* La marge ne se pose pas sur une ligne vide : elle y laisserait des
+             blancs en fin de ligne, que certains outils retirent et d'autres
+             non — une différence invisible qui fait diverger un essai. */
+          const indente = corps
+            .split('\n')
+            .map((l, i) => (i === 0 || l === '' ? l : marge + l))
+            .join('\n');
+          return `${puce} ${indente}`;
         })
-        .join('\n');
+        .join(espacee ? '\n\n' : '\n');
     }
     case 'pre': {
       const code = n.enfants.find((e) => e.tag === 'code') ?? n;
@@ -338,6 +459,7 @@ function rendreTableau(n) {
 export function htmlVersMarkdown(html, options = {}) {
   inconnuesRencontrees.clear();
   idsDeclares = new Set(options.idsDeclares ?? []);
+  listesEspacees = options.listesEspacees ?? 'auto';
   const arbre = analyser(html);
   const blocs = arbre.enfants
     .map((n) => rendreBloc(n))

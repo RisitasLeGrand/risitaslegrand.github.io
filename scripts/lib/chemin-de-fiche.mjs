@@ -35,6 +35,7 @@
  * promettre de réussir toujours.
  */
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { idStable } from './crypto.mjs';
 import { PARCOURS } from '../../src/lib/parcours/registre.ts';
 
@@ -141,23 +142,122 @@ export function cheminsCandidats(f) {
 }
 
 /**
+ * La même empreinte que `idStable`, en synchrone.
+ *
+ * `idStable` passe par `crypto.subtle.digest`, qui est asynchrone : une
+ * promesse par candidat, et la recherche exhaustive ci-dessous en essaie des
+ * millions. `node:crypto` donne le même SHA-256 sans promesse, et l'essai
+ * « essais:recuperation-corpus » vérifie que les deux coïncident — sans quoi
+ * cette optimisation chercherait silencieusement la mauvaise empreinte.
+ */
+export function empreinteRapide(texte, longueur = 16) {
+  return createHash('sha256').update(texte, 'utf8').digest('hex').slice(0, longueur);
+}
+
+/*
+   LES FORMES OBSERVÉES, MESURÉES SUR 284 CHEMINS CERTIFIÉS.
+
+   Les 284 chemins que l'empreinte a certifiés sur le corpus réel ont tous la
+   même forme : dossier « matiere/fascicule-N », fichier « fiche-NN-… ». La
+   recherche exhaustive se concentre donc là, et la recherche large garde les
+   autres formes au cas où une fiche ancienne en suive une autre.
+*/
+
+/**
+ * Toutes les sous-suites ordonnées d'une liste de mots, de la plus longue à
+ * la plus courte.
+ *
+ * ## Pourquoi des sous-suites, et pas seulement des préfixes
+ *
+ * Mesuré sur les 284 chemins certifiés : 157 noms sont le titre entier, 30 un
+ * préfixe exact, et **97 une sous-suite ordonnée** — des mots retirés au
+ * milieu, pas seulement à la fin. L'abréviation est choisie à la main et ne
+ * suit pas de règle ; ce qu'elle respecte, en revanche, c'est l'ordre des
+ * mots du titre. Et ça, ça s'énumère.
+ *
+ * On les rend de la plus longue à la plus courte : un nom long est plus
+ * probable, et surtout moins ambigu.
+ */
+function* sousSuites(mots) {
+  const n = mots.length;
+  const combinaisons = [];
+  for (let masque = 1; masque < 1 << n; masque++) {
+    let bits = 0;
+    for (let m = masque; m; m >>= 1) bits += m & 1;
+    combinaisons.push([masque, bits]);
+  }
+  combinaisons.sort((a, b) => b[1] - a[1] || a[0] - b[0]);
+  for (const [masque] of combinaisons) {
+    const choisis = [];
+    for (let i = 0; i < n; i++) if (masque & (1 << i)) choisis.push(mots[i]);
+    yield choisis.join('-');
+  }
+}
+
+/** Au-delà de ce nombre de mots, l'énumération exhaustive coûte trop. */
+const MOTS_MAX = 18;
+
+/**
+ * La recherche exhaustive, pour les fiches que la recherche large a manquées.
+ *
+ * ## Pourquoi c'est sans danger, même en forçant
+ *
+ * On éprouve beaucoup de candidats — jusqu'à 2^18 par fiche — mais on ne
+ * RETIENT que celui dont le SHA-256 tombe exactement sur l'identifiant
+ * publié. Le risque de faux positif est celui d'une collision sur 64 bits :
+ * sur l'ordre du milliard de comparaisons que fait une récupération entière,
+ * il est de l'ordre de 10^-11. C'est négligeable devant ce qu'on gagne — un
+ * chemin certifié est la progression d'une fiche sauvée.
+ */
+export function chercherParSousSuites(id, fiche) {
+  const mots = enTiret(fiche.titre).split('-').filter(Boolean);
+  if (mots.length > MOTS_MAX) return null;
+
+  const racine = racineDuParcours(fiche.parcours);
+  const matiere = enTiret(fiche.matiere);
+  const numeroFascicule = /(\d+)/.exec(fiche.fascicule)?.[1] ?? '';
+  const dossiers = numeroFascicule
+    ? [`${matiere}/fascicule-${numeroFascicule}`, `${matiere}/${numeroFascicule}`]
+    : [matiere];
+  const numeros = [
+    String(fiche.ordre).padStart(2, '0'),
+    String(fiche.ordre),
+    String(fiche.ordre).padStart(3, '0'),
+  ];
+
+  for (const base of sousSuites(mots)) {
+    for (const dossier of dossiers) {
+      for (const n of numeros) {
+        const candidat = `${racine}${dossier}/fiche-${n}-${base}.md`;
+        if (empreinteRapide(candidat) === id) return candidat;
+      }
+    }
+  }
+  return null;
+}
+
+/**
  * Le chemin certifié d'une fiche, ou `null`.
  *
- * `fournis` est une liste de chemins connus par ailleurs — une sauvegarde, une
- * vieille sortie de `ls -R`. Elle est éprouvée d'abord : un chemin que
- * quelqu'un se rappelle vaut mieux qu'un chemin deviné, et il coûte une seule
- * empreinte.
+ * Trois temps, du moins coûteux au plus coûteux :
+ *
+ *   1. la liste fournie par quelqu'un — une seule empreinte, et un chemin
+ *      dont on se souvient vaut mieux qu'un chemin deviné ;
+ *   2. les formes dérivables, quelques centaines de candidats ;
+ *   3. l'énumération des sous-suites du titre, quand rien d'autre n'a pris.
  */
 export async function retrouverLeChemin(id, fiche, fournis = new Map()) {
   const connu = fournis.get(id);
-  if (connu) return { chemin: connu, certain: true, essais: 0 };
-  const candidats = cheminsCandidats(fiche);
-  let essais = 0;
-  for (const candidat of candidats) {
-    essais += 1;
-    if ((await idStable(candidat)) === id) return { chemin: candidat, certain: true, essais };
+  if (connu) return { chemin: connu, certain: true, par: 'liste fournie' };
+
+  for (const candidat of cheminsCandidats(fiche)) {
+    if ((await idStable(candidat)) === id) return { chemin: candidat, certain: true, par: 'forme dérivée' };
   }
-  return { chemin: null, certain: false, essais };
+
+  const trouve = chercherParSousSuites(id, fiche);
+  if (trouve) return { chemin: trouve, certain: true, par: 'sous-suite du titre' };
+
+  return { chemin: null, certain: false, par: null };
 }
 
 /** Le chemin de repli, lisible, quand aucun candidat ne tombe juste. */
