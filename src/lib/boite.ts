@@ -318,3 +318,73 @@ export function demanderUnTexte(d: DemandeDeTexte): Promise<string | null> {
 
   return ouvrir(boite, () => champ).then((valeur) => (valeur === 'oui' ? champ.value : null));
 }
+
+/**
+ * Demande une **saisie construite** — des curseurs, des dates, des bascules —
+ * et rend ce qu'elle a lu.
+ *
+ * ## Pourquoi `demanderUnTexte` ne suffisait pas
+ *
+ * « Mon profil » n'avait que lui, et un champ texte ne sait porter qu'une
+ * chaîne. Corriger ses heures par domaine s'y faisait donc en tapant
+ * « {"cognition": 10} » : la boîte demandait du JSON à une personne parce que
+ * c'était la seule forme qu'elle savait recevoir.
+ *
+ * ## Ce que le retour distingue, et pourquoi il est enveloppé
+ *
+ * `null` veut dire **renoncé** : on a fermé, échappé, annulé. `{ valeur }`
+ * veut dire **répondu**, et la valeur peut alors être `undefined` — c'est ce
+ * que rend une saisie à qui l'on a dit « je ne sais pas », ou dont aucun
+ * curseur n'a bougé.
+ *
+ * Les deux ne sont pas la même chose, et un retour nu les confondrait :
+ * « j'ai renoncé » laisse le champ tel qu'il était, « je ne sais pas » est une
+ * réponse dont l'appelant décide. Rendre `undefined` dans les deux cas
+ * reviendrait à traiter un renoncement comme une réponse, ou l'inverse.
+ *
+ * ## Le rappel de fermeture
+ *
+ * `construire` reçoit de quoi fermer la feuille, parce qu'une saisie peut
+ * porter sa propre sortie — le « Je ne sais pas encore » d'une répartition.
+ * À l'initialisation ce bouton validait l'écran ; ici il ferme la boîte, et
+ * c'est l'appelant qui le câble, non la boîte qui le devine.
+ */
+export function demanderUneSaisie(d: {
+  titre: string;
+  texte?: string;
+  /** Omise quand la saisie porte déjà ses propres étiquettes. */
+  etiquette?: string;
+  /** Le verbe de l'action, jamais « OK ». */
+  action?: string;
+  construire: (fermer: () => void) => { element: HTMLElement; lire: () => unknown };
+}): Promise<{ valeur: unknown } | null> {
+  const { boite, formulaire, actions, fermer } = coquille(d.titre, d.texte);
+
+  const saisie = d.construire(() => boite.close('oui'));
+
+  const valider = bouton(d.action ?? 'Enregistrer', { valeur: 'oui', sorte: 'principale' });
+  const annuler = bouton('Annuler', { valeur: 'non', sorte: 'annuler' });
+  actions.append(valider, annuler);
+
+  if (d.etiquette) {
+    const etiquette = document.createElement('p');
+    etiquette.className = 'boite-etiquette';
+    etiquette.textContent = d.etiquette;
+    formulaire.append(etiquette);
+  }
+  formulaire.append(saisie.element, actions);
+  fermer.addEventListener('click', () => boite.close('non'));
+
+  /*
+     Le focus va sur la saisie, et non sur « Annuler ». Une confirmation
+     focalise « Annuler » parce que son action est irréversible ; ici
+     l'action est de remplir un champ, et faire tabuler la personne jusqu'à
+     sa propre saisie serait un obstacle sans contrepartie.
+  */
+  const premier = saisie.element.querySelector<HTMLElement>(
+    'input, select, textarea, button',
+  );
+  return ouvrir(boite, () => premier ?? annuler).then((valeur) =>
+    valeur === 'oui' ? { valeur: saisie.lire() } : null,
+  );
+}

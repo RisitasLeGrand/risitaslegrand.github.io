@@ -7,6 +7,8 @@
  * conflit sur tout le profil, qu'une divergence réelle soit **vue**, et qu'un
  * champ supprimé ne revienne pas.
  */
+import { DOMAINES } from '../src/lib/noyau/domaines';
+import { domainesAMontrer } from '../src/lib/noyau/saisies';
 import {
   CHAMPS,
   CIBLE_INITIALISATION,
@@ -415,6 +417,72 @@ console.log('\nF6 — LES NON-RÉPONSES');
     etat.restants.some((c) => c.champ === 'lever'),
   );
   v('et elle compte comme traitée', etat.repondus, 1);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   QUELS DOMAINES UNE RÉPARTITION MONTRE
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/*
+   CE QUE CE BLOC EMPÊCHE DE REVENIR.
+
+   Une répartition par domaine montrait les domaines actifs PAR DÉFAUT, et non
+   ceux que la personne avait retenus. Depuis « Mon profil », un domaine coupé
+   y réapparaissait donc : on demandait de répartir du temps sur ce qu'on
+   venait justement de retirer.
+
+   La décision est sortie en fonction pure pour qu'elle soit mesurable sans
+   navigateur. Et il fallait la mesurer ailleurs : aucune répartition n'est
+   atteignable dans l'essai de profil en navigateur — la seule du socle n'a
+   aucun lecteur, donc sa carte est absente tant qu'elle est vide, et les
+   autres appartiennent à une branche que cet essai n'ouvre pas.
+*/
+{
+  const parDefaut = DOMAINES.filter((d) => d.actifParDefaut).map((d) => d.id);
+  const horsDefaut = DOMAINES.filter((d) => !d.actifParDefaut).map((d) => d.id);
+  vrai('le catalogue a des domaines actifs par défaut', parDefaut.length >= 2);
+  vrai('et d’autres qui ne le sont pas', horsDefaut.length >= 1);
+
+  /* L'INITIALISATION NE CHANGE PAS : sans domaines retenus, ce sont ceux du
+     défaut, et c'est la bonne réponse là où la question vient d'être posée. */
+  const sansRien = domainesAMontrer(null).map((d) => d.clef);
+  v('sans domaines retenus, ce sont ceux du défaut', sansRien, parDefaut);
+  vrai(
+    'et un domaine inactif par défaut n’y est pas',
+    !sansRien.includes(horsDefaut[0]!),
+  );
+
+  /* UN DOMAINE COUPÉ EST ABSENT. */
+  const gardeUnSeul = domainesAMontrer([parDefaut[0]!]).map((d) => d.clef);
+  v('un seul domaine retenu n’en montre qu’un', gardeUnSeul, [parDefaut[0]!]);
+  vrai(
+    'les autres domaines du défaut ont disparu',
+    parDefaut.slice(1).every((id) => !gardeUnSeul.includes(id)),
+  );
+
+  /* UN DOMAINE AJOUTÉ HORS DÉFAUT EST MONTRÉ : la liste retenue commande,
+     elle ne se contente pas de retrancher. */
+  vrai(
+    'un domaine retenu hors du défaut est montré',
+    domainesAMontrer([horsDefaut[0]!])
+      .map((d) => d.clef)
+      .includes(horsDefaut[0]!),
+  );
+
+  /* LA LISTE VIDE N'EST PAS « null ». Les confondre réafficherait les
+     domaines par défaut à quelqu'un qui les a tous coupés. */
+  v('aucun domaine retenu ne montre aucune ligne', domainesAMontrer([]).length, 0);
+
+  /* UN IDENTIFIANT INCONNU N'INVENTE PAS DE LIGNE : un domaine retiré du
+     catalogue laisserait sa trace dans les profils déjà écrits. */
+  v('un identifiant inconnu est ignoré', domainesAMontrer(['pas-un-domaine']).length, 0);
+
+  /* L'ORDRE EST CELUI DU CATALOGUE, PAS CELUI DE LA RÉPONSE. */
+  v(
+    'l’ordre suit le catalogue même si la réponse est inversée',
+    domainesAMontrer([...parDefaut].reverse()).map((d) => d.clef),
+    parDefaut,
+  );
 }
 
 console.log(
