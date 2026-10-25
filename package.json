@@ -86,7 +86,6 @@
     "essais:cog:navigateur": "node scripts/essais-cog-training-navigateur.mjs",
     "essais:mots-cog": "tsx scripts/essais-mots-cog-training.mts",
     "captures:51": "node scripts/captures-prompt-51.mjs",
-    "contrastes": "node scripts/verifier-contrastes.mjs",
     "contrastes:rendu": "node scripts/essais-contraste-rendu.mjs",
     "essais:correction": "tsx scripts/essais-correction.mts",
     "check-content": "node scripts/verifier-corrections.mjs",
