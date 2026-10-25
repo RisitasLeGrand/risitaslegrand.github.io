@@ -45,6 +45,7 @@ import {
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { readFileSync } from 'node:fs';
+import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const ADRESSE = process.env.RACINE ?? 'http://localhost:4321';
 const DELAI_MS = Number(process.env.BATTERIE_DELAI_MS ?? 500_000);
@@ -185,16 +186,24 @@ if (noms.length === 0) {
 
 /* ── Les deux refus ────────────────────────────────────────────────────── */
 
-if (!process.env.SITE_PASSWORD) {
-  console.error(
-    '✗ REFUS — SITE_PASSWORD n’est pas dans l’environnement.\n' +
-      '  Les essais de navigateur ne pourraient pas déverrouiller le site, et\n' +
-      '  la batterie rendrait des rouges qui n’appartiennent pas au site.\n' +
-      '  Donnez-le dans l’environnement de la commande, jamais dans un fichier\n' +
-      '  suivi par Git.',
-  );
-  process.exit(1);
-}
+/*
+   LE MOT DE PASSE SE LIT AUSSI DANS `.env.local`, ET C'EST MIEUX AINSI.
+
+   Ce refus exigeait la variable d'environnement, et sa phrase disait « donnez-
+   le dans l'environnement de la commande ». C'est précisément ce qu'il ne faut
+   pas faire : une commande s'enregistre dans le journal de la session, en
+   clair, et le secret y reste. `.env.local` est le fichier du build, ignoré
+   par Git, et `essais:secret` vérifie qu'il n'est pas suivi.
+
+   On passe donc par le module partagé, que cent trente-trois essais emploient
+   déjà, et on POSE la valeur dans l'environnement : les essais-enfants
+   reçoivent `process.env` et n'ont rien à changer.
+
+   Le refus reste entier quand il n'y a de mot de passe nulle part : sans lui,
+   les essais de navigateur ne déverrouilleraient pas le site et la batterie
+   rendrait des rouges qui n'appartiennent pas au site.
+*/
+process.env.SITE_PASSWORD ||= motDePasseEssais();
 
 const sert = await fetch(`${ADRESSE}/robots.txt`, { signal: AbortSignal.timeout(20_000) })
   .then((r) => r.ok)
