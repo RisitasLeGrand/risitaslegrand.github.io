@@ -73,6 +73,15 @@ const vert = (t) => `\x1b[32m${t}\x1b[0m`;
 const rouge = (t) => `\x1b[31m${t}\x1b[0m`;
 const gras = (t) => `\x1b[1m${t}\x1b[0m`;
 
+/*
+   Les ▣ « possible » rencontrés, toutes surfaces confondues.
+   L'option défendable peut être celle que l'essai a cochée, et elle porte
+   alors « votre réponse » : exiger un ▣ sur chaque surface rendrait l'essai
+   dépendant de l'ordre d'affichage. On exige donc qu'il s'en soit montré au
+   moins un au total — faute de quoi le contrôle de teinte ne prouverait rien.
+*/
+const possiblesVus = [];
+
 function verifier(quoi, vrai, detail = '') {
   if (vrai) {
     console.log(`  ${vert('✓')} ${quoi}`);
@@ -377,28 +386,43 @@ async function verifierLesSixChoses(section, ou, { resume, legende, confianceMoy
     return { glyphes, succes: resoudre('--etat-succes'), alerte: resoudre('--etat-alerte') };
   });
 
-  const possible = teintes.glyphes.find((g) => g.glyphe === '▣');
-  verifier(`${ou} · l’option défendable porte le marqueur « possible » (▣)`, possible !== undefined);
-  if (possible) {
-    verifier(
-      `${ou} · et ce ▣ n’est PAS du vert de succès`,
-      possible.couleur !== teintes.succes,
-      `▣ ${possible.couleur} · succès ${teintes.succes}`,
-    );
-    verifier(
-      `${ou} · il porte le jeton d’alerte`,
-      possible.couleur === teintes.alerte,
-      `▣ ${possible.couleur} · alerte ${teintes.alerte}`,
-    );
-  }
-  /* Et la bonne réponse, elle, garde bien son vert : sans ce témoin, un ✓ et un
-     ▣ tous deux neutres passeraient le contrôle ci-dessus. */
+  /*
+     L'invariant est posé sur TOUS les glyphes, et non sur le ▣ seul, parce que
+     la ligne du ▣ n'est pas prévisible : les trois surfaces cliquent la
+     première option affichée, l'écran peut en changer l'ordre, et quand la
+     personne a justement coché l'option défendable, celle-ci porte « votre
+     réponse » (◆) — ce qui est le comportement voulu, la réponse donnée primant
+     sur ce que le contenu dit de l'option.
+
+     Formulé ainsi, le contrôle ne dépend d'aucun ordre : seul le ✓ de la bonne
+     réponse a droit au vert du succès. Tout autre glyphe qui le porterait
+     dirait « correcte aussi » d'une option fausse.
+  */
+  const usurpateurs = teintes.glyphes.filter(
+    (g) => g.glyphe !== '✓' && g.couleur === teintes.succes,
+  );
+  verifier(
+    `${ou} · aucun glyphe sauf le ✓ ne porte le vert du succès`,
+    usurpateurs.length === 0,
+    usurpateurs.map((g) => `${g.glyphe} ${g.couleur}`).join(' · '),
+  );
   const bonne = teintes.glyphes.find((g) => g.glyphe === '✓');
-  if (bonne) {
+  /* Le témoin : sans lui, une liste où RIEN ne serait vert passerait le
+     contrôle ci-dessus sans rien prouver. */
+  verifier(
+    `${ou} · et le ✓ de la bonne réponse, lui, garde bien ce vert`,
+    bonne !== undefined && bonne.couleur === teintes.succes,
+    bonne ? `✓ ${bonne.couleur} · succès ${teintes.succes}` : 'aucun ✓ dans la liste',
+  );
+  /* Quand le ▣ est là, sa teinte est vérifiée. Qu'il apparaisse au moins une
+     fois sur l'ensemble du parcours est contrôlé à la fin : une assertion par
+     surface passerait à vide sur celles où l'option défendable a été cochée. */
+  for (const g of teintes.glyphes.filter((x) => x.glyphe === '▣')) {
+    possiblesVus.push(`${ou} (${g.couleur})`);
     verifier(
-      `${ou} · la bonne réponse garde le vert de succès`,
-      bonne.couleur === teintes.succes,
-      `✓ ${bonne.couleur} · succès ${teintes.succes}`,
+      `${ou} · le ▣ « possible » porte le jeton d’alerte`,
+      g.couleur === teintes.alerte,
+      `▣ ${g.couleur} · alerte ${teintes.alerte}`,
     );
   }
 }
@@ -546,6 +570,17 @@ try {
   if (nav) await nav.close().catch(() => {});
   nettoyer();
 }
+
+/*
+   Le ▣ doit s'être montré quelque part. Sans cette ligne, le contrôle de teinte
+   serait vacueux le jour où le marqueur cesserait d'arriver jusqu'à l'écran :
+   aucun ▣ à vérifier, donc aucune vérification, donc tout vert.
+*/
+verifier(
+  'le marqueur « possible » est parvenu à l’écran au moins une fois',
+  possiblesVus.length > 0,
+  possiblesVus.join(' · '),
+);
 
 if (rouges > 0) {
   console.log(`\n${rouge(`${rouges} essai(s) en échec.`)}\n`);
