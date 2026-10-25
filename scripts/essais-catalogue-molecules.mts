@@ -36,7 +36,7 @@ import {
   INTERACTIONS,
   NIVEAUX_ANSM,
   controlerPaire,
-} from '../src/lib/odyssee/molecules';
+  limitesDe,} from '../src/lib/odyssee/molecules';
 
 let echecs = 0;
 const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
@@ -86,6 +86,21 @@ print(json.dumps({"empreinte":hashlib.sha256(o).hexdigest(),"texte":t}))`,
  */
 const couplesDe = (texte: string): string[] =>
   [...texte.matchAll(/(\d+(?:[,.]\d+)?)\s*(jours?|heures?|minutes?|semaines?|mois|ans?)/gi)].map(
+    (m) => `${m[1]} ${m[2]}`.toLowerCase(),
+  );
+
+/**
+ * Les couples « nombre + unité de DOSE » d'un énoncé.
+ *
+ * `couplesDe` ne connaît que les durées : il cherche des jours et des heures,
+ * et rendait donc une liste vide sur « 600 mg par jour ». La sonde des limites
+ * passait alors **à vide** — elle ne comparait rien et s'affichait verte. Un
+ * essai qui se tait quand il n'a rien mesuré est pire qu'un essai rouge, et
+ * c'est pour cela que les deux extracteurs sont distincts plutôt qu'un seul
+ * qui essaierait de tout reconnaître.
+ */
+const dosesDe = (texte: string): string[] =>
+  [...texte.matchAll(/(\d+(?:[,.]\d+)?)\s*(mg|g|µg|mcg|ml|ui)\b/gi)].map(
     (m) => `${m[1]} ${m[2]}`.toLowerCase(),
   );
 
@@ -208,6 +223,54 @@ if (manquants.length === [...new Set(sources.map((s) => s.ou))].length && manqua
       /demi[-\s]vie/i.test(doc.texte),
       false,
     );
+  }
+
+  console.log('\n\x1b[1m4 bis. LA LIMITE EST DANS SON DOCUMENT, ET L’ABSENCE AUSSI\x1b[0m');
+  /*
+     Même exigence que pour les demi-vies, dans les deux sens.
+
+     Dans un sens : le chiffre d'une limite livrée doit se retrouver tel quel
+     dans le document cité. Une limite écrite de mémoire serait pire qu'une
+     limite absente — elle est affichée sous « Limites à ne pas dépasser ».
+
+     Dans l'autre : les molécules SANS limite doivent avoir un RCP qui n'en
+     énonce effectivement aucune. C'est la sonde qui empêche une limite de se
+     glisser par analogie avec la première, et celle qui deviendra rouge si
+     une version ultérieure d'un RCP en ajoute une — auquel cas la fiche
+     mentirait par omission.
+
+     Le motif cherche « dose … maximale », et non le seul mot « maximale » :
+     les RCP parlent abondamment de « concentrations maximales » et de
+     « réduire au maximum », qui ne sont pas des plafonds de dose. Mesuré sur
+     les cinq RCP : le motif ne retient que celui du Fluimucil.
+  */
+  const DOSE_MAXIMALE = /\bdose\b[^.]{0,30}\bmaximale\b/i;
+  for (const f of CATALOGUE) {
+    const limites = limitesDe(f.id);
+    for (const l of limites) {
+      const doc = document(l.source.ou);
+      const texte = doc.texte.replace(/\s+/g, ' ').toLowerCase();
+      const doses = dosesDe(l.valeur);
+      /* Sans dose extraite, la comparaison qui suit ne comparerait rien : on
+         le dit rouge ici, plutôt que de laisser passer un vert à vide. */
+      vrai(`« ${f.nom} » : sa limite porte au moins une dose nommée`, doses.length > 0);
+      const absents = doses.filter(
+        (c) => !texte.includes(c) && !texte.includes(c.replace(',', '.')),
+      );
+      v(`« ${f.nom} » : chaque dose de sa limite figure dans le document cité`, absents, []);
+      vrai(
+        `« ${f.nom} » : ce document énonce bien une dose maximale`,
+        DOSE_MAXIMALE.test(doc.texte.replace(/\s+/g, ' ')),
+      );
+    }
+    if (limites.length === 0 && f.maturite.connue) {
+      const doc = document(f.maturite.source.ou);
+      v(
+        `« ${f.nom} » n’a pas de limite, et son RCP n’énonce effectivement aucune dose maximale`,
+        DOSE_MAXIMALE.test(doc.texte.replace(/\s+/g, ' ')),
+        false,
+      );
+    }
   }
 }
 

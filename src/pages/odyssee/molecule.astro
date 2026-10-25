@@ -44,6 +44,8 @@ import {
 import {
   AUCUNE_DOSE_HUMAINE,
   AUCUNE_LIMITE,
+  direLaLimite,
+  limitesDe,
   BANDEAU_SANS_FICHE,
   LIBELLE_DOSES,
   NON_DOCUMENTE,
@@ -552,6 +554,31 @@ import {
     $('etiquette-identite').classList.toggle('hidden', Boolean(fiche));
     if (fiche) {
       $('v-demi-vie').textContent = fiche.demiVie.connue ? fiche.demiVie.valeur : NON_DOCUMENTE;
+    }
+
+    /*
+       LES LIMITES, CHERCHÉES PAR IDENTIFIANT.
+
+       Le paragraphe portait « AUCUNE_LIMITE » en dur, ce qui était vrai tant
+       qu'aucune limite n'était livrée. Une seule l'est aujourd'hui — la dose
+       maximale du RCP de Fluimucil 600 —, et le texte en dur l'aurait cachée.
+
+       Les quatre autres molécules retombent sur la même phrase qu'avant, et
+       sa seconde moitié reste le message important : « l'absence de limite
+       n'est pas une preuve d'innocuité ».
+    */
+    const limites = limitesDe(fiche?.id ?? null);
+    const paragrapheLimites = $('limites');
+    if (limites.length === 0) {
+      paragrapheLimites.textContent = AUCUNE_LIMITE;
+    } else {
+      paragrapheLimites.textContent = '';
+      for (const l of limites) {
+        const ligne = document.createElement('span');
+        ligne.className = 'block';
+        ligne.textContent = direLaLimite(l);
+        paragrapheLimites.append(ligne);
+      }
     }
     peindreLesInteractions(fiche?.id ?? null);
 

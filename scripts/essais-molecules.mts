@@ -14,6 +14,9 @@ import {
   chercher,
   controlerLigneDose,
   controlerLimite,
+  direLaLimite,
+  limitesDe,
+  LIMITES,
   controlerPaire,
   controlerRegistre,
   LIBELLE_MAX_ETUDIEE,
@@ -223,6 +226,48 @@ console.log('\n\x1b[1mUNE LIMITE SANS SOURCE N’EST PAS AFFICHABLE\x1b[0m\n');
   v('sans source, refusée', controlerLimite(limite({ source: { ou: '', le: '' } })).length, 1);
   v('sans population, refusée', controlerLimite(limite({ population: '' })).length, 1);
   v('sans voie, refusée', controlerLimite(limite({ voie: '' })).length, 1);
+
+  /*
+     LES LIMITES RÉELLEMENT LIVRÉES, ET LE COMPTE QUI VERROUILLE LA MESURE.
+
+     Une seule limite est livrée, et ce chiffre est le résultat d'une lecture
+     des huit RCP de la collecte : un seul énonce une dose maximale. Si
+     quelqu'un en ajoute une sans source — ou si une source disparaît —, c'est
+     ici que ça se voit. Le compte fait donc partie de l'essai, pas seulement
+     la forme.
+  */
+  for (const [molecule, liste] of Object.entries(LIMITES)) {
+    for (const l of liste) {
+      v(`la limite livrée de « ${molecule} » est affichable`, controlerLimite(l), []);
+    }
+  }
+  v('une seule molécule porte une limite', Object.keys(LIMITES).length, 1);
+  v('et c’est la N-acétylcystéine', Object.keys(LIMITES)[0], 'n-acetylcysteine');
+  v('sa limite vient d’un RCP', LIMITES['n-acetylcysteine'][0].nature, 'rcp');
+  v('elle cite son document', LIMITES['n-acetylcysteine'][0].source.empreinte !== undefined, true);
+
+  /*
+     Les quatre autres molécules du catalogue n'ont AUCUNE limite, et c'est
+     constaté : dans leur RCP, « maximale » qualifie une concentration
+     plasmatique, pas une dose. L'essai le fige pour qu'une limite ne s'y
+     glisse pas par analogie avec la première.
+  */
+  for (const sans of [
+    'testosterone-enantate',
+    'testosterone-undecanoate',
+    'modafinil',
+    'cafeine',
+  ]) {
+    v(`« ${sans} » n’a pas de limite`, limitesDe(sans), []);
+  }
+  v('une molécule hors catalogue non plus', limitesDe('inconnue-du-catalogue'), []);
+  v('ni une molécule sans identifiant', limitesDe(null), []);
+
+  /* La phrase affichée nomme la nature AVANT le chiffre : c'est elle qui dit
+     comment lire le nombre. */
+  const dite = direLaLimite(LIMITES['n-acetylcysteine'][0]);
+  v('la phrase commence par la nature de la limite', dite.startsWith('Dose maximale du résumé'), true);
+  v('et elle porte la population', dite.includes('Adulte'), true);
   for (const mot of ['ne dépassez pas', 'recommandé', 'sûr jusqu’à', 'dose habituelle']) {
     v(
       `« ${mot} » est refusé par la revue H.9`,

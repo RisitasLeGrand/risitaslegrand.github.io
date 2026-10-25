@@ -273,10 +273,31 @@ const rcp = (nom: string, fichier: string, empreinte: string): Source => ({
  * la liste n'aura pas été déposée. Une constante, pour que la raison soit la
  * même sur chaque fiche — cinq formulations voisines finiraient par se
  * contredire sur le motif.
+ *
+ * ## Ce qui a été cherché, pour que personne ne recommence
+ *
+ * Les deux pages de l'AFLD de la collecte ont été lues en entier. Elles ne
+ * classent **aucune** des cinq molécules : l'article du 5 janvier 2026 ne
+ * donne que les **ajouts** de la liste 2026, classe par classe, et la page
+ * « liste des substances » ne fait que renvoyer au PDF de l'AMA.
+ *
+ * Un piège s'y trouve, et il vaut d'être nommé : l'article liste, sous
+ * « S6. Stimulants », le **flmodafinil** et le **fladrafinil**. Ce ne sont pas
+ * le modafinil. Lire cette ligne comme classant le modafinil serait une
+ * erreur de lecture, pas une déduction.
+ *
+ * ## Les deux documents qui lèveraient le voile
+ *
+ * Le PDF officiel de l'AMA (`wada-ama.org`), et le **décret n° 2025-1226 du
+ * 15 décembre 2025** (`JORFTEXT000053036083`), qui transpose la liste 2026 en
+ * droit français. Les deux sont relevés « trouvé, non téléchargeable » dans la
+ * collecte : défi anti-robot sur l'un, sur Légifrance pour l'autre.
  */
 const SANS_LISTE_ANTIDOPAGE =
   'La liste des interdictions de l’AMA n’est pas dans la collecte — point 2.4 des ' +
-  'sources à atteindre. Aucun RCP ne la remplace, et la déduire serait l’inventer.';
+  'sources à atteindre. Les deux pages de l’AFLD déposées ne classent aucune ' +
+  'molécule : elles renvoient au document de l’AMA. Aucun RCP ne le remplace, et ' +
+  'déduire un statut serait l’inventer.';
 
 const SOURCE_ANDROTARDYL = rcp(
   'RCP Androtardyl (testostérone énantate)',
@@ -293,7 +314,13 @@ const SOURCE_MODIODAL = rcp(
   'E1-rcp-modafinil-modiodal.pdf',
   'afc15aaca04eb561d05a0c3b91df26de43ec762e7654fce5722cec54cded7a7f',
 );
-const SOURCE_FLUIMUCIL = rcp(
+/*
+   Exportée : la limite de dose de cette molécule vit dans « molecules.ts »,
+   avec les autres limites, et doit citer EXACTEMENT le même document que sa
+   maturité ici — même nom, même chemin, même empreinte. Recopier la source
+   là-bas aurait créé deux vérités qui finiraient par diverger.
+*/
+export const SOURCE_FLUIMUCIL = rcp(
   'RCP Fluimucil 600 (N-acétylcystéine)',
   'E1-rcp-n-acetylcysteine-fluimucil-600.pdf',
   '641bc623c22fe26ea88aa23c179802a9e807a0cc3db8e6110e891e5779327bf0',
