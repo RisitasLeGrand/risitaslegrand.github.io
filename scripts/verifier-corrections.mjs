@@ -25,6 +25,7 @@ import { quizSchema, banqueDgfipSchema } from './lib/schema.mjs';
 import { estMatiereMigree, estRubriqueMigree, MATIERES_MIGREES, RUBRIQUES_MIGREES } from './lib/corrections-migrees.mjs';
 import { contenuEstClos, manquesDeCouverture } from './lib/cloture-contenu.mjs';
 import { ecartsDuVisuel } from './lib/decomptes-visuels.mjs';
+import { fautesDeFormule } from './lib/maths.mjs';
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dossierContenu = path.join(racine, 'content');
@@ -110,6 +111,22 @@ async function verifierCours() {
     if (matiere === 'qcm-dgfip') continue;
     const brut = await readFile(path.join(dossierContenu, relatif), 'utf8');
     const { content } = matter(brut);
+
+    /*
+       Les formules, sur le corps ENTIER de la fiche et non sur la seule
+       section de quiz.
+
+       Une formule qui ne compile pas doit arrêter la construction : KaTeX
+       refuse, et une correction qui s'afficherait en rouge sur l'écran d'une
+       personne qui révise est pire qu'une absence de formule. Le contrôle est
+       ici pour que la faute se voie en quelques secondes, et non au bout d'un
+       build complet — « build-content » la refuserait de toute façon, mais
+       bien plus tard.
+    */
+    for (const faute of fautesDeFormule(content)) {
+      erreurs.push(`${relatif} : ${faute}`);
+    }
+
     const { sections } = decouperSections(content);
 
     let liste;

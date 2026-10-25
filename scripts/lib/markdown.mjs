@@ -10,6 +10,7 @@ import rehypeSlug from 'rehype-slug';
 import rehypeStringify from 'rehype-stringify';
 import { visit } from 'unist-util-visit';
 import { remarkGlossaire, normaliser } from './glossaire.mjs';
+import { remarkMaths } from './maths.mjs';
 
 /** Titres de section reconnus -> clé interne. */
 const SECTIONS = new Map([
@@ -72,9 +73,33 @@ export function rendreHtml(markdown, indexGlossaire, options = {}) {
       premiereOccurrenceSeulement: options.premiereOccurrenceSeulement ?? false,
       dejaVus: options.dejaVus ?? new Set(),
     })
+    /*
+       Les maths viennent APRÈS le glossaire et AVANT « remarkRehype ».
+
+       Après le glossaire, parce qu'un terme souligné dans une formule n'aurait
+       aucun sens : le glossaire ne doit pas aller fouiller dans du LaTeX. Les
+       formules sont dans des nœuds « code », que le glossaire laisse déjà
+       tranquilles, mais l'ordre le dit explicitement plutôt que de s'en
+       remettre à cette coïncidence.
+
+       Avant « remarkRehype », parce que le greffon travaille sur l'arbre
+       Markdown et dépose son rendu en « data.hChildren », que la conversion
+       recopie telle quelle.
+    */
+    .use(remarkMaths)
     .use(remarkRehype)
     .use(rehypeSlug)
-    .use(rehypeStringify);
+    /*
+       « allowDangerousHtml » sur la SEULE sortie, et non sur « remarkRehype ».
+
+       La distinction fait tout. Le HTML écrit à la main dans une fiche meurt en
+       amont, au passage remark→rehype, qui reste sans cette option : un
+       « <script> » d'auteur est détruit comme avant, et « essais:maths » le
+       vérifie. Seul ce que le greffon des maths fabrique lui-même — un nœud
+       brut posé en « hChildren » — survit jusqu'ici et a besoin qu'on le laisse
+       sortir.
+    */
+    .use(rehypeStringify, { allowDangerousHtml: true });
   return String(processeur.processSync(markdown));
 }
 

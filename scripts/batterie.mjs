@@ -72,6 +72,15 @@ const SOCLE = [
   ['essais:espaces', 'aucun mot collé à une balise en ligne, dans le site construit'],
   ['essais:mots-colles:navigateur', 'les mêmes, mesurés dans la page vivante'],
   ['essais:typographie', 'apostrophes, espaces insécables, accords sans « (s) »'],
+  /*
+     Deux garanties que n'importe quelle retouche du rendu Markdown peut
+     défaire sans qu'on la voie : les 158 « $ » monétaires et les 100 ellipses
+     « \[…\] » du contenu ne doivent jamais devenir des formules, et le HTML
+     écrit à la main dans une fiche doit rester détruit — le rendu des
+     mathématiques ouvre « allowDangerousHtml » sur la sortie, et c'est cet
+     essai qui vérifie que la porte d'entrée, elle, est restée fermée.
+  */
+  ['essais:maths', 'le « $ » monétaire reste du texte, et le HTML d’auteur reste détruit'],
   ['essais:accessibilite:navigateur', 'rôles, noms accessibles, ordre de tabulation'],
   ['essais:mobile:navigateur', '360 px : aucun débordement, cibles atteignables'],
   ['essais:mouvement-reduit', 'le réglage d’animations existe, et il est respecté'],
