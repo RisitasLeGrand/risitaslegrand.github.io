@@ -124,6 +124,24 @@ if (await verrou.isVisible().catch(() => false)) {
   await page.click('#bouton-verrou');
 }
 
+/*
+   LE DÉTAIL DES RÉGLAGES EST DERRIÈRE UN DÉPLIANT depuis le prompt 51 (P4) :
+   l'écran s'ouvre sur un résumé, et le tableau des touches ne paraît qu'une
+   fois « Réglages » ouvert. Le contrôle fait donc le geste que la personne
+   fait, et il mesure exactement la même chose qu'avant — que le bouton de
+   capture soit atteignable. Ce n'est pas un assouplissement : l'assertion n'a
+   pas changé, seul le chemin pour y arriver, parce que l'écran a changé.
+
+   Le dépliant est visé par un ATTRIBUT et non par son texte. « hasText » est
+   insensible à la casse, et la mise en page porte un dépliant « Cet espace —
+   RÉGLAGES et données » : filtrer sur « Réglages » ouvrait celui-là, et le
+   contrôle restait rouge en ayant touché le mauvais écran.
+*/
+const pliDesReglages = page.locator('details[data-pli-reglages]').first();
+if (await pliDesReglages.count()) {
+  await pliDesReglages.locator('summary').first().click().catch(() => {});
+}
+
 /* On attend que le bouton paraisse, au lieu de parier sur un délai fixe : le
    déchiffrement puis le montage de l'exercice ne durent pas toujours pareil,
    et un essai qui court après l'écran mesure sa propre impatience. */

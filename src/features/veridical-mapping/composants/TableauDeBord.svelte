@@ -142,7 +142,16 @@
 
 <div class="mt-4 space-y-6 rounded-lg border border-slate-200 p-4 dark:border-slate-800">
   <div class="flex flex-wrap items-center justify-between gap-3">
-    <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Tableau de bord</h3>
+    <h3 class="text-sm font-semibold text-slate-900 dark:text-white">Mes seuils</h3>
+    <!--
+      LA PHRASE D'OUVERTURE DE P16. Le panneau s'ouvrait sur une matrice de
+      nombres sans dire ce qu'ils valent, ni dans quel sens les lire, ni ce que
+      veut dire un tiret. Trois questions qu'on ne pose pas : on referme.
+    -->
+    <p class="mt-1 text-xs text-slate-600 dark:text-slate-400">
+      Chaque case donne votre écart le plus fin entre deux échelles. Plus le nombre
+      est petit, mieux vous distinguez. « — » veut dire « pas encore essayé ».
+    </p>
     <div class="flex gap-2">
       {#each [['prothetique', 'Prothétique'], ['metathetique', 'Métathétique']] as [valeur, nom] (valeur)}
         <button
@@ -163,10 +172,10 @@
     </p>
   {/if}
 
-  <!-- 1. Matrice du hub -->
+  <!-- 1. Toutes les paires -->
   <section>
-    <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-      Matrice du hub
+    <h4 class="text-xs font-semibold tracking-wide text-slate-500 dark:text-slate-400">
+      Toutes les paires
     </h4>
     <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
       Seuil en pas, de la ligne vers la colonne. Plus la cellule est foncée, plus le seuil est fin.
@@ -214,8 +223,10 @@
 
     {#if detail}
       <p class="mt-2 rounded border border-slate-200 p-2 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300">
-        <strong>{detail.de} → {detail.vers}</strong> — {detail.escalier.essais} essai(s),
-        {detail.escalier.reussis} réussi(s), {detail.escalier.inversions.length} inversion(s),
+        <strong>{detail.de} → {detail.vers}</strong> — {detail.escalier.essais} essai{detail.escalier.essais > 1 ? 's' : ''},
+        {detail.escalier.reussis} réussi{detail.escalier.reussis > 1 ? 's' : ''},
+          {detail.escalier.inversions.length}
+          inversion{detail.escalier.inversions.length > 1 ? 's' : ''},
         {INTITULES_STATUT[detail.statut]}{#if detail.seuil}, seuil {detail.seuil.toFixed(2)} pas{/if}.
         {#if detail.horsFamille}<span class="text-amber-700 dark:text-amber-300"> Paire hors famille.</span>{/if}
       </p>
@@ -224,15 +235,15 @@
 
   <!-- 2. Force par nœud -->
   <section>
-    <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-      Force par dimension
+    <h4 class="text-xs font-semibold tracking-wide text-slate-500 dark:text-slate-400">
+      Par échelle
     </h4>
     {#if forceParNoeud.length}
       <table class="mt-2 w-full text-xs">
         <thead>
           <tr class="text-left text-slate-500 dark:text-slate-400">
             <th class="py-1 font-medium">Dimension</th>
-            <th class="py-1 font-medium">Arêtes travaillées</th>
+            <th class="py-1 font-medium">Paires travaillées</th>
             <th class="py-1 font-medium">Stabilisées</th>
             <th class="py-1 font-medium">Seuil moyen</th>
           </tr>
@@ -251,14 +262,14 @@
         </tbody>
       </table>
     {:else}
-      <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Aucune arête travaillée pour l'instant.</p>
+      <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Aucune paire travaillée pour l'instant.</p>
     {/if}
   </section>
 
   <!-- 3. Arbre couvrant -->
   <section>
-    <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
-      Arbre couvrant courant
+    <h4 class="text-xs font-semibold tracking-wide text-slate-500 dark:text-slate-400">
+      Les paires travaillées en priorité
     </h4>
     <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
       Le plus petit ensemble de paires reliant toutes les dimensions de la famille. Il se déplace
@@ -275,7 +286,7 @@
 
   <!-- 4. Seuil médian au fil des sessions -->
   <section>
-    <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+    <h4 class="text-xs font-semibold tracking-wide text-slate-500 dark:text-slate-400">
       Seuil médian au fil des sessions
     </h4>
     {#if courbe.length}
@@ -283,7 +294,7 @@
         En pas. Une courbe qui descend est un progrès : le seuil devient plus fin.
       </p>
       <svg viewBox="0 0 {LARGEUR} {HAUTEUR}" class="mt-2 h-auto w-full max-w-xl" role="img"
-        aria-label="Seuil médian sur {courbe.length} session(s)">
+        aria-label="Écart médian sur {courbe.length} session{courbe.length > 1 ? 's' : ''}">
         <line x1={MARGE.gauche} y1={ordonnee(0)} x2={LARGEUR - MARGE.droite} y2={ordonnee(0)}
           class="stroke-slate-200 dark:stroke-slate-700" stroke-width="1" />
         <text x="4" y={ordonnee(maximum) + 4} class="fill-slate-400 text-xs">{maximum.toFixed(0)}</text>
@@ -308,7 +319,7 @@
 
   <!-- 5. Journal -->
   <section>
-    <h4 class="text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
+    <h4 class="text-xs font-semibold tracking-wide text-slate-500 dark:text-slate-400">
       Journal des sessions
     </h4>
     {#if sessions.length}
@@ -357,7 +368,7 @@
       onclick={exporter}
       class="rounded border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700
         hover:border-indigo-300 dark:border-slate-700 dark:text-slate-200"
-    >Exporter en JSON</button>
+    >Télécharger mes résultats (fichier)</button>
     <button
       type="button"
       onclick={effacer}

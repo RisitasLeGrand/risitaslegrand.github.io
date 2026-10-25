@@ -106,13 +106,36 @@ export const FACES = {
 }
 
 /**
- * Les retours immédiats : fond et texte, choisis pour que le texte reste
- * lisible sur chaque fond. Repris de quad-box (app.css).
+ * Les retours immédiats, désormais SUR JETONS et non plus en hexadécimal.
+ *
+ * ## Pourquoi ceux-là bougent, et pas les stimuli
+ *
+ * Les huit couleurs du tirage sont des ÉLÉMENTS D'ÉPREUVE : la dimension
+ * « Couleur » demande de les distinguer, et les faire suivre le thème les
+ * rendrait incomparables d'une séance à l'autre — dans Ardoise, la dimension
+ * disparaîtrait. Elles restent donc écrites ici.
+ *
+ * Les retours, eux, sont de l'INTERFACE : ils disent juste, faux ou manqué,
+ * exactement comme le vocabulaire partagé de `correction/vocabulaire.ts`. Rien
+ * ne justifiait qu'ils aient leurs propres rouges et verts, qui ne suivaient
+ * aucun des quatorze thèmes — et qui, dans un thème sombre, juraient avec tout
+ * le reste de l'écran.
+ *
+ * Le texte vient de `--etat-fond` : les rôles sont construits pour que le fond
+ * du thème soit lisible sur ses couleurs d'état, et c'est ce qui remplace le
+ * couple « fond + texte » choisi à la main.
+ *
+ * Ce n'est plus un palier à deux modes : un jeton change de valeur avec le
+ * thème, et le mode avec lui. La forme reste celle d'avant pour que les
+ * appelants ne changent pas — et parce que l'écran a encore besoin de savoir
+ * s'il est sombre, pour les pastilles de légende.
  */
+const SUR_JETON = (role) => ['var(--etat-' + role + ')', 'var(--etat-fond)']
+
 export const RETOURS = {
-  reussite: { clair: ['#93C82E', '#14290a'], sombre: ['#386D38', '#f8fafc'] },
-  echec: { clair: ['#EE3527', '#ffffff'], sombre: ['#9F2323', '#f8fafc'] },
-  oubli: { clair: ['#F49F31', '#2a1a05'], sombre: ['#a6712c', '#f8fafc'] },
+  reussite: { clair: SUR_JETON('succes'), sombre: SUR_JETON('succes') },
+  echec: { clair: SUR_JETON('erreur'), sombre: SUR_JETON('erreur') },
+  oubli: { clair: SUR_JETON('alerte'), sombre: SUR_JETON('alerte') },
 }
 
 

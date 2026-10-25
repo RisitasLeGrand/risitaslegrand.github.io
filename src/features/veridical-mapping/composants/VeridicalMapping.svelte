@@ -25,9 +25,17 @@
     type SeuilVeridical,
     type SessionVeridical,
   } from '../../../lib/db';
+  import { tick } from 'svelte';
+  import { confirmer } from '../../../lib/boite';
+  import { amenerLaZone } from '../../cog-training/zone-de-jeu';
+  import CommentCaMarche from '../../cog-training/composants/CommentCaMarche.svelte';
+  import Glossaire from '../../cog-training/composants/Glossaire.svelte';
+  import Terme from '../../cog-training/composants/Terme.svelte';
+  import { registreDesTermes, CLEF_TERMES_VUS } from '../../cog-training/termes-vus';
+  import { setContext } from 'svelte';
   import { gagnerXp, xpVeridical } from '../../../lib/gamification';
   import { debloquer, disponible } from '../audio';
-  import { NOMS_FAMILLES, type Famille } from '../dimensions';
+  import { NOMS_FAMILLES, dimensionParId, type Famille } from '../dimensions';
   import { escalierNeuf, repondre, seuil as seuilDe, statut as statutDe } from '../escalier';
   import CorrectionPerceptive from '../../correction/composants/CorrectionPerceptive.svelte';
   import { aCorrectionDetaillee } from '../../correction/registre';
@@ -52,6 +60,87 @@
 
   let chargement = $state(true);
   let etape = $state<Etape>('accueil');
+
+  /*
+     LE REGISTRE DES TERMES DÉJÀ VUS DANS L'ÉCRAN COURANT (P9).
+
+     Seule la première apparition d'un terme technique est interactive. Le
+     registre se vide au changement d'écran : « premier » veut dire premier de
+     CET écran, et quelqu'un qui lance directement une partie n'aurait jamais
+     vu un seul terme cliquable si le compte courait sur toute la session.
+  */
+  const termesVus = registreDesTermes();
+  setContext(CLEF_TERMES_VUS, termesVus);
+
+  /*
+     LA DÉCOUVERTE : quelques essais sur une seule paire visuelle, sans son.
+
+     Six essais, charge 1, et les écarts repartent de zéro pour être larges.
+     « sans son » n'est pas un confort : la référence sonore demande un
+     appareil qui joue, et une découverte qui échoue faute de haut-parleur
+     n'apprend rien à personne.
+  */
+  const DECOUVERTE = { ...REGLAGES_PAR_DEFAUT, essais: 6, charge: 1, bruit: false, partiel: false };
+
+  let decouverte = $state(false);
+
+  /*
+     Même verrou que dans Raisonnement, et même constat : aucun geste
+     n'atteint aujourd'hui un double appel, puisque `terminer` change d'écran
+     avant sa première écriture. Précaution assumée, pas correction.
+  */
+  let terminee = $state(false);
+
+  /**
+   * Les réglages de la SESSION en cours, qui ne sont pas forcément ceux de
+   * l'écran.
+   *
+   * Même raison que dans Mémoire de travail : le nombre d'essais, la charge et
+   * la tâche se lisaient dans `reglages` pendant la session. Une découverte de
+   * six essais aurait alors tourné sur les quarante-huit réglés par la
+   * personne — et régler le curseur en cours de session aurait changé la
+   * session en cours.
+   */
+  let enJeu = $state<Reglages>({ ...REGLAGES_PAR_DEFAUT });
+
+  /*
+     Les paliers de la découverte vivent À PART de ceux de la personne.
+
+     Les écrire dans `seuils` aurait suffi à les faire paraître dans « Mes
+     seuils » — un panneau qui annonce des mesures — alors qu'une découverte ne
+     mesure rien. Et repartir d'un escalier neuf est ce qui donne les écarts
+     larges que la découverte demande : relire le palier atteint reviendrait à
+     poser d'emblée les écarts les plus fins.
+  */
+  let seuilsDecouverte = $state<Record<string, SeuilVeridical>>({});
+
+  /**
+   * Les écarts atteints sur les paires travaillées dans CETTE session.
+   *
+   * Lus dans `pairesVues`, et non dans tout le magasin : le bilan d'une
+   * session parle de cette session. Les paires sans mesure — trop peu
+   * d'essais pour qu'un palier se stabilise — sont écartées plutôt
+   * qu'affichées à zéro, qui se lirait comme un écart parfait alors que c'est
+   * une absence de mesure.
+   */
+  const ecarts = $derived.by(() => {
+    const magasin = decouverte ? seuilsDecouverte : seuils;
+    return [...pairesVues]
+      .map((id) => magasin[id])
+      .filter((ligne): ligne is SeuilVeridical => !!ligne && typeof ligne.seuil === 'number')
+      .map((ligne) => ({
+        id: ligne.id,
+        de: dimensionParId(ligne.de)?.nom ?? ligne.de,
+        vers: dimensionParId(ligne.vers)?.nom ?? ligne.vers,
+        pas: ligne.seuil as number,
+      }));
+  });
+
+  /** La consigne, ouverte en boîte pendant la session (P2 du 51). */
+  let consigneOuverte = $state(false);
+
+  /** La zone de l'essai, amenée sous les yeux à chaque essai (P1 du 51). */
+  let zoneDeJeu = $state<HTMLElement | null>(null);
   let reglages = $state<Reglages>({ ...REGLAGES_PAR_DEFAUT });
   let seuils = $state<Record<string, SeuilVeridical>>({});
   let sessions = $state<SessionVeridical[]>([]);
@@ -114,11 +203,11 @@
     const corriges = corrigerEssai(essai, choix);
     const premier = corriges[0];
     ouvrirAssistant({
-      titre: 'Préparer une question pour une IA — Veridical Mapping',
-      matiere: 'Cog-Training',
+      titre: 'Préparer une question pour une IA — Correspondance perceptive',
+      matiere: 'Entraînement cognitif',
       construireContexte: async () =>
         contexteCogTraining({
-          exercice: 'Veridical Mapping',
+          exercice: 'Correspondance perceptive',
           moteur: {
             nom: `${essai!.arete.de.nom} → ${essai!.arete.vers.nom}`,
             resume:
@@ -141,15 +230,16 @@
     });
   }
 
-  function clefSeuil(arete: Arete, tache: Reglages['tache'] = reglages.tache): string {
+  function clefSeuil(arete: Arete, tache: Reglages['tache'] = enJeu.tache): string {
     return tache === 'point' ? arete.id : `${arete.id}|${tache}`;
   }
 
   /** Le seuil d'une arête, créé à la volée s'il n'existe pas encore. */
   function seuilDArete(arete: Arete): SeuilVeridical {
     const clef = clefSeuil(arete);
+    const magasin = decouverte ? seuilsDecouverte : seuils;
     return (
-      seuils[clef] ?? {
+      magasin[clef] ?? {
         id: clef,
         famille: arete.de.famille,
         de: arete.de.id,
@@ -174,30 +264,72 @@
    */
   function essaisDeLaPaire(a: string, b: string): number {
     const cle = (de: string, vers: string) =>
-      reglages.tache === 'point' ? idArete(de, vers) : `${idArete(de, vers)}|${reglages.tache}`;
+      enJeu.tache === 'point' ? idArete(de, vers) : `${idArete(de, vers)}|${enJeu.tache}`;
     const aller = seuils[cle(a, b)]?.escalier.essais ?? 0;
     const retourr = seuils[cle(b, a)]?.escalier.essais ?? 0;
     return aller + retourr;
   }
 
   async function commencer() {
+    decouverte = false;
+    enJeu = { ...reglages };
     sonPret = disponible() ? await debloquer() : false;
-    vivier = vivierDAretes(reglages, essaisDeLaPaire);
+    vivier = vivierDAretes(enJeu, essaisDeLaPaire);
     if (!vivier.length) return;
+    preparer();
+  }
+
+  /**
+   * La découverte : quelques essais sur UNE SEULE paire visuelle, sans son.
+   *
+   * La paire est choisie visuelle des deux côtés, et non simplement « non
+   * transmodale » : deux dimensions sonores ne sont pas transmodales entre
+   * elles, et une découverte sans haut-parleur n'y montrerait rien. Si aucune
+   * paire visuelle n'existe, la découverte ne se lance pas plutôt que de se
+   * lancer muette.
+   *
+   * Elle n'écrit rien : les deux gardes sont posées, à l'essai et à la fin.
+   */
+  async function commencerLaDecouverte() {
+    decouverte = true;
+    enJeu = { ...DECOUVERTE };
+    sonPret = false;
+    seuilsDecouverte = {};
+    const visuelles = vivierDAretes(enJeu, () => 0).filter(
+      (a) => a.de.modalite === 'visuelle' && a.vers.modalite === 'visuelle',
+    );
+    if (!visuelles.length) return;
+    vivier = [visuelles[0]];
+    preparer();
+  }
+
+  function preparer() {
+    terminee = false;
     faits = 0;
     reussis = 0;
     convergences = [];
     pairesVues = new Set();
     xpGagne = 0;
     debut = Date.now();
+    termesVus.vider();
     etape = 'essai';
     tirerSuivant();
   }
 
+
   function tirerSuivant() {
+    /*
+       Un seul point d'accroche pour P1 : `tirerSuivant` sert le premier essai
+       comme les suivants. Rien n'enchaîne sur un minuteur — « Essai suivant »
+       est un geste —, donc le défilement n'a pas à être attendu.
+    */
+    void (async () => {
+      await tick();
+      void amenerLaZone(zoneDeJeu);
+    })();
     const arete = vivier[Math.floor(Math.random() * vivier.length)];
     const etat = seuilDArete(arete).escalier;
-    essai = tirerEssai(arete, etat.delta, reglages, hasard);
+    essai = tirerEssai(arete, etat.delta, enJeu, hasard);
     choix = essai.sousEssais.map(() => null);
     retour = 'attente';
   }
@@ -236,7 +368,8 @@
       statut: apres,
       majLe: new Date().toISOString(),
     };
-    seuils = { ...seuils, [ligne.id]: ligne };
+    if (decouverte) seuilsDecouverte = { ...seuilsDecouverte, [ligne.id]: ligne };
+    else seuils = { ...seuils, [ligne.id]: ligne };
     pairesVues.add(ligne.id);
     if (avant !== 'converge' && apres === 'converge') convergences = [...convergences, ligne.id];
 
@@ -245,6 +378,14 @@
     retour = 'corrige';
     correctionOuverte = false;
 
+    /*
+       CET EXERCICE ÉCRIT À CHAQUE ESSAI, et non seulement à la fin : c'est ce
+       qui le distingue des deux autres, et ce qui rend l'interdit 3 plus
+       facile à manquer ici. La garde est donc posée aux DEUX endroits —
+       celui-ci et `terminer` —, et non à la seule fin de session.
+    */
+    if (decouverte) return;
+
     try {
       await ecrireSeuilVeridical(ligne);
     } catch {
@@ -252,8 +393,27 @@
     }
   }
 
+  /**
+   * Arrêter la session, en gardant les réponses déjà données.
+   *
+   * Ici elles sont gardées par CONSTRUCTION : chaque essai écrit son palier
+   * au moment où l'on répond, et non à la fin. La phrase ne promet donc rien
+   * qu'il faille aller chercher — elle dit ce qui est déjà vrai, et que rien
+   * à l'écran ne disait.
+   */
+  async function arreter() {
+    const oui = await confirmer({
+      titre: 'Arrêter ?',
+      texte: 'Vos réponses sont gardées.',
+      action: 'Arrêter',
+      annuler: 'Continuer',
+    });
+    if (!oui) return;
+    await terminer();
+  }
+
   async function suivant() {
-    if (faits >= reglages.essais) {
+    if (faits >= enJeu.essais) {
       await terminer();
       return;
     }
@@ -261,6 +421,9 @@
   }
 
   async function terminer() {
+    if (terminee) return;
+    terminee = true;
+
     const secondes = Math.round((Date.now() - debut) / 1000);
     const travaillees = [...pairesVues];
     const mesures = travaillees
@@ -273,7 +436,12 @@
         : (mesures[mesures.length / 2 - 1] + mesures[mesures.length / 2]) / 2
       : null;
 
+    termesVus.vider();
     etape = 'bilan';
+
+    /* Seconde garde : ni session, ni XP, ni badge pour une découverte. */
+    if (decouverte) return;
+
     try {
       await ajouterSessionVeridical({
         le: new Date().toISOString(),
@@ -314,7 +482,38 @@
     const parArete = reglages.essais / aretes;
     return { aretes, parArete, suffisant: parArete >= 24 };
   });
-  const chargeReelle = $derived(essai ? chargeAdmise(essai.arete, reglages.charge) : reglages.charge);
+  /*
+     LE VERDICT EN MOTS, parce que la couleur ne peut pas le porter seule.
+
+     Jusqu'ici, seul le cadre disait juste ou faux : « border-emerald-500 »
+     contre « border-rose-500 ». Qui ne distingue pas ces deux teintes — et
+     c'est la forme de daltonisme la plus répandue — n'avait AUCUN moyen de
+     savoir s'il avait répondu juste, ni laquelle était la bonne. Le verdict
+     n'était pas discret : il était absent.
+
+     Le texte du constat V1 suppose une seule proposition à départager. À
+     charge supérieure, l'essai en porte plusieurs, et nommer « la bonne
+     réponse » au singulier serait faux. La phrase s'adapte donc, et les
+     signes posés sur chaque cadre portent le détail.
+  */
+  const verdict = $derived.by(() => {
+    if (retour !== 'corrige' || !essai) return '';
+    const lignes = essai.sousEssais.map((sousEssai, i) => ({
+      juste: sousEssai.candidats[choix[i] ?? -1]?.juste === true,
+      attendue: sousEssai.candidats.findIndex((c) => c.juste) + 1,
+    }));
+    if (lignes.every((l) => l.juste)) return '✓ Juste.';
+    if (lignes.length === 1) {
+      return `✗ Ce n'était pas celle-là : la bonne réponse était la proposition ${lignes[0].attendue}.`;
+    }
+    const manquees = lignes
+      .map((l, i) => (l.juste ? null : `la ${i + 1}ʳᵉ demandait la proposition ${l.attendue}`))
+      .filter((texte): texte is string => texte !== null);
+    const justes = lignes.filter((l) => l.juste).length;
+    return `✗ ${justes} sur ${lignes.length} : ${manquees.join(', ')}.`;
+  });
+
+  const chargeReelle = $derived(essai ? chargeAdmise(essai.arete, enJeu.charge) : enJeu.charge);
 
   /**
    * Les trois tâches, et celles qui sont réellement praticables dans la famille
@@ -381,9 +580,37 @@
   });
 </script>
 
+{#snippet consigne()}
+  <!--
+    LE TEXTE DU CONSTAT P2, À UNE PHRASE PRÈS.
+
+    L'audit écrit « Toucher une proposition vaut réponse ». C'est vrai à charge
+    1 — `choisir` enchaîne sur `valider` sans clic superflu, et c'est le rythme
+    qu'une mesure de seuil demande. À charge supérieure, l'essai porte
+    plusieurs sous-essais et il faut toucher « Valider » : la phrase de l'audit
+    dirait alors d'attendre un enchaînement qui ne vient pas. Elle suit donc la
+    charge réelle. Le reste est mot pour mot.
+  -->
+  <p>
+    Vous voyez ou entendez une <strong>référence</strong>, par exemple un rond
+    plus ou moins grand. En dessous, deux <strong>propositions</strong> d'un
+    autre genre, par exemple deux sons plus ou moins forts. Choisissez celle
+    qui est à la même place sur son échelle : un grand rond va avec un son
+    fort, un petit rond avec un son faible.
+  </p>
+  <p class="mt-2">
+    {chargeReelle > 1
+      ? 'Répondez à chaque ligne, puis touchez « Valider ».'
+      : 'Toucher une proposition vaut réponse.'}
+    Plus vous réussissez, plus les deux propositions se ressemblent.
+  </p>
+{/snippet}
+
 {#if chargement}
   <p class="py-16 text-center text-sm text-slate-400">Lecture de vos seuils…</p>
 {:else if etape === 'accueil'}
+  <CommentCaMarche ouvert={sessions.length === 0}>{@render consigne()}</CommentCaMarche>
+    <Glossaire ou="correspondance" />
   <section class="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <h2 class="font-semibold text-slate-900 dark:text-white">Régler la session</h2>
@@ -392,7 +619,7 @@
         onclick={() => (tableauOuvert = !tableauOuvert)}
         class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700
           hover:border-indigo-300 dark:border-slate-700 dark:text-slate-200"
-      >{tableauOuvert ? 'Masquer le tableau de bord' : 'Tableau de bord'}</button>
+      >{tableauOuvert ? 'Masquer mes seuils' : 'Mes seuils'}</button>
     </div>
 
     {#if tableauOuvert}
@@ -477,17 +704,25 @@
     </div>
 
     <fieldset class="mt-4">
-      <legend class="text-sm font-medium text-slate-700 dark:text-slate-200">Charge</legend>
+      <legend class="text-sm font-medium text-slate-700 dark:text-slate-200">
+        <Terme technique="charge" simple="Correspondances par écran" />
+      </legend>
       <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
         Nombre de correspondances à tenir sur le même écran. Elle ne change pas la mesure du seuil,
         et ne s'applique qu'aux paires entièrement visuelles — un son se joue l'un après l'autre.
       </p>
       <div class="mt-2 flex gap-2">
         {#each [1, 2, 3] as n (n)}
+          <!--
+            44 px de côté au moins (P15) : trois boutons de 32 px collés les
+            uns aux autres se ratent, et le réglage qu'on croit avoir touché
+            n'est pas celui qui change.
+          -->
           <button
             type="button"
             onclick={() => (reglages.charge = n)}
-            class="rounded-lg border px-3 py-2 text-sm font-medium
+            aria-pressed={reglages.charge === n}
+            class="min-h-11 min-w-11 rounded-lg border px-3 py-2 text-sm font-medium
               {reglages.charge === n
                 ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300'
                 : 'border-slate-200 text-slate-700 dark:border-slate-800 dark:text-slate-300'}"
@@ -498,6 +733,19 @@
 
     <fieldset class="mt-4 space-y-2">
       <legend class="text-sm font-medium text-slate-700 dark:text-slate-200">Variantes</legend>
+      <!--
+        « SANS SON » (P12) : l'exercice tire des paires sonores par défaut, et
+        sur un appareil muet elles sont injouables. Avant cette case, la seule
+        issue était de changer de famille d'échelles — c'est-à-dire de changer
+        d'exercice pour contourner un haut-parleur.
+      -->
+      <label class="flex cursor-pointer items-start gap-2 text-sm text-slate-700 dark:text-slate-200">
+        <input type="checkbox" bind:checked={reglages.sansSon} class="mt-1" />
+        <span>
+          <strong class="font-medium">Sans son</strong> — n'utiliser que des échelles
+          visuelles. À cocher si cet appareil ne joue pas de son.
+        </span>
+      </label>
       <label class="flex cursor-pointer items-start gap-2 text-sm text-slate-700 dark:text-slate-200">
         <input type="checkbox" bind:checked={reglages.bruit} class="mt-1" />
         <span>
@@ -526,45 +774,83 @@
         {repartition.suffisant
           ? 'border-slate-200 text-slate-500 dark:border-slate-800 dark:text-slate-400'
           : 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200'}">
-        {repartition.aretes} arête{repartition.aretes > 1 ? 's' : ''} à parcourir, soit environ
-        {repartition.parArete.toFixed(0)} essai{repartition.parArete >= 2 ? 's' : ''} chacune.
-        {#if repartition.suffisant}
-          De quoi faire progresser les escaliers ; un seuil demande une trentaine d'essais par arête,
-          cumulés d'une session à l'autre.
+        <Terme
+          technique="arête"
+          simple="{repartition.aretes} paire{repartition.aretes > 1 ? 's' : ''}"
+        /> à parcourir, soit environ
+        {Math.round(repartition.parArete)} essai{repartition.parArete >= 2 ? 's' : ''} chacune.
+        {#if repartition.trop}
+          <strong>C'est trop peu pour faire bouger quoi que ce soit</strong> — sous cinq essais par
+          paire, l'écart qui se resserre (escalier) n'a pas la place d'avancer.
+          Les paires qui relient tout (arbre couvrant), ou une session plus longue,
+          concentreraient mieux les essais.
         {:else}
-          <strong>C'est peu pour mesurer un seuil</strong> — il en faut une trentaine par arête.
-          Les escaliers avancent tout de même, puisqu'ils reprennent où ils s'étaient arrêtés, mais
-          l'arbre couvrant ou une session plus longue concentreraient mieux les essais.
+          Les écarts se resserrent d'une session à l'autre : un plus petit écart que vous
+          distinguez (seuil) demande une trentaine d'essais par paire, cumulés. Cette session y
+          contribue, elle n'a pas à y suffire seule.
         {/if}
       </p>
     {/if}
 
-    <button
-      type="button"
-      onclick={commencer}
-      class="mt-5 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
-    >Commencer</button>
+    <div class="mt-5 flex flex-wrap gap-3 {sessions.length === 0 ? 'flex-row-reverse justify-end' : ''}">
+      <button
+        type="button"
+        onclick={commencer}
+        class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
+      >Commencer</button>
+      <button
+        type="button"
+        onclick={commencerLaDecouverte}
+        class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700
+          hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+      >Essayer d'abord ({DECOUVERTE.essais} essais, sans son)</button>
+    </div>
+
   </section>
 {:else if etape === 'essai' && essai}
-  <section>
+  <section bind:this={zoneDeJeu} data-zone-de-jeu>
     <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
-      <p class="text-xs font-medium uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
+      <button
+        type="button"
+        onclick={arreter}
+        class="shrink-0 text-sm text-slate-500 hover:underline dark:text-slate-400"
+      >← Arrêter</button>
+      <p class="text-xs font-medium tracking-wide text-indigo-700 dark:text-indigo-300">
         {essai.arete.de.nom} → {essai.arete.vers.nom}
-        {#if essai.arete.transmodale}<span class="text-slate-400"> · transmodale</span>{/if}
+        {#if essai.arete.transmodale}<span class="text-slate-400">
+          · <Terme technique="transmodale" /></span>{/if}
       </p>
+      <!--
+        Pas de pause : un essai attend sa réponse, aucune horloge ne court.
+      -->
+      <button
+        type="button"
+        onclick={() => (consigneOuverte = true)}
+        class="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600
+          hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300"
+      >Revoir la consigne</button>
       <p class="text-xs text-slate-500 dark:text-slate-400">
-        {faits} / {reglages.essais} · écart {essai.delta} pas
+        {faits} / {enJeu.essais} · écart {essai.delta} pas
       </p>
     </div>
 
     <div class="h-1 overflow-hidden rounded bg-slate-200 dark:bg-slate-800">
-      <div class="jauge-remplissage jauge-seance h-full bg-indigo-500" style="transform: scaleX({faits / reglages.essais})"></div>
+      <div class="jauge-remplissage jauge-seance h-full bg-indigo-500" style="transform: scaleX({faits / enJeu.essais})"></div>
     </div>
 
-    {#if essai.arete.vers.modalite === 'auditive' && !sonPret}
+    <!--
+      L'AVERTISSEMENT COUVRE AUSSI LA RÉFÉRENCE (P12).
+
+      Il ne regardait que « vers », la modalité des propositions. Quand c'est
+      la RÉFÉRENCE qui est sonore — « de » —, l'essai était tout aussi
+      injouable sans haut-parleur, et rien ne le disait : on comparait deux
+      ronds à un son qu'on n'entendait pas.
+    -->
+    {#if (essai.arete.vers.modalite === 'auditive' || essai.arete.de.modalite === 'auditive') && !sonPret}
       <p class="mt-3 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-800
         dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-200">
         Le son n'a pas pu démarrer sur cet appareil : les paires sonores ne seront pas jouables.
+        La case « Sans son » des réglages les écarte.
       </p>
     {/if}
 
@@ -578,8 +864,24 @@
         couple de {essai.arete.vers.nom.toLowerCase()} reproduit <strong class="font-medium">le
         même écart</strong> ? La position ne compte pas : seule compte la distance entre les deux.
       {:else}
-        Lequel des deux {essai.arete.vers.nom.toLowerCase()} est au même niveau que
-        la référence en {essai.arete.de.nom.toLowerCase()} ?
+        <!--
+          LA PHRASE FAUTIVE DU CONSTAT P17, CORRIGÉE.
+
+          Elle s'écrivait « Lequel des deux intensité sonore est au même niveau
+          que la référence en taille ? » : le nom de la dimension est au
+          singulier et servait de nom pluriel, et « au même niveau » ne dit pas
+          niveau de quoi.
+
+          L'audit propose un nom pluriel par dimension — « sons », « ronds »,
+          « carrés ». Aucun n'existe dans le code, et les inventer demanderait
+          de déclarer ce que chaque dimension DESSINE, ce qu'aucune source ne
+          dit. J'emploie « propositions », qui est déjà le mot de l'écran : la
+          consigne de P2 et le verdict de P5 le disent tous deux. Écart
+          signalé.
+        -->
+        Laquelle des deux propositions en {essai.arete.vers.nom.toLowerCase()} est
+        à la même place sur son échelle que la référence en
+        {essai.arete.de.nom.toLowerCase()} ?
       {/if}
     </p>
 
@@ -639,6 +941,14 @@
                     : choix[i] === j
                       ? 'border-indigo-500'
                       : 'border-slate-200 hover:border-indigo-300 dark:border-slate-800'}
+              {@const signe =
+                retour !== 'corrige'
+                  ? ''
+                  : candidat.juste
+                    ? '✓'
+                    : choix[i] === j
+                      ? '✗'
+                      : ''}
               {#if candidat.stimulus.modalite === 'auditive'}
                 <!--
                   Un candidat sonore porte deux commandes distinctes : écouter et
@@ -647,29 +957,44 @@
                   de toute façon d'une réécoute sans répondre.
                 -->
                 <div class="rounded-lg border-2 p-2 transition {cadre}">
+                  {#if signe}
+                    <p class="mb-1 text-center text-base font-semibold leading-none">
+                      <span aria-hidden="true">{signe}</span>
+                      <span class="sr-only">{signe === '✓' ? 'bonne réponse' : 'votre réponse, inexacte'}</span>
+                    </p>
+                  {/if}
                   <Stimulus
                     stimulus={candidat.stimulus}
                     parasite={candidat.parasite}
-                    libelle="le candidat {j + 1}"
+                    libelle="la proposition {j + 1}"
                   />
                   <button
                     type="button"
                     onclick={() => choisir(i, j)}
                     disabled={retour === 'corrige'}
+                    aria-pressed={choix[i] === j}
+                    aria-label="Choisir la proposition {j + 1}"
                     class="mt-2 w-full rounded border border-slate-200 py-1.5 text-xs font-medium
                       text-slate-700 hover:border-indigo-300 disabled:opacity-50
                       dark:border-slate-700 dark:text-slate-200"
-                  >choisir</button>
+                  >Choisir</button>
                 </div>
               {:else}
                 <button
                   type="button"
                   onclick={() => choisir(i, j)}
                   disabled={retour === 'corrige'}
+                  aria-pressed={choix[i] === j}
                   class="rounded-lg border-2 p-2 transition {cadre}"
-                  aria-label="Choisir le candidat {j + 1}"
+                  aria-label="Choisir la proposition {j + 1}"
                 >
-                  <Stimulus stimulus={candidat.stimulus} parasite={candidat.parasite} libelle="le candidat {j + 1}" />
+                  {#if signe}
+                    <p class="mb-1 text-center text-base font-semibold leading-none">
+                      <span aria-hidden="true">{signe}</span>
+                      <span class="sr-only">{signe === '✓' ? 'bonne réponse' : 'votre réponse, inexacte'}</span>
+                    </p>
+                  {/if}
+                  <Stimulus stimulus={candidat.stimulus} parasite={candidat.parasite} libelle="la proposition {j + 1}" />
                 </button>
               {/if}
             {/each}
@@ -678,6 +1003,20 @@
         </div>
       </div>
     {/each}
+
+    <!--
+      LE VERDICT, SOUS LES PROPOSITIONS ET DANS UNE SEULE RÉGION.
+
+      Une région par sous-essai se concurrenceraient à l'annonce : un lecteur
+      d'écran lit la dernière qui change, et les autres passent à la trappe.
+      Une seule région, au texte calculé, se lit en entier.
+    -->
+    {#if verdict}
+      <p
+        role="status"
+        class="mt-4 rounded-lg border border-slate-200 px-3 py-2 text-sm font-medium dark:border-slate-800"
+      >{verdict}</p>
+    {/if}
 
     <div class="mt-5 flex items-center gap-3">
       {#if retour === 'attente' && chargeReelle > 1}
@@ -693,7 +1032,7 @@
           type="button"
           onclick={suivant}
           class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
-        >{faits >= reglages.essais ? 'Voir le bilan' : 'Essai suivant'}</button>
+        >{faits >= enJeu.essais ? 'Voir le bilan' : 'Essai suivant'}</button>
         {#if aCorrectionDetaillee('veridical-mapping')}
           <button
             type="button"
@@ -731,22 +1070,68 @@
   </section>
 {:else}
   <section>
-    <h2 class="font-semibold text-slate-900 dark:text-white">Bilan de la session</h2>
-    <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
-      {reussis} essai{reussis > 1 ? 's' : ''} réussi{reussis > 1 ? 's' : ''} sur {faits}.
-      {#if convergences.length}
-        <span class="font-medium text-emerald-700 dark:text-emerald-300">
-          {convergences.length} seuil{convergences.length > 1 ? 's' : ''}
-          stabilisé{convergences.length > 1 ? 's' : ''}.
-        </span>
-      {/if}
-      {#if xpGagne}<span class="font-medium text-indigo-700 dark:text-indigo-300">+{xpGagne} XP.</span>{/if}
-    </p>
+    <h2 class="font-semibold text-slate-900 dark:text-white">
+      {decouverte ? 'Découverte terminée' : 'Bilan de la session'}
+    </h2>
+    {#if decouverte}
+      <!--
+        Le bilan d'une découverte dit d'abord qu'elle ne mesure rien. Annoncer
+        un « seuil stabilisé » après six essais sur des écarts larges serait
+        faux deux fois : rien n'a été mesuré, et rien n'a été gardé.
+      -->
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+        {reussis} essai{reussis > 1 ? 's' : ''} réussi{reussis > 1 ? 's' : ''} sur {faits}.
+        Rien n'a été enregistré : ni seuil, ni résultat, ni points. Les écarts étaient
+        larges exprès. Quand vous voudrez mesurer pour de vrai, touchez « Commencer ».
+      </p>
+    {:else}
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+        {reussis} essai{reussis > 1 ? 's' : ''} réussi{reussis > 1 ? 's' : ''} sur {faits}.
+        {#if convergences.length}
+          <span class="font-medium text-emerald-700 dark:text-emerald-300">
+            {convergences.length} seuil{convergences.length > 1 ? 's' : ''}
+            stabilisé{convergences.length > 1 ? 's' : ''}.
+          </span>
+        {/if}
+        {#if xpGagne}<span class="font-medium text-indigo-700 dark:text-indigo-300">+{xpGagne} XP.</span>{/if}
+      </p>
+    {/if}
     <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
-      Un taux de réussite proche de 70 % est le signe que l'escalier travaille au bon endroit : il
-      resserre l'écart jusqu'au point où l'on se trompe environ une fois sur trois. Un taux bien
-      plus haut voudrait dire que l'écart n'est pas encore assez fin.
+      Un taux de réussite proche de 70 % est le signe que l'écart qui se resserre (escalier)
+      travaille au bon endroit : il resserre l'écart jusqu'au point où l'on se trompe environ une
+      fois sur trois. Un taux bien plus haut voudrait dire que l'écart n'est pas encore assez fin.
     </p>
+
+    <!--
+      LA TROISIÈME LIGNE : CE QUI A BOUGÉ, PAIRE PAR PAIRE (constat P8).
+
+      Le bilan disait le taux et expliquait les 70 %, mais rien de ce qui avait
+      PROGRESSÉ : il fallait déplier le tableau de bord et comparer de tête
+      avec la session précédente. L'écart le plus fin atteint sur chaque paire
+      travaillée est la seule mesure que cet exercice produise ; la laisser
+      derrière un pli revenait à cacher son résultat.
+
+      « plus c'est petit, mieux vous distinguez » n'est pas une précaution de
+      style : un nombre qui BAISSE quand on progresse se lit à l'envers de
+      tous les autres scores de l'application.
+
+      Et les échelles sont nommées, pas identifiées : « Taille ↔ Luminosité »
+      et non « taille ↔ luminosite ».
+    -->
+    {#if ecarts.length}
+      <h3 class="mt-6 text-sm font-semibold text-slate-900 dark:text-white">Ce qui a bougé</h3>
+      <ul class="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-300">
+        {#each ecarts as ligne (ligne.id)}
+          <li>
+            {ligne.de} ↔ {ligne.vers} : votre écart le plus fin est maintenant de
+            <strong>{ligne.pas} pas</strong>
+            <span class="text-xs text-slate-500 dark:text-slate-400">
+              (plus c'est petit, mieux vous distinguez)
+            </span>
+          </li>
+        {/each}
+      </ul>
+    {/if}
 
     <TableauDeBord {seuils} {sessions} {essaisDeLaPaire} />
 
@@ -754,6 +1139,23 @@
       type="button"
       onclick={() => (etape = 'accueil')}
       class="mt-6 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
-    >Nouvelle session</button>
+    >Retour aux réglages</button>
   </section>
 {/if}
+
+<!--
+  LA BOÎTE DE LA CONSIGNE VIT AU NIVEAU DU COMPOSANT, hors de tout écran.
+
+  Elle était d'abord rendue dans l'écran de jeu, à côté de la grille. Dans
+  Mémoire de travail, le clic sur « Reprendre » n'arrivait jamais : la grille
+  en rotation 3D crée son propre contexte d'empilement, et la boîte se
+  retrouvait derrière elle. Playwright trouvait le bouton, le voyait visible,
+  et attendait indéfiniment qu'il reçoive le pointeur — un écran sur lequel on
+  ne peut plus rien toucher, et aucune erreur pour le dire.
+
+  Une boîte modale n'appartient pas à un écran : elle appartient au composant.
+  Rendue ici, elle est hors de portée de tout ce que les écrans empilent.
+-->
+<CommentCaMarche boiteSeule enBoite={consigneOuverte} fermer={() => (consigneOuverte = false)}>
+  {@render consigne()}
+</CommentCaMarche>

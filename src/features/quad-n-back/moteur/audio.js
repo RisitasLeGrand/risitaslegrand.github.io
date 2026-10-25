@@ -22,6 +22,10 @@ class LecteurAudio {
     this.cache = new Map();
     this.ext = null;
     this.actif = true;
+    /** Vrai dès qu'une lecture a échoué dans la session en cours. */
+    this.aEchoue = false;
+    /** Posé par l'écran : appelé une fois quand la lecture échoue. */
+    this.surEchec = null;
   }
 
   url(lettre) {
@@ -41,8 +45,18 @@ class LecteurAudio {
 
   /**
    * Joue un son. N'attend pas la fin : la boucle de jeu doit rester à l'heure.
-   * Un échec (autorisation de lecture refusée) est silencieux — la partie
-   * continue, seule la dimension sonore devient inaudible.
+   *
+   * ## L'échec n'interrompt plus la partie, mais il ne se tait plus
+   *
+   * Il était silencieux, et c'était le défaut Q6 : sur un téléphone en mode
+   * silencieux, la dimension Son devenait inaudible SANS QUE RIEN NE LE DISE.
+   * On jouait une partie à quatre dimensions dont une était impossible, et le
+   * score en tenait compte — la faute paraissait venir de la personne.
+   *
+   * La partie continue (une exception ici arrêterait le jeu au premier
+   * stimulus), mais `surEchec` est appelé une fois, et l'écran décide quoi en
+   * faire. Une fois seulement : trente épreuves qui échouent ne sont pas
+   * trente nouvelles pour qui regarde.
    */
   jouer(lettre) {
     if (!this.actif || !lettre) return;
@@ -54,10 +68,26 @@ class LecteurAudio {
     try {
       element.currentTime = 0;
       const promesse = element.play();
-      if (promesse) promesse.catch(() => {});
+      if (promesse) promesse.catch(() => this.#direLEchec());
     } catch {
-      /* lecture impossible : on n'interrompt pas la partie */
+      this.#direLEchec();
     }
+  }
+
+  /** L'échec de lecture, dit une seule fois par session. */
+  #direLEchec() {
+    if (this.aEchoue) return;
+    this.aEchoue = true;
+    try {
+      this.surEchec?.();
+    } catch {
+      /* l'écran a le droit de ne rien savoir faire de cette nouvelle */
+    }
+  }
+
+  /** Remis à zéro au lancement d'une partie, pour que l'écran puisse redire. */
+  oublierLEchec() {
+    this.aEchoue = false;
   }
 
   /**

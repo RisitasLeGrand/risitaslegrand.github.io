@@ -21,6 +21,14 @@
     toutesLesSessionsRelationnelles,
     type SelectionEntrainement,
   } from '../../../lib/db';
+  import { tick } from 'svelte';
+  import { confirmer } from '../../../lib/boite';
+  import { amenerLaZone } from '../../cog-training/zone-de-jeu';
+  import CommentCaMarche from '../../cog-training/composants/CommentCaMarche.svelte';
+  import Glossaire from '../../cog-training/composants/Glossaire.svelte';
+  import Terme from '../../cog-training/composants/Terme.svelte';
+  import { registreDesTermes, CLEF_TERMES_VUS } from '../../cog-training/termes-vus';
+  import { setContext } from 'svelte';
   import MonEntrainement from '../../cog-training/composants/MonEntrainement.svelte';
   import type { GroupeUnites } from '../../cog-training/unites';
   import { gagnerXp, xpRelationnel } from '../../../lib/gamification';
@@ -35,6 +43,7 @@
     FAMILLES,
     etatDesMoteurs,
     itemsReussis,
+    echelonDeMoteur,
     prochainPalierSystemes,
     statistiques,
     type Trace,
@@ -55,11 +64,103 @@
     enonce: Item['enonce'];
     reponse: Reponse;
     explication: string;
+    /** Exemple résolu de la découverte : montré corrigé, et qui ne compte pas. */
+    exemple?: boolean;
   }
 
   const CLE_TUTORIELS = 'revinsp:rr:tutoriels';
 
   let etape = $state<Etape>('accueil');
+
+  /*
+     LE REGISTRE DES TERMES DÉJÀ VUS DANS L'ÉCRAN COURANT (P9).
+
+     Seule la première apparition d'un terme technique est interactive. Le
+     registre se vide au changement d'écran : « premier » veut dire premier de
+     CET écran, et quelqu'un qui lance directement une partie n'aurait jamais
+     vu un seul terme cliquable si le compte courait sur toute la session.
+  */
+  const termesVus = registreDesTermes();
+  setContext(CLEF_TERMES_VUS, termesVus);
+
+  /*
+     LA DÉCOUVERTE, et les deux types les plus concrets du constat P18.
+
+     « Conclusion d'une chaîne » et « Compléter l'analogie » : deux énoncés qui
+     se lisent sans vocabulaire. Le mode libre les ouvre sans toucher aux
+     déblocages gagnés — c'est la raison d'être de ce mode, et la découverte
+     doit marcher sur un profil neuf comme sur un profil avancé.
+  */
+  const MOTEURS_DECOUVERTE = ['chaine-conclusion', 'completion-analogie'];
+  const QUESTIONS_DECOUVERTE = 6;
+
+  let decouverte = $state(false);
+
+  /*
+     « terminer » ne s'exécute qu'une fois par session.
+
+     LE PROMPT DEMANDE DE VÉRIFIER QUE RIEN NE COMPTE DEUX FOIS. Vérifié, et
+     la réponse est : aujourd'hui, aucun geste n'y mène. « Arrêter » et le
+     passage de la dernière question appellent tous deux `terminer`, mais
+     celui-ci pose « etape = bilan » AVANT son premier `await` — le bouton
+     disparaît donc avant qu'un second clic puisse l'atteindre. Mesuré en
+     retirant ce verrou et en touchant deux fois « Voir le bilan » sans
+     attendre : une seule session, verrou ou pas.
+
+     Il reste quand même, et ce n'est pas de la superstition : il coûte deux
+     lignes, et il tombera à pic le jour où quelqu'un déplacera le changement
+     d'écran après une écriture. Mais il ne corrige aucun défaut constaté, et
+     je ne le présente pas comme tel.
+  */
+  let terminee = $state(false);
+
+  /**
+   * Les niveaux d'avant la session, par type de question.
+   *
+   * Pris au LANCEMENT, et non calculés après coup : `terminer` ajoute les
+   * nouvelles traces à `traces`, donc après lui il n'existe plus aucun moyen
+   * de savoir d'où l'on partait. Sans cette photo, « vous passez au niveau 3 »
+   * ne serait pas calculable — il faudrait relire la base d'avant, qui n'est
+   * plus là.
+   */
+  let niveauxAvant = $state<Record<string, number>>({});
+
+  /**
+   * Les niveaux qui ont bougé pendant la session.
+   *
+   * Une ligne par changement, et rien quand rien n'a bougé : annoncer
+   * « niveau inchangé » pour sept types de questions remplirait l'écran d'une
+   * information que personne ne cherche.
+   */
+  const montees = $derived.by(() =>
+    Object.entries(niveauxAvant)
+      .map(([id, avant]) => ({
+        nom: nomMoteur(id),
+        avant,
+        apres: echelonDeMoteur(traces, id),
+      }))
+      .filter((ligne) => ligne.apres !== ligne.avant),
+  );
+
+
+  /** La consigne, ouverte en boîte pendant la session (P2 du 51). */
+  let consigneOuverte = $state(false);
+
+  /** Le verdict, pour lui donner le focus après « Valider » (P6 du 51). */
+  let zoneDeVerdict = $state<HTMLElement | null>(null);
+
+  /** La zone de l'énoncé, amenée sous les yeux à chaque question (P1 du 51). */
+  let zoneDeJeu = $state<HTMLElement | null>(null);
+
+  /*
+     Rien ne démarre tout seul ici : aucune horloge ne court, et une question
+     attend sa réponse. Le défilement n'a donc pas à être attendu, contrairement
+     à Mémoire de travail, où la première épreuve défilait hors de l'écran.
+  */
+  async function montrerLEnonce() {
+    await tick();
+    void amenerLaZone(zoneDeJeu);
+  }
   let chargement = $state(true);
   let traces = $state<Trace[]>([]);
   let selection = $state<SelectionEntrainement>({ ...SELECTION_PAR_DEFAUT });
@@ -293,19 +394,78 @@
   }
 
   function commencer() {
+    decouverte = false;
     const session = composerSession(traces, selection.items, undefined, {
       moteurs: retenus,
       ordre: selection.ordre,
       modeLibre: selection.modeLibre,
     });
-    questions = session.items.flatMap(questionsDe);
+    lancer(session.items.flatMap(questionsDe));
+  }
+
+  /**
+   * La découverte : six questions des deux types les plus concrets, dont la
+   * première est déjà résolue.
+   *
+   * Elle n'écrit rien — ni session, ni trace, ni XP —, et `terminer` en sort
+   * avant la première écriture.
+   */
+  function commencerLaDecouverte() {
+    decouverte = true;
+    const session = composerSession(traces, QUESTIONS_DECOUVERTE, undefined, {
+      moteurs: MOTEURS_DECOUVERTE,
+      ordre: 'entrelace',
+      modeLibre: true,
+    });
+    /*
+       Les questions sont tronquées à six : un énoncé à suite en rend deux, et
+       `composerSession` compte des ÉNONCÉS. Sans cette coupe, une découverte
+       de six énoncés pourrait poser douze questions — le double de ce que son
+       bouton annonce.
+    */
+    const posees = session.items.flatMap(questionsDe).slice(0, QUESTIONS_DECOUVERTE);
+    if (posees.length) posees[0] = { ...posees[0], exemple: true };
+    lancer(posees);
+  }
+
+  function lancer(posees: Question[]) {
+    terminee = false;
+    niveauxAvant = Object.fromEntries(
+      [...new Set(posees.map((q) => q.item.moteur))].map((id) => [
+        id,
+        echelonDeMoteur(traces, id),
+      ]),
+    );
+    questions = posees;
     rang = 0;
     corrige = false;
     resultats = [];
     xpGagne = 0;
     debut = Date.now();
     reinitialiserReponse();
+    termesVus.vider();
     etape = questions.length ? 'question' : 'accueil';
+    if (etape === 'question') {
+      montrerLExempleSiBesoin();
+      void montrerLEnonce();
+    }
+  }
+
+  /**
+   * L'exemple résolu : la bonne réponse est posée et la correction ouverte.
+   *
+   * Il ne passe pas par `valider` et n'ajoute donc aucun résultat : un exemple
+   * qu'on n'a pas cherché ne doit ni compter comme réussi — ce serait flatter
+   * — ni comme manqué — ce serait injuste. Il ne compte pas, voilà tout.
+   */
+  function montrerLExempleSiBesoin() {
+    const q = questions[rang];
+    if (!q?.exemple) return;
+    if (q.reponse.genre === 'unique') choixUnique = q.reponse.bonne;
+    else if (q.reponse.genre === 'multiple') choixMultiples = [...q.reponse.bonnes];
+    else appariements = { ...q.reponse.paires };
+    corrige = true;
+    correctionOuverte = true;
   }
 
   function reinitialiserReponse() {
@@ -329,6 +489,14 @@
 
   function valider() {
     if (!repondu || corrige) return;
+    /*
+       Le focus part sur le verdict dès qu'il est rendu. `tick` est
+       indispensable : le bloc n'existe pas encore au moment de l'appel.
+    */
+    void (async () => {
+      await tick();
+      zoneDeVerdict?.focus();
+    })();
     resultats = [
       ...resultats,
       { question, note: noter(question.reponse, donnee()), donnee: donneePourCorrection() },
@@ -344,18 +512,57 @@
       : [...choixMultiples, index];
   }
 
+  /**
+   * Arrêter la session en cours, en gardant ce qui a été corrigé.
+   *
+   * Décision 2 : les questions déjà corrigées sont gardées. Elles le sont
+   * naturellement — « terminer » enregistre `resultats`, qui ne contient que
+   * les questions validées —, mais il fallait le DIRE : sans la phrase, on
+   * suppose qu'arrêter annule, comme dans Mémoire de travail où l'abandon
+   * n'enregistre rien. Deux exercices voisins qui se comportent autrement sur
+   * le même mot méritent que chacun l'écrive.
+   */
+  async function arreter() {
+    const oui = await confirmer({
+      titre: 'Arrêter la session ?',
+      texte: 'Les questions déjà corrigées sont gardées.',
+      action: 'Arrêter',
+      annuler: 'Continuer',
+    });
+    if (!oui) return;
+    await terminer();
+  }
+
   async function suivant() {
     if (rang + 1 < questions.length) {
       rang += 1;
       corrige = false;
       correctionOuverte = false;
       reinitialiserReponse();
+      montrerLExempleSiBesoin();
+      void montrerLEnonce();
       return;
     }
     await terminer();
   }
 
   async function terminer() {
+    if (terminee) return;
+    terminee = true;
+
+    /*
+       LA DÉCOUVERTE N'ÉCRIT RIEN, et contrairement à Mémoire de travail cet
+       exercice n'avait aucun garde-fou : « terminer » enregistrait la session,
+       les traces et l'XP sans condition. Le mettre ICI, avant le premier
+       calcul, plutôt qu'autour de chaque écriture : une garde par écriture
+       serait une garde à oublier à la prochaine.
+    */
+    if (decouverte) {
+      termesVus.vider();
+      etape = 'bilan';
+      return;
+    }
+
     const secondes = Math.round((Date.now() - debut) / 1000);
     const reussis = resultats.filter((r) => r.note >= 1).length;
     const echelons = resultats.map(
@@ -417,11 +624,11 @@
       resultats[resultats.length - 1]?.donnee ?? null,
     );
     ouvrirAssistant({
-      titre: 'Préparer une question pour une IA — Relational Reasoning',
-      matiere: 'Cog-Training',
+      titre: 'Préparer une question pour une IA — Raisonnement relationnel',
+      matiere: 'Entraînement cognitif',
       construireContexte: async () =>
         contexteCogTraining({
-          exercice: 'Relational Reasoning',
+          exercice: 'Raisonnement relationnel',
           moteur: moteur
             ? { nom: moteur.nom, resume: moteur.resume, famille: moteur.categorie }
             : undefined,
@@ -439,9 +646,38 @@
   const resumeMoteur = (id: string) => moteurParId(id)?.resume ?? '';
 </script>
 
+{#snippet consigne()}
+  <!--
+    LE TEXTE DU CONSTAT P2, À UN CHIFFRE PRÈS, ET LE CHIFFRE EST FAUX DEUX FOIS.
+
+    L'audit écrit « Une session compte 12 questions ». Or 12 est le nombre
+    d'ÉNONCÉS par défaut (`SELECTION_PAR_DEFAUT.items`), qui se règle ; et
+    `questionsDe` rend DEUX questions pour un énoncé à suite — une session de
+    douze énoncés en pose donc de douze à vingt-quatre. Annoncer « 12
+    questions » serait faux au réglage par défaut lui-même, dès qu'un énoncé à
+    suite est tiré. Le nombre affiché est donc celui du réglage, et la phrase
+    dit ce qu'il compte.
+
+    La durée, en revanche, est celle de l'audit : aucune session enregistrée ne
+    permet de la mesurer sur contenu d'exemple, et je ne remplace pas une
+    estimation par une autre.
+  -->
+  <p>
+    On vous montre quelques faits sur des personnes, des objets ou des mots
+    inventés. La règle qui les relie n'est pas dite : à vous de la trouver, puis
+    de répondre. Chaque réponse est corrigée aussitôt, avec l'explication.
+  </p>
+  <p class="mt-2">
+    Une session compte {selection.items} énoncés, et une dizaine de minutes.
+    Certains énoncés se poursuivent par une seconde question.
+  </p>
+{/snippet}
+
 {#if chargement}
   <p class="py-16 text-center text-sm text-slate-400">Lecture de votre progression…</p>
 {:else if etape === 'accueil'}
+  <CommentCaMarche ouvert={traces.length === 0}>{@render consigne()}</CommentCaMarche>
+    <Glossaire ou="raisonnement" />
   <section class="rounded-xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
     <div class="flex flex-wrap items-start justify-between gap-3">
       <div>
@@ -515,22 +751,67 @@
       </p>
     {/if}
 
-    <button
-      type="button"
-      onclick={commencer}
-      disabled={retenus.length === 0}
-      class="mt-5 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white
-        hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
-    >Commencer</button>
+    <!--
+      « ESSAYER D'ABORD » EST EN PREMIER tant qu'aucune session n'a été jouée,
+      et derrière ensuite. Il n'est jamais désactivé, lui : la découverte
+      choisit ses propres types et n'a pas besoin de la sélection, alors que
+      « Commencer » exige au moins une unité cochée. C'est précisément ce qui
+      la rend utile à qui arrive et ne sait pas quoi cocher.
+    -->
+    <div class="mt-5 flex flex-wrap gap-3 {traces.length === 0 ? 'flex-row-reverse justify-end' : ''}">
+      <button
+        type="button"
+        onclick={commencer}
+        disabled={retenus.length === 0}
+        class="rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white
+          hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-40"
+      >Commencer</button>
+      <button
+        type="button"
+        onclick={commencerLaDecouverte}
+        class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700
+          hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
+      >Essayer d'abord ({QUESTIONS_DECOUVERTE} questions, dont un exemple)</button>
+    </div>
   </section>
 {:else if etape === 'question' && question}
-  <section>
+  <section bind:this={zoneDeJeu} data-zone-de-jeu>
     <div class="mb-4 flex items-center justify-between gap-4">
-      <p class="text-xs font-medium uppercase tracking-wide text-indigo-700 dark:text-indigo-300">
+      <p class="text-xs font-medium tracking-wide text-indigo-700 dark:text-indigo-300">
         {nomMoteur(question.item.moteur)}{question.second ? ' — second temps' : ''}
       </p>
-      <p class="text-xs text-slate-500 dark:text-slate-400">{rang + 1} / {questions.length}</p>
+      <div class="flex items-center gap-3">
+        <button
+          type="button"
+          onclick={arreter}
+          class="shrink-0 text-sm text-slate-500 hover:underline dark:text-slate-400"
+        >← Arrêter</button>
+        <!--
+          Pas de pause ici, et ce n'est pas un oubli : rien ne court dans
+          Raisonnement — une question attend sa réponse aussi longtemps qu'il
+          faut. Mettre en pause ce qui est déjà arrêté n'aurait rien à arrêter.
+        -->
+        <button
+          type="button"
+          onclick={() => (consigneOuverte = true)}
+          class="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600
+            hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300"
+        >Revoir la consigne</button>
+        <p class="text-xs text-slate-500 dark:text-slate-400">{rang + 1} / {questions.length}</p>
+      </div>
     </div>
+
+
+    {#if question.exemple}
+      <!--
+        L'EXEMPLE SE DIT AVANT D'ÊTRE LU. Une question déjà corrigée sans
+        prévenir passe pour une panne : on croit avoir répondu sans le vouloir.
+      -->
+      <p class="mb-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-700 dark:border-slate-700 dark:bg-slate-800/50 dark:text-slate-200">
+        <strong class="font-semibold">Exemple : voici comment lire l'énoncé.</strong>
+        La réponse est déjà cochée et expliquée. Les questions suivantes seront à vous.
+      </p>
+    {/if}
 
     <div class="h-1 overflow-hidden rounded bg-slate-200 dark:bg-slate-800">
       <div class="jauge-remplissage jauge-seance h-full bg-indigo-500" style="transform: scaleX({rang / questions.length})"></div>
@@ -615,9 +896,21 @@
                 <option value={valeur}>{valeur}</option>
               {/each}
             </select>
-            {#if corrige && appariements[clef] !== question.reponse.paires[clef]}
+            <!--
+              UN SIGNE SUR CHAQUE LIGNE, et pas seulement sur les fausses.
+
+              Avant, le cadre portait seul la justesse, et « réponse : α »
+              n'apparaissait QUE sur les lignes manquées. Une ligne juste
+              n'était donc distinguée que par sa teinte : rien à lire, rien à
+              entendre. Marquer les deux cas coûte un caractère et rend la
+              correction lisible sans la vue.
+            -->
+            {#if corrige}
+              {@const juste = appariements[clef] === question.reponse.paires[clef]}
               <span class="text-xs text-slate-600 dark:text-slate-300">
-                réponse : {question.reponse.paires[clef]}
+                <span aria-hidden="true">{juste ? '✓' : '✗'}</span>
+                <span class="sr-only">{juste ? 'juste' : 'inexact'}</span>
+                {#if !juste}réponse : {question.reponse.paires[clef]}{/if}
               </span>
             {/if}
           </div>
@@ -628,7 +921,20 @@
     {#if corrige}
       {@const dernier = resultats[resultats.length - 1]}
       {@const note = dernier?.note ?? 0}
-      <div class="mt-5 rounded-lg border p-4 text-sm
+      <!--
+        Le verdict est annoncé ET prend le focus.
+
+        Les deux, parce qu'ils ne servent pas la même personne : la région
+        « status » lit le verdict à qui écoute, le focus amène au verdict qui
+        navigue au clavier — sans lui, « Valider » laissait le focus sur un
+        bouton disparu, et la tabulation reprenait au début de la page. C'est
+        « tabindex=-1 » qui le rend atteignable sans l'ajouter au parcours.
+      -->
+      <div
+        bind:this={zoneDeVerdict}
+        role="status"
+        tabindex="-1"
+        class="mt-5 rounded-lg border p-4 text-sm outline-none
         {note >= 1
           ? 'border-emerald-300 bg-emerald-50 dark:border-emerald-700 dark:bg-emerald-950/30'
           : note > 0
@@ -738,16 +1044,63 @@
   </section>
 {:else}
   <section>
-    <h2 class="font-semibold text-slate-900 dark:text-white">Bilan de la session</h2>
-    <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
-      {reussis} réponse{reussis > 1 ? 's' : ''} exacte{reussis > 1 ? 's' : ''} sur {resultats.length}{#if partielles},
-      et {partielles} partiellement juste{partielles > 1 ? 's' : ''}{/if}.
-      {#if xpGagne}<span class="font-medium text-indigo-700 dark:text-indigo-300">+{xpGagne} XP.</span>{/if}
-    </p>
+    <h2 class="font-semibold text-slate-900 dark:text-white">
+      {decouverte ? 'Découverte terminée' : 'Bilan de la session'}
+    </h2>
+    {#if decouverte}
+      <!--
+        Le bilan d'une découverte dit d'abord qu'elle ne compte pas. Le dire
+        APRÈS le score donnerait à lire un résultat avant d'apprendre qu'il
+        n'en est pas un.
+      -->
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+        Rien n'a été enregistré : ni résultat, ni niveau, ni points. Les explications
+        restent lisibles ci-dessous. Quand vous voudrez que cela compte, touchez
+        « Commencer ».
+      </p>
+    {/if}
+    {#if !decouverte}
+      <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
+        {reussis} réponse{reussis > 1 ? 's' : ''} exacte{reussis > 1 ? 's' : ''} sur {resultats.length}{#if partielles},
+        et {partielles} partiellement juste{partielles > 1 ? 's' : ''}{/if}.
+        {#if xpGagne}<span class="font-medium text-indigo-700 dark:text-indigo-300">+{xpGagne} XP.</span>{/if}
+      </p>
+    {/if}
+
+    <!--
+      LES DEUX LIGNES QUI MANQUAIENT (constat P8) : ce qui progresse, et la
+      suite.
+
+      Le bilan disait combien de réponses étaient exactes, puis listait les
+      items à revoir. Entre les deux, rien : ni les niveaux qui venaient de
+      bouger — l'information que la session produit — ni ce qu'il reste à
+      faire pour ouvrir le palier suivant. Il fallait retourner à l'écran de
+      réglages et comparer de tête.
+    -->
+    {#if !decouverte && montees.length}
+      <h3 class="mt-6 text-sm font-semibold text-slate-900 dark:text-white">Ce qui a bougé</h3>
+      <ul class="mt-2 space-y-1 text-sm text-slate-600 dark:text-slate-300">
+        {#each montees as ligne (ligne.nom)}
+          <li>
+            {ligne.nom} : vous
+            {ligne.apres > ligne.avant ? 'passez' : 'redescendez'} au niveau
+            <strong>{ligne.apres}</strong>.
+          </li>
+        {/each}
+      </ul>
+    {/if}
+
+    {#if !decouverte && palier}
+      <p class="mt-4 text-sm text-slate-600 dark:text-slate-300">
+        Prochaine étape : encore <strong>{palier.reste}</strong>
+        question{palier.reste > 1 ? 's' : ''} réussie{palier.reste > 1 ? 's' : ''}
+        pour ouvrir « {palier.palier.nom} ».
+      </p>
+    {/if}
 
     {#if manques.length}
       <h3 class="mt-6 text-sm font-semibold text-slate-900 dark:text-white">
-        Les {manques.length} item{manques.length > 1 ? 's' : ''} à revoir
+        Les {manques.length} question{manques.length > 1 ? 's' : ''} à revoir
       </h3>
       <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
         Relire une explication juste après la session vaut mieux que la remettre à plus tard.
@@ -755,7 +1108,7 @@
       <ul class="mt-3 space-y-3">
         {#each manques as manque, i (i)}
           <li class="rounded-lg border border-slate-200 p-4 dark:border-slate-800">
-            <p class="text-xs font-medium uppercase tracking-wide text-slate-500 dark:text-slate-400">
+            <p class="text-xs font-medium tracking-wide text-slate-500 dark:text-slate-400">
               {nomMoteur(manque.question.item.moteur)}
               {#if manque.note > 0}— {Math.round(manque.note * 100)} %{/if}
             </p>
@@ -794,13 +1147,30 @@
         {/each}
       </ul>
     {:else}
-      <p class="mt-4 text-sm text-emerald-700 dark:text-emerald-300">Aucun item manqué.</p>
+      <p class="mt-4 text-sm text-emerald-700 dark:text-emerald-300">Aucune question manquée.</p>
     {/if}
 
     <button
       type="button"
       onclick={() => (etape = 'accueil')}
       class="mt-6 rounded-lg bg-indigo-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-indigo-700"
-    >Nouvelle session</button>
+    >Retour aux réglages</button>
   </section>
 {/if}
+
+<!--
+  LA BOÎTE DE LA CONSIGNE VIT AU NIVEAU DU COMPOSANT, hors de tout écran.
+
+  Elle était d'abord rendue dans l'écran de jeu, à côté de la grille. Dans
+  Mémoire de travail, le clic sur « Reprendre » n'arrivait jamais : la grille
+  en rotation 3D crée son propre contexte d'empilement, et la boîte se
+  retrouvait derrière elle. Playwright trouvait le bouton, le voyait visible,
+  et attendait indéfiniment qu'il reçoive le pointeur — un écran sur lequel on
+  ne peut plus rien toucher, et aucune erreur pour le dire.
+
+  Une boîte modale n'appartient pas à un écran : elle appartient au composant.
+  Rendue ici, elle est hors de portée de tout ce que les écrans empilent.
+-->
+<CommentCaMarche boiteSeule enBoite={consigneOuverte} fermer={() => (consigneOuverte = false)}>
+  {@render consigne()}
+</CommentCaMarche>

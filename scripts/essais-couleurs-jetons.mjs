@@ -54,10 +54,13 @@ const EXCEPTIONS = [
   {
     fichier: 'src/features/quad-n-back/moteur/constantes.js',
     raison:
-      'les stimuli du Quad N-Back : huit couleurs à distinguer, les faces du ' +
-      'cube et les retours. Ce sont des éléments d’épreuve, comme le dessin ' +
-      'd’une icône ; suivre le thème les rendrait incomparables d’une séance ' +
-      'à l’autre, et dans Ardoise la dimension « couleur » disparaîtrait',
+      'les stimuli du Quad N-Back : huit couleurs à distinguer et les faces du ' +
+      'cube. Ce sont des éléments d’épreuve, comme le dessin d’une icône ; ' +
+      'suivre le thème les rendrait incomparables d’une séance à l’autre, et ' +
+      'dans Ardoise la dimension « couleur » disparaîtrait. LES RETOURS, eux, ' +
+      'sont passés aux jetons au prompt 51 : ils disent juste ou faux, ce qui ' +
+      'est de l’interface et non de l’épreuve — l’exception s’est donc ' +
+      'resserrée, elle ne couvre plus que les stimuli',
   },
 ];
 
