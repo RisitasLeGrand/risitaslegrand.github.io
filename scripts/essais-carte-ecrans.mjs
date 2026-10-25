@@ -202,8 +202,64 @@ verifier(
 /** route → Map(cible → coût du lien) */
 const liens = new Map();
 
+/**
+ * L'aperçu répond-il ? Demandé à Node, et non au navigateur.
+ *
+ * C'EST LA SEULE GARDE QUI ATTRAPE CE QUI EST ARRIVÉ, et les deux premières
+ * que j'avais écrites étaient inertes. Elles guettaient un `goto` rejeté,
+ * puis une page sans aucune ancre. Ni l'un ni l'autre ne se produit, et le
+ * sabotage l'a montré deux fois : avec l'aperçu ARRÊTÉ au milieu du passage
+ * — « Stopped preview server (pid 4189) », plus rien n'écoutant sur le port —
+ * les pages continuaient de se rendre, avec leurs ancres, et les verdicts
+ * s'affichaient.
+ *
+ * La raison est le SERVICE WORKER. `franchirInitialisation` ouvre
+ * l'application, qui l'enregistre, et il sert ensuite les pages depuis son
+ * cache : c'est son office, et c'est ce que le site promet hors ligne.
+ * Vérifié : dans un contexte NEUF, sans service worker, la même navigation
+ * est rejetée par « net::ERR_CONNECTION_REFUSED ».
+ *
+ * L'essai mesurait donc un site HORS LIGNE sans le savoir, sur des pages
+ * mises en cache à des moments différents — d'où un graphe troué, vingt-
+ * quatre routes « à l'infini », et trois verdicts qui accusaient la carte du
+ * site d'un défaut qui n'existe pas. Il a coûté une heure de diagnostic le
+ * 25 octobre, sur un rouge du socle que j'avais provoqué moi-même en
+ * reconstruisant pendant le passage.
+ *
+ * Le navigateur ne peut donc pas répondre à la question : par construction,
+ * il ne la distingue pas. Node, lui, n'a pas de service worker.
+ */
+const apercuRepond = () =>
+  fetch(`${RACINE}/robots.txt`, { signal: AbortSignal.timeout(10_000) })
+    .then((r) => r.ok)
+    .catch(() => false);
+
+/*
+   UNE NAVIGATION QUI ÉCHOUE NE DOIT PAS ÊTRE AVALÉE, ET ELLE L'ÉTAIT.
+
+   Le `goto` portait un `.catch(() => {})`. Conséquence : une route qui ne
+   répond pas ne rend aucun lien, et le graphe se referme sans rien dire —
+   les écrans qu'elle seule atteignait deviennent « à l'infini », et l'essai
+   accuse la carte du site d'un défaut qui n'existe pas.
+
+   C'est arrivé le 25 octobre, et c'est moi qui l'ai provoqué : j'ai
+   reconstruit et redémarré l'aperçu PENDANT que le socle tournait. Cet
+   essai était le seizième sur vingt-six. Il a rendu « /sport/force/ sans
+   lien entrant » et quatre routes de sport à l'infini. Relancé sur un
+   aperçu stable, tout est vert — la navigation rend bien les six liens de
+   la branche sport depuis « /sport/ ».
+
+   Une heure de diagnostic pour une cause qui n'était pas dans le code. Les
+   échecs sont donc COMPTÉS, et l'essai refuse plutôt que de juger sur un
+   graphe troué : mieux vaut « je n'ai pas pu mesurer » que « votre site est
+   mal relié ».
+*/
+const injoignables = [];
+
 for (const route of ROUTES) {
-  await page.goto(`${RACINE}${route}`, { waitUntil: 'networkidle' }).catch(() => {});
+  await page.goto(`${RACINE}${route}`, { waitUntil: 'networkidle' }).catch((e) => {
+    injoignables.push(`${route} — ${String(e?.message ?? e).split('\n')[0]}`);
+  });
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
     await page.click('#bouton-verrou');
@@ -211,8 +267,18 @@ for (const route of ROUTES) {
   }
   await page.waitForTimeout(500);
 
+  /*
+     ON REND UN OBJET, ET NON UN TABLEAU PORTANT UNE PROPRIÉTÉ.
+
+     Première écriture : `const out = []` puis `out.ancres = …`. En JavaScript
+     c'est licite, et `page.evaluate` l'a pourtant perdu — la valeur traverse
+     la frontière en JSON, et JSON.stringify d'un tableau ne garde que ses
+     indices. `trouves.ancres` valait donc `undefined` du côté de Node, le
+     refus ne se déclenchait jamais, et le sabotage l'a dit.
+  */
   const trouves = await page.evaluate(() => {
     const out = [];
+    const ancres = document.querySelectorAll('a[href]').length;
     for (const a of document.querySelectorAll('a[href]')) {
       const href = a.getAttribute('href') ?? '';
       if (!href.startsWith('/') && !href.startsWith(location.origin)) continue;
@@ -222,11 +288,26 @@ for (const route of ROUTES) {
       // La feuille « Plus » doit être ouverte : ses liens coûtent un appui de plus.
       out.push({ chemin, cout: a.closest('#feuille-plus') ? 2 : 1 });
     }
-    return out;
+    return { ancres, liens: out };
   });
 
+  /*
+     LE VRAI SIGNE D'UNE PAGE QUI N'A PAS RENDU, et non l'échec du `goto`.
+
+     Le refus posé plus bas guettait d'abord un `goto` rejeté. Le sabotage l'a
+     démenti : en coupant l'aperçu au milieu du passage, aucune navigation
+     n'est rejetée — elle réussit, sur une page qui ne porte rien. Les
+     verdicts s'affichaient donc quand même, avec vingt-quatre routes « à
+     l'infini » et trois contrôles rouges, pour une cause extérieure au site.
+
+     Le signe sûr est ailleurs : CHAQUE écran de ce site porte la barre de
+     navigation, donc au moins une ancre. Zéro ancre veut dire que la page
+     n'a pas rendu, et c'est mesurable sans rien supposer du contenu.
+  */
+  if (trouves.ancres === 0) injoignables.push(`${route} — aucune ancre rendue`);
+
   const m = liens.get(route) ?? new Map();
-  for (const { chemin, cout } of trouves) {
+  for (const { chemin, cout } of trouves.liens) {
     if (!EST_ROUTE.has(chemin) || chemin === route) continue;
     const a = m.get(chemin);
     if (a === undefined || cout < a) m.set(chemin, cout);
@@ -236,6 +317,34 @@ for (const route of ROUTES) {
 
 await contexte.close();
 await nav.close();
+
+/*
+   L'APERÇU RÉPONDAIT-IL ENCORE À LA FIN ? S'il est tombé en route, tout ce
+   qui précède a été relevé sur le cache du service worker, et le graphe ne
+   dit rien du site.
+*/
+if (!(await apercuRepond())) {
+  console.log(
+    `\n\x1b[31m✗ REFUS\x1b[0m — l’aperçu ne répond plus sur ${RACINE}.\n` +
+      '  Les pages ont continué de se rendre : le service worker les sert depuis son\n' +
+      '  cache, et c’est son office. Mais le graphe relevé est alors celui d’un site\n' +
+      '  hors ligne, mis en cache à des moments différents — il ne dit rien de la\n' +
+      '  carte du site. Ne reconstruisez pas et ne redémarrez pas l’aperçu pendant\n' +
+      '  un passage.',
+  );
+  process.exit(1);
+}
+
+if (injoignables.length > 0) {
+  console.log(
+    `\n\x1b[31m✗ REFUS\x1b[0m — ${injoignables.length} route${injoignables.length > 1 ? 's' : ''} ` +
+      `n’${injoignables.length > 1 ? 'ont' : 'a'} pas répondu. Le graphe serait troué, et les\n` +
+      '  écrans qu’elles seules atteignent passeraient pour inatteignables. Vérifiez que\n' +
+      '  l’aperçu est bien en ligne et qu’il n’a pas été redémarré pendant le passage.',
+  );
+  for (const r of injoignables.slice(0, 10)) console.log(`      ${r}`);
+  process.exit(1);
+}
 
 /* ------------------------------------------------------------------ */
 
