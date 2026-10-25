@@ -1670,21 +1670,39 @@ button:not(:disabled):active,
    Deux réglages que le système offre et que le site ignorait : zéro règle
    « prefers-contrast », zéro règle « forced-colors » avant ce bloc.
 
-   ## Pourquoi « forced-colors » demande du travail
+   ## « forced-colors » : ce que la mesure a démenti, et ce qui reste
 
-   Quand le système impose ses couleurs — contraste élevé de Windows, et les
-   équivalents ailleurs —, le navigateur remplace lui-même les couleurs de
-   texte, de fond et de bordure. Mais il SUPPRIME les ombres portées. Or dix
+   Quand le système impose ses couleurs, le navigateur remplace celles du
+   texte, du fond et des bordures, et il SUPPRIME les ombres portées. Dix
    endroits du site posent « outline-none » et confient le focus à un
-   « ring-* », qui est une ombre portée : dans ce mode, ces dix éléments
-   perdent TOUT indicateur de focus, et l'on ne sait plus où l'on est au
-   clavier. La règle globale « :focus-visible » d'en haut ne les rattrape pas,
-   puisqu'ils l'ont explicitement annulée.
+   « ring-* », qui est une ombre : j'en avais conclu que ces dix éléments
+   perdaient TOUT indicateur de focus.
 
-   D'où « !important », qui n'est pas une facilité ici : il faut passer devant
-   des classes utilitaires écrites dans le gabarit, et le faire seulement dans
-   ce mode. « Highlight » est la couleur que le système réserve à la sélection,
-   donc celle qu'il garantit visible sur son propre fond.
+   C'EST FAUX, et la mesure l'a dit. Sur le champ de mot de passe, le plus
+   exposé des dix, sans aucune des règles ci-dessous :
+
+     forcedColors=active   outline 2px solid rgba(5,0,73,.8)  ombre : none
+     forcedColors=none     outline 2px solid rgb(11,79,138)   ombre : présente
+
+   L'ombre disparaît bien — cette moitié du raisonnement était juste — mais le
+   contour de « :focus-visible » d'en haut SURVIT, et le focus reste visible.
+   Les classes utilitaires ne l'emportent pas sur lui.
+
+   Ce qui reste donc ci-dessous n'est pas un correctif : c'est une précision.
+   « Highlight » est la couleur que le système RÉSERVE à la sélection, donc
+   celle qu'il garantit visible sur son propre fond, là où une couleur
+   substituée par le navigateur est un choix par défaut. Et « currentColor » sur
+   les pictogrammes les protégera le jour où le site en portera — il en compte
+   sept aujourd'hui.
+
+   UNE LIMITE À CONNAÎTRE, pour ne pas croire l'essai plus qu'il ne dit :
+   l'émulation de Playwright applique la requête de media et retire les ombres,
+   mais n'installe pas de VRAIE palette système. Elle n'éprouve donc pas la
+   substitution des couleurs. Ce qui est prouvé ici, c'est que la requête
+   s'applique et que l'ombre tombe ; pas le rendu sous un contraste élevé réel.
+
+   D'où « !important » quand même : il faut passer devant des classes
+   utilitaires, et seulement dans ce mode.
 
    ## Pourquoi « prefers-contrast » ne demande presque rien
 
@@ -1695,12 +1713,25 @@ button:not(:disabled):active,
 
 @media (prefers-contrast: more) {
   :root {
+    /*
+       « !important », et il est nécessaire, pas commode.
+
+       Les quatorze thèmes sont servis depuis « public/themes/ » et injectés
+       par un « <link> » AJOUTÉ À LA FIN DU HEAD au moment où l'on choisit son
+       thème. Cette feuille arrive donc après celle-ci dans la cascade et
+       l'emportait : mesuré, « --etat-texte-faible » restait à « #59616c » au
+       lieu de rejoindre « #1c2430 », et la règle ne servait à rien.
+
+       Le choix de fond est celui de la personne ; la demande de contraste est
+       celle de son système d'exploitation, faite pour voir. La seconde doit
+       passer devant la première, et c'est tout ce que « !important » dit ici.
+    */
     /* Le gris de confort devient la couleur du texte : les mentions
        secondaires cessent d'être « presque lisibles ». */
-    --etat-texte-faible: var(--etat-texte);
+    --etat-texte-faible: var(--etat-texte) !important;
     /* Une bordure discrète ne sert à rien quand on demande du contraste. */
-    --etat-bordure: var(--etat-texte-fort);
-    --etat-bordure-forte: var(--etat-texte-fort);
+    --etat-bordure: var(--etat-texte-fort) !important;
+    --etat-bordure-forte: var(--etat-texte-fort) !important;
   }
 
   /* Le focus se voit de plus loin. */
@@ -1708,12 +1739,18 @@ button:not(:disabled):active,
     outline-width: 3px;
   }
 
-  /* Les surfaces qui ne se distinguaient que par une nuance de fond prennent
-     un trait : « --etat-fond-alt » et « --etat-fond-eleve » sont proches du
-     fond par construction, et deux cartes voisines se confondaient. */
-  :where([class*='bg-']) {
-    border-color: var(--etat-bordure);
-  }
+  /*
+     PAS DE RÈGLE ATTRAPE-TOUT ICI, et c'est délibéré.
+
+     J'avais écrit « :where([class*='bg-']) { border-color: … } », pour que deux
+     cartes voisines cessent de se confondre. C'était une mauvaise idée : le
+     sélecteur attrape des centaines d'éléments, dont la plupart tirent leur
+     bordure de la palette de Tailwind et non de nos jetons, et il leur aurait
+     imposé une couleur sur tous les écrans à la fois. Repeindre largement pour
+     corriger un cas qu'on n'a pas mesuré, c'est la façon la plus sûre de casser
+     ailleurs. Le relèvement des jetons ci-dessus suffit à tout ce qui les
+     emploie ; si un écran se confond encore, il faudra le mesurer et le nommer.
+  */
 }
 
 @media (forced-colors: active) {
