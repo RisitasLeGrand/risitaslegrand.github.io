@@ -54,6 +54,14 @@ const JOUR =
 
 /** Couverture de l'étiquetage de temporalité, par nature. */
 const parNature = new Map();
+/*
+ * L'échéance passée se compte, et ne se lit pas seulement dans le flot des
+ * alertes. Une alerte dit « celle-ci » ; un décompte dit « combien », et c'est
+ * le second qui permet de voir une dette grossir d'un passage au suivant. Les
+ * vingt premières alertes seules sont affichées — sans ce décompte, une dette
+ * de cent questions se lirait comme une dette de vingt.
+ */
+const echeances = { expirees: 0, aRevoir: 0 };
 
 /** Un compteur de couverture par périmètre. */
 function compteur() {
@@ -215,6 +223,7 @@ function controlerLaTemporalite(nom, question) {
   if (t.expire_le && t.expire_le < JOUR) {
     const message =
       `qcm-dgfip/${nom} : « ${titre} » a expiré le ${t.expire_le} (nature « ${t.nature} »)`;
+    echeances.expirees += 1;
     if (t.nature === 'a-venir') {
       erreurs.push(`${message} — une échéance annoncée comme future est passée, et nul ne l'a relue`);
     } else {
@@ -222,6 +231,7 @@ function controlerLaTemporalite(nom, question) {
     }
   }
   if (t.a_reverifier_le && t.a_reverifier_le < JOUR) {
+    echeances.aRevoir += 1;
     alertes.push(
       `qcm-dgfip/${nom} : « ${titre} » était à revérifier le ${t.a_reverifier_le}`,
     );
@@ -329,6 +339,28 @@ if (parNature.size) {
   console.log(
     couleur.faible(`  ${'étiquetées'.padEnd(24)}${String(etiquetees).padStart(5)} sur ${totalQ}`),
   );
+
+  /*
+   * Les deux échéances passées, en regard de l'étiquetage. Elles ne font pas
+   * échouer la construction — l'expirée est déjà retirée du tirage, et
+   * « à revérifier » dit « rouvre le dossier », pas « ceci est faux ». Mais
+   * elles se comptent, parce qu'une dette qu'on ne mesure pas ne se résorbe
+   * pas, et parce que la liste des alertes est tronquée à vingt.
+   *
+   * Les deux lignes s'affichent même à zéro, contrairement aux natures
+   * au-dessus qui se taisent quand elles sont vides. Une nature absente ne dit
+   * rien ; une dette à zéro dit que le contrôle a tourné et n'a rien trouvé.
+   * Se taire laisserait le lecteur sans moyen de distinguer « aucune échéance
+   * passée » de « personne ne regarde les échéances ».
+   */
+  console.log('');
+  for (const [quoi, n] of [
+    ['expirées, hors tirage', echeances.expirees],
+    ['échéance de revue passée', echeances.aRevoir],
+  ]) {
+    const ligne = `  ${quoi.padEnd(24)}${String(n).padStart(5)}`;
+    console.log(n > 0 ? couleur.jaune(ligne) : couleur.faible(ligne));
+  }
 }
 
 if (alertes.length > 0) {
