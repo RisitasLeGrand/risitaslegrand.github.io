@@ -370,6 +370,72 @@ export const quizSchema = z
     };
   });
 
+/**
+ * Un organigramme consultable, déclaré dans « ## Organigrammes ».
+ *
+ * ## Pourquoi la date et la source sont OBLIGATOIRES ici
+ *
+ * Un visuel de correction se lit à côté de la question qu'il corrige : son
+ * contexte le date. Un organigramme de référence, lui, se consulte seul, des
+ * mois plus tard — et l'organisation d'une administration bouge. Un
+ * organigramme sans date est une affirmation sans réserve : celui de la
+ * direction régionale d'Île-de-France vaut pour juillet 2025, celui d'une
+ * direction départementale pour l'annonce qui l'a décrit, et confondre les
+ * deux fait apprendre un état qui n'existe plus.
+ *
+ * Le build refuse donc les deux absences, plutôt que de les signaler. Un
+ * avertissement se lit une fois et s'oublie ; un refus se corrige.
+ *
+ * La date accepte « 2025-07 » comme « 2025-07-15 » : beaucoup de documents
+ * officiels ne datent qu'au mois — « mise à jour au 07/2025 » —, et exiger un
+ * jour obligerait à en inventer un.
+ */
+const SANS_SOURCE =
+  'un organigramme sans source est une affirmation sans preuve : nommez le document';
+const SANS_DATE =
+  'un organigramme sans date est une affirmation sans réserve : « 2025-07 » ou « 2025-07-15 »';
+
+/*
+   TROIS PIÈGES DE VALIDATION, ET MON PROPRE ESSAI LES A TROUVÉS.
+
+   1. « .min(1, message) » ne dit RIEN quand la clé est absente : zod rend
+      alors son message générique, « Invalid input », et la personne qui écrit
+      du contenu ne sait pas ce qu'on lui demande. Le message va donc sur le
+      TYPE, où il couvre l'absence comme le mauvais type.
+   2. « .min(1) » accepte « '   ' » : trois espaces font une chaîne de
+      longueur trois. Sans « .trim() » devant, une source faite d'espaces
+      passait — c'est-à-dire une source absente qui se déclare présente.
+   3. « .trim() » normalise aussi ce qui est stocké, donc le contenu publié ne
+      porte pas les espaces de frappe.
+*/
+export const organigrammeSchema = z.object({
+  titre: z
+    .string({ message: 'un organigramme a besoin d’un titre' })
+    .trim()
+    .min(1, 'un organigramme a besoin d’un titre'),
+  donnees: z.unknown(),
+  alt: z
+    .string({ message: '« alt » est obligatoire : c’est ce que lit un lecteur d’écran' })
+    .trim()
+    .min(1, '« alt » est obligatoire : c’est ce que lit un lecteur d’écran'),
+  legende: z.string().trim().optional(),
+  source: z.string({ message: SANS_SOURCE }).trim().min(1, SANS_SOURCE),
+  date: z
+    .string({ message: SANS_DATE })
+    .trim()
+    .regex(/^\d{4}-\d{2}(-\d{2})?$/, SANS_DATE),
+}).superRefine((v, ctx) => {
+  /*
+     Les données sont celles d'un visuel « schema », et elles passent par le
+     même contrôle que dans une correction : une rangée mal déclarée, un lien
+     vers un nœud absent, un libellé trop long échouent ici plutôt qu'au
+     rendu, devant la personne qui consulte.
+  */
+  for (const message of defautsDesDonnees('schema', v.donnees)) {
+    ctx.addIssue({ code: 'custom', message });
+  }
+});
+
 export const glossaireSchema = z.array(
   z.object({
     terme: z.string().min(1),

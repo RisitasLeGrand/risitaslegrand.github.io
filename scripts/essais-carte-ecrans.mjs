@@ -199,6 +199,25 @@ verifier(
   true,
 );
 
+/*
+   LE BALAYAGE SE FAIT DEUX FOIS, SOUS DEUX PARCOURS.
+
+   Depuis que le registre permet à un écran de ne valoir que pour certains
+   parcours — « Organigrammes » pour les trois concours de la DGFiP —, un seul
+   balayage ne suffit plus. Sous le parcours par défaut, l'INSP, le lien vers
+   cet écran est écrit dans le HTML puis CACHÉ par le script du pied de page :
+   la carte le déclarerait orphelin, c'est-à-dire inatteignable, là où il n'y a
+   qu'un public.
+
+   Et REMPLACER le parcours balayé serait l'erreur inverse : un écran propre à
+   l'INSP sortirait du balayage à son tour. On balaye donc l'INSP, puis
+   « dgfip-a », et les liens trouvés s'additionnent — une page n'est orpheline
+   que si elle l'est sous les deux. Le coût retenu pour un lien est le plus
+   PETIT des deux : un écran atteignable en un appui pour un parcours est
+   atteignable, et la profondeur ne doit pas punir l'autre parcours.
+*/
+const PARCOURS_BALAYES = ['insp', 'dgfip-a'];
+
 /** route → Map(cible → coût du lien) */
 const liens = new Map();
 
@@ -255,6 +274,24 @@ const apercuRepond = () =>
    mal relié ».
 */
 const injoignables = [];
+/*
+   LES DEUX CORRECTIONS DE CE BLOC SE SONT CROISÉES, ET ELLES TIENNENT
+   ENSEMBLE.
+
+   Celle du train ajoute la garde qui manquait : l'aperçu peut être arrêté au
+   milieu du passage sans que rien ne s'en aperçoive, parce que le service
+   worker sert les pages depuis son cache — l'essai mesurait un site hors
+   ligne sans le savoir. Celle-ci dédouble le balayage, parce qu'un écran peut
+   désormais ne valoir que pour certains parcours.
+
+   Les deux sont gardées : la garde encadre le passage, le passage se fait deux
+   fois.
+*/
+for (const parcoursBalaye of PARCOURS_BALAYES) {
+await page.goto(`${RACINE}/robots.txt`, { waitUntil: 'load' }).catch(() => {});
+await page
+  .evaluate((id) => localStorage.setItem('revinsp.parcours', id), parcoursBalaye)
+  .catch(() => {});
 
 for (const route of ROUTES) {
   await page.goto(`${RACINE}${route}`, { waitUntil: 'networkidle' }).catch((e) => {
@@ -313,6 +350,7 @@ for (const route of ROUTES) {
     if (a === undefined || cout < a) m.set(chemin, cout);
   }
   liens.set(route, m);
+}
 }
 
 await contexte.close();

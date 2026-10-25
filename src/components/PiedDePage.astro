@@ -77,7 +77,12 @@ interface Props {
 
 const { portee, barreDuBas = false } = Astro.props;
 const base = import.meta.env.BASE_URL.replace(/\/$/, '');
-const lien = (o: Onglet) => ({ libelle: o.nom, href: `${base}${o.chemin}` });
+const lien = (o: Onglet) => ({
+  libelle: o.nom,
+  href: `${base}${o.chemin}`,
+  /* Les parcours servis voyagent en attribut : c'est le client qui tranche. */
+  parcours: o.parcours ? o.parcours.join(' ') : null,
+});
 
 const branches = branchesDisponibles();
 const courante: Branche | undefined = branches.find((b) => b.id === portee);
@@ -103,6 +108,18 @@ const colonneBranches = {
    du site. Il garde les **annexes** de la branche — les écrans sans onglet,
    qui n'apparaissent nulle part ailleurs —, les autres branches, et « Cet
    espace ». Les onglets, eux, sont dans la barre, en haut et en bas.
+*/
+/*
+   UN LIEN PROPRE À CERTAINS PARCOURS NE PEUT PAS ÊTRE FILTRÉ ICI.
+
+   Ce composant est rendu à la CONSTRUCTION ; le parcours courant vit dans
+   « localStorage » et n'existe que dans le navigateur. Le lien est donc écrit
+   pour tout le monde, avec les parcours qu'il sert en attribut, et le script
+   du bas le cache quand le parcours ouvert ne le sert pas — puis le rouvre si
+   l'on change de parcours, sans recharger la page.
+
+   L'alternative — rendre quatre pieds de page et choisir au chargement —
+   coûterait quatre fois le poids pour une ligne de différence.
 */
 const colonnes = [
   ...(courante && (courante.annexes ?? []).length
@@ -162,6 +179,7 @@ const colonnes = [
           {colonne.liens.map((lienDeColonne) => (
             <a
               href={lienDeColonne.href}
+              data-parcours={'parcours' in lienDeColonne ? lienDeColonne.parcours : null}
               class="cible-tactile text-xs text-slate-500 underline-offset-4 transition hover:text-indigo-600 hover:underline dark:text-slate-400 dark:hover:text-indigo-400"
             >
               {lienDeColonne.libelle}
@@ -175,6 +193,41 @@ const colonnes = [
       <strong class="font-medium text-slate-500 dark:text-slate-400">{config.titre}</strong> — espace
       de révision personnel, chiffré, sans compte ni mesure d'audience.
     </p>
+
+    <script>
+      /*
+         LES LIENS PROPRES À UN PARCOURS, CACHÉS QUAND IL N'EST PAS OUVERT.
+
+         Le pied est rendu à la construction ; le parcours courant vit dans
+         « localStorage ». Ce script est donc la seule place où le tri peut se
+         faire — et il se refait à chaque changement de parcours, sans
+         recharger la page, parce que l'en-tête permet d'en changer sans
+         quitter l'écran.
+
+         Un lien sans attribut n'est jamais touché : l'absence de restriction
+         veut dire « pour tout le monde », et un script qui cacherait par
+         défaut viderait le pied au premier défaut de lecture.
+      */
+      const CLE = 'revinsp.parcours';
+      const DEFAUT = 'insp';
+      const trier = () => {
+        let ouvert = DEFAUT;
+        try {
+          ouvert = localStorage.getItem(CLE) ?? DEFAUT;
+        } catch {
+          /* Navigation privée, cookies bloqués : le parcours par défaut. */
+        }
+        /* « querySelectorAll » rend des « Element » : on dit lesquels, sinon
+           « hidden » n'existe pas pour le vérificateur de types. */
+        for (const a of document.querySelectorAll<HTMLAnchorElement>('footer a[data-parcours]')) {
+          const servis = (a.getAttribute('data-parcours') ?? '').split(' ').filter(Boolean);
+          const sert = servis.length === 0 || servis.includes(ouvert);
+          a.hidden = !sert;
+        }
+      };
+      trier();
+      document.addEventListener('cyclades:parcours', trier);
+    </script>
 
     <details class="mt-1">
       <summary class="cible-tactile cursor-pointer text-xs text-slate-400 underline-offset-4 hover:underline dark:text-slate-500">

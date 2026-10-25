@@ -101,6 +101,8 @@
     "essais:filtre-parcours:navigateur": "node scripts/essais-filtre-parcours-navigateur.mjs",
     "essais:organigramme": "tsx scripts/essais-organigramme.mts",
     "essais:organigramme:navigateur": "node scripts/essais-organigramme-navigateur.mjs",
+    "essais:page-organigrammes": "tsx scripts/essais-page-organigrammes.mts",
+    "essais:organigrammes-page:navigateur": "node scripts/essais-organigrammes-page-navigateur.mjs",
     "essais:parcours-vides:navigateur": "node scripts/essais-parcours-vides-navigateur.mjs",
     "essais:secret": "node scripts/essais-secret.mjs",
     "essais:xss": "node scripts/essais-xss-actualites.mjs",
