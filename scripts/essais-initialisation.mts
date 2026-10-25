@@ -45,6 +45,7 @@ import {
   questionsDuSocle,
   cibleDuChamp,
   valider,
+  NON_REPONSE_REFUS,
 } from '../src/lib/noyau/profil';
 import {
   NOTE_FRAGILE,
@@ -95,8 +96,23 @@ const op = (
 
 const champ = (nom: string, valeur: unknown, ms: number, appareil = 'bureau') =>
   op(TYPE_CHAMP_PROFIL, cibleDuChamp(nom), { valeur, source: 'declare' }, ms, appareil);
-const report = (nom: string, ms: number, appareil = 'bureau') =>
-  op(TYPE_REPORT, cibleDuReport(nom), { reporteLe: '2026-10-12T08:00:00.000Z' }, ms, appareil);
+/*
+   UN INSTANT DE RÉFÉRENCE, PARCE QU'UN DÉLAI NE SE MESURE PAS EN ATTENDANT.
+
+   « Plus tard » met une question de côté sept jours. Avec une date de report
+   figée dans le passé, ces essais auraient basculé tout seuls le huitième jour
+   — et c'est exactement ce qui est arrivé : cinq contrôles ont rougi le jour où
+   le délai est apparu, pour une date écrite treize jours plus tôt.
+
+   Les reports se datent donc PAR RAPPORT à cet instant, que `parcours` reçoit.
+*/
+const MAINTENANT = new Date('2026-10-19T08:00:00.000Z');
+const MS_PAR_JOUR = 86_400_000;
+const ilYA = (jours: number) =>
+  new Date(MAINTENANT.getTime() - jours * MS_PAR_JOUR).toISOString();
+
+const report = (nom: string, ms: number, appareil = 'bureau', jours = 0) =>
+  op(TYPE_REPORT, cibleDuReport(nom), { reporteLe: ilYA(jours) }, ms, appareil);
 const leve = (nom: string, ms: number, appareil = 'bureau') =>
   op(TYPE_REPORT, cibleDuReport(nom), { annule: true }, ms, appareil);
 const module = (branche: string, ms: number, appareil = 'bureau') =>
@@ -157,12 +173,12 @@ const socle = questionsDuSocle();
    code la déclaration qui les écarte. */
 v('le socle fait huit questions', socle.length, 8);
 
-const vierge = parcours([]);
+const vierge = parcours([], { maintenant: MAINTENANT });
 v('tout reste à poser sur une base vierge', vierge.restantes.length, socle.length);
 v('et la première question est le prénom', vierge.prochaine?.declare.champ, 'prenom');
 v('rien n’est réglé', vierge.reglees, 0);
 
-const unePosee = parcours([champ('prenom', 'Alexis', 1)]);
+const unePosee = parcours([champ('prenom', 'Alexis', 1)], { maintenant: MAINTENANT });
 v('un champ répondu sort des restantes', unePosee.restantes.length, socle.length - 1);
 v('et la suivante est posée', unePosee.prochaine?.declare.champ, 'naissanceAnnee');
 vrai(
@@ -173,28 +189,99 @@ vrai(
 /* Le report porte sur la deuxième question du socle. C'était « nom » avant la
    décision 2 du 56 ; ce champ n'étant plus posé, un report sur lui ne reporte
    plus rien — et l'essai, lui, serait passé en ne mesurant plus son objet. */
-const unReporte = parcours([champ('prenom', 'Alexis', 1), report('naissanceAnnee', 2)]);
+const unReporte = parcours([champ('prenom', 'Alexis', 1), report('naissanceAnnee', 2)], {
+  maintenant: MAINTENANT,
+});
 v('une question reportée ne se repose pas', unReporte.prochaine?.declare.champ, 'fuseau');
 v('mais elle compte comme réglée', unReporte.reglees, 2);
 vrai('et l’étape dit qu’elle est reportée', unReporte.etapes[1].reportee);
 
-const toutReporte = parcours([
-  champ('prenom', 'Alexis', 1),
-  ...socle.slice(1).map((c, i) => report(c.champ, i + 2)),
-]);
+const toutReporte = parcours(
+  [champ('prenom', 'Alexis', 1), ...socle.slice(1).map((c, i) => report(c.champ, i + 2))],
+  { maintenant: MAINTENANT },
+);
 v('tout reporté : le parcours est fini', toutReporte.prochaine, null);
 v('et rien n’est perdu : les étapes restent toutes là', toutReporte.etapes.length, socle.length);
 
-const repris = parcours([
-  champ('prenom', 'Alexis', 1),
-  report('naissanceAnnee', 2),
-  leve('naissanceAnnee', 3),
-]);
+const repris = parcours(
+  [champ('prenom', 'Alexis', 1), report('naissanceAnnee', 2), leve('naissanceAnnee', 3)],
+  { maintenant: MAINTENANT },
+);
 v(
   'un report levé remet la question dans la file',
   repris.prochaine?.declare.champ,
   'naissanceAnnee',
 );
+
+/* ══════════════════════════════════════════════════════════════════════════
+   « PLUS TARD » DURE SEPT JOURS, PUIS LA QUESTION REVIENT
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/*
+   POURQUOI UN DÉLAI, ET NON UN REPORT DÉFINITIF.
+
+   Un report ne revenait jamais de lui-même. Mais un report qui ne revient
+   jamais EST un refus, et le refus a son propre mot — « Je préfère ne pas
+   répondre ». Les confondre fait disparaître la distinction entre « pas
+   maintenant » et « jamais », qui est celle que les trois sorties existent
+   pour offrir.
+*/
+console.log('\nLE REPORT DURE SEPT JOURS');
+
+{
+  const avec = (jours: number) =>
+    parcours([champ('prenom', 'Alexis', 1), report('naissanceAnnee', 2, 'bureau', jours)], {
+      maintenant: MAINTENANT,
+    });
+
+  faux(
+    'reportée hier, elle ne revient pas',
+    avec(1).restantes.some((e) => e.declare.champ === 'naissanceAnnee'),
+  );
+  faux(
+    'au sixième jour, elle ne revient pas encore',
+    avec(6).restantes.some((e) => e.declare.champ === 'naissanceAnnee'),
+  );
+  vrai(
+    'au septième, elle revient',
+    avec(7).restantes.some((e) => e.declare.champ === 'naissanceAnnee'),
+  );
+  vrai(
+    'et plus tard encore, elle est toujours là',
+    avec(30).restantes.some((e) => e.declare.champ === 'naissanceAnnee'),
+  );
+  v('revenue, elle est la prochaine', avec(7).prochaine?.declare.champ, 'naissanceAnnee');
+
+  /* UN REPORT SANS DATE EST EXPIRÉ. `reporteLe` vaut la chaîne vide pour une
+     opération écrite avant que la date ne soit journalisée. Rien n'est
+     réécrit : la règle se lit sur ce qui est là, et un report indaté est
+     indéfiniment vieux. L'échec se range du côté qui repose la question. */
+  const indate = parcours(
+    [
+      champ('prenom', 'Alexis', 1),
+      op(TYPE_REPORT, cibleDuReport('naissanceAnnee'), { reporteLe: '' }, 2),
+    ],
+    { maintenant: MAINTENANT },
+  );
+  vrai(
+    'un report sans date est expiré, donc la question revient',
+    indate.restantes.some((e) => e.declare.champ === 'naissanceAnnee'),
+  );
+
+  /* ET UN REFUS, LUI, NE REVIENT JAMAIS. C'est toute la différence : il est
+     une valeur du profil, pas un report, donc la question est répondue. */
+  const refus = parcours([champ('naissanceAnnee', NON_REPONSE_REFUS, 1)], {
+    maintenant: new Date(MAINTENANT.getTime() + 365 * MS_PAR_JOUR),
+  });
+  faux(
+    'un refus ne revient pas, même un an plus tard',
+    refus.restantes.some((e) => e.declare.champ === 'naissanceAnnee'),
+  );
+  faux(
+    'et il n’est pas noté comme reporté',
+    refus.etapes.find((e) => e.declare.champ === 'naissanceAnnee')?.reportee ?? false,
+  );
+}
 
 /* ══════════════════════════════════════════════════════════════════════════ */
 console.log('\n\x1b[1mLes écrans : une question, même quand elle règle deux champs\x1b[0m');
@@ -278,7 +365,7 @@ v(
   'module non posé mais tout répondu : entrer quand même',
   porte(
     [initialisee(1), ...champsDeBranche('revisions').map((c, i) => report(c.champ, i + 2))],
-    { branche: 'revisions' },
+    { branche: 'revisions', maintenant: MAINTENANT },
   ).quoi,
   'entrer',
 );

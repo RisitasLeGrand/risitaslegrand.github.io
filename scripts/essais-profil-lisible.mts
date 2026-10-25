@@ -15,7 +15,12 @@ import {
   nombreDit,
   valeurDite,
 } from '../src/lib/profil-lisible.ts';
-import { CHAMPS, champDeclare } from '../src/lib/noyau/profil.ts';
+import {
+  CHAMPS,
+  NON_REPONSE_INCONNU,
+  NON_REPONSE_REFUS,
+  champDeclare,
+} from '../src/lib/noyau/profil.ts';
 import { BORNES } from '../src/lib/noyau/initialisation.ts';
 
 let rouges = 0;
@@ -100,6 +105,41 @@ v(
   'Droit public, Économie',
 );
 v('une liste vide se dit par un tiret', valeurDite('domainesActifs', [], LIBELLES), '—');
+
+/*
+   F6 — LES TROIS ÉTATS SE DISTINGUENT À L'ŒIL.
+
+   Sans ces trois lignes, la carte afficherait « sans-reponse », qui ne veut
+   rien dire pour qui lit, ou bien « — », qui veut dire autre chose : « pas
+   répondu ». La personne doit pouvoir voir ce qu'elle a fait de la question,
+   sans quoi un refus ressemble à un oubli et elle le refait.
+*/
+v(
+  'un « je ne sais pas » se dit en mots',
+  valeurDite('lever', NON_REPONSE_INCONNU, LIBELLES),
+  'vous ne savez pas',
+);
+v(
+  'un refus aussi, et autrement',
+  valeurDite('lever', NON_REPONSE_REFUS, LIBELLES),
+  'vous préférez ne pas répondre',
+);
+v(
+  'et aucun des deux ne se dit par le tiret de l’absence',
+  [
+    valeurDite('lever', NON_REPONSE_INCONNU, LIBELLES),
+    valeurDite('lever', NON_REPONSE_REFUS, LIBELLES),
+    valeurDite('lever', undefined, LIBELLES),
+  ].filter((x) => x === '—').length,
+  1,
+);
+/* Le piège d'une lettre : « inconnue » au féminin reste une réponse, et se
+   dit donc telle quelle. */
+v(
+  '« inconnue », au féminin, se dit telle quelle',
+  valeurDite('phaseSport', 'inconnue', LIBELLES),
+  'inconnue',
+);
 
 console.log('\n5. LES RÉPARTITIONS');
 

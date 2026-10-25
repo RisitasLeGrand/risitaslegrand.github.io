@@ -7,6 +7,8 @@
  * conflit sur tout le profil, qu'une divergence réelle soit **vue**, et qu'un
  * champ supprimé ne revienne pas.
  */
+import { DOMAINES } from '../src/lib/noyau/domaines';
+import { domainesAMontrer } from '../src/lib/noyau/saisies';
 import {
   CHAMPS,
   CIBLE_INITIALISATION,
@@ -18,6 +20,10 @@ import {
   champsDeBranche,
   aUnUsage,
   champsDuSocle,
+  NON_REPONSE_INCONNU,
+  NON_REPONSE_REFUS,
+  estUneNonReponse,
+  lisibleParUnLecteur,
   questionsDuSocle,
   cibleDuChamp,
   controlerChamps,
@@ -45,6 +51,7 @@ const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
   console.log(`  \x1b[31m✗\x1b[0m ${intitule}\n      obtenu  ${a}\n      attendu ${b}`);
 };
 const vrai = (intitule: string, condition: boolean) => v(intitule, condition, true);
+const faux = (intitule: string, condition: boolean) => v(intitule, condition, false);
 
 let compteur = 0;
 const ecrire = (
@@ -386,6 +393,177 @@ vrai(
   vrai(
     'l’avancement n’annonce plus de réponse attendue',
     !Object.keys(vierge).includes('prenomPose'),
+  );
+}
+
+/*
+   LES DEUX BLOCS SONT CONSERVÉS, ET LE CONFLIT ÉTAIT PUREMENT ADDITIF.
+
+   « d6-prenom-facultatif » ajoutait le bloc D6 au même endroit que
+   « f6-ecran » ajoutait le bloc F6 : même point d'insertion, logique
+   différente des deux côtés, donc Git ne pouvait pas trancher. Il n'y a
+   rien à choisir — les deux mesurent des choses distinctes, et perdre l'un
+   des deux retirerait un garde-fou livré.
+
+   La coupure tombait au milieu d'un appel des deux côtés : la parenthèse
+   et l'accolade de fermeture étaient communes, après le marqueur. D'où la
+   fermeture explicite ci-dessus, et ce second cartouche.
+*/
+/* ══════════════════════════════════════════════════════════════════════════
+   F6 — LES DEUX NON-RÉPONSES NE SE LISENT JAMAIS COMME DES RÉPONSES
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/*
+   TROIS ÉTATS, ET ILS NE SE CONFONDENT PAS.
+
+   Rien dans le profil : la question n'a pas été vue, et le parcours la posera.
+   « inconnu » : elle a été vue, et la personne ne sait pas. « sans-reponse » :
+   elle a été vue, et la personne a refusé.
+
+   Les deux derniers sont STOCKÉS, sans quoi « Mon profil » ne pourrait pas
+   montrer qu'on a refusé et le parcours reposerait la question. Ce qui est
+   interdit, c'est qu'un lecteur les prenne pour une réponse : un refus traité
+   comme une valeur, c'est la réponse qu'on n'a pas voulu donner, utilisée
+   quand même.
+*/
+console.log('\nF6 — LES NON-RÉPONSES');
+
+{
+  vrai('« inconnu » est une non-réponse', estUneNonReponse(NON_REPONSE_INCONNU));
+
+  /*
+     RECEVABLE POUR TOUTE NATURE, ET C'EST INDISPENSABLE.
+
+     Une non-réponse n'est pas une valeur mal typée. Sans cette règle, « Je
+     préfère ne pas répondre » était refusé par « Un nombre est attendu. » sur
+     tout champ qui n'attend pas un texte, et l'écran répondait à un refus par
+     un reproche de forme. Les trois sorties valent pour tous les champs, ou
+     pour aucun.
+  */
+  for (const non of [NON_REPONSE_INCONNU, NON_REPONSE_REFUS]) {
+    vrai(`« ${non} » est recevable sur un nombre`, valider('naissanceAnnee', non).recevable);
+    vrai(`« ${non} » est recevable sur une heure`, valider('lever', non).recevable);
+    vrai(`« ${non} » est recevable sur une liste`, valider('matieresFortes', non).recevable);
+    vrai(
+      `« ${non} » est recevable sur une répartition`,
+      valider('tempsParDomaine', non).recevable,
+    );
+  }
+  /* Et une vraie faute de forme reste refusée : la porte ne s'ouvre pas pour
+     tout le monde. */
+  faux('une chaîne quelconque reste refusée sur un nombre', valider('naissanceAnnee', 'bof').recevable);
+  vrai('« sans-reponse » aussi', estUneNonReponse(NON_REPONSE_REFUS));
+
+  /* LE PIÈGE D'UNE SEULE LETTRE. « inconnue », au féminin, est une RÉPONSE
+     parmi les options de la phase sportive — elle doit rester lisible. */
+  faux('mais « inconnue », au féminin, n’en est pas une', estUneNonReponse('inconnue'));
+  faux('ni une réponse ordinaire', estUneNonReponse('Alexis'));
+  faux('ni un nombre', estUneNonReponse(0));
+  faux('ni l’absence', estUneNonReponse(undefined));
+
+  /* CE QU'UNE BRANCHE REÇOIT : rien pour une non-réponse, la valeur sinon. */
+  const profil = lireProfil([
+    ecrire('lever', NON_REPONSE_REFUS, 10),
+    ecrire('coucher', '23:00', 20),
+  ]);
+  const lu = pourBranche(profil, 'odyssee');
+  faux('une branche ne reçoit pas un refus', lu.has('lever'));
+  v('mais reçoit la réponse voisine', lu.get('coucher'), '23:00');
+
+  /* CE QU'UN LECTEUR DIRECT REÇOIT. Dix appels passent par `champ()`, qui
+     lit la base et n'est donc pas interrogeable ici ; sa décision est sortie
+     en fonction pure pour qu'elle se mesure. Sans ce contrôle, le garde est
+     tombé une fois sous sabotage sans qu'aucun essai ne rougisse. */
+  v('un lecteur ne reçoit rien d’un refus', lisibleParUnLecteur(profil.get('lever') ?? null), null);
+  v(
+    'ni d’un « je ne sais pas »',
+    lisibleParUnLecteur(lireProfil([ecrire('lever', NON_REPONSE_INCONNU, 10)]).get('lever') ?? null),
+    null,
+  );
+  v(
+    'mais reçoit une réponse ordinaire, telle quelle',
+    lisibleParUnLecteur(profil.get('coucher') ?? null)?.valeur,
+    '23:00',
+  );
+  v('et rien reste rien', lisibleParUnLecteur(null), null);
+
+  /* ET POURTANT LE PROFIL LE GARDE, pour que l'écran puisse le montrer et
+     qu'on puisse revenir dessus. */
+  vrai('le profil garde le refus', profil.has('lever'));
+  v('avec sa valeur telle quelle', profil.get('lever')?.valeur, NON_REPONSE_REFUS);
+
+  /* DONC LA QUESTION N'EST PLUS À POSER : un refus n'est pas un oubli. */
+  const etat = avancement([ecrire('lever', NON_REPONSE_REFUS, 10)]);
+  faux(
+    'une question refusée ne figure plus dans les restantes',
+    etat.restants.some((c) => c.champ === 'lever'),
+  );
+  v('et elle compte comme traitée', etat.repondus, 1);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   QUELS DOMAINES UNE RÉPARTITION MONTRE
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/*
+   CE QUE CE BLOC EMPÊCHE DE REVENIR.
+
+   Une répartition par domaine montrait les domaines actifs PAR DÉFAUT, et non
+   ceux que la personne avait retenus. Depuis « Mon profil », un domaine coupé
+   y réapparaissait donc : on demandait de répartir du temps sur ce qu'on
+   venait justement de retirer.
+
+   La décision est sortie en fonction pure pour qu'elle soit mesurable sans
+   navigateur. Et il fallait la mesurer ailleurs : aucune répartition n'est
+   atteignable dans l'essai de profil en navigateur — la seule du socle n'a
+   aucun lecteur, donc sa carte est absente tant qu'elle est vide, et les
+   autres appartiennent à une branche que cet essai n'ouvre pas.
+*/
+{
+  const parDefaut = DOMAINES.filter((d) => d.actifParDefaut).map((d) => d.id);
+  const horsDefaut = DOMAINES.filter((d) => !d.actifParDefaut).map((d) => d.id);
+  vrai('le catalogue a des domaines actifs par défaut', parDefaut.length >= 2);
+  vrai('et d’autres qui ne le sont pas', horsDefaut.length >= 1);
+
+  /* L'INITIALISATION NE CHANGE PAS : sans domaines retenus, ce sont ceux du
+     défaut, et c'est la bonne réponse là où la question vient d'être posée. */
+  const sansRien = domainesAMontrer(null).map((d) => d.clef);
+  v('sans domaines retenus, ce sont ceux du défaut', sansRien, parDefaut);
+  vrai(
+    'et un domaine inactif par défaut n’y est pas',
+    !sansRien.includes(horsDefaut[0]!),
+  );
+
+  /* UN DOMAINE COUPÉ EST ABSENT. */
+  const gardeUnSeul = domainesAMontrer([parDefaut[0]!]).map((d) => d.clef);
+  v('un seul domaine retenu n’en montre qu’un', gardeUnSeul, [parDefaut[0]!]);
+  vrai(
+    'les autres domaines du défaut ont disparu',
+    parDefaut.slice(1).every((id) => !gardeUnSeul.includes(id)),
+  );
+
+  /* UN DOMAINE AJOUTÉ HORS DÉFAUT EST MONTRÉ : la liste retenue commande,
+     elle ne se contente pas de retrancher. */
+  vrai(
+    'un domaine retenu hors du défaut est montré',
+    domainesAMontrer([horsDefaut[0]!])
+      .map((d) => d.clef)
+      .includes(horsDefaut[0]!),
+  );
+
+  /* LA LISTE VIDE N'EST PAS « null ». Les confondre réafficherait les
+     domaines par défaut à quelqu'un qui les a tous coupés. */
+  v('aucun domaine retenu ne montre aucune ligne', domainesAMontrer([]).length, 0);
+
+  /* UN IDENTIFIANT INCONNU N'INVENTE PAS DE LIGNE : un domaine retiré du
+     catalogue laisserait sa trace dans les profils déjà écrits. */
+  v('un identifiant inconnu est ignoré', domainesAMontrer(['pas-un-domaine']).length, 0);
+
+  /* L'ORDRE EST CELUI DU CATALOGUE, PAS CELUI DE LA RÉPONSE. */
+  v(
+    'l’ordre suit le catalogue même si la réponse est inversée',
+    domainesAMontrer([...parDefaut].reverse()).map((d) => d.clef),
+    parDefaut,
   );
 }
 

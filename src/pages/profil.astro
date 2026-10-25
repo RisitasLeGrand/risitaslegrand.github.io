@@ -384,7 +384,7 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
 </Base>
 
 <script>
-  import { avertir, confirmer, demanderUnTexte } from '../lib/boite';
+  import { avertir, confirmer, demanderUneSaisie } from '../lib/boite';
   import { messageDUneErreur } from '../lib/agir';
   import { auDeverrouillage } from '../lib/chargement';
   import { echapper, pluriel } from '../lib/ui';
@@ -405,6 +405,11 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
     aUnUsage,
   } from '../lib/noyau/profil';
   import type { ChampDeclare, ValeurDeChamp } from '../lib/noyau/profil';
+  import {
+    finDuReport,
+    reportEnCours,
+    type Report,
+  } from '../lib/noyau/initialisation';
   import { lecteursDuChamp } from '../lib/profil-lecteurs';
   import { historiqueDit, valeurDite, type Libelles } from '../lib/profil-lisible';
 
@@ -450,6 +455,30 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
 
   /** L'appareil où l'on se trouve, pour dire « celui-ci » au lieu d'un code. */
   let appareilCourant = '';
+  /*
+     LES REPORTS, AVEC LEUR DATE, RANGÉS PAR « peindre ».
+
+     « Mon profil » doit montrer les TROIS états qu'une question peut prendre
+     sans réponse : reportée, refusée, inconnue. Les deux dernières sont des
+     valeurs, et `valeurDite` les dit. La première n'en est pas une : elle vit
+     dans le journal des reports, et sans cette lecture la carte d'un champ
+     reporté serait indistinguable de celle d'un champ jamais vu.
+  */
+  let reportsParChamp = new Map<string, Report>();
+  /*
+     LES DOMAINES RETENUS, RANGÉS PAR « peindre » COMME L'APPAREIL COURANT.
+
+     Une répartition par domaine montrait les domaines actifs PAR DÉFAUT. Un
+     domaine coupé y réapparaissait donc, et demandait de répartir du temps
+     sur ce qu'on venait justement de retirer.
+
+     `null` tant que rien n'a été lu, ou quand la personne n'a pas répondu à
+     la question des domaines : la saisie retombe alors sur les domaines par
+     défaut, c'est-à-dire sur le comportement de l'initialisation. Une liste
+     VIDE n'est pas la même chose — c'est « je n'en veux aucun », et elle est
+     respectée.
+  */
+  let domainesRetenus: readonly string[] | null = null;
 
   /** Une ligne de métadonnée, en petit, sous la valeur. */
   function ligneFine(texte: string): HTMLElement {
@@ -487,6 +516,28 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
     dite.textContent = valeur ? valeurDite(declare.champ, valeur.valeur, libelles) : '—';
     entete.append(nom, dite);
     bloc.appendChild(entete);
+
+    /*
+       UN CHAMP REPORTÉ LE DIT, ET DIT QUAND IL REVIENT.
+
+       Sans cette ligne, sa carte est celle d'un champ vide : « — » et
+       « Renseigner ». La personne a pourtant pris une décision — « plus
+       tard » —, et ne pas la lui rappeler revient à l'avoir oubliée pour elle.
+       Le bouton reste : répondre maintenant est son droit, et répondre lève le
+       report puisque le champ porte alors une valeur.
+    */
+    const report = valeur ? undefined : reportsParChamp.get(declare.champ);
+    if (report && reportEnCours(report, new Date())) {
+      const revient = finDuReport(report);
+      bloc.appendChild(
+        ligneFine(
+          `Reporté. La question revient le ${revient.toLocaleDateString('fr-FR', {
+            day: 'numeric',
+            month: 'long',
+          })}.`,
+        ),
+      ).dataset.reporte = declare.champ;
+    }
 
     /* ── La ligne « Lu par », dérivée des deux tables (P3) ──────────────── */
     const lus = lecteursDuChamp(declare);
@@ -598,54 +649,123 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
   }
 
   /**
-   * La saisie, dans la boîte commune.
+   * La saisie d'un champ, dans la boîte commune — et par la saisie qui
+   * convient à ce champ.
    *
-   * Reste provisoire ce qui l'était déjà : un seul champ texte pour toutes les
-   * natures. Le point D2 du prompt 43 demande des champs propres, par nature,
-   * et notamment la correction d'une répartition sans écrire de JSON ; c'est un
-   * lot de formulaire, et il vient de là. Signalé au compte rendu : l'exemple
-   * affiché pour une répartition parle de domaines, y compris devant les dates
-   * d'épreuves, où il est faux.
+   * ## CE QU'ELLE DEMANDAIT AVANT, ET POURQUOI C'ÉTAIT UNE PORTE FERMÉE
+   *
+   * Un seul champ texte servait toutes les natures. Pour corriger ses heures
+   * par domaine, il fallait donc taper « {"cognition": 10} » — du JSON, à la
+   * main, dans une boîte de dialogue. Une virgule oubliée rendait « Cette
+   * répartition n'a pas pu être lue », et c'était tout ce que la personne
+   * apprenait.
+   *
+   * L'exemple affiché était en plus faux une fois sur deux : il parlait de
+   * domaines jusque devant « Dates d'épreuves », dont les valeurs sont des
+   * dates par parcours. On montrait une forme à recopier, et ce n'était pas
+   * la bonne.
+   *
+   * ## CE QU'ELLE FAIT MAINTENANT
+   *
+   * `saisiePourChamp` rend la même saisie que l'initialisation : des curseurs
+   * pour une répartition d'heures, un calendrier par parcours pour les dates,
+   * des bascules pour une liste à choix, un champ heure pour une heure. Aucune
+   * syntaxe à connaître, et aucune forme à recopier.
+   *
+   * ## LES TROIS ISSUES, QUI NE SE CONFONDENT PAS
+   *
+   * `null` est un renoncement : on a fermé ou annulé, et le champ reste tel
+   * qu'il était. `undefined` est une réponse — celle d'un « Je ne sais pas
+   * encore », ou d'une saisie que personne n'a touchée — et elle n'écrit rien
+   * non plus, mais pour une autre raison. Les écrire toutes deux reviendrait
+   * à effacer une valeur que la personne n'a pas demandé d'effacer.
    */
   async function demander(champ: string, question: string, actuelle: unknown): Promise<void> {
     const { champDeclare } = await import('../lib/noyau/profil');
+    const { saisiePourChamp, domainesAMontrer } = await import('../lib/noyau/saisies');
     const declare = champDeclare(champ)!;
-    const depart =
-      Array.isArray(actuelle)
-        ? actuelle.join(', ')
-        : actuelle && typeof actuelle === 'object'
-          ? JSON.stringify(actuelle)
-          : String(actuelle ?? '');
-    const saisie = await demanderUnTexte({
+
+    const reponse = await demanderUneSaisie({
       titre: question,
-      texte: declare.nature === 'repartition' ? 'Forme attendue : {"cognition": 10}' : undefined,
-      etiquette: declare.libelle,
-      valeur: depart,
-      multiligne: declare.nature === 'repartition',
+      /* Les répartitions et les dates nomment chacune de leurs lignes :
+         une étiquette de plus au-dessus répéterait le titre. */
+      etiquette: declare.nature === 'repartition' ? undefined : declare.libelle,
       action: 'Enregistrer',
+      /*
+         F6 — LES TROIS SORTIES, TOUJOURS LÀ, DU MÊME POIDS QUE LA RÉPONSE.
+
+         Une question n'a pas deux issues mais quatre, et trois d'entre elles
+         ne sont pas des renoncements : ne pas savoir, ne pas vouloir dire,
+         remettre à plus tard sont des réponses à part entière. Les offrir en
+         lien discret aurait fait d'elles des aveux ; elles portent donc la
+         mise en forme de « Enregistrer ».
+
+         Rien n'est précoché : les saisies partent de la valeur enregistrée,
+         et une valeur absente ne devient pas un défaut.
+      */
+      sorties: [
+        { texte: 'Je ne sais pas', valeur: 'inconnu' },
+        { texte: 'Je préfère ne pas répondre', valeur: 'sans-reponse' },
+        { texte: 'Plus tard', valeur: 'plus-tard' },
+      ],
+      construire: (fermer) =>
+        saisiePourChamp(declare, actuelle, {
+          valider: fermer,
+          surInconnu: fermer,
+          domaines: domainesAMontrer(domainesRetenus),
+        }),
     });
-    if (saisie === null) return;
-    let valeur: unknown = saisie.trim();
-    if (declare.nature === 'nombre') valeur = Number(saisie.replace(',', '.'));
-    else if (declare.nature === 'booleen') valeur = /^(oui|vrai|true|1)$/i.test(saisie.trim());
-    else if (declare.nature === 'liste') {
-      valeur = saisie
-        .split(',')
-        .map((x) => x.trim())
-        .filter(Boolean);
-    } else if (declare.nature === 'repartition') {
+
+    if (reponse === null) return;
+
+    /*
+         CE QUE CHAQUE SORTIE ENREGISTRE, ET POURQUOI CE N'EST PAS LA MÊME CHOSE.
+
+         « Je ne sais pas » et « Je préfère ne pas répondre » sont des VALEURS :
+         la question a été vue, et elle ne sera plus posée par le parcours.
+         Aucun lecteur ne les lira comme une réponse — « champ() » s'en charge.
+         Les deux se distinguent pour la personne, et l'écran les dit en mots.
+
+         « Plus tard » n'est pas une valeur : c'est un report daté, qui laisse
+         le champ vide et ramène la question dans sept jours. Y mettre une
+         valeur l'aurait rendu définitif, c'est-à-dire l'aurait confondu avec
+         le refus.
+    */
+    if ('sortie' in reponse) {
+      if (reponse.sortie === 'plus-tard') {
+        const { reporter } = await import('../lib/initialisation');
+        try {
+          await reporter(champ);
+        } catch (erreur) {
+          await avertir({
+            titre: 'Ce report n’a pas été enregistré',
+            texte: messageDUneErreur(erreur),
+          });
+          return;
+        }
+        await peindre();
+        return;
+      }
+      const { NON_REPONSE_INCONNU, NON_REPONSE_REFUS } = await import('../lib/noyau/profil');
+      const valeur =
+        reponse.sortie === 'inconnu' ? NON_REPONSE_INCONNU : NON_REPONSE_REFUS;
       try {
-        valeur = JSON.parse(saisie);
-      } catch {
+        await ecrireChamp(champ, valeur);
+      } catch (erreur) {
         await avertir({
-          titre: 'Cette répartition n’a pas pu être lue',
-          texte: 'Forme attendue : {"cognition": 10}',
+          titre: 'Ce champ n’a pas été enregistré',
+          texte: messageDUneErreur(erreur),
         });
         return;
       }
+      await peindre();
+      return;
     }
+
+    if (reponse.valeur === undefined) return;
+
     try {
-      await ecrireChamp(champ, valeur);
+      await ecrireChamp(champ, reponse.valeur);
     } catch (erreur) {
       await avertir({
         titre: 'Ce champ n’a pas été enregistré',
@@ -879,13 +999,18 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
     await chargerLesLibelles();
     const { BRANCHES } = await import('../lib/branches');
     const { lireAppareil } = await import('../lib/db');
-    const [profil, etat, divergences, appareil] = await Promise.all([
+    const { reportsLocaux } = await import('../lib/initialisation');
+    const [profil, etat, divergences, appareil, reports] = await Promise.all([
       profilLocal(),
       avancementLocal(),
       divergencesLocales(),
       lireAppareil().catch(() => ''),
+      reportsLocaux().catch(() => new Map<string, Report>()),
     ]);
     appareilCourant = appareil;
+    reportsParChamp = reports;
+    const ditDomaines = profil.get('domainesActifs')?.valeur;
+    domainesRetenus = Array.isArray(ditDomaines) ? ditDomaines.map(String) : null;
 
     /*
        LA LIGNE NEUTRE (P9), et ce qu'elle ne dit pas.

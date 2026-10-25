@@ -165,6 +165,14 @@ const SOCLE = [
      se verrait qu'à la publication suivante.
   */
   ['essais:qcm-source', 'la banque QCM revient à sa source YAML sans perdre un champ'],
+  /*
+     Demandé au socle par le pilote, avec la raison : le module des saisies
+     n'était couvert par aucun essai du socle, et c'est ce qui a permis de
+     pousser une branche rouge. « essais:lu-par » nomme les sept champs que
+     l'aiguillage des saisies dessert ; « saisies.ts » fait maintenant 602
+     lignes et deux écrans en dépendent.
+  */
+  ['essais:lu-par', 'l’aiguillage des saisies dessert bien les sept champs qu’il nomme'],
 ];
 
 /**
