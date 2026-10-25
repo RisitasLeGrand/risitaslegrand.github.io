@@ -181,6 +181,51 @@ body {
   @apply bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200;
 }
 
+/* --- La taille de corps choisie par la personne, sur iOS ------------------ */
+/*
+   iOS porte un réglage de taille de texte qui vaut pour tout l'appareil, et
+   les applications natives le suivent. Un site ne le suit que s'il le
+   demande, et Cyclades ne le demandait pas : quelqu'un qui a grossi son texte
+   dans ses réglages retrouvait ici la taille d'un site ordinaire. Pour une
+   application de révision qu'on lit des heures, c'est le réglage le plus
+   utile du téléphone, et il était ignoré.
+
+   `font: -apple-system-body` est le mot-clé par lequel WebKit livre cette
+   taille.
+
+   LA SECONDE LIGNE N'EST PAS UNE PRÉCAUTION. Le raccourci `font` remplace
+   aussi la FAMILLE : sans elle, tout iOS perdrait Public Sans pour la police
+   du système. On ne garde du mot-clé que ce qu'on est venu chercher, la
+   taille.
+
+   CE QUE D-038 OBLIGE À DIRE. Le document « d-038-taille-du-texte » a
+   construit, mesuré puis ÉCARTÉ l'option C, « remonter la racine » : tout
+   grossit, marges comprises, pour +8,5 % de hauteur et deux fois moins de
+   texte gagné que l'option B retenue. Or cette règle-ci est mécaniquement
+   cette option C.
+
+   Ce n'est pourtant pas la même décision, et la différence est tout entière
+   dans qui décide. L'option C grossissait le texte de tout le monde, de
+   6,25 %, sans que personne l'ait demandé. Ici la taille vient du réglage que
+   la personne a posé elle-même : celle qui agrandit son texte sur iOS veut
+   que tout grossisse, et c'est ce que font toutes les applications natives.
+   Le coût mesuré par D-038 reste vrai ; c'est sa contrepartie qui change.
+
+   CE QU'AUCUN ESSAI D'ICI NE PEUT MESURER. Le mot-clé appartient à WebKit :
+   le moteur des essais ne le reconnaît pas, `@supports` y est faux, et la
+   règle ne s'applique pas. « essais:taille-de-corps-systeme » commence donc
+   par PROUVER cette impossibilité — `CSS.supports` rend faux — puis constate
+   ce qui est constatable : que la règle est bien dans la feuille publiée, que
+   la famille est rendue juste après, et que la racine n'a pas bougé pour tous
+   les autres navigateurs.
+*/
+@supports (font: -apple-system-body) {
+  :root {
+    font: -apple-system-body;
+    font-family: var(--font-sans);
+  }
+}
+
 /* --- Police de complément ------------------------------------------------ */
 /* Spectral, à utiliser avec parcimonie : citations, exergues, mentions. */
 .police-complement {
@@ -347,6 +392,46 @@ body {
   summary {
     min-height: 2.75rem;
     align-content: center;
+  }
+
+  /* Les trois dixièmes de seconde du double appui, rendus aux commandes — et
+     à elles seules.
+
+     Un navigateur tactile attend environ 300 ms après un appui, au cas où un
+     second viendrait former un double appui : le geste qui grossit la page.
+     Sur un bouton, cette attente est une lenteur sans contrepartie — on
+     appuie, et il ne se passe rien pendant un tiers de seconde.
+     `touch-action: manipulation` dit « ici, pas de double appui » et rend ce
+     délai.
+
+     POURQUOI PAS SUR `body`, QUI AURAIT ÉTÉ UNE LIGNE AU LIEU DE DOUZE.
+
+     Parce que le double appui sur un paragraphe est **la façon dont on
+     grossit un texte** sur un téléphone. Le poser sur la page entière
+     retirerait un geste d'accessibilité pour gagner trois dixièmes sur des
+     boutons : le site deviendrait plus vif et moins lisible, ce qui n'est pas
+     l'échange qu'on cherche. La règle tient donc une liste, et
+     « essais:touch-action » mesure les deux moitiés — les commandes l'ont, le
+     texte et la racine ne l'ont pas.
+
+     CE QUE `manipulation` NE RETIRE PAS. Il vaut `pan-x pan-y pinch-zoom` :
+     le défilement et le pincement restent entiers. C'est `none` qui les
+     tuerait, et l'essai vérifie qu'aucun élément de ces écrans ne le calcule.
+
+     Les étiquettes n'y sont pas : dans ce dépôt ce sont des mots posés à côté
+     d'un champ, et aucune ne porte de cible tactile. C'est le champ qui est
+     la commande. */
+  button,
+  [role='button'],
+  a[href],
+  input,
+  select,
+  textarea,
+  summary,
+  .cible-tactile,
+  .cible-tactile-pleine,
+  .cible-minimale {
+    touch-action: manipulation;
   }
 
   /* Seize pixels dans les champs de saisie.
