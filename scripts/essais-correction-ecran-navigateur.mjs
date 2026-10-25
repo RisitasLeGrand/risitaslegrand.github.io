@@ -335,8 +335,30 @@ async function verifierLesSixChoses(section, ou, { resume, legende, confianceMoy
     combien === options,
     combien === options ? '' : `${combien} ligne(s) trouvée(s) — ${(await section.innerHTML()).slice(0, 400)}`,
   );
-  const premiere = await lignes.first().innerText();
-  verifier(`${ou} · chaque ligne porte son pourquoi`, /ne convient pas|clef|annee|revision|Constitution/i.test(premiere), premiere.slice(0, 70));
+  /*
+     Le contrôle porte sur la FORME de chaque ligne, et sur les quatre, pas sur
+     des mots-clefs dans la première.
+
+     Il cherchait « ne convient pas|clef|annee|revision|Constitution » dans la
+     première ligne seulement. Deux défauts, et le second rendait l'essai
+     instable. La liste ne couvrait que trois des quatre textes du décor — « 1971
+     est la decision Liberte d association » n'y figurait pas — et la première
+     ligne n'est pas prévisible : l'option cochée passe devant, et l'essai clique
+     la première option AFFICHÉE, que l'écran ordonne à sa façon. Une fois sur
+     quatre environ, la ligne lue était justement celle que la liste ne couvrait
+     pas, et l'essai rougissait sans qu'aucun code ait changé.
+
+     La forme attendue est « option — pourquoi ». La vérifier sur les quatre
+     lignes est à la fois stable et plus strict : l'ancien contrôle laissait
+     passer trois lignes muettes pourvu que la première parlât.
+  */
+  const textes = await lignes.allInnerTexts();
+  const muettes = textes.filter((t) => !/ — \S.{11,}/.test(t.replace(/\s+/g, ' ')));
+  verifier(
+    `${ou} · chaque ligne porte son option ET son pourquoi`,
+    muettes.length === 0,
+    muettes.map((t) => JSON.stringify(t.replace(/\s+/g, ' ').slice(0, 60))).join(' · '),
+  );
 
   const rappel = section.locator('a[href*="fiche?id="]');
   verifier(`${ou} · le rappel de cours est un LIEN`, (await rappel.count()) >= 1);
