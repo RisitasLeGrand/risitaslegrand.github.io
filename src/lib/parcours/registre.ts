@@ -98,6 +98,40 @@ export interface Parcours {
    * Voir l'en-tête du module avant de songer à le changer pour l'INSP.
    */
   racineContenu: string;
+  /**
+   * Les racines de contenu que ce parcours partage avec d'autres.
+   *
+   * ## Le problème que ce champ résout
+   *
+   * Une matière peut être au programme de plusieurs concours — l'organisation
+   * de la DGFiP l'est des trois. Écrite deux fois, elle donnerait deux fiches
+   * à maintenir, et surtout DEUX IDENTIFIANTS : `idStable` hache le chemin
+   * relatif à `content/`, donc la même fiche sous `dgfip-a/` et sous
+   * `dgfip-b/` porte deux empreintes, deux séries FSRS, deux journaux
+   * d'erreurs et deux podcasts. Réviser la fiche sous un parcours ne compterait
+   * pas sous l'autre.
+   *
+   * ## Pourquoi une racine commune suffit, et pourquoi `idStable` ne bouge pas
+   *
+   * Une fiche rangée sous `content/commun/` a un chemin relatif qui ne nomme
+   * aucun parcours : son empreinte est donc la même pour tous. L'invariant
+   * « un identifiant, un historique » tient sans toucher à `idStable`, dont
+   * dépend l'historique des 262 fiches de l'INSP — et c'est exactement pour
+   * cela qu'on ne la touche pas.
+   *
+   * ## Ce que ce champ ne fait pas
+   *
+   * Il ne range aucune fiche et ne déplace rien. Il dit quelles racines un
+   * parcours sert EN PLUS de la sienne. Le thème sous lequel la fiche apparaît
+   * reste déclaré par chaque parcours : la même matière n'a pas le même poids
+   * d'un concours à l'autre, et l'organisation de la DGFiP est un thème de QCM
+   * chez l'inspecteur là où elle est une option de l'oral chez le contrôleur.
+   *
+   * Un tableau vide est un état normal, et non une absence à combler : l'INSP
+   * ne partage rien, et c'est une propriété de son contenu — ses 262 fiches
+   * sont à la racine.
+   */
+  racinesPartagees: string[];
   referentiel: Referentiel;
   themes: ThemePlanification[];
   /**
@@ -517,6 +551,20 @@ const ROTATION_DGFIP_AP = [
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════
+   La racine commune
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Le sous-dossier de `content/` qui porte les fiches servies à plusieurs
+ * parcours.
+ *
+ * Nommé ici et lu partout ailleurs : écrit en dur dans le chargeur de contenu
+ * et dans deux essais, il aurait fini par différer de l'un à l'autre, et une
+ * fiche partagée aurait cessé de l'être sans qu'aucune ligne ne rougisse.
+ */
+export const RACINE_COMMUNE = 'commun';
+
+/* ══════════════════════════════════════════════════════════════════════════
    Le registre
    ══════════════════════════════════════════════════════════════════════════ */
 
@@ -531,6 +579,13 @@ export const PARCOURS: Parcours[] = [
       voie: 'interne',
     },
     racineContenu: '',
+    /*
+       L'INSP ne partage rien, et ce n'est pas un oubli : ses 262 fiches sont à
+       la racine de `content/`, donc TOUT y serait partagé si on l'y inscrivait.
+       Voir l'en-tête du module sur la raison pour laquelle cette racine reste
+       `''`.
+    */
+    racinesPartagees: [],
     referentiel: {
       origine: 'officiel',
       source: 'Fascicules de préparation IGPDE et programme du concours interne',
@@ -549,6 +604,7 @@ export const PARCOURS: Parcours[] = [
       voie: 'a-preciser',
     },
     racineContenu: 'dgfip-b',
+    racinesPartagees: [RACINE_COMMUNE],
     referentiel: {
       origine: 'officiel',
       source:
@@ -570,6 +626,7 @@ export const PARCOURS: Parcours[] = [
       voie: 'a-preciser',
     },
     racineContenu: 'dgfip-a',
+    racinesPartagees: [RACINE_COMMUNE],
     referentiel: {
       origine: 'officiel',
       source:
@@ -592,6 +649,7 @@ export const PARCOURS: Parcours[] = [
       voie: 'a-preciser',
     },
     racineContenu: 'dgfip-ap',
+    racinesPartagees: [RACINE_COMMUNE],
     referentiel: {
       origine: 'officiel',
       source:
@@ -613,6 +671,80 @@ export const PARCOURS: Parcours[] = [
       'inspecteurs n’ont, eux, qu’un oral.',
   },
 ];
+
+/* ══════════════════════════════════════════════════════════════════════════
+   De quelle racine vient une fiche, et à qui elle est servie
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** Les racines qu'un parcours sert : la sienne, puis celles qu'il partage. */
+export const racinesDuParcours = (p: Parcours): string[] => [
+  p.racineContenu,
+  ...p.racinesPartagees,
+];
+
+/** Les racines déclarées, la racine vide exclue, du plus long nom au plus court. */
+export const racinesDeclarees = (): string[] =>
+  [...new Set(PARCOURS.flatMap(racinesDuParcours).filter((r) => r !== ''))].sort(
+    (a, b) => b.length - a.length,
+  );
+
+/**
+ * La racine de contenu d'un chemin relatif à `content/`.
+ *
+ * ## Le plus long préfixe : ce qu'il protège vraiment
+ *
+ * Le commentaire d'origine disait : « si un parcours s'appelait `dgfip` et un
+ * autre `dgfip-a`, le plus court capterait les fiches du second ». C'est FAUX,
+ * et le sabotage l'a montré — la comparaison porte sur `«racine»/`, donc
+ * `dgfip-ap/x.md` ne commence pas par `dgfip-a/`, et l'ordre n'y change rien.
+ * Un constat d'essai affirmait la règle et restait vert avec le tri inversé.
+ *
+ * Ce que l'ordre protège réellement, c'est le cas des racines IMBRIQUÉES :
+ * `commun` et `commun/organisation`, où un chemin commence par les deux. Le
+ * cas ne se présente pas aujourd'hui, et il est désormais éprouvé — d'où le
+ * paramètre `racines`, qui n'existe que pour cela.
+ *
+ * La racine vide — celle de l'INSP — est le repli, et elle n'est pas comparée
+ * par préfixe : tout chemin commence par `''`, donc la tester reviendrait à
+ * capter toutes les fiches.
+ */
+export function racineDuChemin(relatif: string, racines = racinesDeclarees()): string {
+  const normalise = relatif.split('\\').join('/');
+  for (const racine of [...racines].sort((a, b) => b.length - a.length)) {
+    if (normalise.startsWith(`${racine}/`)) return racine;
+  }
+  return '';
+}
+
+/**
+ * Les parcours servis par une racine de contenu.
+ *
+ * Rend **plusieurs** identifiants pour une racine partagée, et c'est tout
+ * l'objet : une fiche de `commun/` appartient aux trois parcours DGFiP, et
+ * lui attribuer un parcours unique serait écrire un faux. L'ordre est celui du
+ * registre, pour que deux appels rendent la même liste.
+ */
+export const parcoursServisParLaRacine = (racine: string): string[] =>
+  PARCOURS.filter((p) => racinesDuParcours(p).includes(racine)).map((p) => p.id);
+
+/**
+ * Les parcours servis par une fiche, d'après l'endroit où elle est rangée.
+ *
+ * Le chemin est relatif à `content/`, comme celui que `idStable` hache — et
+ * c'est la même chaîne, ce qui garantit qu'une fiche partagée a UN identifiant
+ * pour les trois parcours sans qu'`idStable` ait à connaître les parcours.
+ */
+export const parcoursDuChemin = (relatif: string): string[] =>
+  parcoursServisParLaRacine(racineDuChemin(relatif));
+
+/**
+ * Une racine est-elle partagée entre plusieurs parcours ?
+ *
+ * Lu dans le registre et non dans une liste à part : le jour où un quatrième
+ * parcours déclare `commun`, la réponse suit sans qu'une ligne soit à écrire.
+ */
+export const racineEstPartagee = (racine: string): boolean =>
+  parcoursServisParLaRacine(racine).length > 1;
 
 /** Le parcours ouvert par défaut, et le seul qui porte du contenu aujourd'hui. */
 export const ID_PARCOURS_PAR_DEFAUT = 'insp';

@@ -45,7 +45,11 @@ import { audioDisponible, SUFFIXE_SCRIPT } from './podcasts.mjs';
    finiraient par diverger, et le jour où elles divergeraient, des fiches
    changeraient de parcours sans que rien ne le dise.
 */
-import { PARCOURS } from '../src/lib/parcours/registre.ts';
+import {
+  PARCOURS,
+  parcoursDuChemin,
+  racineDuChemin,
+} from '../src/lib/parcours/registre.ts';
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dossierContenu = path.join(racine, 'content');
@@ -189,54 +193,31 @@ async function listerFiches(dossier, base = dossier) {
   return fichiers.sort();
 }
 
-/**
- * À quel parcours appartient une fiche, d'après l'endroit où elle est rangée.
- *
- * ## Le défaut que cette fonction commence à corriger
- *
- * `racineContenu` est déclaré depuis des semaines dans le registre des
- * parcours — `''` pour l'INSP, `dgfip-b`, `dgfip-a`, `dgfip-ap` — et
- * **aucun code ne le lisait**. Constaté par l'agent de contenu, vérifié :
- * `grep -rn "racineContenu" src scripts` ne rendait que les cinq occurrences
- * de sa propre déclaration.
- *
- * Conséquence concrète : deux fiches déposées dans `content/dgfip-a/`
- * apparaissaient comme une **matière de plus du parcours INSP**, à côté du
- * droit public et de l'économie, parce que la hiérarchie se reconstruit
- * depuis `matiere`/`fascicule` et que rien ne savait d'où venait la fiche.
- *
- * ## Ce que cette fonction fait, et ce qu'elle ne fait pas
- *
- * Elle **dérive** le parcours du premier segment du chemin, et le manifeste
- * le porte désormais pour chaque fiche. L'information existe donc, et un
- * essai la vérifie.
- *
- * Elle ne **filtre** rien : la bibliothèque continue d'afficher toutes les
- * matières. Ce second pas change ce qui s'affiche tous les jours, et il se
- * fait à part, avec ses propres essais — pas glissé dans le même geste qu'une
- * correction de chargeur.
- *
- * ## Le plus long préfixe, et pourquoi
- *
- * Si un parcours s'appelait `dgfip` et un autre `dgfip-a`, le plus court
- * capterait les fiches du second. On trie donc par longueur décroissante. Le
- * cas ne se présente pas aujourd'hui ; la règle évite qu'il surprenne demain.
- */
-function parcoursDuChemin(relatif) {
-  const normalise = relatif.split(path.sep).join('/');
-  const racines = PARCOURS.filter((p) => p.racineContenu !== '').sort(
-    (a, b) => b.racineContenu.length - a.racineContenu.length,
-  );
-  for (const p of racines) {
-    if (normalise.startsWith(`${p.racineContenu}/`)) return p.id;
-  }
-  /*
-     Pas de sous-dossier reconnu : la fiche est à la racine, donc à l'INSP,
-     dont `racineContenu` vaut précisément `''`. On le lit dans le registre
-     plutôt que d'écrire « insp » en dur : une seule source de vérité.
-  */
-  return PARCOURS.find((p) => p.racineContenu === '')?.id ?? 'insp';
-}
+/*
+   À QUEL PARCOURS APPARTIENT UNE FICHE — LA RÉPONSE A CHANGÉ DE FORME.
+
+   Cette fonction vivait ici, rendait UN identifiant de parcours, et dérivait
+   du premier segment du chemin. Elle corrigeait un vrai défaut : `racineContenu`
+   était déclaré depuis des semaines et aucun code ne le lisait, de sorte que
+   deux fiches déposées dans `content/dgfip-a/` paraissaient comme une matière
+   de plus du parcours INSP.
+
+   Elle est remontée dans `src/lib/parcours/registre.ts` et rend maintenant une
+   LISTE, pour une raison qui n'est pas de commodité : une fiche rangée sous
+   `content/commun/` est au programme des trois concours DGFiP, et lui attribuer
+   un parcours unique serait écrire un faux dans le manifeste. Le registre est
+   aussi le bon endroit : l'application en a besoin autant que ce chargeur, et
+   deux copies de la règle auraient fini par différer.
+
+   Ce qui n'a pas changé : la règle du plus long préfixe, et le fait que la
+   racine vide de l'INSP soit un repli plutôt qu'un préfixe — tout chemin
+   commence par la chaîne vide.
+
+   Ce que ce chargeur ne fait toujours PAS : filtrer. Le manifeste porte
+   l'information, la bibliothèque continue d'afficher toutes les matières. Ce
+   second pas change ce qui s'affiche tous les jours ; il se fait à part, avec
+   ses essais, et non glissé dans le même geste.
+*/
 
 /** Charge content/glossaire.yml (optionnel). */
 async function chargerGlossaire() {
@@ -549,7 +530,15 @@ async function main() {
     fiches.push({
       id: ficheId,
       chemin: relatif,
-      parcours: parcoursDuChemin(relatif),
+      /*
+         LA RACINE, PUIS LES PARCOURS — et les deux, parce qu'ils ne disent pas
+         la même chose. La racine est un fait du rangement, vérifiable contre le
+         disque ; les parcours servis en sont déduits par le registre, et une
+         fiche partagée en a trois. Garder un champ `parcours` au singulier
+         aurait obligé à en élire un, c'est-à-dire à mentir sur deux.
+      */
+      racine: racineDuChemin(relatif),
+      parcoursServis: parcoursDuChemin(relatif),
       titre: fm.data.titre,
       matiere: fm.data.matiere,
       fascicule: fm.data.fascicule,
@@ -629,13 +618,19 @@ async function main() {
           id: f.id,
           titre: f.titre,
           /*
-             Le parcours d'où vient la fiche, dérivé de son dossier. Le
-             manifeste le PORTE ; rien ne le filtre encore, et c'est dit en
-             toutes lettres à `parcoursDuChemin`. Sans ce champ, la
+             Les parcours servis par la fiche, dérivés de son dossier par le
+             registre. Le manifeste les PORTE ; rien ne les filtre encore, et
+             c'est dit en toutes lettres plus haut. Sans ce champ, la
              bibliothèque ne pourra jamais filtrer, parce qu'elle ne lit que
              le manifeste.
+
+             La racine voyage avec, parce qu'elle seule se vérifie contre le
+             disque : un manifeste qui se contredirait sur les parcours servis
+             resterait cohérent avec lui-même.
           */
-          parcours: f.parcours,
+          racine: f.racine,
+          partagee: f.parcoursServis.length > 1,
+          parcoursServis: f.parcoursServis,
           ordre: f.ordre,
           tags: f.tags,
           nbFlashcards: f.flashcards.length,
@@ -901,12 +896,22 @@ async function main() {
       'texteRecherche', // porté par l'index de recherche
       'motsCours', // porté par le manifeste
       /*
-         Porté par le manifeste, comme « ordre » : la bibliothèque doit
+         Portés par le manifeste, comme « ordre » : la bibliothèque doit
          pouvoir filtrer par parcours AVANT de déchiffrer quoi que ce soit.
-         Le mettre dans la charge chiffrée de chaque fiche obligerait à les
+         Les mettre dans la charge chiffrée de chaque fiche obligerait à les
          ouvrir toutes pour savoir lesquelles afficher.
+
+         `parcours` au singulier a cédé la place à `parcoursServis`, au pluriel,
+         le jour où une fiche a pu appartenir à trois parcours à la fois — voir
+         `racinesPartagees` au registre. `racine` l'accompagne parce qu'elle est
+         la seule des deux qui se vérifie contre le disque.
+
+         `partagee` n'est pas un champ de fiche : il est calculé au moment
+         d'écrire le manifeste, depuis la longueur de `parcoursServis`. Deux
+         sources pour le même fait auraient fini par se contredire.
       */
-      'parcours',
+      'racine',
+      'parcoursServis',
     ]);
     const oublies = Object.keys(f).filter((c) => !(c in charge) && !ECARTES_DU_CLIENT.has(c));
     if (oublies.length) {
