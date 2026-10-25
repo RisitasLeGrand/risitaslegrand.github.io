@@ -42,6 +42,16 @@ export interface Reglage {
   stockage: string;
   nature: Nature;
   defaut: unknown;
+  /**
+   * Ce que veut dire un champ **vide**, en français.
+   *
+   * P10 du prompt 56. « Ma journée » affichait 07:00 et 21:00 quand rien
+   * n'était renseigné, comme si ces heures avaient été choisies — alors que
+   * « Mon profil », pour le même champ, disait « non renseigné ». Le vide a un
+   * sens, il est différent selon le réglage, et il se déclare donc ici plutôt
+   * que de se devoir au hasard du rendu.
+   */
+  siVide?: string;
   /** L'écran d'où il venait, pour le lien « Réglages de cet écran ». */
   ecran?: string;
   /** Vrai si la valeur ne peut pas être lue coffre fermé. */

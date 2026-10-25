@@ -14,7 +14,7 @@
  * ## Le registre n'est pas une documentation
  *
  * C'est la **source** de trois choses à la fois : ce que chaque module reçoit,
- * ce que l'écran « Qui utilise mon âge et mon sexe » affiche, et ce que la
+ * ce que l'écran « Qui utilise mon âge » affiche, et ce que la
  * question de profil répond quand la personne demande « qui utilisera cette
  * réponse ? ». Écrire la même promesse à trois endroits, c'est garantir qu'un
  * jour ils divergeront et que personne ne saura lequel engage. Le patron vient
@@ -502,7 +502,7 @@ export function estActif(id: string, coupes: readonly string[]): boolean {
 }
 
 /**
- * Ce que l'écran « Qui utilise mon âge et mon sexe » affiche pour une ligne.
+ * Ce que l'écran « Qui utilise mon âge » affiche pour une ligne.
  *
  * Trois états, et le troisième n'est pas le deuxième. **Coupé** est une
  * décision de la personne ; **inconnu faute de donnée** est un usage qu'elle

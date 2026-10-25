@@ -368,10 +368,19 @@ async function lireAnalysesPourExport(): Promise<AnalysePrecedente[]> {
 
 async function lireProfilPourExport(categories: readonly string[]) {
   const { profilLocal } = await import('./profil');
-  const { repartirProfilPourExport } = await import('./noyau/profil');
+  const { CHAMPS_A_CAVIARDER, repartirProfilPourExport } = await import('./noyau/profil');
   const champs = await profilLocal();
   const interdits: string[] = [];
-  for (const nom of ['prenom', 'nom']) {
+  /*
+     LA LISTE VIENT DU CATALOGUE, et ce module ne la nomme plus.
+
+     Elle y est déduite des lecteurs marqués `protection` — c'est-à-dire de
+     la déclaration qui dit, à l'écran, « un export pour une IA, pour en
+     retirer votre prénom ». Les deux ne peuvent donc plus se contredire :
+     l'essai « Lu par » exige que ce fichier soit le lecteur déclaré, et la
+     promesse affichée est celle qui s'exécute ici.
+  */
+  for (const nom of CHAMPS_A_CAVIARDER) {
     const valeur = champs.get(nom)?.valeur;
     if (typeof valeur === 'string' && valeur.trim().length >= 3) interdits.push(valeur.trim());
   }

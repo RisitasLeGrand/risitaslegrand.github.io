@@ -343,10 +343,15 @@ v(
   parcours([]).etapes.map((e) => e.declare.champ).filter((c) => auBesoin.includes(c)),
   [],
 );
+/* Elle suivait le nom ; le nom n'est plus demandé depuis la décision 2 du
+   prompt 56 — rien ne le lit, hors l'export qui le retire des textes libres —
+   et l'année vient donc juste après le prénom. Ce qui compte ici n'a pas
+   changé : l'année **est** posée à l'initialisation, au début, et non glissée
+   dans un recoin. */
 v(
-  'l’année, elle, y est — au chapitre « Moi », juste après le nom',
-  parcours([]).etapes.map((e) => e.declare.champ).slice(0, 3),
-  ['prenom', 'nom', 'naissanceAnnee'],
+  'l’année, elle, y est — au chapitre « Moi », juste après le prénom',
+  parcours([]).etapes.map((e) => e.declare.champ).slice(0, 2),
+  ['prenom', 'naissanceAnnee'],
 );
 
 console.log('\n   Une année aberrante se signale, elle ne se refuse pas');

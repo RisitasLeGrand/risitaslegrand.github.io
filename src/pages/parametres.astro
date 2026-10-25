@@ -119,6 +119,29 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
                   <div class="min-w-0 flex-1">
                     <p class="font-medium text-slate-900 dark:text-white">{r.libelle}</p>
                     <p class="mt-0.5 text-sm text-slate-500 dark:text-slate-400">{r.aQuoiCaSert}</p>
+                    <!--
+                      CE QUE VEUT DIRE UN CHAMP VIDE (P10 du prompt 56).
+
+                      Écrit à la construction, et seulement montré ou caché par
+                      le script : le texte ne dépend pas de la valeur, donc il
+                      n'y a aucune raison de le fabriquer à chaque peinture.
+                      Il part caché, parce que la valeur n'est pas encore lue.
+
+                      Et il est DANS LA COLONNE DE TEXTE, pas dans la commande.
+                      Posé à côté du champ, il faisait déborder la page : la
+                      zone de commande est une rangée « flex shrink-0 » qui ne
+                      se replie pas, et un paragraphe large de 100 % y poussait
+                      le document à 610 px pour 360 — mesuré par
+                      « essais:mobile:navigateur » sur les trois largeurs.
+                    -->
+                    {r.siVide && (
+                      <p
+                        data-si-vide
+                        class="mt-1 hidden text-xs text-slate-500 dark:text-slate-400"
+                      >
+                        {r.siVide}
+                      </p>
+                    )}
                     <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
                       <span class="rounded bg-slate-100 px-1.5 py-0.5 dark:bg-slate-800">
                         {DIRE_LA_PORTEE[r.portee]}
@@ -227,6 +250,20 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
     }
     dire(id, '');
     zone.innerHTML = '';
+
+    /*
+       LA PHRASE DU VIDE, MONTRÉE OU CACHÉE (P10 du prompt 56).
+
+       « Ma journée » montrait 07:00 et 21:00 quand rien n'était renseigné, et
+       rien ne distinguait ces heures d'un choix. Elles sont vides quand elles
+       le sont, et la phrase écrite à la construction dit ce que Cyclades fait
+       à défaut de réponse.
+    */
+    const phraseDuVide = bloc(id)?.querySelector<HTMLElement>('[data-si-vide]');
+    phraseDuVide?.classList.toggle(
+      'hidden',
+      !(valeur === '' || valeur === null || valeur === undefined),
+    );
 
     const appliquer = async (neuve: unknown) => {
       try {

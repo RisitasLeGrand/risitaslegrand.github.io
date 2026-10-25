@@ -34,8 +34,8 @@ import { comparerOperations } from './operations';
 import {
   CHAMPS,
   PREFIXE_CIBLE,
-  champsDeBranche,
   champsDuSocle,
+  questionsDeBranche,
   questionsDuSocle,
   lireInitialisation,
   lireProfil,
@@ -207,9 +207,14 @@ export function parcours(
   /* Les champs demandés au moment du besoin ne sont pas du parcours : les y
      laisser reviendrait à collecter « au cas où » une donnée dont la minimisation
      impose qu'elle n'existe que si une fonction l'exige. `questionsDuSocle()`
-     porte ce filtre, et `avancement()` s'en sert aussi : un seul endroit. */
+     porte ce filtre, et `avancement()` s'en sert aussi : un seul endroit.
+
+     DÉCISION 2 DU 56. Le même endroit porte le second filtre : un champ que
+     rien ne lit n'est plus posé. Il n'est pas retiré du catalogue — sa valeur
+     reste visible et modifiable dans « Mon profil », et une déclaration de
+     lecteur suffit à reposer la question. */
   const champs = options.branche
-    ? champsDeBranche(options.branche).filter((c) => !c.demandeAuBesoin)
+    ? questionsDeBranche(options.branche)
     : questionsDuSocle();
 
   const etapes = champs.map((declare): Etape => {
@@ -393,6 +398,19 @@ export const CHOIX: Readonly<Record<string, readonly Option[]>> = {
     { valeur: 'soir', libelle: 'Soir' },
     { valeur: 'variable', libelle: 'Ça dépend' },
   ],
+  /*
+     G6 : LA QUESTION SE POSAIT EN TEXTE LIBRE, ET SEULS DEUX MOTS ÉTAIENT LUS.
+
+     `lireMoment` ne reconnaît que « matin » et « soir », et replie tout le
+     reste sur le soir. Taper « le soir », avec l'article, donnait donc le même
+     résultat que ne rien taper — sans que rien le dise. Un choix fermé rend la
+     question honnête : les deux réponses possibles sont les deux réponses
+     lues, et l'aide dit ce que chacune change.
+  */
+  'moment-revue': [
+    { valeur: 'matin', libelle: 'Le matin (sur la veille)', aide: 'La revue porte alors sur la journée d’hier, puis donne un aperçu du jour.' },
+    { valeur: 'soir', libelle: 'Le soir (sur la journée)', aide: 'La revue porte sur la journée qui s’achève.' },
+  ],
   experienceSport: [
     { valeur: 'jamais', libelle: 'Jamais' },
     { valeur: 'moins-un-an', libelle: 'Depuis moins d’un an' },
@@ -525,11 +543,22 @@ export const SUGGESTIONS: Readonly<Record<string, readonly string[]>> = {
 /**
  * Les champs posés **ensemble**, sur un seul écran.
  *
- * La question 3 de `questions.md` — « Français, et heure de Paris : c'est bien
- * ça ? » — règle deux champs. Les poser séparément afficherait deux fois la
- * même phrase, et la seconde paraîtrait un bug.
+ * ## Pourquoi la liste est vide, et pourquoi le mécanisme reste
+ *
+ * Elle portait `['langue', 'fuseau']` : la question 3 de `questions.md` —
+ * « Français, et heure de Paris : c'est bien ça ? » — réglait deux champs, et
+ * les poser séparément aurait affiché deux fois la même phrase.
+ *
+ * La décision 2 du prompt 56 a dissous ce groupe : rien ne lit la langue, elle
+ * n'est donc plus demandée, et l'écran ne règle plus que le fuseau. Il ne
+ * reste aucun champ à grouper.
+ *
+ * Le mécanisme, lui, ne bouge pas : `enEcrans` regroupe sur la **question
+ * affichée**, et deux champs qui recevraient demain la même formulation
+ * seraient réunis sans qu'on ait à toucher cette liste. Elle ne sert plus
+ * qu'au contrôle, qui vérifie qu'un groupe déclaré partage bien sa question.
  */
-export const GROUPES: readonly (readonly string[])[] = [['langue', 'fuseau']];
+export const GROUPES: readonly (readonly string[])[] = [];
 
 export interface Question {
   /** Le texte affiché, commun aux champs du groupe. */
@@ -567,7 +596,7 @@ export function enEcrans(etapes: readonly Etape[]): Question[] {
  */
 export const DYNAMIQUES: readonly string[] = [
   /* Ses options sont les entrées du registre des usages, construites par
-     l'écran « Qui utilise mon âge et mon sexe » — pas une liste fermée qu'on
+     l'écran « Qui utilise mon âge » — pas une liste fermée qu'on
      pourrait figer ici. */
   'usagesCoupes',
   'domainesActifs',

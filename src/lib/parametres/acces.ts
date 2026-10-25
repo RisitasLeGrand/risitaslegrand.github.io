@@ -28,16 +28,18 @@ import {
 } from '../niveau';
 import { reglerLaRetention, retentionReglee } from '../notifications/retention';
 import { activerLaSante, santeActive } from '../odyssee/donnees-sante';
-import { champ, ecrireChamp } from '../profil';
+import { champ, ecrireChamp, supprimerChamp } from '../profil';
 import {
   ecrireBascule,
   ecrireChoixDeMode,
   ecrireHeuresDeBascule,
   ecrirePalette,
   heuresDeBascule,
+  heuresReglees,
   lireBascule,
   lireChoixDeMode,
   lirePalette,
+  oublierLesHeures,
   type Choix,
 } from '../theme';
 import { CLE_VITESSE, VITESSE_PAR_DEFAUT, VITESSES } from '../podcast-noyau';
@@ -79,9 +81,36 @@ const champBooleen = <T extends object>(
   },
 });
 
-const champDeProfil = (nom: string, defaut: string): Acces => ({
+/**
+ * Un champ de profil, lu et écrit par les fonctions du profil.
+ *
+ * ## Le faux défaut, et pourquoi il est parti (P10 du prompt 56)
+ *
+ * Cette fonction prenait un `defaut` et le rendait quand le champ était vide :
+ * « Ma journée » affichait donc 07:00 et 21:00 comme si ces heures avaient été
+ * choisies, là où « Mon profil » disait « non renseigné » pour le même champ.
+ * Deux écrans, une donnée, deux réponses. Le défaut n'est pas rendu ici : la
+ * valeur vide est rendue vide, et la phrase `siVide` du catalogue dit ce que
+ * Cyclades fait à défaut de réponse.
+ *
+ * ## Vider, c'est retirer sa réponse
+ *
+ * Et non écrire une heure d'usine. Le bouton « Rétablir » de la page centrale
+ * écrit le défaut déclaré : pour ces champs, le défaut déclaré est le vide, et
+ * le vide **supprime le champ**. Sans cela, « Rétablir » aurait inscrit 7 h au
+ * journal — une réponse que personne n'a donnée, qui part vers les autres
+ * appareils et que l'export compte comme déclarée.
+ */
+const champDeProfil = (nom: string, defaut = ''): Acces => ({
   lire: async () => ((await champ(nom))?.valeur as string | undefined) ?? defaut,
-  ecrire: async (v) => void (await ecrireChamp(nom, String(v))),
+  ecrire: async (v) => {
+    const valeur = String(v ?? '').trim();
+    if (!valeur) {
+      await supprimerChamp(nom);
+      return;
+    }
+    await ecrireChamp(nom, valeur);
+  },
 });
 
 export const ACCES: Record<string, Acces> = {
@@ -91,13 +120,33 @@ export const ACCES: Record<string, Acces> = {
     lire: async () => lireBascule(),
     ecrire: async (v) => ecrireBascule(Boolean(v)),
   },
+  /*
+     « SUIVRE MA JOURNÉE » EST L'ABSENCE DE RÉGLAGE, et c'est ce qui permet de
+     ne pas toucher au script d'avant-peinture de `Base.astro` : il lit déjà la
+     clé locale, puis le miroir du profil. Vide ici veut dire « rien sur cet
+     appareil », donc « Ma journée ». La lecture rend donc la copie locale
+     seule, et non la valeur appliquée — sinon le champ afficherait l'heure de
+     « Ma journée » comme si elle avait été réglée ici.
+
+     Donner une heure fixe les deux : la clé en porte deux, séparées par une
+     barre, et il n'y a pas de demi-réglage. Le catalogue le dit en une phrase
+     plutôt que de le laisser découvrir.
+  */
   'heure-clair': {
-    lire: async () => heuresDeBascule().lever,
-    ecrire: async (v) => ecrireHeuresDeBascule(String(v), heuresDeBascule().coucher),
+    lire: async () => heuresReglees()?.lever ?? '',
+    ecrire: async (v) => {
+      const lever = String(v ?? '').trim();
+      if (!lever) return oublierLesHeures();
+      ecrireHeuresDeBascule(lever, heuresReglees()?.coucher ?? heuresDeBascule().coucher);
+    },
   },
   'heure-sombre': {
-    lire: async () => heuresDeBascule().coucher,
-    ecrire: async (v) => ecrireHeuresDeBascule(heuresDeBascule().lever, String(v)),
+    lire: async () => heuresReglees()?.coucher ?? '',
+    ecrire: async (v) => {
+      const coucher = String(v ?? '').trim();
+      if (!coucher) return oublierLesHeures();
+      ecrireHeuresDeBascule(heuresReglees()?.lever ?? heuresDeBascule().lever, coucher);
+    },
   },
   mode: {
     lire: async () => lireChoixDeMode(),
@@ -132,8 +181,8 @@ export const ACCES: Record<string, Acces> = {
   },
 
   /* Ma journée */
-  lever: champDeProfil('lever', '07:00'),
-  coucher: champDeProfil('coucher', '21:00'),
+  lever: champDeProfil('lever'),
+  coucher: champDeProfil('coucher'),
   'moment-revue': champDeProfil('moment-revue', 'soir'),
 
   /* Coffre */
@@ -197,6 +246,11 @@ export const ACCES: Record<string, Acces> = {
         decouperParParties: Boolean(v),
       }),
   },
+  'compte-a-rebours': champBooleen(
+    lireReglagesSession,
+    ecrireReglagesSession,
+    'compteARebours',
+  ),
   'plafond-cartes': {
     lire: async () => (await lireReglagesSession()).plafondCartes,
     ecrire: async (v) =>

@@ -22,6 +22,16 @@ Trois règles tenues partout :
 
 ## 1. Socle commun — quatorze questions
 
+> **Mise à jour du 19 octobre 2026 — décision 2 du prompt 56.** Huit questions
+> seulement sont encore posées à l'initialisation : le prénom, l'année de
+> naissance, le fuseau, le lever, le moment de la revue, le coucher, le temps
+> par semaine et les domaines suivis. Les autres **ne sont plus demandées**,
+> parce que rien ne lit leur réponse ; elles restent au catalogue avec leur
+> question, leur valeur est gardée si elle a été donnée, et déclarer un lecteur
+> (`luPar`) suffit à reposer la question. La question 3 a changé de phrase pour
+> la même raison : elle ne règle plus que le fuseau, et s'affiche désormais
+> « Vos journées sont comptées à l'heure de Paris : c'est bien ça ? ».
+
 | # | Question, telle qu'elle s'affiche | Réponse | Champ |
 |---|---|---|---|
 | 1 | **« Comment doit-on vous appeler ? »** | Saisie libre, un mot suffit | `prenom` *(obligatoire)* |

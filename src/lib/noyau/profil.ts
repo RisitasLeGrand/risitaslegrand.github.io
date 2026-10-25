@@ -34,6 +34,7 @@
  * catalogue le vérifie plutôt que de le promettre.
  */
 import { comparerOperations, type Operation } from './operations';
+import type { CleDeContexte } from './registre-usages';
 
 /** Le type d'opération qui pose ou change un champ de profil. */
 export const TYPE_CHAMP_PROFIL = 'profil.champ';
@@ -75,6 +76,44 @@ export type Nature =
  */
 export type Portee = 'toutes' | readonly string[];
 
+/**
+ * Un lecteur réel du champ : le fichier qui lit la valeur, et ce que la
+ * personne en voit.
+ *
+ * ## Pourquoi une déclaration, et non un calcul
+ *
+ * La portée, elle, se calculait — et c'est précisément ce qui a mal tourné.
+ * L'écran affichait « Utilisé par : Révisions, Odyssée » en interrogeant une
+ * portée que **personne ne consultait** : `pourBranche` n'avait aucun
+ * appelant. Une liste juste au sens du code et fausse au sens de la personne.
+ *
+ * Un lecteur ne se déduit pas d'un type : il se déduit d'un appel, quelque
+ * part, dans un fichier. On le déclare donc, et `essais-lu-par.mts` confronte
+ * la déclaration au code **dans les deux sens** — un lecteur déclaré qui ne
+ * lit pas, ou une lecture non déclarée, font rougir l'essai. C'est la seule
+ * forme de promesse qu'on sache tenir : celle qu'un essai casse quand elle
+ * cesse d'être vraie.
+ */
+export interface LecteurDeChamp {
+  /** Le fichier qui lit la valeur, depuis la racine du dépôt. */
+  module: string;
+  /**
+   * Ce que la personne lit sur la ligne « Lu par ». En français, sans jargon,
+   * et nommant un écran ou un effet qu'elle peut reconnaître.
+   */
+  libelle: string;
+  /**
+   * Vrai quand ce lecteur lit la valeur pour l'**écarter**, non pour s'en
+   * servir : l'export pour une IA lit le prénom et le nom afin de les retirer
+   * des textes libres.
+   *
+   * La distinction décide si la question est encore posée. Un champ dont le
+   * seul lecteur protège sa valeur ne sert à rien d'autre qu'à lui-même : il
+   * cesse d'être demandé, et garde ce qui y est déjà.
+   */
+  protection?: true;
+}
+
 export interface ChampDeclare {
   champ: string;
   libelle: string;
@@ -84,6 +123,16 @@ export interface ChampDeclare {
   porteeParDefaut: Portee;
   /** La branche dont ce champ est l'extension, ou rien pour le socle commun. */
   brancheDOrigine?: string;
+  /**
+   * Le bloc de « Mon profil » où ce champ est montré (P1 du prompt 56).
+   *
+   * Les champs de branche n'en ont pas : leur bloc est leur branche. Les
+   * champs du socle en ont **un, obligatoirement** — le contrôle le vérifie —
+   * parce que l'écran les affichait par ordre alphabétique, socle et branches
+   * mêlés, sur neuf écrans de long. Un champ ajouté sans groupe se verrait
+   * tout de suite, au lieu d'atterrir au hasard de son initiale.
+   */
+  groupe?: 'vous' | 'journee' | 'objectifs';
   /** Obligatoire à l'initialisation. Un seul champ l'est. */
   obligatoire?: boolean;
   /**
@@ -126,6 +175,65 @@ export interface ChampDeclare {
    * jamais ». Deux questions différentes, deux déclarations.
    */
   jamaisExporte?: boolean;
+  /**
+   * Qui lit ce champ, aujourd'hui, dans le code.
+   *
+   * Absent — et non pas vide — quand rien ne le lit : l'écran n'affiche alors
+   * aucune ligne « Lu par », et la question n'est plus posée (décision 2 du
+   * prompt 56). Déclarer un lecteur suffit à la reposer : il n'y a pas de
+   * seconde liste à tenir à jour, et c'est tout l'intérêt.
+   */
+  luPar?: readonly LecteurDeChamp[];
+  /**
+   * Ce que ses clés — ou ses entrées — **nomment**.
+   *
+   * `concours` porte des identifiants de parcours, `tempsParDomaine` des
+   * identifiants de domaine. L'écran a besoin de le savoir pour dire « INSP »
+   * plutôt que `insp`, et c'est une propriété du champ, pas de l'écran.
+   *
+   * ET C'EST POURQUOI C'EST ICI. Un module d'affichage qui porterait la liste
+   * « ces champs-là nomment des parcours » nommerait des champs — ce que le
+   * contrôle du graphe d'imports interdit à tout fichier hors de six, parce
+   * que nommer `naissanceAnnee` est le premier geste de qui contourne la porte
+   * de l'âge. La règle a attrapé ma première version : elle a eu raison.
+   */
+  clefs?: 'parcours' | 'domaines';
+  /**
+   * Les clés du **registre des usages** que ce champ alimente.
+   *
+   * ## Pourquoi ces champs-là ne déclarent pas leurs lecteurs ici
+   *
+   * L'âge a déjà une table de lecteurs déclarés, et elle est ailleurs :
+   * `registre-usages.ts` nomme chaque usage, ce qu'il lit, à quoi il sert et
+   * ce qu'il fait quand il ne sait pas. C'est l'écran « Qui utilise mon âge ».
+   * En écrire une seconde ici ferait deux vérités du même fait, et la seconde
+   * finirait par mentir — exactement ce que la ligne « Lu par » est censée
+   * empêcher.
+   *
+   * Ce champ ne déclare donc que les **clés** qu'il alimente, et la ligne est
+   * dérivée du registre. Le registre appartient à qui construit le cycle : ce
+   * fichier ne le modifie pas, et l'arbitrage du pilote est explicite — l'âge,
+   * le sexe et le cycle viennent du registre, tout le reste de `luPar`.
+   *
+   * Le contrôle ci-dessous refuse un champ déclaré aux deux endroits.
+   */
+  clesDuRegistre?: readonly CleDeContexte[];
+  /**
+   * Son nombre ne se groupe pas : c'est une année, pas une quantité.
+   *
+   * « 1990 », jamais « 1 990 ». `Intl` groupe par défaut, et le défaut est
+   * juste partout ailleurs.
+   */
+  sansGroupement?: true;
+  /**
+   * L'unité, telle que la phrase de « Mon profil » la porte — au singulier et
+   * au pluriel, parce que « séance » s'accorde et « h » non.
+   *
+   * Distincte de l'unité des bornes (`BORNES` dans `initialisation.ts`), qui
+   * est celle du curseur : « 10 h » sous le pouce, « 10 h par semaine » dans
+   * la phrase. Un essai vérifie que les deux ne se contredisent pas.
+   */
+  unite?: { un: string; plusieurs: string };
 }
 
 const C = (c: ChampDeclare): ChampDeclare => c;
@@ -140,6 +248,15 @@ export const CHAMPS: readonly ChampDeclare[] = [
   /* --- Socle commun ------------------------------------------------------- */
   C({
     champ: 'prenom',
+    groupe: 'vous',
+    luPar: [
+      { module: 'src/lib/profil.ts', libelle: 'la salutation du menu' },
+      {
+        module: 'src/lib/export-ia.ts',
+        libelle: 'un export pour une IA, pour en retirer votre prénom',
+        protection: true,
+      },
+    ],
     jamaisExporte: true,
     libelle: 'Prénom',
     nature: 'texte',
@@ -147,10 +264,21 @@ export const CHAMPS: readonly ChampDeclare[] = [
     // Le menu salue par le prénom ; aucune branche n'a besoin de le lire.
     porteeParDefaut: [],
     obligatoire: true,
-    regle: 'La salutation du menu, qui se coupe d’un réglage.',
+    /* P12 : « qui se coupe d'un réglage » est parti avec le réglage, qui
+       n'existe pas. Aucun catalogue n'en porte, et `index.astro` salue sans
+       rien vérifier. */
+    regle: 'La salutation du menu.',
   }),
   C({
     champ: 'nom',
+    groupe: 'vous',
+    luPar: [
+      {
+        module: 'src/lib/export-ia.ts',
+        libelle: 'un export pour une IA, pour en retirer votre nom',
+        protection: true,
+      },
+    ],
     jamaisExporte: true,
     libelle: 'Nom',
     nature: 'texte',
@@ -159,6 +287,9 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'naissanceAnnee',
+    groupe: 'vous',
+    sansGroupement: true,
+    clesDuRegistre: ['tranche_age', 'majeur'],
     jamaisExporte: true,
     libelle: 'Année de naissance',
     nature: 'nombre',
@@ -174,6 +305,11 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'naissanceMois',
+    groupe: 'vous',
+    sansGroupement: true,
+    /* Le mois ne sert qu'à lever l'incertitude d'un an : il alimente les mêmes
+       clés que l'année, et seulement à la frontière d'un seuil. */
+    clesDuRegistre: ['tranche_age', 'majeur'],
     jamaisExporte: true,
     libelle: 'Mois de naissance',
     nature: 'nombre',
@@ -187,6 +323,8 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'majeurDeclare',
+    groupe: 'vous',
+    clesDuRegistre: ['majeur'],
     jamaisExporte: true,
     libelle: 'Majorité déclarée',
     nature: 'booleen',
@@ -199,43 +337,93 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'usagesCoupes',
-    libelle: 'Usages de l’âge et du sexe que j’ai coupés',
+    groupe: 'vous',
+    luPar: [
+      {
+        module: 'src/pages/qui-utilise-mon-age.astro',
+        libelle: 'l’écran Qui utilise mon âge, qui coupe les usages que vous refusez',
+      },
+    ],
+    /* Décision 6 : « et mon sexe » quitte le titre, le libellé et la
+       question. Le sexe ne se déclare nulle part dans Cyclades — il viendra
+       d'Odyssée > Corps, sous le coffre —, et l'annoncer ici laissait croire
+       à un champ qui n'existe pas (G9). */
+    libelle: 'Usages de mon âge que j’ai coupés',
     nature: 'liste',
-    question: 'Quels usages de votre âge et de votre sexe souhaitez-vous couper ?',
+    question: 'Quels usages de votre âge souhaitez-vous couper ?',
     porteeParDefaut: [],
     demandeAuBesoin:
-      'Depuis « Qui utilise mon âge et mon sexe », dans Mon profil. La question ne se ' +
+      'Depuis « Qui utilise mon âge », dans Mon profil. La question ne se ' +
       'pose pas à l’initialisation : couper un usage demande d’abord de voir lesquels ' +
       'existent.',
+    /*
+       LA PHRASE DISAIT PLUS QUE CE QUE LE CODE FAIT (interdit 2).
+
+       « Un usage coupé ne reçoit plus rien » suppose des consommateurs. Or la
+       porte — `contextePersonne` — ne prend pas les coupures en paramètre, et
+       aucune fonction ne lit l'âge aujourd'hui : `etatDeLaPersonne` et
+       `contextePersonne` n'ont qu'un appelant, l'écran lui-même. La coupure est
+       donc appliquée à l'affichage, et à rien d'autre. Signalé au pilote : le
+       jour où un consommateur arrivera, il recevra l'âge sans égard pour les
+       coupures tant que la porte ne les lira pas.
+    */
     regle:
-      'Un usage coupé ne reçoit plus rien, et l’écran le montre comme coupé plutôt que ' +
-      'comme absent.',
+      'Les usages que vous coupez sont montrés comme coupés. Aucune autre fonction ne ' +
+      'lit votre âge aujourd’hui.',
   }),
   C({
     champ: 'formalite',
+    groupe: 'vous',
     libelle: 'Tutoiement ou vouvoiement',
     nature: 'texte',
     question: 'On se tutoie, ou on se vouvoie ?',
     porteeParDefaut: 'toutes',
-    regle: 'La façon dont les écrans s’adressent à vous.',
+    /* Pas de `regle` : rien ne lit ce champ. Il promettait « la façon dont les
+       écrans s'adressent à vous », et aucun écran ne la consulte — ils
+       vouvoient tous. La promesse revient le jour où un lecteur est déclaré,
+       et pas avant (G7, P12). */
   }),
   C({
+    /*
+       LA QUESTION A CHANGÉ AVEC LA DÉCISION 2 DU 56, et pas par goût.
+
+       Elle était « Français, et heure de Paris : c'est bien ça ? », partagée
+       avec le fuseau : un seul écran réglait les deux champs. Rien ne lit la
+       langue — Cyclades n'existe qu'en français —, donc elle n'est plus
+       demandée, et l'écran ne règle plus que le fuseau. Garder l'ancienne
+       phrase aurait laissé « Mon profil » proposer « Français, et heure de
+       Paris : c'est bien ça ? » pour modifier la seule langue, ce qui ne se
+       comprend pas. Le champ garde sa valeur si elle existe.
+    */
     champ: 'langue',
+    groupe: 'vous',
     libelle: 'Langue',
     nature: 'texte',
-    question: 'Français, et heure de Paris : c’est bien ça ?',
+    question: 'Dans quelle langue utilisez-vous Cyclades ?',
     porteeParDefaut: 'toutes',
   }),
   C({
     champ: 'fuseau',
+    groupe: 'journee',
+    luPar: [
+      {
+        module: 'src/lib/noyau/reglages.ts',
+        libelle: 'le fuseau dans lequel vos journées sont comptées',
+      },
+    ],
     libelle: 'Fuseau horaire',
     nature: 'texte',
-    question: 'Français, et heure de Paris : c’est bien ça ?',
+    /* Sans « Français » : l'écran ne règle plus la langue, et une phrase qui
+       annonce un réglage qu'elle ne fait pas est exactement l'interdit 2. */
+    question: 'Vos journées sont comptées à l’heure de Paris : c’est bien ça ?',
     porteeParDefaut: 'toutes',
-    regle: 'Le fuseau dans lequel le jour logique est compté.',
+    /* « Le jour logique » est le nom du mécanisme, pas une chose que l'on
+       sait lire : la phrase dit la même chose en français (G2). */
+    regle: 'Le fuseau dans lequel vos journées sont comptées.',
   }),
   C({
     champ: 'activite',
+    groupe: 'vous',
     libelle: 'Ce que vous faites dans la vie',
     nature: 'texte',
     question: 'Qu’est-ce que vous faites dans la vie ?',
@@ -243,12 +431,36 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'lever',
+    groupe: 'journee',
+    luPar: [
+      {
+        module: 'src/lib/noyau/reglages.ts',
+        libelle: 'l’heure à laquelle votre journée change de date',
+      },
+      { module: 'src/lib/odyssee-jour.ts', libelle: 'la fenêtre de la revue (Odyssée)' },
+      { module: 'src/lib/parametres/acces.ts', libelle: 'Paramètres, Ma journée' },
+      {
+        module: 'src/layouts/Base.astro',
+        libelle: 'la bascule entre le thème clair et le thème sombre',
+      },
+    ],
     libelle: 'Heure de lever',
     nature: 'heure',
     question: 'À quelle heure vous levez-vous, d’habitude ?',
     porteeParDefaut: 'toutes',
+    /*
+       M4 DU 56 : LA PHRASE ÉTAIT FAUSSE, et d'une façon qui se vérifie.
+
+       Elle disait que la journée change de date à l'heure du lever. Le code
+       dit autre chose : `basculeDuJour` prend l'heure du lever MOINS UNE, et
+       la borne entre 2 h et 6 h. Quelqu'un qui se lève à 11 h voyait donc sa
+       journée changer à 6 h, et non à 11 h — et la phrase lui laissait croire
+       le contraire, ce qui est exactement le genre de réglage qu'on rechange
+       au hasard.
+    */
     regle:
-      'L’heure à laquelle votre journée change de date — une séance finie à minuit trente compte pour la soirée écoulée.',
+      'Votre journée change de date une heure avant votre lever, entre 2 h et 6 h : ' +
+      'une séance finie à minuit trente compte pour la soirée écoulée.',
   }),
   C({
     /*
@@ -262,13 +474,51 @@ export const CHAMPS: readonly ChampDeclare[] = [
        produire un troisième comportement.
     */
     champ: 'moment-revue',
-    libelle: 'Moment de ma revue',
+    groupe: 'journee',
+    /*
+       LE NOM, APRÈS LA DÉCISION 4 DU 56.
+
+       « Moment de ma revue » et « Moment de révision préféré » se
+       ressemblaient assez pour qu'on les prenne l'un pour l'autre, et
+       Alexis a tranché : les garder séparés, mieux nommés. Celui-ci dit
+       désormais la branche dont il vient, et la question dit ce que le
+       choix change — le jour sur lequel la revue porte, et non l'heure à
+       laquelle elle est proposée.
+    */
+    luPar: [
+      {
+        module: 'src/lib/odyssee-jour.ts',
+        libelle: 'le moment où la revue d’Odyssée vous est proposée',
+      },
+      {
+        module: 'src/pages/odyssee/revue.astro',
+        libelle: 'la revue, qui porte sur la veille le matin et sur la journée le soir',
+      },
+      { module: 'src/lib/parametres/acces.ts', libelle: 'Paramètres, Ma journée' },
+    ],
+    libelle: 'Moment de ma revue (Odyssée)',
     nature: 'texte',
-    question: 'Préférez-vous faire votre revue le matin ou le soir ?',
+    question: 'Faites-vous votre revue le matin, sur la veille, ou le soir, sur la journée ?',
     porteeParDefaut: 'toutes',
+    regle:
+      'Le jour sur lequel votre revue porte : la veille si vous la faites le matin, ' +
+      'la journée en cours si vous la faites le soir.',
   }),
   C({
     champ: 'coucher',
+    groupe: 'journee',
+    luPar: [
+      {
+        module: 'src/lib/noyau/adaptation.ts',
+        libelle: 'la règle qui remarque un coucher dépassé',
+      },
+      { module: 'src/lib/odyssee-jour.ts', libelle: 'la fenêtre de la revue (Odyssée)' },
+      { module: 'src/lib/parametres/acces.ts', libelle: 'Paramètres, Ma journée' },
+      {
+        module: 'src/layouts/Base.astro',
+        libelle: 'la bascule entre le thème clair et le thème sombre',
+      },
+    ],
     libelle: 'Heure de coucher',
     nature: 'heure',
     question: 'Et vous couchez-vous ?',
@@ -276,14 +526,18 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'joursTravail',
+    groupe: 'journee',
     libelle: 'Jours de travail',
     nature: 'liste',
     question: 'Quels jours travaillez-vous ?',
     porteeParDefaut: 'toutes',
-    regle: 'Les créneaux proposés pour vos séances, et les jours de repos de la rotation.',
+    /* Pas de `regle` : le réglage déduit « jours de repos » en découle, et rien
+       ne l'applique — la rotation ne lit pas ce champ, et la série non plus
+       (constat B2). La phrase promettait les deux. */
   }),
   C({
     champ: 'plagesTravail',
+    groupe: 'journee',
     libelle: 'Plages de travail',
     nature: 'liste',
     question: 'Sur quelles plages ?',
@@ -291,6 +545,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'objectifsAnnee',
+    groupe: 'objectifs',
     libelle: 'Objectifs de l’année',
     nature: 'liste',
     question: 'Qu’est-ce que vous voulez obtenir cette année ?',
@@ -298,6 +553,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'objectifsVie',
+    groupe: 'objectifs',
     libelle: 'Objectifs de long terme',
     nature: 'liste',
     question: 'Et à plus long terme ?',
@@ -305,6 +561,14 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'tempsParSemaine',
+    groupe: 'objectifs',
+    unite: { un: 'h par semaine', plusieurs: 'h par semaine' },
+    luPar: [
+      {
+        module: 'src/lib/noyau/adaptation.ts',
+        libelle: 'la proposition qui compare ce temps à vos séances réelles',
+      },
+    ],
     libelle: 'Temps disponible par semaine',
     nature: 'nombre',
     question: 'Combien de temps pouvez-vous y consacrer par semaine ?',
@@ -312,6 +576,22 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'domainesActifs',
+    groupe: 'objectifs',
+    clefs: 'domaines',
+    luPar: [
+      {
+        module: 'src/lib/odyssee-jour.ts',
+        libelle: 'les domaines affichés dans la roue et au menu',
+      },
+      {
+        module: 'src/lib/noyau/reglages.ts',
+        libelle: 'les domaines affichés dans la roue et au menu',
+      },
+      {
+        module: 'src/lib/noyau/adaptation.ts',
+        libelle: 'la proposition qui compare vos domaines à ceux que vous suivez vraiment',
+      },
+    ],
     libelle: 'Domaines suivis',
     nature: 'liste',
     question: 'Lesquels de ces domaines voulez-vous suivre ?',
@@ -320,6 +600,9 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'tempsParDomaine',
+    groupe: 'objectifs',
+    clefs: 'domaines',
+    unite: { un: 'h', plusieurs: 'h' },
     libelle: 'Temps par domaine',
     nature: 'repartition',
     question: 'Combien de temps par semaine pour chacun ?',
@@ -327,33 +610,55 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'styleAccompagnement',
+    groupe: 'objectifs',
     libelle: 'Style d’accompagnement',
     nature: 'texte',
     question: 'Comment Cyclades doit-il vous accompagner ?',
     porteeParDefaut: 'toutes',
-    regle: 'La fréquence et le ton des avis locaux.',
+    /* Pas de `regle` : les avis locaux ne lisent pas ce champ (B2). */
   }),
 
   /* --- Extension : Révisions ---------------------------------------------- */
   C({
     champ: 'concours',
+    clefs: 'parcours',
     libelle: 'Concours préparés',
     nature: 'liste',
     question: 'Quel concours préparez-vous ?',
     porteeParDefaut: ['revisions', 'odyssee'],
     brancheDOrigine: 'revisions',
-    regle: 'Les parcours ouverts dans le registre.',
+    /* Pas de `regle` : le registre n'ouvre pas les parcours d'après ce champ —
+       le parcours courant se choisit dans Révisions (B2). */
   }),
   C({
     champ: 'datesEpreuves',
+    clefs: 'parcours',
     libelle: 'Dates d’épreuves',
     nature: 'repartition',
     question: 'Quand sont les épreuves ?',
     porteeParDefaut: ['revisions', 'odyssee'],
     brancheDOrigine: 'revisions',
+    /* La décision 3 rend ce champ utile : sans elle, rien ne le lisait et il
+       tombait dans « plus demandé » comme les vingt-deux autres. Le compte à
+       rebours le lit, donc Cyclades le redemande — c'est le même `aUnUsage`
+       qui décide des deux, et c'est pour cela qu'ils ne peuvent pas diverger. */
+    luPar: [
+      {
+        module: 'src/pages/revisions/index.astro',
+        libelle: 'le compte à rebours de l’accueil de Révisions',
+      },
+    ],
+    regle: 'Le compte à rebours de l’accueil de Révisions, qu’un réglage coupe.',
   }),
   C({
     champ: 'heuresRevision',
+    unite: { un: 'h par semaine', plusieurs: 'h par semaine' },
+    luPar: [
+      {
+        module: 'src/lib/noyau/adaptation.ts',
+        libelle: 'la proposition qui compare ces heures à vos séances réelles',
+      },
+    ],
     libelle: 'Heures de révision par semaine',
     nature: 'nombre',
     question: 'Combien d’heures de révision par semaine ?',
@@ -378,9 +683,18 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'momentRevision',
-    libelle: 'Moment de révision préféré',
+    luPar: [
+      {
+        module: 'src/lib/noyau/adaptation.ts',
+        libelle: 'la proposition qui compare ce moment à l’heure de vos séances',
+      },
+    ],
+    /* Décision 4 : séparé de « Moment de ma revue », et nommé pour qu'on ne
+       les confonde plus. Celui-ci ne décide de rien dans la revue : il dit
+       quand vous préférez réviser, et l'adaptation le compare au réel. */
+    libelle: 'Heure préférée pour réviser',
     nature: 'texte',
-    question: 'Préférez-vous travailler le matin ou le soir ?',
+    question: 'Préférez-vous réviser le matin ou le soir ?',
     porteeParDefaut: ['revisions', 'odyssee'],
     brancheDOrigine: 'revisions',
   }),
@@ -404,6 +718,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
   }),
   C({
     champ: 'frequenceSouhaitee',
+    unite: { un: 'séance par semaine', plusieurs: 'séances par semaine' },
     libelle: 'Séances par semaine souhaitées',
     nature: 'nombre',
     question: 'Combien de séances par semaine aimeriez-vous tenir ?',
@@ -430,6 +745,11 @@ export const CHAMPS: readonly ChampDeclare[] = [
   /* --- Extension : Odyssée ------------------------------------------------- */
   C({
     champ: 'ciblesEquilibre',
+    clefs: 'domaines',
+    unite: { un: 'h', plusieurs: 'h' },
+    luPar: [
+      { module: 'src/lib/odyssee-jour.ts', libelle: 'la roue d’équilibre d’Odyssée' },
+    ],
     libelle: 'Cibles d’équilibre',
     nature: 'repartition',
     question: 'Quel équilibre voulez-vous viser entre vos domaines ?',
@@ -467,7 +787,7 @@ export const CHAMPS: readonly ChampDeclare[] = [
     question: 'À quelle heure voulez-vous être relancé, si vous le voulez ?',
     porteeParDefaut: 'toutes',
     brancheDOrigine: 'odyssee',
-    regle: 'L’heure des avis locaux, quand vous en voulez.',
+    /* Pas de `regle` : aucun avis n'est posé à cette heure (B2). */
   }),
 ];
 
@@ -486,6 +806,52 @@ export const champDeclare = (champ: string): ChampDeclare | undefined => PAR_CHA
 export const CHAMPS_JAMAIS_EXPORTES: readonly string[] = CHAMPS.filter(
   (c) => c.jamaisExporte === true,
 ).map((c) => c.champ);
+
+/**
+ * Les champs que l'export doit **retirer des textes libres**.
+ *
+ * Déduite des lecteurs marqués `protection`, et non recopiée dans l'export.
+ * La raison est la même que pour `CHAMPS_JAMAIS_EXPORTES` : l'export ne doit
+ * pas nommer les champs qu'il protège, sans quoi la liste vivrait à deux
+ * endroits et l'essai ne pourrait plus dire si le module lit ce nom pour
+ * s'en servir ou pour l'écarter.
+ */
+export const CHAMPS_A_CAVIARDER: readonly string[] = CHAMPS.filter((c) =>
+  c.luPar?.some((l) => l.protection === true),
+).map((c) => c.champ);
+
+/**
+ * Le champ sert-il à quelque chose d'autre qu'à se protéger lui-même ?
+ *
+ * C'est le critère de la décision 2 : un champ que rien ne lit n'est plus
+ * demandé. « Rien ne lit » se dit ici une fois, et les deux conséquences —
+ * la question qu'on ne pose plus, la ligne « Lu par » qui n'apparaît pas —
+ * en découlent au lieu d'être tenues à part.
+ */
+export const aUnUsage = (c: ChampDeclare): boolean =>
+  (c.luPar ?? []).some((l) => l.protection !== true) || (c.clesDuRegistre ?? []).length > 0;
+
+/**
+ * Les champs qui ne sont plus demandés, faute de lecteur.
+ *
+ * Ils ne sont **pas** effacés, ni cachés : leur valeur reste, visible et
+ * modifiable, avec la mention qui dit qu'elle est gardée pour plus tard
+ * (interdit 1 du prompt 56). Cette liste sert à l'écran, qui porte la
+ * mention, et à l'essai, qui vérifie qu'elle n'est pas devenue fausse.
+ */
+export const CHAMPS_PLUS_DEMANDES: readonly string[] = CHAMPS.filter(
+  (c) => !aUnUsage(c) && !c.demandeAuBesoin,
+).map((c) => c.champ);
+
+/*
+   CE QUE L'ÉCRAN AFFICHE APRÈS « LU PAR », et pourquoi ce n'est pas ici.
+
+   Il y a deux sources — cette table, et le registre des usages pour l'âge —,
+   et les réunir demande de lire le registre. Le catalogue n'a pas à en
+   dépendre à l'exécution : la réunion se fait dans `lib/profil-lecteurs.ts`,
+   qui ne nomme aucun champ et peut donc vivre hors des six fichiers autorisés
+   à nommer ceux de naissance.
+*/
 
 /**
  * Les champs qui relèvent de la case « Objectifs » et non de la case
@@ -554,11 +920,23 @@ export const champsDuSocle = (): ChampDeclare[] => CHAMPS.filter((c) => !c.branc
  * jour vient toujours où l'un d'eux oublie.
  */
 export const questionsDuSocle = (): ChampDeclare[] =>
-  champsDuSocle().filter((c) => !c.demandeAuBesoin);
+  champsDuSocle().filter((c) => !c.demandeAuBesoin && aUnUsage(c));
 
 /** Les champs qu'une branche pose à sa première ouverture. */
 export const champsDeBranche = (branche: string): ChampDeclare[] =>
   CHAMPS.filter((c) => c.brancheDOrigine === branche);
+
+/**
+ * Les champs d'une branche **que l'on pose en question**.
+ *
+ * Même distinction que pour le socle, et deux filtres au lieu d'un :
+ * `demandeAuBesoin` écarte ce qui se demande au moment de l'usage, et
+ * `aUnUsage` ce que rien ne lit. `champsDeBranche` garde, lui, la liste
+ * entière — c'est celle dont l'écran a besoin pour offrir « Renseigner » sur
+ * un champ vide (B5).
+ */
+export const questionsDeBranche = (branche: string): ChampDeclare[] =>
+  champsDeBranche(branche).filter((c) => !c.demandeAuBesoin && aUnUsage(c));
 
 /* ══════════════════════════════════════════════════════════════════════════
    La valeur d'un champ, telle que le journal la porte
@@ -926,6 +1304,92 @@ export function controlerChamps(branchesConnues: readonly string[]): string[] {
       }
     }
   }
+  for (const c of CHAMPS) {
+    if (c.luPar && !c.luPar.length) {
+      problemes.push(
+        `Le champ « ${c.champ} » déclare une liste de lecteurs vide : il faut l’omettre, ` +
+          'pour que « rien ne le lit » se lise d’une seule façon.',
+      );
+    }
+    for (const lecteur of c.luPar ?? []) {
+      if (!lecteur.module.startsWith('src/')) {
+        problemes.push(`Le lecteur « ${lecteur.module} » du champ « ${c.champ} » n’est pas dans src/.`);
+      }
+      if (lecteur.libelle.trim().length < 10) {
+        problemes.push(`Le lecteur « ${lecteur.module} » du champ « ${c.champ} » n’a pas de libellé lisible.`);
+      }
+    }
+    /*
+       JAMAIS LES DEUX SOURCES POUR LE MÊME CHAMP.
+
+       Un champ dont les lecteurs seraient déclarés ici **et** dérivés du
+       registre aurait deux listes à tenir d'accord, et c'est l'état que la
+       ligne « Lu par » existe pour supprimer. La protection ne compte pas : un
+       lecteur qui retire la valeur d'un export n'est pas un usage.
+    */
+    if (c.clesDuRegistre?.length && (c.luPar ?? []).some((l) => l.protection !== true)) {
+      problemes.push(
+        `Le champ « ${c.champ} » déclare ses lecteurs au catalogue et les dérive du registre : ` +
+          'il faut choisir, sans quoi les deux listes finiront par se contredire.',
+      );
+    }
+    if (c.clesDuRegistre && !c.clesDuRegistre.length) {
+      problemes.push(
+        `Le champ « ${c.champ} » déclare une liste de clés vide : il faut l’omettre.`,
+      );
+    }
+    const modules = (c.luPar ?? []).map((l) => l.module);
+    if (new Set(modules).size !== modules.length) {
+      problemes.push(`Le champ « ${c.champ} » déclare deux fois le même lecteur.`);
+    }
+    if (!c.brancheDOrigine && !c.groupe) {
+      problemes.push(
+        `Le champ « ${c.champ} » n’est dans aucun bloc de « Mon profil » : il faut le placer.`,
+      );
+    }
+    if (c.brancheDOrigine && c.groupe) {
+      problemes.push(
+        `Le champ « ${c.champ} » vient d’une branche et déclare pourtant un bloc du socle.`,
+      );
+    }
+    if (c.clefs && c.nature !== 'liste' && c.nature !== 'repartition') {
+      problemes.push(
+        `Le champ « ${c.champ} » dit ce que ses clés nomment, mais il n’a ni liste ni répartition.`,
+      );
+    }
+    if (c.unite && c.nature !== 'nombre' && c.nature !== 'repartition') {
+      problemes.push(`Le champ « ${c.champ} » porte une unité sans porter de nombre.`);
+    }
+    if (c.unite && (!c.unite.un.trim() || !c.unite.plusieurs.trim())) {
+      problemes.push(`Le champ « ${c.champ} » porte une unité vide.`);
+    }
+    if (c.sansGroupement && c.nature !== 'nombre') {
+      problemes.push(`Le champ « ${c.champ} » refuse le groupement sans porter de nombre.`);
+    }
+    /*
+       UNE PROMESSE SUPPOSE UN LECTEUR (P12, interdit 2 du prompt 56).
+
+       `regle` dit à l'écran ce que le champ **règle** dans l'application. Un
+       champ que rien ne lit ne règle rien : la phrase était alors une promesse
+       que le code ne tenait pas, et quatre champs en portaient une — les jours
+       de travail, le style d'accompagnement, les concours et l'heure de
+       rappel. Le contrôle rend la faute impossible à rejouer sans le voir.
+    */
+    if (c.regle && !aUnUsage(c)) {
+      problemes.push(
+        `Le champ « ${c.champ} » annonce ce qu'il règle, mais rien ne le lit : ` +
+          'une promesse sans lecteur est interdite (P12 du prompt 56).',
+      );
+    }
+    /* Un champ obligatoire qu'on ne poserait plus serait une contradiction :
+       l'initialisation l'attend, et le filtre l'aurait retiré. */
+    if (c.obligatoire && !aUnUsage(c)) {
+      problemes.push(
+        `Le champ « ${c.champ} » est obligatoire mais rien ne le lit : il ne serait plus posé.`,
+      );
+    }
+  }
+
   const obligatoires = CHAMPS.filter((c) => c.obligatoire).map((c) => c.champ);
   if (obligatoires.length !== 1 || obligatoires[0] !== 'prenom') {
     problemes.push(

@@ -17,6 +17,7 @@
  * « astro preview » avant ce script.
  */
 import { chromium } from 'playwright-core';
+import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 import { accorderLApprentissage } from './lib/consentement-essais.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
@@ -24,7 +25,10 @@ const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
 
 const nav = await chromium.launch({
-  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium',
+  /* Cherché, non nommé : voir `lib/chromium-essais.mjs`. Le chercheur lit
+     « CHROMIUM » en premier, donc la variable reste prioritaire comme sur
+     main ; il trouve en plus le binaire quelle que soit sa version. */
+  executablePath: cheminDuNavigateur(),
   args: ['--no-sandbox'],
 });
 
@@ -109,12 +113,16 @@ v('et la première question est celle du prénom', await question(), 'Comment do
 
    La borne basse reste un garde-fou : un total d'une seule question
    voudrait dire que le socle a disparu, et ce ne serait pas au compteur de
-   se taire là-dessus.
+   se taire là-dessus. Elle était à dix quand le socle posait dix-huit
+   questions ; la décision 2 du prompt 56 en laisse huit — celles dont la
+   réponse est lue —, et la borne descend donc à cinq, toujours la moitié de
+   ce qui est déclaré. Le compte exact, lui, est éprouvé par « essais:profil »
+   et « essais:lu-par », là où il se décide.
 */
 const avancement = await compteur();
 const totalDesQuestions = Number(/^1 \/ (\d+)$/.exec(avancement ?? '')?.[1] ?? 0);
 v('l’avancement est annoncé, et il commence à 1', /^1 \/ \d+$/.test(avancement ?? ''), true);
-v(`et le total est crédible (${totalDesQuestions} questions)`, totalDesQuestions >= 10, true);
+v(`et le total est crédible (${totalDesQuestions} questions)`, totalDesQuestions >= 5, true);
 faux('« Plus tard » n’est pas proposé sur le prénom', await page.locator('#plus-tard').isVisible());
 vrai('mais « Terminer maintenant » l’est', await page.locator('#terminer').isVisible());
 v(
@@ -142,47 +150,48 @@ console.log('\nRÉPONDRE, REPORTER, ET REVENIR AU MÊME ENDROIT');
 await page.fill('#saisie-prenom', 'Alexis');
 await page.click('#valider');
 await page.waitForFunction(
-  () => document.getElementById('question')?.textContent?.startsWith('Et votre nom'),
-  { timeout: 15000 },
-);
-v('le prénom posé, on passe au nom', await question(), 'Et votre nom, si vous voulez le donner ?');
-v('le compteur avance, sur le même total', await compteur(), `2 / ${totalDesQuestions}`);
-vrai('et « Plus tard » apparaît', await page.locator('#plus-tard').isVisible());
-
-/*
-   L'ANNÉE DE NAISSANCE S'EST INTERCALÉE, et l'essai l'ignorait.
-
-   Elle est posée juste après le nom depuis le prompt 50 (âge et cycle) :
-   le parcours réel est prénom, nom, année de naissance, tutoiement. L'essai
-   attendait « tutoie » dès le report du nom, et expirait donc sur une
-   question parfaitement légitime.
-
-   On reporte les deux, et la propriété éprouvée ne change pas : « Plus
-   tard » avance sans écrire, autant de fois qu'on le demande.
-*/
-await page.click('#plus-tard');
-await page.waitForFunction(
   () => document.getElementById('question')?.textContent?.includes('année de naissance'),
   { timeout: 15000 },
 );
+/*
+   LE DÉROULÉ A CHANGÉ AVEC LA DÉCISION 2 DU PROMPT 56.
+
+   Le socle posait dix-huit questions : prénom, nom, année de naissance,
+   tutoiement, langue et fuseau, activité… Dix d'entre elles ne sont plus
+   posées, parce que rien ne lit leur réponse — le nom, le tutoiement et
+   l'activité en font partie. Il en reste huit, dans cet ordre : prénom,
+   année de naissance, fuseau, lever, moment de la revue, coucher, temps par
+   semaine, domaines suivis.
+
+   Les propriétés éprouvées ici ne changent pas d'un mot : une question à
+   l'écran, « Plus tard » qui avance sans écrire, et un report qui tient au
+   rechargement. Seules les questions traversées sont les nouvelles.
+*/
 v(
-  '« Plus tard » avance sans écrire : on passe à l’année de naissance',
+  'le prénom posé, on passe à l’année de naissance',
   await question(),
   'Quelle est votre année de naissance ?',
 );
+v('le compteur avance, sur le même total', await compteur(), `2 / ${totalDesQuestions}`);
+vrai('et « Plus tard » apparaît', await page.locator('#plus-tard').isVisible());
+
 await page.click('#plus-tard');
 await page.waitForFunction(
-  () => document.getElementById('question')?.textContent?.includes('tutoie'),
+  () => document.getElementById('question')?.textContent?.includes('heure de Paris'),
   { timeout: 15000 },
 );
-v('et une seconde fois, sans rien écrire non plus', await question(), 'On se tutoie, ou on se vouvoie ?');
+v(
+  '« Plus tard » avance sans écrire : on passe au fuseau',
+  await question(),
+  'Vos journées sont comptées à l’heure de Paris : c’est bien ça ?',
+);
 
 /* La promesse du parcours : fermer, revenir, et retrouver le même endroit. */
 await aller('/initialisation/', '#question');
 v(
   'après rechargement, la question reportée n’est pas reposée',
   await question(),
-  'On se tutoie, ou on se vouvoie ?',
+  'Vos journées sont comptées à l’heure de Paris : c’est bien ça ?',
 );
 /*
    « Raccourci d'autant » se MESURE, au lieu de se figer : le reste à poser
@@ -202,21 +211,34 @@ v(
   );
 }
 
-/* Un choix unique se valide d'un seul geste : pas de « Continuer » à chercher. */
-await page.click('[data-valeur="tu"]');
+/*
+   Un choix unique se valide d'un seul geste : pas de « Continuer » à chercher.
+   Le fuseau était jusqu'ici accompagné de la langue sur le même écran, ce qui
+   faisait deux champs et ramenait le bouton « Continuer » ; seul, il se valide
+   du premier clic, et le bouton n'a plus de raison d'être là.
+*/
+faux('« Continuer » s’efface devant un choix unique', await page.locator('#valider').isVisible());
+await page.click('[data-valeur="Europe/Paris"]');
 await page.waitForFunction(
-  () => document.getElementById('question')?.textContent?.includes('heure de Paris'),
+  () => document.getElementById('question')?.textContent?.includes('vous levez-vous'),
   { timeout: 15000 },
 );
-v('un bouton de choix vaut validation', await question(), 'Français, et heure de Paris : c’est bien ça ?');
+v('un bouton de choix vaut validation', await question(), 'À quelle heure vous levez-vous, d’habitude ?');
 
-/* Un écran, deux champs : la question 3 règle la langue **et** le fuseau. */
-await page.click('#valider');
+/* Et « Plus tard » une seconde fois, sans rien écrire non plus. */
+await page.click('#plus-tard');
 await page.waitForFunction(
-  () => document.getElementById('question')?.textContent?.includes('dans la vie'),
+  () => document.getElementById('question')?.textContent?.includes('votre revue'),
   { timeout: 15000 },
 );
-v('la question suivante arrive', await question(), 'Qu’est-ce que vous faites dans la vie ?');
+/* La question a changé de phrase avec la décision 4 du 56 : elle dit
+   maintenant ce que le choix change, c'est-à-dire le jour sur lequel la revue
+   porte. */
+v(
+  'la question suivante arrive',
+  await question(),
+  'Faites-vous votre revue le matin, sur la veille, ou le soir, sur la journée ?',
+);
 
 await page.click('#terminer');
 await page.waitForSelector('#aller-menu', { timeout: 15000 });
@@ -243,18 +265,49 @@ console.log('\nRÉVISIONS POSE SES QUESTIONS À LA PREMIÈRE ENTRÉE');
 await aller('/revisions/', '#question, #dues');
 v('la branche mène à son module', new URL(page.url()).pathname, '/initialisation/');
 v('et le dit dans son étiquette', (await page.locator('#etiquette').textContent())?.includes('Révisions'), true);
-v('la première question est celle du concours', await question(), 'Quel concours préparez-vous ?');
-v('le module fait six questions', await compteur(), '1 / 6');
+/*
+   TROIS QUESTIONS, ET NON SIX, depuis la décision 2 du 56 — puis la décision 3
+   en a ramené une. Le concours et les deux listes de matières ne sont plus
+   demandés : rien ne lit leur réponse. Les dates d'épreuves, elles, sont
+   revenues le 19 octobre, parce que le compte à rebours de l'accueil les lit :
+   c'est le même `aUnUsage` qui retire une question et qui la rend, et c'est
+   pour cela que ce nombre bouge ici sans que personne l'ait remis à la main.
+*/
+v(
+  'la première question est celle des dates d’épreuves',
+  await question(),
+  'Quand sont les épreuves ?',
+);
+v('le module fait trois questions', await compteur(), '1 / 3');
 
-await page.click('[data-valeur="insp"]');
-await page.click('#valider');
+await page.click('#plus-tard');
 await page.waitForFunction(
-  () => document.getElementById('question')?.textContent?.includes('épreuves'),
+  () => document.getElementById('question')?.textContent?.includes('heures de révision'),
+  undefined,
   { timeout: 15000 },
 );
-v('le concours retenu, on passe aux dates', await question(), 'Quand sont les épreuves ?');
+v(
+  'puis viennent les heures de révision',
+  await question(),
+  'Combien d’heures de révision par semaine ?',
+);
 
-await page.click('#terminer');
+await page.click('#plus-tard');
+await page.waitForFunction(
+  () => document.getElementById('question')?.textContent?.includes('matin ou le soir'),
+  undefined,
+  { timeout: 15000 },
+);
+/* « travailler » devient « réviser » : la question est celle des révisions, et
+   « Moment de révision préféré » s'appelle désormais « Heure préférée pour
+   réviser » (décision 4). */
+v('on passe au moment préféré', await question(), 'Préférez-vous réviser le matin ou le soir ?');
+/*
+   La dernière question répondue termine le module d'elle-même : il n'y a plus
+   de « Terminer maintenant » à chercher, et l'écran de fin arrive seul. Le
+   module en comptait six, et l'essai en abandonnait donc quatre par ce bouton.
+*/
+await page.click('[data-valeur="matin"]');
 await page.waitForSelector('#aller-menu', { timeout: 15000 });
 v(
   '« Entrer » ramène dans la branche, pas au menu',
@@ -270,27 +323,50 @@ v('et la branche ne redemande plus rien', new URL(page.url()).pathname, '/revisi
    ════════════════════════════════════════════════════════════════════════ */
 console.log('\nCE QUI EST ÉCRIT EST CE QUI A ÉTÉ RÉPONDU');
 
-await aller('/profil/', '#champs');
+await aller('/profil/', '[data-champ="prenom"]');
 {
-  const champs = await page.$$eval('#champs > div', (els) =>
-    els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()),
+  /*
+     LES CARTES, ET NON PLUS DEUX LISTES. Le plan de page du prompt 56 montre
+     chaque champ à sa place déclarée, rempli ou vide : « Ce qui est
+     renseigné » et « Ce qui n'est pas renseigné » ont disparu, et avec elles
+     le trou qui empêchait de renseigner un champ de branche (B5).
+  */
+  const remplies = await page.$$eval('[data-champ]:not([data-vide])', (els) =>
+    els.map((e) => e.dataset.champ),
   );
-  const texte = champs.join(' | ');
-  vrai('le prénom est là, déclaré', /Prénom.*Alexis.*déclaré/.test(texte));
-  vrai('la formalité aussi', /Tutoiement.*tu/.test(texte));
-  vrai('le concours retenu aussi', /Concours.*insp/.test(texte));
-  vrai('un écran a bien écrit deux champs : la langue', /Langue.*fr/.test(texte));
-  vrai('et le fuseau', /Fuseau.*Europe\/Paris/.test(texte));
-  faux('le nom reporté n’a rien écrit', /Nom\b(?!bre)[^|]*déclaré/.test(texte));
-  v('cinq champs ont été posés, et pas un de plus', champs.length, 5);
-}
-{
-  const restants = await page.$$eval('#restants > *', (els) =>
-    els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()),
+  v('trois réponses posées, et pas une de plus', remplies.sort(), [
+    'fuseau',
+    'momentRevision',
+    'prenom',
+  ]);
+  v('le prénom est là', (await page.textContent('[data-valeur="prenom"]')).trim(), 'Alexis');
+  v(
+    'le fuseau choisi aussi',
+    (await page.textContent('[data-valeur="fuseau"]')).trim(),
+    'Europe/Paris',
+  );
+  v(
+    'et l’heure préférée, posée par le module',
+    (await page.textContent('[data-valeur="momentRevision"]')).trim(),
+    'matin',
   );
   vrai(
-    'et une question reportée revient parmi ce qui n’est pas renseigné',
-    restants.some((r) => r.startsWith('Nom')),
+    'le prénom se dit déclaré, dans son historique',
+    (await page.textContent('[data-carte="prenom"]')).includes('déclaré'),
+  );
+  /* L'année reportée n'a rien écrit : sa carte est là, vide, et propose de la
+     renseigner — c'est ce que « Plus tard » promet. */
+  v(
+    'l’année de naissance reportée n’a rien écrit',
+    (await page.textContent('[data-valeur="naissanceAnnee"]')).trim(),
+    '—',
+  );
+  vrai(
+    'et sa carte propose de la renseigner',
+    await page
+      .locator('[data-carte="naissanceAnnee"] button', { hasText: 'Renseigner' })
+      .first()
+      .isVisible(),
   );
 }
 
@@ -471,21 +547,16 @@ await page2.waitForFunction(
   { timeout: 15000 },
 );
 await page2.goto(`${RACINE}/profil/`, { waitUntil: 'networkidle' });
-await page2.waitForSelector('#champs', { timeout: 40000 });
+await page2.waitForSelector('[data-carte="tempsParSemaine"] [data-champ]', { timeout: 40000 });
 {
-  const texte = (
-    await page2.$$eval('#champs > div', (els) =>
-      els.map((e) => e.textContent.replace(/\s+/g, ' ').trim()),
-    )
-  ).join(' | ');
+  /* La provenance est passée dans le dépliant « Historique » (P7) : on lit
+     donc la carte entière, dont le dépliant fait partie. */
+  const texte = (await page2.textContent('[data-carte="tempsParSemaine"]')).replace(/\s+/g, ' ');
   vrai(
     'une déduction confirmée est écrite comme « observé, puis confirmé »',
-    /Temps disponible[^|]*observé, puis confirmé/.test(texte),
+    texte.includes('observé, puis confirmé'),
   );
-  faux(
-    'et jamais comme une déclaration',
-    /Temps disponible[^|]*· déclaré/.test(texte),
-  );
+  faux('et jamais comme une déclaration', /\bdéclaré\b/.test(texte));
 }
 
 await nav.close();
