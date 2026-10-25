@@ -384,7 +384,7 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
 </Base>
 
 <script>
-  import { avertir, confirmer, demanderUnTexte } from '../lib/boite';
+  import { avertir, confirmer, demanderUneSaisie } from '../lib/boite';
   import { messageDUneErreur } from '../lib/agir';
   import { auDeverrouillage } from '../lib/chargement';
   import { echapper, pluriel } from '../lib/ui';
@@ -598,54 +598,57 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
   }
 
   /**
-   * La saisie, dans la boîte commune.
+   * La saisie d'un champ, dans la boîte commune — et par la saisie qui
+   * convient à ce champ.
    *
-   * Reste provisoire ce qui l'était déjà : un seul champ texte pour toutes les
-   * natures. Le point D2 du prompt 43 demande des champs propres, par nature,
-   * et notamment la correction d'une répartition sans écrire de JSON ; c'est un
-   * lot de formulaire, et il vient de là. Signalé au compte rendu : l'exemple
-   * affiché pour une répartition parle de domaines, y compris devant les dates
-   * d'épreuves, où il est faux.
+   * ## CE QU'ELLE DEMANDAIT AVANT, ET POURQUOI C'ÉTAIT UNE PORTE FERMÉE
+   *
+   * Un seul champ texte servait toutes les natures. Pour corriger ses heures
+   * par domaine, il fallait donc taper « {"cognition": 10} » — du JSON, à la
+   * main, dans une boîte de dialogue. Une virgule oubliée rendait « Cette
+   * répartition n'a pas pu être lue », et c'était tout ce que la personne
+   * apprenait.
+   *
+   * L'exemple affiché était en plus faux une fois sur deux : il parlait de
+   * domaines jusque devant « Dates d'épreuves », dont les valeurs sont des
+   * dates par parcours. On montrait une forme à recopier, et ce n'était pas
+   * la bonne.
+   *
+   * ## CE QU'ELLE FAIT MAINTENANT
+   *
+   * `saisiePourChamp` rend la même saisie que l'initialisation : des curseurs
+   * pour une répartition d'heures, un calendrier par parcours pour les dates,
+   * des bascules pour une liste à choix, un champ heure pour une heure. Aucune
+   * syntaxe à connaître, et aucune forme à recopier.
+   *
+   * ## LES TROIS ISSUES, QUI NE SE CONFONDENT PAS
+   *
+   * `null` est un renoncement : on a fermé ou annulé, et le champ reste tel
+   * qu'il était. `undefined` est une réponse — celle d'un « Je ne sais pas
+   * encore », ou d'une saisie que personne n'a touchée — et elle n'écrit rien
+   * non plus, mais pour une autre raison. Les écrire toutes deux reviendrait
+   * à effacer une valeur que la personne n'a pas demandé d'effacer.
    */
   async function demander(champ: string, question: string, actuelle: unknown): Promise<void> {
     const { champDeclare } = await import('../lib/noyau/profil');
+    const { saisiePourChamp } = await import('../lib/noyau/saisies');
     const declare = champDeclare(champ)!;
-    const depart =
-      Array.isArray(actuelle)
-        ? actuelle.join(', ')
-        : actuelle && typeof actuelle === 'object'
-          ? JSON.stringify(actuelle)
-          : String(actuelle ?? '');
-    const saisie = await demanderUnTexte({
+
+    const reponse = await demanderUneSaisie({
       titre: question,
-      texte: declare.nature === 'repartition' ? 'Forme attendue : {"cognition": 10}' : undefined,
-      etiquette: declare.libelle,
-      valeur: depart,
-      multiligne: declare.nature === 'repartition',
+      /* Les répartitions et les dates nomment chacune de leurs lignes :
+         une étiquette de plus au-dessus répéterait le titre. */
+      etiquette: declare.nature === 'repartition' ? undefined : declare.libelle,
       action: 'Enregistrer',
+      construire: (fermer) =>
+        saisiePourChamp(declare, actuelle, { valider: fermer, surInconnu: fermer }),
     });
-    if (saisie === null) return;
-    let valeur: unknown = saisie.trim();
-    if (declare.nature === 'nombre') valeur = Number(saisie.replace(',', '.'));
-    else if (declare.nature === 'booleen') valeur = /^(oui|vrai|true|1)$/i.test(saisie.trim());
-    else if (declare.nature === 'liste') {
-      valeur = saisie
-        .split(',')
-        .map((x) => x.trim())
-        .filter(Boolean);
-    } else if (declare.nature === 'repartition') {
-      try {
-        valeur = JSON.parse(saisie);
-      } catch {
-        await avertir({
-          titre: 'Cette répartition n’a pas pu être lue',
-          texte: 'Forme attendue : {"cognition": 10}',
-        });
-        return;
-      }
-    }
+
+    if (reponse === null) return;
+    if (reponse.valeur === undefined) return;
+
     try {
-      await ecrireChamp(champ, valeur);
+      await ecrireChamp(champ, reponse.valeur);
     } catch (erreur) {
       await avertir({
         titre: 'Ce champ n’a pas été enregistré',

@@ -27,7 +27,7 @@ import { chromium } from 'playwright-core';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
-import { repondreALaBoite, repondreAuChamp } from './lib/boite-essais.mjs';
+import { BOITE, attendreLaBoite, repondreALaBoite, repondreAuChamp } from './lib/boite-essais.mjs';
 import { BRANCHES } from '../src/lib/branches.ts';
 
 const MDP = motDePasseEssais();
@@ -319,6 +319,52 @@ console.log('\nUN CHAMP DE BRANCHE SE RENSEIGNE DEPUIS LE PROFIL (B5)');
     'et le repli compte les réponses données',
     (await page.textContent('[data-compte="revisions"]')).trim(),
     '1 réponse',
+  );
+}
+
+console.log('\nC2 — UNE RÉPARTITION SE CORRIGE SANS ÉCRIRE DE JSON');
+
+{
+  /*
+     CE QUE CE CONTRÔLE EMPÊCHE DE REVENIR.
+
+     « Mon profil » n'avait qu'un champ texte pour toutes les natures : pour
+     donner ses dates d'épreuves, il fallait taper « {"insp": "2027-03-15"} »
+     à la main, et l'aide affichée parlait de domaines — « Forme attendue :
+     {"cognition": 10} » — jusque devant ce champ-là, où elle était fausse.
+
+     Le contrôle ne vérifie donc pas qu'un calendrier existe : il vérifie
+     qu'AUCUN champ de texte libre ne reste dans la boîte. C'est ce qui rend
+     l'absence de JSON vraie plutôt que déclarée — une aide retirée sans que
+     le champ change aurait laissé le piège intact, en le taisant.
+  */
+  const carte = page.locator('[data-carte="datesEpreuves"]');
+  vrai('la carte des dates d’épreuves est dans le bloc Révisions', await carte.isVisible());
+  await carte.locator('button', { hasText: 'Renseigner' }).first().click();
+  await attendreLaBoite(page);
+
+  const dansLaBoite = (sel) => page.locator(`${BOITE}[open] ${sel}`);
+  const calendriers = await dansLaBoite('input[type="date"]').count();
+  vrai('la boîte offre un calendrier par parcours', calendriers >= 2);
+  v('et aucun champ de texte libre', await dansLaBoite('input[type="text"]').count(), 0);
+  v('ni de zone de texte', await dansLaBoite('textarea').count(), 0);
+
+  const texteBoite = (await page.locator(`${BOITE}[open]`).textContent()).replace(/\s+/g, ' ');
+  vrai('rien ne parle de « forme attendue »', !/forme attendue/i.test(texteBoite));
+  vrai('ni d’accolade à recopier', !texteBoite.includes('{'));
+
+  /* Et elle écrit vraiment : une saisie qui n'enregistre pas ne vaut pas
+     mieux qu'un champ JSON. */
+  await dansLaBoite('input[type="date"]').first().fill('2027-03-15');
+  await repondreALaBoite(page, 'Enregistrer');
+  await page.waitForFunction(
+    () => document.querySelector('[data-valeur="datesEpreuves"]')?.textContent?.includes('2027'),
+    undefined,
+    { timeout: 15000 },
+  );
+  vrai(
+    'la date choisie est enregistrée',
+    (await page.textContent('[data-valeur="datesEpreuves"]')).includes('2027'),
   );
 }
 

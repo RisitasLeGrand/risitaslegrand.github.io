@@ -30,13 +30,18 @@
  * Tout le reste est repris mot pour mot, commentaires compris — ils portent
  * des défauts mesurés, et les réécrire les perdrait.
  */
+import { DOMAINES } from './domaines';
 import {
   BORNES,
+  CHOIX,
   MAXIMUM_LIGNES,
+  MULTIPLES,
+  SAISIE_LIBRE_CHIFFREE,
   SUGGESTIONS,
   avisDeSaisie,
   type Option,
 } from './initialisation';
+import { PARCOURS } from '../parcours/registre';
 import { jourLogique } from './jour-logique';
 import type { ChampDeclare } from './profil';
 
@@ -444,4 +449,118 @@ export function dates(
       return Object.keys(sortie).length ? sortie : undefined;
     },
   };
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   La saisie qui convient à un champ
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** Les matières de tous les parcours, dédoublonnées et triées. */
+export function matieresDesParcours(): { valeur: string; libelle: string }[] {
+  const vues = new Map<string, string>();
+  for (const parcours of PARCOURS) {
+    for (const theme of parcours.themes) {
+      for (const matiere of theme.matieres) vues.set(matiere, matiere);
+    }
+  }
+  return [...vues.keys()]
+    .sort((a, b) => a.localeCompare(b, 'fr'))
+    .map((m) => ({ valeur: m, libelle: m }));
+}
+
+/** Ce que l'écran appelant fournit à l'aiguillage. */
+export interface OptionsSaisiePourChamp {
+  /**
+   * Ce que fait un choix unique une fois cliqué : il se valide de lui-même.
+   * À l'initialisation, passer à l'écran suivant ; dans une boîte, la fermer.
+   */
+  valider: () => void;
+  /** Ce que fait « Je ne sais pas encore » sur une répartition. */
+  surInconnu?: () => void;
+}
+
+/**
+ * La saisie qui convient à ce champ.
+ *
+ * ## Elle aiguille par NOM, et c'est à savoir
+ *
+ * On s'attendrait à une saisie par nature. Ce n'en est pas une : la nature
+ * n'est consultée que pour `heure`, et tout le reste se décide sur le nom du
+ * champ ou sur sa présence dans une table — `CHOIX`, `BORNES`,
+ * `MAXIMUM_LIGNES`, `SAISIE_LIBRE_CHIFFREE`.
+ *
+ * Ce n'est pas un défaut à corriger ici : deux champs de même nature n'ont pas
+ * la même saisie — `tempsParDomaine` et `datesEpreuves` sont tous deux
+ * déclarés « repartition », et l'un veut des curseurs d'heures, l'autre un
+ * calendrier par parcours. La nature dit comment la valeur se stocke, pas
+ * comment elle se demande.
+ *
+ * ## Pourquoi cet aiguillage est partagé, et non recopié
+ *
+ * « Mon profil » et l'initialisation posent les mêmes questions sur les mêmes
+ * champs. Deux aiguillages finiraient par diverger, et la divergence se
+ * verrait là où elle coûte le plus : un champ qu'on règle à l'initialisation
+ * avec des curseurs et qu'on corrige ensuite dans un champ texte.
+ *
+ * ## UNE NUANCE NON TRANCHÉE, ET SIGNALÉE PLUTÔT QUE RÉGLÉE EN DOUCE
+ *
+ * Les répartitions par domaine prennent `DOMAINES.filter(actifParDefaut)` :
+ * les domaines actifs **par défaut**, et non ceux que la personne a retenus.
+ * À l'initialisation c'est sans conséquence, la question des domaines venant
+ * avant. Depuis « Mon profil », quelqu'un qui a coupé un domaine peut encore
+ * le voir ici. Le corriger changerait aussi l'initialisation ; la décision
+ * revient au pilote, et le comportement reste donc celui d'avant.
+ */
+export function saisiePourChamp(
+  declare: ChampDeclare,
+  defaut: unknown,
+  options: OptionsSaisiePourChamp,
+): Saisie {
+  const champ = declare.champ;
+
+  if (champ === 'domainesActifs') {
+    const choix = DOMAINES.map((d) => ({ valeur: d.id, libelle: d.libelle, aide: d.description }));
+    const retenues = Array.isArray(defaut)
+      ? (defaut as unknown[])
+      : DOMAINES.filter((d) => d.actifParDefaut).map((d) => d.id);
+    return bascules(choix, retenues);
+  }
+  if (champ === 'concours') {
+    const choix = PARCOURS.map((p) => ({ valeur: p.id, libelle: p.libelle, aide: p.intitule }));
+    return bascules(choix, Array.isArray(defaut) ? (defaut as unknown[]) : []);
+  }
+  if (champ === 'matieresFortes' || champ === 'matieresFaibles') {
+    return bascules(matieresDesParcours(), Array.isArray(defaut) ? (defaut as unknown[]) : []);
+  }
+  if (champ === 'tempsParDomaine' || champ === 'ciblesEquilibre') {
+    const actifs = DOMAINES.filter((d) => d.actifParDefaut).map((d) => ({
+      clef: d.id,
+      libelle: d.libelle,
+    }));
+    return repartition(actifs, (defaut as Record<string, number>) ?? {}, {
+      unite: declare.unite?.un ?? 'h',
+      surInconnu: options.surInconnu,
+    });
+  }
+  if (champ === 'datesEpreuves') {
+    const clefs = PARCOURS.map((p) => ({ clef: p.id, libelle: p.libelle }));
+    return dates(clefs, (defaut as Record<string, unknown>) ?? {});
+  }
+
+  const choix = CHOIX[champ];
+  if (choix) {
+    if (MULTIPLES.includes(champ)) {
+      return bascules(choix, Array.isArray(defaut) ? (defaut as unknown[]) : []);
+    }
+    return choixUnique(choix, defaut, options.valider);
+  }
+  if (SAISIE_LIBRE_CHIFFREE.includes(champ)) {
+    return nombreLibre(declare, typeof defaut === 'number' ? defaut : null);
+  }
+  if (champ in BORNES) return curseur(declare, typeof defaut === 'number' ? defaut : null);
+  if (champ in MAXIMUM_LIGNES) {
+    return lignes(declare, Array.isArray(defaut) ? (defaut as string[]).map(String) : []);
+  }
+  if (declare.nature === 'heure') return heure(declare, typeof defaut === 'string' ? defaut : null);
+  return texte(declare, typeof defaut === 'string' ? defaut : '');
 }

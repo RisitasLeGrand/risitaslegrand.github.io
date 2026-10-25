@@ -125,8 +125,6 @@ import Base from '../layouts/Base.astro';
   import { messageDUneErreur } from '../lib/agir';
   import { base, echapper, parametreUrl } from '../lib/ui';
   import { branche as brancheDeclaree } from '../lib/branches';
-  import { DOMAINES } from '../lib/noyau/domaines';
-  import { PARCOURS } from '../lib/parcours/registre';
   import { ecrireChamp, marquerInitialisation } from '../lib/profil';
   import {
     installationExistante,
@@ -136,27 +134,11 @@ import Base from '../layouts/Base.astro';
     reporter,
   } from '../lib/initialisation';
   import {
-    BORNES,
-    CHOIX,
     DEFAUTS,
-    MAXIMUM_LIGNES,
-    MULTIPLES,
-    SAISIE_LIBRE_CHIFFREE,
     enEcrans,
     type Question,
   } from '../lib/noyau/initialisation';
-  import {
-    bascules,
-    choixUnique,
-    curseur,
-    dates,
-    heure,
-    lignes,
-    nombreLibre,
-    repartition,
-    texte,
-    type Saisie,
-  } from '../lib/noyau/saisies';
+  import { saisiePourChamp, type Saisie } from '../lib/noyau/saisies';
   import type { Deduction } from '../lib/noyau/observation';
   import type { ChampDeclare } from '../lib/noyau/profil';
 
@@ -172,62 +154,6 @@ import Base from '../layouts/Base.astro';
   /* ════════════════════════════════════════════════════════════════════
      Les saisies : une par nature, et quelques cas nommés
      ════════════════════════════════════════════════════════════════════ */
-
-  /** Les matières du parcours courant, pour R4 et R5. */
-  function matieres(): { valeur: string; libelle: string }[] {
-    const vues = new Map<string, string>();
-    for (const parcours of PARCOURS) {
-      for (const theme of parcours.themes) {
-        for (const matiere of theme.matieres) vues.set(matiere, matiere);
-      }
-    }
-    return [...vues.keys()].sort((a, b) => a.localeCompare(b, 'fr')).map((m) => ({ valeur: m, libelle: m }));
-  }
-
-  /** La saisie qui convient à ce champ. */
-  function saisieDe(declare: ChampDeclare, defaut: unknown, valider: () => void): Saisie {
-    const champ = declare.champ;
-
-    if (champ === 'domainesActifs') {
-      const options = DOMAINES.map((d) => ({ valeur: d.id, libelle: d.libelle, aide: d.description }));
-      const retenues = Array.isArray(defaut)
-        ? (defaut as unknown[])
-        : DOMAINES.filter((d) => d.actifParDefaut).map((d) => d.id);
-      return bascules(options, retenues);
-    }
-    if (champ === 'concours') {
-      const options = PARCOURS.map((p) => ({ valeur: p.id, libelle: p.libelle, aide: p.intitule }));
-      return bascules(options, Array.isArray(defaut) ? (defaut as unknown[]) : []);
-    }
-    if (champ === 'matieresFortes' || champ === 'matieresFaibles') {
-      return bascules(matieres(), Array.isArray(defaut) ? (defaut as unknown[]) : []);
-    }
-    if (champ === 'tempsParDomaine' || champ === 'ciblesEquilibre') {
-      const actifs = DOMAINES.filter((d) => d.actifParDefaut).map((d) => ({ clef: d.id, libelle: d.libelle }));
-      return repartition(actifs, (defaut as Record<string, number>) ?? {}, {
-        surInconnu: () => $('valider').click(),
-      });
-    }
-    if (champ === 'datesEpreuves') {
-      const clefs = PARCOURS.map((p) => ({ clef: p.id, libelle: p.libelle }));
-      return dates(clefs, (defaut as Record<string, unknown>) ?? {});
-    }
-
-    const options = CHOIX[champ];
-    if (options) {
-      if (MULTIPLES.includes(champ)) {
-        return bascules(options, Array.isArray(defaut) ? (defaut as unknown[]) : []);
-      }
-      return choixUnique(options, defaut, valider);
-    }
-    if (SAISIE_LIBRE_CHIFFREE.includes(champ)) {
-      return nombreLibre(declare, typeof defaut === 'number' ? defaut : null);
-    }
-    if (champ in BORNES) return curseur(declare, typeof defaut === 'number' ? defaut : null);
-    if (champ in MAXIMUM_LIGNES) return lignes(declare, Array.isArray(defaut) ? (defaut as string[]).map(String) : []);
-    if (declare.nature === 'heure') return heure(declare, typeof defaut === 'string' ? defaut : null);
-    return texte(declare, typeof defaut === 'string' ? defaut : '');
-  }
 
   /* ════════════════════════════════════════════════════════════════════
      Le déroulé
@@ -292,7 +218,10 @@ import Base from '../layouts/Base.astro';
     for (const etape of ecran.etapes) {
       const defaut =
         etape.deja?.valeur ?? etape.deduction?.valeur ?? DEFAUTS[etape.declare.champ] ?? undefined;
-      const saisie = saisieDe(etape.declare, defaut, () => void valider());
+      const saisie = saisiePourChamp(etape.declare, defaut, {
+        valider: () => void valider(),
+        surInconnu: () => $('valider').click(),
+      });
       if (ecran.etapes.length > 1) {
         const titre = document.createElement('p');
         titre.className = 'text-sm font-medium text-slate-700 dark:text-slate-200';
