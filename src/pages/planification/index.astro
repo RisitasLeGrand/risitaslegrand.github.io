@@ -17,9 +17,17 @@ import Section from '../../components/Section.astro';
   <div id="chargement" class="py-20 text-center text-slate-400">Chargement du planning…</div>
 
   <!--
-    Un parcours dont le programme n'est pas encore établi sur source officielle
-    n'a pas de thèmes, donc rien à planifier. Il affiche la raison au lieu d'un
-    calendrier vide : inventer une rotation serait inventer un programme.
+    Un parcours sans thèmes n'a rien à planifier, et il affiche la raison au
+    lieu d'un calendrier vide : inventer une rotation serait inventer un
+    programme.
+
+    L'identifiant de ce bloc dit « sans référentiel », et c'était exact tant
+    que la seule raison d'être sans thèmes était d'attendre une source. Depuis
+    le 25 octobre, DGFiP A+ a un référentiel OFFICIEL et aucun thème, parce que
+    son programme a été abrogé le 6 septembre 2025. La phrase affichée vient
+    donc de « raisonNonPlanifiable », qui distingue les deux cas ; l'identifiant
+    est resté pour ne pas rompre les essais qui le nomment, et il est remonté
+    comme un nom à corriger.
   -->
   <div
     id="sans-referentiel"
@@ -28,6 +36,27 @@ import Section from '../../components/Section.astro';
   >
     <p class="etiquette text-slate-600 dark:text-slate-300">Planification indisponible</p>
     <p id="texte-sans-referentiel" class="mt-2 text-sm text-slate-700 dark:text-slate-300"></p>
+  </div>
+
+  <!--
+    Ce qu'il faut savoir du programme, même quand il se planifie.
+
+    DGFiP A+ a des thèmes et pas de programme : son annexe est abrogée depuis le
+    6 septembre 2025, et ses quatre épreuves viennent du seul article 1er. Le
+    taire reviendrait à laisser quelqu'un chercher « le programme de l'IPFiP »
+    et tomber sur un texte qui n'est plus en vigueur. Le bloc reste fermé pour
+    les parcours qui n'ont rien de tel à dire.
+  -->
+  <div
+    id="avertissement-programme"
+    class="hidden rounded-xl border border-amber-300 bg-amber-50 p-5 dark:border-amber-800 dark:bg-amber-950/40"
+    role="note"
+  >
+    <p class="etiquette text-amber-800 dark:text-amber-300">À savoir sur ce programme</p>
+    <p
+      id="texte-avertissement-programme"
+      class="mt-2 text-sm leading-relaxed text-amber-900 dark:text-amber-200"
+    ></p>
   </div>
 
   <div id="planification" class="hidden space-y-8">
@@ -129,6 +158,7 @@ import Section from '../../components/Section.astro';
   import { formaterDuree, lien, pluriel } from '../../lib/ui';
   import {
     JOURS_SEMAINE,
+    SANS_THEME,
     themesAssignables,
     estRepos,
     ecarterSuggestionTrimestrielle,
@@ -327,13 +357,7 @@ import Section from '../../components/Section.astro';
         selecteur.className =
           'min-h-11 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100';
         selecteur.setAttribute('aria-label', `Matière du ${dateCourte.format(enDate(entree.jour))}`);
-        for (const t of themesAssignables()) {
-          const option = document.createElement('option');
-          option.value = t.id;
-          option.textContent = t.id === 'repos' ? '— Repos, aucune révision —' : t.nom;
-          option.selected = t.id === entree.themeId;
-          selecteur.appendChild(option);
-        }
+        peuplerLeMenuDesThemes(selecteur, entree.themeId ?? SANS_THEME);
         selecteur.addEventListener('change', async () => {
           await reassigner(entree.jour, selecteur.value);
           await peindrePlanning(aujourdhui);
@@ -368,6 +392,47 @@ import Section from '../../components/Section.astro';
     }
   }
 
+  /**
+   * Peuple un menu de thèmes, et sait dire « rien n'est proposé ».
+   *
+   * ## Le défaut que cette fonction retire
+   *
+   * Les deux menus — celui d'un jour du planning et celui de la rotation —
+   * listaient `themesAssignables()` et cochaient l'option égale à la valeur
+   * enregistrée. Quand cette valeur est `SANS_THEME`, AUCUNE option ne
+   * correspond, et le navigateur sélectionne alors la première de la liste :
+   * l'écran affichait un thème que rien n'avait enregistré, et que la personne
+   * n'avait pas choisi.
+   *
+   * L'état n'était pas atteignable jusqu'au 25 octobre : un parcours sans
+   * thèmes n'arrivait jamais ici, puisque `raisonNonPlanifiable` ouvre l'autre
+   * bloc avant. Il le devient avec DGFiP A, qui a six thèmes pour sept jours et
+   * dont le septième jour ne reçoit volontairement aucune proposition — il n'y
+   * a pas de septième matière à l'arrêté, et en répéter une choisirait à la
+   * place de la personne.
+   *
+   * L'option « rien de proposé » n'apparaît donc QUE dans ce cas, et disparaît
+   * dès qu'un thème est choisi : offrir « rien » en permanence ferait croire à
+   * un troisième état à côté du repos, alors que le repos est la façon de dire
+   * « pas de révision ce jour-là ».
+   */
+  function peuplerLeMenuDesThemes(selecteur: HTMLSelectElement, valeur: string) {
+    if (valeur === SANS_THEME) {
+      const vide = document.createElement('option');
+      vide.value = SANS_THEME;
+      vide.textContent = '— Rien de proposé, à vous de choisir —';
+      vide.selected = true;
+      selecteur.appendChild(vide);
+    }
+    for (const t of themesAssignables()) {
+      const option = document.createElement('option');
+      option.value = t.id;
+      option.textContent = t.id === 'repos' ? '— Repos, aucune révision —' : t.nom;
+      option.selected = t.id === valeur;
+      selecteur.appendChild(option);
+    }
+  }
+
   async function peindreRotation() {
     const reglages = await lireReglages();
     const grille = $('grille-rotation');
@@ -390,13 +455,7 @@ import Section from '../../components/Section.astro';
       selecteur.id = `rotation-${index}`;
       selecteur.className =
         'mt-2 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100';
-      for (const t of themesAssignables()) {
-        const option = document.createElement('option');
-        option.value = t.id;
-        option.textContent = t.id === 'repos' ? '— Repos, aucune révision —' : t.nom;
-        option.selected = t.id === reglages.rotation[index];
-        selecteur.appendChild(option);
-      }
+      peuplerLeMenuDesThemes(selecteur, reglages.rotation[index] ?? SANS_THEME);
       selecteur.addEventListener('change', async () => {
         const rotation = [...(await lireReglages()).rotation];
         rotation[index] = selecteur.value;
@@ -416,11 +475,24 @@ import Section from '../../components/Section.astro';
   auDeverrouillage(async () => {
     $('chargement').classList.add('hidden');
 
-    const raison = raisonNonPlanifiable(parcoursCourant());
+    const parcours = parcoursCourant();
+
+    const raison = raisonNonPlanifiable(parcours);
     if (raison) {
       $('texte-sans-referentiel').textContent = raison;
       $('sans-referentiel').classList.remove('hidden');
       return;
+    }
+
+    /*
+       L'avertissement s'affiche AVEC le calendrier, et non à sa place : le
+       parcours se planifie, et ce qu'il faut savoir de son programme ne doit
+       pas pour autant disparaître. C'est le cas de DGFiP A+, dont l'annexe de
+       programme est abrogée.
+    */
+    if (parcours.avertissementDuProgramme) {
+      $('texte-avertissement-programme').textContent = parcours.avertissementDuProgramme;
+      $('avertissement-programme').classList.remove('hidden');
     }
 
     await peindre();

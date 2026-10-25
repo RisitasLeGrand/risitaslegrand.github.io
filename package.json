@@ -84,6 +84,8 @@
     "essais:assistant": "tsx scripts/essais-assistant.mts",
     "essais:assistant:reseau": "node scripts/essais-assistant-reseau.mjs",
     "essais:parcours": "tsx scripts/essais-parcours.mts",
+    "essais:registre-dgfip": "tsx scripts/essais-registre-dgfip.mts",
+    "essais:parcours-vides:navigateur": "node scripts/essais-parcours-vides-navigateur.mjs",
     "essais:secret": "node scripts/essais-secret.mjs",
     "essais:xss": "node scripts/essais-xss-actualites.mjs",
     "essais:sauvegarde": "node scripts/essais-sauvegarde.mjs",

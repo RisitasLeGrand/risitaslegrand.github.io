@@ -104,8 +104,34 @@ export interface Parcours {
    * Le thème proposé pour chaque jour de la semaine, index 0 = dimanche.
    * Vide quand le parcours n'a pas de thèmes : il n'y a alors rien à proposer,
    * et inventer une rotation serait inventer un programme.
+   *
+   * Peut être plus court que sept : `rotationParDefaut()` complète les jours
+   * restants par `SANS_THEME`, qui veut dire « rien n'est proposé ce jour-là ».
+   * C'est le cas de DGFiP A, qui a six thèmes.
    */
   rotationParDefaut: string[];
+  /**
+   * Ce qu'il faut savoir du programme de ce parcours, même quand il se planifie.
+   *
+   * ## Pourquoi ce champ n'est pas une raison de refus
+   *
+   * Il a d'abord été écrit comme telle — « pourquoi ce parcours n'a aucun thème
+   * alors que son référentiel est établi » —, pour DGFiP A+, qui n'en avait
+   * aucun. Dès que A+ a reçu les quatre épreuves de l'article 1er, ce champ
+   * devenait mort : plus aucun parcours n'est sans thèmes, et la phrase se
+   * serait tue avec lui.
+   *
+   * Or ce qu'elle dit reste vrai et reste utile : le programme ANNEXÉ de A+ est
+   * abrogé depuis le 6 septembre 2025, ses thèmes viennent du seul article 1er,
+   * et ce sont des épreuves plutôt que des matières. Quelqu'un qui cherche « le
+   * programme de l'IPFiP » tombera sur un texte abrogé ; il vaut mieux le lui
+   * dire que de le laisser le découvrir.
+   *
+   * L'avertissement s'affiche donc avec le calendrier, et non à sa place. Il
+   * sert aussi de raison de repli si un parcours se retrouvait sans thèmes avec
+   * un référentiel établi — voir `raisonNonPlanifiable`.
+   */
+  avertissementDuProgramme?: string;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -143,42 +169,351 @@ const ROTATION_INSP = [
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════
-   DGFiP B — thèmes déduits des annales, et de rien d'autre
+   DGFiP B — le tronc commun de l'arrêté du 19 mai 2011
    ══════════════════════════════════════════════════════════════════════════ */
 
 /*
-   Ces huit thèmes ne sont pas un programme officiel : ce sont les huit rubriques
-   de la banque « QCM - DGFiP », établies à partir des annales du concours de
-   contrôleur réellement dépouillées et déjà intégrées au site. L'origine du
-   référentiel est donc `annales`, et non `officiel` — la nuance compte, parce
-   qu'une rubrique d'annales dit ce qui a été demandé, pas ce qui est au
-   programme.
+   CE QUI A CHANGÉ, ET POURQUOI LES HUIT RUBRIQUES DE LA BANQUE ONT CÉDÉ.
+
+   Ces thèmes venaient des huit rubriques de la banque « QCM - DGFiP », établies
+   sur les annales dépouillées — l'origine du référentiel était donc `annales`,
+   et le commentaire l'assumait. La confrontation au programme officiel, menée
+   dans `docs/cyclades/programmes-dgfip.md` § 5.1, a montré que deux d'entre
+   elles ne sont PAS au programme du concours de contrôleur :
+   `environnement-administratif` est le thème 1° du QCM d'INSPECTEUR, et
+   l'anglais son thème 5°. Deux autres n'étaient pas des thèmes mais des parties
+   des connaissances générales : l'Union européenne (partie D) et la culture
+   numérique (partie E). Et deux intitulés n'étaient pas ceux de l'arrêté :
+   « culture générale » pour « connaissances générales », « logique » pour
+   « raisonnement logique ».
+
+   Garder ces rubriques tout en déclarant un référentiel `officiel` aurait donc
+   été impossible sans mentir : c'est ce qui tranche entre les deux options que
+   le § 5.3 laissait au propriétaire du code. L'option 2 (conserver les huit
+   rubriques en corrigeant les intitulés) ne peut pas porter une origine
+   `officiel`, puisque deux de ses thèmes sont hors programme. L'OPTION 1 est
+   donc retenue, et elle est reprise ligne à ligne du § 5.3 : sept thèmes, un
+   par jour.
+
+   Ce que cela coûte, et qui est dit aux écarts restants : la banque « QCM -
+   DGFiP » n'est pas filtrée par parcours, donc ses rubriques `anglais` et
+   `environnement-administratif` ne correspondent plus à un thème de ce
+   parcours-ci. Le § 5.3 le signalait déjà ; le filtrage de la banque reste à
+   faire, et il n'est pas de ce lot.
 */
 const THEMES_DGFIP_B: ThemePlanification[] = [
-  { id: 'culture-generale', nom: 'Culture générale', court: 'Culture g.', icone: '📚', matieres: ['Culture générale'] },
-  { id: 'maths', nom: 'Mathématiques', court: 'Maths', icone: '🔢', matieres: ['Maths'] },
+  {
+    id: 'connaissances-generales',
+    nom: 'Connaissances générales',
+    court: 'Conn. gén.',
+    icone: '📚',
+    matieres: ['Connaissances générales'],
+  },
   { id: 'francais', nom: 'Français', court: 'Français', icone: '✍️', matieres: ['Français'] },
-  { id: 'logique', nom: 'Logique', court: 'Logique', icone: '🧩', matieres: ['Logique'] },
-  { id: 'environnement-administratif', nom: 'Environnement administratif', court: 'Env. adm.', icone: '🏛️', matieres: ['Environnement administratif'] },
-  { id: 'culture-numerique', nom: 'Culture numérique', court: 'Numérique', icone: '💻', matieres: ['Culture numérique'] },
-  { id: 'union-europeenne', nom: 'Union européenne', court: 'Union eur.', icone: '🇪🇺', matieres: ['Union européenne'] },
-  { id: 'anglais', nom: 'Anglais', court: 'Anglais', icone: '🇬🇧', matieres: ['Anglais'] },
+  { id: 'maths', nom: 'Mathématiques', court: 'Maths', icone: '🔢', matieres: ['Maths'] },
+  {
+    id: 'raisonnement-logique',
+    nom: 'Raisonnement logique',
+    court: 'Raisonnement',
+    icone: '🧩',
+    matieres: ['Logique'],
+  },
+  {
+    id: 'analyse-de-dossier',
+    nom: 'Analyse de dossier',
+    court: 'Dossier',
+    icone: '🗂️',
+    matieres: ['Analyse de dossier'],
+  },
+  {
+    /*
+       L'épreuve n° 2 du concours externe laisse CINQ options et celle de
+       l'interne DIX : aucune n'est commune aux trois voies. Un thème par option
+       aurait donc fabriqué quinze thèmes dont la personne n'en prépare qu'un, et
+       choisir lesquels aurait supposé une voie que `concours.voie` laisse
+       justement à `a-preciser`. Le thème porte donc l'option, pas son contenu,
+       et ses matières sont celles des quatre options externes qui n'ont pas de
+       thème propre ailleurs — § 5.3.
+    */
+    id: 'option-qrc',
+    nom: 'Matière d’option (QRC)',
+    court: 'Option',
+    icone: '🔀',
+    matieres: ['SES', 'Comptabilité', 'Droit', 'Histoire-géo'],
+  },
+  {
+    /*
+       Pas au programme du QCM, mais à celui de l'oral — coefficient 6, le plus
+       fort des trois voies — et à celui de l'option 10 du concours interne.
+       Le § 5.3 lui donne un créneau pour cette raison.
+    */
+    id: 'environnement-dgfip',
+    nom: 'Environnement et organisation de la DGFiP',
+    court: 'Env. DGFiP',
+    icone: '🏛️',
+    matieres: ['Organisation de la DGFiP'],
+  },
 ];
 
 /*
-   Sept jours, huit thèmes : l'anglais n'a pas de créneau par défaut, parce que
-   la banque n'en porte que cinq questions — trop peu pour tenir une séance
-   hebdomadaire. Il reste assignable à la main, et prendra son créneau quand il
-   aura de quoi le remplir.
+   Sept thèmes, sept jours. Le dimanche prend l'analyse de dossier, qui est
+   l'épreuve la plus longue — trois heures — comme le dimanche de l'INSP prend
+   le cas pratique. Les deux thèmes qui ne sont pas des matières de QCM ferment
+   la semaine. Entièrement reconfigurable depuis la page de planification.
 */
 const ROTATION_DGFIP_B = [
-  'culture-generale', // dimanche
-  'maths', // lundi
+  'analyse-de-dossier', // dimanche
+  'connaissances-generales', // lundi
   'francais', // mardi
-  'logique', // mercredi
-  'environnement-administratif', // jeudi
-  'culture-numerique', // vendredi
-  'union-europeenne', // samedi
+  'maths', // mercredi
+  'raisonnement-logique', // jeudi
+  'option-qrc', // vendredi
+  'environnement-dgfip', // samedi
+];
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DGFiP A — les cinq thèmes du QCM de l'arrêté du 2 mars 2011, et l'option
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/*
+   Lus à l'annexe de l'arrêté, § 3.2 du document des programmes, dans l'ordre
+   que l'arrêté leur donne : 1° environnement administratif, économique et
+   financier ; 2° Union européenne ; 3° culture numérique ; 4° raisonnement
+   logique ; 5° anglais. Le sixième thème porte l'épreuve de QRC, dont les neuf
+   matières sont au choix du candidat (§ 3.3).
+
+   Une remarque sur le document plutôt que sur l'arrêté : le § 5.3 écrit que les
+   neuf matières de QRC « en font un dixième ». Cinq thèmes de QCM plus un thème
+   d'option font six, non dix ; je lis « un sixième » et je le signale plutôt
+   que de fabriquer quatre thèmes pour atteindre le compte.
+
+   Ce que ces thèmes ne couvrent pas, et qui est dit aux écarts restants :
+   l'épreuve n° 1 — note de synthèse, quatre heures, coefficient 5 — n'a pas de
+   thème, alors que le § 5.3 en donne un à son équivalent chez le contrôleur
+   (`analyse-de-dossier`). Le § 5.3 ne le propose pas pour l'inspecteur, et je
+   ne l'ajoute pas de moi-même : la dissymétrie est réelle, elle est remontée.
+*/
+const THEMES_DGFIP_A: ThemePlanification[] = [
+  {
+    id: 'environnement-administratif-economique-financier',
+    nom: 'Environnement administratif, économique et financier',
+    court: 'Env. adm.',
+    icone: '🏛️',
+    matieres: ['Environnement administratif, économique et financier'],
+  },
+  {
+    id: 'union-europeenne',
+    nom: 'Union européenne',
+    court: 'Union eur.',
+    icone: '🇪🇺',
+    matieres: ['Union européenne'],
+  },
+  {
+    id: 'culture-numerique',
+    nom: 'Culture numérique',
+    court: 'Numérique',
+    icone: '💻',
+    matieres: ['Culture numérique'],
+  },
+  {
+    /*
+       L'arrêté énumère « 4° raisonnement logique » à l'épreuve, et son annexe
+       intitule le programme « IV. Raisonnement et logique ». Les deux graphies
+       sont au document ; le thème porte celle de l'épreuve, et l'écart est
+       noté ici plutôt que choisi en silence.
+    */
+    id: 'raisonnement-logique',
+    nom: 'Raisonnement logique',
+    court: 'Raisonnement',
+    icone: '🧩',
+    matieres: ['Raisonnement et logique'],
+  },
+  {
+    // « anglais du niveau B1 du cadre européen de référence pour les langues ».
+    id: 'anglais',
+    nom: 'Anglais',
+    court: 'Anglais',
+    icone: '🇬🇧',
+    matieres: ['Anglais'],
+  },
+  {
+    /*
+       Une matière au choix parmi neuf, et c'est le candidat qui choisit : le
+       thème porte donc l'épreuve, et ses matières sont les neuf titres de
+       l'annexe. Les séparer en neuf thèmes aurait proposé huit séances par
+       semaine sur des matières que personne ne prépare.
+    */
+    id: 'option-qrc',
+    nom: 'Matière d’option (QRC)',
+    court: 'Option',
+    icone: '🔀',
+    matieres: [
+      'Droit public',
+      'Droit privé',
+      'Finances publiques',
+      'Mathématiques, statistiques et probabilités',
+      'Comptabilité et analyse financière',
+      'Analyse économique',
+      'Sciences politiques',
+      'Littérature',
+      'Histoire et géographie',
+    ],
+  },
+  {
+    /*
+       AJOUTÉ LE 25 OCTOBRE, ET IL MANQUAIT POUR DEUX RAISONS À LA FOIS.
+
+       Le QCM porte l'organisation de la DGFiP dans son thème I — « les
+       institutions administratives », « la réforme de l'État », et au § 3.2
+       l'organisation administrative de la France. Et l'épreuve n° 2 du concours
+       INTERNE en fait son option 5, « budget, immobilier, gestion des
+       ressources humaines, logistique et organisation de la DGFiP », dont le
+       document note que la partie III « reprend mot pour mot, à la graphie
+       près » l'option 10 du concours de contrôleur.
+
+       Il porte donc le même identifiant et le même intitulé que chez DGFiP B :
+       c'est la même matière, et le lot de partage entre parcours s'appuiera
+       là-dessus. Avec lui, DGFiP A a sept thèmes pour sept jours.
+    */
+    id: 'environnement-dgfip',
+    nom: 'Environnement et organisation de la DGFiP',
+    court: 'Env. DGFiP',
+    icone: '🏛️',
+    matieres: ['Organisation de la DGFiP'],
+  },
+];
+
+/*
+   Sept thèmes, sept jours. Le dimanche prend l'option de QRC, qui est une
+   matière académique entière, comme le dimanche de l'INSP prend l'exercice le
+   plus long. Les cinq thèmes du QCM suivent du lundi au vendredi, dans l'ordre
+   de l'arrêté, et l'organisation de la DGFiP ferme la semaine.
+
+   La semaine était incomplète jusqu'au 25 octobre : six thèmes, et le samedi
+   sans proposition. Le septième thème ne vient pas d'un arrangement de
+   calendrier mais d'une lecture qui manquait — le QCM et l'option 5 de
+   l'interne portent tous deux l'organisation de la DGFiP. C'est le programme
+   qui remplit la semaine, non l'inverse.
+*/
+const ROTATION_DGFIP_A = [
+  'option-qrc', // dimanche
+  'environnement-administratif-economique-financier', // lundi
+  'union-europeenne', // mardi
+  'culture-numerique', // mercredi
+  'raisonnement-logique', // jeudi
+  'anglais', // vendredi
+  'environnement-dgfip', // samedi
+];
+
+/* ══════════════════════════════════════════════════════════════════════════
+   DGFiP A+ — l'article 1er, et lui seul, puisque l'annexe est abrogée
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/*
+   CE PARCOURS A DES THÈMES SANS AVOIR DE PROGRAMME, ET LA NUANCE EST TOUT.
+
+   L'annexe de programme de l'arrêté du 2 mars 2011 est ABROGÉE depuis le
+   6 septembre 2025 — article 2 de l'arrêté du 4 septembre 2025, état `ABROGE`
+   pour `LEGIARTI000030768328`. Chercher « le programme de l'IPFiP » aboutit
+   donc à un texte abrogé, et c'est un piège que la préparation doit connaître.
+
+   Ce qui reste en vigueur, c'est l'ARTICLE 1er, dans sa version du
+   22 décembre 2025, qui délimite encore les épreuves. Les thèmes ci-dessous
+   viennent de lui et de rien d'autre : ils décrivent des ÉPREUVES, non un
+   programme de connaissances, et l'avertissement du parcours le dit à la
+   personne au lieu de le laisser croire.
+
+   La conséquence pratique est que ces thèmes sont des métiers là où ceux de
+   l'INSP sont des matières académiques. On ne « révise » pas la fiscalité
+   professionnelle comme on révise le droit public ; on s'y prépare sur des cas
+   pratiques. Le registre n'a pas de place pour dire cela, et c'est à
+   l'avertissement de le porter.
+*/
+const THEMES_DGFIP_AP: ThemePlanification[] = [
+  {
+    /*
+       Épreuve n° 1, cinq heures, coefficient 6 : une note administrative « sur
+       un sujet relatif à l'environnement administratif, économique, financier
+       et social de la DGFiP, ainsi qu'aux politiques publiques dans lesquelles
+       la DGFiP intervient ». Un seul thème, parce que l'arrêté n'y découpe
+       rien.
+    */
+    id: 'environnement-et-politiques-publiques',
+    nom: 'Environnement administratif, économique, financier et social',
+    court: 'Env. et pol.',
+    icone: '🏛️',
+    matieres: ['Environnement administratif, économique, financier et social', 'Politiques publiques'],
+  },
+  {
+    /*
+       Épreuve n° 2, première partie, notée 15 points sur 20 : six options « au
+       choix du candidat ». Un seul thème, comme pour les options de QRC chez A
+       et B — six thèmes auraient proposé cinq séances par semaine sur des
+       métiers que personne ne prépare. Les intitulés sont ceux du texte, avec
+       ses élisions : « la gestion comptable et l'analyse financière », « la
+       gestion des ressources et l'organisation de la DGFiP ».
+    */
+    id: 'option-metier',
+    nom: 'Épreuve professionnelle',
+    court: 'Métier',
+    icone: '🔀',
+    matieres: [
+      'Fiscalité professionnelle',
+      'Fiscalité personnelle et patrimoniale',
+      'Gestion comptable et l’analyse financière',
+      'Gestion publique (État et collectivités locales)',
+      'Gestion des ressources et l’organisation de la DGFiP',
+      'Systèmes d’information',
+    ],
+  },
+  {
+    /*
+       Épreuve n° 2, seconde partie, notée 5 points sur 20, et COMMUNE à tous
+       les candidats : elle ne dépend d'aucune option, donc elle a son thème
+       propre. La ranger avec les six options aurait laissé croire qu'on peut
+       ne pas la préparer.
+    */
+    id: 'analyse-financiere',
+    nom: 'Analyse financière',
+    court: 'Analyse fin.',
+    icone: '📊',
+    matieres: ['Analyse financière'],
+  },
+  {
+    /*
+       L'oral, quarante minutes, coefficient 8 — le plus fort de l'épreuve. Il
+       a son thème parce qu'il se prépare, et parce que c'est la SEULE épreuve
+       notée des deux examens professionnels (§ 4.2 et § 4.3), où il n'y a ni
+       écrit ni programme de connaissances.
+    */
+    id: 'entretien-avec-le-jury',
+    nom: 'Entretien avec le jury',
+    court: 'Oral',
+    icone: '🎙️',
+    matieres: ['Entretien avec le jury'],
+  },
+];
+
+/*
+   Quatre thèmes, sept jours : trois jours ne reçoivent AUCUNE proposition, et
+   l'écran le dit case par case.
+
+   C'est volontaire et c'est honnête. L'arrêté ne délimite que quatre épreuves ;
+   en étaler quatre sur sept jours obligerait à en répéter trois, c'est-à-dire à
+   désigner les matières qui comptent double — ce que le texte ne dit pas, et
+   qui est précisément le genre d'invention que ce parcours doit éviter plus que
+   tout autre, puisque son programme a été retiré.
+
+   L'ordre suit le poids : l'épreuve professionnelle et la note administrative
+   pèsent chacune coefficient 6, l'oral 8, et l'analyse financière vaut cinq
+   points de l'épreuve n° 2.
+*/
+const ROTATION_DGFIP_AP = [
+  'option-metier', // dimanche
+  'environnement-et-politiques-publiques', // lundi
+  'analyse-financiere', // mardi
+  'entretien-avec-le-jury', // mercredi
+  // jeudi, vendredi, samedi : rien de proposé, et l'écran l'annonce.
 ];
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -215,9 +550,12 @@ export const PARCOURS: Parcours[] = [
     },
     racineContenu: 'dgfip-b',
     referentiel: {
-      origine: 'annales',
-      source: 'Annales du concours de contrôleur dépouillées pour la banque « QCM - DGFiP »',
-      verifieLe: '2026-10-10',
+      origine: 'officiel',
+      source:
+        'Arrêté du 19 mai 2011 (NOR BCRE1106036A, JORF n° 0126 du 31 mai 2011), version en ' +
+        'vigueur issue de l’arrêté du 1er juillet 2024 (NOR ECOE2416020A) — lue au 14 octobre ' +
+        '2026 ; relevé dans docs/cyclades/programmes-dgfip.md',
+      verifieLe: '2026-10-17',
     },
     themes: THEMES_DGFIP_B,
     rotationParDefaut: ROTATION_DGFIP_B,
@@ -232,9 +570,17 @@ export const PARCOURS: Parcours[] = [
       voie: 'a-preciser',
     },
     racineContenu: 'dgfip-a',
-    referentiel: { origine: 'a-etablir' },
-    themes: [],
-    rotationParDefaut: [],
+    referentiel: {
+      origine: 'officiel',
+      source:
+        'Arrêté du 2 mars 2011 (NOR BCRE1030476A, JORF n° 0055 du 6 mars 2011, ' +
+        'JORFTEXT000023662281), version en vigueur issue de l’arrêté du 1er juillet 2024 ' +
+        '(NOR ECOE2416012A) — lue au 14 octobre 2026 ; relevé dans ' +
+        'docs/cyclades/programmes-dgfip.md',
+      verifieLe: '2026-10-17',
+    },
+    themes: THEMES_DGFIP_A,
+    rotationParDefaut: ROTATION_DGFIP_A,
   },
   {
     id: 'dgfip-ap',
@@ -246,9 +592,25 @@ export const PARCOURS: Parcours[] = [
       voie: 'a-preciser',
     },
     racineContenu: 'dgfip-ap',
-    referentiel: { origine: 'a-etablir' },
-    themes: [],
-    rotationParDefaut: [],
+    referentiel: {
+      origine: 'officiel',
+      source:
+        'Arrêté du 2 mars 2011 (NOR BCRE1104996A, JORF n° 0055 du 6 mars 2011, ' +
+        'JORFTEXT000023662346), article 1er, version du 22/12/2025 ; annexe abrogée le ' +
+        '06/09/2025 par l’article 2 de l’arrêté du 4 septembre 2025 (NOR ECOE2524347A) — lu ' +
+        'au 14 octobre 2026 ; relevé dans docs/cyclades/programmes-dgfip.md',
+      verifieLe: '2026-10-17',
+    },
+    themes: THEMES_DGFIP_AP,
+    rotationParDefaut: ROTATION_DGFIP_AP,
+    avertissementDuProgramme:
+      'Le programme annexé de ce concours a été abrogé le 6 septembre 2025 : chercher « le ' +
+      'programme de l’IPFiP » mène à un texte qui n’est plus en vigueur. Les quatre thèmes ' +
+      'ci-dessous viennent du seul article 1er de l’arrêté, dans sa version du 22 décembre ' +
+      '2025, qui délimite encore les épreuves. Ce sont donc des épreuves et des métiers, et ' +
+      'non un programme de connaissances : trois jours de la semaine restent sans proposition, ' +
+      'parce que l’arrêté n’en délimite que quatre. Les deux examens professionnels ouverts aux ' +
+      'inspecteurs n’ont, eux, qu’un oral.',
   },
 ];
 
@@ -280,5 +642,19 @@ export const planifiable = (p: Parcours): boolean => p.themes.length > 0;
  */
 export function raisonNonPlanifiable(p: Parcours): string | null {
   if (planifiable(p)) return null;
+  /*
+     Deux absences de thèmes, et deux phrases, parce qu'elles ne disent pas la
+     même chose. Un référentiel `a-etablir` attend une source ; un référentiel
+     établi sans thèmes a une autre raison, que le parcours porte lui-même. La
+     seconde branche ne retombe JAMAIS sur la première : un parcours établi et
+     sans thèmes qui ne déclarerait pas sa raison serait un défaut à corriger,
+     pas une phrase à improviser — et `essais:parcours` le fait rougir.
+  */
+  if (p.referentiel.origine !== 'a-etablir') {
+    return (
+      p.avertissementDuProgramme ??
+      `Le programme de ${p.libelle} ne donne aucun thème de planification, et la raison n’est pas déclarée. C’est un défaut du registre, non un état de ce concours.`
+    );
+  }
   return `Le programme de ${p.libelle} n’est pas encore établi sur source officielle. La planification s’ouvrira quand il le sera : un programme inventé ferait réviser à côté du sujet.`;
 }
