@@ -29,6 +29,7 @@ import {
   divergences,
   lireInitialisation,
   lireProfil,
+  lisibleParUnLecteur,
   pourBranche,
   valider,
   type Avancement,
@@ -67,8 +68,30 @@ export async function profilDeBranche(branche: string): Promise<Map<string, unkn
 }
 
 /** Un champ, ou `null`. Le raccourci que les écrans utilisent le plus. */
+/**
+ * Un champ du profil, **tel qu'un lecteur a le droit de le lire**.
+ *
+ * ## UNE NON-RÉPONSE REND `null`, ET C'EST ICI QUE ÇA SE DÉCIDE
+ *
+ * « Je ne sais pas » et « Je préfère ne pas répondre » sont stockés — sans
+ * quoi « Mon profil » ne pourrait plus montrer qu'on a refusé, et le parcours
+ * reposerait la question. Mais aucun lecteur ne doit les prendre pour une
+ * réponse : un refus traité comme une valeur, c'est la réponse qu'on n'a pas
+ * voulu donner, utilisée quand même.
+ *
+ * Cette fonction est la couture par laquelle les lecteurs passent — une
+ * dizaine d'appels directs, dans Base, l'état de la personne, le jour
+ * d'Odyssée, la portée du suivi, le compte à rebours. Filtrer ici le rend
+ * **impossible** au lieu de le promettre.
+ *
+ * ## L'ÉCRAN DU PROFIL, LUI, DOIT LE VOIR
+ *
+ * Il lit `profilLocal()` directement, et c'est nécessaire : sans cela la
+ * personne ne distinguerait plus « pas répondu » de « refusé », et ne pourrait
+ * pas revenir sur son refus.
+ */
 export async function champ(nom: string): Promise<ValeurDeChamp | null> {
-  return (await profilLocal()).get(nom) ?? null;
+  return lisibleParUnLecteur((await profilLocal()).get(nom) ?? null);
 }
 
 /**

@@ -1131,6 +1131,64 @@ export function avancement(operations: readonly Operation[]): Avancement {
 export const porteeInclut = (portee: Portee, branche: string): boolean =>
   portee === 'toutes' ? true : portee.includes(branche);
 
+/* ══════════════════════════════════════════════════════════════════════════
+   LES DEUX NON-RÉPONSES
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * « Je ne sais pas. »
+ *
+ * Une valeur, pas une absence — et le registre des usages emploie déjà ce mot
+ * dans ce sens exact : « `'inconnu'` est une valeur, pas une absence, et les
+ * deux ne veulent pas dire la même chose — "tu n'as pas le droit de savoir" et
+ * "personne ne sait" ». C'est le second sens ici.
+ *
+ * À ne pas confondre avec `'inconnue'`, au féminin, qui est une RÉPONSE parmi
+ * les options de la phase sportive. Une lettre les sépare, et elles n'ont pas
+ * le même statut : celle-là se lit, celle-ci jamais.
+ */
+export const NON_REPONSE_INCONNU = 'inconnu';
+
+/**
+ * « Je préfère ne pas répondre. »
+ *
+ * Le même mot que `odyssee/sexe.ts`, et pour la même raison : la question a
+ * été vue, et la personne a refusé. Ce refus se garde — sans quoi on le
+ * reposerait — et ne se lit jamais comme une réponse. L'essai du sexe le dit
+ * déjà de son côté : « un refus de répondre ne devient pas une réponse ».
+ */
+export const NON_REPONSE_REFUS = 'sans-reponse';
+
+/**
+ * Cette valeur est-elle une non-réponse ?
+ *
+ * Les deux non-réponses sont STOCKÉES, et c'est volontaire. Les effacer
+ * reviendrait à ne rien savoir de la question : « Mon profil » ne pourrait
+ * plus montrer qu'on a refusé, le parcours reposerait la question, et un
+ * refus serait indistinguable d'un oubli.
+ *
+ * Ce qui est interdit, c'est qu'un LECTEUR les prenne pour une réponse. C'est
+ * la fonction `champ()` qui l'empêche, et `pourBranche` ici même : le champ
+ * est retiré de ce qu'on lit, et non remis à une valeur de repli.
+ */
+export function estUneNonReponse(valeur: unknown): boolean {
+  return valeur === NON_REPONSE_INCONNU || valeur === NON_REPONSE_REFUS;
+}
+
+/**
+ * Ce qu'un lecteur a le droit de lire d'un champ : la valeur, ou rien.
+ *
+ * Rend `null` pour une non-réponse, et la valeur telle quelle sinon. C'est la
+ * décision que `champ()` applique, sortie ici pour qu'elle se mesure : `champ()`
+ * lit la base, donc aucun essai ne peut l'interroger sans navigateur — et un
+ * garde qu'aucun essai ne touche finit par tomber sans bruit. Celui-ci est
+ * tombé une fois, le temps d'un sabotage, et seul un indice d'import inutile
+ * l'a signalé.
+ */
+export function lisibleParUnLecteur(valeur: ValeurDeChamp | null): ValeurDeChamp | null {
+  return valeur && estUneNonReponse(valeur.valeur) ? null : valeur;
+}
+
 /**
  * Ce qu'une branche lit du profil.
  *
@@ -1142,6 +1200,11 @@ export function pourBranche(profil: Profil, branche: string): Map<string, unknow
   const sortie = new Map<string, unknown>();
   for (const [champ, valeur] of profil) {
     if (!porteeInclut(valeur.portee, branche)) continue;
+    /* Une non-réponse est retirée, pour la même raison qu'un champ hors
+       portée : la rendre apprendrait qu'il y a quelque chose à savoir, et
+       une branche qui recevrait « sans-reponse » finirait par le traiter
+       comme une valeur. Ce qui n'a pas été répondu n'est pas lisible. */
+    if (estUneNonReponse(valeur.valeur)) continue;
     sortie.set(champ, valeur.valeur);
   }
   return sortie;

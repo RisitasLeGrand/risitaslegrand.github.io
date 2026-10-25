@@ -18,6 +18,10 @@ import {
   champsDeBranche,
   aUnUsage,
   champsDuSocle,
+  NON_REPONSE_INCONNU,
+  NON_REPONSE_REFUS,
+  estUneNonReponse,
+  lisibleParUnLecteur,
   questionsDuSocle,
   cibleDuChamp,
   controlerChamps,
@@ -45,6 +49,7 @@ const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
   console.log(`  \x1b[31m✗\x1b[0m ${intitule}\n      obtenu  ${a}\n      attendu ${b}`);
 };
 const vrai = (intitule: string, condition: boolean) => v(intitule, condition, true);
+const faux = (intitule: string, condition: boolean) => v(intitule, condition, false);
 
 let compteur = 0;
 const ecrire = (
@@ -341,6 +346,76 @@ vrai(
   'et le refus dit pourquoi, en français',
   (valider('lever', '25:00').motif ?? '').includes('HH:MM'),
 );
+
+/* ══════════════════════════════════════════════════════════════════════════
+   F6 — LES DEUX NON-RÉPONSES NE SE LISENT JAMAIS COMME DES RÉPONSES
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/*
+   TROIS ÉTATS, ET ILS NE SE CONFONDENT PAS.
+
+   Rien dans le profil : la question n'a pas été vue, et le parcours la posera.
+   « inconnu » : elle a été vue, et la personne ne sait pas. « sans-reponse » :
+   elle a été vue, et la personne a refusé.
+
+   Les deux derniers sont STOCKÉS, sans quoi « Mon profil » ne pourrait pas
+   montrer qu'on a refusé et le parcours reposerait la question. Ce qui est
+   interdit, c'est qu'un lecteur les prenne pour une réponse : un refus traité
+   comme une valeur, c'est la réponse qu'on n'a pas voulu donner, utilisée
+   quand même.
+*/
+console.log('\nF6 — LES NON-RÉPONSES');
+
+{
+  vrai('« inconnu » est une non-réponse', estUneNonReponse(NON_REPONSE_INCONNU));
+  vrai('« sans-reponse » aussi', estUneNonReponse(NON_REPONSE_REFUS));
+
+  /* LE PIÈGE D'UNE SEULE LETTRE. « inconnue », au féminin, est une RÉPONSE
+     parmi les options de la phase sportive — elle doit rester lisible. */
+  faux('mais « inconnue », au féminin, n’en est pas une', estUneNonReponse('inconnue'));
+  faux('ni une réponse ordinaire', estUneNonReponse('Alexis'));
+  faux('ni un nombre', estUneNonReponse(0));
+  faux('ni l’absence', estUneNonReponse(undefined));
+
+  /* CE QU'UNE BRANCHE REÇOIT : rien pour une non-réponse, la valeur sinon. */
+  const profil = lireProfil([
+    ecrire('lever', NON_REPONSE_REFUS, 10),
+    ecrire('coucher', '23:00', 20),
+  ]);
+  const lu = pourBranche(profil, 'odyssee');
+  faux('une branche ne reçoit pas un refus', lu.has('lever'));
+  v('mais reçoit la réponse voisine', lu.get('coucher'), '23:00');
+
+  /* CE QU'UN LECTEUR DIRECT REÇOIT. Dix appels passent par `champ()`, qui
+     lit la base et n'est donc pas interrogeable ici ; sa décision est sortie
+     en fonction pure pour qu'elle se mesure. Sans ce contrôle, le garde est
+     tombé une fois sous sabotage sans qu'aucun essai ne rougisse. */
+  v('un lecteur ne reçoit rien d’un refus', lisibleParUnLecteur(profil.get('lever') ?? null), null);
+  v(
+    'ni d’un « je ne sais pas »',
+    lisibleParUnLecteur(lireProfil([ecrire('lever', NON_REPONSE_INCONNU, 10)]).get('lever') ?? null),
+    null,
+  );
+  v(
+    'mais reçoit une réponse ordinaire, telle quelle',
+    lisibleParUnLecteur(profil.get('coucher') ?? null)?.valeur,
+    '23:00',
+  );
+  v('et rien reste rien', lisibleParUnLecteur(null), null);
+
+  /* ET POURTANT LE PROFIL LE GARDE, pour que l'écran puisse le montrer et
+     qu'on puisse revenir dessus. */
+  vrai('le profil garde le refus', profil.has('lever'));
+  v('avec sa valeur telle quelle', profil.get('lever')?.valeur, NON_REPONSE_REFUS);
+
+  /* DONC LA QUESTION N'EST PLUS À POSER : un refus n'est pas un oubli. */
+  const etat = avancement([ecrire('lever', NON_REPONSE_REFUS, 10)]);
+  faux(
+    'une question refusée ne figure plus dans les restantes',
+    etat.restants.some((c) => c.champ === 'lever'),
+  );
+  v('et elle compte comme traitée', etat.repondus, 1);
+}
 
 console.log(
   echecs
