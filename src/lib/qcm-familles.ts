@@ -189,6 +189,58 @@ export function indexerLesExclusions(
 }
 
 /**
+ * Tirer `combien` éléments sans jamais en prendre deux d'un même lien.
+ *
+ * ## Pourquoi cette boucle vit ici, et non dans le tirage
+ *
+ * Elle y vivait d'abord, à l'intérieur de `composerSession`. Elle en est
+ * sortie pour une raison bête et décisive : `qcm.ts` importe `ui.ts`, qui lit
+ * `import.meta.env`, lequel n'existe que dans une construction Astro. Aucun
+ * essai ne peut donc importer `composerSession` — et une règle qu'on ne peut
+ * pas éprouver n'est pas une règle, c'est une intention.
+ *
+ * Ici, le module ne dépend de rien. La boucle s'éprouve avec un tireur
+ * DÉTERMINISTE, ce qui vaut mieux que trois cents passages au hasard : on
+ * vérifie l'invariant sur tous les cas plutôt que sur un échantillon.
+ *
+ * ## Une à la fois, et pourquoi c'est le cœur de l'affaire
+ *
+ * Tirer le lot d'un coup puis noter les exclusions ne servirait à rien : les
+ * deux questions liées peuvent sortir dans le même lot, et l'interdiction
+ * arriverait après le mal. Chaque choix doit rétrécir le champ du suivant.
+ *
+ * ## Ce que la règle cède
+ *
+ * Quand il ne reste que des éléments interdits, on en prend quand même.
+ * `interdits` est MUTÉ et traverse les appels, de sorte qu'une épreuve
+ * composée rubrique par rubrique respecte les liens d'un bout à l'autre.
+ *
+ * `choisirUn` reçoit les candidats encore en jeu et en rend un — c'est par là
+ * que le tirage pondéré entre, sans que ce module sache ce qu'est un poids.
+ */
+export function tirerSansDeuxDuMemeLien<T extends { id: string }>(
+  candidats: readonly T[],
+  combien: number,
+  choisirUn: (parmi: readonly T[]) => T | undefined,
+  interdits: Set<string>,
+  exclusions: Map<string, Set<string>> = indexerLesExclusions(),
+): T[] {
+  const restants = [...candidats];
+  const tires: T[] = [];
+  while (tires.length < combien && restants.length > 0) {
+    const libres = restants.filter((c) => !interdits.has(c.id));
+    const choisi = choisirUn(libres.length > 0 ? libres : restants);
+    if (choisi === undefined) break;
+    tires.push(choisi);
+    const rang = restants.findIndex((c) => c.id === choisi.id);
+    if (rang === -1) break; /* un tireur qui rend autre chose que ce qu'on lui donne */
+    restants.splice(rang, 1);
+    for (const lie of exclusions.get(choisi.id) ?? []) interdits.add(lie);
+  }
+  return tires;
+}
+
+/**
  * Les défauts du relevé lui-même, confronté à la banque chargée.
  *
  * `identifiantsDeLaBanque` est l'ensemble des identifiants que le chargeur a

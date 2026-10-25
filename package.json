@@ -89,6 +89,7 @@
     "essais:cloture": "node scripts/essais-cloture-contenu.mjs",
     "essais:correction-ecran": "node scripts/essais-correction-ecran-navigateur.mjs",
     "essais:familles": "tsx scripts/essais-familles-qcm.mts",
+    "essais:tirage-familles": "tsx scripts/essais-tirage-familles.mts",
     "essais:assistant": "tsx scripts/essais-assistant.mts",
     "essais:assistant:reseau": "node scripts/essais-assistant-reseau.mjs",
     "essais:parcours": "tsx scripts/essais-parcours.mts",
