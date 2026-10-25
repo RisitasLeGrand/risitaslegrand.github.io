@@ -94,3 +94,57 @@ pas revenu.
 4. **B-7**, indépendant.
 5. **M-1 / M-2** et **G-7** ensemble : les deux touchent l'en-tête du fichier,
    et les faire séparément écrirait deux fois la même migration.
+
+---
+
+# Le premier lot, arrêté et approuvé (25 octobre)
+
+Spécifié au fil de la nuit, approuvé tel quel par le pilote. **Il passe avant
+la clé partagée**, parce qu'il arrête une perte en cours pendant qu'on
+construit le reste.
+
+## Ce qu'il fait
+
+1. **Le palier** : les 17 magasins scellés cessent d'être journalisés, et
+   l'écran le dit. C'est la proposition 3 de l'audit, prise à la lettre.
+2. **Les lecteurs deviennent tolérants** : `Promise.allSettled` à la place de
+   `Promise.all` — 25 appels dans 8 modules. Sans cela, un seul scellé
+   étranger continue de rendre illisibles les données **locales**.
+3. **Les entrées isolées sont comptées et nommées.**
+
+## Deux phrases distinctes à l'écran, et non une
+
+- « vient d'un autre appareil » ;
+- « vient d'un coffre précédent de **cet** appareil ».
+
+Les deux n'appellent pas le même geste. Une phrase unique ferait chercher au
+mauvais endroit.
+
+Le diagnostic sort du **désaccord entre deux moyens indépendants** :
+
+| Moyen | Ce qu'il lit | Ce qu'il coûte |
+|---|---|---|
+| le journal | `lot === SANS_LOT` ⇒ écrite ici ; un lot de fusion ⇒ venue d'ailleurs | rien : aucun déchiffrement |
+| l'échec de déchiffrement | l'entrée est illisible avec la clé d'aujourd'hui | une tentative, désormais sans danger |
+
+Une entrée **locale et illisible** est donc celle d'un coffre précédent. C'est
+le cas que l'audit soupçonnait sans le vérifier.
+
+La preuve de provenance survit : la compaction n'efface que les faits d'une
+cible **supprimée**, jamais ceux d'une cible vivante.
+
+## La règle qui tient tout
+
+**Isoler, c'est écarter, compter et dire. Jamais supprimer.**
+
+Ces entrées redeviendront lisibles le jour où la clé partagée arrivera ; les
+effacer maintenant transformerait un défaut réparable en perte définitive.
+L'isolement est une **lecture**, pas une écriture.
+
+## Les deux essais qui décident
+
+1. **Celui qui dit si le lot a réussi** : après réception d'un scellé étranger,
+   les données **locales** de l'appareil qui reçoit sont de nouveau lisibles.
+2. **Celui qui tient la règle** (demandé par le pilote) : toute écriture ou
+   suppression portant sur une entrée isolée **échoue**. La règle cesse ainsi
+   de dépendre de la discipline de celui qui écrira le code suivant.
