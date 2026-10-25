@@ -111,6 +111,25 @@ console.log('\n\x1b[1mF4 — « QUESTION n SUR N », DANS LES DEUX QCM\x1b[0m\n'
 }
 {
   const { contexte, page } = await ouvrir('/quiz/dgfip/');
+  /*
+     LA PRÉSENTATION SE DEMANDE, ELLE NE SE SUPPOSE PLUS.
+
+     Cet essai cliquait « Commencer » et attendait « #epreuve ». Il a attendu
+     soixante secondes, puis expiré, et l'erreur ne disait rien du défaut :
+     « waiting for locator('#epreuve:not(.hidden)') ».
+
+     La raison n'est pas une panne. La copie est arrivée après cet essai, et
+     elle est devenue la présentation PAR DÉFAUT : « Commencer » ouvre donc
+     « #copie » et « #copie-sujet », et « #epreuve » reste caché, à juste
+     titre. Mesuré : la liste déroulante vaut « copie » à l'ouverture, le
+     bouton n'est pas désactivé, et ce sont bien ces deux éléments-là qui
+     apparaissent.
+
+     L'office de cet essai est « Question n sur N » dans la présentation une
+     question à la fois. Il demande donc cette présentation, au lieu de
+     compter sur un défaut qui a changé sous lui.
+  */
+  await page.selectOption('#presentation-dgfip', 'une-a-la-fois');
   await page.click('#lancer-dgfip');
   await page.waitForSelector('#epreuve:not(.hidden)', { timeout: 60000 });
   const compteur = await page.locator('#compteur-dgfip').textContent();
@@ -122,6 +141,8 @@ console.log('\n\x1b[1mF4 — « QUESTION n SUR N », DANS LES DEUX QCM\x1b[0m\n'
 console.log('\n\x1b[1mF3 — QUITTER UNE ÉPREUVE COMMENCÉE\x1b[0m\n');
 {
   const { contexte, page } = await ouvrir('/quiz/dgfip/', { hasTouch: true, isMobile: true, viewport: { width: 390, height: 844 } });
+  /* Une question à la fois : la copie est la présentation par défaut. */
+  await page.selectOption('#presentation-dgfip', 'une-a-la-fois');
   await page.click('#lancer-dgfip');
   await page.waitForSelector('#epreuve:not(.hidden)', { timeout: 60000 });
 
@@ -156,6 +177,8 @@ console.log('\n\x1b[1mF3 — QUITTER UNE ÉPREUVE COMMENCÉE\x1b[0m\n');
   verifier('et l’on sort bien', await page.locator('#accueil-dgfip').isVisible(), true);
 
   // Une réponse donnée : la demande est posée, et le refus laisse sur place.
+  /* Une question à la fois : la copie est la présentation par défaut. */
+  await page.selectOption('#presentation-dgfip', 'une-a-la-fois');
   await page.click('#lancer-dgfip');
   await page.waitForSelector('#epreuve:not(.hidden)', { timeout: 60000 });
   await page.locator('#options-dgfip button').first().click();

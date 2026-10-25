@@ -29,6 +29,7 @@
 import { execFileSync } from 'node:child_process';
 import { readFileSync, existsSync } from 'node:fs';
 import path from 'node:path';
+import { motDePasseEssaisOuNull } from './lib/mot-de-passe-essais.mjs';
 
 const RACINE = path.resolve(import.meta.dirname, '..');
 
@@ -85,23 +86,18 @@ verifier(
 
 console.log('\nLE MOT DE PASSE N’APPARAÎT DANS AUCUN FICHIER SUIVI');
 
-function motDePasse() {
-  if (process.env.SITE_PASSWORD) return process.env.SITE_PASSWORD;
-  const chemin = path.join(RACINE, '.env.local');
-  if (!existsSync(chemin)) return null;
-  for (const ligne of readFileSync(chemin, 'utf8').split('\n')) {
-    const m = /^\s*SITE_PASSWORD\s*=\s*(.*)\s*$/.exec(ligne);
-    if (m) return m[1].replace(/^["']|["']$/g, '');
-  }
-  return null;
-}
-
-const mdp = motDePasse();
+/*
+   La quatrième copie de la règle de lecture vivait ici, recopiée de l'aide des
+   essais — qui divergeait elle-même du build. Elle est partie : la règle vit
+   dans `lib/motdepasse.mjs`, et cet essai-ci emploie la variante qui ne tue
+   pas le script, parce qu'il doit tourner pour quiconque, mot de passe ou non.
+*/
+const mdp = motDePasseEssaisOuNull();
 if (!mdp) {
   console.log(
     '  \x1b[33m⚠\x1b[0m contrôle exact non exécuté : SITE_PASSWORD n’est pas disponible.\n' +
       '      Le contrôle structurel ci-dessus a tourné. Pour le contrôle exact :\n' +
-      '      SITE_PASSWORD=… npm run essais:secret',
+      '      printf \'SITE_PASSWORD=…\\n\' > .env.local  puis  npm run essais:secret',
   );
 } else if (mdp.length < 4) {
   // Un secret trop court produirait des coïncidences dans n'importe quel texte.

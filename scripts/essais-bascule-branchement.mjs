@@ -40,13 +40,10 @@ import path from 'node:path';
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
+import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const BASE = 'http://localhost:4321';
-const MDP = process.env.SITE_PASSWORD;
-if (!MDP) {
-  console.error('SITE_PASSWORD manquant.');
-  process.exit(1);
-}
+const MDP = motDePasseEssais();
 
 /** Le mot de passe du coffre pour cet essai. Jetable, et sans rapport avec celui d'Alexis. */
 const MDP_COFFRE = 'une phrase de coffre pour l’essai';

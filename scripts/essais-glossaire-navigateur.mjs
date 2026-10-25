@@ -133,9 +133,40 @@ verifier(
 verifier('G1 — des lettres restent cliquables sans remonter', apresSaut.lettresAtteignables > 0, true);
 verifier('G3 — la lettre atteinte est marquée dans l’index', apresSaut.marquee, derniere);
 
-// G2 — le bouton « Haut » ramène en haut et rend le focus au filtre.
+/*
+   G2 — le bouton « Haut » ramène en haut et rend le focus au filtre.
+
+   CE CONTRÔLE GELAIT UNE DURÉE D'ANIMATION, ET C'EST POUR CELA QU'IL ÉTAIT
+   ROUGE. Il attendait 1 200 ms, puis lisait la position : il trouvait 1 930,
+   et le focus déjà juste. Mesuré : depuis le bas du glossaire — 109 648 px
+   sur une page de 110 786 —, la glissade de « Haut » met 1 600 ms, et passe
+   par 103 000, 57 988, 26 211, 12 586, 5 436, 1 715, 171, puis zéro.
+
+   Les deux promesses de G2 étaient donc tenues. Le défaut était dans la
+   montre. Une durée d'animation n'est pas un contrat : le navigateur la
+   choisit, elle dépend de la distance, et elle changera.
+
+   On attend donc que le défilement SE POSE — deux lectures identiques à
+   zéro —, avec un plafond qui refuse plutôt que de mentir. C'est la même
+   leçon qu'« essais:niveau:navigateur » : remplacer l'échéance fixe par une
+   attente explicite.
+
+   Pour information, et non comme un défaut à corriger ici : une glissade de
+   1,6 s pour revenir en haut est longue. « allureDuDefilement » est le choix
+   délibéré du point H2, qui appartient à C ; le dire suffit.
+*/
 await page.click('#haut-de-page');
-await page.waitForTimeout(1200);
+const posee = await page.evaluate(async () => {
+  let precedent = -1;
+  for (let i = 0; i < 60; i++) {
+    const y = Math.round(window.scrollY);
+    if (y === 0 && precedent === 0) return { posee: true, apres: i * 100 };
+    precedent = y;
+    await new Promise((r) => setTimeout(r, 100));
+  }
+  return { posee: false, apres: 6000, y: Math.round(window.scrollY) };
+});
+verifier('G2 — le défilement se pose avant six secondes', posee.posee, true);
 verifier(
   'G2 — « Haut » ramène en haut de page et rend le focus au champ de filtre',
   await page.evaluate(() => ({

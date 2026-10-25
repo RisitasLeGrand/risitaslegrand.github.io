@@ -14,11 +14,7 @@ import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 
 const BASE = 'http://localhost:4321';
-const MDP = process.env.SITE_PASSWORD;
-if (!MDP) {
-  console.error('SITE_PASSWORD manquant.');
-  process.exit(1);
-}
+const MDP = motDePasseEssais();
 
 let echecs = 0;
 const verifier = (intitule, obtenu, attendu) => {
@@ -36,6 +32,7 @@ const verifier = (intitule, obtenu, attendu) => {
 import { readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
+import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 const routes = () => {
   const sortie = [];
   const parcourir = (dossier, prefixe) => {

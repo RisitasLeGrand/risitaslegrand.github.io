@@ -1,7 +1,13 @@
 /**
  * Une erreur au pied du champ, et reliée à lui (D2 du prompt 43).
  *
- *   npx astro preview &  CHROMIUM=… SITE_PASSWORD=… npm run essais:erreur-de-champ:navigateur
+ *   npx astro preview &  CHROMIUM=… npm run essais:erreur-de-champ:navigateur
+ *
+ * Le mot de passe ne se donne PAS sur la ligne de commande : elle reste en
+ * clair dans le journal du terminal. Il se pose dans `.env.local`, ignoré
+ * par Git, et `motDePasseEssais()` l'y lit — c'est la source unique.
+ *
+ *   printf 'SITE_PASSWORD=…\n' > .env.local
  *
  * Quatre promesses, et aucune ne se lit dans le code :
  *

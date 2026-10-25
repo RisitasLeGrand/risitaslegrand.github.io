@@ -22,12 +22,21 @@
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
 
 const nav = await chromium.launch({
-  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  /*
+     Le chemin était épinglé sur « chromium-1194/chrome-linux/chrome ». Le
+     conteneur sert la 1243, et sa disposition s'appelle « chrome-linux64 » :
+     ce chemin ne désigne plus rien, et c'est pour cela que cet essai était
+     rouge. L'aide partagée cherche au lieu de nommer, et REFUSE quand elle
+     ne trouve rien — ne rien trouver rendait `undefined`, et Playwright
+     parlait alors d'un binaire que personne n'avait demandé.
+  */
+  executablePath: cheminDuNavigateur(),
   args: ['--no-sandbox'],
 });
 

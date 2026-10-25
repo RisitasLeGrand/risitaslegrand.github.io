@@ -1,7 +1,13 @@
 /**
  * « Afficher » : le bouton, à l'écran (D3 du prompt 43).
  *
- *   npx astro preview &  CHROMIUM=… SITE_PASSWORD=… npm run essais:mot-de-passe-visible:navigateur
+ *   npx astro preview &  CHROMIUM=… npm run essais:mot-de-passe-visible:navigateur
+ *
+ * Le mot de passe ne se donne PAS sur la ligne de commande : elle reste en
+ * clair dans le journal du terminal. Il se pose dans `.env.local`, ignoré
+ * par Git, et `motDePasseEssais()` l'y lit — c'est la source unique.
+ *
+ *   printf 'SITE_PASSWORD=…\n' > .env.local
  *
  * L'essai pur garde qu'aucun fichier ne porte un champ nu. Celui-ci garde ce
  * qu'un relevé de fichiers ne peut pas garder : que le bouton **existe sur la

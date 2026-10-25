@@ -40,8 +40,22 @@ import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
 const MDP = motDePasseEssais();
 const DESCENTE = 900;
-/** Quelques pixels de jeu : l'arrondi, et la dernière ligne qui s'ajoute. */
-const TOLERANCE = 80;
+/**
+ * Quelques pixels de jeu : l'arrondi, et la dernière ligne qui s'ajoute.
+ *
+ * ELLE ÉTAIT DE 80, ET CES 80 PIXELS CACHAIENT LE DÉFAUT. Cinq listes sur
+ * six revenaient 25 à 60 px trop court — sous la tolérance, donc vertes — et
+ * seule `/quiz/`, qui perdait 178 px, dépassait. La cause était la même pour
+ * les six : la position était lue à `pagehide`, après que le navigateur
+ * l'avait rabattue sur un document momentanément plus court.
+ *
+ * Depuis que la position enregistrée est la dernière position VIVANTE, les
+ * six listes reviennent à 900 exactement, et non « à peu près ». La tolérance
+ * descend donc à seize pixels : de quoi absorber un arrondi, pas de quoi
+ * absorber une perte. Un nombre large est une dette, et celui-ci a coûté
+ * cinq faux verts.
+ */
+const TOLERANCE = 16;
 const REPLI = '/progression/';
 
 const LISTES = [
