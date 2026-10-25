@@ -223,6 +223,7 @@
     "essais:schema": "tsx scripts/essais-schema.mts",
     "essais:vocabulaire": "tsx scripts/essais-vocabulaire.mts",
     "essais:population": "tsx scripts/essais-population.mts",
+    "essais:curseurs-pas:navigateur": "node scripts/essais-curseurs-pas-navigateur.mjs",
     "essais:cycle-confidentialite": "tsx scripts/essais-cycle-confidentialite.mts",
     "essais:sexe": "tsx scripts/essais-sexe.mts",
     "essais:cycles": "tsx scripts/essais-cycles.mts",
