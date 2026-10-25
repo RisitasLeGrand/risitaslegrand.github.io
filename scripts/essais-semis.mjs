@@ -57,6 +57,7 @@ const SEMIS_DECLARES = [
   { fichier: 'essais-cle-disparue.mjs', permanent: true, pourquoi: 'Le coffre sans clé est, par définition, un état qu’aucun écran ne sait créer : des scellés en base et plus de sel. Le reproduire est tout l’objet de l’essai.' },
   { fichier: 'essais-fusion-interrompue.mjs', permanent: true, pourquoi: 'B-4 du 58 : l’état qu’une fusion interrompue laisse — journal écrit, rubriques non rangées — ne s’obtient qu’en tuant l’onglet au bon millième de seconde. L’essai écrit cet état plutôt que de parier sur un instant.' },
   { fichier: 'essais-stockage.mjs', permanent: true, pourquoi: 'Mesurer le stockage demande un volume semé.' },
+  { fichier: 'essais-profil-navigateur.mjs', permanent: true, pourquoi: 'Décision 2 du 56 : un champ qui n’est plus demandé se garde s’il est rempli. Il n’existe plus aucun chemin d’écran vers ce champ — c’est tout le sujet —, donc l’état d’« une personne qui a répondu la semaine dernière » ne peut être posé que par la base.' },
   { fichier: 'essais-activite-navigateur.mjs', permanent: true, pourquoi: 'L’XP sur plusieurs semaines suppose des jours passés, inatteignables aujourd’hui.' },
   { fichier: 'essais-indicateurs-navigateur.mjs', permanent: true, pourquoi: 'Idem : un historique d’indicateurs porte sur des jours révolus.' },
   { fichier: 'essais-adaptation-navigateur.mjs', permanent: true, pourquoi: 'L’usage observé porte sur huit semaines passées.' },
