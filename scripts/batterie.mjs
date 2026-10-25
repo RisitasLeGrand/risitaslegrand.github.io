@@ -288,6 +288,12 @@ const EN_LABORATOIRE = new Set([
   'essais:parties-client',
   'essais:reperes-audio',
   /*
+     Point e du 60. Les formules ne s'affichent que si une fiche en porte une,
+     et le conteneur de travail n'en a aucune : l'essai pose donc son propre
+     décor dans le contenu d'exemple, ce qui exige un arbre à part.
+  */
+  'essais:maths-ecran',
+  /*
      C3 du prompt 43. L'écran du QCM DGFiP ne s'ouvre que si la banque de
      questions existe, et aucune n'est servie dans le conteneur de travail :
      « Commencer » y est désactivé, donc aucune épreuve ne peut être

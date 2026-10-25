@@ -350,7 +350,8 @@
     "essais:base-concurrente": "tsx scripts/essais-base-concurrente.mts",
     "essais:404-hors-ligne": "tsx scripts/essais-404-hors-ligne.mts",
     "essais:fusion-interrompue": "node scripts/essais-fusion-interrompue.mjs",
-    "essais:maths": "node scripts/essais-maths.mjs"
+    "essais:maths": "node scripts/essais-maths.mjs",
+    "essais:maths-ecran": "node scripts/essais-maths-ecran-navigateur.mjs"
   },
   "repository": {
     "type": "git",
