@@ -67,11 +67,25 @@ import { PARCOURS } from '../lib/parcours/registre';
    sous le doigt qui visait autre chose. Caché puis montré, il prend sa
    place une fois pour toutes.
 */}
+{/*
+   `mr-1 sm:mr-0` : sous 640 px, le bouton touchait le BORD DROIT de l'écran.
+
+   Mesuré sur un téléphone de 390 px : boîte à x=349, largeur 94, fenêtre de
+   mise en page 443 — le bord droit du bouton tombait exactement sur celui de
+   la fenêtre. `document.elementFromPoint` rendait bien le bouton, mais le
+   test d'impact de Playwright, qui passe par la fenêtre VISUELLE à l'échelle
+   du téléphone, tombait à côté : le clic était refusé. Un appui dont la
+   cible commence au pixel du bord est de toute façon inconfortable.
+
+   Quatre pixels suffisent à le décoller. La cause de fond est ailleurs, et
+   je ne la corrige pas ici : l'en-tête n'a plus de jeu à 390 px, et c'est le
+   point E6 qui y a ajouté un bouton. C'est remonté au pilote.
+*/}
 <button
   id="appliquer-parcours"
   type="button"
   hidden
-  class="min-h-11 shrink-0 rounded-lg bg-indigo-600 px-2.5 text-sm font-medium text-white transition hover:bg-indigo-700"
+  class="mr-1 min-h-11 shrink-0 rounded-lg bg-indigo-600 px-2.5 text-sm font-medium text-white transition hover:bg-indigo-700 sm:mr-0"
 >
   Appliquer
 </button>

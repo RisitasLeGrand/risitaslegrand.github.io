@@ -872,7 +872,20 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                  1248 px disponibles. Une rangée de plus coûte quarante pixels
                  de hauteur ; sept écrans invisibles coûtaient plus.
               */}
-              <div class="order-5 flex w-auto min-w-0 flex-1 items-center gap-2 sm:order-last sm:w-full sm:flex-none sm:shrink 2xl:order-3 2xl:w-auto 2xl:flex-1">
+              {/*
+                 `flex-wrap` : sans lui, cette rangée DÉBORDE de l'écran sur un
+                 téléphone depuis que le point E6 y a ajouté « Appliquer ».
+
+                 Mesuré sur 390 px : fenêtre de mise en page 443, fenêtre
+                 VISUELLE 390, et le bord droit du bouton à 443 — cinquante-trois
+                 pixels hors de l'écran, centre compris. Aucun doigt ne pouvait
+                 l'atteindre, et `document.elementFromPoint` disait pourtant le
+                 contraire : il travaille en pixels de mise en page, pas en
+                 pixels vus. Avec le retour à la ligne, le bord droit tombe à
+                 317 et l'appui passe. La classe ne change rien quand la rangée
+                 tient : elle n'agit qu'au moment où elle déborderait.
+              */}
+              <div class="order-5 flex w-auto min-w-0 flex-1 flex-wrap items-center gap-2 sm:order-last sm:w-full sm:flex-none sm:shrink 2xl:order-3 2xl:w-auto 2xl:flex-1">
                 {brancheCourante.id === ID_BRANCHE_PAR_DEFAUT && <SelecteurParcours />}
                 {/*
                    `hidden sm:flex` sur la barre : sous 640 px la barre du bas
