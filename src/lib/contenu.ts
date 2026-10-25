@@ -28,13 +28,24 @@ export interface FicheResume {
    *
    * Écrit par le build depuis `parcoursDuChemin(relatif)`. Au pluriel, parce
    * qu'une fiche de `content/commun/` en sert trois : élire un parcours aurait
-   * obligé à mentir sur les deux autres.
+   * obligé à mentir sur les deux autres. **C'est le champ sur lequel
+   * `filtre-du-manifeste.ts` travaille**, et il est porté par le manifeste
+   * pour que la bibliothèque puisse filtrer AVANT de déchiffrer quoi que ce
+   * soit.
    *
    * **Facultatif, et son absence ne veut pas dire « aucun ».** Un manifeste
    * construit avant que le champ existe n'en porte pas, et refuser alors de
    * servir la fiche viderait l'écran de qui n'a pas reconstruit. Son absence se
-   * lit donc « on ne sait pas », et la fiche passe — c'est la convention des
-   * autres champs facultatifs de ce type (`nbParties`, `aPretest`).
+   * lit donc « on ne sait pas, donc on garde » : mieux vaut une fiche de trop
+   * qu'une bibliothèque vide. C'est la convention des autres champs
+   * facultatifs de ce type (`nbParties`, `aPretest`).
+   *
+   * CES TROIS CHAMPS ÉTAIENT DÉCLARÉS DEUX FOIS. Deux lots les ont ajoutés le
+   * même jour — le 59 pour que la séance trie, `filtre-du-manifeste.ts` pour
+   * que la bibliothèque trie —, et la fusion a gardé les deux déclarations :
+   * six erreurs `ts(2300)`, et `astro check` rouge sur `main` sans que les
+   * deux branches, vertes séparément, aient pu le voir. Les voici fondues en
+   * une, avec ce que chacune des deux disait de plus.
    */
   parcoursServis?: string[];
   nbFlashcards: number;
@@ -61,27 +72,6 @@ export interface FicheResume {
    * « aucun choix de partie à proposer ».
    */
   nbParties?: number;
-  /**
-   * La racine de contenu sous laquelle la fiche est rangée — `''` pour l'INSP,
-   * `'commun'` pour la matière partagée entre les parcours DGFiP.
-   *
-   * Portée par le manifeste pour que la bibliothèque puisse filtrer AVANT de
-   * déchiffrer quoi que ce soit. Facultative : un manifeste construit avant le
-   * partage des matières ne la porte pas, et son absence ne doit pas vider une
-   * bibliothèque.
-   */
-  racine?: string;
-  /**
-   * Les parcours auxquels la fiche est servie, dérivés de sa racine par le
-   * registre au moment du build.
-   *
-   * C'est le champ sur lequel le filtre travaille. Il est facultatif pour la
-   * même raison que `racine`, et son absence se lit « on ne sait pas, donc on
-   * garde » : mieux vaut une fiche de trop qu'une bibliothèque vide.
-   */
-  parcoursServis?: string[];
-  /** La fiche sert-elle plus d'un parcours ? Dérivé de `parcoursServis`. */
-  partagee?: boolean;
 }
 
 export interface Fascicule {

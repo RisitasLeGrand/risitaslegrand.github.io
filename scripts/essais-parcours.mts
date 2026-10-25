@@ -16,7 +16,6 @@
  *     protégerait une série que rien ne protège.
  */
 import {
-  ficheServieAuParcours,
   matiereEstUneEpreuve,
   matieresDEpreuve,
   ID_PARCOURS_PAR_DEFAUT,
@@ -504,83 +503,20 @@ verifier(
   undefined,
 );
 
-/* ══════════════════════════════════════════════════════════════════════════
-   À QUI UNE FICHE DU MANIFESTE EST SERVIE
-   ══════════════════════════════════════════════════════════════════════════ */
-
 /*
-   Le défaut que ce prédicat corrige était invisible au nœud : la séance
-   choisissait ses fiches par le seul nom de la matière, et « Organisation de
-   la DGFiP » est déclarée par DGFiP B ET par DGFiP A. Un essai de navigateur
-   sur du contenu factice l'a montré en deux rouges ; ces lignes-ci gardent la
-   règle, et elles tournent en quelques millisecondes dans le socle de nœud.
-*/
-console.log('\nÀ QUI UNE FICHE DU MANIFESTE EST SERVIE');
+   CE BLOC A DISPARU, ET C'EST VOULU.
 
-verifier(
-  'une fiche de dgfip-b est servie à dgfip-b',
-  ficheServieAuParcours({ parcoursServis: ['dgfip-b'] }, 'dgfip-b'),
-  true,
-);
-verifier(
-  'et pas à dgfip-a, qui déclare la même matière',
-  ficheServieAuParcours({ parcoursServis: ['dgfip-b'] }, 'dgfip-a'),
-  false,
-);
+   Il gardait `ficheServieAuParcours`, que j'avais écrit pour que la séance
+   ne propose pas la fiche d'un autre parcours. `filtre-du-manifeste.ts` a
+   tranché autrement et mieux : le tri se fait sur le manifeste entier, dans
+   `chargerManifeste()`, totaux recalculés. Le prédicat local est retiré, et
+   ses assertions avec lui — `essais:filtre-parcours` garde la règle là où
+   elle vit maintenant, y compris le cas d'un manifeste ancien qui ne porte
+   pas les champs et dont les fiches sont GARDÉES.
 
-/*
-   La fiche partagée, et c'est le cas qui justifie le pluriel : elle doit être
-   servie aux TROIS parcours DGFiP, sans que personne ait à l'élire.
+   Deux assertions pour la même règle à deux endroits, c'est la divergence
+   garantie le jour où l'une des deux change.
 */
-const servisParCommun = parcoursServisParLaRacine(RACINE_COMMUNE);
-verifier(
-  'une fiche de commun/ est servie à tous les parcours que la racine sert',
-  servisParCommun.map((id) => ficheServieAuParcours({ parcoursServis: servisParCommun }, id)),
-  servisParCommun.map(() => true),
-);
-verifier(
-  'et elle sert bien plus d’un parcours — sans quoi l’assertion ci-dessus ne dirait rien',
-  servisParCommun.length > 1,
-  true,
-);
-verifier(
-  'mais pas à un parcours que cette racine ne sert pas',
-  PARCOURS.filter((p) => !servisParCommun.includes(p.id)).map((p) =>
-    ficheServieAuParcours({ parcoursServis: servisParCommun }, p.id),
-  ),
-  PARCOURS.filter((p) => !servisParCommun.includes(p.id)).map(() => false),
-);
-
-/*
-   L'ABSENCE DU CHAMP N'EST PAS UN REFUS, et il faut le dire ici parce que
-   c'est contre-intuitif : un manifeste construit avant que le champ existe
-   n'en porte pas, et refuser alors la fiche viderait la séance de qui n'a pas
-   reconstruit son contenu. Un tableau VIDE, lui, est une réponse : personne.
-*/
-verifier(
-  'une fiche sans parcours servis déclarés passe partout',
-  PARCOURS.map((p) => ficheServieAuParcours({}, p.id)),
-  PARCOURS.map(() => true),
-);
-verifier(
-  'un tableau vide, lui, ne sert personne',
-  PARCOURS.map((p) => ficheServieAuParcours({ parcoursServis: [] }, p.id)),
-  PARCOURS.map(() => false),
-);
-
-/*
-   Le chemin et le prédicat doivent s'accorder : c'est `parcoursDuChemin` qui
-   remplit le champ au build, et si les deux divergeaient, le filtre de la
-   séance écarterait des fiches que le registre dit servir.
-*/
-for (const p of PARCOURS) {
-  const relatif = p.racineContenu ? `${p.racineContenu}/x.md` : 'droit-public/x.md';
-  verifier(
-    `${p.libelle} : une fiche de sa racine lui est servie, d’après son chemin`,
-    ficheServieAuParcours({ parcoursServis: parcoursDuChemin(relatif) }, p.id),
-    true,
-  );
-}
 
 /* ══════════════════════════════════════════════════════════════════════════
    LES MATIÈRES QUI SONT DES ÉPREUVES, ET NON DES CONNAISSANCES
