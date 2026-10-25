@@ -93,7 +93,7 @@ export const reference = z.object({
  * Les deux branches sont exclusives et toutes deux explicites : c'est ce qui
  * interdit le troisième état silencieux.
  */
-export const valeurSourcee = (unites) =>
+export const valeurSourcee = (unites: [string, ...string[]]) =>
   z.union([
     z.literal('inconnue'),
     z.object({

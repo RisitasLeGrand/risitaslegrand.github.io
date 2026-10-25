@@ -41,7 +41,7 @@ const normaliser = (couleur: string | null | undefined) => {
 };
 
 let rouges = 0;
-const verifier = (quoi, obtenu, attendu) => {
+const verifier = (quoi: string, obtenu: unknown, attendu: unknown) => {
   if (JSON.stringify(obtenu) === JSON.stringify(attendu)) {
     console.log(`\x1b[32m✓\x1b[0m ${quoi}`);
     return;
@@ -71,7 +71,7 @@ const TOUJOURS_NUIT = '03:00|03:01';
  * `addInitScript` s'exécute avant tout script de la page : c'est le seul
  * moment où l'on peut écrire dans `localStorage` ce que l'amorçage lira.
  */
-async function ouvrir(etat) {
+async function ouvrir(etat: Record<string, string | null>) {
   const ctx = await nav.newContext({
     viewport: { width: 360, height: 740 },
     hasTouch: true,
@@ -140,7 +140,11 @@ async function ouvrir(etat) {
   return { page, ctx, releve };
 }
 
-const etat = (palette, heures, extra = {}) => ({
+const etat = (
+  palette: string,
+  heures: string,
+  extra: Record<string, string | null> = {},
+) => ({
   'revinsp.palette': palette,
   'revinsp.bascule-jour-nuit': 'oui',
   'revinsp.heures-bascule': heures,

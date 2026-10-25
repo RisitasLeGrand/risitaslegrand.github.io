@@ -22,7 +22,7 @@
  * annulée. Rien n'est effacé. Un essai qui confirmerait mesurerait l'effet,
  * pas la phrase — et il ne resterait rien à mesurer ensuite.
  */
-import { chromium } from 'playwright-core';
+import { chromium, type Page } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 
@@ -51,7 +51,7 @@ const nav = await chromium.launch({
   args: ['--no-sandbox'],
 });
 
-const deverrouiller = async (page) => {
+const deverrouiller = async (page: Page) => {
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
     await page.click('#bouton-verrou');

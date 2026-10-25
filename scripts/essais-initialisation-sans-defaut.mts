@@ -41,7 +41,7 @@
  * unique — en relevant à chaque écran ce que la saisie montre, puis on
  * relit le journal d'opérations.
  */
-import { chromium } from 'playwright-core';
+import { chromium, type Page } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
@@ -135,7 +135,7 @@ const ETAT_ECRAN = `(() => {
  * que ses propres clics. Il est resté vert sous sabotage. Un essai qui ne
  * bouge pas ne garde rien.
  */
-async function traverser(page, branche: string | null) {
+async function traverser(page: Page, branche: string | null) {
   const chemin = branche ? `/initialisation/?branche=${branche}` : '/initialisation/';
   await page.goto(`${RACINE}${chemin}`, { waitUntil: 'networkidle' });
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
