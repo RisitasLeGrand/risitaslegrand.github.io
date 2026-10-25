@@ -422,14 +422,33 @@ financière. Notée **5 points sur 20**.
 > suivent. Je la restitue ici comme elle est lue, sans la déplacer. À vérifier
 > sur la page Légifrance quand elle sera accessible.
 
-**Fait important et daté : il n'y a plus de programme annexé.** L'**article 2 de
-l'arrêté du 4 septembre 2025** « a abrogé les dispositions suivantes : arrêté du
-2 mars 2011, art. Annexe » ; l'annexe technique des versions confirme l'état
-`ABROGE` pour `LEGIARTI000030768328` à compter du **6 septembre 2025**. Depuis
-cette date, **aucun programme détaillé n'est annexé au concours professionnel
-d'IPFiP**. Les options de l'article 1 sont donc la seule délimitation en
-vigueur. C'est un point que la préparation doit connaître : chercher « le
-programme de l'IPFiP » aboutit à un texte abrogé.
+**Fait important et daté : il n'y a plus de programme annexé, et pas depuis
+2025.** L'**article 3** de l'arrêté — « Le programme de l'épreuve
+d'admissibilité n° 2 est fixé en annexe au présent arrêté »
+(`LEGIARTI000023663685`) — est **abrogé au 24 juin 2015**, et le programme
+quitte l'annexe à la même date. Les trois versions de l'annexe ont été lues :
+
+| Version | En vigueur | Ce qu'elle contient |
+|---|---|---|
+| `LEGIARTI000023663691` | 7 mars 2011 → 1er novembre 2011 | le programme des options de l'épreuve n° 2, et rien d'autre |
+| `LEGIARTI000024518582` | 1er novembre 2011 → 24 juin 2015 | ce programme **et** un modèle de dossier de présentation pour l'épreuve orale d'admission n° 2 |
+| `LEGIARTI000030768328` | 24 juin 2015 → 6 septembre 2025, `ABROGE` | **ce modèle seul** — 2 827 caractères, aucune option, aucune notion |
+
+L'**article 2 de l'arrêté du 4 septembre 2025** « a abrogé les dispositions suivantes :
+arrêté du 2 mars 2011, art. Annexe », avec effet au **6 septembre 2025**. Ce qu'il a abrogé est donc la troisième version : **un modèle de fiche
+de présentation**, que le même arrêté rendait sans objet le même jour en
+fusionnant les deux oraux en un seul. Pas un programme.
+
+Les options de l'article 1 sont donc la seule délimitation en vigueur, et elles
+le sont depuis **près de onze ans**, non depuis sept semaines. La date compte
+pour la préparation : chercher « le programme de l'IPFiP » n'aboutit pas à un
+texte récemment abrogé, mais à rien — et un support de l'an dernier n'en
+contenait pas davantage.
+
+**Et l'épreuve n° 1 n'a jamais eu de programme.** L'article 3 abrogé ne
+renvoyait à l'annexe que le programme de l'épreuve **n° 2**. La note
+administrative n'a eu, dans aucune version, d'autre délimitation que sa propre
+phrase de l'article 1er.
 
 ### 4.2 L'examen professionnel ouvert aux inspecteurs (IFiP → IPFiP)
 
