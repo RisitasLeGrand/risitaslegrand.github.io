@@ -6,17 +6,19 @@
  * tentent donc, un par un, les cinq façons de contourner la règle « aucune
  * valeur sans sa source », et vérifient que chacune est fermée.
  */
+import type { ZodType } from 'zod';
+
 import { SCHEMAS } from './lib/schemas-sante.mts';
 
 let reussis = 0;
-const echecs = [];
-const verifier = (titre, condition, detail = '') => {
+const echecs: string[] = [];
+const verifier = (titre: string, condition: boolean, detail = '') => {
   if (condition) reussis += 1;
   else echecs.push(`${titre}${detail ? ` — ${detail}` : ''}`);
 };
-const refuse = (titre, schema, valeur) =>
+const refuse = (titre: string, schema: ZodType, valeur: unknown) =>
   verifier(titre, !schema.safeParse(valeur).success, 'accepté alors qu’il fallait refuser');
-const accepte = (titre, schema, valeur) => {
+const accepte = (titre: string, schema: ZodType, valeur: unknown) => {
   const r = schema.safeParse(valeur);
   verifier(titre, r.success, r.success ? '' : JSON.stringify(r.error.issues[0]?.message));
 };

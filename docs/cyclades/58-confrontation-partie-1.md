@@ -444,3 +444,134 @@ contrôle qui vaut plus que le nombre lui-même. Et ma phrase disait « Dont 0
 carte(s) suivie(s), 0 quiz et 0 journée(s) » sur une base qui ne portait
 qu'Odyssée : trois zéros n'apprennent rien et font douter du reste. Le détail
 ne paraît plus que s'il a quelque chose à détailler.
+
+## Avancement — G-13, livré le 25 octobre
+
+Le constat tenait en une ligne : `progression.astro` écrivait
+`dire('message-cyclades', (e as Error).message, 'echec')`. Mesuré le 19 :
+**62 occurrences de `.message` dans les écrans**, sur 27 fichiers.
+
+**Elles ne se valent pas, et c'est tout le travail.** Les remplacer en bloc
+aurait été plus rapide et aurait appauvri le site.
+
+- **Huit ne sont pas des erreurs.** `etat.message`, `diagnostic.message`,
+  `rappel.message`, `c.message` : du texte de domaine, français, écrit pour
+  être lu. Elles n'ont pas bougé.
+- **Quatre étaient déjà justes.** `erreur.message` gardé par un `instanceof`
+  sur une classe du domaine — `CompactionRefusee`, `DossierRefuse`,
+  `EchangeInterrompu`, `FusionRefusee`. C'est exactement ce que G-13 demande,
+  et le code le faisait déjà là.
+- **Cinquante passent maintenant par `messageDUneErreur()`.**
+
+### Le discriminant est le type, et jamais le texte
+
+`agir.ts` reconnaissait déjà l'espace plein et préférait un message de domaine
+à toute reformulation. Ce qu'il laissait passer, c'est le reste : une
+`DOMException` ressortait avec le texte du navigateur — « Failed to execute
+"transaction" on "IDBDatabase" » —, anglais, technique, et ne disant à
+personne quoi faire.
+
+Deux sortes d'erreurs arrivent à un écran. Une `DOMException` vient de la
+**plateforme** : son texte ne doit jamais s'afficher. Une `Error` ordinaire,
+ici, vient de l'**application** : son message est français et a été écrit pour
+être lu. Renifler le texte pour les distinguer échouerait dès qu'un navigateur
+parle une autre langue ; le type, non.
+
+Douze pannes reconnues, chacune venue d'un appel que le code fait vraiment —
+IndexedDB, le sélecteur de fichiers, le presse-papiers, Web Crypto. La table
+est **fermée** : un nom inconnu tombe sur une phrase générique qui renvoie à
+la console, plutôt que de laisser filer de l'anglais.
+
+### Le balayage, parce que la relecture ne tient rien
+
+54 sites ont été routés d'un coup ; le cinquante-cinquième s'écrira un jour
+sans que personne y pense. `essais:erreurs-dites` interdit les deux formes
+brutes et vérifie que chaque lecture nue restante porte une garde de domaine,
+en relisant les trois lignes qui précèdent — plutôt qu'en tenant une liste de
+numéros de ligne, qui dérivent. Au socle, qui compte 23.
+
+Saboté en remettant une lecture brute dans `profil.astro` : le balayage la
+nomme, fichier et ligne.
+
+## Avancement — G-10, livré le 25 octobre
+
+La persistance n'était demandée qu'à un seul endroit : dans le fil d'une
+sauvegarde confirmée, sur l'écran Progression.
+
+**Donc quelqu'un qui ne sauvegarde jamais n'était jamais protégé contre
+l'éviction de sa base par le navigateur** — et c'est précisément celui qui n'a
+pas de sauvegarde qui a le plus à perdre. C'est le même défaut qu'en A4, un
+cran plus loin : le code était là, la demande n'avait pas lieu.
+
+Elle part maintenant au déverrouillage, depuis la mise en page, donc sur tous
+les écrans. `assurerLaPersistance()` n'a pas changé d'une ligne : elle portait
+déjà ses trois garde-fous — rien si l'API manque, rien si c'est accordé, rien
+avant sept jours — de sorte que l'appel répété ne coûte qu'une lecture. Elle
+était juste ; elle n'était pas appelée.
+
+Silencieusement : ni bulle, ni bandeau, l'échec avalé. Ce n'est pas une
+entorse à A1 — il n'y a rien à dire à quelqu'un qui n'a rien demandé, et le
+navigateur montre sa propre invite s'il en a une. L'état réel reste lisible
+sur Stockage.
+
+### L'erreur que l'essai m'a fait faire
+
+`essais:persistance` éprouve la **fonction** devant un navigateur simulé ; il
+est juste, et il ne peut pas voir ce défaut-ci. Il fallait ouvrir la page et
+regarder si l'appel part.
+
+Ma première rédaction comptait les appels dans une variable globale et lisait
+**0** : j'ai failli conclure que le correctif ne marchait pas.
+`addInitScript` rejoue à **chaque** document, et le déverrouillage est
+justement suivi d'une navigation vers l'initialisation — la globale repartait
+à zéro juste après l'appel. Le compteur vit maintenant dans `sessionStorage`.
+La raison est écrite dans l'essai, parce que le prochain qui observera un
+appel suivi d'une navigation tombera dans le même trou.
+
+Le second contrôle garde le revers : deux écrans de plus ne redemandent rien.
+Sans les sept jours, « à chaque ouverture » deviendrait une invite à chaque
+page, soit le défaut inverse.
+
+---
+
+# Rapport de la partie 1 — close le 25 octobre
+
+**Les huit points sont traités, et aucun n'est tenu par la seule relecture.**
+
+| Point | État | Ce qui l'empêche de revenir |
+|---|---|---|
+| **B-1** restauration non atomique | livré | `essais:restauration-atomique` — coupe à la **troisième** écriture et exige que la base d'avant soit intacte |
+| **B-3** « Réglages et profil » détruisait le coffre | livré | le groupe nomme ses clés au lieu du magasin `etat` entier ; `essais:effacement` exige une description qui nomme ce qui part |
+| **B-4** fusion interrompue, écran disant « identiques » | livré | `essais:fusion-interrompue`, 24 contrôles, dont la reprise prouvée sur un vrai paquet à deux appareils |
+| **B-5** « sauvegarder puis effacer » sans preuve | livré | la confirmation A3 est demandée **avant** d'effacer ; un « je ne le trouve pas » n'efface rien |
+| **A7 / G-2** l'effacement n'effaçait pas tout | livré | `essais:effacement-total` |
+| **G-5 / G-6** les confirmations ne comptaient pas tout | livré | `compterParGroupe()` : le total est la **somme des rubriques nommées**, et non trois magasins choisis à la main |
+| **G-13** l'erreur brute à l'écran | livré | `essais:erreurs-dites`, au socle |
+| **G-10** la persistance demandée une seule fois | livré | `essais:persistance:navigateur`, qui ouvre la page au lieu d'éprouver la fonction |
+
+## Ce que cette partie aura appris, au-delà de ses huit points
+
+**Un garde-fou qui vérifie une déclaration ne dit rien de son effet.**
+`essais:effacement` voyait bien que `odysseeCreneaux` déclarait un champ de
+date, et ne voyait pas que ce champ, étant dans le scellé, ne découpait rien.
+C'est B qui l'a mesuré, après moi. La leçon se range dans le socle avec
+`essais:effacement:navigateur`, qui vérifie que les tables sont **consultées**
+et pas seulement écrites — un sabotage de `compter()` et `effacer()` passait
+au vert sans lui.
+
+**Un nombre figé est une dette.** Trois fois en une semaine : « vingt-sept
+magasins scellés », « quarante-cinq magasins journalisés », « Odyssée 2 ».
+Deux ont été remplacés par une dérivation depuis le registre ; le troisième
+reste écrit en dur **exprès**, et c'est son office — un magasin scellé qu'on
+ajoute doit venir se déclarer là.
+
+**Le corpus d'exemple voit ce que le corpus réel cache.** La cible tactile de
+36 px sur `/revisions/` vivait depuis toujours : il fallait à la fois une
+carte ne rattachant qu'**une** fiche et une page de révisions non vide, et les
+batteries sur le corpus réel l'avaient toujours vide.
+
+## Ce que la partie 1 ne traite pas
+
+Les exclusions déclarées d'une sauvegarde et le non-vidage des magasins exclus
+à la restauration : c'est la partie 2, avec B-2, B-6, B-7, G-3/G-4 et le
+format v2.

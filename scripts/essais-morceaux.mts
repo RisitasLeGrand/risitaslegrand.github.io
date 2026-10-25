@@ -27,9 +27,29 @@ const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
 };
 const vrai = (intitule: string, condition: boolean) => v(intitule, condition, true);
 
-function propriete<T>(intitule: string, arbitraire: fc.Arbitrary<T>, verifier: (x: T) => boolean) {
+/*
+   CET ESSAI NE VÉRIFIAIT RIEN, ET LE DISAIT VERT.
+
+   `fc.assert` sur une propriété ASYNCHRONE rend une promesse. Elle n’était
+   pas attendue : `fc.assert(...)` revenait aussitôt, le `catch` n’attrapait
+   donc jamais rien, et le `✓` s’affichait sans condition. Une propriété
+   affirmant « recus.length === 424242 » passait au vert — constaté, le
+   25 octobre, en la sabotant.
+
+   Le `as never` était ce qui rendait la chose invisible : il faisait taire le
+   seul avertissement qui disait que le prédicat rendait une promesse là où un
+   booléen était attendu. Et `astro check` ne regardait pas les .mts.
+
+   Deux changements, donc, et le second seul ne suffirait pas : la fonction
+   est attendue, et le type dit la vérité au lieu d’être écrasé.
+*/
+async function propriete<T>(
+  intitule: string,
+  arbitraire: fc.Arbitrary<T>,
+  verifier: (x: T) => Promise<boolean>,
+) {
   try {
-    fc.assert(fc.asyncProperty(arbitraire, verifier as never), { numRuns: 120 });
+    await fc.assert(fc.asyncProperty(arbitraire, verifier), { numRuns: 120 });
     console.log(`  ✓ ${intitule}`);
   } catch (erreur) {
     echecs += 1;
@@ -74,7 +94,7 @@ for (const taille of [1, 100, TAILLE_MORCEAU - 1, TAILLE_MORCEAU, TAILLE_MORCEAU
   v(`${taille} octet(s) : même longueur`, recus[0]?.length, taille);
 }
 
-propriete(
+await propriete(
   'n’importe quelle taille jusqu’à 50 Kio fait l’aller-retour',
   fc.integer({ min: 0, max: 50_000 }),
   async (taille) => {
@@ -89,7 +109,7 @@ propriete(
   },
 );
 
-propriete(
+await propriete(
   'un morceau livré deux fois ne change rien',
   fc.integer({ min: 1, max: 20_000 }),
   async (taille) => {
@@ -99,6 +119,29 @@ propriete(
     return recus.length >= 1 && recus[0].length === taille;
   },
 );
+
+/*
+   LE DOUBLON DU DERNIER MORCEAU, nommé plutôt que laissé au tirage.
+
+   La propriété au-dessus couvre le cas, mais par échantillonnage : elle dit
+   « une taille parmi 50 000 », et un jour quelqu’un réduira la plage. Ce
+   contrôle-ci nomme la situation exacte qui levait avant le 25 octobre — un
+   paquet d’un seul morceau, livré deux fois — et il la nomme en toutes
+   lettres pour que personne ne la réintroduise sans la lire.
+*/
+{
+  const { emetteur, recus } = relier({ avarie: 'double' });
+  const paquet = paquetDe(42);
+  let leve: string | null = null;
+  try {
+    await emettre(emetteur, paquet, { taille: 512 });
+  } catch (erreur) {
+    leve = erreur instanceof Error ? erreur.message : String(erreur);
+  }
+  v('un paquet d\u2019un seul morceau, livré deux fois, ne lève pas', leve, null);
+  v('et il est reçu une fois, entier', recus.length, 1);
+  v('avec sa longueur', recus[0]?.length, 42);
+}
 
 console.log('\nProgression');
 

@@ -109,6 +109,21 @@ const SOCLE = [
      socle est là pour attraper, et il coûte une seconde.
   */
   ['essais:coffre', 'le compte des magasins scellés, et leurs champs en clair'],
+  /*
+     Celui-ci garde une chose qu’aucun autre ne garde : que les tables soient
+     réellement CONSULTÉES. B a saboté `compter()` et `effacer()` et tout le
+     reste est resté vert — seul cet essai-ci rougissait. Un garde-fou qui
+     vérifie la présence d’une déclaration ne dit rien de son effet ; c’est la
+     leçon des créneaux, et elle se range ici.
+  */
+  ['essais:effacement:navigateur', 'les tables d’effacement sont consultées, et non seulement déclarées'],
+  /*
+     G-13. Celui-ci entre parce que 54 sites d’affichage viennent d’être
+     routés d’un coup : le cinquante-cinquième s’écrira un jour sans que
+     personne y pense, et la relecture ne l’attrapera pas. Son balayage de
+     source coûte une seconde et nomme le fichier et la ligne.
+  */
+  ['essais:erreurs-dites', 'aucun texte brut de panne à l’écran, et les messages de domaine intacts'],
 ];
 
 /**

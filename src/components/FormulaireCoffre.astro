@@ -166,6 +166,7 @@ const cadre = nu
 </section>
 
 <script>
+  import { messageDUneErreur } from '../lib/agir';
   import { poserLesYeux } from '../lib/mot-de-passe-visible';
 
   /* D3 du 43 : « Afficher » sur le champ du coffre. Ce composant sert neuf
@@ -245,7 +246,7 @@ const cadre = nu
           location.reload();
         } catch (e) {
           if (message) {
-            message.textContent = (e as Error).message;
+            message.textContent = messageDUneErreur(e);
             message.classList.remove('hidden');
           }
         }

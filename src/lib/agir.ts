@@ -68,6 +68,49 @@ const PHRASE_ESPACE_PLEIN =
   'Faites une sauvegarde depuis Sauvegarde, puis libérez de la place depuis ' +
   'Stockage, et recommencez.';
 
+/*
+   Les pannes de plateforme que ce site peut réellement rencontrer, et la
+   phrase qui dit QUOI FAIRE. La liste est fermée exprès : un nom inconnu
+   tombe sur la phrase générique plutôt que de laisser passer un texte
+   anglais. Chaque entrée vient d’un appel que le code fait vraiment —
+   IndexedDB, le sélecteur de fichiers, le presse-papiers, Web Crypto.
+*/
+const PAR_NOM_DE_PANNE: Readonly<Record<string, string>> = {
+  AbortError: 'Le geste a été interrompu : rien n’a été changé.',
+  NotAllowedError:
+    'L’appareil a refusé l’autorisation. Vérifiez les permissions du site dans ' +
+    'votre navigateur, puis recommencez.',
+  SecurityError:
+    'Le navigateur a bloqué l’opération pour une raison de sécurité. Elle ' +
+    'demande une page ouverte directement, et non dans un cadre.',
+  NotFoundError:
+    'L’élément demandé est introuvable : il a sans doute été déplacé ou ' +
+    'supprimé depuis. Choisissez-le à nouveau.',
+  InvalidStateError:
+    'La base locale n’était pas dans l’état attendu. Fermez les autres onglets ' +
+    'de Cyclades, rechargez la page, puis recommencez.',
+  VersionError:
+    'La base locale vient d’une version plus récente de Cyclades. Rechargez la ' +
+    'page ; si cela ne suffit pas, c’est qu’un autre onglet porte une version ' +
+    'plus neuve.',
+  ConstraintError:
+    'Une entrée portant la même clé existe déjà : rien n’a été écrasé.',
+  DataCloneError:
+    'Une donnée n’a pas pu être enregistrée telle quelle. C’est un défaut de ' +
+    'l’application, pas une erreur de votre part : notez ce que vous faisiez.',
+  DataError: 'La donnée lue n’a pas la forme attendue, et rien n’a été changé.',
+  TimeoutError:
+    'L’opération a pris trop de temps et a été abandonnée. Rien n’a été changé ; ' +
+    'réessayez.',
+  OperationError:
+    'Le déchiffrement a échoué. Le mot de passe ne correspond pas, ou le ' +
+    'fichier est abîmé.',
+  NetworkError:
+    'La ressource n’a pas pu être chargée. Cyclades fonctionne hors ligne une ' +
+    'fois les fiches en cache ; si la page vient d’être ouverte, revenez en ' +
+    'ligne un instant.',
+};
+
 /**
  * La phrase à montrer pour une erreur.
  *
@@ -78,6 +121,25 @@ const PHRASE_ESPACE_PLEIN =
  */
 export function messageDUneErreur(erreur: unknown): string {
   if (estEspacePlein(erreur)) return PHRASE_ESPACE_PLEIN;
+
+  /*
+     G-13. Une `DOMException` est une panne de la PLATEFORME, et son texte est
+     celui du navigateur : anglais, technique, souvent trompeur — « Failed to
+     execute 'transaction' on 'IDBDatabase' » ne dit à personne quoi faire.
+     Une `Error` ordinaire, ici, vient de l’application : son message est
+     français et a été écrit pour être lu. C’est le seul discriminant fiable,
+     et il évite de renifler le texte, qui change avec la langue du
+     navigateur.
+  */
+  if (typeof DOMException !== 'undefined' && erreur instanceof DOMException) {
+    const dite = PAR_NOM_DE_PANNE[erreur.name];
+    if (dite) return dite;
+    return (
+      'L’appareil a refusé l’opération, et l’application ne sait pas nommer la ' +
+      'raison. Le détail technique est dans la console du navigateur.'
+    );
+  }
+
   const brut = erreur instanceof Error ? erreur.message : String(erreur ?? '');
   const propre = brut.trim();
   if (!propre || propre === 'undefined' || propre === 'null')

@@ -142,6 +142,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { messageDUneErreur } from '../../lib/agir';
   import { euros, type OperationBancaire } from '../../lib/odyssee/finances';
   import { lireReleve, empreintesDOperations, type CompteLu, type Lecture } from '../../lib/odyssee/releve';
   import {
@@ -181,7 +182,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
   const $ = (id: string) => document.getElementById(id)!;
   const dire = (zone: string, e: unknown) => {
     const z = $(zone);
-    z.textContent = e instanceof Error ? e.message : String(e);
+    z.textContent = messageDUneErreur(e);
     z.classList.remove('hidden');
   };
 

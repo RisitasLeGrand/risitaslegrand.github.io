@@ -377,6 +377,7 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
 <script>
   import { nombreDuChamp } from '../../lib/nombre-saisi';
   import { auDeverrouillage } from '../../lib/chargement';
+  import { messageDUneErreur } from '../../lib/agir';
   import { unSeulGeste } from '../../lib/geste';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
@@ -1160,7 +1161,7 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
             fermerEditeur();
             await recharger();
           } catch (erreur) {
-            $('erreur').textContent = erreur instanceof Error ? erreur.message : String(erreur);
+            $('erreur').textContent = messageDUneErreur(erreur);
             $('erreur').classList.remove('hidden');
           }
         });

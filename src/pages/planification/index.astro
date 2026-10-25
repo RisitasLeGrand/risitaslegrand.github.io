@@ -151,6 +151,7 @@ import Section from '../../components/Section.astro';
 
 <script>
   import { avertir } from '../../lib/boite';
+  import { messageDUneErreur } from '../../lib/agir';
   import { auDeverrouillage } from '../../lib/chargement';
   import { parcoursCourant } from '../../lib/parcours/courant';
   import { raisonNonPlanifiable } from '../../lib/parcours/registre';
@@ -378,7 +379,7 @@ import Section from '../../components/Section.astro';
             } catch (e) {
               await avertir({
                 titre: 'Le décalage n’a pas été appliqué',
-                texte: (e as Error).message,
+                texte: messageDUneErreur(e),
               });
             }
           });

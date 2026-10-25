@@ -346,6 +346,7 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
 
 <script>
   import { confirmer } from '../../lib/boite';
+  import { messageDUneErreur } from '../../lib/agir';
   import { auDeverrouillage } from '../../lib/chargement';
   import { unSeulGeste } from '../../lib/geste';
   import {
@@ -612,7 +613,7 @@ const groupes = [...new Set(MUSCLES.map((m) => m.groupe))].map((groupe) => ({
             await recharger();
           } catch (erreur) {
             $('erreur').textContent =
-              erreur instanceof Error ? erreur.message : String(erreur);
+              messageDUneErreur(erreur);
             $('erreur').classList.remove('hidden');
           }
         });

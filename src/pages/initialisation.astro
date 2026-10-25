@@ -122,6 +122,7 @@ import Base from '../layouts/Base.astro';
 
 <script>
   import { auDeverrouillage } from '../lib/chargement';
+  import { messageDUneErreur } from '../lib/agir';
   import { base, echapper, parametreUrl } from '../lib/ui';
   import { branche as brancheDeclaree } from '../lib/branches';
   import { DOMAINES } from '../lib/noyau/domaines';
@@ -729,7 +730,7 @@ import Base from '../layouts/Base.astro';
         });
         ecrit += 1;
       } catch (erreur) {
-        $('erreur').textContent = erreur instanceof Error ? erreur.message : String(erreur);
+        $('erreur').textContent = messageDUneErreur(erreur);
         $('erreur').classList.remove('hidden');
         return;
       }

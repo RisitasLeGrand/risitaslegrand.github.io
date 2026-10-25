@@ -175,6 +175,7 @@ import { DOMAINES } from '../../lib/noyau/domaines';
 <script>
   import { defilerVers } from '../../lib/defilement';
   import { auDeverrouillage } from '../../lib/chargement';
+  import { messageDUneErreur } from '../../lib/agir';
   import { unSeulGeste } from '../../lib/geste';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
@@ -217,7 +218,7 @@ import { DOMAINES } from '../../lib/noyau/domaines';
   let aujourdhui = '';
 
   function dire(erreur: unknown) {
-    $('erreur').textContent = erreur instanceof Error ? erreur.message : String(erreur);
+    $('erreur').textContent = messageDUneErreur(erreur);
     $('erreur').classList.remove('hidden');
   }
 

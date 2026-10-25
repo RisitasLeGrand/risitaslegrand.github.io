@@ -191,6 +191,7 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
 
 <script>
   import { auDeverrouillage } from '../lib/chargement';
+  import { messageDUneErreur } from '../lib/agir';
   import { chargerParametresCle } from '../lib/contenu';
   import { coffreOuvert, surCoffre } from '../lib/coffre';
   import { ACCES } from '../lib/parametres/acces';
@@ -270,7 +271,7 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
         await acces.ecrire(neuve);
         dire(id, '');
       } catch (erreur) {
-        dire(id, (erreur as Error)?.message ?? 'Changement refusé.');
+        dire(id, messageDUneErreur(erreur));
       }
       await monter(id);
     };

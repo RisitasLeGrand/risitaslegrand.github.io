@@ -162,6 +162,7 @@ import LienReglages from '../../components/LienReglages.astro';
 <script>
   import { poserLesYeux } from '../../lib/mot-de-passe-visible';
   import { apercu, fabriquer, noterSauvegardeReussie } from '../../lib/sauvegarde/service';
+  import { messageDUneErreur } from '../../lib/agir';
   import { adopterLaCleDuCoffre, cleDuCoffre, coffreOuvert } from '../../lib/coffre';
   import {
     enveloppePosee,
@@ -270,7 +271,7 @@ import LienReglages from '../../components/LienReglages.astro';
         'ok',
       );
     } catch (e) {
-      dire('message-sauvegarde', `Échec : ${(e as Error).message}`, 'echec');
+      dire('message-sauvegarde', `Échec : ${messageDUneErreur(e)}`, 'echec');
     }
   });
 
@@ -315,7 +316,7 @@ import LienReglages from '../../components/LienReglages.astro';
     } catch (e) {
       dire(
         'message-preuve',
-        `Ce fichier n’a pas pu être lu comme une sauvegarde Cyclades : ${(e as Error).message}`,
+        `Ce fichier n’a pas pu être lu comme une sauvegarde Cyclades : ${messageDUneErreur(e)}`,
         'echec',
       );
     }
@@ -410,7 +411,7 @@ import LienReglages from '../../components/LienReglages.astro';
       */
       dire(
         'message-bascule',
-        `Arrêté sans rien effacer : ${(e as Error).message}\n\n` +
+        `Arrêté sans rien effacer : ${messageDUneErreur(e)}\n\n` +
           'Vos données restent lisibles avec le mot de passe du site. Vous pouvez relancer.',
         'echec',
       );

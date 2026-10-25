@@ -284,6 +284,7 @@ import LienReglages from '../components/LienReglages.astro';
 <script>
   import { poserLesYeux } from '../lib/mot-de-passe-visible';
   import { confirmer } from '../lib/boite';
+  import { messageDUneErreur } from '../lib/agir';
   import { auDeverrouillage } from '../lib/chargement';
   import {
     importerTout,
@@ -625,7 +626,7 @@ import LienReglages from '../components/LienReglages.astro';
       dire('message-sauvegarde', TELECHARGEMENT_LANCE, 'neutre');
       $('confirmer-sauvegarde').classList.remove('hidden');
     } catch (e) {
-      dire('message-sauvegarde', `Sauvegarde impossible : ${(e as Error).message}`, 'echec');
+      dire('message-sauvegarde', `Sauvegarde impossible : ${messageDUneErreur(e)}`, 'echec');
     } finally {
       bouton.disabled = false;
     }
@@ -683,7 +684,7 @@ import LienReglages from '../components/LienReglages.astro';
       );
     } catch (e) {
       const motif = e instanceof SauvegardeRefusee ? ` (${e.motif})` : '';
-      dire('message-cyclades', `${(e as Error).message}${motif}`, 'echec');
+      dire('message-cyclades', `${messageDUneErreur(e)}${motif}`, 'echec');
     }
   }
 
@@ -785,7 +786,7 @@ import LienReglages from '../components/LienReglages.astro';
       aRestaurer = null;
       $('apercu-cyclades').classList.add('hidden');
     } catch (e) {
-      dire('message-cyclades', (e as Error).message, 'echec');
+      dire('message-cyclades', messageDUneErreur(e), 'echec');
     } finally {
       bouton.disabled = false;
     }
@@ -888,7 +889,7 @@ import LienReglages from '../components/LienReglages.astro';
         message(`Import réussi (${mode}). Votre progression est à jour.`, true);
         notifier('Progression importée', 'succes');
       } catch (erreur) {
-        message(`Import impossible : ${(erreur as Error).message}`, false);
+        message(`Import impossible : ${messageDUneErreur(erreur)}`, false);
       } finally {
         (e.target as HTMLInputElement).value = '';
       }

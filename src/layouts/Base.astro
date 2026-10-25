@@ -1415,6 +1415,29 @@ const flecheVisible = !estLeMenu && !sansNavigation;
         void Promise.all([champ('lever'), champ('coucher')]).then(([lever, coucher]) => {
           miroirDesHeures(lever?.valeur, coucher?.valeur);
         });
+        /*
+           G-10 — LA PERSISTANCE SE REDEMANDE, SILENCIEUSEMENT.
+
+           Elle n’était demandée qu’à un seul endroit : dans le fil d’une
+           sauvegarde confirmée, sur l’écran Progression. Donc quelqu’un qui ne
+           sauvegarde jamais n’était jamais protégé contre l’éviction de sa base
+           par le navigateur — et c’est précisément celui qui n’a pas de
+           sauvegarde qui a le plus à perdre.
+
+           Ici, elle est demandée à chaque ouverture, après le déverrouillage.
+           `assurerLaPersistance` porte déjà les trois garde-fous qu’il faut :
+           elle ne demande rien si l’API manque, rien si c’est déjà accordé, et
+           rien avant sept jours depuis la dernière demande. L’appel répété ne
+           coûte donc qu’une lecture.
+
+           Silencieusement : ni bulle, ni bandeau, et l’échec est avalé. Ce
+           n’est pas une entorse à A1 — il n’y a rien à dire à quelqu’un qui n’a
+           rien demandé, et le navigateur montre sa propre invite s’il en a une.
+           L’état réel reste lisible sur l’écran Stockage.
+        */
+        void import('../lib/stockage')
+          .then(({ assurerLaPersistance }) => assurerLaPersistance())
+          .catch(() => {});
       });
       /*
          Les piles par onglet (M15). Branchées dans la mise en page pour la

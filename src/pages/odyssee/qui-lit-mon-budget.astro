@@ -84,6 +84,7 @@ import LienReglages from '../../components/LienReglages.astro';
 <script>
   import { poserLesYeux } from '../../lib/mot-de-passe-visible';
   import { jourISO } from '../../lib/db';
+  import { messageDUneErreur } from '../../lib/agir';
   import { auDeverrouillage } from '../../lib/chargement';
   import { euros } from '../../lib/odyssee/finances';
   import { occurrences, TOLERANCE_PAR_DEFAUT } from '../../lib/odyssee/budget';
@@ -107,7 +108,7 @@ import LienReglages from '../../components/LienReglages.astro';
   const $ = (id: string) => document.getElementById(id)!;
   const dire = (e: unknown) => {
     const z = $('erreur');
-    z.textContent = e instanceof Error ? e.message : String(e);
+    z.textContent = messageDUneErreur(e);
     z.classList.remove('hidden');
   };
 

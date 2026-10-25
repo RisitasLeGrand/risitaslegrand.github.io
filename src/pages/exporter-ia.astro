@@ -186,6 +186,7 @@ import LienReglages from '../components/LienReglages.astro';
 
 <script>
   import { avertir, confirmer } from '../lib/boite';
+  import { messageDUneErreur } from '../lib/agir';
   import { auDeverrouillage } from '../lib/chargement';
   import { echapper } from '../lib/ui';
   import {
@@ -395,7 +396,7 @@ import LienReglages from '../components/LienReglages.astro';
       $('apercu').classList.remove('hidden');
     } catch (erreur) {
       $('erreur-export').textContent =
-        erreur instanceof Error ? erreur.message : String(erreur);
+        messageDUneErreur(erreur);
       $('erreur-export').classList.remove('hidden');
     } finally {
       $('attente').classList.add('hidden');
