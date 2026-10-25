@@ -60,6 +60,17 @@ const SEMIS_DECLARES = [
   { fichier: 'essais-stockage.mjs', permanent: true, pourquoi: 'Mesurer le stockage demande un volume semé.' },
   { fichier: 'essais-profil-navigateur.mjs', permanent: true, pourquoi: 'Décision 2 du 56 : un champ qui n’est plus demandé se garde s’il est rempli. Il n’existe plus aucun chemin d’écran vers ce champ — c’est tout le sujet —, donc l’état d’« une personne qui a répondu la semaine dernière » ne peut être posé que par la base.' },
   { fichier: 'essais-habitude-navigateur.mjs', permanent: true, pourquoi: 'Lot F du 43 : une série de sept jours finissant hier, et cent une cartes en retard, supposent des jours passés — inatteignables depuis un écran aujourd’hui, comme pour l’XP de « essais-activite ». La rotation sans jour de repos, elle, SERAIT posable par la planification ; elle est semée avec le reste parce que la prémisse du jour de grâce est « une semaine dont on sait qu’aucun jour n’y est un repos », et qu’une prémisse à moitié posée ne prouve rien.' },
+  {
+    fichier: 'essais-modeles-navigateur.mjs',
+    depuis: '2026-10-25',
+    pourquoi:
+      'Prompts 48 et 49 : tout le parcours des modèles passe par l’écran — ' +
+      'choisir le modèle, le copier, le suivre. Un seul état est semé, une ' +
+      'blessure ouverte, et il n’avait PAS besoin de l’être : « Mon corps » ' +
+      'sait la déclarer (`ecrireBlessure`, depuis `sport/corps.astro`). La ' +
+      'ligne est donc datée et non permanente, et elle tombera le jour où ' +
+      'l’essai posera la blessure par cet écran-là.',
+  },
   { fichier: 'essais-activite-navigateur.mjs', permanent: true, pourquoi: 'L’XP sur plusieurs semaines suppose des jours passés, inatteignables aujourd’hui.' },
   { fichier: 'essais-indicateurs-navigateur.mjs', permanent: true, pourquoi: 'Idem : un historique d’indicateurs porte sur des jours révolus.' },
   { fichier: 'essais-adaptation-navigateur.mjs', permanent: true, pourquoi: 'L’usage observé porte sur huit semaines passées.' },
