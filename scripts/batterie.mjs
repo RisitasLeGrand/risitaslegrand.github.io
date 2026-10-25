@@ -74,6 +74,17 @@ const SOCLE = [
   ['essais:typographie', 'apostrophes, espaces insécables, accords sans « (s) »'],
   ['essais:accessibilite:navigateur', 'rôles, noms accessibles, ordre de tabulation'],
   ['essais:mobile:navigateur', '360 px : aucun débordement, cibles atteignables'],
+  /*
+     L'AUTRE CÔTÉ DE LA MÉDAILLE, et il manquait.
+
+     L'essai ci-dessus déclare « hasTouch » : sans cela, « pointer: coarse »
+     est faux et les planchers du site ne s'appliquent pas. C'est juste, et
+     c'est la moitié du sujet — il ne mesure donc QUE le pointeur grossier.
+     Celui-ci mesure à la souris, où WCAG 2.5.8 demande toujours 24 px, et où
+     64 cibles passaient dessous sur un seul écran. Le laisser hors du socle
+     répéterait l'omission qu'il corrige.
+  */
+  ['essais:cibles-souris:navigateur', 'à la souris, aucune cible sous 24 px'],
   ['essais:mouvement-reduit', 'le réglage d’animations existe, et il est respecté'],
   ['essais:themes-navigateur', 'les quatorze thèmes s’appliquent pour de vrai'],
   ['essais:themes-a-jour', 'le catalogue et les feuilles engendrées concordent'],

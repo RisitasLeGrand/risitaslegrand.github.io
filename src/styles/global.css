@@ -287,6 +287,46 @@ body {
   display: none;
 }
 
+/* ── LE PLANCHER DE VINGT-QUATRE PIXELS VAUT POUR TOUT POINTEUR ──────────
+   (E8 du prompt 43)
+
+   Les trois classes ci-dessus ne posaient AUCUNE dimension hors de
+   « pointer: coarse ». À la souris, une cible valait donc exactement ce que
+   son contenu lui donnait — et WCAG 2.5.8 (AA) ne parle pas de l'organe de
+   pointage : il demande 24 × 24 px, avec quatre exemptions dont aucune ne
+   couvre un bouton d'en-tête ou un lien de liste.
+
+   MESURÉ LE 25 OCTOBRE, pointeur fin, corpus réel : 64 cibles sous 24 px sur
+   « /parametres/ » seul, 29 sur l'accueil. Le 🔔 du centre de notifications
+   faisait 20 × 24, la flèche de retour 18 × 18, et les liens de liste
+   214 × 23 — un pixel de trop peu, répété des dizaines de fois. Aucun essai ne
+   le voyait : « essais:mobile:navigateur » déclare « hasTouch: true », donc il
+   ne mesure que l'autre côté de la médaille.
+
+   POURQUOI ICI, ET PAS DANS SOIXANTE-QUATRE GABARITS. C'est la raison déjà
+   écrite plus bas pour les contrôles de formulaire : les reprendre écran par
+   écran aurait produit soixante-quatre correctifs identiques dont le
+   soixante-cinquième écran se serait passé. Trois classes, trois règles.
+
+   ET POURQUOI AVANT LA REQUÊTE DE MÉDIA : à spécificité égale, la dernière
+   déclarée gagne. Les 44 px du confort tactile doivent l'emporter sur ces
+   24 px, donc ils viennent après. Posé dans l'autre ordre, un téléphone
+   serait retombé à 24.
+
+   La largeur n'est imposée qu'aux cibles PLEINES, comme sous « coarse » : la
+   largeur d'un lien de texte vient de son texte, et l'étirer fabriquerait des
+   zones cliquables qui mordent sur le vide. Les liens de liste, eux, sont déjà
+   larges — c'est leur hauteur qui manquait. */
+.cible-tactile,
+.cible-tactile-pleine,
+.cible-minimale {
+  min-height: 1.5rem;
+}
+
+.cible-tactile-pleine {
+  min-width: 1.5rem;
+}
+
 @media (pointer: coarse) {
   .cible-tactile,
   .cible-tactile-pleine {

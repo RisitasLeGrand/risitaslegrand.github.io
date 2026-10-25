@@ -309,6 +309,7 @@
     "essais:faits-sensible": "tsx scripts/essais-faits-sensible.mts",
     "essais:faits-branches-sensible": "tsx scripts/essais-faits-branches-sensible.mts",
     "essais:sensible:parcours": "node scripts/essais-sensible-parcours.mjs",
+    "essais:cibles-souris:navigateur": "node scripts/essais-cibles-souris-navigateur.mjs",
     "essais:carte-ecrans": "node scripts/essais-carte-ecrans.mjs",
     "essais:bandeau-coffre": "node scripts/essais-bandeau-coffre.mjs",
     "essais:theme-menus": "node scripts/essais-theme-menus.mjs",

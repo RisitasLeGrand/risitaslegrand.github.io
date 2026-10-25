@@ -723,6 +723,7 @@ relisant son propre diff. Ce qu'il garde, essai par essai :
 | `essais:typographie` | apostrophes, espaces insécables, accords sans « (s) » |
 | `essais:accessibilite:navigateur` | rôles, noms accessibles, ordre de tabulation |
 | `essais:mobile:navigateur` | 360 px : aucun débordement, cibles atteignables |
+| `essais:cibles-souris:navigateur` | à la souris, aucune cible sous 24 px (WCAG 2.5.8) |
 | `essais:mouvement-reduit` | le réglage d'animations existe, et il est respecté |
 | `essais:themes-navigateur` | les quatorze thèmes s'appliquent pour de vrai |
 | `essais:themes-a-jour` | le catalogue et les feuilles engendrées concordent |
