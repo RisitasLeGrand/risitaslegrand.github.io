@@ -148,6 +148,15 @@ const SOCLE = [
      du site. Celui-ci coûte une seconde et ne demande pas d'aperçu.
   */
   ['essais:chemin-du-navigateur', 'le navigateur se trouve, et son absence refuse au lieu de se taire'],
+  /*
+     M5c entre au socle parce qu'il a trouvé un VRAI défaut du site le 25
+     octobre — la position de défilement était lue à `pagehide`, après que
+     le navigateur l'avait rabattue — et parce que sa tolérance de 80 px
+     avait caché cinq pertes sur six listes. Un essai qui attrape cela n'a
+     rien à faire hors du socle, d'autant que `lib/defilement.ts` est
+     chargé par la mise en page de TOUTES les pages.
+  */
+  ['essais:defilement-rendu', 'la position de défilement est rendue, exactement, sur chaque liste'],
 ];
 
 /**
