@@ -277,7 +277,7 @@ import { base } from '../../lib/ui';
   <!-- ============================= Résultat ============================= -->
   <section id="resultat-dgfip" class="hidden">
     <div class="text-center">
-      <p id="resultat-emoji-dgfip" class="text-5xl"></p>
+      <p id="resultat-appreciation-dgfip" class="text-xl font-semibold text-slate-900 dark:text-white"></p>
       <h2 class="mt-4 text-3xl font-bold text-slate-900 tabular-nums dark:text-white">
         <span id="resultat-points"></span>
       </h2>
@@ -410,6 +410,7 @@ import { base } from '../../lib/ui';
     rubriquesEnManque,
   } from '../../lib/qcm-composition';
   import { echapper, formaterDate, lien, notifier, pluriel } from '../../lib/ui';
+  import { htmlDuGabarit } from '../../lib/icone-gabarit';
   import { jourISO } from '../../lib/db';
   import { idParcoursCourant } from '../../lib/parcours/courant';
   import { MATIERE_DGFIP, signalerErreur } from '../../lib/journal';
@@ -1122,7 +1123,14 @@ import { base } from '../../lib/ui';
     session: SessionDgfip,
   ) {
     const taux = score.maximum ? score.points / score.maximum : 0;
-    $('resultat-emoji-dgfip').textContent = taux >= 0.7 ? '🎯' : taux >= 0.4 ? '💪' : '📚';
+    /*
+       L'appréciation est écrite, pas dessinée : une cible, un bras musclé ou
+       une pile de livres étaient le seul commentaire du résultat, et aucun
+       des trois ne dit quoi faire ensuite.
+       Le barème exact suit sur la ligne d'après.
+    */
+    $('resultat-appreciation-dgfip').textContent =
+      taux >= 0.7 ? 'Bon résultat' : taux >= 0.4 ? 'À consolider' : 'À reprendre';
     $('resultat-points').textContent = `${formaterPoints(score.points)} / ${score.maximum}`;
     $('resultat-resume').textContent =
       `${pluriel(score.bonnes, 'bonne réponse', 'bonnes réponses')}, ` +
@@ -1218,8 +1226,14 @@ import { base } from '../../lib/ui';
         `<p class="mt-1 text-emerald-700 dark:text-emerald-400">Réponse attendue : ${echapper(bonnes)}</p>` +
         `<p class="mt-2 text-slate-600 dark:text-slate-300">${echapper(r.question.explication)}</p>` +
         (r.question.incertain
-          ? `<p class="mt-2 rounded-lg bg-amber-50 px-3 py-2 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">` +
-            `⚠ ${echapper(r.question.incertain)}</p>`
+          ? `<p class="mt-2 flex items-baseline gap-1.5 rounded-lg bg-amber-50 px-3 py-2 text-amber-800 dark:bg-amber-950/40 dark:text-amber-300">` +
+            /*
+               Le SVG vient du gabarit de la mise en page, pas d'une donnée :
+               cette ligne se compose en HTML, et « htmlDuGabarit » rend la
+               chaîne déjà rendue par le site. Rien de nouveau n'est injecté —
+               le texte, lui, reste échappé.
+            */
+            `${htmlDuGabarit('gabarit-alerte')}<span>${echapper(r.question.incertain)}</span></p>`
           : '');
 
       /*

@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import Icone from '../components/Icone.astro';
 import LienReglages from '../components/LienReglages.astro';
 ---
 
@@ -26,12 +27,18 @@ import LienReglages from '../components/LienReglages.astro';
       aria-label="Fiche audio"
     >
       <div class="flex flex-wrap items-center gap-x-3 gap-y-1.5">
-        <span class="etiquette text-indigo-700 dark:text-indigo-300">🎧 Fiche audio</span>
+        <span class="etiquette inline-flex items-center gap-1.5 text-indigo-700 dark:text-indigo-300">
+          <Icone nom="fiches-audio" taille={14} />
+          Fiche audio
+        </span>
         <button
           id="podcast-bouton"
           type="button"
-          class="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-60"
-        >▶ Écouter la fiche</button>
+          class="inline-flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-60"
+        >
+          <Icone nom="ecouter" taille={16} pleine />
+          <span id="podcast-libelle">Écouter la fiche</span>
+        </button>
         <!--
           M9 — CELUI-LÀ, en revanche, s'annonce. C'est par lui que le lecteur
           dit « Lecture impossible », « format audio non lisible », « fiche
@@ -101,11 +108,13 @@ import LienReglages from '../components/LienReglages.astro';
           <button id="onglet-simplifiee" role="tab" class="rounded-md px-3 py-1.5 text-sm font-medium">Fiche simplifiée</button>
         </div>
         <div class="ml-auto flex flex-wrap items-center gap-2">
-          <button id="bouton-flashcards" class="hidden rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200">
-            🃏 Réviser (<span id="nb-cartes">0</span>)
+          <button id="bouton-flashcards" class="hidden items-center gap-1.5 rounded-lg bg-slate-900 px-3 py-1.5 text-sm font-medium text-white transition hover:bg-slate-700 dark:bg-white dark:text-slate-900 dark:hover:bg-slate-200">
+            <Icone nom="cartes" taille={16} />
+            <span>Réviser (<span id="nb-cartes">0</span>)</span>
           </button>
-          <button id="bouton-quiz" class="hidden rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">
-            🎯 Quiz (<span id="nb-quiz">0</span>)
+          <button id="bouton-quiz" class="hidden items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">
+            <Icone nom="quiz" taille={16} />
+            <span>Quiz (<span id="nb-quiz">0</span>)</span>
           </button>
           <button id="bouton-lu" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">
             Marquer comme lue
@@ -148,10 +157,12 @@ import LienReglages from '../components/LienReglages.astro';
       </div>
     </div>
   </article>
+
 </Base>
 
 <script>
   import { auDeverrouillage } from '../lib/chargement';
+  import { iconeDuGabarit } from '../lib/icone-gabarit';
   import { aplatirFiches, chargerFiche, chargerManifeste, type Fiche } from '../lib/contenu';
   import { ecrireEtatFiche, lireEtatFiche } from '../lib/db';
   import { aProposer, montrer as montrerPretest } from '../lib/pretest';
@@ -205,7 +216,7 @@ import LienReglages from '../components/LienReglages.astro';
        Deux boutons se posent ensuite dans chaque titre — l'assistant, et
        « Écouter à partir d'ici ». Leur libellé entre alors dans le
        `textContent` du titre, et qui le relit après coup obtient « Le
-       contrôle de constitutionnalité 🎧 Écouter à partir d'ici ». C'est ce
+       contrôle de constitutionnalité Écouter à partir d'ici ». C'est ce
        texte-là qui partait dans le contexte envoyé à une IA.
     */
     for (const titre of conteneur.querySelectorAll<HTMLElement>('h2, h3')) {
@@ -325,7 +336,7 @@ import LienReglages from '../components/LienReglages.astro';
   }
 
   /**
-   * « 🎧 Écouter à partir d'ici », sur chaque titre qui est une partie
+   * « Écouter à partir d'ici », sur chaque titre qui est une partie
    * (prompt 46, P3).
    *
    * Le bouton n'apparaît que là où l'écoute peut VRAIMENT commencer : le
@@ -343,19 +354,26 @@ import LienReglages from '../components/LienReglages.astro';
       const bouton = document.createElement('button');
       bouton.type = 'button';
       bouton.className =
-        'ml-3 inline-block align-middle rounded-lg border border-slate-300 px-2 py-0.5 ' +
+        'ml-3 inline-flex items-center gap-1 align-middle rounded-lg border border-slate-300 px-2 py-0.5 ' +
         'text-xs font-medium text-slate-600 transition hover:bg-slate-100 ' +
         'dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800';
-      bouton.textContent = '🎧 Écouter à partir d’ici';
+      bouton.append(
+        iconeDuGabarit('gabarit-ecoute'),
+        document.createTextNode('Écouter à partir d’ici'),
+      );
       /*
          M9 — UN NOM DISTINCT PAR BOUTON.
 
          Une fiche à trois parties portait trois boutons dont le nom
-         accessible était identique, au casque près : « 🎧 Écouter à partir
-         d'ici ». Qui parcourt la page par la liste de ses boutons voyait
+         accessible était identique, au casque près : « Écouter à partir
+         d'ici », précédé d'un émoji. Qui parcourt la page par la liste de
+         ses boutons voyait
          trois entrées indiscernables, et devait deviner laquelle mène où.
-         Le titre de la partie lève l'ambiguïté, et l'émoji sort du nom —
-         il serait lu « casque audio » avant chaque intitulé.
+         Le titre de la partie lève l'ambiguïté.
+
+         Le casque, lui, ne pose plus la question : c'est un SVG
+         « aria-hidden », il n'entre dans aucun nom accessible. L'émoji y
+         entrait, et se lisait à voix haute avant chaque intitulé.
       */
       bouton.setAttribute(
         'aria-label',
@@ -432,7 +450,7 @@ import LienReglages from '../components/LienReglages.astro';
     const scores = serieEtXpAffichees();
     notifier(scores ? `+${gain.xpGagne} XP — fiche terminée` : 'Fiche terminée', 'succes');
     for (const badge of gain.nouveauxBadges) notifier(`${badge.icone} Succès : ${badge.nom}`, 'badge');
-    if (gain.monteeDeNiveau && scores) notifier(`🎉 Niveau ${gain.niveau.niveau} !`, 'succes');
+    if (gain.monteeDeNiveau && scores) notifier(`Niveau ${gain.niveau.niveau} atteint`, 'succes');
     majBoutonLu(true);
     bouton.blur();
   }
@@ -553,10 +571,19 @@ import LienReglages from '../components/LienReglages.astro';
     // Fiche audio (podcast), déchiffrée seulement si on la demande.
     lecteurAudio = installerLecteurPodcast(fiche);
 
-    // Boutons de révision contextuels.
+    /*
+       Boutons de révision contextuels.
+
+       « hidden » part ET « inline-flex » arrive : ce sont deux utilitaires de
+       « display », et n'en retirer qu'un laisse l'ordre de la feuille engendrée
+       décider à notre place. Le bouton retomberait sur « inline-block », où
+       « items-center » et « gap » ne font rien — l'icône et le libellé
+       cesseraient d'être alignés. La même règle est écrite dans « podcast.ts ».
+    */
     if (fiche.flashcards.length) {
       const bouton = document.getElementById('bouton-flashcards')!;
       bouton.classList.remove('hidden');
+      bouton.classList.add('inline-flex');
       document.getElementById('nb-cartes')!.textContent = String(fiche.flashcards.length);
       bouton.addEventListener('click', () => {
         location.href = `${lien('/flashcards/')}?fiche=${encodeURIComponent(fiche.id)}`;
@@ -565,6 +592,7 @@ import LienReglages from '../components/LienReglages.astro';
     if (fiche.quiz.length) {
       const bouton = document.getElementById('bouton-quiz')!;
       bouton.classList.remove('hidden');
+      bouton.classList.add('inline-flex');
       document.getElementById('nb-quiz')!.textContent = String(fiche.quiz.length);
       bouton.addEventListener('click', () => {
         location.href = `${lien('/quiz/cours/')}?fiche=${encodeURIComponent(fiche.id)}`;

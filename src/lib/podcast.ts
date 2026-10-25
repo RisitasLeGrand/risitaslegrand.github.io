@@ -193,7 +193,17 @@ export function installerLecteurPodcast(fiche: Fiche): LecteurPodcast | null {
   const bouton = document.getElementById('podcast-bouton') as HTMLButtonElement | null;
   const info = document.getElementById('podcast-info');
   const lecteur = document.getElementById('podcast-lecteur') as HTMLAudioElement | null;
-  if (!section || !bouton || !info || !lecteur) return null;
+  /*
+     LE LIBELLÉ EST UN ÉLÉMENT À PART, et l'icône n'est plus dans le texte.
+
+     Le bouton portait « ▶ Écouter la fiche » en une seule chaîne, réécrite
+     quatre fois ici — dont une en « Déchiffrement… », qui emportait le
+     triangle avec elle. Le triangle appartient au bouton, pas au message :
+     il est maintenant posé par le gabarit, en SVG, et ne bouge plus. Ce
+     module n'écrit que les mots.
+  */
+  const libelle = document.getElementById('podcast-libelle');
+  if (!section || !bouton || !info || !lecteur || !libelle) return null;
 
   const zoneParties = document.getElementById('podcast-parties');
   const reste = document.getElementById('podcast-reste');
@@ -406,7 +416,7 @@ export function installerLecteurPodcast(fiche: Fiche): LecteurPodcast | null {
   async function charger(): Promise<void> {
     if (charge) return;
     bouton!.disabled = true;
-    bouton!.textContent = 'Déchiffrement…';
+    libelle!.textContent = 'Déchiffrement…';
     try {
       const octets = await chargerBinaire(`audio/${fiche.id}.enc`);
       liberer();
@@ -424,7 +434,7 @@ export function installerLecteurPodcast(fiche: Fiche): LecteurPodcast | null {
       poserEcranVerrouille();
     } catch (erreur) {
       bouton!.disabled = false;
-      bouton!.textContent = '▶ Écouter la fiche';
+      libelle!.textContent = 'Écouter la fiche';
       info!.textContent = erreur instanceof Error ? erreur.message : 'Lecture impossible.';
       throw erreur;
     }
@@ -539,12 +549,12 @@ export function installerLecteurPodcast(fiche: Fiche): LecteurPodcast | null {
       const position = await lirePositionPodcast(fiche.id);
       if (!position || position.secondes < PLANCHER_REPRISE_S) return;
       repriseA = Math.max(0, position.secondes - RECUL_REPRISE_S);
-      if (!charge) bouton.textContent = `▶ Reprendre à ${horodatage(repriseA)}`;
+      if (!charge) libelle.textContent = `Reprendre à ${horodatage(repriseA)}`;
     } catch {
       /* base indisponible : on écoutera depuis le début, et c'est dit par le bouton */
     }
   })();
 
-  bouton.textContent = '▶ Écouter la fiche';
+  libelle.textContent = 'Écouter la fiche';
   return { ecouterDepuis, parties };
 }

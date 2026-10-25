@@ -497,7 +497,7 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
     }
 
     /* ── Ce que le champ règle, quand quelque chose le lit ──────────────── */
-    if (declare.regle) bloc.appendChild(ligneFine(`ⓘ ${declare.regle}`));
+    if (declare.regle) bloc.appendChild(ligneFine(declare.regle));
 
     /*
        QUAND LA QUESTION SE POSE, pour les champs demandés au besoin.
