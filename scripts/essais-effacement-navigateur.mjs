@@ -40,6 +40,52 @@ const connecter = async () => {
   }
 };
 
+/*
+   COMPTER, ET ATTENDRE QUE LE COMPTAGE SOIT FINI.
+
+   Le défaut est celui qui a été trouvé sur « reglages-sans-coffre », et il est
+   ici à deux endroits. Attendre « #decompte » visible puis lire son détail ne
+   garantit rien dès que le panneau est DÉJÀ visible : il le reste d'une phase
+   à l'autre, et le gestionnaire de « Compter » attend « compter() », qui lit le
+   magasin et déchiffre. Pendant cette attente, le panneau montre encore le
+   compte PRÉCÉDENT ; l'attente rend la main aussitôt, et l'essai lit l'état
+   d'avant.
+
+   Le premier comptage, lui, est sain : le panneau part caché, et « peindre »
+   ne le démasque qu'en DERNIER, après avoir écrit total, détail et refus. Une
+   visibilité qui apparaît implique donc un contenu peint. C'est précisément
+   pourquoi le défaut ne se voit qu'aux comptages suivants.
+
+   La post-condition, elle, ne peut pas être vraie d'avance : on efface le
+   message soi-même, puis on attend celui que le gestionnaire écrit en dernier.
+   Cela remplace aussi le « waitForTimeout(400) » qui servait de garde-fou plus
+   bas — une attente à l'aveugle qui réduisait le risque sans le supprimer.
+*/
+const recompter = async (timeout = 30000) => {
+  await page.evaluate(() => {
+    const m = document.getElementById('message-effacement');
+    if (m) m.textContent = '';
+  });
+  await page.click('#compter');
+  await page.waitForFunction(
+    () => /Compté/.test(document.getElementById('message-effacement')?.textContent ?? ''),
+    undefined,
+    { timeout },
+  );
+};
+
+/* Une annonce lue seulement quand elle est écrite : une chaîne vide doit faire
+   expirer l'attente, et non filer à une assertion qui en tirera ce qu'elle
+   peut. */
+const annonceDe = async (selecteur, timeout = 15000) => {
+  await page.waitForFunction(
+    (sel) => (document.querySelector(sel)?.textContent ?? '').trim().length > 0,
+    selecteur,
+    { timeout },
+  );
+  return ((await page.locator(selecteur).textContent()) ?? '').trim();
+};
+
 const compter = (magasin) =>
   page.evaluate(async (nom) => {
     const base = await new Promise((ok) => {
@@ -255,11 +301,10 @@ console.log('\nSANS PÉRIODE, TOUT LE DOMAINE PART');
 await page.fill('#depuis', '');
 await page.fill('#jusqua', '');
 await page.check('input[name="groupe-effacement"][value="cog-training"]');
-await page.click('#compter');
-await page.waitForSelector('#decompte', { state: 'visible', timeout: 30000 });
+await recompter();
 v(
   'le compte inclut maintenant les seuils',
-  /vmSeuils — 1 sur 1/.test((await page.locator('#decompte-detail').textContent()) ?? ''),
+  /vmSeuils — 1 sur 1/.test(await annonceDe('#decompte-detail')),
   true,
 );
 v(
@@ -438,11 +483,9 @@ const compterLaPeriode = async (depuis, jusqua) => {
   await page.check('input[name="groupe-effacement"][value="odyssee"]');
   await page.fill('#depuis', depuis);
   await page.fill('#jusqua', jusqua);
-  await page.click('#compter');
-  await page.waitForSelector('#decompte', { state: 'visible', timeout: 30000 });
-  await page.waitForTimeout(400);
+  await recompter();
   return {
-    detail: (await page.locator('#decompte-detail').textContent()) ?? '',
+    detail: await annonceDe('#decompte-detail'),
     refus: (await page.locator('#decompte-refus').textContent()) ?? '',
   };
 };

@@ -330,6 +330,13 @@ const EN_LABORATOIRE = new Set([
      autres, pour la même raison.
   */
   'essais:parcours-planifiables:navigateur',
+  /*
+     La correction détaillée à l'écran se vérifie sur un décor dont on connaît
+     le contenu : quatre questions corrigées de la même façon, et une question
+     de fiche injectée. Elle tombe donc sous la même garde que les autres —
+     elle bâtit son `content/` et l'efface.
+  */
+  'essais:correction-ecran',
 ]);
 
 /*

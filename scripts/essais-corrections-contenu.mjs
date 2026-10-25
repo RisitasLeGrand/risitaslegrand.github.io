@@ -673,6 +673,105 @@ console.log('\n\x1b[1mLES DONNÉES DES VISUELS\x1b[0m\n');
   );
 }
 
+console.log('\n\x1b[1m« POSSIBLE » NE SE POSE QUE LÀ OÙ IL VEUT DIRE QUELQUE CHOSE\x1b[0m\n');
+{
+  /*
+   * Le marqueur distingue une option que la clef donne fausse sans qu'elle soit
+   * absurde. Les essais portent autant sur ses deux refus que sur son emploi
+   * légitime : un marqueur qu'on peut poser partout ne distingue plus rien, et
+   * posé sur la bonne réponse il enseignerait qu'elle n'est qu'une possibilité.
+   */
+  const avecMarqueur = (rang, extra = {}) =>
+    correction(
+      QUATRE.map((o, i) => (i === rang ? { ...o, marqueur: 'possible' } : o)),
+      { confiance: 'moyenne', ...extra },
+    );
+
+  const messages = (objet) => {
+    const r = correctionSchema.safeParse(objet);
+    return r.success ? [] : r.error.issues.map((i) => i.message);
+  };
+
+  verifier(
+    'une correction sans marqueur passe, le champ est facultatif',
+    correctionSchema.safeParse(correction(QUATRE)).success,
+    true,
+  );
+  verifier(
+    '« possible » sur une option fausse passe',
+    correctionSchema.safeParse(avecMarqueur(0)).success,
+    true,
+  );
+  verifier(
+    'le marqueur survit à la validation, et n’est pas dépouillé en route',
+    correctionSchema.safeParse(avecMarqueur(2)).data?.par_option[2].marqueur,
+    'possible',
+  );
+  verifier(
+    '« possible » sur la bonne réponse est refusé',
+    messages(avecMarqueur(1)).some((m) => /verdict\s*« juste »/.test(m)),
+    true,
+  );
+  /*
+   * La confiance ne commande rien ici, et c'est un choix revu après mesure.
+   * Elle dit si la clef est certaine ; le marqueur dit si un distracteur est
+   * défendable. Les deux axes sont indépendants : une question dont la clef ne
+   * souffre aucun doute peut parfaitement offrir un distracteur qui se
+   * discute, et c'est même là que le marqueur apprend le plus.
+   */
+  for (const confiance of ['haute', 'moyenne']) {
+    verifier(
+      `« possible » passe en confiance ${confiance} : la confiance porte sur la clef`,
+      correctionSchema.safeParse(avecMarqueur(0, { confiance })).success,
+      true,
+    );
+    verifier(
+      `et le refus sur un verdict « juste » tient en confiance ${confiance}`,
+      messages(avecMarqueur(1, { confiance })).length,
+      1,
+    );
+  }
+  verifier(
+    'le refus nomme le rang de l’option, pour qu’on la retrouve',
+    messages(avecMarqueur(1)).some((m) => m.includes('par_option.2')),
+    true,
+  );
+  /* Le champ est restreint à « possible » : les autres marqueurs du vocabulaire
+     décrivent des éléments de schéma, ou la réponse donnée que l'écran déduit
+     seul. « exclu » est d'ailleurs ce que l'écran met par défaut. */
+  for (const etranger of ['exclu', 'bonne-reponse', 'utilise', 'ta-reponse']) {
+    verifier(
+      `« marqueur: ${etranger} » est refusé`,
+      correctionSchema.safeParse(
+        correction(QUATRE.map((o, i) => (i === 0 ? { ...o, marqueur: etranger } : o)), {
+          confiance: 'moyenne',
+        }),
+      ).success,
+      false,
+    );
+  }
+  /* Une correction peut porter plusieurs options défendables : rien ne l'en
+     empêche, et une question à réponse établie par raisonnement en a souvent
+     deux qui se discutent. */
+  verifier(
+    'deux options défendables dans la même correction passent',
+    correctionSchema.safeParse(
+      correction(
+        QUATRE.map((o, i) => (i === 0 || i === 3 ? { ...o, marqueur: 'possible' } : o)),
+        { confiance: 'moyenne' },
+      ),
+    ).success,
+    true,
+  );
+  /* Le marqueur ne doit pas brouiller le contrôle central : la cohérence avec
+     la clef se juge sur le verdict, et sur lui seul. */
+  verifier(
+    'le marqueur ne dispense pas la correction d’accorder son verdict à la clef',
+    defautsDeLaCorrection(avecMarqueur(0), ['a', 'b', 'c', 'd'], [0]).length,
+    2,
+  );
+}
+
 console.log(
   echecs
     ? `\n\x1b[31m${echecs} essai(s) en échec.\x1b[0m\n`

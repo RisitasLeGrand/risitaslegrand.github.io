@@ -208,6 +208,15 @@ export const correctionSchema = z.object({
       z.object({
         verdict: z.enum(['juste', 'faux'], { message: '« verdict » vaut « juste » ou « faux »' }),
         pourquoi: z.string().min(1, 'chaque option doit dire pourquoi elle est juste ou fausse'),
+        /**
+         * Le marqueur d'une option que la clef donne fausse sans qu'elle soit
+         * pour autant absurde. Facultatif, et restreint à « possible » : les
+         * autres marqueurs du vocabulaire décrivent soit des éléments de
+         * schéma, soit la réponse donnée, que l'écran déduit seul.
+         */
+        marqueur: z
+          .literal('possible', { message: '« marqueur » ne vaut que « possible »' })
+          .optional(),
       }),
     )
     .min(2, '« par_option » a besoin d’une entrée par option'),
@@ -248,6 +257,36 @@ export const correctionSchema = z.object({
       });
     }
   }
+
+  /*
+   * « marqueur: possible » dit d'une option fausse qu'elle reste défendable.
+   * Un seul emploi le contredit, et il est silencieux à la lecture : sur une
+   * option que la clef donne JUSTE, le marqueur ne veut rien dire. La bonne
+   * réponse n'est pas « possible », elle est la réponse, et l'écran la marque
+   * déjà comme telle.
+   *
+   * Il n'y a **pas** de condition sur « confiance », et c'est un choix revu.
+   * Elle a d'abord été exigée à « moyenne », au motif qu'un corrigé officiel
+   * tranchant la question n'y laisserait aucune option compatible. La mesure a
+   * démenti le raisonnement : les deux champs portent sur des axes
+   * indépendants. « confiance » dit si LA CLEF est certaine ; « possible » dit
+   * si UN DISTRACTEUR est défendable. « Qui a peint La Liberté guidant le
+   * peuple ? » a une clef certaine — Delacroix — et Géricault reste le
+   * distracteur le plus défendable qu'on puisse offrir. La condition aurait
+   * écarté 29 des 32 corrections qui emploient le marqueur, et justement
+   * celles où il apprend quelque chose.
+   */
+  v.par_option.forEach((o, i) => {
+    if (o.marqueur === undefined) return;
+    if (o.verdict === 'juste') {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          `« par_option.${i + 1} » porte « marqueur: possible » sur un verdict ` +
+          '« juste » : la bonne réponse n’est pas « possible », elle est la réponse.',
+      });
+    }
+  });
 });
 
 /**
