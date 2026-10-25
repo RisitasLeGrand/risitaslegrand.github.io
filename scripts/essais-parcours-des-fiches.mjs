@@ -48,6 +48,7 @@ import {
   racineDuChemin,
 } from '../src/lib/parcours/registre.ts';
 import { deriverCle, idStable } from './lib/crypto.mjs';
+import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 let echecs = 0;
 const v = (intitule, obtenu, attendu) => {
@@ -68,11 +69,13 @@ if (!existsSync(CHEMIN) || !existsSync(CLE)) {
   process.exit(1);
 }
 
-const MDP = process.env.SITE_PASSWORD;
-if (!MDP) {
-  console.error('\nSITE_PASSWORD manquant : le manifeste publié est CHIFFRÉ.\n');
-  process.exit(1);
-}
+/*
+   Par le module partagé : il lit la variable d'environnement, et à défaut
+   `.env.local` — le fichier du build, ignoré par Git. Lire la seule variable
+   obligeait à écrire le mot de passe devant la commande, donc dans le journal
+   de la session, en clair. Son message d'absence est le même, en mieux.
+*/
+const MDP = motDePasseEssais();
 
 /*
    Le manifeste publié est chiffré, et il faut le déchiffrer pour l'éprouver.
