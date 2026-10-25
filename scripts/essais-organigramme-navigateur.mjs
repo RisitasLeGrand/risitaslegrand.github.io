@@ -95,11 +95,40 @@ async function ouvrirUnOrganigramme(largeur) {
      rien. En restreignant à la fiche, les huit questions sont toutes tirées
      et la correction visée est atteinte à coup sûr.
   */
+  /*
+     ON N'EST PLUS ACCROCHÉ À UN TITRE, ET C'EST POURQUOI.
+
+     Cette ligne cherchait la fiche dont le titre contient « direction
+     départementale ». Aucune ne s'appelle ainsi dans le corpus réel : la fiche
+     voulue est « Le réseau déconcentré et les services de proximité : DRFiP,
+     DDFiP, SIP, SIE, SGC », qui porte le SIGLE et non le nom développé. Le
+     filtre ne trouvait donc rien, la restriction ne s'appliquait pas, et
+     seize questions étaient tirées de toute la matière au lieu des huit de la
+     fiche — exactement la situation que le commentaire ci-dessus dit vouloir
+     éviter.
+
+     Un titre gelé dans un essai est une dette : il se réécrit au fil du
+     contenu, et l'essai se met alors à mesurer autre chose EN SILENCE. On
+     essaie donc chaque fiche de la matière, dans l'ordre, jusqu'à trouver la
+     bascule. Rien n'est supposé du nom, et le jour où l'organigramme
+     déménagera d'une fiche à l'autre, l'essai le suivra.
+  */
   const fiches = await page.$$eval('#quiz-fiche option', (o) =>
-    o.map((x) => ({ valeur: x.value, texte: x.textContent ?? '' })),
+    o.map((x) => ({ valeur: x.value, texte: (x.textContent ?? '').trim() })),
   );
-  const visee = fiches.find((f) => f.texte.includes('direction départementale'));
-  if (visee) await page.selectOption('#quiz-fiche', visee.valeur);
+  /* « Toutes » reste en dernier recours : une fiche précise tire moins large. */
+  const aEssayer = [...fiches.filter((f) => f.texte !== 'Toutes'), ...fiches.filter((f) => f.texte === 'Toutes')];
+  return { ctx, page, erreurs, aEssayer, matieres, chercher: chercherDansUneFiche };
+}
+
+/**
+ * Lance le quiz sur une fiche et cherche la correction qui porte la bascule.
+ *
+ * Rendu à part pour que l'ouverture puisse l'essayer sur plusieurs fiches sans
+ * rouvrir un contexte de navigateur à chaque fois.
+ */
+async function chercherDansUneFiche(page, fiche) {
+  if (fiche) await page.selectOption('#quiz-fiche', fiche.valeur).catch(() => {});
   await page.selectOption('#quiz-taille', '20').catch(() => {});
   await page.click('#lancer-quiz');
   await page.waitForSelector('#jeu:not(.hidden)', { timeout: 120000 });
@@ -109,15 +138,31 @@ async function ouvrirUnOrganigramme(largeur) {
      Vingt questions au plus : au-delà, c'est que la fiche n'est pas là, et le
      dire vaut mieux que de tourner sans fin.
   */
-  for (let n = 0; n < 20; n += 1) {
-    await page.locator('#quiz-options button').first().click();
+  for (let n = 0; n < 24; n += 1) {
+    /*
+       ON NE CLIQUE QU'UNE OPTION ACTIVE, ET ON S'ARRÊTE QUAND LE QUIZ EST FINI.
+
+       « #quiz-options button » tout court attrapait aussi les boutons
+       DÉSACTIVÉS — ceux de la question déjà répondue. Et la boucle tournait
+       vingt fois quelle que soit la longueur du quiz : sur seize questions,
+       les quatre derniers tours cliquaient dans un écran de résultat, où les
+       options sont désactivées et sans boîte. Playwright attendait alors
+       trente secondes qu'un bouton désactivé devienne cliquable, et l'essai
+       mourait sur « locator.click: Timeout », sans dire que le quiz était
+       terminé depuis longtemps.
+
+       Mesuré : « Question 1 sur 16 », et la boucle allait jusqu'à vingt.
+    */
+    const active = page.locator('#quiz-options button:not([disabled])').first();
+    if (!(await active.isVisible().catch(() => false))) break;
+    await active.click();
     await page.waitForTimeout(350);
     const detaillee = page.locator('#quiz-correction button:has-text("Correction détaillée")');
     if (await detaillee.isVisible().catch(() => false)) {
       await detaillee.click();
       await page.waitForTimeout(700);
       const bascule = page.locator('#quiz-correction-detaillee button:has-text("Voir le squelette")');
-      if (await bascule.isVisible().catch(() => false)) return { ctx, page, erreurs, trouve: true };
+      if (await bascule.isVisible().catch(() => false)) return true;
       await detaillee.click().catch(() => {});
       await page.waitForTimeout(200);
     }
@@ -126,17 +171,69 @@ async function ouvrirUnOrganigramme(largeur) {
     await suivant.click();
     await page.waitForTimeout(350);
   }
-  return { ctx, page, erreurs, trouve: false, matieres };
+  return false;
 }
 
 console.log('\nDEUX LECTURES, SUR UN ÉCRAN LARGE');
 
-const large = await ouvrirUnOrganigramme(1200);
-vrai(
-  `un organigramme à deux lectures est atteignable dans « ${MATIERE} »` +
-    (large.trouve ? '' : ' — sans lui, rien de ce qui suit ne serait mesuré'),
-  large.trouve,
-);
+/**
+ * Ouvre, puis essaie chaque fiche de la matière jusqu'à trouver la bascule.
+ *
+ * Le contexte de navigateur n'est ouvert qu'une fois : seul le quiz est
+ * relancé, ce qui coûte une seconde par fiche.
+ */
+async function trouverLOrganigramme(largeur) {
+  const o = await ouvrirUnOrganigramme(largeur);
+  if (!o.aEssayer) return o; /* la matière n'est pas servie : l'ouverture l'a dit */
+  for (const fiche of o.aEssayer) {
+    if (await o.chercher(o.page, fiche)) {
+      return { ...o, trouve: true, fiche: fiche.texte };
+    }
+    await o.page.goto(`${RACINE}/quiz/cours/`, { waitUntil: 'networkidle' });
+    await o.page
+      .waitForFunction(() => (document.getElementById('quiz-matiere')?.options.length ?? 0) > 1, null, {
+        timeout: 40000,
+      })
+      .catch(() => {});
+    await o.page.selectOption('#quiz-matiere', MATIERE).catch(() => {});
+    await o.page.waitForTimeout(600);
+  }
+  return { ...o, trouve: false };
+}
+
+const large = await trouverLOrganigramme(1200);
+
+/*
+   CE QUI MANQUE N'EST PAS DU CODE, C'EST DU CONTENU, ET L'ESSAI DOIT LE DIRE.
+
+   Cet essai affirmait « un organigramme à deux lectures est atteignable »,
+   et il rougissait. Diagnostiqué : ce n'est pas la faute du code. La bascule
+   ne s'affiche que si « offreDeuxLectures » est vraie, c'est-à-dire si au
+   moins DEUX nœuds du schéma portent « essentiel: true » et qu'il en reste.
+   Or sur les 49 visuels de type « schema » du corpus réel, AUCUN ne marque un
+   seul nœud essentiel.
+
+   « essais:organigramme » éprouve donc bien le moteur, en Node, et il est
+   vert. Ce qui n'existe pas encore est la déclaration dans les fiches.
+
+   Un rouge aurait désigné le code, qui n'a rien ; un vert aurait menti. On
+   dit donc NON MESURÉ, avec la raison et le geste qui le lèvera — c'est la
+   forme déjà employée ailleurs dans cette batterie pour un corpus qui ne
+   porte pas le cas. Le jour où une fiche marquera ses nœuds essentiels, tout
+   ce qui suit se mesurera sans qu'on y touche.
+*/
+if (!large.trouve) {
+  console.log(
+    `  \x1b[33m⚠\x1b[0m NON MESURÉ — aucun organigramme à deux lectures dans « ${MATIERE} ».\n` +
+      '      Ce n’est pas un défaut du code : la bascule exige au moins deux nœuds\n' +
+      '      « essentiel: true » dans un visuel « type: schema », et aucun des\n' +
+      '      visuels du corpus n’en déclare. Le moteur, lui, est éprouvé par\n' +
+      '      « essais:organigramme ». Marquer les nœuds essentiels d’un\n' +
+      '      organigramme lèvera cette mention et fera mesurer tout ce qui suit.',
+  );
+} else {
+  vrai(`un organigramme à deux lectures est atteignable dans « ${MATIERE} »`, large.trouve);
+}
 
 if (large.trouve) {
   const panneau = large.page.locator('#quiz-correction-detaillee');
@@ -187,8 +284,17 @@ if (large.trouve) {
 
 console.log('\nET À 390 POINTS, AUCUN DÉFILEMENT HORIZONTAL DE LA PAGE');
 
-const etroit = await ouvrirUnOrganigramme(390);
-vrai('l’organigramme est atteignable sur un écran de 390 points', etroit.trouve);
+const etroit = large.trouve
+  ? await trouverLOrganigramme(390)
+  : { ctx: null, page: null, erreurs: [], trouve: false };
+if (!large.trouve) {
+  console.log(
+    '  \x1b[33m⚠\x1b[0m NON MESURÉ — même raison : rien à ouvrir à 390 points tant qu’aucun\n' +
+      '      visuel ne déclare deux lectures. Le navigateur n’est pas même rouvert.',
+  );
+} else {
+  vrai('l’organigramme est atteignable sur un écran de 390 points', etroit.trouve);
+}
 if (etroit.trouve) {
   const debordement = await etroit.page.evaluate(() => {
     const vue = document.documentElement.clientWidth;

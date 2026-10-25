@@ -49,6 +49,7 @@ import {
 } from '../src/lib/parcours/registre.ts';
 import { deriverCle, idStable } from './lib/crypto.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import matter from 'gray-matter';
 
 let echecs = 0;
 const v = (intitule, obtenu, attendu) => {
@@ -279,21 +280,98 @@ const cheminsDuDisque = [];
 */
 const idsDeclares = new Map();
 
-const lireIdDeclare = (chemin) => {
-  const texte = readFileSync(chemin, 'utf8');
-  if (!texte.startsWith('---')) return null;
-  const fin = texte.indexOf('\n---', 3);
-  const entete = fin === -1 ? texte : texte.slice(0, fin);
+/*
+   L'EN-TÊTE EST LU PAR L'ANALYSEUR DU BUILD, ET NON PAR UNE EXPRESSION
+   RÉGULIÈRE ÉCRITE ICI.
+
+   Cette lecture était faite à la main : « texte.indexOf('\n---') » pour borner
+   l'en-tête, puis un motif pour en extraire le champ.
+
+   J'AI D'ABORD ANNONCÉ DEUX DÉFAUTS, ET LE SABOTAGE N'EN A CONFIRMÉ QU'UN.
+   C'est dit ici parce qu'une raison fausse laissée dans un commentaire se
+   recopie, et que celle-ci a déjà été recopiée une fois.
+
+   - L'EN-TÊTE EN CRLF : je l'ai cru perdu par l'ancien motif, et il ne
+     l'était pas. Sabotage posé : le contrôle CRLF reste VERT sous l'ancien
+     lecteur. La raison est que « \s » comprend le retour de chariot — le
+     « \s*$ » du motif l'absorbe, et « indexOf('\n---') » retrouve la clôture
+     parce que le « \n » du CRLF y est. Le contrôle est gardé quand même : il
+     dit que les deux lecteurs traversent le CRLF, ce qui vaut d'être écrit.
+   - « id_publie : x », AVEC UN ESPACE avant le deux-points, que YAML accepte :
+     celui-là est réel. Sabotage posé, le contrôle rougit.
+
+   Le gain mesuré est donc plus modeste que ce que j'avais annoncé : l'espace
+   avant le deux-points, et surtout qu'un identifiant déclaré mais ILLISIBLE
+   soit nommé au lieu d'être confondu avec une absence — l'ancien motif ne
+   trouvait rien et l'essai retombait en silence sur l'empreinte du chemin.
+
+   Mais la raison de fond ne dépend pas du nombre de cas, et c'est elle qui
+   a motivé ce changement : le mot de passe du site avait CINQ lecteurs écrits
+   à la main, divergents sur la coupure des lignes, les blancs et les
+   guillemets, dont celui qui rechiffre le corpus. Une règle de lecture
+   recopiée finit par diverger de l'originale, et on ne sait pas d'avance par
+   où. On n'ajoute donc pas un cas au motif : on supprime le motif.
+
+   « gray-matter » est l'analyseur que « build-content.mjs » emploie. C'est la
+   seule façon d'être sûr de lire ce que le build lit.
+
+   Il règle aussi, gratuitement, ce que le motif attrapait par chance : le
+   corps de la fiche ne peut plus être confondu avec l'en-tête, puisque
+   l'analyseur borne l'en-tête lui-même.
+
+   ET IL A DÉTROMPÉ UNE RAISON ÉCRITE DEUX FOIS DANS CE DÉPÔT. Le motif
+   acceptait des guillemets autour de l'identifiant, et son commentaire — le
+   mien, repris par celui de B — expliquait que « 03893560309995e0 » se lit
+   comme un nombre en notation scientifique. C'est FAUX pour l'analyseur du
+   build : son zéro initial le disqualifie comme flottant, et il revient en
+   chaîne. Le fait observé était juste — la fiche porte bien des guillemets —
+   mais la raison avancée ne l'était pas, et une raison fausse se recopie.
+
+   Mesuré, un seul des 51 identifiants déclarés est écrit entre guillemets, et
+   AUCUN ne serait lu comme un nombre sans eux. Le vrai danger est dit au
+   contrôle de sabotage correspondant, plus bas : il tient aux chiffres et non
+   à la notation scientifique.
+*/
+
+/** Les identifiants déclarés mais illisibles : nommés, jamais ignorés. */
+const idsDeclaresInvalides = [];
+
+/**
+ * L'identifiant déclaré dans un TEXTE de fiche, ou `null`.
+ *
+ * Pure, donc éprouvable sans disque : c'est ce qui permet les contrôles de
+ * sabotage plus bas, dont le cas CRLF, sans écrire dans le corpus réel.
+ */
+export const idDeclareDuTexte = (texte, quoi = '(texte)') => {
+  let donnees;
+  try {
+    donnees = matter(texte).data ?? {};
+  } catch {
+    /* Un en-tête illisible est l'affaire du build, qui refuse en le nommant. */
+    return null;
+  }
+  if (!('id_publie' in donnees)) return null;
+  const valeur = donnees.id_publie;
   /*
-     LES GUILLEMETS SONT OBLIGATOIRES POUR CERTAINS IDENTIFIANTS, et les
-     oublier coûtait un faux rouge. « 03893560309995e0 » se lit comme un
-     nombre en notation scientifique — 3,89…e0 — donc YAML le cite pour qu’il
-     reste une chaîne, sans quoi le schéma, qui exige seize caractères
-     hexadécimaux, le refuserait. Un identifiant sur 51 était dans ce cas.
+     UN CHAMP PRÉSENT MAIS NON CONFORME N'EST PAS « ABSENT », et les deux
+     versions précédentes le traitaient comme tel — le motif ne trouvait rien,
+     donc l'essai retombait sur l'empreinte du chemin, en silence.
+
+     Or c'est exactement le cas de « id_publie: 03893560309995e0 » SANS
+     guillemets : YAML y lit le NOMBRE 3,89…e0, parce que seize caractères
+     hexadécimaux finissant par « e » suivi de chiffres forment une écriture
+     scientifique valable. Le build le refuse par son schéma, qui exige seize
+     caractères hexadécimaux. Cet essai doit donc le NOMMER, et non le
+     confondre avec une fiche qui ne déclare rien.
   */
-  const trouve = /^id_publie:\s*["']?([0-9a-f]{16})["']?\s*$/m.exec(entete);
-  return trouve ? trouve[1] : null;
+  if (typeof valeur !== 'string' || !/^[0-9a-f]{16}$/.test(valeur)) {
+    idsDeclaresInvalides.push(`${quoi} : ${JSON.stringify(valeur)}`);
+    return null;
+  }
+  return valeur;
 };
+
+const lireIdDeclare = (chemin) => idDeclareDuTexte(readFileSync(chemin, 'utf8'), chemin);
 
 const parcourirPour = (dossier, prefixe) => {
   if (!existsSync(dossier)) return;
@@ -309,6 +387,121 @@ const parcourirPour = (dossier, prefixe) => {
   }
 };
 parcourirPour('content', '');
+
+/* ══════════════════════════════════════════════════════════════════════════
+   LA LECTURE DE L'EN-TÊTE, ÉPROUVÉE SUR DU TEXTE ET NON SUR LE CORPUS
+   ══════════════════════════════════════════════════════════════════════════
+
+   Ces contrôles portent sur `idDeclareDuTexte`, qui est pure : ils ne
+   touchent pas à « content/ », qui n'est pas dans Git et dont la perte serait
+   irréparable. Un sabotage qui écrirait une fiche CRLF dans le corpus réel
+   pour vérifier qu'on la lit serait un prix absurde.
+
+   Sans eux, le passage à « gray-matter » ne serait pas MESURÉ : le corpus
+   d'aujourd'hui ne porte aucune fiche CRLF, donc l'ancien motif et le nouvel
+   analyseur y donnent exactement le même résultat. Un garde-fou qu'on ne
+   peut pas faire rougir n'en est pas un.
+*/
+console.log('\nL’EN-TÊTE EST LU COMME LE BUILD LE LIT');
+{
+  const ID = '9d222c1a0b3e4f56';
+  const avant = idsDeclaresInvalides.length;
+
+  v('un en-tête simple', idDeclareDuTexte(`---\nid_publie: ${ID}\n---\ncorps\n`), ID);
+
+  /* LE CAS QUI MOTIVE TOUT CECI. L'ancien motif rendait null ici. */
+  v(
+    'un en-tête en CRLF (les deux lecteurs le traversent)',
+    idDeclareDuTexte(`---\r\nid_publie: ${ID}\r\ntitre: x\r\n---\r\ncorps\r\n`),
+    ID,
+  );
+  v(
+    'un identifiant entre guillemets, comme l’outil de récupération les écrit',
+    idDeclareDuTexte('---\nid_publie: "03893560309995e0"\n---\n'),
+    '03893560309995e0',
+  );
+  v(
+    'un espace avant le deux-points, que YAML accepte',
+    idDeclareDuTexte(`---\nid_publie : ${ID}\n---\n`),
+    ID,
+  );
+  v(
+    'le champ peut ne pas être le premier',
+    idDeclareDuTexte(`---\ntitre: x\ntags: [a, b]\nid_publie: ${ID}\n---\n`),
+    ID,
+  );
+  v('aucun en-tête du tout', idDeclareDuTexte('# juste un titre\n'), null);
+  v('un en-tête sans le champ', idDeclareDuTexte('---\ntitre: x\n---\n'), null);
+
+  /*
+     LE CORPS N'EST PAS L'EN-TÊTE. Une fiche qui PARLE de « id_publie » dans
+     son cours ne déclare rien. L'analyseur borne l'en-tête lui-même ; le
+     motif, lui, tenait par la chance du « .slice » qui précédait.
+  */
+  v(
+    'une ligne du corps ne déclare rien',
+    idDeclareDuTexte(`---\ntitre: x\n---\nid_publie: ${ID}\n`),
+    null,
+  );
+
+  v('aucun de ces cas n’est compté invalide', idsDeclaresInvalides.length - avant, 0);
+
+  /*
+     ET LE CAS NON CONFORME EST NOMMÉ, NON IGNORÉ.
+
+     MA PREMIÈRE VERSION DE CE CONTRÔLE PORTAIT SUR LE MAUVAIS IDENTIFIANT, et
+     c'est lui qui m'a détrompé. J'avais écrit, et le dépôt le disait en deux
+     endroits, que « 03893560309995e0 » se lit comme un nombre en notation
+     scientifique. MESURÉ : l'analyseur du build le rend en CHAÎNE, parce que
+     son ZÉRO INITIAL le disqualifie comme flottant YAML. La raison écrite
+     était fausse.
+
+     Le danger existe, et il est plus LARGE que ce qu'on croyait : il ne tient
+     pas à la notation scientifique mais aux chiffres. Mesuré sur l'analyseur
+     du build :
+
+       1234567890123456  → nombre 1234567890123456
+       1234567890123e45  → nombre 1.234567890123e+57
+       03893560309995e0  → chaîne  (zéro initial)
+       abcdef0123456789  → chaîne  (une lettre hexadécimale suffit)
+
+     Un identifiant de seize caractères hexadécimaux ENTIÈREMENT NUMÉRIQUE,
+     sans zéro initial, est donc lu comme un nombre. Cela arrivera : l'empreinte
+     n'a aucune raison d'éviter ce cas.
+
+     Ce n'est pas un défaut de l'outil de récupération, et je l'ai vérifié
+     plutôt que de le supposer : il écrit avec « yaml », qui CITE tout
+     identifiant ambigu — les quatre ci-dessus sauf le dernier —, et
+     gray-matter les relit tous en chaîne. L'aller-retour est sain. Le cas
+     dangereux est celui d'une fiche écrite ou corrigée à la main.
+  */
+  v(
+    'un identifiant non conforme ne passe pas pour une absence',
+    idDeclareDuTexte('---\nid_publie: 1234567890123456\n---\n', '(cas éprouvé)'),
+    null,
+  );
+  /* Et celui qu'on croyait dangereux ne l'est pas : il revient en chaîne. */
+  v(
+    'un zéro initial suffit à garder la chaîne',
+    idDeclareDuTexte('---\nid_publie: 03893560309995e0\n---\n'),
+    '03893560309995e0',
+  );
+  v(
+    'il est consigné comme invalide',
+    idsDeclaresInvalides.length - avant,
+    1,
+  );
+  /* On retire le cas éprouvé, pour ne pas faire rougir le contrôle du corpus. */
+  idsDeclaresInvalides.length = avant;
+}
+
+/*
+   ET AUCUNE FICHE DU CORPUS NE DÉCLARE UN IDENTIFIANT ILLISIBLE.
+
+   Ce contrôle ne pouvait pas exister avant : l'ancien motif rendait null sans
+   distinguer « pas de champ » de « champ illisible ».
+*/
+v('aucune fiche ne déclare un identifiant illisible', idsDeclaresInvalides.slice(0, 5), []);
 
 /*
    ET AUCUNE FICHE N'EST RANGÉE SOUS UN DOSSIER QUE LE REGISTRE IGNORE.
