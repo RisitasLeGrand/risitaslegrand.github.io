@@ -22,13 +22,18 @@ import { chromium } from 'playwright-core';
 import { repondreAuChamp } from './lib/boite-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
+import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const BASE = 'http://localhost:4321';
-const MDP = process.env.SITE_PASSWORD;
-if (!MDP) {
-  console.error('SITE_PASSWORD manquant.');
-  process.exit(1);
-}
+/*
+   Par le module partagé, comme cent trente et un autres essais, et non par
+   `process.env.SITE_PASSWORD` seul : le module lit AUSSI `.env.local`, qui
+   est le fichier du build et qui est ignoré par Git. Lire la seule variable
+   obligeait à écrire le mot de passe devant la commande — donc dans le
+   journal de la session, en clair. Dix-sept autres essais le font encore ;
+   c'est signalé au pilote plutôt que corrigé ici, où ce serait hors sujet.
+*/
+const MDP = motDePasseEssais();
 
 let echecs = 0;
 const verifier = (intitule, obtenu, attendu) => {
@@ -65,7 +70,20 @@ const repondre = async (motDePasse) => {
   await page.waitForTimeout(2500);
 };
 
-const renoncer = () => page.click('dialog[open] button:not([type="submit"])');
+/*
+   « Renoncer » PAR SON LIBELLÉ, et non par « le bouton qui n'est pas celui de
+   validation ».
+
+   Le point D3 du 43 pose un œil « Afficher » à côté de chaque champ de mot de
+   passe — y compris celui de cette redemande (`poserLoeil`, dans
+   `redemande.ts`). Il est de type `button`, donc l'ancien sélecteur en
+   trouvait deux et cliquait le PREMIER : l'œil. Le dialogue restait ouvert,
+   « renoncer referme le dialogue » rougissait, et le modal arrêtait ensuite
+   le clic sur « Effacer mon profil » — d'où la panne trente secondes plus
+   loin, loin de sa cause.
+*/
+const renoncer = () =>
+  page.locator('dialog[open] button', { hasText: 'Renoncer' }).first().click();
 
 /* ══════════════════════════════════════════════════════════════════════════
    Première scène : l'effacement de tout le profil
@@ -88,8 +106,21 @@ await page.goto(`${BASE}/profil/`, { waitUntil: 'networkidle' });
    jamais rien contenu. C'est la garde « le profil n'est pas vide » qui l'a
    signalé.
 */
-await page.waitForSelector('#restants button', { timeout: 20000 });
-await page.locator('#restants button').first().click();
+/*
+   L'ÉCRAN A CHANGÉ DE FORME, ET L'ESSAI SUIT. `#restants` — la liste séparée
+   « Ce qui n'est pas renseigné » — n'existe plus : une branche du train a
+   groupé les champs par bloc, et un champ vide reste À SA PLACE dans son bloc,
+   marqué `data-vide`, avec son bouton « Renseigner ». Vérifié sur
+   `origin/main`, où `#restants` existe encore, et ici, où il a disparu.
+
+   On vise donc le premier champ vide et son bouton par ce qu'ils sont, et non
+   par une liste qui n'est plus.
+*/
+await page.waitForSelector('[data-champ][data-vide] button', { timeout: 20000 });
+await page
+  .locator('[data-champ][data-vide] button', { hasText: 'Renseigner' })
+  .first()
+  .click();
 /*
    LA SAISIE PASSE PAR UN CHAMP, PLUS PAR UN « PROMPT » (C2 du 43).
 
@@ -106,11 +137,21 @@ await page.locator('#restants button').first().click();
 */
 await repondreAuChamp(page, 'Essai', 'Enregistrer');
 await page.waitForTimeout(2500);
+/*
+   « Le profil est vide » se COMPTE, maintenant qu'il n'y a plus de phrase à
+   lire. L'ancienne version interrogeait `#aucun-champ`, la ligne « profil
+   incomplet » que le même remaniement a retirée — et son `!e` rendait
+   « vide » dès que l'élément manquait, c'est-à-dire TOUJOURS sur cet écran-là.
+   La garde se serait donc tue au pire moment, sur la prémisse qu'elle existe
+   pour protéger.
+
+   Une carte remplie est un `[data-champ]` SANS `data-vide` : le profil est
+   vide quand il n'en reste aucune. C'est une mesure, pas une lecture.
+*/
 const profilVide = () =>
-  page.evaluate(() => {
-    const e = document.getElementById('aucun-champ');
-    return !e || e.classList.contains('hidden') === false;
-  });
+  page.evaluate(
+    () => document.querySelectorAll('[data-champ]:not([data-vide])').length === 0,
+  );
 verifier('prémisse : le profil n’est pas vide', await profilVide(), false);
 
 await page.click('#effacer-profil');
