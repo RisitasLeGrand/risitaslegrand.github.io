@@ -257,13 +257,55 @@ console.log('\nUN IDENTIFIANT, UN HISTORIQUE — MÊME POUR UNE FICHE PARTAGÉE'
    disque manquerait au manifeste, ou l'inverse.
 */
 const cheminsDuDisque = [];
+
+/*
+   UNE FICHE PEUT DÉCLARER SON IDENTIFIANT, et cet essai l'ignorait.
+
+   `ficheId = fm.data.id_publie ?? idStable(relatif)` : le build accepte un
+   identifiant écrit au front-matter. Le champ n'est pas un confort, c'est une
+   RÉPARATION — son commentaire au schéma le dit —, pour qu'une fiche dont le
+   chemin a été perdu garde l'identifiant sous lequel la progression est rangée
+   dans le navigateur.
+
+   Le 25 octobre, la récupération du corpus en a posé 51 : les 51 fiches dont le
+   chemin n'a pas pu être certifié par son empreinte. Cet essai est alors passé
+   au rouge en affirmant que tout identifiant du manifeste est l'empreinte d'un
+   chemin — ce que `id_publie` est précisément fait de rompre.
+
+   L'invariant juste n'est donc pas plus faible, il est plus précis : un
+   identifiant du manifeste est soit celui qu'une fiche DÉCLARE, soit l'empreinte
+   de son chemin. Ainsi un identifiant déclaré qui ne correspond à aucun fichier
+   se voit encore, et c'est ce qui compte.
+*/
+const idsDeclares = new Map();
+
+const lireIdDeclare = (chemin) => {
+  const texte = readFileSync(chemin, 'utf8');
+  if (!texte.startsWith('---')) return null;
+  const fin = texte.indexOf('\n---', 3);
+  const entete = fin === -1 ? texte : texte.slice(0, fin);
+  /*
+     LES GUILLEMETS SONT OBLIGATOIRES POUR CERTAINS IDENTIFIANTS, et les
+     oublier coûtait un faux rouge. « 03893560309995e0 » se lit comme un
+     nombre en notation scientifique — 3,89…e0 — donc YAML le cite pour qu’il
+     reste une chaîne, sans quoi le schéma, qui exige seize caractères
+     hexadécimaux, le refuserait. Un identifiant sur 51 était dans ce cas.
+  */
+  const trouve = /^id_publie:\s*["']?([0-9a-f]{16})["']?\s*$/m.exec(entete);
+  return trouve ? trouve[1] : null;
+};
+
 const parcourirPour = (dossier, prefixe) => {
   if (!existsSync(dossier)) return;
   for (const e of readdirSync(dossier)) {
     const c = join(dossier, e);
     const relatif = prefixe ? `${prefixe}/${e}` : e;
     if (statSync(c).isDirectory()) parcourirPour(c, relatif);
-    else if (e.endsWith('.md') && !e.endsWith('.podcast.md')) cheminsDuDisque.push(relatif);
+    else if (e.endsWith('.md') && !e.endsWith('.podcast.md')) {
+      cheminsDuDisque.push(relatif);
+      const declare = lireIdDeclare(c);
+      if (declare) idsDeclares.set(relatif, declare);
+    }
   }
 };
 parcourirPour('content', '');
@@ -289,52 +331,35 @@ const dossiersInconnus = [
 v('aucune fiche sous un dossier que le registre ignore', dossiersInconnus, []);
 
 /*
-   « ID_PUBLIE » CHANGE LA RÈGLE, ET CET ESSAI L'IGNORAIT.
+   LA RÈGLE JUSTE, ET POURQUOI ELLE EST PLUS STRICTE QUE L'UNION DES DEUX.
 
-   Écrit avant ce champ, il exigeait que TOUT identifiant du manifeste soit
-   l'empreinte d'un chemin du disque. Or le build fait depuis
-   `ficheId = fm.data.id_publie ?? await idStable(relatif)` : une fiche qui
-   déclare son identifiant publié n'obéit plus à l'empreinte de son chemin,
-   et c'est exactement ce que le champ sert à faire — la récupération du
-   corpus a laissé une cinquantaine de fiches à un chemin non certifié, et
-   `id_publie` leur garde l'identifiant sous lequel elles ont été publiées,
-   donc leur progression et leur fiche audio.
+   Deux corrections de ce bloc se sont croisées le 25 octobre, et toutes deux
+   partaient du même constat : écrit avant `id_publie`, l'essai exigeait que
+   TOUT identifiant du manifeste soit l'empreinte d'un chemin du disque, ce que
+   ce champ est précisément fait de rompre. Sur le corpus réel, 51 fiches le
+   déclarent ; l'essai rougissait donc sur la réparation elle-même.
 
-   L'essai rougissait donc sur les fiches que le champ répare, en annonçant
-   « ce n'est pas l'empreinte d'un chemin » — ce qui est vrai, et n'est pas un
-   défaut. Constaté ici le 25 octobre sur deux fiches récupérées, et il en
-   serait de même sur les 49 du corpus réel.
+   La version du train attendait « l'ensemble des empreintes UNION l'ensemble
+   des identifiants déclarés ». Elle lève le faux rouge, et elle laisse passer
+   le vrai défaut : si le build oubliait d'employer un `id_publie` déclaré, la
+   fiche repartirait sous l'empreinte de son chemin — qui appartient à l'union,
+   donc rien ne rougirait, et la progression serait orpheline en silence.
 
-   La demande n'est pas abaissée, elle est remise sur son objet : l'identifiant
-   d'une fiche est celui qu'elle déclare, ou l'empreinte de son chemin, et rien
-   d'autre. Un identifiant qui ne serait ni l'un ni l'autre reste un défaut. Et
-   une demande de plus apparaît, que l'ancienne version ne pouvait pas porter :
-   un `id_publie` déclaré doit se retrouver AU MANIFESTE, sans quoi le champ
-   serait écrit pour rien et la réparation silencieusement perdue.
+   La règle retenue est donc fiche par fiche : l'identifiant attendu d'une
+   fiche est celui qu'elle DÉCLARE, et à défaut l'empreinte de son chemin.
+   L'empreinte du chemin d'une fiche qui déclare autre chose n'est plus
+   attendue, et c'est exactement le cas que l'union ne voyait pas.
+
+   S'y ajoute la demande symétrique, qu'aucune des deux versions ne portait :
+   un `id_publie` déclaré doit se retrouver AU MANIFESTE. Sans elle, un champ
+   écrit pour rien laisserait la progression orpheline — l'inverse exact de ce
+   qu'il répare.
 */
-/*
-   LES GUILLEMETS NE SONT PAS DÉCORATIFS.
-
-   « id_publie: 03893560309995e0 » sans guillemets est lu par YAML comme le
-   NOMBRE 3 893 560 309 995 : seize caractères hexadécimaux qui finissent par
-   « e » suivi de chiffres forment une écriture scientifique valable. L'outil
-   de récupération les met donc entre guillemets quand il le faut, et le corpus
-   réel porte au moins une fiche dans ce cas.
-
-   Une lecture qui ne les accepterait pas prendrait cette fiche pour une fiche
-   sans identifiant déclaré, lui attendrait l'empreinte de son chemin, et
-   rougirait sur une fiche parfaitement en règle. C'est le défaut que j'ai
-   d'abord écrit dans mon propre contrôle de vérification, avant de le voir.
-*/
-const ID_PUBLIE = /^id_publie:\s*["']?([0-9a-f]{16})["']?\s*$/m;
-const idsDeclares = new Map();
-const idsAttendus = new Set();
-for (const chemin of cheminsDuDisque) {
-  const entete = readFileSync(join('content', chemin), 'utf8').match(/^---\n([\s\S]*?)\n---/);
-  const declare = entete?.[1].match(ID_PUBLIE)?.[1];
-  if (declare) idsDeclares.set(chemin, declare);
-  idsAttendus.add(declare ?? (await idStable(chemin)));
-}
+const idsAttendus = new Set(
+  await Promise.all(
+    cheminsDuDisque.map(async (c) => idsDeclares.get(c) ?? (await idStable(c))),
+  ),
+);
 const idsDuManifeste = new Set(toutes.map((f) => f.id));
 v(
   'chaque identifiant du manifeste est celui que la fiche déclare, ou l’empreinte de son chemin',

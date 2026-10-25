@@ -162,13 +162,65 @@ export function brancherLeDefilement(): void {
      La clé est relue à chaque enregistrement, et non figée au branchement,
      pour la même raison.
   */
+  /*
+     ON NE LIT PLUS `window.scrollY` AU MOMENT DE PARTIR, ET C'EST LE POINT.
+
+     `noter()` lisait la position à `pagehide`. Mesuré sur `/quiz/`, au
+     pixel : la page faisait 1685 px et la position était à 900 ; à
+     `pagehide`, la page ne faisait plus que 1462 px, et le navigateur avait
+     donc rabattu la position à 722, soit 1462 − 740 exactement. C'est 722
+     qui était enregistré, et 722 qui était rendu au retour — sur une page
+     redevenue haute de 1685 px, où 900 était parfaitement atteignable.
+
+     Le rabattement N'ÉMET AUCUN ÉVÉNEMENT de défilement : il a lieu pendant
+     le démontage du document, quand les événements ne sont plus distribués.
+     Une sonde posée avant les scripts de la page n'a vu qu'une seule entrée,
+     900 sur 1685 px. On ne peut donc pas le rattraper après coup.
+
+     La parade est de ne plus demander la position à l'instant le plus
+     mauvais. `dernierY` suit le défilement tant que la page est VIVANTE, et
+     c'est lui qu'on enregistre. Il ne coûte rien — une addition par
+     événement, aucune écriture — et il porte la dernière position que la
+     personne a réellement choisie, et non la dernière que le navigateur a
+     tolérée.
+
+     L'écriture reste groupée : à `pagehide`, à `visibilitychange`, et sur un
+     minuteur de fin de geste, parce qu'une page peut aussi être tuée sans
+     prévenir. Écrire à chaque événement de défilement coûterait un
+     `JSON.parse` et un `JSON.stringify` par image.
+
+     Ce défaut ne concernait pas que `/quiz/` : les cinq autres listes
+     revenaient 25 à 60 px trop court, sous la tolérance de l'essai, pour la
+     même raison et à une moindre hauteur près.
+  */
+  let dernierY = Math.round(window.scrollY);
+  addEventListener(
+    'scroll',
+    () => {
+      dernierY = Math.round(window.scrollY);
+      reporterLEcriture();
+    },
+    { passive: true },
+  );
+
   const noter = () => {
     const p = lirePositions();
-    const y = Math.round(window.scrollY);
-    p[cleDeLEcran()] = y;
-    p[location.pathname] = y;
+    p[cleDeLEcran()] = dernierY;
+    p[location.pathname] = dernierY;
     ecrirePositions(p);
   };
+
+  /*
+     Fin de geste : 400 ms après le dernier défilement. Une page tuée sans
+     `pagehide` — onglet fermé de force, mémoire reprise par le système —
+     garde ainsi la position d'il y a moins d'une demi-seconde.
+  */
+  let minuteurDEcriture: ReturnType<typeof setTimeout> | undefined;
+  function reporterLEcriture(): void {
+    clearTimeout(minuteurDEcriture);
+    minuteurDEcriture = setTimeout(noter, 400);
+  }
+
   /* `pagehide` manque à l'appel sur iOS quand on bascule d'application ;
      `visibilitychange` le rattrape, et noter deux fois ne coûte rien. */
   addEventListener('pagehide', noter);

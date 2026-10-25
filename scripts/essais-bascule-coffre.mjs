@@ -22,13 +22,10 @@
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
+import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const BASE = 'http://localhost:4321';
-const MDP = process.env.SITE_PASSWORD;
-if (!MDP) {
-  console.error('SITE_PASSWORD manquant.');
-  process.exit(1);
-}
+const MDP = motDePasseEssais();
 
 let echecs = 0;
 const verifier = (intitule, obtenu, attendu) => {

@@ -1,7 +1,13 @@
 /**
  * La copie de concours, dans un vrai navigateur.
  *
- *   SITE_PASSWORD=… CHROMIUM=… npm run essais:copie:navigateur
+ *   CHROMIUM=… npm run essais:copie:navigateur
+ *
+ * Le mot de passe ne se donne PAS sur la ligne de commande : elle reste en
+ * clair dans le journal du terminal. Il se pose dans `.env.local`, ignoré
+ * par Git, et `motDePasseEssais()` l'y lit — c'est la source unique.
+ *
+ *   printf 'SITE_PASSWORD=…\n' > .env.local
  *
  * ## Ce qui ne se prouve qu'ici
  *
@@ -30,12 +36,21 @@ import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { attendreLaBoite, repondreALaBoite } from './lib/boite-essais.mjs';
+import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
 
 const nav = await chromium.launch({
-  executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
+  /*
+     Le chemin était épinglé sur « chromium-1194/chrome-linux/chrome ». Le
+     conteneur sert la 1243, et sa disposition s'appelle « chrome-linux64 » :
+     ce chemin ne désigne plus rien, et c'est pour cela que cet essai était
+     rouge. L'aide partagée cherche au lieu de nommer, et REFUSE quand elle
+     ne trouve rien — ne rien trouver rendait `undefined`, et Playwright
+     parlait alors d'un binaire que personne n'avait demandé.
+  */
+  executablePath: cheminDuNavigateur(),
   args: ['--no-sandbox'],
 });
 
@@ -159,16 +174,52 @@ await allerALEpreuve();
   );
 
   /*
-     STRUCTURE CONFORME : la banque de cet essai a de quoi remplir chaque
-     quota du format catégorie A, donc l'avertissement de composition ne doit
-     PAS s'afficher. Le cas inverse est éprouvé en Node, avec une banque
-     synthétique où l'anglais passe sous son quota.
+     CE CONTRÔLE GELAIT UNE PROPRIÉTÉ DU CORPUS D'EXEMPLE, ET LE CORPUS RÉEL
+     L'A DÉMENTI.
+
+     Il affirmait : « la banque de cet essai a de quoi remplir chaque quota du
+     format catégorie A, donc l'avertissement ne doit PAS s'afficher ». C'était
+     vrai de « content-exemple/ ». Sur la banque réelle — 539 questions — la
+     rubrique « Union européenne » n'en a que 9 là où le format en veut 10, et
+     l'écran annonce donc une composition adaptée. L'ÉCRAN A RAISON, et c'est
+     l'essai qui avait tort.
+
+     Un essai de navigateur n'a rien à dire sur l'arithmétique des quotas : elle
+     est éprouvée en Node, dans les deux sens, sur des banques synthétiques —
+     « essais:copie-concours » tient « la composition n'est pas adaptée » quand
+     la banque est abondante et « la composition est adaptée » quand l'anglais
+     passe sous son quota. La répéter ici la rend dépendante du corpus, donc
+     rouge le jour où Alexis écrit une dixième question d'Union européenne.
+
+     Ce qui revient au navigateur est la LISIBILITÉ : l'annonce s'affiche quand
+     elle a quelque chose à dire, se taît sinon, et quand elle parle, elle
+     nomme la rubrique et ses deux chiffres plutôt que de dire « structure non
+     respectée ». Cela ne dépend d'aucun corpus.
   */
   await page.selectOption('#format-dgfip', 'cat-a-2026');
+  const composition = await page.locator('#copie-composition').evaluate((e) => ({
+    cachee: e.classList.contains('hidden'),
+    texte: e.textContent.replace(/\s+/g, ' ').trim(),
+  }));
   vrai(
-    'aucune composition adaptée n’est annoncée quand la structure tient',
-    await page.locator('#copie-composition').evaluate((e) => e.classList.contains('hidden')),
+    'l’annonce de composition se taît, ou bien elle dit quelque chose',
+    composition.cachee ? true : composition.texte.length > 0,
   );
+  if (!composition.cachee) {
+    vrai(
+      'et quand elle parle, elle nomme une rubrique et ses deux chiffres',
+      /\S+\s*:\s*\d+\s+questions?\s+sur\s+les\s+\d+\s+du\s+sujet/.test(composition.texte),
+    );
+    vrai(
+      'et elle dit ce que la copie fera à la place',
+      /garde sa longueur/.test(composition.texte),
+    );
+  } else {
+    console.log(
+      '  \x1b[33m⚠\x1b[0m la banque servie remplit tous les quotas : les deux contrôles de ' +
+        'formulation de l’annonce n’ont rien à mesurer ici.',
+    );
+  }
 
   /* En « une question à la fois », l'annonce de la copie disparaît. */
   await page.selectOption('#presentation-dgfip', 'une-a-la-fois');

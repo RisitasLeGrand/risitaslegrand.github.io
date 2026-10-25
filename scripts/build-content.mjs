@@ -40,6 +40,7 @@ import { sha256Hex, deriverCle, selAleatoire, chiffrerJson, chiffrerBinaire, idS
 /** Gzip, niveau maximal : le fichier est écrit une fois et lu souvent. */
 const comprimerGzip = async (octets) => gzipSync(octets, { level: 9 });
 import { audioDisponible, SUFFIXE_SCRIPT } from './podcasts.mjs';
+import { motDePasseDuTexte } from './lib/motdepasse.mjs';
 /*
    Le registre des parcours est en TypeScript, et Node 22 le lit tel quel.
    On l'importe donc plutôt que de recopier les racines ici : deux listes
@@ -90,18 +91,26 @@ async function lireMotDePasse() {
         '  (voir .env.local.example — ce fichier n\'est jamais commité)',
     );
   }
-  const brut = await readFile(chemin, 'utf8');
-  const ligne = brut.split(/\r?\n/).find((l) => /^\s*SITE_PASSWORD\s*=/.test(l));
-  if (!ligne) echouer('« .env.local » ne contient pas de ligne « SITE_PASSWORD= ».');
+  /*
+     LA RÈGLE DE LECTURE VIENT DU MODULE PARTAGÉ, PAS D'ICI.
 
-  let motDePasse = ligne.replace(/^\s*SITE_PASSWORD\s*=/, '').trim();
-  if (
-    (motDePasse.startsWith('"') && motDePasse.endsWith('"')) ||
-    (motDePasse.startsWith("'") && motDePasse.endsWith("'"))
-  ) {
-    motDePasse = motDePasse.slice(1, -1);
+     Elle était écrite trois fois — ici, dans `lib/motdepasse.mjs` et dans
+     `lib/mot-de-passe-essais.mjs` — et la troisième divergeait. Le build
+     chiffrait sans le retour de chariot final là où les essais
+     déverrouillaient avec lui.
+
+     Ce qui reste ici est la POLITIQUE, et elle ne change pas : le build
+     n'accepte que le fichier, jamais l'environnement, parce qu'une commande
+     s'enregistre en clair dans le journal du terminal et que le build est la
+     commande qu'on tape à la main.
+  */
+  const motDePasse = motDePasseDuTexte(await readFile(chemin, 'utf8'));
+  if (motDePasse === null) {
+    echouer(
+      '« .env.local » ne porte pas de mot de passe lisible : il faut une ligne\n' +
+        '  « SITE_PASSWORD=… » dont la valeur ne soit pas vide.',
+    );
   }
-  if (!motDePasse) echouer('Le mot de passe défini dans « .env.local » est vide.');
 
   await verifierContreLeTemoinLocal(motDePasse);
   return motDePasse;

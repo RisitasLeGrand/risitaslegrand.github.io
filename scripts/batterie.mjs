@@ -125,6 +125,29 @@ const SOCLE = [
      source coûte une seconde et nomme le fichier et la ligne.
   */
   ['essais:erreurs-dites', 'aucun texte brut de panne à l’écran, et les messages de domaine intacts'],
+  /*
+     Celui-ci garde le code de sortie de CETTE batterie-ci. Il entre au socle
+     parce que le socle est justement ce qu'on enchaîne avec un `&&` avant de
+     pousser : s'il est le seul passage dont le verdict compte, il doit porter
+     le garde-fou de son propre verdict. Il coûte trois secondes, et il tourne
+     contre un faux `npm`, donc sans site et sans mot de passe réel.
+  */
+  ['essais:code-de-sortie', 'la batterie rend un code non nul sur un rouge, croix à code nul comprise'],
+  /*
+     Celui-ci entre parce que le mot de passe avait CINQ lecteurs, dont deux
+     qui rechiffrent ou chiffrent le corpus. Son balayage de source attrape
+     la sixième copie, celle qu'on écrira sans y penser : une copie de
+     quatre lignes a l'air juste, et une relecture ne l'attrape pas.
+  */
+  ['essais:mot-de-passe-une-source', 'une seule règle de lecture du mot de passe, et aucune copie'],
+  /*
+     Le chemin du navigateur a cassé les essais TROIS fois — quinze essais le
+     19 octobre, cent soixante-un le 25, et deux de plus restés épinglés sur
+     une version disparue. Chaque fois, le même piège : ne rien trouver ne
+     levait pas, donc l'erreur parlait d'autre chose et on cherchait du côté
+     du site. Celui-ci coûte une seconde et ne demande pas d'aperçu.
+  */
+  ['essais:chemin-du-navigateur', 'le navigateur se trouve, et son absence refuse au lieu de se taire'],
 ];
 
 /**
@@ -533,5 +556,28 @@ if (rouges.length > 0) {
 }
 console.log(`Journaux conservés : ${journal}\n`);
 fermerLeLaboratoire();
-/* Le code de sortie ne juge pas : la batterie rapporte, l'humain tranche. */
-process.exit(0);
+
+/*
+   LE CODE DE SORTIE JUGE, DÉSORMAIS.
+
+   Il rendait zéro quoi qu'il arrive, et son commentaire l'assumait : « la
+   batterie rapporte, l'humain tranche ». La phrase est juste pour un humain
+   qui lit les vingt lignes du récapitulatif. Elle est fausse pour tout le
+   reste : un `npm run socle && git push` passe, un enchaînement s'enchaîne,
+   et une relecture rapide ne voit que « terminé ». TROIS agents s'y sont
+   trompés, chacun de bonne foi, en lisant le zéro comme un verdict.
+
+   Un passage qui ne peut pas dire non ne garde rien. Le code de sortie dit
+   donc ce que le récapitulatif dit déjà : un si la liste des rouges n'est
+   pas vide, zéro sinon. Les REFUS en amont rendaient déjà un, et ils
+   continuent.
+
+   Le récapitulatif reste entier : le code de sortie ne remplace pas la
+   lecture, il empêche seulement de s'en passer sans le savoir.
+
+   `essais:code-de-sortie` le garde, par sabotage : il fait tourner cette
+   batterie-ci contre un faux `npm`, et vérifie les trois cas — tout vert,
+   un code non nul, et une croix avec un code nul, qui est celui qui a
+   trompé.
+*/
+process.exit(rouges.length > 0 ? 1 : 0);
