@@ -143,23 +143,37 @@ export const REGLES: readonly RegleXp[] = [
     id: 'flashcards-notees',
     libelle: 'Flashcards notées',
     type: 'revision.flashcards',
+    /*
+       LE MÊME BARÈME QUE L'ÉCRAN, ET IL EST PLAT (prompt 43, F4).
+
+       Ce moteur est celui qui REPREND l'XP quand on le lui demande. S'il
+       gardait les quatre prix d'hier pendant que l'écran en applique un
+       seul, deux règles coexisteraient, et le total repris contredirait le
+       total gagné. Les notes restent comptées et dites — elles décrivent la
+       séance —, mais aucune ne vaut plus qu'une autre.
+    */
     base: (f) =>
-      nombre(f, 'oublie') * XP.flashcardOublie +
-      nombre(f, 'difficile') * XP.flashcardDifficile +
-      nombre(f, 'correct') * XP.flashcardCorrect +
-      nombre(f, 'facile') * XP.flashcardFacile,
-    pourquoi: (f) =>
-      (
+      (nombre(f, 'oublie') +
+        nombre(f, 'difficile') +
+        nombre(f, 'correct') +
+        nombre(f, 'facile')) *
+      XP.flashcardRevue,
+    pourquoi: (f) => {
+      const notes = (
         [
-          ['oublie', XP.flashcardOublie, 'oubliée'],
-          ['difficile', XP.flashcardDifficile, 'difficile'],
-          ['correct', XP.flashcardCorrect, 'correcte'],
-          ['facile', XP.flashcardFacile, 'facile'],
+          ['oublie', 'oubliée'],
+          ['difficile', 'difficile'],
+          ['correct', 'correcte'],
+          ['facile', 'facile'],
         ] as const
       )
         .filter(([clef]) => nombre(f, clef) > 0)
-        .map(([clef, prix, nom]) => `${nombre(f, clef)} × ${prix} (${nom})`)
-        .join(', ') || 'aucune carte notée',
+        .map(([clef, nom]) => `${nombre(f, clef)} ${nom}`);
+      const total =
+        nombre(f, 'oublie') + nombre(f, 'difficile') + nombre(f, 'correct') + nombre(f, 'facile');
+      if (!total) return 'aucune carte notée';
+      return `${total} × ${XP.flashcardRevue} par carte révisée (${notes.join(', ')})`;
+    },
   },
   {
     id: 'qcm-passe',

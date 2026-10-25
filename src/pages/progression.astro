@@ -299,6 +299,7 @@ import LienReglages from '../components/LienReglages.astro';
   import { agirPuisPeindre } from '../lib/agir';
   import { SauvegardeRefusee } from '../lib/sauvegarde/format';
   import { calculerNiveau } from '../lib/gamification';
+  import { serieEtXpAffichees } from '../lib/serie-xp';
   import { formaterDuree, lien, notifier, pluriel } from '../lib/ui';
   import {
     ecrireReglagesContenu,
@@ -444,9 +445,16 @@ import LienReglages from '../components/LienReglages.astro';
       tousLesResultatsQuiz(),
       tousLesJours(),
     ]);
+    /* Les deux premières lignes sont des scores : elles suivent
+       l'interrupteur, comme les cartes du tableau de bord. Le reste est du
+       dénombrement, et n'a jamais pressé personne. */
     const lignes: [string, string][] = [
-      ['XP', `${profil.xp} (niveau ${calculerNiveau(profil.xp).niveau})`],
-      ['Série record', pluriel(profil.streakRecord, 'jour')],
+      ...(serieEtXpAffichees()
+        ? ([
+            ['XP', `${profil.xp} (niveau ${calculerNiveau(profil.xp).niveau})`],
+            ['Série record', pluriel(profil.streakRecord, 'jour')],
+          ] as [string, string][])
+        : []),
       ['Cartes suivies', String(cartes.length)],
       ['Quiz passés', String(quiz.length)],
       ['Badges', String(profil.badges.length)],

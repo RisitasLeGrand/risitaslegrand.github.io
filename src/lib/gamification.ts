@@ -52,25 +52,81 @@ export { coutNiveau, calculerNiveau, type Niveau };
  */
 const ECART_MAXIMAL_RATTRAPABLE = 15;
 
+/**
+ * Combien de jours OUBLIÉS séparent deux jours étudiés.
+ *
+ * Un jour de repos n'est pas un oubli : il était prévu. Au-delà de la
+ * quinzaine, on rend l'infini plutôt qu'un compte — ce n'est plus un oubli,
+ * c'est une interruption, et aucune grâce ne la rattrape.
+ */
+export async function joursOublies(precedent: string, aujourdhui: string): Promise<number> {
+  const ecart = ecartJours(precedent, aujourdhui);
+  if (ecart <= 1) return 0;
+  if (ecart > ECART_MAXIMAL_RATTRAPABLE) return Number.POSITIVE_INFINITY;
+  let oublies = 0;
+  for (let jour = ajouterJours(precedent, 1); jour < aujourdhui; jour = ajouterJours(jour, 1)) {
+    if (!(await jourDeRepos(jour))) oublies += 1;
+  }
+  return oublies;
+}
+
 export async function serieContinuee(precedent: string, aujourdhui: string): Promise<boolean> {
   const ecart = ecartJours(precedent, aujourdhui);
   if (ecart <= 1) return ecart === 1;
-  if (ecart > ECART_MAXIMAL_RATTRAPABLE) return false;
-  for (let jour = ajouterJours(precedent, 1); jour < aujourdhui; jour = ajouterJours(jour, 1)) {
-    if (!(await jourDeRepos(jour))) return false;
-  }
-  return true;
+  return (await joursOublies(precedent, aujourdhui)) === 0;
+}
+
+/**
+ * LE JOUR DE GRÂCE (prompt 43, F3).
+ *
+ * Un oubli par semaine ne remet plus la série à un. La raison tient en une
+ * phrase : la série mesure une habitude, et une habitude survit à une
+ * journée. La remettre à zéro pour un seul jour manqué enseigne qu'un écart
+ * annule tout — ce qui pousse à abandonner, pas à revenir.
+ *
+ * Une grâce, et une seule, par fenêtre de sept jours. Deux jours oubliés de
+ * suite rompent la série : la grâce absorbe l'accident, pas l'arrêt.
+ */
+export const JOURS_DE_GRACE = 1;
+const FENETRE_DE_GRACE = 7;
+
+export function graceDisponible(profil: Profil, aujourdhui: string): boolean {
+  if (!profil.graceUtiliseeLe) return true;
+  return ecartJours(profil.graceUtiliseeLe, aujourdhui) >= FENETRE_DE_GRACE;
+}
+
+/** Ce qu'il advient de la série entre le dernier jour étudié et aujourd'hui. */
+export type EtatDeSerie = 'continuee' | 'sauvee' | 'rompue';
+
+/**
+ * Examine la série **sans rien écrire**.
+ *
+ * La séparation compte : `statutStreak` appelle cette fonction pour afficher,
+ * et afficher ne doit jamais consommer la grâce. Seule l'écriture de la série
+ * — `gagnerXp` — la consomme, et seulement quand elle a servi.
+ */
+export async function examinerLaSerie(profil: Profil, aujourdhui: string): Promise<EtatDeSerie> {
+  const precedent = profil.dernierJourEtudie;
+  if (precedent === null) return 'rompue';
+  if (ecartJours(precedent, aujourdhui) <= 1) return 'continuee';
+  const oublies = await joursOublies(precedent, aujourdhui);
+  if (oublies === 0) return 'continuee';
+  if (oublies <= JOURS_DE_GRACE && graceDisponible(profil, aujourdhui)) return 'sauvee';
+  return 'rompue';
 }
 
 /** Met à jour la série de jours consécutifs à partir du jour courant. */
-function majStreak(profil: Profil, aujourdhui: string, continuee: boolean): Profil {
+function majStreak(profil: Profil, aujourdhui: string, etat: EtatDeSerie): Profil {
   if (profil.dernierJourEtudie === aujourdhui) return profil;
-  const courante = continuee ? profil.streakCourante + 1 : 1;
+  const courante = etat === 'rompue' ? 1 : profil.streakCourante + 1;
   return {
     ...profil,
     streakCourante: courante,
     streakRecord: Math.max(profil.streakRecord, courante),
     dernierJourEtudie: aujourdhui,
+    /* La grâce se consomme le jour où elle sert, et pas avant : c'est ce
+       jour-là qui ouvre la fenêtre des sept suivants. */
+    graceUtiliseeLe: etat === 'sauvee' ? aujourdhui : profil.graceUtiliseeLe,
   };
 }
 
@@ -91,10 +147,8 @@ export async function gagnerXp(
   const avant = await lireProfil();
   const niveauAvant = calculerNiveau(avant.xp).niveau;
 
-  const continuee =
-    avant.dernierJourEtudie !== null &&
-    (await serieContinuee(avant.dernierJourEtudie, aujourdhui));
-  let profil: Profil = majStreak({ ...avant, xp: avant.xp + xpGagne }, aujourdhui, continuee);
+  const etatDeLaSerie = await examinerLaSerie(avant, aujourdhui);
+  let profil: Profil = majStreak({ ...avant, xp: avant.xp + xpGagne }, aujourdhui, etatDeLaSerie);
   await ecrireProfil(profil);
   await majJour(aujourdhui, { xp: xpGagne, ...delta });
 
@@ -114,13 +168,19 @@ export async function gagnerXp(
   };
 }
 
-export const xpFlashcard = (note: Note) =>
-  ({
-    oublie: XP.flashcardOublie,
-    difficile: XP.flashcardDifficile,
-    correct: XP.flashcardCorrect,
-    facile: XP.flashcardFacile,
-  })[note];
+/**
+ * L'XP d'une carte révisée — la MÊME pour les quatre notes (prompt 43, F4).
+ *
+ * La note est un renseignement donné à l'ordonnanceur : elle dit quand la
+ * carte doit revenir. La payer plus cher quand on se déclare à l'aise met en
+ * balance deux choses étrangères l'une à l'autre et pousse à surnoter, ce qui
+ * fausse FSRS pour gagner quatre points.
+ *
+ * La note reste le paramètre : la signature ne change pas, et c'est voulu —
+ * les appelants n'ont pas à savoir que le barème est devenu plat, et le jour
+ * où il cesserait de l'être, rien à l'écran n'aurait à bouger.
+ */
+export const xpFlashcard = (_note: Note) => XP.flashcardRevue;
 
 export const xpQuiz = (bonnes: number) => XP.quizTermine + bonnes * XP.quizBonneReponse;
 export const xpFiche = () => XP.ficheTerminee;
@@ -679,23 +739,36 @@ export async function statutStreak() {
   // Un jour de repos ne met la série ni en péril ni en défaut : il n'y a rien
   // à faire ce jour-là, et ne rien faire est précisément ce qui était prévu.
   const reposAujourdhui = await jourDeRepos(aujourdhui);
-  const continuee =
-    profil.dernierJourEtudie !== null &&
-    (await serieContinuee(profil.dernierJourEtudie, aujourdhui));
-  const enPeril =
-    !etudieAujourdhui && !reposAujourdhui && continuee && profil.streakCourante > 0;
+  /*
+     L'examen, et non « serieContinuee » : c'est lui qui connaît le jour de
+     grâce. Afficher ne le consomme pas — seule l'écriture de la série le
+     fait, le jour où il sert.
+  */
+  const etat = await examinerLaSerie(profil, aujourdhui);
+  /*
+     « En péril » n'existe plus.
+
+     Le champ ne servait qu'au bandeau « votre série s'arrête ce soir », que
+     le point F du 43 retire. Le garder aurait laissé prête, calculée et
+     exportée, la grandeur qui ne sert qu'à presser — et c'est ainsi qu'un
+     bandeau revient six mois plus tard.
+
+     « Rompue », lui, reste : il ne presse personne, il dit au compteur
+     d'afficher zéro plutôt qu'un chiffre qui n'a plus cours.
+  */
   const rompue =
     !etudieAujourdhui &&
     !reposAujourdhui &&
     profil.dernierJourEtudie !== null &&
     profil.dernierJourEtudie < hier &&
-    !continuee &&
+    etat === 'rompue' &&
     profil.streakCourante > 0;
   return {
     courante: rompue ? 0 : profil.streakCourante,
     record: profil.streakRecord,
     etudieAujourdhui,
-    enPeril,
     rompue,
+    /** Un oubli de plus cette semaine serait-il absorbé ? */
+    graceDisponible: graceDisponible(profil, aujourdhui),
   };
 }

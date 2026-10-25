@@ -35,6 +35,17 @@ import InvitationInstallation from '../components/InvitationInstallation.astro';
 import { BRANCHES } from '../lib/branches';
 import { base } from '../lib/ui';
 import config from '../../site.config.mjs';
+
+/**
+ * La mise en forme des trois réponses à une proposition (prompt 43, F6).
+ *
+ * Écrite UNE fois et donnée aux trois : c'est ce qui rend l'égalité vraie
+ * plutôt que déclarée. Trois chaînes recopiées finiraient par diverger, et
+ * la divergence pèserait toujours dans le même sens — celui du oui.
+ */
+const REPONSE =
+  'min-h-11 rounded-lg border border-sky-400 px-4 text-sm font-medium text-sky-800 transition ' +
+  'hover:bg-sky-100 dark:border-sky-700 dark:text-sky-200 dark:hover:bg-sky-900/50';
 ---
 
 <Base titre="Menu" entete="leger">
@@ -134,25 +145,38 @@ import config from '../../site.config.mjs';
       </p>
       <p id="proposition-constat" class="mt-1 text-sm text-sky-900 dark:text-sky-100"></p>
       <p id="proposition-question" class="mt-2 font-medium text-slate-900 dark:text-white"></p>
+      <!--
+        LES TROIS RÉPONSES ONT LE MÊME POIDS (prompt 43, F6).
+
+        « D'accord » était un bouton plein, « Plus tard » un contour, et
+        « Non, laissez comme ça » un simple mot souligné. Trois poids pour
+        trois réponses également légitimes : la mise en forme répondait à la
+        place de la personne, et elle répondait oui.
+
+        C'est une question posée sur une observation, pas une offre : accepter
+        et refuser doivent se toucher aussi facilement et se voir aussi bien.
+        Les trois partagent donc une seule classe, et le jour où l'une change,
+        les trois changent.
+      -->
       <div class="mt-4 flex flex-wrap gap-2">
         <button
           id="proposition-oui"
           type="button"
-          class="min-h-11 rounded-lg bg-sky-700 px-4 text-sm font-medium text-white transition hover:bg-sky-800"
+          class={REPONSE}
         >
           D’accord
         </button>
         <button
           id="proposition-plus-tard"
           type="button"
-          class="min-h-11 rounded-lg border border-sky-400 px-4 text-sm font-medium text-sky-800 transition hover:bg-sky-100 dark:border-sky-700 dark:text-sky-200 dark:hover:bg-sky-900/50"
+          class={REPONSE}
         >
           Plus tard
         </button>
         <button
           id="proposition-non"
           type="button"
-          class="min-h-11 rounded-lg px-4 text-sm font-medium text-slate-600 underline-offset-2 transition hover:underline dark:text-slate-300"
+          class={REPONSE}
         >
           Non, laissez comme ça
         </button>

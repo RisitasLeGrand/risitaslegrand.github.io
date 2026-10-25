@@ -210,18 +210,26 @@ const lire = async () => ({
   const vu = await lire();
   /*
    * 38 pour la séance (20 + 8 de restitution + 10 de note d'une page),
-   * 24 pour le QCM (10 + 7 × 2), 12 pour les deux cartes (5 + 7),
+   * 24 pour le QCM (10 + 7 × 2), 10 pour les deux cartes (5 + 5),
    * 30 pour la partie de N-Back (8 + 3 × 4 + 10), 36 pour la session de
-   * Veridical Mapping (6 + 30 × 1, sans prime de convergence) = 140.
+   * Veridical Mapping (6 + 30 × 1, sans prime de convergence) = 138.
+   *
+   * LES DEUX CARTES VALAIENT 12 (5 + 7) JUSQU'AU LOT F DU PROMPT 43. Le
+   * barème des flashcards y est devenu plat : les quatre notes rapportent
+   * cinq, parce que payer plus cher une note « Facile » poussait à surnoter,
+   * donc à fausser l'ordonnanceur pour gagner deux points. Ce n'est pas
+   * l'essai qu'on assouplit — c'est la formule du site qui a changé, et
+   * l'essai qui la suit. Aucune XP déjà gagnée n'est recalculée pour autant :
+   * seul le CALCUL change, et c'est précisément ce que cet écran montre.
    *
    * Cinq magasins écrits, mais **cinq faits** : les deux cartes notées le même
    * jour logique ne font qu'un fait, parce que le type « revision.flashcards »
    * porte la journée entière.
    */
-  v('l’XP recalculée est celle des formules du site', vu.xp, '140 XP');
-  v('le niveau en découle', vu.niveau, 'niveau 2 · 40 / 150');
+  v('l’XP recalculée est celle des formules du site', vu.xp, '138 XP');
+  v('le niveau en découle', vu.niveau, 'niveau 2 · 38 / 150');
   v('cinq faits sont publiés', vu.faits, '5');
-  v('et ventilés par domaine', vu.domaines, 'connaissances 74 · cognition 66');
+  v('et ventilés par domaine', vu.domaines, 'connaissances 72 · cognition 66');
   v('la série court sur les trois jours', vu.serie, '3 jours');
   v('le record suit', vu.record, 'record : 3 jours');
   v('le journal a une ligne par fait crédité', vu.lignes.length, 5);
@@ -243,7 +251,7 @@ const lire = async () => ({
   );
   vrai('la reprise est proposée, pas faite', vu.repriseVisible);
   vrai('le socle n’existe pas encore', !vu.socleVisible);
-  vrai('l’écart avec l’XP affichée est annoncé', vu.ecart.includes('3000') && vu.ecart.includes('140'));
+  vrai('l’écart avec l’XP affichée est annoncé', vu.ecart.includes('3000') && vu.ecart.includes('138'));
   vrai('et ce qui n’a pas pu être publié est listé', vu.manques >= 1);
 }
 
@@ -272,12 +280,12 @@ const socle = () =>
 {
   const { socle: s, profil } = await socle();
   v('le socle garde l’XP affichée', s.xpAffichee, 3000);
-  v('et ce que le recalcul donnait', s.xpRecalculee, 140);
+  v('et ce que le recalcul donnait', s.xpRecalculee, 138);
   v('la somme répartie fait exactement l’XP affichée', Object.values(s.xpRepris).reduce((a, b) => a + b, 0), 3000);
   v(
     'répartie selon les parts du recalcul',
     s.xpRepris,
-    { cognition: Math.round((66 / 140) * 3000), connaissances: 3000 - Math.round((66 / 140) * 3000) },
+    { cognition: Math.round((66 / 138) * 3000), connaissances: 3000 - Math.round((66 / 138) * 3000) },
   );
   v('la série courante repart de zéro', profil.streakCourante, 0);
   v('le record est conservé', profil.streakRecord, 20);

@@ -124,6 +124,7 @@ import { base } from '../../lib/ui';
   import { aplatirFiches, chargerFiche, chargerManifeste, type QuestionQuiz } from '../../lib/contenu';
   import { ajouterResultatQuiz, lireReglagesSession, tousLesResultatsQuiz } from '../../lib/db';
   import { gagnerXp, xpQuiz } from '../../lib/gamification';
+  import { serieEtXpAffichees } from '../../lib/serie-xp';
   import { formaterDate, lien, marquerOption, melanger, notifier, parametreUrl, pluriel } from '../../lib/ui';
   import {
     analyserParties,
@@ -497,12 +498,15 @@ import { base } from '../../lib/ui';
     }
 
     const gain = await gagnerXp(xpQuiz(bonnes), { quiz: 1, bonnes, reponses: total });
+    const scores = serieEtXpAffichees();
     for (const badge of gain.nouveauxBadges) notifier(`${badge.icone} Succès : ${badge.nom}`, 'badge');
-    if (gain.monteeDeNiveau) notifier(`🎉 Niveau ${gain.niveau.niveau} !`, 'succes');
+    if (gain.monteeDeNiveau && scores) notifier(`🎉 Niveau ${gain.niveau.niveau} !`, 'succes');
 
     $('resultat-emoji').textContent = taux === 1 ? '🏆' : taux >= 0.8 ? '🎉' : taux >= 0.5 ? '👍' : '📚';
     $('resultat-score').textContent = `${bonnes} / ${total} — ${Math.round(taux * 100)} %`;
-    $('resultat-detail').textContent = `+${gain.xpGagne} XP`;
+    /* Le score du quiz est juste au-dessus : sans l'XP, la ligne n'a plus
+       rien à dire, et une ligne vide vaut mieux qu'un « + » orphelin. */
+    $('resultat-detail').textContent = scores ? `+${gain.xpGagne} XP` : '';
 
     const revoir = $('resultat-revoir');
     revoir.innerHTML = '';

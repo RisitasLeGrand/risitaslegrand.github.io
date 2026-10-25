@@ -601,6 +601,19 @@ export interface Profil {
   dernierJourEtudie: string | null;
   badges: string[];
   creeLe: string;
+  /**
+   * Le jour où le JOUR DE GRÂCE a servi pour la dernière fois (prompt 43, F3).
+   *
+   * Un oubli par semaine ne remet plus la série à un. Le champ dit quand la
+   * grâce a été consommée, et c'est tout ce qu'il faut pour savoir si elle
+   * est de nouveau disponible : une semaine après, elle l'est.
+   *
+   * **Facultatif, et sans migration.** Un profil écrit avant ce lot n'a pas
+   * ce champ ; il vaut alors « jamais utilisée », ce qui est exactement la
+   * vérité. Aucune donnée n'est réécrite, aucun schéma n'est levé — c'est
+   * l'interdit 2 du 43.
+   */
+  graceUtiliseeLe?: string | null;
 }
 
 /**
@@ -1879,6 +1892,7 @@ const PROFIL_PAR_DEFAUT: Profil = {
   dernierJourEtudie: null,
   badges: [],
   creeLe: new Date().toISOString(),
+  graceUtiliseeLe: null,
 };
 
 export async function lireProfil(): Promise<Profil> {
@@ -3086,6 +3100,17 @@ export async function importerTout(donnees: ExportProgression, mode: 'fusion' | 
             .pop() as string | null,
           badges: [...new Set([...profilLocal.badges, ...profilImporte.badges])],
           creeLe: [profilLocal.creeLe, profilImporte.creeLe].filter(Boolean).sort()[0],
+          /*
+             Le jour de grâce : on garde LE PLUS RÉCENT des deux. Prendre le
+             plus ancien — ou laisser tomber celui du fichier — rendrait une
+             grâce déjà consommée ailleurs, et la fusion offrirait deux
+             oublis par semaine à qui importe une sauvegarde.
+          */
+          graceUtiliseeLe:
+            ([profilLocal.graceUtiliseeLe, profilImporte.graceUtiliseeLe]
+              .filter(Boolean)
+              .sort()
+              .pop() as string | undefined) ?? null,
         },
     'profil',
   );
