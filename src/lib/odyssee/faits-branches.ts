@@ -33,6 +33,14 @@ import {
 } from './faits-revisions';
 import { publierFaitsOdyssee } from './faits-odyssee';
 import { publierFaitsCorps } from './faits-corps';
+import {
+  MATRICE_PAR_DEFAUT,
+  domainesNonAutorises,
+  filtrerPourLecture,
+  type DomaineNonAutorise,
+  type Lectrice,
+  type Matrice,
+} from '../noyau/permissions';
 
 /** Les branches publiables, dans l'ordre où elles sont assemblées. */
 export type SourceDeFaits =
@@ -69,8 +77,54 @@ export const SOURCES: readonly SourceDeFaits[] = [
 ];
 
 export interface OptionsToutesBranches extends OptionsPublication {
+  /**
+   * La branche qui lit. **Obligatoire**, et c'est tout le lot B.2.
+   *
+   * ## Ce qui n'allait pas, et qui n'allait pas depuis le début
+   *
+   * La matrice de lecture inter-branches (`noyau/permissions.ts`) existait,
+   * complète, avec ses défauts de B.2 et ses garde-fous — et **aucun fichier
+   * de `src/` ne l'importait**. Vérifié le 19 octobre : le module était même
+   * déclaré orphelin depuis le 15. Tout ce qui lit en travers passait par ici,
+   * et ici ne demandait pas qui lisait : le seul paramètre qui ressemblait à
+   * une permission, `sources`, est **choisi par le lecteur**. Qui veut tout
+   * n'écrit rien et reçoit tout. C'est l'inverse d'une permission.
+   *
+   * Rien n'était cassé pour autant : tous les appelants sont des surfaces
+   * d'Odyssée, et B.2 dit « Odyssée lit tout ». La matrice n'était pas fausse,
+   * elle n'était pas branchée — et la différence compte : il n'y avait rien à
+   * corriger en urgence, et tout à brancher avant le premier lecteur.
+   *
+   * ## Pourquoi obligatoire et non facultatif
+   *
+   * Un paramètre facultatif garde le trou par défaut. Il suffirait d'un
+   * appelant qui l'ignore pour que la promesse retombe, sans que rien ne
+   * rougisse — et le prochain appelant à l'ignorer serait celui qui n'y aurait
+   * pas pensé, c'est-à-dire celui dont on a le plus besoin qu'il y pense.
+   * Obligatoire, le compilateur demande à chacun de se nommer.
+   */
+  lectrice: Lectrice;
   /** Restreindre l'assemblage. Par défaut, toutes. */
   sources?: readonly SourceDeFaits[];
+  /** La matrice à appliquer. Celle de B.2 par défaut. */
+  matrice?: Matrice;
+}
+
+/**
+ * Ce qu'une lecture rend : les faits permis, ce qui manque, ce qui est refusé.
+ *
+ * **Trois états, et non deux.** La maquette 8.3 impose de distinguer « domaine
+ * non autorisé » de « non mesuré », et avant ce lot il n'y avait que des
+ * `manques` — qui disent « je n'ai pas pu lire », typiquement un coffre fermé.
+ * Rien ne disait « je n'avais pas le droit ». Les confondre laisserait croire
+ * qu'un domaine coupé est un domaine vide.
+ *
+ * - `faits` : mesuré, et lisible ;
+ * - `manques` : non mesuré, ou illisible pour une raison de circonstance ;
+ * - `nonAutorises` : refusé par la matrice, quoi qu'il y ait dedans.
+ */
+export interface PublicationLue extends Publication {
+  nonAutorises: DomaineNonAutorise[];
 }
 
 /**
@@ -80,9 +134,9 @@ export interface OptionsToutesBranches extends OptionsPublication {
  * le sport n'a pas à charger la bibliothèque d'exercices pour s'en apercevoir.
  */
 export async function publierTousLesFaits(
-  options: OptionsToutesBranches = {},
-): Promise<Publication> {
-  const { sources = SOURCES, ...reste } = options;
+  options: OptionsToutesBranches,
+): Promise<PublicationLue> {
+  const { lectrice, sources = SOURCES, matrice = MATRICE_PAR_DEFAUT, ...reste } = options;
   const travaux: Promise<Publication>[] = [];
 
   if (sources.includes('revisions')) travaux.push(publierFaitsRevisions(reste));
@@ -109,7 +163,38 @@ export async function publierTousLesFaits(
     );
   }
 
-  return fusionner(await Promise.all(travaux));
+  const assemble = fusionner(await Promise.all(travaux));
+  /*
+     LE FILTRE EST APPLIQUÉ ICI, ET UNE LIMITE EST À DIRE.
+
+     `filtrerPourLecture` écarte les faits dont le type n'est pas permis à la
+     lectrice. Il les écarte **après la lecture** : les publieurs ont déjà
+     lu, donc une lectrice qui n'a pas le droit de voir Psyché provoque quand
+     même la lecture de Psyché, dont le résultat est jeté. Rien ne sort de
+     cette fonction, mais le chemin existe — et la matrice est là justement
+     pour que le chemin n'existe pas.
+
+     Aller plus loin demanderait que chaque publieur **déclare les types qu'il
+     émet**, pour qu'on puisse ne pas l'appeler du tout. Les sept publieurs ne
+     correspondent pas aux trois propriétaires (`corps`, `psyche`, `finances`
+     et `sensible` publient tous des types d'Odyssée, découpés par domaine
+     mais pas strictement), donc la correspondance ne se déduit pas : il
+     faudrait la déclarer, et une déclaration de plus peut dériver. C'est un
+     changement à proposer, pas à décider ici.
+
+     Où cette limite est consignée, exactement. Elle est écrite ICI et dans
+     `faits-du-jour.ts`, et nulle part ailleurs pour l'instant : le pilote l'a
+     notée le 19 octobre et a fixé qu'elle rejoindrait les décisions en attente
+     À LA FUSION de `claude/cycle-d2`, dont le document porte ce genre de
+     réserve. Écrire « elle est inscrite aux décisions en attente » avant cette
+     fusion serait renvoyer à une page qui ne la contient pas — et un
+     commentaire qui renvoie à côté finit par dispenser d'aller voir.
+  */
+  return {
+    ...assemble,
+    faits: filtrerPourLecture(lectrice, assemble.faits, matrice),
+    nonAutorises: domainesNonAutorises(lectrice, matrice),
+  };
 }
 
 /**

@@ -120,3 +120,110 @@ pour de bon ; c'est le geste d'Alexis.
   remplacé par la phrase « Aucun exercice dans votre bibliothèque pour
   l'instant. » et le lien « Ajouter un exercice », qui mène à Exercices.
 - Un essai couvre ce cas, et la correction fait **un commit à part**.
+
+## 4. Les créneaux marqués déjà écrits : le correctif est prospectif
+
+- **Le défaut, mesuré le 19 octobre.** `odysseeCreneaux` déclarait
+  `CHAMP_DATE` à `jour` et `clairs: ['id', 'majLe']`. Or `dateDe` lit le
+  champ nommé sur la ligne **brute**, telle que `getAll` la rend, donc avant
+  tout déchiffrement : `jour` étant à l'intérieur du scellé, `dateDe` rendait
+  `null`, `dansLaPeriode` rendait `false`, et un effacement par période
+  passait à côté de **chaque** créneau en annonçant « 0 visé ». Un effacement
+  qui se dit fait et qui n'efface rien. Un seul magasin sur les vingt-huit
+  scellés était dans cet état.
+- **Ce qui est appliqué.** `clairs: ['id']` — `majLe` part à l'intérieur du
+  scellé, où il voyage chiffré : plus en clair n'est pas plus transporté.
+  `CHAMP_DATE` à `null`. Le découpage par période vit désormais dans le module
+  qui a la clé (`effacerLesMarquesDeLaPeriode`), que le mécanisme générique
+  appelle par `DECOUPAGES_DE_MODULE`. Coffre fermé, le magasin est laissé
+  entier et l'écran dit **pourquoi** : « ses dates sont scellées », et non
+  « un état courant et non un historique », qui aurait été faux.
+- **CE QUI RESTE EN ATTENTE, ET C'EST UNE QUESTION POUR ALEXIS.** Le
+  correctif est **prospectif**. Une migration de schéma ne peut pas le
+  rattraper : la clé du coffre ne vit qu'en mémoire, et un `upgrade` ne peut
+  ni lire ni réécrire un champ scellé. Les créneaux **déjà écrits** gardent
+  donc leur `majLe` en clair à côté du scellé jusqu'à leur prochaine
+  écriture. La lecture ne change pas — `ouvrir()` fusionne le clair et le
+  déchiffré, donc les deux formes se relisent, et l'effacement par période
+  les atteint toutes les deux, puisqu'il lit le jour **déchiffré**.
+- **Les trois issues, et celle qui est retenue.**
+  - **A — prospectif seulement.** Retenue par le pilote, et appliquée. Ce qui
+    est déjà écrit reste tel quel, et c'est dit ici plutôt que tu.
+  - **B — réécriture silencieuse au premier coffre ouvert.** **Refusée par le
+    pilote.** Réécrire les enregistrements de quelqu'un sans le lui dire, au
+    détour d'une ouverture de coffre, est précisément ce qu'on ne fait pas.
+  - **C — une passe explicite, derrière une sauvegarde confirmée.** Soumise à
+    Alexis, et **non écrite** avant sa réponse. Elle demanderait : une
+    sauvegarde chiffrée confirmée, puis la réécriture des créneaux à la forme
+    neuve, annoncée et dénombrée à l'écran.
+- **Question jointe : les sauvegardes non chiffrées.** Une sauvegarde sans
+  mot de passe emporte les lignes telles qu'elles sont en base. Le scellé y
+  reste scellé ; ce qui sort en clair, c'est ce que `clairs` nomme. Après ce
+  correctif, pour les créneaux, c'est **la clé opaque et rien d'autre** —
+  avant, c'était aussi la date d'écriture, donc le rythme. La question reste
+  entière et elle n'est pas tranchée : un magasin scellé a-t-il sa place dans
+  une sauvegarde non chiffrée ? Je ne l'en retire pas de moi-même.
+- **Le garde-fou qui manquait est posé.** `essais:schema` balaie désormais
+  les vingt-huit magasins scellés : pour chacun, `CHAMP_DATE` vaut `null` ou
+  nomme un champ présent dans `clairs`. C'est l'assertion qui aurait attrapé
+  ceci à la seconde où elle aurait existé, et elle est rouge sur l'état
+  d'avant — vérifié avant de corriger, pas après.
+
+## 5. Les exceptions scellées : deux commentaires qui promettaient trop
+
+- **Ce qui était écrit, et qui est faux.** `src/lib/noyau/coffre.ts` disait de
+  `odysseeExceptionsScellees` : « Pas de `jour` ici […] : le jour EST
+  l'information qu'on protège. » `donnees-occurrences.ts` le disait deux fois :
+  « le jour est dans le chiffré ». `groupes.ts` en tirait un troisième choix —
+  découper sur `majLe` — en l'assumant comme « une approximation », et parlait
+  de « LES DEUX SCELLÉS » alors qu'il n'y en a qu'un.
+- **Ce que la clé dit.** La clé primaire d'une exception vaut
+  `«tacheId»/«jourPrevu»`, et `«tacheId»/«jourPrevu»/«etapeId»` pour un
+  cochage — `idOccurrence` et `idEtapeCochee` dans `modele.ts`. Une clé
+  primaire ne peut pas être scellée : **le jour est donc en clair**, et un
+  `getAllKeys` le rend sans coffre. Le commentaire du scellé l'admettait à
+  demi — « la protection est donc PARTIELLE » — tout en répétant au-dessus
+  l'inverse. Les trois textes sont corrigés.
+- **Ce que le correctif gagne, et il gagne deux fois.** `majLe` part à
+  l'intérieur du scellé : il ne protégeait rien et il exposait la date
+  d'**écriture**, c'est-à-dire le moment où la personne a pointé, qui n'est
+  pas dans la clé. `CHAMP_DATE` passe à `null`, puisque plus aucun champ ne
+  porte de date, et le découpage par période vit dans le module, sur le jour
+  de la clé : il est **exact** là où il était approximatif, et il ne demande
+  **pas** le coffre. Les trois magasins des exceptions se découpent enfin sur
+  le même jour logique.
+- **Une clé illisible ne fait jamais un effacement à moitié.** Si un jour ne
+  se lit pas dans une clé, le magasin est laissé **entier** et l'écran dit
+  pourquoi. En pratique le cas n'arrive pas — les identifiants de tâche sont
+  des ULID, sans barre oblique, et un essai le vérifie —, mais rien ne
+  l'impose au contrôle d'une exception, et écarter la clé en silence aurait
+  réintroduit par la porte d'à côté le défaut que ce lot corrige.
+
+### Ce qui reste pour Alexis, sur ce magasin et seulement lui
+
+- **Le journal garde l'ancienne forme, et plus longtemps que la base.** Ce
+  magasin est journalisé : `journaliser('odysseeExceptionsScellees', scelle)`
+  transporte l'enregistrement **scellé** entier, donc la charge reste
+  chiffrée, mais `majLe` y est en clair pour toutes les entrées déjà écrites.
+- **Ce qui existe pour le nettoyer, lu dans le code, rien exécuté.** Une
+  compaction existe — `src/lib/sync/compaction.ts` —, branchée à Stockage
+  (« Voir ce qui partirait », « Compacter maintenant »). Elle n'efface que
+  les entrées des cibles **supprimées** et leurs pierres tombales : jamais une
+  cible vivante, jamais une opération de compaction, jamais une cible dont une
+  opération dépasse la borne. `planifier()` part de l'ensemble des cibles
+  supprimées.
+- **Il n'existe aucune purge ni rotation par type de fait.** La granularité
+  est la cible — `magasin:id` —, pas le type. On ne peut donc pas purger « les
+  faits d'exception » seuls.
+- **Ce que coûterait l'issue.** Une exception supprimée voit ses entrées
+  partir à la première compaction ; une exception **vivante** garde l'ancienne
+  forme pour toujours. Nettoyer les vivantes exige de les supprimer puis de
+  les réécrire — c'est-à-dire l'option C, plus une compaction. Et la
+  compaction n'est pas gratuite : sa borne est la plus petite borne
+  **accusée** par les appareils du registre, et un appareil qui n'a jamais
+  rien accusé la fait refuser, en le nommant à l'écran.
+- **La question, en une phrase.** Faut-il une passe explicite — sauvegarde
+  chiffrée confirmée, réécriture annoncée et dénombrée, puis compaction — pour
+  retirer `majLe` du clair sur les exceptions déjà écrites et dans le journal,
+  ou laisse-t-on le temps faire ce travail à mesure des réécritures ? Rien
+  n'est écrit avant la réponse.

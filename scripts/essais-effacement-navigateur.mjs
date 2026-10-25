@@ -334,6 +334,305 @@ await page.waitForTimeout(1200);
 const msgExport = (await page.locator('#message-export').textContent()) ?? '';
 v('le message rappelle que ce n’est pas une sauvegarde', /ne se réimportent pas/.test(msgExport), true);
 
+/* ── Un magasin scellé dont la date est dedans ────────────────────────── */
+
+/*
+   LA SEULE MESURE QUI TIENNE DU BRANCHEMENT, ET POURQUOI ELLE EST ICI.
+
+   `odysseeCreneaux` est scellé, et son jour est À L'INTÉRIEUR du scellé —
+   c'est l'objet du magasin : « tous les jours à 8 h » dit la régularité d'un
+   traitement qu'on ne nomme même pas. Le découpage générique, qui lit la
+   ligne brute avant déchiffrement, n'y voit donc aucune date : `CHAMP_DATE`
+   vaut `null`, et le découpage vit dans le module, que `DECOUPAGES_DE_MODULE`
+   appelle.
+
+   Les essais de Node tiennent le choix des jours (fonction pure) et l'accord
+   des deux tables. Ils ne tiennent PAS le branchement : retirer l'appel dans
+   `compter` et `effacer` en laissant la table les laissait tous verts — c'est
+   mesuré, pas supposé. Seul un vrai navigateur peut le tenir, parce qu'il
+   faut un coffre ouvert, une ligne vraiment scellée, et l'écran qui la
+   demande.
+
+   Le créneau est marqué PAR L'ÉCRAN, et non semé à la main : c'est `sceller()`
+   qui doit l'écrire, sinon la ligne n'aurait pas la forme qu'on prétend
+   découper. La contrepartie est que le marquage ne peut tomber qu'AUJOURD'HUI
+   — l'écran ne montre que les créneaux du jour. Les deux bornes se mesurent
+   donc contre ce jour-là, ce qui suffit à distinguer « visé » de « épargné ».
+*/
+
+console.log('\nUN CRÉNEAU SCELLÉ, MARQUÉ PAR L’ÉCRAN');
+
+const AUJOURDHUI = new Date().toLocaleDateString('en-CA');
+const HIER = new Date(Date.now() - 86_400_000).toLocaleDateString('en-CA');
+
+await page.goto(`${RACINE}/odyssee/sante/`, { waitUntil: 'networkidle' });
+await connecter();
+await page.waitForSelector('#pas-active', { state: 'visible', timeout: 40000 });
+await page.click('#activer');
+await page.waitForSelector('#coffre-ferme', { state: 'visible', timeout: 20000 });
+await page.fill('#mdp-coffre', MDP);
+await page.click('#ouvrir-coffre');
+await page.waitForSelector('#coffre-ouvert', { state: 'visible', timeout: 20000 });
+
+/*
+   Un traitement d'abord, puis son schéma de prise : le repli `details` qui
+   porte les heures n'existe qu'une fois le traitement créé, et sans heure
+   déclarée il n'y a aucun créneau à marquer.
+*/
+await page.fill('#t-nom', 'Traitement témoin de l’effacement');
+await page.fill('#t-posologie', '1 le matin');
+await page.click('#form-traitement button[type="submit"]');
+await page.waitForSelector('#traitements details summary', { timeout: 20000 });
+await page.click('#traitements details summary');
+await page.waitForTimeout(300);
+await page.fill('#traitements details input[type="time"]', '08:00');
+await page.click('#traitements details button:has-text("Ajouter cette heure")');
+await page.click('#traitements details button[type="submit"]');
+await page.waitForSelector('#creneaux li', { timeout: 20000 });
+
+await page.click('#creneaux li button:has-text("Pris")');
+// Le bandeau d'annulation retarde l'écriture de six secondes.
+await page.waitForTimeout(8000);
+
+v('un créneau est scellé en base', await compter('odysseeCreneaux'), 1);
+/*
+   Et il n'expose AUCUNE date en clair : c'est la condition qui rend le
+   découpage générique impossible, et la raison de tout ce qui suit. Lu sur la
+   ligne brute, celle que `getAll` rend.
+*/
+const brut = await page.evaluate(
+  () =>
+    new Promise((ok) => {
+      const r = indexedDB.open('revinsp');
+      r.onsuccess = () => {
+        const base = r.result;
+        const q = base.transaction('odysseeCreneaux').objectStore('odysseeCreneaux').getAll();
+        q.onsuccess = () => {
+          base.close();
+          ok(Object.keys(q.result[0] ?? {}).sort());
+        };
+      };
+    }),
+);
+v('et ne porte en clair que sa clé et son scellé', brut, ['id', 'scelle']);
+
+/* ── Une période qui ne le contient pas l'épargne ─────────────────────── */
+
+console.log('\nUNE PÉRIODE QUI NE LE CONTIENT PAS L’ÉPARGNE');
+
+await page.goto(`${RACINE}/stockage/`, { waitUntil: 'networkidle' });
+await connecter();
+await page.waitForSelector('#stockage', { state: 'visible', timeout: 60000 });
+await page.waitForTimeout(1500);
+
+const compterLaPeriode = async (depuis, jusqua) => {
+  /*
+     Un seul domaine coché, et les autres décochés explicitement : les
+     sections précédentes en ont laissé un, et un effacement qui emporterait
+     un domaine voisin rendrait le compte illisible — on ne saurait plus ce
+     que la ligne des créneaux mesure.
+  */
+  for (const boite of await page.locator('input[name="groupe-effacement"]').all()) {
+    if (await boite.isChecked()) await boite.uncheck();
+  }
+  await page.check('input[name="groupe-effacement"][value="odyssee"]');
+  await page.fill('#depuis', depuis);
+  await page.fill('#jusqua', jusqua);
+  await page.click('#compter');
+  await page.waitForSelector('#decompte', { state: 'visible', timeout: 30000 });
+  await page.waitForTimeout(400);
+  return {
+    detail: (await page.locator('#decompte-detail').textContent()) ?? '',
+    refus: (await page.locator('#decompte-refus').textContent()) ?? '',
+  };
+};
+
+{
+  const d = await compterLaPeriode('2024-01-01', '2024-12-31');
+  /*
+     Le magasin est COMPTÉ, et non refusé : le coffre est ouvert, donc le
+     module a pu lire. C'est exactement ce que le branchement ajoute, et la
+     différence avec le défaut d'avant : auparavant la ligne annonçait
+     « 0 sur 1 » pour TOUTE période, y compris celle du créneau.
+  */
+  v('le magasin est compté, pas laissé entier', /odysseeCreneaux/.test(d.refus), false);
+  v('et aucune ligne de 2024 n’est visée', /odysseeCreneaux — 0 sur 1/.test(d.detail), true);
+  v('le créneau est toujours là', await compter('odysseeCreneaux'), 1);
+}
+
+/* ── La période du jour le vise, et l'effacement l'emporte ────────────── */
+
+console.log('\nLA PÉRIODE DU JOUR LE VISE, ET L’EFFACEMENT L’EMPORTE');
+
+{
+  const d = await compterLaPeriode(HIER, AUJOURDHUI);
+  v('la ligne du jour est visée', /odysseeCreneaux — 1 sur 1/.test(d.detail), true);
+  v('et compter n’a rien touché', await compter('odysseeCreneaux'), 1);
+
+  await page.click('#effacer-sans');
+  await repondreALaRedemande(page, MDP);
+  await page.waitForTimeout(3000);
+  v('le créneau est parti', await compter('odysseeCreneaux'), 0);
+}
+
+/* ── Coffre fermé : le magasin est laissé entier, et l'écran le dit ───── */
+
+console.log('\nCOFFRE FERMÉ : LAISSÉ ENTIER, ET L’ÉCRAN DIT POURQUOI');
+
+/*
+   Le troisième état, et le seul qui reste honnête quand la clé manque. Ni
+   « 0 visé » — qui ferait croire à un effacement complet —, ni une erreur :
+   le magasin est nommé parmi les laissés entiers, avec la raison. C'est la
+   phrase que `raisonDuRefusDeDecoupage` porte, et elle ne dit plus « un état
+   courant et non un historique », qui aurait été faux ici.
+*/
+{
+  /*
+     Le coffre est encore ouvert : sa clé vit dans `sessionStorage`, qui
+     survit à la navigation dans le même onglet. On remarque donc le créneau
+     sans le réouvrir, puis on ferme le coffre pour de bon en vidant ce
+     rangement — c'est exactement ce que fait un nouvel onglet.
+  */
+  await page.goto(`${RACINE}/odyssee/sante/`, { waitUntil: 'networkidle' });
+  await connecter();
+  await page.waitForSelector('#coffre-ouvert', { state: 'visible', timeout: 40000 });
+  await page.waitForSelector('#creneaux li button:has-text("Pris")', { timeout: 20000 });
+  await page.click('#creneaux li button:has-text("Pris")');
+  await page.waitForTimeout(8000);
+  v('un créneau est de nouveau scellé', await compter('odysseeCreneaux'), 1);
+
+  // La clé du coffre vit dans `sessionStorage` : la retirer ferme le coffre.
+  await page.evaluate(() => sessionStorage.clear());
+  await page.goto(`${RACINE}/stockage/`, { waitUntil: 'networkidle' });
+  await connecter();
+  await page.waitForSelector('#stockage', { state: 'visible', timeout: 60000 });
+  await page.waitForTimeout(1500);
+
+  const d = await compterLaPeriode(HIER, AUJOURDHUI);
+  v('le magasin est annoncé laissé entier', /odysseeCreneaux/.test(d.refus), true);
+  v('avec la vraie raison — ses dates sont scellées', /scellées/.test(d.refus), true);
+  v('et non la phrase des états courants', /odysseeCreneaux — ce magasin porte un état courant/.test(d.refus), false);
+  v('le créneau est intact', await compter('odysseeCreneaux'), 1);
+}
+
+/* ── Les exceptions scellées : le jour est dans la clé ────────────────── */
+
+/*
+   L'AUTRE MAGASIN SCELLÉ SANS DATE EN CHAMP, ET IL SE DÉCOUPE AUTREMENT.
+
+   `odysseeExceptionsScellees` a sa clé primaire en clair — elle vaut
+   `«tacheId»/«jourPrevu»` —, donc son jour est lisible sans coffre. Son
+   découpage vit dans le module pour une autre raison que celui des créneaux :
+   non parce qu'il faut la clé du coffre, mais parce que la date n'est dans
+   aucun CHAMP, et que `dateDe` lit des champs.
+
+   D'où une différence de méthode assumée. Les créneaux devaient être marqués
+   par l'écran, parce que la forme du scellé était sous mesure. Ici le scellé
+   n'est jamais ouvert par l'effacement : seules les clés le sont. Semer les
+   lignes en base est donc une mesure valide de ce qui est testé, et le reste
+   du magasin est éprouvé ailleurs, dans `essais:fusion-occurrences`.
+*/
+
+console.log('\nLES EXCEPTIONS SCELLÉES SE DÉCOUPENT SUR LE JOUR DE LEUR CLÉ');
+
+const TACHE = '01JBQZ9X8K7M4N2P5R6S7T8V9W';
+const semerExceptions = (clefs) =>
+  page.evaluate(
+    (lignes) =>
+      new Promise((ok, ko) => {
+        const r = indexedDB.open('revinsp');
+        r.onsuccess = () => {
+          const base = r.result;
+          const tx = base.transaction('odysseeExceptionsScellees', 'readwrite');
+          const magasin = tx.objectStore('odysseeExceptionsScellees');
+          for (const id of lignes) {
+            magasin.put({ id, scelle: { iv: 'AAAA', charge: 'AAAA' } });
+          }
+          tx.oncomplete = () => {
+            base.close();
+            ok();
+          };
+          tx.onerror = () => ko(tx.error);
+        };
+      }),
+    clefs,
+  );
+
+await semerExceptions([
+  `${TACHE}/2024-06-01`,
+  `${TACHE}/${HIER}`,
+  `${TACHE}/${AUJOURDHUI}`,
+  `${TACHE}/${AUJOURDHUI}/etape-1`,
+]);
+v('quatre exceptions scellées sont en base', await compter('odysseeExceptionsScellees'), 4);
+
+{
+  /*
+     Le coffre est fermé depuis la section précédente, et c'est l'occasion de
+     mesurer les deux magasins ENSEMBLE : les créneaux sont laissés entiers
+     faute de clé, les exceptions sont comptées quand même. Les deux refus
+     possibles ne sont pas le même refus, et l'écran ne doit pas les
+     confondre.
+  */
+  const d = await compterLaPeriode(HIER, AUJOURDHUI);
+  v('les créneaux sont laissés entiers, coffre fermé', /odysseeCreneaux/.test(d.refus), true);
+  v('mais les exceptions sont comptées', /odysseeExceptionsScellees/.test(d.refus), false);
+  v('trois exceptions sur quatre sont visées', /odysseeExceptionsScellees — 3 sur 4/.test(d.detail), true);
+  v('et compter n’a rien touché', await compter('odysseeExceptionsScellees'), 4);
+
+  await page.click('#effacer-sans');
+  await repondreALaRedemande(page, MDP);
+  await page.waitForTimeout(3000);
+  v('les trois sont parties', await compter('odysseeExceptionsScellees'), 1);
+  /*
+     Et c'est bien celle de 2024 qui reste. Compter les survivants ne suffit
+     pas : « 1 sur 4 » serait vrai aussi si l'effacement avait pris la
+     mauvaise. On relit la clé.
+  */
+  const restantes = await page.evaluate(
+    () =>
+      new Promise((ok) => {
+        const r = indexedDB.open('revinsp');
+        r.onsuccess = () => {
+          const base = r.result;
+          const q = base
+            .transaction('odysseeExceptionsScellees')
+            .objectStore('odysseeExceptionsScellees')
+            .getAllKeys();
+          q.onsuccess = () => {
+            base.close();
+            ok(q.result);
+          };
+        };
+      }),
+  );
+  v('et celle qui reste est bien celle de 2024', restantes, [`${TACHE}/2024-06-01`]);
+}
+
+/* ── Une clé illisible fait laisser le magasin entier ─────────────────── */
+
+console.log('\nUNE CLÉ ILLISIBLE FAIT LAISSER LE MAGASIN ENTIER, ET NON À MOITIÉ');
+
+/*
+   Le garde-fou contre le défaut que ce lot corrige, vu de l'autre bord. Un
+   découpage qui écarterait en silence une clé dont il ne sait pas lire le
+   jour effacerait « 3 sur 4 » en annonçant avoir fait la période. Il refuse
+   le magasin ENTIER, et l'écran dit pourquoi.
+*/
+{
+  await semerExceptions([`${TACHE}/${AUJOURDHUI}`, 'clef-sans-jour']);
+  v('trois exceptions, dont une clé illisible', await compter('odysseeExceptionsScellees'), 3);
+
+  const d = await compterLaPeriode(HIER, AUJOURDHUI);
+  v('le magasin est annoncé laissé entier', /odysseeExceptionsScellees/.test(d.refus), true);
+  v('avec la raison — entier plutôt qu’à moitié', /moitié/.test(d.refus), true);
+
+  await page.click('#effacer-sans');
+  await repondreALaRedemande(page, MDP);
+  await page.waitForTimeout(3000);
+  v('et rien n’a été effacé de ce magasin', await compter('odysseeExceptionsScellees'), 3);
+}
+
 await nav.close();
 console.log(
   echecs

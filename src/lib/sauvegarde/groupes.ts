@@ -255,22 +255,26 @@ export const CHAMP_DATE: Record<string, string | null> = {
      Les deux magasins en clair se découpent sur `jourPrevu`, le jour logique
      que la règle prévoyait.
 
-     LES DEUX SCELLÉS SE DÉCOUPENT SUR `majLe`, ET C'EST UNE APPROXIMATION
-     ASSUMÉE. Leur jour logique est **dans le chiffré** — c'est tout l'objet
-     de la décision 3 —, donc inatteignable coffre fermé, donc inutilisable
-     pour découper. `majLe` est la seule date qu'ils exposent en clair : elle
-     dit quand la ligne a été écrite, non quand la chose a eu lieu. Les deux
-     coïncident presque toujours, et l'écart ne peut jouer que sur une
-     exception pointée longtemps après coup.
+     LE SCELLÉ SE DÉCOUPE SUR LE MÊME JOUR, ET DEPUIS LE 19 OCTOBRE
+     SEULEMENT. Ce qui était écrit ici disait « LES DEUX SCELLÉS », alors
+     qu'il n'y en a qu'un, et que leur jour logique était « dans le chiffré »,
+     alors que la clé primaire d'une exception vaut `«tacheId»/«jourPrevu»` :
+     le jour est EN CLAIR dans la clé, et un `getAllKeys` le rend sans coffre.
+     Deux affirmations fausses au service d'un troisième choix — découper sur
+     `majLe`, la date d'écriture — que son propre commentaire assumait comme
+     « une approximation », parce qu'une exception pointée longtemps après
+     coup tombait dans la mauvaise tranche.
 
-     L'autre choix aurait été `null` — « jamais découpée ». Il aurait fait
-     passer le contrôle tout aussi bien, et laissé des exceptions scellées
-     derrière un effacement qui se dit complet. Une approximation qu'on écrit
-     vaut mieux qu'un oubli qui se tait.
+     Il n'y a plus d'approximation à assumer. `majLe` est parti à l'intérieur
+     du scellé, donc plus aucun CHAMP de ce magasin ne porte de date, donc
+     `null` ici — `dateDe` lit des champs, pas des clés. Le découpage vit
+     dans le module (`effacerLesExceptionsDeLaPeriode`), il lit le jour dans
+     la clé, il est EXACT, et il ne demande pas le coffre. Les trois magasins
+     des exceptions se découpent enfin sur le même jour logique.
   */
   odysseeOccurrences: 'jourPrevu',
   odysseeEtapesCochees: 'jourPrevu',
-  odysseeExceptionsScellees: 'majLe',
+  odysseeExceptionsScellees: null,
   /*
      `null` — « jamais découpé », et pour une fois ce n'est pas une
      approximation. Un report ne porte AUCUNE date : en mettre une en clair
@@ -322,19 +326,33 @@ export const CHAMP_DATE: Record<string, string | null> = {
   odysseeResultats: null,
   odysseeSymptomes: 'jour',
   /*
-     LES CRÉNEAUX MARQUÉS — une ligne par traitement, par jour et par heure.
+     LES CRÉNEAUX MARQUÉS — `null`, ET LA RAISON N'EST PAS CELLE DES VOISINS.
 
-     C'est un historique, et non un état courant : « Prévu à 8 h, noté à
-     8 h 12 » est un constat daté, qui ne se réécrit pas. Le champ est `jour`,
-     le jour LOGIQUE du créneau, comme chez ses voisins de Santé
-     (`odysseeMedicaments`, `odysseePrelevements`, `odysseeSymptomes`) — et non
-     `le`, qui porte l'instant réel du geste. Une période se demande sur le
-     jour du traitement, pas sur la minute où la case a été cochée.
+     C'est bien un historique, et non un état courant : « Prévu à 8 h, noté à
+     8 h 12 » est un constat daté, qui ne se réécrit pas. Il devrait donc se
+     découper par période, et il portait `jour` pour cela.
 
-     Déclaré à la fusion de claude/p52-mol, où il manquait. Relevé par l'agent
-     C sur `main`, par l'essai d'effacement que le socle contient désormais.
+     IL NE LE POUVAIT PAS, ET LE DÉFAUT ÉTAIT MUET. `dateDe` lit le champ
+     nommé ici sur la ligne BRUTE, telle que `getAll` la rend, c'est-à-dire
+     avant tout déchiffrement. Or `jour` est à l'intérieur du scellé, et c'est
+     tout l'objet du magasin : « tous les jours à 8 h » dit la régularité d'un
+     traitement qu'on ne nomme même pas. `dateDe` rendait donc `null`,
+     `dansLaPeriode` rendait `false`, et un effacement par période passait à
+     côté de CHAQUE créneau en annonçant « 0 visé » — un effacement qui se
+     dit fait et qui n'efface rien. Mesuré le 19 octobre, pas supposé.
+
+     Mettre `jour` en clair pour réparer l'index aurait rendu lisible sans
+     coffre exactement ce que le scellé protège. C'est donc `null` ici, et le
+     découpage vit dans le module qui a la clé
+     (`effacerLesMarquesDeLaPeriode`, dans `odyssee/donnees-sante.ts`), que le
+     mécanisme générique appelle. La personne garde le découpage ; elle ne le
+     paie pas en confidentialité.
+
+     Le garde-fou qui manquait est désormais dans `essais:schema` : pour tout
+     magasin scellé, ce champ vaut `null` ou nomme un champ présent dans
+     `clairs`.
   */
-  odysseeCreneaux: 'jour',
+  odysseeCreneaux: null,
   odysseeTraitements: null,
   odysseeConditions: null,
   /* Un ressenti est daté du jour où on l'écrit : il s'élague comme un
@@ -548,6 +566,35 @@ export function groupeDuMagasin(nom: string): GroupeDeMagasins | undefined {
 
 /** Un magasin peut-il se découper par période ? */
 export const dateDecoupable = (nom: string): string | null => CHAMP_DATE[nom] ?? null;
+
+const REFUS_PAR_DEFAUT =
+  'ce magasin porte un état courant et non un historique : une période ne le découpe pas';
+
+/**
+ * Pourquoi un magasin ne se découpe pas par période, en toute franchise.
+ *
+ * Ce qui est montré à la personne quand l'effacement laisse un magasin
+ * entier. La phrase par défaut vaut pour la quasi-totalité des magasins sans
+ * date — ce sont des états courants. Les exceptions ont la leur, parce que la
+ * raison y est autre et qu'afficher « un état courant et non un historique »
+ * à propos d'un journal de saisies quotidiennes serait faux — dit à la
+ * personne, au moment où elle décide d'effacer.
+ */
+export const RAISONS_DU_REFUS_DE_DECOUPAGE: Record<string, string> = {
+  odysseeCreneaux:
+    'ses dates sont scellées : aucune n’est lisible sans votre coffre, et le découpage par ' +
+    'période demande donc un coffre ouvert',
+  /*
+     Celui-ci ne demande pas le coffre — son jour est dans sa clé. Il ne
+     refuse donc que dans un cas : une clé dont le jour ne se lit pas. Il est
+     alors laissé ENTIER, et jamais effacé à moitié.
+  */
+  odysseeExceptionsScellees:
+    'l’une de ses clés ne livre pas son jour : il est laissé entier plutôt qu’effacé à moitié',
+};
+
+export const raisonDuRefusDeDecoupage = (nom: string): string =>
+  RAISONS_DU_REFUS_DE_DECOUPAGE[nom] ?? REFUS_PAR_DEFAUT;
 
 /**
  * La date d'un enregistrement, ramenée à `AAAA-MM-JJ`.

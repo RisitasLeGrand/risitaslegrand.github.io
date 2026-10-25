@@ -37,6 +37,8 @@ import {
 } from '../src/lib/odyssee/rappels-ics';
 import { creneauxOublies, texteDuRappelDOubli } from '../src/lib/odyssee/rappels';
 import { MAGASINS_SCELLES } from '../src/lib/noyau/coffre';
+import { CHAMP_DATE } from '../src/lib/sauvegarde/groupes';
+import { DECOUPAGES_DE_MODULE } from '../src/lib/sauvegarde/effacement';
 
 let echecs = 0;
 const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
@@ -383,14 +385,34 @@ console.log('\nLE MAGASIN DES CRÉNEAUX EST SCELLÉ, ET SA CLÉ EST MUETTE');
    interroger. Si quelqu'un ajoutait `jour` aux champs clairs pour se donner
    un index, le rythme des prises redeviendrait lisible sans le coffre — et
    cet essai rougirait.
+
+   LA DEMANDE A MONTÉ LE 19 OCTOBRE, ELLE N'A PAS BAISSÉ. L'essai attendait
+   `['id', 'majLe']` et il était vert ; `majLe` est pourtant une date
+   d'écriture, et une suite de dates d'écriture en clair dessine le rythme
+   des prises — « une ligne chaque matin » — c'est-à-dire exactement ce que
+   la clé opaque cache. Il n'attend plus que la clé, et il nomme en plus les
+   champs qui ne doivent JAMAIS y être : la liste littérale dit l'état,
+   l'exclusion dit la règle, et une liste qui s'allongerait un jour sans
+   qu'on y pense se heurterait à la seconde.
 */
 {
   const declaration = MAGASINS_SCELLES.find((m) => m.magasin === 'odysseeCreneaux');
   v('le magasin est déclaré scellé', Boolean(declaration), true);
-  v('et ne laisse en clair que la clé et la date de mise à jour', declaration?.clairs, [
-    'id',
-    'majLe',
-  ]);
+  v('et ne laisse en clair que la clé', declaration?.clairs, ['id']);
+  for (const champ of ['jour', 'heure', 'le', 'majLe', 'traitementId', 'etat'] as const) {
+    v(`« ${champ} » n’est pas en clair`, declaration?.clairs.includes(champ), false);
+  }
+  /*
+     Et le corollaire, qui est la moitié oubliée : un champ qui n'est plus en
+     clair ne peut plus servir à découper une période. Les deux tables sont
+     liées, et c'est leur désaccord qui rendait l'effacement muet.
+  */
+  v('le magasin ne se découpe donc pas par date en clair', CHAMP_DATE.odysseeCreneaux, null);
+  v(
+    'et son découpage par période vit dans son module',
+    Object.keys(DECOUPAGES_DE_MODULE).includes('odysseeCreneaux'),
+    true,
+  );
 }
 
 console.log('\nLES CONTRÔLES D’UNE MARQUE REFUSENT');

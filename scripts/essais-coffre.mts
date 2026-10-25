@@ -120,10 +120,22 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    reste chiffré, par la boîte aux lettres et non par le coffre.
 */
 /*
-   Vingt-huit depuis la phase 4 de Santé (52 P2) : `odysseeCreneaux`, ce qui a
-   été noté d’un créneau prévu. Sa clé est une empreinte et non
-   « traitement / jour / heure », parce qu’une clé en clair aurait dit le
-   rythme des prises — « tous les jours à 8 h » — sans qu’on ouvre le coffre.
+   VINGT-HUIT DEPUIS `odysseeCreneaux`, arrivé avec la phase 4 de Santé
+   (prompt 52, P2) le 19 octobre.
+
+   Ce qu'il porte : ce qui a été noté d'un créneau prévu. Sa clé est une
+   empreinte et non « traitement / jour / heure », parce qu'une clé en clair
+   aurait dit le rythme des prises — « tous les jours à 8 h » — sans qu'on
+   ouvre le coffre.
+
+   ET CE QUE CE COMPTE A APPRIS, deux fois. Le magasin est entré par une
+   fusion dont les essais ciblés ne l'incluaient pas : le nombre écrit en dur
+   a fait son office, mais il n'avait pas d'auditoire. C'était la deuxième
+   fois qu'il attrapait un magasin arrivé sans ses déclarations, et la
+   deuxième fois qu'il le disait à personne.
+
+   La suite a été donnée : `essais:coffre` est entré au socle (`2dc15ce`), de
+   sorte qu'il parle désormais au bon moment.
 */
 v('vingt-huit magasins scellés', MAGASINS_SCELLES.length, 28);
 /*
@@ -363,7 +375,14 @@ console.log('\n\x1b[1mTOUT TYPE SENSIBLE EST SCELLÉ, OU DISPENSÉ AVEC SA RAISO
 
 {
   const typesSensibles = TYPES.filter((t) => t.sensible).map((t) => t.id);
-  vrai('treize types sont déclarés sensibles', typesSensibles.length === 13);
+  /*
+     QUATORZE DEPUIS `odyssee.fenetre-de-cycle`, déclaré avec le lot B.2 : une
+     fenêtre passée du cycle dit qu'il y a un cycle, donc elle est sensible. Le
+     drapeau ne l'empêche pas d'être lue par Sport — la matrice la nomme — mais
+     il la tient hors des partages, des prompts d'IA et des lectures non
+     déclarées.
+  */
+  vrai('quatorze types sont déclarés sensibles', typesSensibles.length === 14);
   v(
     'le registre réel est couvert',
     controlerCouvertureDesSensibles(MAGASINS_JOURNALISES, typesSensibles),

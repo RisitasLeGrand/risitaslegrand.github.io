@@ -46,6 +46,37 @@ import { TYPES, typeDeFait, type TypeDeFait } from './faits';
 export const TYPE_CHARGE_PERCUE = 'odyssee.charge-percue';
 
 /**
+ * Les noms de branches lectrices, déclarés une fois.
+ *
+ * Trois appelants passaient la même chaîne littérale, et une chaîne recopiée
+ * trois fois se faute une fois. Surtout : une lectrice inconnue de la matrice
+ * reçoit `matrice[lectrice] ?? []`, donc **tout est refusé sauf ses propres
+ * types** — le bon sens de l'erreur, mais une faute de frappe se verrait
+ * seulement à l'écran, sous la forme d'un domaine soudain non autorisé.
+ * `essais:permissions` vérifie que chaque lectrice nommée dans `src/` est une
+ * clé de la matrice.
+ */
+export const LECTRICES = {
+  odyssee: 'odyssee',
+  sport: 'sport',
+  revisions: 'revisions',
+} as const;
+
+/**
+ * Le type d'une lectrice, et pourquoi ce n'est pas `string`.
+ *
+ * J'avais typé `lectrice: string`, et écrit dans l'essai qu'il garderait « un
+ * appel qui passerait une lectrice variable venue d'ailleurs ». Le sabotage l'a
+ * démenti : `lectrice: inconnue` contient le mot « lectrice », donc le
+ * balayage de source passait, et `string` accepte tout.
+ *
+ * Une union fermée le refuse au compilateur, ce qui est plus fort que
+ * n'importe quel balayage : un appelant doit se nommer avec une des trois
+ * constantes, et une quatrième branche devra être déclarée ici — donc relue.
+ */
+export type Lectrice = (typeof LECTRICES)[keyof typeof LECTRICES];
+
+/**
  * La matrice : pour chaque branche lectrice, les types qu'elle peut lire chez
  * les autres. Une branche lit toujours ses propres types, sans avoir à le dire.
  */
@@ -75,7 +106,29 @@ export const MATRICE_PAR_DEFAUT: Matrice = {
     'odyssee.repas',
     'odyssee.hydratation',
     'odyssee.sante',
-    'odyssee.statut-hormonal',
+    /*
+       `odyssee.statut-hormonal` A ÉTÉ RETIRÉ ICI, et c'est un resserrement, pas
+       un élargissement.
+
+       La citation de B.2 en tête de ce module ne le donne pas à Sport : « Sport
+       lit de la diète, du sommeil, du poids, de l'état de santé général et
+       d'une mesure de stress/fatigue agrégée ». Le statut y avait été ajouté au
+       titre de D.5, qui parle de bandes datées sur les courbes de Sport.
+
+       Mais le § 4.7 est explicite dans l'autre sens : « Sport ne lit **que les
+       fenêtres passées** du cycle ; aucun statut, aucun bilan hormonal sexuel,
+       aucune molécule contraceptive. » Et le plan de phase 0 tranche la tension
+       entre les deux, ligne 143 : « le statut hormonal à quatre valeurs est
+       trop grossier et trahirait le suivi ». Quatre valeurs dont une est
+       « cycle » : le lire, c'est apprendre qu'un suivi existe.
+
+       Ce que D.5 veut — du contexte sur les courbes — est donc rendu par
+       `odyssee.fenetre-de-cycle`, qui dit des jours et rien de plus.
+
+       Rien ne casse : vérifié le 19 octobre, aucun module de `src/lib/sport/`
+       ne lit de fait d'Odyssée. La permission n'était utilisée par personne.
+    */
+    'odyssee.fenetre-de-cycle',
     TYPE_CHARGE_PERCUE,
   ],
 
@@ -153,6 +206,66 @@ export function filtrerPourLecture<T extends { type: string }>(
   matrice: Matrice = MATRICE_PAR_DEFAUT,
 ): T[] {
   return faits.filter((f) => peutLire(lectrice, f.type, matrice).autorise);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Dire ce qui est refusé, sans dire ce qu'il contient
+   ══════════════════════════════════════════════════════════════════════════ */
+
+export interface DomaineNonAutorise {
+  domaine: string;
+  /** Combien de types de ce domaine la lectrice ne peut pas lire. */
+  typesRefuses: number;
+  /** Combien ce domaine compte de types en tout. */
+  typesEnTout: number;
+}
+
+/**
+ * Les domaines qu'une branche ne peut pas lire entièrement, **calculés sur la
+ * matrice et non sur les faits observés**.
+ *
+ * ## Pourquoi pas sur les faits
+ *
+ * C'est le point de la maquette 8.3, qui impose de distinguer « domaine non
+ * autorisé » de « non mesuré ». Si on déduisait le refus des faits écartés, un
+ * domaine interdit dont la fenêtre ne contient rien se tairait — exactement
+ * comme un domaine autorisé et vide. La distinction disparaîtrait au moment
+ * précis où elle compte : quand il n'y a rien à montrer.
+ *
+ * La réponse ne dépend donc pas des données : elle dépend des permissions, et
+ * elle est la même pour une fenêtre pleine et pour une fenêtre vide.
+ *
+ * ## Ce qui est rendu, et ce qui ne l'est pas
+ *
+ * Le nom du domaine et **deux comptes de types** — pas un seul fait, pas un
+ * identifiant de type refusé, pas une date. Un écran peut dire « Psyché : non
+ * autorisé » sans rien apprendre de ce que Psyché contient. Rendre la liste
+ * des types refusés aurait été plus commode et aurait fui : savoir qu'un type
+ * « check-in » est refusé n'apprend rien, mais savoir lesquels le sont pour
+ * cette personne-là, un jour donné, en apprendrait.
+ *
+ * Un domaine dont **aucun** type n'est refusé est absent de la liste : il n'y
+ * a rien à dire d'un domaine entièrement lisible.
+ */
+export function domainesNonAutorises(
+  lectrice: string,
+  matrice: Matrice = MATRICE_PAR_DEFAUT,
+): DomaineNonAutorise[] {
+  const parDomaine = new Map<string, { refuses: number; total: number }>();
+  for (const t of TYPES) {
+    const compte = parDomaine.get(t.domaine) ?? { refuses: 0, total: 0 };
+    compte.total += 1;
+    if (!peutLire(lectrice, t.id, matrice).autorise) compte.refuses += 1;
+    parDomaine.set(t.domaine, compte);
+  }
+  return [...parDomaine.entries()]
+    .filter(([, c]) => c.refuses > 0)
+    .map(([domaine, c]) => ({
+      domaine,
+      typesRefuses: c.refuses,
+      typesEnTout: c.total,
+    }))
+    .sort((a, b) => a.domaine.localeCompare(b.domaine, 'fr'));
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

@@ -31,6 +31,7 @@ import {
   toutesLesSessionsVeridical,
 } from './db';
 import { estSocle, type EntreeRevision } from './noyau/revisions';
+import { LECTRICES } from './noyau/permissions';
 import { jourLogique } from './noyau/jour-logique';
 import type { Fenetre, Mesure } from './odyssee/indicateurs';
 import {
@@ -218,6 +219,7 @@ export async function rassembler(p: Periode, options: OptionsFenetre = {}): Prom
          qu'on néglige.
       */
       publierTousLesFaits({
+        lectrice: LECTRICES.odyssee,
         de: p.de,
         a: p.a,
         reglages,

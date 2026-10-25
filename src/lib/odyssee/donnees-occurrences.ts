@@ -129,7 +129,14 @@ export async function occurrencesDuJour(jourPrevu: string): Promise<Occurrence[]
  * prévoyait — c'est-à-dire là où elle n'est plus.
  *
  * **Le magasin scellé se parcourt en entier.** Il n'a pas d'index sur le
- * jour, et c'est voulu : le jour est dans le chiffré. Il reste petit.
+ * jour, et c'est voulu : rien ne doit INVITER à ranger les exceptions
+ * sensibles par date. Mais le dire comme « le jour est dans le chiffré »
+ * serait faux, et ce fichier le disait : la clé primaire vaut
+ * `«tacheId»/«jourPrevu»`, donc le jour est EN CLAIR dans la clé, et un
+ * `getAllKeys` le rend sans coffre. Ce qui est scellé, c'est tout le reste —
+ * le genre, l'étape, l'état. La protection est partielle, et le maillon
+ * faible n'est pas ici : la tâche elle-même vit en clair dans
+ * `odysseeTaches`, avec son titre. Le magasin reste petit.
  */
 export async function exceptionsDeLaFenetre(
   du: string,
@@ -228,10 +235,13 @@ export async function decocherEtape(
 /**
  * Toutes les exceptions scellées, ouvertes. **Lève si le coffre est fermé.**
  *
- * Pas d'index, donc pas de lecture par jour : le jour est dans le chiffré,
- * et c'est exactement ce qu'on protège. Ce magasin ne porte que les
+ * Pas d'index, donc pas de lecture par jour. Le motif n'est pas celui qui
+ * était écrit ici — « le jour est dans le chiffré » —, parce que c'est faux :
+ * la clé primaire vaut `«tacheId»/«jourPrevu»`. Le motif est qu'un index sur
+ * le jour serait une porte toute prête vers « les exceptions sensibles du
+ * mois », et qu'aucune lecture n'en a besoin. Ce magasin ne porte que les
  * exceptions des tâches sensibles ; il reste petit, et un parcours complet y
- * coûte moins qu'une fuite.
+ * coûte moins qu'une commodité dont personne ne se sert.
  */
 export async function exceptionsScellees(): Promise<ExceptionScellee[]> {
   const cle = exigerLeCoffre();
@@ -267,6 +277,154 @@ export async function ecrireExceptionScellee(e: ExceptionScellee): Promise<Excep
 export async function oublierExceptionScellee(id: string): Promise<void> {
   await (await db()).delete('odysseeExceptionsScellees', id);
   await journaliserSuppression([`odysseeExceptionsScellees:${id}`]);
+}
+
+/* ── L'effacement par période, qui n'a pas besoin du coffre ───────────── */
+
+/**
+ * Le jour qu'une clé d'exception porte, ou `null`.
+ *
+ * La clé vaut `«tacheId»/«jourPrevu»` pour une occurrence et
+ * `«tacheId»/«jourPrevu»/«etapeId»` pour un cochage. Le jour est donc le
+ * SECOND segment, et il est EN CLAIR : c'est la clé primaire du magasin, et
+ * une clé ne peut pas être scellée.
+ *
+ * On lit le second segment, et non le dernier ni le premier : un identifiant
+ * de tâche ne contient pas de barre oblique — `controlerOccurrence` l'impose
+ * en exigeant `id === idOccurrence(tacheId, jourPrevu)` —, et prendre le
+ * dernier segment donnerait l'étape plutôt que le jour sur un cochage.
+ */
+export function jourDeLaClefDException(clef: string): string | null {
+  const segments = clef.split('/');
+  if (segments.length < 2) return null;
+  const jour = segments[1];
+  return /^\d{4}-\d{2}-\d{2}$/.test(jour) ? jour : null;
+}
+
+/** Le partage d'un découpage : ce qui est visé, et ce qui n'a pas pu être lu. */
+export interface DecoupageDesExceptions {
+  /** Les clés de la période. */
+  visees: string[];
+  /**
+   * Les clés dont le jour n'a pas pu être lu.
+   *
+   * Jamais ignorées. Une clé illisible qu'on écarterait en silence ferait
+   * passer un effacement par période à côté d'un enregistrement en annonçant
+   * l'avoir fait — c'est précisément le défaut que ce lot corrige, et le
+   * reproduire ici par commodité serait le réintroduire par la porte d'à
+   * côté.
+   */
+  illisibles: string[];
+}
+
+/**
+ * Les clés d'exception d'une période, les deux bornes incluses.
+ *
+ * Fonction pure, séparée de l'écriture : c'est la partie qu'un essai peut
+ * éprouver sans base, et celle où une erreur de borne se cacherait.
+ *
+ * En pratique tous les identifiants de tâche sont des ULID — alphabet de
+ * Crockford, donc sans barre oblique —, et le second segment est toujours le
+ * jour. Mais rien ne l'IMPOSE au contrôle d'une exception, et une donnée
+ * importée pourrait porter autre chose : ce qui ne se lit pas est donc
+ * compté à part, et l'appelant refuse plutôt que de sauter.
+ */
+export function clefsDExceptionDeLaPeriode(
+  clefs: readonly string[],
+  depuis?: string,
+  jusqua?: string,
+): DecoupageDesExceptions {
+  const visees: string[] = [];
+  const illisibles: string[] = [];
+  for (const clef of clefs) {
+    const jour = jourDeLaClefDException(clef);
+    if (!jour) {
+      illisibles.push(clef);
+      continue;
+    }
+    if (depuis && jour < depuis) continue;
+    if (jusqua && jour > jusqua) continue;
+    visees.push(clef);
+  }
+  return { visees, illisibles };
+}
+
+/**
+ * Le message d'un refus, quand une clé ne livre pas son jour.
+ *
+ * Exporté pour que l'essai cite la même phrase que le code, plutôt qu'une
+ * copie qui se désaccorderait.
+ */
+export const REFUS_CLEF_ILLISIBLE =
+  'Une clé d’exception ne livre pas son jour : ce magasin est laissé entier plutôt ' +
+  'qu’à moitié effacé.';
+
+/**
+ * Efface les exceptions scellées d'une période — et c'est ICI, pas ailleurs.
+ *
+ * ## Pourquoi le mécanisme générique ne peut pas le faire
+ *
+ * Il découpe en lisant `CHAMP_DATE[magasin]` sur un CHAMP de la ligne brute.
+ * Ce magasin n'en a plus aucun qui porte une date : `majLe` est parti à
+ * l'intérieur du scellé, et le jour logique n'y a jamais été. La date qui
+ * reste lisible est dans la CLÉ, et aucun champ ne la nomme — d'où `null`
+ * dans `CHAMP_DATE`, et le découpage ici.
+ *
+ * ## Ce que ce découpage gagne, et il gagne deux fois
+ *
+ * Il est EXACT. Le découpage précédent portait sur `majLe`, la date
+ * d'écriture, et son commentaire l'assumait comme une approximation : une
+ * exception pointée longtemps après coup tombait dans la mauvaise tranche.
+ * Celui-ci porte sur `jourPrevu`, le jour logique — le même que les deux
+ * magasins en clair, donc les trois se découpent enfin de la même façon.
+ *
+ * Il NE DEMANDE PAS LE COFFRE, parce que la clé est en clair. Contrairement
+ * aux créneaux marqués, ce magasin n'est donc jamais « laissé entier » faute
+ * de clé, et il n'a pas de phrase de refus.
+ */
+export async function effacerLesExceptionsDeLaPeriode(
+  depuis?: string,
+  jusqua?: string,
+): Promise<number> {
+  const { visees } = await decouperLesExceptions(depuis, jusqua);
+  for (const clef of visees) await oublierExceptionScellee(clef);
+  return visees.length;
+}
+
+/**
+ * Le découpage, lu en base, et le refus s'il y a une clé illisible.
+ *
+ * Le refus est une exception levée, et non un nombre amputé : l'appelant
+ * générique la traduit en « magasin laissé entier », avec sa raison à
+ * l'écran. Laissé entier et dit vaut mieux qu'effacé à moitié et tu.
+ */
+async function decouperLesExceptions(
+  depuis?: string,
+  jusqua?: string,
+): Promise<DecoupageDesExceptions> {
+  const toutes = (await (
+    await db()
+  ).getAllKeys('odysseeExceptionsScellees')) as unknown as string[];
+  const partage = clefsDExceptionDeLaPeriode(
+    toutes.filter((c): c is string => typeof c === 'string'),
+    depuis,
+    jusqua,
+  );
+  if (partage.illisibles.length) throw new Error(REFUS_CLEF_ILLISIBLE);
+  return partage;
+}
+
+/**
+ * Combien d'exceptions une période emporterait, sans rien effacer.
+ *
+ * Même fonction de choix que l'effacement, pour que le nombre annoncé avant
+ * une confirmation définitive et le nombre effacé ne puissent pas diverger.
+ */
+export async function compterLesExceptionsDeLaPeriode(
+  depuis?: string,
+  jusqua?: string,
+): Promise<number> {
+  return (await decouperLesExceptions(depuis, jusqua)).visees.length;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

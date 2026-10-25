@@ -458,6 +458,79 @@ export async function effacerLaMarque(id: string): Promise<void> {
   await oublier('odysseeCreneaux', id);
 }
 
+/* ── L'effacement par période, qui ne peut se faire qu'ici ─────────────── */
+
+/**
+ * Les marques d'une période, choisies sur le jour LOGIQUE du créneau.
+ *
+ * Fonction pure, et séparée de l'écriture exprès : c'est la seule partie du
+ * découpage qu'un essai peut éprouver sans navigateur, et c'est aussi la
+ * seule où une erreur de borne se cache. Les deux bornes sont INCLUSES —
+ * « du 1er au 31 » emporte le 31 —, comme partout ailleurs dans
+ * l'effacement.
+ */
+export function marquesDeLaPeriode(
+  marques: readonly MarqueDeCreneau[],
+  depuis?: string,
+  jusqua?: string,
+): MarqueDeCreneau[] {
+  return marques.filter((m) => {
+    if (depuis && m.jour < depuis) return false;
+    if (jusqua && m.jour > jusqua) return false;
+    return true;
+  });
+}
+
+/**
+ * Efface les créneaux marqués d'une période — et c'est ICI, pas ailleurs.
+ *
+ * ## Pourquoi le mécanisme générique ne peut pas le faire
+ *
+ * `effacement.ts` découpe une période en lisant `CHAMP_DATE[magasin]` sur la
+ * ligne BRUTE, telle que `getAll` la rend, donc avant tout déchiffrement. Or
+ * le jour d'un créneau est à l'intérieur du scellé — c'est tout l'objet du
+ * magasin : « tous les jours à 8 h » dit la régularité d'un traitement qu'on
+ * ne nomme même pas. Aucune date n'est donc lisible en clair, et `CHAMP_DATE`
+ * vaut `null` pour ce magasin.
+ *
+ * Le découpage reste possible, mais il demande la clé. Il vit donc dans le
+ * module, qui l'a, et le mécanisme générique l'appelle.
+ *
+ * ## Ce qu'il emporte avec lui
+ *
+ * Chaque marque part par `effacerLaMarque`, qui retire aussi la prise que ce
+ * marquage avait créée. C'est voulu : une prise née d'un créneau effacé
+ * serait une prise que personne n'a saisie, conservée sans sa cause. Le cas
+ * limite est connu et assumé — un créneau du 31 noté après minuit a sa prise
+ * au 1er, et elle part avec son créneau, hors de la période demandée. Partir
+ * avec sa cause vaut mieux que rester sans elle.
+ *
+ * Le coffre doit être ouvert : `toutesLesMarques` lève sinon, et l'appelant
+ * traduit ce refus en une phrase que l'écran montre.
+ */
+export async function effacerLesMarquesDeLaPeriode(
+  depuis?: string,
+  jusqua?: string,
+): Promise<number> {
+  const visees = marquesDeLaPeriode(await toutesLesMarques(), depuis, jusqua);
+  for (const marque of visees) await effacerLaMarque(marque.id);
+  return visees.length;
+}
+
+/**
+ * Combien de créneaux une période emporterait, sans rien effacer.
+ *
+ * Le décompte que l'écran montre avant la confirmation. Il passe par le même
+ * choix que l'effacement — même fonction pure —, pour que le nombre annoncé
+ * et le nombre effacé ne puissent pas diverger.
+ */
+export async function compterLesMarquesDeLaPeriode(
+  depuis?: string,
+  jusqua?: string,
+): Promise<number> {
+  return marquesDeLaPeriode(await toutesLesMarques(), depuis, jusqua).length;
+}
+
 /* ── Les ressentis, rattachés à un traitement (2.3) ───────────────────── */
 
 /**

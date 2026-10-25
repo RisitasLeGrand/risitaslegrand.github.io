@@ -25,6 +25,7 @@ import { DOMAINES_ACTIFS_PAR_DEFAUT, type IdDomaine } from './noyau/domaines';
 import type { Fait } from './noyau/faits';
 import { champ } from './profil';
 import { publierTousLesFaits } from './odyssee/faits-branches';
+import { LECTRICES } from './noyau/permissions';
 import {
   evenementsEntre,
   revueDu,
@@ -224,7 +225,7 @@ export async function etatDuJour(maintenant = new Date()): Promise<EtatDuJour> {
      s'entraîner et de peser.
   */
   const [publication, taches, quetes, actifs, cibles, coucher, lever, moment] = await Promise.all([
-    publierTousLesFaits({ reglages }),
+    publierTousLesFaits({ lectrice: LECTRICES.odyssee, reglages }),
     toutesLesTaches(),
     toutesLesQuetes(),
     domainesActifs(),

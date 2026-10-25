@@ -178,6 +178,7 @@ import { DOMAINES } from '../../lib/noyau/domaines';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import { reglagesJourLogiqueLocaux } from '../../lib/adaptation';
   import { publierTousLesFaits } from '../../lib/odyssee/faits-branches';
+  import { LECTRICES } from '../../lib/noyau/permissions';
   import { syntheseDe } from '../../lib/indicateurs';
   import { construireToutes } from '../../lib/odyssee/series';
   import {
@@ -571,7 +572,7 @@ import { DOMAINES } from '../../lib/noyau/domaines';
   async function recharger() {
     $('erreur').classList.add('hidden');
     const [publication, lesTrajectoires] = await Promise.all([
-      publierTousLesFaits(),
+      publierTousLesFaits({ lectrice: LECTRICES.odyssee }),
       toutesLesTrajectoires(),
     ]);
     trajectoires = lesTrajectoires;
