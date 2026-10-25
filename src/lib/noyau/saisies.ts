@@ -1,0 +1,447 @@
+/**
+ * Les saisies : une par nature, construites une seule fois.
+ *
+ * ## Pourquoi ce module existe
+ *
+ * Ces constructeurs vivaient dans le script de `initialisation.astro`, et
+ * « Mon profil » n'y avait pas accès : une page ne s'importe pas. Le profil
+ * demandait donc **un seul champ texte pour toutes les natures**, et une
+ * répartition s'y corrigeait en tapant du JSON à la main — « Forme attendue :
+ * {"cognition": 10} ». Son propre commentaire le disait provisoire, et
+ * signalait que l'exemple affiché parlait de domaines jusque devant les dates
+ * d'épreuves, où il est faux.
+ *
+ * Une personne à qui l'on demande d'écrire un dictionnaire JSON pour changer
+ * ses heures par domaine n'a pas un champ malcommode : elle a une porte
+ * fermée. Et le remède existait déjà, vingt lignes plus loin dans un autre
+ * fichier.
+ *
+ * ## Ce que l'extraction a dû changer, et rien de plus
+ *
+ * `repartition` appelait `$('valider').click()` depuis son bouton « Je ne sais
+ * pas encore » : elle atteignait le DOM de la page d'initialisation, et aurait
+ * été muette ailleurs. Ce point devient `surInconnu`, un rappel injecté.
+ *
+ * Elle bornait aussi à 20 et affichait « h » en dur. Les deux deviennent des
+ * options, dont les valeurs par défaut sont celles d'avant : l'initialisation
+ * se comporte à l'identique, et le profil peut suivre l'unité déclarée au
+ * catalogue plutôt que d'en inventer une.
+ *
+ * Tout le reste est repris mot pour mot, commentaires compris — ils portent
+ * des défauts mesurés, et les réécrire les perdrait.
+ */
+import {
+  BORNES,
+  MAXIMUM_LIGNES,
+  SUGGESTIONS,
+  avisDeSaisie,
+  type Option,
+} from './initialisation';
+import { jourLogique } from './jour-logique';
+import type { ChampDeclare } from './profil';
+
+/** Ce qu'une saisie sait faire : se montrer, et rendre une valeur. */
+export interface Saisie {
+  element: HTMLElement;
+  /** La valeur saisie, ou `undefined` quand rien n'est utilisable. */
+  lire: () => unknown;
+  /** Quand la saisie se valide d'elle-même — un bouton de choix unique. */
+  immediate?: boolean;
+}
+
+/** Une clé de répartition ou de dates, et ce qu'elle se nomme à l'écran. */
+export interface ClefLibellee {
+  clef: string;
+  libelle: string;
+}
+
+export const CLASSE_BASCULE =
+  'min-h-11 rounded-lg border px-4 text-sm font-medium transition ' +
+  'border-slate-300 text-slate-700 hover:border-indigo-400 ' +
+  'dark:border-slate-700 dark:text-slate-200 dark:hover:border-indigo-600';
+export const CLASSE_BASCULE_ACTIVE =
+  'min-h-11 rounded-lg border px-4 text-sm font-medium transition ' +
+  'border-indigo-600 bg-indigo-50 text-indigo-800 ' +
+  'dark:border-indigo-500 dark:bg-indigo-950/50 dark:text-indigo-200';
+
+const CLASSE_CHAMP =
+  'w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 ' +
+  'dark:border-slate-700 dark:bg-slate-950 dark:text-white';
+
+export function bascules(options: readonly Option[], retenues: unknown[]): Saisie {
+  const choisies = new Set(retenues.map((v) => String(v)));
+  const element = document.createElement('div');
+  element.className = 'flex flex-wrap gap-2';
+  for (const option of options) {
+    const bouton = document.createElement('button');
+    bouton.type = 'button';
+    bouton.dataset.valeur = String(option.valeur);
+    const peindre = () => {
+      const active = choisies.has(String(option.valeur));
+      bouton.className = active ? CLASSE_BASCULE_ACTIVE : CLASSE_BASCULE;
+      bouton.setAttribute('aria-pressed', active ? 'true' : 'false');
+    };
+    bouton.textContent = option.libelle;
+    peindre();
+    bouton.addEventListener('click', () => {
+      const clef = String(option.valeur);
+      if (choisies.has(clef)) choisies.delete(clef);
+      else choisies.add(clef);
+      peindre();
+    });
+    element.appendChild(bouton);
+  }
+  return {
+    element,
+    lire: () => options.filter((o) => choisies.has(String(o.valeur))).map((o) => String(o.valeur)),
+  };
+}
+
+export function choixUnique(
+  options: readonly Option[],
+  retenue: unknown,
+  valider: () => void,
+): Saisie {
+  let choisie: unknown = retenue;
+  const element = document.createElement('div');
+  element.className = 'grid gap-2';
+  for (const option of options) {
+    const bouton = document.createElement('button');
+    bouton.type = 'button';
+    bouton.dataset.valeur = String(option.valeur);
+    bouton.className =
+      'w-full rounded-xl border px-4 py-3 text-left transition ' +
+      (String(choisie) === String(option.valeur)
+        ? 'border-indigo-600 bg-indigo-50 dark:border-indigo-500 dark:bg-indigo-950/50'
+        : 'border-slate-300 hover:border-indigo-400 dark:border-slate-700 dark:hover:border-indigo-600');
+    const titre = document.createElement('span');
+    titre.className = 'block font-medium text-slate-900 dark:text-white';
+    titre.textContent = option.libelle;
+    bouton.appendChild(titre);
+    if (option.aide) {
+      const aide = document.createElement('span');
+      aide.className = 'mt-1 block text-sm text-slate-500 dark:text-slate-400';
+      aide.textContent = option.aide;
+      bouton.appendChild(aide);
+    }
+    bouton.addEventListener('click', () => {
+      choisie = option.valeur;
+      valider();
+    });
+    element.appendChild(bouton);
+  }
+  return { element, lire: () => choisie, immediate: true };
+}
+
+/**
+ * Un nombre tapé librement, que rien ne borne — et qui se fait remarquer
+ * quand il est invraisemblable.
+ *
+ * Le repli `texte()` aurait rendu une chaîne pour un champ de nature
+ * « nombre » : `valider()` l'aurait refusée, et l'écran aurait été mort sans
+ * que rien ne plante. Le curseur de `BORNES`, lui, aurait imposé des bornes
+ * dures là où B.3 demande un avertissement — un minimum à 1900 refuserait
+ * quelqu'un né en 1895.
+ *
+ * D'où ce troisième cas : une saisie numérique sans borne, doublée d'une
+ * phrase sous le champ quand la valeur étonne. La phrase n'empêche pas de
+ * continuer ; c'est tout son intérêt.
+ */
+export function nombreLibre(declare: ChampDeclare, defaut: number | null): Saisie {
+  const enveloppe = document.createElement('div');
+  const champ = document.createElement('input');
+  champ.type = 'number';
+  champ.inputMode = 'numeric';
+  champ.id = `saisie-${declare.champ}`;
+  champ.setAttribute('aria-labelledby', 'question');
+  champ.value = defaut === null ? '' : String(defaut);
+  champ.autocomplete = 'off';
+  champ.className = CLASSE_CHAMP;
+  enveloppe.appendChild(champ);
+
+  const avis = document.createElement('p');
+  avis.id = `avis-${declare.champ}`;
+  avis.className = 'mt-2 hidden text-sm text-amber-800 dark:text-amber-300';
+  avis.setAttribute('role', 'status');
+  enveloppe.appendChild(avis);
+
+  champ.addEventListener('input', () => {
+    const n = Number(champ.value);
+    const phrase =
+      champ.value.trim() === '' || !Number.isFinite(n)
+        ? null
+        : avisDeSaisie(declare.champ, n, jourLogique(new Date()));
+    avis.textContent = phrase ?? '';
+    avis.classList.toggle('hidden', phrase === null);
+  });
+
+  return {
+    element: enveloppe,
+    lire: () => {
+      const n = Number(champ.value);
+      return champ.value.trim() === '' || !Number.isFinite(n) ? undefined : n;
+    },
+  };
+}
+
+export function texte(declare: ChampDeclare, defaut: string): Saisie {
+  const enveloppe = document.createElement('div');
+  const champ = document.createElement('input');
+  champ.type = 'text';
+  champ.id = `saisie-${declare.champ}`;
+  /* La question est le titre de l'écran : la désigner vaut mieux que la
+     recopier dans un « aria-label » qui se désynchroniserait d'elle. */
+  champ.setAttribute('aria-labelledby', 'question');
+  champ.value = defaut;
+  champ.autocomplete = 'off';
+  champ.className = CLASSE_CHAMP;
+  enveloppe.appendChild(champ);
+
+  const suggestions = SUGGESTIONS[declare.champ];
+  if (suggestions?.length) {
+    const liste = document.createElement('div');
+    liste.className = 'mt-3 flex flex-wrap gap-2';
+    for (const mot of suggestions) {
+      const bouton = document.createElement('button');
+      bouton.type = 'button';
+      bouton.className = CLASSE_BASCULE;
+      bouton.textContent = mot;
+      bouton.addEventListener('click', () => {
+        champ.value = mot;
+        champ.focus();
+      });
+      liste.appendChild(bouton);
+    }
+    enveloppe.appendChild(liste);
+  }
+  return { element: enveloppe, lire: () => champ.value.trim() };
+}
+
+export function lignes(declare: ChampDeclare, defaut: string[]): Saisie {
+  const maximum = MAXIMUM_LIGNES[declare.champ] ?? 3;
+  const enveloppe = document.createElement('div');
+  enveloppe.className = 'space-y-2';
+  const champs: HTMLInputElement[] = [];
+  for (let i = 0; i < maximum; i += 1) {
+    const champ = document.createElement('input');
+    champ.type = 'text';
+    champ.value = defaut[i] ?? '';
+    champ.placeholder = i === 0 ? 'Une phrase suffit' : 'Facultatif';
+    champ.className = CLASSE_CHAMP;
+    champs.push(champ);
+    enveloppe.appendChild(champ);
+  }
+  return {
+    element: enveloppe,
+    lire: () => champs.map((c) => c.value.trim()).filter(Boolean),
+  };
+}
+
+/*
+   U2 DU 43 — UNE HEURE NON RÉPONDUE N'EST PAS SEPT HEURES.
+
+   Cette saisie partait de « 07:00 » quand rien n'était connu. Le champ
+   n'étant jamais vide, `lire()` rendait toujours une valeur, et passer
+   l'écran sans y toucher ÉCRIVAIT sept heures au profil — avec la source
+   « declare », c'est-à-dire « la personne l'a dit ». Elle ne l'avait pas
+   dit. Et une heure de lever fausse déplace la bascule de journée, donc
+   la revue du soir, donc le compte des séances.
+
+   Elle part donc vide, et la note le dit. Une valeur déjà enregistrée est
+   bien reproposée : revenir sur une question ne doit pas effacer la
+   réponse d'avant.
+*/
+export function heure(declare: ChampDeclare, defaut: string | null): Saisie {
+  const enveloppe = document.createElement('div');
+  const champ = document.createElement('input');
+  champ.type = 'time';
+  champ.step = '900';
+  champ.id = `saisie-${declare.champ}`;
+  champ.setAttribute('aria-labelledby', 'question');
+  champ.value = defaut ?? '';
+  champ.className =
+    'rounded-lg border border-slate-300 px-3 py-2 text-slate-900 ' +
+    'dark:border-slate-700 dark:bg-slate-950 dark:text-white';
+  const note = document.createElement('p');
+  note.className = 'mt-2 text-xs text-slate-500 dark:text-slate-400';
+  note.textContent = 'Laissez vide si vous ne savez pas.';
+  enveloppe.append(champ, note);
+  return { element: enveloppe, lire: () => (champ.value ? champ.value : undefined) };
+}
+
+/*
+   U2 DU 43 — UN CURSEUR NON TOUCHÉ N'A RIEN RÉPONDU.
+
+   `lire()` rendait `Number(champ.value)`, donc TOUJOURS un nombre : passer
+   l'écran sans toucher le curseur écrivait sa position de départ, zéro
+   quand rien n'était connu. Un zéro écrit « declare » est une réponse,
+   pas une absence de réponse — et il se propage aux déductions.
+
+   Un curseur n'a pas d'état vide : on en tient donc un, et on l'affiche.
+   Tant que la personne n'a pas bougé le curseur ET qu'aucune valeur
+   n'était enregistrée, l'écran dit « non répondu » et rien n'est écrit.
+   Une valeur déjà enregistrée compte, elle, comme une réponse : la
+   reproposer et ne pas la réécrire reviendrait à la perdre au prochain
+   passage.
+*/
+export function curseur(declare: ChampDeclare, defaut: number | null): Saisie {
+  const bornes = BORNES[declare.champ] ?? { min: 0, max: 40, pas: 1, unite: '' };
+  const enveloppe = document.createElement('div');
+  const valeur = document.createElement('p');
+  valeur.className = 'text-2xl font-semibold text-slate-900 dark:text-white';
+  const champ = document.createElement('input');
+  champ.type = 'range';
+  champ.id = `saisie-${declare.champ}`;
+  champ.setAttribute('aria-labelledby', 'question');
+  champ.min = String(bornes.min);
+  champ.max = String(bornes.max);
+  champ.step = String(bornes.pas);
+  const depart = defaut ?? Math.round((bornes.min + bornes.max) / 2);
+  champ.value = String(Math.min(bornes.max, Math.max(bornes.min, depart)));
+  champ.className = 'mt-2 w-full';
+  let repondu = defaut !== null;
+  const note = document.createElement('p');
+  note.className = 'mt-2 text-xs text-slate-500 dark:text-slate-400';
+  note.textContent = 'Laissez vide si vous ne savez pas : touchez le curseur pour répondre.';
+  const peindre = () => {
+    if (!repondu) {
+      valeur.textContent = 'non répondu';
+      note.classList.remove('hidden');
+      return;
+    }
+    const n = Number(champ.value);
+    valeur.textContent = `${n.toLocaleString('fr-FR')} ${bornes.unite}${n > 1 && bornes.unite === 'séance' ? 's' : ''}`;
+    note.classList.add('hidden');
+  };
+  champ.addEventListener('input', () => {
+    repondu = true;
+    peindre();
+  });
+  peindre();
+  enveloppe.append(valeur, champ, note);
+  return { element: enveloppe, lire: () => (repondu ? Number(champ.value) : undefined) };
+}
+
+/** Ce que l'appelant décide d'une répartition : ses bornes, son unité, sa sortie. */
+export interface OptionsRepartition {
+  /** Le haut du curseur. 20 par défaut, comme à l'initialisation. */
+  max?: number;
+  /** L'unité lue à droite de chaque ligne. « h » par défaut. */
+  unite?: string;
+  /**
+   * Ce que fait « Je ne sais pas encore ». À l'initialisation, valider
+   * l'écran ; ailleurs, fermer la boîte. Sans rappel, le bouton n'est pas
+   * posé : un bouton qui ne fait rien vaut moins que pas de bouton.
+   */
+  surInconnu?: () => void;
+}
+
+export function repartition(
+  champs: readonly ClefLibellee[],
+  defaut: Record<string, number>,
+  options: OptionsRepartition = {},
+): Saisie {
+  const max = options.max ?? 20;
+  const unite = options.unite ?? 'h';
+  const enveloppe = document.createElement('div');
+  enveloppe.className = 'space-y-3';
+  const curseurs = new Map<string, HTMLInputElement>();
+  let inconnu = false;
+  for (const { clef, libelle } of champs) {
+    const ligne = document.createElement('div');
+    const etiquette = document.createElement('div');
+    etiquette.className = 'flex items-baseline justify-between text-sm';
+    const nom = document.createElement('span');
+    nom.className = 'text-slate-700 dark:text-slate-200';
+    nom.textContent = libelle;
+    const lu = document.createElement('span');
+    lu.className = 'font-medium text-slate-900 dark:text-white';
+    const champ = document.createElement('input');
+    champ.type = 'range';
+    champ.min = '0';
+    champ.max = String(max);
+    champ.step = '1';
+    champ.value = String(defaut[clef] ?? 0);
+    champ.className = 'mt-1 w-full';
+    champ.setAttribute('aria-label', libelle);
+    const peindre = () => {
+      lu.textContent = `${Number(champ.value)} ${unite}`;
+    };
+    champ.addEventListener('input', peindre);
+    peindre();
+    etiquette.append(nom, lu);
+    ligne.append(etiquette, champ);
+    curseurs.set(clef, champ);
+    enveloppe.appendChild(ligne);
+  }
+  if (options.surInconnu) {
+    const pas = document.createElement('button');
+    pas.type = 'button';
+    pas.className = CLASSE_BASCULE;
+    pas.textContent = 'Je ne sais pas encore';
+    pas.addEventListener('click', () => {
+      inconnu = true;
+      options.surInconnu!();
+    });
+    enveloppe.appendChild(pas);
+  }
+  return {
+    element: enveloppe,
+    lire: () => {
+      /*
+         U2 DU 43. « Je ne sais pas encore » rendait `{}`, et la boucle
+         d'enregistrement écrivait cet objet vide : le profil portait alors
+         une répartition DÉCLARÉE et vide, ce qui n'est pas la même chose
+         qu'une répartition inconnue. Un « je ne sais pas » n'écrit rien.
+         Et si tous les curseurs sont à zéro, il n'y a rien à dire non plus.
+      */
+      if (inconnu) return undefined;
+      const sortie: Record<string, number> = {};
+      for (const [clef, champ] of curseurs) {
+        const n = Number(champ.value);
+        if (n > 0) sortie[clef] = n;
+      }
+      return Object.keys(sortie).length ? sortie : undefined;
+    },
+  };
+}
+
+export function dates(
+  clefs: readonly ClefLibellee[],
+  defaut: Record<string, unknown>,
+): Saisie {
+  const enveloppe = document.createElement('div');
+  enveloppe.className = 'space-y-3';
+  const champs = new Map<string, HTMLInputElement>();
+  for (const { clef, libelle } of clefs) {
+    const ligne = document.createElement('label');
+    ligne.className = 'block text-sm';
+    const nom = document.createElement('span');
+    nom.className = 'block text-slate-700 dark:text-slate-200';
+    nom.textContent = libelle;
+    const champ = document.createElement('input');
+    champ.type = 'date';
+    const deja = defaut[clef];
+    champ.value = typeof deja === 'string' ? deja : '';
+    champ.className =
+      'mt-1 rounded-lg border border-slate-300 px-3 py-2 text-slate-900 ' +
+      'dark:border-slate-700 dark:bg-slate-950 dark:text-white';
+    champs.set(clef, champ);
+    ligne.append(nom, champ);
+    enveloppe.appendChild(ligne);
+  }
+  const note = document.createElement('p');
+  note.className = 'text-xs text-slate-500 dark:text-slate-400';
+  note.textContent = 'Laissez vide si vous ne savez pas encore.';
+  enveloppe.appendChild(note);
+  return {
+    element: enveloppe,
+    lire: () => {
+      /* U2 DU 43 : aucune date saisie, rien à enregistrer — et surtout pas
+         un objet vide, qui se lirait comme « aucune épreuve ». */
+      const sortie: Record<string, string> = {};
+      for (const [clef, champ] of champs) if (champ.value) sortie[clef] = champ.value;
+      return Object.keys(sortie).length ? sortie : undefined;
+    },
+  };
+}
