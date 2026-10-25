@@ -29,6 +29,7 @@ import {
 import { reglerLaRetention, retentionReglee } from '../notifications/retention';
 import { reglerSerieEtXp, serieEtXpAffichees } from '../serie-xp';
 import { activerLaSante, santeActive } from '../odyssee/donnees-sante';
+import { presentationReglee, reglerLaPresentation } from '../presentation-dgfip';
 import { champ, ecrireChamp, supprimerChamp } from '../profil';
 import {
   ecrireBascule,
@@ -265,6 +266,16 @@ export const ACCES: Record<string, Acces> = {
     lire: async () => (await lireReglagesSession()).plafondQuestions,
     ecrire: async (v) =>
       ecrireReglagesSession({ ...(await lireReglagesSession()), plafondQuestions: Number(v) }),
+  },
+  /*
+     La présentation de l'épreuve DGFiP. Une préférence d'affichage, donc
+     locale à l'appareil : elle n'a rien à faire dans la sauvegarde ni dans
+     l'export pour une IA.
+  */
+  'presentation-dgfip': {
+    lire: async () => presentationReglee(),
+    ecrire: async (v) =>
+      reglerLaPresentation(v === 'une-a-la-fois' ? 'une-a-la-fois' : 'copie'),
   },
 
   /* Odyssée */

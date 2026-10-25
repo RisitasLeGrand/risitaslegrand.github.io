@@ -563,6 +563,36 @@ export interface SessionDgfip {
   /** Maximum atteignable sur cette session (= nombre de questions posées). */
   maximum: number;
   parRubrique: ScoreRubriqueDgfip[];
+  /**
+   * La présentation employée. Absente : « une question à la fois ».
+   *
+   * Trois champs facultatifs, et AUCUNE migration : une épreuve enregistrée
+   * avant le prompt 49 n'en porte aucun, et s'affiche comme avant. C'est la
+   * condition posée par l'interdit n° 5.
+   */
+  format?: 'copie';
+  /**
+   * Les zones de la feuille, telles qu'elles ont été remplies.
+   *
+   * Nécessaire pour que rouvrir une épreuve passée réaffiche sa feuille. On y
+   * garde l'identifiant de la question ET son ordre d'affichage : sans
+   * l'ordre, une case cochée perdrait son sens, puisque la case 1 ne désigne
+   * pas l'option 0. Le texte des questions, lui, n'est pas recopié — il vit
+   * dans la banque, et le dupliquer ici le figerait.
+   */
+  zones?: ZoneEnregistree[];
+  /** Le temps réellement passé sur la copie, en secondes. */
+  secondes?: number;
+}
+
+/** Une zone de la feuille de réponse, rangée dans l'historique. */
+export interface ZoneEnregistree {
+  /** L'identifiant de la question, pour la retrouver dans la banque. */
+  id: string;
+  /** L'ordre d'affichage de ses propositions. */
+  ordre: number[];
+  premiere: { cases: number[]; ann: boolean };
+  seconde: { cases: number[]; ann: boolean };
 }
 
 /**

@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import LienReglages from '../../components/LienReglages.astro';
 import { base } from '../../lib/ui';
 ---
 
@@ -70,6 +71,26 @@ import { base } from '../../lib/ui';
     <div id="rubriques-dgfip" class="mb-6 space-y-2"></div>
 
     <div class="flex flex-wrap items-end gap-3">
+      <!--
+        LA PRÉSENTATION, à côté du format et non à sa place : les deux choix
+        sont indépendants. Le format dit combien de questions et de quelles
+        rubriques ; la présentation dit à quoi ressemble la page.
+
+        « Copie de concours » est proposée par défaut (décision 1 du prompt
+        49), et ce défaut se règle dans Paramètres > Révisions.
+      -->
+      <div>
+        <label for="presentation-dgfip" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
+          Présentation
+        </label>
+        <select
+          id="presentation-dgfip"
+          class="w-full max-w-[22rem] rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900"
+        >
+          <option value="copie">Copie de concours</option>
+          <option value="une-a-la-fois">Une question à la fois</option>
+        </select>
+      </div>
       <div>
         <label for="format-dgfip" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
           Format
@@ -104,6 +125,22 @@ import { base } from '../../lib/ui';
         Les questions sont tirées au hasard, en ramenant plus souvent celles que
         vous avez ratées ou laissées de côté.
       </p>
+
+      <!--
+        CE QUE LA COPIE PEUT SERVIR, dit avant de commencer et non découvert
+        en route. Deux annonces distinctes :
+
+        - le stock : une zone de la feuille porte quatre cases, donc la copie
+          ne tire que les questions à quatre propositions ;
+        - la composition : les formats 2026 promettent une structure, et si
+          une rubrique n'a pas de quoi la tenir, il faut le dire plutôt que
+          de laisser croire.
+      -->
+      <p id="copie-disponibles" class="w-full hidden text-xs text-slate-500 dark:text-slate-400"></p>
+      <div
+        id="copie-composition"
+        class="w-full hidden rounded-xl bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-100"
+      ></div>
     </div>
 
     <p
@@ -113,6 +150,14 @@ import { base } from '../../lib/ui';
       La banque « QCM - DGFiP » est vide : ajoutez des questions dans{' '}
       <code>content/qcm-dgfip/</code>, puis republiez le site.
     </p>
+
+    <!--
+      Le réglage de la présentation par défaut vit dans Paramètres >
+      Révisions, et cet écran y mène. `essais:reglages-orphelins` vérifie
+      que tout écran cité par le catalogue porte ce lien — il l'a d'ailleurs
+      réclamé dès que le réglage a été déclaré.
+    -->
+    <LienReglages section="revisions" class="mt-8" />
 
     <div id="historique-dgfip" class="mt-10"></div>
   </section>
@@ -164,6 +209,71 @@ import { base } from '../../lib/ui';
     </div>
   </section>
 
+  <!-- ========================== Copie de concours ======================= -->
+  <section id="copie" class="hidden">
+    <!--
+      LA BARRE DU HAUT, toujours visible (C3).
+
+      Le compte à rebours et les deux boutons restent sous les yeux, et les
+      boutons sont HORS de la zone d'écriture : à portée du pouce mais pas là
+      où l'on coche, pour qu'on ne rende pas sa copie en visant une case.
+
+      « role=timer » sans région vive : annoncer le temps restant chaque
+      seconde noierait un lecteur d'écran. Le ramassage, lui, est annoncé.
+    -->
+    <!--
+      UNE SEULE RANGÉE, et le repère hors de la barre.
+
+      Première version : le compte à rebours, sa phrase d'explication et les
+      deux boutons empilés prenaient 215 px à 360 — près de 30 % de l'écran,
+      en permanence. C'est ce que le critère M5 interdit ailleurs, et la
+      capture l'a montré tout de suite.
+
+      Deux corrections. La phrase du repère se lit une fois : elle descend
+      dans le sujet, où elle ne coûte rien. Et les boutons passent sur la
+      même rangée que le chronomètre, leur libellé se repliant sur deux
+      lignes plutôt que de pousser une rangée de plus. Les libellés eux-mêmes
+      ne bougent pas : ils disent l'action, et le prompt les nomme.
+    -->
+    <div
+      class="sticky top-0 z-10 mb-4 flex items-center gap-2 border-b border-slate-200 bg-slate-50 py-2 dark:border-slate-800 dark:bg-slate-950"
+    >
+      <p
+        id="rebours"
+        role="timer"
+        aria-live="off"
+        class="shrink-0 text-lg font-semibold text-slate-900 tabular-nums dark:text-white"
+      >
+        —
+      </p>
+      <div class="ml-auto flex min-w-0 gap-2">
+        <button
+          id="nouvelle-feuille"
+          class="cible-tactile-pleine rounded-lg border border-slate-300 px-2 text-xs leading-tight transition hover:bg-slate-100 sm:px-3 sm:text-sm dark:border-slate-700 dark:hover:bg-slate-800"
+        >
+          Demander une nouvelle feuille
+        </button>
+        <button
+          id="rendre-copie"
+          class="cible-tactile-pleine shrink-0 rounded-lg bg-slate-900 px-3 text-xs leading-tight font-medium text-white transition hover:bg-slate-700 sm:px-4 sm:text-sm dark:bg-white dark:text-slate-900"
+        >
+          Rendre la copie
+        </button>
+      </div>
+    </div>
+
+    <!--
+      LA LARGEUR D'UNE FEUILLE, une seule colonne centrée (C3). Sur
+      ordinateur, une ligne de texte qui traverse un écran de 1 280 px ne se
+      lit pas : le sujet garde la largeur d'un A4.
+    -->
+    <p id="rebours-repere" class="mx-auto mb-2 max-w-[46rem] text-xs text-slate-500 dark:text-slate-400"></p>
+    <div
+      id="copie-sujet"
+      class="mx-auto max-w-[46rem] border border-slate-200 bg-slate-50 px-4 py-5 dark:border-slate-800 dark:bg-slate-950 sm:px-6"
+    ></div>
+  </section>
+
   <!-- ============================= Résultat ============================= -->
   <section id="resultat-dgfip" class="hidden">
     <div class="text-center">
@@ -172,6 +282,33 @@ import { base } from '../../lib/ui';
         <span id="resultat-points"></span>
       </h2>
       <p id="resultat-resume" class="mt-2 text-slate-500 dark:text-slate-400"></p>
+      <p id="resultat-temps" class="mt-1 hidden text-sm text-slate-500 dark:text-slate-400"></p>
+    </div>
+
+    <!--
+      LES DEUX PANNEAUX DE LA COPIE (C4), en tête et repliables.
+
+      Repliés par défaut : ce qu'on vient chercher d'abord est sa note, et
+      déplier soixante zones avant de l'avoir lue serait un mur. Ils
+      n'apparaissent que pour une épreuve rendue sur copie.
+    -->
+    <div id="panneaux-copie" class="mt-8 hidden space-y-3">
+      <details id="panneau-themes" class="rounded-xl border border-slate-200 px-4 py-3 dark:border-slate-800">
+        <summary class="cible-tactile cursor-pointer text-sm font-semibold text-slate-900 dark:text-white">
+          Thèmes et questions
+        </summary>
+        <div id="themes-copie" class="mt-2"></div>
+      </details>
+      <details id="panneau-feuille" class="rounded-xl border border-slate-200 px-4 py-3 dark:border-slate-800">
+        <summary class="cible-tactile cursor-pointer text-sm font-semibold text-slate-900 dark:text-white">
+          Feuille de réponse
+        </summary>
+        <p class="mt-2 text-xs text-slate-500 dark:text-slate-400">
+          Le formulaire compte 60 zones quel que soit le nombre de questions. Les zones au-delà de
+          la dernière question restent vides, comme sur la feuille remise le jour de l’épreuve.
+        </p>
+        <div id="feuille-copie" class="mt-3"></div>
+      </details>
     </div>
 
     <h3 class="mt-10 mb-2 text-sm font-semibold text-slate-900 dark:text-white">Détail par rubrique</h3>
@@ -211,7 +348,8 @@ import { base } from '../../lib/ui';
 </Base>
 
 <script>
-  import { choisirUneIssue } from '../../lib/boite';
+  import { choisirUneIssue, confirmer } from '../../lib/boite';
+  import { unSeulGeste } from '../../lib/geste';
   import {
     PHRASE_DE_REFUS,
     questionsDeLEpreuve,
@@ -231,16 +369,47 @@ import { base } from '../../lib/ui';
   import { gagnerXp, xpQuiz } from '../../lib/gamification';
   import {
     composerSession,
+    dureeEnClair,
     evaluer,
     FORMATS,
     questionsServables,
     formaterPoints,
     noter,
+    questionsServables,
+    secondesDuFormat,
     tailleReelle,
     type FormatEpreuve,
     type QuestionTiree,
     type ReponseSession,
   } from '../../lib/qcm';
+  import {
+    cocher,
+    cocherAnn,
+    estPosableSurUneCopie,
+    issueDeLaZone,
+    raisonDuRetrait,
+    LIBELLE_DU_MOTIF,
+    ligneRetenue,
+    lireLaZone,
+    zoneVide,
+    type Zone,
+  } from '../../lib/qcm-copie';
+  import {
+    monterLaFeuille,
+    monterLeSujet,
+    monterLesThemes,
+    zoneDeReponse,
+    type LigneDeTheme,
+  } from '../../features/copie/monter';
+  import {
+    presentationReglee,
+    type PresentationDgfip,
+  } from '../../lib/presentation-dgfip';
+  import {
+    compositionAdaptee,
+    compositionDeLaCopie,
+    rubriquesEnManque,
+  } from '../../lib/qcm-composition';
   import { echapper, formaterDate, notifier, pluriel } from '../../lib/ui';
   import { jourISO } from '../../lib/db';
   import { idParcoursCourant } from '../../lib/parcours/courant';
@@ -263,10 +432,21 @@ import { base } from '../../lib/ui';
   /** Le format tiré, pour que la reprise le retrouve. */
   let formatCourant = '';
 
+  /* ── L'état propre à la copie ──────────────────────────────────────────── */
+
+  let presentation: PresentationDgfip = 'copie';
+  /** Une zone par question, dans l'ordre du sujet. */
+  let zones: Zone[] = [];
+  /** Le compte à rebours : secondes restantes, et le battement qui les décompte. */
+  let restantes = 0;
+  let battement: number | undefined;
+  /** La durée accordée, pour pouvoir dire le temps utilisé à la fin. */
+  let accordees = 0;
+
   const $ = (id: string) => document.getElementById(id)!;
 
-  function afficherVue(nom: 'accueil-dgfip' | 'epreuve' | 'resultat-dgfip') {
-    for (const section of ['accueil-dgfip', 'epreuve', 'resultat-dgfip']) {
+  function afficherVue(nom: 'accueil-dgfip' | 'epreuve' | 'copie' | 'resultat-dgfip') {
+    for (const section of ['accueil-dgfip', 'epreuve', 'copie', 'resultat-dgfip']) {
       $(section).classList.toggle('hidden', section !== nom);
     }
     window.scrollTo({ top: 0 });
@@ -311,11 +491,30 @@ import { base } from '../../lib/ui';
           : taux >= 0.4
             ? 'text-amber-600 dark:text-amber-400'
             : 'text-red-600 dark:text-red-400';
-      const ligne = document.createElement('div');
+      /*
+         Une épreuve rendue sur copie se ROUVRE : son écran de fin porte la
+         feuille remplie et le bilan par thème, et c'est là qu'on revient
+         chercher ce qu'on a raté. Les autres restent des lignes de bilan,
+         comme avant — on n'a pas de quoi reconstituer leur déroulé.
+      */
+      const surCopie = s.format === 'copie';
+      const ligne = document.createElement(surCopie ? 'button' : 'div');
+      if (surCopie) {
+        (ligne as HTMLButtonElement).type = 'button';
+        ligne.setAttribute(
+          'aria-label',
+          `Rouvrir la copie du ${formaterDate(s.le)}, ${formaterPoints(s.points)} sur ${s.maximum}`,
+        );
+        ligne.addEventListener('click', () => void rouvrirUneCopie(s));
+      }
       ligne.className =
-        'flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm dark:border-slate-800 dark:bg-slate-900';
+        'flex w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-left text-sm dark:border-slate-800 dark:bg-slate-900' +
+        (surCopie ? ' cible-tactile-pleine transition hover:bg-slate-50 dark:hover:bg-slate-800' : '');
       ligne.innerHTML =
         `<span class="min-w-0 flex-1 text-slate-700 dark:text-slate-200">` +
+        (surCopie
+          ? '<span class="mr-2 rounded border border-slate-300 px-1.5 py-0.5 text-xs text-slate-600 dark:border-slate-700 dark:text-slate-300">Copie</span>'
+          : '') +
         `${pluriel(s.bonnes, 'bonne')} · ${pluriel(s.mauvaises, 'erreur')} · ${s.abstentions} sans réponse</span>` +
         `<span class="shrink-0 text-xs text-slate-400">${formaterDate(s.le)}</span>` +
         `<span class="shrink-0 font-semibold tabular-nums ${couleur}">${formaterPoints(s.points)}/${s.maximum}</span>`;
@@ -410,6 +609,71 @@ import { base } from '../../lib/ui';
     });
   }
 
+  /**
+   * Rouvre une copie rendue : le même écran de fin, reconstruit.
+   *
+   * ## Pourquoi reconstruire, et non enregistrer l'écran
+   *
+   * L'historique garde les zones et l'ordre d'affichage de chaque question,
+   * mais pas leur texte : il vit dans la banque, et le recopier l'y aurait
+   * figé — une correction améliorée ne serait jamais parvenue aux épreuves
+   * passées. On relit donc la banque, et l'on recalcule la note par le même
+   * `noter` que le jour de l'épreuve.
+   *
+   * ## Ce qui arrive quand une question a disparu
+   *
+   * La banque est republiée à chaque mise en ligne, et une question peut en
+   * sortir. On refuse alors d'ouvrir plutôt que de montrer une feuille
+   * décalée d'une ligne : renuméroter en silence ferait correspondre une
+   * réponse à la mauvaise question, ce qui est exactement le piège que la
+   * feuille pré-imprimée apprend à éviter.
+   */
+  async function rouvrirUneCopie(session: SessionDgfip) {
+    const enregistrees = session.zones ?? [];
+    if (!banque || !enregistrees.length) {
+      notifier('Cette épreuve n’a pas gardé sa feuille de réponse.', 'badge');
+      return;
+    }
+    const parId = new Map(banque.questions.map((q) => [q.id, q]));
+    const introuvables = enregistrees.filter((z) => !parId.has(z.id)).length;
+    if (introuvables > 0) {
+      notifier(
+        `Cette copie ne peut plus être rouverte : ${introuvables} de ses questions ` +
+          'ne sont plus dans la banque.',
+        'badge',
+      );
+      return;
+    }
+
+    questions = enregistrees.map((z) => ({ ...parId.get(z.id)!, ordre: z.ordre }));
+    zones = enregistrees.map((z) => ({
+      premiere: { cases: [...z.premiere.cases], ann: z.premiere.ann },
+      seconde: { cases: [...z.seconde.cases], ann: z.seconde.ann },
+    }));
+    accordees = 0;
+
+    const reponses: ReponseSession[] = questions.map((question, i) => {
+      const lecture = lireLaZone(zones[i]);
+      const ligne = zones[i][ligneRetenue(zones[i])];
+      return {
+        question,
+        choisis:
+          lecture.motif === 'reponse-multiple'
+            ? [...ligne.cases]
+            : lecture.retenue === null
+              ? []
+              : [lecture.retenue],
+        issue: issueDeLaZone(lecture, question.bonnes),
+      };
+    });
+    /*
+       Rien n'est réenregistré : rouvrir n'est pas repasser l'épreuve. Ni
+       journal d'erreurs, ni estimation de niveau, ni points d'expérience —
+       sans quoi relire ses résultats ferait monter son niveau.
+    */
+    afficherResultat(noter(reponses, banque.rubriques), reponses, session);
+  }
+
   // --- Déroulé de l'épreuve --------------------------------------------------
 
   async function demarrer() {
@@ -417,19 +681,217 @@ import { base } from '../../lib/ui';
     const choisi = ($('format-dgfip') as HTMLSelectElement).value;
     const format = formats.find((f) => f.id === choisi) ?? formats[0];
     if (!format) return;
+    presentation = (($('presentation-dgfip') as HTMLSelectElement).value ||
+      'copie') as PresentationDgfip;
+    const surUneCopie = presentation === 'copie';
     questions = composerSession(
       banque,
       await etatsQuestionsDgfip(),
       format,
       idParcoursCourant(),
+      { surUneCopie },
     );
     if (!questions.length) return;
     choix = questions.map(() => []);
+    zones = questions.map(() => zoneVide());
     position = 0;
     debutDeLEpreuve = new Date().toISOString();
     formatCourant = format.id;
+    if (surUneCopie) {
+      demarrerLaCopie(format);
+      return;
+    }
     afficherVue('epreuve');
     afficherQuestion();
+  }
+
+  /* ── La copie de concours ──────────────────────────────────────────────── */
+
+  function demarrerLaCopie(format: FormatEpreuve) {
+    accordees = secondesDuFormat(format);
+    restantes = accordees;
+    afficherVue('copie');
+    /*
+       La formulation est celle que le pilote a arrêtée le 19 octobre : le
+       chiffre vient du guide ENFiP, et aucun arrêté ne découpe l'épreuve
+       entre le QCM et les QRC. Le dire est ce qui distingue un repère d'une
+       règle.
+    */
+    $('rebours-repere').textContent =
+      `${dureeEnClair(accordees)} au total. Repère du guide ENFiP ` +
+      '(2 min par question), pas une durée réglementaire.';
+    peindreLaCopie();
+    peindreLeRebours();
+    lancerLeRebours();
+  }
+
+  function peindreLaCopie() {
+    monterLeSujet($('copie-sujet'), {
+      questions,
+      zones,
+      surCocher: (indice, ligne, option) => {
+        /*
+           Cocher ne décoche jamais, et `cocher` rend la même zone si la case
+           l'était déjà : deux appuis rapides sur la même case ne font donc
+           qu'un trait de stylo. Deux cases différentes sur une ligne, en
+           revanche, font bien une réponse multiple — c'est permis, et la
+           directive 4 s'en occupe à la correction.
+        */
+        zones[indice] = cocher(zones[indice], ligne, option);
+        rafraichirLaZone(indice);
+      },
+      surAnnuler: (indice, ligne) => {
+        zones[indice] = cocherAnn(zones[indice], ligne);
+        rafraichirLaZone(indice);
+      },
+    });
+  }
+
+  /**
+   * Redessine une seule zone.
+   *
+   * Et non le sujet entier : à quarante-cinq questions, chaque case cochée
+   * referait quatre cents éléments et replierait l'aide ouverte. La zone
+   * remplacée garde sa place dans le document.
+   */
+  function rafraichirLaZone(indice: number) {
+    const ancienne = $('copie-sujet').querySelector(`[data-zone="${indice + 1}"]`);
+    if (!ancienne) return;
+    const neuve = zoneDeReponse({
+      numeroDeQuestion: indice + 1,
+      question: questions[indice],
+      zone: zones[indice],
+      surCocher: (ligne, option) => {
+        zones[indice] = cocher(zones[indice], ligne, option);
+        rafraichirLaZone(indice);
+      },
+      surAnnuler: (ligne) => {
+        zones[indice] = cocherAnn(zones[indice], ligne);
+        rafraichirLaZone(indice);
+      },
+    });
+    ancienne.replaceWith(neuve);
+  }
+
+  function peindreLeRebours() {
+    const minutes = Math.floor(restantes / 60);
+    const secondes = restantes % 60;
+    $('rebours').textContent = `${minutes} min ${String(secondes).padStart(2, '0')} s`;
+    /*
+       Les dix dernières minutes se signalent par la couleur ET par le mot :
+       un compte à rebours qui ne change que de teinte ne dit rien à qui ne
+       distingue pas les teintes.
+    */
+    const presse = restantes <= 600;
+    $('rebours').className = presse
+      ? 'text-xl font-semibold text-red-700 tabular-nums dark:text-red-300'
+      : 'text-xl font-semibold text-slate-900 tabular-nums dark:text-white';
+    $('rebours').setAttribute(
+      'aria-label',
+      `Temps restant : ${minutes} minutes et ${secondes} secondes${presse ? ', dernière demi-heure' : ''}`,
+    );
+  }
+
+  /**
+   * Lance le compte à rebours. Rien ne l'arrête avant zéro.
+   *
+   * **Aucune pause**, c'est la décision d'Alexis du 18 octobre et l'interdit
+   * n° 3 : le chronomètre d'un concours ne s'arrête pas. Il n'y a donc ni
+   * bouton de pause, ni mise en veille sur changement d'onglet — et c'est
+   * exprès, parce qu'un chronomètre qu'on peut arrêter ne mesure plus rien.
+   */
+  function lancerLeRebours() {
+    arreterLeRebours();
+    battement = window.setInterval(() => {
+      restantes -= 1;
+      if (restantes <= 0) {
+        restantes = 0;
+        peindreLeRebours();
+        /*
+           À zéro, LA COPIE EST RAMASSÉE. Pas de délai de grâce, pas de
+           question posée : c'est ce qui arrive le jour de l'épreuve.
+        */
+        notifier('Temps écoulé : votre copie est ramassée.', 'badge');
+        void ramasserLaCopie();
+        return;
+      }
+      peindreLeRebours();
+    }, 1000);
+  }
+
+  function arreterLeRebours() {
+    if (battement !== undefined) window.clearInterval(battement);
+    battement = undefined;
+  }
+
+  /** Vide toutes les zones, et laisse le chronomètre courir. */
+  async function nouvelleFeuille() {
+    if (
+      !(await confirmer({
+        titre: 'Demander une nouvelle feuille ?',
+        texte:
+          'Toutes vos réponses seront effacées. Le sujet et le chronomètre ' +
+          'continuent : le temps ne vous est pas rendu, comme au concours.',
+        action: 'Demander une nouvelle feuille',
+        annuler: 'Garder ma copie',
+        destructrice: true,
+      }))
+    ) {
+      return;
+    }
+    zones = questions.map(() => zoneVide());
+    peindreLaCopie();
+  }
+
+  async function rendreLaCopie() {
+    if (
+      !(await confirmer({
+        titre: 'Rendre la copie ?',
+        texte:
+          'Votre copie sera corrigée et enregistrée. Vous ne pourrez plus la ' +
+          'modifier.',
+        action: 'Rendre la copie',
+        annuler: 'Continuer l’épreuve',
+      }))
+    ) {
+      return;
+    }
+    await ramasserLaCopie();
+  }
+
+  /**
+   * Dépouille la copie : une zone donne une réponse, et un motif.
+   *
+   * Pour une réponse multiple, on garde les cases réellement cochées plutôt
+   * que rien : l'écran de fin doit pouvoir montrer la faute, et « votre
+   * réponse : — » ne l'apprendrait pas.
+   */
+  async function ramasserLaCopie() {
+    arreterLeRebours();
+    const reponses: ReponseSession[] = questions.map((question, i) => {
+      const lecture = lireLaZone(zones[i]);
+      const ligne = zones[i][ligneRetenue(zones[i])];
+      return {
+        question,
+        choisis:
+          lecture.motif === 'reponse-multiple'
+            ? [...ligne.cases]
+            : lecture.retenue === null
+              ? []
+              : [lecture.retenue],
+        issue: issueDeLaZone(lecture, question.bonnes),
+      };
+    });
+    await conclure(reponses, {
+      format: 'copie',
+      secondes: accordees - restantes,
+      zones: questions.map((question, i) => ({
+        id: question.id,
+        ordre: question.ordre,
+        premiere: { cases: [...zones[i].premiere.cases], ann: zones[i].premiere.ann },
+        seconde: { cases: [...zones[i].seconde.cases], ann: zones[i].seconde.ann },
+      })),
+    });
   }
 
   function afficherQuestion() {
@@ -516,6 +978,20 @@ import { base } from '../../lib/ui';
       choisis: choix[i],
       issue: evaluer(question, choix[i]),
     }));
+    await conclure(reponses, {});
+  }
+
+  /**
+   * Ce qui suit la remise, quelle que soit la présentation.
+   *
+   * Les deux formats se séparent sur la façon de RECUEILLIR les réponses — un
+   * écran par question, ou une feuille entière — et pas d'un pouce sur ce
+   * qu'on en fait : même barème, même journal d'erreurs, même estimation de
+   * niveau, même historique, mêmes points d'expérience. Deux copies de cette
+   * fonction auraient divergé au premier ajustement, et c'est la note qui
+   * aurait divergé avec elles.
+   */
+  async function conclure(reponses: ReponseSession[], extra: Partial<SessionDgfip>) {
     const score = noter(reponses, banque?.rubriques ?? []);
 
     const session: SessionDgfip = {
@@ -527,6 +1003,7 @@ import { base } from '../../lib/ui';
       points: score.points,
       maximum: score.maximum,
       parRubrique: score.parRubrique,
+      ...extra,
     };
     // Les réponses fausses ouvrent une entrée au journal d'erreurs. Les
     // abstentions n'en ouvrent pas : ne pas répondre n'est pas se tromper, et
@@ -570,10 +1047,81 @@ import { base } from '../../lib/ui';
     if (gain.monteeDeNiveau) notifier(`Niveau ${gain.niveau.niveau} atteint !`, 'badge');
     for (const badge of gain.nouveauxBadges) notifier(`Badge obtenu : ${badge.nom}`, 'badge');
 
-    afficherResultat(score, reponses);
+    afficherResultat(score, reponses, session);
   }
 
-  function afficherResultat(score: ReturnType<typeof noter>, reponses: ReponseSession[]) {
+  /**
+   * Les deux panneaux de l'écran de fin : les thèmes, et la feuille.
+   *
+   * Les deux se construisent à partir des **zones enregistrées**, et non des
+   * zones encore en mémoire : c'est le même chemin pour une épreuve qu'on
+   * vient de rendre et pour une épreuve qu'on rouvre depuis l'historique. Deux
+   * chemins auraient fini par montrer deux choses.
+   */
+  function remplirLesPanneaux(
+    score: ReturnType<typeof noter>,
+    reponses: ReponseSession[],
+    session: SessionDgfip,
+  ) {
+    const enregistrees = session.zones ?? [];
+    const questionsDuSujet = reponses.map((r) => r.question);
+    const zonesRelues: Zone[] = enregistrees.map((z) => ({
+      premiere: { cases: [...z.premiere.cases], ann: z.premiere.ann },
+      seconde: { cases: [...z.seconde.cases], ann: z.seconde.ann },
+    }));
+
+    /* ── Thèmes et questions ──────────────────────────────────────────────── */
+    const pointsParRubrique = new Map(
+      score.parRubrique.map((r) => [r.rubriqueId, formaterPoints(r.points)]),
+    );
+    const parRubrique = new Map<string, LigneDeTheme>();
+    reponses.forEach((reponse, indice) => {
+      const clef = reponse.question.rubriqueId;
+      const ligne =
+        parRubrique.get(clef) ??
+        {
+          rubrique: reponse.question.rubrique,
+          numeros: [],
+          issues: [],
+          points: `${pointsParRubrique.get(clef) ?? '0'} point${
+            (score.parRubrique.find((r) => r.rubriqueId === clef)?.points ?? 0) > 1 ? 's' : ''
+          }`,
+        };
+      ligne.numeros.push(indice + 1);
+      ligne.issues.push(reponse.issue);
+      parRubrique.set(clef, ligne);
+    });
+
+    monterLesThemes($('themes-copie'), [...parRubrique.values()], (numero) => {
+      /*
+         Toucher un numéro mène à sa correction — et quand il n'y en a pas,
+         parce que la réponse était juste, il mène à sa zone sur la feuille.
+         Un bouton qui ne fait rien serait pire que pas de bouton.
+      */
+      const carte = document.getElementById(`revoir-q${numero}`);
+      if (carte) {
+        carte.scrollIntoView({ block: 'center' });
+        return;
+      }
+      ($('panneau-feuille') as HTMLDetailsElement).open = true;
+      $('feuille-copie')
+        .querySelector(`[data-zone-finale="${numero}"]`)
+        ?.scrollIntoView({ block: 'center' });
+    });
+
+    /* ── La feuille de réponse, ses soixante zones ────────────────────────── */
+    monterLaFeuille($('feuille-copie'), {
+      questions: questionsDuSujet,
+      zones: zonesRelues,
+      bonnes: questionsDuSujet.map((q) => q.bonnes),
+    });
+  }
+
+  function afficherResultat(
+    score: ReturnType<typeof noter>,
+    reponses: ReponseSession[],
+    session: SessionDgfip,
+  ) {
     const taux = score.maximum ? score.points / score.maximum : 0;
     $('resultat-emoji-dgfip').textContent = taux >= 0.7 ? '🎯' : taux >= 0.4 ? '💪' : '📚';
     $('resultat-points').textContent = `${formaterPoints(score.points)} / ${score.maximum}`;
@@ -582,6 +1130,18 @@ import { base } from '../../lib/ui';
       `${pluriel(score.mauvaises, 'erreur')} ` +
       `(${formaterPoints(score.mauvaises * -0.5)} ${score.mauvaises > 1 ? 'points' : 'point'}), ` +
       `${score.abstentions} sans réponse.`;
+
+    /* ── Le temps utilisé, et les deux panneaux de la copie (C4) ────────── */
+    const surCopie = session.format === 'copie';
+    $('panneaux-copie').classList.toggle('hidden', !surCopie);
+    $('resultat-temps').classList.toggle('hidden', session.secondes === undefined);
+    if (session.secondes !== undefined) {
+      $('resultat-temps').textContent =
+        `Temps utilisé : ${dureeEnClair(session.secondes)} sur ${dureeEnClair(accordees || session.secondes)}.`;
+    }
+    if (surCopie) {
+      remplirLesPanneaux(score, reponses, session);
+    }
 
     const corps = $('tableau-rubriques');
     corps.innerHTML = '';
@@ -596,6 +1156,19 @@ import { base } from '../../lib/ui';
         `<td class="py-2 pr-3 text-right tabular-nums text-slate-500 dark:text-slate-400">${ligne.abstentions}</td>` +
         `<td class="py-2 text-right font-semibold tabular-nums text-slate-900 dark:text-white">${formaterPoints(ligne.points)}</td>`;
       corps.appendChild(tr);
+    }
+
+    /*
+       Le motif de chaque question, lu dans les zones enregistrées. Absent
+       pour « une question à la fois », où la notion n'a pas de sens.
+    */
+    const motifParQuestion = new Map<string, string>();
+    for (const enregistree of session.zones ?? []) {
+      const lecture = lireLaZone({
+        premiere: { ...enregistree.premiere },
+        seconde: { ...enregistree.seconde },
+      });
+      motifParQuestion.set(enregistree.id, LIBELLE_DU_MOTIF[lecture.motif]);
     }
 
     // Les abstentions figurent à revoir au même titre que les erreurs : ne pas
@@ -615,6 +1188,13 @@ import { base } from '../../lib/ui';
         ? r.question.source
         : null;
       const carte = document.createElement('article');
+      /*
+         L'identifiant porte le NUMÉRO DE LA QUESTION dans le sujet, pour que
+         le bilan par thème puisse y conduire. Il est posé pour les deux
+         présentations : le coût est nul, et un identifiant conditionnel est
+         un identifiant qu'on oublie.
+      */
+      carte.id = `revoir-q${questions.indexOf(r.question) + 1}`;
       carte.className =
         'rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm dark:border-slate-800 dark:bg-slate-900';
       carte.innerHTML =
@@ -625,6 +1205,17 @@ import { base } from '../../lib/ui';
         (donnee
           ? `<p class="mt-2 text-red-600 dark:text-red-400">Votre réponse : ${echapper(donnee)}</p>`
           : `<p class="mt-2 text-slate-500 dark:text-slate-400">Sans réponse.</p>`) +
+        /*
+           D'OÙ VIENT LA RÉPONSE RETENUE, sur une copie. « 2ᵉ ligne » et
+           « réponse multiple » ne s'apprennent pas de la même façon : la
+           première est une correction réussie, la seconde une faute de
+           remplissage qui a coûté un demi-point sans que la connaissance soit
+           en cause.
+        */
+        (motifParQuestion.get(r.question.id)
+          ? `<p class="mt-1 text-xs text-slate-500 dark:text-slate-400">Ligne retenue : ` +
+            `${echapper(motifParQuestion.get(r.question.id)!)}</p>`
+          : '') +
         `<p class="mt-1 text-emerald-700 dark:text-emerald-400">Réponse attendue : ${echapper(bonnes)}</p>` +
         `<p class="mt-2 text-slate-600 dark:text-slate-300">${echapper(r.question.explication)}</p>` +
         (r.question.incertain
@@ -724,25 +1315,125 @@ import { base } from '../../lib/ui';
     await afficherReprise();
     await afficherHistorique();
 
-    // Un format dont les rubriques manquent encore ne doit pas être proposé ;
-    // un format que la banque ne peut remplir qu'à moitié le dit franchement.
-    const select = $('format-dgfip') as HTMLSelectElement;
-    select.innerHTML = '';
-    formats = [];
-    for (const format of FORMATS) {
-      const reelle = tailleReelle(banque, format, idParcoursCourant());
-      if (reelle === 0) continue;
-      formats.push(format);
-      const libelle =
-        reelle < format.total
-          ? `${format.libelle} — ${reelle} disponibles`
-          : format.libelle;
-      select.add(new Option(libelle, format.id));
-    }
-    if (!formats.length) {
-      $('dgfip-vide').classList.remove('hidden');
-      ($('lancer-dgfip') as HTMLButtonElement).disabled = true;
-      return;
+    /*
+       LES FORMATS DÉPENDENT DE LA PRÉSENTATION, et c'est pourquoi la liste se
+       repeint quand on change de présentation.
+
+       Un format dont les rubriques manquent ne doit pas être proposé, et un
+       format que la banque ne remplit qu'à moitié le dit franchement. Sur une
+       copie, le tirage est plus étroit — seules les questions à quatre
+       propositions et réponse unique y entrent —, donc le compte change.
+       Garder la liste de « une question à la fois » annoncerait 45 questions
+       pour une copie qui n'en servirait que 30.
+    */
+    const peindreLesFormats = (): boolean => {
+      const select = $('format-dgfip') as HTMLSelectElement;
+      const surUneCopie =
+        ($('presentation-dgfip') as HTMLSelectElement).value === 'copie';
+      const avant = select.value;
+      select.innerHTML = '';
+      formats = [];
+      for (const format of FORMATS) {
+        const reelle = tailleReelle(banque!, format, idParcoursCourant(), undefined, {
+          surUneCopie,
+        });
+        if (reelle === 0) continue;
+        formats.push(format);
+        const libelle =
+          reelle < format.total
+            ? `${format.libelle} — ${reelle} disponibles`
+            : format.libelle;
+        select.add(new Option(libelle, format.id));
+      }
+      /* On garde le format choisi s'il survit au changement de présentation. */
+      if (formats.some((f) => f.id === avant)) select.value = avant;
+      const possible = formats.length > 0;
+      $('dgfip-vide').classList.toggle('hidden', possible);
+      ($('lancer-dgfip') as HTMLButtonElement).disabled = !possible;
+      direLesAnnoncesDeLaCopie(surUneCopie);
+      return possible;
+    };
+
+    /**
+     * Ce que la copie peut servir, dit avant de commencer.
+     *
+     * Deux annonces, et la seconde est la moins évidente. Le stock total ne
+     * suffit pas à juger : une banque de trois cents questions conformes peut
+     * très bien n'en avoir que trois en anglais, là où le sujet en prévoit
+     * cinq. La longueur de l'épreuve serait préservée — `repartir` prend les
+     * manquantes ailleurs —, mais sa structure ne le serait plus, et le titre
+     * « sujet 2026 » deviendrait une promesse non tenue.
+     */
+    function direLesAnnoncesDeLaCopie(surUneCopie: boolean) {
+      const stock = $('copie-disponibles');
+      const compo = $('copie-composition');
+      stock.classList.toggle('hidden', !surUneCopie);
+      compo.classList.add('hidden');
+      compo.innerHTML = '';
+      if (!surUneCopie || !banque) return;
+
+      /*
+         Le nombre est CALCULÉ, jamais écrit en dur : la banque change à
+         chaque publication, et un chiffre figé deviendrait faux en silence.
+      */
+      const servables = questionsServables(banque, idParcoursCourant());
+      const posables = servables.filter(estPosableSurUneCopie).length;
+      /*
+         LE DÉTAIL DES ÉCARTS, et non un total. « 201 questions écartées »
+         n'apprend rien ; « 201 n'ont pas quatre propositions » dit quoi
+         corriger dans la banque. Et deux motifs existent : une zone porte
+         quatre cases — ni trois, ni six —, et une seule réponse par ligne y
+         est autorisée. Dire « plus de quatre propositions » serait faux pour
+         les deux autres cas.
+      */
+      const motifs = servables.map(raisonDuRetrait);
+      const horsGabarit = motifs.filter((m) => m === 'propositions').length;
+      const aPlusieursReponses = motifs.filter((m) => m === 'reponses-multiples').length;
+      const motifsDits = [
+        horsGabarit > 0 ? `${horsGabarit} n’ont pas quatre propositions` : '',
+        aPlusieursReponses > 0 ? `${aPlusieursReponses} ont plusieurs bonnes réponses` : '',
+      ].filter(Boolean);
+      stock.textContent =
+        `${posables} questions disponibles pour la copie, sur ${servables.length}. ` +
+        (motifsDits.length
+          ? 'Une zone de la feuille porte quatre cases et une seule réponse par ligne : ' +
+            `${motifsDits.join(' et ')}. Elles restent posées par « une question à la fois ».`
+          : '');
+
+      const format = formats.find((f) => f.id === ($('format-dgfip') as HTMLSelectElement).value);
+      if (!format) return;
+
+      /* La composition : on compare rubrique par rubrique, sur le stock posable. */
+      const parRubrique = new Map<string, number>();
+      for (const q of servables) {
+        if (!estPosableSurUneCopie(q)) continue;
+        parRubrique.set(q.rubriqueId, (parRubrique.get(q.rubriqueId) ?? 0) + 1);
+      }
+      const lignes = compositionDeLaCopie(
+        banque.rubriques.map((r) => ({ ...r, total: parRubrique.get(r.id) ?? 0 })),
+        format,
+      );
+      if (!compositionAdaptee(lignes)) return;
+
+      compo.classList.remove('hidden');
+      const titre = document.createElement('p');
+      titre.className = 'font-medium';
+      titre.textContent = 'Composition adaptée : ce format ne pourra pas suivre la structure du sujet.';
+      const detail = document.createElement('ul');
+      detail.className = 'mt-1 list-disc space-y-0.5 pl-5';
+      for (const ligne of rubriquesEnManque(lignes)) {
+        const li = document.createElement('li');
+        li.textContent =
+          `${ligne.rubrique} : ${ligne.servies} question${ligne.servies === 1 ? '' : 's'} ` +
+          `sur les ${ligne.prevu} du sujet.`;
+        detail.appendChild(li);
+      }
+      const fin = document.createElement('p');
+      fin.className = 'mt-1';
+      fin.textContent =
+        'Les questions manquantes sont prises sur les autres rubriques du format : ' +
+        'l’épreuve garde sa longueur, mais pas sa structure.';
+      compo.append(titre, detail, fin);
     }
 
     $('reprendre-dgfip').addEventListener('click', () => void reprendre());
@@ -750,7 +1441,32 @@ import { base } from '../../lib/ui';
       await effacerEpreuveEnCours();
       await afficherReprise();
     });
+    /*
+       Le défaut vient du réglage, et le réglage vaut « copie » tant qu'on n'y
+       a pas touché (décision 1).
+    */
+    ($('presentation-dgfip') as HTMLSelectElement).value = presentationReglee();
+    $('presentation-dgfip').addEventListener('change', () => void peindreLesFormats());
+    /*
+       La composition dépend du format autant que de la présentation : changer
+       de format sans réévaluer laisserait l'annonce du précédent à l'écran.
+    */
+    $('format-dgfip').addEventListener('change', () => {
+      direLesAnnoncesDeLaCopie(($('presentation-dgfip') as HTMLSelectElement).value === 'copie');
+    });
+    if (!peindreLesFormats()) return;
+
     $('lancer-dgfip').addEventListener('click', () => void demarrer());
+    /*
+       `unSeulGeste` sur les deux boutons de la copie : ils ouvrent une
+       fenêtre de confirmation, et deux appuis rapides en ouvraient deux.
+    */
+    $('nouvelle-feuille').addEventListener('click', (evenement) => {
+      void unSeulGeste(evenement.currentTarget as Element, nouvelleFeuille);
+    });
+    $('rendre-copie').addEventListener('click', (evenement) => {
+      void unSeulGeste(evenement.currentTarget as Element, rendreLaCopie);
+    });
     $('rejouer-dgfip').addEventListener('click', () => void demarrer());
     $('suivant-dgfip').addEventListener('click', avancer);
     $('precedent-dgfip').addEventListener('click', reculer);

@@ -1,0 +1,652 @@
+/**
+ * Une copie de modèle est-elle un programme ordinaire, et rien de plus ?
+ *
+ *   npm run essais:copie-modele
+ *
+ * ## Les trois choses qui se vérifient ici
+ *
+ * 1. **Une copie est un `Programme` valide, modifiable et indépendante.** Si
+ *    elle ne passait pas `controlerProgramme`, l'écriture échouerait devant la
+ *    personne, sur un message qui ne lui apprendrait rien.
+ * 2. **Rien n'écrit dans `sportSeances`.** C'est l'interdit n° 1 du prompt 48,
+ *    et c'est une propriété **négative** : elle ne se constate pas en relisant
+ *    son propre diff, elle se constate en cherchant et en échouant à trouver.
+ * 3. **Les cibles sont celles du calcul, pas celles du dossier.** Le compte
+ *    des écarts est épinglé ici : s'il bouge, soit la bibliothèque a changé,
+ *    soit la transcription a glissé, et dans les deux cas le compte rendu de
+ *    `docs/cyclades/sport/48-cibles-recalculees.md` ne dit plus le vrai.
+ *
+ * ## Ce qu'il ne vérifie pas
+ *
+ * Rien de l'écran : c'est l'affaire de l'essai de navigateur. Ici, tout est
+ * pur, et tourne sans aperçu ni mot de passe.
+ */
+import { readFileSync } from 'node:fs';
+import {
+  BIBLIOTHEQUE,
+} from '../src/lib/sport/donnees';
+import {
+  COEFFICIENT_SECONDAIRE,
+  MUSCLES,
+  identiteDeComparaison,
+  type Exercice,
+} from '../src/lib/sport/modele';
+import { controlerProgramme, volumePrevu, type Programme } from '../src/lib/sport/programmes';
+import type { Blessure } from '../src/lib/sport/modele';
+import { MODELES_DE_PROGRAMMES } from '../src/lib/sport/modeles-programmes';
+import {
+  EQUIPEMENTS,
+  adapterALEquipement,
+  ciblesDuModele,
+  ecartsDeCibles,
+  estPossibleAvec,
+  exercicesDuModele,
+  musclesNonTravailles,
+  noteDuBloc,
+  nomDeLaCopie,
+  preparerLaCopie,
+  remplacantReconnu,
+  seancesDuModele,
+  signalerLesBlessures,
+} from '../src/lib/sport/copie-de-modele';
+
+let echecs = 0;
+const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
+  const a = JSON.stringify(obtenu);
+  const b = JSON.stringify(attendu);
+  if (a === b) {
+    console.log(`  \x1b[32m✓\x1b[0m ${intitule}`);
+    return;
+  }
+  echecs += 1;
+  console.log(`  \x1b[31m✗\x1b[0m ${intitule}\n      obtenu  ${a}\n      attendu ${b}`);
+};
+const vrai = (intitule: string, condition: boolean) => v(intitule, condition, true);
+const faux = (intitule: string, condition: boolean) => v(intitule, condition, false);
+
+/** La bibliothèque livrée, telle qu'elle existerait à la première ouverture. */
+const livree = (): Exercice[] =>
+  BIBLIOTHEQUE.map((livre, rang) => ({
+    ...livre,
+    id: `L${String(rang).padStart(2, '0')}`,
+    fourni: true,
+    majLe: '2026-10-19T00:00:00.000Z',
+  }));
+
+/* ══════════════════════════════════════════════════════════════════════════
+   1. Les exercices se retrouvent tous, et sans doublon
+   ══════════════════════════════════════════════════════════════════════════ */
+console.log('\nLES EXERCICES DU MODÈLE');
+
+{
+  const exercices = livree();
+  for (const modele of MODELES_DE_PROGRAMMES) {
+    const { manquants, orphelins, resolus } = exercicesDuModele(modele, exercices);
+    v(`${modele.cle} : aucun libellé orphelin`, orphelins, []);
+    v(
+      `${modele.cle} : aucun exercice à créer sur la bibliothèque livrée`,
+      manquants.map((m) => m.libelle),
+      [],
+    );
+    /*
+       Deux libellés résolus vers le même exercice compteraient deux fois dans
+       le volume sans que rien ne le montre.
+    */
+    const ids = [...resolus.values()].map((e) => e.id);
+    v(`${modele.cle} : un exercice par libellé`, ids.length - new Set(ids).size, 0);
+  }
+}
+
+{
+  /*
+     Le cas qui compte vraiment : une bibliothèque amputée. Quelqu'un qui a
+     supprimé les pompes doit se les voir proposer à la création, et non
+     recevoir un programme aux pectoraux à zéro.
+  */
+  const sansPompes = livree().filter((e) => e.nom !== 'Pompes');
+  const maison = MODELES_DE_PROGRAMMES.find((m) => m.cle === 'M6')!;
+  const { manquants } = exercicesDuModele(maison, sansPompes);
+  v(
+    'une bibliothèque amputée nomme ce qui manque',
+    manquants.map((m) => `${m.identite.nom} (${m.identite.equipement})`),
+    ['Pompes (sol)'],
+  );
+  const copie = preparerLaCopie(maison, sansPompes);
+  faux('et la copie n’est pas déclarée prête', copie.pret);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   2. Une copie est un programme ordinaire
+   ══════════════════════════════════════════════════════════════════════════ */
+console.log('\nUNE COPIE EST UN PROGRAMME ORDINAIRE');
+
+const copies = new Map<string, Programme>();
+{
+  const exercices = livree();
+  for (const modele of MODELES_DE_PROGRAMMES) {
+    const copie = preparerLaCopie(modele, exercices);
+    if (!copie.pret) {
+      echecs += 1;
+      console.log(`  \x1b[31m✗\x1b[0m ${modele.cle} : copie non prête sur la bibliothèque livrée`);
+      continue;
+    }
+    const programme: Programme = {
+      ...copie.programme,
+      id: `copie-${modele.cle}`,
+      majLe: '2026-10-19T00:00:00.000Z',
+    };
+    copies.set(modele.cle, programme);
+    v(`${modele.cle} : la copie ne pose aucun problème`, controlerProgramme(programme), []);
+    faux(`${modele.cle} : la copie n’est pas active`, programme.actif);
+    v(`${modele.cle} : son nom porte « (copie) »`, programme.nom, nomDeLaCopie(modele));
+    v(`${modele.cle} : autant de séances que le modèle`, programme.seances.length, modele.seances.length);
+    v(
+      `${modele.cle} : autant de blocs que le modèle`,
+      programme.seances.reduce((n, s) => n + s.blocs.length, 0),
+      modele.seances.reduce((n, s) => n + s.blocs.length, 0),
+    );
+    v(
+      `${modele.cle} : les séances gardent l’ordre du dossier`,
+      programme.seances.map((s) => s.nom),
+      modele.seances.map((s) => s.nom),
+    );
+  }
+  v('les sept modèles donnent une copie', copies.size, 7);
+}
+
+{
+  /*
+     L'indépendance : modifier une copie ne doit rien changer au catalogue,
+     sans quoi le second usage d'un modèle hériterait des retouches du
+     premier.
+  */
+  const avant = JSON.stringify(MODELES_DE_PROGRAMMES);
+  const copie = copies.get('M1')!;
+  copie.nom = 'Autre chose';
+  copie.seances[0].blocs[0].series = 99;
+  copie.seances.pop();
+  v('modifier une copie ne touche pas le catalogue', JSON.stringify(MODELES_DE_PROGRAMMES), avant);
+
+  const neuve = preparerLaCopie(MODELES_DE_PROGRAMMES[0], livree());
+  vrai('et une copie neuve repart du modèle', neuve.pret);
+  if (neuve.pret) {
+    v('avec son nom d’origine', neuve.programme.nom, nomDeLaCopie(MODELES_DE_PROGRAMMES[0]));
+    v(
+      'et ses séances d’origine',
+      neuve.programme.seances.length,
+      MODELES_DE_PROGRAMMES[0].seances.length,
+    );
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   3. Rien n'écrit dans sportSeances
+   ══════════════════════════════════════════════════════════════════════════ */
+console.log('\nRIEN N’ÉCRIT DANS SPORTSEANCES');
+
+{
+  /*
+     Une propriété négative se cherche. Les deux modules du prompt 48 ne
+     doivent connaître ni le magasin des séances, ni les fonctions qui
+     l'ouvrent ou l'alimentent, ni la base elle-même.
+  */
+  const INTERDITS = ['sportSeances', 'ouvrirSeance', 'ajouterSerie', 'cloreSeance', "from '../db'", "from './db'"];
+  for (const fichier of [
+    'src/lib/sport/modeles-programmes.ts',
+    'src/lib/sport/copie-de-modele.ts',
+  ]) {
+    const texte = readFileSync(fichier, 'utf8');
+    /*
+       Les commentaires sont retirés avant la recherche : l'en-tête de
+       `copie-de-modele.ts` explique précisément qu'il ne touche pas
+       `sportSeances`, et cette phrase ne doit pas faire rougir le contrôle
+       qu'elle décrit.
+    */
+    const code = texte
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .split('\n')
+      .filter((l) => !/^\s*(\/\/|\*)/.test(l))
+      .join('\n');
+    v(
+      `${fichier} ne connaît pas les séances`,
+      INTERDITS.filter((mot) => code.includes(mot)),
+      [],
+    );
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   4. Les cibles sont recalculées, et les écarts épinglés
+   ══════════════════════════════════════════════════════════════════════════ */
+console.log('\nLES CIBLES SONT CELLES DU CALCUL');
+
+{
+  const exercices = livree();
+  for (const modele of MODELES_DE_PROGRAMMES) {
+    const { resolus } = exercicesDuModele(modele, exercices);
+    const cibles = ciblesDuModele(modele, resolus, exercices);
+    v(
+      `${modele.cle} : les dix-huit muscles portent une cible`,
+      Object.keys(cibles).length,
+      MUSCLES.length,
+    );
+
+    /*
+       La cible et le « prévu » de l'écran doivent sortir du même calcul,
+       sinon la colonne « écart » mesure la divergence des deux formules.
+    */
+    const programme: Programme = {
+      id: 'x',
+      nom: modele.nom,
+      description: '',
+      seances: seancesDuModele(modele, resolus),
+      parSemaine: modele.parSemaine,
+      actif: false,
+      ciblesParMuscle: {},
+      majLe: '2026-10-19T00:00:00.000Z',
+    };
+    const prevu = volumePrevu(programme, exercices);
+    const memes = MUSCLES.every((m) => (prevu.series[m.id] ?? 0) === cibles[m.id]);
+    vrai(`${modele.cle} : la cible est le volume prévu, au même calcul`, memes);
+  }
+}
+
+console.log('\nLES ÉCARTS AVEC LE DOSSIER, ÉPINGLÉS');
+{
+  const exercices = livree();
+  const parModele = MODELES_DE_PROGRAMMES.map((modele) => {
+    const { resolus } = exercicesDuModele(modele, exercices);
+    return { cle: modele.cle, ecarts: ecartsDeCibles(modele, resolus, exercices) };
+  });
+
+  v(
+    'le nombre de cibles qui changent, modèle par modèle',
+    parModele.map((p) => `${p.cle}:${p.ecarts.length}`),
+    ['M1:10', 'M2:11', 'M3:10', 'M4:10', 'M5:10', 'M6:5', 'M7:10'],
+  );
+  v(
+    'soit soixante-six sur cent vingt-six',
+    parModele.reduce((n, p) => n + p.ecarts.length, 0),
+    66,
+  );
+
+  /*
+     Le cas le plus lourd, et celui qui demande un arbitrage : les adducteurs
+     tombent à zéro sur quatre modèles, parce que la bibliothèque ne les
+     compte ni au squat, ni aux fentes, ni à la presse à cuisses.
+  */
+  const adducteursAZero = MODELES_DE_PROGRAMMES.filter((modele) => {
+    const { resolus } = exercicesDuModele(modele, exercices);
+    return ciblesDuModele(modele, resolus, exercices).adducteurs === 0;
+  }).map((m) => m.cle);
+  v('les adducteurs tombent à zéro sur quatre modèles', adducteursAZero, ['M1', 'M4', 'M5', 'M6']);
+
+  /*
+     La sensibilité que le dossier avait lui-même annoncée pour M1 : les
+     fessiers passent de 9 à 12 — et non à 13,5, parce que sa note supposait
+     aussi la presse à cuisses en muscle principal, ce que la bibliothèque ne
+     fait pas. L'épingler, c'est garder la trace de la raison.
+  */
+  const m1 = MODELES_DE_PROGRAMMES.find((m) => m.cle === 'M1')!;
+  const { resolus } = exercicesDuModele(m1, exercices);
+  v('M1 : les fessiers du dossier', m1.ciblesDuDossier.fessiers, 9);
+  v('M1 : les fessiers calculés', ciblesDuModele(m1, resolus, exercices).fessiers, 12);
+
+  v('le coefficient employé reste celui du modèle', COEFFICIENT_SECONDAIRE, 0.5);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   5. La note du bloc : le RIR est une aide, le jargon s'en va
+   ══════════════════════════════════════════════════════════════════════════ */
+console.log('\nLA NOTE DU BLOC');
+
+{
+  const note = (note: string, rir: string | null) =>
+    noteDuBloc({
+      exercice: 'x',
+      series: 3,
+      repetitionsMin: 8,
+      repetitionsMax: 12,
+      repos: 120,
+      rir,
+      deloadSeries: 2,
+      deloadRir: '3-4',
+      note,
+    });
+
+  v(
+    'le RIR visé est posé comme une aide',
+    note('', '1-2'),
+    'Garder 1-2 répétitions en réserve, à titre indicatif.',
+  );
+  v(
+    'la mention de chantier est retirée',
+    note('Exercice à ajouter (R4).', null),
+    '',
+  );
+  v(
+    'la note du dossier est gardée, sans la mention',
+    note('Une série = les deux côtés faits (compte pour 1 série). Exercice à ajouter (R4).', '1-2'),
+    'Une série = les deux côtés faits (compte pour 1 série). Garder 1-2 répétitions en réserve, à titre indicatif.',
+  );
+  v('un maintien ne parle pas de réserve', note('Répétitions = secondes de maintien.', null), 'Répétitions = secondes de maintien.');
+
+  /* Aucune note de copie ne doit porter le jargon de chantier. */
+  const toutes = MODELES_DE_PROGRAMMES.flatMap((m) =>
+    m.seances.flatMap((s) => s.blocs.map((b) => noteDuBloc(b))),
+  );
+  v('aucune note de copie ne parle de R4', toutes.filter((n) => /R4/.test(n)), []);
+  v('aucune note de copie ne porte « (s) »', toutes.filter((n) => /\(s\)/.test(n)), []);
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   6. L'identité de comparaison est respectée
+   ══════════════════════════════════════════════════════════════════════════ */
+console.log('\nL’IDENTITÉ DE COMPARAISON');
+
+{
+  /*
+     Les deux « hip thrust » et les deux « soulevé de terre jambes tendues »
+     sont des exercices distincts : l'équipement fait partie de l'identité.
+     Les confondre inventerait une progression au changement de matériel.
+     C'est ce que le prompt appelle « un exercice par équipement ».
+  */
+  const identites = BIBLIOTHEQUE.map(identiteDeComparaison);
+  v('aucun doublon dans la bibliothèque', identites.length - new Set(identites).size, 0);
+  for (const nom of ['Hip thrust', 'Soulevé de terre jambes tendues']) {
+    v(
+      `« ${nom} » existe en deux équipements`,
+      BIBLIOTHEQUE.filter((e) => e.nom === nom).map((e) => e.equipement).sort(),
+      nom === 'Hip thrust' ? ['barre', 'haltère'] : ['barre', 'haltères'],
+    );
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   7. L'équipement : ce qui ne passe pas est remplacé, et dit
+   ══════════════════════════════════════════════════════════════════════════ */
+console.log('\nL’ÉQUIPEMENT DONT ON DISPOSE');
+
+{
+  v('trois choix de matériel', EQUIPEMENTS.map((e) => e.id), [
+    'salle',
+    'maison-complete',
+    'maison-halteres',
+  ]);
+
+  const parLibelle = new Map(
+    MODELES_DE_PROGRAMMES.flatMap((m) => m.exercices.map((e) => [`${m.cle}/${e.libelle}`, e])),
+  );
+  const possible = (clef: string, ou: Parameters<typeof estPossibleAvec>[1]) =>
+    estPossibleAvec(parLibelle.get(clef)!, ou);
+
+  /* La salle ne refuse rien : c'est le modèle tel que le dossier l'écrit. */
+  for (const modele of MODELES_DE_PROGRAMMES) {
+    const refuses = modele.exercices.filter((e) => !estPossibleAvec(e, 'salle')).map((e) => e.libelle);
+    v(`${modele.cle} : la salle ne refuse aucun exercice`, refuses, []);
+  }
+
+  /*
+     « Haltères seulement » doit refuser TOUT ce qui demande une barre, une
+     poulie, une machine, un banc ou une barre de traction. C'est le cas qui
+     compte : un programme qu'on croit adapté et qui demande une poulie est
+     un programme qu'on ne peut pas faire.
+  */
+  faux('le squat à la barre ne passe pas aux haltères seuls', possible('M1/squat (barre)', 'maison-halteres'));
+  faux('ni la presse à cuisses', possible('M1/presse à cuisses', 'maison-halteres'));
+  faux('ni les tractions', possible('M1/tractions pronation (barre fixe)', 'maison-halteres'));
+  faux('ni le développé incliné, qui demande un banc', possible('M1/développé incliné (haltères)', 'maison-halteres'));
+  vrai('les fentes aux haltères passent', possible('M1/fentes (haltères)', 'maison-halteres'));
+  vrai('le gainage aussi', possible('M1/gainage ventral', 'maison-halteres'));
+  vrai('et les pompes', possible('M6/pompes', 'maison-halteres'));
+
+  /* Avec banc et barre de traction, les tractions et l'incliné reviennent. */
+  vrai('les tractions passent avec une barre de traction', possible('M1/tractions pronation (barre fixe)', 'maison-complete'));
+  vrai('le développé incliné passe avec un banc', possible('M1/développé incliné (haltères)', 'maison-complete'));
+  faux('mais pas le squat à la barre', possible('M1/squat (barre)', 'maison-complete'));
+
+  /*
+     Les parenthèses de la colonne du dossier ne sont pas des matériels :
+     « haltère, appui (chaise, banc) » ne demande pas de banc.
+  */
+  vrai(
+    'le rowing à un bras passe aux haltères seuls',
+    possible('M6/rowing à un bras (haltère)', 'maison-halteres'),
+  );
+}
+
+{
+  /* Le remplaçant se reconnaît dans la prose du dossier, ou pas du tout. */
+  v(
+    'un remplaçant nommé est reconnu',
+    remplacantReconnu('tirage vertical (poulie) sans barre fixe'),
+    'tirage vertical (poulie)',
+  );
+  v('et le libellé le plus long gagne', remplacantReconnu('mollets debout à une jambe (haltère) sans machine, à ajouter'), 'mollets debout à une jambe (haltère)');
+  v('une prose sans exercice nommé n’en donne aucun', remplacantReconnu('pas d’équivalent présent'), undefined);
+  v('et rien du tout non plus', remplacantReconnu(null), undefined);
+}
+
+{
+  /*
+     LE CAS DU PROMPT : « haltères seulement » doit remplacer tout exercice à
+     barre ou à machine. On vérifie qu'aucun n'est passé sous silence — soit
+     remplacé, soit signalé sans remplaçant, jamais ignoré.
+  */
+  const modele = MODELES_DE_PROGRAMMES.find((m) => m.cle === 'M1')!;
+  const a = adapterALEquipement(modele, 'maison-halteres');
+  const traites = new Set([
+    ...a.remplaces.map((r) => r.libelle),
+    ...a.sansRemplacant.map((r) => r.libelle),
+  ]);
+  const impossibles = modele.exercices
+    .filter((e) => !estPossibleAvec(e, 'maison-halteres'))
+    .map((e) => e.libelle);
+  v(
+    'tout exercice impossible est traité',
+    impossibles.filter((l) => !traites.has(l)),
+    [],
+  );
+  vrai('et il y en a', impossibles.length > 0);
+  v(
+    'aucun exercice possible n’est touché',
+    [...a.substitutions.keys()].filter((l) =>
+      estPossibleAvec(modele.exercices.find((e) => e.libelle === l)!, 'maison-halteres'),
+    ),
+    [],
+  );
+
+  /*
+     Un remplaçant lui-même impossible n'est pas retenu : remplacer une
+     machine par une autre machine ne résout rien.
+  */
+  const mauvais = [...a.substitutions.values()].filter((par) => {
+    const decrit = modele.exercices.find((e) => e.libelle === par);
+    return decrit !== undefined && !estPossibleAvec(decrit, 'maison-halteres');
+  });
+  v('aucun remplaçant n’est lui-même impossible', mauvais, []);
+
+  /* La salle ne remplace rien du tout. */
+  const salle = adapterALEquipement(modele, 'salle');
+  v('en salle, rien n’est remplacé', salle.remplaces.length + salle.sansRemplacant.length, 0);
+}
+
+{
+  /* La copie aux haltères seuls reste un programme valide. */
+  const exercices = livree();
+  const modele = MODELES_DE_PROGRAMMES.find((m) => m.cle === 'M3')!;
+  const copie = preparerLaCopie(modele, exercices, { equipement: 'maison-halteres' });
+  vrai('la copie aux haltères seuls est prête', copie.pret);
+  if (copie.pret) {
+    const programme: Programme = { ...copie.programme, id: 'h', majLe: '2026-10-19T00:00:00.000Z' };
+    v('et c’est un programme valide', controlerProgramme(programme), []);
+    vrai('des exercices ont été remplacés', copie.adaptation.remplaces.length > 0);
+    vrai('et l’écran a de quoi le dire', copie.adaptation.remplaces.every((r) => r.par !== null));
+    /*
+       Les cibles ont été recalculées sur les exercices remplacés, et non sur
+       ceux du dossier : sans cela, un programme de salon afficherait les
+       cibles d'un programme de salle.
+    */
+    const cibles = Object.values(programme.ciblesParMuscle);
+    vrai('et les cibles ne sont pas celles de la salle', JSON.stringify(cibles) !== JSON.stringify(Object.values(modele.ciblesDuDossier)));
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   8. Les blessures : signalées, jamais retirées
+   ══════════════════════════════════════════════════════════════════════════ */
+console.log('\nLES BLESSURES SONT SIGNALÉES, JAMAIS RETIRÉES');
+
+{
+  const exercices = livree();
+  const modele = MODELES_DE_PROGRAMMES.find((m) => m.cle === 'M1')!;
+  const { resolus } = exercicesDuModele(modele, exercices);
+
+  const blessure = (muscles: string[], fin: string | null = null): Blessure => ({
+    id: 'b1',
+    muscles,
+    intensite: 5,
+    debut: '2026-10-01T12:00:00.000Z',
+    fin,
+    note: '',
+    majLe: '2026-10-01T12:00:00.000Z',
+  });
+  const le = new Date('2026-10-19T10:00:00.000Z');
+
+  v('sans blessure, rien n’est signalé', signalerLesBlessures(modele, resolus, exercices, [], le), []);
+  v(
+    'une blessure refermée ne signale rien',
+    signalerLesBlessures(modele, resolus, exercices, [blessure(['pectoraux'], '2026-10-05T12:00:00.000Z')], le),
+    [],
+  );
+
+  {
+    const signales = signalerLesBlessures(modele, resolus, exercices, [blessure(['pectoraux'])], le);
+    vrai('une épaule douloureuse… pardon, un pectoral, se signale', signales.length > 0);
+    v(
+      'et seulement sur les exercices qui le sollicitent',
+      signales.map((s) => s.libelle).sort(),
+      ['développé couché (barre)', 'développé incliné (haltères)', 'dips (barres parallèles)'].sort(),
+    );
+    vrai('avec le muscle nommé', signales.every((s) => s.muscles.includes('pectoraux')));
+    vrai('et un conseil du dossier', signales.every((s) => s.conseil !== null));
+  }
+
+  {
+    /*
+       Un muscle SECONDAIRE blessé compte aussi. C'est le point qui fait la
+       différence avec la convention du dossier : la bibliothèque compte les
+       ischio-jambiers au squat, le dossier non. Une gêne aux ischio-jambiers
+       passerait donc inaperçue sur le mouvement le plus lourd du programme.
+    */
+    const signales = signalerLesBlessures(modele, resolus, exercices, [blessure(['ischio-jambiers'])], le);
+    vrai(
+      'le squat est signalé pour un muscle secondaire',
+      signales.some((s) => s.libelle === 'squat (barre)'),
+    );
+  }
+
+  {
+    /* Une blessure générale couvre tout. */
+    const signales = signalerLesBlessures(modele, resolus, exercices, [blessure([])], le);
+    v(
+      'une blessure générale signale tous les exercices',
+      signales.length,
+      modele.exercices.length,
+    );
+    v('et aucun remplaçant n’est proposé', signales.filter((s) => s.par !== null), []);
+  }
+
+  {
+    /* RIEN N'EST RETIRÉ : la copie garde tous ses blocs. */
+    const copie = preparerLaCopie(modele, exercices, {
+      blessures: [blessure(['pectoraux'])],
+      maintenant: le,
+    });
+    vrai('la copie est prête malgré la blessure', copie.pret);
+    if (copie.pret) {
+      v(
+        'et elle garde tous ses blocs',
+        copie.programme.seances.reduce((n, s) => n + s.blocs.length, 0),
+        modele.seances.reduce((n, s) => n + s.blocs.length, 0),
+      );
+      vrai('la blessure est signalée', copie.blessures.length > 0);
+    }
+  }
+}
+
+
+/* ══════════════════════════════════════════════════════════════════════════
+   9. Ce que le modèle ne travaille pas, dit avant la copie
+   ══════════════════════════════════════════════════════════════════════════ */
+console.log('\nCE QUE LE MODÈLE NE TRAVAILLE PAS');
+
+{
+  const exercices = livree();
+
+  /*
+     LE CAS QUI A MOTIVÉ CETTE LIGNE : les adducteurs tombent à zéro sur
+     quatre des sept modèles, une fois les muscles pris dans la bibliothèque
+     et non dans la convention du dossier. Avant, cela ne se voyait qu'après
+     la copie, sur l'écran du volume. Maintenant la carte le dit avant.
+  */
+  const sansAdducteurs = MODELES_DE_PROGRAMMES.filter((m) =>
+    musclesNonTravailles(m, exercices).includes('adducteurs'),
+  ).map((m) => m.cle);
+  v('quatre modèles ne travaillent pas les adducteurs', sansAdducteurs, ['M1', 'M4', 'M5', 'M6']);
+
+  /*
+     Le cou n'est programmé par aucun modèle, et le dossier le dit lui-même :
+     aucune source lue ne le concerne. C'est une information, pas une faute.
+  */
+  v(
+    'et aucun ne travaille le cou',
+    MODELES_DE_PROGRAMMES.filter((m) => !musclesNonTravailles(m, exercices).includes('cou')).map(
+      (m) => m.cle,
+    ),
+    [],
+  );
+
+  /* Le corps entier sur deux jours laisse aussi l'arrière des épaules. */
+  v(
+    'M5 laisse aussi l’arrière des épaules',
+    musclesNonTravailles(MODELES_DE_PROGRAMMES.find((m) => m.cle === 'M5')!, exercices),
+    ['deltoide-posterieur', 'adducteurs', 'cou'],
+  );
+
+  /* Les muscles nommés existent. */
+  v(
+    'tous les muscles nommés sont connus',
+    MODELES_DE_PROGRAMMES.flatMap((m) =>
+      musclesNonTravailles(m, exercices).filter((id) => !MUSCLES.some((mu) => mu.id === id)),
+    ),
+    [],
+  );
+
+  {
+    /*
+       Une bibliothèque amputée en laisse davantage : la phrase porte sur les
+       exercices de la personne, pas sur une liste figée. Sans les pompes, le
+       modèle Maison ne travaille plus les pectoraux.
+    */
+    const sansPompes = exercices.filter((e) => e.nom !== 'Pompes');
+    const maison = MODELES_DE_PROGRAMMES.find((m) => m.cle === 'M6')!;
+    vrai(
+      'sans les pompes, le modèle Maison ne travaille plus les pectoraux',
+      musclesNonTravailles(maison, sansPompes).includes('pectoraux'),
+    );
+    faux(
+      'alors qu’il les travaille avec',
+      musclesNonTravailles(maison, exercices).includes('pectoraux'),
+    );
+  }
+}
+
+/* ════════════════════════════════════════════════════════════════════════ */
+console.log(
+  echecs
+    ? `\n\x1b[31m${echecs} essai(s) en échec.\x1b[0m\n`
+    : '\n\x1b[32m✓ tout passe\x1b[0m\n',
+);
+process.exit(echecs ? 1 : 0);

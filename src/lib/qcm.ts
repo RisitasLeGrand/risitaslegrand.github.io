@@ -9,12 +9,11 @@
  */
 import type { BanqueDgfip, QuestionDgfip, RubriqueDgfip } from './contenu';
 import { estExpiree, questionsServables } from './qcm-temporalite';
+import { TAILLE_SESSION, repartir } from './qcm-composition';
+import { estPosableSurUneCopie } from './qcm-copie';
 import type { EtatQuestionDgfip, ScoreRubriqueDgfip } from './db';
 import { ecartJours, jourISO } from './db';
 import { melanger } from './ui';
-
-/** Nombre de questions d'une session complète, comme à l'épreuve. */
-export const TAILLE_SESSION = 54;
 
 export interface FormatEpreuve {
   id: string;
@@ -69,6 +68,13 @@ export { estExpiree, questionsServables } from './qcm-temporalite';
 /** Barème officiel : le hasard a un coût, l'abstention n'en a pas. */
 export const BAREME = { bonne: 1, mauvaise: -0.5, abstention: 0 } as const;
 
+/*
+   La durée du compte à rebours vit dans « qcm-copie.ts », module pur, pour la
+   même raison que la temporalité : elle doit s'éprouver en Node. Réexportée
+   ici pour que l'écran n'ait qu'un import.
+*/
+export { MINUTES_PAR_QUESTION, dureeEnClair, secondesDuFormat } from './qcm-copie';
+
 export type Issue = 'bonne' | 'mauvaise' | 'abstention';
 
 export interface QuestionTiree extends QuestionDgfip {
@@ -83,61 +89,20 @@ export interface ReponseSession {
   issue: Issue;
 }
 
-/**
- * Répartit « total » questions entre les rubriques, sans jamais en demander
- * plus qu'il n'en existe.
- *
- * Sans quota imposé, la répartition est égale puis le reliquat va aux rubriques
- * les mieux pourvues : sur quatre rubriques et 54 questions, cela donne
- * 14/14/13/13. Avec un quota — les formats reproduisant un sujet réel —, seules
- * les rubriques nommées sont tirées, et ce qu'une rubrique trop courte ne peut
- * fournir est repris par les autres du même format, pour que la session
- * conserve sa longueur.
- */
-export function repartir(
-  rubriques: RubriqueDgfip[],
-  total = TAILLE_SESSION,
-  quotas?: Record<string, number>,
-): Map<string, number> {
-  const quota = new Map<string, number>();
-  const disponibles = rubriques.filter(
-    (r) => r.total > 0 && (!quotas || quotas[r.nom] !== undefined),
-  );
-  if (!disponibles.length) return quota;
+/*
+   `repartir` a déménagé dans « qcm-composition.ts », module pur.
 
-  let restant = Math.min(total, disponibles.reduce((n, r) => n + r.total, 0));
+   La raison est la même que pour la temporalité : « qcm.ts » importe « ./ui »,
+   qui lit « import.meta.env » et n'existe donc que dans un navigateur. Or la
+   règle de composition du prompt 49 — dire à l'écran qu'une rubrique n'a pas
+   de quoi remplir son quota, et que la longueur est malgré tout préservée —
+   repose entièrement sur cette répartition. L'éprouver demandait de pouvoir
+   l'appeler en Node.
 
-  if (quotas) {
-    for (const r of disponibles) {
-      const n = Math.min(quotas[r.nom] ?? 0, r.total, restant);
-      quota.set(r.id, n);
-      restant -= n;
-    }
-  } else {
-    const part = Math.floor(restant / disponibles.length);
-    for (const r of disponibles) {
-      const n = Math.min(part, r.total);
-      quota.set(r.id, n);
-      restant -= n;
-    }
-  }
-
-  // Le reliquat va aux rubriques les mieux pourvues : c'est là qu'il coûte le
-  // moins en répétition d'une session à l'autre.
-  const parStock = [...disponibles].sort((a, b) => b.total - a.total);
-  while (restant > 0) {
-    const avant = restant;
-    for (const r of parStock) {
-      if (restant === 0) break;
-      const actuel = quota.get(r.id) ?? 0;
-      if (actuel >= r.total) continue;
-      quota.set(r.id, actuel + 1);
-      restant -= 1;
-    }
-    if (restant === avant) break; // plus aucune place : stock épuisé
-  }
-  return quota;
-}
+   Le déménagement ne change RIEN au comportement ni à l'interface : la
+   fonction est réexportée ici, et ses appelants ne voient pas la différence.
+*/
+export { repartir, TAILLE_SESSION } from './qcm-composition';
 
 /**
  * Poids d'une question dans le tirage. Jamais nul : même une question sue
@@ -180,6 +145,19 @@ function tirerPonderé<T>(candidats: { valeur: T; poids: number }[], combien: nu
 }
 
 /**
+ * Ce que la présentation choisie change au tirage.
+ *
+ * `surUneCopie` restreint le tirage aux questions qu'une zone de la feuille
+ * pré-imprimée peut porter — quatre propositions, une seule réponse. Les
+ * autres restent dans la banque et continuent d'être posées par le format
+ * « une question à la fois » : rien n'est retiré, seul le tirage de la copie
+ * est plus étroit. Voir `estPosableSurUneCopie`.
+ */
+export interface OptionsDeTirage {
+  surUneCopie?: boolean;
+}
+
+/**
  * Compose une session : le quota de chaque rubrique, tiré parmi ses questions
  * en tenant compte de l'historique, puis l'ensemble mélangé pour que les
  * rubriques s'entremêlent comme à l'épreuve.
@@ -189,11 +167,31 @@ export function composerSession(
   historique: EtatQuestionDgfip[],
   format: FormatEpreuve,
   parcours?: string,
+  options: OptionsDeTirage = {},
 ): QuestionTiree[] {
   const parId = new Map(historique.map((e) => [e.id, e]));
   const aujourdhui = jourISO();
-  const servables = questionsServables(banque, parcours, aujourdhui);
-  const quota = repartir(banque.rubriques, format.total, format.repartition);
+  const servables = questionsServables(banque, parcours, aujourdhui).filter(
+    (q) => !options.surUneCopie || estPosableSurUneCopie(q),
+  );
+  /*
+     LES QUOTAS SE CALCULENT SUR CE QUI EST SERVABLE, et non sur les totaux
+     annoncés par les rubriques.
+
+     `repartir` ne demande jamais à une rubrique plus qu'elle n'a — mais
+     « ce qu'elle a » doit être ce qu'on peut réellement tirer. Passer les
+     totaux bruts lui ferait réclamer dix questions d'anglais à une rubrique
+     qui n'en a que trois de servables sur une copie, et le reliquat ne
+     serait pas reporté : la session s'ouvrirait plus courte que son titre,
+     en silence.
+  */
+  const parRubrique = new Map<string, number>();
+  for (const q of servables) parRubrique.set(q.rubriqueId, (parRubrique.get(q.rubriqueId) ?? 0) + 1);
+  const quota = repartir(
+    banque.rubriques.map((r) => ({ ...r, total: parRubrique.get(r.id) ?? 0 })),
+    format.total,
+    format.repartition,
+  );
 
   const retenues: QuestionDgfip[] = [];
   for (const [rubriqueId, combien] of quota) {
@@ -237,8 +235,11 @@ export function tailleReelle(
   format: FormatEpreuve,
   parcours?: string,
   aujourdhui = jourISO(),
+  options: OptionsDeTirage = {},
 ): number {
-  const servables = questionsServables(banque, parcours, aujourdhui);
+  const servables = questionsServables(banque, parcours, aujourdhui).filter(
+    (q) => !options.surUneCopie || estPosableSurUneCopie(q),
+  );
   const parRubrique = new Map<string, number>();
   for (const q of servables) {
     parRubrique.set(q.rubriqueId, (parRubrique.get(q.rubriqueId) ?? 0) + 1);

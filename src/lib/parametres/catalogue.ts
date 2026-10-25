@@ -29,6 +29,7 @@ import { PLAFOND_JOURS, PLANCHER_JOURS } from '../notifications/retention';
 import { RETENTION_PAR_DEFAUT } from '../notifications/modele';
 import { COUCHER_PAR_DEFAUT, LEVER_PAR_DEFAUT, THEMES } from '../themes';
 import { CLE_VITESSE, VITESSE_PAR_DEFAUT, VITESSES } from '../podcast-noyau';
+import { PRESENTATION_PAR_DEFAUT } from '../presentation-dgfip';
 import type { Reglage, Section } from './modele';
 
 /** « 07:00 » se dit « 7 h » : l'heure ronde ne porte pas ses minutes (P7). */
@@ -487,6 +488,32 @@ export const REGLAGES: Reglage[] = [
     stockage: 'localStorage::revinsp.assistant.options',
     nature: { genre: 'ailleurs', vers: '/fiche/', texte: 'Régler dans le volet « Demander à l’IA »' },
     defaut: null,
+  },
+  {
+    id: 'presentation-dgfip',
+    libelle: 'Présentation de l’épreuve DGFiP',
+    aQuoiCaSert:
+      'Ce qui est proposé au départ. La copie reproduit la feuille du concours et son chronomètre ; l’autre présentation pose une question par écran, sans minuterie.',
+    section: 'revisions',
+    portee: 'appareil',
+    stockage: 'localStorage::cyclades.dgfip.presentation',
+    nature: {
+      genre: 'choix',
+      options: [
+        {
+          valeur: 'copie',
+          libelle: 'Copie de concours',
+          detail: 'Le sujet entier, sa feuille de réponse à deux lignes, et le temps qui court.',
+        },
+        {
+          valeur: 'une-a-la-fois',
+          libelle: 'Une question à la fois',
+          detail: 'Un écran par question, sans chronomètre. Le format d’avant.',
+        },
+      ],
+    },
+    defaut: PRESENTATION_PAR_DEFAUT,
+    ecran: '/quiz/dgfip/',
   },
 
   /* ── Odyssée ───────────────────────────────────────────────────────────── */
