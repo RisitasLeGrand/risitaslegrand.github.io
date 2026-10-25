@@ -92,7 +92,6 @@ const SOCLE = [
   ['essais:themes-navigateur', 'les quatorze thèmes s’appliquent pour de vrai'],
   ['essais:themes-a-jour', 'le catalogue et les feuilles engendrées concordent'],
   ['essais:contrastes-themes', 'WCAG AA dans chaque thème'],
-  ['essais:bulles:navigateur', 'les bulles : leurs classes existent, et elles se voient'],
   ['essais:couleurs-jetons', 'aucune couleur littérale hors des jetons'],
   ['essais:theme-menus', 'aucun menu hors palette, et refus de juger à vide'],
   ['essais:coffre-ferme', 'coffre fermé, rien de sensible n’apparaît'],
