@@ -27,6 +27,7 @@
  * données construites — il ne travaillera pas par-dessus le travail d'autrui.
  */
 import { chromium } from 'playwright-core';
+import { idStable } from './lib/crypto.mjs';
 import { execFileSync, spawn } from 'node:child_process';
 import { existsSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
@@ -151,6 +152,17 @@ try {
   if (!sert) throw new Error(`l'aperçu n'a pas répondu sur ${ADRESSE} après 60 s`);
   console.log(`  aperçu debout sur ${ADRESSE}`);
 
+  /*
+     L'identifiant de la fiche se CALCULE comme le build le calcule, et ne
+     s'écrit pas en dur : « idStable » du chemin relatif, extension comprise.
+     Le manifeste étant chiffré, on ne peut pas l'y lire ; et un identifiant
+     recopié à la main se périmerait au premier déplacement de la fiche sans
+     que rien ne le dise. La fiche d'exemple ne déclare pas « id_publie », qui
+     primerait sinon.
+  */
+  const idDeLaFiche = await idStable(`${FICHE}.md`);
+  console.log(`  fiche de décor : ${idDeLaFiche}`);
+
   nav = await chromium.launch({
     executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium',
     args: ['--no-sandbox'],
@@ -167,14 +179,31 @@ try {
   const mesures = {};
   for (const theme of ['clair', 'sombre']) {
     console.log(`\n${gras(`LE THÈME ${theme.toUpperCase()}, À 390 PX`)}\n`);
-    const contexte = await nav.newContext({
-      viewport: { width: 390, height: 844 },
-      colorScheme: theme === 'sombre' ? 'dark' : 'light',
-    });
+    /*
+       LE THÈME SE POSE PAR LE RÉGLAGE DE L'APPLICATION, pas par celui du
+       système.
+
+       « colorScheme » de Playwright ne règle que « prefers-color-scheme », et
+       le site ne le suit pas : il a ses propres thèmes, lus dans
+       « localStorage » sous « revinsp.theme », et son défaut est « sombre ».
+       Mesuré : les deux passages donnaient le même fond, donc le même thème,
+       et le contrôle ne comparait rien. On écrit donc le réglage avant le
+       premier chargement.
+    */
+    const contexte = await nav.newContext({ viewport: { width: 390, height: 844 } });
+    await contexte.addInitScript((mode) => {
+      try {
+        localStorage.setItem('revinsp.theme', mode);
+        localStorage.setItem('revinsp.bascule-jour-nuit', 'non');
+      } catch {
+        /* stockage refusé : le thème restera celui du défaut, et le contrôle
+           de différence le dira. */
+      }
+    }, theme);
     const page = await contexte.newPage();
     page.on('pageerror', (e) => console.log('PAGEERROR:', e.message.slice(0, 200)));
 
-    await page.goto(`${ADRESSE}/fiche?id=${encodeURIComponent(FICHE)}`, { waitUntil: 'networkidle' });
+    await page.goto(`${ADRESSE}/fiche?id=${encodeURIComponent(idDeLaFiche)}`, { waitUntil: 'networkidle' });
     if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
       await page.fill('#champ-mdp', MOT_DE_PASSE);
       await page.click('#bouton-verrou');
@@ -207,8 +236,27 @@ try {
         couleurFormule: couleur(enLigne?.querySelector('.katex')),
         couleurTexte: couleur(paragraphe),
         fondDuCorps: getComputedStyle(document.body).backgroundColor,
-        debordeBloc: debordeur(bloc),
-        debordePage: document.documentElement.scrollWidth > window.innerWidth + 1,
+        /*
+           LA MESURE PORTE SUR LES BOÎTES DES FORMULES, et non sur la page.
+
+           Une première version exigeait que la PAGE ne défile pas
+           latéralement, et elle rougissait — mais pour la faute d'un autre :
+           « select#selecteur-parcours » fait 110 px et finit à 471 px sur une
+           vue de 390. C'est un défaut réel, signalé au pilote, et étranger aux
+           mathématiques. Un essai qui rougit pour le défaut du voisin finit
+           par être ignoré, et il n'aurait rien dit du nôtre.
+
+           Ce qui relève du point e, c'est que la boîte d'une formule tienne
+           dans la largeur offerte. Qu'elle défile EN DEDANS est voulu : une
+           formule hors ligne est large, et « overflow-x: auto » la fait
+           défiler seule au lieu d'élargir la page.
+        */
+        droiteBloc: bloc ? Math.round(bloc.getBoundingClientRect().right) : 0,
+        droiteEnLigne: enLigne ? Math.round(enLigne.getBoundingClientRect().right) : 0,
+        largeurVue: window.innerWidth,
+        /* La boîte peut-elle défiler en dedans, si la formule la dépasse ? */
+        defileEnDedans: bloc ? getComputedStyle(bloc).overflowX === 'auto' : false,
+        formuleDepasseSaBoite: debordeur(bloc),
         /* La feuille de KaTeX est-elle vraiment arrivée ? Sans elle, « .katex »
            n'a aucune règle et sa police reste celle du corps. */
         policeFormule: enLigne ? getComputedStyle(enLigne.querySelector('.katex')).fontFamily : '',
@@ -239,8 +287,21 @@ try {
       vu.couleurFormule !== vu.fondDuCorps,
       `formule ${vu.couleurFormule} · fond ${vu.fondDuCorps}`,
     );
-    verifier(`${theme} · le bloc ne déborde pas de sa largeur`, !vu.debordeBloc);
-    verifier(`${theme} · et la page ne défile pas latéralement`, !vu.debordePage);
+    verifier(
+      `${theme} · la boîte du bloc tient dans les 390 px`,
+      vu.droiteBloc <= vu.largeurVue + 1,
+      `bord droit ${vu.droiteBloc} pour une vue de ${vu.largeurVue}`,
+    );
+    verifier(
+      `${theme} · la formule en ligne aussi`,
+      vu.droiteEnLigne <= vu.largeurVue + 1,
+      `bord droit ${vu.droiteEnLigne} pour une vue de ${vu.largeurVue}`,
+    );
+    verifier(
+      `${theme} · et le bloc peut défiler en dedans si la formule le dépasse`,
+      vu.defileEnDedans,
+      `overflow-x calculé : ${vu.defileEnDedans}`,
+    );
 
     mesures[theme] = vu;
     await contexte.close();
