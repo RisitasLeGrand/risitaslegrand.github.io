@@ -90,6 +90,7 @@
     "essais:temporalite": "tsx scripts/essais-temporalite.mts",
     "essais:corrections": "node scripts/essais-corrections-contenu.mjs",
     "essais:cloture": "node scripts/essais-cloture-contenu.mjs",
+    "essais:decomptes-visuels": "node scripts/essais-decomptes-visuels.mjs",
     "essais:correction-ecran": "node scripts/essais-correction-ecran-navigateur.mjs",
     "essais:familles": "tsx scripts/essais-familles-qcm.mts",
     "essais:tirage-familles": "tsx scripts/essais-tirage-familles.mts",

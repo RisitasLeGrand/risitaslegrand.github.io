@@ -24,6 +24,7 @@ import { decouperSections } from './lib/markdown.mjs';
 import { quizSchema, banqueDgfipSchema } from './lib/schema.mjs';
 import { estMatiereMigree, estRubriqueMigree, MATIERES_MIGREES, RUBRIQUES_MIGREES } from './lib/corrections-migrees.mjs';
 import { contenuEstClos, manquesDeCouverture } from './lib/cloture-contenu.mjs';
+import { ecartsDuVisuel } from './lib/decomptes-visuels.mjs';
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dossierContenu = path.join(racine, 'content');
@@ -123,6 +124,11 @@ async function verifierCours() {
         continue;
       }
       compter(stats, r.data);
+      /* Un texte de remplacement qui contredit ses propres données est une
+         faute, pas une hypothèse : il est refusé partout, migré ou non. */
+      for (const ecart of ecartsDuVisuel(r.data.correction?.visuel)) {
+        erreurs.push(`${relatif} (## Quiz) : « ${r.data.question} » — visuel : ${ecart}`);
+      }
       if (!r.data.correction && estMatiereMigree(matiere)) {
         erreurs.push(
           `${relatif} (## Quiz) : « ${r.data.question} » sans bloc « correction » — la matière ${matiere} est déclarée migrée`,
@@ -160,6 +166,9 @@ async function verifierDgfip() {
     parRubrique.set(id, stats);
     for (const question of r.data.questions) {
       compter(stats, question);
+      for (const ecart of ecartsDuVisuel(question.correction?.visuel)) {
+        erreurs.push(`qcm-dgfip/${nom} : « ${question.question} » — visuel : ${ecart}`);
+      }
       if (!question.correction && estRubriqueMigree(id)) {
         erreurs.push(
           `qcm-dgfip/${nom} : « ${question.question} » sans bloc « correction » — la rubrique ${id} est déclarée migrée`,
