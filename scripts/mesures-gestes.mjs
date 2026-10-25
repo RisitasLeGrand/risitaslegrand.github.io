@@ -295,7 +295,7 @@ const GESTES = [
         await activer.click().catch(() => {});
         await page.waitForTimeout(1200);
       }
-      if (!(await page.locator('#creneaux button:visible').count())) {
+      if (!(await page.locator('#creneaux-du-jour button:visible').count())) {
         const nom = page.locator('#t-nom');
         if (await nom.isVisible().catch(() => false)) {
           const jour = new Date().toISOString().slice(0, 10);
@@ -331,7 +331,7 @@ const GESTES = [
       /* ── Le geste ───────────────────────────────────────────────────── */
       const c = compteur(page);
       c.demarrer();
-      const creneau = page.locator('#creneaux button:visible').first();
+      const creneau = page.locator('#creneaux-du-jour button:visible').first();
       if (!(await creneau.count())) {
         return {
           ...c.mesure,

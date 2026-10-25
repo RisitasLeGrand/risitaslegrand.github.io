@@ -388,9 +388,9 @@ await page.waitForTimeout(300);
 await page.fill('#traitements details input[type="time"]', '08:00');
 await page.click('#traitements details button:has-text("Ajouter cette heure")');
 await page.click('#traitements details button[type="submit"]');
-await page.waitForSelector('#creneaux li', { timeout: 20000 });
+await page.waitForSelector('#creneaux-du-jour li', { timeout: 20000 });
 
-await page.click('#creneaux li button:has-text("Pris")');
+await page.click('#creneaux-du-jour li button:has-text("Pris")');
 // Le bandeau d'annulation retarde l'écriture de six secondes.
 await page.waitForTimeout(8000);
 
@@ -496,8 +496,8 @@ console.log('\nCOFFRE FERMÉ : LAISSÉ ENTIER, ET L’ÉCRAN DIT POURQUOI');
   await page.goto(`${RACINE}/odyssee/sante/`, { waitUntil: 'networkidle' });
   await connecter();
   await page.waitForSelector('#coffre-ouvert', { state: 'visible', timeout: 40000 });
-  await page.waitForSelector('#creneaux li button:has-text("Pris")', { timeout: 20000 });
-  await page.click('#creneaux li button:has-text("Pris")');
+  await page.waitForSelector('#creneaux-du-jour li button:has-text("Pris")', { timeout: 20000 });
+  await page.click('#creneaux-du-jour li button:has-text("Pris")');
   await page.waitForTimeout(8000);
   v('un créneau est de nouveau scellé', await compter('odysseeCreneaux'), 1);
 

@@ -237,7 +237,7 @@ console.log('\nLE SCHÉMA PRÉVU FAIT APPARAÎTRE LE CRÉNEAU DU JOUR');
   await page.click('#traitements details button[type="submit"]');
   await page.waitForSelector('#bloc-aujourdhui', { state: 'visible', timeout: 20000 });
 
-  const creneau = await page.$eval('#creneaux li', (li) => ({
+  const creneau = await page.$eval('#creneaux-du-jour li', (li) => ({
     texte: li.textContent ?? '',
     etat: li.dataset.etat,
     boutons: [...li.querySelectorAll('button')].map((b) => b.textContent),
@@ -252,7 +252,7 @@ console.log('\nLE SCHÉMA PRÉVU FAIT APPARAÎTRE LE CRÉNEAU DU JOUR');
 console.log('\n« PRIS » NOTE L’HEURE RÉELLE, APRÈS SIX SECONDES D’ANNULATION');
 
 {
-  await page.click('#creneaux li button:has-text("Pris")');
+  await page.click('#creneaux-du-jour li button:has-text("Pris")');
   await page.waitForTimeout(600);
 
   /*
@@ -261,7 +261,7 @@ console.log('\n« PRIS » NOTE L’HEURE RÉELLE, APRÈS SIX SECONDES D’ANNULA
      aucun bouton — le chemin de retour est le bandeau, et en offrir un
      second ferait partir la suppression d'une marque qui n'existe pas.
   */
-  const pendant = await page.$eval('#creneaux li', (li) => ({
+  const pendant = await page.$eval('#creneaux-du-jour li', (li) => ({
     etat: li.dataset.etat,
     boutons: [...li.querySelectorAll('button')].map((b) => b.textContent),
   }));
@@ -270,7 +270,7 @@ console.log('\n« PRIS » NOTE L’HEURE RÉELLE, APRÈS SIX SECONDES D’ANNULA
   vrai('le bandeau d’annulation est bien à l’écran', await visibleEnFixe('bandeau-annulation'));
 
   await page.waitForTimeout(8000);
-  const apres = await page.$eval('#creneaux li', (li) => ({
+  const apres = await page.$eval('#creneaux-du-jour li', (li) => ({
     texte: li.textContent ?? '',
     etat: li.dataset.etat,
   }));
@@ -293,17 +293,17 @@ console.log('\n« PRIS » NOTE L’HEURE RÉELLE, APRÈS SIX SECONDES D’ANNULA
 console.log('\n« PAS AUJOURD’HUI » NE LAISSE AUCUNE MARQUE NÉGATIVE');
 
 {
-  await page.click('#creneaux li button:has-text("Reprendre")');
+  await page.click('#creneaux-du-jour li button:has-text("Reprendre")');
   await page.waitForTimeout(1500);
   v(
     'reprendre rend le créneau à l’absence, et non à un troisième état',
-    await page.$eval('#creneaux li', (li) => li.dataset.etat),
+    await page.$eval('#creneaux-du-jour li', (li) => li.dataset.etat),
     'prevu',
   );
 
-  await page.click('#creneaux li button:has-text("Pas aujourd’hui")');
+  await page.click('#creneaux-du-jour li button:has-text("Pas aujourd’hui")');
   await page.waitForTimeout(8500);
-  const refus = await page.$eval('#creneaux li', (li) => ({
+  const refus = await page.$eval('#creneaux-du-jour li', (li) => ({
     etat: li.dataset.etat,
     classes: li.className,
   }));
@@ -554,7 +554,7 @@ console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
     await reglage.locator('button[type="submit"]').click();
     await page.waitForTimeout(2000);
 
-    const ligne = page.locator('#creneaux li', { hasText: 'Traitement du matin' });
+    const ligne = page.locator('#creneaux-du-jour li', { hasText: 'Traitement du matin' });
     const texte = await ligne.textContent();
     mesure('la ligne du créneau oublié', JSON.stringify(texte));
     /*

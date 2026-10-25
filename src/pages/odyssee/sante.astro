@@ -108,7 +108,18 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
           une réponse comme une autre : rien n’est compté, rien ne vous est reproché, et aucune
           trace négative n’en reste.
         </p>
-        <ul id="creneaux" class="mt-3 space-y-2"></ul>
+        {/*
+           `creneaux-du-jour` et non le nom court : il existe un RÉGLAGE déduit
+           qui porte justement l'identifiant court — « Plages proposées pour vos
+           séances », déclaré `applique: null` parce qu'aucun écran ne s'en
+           sert. `essais:reglages-appliques` vérifie que personne ne nomme un
+           réglage non appliqué, et il trouvait la recherche d'élément de cet
+           écran : une collision de noms, entre deux choses qui n'ont rien de
+           commun. L'identifiant dit maintenant ce que la liste porte, et le
+           commentaire se garde de réécrire le nom court, qui rallumerait le
+           contrôle pour rien.
+        */}
+        <ul id="creneaux-du-jour" class="mt-3 space-y-2"></ul>
       </section>
 
       <!-- Traitements -->
@@ -610,7 +621,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     marques: readonly MarqueDeCreneau[],
     oublies: readonly string[],
   ): void {
-    const zone = $('creneaux');
+    const zone = $('creneaux-du-jour');
     zone.replaceChildren();
 
     const duJour = traitements
