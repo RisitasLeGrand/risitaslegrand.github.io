@@ -1663,3 +1663,83 @@ button:not(:disabled):active,
   max-width: 100%;
   overflow-wrap: anywhere;
 }
+
+/* ──────────────────────────────────────────────────────────────────────────
+   H3 — CONTRASTE RENFORCÉ ET COULEURS IMPOSÉES
+
+   Deux réglages que le système offre et que le site ignorait : zéro règle
+   « prefers-contrast », zéro règle « forced-colors » avant ce bloc.
+
+   ## Pourquoi « forced-colors » demande du travail
+
+   Quand le système impose ses couleurs — contraste élevé de Windows, et les
+   équivalents ailleurs —, le navigateur remplace lui-même les couleurs de
+   texte, de fond et de bordure. Mais il SUPPRIME les ombres portées. Or dix
+   endroits du site posent « outline-none » et confient le focus à un
+   « ring-* », qui est une ombre portée : dans ce mode, ces dix éléments
+   perdent TOUT indicateur de focus, et l'on ne sait plus où l'on est au
+   clavier. La règle globale « :focus-visible » d'en haut ne les rattrape pas,
+   puisqu'ils l'ont explicitement annulée.
+
+   D'où « !important », qui n'est pas une facilité ici : il faut passer devant
+   des classes utilitaires écrites dans le gabarit, et le faire seulement dans
+   ce mode. « Highlight » est la couleur que le système réserve à la sélection,
+   donc celle qu'il garantit visible sur son propre fond.
+
+   ## Pourquoi « prefers-contrast » ne demande presque rien
+
+   Parce que les teintes faibles sont déjà des jetons : il suffit de les
+   ramener sur les teintes fortes, et tout ce qui les emploie suit. C'est le
+   bénéfice d'avoir nommé les couleurs au lieu de les écrire.
+   ────────────────────────────────────────────────────────────────────────── */
+
+@media (prefers-contrast: more) {
+  :root {
+    /* Le gris de confort devient la couleur du texte : les mentions
+       secondaires cessent d'être « presque lisibles ». */
+    --etat-texte-faible: var(--etat-texte);
+    /* Une bordure discrète ne sert à rien quand on demande du contraste. */
+    --etat-bordure: var(--etat-texte-fort);
+    --etat-bordure-forte: var(--etat-texte-fort);
+  }
+
+  /* Le focus se voit de plus loin. */
+  :where(a, button, [role='button'], summary, input, select, textarea):focus-visible {
+    outline-width: 3px;
+  }
+
+  /* Les surfaces qui ne se distinguaient que par une nuance de fond prennent
+     un trait : « --etat-fond-alt » et « --etat-fond-eleve » sont proches du
+     fond par construction, et deux cartes voisines se confondaient. */
+  :where([class*='bg-']) {
+    border-color: var(--etat-bordure);
+  }
+}
+
+@media (forced-colors: active) {
+  /*
+     Le focus revient, partout, y compris là où le gabarit l'avait annulé au
+     profit d'une ombre que ce mode supprime.
+  */
+  :where(a, button, [role='button'], summary, input, select, textarea):focus-visible {
+    outline: 3px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
+
+  /*
+     Les pictogrammes suivent la couleur du texte au lieu de garder la leur,
+     qui pourrait tomber sur le fond imposé et disparaître.
+  */
+  svg {
+    fill: currentColor;
+    stroke: currentColor;
+  }
+
+  /*
+     Les marqueurs de correction n'ont RIEN à faire ici, et c'est le bénéfice
+     d'une règle posée dès le départ : chacun se distingue par sa FORME — ●, ○,
+     ◆, ✓, ▣, ✗ — et la couleur ne faisait que renforcer. Un mode qui remplace
+     toutes les couleurs les laisse donc parfaitement lisibles. C'était écrit
+     dans « vocabulaire.ts » avant d'être utile ; ça l'est devenu.
+  */
+}
