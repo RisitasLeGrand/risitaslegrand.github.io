@@ -153,6 +153,23 @@ const MENTIONS_SANS_LECTURE: readonly [string, string, string][] = [
   ['matieresFortes', 'src/lib/noyau/observation.ts', 'le champ qu’une proposition écrirait ; la valeur déclarée n’est pas lue.'],
   ['matieresFaibles', 'src/lib/noyau/observation.ts', 'le champ qu’une proposition écrirait ; la valeur déclarée n’est pas lue.'],
   ['momentRevision', 'src/lib/noyau/observation.ts', 'le champ qu’une proposition écrirait ; la valeur déclarée n’est pas lue.'],
+  /*
+     LA QUATRIÈME FAMILLE : LE CHAMP DONT ON CHOISIT LA SAISIE.
+
+     « saisiePourChamp » aiguille par NOM, et non par nature — deux champs
+     de même nature n'ont pas la même saisie, « tempsParDomaine » voulant
+     des curseurs d'heures et « datesEpreuves » un calendrier. Ces noms
+     servent donc à décider de la FORME de la question, jamais à lire la
+     réponse. Le module ne touche pas au profil : il reçoit la valeur de
+     départ de son appelant et rend ce qui a été saisi.
+  */
+  ['ciblesEquilibre', 'src/lib/noyau/saisies.ts', 'le champ dont la SAISIE se choisit ; l’aiguillage le nomme pour savoir s’il faut des curseurs ou un calendrier, et ne lit jamais sa valeur.'],
+  ['concours', 'src/lib/noyau/saisies.ts', 'le champ dont la SAISIE se choisit ; l’aiguillage le nomme pour savoir s’il faut des curseurs ou un calendrier, et ne lit jamais sa valeur.'],
+  ['datesEpreuves', 'src/lib/noyau/saisies.ts', 'le champ dont la SAISIE se choisit ; l’aiguillage le nomme pour savoir s’il faut des curseurs ou un calendrier, et ne lit jamais sa valeur.'],
+  ['domainesActifs', 'src/lib/noyau/saisies.ts', 'le champ dont la SAISIE se choisit ; l’aiguillage le nomme pour savoir s’il faut des curseurs ou un calendrier, et ne lit jamais sa valeur.'],
+  ['matieresFaibles', 'src/lib/noyau/saisies.ts', 'le champ dont la SAISIE se choisit ; l’aiguillage le nomme pour savoir s’il faut des curseurs ou un calendrier, et ne lit jamais sa valeur.'],
+  ['matieresFortes', 'src/lib/noyau/saisies.ts', 'le champ dont la SAISIE se choisit ; l’aiguillage le nomme pour savoir s’il faut des curseurs ou un calendrier, et ne lit jamais sa valeur.'],
+  ['tempsParDomaine', 'src/lib/noyau/saisies.ts', 'le champ dont la SAISIE se choisit ; l’aiguillage le nomme pour savoir s’il faut des curseurs ou un calendrier, et ne lit jamais sa valeur.'],
   ['momentRevision', 'src/lib/noyau/reglages.ts', 'la provenance déclarée du réglage « créneaux », qui ne lit pas sa valeur.'],
 ];
 
