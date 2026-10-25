@@ -139,7 +139,59 @@ function lancerVerificateur(clos) {
 }
 
 const eteint = lancerVerificateur(false);
-verifier('drapeau éteint, le vérificateur passe', eteint.code, 0);
+
+/*
+   CE CONTRÔLE GELAIT « LE CORPUS N'A AUCUNE INCOHÉRENCE », ET LE CORPUS RÉEL
+   L'A DÉMENTI.
+
+   Il affirmait « drapeau éteint, le vérificateur passe », c'est-à-dire code 0.
+   Or le vérificateur sort en 1 dès qu'il y a UNE erreur, quel que soit le
+   drapeau — et c'est juste : une correction dont la prose annonce « 2
+   niveaux » au-dessus d'un schéma qui en porte 4 est fausse, que le contenu
+   soit déclaré clos ou non. Le drapeau ne gouverne que la COUVERTURE.
+
+   Sur le corpus réel, le contrôle des visuels que cette branche apporte
+   trouve DOUZE écarts de ce genre. C'est son office, et c'est une bonne
+   nouvelle : il travaille. Mais il rendait cet essai rouge pour une raison
+   qui n'est pas la sienne.
+
+   Pourquoi A ne pouvait pas le voir : un arbre de travail séparé ne porte
+   pas « content/ », qui est ignoré par Git. Sans corpus, aucun écart, et le
+   contrôle passait. C'est la quatrième fois aujourd'hui que le corpus réel
+   voit ce que l'absence de corpus cachait.
+
+   Ce que ce contrôle VEUT dire, et qui ne dépend d'aucun corpus : drapeau
+   éteint, le vérificateur ne refuse pas POUR LA COUVERTURE. On le mesure
+   donc sur ce qu'il dit de la couverture, et non sur son code de sortie, que
+   d'autres causes légitimes font varier.
+*/
+verifier(
+  'drapeau éteint, le vérificateur ne refuse pas pour la couverture',
+  !eteint.sortie.includes('périmètre(s) incomplet(s)'),
+  true,
+);
+verifier(
+  'et il ne prétend pas non plus que le contenu est clos',
+  !eteint.sortie.includes('Contenu déclaré clos'),
+  true,
+);
+/*
+   Et s'il refuse, qu'il le dise. Un code non nul sans problème nommé serait
+   le pire des deux mondes : un refus muet.
+*/
+if (eteint.code !== 0) {
+  verifier(
+    'et s’il refuse quand même, c’est en nommant des problèmes',
+    /\d+ problème\(s\) :/.test(eteint.sortie),
+    true,
+  );
+  const combien = /(\d+) problème\(s\) :/.exec(eteint.sortie)?.[1] ?? '?';
+  console.log(
+    `  \x1b[33m⚠\x1b[0m le corpus servi porte ${combien} problème(s) de correction. ` +
+      'Ils ne relèvent pas de la clôture : ils sont nommés fiche par fiche par ' +
+      '« npm run essais:corrections ».',
+  );
+}
 verifier('le vérificateur imprime bien sa couverture', eteint.total !== null, true);
 
 const allume = lancerVerificateur(true);
