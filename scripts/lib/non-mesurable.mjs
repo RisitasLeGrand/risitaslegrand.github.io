@@ -91,14 +91,29 @@ const lignesDeMarque = (texte) =>
  * cent fiches au manifeste » vaut mieux que « corpus insuffisant », parce que
  * le premier se vérifie et le second se discute. `constate` dit ce qui a été vu
  * à la place, et c'est lui qui épargne un diagnostic à qui lira le journal.
+ *
+ * ## `remede` : pourquoi il est devenu un paramètre
+ *
+ * Le conseil de sortie était écrit EN DUR — « npm run recuperer:corpus ». Il
+ * est juste pour les deux premiers appelants, dont le corpus manque. Il est
+ * FAUX pour le troisième, arrivé le jour même : « essais:organigramme:navigateur »
+ * a le corpus entier sous la main, et ce qui lui manque est une DÉCLARATION
+ * dans les fiches — au moins deux nœuds « essentiel: true ». Lui dire de
+ * récupérer le corpus l'enverrait refaire ce qui est déjà fait.
+ *
+ * Un conseil faux est pire qu'une absence de conseil : il se suit. Le défaut
+ * par défaut reste celui du corpus, qui couvre le cas le plus fréquent ; qui a
+ * un autre remède le dit.
  */
-export function nonMesurable(raison, constate = '') {
+export const REMEDE_CORPUS =
+  'npm run recuperer:corpus (voir docs/cyclades/recuperation-du-corpus.md), puis reconstruisez';
+
+export function nonMesurable(raison, constate = '', remede = REMEDE_CORPUS) {
   console.log(`\n${INTITULE_NON_MESURABLE} ${raison}`);
   if (constate) console.log(`  Constaté ici : ${constate}`);
   console.log(
     '  Cet essai ne juge rien dans cet état, et il ne se compte donc pas vert.\n' +
-      '  Pour le rendre mesurable : npm run recuperer:corpus (voir\n' +
-      '  docs/cyclades/recuperation-du-corpus.md), puis reconstruisez.\n',
+      `  Pour le rendre mesurable : ${remede}.\n`,
   );
   process.exit(CODE_NON_MESURABLE);
 }

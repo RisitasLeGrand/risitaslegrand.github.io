@@ -31,6 +31,7 @@
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import { nonMesurable } from './lib/non-mesurable.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -223,13 +224,17 @@ const large = await trouverLOrganigramme(1200);
    ce qui suit se mesurera sans qu'on y touche.
 */
 if (!large.trouve) {
+  /*
+     LE REFUS EST DIT À LA FIN, ET NON ICI, PARCE QU'IL SORT DU PROCESSUS.
+
+     « nonMesurable() » écrit sa ligne et quitte : l'appeler ici perdrait le
+     contrôle « aucune erreur de page n'a été avalée », qui mesure quelque
+     chose de réel même sans organigramme — les pages ont bien été ouvertes.
+     On note donc l'empêchement, on laisse courir ce qui peut mesurer, et on
+     tranche au dernier moment.
+  */
   console.log(
-    `  \x1b[33m⚠\x1b[0m NON MESURÉ — aucun organigramme à deux lectures dans « ${MATIERE} ».\n` +
-      '      Ce n’est pas un défaut du code : la bascule exige au moins deux nœuds\n' +
-      '      « essentiel: true » dans un visuel « type: schema », et aucun des\n' +
-      '      visuels du corpus n’en déclare. Le moteur, lui, est éprouvé par\n' +
-      '      « essais:organigramme ». Marquer les nœuds essentiels d’un\n' +
-      '      organigramme lèvera cette mention et fera mesurer tout ce qui suit.',
+    `  \x1b[33m⚠\x1b[0m rien à mesurer ici : aucun organigramme à deux lectures dans « ${MATIERE} ».`,
   );
 } else {
   vrai(`un organigramme à deux lectures est atteignable dans « ${MATIERE} »`, large.trouve);
@@ -289,8 +294,7 @@ const etroit = large.trouve
   : { ctx: null, page: null, erreurs: [], trouve: false };
 if (!large.trouve) {
   console.log(
-    '  \x1b[33m⚠\x1b[0m NON MESURÉ — même raison : rien à ouvrir à 390 points tant qu’aucun\n' +
-      '      visuel ne déclare deux lectures. Le navigateur n’est pas même rouvert.',
+    '  \x1b[33m⚠\x1b[0m même raison : rien à ouvrir à 390 points. Le navigateur n’est pas rouvert.',
   );
 } else {
   vrai('l’organigramme est atteignable sur un écran de 390 points', etroit.trouve);
@@ -367,7 +371,32 @@ console.log('\nET AUCUNE ERREUR DE PAGE N’A ÉTÉ AVALÉE');
 v('aucune erreur levée', [...(large.erreurs ?? []), ...(etroit.erreurs ?? [])].slice(0, 3), []);
 
 await nav.close();
-console.log(
-  echecs === 0 ? '\n\x1b[32m✓ tout est vert\x1b[0m\n' : `\n\x1b[31m✗ ${echecs} rouge${echecs > 1 ? 's' : ''}\x1b[0m\n`,
-);
-process.exit(echecs === 0 ? 0 : 1);
+
+/*
+   LE VERDICT, ET L'ORDRE DES TROIS ÉTATS COMPTE.
+
+   Un rouge l'emporte sur un refus : si quelque chose a été mesuré et a
+   échoué, c'est cela qu'il faut dire, et non « je n'ai rien pu mesurer ».
+
+   Ensuite seulement, l'absence d'organigramme à deux lectures rend cet essai
+   NON MESURABLE au sens de « lib/non-mesurable.mjs » — code 3, jamais compté
+   vert. Il l'écrivait jusqu'ici À LA MAIN, en jaune, et rendait ZÉRO : la
+   batterie le comptait donc parmi ses verts, ce qui est exactement le défaut
+   que cette convention corrige. C'était mon propre cas, signalé par moi.
+*/
+if (echecs > 0) {
+  console.log(`\n\x1b[31m✗ ${echecs} rouge${echecs > 1 ? 's' : ''}\x1b[0m\n`);
+  process.exit(1);
+}
+if (!large.trouve) {
+  nonMesurable(
+    'un organigramme à deux lectures servi par le site — un visuel « type: schema » ' +
+      'dont au moins deux nœuds portent « essentiel: true »',
+    `aucun des visuels servis dans « ${MATIERE} » n’en déclare ; le moteur, lui, est ` +
+      'éprouvé sans navigateur par « npm run essais:organigramme »',
+    'marquer « essentiel: true » sur au moins deux nœuds d’un organigramme, puis ' +
+      'reconstruire — le corpus n’est pas en cause, il est entier',
+  );
+}
+console.log('\n\x1b[32m✓ tout est vert\x1b[0m\n');
+process.exit(0);
