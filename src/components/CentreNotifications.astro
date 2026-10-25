@@ -513,8 +513,38 @@ import Icone from './Icone.astro';
       if (ouvrir) calqueOuvert('centre', () => void basculer(false));
       else calqueFerme('centre');
       if (ouvrir) {
-        await faireLeMenage();
-        await dessiner();
+        /*
+           « ARIA-BUSY » PENDANT QUE LA LISTE SE REMPLIT, ET POURQUOI ÇA SERT
+           DEUX FOIS.
+
+           Le panneau devient visible deux lignes plus haut, et la liste n'est
+           peinte qu'après une lecture de base et un déchiffrement. Entre les
+           deux, le panneau est ouvert sur une liste vide.
+
+           Pour la personne qui emploie un lecteur d'écran, c'est le défaut :
+           sans `aria-busy`, la technologie d'assistance annonce une région
+           vide, puis la rend à nouveau une fois remplie — on entend « rien à
+           signaler » avant d'entendre le contraire. Avec, elle attend.
+
+           Pour les essais, c'est une POST-CONDITION : l'attribut est retiré en
+           dernier par ce gestionnaire, donc son absence dit « la peinture est
+           finie ». Un essai attendait jusqu'ici que le panneau soit visible,
+           puis lisait la liste aussitôt ; il tenait par chance, et il a rougi
+           le 25 octobre dans une batterie chargée, au 257ᵉ essai sur 316.
+
+           L'attribut est posé AVANT le premier `await` — donc dans le même
+           tour que le clic, ce qui laisse à un essai le temps de le voir — et
+           retiré dans un `finally` : si le ménage ou la peinture échoue, une
+           liste marquée « occupée » pour toujours serait pire que la course
+           qu'on corrige. Rien de visible ne change.
+        */
+        liste.setAttribute('aria-busy', 'true');
+        try {
+          await faireLeMenage();
+          await dessiner();
+        } finally {
+          liste.removeAttribute('aria-busy');
+        }
       }
     };
 
