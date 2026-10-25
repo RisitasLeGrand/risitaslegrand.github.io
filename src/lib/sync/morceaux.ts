@@ -128,11 +128,27 @@ export function receveur(plafond = 64 * 1024 * 1024): Receveur {
         return attendu === 0 ? new Uint8Array(new ArrayBuffer(0)) : null;
       }
       if (type !== MORCEAU) throw new ReceptionRefusee('message-inconnu');
-      if (attendu < 0) throw new ReceptionRefusee('sans-entete');
       if (corps.length < 4) throw new ReceptionRefusee('message-inconnu');
       const copie = new Uint8Array(corps);
       const index = new DataView(copie.buffer).getUint32(0);
+      /*
+         LE DOUBLON SE VÉRIFIE AVANT L’EN-TÊTE, ET L’ORDRE EST TOUT.
+
+         Le dernier morceau d’un paquet remet `attendu` à -1 : un doublon de
+         CE morceau-là arrivait donc sur « sans-entete » et levait, au lieu
+         d’être ignoré comme les autres doublons. Le dédoublonnage ne servait
+         qu’aux morceaux du milieu.
+
+         Ce n’est pas un cas d’école : deux des quatre transports relisent la
+         même trame sans qu’on le veuille — un QR qu’on scanne deux fois, un
+         salon qui retransmet. La panne tombait pile sur la dernière trame,
+         c’est-à-dire sur un paquet par ailleurs complet.
+
+         Un morceau jamais vu alors qu’aucun en-tête n’est passé lève
+         toujours : ce refus-là garde son sens.
+      */
       if (vus.has(index)) return null;
+      if (attendu < 0) throw new ReceptionRefusee('sans-entete');
       vus.add(index);
       const donnees = copie.subarray(4);
       recu += donnees.length;
