@@ -566,7 +566,7 @@ questions:
       Le participe passé employé avec « avoir » s'accorde avec le complément
       d'objet direct lorsque celui-ci précède le verbe.
     source: Annales contrôleur DGFiP 2011
-    categorie: B
+    categorie_origine: B
 ```
 
 | Champ | Rôle |
@@ -577,7 +577,8 @@ questions:
 | `reponse` / `reponses` | la ou les bonnes réponses, par leur texte exact ou par leur index |
 | `explication` | **obligatoire** : c'est la correction montrée en fin d'épreuve |
 | `source` | l'annale d'origine ; affichée seulement si elle ne commence pas par « RevINSP » |
-| `categorie` | `A` ou `B`, les deux niveaux étant fusionnés dans une banque unique |
+| `categorie_origine` | **obligatoire** : `A`, `B` ou `maison`. L'ancien nom `categorie` est refusé par le build, et non toléré en silence — sans quoi une question neuve repartirait sous deux noms concurrents. `maison` existe parce que 153 questions sur 540 ne viennent d'aucune annale : leur écrire `B` fausserait le tirage de DGFiP B au profit de questions que la DGFiP n'a jamais posées |
+| `temporalite` | `nature` (`intemporelle`, `historique`, `actuelle`, `passee-non-historique`, `a-venir`) et ses dates. Les dates sont exigées **par nature** et refusées sur une nature qui ne les comporte pas : une `expire_le` sur une question intemporelle serait un piège à retardement. Une question expirée est retirée du tirage |
 | `incertain` | note affichée en garde lorsque la bonne réponse ne peut pas être garantie |
 
 Deux règles tenues par le build : une réponse doit correspondre **exactement**
@@ -588,6 +589,40 @@ ramenées à une seule — un doublon pourrait sinon tomber deux fois dans la m�
 Les rubriques ne sont pas figées : si des sujets de catégorie A introduisent du
 droit ou des finances publiques, il suffit d'ajouter un fichier, la répartition
 s'ajuste seule.
+
+### Ramener une banque publiée en source
+
+```bash
+npm run qcm:vers-source -- --depuis <annexes/qcm-dgfip.json> --vers content/qcm-dgfip
+```
+
+La récupération du corpus (`npm run recuperer:corpus`) rend les fiches au
+format source, mais dépose la banque de QCM telle quelle, au **format publié**,
+dans `annexes/qcm-dgfip.json`. Tant qu'elle reste sous cette forme,
+`content/qcm-dgfip/` est vide — et par conséquent la banque entière échappe à
+tout contrôle : le schéma ne la lit pas, `npm run check-content` ne la voit
+pas, et aucune correction ne peut y être écrite.
+
+Cet outil fait le chemin inverse. Il ne décide pas qu'il a réussi : **il le
+prouve**. Avant d'écrire une ligne à destination, il convertit, écrit dans un
+dossier temporaire hors du dépôt, recharge avec le chargeur du build —
+`scripts/lib/banque-dgfip.mjs`, pas un second analyseur, qui ne prouverait que
+son accord avec lui-même — et compare champ par champ à la banque publiée. Au
+premier écart, `content/` n'est pas touché et le code de sortie vaut 1.
+
+Ce que cette exigence protège : l'identifiant d'une question est
+`idStable(rubrique | énoncé)`. Un énoncé réécrit à une espace près reçoit un
+identifiant neuf, et l'historique par question conservé dans le navigateur de
+la personne qui révise devient orphelin. `npm run essais:qcm-source` éprouve
+l'aller-retour sur les cas que la banque réelle n'a pas — plusieurs bonnes
+réponses, options au texte identique, renvois « rappel de cours », les cinq
+temporalités — et vérifie par sabotage que la comparaison sait les voir.
+
+Deux refus valent d'être connus. L'outil écrit dans `content/` ou hors du
+dépôt, **jamais ailleurs dans l'arbre de travail** : le dépôt est public, et
+`content/` est le seul dossier qu'il ignore. Et il n'écrase un
+`content/qcm-dgfip/` déjà peuplé qu'avec `--remplacer`, parce que les
+corrections écrites à la main y sont.
 
 ### Le déroulé d'une épreuve
 
