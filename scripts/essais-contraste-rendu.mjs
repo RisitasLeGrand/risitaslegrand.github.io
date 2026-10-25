@@ -198,9 +198,30 @@ for (const theme of ['clair', 'sombre']) {
      pas, et la première version de ce script a mesuré deux fois le thème
      sombre en croyant en mesurer deux. On écrit le choix.
   */
+  /*
+     ÉCRIRE LE CHOIX NE SUFFIT PAS NON PLUS : LA BASCULE JOUR/NUIT L'EMPORTE.
+
+     « lireBascule » vaut vrai tant que « revinsp.bascule-jour-nuit » ne vaut
+     pas « non » : elle est donc ACTIVE PAR DÉFAUT, et c'est la demande
+     d'Alexis. Le mode vient alors de l'HEURE, et non du choix enregistré —
+     cet essai était donc dépendant de l'heure : vert le jour, rouge la nuit.
+     Il a échoué à 21 h 43 sur « le thème demandé est clair, la page rend
+     sombre », et il aurait passé le matin, ce qui est pire qu'un rouge franc.
+
+     Mesuré à 21 h, sur l'accueil, avant de corriger :
+
+       bascule laissée par défaut   data-theme « sombre »   choix « bascule »
+       bascule éteinte              data-theme « clair »    choix « clair »
+
+     Ce n'est pas un assouplissement. L'objet de cet essai est le contraste
+     des pages RENDUES dans les deux modes : il doit donc MAÎTRISER le mode au
+     lieu de le subir. La garde qui suit reste entière — si le mode rendu
+     n'est pas celui demandé, l'essai s'arrête toujours.
+  */
   await ctx.addInitScript((t) => {
     try {
       localStorage.setItem('revinsp.theme', t);
+      localStorage.setItem('revinsp.bascule-jour-nuit', 'non');
     } catch {
       /* navigation privée */
     }
