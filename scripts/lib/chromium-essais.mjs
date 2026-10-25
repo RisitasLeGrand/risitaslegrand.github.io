@@ -19,10 +19,11 @@
  * ## Ce que fait ce module
  *
  * Il cherche, dans l'ordre : la variable `CHROMIUM`, puis
- * `PLAYWRIGHT_BROWSERS_PATH`, puis `/opt/pw-browsers`, et rend le premier
- * binaire trouvé — quel que soit son numéro de version. Il ne rend
- * `undefined` que s'il n'a rien trouvé, auquel cas `playwright` cherche à sa
- * manière habituelle et dira lui-même ce qui manque.
+ * `PLAYWRIGHT_BROWSERS_PATH` si elle est posée — qui REMPLACE alors le chemin
+ * du conteneur —, sinon `/opt/pw-browsers`, et rend le premier
+ * binaire trouvé — quel que soit son numéro de version. Il REFUSE quand il
+ * n'a rien trouvé, en nommant où il a cherché ; il rendait `undefined`, et
+ * `playwright` se plaignait alors d'un binaire que personne n'avait demandé.
  *
  * ## Ce qu'il ne fait pas
  *
@@ -34,10 +35,24 @@
 import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
-/** Les dossiers où un navigateur de Playwright peut être installé. */
-const RACINES = [process.env.PLAYWRIGHT_BROWSERS_PATH, '/opt/pw-browsers'].filter(
-  (r) => typeof r === 'string' && r.length > 0,
-);
+/**
+ * Les dossiers où un navigateur de Playwright peut être installé.
+ *
+ * `PLAYWRIGHT_BROWSERS_PATH` REMPLACE le chemin du conteneur, elle ne s'y
+ * ajoute pas — c'est le sens que Playwright lui donne : « les navigateurs sont
+ * ici ». La version précédente cherchait dans les deux, et deux conséquences
+ * en découlaient : celui qui posait la variable pour désigner une autre
+ * installation récupérait quand même celle du conteneur, et le refus de la
+ * fonction devenait intestable, puisque `/opt/pw-browsers` répond toujours.
+ *
+ * La liste est calculée à l'appel et non au chargement : un essai qui pose la
+ * variable avant d'appeler doit être entendu.
+ */
+function racinesCherchees() {
+  const imposee = process.env.PLAYWRIGHT_BROWSERS_PATH;
+  if (typeof imposee === 'string' && imposee.length > 0) return [imposee];
+  return ['/opt/pw-browsers'];
+}
 
 /** Les dispositions connues, du binaire à l'intérieur d'un dossier de version. */
 const DISPOSITIONS = [
@@ -61,7 +76,17 @@ const DISPOSITIONS = [
 ];
 
 /**
- * Le chemin du binaire, ou `undefined` si rien n'a été trouvé.
+ * Le chemin du binaire, ou un REFUS si rien n'a été trouvé.
+ *
+ * Le refus a été annoncé par le commentaire des dispositions, plus haut, et
+ * il n'avait jamais été écrit : la fonction rendait `undefined`. Le piège
+ * qu'elle nomme était donc resté entier — Playwright retombait sur son propre
+ * chemin supposé, et l'erreur parlait d'un binaire que personne n'avait
+ * demandé. Un commentaire qui promet un garde-fou absent est pire qu'un
+ * silence : on le lit, on le croit, et on cherche le défaut ailleurs.
+ *
+ * Le refus nomme où l'on a cherché, ce qui est la seule chose qu'on veut
+ * savoir à ce moment-là.
  *
  * Le résultat est calculé une fois : la recherche touche le disque, et une
  * batterie l'appellerait deux cent trente-cinq fois pour rien.
@@ -73,6 +98,7 @@ export function cheminDuNavigateur() {
   if (process.env.CHROMIUM) return process.env.CHROMIUM;
   if (cherche) return trouve;
   cherche = true;
+  const RACINES = racinesCherchees();
   for (const racine of RACINES) {
     if (!existsSync(racine)) continue;
     let entrees;
@@ -105,5 +131,14 @@ export function cheminDuNavigateur() {
       }
     }
   }
-  return trouve;
+  throw new Error(
+    'Aucun navigateur trouvé pour les essais.\n' +
+      `  Cherché sous : ${RACINES.join(', ') || '(aucune racine)'}\n` +
+      `  Dispositions essayées dans chaque dossier « chromium* » : ${DISPOSITIONS.join(', ')}\n` +
+      '  Donnez le binaire directement si besoin :\n' +
+      '      CHROMIUM=/chemin/vers/chrome npm run <essai>\n' +
+      '  Ce refus remplace un `undefined` : rendu à Playwright, il le faisait\n' +
+      '  chercher à sa manière et se plaindre d’un binaire que personne n’avait\n' +
+      '  demandé — les 161 essais de navigateur du 25 octobre ont échoué ainsi.',
+  );
 }

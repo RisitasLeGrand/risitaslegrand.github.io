@@ -140,6 +140,14 @@ const SOCLE = [
      quatre lignes a l'air juste, et une relecture ne l'attrape pas.
   */
   ['essais:mot-de-passe-une-source', 'une seule règle de lecture du mot de passe, et aucune copie'],
+  /*
+     Le chemin du navigateur a cassé les essais TROIS fois — quinze essais le
+     19 octobre, cent soixante-un le 25, et deux de plus restés épinglés sur
+     une version disparue. Chaque fois, le même piège : ne rien trouver ne
+     levait pas, donc l'erreur parlait d'autre chose et on cherchait du côté
+     du site. Celui-ci coûte une seconde et ne demande pas d'aperçu.
+  */
+  ['essais:chemin-du-navigateur', 'le navigateur se trouve, et son absence refuse au lieu de se taire'],
 ];
 
 /**
