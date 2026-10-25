@@ -68,7 +68,15 @@ const exercices = [
 ];
 ---
 
-<Base titre="Accueil" actif="accueil">
+{/*
+   « Tableau de bord » et non « Accueil » : c'est le nom que `branches.ts`
+   donne à cet onglet, comme aux accueils des trois autres branches, et la
+   règle N5 veut qu'un écran porte le même nom partout. Une branche du train
+   avait mis « Accueil » ici sans toucher au registre, et
+   `essais:navigation:navigateur` l'a dit. Si le renommage était voulu, il
+   part du registre — et alors il vaut pour les quatre branches.
+*/}
+<Base titre="Tableau de bord" actif="accueil">
   <header class="mb-6">
     <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Entraînement cognitif</h1>
     <p class="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
