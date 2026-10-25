@@ -133,8 +133,25 @@ export interface ChampDeclare {
    * tout de suite, au lieu d'atterrir au hasard de son initiale.
    */
   groupe?: 'vous' | 'journee' | 'objectifs';
-  /** Obligatoire à l'initialisation. Un seul champ l'est. */
-  obligatoire?: boolean;
+  /*
+     IL N'Y A PLUS DE CHAMP OBLIGATOIRE, ET C'EST POURQUOI « obligatoire »
+     N'EXISTE PLUS ICI.
+
+     Le prénom l'était, seul, et le contrôle vérifiait qu'il le restât. D6 du
+     prompt 43 le rend facultatif : nommer son prénom est un geste de
+     confiance, pas un péage à l'entrée, et le demander avant tout le reste
+     inverse l'ordre des choses.
+
+     Le champ est retiré du type plutôt que mis à « false » partout : ainsi
+     « obligatoire: true » ne compile plus. Un contrôle au lancement se serait
+     contenté de crier après coup ; le compilateur, lui, refuse d'avance.
+
+     Rien n'exigeait le prénom en pratique. L'initialisation ne le vérifiait
+     nulle part, et `prenom()` rend déjà `null` quand il manque — le menu
+     salue alors par « Bonjour. ». La seule conséquence visible était une
+     phrase du profil, « Le prénom est la seule réponse attendue. », qui est
+     partie avec l'obligation.
+  */
   /**
    * Ce champ **n'est pas posé par le parcours** : il est demandé au moment où
    * une fonction en a besoin, et la phrase dit quand.
@@ -263,7 +280,6 @@ export const CHAMPS: readonly ChampDeclare[] = [
     question: 'Comment doit-on vous appeler ?',
     // Le menu salue par le prénom ; aucune branche n'a besoin de le lire.
     porteeParDefaut: [],
-    obligatoire: true,
     /* P12 : « qui se coupe d'un réglage » est parti avec le réglage, qui
        n'existe pas. Aucun catalogue n'en porte, et `index.astro` salue sans
        rien vérifier. */
@@ -1104,8 +1120,6 @@ export interface Avancement {
   repondus: number;
   /** Les champs du socle, en tout. */
   total: number;
-  /** Le prénom est-il posé ? C'est la seule réponse obligatoire. */
-  prenomPose: boolean;
   /** Les champs du socle qui restent à poser, dans l'ordre des questions. */
   restants: ChampDeclare[];
   initialisation: Initialisation | null;
@@ -1118,7 +1132,6 @@ export function avancement(operations: readonly Operation[]): Avancement {
   return {
     repondus: socle.length - restants.length,
     total: socle.length,
-    prenomPose: profil.has('prenom'),
     restants,
     initialisation: lireInitialisation(operations),
   };
@@ -1285,11 +1298,13 @@ export function valider(champ: string, valeur: unknown): Verdict {
 /**
  * Vérifie les invariants du catalogue de champs.
  *
- * Deux comptent vraiment. Qu'**un seul champ soit obligatoire** — le prompt dit
- * « seul le prénom est obligatoire », et un second champ obligatoire ajouté par
- * inadvertance rendrait l'initialisation refusable. Et qu'**aucune portée ne
- * nomme une branche inconnue** : une portée vers une branche qui n'existe pas se
- * lirait comme une restriction alors qu'elle n'en est pas une.
+ * Celui qui compte le plus : qu'**aucune portée ne nomme une branche
+ * inconnue**, une portée vers une branche qui n'existe pas se lisant comme une
+ * restriction alors qu'elle n'en est pas une.
+ *
+ * Il en vérifiait un autre — qu'un seul champ soit obligatoire, et que ce soit
+ * le prénom. Il est parti avec l'obligation elle-même (D6) : plus aucun champ
+ * ne l'est, et le type ne permet plus de le déclarer.
  */
 export function controlerChamps(branchesConnues: readonly string[]): string[] {
   const problemes: string[] = [];
@@ -1392,20 +1407,7 @@ export function controlerChamps(branchesConnues: readonly string[]): string[] {
           'une promesse sans lecteur est interdite (P12 du prompt 56).',
       );
     }
-    /* Un champ obligatoire qu'on ne poserait plus serait une contradiction :
-       l'initialisation l'attend, et le filtre l'aurait retiré. */
-    if (c.obligatoire && !aUnUsage(c)) {
-      problemes.push(
-        `Le champ « ${c.champ} » est obligatoire mais rien ne le lit : il ne serait plus posé.`,
-      );
-    }
   }
 
-  const obligatoires = CHAMPS.filter((c) => c.obligatoire).map((c) => c.champ);
-  if (obligatoires.length !== 1 || obligatoires[0] !== 'prenom') {
-    problemes.push(
-      `Un seul champ doit être obligatoire, et c’est le prénom ; obligatoires : ${obligatoires.join(', ') || 'aucun'}.`,
-    );
-  }
   return problemes;
 }

@@ -84,7 +84,15 @@ const BRANCHES_CONNUES = BRANCHES.map((b) => b.id);
 console.log('\nLE CATALOGUE DES CHAMPS TIENT');
 
 v('aucun problème de catalogue', controlerChamps(BRANCHES_CONNUES), []);
-v('le prénom est le seul champ obligatoire', CHAMPS.filter((c) => c.obligatoire).map((c) => c.champ), ['prenom']);
+/* D6 : plus aucun champ n'est obligatoire. Ce contrôle disait l'inverse — le
+   prénom était le seul à l'être. Il dit maintenant qu'AUCUN ne porte même la
+   marque : le champ « obligatoire » est retiré du type, donc un catalogue qui
+   en déclarerait un ne compilerait plus, et celui-ci n'en garde aucune trace. */
+v(
+  'aucun champ ne porte de marque d’obligation',
+  CHAMPS.filter((c) => Object.keys(c).includes('obligatoire')).map((c) => c.champ),
+  [],
+);
 /* Vingt-et-un champs au socle, et **huit** questions depuis la décision 2 du
    prompt 56. Les treize autres se taisent pour deux raisons distinctes, et les
    deux sont vérifiées séparément plutôt que confondues dans un seul nombre :
@@ -312,14 +320,13 @@ console.log('\nL’AVANCEMENT SE LIT, POUR POUVOIR REPRENDRE');
 {
   const etat = avancement([ecrire('prenom', 'Alexis', 10), ecrire('lever', '07:00', 20)]);
   v('deux réponses sur huit', [etat.repondus, etat.total], [2, 8]);
-  v('le prénom est posé', etat.prenomPose, true);
   /* « nom » venait en premier avant le 56 : il n'est plus demandé, et c'est
      l'année de naissance qui suit le prénom dans l'ordre des questions. */
   v('et les restants sont dans l’ordre des questions', etat.restants[0].champ, 'naissanceAnnee');
   v('l’initialisation n’est pas marquée', etat.initialisation, null);
 
   const vide = avancement([]);
-  v('sans rien, rien n’est posé', [vide.repondus, vide.prenomPose], [0, false]);
+  v('sans rien, rien n’est posé', vide.repondus, 0);
   v('et toutes les questions du socle restent', vide.restants.length, 8);
 }
 
@@ -341,6 +348,46 @@ vrai(
   'et le refus dit pourquoi, en français',
   (valider('lever', '25:00').motif ?? '').includes('HH:MM'),
 );
+
+/* ══════════════════════════════════════════════════════════════════════════
+   D6 — PLUS AUCUN CHAMP N'EST OBLIGATOIRE
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/*
+   CE QUE CE BLOC TIENT, ET CE QU'IL NE PEUT PAS TENIR.
+
+   Le prénom était le seul champ obligatoire, et `controlerChamps` vérifiait
+   qu'il le restât. L'obligation est retirée, et avec elle le champ
+   « obligatoire » du type : « obligatoire: true » ne compile plus, de sorte
+   que le compilateur refuse d'avance ce qu'un contrôle n'aurait crié qu'après
+   coup. C'est le garde le plus solide, mais il ne se mesure pas ici — on ne
+   teste pas un code qui ne compile pas.
+
+   Ce qui se mesure, c'est que le catalogue reste VALIDE sans champ obligatoire
+   — l'invariant retiré aurait refusé ce catalogue-ci — et que le prénom soit
+   devenu un champ comme les autres, qui peut manquer sans que rien ne le
+   réclame.
+*/
+{
+  /* La validité du catalogue est déjà tenue plus haut : l'invariant retiré
+     aurait refusé celui-ci, donc ce contrôle-là porte aussi D6. */
+  const lePrenom = champDeclare('prenom');
+  vrai('le prénom est toujours déclaré', Boolean(lePrenom));
+  vrai(
+    'et il ne porte plus aucune marque d’obligation',
+    !Object.keys(lePrenom as object).includes('obligatoire'),
+  );
+
+  /* Un profil vierge n'est donc pas un profil en faute : les huit questions
+     du socle restent à poser, et aucune n'est due. */
+  const vierge = avancement([]);
+  v('un profil vierge n’a aucune réponse', vierge.repondus, 0);
+  v('et les huit questions du socle restent ouvertes', vierge.restants.length, 8);
+  vrai(
+    'l’avancement n’annonce plus de réponse attendue',
+    !Object.keys(vierge).includes('prenomPose'),
+  );
+}
 
 console.log(
   echecs

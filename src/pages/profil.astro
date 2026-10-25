@@ -904,8 +904,15 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
         ? `Initialisation ${etat.initialisation.allegee ? 'allégée ' : ''}faite le ` +
           `${quand(etat.initialisation.termineeLe)}. `
         : 'L’initialisation n’a pas encore été faite. ') +
-      'Vous pouvez compléter ou retirer ce que vous voulez, quand vous voulez.' +
-      (etat.prenomPose ? '' : ' Le prénom est la seule réponse attendue.');
+      /*
+         D6 : plus de phrase qui annonce une réponse attendue.
+
+         Elle disait « Le prénom est la seule réponse attendue. » tant qu'il
+         manquait. Le prénom n'est plus obligatoire, et la phrase serait
+         devenue une pression sans objet — exactement ce que le lot F retire
+         partout ailleurs.
+      */
+      'Vous pouvez compléter ou retirer ce que vous voulez, quand vous voulez.';
 
     /* ── Les cartes, une par champ, à leur place déclarée ──────────────── */
     for (const declare of CHAMPS) {

@@ -628,8 +628,19 @@ import Base from '../layouts/Base.astro';
     ($('jauge') as HTMLElement).style.transform =
       `scaleX(${Math.round((position / ecrans.length) * 100) / 100})`;
 
-    const obligatoire = ecran.etapes.some((e) => e.declare.obligatoire);
-    $('plus-tard').classList.toggle('hidden', obligatoire);
+    /*
+       D6 — « PLUS TARD » EST LÀ SUR CHAQUE ÉCRAN, Y COMPRIS LE PREMIER.
+
+       Ce bouton était CACHÉ sur l'écran qui portait un champ obligatoire,
+       c'est-à-dire sur celui du prénom. La toute première question du site
+       était donc la seule à n'offrir aucune sortie : on répondait, ou on
+       quittait par « Terminer maintenant ».
+
+       Le prénom n'est plus obligatoire (D6), et plus aucun champ ne l'est, de
+       sorte qu'il n'y a plus rien à cacher. Le bouton reste visible comme il
+       l'est dans le gabarit : la ligne qui le masquait est retirée plutôt que
+       remplacée par un « remove », pour qu'aucune condition ne subsiste.
+    */
 
     /* Les constats d'observation, s'il y en a pour cet écran. */
     const deductions = ecran.etapes.map((e) => e.deduction).filter(Boolean) as Deduction[];
@@ -683,8 +694,8 @@ import Base from '../layouts/Base.astro';
   }
 
   async function valider() {
-    const ecran = ecrans[position];
-    let ecrit = 0;
+    /* `ecran` et le compteur `ecrit` se lisaient ici pour le refus d'avancer,
+       que D6 a retiré ; l'écran de fin compte autrement. */
     for (const { declare, saisie, deduction } of saisies) {
       const valeur = saisie.lire();
       if (valeur === undefined) continue;
@@ -728,7 +739,6 @@ import Base from '../layouts/Base.astro';
         await ecrireChamp(declare.champ, valeur, {
           source: memeQueDeduit ? 'confirme' : 'declare',
         });
-        ecrit += 1;
       } catch (erreur) {
         $('erreur').textContent = messageDUneErreur(erreur);
         $('erreur').classList.remove('hidden');
@@ -736,11 +746,14 @@ import Base from '../layouts/Base.astro';
       }
     }
 
-    if (!ecrit && ecran.etapes.some((e) => e.declare.obligatoire)) {
-      $('erreur').textContent = 'Cette réponse est la seule qui soit attendue.';
-      $('erreur').classList.remove('hidden');
-      return;
-    }
+    /*
+       D6 : plus de refus d'avancer faute de réponse.
+
+       Cet écran répondait « Cette réponse est la seule qui soit attendue. » et
+       ne laissait pas passer. Aucune réponse n'est plus attendue : continuer
+       sans rien écrire avance, et n'écrit rien — ce qui est exactement ce que
+       « facultatif » veut dire.
+    */
     avancer();
   }
 
