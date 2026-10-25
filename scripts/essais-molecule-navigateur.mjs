@@ -237,6 +237,66 @@ console.log('\n\x1b[1mLES INTERACTIONS SOURCÉES SONT À L’ÉCRAN\x1b[0m');
   v('elle ne cite aucun nom d’entrée', await page.locator('#interactions-sous:not(.hidden)').count(), 0);
 }
 
+console.log('\n\x1b[1mLES LIMITES VIENNENT DU CODE CLIENT, PAS DU GABARIT\x1b[0m');
+
+/*
+   CE QUE CET ESSAI EMPÊCHE, ET POURQUOI IL A FALLU CHANGER LA PAGE POUR
+   POUVOIR L'ÉCRIRE.
+
+   Le paragraphe des limites portait, rendu CÔTÉ SERVEUR, « Aucune limite de
+   sécurité établie par une autorité ». Un contrôle qui cherchait cette phrase
+   passait donc au vert sans que le code client ait tourné — et il aurait
+   continué de passer si la liaison des limites avait été débranchée.
+
+   Pire : la page affirmait cette absence pour une molécule qu'elle ne
+   connaissait pas encore, puisque c'est l'adresse, lue par le client, qui dit
+   laquelle. L'affirmation est fausse pour la N-acétylcystéine, qui porte une
+   limite.
+
+   Le paragraphe part donc vide, et le premier contrôle ci-dessous le vérifie
+   SUR LE HTML SERVI, sans JavaScript. C'est lui qui donne leur valeur aux
+   suivants : tout ce qui s'y lit ensuite a été écrit par le client.
+*/
+{
+  const ABSENCE = 'L’absence de limite n’est pas une preuve d’innocuité';
+
+  /* 1. LE GABARIT NE DIT RIEN. Lu sur la réponse HTTP, donc avant tout script. */
+  const html = await (await fetch(`${RACINE}/odyssee/molecule/`)).text();
+  const paragraphe = /<p id="limites"[^>]*>([\s\S]*?)<\/p>/.exec(html);
+  vrai('le gabarit sert un paragraphe de limites', paragraphe !== null);
+  v('et il est vide', (paragraphe?.[1] ?? 'absent').trim(), '');
+  vrai('le HTML servi ne porte donc pas la phrase d’absence', !html.includes(ABSENCE));
+
+  /* 2. CE QUE LE CLIENT ÉCRIT, MOLÉCULE PAR MOLÉCULE. On attend que le
+     paragraphe cesse d'être vide — un état, et non une durée fixe. */
+  const limitesDeLaFiche = async (nom) => {
+    await page.goto(`${RACINE}/odyssee/molecule/`, { waitUntil: 'networkidle' });
+    await page.waitForSelector('#index-molecules:not(.hidden)', { timeout: 30000 });
+    await page.locator('#liste-catalogue button', { hasText: nom }).first().click();
+    await page.waitForFunction(
+      () => (document.getElementById('limites')?.textContent ?? '').trim().length > 0,
+      undefined,
+      { timeout: 20000 },
+    );
+    return ((await page.textContent('#limites')) ?? '').replace(/\s+/g, ' ').trim();
+  };
+
+  /* LA SEULE LIMITE LIVRÉE. Elle vient d'un RCP lu, et c'est la seule des huit
+     déposés qui énonce une dose maximale. */
+  const nac = await limitesDeLaFiche('N-acétylcystéine');
+  vrai('la N-acétylcystéine montre sa limite', nac.includes('600 mg'));
+  vrai('en disant d’où elle vient', nac.includes('RCP'));
+  vrai('et ce n’est pas la phrase d’absence', !nac.includes(ABSENCE));
+
+  /* LES QUATRE AUTRES. Cette phrase ne peut plus venir que du client, le
+     gabarit étant vide — c'est ce que le contrôle 1 a établi. */
+  for (const nom of ['Testostérone énantate', 'Testostérone undécanoate', 'Modafinil', 'Caféine']) {
+    const dit = await limitesDeLaFiche(nom);
+    vrai(`${nom} dit l’absence de limite`, dit.includes(ABSENCE));
+    vrai(`${nom} ne montre aucune valeur de dose`, !/\d+\s*mg/.test(dit));
+  }
+}
+
 v('aucune erreur de script', erreurs, []);
 
 await nav.close();
