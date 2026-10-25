@@ -168,10 +168,35 @@ await allerALEpreuve();
     return reponse?.ok ? 'chiffré' : 'absent';
   });
   vrai('la banque est bien servie chiffrée', compte === 'chiffré' || compte === 'absent');
-  vrai(
-    'et les questions écartées sont expliquées',
-    /n’ont pas quatre propositions|plusieurs bonnes réponses/.test(annonce),
-  );
+  /*
+     LES TROIS MOTIFS, et la formulation compte autant que la présence.
+
+     Ce contrôle cherchait « n'ont pas quatre propositions », qui se lit comme
+     un défaut de la banque. Mesuré : les 201 questions écartées viennent
+     toutes d'un sujet réel, et six propositions était le format de l'épreuve
+     de 2015 à 2022-2023. Il n'y a rien à corriger, et l'écran ne doit pas
+     laisser croire le contraire.
+
+     On accepte donc les trois motifs possibles, et aucun n'est obligatoire :
+     une banque entièrement conforme n'aurait aucun écart à expliquer. C'est
+     pourquoi la présence d'un écart est mesurée d'abord.
+  */
+  const ecarts = /sur \d+\./.test(annonce) && !/sur (\d+)\.\s*$/.test(annonce);
+  if (ecarts) {
+    vrai(
+      'et les questions écartées sont expliquées par l’un des trois motifs',
+      /en portent plus de quatre|en portent moins de quatre|plusieurs bonnes réponses/.test(annonce),
+    );
+    vrai(
+      'l’ancien format est daté, et non présenté comme un défaut',
+      !/n’ont pas quatre propositions/.test(annonce),
+    );
+  } else {
+    console.log(
+      '  \x1b[33m⚠\x1b[0m la banque servie n’a aucun écart : les deux contrôles de ' +
+        'formulation des motifs n’ont rien à mesurer ici.',
+    );
+  }
 
   /*
      CE CONTRÔLE GELAIT UNE PROPRIÉTÉ DU CORPUS D'EXEMPLE, ET LE CORPUS RÉEL

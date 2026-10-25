@@ -304,14 +304,37 @@ export function estPosableSurUneCopie(question: {
  * Pourquoi une question a été écartée de la copie. Pour le compte rendu.
  *
  * Rendu plutôt que compté : « douze questions écartées » n'apprend rien, « dix
- * à cinq propositions, deux à deux bonnes réponses » dit quoi corriger dans
- * la banque.
+ * en portent six, deux ont deux bonnes réponses » dit de QUOI il s'agit.
+ *
+ * ## « Dit quoi corriger dans la banque » était faux, et le dire comptait
+ *
+ * C'est ce que cette phrase disait, et la mesure l'a démenti. Sur les 540
+ * questions de la banque réelle : 339 portent quatre propositions, 3 en
+ * portent cinq, 198 en portent six. Et les 201 écartées viennent TOUTES d'un
+ * sujet réel — aucune n'est une rédaction originale.
+ *
+ * Par année de sujet : six propositions de 2015 à 2022-2023, quatre depuis
+ * 2023-2024, sur les quatre dernières sessions sans exception. Le format de
+ * l'épreuve a changé, et le guide ENFiP décrit le format actuel.
+ *
+ * Il n'y a donc RIEN à corriger : ces 198 questions sont des annales fidèles.
+ * Les « corriger » à quatre propositions serait falsifier les sujets. La
+ * distinction importe parce qu'un agent de contenu lisant « dit quoi
+ * corriger » aurait pu réécrire 198 transcriptions exactes.
+ *
+ * Le motif est donc scindé : porter PLUS de propositions qu'une zone n'en
+ * tient est le format d'avant 2023-2024, et c'est un fait d'histoire ; en
+ * porter MOINS serait une question incomplète, et c'en est un de rédaction.
+ * La banque réelle n'en compte aucune, mais le schéma l'autorise, et un
+ * motif qui ne sait pas les distinguer les confondrait le jour où il y en
+ * aurait une.
  */
 export function raisonDuRetrait(question: {
   options: readonly unknown[];
   bonnes: readonly number[];
-}): 'propositions' | 'reponses-multiples' | null {
-  if (question.options.length !== PROPOSITIONS_PAR_ZONE) return 'propositions';
+}): 'trop-de-propositions' | 'pas-assez-de-propositions' | 'reponses-multiples' | null {
+  if (question.options.length > PROPOSITIONS_PAR_ZONE) return 'trop-de-propositions';
+  if (question.options.length < PROPOSITIONS_PAR_ZONE) return 'pas-assez-de-propositions';
   if (question.bonnes.length !== 1) return 'reponses-multiples';
   return null;
 }

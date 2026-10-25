@@ -1379,17 +1379,35 @@ import { base } from '../../lib/ui';
       const posables = servables.filter(estPosableSurUneCopie).length;
       /*
          LE DÉTAIL DES ÉCARTS, et non un total. « 201 questions écartées »
-         n'apprend rien ; « 201 n'ont pas quatre propositions » dit quoi
-         corriger dans la banque. Et deux motifs existent : une zone porte
-         quatre cases — ni trois, ni six —, et une seule réponse par ligne y
-         est autorisée. Dire « plus de quatre propositions » serait faux pour
-         les deux autres cas.
+         n'apprend rien.
+
+         CETTE PHRASE DISAIT « DIT QUOI CORRIGER DANS LA BANQUE », ET C'ÉTAIT
+         FAUX. Mesuré sur les 540 questions réelles : 339 portent quatre
+         propositions, 3 en portent cinq, 198 en portent six — et les 201
+         écartées viennent TOUTES d'un sujet réel, aucune d'une rédaction
+         originale. Par année : six propositions de 2015 à 2022-2023, quatre
+         depuis 2023-2024, sur les quatre dernières sessions sans exception.
+
+         Le format de l'épreuve a changé. Il n'y a donc rien à corriger : ces
+         198 questions sont des annales fidèles, et les ramener à quatre
+         propositions serait falsifier les sujets. L'écran le dit donc comme
+         un fait d'histoire, et non comme un défaut — sinon quelqu'un
+         « réparera » 198 transcriptions exactes.
+
+         Trois motifs, et non deux : en porter PLUS qu'une zone n'en tient est
+         l'ancien format ; en porter MOINS serait une question incomplète, et
+         c'est autre chose. La banque réelle n'en compte aucune, mais le
+         schéma l'autorise.
       */
       const motifs = servables.map(raisonDuRetrait);
-      const horsGabarit = motifs.filter((m) => m === 'propositions').length;
+      const ancienFormat = motifs.filter((m) => m === 'trop-de-propositions').length;
+      const incompletes = motifs.filter((m) => m === 'pas-assez-de-propositions').length;
       const aPlusieursReponses = motifs.filter((m) => m === 'reponses-multiples').length;
       const motifsDits = [
-        horsGabarit > 0 ? `${horsGabarit} n’ont pas quatre propositions` : '',
+        ancienFormat > 0
+          ? `${ancienFormat} en portent plus de quatre, le format des sujets d’avant 2023-2024`
+          : '',
+        incompletes > 0 ? `${incompletes} en portent moins de quatre` : '',
         aPlusieursReponses > 0 ? `${aPlusieursReponses} ont plusieurs bonnes réponses` : '',
       ].filter(Boolean);
       stock.textContent =
