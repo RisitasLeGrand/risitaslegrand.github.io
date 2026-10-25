@@ -772,8 +772,8 @@ import LienReglages from '../../components/LienReglages.astro';
             /*
                D2 du 43, par la porte du dépôt : `messageDUneErreur`.
 
-               L'écran affichait `erreur.message` tel quel — y compris le
-               texte d'une exception technique. Mais le remplacer par une
+               L'écran affichait le message brut de l'exception tel quel —
+               y compris le texte d'une panne technique. Mais le remplacer par une
                phrase à moi aurait fait perdre les messages de domaine, écrits
                exprès pour être lus (« La séance n'a pas pu être retrouvée »).
                `agir.ts` avait déjà tranché : on garde le message de domaine,

@@ -1049,7 +1049,7 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
          (quota, coffre refermé), et une copie qui n'existe pas doit se voir.
       */
       dire(
-        `Ce modèle n’a pas pu être copié : ${erreur instanceof Error ? erreur.message : String(erreur)}`,
+        `Ce modèle n’a pas pu être copié : ${messageDUneErreur(erreur)}`,
         true,
       );
     }

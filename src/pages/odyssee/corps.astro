@@ -978,7 +978,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
           await peindreLaReponse();
           await peindreLaLigneDuSuivi();
         } catch (e) {
-          $('sexe-dit').textContent = e instanceof Error ? e.message : String(e);
+          $('sexe-dit').textContent = messageDUneErreur(e);
         }
       })();
     });
@@ -999,7 +999,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
         await peindreLaLigneDuSuivi();
         $('sexe-dit').textContent = 'Réponse effacée.';
       } catch (e) {
-        $('sexe-dit').textContent = e instanceof Error ? e.message : String(e);
+        $('sexe-dit').textContent = messageDUneErreur(e);
       }
     })();
   });

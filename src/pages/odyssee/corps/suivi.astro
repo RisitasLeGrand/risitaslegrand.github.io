@@ -278,6 +278,7 @@ import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/c
     reprendreLeCoffre,
     surCoffre,
   } from '../../../lib/coffre';
+  import { messageDUneErreur } from '../../../lib/agir';
   import { jourLogique } from '../../../lib/noyau/jour-logique';
   import { leSuiviEstVisibleMaintenant } from '../../../lib/odyssee/portee-du-suivi';
   import type { NiveauDeSaignement } from '../../../lib/odyssee/cycle';
@@ -291,7 +292,7 @@ import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/c
   };
 
   const direLErreur = (e: unknown) => {
-    $('erreur').textContent = e instanceof Error ? e.message : String(e);
+    $('erreur').textContent = messageDUneErreur(e);
   };
 
   async function peindre() {
