@@ -698,7 +698,7 @@ console.log('\n\x1b[1m« POSSIBLE » NE SE POSE QUE LÀ OÙ IL VEUT DIRE QUELQUE
     true,
   );
   verifier(
-    '« possible » sur une option fausse d’une correction de confiance moyenne passe',
+    '« possible » sur une option fausse passe',
     correctionSchema.safeParse(avecMarqueur(0)).success,
     true,
   );
@@ -712,16 +712,25 @@ console.log('\n\x1b[1m« POSSIBLE » NE SE POSE QUE LÀ OÙ IL VEUT DIRE QUELQUE
     messages(avecMarqueur(1)).some((m) => /verdict\s*« juste »/.test(m)),
     true,
   );
-  verifier(
-    '« possible » en confiance haute est refusé',
-    messages(avecMarqueur(0, { confiance: 'haute' })).some((m) => /« confiance » vaut « haute »/.test(m)),
-    true,
-  );
-  verifier(
-    'les deux refus se cumulent quand les deux fautes sont là',
-    messages(avecMarqueur(1, { confiance: 'haute' })).length,
-    2,
-  );
+  /*
+   * La confiance ne commande rien ici, et c'est un choix revu après mesure.
+   * Elle dit si la clef est certaine ; le marqueur dit si un distracteur est
+   * défendable. Les deux axes sont indépendants : une question dont la clef ne
+   * souffre aucun doute peut parfaitement offrir un distracteur qui se
+   * discute, et c'est même là que le marqueur apprend le plus.
+   */
+  for (const confiance of ['haute', 'moyenne']) {
+    verifier(
+      `« possible » passe en confiance ${confiance} : la confiance porte sur la clef`,
+      correctionSchema.safeParse(avecMarqueur(0, { confiance })).success,
+      true,
+    );
+    verifier(
+      `et le refus sur un verdict « juste » tient en confiance ${confiance}`,
+      messages(avecMarqueur(1, { confiance })).length,
+      1,
+    );
+  }
   verifier(
     'le refus nomme le rang de l’option, pour qu’on la retrouve',
     messages(avecMarqueur(1)).some((m) => m.includes('par_option.2')),
