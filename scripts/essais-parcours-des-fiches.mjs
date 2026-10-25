@@ -18,10 +18,10 @@
  *
  * Il tient aussi, depuis le 25 octobre, **l'invariant de la racine partagée** :
  * une fiche sous `content/commun/` a UN identifiant pour les trois parcours
- * DGFiP. Il le vérifie en recalculant `idStable` depuis le chemin sur disque et
- * en comparant au manifeste — donc sans faire confiance au manifeste pour se
- * juger lui-même, et sans toucher à `idStable`, dont dépend l'historique des
- * 262 fiches de l'INSP.
+ * DGFiP. Il le vérifie depuis le DISQUE — l'identifiant que la fiche déclare
+ * en `id_publie`, ou l'empreinte de son chemin — et le compare au manifeste,
+ * donc sans faire confiance au manifeste pour se juger lui-même, et sans
+ * toucher à `idStable`, dont dépend l'historique des 262 fiches de l'INSP.
  *
  * Il ne vérifie **pas** que la bibliothèque filtre : elle ne filtre pas
  * encore, et le prétendre serait mentir. Ces champs existent pour que ce second
@@ -106,7 +106,32 @@ for (const m of manifeste.matieres ?? []) {
 console.log('\nCHAQUE FICHE PORTE SA RACINE ET LES PARCOURS QU’ELLE SERT');
 
 console.log(`      ${toutes.length} fiches au manifeste`);
-v('le manifeste n’est pas vide, sinon l’essai ne prouverait rien', toutes.length > 100, true);
+/*
+   CE GARDE-FOU A MENTI, ET VOICI CE QU'IL DISAIT.
+
+   Il s'énonçait « le manifeste n'est pas vide » et exigeait « plus de cent
+   fiches ». Les deux ne sont pas la même chose, et l'écart s'est vu le jour où
+   une machine n'a porté que cinq fiches : l'essai est devenu rouge en
+   annonçant un manifeste vide qui portait cinq fiches servies à quatre
+   parcours, et dont il avait vérifié chaque racine.
+
+   Son objet est d'empêcher un essai creux : sur un manifeste SANS fiche,
+   toutes les assertions qui suivent passent au vert pour n'avoir rien examiné.
+   C'est « zéro » qu'il doit refuser, et c'est ce qu'il refuse maintenant.
+
+   Le volume du corpus, lui, est un fait de la MACHINE et non du code : ce
+   dépôt ne versionne pas « content/ », et rien ici ne peut garantir que les
+   427 fiches y sont. Le compte est donc imprimé juste au-dessus, et une
+   mention le dit en clair quand le corpus est partiel — pour que personne ne
+   lise « 15 verts » comme « le corpus entier est conforme ».
+*/
+v('le manifeste porte au moins une fiche, sinon rien ne serait examiné', toutes.length > 0, true);
+if (toutes.length < 100) {
+  console.log(
+    `      · corpus partiel : ${toutes.length} fiches seulement. La forme est mesurée, ` +
+      'le corpus ne l’est pas.',
+  );
+}
 
 const sansRacine = toutes.filter((f) => typeof f.racine !== 'string');
 v('aucune fiche sans racine', sansRacine.map((f) => f.titre).slice(0, 5), []);
@@ -252,7 +277,7 @@ const cheminsDuDisque = [];
    de son chemin. Ainsi un identifiant déclaré qui ne correspond à aucun fichier
    se voit encore, et c'est ce qui compte.
 */
-const idsDeclares = new Set();
+const idsDeclares = new Map();
 
 const lireIdDeclare = (chemin) => {
   const texte = readFileSync(chemin, 'utf8');
@@ -279,7 +304,7 @@ const parcourirPour = (dossier, prefixe) => {
     else if (e.endsWith('.md') && !e.endsWith('.podcast.md')) {
       cheminsDuDisque.push(relatif);
       const declare = lireIdDeclare(c);
-      if (declare) idsDeclares.add(declare);
+      if (declare) idsDeclares.set(relatif, declare);
     }
   }
 };
@@ -305,16 +330,51 @@ const dossiersInconnus = [
 ].filter((d) => !FICHIERS_HORS_PARCOURS.has(d));
 v('aucune fiche sous un dossier que le registre ignore', dossiersInconnus, []);
 
-const idsAttendus = new Set([
-  ...(await Promise.all(cheminsDuDisque.map((c) => idStable(c)))),
-  ...idsDeclares,
-]);
+/*
+   LA RÈGLE JUSTE, ET POURQUOI ELLE EST PLUS STRICTE QUE L'UNION DES DEUX.
+
+   Deux corrections de ce bloc se sont croisées le 25 octobre, et toutes deux
+   partaient du même constat : écrit avant `id_publie`, l'essai exigeait que
+   TOUT identifiant du manifeste soit l'empreinte d'un chemin du disque, ce que
+   ce champ est précisément fait de rompre. Sur le corpus réel, 51 fiches le
+   déclarent ; l'essai rougissait donc sur la réparation elle-même.
+
+   La version du train attendait « l'ensemble des empreintes UNION l'ensemble
+   des identifiants déclarés ». Elle lève le faux rouge, et elle laisse passer
+   le vrai défaut : si le build oubliait d'employer un `id_publie` déclaré, la
+   fiche repartirait sous l'empreinte de son chemin — qui appartient à l'union,
+   donc rien ne rougirait, et la progression serait orpheline en silence.
+
+   La règle retenue est donc fiche par fiche : l'identifiant attendu d'une
+   fiche est celui qu'elle DÉCLARE, et à défaut l'empreinte de son chemin.
+   L'empreinte du chemin d'une fiche qui déclare autre chose n'est plus
+   attendue, et c'est exactement le cas que l'union ne voyait pas.
+
+   S'y ajoute la demande symétrique, qu'aucune des deux versions ne portait :
+   un `id_publie` déclaré doit se retrouver AU MANIFESTE. Sans elle, un champ
+   écrit pour rien laisserait la progression orpheline — l'inverse exact de ce
+   qu'il répare.
+*/
+const idsAttendus = new Set(
+  await Promise.all(
+    cheminsDuDisque.map(async (c) => idsDeclares.get(c) ?? (await idStable(c))),
+  ),
+);
 const idsDuManifeste = new Set(toutes.map((f) => f.id));
 v(
-  'chaque identifiant du manifeste est l’empreinte d’un chemin du disque',
+  'chaque identifiant du manifeste est celui que la fiche déclare, ou l’empreinte de son chemin',
   [...idsDuManifeste].filter((id) => !idsAttendus.has(id)).slice(0, 5),
   [],
 );
+if (idsDeclares.size === 0) {
+  console.log('      \x1b[36m·\x1b[0m non mesuré : aucune fiche ne déclare « id_publie » dans ce corpus');
+} else {
+  v(
+    `les ${idsDeclares.size} « id_publie » déclarés se retrouvent au manifeste`,
+    [...idsDeclares].filter(([, id]) => !idsDuManifeste.has(id)).map(([c]) => c).slice(0, 5),
+    [],
+  );
+}
 v(
   'et aucun identifiant n’est porté deux fois',
   toutes.length - idsDuManifeste.size,

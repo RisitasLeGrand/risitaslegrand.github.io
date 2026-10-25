@@ -892,6 +892,19 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   };
 
   /**
+   * Où la relance d'oubli arrive, et où elle n'arrive pas.
+   *
+   * Dit à l'écran parce que la décision du 19 octobre l'exige d'elle-même, et
+   * parce qu'une fonction qu'on croit en marche est pire qu'une fonction dont
+   * on sait qu'elle attend. Aucun conseil, aucun décompte : le § 1 n° 2 et
+   * n° 3 valent ici comme partout dans Santé.
+   */
+  const OU_LA_RELANCE_ARRIVE =
+    'Cette relance s’affiche sur cet écran, et nulle part ailleurs : elle ne paraît pas au ' +
+    'centre de notifications. Cyclades l’y retient tant que la nature des molécules n’est pas ' +
+    'établie par une source, pour qu’un rappel ne puisse pas renseigner sur ce que vous prenez.';
+
+  /**
    * Le formulaire de rappel d'un traitement, replié lui aussi.
    *
    * **Absent tant qu'il n'y a pas de schéma** : un rappel sans heure prévue
@@ -925,6 +938,31 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
     const actif = coche('Me rappeler', depart.actif);
     const oubli = coche('Me le rappeler si je n’ai rien noté', depart.oubli);
+
+    /*
+       OÙ CE RAPPEL ARRIVE, ET OÙ IL N'ARRIVE PAS.
+
+       La relance d'oubli est bien déposée au centre de notifications par
+       « recenserLesOublis » — et le filtre du cycle l'écarte aussitôt :
+       « rappel-de-prise » est déclaré « exigeUneClasse », aucune molécule ne
+       porte de classe, donc aucun rappel de prise n'entre au centre. C'est
+       l'option (a) arbitrée le 19 octobre, et elle est juste : un rappel admis
+       sans connaître la nature de la molécule renseignerait sur ce que la
+       personne prend.
+
+       Ce que personne n'avait écrit, c'est la phrase que cette décision
+       exige d'elle-même — « la conséquence est à dire à la personne, et non à
+       cacher ». Elle manquait partout : la case s'offrait, la relance
+       s'affichait ici, et le centre restait vide sans que rien ne le dise.
+       Une fonction silencieusement absente est pire qu'une fonction refusée,
+       parce qu'on la croit en marche.
+
+       C'est le même principe que « CE_QUE_FAIT_LA_VOIE » juste au-dessus :
+       ce qu'un site ne fait pas se dit à l'écran, il ne se devine pas.
+    */
+    const ouCaArrive = document.createElement('p');
+    ouCaArrive.className = 'text-xs text-slate-500 dark:text-slate-400';
+    ouCaArrive.textContent = OU_LA_RELANCE_ARRIVE;
 
     const voie = document.createElement('select');
     voie.className =
@@ -1002,7 +1040,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
          Tout le reste disparaît quand le rappel est éteint : des réglages
          visibles sous une case décochée laissent croire qu'ils agissent.
       */
-      for (const element of [voie, ceQueCaFait, libelle, texte, avertissement, oubli.etiquette, delai, limite]) {
+      for (const element of [voie, ceQueCaFait, libelle, texte, avertissement, oubli.etiquette, ouCaArrive, delai, limite]) {
         element.classList.toggle('hidden', !actif.boite.checked);
       }
       if (actif.boite.checked) {
@@ -1030,6 +1068,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       texte,
       avertissement,
       oubli.etiquette,
+      ouCaArrive,
       delai,
       limite,
       enregistrer,

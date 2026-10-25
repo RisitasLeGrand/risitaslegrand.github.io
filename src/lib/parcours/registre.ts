@@ -498,6 +498,28 @@ const THEMES_DGFIP_AP: ThemePlanification[] = [
       'Gestion publique (État et collectivités locales)',
       'Gestion des ressources et l’organisation de la DGFiP',
       'Systèmes d’information',
+      /*
+         LA MATIÈRE COMMUNE, ET POURQUOI ELLE EST ICI.
+
+         « Organisation de la DGFiP » est le nom de matière des fiches rangées
+         sous la racine commune, servie aux trois parcours DGFiP. Les thèmes
+         `environnement-dgfip` de B et de A la portent déjà.
+
+         A+ servait cette racine sans porter la matière, et le défaut était
+         silencieux : `fichesDuTheme` rapproche une fiche de son thème par le
+         NOM EXACT de la matière, à la casse près. Une fiche de la racine
+         commune était donc dans l'arbre du parcours A+ sans qu'aucune séance
+         ne la propose jamais — le contenu livré, et personne pour le lire.
+
+         Sa place est l'épreuve professionnelle, parce que l'option de l'arrêté
+         s'intitule « Gestion des ressources et l'organisation de la DGFiP » :
+         l'organisation de la DGFiP y est nommée. La matière commune est
+         rattachée à ce thème, et non ajoutée comme un huitième intitulé
+         d'option, qui aurait fait croire à une option de plus au concours.
+
+         Mesuré par `npm run essais:matiere-commune`.
+      */
+      'Organisation de la DGFiP',
     ],
   },
   {
