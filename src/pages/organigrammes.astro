@@ -57,6 +57,7 @@ import Base from '../layouts/Base.astro';
 </Base>
 
 <script>
+  import { messageDUneErreur } from '../lib/agir';
   import { auDeverrouillage } from '../lib/chargement';
   import { chargerFiche, chargerManifeste, type Organigramme } from '../lib/contenu';
   import { monterSchema } from '../features/correction/visuels/monter-schema';
@@ -159,7 +160,22 @@ import Base from '../layouts/Base.astro';
       dedans.append(grille);
     } catch (e) {
       dedans.dataset.charge = 'non';
-      dedans.textContent = `Cette fiche n’a pas pu être déchiffrée : ${(e as Error).message}`;
+      /*
+         L'ÉCHEC EST DIT, MAIS PAS AVEC LES MOTS DE L'ERREUR.
+
+         Première écriture : « ${(e as Error).message} ». La batterie l'a
+         refusée, et elle avait raison — c'est « essais:erreurs-dites » qui
+         l'a attrapée, pas les essais de cette page, parce qu'un lot mesure ce
+         qu'il promet et la batterie ce qu'il casse.
+
+         Le message brut d'une Error de plateforme est en anglais et ne dit
+         pas quoi faire : « The operation failed for reasons unrelated to the
+         database itself », pour une base verrouillée par un autre onglet.
+         « messageDUneErreur » rend la phrase française qui, elle, dit le
+         geste — fermer les autres onglets, libérer de la place, recommencer —
+         et laisse intact un message écrit pour être lu.
+      */
+      dedans.textContent = `Cette fiche n’a pas pu être déchiffrée : ${messageDUneErreur(e)}`;
     }
   }
 
