@@ -717,11 +717,15 @@ Trois précautions, chacune pour une erreur déjà commise :
   obtenir du vert. Un essai rouge se corrige, ou s'inscrit au tableau des
   anomalies avec son diagnostic ; il ne se tait pas.
 
-La batterie ne juge pas : elle nomme ses rouges, conserve le journal de chaque
-essai, et rend toujours 0. La comparaison au tableau des anomalies reste un
-geste humain. Elle refuse en revanche de tourner sans mot de passe ou sans
-aperçu, parce qu'elle rendrait alors des rouges qui n'appartiennent pas au
-site.
+La batterie **juge** : elle nomme ses rouges, conserve le journal de chaque
+essai, et **rend 1 dès qu'un rouge subsiste**. Elle rendait 0 quoi qu'il
+arrive, et ce zéro a trompé trois agents : un `npm run socle && git push`
+poussait sur du rouge. La comparaison au tableau des anomalies reste un geste
+humain — le code de sortie n'empêche pas de lire, il empêche de s'en passer
+sans le savoir. `npm run essais:code-de-sortie` le garde par sabotage, y
+compris le cas qui avait trompé : un essai qui écrit sa croix et rend 0 quand
+même. Elle refuse en revanche de tourner sans mot de passe ou sans aperçu,
+parce qu'elle rendrait alors des rouges qui n'appartiennent pas au site.
 
 L'exercice d'entraînement cognitif est écrit en **Svelte** (intégration
 `@astrojs/svelte`, installée avec le reste par `npm install`). Pour le tester :
