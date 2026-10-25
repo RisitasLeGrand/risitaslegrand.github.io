@@ -113,6 +113,7 @@ const correctionDgfip = (n) => `    correction:
           pourquoi: la premiere proposition est celle que la clef retient
         - verdict: faux
           pourquoi: la deuxieme proposition ne convient pas, et voici pourquoi
+          marqueur: possible
         - verdict: faux
           pourquoi: la troisieme proposition ne convient pas davantage
         - verdict: faux
@@ -196,6 +197,7 @@ function injecterLaCorrectionDeFiche() {
     par_option:
       - verdict: faux
         pourquoi: 1958 est l annee de la Constitution, non celle de la reforme
+        marqueur: possible
       - verdict: faux
         pourquoi: 1971 est la decision Liberte d association
       - verdict: juste
@@ -346,6 +348,59 @@ async function verifierLesSixChoses(section, ou, { resume, legende, confianceMoy
 
   verifier(`${ou} · le visuel est rendu (légende)`, texte.includes(legende));
   verifier(`${ou} · le visuel est un tableau`, (await section.locator('table').count()) >= 1);
+
+  /*
+     « possible » ne doit JAMAIS porter le vert du succès sur une option fausse.
+     Le vocabulaire partagé lui donne « --etat-succes », et c'est juste dans
+     Cog-Training où rien n'est « la » réponse ; ici, quelques lignes sous le ✓
+     vert de la bonne réponse, le même vert se lirait « correcte aussi ».
+
+     On lit donc la couleur CALCULÉE, et non la classe : c'est la seule qui dise
+     ce que l'œil reçoit. Les jetons sont résolus par une sonde, pour comparer
+     des « rgb(...) » entre eux plutôt qu'un nom de variable à une couleur.
+  */
+  const teintes = await section.evaluate((el) => {
+    const resoudre = (jeton) => {
+      const sonde = document.createElement('span');
+      sonde.style.color = `var(${jeton})`;
+      el.appendChild(sonde);
+      const c = getComputedStyle(sonde).color;
+      sonde.remove();
+      return c;
+    };
+    const glyphes = [...el.querySelectorAll('ul[aria-label="Verdict par option"] > li')]
+      .map((li) => {
+        const g = li.querySelector('span[aria-hidden="true"]');
+        return g ? { glyphe: g.textContent.trim(), couleur: getComputedStyle(g).color } : null;
+      })
+      .filter(Boolean);
+    return { glyphes, succes: resoudre('--etat-succes'), alerte: resoudre('--etat-alerte') };
+  });
+
+  const possible = teintes.glyphes.find((g) => g.glyphe === '▣');
+  verifier(`${ou} · l’option défendable porte le marqueur « possible » (▣)`, possible !== undefined);
+  if (possible) {
+    verifier(
+      `${ou} · et ce ▣ n’est PAS du vert de succès`,
+      possible.couleur !== teintes.succes,
+      `▣ ${possible.couleur} · succès ${teintes.succes}`,
+    );
+    verifier(
+      `${ou} · il porte le jeton d’alerte`,
+      possible.couleur === teintes.alerte,
+      `▣ ${possible.couleur} · alerte ${teintes.alerte}`,
+    );
+  }
+  /* Et la bonne réponse, elle, garde bien son vert : sans ce témoin, un ✓ et un
+     ▣ tous deux neutres passeraient le contrôle ci-dessus. */
+  const bonne = teintes.glyphes.find((g) => g.glyphe === '✓');
+  if (bonne) {
+    verifier(
+      `${ou} · la bonne réponse garde le vert de succès`,
+      bonne.couleur === teintes.succes,
+      `✓ ${bonne.couleur} · succès ${teintes.succes}`,
+    );
+  }
 }
 
 /** Un onglet déverrouillé sur l'écran demandé. */
