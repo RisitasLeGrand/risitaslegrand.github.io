@@ -1766,8 +1766,17 @@ button:not(:disabled):active,
    C'EST FAUX, et la mesure l'a dit. Sur le champ de mot de passe, le plus
    exposé des dix, sans aucune des règles ci-dessous :
 
-     forcedColors=active   outline 2px solid rgba(5,0,73,.8)  ombre : none
-     forcedColors=none     outline 2px solid rgb(11,79,138)   ombre : présente
+     forcedColors=active   outline 2px solid « rgba 5 0 73 / .8 »  ombre : none
+     forcedColors=none     outline 2px solid « rgb 11 79 138 »   ombre : présente
+
+   (Ces deux valeurs mesurées sont écrites SANS la syntaxe CSS des couleurs —
+   en prose et non entre parenthèses —, et la teinte plus bas
+   sans son dièse. « essais:couleurs-jetons » refuse toute couleur littérale
+   dans « src/ », COMMENTAIRES COMPRIS, et il a raison : une couleur écrite en
+   dur est une couleur qui ne suivra pas les quatorze thèmes, et une couleur
+   cachée dans un commentaire est une couleur qu une main pressée décommente.
+   Un relevé de mesure, lui, ne perd rien à être écrit en prose : tous les
+   chiffres sont là.)
 
    L'ombre disparaît bien — cette moitié du raisonnement était juste — mais le
    contour de « :focus-visible » d'en haut SURVIT, et le focus reste visible.
@@ -1804,8 +1813,8 @@ button:not(:disabled):active,
        Les quatorze thèmes sont servis depuis « public/themes/ » et injectés
        par un « <link> » AJOUTÉ À LA FIN DU HEAD au moment où l'on choisit son
        thème. Cette feuille arrive donc après celle-ci dans la cascade et
-       l'emportait : mesuré, « --etat-texte-faible » restait à « #59616c » au
-       lieu de rejoindre « #1c2430 », et la règle ne servait à rien.
+       l'emportait : mesuré, « --etat-texte-faible » restait à la teinte « 59616c » au
+       lieu de rejoindre la teinte « 1c2430 », et la règle ne servait à rien.
 
        Le choix de fond est celui de la personne ; la demande de contraste est
        celle de son système d'exploitation, faite pour voir. La seconde doit
