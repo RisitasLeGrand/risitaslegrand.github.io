@@ -18,6 +18,7 @@
  * plus qu'à qui veut autre chose que « voir que le coffre est ouvert ».
  */
 import { base } from '../lib/ui';
+import Icone from './Icone.astro';
 ---
 
 <div id="cadenas-coffre" class="relative hidden">
@@ -30,7 +31,7 @@ import { base } from '../lib/ui';
     title="Coffre ouvert"
     class="cible-tactile-pleine rounded-lg px-2 text-amber-700 transition hover:bg-amber-50 dark:text-amber-300 dark:hover:bg-amber-950/40"
   >
-    <span aria-hidden="true">🔓</span>
+    <Icone nom="coffre-ouvert" taille={18} />
   </button>
 
   <div

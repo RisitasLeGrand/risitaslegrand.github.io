@@ -270,6 +270,27 @@ Le réglage se change dans Progression → « Contenus écartés ».
 
 ### Règles à connaître
 
+- **Les formules mathématiques** s'écrivent entre accents graves, avec le
+  préfixe `math:` au fil du texte et un bloc ` ```math ` pour une formule
+  détachée. Le contenu entre accents graves est du LaTeX, pris tel quel :
+
+  ````markdown
+  Le plus petit commun multiple vaut `math:\mathrm{ppcm}(12, 18) = 36`.
+
+  ```math
+  \sqrt{x^2 + y^2}
+  ```
+  ````
+
+  Les formules sont rendues **à la construction** : le site reçoit du MathML,
+  rien à charger pour les afficher, et un lecteur d'écran les lit. Une formule
+  qui ne compile pas **arrête la construction** en nommant le fichier et la
+  formule — `npm run check-content` la signale en quelques secondes.
+
+  N'écrivez pas `$…$` ni `\(…\)`. Le premier est déjà pris par les montants en
+  dollars du corpus (« 20 000 Md$ »), et le second est mangé par Markdown, où
+  `\(` est une échappée de caractère : il n'arriverait jamais jusqu'au rendu.
+  Les accents graves protègent au contraire le LaTeX sans rien échapper.
 - Les cinq titres reconnus sont `## Prétest`, `## Cours complet`,
   `## Fiche simplifiée`, `## Flashcards` et `## Quiz`. Un autre titre `##` est
   rattaché à la section en cours (utile pour un cours découpé en grandes

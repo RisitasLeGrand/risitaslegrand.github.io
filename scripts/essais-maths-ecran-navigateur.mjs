@@ -218,6 +218,33 @@ try {
       { timeout: 60000 },
     );
 
+    /*
+       LA FONTE EST-ELLE VRAIMENT CHARGÉE ?
+
+       « font-family: KaTeX_Main » peut être calculé alors que le FICHIER
+       manque : le navigateur retombe alors sur une fonte système, et la
+       formule s'affiche de travers sans que rien ne le signale. La question
+       s'est posée en vrai quand le déploiement a été réduit au woff2 seul — si
+       une adresse pendait, ce contrôle-ci serait le seul à le voir.
+
+       « document.fonts.ready » attend la fin des chargements, puis « check »
+       dit si la fonte demandée est réellement disponible.
+    */
+    const fonteChargee = await page.evaluate(async () => {
+      await document.fonts.ready;
+      const chargees = [...document.fonts].filter((f) => f.family.startsWith('KaTeX') && f.status === 'loaded');
+      return {
+        disponible: document.fonts.check('16px KaTeX_Main'),
+        combien: chargees.length,
+        familles: [...new Set(chargees.map((f) => f.family))].slice(0, 6),
+      };
+    });
+    verifier(
+      `${theme} · la fonte KaTeX est chargée pour de vrai`,
+      fonteChargee.disponible && fonteChargee.combien > 0,
+      `check=${fonteChargee.disponible} · ${fonteChargee.combien} face(s) : ${fonteChargee.familles.join(', ')}`,
+    );
+
     const vu = await page.evaluate(() => {
       const enLigne = document.querySelector('.maths-en-ligne');
       const bloc = document.querySelector('.maths-bloc');

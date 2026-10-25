@@ -86,6 +86,13 @@ const SOCLE = [
      essai qui vérifie que la porte d'entrée, elle, est restée fermée.
   */
   ['essais:maths', 'le « $ » monétaire reste du texte, et le HTML d’auteur reste détruit'],
+  /*
+     Les deux réglages d'accessibilité du système. Ils se défont sans bruit :
+     il a suffi qu'une feuille de thème soit injectée APRÈS « global.css » pour
+     que le relèvement des teintes faibles cesse d'agir, et rien ne le disait.
+     L'essai ne déverrouille rien et coûte quelques secondes.
+  */
+  ['essais:contraste-impose', 'le contraste renforcé relève bien les teintes faibles'],
   ['essais:accessibilite:navigateur', 'rôles, noms accessibles, ordre de tabulation'],
   ['essais:mobile:navigateur', '360 px : aucun débordement, cibles atteignables'],
   ['essais:mouvement-reduit', 'le réglage d’animations existe, et il est respecté'],

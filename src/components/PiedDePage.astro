@@ -92,7 +92,17 @@ const colonneBranches = {
   titre: courante ? 'Cyclades' : 'Les branches',
   liens: [
     ...(courante ? [{ libelle: `Menu de ${config.titre}`, href: `${base}/` }] : []),
-    ...autres.map((b) => ({ libelle: `${b.icone} ${b.libelle}`, href: `${base}${b.racine}` })),
+    /*
+       Le libellé seul, sans l'icône.
+
+       Il portait « ${b.icone} ${b.libelle} », ce qui marchait tant que l'icône
+       était un émoji. Depuis qu'elle est un NOM de tracé, l'interpoler
+       afficherait « revisions Révisions ». Et ce pied est une liste de liens
+       construite en données : on n'y place pas un composant. L'icône n'y
+       manque pas — un pied de page se lit, il ne se parcourt pas à la vitesse
+       d'un ruban.
+    */
+    ...autres.map((b) => ({ libelle: b.libelle, href: `${base}${b.racine}` })),
   ],
 };
 

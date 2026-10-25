@@ -35,11 +35,21 @@
  * affiche les onglets de la branche courante. La prochaine branche n'aura donc
  * aucune ligne à ajouter dans `Base.astro`.
  */
+
+import type { NomDIcone } from './icones';
 export interface Branche {
   id: string;
   /** Le nom affiché : « Révisions », jamais « Cyclades · Révisions ». */
   libelle: string;
-  icone: string;
+  /*
+     Un NOM du catalogue, et non un dessin.
+
+     C'était « string » du temps où ce champ portait un émoji. Le type est
+     resserré sur le catalogue : une faute de frappe échoue maintenant au
+     typage, et non plus seulement à la construction. Le refus du composant
+     reste utile pour les noms qui viennent d'ailleurs.
+  */
+  icone: NomDIcone;
   /** Une phrase, pour l'écran de choix et les info-bulles. */
   description: string;
   /**
@@ -115,7 +125,15 @@ export interface Onglet {
   description?: string;
   /** Chemin absolu **sans** la base du site, qu'ajoute la mise en page. */
   chemin: string;
-  icone: string;
+  /*
+     Un NOM du catalogue, et non un dessin.
+
+     C'était « string » du temps où ce champ portait un émoji. Le type est
+     resserré sur le catalogue : une faute de frappe échoue maintenant au
+     typage, et non plus seulement à la construction. Le refus du composant
+     reste utile pour les noms qui viennent d'ailleurs.
+  */
+  icone: NomDIcone;
   /**
    * Les parcours auxquels cet écran s'adresse. Absent = tous.
    *
@@ -155,7 +173,15 @@ export interface Onglet {
 export interface GroupeOnglets {
   id: string;
   nom: string;
-  icone: string;
+  /*
+     Un NOM du catalogue, et non un dessin.
+
+     C'était « string » du temps où ce champ portait un émoji. Le type est
+     resserré sur le catalogue : une faute de frappe échoue maintenant au
+     typage, et non plus seulement à la construction. Le refus du composant
+     reste utile pour les noms qui viennent d'ailleurs.
+  */
+  icone: NomDIcone;
   /** Les identifiants d'onglets rassemblés, dans l'ordre. */
   membres: readonly string[];
 }
@@ -164,7 +190,7 @@ export const BRANCHES: Branche[] = [
   {
     id: 'revisions',
     libelle: 'Révisions',
-    icone: '🎓',
+    icone: 'revisions',
     description: 'Préparation aux concours : cours, flashcards, quiz, planification.',
     racine: '/revisions/',
     disponible: true,
@@ -175,16 +201,16 @@ export const BRANCHES: Branche[] = [
        chiffrée dont le chemin est écrit dans un manifeste.
     */
     onglets: [
-      { id: 'accueil', nom: 'Tableau de bord', court: 'Tableau', chemin: '/revisions/', icone: '🏠' },
-      { id: 'planification', nom: 'Planning', description: 'La planification des révisions.', chemin: '/planification/', icone: '🗓️' },
-      { id: 'bibliotheque', nom: 'Cours', description: 'La bibliothèque des fiches.', chemin: '/bibliotheque/', icone: '📚' },
-      { id: 'flashcards', nom: 'Cartes', description: 'Les cartes de rappel espacé.', chemin: '/flashcards/', icone: '🃏' },
-      { id: 'quiz', nom: 'Quiz', chemin: '/quiz/', icone: '🎯' },
-      { id: 'positionnement', nom: 'Niveau', description: 'Le prétest de positionnement.', chemin: '/positionnement/', icone: '🎚️' },
-      { id: 'journal', nom: 'Erreurs', description: 'Le journal des erreurs à reprendre.', chemin: '/journal/', icone: '🩹' },
-      { id: 'recherche', nom: 'Recherche', chemin: '/recherche/', icone: '🔎' },
-      { id: 'statistiques', nom: 'Statistiques', chemin: '/statistiques/', icone: '📈' },
-      { id: 'glossaire', nom: 'Glossaire', chemin: '/glossaire/', icone: '📖' },
+      { id: 'accueil', nom: 'Tableau de bord', court: 'Tableau', chemin: '/revisions/', icone: 'tableau-de-bord' },
+      { id: 'planification', nom: 'Planning', description: 'La planification des révisions.', chemin: '/planification/', icone: 'planning' },
+      { id: 'bibliotheque', nom: 'Cours', description: 'La bibliothèque des fiches.', chemin: '/bibliotheque/', icone: 'cours' },
+      { id: 'flashcards', nom: 'Cartes', description: 'Les cartes de rappel espacé.', chemin: '/flashcards/', icone: 'cartes' },
+      { id: 'quiz', nom: 'Quiz', chemin: '/quiz/', icone: 'quiz' },
+      { id: 'positionnement', nom: 'Niveau', description: 'Le prétest de positionnement.', chemin: '/positionnement/', icone: 'niveau' },
+      { id: 'journal', nom: 'Erreurs', description: 'Le journal des erreurs à reprendre.', chemin: '/journal/', icone: 'erreurs' },
+      { id: 'recherche', nom: 'Recherche', chemin: '/recherche/', icone: 'recherche' },
+      { id: 'statistiques', nom: 'Statistiques', chemin: '/statistiques/', icone: 'statistiques' },
+      { id: 'glossaire', nom: 'Glossaire', chemin: '/glossaire/', icone: 'glossaire' },
     ],
     /*
        Cinq entrées au lieu de douze. Le découpage suit ce qu'on vient faire :
@@ -194,9 +220,9 @@ export const BRANCHES: Branche[] = [
        branches.
     */
     groupes: [
-      { id: 'apprendre', nom: 'Apprendre', icone: '📚', membres: ['bibliotheque', 'flashcards', 'quiz'] },
-      { id: 'mesurer', nom: 'Mesurer', icone: '📈', membres: ['positionnement', 'journal', 'statistiques'] },
-      { id: 'outils', nom: 'Outils', icone: '🧰', membres: ['recherche', 'glossaire'] },
+      { id: 'apprendre', nom: 'Apprendre', icone: 'cours', membres: ['bibliotheque', 'flashcards', 'quiz'] },
+      { id: 'mesurer', nom: 'Mesurer', icone: 'statistiques', membres: ['positionnement', 'journal', 'statistiques'] },
+      { id: 'outils', nom: 'Outils', icone: 'outils', membres: ['recherche', 'glossaire'] },
     ],
     principaux: ['accueil', 'bibliotheque', 'flashcards', 'quiz'],
     annexes: [
@@ -209,10 +235,10 @@ export const BRANCHES: Branche[] = [
          d'un onglet pour un écran qu'on ouvre une fois par mois, et cette
          largeur manquait aux onze autres.
       */
-      { id: 'progression', nom: 'Sauvegarde', description: 'Sauvegarder et restaurer.', chemin: '/progression/', icone: '💾' },
-      { id: 'actualites', nom: 'Actualités', chemin: '/actualites/', icone: '📰' },
-      { id: 'quiz-cours', nom: 'Quiz du cours', chemin: '/quiz/cours/', icone: '🎯' },
-      { id: 'quiz-dgfip', nom: 'QCM — DGFiP', chemin: '/quiz/dgfip/', icone: '🏛️' },
+      { id: 'progression', nom: 'Sauvegarde', description: 'Sauvegarder et restaurer.', chemin: '/progression/', icone: 'sauvegarde' },
+      { id: 'actualites', nom: 'Actualités', chemin: '/actualites/', icone: 'actualites' },
+      { id: 'quiz-cours', nom: 'Quiz du cours', chemin: '/quiz/cours/', icone: 'quiz' },
+      { id: 'quiz-dgfip', nom: 'QCM — DGFiP', chemin: '/quiz/dgfip/', icone: 'concours' },
       /*
          EN ANNEXE, ET NON EN ONGLET. La barre d'onglets est un budget
          d'attention : Révisions en porte déjà dix, et un onglet de plus se
@@ -224,7 +250,15 @@ export const BRANCHES: Branche[] = [
         nom: 'Organigrammes',
         description: 'Les organigrammes de l’administration, datés et sourcés.',
         chemin: '/organigrammes/',
-        icone: '🗂️',
+        /*
+           L'ÉMOJI DEVIENT UN NOM DU CATALOGUE, et le nom est à revoir d'un mot.
+
+           Cette entrée portait « 🗂️ », une boîte à fiches. Le catalogue de
+           A ne nomme aucun « organigramme » ; « ranger » est le sens
+           littéral de l'émoji choisi, donc le plus proche de l'intention.
+           Si A ou B préfère autre chose, c'est un mot à changer ici.
+        */
+        icone: 'ranger',
         parcours: ['dgfip-b', 'dgfip-a', 'dgfip-ap'],
       },
     ],
@@ -232,28 +266,28 @@ export const BRANCHES: Branche[] = [
   {
     id: 'odyssee',
     libelle: 'Odyssée',
-    icone: '🧭',
+    icone: 'odyssee',
     description: 'Pilotage de la vie : domaines, calendrier, tâches, quêtes, tendances.',
     racine: '/odyssee/',
     disponible: true,
     onglets: [
-      { id: 'accueil', nom: 'Tableau de bord', court: 'Tableau', chemin: '/odyssee/', icone: '🏠' },
-      { id: 'calendrier', nom: 'Agenda', description: 'Mon calendrier.', chemin: '/odyssee/calendrier/', icone: '🗓️' },
-      { id: 'taches', nom: 'Tâches', chemin: '/odyssee/taches/', icone: '✅' },
-      { id: 'quetes', nom: 'Quêtes', chemin: '/odyssee/quetes/', icone: '🔁' },
-      { id: 'revue', nom: 'Revue', court: 'Revue', chemin: '/odyssee/revue/', icone: '🌙' },
-      { id: 'corps', nom: 'Corps', chemin: '/odyssee/corps/', icone: '🫀' },
-      { id: 'psyche', nom: 'Psyché', chemin: '/odyssee/psyche/', icone: '🫧' },
-      { id: 'veille', nom: 'Repère de rythme de vie', court: 'Repère', chemin: '/odyssee/veille/', icone: '🧿' },
-      { id: 'echelles', nom: 'Échelles', chemin: '/odyssee/echelles/', icone: '📋' },
-      { id: 'finances', nom: 'Finances', chemin: '/odyssee/finances/', icone: '💶' },
-      { id: 'tendances', nom: 'Tendances', chemin: '/odyssee/tendances/', icone: '🔭' },
-      { id: 'syntheses', nom: 'Synthèses', chemin: '/syntheses/', icone: '🧾' },
+      { id: 'accueil', nom: 'Tableau de bord', court: 'Tableau', chemin: '/odyssee/', icone: 'tableau-de-bord' },
+      { id: 'calendrier', nom: 'Agenda', description: 'Mon calendrier.', chemin: '/odyssee/calendrier/', icone: 'planning' },
+      { id: 'taches', nom: 'Tâches', chemin: '/odyssee/taches/', icone: 'taches' },
+      { id: 'quetes', nom: 'Quêtes', chemin: '/odyssee/quetes/', icone: 'quetes' },
+      { id: 'revue', nom: 'Revue', court: 'Revue', chemin: '/odyssee/revue/', icone: 'revue' },
+      { id: 'corps', nom: 'Corps', chemin: '/odyssee/corps/', icone: 'corps' },
+      { id: 'psyche', nom: 'Psyché', chemin: '/odyssee/psyche/', icone: 'psyche' },
+      { id: 'veille', nom: 'Repère de rythme de vie', court: 'Repère', chemin: '/odyssee/veille/', icone: 'rythme-de-vie' },
+      { id: 'echelles', nom: 'Échelles', chemin: '/odyssee/echelles/', icone: 'echelles' },
+      { id: 'finances', nom: 'Finances', chemin: '/odyssee/finances/', icone: 'finances' },
+      { id: 'tendances', nom: 'Tendances', chemin: '/odyssee/tendances/', icone: 'tendances' },
+      { id: 'syntheses', nom: 'Synthèses', chemin: '/syntheses/', icone: 'syntheses' },
     ],
     groupes: [
-      { id: 'faire', nom: 'Faire', icone: '✅', membres: ['taches', 'quetes', 'revue'] },
-      { id: 'moi', nom: 'Moi', icone: '🫀', membres: ['corps', 'psyche', 'echelles', 'veille'] },
-      { id: 'compter', nom: 'Compter', icone: '💶', membres: ['finances', 'tendances', 'syntheses'] },
+      { id: 'faire', nom: 'Faire', icone: 'taches', membres: ['taches', 'quetes', 'revue'] },
+      { id: 'moi', nom: 'Moi', icone: 'corps', membres: ['corps', 'psyche', 'echelles', 'veille'] },
+      { id: 'compter', nom: 'Compter', icone: 'finances', membres: ['finances', 'tendances', 'syntheses'] },
     ],
     principaux: ['accueil', 'calendrier', 'taches', 'corps'],
     annexes: [
@@ -265,32 +299,32 @@ export const BRANCHES: Branche[] = [
          un écran qu'on ouvre huit fois par an. Le pied de page le nomme, et
          « Mon corps » y mène.
       */
-      { id: 'sante', nom: 'Santé', description: 'Santé et traitements.', chemin: '/odyssee/sante/', icone: '🩺' },
-      { id: 'rapprocher', nom: 'À rapprocher', description: 'Les opérations à rapprocher.', chemin: '/odyssee/rapprocher/', icone: '🔗' },
-      { id: 'regles', nom: 'Mes règles', description: 'Les règles de pointage.', chemin: '/odyssee/mes-regles/', icone: '📏' },
-      { id: 'lecteurs-budget', nom: 'Qui lit mon budget', chemin: '/odyssee/qui-lit-mon-budget/', icone: '👁️' },
+      { id: 'sante', nom: 'Santé', description: 'Santé et traitements.', chemin: '/odyssee/sante/', icone: 'sante' },
+      { id: 'rapprocher', nom: 'À rapprocher', description: 'Les opérations à rapprocher.', chemin: '/odyssee/rapprocher/', icone: 'rapprocher' },
+      { id: 'regles', nom: 'Mes règles', description: 'Les règles de pointage.', chemin: '/odyssee/mes-regles/', icone: 'regles' },
+      { id: 'lecteurs-budget', nom: 'Qui lit mon budget', chemin: '/odyssee/qui-lit-mon-budget/', icone: 'qui-lit' },
     ],
   },
   {
     id: 'sport',
     libelle: 'Sport',
-    icone: '🏋️',
+    icone: 'sport',
     description: 'Musculation et cardio : exercices, séances, suivi de la force.',
     racine: '/sport/',
     disponible: true,
     onglets: [
-      { id: 'accueil', nom: 'Tableau de bord', court: 'Tableau', chemin: '/sport/', icone: '🏠' },
-      { id: 'seance', nom: 'Séance', chemin: '/sport/seance/', icone: '🏋️' },
-      { id: 'exercices', nom: 'Exercices', chemin: '/sport/exercices/', icone: '📋' },
-      { id: 'programmes', nom: 'Programmes', chemin: '/sport/programmes/', icone: '🗂️' },
-      { id: 'force', nom: 'Force', description: 'Le suivi de la force.', chemin: '/sport/force/', icone: '📈' },
+      { id: 'accueil', nom: 'Tableau de bord', court: 'Tableau', chemin: '/sport/', icone: 'tableau-de-bord' },
+      { id: 'seance', nom: 'Séance', chemin: '/sport/seance/', icone: 'seance' },
+      { id: 'exercices', nom: 'Exercices', chemin: '/sport/exercices/', icone: 'echelles' },
+      { id: 'programmes', nom: 'Programmes', chemin: '/sport/programmes/', icone: 'programmes' },
+      { id: 'force', nom: 'Force', description: 'Le suivi de la force.', chemin: '/sport/force/', icone: 'statistiques' },
       /*
          « Phases et blessures », et non « Mon corps » : Odyssée porte déjà un
          écran de ce nom — poids, sommeil, repas — et deux onglets homonymes
          dans deux branches se confondraient à la lecture. Celui-ci ne traite
          que de ce qui contextualise l'entraînement.
       */
-      { id: 'etat', nom: 'Phases et blessures', court: 'Phases', chemin: '/sport/corps/', icone: '🩹' },
+      { id: 'etat', nom: 'Phases et blessures', court: 'Phases', chemin: '/sport/corps/', icone: 'erreurs' },
     ],
     /*
        Six onglets tenaient à 1280 px, mais pas à 660 : « Force » y était
@@ -298,8 +332,8 @@ export const BRANCHES: Branche[] = [
        tous atteignables sans toucher à l'ordre.
     */
     groupes: [
-      { id: 'preparer', nom: 'Préparer', icone: '🗂️', membres: ['exercices', 'programmes'] },
-      { id: 'suivre', nom: 'Suivre', icone: '📈', membres: ['force', 'etat'] },
+      { id: 'preparer', nom: 'Préparer', icone: 'programmes', membres: ['exercices', 'programmes'] },
+      { id: 'suivre', nom: 'Suivre', icone: 'statistiques', membres: ['force', 'etat'] },
     ],
     principaux: ['accueil', 'seance', 'exercices', 'force'],
   },
@@ -341,21 +375,21 @@ export const BRANCHES: Branche[] = [
   {
     id: 'cognitif',
     libelle: 'Entraînement cognitif',
-    icone: '🧩',
+    icone: 'cognitif',
     description:
       'Mémoire de travail, raisonnement relationnel, correspondance perceptive. ' +
       'Indépendant du programme du concours.',
     racine: '/cog-training/',
     disponible: true,
     onglets: [
-      { id: 'accueil', nom: 'Tableau de bord', court: 'Tableau', chemin: '/cog-training/', icone: '🏠' },
+      { id: 'accueil', nom: 'Tableau de bord', court: 'Tableau', chemin: '/cog-training/', icone: 'tableau-de-bord' },
       {
         id: 'memoire',
         nom: 'Mémoire de travail',
         court: 'Mémoire',
         description: 'Quad N-Back : quatre flux en parallèle.',
         chemin: '/cog-training/quad-n-back/',
-        icone: '🧩',
+        icone: 'memoire',
       },
       {
         id: 'raisonnement',
@@ -363,7 +397,7 @@ export const BRANCHES: Branche[] = [
         court: 'Raisonnement',
         description: 'Inférer une règle qu’aucun énoncé ne nomme.',
         chemin: '/cog-training/relational-reasoning/',
-        icone: '🧠',
+        icone: 'raisonnement',
       },
       {
         id: 'correspondance',
@@ -371,7 +405,7 @@ export const BRANCHES: Branche[] = [
         court: 'Correspondance',
         description: 'Mettre deux échelles perceptives en vis-à-vis.',
         chemin: '/cog-training/veridical-mapping/',
-        icone: '🎚️',
+        icone: 'niveau',
       },
     ],
     principaux: ['accueil', 'memoire', 'raisonnement', 'correspondance'],
@@ -396,20 +430,20 @@ export const ECRANS_COMMUNS: readonly Onglet[] = [
     nom: 'Paramètres',
     description: 'Tous les réglages du site, au même endroit.',
     chemin: '/parametres/',
-    icone: '⚙️',
+    icone: 'parametres',
   },
-  { id: 'profil', nom: 'Mon profil', chemin: '/profil/', icone: '🪪' },
-  { id: 'appareils', nom: 'Appareils', description: 'Appareils et synchronisation.', chemin: '/appareils/', icone: '📱' },
-  { id: 'stockage', nom: 'Stockage', chemin: '/stockage/', icone: '🗄️' },
+  { id: 'profil', nom: 'Mon profil', chemin: '/profil/', icone: 'profil' },
+  { id: 'appareils', nom: 'Appareils', description: 'Appareils et synchronisation.', chemin: '/appareils/', icone: 'appareils' },
+  { id: 'stockage', nom: 'Stockage', chemin: '/stockage/', icone: 'stockage' },
   {
     id: 'notifications',
     nom: 'Notifications',
     description: 'Ce que le système affiche, source par source.',
     chemin: '/notifications/',
-    icone: '🔔',
+    icone: 'notifications',
   },
-  { id: 'exporter-ia', nom: 'Exporter pour une IA', chemin: '/exporter-ia/', icone: '📤' },
-  { id: 'importer-analyse', nom: 'Importer une analyse', chemin: '/importer-analyse/', icone: '📥' },
+  { id: 'exporter-ia', nom: 'Exporter pour une IA', chemin: '/exporter-ia/', icone: 'exporter' },
+  { id: 'importer-analyse', nom: 'Importer une analyse', chemin: '/importer-analyse/', icone: 'importer' },
 ];
 
 export const ID_BRANCHE_PAR_DEFAUT = 'revisions';

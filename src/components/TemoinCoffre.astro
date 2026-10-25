@@ -1,4 +1,5 @@
 ---
+import Icone from './Icone.astro';
 /**
  * Le témoin du coffre, dans l'en-tête de toutes les pages.
  *
@@ -41,7 +42,7 @@
     <span
       class="flex min-w-0 flex-1 items-center gap-1.5 text-xs font-medium text-amber-900 sm:flex-none dark:text-amber-100"
     >
-      <span aria-hidden="true">🔓</span>
+      <Icone nom="coffre-ouvert" taille={18} />
       <span id="temoin-coffre-libelle" class="truncate">Coffre ouvert</span>
     </span>
     <span class="hidden grow sm:block"></span>
