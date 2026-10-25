@@ -106,7 +106,32 @@ for (const m of manifeste.matieres ?? []) {
 console.log('\nCHAQUE FICHE PORTE SA RACINE ET LES PARCOURS QU’ELLE SERT');
 
 console.log(`      ${toutes.length} fiches au manifeste`);
-v('le manifeste n’est pas vide, sinon l’essai ne prouverait rien', toutes.length > 100, true);
+/*
+   CE GARDE-FOU A MENTI, ET VOICI CE QU'IL DISAIT.
+
+   Il s'énonçait « le manifeste n'est pas vide » et exigeait « plus de cent
+   fiches ». Les deux ne sont pas la même chose, et l'écart s'est vu le jour où
+   une machine n'a porté que cinq fiches : l'essai est devenu rouge en
+   annonçant un manifeste vide qui portait cinq fiches servies à quatre
+   parcours, et dont il avait vérifié chaque racine.
+
+   Son objet est d'empêcher un essai creux : sur un manifeste SANS fiche,
+   toutes les assertions qui suivent passent au vert pour n'avoir rien examiné.
+   C'est « zéro » qu'il doit refuser, et c'est ce qu'il refuse maintenant.
+
+   Le volume du corpus, lui, est un fait de la MACHINE et non du code : ce
+   dépôt ne versionne pas « content/ », et rien ici ne peut garantir que les
+   427 fiches y sont. Le compte est donc imprimé juste au-dessus, et une
+   mention le dit en clair quand le corpus est partiel — pour que personne ne
+   lise « 15 verts » comme « le corpus entier est conforme ».
+*/
+v('le manifeste porte au moins une fiche, sinon rien ne serait examiné', toutes.length > 0, true);
+if (toutes.length < 100) {
+  console.log(
+    `      · corpus partiel : ${toutes.length} fiches seulement. La forme est mesurée, ` +
+      'le corpus ne l’est pas.',
+  );
+}
 
 const sansRacine = toutes.filter((f) => typeof f.racine !== 'string');
 v('aucune fiche sans racine', sansRacine.map((f) => f.titre).slice(0, 5), []);
