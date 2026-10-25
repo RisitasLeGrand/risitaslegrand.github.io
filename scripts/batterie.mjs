@@ -276,7 +276,7 @@ if (!sert) {
 /* ── Le laboratoire ────────────────────────────────────────────────────── */
 
 /*
-   CINQ ESSAIS NE PEUVENT PAS TOURNER DANS L'ARBRE DE TRAVAIL, ET C'EST VOULU.
+   HUIT ESSAIS NE PEUVENT PAS TOURNER DANS L'ARBRE DE TRAVAIL, ET C'EST VOULU.
 
    Ils bâtissent eux-mêmes un « content/ » depuis « content-exemple/ », avec un
    mot de passe factice, servent sur le port 4322, puis effacent tout. Ils
@@ -284,6 +284,10 @@ if (!sert) {
    existent déjà — c'est-à-dire toujours, dans le répertoire où le travail se
    fait. La batterie les comptait rouges, et la règle « aucun rouge avant de
    fusionner » devenait inapplicable.
+
+   Le compte, lui, se lit dans le `Set` et non dans cette phrase : il disait
+   « cinq » pour sept, le temps que deux essais s'ajoutent sans que personne
+   recompte. Il est tenu à jour, et c'est tout ce qu'on peut en promettre.
 
    Les déplacer eux n'était pas la réponse : déplacer le « content/ » réel pour
    leur faire de la place, non plus, puisqu'ils le suppriment en fin de course
@@ -308,7 +312,7 @@ const EN_LABORATOIRE = new Set([
      questions existe, et aucune n'est servie dans le conteneur de travail :
      « Commencer » y est désactivé, donc aucune épreuve ne peut être
      commencée ni gardée. Celui-ci se bâtit une banque synthétique de quatre
-     questions, et tombe donc sous la même garde que les cinq autres.
+     questions, et tombe donc sous la même garde que les autres.
   */
   'essais:epreuve-gardee:navigateur',
   /*
@@ -318,6 +322,14 @@ const EN_LABORATOIRE = new Set([
      laboratoire et se tairait sur sa garde.
   */
   'essais:recuperation-corpus',
+  /*
+     Les trois parcours DGFiP n'ont AUCUN contenu, et n'en auront pas avant des
+     mois : mesurer une séance qui propose vraiment quelque chose demande donc
+     de planter des fiches sous `dgfip-b/`, `dgfip-a/`, `dgfip-ap/` et
+     `commun/`. Il les plante, construit, puis efface — même garde que les
+     autres, pour la même raison.
+  */
+  'essais:parcours-planifiables:navigateur',
 ]);
 
 /*

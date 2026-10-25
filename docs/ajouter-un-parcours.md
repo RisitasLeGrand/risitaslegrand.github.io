@@ -88,6 +88,24 @@ ne le recopiez pas ici, il bougera. Trois choses à savoir avant de commencer :
   matière ni de concours.
 - **Le glossaire est commun** — un seul `content/glossaire.yml`, sans surcharge
   par parcours à ce jour.
+- **Une fiche appartient aux parcours de sa racine.** `content/dgfip-b/` sert
+  DGFiP B ; `content/commun/` sert les trois parcours DGFiP ; la racine de
+  `content/` sert l'INSP. Le build écrit ces parcours dans le manifeste
+  (`parcoursServis`), et la séance les lit. C'est ce qui permet à deux parcours
+  de déclarer la **même matière** sans se voler leurs fiches — « Organisation de
+  la DGFiP » est déclarée par DGFiP B et par DGFiP A, délibérément, parce que
+  c'est la même matière.
+
+  Ce qui n'est **pas** encore cloisonné : la bibliothèque, la recherche et les
+  statistiques servent le corpus entier. Ce n'est pas un oubli à combler sans
+  réfléchir — un historique de révision ne change pas de parcours parce qu'on
+  change d'onglet, et chacun de ces écrans a sa propre réponse à trouver. La
+  séance, elle, PROPOSE : c'est le seul écran qui doive trancher aujourd'hui.
+- **Un thème peut être une épreuve, et non des connaissances** (`epreuve: true`).
+  Ses matières n'entrent alors pas dans l'estimation de niveau : une note de
+  type Elo ne mesure rien sur un oral de quarante minutes où l'on expose son
+  parcours. Un seul thème le déclare à ce jour, l'entretien avec le jury de
+  DGFiP A+.
 
 **Le mot de passe et la clé de déchiffrement sont les mêmes pour tous les
 parcours.** Il n'y en a qu'un, et il ouvre tout.

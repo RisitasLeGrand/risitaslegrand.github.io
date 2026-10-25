@@ -29,6 +29,8 @@ import {
 } from './db';
 import { gagnerXp } from './gamification';
 import { jourDeLaSemaine, lireReglages, theme } from './rotation';
+import { ficheServieAuParcours } from './parcours/registre';
+import { parcoursCourant } from './parcours/courant';
 import type { Manifeste } from './contenu';
 
 /*
@@ -307,7 +309,11 @@ export interface FicheProposee {
  * Fiches de cours rattachées à un thème, dans l'ordre du programme.
  * C'est le « contenu du jour » proposé par la séance.
  */
-export function fichesDuTheme(manifeste: Manifeste, themeId: string): FicheProposee[] {
+export function fichesDuTheme(
+  manifeste: Manifeste,
+  themeId: string,
+  parcours = parcoursCourant(),
+): FicheProposee[] {
   const cible = theme(themeId);
   if (!cible) return [];
   const noms = new Set(cible.matieres.map((m) => m.toLowerCase()));
@@ -315,15 +321,33 @@ export function fichesDuTheme(manifeste: Manifeste, themeId: string): FichePropo
     .filter((m) => noms.has(m.nom.toLowerCase()))
     .flatMap((m) =>
       m.fascicules.flatMap((f) =>
-        f.fiches.map((fiche) => ({
-          id: fiche.id,
-          titre: fiche.titre,
-          matiere: m.nom,
-          fascicule: f.nom,
-          aPretest: fiche.aPretest ?? false,
-          nbParties: fiche.nbParties ?? 0,
-          nbMots: fiche.nbMots ?? 0,
-        })),
+        /*
+           LE NOM DE LA MATIÈRE NE SUFFIT PAS À DÉSIGNER UNE FICHE.
+
+           « Organisation de la DGFiP » est déclarée par DGFiP B et par DGFiP A,
+           et c'est voulu : c'est la même matière. Sans ce filtre, la séance de
+           B proposait la fiche rangée sous `dgfip-a/`, et celle de A la fiche
+           de `dgfip-b/` — le manifeste portait déjà de quoi trancher, et
+           personne ne le lisait.
+
+           Le filtre est ici et non dans `chargerManifeste` : scoper le
+           manifeste pour tout le site toucherait la bibliothèque, la recherche
+           et les statistiques d'un coup, et ces écrans n'ont pas la même
+           réponse — un historique FSRS ne change pas de parcours parce qu'on
+           change d'onglet. La séance, elle, PROPOSE : c'est le seul écran qui
+           doive trancher aujourd'hui.
+        */
+        f.fiches
+          .filter((fiche) => ficheServieAuParcours(fiche, parcours.id))
+          .map((fiche) => ({
+            id: fiche.id,
+            titre: fiche.titre,
+            matiere: m.nom,
+            fascicule: f.nom,
+            aPretest: fiche.aPretest ?? false,
+            nbParties: fiche.nbParties ?? 0,
+            nbMots: fiche.nbMots ?? 0,
+          })),
       ),
     );
 }

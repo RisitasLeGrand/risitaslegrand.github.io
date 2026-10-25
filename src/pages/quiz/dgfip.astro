@@ -456,13 +456,52 @@ import { base } from '../../lib/ui';
   function afficherRubriques() {
     const zone = $('rubriques-dgfip');
     zone.innerHTML = '';
+
+    /*
+       LES TOTAUX SONT CEUX DU PARCOURS, ET NON CEUX DE LA BANQUE.
+
+       `rubriques[].total` est écrit par le build : il compte TOUTES les
+       questions de la rubrique, sans regarder leur `categorie_origine`. Or un
+       candidat de DGFiP B ne tire que les questions B et maison — c'est la
+       règle du prompt 20, tenue par `questionsServables`. L'accueil lui
+       annonçait donc un nombre qu'il ne pouvait pas atteindre, et une rubrique
+       entièrement de catégorie A lui était présentée comme si elle lui était
+       servie.
+
+       On recompte donc sur les questions SERVABLES, et une rubrique dont il ne
+       reste rien n'est pas listée : annoncer « 0 question » n'informe pas, cela
+       encombre.
+
+       La règle elle-même est éprouvée sans navigateur par
+       `essais:temporalite` ; ce qui se joue ici est seulement que l'écran dise
+       la même chose qu'elle.
+
+       CE QUI N'EST PAS TRAITÉ, ET POURQUOI. Si un parcours ne pouvait tirer
+       AUCUNE question, cette liste serait vide et « Commencer » resterait
+       pourtant actif. L'état existait déjà avant ce filtre, qui le rend
+       seulement visible. Il demanderait un écran et une phrase à lui — « vide »
+       dit « ajoutez des questions », ce qui serait faux : la banque, elle, est
+       pleine. Or il ne peut se produire que si la banque ne porte ni une seule
+       question `maison` — admise partout — ni une seule question `B`. La
+       banque réelle en compte 153 de la première sorte. Écrire un écran pour
+       un chemin qu'aucune banque plausible n'atteint coûterait plus que ce
+       qu'il garde ; c'est consigné ici plutôt que construit.
+    */
+    const servables = banque ? questionsServables(banque, idParcoursCourant()) : [];
+    const parRubrique = new Map<string, number>();
+    for (const q of servables) {
+      parRubrique.set(q.rubriqueId, (parRubrique.get(q.rubriqueId) ?? 0) + 1);
+    }
+
     for (const r of banque?.rubriques ?? []) {
+      const total = parRubrique.get(r.id) ?? 0;
+      if (total === 0) continue;
       const ligne = document.createElement('div');
       ligne.className =
         'flex items-center justify-between gap-3 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm dark:border-slate-800 dark:bg-slate-900';
       ligne.innerHTML =
         `<span class="min-w-0 flex-1 truncate text-slate-700 dark:text-slate-200">${echapper(r.nom)}</span>` +
-        `<span class="shrink-0 text-xs text-slate-400 tabular-nums">${pluriel(r.total, 'question')}</span>`;
+        `<span class="shrink-0 text-xs text-slate-400 tabular-nums">${pluriel(total, 'question')}</span>`;
       zone.appendChild(ligne);
     }
   }
