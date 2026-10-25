@@ -204,6 +204,21 @@ try {
   console.log('\nSANS RIEN DE GARDÉ, AUCUNE PROPOSITION');
 
   await aller('/quiz/dgfip/', '#lancer-dgfip');
+  /*
+     LA PRÉSENTATION SE CHOISIT, ELLE NE SE SUBIT PAS.
+
+     Le lot 49 a ajouté la copie de concours, et son réglage vaut « copie »
+     par défaut (décision 1). Sur une copie, une banque de quatre questions
+     ne peut servir AUCUN format : la liste restait vide et « Commencer »
+     désactivé — ce que cet essai lisait comme « la banque de laboratoire
+     n'est pas là », alors qu'elle y était.
+
+     Le sujet de cet essai est l'épreuve GARDÉE, c'est-à-dire le parcours
+     question par question : il pose donc cette présentation, au lieu de
+     compter sur un défaut qui appartient à un autre lot.
+  */
+  await page.selectOption('#presentation-dgfip', 'une-a-la-fois');
+  await page.waitForTimeout(300);
   vrai(
     'le bloc de reprise est caché',
     await page.locator('#reprise-dgfip').evaluate((e) => e.classList.contains('hidden')),
