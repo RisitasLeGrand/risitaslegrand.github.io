@@ -691,6 +691,23 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
          une étiquette de plus au-dessus répéterait le titre. */
       etiquette: declare.nature === 'repartition' ? undefined : declare.libelle,
       action: 'Enregistrer',
+      /*
+         F6 — LES TROIS SORTIES, TOUJOURS LÀ, DU MÊME POIDS QUE LA RÉPONSE.
+
+         Une question n'a pas deux issues mais quatre, et trois d'entre elles
+         ne sont pas des renoncements : ne pas savoir, ne pas vouloir dire,
+         remettre à plus tard sont des réponses à part entière. Les offrir en
+         lien discret aurait fait d'elles des aveux ; elles portent donc la
+         mise en forme de « Enregistrer ».
+
+         Rien n'est précoché : les saisies partent de la valeur enregistrée,
+         et une valeur absente ne devient pas un défaut.
+      */
+      sorties: [
+        { texte: 'Je ne sais pas', valeur: 'inconnu' },
+        { texte: 'Je préfère ne pas répondre', valeur: 'sans-reponse' },
+        { texte: 'Plus tard', valeur: 'plus-tard' },
+      ],
       construire: (fermer) =>
         saisiePourChamp(declare, actuelle, {
           valider: fermer,
@@ -700,6 +717,51 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
     });
 
     if (reponse === null) return;
+
+    /*
+         CE QUE CHAQUE SORTIE ENREGISTRE, ET POURQUOI CE N'EST PAS LA MÊME CHOSE.
+
+         « Je ne sais pas » et « Je préfère ne pas répondre » sont des VALEURS :
+         la question a été vue, et elle ne sera plus posée par le parcours.
+         Aucun lecteur ne les lira comme une réponse — « champ() » s'en charge.
+         Les deux se distinguent pour la personne, et l'écran les dit en mots.
+
+         « Plus tard » n'est pas une valeur : c'est un report daté, qui laisse
+         le champ vide et ramène la question dans sept jours. Y mettre une
+         valeur l'aurait rendu définitif, c'est-à-dire l'aurait confondu avec
+         le refus.
+    */
+    if ('sortie' in reponse) {
+      if (reponse.sortie === 'plus-tard') {
+        const { reporter } = await import('../lib/initialisation');
+        try {
+          await reporter(champ);
+        } catch (erreur) {
+          await avertir({
+            titre: 'Ce report n’a pas été enregistré',
+            texte: messageDUneErreur(erreur),
+          });
+          return;
+        }
+        await peindre();
+        return;
+      }
+      const { NON_REPONSE_INCONNU, NON_REPONSE_REFUS } = await import('../lib/noyau/profil');
+      const valeur =
+        reponse.sortie === 'inconnu' ? NON_REPONSE_INCONNU : NON_REPONSE_REFUS;
+      try {
+        await ecrireChamp(champ, valeur);
+      } catch (erreur) {
+        await avertir({
+          titre: 'Ce champ n’a pas été enregistré',
+          texte: messageDUneErreur(erreur),
+        });
+        return;
+      }
+      await peindre();
+      return;
+    }
+
     if (reponse.valeur === undefined) return;
 
     try {

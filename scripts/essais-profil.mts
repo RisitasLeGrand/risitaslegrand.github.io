@@ -370,6 +370,28 @@ console.log('\nF6 — LES NON-RÉPONSES');
 
 {
   vrai('« inconnu » est une non-réponse', estUneNonReponse(NON_REPONSE_INCONNU));
+
+  /*
+     RECEVABLE POUR TOUTE NATURE, ET C'EST INDISPENSABLE.
+
+     Une non-réponse n'est pas une valeur mal typée. Sans cette règle, « Je
+     préfère ne pas répondre » était refusé par « Un nombre est attendu. » sur
+     tout champ qui n'attend pas un texte, et l'écran répondait à un refus par
+     un reproche de forme. Les trois sorties valent pour tous les champs, ou
+     pour aucun.
+  */
+  for (const non of [NON_REPONSE_INCONNU, NON_REPONSE_REFUS]) {
+    vrai(`« ${non} » est recevable sur un nombre`, valider('naissanceAnnee', non).recevable);
+    vrai(`« ${non} » est recevable sur une heure`, valider('lever', non).recevable);
+    vrai(`« ${non} » est recevable sur une liste`, valider('matieresFortes', non).recevable);
+    vrai(
+      `« ${non} » est recevable sur une répartition`,
+      valider('tempsParDomaine', non).recevable,
+    );
+  }
+  /* Et une vraie faute de forme reste refusée : la porte ne s'ouvre pas pour
+     tout le monde. */
+  faux('une chaîne quelconque reste refusée sur un nombre', valider('naissanceAnnee', 'bof').recevable);
   vrai('« sans-reponse » aussi', estUneNonReponse(NON_REPONSE_REFUS));
 
   /* LE PIÈGE D'UNE SEULE LETTRE. « inconnue », au féminin, est une RÉPONSE

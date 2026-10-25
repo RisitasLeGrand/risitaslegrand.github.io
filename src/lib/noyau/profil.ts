@@ -1309,6 +1309,19 @@ const HEURE = /^([01]\d|2[0-3]):[0-5]\d$/;
 export function valider(champ: string, valeur: unknown): Verdict {
   const declare = PAR_CHAMP.get(champ);
   if (!declare) return { recevable: false, motif: `Champ inconnu : « ${champ} ».` };
+  /*
+     UNE NON-RÉPONSE EST RECEVABLE POUR TOUTE NATURE.
+
+     Elle n'est pas une valeur mal typée : c'est l'absence déclarée d'une
+     valeur. Sans cette ligne, « Je préfère ne pas répondre » était refusé par
+     « Un nombre est attendu. » sur tout champ qui n'attend pas un texte — et
+     l'écran répondait à un refus par un reproche de forme.
+
+     Le défaut ne s'est pas vu en lisant : l'essai de navigateur s'est bloqué
+     sur la boîte d'avertissement que le refus déclenchait. Les trois sorties
+     doivent valoir pour tous les champs, sinon elles ne valent pour aucun.
+  */
+  if (estUneNonReponse(valeur)) return { recevable: true };
   switch (declare.nature) {
     case 'texte':
       if (typeof valeur !== 'string') return { recevable: false, motif: 'Un texte est attendu.' };

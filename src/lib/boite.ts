@@ -356,15 +356,44 @@ export function demanderUneSaisie(d: {
   etiquette?: string;
   /** Le verbe de l'action, jamais « OK ». */
   action?: string;
+  /**
+   * Les sorties offertes à côté de la réponse, **du même poids qu'elle**.
+   *
+   * « Je ne sais pas », « Je préfère ne pas répondre », « Plus tard » : trois
+   * façons de ne pas répondre qui ne sont pas des renoncements, et qui doivent
+   * donc se présenter comme la réponse, non comme un lien discret en bas. Une
+   * sortie moins visible que la réponse est une pression pour répondre, et
+   * c'est précisément ce que le lot F retire partout ailleurs.
+   *
+   * Elles partagent la mise en forme de l'action — une seule classe, écrite
+   * une fois — plutôt qu'une égalité déclarée que rien ne tiendrait.
+   */
+  sorties?: readonly { texte: string; valeur: string }[];
   construire: (fermer: () => void) => { element: HTMLElement; lire: () => unknown };
-}): Promise<{ valeur: unknown } | null> {
+}): Promise<{ valeur: unknown } | { sortie: string } | null> {
   const { boite, formulaire, actions, fermer } = coquille(d.titre, d.texte);
 
   const saisie = d.construire(() => boite.close('oui'));
 
   const valider = bouton(d.action ?? 'Enregistrer', { valeur: 'oui', sorte: 'principale' });
   const annuler = bouton('Annuler', { valeur: 'non', sorte: 'annuler' });
-  actions.append(valider, annuler);
+  actions.append(valider);
+  /*
+     Les sorties entre la réponse et « Annuler », et de la même sorte que la
+     réponse : c'est ce qui leur donne la même classe, donc le même poids.
+
+     « Annuler » garde la sienne, et ce n'est pas une inégalité oubliée : il
+     ne répond pas à la question, il abandonne la boîte. Les règles de
+     « confirmer » le veulent à gauche et sous le focus, et une sortie n'est
+     pas un abandon.
+  */
+  const sorties = (d.sorties ?? []).map((s) => {
+    const b = bouton(s.texte, { valeur: `sortie:${s.valeur}`, sorte: 'principale' });
+    b.dataset.sortie = s.valeur;
+    actions.append(b);
+    return s.valeur;
+  });
+  actions.append(annuler);
 
   if (d.etiquette) {
     const etiquette = document.createElement('p');
@@ -384,7 +413,9 @@ export function demanderUneSaisie(d: {
   const premier = saisie.element.querySelector<HTMLElement>(
     'input, select, textarea, button',
   );
-  return ouvrir(boite, () => premier ?? annuler).then((valeur) =>
-    valeur === 'oui' ? { valeur: saisie.lire() } : null,
-  );
+  return ouvrir(boite, () => premier ?? annuler).then((valeur) => {
+    if (valeur === 'oui') return { valeur: saisie.lire() };
+    const prise = sorties.find((s) => valeur === `sortie:${s}`);
+    return prise === undefined ? null : { sortie: prise };
+  });
 }
