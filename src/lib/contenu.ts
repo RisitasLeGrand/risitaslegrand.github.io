@@ -11,6 +11,30 @@ export interface FicheResume {
   titre: string;
   ordre: number;
   tags: string[];
+  /**
+   * La racine de contenu d'où vient la fiche : `'dgfip-b'`, `'commun'`, ou
+   * `''` pour l'INSP, dont les fiches sont à la racine de `content/`.
+   *
+   * Un fait du rangement, vérifiable contre le disque — à la différence des
+   * parcours servis, qui en sont DÉDUITS par le registre.
+   */
+  racine?: string;
+  /** La fiche est-elle servie à plus d'un parcours ? Déduit de `parcoursServis`. */
+  partagee?: boolean;
+  /**
+   * Les parcours auxquels cette fiche est servie.
+   *
+   * Écrit par le build depuis `parcoursDuChemin(relatif)`. Au pluriel, parce
+   * qu'une fiche de `content/commun/` en sert trois : élire un parcours aurait
+   * obligé à mentir sur les deux autres.
+   *
+   * **Facultatif, et son absence ne veut pas dire « aucun ».** Un manifeste
+   * construit avant que le champ existe n'en porte pas, et refuser alors de
+   * servir la fiche viderait l'écran de qui n'a pas reconstruit. Son absence se
+   * lit donc « on ne sait pas », et la fiche passe — c'est la convention des
+   * autres champs facultatifs de ce type (`nbParties`, `aPretest`).
+   */
+  parcoursServis?: string[];
   nbFlashcards: number;
   nbQuiz: number;
   nbMots: number;

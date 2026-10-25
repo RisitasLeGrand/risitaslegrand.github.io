@@ -69,3 +69,50 @@ le registre existe**.
 
 **Le mot « externe » est faux.** Le parcours par défaut est le concours **interne**, et le prompt dit
 « externe ». À corriger dans le même mouvement.
+
+---
+
+## Addendum du 25 octobre 2026 — ce qui a bougé depuis
+
+Le relevé ci-dessus garde sa date : c'est un état mesuré le 10 octobre, et le
+réécrire effacerait la trace de ce qui a été trouvé. Ce qui suit dit ce qui a
+changé, et ce qui n'a pas changé.
+
+**La dépendance structurante est levée.** Le registre déclare les thèmes et
+`rotation.ts` en est devenu le lecteur, comme l'audit le demandait. Les trois
+parcours DGFiP se planifient : leurs thèmes viennent de l'arrêté, et la ligne
+« Planification et rotation : **bloqué** » ne vaut plus.
+
+**Le filtre par `categorie_origine` est écrit** (`src/lib/qcm-temporalite.ts`,
+`questionsServables`), et l'écran de l'épreuve blanche lui passe le parcours
+courant. La ligne « filtre par `categorie_origine` à écrire » ne vaut plus non
+plus.
+
+**Un défaut que l'audit n'avait pas vu, parce qu'il ne pouvait pas le voir.**
+Le tableau dit « la liste des matières est agnostique : lue du manifeste, pas
+écrite dans le code » — et c'est vrai. Mais la séance choisissait ses fiches par
+le SEUL NOM DE LA MATIÈRE, et deux parcours peuvent déclarer la même :
+« Organisation de la DGFiP » est au programme de DGFiP B comme de DGFiP A.
+Un samedi, la séance de B proposait donc la fiche rangée sous `dgfip-a/`. Rien
+ne rougissait, et rien ne pouvait rougir : les trois parcours DGFiP n'ont aucune
+fiche, donc aucun essai ne pouvait mesurer la question. Il a fallu un essai de
+navigateur qui PLANTE du contenu factice sous les quatre racines
+(`essais:parcours-planifiables:navigateur`) pour le faire apparaître, en deux
+rouges.
+
+Le manifeste portait déjà de quoi trancher — `parcoursServis`, écrit par le
+build — et personne ne le lisait. La séance le lit maintenant
+(`ficheServieAuParcours`). La bibliothèque, la recherche et les statistiques,
+elles, servent toujours le corpus entier : voir `docs/ajouter-un-parcours.md`
+pour ce que ce choix préserve.
+
+**`lien_cours` a cédé la place à un dictionnaire.** `liens_cours`, un lien par
+parcours, est déclaré et lu (`src/lib/actualites.ts`, `actualites-rendu.ts`),
+l'ancienne chaîne unique restant acceptée en repli — `essais:parcours` garde les
+deux formes et le repli. Ce que je n'ai **pas** vérifié : si des actualités déjà
+écrites portent encore l'ancienne forme. Lu dans le code ; non mesuré sur le
+contenu.
+
+**Ce qui reste du relevé, et n'a pas bougé :** le prompt « Demander à l'IA » —
+les deux chaînes littérales qui nomment l'INSP, et le mot « externe » faux pour
+un parcours interne —, et la surcharge du glossaire par parcours.

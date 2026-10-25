@@ -43,6 +43,35 @@ export interface ThemePlanification {
   icone: string;
   /** Matières du contenu rattachées à ce thème. */
   matieres: string[];
+  /**
+   * Ce thème est-il une ÉPREUVE à s'entraîner, et non un corps de
+   * connaissances à mesurer ?
+   *
+   * ## Ce que le champ change, et pourquoi il existe
+   *
+   * L'estimation de niveau est une notation de type Elo : elle suppose qu'une
+   * réponse juste ou fausse dise quelque chose de ce qu'on SAIT. Pour un oral
+   * de quarante minutes où l'on expose son parcours et défend ses choix, elle
+   * ne mesure rien — il n'y a pas de bonne réponse à savoir, il y a un exercice
+   * à répéter. Compter ces fiches donnerait une note qui monte et descend sans
+   * rapport avec une connaissance, et c'est pire que pas de note du tout.
+   *
+   * L'INSP avait déjà ce cas, et il était traité à part : « Cas pratique » est
+   * nommée dans `contenu-ecarte.ts` et écartée par `compteDansLeNiveau`. Le
+   * champ généralise ce traitement là où la chose est vraie — dans le thème —
+   * au lieu d'allonger une liste de littéraux à chaque parcours ajouté.
+   *
+   * ## Ce qu'il ne fait pas
+   *
+   * Il n'écarte pas des files de révision : une trame d'entretien se relit, et
+   * c'est le tag `méthodologie` qui gouverne la répétition espacée. Il ne cache
+   * rien et ne barre aucun écran. Il dit seulement : ne notez pas ceci.
+   *
+   * Absent vaut « non » : un thème qui ne le déclare pas est un corps de
+   * connaissances, ce qui est le cas de tous les thèmes de l'INSP, de DGFiP B
+   * et de DGFiP A.
+   */
+  epreuve?: boolean;
 }
 
 /**
@@ -525,6 +554,14 @@ const THEMES_DGFIP_AP: ThemePlanification[] = [
     court: 'Oral',
     icone: '🎙️',
     matieres: ['Entretien avec le jury'],
+    /*
+       Une épreuve, et non des connaissances : l'arrêté n'y attache aucun
+       programme, et ce qui s'y joue — un parcours à exposer, des choix à
+       défendre, une connaissance de la maison — ne se note pas en Elo.
+       L'inventaire du 59 le dit au § 4.1 : « rien de ce que le prompt 59 décrit
+       (cours, cartes, quiz) ne prépare un entretien de quarante minutes ».
+    */
+    epreuve: true,
   },
 ];
 
@@ -745,6 +782,61 @@ export const parcoursDuChemin = (relatif: string): string[] =>
  */
 export const racineEstPartagee = (racine: string): boolean =>
   parcoursServisParLaRacine(racine).length > 1;
+
+/**
+ * Cette fiche est-elle servie à ce parcours ?
+ *
+ * ## Le défaut qu'elle corrige, et comment il s'est vu
+ *
+ * La séance choisissait ses fiches par le seul NOM DE LA MATIÈRE. Or
+ * « Organisation de la DGFiP » est déclarée par DGFiP B **et** par DGFiP A —
+ * délibérément, puisque c'est la même matière. Un samedi, la séance de B
+ * proposait donc la fiche rangée sous `dgfip-a/`, et celle de A la fiche de
+ * `dgfip-b/`. Rien ne rougissait : les deux fiches existaient, la matière
+ * correspondait, et le manifeste portait déjà de quoi trancher sans que
+ * personne le lise. Un essai de navigateur sur du contenu factice l'a montré
+ * en deux rouges.
+ *
+ * ## Pourquoi `parcoursServis` plutôt que la racine
+ *
+ * Les deux voyagent dans le manifeste. La racine est un fait du rangement ; les
+ * parcours servis sont ce que le registre en DÉDUIT, et c'est la question
+ * posée ici. Repartir de la racine obligerait à refaire cette déduction côté
+ * écran, c'est-à-dire à en avoir deux — et le jour où elles divergeraient, des
+ * fiches changeraient de parcours sans que rien ne le dise.
+ *
+ * ## Une absence n'est pas un refus
+ *
+ * Un manifeste construit avant que le champ existe ne porte pas de parcours
+ * servis. Refuser alors la fiche viderait la séance de qui n'a pas reconstruit
+ * son contenu — un écran vide pour un champ manquant. L'absence se lit donc
+ * « on ne sait pas », et la fiche passe. C'est la même convention que pour les
+ * autres champs facultatifs du manifeste, et elle a un coût assumé : un vieux
+ * manifeste n'est pas cloisonné. Le build, lui, écrit toujours le champ.
+ */
+export const ficheServieAuParcours = (
+  fiche: { parcoursServis?: string[] },
+  idParcours: string,
+): boolean => fiche.parcoursServis === undefined || fiche.parcoursServis.includes(idParcours);
+
+/**
+ * Les matières qui relèvent d'une ÉPREUVE, tous parcours confondus.
+ *
+ * Repliées en minuscules, comme `fichesDuTheme` compare les noms de matière :
+ * une matière écrite « Entretien avec le Jury » dans une fiche ne doit pas
+ * échapper à la règle pour une capitale.
+ */
+export const matieresDEpreuve = (): Set<string> =>
+  new Set(
+    PARCOURS.flatMap((p) => p.themes)
+      .filter((t) => t.epreuve === true)
+      .flatMap((t) => t.matieres)
+      .map((m) => m.toLowerCase()),
+  );
+
+/** Cette matière relève-t-elle d'une épreuve à s'entraîner ? */
+export const matiereEstUneEpreuve = (matiere: string): boolean =>
+  matieresDEpreuve().has(matiere.trim().toLowerCase());
 
 /** Le parcours ouvert par défaut, et le seul qui porte du contenu aujourd'hui. */
 export const ID_PARCOURS_PAR_DEFAUT = 'insp';
