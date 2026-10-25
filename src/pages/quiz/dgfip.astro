@@ -409,7 +409,7 @@ import { base } from '../../lib/ui';
     compositionDeLaCopie,
     rubriquesEnManque,
   } from '../../lib/qcm-composition';
-  import { echapper, formaterDate, notifier, pluriel } from '../../lib/ui';
+  import { echapper, formaterDate, lien, notifier, pluriel } from '../../lib/ui';
   import { jourISO } from '../../lib/db';
   import { idParcoursCourant } from '../../lib/parcours/courant';
   import { MATIERE_DGFIP, signalerErreur } from '../../lib/journal';
@@ -1261,6 +1261,14 @@ import { base } from '../../lib/ui';
             options: r.question.options,
             bonnes: r.question.bonnes,
             choisies: r.choisis,
+            /*
+             * Le lien vers la fiche manquait ici, alors que le quiz de cours
+             * le passait : « rappel_de_cours » s'affichait donc en texte mort
+             * sur la banque DGFiP et sur l'épreuve blanche. Un rappel de cours
+             * qu'on ne peut pas ouvrir ne sert à rien — c'est le seul geste
+             * que la correction propose après la lecture.
+             */
+            lienFiche: (id) => lien(`fiche?id=${encodeURIComponent(id)}`),
             fermer: () => bouton.click(),
           });
         });

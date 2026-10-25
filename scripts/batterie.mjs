@@ -270,6 +270,13 @@ const EN_LABORATOIRE = new Set([
      laboratoire et se tairait sur sa garde.
   */
   'essais:recuperation-corpus',
+  /*
+     La correction détaillée à l'écran se vérifie sur un décor dont on connaît
+     le contenu : quatre questions corrigées de la même façon, et une question
+     de fiche injectée. Elle tombe donc sous la même garde que les autres —
+     elle bâtit son `content/` et l'efface.
+  */
+  'essais:correction-ecran',
 ]);
 
 /*

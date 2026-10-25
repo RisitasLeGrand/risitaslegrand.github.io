@@ -23,6 +23,7 @@ import YAML from 'yaml';
 import { decouperSections } from './lib/markdown.mjs';
 import { quizSchema, banqueDgfipSchema } from './lib/schema.mjs';
 import { estMatiereMigree, estRubriqueMigree, MATIERES_MIGREES, RUBRIQUES_MIGREES } from './lib/corrections-migrees.mjs';
+import { contenuEstClos, manquesDeCouverture } from './lib/cloture-contenu.mjs';
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const dossierContenu = path.join(racine, 'content');
@@ -271,6 +272,28 @@ if (restant > 0) {
     couleur.jaune(
       `Reste à rédiger : ${restant} correction(s). Régime d'inventaire sur les périmètres non migrés.`,
     ),
+  );
+}
+
+/*
+ * La garde de clôture, éteinte par un drapeau jusqu'à la fin du contenu.
+ *
+ * Elle lit les mêmes compteurs que le tableau imprimé ci-dessus, et non un
+ * recomptage parallèle : une garde qui compterait de son côté pourrait refuser
+ * une banque que le rapport déclare complète, ou l'inverse.
+ */
+if (contenuEstClos()) {
+  const manques = manquesDeCouverture([
+    ...[...cours].map(([nom, s]) => [`quiz de cours · ${nom}`, s]),
+    ...[...dgfip].map(([nom, s]) => [`QCM — DGFiP · ${nom}`, s]),
+  ]);
+  for (const m of manques) erreurs.push(m);
+  console.log(
+    manques.length === 0
+      ? couleur.vert('Contenu déclaré clos : la couverture est complète.')
+      : couleur.rouge(
+          `Contenu déclaré clos : ${manques.length} périmètre(s) incomplet(s).`,
+        ),
   );
 }
 
