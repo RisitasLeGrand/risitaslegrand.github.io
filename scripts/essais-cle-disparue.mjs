@@ -59,7 +59,7 @@ const ouvrirLeCoffre = async () => {
   await champ.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
   if (!(await champ.isVisible().catch(() => false))) return false;
   await page.fill('#mdp-coffre', MDP);
-  await page.locator('#coffre-ferme button').first().click();
+  await page.click('#ouvrir-coffre');
   await page.locator('#coffre-ferme').waitFor({ state: 'hidden', timeout: 20000 });
   return true;
 };
