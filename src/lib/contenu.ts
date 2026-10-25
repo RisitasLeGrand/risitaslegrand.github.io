@@ -94,7 +94,15 @@ export interface Flashcard {
  */
 export interface Correction {
   resume: string;
-  par_option: { verdict: 'juste' | 'faux'; pourquoi: string }[];
+  /**
+   * Le verdict de chaque option, dans l'ordre de l'énoncé.
+   *
+   * `marqueur` est facultatif et ne vaut que « possible » : il distingue une
+   * option que la clef donne fausse sans qu'elle soit absurde, et le build le
+   * refuse ailleurs que sur un verdict « faux » d'une correction de confiance
+   * moyenne.
+   */
+  par_option: { verdict: 'juste' | 'faux'; pourquoi: string; marqueur?: 'possible' }[];
   detail: string;
   /**
    * Les fiches à relire, **résolues au build**.

@@ -208,6 +208,15 @@ export const correctionSchema = z.object({
       z.object({
         verdict: z.enum(['juste', 'faux'], { message: '« verdict » vaut « juste » ou « faux »' }),
         pourquoi: z.string().min(1, 'chaque option doit dire pourquoi elle est juste ou fausse'),
+        /**
+         * Le marqueur d'une option que la clef donne fausse sans qu'elle soit
+         * pour autant absurde. Facultatif, et restreint à « possible » : les
+         * autres marqueurs du vocabulaire décrivent soit des éléments de
+         * schéma, soit la réponse donnée, que l'écran déduit seul.
+         */
+        marqueur: z
+          .literal('possible', { message: '« marqueur » ne vaut que « possible »' })
+          .optional(),
       }),
     )
     .min(2, '« par_option » a besoin d’une entrée par option'),
@@ -248,6 +257,41 @@ export const correctionSchema = z.object({
       });
     }
   }
+
+  /*
+   * « marqueur: possible » dit d'une option fausse qu'elle reste défendable.
+   * Deux emplois le contrediraient, et les deux sont silencieux à la lecture.
+   *
+   * Sur une option que la clef donne JUSTE, il ne veut rien dire : la bonne
+   * réponse n'est pas « possible », elle est la réponse, et l'écran la marque
+   * déjà comme telle.
+   *
+   * Sur une correction de confiance HAUTE, il se contredit : si un corrigé
+   * officiel tranche la question, aucune option écartée ne reste compatible
+   * avec lui. Le marqueur n'a de sens que là où la réponse elle-même a été
+   * établie par recherche et raisonnement — ce que « confiance: moyenne »
+   * déclare, et affiche.
+   */
+  v.par_option.forEach((o, i) => {
+    if (o.marqueur === undefined) return;
+    if (o.verdict === 'juste') {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          `« par_option.${i + 1} » porte « marqueur: possible » sur un verdict ` +
+          '« juste » : la bonne réponse n’est pas « possible », elle est la réponse.',
+      });
+    }
+    if (v.confiance !== 'moyenne') {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          `« par_option.${i + 1} » porte « marqueur: possible » alors que ` +
+          `« confiance » vaut « ${v.confiance} » : une option ne reste défendable ` +
+          'que là où la réponse elle-même a été établie par raisonnement.',
+      });
+    }
+  });
 });
 
 /**
