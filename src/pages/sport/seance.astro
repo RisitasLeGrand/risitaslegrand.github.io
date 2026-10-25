@@ -232,6 +232,7 @@ import LienReglages from '../../components/LienReglages.astro';
 
 <script>
   import { agirPuisPeindre } from '../../lib/agir';
+  import { messageDUneErreur } from '../../lib/agir';
   import { proposerLAnnulation } from '../../lib/annulation';
   import { unSeulGeste } from '../../lib/geste';
   import { ecranAllumeVoulu, themeDeSeanceVoulu } from '../../lib/parametres/acces';
@@ -740,7 +741,7 @@ import LienReglages from '../../components/LienReglages.astro';
             await enregistrerSerie();
             $('erreur').classList.add('hidden');
           } catch (erreur) {
-            $('erreur').textContent = erreur instanceof Error ? erreur.message : String(erreur);
+            $('erreur').textContent = messageDUneErreur(erreur);
             $('erreur').classList.remove('hidden');
           }
         });

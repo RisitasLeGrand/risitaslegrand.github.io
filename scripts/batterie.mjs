@@ -117,6 +117,13 @@ const SOCLE = [
      leçon des créneaux, et elle se range ici.
   */
   ['essais:effacement:navigateur', 'les tables d’effacement sont consultées, et non seulement déclarées'],
+  /*
+     G-13. Celui-ci entre parce que 54 sites d’affichage viennent d’être
+     routés d’un coup : le cinquante-cinquième s’écrira un jour sans que
+     personne y pense, et la relecture ne l’attrapera pas. Son balayage de
+     source coûte une seconde et nomme le fichier et la ligne.
+  */
+  ['essais:erreurs-dites', 'aucun texte brut de panne à l’écran, et les messages de domaine intacts'],
 ];
 
 /**

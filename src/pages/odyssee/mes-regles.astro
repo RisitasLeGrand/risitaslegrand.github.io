@@ -99,6 +99,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { messageDUneErreur } from '../../lib/agir';
   import { typeDe } from '../../lib/odyssee/taxonomie';
   import { jugerLaRegle } from '../../lib/odyssee/pointage';
   import { detecterLesContradictions } from '../../lib/odyssee/regles-pointage';
@@ -121,7 +122,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
   const $ = (id: string) => document.getElementById(id)!;
   const dire = (e: unknown) => {
     const z = $('erreur');
-    z.textContent = e instanceof Error ? e.message : String(e);
+    z.textContent = messageDUneErreur(e);
     z.classList.remove('hidden');
   };
 

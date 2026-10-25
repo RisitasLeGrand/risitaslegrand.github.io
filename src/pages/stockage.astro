@@ -373,6 +373,7 @@ import LienReglages from '../components/LienReglages.astro';
 
 <script>
   import { confirmer } from '../lib/boite';
+  import { messageDUneErreur } from '../lib/agir';
   import { auDeverrouillage } from '../lib/chargement';
   import { lien, notifier } from '../lib/ui';
   import {
@@ -609,7 +610,7 @@ import LienReglages from '../components/LienReglages.astro';
         offrirLeFichier(sauvegarde.octets, `avant-effacement-${nom}`);
         ($('mdp-avant-effacement') as HTMLInputElement).value = '';
       } catch (e) {
-        dire('message-effacement', `Sauvegarde impossible, rien n’a été effacé : ${(e as Error).message}`, 'echec');
+        dire('message-effacement', `Sauvegarde impossible, rien n’a été effacé : ${messageDUneErreur(e)}`, 'echec');
         return;
       }
 
@@ -693,7 +694,7 @@ import LienReglages from '../components/LienReglages.astro';
       cibleCourante = null;
       await rafraichirComptes();
     } catch (e) {
-      dire('message-effacement', `Effacement interrompu : ${(e as Error).message}`, 'echec');
+      dire('message-effacement', `Effacement interrompu : ${messageDUneErreur(e)}`, 'echec');
     }
   }
 
@@ -759,7 +760,7 @@ import LienReglages from '../components/LienReglages.astro';
         bouton.disabled = false;
         dire(
           'message-migration',
-          `Le retour arrière a échoué : ${erreur instanceof Error ? erreur.message : erreur}. ` +
+          `Le retour arrière a échoué : ${messageDUneErreur(erreur)}. ` +
             'La base n’a pas été remplacée.',
           'echec',
         );
@@ -858,7 +859,7 @@ import LienReglages from '../components/LienReglages.astro';
           'succes',
         );
       } catch (e) {
-        dire('message-export', `Export impossible : ${(e as Error).message}`, 'echec');
+        dire('message-export', `Export impossible : ${messageDUneErreur(e)}`, 'echec');
       }
     });
 
@@ -880,7 +881,7 @@ import LienReglages from '../components/LienReglages.astro';
           'succes',
         );
       } catch (e) {
-        dire('message-export', `Export impossible : ${(e as Error).message}`, 'echec');
+        dire('message-export', `Export impossible : ${messageDUneErreur(e)}`, 'echec');
       }
     });
 
@@ -1009,7 +1010,7 @@ import LienReglages from '../components/LienReglages.astro';
         message.textContent =
           erreur instanceof CompactionRefusee
             ? erreur.message
-            : `Le compactage a échoué : ${erreur instanceof Error ? erreur.message : erreur}.`;
+            : `Le compactage a échoué : ${messageDUneErreur(erreur)}.`;
         message.classList.remove('hidden');
       } finally {
         bouton.disabled = false;

@@ -288,6 +288,7 @@ import {
 
 <script>
   import { jourISO } from '../../lib/db';
+  import { messageDUneErreur } from '../../lib/agir';
   import { auDeverrouillage } from '../../lib/chargement';
   import { unSeulGeste } from '../../lib/geste';
   import { coffreOuvert, ouvrirLeCoffre, surCoffre } from '../../lib/coffre';
@@ -618,7 +619,7 @@ import {
             }
             return peindreJournal();
           })
-          .catch((err) => notifier(String(err instanceof Error ? err.message : err))),
+          .catch((err) => notifier(String(messageDUneErreur(err)))),
       );
     });
 

@@ -191,6 +191,7 @@ import Base from '../../layouts/Base.astro';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { messageDUneErreur } from '../../lib/agir';
   import { unSeulGeste } from '../../lib/geste';
   import { domainesActifs } from '../../lib/odyssee-jour';
   import {
@@ -950,7 +951,7 @@ import Base from '../../layouts/Base.astro';
     try {
       await action();
     } catch (erreur) {
-      const message = erreur instanceof Error ? erreur.message : String(erreur);
+      const message = messageDUneErreur(erreur);
       $('erreur-ajout').textContent = message;
       $('erreur-ajout').classList.remove('hidden');
       return;

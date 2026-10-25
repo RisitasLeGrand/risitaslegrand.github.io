@@ -212,6 +212,7 @@ import LienReglages from '../components/LienReglages.astro';
 
 <script>
   import { avertir, confirmer, demanderUnTexte } from '../lib/boite';
+  import { messageDUneErreur } from '../lib/agir';
   import { auDeverrouillage } from '../lib/chargement';
   import { echapper, pluriel } from '../lib/ui';
   import { redemanderLeMotDePasse } from '../lib/redemande';
@@ -429,7 +430,7 @@ import LienReglages from '../components/LienReglages.astro';
     } catch (erreur) {
       await avertir({
         titre: 'Ce champ n’a pas été enregistré',
-        texte: (erreur as Error).message,
+        texte: messageDUneErreur(erreur),
       });
       return;
     }
@@ -555,7 +556,7 @@ import LienReglages from '../components/LienReglages.astro';
         : 'Révoqué. Plus rien n’est observé.';
       message.className = 'mt-3 text-sm text-slate-600 dark:text-slate-300';
     } catch (erreur) {
-      message.textContent = erreur instanceof Error ? erreur.message : String(erreur);
+      message.textContent = messageDUneErreur(erreur);
       message.className = 'mt-3 text-sm text-rose-700 dark:text-rose-300';
     }
     message.classList.remove('hidden');

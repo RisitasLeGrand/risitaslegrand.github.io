@@ -285,6 +285,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { messageDUneErreur } from '../../lib/agir';
   import { unSeulGeste } from '../../lib/geste';
   import { proposerLAnnulation } from '../../lib/annulation';
   import { jourLogique } from '../../lib/noyau/jour-logique';
@@ -343,7 +344,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
   const $ = (id: string) => document.getElementById(id)!;
   const dire = (e: unknown) => {
     const z = $('erreur');
-    z.textContent = e instanceof Error ? e.message : String(e);
+    z.textContent = messageDUneErreur(e);
     z.classList.remove('hidden');
   };
 

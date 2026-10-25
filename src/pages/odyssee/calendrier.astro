@@ -176,6 +176,7 @@ import Base from '../../layouts/Base.astro';
 
 <script>
   import { jourISO } from '../../lib/db';
+  import { messageDUneErreur } from '../../lib/agir';
   import { agirPuisPeindre } from '../../lib/agir';
   import { auDeverrouillage } from '../../lib/chargement';
   import { unSeulGeste } from '../../lib/geste';
@@ -803,7 +804,7 @@ import Base from '../../layouts/Base.astro';
       await action();
     } catch (erreur) {
       direRapport([
-        { texte: erreur instanceof Error ? erreur.message : String(erreur), ton: 'alerte' },
+        { texte: messageDUneErreur(erreur), ton: 'alerte' },
       ]);
       return;
     }
@@ -1131,7 +1132,7 @@ import Base from '../../layouts/Base.astro';
             await peindre();
           } catch (erreur) {
             $('erreur').textContent =
-              erreur instanceof Error ? erreur.message : String(erreur);
+              messageDUneErreur(erreur);
             $('erreur').classList.remove('hidden');
           }
         });

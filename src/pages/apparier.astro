@@ -277,6 +277,7 @@ import Base from '../layouts/Base.astro';
 
 <script>
   import { confirmer } from '../lib/boite';
+  import { messageDUneErreur } from '../lib/agir';
   import { auDeverrouillage } from '../lib/chargement';
   import {
     appairageMemorise,
@@ -466,7 +467,7 @@ import Base from '../layouts/Base.astro';
             'echec',
           );
         } else {
-          dire('message-liaison', `Échec : ${(erreur as Error).message}`, 'echec');
+          dire('message-liaison', `Échec : ${messageDUneErreur(erreur)}`, 'echec');
         }
       } finally {
         enCours = false;
@@ -543,7 +544,7 @@ import Base from '../layouts/Base.astro';
         fermerCamera();
         dire(
           'message-camera',
-          erreur instanceof CameraRefusee ? erreur.message : `Échec : ${(erreur as Error).message}`,
+          erreur instanceof CameraRefusee ? erreur.message : `Échec : ${messageDUneErreur(erreur)}`,
           'echec',
         );
       }
@@ -623,7 +624,7 @@ import Base from '../layouts/Base.astro';
           'message-a2',
           erreur instanceof FusionRefusee || erreur instanceof EchangeInterrompu
             ? erreur.message
-            : `Échec : ${(erreur as Error).message}`,
+            : `Échec : ${messageDUneErreur(erreur)}`,
           'echec',
         );
       } finally {
@@ -651,7 +652,7 @@ import Base from '../layouts/Base.astro';
         dire('message-a2', 'QR affiché. En attente de la réponse de l’autre appareil.', 'neutre');
         void proposition.canal.then(echangerSurCanal);
       } catch (erreur) {
-        dire('message-a2', `Échec : ${(erreur as Error).message}`, 'echec');
+        dire('message-a2', `Échec : ${messageDUneErreur(erreur)}`, 'echec');
       }
     });
 
@@ -685,7 +686,7 @@ import Base from '../layouts/Base.astro';
         dire('message-a2', 'Réponse affichée. En attente de la liaison.', 'neutre');
         void reponse.canal.then(echangerSurCanal);
       } catch (erreur) {
-        dire('message-a2', `Échec : ${(erreur as Error).message}`, 'echec');
+        dire('message-a2', `Échec : ${messageDUneErreur(erreur)}`, 'echec');
       }
     }
 

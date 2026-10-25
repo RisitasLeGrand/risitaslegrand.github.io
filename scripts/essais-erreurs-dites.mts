@@ -25,6 +25,9 @@
  * qu’un navigateur parle une autre langue, et c’est la raison pour laquelle
  * cet essai éprouve le TYPE et jamais la chaîne.
  */
+import { readFileSync, readdirSync } from 'node:fs';
+import { join } from 'node:path';
+
 import { estEspacePlein, messageDUneErreur } from '../src/lib/agir.ts';
 
 let echecs = 0;
@@ -123,7 +126,58 @@ v('aucune apostrophe droite', toutes.filter((p) => p.includes("'")), []);
 v('aucun « (s) »', toutes.filter((p) => /\(s\)/.test(p)), []);
 v('chacune se termine par un point', toutes.filter((p) => !p.trim().endsWith('.')), []);
 
+console.log('\nLE BALAYAGE DE SOURCE');
+
+/*
+   Ce qui tient la règle dans le temps. La relecture ne tient rien : 54 sites
+   ont été routés le 25 octobre, et le cinquante-cinquième s’écrira un jour
+   sans que personne y pense.
+
+   Deux formes sont interdites sans condition, parce qu’elles lisent une
+   erreur dont on ne sait RIEN :
+
+       (x as Error).message
+       x instanceof Error ? x.message : …
+
+   Une troisième est permise, et c’est la bonne moitié de G-13 : `erreur.message`
+   gardé par un `instanceof` sur une classe du DOMAINE — CompactionRefusee,
+   DossierRefuse, EchangeInterrompu, FusionRefusee. Ces messages-là sont
+   français et écrits pour être lus. La garde est vérifiée, pas supposée : on
+   relit les trois lignes qui précèdent.
+*/
+const astroSous = (dossier: string): string[] =>
+  readdirSync(dossier, { withFileTypes: true }).flatMap((e) =>
+    e.isDirectory()
+      ? astroSous(join(dossier, e.name))
+      : e.name.endsWith('.astro')
+        ? [join(dossier, e.name)]
+        : [],
+  );
+
+const ecrans = [...astroSous('src/pages'), ...astroSous('src/components')];
+
+const brutes: string[] = [];
+const nues: string[] = [];
+
+for (const chemin of ecrans) {
+  const lignes = readFileSync(chemin, 'utf8').split('\n');
+  lignes.forEach((ligne, i) => {
+    if (/\w+ as Error\)\??\.message/.test(ligne) || /instanceof\s+Error\s*\?/.test(ligne))
+      brutes.push(`${chemin}:${i + 1}`);
+
+    /* Une lecture nue sur une variable d’erreur, hors appel à la fonction. */
+    if (!/\b(?:e|err|erreur)\.message\b/.test(ligne)) return;
+    if (/messageDUneErreur/.test(ligne)) return;
+    const autour = lignes.slice(Math.max(0, i - 3), i + 1).join(' ');
+    const garde = /instanceof\s+([A-Z]\w+)/.exec(autour);
+    if (!garde || garde[1] === 'Error') nues.push(`${chemin}:${i + 1}`);
+  });
+}
+
+v('aucune lecture brute d’une Error inconnue, dans les écrans', brutes, []);
+v('aucune lecture nue sans garde de domaine', nues, []);
+
 console.log(
-  echecs === 0 ? '\n\u001b[32m✓ tout passe\u001b[0m' : `\n\u001b[31m✗ ${echecs} contrôle(s) en échec\u001b[0m`.replace('(s)', 's'),
+  echecs === 0 ? '\n\u001b[32m✓ tout passe\u001b[0m' : `\n\u001b[31m✗ ${echecs} contrôles en échec\u001b[0m`,
 );
 process.exit(echecs === 0 ? 0 : 1);

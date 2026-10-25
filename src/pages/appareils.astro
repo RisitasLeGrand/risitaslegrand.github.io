@@ -520,6 +520,7 @@ import LienReglages from '../components/LienReglages.astro';
 
 <script>
   import { confirmer, demanderUnTexte } from '../lib/boite';
+  import { messageDUneErreur } from '../lib/agir';
   import { auDeverrouillage } from '../lib/chargement';
   import { echapper } from '../lib/ui';
   import { empreinteLisible } from '../lib/noyau/empreinte';
@@ -947,7 +948,7 @@ import LienReglages from '../components/LienReglages.astro';
           await peindreLots();
         } catch (erreur) {
           bouton.disabled = false;
-          dire('message-annulation', `Annulation impossible : ${(erreur as Error).message}`, 'echec');
+          dire('message-annulation', `Annulation impossible : ${messageDUneErreur(erreur)}`, 'echec');
         }
       });
     }
@@ -1125,7 +1126,7 @@ import LienReglages from '../components/LienReglages.astro';
           await peindreConflits();
         } catch (erreur) {
           bouton.disabled = false;
-          dire('message-conflit', `${(erreur as Error).message}`, 'echec');
+          dire('message-conflit', `${messageDUneErreur(erreur)}`, 'echec');
         }
       });
     }
@@ -1290,7 +1291,7 @@ import LienReglages from '../components/LienReglages.astro';
             ? `Fusion refusée, rien n’a été écrit. ${erreur.diagnostic.message}`
             : erreur instanceof SauvegardeRefusee && erreur.motif === 'mot-de-passe'
               ? 'Mot de passe incorrect : rien n’a été fusionné.'
-              : `Échec : ${(erreur as Error).message}`,
+              : `Échec : ${messageDUneErreur(erreur)}`,
         'echec',
       );
     }
@@ -1420,7 +1421,7 @@ import LienReglages from '../components/LienReglages.astro';
           'succes',
         );
       } catch (erreur) {
-        dire('message-envoi', `Échec : ${(erreur as Error).message}`, 'echec');
+        dire('message-envoi', `Échec : ${messageDUneErreur(erreur)}`, 'echec');
       }
     });
 
@@ -1448,7 +1449,7 @@ import LienReglages from '../components/LienReglages.astro';
           'succes',
         );
       } catch (erreur) {
-        dire('message-nom', `Échec : ${(erreur as Error).message}`, 'echec');
+        dire('message-nom', `Échec : ${messageDUneErreur(erreur)}`, 'echec');
       } finally {
         bouton.disabled = false;
       }
@@ -1489,7 +1490,7 @@ import LienReglages from '../components/LienReglages.astro';
           'succes',
         );
       } catch (erreur) {
-        dire('message-certification', `Échec : ${(erreur as Error).message}`, 'echec');
+        dire('message-certification', `Échec : ${messageDUneErreur(erreur)}`, 'echec');
       } finally {
         bouton.disabled = false;
       }
@@ -1511,7 +1512,7 @@ import LienReglages from '../components/LienReglages.astro';
           'succes',
         );
       } catch (erreur) {
-        dire('message-certification', `Échec : ${(erreur as Error).message}`, 'echec');
+        dire('message-certification', `Échec : ${messageDUneErreur(erreur)}`, 'echec');
       } finally {
         bouton.disabled = false;
       }
@@ -1548,7 +1549,7 @@ import LienReglages from '../components/LienReglages.astro';
         );
         await peindreEtat();
       } catch (erreur) {
-        dire('message-nom', `Échec : ${(erreur as Error).message}`, 'echec');
+        dire('message-nom', `Échec : ${messageDUneErreur(erreur)}`, 'echec');
       }
     });
 
@@ -1576,7 +1577,7 @@ import LienReglages from '../components/LienReglages.astro';
         );
         await peindreEtat();
       } catch (erreur) {
-        dire('message-reconstruction', `Échec : ${(erreur as Error).message}`, 'echec');
+        dire('message-reconstruction', `Échec : ${messageDUneErreur(erreur)}`, 'echec');
       } finally {
         bouton.disabled = false;
       }
@@ -1716,7 +1717,7 @@ import LienReglages from '../components/LienReglages.astro';
             'message-fusion',
             motif === 'mot-de-passe'
               ? 'Mot de passe incorrect : rien n’a été fusionné.'
-              : `Fusion refusée : ${(erreur as Error).message}`,
+              : `Fusion refusée : ${messageDUneErreur(erreur)}`,
             'echec',
           );
         }

@@ -161,6 +161,8 @@ const cadre = nu
 </section>
 
 <script>
+  import { messageDUneErreur } from '../lib/agir';
+
   /*
      A7 — LE CONSTAT EST FAIT À CHAQUE OUVERTURE DE PAGE SOUS COFFRE.
 
@@ -233,7 +235,7 @@ const cadre = nu
           location.reload();
         } catch (e) {
           if (message) {
-            message.textContent = (e as Error).message;
+            message.textContent = messageDUneErreur(e);
             message.classList.remove('hidden');
           }
         }

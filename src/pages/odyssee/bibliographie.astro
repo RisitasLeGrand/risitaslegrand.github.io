@@ -100,6 +100,7 @@ import { ADRESSE_BIBLIOTHEQUE, ATTRIBUTION, NOM_BIBLIOTHEQUE } from '../../lib/o
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { messageDUneErreur } from '../../lib/agir';
   import { chargerBibliographie, type Bibliographie, type ReferenceBibliographie } from '../../lib/contenu';
   import { normaliser, pluriel } from '../../lib/ui';
 
@@ -249,7 +250,7 @@ import { ADRESSE_BIBLIOTHEQUE, ATTRIBUTION, NOM_BIBLIOTHEQUE } from '../../lib/o
     } catch (erreur) {
       $('chargement-biblio').classList.add('hidden');
       $('erreur-biblio').textContent =
-        erreur instanceof Error ? erreur.message : String(erreur);
+        messageDUneErreur(erreur);
       $('erreur-biblio').classList.remove('hidden');
       return;
     }
