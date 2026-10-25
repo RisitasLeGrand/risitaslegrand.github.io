@@ -42,7 +42,13 @@ import path from 'node:path';
    garde le marqueur E1, sans dessin inventé.
 */
 const SENS = [
-  /* ── Les onglets et les branches ─────────────────────────────────────── */
+  /* ── Les cinq branches ───────────────────────────────────────────────── */
+  ['revisions', 'graduation-cap', false],
+  ['odyssee', 'compass', false],
+  ['sport', 'dumbbell', false],
+  ['cognitif', 'puzzle', true],
+
+  /* ── Les onglets ─────────────────────────────────────────────────────── */
   ['tableau-de-bord', 'house', true],
   ['planning', 'calendar-days', false],
   ['cours', 'book-open', false],

@@ -21,6 +21,7 @@ import { THEMES, THEME_PAR_DEFAUT, modesDe, theme } from '../lib/themes';
 import Verrou from '../components/Verrou.astro';
 import CentreNotifications from '../components/CentreNotifications.astro';
 import CommutateurTheme from '../components/CommutateurTheme.astro';
+import Icone from '../components/Icone.astro';
 import BarreProgression from '../components/BarreProgression.astro';
 import PiedDePage from '../components/PiedDePage.astro';
 import SelecteurParcours from '../components/SelecteurParcours.astro';
@@ -641,7 +642,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                 : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
             ]}
           >
-            <span aria-hidden="true">{o.icone}</span>
+            <Icone nom={o.icone} taille={20} />
             <span class="min-w-0 truncate">{o.nom}</span>
           </a>
         ))}
@@ -651,7 +652,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
             href={`${base}${o.chemin}`}
             class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
           >
-            <span aria-hidden="true">{o.icone}</span>
+            <Icone nom={o.icone} taille={20} />
             <span class="min-w-0 truncate">{o.nom}</span>
           </a>
         ))}
@@ -823,7 +824,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                         : 'text-slate-600 hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-indigo-400',
                     ]}
                   >
-                    <span class="text-base" aria-hidden="true">{b.icone}</span>
+                    <Icone nom={b.icone} taille={18} />
                     <span class="hidden sm:inline">{b.libelle}</span>
                     <span class="sr-only">
                       {b.id === brancheCourante.id ? `${b.libelle} — branche courante` : `Aller dans ${b.libelle}`}
@@ -981,7 +982,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                               : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
                           ]}
                         >
-                          <span aria-hidden="true">{e.onglet.icone}</span>
+                          <Icone nom={e.onglet.icone} taille={20} />
                           <span>{e.onglet.nom}</span>
                         </a>
                       </span>
@@ -998,7 +999,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                               : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
                           ]}
                         >
-                          <span aria-hidden="true">{e.groupe.icone}</span>
+                          <Icone nom={e.groupe.icone} taille={20} />
                           <span>{e.groupe.nom}</span>
                           <span aria-hidden="true" class="text-xs">▾</span>
                         </summary>
@@ -1016,7 +1017,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                                     : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
                                 ]}
                               >
-                                <span aria-hidden="true">{o.icone}</span>
+                                <Icone nom={o.icone} taille={20} />
                                 <span>{o.nom}</span>
                               </a>
                             </li>
@@ -1097,7 +1098,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                           title={o.description ?? o.nom}
                           class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                         >
-                          <span aria-hidden="true">{o.icone}</span>
+                          <Icone nom={o.icone} taille={20} />
                           <span>{o.nom}</span>
                         </a>
                       </li>
@@ -1189,7 +1190,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                           title={o.description ?? o.nom}
                           class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                         >
-                          <span aria-hidden="true">{o.icone}</span>
+                          <Icone nom={o.icone} taille={20} />
                           <span>{o.nom}</span>
                         </a>
                       </li>
@@ -1257,7 +1258,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                   : 'text-slate-600 dark:text-slate-300',
               ]}
             >
-              <span class="text-lg leading-none" aria-hidden="true">{o.icone}</span>
+              <Icone nom={o.icone} taille={24} />
               <span>{nomCourt(o)}</span>
             </a>
           ))}
@@ -1308,7 +1309,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                         : 'text-slate-700 dark:text-slate-200',
                     ]}
                   >
-                    <span aria-hidden="true">{o.icone}</span>
+                    <Icone nom={o.icone} taille={20} />
                     <span>{o.nom}</span>
                   </a>
                 </li>
@@ -1322,7 +1323,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                     href={`${base}${b.racine}`}
                     class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 dark:text-slate-200"
                   >
-                    <span aria-hidden="true">{b.icone}</span>
+                    <Icone nom={b.icone} taille={20} />
                     <span>{b.libelle}</span>
                   </a>
                 </li>
@@ -1333,7 +1334,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                     href={`${base}${revueAilleurs.chemin}`}
                     class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 dark:text-slate-200"
                   >
-                    <span aria-hidden="true">{revueAilleurs.icone}</span>
+                    <Icone nom={revueAilleurs.icone} taille={20} />
                     <span>Revue du soir</span>
                   </a>
                 </li>
@@ -1362,7 +1363,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                     href={`${base}${o.chemin}`}
                     class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 dark:text-slate-200"
                   >
-                    <span aria-hidden="true">{o.icone}</span>
+                    <Icone nom={o.icone} taille={20} />
                     <span>{o.nom}</span>
                   </a>
                 </li>
