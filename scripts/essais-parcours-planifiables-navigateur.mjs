@@ -397,9 +397,26 @@ try {
      été construit : une séance vide ne propose aucune fiche d'un autre
      parcours, et la plus sévère des assertions suivantes passerait alors pour
      une réussite.
+
+     LA PRÉMISSE SE PREND DEPUIS UN PARCOURS QUI SERT LA MATIÈRE, et c'est un
+     changement apporté à l'intégration, avec l'accord du pilote.
+
+     Elle se prenait depuis l'INSP. C'était juste quand cet essai a été écrit :
+     rien ne filtrait alors le manifeste, et la bibliothèque de l'INSP montrait
+     tout. « b-code » a depuis posé « filtre-du-manifeste.ts » dans
+     « chargerManifeste », et il retire précisément cela — son objet déclaré
+     est que « les fiches d'Organisation de la DGFiP […] apparaissaient aussi
+     dans l'arbre de l'INSP, QUI NE LES SERT PAS ».
+
+     La prémisse regardait donc, depuis le seul parcours à qui cette matière
+     n'est pas servie, si elle était servie. Elle garde exactement son office
+     en se prenant depuis « dgfip-a », qui la sert : vérifier que les fiches
+     plantées sont bien dans le site avant de mesurer quoi que ce soit.
+
+     Que l'INSP ne la voie PAS est mesuré plus bas, par le témoin à l'envers.
   */
   {
-    await allerAvecParcours('insp', '/bibliotheque/');
+    await allerAvecParcours('dgfip-a', '/bibliotheque/');
     await page.waitForTimeout(2500);
     const texte = (await page.locator('body').textContent()) ?? '';
     verifier(
@@ -464,6 +481,19 @@ try {
 
   console.log('\nDGFiP B, UN SAMEDI — SA FICHE ET CELLE DE « commun/ »');
 
+  /*
+     LE PRÉDICAT EST NOMMÉ, ET IL EST PARTAGÉ AVEC SON SABOTAGE.
+
+     Ma première écriture recopiait la condition dans le contrôle de sabotage.
+     C'était une tautologie : affaiblir l'assertion réelle n'aurait pas fait
+     rougir sa copie, et le sabotage n'aurait rien gardé. C'est le défaut que
+     j'ai relevé deux fois ailleurs aujourd'hui, et je venais de l'écrire.
+
+     Une seule fonction, employée par l'assertion et par son sabotage : on ne
+     peut plus affaiblir l'une sans que l'autre le dise.
+  */
+  const sansRacineVoisine = (ids) => !ids.includes(idA) && !ids.includes(idB);
+
   const idB = idsPlantes.get('dgfip-b/environnement/fiche-01-reseau.md');
   const idA = idsPlantes.get('dgfip-a/environnement/fiche-01-reseau.md');
   const idCommunOrga = idsPlantes.get('commun/fiche-01-organisation-partagee.md');
@@ -499,10 +529,68 @@ try {
     verifier('la séance s’ouvre', s.titre.trim().length > 0, s.titre);
     verifier('elle propose la fiche de DGFiP A+', s.ids.includes(idAp), s.ids.join(' '));
     verifier('et la fiche de « commun/ »', s.ids.includes(idCommunRh), s.ids.join(' '));
+    /*
+       « LES AUTRES PARCOURS » NE COMPREND PAS « commun/ », ET C'EST UN
+       ARBITRAGE DU PILOTE, APPORTÉ À L'INTÉGRATION.
+
+       Cette assertion écartait aussi « idCommunOrga », la fiche
+       d'organisation rangée sous « commun/ ». Le 25 octobre, la matière
+       « Organisation de la DGFiP » a été rattachée au thème « option-metier »
+       de A+, parce que l'arrêté nomme l'organisation de la DGFiP dans
+       l'option — et « commun/ » est servie aux TROIS parcours DGFiP, A+
+       compris. Cette fiche a donc sa place dans la séance du dimanche.
+
+       Ce qui reste interdit est ce que le nom dit : une fiche rangée sous la
+       RACINE d'un autre parcours, « dgfip-b/ » ou « dgfip-a/ ». Une fiche de
+       « commun/ » reste admise quand sa matière appartient au thème du jour.
+
+       Le rouge d'origine n'était d'ailleurs pas un ajout. Le filtre de
+       « b-code » ne peut qu'ENLEVER — vérifié ligne à ligne. Le vivier de A+
+       a rétréci, et cette fiche est remontée dans les places laissées libres.
+    */
     verifier(
-      'et aucune fiche des deux autres parcours',
-      !s.ids.includes(idA) && !s.ids.includes(idB) && !s.ids.includes(idCommunOrga),
+      'et aucune fiche des racines des autres parcours',
+      sansRacineVoisine(s.ids),
       s.ids.join(' '),
+    );
+
+    /*
+       LE CONTRÔLE POSITIF, demandé avec l'arbitrage. Sans lui, l'assertion
+       ci-dessus serait tenue par une séance VIDE : « aucune fiche des autres
+       parcours » est vrai de rien du tout. Il dit l'inverse de la même règle —
+       la fiche commune EST proposée, puisque sa matière est au programme du
+       jour.
+    */
+    verifier(
+      'et la fiche commune d’organisation EST proposée, son thème étant du jour',
+      s.ids.includes(idCommunOrga),
+      s.ids.join(' '),
+    );
+  }
+
+  /*
+     LE SABOTAGE, demandé avec l'arbitrage, et il est permanent.
+
+     Les deux contrôles ci-dessus se lisent l'un l'autre : l'un interdit les
+     racines voisines, l'autre exige la commune. Reste à montrer que le
+     premier SAIT dire non. On lui présente donc une séance où une fiche de
+     « dgfip-a/ » s'est glissée, et l'on vérifie qu'il la refuse.
+
+     Sur la liste des identifiants réellement servis, et non sur une liste
+     inventée : c'est la séance mesurée juste au-dessus, à laquelle on ajoute
+     l'intrus.
+  */
+  {
+    const s = await fichesDeLaSeance('dgfip-ap', DIMANCHE);
+    verifier(
+      'sabotage : une fiche de « dgfip-a/ » dans la séance de A+ serait refusée',
+      !sansRacineVoisine([...s.ids, idA]),
+      [...s.ids, idA].join(' '),
+    );
+    verifier(
+      'sabotage : une fiche de « dgfip-b/ » aussi',
+      !sansRacineVoisine([...s.ids, idB]),
+      [...s.ids, idB].join(' '),
     );
   }
 
