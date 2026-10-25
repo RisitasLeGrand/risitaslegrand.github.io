@@ -69,14 +69,40 @@ dossier n'est pas noté.
 
 ## 3. Le fait qui commande tout l'inventaire
 
-**Il n'existe plus de programme de l'IPFiP.** L'article 2 de l'arrêté du
-4 septembre 2025 a abrogé l'annexe de l'arrêté du 2 mars 2011
-(`LEGIARTI000030768328`, état `ABROGE` au 6 septembre 2025).
+**Il n'existe plus de programme de l'IPFiP, et plus depuis le 24 juin 2015.**
+
+> **Correction du 25 octobre 2026.** Ce paragraphe affirmait que l'annexe avait
+> été abrogée le 6 septembre 2025 et que le programme avait disparu à cette
+> date. L'abrogation de septembre 2025 est réelle, mais elle ne portait pas sur
+> un programme : l'annexe ne contenait plus, depuis juin 2015, qu'un modèle de
+> dossier de présentation pour un oral que le même arrêté supprimait. Vérifié
+> sur les XML DILA, article par article. La conclusion ci-dessous ne change
+> pas ; elle est plus ancienne de dix ans que je ne l'avais écrit.
+
+Le calendrier exact, lu sur les versions :
+
+- l'**article 3** — « Le programme de l'épreuve d'admissibilité n° 2 est fixé en
+  annexe au présent arrêté » (`LEGIARTI000023663685`) — est **abrogé au 24 juin
+  2015**, et le programme quitte l'annexe le même jour ;
+- l'annexe porte ensuite, et jusqu'au 6 septembre 2025, un **modèle de dossier
+  de présentation** pour l'épreuve orale d'admission n° 2
+  (`LEGIARTI000030768328`, 2 827 caractères, aucune option) ;
+- c'est **ce modèle** que l'article 2 de l'arrêté du 4 septembre 2025 a abrogé.
+
+**Et l'épreuve n° 1 n'a jamais eu de programme.** L'article 3 ne renvoyait à
+l'annexe que le programme de l'épreuve **n° 2**. La note administrative n'a eu,
+dans aucune version, d'autre délimitation que sa propre phrase de l'article 1er
+— celle qui vient précisément d'être élargie le 22 décembre 2025.
 
 Conséquence directe, et c'est ce qui distingue A+ de B et de A : **« ce qui
-manque » ne peut pas être déduit d'un programme, parce qu'il n'y en a plus.**
-Les six options de l'article 1er sont la seule délimitation en vigueur, et ce
-sont des intitulés de quelques mots, pas des listes de notions.
+manque » ne peut pas être déduit d'un programme, parce qu'il n'y en a plus
+depuis près de onze ans.** Les six options de l'article 1er sont la seule
+délimitation en vigueur, et ce sont des intitulés de quelques mots, pas des
+listes de notions.
+
+La date change ce qu'on va chercher. « Supprimé il y a sept semaines » envoie
+vers un support de l'an dernier qui l'aurait contenu ; « absent depuis onze
+ans » dit qu'il n'y en a aucun à trouver, nulle part.
 
 Pour B et A, l'inventaire se fait en confrontant le contenu à l'annexe du
 programme. Pour A+, il faut construire la délimitation avant de pouvoir mesurer

@@ -654,21 +654,41 @@ export const PARCOURS: Parcours[] = [
       origine: 'officiel',
       source:
         'Arrêté du 2 mars 2011 (NOR BCRE1104996A, JORF n° 0055 du 6 mars 2011, ' +
-        'JORFTEXT000023662346), article 1er, version du 22/12/2025 ; annexe abrogée le ' +
-        '06/09/2025 par l’article 2 de l’arrêté du 4 septembre 2025 (NOR ECOE2524347A) — lu ' +
-        'au 14 octobre 2026 ; relevé dans docs/cyclades/programmes-dgfip.md',
-      verifieLe: '2026-10-17',
+        'JORFTEXT000023662346), article 1er, version du 22/12/2025 ; aucun programme annexé ' +
+        'depuis le 24/06/2015, date d’abrogation de l’article 3 qui le renvoyait à l’annexe — ' +
+        'lu au 25 octobre 2026 ; relevé dans docs/cyclades/programmes-dgfip.md',
+      verifieLe: '2026-10-25',
     },
     themes: THEMES_DGFIP_AP,
     rotationParDefaut: ROTATION_DGFIP_AP,
+    /*
+       LA DATE A ÉTÉ FAUSSE ICI, ET DANS LE SENS QUI TROMPE LE PLUS.
+
+       Cet avertissement a d'abord dit que le programme avait été abrogé le
+       6 septembre 2025. L'abrogation de cette date est réelle, mais elle ne
+       portait pas sur un programme : l'annexe ne contenait plus, depuis juin
+       2015, qu'un modèle de dossier de présentation pour un oral qui a lui-même
+       disparu. Le programme, lui, a quitté l'annexe le 24 juin 2015, le jour où
+       l'article 3 qui l'y renvoyait a été abrogé.
+
+       L'écart n'est pas une nuance de calendrier. « Supprimé il y a sept
+       semaines » envoie chercher un support de l'an dernier qui l'aurait
+       contenu ; « absent depuis onze ans » dit qu'il n'y en a aucun à trouver.
+       Vérifié sur les XML DILA : trois versions de l'annexe, et la dernière ne
+       porte ni option ni notion.
+    */
     avertissementDuProgramme:
-      'Le programme annexé de ce concours a été abrogé le 6 septembre 2025 : chercher « le ' +
-      'programme de l’IPFiP » mène à un texte qui n’est plus en vigueur. Les quatre thèmes ' +
-      'ci-dessous viennent du seul article 1er de l’arrêté, dans sa version du 22 décembre ' +
-      '2025, qui délimite encore les épreuves. Ce sont donc des épreuves et des métiers, et ' +
-      'non un programme de connaissances : trois jours de la semaine restent sans proposition, ' +
-      'parce que l’arrêté n’en délimite que quatre. Les deux examens professionnels ouverts aux ' +
-      'inspecteurs n’ont, eux, qu’un oral.',
+      'Ce concours n’a aucun programme annexé depuis le 24 juin 2015 : c’est la date à ' +
+      'laquelle l’article 3, qui renvoyait le programme à l’annexe, a été abrogé et le ' +
+      'programme retiré de celle-ci. L’annexe abrogée en 2025 ne contenait plus qu’un ' +
+      'modèle de dossier de présentation. Et l’épreuve n° 1, la note administrative, n’a ' +
+      'jamais eu de programme dans aucune version : celui de 2011 à 2015 ne portait que sur ' +
+      'les options de l’épreuve n° 2. Chercher « le programme de l’IPFiP » ne mène donc à ' +
+      'aucun texte en vigueur. Les quatre thèmes ci-dessous viennent du seul article 1er de ' +
+      'l’arrêté, dans sa version du 22 décembre 2025, qui délimite encore les épreuves. Ce ' +
+      'sont donc des épreuves et des métiers, et non un programme de connaissances : trois ' +
+      'jours de la semaine restent sans proposition, parce que l’arrêté n’en délimite que ' +
+      'quatre. Les deux examens professionnels ouverts aux inspecteurs n’ont, eux, qu’un oral.',
   },
 ];
 
