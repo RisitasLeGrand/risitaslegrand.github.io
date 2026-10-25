@@ -21,9 +21,15 @@ import {
   parcours,
   parcoursOuDefaut,
   planifiable,
+  parcoursDuChemin,
+  parcoursServisParLaRacine,
+  RACINE_COMMUNE,
+  racineDuChemin,
+  racineEstPartagee,
   raisonNonPlanifiable,
   type Parcours,
 } from '../src/lib/parcours/registre';
+import { idStable } from './lib/crypto.mjs';
 import { lienCours } from '../src/lib/parcours/lien-cours';
 import {
   REPOS,
@@ -255,6 +261,139 @@ for (const p of sansThemes) {
 
 for (const p of PARCOURS.filter(planifiable)) {
   verifier(`${p.libelle} : sa raison de non-planification est nulle`, raisonNonPlanifiable(p), null);
+}
+
+// --- 2 bis. La racine commune, et l'invariant du partage ------------------
+
+console.log('\nLA RACINE COMMUNE : UNE MATIÈRE, UN IDENTIFIANT');
+
+/*
+   CE QUE CE BLOC TIENT, ET POURQUOI IL EST ICI PLUTÔT QU'AILLEURS.
+
+   `essais:parcours-des-fiches` tient le partage sur le manifeste RÉEL, et c'est
+   la mesure qui compte — mais elle exige le corpus, qui n'est jamais commité.
+   Dans un conteneur sans corpus, son constat sur la racine partagée s'annonce
+   « non mesuré », ce qui est honnête et ne protège rien.
+
+   Les fonctions de résolution, elles, sont pures : elles se mesurent partout.
+   C'est donc ici que vit le garde-fou qui tourne à chaque balayage.
+*/
+
+verifier(
+  'la racine commune est déclarée par les trois parcours DGFiP, et par eux seuls',
+  parcoursServisParLaRacine(RACINE_COMMUNE),
+  ['dgfip-b', 'dgfip-a', 'dgfip-ap'],
+);
+
+verifier('et elle est donc partagée', racineEstPartagee(RACINE_COMMUNE), true);
+
+for (const p of PARCOURS) {
+  if (p.racineContenu === '') continue;
+  verifier(
+    `${p.libelle} : sa propre racine ne sert que lui`,
+    parcoursServisParLaRacine(p.racineContenu),
+    [p.id],
+  );
+  verifier(`${p.libelle} : elle n’est donc pas partagée`, racineEstPartagee(p.racineContenu), false);
+}
+
+verifier(
+  'l’INSP ne partage aucune racine',
+  parcours('insp')?.racinesPartagees,
+  [],
+);
+
+console.log('\nUNE FICHE SE RATTACHE PAR SON CHEMIN, ET À PLUSIEURS PARCOURS');
+
+verifier('une fiche de la racine va au parcours par défaut', parcoursDuChemin('droit-public/01.md'), [
+  ID_PARCOURS_PAR_DEFAUT,
+]);
+verifier(
+  'une fiche propre à un parcours ne va qu’à lui',
+  parcoursDuChemin('dgfip-a/organisation-dgfip/01.md'),
+  ['dgfip-a'],
+);
+verifier(
+  'et une fiche commune va aux trois',
+  parcoursDuChemin(`${RACINE_COMMUNE}/organisation-dgfip/01.md`),
+  ['dgfip-b', 'dgfip-a', 'dgfip-ap'],
+);
+/*
+   Un dossier que le registre ignore retombe sur le parcours par défaut, et ce
+   n'est pas un bon comportement — c'est le comportement, et il est connu :
+   `essais:parcours-des-fiches` le dénonce sur le disque réel. Le fixer ici
+   documente la règle au lieu de la laisser surprendre.
+*/
+verifier(
+  'un dossier inconnu retombe sur le parcours par défaut',
+  parcoursDuChemin('dgfip-c/01.md'),
+  [ID_PARCOURS_PAR_DEFAUT],
+);
+/*
+   DEUX RACINES DONT L'UNE PRÉFIXE L'AUTRE NE SE CAPTURENT PAS — et ce n'est
+   PAS la règle du plus long préfixe qui le garantit. `dgfip-a` et `dgfip-ap`
+   partagent leurs onze premiers signes, mais la comparaison porte sur
+   `«racine»/` : `dgfip-ap/x.md` ne commence pas par `dgfip-a/`. Un constat
+   nommé « le préfixe le plus long gagne » vivait ici et restait VERT quand on
+   inversait le tri — mesuré par sabotage, pas supposé. Il dit maintenant ce
+   qu'il mesure : la barre oblique suffit.
+*/
+verifier('dgfip-ap n’est pas capté par dgfip-a', racineDuChemin('dgfip-ap/x.md'), 'dgfip-ap');
+verifier('ni l’inverse', racineDuChemin('dgfip-a/x.md'), 'dgfip-a');
+
+/*
+   ET LA RÈGLE DU PLUS LONG PRÉFIXE, ÉPROUVÉE SUR LE CAS QU'ELLE PROTÈGE
+   VRAIMENT : des racines imbriquées, où un chemin commence par les deux. Le cas
+   ne se présente pas dans le registre d'aujourd'hui, d'où la liste passée en
+   paramètre — c'est la seule raison d'être de ce paramètre, et la seule façon
+   d'éprouver une règle défensive sans fabriquer un faux parcours.
+*/
+verifier(
+  'entre deux racines imbriquées, la plus longue gagne',
+  racineDuChemin('commun/organisation/01.md', ['commun', 'commun/organisation']),
+  'commun/organisation',
+);
+verifier(
+  'et l’ordre de la liste n’y change rien',
+  racineDuChemin('commun/organisation/01.md', ['commun/organisation', 'commun']),
+  'commun/organisation',
+);
+verifier(
+  'un chemin hors des deux retombe sur la racine vide',
+  racineDuChemin('ailleurs/01.md', ['commun', 'commun/organisation']),
+  '',
+);
+
+console.log('\nUN IDENTIFIANT NE DÉPEND JAMAIS DU PARCOURS QUI SERT LA FICHE');
+
+/*
+   L'INVARIANT, ET CE QUE CE CONSTAT VAUT EXACTEMENT.
+
+   Le chemin qu'une fiche partagée donne à hacher ne nomme aucun parcours : il
+   commence par `commun/`. Les trois parcours DGFiP en tirent donc la même
+   empreinte, c'est-à-dire un seul historique FSRS, un seul journal d'erreurs,
+   un seul podcast.
+
+   Sa force n'est pas arithmétique — `idStable` ne prend pas de parcours en
+   paramètre, donc l'égalité est acquise par construction. Elle est de PINCER
+   cette signature : le jour où quelqu'un ferait dépendre l'identifiant du
+   parcours courant pour régler un autre problème, cette ligne rougirait, et
+   c'est le seul endroit qui le dirait avant que l'historique de quelqu'un soit
+   perdu.
+*/
+{
+  const chemin = `${RACINE_COMMUNE}/organisation-dgfip/01-echelon-central.md`;
+  const empreintes = await Promise.all(
+    parcoursDuChemin(chemin).map(async () => idStable(chemin)),
+  );
+  verifier('les trois parcours tirent la même empreinte', [...new Set(empreintes)].length, 1);
+  verifier('et il y a bien trois parcours à servir', empreintes.length, 3);
+  /*
+     Et deux chemins différents ne se confondent pas : une empreinte unique
+     pour tout serait aussi « un identifiant », et serait une catastrophe.
+  */
+  const autre = await idStable(`${RACINE_COMMUNE}/organisation-dgfip/02-drfip.md`);
+  verifier('deux fiches voisines gardent deux empreintes', empreintes[0] === autre, false);
 }
 
 // --- 3. Un identifiant inconnu ramène au parcours par défaut --------------
