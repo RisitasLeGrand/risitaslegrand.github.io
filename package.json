@@ -289,6 +289,7 @@
     "essais:initialisation-sans-defaut": "tsx scripts/essais-initialisation-sans-defaut.mts",
     "essais:sauvegarde-confirmee": "tsx scripts/essais-sauvegarde-confirmee.mts",
     "essais:persistance": "tsx scripts/essais-persistance.mts",
+    "essais:persistance:navigateur": "node scripts/essais-persistance-navigateur.mjs",
     "essais:effacements-dits": "tsx scripts/essais-effacements-dits.mts",
     "essais:base-concurrente": "tsx scripts/essais-base-concurrente.mts",
     "essais:404-hors-ligne": "tsx scripts/essais-404-hors-ligne.mts",
