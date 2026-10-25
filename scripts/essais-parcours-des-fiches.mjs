@@ -232,13 +232,55 @@ console.log('\nUN IDENTIFIANT, UN HISTORIQUE — MÊME POUR UNE FICHE PARTAGÉE'
    disque manquerait au manifeste, ou l'inverse.
 */
 const cheminsDuDisque = [];
+
+/*
+   UNE FICHE PEUT DÉCLARER SON IDENTIFIANT, et cet essai l'ignorait.
+
+   `ficheId = fm.data.id_publie ?? idStable(relatif)` : le build accepte un
+   identifiant écrit au front-matter. Le champ n'est pas un confort, c'est une
+   RÉPARATION — son commentaire au schéma le dit —, pour qu'une fiche dont le
+   chemin a été perdu garde l'identifiant sous lequel la progression est rangée
+   dans le navigateur.
+
+   Le 25 octobre, la récupération du corpus en a posé 51 : les 51 fiches dont le
+   chemin n'a pas pu être certifié par son empreinte. Cet essai est alors passé
+   au rouge en affirmant que tout identifiant du manifeste est l'empreinte d'un
+   chemin — ce que `id_publie` est précisément fait de rompre.
+
+   L'invariant juste n'est donc pas plus faible, il est plus précis : un
+   identifiant du manifeste est soit celui qu'une fiche DÉCLARE, soit l'empreinte
+   de son chemin. Ainsi un identifiant déclaré qui ne correspond à aucun fichier
+   se voit encore, et c'est ce qui compte.
+*/
+const idsDeclares = new Set();
+
+const lireIdDeclare = (chemin) => {
+  const texte = readFileSync(chemin, 'utf8');
+  if (!texte.startsWith('---')) return null;
+  const fin = texte.indexOf('\n---', 3);
+  const entete = fin === -1 ? texte : texte.slice(0, fin);
+  /*
+     LES GUILLEMETS SONT OBLIGATOIRES POUR CERTAINS IDENTIFIANTS, et les
+     oublier coûtait un faux rouge. « 03893560309995e0 » se lit comme un
+     nombre en notation scientifique — 3,89…e0 — donc YAML le cite pour qu’il
+     reste une chaîne, sans quoi le schéma, qui exige seize caractères
+     hexadécimaux, le refuserait. Un identifiant sur 51 était dans ce cas.
+  */
+  const trouve = /^id_publie:\s*["']?([0-9a-f]{16})["']?\s*$/m.exec(entete);
+  return trouve ? trouve[1] : null;
+};
+
 const parcourirPour = (dossier, prefixe) => {
   if (!existsSync(dossier)) return;
   for (const e of readdirSync(dossier)) {
     const c = join(dossier, e);
     const relatif = prefixe ? `${prefixe}/${e}` : e;
     if (statSync(c).isDirectory()) parcourirPour(c, relatif);
-    else if (e.endsWith('.md') && !e.endsWith('.podcast.md')) cheminsDuDisque.push(relatif);
+    else if (e.endsWith('.md') && !e.endsWith('.podcast.md')) {
+      cheminsDuDisque.push(relatif);
+      const declare = lireIdDeclare(c);
+      if (declare) idsDeclares.add(declare);
+    }
   }
 };
 parcourirPour('content', '');
@@ -263,7 +305,10 @@ const dossiersInconnus = [
 ].filter((d) => !FICHIERS_HORS_PARCOURS.has(d));
 v('aucune fiche sous un dossier que le registre ignore', dossiersInconnus, []);
 
-const idsAttendus = new Set(await Promise.all(cheminsDuDisque.map((c) => idStable(c))));
+const idsAttendus = new Set([
+  ...(await Promise.all(cheminsDuDisque.map((c) => idStable(c)))),
+  ...idsDeclares,
+]);
 const idsDuManifeste = new Set(toutes.map((f) => f.id));
 v(
   'chaque identifiant du manifeste est l’empreinte d’un chemin du disque',
