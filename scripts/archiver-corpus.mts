@@ -32,6 +32,7 @@ import path from 'node:path';
 
 import { deriverCle, selAleatoire, b64 } from './lib/crypto.mjs';
 import { b64VersOctets } from './lib/secret.mjs';
+import { estDansLeDepot } from './lib/fichier-de-secret.mjs';
 
 /* La racine du dépôt, pour refuser un fichier de mot de passe situé dedans. */
 const RACINE = path.resolve(import.meta.dirname, '..');
@@ -75,7 +76,10 @@ function motDePasse(o: Record<string, string | boolean>): string {
   const chemin = o['mot-de-passe-fichier'];
   if (typeof chemin === 'string') {
     const abs = path.resolve(chemin);
-    if (abs === RACINE || abs.startsWith(RACINE + path.sep)) {
+    /* La règle vit dans `lib/fichier-de-secret.mjs` : l'outil de récupération
+       la porte aussi, et une règle de sécurité recopiée finit par différer
+       d'un outil à l'autre. `essais:recuperation-invariants` l'éprouve. */
+    if (estDansLeDepot(abs)) {
       console.error(
         `« ${abs} » est dans le dépôt.\n` +
           '  Un fichier de mot de passe n’y a pas sa place : il serait à un « git add . »\n' +

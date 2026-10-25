@@ -52,6 +52,8 @@
  *   --depuis <dossier>     lit un dossier `data/` déjà sur le disque
  *   --vers <dossier>       où écrire (obligatoire, hors du dépôt)
  *   --mot-de-passe-env <V> lit le mot de passe dans la variable V
+ *   --mot-de-passe-fichier <chemin>  lit la première ligne d'un fichier, qui
+ *                          doit être HORS du dépôt
  *   --chemins <fichier>    une liste de chemins candidats, un par ligne
  *   --sans-audio           ne déchiffre pas les fiches audio (plus rapide)
  */
@@ -63,6 +65,7 @@ import path from 'node:path';
 import config from '../site.config.mjs';
 import { deriverCle, idStable } from './lib/crypto.mjs';
 import { b64VersOctets } from './lib/secret.mjs';
+import { estDansLeDepot } from './lib/fichier-de-secret.mjs';
 import { construireIndexGlossaire } from './lib/glossaire.mjs';
 import { formatAudio } from './lib/voix.mjs';
 import {
@@ -153,6 +156,61 @@ function sourceDossier(dossier: string): Source {
 /* ══════════════════════════════════════════════════════════════════════════
    Le mot de passe
    ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Le mot de passe lu dans un fichier **hors du dépôt**.
+ *
+ * ## Pourquoi un fichier, en plus de la variable
+ *
+ * Les deux écartent le pire cas, l'argument de commande, que `ps` donne à
+ * n'importe quel autre processus de la machine. Entre elles, la différence est
+ * mince et il faut le dire plutôt que de laisser croire à un gain : un fichier
+ * survit à la commande et demande d'être effacé, une variable disparaît avec
+ * le shell mais se lit dans `/proc` le temps de l'exécution. Le fichier vaut
+ * mieux quand la commande est tapée à la main, parce que rien du secret
+ * n'apparaît dans la ligne ni dans l'historique du shell — ni, pour un agent,
+ * dans le journal de sa session.
+ *
+ * ## Le refus, et il n'est pas décoratif
+ *
+ * Un chemin situé dans le dépôt est REFUSÉ, code de sortie 2 : un fichier de
+ * mot de passe y serait à un « git add . » de devenir public, et ce dépôt est
+ * public. `essais:recuperation-invariants` éprouve ce refus, et il l'éprouve
+ * sans aucun secret — un chemin dans le dépôt suffit, le fichier n'a même pas
+ * besoin d'exister.
+ *
+ * La lecture est celle de `archiver-corpus.mts`, à l'identique et pour la même
+ * raison : deux outils voisins qui liraient un secret de deux façons
+ * différentes finiraient par n'en avoir qu'une de juste.
+ */
+function refuserUnCheminDansLeDepot(chemin: string): void {
+  const abs = path.resolve(chemin);
+  if (estDansLeDepot(abs)) {
+    console.error(
+      `« ${abs} » est dans le dépôt.\n` +
+        '  Un fichier de mot de passe n’y a pas sa place : il serait à un « git add . »\n' +
+        '  de devenir public. Rangez-le ailleurs.',
+    );
+    process.exit(2);
+  }
+}
+
+function motDePasseDuFichier(chemin: string): string {
+  const abs = path.resolve(chemin);
+  refuserUnCheminDansLeDepot(abs);
+  if (!existsSync(abs)) {
+    console.error(`« ${abs} » n’existe pas.`);
+    process.exit(2);
+  }
+  /* La première ligne, sans son retour : un éditeur en ajoute un, et un mot de
+     passe avec un retour à la fin n'ouvre rien. */
+  const valeur = readFileSync(abs, 'utf8').split(/\r?\n/)[0];
+  if (!valeur) {
+    console.error(`« ${abs} » est vide, ou sa première ligne l’est.`);
+    process.exit(2);
+  }
+  return valeur;
+}
 
 /**
  * Le mot de passe, demandé sur le terminal **sans écho**.
@@ -431,6 +489,21 @@ function verifierLaSortie(vers: string): string {
 async function main() {
   const o = lireArguments(process.argv.slice(2));
 
+  /*
+     LE CHEMIN DU SECRET SE REFUSE AVANT TOUT TRAVAIL.
+
+     La lecture du fichier vient plus bas, au moment où le mot de passe sert.
+     Mais sa PLACE se juge ici, avant de lire quatre cent vingt-sept en-têtes
+     chiffrés : un fichier de mot de passe rangé dans le dépôt est une faute
+     qu'il faut dire tout de suite, et non après une minute de travail.
+
+     C'est aussi ce qui rend le refus éprouvable sans aucun secret : l'essai
+     passe un chemin dans le dépôt, le fichier n'a même pas besoin d'exister.
+  */
+  if (typeof o['mot-de-passe-fichier'] === 'string') {
+    refuserUnCheminDansLeDepot(o['mot-de-passe-fichier']);
+  }
+
   if (!o.vers || typeof o.vers !== 'string') {
     console.error(
       'Il manque --vers <dossier>, hors du dépôt.\n\n' +
@@ -486,7 +559,9 @@ async function main() {
 
   // --- Le mot de passe ----------------------------------------------------
   let motDePasse: string;
-  if (typeof o['mot-de-passe-env'] === 'string') {
+  if (typeof o['mot-de-passe-fichier'] === 'string') {
+    motDePasse = motDePasseDuFichier(o['mot-de-passe-fichier']);
+  } else if (typeof o['mot-de-passe-env'] === 'string') {
     const nom = o['mot-de-passe-env'];
     const valeur = process.env[nom];
     if (!valeur) {

@@ -33,9 +33,12 @@
  * trouverait plus rien — en silence, sans erreur, en rendant simplement
  * « chemin non certifié » pour les 427 fiches.
  */
+import path from 'node:path';
+
 import YAML from 'yaml';
 
 import { idStable } from './lib/crypto.mjs';
+import { estDansLeDepot } from './lib/fichier-de-secret.mjs';
 import { empreinteRapide } from './lib/chemin-de-fiche.mjs';
 import { blocYaml, frontMatter, questionEnSource } from './lib/fiche-en-source.mjs';
 import { frontMatterSchema, idsPubliesEnDouble, quizSchema } from './lib/schema.mjs';
@@ -210,6 +213,46 @@ verifier(
 verifier(
   'et ne le porte pas sinon',
   !frontMatter(entete).includes('id_publie'),
+);
+
+/*
+   UN FICHIER DE MOT DE PASSE DANS LE DÉPÔT EST REFUSÉ.
+
+   Les deux outils du corpus acceptent `--mot-de-passe-fichier`, et tous deux
+   refusent un chemin situé dans le dépôt : il serait à un « git add . » de
+   devenir public, et ce dépôt est public. La règle vit dans
+   `lib/fichier-de-secret.mjs` pour que les deux en aient la MÊME, et c'est
+   elle qu'on éprouve ici.
+
+   Rien de tout cela ne demande de secret : un chemin suffit, et le fichier
+   n'a même pas besoin d'exister. C'est pourquoi ces lignes sont dans cet
+   essai-là, qui ne touche ni au disque ni au réseau.
+
+   Le dernier cas est celui qui mord. `startsWith(racine)` sans le séparateur
+   refuserait « …/depot-secrets », un dossier voisin parfaitement légitime, et
+   ferait chercher une faute qui n'existe pas.
+*/
+const RACINE_FEINTE = path.resolve('/tmp/depot');
+verifier(
+  'un fichier À LA RACINE du dépôt est refusé',
+  estDansLeDepot(path.join(RACINE_FEINTE, '.secret'), RACINE_FEINTE),
+);
+verifier(
+  'un fichier dans un sous-dossier du dépôt est refusé',
+  estDansLeDepot(path.join(RACINE_FEINTE, 'scripts', 'lib', '.secret'), RACINE_FEINTE),
+);
+verifier('la racine elle-même est refusée', estDansLeDepot(RACINE_FEINTE, RACINE_FEINTE));
+verifier(
+  'un « ../ » qui sort puis rentre est refusé',
+  estDansLeDepot(path.join(RACINE_FEINTE, '..', 'depot', '.secret'), RACINE_FEINTE),
+);
+verifier(
+  'un fichier hors du dépôt est accepté',
+  !estDansLeDepot('/tmp/ailleurs/.secret', RACINE_FEINTE),
+);
+verifier(
+  'et un dossier VOISIN dont le nom commence pareil est accepté',
+  !estDansLeDepot('/tmp/depot-secrets/.secret', RACINE_FEINTE),
 );
 
 console.log(
