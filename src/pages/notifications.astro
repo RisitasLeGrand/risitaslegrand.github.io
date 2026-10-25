@@ -163,6 +163,13 @@ import LienReglages from '../components/LienReglages.astro';
     sourcesActivees,
   } from '../lib/notifications/emission';
   import { etatPermission, type EtatPermission } from '../lib/sync/notification';
+  /*
+     Le compteur de visites (prompt 43, lot I) s'accroche à
+     « auDeverrouillage », que cet écran n'appelle pas : il n'a rien à
+     déchiffrer. Il compte donc lui-même, en une ligne, plutôt que d'être le
+     seul vrai écran absent de la mesure.
+  */
+  import { compterLaVisite, routeDe } from '../lib/visites';
   import { SOURCES_DECLAREES, suitLaSensibiliteDuCycle } from '../lib/notifications/filtre-cycle';
   import { peutNotifier, routeDeLaSource } from '../lib/notifications/sources';
   import {
@@ -170,6 +177,8 @@ import LienReglages from '../components/LienReglages.astro';
     retablirLaRetention,
     retentionReglee,
   } from '../lib/notifications/retention';
+
+  void compterLaVisite(routeDe(location.pathname, import.meta.env.BASE_URL ?? '/'));
 
   const $ = (id: string) => document.getElementById(id)!;
 

@@ -137,7 +137,17 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    La suite a été donnée : `essais:coffre` est entré au socle (`2dc15ce`), de
    sorte qu'il parle désormais au bon moment.
 */
-v('vingt-huit magasins scellés', MAGASINS_SCELLES.length, 28);
+/*
+   VINGT-NEUF DEPUIS `visites`, le compteur d'écrans du prompt 43, lot I.
+
+   Et la leçon de la branche A mérite d'être gardée à côté de celle du
+   dessus, parce que c'est la même vue de l'autre bout : le nombre y était
+   épinglé à 27 alors que « main » en portait 28 depuis le schéma 35. Il
+   n'a rien dit pendant quatre jours, non parce qu'il était faux, mais parce
+   que personne ne le lançait. Le compte fait son office à une condition, et
+   c'est qu'il tourne ; il est au socle depuis `2dc15ce`.
+*/
+v('vingt-neuf magasins scellés', MAGASINS_SCELLES.length, 29);
 /*
    Le centre : l'identifiant ET le genre, pas un champ de plus.
 

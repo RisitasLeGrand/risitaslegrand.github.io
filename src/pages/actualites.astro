@@ -24,7 +24,27 @@ import Base from '../layouts/Base.astro';
       </p>
     </div>
 
-    <div class="flex w-full flex-wrap gap-1 rounded-xl bg-slate-100 p-1 sm:w-auto dark:bg-slate-800" role="tablist" aria-label="Périodicité">
+    <!--
+      PAS DES ONGLETS NON PLUS (prompt 43, E7).
+
+      Ce conteneur annonçait `role="tablist"`, et ses cinq boutons portaient
+      `aria-selected` sans jamais porter `role="tab"` : l'attribut n'a aucun
+      sens hors d'un onglet, et le rôle promettait une structure — onglets,
+      panneaux, flèches — qui n'existait pas.
+
+      J'ai écarté d'en faire de VRAIS onglets, et la raison tient à ce que
+      ces boutons gouvernent : la liste d'en bas est aussi changée par la
+      recherche, par les filtres de domaine et par la barre de période. Un
+      panneau d'onglet appartient à son onglet ; celui-ci appartient à
+      quatre commandes. L'annoncer comme un panneau d'onglet serait un
+      second mensonge, plus poli que le premier.
+
+      Ce sont donc cinq boutons à deux états, dans un groupe nommé —
+      exactement comme les filtres de domaine juste en dessous, qui, eux,
+      étaient déjà justes. Deux rangées de chevrons qui se ressemblent se
+      comportent désormais pareil.
+    -->
+    <div class="flex w-full flex-wrap gap-1 rounded-xl bg-slate-100 p-1 sm:w-auto dark:bg-slate-800" role="group" aria-label="Périodicité">
       <button type="button" data-vue="semaines" class="onglet-vue min-h-11 rounded-lg px-3.5 py-2 text-sm font-medium">Semaines</button>
       <button type="button" data-vue="mois" class="onglet-vue min-h-11 rounded-lg px-3.5 py-2 text-sm font-medium">Mois</button>
       <button type="button" data-vue="trimestres" class="onglet-vue min-h-11 rounded-lg px-3.5 py-2 text-sm font-medium">Trimestres</button>
@@ -207,7 +227,7 @@ import Base from '../layouts/Base.astro';
     for (const bouton of onglets) {
       const actif = bouton.dataset.vue === vue;
       bouton.className = `onglet-vue min-h-11 rounded-lg px-3.5 py-2 text-sm font-medium transition ${actif ? ACTIF_ONGLET : INACTIF_ONGLET}`;
-      bouton.setAttribute('aria-selected', String(actif));
+      bouton.setAttribute('aria-pressed', String(actif));
     }
     for (const bouton of filtres) {
       const actif = (bouton.dataset.domaine ?? '') === domaine;

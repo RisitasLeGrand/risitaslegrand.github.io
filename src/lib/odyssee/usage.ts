@@ -26,6 +26,20 @@
  * déclaré : la règle vit dans des données qu'un essai peut lire, et non dans
  * ce commentaire.
  *
+ * ## La frontière avec le compteur de visites (prompt 43, lot I)
+ *
+ * Un second module compte, lui, les ouvertures PAR ÉCRAN — `lib/visites.ts`.
+ * Il ne revient pas sur la décision ci-dessus, il se tient de l'autre côté de
+ * la ligne, et la ligne se dit en une phrase :
+ *
+ * > **Le compteur porte une route sans instant ; ce journal porte un instant
+ * > sans route ; et rien ne peut joindre les deux.**
+ *
+ * C'est pourquoi le compteur n'écrit aucune date, pas même scellée, et
+ * pourquoi ce journal n'écrira jamais de route. Chacun garde une liste
+ * blanche, et `essais:frontiere-usage` rougit si l'un gagne le champ de
+ * l'autre.
+ *
  * ## Pourquoi il n'est **pas** scellé, contrairement au reste de la psyché
  *
  * C'est la décision la moins confortable de ce module, et elle mérite d'être

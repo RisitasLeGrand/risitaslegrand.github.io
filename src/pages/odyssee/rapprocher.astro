@@ -89,7 +89,21 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
             d'attention : deux écrans pour vider un mois, c'est un écran de
             trop et un mois qu'on ne vide pas.
           -->
-          <div class="mt-3 flex flex-wrap gap-2" role="tablist">
+          <!--
+            CE N'ÉTAIT PAS UNE LISTE D'ONGLETS (prompt 43, E7).
+
+            Ce conteneur portait `role="tablist"` sur quatre boutons
+            ordinaires : aucun `role="tab"`, aucun panneau, aucune flèche. Un
+            lecteur d'écran annonçait « liste d'onglets », puis n'y trouvait
+            aucun onglet — un rôle qui ment coûte plus cher que pas de rôle du
+            tout.
+
+            Et ce ne SONT pas des onglets : la file reste la même, on la
+            filtre. Le rôle juste est donc un groupe nommé, et l'état de
+            chaque bouton se dit par `aria-pressed` — posé à la peinture, avec
+            la couleur, pour que les deux ne puissent pas diverger.
+          -->
+          <div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Filtrer la file">
             <button data-filtre="tout" type="button" class="filtre min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700">Tout</button>
             <button data-filtre="a-pointer" type="button" class="filtre min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700">À pointer</button>
             <button data-filtre="a-rapprocher" type="button" class="filtre min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700">À rapprocher</button>
@@ -210,7 +224,9 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
             Les échéances <strong>non échues</strong> ne comptent pas comme un écart : elles ne sont
             pas en retard, elles ne sont pas encore dues.
           </p>
-          <div class="mt-3 flex flex-wrap gap-2" role="tablist">
+          <!-- Même faux rôle, même correction : ce sont trois façons de
+               regarder le même tableau, pas trois onglets. -->
+          <div class="mt-3 flex flex-wrap gap-2" role="group" aria-label="Axe de comparaison">
             <button data-axe="ligne" type="button" class="axe min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700">Par ligne</button>
             <button data-axe="categorie" type="button" class="axe min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700">Par catégorie</button>
             <button data-axe="mois" type="button" class="axe min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700">Par mois</button>
@@ -2184,6 +2200,9 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     for (const b of document.querySelectorAll<HTMLElement>('.filtre')) {
       const actif = b.dataset.filtre === filtre;
       b.dataset.actif = String(actif);
+      /* L'état se DIT, il n'est pas seulement peint : la couleur ne dit rien
+         à qui ne la voit pas, et c'est tout le point de E7. */
+      b.setAttribute('aria-pressed', String(actif));
       b.classList.toggle('bg-slate-800', actif);
       b.classList.toggle('text-white', actif);
       b.classList.toggle('dark:bg-slate-200', actif);
@@ -2203,6 +2222,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     for (const b of document.querySelectorAll<HTMLElement>('.axe')) {
       const actif = b.dataset.axe === axe;
       b.dataset.actif = String(actif);
+      b.setAttribute('aria-pressed', String(actif));
       b.classList.toggle('bg-slate-800', actif);
       b.classList.toggle('text-white', actif);
       b.classList.toggle('dark:bg-slate-200', actif);

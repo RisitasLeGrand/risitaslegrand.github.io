@@ -179,6 +179,16 @@ export const clefVisee = (clef: string, visees: ClefsVisees): boolean =>
  * pas par période.
  */
 export const CHAMP_DATE: Record<string, string | null> = {
+  /*
+     Le compteur de visites ne porte AUCUNE date, pas même scellée (prompt 43,
+     lot I). Ce n'est pas un oubli à rattraper un jour : c'est la condition
+     qui le rend compatible avec le journal d'usage, lequel garde des heures
+     sans route. Un compteur daté permettrait de joindre les deux.
+
+     Il n'est donc pas découpable par période, et l'effacement par période le
+     refuse explicitement plutôt que de l'épargner en silence.
+  */
+  visites: null,
   // Journaux et historiques : une ligne par événement, donc une date.
   quiz: 'le',
   nback: 'le',
@@ -446,6 +456,14 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
     libelle: 'Niveau estimé',
     description: 'Notes par matière, par fascicule et par fiche, difficulté des items.',
     magasins: ['competences', 'difficultes'],
+  },
+  {
+    id: 'mesure-usage',
+    libelle: 'Mesure d’usage',
+    description:
+      'Combien de fois chaque écran a été ouvert. Aucun contenu, aucune date : ' +
+      'cela sert à savoir quoi améliorer d’abord, et à rien d’autre.',
+    magasins: ['visites'],
   },
   {
     id: 'journal',

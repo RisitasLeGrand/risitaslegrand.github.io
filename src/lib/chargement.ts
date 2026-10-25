@@ -157,6 +157,30 @@ interface Options {
 export function auDeverrouillage(travail: () => void | Promise<void>, options: Options = {}) {
   const { zoneChargement = '#chargement', delaiMax = DELAI_MAX_MS } = options;
 
+  /*
+     LE COMPTEUR DE VISITES S'ACCROCHE ICI (prompt 43, lot I, point 1).
+
+     Le point naturel serait la mise en page, d'où part déjà l'enregistreur
+     d'usage — et il est hors de portée de ce lot. Celui-ci en vaut un autre,
+     et il a même une propriété que l'autre n'a pas : il se déclenche quand la
+     SESSION est ouverte, donc jamais pour quelqu'un qui arrive sur l'écran de
+     mot de passe et s'en va. Une arrivée n'est pas une visite.
+
+     Cinquante-quatre écrans sur cinquante-neuf appellent cette fonction. Les
+     cinq autres sont `404`, `hors-ligne`, `mot-de-passe-perdu` et
+     `coffre/bascule` — des écrans d'erreur ou d'avant-ouverture, où compter
+     n'aurait pas de sens — et `notifications`, qui appelle le compteur
+     directement.
+
+     L'import est dynamique et l'échec est avalé : un compteur ne doit jamais
+     retarder ni casser l'écran qu'il compte.
+  */
+  void import('./visites')
+    .then(({ compterLaVisite, routeDe }) =>
+      compterLaVisite(routeDe(location.pathname, import.meta.env.BASE_URL ?? '/')),
+    )
+    .catch(() => {});
+
   const lancer = () => {
     const zone = document.querySelector<HTMLElement>(zoneChargement);
     demarrerChargement();
