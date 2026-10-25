@@ -295,7 +295,7 @@ await page
 
 for (const route of ROUTES) {
   await page.goto(`${RACINE}${route}`, { waitUntil: 'networkidle' }).catch((e) => {
-    injoignables.push(`${route} — ${String(e?.message ?? e).split('\n')[0]}`);
+    injoignables.push({ route, parcours: parcoursBalaye, cause: String(e?.message ?? e).split('\n')[0] });
   });
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
@@ -341,7 +341,8 @@ for (const route of ROUTES) {
      navigation, donc au moins une ancre. Zéro ancre veut dire que la page
      n'a pas rendu, et c'est mesurable sans rien supposer du contenu.
   */
-  if (trouves.ancres === 0) injoignables.push(`${route} — aucune ancre rendue`);
+  if (trouves.ancres === 0)
+    injoignables.push({ route, parcours: parcoursBalaye, cause: 'aucune ancre rendue' });
 
   const m = liens.get(route) ?? new Map();
   for (const { chemin, cout } of trouves.liens) {
@@ -351,7 +352,7 @@ for (const route of ROUTES) {
   }
   liens.set(route, m);
 }
-}
+} /* fin du balayage d'un parcours */
 
 await contexte.close();
 await nav.close();
@@ -374,13 +375,23 @@ if (!(await apercuRepond())) {
 }
 
 if (injoignables.length > 0) {
+  /*
+     ON COMPTE DES ROUTES, ET NON DES RELEVÉS.
+
+     Depuis que le passage se fait deux fois, une route muette est relevée
+     deux fois, et « 2 routes n'ont pas répondu » serait faux pour une seule
+     route. Le détail, lui, garde les deux relevés : le parcours sous lequel
+     la route a été muette fait partie de ce qui s'est passé.
+  */
+  const combien = new Set(injoignables.map((r) => r.route)).size;
   console.log(
-    `\n\x1b[31m✗ REFUS\x1b[0m — ${injoignables.length} route${injoignables.length > 1 ? 's' : ''} ` +
-      `n’${injoignables.length > 1 ? 'ont' : 'a'} pas répondu. Le graphe serait troué, et les\n` +
+    `\n\x1b[31m✗ REFUS\x1b[0m — ${combien} route${combien > 1 ? 's' : ''} ` +
+      `n’${combien > 1 ? 'ont' : 'a'} pas répondu. Le graphe serait troué, et les\n` +
       '  écrans qu’elles seules atteignent passeraient pour inatteignables. Vérifiez que\n' +
       '  l’aperçu est bien en ligne et qu’il n’a pas été redémarré pendant le passage.',
   );
-  for (const r of injoignables.slice(0, 10)) console.log(`      ${r}`);
+  for (const r of injoignables.slice(0, 10))
+    console.log(`      ${r.route} (${r.parcours}) — ${r.cause}`);
   process.exit(1);
 }
 
