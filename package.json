@@ -11,6 +11,7 @@
     "recuperer:corpus": "tsx scripts/recuperer-corpus.mts",
     "archiver:corpus": "tsx scripts/archiver-corpus.mts",
     "essais:recuperation-corpus": "tsx scripts/essais-recuperation-corpus.mts",
+    "essais:recuperation-invariants": "tsx scripts/essais-recuperation-invariants.mts",
     "preview": "astro preview",
     "deploy": "npm run build && node scripts/deploy.mjs",
     "podcasts": "node scripts/podcasts.mjs",
