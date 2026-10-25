@@ -33,6 +33,9 @@ import path from 'node:path';
 import { deriverCle, selAleatoire, b64 } from './lib/crypto.mjs';
 import { b64VersOctets } from './lib/secret.mjs';
 
+/* La racine du dépôt, pour refuser un fichier de mot de passe situé dedans. */
+const RACINE = path.resolve(import.meta.dirname, '..');
+
 const ITERATIONS = 600_000;
 const TAILLE_MORCEAU = 45 * 1024 * 1024;
 const TAILLE_IV = 12;
@@ -50,12 +53,55 @@ function lireArguments(argv: string[]) {
   return o;
 }
 
-function motDePasse(nomVariable: unknown): string {
+/**
+ * Le mot de passe, par l'environnement ou par un fichier hors du dépôt.
+ *
+ * ## Deux voies, et ce qu'elles valent vraiment
+ *
+ * `--mot-de-passe-env` lit une variable d'environnement. `--mot-de-passe-fichier`
+ * lit la première ligne d'un fichier, qui doit être **hors du dépôt** — l'outil
+ * refuse un chemin situé dedans, pour qu'un secret ne puisse pas se retrouver
+ * à un « git add . » de la publication.
+ *
+ * Les deux écartent le pire cas, l'argument de commande, que `ps` donne à
+ * n'importe quel autre processus de la machine. Entre elles, la différence est
+ * mince et il faut le dire plutôt que de laisser croire à un gain : un fichier
+ * survit à la commande et demande d'être effacé, une variable disparaît avec le
+ * shell mais se lit dans `/proc` le temps de l'exécution. Le fichier vaut mieux
+ * quand la commande est tapée à la main, parce que rien du secret n'apparaît
+ * dans la ligne ni dans l'historique du shell.
+ */
+function motDePasse(o: Record<string, string | boolean>): string {
+  const chemin = o['mot-de-passe-fichier'];
+  if (typeof chemin === 'string') {
+    const abs = path.resolve(chemin);
+    if (abs === RACINE || abs.startsWith(RACINE + path.sep)) {
+      console.error(
+        `« ${abs} » est dans le dépôt.\n` +
+          '  Un fichier de mot de passe n’y a pas sa place : il serait à un « git add . »\n' +
+          '  de devenir public. Rangez-le ailleurs.',
+      );
+      process.exit(2);
+    }
+    if (!existsSync(abs)) {
+      console.error(`« ${abs} » n’existe pas.`);
+      process.exit(2);
+    }
+    /* La première ligne, sans son retour : un éditeur en ajoute un, et un mot
+       de passe avec un retour à la fin n'ouvre rien. */
+    const valeur = readFileSync(abs, 'utf8').split(/\r?\n/)[0];
+    if (!valeur) {
+      console.error(`« ${abs} » est vide, ou sa première ligne l’est.`);
+      process.exit(2);
+    }
+    return valeur;
+  }
+
+  const nomVariable = o['mot-de-passe-env'];
   if (typeof nomVariable !== 'string') {
     console.error(
-      'Il manque --mot-de-passe-env <VARIABLE>.\n' +
-        '  Le mot de passe ne passe que par l’environnement : jamais en argument (que « ps »\n' +
-        '  lirait), jamais dans un fichier, jamais dans un journal.',
+      'Il manque --mot-de-passe-env <VARIABLE> ou --mot-de-passe-fichier <chemin hors dépôt>.\n' +
+        '  Jamais en argument de commande : « ps » le donnerait à tout processus de la machine.',
     );
     process.exit(2);
   }
@@ -84,7 +130,7 @@ async function archiver(o: Record<string, string | boolean>) {
     console.error(`« ${depuis} » n’existe pas.`);
     process.exit(2);
   }
-  const mdp = motDePasse(o['mot-de-passe-env']);
+  const mdp = motDePasse(o);
 
   /* L'audio est DÉJÀ chiffré dans la publication : le réarchiver doublerait
      400 Mo pour rien. On le dit dans le manifeste plutôt que de le recopier. */
@@ -132,6 +178,94 @@ async function archiver(o: Record<string, string | boolean>) {
     ) + '\n',
   );
 
+  /*
+     LE LISEZMOI, ET POURQUOI IL COMMENCE PAR CE QUE L'ARCHIVE NE FAIT PAS.
+
+     Une archive chiffrée dans un dépôt public donne une impression de
+     protection. Elle protège contre la PERTE, ce pour quoi elle existe, et
+     c'est déjà beaucoup. Elle ne protège pas contre la LECTURE tant que le mot
+     de passe est court, et quelqu'un qui ouvrira ce dossier dans un an doit
+     lire cette phrase avant toute autre.
+  */
+  await writeFile(
+    path.join(vers, 'LISEZMOI.md'),
+    [
+      '# Archive chiffrée du corpus Cyclades',
+      '',
+      `Produite le ${new Date().toISOString().slice(0, 10)}.`,
+      '',
+      '## Ce qu’elle protège, et ce qu’elle ne protège pas',
+      '',
+      'Elle protège contre la **perte** : un conteneur éphémère, un dossier effacé.',
+      'C’est pour cela qu’elle existe, et elle le fait.',
+      '',
+      'Elle **ne protège pas contre la lecture** par qui tient ces fichiers, tant que',
+      'le mot de passe du site reste court. PBKDF2 à 600 000 itérations multiplie le',
+      'coût d’UN essai ; il ne multiplie pas le NOMBRE d’essais à faire. Un mot de',
+      'passe de cinq caractères se retrouve en quelques heures de calcul, quelle que',
+      'soit la fonction de dérivation. Ce dépôt étant public, cette archive doit donc',
+      'être tenue pour **lisible à échéance** aussi longtemps que le mot de passe n’a',
+      'pas changé — exactement comme le contenu déjà publié sur `gh-pages`, qui est',
+      'chiffré avec le même secret.',
+      '',
+      '**À la fin du chantier, le mot de passe sera changé et cette archive devra être',
+      'rechiffrée.** Tant que ce n’est pas fait, la phrase ci-dessus reste vraie.',
+      '',
+      '## Ce qu’elle contient',
+      '',
+      `- \`content/\` en entier : les fiches, le glossaire, les annexes déchiffrées.`,
+      '- Le rapport de récupération, qui dit fiche par fiche ce qui est revenu',
+      '  identique, transformé ou perdu.',
+      '',
+      '## Ce qu’elle ne contient pas, et comment le retrouver',
+      '',
+      ...(o['avec-audio']
+        ? []
+        : [
+            '**Les fiches audio.** Elles sont déjà chiffrées dans la publication, sous',
+            '`data/audio/<id>.enc`, et pèsent plus de 400 Mo : les recopier ici doublerait',
+            'la même chose. Pour les reprendre :',
+            '',
+            '```',
+            'npm run recuperer:corpus -- --git <ref> --vers <dossier hors dépôt>',
+            '```',
+            '',
+            'Elles sont déposées dans `content/.audio/<id>.<format>`, où le build les',
+            'cherche.',
+            '',
+          ]),
+      '**`sources/`** — les documents de la collecte. Ils ne sont pas ici non plus :',
+      'ils sont publiés dans un artefact que le propriétaire du projet détient, et',
+      'cet artefact est leur copie durable. Les reconstituer demande de recoller les',
+      'morceaux `.morceauN.pdf` dans l’ordre avec `cat`, puis de vérifier chaque',
+      'archive contre son empreinte et chaque fichier contre le `MANIFEST-SHA256.txt`',
+      'qu’elle contient.',
+      '',
+      '## Comment l’ouvrir',
+      '',
+      '```',
+      'cat corpus.aes.* > corpus.aes',
+      'MDP=… npm run archiver:corpus -- --verifier <ce dossier> --vers <contrôle> \\',
+      '  --mot-de-passe-env MDP',
+      '```',
+      '',
+      'Le mode `--verifier` recolle les morceaux, contrôle chaque empreinte, déchiffre,',
+      'compare l’empreinte du clair, **puis déballe pour de vrai** et compte les fiches.',
+      'Une archive qu’on n’a pas rouverte n’est pas une sauvegarde : c’est un fichier',
+      'dont on espère quelque chose.',
+      '',
+      '## Les identifiants de fiche',
+      '',
+      'Quarante-neuf fiches portent un champ `id_publie` dans leur front-matter. Ce',
+      'n’est pas décoratif : leur chemin d’origine n’a pas pu être certifié lors de la',
+      'récupération, et sans ce champ elles recevraient un identifiant neuf au',
+      'prochain build — orphelinant la progression enregistrée pour elles et leur',
+      'fiche audio. Le build doit donc connaître ce champ ; il est documenté dans',
+      '`scripts/lib/schema.mjs`.',
+      '',
+    ].join('\n'),
+  );
+
   await writeFile(
     path.join(vers, 'MANIFEST-SHA256.txt'),
     [
@@ -159,7 +293,14 @@ async function archiver(o: Record<string, string | boolean>) {
   console.error(
     `\nArchive écrite dans ${vers} — ${morceaux.length} morceau(x).\n` +
       `  Vérifiez-la AVANT de vous y fier :\n` +
-      `    ${String(o['mot-de-passe-env'])}=… npm run archiver:corpus -- --verifier ${vers} --vers <dossier-de-contrôle> --mot-de-passe-env ${String(o['mot-de-passe-env'])}\n`,
+      /* Le rappel reprend la voie que l'appelant vient d'employer. La première
+         version citait toujours la variable d'environnement, et affichait donc
+         « undefined » — une commande à recopier qui ne marche pas. */
+      (typeof o['mot-de-passe-fichier'] === 'string'
+        ? `    npm run archiver:corpus -- --verifier ${vers} --vers <dossier-de-contrôle> ` +
+          `--mot-de-passe-fichier ${o['mot-de-passe-fichier']}\n`
+        : `    ${String(o['mot-de-passe-env'])}=… npm run archiver:corpus -- --verifier ${vers} ` +
+          `--vers <dossier-de-contrôle> --mot-de-passe-env ${String(o['mot-de-passe-env'])}\n`),
   );
 }
 
@@ -174,7 +315,7 @@ async function archiver(o: Record<string, string | boolean>) {
 async function verifier(o: Record<string, string | boolean>) {
   const dossier = String(o.verifier);
   const vers = String(o.vers);
-  const mdp = motDePasse(o['mot-de-passe-env']);
+  const mdp = motDePasse(o);
 
   const entete = JSON.parse(readFileSync(path.join(dossier, 'ENTETE.json'), 'utf8'));
   let rouges = 0;
