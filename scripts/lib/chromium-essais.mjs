@@ -31,7 +31,7 @@
  * entrerait en collision avec les branches des agents, qui en modifient une
  * partie. Ils migreront quand ils seront ouverts pour une autre raison.
  */
-import { existsSync, readdirSync } from 'node:fs';
+import { existsSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 /** Les dossiers où un navigateur de Playwright peut être installé. */
@@ -40,7 +40,25 @@ const RACINES = [process.env.PLAYWRIGHT_BROWSERS_PATH, '/opt/pw-browsers'].filte
 );
 
 /** Les dispositions connues, du binaire à l'intérieur d'un dossier de version. */
-const DISPOSITIONS = ['chrome-linux/chrome', 'chrome-linux/headless_shell', 'chrome'];
+const DISPOSITIONS = [
+  /*
+     « chrome-linux64 » d’abord, parce que c’est la disposition du conteneur
+     depuis la mise à jour du 24 octobre — constaté le 25 : les 161 essais de
+     navigateur ont échoué d’un coup sur « Executable doesn’t exist at
+     chromium_headless_shell-1248 », qui n’est pas le binaire cherché mais celui
+     que Playwright suppose quand `executablePath` lui revient vide.
+
+     C’est le piège de cette fonction : ne rien trouver ne lève pas. Elle rend
+     `undefined`, Playwright retombe sur son propre chemin supposé, et l’erreur
+     parle d’un binaire que personne n’a demandé. D’où le refus explicite
+     plus bas, qui vaut mieux qu’un `undefined` qui voyage.
+  */
+  'chrome-linux64/chrome',
+  'chrome-linux64/headless_shell',
+  'chrome-linux/chrome',
+  'chrome-linux/headless_shell',
+  'chrome',
+];
 
 /**
  * Le chemin du binaire, ou `undefined` si rien n'a été trouvé.
@@ -64,6 +82,20 @@ export function cheminDuNavigateur() {
       continue;
     }
     for (const entree of entrees) {
+      /*
+         L’entrée peut être le binaire lui-même : l’environnement publie
+         « /opt/pw-browsers/chromium », un lien stable vers la build installée.
+         Le chercher comme un dossier le manquait.
+      */
+      const direct = join(racine, entree);
+      try {
+        if (statSync(direct).isFile()) {
+          trouve = direct;
+          return trouve;
+        }
+      } catch {
+        /* une entrée illisible n’est pas une raison d’arrêter */
+      }
       for (const disposition of DISPOSITIONS) {
         const candidat = join(racine, entree, disposition);
         if (existsSync(candidat)) {
