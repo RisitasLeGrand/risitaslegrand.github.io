@@ -26,6 +26,7 @@
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import { nonMesurable } from './lib/non-mesurable.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -79,8 +80,38 @@ console.log('\nCE QUE LA PAGE LISTE EST CE QUE LE MANIFESTE COMPTE');
 await ouvrir('/organigrammes/', 'dgfip-a');
 const replis = page.locator('#liste details[data-fiche]');
 const combien = await replis.count();
-vrai(`au moins une fiche à organigramme est listée (${combien})`, combien >= 1);
-v('et l’état vide n’est pas affiché', await page.locator('#vide').isVisible(), false);
+
+/*
+   CE QUE CET ESSAI SUPPOSAIT, ET QUE LE CORPUS RÉEL DÉMENT.
+
+   Son en-tête dit : « la matière commune est servie aux trois parcours
+   DGFiP : aucun d'eux n'est donc vide aujourd'hui ». La prémisse est fausse —
+   non à cause des parcours, mais parce qu'AUCUNE fiche du corpus ne porte
+   encore de section « ## Organigrammes ». Mesuré : zéro sur 427.
+
+   La page de B l'a d'ailleurs prévu, et elle le dit bien : « Aucun
+   organigramme n'est encore publié pour ce parcours. Ils arrivent fiche par
+   fiche, et chacun portera sa date et sa source. » Ce n'est donc pas un
+   défaut de la page ; c'est du contenu qui n'existe pas encore.
+
+   Tout ce qui NE dépend pas de la liste se mesure quand même, et c'est
+   beaucoup : l'état vide véritable, le lien réservé aux parcours servis, la
+   page qui ne révèle rien session fermée, et l'absence d'erreur de page. Le
+   refus se dit à la fin, par la convention de « lib/non-mesurable.mjs » —
+   code 3, jamais compté vert.
+*/
+const listeMesurable = combien >= 1;
+if (listeMesurable) {
+  vrai(`au moins une fiche à organigramme est listée (${combien})`, combien >= 1);
+  v('et l’état vide n’est pas affiché', await page.locator('#vide').isVisible(), false);
+} else {
+  console.log(
+    '  \x1b[33m⚠\x1b[0m rien à lister : aucune fiche du corpus ne porte de section ' +
+      '« ## Organigrammes ».',
+  );
+  /* L'état vide, lui, DOIT alors s'afficher — et cela se mesure. */
+  v('et l’état vide est bien affiché, plutôt qu’un écran blanc', await page.locator('#vide').isVisible(), true);
+}
 
 const titres = await replis.locator('> summary').allTextContents();
 v(
@@ -90,6 +121,11 @@ v(
 );
 
 console.log('\nLA DATE ET LA SOURCE SONT AU-DESSUS DU DESSIN');
+
+if (!listeMesurable) {
+  console.log('  \x1b[33m⚠\x1b[0m même raison : rien à déplier.');
+}
+if (listeMesurable) {
 
 await replis.first().locator('> summary').click();
 await page.waitForTimeout(1200);
@@ -139,6 +175,8 @@ vrai(
     return (d.compareDocumentPosition(s) & Node.DOCUMENT_POSITION_FOLLOWING) !== 0;
   }),
 );
+
+}
 
 console.log('\nLE LIEN NE S’OFFRE QU’AUX PARCOURS SERVIS');
 
@@ -211,7 +249,21 @@ console.log('\nET AUCUNE ERREUR DE PAGE N’A ÉTÉ AVALÉE');
 v('aucune erreur levée', erreurs.slice(0, 3), []);
 
 await nav.close();
-console.log(
-  echecs === 0 ? '\n\x1b[32m✓ tout est vert\x1b[0m\n' : `\n\x1b[31m✗ ${echecs} rouge${echecs > 1 ? 's' : ''}\x1b[0m\n`,
-);
-process.exit(echecs === 0 ? 0 : 1);
+
+/* Un rouge l'emporte sur un refus : ce qui a été mesuré et a échoué passe d'abord. */
+if (echecs > 0) {
+  console.log(`\n\x1b[31m✗ ${echecs} rouge${echecs > 1 ? 's' : ''}\x1b[0m\n`);
+  process.exit(1);
+}
+if (!listeMesurable) {
+  nonMesurable(
+    'au moins une fiche portant une section « ## Organigrammes », avec la date et ' +
+      'la source de chaque organigramme',
+    'aucune des 427 fiches du corpus n’en porte ; la page affiche donc son état ' +
+      'vide, qui est le bon comportement et qui vient d’être mesuré',
+    'ajouter une section « ## Organigrammes » à une fiche, puis reconstruire — le ' +
+      'corpus est entier, c’est la section qui n’existe pas encore',
+  );
+}
+console.log('\n\x1b[32m✓ tout est vert\x1b[0m\n');
+process.exit(0);
