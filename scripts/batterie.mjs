@@ -178,6 +178,14 @@ const SOCLE = [
      lignes et deux écrans en dépendent.
   */
   ['essais:lu-par', 'l’aiguillage des saisies dessert bien les sept champs qu’il nomme'],
+  /*
+     Le quinzième écran. Deux agents ont posé le même filtre à deux endroits
+     opposés le même jour ; le placement de B l'a emporté, et l'argument de C
+     reste vrai de l'autre côté — un écran qui RACONTE et qui prendrait le
+     manifeste filtré mentirait sans rien casser. Cette garde classe chaque
+     appelant et refuse celui qu'on ajouterait sans le classer.
+  */
+  ['essais:manifeste-filtre', 'qui voit le corpus entier, et qui ne voit que son parcours'],
 ];
 
 /**
