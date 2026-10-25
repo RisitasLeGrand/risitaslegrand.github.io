@@ -16,6 +16,7 @@
  * de cycle dans le compteur sans que personne ne s'en aperçoive, et cela ne
  * se corrige pas après coup : c'est vu.
  */
+import { readFileSync } from 'node:fs';
 import {
   CLASSES_DU_CYCLE,
   PORTES_GARDEES,
@@ -76,11 +77,68 @@ v(
 );
 
 /* ── 4. La classe de la molécule, pas le type du signal ────────────────── */
-console.log('\nUn rappel de prise est admis, sauf pour les classes du cycle');
+console.log('\nUn rappel de prise n’est admis que si la classe est connue');
 
+/*
+   CETTE ASSERTION DISAIT L'INVERSE, ET ELLE MESURAIT LE TROU.
+
+   Elle affirmait qu'« un rappel de prise sans molécule nommée passe », ce qui
+   était bien le comportement du code — et c'était le défaut. L'exception
+   écrite juste à côté (« admis, SAUF pour une molécule de classe du cycle »)
+   reposait sur `classeMolecule`, et AUCUNE molécule ne porte de classe : le
+   registre n'a pas cette notion, et rien ne pourra la renseigner avant qu'un
+   RCP lu la fournisse. La condition ne se déclenchait donc jamais, et un
+   rappel de prise de contraceptif entrait au centre sous le libellé
+   « Rappels de prise ».
+
+   Le trou était dans la **donnée manquante**, pas dans la logique : la façon
+   la plus sûre de ne pas se faire voir, et un essai qui affirmait le
+   comportement sans interroger sa prémisse l'a tenu en place.
+
+   Option (a), arbitrée par le pilote le 19 octobre à 12 h 46 : l'ignorance
+   exclut. L'assertion garde donc le même objet — ce que fait un rappel sans
+   classe — avec la réponse inverse, et son exigence n'est pas abaissée : elle
+   est retournée.
+*/
 v(
-  'un rappel de prise sans molécule nommée passe',
+  'un rappel de prise sans classe connue est ÉCARTÉ',
   suitLaSensibiliteDuCycle({ source: 'rappel-de-prise' }),
+  true,
+);
+v(
+  'et une classe explicitement nulle ne vaut pas mieux qu’absente',
+  suitLaSensibiliteDuCycle({ source: 'rappel-de-prise', classeMolecule: null }),
+  true,
+);
+v(
+  'une chaîne vide non plus',
+  suitLaSensibiliteDuCycle({ source: 'rappel-de-prise', classeMolecule: '' }),
+  true,
+);
+v(
+  'la source le déclare, plutôt que la logique de nommer la source',
+  sourceDeclaree('rappel-de-prise')?.exigeUneClasse,
+  true,
+);
+v(
+  'et elle est la seule à l’exiger aujourd’hui',
+  SOURCES_DECLAREES.filter((s) => s.exigeUneClasse).map((s) => s.id),
+  ['rappel-de-prise'],
+);
+
+/*
+   LA CONSÉQUENCE, MESURÉE : aucune molécule ne porte de classe, donc AUCUN
+   rappel de prise n'entre au centre aujourd'hui. C'est une fonction en moins,
+   et il faut la dire à la personne plutôt que la laisser constater.
+
+   Cette assertion rougira le jour où une classe apparaîtra dans le registre —
+   et ce jour-là il faudra relire tout ce bloc, ce qui est exactement ce qu'on
+   veut : c'est le moment où le filtre recommence à pouvoir se tromper.
+*/
+const registreDesMolecules = readFileSync('src/lib/odyssee/molecules.ts', 'utf8');
+v(
+  'le registre des molécules ne porte toujours aucune notion de classe',
+  /\bclasse\s*[?:]/.test(registreDesMolecules),
   false,
 );
 v(

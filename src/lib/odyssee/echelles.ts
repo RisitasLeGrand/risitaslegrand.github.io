@@ -59,6 +59,12 @@
  * un meilleur bien-être. »
  */
 
+import {
+  controlerPopulation,
+  populationNonLue,
+  type PopulationVisee,
+} from '../noyau/population';
+
 /* ══════════════════════════════════════════════════════════════════════════
    Le modèle
    ══════════════════════════════════════════════════════════════════════════ */
@@ -113,6 +119,21 @@ export interface Echelle {
   paliers: readonly Palier[];
   /** D'où viennent les paliers, mot pour mot dans l'interface. */
   origineDesPaliers: string | null;
+  /**
+   * Sur quelle population les paliers ont été établis, ou pourquoi on l'ignore.
+   *
+   * ## Pourquoi un champ de plus à côté de `reserve`
+   *
+   * `reserve` dit ce que la source déclare de sa propre portée, en prose, et
+   * c'est utile à lire. Mais une phrase ne se compare à rien : aucun écran ne
+   * peut en tirer « ce repère ne vous concerne pas ». Le § 3.3 du prompt du
+   * cycle demande un jugement, et un jugement demande une forme.
+   *
+   * Les deux cohabitent sans se recouvrir : `reserve` est citée, celui-ci est
+   * évalué. Pour le WHO-5, qui n'affiche aucun palier, le champ dit qu'il n'y
+   * a rien à situer.
+   */
+  populationDesPaliers: PopulationVisee;
   /** L'attribution que la source impose ou propose, verbatim. */
   attribution: string;
   /** Ce que la source dit de sa propre portée. */
@@ -122,6 +143,25 @@ export interface Echelle {
 /* ══════════════════════════════════════════════════════════════════════════
    Les trois échelles, verbatim
    ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Pourquoi la population des tranches du PHQ-9 et du GAD-7 n'est pas lue.
+ *
+ * Une constante pour que la raison soit la même sur les deux : les tranches
+ * viennent du même manuel, et deux formulations voisines finiraient par se
+ * contredire sur le motif.
+ *
+ * Le manuel du PHQ dit déjà, et `reserve` le cite, que les tranches sont
+ * établies sur la version anglaise et que peu de traductions ont été
+ * validées. Mais **sur qui** elles l'ont été — quel âge, quel sexe, quel
+ * cadre de soins — n'a pas été relevé : le manuel est hors de portée de ce
+ * conteneur. Le déduire de l'intitulé « Psychiatric Annals 2002 » serait
+ * l'inventer.
+ */
+const POPULATION_DES_TRANCHES_NON_RELUE =
+  'le manuel du PHQ n’est pas atteignable depuis ce conteneur, et sur qui ses tranches ont été ' +
+  'établies — âge, sexe, cadre de soins — n’a pas été relevé. La réserve citée porte sur la ' +
+  'langue, pas sur la population.';
 
 const OPTIONS_PHQ_GAD: readonly Option[] = [
   { libelle: 'Jamais', valeur: 0 },
@@ -167,6 +207,16 @@ export const WHO5: Echelle = {
     'anglaise seule contraignante et authentique. Le document ne donne aucun seuil ' +
     'd’interprétation : seul le score brut est affiché, et un score élevé signifie un meilleur ' +
     'bien-être.',
+  /*
+     Sans objet, et c'est exemplaire plutôt que lacunaire : le document ne
+     porte aucun seuil, donc il n'y a aucune tranche dont il faudrait savoir
+     sur qui elle a été établie. Les seuils de 13 ou de 50 qui circulent
+     viennent d'ailleurs et n'ont pas été inscrits.
+  */
+  populationDesPaliers: populationNonLue(
+    'le document ne donne aucun seuil : il n’y a aucune tranche dont il faudrait situer la ' +
+      'population.',
+  ),
 };
 
 export const PHQ9: Echelle = {
@@ -212,6 +262,7 @@ export const PHQ9: Echelle = {
     'score : elle rend l’impression générale de la personne sur la gêne occasionnée. Il précise ' +
     'aussi qu’une décision sur un risque réel de se faire du mal demande un entretien clinique, ' +
     'qu’aucun questionnaire ne remplace.',
+  populationDesPaliers: populationNonLue(POPULATION_DES_TRANCHES_NON_RELUE),
 };
 
 export const GAD7: Echelle = {
@@ -260,6 +311,7 @@ export const GAD7: Echelle = {
   reserve:
     'Le manuel ne donne pas de tableau de conduite à tenir pour le GAD-7, seulement trois points ' +
     'de coupure. Les tranches affichées en sont déduites.',
+  populationDesPaliers: populationNonLue(POPULATION_DES_TRANCHES_NON_RELUE),
 };
 
 export const ECHELLES: readonly Echelle[] = [WHO5, PHQ9, GAD7];
@@ -343,6 +395,23 @@ export function controlerEchelles(echelles: readonly Echelle[] = ECHELLES): stri
        Un palier sans provenance serait présenté comme le jugement de
        Cyclades. C'est exactement ce que la décision du 13 octobre refuse.
     */
+    /*
+       La cohérence de la population est contrôlée ici, et pas seulement dans
+       `essais:population` : ce contrôle-ci tourne partout où les échelles
+       sont relues, l'essai ne tourne que quand on le lance.
+    */
+    problemes.push(...controlerPopulation(e.populationDesPaliers, `« ${e.id} »`));
+    /*
+       ET L'INVERSE DU PIÈGE : des paliers affichés avec une population
+       DÉCLARÉE mais aucune provenance de tranches serait un repère qui sait à
+       qui il s'applique sans savoir d'où il sort. Les deux vont ensemble.
+    */
+    if (e.populationDesPaliers.declaree && !e.paliers.length) {
+      problemes.push(
+        `« ${e.id} » déclare la population de ses paliers alors qu'il n'en affiche aucun.`,
+      );
+    }
+
     if (e.paliers.length && !e.origineDesPaliers) {
       problemes.push(
         `« ${e.id} » affiche des paliers sans dire d’où ils viennent. Un palier sans sa ` +

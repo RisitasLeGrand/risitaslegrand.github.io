@@ -107,7 +107,9 @@ import LienReglages from '../components/LienReglages.astro';
           Ne pas chiffrer ce fichier
           <span class="block text-xs text-amber-700 dark:text-amber-400">
             Le fichier sera alors lisible par quiconque l'ouvre. Il contient vos
-            notes de séance.
+            notes de séance. Votre suivi personnel n’y sera pas : il ne part que
+            dans un fichier chiffré. Restaurer un fichier non chiffré efface
+            donc le suivi enregistré ici.
           </span>
         </span>
       </label>
@@ -673,7 +675,9 @@ import LienReglages from '../components/LienReglages.astro';
       dire(
         'message-cyclades',
         vue.magasinsInconnus.length
-          ? `Fichier vérifié. Il porte ${vue.magasinsInconnus.length} magasin(s) que cette version ne connaît pas : ils seront conservés dans le fichier, mais pas restaurés ici.`
+          ? vue.magasinsInconnus.length === 1
+            ? 'Fichier vérifié. Il porte un magasin que cette version ne connaît pas : il sera conservé dans le fichier, mais pas restauré ici.'
+            : `Fichier vérifié. Il porte ${vue.magasinsInconnus.length} magasins que cette version ne connaît pas : ils seront conservés dans le fichier, mais pas restaurés ici.`
           : 'Fichier vérifié. Rien n’a encore été appliqué.',
         'succes',
       );

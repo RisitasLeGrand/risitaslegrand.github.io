@@ -75,11 +75,76 @@ export function controlerPrise(p: Prise): string[] {
   return problemes;
 }
 
+/**
+ * Les natures de statut, et pourquoi la clé `cycle` n'a pas été renommée.
+ *
+ * `cycle` signifie **cure** : la période pendant laquelle on prend quelque
+ * chose. C'est le sens du mot dans ce domaine, et le libellé affiché le dit
+ * désormais — « Phase de cure ».
+ *
+ * ## Le second temps de la décision B n'a pas eu lieu, et c'est délibéré
+ *
+ * Le plan de phase 0 prévoyait de renommer **la clé** avec l'arrivée du
+ * module de suivi, « qui impose de toute façon un changement de schéma : la
+ * migration voyage avec lui ». La prémisse ne tient pas : `nature` est à
+ * l'intérieur du scellé, la clé du coffre vit en mémoire, et le bloc
+ * `upgrade` de `db.ts` ne l'a pas. **Une migration de schéma ne peut pas lire
+ * ce champ, donc pas le réécrire.**
+ *
+ * Il aurait fallu une conversion paresseuse coffre ouvert — une seconde
+ * opération qui touche des données de santé chiffrées, après
+ * `migration-du-coffre.ts` qu'Alexis a conditionnée à une sauvegarde
+ * confirmée — plus une période à deux clés, plus `NATURES_ECARTEES` à faire
+ * fonctionner sur les deux noms puisque c'est un filtre de confidentialité
+ * accroché à cette chaîne.
+ *
+ * Le coût était un mécanisme de réécriture de données chiffrées ; le
+ * bénéfice, le confort d'un relecteur. Le pilote a tranché le 19 octobre :
+ * **on ne renomme pas.** L'ambiguïté que la décision visait est levée par le
+ * libellé, et le risque de collision est écarté autrement — les statuts que
+ * le suivi ajoutera porteront `contraception`, `grossesse`, `allaitement` et
+ * `menopause`, dont aucun ne ressemble à `cycle`.
+ *
+ * L'option de la conversion reste ouverte, et elle est inscrite dans
+ * `docs/cyclades/decisions-en-attente-cycle-2026-10-19.md` : elle demanderait
+ * une sauvegarde confirmée par Alexis.
+ */
 export type NatureDuStatut = 'traitement' | 'cycle' | 'substance' | 'autre';
 
+/**
+ * Les libellés affichés, et pourquoi `cycle` ne dit plus « Phase du cycle ».
+ *
+ * Dans une liste qui porte par ailleurs « Traitement hormonal » et
+ * « Substance », « cycle » désigne une **cure** — la période pendant
+ * laquelle on prend quelque chose. C'est le sens du mot dans ce domaine, et
+ * c'était clair tant qu'aucun autre cycle n'existait dans Cyclades.
+ *
+ * Le suivi menstruel arrive. « Phase du cycle » désignerait alors deux
+ * choses dans la même application, et l'écran n'aurait aucun moyen de les
+ * départager. Décision B du plan de phase 0, premier temps : le **libellé**
+ * change, la **clé stockée ne bouge pas**, aucune migration, aucune donnée
+ * touchée. Le renommage de la clé viendra avec le module, qui impose de
+ * toute façon un changement de schéma.
+ *
+ * ## Deux choses que ce renommage ne règle pas, et qu'il ne faut pas croire réglées
+ *
+ * Les statuts **déjà saisis** sous cette nature changent d'étiquette à
+ * l'écran. Si l'un d'eux notait une phase menstruelle — ce que le libellé
+ * d'origine autorisait à lire ainsi — il s'affiche désormais comme une cure.
+ * Rien dans le code ne permet de savoir lequel des deux sens a été employé,
+ * et la donnée est sous coffre : c'est à la personne de le relire.
+ *
+ * Et `NATURES_ECARTEES` (`faits-sensible.ts`) écarte toujours `'cycle'` de
+ * l'analyse, au titre du filtre du cycle. La clé n'ayant pas changé, le
+ * filtre continue de fonctionner. Il est **plus large que nécessaire** — il
+ * écarte des cures de substances au nom du cycle menstruel —, et c'est le
+ * bon sens de l'erreur : un filtre de confidentialité trop large retient ce
+ * qu'il n'avait pas à retenir, un filtre trop étroit laisse passer ce qu'il
+ * devait garder. Il sera resserré avec le renommage de la clé.
+ */
 export const NATURES: Record<NatureDuStatut, string> = {
   traitement: 'Traitement hormonal',
-  cycle: 'Phase du cycle',
+  cycle: 'Phase de cure',
   substance: 'Substance',
   autre: 'Autre',
 };

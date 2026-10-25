@@ -11,6 +11,7 @@ import config from '../../../site.config.mjs';
 import {
   MAGASINS_PROGRESSION,
   MAGASINS_SAUVEGARDES,
+  magasinsDUneSauvegarde,
   ecrireDerniereSauvegarde,
   exporterMagasins,
   lireDerniereSauvegarde,
@@ -64,11 +65,27 @@ export interface ResultatSauvegarde {
  * façon de le faire fuir par mégarde.
  */
 export async function fabriquer(motDePasse: string | null): Promise<ResultatSauvegarde> {
-  const magasins = await exporterMagasins();
+  /*
+     LE CYCLE N'ENTRE PAS DANS UN FICHIER EN CLAIR — § 6.9 du prompt 30.
+
+     `motDePasse === null` est le refus explicite du chiffrement, et c'est la
+     seule information dont la décision a besoin : le reste
+     (`magasinsDUneSauvegarde`, `db.ts`) dit lesquels partent, et pourquoi.
+
+     L'exclusion est ici, dans la fabrique, et non à l'appel : un second
+     chemin qui voudrait sauvegarder passerait par la même porte.
+  */
+  const emportes = magasinsDUneSauvegarde(motDePasse !== null);
+  const magasins = await exporterMagasins(emportes);
   const maintenant = new Date();
   const sauvegarde = await ecrire({
     magasins,
-    branches: [brancheRevisions()],
+    /*
+       La branche déclare ce qu'elle apporte, donc elle déclare la même
+       liste : annoncer des magasins que le fichier ne porte pas rendrait
+       l'aperçu de restauration faux.
+    */
+    branches: [{ ...brancheRevisions(), magasins: [...emportes] }],
     versionApplication: (config as { version?: string }).version ?? 'inconnue',
     portee: {
       branches: BRANCHES.filter((b) => b.disponible).map((b) => b.id),

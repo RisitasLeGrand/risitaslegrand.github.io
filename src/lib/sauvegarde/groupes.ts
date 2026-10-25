@@ -175,8 +175,13 @@ export const clefVisee = (clef: string, visees: ClefsVisees): boolean =>
 /**
  * Le champ portant la date d'un enregistrement, par magasin.
  *
- * `null` veut dire « état courant, sans historique » : le magasin ne se découpe
- * pas par période.
+ * `null` veut dire « ce magasin ne se découpe pas par période ». C'était
+ * **toujours** parce qu'il porte un état courant sans historique, et ce n'est
+ * plus vrai depuis le suivi personnel : `odysseeCycleJournal` est un
+ * historique, mais ses dates sont scellées et ses clés sont des empreintes,
+ * donc aucune date n'y est lisible sans le coffre. Le motif du refus se lit
+ * donc par magasin — `raisonDuRefusDeDecoupage` ci-dessous — et non par une
+ * phrase unique recopiée aux trois endroits qui l'affichaient.
  */
 export const CHAMP_DATE: Record<string, string | null> = {
   /*
@@ -288,6 +293,47 @@ export const CHAMP_DATE: Record<string, string | null> = {
   odysseeOccurrences: 'jourPrevu',
   odysseeEtapesCochees: 'jourPrevu',
   odysseeExceptionsScellees: null,
+  /*
+     LE SUIVI PERSONNEL : `null` POUR LES DEUX, et la raison a changé depuis
+     le lot 4 — où j'avais écrit `majLe` pour le journal.
+
+     Ce choix-là était faux, et doublement. `majLe` est une date, donc le
+     garder en clair pour pouvoir découper par période rendait en clair le
+     rythme que l'empreinte de la clé cache — ce que le § 6.9 du prompt 30
+     interdit nommément. Et je l'avais défendu comme « une approximation qu'on
+     écrit plutôt qu'un oubli qui se tait », ce qui était une bonne phrase
+     pour un mauvais choix.
+
+     `null` ici ne veut donc pas dire « on renonce à l'effacement par
+     période ». Il veut dire que cet effacement ne passe pas par le chemin en
+     clair : le module le fait coffre ouvert, en recalculant les empreintes
+     des jours de la plage (`effacerLaPeriode`, `odyssee/donnees-cycle.ts`).
+     La partie 1 point 10 du prompt 30 demande que le cycle soit « effaçable
+     par période par purge physique » ; il l'est, par là.
+  */
+  /*
+     LA QUESTION QUE `claude/cycle-d2` LAISSAIT OUVERTE ICI EST TRANCHÉE, et
+     elle l'est plus bas.
+
+     Cette branche déclarait les créneaux marqués sur `majLe` en disant que
+     c'était un pis-aller : `majLe` est une date, la liste des `majLe` rend le
+     rythme des prises que l'empreinte de la clé cache, et le remède serait
+     « `clairs: ['id']`, `null` ici, et un effacement par période dans le
+     module ». Le prompt 52 a fait exactement cela entre-temps. La ligne en
+     double est donc partie plutôt que d'être arbitrée : elle demandait un
+     champ qui n'est plus en clair, et le garde-fou d'`essais:schema` l'aurait
+     refusée. Voir l'entrée des créneaux marqués plus bas.
+  */
+  odysseeCycleJournal: null,
+  odysseeCycleReglages: null,
+  /*
+     Le sexe déclaré : `null`, et sans approximation. Un enregistrement unique
+     qui porte une réponse ne se découpe pas par période, et `majLe` reste
+     dans le scellé — pour la raison écrite plus haut à propos du journal, qui
+     vaut ici aussi : une date en clair sur un enregistrement unique dirait
+     quand la réponse a été donnée ou changée.
+  */
+  odysseeSexe: null,
   /*
      `null` — « jamais découpé », et pour une fois ce n'est pas une
      approximation. Un report ne porte AUCUNE date : en mettre une en clair
@@ -534,6 +580,41 @@ export const GROUPES: readonly GroupeDeMagasins[] = [
       'odysseeSymptomes',
       'odysseeConditions',
       'odysseeRessentis',
+      /*
+         Le suivi personnel entre dans le groupe « Odyssée » et NE REÇOIT PAS
+         DE GROUPE PROPRE. Un groupe « Suivi personnel » sur l'écran
+         d'effacement nommerait le module à qui regarde par-dessus l'épaule,
+         ce que la décision 4.8 — la discrétion — interdit. C'est aussi la
+         convention déjà suivie ici : ce groupe efface le journal de Psyché,
+         les traitements et les comptes sans les énumérer dans son libellé.
+      */
+      /*
+         `odysseeCreneaux` A MANQUÉ À CE GROUPE, et personne ne l'avait vu —
+         la leçon de `claude/cycle-d2`, gardée ici parce qu'elle vaut plus que
+         l'entrée qu'elle accompagnait.
+
+         Le magasin arrive du prompt 52 ; `essais:schema` connaît depuis le
+         lot 5d les QUATRE endroits où un magasin se déclare, dont ce groupe
+         et la règle de rétention, là où la version qui était sur `main` n'en
+         gardait que trois. Le trou a donc pu partir : « effacer mes
+         données » laissait les créneaux marqués derrière lui en se disant
+         complet. C'est la classe de défaut pour laquelle le quatrième
+         contrôle a été écrit.
+
+         Les deux branches ont ensuite comblé le trou chacune de son côté, et
+         la fusion a empilé les deux entrées sans conflit : `essais:effacement`
+         a rougi sur « un magasin partagé n'est jamais pris entier par deux
+         groupes ». Il n'en reste qu'une, celle d'au-dessus.
+      */
+      'odysseeCycleJournal',
+      'odysseeCycleReglages',
+      /*
+         Le sexe déclaré s'efface avec Odyssée, et non dans un groupe à lui :
+         un groupe « Sexe déclaré » dans la liste des groupes nommerait la
+         chose à quiconque ouvre l'écran d'effacement, ce que la même
+         discrétion 4.8 interdit.
+      */
+      'odysseeSexe',
       'odysseeCheckins',
       'odysseeComptes',
       'odysseeValorisations',
@@ -596,10 +677,10 @@ const REFUS_PAR_DEFAUT =
  *
  * Ce qui est montré à la personne quand l'effacement laisse un magasin
  * entier. La phrase par défaut vaut pour la quasi-totalité des magasins sans
- * date — ce sont des états courants. Les exceptions ont la leur, parce que la
- * raison y est autre et qu'afficher « un état courant et non un historique »
- * à propos d'un journal de saisies quotidiennes serait faux — dit à la
- * personne, au moment où elle décide d'effacer.
+ * date ; les cinq nommées ci-dessous ont la leur, parce que la raison y est
+ * autre et qu'afficher « un état courant et non un historique » à propos d'un
+ * journal de saisies quotidiennes serait faux — dit à la personne, au moment
+ * où elle décide d'effacer.
  */
 export const RAISONS_DU_REFUS_DE_DECOUPAGE: Record<string, string> = {
   odysseeCreneaux:
@@ -612,6 +693,13 @@ export const RAISONS_DU_REFUS_DE_DECOUPAGE: Record<string, string> = {
   */
   odysseeExceptionsScellees:
     'l’une de ses clés ne livre pas son jour : il est laissé entier plutôt qu’effacé à moitié',
+  odysseeSexe:
+    'ce magasin porte une réponse courante et non un historique : une période ne le découpe pas',
+  odysseeCycleJournal:
+    'ce journal est scellé et ses clés sont des empreintes : aucune date n’y est lisible ' +
+    'sans votre coffre, donc une période ne le découpe pas ici',
+  odysseeCycleReglages:
+    'ce magasin porte un réglage courant et non un historique : une période ne le découpe pas',
 };
 
 export const raisonDuRefusDeDecoupage = (nom: string): string =>

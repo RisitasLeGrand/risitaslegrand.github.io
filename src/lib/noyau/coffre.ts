@@ -366,6 +366,82 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
       'autres reste dehors.',
     clairs: ['id', 'traitementId', 'jour', 'majLe'],
   },
+  /*
+     LE SUIVI PERSONNEL. Deux magasins, deux régimes de champs clairs, et la
+     différence est tout l'intérêt.
+
+     Le journal porte `id` et `majLe`, et RIEN D'AUTRE. Pas de `jour`, alors
+     que tous ses voisins en ont un : sa clé est déjà l'empreinte du jour, et
+     laisser la date en clair à côté réécrirait exactement ce que l'empreinte
+     cache. Une liste de clés qui dirait « 1er, 2, 3, 28 octobre » livrerait
+     le rythme sans qu'on ouvre une seule valeur — et un rythme se lit sans
+     rien comprendre d'autre. Même geste qu'`odysseeExceptionsScellees`.
+
+     Le prix est réel et assumé : aucune lecture par plage de dates, donc une
+     lecture par jour voulu. Trente et une pour un mois, ce qui est le coût
+     d'une page.
+
+     Les réglages, eux, n'ont qu'un enregistrement et une clé fixe. Il n'y a
+     rien à cacher dans leur clé, et leur valeur est scellée comme les
+     autres : savoir que le suivi est actif est déjà une information.
+  */
+  {
+    magasin: 'odysseeCycleJournal',
+    pourquoi:
+      'Le suivi personnel : des saisies quotidiennes dont la seule existence renseigne sur le ' +
+      'corps de la personne. C’est la donnée que le § 6.1 du prompt 30 protège avant toutes les ' +
+      'autres.',
+    /*
+       `id` SEUL, ET PAS DE `majLe`. C'est l'écart avec tous ses voisins, et il
+       corrige une faute que j'avais commise au lot 4.
+
+       J'avais écrit `['id', 'majLe']` en me félicitant qu'il n'y ait pas de
+       `jour` en clair « alors que tous ses voisins en ont un ». Vrai, et sans
+       portée : `majLe` EST une date — celle de l'écriture de la ligne. Une
+       liste de `majLe` donne les jours de saisie, c'est-à-dire exactement le
+       rythme que l'empreinte de la clé était censée cacher. La clé opaque ne
+       servait à rien, et je l'avais écrit comme une protection.
+
+       Le § 6.9 du prompt 30 l'interdit nommément : « aucun champ d'index en
+       clair ne porte une date, un statut ou un symptôme du cycle ».
+
+       CE QUE CELA COÛTE, et c'est la décision 25 qui demande de le dire :
+       `dateDe()` lit le champ de date DANS L'ENREGISTREMENT EN CLAIR, donc le
+       découpage par période de l'écran de données générique devient
+       impossible pour ce magasin — `CHAMP_DATE` y vaut maintenant `null`.
+       L'effacement par période se fait à la place DANS LE MODULE, coffre
+       ouvert, en recalculant les empreintes des jours de la plage. Aucune
+       date en clair n'est nécessaire pour cela : c'est la propriété de
+       l'empreinte déterministe, que je n'avais pas exploitée.
+    */
+    clairs: ['id'],
+  },
+  {
+    magasin: 'odysseeCycleReglages',
+    pourquoi:
+      'Que le suivi personnel soit actif est déjà une information, et elle se lit en un coup ' +
+      'd’œil. Scellée comme ce qu’elle protège.',
+    /*
+       Même raison, et elle vaut aussi ici : `majLe` sur les réglages dirait
+       QUAND le suivi a été activé ou désactivé. Un seul enregistrement, une
+       seule date, et elle en dit beaucoup.
+    */
+    clairs: ['id'],
+  },
+  {
+    magasin: 'odysseeSexe',
+    pourquoi:
+      'Le sexe déclaré. Il décide de ce que l’application montre, donc le lire reviendrait à ' +
+      'savoir ce qu’elle montre à cette personne — et la réponse elle-même n’a pas à se lire ' +
+      'sans son coffre. Décision d’Alexis du 19 octobre, mêmes règles que le suivi.',
+    /*
+       `id` seul, et la même raison qu'au-dessus : `majLe` dirait quand la
+       réponse a été donnée ou changée. Rien de plus, surtout pas `reponse` —
+       un champ d'index en clair qui porte la réponse donnerait le sexe à
+       quiconque lit les clés, et c'est précisément ce que ce scellé refuse.
+    */
+    clairs: ['id'],
+  },
 ];
 
 const PAR_MAGASIN = new Map(MAGASINS_SCELLES.map((m) => [m.magasin, m]));

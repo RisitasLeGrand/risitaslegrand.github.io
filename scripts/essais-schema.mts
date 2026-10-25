@@ -32,12 +32,42 @@
  * `essais:odyssee:navigateur`, qui sème une base en version 14 et la fait
  * migrer pour de bon. Les deux se complètent : celui-ci garde les numéros,
  * celui-là garde le résultat.
+ *
+ * ## Pourquoi la seconde moitié ne nomme aucun magasin
+ *
+ * Sa première version, sur `claude/p52-mol`, vérifiait les trois
+ * déclarations du seul `odysseeCreneaux`, en dur. Un contrôle qui nomme sa
+ * cible ne garde que sa cible : il serait resté vert pendant que le magasin
+ * suivant naissait sans déclaration de coffre, et il aurait fallu penser à
+ * ajouter trois lignes à chaque magasin — c'est-à-dire se souvenir de
+ * vérifier, ce qui est précisément ce qu'un essai sert à ne plus avoir à
+ * faire.
+ *
+ * Il compare donc les trois ENSEMBLES, et l'écart est le défaut. Mesuré sur
+ * `main` avant d'être écrit : 68 magasins créés, 68 dans la liste de
+ * progression, 33 déclarés scellés, et les quatre écarts vides. Il naît
+ * vert sur un invariant qui tient déjà, et il tiendra pour les magasins du
+ * cycle sans qu'on ait à l'y inviter.
  */
 import { readFileSync } from 'node:fs';
 import { MAGASINS_SCELLES } from '../src/lib/noyau/coffre';
 import { CHAMP_DATE } from '../src/lib/sauvegarde/groupes';
 
-const SOURCE = readFileSync('src/lib/db.ts', 'utf8');
+/**
+ * Les commentaires sont retirés AVANT toute extraction.
+ *
+ * Deux fois dans ce chantier un contrôle a mordu sur un commentaire qui
+ * citait ce qu'il interdisait : la prohibition d'un verbe de prescription, et
+ * ici un commentaire qui explique l'histoire de `vers(34)`. Un relevé qui
+ * compte les commentaires mesure ce que le code DIT de lui-même, pas ce
+ * qu'il fait.
+ */
+const sansCommentaires = (texte: string) =>
+  texte.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+const SOURCE = sansCommentaires(readFileSync('src/lib/db.ts', 'utf8'));
+const COFFRE = sansCommentaires(readFileSync('src/lib/noyau/coffre.ts', 'utf8'));
+const GROUPES = sansCommentaires(readFileSync('src/lib/sauvegarde/groupes.ts', 'utf8'));
 
 let echecs = 0;
 const v = (intitule: string, obtenu: unknown, attendu: unknown) => {
@@ -56,11 +86,6 @@ console.log('\nUN NUMÉRO PAR MIGRATION, ET PAS DEUX');
 const declaree = Number(/^const VERSION = (\d+);$/m.exec(SOURCE)?.[1]);
 v('la version courante est déclarée', Number.isInteger(declaree) && declaree > 0, true);
 
-/*
-   Les blocs `vers(n)`. On prend les appels, pas les commentaires : un
-   commentaire qui cite « vers(34) » pour expliquer l'histoire ne doit pas
-   compter comme un bloc.
-*/
 const numeros = [...SOURCE.matchAll(/^\s*if \(vers\((\d+)\)\) \{$/gm)].map((m) => Number(m[1]));
 v('il y a des blocs de migration', numeros.length > 0, true);
 
@@ -77,17 +102,91 @@ v('aucun bloc ne dépasse la version déclarée', auDela, []);
 */
 v('et la version courante en a un', numeros.includes(declaree), true);
 
-console.log('\nLE MAGASIN DE LA PHASE 4 DE SANTÉ EST DÉCLARÉ PARTOUT');
+console.log('\nQUATRE DÉCLARATIONS PAR MAGASIN, ET AUCUNE QUI MANQUE');
+
+/**
+ * Les magasins qu'une migration crée.
+ *
+ * Deux formes, et la seconde est la raison d'être de cette fonction : la
+ * migration 18 en crée cinq dans une boucle, `createObjectStore(nom)` où
+ * `nom` est une variable. Un relevé qui ne lit que les littéraux les
+ * déclarerait absents — ma première sonde l'a fait, et j'ai failli signaler
+ * trois défauts qui n'existaient pas.
+ */
+const magasinsCrees = (): Set<string> => {
+  const vus = new Set([...SOURCE.matchAll(/createObjectStore\('([^']+)'/g)].map((m) => m[1]));
+  for (const boucle of SOURCE.matchAll(
+    /for \(const \w+ of \[([^\]]+)\][^)]*\)\s*\{\s*base\.createObjectStore\(/g,
+  )) {
+    for (const nom of boucle[1].matchAll(/'([^']+)'/g)) vus.add(nom[1]);
+  }
+  return vus;
+};
+
+/** Le contenu d'une liste exportée de noms de magasins. */
+const listeDeclaree = (nom: string): Set<string> => {
+  const debut = SOURCE.indexOf(`export const ${nom}`);
+  if (debut < 0) return new Set();
+  const corps = SOURCE.slice(debut, SOURCE.indexOf('];', debut));
+  return new Set([...corps.matchAll(/'([^']+)'/g)].map((m) => m[1]));
+};
+
+const crees = magasinsCrees();
+const scelles = new Set([...COFFRE.matchAll(/magasin: '([^']+)'/g)].map((m) => m[1]));
+const progression = listeDeclaree('MAGASINS_PROGRESSION');
+
+const moins = (a: Set<string>, b: Set<string>) => [...a].filter((x) => !b.has(x)).sort();
+
+v('des magasins sont créés', crees.size > 0, true);
+v('des magasins sont déclarés scellés', scelles.size > 0, true);
 
 /*
-   Trois déclarations pour un magasin, et en oublier une ne se voit pas tout
-   de suite : sans la liste de progression il n'est ni effacé ni sauvegardé,
-   sans la déclaration de coffre `sceller()` lève à la première écriture.
+   LES QUATRE ÉCARTS, ET CHACUN EST UNE PANNE DIFFÉRENTE.
+
+   Un magasin scellé mais jamais créé : `sceller()` lève à la première
+   écriture, sur un écran que rien ne rattache à la cause.
+
+   Un magasin scellé hors de la liste de progression : il n'est ni effacé par
+   « effacer mes données » ni porté par une sauvegarde. Les deux mentent — le
+   premier laisse derrière lui ce qu'il dit avoir retiré, le second rend une
+   base amputée en annonçant une restauration.
+
+   Un magasin listé mais jamais créé : la sauvegarde et l'effacement
+   parcourent un nom qui n'existe pas.
+
+   Un magasin créé hors de la liste : le même mensonge que le second, pour un
+   magasin en clair au lieu d'un magasin scellé.
 */
-v('il naît dans une migration', SOURCE.includes("createObjectStore('odysseeCreneaux'"), true);
-v('il est dans la liste des magasins effaçables et sauvegardés', SOURCE.includes("'odysseeCreneaux',"), true);
-const coffre = readFileSync('src/lib/noyau/coffre.ts', 'utf8');
-v('et il est déclaré scellé', coffre.includes("magasin: 'odysseeCreneaux'"), true);
+v('aucun magasin scellé n’est dépourvu de migration', moins(scelles, crees), []);
+v('aucun magasin scellé n’échappe à l’effacement et à la sauvegarde', moins(scelles, progression), []);
+v('aucun nom listé ne désigne un magasin inexistant', moins(progression, crees), []);
+v('aucun magasin créé n’échappe à l’effacement et à la sauvegarde', moins(crees, progression), []);
+
+/*
+   LE QUATRIÈME ENDROIT, et je ne le connaissais pas en écrivant la première
+   version de ce contrôle.
+
+   `essais:effacement` l'a trouvé pour moi au lot suivant : deux magasins
+   neufs, déclarés aux trois endroits que ce contrôle gardait, et pourtant
+   quatre rouges — l'écran d'effacement range les magasins par GROUPES, et un
+   magasin sans groupe n'est ni effacé ni restitué par cet écran. Un magasin
+   a aussi besoin d'une ligne dans `CHAMP_DATE`, qui dit par quel champ une
+   rétention le découpe, ou d'un `null` qui dit qu'elle ne le découpe pas.
+
+   Le contrôle les garde maintenant, pour que le prochain magasin n'ait pas à
+   le redécouvrir par un essai voisin.
+*/
+const dansUnGroupe = new Set(
+  [...GROUPES.matchAll(/magasins: \[([^\]]*)\]/g)].flatMap((bloc) =>
+    [...bloc[1].matchAll(/'([^']+)'/g)].map((m) => m[1]),
+  ),
+);
+const avecChampDate = new Set(
+  [...GROUPES.matchAll(/^\s{2}(\w+): (?:'[^']*'|null),$/gm)].map((m) => m[1]),
+);
+
+v('aucun magasin créé n’échappe à un groupe d’effacement', moins(crees, dansUnGroupe), []);
+v('aucun magasin créé ne manque sa règle de rétention', moins(crees, avecChampDate), []);
 
 console.log('\nUN MAGASIN SCELLÉ NE SE DÉCOUPE QUE SUR UNE DATE QU’IL EXPOSE');
 
@@ -139,7 +238,8 @@ v('aucun champ de découpage n’est la chaîne vide', champsVides.map(([m]) => 
 
 console.log(
   echecs === 0
-    ? `\n\x1b[32mLe schéma est en version ${declaree}, ${numeros.length} migrations, aucun doublon.\x1b[0m\n`
+    ? `\n\x1b[32mLe schéma est en version ${declaree}, ${numeros.length} migrations, aucun doublon. ` +
+        `${crees.size} magasins, dont ${scelles.size} scellés, tous déclarés aux quatre endroits.\x1b[0m\n`
     : `\n\x1b[31m${echecs} en échec.\x1b[0m\n`,
 );
 process.exit(echecs === 0 ? 0 : 1);

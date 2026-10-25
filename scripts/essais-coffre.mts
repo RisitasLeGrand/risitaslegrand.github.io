@@ -147,7 +147,26 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    que personne ne le lançait. Le compte fait son office à une condition, et
    c'est qu'il tourne ; il est au socle depuis `2dc15ce`.
 */
-v('vingt-neuf magasins scellés', MAGASINS_SCELLES.length, 29);
+/*
+   TRENTE-DEUX DEPUIS LE SUIVI PERSONNEL ET LE SEXE DÉCLARÉ, entrés le
+   19 octobre avec `claude/cycle-d2` : `odysseeCycleJournal`,
+   `odysseeCycleReglages` et `odysseeSexe`. Le dernier est scellé parce que la
+   décision d'Alexis fait dépendre l'affichage du suivi d'un sexe féminin
+   déclaré : il faut donc enregistrer la réponse, et une réponse de cette
+   nature ne se garde pas en clair.
+
+   ET LA MÊME LEÇON UNE TROISIÈME FOIS, rapportée par la branche. L'essai y
+   était rouge depuis l'ajout des deux premiers magasins sans que personne le
+   voie, parce qu'il n'était pas encore au socle et que le lot avait lancé les
+   essais qu'il croyait concernés — le schéma, l'effacement, la
+   confidentialité du cycle. Le nombre écrit en dur avait fait son office ;
+   personne ne l'écoutait. Trois récits du même défaut tiennent maintenant à
+   cette seule ligne, et c'est la raison de les garder tous les trois.
+
+   Le compte est une addition, et rien d'autre : 28 sur « main », plus
+   `visites` du lot I, plus ces trois-là.
+*/
+v('trente-deux magasins scellés', MAGASINS_SCELLES.length, 32);
 /*
    Le centre : l'identifiant ET le genre, pas un champ de plus.
 

@@ -155,6 +155,50 @@ verifier(
   true,
 );
 
+/*
+   ══ LA RÉPONSE AU SEXE, DONNÉE PAR LA PORTE PRINCIPALE ══════════════════
+
+   Depuis la décision d'Alexis du 19 octobre, `/odyssee/corps/suivi/`
+   n'apparaît que pour un sexe féminin déclaré. Un balayage fait sur un profil
+   vierge trouve donc la ligne masquée, et déclare la route ORPHELINE — ce
+   qu'elle n'est pas : elle est conditionnelle.
+
+   Deux façons de régler cela, et une seule est bonne.
+
+   La mauvaise aurait été d'inscrire cette route dans une liste d'exceptions :
+   le contrôle aurait cessé de la mesurer, et le jour où la ligne de Corps
+   serait réellement cassée, rien ne l'aurait dit.
+
+   Celle-ci RÉPOND À LA QUESTION, en appuyant sur le bouton que la personne
+   appuierait, sur l'écran où elle est posée. C'est la même règle que
+   `franchir-initialisation.mjs` énonce pour l'initialisation : « Un essai qui
+   passerait par la porte de service cesserait de remarquer que la porte
+   principale est cassée. » Écrire la réponse directement en base aurait été
+   cette porte de service.
+
+   Conséquence voulue : si la question disparaît de Corps, ou si répondre
+   « Féminin » ne montre plus la ligne, ce contrôle rougit — en annonçant la
+   route orpheline. Le message ne nommera pas la cause, mais il montrera
+   l'effet, et c'est déjà ce qu'il sait faire de mieux.
+*/
+const boutonFeminin = page.locator('#reponses-sexe button[data-sexe="feminin"]');
+if (await boutonFeminin.isVisible().catch(() => false)) {
+  await boutonFeminin.click();
+  await page
+    .waitForFunction(
+      () => document.getElementById('ligne-du-suivi')?.classList.contains('hidden') === false,
+      { timeout: 20000 },
+    )
+    .catch(() => {});
+}
+verifier(
+  'la réponse « Féminin » est donnée, donc le suivi est atteignable',
+  await page.evaluate(
+    () => document.getElementById('ligne-du-suivi')?.classList.contains('hidden') === false,
+  ),
+  true,
+);
+
 /** route → Map(cible → coût du lien) */
 const liens = new Map();
 

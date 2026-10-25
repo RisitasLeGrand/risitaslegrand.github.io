@@ -1,0 +1,535 @@
+---
+/**
+ * Suivi personnel — l'écran du module, derrière sa porte.
+ *
+ * ## Pourquoi cette adresse, et pourquoi ce titre
+ *
+ * `/odyssee/corps/suivi/` plutôt qu'une racine à soi. Deux raisons, et aucune
+ * n'est esthétique.
+ *
+ * La **discrétion** (4.8) veut que le mot « règles » n'apparaisse qu'à
+ * l'intérieur du module. Une adresse voyage : elle est dans l'historique, dans
+ * la barre, dans un signet. « suivi » ne dit rien.
+ *
+ * Et le **parent logique** se calcule par le plus long écran déclaré qui
+ * préfixe celui-ci (`noyau/retour.ts`). Sous `/odyssee/corps/`, la flèche de
+ * retour ramène à Corps — c'est-à-dire là d'où l'on vient, puisque c'est de là
+ * que part la ligne vers ce module. Une racine à soi aurait remonté à Odyssée,
+ * et aurait demandé une entrée dans `branches.ts`, qui n'est pas de ce lot.
+ *
+ * ## Les signes d'alerte ne sont plus ici, et c'est pour qu'ils servent
+ *
+ * Ils y étaient, visibles coffre fermé et module désactivé : décision C, « à
+ * tout âge, sous tout statut, module même désactivé » — une information de
+ * sécurité qui attendrait qu'on active un module serait une information qu'on
+ * ne trouve pas le jour où elle sert.
+ *
+ * La décision d'Alexis du 19 octobre a mis une porte devant cet écran : le
+ * suivi n'apparaît que pour un sexe féminin déclaré, coffre ouvert. Les signes
+ * se seraient refermés avec le reste, y compris pour une personne de sexe
+ * féminin qui n'avait pas encore ouvert son coffre. Alexis a tranché pour
+ * l'option 2 vers 17 h 10 : ils ont leur **propre écran**,
+ * `/odyssee/corps/quand-consulter/`, sans aucune condition, et cette page-ci
+ * n'y renvoie même pas — un lien conditionnel se remarque.
+ *
+ * ## Ce que l'écran montre module désactivé, et pourquoi
+ *
+ * Le bloc de recours, et la possibilité d'activer. Rien de plus : une personne
+ * qui arrive ici est déjà, par construction, une personne à qui le suivi
+ * s'adresse.
+ *
+ * ## Ce que l'écran ne fait jamais
+ *
+ * Il n'a **aucune couleur d'alarme** et **aucun déclenchement** : la règle 5
+ * du complément D2 est explicite — « pas de rouge d'alarme, pas de score, pas
+ * de déduction à partir des données saisies. La liste ne se déclenche jamais
+ * toute seule d'après le suivi : elle est consultable, et le renvoi y mène ».
+ *
+ * Et il n'affiche aucun indicateur de volume, que la maquette 8.2 prévoyait
+ * sous « Abondants » : les seuls repères de volume de la collecte viennent de
+ * la source 5, que la règle 3 écarte.
+ */
+import Base from '../../../layouts/Base.astro';
+import FormulaireCoffre from '../../../components/FormulaireCoffre.astro';
+import { chaineImposee } from '../../../lib/odyssee/chaines-du-suivi';
+import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/cycle';
+
+---
+
+<Base titre="Suivi personnel" actif="corps" coffre>
+  <div class="mx-auto max-w-3xl">
+    <!--
+         ══ LA PORTE : hors de portée, cette page ne montre rien ══════════
+
+         Décision d'Alexis du 19 octobre : le suivi n'apparaît que pour un sexe
+         féminin déclaré, et « l'adresse directe montre une page neutre, sans le
+         mot "cycle", qui renvoie vers Corps. Aucun libellé neutre de repli. »
+
+         CE BLOC EST RENDU, L'AUTRE EST MASQUÉ. C'est le sens qui compte : un
+         script qui échoue, un navigateur sans JavaScript, un rendu interrompu
+         laissent la page neutre. L'inverse aurait montré le suivi le temps
+         d'un battement, ce qui suffit à le révéler.
+
+         Ce bloc ne dit pas POURQUOI. Pas « ce suivi ne vous concerne pas »,
+         pas « réservé aux personnes de sexe féminin » : ce serait dire qu'il
+         existe quelque chose derrière. L'absence est muette, et
+         `raisonDeMasquer` (`odyssee/sexe.ts`) existe pour les essais, jamais
+         pour ici — un essai vérifie qu'aucun écran ne l'appelle.
+
+         Le titre de la page et son adresse disent « suivi personnel », et cela
+         reste : c'est le nom neutre choisi par la décision 20 précisément
+         parce qu'il ne révèle rien, et l'adresse le porte de toute façon. Ce
+         qu'Alexis interdit ici est le mot « cycle », qui n'y est pas.
+    -->
+    <div id="hors-portee">
+      <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Suivi personnel</h1>
+      <p class="mt-3 text-sm text-slate-600 dark:text-slate-300">
+        Rien à afficher sur cette page.
+      </p>
+      <a
+        href="/odyssee/corps/"
+        class="mt-4 inline-flex min-h-11 items-center font-medium text-indigo-700 underline underline-offset-4 dark:text-indigo-300"
+        >Revenir à Corps</a
+      >
+    </div>
+    <!-- ══ FIN HORS PORTÉE ═══════════════════════════════════════════════ -->
+
+    <div id="dans-la-portee" class="hidden">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Suivi personnel</h1>
+    <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+      {chaineImposee('mention.ouverture-module')}
+    </p>
+
+    <!--
+      ══ Le coffre ══════════════════════════════════════════════════
+
+      Le composant porte LUI-MÊME l'identifiant `coffre-ferme` et son propre
+      pli. L'envelopper dans une section du même nom faisait un identifiant en
+      double — ce que Playwright a refusé en mode strict, et ce qu'aucun
+      lecteur n'aurait vu à l'œil.
+    -->
+    <div class="mt-6">
+      <FormulaireCoffre raison="Vos saisies, et jusqu’au fait que ce suivi soit actif." />
+    </div>
+
+    <section id="coffre-ouvert" class="mt-6 hidden">
+      <!-- ══ Le module est fermé ═════════════════════════════════════ -->
+      <div
+        id="bloc-inactif"
+        class="hidden rounded-lg border border-slate-200 bg-white p-4 dark:border-slate-700 dark:bg-slate-800"
+      >
+        <h2 class="font-semibold text-slate-900 dark:text-white">Ce suivi n’est pas activé</h2>
+        <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+          Rien n’est enregistré tant que vous ne l’activez pas. En l’activant, vous pourrez noter
+          une saisie par jour, et rien d’autre ne change dans Cyclades.
+        </p>
+        <button
+          id="activer"
+          type="button"
+          class="mt-3 min-h-[44px] rounded-md bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700"
+        >
+          Activer ce suivi
+        </button>
+      </div>
+
+      <!-- ══ Le module est ouvert ════════════════════════════════════ -->
+      <div id="bloc-actif" class="hidden">
+        <h2 class="font-semibold text-slate-900 dark:text-white">Aujourd’hui</h2>
+        <p id="depuis" class="mt-1 text-sm text-slate-500 dark:text-slate-400"></p>
+
+        <fieldset class="mt-4">
+          <legend class="text-sm font-medium text-slate-700 dark:text-slate-200">Saignements</legend>
+          <div id="niveaux" class="mt-2 flex flex-wrap gap-2">
+            {
+              ORDRE_DES_NIVEAUX.map((niveau) => (
+                <button
+                  type="button"
+                  data-niveau={niveau}
+                  class="min-h-[44px] rounded-md border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                >
+                  {NIVEAUX_DE_SAIGNEMENT[niveau]}
+                </button>
+              ))
+            }
+          </div>
+        </fieldset>
+
+        <button
+          id="debut"
+          type="button"
+          class="mt-3 min-h-[44px] w-full rounded-md border border-indigo-300 px-4 py-2 font-medium text-indigo-700 hover:bg-indigo-50 dark:border-indigo-700 dark:text-indigo-300 dark:hover:bg-slate-700 sm:w-auto"
+        >
+          Mes règles commencent aujourd’hui
+        </button>
+
+        <details class="mt-4 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+          <summary class="cursor-pointer text-sm font-medium text-slate-700 dark:text-slate-200">
+            Note
+          </summary>
+          <label class="mt-2 block text-sm text-slate-600 dark:text-slate-300">
+            <span class="sr-only">Note du jour</span>
+            <textarea
+              id="note"
+              rows="3"
+              class="mt-1 w-full rounded-md border border-slate-300 p-2 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
+            ></textarea>
+          </label>
+          <button
+            id="noter"
+            type="button"
+            class="mt-2 min-h-[44px] rounded-md border border-slate-300 px-4 py-2 text-slate-700 dark:border-slate-600 dark:text-slate-200"
+          >
+            Enregistrer la note
+          </button>
+        </details>
+
+        <p id="confirmation" class="mt-3 text-sm text-slate-600 dark:text-slate-300" role="status"></p>
+
+        <!--
+             EFFACER UNE PÉRIODE, ET POURQUOI C'EST ICI ET PAS AILLEURS.
+
+             L'écran « Vos données » découpe par période en lisant une date
+             dans l'enregistrement en clair. Ce journal n'en a aucune — le
+             § 6.9 du prompt 30 l'interdit —, donc il y est laissé entier et
+             l'écran le dit. Sans ce bloc, « effaçable par période » (partie 1
+             point 10) serait vrai pour un programmeur et faux pour la
+             personne : seul le tout serait effaçable.
+
+             Replié, pour ne pas peser sur le chemin de saisie que la maquette
+             8.2 tient à trois appuis. Déplier n'est pas un appui de saisie.
+        -->
+        <details id="replier-effacement" class="mt-6 rounded-lg border border-slate-200 p-3 dark:border-slate-700">
+          <summary class="flex min-h-[44px] cursor-pointer items-center text-sm text-slate-600 dark:text-slate-300">
+            Effacer des saisies
+          </summary>
+          <p class="mt-2 text-sm text-slate-600 dark:text-slate-300">
+            Les saisies de la période choisie sont retirées de cet appareil,
+            définitivement. Les deux dates sont comprises.
+          </p>
+          <div class="mt-3 flex flex-wrap gap-4">
+            <label class="text-sm text-slate-600 dark:text-slate-300">
+              Du
+              <input
+                id="effacer-du"
+                type="date"
+                class="mt-1 block min-h-[44px] rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+            <label class="text-sm text-slate-600 dark:text-slate-300">
+              Au
+              <input
+                id="effacer-au"
+                type="date"
+                class="mt-1 block min-h-[44px] rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+              />
+            </label>
+          </div>
+          <button
+            id="compter-periode"
+            type="button"
+            class="mt-3 min-h-[44px] rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 dark:border-slate-600 dark:text-slate-200"
+          >
+            Compter les saisies de cette période
+          </button>
+          <button
+            id="effacer-periode"
+            type="button"
+            class="mt-3 hidden min-h-[44px] rounded-md border border-slate-400 px-4 py-2 text-sm text-slate-800 dark:border-slate-500 dark:text-slate-100"
+          >
+            Effacer ces saisies
+          </button>
+          <p id="effacement-dit" class="mt-2 text-sm text-slate-600 dark:text-slate-300" role="status"></p>
+        </details>
+
+        <button
+          id="desactiver"
+          type="button"
+          class="mt-6 min-h-[44px] text-sm text-slate-500 underline underline-offset-4 dark:text-slate-400"
+        >
+          Désactiver ce suivi
+        </button>
+        <p class="mt-1 text-xs text-slate-500 dark:text-slate-400">
+          Désactiver n’efface rien : vos saisies restent. Pour les retirer,
+          effacez une période ci-dessus, ou tout le suivi depuis vos données.
+        </p>
+      </div>
+
+      <p id="erreur" class="mt-3 text-sm text-slate-600 dark:text-slate-300" role="status"></p>
+    </section>
+
+    </div>
+  </div>
+</Base>
+
+<script>
+  import {
+    activerLeSuivi,
+    combienDansLaPeriode,
+    desactiverLeSuivi,
+    effacerLaPeriode,
+    lireLesReglages,
+    noterLeJour,
+    saisieDuJour,
+  } from '../../../lib/odyssee/donnees-cycle';
+  import {
+    coffreOuvert,
+    fermerLeCoffre,
+    ouvrirLeCoffre,
+    reprendreLeCoffre,
+    surCoffre,
+  } from '../../../lib/coffre';
+  import { jourLogique } from '../../../lib/noyau/jour-logique';
+  import { leSuiviEstVisibleMaintenant } from '../../../lib/odyssee/portee-du-suivi';
+  import type { NiveauDeSaignement } from '../../../lib/odyssee/cycle';
+
+  const $ = (id: string) => document.getElementById(id)!;
+  const aujourdhui = jourLogique(new Date());
+
+  /** Confirmation neutre, comme la maquette 8.2 la veut. */
+  const dire = (texte: string) => {
+    $('confirmation').textContent = texte;
+  };
+
+  const direLErreur = (e: unknown) => {
+    $('erreur').textContent = e instanceof Error ? e.message : String(e);
+  };
+
+  async function peindre() {
+    /*
+       LA PORTE D'ABORD, ET AVANT TOUTE LECTURE.
+
+       `leSuiviEstVisibleMaintenant()` passe par la porte du registre des
+       usages (`odyssee/portee-du-suivi.ts`) : c'est un usage déclaré du sexe,
+       pas la lecture de son propre champ. Hors de portée, cette fonction
+       rend la main sans avoir lu ni les réglages du suivi, ni une saisie —
+       une page qui cache ce qu'elle vient de déchiffrer n'est pas une page
+       qui ne montre rien.
+
+       Le formulaire du coffre est masqué lui aussi : il appartient au bloc
+       `dans-la-portee`, donc le proposer reviendrait à dire qu'il y a quelque
+       chose à déverrouiller ici.
+    */
+    const dansLaPortee = await leSuiviEstVisibleMaintenant();
+    $('hors-portee').classList.toggle('hidden', dansLaPortee);
+    $('dans-la-portee').classList.toggle('hidden', !dansLaPortee);
+    if (!dansLaPortee) return;
+
+    const ouvert = coffreOuvert();
+    $('coffre-ferme').classList.toggle('hidden', ouvert);
+    $('coffre-ouvert').classList.toggle('hidden', !ouvert);
+    if (!ouvert) return;
+
+    try {
+      const reglages = await lireLesReglages();
+      $('bloc-inactif').classList.toggle('hidden', reglages.actif);
+      $('bloc-actif').classList.toggle('hidden', !reglages.actif);
+      if (!reglages.actif) return;
+
+      $('depuis').textContent = reglages.activeLe
+        ? `Suivi actif depuis le ${reglages.activeLe}.`
+        : '';
+
+      const saisie = await saisieDuJour(aujourdhui);
+      for (const bouton of document.querySelectorAll<HTMLButtonElement>('#niveaux button')) {
+        const choisi = saisie?.niveau === bouton.dataset.niveau;
+        bouton.setAttribute('aria-pressed', String(choisi));
+        bouton.classList.toggle('border-indigo-600', choisi);
+        bouton.classList.toggle('font-semibold', choisi);
+      }
+      ($('note') as HTMLTextAreaElement).value = saisie?.note ?? '';
+      $('debut').setAttribute('aria-pressed', String(saisie?.debutDeclare ?? false));
+    } catch (e) {
+      direLErreur(e);
+    }
+  }
+
+  /**
+   * Un appui suffit, et c'est la mesure de la maquette 8.2.
+   *
+   * Le niveau s'enregistre au clic, sans bouton de validation : c'est ce qui
+   * fait tenir « trois appuis au plus depuis l'ouverture du module ». La note
+   * et le début déclaré gardent leur propre appui, parce qu'ils sont
+   * facultatifs.
+   */
+  async function marquer(niveau: NiveauDeSaignement, debutDeclare?: boolean) {
+    try {
+      const avant = await saisieDuJour(aujourdhui);
+      await noterLeJour(aujourdhui, niveau, {
+        note: ($('note') as HTMLTextAreaElement).value,
+        debutDeclare: debutDeclare ?? avant?.debutDeclare ?? false,
+      });
+      dire('Saisie enregistrée.');
+      await peindre();
+    } catch (e) {
+      direLErreur(e);
+    }
+  }
+
+  for (const bouton of document.querySelectorAll<HTMLButtonElement>('#niveaux button')) {
+    bouton.addEventListener('click', () => {
+      void marquer(bouton.dataset.niveau as NiveauDeSaignement);
+    });
+  }
+
+  /*
+     « Mes règles commencent aujourd'hui » pose le début ET un niveau, parce
+     qu'un début déclaré sans saignement est refusé par le contrôle du modèle.
+     « Traces » est le plus bas qui ait un sens ici ; la personne corrige d'un
+     appui si c'est plus.
+  */
+  $('debut').addEventListener('click', () => {
+    void (async () => {
+      const avant = await saisieDuJour(aujourdhui);
+      const niveau =
+        avant && avant.niveau !== 'aucun' ? avant.niveau : ('traces' as NiveauDeSaignement);
+      await marquer(niveau, true);
+    })();
+  });
+
+  $('noter').addEventListener('click', () => {
+    void (async () => {
+      const avant = await saisieDuJour(aujourdhui);
+      await marquer(avant?.niveau ?? 'aucun');
+    })();
+  });
+
+  $('activer').addEventListener('click', () => {
+    void (async () => {
+      try {
+        await activerLeSuivi();
+        await peindre();
+      } catch (e) {
+        direLErreur(e);
+      }
+    })();
+  });
+
+  /*
+     EFFACER EN DEUX TEMPS : compter, puis effacer ce qui a été compté.
+
+     Un effacement ne se défait pas, et l'écran « Vos données » compte avant
+     d'appliquer pour cette raison. Le même geste ici : le premier appui dit
+     combien de saisies la période porte — sans en ouvrir aucune, `getKey` ne
+     lit pas les valeurs —, et c'est seulement après que le bouton d'effacement
+     paraît. Une période mal saisie se voit donc avant, et non après.
+
+     Le compte est refait à l'effacement, et le bouton se cache dès qu'une
+     date change : effacer « ces 4 saisies » après avoir modifié les bornes
+     effacerait autre chose que ce qui a été annoncé.
+  */
+  const direLEffacement = (texte: string) => {
+    $('effacement-dit').textContent = texte;
+  };
+
+  const bornesDEffacement = (): { du: string; au: string } | null => {
+    const du = ($('effacer-du') as HTMLInputElement).value;
+    const au = ($('effacer-au') as HTMLInputElement).value;
+    if (!du || !au) {
+      direLEffacement('Choisissez les deux dates.');
+      return null;
+    }
+    if (au < du) {
+      direLEffacement('La seconde date est avant la première.');
+      return null;
+    }
+    return { du, au };
+  };
+
+  const nombreDeSaisies = (combien: number) =>
+    combien === 1 ? 'une saisie' : `${combien.toLocaleString('fr-FR')} saisies`;
+
+  for (const champ of ['effacer-du', 'effacer-au']) {
+    $(champ).addEventListener('change', () => {
+      $('effacer-periode').classList.add('hidden');
+      direLEffacement('');
+    });
+  }
+
+  $('compter-periode').addEventListener('click', () => {
+    void (async () => {
+      const bornes = bornesDEffacement();
+      if (!bornes) return;
+      try {
+        const combien = await combienDansLaPeriode(bornes.du, bornes.au);
+        $('effacer-periode').classList.toggle('hidden', combien === 0);
+        direLEffacement(
+          combien === 0
+            ? 'Aucune saisie dans cette période.'
+            : `Cette période porte ${nombreDeSaisies(combien)}.`,
+        );
+      } catch (e) {
+        direLErreur(e);
+      }
+    })();
+  });
+
+  $('effacer-periode').addEventListener('click', () => {
+    void (async () => {
+      const bornes = bornesDEffacement();
+      if (!bornes) return;
+      try {
+        const parties = await effacerLaPeriode(bornes.du, bornes.au);
+        $('effacer-periode').classList.add('hidden');
+        direLEffacement(
+          parties === 0
+            ? 'Aucune saisie dans cette période.'
+            : parties === 1
+              ? 'Une saisie effacée.'
+              : `${parties.toLocaleString('fr-FR')} saisies effacées.`,
+        );
+        await peindre();
+      } catch (e) {
+        direLErreur(e);
+      }
+    })();
+  });
+
+  $('desactiver').addEventListener('click', () => {
+    void (async () => {
+      try {
+        await desactiverLeSuivi();
+        dire('');
+        await peindre();
+      } catch (e) {
+        direLErreur(e);
+      }
+    })();
+  });
+
+  /*
+     LE FORMULAIRE DU COFFRE SE BRANCHE ICI, et ce n'est pas facultatif : le
+     composant rend le champ et le bouton, la PAGE ouvre le coffre. Je l'avais
+     oublié, et l'essai au navigateur l'a trouvé — l'écran montrait un
+     formulaire qui ne faisait rien, ce qu'aucune relecture de la mise en page
+     n'aurait signalé.
+  */
+  $('ouvrir-coffre').addEventListener('click', () => {
+    void (async () => {
+      const champ = $('mdp-coffre') as HTMLInputElement;
+      const erreur = await ouvrirLeCoffre(champ.value, {
+        memoriserAppareil:
+          (document.getElementById('coffre-appareil') as HTMLInputElement | null)?.checked ?? false,
+      });
+      $('erreur-coffre').classList.toggle('hidden', erreur === null);
+      if (erreur) {
+        $('erreur-coffre').textContent = erreur;
+        return;
+      }
+      champ.value = '';
+      await peindre();
+    })();
+  });
+  $('mdp-coffre').addEventListener('keydown', (evenement) => {
+    if ((evenement as KeyboardEvent).key === 'Enter') $('ouvrir-coffre').click();
+  });
+  document.getElementById('fermer-coffre')?.addEventListener('click', () => {
+    fermerLeCoffre();
+    void peindre();
+  });
+
+  surCoffre(() => void peindre());
+  void (async () => {
+    await reprendreLeCoffre();
+    await peindre();
+  })();
+</script>

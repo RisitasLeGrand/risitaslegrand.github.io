@@ -569,7 +569,9 @@ import LienReglages from '../components/LienReglages.astro';
     $('decompte-total').textContent =
       d.vises === 0
         ? 'Rien ne serait effacé avec ce choix.'
-        : `${d.vises.toLocaleString('fr-FR')} enregistrement(s) seraient effacés, définitivement.`;
+        : d.vises === 1
+          ? 'Un enregistrement serait effacé, définitivement.'
+          : `${d.vises.toLocaleString('fr-FR')} enregistrements seraient effacés, définitivement.`;
 
     const liste = $('decompte-detail');
     liste.replaceChildren();
@@ -588,9 +590,10 @@ import LienReglages from '../components/LienReglages.astro';
          historique », ce qui était vrai de tous les magasins refusés tant que
          c'était la seule raison de refuser. Les créneaux marqués en ajoutent
          une autre — leurs dates sont scellées, donc le découpage demande un
-         coffre ouvert —, et la phrase recopiée devenait fausse à l'écran, dite
-         à la personne au moment où elle décide d'effacer. `compter` porte déjà
-         le motif de chacun : il est affiché tel quel.
+         coffre ouvert —, et le journal du suivi personnel la même, pour la
+         même raison. La phrase recopiée devenait fausse à l'écran, dite à la
+         personne au moment où elle décide d'effacer. `compter` porte déjà le
+         motif de chacun : il est affiché tel quel.
       */
       refus.replaceChildren();
       const titre = document.createElement('p');

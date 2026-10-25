@@ -1,0 +1,118 @@
+---
+/**
+ * « Quand consulter » : la collecte D2, accessible sans aucune condition.
+ *
+ * ## Pourquoi cette page existe séparément
+ *
+ * Ces phrases vivaient dans l'écran du suivi personnel, où elles étaient
+ * visibles coffre fermé et module désactivé. La décision d'Alexis du
+ * 19 octobre a masqué le suivi pour tout autre sexe que féminin, signes
+ * d'alerte compris — ce qui retirait à tout le monde la seule partie du module
+ * qui n'était pas du suivi : une personne qui saigne beaucoup, ou qui a une
+ * douleur qu'elle ne s'explique pas, lisait ces repères sans rien déverrouiller
+ * ni rien déclarer.
+ *
+ * Alexis a tranché le 19 octobre vers 17 h 10 pour l'option 2 : le suivi reste
+ * restreint, et **« Quand consulter » reste accessible sans condition** — sans
+ * coffre, sans déclaration, quel que soit le sexe. D'où cette page, qui n'a ni
+ * porte ni coffre.
+ *
+ * ## Ce que son existence ne doit pas révéler
+ *
+ * Ni son intitulé, ni son adresse, ni son contenu ne nomment le cycle ou le
+ * suivi, et **elle ne porte aucun lien vers le suivi**. Pas même un lien
+ * conditionnel : un lien qui paraît pour certaines personnes et pas pour
+ * d'autres est précisément ce qui se remarque quand on regarde deux écrans
+ * côte à côte. Une personne de sexe féminin atteint le suivi depuis l'écran
+ * Corps, comme avant ; cette page-ci ne sait pas qu'il existe.
+ *
+ * `essais:signes-alerte` compare chaque phrase à la collecte, et
+ * `essais:suivi:navigateur` mesure l'accès sans condition et l'absence de tout
+ * lien vers le suivi.
+ */
+import Base from '../../../layouts/Base.astro';
+import { chaineImposee } from '../../../lib/odyssee/chaines-du-suivi';
+import {
+  COLLECTE_LE,
+  NIVEAUX,
+  PAGES_CITEES,
+} from '../../../lib/odyssee/cycle-signes-alerte';
+---
+
+<Base titre="Quand consulter" actif="corps">
+  <div class="mx-auto max-w-3xl">
+    <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Quand consulter</h1>
+    <section id="signes" class="mt-4">
+      <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Quand consulter</h2>
+      <p class="mt-2 text-sm text-slate-500 dark:text-slate-400">
+        Les phrases ci-dessous sont citées telles quelles depuis les pages nommées en bas. Cyclades
+        n’en ajoute aucune et n’en déduit aucune de ce que vous saisissez.
+      </p>
+
+      {
+        NIVEAUX.map((niveau) => (
+          <div class="mt-6" data-niveau-alerte={niveau.id}>
+            <h3 class="font-semibold text-slate-800 dark:text-slate-100">{niveau.intitule}</h3>
+            {
+              niveau.groupes.map((groupe) => (
+                <div class="mt-3">
+                  {
+                    groupe.introduction && (
+                      <p class="text-sm text-slate-700 dark:text-slate-200">
+                        « {groupe.introduction.texte} »
+                        <span class="text-slate-500 dark:text-slate-400">
+                          {' '}(source {groupe.introduction.source})
+                        </span>
+                      </p>
+                    )
+                  }
+                  <ul class="mt-2 space-y-2">
+                    {
+                      groupe.items.map((item) => (
+                        <li class="text-sm text-slate-700 dark:text-slate-200">
+                          « {item.texte} »
+                          <span class="text-slate-500 dark:text-slate-400">
+                            {' '}(source {item.source})
+                          </span>
+                        </li>
+                      ))
+                    }
+                  </ul>
+                </div>
+              ))
+            }
+          </div>
+        ))
+      }
+
+      <!-- Règle 4 : source et date de chaque page, toujours visibles. -->
+      <div class="mt-8 rounded-lg bg-slate-50 p-4 text-sm dark:bg-slate-800">
+        <h3 class="font-medium text-slate-800 dark:text-slate-100">D’où viennent ces phrases</h3>
+        <ul class="mt-2 space-y-1 text-slate-600 dark:text-slate-300">
+          {
+            PAGES_CITEES.map((page) => (
+              <li>
+                Source {page.numero} — {page.site}, « {page.titre} », page mise à jour le{' '}
+                {page.misAJourLe}.{' '}
+                <a
+                  href={page.adresse}
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  class="underline underline-offset-4"
+                >
+                  Ouvrir cette page
+                </a>{' '}
+                <span class="text-slate-500 dark:text-slate-400">
+                  — s’ouvre sur {page.site}.fr, hors de Cyclades.
+                </span>
+              </li>
+            ))
+          }
+        </ul>
+        <p class="mt-3 text-slate-600 dark:text-slate-300">
+          Relevé le {COLLECTE_LE}. {chaineImposee('orientation.cloture')}
+        </p>
+      </div>
+    </section>
+  </div>
+</Base>

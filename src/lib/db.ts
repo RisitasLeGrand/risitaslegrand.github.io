@@ -22,6 +22,8 @@ import { signalerEcriture } from './sync/signal-ecriture';
 import type { EntreeRevision } from './noyau/revisions';
 import type { EpreuveEnCours } from './noyau/epreuve-en-cours';
 import { CLE_EPREUVE_EN_COURS } from './noyau/epreuve-en-cours';
+import type { ReglagesDuCycle, SaisieDuCycle } from './odyssee/cycle';
+import type { SexeEnregistre } from './odyssee/sexe';
 import type {
   Evenement,
   EtapeCochee,
@@ -740,6 +742,26 @@ interface SchemaRevinsp extends DBSchema {
   odysseeExceptionsScellees: { key: string; value: ExceptionScellee };
   odysseeReports: { key: string; value: ReportEnAttente };
   centreElements: { key: string; value: ElementDuCentre };
+  /*
+     Le suivi personnel (phases 2 à 5 du plan profil/cycle). Scellés dès leur
+     création, pour la raison déjà écrite deux fois ici : une donnée sensible
+     écrite en clair reste en clair dans les instantanés de migration déjà
+     pris, et on ne la rattrape pas.
+
+     AUCUN INDEX SUR LE JOURNAL, et c'est le point de ce magasin. Sa clé est
+     l'empreinte du jour ; un index sur `jour` réécrirait en clair exactement
+     ce que la clé cache, et la liste des clés redirait le rythme.
+  */
+  odysseeCycleJournal: { key: string; value: SaisieDuCycle };
+  odysseeCycleReglages: { key: string; value: ReglagesDuCycle };
+  /*
+     LE SEXE DÉCLARÉ — décision d'Alexis du 19 octobre.
+
+     Un enregistrement, sous clé fixe, scellé. Aucun index : il n'y a rien à
+     parcourir, et un index sur la réponse donnerait le sexe en clair à
+     quiconque lit le schéma de la base.
+  */
+  odysseeSexe: { key: string; value: SexeEnregistre };
   odysseeQuetes: { key: string; value: Quete };
   odysseeEvenements: { key: string; value: Evenement; indexes: { debut: string } };
   odysseeFocus: { key: string; value: Focus; indexes: { debut: string } };
@@ -1755,6 +1777,50 @@ function ouvrirAuSchema(nom: string, version: number) {
          * Pas d'index : voir le type. La clé est une empreinte, donc muette.
          */
         base.createObjectStore('odysseeCreneaux', { keyPath: 'id' });
+      }
+      /*
+         RÉSOLU LE 19 OCTOBRE AU SOIR, PUIS REPRIS PAR LE TRAIN : SIX
+         MIGRATIONS COEXISTENT.
+
+         `main` apportait la 34 (`podcastPositions`, agent C) et la 35
+         (`odysseeCreneaux`, agent B, prompt 52) ; cette branche apporte la 37
+         et la 38 ; le train y ajoute la 41 et la 42, venues de l'agent A. Les
+         six blocs se suivent dans l'ordre des numéros, et la version vaut le
+         plus grand d'entre eux, 42 : une base arrêtée à 33 rejoue les six, une
+         base à 41 ne rejoue que la dernière. Le conflit ne portait que sur la
+         place, les trois fois.
+
+         La 36 reste au constructeur et n'est pas encore sur `main`. Son
+         absence ne gêne pas : les numéros doivent croître, ils n'ont pas à
+         être contigus.
+
+         37 — le suivi personnel. Le numéro est celui que le pilote a
+         attribué ; 34 à 36 sont pris par d'autres branches en vol, et
+         commencer en haut d'une plage la rendrait inutilisable puisque les
+         numéros doivent croître.
+
+         Deux magasins et non un : les réglages doivent pouvoir être lus pour
+         décider ce qu'un écran propose, alors que le journal ne doit être
+         ouvert que par l'écran du suivi. Les mélanger obligerait à ouvrir le
+         journal pour savoir si le module est actif.
+      */
+      if (vers(37)) {
+        base.createObjectStore('odysseeCycleJournal', { keyPath: 'id' });
+        base.createObjectStore('odysseeCycleReglages', { keyPath: 'id' });
+      }
+      /*
+         LE SEXE DÉCLARÉ, version 38.
+
+         Un magasin à part et non un champ des réglages du suivi, pour une
+         raison de dépendance : la réponse décide si le suivi est MONTRÉ, donc
+         elle se lit avant lui et sans lui. La ranger dans les réglages du
+         module obligerait à ouvrir le module pour savoir s'il faut l'ouvrir.
+
+         Aucune reprise de données : rien n'était stocké avant, `sexe` valait
+         `null` partout. La question se posera à qui ne l'a pas encore vue.
+      */
+      if (vers(38)) {
+        base.createObjectStore('odysseeSexe', { keyPath: 'id' });
       }
       if (vers(41)) {
         /*
@@ -2906,6 +2972,27 @@ export const MAGASINS_PROGRESSION = [
      source emporte ses éléments. Les deux ne tiennent qu'en séparant les
      deux usages de cette liste, qui les confondait.
   */
+  /*
+     Le suivi personnel entre dans la progression, donc il est EFFAÇABLE et
+     SAUVEGARDÉ. Les deux sont voulus : « effacer mes données » qui le
+     laisserait derrière lui mentirait, et une sauvegarde qui l'oublierait
+     rendrait à la restauration une base amputée en annonçant une
+     restauration complète.
+
+     CE COMMENTAIRE DISAIT ENSUITE, AU LOT 4 : « Le fichier est chiffré, et les
+     magasins restent scellés à l'intérieur. » C'était vrai du cas chiffré
+     seulement, et je l'avais écrit comme si c'était le seul : la case « Ne pas
+     chiffrer ce fichier » existe, et son propre avertissement dit que le
+     fichier sera lisible par quiconque l'ouvre. Le § 6.9 du prompt 30 refuse
+     que le cycle entre dans un tel fichier ; `MAGASINS_HORS_SAUVEGARDE_EN_CLAIR`
+     plus bas l'en retire, et cette liste-ci ne décide plus que de
+     l'effacement et de la sauvegarde chiffrée.
+
+     Le sexe déclaré suit les mêmes règles, par consigne du pilote.
+  */
+  'odysseeCycleJournal',
+  'odysseeCycleReglages',
+  'odysseeSexe',
   'centreElements',
   'odysseeQuetes',
   'odysseeEvenements',
@@ -2991,6 +3078,72 @@ export const MAGASINS_HORS_SAUVEGARDE: readonly string[] = ['centreElements', 'v
 export const MAGASINS_SAUVEGARDES: readonly string[] = MAGASINS_PROGRESSION.filter(
   (nom) => !MAGASINS_HORS_SAUVEGARDE.includes(nom),
 );
+
+/**
+ * Ce qu'une sauvegarde **non chiffrée** n'emporte pas.
+ *
+ * Une sauvegarde est normalement chiffrée par le mot de passe du site, et les
+ * magasins scellés restent scellés à l'intérieur : deux serrures. La personne
+ * peut refuser le chiffrement (« Ne pas chiffrer ce fichier », écran
+ * Progression), et le fichier est alors lisible par quiconque l'ouvre. Pour
+ * les magasins scellés, il reste une serrure — la clé du coffre n'y est pas.
+ *
+ * Pour le suivi personnel, le § 6.9 du prompt 30 ne s'en contente pas : « le
+ * cycle n'entre dans aucune sauvegarde non chiffrée ». La raison tient en une
+ * ligne : un fichier en clair circule — par courriel, par clé, dans un dossier
+ * partagé — et la **présence même** d'un journal de suivi y est une
+ * information, avant tout contenu. Deux magasins scellés nommés
+ * `odysseeCycle…` dans un fichier ouvert disent déjà quelque chose.
+ *
+ * ## Pourquoi une liste écrite et non un import
+ *
+ * `NOMS_DES_MAGASINS_DU_CYCLE` (`odyssee/cycle-confidentialite.ts`) porte
+ * exactement ces deux noms. L'importer ici créerait une arête de `db.ts`
+ * — que tout le monde charge — vers un module du suivi. La liste est donc
+ * recopiée, et `essais:cycle-confidentialite` **vérifie qu'elle est égale**
+ * à celle du module : la dérive est tenue par un essai plutôt que par une
+ * dépendance.
+ *
+ * ## Ce que l'exclusion coûte, et qui doit le savoir
+ *
+ * `remplacerMagasins` vide chaque magasin connu, **même absent du fichier**
+ * — c'est le sens de « remplacer », et c'était déjà celui de
+ * `viderProgression`. Donc restaurer une sauvegarde non chiffrée **efface le
+ * suivi** au lieu de le laisser en place. Je ne change pas cette règle ici :
+ * elle est générale, et l'affaiblir pour un module rendrait « remplacer »
+ * faux pour tous les autres. C'est l'écran qui le dit, à l'endroit où la
+ * personne décoche le chiffrement, parce que c'est là que le choix se fait.
+ *
+ * La bonne fermeture serait que le fichier **déclare ses exclusions** et que
+ * la restauration les respecte. C'est un changement de format, hors de ce
+ * lot : il est inscrit dans
+ * `docs/cyclades/decisions-en-attente-cycle-2026-10-19.md`.
+ */
+export const MAGASINS_HORS_SAUVEGARDE_EN_CLAIR: readonly string[] = [
+  'odysseeCycleJournal',
+  'odysseeCycleReglages',
+  /*
+     `odysseeSexe` en est aussi, et le pilote l'a posé comme règle : le champ
+     `sexe` suit celles du suivi — sous coffre, hors sauvegarde non chiffrée,
+     aucun champ d'index en clair qui le révèle.
+
+     La raison vaut peut-être davantage ici : un fichier en clair qui porte un
+     magasin nommé `odysseeSexe` avec un seul enregistrement dit déjà que la
+     personne a répondu, avant tout contenu.
+  */
+  'odysseeSexe',
+];
+
+/**
+ * Les magasins qu'une sauvegarde emporte, selon qu'elle est chiffrée ou non.
+ *
+ * Un seul endroit décide, et `fabriquer` l'appelle : c'est ce qui empêche
+ * qu'un second chemin d'export oublie l'exclusion.
+ */
+export function magasinsDUneSauvegarde(chiffree: boolean): readonly string[] {
+  if (chiffree) return MAGASINS_SAUVEGARDES;
+  return MAGASINS_SAUVEGARDES.filter((nom) => !MAGASINS_HORS_SAUVEGARDE_EN_CLAIR.includes(nom));
+}
 
 /** Vide tous les magasins de progression, dans une seule transaction. */
 async function viderProgression(base: Awaited<ReturnType<typeof db>>) {

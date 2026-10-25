@@ -138,6 +138,14 @@ export const USAGES: readonly UsageDeclare[] = [
     rubrique: 'Profil',
     clesLues: ['majeur'],
     but: 'Ne pas proposer les modules que Cyclades réserve aux majeurs.',
+    /*
+       « Modules disponibles » est une SURFACE À CONSTRUIRE (phase 1), et la
+       formulation reste telle quelle plutôt que d'être adoucie : elle dit ce
+       que l'usage fera, et c'est à l'écran de venir, non à la déclaration de
+       reculer. Relevé le 19 octobre, inscrit aux décisions en attente du
+       cycle. En attendant, le suivi personnel s'atteint par une ligne neutre
+       depuis l'écran Corps.
+    */
     effetVisible: 'Le module n’apparaît pas dans « Modules disponibles ».',
     fondement: { type: 'regle-de-produit' },
     population: 'sans objet',
@@ -150,16 +158,84 @@ export const USAGES: readonly UsageDeclare[] = [
     id: 'profil.question-cycle',
     rubrique: 'Profil',
     clesLues: ['sexe_physio'],
-    but: 'Décider si la question du suivi du cycle est posée d’office.',
-    effetVisible: 'La question apparaît au chapitre « Mon corps ».',
+    /*
+       CET USAGE A CHANGÉ DE NATURE LE 19 OCTOBRE, et il faut le dire ici
+       parce que le registre est ce qu'une personne lit pour savoir ce que
+       l'application fait de son sexe.
+
+       Il décidait si la question du suivi était posée **d'office** : le
+       module restait accessible autrement, « sous un libellé neutre ». C'est
+       ce que le prompt 30 prévoyait, et ce que son `siInconnu` promettait.
+
+       La décision d'Alexis du 19 octobre remplace cela : « Le cycle menstruel
+       ne doit s'afficher QUE pour les utilisateurs féminins. » L'usage est
+       donc devenu une **restriction** — il ne décide plus d'une question
+       posée plus ou moins tôt, il décide de l'existence visible du module.
+       Il n'y a plus de libellé neutre de repli, et l'écart avec le prompt 30
+       est consigné dans
+       `docs/cyclades/decisions-en-attente-cycle-2026-10-19.md`.
+
+       La règle est tenue par une seule fonction, `leSuiviEstVisible`
+       (`odyssee/sexe.ts`), que tous les écrans appellent : quatre conditions
+       recopiées à quatre endroits donneraient trois endroits justes et un
+       oublié, et l'oubli est celui qui montre.
+    */
+    but: 'Restreindre le suivi du cycle au sexe féminin déclaré.',
+    effetVisible:
+      'Le suivi n’apparaît que pour une personne de sexe féminin : ni la ligne de l’écran ' +
+      'Corps, ni l’écran du suivi, ni les signes d’alerte, ni aucun accès futur.',
     fondement: { type: 'regle-de-produit' },
     population: 'sans objet',
     defaut: 'actif',
     siInconnu:
-      'La question n’est pas posée d’office. Le module reste accessible depuis ' +
-      '« Modules disponibles », sous un libellé neutre.',
+      'Le suivi n’est ni proposé ni accessible. C’est le cas d’une réponse « Je préfère ne ' +
+      'pas répondre », d’une question jamais posée, et d’un coffre fermé — où la réponse ne ' +
+      'peut pas être lue.',
     deriveS2: false,
-    revuLe: '2026-10-14',
+    revuLe: '2026-10-19',
+  },
+  {
+    /*
+       LES STATISTIQUES DU SUIVI SONT FERMÉES AUX MINEURS, et le journal reste.
+
+       4.1 du prompt 30, décision 5 : « sous 18 ans, mode "journal seul" :
+       saisie des règles et des symptômes, **sans statistiques de cycle, sans
+       comparaison à un repère, sans estimation, sans signal d'orientation**,
+       mais **avec les symptômes d'urgence** ». La raison y est donnée : les
+       repères vérifiés visent « la période de reproduction », leur validité
+       chez l'adolescente n'est pas vérifiée, et ceux des adolescentes ne
+       s'obtiennent pas en extrapolant.
+
+       Donc : saisir reste possible, calculer ne l'est pas. Ce n'est pas la
+       même chose que fermer le module, et c'est la variante que la décision 5
+       a écartée.
+
+       ÂGE INCONNU = FERMÉ. `franchit` rend « indeterminable » quand rien n'est
+       déclaré, et la porte le traduit en `'inconnu'`. Un défaut ouvert aurait
+       donné les statistiques à qui n'a rien déclaré, c'est-à-dire à tout le
+       monde au premier jour.
+
+       LE SENS DE LA DÉPENDANCE, dit une fois pour qu'on ne s'en inquiète pas
+       en le découvrant : l'âge vient du profil commun, **en clair**, alors que
+       le suivi est sous coffre. C'est le suivi qui lit l'âge, jamais l'inverse
+       — rien du cycle ne remonte vers le profil, et fermer une surface du
+       suivi ne révèle rien, puisque la fermeture est muette.
+    */
+    id: 'suivi.statistiques-majeur',
+    rubrique: 'Suivi personnel',
+    clesLues: ['majeur'],
+    but: 'Fermer les statistiques, les fenêtres et les estimations du suivi sous 18 ans.',
+    effetVisible:
+      'Le journal reste : on saisit ses règles et ses symptômes. Aucune statistique, aucune ' +
+      'fenêtre, aucune estimation. Les repères « Quand consulter » restent accessibles à tous.',
+    fondement: { type: 'regle-de-produit' },
+    population: 'sans objet',
+    defaut: 'actif',
+    siInconnu:
+      'Les statistiques ne sont pas calculées. L’âge inconnu ferme, comme un âge sous 18 ans : ' +
+      'un défaut ouvert les donnerait à qui n’a rien déclaré.',
+    deriveS2: false,
+    revuLe: '2026-10-19',
   },
   {
     id: 'sante.substances-majeur',
@@ -388,14 +464,43 @@ export interface Contexte {
  * Un consommateur absent du registre reçoit un objet vide : pas une erreur, pas
  * une valeur par défaut, rien (1 n° 15). L'essai sur le graphe d'imports est ce
  * qui transforme cette politesse en garantie.
+ *
+ * ## `usagesCoupes` est obligatoire, et c'était un trou
+ *
+ * Le registre déclare, pour le champ `usagesCoupes` (`noyau/profil.ts`) :
+ * « Un usage coupé ne reçoit plus rien, et l'écran le montre comme coupé
+ * plutôt que comme absent. » La seconde moitié était tenue — `etatDUsage`
+ * rend `'coupe'` — mais **pas la première** : cette fonction calculait le
+ * contexte entier sans jamais regarder les coupures. Un usage coupé recevait
+ * tout, et l'écran l'étiquetait « coupé ». La coupure était un libellé.
+ *
+ * Constaté par l'agent C, et le correctif est le paramètre ci-dessous.
+ *
+ * Il est **obligatoire et non facultatif**, ce qui casse les appels existants
+ * et c'est voulu : un paramètre facultatif garde le trou par défaut, et il
+ * suffit alors d'un nouvel appelant qui l'ignore pour que la promesse tombe
+ * à nouveau, sans que rien ne rougisse. Obligatoire, le compilateur demande
+ * à chaque appelant d'où viennent les coupures — question qui a une réponse
+ * dans tous les cas, `[]` compris quand il n'y en a pas.
  */
 export function contextePersonne(
   consommateurId: string,
   etat: EtatDeLaPersonne,
   jour: string,
+  usagesCoupes: readonly string[],
 ): Contexte {
   const u = PAR_ID.get(consommateurId);
   if (!u) return {};
+  /*
+     Un usage coupé reçoit un objet vide, c'est-à-dire la même chose qu'un
+     consommateur inconnu : rien, et non `'inconnu'`. La distinction est celle
+     que `Contexte` écrit plus haut — « tu n'as pas le droit de savoir » n'est
+     pas « personne ne sait » —, et c'est bien la première qui s'applique.
+
+     Avant la boucle, donc avant tout appel à `franchit` ou `trancheDAge` :
+     une coupure ne doit pas se contenter de jeter un résultat calculé.
+  */
+  if (usagesCoupes.includes(consommateurId)) return {};
   const contexte: Contexte = {};
   for (const cle of u.clesLues) {
     switch (cle) {

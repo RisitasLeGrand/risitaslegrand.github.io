@@ -28,6 +28,7 @@
  * analyse, ce que la consigne « donnée morte » interdit.
  */
 import type { Source, ValeurSourcee } from './sante';
+import { populationNonLue } from '../noyau/population';
 
 /* ══════════════════════════════════════════════════════════════════════════
    Le registre des noms (2.8)
@@ -465,13 +466,26 @@ export const NON_DOCUMENTE = 'Non documenté';
    ══════════════════════════════════════════════════════════════════════════ */
 
 /** Le document, cité une fois. Son empreinte vaut pour les onze paires. */
-const THESAURUS: Source = {
+export const THESAURUS: Source = {
   nom: 'Thésaurus des interactions médicamenteuses, ANSM, version de septembre 2023',
   ou:
     'sources/collecte-pilote-2026-10-14/documents/' +
     'collecte-01-sante-D2-D8-D9-E1-E2-E3-G1-G2/E2-ansm-thesaurus-interactions-septembre-2023.pdf',
   le: '2026-10-16',
   empreinte: '0db64c85e805a8cf03c304d2c378045a50766d7c2faed6911871eaf091df4f37',
+  /*
+     Le Thésaurus décrit des interactions entre substances, pas des
+     populations : il ne dit nulle part « chez l'adulte » ou « chez la
+     femme ». Déduire de ce silence qu'il vise tout le monde serait une
+     lecture, pas une citation — et le § 3.3 veut que la population soit
+     lue, pas inférée. Exporté pour que `essais:population` puisse affirmer
+     que ce repère ne porte aucune population, et rougir le jour où il en
+     portera une.
+  */
+  populationVisee: populationNonLue(
+    'le Thésaurus énonce des interactions entre substances et ne nomme aucune population ; ' +
+      'le document est dans la collecte déposée hors du dépôt, et sa portée n’a pas été relue.',
+  ),
 };
 
 /**

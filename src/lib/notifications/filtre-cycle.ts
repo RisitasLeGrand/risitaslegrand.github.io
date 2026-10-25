@@ -52,6 +52,35 @@ export interface SourceDeclaree {
   id: string;
   /** Suit-elle la sensibilité du cycle ? */
   suitLeCycle: boolean;
+  /**
+   * Faut-il connaître la classe de la molécule pour admettre ce signal ?
+   *
+   * ## Le trou que ce champ ferme, et pourquoi il n'était pas visible
+   *
+   * `rappel-de-prise` est déclaré `suitLeCycle: false` — « admis, SAUF pour
+   * une molécule de classe du cycle ». L'exception reposait sur
+   * `classeMolecule`, et **aucune molécule ne porte de classe** : le registre
+   * (`odyssee/molecules.ts`) n'a pas cette notion, et rien ne pourra la
+   * renseigner avant qu'un RCP lu la fournisse.
+   *
+   * Donc la condition `signal.classeMolecule && CLASSES_DU_CYCLE.includes(…)`
+   * ne se déclenchait jamais : un rappel de prise de contraceptif entrait au
+   * centre, avec son libellé « Rappels de prise », et l'exception écrite
+   * juste au-dessus ne protégeait rien. Le trou était **dans la donnée
+   * manquante**, pas dans la logique, ce qui est la façon la plus sûre de ne
+   * pas se faire voir.
+   *
+   * Quand ce champ est vrai, un signal sans classe connue est **écarté**.
+   * C'est l'option (a) arbitrée par le pilote le 19 octobre à 12 h 46 : on
+   * refuse en attendant de savoir, parce que l'autre défaut révèle, et qu'un
+   * défaut qui révèle ne se corrige pas après coup.
+   *
+   * La conséquence est à dire à la personne, et non à cacher : **les rappels
+   * de prise n'apparaissent pas au centre tant que la classe des molécules
+   * n'est pas sourcée.** C'est une fonction en moins, visible, plutôt qu'une
+   * fuite invisible.
+   */
+  exigeUneClasse?: boolean;
   /** Pourquoi, en une phrase affichable dans une revue de code. */
   pourquoi: string;
 }
@@ -70,7 +99,7 @@ export const SOURCES_DECLAREES: readonly SourceDeclaree[] = [
   S({ id: 'avis-de-fusion', suitLeCycle: false, pourquoi: 'Ne nomme aucune branche ni aucun nombre (décision 5).' }),
   S({ id: 'proposition', suitLeCycle: false, pourquoi: 'Adaptation, question de profil, habitude. Aucune ne porte sur le cycle dans ce lot.' }),
   S({ id: 'avertissement-avant-analyse', suitLeCycle: false, pourquoi: 'Source relevée dans le code et absente du tableau 2.2 du prompt ; portée aux trois domaines déclarés, cycle non compris.' }),
-  S({ id: 'rappel-de-prise', suitLeCycle: false, pourquoi: 'Admis, SAUF pour une molécule de classe du cycle — que `suitLaSensibiliteDuCycle` écarte par la classe, pas par la source.' }),
+  S({ id: 'rappel-de-prise', suitLeCycle: false, exigeUneClasse: true, pourquoi: 'Admis SEULEMENT si la classe de la molécule est connue et hors cycle. Aucune molécule n’a de classe à ce jour, donc aucun rappel de prise n’entre au centre : option (a), 19 octobre.' }),
   S({ id: 'veille-du-rythme', suitLeCycle: false, pourquoi: 'Titre neutre hors de Psyché, et jamais de notification du système — le 27 l’interdit.' }),
   S({ id: 'rappel-de-sauvegarde', suitLeCycle: false, pourquoi: 'Ne porte sur aucune donnée.' }),
   S({ id: 'revue-manquee', suitLeCycle: false, pourquoi: 'Compte des revues en attente, aucun contenu (prompt 36).' }),
@@ -112,13 +141,21 @@ export interface SignalAFiltrer {
 /**
  * Ce signal suit-il la sensibilité du cycle, et doit-il donc être écarté ?
  *
- * Quatre raisons d'exclure, et la première est celle qui protège le plus :
- * l'ignorance.
+ * Cinq raisons d'exclure, et deux sont des formes de la même : l'ignorance.
+ * Une source inconnue est exclue ; une molécule dont la classe est inconnue
+ * l'est aussi, pour une source qui exige de la connaître. C'est ce qui
+ * protège le plus, parce que c'est ce qui vaut avant que quoi que ce soit
+ * existe.
  */
 export function suitLaSensibiliteDuCycle(signal: SignalAFiltrer): boolean {
   const declaree = PAR_ID.get(signal.source);
   if (!declaree) return true; // Source inconnue : exclue, par construction.
   if (declaree.suitLeCycle) return true;
+  /*
+     L'IGNORANCE EXCLUT, et c'est l'ordre qui compte : ce contrôle vient AVANT
+     celui de la classe. Une classe inconnue n'est pas une classe hors cycle.
+  */
+  if (declaree.exigeUneClasse && !signal.classeMolecule) return true;
   if (signal.classeMolecule && CLASSES_DU_CYCLE.includes(signal.classeMolecule)) return true;
   if (signal.viseLaSource) {
     const visee = PAR_ID.get(signal.viseLaSource);

@@ -116,6 +116,32 @@ const ETAT_TECHNIQUE: { cle: string; raison: string }[] = [
     cle: 'localStorage::bibliotheque.avertissement.vu',
     raison: 'l’avertissement de la bibliothèque externe, vu une fois',
   },
+  /*
+     LE SUIVI PERSONNEL, et sa raison n'est pas « c'est technique ».
+
+     Ses réglages sont bien un réglage — le suivi est actif ou il ne l'est
+     pas —, et ils ne sont pourtant PAS au catalogue de la page centrale. Une
+     ligne « Suivi personnel : actif » sur une page que l'on ouvre devant
+     quelqu'un révélerait le module, ce que la discrétion 2.6 du prompt 30
+     refuse : c'est la même raison qui replie les clés `suivi_cycle` et
+     `statut_hormonal` sur « Qui utilise mon âge et mon sexe ». L'interrupteur
+     est sur l'écran du suivi, derrière le coffre, et nulle part ailleurs.
+
+     Déclaré ici plutôt qu’au catalogue, donc, et avec la vraie raison
+     écrite : `odysseeVeilleReglages::reglages` au-dessus suit la même voie.
+  */
+  {
+    cle: 'IndexedDB/odysseeCycleReglages::(clé portée par l’objet)',
+    raison:
+      'les réglages du suivi personnel, écrits sous la clé fixe de l’objet scellé ; ' +
+      'absents de la page centrale par discrétion (2.6), pas par oubli',
+  },
+  {
+    cle: 'IndexedDB/odysseeCycleReglages::suivi-personnel',
+    raison:
+      'la même entrée vue par son identifiant (`ID_DES_REGLAGES`) : un seul ' +
+      'enregistrement, réglé depuis l’écran du suivi et coffre ouvert',
+  },
   {
     cle: 'IndexedDB/etat::clé variable : champ as never',
     raison: '`ecrireReglageBrut` : le chemin générique d’un réglage reçu d’un autre appareil',
