@@ -1,0 +1,85 @@
+---
+/**
+ * UNE ICÔNE DE L'INTERFACE.
+ *
+ * ## Elle ne remplace jamais un texte
+ *
+ * C'est la décision 5 du 43, et c'est la raison pour laquelle cette icône porte
+ * toujours `aria-hidden="true"` sans jamais d'`aria-label` : les libellés
+ * restent visibles à côté d'elle. Une icône seule est une devinette — le
+ * classeur voulait dire « Programmes » ici et « Préparer » deux onglets plus
+ * loin, le même dessin pour deux destinations —, et
+ * l'icône ne sert qu'à retrouver plus vite ce que le mot dit déjà.
+ *
+ * Si l'on veut un bouton sans texte un jour, ce n'est pas ce composant qu'il
+ * faudra changer : c'est au bouton de porter son nom accessible, et à l'icône
+ * de rester muette. Une icône qui se nomme elle-même est annoncée deux fois.
+ *
+ * ## Le trait suit la couleur du texte
+ *
+ * `stroke="currentColor"` et rien d'autre : l'icône prend la teinte de ce qui
+ * l'entoure, donc elle suit les quatorze thèmes sans qu'aucun soit nommé, et
+ * elle survit au mode « couleurs imposées » du système — où `global.css` la
+ * force d'ailleurs sur `currentColor` par précaution. Aucune couleur n'est
+ * écrite ici.
+ *
+ * ## « pleine » et ce qu'elle ne fait pas
+ *
+ * Elle remplit la forme pour marquer l'onglet actif, et seulement sur les
+ * dessins qui s'y prêtent — le catalogue le dit, forme par forme. Sur une
+ * loupe ou un lien, dont le tracé est ouvert, le remplissage ferait une tache :
+ * le composant l'IGNORE alors, et c'est à l'appelant de marquer l'actif
+ * autrement, par le marqueur E1 (fond et trait de 2 px). On ne dessine pas une
+ * seconde icône pour contourner le problème.
+ */
+import { ICONES, type NomDIcone } from '../lib/icones';
+
+interface Props {
+  nom: NomDIcone;
+  /** Côté du carré, en pixels. 24 est la grille de Lucide. */
+  taille?: number;
+  /** Remplir la forme, pour l'état actif. Ignoré si la forme ne s'y prête pas. */
+  pleine?: boolean;
+  /** Classes supplémentaires, pour la mise en page seulement. */
+  class?: string;
+}
+
+const { nom, taille = 24, pleine = false, class: classe = '' } = Astro.props;
+
+/*
+   UN NOM INCONNU ARRÊTE LA CONSTRUCTION.
+
+   Le type l'empêche déjà dans un fichier TypeScript, mais pas dans un gabarit
+   qui calcule son nom — `icone={onglet.icone}` vient d'un fichier de données,
+   et une faute y passerait le typage. Sans ce refus, on obtiendrait une icône
+   VIDE : un carré de rien, à côté d'un libellé juste, que personne ne remarque
+   avant longtemps.
+*/
+const icone = ICONES[nom];
+if (!icone) {
+  throw new Error(
+    `Icone : « ${nom} » n'est pas au catalogue. ` +
+      `Les noms connus sont dans « src/lib/icones.ts » ; pour en ajouter un, ` +
+      `on modifie la table de « scripts/engendrer-icones.mjs » et on le relance.`,
+  );
+}
+
+/* Le remplissage n'est posé que là où la forme le supporte. */
+const remplir = pleine && icone.pleine;
+---
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  width={taille}
+  height={taille}
+  viewBox="0 0 24 24"
+  fill={remplir ? 'currentColor' : 'none'}
+  stroke="currentColor"
+  stroke-width="2"
+  stroke-linecap="round"
+  stroke-linejoin="round"
+  class={`inline-block shrink-0 align-[-0.125em] ${classe}`}
+  aria-hidden="true"
+  focusable="false"
+  set:html={icone.corps}
+/>

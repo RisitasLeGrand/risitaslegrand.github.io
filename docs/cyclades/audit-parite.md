@@ -100,11 +100,32 @@ navigateur qui PLANTE du contenu factice sous les quatre racines
 (`essais:parcours-planifiables:navigateur`) pour le faire apparaître, en deux
 rouges.
 
-Le manifeste portait déjà de quoi trancher — `parcoursServis`, écrit par le
-build — et personne ne le lisait. La séance le lit maintenant
-(`ficheServieAuParcours`). La bibliothèque, la recherche et les statistiques,
-elles, servent toujours le corpus entier : voir `docs/ajouter-un-parcours.md`
-pour ce que ce choix préserve.
+Le manifeste portait déjà de quoi trancher — `parcoursServis` et `racine`,
+écrits par le build — et personne ne le lisait.
+
+**Corrigé le même jour, et pas comme je l'avais écrit.** J'avais filtré dans
+`fichesDuTheme`, en soutenant que la séance était le seul écran qui doive
+trancher. Un second lot filtrait en même temps `chargerManifeste()` tout
+entier, et il avait raison sur un point qui m'avait échappé : `totaux.fiches`
+est lu par les statistiques et par l'estimation de niveau, et un manifeste
+filtré qui garderait les totaux d'origine annoncerait « 427 fiches » à qui n'en
+voit que quatre. Un filtre local ne pouvait pas les recalculer.
+
+Le tri est donc en amont, une seule fois, dans
+`src/lib/parcours/filtre-du-manifeste.ts`, et mon prédicat local a été retiré.
+La ligne de partage arrêtée le 25 octobre : **ce qui propose est filtré** — la
+séance, les révisions dues, l'épreuve blanche, la bibliothèque, la recherche,
+le niveau —, **ce qui raconte ou conserve voit tout** par
+`chargerManifesteComplet()` — l'historique, les statistiques, l'export, la
+sauvegarde, la restauration, la synchronisation. Voir
+`docs/ajouter-un-parcours.md` pour ce que ce partage préserve.
+
+**Et une leçon de fusion, qui n'est pas une leçon de code.** Les deux lots ont
+ajouté les mêmes trois champs à `FicheResume`. Chaque branche était verte ;
+leur fusion portait six erreurs `ts(2300)`, et `astro check` était rouge sur
+`main` sans qu'aucune des deux ait pu le voir. Deux branches qui touchent le
+même type demandent un `astro check` **après** la fusion, et pas seulement sur
+chacune.
 
 **`lien_cours` a cédé la place à un dictionnaire.** `liens_cours`, un lien par
 parcours, est déclaré et lu (`src/lib/actualites.ts`, `actualites-rendu.ts`),

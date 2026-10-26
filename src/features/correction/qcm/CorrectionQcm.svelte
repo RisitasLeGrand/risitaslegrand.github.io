@@ -26,7 +26,7 @@
    * partie de ce qu'on apprend.
    */
   import Visuel from '../visuels/Visuel.svelte';
-  import { MARQUEURS } from '../vocabulaire';
+  import { MARQUEURS, type Marqueur } from '../vocabulaire';
   import type { Correction } from '../../../lib/contenu';
   import type { Visuel as TypeVisuel } from '../visuels/types';
 
@@ -62,8 +62,42 @@
     return [...miennesFausses, ...justes, ...reste];
   });
 
-  const marqueurDe = (i: number) =>
-    bonnes.includes(i) ? 'bonne-reponse' : choisies.includes(i) ? 'ta-reponse' : 'exclu';
+  /*
+   * Le marqueur d'une option : d'abord ce qu'elle est pour la personne, puis
+   * ce que le contenu en dit.
+   *
+   * La bonne réponse et la réponse donnée se déduisent seules, et priment :
+   * « et ce que j'ai répondu, alors ? » est la première question. Pour les
+   * autres, le contenu peut avoir posé « possible » — une option que la clef
+   * donne fausse sans qu'elle soit absurde. À défaut, « exclu ».
+   */
+  const marqueurDe = (i: number): Marqueur =>
+    bonnes.includes(i)
+      ? 'bonne-reponse'
+      : choisies.includes(i)
+        ? 'ta-reponse'
+        : (correction.par_option[i]?.marqueur ?? 'exclu');
+
+  /*
+   * La couleur du marqueur, et pourquoi ce n'est pas toujours celle du
+   * vocabulaire.
+   *
+   * « possible » y porte « --etat-succes », le vert de la bonne réponse, et
+   * c'est juste dans Cog-Training : aucune relation n'y est « la » réponse, et
+   * le vert dit seulement « compatible ». Ici, un ▣ vert posé sur une option
+   * FAUSSE, quelques lignes sous le ✓ vert de la bonne réponse, se lit
+   * « correcte aussi ». La forme distingue bien les deux, comme l'exige la
+   * règle du vocabulaire, mais la couleur ne renforcerait alors pas le sens :
+   * elle le contredirait.
+   *
+   * On ne touche donc pas au vocabulaire partagé — Cog-Training a raison chez
+   * lui — et c'est cette liste-ci qui corrige le ton. « possible » prend le
+   * jeton d'alerte, celui que porte déjà la mention de confiance moyenne au
+   * pied de la même correction : « va voir de plus près », et non « c'est
+   * bon ».
+   */
+  const couleurDe = (m: Marqueur) =>
+    m === 'possible' ? 'var(--etat-alerte)' : MARQUEURS[m].couleur;
 </script>
 
 <section
@@ -89,7 +123,11 @@
        autant pour une correction rédigée que pour une correction calculée. -->
   <Visuel visuel={correction.visuel as TypeVisuel} />
 
-  <ul class="mt-3 space-y-1.5">
+  <!-- La liste porte un nom, et ce n'est pas qu'une commodité d'essai : un
+       lecteur d'écran annonce « liste de quatre éléments » sans dire de quoi,
+       et le visuel juste au-dessus a lui aussi sa légende en liste. Les deux
+       se distinguent maintenant à l'oreille comme au sélecteur. -->
+  <ul class="mt-3 space-y-1.5" aria-label="Verdict par option">
     {#each ordre as i (i)}
       {@const marqueur = marqueurDe(i)}
       {@const verdict = correction.par_option[i]}
@@ -101,7 +139,7 @@
             ? 'text-amber-800 dark:text-amber-200'
             : 'text-slate-600 dark:text-slate-300'}"
       >
-        <span aria-hidden="true" style="color: {MARQUEURS[marqueur].couleur}"
+        <span aria-hidden="true" style="color: {couleurDe(marqueur)}"
           >{MARQUEURS[marqueur].glyphe}</span
         >
         <span class="sr-only">{MARQUEURS[marqueur].libelle} :</span>

@@ -375,7 +375,8 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
 </Base>
 
 <script>
-  import { nombreDuChamp } from '../../lib/nombre-saisi';
+  import { nombreDuChamp, nombreEntier } from '../../lib/nombre-saisi';
+  import { controlerAvantEnvoi, validerALaSortie } from '../../lib/erreur-de-champ';
   import { auDeverrouillage } from '../../lib/chargement';
   import { messageDUneErreur } from '../../lib/agir';
   import { unSeulGeste } from '../../lib/geste';
@@ -653,6 +654,19 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
     }
   }
 
+  /**
+   * Ce que « Séances par semaine » doit porter.
+   *
+   * La phrase dit COMMENT corriger, et non ce qui est faux : c'est la règle de
+   * D2, et « valeur invalide » n'apprend rien à personne.
+   */
+  const controlerParSemaine = (valeur: string): string | null => {
+    const n = nombreEntier(valeur);
+    return n !== null && n >= 1 && n <= 14
+      ? null
+      : 'Un nombre entier de séances par semaine, entre 1 et 14.';
+  };
+
   function lireBrouillon(): Programme {
     const cibles: Record<string, number> = {};
     for (const champ of document.querySelectorAll<HTMLInputElement>('[data-cible]')) {
@@ -666,7 +680,16 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
       ...brouillon!,
       nom: ($('nom') as HTMLInputElement).value.trim(),
       description: ($('description') as HTMLTextAreaElement).value.trim(),
-      parSemaine: Number(($('par-semaine') as HTMLInputElement).value),
+      /*
+         D4, seconde moitié : `Number('')` vaut ZÉRO, et un programme à zéro
+         séance par semaine ne se tient pas. Le champ n'est dans aucun
+         formulaire — l'enregistrement part d'un simple appui —, donc ni `min`
+         ni `required` ne le protégeaient : vider le champ et enregistrer
+         écrivait bien `parSemaine: 0`, sans un mot. La saisie est contrôlée
+         avant d'arriver ici ; ce repli ne sert qu'à n'avoir aucun chemin où un
+         zéro s'écrive.
+      */
+      parSemaine: nombreEntier(($('par-semaine') as HTMLInputElement).value) ?? brouillon!.parSemaine,
       actif: ($('actif') as HTMLInputElement).checked,
       ciblesParMuscle: cibles,
       majLe: new Date().toISOString(),
@@ -1153,8 +1176,18 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
          un identifiant neuf : deux appuis rapprochés en créaient deux copies,
          et l'éditeur ne se referme qu'une fois l'écriture finie.
       */
+      /*
+         D2 : l'erreur se dit au pied du champ, à la SORTIE du champ — « 1 »
+         n'est pas un nombre de séances invalide, c'est le début de « 14 ».
+      */
+      validerALaSortie($('par-semaine') as HTMLInputElement, controlerParSemaine);
+
       $('enregistrer').addEventListener('click', (evenement) => {
         void unSeulGeste(evenement.currentTarget as Element, async () => {
+          if (!controlerAvantEnvoi([[$('par-semaine') as HTMLInputElement, controlerParSemaine]])) {
+            /* `false` : la convention d'`unSeulGeste` pour un geste refusé. */
+            return false;
+          }
           try {
             await ecrireProgramme(lireBrouillon());
             $('erreur').classList.add('hidden');

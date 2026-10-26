@@ -8,6 +8,7 @@
  * l'historique local pour ramener plus souvent ce qui est mal su.
  */
 import type { BanqueDgfip, QuestionDgfip, RubriqueDgfip } from './contenu';
+import { indexerLesExclusions, tirerSansDeuxDuMemeLien } from './qcm-familles';
 import { estExpiree, questionsServables } from './qcm-temporalite';
 import { TAILLE_SESSION, repartir } from './qcm-composition';
 import { estPosableSurUneCopie } from './qcm-copie';
@@ -193,13 +194,59 @@ export function composerSession(
     format.repartition,
   );
 
+  /*
+     JAMAIS DEUX QUESTIONS D'UNE MÊME FAMILLE DANS UNE ÉPREUVE.
+
+     La banque assemble douze annales qui se recoupent : deux questions sur la
+     déflation, trois sur la réforme territoriale. Le chargeur ne déduplique que
+     les énoncés identiques, donc rien n'empêchait d'en servir deux dans la même
+     épreuve — et dépenser deux questions pour un seul point de connaissance.
+
+     Le relevé des liens est tenu dans « qcm-familles », par identifiants.
+
+     ## Pourquoi une à la fois, et non par lot
+
+     Tirer les dix questions d'une rubrique en un seul appel, puis noter les
+     exclusions, ne servirait à rien : les deux déflations peuvent sortir dans
+     le même lot, et l'interdiction arriverait après le mal. Le tirage se fait
+     donc question par question, et chaque choix rétrécit le champ du suivant.
+
+     L'ensemble des interdits traverse les rubriques, ce qui compte même si le
+     relevé est aujourd'hui tout entier dans Culture générale : rien ne garantit
+     qu'un recoupement futur reste à l'intérieur d'une rubrique.
+
+     ## Ce que la règle cède, et pourquoi
+
+     Quand il ne reste plus que des questions interdites, on en prend quand
+     même. Une épreuve plus courte que son titre est un défaut que ce fichier
+     combat déjà deux commentaires plus haut, et c'en serait un pire : la
+     variété est un confort, la complétude est la promesse. Le cas se produit
+     sur une rubrique étroite — l'anglais en compte cinq — et il ne se produit
+     pas sur une épreuve de concours entière.
+  */
+  const exclusions = indexerLesExclusions();
+  const interdits = new Set<string>();
+
+  /* Le tireur pondéré, réduit à « rends-m'en un » : c'est tout ce que la règle
+     des familles a besoin de savoir du poids d'une question. */
+  const unSeul = (parmi: readonly QuestionDgfip[]) =>
+    tirerPonderé(
+      parmi.map((q) => ({ valeur: q, poids: poids(parId.get(q.id), aujourdhui) })),
+      1,
+    )[0];
+
   const retenues: QuestionDgfip[] = [];
   for (const [rubriqueId, combien] of quota) {
     if (combien <= 0) continue;
-    const candidats = servables
-      .filter((q) => q.rubriqueId === rubriqueId)
-      .map((q) => ({ valeur: q, poids: poids(parId.get(q.id), aujourdhui) }));
-    retenues.push(...tirerPonderé(candidats, combien));
+    retenues.push(
+      ...tirerSansDeuxDuMemeLien(
+        servables.filter((q) => q.rubriqueId === rubriqueId),
+        combien,
+        unSeul,
+        interdits,
+        exclusions,
+      ),
+    );
   }
 
   return melanger(retenues).map((q) => ({ ...q, ordre: ordreOptions(q) }));

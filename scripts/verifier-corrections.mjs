@@ -23,9 +23,24 @@ import YAML from 'yaml';
 import { decouperSections } from './lib/markdown.mjs';
 import { quizSchema, banqueDgfipSchema } from './lib/schema.mjs';
 import { estMatiereMigree, estRubriqueMigree, MATIERES_MIGREES, RUBRIQUES_MIGREES } from './lib/corrections-migrees.mjs';
+import { contenuEstClos, manquesDeCouverture } from './lib/cloture-contenu.mjs';
+import { ecartsDuVisuel } from './lib/decomptes-visuels.mjs';
+import { fautesDeFormule } from './lib/maths.mjs';
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const dossierContenu = path.join(racine, 'content');
+/**
+ * Le corpus lu, et pourquoi il est paramétrable.
+ *
+ * Même raison que « CYCLADES_JOUR » juste en dessous : un essai qui veut
+ * éprouver un REFUS doit disposer d'un contenu fautif. Le faire sur la banque
+ * réelle demanderait d'y laisser la faute, où elle s'accumulerait et
+ * finirait par être corrigée par quelqu'un qui ne sait pas qu'un essai en
+ * dépend. Avec « CYCLADES_CONTENU », l'essai pose son propre corpus de deux
+ * fichiers au lieu de salir celui du concours.
+ */
+const dossierContenu = process.env.CYCLADES_CONTENU
+  ? path.resolve(process.env.CYCLADES_CONTENU)
+  : path.join(racine, 'content');
 const couleur = {
   rouge: (t) => `\x1b[31m${t}\x1b[0m`,
   vert: (t) => `\x1b[32m${t}\x1b[0m`,
@@ -36,6 +51,34 @@ const couleur = {
 
 const erreurs = [];
 const alertes = [];
+/**
+ * LES ÉCARTS DE VISUEL, À PART — ET POURQUOI ILS N'ARRÊTENT PLUS TOUT.
+ *
+ * Ce contrôle refusait la construction, et il avait raison sur le fond : un
+ * texte de remplacement qui contredit ses propres données est une faute, pas
+ * une hypothèse. Mais il refusait AUSSI chez quiconque récupère le corpus
+ * publié, qui porte encore les écarts, et dont les corrections ne sont pas au
+ * dépôt — le contenu en clair n'y va jamais. Un contrôle juste qui bloque
+ * tout le monde ne protège plus rien : il se contourne.
+ *
+ * Il suit donc la règle de la garde des 100 %, à la décision du Pilote :
+ * avertissement fort et nommé tant que le contenu n'est pas clos, refus
+ * ensuite. La différence n'est pas un assouplissement — l'écart est dit, en
+ * entier, à chaque passage — mais un ordre : d'abord la construction qui
+ * passe, puis la dette qu'on solde avant la clôture.
+ */
+const ecartsDeVisuel = [];
+/**
+ * Un écart de visuel refuse la construction une fois le contenu clos.
+ *
+ * Les écarts sont relevés dans « ecartsDeVisuel » DANS LES DEUX RÉGIMES, et
+ * c'est seulement à l'heure du verdict qu'ils rejoignent les erreurs. La
+ * première version les rangeait d'un côté ou de l'autre selon le drapeau : la
+ * ligne de verdict annonçait alors « aucun écart » juste avant de refuser la
+ * construction pour un écart. Un décompte ne doit pas dépendre de ce qu'on
+ * fera du compte.
+ */
+const visuelRefuse = contenuEstClos();
 
 /**
  * Le jour de la construction, et pourquoi il est paramétrable.
@@ -52,6 +95,14 @@ const JOUR =
 
 /** Couverture de l'étiquetage de temporalité, par nature. */
 const parNature = new Map();
+/*
+ * L'échéance passée se compte, et ne se lit pas seulement dans le flot des
+ * alertes. Une alerte dit « celle-ci » ; un décompte dit « combien », et c'est
+ * le second qui permet de voir une dette grossir d'un passage au suivant. Les
+ * vingt premières alertes seules sont affichées — sans ce décompte, une dette
+ * de cent questions se lirait comme une dette de vingt.
+ */
+const echeances = { expirees: 0, aRevoir: 0 };
 
 /** Un compteur de couverture par périmètre. */
 function compteur() {
@@ -100,6 +151,22 @@ async function verifierCours() {
     if (matiere === 'qcm-dgfip') continue;
     const brut = await readFile(path.join(dossierContenu, relatif), 'utf8');
     const { content } = matter(brut);
+
+    /*
+       Les formules, sur le corps ENTIER de la fiche et non sur la seule
+       section de quiz.
+
+       Une formule qui ne compile pas doit arrêter la construction : KaTeX
+       refuse, et une correction qui s'afficherait en rouge sur l'écran d'une
+       personne qui révise est pire qu'une absence de formule. Le contrôle est
+       ici pour que la faute se voie en quelques secondes, et non au bout d'un
+       build complet — « build-content » la refuserait de toute façon, mais
+       bien plus tard.
+    */
+    for (const faute of fautesDeFormule(content)) {
+      erreurs.push(`${relatif} : ${faute}`);
+    }
+
     const { sections } = decouperSections(content);
 
     let liste;
@@ -122,6 +189,12 @@ async function verifierCours() {
         continue;
       }
       compter(stats, r.data);
+      /* Un texte de remplacement qui contredit ses propres données est une
+         faute, pas une hypothèse — mais elle n'arrête la construction qu'une
+         fois le contenu clos. Voir « ecartsDeVisuel » en tête. */
+      for (const ecart of ecartsDuVisuel(r.data.correction?.visuel)) {
+        ecartsDeVisuel.push(`${relatif} (## Quiz) : « ${r.data.question} » — visuel : ${ecart}`);
+      }
       if (!r.data.correction && estMatiereMigree(matiere)) {
         erreurs.push(
           `${relatif} (## Quiz) : « ${r.data.question} » sans bloc « correction » — la matière ${matiere} est déclarée migrée`,
@@ -159,6 +232,9 @@ async function verifierDgfip() {
     parRubrique.set(id, stats);
     for (const question of r.data.questions) {
       compter(stats, question);
+      for (const ecart of ecartsDuVisuel(question.correction?.visuel)) {
+        ecartsDeVisuel.push(`qcm-dgfip/${nom} : « ${question.question} » — visuel : ${ecart}`);
+      }
       if (!question.correction && estRubriqueMigree(id)) {
         erreurs.push(
           `qcm-dgfip/${nom} : « ${question.question} » sans bloc « correction » — la rubrique ${id} est déclarée migrée`,
@@ -205,6 +281,7 @@ function controlerLaTemporalite(nom, question) {
   if (t.expire_le && t.expire_le < JOUR) {
     const message =
       `qcm-dgfip/${nom} : « ${titre} » a expiré le ${t.expire_le} (nature « ${t.nature} »)`;
+    echeances.expirees += 1;
     if (t.nature === 'a-venir') {
       erreurs.push(`${message} — une échéance annoncée comme future est passée, et nul ne l'a relue`);
     } else {
@@ -212,6 +289,7 @@ function controlerLaTemporalite(nom, question) {
     }
   }
   if (t.a_reverifier_le && t.a_reverifier_le < JOUR) {
+    echeances.aRevoir += 1;
     alertes.push(
       `qcm-dgfip/${nom} : « ${titre} » était à revérifier le ${t.a_reverifier_le}`,
     );
@@ -274,6 +352,28 @@ if (restant > 0) {
   );
 }
 
+/*
+ * La garde de clôture, éteinte par un drapeau jusqu'à la fin du contenu.
+ *
+ * Elle lit les mêmes compteurs que le tableau imprimé ci-dessus, et non un
+ * recomptage parallèle : une garde qui compterait de son côté pourrait refuser
+ * une banque que le rapport déclare complète, ou l'inverse.
+ */
+if (contenuEstClos()) {
+  const manques = manquesDeCouverture([
+    ...[...cours].map(([nom, s]) => [`quiz de cours · ${nom}`, s]),
+    ...[...dgfip].map(([nom, s]) => [`QCM — DGFiP · ${nom}`, s]),
+  ]);
+  for (const m of manques) erreurs.push(m);
+  console.log(
+    manques.length === 0
+      ? couleur.vert('Contenu déclaré clos : la couverture est complète.')
+      : couleur.rouge(
+          `Contenu déclaré clos : ${manques.length} périmètre(s) incomplet(s).`,
+        ),
+  );
+}
+
 /* --- Couverture de l'étiquetage de temporalité (prompt 20, § qcm.8) ------ */
 if (parNature.size) {
   const ordre = [
@@ -297,6 +397,60 @@ if (parNature.size) {
   console.log(
     couleur.faible(`  ${'étiquetées'.padEnd(24)}${String(etiquetees).padStart(5)} sur ${totalQ}`),
   );
+
+  /*
+   * Les deux échéances passées, en regard de l'étiquetage. Elles ne font pas
+   * échouer la construction — l'expirée est déjà retirée du tirage, et
+   * « à revérifier » dit « rouvre le dossier », pas « ceci est faux ». Mais
+   * elles se comptent, parce qu'une dette qu'on ne mesure pas ne se résorbe
+   * pas, et parce que la liste des alertes est tronquée à vingt.
+   *
+   * Les deux lignes s'affichent même à zéro, contrairement aux natures
+   * au-dessus qui se taisent quand elles sont vides. Une nature absente ne dit
+   * rien ; une dette à zéro dit que le contrôle a tourné et n'a rien trouvé.
+   * Se taire laisserait le lecteur sans moyen de distinguer « aucune échéance
+   * passée » de « personne ne regarde les échéances ».
+   */
+  console.log('');
+  for (const [quoi, n] of [
+    ['expirées, hors tirage', echeances.expirees],
+    ['échéance de revue passée', echeances.aRevoir],
+  ]) {
+    const ligne = `  ${quoi.padEnd(24)}${String(n).padStart(5)}`;
+    console.log(n > 0 ? couleur.jaune(ligne) : couleur.faible(ligne));
+  }
+}
+
+/*
+ * LE VERDICT DES VISUELS, DIT À CHAQUE PASSAGE, DANS LES DEUX RÉGIMES.
+ *
+ * Sans cette ligne, un build vert ne distinguerait pas « aucun écart » de
+ * « des écarts, mais le contenu n'est pas clos ». La liste est donnée EN
+ * ENTIER, et non tronquée comme le flot des alertes : il y en a douze sur
+ * 555 visuels, et c'est une dette qu'on solde, pas un bruit qu'on surveille.
+ */
+console.log(
+  `\n${couleur.gras('Visuels')} : ${
+    ecartsDeVisuel.length === 0
+      ? 'aucun écart'
+      : `${ecartsDeVisuel.length} écart${ecartsDeVisuel.length > 1 ? 's' : ''}`
+  }` +
+    ` — régime ${visuelRefuse ? 'de refus (contenu clos)' : 'd’avertissement (contenu non clos)'}.`,
+);
+if (ecartsDeVisuel.length > 0) {
+  if (visuelRefuse) {
+    for (const e of ecartsDeVisuel) erreurs.push(e);
+  } else {
+    for (const e of ecartsDeVisuel) console.log(couleur.jaune(`  ! ${e}`));
+    console.log(
+      couleur.jaune(
+        '  Ces écarts REFUSERONT la construction à la clôture du contenu. Le texte de',
+      ),
+    );
+    console.log(
+      couleur.jaune('  remplacement contredit les données du visuel : c’est l’un des deux qui a tort.'),
+    );
+  }
 }
 
 if (alertes.length > 0) {

@@ -719,8 +719,39 @@ console.log('\n9. L’EFFACEMENT PAR PÉRIODE EST UNE PURGE PHYSIQUE');
   */
   await page.fill('#effacer-du', VEILLE);
   await page.fill('#effacer-au', LENDEMAIN);
+  /*
+     On efface l'annonce avant de compter, et l'on attend qu'elle soit
+     RÉÉCRITE — au lieu d'attendre que « #effacer-periode » soit visible.
+
+     Ce bouton l'est déjà : la section 8 a rempli la période pour mesurer le
+     bouton, et le commentaire ci-dessus le dit. L'attente était donc vraie
+     avant le clic. Or le gestionnaire attend « combienDansLaPeriode », et
+     pendant cet await le bouton est toujours visible et l'annonce porte
+     toujours le texte de la section 8 : la lecture rendait l'état précédent.
+     C'est le défaut trouvé sur « reglages-sans-coffre » et sur son jumeau,
+     mais il est ici LATENT et non actif, ce qui a été mesuré : un retard de
+     500 ms injecté dans la fenêtre d'await laisse l'ancienne version au VERT.
+     La raison est que la section 8 compte la même période, aux mêmes dates, et
+     laisse donc dans l'annonce exactement la phrase attendue ici. La lecture
+     périmée rend la bonne réponse par construction.
+
+     L'assertion ne prouvait donc rien, sans pour autant mentir. On la rend
+     véritable plutôt que d'attendre le jour où les deux textes différeraient —
+     un contrôle qui ne contrôle rien finit par rassurer. Effacer d'abord donne
+     une post-condition qu'aucun passage antérieur ne peut avoir rendue vraie,
+     et le bouton, lui, est vérifié explicitement.
+  */
+  await page.evaluate(() => {
+    const e = document.getElementById('effacement-dit');
+    if (e) e.textContent = '';
+  });
   await page.click('#compter-periode');
-  await page.waitForSelector('#effacer-periode', { state: 'visible', timeout: 20000 });
+  await page.waitForFunction(
+    () => (document.getElementById('effacement-dit')?.textContent ?? '').trim().length > 0,
+    undefined,
+    { timeout: 20000 },
+  );
+  v('le bouton d’effacement de la période est proposé', await page.locator('#effacer-periode').isVisible(), true);
   v(
     'le comptage annonce la saisie avant d’effacer',
     normaliser(await page.textContent('#effacement-dit')),

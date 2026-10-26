@@ -24,6 +24,7 @@ import remarkParse from 'remark-parse';
 import remarkGfm from 'remark-gfm';
 import { construireIndexGlossaire, normaliser, normaliserPositions } from './glossaire.mjs';
 import { separerIdentifiant } from './markdown.mjs';
+import { LANGAGE_BLOC, PREFIXE_EN_LIGNE, direLaFormule } from './maths.mjs';
 
 /**
  * Version du réécriveur : la changer force la régénération de tous les scripts.
@@ -364,8 +365,40 @@ function porteUneImage(noeud) {
 */
 const PHRASE_DU_SCHEMA = 'La fiche montre ici un schéma : vous le retrouverez à l\u2019écran.';
 
+/*
+   LA FORMULE, DITE OU RETIRÉE — MAIS JAMAIS LUE EN LATEX.
+
+   Une voix qui prononce « backslash frac ouvrez l'accolade a fermez
+   l'accolade » n'apprend rien et perd l'auditeur. « direLaFormule » traduit ce
+   qu'elle sait — une fraction, une racine, un carré, une comparaison — et
+   AVOUE le reste.
+
+   Quand elle avoue, la formule est retirée et signalée UNE SEULE FOIS par
+   fiche, exactement comme la phrase du schéma, et pour la même raison : une
+   fiche qui porte huit formules exotiques répéterait huit fois le même
+   avertissement, qui deviendrait du bruit.
+
+   Le drapeau est au niveau du module, et remis à zéro par « ecrireScript »,
+   parce que « texteDe » est appelé de partout sans qu'on puisse lui passer
+   l'état du script en cours.
+*/
+const PHRASE_DE_LA_FORMULE =
+  'La fiche porte ici une formule : vous la retrouverez à l\u2019écran.';
+let formuleRetiree = false;
+
+/** Ce qu'une voix dit d'une formule, ou rien si elle doit être retirée. */
+function formuleDite(tex) {
+  const r = direLaFormule(tex);
+  if (r.dit) return r.dit;
+  formuleRetiree = true;
+  return '';
+}
+
 function texteDe(noeud) {
   if (!noeud) return '';
+  if (noeud.type === 'inlineCode' && noeud.value.startsWith(PREFIXE_EN_LIGNE)) {
+    return formuleDite(noeud.value.slice(PREFIXE_EN_LIGNE.length));
+  }
   if (noeud.type === 'text' || noeud.type === 'inlineCode') return noeud.value;
   if (noeud.type === 'break') return ' ';
   if (noeud.type === 'image') return '';
@@ -582,6 +615,8 @@ function paragraphesDuCours(markdown, cle) {
   // « Dernier temps »… dépendent de cette position.
   /* N°12 : la phrase du schéma n'est dite qu'une fois par fiche. */
   let schemaAnnonce = false;
+  let formuleAnnoncee = false;
+  formuleRetiree = false;
 
   const rangs = new Map();
   const totaux = new Map();
@@ -627,6 +662,23 @@ function paragraphesDuCours(markdown, cle) {
         break;
       }
 
+      /*
+         Un bloc de formule n'avait AUCUN cas ici, et disparaissait donc en
+         silence du script parlé — ce qui est la moitié du défaut que le point e
+         interdit : retiré, oui, mais sans le signaler.
+      */
+      case 'code': {
+        if (noeud.lang !== LANGAGE_BLOC) break;
+        const dit = formuleDite(noeud.value);
+        if (dit) {
+          ajouter(phrase(dit));
+        } else if (!formuleAnnoncee) {
+          formuleAnnoncee = true;
+          ajouter(PHRASE_DE_LA_FORMULE);
+        }
+        break;
+      }
+
       case 'paragraph': {
         const dit = phrase(texteDe(noeud));
         /*
@@ -641,6 +693,14 @@ function paragraphesDuCours(markdown, cle) {
           ajouter(dit ? `${dit} ${PHRASE_DU_SCHEMA}` : PHRASE_DU_SCHEMA);
         } else {
           ajouter(dit);
+        }
+        /*
+           Une formule en ligne qu'on n'a pas su dire a été retirée du texte
+           ci-dessus. On le signale ici, après la phrase, et une seule fois.
+        */
+        if (formuleRetiree && !formuleAnnoncee) {
+          formuleAnnoncee = true;
+          ajouter(PHRASE_DE_LA_FORMULE);
         }
         break;
       }

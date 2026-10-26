@@ -36,6 +36,62 @@ import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const MDP = motDePasseEssais();
+/**
+ * Ouvre le centre, et attend que sa liste soit PEINTE — pas seulement visible.
+ *
+ * ## Le défaut que cet auxiliaire corrige, et il était dans l'essai
+ *
+ * `basculer()` rend le panneau visible, PUIS lit la base et déchiffre, PUIS
+ * peint la liste. Attendre « le panneau n'est plus caché » et lire la liste
+ * aussitôt, c'est la lire pendant ce trou : mesuré, le panneau devient
+ * visible deux millisecondes après le clic.
+ *
+ * L'essai tenait par chance, et il a rougi le 25 octobre dans une batterie
+ * chargée — au 257ᵉ essai sur 316, après quarante minutes de machine
+ * occupée — en annonçant que le panneau ne rangeait pas les revues sous
+ * « Revues en attente ». Rien dans le site n'avait changé : `git log` sur le
+ * composant, sa bibliothèque et cet essai ne rend rien sur les trente et un
+ * commits qui séparaient les deux passages.
+ *
+ * ## Pourquoi « aria-busy » et non « une section est apparue »
+ *
+ * Une section peut être celle du passage PRÉCÉDENT : `dessiner()` commence
+ * par `liste.replaceChildren()`, mais entre deux ouvertures le DOM garde ce
+ * qu'il avait. Attendre une section rendrait vrai avant même que la nouvelle
+ * peinture commence.
+ *
+ * `aria-busy` est une post-condition : le gestionnaire le pose avant son
+ * premier `await` — donc dans le même tour que le clic, ce qui laisse le
+ * temps de le voir — et le retire en DERNIER, dans un `finally`. Son absence
+ * dit « la peinture est finie », y compris quand elle a échoué, ce qui est
+ * exactement la question qu'un essai doit poser avant de lire.
+ *
+ * L'exigence, elle, ne change pas d'un iota : l'essai demande toujours que le
+ * groupe attendu soit là. Il arrête seulement de le demander avant que
+ * quiconque ait pu l'écrire.
+ */
+async function ouvrirLeCentre(B) {
+  await B.page.click('#centre-bouton');
+  await B.page.waitForSelector('#centre-panneau:not([hidden])', { timeout: 20000 });
+  /*
+     « attached » ET NON « visible », ET C'EST LA MESURE QUI L'A DIT.
+
+     Premier écrit sans `state` : Playwright attend alors que l'élément soit
+     VISIBLE, et il a expiré sur la phase du coffre fermé — « 38 × locator
+     resolved to hidden <div id="centre-liste" class="space-y-3"></div> ». Un
+     `div` vide n'a pas de hauteur, donc il n'est pas visible, et une liste
+     légitimement vide ne le devient jamais.
+
+     Or ce qu'on attend n'est pas une apparition : c'est un ATTRIBUT. La liste
+     est toujours dans le document ; seule la fin de sa peinture est en
+     question. Et la visibilité du panneau, elle, est déjà exigée juste avant.
+  */
+  await B.page.waitForSelector('#centre-liste:not([aria-busy="true"])', {
+    state: 'attached',
+    timeout: 20000,
+  });
+}
+
 const RACINE = 'http://localhost:4321';
 
 const nav = await chromium.launch({
@@ -283,8 +339,7 @@ await ouvrir(B, '/revisions/', '#centre-notifications');
   vrai('la pastille est visible', visible);
   v('elle annonce une question', (await B.page.textContent('#centre-pastille')).trim(), '1');
 
-  await B.page.click('#centre-bouton');
-  await B.page.waitForSelector('#centre-panneau:not([hidden])', { timeout: 20000 });
+  await ouvrirLeCentre(B);
   const lignes = await B.page.locator('#centre-liste li').count();
   /*
      Deux lignes : la question, et le rappel de sauvegarde que la phase 3
@@ -356,8 +411,7 @@ console.log('\n\x1b[1m5. COFFRE FERMÉ : UNE MENTION FIXE, ET AUCUN NOMBRE (§ 3
     console.log('  \x1b[33m!\x1b[0m le coffre s’est rouvert : la section 5 n’a pas pu être éprouvée');
     echecs += 1;
   } else {
-    await B.page.click('#centre-bouton');
-    await B.page.waitForSelector('#centre-panneau:not([hidden])', { timeout: 20000 });
+    await ouvrirLeCentre(B);
     vrai(
       'la mention fixe est affichée',
       await B.page.locator('#centre-coffre-ferme').isVisible(),
@@ -424,8 +478,7 @@ console.log('\n\x1b[1m6. LES REVUES MANQUÉES ENTRENT VRAIMENT — PHASE 3\x1b[0
   v('un second passage n’en ajoute aucune', await aSavoir(), premier);
 
   if (premier >= 1) {
-    await B.page.click('#centre-bouton');
-    await B.page.waitForSelector('#centre-panneau:not([hidden])', { timeout: 20000 });
+    await ouvrirLeCentre(B);
     const panneau = await B.page.textContent('#centre-liste');
     vrai('le panneau les range sous « Revues en attente »', panneau.includes('Revues en attente'));
     /*

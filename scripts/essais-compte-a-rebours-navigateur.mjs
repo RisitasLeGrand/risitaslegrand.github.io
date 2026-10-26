@@ -29,7 +29,7 @@
 import { chromium } from 'playwright-core';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
-import { repondreAuChamp } from './lib/boite-essais.mjs';
+import { repondreAuxDates } from './lib/boite-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 
 const MDP = motDePasseEssais();
@@ -99,14 +99,24 @@ const texteDuBloc = async () =>
   ((await page.locator('#rebours').textContent()) ?? '').replace(/\s+/g, ' ').trim();
 
 /**
- * Pose la valeur du champ des dates d'épreuves depuis « Mon profil ».
+ * Pose les dates d'épreuves depuis « Mon profil ».
  *
  * Le champ vit dans le bloc repliable de la branche Révisions, et ce bloc est
  * fermé tant qu'il ne porte aucune réponse : on l'ouvre comme la personne
  * l'ouvrirait, en cliquant son titre. Un essai qui forcerait `open` à vrai
  * cesserait de voir le jour où le titre n'ouvre plus rien.
+ *
+ * ON PASSE DES DATES PAR ÉTIQUETTE, ET NON UNE CHAÎNE JSON. Cet essai tapait
+ * « {"insp":"2027-03-24"} » dans la boîte, et il est mort sur « Malformed
+ * value » le 25 octobre : la section C du 43 a retiré le JSON de cette
+ * saisie, qui porte désormais un champ de date par parcours. Demander du JSON
+ * à une personne était le défaut que ce lot a corrigé ; l'essai ne doit pas
+ * être le dernier à le réclamer.
+ *
+ * L'étiquette est celle qui s'affiche — « INSP » —, pas l'identifiant du
+ * parcours : c'est ce que la personne lit, et c'est ce qui est à l'écran.
  */
-async function poserLesDates(valeur) {
+async function poserLesDates(dates) {
   await aller('/profil/', '[data-branche="revisions"]');
   const branche = page.locator('details[data-branche="revisions"]');
   if (!(await branche.evaluate((e) => e.open))) await branche.locator('summary').click();
@@ -115,7 +125,7 @@ async function poserLesDates(valeur) {
     .locator('[data-carte="datesEpreuves"] button', { hasText: /Renseigner|Modifier/ })
     .first()
     .click();
-  await repondreAuChamp(page, valeur, 'Enregistrer');
+  await repondreAuxDates(page, dates, 'Enregistrer');
   await page.waitForTimeout(500);
 }
 
@@ -194,7 +204,7 @@ faux(
    ════════════════════════════════════════════════════════════════════════ */
 console.log('\nUNE DATE DONNÉE, UNE LIGNE');
 
-await poserLesDates(JSON.stringify({ insp: LOIN }));
+await poserLesDates({ INSP: LOIN });
 await allerALAccueil();
 await page.waitForSelector('#rebours li', { timeout: 20000 });
 v('une ligne, et une seule', await page.locator('#rebours li').count(), 1);
@@ -262,7 +272,7 @@ vrai('rallumé, il revient avec sa ligne', (await texteDuBloc()).startsWith('INS
    ════════════════════════════════════════════════════════════════════════ */
 console.log('\nUNE DATE PASSÉE, UNE MISE À JOUR PROPOSÉE');
 
-await poserLesDates(JSON.stringify({ insp: PASSEE }));
+await poserLesDates({ INSP: PASSEE });
 await allerALAccueil();
 await page.waitForSelector('#bloc-rebours:not(.hidden)', { timeout: 20000 });
 v(
@@ -277,7 +287,7 @@ v('et plus aucune ligne d’échéance', await page.locator('#rebours li').count
    ════════════════════════════════════════════════════════════════════════ */
 console.log('\nIL NE VIT QUE SUR L’ACCUEIL DE RÉVISIONS');
 
-await poserLesDates(JSON.stringify({ insp: LOIN }));
+await poserLesDates({ INSP: LOIN });
 for (const [nom, route] of [
   ['la planification', '/planification/'],
   ['la progression', '/progression/'],

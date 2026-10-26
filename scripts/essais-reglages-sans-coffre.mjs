@@ -58,6 +58,67 @@ const v = (titre, obtenu, attendu) => {
   if (!ok) console.log(`      obtenu  ${JSON.stringify(obtenu)}\n      attendu ${JSON.stringify(attendu)}`);
 };
 
+/*
+   COMPTER, ET ATTENDRE QUE LE COMPTAGE SOIT FINI.
+
+   L'essai attendait « #decompte:not(.hidden) » après avoir cliqué, puis lisait
+   aussitôt « #decompte-detail ». Cette attente ne garantissait rien, pour une
+   raison qui n'a rien d'une subtilité d'ordonnancement : **la condition était
+   déjà vraie avant le clic**.
+
+   La phase précédente demande une période, et l'écran répond « Rien ne serait
+   effacé » en refusant « etat ». Le conteneur est alors VISIBLE — il se montre
+   dès qu'il y a un refus à dire — et son détail est VIDE, puisque le détail ne
+   liste que les magasins non refusés. Au clic suivant, le gestionnaire affiche
+   « Comptage… » puis **attend** « compter() », qui lit le magasin et déchiffre.
+   Pendant cette attente, le conteneur est toujours visible et le détail
+   toujours vide : l'attente rendait la main immédiatement, et l'essai lisait
+   l'état du passage PRÉCÉDENT. D'où une chaîne vide, et le rouge sur « le
+   décompte annonce 2 enregistrements visés ».
+
+   Seul reste à expliquer pourquoi l'essai passait seul : « compter() » y
+   résout en moins de temps qu'il n'en faut à l'aller-retour de lecture, si
+   bien que le détail était peint juste à temps. Sous la batterie — cinquante
+   essais derrière soi, plusieurs navigateurs ouverts, le déchiffrement plus
+   lent — il ne l'était plus. Rouge au même rang à chaque passage, vert à
+   chaque fois en isolé.
+
+   La parade ne consiste donc pas à attendre « autre chose » dans le même
+   esprit, mais à se donner une post-condition qu'aucun passage antérieur ne
+   peut avoir rendue vraie. On efface le message soi-même, puis on attend que
+   le gestionnaire écrive le sien — ce qu'il fait en dernier, après avoir
+   peint. L'attente porte alors sur l'opération, et non sur un état.
+*/
+const recompter = async (timeout = 20000) => {
+  await page.evaluate(() => {
+    const m = document.getElementById('message-effacement');
+    if (m) m.textContent = '';
+  });
+  await page.click('#compter');
+  await page.waitForFunction(
+    () => /Compté/.test(document.getElementById('message-effacement')?.textContent ?? ''),
+    undefined,
+    { timeout },
+  );
+};
+
+/*
+   Et la lecture, qui refuse une annonce vide plutôt que de la rendre.
+
+   Avec « recompter » au-dessus, le détail est peint quand on arrive ici. Cette
+   garde est la seconde ceinture : si un jour le détail cessait d'être rempli,
+   l'essai devrait rougir sur une attente qui expire, et non rendre une chaîne
+   vide à une assertion qui en tirerait ce qu'elle peut.
+*/
+const annonceDe = async (selecteur, timeout = 15000) => {
+  await page.waitForFunction(
+    (s) => (document.querySelector(s)?.textContent ?? '').trim().length > 0,
+    selecteur,
+    { timeout },
+  );
+  return ((await page.locator(selecteur).textContent()) ?? '').trim();
+};
+
 const connecter = async () => {
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
@@ -207,22 +268,20 @@ await caseReglages.check();
 */
 await page.fill('#depuis', '2024-01-01');
 await page.fill('#jusqua', '2024-12-31');
-await page.click('#compter');
-await page.waitForSelector('#decompte:not(.hidden)', { timeout: 15000 });
-const refus = ((await page.locator('#decompte-refus').textContent()) ?? '').trim();
+await recompter();
+const refus = await annonceDe('#decompte-refus');
 v('une période laisse « etat » entier', /laissés entiers\s*:\s*etat/i.test(refus), true);
 v(
   'et l’écran annonce que rien ne serait effacé',
-  ((await page.locator('#decompte-total').textContent()) ?? '').trim(),
+  await annonceDe('#decompte-total'),
   'Rien ne serait effacé avec ce choix.',
 );
 await page.fill('#depuis', '');
 await page.fill('#jusqua', '');
 
-await page.click('#compter');
-await page.waitForSelector('#decompte:not(.hidden)', { timeout: 15000 });
+await recompter();
 
-const annonce = ((await page.locator('#decompte-detail').textContent()) ?? '').trim();
+const annonce = await annonceDe('#decompte-detail');
 console.log(`      annoncé : ${annonce.replace(/\s+/g, ' ').slice(0, 160)}`);
 /*
    Le compte annoncé doit être celui des clés visées, et non celui du magasin

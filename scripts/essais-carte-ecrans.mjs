@@ -199,6 +199,25 @@ verifier(
   true,
 );
 
+/*
+   LE BALAYAGE SE FAIT DEUX FOIS, SOUS DEUX PARCOURS.
+
+   Depuis que le registre permet à un écran de ne valoir que pour certains
+   parcours — « Organigrammes » pour les trois concours de la DGFiP —, un seul
+   balayage ne suffit plus. Sous le parcours par défaut, l'INSP, le lien vers
+   cet écran est écrit dans le HTML puis CACHÉ par le script du pied de page :
+   la carte le déclarerait orphelin, c'est-à-dire inatteignable, là où il n'y a
+   qu'un public.
+
+   Et REMPLACER le parcours balayé serait l'erreur inverse : un écran propre à
+   l'INSP sortirait du balayage à son tour. On balaye donc l'INSP, puis
+   « dgfip-a », et les liens trouvés s'additionnent — une page n'est orpheline
+   que si elle l'est sous les deux. Le coût retenu pour un lien est le plus
+   PETIT des deux : un écran atteignable en un appui pour un parcours est
+   atteignable, et la profondeur ne doit pas punir l'autre parcours.
+*/
+const PARCOURS_BALAYES = ['insp', 'dgfip-a'];
+
 /** route → Map(cible → coût du lien) */
 const liens = new Map();
 
@@ -255,10 +274,28 @@ const apercuRepond = () =>
    mal relié ».
 */
 const injoignables = [];
+/*
+   LES DEUX CORRECTIONS DE CE BLOC SE SONT CROISÉES, ET ELLES TIENNENT
+   ENSEMBLE.
+
+   Celle du train ajoute la garde qui manquait : l'aperçu peut être arrêté au
+   milieu du passage sans que rien ne s'en aperçoive, parce que le service
+   worker sert les pages depuis son cache — l'essai mesurait un site hors
+   ligne sans le savoir. Celle-ci dédouble le balayage, parce qu'un écran peut
+   désormais ne valoir que pour certains parcours.
+
+   Les deux sont gardées : la garde encadre le passage, le passage se fait deux
+   fois.
+*/
+for (const parcoursBalaye of PARCOURS_BALAYES) {
+await page.goto(`${RACINE}/robots.txt`, { waitUntil: 'load' }).catch(() => {});
+await page
+  .evaluate((id) => localStorage.setItem('revinsp.parcours', id), parcoursBalaye)
+  .catch(() => {});
 
 for (const route of ROUTES) {
   await page.goto(`${RACINE}${route}`, { waitUntil: 'networkidle' }).catch((e) => {
-    injoignables.push(`${route} — ${String(e?.message ?? e).split('\n')[0]}`);
+    injoignables.push({ route, parcours: parcoursBalaye, cause: String(e?.message ?? e).split('\n')[0] });
   });
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
@@ -304,7 +341,8 @@ for (const route of ROUTES) {
      navigation, donc au moins une ancre. Zéro ancre veut dire que la page
      n'a pas rendu, et c'est mesurable sans rien supposer du contenu.
   */
-  if (trouves.ancres === 0) injoignables.push(`${route} — aucune ancre rendue`);
+  if (trouves.ancres === 0)
+    injoignables.push({ route, parcours: parcoursBalaye, cause: 'aucune ancre rendue' });
 
   const m = liens.get(route) ?? new Map();
   for (const { chemin, cout } of trouves.liens) {
@@ -314,6 +352,7 @@ for (const route of ROUTES) {
   }
   liens.set(route, m);
 }
+} /* fin du balayage d'un parcours */
 
 await contexte.close();
 await nav.close();
@@ -336,13 +375,23 @@ if (!(await apercuRepond())) {
 }
 
 if (injoignables.length > 0) {
+  /*
+     ON COMPTE DES ROUTES, ET NON DES RELEVÉS.
+
+     Depuis que le passage se fait deux fois, une route muette est relevée
+     deux fois, et « 2 routes n'ont pas répondu » serait faux pour une seule
+     route. Le détail, lui, garde les deux relevés : le parcours sous lequel
+     la route a été muette fait partie de ce qui s'est passé.
+  */
+  const combien = new Set(injoignables.map((r) => r.route)).size;
   console.log(
-    `\n\x1b[31m✗ REFUS\x1b[0m — ${injoignables.length} route${injoignables.length > 1 ? 's' : ''} ` +
-      `n’${injoignables.length > 1 ? 'ont' : 'a'} pas répondu. Le graphe serait troué, et les\n` +
+    `\n\x1b[31m✗ REFUS\x1b[0m — ${combien} route${combien > 1 ? 's' : ''} ` +
+      `n’${combien > 1 ? 'ont' : 'a'} pas répondu. Le graphe serait troué, et les\n` +
       '  écrans qu’elles seules atteignent passeraient pour inatteignables. Vérifiez que\n' +
       '  l’aperçu est bien en ligne et qu’il n’a pas été redémarré pendant le passage.',
   );
-  for (const r of injoignables.slice(0, 10)) console.log(`      ${r}`);
+  for (const r of injoignables.slice(0, 10))
+    console.log(`      ${r.route} (${r.parcours}) — ${r.cause}`);
   process.exit(1);
 }
 

@@ -31,6 +31,7 @@
  * qui mène à une page vide ne renseigne personne : il promet.
  */
 import Base from '../layouts/Base.astro';
+import Icone from '../components/Icone.astro';
 import InvitationInstallation from '../components/InvitationInstallation.astro';
 import { BRANCHES } from '../lib/branches';
 import { base } from '../lib/ui';
@@ -79,7 +80,7 @@ const REPONSE =
       href={`${base}/odyssee/revue/`}
       class="mb-6 hidden items-center gap-3 rounded-2xl border border-indigo-300 bg-indigo-50 px-4 py-3 text-sm font-medium text-indigo-900 transition hover:bg-indigo-100 dark:border-indigo-800 dark:bg-indigo-950/40 dark:text-indigo-100 dark:hover:bg-indigo-900/40"
     >
-      <span aria-hidden="true">🗒️</span>
+      <Icone nom="revue" taille={20} />
       <span id="revue-due-texte">La revue vous attend</span>
     </a>
 

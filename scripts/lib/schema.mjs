@@ -208,6 +208,15 @@ export const correctionSchema = z.object({
       z.object({
         verdict: z.enum(['juste', 'faux'], { message: '« verdict » vaut « juste » ou « faux »' }),
         pourquoi: z.string().min(1, 'chaque option doit dire pourquoi elle est juste ou fausse'),
+        /**
+         * Le marqueur d'une option que la clef donne fausse sans qu'elle soit
+         * pour autant absurde. Facultatif, et restreint à « possible » : les
+         * autres marqueurs du vocabulaire décrivent soit des éléments de
+         * schéma, soit la réponse donnée, que l'écran déduit seul.
+         */
+        marqueur: z
+          .literal('possible', { message: '« marqueur » ne vaut que « possible »' })
+          .optional(),
       }),
     )
     .min(2, '« par_option » a besoin d’une entrée par option'),
@@ -248,6 +257,36 @@ export const correctionSchema = z.object({
       });
     }
   }
+
+  /*
+   * « marqueur: possible » dit d'une option fausse qu'elle reste défendable.
+   * Un seul emploi le contredit, et il est silencieux à la lecture : sur une
+   * option que la clef donne JUSTE, le marqueur ne veut rien dire. La bonne
+   * réponse n'est pas « possible », elle est la réponse, et l'écran la marque
+   * déjà comme telle.
+   *
+   * Il n'y a **pas** de condition sur « confiance », et c'est un choix revu.
+   * Elle a d'abord été exigée à « moyenne », au motif qu'un corrigé officiel
+   * tranchant la question n'y laisserait aucune option compatible. La mesure a
+   * démenti le raisonnement : les deux champs portent sur des axes
+   * indépendants. « confiance » dit si LA CLEF est certaine ; « possible » dit
+   * si UN DISTRACTEUR est défendable. « Qui a peint La Liberté guidant le
+   * peuple ? » a une clef certaine — Delacroix — et Géricault reste le
+   * distracteur le plus défendable qu'on puisse offrir. La condition aurait
+   * écarté 29 des 32 corrections qui emploient le marqueur, et justement
+   * celles où il apprend quelque chose.
+   */
+  v.par_option.forEach((o, i) => {
+    if (o.marqueur === undefined) return;
+    if (o.verdict === 'juste') {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          `« par_option.${i + 1} » porte « marqueur: possible » sur un verdict ` +
+          '« juste » : la bonne réponse n’est pas « possible », elle est la réponse.',
+      });
+    }
+  });
 });
 
 /**
@@ -369,6 +408,72 @@ export const quizSchema = z
       ...(v.partie ? { partie: v.partie } : {}),
     };
   });
+
+/**
+ * Un organigramme consultable, déclaré dans « ## Organigrammes ».
+ *
+ * ## Pourquoi la date et la source sont OBLIGATOIRES ici
+ *
+ * Un visuel de correction se lit à côté de la question qu'il corrige : son
+ * contexte le date. Un organigramme de référence, lui, se consulte seul, des
+ * mois plus tard — et l'organisation d'une administration bouge. Un
+ * organigramme sans date est une affirmation sans réserve : celui de la
+ * direction régionale d'Île-de-France vaut pour juillet 2025, celui d'une
+ * direction départementale pour l'annonce qui l'a décrit, et confondre les
+ * deux fait apprendre un état qui n'existe plus.
+ *
+ * Le build refuse donc les deux absences, plutôt que de les signaler. Un
+ * avertissement se lit une fois et s'oublie ; un refus se corrige.
+ *
+ * La date accepte « 2025-07 » comme « 2025-07-15 » : beaucoup de documents
+ * officiels ne datent qu'au mois — « mise à jour au 07/2025 » —, et exiger un
+ * jour obligerait à en inventer un.
+ */
+const SANS_SOURCE =
+  'un organigramme sans source est une affirmation sans preuve : nommez le document';
+const SANS_DATE =
+  'un organigramme sans date est une affirmation sans réserve : « 2025-07 » ou « 2025-07-15 »';
+
+/*
+   TROIS PIÈGES DE VALIDATION, ET MON PROPRE ESSAI LES A TROUVÉS.
+
+   1. « .min(1, message) » ne dit RIEN quand la clé est absente : zod rend
+      alors son message générique, « Invalid input », et la personne qui écrit
+      du contenu ne sait pas ce qu'on lui demande. Le message va donc sur le
+      TYPE, où il couvre l'absence comme le mauvais type.
+   2. « .min(1) » accepte « '   ' » : trois espaces font une chaîne de
+      longueur trois. Sans « .trim() » devant, une source faite d'espaces
+      passait — c'est-à-dire une source absente qui se déclare présente.
+   3. « .trim() » normalise aussi ce qui est stocké, donc le contenu publié ne
+      porte pas les espaces de frappe.
+*/
+export const organigrammeSchema = z.object({
+  titre: z
+    .string({ message: 'un organigramme a besoin d’un titre' })
+    .trim()
+    .min(1, 'un organigramme a besoin d’un titre'),
+  donnees: z.unknown(),
+  alt: z
+    .string({ message: '« alt » est obligatoire : c’est ce que lit un lecteur d’écran' })
+    .trim()
+    .min(1, '« alt » est obligatoire : c’est ce que lit un lecteur d’écran'),
+  legende: z.string().trim().optional(),
+  source: z.string({ message: SANS_SOURCE }).trim().min(1, SANS_SOURCE),
+  date: z
+    .string({ message: SANS_DATE })
+    .trim()
+    .regex(/^\d{4}-\d{2}(-\d{2})?$/, SANS_DATE),
+}).superRefine((v, ctx) => {
+  /*
+     Les données sont celles d'un visuel « schema », et elles passent par le
+     même contrôle que dans une correction : une rangée mal déclarée, un lien
+     vers un nœud absent, un libellé trop long échouent ici plutôt qu'au
+     rendu, devant la personne qui consulte.
+  */
+  for (const message of defautsDesDonnees('schema', v.donnees)) {
+    ctx.addIssue({ code: 'custom', message });
+  }
+});
 
 export const glossaireSchema = z.array(
   z.object({

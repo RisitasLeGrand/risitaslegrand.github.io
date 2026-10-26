@@ -144,12 +144,17 @@ async function lireEchelons() {
 /** Le programme : fiches du parcours, fiches vues, fiches planifiées à date. */
 async function lireProgramme(jour: string) {
   try {
-    const [{ aplatirFiches, chargerManifeste }, { planning }, cartes] = await Promise.all([
+    const [{ aplatirFiches, chargerManifesteComplet }, { planning }, cartes] = await Promise.all([
       import('./contenu'),
       import('./planification'),
       toutesLesCartes(),
     ]);
-    const fiches = aplatirFiches(await chargerManifeste());
+    /*
+       LA FENÊTRE DES SYNTHÈSES PORTE CINQ ANS D'HISTORIQUE, et elle raconte.
+       La filtrer par parcours réécrirait le passé : une révision faite sur
+       l'INSP disparaîtrait de la synthèse le jour où Alexis ouvre DGFiP-A.
+    */
+    const fiches = aplatirFiches(await chargerManifesteComplet());
     if (!fiches.length) return undefined;
     const vues = new Set(cartes.filter((c) => c.revisions > 0).map((c) => c.ficheId)).size;
     /*
