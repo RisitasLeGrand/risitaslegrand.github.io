@@ -245,6 +245,7 @@
     "essais:sante:navigateur": "node scripts/essais-sante-navigateur.mjs",
     "essais:hors-ligne": "node scripts/essais-hors-ligne.mjs",
     "essais:hors-ligne-usage": "node scripts/essais-hors-ligne-usage.mjs",
+    "essais:publication-onglet": "node scripts/essais-publication-onglet.mjs",
     "essais:espaces": "node scripts/essais-espaces.mjs",
     "essais:nombre-saisi": "tsx scripts/essais-nombre-saisi.mts",
     "essais:bulle:navigateur": "node scripts/essais-bulle-navigateur.mjs",
