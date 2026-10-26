@@ -13,6 +13,7 @@
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { attendreEnBase } from './lib/post-condition.mjs';
 
 const VERSION = Number(
   /const VERSION = (\d+)/.exec(readFileSync('src/lib/db.ts', 'utf8'))?.[1] ?? '0',
@@ -147,9 +148,17 @@ await page.goto(`${RACINE}/progression/`, { waitUntil: 'networkidle' });
 if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
   await page.fill('#champ-mdp', MDP);
   await page.click('#bouton-verrou');
-  await page.waitForTimeout(3500);
 }
-await page.waitForTimeout(1500);
+/*
+   La post-condition de cette migration est son magasin « notes », dont
+   l'absence vient d'être constatée. Une migration n'a aucune marque à
+   l'écran ; la base en est une.
+*/
+v(
+  'la migration a créé le magasin « notes »',
+  (await attendreEnBase(page, 'notes', () => true)) !== null,
+  true,
+);
 
 const apres = await page.evaluate(async () => {
   const base = await new Promise((ok, ko) => {
@@ -229,9 +238,10 @@ await page.reload({ waitUntil: 'networkidle' });
 if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
   await page.fill('#champ-mdp', MDP);
   await page.click('#bouton-verrou');
-  await page.waitForTimeout(3000);
 }
-await page.waitForTimeout(1500);
+/* Au second passage le magasin existe déjà : on attend que la base réponde,
+   ce qui suffit à dire que la page a fini de l'ouvrir. */
+v('la base répond au second passage', (await attendreEnBase(page, 'notes', () => true)) !== null, true);
 const encore = await page.evaluate(async () => {
   const base = await new Promise((ok) => {
     const r = indexedDB.open('revinsp');
