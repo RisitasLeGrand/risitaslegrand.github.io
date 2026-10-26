@@ -71,3 +71,43 @@ export async function apresLaPeinture(page, selecteur, geste, { delai = 30000 } 
     { timeout: delai },
   );
 }
+
+/**
+ * L'élément atteint-il cet état de visibilité, dans le délai ?
+ *
+ * ## Pourquoi cela remplace une temporisation à l'aveugle
+ *
+ * Le motif le plus répandu dans les essais de navigateur est
+ *
+ *     await page.click('#masquer');
+ *     await page.waitForTimeout(300);
+ *     verifier('le bandeau part', await page.locator('#bandeau').isVisible(), false);
+ *
+ * Trois cents millisecondes sont une MOYENNE : sous une batterie chargée, la
+ * peinture arrive après, et l'essai lit l'état d'avant. Le § 3 de
+ * « cadence-des-essais.md » le dit — une temporisation à l'aveugle réduit le
+ * risque sans le supprimer, et cède là où elle était censée protéger.
+ *
+ * ## Et pourquoi ce n'est pas un vert à vide
+ *
+ * L'objection évidente : attendre la condition qu'on va affirmer rend
+ * l'affirmation impossible à démentir. Elle ne tient pas, parce que l'attente
+ * est BORNÉE et que son expiration est rendue comme un faux. La condition
+ * n'est pas supposée : elle est vérifiée en continu pendant tout le délai, et
+ * l'assertion échoue si elle ne vient jamais. Ce qui disparaît, c'est
+ * seulement l'exigence qu'elle arrive en moins de trois cents millisecondes —
+ * laquelle ne mesurait pas l'écran mais la charge de la machine.
+ *
+ * ## Ce qu'elle ne sait pas faire
+ *
+ * Pour « l'élément RESTE visible », elle tolère une arrivée tardive : un
+ * élément qui clignoterait passerait. La temporisation à l'aveugle était
+ * pire — elle lisait à un instant arbitraire — mais la limite est réelle, et
+ * un invariant de ce genre se tient mieux par un compteur sur la zone.
+ */
+export async function devientVisible(page, selecteur, visible, { delai = 10000 } = {}) {
+  return page
+    .waitForSelector(selecteur, { state: visible ? 'visible' : 'hidden', timeout: delai })
+    .then(() => true)
+    .catch(() => false);
+}
