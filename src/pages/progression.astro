@@ -735,15 +735,16 @@ import LienReglages from '../components/LienReglages.astro';
       titre: 'Remplacer toute la progression de ce navigateur ?',
       texte:
         `La sauvegarde a été faite le ${quandLaSauvegarde}` +
-        (ageEnJours !== null && ageEnJours > 0 ? `, il y a ${ageEnJours} jour(s)` : '') +
+        (ageEnJours !== null && ageEnJours > 0 ? `, il y a ${pluriel(ageEnJours, 'jour')}` : '') +
         (combienDansLaSauvegarde !== null
-          ? ` et porte ${combienDansLaSauvegarde} enregistrement(s).`
+          ? ` et porte ${pluriel(combienDansLaSauvegarde, 'enregistrement')}.`
           : '.') +
         ` Ce navigateur en porte aujourd’hui ${combienIci.toLocaleString('fr-FR')}, ` +
         `rubrique par rubrique : ${direLesGroupes(groupesIci)}` +
         (cartesIci.length || quizIci.length || joursIci.length
-          ? `, dont ${cartesIci.length} carte(s) suivie(s), ${quizIci.length} quiz et ` +
-            `${joursIci.length} journée(s) de temps passé`
+          ? `, dont ${pluriel(cartesIci.length, 'carte')} ` +
+            `${cartesIci.length > 1 ? 'suivies' : 'suivie'}, ${quizIci.length} quiz et ` +
+            `${pluriel(joursIci.length, 'journée')} de temps passé`
           : '') +
         '. Tout cela sera écrasé. ' +
         (avecInstantane
@@ -776,9 +777,16 @@ import LienReglages from '../components/LienReglages.astro';
       const total = Object.values(r.ecrits).reduce((s, n) => s + n, 0);
       dire(
         'message-cyclades',
-        `Restauration faite : ${total} enregistrement(s) écrits` +
-          (r.inconnus.length ? `, ${r.inconnus.length} magasin(s) inconnu(s) laissés de côté` : '') +
-          (r.relecture.lignesIllisibles ? `, ${r.relecture.lignesIllisibles} ligne(s) illisible(s)` : '') +
+        `Restauration faite : ${pluriel(total, 'enregistrement')} ` +
+          `${total > 1 ? 'écrits' : 'écrit'}` +
+          (r.inconnus.length
+            ? `, ${pluriel(r.inconnus.length, 'magasin')} ` +
+              `${r.inconnus.length > 1 ? 'inconnus laissés' : 'inconnu laissé'} de côté`
+            : '') +
+          (r.relecture.lignesIllisibles
+            ? `, ${pluriel(r.relecture.lignesIllisibles, 'ligne')} ` +
+              `${r.relecture.lignesIllisibles > 1 ? 'illisibles' : 'illisible'}`
+            : '') +
           '.',
         'succes',
       );
@@ -991,14 +999,15 @@ import LienReglages from '../components/LienReglages.astro';
         texte:
           `Partent, rubrique par rubrique : ${direLesGroupes(groupesA)}. ` +
           /*
-             « Dont 0 carte(s) suivie(s), 0 quiz et 0 journée(s) » : la phrase
+             « Dont 0 carte suivie, 0 quiz et 0 journée » : la phrase
              le disait, sur une base qui ne portait qu'Odyssée. Trois zéros
              n'apprennent rien et font douter du reste. Le détail ne paraît
              donc que s'il a quelque chose à détailler.
           */
           (cartesA.length || quizA.length || joursA.length
-            ? `Dont ${cartesA.length} carte(s) suivie(s), ${quizA.length} quiz et ` +
-              `${joursA.length} journée(s) de temps passé. `
+            ? `Dont ${pluriel(cartesA.length, 'carte')} ` +
+              `${cartesA.length > 1 ? 'suivies' : 'suivie'}, ${quizA.length} quiz et ` +
+              `${pluriel(joursA.length, 'journée')} de temps passé. `
             : '') +
           'Partent aussi : les réglages de ' +
           'ce navigateur, les pages gardées pour la lecture hors ligne, les instantanés ' +
@@ -1012,7 +1021,7 @@ import LienReglages from '../components/LienReglages.astro';
             : '') +
           (etat.derniere
             ? `Votre dernière sauvegarde confirmée date du ${new Date(etat.derniere).toLocaleString('fr-FR')}` +
-              (etat.jours !== null && etat.jours > 0 ? `, il y a ${etat.jours} jour(s).` : '.')
+              (etat.jours !== null && etat.jours > 0 ? `, il y a ${pluriel(etat.jours, 'jour')}.` : '.')
             : 'ATTENTION : aucune sauvegarde n’a jamais été confirmée depuis ce navigateur, ' +
               'donc rien de tout cela n’existe ailleurs.') +
           ' Cette action est irréversible.',
@@ -1024,9 +1033,12 @@ import LienReglages from '../components/LienReglages.astro';
       await afficherResume();
       dire(
         'message-effacement-total',
-        `${releve.enregistrements.toLocaleString('fr-FR')} enregistrement(s), ` +
-          `${releve.clefsLocales} réglage(s) de ce navigateur, ${releve.caches} cache(s) ` +
-          `hors ligne et ${releve.bases.length} base(s) annexe(s) ont été effacés.` +
+        `${releve.enregistrements.toLocaleString('fr-FR')} ` +
+          `${releve.enregistrements > 1 ? 'enregistrements' : 'enregistrement'}, ` +
+          `${pluriel(releve.clefsLocales, 'réglage')} de ce navigateur, ` +
+          `${pluriel(releve.caches, 'cache')} hors ligne et ` +
+          `${pluriel(releve.bases.length, 'base')} ` +
+          `${releve.bases.length > 1 ? 'annexes' : 'annexe'} ont été effacés.` +
           (appairage
             ? ' Cet appareil reste appairé : les autres appareils liés gardent leurs données.'
             : ''),

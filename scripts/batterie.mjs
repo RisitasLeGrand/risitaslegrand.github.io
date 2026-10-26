@@ -85,7 +85,19 @@ const SOCLE = [
   ['essais:structure', 'un titre de niveau 1 par écran, un titre d’onglet unique'],
   ['essais:espaces', 'aucun mot collé à une balise en ligne, dans le site construit'],
   ['essais:mots-colles:navigateur', 'les mêmes, mesurés dans la page vivante'],
-  ['essais:typographie', 'apostrophes, espaces insécables, accords sans « (s) »'],
+  /*
+     LA DESCRIPTION DISAIT TROIS CHOSES, L'ESSAI N'EN MESURE QU'UNE.
+
+     Elle annonçait « apostrophes, espaces insécables, accords sans "(s)" ».
+     L'essai éprouve la seule fonction « insecables », sur onze cas, et ne
+     regarde aucune page : ni les apostrophes, ni les accords. Le balayage des
+     accords n'existe pas — c'est ainsi que quatre phrases de
+     « progression.astro » ont porté des « (s) » sous un socle vert.
+
+     Une description qui promet un contrôle absent est pire qu'une ligne
+     manquante : on relit le socle pour savoir ce qui est gardé.
+  */
+  ['essais:typographie', 'la fonction « insecables » : ce qu’elle pose, et ce qu’elle laisse tranquille — URL, anglais, code cité'],
   /*
      Deux garanties que n'importe quelle retouche du rendu Markdown peut
      défaire sans qu'on la voie : les 158 « $ » monétaires et les 100 ellipses

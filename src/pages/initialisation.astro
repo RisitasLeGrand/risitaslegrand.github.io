@@ -22,6 +22,9 @@
  * déclarée est un mensonge qui dure des mois.
  */
 import Base from '../layouts/Base.astro';
+/* `base` est aussi importé dans le script du client ; ici il sert au gabarit,
+   et les deux sont la même valeur. */
+import { base } from '../lib/ui';
 ---
 
 <Base titre="Faisons connaissance" entete="leger" sansNavigation>
@@ -80,6 +83,42 @@ import Base from '../layouts/Base.astro';
           </button>
         </div>
       </section>
+
+      {/*
+         B1 — L'OFFRE DE RESTAURATION, DÈS LA PREMIÈRE QUESTION.
+
+         Le défaut : quelqu'un qui arrive sur un appareil neuf avec son fichier
+         de sauvegarde répondait à tout ce questionnaire pour rien. Il devait
+         ensuite trouver « Sauvegarde » de lui-même, et ce qu'il restaurait
+         écrasait ce qu'il venait de saisir. Rien, nulle part, ne lui disait
+         qu'il y avait un chemin plus court.
+
+         ELLE RESTE VISIBLE SUR TOUS LES ÉCRANS, et ce n'est pas une
+         négligence : on se souvient qu'on a une sauvegarde à la troisième
+         question aussi bien qu'à la première. Mais le texte change alors de
+         sens — ce qui est offert devient ce qui sera remplacé —, et c'est
+         `peindre()` qui le dit.
+
+         MESURÉ AVANT D'ÉCRIRE CE LIEN, parce que l'offre serait un piège si
+         le chemin n'aboutissait pas : sur une base neuve, après le seul verrou
+         du site, « /progression/ » s'ouvre, le fichier se vérifie, la
+         restauration s'applique — « Restauration faite : 8 enregistrements
+         écrits » —, la donnée est là, et le questionnaire n'est pas redemandé.
+         Aucun coffre préalable n'est nécessaire : `restaurer()` relit le
+         fichier avec le mot de passe du FICHIER et ne touche pas au coffre.
+      */}
+      <p
+        id="offre-restauration"
+        class="mt-4 rounded-xl border border-indigo-200 bg-indigo-50 p-3 text-sm text-indigo-900 dark:border-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-100"
+      >
+        <span id="offre-restauration-texte"></span>{' '}
+        <a
+          id="offre-restauration-lien"
+          href={`${base}/progression/#restaurer`}
+          class="cible-minimale font-medium underline"
+          >Restaurer une sauvegarde</a
+        >
+      </p>
 
       <p class="mt-4 text-xs text-slate-500 dark:text-slate-400">
         Tout est facultatif, sauf le prénom. Vous pourrez tout changer, restreindre ou supprimer
@@ -189,6 +228,20 @@ import Base from '../layouts/Base.astro';
       ? `${brancheDeclaree(brancheVoulue)?.libelle ?? brancheVoulue} — pour commencer`
       : 'Faisons connaissance';
     $('compteur').textContent = `${position + 1} / ${ecrans.length}`;
+
+    /*
+       B1 — CE QUI EST OFFERT DEVIENT CE QUI SERA REMPLACÉ.
+
+       À la première question, rien n'a été saisi : restaurer fait gagner tout
+       le questionnaire, et c'est une bonne nouvelle. Dès la deuxième, des
+       réponses existent, et le même lien les écraserait — le dire est la
+       moitié du point, parce qu'une offre qui ne prévient pas de ce qu'elle
+       coûte est un piège mieux présenté que l'absence d'offre.
+    */
+    $('offre-restauration-texte').textContent =
+      position === 0
+        ? 'Vous avez déjà une sauvegarde de Cyclades ? Restaurez-la plutôt que de répondre : vous retrouverez vos réponses avec vos données.'
+        : 'Attention : restaurer une sauvegarde remplacera les réponses que vous venez de donner.';
     ($('jauge') as HTMLElement).style.transform =
       `scaleX(${Math.round((position / ecrans.length) * 100) / 100})`;
 
