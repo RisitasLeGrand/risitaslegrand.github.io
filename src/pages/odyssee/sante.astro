@@ -148,7 +148,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
           </label>
           <input id="t-chercher" type="search" autocomplete="off"
             placeholder="Trois lettres suffisent"
-            class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+            class="cible-tactile w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           <p id="etat-registre" class="mt-1 text-xs text-slate-500 dark:text-slate-400"></p>
           <p class="mt-1 text-xs">
             <a
@@ -165,22 +165,22 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
           <label class="text-sm">
             <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Nom du traitement</span>
             <input id="t-nom" type="text" required
-              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              class="cible-tactile w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <label class="text-sm">
             <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Début du traitement</span>
             <input id="t-debut" type="date" required
-              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              class="cible-tactile w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <label class="text-sm sm:col-span-2">
             <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Posologie (facultatif)</span>
             <input id="t-posologie" type="text" placeholder="1 comprimé le matin"
-              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              class="cible-tactile w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <label class="text-sm">
             <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Origine du traitement</span>
             <select id="t-origine"
-              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+              class="cible-tactile w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950">
               <option value="moi">De ma propre initiative</option>
               <option value="prescrit">Prescrit</option>
             </select>
@@ -188,7 +188,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
           <label class="text-sm">
             <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Prescripteur (facultatif)</span>
             <input id="t-prescripteur" type="text"
-              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              class="cible-tactile w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <label class="flex items-center gap-2 text-sm text-slate-600 sm:col-span-2 dark:text-slate-300">
             <input id="t-sporadique" type="checkbox" class="rounded" />
@@ -252,17 +252,17 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
           <label class="text-sm">
             <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Date du bilan</span>
             <input id="p-jour" type="date" required
-              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              class="cible-tactile w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <label class="text-sm">
             <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Laboratoire (facultatif)</span>
             <input id="p-labo" type="text"
-              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              class="cible-tactile w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <label class="text-sm sm:col-span-2">
             <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Contexte du bilan (facultatif)</span>
             <input id="p-contexte" type="text" placeholder="à jeun, 3 h après la prise"
-              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              class="cible-tactile w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <button type="submit"
             class="cible-tactile rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white sm:col-span-2"
@@ -282,17 +282,17 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
           <label class="text-sm">
             <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Date du symptôme</span>
             <input id="s-jour" type="date" required
-              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              class="cible-tactile w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <label class="text-sm">
             <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Ce que vous ressentez</span>
             <input id="s-intitule" type="text" required
-              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              class="cible-tactile w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <label class="text-sm">
             <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Intensité, de 0 à 10</span>
             <input id="s-intensite" type="number" min="0" max="10" step="1" inputmode="numeric" value="5"
-              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              class="cible-tactile w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <button type="submit"
             class="cible-tactile rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white sm:col-span-3"
@@ -312,12 +312,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
           <label class="text-sm">
             <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Intitulé de la condition</span>
             <input id="c-intitule" type="text" required
-              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              class="cible-tactile w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <label class="text-sm">
             <span class="mb-1 block font-medium text-slate-700 dark:text-slate-200">Début de la condition</span>
             <input id="c-debut" type="date" required
-              class="cible-tactile w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              class="cible-tactile w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <button type="submit"
             class="cible-tactile rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white sm:col-span-2"
@@ -417,7 +417,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     const bouton = document.createElement('button');
     bouton.type = 'button';
     bouton.className =
-      'cible-tactile rounded-lg border border-slate-300 px-3 text-xs dark:border-slate-700';
+      'cible-tactile rounded-lg border border-slate-400 px-3 text-xs dark:border-slate-600';
     bouton.textContent = 'Retirer';
     bouton.addEventListener('click', () => void retirer().then(peindre).catch(dire));
     li.append(gauche, bouton);
@@ -538,7 +538,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
         bouton.className =
           etat === 'pris'
             ? 'cible-tactile rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white'
-            : 'cible-tactile rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700';
+            : 'cible-tactile rounded-lg border border-slate-400 px-4 text-sm dark:border-slate-600';
         bouton.textContent = libelle;
         bouton.setAttribute('aria-label', phrase);
         bouton.addEventListener('click', () => {
@@ -556,7 +556,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       const reprendre = document.createElement('button');
       reprendre.type = 'button';
       reprendre.className =
-        'cible-tactile rounded-lg border border-slate-300 px-3 text-xs dark:border-slate-700';
+        'cible-tactile rounded-lg border border-slate-400 px-3 text-xs dark:border-slate-600';
       reprendre.textContent = 'Reprendre';
       reprendre.setAttribute(
         'aria-label',
@@ -713,7 +713,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
     const sorte = document.createElement('select');
     sorte.className =
-      'cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+      'cible-tactile rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950';
     sorte.setAttribute('aria-label', 'Rythme du schéma');
     for (const [valeur, libelle] of [
       ['jours', 'Tous les N jours'],
@@ -729,7 +729,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     tous.step = '1';
     tous.value = String(repetition.tous);
     tous.className =
-      'cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+      'cible-tactile rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950';
     tous.setAttribute('aria-label', 'Un jour sur combien');
 
     const cases = document.createElement('fieldset');
@@ -771,7 +771,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       for (const h of heures) {
         const puce = document.createElement('li');
         puce.className =
-          'flex items-center gap-1 rounded-lg border border-slate-300 px-2 py-1 text-xs dark:border-slate-700';
+          'flex items-center gap-1 rounded-lg border border-slate-400 px-2 py-1 text-xs dark:border-slate-600';
         puce.append(document.createTextNode(enHeure(h)));
         const retirer = document.createElement('button');
         retirer.type = 'button';
@@ -791,12 +791,12 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     const heure = document.createElement('input');
     heure.type = 'time';
     heure.className =
-      'cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+      'cible-tactile rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950';
     heure.setAttribute('aria-label', 'Une heure à ajouter');
     const ajouter = document.createElement('button');
     ajouter.type = 'button';
     ajouter.className =
-      'cible-tactile rounded-lg border border-slate-300 px-3 text-xs dark:border-slate-700';
+      'cible-tactile rounded-lg border border-slate-400 px-3 text-xs dark:border-slate-600';
     ajouter.textContent = 'Ajouter cette heure';
     ajouter.addEventListener('click', () => {
       if (!heure.value) return;
@@ -810,7 +810,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     quantite.value = t.schema?.quantite ?? '';
     quantite.placeholder = 'Quantité, dans vos mots — « 5 g »';
     quantite.className =
-      'cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+      'cible-tactile rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950';
     quantite.setAttribute('aria-label', 'Quantité prévue, en toutes lettres');
 
     const enregistrer = document.createElement('button');
@@ -826,7 +826,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       const oter = document.createElement('button');
       oter.type = 'button';
       oter.className =
-        'cible-tactile rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700';
+        'cible-tactile rounded-lg border border-slate-400 px-4 text-sm dark:border-slate-600';
       oter.textContent = 'Retirer le schéma';
       oter.setAttribute('aria-label', `Retirer le schéma prévu de ${t.nom}`);
       /*
@@ -981,7 +981,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
     const voie = document.createElement('select');
     voie.className =
-      'cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+      'cible-tactile rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950';
     voie.setAttribute('aria-label', 'Par quelle voie vous rappeler');
     voie.append(new Option('Par mon agenda', 'agenda'), new Option('Par une notification de Cyclades', 'notification'));
     voie.value = depart.voie;
@@ -991,7 +991,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
     const libelle = document.createElement('select');
     libelle.className =
-      'cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+      'cible-tactile rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950';
     libelle.setAttribute('aria-label', 'Ce que le rappel affiche');
     libelle.append(
       new Option('« Rappel Cyclades », sans autre mention', 'neutre'),
@@ -1005,7 +1005,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     texte.value = depart.texte;
     texte.placeholder = 'Le texte du rappel';
     texte.className =
-      'cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+      'cible-tactile rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950';
     texte.setAttribute('aria-label', 'Le texte de votre rappel');
 
     /*
@@ -1021,7 +1021,7 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
 
     const delai = document.createElement('select');
     delai.className =
-      'cible-tactile rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950';
+      'cible-tactile rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950';
     delai.setAttribute('aria-label', 'Au bout de combien de temps vous le rappeler');
     for (const minutes of DELAIS_D_OUBLI) {
       delai.append(

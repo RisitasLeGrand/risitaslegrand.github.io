@@ -28,12 +28,12 @@ import LienReglages from '../components/LienReglages.astro';
       <label class="block">
         <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Cartes par session de flashcards</span>
         <input id="plafond-cartes" type="number" inputmode="numeric" min="5" max="200" step="5"
-          class="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-indigo-900" />
+          class="mt-1.5 w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-indigo-900" />
       </label>
       <label class="block">
         <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Questions par QCM</span>
         <input id="plafond-questions" type="number" inputmode="numeric" min="5" max="200" step="5"
-          class="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-indigo-900" />
+          class="mt-1.5 w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-indigo-900" />
       </label>
     </div>
     <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
@@ -96,7 +96,7 @@ import LienReglages from '../components/LienReglages.astro';
           Mot de passe du site
         </span>
         <input id="mdp-sauvegarde" type="password" autocomplete="current-password"
-          class="w-full max-w-sm rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          class="w-full max-w-sm rounded-lg border border-slate-400 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
         <span class="mt-1 block text-xs text-slate-400">
           Il n'est pas conservé : la clé de session ne permet pas de le retrouver.
         </span>
@@ -183,7 +183,7 @@ import LienReglages from '../components/LienReglages.astro';
           Mot de passe de cette sauvegarde
         </span>
         <input id="mdp-restauration" type="password" autocomplete="off"
-          class="w-full max-w-sm rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          class="w-full max-w-sm rounded-lg border border-slate-400 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
         <span class="mt-1 block text-xs text-slate-400">
           Si elle est antérieure à un changement de mot de passe, c'est{' '}
           <strong>l'ancien</strong> qu'il faut : une sauvegarde garde celui qu'elle
@@ -273,7 +273,7 @@ import LienReglages from '../components/LienReglages.astro';
       <button id="reinitialiser" class="cible-tactile rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 dark:border-red-800 dark:bg-transparent dark:text-red-300">
         Tout effacer sur cet appareil
       </button>
-      <button id="delier-appareil" class="cible-tactile hidden rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-200">
+      <button id="delier-appareil" class="cible-tactile hidden rounded-lg border border-slate-400 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:bg-transparent dark:text-slate-200">
         Délier cet appareil
       </button>
     </div>
@@ -386,7 +386,7 @@ import LienReglages from '../components/LienReglages.astro';
       const case_ = document.createElement('input');
       case_.type = 'checkbox';
       case_.checked = reglages[contenu.id];
-      case_.className = 'mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500';
+      case_.className = 'mt-1 h-4 w-4 rounded border-slate-400 text-indigo-600 focus:ring-indigo-500';
       case_.addEventListener('change', () => {
         void (async () => {
           const courants = await lireReglagesContenu();
@@ -419,7 +419,7 @@ import LienReglages from '../components/LienReglages.astro';
       const case_ = document.createElement('input');
       case_.type = 'checkbox';
       case_.checked = reglages[source.id];
-      case_.className = 'mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500';
+      case_.className = 'mt-1 h-4 w-4 rounded border-slate-400 text-indigo-600 focus:ring-indigo-500';
       case_.addEventListener('change', () => {
         void (async () => {
           const courants = await lireReglagesNiveau();
@@ -559,7 +559,7 @@ import LienReglages from '../components/LienReglages.astro';
   const TONS = {
     jamais: 'border-red-300 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200',
     ancienne: 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200',
-    'a-faire': 'border-slate-300 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200',
+    'a-faire': 'border-slate-400 bg-slate-50 text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200',
     recente: 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200',
   } as const;
 

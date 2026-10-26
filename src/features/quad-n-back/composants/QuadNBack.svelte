@@ -944,7 +944,7 @@
               type="checkbox"
               bind:checked={reglages.grille3D}
               aria-describedby="avertissement-rotation"
-              class="h-4 w-4 rounded border-slate-300 text-indigo-600"
+              class="h-4 w-4 rounded border-slate-400 text-indigo-600"
             />
             Grille 3D en rotation (27 positions)
           </label>
@@ -962,7 +962,7 @@
             réglé sur « mouvement réduit », elle reste immobile.
           </p>
           <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-            <input type="checkbox" bind:checked={reglages.retourImmediat} class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
+            <input type="checkbox" bind:checked={reglages.retourImmediat} class="h-4 w-4 rounded border-slate-400 text-indigo-600" />
             Retour immédiat sur chaque réponse
           </label>
         </div>
@@ -983,7 +983,7 @@
             <div
               class="rounded-xl border p-3 transition {actif
                 ? 'border-indigo-400 bg-indigo-50 dark:border-indigo-600 dark:bg-indigo-950/60'
-                : 'border-slate-200 bg-white opacity-60 dark:border-slate-700 dark:bg-slate-900'}"
+                : 'border-slate-200 bg-white opacity-60 dark:border-slate-600 dark:bg-slate-900'}"
             >
               <button
                 type="button"
@@ -999,13 +999,23 @@
                 </span>
               </button>
 
+              <!--
+                LE CRAN 500 ET NON 400, et c'est une mesure : ces quatre
+                boutons sont posés sur une carte TEINTÉE, au cran `indigo-50`
+                du thème, et le cran 400 — la bordure forte — n'y donne que
+                2,77:1. Le jeton est dérivé contre les surfaces
+                NEUTRES, le fond et la carte ; une surface teintée est un
+                troisième fond que le générateur ne considère pas, et c'est
+                signalé au Pilote. Le cran 500 tient 5,29:1 sur ce fond et
+                3,86:1 sur son équivalent sombre.
+              -->
               <button
                 type="button"
                 onclick={() => demarrerCapture(dimension.cle)}
                 aria-label="Changer la touche de « {dimension.libelle} » (actuellement {libelleTouche(reglages.touches[dimension.cle])})"
                 class="mt-2 w-full rounded-lg border px-2 py-1.5 text-xs transition {enCapture
                   ? 'animate-pulse border-indigo-500 bg-indigo-600 text-white'
-                  : 'border-slate-300 text-slate-500 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800'}"
+                  : 'border-slate-500 text-slate-500 hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800'}"
               >
                 {#if enCapture}
                   Appuyez sur une touche…
@@ -1040,7 +1050,7 @@
             <select
               id="source-motif"
               bind:value={reglages.sourceMotif}
-              class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
+              class="rounded-lg border border-slate-400 bg-white px-3 py-1.5 text-sm dark:border-slate-600 dark:bg-slate-900"
             >
               {#each SOURCES_MOTIF as source (source.cle)}
                 <option value={source.cle}>{source.libelle}</option>
@@ -1057,7 +1067,7 @@
         </legend>
 
         <label class="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-300">
-          <input type="checkbox" bind:checked={reglages.progression.active} class="h-4 w-4 rounded border-slate-300 text-indigo-600" />
+          <input type="checkbox" bind:checked={reglages.progression.active} class="h-4 w-4 rounded border-slate-400 text-indigo-600" />
           Ajuster n automatiquement d'après les parties récentes
         </label>
 
@@ -1148,7 +1158,7 @@
         <button
           type="button"
           onclick={commencerLaDecouverte}
-          class="w-full rounded-lg border border-slate-300 px-5 py-3 font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto"
+          class="w-full rounded-lg border border-slate-400 px-5 py-3 font-medium text-slate-700 transition hover:bg-slate-100 disabled:opacity-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800 sm:w-auto"
         >
           Essayer d'abord ({dureeDecouverte})
         </button>
@@ -1234,7 +1244,7 @@
         type="button"
         onclick={ouvrirLaConsigne}
         aria-label="Revoir la consigne"
-        class="shrink-0 rounded-lg border border-slate-300 px-2.5 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+        class="shrink-0 rounded-lg border border-slate-400 px-2.5 py-1 text-sm font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
       >
         <span class="sm:hidden">Consigne</span>
         <span class="hidden sm:inline">Revoir la consigne</span>
@@ -1253,7 +1263,7 @@
         onclick={recommencerApresConfirmation}
         aria-label="Recommencer la partie"
         title="Abandonner et relancer une partie avec les mêmes réglages"
-        class="shrink-0 min-h-11 min-w-11 rounded-lg border border-slate-300 px-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
+        class="shrink-0 min-h-11 min-w-11 rounded-lg border border-slate-400 px-2.5 text-sm font-medium text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800"
       >
         <span aria-hidden="true">↻</span>
         <span class="hidden sm:inline">Recommencer</span>
@@ -1504,7 +1514,7 @@
       <button onclick={commencer} class="rounded-lg bg-indigo-600 px-5 py-2.5 font-medium text-white transition hover:bg-indigo-700">
         Rejouer
       </button>
-      <button onclick={retourAccueil} class="rounded-lg border border-slate-300 px-5 py-2.5 font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">
+      <button onclick={retourAccueil} class="rounded-lg border border-slate-400 px-5 py-2.5 font-medium transition hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800">
         Retour aux réglages
       </button>
     </div>

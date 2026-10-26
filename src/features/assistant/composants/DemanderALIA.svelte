@@ -220,7 +220,7 @@
             class="rounded-full border px-3 py-1.5 text-sm transition
               {intention === p.id
               ? 'border-indigo-500 bg-indigo-600 font-medium text-white'
-              : 'border-slate-300 hover:border-indigo-400 dark:border-slate-700'}"
+              : 'border-slate-400 hover:border-indigo-400 dark:border-slate-600'}"
             >{p.libelle}</button
           >
         {/each}
@@ -239,8 +239,8 @@
         oninput={regenerer}
         rows="2"
         placeholder="Par exemple : et si la loi est antérieure au traité ?"
-        class="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm
-          dark:border-slate-700 dark:bg-slate-950"
+        class="w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-sm
+          dark:border-slate-600 dark:bg-slate-950"
       ></textarea>
     </label>
 
@@ -287,8 +287,8 @@
           etat = '';
         }}
         rows="12"
-        class="mt-2 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 font-mono text-xs
-          leading-relaxed dark:border-slate-700 dark:bg-slate-950"
+        class="mt-2 w-full rounded-lg border border-slate-400 bg-white px-3 py-2 font-mono text-xs
+          leading-relaxed dark:border-slate-600 dark:bg-slate-950"
       ></textarea>
 
       {#if resultat && (resultat.retires.length || resultat.tronques.length)}
@@ -331,8 +331,8 @@
         <button
           type="button"
           onclick={surPartager}
-          class="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-100
-            dark:border-slate-700 dark:hover:bg-slate-800">Partager</button
+          class="rounded-lg border border-slate-400 px-4 py-2 text-sm font-medium hover:bg-slate-100
+            dark:border-slate-600 dark:hover:bg-slate-800">Partager</button
         >
       {/if}
       {#if etat === 'copie'}

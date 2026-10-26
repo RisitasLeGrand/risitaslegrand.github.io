@@ -61,19 +61,19 @@ import LienReglages from '../components/LienReglages.astro';
           id="podcast-recul"
           type="button"
           aria-label="Reculer de 15 secondes"
-          class="rounded-lg border border-slate-300 px-2.5 py-1 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+          class="rounded-lg border border-slate-400 px-2.5 py-1 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
         >↺ 15 s</button>
         <button
           id="podcast-avance"
           type="button"
           aria-label="Avancer de 15 secondes"
-          class="rounded-lg border border-slate-300 px-2.5 py-1 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+          class="rounded-lg border border-slate-400 px-2.5 py-1 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
         >↻ 15 s</button>
         <label class="flex items-center gap-1.5 text-sm text-slate-600 dark:text-slate-300">
           Vitesse
           <select
             id="podcast-vitesse"
-            class="rounded-lg border border-slate-300 bg-white px-2 py-1 text-sm dark:border-slate-700 dark:bg-slate-900"
+            class="rounded-lg border border-slate-400 bg-white px-2 py-1 text-sm dark:border-slate-600 dark:bg-slate-900"
           ></select>
         </label>
         <!--
@@ -112,11 +112,11 @@ import LienReglages from '../components/LienReglages.astro';
             <Icone nom="cartes" taille={16} />
             <span>Réviser (<span id="nb-cartes">0</span>)</span>
           </button>
-          <button id="bouton-quiz" class="hidden items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">
+          <button id="bouton-quiz" class="hidden items-center gap-1.5 rounded-lg border border-slate-400 px-3 py-1.5 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800">
             <Icone nom="quiz" taille={16} />
             <span>Quiz (<span id="nb-quiz">0</span>)</span>
           </button>
-          <button id="bouton-lu" class="rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800">
+          <button id="bouton-lu" class="rounded-lg border border-slate-400 px-3 py-1.5 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800">
             Marquer comme lue
           </button>
         </div>
@@ -354,9 +354,9 @@ import LienReglages from '../components/LienReglages.astro';
       const bouton = document.createElement('button');
       bouton.type = 'button';
       bouton.className =
-        'ml-3 inline-flex items-center gap-1 align-middle rounded-lg border border-slate-300 px-2 py-0.5 ' +
+        'ml-3 inline-flex items-center gap-1 align-middle rounded-lg border border-slate-400 px-2 py-0.5 ' +
         'text-xs font-medium text-slate-600 transition hover:bg-slate-100 ' +
-        'dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800';
+        'dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800';
       bouton.append(
         iconeDuGabarit('gabarit-ecoute'),
         document.createTextNode('Écouter à partir d’ici'),
@@ -460,7 +460,7 @@ import LienReglages from '../components/LienReglages.astro';
     bouton.textContent = lu ? '✓ Fiche lue' : 'Marquer comme lue';
     bouton.className = lu
       ? 'rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-1.5 text-sm font-medium text-emerald-700 dark:border-emerald-800 dark:bg-emerald-950 dark:text-emerald-300'
-      : 'rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800';
+      : 'rounded-lg border border-slate-400 px-3 py-1.5 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800';
     bouton.disabled = lu;
   }
 

@@ -1046,7 +1046,28 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                   role="status"
                   aria-live="polite"
                 >
-                  <span id="pastille-sync" aria-hidden="true" class="block h-2 w-2 rounded-full bg-slate-400"></span>
+                  {/*
+                     LA FORME DIT L'ÉTAT, PAS SEULEMENT LA TEINTE (E2).
+
+                     Mesuré le 25 octobre : les trois états étaient le même
+                     point de 8 px, et ne différaient que par la couleur —
+                     emerald, indigo, amber. Vert contre orange est le couple
+                     que la deutéranopie confond, et les deux tombaient sous
+                     3:1 sur le fond clair (2,54 et 2,15). Un témoin dont
+                     l'état ne se lit qu'à la teinte ne se lit pas.
+
+                     Trois silhouettes, donc : le disque veille, l'anneau
+                     échange, le triangle alerte. Elles se distinguent de
+                     loin, en noir et blanc, et à travers une photographie du
+                     téléphone de quelqu'un d'autre.
+
+                     `data-etat` plutôt qu'une chaîne de classes composée en
+                     JavaScript : l'état devient lisible dans le DOM, la forme
+                     et la teinte vivent dans la feuille de style où elles
+                     s'auditent, et l'essai n'a pas à certifier un appareil
+                     pour mesurer les trois états.
+                  */}
+                  <span id="pastille-sync" aria-hidden="true" class="pastille-sync"></span>
                   <span id="texte-sync" class="sr-only"></span>
                 </span>
                 {/*
@@ -1510,8 +1531,24 @@ const flecheVisible = !estLeMenu && !sansNavigation;
          donc ni réseau, ni Trystero, ni octet chargé pour les autres.
       */
       quandDeverrouille(async () => {
-        const { veiller } = await import('../lib/sync/veille');
+        const { veiller, EVENEMENT_ETAT } = await import('../lib/sync/veille');
+        /*
+           ON S'ABONNE AVANT DE DÉMARRER, et l'ordre n'est pas indifférent :
+           `veiller()` change d'état pendant son propre démarrage — « en
+           cours » dès le premier échange —, et un abonnement posé après aurait
+           laissé passer précisément l'état qui arrive le plus tôt.
+        */
+        document.addEventListener(EVENEMENT_ETAT, (e) => {
+          const etat = (e as CustomEvent<{ etat?: string }>).detail?.etat;
+          if (etat) peindreLeTemoin(etat);
+        });
         const veille = await veiller();
+        /*
+           Et une peinture tout de suite : la veille peut déjà tourner depuis
+           un autre script de cette page, auquel cas `veiller()` rend la
+           veille existante sans rien émettre, et l'abonnement seul laisserait
+           le témoin caché jusqu'au prochain changement d'état.
+        */
         if (veille) peindreLeTemoin(veille.etat());
       });
 
@@ -1524,11 +1561,13 @@ const flecheVisible = !estLeMenu && !sansNavigation;
          sont des réponses à une question que personne n'a posée, et
          l'écran des appareils les dit déjà en toutes lettres.
       */
-      const COULEURS: Record<string, string> = {
-        'en-veille': 'bg-emerald-500',
-        'en-cours': 'bg-indigo-500',
-        echec: 'bg-amber-500',
-      };
+      /*
+         Les trois états AFFICHABLES. La table ne porte plus de couleur : la
+         forme et la teinte sont dans `global.css`, sous `[data-etat]`, et un
+         état absent d'ici laisse le témoin caché — c'est ce qui distingue
+         « rien ne se passe » de « on attend une décision ».
+      */
+      const AFFICHABLES = new Set(['en-veille', 'en-cours', 'echec']);
       const MOTS: Record<string, string> = {
         'en-veille': 'Synchronisation en veille.',
         'en-cours': 'Synchronisation en cours.',
@@ -1540,11 +1579,19 @@ const flecheVisible = !estLeMenu && !sansNavigation;
         const pastille = document.getElementById('pastille-sync');
         const texte = document.getElementById('texte-sync');
         if (!temoin || !pastille || !texte) return;
-        const couleur = COULEURS[etat];
-        temoin.classList.toggle('hidden', !couleur);
-        temoin.classList.toggle('flex', Boolean(couleur));
-        if (!couleur) return;
-        pastille.className = `block h-2 w-2 rounded-full ${couleur}`;
+        const affichable = AFFICHABLES.has(etat);
+        temoin.classList.toggle('hidden', !affichable);
+        temoin.classList.toggle('flex', affichable);
+        if (!affichable) {
+          /* LES DEUX, et non le seul conteneur : la pastille porte la forme,
+             et un `data-etat` oublié sur elle est un état mort qui reparaîtrait
+             tel quel au prochain affichage, avant la peinture. */
+          temoin.removeAttribute('data-etat');
+          pastille.removeAttribute('data-etat');
+          return;
+        }
+        temoin.setAttribute('data-etat', etat);
+        pastille.setAttribute('data-etat', etat);
         texte.textContent = MOTS[etat] ?? '';
         temoin.title = MOTS[etat] ?? '';
       }

@@ -64,7 +64,7 @@ import Base from '../layouts/Base.astro';
            usages sensibles qu'on ne voulait pas montrer. -->
       <label class="flex min-h-11 items-center gap-3 text-sm text-slate-600 dark:text-slate-300">
         <input id="afficher-sensibles" type="checkbox"
-          class="size-5 rounded border-slate-300 dark:border-slate-700" />
+          class="size-5 rounded border-slate-400 dark:border-slate-600" />
         Afficher les usages sensibles
       </label>
     </div>
@@ -85,10 +85,10 @@ import Base from '../layouts/Base.astro';
         </p>
         <div class="mt-3 flex flex-wrap gap-2">
           <button id="sans-age" type="button"
-            class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+            class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
             >Voir ce qui change sans mon âge</button>
           <button id="sans-sexe" type="button"
-            class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+            class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
             >Voir ce qui change sans mon sexe</button>
           <button id="fin-simulation" type="button"
             class="hidden min-h-11 rounded-lg bg-slate-800 px-4 text-sm font-medium text-white transition hover:bg-slate-900 dark:bg-slate-200 dark:text-slate-900"
@@ -188,7 +188,7 @@ import Base from '../layouts/Base.astro';
           ${attente}
           <label class="mt-3 flex min-h-11 items-center gap-3 text-sm text-slate-700 dark:text-slate-200">
             <input type="checkbox" data-couper="${echapper(u.id)}" ${coupes.includes(u.id) ? '' : 'checked'}
-              class="size-5 rounded border-slate-300 dark:border-slate-700" />
+              class="size-5 rounded border-slate-400 dark:border-slate-600" />
             Autoriser cet usage
           </label>
         </li>`;
