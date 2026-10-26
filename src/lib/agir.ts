@@ -44,6 +44,35 @@
  * Trois formes à reconnaître, parce que les navigateurs ne s'accordent pas :
  * le nom `QuotaExceededError`, le code 22 des vieilles implémentations, et le
  * `NS_ERROR_DOM_QUOTA_REACHED` de Firefox.
+ *
+ * ## L'ACTION QUI NE REVIENT PAS — 26 octobre, lot 9
+ *
+ * Ce module attrape une promesse qui ÉCHOUE. Il ne disait rien d'une promesse
+ * qui ne se règle NI dans un sens NI dans l'autre : `await action()` ne
+ * revenait alors jamais, le `finally` de l'appelant ne rendait pas le bouton,
+ * et rien ne paraissait. C'est le silence même que ce module a été écrit pour
+ * finir, revenu par une autre porte.
+ *
+ * Mesuré le 26 octobre : le seul plafond du site était celui de
+ * `chargement.ts` — 5 s au DÉVERROUILLAGE, sur 56 écrans. La porte des
+ * ACTIONS n'en avait aucun.
+ *
+ * ### Et pourtant : AUCUN COUPERET. C'est la décision du Pilote
+ *
+ * Un délai qui INTERROMPT serait pire que le défaut. Un export de deux cents
+ * mégaoctets et une restauration sont légitimement longs : les couper
+ * remplacerait un bouton mort par une sauvegarde à moitié écrite, et la
+ * personne n'aurait aucun moyen de savoir laquelle des deux elle a.
+ *
+ * Donc l'action n'est jamais interrompue — mais elle ne reste pas muette.
+ * Passé un délai d'AVERTISSEMENT, la porte **dit que ça continue**, dans une
+ * région `role="status"`, et le message s'en va au règlement. Le bouton reste
+ * occupé : c'est vrai, l'action tourne encore.
+ *
+ * Une action longue par nature fournit sa progression à la place de la phrase
+ * générique — « 1 240 enregistrements sur 4 128 » vaut mieux que « ça
+ * continue », et pour la même raison que `chargement.ts` chiffre son attente :
+ * une attente chiffrée se termine, une attente vague se répète.
  */
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -231,6 +260,83 @@ export function effacerLEchec(zone?: HTMLElement | string | null): void {
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
+   Dire que ça continue
+   ══════════════════════════════════════════════════════════════════════════ */
+
+const ID_ATTENTE = 'attente-de-page';
+
+/** Le délai au bout duquel la porte dit que l'action continue. */
+export const DELAI_AVERTISSEMENT_MS = 10_000;
+
+/** Ce qu'elle dit quand l'action ne sait rien dire d'elle-même. */
+export const PHRASE_ATTENTE =
+  'L’opération prend plus de temps que prévu ; elle continue. Ne fermez pas la page.';
+
+/**
+ * La région d'attente, créée à la demande.
+ *
+ * ## Pourquoi `role="status"` et non `role="alert"`
+ *
+ * Parce que ce n'est pas une alerte. Une alerte interrompt, et elle demande
+ * une décision — c'est le cas d'un échec. Ici il n'y a rien à décider : le
+ * travail avance, on le dit poliment. `status` est annoncé sans couper ce que
+ * la personne est en train de lire ou d'écouter.
+ *
+ * `aria-atomic` parce que la phrase entière doit être relue quand elle change,
+ * et non le seul mot qui a bougé : « 1 240 sur 4 128 » n'a de sens que tout
+ * entier.
+ *
+ * ## Pourquoi elle n'emprunte PAS la zone de l'écran
+ *
+ * `direLEchec` accepte une zone propre à l'écran, parce qu'un écran qui a sa
+ * place réservée pour les messages la garde. L'attente ne le fait pas, et
+ * c'est délibéré : cette zone-là porte `role="alert"`, et une attente
+ * annoncée en alerte crierait pour dire que tout va bien. Les deux messages
+ * ne disent pas la même chose, ils n'ont pas le même rôle, ils ne partagent
+ * donc pas la même région.
+ *
+ * Elle se place au-dessus de celle des échecs — « bottom-36 » contre
+ * « bottom-20 » — pour qu'un échec survenant pendant une attente ne la
+ * recouvre pas le temps que l'attente s'efface.
+ */
+function regionDAttente(): HTMLElement {
+  const existante = document.getElementById(ID_ATTENTE);
+  if (existante) return existante;
+
+  const zone = document.createElement('div');
+  zone.id = ID_ATTENTE;
+  zone.hidden = true;
+  zone.className =
+    'fixed inset-x-0 bottom-36 z-40 mx-auto flex max-w-xl items-start gap-3 rounded-lg ' +
+    'border border-slate-300 bg-white px-4 py-3 text-sm text-slate-800 shadow-lg ' +
+    'dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100 sm:bottom-20';
+  zone.style.marginBottom = 'var(--sur-bas)';
+  zone.setAttribute('role', 'status');
+  zone.setAttribute('aria-atomic', 'true');
+
+  const texte = document.createElement('p');
+  texte.dataset.texte = '';
+  texte.className = 'grow';
+  zone.appendChild(texte);
+
+  document.body.appendChild(zone);
+  return zone;
+}
+
+/** Dit que l'action continue. Aucun bouton : ce message s'en va tout seul. */
+export function direQueCaContinue(message: string): void {
+  const zone = regionDAttente();
+  (zone.querySelector('[data-texte]') as HTMLElement).textContent = message;
+  zone.hidden = false;
+}
+
+/** Retire le message d'attente, s'il y en a un. */
+export function effacerLAttente(): void {
+  const zone = document.getElementById(ID_ATTENTE);
+  if (zone) zone.hidden = true;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
    Agir
    ══════════════════════════════════════════════════════════════════════════ */
 
@@ -239,6 +345,80 @@ export interface Options {
   peindre?: () => unknown | Promise<unknown>;
   /** La zone de message propre à l'écran, si elle existe. */
   zone?: HTMLElement | string | null;
+  /**
+     Au bout de combien de temps DIRE que l'action continue, en millisecondes.
+
+     Réglable par appel, parce qu'une seule valeur ne peut pas convenir : dix
+     secondes sont longues pour un enregistrement de ligne et courtes pour un
+     export. Zéro, ou l'infini, n'annonce jamais rien — pour une action dont
+     l'écran gère déjà l'attente lui-même.
+  */
+  delaiAvertissement?: number;
+  /**
+     Ce que l'action sait dire de son avancement, consulté à l'annonce puis
+     chaque seconde.
+
+     Rendre `null` fait retomber sur la phrase générique : une action qui ne
+     sait pas encore où elle en est n'a pas à se taire pour autant.
+  */
+  progression?: () => string | null;
+}
+
+/** Ce qui annonce l'attente, et ce qui la retire. */
+interface Attente {
+  retirer: () => void;
+}
+
+/**
+ * Arme l'annonce, et rend de quoi la retirer.
+ *
+ * Le minuteur et son rafraîchissement sont TOUS DEUX retirés par `retirer()`,
+ * qui est appelé dans un `finally` : c'est ce qui garantit qu'aucun message
+ * d'attente ne survit à l'action, ni sur un succès, ni sur un échec, ni sur un
+ * repeint qui échoue.
+ *
+ * Un texte identique n'est pas réécrit. Une région `role="status"` est polie,
+ * mais réécrite elle RÉANNONCE : rafraîchir chaque seconde une progression qui
+ * n'a pas bougé ferait parler le lecteur d'écran sans rien lui apprendre.
+ */
+function poserLAttente(options: Options): Attente {
+  const delai = options.delaiAvertissement ?? DELAI_AVERTISSEMENT_MS;
+  if (!Number.isFinite(delai) || delai <= 0) return { retirer: () => {} };
+
+  let rafraichissement: ReturnType<typeof setInterval> | undefined;
+  let dernier = '';
+  const dire = () => {
+    const texte = options.progression?.() ?? PHRASE_ATTENTE;
+    if (texte === dernier) return;
+    dernier = texte;
+    direQueCaContinue(texte);
+  };
+
+  /*
+     LA CADENCE DU RAFRAÎCHISSEMENT SE DÉDUIT DU DÉLAI, elle n'est pas un
+     nombre magique : jamais plus lente que le délai qui a décidé de parler
+     — rafraîchir toutes les secondes une annonce faite au bout de 300 ms
+     n'aurait aucun sens —, et jamais plus rapide qu'une fois par seconde, par
+     politesse envers un lecteur d'écran.
+
+     C'est aussi ce qui rend la progression ÉPROUVABLE. Avec 1000 en dur, un
+     essai devait attendre une seconde pleine pour voir un seul
+     rafraîchissement, et mon assertion ne vérifiait en fait qu'une variable
+     posée par l'action elle-même : elle était verte sans rien garder.
+  */
+  const cadence = Math.min(1000, delai);
+  const minuteur = setTimeout(() => {
+    dire();
+    if (options.progression) rafraichissement = setInterval(dire, cadence);
+  }, delai);
+
+  return {
+    retirer: () => {
+      clearTimeout(minuteur);
+      if (rafraichissement !== undefined) clearInterval(rafraichissement);
+      if (dernier) effacerLAttente();
+    },
+  };
 }
 
 /**
@@ -256,27 +436,38 @@ export async function agirPuisPeindre(
   action: () => unknown | Promise<unknown>,
   options: Options = {},
 ): Promise<boolean> {
+  /*
+     L'ANNONCE COUVRE AUSSI LE REPEINT, et ce n'est pas un détail : une lecture
+     qui remet la liste debout peut être aussi longue que l'écriture. L'arrêter
+     à la fin de l'action laisserait un écran muet pendant la seconde moitié de
+     l'attente.
+  */
+  const attente = poserLAttente(options);
   try {
-    await action();
-  } catch (erreur) {
-    direLEchec(messageDUneErreur(erreur), options.zone);
-    return false;
-  }
-  effacerLEchec(options.zone);
-  if (options.peindre) {
-    /*
-       Le repeint peut échouer à son tour — une lecture refusée, un coffre qui
-       se referme entre-temps. Le dire aussi : un écran figé sans explication
-       est le même défaut une ligne plus bas.
-    */
     try {
-      await options.peindre();
+      await action();
     } catch (erreur) {
       direLEchec(messageDUneErreur(erreur), options.zone);
       return false;
     }
+    effacerLEchec(options.zone);
+    if (options.peindre) {
+      /*
+         Le repeint peut échouer à son tour — une lecture refusée, un coffre qui
+         se referme entre-temps. Le dire aussi : un écran figé sans explication
+         est le même défaut une ligne plus bas.
+      */
+      try {
+        await options.peindre();
+      } catch (erreur) {
+        direLEchec(messageDUneErreur(erreur), options.zone);
+        return false;
+      }
+    }
+    return true;
+  } finally {
+    attente.retirer();
   }
-  return true;
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

@@ -220,6 +220,16 @@ const SOCLE = [
   */
   ['essais:erreurs-dites', 'aucun texte brut de panne à l’écran, et les messages de domaine intacts'],
   /*
+     La porte des actions. Il entre au socle pour une raison précise : ce qu'il
+     garde n'est pas une phrase, c'est une DÉCISION — une action n'est jamais
+     coupée par un délai, parce que couper un export remplacerait un bouton
+     mort par une sauvegarde à moitié écrite. Un couperet ajouté de bonne foi
+     par quelqu'un qui trouverait l'attente trop longue ne se verrait nulle
+     part ailleurs, et ne se verrait surtout pas en relecture : il ne se montre
+     que sur une promesse qui ne se règle jamais. L'essai en pose une.
+  */
+  ['essais:porte-des-actions', 'la porte dit qu’une action continue, et ne la coupe jamais'],
+  /*
      Celui-ci garde le code de sortie de CETTE batterie-ci. Il entre au socle
      parce que le socle est justement ce qu'on enchaîne avec un `&&` avant de
      pousser : s'il est le seul passage dont le verdict compte, il doit porter
