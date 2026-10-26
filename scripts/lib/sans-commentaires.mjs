@@ -24,8 +24,65 @@
  *
  * Et elle ne tombe pas dans l'angle mort inverse : du vrai code posé APRÈS la
  * fermeture d'un commentaire, sur la même ligne, est bien rendu.
+ *
+ * ## Deux genres, et pourquoi il a fallu les distinguer — 26 octobre
+ *
+ * Pour savoir où s'arrête un commentaire, il faut savoir où commence une
+ * chaîne ; et pour cela, il faut savoir dans quelle LANGUE on lit. Le
+ * détecteur de désynchronisation d'`essais:accords` a mis deux angles morts au
+ * jour, tous deux de cette nature :
+ *
+ * - dans un `.astro`, hors frontmatter et hors `<script>`, l'apostrophe de
+ *   « Aujourd'hui » n'ouvre aucune chaîne : c'est une lettre. Prise pour un
+ *   guillemet, elle faisait croire à une chaîne qui courait sur cent lignes,
+ *   et les `/** …  *\/` de l'intervalle n'étaient plus blanchis — donc rendus
+ *   comme du texte au balayage suivant, qui s'y perdait à son tour ;
+ * - `.replace(/['’]/g, "'")` porte un guillemet DANS un motif. Même effet.
+ *
+ * D'où le `genre`, et la connaissance des littéraux `/…/`. Le genre `js` est
+ * celui d'avant, pour une source franchement JavaScript ; le genre `balisage`
+ * ne blanchit que les `<!-- -->` et ne voit de chaîne nulle part — c'est le
+ * bon pour du balisage, dont les régions de code sont à découper d'abord.
  */
-export function sansCommentaires(source) {
+/**
+ * Ce qui peut précéder une expression régulière, et jamais une division.
+ *
+ * Après une valeur — un nom, un nombre, `)`, `]` — un `/` divise. Après un
+ * opérateur, une virgule, une ouverture, ou un `return`, il ouvre un motif.
+ */
+export const AVANT_UNE_REGEX =
+  /(^|[([{,;:=!&|?+\-*%~^<>]|\b(?:return|typeof|case|in|of|new|delete|void|do|else|yield|await))\s*$/;
+
+/**
+ * La fin d'un littéral `/…/`, ou -1 si ce `/` n'en ouvrait pas un.
+ *
+ * Une classe `[…]` peut contenir un `/` sans refermer le motif, et un passage
+ * à la ligne dit que ce n'était pas un motif : on rend la main plutôt que
+ * d'avaler la suite du fichier.
+ */
+export function finDUneRegex(source, debut) {
+  let j = debut + 1;
+  let classe = false;
+  while (j < source.length) {
+    const d = source[j];
+    if (d === '\\') {
+      j += 2;
+      continue;
+    }
+    if (d === '\n') return -1;
+    if (classe) {
+      if (d === ']') classe = false;
+      j += 1;
+      continue;
+    }
+    if (d === '[') classe = true;
+    else if (d === '/') return j + 1;
+    j += 1;
+  }
+  return -1;
+}
+
+export function sansCommentaires(source, genre = 'js') {
   const sortie = [];
   let ligne = '';
   let i = 0;
@@ -57,6 +114,20 @@ export function sansCommentaires(source) {
       continue;
     }
 
+    if (genre === 'balisage') {
+      /* Ni `//` ni `/* *\/` ni guillemet : dans du balisage, seul `<!-- -->`
+         est un commentaire, et une apostrophe est une lettre. */
+      if (source.slice(i, i + 4) === '<!--') {
+        bloc = 'html';
+        for (let k = 0; k < 4; k += 1) pousser(' ');
+        i += 4;
+        continue;
+      }
+      pousser(c);
+      i += 1;
+      continue;
+    }
+
     if (chaine) {
       pousser(c);
       if (c === '\\') {
@@ -67,6 +138,17 @@ export function sansCommentaires(source) {
       if (c === chaine) chaine = false;
       i += 1;
       continue;
+    }
+
+    if (c === '/' && deux !== '//' && deux !== '/*') {
+      const fin = AVANT_UNE_REGEX.test(source.slice(Math.max(0, i - 24), i))
+        ? finDUneRegex(source, i)
+        : -1;
+      if (fin !== -1) {
+        for (let k = i; k < fin; k += 1) pousser(source[k]);
+        i = fin;
+        continue;
+      }
     }
 
     if (c === "'" || c === '"' || c === '`') {

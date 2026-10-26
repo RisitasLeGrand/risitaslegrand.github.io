@@ -11,12 +11,32 @@
  *
  * ## Ce qu'il regarde, et ce qu'il laisse tranquille
  *
- * Le TEXTE seulement, hors commentaires. Un commentaire qui parle de la forme
- * interdite n'est pas une infraction, et `tableau.filter((s) => …)` n'est pas
- * une phrase. Un contrôle qui accuse à tort se fait désactiver, et c'est ainsi
- * qu'on perd un garde-fou.
+ * Le TEXTE seulement, hors commentaires : les chaînes du code, et le texte
+ * d'un balisage. Un commentaire qui parle de la forme interdite n'est pas une
+ * infraction, et `tableau.filter((s) => …)` n'est pas une phrase. Un contrôle
+ * qui accuse à tort se fait désactiver, et c'est ainsi qu'on perd un
+ * garde-fou.
+ *
+ * ## Et ce qu'il fait quand il se perd — la leçon du 26 octobre
+ *
+ * La première version lisait tout fichier comme du JavaScript. Dans
+ * `planification/index.astro`, l'apostrophe d'un « Aujourd'hui » de BALISAGE,
+ * à la ligne 96, ouvrait donc une chaîne qui ne se fermait plus : les cent
+ * lignes suivantes passaient pour du texte, et les suivantes pour du code.
+ * `echelles.astro` en sortait à ZÉRO site alors qu'il en portait sept, dont
+ * trois dans une phrase affichée.
+ *
+ * Deux enseignements, et le second compte plus que le premier :
+ *
+ * 1. un `.astro` n'est pas du JavaScript. Hors frontmatter et hors `<script>`,
+ *    une apostrophe est une lettre ;
+ * 2. **un balayage qui se perd doit le dire.** Le pire n'était pas l'erreur,
+ *    c'était le silence : un fichier entier devenu invisible, et un compteur à
+ *    zéro qui ressemblait à une bonne nouvelle. La machine rend donc ses
+ *    DÉSYNCHRONISATIONS — pile non refermée, fermeture sans ouverture —, et
+ *    l'essai les refuse au lieu de les compter vertes.
  */
-import { sansCommentaires } from './sans-commentaires.mjs';
+import { AVANT_UNE_REGEX, finDUneRegex, sansCommentaires } from './sans-commentaires.mjs';
 
 /** Une lettre collée à « (s) » ou « (es) » : `jour(s)`, `écrit(es)`. */
 export const COLLE = /\p{L}\((s|es)\)/gu;
@@ -29,40 +49,130 @@ export const COLLE = /\p{L}\((s|es)\)/gu;
  */
 export const SEULE = /^\s*\((s|es)\)\s*$/;
 
+/* ══════════════════════════════════════════════════════════════════════════
+   Les grandes régions d'une source
+   ══════════════════════════════════════════════════════════════════════════ */
+
 /**
- * Les morceaux de TEXTE d'une source, avec leur ligne.
+ * Découper un `.astro` ou un `.svelte` en régions.
+ *
+ * Trois genres, et le troisième est celui qu'on oublie :
+ *
+ * - `js` — le frontmatter entre les deux clôtures `---`, et le contenu des
+ *   `<script>`. Du JavaScript franc, où un guillemet est un guillemet ;
+ * - `balisage` — tout le reste, où une apostrophe est une lettre ;
+ * - `ignore` — le contenu des `<style>`. Une feuille de style ne parle à
+ *   personne, et ses accolades troubleraient la machine pour rien.
+ */
+function regions(source) {
+  const sortie = [];
+  let i = 0;
+
+  const front = /^\s*---\r?\n/.exec(source);
+  if (front) {
+    const fin = source.indexOf('\n---', front[0].length);
+    const bout = fin === -1 ? source.length : fin;
+    sortie.push({ genre: 'js', debut: front[0].length, fin: bout });
+    i = fin === -1 ? source.length : source.indexOf('\n', fin + 1) + 1 || source.length;
+  }
+
+  const OUVRE = /<(script|style)\b[^>]*>/i;
+  let depart = i;
+  let curseur = i;
+  while (curseur < source.length) {
+    const ouvre = OUVRE.exec(source.slice(curseur));
+    if (!ouvre) break;
+    const debutOuvre = curseur + ouvre.index;
+    const apresOuvre = debutOuvre + ouvre[0].length;
+    /*
+       UN ÉLÉMENT AUTOPORTEUR N'A PAS DE CONTENU, et c'est le détecteur qui l'a
+       dit : `<style is:inline set:html={CSS_TRANSITIONS} />`, dans une
+       expression de `Base.astro`, passait pour l'ouverture d'une feuille de
+       style. On cherchait alors un `</style>` qui ne venait pas, et trois
+       cents lignes de balisage étaient classées « à ignorer ».
+    */
+    if (ouvre[0].endsWith('/>')) {
+      curseur = apresOuvre;
+      continue;
+    }
+    const nom = ouvre[1].toLowerCase();
+    const ferme = new RegExp(`</${nom}\\s*>`, 'i').exec(source.slice(apresOuvre));
+    const finContenu = ferme ? apresOuvre + ferme.index : source.length;
+
+    if (debutOuvre > depart) sortie.push({ genre: 'balisage', debut: depart, fin: debutOuvre });
+    sortie.push({ genre: nom === 'script' ? 'js' : 'ignore', debut: apresOuvre, fin: finContenu });
+    curseur = ferme ? finContenu + ferme[0].length : source.length;
+    depart = curseur;
+  }
+  if (depart < source.length) sortie.push({ genre: 'balisage', debut: depart, fin: source.length });
+  return sortie;
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   La machine : du texte, du code, et la frontière entre les deux
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Les morceaux de TEXTE d'une région, avec leur ligne de départ.
  *
  * ## Un seul passage, et l'état traverse les lignes
  *
- * La première version lisait ligne à ligne, et deux contrôles de garde l'ont
- * prise en faute :
+ * La version ligne à ligne s'est fait prendre deux fois : un gabarit sur
+ * plusieurs lignes échappait entièrement — le guillemet ouvrant est à la
+ * première ligne, les suivantes n'en portent aucun —, et une chaîne IMBRIQUÉE
+ * dans une interpolation passait aussi. D'où un passage unique, avec une pile.
  *
- * - un gabarit sur PLUSIEURS lignes échappait entièrement. Le guillemet
- *   ouvrant est à la première ligne, les suivantes n'en portent aucun : le
- *   balayage n'y voyait donc pas de texte. Or ce sont les textes les plus
- *   longs, c'est-à-dire les plus lus ;
- * - une chaîne IMBRIQUÉE dans une interpolation passait aussi : tout ce qui
- *   suivait le premier accent grave était compté comme un seul bloc.
+ * ## Les états, et pourquoi il en faut deux pour le code
  *
- * D'où un passage unique, avec une pile : dans un gabarit, une interpolation
- * redevient du CODE, où un guillemet rouvre une chaîne à son tour.
+ * - `texte` — du balisage affiché. Tout est texte ; `<` ouvre une balise, `{`
+ *   une expression ;
+ * - `balise` — entre `<` et `>`. Les valeurs d'attributs sont du texte LU PAR
+ *   QUELQU'UN (`title`, `aria-label`), donc les guillemets y comptent ;
+ * - `js` — du JavaScript franc. Ni `<` ni `>` ni `{` n'y veulent dire quoi que
+ *   ce soit : `a < b` est une comparaison, et prendre son `<` pour une balise
+ *   perdrait tout ce qui suit ;
+ * - `expr` — du code DANS du balisage, entre `{` et `}`. Ici `<` peut rouvrir
+ *   une balise : c'est ainsi que la phrase du PHQ-9 vit, sous un
+ *   `{e.id === 'phq9' && (<fieldset>…)}` ;
+ * - `'`, `"`, `` ` `` — une chaîne, où seule la clôture et l'échappement
+ *   comptent, et où `${` rend la main au code.
  *
- * Ce n'est pas un analyseur de TypeScript et ça ne cherche pas à l'être : une
- * expression régulière portant un guillemet le tromperait. On ne lui demande
- * que de distinguer le texte du code, assez bien pour ne jamais accuser à
- * tort.
+ * Ce n'est pas un analyseur de TypeScript et ça ne cherche pas à l'être. On ne
+ * lui demande que de distinguer le texte du code — et, quand elle n'y arrive
+ * plus, de le dire.
  */
-function morceauxDeTexte(source) {
+function machine(source, base, ligneDepart) {
   const morceaux = [];
-  const pile = [];
+  const anomalies = [];
+  const pile = [base];
+  /* La ligne où chaque état a été ouvert : sans elle, une désynchronisation
+     ne se signale qu'à la fin de la région, et il faut la chercher à la main. */
+  const ouvertures = [ligneDepart];
   let i = 0;
-  let ligne = 1;
-  let debutLigne = 1;
+  let ligne = ligneDepart;
+  let debutLigne = ligneDepart;
+  let debutBalise = 0;
   let courant = '';
 
   const fermer = () => {
-    if (courant) morceaux.push({ ligne: debutLigne, texte: courant });
+    if (courant.trim()) morceaux.push({ ligne: debutLigne, texte: courant });
     courant = '';
+  };
+  const empiler = (etat) => {
+    pile.push(etat);
+    ouvertures.push(ligne);
+  };
+  const depilerBrut = () => {
+    ouvertures.pop();
+    return pile.pop();
+  };
+  const depiler = (attendu, quoi) => {
+    if (pile[pile.length - 1] !== attendu) {
+      anomalies.push({ ligne, quoi });
+      return false;
+    }
+    depilerBrut();
+    return true;
   };
 
   while (i < source.length) {
@@ -70,6 +180,7 @@ function morceauxDeTexte(source) {
     const dedans = pile[pile.length - 1];
     if (c === '\n') ligne += 1;
 
+    /* ---- Dans une chaîne ---- */
     if (dedans === "'" || dedans === '"' || dedans === '`') {
       if (c === '\\') {
         courant += source.slice(i, i + 2);
@@ -78,13 +189,13 @@ function morceauxDeTexte(source) {
       }
       if (c === dedans) {
         fermer();
-        pile.pop();
+        depilerBrut();
         i += 1;
         continue;
       }
       if (dedans === '`' && source.slice(i, i + 2) === '${') {
         fermer();
-        pile.push('$');
+        empiler('js');
         i += 2;
         continue;
       }
@@ -93,15 +204,141 @@ function morceauxDeTexte(source) {
       continue;
     }
 
-    /* Ici l'on est dans du code : au premier niveau, ou dans une interpolation. */
-    if (c === '}' && dedans === '$') {
-      pile.pop();
-      debutLigne = ligne;
+    /* ---- Dans du texte de balisage ---- */
+    if (dedans === 'texte') {
+      if (c === '<' && /[A-Za-z/!]/.test(source[i + 1] ?? '')) {
+        fermer();
+        empiler('balise');
+        debutBalise = i;
+        i += 1;
+        continue;
+      }
+      if (c === '{') {
+        fermer();
+        empiler('expr');
+        i += 1;
+        continue;
+      }
+      /*
+         Un `}` ici referme l'expression qui a ouvert ce balisage : c'est la
+         sortie d'un `{cond && (<p>…</p>)}`. S'il n'y a pas d'expression
+         en dessous, c'est une accolade de texte, et elle reste du texte.
+      */
+      if (c === '}' && pile[pile.length - 2] === 'expr') {
+        fermer();
+        depilerBrut();
+        depilerBrut();
+        i += 1;
+        continue;
+      }
+      if (!courant) debutLigne = ligne;
+      courant += c;
       i += 1;
       continue;
     }
+
+    /* ---- Entre `<` et `>` ---- */
+    if (dedans === 'balise') {
+      if (c === '>') {
+        const balise = source.slice(debutBalise, i);
+        depiler('balise', 'fermeture de balise');
+        debutLigne = ligne;
+        /*
+           Une balise OUVRANTE rencontrée dans une expression fait reprendre le
+           balisage : ses enfants sont du texte. Une balise fermante ou
+           autoporteuse, non — on resterait sinon dans un texte qui n'existe
+           pas.
+        */
+        const ouvrante = !balise.startsWith('</') && !balise.endsWith('/') && !balise.startsWith('<!');
+        if (ouvrante && pile[pile.length - 1] === 'expr') empiler('texte');
+        i += 1;
+        continue;
+      }
+      if (c === '{') {
+        empiler('expr');
+        i += 1;
+        continue;
+      }
+      if (c === "'" || c === '"' || c === '`') {
+        empiler(c);
+        debutLigne = ligne;
+        courant = '';
+        i += 1;
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+
+    /* ---- Du code : `js` franc, ou `expr` dans du balisage ---- */
+    if (c === '}') {
+      if (dedans === 'js' && pile.length > 1) {
+        /* La fin d'une interpolation `${…}` : la chaîne reprend. */
+        depilerBrut();
+        debutLigne = ligne;
+        i += 1;
+        continue;
+      }
+      if (dedans === 'expr') {
+        depiler('expr', 'fermeture d’expression');
+        debutLigne = ligne;
+        i += 1;
+        continue;
+      }
+      i += 1;
+      continue;
+    }
+    if (c === '{' && dedans === 'expr') {
+      empiler('expr');
+      i += 1;
+      continue;
+    }
+    if (dedans === 'expr' && c === '<' && /[A-Za-z/]/.test(source[i + 1] ?? '')) {
+      empiler('balise');
+      debutBalise = i;
+      i += 1;
+      continue;
+    }
+    /*
+       UN COMMENTAIRE DE JAVASCRIPT DANS DU BALISAGE, c'est-à-dire un
+       `{/* … *\/}`. Le blanchiment ne passe pas par là — dans du balisage, un
+       `//` est le plus souvent le milieu d'une adresse —, donc c'est ici que
+       ces commentaires se sautent. Sans cela, le « n'est pas » de celui de
+       `CentreNotifications.astro` ouvrait une chaîne pour le reste du fichier.
+    */
+    if (source.slice(i, i + 2) === '/*') {
+      const bout = source.indexOf('*/', i + 2);
+      const jusque = bout === -1 ? source.length : bout + 2;
+      ligne += (source.slice(i, jusque).match(/\n/g)?.length ?? 0);
+      i = jusque;
+      continue;
+    }
+    if (source.slice(i, i + 2) === '//') {
+      const saut = source.indexOf('\n', i);
+      i = saut === -1 ? source.length : saut;
+      continue;
+    }
+
+    /*
+       UNE EXPRESSION RÉGULIÈRE N'EST PAS DU TEXTE, et c'est le détecteur de
+       désynchronisation qui l'a établi : `.replace(/['’]/g, "'")` ouvrait une
+       chaîne qui ne se fermait jamais, et `moteur-veille.ts`, `psyche.ts`,
+       `export-lisible.ts` et onze autres se lisaient de travers à partir de
+       là. On saute donc le littéral — en sachant qu'un `/` est tantôt une
+       division : seul ce qui le PRÉCÈDE les distingue.
+    */
+    if (c === '/' && source[i + 1] !== '/' && source[i + 1] !== '*') {
+      const avant = source.slice(Math.max(0, i - 24), i);
+      if (AVANT_UNE_REGEX.test(avant)) {
+        const fin = finDUneRegex(source, i);
+        if (fin !== -1) {
+          i = fin;
+          continue;
+        }
+      }
+    }
     if (c === "'" || c === '"' || c === '`') {
-      pile.push(c);
+      empiler(c);
       debutLigne = ligne;
       courant = '';
       i += 1;
@@ -110,8 +347,19 @@ function morceauxDeTexte(source) {
     i += 1;
   }
   fermer();
-  return morceaux;
+  if (pile.length !== 1 || pile[0] !== base) {
+    const haut = pile.length - 1;
+    anomalies.push({
+      ligne: ouvertures[haut],
+      quoi: `« ${pile[haut]} » ouvert ligne ${ouvertures[haut]} et jamais refermé (${pile.join(' > ')})`,
+    });
+  }
+  return { morceaux, anomalies };
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   Les exemptions
+   ══════════════════════════════════════════════════════════════════════════ */
 
 /**
  * Les textes exemptés, et pourquoi — un par un, jamais un fichier entier.
@@ -125,16 +373,20 @@ function morceauxDeTexte(source) {
  *
  * ## Ce qui est exempté, et la question que cela pose
  *
- * Les quatre réponses de l'item de GÊNE du PHQ-9. Ce ne sont pas des phrases
- * du site : ce sont les **options d'un instrument clinique validé**, et les
- * réécrire change l'instrument — ce qui n'est pas une correction de
+ * L'item de GÊNE du PHQ-9 : sa question et ses quatre réponses. Ce ne sont pas
+ * des phrases du site : c'est le libellé d'un **instrument clinique validé**,
+ * et le réécrire change l'instrument — ce qui n'est pas une correction de
  * typographie mais une décision de contenu, et elle n'est pas de mon ressort.
  *
  * La question est posée au Pilote : si le libellé canonique français du
- * PHQ-9 porte « difficile » au singulier, ces quatre chaînes devraient le
- * porter aussi et l'exemption disparaîtra. Tant qu'elle n'est pas tranchée,
- * mieux vaut une exemption nommée qu'une réécriture silencieuse d'une échelle
- * que quelqu'un lit pour se situer.
+ * PHQ-9 porte « difficile » au singulier, ces chaînes devraient le porter
+ * aussi et l'exemption disparaîtra. Tant qu'elle n'est pas tranchée, mieux
+ * vaut une exemption nommée qu'une réécriture silencieuse d'une échelle que
+ * quelqu'un lit pour se situer.
+ *
+ * Les quatre réponses sont des chaînes entières, donc exemptées au mot près.
+ * La question, elle, est du balisage sur trois lignes : on l'exempte par un
+ * fragment qui ne vaut que pour elle.
  */
 export const TEXTES_EXEMPTES = new Set([
   'Pas du tout difficile(s)',
@@ -143,15 +395,73 @@ export const TEXTES_EXEMPTES = new Set([
   'Extrêmement difficile(s)',
 ]);
 
-/** Les sites de la forme interdite, dans le TEXTE d'une source. */
-export function sitesInterdits(source) {
-  const sites = [];
-  for (const { ligne, texte } of morceauxDeTexte(sansCommentaires(source).join('\n'))) {
-    if (TEXTES_EXEMPTES.has(texte.trim())) continue;
-    const combien = [...texte.matchAll(COLLE)].length + (SEULE.test(texte) ? 1 : 0);
-    for (let k = 0; k < combien; k += 1) {
-      sites.push({ ligne, texte: texte.replace(/\s+/g, ' ').trim().slice(0, 120) });
+/** Le même motif, pour un texte de balisage qui ne tient pas dans une chaîne. */
+export const FRAGMENTS_EXEMPTES = [
+  'à quel point ce(s)',
+  'problème(s) a-t-il (ont-ils) rendu',
+  'les autres difficile(s) ?',
+];
+
+/* ══════════════════════════════════════════════════════════════════════════
+   L'entrée
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/** Le numéro de ligne d'une position dans un morceau commencé à `debut`. */
+const ligneDe = (texte, position, debut) => debut + (texte.slice(0, position).match(/\n/g)?.length ?? 0);
+
+/**
+ * Les sites de la forme interdite dans le TEXTE d'une source, et les endroits
+ * où le balayage s'est perdu.
+ *
+ * Le nom du fichier décide de la lecture : `.astro` et `.svelte` sont du
+ * balisage, le reste est du JavaScript. Sans nom, on lit du JavaScript — c'est
+ * ce que font les contrôles de garde, qui éprouvent des bouts de code.
+ */
+export function sitesInterdits(source, fichier = '') {
+  const morceaux = [];
+  const anomalies = [];
+  const retenir = (r) => {
+    morceaux.push(...r.morceaux);
+    anomalies.push(...r.anomalies);
+  };
+
+  if (/\.(astro|svelte)$/.test(fichier)) {
+    /*
+       L'ORDRE COMPTE, et il se lit à l'envers de l'intuition :
+       1. les `<!-- -->` d'abord, sur toute la source. Ils peuvent cacher
+          n'importe quoi, un `<script>` compris, et fausseraient le découpage ;
+       2. le découpage ensuite, qui dit où est le JavaScript ;
+       3. les commentaires de JavaScript enfin, et SEULEMENT dans ces régions.
+          Les blanchir partout était la faute : dans du balisage, `//` est
+          souvent le milieu d'une adresse, et une apostrophe une lettre.
+    */
+    const sansHtml = sansCommentaires(source, 'balisage').join('\n');
+    for (const { genre, debut, fin } of regions(sansHtml)) {
+      if (genre === 'ignore') continue;
+      const avant = sansHtml.slice(0, debut).match(/\n/g)?.length ?? 0;
+      const tranche = sansHtml.slice(debut, fin);
+      retenir(
+        machine(
+          genre === 'js' ? sansCommentaires(tranche, 'js').join('\n') : tranche,
+          genre === 'js' ? 'js' : 'texte',
+          avant + 1,
+        ),
+      );
     }
+  } else {
+    retenir(machine(sansCommentaires(source, 'js').join('\n'), 'js', 1));
   }
-  return sites;
+
+  const sites = [];
+  for (const { ligne, texte } of morceaux) {
+    if (TEXTES_EXEMPTES.has(texte.trim())) continue;
+    const resserre = texte.replace(/\s+/g, ' ').trim();
+    if (FRAGMENTS_EXEMPTES.some((f) => resserre.includes(f))) continue;
+    const apercu = resserre.slice(0, 120);
+    for (const m of texte.matchAll(COLLE)) {
+      sites.push({ ligne: ligneDe(texte, m.index ?? 0, ligne), texte: apercu });
+    }
+    if (SEULE.test(texte)) sites.push({ ligne, texte: apercu });
+  }
+  return { sites, anomalies };
 }
