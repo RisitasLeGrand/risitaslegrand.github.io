@@ -35,10 +35,23 @@
  *     node scripts/relever-temporisations.mjs --fenetre 20
  *     node scripts/relever-temporisations.mjs --amortissements
  *
- * Le dernier relève les temporisations LÉGITIMES plutôt que les autres : celles
- * qui franchissent un amortissement du site, reconnaissables à un `setTimeout`
- * dans un gestionnaire d'entrée. Une sur vingt-six au pilote ; les relever
- * avant un lot évite de « réparer » ce qui n'est pas cassé.
+ * Le dernier relève les délais que le SITE s'impose, c'est-à-dire ce qui peut
+ * légitimer une attente à l'aveugle dans un essai. Une sur vingt-six au
+ * pilote ; les relever avant un lot évite de « réparer » ce qui n'est pas
+ * cassé.
+ *
+ * ## Les deux formes d'un délai, et pourquoi la seconde se manque
+ *
+ * **Un minuteur** — `setTimeout` — diffère une action. Il se cherche par son
+ * nom, et c'est la forme à laquelle on pense.
+ *
+ * **Un repos comparé à l'horloge** n'a aucun minuteur : le site garde l'instant
+ * du dernier geste et refuse le suivant s'il arrive trop tôt. `src/lib/geste.ts`
+ * fait cela — `performance.now() - derniere < repos`, 600 ms par défaut, pour
+ * tous les gestes qui passent par `unSeulGeste`. **C'est exactement le cas qui a
+ * légitimé la seule temporisation gardée du pilote, et un relevé des
+ * `setTimeout` ne le voit pas.** Ma première version de ce fichier annonçait le
+ * contraire ; elle se trompait sur son propre exemple.
  */
 import { readdirSync, readFileSync } from 'node:fs';
 
@@ -81,15 +94,8 @@ for (const f of essais) {
 
 /* ── Les amortissements du site, qui légitiment une attente ───────────── */
 
-/**
- * Les `setTimeout` que le SITE pose dans un gestionnaire.
- *
- * Rendu brut, à lire : la décision reste humaine. Ce qu'on cherche est un
- * délai dont l'essai doit attendre l'échéance parce que ce qu'il vérifie est
- * qu'il ne se passe RIEN — et cela ne se remplace pas par une marque à
- * l'écran sans annoncer ce que le site rend invisible.
- */
-function amortissements(racine) {
+/** Les fichiers d'écran et de bibliothèque, à plat. */
+function sourcesDuSite(racine) {
   const sortie = [];
   const pile = [racine];
   while (pile.length) {
@@ -97,26 +103,59 @@ function amortissements(racine) {
     for (const e of readdirSync(d, { withFileTypes: true })) {
       const c = `${d}/${e.name}`;
       if (e.isDirectory()) pile.push(c);
-      else if (/\.(ts|svelte|astro)$/.test(e.name)) {
-        readFileSync(c, 'utf8')
-          .split('\n')
-          .forEach((l, i) => {
-            if (/setTimeout\(/.test(l) && !/clearTimeout/.test(l)) {
-              sortie.push({ fichier: c, ligne: i + 1, code: l.trim().slice(0, 78) });
-            }
-          });
-      }
+      else if (/\.(ts|svelte|astro)$/.test(e.name)) sortie.push(c);
     }
   }
-  return sortie.sort((a, b) => a.fichier.localeCompare(b.fichier) || a.ligne - b.ligne);
+  return sortie.sort();
+}
+
+/**
+ * Les délais que le site s'impose, par forme.
+ *
+ * Rendu brut, à lire : la décision reste humaine. Ce qu'on cherche est un délai
+ * dont l'essai doit attendre l'échéance parce que ce qu'il vérifie est qu'il ne
+ * se passe RIEN — et cela ne se remplace pas par une marque à l'écran sans
+ * annoncer ce que le site rend invisible.
+ */
+function amortissements(racine) {
+  /* Un repos comparé à l'horloge : aucun minuteur, donc invisible à l'autre
+     relevé. C'est la forme qui compte le plus, et la plus rare. */
+  const REPOS = /(?:Date|performance)\.now\(\)\s*-\s*[\w.?[\]]+\s*[<>]/;
+  /* Un minuteur, hors annulation. */
+  const MINUTEUR = /setTimeout\(/;
+  /* Et les constantes en millisecondes, qui servent d'index : un délai nommé
+     est presque toujours un délai qui compte pour quelqu'un. */
+  const CONSTANTE = /^\s*(?:export\s+)?const\s+([A-Z][A-Z_]*_MS|[A-Z][A-Z_]*MS)\s*=\s*([\d_]+)/;
+
+  const repos = [];
+  const minuteurs = [];
+  const constantes = [];
+  for (const c of sourcesDuSite(racine)) {
+    readFileSync(c, 'utf8')
+      .split('\n')
+      .forEach((l, i) => {
+        const site = { fichier: c, ligne: i + 1, code: l.trim().slice(0, 86) };
+        if (REPOS.test(l)) repos.push(site);
+        if (MINUTEUR.test(l) && !/clearTimeout/.test(l)) minuteurs.push(site);
+        const m = l.match(CONSTANTE);
+        /* Un jour en millisecondes est une unité de calendrier, pas un repos. */
+        if (m && Number(m[2].replace(/_/g, '')) < 600_000) constantes.push(site);
+      });
+  }
+  return { repos, minuteurs, constantes };
 }
 
 /* ── Le rendu ─────────────────────────────────────────────────────────── */
 
 if (AMORTISSEMENTS) {
-  const trouves = amortissements('src');
-  console.log(`\n${trouves.length} délais posés par le site, à lire un par un.\n`);
-  for (const a of trouves) console.log(`  ${a.fichier}:${a.ligne}  ${a.code}`);
+  const { repos, minuteurs, constantes } = amortissements('src');
+  const dire = (titre, liste) => {
+    console.log(`\n${titre} — ${liste.length}\n`);
+    for (const a of liste) console.log(`  ${a.fichier}:${a.ligne}  ${a.code}`);
+  };
+  dire('REPOS COMPARÉS À L’HORLOGE (aucun minuteur : à lire en premier)', repos);
+  dire('MINUTEURS', minuteurs);
+  dire('DÉLAIS NOMMÉS, comme index', constantes);
   console.log('');
 } else {
   console.log(`\nFenêtre de ${FENETRE} lignes.\n`);

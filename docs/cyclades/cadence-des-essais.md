@@ -326,9 +326,32 @@ ce qu'on attend est précisément **qu'il ne se passe rien**. Donner une marque 
 ce non-événement reviendrait à faire annoncer par l'écran une déduplication
 qu'il rend invisible — on ajouterait à la page une trace pour l'essai seul.
 
-La classe se reconnaît à un **amortissement dans la source** : un `setTimeout`
-dans un gestionnaire d'entrée côté site. C'est cherchable, donc relevable avant
-d'attaquer un lot, ce qui évite de « réparer » ce qui n'est pas cassé.
+### Comment la reconnaître — et l'erreur que j'ai failli laisser
+
+Je l'ai d'abord écrit ainsi : « elle se reconnaît à un `setTimeout` dans un
+gestionnaire d'entrée côté site ». **C'est faux, et c'est faux sur l'exemple
+même qui a servi à l'énoncer.** Le repos de 600 ms du sport n'a aucun minuteur :
+`src/lib/geste.ts` garde l'instant du dernier geste et refuse le suivant s'il
+arrive trop tôt — `performance.now() - derniere < repos`. Un relevé des
+`setTimeout` ne le voit pas, et il y en a 32 qui auraient donné l'illusion d'un
+relevé complet.
+
+Un délai du site a donc **deux formes**, et la seconde est celle qui compte :
+
+- **un minuteur** diffère une action. Trente-deux dans `src/`. Il se cherche par
+  son nom, et c'est la forme à laquelle on pense.
+- **un repos comparé à l'horloge** n'a rien à chercher : aucun timer, une
+  soustraction dans une condition. **Trois** dans tout `src/` —
+  `geste.ts` (le rebond des gestes), l'échange en arrière-plan (son plancher
+  entre deux synchronisations), et le compteur d'inactivité.
+
+Le premier des trois gouverne **les 31 appels à `unSeulGeste`** du site : tout
+geste répété à données identiques en moins de 600 ms y est pris pour un rebond.
+C'est la portée réelle de la classe légitime, et elle se dit en une phrase —
+beaucoup mieux qu'un relevé de 32 minuteurs dont aucun n'était en cause.
+
+`node scripts/relever-temporisations.mjs --amortissements` rend les trois
+groupes, les repos d'abord.
 
 ### Trois choses apprises au pilote
 
