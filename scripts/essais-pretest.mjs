@@ -65,7 +65,50 @@ await page.evaluate(() => new Promise((ok) => { const r = indexedDB.deleteDataba
 */
 await franchirInitialisation(page, 'http://localhost:4321', MDP);
 await page.goto('http://localhost:4321/bibliotheque/', { waitUntil: 'networkidle' });
-if (await page.locator('#champ-mdp').isVisible().catch(()=>false)) { await page.fill('#champ-mdp',MDP); await page.click('#bouton-verrou'); await page.waitForTimeout(3000); }
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CET ESSAI, ET POURQUOI AUCUNE N'EST UNE DURÉE
+
+   `docs/cyclades/cadence-des-essais.md` § 3 et § 4. Six temporisations à
+   l'aveugle, dont trois de 2 500 ms devant une fiche à déchiffrer et une de
+   3 000 ms devant le verrou.
+
+   Deux post-conditions suffisent à les remplacer toutes. Le TITRE de la
+   fiche, écrit par le script une fois le contenu déchiffré : il part vide, et
+   « non vide » est donc une vraie transition. Et le PANNEAU du prétest, qui
+   est ce que la plupart des constats lisent — présent, ou disparu.
+
+   Pour les deux constats NÉGATIFS — « aucun prétest au rechargement », « pas
+   de panneau sur une fiche qui n'en a pas » —, on attend le titre : il dit
+   que la fiche est là, donc que l'absence du panneau est une absence et non
+   un retard.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI = 30_000;
+
+/** Attend que la fiche soit déchiffrée : son titre est écrit par le script. */
+const attendreLaFiche = () =>
+  page
+    .waitForFunction(
+      () => (document.getElementById('titre')?.textContent ?? '').trim() !== '',
+      undefined,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+
+if (await page.locator('#champ-mdp').isVisible().catch(()=>false)) {
+  await page.fill('#champ-mdp',MDP);
+  await page.click('#bouton-verrou');
+  /* La bibliothèque paraît quand la clé est posée : c'est la marque, et c'est
+     ce que « ficheSansPretest » va lire juste après. */
+  await page
+    .waitForFunction(() => document.getElementById('champ-mdp') === null ||
+      document.getElementById('champ-mdp').getBoundingClientRect().height === 0,
+      undefined, { timeout: DELAI })
+    .catch(() => {});
+}
 
 const AVEC = '/fiche/?id=d9cb5790881e26fa';   // Questions sociales F3, fiche 1 : a un prétest
 const idSans = await ficheSansPretest();
@@ -74,7 +117,7 @@ if (!idSans) {
 }
 const SANS = `/fiche/?id=${idSans ?? ''}`;
 await page.goto('http://localhost:4321' + AVEC, { waitUntil: 'networkidle' });
-await page.waitForTimeout(2500);
+await attendreLaFiche();
 console.log('\nFICHE VISÉE :', await page.locator('#titre').textContent());
 
 console.log('\nPRÉTEST AVANT LA PREMIÈRE LECTURE');
@@ -101,7 +144,22 @@ await page
   .first()
   .click();
 await page.getByRole('button', { name: /Valider mes réponses/ }).click();
-await page.waitForTimeout(1200);
+/*
+   LA CORRECTION EST LA DERNIÈRE CHOSE ÉCRITE par la validation, après les
+   écritures en base que les constats suivants relisent — la fiche prétestée,
+   la récompense, les trois notes d'entrée. L'attendre couvre donc aussi
+   celles-là.
+*/
+await page
+  .waitForFunction(
+    () =>
+      (document.getElementById('pretest')?.textContent ?? '').includes(
+        'Rien n’est compté comme une erreur',
+      ),
+    undefined,
+    { timeout: DELAI },
+  )
+  .catch(() => {});
 v('la correction s’affiche', (await page.locator('#pretest').textContent() ?? '').includes('Rien n’est compté comme une erreur'), true);
 const etatApres = await page.evaluate(async () => {
   const lireTout = (base, magasin) => new Promise((ok) => { const r = base.transaction(magasin).objectStore(magasin).getAll(); r.onsuccess = () => ok(r.result); });
@@ -128,20 +186,22 @@ v('aucun niveau acquis n’a été créé', etatApres.competences.some((c) => !c
 v('aucune difficulté d’item n’a été touchée', etatApres.difficultes.length, 0);
 
 await page.getByRole('button', { name: /Lire le cours/ }).click();
-await page.waitForTimeout(600);
+/* Le cours démasqué est ce que le constat lit ; le panneau parti est la suite
+   du même geste. */
+await page.locator('#contenu').waitFor({ state: 'visible', timeout: DELAI }).catch(() => {});
 v('le cours est révélé', await page.locator('#contenu').isVisible(), true);
 v('le panneau a disparu', await page.locator('#pretest section').count(), 0);
 
 console.log('\nIL NE REVIENT PAS');
 await page.reload({ waitUntil: 'networkidle' });
-await page.waitForTimeout(2500);
+await attendreLaFiche();
 v('aucun prétest au rechargement', await page.locator('#pretest section').count(), 0);
 v('le cours est visible d’emblée', await page.locator('#contenu').isVisible(), true);
 
 if (idSans) {
 console.log('\nUNE FICHE SANS PRÉTEST N’EN AFFICHE PAS');
 await page.goto('http://localhost:4321' + SANS, { waitUntil: 'networkidle' });
-await page.waitForTimeout(2500);
+await attendreLaFiche();
 v('pas de panneau', await page.locator('#pretest section').count(), 0);
 v('le cours est visible', await page.locator('#contenu').isVisible(), true);
 }

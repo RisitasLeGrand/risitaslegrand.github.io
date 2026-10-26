@@ -28,6 +28,7 @@
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { attendreEnBase } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -57,6 +58,24 @@ const page = await contexte.newPage();
 const erreursDePage = [];
 page.on('pageerror', (e) => erreursDePage.push(e.message.slice(0, 200)));
 
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CET ESSAI, ET POURQUOI AUCUNE N'EST UNE DURÉE
+
+   `docs/cyclades/cadence-des-essais.md` § 3 et § 4. Cinq temporisations à
+   l'aveugle. Deux portent sur une écriture en base sans marque à l'écran — la
+   tâche créée, l'occurrence pointée — et c'est `attendreEnBase` du module
+   partagé qui les tient : la base est elle-même la post-condition.
+
+   Les trois autres portent sur un changement de VUE du calendrier, où ce
+   qu'on attend est toujours ce que l'assertion lit — la liste du jour, la
+   ligne compacte du mois.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI = 30_000;
+
 const deverrouiller = async () => {
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
@@ -67,7 +86,22 @@ const deverrouiller = async () => {
 const aller = async (route) => {
   await page.goto(`${RACINE}${route}`, { waitUntil: 'networkidle' });
   await deverrouiller();
-  await page.waitForTimeout(800);
+  /*
+     L'ÉCRAN EST PRÊT QUAND SON FORMULAIRE OU SA GRILLE EST LÀ. Les deux
+     écrans visités ici construisent leur contenu côté script : on attend donc
+     le premier élément que l'essai touchera — le champ du titre sur l'écran
+     des tâches, un bouton de vue sur le calendrier. Huit cents millisecondes
+     étaient une moyenne pour les deux.
+  */
+  await page
+    .waitForFunction(
+      () =>
+        document.getElementById('titre') !== null ||
+        document.querySelector('[data-vue]') !== null,
+      undefined,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
 };
 
 const lireLaBase = () =>
@@ -99,7 +133,10 @@ await page.selectOption('#champs-serie select[data-regle]', 'jours');
 await page.locator('#champs-serie input[type="number"]').first().fill('1');
 await page.fill('#echeance', AUJOURDHUI);
 await page.click('#ajouter');
-await page.waitForTimeout(900);
+/* La tâche part en base sans que cet écran n'en montre la preuve. */
+await attendreEnBase(page, 'odysseeTaches', (tout) => tout.some((x) => x.titre === TITRE), {
+  delai: DELAI,
+});
 
 const creee = (await lireLaBase()).taches.find((t) => t.titre === TITRE);
 vrai('la tâche répétée est en base', Boolean(creee));
@@ -109,7 +146,11 @@ console.log('\n\x1b[1mLe calendrier montre les tâches prévues — A-8\x1b[0m')
 
 await aller('/odyssee/calendrier/');
 await page.locator('[data-vue="jour"]').click();
-await page.waitForTimeout(700);
+/* La liste des tâches du jour est ce que les trois constats lisent. */
+await page
+  .locator(`[data-titre-taches="${AUJOURDHUI}"]`)
+  .waitFor({ state: 'visible', timeout: DELAI })
+  .catch(() => {});
 
 vrai(
   'la liste « Tâches prévues » existe pour aujourd’hui',
@@ -133,7 +174,13 @@ v(
 console.log('\n\x1b[1mPointer depuis le calendrier écrit une occurrence\x1b[0m');
 
 await page.locator(`[data-pointer="${creee.id}:${AUJOURDHUI}"]`).click();
-await page.waitForTimeout(900);
+/* L'occurrence pointée est une écriture en base : on l'y attend. */
+await attendreEnBase(
+  page,
+  'odysseeOccurrences',
+  (tout) => tout.some((o) => o.tacheId === creee.id && o.jourPrevu === AUJOURDHUI),
+  { delai: DELAI },
+);
 
 const apres = await lireLaBase();
 const ecrites = apres.occurrences.filter(
@@ -160,7 +207,11 @@ v(
 console.log('\n\x1b[1mEn vue mois : une ligne compacte, et le jour n’est plus sauté\x1b[0m');
 
 await page.locator('[data-vue="mois"]').click();
-await page.waitForTimeout(900);
+/* La ligne compacte du jour est ce que les quatre constats suivants lisent. */
+await page
+  .locator(`[data-compacte-taches="${AUJOURDHUI}"]`)
+  .waitFor({ state: 'visible', timeout: DELAI })
+  .catch(() => {});
 
 vrai(
   'le jour d’aujourd’hui a une ligne, alors qu’il n’a aucun événement',
@@ -176,7 +227,10 @@ v(
   0,
 );
 await compacte.click();
-await page.waitForTimeout(700);
+await page
+  .locator(`[data-taches="${AUJOURDHUI}"]`)
+  .waitFor({ state: 'visible', timeout: DELAI })
+  .catch(() => {});
 vrai(
   'cliquer la ligne compacte ouvre le jour',
   await page.locator(`[data-taches="${AUJOURDHUI}"]`).isVisible(),
@@ -194,7 +248,18 @@ vrai('et il dit par où revenir', lien.includes('retour='));
 
 await page.goto(`${RACINE}${lien}`, { waitUntil: 'networkidle' });
 await deverrouiller();
-await page.waitForTimeout(800);
+/*
+   L'ÉCHÉANCE PRÉREMPLIE EST CE QUE L'ASSERTION LIT, et le champ part vide du
+   serveur : c'est le script qui le remplit depuis le lien. « Non vide » est
+   donc une vraie transition, et elle ne présuppose pas la date comparée.
+*/
+await page
+  .waitForFunction(
+    () => (document.getElementById('echeance')?.value ?? '') !== '',
+    undefined,
+    { timeout: DELAI },
+  )
+  .catch(() => {});
 v(
   'arrivé sur l’écran des tâches, l’échéance est préremplie',
   await page.inputValue('#echeance'),

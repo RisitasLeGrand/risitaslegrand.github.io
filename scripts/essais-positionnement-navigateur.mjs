@@ -63,13 +63,54 @@ await page.evaluate(
     }),
 );
 
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CET ESSAI, ET POURQUOI AUCUNE N'EST UNE DURÉE
+
+   `docs/cyclades/cadence-des-essais.md` § 3 et § 4. Cinq temporisations à
+   l'aveugle, et les plus longues du lot : 6 000 ms pour le tirage du
+   questionnaire, 3 000 ms trois fois. Ensemble, quatorze secondes et demie à
+   chaque passage de la batterie.
+
+   DEUX POST-CONDITIONS, DANS L'ORDRE, pour l'entrée — le verrou qui s'en va,
+   puis le bloc de choix rempli. La leçon de « essais:migration » : un écran
+   qui se lit sans la clé ne dit pas que la session existe.
+
+   Ensuite, chaque attente est ce que l'assertion lit : le questionnaire et
+   ses questions, le bilan, la page des niveaux.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI = 30_000;
+
 await page.goto(`${RACINE}/positionnement/`, { waitUntil: 'networkidle' });
 if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
   await page.fill('#champ-mdp', MDP);
   await page.click('#bouton-verrou');
-  await page.waitForTimeout(3000);
+  await page
+    .waitForFunction(
+      () => {
+        const champ = document.getElementById('champ-mdp');
+        return champ === null || champ.getBoundingClientRect().height === 0;
+      },
+      undefined,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
 }
-await page.waitForTimeout(2500);
+/*
+   LE BLOC DE CHOIX EST REMPLI quand ses fascicules sont là : c'est ce que les
+   quatre constats suivants lisent, et le script doit avoir lu la bibliothèque
+   pour les compter.
+*/
+await page
+  .waitForFunction(
+    () => (document.querySelectorAll('#perimetre option').length ?? 0) > 0,
+    undefined,
+    { timeout: DELAI },
+  )
+  .catch(() => {});
 
 console.log('\nLE CHOIX DU PÉRIMÈTRE');
 v('le bloc de choix est affiché', await page.locator('#choix').isVisible().catch(() => false), true);
@@ -82,7 +123,18 @@ console.log(`      premier : ${premier.trim()}`);
 
 console.log('\nLE QUESTIONNAIRE');
 await page.locator('#lancer').click();
-await page.waitForTimeout(6000);
+/*
+   SIX SECONDES ATTENDAIENT UN TIRAGE : le questionnaire lit les fiches du
+   périmètre, les déchiffre et choisit ses questions. On attend le premier
+   bloc de question, qui est ce que les quatre constats suivants comptent.
+*/
+await page
+  .waitForFunction(
+    () => document.querySelectorAll('#questionnaire section > div > div').length > 0,
+    undefined,
+    { timeout: DELAI },
+  )
+  .catch(() => {});
 v(
   'le questionnaire est affiché',
   await page.locator('#questionnaire section').isVisible().catch(() => false),
@@ -103,7 +155,14 @@ for (let i = 0; i < nbQuestions; i += 1) {
 
 console.log('\nLE BILAN ET L’ORIENTATION');
 await page.getByRole('button', { name: /Valider et me situer/ }).click();
-await page.waitForTimeout(3000);
+/* Le bilan annonce la note d'entrée : c'est ce que les constats y cherchent. */
+await page
+  .waitForFunction(
+    () => (document.getElementById('bilan')?.textContent ?? '').includes('Votre niveau d’entrée'),
+    undefined,
+    { timeout: DELAI },
+  )
+  .catch(() => {});
 const bilan = (await page.locator('#bilan').textContent()) ?? '';
 v('le bilan est affiché', await page.locator('#bilan').isVisible(), true);
 v('il annonce une note d’entrée', bilan.includes('Votre niveau d’entrée'), true);
@@ -175,7 +234,19 @@ v('aucune fiche n’a été marquée lue', etat.fiches.some((f) => f.lu), false)
 
 console.log('\nLE NIVEAU AFFICHÉ IGNORE LA NOTE D’ENTRÉE');
 await page.goto(`${RACINE}/statistiques/`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(3000);
+/*
+   LA PAGE DES NIVEAUX EST PEINTE quand sa zone porte du texte — et c'est le
+   second constat de cette section, « la page répond bien ». Le premier est
+   NÉGATIF — aucune note chiffrée — et il ne prouve rien sur une zone vide :
+   l'attendre remplie est donc ce qui lui donne son sens.
+*/
+await page
+  .waitForFunction(
+    () => (document.getElementById('niveaux')?.textContent ?? '').trim() !== '',
+    undefined,
+    { timeout: DELAI },
+  )
+  .catch(() => {});
 const niveaux = (await page.locator('#niveaux').textContent()) ?? '';
 // On cherche l'absence d'une note Elo, qui est toujours un nombre à quatre
 // chiffres autour de 1200 — et non une formule particulière, que le libellé de

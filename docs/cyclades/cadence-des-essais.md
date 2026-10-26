@@ -445,6 +445,68 @@ plus haut dans le fichier ne lève pas à la lecture mais à l'exécution —
 premières assertions vertes, ce qui ressemble à tout sauf à une erreur de
 rangement.
 
+### Deux leçons du quatrième lot, et l'une n'était pas la cause
+
+*« pretest » (6 sites), « parcours-validation » (6), « consentement-ecran »
+(5), « calendrier-occurrences » (5), « migration-fsrs » (5),
+« piles-navigateur » (5). Deux cent quatre-vingts sites restent.*
+
+**L'ORDRE DE DEUX POST-CONDITIONS COMPTE.** `essais:migration` déverrouille la
+session, puis attend que la base ait migré. J'ai remplacé les 2 500 ms par la
+seule attente de la migration — or le magasin des cartes se lit SANS la clé :
+la condition était donc satisfaite pendant que le déverrouillage courait
+encore. L'essai partait sur « /flashcards » avant que la session n'existe, et
+retombait sur l'écran d'entrée. Rouge : « aucune session de flashcards à
+démarrer », sur une application saine, et huit assertions non mesurées
+derrière. Il faut les deux attentes, dans l'ordre : le verrou qui s'en va, puis
+la migration.
+
+**ET UNE CORRECTION QUI N'ÉTAIT PAS LA CAUSE, mais qu'il fallait faire.** En
+cherchant le défaut, j'ai vu que `attendreEnBase` ouvrait une connexion à la
+base à chaque tour de sondage et **ne la refermait jamais**. Or une connexion
+ouverte BLOQUE un changement de version : un sondage de ce genre peut empêcher
+la migration qu'il est censé attendre. Corrigé — et mesuré : cela ne
+réparait pas ce rouge-ci. Les deux faits valent d'être dits ensemble, parce que
+la tentation est de s'arrêter à la première explication plausible.
+
+**Enfin, le diagnostic muet.** La branche « rien à démarrer » de cet essai ne
+disait pas ce qu'elle avait vu : deux passages pour découvrir que l'écran
+montrait le cadenas. Elle liste maintenant les appuis visibles et le chemin.
+*Un rouge qui ne dit pas ce qu'il a vu se cherche à l'aveugle.*
+
+### Le cinquième lot : un magasin scellé, et le rebond une seconde fois
+
+*« positionnement-navigateur » (5 sites), « psyche-navigateur » (5),
+« bascule-coffre » (4).*
+
+**UN MAGASIN SCELLÉ NE S'INTERROGE PAS PAR SES CHAMPS.** La Psyché range ses
+points du jour chiffrés : un `getAll` n'en rend que l'identifiant, le jour et
+un bloc scellé. Attendre « un point du jour dont l'humeur vaut 9 » ne pouvait
+donc jamais aboutir, et la condition était fausse sans être absurde — c'est le
+genre d'erreur qu'on ne voit pas en relisant.
+
+Ce qu'on peut lire sans la clé, c'est que **le bloc a CHANGÉ** : réécrire
+scelle un nouveau contenu avec un nouveau vecteur. La post-condition est
+exacte, et elle n'ouvre rien — on ne lit pas ce qui a été écrit, seulement
+qu'il l'a été.
+
+**ET LE REBOND UNE SECONDE FOIS.** « Enregistrer » de la Psyché passe par
+`unSeulGeste`, et le même point du jour se corrige par un second appui sur le
+même bouton. Les 1 500 ms d'avant franchissaient le repos de 600 ms sans le
+savoir ; mes post-conditions, plus rapides, l'ont ramené dans la fenêtre. Le
+second appui était avalé, la correction n'atteignait jamais la base, et l'essai
+la relisait à sa valeur d'avant deux navigations plus loin — un rouge juste,
+sur une application saine. *Deux occurrences font une règle : avant de refaire
+le même geste sur le même contrôle, franchir le repos.*
+
+**Deux essais hors de portée du banc, et il faut le dire.**
+`essais:bibliographie:navigateur` refuse de tourner ici : le paquet
+« bibliographie.bin » n'est pas construit, et le construire demande une source
+que ce conteneur n'a pas. Sa conversion a donc été ANNULÉE plutôt que livrée
+sans mesure. Et `essais-bascule-coffre.mjs` n'a **aucun script dans
+`package.json`** : la batterie énumérant les scripts, ce fichier n'est jamais
+lancé par personne. Lancé à la main, il passe — quatorze constats, zéro rouge.
+
 ### Ce que coûte une conversion, mesuré
 
 Le pilote : **2 h 01 d'horloge pour 26 sites**, trois essais, un socle. À ce

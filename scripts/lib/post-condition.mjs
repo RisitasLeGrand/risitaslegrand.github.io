@@ -333,11 +333,41 @@ export async function attendreEnBase(page, magasin, estSatisfait, { delai = 3000
             const demande = indexedDB.open('revinsp');
             demande.onerror = () => rate(demande.error);
             demande.onsuccess = () => {
+              const base = demande.result;
+              /*
+                 ON REFERME LA CONNEXION, et ce n'est pas une politesse.
+
+                 Une connexion ouverte BLOQUE un changement de version : quand
+                 l'application migre son schéma, son « upgradeneeded » attend
+                 que toutes les autres connexions soient closes. Un sondage qui
+                 en ouvre une toutes les cent millisecondes et ne les referme
+                 jamais empêche donc la migration qu'il est censé attendre.
+
+                 Mesuré sur `essais:migration` : la version d'avant passait,
+                 la mienne échouait — les cartes n'étaient jamais migrées, donc
+                 jamais dues, donc aucune session de flashcards à démarrer. Le
+                 défaut n'était pas dans l'attente mais dans ce qu'elle laissait
+                 derrière elle.
+              */
+              const fermer = () => {
+                try {
+                  base.close();
+                } catch {
+                  /* Déjà close : rien à faire. */
+                }
+              };
               try {
-                const r = demande.result.transaction(nom).objectStore(nom).getAll();
-                r.onsuccess = () => ok(r.result);
-                r.onerror = () => rate(r.error);
+                const r = base.transaction(nom).objectStore(nom).getAll();
+                r.onsuccess = () => {
+                  fermer();
+                  ok(r.result);
+                };
+                r.onerror = () => {
+                  fermer();
+                  rate(r.error);
+                };
               } catch (erreur) {
+                fermer();
                 rate(erreur);
               }
             };
