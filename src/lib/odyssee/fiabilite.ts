@@ -27,6 +27,8 @@
  * grisé, avec la raison.
  */
 
+import { accorde, pluriel } from '../noyau/accords';
+
 export type Frequence = 'jour' | 'semaine' | 'mois' | 'trimestre' | 'an';
 
 /** La fenêtre attendue d'une fréquence, en jours. */
@@ -135,24 +137,29 @@ export function fiabilite(entrees: EntreesFiabilite): Fiabilite {
   const motifs: string[] = [];
   if (composantes.effectif < 1) {
     motifs.push(
-      `${entrees.points} point(s) pour un minimum de ${entrees.minimumDePoints} : l’effectif est insuffisant.`,
+      `${pluriel(entrees.points, 'point')} pour un minimum de ${entrees.minimumDePoints} : ` +
+        'l’effectif est insuffisant.',
     );
   }
   if (composantes.fraicheur < 1) {
     motifs.push(
-      `La dernière donnée a ${entrees.joursDepuisDerniereDonnee} jour(s) : elle ne décrit plus la période.`,
+      `La dernière donnée a ${pluriel(entrees.joursDepuisDerniereDonnee, 'jour')} : ` +
+        'elle ne décrit plus la période.',
     );
   }
   if (composantes.completude < 1) {
     motifs.push(
-      `${entrees.joursRenseignes} jour(s) renseigné(s) sur ${entrees.joursAttendus} : la série est trouée.`,
+      `${pluriel(entrees.joursRenseignes, 'jour')} ` +
+        `${accorde(entrees.joursRenseignes, 'renseigné')} sur ${entrees.joursAttendus} : ` +
+        'la série est trouée.',
     );
   }
   if (composantes.integrite < 1) {
     motifs.push(
       entrees.desaccords.pivotEnConflit
         ? 'Un désaccord non tranché porte sur la donnée dont tout l’indicateur dépend.'
-        : `${entrees.desaccords.ouverts} désaccord(s) non tranché(s) sur les données utilisées.`,
+        : `${pluriel(entrees.desaccords.ouverts, 'désaccord')} non ` +
+          `${accorde(entrees.desaccords.ouverts, 'tranché')} sur les données utilisées.`,
     );
   }
 
