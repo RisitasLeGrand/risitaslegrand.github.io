@@ -142,6 +142,8 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { iconeDuGabarit } from '../../lib/icone-gabarit';
+  import { pluriel } from '../../lib/ui';
   import { messageDUneErreur } from '../../lib/agir';
   import { euros, type OperationBancaire } from '../../lib/odyssee/finances';
   import { lireReleve, empreintesDOperations, type CompteLu, type Lecture } from '../../lib/odyssee/releve';
@@ -241,10 +243,41 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       li.dataset.compte = c.nom;
       li.dataset.verdict = c.verdict;
       li.className = 'rounded-xl border border-slate-200 p-3 dark:border-slate-800';
-      const marque = c.verdict === 'boucle' ? '✓' : c.verdict === 'ecart' ? '✗' : '⚠';
+      /*
+         TROIS VERDICTS DU MÊME RANG, DONC TROIS MARQUES DE MÊME NATURE.
+
+         Le troisième était un triangle d'avertissement en émoji, là où les
+         deux autres sont des marques de texte. Passé en dessin SVG comme le reste de l'interface,
+         il aurait cassé la série : deux signes de texte et une image pour
+         trois verdicts également lisibles. Il devient donc « △ », une marque
+         comme ses voisines — décision du Pilote.
+
+         ET LA MARQUE SE DIT. À voix haute, « △ » s'annonce « triangle blanc
+         pointant vers le haut », ce qui n'apprend rien ; « ✓ » s'annonce
+         « coche », ce qui est à peine mieux. Le mot du verdict part donc avec,
+         pour les lecteurs d'écran seulement — le signe suffit à l'œil, et la
+         deuxième ligne porte déjà la phrase du contrôle.
+      */
+      const MARQUES: Record<string, [string, string]> = {
+        boucle: ['✓', 'Le compte boucle'],
+        ecart: ['✗', 'Écart'],
+        'invérifiable': ['△', 'Invérifiable'],
+      };
+      const [marque, sens] = MARQUES[c.verdict] ?? MARQUES['invérifiable'];
       li.innerHTML = `<p class="font-medium text-slate-900 dark:text-white"></p>
         <p class="mt-1 text-slate-600 dark:text-slate-300"></p>`;
-      li.querySelector('p')!.textContent = `${marque} ${c.nom} — ${c.operations} opération(s)`;
+      const titre = li.querySelector('p')!;
+      titre.replaceChildren(
+        Object.assign(document.createElement('span'), {
+          ariaHidden: 'true',
+          textContent: marque,
+        }),
+        Object.assign(document.createElement('span'), {
+          className: 'sr-only',
+          textContent: `${sens} : `,
+        }),
+        document.createTextNode(` ${c.nom} — ${c.operations} opération(s)`),
+      );
       li.querySelectorAll('p')[1].textContent = c.message;
       liste.appendChild(li);
     }
@@ -261,9 +294,21 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     const masques = premieres.filter((o) => o.libelle.includes('●')).length;
     $('masquage').classList.toggle('hidden', masques === 0);
     if (masques) {
-      $('masquage').textContent =
-        `⚠ ${masques} identifiant(s) masqué(s) à la lecture : seuls les quatre derniers ` +
-        'chiffres sont conservés. Le fichier, lui, n’est pas conservé du tout.';
+      /*
+         « identifiant(s) masqué(s) » est parti avec l'émoji : le format G
+         écarte la parenthèse du pluriel, et « pluriel() » existe déjà pour
+         ça. Le participe s'accorde avec, ce qu'une parenthèse ne sait pas
+         faire.
+      */
+      $('masquage').classList.add('flex', 'items-baseline', 'gap-1.5');
+      $('masquage').replaceChildren(
+        iconeDuGabarit('gabarit-alerte'),
+        document.createTextNode(
+          `${pluriel(masques, 'identifiant masqué', 'identifiants masqués')} à la lecture : ` +
+            'seuls les quatre derniers chiffres sont conservés. Le fichier, lui, ' +
+            'n’est pas conservé du tout.',
+        ),
+      );
     }
 
     $('gabarit').textContent = `Gabarit reconnu : ${lecture.empreinte.slice(0, 120)}`;

@@ -89,8 +89,26 @@ const SENS = [
   ['exporter', 'upload', false],
   ['importer', 'download', false],
   ['fiches-audio', 'headphones', false],
+  /*
+     « ecouter » est le geste, « fiches-audio » est la rubrique : le premier
+     lance la lecture, le second dit de quoi il s'agit. Deux sens distincts,
+     et ils se trouvent côte à côte sur la fiche.
+  */
+  ['ecouter', 'play', true],
+  ['fiche', 'file-text', false],
+  ['serie', 'flame', true],
+
+  /* ── Les groupes de réglages ─────────────────────────────────────────── */
+  ['affichage', 'palette', false],
+  ['journee', 'sunrise', false],
 
   /* ── L'en-tête ───────────────────────────────────────────────────────── */
+  /*
+     Le menu de Cyclades — la racine, où l'on choisit sa branche. Il portait
+     deux émojis différents pour la MÊME destination, 🏛️ dans la barre latérale
+     et 🗂️ dans l'en-tête : un seul sens, donc une seule icône.
+  */
+  ['menu', 'layout-grid', false],
   ['retour', 'arrow-left', false],
   ['coffre-ferme', 'lock', true],
   ['coffre-ouvert', 'unlock', false],

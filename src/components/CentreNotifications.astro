@@ -182,10 +182,27 @@ import Icone from './Icone.astro';
       </button>
     </div>
   </div>
+
+  {/*
+     LES DEUX ICÔNES DES LIGNES, EN MODÈLE À COPIER.
+
+     Le panneau fabrique ses lignes en JavaScript : ses deux boutons portaient
+     un émoji écrit dans le script, un œil et une corbeille d'arrivée. Le
+     composant « Icone »
+     ne s'exécute qu'à la construction du site, pas dans le navigateur.
+
+     D'où ces modèles : le SVG part dans le HTML de la page, une fois, et le
+     script en prend une copie par ligne. Importer le catalogue dans le
+     script aurait envoyé les soixante-deux tracés au navigateur pour en
+     employer deux. Un « template » n'est pas affiché.
+  */}
+  <template id="gabarit-vu"><Icone nom="vu" taille={16} /></template>
+  <template id="gabarit-ranger"><Icone nom="ranger" taille={16} /></template>
 </div>
 
 <script>
   import { base } from '../lib/ui';
+  import { iconeDuGabarit } from '../lib/icone-gabarit';
   import { calqueFerme, calqueOuvert } from '../lib/calques';
   import { surCoffre } from '../lib/coffre';
   import {
@@ -384,7 +401,7 @@ import Icone from './Icone.astro';
             lu.type = 'button';
             lu.className =
               'cible-tactile shrink-0 rounded-lg px-2 text-xs text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800';
-            lu.innerHTML = '<span aria-hidden="true">👁️</span>';
+            lu.append(iconeDuGabarit('gabarit-vu'));
             lu.title = 'Marquer comme lu';
             lu.append(Object.assign(document.createElement('span'), {
               className: 'sr-only',
@@ -403,7 +420,7 @@ import Icone from './Icone.astro';
             ranger.type = 'button';
             ranger.className =
               'cible-tactile shrink-0 rounded-lg px-2 text-xs text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800';
-            ranger.innerHTML = '<span aria-hidden="true">📥</span>';
+            ranger.append(iconeDuGabarit('gabarit-ranger'));
             ranger.title = 'Archiver';
             ranger.append(Object.assign(document.createElement('span'), {
               className: 'sr-only',

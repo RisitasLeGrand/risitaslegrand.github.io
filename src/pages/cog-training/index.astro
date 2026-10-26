@@ -6,6 +6,7 @@
  * chiffrés, mais ils restent derrière l'écran de connexion comme le reste.
  */
 import Base from '../../layouts/Base.astro';
+import Icone from '../../components/Icone.astro';
 
 /*
    LE FRANÇAIS EN TITRE, L'ANGLAIS EN PETIT DESSOUS (décision 3).
@@ -28,7 +29,7 @@ import Base from '../../layouts/Base.astro';
 const exercices = [
   {
     id: 'quad-n-back',
-    icone: '🧩',
+    icone: 'memoire',
     titre: 'Mémoire de travail',
     anglais: 'Quad N-Back',
     description:
@@ -41,7 +42,7 @@ const exercices = [
   },
   {
     id: 'relational-reasoning',
-    icone: '🧠',
+    icone: 'raisonnement',
     titre: 'Raisonnement relationnel',
     anglais: 'Relational Reasoning',
     description:
@@ -54,7 +55,7 @@ const exercices = [
   },
   {
     id: 'veridical-mapping',
-    icone: '🎚️',
+    icone: 'echelles',
     titre: 'Correspondance perceptive',
     anglais: 'Veridical Mapping',
     description:
@@ -65,7 +66,7 @@ const exercices = [
     duree: '5 à 10 minutes · son nécessaire',
     href: 'veridical-mapping/',
   },
-];
+] as const;
 ---
 
 {/*
@@ -118,9 +119,7 @@ const exercices = [
           {/* Étiquette de catégorie au-dessus du titre, puis le titre : c'est
               la convention de carte de service-public.gouv.fr. */}
           <div class="flex items-start gap-3">
-            <span class="text-3xl leading-none" aria-hidden="true">
-              {exercice.icone}
-            </span>
+            <Icone nom={exercice.icone} taille={28} class="mt-0.5" />
             <div class="min-w-0">
               <h2 class="font-semibold text-slate-900 dark:text-white">{exercice.titre}</h2>
               <p class="text-xs text-slate-500 dark:text-slate-400">{exercice.anglais}</p>

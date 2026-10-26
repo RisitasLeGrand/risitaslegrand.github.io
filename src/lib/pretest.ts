@@ -265,7 +265,7 @@ export async function montrer(
           for (const badge of gain.nouveauxBadges) {
             notifier(`${badge.icone} Succès : ${badge.nom}`, 'badge');
           }
-          if (gain.monteeDeNiveau) notifier(`🎉 Niveau ${gain.niveau.niveau} !`, 'succes');
+          if (gain.monteeDeNiveau) notifier(`Niveau ${gain.niveau.niveau} atteint`, 'succes');
         }
       })();
 

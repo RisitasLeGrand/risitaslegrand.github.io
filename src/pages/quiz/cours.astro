@@ -102,7 +102,7 @@ import { base } from '../../lib/ui';
   </section>
 
   <section id="resultat" class="hidden py-10 text-center">
-    <p id="resultat-emoji" class="text-5xl"></p>
+    <p id="resultat-appreciation" class="text-xl font-semibold text-slate-900 dark:text-white"></p>
     <h2 class="mt-4 text-2xl font-bold text-slate-900 dark:text-white">
       <span id="resultat-score"></span>
     </h2>
@@ -500,9 +500,20 @@ import { base } from '../../lib/ui';
     const gain = await gagnerXp(xpQuiz(bonnes), { quiz: 1, bonnes, reponses: total });
     const scores = serieEtXpAffichees();
     for (const badge of gain.nouveauxBadges) notifier(`${badge.icone} Succès : ${badge.nom}`, 'badge');
-    if (gain.monteeDeNiveau && scores) notifier(`🎉 Niveau ${gain.niveau.niveau} !`, 'succes');
+    if (gain.monteeDeNiveau && scores) notifier(`Niveau ${gain.niveau.niveau} atteint`, 'succes');
 
-    $('resultat-emoji').textContent = taux === 1 ? '🏆' : taux >= 0.8 ? '🎉' : taux >= 0.5 ? '👍' : '📚';
+    /*
+       L'APPRÉCIATION EST ÉCRITE, elle n'est plus dessinée.
+
+       Cette ligne portait un émoji de cinq rem — trophée, confettis, pouce
+       levé ou pile de livres selon le taux — et rien d'autre. Un trophée ne
+       dit pas ce qu'il faut faire ensuite, et il se lit « coupe de sport » à
+       voix haute. Quatre mots du
+       registre de la révision le disent, et le score exact est juste en
+       dessous.
+    */
+    $('resultat-appreciation').textContent =
+      taux === 1 ? 'Sans faute' : taux >= 0.8 ? 'Bon résultat' : taux >= 0.5 ? 'À consolider' : 'À reprendre';
     $('resultat-score').textContent = `${bonnes} / ${total} — ${Math.round(taux * 100)} %`;
     /* Le score du quiz est juste au-dessus : sans l'XP, la ligne n'a plus
        rien à dire, et une ligne vide vaut mieux qu'un « + » orphelin. */

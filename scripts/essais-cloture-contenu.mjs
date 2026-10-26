@@ -19,8 +19,23 @@
  *    vérificateur échoue SI ET SEULEMENT SI la couverture est incomplète. Il
  *    tient aujourd'hui, où la couverture est partielle, et il tiendra après la
  *    clôture, où elle sera complète.
+ *
+ * 4. LES ÉCARTS DE VISUEL, qui suivent désormais la même règle : avertissement
+ *    nommé tant que le contenu n'est pas clos, refus ensuite.
+ *
+ *    Celui-là ne peut pas s'éprouver sur la banque réelle. Elle est propre
+ *    ici — les corrections sont faites —, et le corpus publié, lui, porte
+ *    encore les écarts : l'essai dépendrait donc de la machine où il tourne,
+ *    et serait vert chez l'un, rouge chez l'autre, pour la même version du
+ *    code. Il pose donc SON corpus, deux fichiers dans un dossier temporaire,
+ *    avec un écart délibéré : une légende qui annonce trois colonnes sur un
+ *    tableau qui en porte deux. Les deux régimes y sont mesurés par le CODE DE
+ *    SORTIE, et le témoin — un corpus sans écart — garantit que le refus vient
+ *    bien de l'écart et non d'autre chose.
  */
 import { spawnSync } from 'node:child_process';
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -122,11 +137,15 @@ verifier('une valeur vide retombe sur le défaut', avecDrapeau(''), CONTENU_CLOS
 
 const sansCouleur = (t) => t.replace(/\x1b\[[0-9;]*m/g, '');
 
-function lancerVerificateur(clos) {
+function lancerVerificateur(clos, corpus) {
   const r = spawnSync(process.execPath, [path.join(racine, 'scripts', 'verifier-corrections.mjs')], {
     cwd: racine,
     encoding: 'utf8',
-    env: { ...process.env, CYCLADES_CONTENU_CLOS: clos ? '1' : '0' },
+    env: {
+      ...process.env,
+      CYCLADES_CONTENU_CLOS: clos ? '1' : '0',
+      ...(corpus ? { CYCLADES_CONTENU: corpus } : {}),
+    },
   });
   const sortie = sansCouleur(`${r.stdout ?? ''}${r.stderr ?? ''}`);
   const m = sortie.match(/Couverture\s*:\s*(\d+)\s*\/\s*(\d+)/);
@@ -230,6 +249,124 @@ if (!couvertureComplete) {
     /question\(s\) sans correction sur/.test(allume.sortie),
     true,
   );
+}
+
+/* --- 4. Les écarts de visuel, sur un corpus posé par l'essai ----------- */
+
+/**
+ * Une fiche d'une seule question, dont le visuel s'accorde ou non avec sa
+ * prose. Le contenu est synthétique de bout en bout : aucune donnée du
+ * concours n'entre dans un essai.
+ */
+function fiche({ colonnesAnnoncees }) {
+  return `---
+titre: Fiche de laboratoire
+---
+
+## Cours
+
+Un paragraphe, pour que la fiche en ait un.
+
+## Quiz
+
+\`\`\`yaml
+- question: Combien de colonnes ce tableau porte-t-il ?
+  options:
+    - Deux
+    - Trois
+  reponse: Deux
+  correction:
+    resume: Le tableau porte deux colonnes.
+    par_option:
+      - verdict: juste
+        pourquoi: Le tableau porte bien deux colonnes.
+      - verdict: faux
+        pourquoi: Il en porterait trois si une troisième existait.
+    detail: La prose du visuel doit dire ce que les données portent.
+    confiance: haute
+    visuel:
+      type: tableau
+      alt: Tableau à ${colonnesAnnoncees} colonnes, l’une après l’autre.
+      legende: Les colonnes du laboratoire
+      donnees:
+        entetes:
+          - Première
+          - Seconde
+        lignes:
+          - - une
+            - deux
+\`\`\`
+`;
+}
+
+/** Pose un corpus d'un fichier et rend son chemin. */
+function poserCorpus(racineTemporaire, options) {
+  const dossier = path.join(racineTemporaire, 'laboratoire');
+  mkdirSync(dossier, { recursive: true });
+  writeFileSync(path.join(dossier, 'une-fiche.md'), fiche(options), 'utf8');
+  return racineTemporaire;
+}
+
+const bac = mkdtempSync(path.join(tmpdir(), 'cyclades-visuels-'));
+try {
+  /*
+     LE TÉMOIN D'ABORD. Un corpus dont la prose s'accorde avec ses données doit
+     passer dans les DEUX régimes. Sans lui, un refus observé plus bas pourrait
+     venir de n'importe quoi — un schéma mal rempli, une option manquante — et
+     l'essai croirait mesurer la bascule.
+  */
+  const sain = poserCorpus(path.join(bac, 'sain'), { colonnesAnnoncees: 'deux' });
+  const sainOuvert = lancerVerificateur(false, sain);
+  const sainClos = lancerVerificateur(true, sain);
+  verifier('corpus sans écart, contenu non clos : la construction passe', sainOuvert.code, 0);
+  verifier('corpus sans écart, contenu clos : la construction passe aussi', sainClos.code, 0);
+  verifier(
+    'et le verdict des visuels est dit dans les deux cas',
+    [/Visuels : aucun écart/.test(sainOuvert.sortie), /Visuels : aucun écart/.test(sainClos.sortie)],
+    [true, true],
+  );
+
+  /* L'ÉCART : la légende annonce trois colonnes, le tableau en porte deux. */
+  const fautif = poserCorpus(path.join(bac, 'fautif'), { colonnesAnnoncees: 'trois' });
+  const fautifOuvert = lancerVerificateur(false, fautif);
+  const fautifClos = lancerVerificateur(true, fautif);
+
+  /*
+     L'INVARIANT, et c'est lui qui vaut l'essai : contenu non clos, l'écart
+     avertit et la construction passe ; contenu clos, le MÊME corpus la refuse.
+     Deux codes de sortie opposés pour un seul contenu, la bascule étant la
+     seule différence.
+  */
+  verifier('corpus avec écart, contenu non clos : la construction passe', fautifOuvert.code, 0);
+  verifier('corpus avec écart, contenu clos : la construction est refusée', fautifClos.code, 1);
+  verifier(
+    'l’écart est NOMMÉ dans l’avertissement, pas seulement compté',
+    /Visuels : 1 écart /.test(fautifOuvert.sortie) &&
+      /annonce 3 colonne\(s\) et le tableau en porte 2/.test(fautifOuvert.sortie),
+    true,
+  );
+  verifier(
+    'et l’avertissement dit qu’il refusera à la clôture',
+    /REFUSERONT la construction/.test(fautifOuvert.sortie),
+    true,
+  );
+  verifier(
+    'une fois clos, le même écart est compté parmi les problèmes',
+    /visuel : la prose annonce 3 colonne\(s\)/.test(fautifClos.sortie),
+    true,
+  );
+  /*
+     Et le DÉCOMPTE est le même des deux côtés. La première version rangeait
+     l'écart dans un seau ou dans l'autre selon le drapeau : la ligne de
+     verdict annonçait « aucun écart » juste avant de refuser pour un écart.
+  */
+  verifier(
+    'le décompte des visuels ne dépend pas du régime',
+    [/Visuels : 1 écart /.test(fautifOuvert.sortie), /Visuels : 1 écart /.test(fautifClos.sortie)],
+    [true, true],
+  );
+} finally {
+  rmSync(bac, { recursive: true, force: true });
 }
 
 console.log(

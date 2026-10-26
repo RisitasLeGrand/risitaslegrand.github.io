@@ -99,6 +99,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { iconeDuGabarit } from '../../lib/icone-gabarit';
   import { messageDUneErreur } from '../../lib/agir';
   import { typeDe } from '../../lib/odyssee/taxonomie';
   import { jugerLaRegle } from '../../lib/odyssee/pointage';
@@ -186,7 +187,13 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
         const avis = document.createElement('p');
         avis.dataset.retrogradee = r.nom;
         avis.className = 'mt-1 text-amber-800 dark:text-amber-200';
-        avis.textContent = `⚠ ${verdict.phrase}`;
+        /* L'icône est muette ; la phrase du verdict dit tout, à l'œil comme
+           à la voix. */
+        avis.className += ' flex items-baseline gap-1.5';
+        avis.append(
+          iconeDuGabarit('gabarit-alerte'),
+          document.createTextNode(verdict.phrase),
+        );
         li.appendChild(avis);
       }
 

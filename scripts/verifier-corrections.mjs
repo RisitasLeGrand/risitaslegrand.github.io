@@ -28,7 +28,19 @@ import { ecartsDuVisuel } from './lib/decomptes-visuels.mjs';
 import { fautesDeFormule } from './lib/maths.mjs';
 
 const racine = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
-const dossierContenu = path.join(racine, 'content');
+/**
+ * Le corpus lu, et pourquoi il est paramétrable.
+ *
+ * Même raison que « CYCLADES_JOUR » juste en dessous : un essai qui veut
+ * éprouver un REFUS doit disposer d'un contenu fautif. Le faire sur la banque
+ * réelle demanderait d'y laisser la faute, où elle s'accumulerait et
+ * finirait par être corrigée par quelqu'un qui ne sait pas qu'un essai en
+ * dépend. Avec « CYCLADES_CONTENU », l'essai pose son propre corpus de deux
+ * fichiers au lieu de salir celui du concours.
+ */
+const dossierContenu = process.env.CYCLADES_CONTENU
+  ? path.resolve(process.env.CYCLADES_CONTENU)
+  : path.join(racine, 'content');
 const couleur = {
   rouge: (t) => `\x1b[31m${t}\x1b[0m`,
   vert: (t) => `\x1b[32m${t}\x1b[0m`,
@@ -39,6 +51,34 @@ const couleur = {
 
 const erreurs = [];
 const alertes = [];
+/**
+ * LES ÉCARTS DE VISUEL, À PART — ET POURQUOI ILS N'ARRÊTENT PLUS TOUT.
+ *
+ * Ce contrôle refusait la construction, et il avait raison sur le fond : un
+ * texte de remplacement qui contredit ses propres données est une faute, pas
+ * une hypothèse. Mais il refusait AUSSI chez quiconque récupère le corpus
+ * publié, qui porte encore les écarts, et dont les corrections ne sont pas au
+ * dépôt — le contenu en clair n'y va jamais. Un contrôle juste qui bloque
+ * tout le monde ne protège plus rien : il se contourne.
+ *
+ * Il suit donc la règle de la garde des 100 %, à la décision du Pilote :
+ * avertissement fort et nommé tant que le contenu n'est pas clos, refus
+ * ensuite. La différence n'est pas un assouplissement — l'écart est dit, en
+ * entier, à chaque passage — mais un ordre : d'abord la construction qui
+ * passe, puis la dette qu'on solde avant la clôture.
+ */
+const ecartsDeVisuel = [];
+/**
+ * Un écart de visuel refuse la construction une fois le contenu clos.
+ *
+ * Les écarts sont relevés dans « ecartsDeVisuel » DANS LES DEUX RÉGIMES, et
+ * c'est seulement à l'heure du verdict qu'ils rejoignent les erreurs. La
+ * première version les rangeait d'un côté ou de l'autre selon le drapeau : la
+ * ligne de verdict annonçait alors « aucun écart » juste avant de refuser la
+ * construction pour un écart. Un décompte ne doit pas dépendre de ce qu'on
+ * fera du compte.
+ */
+const visuelRefuse = contenuEstClos();
 
 /**
  * Le jour de la construction, et pourquoi il est paramétrable.
@@ -150,9 +190,10 @@ async function verifierCours() {
       }
       compter(stats, r.data);
       /* Un texte de remplacement qui contredit ses propres données est une
-         faute, pas une hypothèse : il est refusé partout, migré ou non. */
+         faute, pas une hypothèse — mais elle n'arrête la construction qu'une
+         fois le contenu clos. Voir « ecartsDeVisuel » en tête. */
       for (const ecart of ecartsDuVisuel(r.data.correction?.visuel)) {
-        erreurs.push(`${relatif} (## Quiz) : « ${r.data.question} » — visuel : ${ecart}`);
+        ecartsDeVisuel.push(`${relatif} (## Quiz) : « ${r.data.question} » — visuel : ${ecart}`);
       }
       if (!r.data.correction && estMatiereMigree(matiere)) {
         erreurs.push(
@@ -192,7 +233,7 @@ async function verifierDgfip() {
     for (const question of r.data.questions) {
       compter(stats, question);
       for (const ecart of ecartsDuVisuel(question.correction?.visuel)) {
-        erreurs.push(`qcm-dgfip/${nom} : « ${question.question} » — visuel : ${ecart}`);
+        ecartsDeVisuel.push(`qcm-dgfip/${nom} : « ${question.question} » — visuel : ${ecart}`);
       }
       if (!question.correction && estRubriqueMigree(id)) {
         erreurs.push(
@@ -377,6 +418,38 @@ if (parNature.size) {
   ]) {
     const ligne = `  ${quoi.padEnd(24)}${String(n).padStart(5)}`;
     console.log(n > 0 ? couleur.jaune(ligne) : couleur.faible(ligne));
+  }
+}
+
+/*
+ * LE VERDICT DES VISUELS, DIT À CHAQUE PASSAGE, DANS LES DEUX RÉGIMES.
+ *
+ * Sans cette ligne, un build vert ne distinguerait pas « aucun écart » de
+ * « des écarts, mais le contenu n'est pas clos ». La liste est donnée EN
+ * ENTIER, et non tronquée comme le flot des alertes : il y en a douze sur
+ * 555 visuels, et c'est une dette qu'on solde, pas un bruit qu'on surveille.
+ */
+console.log(
+  `\n${couleur.gras('Visuels')} : ${
+    ecartsDeVisuel.length === 0
+      ? 'aucun écart'
+      : `${ecartsDeVisuel.length} écart${ecartsDeVisuel.length > 1 ? 's' : ''}`
+  }` +
+    ` — régime ${visuelRefuse ? 'de refus (contenu clos)' : 'd’avertissement (contenu non clos)'}.`,
+);
+if (ecartsDeVisuel.length > 0) {
+  if (visuelRefuse) {
+    for (const e of ecartsDeVisuel) erreurs.push(e);
+  } else {
+    for (const e of ecartsDeVisuel) console.log(couleur.jaune(`  ! ${e}`));
+    console.log(
+      couleur.jaune(
+        '  Ces écarts REFUSERONT la construction à la clôture du contenu. Le texte de',
+      ),
+    );
+    console.log(
+      couleur.jaune('  remplacement contredit les données du visuel : c’est l’un des deux qui a tort.'),
+    );
   }
 }
 

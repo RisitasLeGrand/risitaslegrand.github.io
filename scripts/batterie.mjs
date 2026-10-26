@@ -96,6 +96,16 @@ const SOCLE = [
   */
   ['essais:maths', 'le « $ » monétaire reste du texte, et le HTML d’auteur reste détruit'],
   /*
+     H4 du prompt 43. Le catalogue d'icônes se tient par le typage et par le
+     refus de « Icone.astro » — mais rien, dans le typage, ne relie
+     « iconeDuGabarit('gabarit-alerte') » au fait que la page porte ce modèle :
+     l'un est une chaîne dans un script, l'autre un élément du HTML. Déplacer
+     le modèle et cinq écrans lèvent une erreur dans la console, là où
+     personne ne regarde. Mesuré : le modèle retiré de la mise en page, l'essai
+     nomme les quatre pages qui le réclament encore.
+  */
+  ['essais:icones', 'chaque page porte les modèles d’icône que ses scripts copient'],
+  /*
      Les deux réglages d'accessibilité du système. Ils se défont sans bruit :
      il a suffi qu'une feuille de thème soit injectée APRÈS « global.css » pour
      que le relèvement des teintes faibles cesse d'agir, et rien ne le disait.
