@@ -17,6 +17,7 @@ import {
   lireDerniereSauvegarde,
   remplacerMagasins,
 } from '../db';
+import { VERSION as VERSION_DE_LA_BASE } from '../db';
 import { BRANCHES, ID_BRANCHE_PAR_DEFAUT } from '../branches';
 import { PARCOURS } from '../parcours/registre';
 import {
@@ -30,8 +31,31 @@ import {
   type Verification,
 } from './format';
 
-/** La version de schéma des magasins de Révisions : celle de la base. */
-export const SCHEMA_REVISIONS = 12;
+/**
+ * La version de schéma des magasins de Révisions : celle de la base.
+ *
+ * ## Elle était écrite à la main, et elle était fausse de trente et un versions
+ *
+ * Ce commentaire disait déjà « celle de la base », et la constante valait 12
+ * pendant que la base tournait en 43. Un fichier produit aujourd'hui annonçait
+ * donc une version qu'il n'avait pas, dans le seul champ dont dépend la
+ * lisibilité des magasins restaurés. C'est le constat G-7 du prompt 58, et la
+ * mesure l'a trouvé pire que l'audit ne le disait : l'audit comptait 23
+ * versions d'écart contre la base en v35, il y en a 31 contre la v43.
+ *
+ * Elle est donc LUE à la source. Aucune valeur n'est plus à tenir à jour, et
+ * le défaut ne peut pas revenir.
+ *
+ * ## Ce que cela ne corrige pas encore, et qu'il faut dire
+ *
+ * Le champ est désormais JUSTE ; il n'est toujours pas LU. Mesuré : aucun
+ * lecteur de « .schema » dans tout « src/ », alors que le type du format
+ * annonce « pour que la restauration sache migrer ». Écrire la vérité était
+ * nécessaire et ne suffit pas — la restauration doit encore migrer ou refuser
+ * avec un motif, et cette décision-là ne m'appartient pas : un refus mal posé
+ * rendrait irrestaurable une sauvegarde légitime.
+ */
+export const SCHEMA_REVISIONS = VERSION_DE_LA_BASE;
 
 /**
  * La déclaration de la branche Révisions pour la sauvegarde.

@@ -228,7 +228,42 @@ v(
   paliersCourants[paliersCourants.length - 1],
 );
 
-console.log('\n4. AUCUN NUMÉRO NE SERT DEUX FOIS');
+console.log('\n4. LA SAUVEGARDE ANNONCE LA VRAIE VERSION DE SCHÉMA');
+
+/*
+   G-7 du prompt 58. « SCHEMA_REVISIONS » était écrit à la main dans
+   « sauvegarde/service.ts » — 12 — pendant que la base tournait en 43 : trente
+   et un versions d'écart, dans le seul champ dont dépend la lisibilité des
+   magasins restaurés. Le commentaire disait déjà « celle de la base », ce qui
+   rendait le mensonge invisible à la relecture.
+
+   La constante est désormais LUE à la source. Cette garde-ci tient qu'elle le
+   reste : on refuse qu'un nombre littéral revienne à cet endroit. C'est le
+   même raisonnement que pour les paliers — une valeur recopiée finit par
+   diverger, et on ne sait jamais quand.
+
+   Ce que cette garde NE dit pas : que la restauration lise le champ. Elle ne
+   le lit pas — aucun lecteur de « .schema » dans « src/ » — et c'est la part
+   de G-7 qui reste ouverte.
+*/
+const SERVICE = 'src/lib/sauvegarde/service.ts';
+const texteService = sansCommentaires(
+  readFileSync(path.join(racine, SERVICE), 'utf8'),
+).join('\n');
+const declaration = texteService.match(/SCHEMA_REVISIONS\s*=\s*([^;]+);/);
+
+vrai('la constante de schéma de la sauvegarde est déclarée', declaration !== null);
+v(
+  'elle n’est pas un nombre écrit à la main',
+  /^\s*\d+\s*$/.test(declaration?.[1] ?? ''),
+  false,
+);
+vrai(
+  'elle est lue depuis la version de la base',
+  /VERSION/.test(declaration?.[1] ?? ''),
+);
+
+console.log('\n5. AUCUN NUMÉRO NE SERT DEUX FOIS');
 
 const vus = new Set();
 const doubles = [];

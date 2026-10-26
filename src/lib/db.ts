@@ -944,7 +944,13 @@ interface SchemaRevinsp extends DBSchema {
 
 const NOM_BASE = 'revinsp';
 /*
-   42, ET NON 36 — ET LE SAUT EST VOULU.
+   LE SAUT DES NUMÉROS EST VOULU.
+
+   (Cet en-tête annonçait « 42, et non 36 », puis « c'est 42 » plus bas, alors
+   que la constante vaut 43 depuis que le palier des annulations a été ordonné.
+   Un chiffre recopié en prose se périme sans bruit — c'est le défaut même que
+   la batterie s'est fait reprocher ce soir. La valeur fait foi juste en
+   dessous, et « essais:migrations » tient qu'elle égale le plus haut palier.)
 
    Les numéros sont attribués par branche, et le train d'intégration les tient
    tous : **36 au constructeur**, **37 à 40 à l'agent B**, **41 à l'agent C**,
@@ -957,11 +963,23 @@ const NOM_BASE = 'revinsp';
    son propre « vers(n) », qui compare l'ancienne version à la sienne. Une
    base arrêtée à 35 rejouera dans l'ordre tous les blocs attribués ; une base
    déjà montée à 41 ne rejouera que la 42. La seule chose qui doit être vraie
-   est que la constante VERSION vaille le PLUS GRAND des numéros attribués —
-   c'est 42, et cela reste vrai à mesure que les blocs 36 à 40 entrent dans
-   le train.
+   est que la constante VERSION vaille le PLUS GRAND des numéros attribués.
+   « essais:migrations » le tient, au socle, plutôt que de le confier à la
+   mémoire : tout palier neuf doit être au-dessus de la version publiée, et la
+   version doit égaler le plus haut palier.
 */
-const VERSION = 43;
+
+/**
+ * La version du schéma de la base.
+ *
+ * Exportée depuis le 26 octobre, et pour une raison précise : la sauvegarde
+ * annonçait sa propre version de schéma avec un nombre écrit à la main,
+ * « SCHEMA_REVISIONS = 12 », pendant que la base tournait en 43. Trente et un
+ * versions d'écart, dans le champ dont dépend la lisibilité d'un fichier
+ * restauré. Une valeur recopiée finit toujours par mentir ; celle-ci est
+ * désormais lue ici.
+ */
+export const VERSION = 43;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
