@@ -1709,15 +1709,25 @@ const flecheVisible = !estLeMenu && !sansNavigation;
   const basculerFeuille = (ouverte: boolean) => {
     feuille?.classList.toggle('hidden', !ouverte);
     ouvrir?.setAttribute('aria-expanded', String(ouverte));
-    if (ouverte) (feuille?.querySelector('a') as HTMLElement | null)?.focus();
-    else ouvrir?.focus();
     /*
        M5 : le retour arrière du système ferme la feuille avant de quitter la
        page. Sans ces deux lignes, il quittait l'écran avec la feuille encore
        ouverte par-dessus — on revenait donc en arrière sans l'avoir voulu, et
        on perdait sa place.
+
+       E4 : et le FOCUS est tenu par le même module. Deux lignes le faisaient
+       ici — `querySelector('a')?.focus()` à l'ouverture, `ouvrir?.focus()` à
+       la fermeture —, et elles ont disparu. Les garder en plus du service
+       partagé aurait fait deux versions de la même règle, dont l'une se
+       tairait le jour où l'autre change. Ce qui manquait, de toute façon,
+       n'était pas le placement du focus mais le PIÈGE : la tabulation sortait
+       au vingt-deuxième arrêt, mesuré à 390 px.
     */
-    if (ouverte) calqueOuvert('feuille-plus', () => basculerFeuille(false));
+    if (ouverte && feuille)
+      calqueOuvert('feuille-plus', () => basculerFeuille(false), {
+        panneau: feuille,
+        rendreA: ouvrir,
+      });
     else calqueFerme('feuille-plus');
   };
 

@@ -73,7 +73,13 @@ import Icone from './Icone.astro';
     id="centre-panneau"
     hidden
     role="dialog"
-    aria-modal="false"
+    {/*
+      « true » depuis E4 : le panneau couvre l'écran sur un téléphone, et il
+      se déclarait non modal tout en étant impossible à quitter des yeux. La
+      tabulation en sortait au bout d'UN arrêt, sur des commandes invisibles
+      derrière lui — mesuré à 390 px.
+    */}
+    aria-modal="true"
     aria-labelledby="centre-titre"
     class="feuille-sure fixed z-50 overflow-y-auto border border-slate-200 bg-white p-3 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
   >
@@ -527,7 +533,13 @@ import Icone from './Icone.astro';
       panneau.hidden = !ouvrir;
       bouton.setAttribute('aria-expanded', String(ouvrir));
       /* M5 : le retour arrière referme le panneau au lieu de quitter la page. */
-      if (ouvrir) calqueOuvert('centre', () => void basculer(false));
+      if (ouvrir)
+        calqueOuvert('centre', () => void basculer(false), {
+          /* Le piège, et le focus rendu au bouton : voir l'en-tête de
+             `lib/calques`. Le panneau n'avait ni l'un ni l'autre. */
+          panneau,
+          rendreA: bouton,
+        });
       else calqueFerme('centre');
       if (ouvrir) {
         /*
