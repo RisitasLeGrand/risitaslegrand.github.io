@@ -37,6 +37,10 @@ import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { attendreLaBoite, repondreALaBoite } from './lib/boite-essais.mjs';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
+import { apresLeChangementDeTexte } from './lib/post-condition.mjs';
+
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI = 30_000;
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -307,13 +311,32 @@ await lancerLaCopie('mixte-12');
    ════════════════════════════════════════════════════════════════════════ */
 console.log('\nON NE RATURE PAS');
 
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   POURQUOI LES TEMPORISATIONS DE CETTE SECTION ONT DISPARU SANS REMPLAÇANT
+
+   `docs/cyclades/cadence-des-essais.md` § 3 : une attente n'est dangereuse
+   que si le gestionnaire CÈDE LA MAIN entre le geste et la peinture. Ici il
+   ne cède jamais. `surCocher` de « quiz/dgfip.astro » fait `cocher(...)` puis
+   `rafraichirLaZone(...)`, tous deux synchrones, et `page.click` ne rend la
+   main qu'après la distribution de l'événement : l'état lu juste après est
+   donc l'état final.
+
+   Les cent cinquante millisecondes ne protégeaient de rien, et les constats
+   négatifs de cette section — « elle ne se décoche pas », « un double appui
+   ne coche qu'une case » — valent mieux sans elles : la case cochée perd son
+   écouteur, donc un second appui ne peut rien faire, jamais.
+
+   Le compte à rebours, lui, demande une vraie attente, et elle est plus bas.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
 {
   const premiereLigne = page.locator('#copie-sujet [data-zone="1"] [data-ligne="premiere"]');
   const caseUne = premiereLigne.locator('button').first();
 
   v('la case est décochée au départ', await caseUne.getAttribute('aria-checked'), 'false');
   await caseUne.click();
-  await page.waitForTimeout(150);
   v(
     'cochée, elle le reste',
     await page
@@ -331,7 +354,6 @@ console.log('\nON NE RATURE PAS');
     .locator('#copie-sujet [data-zone="1"] [data-ligne="premiere"] button')
     .first()
     .click({ force: true });
-  await page.waitForTimeout(150);
   v(
     'un second appui ne la décoche pas',
     await page
@@ -352,7 +374,6 @@ console.log('\nON NE RATURE PAS');
   /* UN DOUBLE APPUI NE COCHE PAS DEUX FOIS. */
   const deuxiemeZone = '#copie-sujet [data-zone="2"] [data-ligne="premiere"]';
   await page.locator(`${deuxiemeZone} button`).nth(1).click({ clickCount: 2, delay: 20 });
-  await page.waitForTimeout(200);
   const cochees = await page
     .locator(`${deuxiemeZone} button`)
     .evaluateAll((n) => n.filter((b) => b.getAttribute('aria-checked') === 'true').length);
@@ -360,7 +381,6 @@ console.log('\nON NE RATURE PAS');
 
   /* La seconde ligne est indépendante. */
   await page.locator('#copie-sujet [data-zone="1"] [data-ligne="seconde"] button').nth(2).click();
-  await page.waitForTimeout(150);
   v(
     'la seconde ligne se coche sans toucher la première',
     await page
@@ -385,8 +405,15 @@ console.log('\nLE CHRONOMÈTRE NE S’ARRÊTE JAMAIS');
     repere.includes('Repère du guide ENFiP') && repere.includes('pas une durée réglementaire'),
   );
 
+  /*
+     ICI L'ATTENTE EST RÉELLE, et c'est le texte qui la borne : « le compte à
+     rebours descend » demande qu'une seconde d'horloge passe, et la
+     post-condition est précisément que l'affichage ait changé. Deux secondes
+     deux cents étaient une marge sur une seconde ; on attend le changement,
+     ce qui est exact et plus rapide.
+  */
   const avant = await lire();
-  await page.waitForTimeout(2200);
+  await apresLeChangementDeTexte(page, '#rebours', async () => {}, { delai: DELAI });
   const apres = await lire();
   vrai('le compte à rebours descend', avant !== apres);
 
@@ -406,8 +433,12 @@ console.log('\nLE CHRONOMÈTRE NE S’ARRÊTE JAMAIS');
      que de lire le code.
   */
   const avantVeille = await lire();
-  await page.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-  await page.waitForTimeout(2200);
+  await apresLeChangementDeTexte(
+    page,
+    '#rebours',
+    () => page.evaluate(() => document.dispatchEvent(new Event('visibilitychange'))),
+    { delai: DELAI },
+  );
   vrai('passer en arrière-plan ne l’arrête pas', (await lire()) !== avantVeille);
 }
 
@@ -448,7 +479,16 @@ console.log('\nDEMANDER UNE NOUVELLE FEUILLE');
   await page.click('#nouvelle-feuille');
   await attendreLaBoite(page);
   await repondreALaBoite(page, 'Demander une nouvelle feuille');
-  await page.waitForTimeout(300);
+  /* La feuille neuve repeint les zones : on attend qu'elles soient vides,
+     borné, et l'expiration laisse l'assertion rougir. */
+  await page
+    .waitForFunction(
+      () =>
+        document.querySelectorAll('#copie-sujet [aria-checked="true"]').length === 0,
+      undefined,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
   v('toutes les zones sont vidées', await compterCochees(), 0);
   v('le sujet est toujours là', await page.locator('#copie-sujet [data-zone]').count(), 12);
   /*
@@ -471,7 +511,6 @@ console.log('\nRENDRE LA COPIE');
   await page.locator('#copie-sujet [data-zone="1"] [data-ligne="premiere"] button').first().click();
   await page.locator('#copie-sujet [data-zone="2"] [data-ligne="premiere"] button').nth(1).click();
   await page.locator('#copie-sujet [data-zone="3"] [data-ligne="premiere"] button').last().click();
-  await page.waitForTimeout(200);
 
   await page.click('#rendre-copie');
   v('la remise est confirmée', await attendreLaBoite(page), 'Rendre la copie ?');
@@ -481,6 +520,14 @@ console.log('\nRENDRE LA COPIE');
     await page.locator('#copie').evaluate((e) => !e.classList.contains('hidden')),
   );
 
+  /*
+     LE MÊME REPOS QUE PLUS HAUT, et c'est la seconde des deux temporisations
+     gardées de ce fichier. « Rendre la copie » vient d'être refusé ; rappuyer
+     aussitôt sur le même bouton porterait la même empreinte, et `unSeulGeste`
+     prendrait l'appui pour un rebond. Ce qu'on attend est qu'il ne se passe
+     rien pendant 600 ms : cela ne se remplace pas par une marque à l'écran
+     sans annoncer la déduplication que le site rend invisible.
+  */
   await page.waitForTimeout(800);
   await page.click('#rendre-copie');
   await attendreLaBoite(page);

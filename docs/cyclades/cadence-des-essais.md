@@ -377,6 +377,47 @@ qui se referme —, après quoi la lecture a un sens.
 eux rend des rouges qui n'en sont pas : à connaître avant de conclure quoi que
 ce soit d'un lot.
 
+### Et ce que le second lot a ajouté
+
+*Cinq essais de plus le 26 octobre — « redemande » (10 sites), « invitation »
+(10), « copie-navigateur » (9), « bascule-branchement » (7), « echecs-dits »
+(12). Quatre leçons, et la dernière n'a rien à voir avec les post-conditions.*
+
+**Une aide qui sert aux DEUX issues doit attendre les deux.** `saisirLeCoffre`
+de « bascule-branchement » ouvre le coffre à six endroits — et à trois d'entre
+eux, le refus est précisément ce qu'on mesure : « le mot de passe du site ne
+l'ouvre plus » est tout l'objet de la bascule. Attendre « le cadenas s'en va »
+consommait donc la borne entière trois fois, et l'essai arrivait ensuite dans
+un état qu'il n'avait pas mesuré. On attend la PREMIÈRE des deux issues — le
+cadenas parti, ou le refus écrit —, et l'assertion dit laquelle est venue.
+
+**Un message d'avant fait rendre la main trop tôt.** Le même refus reste
+affiché d'une tentative à l'autre : l'essai efface donc la zone lui-même avant
+le geste, et ce qu'il y lit ensuite ne peut venir que de lui. C'est la parade
+du § 3, et il a fallu la payer pour s'en souvenir.
+
+**Un verdict se distingue de l'annonce de travail.** L'étape de la preuve
+écrit « Ouverture du fichier… », puis son verdict. Attendre un texte non vide
+rend la main sur l'annonce ; attendre le motif du succès laisse un refus
+consommer la borne entière. On attend un texte qui n'est pas l'annonce : vrai
+pour les deux issues, et indépendant de ce qu'on affirme.
+
+**Et trois passages, trois jeux de rouges différents : c'est la signature d'une
+post-condition manquante.** Le scellé du coffre n'est pas écrit au chargement
+mais quand l'écran scelle son premier enregistrement, et six secondes le
+couvraient sans le dire. Aucune marque à l'écran pour cela : c'est la base
+qu'on interroge. *Un rouge qui change de place à chaque passage ne dit pas que
+l'essai est fragile — il dit qu'on attend la mauvaise chose.*
+
+**Enfin, celle qui ne parle pas d'attentes du tout.** En remplaçant les trois
+lignes « attendre, cliquer, attendre » d'un bloc, je n'ai remis que les deux
+attentes : **le geste avait disparu.** L'essai a rendu un rouge parfaitement
+cohérent — « le refus n'est pas dit » — sur un refus que personne n'avait
+demandé, et j'ai cherché le défaut dans le site. Deux lignes de diagnostic
+l'ont montré en disant que rien ne s'opposait au geste. **Quand on remplace un
+bloc, on vérifie que le geste y est encore** ; et un rouge cohérent n'est pas
+pour autant un rouge du site.
+
 ### Ce que coûte une conversion, mesuré
 
 Le pilote : **2 h 01 d'horloge pour 26 sites**, trois essais, un socle. À ce
