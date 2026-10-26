@@ -22,6 +22,7 @@ import { signalerEcriture } from './sync/signal-ecriture';
 import type { EntreeRevision } from './noyau/revisions';
 import type { EpreuveEnCours } from './noyau/epreuve-en-cours';
 import { CLE_EPREUVE_EN_COURS } from './noyau/epreuve-en-cours';
+import type { AnnulationEnAttente } from './noyau/annulation-en-attente';
 import type { ReglagesDuCycle, SaisieDuCycle } from './odyssee/cycle';
 import type { SexeEnregistre } from './odyssee/sexe';
 import type {
@@ -697,6 +698,18 @@ interface SchemaRevinsp extends DBSchema {
   qcmDgfip: { key: string; value: EtatQuestionDgfip; indexes: { rubriqueId: string } };
   qcmSessions: { key: string; value: SessionDgfip; indexes: { le: string } };
   epreuveDgfipEnCours: { key: string; value: EpreuveEnCours };
+  /*
+     Les intentions d'actions annulables (M6, 0.2). SCELLÉ : le genre d'une
+     intention dirait « une prise de médicament a été notée », et c'est
+     précisément ce que la décision 3 protège. Seul l'identifiant reste en
+     clair, parce qu'une clé primaire ne peut pas être scellée — il est donc
+     opaque, et ne porte ni le genre ni la cible.
+
+     Pas d'index : on lit toujours TOUT le magasin, au démarrage, et il est
+     presque toujours vide. Un index sur l'échéance coûterait plus qu'il ne
+     servirait, et l'échéance est scellée de toute façon.
+  */
+  annulationsEnAttente: { key: string; value: AnnulationEnAttente };
   relationnel: { key: string; value: SessionRelationnelle; indexes: { le: string } };
   vmSeuils: { key: string; value: SeuilVeridical; indexes: { famille: string } };
   vmSessions: { key: string; value: SessionVeridical; indexes: { le: string } };
@@ -1822,6 +1835,28 @@ function ouvrirAuSchema(nom: string, version: number) {
       if (vers(38)) {
         base.createObjectStore('odysseeSexe', { keyPath: 'id' });
       }
+      /*
+         LES INTENTIONS D'ACTIONS ANNULABLES, version 39.
+
+         **La 39 m'est attribuée** : la convention de ce fichier réserve 37 à
+         40 à l'agent B, et 37 et 38 sont déjà pris. Rien à demander, et deux
+         migrations au même numéro ne se verraient ni en revue ni à
+         l'exécution.
+
+         POURQUOI UN MAGASIN, ET NON UNE CLÉ DE « etat ». Parce qu'il faut le
+         SCELLER, et que `etat` ne l'est pas : une intention y écrirait en
+         clair le genre de l'action, donc « une prise a été notée ». Et parce
+         qu'il peut y en avoir plusieurs en même temps — deux écrans, deux
+         actions retardées —, là où `etat` tient une valeur par clé.
+
+         Aucune reprise de données, et rien à reprendre : avant ce lot, une
+         action annulable quittée pendant son délai était simplement perdue.
+         Un magasin vide se lit « aucune action en attente », ce qui est la
+         vérité.
+      */
+      if (vers(39)) {
+        base.createObjectStore('annulationsEnAttente', { keyPath: 'id' });
+      }
       if (vers(41)) {
         /*
          * L'épreuve DGFiP laissée en cours — C3 du prompt 43.
@@ -2540,6 +2575,53 @@ export async function effacerEpreuveEnCours(): Promise<void> {
   await (await db()).delete('epreuveDgfipEnCours', CLE_EPREUVE_EN_COURS);
 }
 
+/* ══════════════════════════════════════════════════════════════════════════
+   Les intentions d'actions annulables (M6, 0.2)
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Toutes les intentions encore en base.
+ *
+ * Rend ce que le magasin porte, sans contrôler la forme : c'est
+ * `pourquoiNonRejouable` — dans le noyau, donc éprouvable sans base — qui
+ * décide si une intention est rejouable, et l'appelant qui décide quoi en
+ * faire. Un enregistrement abîmé se fabrique ainsi dans un essai pur.
+ */
+export async function lesAnnulationsEnAttente(): Promise<AnnulationEnAttente[]> {
+  return (await db()).getAll('annulationsEnAttente');
+}
+
+/**
+ * Écrit une intention. C'est la PREMIÈRE écriture d'une action annulable, et
+ * elle doit être attendue avant de laisser la personne quitter l'écran.
+ *
+ * **Non journalisée, et délibérément.** Une intention existe pour être
+ * consommée dans les secondes qui suivent ; la journaliser ferait traverser
+ * la synchronisation à un état transitoire, et garderait pour toujours la
+ * trace d'une suppression annulée — c'est-à-dire d'un geste que la personne a
+ * repris. C'est l'action elle-même qui se journalise, quand elle part.
+ */
+export async function ecrireUneAnnulationEnAttente(
+  intention: Omit<AnnulationEnAttente, 'majLe'>,
+): Promise<void> {
+  await (await db()).put('annulationsEnAttente', {
+    ...intention,
+    majLe: new Date().toISOString(),
+  });
+}
+
+/**
+ * Efface une intention, par son identifiant.
+ *
+ * Trois chemins y mènent, et ils ne se confondent pas : l'action partie à
+ * l'échéance, l'annulation, et l'application au démarrage. Dans les trois cas
+ * il ne doit rien rester, et l'essai le lit dans la base plutôt que de croire
+ * cette fonction.
+ */
+export async function effacerUneAnnulationEnAttente(id: string): Promise<void> {
+  await (await db()).delete('annulationsEnAttente', id);
+}
+
 export async function toutesLesSeances(): Promise<Seance[]> {
   const seances = await (await db()).getAll('seances');
   // Les identifiants sont des ULID : leur ordre lexicographique est l'ordre de
@@ -2904,6 +2986,7 @@ export async function ecrireReglagesPlanification(reglages: ReglagesPlanificatio
  */
 export const MAGASINS_PROGRESSION = [
   'etat',
+  'annulationsEnAttente',
   'cartes',
   'fiches',
   'quiz',
@@ -3071,8 +3154,25 @@ export const MAGASINS_PROGRESSION = [
  * qu'il reste hors des sauvegardes NON CHIFFRÉES. Le tenir hors de TOUTES est
  * plus strict, et évite d'avoir à distinguer les deux cas au moment où l'on
  * écrit le fichier.
+ *
+ * ## Et un troisième motif, pour `annulationsEnAttente`
+ *
+ * Une intention n'est ni reconstructible ni un diagnostic : elle entre ici
+ * parce que la sauvegarder serait FAUX. Une intention vaut quelques secondes,
+ * et une sauvegarde se restaure des mois plus tard : on rejouerait alors une
+ * suppression décidée en octobre sur une base de janvier, où la séance visée
+ * peut ne plus être la même — ou ne plus être.
+ *
+ * Et la perte n'en est pas une. Une sauvegarde est un instantané : au moment
+ * où elle a été prise, la séance en attente de suppression était encore là.
+ * La restaurer rend donc un état COHÉRENT, celui d'avant le geste. Emporter
+ * l'intention rendrait, elle, un état incohérent.
  */
-export const MAGASINS_HORS_SAUVEGARDE: readonly string[] = ['centreElements', 'visites'];
+export const MAGASINS_HORS_SAUVEGARDE: readonly string[] = [
+  'centreElements',
+  'visites',
+  'annulationsEnAttente',
+];
 
 /** Ce qu'une sauvegarde emporte vraiment. */
 export const MAGASINS_SAUVEGARDES: readonly string[] = MAGASINS_PROGRESSION.filter(
