@@ -353,6 +353,12 @@ beaucoup mieux qu'un relevé de 32 minuteurs dont aucun n'était en cause.
 `node scripts/relever-temporisations.mjs --amortissements` rend les trois
 groupes, les repos d'abord.
 
+Et il nomme les **quinze écrans** que ce rebond gouverne : dix d'Odyssée
+(agenda, corps, échelles, molécule, Psyché, quêtes, santé, tâches, tendances,
+l'accueil), quatre du sport, et le QCM DGFiP. La classe légitime se concentre
+donc là, et nulle part ailleurs — ce qui dit par avance dans quel lot y faire
+attention.
+
 ### Trois choses apprises au pilote
 
 **Les écritures en base sans marque à l'écran** — l'amorce de calibrage, le

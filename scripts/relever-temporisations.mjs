@@ -154,6 +154,16 @@ if (AMORTISSEMENTS) {
     for (const a of liste) console.log(`  ${a.fichier}:${a.ligne}  ${a.code}`);
   };
   dire('REPOS COMPARÉS À L’HORLOGE (aucun minuteur : à lire en premier)', repos);
+  /*
+     Et la PORTÉE du premier des trois, qui est ce qu'on veut savoir avant un
+     lot : sur ces écrans, un geste répété à données identiques en moins de
+     600 ms est pris pour un rebond, et l'essai doit laisser passer le repos.
+  */
+  const gestes = sourcesDuSite('src').filter((c) =>
+    /unSeulGeste\(/.test(readFileSync(c, 'utf8')),
+  );
+  console.log(`\nÉCRANS QUE LE REBOND DE « geste.ts » GOUVERNE — ${gestes.length}\n`);
+  for (const c of gestes) console.log(`  ${c}`);
   dire('MINUTEURS', minuteurs);
   dire('DÉLAIS NOMMÉS, comme index', constantes);
   console.log('');
