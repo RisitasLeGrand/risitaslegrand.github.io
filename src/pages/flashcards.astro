@@ -266,6 +266,7 @@ import { base } from '../lib/ui';
 
 <script>
   import { auDeverrouillage } from '../lib/chargement';
+  import { accapareLaTouche } from '../lib/touche-accaparee';
   import { comptesFlashcards, fileDuJour, type CarteAReviser } from '../lib/agregats';
 
   import { aplatirFiches, chargerFiche, chargerManifeste } from '../lib/contenu';
@@ -733,17 +734,27 @@ import { base } from '../lib/ui';
        Les chiffres, eux, restent interceptés partout SAUF dans un champ de
        saisie : taper « 3 » dans une recherche ne doit pas noter une carte.
     */
-    const DANS_UN_CONTROLE = 'button, a[href], input, select, textarea, [contenteditable="true"]';
     document.addEventListener('keydown', (e) => {
       if ($('session').classList.contains('hidden')) return;
-      const cible = e.target instanceof Element ? e.target.closest(DANS_UN_CONTROLE) : null;
       if (e.key === ' ' || e.key === 'Enter') {
         /* Un contrôle focalisé a la priorité : Entrée et Espace lui
-           appartiennent, et c'est le navigateur qui les traduit en clic. */
-        if (cible) return;
+           appartiennent, et c'est le navigateur qui les traduit en clic.
+
+           `accapareLaTouche` vient de `src/lib/touche-accaparee.ts`, et non
+           d'une règle écrite ici : j'en avais d'abord posé une version
+           grossière, alors que le Quad N-Back portait déjà la fine depuis le
+           prompt 51. Deux versions d'une même règle divergent le jour où l'une
+           des deux change. */
+        if (accapareLaTouche(e.target, e.key)) return;
         e.preventDefault();
         retourner();
       } else if (reponseVisible && ['1', '2', '3', '4'].includes(e.key)) {
+        /* Les chiffres, eux, restent interceptés partout SAUF dans un champ de
+           saisie : taper « 3 » dans une recherche ne doit pas noter une carte.
+           Un curseur ou une case à cocher n'attend pas de chiffre, donc
+           `accapareLaTouche` ne convient pas ici — elle répond à la question de
+           l'activation, pas à celle-ci. */
+        const cible = e.target;
         const saisie =
           cible instanceof HTMLInputElement ||
           cible instanceof HTMLTextAreaElement ||
