@@ -369,6 +369,7 @@
     "essais:fusion-interrompue": "node scripts/essais-fusion-interrompue.mjs",
     "essais:maths": "node scripts/essais-maths.mjs",
     "essais:icones": "node scripts/essais-icones.mjs",
+    "essais:palier-scelles": "tsx scripts/essais-palier-scelles.mjs",
     "essais:migrations": "node scripts/essais-migrations.mjs",
     "essais:pictogrammes": "node scripts/essais-pictogrammes.mjs",
     "essais:intitules-magasins": "node scripts/essais-intitules-magasins.mjs",

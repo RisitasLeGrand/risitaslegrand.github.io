@@ -166,7 +166,29 @@ v('aucun problème de catalogue', controlerCoffre(), []);
    Le compte est une addition, et rien d'autre : 28 sur « main », plus
    `visites` du lot I, plus ces trois-là.
 */
-v('trente-deux magasins scellés', MAGASINS_SCELLES.length, 32);
+/*
+   ET UNE QUATRIÈME FOIS, le 26 octobre, sur « annulationsEnAttente ». Le
+   magasin vient de « b-0.2-annulation » ; B l'a scellé pour la bonne raison —
+   une intention en clair écrirait le genre de l'action, donc « une prise a
+   été notée » — et n'a pas touché à ce nombre. Le fil de détente a donc tiré
+   une fois de plus, et c'est tout ce qu'on lui demande.
+
+   Je l'ai trouvé en lançant les essais du PALIER B-2, et non ceux de la
+   fusion qui l'a causé : mes essais ciblés d'alors ne comprenaient pas
+   celui-ci. C'est exactement l'erreur que raconte le paragraphe du dessus —
+   « le lot avait lancé les essais qu'il croyait concernés » — et elle est de
+   moi cette fois. La batterie complète l'aurait vu ; elle n'avait pas encore
+   retourné.
+
+   CE NOMBRE EST ÉCRIT EN DUR EXPRÈS, ET IL NE FAUT PAS LE DÉRIVER. Un compte
+   tiré de la liste serait toujours juste et ne dirait donc jamais rien :
+   ajouter un magasin scellé passerait sans un mot. C'est l'inverse des
+   nombres périmés rencontrés la même nuit — « les 235 essais », « la version
+   42 », « SCHEMA_REVISIONS = 12 » —, qui étaient des commodités recopiées.
+   Celui-ci est une garde, et son coût — une ligne à changer en connaissance
+   de cause — est précisément son objet.
+*/
+v('trente-trois magasins scellés', MAGASINS_SCELLES.length, 33);
 /*
    Le centre : l'identifiant ET le genre, pas un champ de plus.
 

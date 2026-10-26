@@ -128,6 +128,16 @@ const SOCLE = [
   */
   ['essais:migrations', 'aucun palier de migration ne dort sous la version publiée'],
   /*
+     Le palier B-2. La clé du coffre est propre à l’appareil — le sel est tiré
+     au sort à la première pose —, donc une entrée scellée partie d’ici est
+     illisible en face. Dix-sept magasins étaient à la fois scellés et
+     journalisés : leurs opérations partaient et arrivaient illisibles, rendant
+     du même coup illisibles les données LOCALES de celui qui reçoit. Le refus
+     est posé au seul point d’étranglement, et cette garde tient qu’il y reste
+     tant que la clé n’est pas partagée.
+  */
+  ['essais:palier-scelles', 'aucun magasin scellé ne part tant que la clé n’est pas partagée'],
+  /*
      La table « Peser chaque rubrique » affichait soixante-quinze noms
      techniques, dans un écran dont le but est de décider quoi garder. Les
      étiquettes françaises se défont de trois façons : un magasin ajouté sans
