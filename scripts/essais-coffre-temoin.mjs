@@ -27,6 +27,25 @@
  */
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { devientVisible } from './lib/post-condition.mjs';
+
+/*
+   « Cette clé de stockage a disparu. »
+
+   Post-condition de ce qu'un geste efface SANS marque d'écran. Les options de
+   `waitForFunction` sont au TROISIÈME argument, le second étant la valeur
+   passée à la fonction : une borne écrite au second serait ignorée en silence,
+   et le relevé d'A en a trouvé seize dans ce cas.
+*/
+const clePartie = (ou, cle, delai = 15000) =>
+  page
+    .waitForFunction(
+      ([magasin, nom]) => !(magasin === 'local' ? localStorage : sessionStorage).getItem(nom),
+      [ou, cle],
+      { timeout: delai },
+    )
+    .then(() => true)
+    .catch(() => false);
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -118,9 +137,14 @@ v(
   true,
 );
 
+/*
+   DEUX FAITS, DEUX POST-CONDITIONS : le témoin se cache, et la clé de l'onglet
+   s'efface. Une temporisation les couvrait tous deux par accident ; en la
+   retirant, il faut nommer chacun.
+*/
 await page.click('#temoin-coffre-fermer');
-await page.waitForTimeout(500);
-v('fermer depuis cette page cache le témoin', await page.isVisible('#temoin-coffre'), false);
+v('fermer depuis cette page cache le témoin', await devientVisible(page, '#temoin-coffre', false), true);
+v('et la clé de l’onglet s’efface', await clePartie('session', 'cyclades.coffre'), true);
 v(
   'et la clé de l’onglet a disparu',
   await page.evaluate(() => sessionStorage.getItem('cyclades.coffre')),
@@ -165,8 +189,13 @@ v('mais ce n’est pas une clé utilisable : interdit 2 tenu', utilisable, false
 
 console.log('\n  D — fermer n’est pas oublier');
 
+/*
+   La post-condition est l'effet VISIBLE du clic — le témoin s'en va. Ce qui
+   suit affirme qu'une chose N'A PAS bougé, et aucune attente ne peut le
+   prouver : il faut seulement s'assurer que le geste a eu lieu avant de lire.
+*/
 await page.click('#temoin-coffre-fermer');
-await page.waitForTimeout(500);
+await devientVisible(page, '#temoin-coffre', false);
 v(
   'après « Fermer », la mémorisation est toujours là',
   Boolean(await page.evaluate(() => localStorage.getItem('cyclades.coffre.appareil'))),
@@ -175,16 +204,15 @@ v(
 
 await page.reload({ waitUntil: 'networkidle' });
 await session(page);
-await page.waitForTimeout(1800);
 v(
   'et le coffre se rouvre SANS mot de passe',
-  await page.locator('#mdp-coffre').isVisible().catch(() => false),
-  false,
+  await devientVisible(page, '#mdp-coffre', false, { delai: 30000 }),
+  true,
 );
 
 await page.locator('#temoin-coffre-oublier').waitFor({ state: 'visible', timeout: 10000 });
 await page.click('#temoin-coffre-oublier');
-await page.waitForTimeout(600);
+v('« Oublier » efface la mémorisation', await clePartie('local', 'cyclades.coffre.appareil'), true);
 v(
   'après « Oublier », plus rien n’est mémorisé',
   await page.evaluate(() => localStorage.getItem('cyclades.coffre.appareil')),
