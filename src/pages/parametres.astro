@@ -43,7 +43,19 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
 ---
 
 <Base titre="Paramètres">
-  <div class="mx-auto max-w-3xl">
+  <!--
+    `data-monte` est un COMPTEUR, posé par le script une fois toutes les
+    commandes construites. Il sert aux essais, et il n'a pas d'équivalent dans
+    l'écran : les blocs sont rendus par le serveur, leurs commandes par le
+    script, et rien ne distinguait « la page est là » de « la page est prête ».
+
+    Un compteur et non un drapeau, pour la raison du § 3 de
+    « docs/cyclades/cadence-des-essais.md » : le montage se refait à chaque
+    ouverture ou fermeture du coffre, et attendre un drapeau déjà posé
+    n'attendrait rien. Un essai relève la valeur avant son geste et attend
+    qu'elle change.
+  -->
+  <div id="tous-les-reglages" class="mx-auto max-w-3xl">
     <h1 class="text-2xl font-bold text-slate-900 dark:text-white">Paramètres</h1>
     <p class="mt-2 max-w-2xl text-sm text-slate-500 dark:text-slate-400">
       Tous les réglages de Cyclades, avec ce qu’ils font et jusqu’où ils vont. Les changements
@@ -361,8 +373,16 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
     }
   }
 
+  let montages = 0;
+
   async function monterTout() {
     for (const r of REGLAGES) if (ACCES[r.id]) await monter(r.id);
+    /* Posé en DERNIER, et jamais avant : c'est ce qui en fait une
+       post-condition. Un réglage illisible ne bloque pas le compteur —
+       `monter` attrape sa propre erreur, la dit dans le bloc concerné, et
+       rend la main. */
+    montages += 1;
+    document.getElementById('tous-les-reglages')?.setAttribute('data-monte', String(montages));
   }
 
   /* ── La recherche ─────────────────────────────────────────────────────── */
@@ -393,8 +413,24 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
       );
       section.hidden = !reste;
     }
+    /*
+       FORMAT G : pas de « (s) ». Le compte s'accorde, et il passe par
+       « Intl » plutôt que par une concaténation — c'est la règle du socle, et
+       elle s'applique aussi au texte qu'un script écrit.
+
+       `essais:typographie` ne pouvait pas le voir : il lit le site CONSTRUIT,
+       et cette phrase n'existe qu'une fois le script passé. C'est le même
+       angle mort que celui des commentaires de « global.css ».
+    */
+    const compte = new Intl.NumberFormat('fr-FR').format(vus);
     resultat.textContent =
-      q === '' ? '' : vus === 0 ? 'Aucun réglage ne correspond.' : `${vus} réglage(s) trouvé(s).`;
+      q === ''
+        ? ''
+        : vus === 0
+          ? 'Aucun réglage ne correspond.'
+          : vus === 1
+            ? '1 réglage trouvé.'
+            : `${compte} réglages trouvés.`;
   });
 
   /* ── La version de publication (43, B4) ───────────────────────────────── */

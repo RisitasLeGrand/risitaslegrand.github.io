@@ -27,6 +27,7 @@
  */
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import { devientVisible as devientVisibleSur } from './lib/post-condition.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
@@ -59,9 +60,210 @@ const ctx = await nav.newContext({
 });
 const page = await ctx.newPage();
 
+/*
+   LE DÉLAI DES ATTENTES, ET POURQUOI IL EST LARGE.
+
+   Une attente bornée ne sert qu'à transformer un blocage en rouge lisible :
+   elle ne mesure pas la vitesse, et un délai serré la ferait mentir sur une
+   machine chargée. Mesuré : à ×60 de bridage, le montage des soixante-quinze
+   réglages dépasse quinze secondes, et trois assertions tombaient — non parce
+   que la page était fausse, mais parce que ma borne l'était.
+
+   Trente secondes, donc. Un vrai défaut échoue de toute façon, puisque la
+   condition est vérifiée en continu et que son absence est rendue comme un
+   faux.
+*/
+const DELAI = 30_000;
+
+/** `devientVisible` du module partagé, la page étant toujours la même ici. */
+const devientVisible = (selecteur: string, visible = true): Promise<boolean> =>
+  devientVisibleSur(page, selecteur, visible);
+
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CET ESSAI, ET POURQUOI AUCUNE N'EST UNE DURÉE
+
+   `docs/cyclades/cadence-des-essais.md` § 3 et § 4 : une temporisation à
+   l'aveugle est une MOYENNE, et elle cède sous une batterie chargée — au
+   mauvais endroit, puisqu'elle lit alors l'écran d'avant et rend souvent la
+   bonne réponse par hasard. Les dix-neuf de ce fichier sont remplacées par la
+   post-condition de chaque geste.
+
+   Trois choses sont attendues ici, et chacune est écrite par le site APRÈS ce
+   que l'assertion lit :
+
+   1. le MONTAGE des commandes de la page centrale — `data-monte`, un compteur
+      posé une fois la boucle finie ;
+   2. la VALEUR d'un champ d'écran, qui part vide du serveur et que le script
+      remplit ;
+   3. le REMONTAGE d'une commande après un changement : `appliquer` écrit en
+      base, puis reconstruit le bloc. La reconstruction prouve l'écriture.
+
+   Chaque attente est BORNÉE et son expiration est rendue comme un faux : la
+   condition n'est pas supposée, elle est vérifiée en continu, et l'assertion
+   échoue si elle ne vient jamais. Ce qui disparaît, c'est seulement l'exigence
+   qu'elle arrive en moins d'une seconde et demie — laquelle ne mesurait pas
+   l'écran mais la charge de la machine.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/**
+ * Attend que les commandes de la page centrale soient construites.
+ *
+ * `precedent` est la valeur du compteur AVANT le geste, pour le cas où la page
+ * reste la même — le montage se refait à chaque ouverture ou fermeture du
+ * coffre. Après une navigation, le compteur repart de zéro et `null` suffit.
+ */
+const attendreLeMontage = (precedent: string | null = null) =>
+  page
+    .waitForFunction(
+      (avant) => {
+        const valeur = document
+          .getElementById('tous-les-reglages')
+          ?.getAttribute('data-monte');
+        return valeur !== null && valeur !== undefined && valeur !== avant;
+      },
+      precedent,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+
+/**
+ * Attend qu'un champ d'écran ait reçu sa valeur.
+ *
+ * Les deux champs à doublons — `#plafond-cartes` sur /progression/ et
+ * `#retention-archiver` sur /notifications/ — sont rendus SANS attribut
+ * `value` : vides jusqu'à ce que le script de l'écran les remplisse. « Non
+ * vide » est donc une vraie transition, et non un état déjà acquis.
+ */
+const attendreLaValeur = (selecteur: string) =>
+  page
+    .waitForFunction(
+      (s) => {
+        const champ = document.querySelector(s);
+        return champ instanceof HTMLInputElement && champ.value !== '';
+      },
+      selecteur,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+
+/** Attend que le texte d'un élément soit non vide — ou vide, au choix. */
+const attendreLeTexte = (selecteur: string, nonVide = true) =>
+  page
+    .waitForFunction(
+      ([s, veutDuTexte]) => {
+        const e = document.querySelector(s as string);
+        if (!e) return false;
+        const plein = (e.textContent ?? '').trim() !== '';
+        return plein === veutDuTexte;
+      },
+      [selecteur, nonVide] as [string, boolean],
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+
+/**
+ * Fait le geste, et attend que la commande du réglage soit RECONSTRUITE.
+ *
+ * `appliquer` écrit en base, puis rappelle `monter`, qui vide la zone et la
+ * rebâtit. Marquer l'ancien enfant avant le geste et attendre un enfant sans
+ * la marque est donc une post-condition qu'aucun passage antérieur ne peut
+ * avoir rendue vraie — c'est la forme du compteur, appliquée à un nœud.
+ *
+ * Attendre « un champ qui vaut 42 » n'en serait pas une : le champ que l'essai
+ * vient de remplir vaut déjà 42 avant le remontage.
+ */
+async function apresLeRemontage(idReglage: string, geste: () => Promise<void>) {
+  const zone = `[data-reglage="${idReglage}"] [data-commande]`;
+  await page.evaluate(
+    (s) => document.querySelector(s)?.firstElementChild?.setAttribute('data-ancien', 'oui'),
+    zone,
+  );
+  await geste();
+  await page
+    .waitForFunction(
+      (s) => {
+        const premier = document.querySelector(s)?.firstElementChild;
+        return Boolean(premier) && !premier!.hasAttribute('data-ancien');
+      },
+      zone,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+}
+
+/**
+ * Attend la fin du défilement — l'ÉVÉNEMENT du navigateur, pas une durée.
+ *
+ * `scroll-behavior: smooth` est déclaré dans `global.css`, donc une ancre
+ * défile par animation. Mesuré sur la séquence de cet essai : la section est à
+ * 11 197 px au changement de fragment, encore à 550 px après 600 ms, et arrive
+ * à 96 px entre 600 et 1 200 ms. L'ancienne temporisation de 1 200 ms était
+ * donc un PARI sur la durée d'une animation, et il lui restait moins de
+ * 600 ms de marge.
+ *
+ * `scrollend` dit exactement ce qu'on attend. Il ne vient pas quand rien ne
+ * défile — un fragment déjà atteint —, d'où le second chemin : compter les
+ * trames immobiles. Dix trames, soit bien plus qu'il n'en faut à une animation
+ * pour démarrer, et d'autant plus tolérant que la machine est chargée, les
+ * trames s'espaçant alors.
+ *
+ * Le code part en CHAÎNE, comme dans `essais-echecs-dits.mts` : `tsx` compile
+ * ce fichier avec esbuild, qui enveloppe toute fonction nommée d'un appel à
+ * son auxiliaire `__name` — absent de la page. La version en fonction a échoué
+ * exactement là, sur un « __name is not defined » qui ne parlait pas du site.
+ */
+const attendreLaFinDuDefilement = () =>
+  page.evaluate(`
+    new Promise((fini) => {
+      var rendu = false;
+      function rendre() {
+        if (rendu) return;
+        rendu = true;
+        fini();
+      }
+      document.addEventListener('scrollend', rendre, { once: true });
+      var immobiles = 0;
+      var derniere = window.scrollY;
+      function trame() {
+        if (rendu) return;
+        if (window.scrollY === derniere) immobiles += 1;
+        else {
+          immobiles = 0;
+          derniere = window.scrollY;
+        }
+        if (immobiles >= 10) rendre();
+        else requestAnimationFrame(trame);
+      }
+      requestAnimationFrame(trame);
+    })
+  `);
+
+/**
+ * Ouvre le commutateur de thème, et attend qu'il se soit ouvert.
+ *
+ * Le gestionnaire est SYNCHRONE — il reflète l'état puis démasque le menu —,
+ * donc rien ne peut être surpris à mi-chemin. Ce que la temporisation couvrait
+ * en réalité était l'attachement du gestionnaire. `aria-expanded` passé à
+ * « true » le prouve, et c'est écrit par le même geste que la note : la note
+ * peut donc être lue juste après, y compris pour constater son ABSENCE — ce
+ * qu'aucune attente ne saurait faire directement.
+ */
+const ouvrirLeCommutateur = async () => {
+  await page.locator('#bouton-theme').click();
+  await page
+    .waitForFunction(
+      () => document.getElementById('bouton-theme')?.getAttribute('aria-expanded') === 'true',
+      undefined,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+};
+
 await franchirInitialisation(page, RACINE, MDP);
 await page.goto(`${RACINE}/parametres/`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(1500);
+await attendreLeMontage();
 
 /* ── La prémisse ─────────────────────────────────────────────────────────── */
 
@@ -83,9 +285,10 @@ const champCartes = page.locator('[data-reglage="plafond-cartes"] input[type=num
 await champCartes.waitFor({ state: 'visible', timeout: 10_000 });
 const avant = await champCartes.inputValue();
 verifier('« Cartes par séance » part de sa valeur d’usine', avant, '25');
-await champCartes.fill('42');
-await champCartes.dispatchEvent('change');
-await page.waitForTimeout(800);
+await apresLeRemontage('plafond-cartes', async () => {
+  await champCartes.fill('42');
+  await champCartes.dispatchEvent('change');
+});
 
 const surProgression = await page.evaluate(async () => {
   const { lireReglagesSession } = await import('/src/lib/db.ts').catch(() => ({}) as never);
@@ -113,7 +316,7 @@ verifier('la valeur écrite va bien dans `etat.reglagesSession`', enBase, 42);
 void surProgression;
 
 await page.goto(`${RACINE}/progression/`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(1200);
+await attendreLaValeur('#plafond-cartes');
 const surSonEcran = await page
   .locator('#plafond-cartes')
   .first()
@@ -146,10 +349,15 @@ const cartesSurEcran = page.locator('#plafond-cartes');
 await cartesSurEcran.waitFor({ state: 'visible', timeout: 10_000 });
 await cartesSurEcran.fill('65');
 await cartesSurEcran.dispatchEvent('change');
-await page.waitForTimeout(900);
+/*
+   L'écran écrit en base, relit ce qui a été retenu, puis annonce
+   « Enregistré : … » et démasque l'annonce — en dernier. Au repos elle est
+   masquée, donc la transition est réelle.
+*/
+await devientVisible('#message-reglages');
 
 await page.goto(`${RACINE}/parametres/`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(1500);
+await attendreLeMontage();
 verifier(
   'changée sur /progression/, la valeur se lit sur la page centrale',
   await page.locator('[data-reglage="plafond-cartes"] input[type=number]').inputValue(),
@@ -158,16 +366,17 @@ verifier(
 
 /* Et le second écran à doublons : la rétention des notifications. */
 await page.goto(`${RACINE}/notifications/`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(1200);
+await attendreLaValeur('#retention-archiver');
 const archiverSurEcran = page.locator('#retention-archiver');
 await archiverSurEcran.waitFor({ state: 'visible', timeout: 10_000 });
 await archiverSurEcran.fill('11');
 await archiverSurEcran.dispatchEvent('change');
 await page.locator('#retention-enregistrer').click().catch(() => {});
-await page.waitForTimeout(900);
+/* Le verdict est écrit en dernier, et l'écran part sans message. */
+await attendreLeTexte('#retention-message');
 
 await page.goto(`${RACINE}/parametres/`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(1500);
+await attendreLeMontage();
 verifier(
   'changée sur /notifications/, « Archiver après » se lit sur la page centrale',
   await page.locator('[data-reglage="retention-archiver"] input[type=number]').inputValue(),
@@ -177,11 +386,12 @@ verifier(
 /* Puis l'aller, sur ce même réglage : la page centrale écrit là où l'écran
    lit. On remet 7 jours, la valeur d'usine, ce qui sert aussi de nettoyage. */
 const archiverAuCentre = page.locator('[data-reglage="retention-archiver"] input[type=number]');
-await archiverAuCentre.fill('9');
-await archiverAuCentre.dispatchEvent('change');
-await page.waitForTimeout(800);
+await apresLeRemontage('retention-archiver', async () => {
+  await archiverAuCentre.fill('9');
+  await archiverAuCentre.dispatchEvent('change');
+});
 await page.goto(`${RACINE}/notifications/`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(1200);
+await attendreLaValeur('#retention-archiver');
 verifier(
   'et changée au centre, elle se lit sur /notifications/',
   await page.locator('#retention-archiver').inputValue(),
@@ -201,9 +411,12 @@ verifier(
 */
 console.log('\nLA NOTE DU COMMUTATEUR');
 await page.goto(`${RACINE}/parametres/`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(800);
-await page.locator('#bouton-theme').click();
-await page.waitForTimeout(300);
+/*
+   Pas d'attente du montage ici : la note vit dans l'en-tête, que le serveur
+   rend, et non dans les commandes que le script construit. Attendre le
+   montage ferait dépendre cet essai d'un travail qui ne le concerne pas.
+*/
+await ouvrirLeCommutateur();
 const note = page.locator('#note-bascule');
 verifier('la note se voit quand la bascule est active', await note.isVisible(), true);
 verifier(
@@ -229,9 +442,13 @@ verifier(
 /* Bascule éteinte, la note n'a plus de sens : elle disparaît. */
 await page.evaluate(() => localStorage.setItem('revinsp.bascule-jour-nuit', 'non'));
 await page.reload({ waitUntil: 'networkidle' });
-await page.waitForTimeout(800);
-await page.locator('#bouton-theme').click();
-await page.waitForTimeout(300);
+/*
+   UN INVARIANT NÉGATIF NE S'ATTEND PAS : « la note ne paraît plus » est vrai
+   tout de suite, et le resterait si elle paraissait une seconde plus tard. On
+   attend la post-condition du GESTE — le menu ouvert —, après quoi la lecture
+   a un sens, puisque la note est posée par le même gestionnaire synchrone.
+*/
+await ouvrirLeCommutateur();
 verifier(
   'bascule éteinte, la note ne paraît plus',
   await page.locator('#note-bascule').isVisible(),
@@ -244,11 +461,12 @@ await page.keyboard.press('Escape');
 
 console.log('\nRÉTABLIR');
 await page.goto(`${RACINE}/parametres/`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(1500);
+await attendreLeMontage();
 const retablir = page.locator('[data-reglage="plafond-cartes"] button', { hasText: 'Rétablir' });
 verifier('« Rétablir » apparaît sur une valeur changée', await retablir.count(), 1);
-await retablir.click();
-await page.waitForTimeout(800);
+await apresLeRemontage('plafond-cartes', async () => {
+  await retablir.click();
+});
 verifier(
   'et la valeur d’usine revient',
   await page.locator('[data-reglage="plafond-cartes"] input[type=number]').inputValue(),
@@ -279,7 +497,12 @@ verifier('et n’affiche aucune commande', sante.commande, 0);
 
 console.log('\nLA RECHERCHE');
 await page.fill('#recherche-reglage', 'notification');
-await page.waitForTimeout(400);
+/*
+   Le filtre est synchrone, et il écrit son compte EN DERNIER — après avoir
+   masqué les lignes et les sections vides. Le message est vide au repos, donc
+   l'attendre non vide attend bien ce tri-là.
+*/
+await attendreLeTexte('#resultat-recherche');
 const apresRecherche = await page.evaluate(() => ({
   visibles: [...document.querySelectorAll<HTMLElement>('[data-reglage]')].filter((b) => !b.hidden)
     .length,
@@ -292,13 +515,31 @@ verifier('la recherche ne garde que les lignes qui correspondent', apresRecherch
 verifier('et vide les sections devenues vides', apresRecherche.sectionsVisibles <= 2, true);
 verifier('elle dit combien', /réglage/.test(apresRecherche.message), true);
 await page.fill('#recherche-reglage', '');
-await page.waitForTimeout(300);
+/* Le champ vidé, le même gestionnaire efface son message : c'est la
+   post-condition du nettoyage, et la suite part d'une page entière. */
+await attendreLeTexte('#resultat-recherche', false);
 
 /* ── 5. Les ancres ───────────────────────────────────────────────────────── */
 
 console.log('\nLES ANCRES');
 await page.goto(`${RACINE}/parametres/#sport`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(1200);
+/*
+   DEUX ATTENTES, ET ELLES NE SE REMPLACENT PAS.
+
+   Le montage d'abord : les blocs situés au-dessus de « sport » grandissent
+   quand leurs commandes arrivent, et la section redescend — mesurer avant
+   mesurerait une mise en page qui n'existera plus. Sur la séquence de cet
+   essai, la page est déjà montée et cette attente rend la main aussitôt ;
+   elle sert au cas où l'essai est lancé depuis un autre état.
+
+   Le défilement ensuite, et c'est lui que la temporisation couvrait. Ma
+   première conversion n'avait gardé que le montage : les deux attentes
+   étaient satisfaites en quelques millisecondes, la section était encore à
+   11 197 px, et l'assertion est tombée. C'est elle qui m'a appris que l'ancre
+   défile par ANIMATION.
+*/
+await attendreLeMontage();
+await attendreLaFinDuDefilement();
 const ancre = await page.evaluate(() => {
   const section = document.getElementById('sport');
   if (!section) return null;
