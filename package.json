@@ -352,6 +352,7 @@
     "essais:fusion-interrompue": "node scripts/essais-fusion-interrompue.mjs",
     "essais:maths": "node scripts/essais-maths.mjs",
     "essais:icones": "node scripts/essais-icones.mjs",
+    "essais:pictogrammes": "node scripts/essais-pictogrammes.mjs",
     "essais:maths-ecran": "node scripts/essais-maths-ecran-navigateur.mjs",
     "essais:contraste-impose": "node scripts/essais-contraste-impose-navigateur.mjs"
   },

@@ -92,6 +92,17 @@ const SOCLE = [
   */
   ['essais:icones', 'chaque page porte les modèles d’icône que ses scripts copient'],
   /*
+     H4, la garde. Quatre-vingt-sept émojis sont partis ; rien n'empêchait le
+     quatre-vingt-huitième. Un émoji s'écrit d'un caractère, s'affiche partout,
+     et a l'air de marcher — ce qui le rend tenace : personne ne le refuse à la
+     relecture. Ce qui est cassé ne se voit pas chez celui qui écrit — un dessin
+     différent par plateforme, aucune réaction aux quatorze thèmes, rien à
+     suivre en couleurs imposées, et un nom annoncé à voix haute avant chaque
+     libellé. La garde laisse passer les MARQUES, qui sont du texte, et un essai
+     le prouve dans les deux sens.
+  */
+  ['essais:pictogrammes', 'aucun émoji dans « src/ », et les marques passent'],
+  /*
      Les deux réglages d'accessibilité du système. Ils se défont sans bruit :
      il a suffi qu'une feuille de thème soit injectée APRÈS « global.css » pour
      que le relèvement des teintes faibles cesse d'agir, et rien ne le disait.
