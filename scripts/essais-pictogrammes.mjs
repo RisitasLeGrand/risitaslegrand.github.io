@@ -52,20 +52,69 @@ import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { join } from 'node:path';
 
 /*
-   LES PLAGES, telles que le Pilote les a fixées.
+   LES PLAGES, et le trou qu'elles avaient.
 
-   1F300–1FAFF couvre les émojis de symboles, d'objets, de nature, de nourriture
-   et de transport, avec les ajouts récents. 2600–26FF couvre les symboles
-   divers — météo, religion, jeux, avertissement.
+   Les deux premières sont celles du Pilote au premier jour : 1F300–1FAFF, les
+   émojis de symboles, d'objets, de nature, de nourriture et de transport ;
+   2600–26FF, les symboles divers — météo, religion, jeux, avertissement.
 
-   Elles ne couvrent pas tout ce qu'Unicode colorie, et c'est assumé : une
-   plage large attraperait les marques de texte qu'on veut garder, et une liste
-   de caractères interdits serait à rallonger à chaque émoji inventé.
+   ELLES LAISSAIENT PASSER NEUF ÉMOJIS, que j'ai trouvés en convertissant les
+   écrans : le joker 🃏 (1F0CF) du bouton « Réviser », le triangle de lecture ▶
+   (25B6) du lecteur audio, la coche verte ✅ (2705), le « i » cerclé ⓘ (24D8),
+   les flèches montante et descendante ⬆ ⬇ (2B06/2B07) de la bulle de niveau,
+   la pause ⏸ (23F8), le sablier ⌛ (231B) et le chronomètre ⏱ (23F1). Tous
+   coloriés par les plateformes, tous hors des plages.
+
+   Les quatre plages ajoutées les couvrent : 1F000–1F0FF (cartes, dominos,
+   mah-jong), 231A–23FA (montres, sabliers, commandes de lecture),
+   2B05–2B07 et 2B1B–2B1C.
+
+   ON NE PREND PAS LE BLOC 2700–27BF EN ENTIER, et c'est une décision du
+   Pilote que la mesure confirme : ✓ (2713) et ✗ (2717) y vivent, et trois
+   écrans s'en servent en série de verdicts. Les émojis de ce bloc sont donc
+   nommés un par un, juste en dessous.
 */
 const PLAGES = [
   [0x1f300, 0x1faff],
   [0x2600, 0x26ff],
+  [0x1f000, 0x1f0ff],
+  [0x231a, 0x23fa],
+  [0x2b05, 0x2b07],
+  [0x2b1b, 0x2b1c],
 ];
+
+/**
+ * Les émojis nommés un par un, là où une plage emporterait des marques.
+ *
+ * Dingbats (2700–27BF) et symboles divers : la coche verte, les étincelles, la
+ * croix et la coche épaisses, les points d'interrogation et d'exclamation
+ * coloriés, les plus et moins épais, l'étoile et le rond.
+ */
+const POINTS_GARDES = new Set([
+  0x2705, 0x2728, 0x274c, 0x274e, 0x2753, 0x2754, 0x2755, 0x2757,
+  0x2795, 0x2796, 0x2797, 0x27b0, 0x27bf, 0x2b50, 0x2b55,
+]);
+
+/*
+   DEUX CARACTÈRES QUE J'AI CONVERTIS ET QUE LA GARDE NE PREND PAS.
+
+   Le triangle de lecture ▶ (25B6) et le « i » cerclé ⓘ (24D8). Je les ai
+   remplacés par des icônes du catalogue, parce qu'ils servaient de boutons et
+   que les plateformes les colorient. La garde, elle, les laisse passer, et ce
+   n'est pas un oubli :
+
+   — 25B6 vit dans le bloc des formes géométriques (25A0–25FF), avec ● ○ ◆ ▣
+     △ ▲ ■, qui sont toutes des marques tolérées employées en série. Le prendre
+     par une plage emporterait la série ; le prendre nommément ferait de lui un
+     cas à part parmi ses voisins, sans qu'on puisse dire pourquoi lui et non
+     ▲ ;
+   — 24D8 est dans les alphanumériques encerclés, et le Pilote ne l'a pas
+     nommé.
+
+   Ils sont donc signalés au Pilote plutôt qu'ajoutés de mon chef : une plage
+   élargie « pour attraper un émoji de plus » est exactement ce que le
+   contrôle du point 2 est là pour empêcher.
+*/
 
 /*
    LES MARQUES TOLÉRÉES DANS LES PLAGES.
@@ -124,6 +173,13 @@ const EXEMPTIONS = [
     pourquoi: 'les symboles des énoncés de raisonnement relationnel — l’épreuve porte sur eux',
   },
   {
+    fichier: 'src/features/quad-n-back/composants/QuadNBack.svelte',
+    pourquoi:
+      'le sablier du verdict « oubli », en série avec ✓ et ✗ : trois marques de ' +
+      'même rang, dont une seule est tombée dans les plages élargies. La ' +
+      'dessiner seule casserait la série, comme pour le relevé bancaire',
+  },
+  {
     fichier: 'src/pages/revisions/index.astro',
     motif: 'badge.icone',
     pourquoi:
@@ -147,10 +203,10 @@ function verifier(quoi, vrai, detail = '') {
   }
 }
 
-/** Le caractère est-il dans les plages gardées ? */
+/** Le caractère est-il gardé — par une plage, ou nommément ? */
 function estDansLesPlages(caractere) {
   const point = caractere.codePointAt(0);
-  return PLAGES.some(([bas, haut]) => point >= bas && point <= haut);
+  return POINTS_GARDES.has(point) || PLAGES.some(([bas, haut]) => point >= bas && point <= haut);
 }
 
 /**
@@ -215,7 +271,9 @@ for (const chemin of fichiers('src')) {
 }
 
 if (fautes.length > 0) {
-  console.log(`  ${rouge('✗')} ${fautes.length} émoji(s) hors exemption :`);
+  console.log(
+    `  ${rouge('✗')} ${fautes.length} ${fautes.length > 1 ? 'émojis' : 'émoji'} hors exemption :`,
+  );
   for (const f of fautes.slice(0, 20)) console.log(`      ${f}`);
   if (fautes.length > 20) console.log(`      … et ${fautes.length - 20} autres.`);
   console.log('');
@@ -294,11 +352,36 @@ console.log(`\n${gras('3. ET LES ÉMOJIS, EUX, SONT PRIS')}\n`);
    On lui soumet donc des émojis qu'elle DOIT refuser, un par plage.
 */
 const DOIVENT_ETRE_PRIS = [
-  ['🎉', 'la première plage, sur deux unités de 16 bits'],
-  ['🔒', 'la première plage'],
-  ['⚠', 'la seconde plage'],
-  ['☎', 'la seconde plage'],
-  ['★', 'la seconde plage, bien qu’elle ressemble à une marque'],
+  ['🎉', '1F300–1FAFF, sur deux unités de 16 bits'],
+  ['🔒', '1F300–1FAFF'],
+  ['⚠', '2600–26FF'],
+  ['☎', '2600–26FF'],
+  ['★', '2600–26FF, bien qu’elle ressemble à une marque'],
+  /* Les neuf que les plages d'origine laissaient passer, et qui sont le
+     motif de l'élargissement. */
+  ['🃏', '1F000–1F0FF, le joker'],
+  ['⌛', '231A–23FA, le sablier'],
+  ['⏱', '231A–23FA, le chronomètre'],
+  ['⏸', '231A–23FA, la pause'],
+  ['⬆', '2B05–2B07'],
+  ['⬇', '2B05–2B07'],
+  ['⬛', '2B1B–2B1C'],
+  ['✅', 'nommée, hors du bloc des Dingbats pris en entier'],
+  ['✨', 'nommée'],
+  ['❌', 'nommée'],
+  ['❓', 'nommée'],
+  ['❗', 'nommée'],
+  ['⭐', 'nommée'],
+];
+
+/*
+   ET CEUX QUE LA GARDE NE PREND PAS, délibérément. Les énumérer ici fait que
+   le jour où quelqu'un élargit une plage « pour en attraper un de plus », cet
+   essai dira lesquels il vient d'emporter avec.
+*/
+const DOIVENT_PASSER_MALGRE_TOUT = [
+  ['▶', '25B6, parmi les formes géométriques où vivent les marques tolérées'],
+  ['ⓘ', '24D8, non nommé par le Pilote'],
 ];
 for (const [emoji, quoi] of DOIVENT_ETRE_PRIS) {
   const pris = pictogrammesDe(`texte = '${emoji} Bonjour';`);
@@ -315,8 +398,15 @@ verifier(
   pictogrammesDe("const x = '🧩';").length === 1,
 );
 
+for (const [c, quoi] of DOIVENT_PASSER_MALGRE_TOUT) {
+  verifier(
+    `« ${c} » passe, et c’est voulu (${quoi})`,
+    pictogrammesDe(`const x = '${c}';`).length === 0,
+  );
+}
+
 console.log(
-  echecs ? `\n${rouge(`${echecs} essai(s) en échec.`)}\n` : `\n${vert('Tous les essais passent.')}\n`,
+  echecs ? `\n${rouge(`${echecs} ${echecs > 1 ? 'essais' : 'essai'} en échec.`)}\n` : `\n${vert('Tous les essais passent.')}\n`,
 );
 console.log(
   jaune(

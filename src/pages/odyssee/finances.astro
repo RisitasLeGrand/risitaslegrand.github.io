@@ -193,9 +193,58 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
   /* ── L'état ───────────────────────────────────────────────────────────── */
 
+  /**
+   * Combien de fois la table d'état a été peinte.
+   *
+   * Ce compteur est la POST-CONDITION des essais, et il est monotone exprès.
+   * Voir la longue note dans `peindreEtat`.
+   */
+  let peinturesDeLEtat = 0;
+
   async function peindreEtat() {
-    const [comptes, operations] = await Promise.all([tousLesComptes(), toutesLesOperations()]);
     const zone = $('etat');
+    /*
+       DEUX MARQUES, ET ELLES NE FONT PAS LE MÊME TRAVAIL.
+
+       Cette fonction est appelée APRÈS que l'écran a dit « enregistré » :
+       `importer()` démasque `#resultat`, écrit sa phrase, puis attend
+       `peindreEtat()`. Entre les deux, la table d'état porte encore les
+       chiffres d'avant. Un essai qui attendait `#resultat` visible et lisait
+       `[data-etat]` lisait donc l'état PRÉCÉDENT : mesuré, « 15 opérations »
+       au lieu de 20, avec un retard de 500 ms injecté ici.
+
+       `aria-busy` pour la personne. Posé avant le premier `await`, retiré en
+       « finally » : une technologie d'assistance attend au lieu d'annoncer
+       trois chiffres périmés, puis de les annoncer à nouveau. C'est la marque
+       que le centre de notifications emploie déjà, et pour la même raison.
+
+       LE COMPTEUR POUR LES ESSAIS, et « aria-busy » n'y suffit PAS. Au repos,
+       la table n'est pas occupée : attendre « plus occupée » est donc déjà
+       vrai avant le geste, ce qui est exactement le premier motif d'attente
+       fragile décrit dans « docs/cyclades/cadence-des-essais.md ». Le défaut
+       se verrait au second import — et `essais-rapprocher-ecran` en fait cinq
+       de suite.
+
+       Un compteur monotone n'a pas ce défaut : l'essai lit sa valeur AVANT le
+       geste et attend qu'elle change. Aucun passage antérieur ne peut avoir
+       rendu cette condition vraie, puisqu'elle porte sur une valeur relevée
+       après eux. C'est la forme que le document appelle « une post-condition
+       qu'aucun passage antérieur ne peut avoir rendue vraie », et c'est la
+       seule qui tienne pour une action répétable.
+    */
+    zone.setAttribute('aria-busy', 'true');
+    try {
+      await peindreLesCases(zone);
+    } finally {
+      zone.removeAttribute('aria-busy');
+      peinturesDeLEtat += 1;
+      zone.dataset.peint = String(peinturesDeLEtat);
+    }
+  }
+
+  /** Le contenu de la table d'état. Séparé pour que le « finally » soit court. */
+  async function peindreLesCases(zone: HTMLElement) {
+    const [comptes, operations] = await Promise.all([tousLesComptes(), toutesLesOperations()]);
     zone.innerHTML = '';
     const solde = operations.reduce((s, o) => s + o.centimes, 0);
     const cases: [string, string][] = [

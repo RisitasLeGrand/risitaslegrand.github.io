@@ -125,6 +125,50 @@ dates, et laisse dans l'annonce exactement la phrase attendue. La lecture
 périmée rend la bonne réponse **par construction**. L'assertion ne prouvait
 rien sans pour autant mentir, et c'est à ce titre qu'elle a été reprise.
 
+### Le troisième piège : attendre un élément et en lire un AUTRE
+
+*Ajouté le 26 octobre, après la réparation de l'import bancaire.*
+
+Les deux premiers pièges portent sur le MOMENT de l'attente. Celui-ci porte
+sur son OBJET, et il est plus difficile à voir parce que l'élément attendu est
+irréprochable.
+
+`importer()` démasque `#resultat` et écrit sa phrase — « 3 opérations
+enregistrées » — **synchroniquement**. L'assertion qui lit `#resultat` est
+donc saine, et le restera. Puis vient `await peindreEtat()`, qui remplit la
+table `[data-etat]`. Trois assertions lisaient CETTE table après avoir attendu
+`#resultat`. Mesuré, avec 500 ms injectés : « 15 opérations » au lieu de 20.
+
+Chercher le défaut dans l'élément attendu n'aurait rien donné. **L'attente
+doit porter sur ce qu'on va LIRE**, pas sur ce qui annonce que quelque chose
+s'est passé.
+
+### `aria-busy` ou un compteur : ce qui les sépare
+
+`aria-busy` posé avant le premier `await` et retiré dans un `finally` est une
+vraie post-condition, et elle a sa valeur propre : sans elle, une technologie
+d'assistance annonce une région vide puis la rend à nouveau remplie. Le centre
+de notifications l'emploie, et elle y tient — vérifié avec 500 ms injectés,
+les trente-deux assertions passent.
+
+Elle ne suffit pourtant pas partout, et la raison est le premier motif. **Au
+repos, la zone n'est pas occupée** : attendre « plus occupée » est donc déjà
+vrai avant le geste. Le centre s'en tire parce qu'on ne l'ouvre qu'une fois
+par mesure. L'import bancaire, non : `essais-rapprocher-ecran` enchaîne cinq
+relevés, et dès le second l'attente serait satisfaite avant que le clic
+n'agisse.
+
+Un **compteur monotone** n'a pas ce défaut. La zone porte `data-peint`,
+incrémenté dans le même `finally` ; l'essai relève la valeur AVANT le geste et
+attend qu'elle change. Aucun passage antérieur ne peut avoir rendu cette
+condition vraie, puisqu'elle porte sur une valeur relevée après eux. C'est la
+forme à prendre pour **une action répétable**, et `scripts/lib/post-condition.mjs`
+la rend en une ligne.
+
+Mesuré sur le correctif : les deux essais passent avec 500 ms injectés, et
+encore avec **2 secondes**. Un correctif qui ne tiendrait que par la vitesse
+tomberait à la seconde.
+
 ### La parade, et ce qu'elle n'est pas
 
 Ce n'est pas « attendre autre chose dans le même esprit » : n'importe quel état

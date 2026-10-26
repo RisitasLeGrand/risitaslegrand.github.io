@@ -14,6 +14,7 @@
 import { chromium } from 'playwright-core';
 import { writeFileSync } from 'node:fs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import { apresLaPeinture } from './lib/post-condition.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { pdfMinimal } from './lib/pdf-minimal.mjs';
 
@@ -151,8 +152,13 @@ for (const f of fichiers) {
   await page.setInputFiles('#fichier', f);
   await page.waitForSelector('#apercu:not(.hidden)', { timeout: 60000 });
   v(`le relevé ${f.slice(-10, -4)} boucle`, await page.getAttribute('#verdict', 'data-importable'), 'true');
-  await page.click('#enregistrer');
-  await page.waitForSelector('#resultat:not(.hidden)', { timeout: 30000 });
+  /*
+     CINQ RELEVÉS DE SUITE, et c'est ce qui rend le compteur nécessaire. Au
+     second tour, la table d'état n'est plus « occupée » avant le clic :
+     attendre « plus occupée » serait déjà vrai. Le compteur, lui, est relevé
+     avant chaque geste. Voir « scripts/lib/post-condition.mjs ».
+  */
+  await apresLaPeinture(page, '#etat', () => page.click('#enregistrer'));
 }
 v('vingt opérations enregistrées', (await page.textContent('[data-etat="Opérations"] dd')).trim(), '20');
 
