@@ -497,6 +497,23 @@ const flecheVisible = !estLeMenu && !sansNavigation;
         if (!choisie || !CATALOGUE_THEMES[choisie]) choisie = 'egee';
         var effective = CATALOGUE_THEMES[choisie].indexOf(mode) === -1 ? 'egee' : choisie;
 
+        /*
+           LA BARRE LATÉRALE, AVANT LE PREMIER RENDU — pour la même raison que
+           le thème, et c'est la raison qui compte : la barre déplace le
+           contenu de 15 rem. Posé après l'hydratation, le repli ferait sauter
+           toute la page sous les yeux au chargement, à chaque navigation.
+
+           Le défaut est DÉPLIÉ, et l'attribut n'est posé que pour le rail :
+           un stockage vide, un mode privé, un `localStorage` qui lève — et la
+           barre est ouverte. C'est le bon défaut : une navigation qu'on ne
+           voit pas est une navigation qu'on ne cherche pas.
+
+           `lire` intercepte déjà l'exception et rend `null` : un second
+           try/catch ici serait un deuxième filet pour la même chute, et le
+           jour où l'un des deux change, c'est l'autre qu'on oublie.
+        */
+        if (lire('revinsp.laterale') === 'rail') racine.setAttribute('data-laterale', 'rail');
+
         racine.setAttribute('data-theme', mode);
         racine.setAttribute('data-theme-choix', bascule ? 'bascule' : choix);
         racine.setAttribute('data-palette', effective);
@@ -606,7 +623,9 @@ const flecheVisible = !estLeMenu && !sansNavigation;
         id="barre-laterale"
         aria-label="Navigation de la branche"
         class:list={[
-          'barre-laterale fixed inset-y-0 left-0 z-30 w-60 flex-col gap-1 overflow-y-auto border-r border-slate-200 bg-white px-3 py-4 dark:border-slate-800 dark:bg-slate-900',
+          /* Pas de `w-60` : la largeur vient de `--laterale`, seule source,
+             et c'est elle qui bascule entre 15 rem et 3 rem. */
+          'barre-laterale fixed inset-y-0 left-0 z-30 flex-col gap-1 overflow-y-auto border-r border-slate-200 bg-white px-3 py-4 dark:border-slate-800 dark:bg-slate-900',
           /*
              Mesuré le 18 octobre à 1280 px, page verrouillée : la
              tabulation sortait du formulaire du verrou et entrait dans les
@@ -623,40 +642,98 @@ const flecheVisible = !estLeMenu && !sansNavigation;
       >
         <a
           href={`${base}/`}
+          aria-label={config.titre}
+          title={config.titre}
           class="mb-2 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
         >
           <Icone nom="menu" taille={18} />
-          <span>{config.titre}</span>
+          <span class="libelle-laterale">{config.titre}</span>
         </a>
-        <p class="etiquette px-3 pb-1 text-slate-500 dark:text-slate-400">
-          {brancheCourante.libelle}
-        </p>
-        {ongletsEnOrdreDuRuban.map((o) => (
-          <a
-            href={`${base}${o.chemin}`}
-            data-onglet={o.chemin}
-            aria-current={actif === o.id ? 'page' : undefined}
-            class:list={[
-              'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition',
-              actif === o.id
-                ? 'bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
-                : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
-            ]}
+
+        {/*
+           LE BOUTON DE REPLI.
+
+           `aria-expanded` dit l'état et `aria-controls` dit de quoi : sans le
+           second, le lecteur d'écran annonce « déplié » sans savoir ce qui
+           l'est. Le libellé change avec l'état, parce qu'un bouton nommé
+           « Replier » qui déplie mentirait — et il est posé par le script au
+           même moment que l'attribut, jamais séparément.
+
+           Il est rendu DÉPLIÉ, et le script d'avant-rendu corrige aussitôt
+           si l'appareil a retenu le rail : voir `data-laterale` dans la tête
+           du document. L'inverse — rendre replié — ferait clignoter la barre
+           ouverte chez tout le monde.
+        */}
+        <button
+          id="replier-laterale"
+          type="button"
+          aria-controls="barre-laterale"
+          aria-expanded="true"
+          aria-label="Replier la navigation"
+          title="Replier la navigation"
+          class="cible-tactile-pleine mb-2 flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-600 transition hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800"
+        >
+          <Icone nom="retour" taille={20} />
+          <span class="libelle-laterale">Replier</span>
+        </button>
+
+        {/*
+           DEUX GROUPES NOMMÉS, et le nom survit au repli.
+
+           `aria-labelledby` et non `aria-label` : l'intitulé existe déjà à
+           l'écran, et le dupliquer en attribut créerait deux textes à tenir
+           d'accord. Un élément masqué par `display: none` référencé de cette
+           façon fournit tout de même son texte — c'est mesuré par l'essai,
+           dans les DEUX états, et non supposé.
+        */}
+        <div role="group" aria-labelledby="intitule-branche-laterale">
+          <p
+            id="intitule-branche-laterale"
+            class="etiquette libelle-laterale px-3 pb-1 text-slate-500 dark:text-slate-400"
           >
-            <Icone nom={o.icone} taille={20} />
-            <span class="min-w-0 truncate">{o.nom}</span>
-          </a>
-        ))}
-        <p class="etiquette mt-3 px-3 pb-1 text-slate-500 dark:text-slate-400">Cet espace</p>
-        {ECRANS_COMMUNS.map((o) => (
-          <a
-            href={`${base}${o.chemin}`}
-            class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+            {brancheCourante.libelle}
+          </p>
+          {ongletsEnOrdreDuRuban.map((o) => (
+            <a
+              href={`${base}${o.chemin}`}
+              data-onglet={o.chemin}
+              aria-current={actif === o.id ? 'page' : undefined}
+              aria-label={o.nom}
+              title={o.nom}
+              class:list={[
+                'flex items-center gap-2 rounded-lg px-3 py-2 text-sm transition',
+                actif === o.id
+                  ? 'bg-indigo-50 font-medium text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300'
+                  : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
+              ]}
+            >
+              <Icone nom={o.icone} taille={20} />
+              <span class="libelle-laterale min-w-0 truncate">{o.nom}</span>
+            </a>
+          ))}
+        </div>
+
+        <hr class="separateur-laterale" aria-hidden="true" />
+
+        <div role="group" aria-labelledby="intitule-espace-laterale">
+          <p
+            id="intitule-espace-laterale"
+            class="etiquette libelle-laterale mt-3 px-3 pb-1 text-slate-500 dark:text-slate-400"
           >
-            <Icone nom={o.icone} taille={20} />
-            <span class="min-w-0 truncate">{o.nom}</span>
-          </a>
-        ))}
+            Cet espace
+          </p>
+          {ECRANS_COMMUNS.map((o) => (
+            <a
+              href={`${base}${o.chemin}`}
+              aria-label={o.nom}
+              title={o.nom}
+              class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
+            >
+              <Icone nom={o.icone} taille={20} />
+              <span class="libelle-laterale min-w-0 truncate">{o.nom}</span>
+            </a>
+          ))}
+        </div>
       </nav>
     )}
 
@@ -1499,6 +1576,53 @@ const flecheVisible = !estLeMenu && !sansNavigation;
       // « quandDeverrouille » et non un écouteur nu : le paquet de cette page
       // peut arriver après l'ouverture de la session (voir lib/auth.ts).
       quandDeverrouille(() => suivreTemps());
+
+      /*
+         LE REPLI DE LA BARRE LATÉRALE (M15 bis).
+
+         Hors de `quandDeverrouille` : la barre existe dès que l'en-tête est
+         complet, et son état est un réglage d'affichage, pas une donnée du
+         coffre. L'attacher au déverrouillage ferait un bouton mort sur une
+         page verrouillée — où la barre est d'ailleurs masquée par
+         `.apres-le-verrou`, donc le bouton avec elle.
+
+         L'ÉCRITURE PEUT ÉCHOUER, et ce n'est pas une raison de ne rien faire :
+         en navigation privée, ou le stockage refusé, le repli doit marcher
+         pour la session en cours même s'il ne sera pas retenu. On bascule
+         donc l'attribut D'ABORD, et on tente d'écrire ensuite.
+      */
+      {
+        const bouton = document.getElementById('replier-laterale');
+        const racineHtml = document.documentElement;
+
+        /* Un seul endroit qui dit l'état, pour les trois choses qui en
+           dépendent : l'attribut, le nom du bouton, et son infobulle. Trois
+           écritures séparées divergent le jour où l'on en ajoute une
+           quatrième. */
+        const direLEtat = (enRail: boolean) => {
+          if (!bouton) return;
+          const mot = enRail ? 'Déplier la navigation' : 'Replier la navigation';
+          bouton.setAttribute('aria-expanded', enRail ? 'false' : 'true');
+          bouton.setAttribute('aria-label', mot);
+          bouton.title = mot;
+        };
+
+        direLEtat(racineHtml.getAttribute('data-laterale') === 'rail');
+
+        bouton?.addEventListener('click', () => {
+          const enRail = racineHtml.getAttribute('data-laterale') !== 'rail';
+          if (enRail) racineHtml.setAttribute('data-laterale', 'rail');
+          else racineHtml.removeAttribute('data-laterale');
+          direLEtat(enRail);
+          try {
+            if (enRail) localStorage.setItem('revinsp.laterale', 'rail');
+            else localStorage.removeItem('revinsp.laterale');
+          } catch {
+            /* Le repli vaut pour cette page ; il ne sera pas retenu, et c'est
+               tout ce qu'on perd. */
+          }
+        });
+      }
 
       /*
          La veille de synchronisation de l'ordinateur certifié.

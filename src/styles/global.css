@@ -1418,8 +1418,26 @@ button:not(:disabled):active,
     --laterale: 15rem;
   }
 
+  /*
+     LE RAIL : la barre repliée (M15 bis, prompt 43).
+
+     `--laterale` est la SEULE source de cette largeur. Elle était écrite deux
+     fois — `w-60` en classe sur le `nav`, et cette variable pour le décalage
+     du contenu —, deux nombres qui disent la même chose et qui divergeront le
+     jour où l'un change. Le rail en aurait fait un troisième.
+
+     3 rem, et non moins : l'icône fait 20 px, et il faut de quoi la viser.
+     Sous `pointer: fine` uniquement — la médiarequête le garantit —, donc
+     c'est le plancher de 24 px de WCAG 2.5.8 qui s'applique, non les 44 px du
+     doigt. Mesuré par `essais:cibles-souris:navigateur`.
+  */
+  :root[data-laterale='rail'] {
+    --laterale: 3rem;
+  }
+
   .barre-laterale {
     display: flex;
+    width: var(--laterale);
   }
 
   /* Ce que la latérale remplace : le ruban horizontal et son sélecteur. */
@@ -1430,6 +1448,56 @@ button:not(:disabled):active,
   /* Le contenu se décale d'autant, sinon la latérale le recouvre. */
   .decale-laterale {
     padding-left: var(--laterale);
+  }
+
+  /*
+     En rail, les libellés sortent — et c'est exactement pourquoi chaque lien
+     porte son `aria-label` EN PERMANENCE : le nom accessible venait du texte
+     de ce `<span>`, et le masquer aurait effacé les douze noms d'un coup.
+     Douze icônes anonymes valent moins qu'une barre qu'on ne replie pas.
+  */
+  :root[data-laterale='rail'] .libelle-laterale {
+    display: none;
+  }
+
+  :root[data-laterale='rail'] .barre-laterale {
+    padding-inline: 0;
+    align-items: center;
+  }
+
+  :root[data-laterale='rail'] .barre-laterale a,
+  :root[data-laterale='rail'] .barre-laterale button {
+    justify-content: center;
+    padding-inline: 0;
+    width: 100%;
+  }
+
+  /*
+     Le filet entre les deux groupes ne paraît QU'EN RAIL, et il est
+     décoratif : déplié, les deux intertitres — le nom de la branche et « Cet
+     espace » — font déjà la séparation. Repliés, ils disparaissent avec les
+     libellés, et le filet prend leur relais À L'ŒIL. Pour le lecteur
+     d'écran, ce sont les deux `role="group"` nommés qui tiennent le
+     groupement, dans les deux états : un filet ne se lit pas.
+  */
+  .separateur-laterale {
+    display: none;
+  }
+
+  :root[data-laterale='rail'] .separateur-laterale {
+    display: block;
+    width: 1.25rem;
+    margin: 0.5rem auto;
+    border: 0;
+    border-top: 1px solid var(--etat-bordure-forte);
+  }
+
+  /* La flèche du repli désigne le geste : vers la gauche pour ranger la
+     barre, vers la droite pour la rouvrir. Une rotation, et non une seconde
+     icône : le catalogue n'a pas de flèche droite, et il n'appartient pas à
+     ce lot d'en ajouter une. */
+  :root[data-laterale='rail'] #replier-laterale svg {
+    transform: rotate(180deg);
   }
 }
 
