@@ -78,6 +78,7 @@ const COUPLES_CLAIR: [string, string, number, string][] = [
   ['--color-sky-900', '--color-sky-50', 4.5, 'text-sky-900 sur bg-sky-50'],
   ['--color-slate-300', '--color-white', 1.2, 'border-slate-300 sur bg-white (décor)'],
   ['--etat-bordure-forte', '--etat-fond', 3, 'bordure de champ sur le fond'],
+  ['--etat-bordure-forte', '--etat-fond-eleve', 3, 'bordure de champ sur une carte'],
 
   /* ──────────────────────────────────────────────────────────────────────
      REPRIS DE « npm run contrastes », QUI EST RETIRÉ.
@@ -126,6 +127,7 @@ const COUPLES_SOMBRE: [string, string, number, string][] = [
   ['--color-rose-300', '--color-rose-950', 4.5, 'dark:text-rose-300 sur rose-950'],
   ['--color-sky-200', '--color-sky-950', 4.5, 'dark:text-sky-200 sur sky-950'],
   ['--etat-bordure-forte', '--etat-fond', 3, 'bordure de champ sur le fond'],
+  ['--etat-bordure-forte', '--etat-fond-eleve', 3, 'bordure de champ sur une carte'],
 
   /* ──────────────────────────────────────────────────────────────────────
      REPRIS DE « npm run contrastes », QUI EST RETIRÉ.

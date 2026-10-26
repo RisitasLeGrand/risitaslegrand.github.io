@@ -105,7 +105,7 @@ import Icone from './Icone.astro';
       <span>Branche</span>
       <select
         id="centre-filtre"
-        class="cible-tactile min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+        class="cible-tactile min-w-0 flex-1 rounded-lg border border-slate-400 bg-white px-2 text-sm dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
       >
         <option value="">Toutes</option>
         <option value="revisions">Révisions</option>
@@ -375,7 +375,7 @@ import Icone from './Icone.astro';
         for (const element of membres) {
           const li = document.createElement('li');
           li.className =
-            'flex items-center gap-1 rounded-lg border border-slate-200 p-1 dark:border-slate-700';
+            'flex items-center gap-1 rounded-lg border border-slate-200 p-1 dark:border-slate-600';
           li.dataset.element = element.id;
           li.dataset.genre = element.genre;
 

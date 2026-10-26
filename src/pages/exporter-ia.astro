@@ -65,7 +65,7 @@ import LienReglages from '../components/LienReglages.astro';
         id="pseudonyme" aria-label="Nom employé dans les textes de l’export"
         type="text"
         autocomplete="off"
-        class="w-full max-w-sm rounded-lg border border-slate-300 px-3 py-2 text-slate-900 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
+        class="w-full max-w-sm rounded-lg border border-slate-400 px-3 py-2 text-slate-900 dark:border-slate-600 dark:bg-slate-950 dark:text-white"
       />
     </section>
 
@@ -130,7 +130,7 @@ import LienReglages from '../components/LienReglages.astro';
           <button
             id="telecharger-unique"
             type="button"
-            class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800"
+            class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm font-medium transition hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800"
           >
             Un seul fichier Markdown
           </button>
@@ -162,7 +162,12 @@ import LienReglages from '../components/LienReglages.astro';
     padding-inline: 1rem;
     font-size: 0.875rem;
     font-weight: 500;
-    border-color: var(--color-slate-300);
+    /* Le jeton, et non le cran : `--etat-bordure-forte` tient 3:1 sur le fond
+       ET sur une carte, dans les quatorze thèmes, et il est déjà sensible au
+       mode — la surcharge sombre qui suivait n'a donc plus d'objet. Le cran
+       300 donnait 1,97:1, et c'est cette bordure seule qui délimite ces
+       boutons (E2, WCAG 1.4.11). */
+    border-color: var(--etat-bordure-forte);
     /* A10 : propriétés nommées, durées aux jetons — voir le même correctif
        dans « syntheses.astro ». */
     transition:
@@ -174,9 +179,6 @@ import LienReglages from '../components/LienReglages.astro';
     border-color: var(--color-indigo-600);
     background: var(--color-indigo-50);
     color: var(--color-indigo-800);
-  }
-  :global(.dark) .choix {
-    border-color: var(--color-slate-700);
   }
   :global(.dark) .choix[aria-pressed='true'] {
     background: color-mix(in srgb, var(--color-indigo-950) 50%, transparent);

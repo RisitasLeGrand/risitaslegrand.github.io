@@ -16,6 +16,16 @@ import { certificationEffective, certificationLocale } from './certification';
 import { motDePasseRetenu } from './mot-de-passe-session';
 import type { Veille } from './arriere-plan';
 
+/**
+ * L'événement par lequel l'état de la veille atteint l'écran.
+ *
+ * Nommé et exporté, parce que deux chaînes identiques écrites à deux endroits
+ * divergent le jour où l'une des deux change — et que la divergence serait
+ * SILENCIEUSE : un témoin qui n'écoute plus rien a exactement l'air d'une
+ * synchronisation qui ne se passe rien.
+ */
+export const EVENEMENT_ETAT = 'revinsp:veille-etat';
+
 let courante: Veille | null = null;
 let enCours: Promise<Veille | null> | null = null;
 
@@ -47,6 +57,29 @@ export async function veiller(): Promise<Veille | null> {
       import('../ui'),
     ]);
     courante = await demarrer({
+      /*
+         L'ÉTAT REMONTE À L'ÉCRAN, ET C'EST LE DÉFAUT QUE CE LOT A TROUVÉ.
+
+         `surEtat` existait dans `OptionsVeille` depuis le début, et personne
+         ne le passait. La mise en page lisait `veille.etat()` UNE FOIS, à
+         l'ouverture du coffre, et ne le relisait jamais : le témoin portait
+         donc l'état qu'avait la veille à cet instant, pour le reste de la
+         vie de la page. « Synchronisation en cours » ne s'affichait que si
+         l'ouverture du coffre tombait pendant un échange, et un échec
+         survenu après restait invisible — alors que le témoin porte
+         `aria-live="polite"`, c'est-à-dire la promesse d'être annoncé.
+
+         Par un événement du document, et non par un appel direct : la veille
+         peut tourner sans écran — un essai, un autre onglet —, et elle ne
+         doit rien savoir de la mise en page. Le `document` est tout de même
+         testé : ce module est chargé paresseusement par la mise en page, donc
+         toujours dans un navigateur aujourd'hui, mais une veille lancée
+         ailleurs ne doit pas se briser sur l'absence de DOM.
+      */
+      surEtat: (etat) => {
+        if (typeof document === 'undefined') return;
+        document.dispatchEvent(new CustomEvent(EVENEMENT_ETAT, { detail: { etat } }));
+      },
       surFusion: async (rapport) => {
         const recu = rapport.recu;
         if (!recu.recues && !recu.revisionsRecues) return;

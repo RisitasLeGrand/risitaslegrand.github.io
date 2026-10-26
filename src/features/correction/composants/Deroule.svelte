@@ -129,16 +129,16 @@
     <div class="mt-2 flex flex-wrap items-center gap-2">
       <button
         type="button"
-        class="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium
-          text-slate-700 disabled:opacity-40 dark:border-slate-700 dark:text-slate-200"
+        class="rounded-md border border-slate-400 px-2.5 py-1 text-xs font-medium
+          text-slate-700 disabled:opacity-40 dark:border-slate-600 dark:text-slate-200"
         disabled={visibles <= 1}
         onclick={() => (visibles = Math.max(1, visibles - 1))}
       >Étape précédente</button>
 
       <button
         type="button"
-        class="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium
-          text-slate-700 disabled:opacity-40 dark:border-slate-700 dark:text-slate-200"
+        class="rounded-md border border-slate-400 px-2.5 py-1 text-xs font-medium
+          text-slate-700 disabled:opacity-40 dark:border-slate-600 dark:text-slate-200"
         disabled={visibles >= total}
         onclick={() => (visibles = Math.min(total, visibles + 1))}
       >Étape suivante</button>

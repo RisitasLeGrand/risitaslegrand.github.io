@@ -160,7 +160,7 @@
           class="rounded border px-2.5 py-1 text-xs font-medium
             {famille === valeur
               ? 'border-indigo-500 text-indigo-700 dark:text-indigo-300'
-              : 'border-slate-200 text-slate-600 dark:border-slate-700 dark:text-slate-300'}"
+              : 'border-slate-400 text-slate-600 dark:border-slate-600 dark:text-slate-300'}"
         >{nom}</button>
       {/each}
     </div>
@@ -366,8 +366,8 @@
     <button
       type="button"
       onclick={exporter}
-      class="rounded border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700
-        hover:border-indigo-300 dark:border-slate-700 dark:text-slate-200"
+      class="rounded border border-slate-400 px-3 py-1.5 text-xs font-medium text-slate-700
+        hover:border-indigo-300 dark:border-slate-600 dark:text-slate-200"
     >Télécharger mes résultats (fichier)</button>
     <button
       type="button"

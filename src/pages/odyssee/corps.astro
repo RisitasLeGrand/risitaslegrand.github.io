@@ -115,7 +115,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Poids du jour (kg)</span>
             <input id="kg" type="text" inputmode="decimal" data-min="20" data-max="400"
-              class="mt-1 min-h-11 w-32 rounded-lg border border-slate-300 bg-white px-3 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+              class="mt-1 min-h-11 w-32 rounded-lg border border-slate-400 bg-white px-3 text-sm tabular-nums dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <button id="peser" type="button"
             class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
@@ -145,14 +145,14 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Quoi</span>
             <select id="quoi"
-              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+              class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950">
               {Object.entries(MESURES).map(([id, libelle]) => <option value={id}>{libelle}</option>)}
             </select>
           </label>
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Mesure (cm)</span>
             <input id="cm" type="text" inputmode="decimal" data-min="1" data-max="300"
-              class="mt-1 min-h-11 w-28 rounded-lg border border-slate-300 bg-white px-3 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+              class="mt-1 min-h-11 w-28 rounded-lg border border-slate-400 bg-white px-3 text-sm tabular-nums dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <button id="mesurer" type="button"
             class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
@@ -173,17 +173,17 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Couché à</span>
             <input id="coucher" type="datetime-local"
-              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Levé à</span>
             <input id="lever" type="datetime-local"
-              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Qualité</span>
             <select id="qualite"
-              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+              class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950">
               <option value="">Non donnée</option>
               <option value="1">1 — très mauvaise</option>
               <option value="2">2</option>
@@ -195,7 +195,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Réveils</span>
             <input id="reveils" type="number" inputmode="numeric" min="0" max="30"
-              class="mt-1 min-h-11 w-20 rounded-lg border border-slate-300 bg-white px-3 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+              class="mt-1 min-h-11 w-20 rounded-lg border border-slate-400 bg-white px-3 text-sm tabular-nums dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <button id="dormir" type="button"
             class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
@@ -212,34 +212,34 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Moment</span>
             <select id="moment"
-              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+              class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950">
               {Object.entries(MOMENTS).map(([id, libelle]) => <option value={id}>{libelle}</option>)}
             </select>
           </label>
           <label class="min-w-48 flex-1 text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Quoi</span>
             <input id="intitule" type="text" maxlength="200"
-              class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              class="mt-1 min-h-11 w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">kcal</span>
             <input id="kcal" type="number" min="0" max="20000" inputmode="numeric"
-              class="mt-1 min-h-11 w-24 rounded-lg border border-slate-300 bg-white px-3 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+              class="mt-1 min-h-11 w-24 rounded-lg border border-slate-400 bg-white px-3 text-sm tabular-nums dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">P</span>
             <input id="proteines" type="number" inputmode="numeric" min="0" max="2000"
-              class="mt-1 min-h-11 w-20 rounded-lg border border-slate-300 bg-white px-2 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+              class="mt-1 min-h-11 w-20 rounded-lg border border-slate-400 bg-white px-2 text-sm tabular-nums dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">G</span>
             <input id="glucides" type="number" inputmode="numeric" min="0" max="2000"
-              class="mt-1 min-h-11 w-20 rounded-lg border border-slate-300 bg-white px-2 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+              class="mt-1 min-h-11 w-20 rounded-lg border border-slate-400 bg-white px-2 text-sm tabular-nums dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">L</span>
             <input id="lipides" type="number" inputmode="numeric" min="0" max="2000"
-              class="mt-1 min-h-11 w-20 rounded-lg border border-slate-300 bg-white px-2 text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+              class="mt-1 min-h-11 w-20 rounded-lg border border-slate-400 bg-white px-2 text-sm tabular-nums dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <button id="manger" type="button"
             class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
@@ -255,13 +255,13 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
         <h2 class="text-lg font-semibold text-slate-900 dark:text-white">Ce que je bois</h2>
         <div class="mt-3 flex flex-wrap gap-2">
           <button type="button" data-verre="150"
-            class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700">+ 150 mL</button>
+            class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm dark:border-slate-600">+ 150 mL</button>
           <button type="button" data-verre="250"
-            class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700">+ 250 mL</button>
+            class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm dark:border-slate-600">+ 250 mL</button>
           <button type="button" data-verre="500"
-            class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700">+ 500 mL</button>
+            class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm dark:border-slate-600">+ 500 mL</button>
           <button type="button" data-verre="1000"
-            class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700">+ 1 L</button>
+            class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm dark:border-slate-600">+ 1 L</button>
           <button id="annuler-verre" type="button"
             class="min-h-11 rounded-lg px-3 text-sm text-slate-500 underline dark:text-slate-400"
             >Annuler le dernier</button>
@@ -288,12 +288,12 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
             <label class="min-w-48 flex-1 text-sm">
               <span class="block text-slate-700 dark:text-slate-200">Quoi</span>
               <input id="intitule-sante" type="text" maxlength="200"
-                class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+                class="mt-1 min-h-11 w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
             </label>
             <label class="text-sm">
               <span class="block text-slate-700 dark:text-slate-200">Depuis le</span>
               <input id="debut-sante" type="date"
-                class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+                class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
             </label>
             <label class="text-sm">
               <span class="block text-slate-700 dark:text-slate-200">Intensité</span>
@@ -359,13 +359,13 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
             </p>
             <div id="reponses-sexe" class="mt-2 flex flex-wrap gap-2">
               <button type="button" data-sexe="feminin" aria-pressed="false"
-                class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm text-slate-700 aria-pressed:border-indigo-500 aria-pressed:bg-indigo-50 dark:border-slate-600 dark:text-slate-200 dark:aria-pressed:bg-indigo-950"
+                class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm text-slate-700 aria-pressed:border-indigo-500 aria-pressed:bg-indigo-50 dark:border-slate-600 dark:text-slate-200 dark:aria-pressed:bg-indigo-950"
                 >Féminin</button>
               <button type="button" data-sexe="masculin" aria-pressed="false"
-                class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm text-slate-700 aria-pressed:border-indigo-500 aria-pressed:bg-indigo-50 dark:border-slate-600 dark:text-slate-200 dark:aria-pressed:bg-indigo-950"
+                class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm text-slate-700 aria-pressed:border-indigo-500 aria-pressed:bg-indigo-50 dark:border-slate-600 dark:text-slate-200 dark:aria-pressed:bg-indigo-950"
                 >Masculin</button>
               <button type="button" data-sexe="sans-reponse" aria-pressed="false"
-                class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm text-slate-700 aria-pressed:border-indigo-500 aria-pressed:bg-indigo-50 dark:border-slate-600 dark:text-slate-200 dark:aria-pressed:bg-indigo-950"
+                class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm text-slate-700 aria-pressed:border-indigo-500 aria-pressed:bg-indigo-50 dark:border-slate-600 dark:text-slate-200 dark:aria-pressed:bg-indigo-950"
                 >Je préfère ne pas répondre</button>
             </div>
             <p id="sexe-dit" class="mt-2 text-sm text-slate-600 dark:text-slate-300" role="status"></p>
@@ -380,24 +380,24 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
               <label class="text-sm">
                 <span class="block text-slate-700 dark:text-slate-200">Quoi</span>
                 <input id="nom-prise" type="text" maxlength="120"
-                  class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+                  class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
               </label>
               <label class="text-sm">
                 <span class="block text-slate-700 dark:text-slate-200">Dose</span>
                 <input id="dose" type="text" maxlength="60" placeholder="500 mg"
-                  class="mt-1 min-h-11 w-28 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+                  class="mt-1 min-h-11 w-28 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
               </label>
               <label class="text-sm">
                 <span class="block text-slate-700 dark:text-slate-200">Voie</span>
                 <select id="voie"
-                  class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+                  class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950">
                   {Object.entries(VOIES).map(([id, libelle]) => <option value={id}>{libelle}</option>)}
                 </select>
               </label>
               <label class="text-sm">
                 <span class="block text-slate-700 dark:text-slate-200">Pourquoi</span>
                 <input id="motif-prise" type="text" maxlength="120"
-                  class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+                  class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
               </label>
               <button id="noter-prise" type="button"
                 class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
@@ -415,14 +415,14 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
               <label class="text-sm">
                 <span class="block text-slate-700 dark:text-slate-200">Nature</span>
                 <select id="nature"
-                  class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+                  class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950">
                   {Object.entries(NATURES).map(([id, libelle]) => <option value={id}>{libelle}</option>)}
                 </select>
               </label>
               <label class="min-w-48 flex-1 text-sm">
                 <span class="block text-slate-700 dark:text-slate-200">Intitulé</span>
                 <input id="intitule-statut" type="text" maxlength="200"
-                  class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+                  class="mt-1 min-h-11 w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
               </label>
               <button id="noter-statut" type="button"
                 class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"

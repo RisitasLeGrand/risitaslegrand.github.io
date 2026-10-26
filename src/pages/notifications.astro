@@ -111,7 +111,7 @@ import LienReglages from '../components/LienReglages.astro';
           type="number" inputmode="numeric"
           min="1"
           max="3650"
-          class="h-11 w-28 rounded-lg border border-slate-300 bg-white px-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          class="h-11 w-28 rounded-lg border border-slate-400 bg-white px-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
         />
         <span class="ml-1 text-xs text-slate-500 dark:text-slate-400">jours</span>
       </label>
@@ -122,7 +122,7 @@ import LienReglages from '../components/LienReglages.astro';
           type="number" inputmode="numeric"
           min="1"
           max="3650"
-          class="h-11 w-28 rounded-lg border border-slate-300 bg-white px-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
+          class="h-11 w-28 rounded-lg border border-slate-400 bg-white px-2 dark:border-slate-600 dark:bg-slate-800 dark:text-slate-100"
         />
         <span class="ml-1 text-xs text-slate-500 dark:text-slate-400">jours</span>
       </label>
@@ -243,7 +243,7 @@ import LienReglages from '../components/LienReglages.astro';
         'flex min-h-11 cursor-pointer items-center gap-3 rounded-lg px-2 transition hover:bg-slate-100 dark:hover:bg-slate-800';
       const case_ = document.createElement('input');
       case_.type = 'checkbox';
-      case_.className = 'h-4 w-4 shrink-0 rounded border-slate-300';
+      case_.className = 'h-4 w-4 shrink-0 rounded border-slate-400';
       case_.checked = actives.has(source.id);
       case_.dataset.source = source.id;
       const texte = document.createElement('span');

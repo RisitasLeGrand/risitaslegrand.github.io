@@ -145,7 +145,7 @@ import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/c
                 <button
                   type="button"
                   data-niveau={niveau}
-                  class="min-h-[44px] rounded-md border border-slate-300 px-4 py-2 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
+                  class="min-h-[44px] rounded-md border border-slate-400 px-4 py-2 text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
                 >
                   {NIVEAUX_DE_SAIGNEMENT[niveau]}
                 </button>
@@ -171,13 +171,13 @@ import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/c
             <textarea
               id="note"
               rows="3"
-              class="mt-1 w-full rounded-md border border-slate-300 p-2 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
+              class="mt-1 w-full rounded-md border border-slate-400 p-2 dark:border-slate-600 dark:bg-slate-900 dark:text-white"
             ></textarea>
           </label>
           <button
             id="noter"
             type="button"
-            class="mt-2 min-h-[44px] rounded-md border border-slate-300 px-4 py-2 text-slate-700 dark:border-slate-600 dark:text-slate-200"
+            class="mt-2 min-h-[44px] rounded-md border border-slate-400 px-4 py-2 text-slate-700 dark:border-slate-600 dark:text-slate-200"
           >
             Enregistrer la note
           </button>
@@ -253,7 +253,7 @@ import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/c
               <input
                 id="effacer-du"
                 type="date"
-                class="mt-1 block min-h-[44px] rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                class="mt-1 block min-h-[44px] rounded-md border border-slate-400 px-3 py-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
               />
             </label>
             <label class="text-sm text-slate-600 dark:text-slate-300">
@@ -261,14 +261,14 @@ import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/c
               <input
                 id="effacer-au"
                 type="date"
-                class="mt-1 block min-h-[44px] rounded-md border border-slate-300 px-3 py-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
+                class="mt-1 block min-h-[44px] rounded-md border border-slate-400 px-3 py-2 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-100"
               />
             </label>
           </div>
           <button
             id="compter-periode"
             type="button"
-            class="mt-3 min-h-[44px] rounded-md border border-slate-300 px-4 py-2 text-sm text-slate-700 dark:border-slate-600 dark:text-slate-200"
+            class="mt-3 min-h-[44px] rounded-md border border-slate-400 px-4 py-2 text-sm text-slate-700 dark:border-slate-600 dark:text-slate-200"
           >
             Compter les saisies de cette période
           </button>
@@ -459,7 +459,7 @@ import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/c
       observes.className = 'space-y-2';
       for (const classe of classement.observes) {
         const li = document.createElement('li');
-        li.className = 'rounded border border-slate-200 p-2 dark:border-slate-700';
+        li.className = 'rounded border border-slate-200 p-2 dark:border-slate-600';
         const nom = document.createElement('p');
         nom.className = 'font-medium text-slate-800 dark:text-slate-100';
         /*
@@ -545,7 +545,7 @@ import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/c
       /* ── Le bloc final, fixe ──────────────────────────────────────── */
       const final = document.createElement('p');
       final.className =
-        'border-t border-slate-200 pt-2 text-sm text-slate-600 dark:border-slate-700 dark:text-slate-300';
+        'border-t border-slate-200 pt-2 text-sm text-slate-600 dark:border-slate-600 dark:text-slate-300';
       final.textContent = BLOC_FINAL;
       corps.appendChild(final);
     } catch (e) {
@@ -638,7 +638,7 @@ import { NIVEAUX_DE_SAIGNEMENT, ORDRE_DES_NIVEAUX } from '../../../lib/odyssee/c
       for (const cycle of derives.cycles) {
         const li = document.createElement('li');
         li.className =
-          'rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-700';
+          'rounded-lg border border-slate-200 p-3 text-sm dark:border-slate-600';
 
         const titre = document.createElement('p');
         titre.className = 'font-medium text-slate-900 dark:text-white';

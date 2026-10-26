@@ -692,21 +692,21 @@
         <button
           type="button"
           onclick={() => (comprendreOuvert = !comprendreOuvert)}
-          class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700
-            hover:border-indigo-300 dark:border-slate-700 dark:text-slate-200"
+          class="rounded-lg border border-slate-400 px-3 py-1.5 text-sm font-medium text-slate-700
+            hover:border-indigo-300 dark:border-slate-600 dark:text-slate-200"
         >{comprendreOuvert ? 'Masquer les exercices' : 'Comprendre les exercices'}</button>
         <button
           type="button"
           onclick={() => (statsOuvert = !statsOuvert)}
-          class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700
-            hover:border-indigo-300 dark:border-slate-700 dark:text-slate-200"
+          class="rounded-lg border border-slate-400 px-3 py-1.5 text-sm font-medium text-slate-700
+            hover:border-indigo-300 dark:border-slate-600 dark:text-slate-200"
         >{statsOuvert ? 'Masquer la progression' : 'Ma progression'}</button>
         <button
           type="button"
           onclick={() => (entrainementOuvert = !entrainementOuvert)}
           aria-expanded={entrainementOuvert}
-          class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700
-            hover:border-indigo-300 dark:border-slate-700 dark:text-slate-200"
+          class="rounded-lg border border-slate-400 px-3 py-1.5 text-sm font-medium text-slate-700
+            hover:border-indigo-300 dark:border-slate-600 dark:text-slate-200"
         >{entrainementOuvert ? 'Masquer mon entraînement' : 'Mon entraînement'}</button>
       </div>
     </div>
@@ -769,7 +769,7 @@
       <button
         type="button"
         onclick={commencerLaDecouverte}
-        class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700
+        class="rounded-lg border border-slate-400 px-5 py-2.5 text-sm font-semibold text-slate-700
           hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
       >Essayer d'abord ({QUESTIONS_DECOUVERTE} questions, dont un exemple)</button>
     </div>
@@ -794,8 +794,8 @@
         <button
           type="button"
           onclick={() => (consigneOuverte = true)}
-          class="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600
-            hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300"
+          class="rounded-lg border border-slate-400 px-2.5 py-1 text-xs font-medium text-slate-600
+            hover:border-indigo-300 dark:border-slate-600 dark:text-slate-300"
         >Revoir la consigne</button>
         <p class="text-xs text-slate-500 dark:text-slate-400">{rang + 1} / {questions.length}</p>
       </div>
@@ -888,8 +888,8 @@
             <select
               bind:value={appariements[clef]}
               disabled={corrige}
-              class="min-w-0 flex-1 rounded border border-slate-300 bg-white px-2 py-1.5 text-sm
-                text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200"
+              class="min-w-0 flex-1 rounded border border-slate-400 bg-white px-2 py-1.5 text-sm
+                text-slate-800 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-200"
             >
               <option value={undefined}>— choisir —</option>
               {#each question.reponse.droite as valeur (valeur)}
@@ -1005,9 +1005,9 @@
           <button
             type="button"
             onclick={demanderALIA}
-            class="mt-3 ml-2 rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm
+            class="mt-3 ml-2 rounded-lg border border-slate-400 bg-white px-3 py-1.5 text-sm
               font-medium text-slate-700 hover:border-indigo-400 hover:text-indigo-700
-              dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200
+              dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200
               dark:hover:border-indigo-600 dark:hover:text-indigo-300"
           >Préparer une question pour une IA</button>
         {/if}
