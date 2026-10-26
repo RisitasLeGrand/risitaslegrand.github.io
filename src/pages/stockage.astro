@@ -400,7 +400,7 @@ if (sansIntitule.length > 0) {
   import { confirmer } from '../lib/boite';
   import { messageDUneErreur } from '../lib/agir';
   import { auDeverrouillage } from '../lib/chargement';
-  import { lien, notifier } from '../lib/ui';
+  import { accorde, lien, notifier, pluriel } from '../lib/ui';
   import {
     controlerIntegrite,
     demanderPersistance,
@@ -564,7 +564,8 @@ if (sansIntitule.length > 0) {
       titre.textContent = g.libelle;
       const compte = document.createElement('span');
       compte.className = 'text-slate-500 dark:text-slate-400';
-      compte.textContent = ` — ${combien.toLocaleString('fr-FR')} enregistrement(s)`;
+      compte.textContent =
+        ` — ${combien.toLocaleString('fr-FR')} ${accorde(combien, 'enregistrement')}`;
       const detail = document.createElement('span');
       detail.className = 'block text-xs text-slate-400';
       detail.textContent = g.description;
@@ -716,7 +717,9 @@ if (sansIntitule.length > 0) {
       !(await redemanderLeMotDePasse({
         titre: 'Effacer sans sauvegarder',
         consequence:
-          `${cibleCourante.groupes.length} domaine(s) vont être effacés définitivement, sans ` +
+          `${pluriel(cibleCourante.groupes.length, 'domaine')} ` +
+          `${accorde(cibleCourante.groupes.length, 'va', 'vont')} être ` +
+          `${accorde(cibleCourante.groupes.length, 'effacé')} définitivement, sans ` +
           'aucun fichier pour revenir en arrière. Un effacement est la seule opération du ' +
           'site qui soit sans recours.',
         action: 'Effacer définitivement',
@@ -732,8 +735,12 @@ if (sansIntitule.length > 0) {
       peindreOccupation(o);
       dire(
         'message-effacement',
-        `${r.total.toLocaleString('fr-FR')} enregistrement(s) effacés` +
-          (r.refuses.length ? `, ${r.refuses.length} magasin(s) laissés entiers` : '') +
+        `${r.total.toLocaleString('fr-FR')} ${accorde(r.total, 'enregistrement')} ` +
+          `${accorde(r.total, 'effacé')}` +
+          (r.refuses.length
+            ? `, ${pluriel(r.refuses.length, 'magasin')} ` +
+              `${accorde(r.refuses.length, 'laissé')} ${accorde(r.refuses.length, 'entier')}`
+            : '') +
           '.',
         'succes',
       );
@@ -922,10 +929,11 @@ if (sansIntitule.length > 0) {
           return;
         }
         await telecharger(fichiers);
+        const combienEnTout = fichiers.reduce((s, f) => s + f.enregistrements, 0);
         dire(
           'message-export',
-          `${fichiers.length} fichier(s) téléchargés, ` +
-            `${fichiers.reduce((s, f) => s + f.enregistrements, 0).toLocaleString('fr-FR')} enregistrement(s). ` +
+          `${pluriel(fichiers.length, 'fichier')} ${accorde(fichiers.length, 'téléchargé')}, ` +
+            `${combienEnTout.toLocaleString('fr-FR')} ${accorde(combienEnTout, 'enregistrement')}. ` +
             'Rappel : ces fichiers ne se réimportent pas.',
           'succes',
         );
@@ -947,7 +955,8 @@ if (sansIntitule.length > 0) {
         await telecharger([fichier]);
         dire(
           'message-export',
-          `${fichier.nom} téléchargé, ${fichier.enregistrements.toLocaleString('fr-FR')} enregistrement(s). ` +
+          `${fichier.nom} téléchargé, ${fichier.enregistrements.toLocaleString('fr-FR')} ` +
+            `${accorde(fichier.enregistrements, 'enregistrement')}. ` +
             'Rappel : ce fichier ne se réimporte pas.',
           'succes',
         );
@@ -997,7 +1006,9 @@ if (sansIntitule.length > 0) {
         const quoi = document.createElement('p');
         quoi.className = 'mt-2 text-slate-600 dark:text-slate-300';
         quoi.textContent = prevision.supprimees
-          ? `${prevision.supprimees} objet(s) supprimé(s) attendent dans le journal.`
+          ? `${pluriel(prevision.supprimees, 'objet')} ` +
+            `${accorde(prevision.supprimees, 'supprimé')} ` +
+            `${accorde(prevision.supprimees, 'attend', 'attendent')} dans le journal.`
           : 'Rien n’attend dans le journal : aucun objet supprimé.';
         const vers = document.createElement('a');
         vers.href = lien('/appareils/');
@@ -1022,10 +1033,13 @@ if (sansIntitule.length > 0) {
       } else {
         intro.className = 'text-slate-700 dark:text-slate-200';
         intro.textContent =
-          `${plan.cibles.length} objet(s) supprimé(s) seraient effacés du journal, ` +
-          `soit ${plan.operations.length} opération(s) — dont ${plan.pierresTombales} ` +
-          `pierre(s) tombale(s) — et ${plan.revisions.length} entrée(s) de journal de ` +
-          'révision.';
+          `${pluriel(plan.cibles.length, 'objet')} ${accorde(plan.cibles.length, 'supprimé')} ` +
+          `${accorde(plan.cibles.length, 'serait', 'seraient')} ` +
+          `${accorde(plan.cibles.length, 'effacé')} du journal, ` +
+          `soit ${pluriel(plan.operations.length, 'opération')} — dont ` +
+          `${pluriel(plan.pierresTombales, 'pierre')} ` +
+          `${accorde(plan.pierresTombales, 'tombale')} — et ` +
+          `${pluriel(plan.revisions.length, 'entrée')} de journal de révision.`;
         const liste = document.createElement('ul');
         liste.className = 'mt-2 list-disc space-y-1 pl-5 text-slate-600 dark:text-slate-300';
         for (const texte of [
@@ -1033,8 +1047,12 @@ if (sansIntitule.length > 0) {
             ? 'Cet appareil est seul au registre : rien à attendre de personne.'
             : 'Borné à ce que tous vos appareils ont accusé détenir.',
           plan.reportees.length
-            ? `${plan.reportees.length} objet(s) supprimé(s) sont reportés : une de leurs ` +
-              'entrées est plus récente que cette borne.'
+            ? `${pluriel(plan.reportees.length, 'objet')} ` +
+              `${accorde(plan.reportees.length, 'supprimé')} ` +
+              `${accorde(plan.reportees.length, 'est', 'sont')} ` +
+              `${accorde(plan.reportees.length, 'reporté')} : une de ` +
+              `${accorde(plan.reportees.length, 'ses', 'leurs')} entrées est plus récente ` +
+              'que cette borne.'
             : 'Aucun objet reporté.',
           'Aucun historique de carte vivante n’est touché.',
         ]) {
@@ -1067,9 +1085,11 @@ if (sansIntitule.length > 0) {
         const rapport = await compacter();
         message.className = 'mt-3 text-sm text-emerald-600 dark:text-emerald-400';
         message.textContent =
-          `Journal compacté : ${rapport.operations} opération(s) et ` +
-          `${rapport.revisions} entrée(s) de révision retirées, pour ` +
-          `${rapport.cibles} objet(s) supprimé(s). Empreinte : ${rapport.empreinte.slice(0, 16)}.`;
+          `Journal compacté : ${pluriel(rapport.operations, 'opération')} et ` +
+          `${pluriel(rapport.revisions, 'entrée')} de révision ` +
+          `${accorde(rapport.revisions, 'retirée')}, pour ` +
+          `${pluriel(rapport.cibles, 'objet')} ${accorde(rapport.cibles, 'supprimé')}. ` +
+          `Empreinte : ${rapport.empreinte.slice(0, 16)}.`;
         message.classList.remove('hidden');
         // Repeindre avant d'annoncer la suite : l'aperçu affiché était celui
         // d'avant, et le laisser ferait croire qu'il reste autant à faire.

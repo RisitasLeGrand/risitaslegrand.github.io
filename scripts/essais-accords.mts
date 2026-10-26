@@ -51,7 +51,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { accorde, pluriel } from '../src/lib/noyau/accords.ts';
-import { sansCommentaires } from './lib/sans-commentaires.mjs';
+import { sitesInterdits } from './lib/accords-balayage.mjs';
 
 let echecs = 0;
 const v = (titre: string, obtenu: unknown, attendu: unknown) => {
@@ -104,99 +104,7 @@ v(
    2. Le balayage des sources
    ══════════════════════════════════════════════════════════════════════════ */
 
-/** Une lettre collée à « (s) » ou « (es) ». */
-const COLLE = /\p{L}\((s|es)\)/gu;
-/** Une chaîne qui ne contient que la forme interdite. */
-const SEULE = /^\s*\((s|es)\)\s*$/;
-
-/**
- * Les morceaux de TEXTE d'une source, avec leur ligne.
- *
- * ## Un seul passage, et l'état traverse les lignes
- *
- * La première version lisait ligne à ligne, et deux de mes propres contrôles
- * l'ont prise en faute :
- *
- * - un gabarit sur PLUSIEURS lignes échappait entièrement. Le guillemet
- *   ouvrant est à la première ligne, les suivantes n'en portent aucun : le
- *   balayage n'y voyait donc pas de texte. Or ce sont les textes les plus
- *   longs, c'est-à-dire les plus lus ;
- * - une chaîne IMBRIQUÉE dans une interpolation passait aussi. Tout ce qui
- *   suivait le premier accent grave était compté comme un seul bloc de texte,
- *   donc la forme assemblée à l'exécution ne ressortait pas.
- *
- * D'où un passage unique, avec une pile : dans un gabarit, une interpolation
- * redevient du CODE, où un guillemet rouvre une chaîne à son tour. C'est la
- * seule façon de voir le second cas, et c'est aussi ce qui évite d'accuser le
- * code qui vit entre les accolades.
- *
- * Ce n'est pas un analyseur de TypeScript et ça ne cherche pas à l'être : une
- * expression régulière portant un guillemet le tromperait. On ne lui demande
- * que de distinguer le texte du code, assez bien pour ne jamais accuser à
- * tort — un balayage qui crie au loup se fait désactiver, et c'est ainsi
- * qu'on perd un garde-fou.
- */
-function morceauxDeTexte(source: string): { ligne: number; texte: string }[] {
-  const morceaux: { ligne: number; texte: string }[] = [];
-  const pile: string[] = [];
-  let i = 0;
-  let ligne = 1;
-  let debutLigne = 1;
-  let courant = '';
-
-  const fermer = () => {
-    if (courant) morceaux.push({ ligne: debutLigne, texte: courant });
-    courant = '';
-  };
-
-  while (i < source.length) {
-    const c = source[i];
-    const dedans = pile[pile.length - 1];
-    if (c === '\n') ligne += 1;
-
-    if (dedans === "'" || dedans === '"' || dedans === '`') {
-      if (c === '\\') {
-        courant += source.slice(i, i + 2);
-        i += 2;
-        continue;
-      }
-      if (c === dedans) {
-        fermer();
-        pile.pop();
-        i += 1;
-        continue;
-      }
-      if (dedans === '`' && source.slice(i, i + 2) === '${') {
-        fermer();
-        pile.push('$');
-        i += 2;
-        continue;
-      }
-      courant += c;
-      i += 1;
-      continue;
-    }
-
-    /* Ici l'on est dans du code : au premier niveau, ou dans une interpolation. */
-    if (c === '}' && dedans === '$') {
-      pile.pop();
-      debutLigne = ligne;
-      i += 1;
-      continue;
-    }
-    if (c === "'" || c === '"' || c === '`') {
-      pile.push(c);
-      debutLigne = ligne;
-      courant = '';
-      i += 1;
-      continue;
-    }
-    i += 1;
-  }
-  fermer();
-  return morceaux;
-}
-
+/** Les sources du site, récursivement. */
 const fichiersDe = (dossier: string): string[] =>
   readdirSync(dossier, { withFileTypes: true }).flatMap((e) =>
     e.isDirectory()
@@ -205,18 +113,6 @@ const fichiersDe = (dossier: string): string[] =>
         ? [join(dossier, e.name)]
         : [],
   );
-
-/** Les sites de la forme interdite, dans le TEXTE d'une source. */
-export function sitesInterdits(source: string): { ligne: number; texte: string }[] {
-  const sites: { ligne: number; texte: string }[] = [];
-  for (const { ligne, texte } of morceauxDeTexte(sansCommentaires(source).join('\n'))) {
-    const combien = [...texte.matchAll(COLLE)].length + (SEULE.test(texte) ? 1 : 0);
-    for (let k = 0; k < combien; k += 1) {
-      sites.push({ ligne, texte: texte.replace(/\s+/g, ' ').trim().slice(0, 120) });
-    }
-  }
-  return sites;
-}
 
 console.log('\n\u001b[1mLE BALAYAGE DES SOURCES\u001b[0m');
 {
