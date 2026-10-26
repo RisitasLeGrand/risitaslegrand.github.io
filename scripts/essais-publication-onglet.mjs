@@ -199,17 +199,34 @@ console.log('\n« MASQUER » LE FAIT TAIRE');
   const { ctx, page } = await unOngletOuvert();
   await republier('b5essaimasquer');
   await revenirSurLOnglet(page);
-  vrai('prémisse : le bandeau est là', (await bandeau(page)).la);
-
-  await page.click('#bandeau-publication-masquer');
-  await page.waitForTimeout(500);
-  v('il part', (await bandeau(page)).la, false);
+  const laPourMasquer = (await bandeau(page)).la;
+  vrai('prémisse : le bandeau est là', laPourMasquer);
   /*
-     Et il ne revient pas. Un bandeau qu'on écarte et qui reparaît au premier
-     coup d'œil ailleurs serait pire que pas de bouton du tout.
+     ON S'ARRÊTE SI LA PRÉMISSE TOMBE, et c'est un sabotage qui l'a appris.
+
+     La surveillance retirée, le bandeau ne paraît pas : `page.click` attendait
+     alors trente secondes un bouton qui n'existait pas, puis l'essai MOURAIT
+     sur un « Timeout 30000ms exceeded ». Une panne n'est pas un rouge — elle
+     ne dit pas ce qui a cassé, et elle emporte les trois sections suivantes.
+
+     C'est la troisième fois que je paie cette leçon dans ce chantier. La règle
+     est désormais sans exception : un relevé d'abord, le geste ensuite, et un
+     geste qui dépend d'un élément absent ne se tente pas.
   */
-  await revenirSurLOnglet(page);
-  v('et il ne revient pas au retour suivant', (await bandeau(page)).la, false);
+  if (!laPourMasquer) {
+    console.log('\x1b[31m✗\x1b[0m la suite de cette section n’est pas mesurée : rien à masquer');
+    rouges += 1;
+  } else {
+    await page.click('#bandeau-publication-masquer');
+    await page.waitForTimeout(500);
+    v('il part', (await bandeau(page)).la, false);
+    /*
+       Et il ne revient pas. Un bandeau qu'on écarte et qui reparaît au premier
+       coup d'œil ailleurs serait pire que pas de bouton du tout.
+    */
+    await revenirSurLOnglet(page);
+    v('et il ne revient pas au retour suivant', (await bandeau(page)).la, false);
+  }
   await ctx.close();
 }
 
@@ -222,8 +239,14 @@ console.log('\n« RECHARGER » EMMÈNE SUR LA NOUVELLE VERSION');
   const { ctx, page } = await unOngletOuvert();
   await republier('b5essairecharger');
   await revenirSurLOnglet(page);
-  vrai('prémisse : le bandeau est là', (await bandeau(page)).la);
-
+  const laPourRecharger = (await bandeau(page)).la;
+  vrai('prémisse : le bandeau est là', laPourRecharger);
+  /* Même garde : sans bandeau, il n'y a pas de bouton à cliquer. */
+  if (!laPourRecharger) {
+    console.log('\x1b[31m✗\x1b[0m la suite de cette section n’est pas mesurée : rien à recharger');
+    rouges += 1;
+    await ctx.close();
+  } else {
   await Promise.all([
     page.waitForNavigation({ waitUntil: 'load', timeout: 60000 }).catch(() => {}),
     page.click('#bandeau-publication .bandeau-publication-bouton'),
@@ -254,6 +277,7 @@ console.log('\n« RECHARGER » EMMÈNE SUR LA NOUVELLE VERSION');
   vrai('la session est toujours ouverte', apres.ouvert);
   v('et c’est bien la nouvelle version qui est servie', apres.publiee, 'b5essairecharger');
   await ctx.close();
+  }
 }
 
 /* ══════════════════════════════════════════════════════════════════════════
