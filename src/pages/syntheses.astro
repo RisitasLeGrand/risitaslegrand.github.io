@@ -108,6 +108,7 @@ import Base from '../layouts/Base.astro';
 
 <script>
   import { auDeverrouillage } from '../lib/chargement';
+  import { accorde, pluriel } from '../lib/noyau/accords';
   import { syntheseDe } from '../lib/indicateurs';
   import type { Comparaison, TypePeriode } from '../lib/odyssee/syntheses';
   import type { Evaluation } from '../lib/odyssee/indicateurs';
@@ -239,7 +240,8 @@ import Base from '../layouts/Base.astro';
       synthese.periode.libelle.charAt(0).toUpperCase() + synthese.periode.libelle.slice(1);
     const mesurees = synthese.evaluations.filter((e) => e.mesure);
     $('couverture').textContent =
-      `${mesurees.length} indicateur(s) mesuré(s) sur ${synthese.evaluations.length} ` +
+      `${pluriel(mesurees.length, 'indicateur')} ${accorde(mesurees.length, 'mesuré')} ` +
+      `sur ${synthese.evaluations.length} ` +
       `— couverture de ${Math.round(synthese.couverture * 100)} %. ` +
       'Les autres attendent une branche qui publie leurs faits.';
 
@@ -251,7 +253,7 @@ import Base from '../layouts/Base.astro';
         'rounded-full border border-slate-300 px-3 py-1 text-slate-600 dark:border-slate-700 dark:text-slate-300';
       puce.textContent =
         `${d.domaine === 'transverse' ? 'Transverse' : libelleDuDomaine(d.domaine)} : ` +
-        `${d.mesures}/${d.declares} mesurés, ${d.exploitables} exploitable(s)`;
+        `${d.mesures}/${d.declares} mesurés, ${pluriel(d.exploitables, 'exploitable')}`;
       domaines.appendChild(puce);
     }
 

@@ -198,7 +198,7 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
   import { coffreOuvert, surCoffre } from '../lib/coffre';
   import { ACCES } from '../lib/parametres/acces';
   import { REGLAGES } from '../lib/parametres/catalogue';
-  import { lien } from '../lib/ui';
+  import { accorde, lien, pluriel } from '../lib/ui';
 
   const par = new Map(REGLAGES.map((r) => [r.id, r]));
 
@@ -394,7 +394,11 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
       section.hidden = !reste;
     }
     resultat.textContent =
-      q === '' ? '' : vus === 0 ? 'Aucun réglage ne correspond.' : `${vus} réglage(s) trouvé(s).`;
+      q === ''
+        ? ''
+        : vus === 0
+          ? 'Aucun réglage ne correspond.'
+          : `${pluriel(vus, 'réglage')} ${accorde(vus, 'trouvé')}.`;
   });
 
   /* ── La version de publication (43, B4) ───────────────────────────────── */

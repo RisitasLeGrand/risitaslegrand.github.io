@@ -244,6 +244,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
   import { unSeulGeste } from '../../lib/geste';
+  import { pluriel } from '../../lib/noyau/accords';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import {
     DIMENSIONS,
@@ -345,7 +346,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
            chiffrée se termine, un refus vague se répète.
         */
         const reste = joursRestants(checkins, d);
-        dd.textContent = `Encore ${reste} jour(s) à noter.`;
+        dd.textContent = `Encore ${pluriel(reste, 'jour')} à noter.`;
         dd.dataset.tendance = 'inconnue';
       } else {
         const signe = ecart.ecart > 0 ? '+' : '';

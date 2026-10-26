@@ -232,7 +232,7 @@ import Base from '../../layouts/Base.astro';
     type Portee,
   } from '../../lib/odyssee/modification-serie';
   import { coffreOuvert } from '../../lib/coffre';
-  import { base } from '../../lib/ui';
+  import { accorde, base, pluriel } from '../../lib/ui';
   import type { Tache } from '../../lib/odyssee/modele';
   import { HEURES_SURCHARGE } from '../../lib/odyssee/jour';
   import { jourLogique } from '../../lib/noyau/jour-logique';
@@ -1017,7 +1017,7 @@ import Base from '../../layouts/Base.astro';
     for (const e of r.aEcrire) await ecrireEvenement(e);
 
     const dit: { texte: string; ton?: 'alerte' }[] = [
-      { texte: `${r.nouveaux} ajouté(s), ${r.misAJour} mis à jour.` },
+      { texte: `${r.nouveaux} ${accorde(r.nouveaux, 'ajouté')}, ${r.misAJour} mis à jour.` },
     ];
     /*
        Ce qui n'a pas été compris est dit, et nommé. Un import silencieux qui
@@ -1040,7 +1040,9 @@ import Base from '../../layouts/Base.astro';
     }
     if (r.sansDomaine) {
       dit.push({
-        texte: `${r.sansDomaine} sans domaine, classé(s) dans « ${libelleDuDomaine(actifs[0] ?? 'ordre')} ».`,
+        texte:
+          `${r.sansDomaine} sans domaine, ${accorde(r.sansDomaine, 'classé')} dans ` +
+          `« ${libelleDuDomaine(actifs[0] ?? 'ordre')} ».`,
       });
     }
     direRapport(dit);
@@ -1051,7 +1053,13 @@ import Base from '../../layouts/Base.astro';
     const evenements = await tousLesEvenements();
     const fichier = versFichierIcs(evenements);
     offrirLeFichier(fichier, `cyclades-agenda-${jourISO()}.ics`, 'text/calendar');
-    direRapport([{ texte: `${evenements.length} moment(s) exporté(s).` }]);
+    direRapport([
+      {
+        texte:
+          `${pluriel(evenements.length, 'moment')} ` +
+          `${accorde(evenements.length, 'exporté')}.`,
+      },
+    ]);
   }
 
   /* ────────────────────────────────────────────────────────────────────── */
