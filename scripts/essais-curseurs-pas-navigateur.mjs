@@ -31,6 +31,12 @@
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+/*
+   LA CONSTANTE DU MOTEUR, IMPORTÉE et non recopiée : un essai qui écrirait
+   « 12 » de son côté cesserait de mesurer le jour où le moteur change d'avis,
+   et c'est précisément le défaut qu'il garde.
+*/
+import { N_MAXIMAL } from '../src/features/quad-n-back/moteur/nback.js';
 
 const MDP = motDePasseEssais();
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
@@ -236,7 +242,107 @@ for (const touche of ['Enter', 'Space']) {
   );
 }
 
+/* ── Le maximum, et la grille ──────────────────────────────────────────── */
+
+console.log('\nL’ÉCRAN SAIT REPRÉSENTER CE QUE LE MOTEUR PRODUIT');
+
+/*
+   LE MAXIMUM DU CURSEUR EST CELUI DU MOTEUR.
+
+   Il valait 9 quand le moteur monte à 12 par progression automatique. Une
+   partie à n = 10 s'affichait donc au maximum du curseur, et l'avoir baissé à
+   la main aurait silencieusement défait la progression. Relevé par le
+   constructeur sur mon propre lot.
+*/
+verifier(
+  `niveau-n monte jusqu’où le moteur monte (${N_MAXIMAL})`,
+  Number(await page.locator('#niveau-n').getAttribute('max')),
+  N_MAXIMAL,
+);
+
 verifier('aucune erreur de page', erreurs.slice(0, 3), []);
+
+/* ── La divergence entre le réglage enregistré et le curseur ───────────── */
+
+console.log('\nLE RÉGLAGE ENREGISTRÉ ET LE CURSEUR NE DIVERGENT PLUS');
+
+/*
+   DEUX FOIS JE ME SUIS TROMPÉ SUR CE DÉFAUT, et les deux fois c'est la mesure
+   qui l'a dit — ce constat est le troisième essai.
+
+   1. Le défaut m'avait été décrit comme « une valeur qui reste hors grille ».
+      Or un `input[type=range]` ASSAINIT la valeur qu'on lui assigne : la
+      spécification lui fait arrondir au cran le plus proche. Poser 11 sur un
+      curseur de pas 2 donne 12, et une valeur hors grille ne peut pas exister
+      DANS le curseur.
+   2. J'ai alors voulu mesurer la divergence en posant 11 sur le curseur puis
+      en signalant l'événement « input ». Mais c'est cet événement qui fait
+      lire la valeur au composant : il lisait donc 12, l'état s'accordait au
+      curseur, et la divergence ne naissait jamais. Le sabotage — le retour à
+      mon ancien calcul — passait au VERT. Mon essai prétendait garder une
+      garantie qu'il ne mesurait pas.
+
+   LE SEUL CHEMIN RÉEL est un réglage ENREGISTRÉ hors grille, lu au montage :
+   `chargerReglages` restaure le contenu de `localStorage` tel quel, sans le
+   confronter au pas ni aux bornes. L'état vaut alors 11, le curseur affiche
+   12, et aucun événement ne les réconcilie.
+
+   C'est pire qu'une valeur hors grille : le réglage AFFICHÉ et le réglage
+   ENREGISTRÉ cessent durablement de dire la même chose, et c'est l'état qui
+   part au moteur.
+*/
+{
+  const ctx2 = await nav.newContext({ viewport: { width: 1280, height: 1000 } });
+  const p2 = await ctx2.newPage();
+  await p2.addInitScript(() => {
+    try {
+      const brut = localStorage.getItem('revinsp.nback.reglages');
+      const r = brut ? JSON.parse(brut) : {};
+      /* Hors grille : le curseur a min 10 et pas 2. */
+      localStorage.setItem('revinsp.nback.reglages', JSON.stringify({ ...r, epreuves: 11 }));
+    } catch {
+      /* La prémisse ci-dessous le dira. */
+    }
+  });
+  await franchirInitialisation(p2, RACINE, MDP);
+  await p2.goto(`${RACINE}/cog-training/quad-n-back/`, { waitUntil: 'networkidle' });
+  if (await p2.locator('#champ-mdp').isVisible().catch(() => false)) {
+    await p2.fill('#champ-mdp', MDP);
+    await p2.click('#bouton-verrou');
+  }
+  await p2.waitForSelector('#nb-epreuves', { timeout: 40000, state: 'attached' }).catch(() => {});
+  const replis2 = await p2.locator('details:not([open]) summary').count();
+  for (let i = 0; i < replis2; i += 1) {
+    await p2.locator('details:not([open]) summary').first().click({ timeout: 2000 }).catch(() => {});
+  }
+  await p2.waitForTimeout(600);
+
+  const lire = async () => ({
+    curseur: Number(await p2.locator('#nb-epreuves').inputValue()),
+    /* L'étiquette affiche l'ÉTAT du composant : c'est lui qui part au moteur,
+       et comparer le curseur à lui-même ne prouverait rien. */
+    etiquette: Number((await p2.locator('label[for="nb-epreuves"] strong').innerText()).trim()),
+  });
+
+  const auMontage = await lire();
+  verifier('prémisse : le curseur assainit le réglage semé', auMontage.curseur, 12);
+  verifier(
+    `prémisse : et l’état, lui, a gardé la valeur hors grille (${auMontage.etiquette})`,
+    auMontage.etiquette,
+    11,
+  );
+
+  await p2.locator('[data-pas="1"][data-pour="nb-epreuves"]').click();
+  await p2.waitForTimeout(300);
+  const apres = await lire();
+  verifier(
+    `un appui réconcilie les deux (étiquette ${apres.etiquette}, curseur ${apres.curseur})`,
+    apres.etiquette,
+    apres.curseur,
+  );
+  verifier(`et la valeur est sur la grille (${apres.curseur})`, (apres.curseur - 10) % 2, 0);
+  await ctx2.close();
+}
 
 await nav.close();
 console.log(

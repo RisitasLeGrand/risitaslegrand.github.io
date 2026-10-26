@@ -19,6 +19,7 @@
     EXCLUSIONS,
     SOURCES_MOTIF,
     PROGRESSION_DEFAUT,
+    N_MAXIMAL,
   } from '../moteur/nback.js';
   import { lecteurAudio } from '../moteur/audio.js';
   import { RETOURS } from '../moteur/constantes.js';
@@ -852,10 +853,21 @@
             <strong>{reglages.n} tour{reglages.n > 1 ? 's' : ''} en arrière</strong>
             <span class="font-normal text-slate-400">(n = {reglages.n})</span>
           </label>
+          <!--
+            LE MAXIMUM VIENT DU MOTEUR, et non d'un nombre écrit ici.
+
+            Il valait 9 ; le moteur monte à `N_MAXIMAL = 12` par progression
+            automatique (`nback.js`, « montee »). L'écran ne savait donc pas
+            représenter ce que le moteur produit : une partie à n = 10
+            s'affichait au maximum du curseur, et l'avoir baissé à la main
+            aurait silencieusement défait la progression.
+
+            Une seule source, et c'est celle qui décide — le moteur.
+          -->
           <CurseurRegle
             id="niveau-n"
             min="1"
-            max="9"
+            max={N_MAXIMAL}
             libelle="le nombre de tours en arrière"
             classe="accent-indigo-600"
             bind:value={reglages.n}
