@@ -90,13 +90,50 @@ const ouvrir = async () => {
   return { ctx, page };
 };
 
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CET ESSAI, ET LA SEULE QUI RESTE UNE DURÉE
+
+   `docs/cyclades/cadence-des-essais.md` § 3 et § 4. Douze temporisations à
+   l'aveugle vivaient ici. Dix sont remplacées par la post-condition du geste
+   — la région d'échec qui paraît, la pesée qui se range, le coffre qui
+   s'ouvre.
+
+   DEUX RESTENT, et elles sont d'une autre nature : « le message est encore là
+   trois secondes plus tard » affirme une DURÉE. Ce n'est pas une attente
+   avant lecture, c'est l'objet même du constat — le message n'est pas une
+   bulle qui s'efface. On ne peut pas l'abréger sans changer ce qu'il dit.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI = 30_000;
+
+/** Attend que la région d'échec paraisse — par son identifiant ou son rôle. */
+const attendreLEchec = (page: import('playwright-core').Page) =>
+  page
+    .waitForFunction(
+      () => {
+        const vus = document.querySelectorAll('#echec-de-page, [role="alert"]');
+        return [...vus].some((e) => (e as HTMLElement).getBoundingClientRect().height > 0);
+      },
+      undefined,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+
 /* ── 1. La région commune existe, et elle ne paraît pas pour rien ─────────── */
 
 console.log('\nAU REPOS, RIEN NE S’AFFICHE');
 {
   const { ctx, page } = await ouvrir();
   await page.goto(`${RACINE}/odyssee/corps/`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(1200);
+  /*
+     Rien à attendre : « aucune région d'échec » est un invariant NÉGATIF, vrai
+     dès le chargement et qui le resterait si une région paraissait une seconde
+     plus tard. La seule chose qui le rendrait faux est une panne, et une panne
+     survenue après la lecture serait vue par les sections suivantes.
+  */
   verifier(
     'aucune région d’échec sur un écran qui va bien',
     await page.locator('#echec-de-page:visible').count(),
@@ -111,12 +148,16 @@ console.log('\nUNE SUPPRESSION QUI ÉCHOUE LE DIT');
 {
   const { ctx, page } = await ouvrir();
   await page.goto(`${RACINE}/odyssee/corps/`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(1200);
 
   /* Une pesée, pour avoir quelque chose à supprimer. */
   await page.locator('#kg').fill('70');
   await page.locator('#peser').click();
-  await page.waitForTimeout(900);
+  /* La pesée rangée fait paraître sa ligne, et c'est la prémisse qui suit. */
+  await page
+    .locator('button:has-text("Supprimer")')
+    .first()
+    .waitFor({ state: 'visible', timeout: DELAI })
+    .catch(() => {});
   const lignes = await page.locator('button:has-text("Supprimer")').count();
   verifier('il y a au moins une ligne à supprimer', lignes > 0, true);
   if (lignes === 0) {
@@ -128,7 +169,8 @@ console.log('\nUNE SUPPRESSION QUI ÉCHOUE LE DIT');
 
   await page.evaluate(saboterLesEcritures(null));
   await page.locator('button:has-text("Supprimer")').first().click();
-  await page.waitForTimeout(1200);
+  /* L'écriture sabotée échoue, et la porte commune l'écrit. */
+  await attendreLEchec(page);
 
   /*
      On interroge **la région annoncée, où qu'elle soit** : cet écran a déjà sa
@@ -163,7 +205,12 @@ console.log('\nUNE SUPPRESSION QUI ÉCHOUE LE DIT');
     true,
   );
 
-  /* Le message reste : ce n'est pas une bulle (C4). */
+  /*
+     LE MESSAGE RESTE, et cette temporisation est GARDÉE : trois secondes sont
+     l'objet du constat, pas une marge avant lecture. Une bulle s'efface au
+     bout de quelques secondes ; cette région, non. On ne peut donc pas
+     l'abréger sans changer ce qu'on affirme.
+  */
   if (parue) {
     await page.waitForTimeout(3200);
     verifier('et il est encore là trois secondes plus tard', await region.isVisible(), true);
@@ -180,11 +227,10 @@ console.log('\nL’ESPACE PLEIN DIT QUOI FAIRE');
 {
   const { ctx, page } = await ouvrir();
   await page.goto(`${RACINE}/odyssee/corps/`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(1200);
   await page.evaluate(saboterLesEcritures('QuotaExceededError'));
   await page.locator('#kg').fill('71');
   await page.locator('#peser').click();
-  await page.waitForTimeout(1500);
+  await attendreLEchec(page);
 
   const visible = page.locator('#echec-de-page:visible, [role="alert"]:visible').first();
   const dit = ((await visible.count()) ? ((await visible.textContent()) ?? '') : '').replace(
@@ -203,11 +249,16 @@ console.log('\nLE FILET');
 {
   const { ctx, page } = await ouvrir();
   await page.goto(`${RACINE}/`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(1000);
+  /*
+     Le filet est posé par le module de la mise en page, donc à l'exécution du
+     script — avant « load », donc avant que « networkidle » ne rende la main.
+     Il n'y a rien à attendre avant de lancer la panne ; ce qu'on attend, c'est
+     la région qu'elle fait paraître.
+  */
   await page.evaluate(() => {
     void Promise.reject(new Error('Une panne que personne n’attrape.'));
   });
-  await page.waitForTimeout(800);
+  await attendreLEchec(page);
   const region = page.locator('#echec-de-page');
   const vue = await region.isVisible();
   verifier('une promesse rejetée sans garde est dite', vue, true);
@@ -219,6 +270,7 @@ console.log('\nLE FILET');
   verifier('la région commune porte role="alert"', vue ? await region.getAttribute('role') : null, 'alert');
   if (vue) {
     /* Elle reste : ce n'est pas une bulle (C4). */
+    /* Gardée, pour la même raison que plus haut : la durée EST le constat. */
     await page.waitForTimeout(3200);
     verifier('elle est encore là trois secondes plus tard', await region.isVisible(), true);
     const masquer = region.locator('button:has-text("Masquer")');
@@ -256,11 +308,17 @@ console.log('\nPSYCHÉ, PAR LA MÊME PORTE');
 {
   const { ctx, page } = await ouvrir();
   await page.goto(`${RACINE}/odyssee/psyche/`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(1200);
   if (await page.locator('#mdp-coffre').isVisible().catch(() => false)) {
     await page.fill('#mdp-coffre', MDP);
     await page.click('#ouvrir-coffre');
-    await page.waitForTimeout(2500);
+    /*
+       DEUX SECONDES ET DEMIE ATTENDAIENT UNE DÉRIVATION de clé, et la vraie
+       post-condition est l'écran qui s'ouvre — c'est ce que l'assertion lit.
+    */
+    await page
+      .locator('#coffre-ouvert')
+      .waitFor({ state: 'visible', timeout: DELAI })
+      .catch(() => {});
   }
   const ouvert = await page.locator('#coffre-ouvert').isVisible().catch(() => false);
   verifier('le coffre de Psyché s’ouvre', ouvert, true);
@@ -269,7 +327,7 @@ console.log('\nPSYCHÉ, PAR LA MÊME PORTE');
     await page.evaluate(saboterLesEcritures('QuotaExceededError'));
     await page.locator('#entree').fill('Une entrée d’essai, qui ne doit pas être perdue en silence.');
     await page.locator('#ecrire').click();
-    await page.waitForTimeout(1500);
+    await attendreLEchec(page);
 
     const visible = page.locator('#echec-de-page:visible, [role="alert"]:visible').first();
     const parue = (await visible.count()) > 0;

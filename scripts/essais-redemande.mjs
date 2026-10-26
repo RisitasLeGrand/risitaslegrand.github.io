@@ -60,14 +60,53 @@ const ctx = await nav.newContext({ viewport: { width: 1280, height: 1000 }, acce
 const page = await ctx.newPage();
 await franchirInitialisation(page, BASE, MDP);
 
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CET ESSAI, ET POURQUOI AUCUNE N'EST UNE DURÉE
+
+   `docs/cyclades/cadence-des-essais.md` § 3 et § 4. Dix temporisations à
+   l'aveugle vivaient ici, de 500 à 4 000 ms, et chacune pariait sur une
+   moyenne. Elles sont remplacées par la post-condition du geste.
+
+   Le cas intéressant est la RÉPONSE au dialogue : elle a deux issues, et
+   attendre une seule des deux ferait tomber l'autre cas. Le dialogue se
+   referme quand le mot de passe est accepté ; il affiche son refus quand il
+   ne l'est pas. On attend donc la première des deux, et chaque assertion dit
+   ensuite laquelle est arrivée.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI = 30_000;
+
 /** Le dialogue de redemande est-il ouvert ? */
 const dialogueOuvert = () => page.evaluate(() => Boolean(document.querySelector('dialog[open]')));
 
-/** Saisir dans le dialogue et valider. */
+/** Attend que le dialogue soit ouvert, ou refermé. */
+const attendreLeDialogue = (ouvert) =>
+  page
+    .waitForFunction(
+      (veutOuvert) => Boolean(document.querySelector('dialog[open]')) === veutOuvert,
+      ouvert,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+
+/** Saisir dans le dialogue et valider, puis attendre l'une des deux issues. */
 const repondre = async (motDePasse) => {
   await page.fill('dialog[open] input[type="password"]', motDePasse);
   await page.click('dialog[open] button[type="submit"]');
-  await page.waitForTimeout(2500);
+  await page
+    .waitForFunction(
+      () => {
+        const boite = document.querySelector('dialog[open]');
+        if (boite === null) return true;
+        return (boite.querySelector('[role="alert"]')?.textContent ?? '').trim() !== '';
+      },
+      undefined,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
 };
 
 /*
@@ -136,7 +175,18 @@ await page
    passer sur un profil qui n'a jamais rien contenu.
 */
 await repondreAuChamp(page, 'Essai', 'Enregistrer');
-await page.waitForTimeout(2500);
+/*
+   La carte renseignée perd son `data-vide` : c'est ce que la prémisse mesure
+   trois lignes plus bas, donc c'est ce qu'on attend. Bornée, et son
+   expiration laisse la prémisse rougir — ce qu'elle doit faire.
+*/
+await page
+  .waitForFunction(
+    () => document.querySelectorAll('[data-champ]:not([data-vide])').length > 0,
+    undefined,
+    { timeout: DELAI },
+  )
+  .catch(() => {});
 /*
    « Le profil est vide » se COMPTE, maintenant qu'il n'y a plus de phrase à
    lire. L'ancienne version interrogeait `#aucun-champ`, la ligne « profil
@@ -155,17 +205,17 @@ const profilVide = () =>
 verifier('prémisse : le profil n’est pas vide', await profilVide(), false);
 
 await page.click('#effacer-profil');
-await page.waitForTimeout(600);
+await attendreLeDialogue(true);
 verifier('le clic ouvre une redemande au lieu d’effacer', await dialogueOuvert(), true);
 verifier('et rien n’a encore été effacé', await profilVide(), false);
 
 await renoncer();
-await page.waitForTimeout(600);
+await attendreLeDialogue(false);
 verifier('renoncer referme le dialogue', await dialogueOuvert(), false);
 verifier('et n’efface rien', await profilVide(), false);
 
 await page.click('#effacer-profil');
-await page.waitForTimeout(600);
+await attendreLeDialogue(true);
 await repondre(`${MDP}-faux`);
 verifier('un mot de passe faux laisse le dialogue ouvert', await dialogueOuvert(), true);
 verifier('et n’efface rien', await profilVide(), false);
@@ -174,6 +224,19 @@ console.log(`      message du refus : ${refus}`);
 verifier('le refus dit que rien n’a été fait', /Rien n’a été fait/.test(refus ?? ''), true);
 
 await repondre(MDP);
+/*
+   L'EFFACEMENT SUIT LA FERMETURE, il ne l'accompagne pas : la boîte part, puis
+   l'écran se repeint sans ses cartes. On attend donc que les cartes
+   renseignées aient disparu — bornée, et son expiration laisse l'assertion
+   rougir.
+*/
+await page
+  .waitForFunction(
+    () => document.querySelectorAll('[data-champ]:not([data-vide])').length === 0,
+    undefined,
+    { timeout: DELAI },
+  )
+  .catch(() => {});
 verifier('le bon mot de passe referme le dialogue', await dialogueOuvert(), false);
 verifier('et le profil est bien effacé', await profilVide(), true);
 
@@ -183,13 +246,18 @@ verifier('et le profil est bien effacé', await profilVide(), true);
 console.log('\nL’EXPORT EN CLAIR');
 
 await page.goto(`${BASE}/stockage/`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(1500);
+/* Les cases des domaines sont construites par le script de l'écran. */
+await page
+  .locator('input[name="groupe-export"]')
+  .first()
+  .waitFor({ state: 'attached', timeout: DELAI })
+  .catch(() => {});
 const domaines = await page.locator('input[name="groupe-export"]').count();
 verifier('prémisse : il y a des domaines exportables', domaines > 0, true);
 await page.locator('input[name="groupe-export"]').first().check();
 
 await page.click('#exporter-csv');
-await page.waitForTimeout(600);
+await attendreLeDialogue(true);
 verifier('l’export ouvre une redemande', await dialogueOuvert(), true);
 
 /*
@@ -208,7 +276,19 @@ verifier('un mot de passe faux ne produit aucun fichier', fichiers, 0);
 verifier('et le dialogue reste ouvert', await dialogueOuvert(), true);
 
 await renoncer();
-await page.waitForTimeout(500);
+/*
+   « AUCUN FICHIER » EST UN INVARIANT NÉGATIF : il est vrai tout de suite, et
+   le resterait si un fichier arrivait une seconde plus tard. On attend donc la
+   post-condition du geste — l'écran qui dit ce qu'il n'a pas fait —, après
+   quoi le compte a un sens.
+*/
+await page
+  .waitForFunction(
+    () => /Rien n’a été exporté/.test(document.getElementById('message-export')?.textContent ?? ''),
+    undefined,
+    { timeout: DELAI },
+  )
+  .catch(() => {});
 verifier('renoncer ne produit aucun fichier non plus', fichiers, 0);
 verifier(
   'et l’écran le dit',
@@ -217,9 +297,16 @@ verifier(
 );
 
 await page.click('#exporter-csv');
-await page.waitForTimeout(600);
+await attendreLeDialogue(true);
 await repondre(MDP);
-await page.waitForTimeout(4000);
+/*
+   LE TÉLÉCHARGEMENT SE COMPTE DANS NODE, pas dans la page : la
+   post-condition n'est donc pas dans le DOM, et on interroge le compteur
+   jusqu'à ce qu'il bouge — quatre secondes couvraient l'écriture du fichier,
+   et rien ne garantissait qu'elles suffisent.
+*/
+const finDuFichier = Date.now() + DELAI;
+while (fichiers === 0 && Date.now() < finDuFichier) await page.waitForTimeout(100);
 verifier('le bon mot de passe produit bien un fichier', fichiers >= 1, true);
 
 await nav.close();
