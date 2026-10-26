@@ -43,9 +43,8 @@
  * - `attendreLeCompte` — une liste atteint un nombre d'éléments.
  * - `devientVisible` — un élément paraît ou s'en va.
  *
- * Et quand rien de tout cela ne s'applique, parce que l'écriture n'a aucune
- * marque à l'écran, c'est la BASE qu'on interroge jusqu'à ce qu'elle réponde :
- * l'idiome `attendreEnBase` de `essais-niveau-navigateur.mjs`.
+ * - `attendreEnBase` — l'écriture n'a aucune marque à l'écran, et c'est la
+ *   base elle-même qu'on interroge jusqu'à ce qu'elle réponde.
  */
 
 /**
@@ -290,4 +289,74 @@ export async function apresLesAnimations(page, selecteur, { delai = 5000 } = {})
     ),
     new Promise((ok) => setTimeout(ok, delai)),
   ]).catch(() => {});
+}
+
+/**
+ * INTERROGE LA BASE JUSQU'À CE QU'ELLE RÉPONDE CE QU'ON ATTEND.
+ *
+ * ## Pourquoi cette forme existe dans le module partagé
+ *
+ * Certaines écritures n'ont AUCUNE marque à l'écran : une tâche rangée, un
+ * rappel retiré du centre, une prise pointée depuis un autre écran, un
+ * réglage enregistré sans annonce. Il n'y a alors rien à attendre dans le
+ * DOM — mais la base est elle-même la post-condition, et on peut l'y
+ * interroger.
+ *
+ * L'idiome est né dans `essais-niveau-navigateur.mjs` le 26 octobre, puis
+ * recopié dans deux autres essais. Il est ici pour que les conversions
+ * suivantes n'en écrivent pas une quatrième version — et parce que deux
+ * agents l'ont voulu le même jour.
+ *
+ * **Les trois copies locales restent pour l'instant**, et c'est dit plutôt
+ * que caché : chacune est déjà mesurée dans son essai, et les remplacer
+ * demanderait de repasser ces essais sans rien corriger. Elles convergeront
+ * quand leurs fichiers seront rouverts.
+ *
+ * ## L'usage
+ *
+ *     const tout = await attendreEnBase(page, 'odysseeTaches', (t) => t.length >= 1);
+ *
+ * `estSatisfait` reçoit le contenu entier du magasin. Le relevé est fait par
+ * `getAll`, donc sur une base ouverte sans version : un magasin absent fait
+ * lever, et l'appel rend `null` plutôt que de faire tomber l'essai sur une
+ * panne illisible.
+ *
+ * @returns le contenu du magasin dès qu'il satisfait la condition, ou `null`
+ *   si le délai expire — l'assertion qui suit dira ce qu'elle a vu.
+ */
+export async function attendreEnBase(page, magasin, estSatisfait, { delai = 30000 } = {}) {
+  const lire = () =>
+    page
+      .evaluate(
+        (nom) =>
+          new Promise((ok, rate) => {
+            const demande = indexedDB.open('revinsp');
+            demande.onerror = () => rate(demande.error);
+            demande.onsuccess = () => {
+              try {
+                const r = demande.result.transaction(nom).objectStore(nom).getAll();
+                r.onsuccess = () => ok(r.result);
+                r.onerror = () => rate(r.error);
+              } catch (erreur) {
+                rate(erreur);
+              }
+            };
+          }),
+        magasin,
+      )
+      .catch(() => null);
+
+  const fin = Date.now() + delai;
+  for (;;) {
+    const contenu = await lire();
+    if (contenu !== null && estSatisfait(contenu)) return contenu;
+    if (Date.now() > fin) return null;
+    /*
+       Cent millisecondes entre deux interrogations : ce n'est pas une
+       temporisation à l'aveugle mais le pas d'un sondage, et la condition est
+       vérifiée à chaque tour. Le § 4 de « cadence-des-essais.md » les
+       distingue.
+    */
+    await page.waitForTimeout(100);
+  }
 }
