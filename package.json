@@ -63,6 +63,7 @@
     "essais:transport": "node scripts/essais-transport-fichier.mjs",
     "essais:stockage": "node scripts/essais-stockage.mjs",
     "essais:effacement": "tsx scripts/essais-effacement.mts",
+    "essais:accords": "tsx scripts/essais-accords.mts",
     "essais:erreurs-dites": "tsx scripts/essais-erreurs-dites.mts",
     "essais:code-de-sortie": "node scripts/essais-code-de-sortie.mjs",
     "essais:mot-de-passe-une-source": "node scripts/essais-mot-de-passe-une-source.mjs",

@@ -30,9 +30,19 @@ export function formaterDate(iso: string): string {
   return new Date(iso).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' });
 }
 
-export function pluriel(n: number, singulier: string, plurielForme = `${singulier}s`): string {
-  return `${n} ${n > 1 ? plurielForme : singulier}`;
-}
+/*
+   LES ACCORDS VIVENT DANS « noyau/accords.ts », ET SONT RÉEXPORTÉS ICI.
+
+   « pluriel » était écrit là, dans un fichier qui appelle
+   « zoneDesNotifications() » à l'import : l'importer hors d'un navigateur
+   jette. La seule fonction d'accord du site était donc impossible à éprouver
+   autrement qu'à l'écran, et personne ne l'éprouvait.
+
+   Elle est partie dans le noyau, avec son compagnon « accorde » — qui rend le
+   mot accordé sans le nombre, pour ce qui SUIT le nom : « 2 cartes suivies ».
+   La réexportation garde les dizaines d'appelants intacts.
+*/
+export { accorde, pluriel } from './noyau/accords';
 
 /** Mélange un tableau (Fisher-Yates). */
 export function melanger<T>(tableau: T[]): T[] {
