@@ -23,6 +23,8 @@
   import { lecteurAudio } from '../moteur/audio.js';
   import { RETOURS } from '../moteur/constantes.js';
   import { amenerLaZone } from '../../cog-training/zone-de-jeu';
+  import { accapareLaTouche } from '../../../lib/touche-accaparee';
+  import CurseurRegle from './CurseurRegle.svelte';
   import { confirmer } from '../../../lib/boite';
   import CommentCaMarche from '../../cog-training/composants/CommentCaMarche.svelte';
   import Glossaire from '../../cog-training/composants/Glossaire.svelte';
@@ -684,29 +686,6 @@
   }
 
   /**
-   * L'élément focalisé fait-il déjà quelque chose de cette touche ?
-   * Un bouton ou un lien réagit à Entrée et Espace, une zone de saisie à
-   * Entrée : on ne leur vole pas la touche. Un curseur ou une case à cocher
-   * ignore Entrée, le raccourci peut donc s'appliquer — sans quoi régler un
-   * curseur suffirait à désactiver le lancement au clavier.
-   */
-  function accapareLaTouche(cible, touche) {
-    if (!(cible instanceof HTMLElement)) return false;
-    if (cible.isContentEditable) return true;
-
-    const balise = cible.tagName;
-    if (balise === 'BUTTON' || balise === 'A' || balise === 'SELECT' || balise === 'TEXTAREA') return true;
-
-    if (balise === 'INPUT') {
-      const type = (cible.getAttribute('type') ?? 'text').toLowerCase();
-      if (type === 'checkbox' || type === 'radio') return touche === ' ';
-      if (type === 'range') return false;
-      return true; // champs de saisie textuels
-    }
-    return false;
-  }
-
-  /**
    * Active ou désactive une dimension, en respectant les exclusions :
    * le motif porte déjà forme et couleur, il ne peut pas coexister avec elles
    * (même règle que dans quad-box).
@@ -873,7 +852,14 @@
             <strong>{reglages.n} tour{reglages.n > 1 ? 's' : ''} en arrière</strong>
             <span class="font-normal text-slate-400">(n = {reglages.n})</span>
           </label>
-          <input id="niveau-n" type="range" min="1" max="9" bind:value={reglages.n} class="w-full accent-indigo-600" />
+          <CurseurRegle
+            id="niveau-n"
+            min="1"
+            max="9"
+            libelle="le nombre de tours en arrière"
+            classe="accent-indigo-600"
+            bind:value={reglages.n}
+          />
           <p class="mt-1 text-xs text-slate-400">
             Il faut comparer chaque stimulus à celui de {reglages.n} épreuve{reglages.n > 1 ? 's' : ''} plus tôt.
           </p>
@@ -883,7 +869,15 @@
           <label for="nb-epreuves" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
             Épreuves : <strong>{reglages.epreuves}</strong>
           </label>
-          <input id="nb-epreuves" type="range" min="10" max="60" step="2" bind:value={reglages.epreuves} class="w-full accent-indigo-600" />
+          <CurseurRegle
+            id="nb-epreuves"
+            min="10"
+            max="60"
+            pas="2"
+            libelle="le nombre d’épreuves"
+            classe="accent-indigo-600"
+            bind:value={reglages.epreuves}
+          />
           <p class="mt-1 text-xs text-slate-400">
             Durée estimée : {minutes((reglages.epreuves * reglages.dureeEpreuve) / 1000)}
           </p>
@@ -899,14 +893,30 @@
             -->
             Rythme : <strong>{secondes(reglages.dureeEpreuve / 1000)}</strong> par épreuve
           </label>
-          <input id="duree" type="range" min="1500" max="5000" step="250" bind:value={reglages.dureeEpreuve} class="w-full accent-indigo-600" />
+          <CurseurRegle
+            id="duree"
+            min="1500"
+            max="5000"
+            pas="250"
+            libelle="la durée d’une épreuve"
+            classe="accent-indigo-600"
+            bind:value={reglages.dureeEpreuve}
+          />
         </div>
 
         <div>
           <label for="taux-corr" class="mb-1 block text-sm font-medium text-slate-600 dark:text-slate-300">
             Correspondances visées : <strong>{reglages.tauxCorrespondance} %</strong>
           </label>
-          <input id="taux-corr" type="range" min="10" max="50" step="5" bind:value={reglages.tauxCorrespondance} class="w-full accent-indigo-600" />
+          <CurseurRegle
+            id="taux-corr"
+            min="10"
+            max="50"
+            pas="5"
+            libelle="le taux de correspondance"
+            classe="accent-indigo-600"
+            bind:value={reglages.tauxCorrespondance}
+          />
         </div>
 
         <div>
@@ -914,7 +924,15 @@
             <Terme technique="interférence" simple="Répétitions presque justes" /> :
             <strong>{reglages.interference} %</strong>
           </label>
-          <input id="interf" type="range" min="0" max="60" step="5" bind:value={reglages.interference} class="w-full accent-indigo-600" />
+          <CurseurRegle
+            id="interf"
+            min="0"
+            max="60"
+            pas="5"
+            libelle="le taux d’interférence"
+            classe="accent-indigo-600"
+            bind:value={reglages.interference}
+          />
           <p class="mt-1 text-xs text-slate-400">
             Fréquence des leurres : un stimulus proche d'une correspondance, mais décalé d'un rang.
           </p>
@@ -1051,8 +1069,24 @@
                 partie{reglages.progression.partiesMontee > 1 ? 's' : ''} à
                 <strong>{reglages.progression.seuilMontee} %</strong> ou plus
               </label>
-              <input id="seuil-montee" type="range" min="50" max="100" step="5" bind:value={reglages.progression.seuilMontee} class="w-full accent-emerald-600" />
-              <input aria-label="Nombre de parties requises pour monter" type="range" min="1" max="5" bind:value={reglages.progression.partiesMontee} class="mt-1 w-full accent-emerald-600" />
+              <CurseurRegle
+                id="seuil-montee"
+                min="50"
+                max="100"
+                pas="5"
+                libelle="le seuil de montée"
+                classe="accent-emerald-600"
+                bind:value={reglages.progression.seuilMontee}
+              />
+              <CurseurRegle
+                id="parties-montee"
+                nom="Nombre de parties requises pour monter"
+                min="1"
+                max="5"
+                libelle="le nombre de parties requises pour monter"
+                classe="mt-1 accent-emerald-600"
+                bind:value={reglages.progression.partiesMontee}
+              />
             </div>
             <div>
               <label for="seuil-descente" class="mb-1 block text-xs font-medium text-slate-600 dark:text-slate-300">
@@ -1060,8 +1094,24 @@
                 partie{reglages.progression.partiesDescente > 1 ? 's' : ''} sous
                 <strong>{reglages.progression.seuilDescente} %</strong>
               </label>
-              <input id="seuil-descente" type="range" min="10" max="80" step="5" bind:value={reglages.progression.seuilDescente} class="w-full accent-amber-600" />
-              <input aria-label="Nombre de parties requises pour descendre" type="range" min="1" max="5" bind:value={reglages.progression.partiesDescente} class="mt-1 w-full accent-amber-600" />
+              <CurseurRegle
+                id="seuil-descente"
+                min="10"
+                max="80"
+                pas="5"
+                libelle="le seuil de descente"
+                classe="accent-amber-600"
+                bind:value={reglages.progression.seuilDescente}
+              />
+              <CurseurRegle
+                id="parties-descente"
+                nom="Nombre de parties requises pour descendre"
+                min="1"
+                max="5"
+                libelle="le nombre de parties requises pour descendre"
+                classe="mt-1 accent-amber-600"
+                bind:value={reglages.progression.partiesDescente}
+              />
             </div>
           </div>
           <p class="mt-2 text-xs text-slate-400">
