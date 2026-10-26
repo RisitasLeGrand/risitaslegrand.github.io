@@ -325,7 +325,7 @@ import Base from '../layouts/Base.astro';
   import { construireVue } from '../lib/agregats';
   import { ajouterJours, jourISO, tousLesJours, tousLesResultatsQuiz, toutesLesCartes } from '../lib/db';
   import { formaterDuree, lien, pluriel } from '../lib/ui';
-  import { chargerManifeste, MATIERE_CAS_PRATIQUE } from '../lib/contenu';
+  import { chargerManifesteComplet, MATIERE_CAS_PRATIQUE } from '../lib/contenu';
   import { comptesParMatiere } from '../lib/journal';
   import { visitesComptees } from '../lib/visites';
   import { coffreOuvert } from '../lib/coffre';
@@ -342,7 +342,13 @@ import Base from '../layouts/Base.astro';
 
   async function afficher() {
     const [vue, jours, cartes, quiz] = await Promise.all([
-      construireVue(),
+      /*
+         LES STATISTIQUES RACONTENT, DONC ELLES VOIENT TOUT. Sans cette
+         portée, elles héritaient du manifeste filtré et auraient annoncé à
+         Alexis, posé sur DGFiP-A, qu'il n'a jamais révisé les fiches de
+         l'INSP qu'il a révisées.
+      */
+      construireVue('tout'),
       tousLesJours(),
       toutesLesCartes(),
       tousLesResultatsQuiz(),
@@ -629,7 +635,7 @@ import Base from '../layouts/Base.astro';
     $('lien-reglages-niveau').setAttribute('href', `${lien('/progression/')}#sources-niveau`);
 
     const [manifeste, tableau, journal, zone, reglagesContenu] = await Promise.all([
-      chargerManifeste(),
+      chargerManifesteComplet(),
       tableauDeNiveaux(),
       comptesParMatiere(),
       zoneDeTravail(),

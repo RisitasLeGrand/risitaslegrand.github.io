@@ -13,6 +13,7 @@
  * et c'est lui qui permet à `essais:reglages-orphelins` de dire « cette clé
  * se change quelque part et n'est pas sur la page centrale ».
  */
+import type { NomDIcone } from '../icones';
 
 export type Portee = 'appareil' | 'tous' | 'coffre';
 
@@ -78,5 +79,12 @@ export interface Section {
   titre: string;
   /** Ce que la section rassemble, en une phrase. */
   propos: string;
-  icone: string;
+  /**
+   * Le nom de l'icône au catalogue — un SENS, pas un dessin.
+   *
+   * Le type le restreint aux noms connus, parce qu'une faute de frappe
+   * donnerait une icône VIDE : un carré de rien à côté d'un titre juste, que
+   * personne ne remarque avant longtemps.
+   */
+  icone: NomDIcone;
 }

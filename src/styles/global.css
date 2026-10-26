@@ -181,6 +181,51 @@ body {
   @apply bg-slate-50 text-slate-800 antialiased dark:bg-slate-950 dark:text-slate-200;
 }
 
+/* --- La taille de corps choisie par la personne, sur iOS ------------------ */
+/*
+   iOS porte un réglage de taille de texte qui vaut pour tout l'appareil, et
+   les applications natives le suivent. Un site ne le suit que s'il le
+   demande, et Cyclades ne le demandait pas : quelqu'un qui a grossi son texte
+   dans ses réglages retrouvait ici la taille d'un site ordinaire. Pour une
+   application de révision qu'on lit des heures, c'est le réglage le plus
+   utile du téléphone, et il était ignoré.
+
+   `font: -apple-system-body` est le mot-clé par lequel WebKit livre cette
+   taille.
+
+   LA SECONDE LIGNE N'EST PAS UNE PRÉCAUTION. Le raccourci `font` remplace
+   aussi la FAMILLE : sans elle, tout iOS perdrait Public Sans pour la police
+   du système. On ne garde du mot-clé que ce qu'on est venu chercher, la
+   taille.
+
+   CE QUE D-038 OBLIGE À DIRE. Le document « d-038-taille-du-texte » a
+   construit, mesuré puis ÉCARTÉ l'option C, « remonter la racine » : tout
+   grossit, marges comprises, pour +8,5 % de hauteur et deux fois moins de
+   texte gagné que l'option B retenue. Or cette règle-ci est mécaniquement
+   cette option C.
+
+   Ce n'est pourtant pas la même décision, et la différence est tout entière
+   dans qui décide. L'option C grossissait le texte de tout le monde, de
+   6,25 %, sans que personne l'ait demandé. Ici la taille vient du réglage que
+   la personne a posé elle-même : celle qui agrandit son texte sur iOS veut
+   que tout grossisse, et c'est ce que font toutes les applications natives.
+   Le coût mesuré par D-038 reste vrai ; c'est sa contrepartie qui change.
+
+   CE QU'AUCUN ESSAI D'ICI NE PEUT MESURER. Le mot-clé appartient à WebKit :
+   le moteur des essais ne le reconnaît pas, `@supports` y est faux, et la
+   règle ne s'applique pas. « essais:taille-de-corps-systeme » commence donc
+   par PROUVER cette impossibilité — `CSS.supports` rend faux — puis constate
+   ce qui est constatable : que la règle est bien dans la feuille publiée, que
+   la famille est rendue juste après, et que la racine n'a pas bougé pour tous
+   les autres navigateurs.
+*/
+@supports (font: -apple-system-body) {
+  :root {
+    font: -apple-system-body;
+    font-family: var(--font-sans);
+  }
+}
+
 /* --- Police de complément ------------------------------------------------ */
 /* Spectral, à utiliser avec parcimonie : citations, exergues, mentions. */
 .police-complement {
@@ -404,6 +449,46 @@ body {
   summary {
     min-height: 2.75rem;
     align-content: center;
+  }
+
+  /* Les trois dixièmes de seconde du double appui, rendus aux commandes — et
+     à elles seules.
+
+     Un navigateur tactile attend environ 300 ms après un appui, au cas où un
+     second viendrait former un double appui : le geste qui grossit la page.
+     Sur un bouton, cette attente est une lenteur sans contrepartie — on
+     appuie, et il ne se passe rien pendant un tiers de seconde.
+     `touch-action: manipulation` dit « ici, pas de double appui » et rend ce
+     délai.
+
+     POURQUOI PAS SUR `body`, QUI AURAIT ÉTÉ UNE LIGNE AU LIEU DE DOUZE.
+
+     Parce que le double appui sur un paragraphe est **la façon dont on
+     grossit un texte** sur un téléphone. Le poser sur la page entière
+     retirerait un geste d'accessibilité pour gagner trois dixièmes sur des
+     boutons : le site deviendrait plus vif et moins lisible, ce qui n'est pas
+     l'échange qu'on cherche. La règle tient donc une liste, et
+     « essais:touch-action » mesure les deux moitiés — les commandes l'ont, le
+     texte et la racine ne l'ont pas.
+
+     CE QUE `manipulation` NE RETIRE PAS. Il vaut `pan-x pan-y pinch-zoom` :
+     le défilement et le pincement restent entiers. C'est `none` qui les
+     tuerait, et l'essai vérifie qu'aucun élément de ces écrans ne le calcule.
+
+     Les étiquettes n'y sont pas : dans ce dépôt ce sont des mots posés à côté
+     d'un champ, et aucune ne porte de cible tactile. C'est le champ qui est
+     la commande. */
+  button,
+  [role='button'],
+  a[href],
+  input,
+  select,
+  textarea,
+  summary,
+  .cible-tactile,
+  .cible-tactile-pleine,
+  .cible-minimale {
+    touch-action: manipulation;
   }
 
   /* Seize pixels dans les champs de saisie.
@@ -1682,4 +1767,165 @@ button:not(:disabled):active,
      « --etat-fond-eleve » : son survol se teinte de sa propre couleur de
      texte, et suit donc le thème sans rien connaître de lui. */
   background: color-mix(in srgb, currentColor 15%, transparent);
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   LES FORMULES MATHÉMATIQUES (point e du 60)
+
+   Une formule hors ligne est LARGE. « \sqrt{x^2 + y^2} » en mode « display »
+   dépasse 390 px, et sans la règle ci-dessous elle n'élargit pas sa propre
+   boîte : elle élargit la PAGE, qui se met alors à défiler latéralement.
+   L'essai « essais:maths-ecran » l'a constaté à 390 px avant qu'on l'écrive,
+   et un défilement horizontal casse la lecture de toute la page, pas seulement
+   de la formule.
+
+   Le débordement est donc confié à la boîte de la formule, qui défile seule si
+   besoin. « overscroll-behavior-x » empêche ce défilement de se propager à la
+   page quand on arrive au bout, ce qui serait le même désagrément déplacé d'un
+   cran.
+
+   La couleur n'est PAS fixée ici, et c'est voulu : KaTeX hérite de
+   « currentColor », donc la formule prend la teinte du texte qui l'entoure et
+   suit les quatorze thèmes sans qu'aucun d'eux soit nommé. L'essai vérifie
+   cette égalité, et vérifie aussi que deux thèmes donnent deux valeurs — sans
+   quoi une teinte figée passerait pour de l'héritage.
+   ────────────────────────────────────────────────────────────────────────── */
+
+.maths-bloc {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  /* Un peu d'air sous la formule quand une barre de défilement apparaît. */
+  padding-bottom: 0.25rem;
+}
+
+.maths-en-ligne {
+  /* En ligne, une formule trop large doit pouvoir passer à la ligne plutôt
+     que de pousser son paragraphe hors de l'écran. */
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+
+/* ──────────────────────────────────────────────────────────────────────────
+   H3 — CONTRASTE RENFORCÉ ET COULEURS IMPOSÉES
+
+   Deux réglages que le système offre et que le site ignorait : zéro règle
+   « prefers-contrast », zéro règle « forced-colors » avant ce bloc.
+
+   ## « forced-colors » : ce que la mesure a démenti, et ce qui reste
+
+   Quand le système impose ses couleurs, le navigateur remplace celles du
+   texte, du fond et des bordures, et il SUPPRIME les ombres portées. Dix
+   endroits du site posent « outline-none » et confient le focus à un
+   « ring-* », qui est une ombre : j'en avais conclu que ces dix éléments
+   perdaient TOUT indicateur de focus.
+
+   C'EST FAUX, et la mesure l'a dit. Sur le champ de mot de passe, le plus
+   exposé des dix, sans aucune des règles ci-dessous :
+
+     forcedColors=active   contour 2 px « solid », teinte du système  ombre : aucune
+     forcedColors=none     contour 2 px « solid », teinte du thème    ombre : présente
+
+   Les teintes exactes ne sont pas recopiées ici : celle du mode imposé vient
+   du système d'exploitation et change d'une machine à l'autre, et ce qui
+   compte est l'épaisseur — non nulle des deux côtés — et l'ombre, qui
+   disparaît d'un côté seulement.
+
+   L'ombre disparaît bien — cette moitié du raisonnement était juste — mais le
+   contour de « :focus-visible » d'en haut SURVIT, et le focus reste visible.
+   Les classes utilitaires ne l'emportent pas sur lui.
+
+   Ce qui reste donc ci-dessous n'est pas un correctif : c'est une précision.
+   « Highlight » est la couleur que le système RÉSERVE à la sélection, donc
+   celle qu'il garantit visible sur son propre fond, là où une couleur
+   substituée par le navigateur est un choix par défaut. Et « currentColor » sur
+   les pictogrammes les protégera le jour où le site en portera — il en compte
+   sept aujourd'hui.
+
+   UNE LIMITE À CONNAÎTRE, pour ne pas croire l'essai plus qu'il ne dit :
+   l'émulation de Playwright applique la requête de media et retire les ombres,
+   mais n'installe pas de VRAIE palette système. Elle n'éprouve donc pas la
+   substitution des couleurs. Ce qui est prouvé ici, c'est que la requête
+   s'applique et que l'ombre tombe ; pas le rendu sous un contraste élevé réel.
+
+   D'où « !important » quand même : il faut passer devant des classes
+   utilitaires, et seulement dans ce mode.
+
+   ## Pourquoi « prefers-contrast » ne demande presque rien
+
+   Parce que les teintes faibles sont déjà des jetons : il suffit de les
+   ramener sur les teintes fortes, et tout ce qui les emploie suit. C'est le
+   bénéfice d'avoir nommé les couleurs au lieu de les écrire.
+   ────────────────────────────────────────────────────────────────────────── */
+
+@media (prefers-contrast: more) {
+  :root {
+    /*
+       « !important », et il est nécessaire, pas commode.
+
+       Les quatorze thèmes sont servis depuis « public/themes/ » et injectés
+       par un « <link> » AJOUTÉ À LA FIN DU HEAD au moment où l'on choisit son
+       thème. Cette feuille arrive donc après celle-ci dans la cascade et
+       l'emportait : mesuré, « --etat-texte-faible » gardait sa teinte faible
+       au lieu de rejoindre celle de « --etat-texte », et la règle ne servait
+       à rien. Les deux jetons sont nommés plutôt que leurs valeurs recopiées :
+       elles changent avec le thème, et c'est leur ÉGALITÉ qui est en jeu.
+
+       Le choix de fond est celui de la personne ; la demande de contraste est
+       celle de son système d'exploitation, faite pour voir. La seconde doit
+       passer devant la première, et c'est tout ce que « !important » dit ici.
+    */
+    /* Le gris de confort devient la couleur du texte : les mentions
+       secondaires cessent d'être « presque lisibles ». */
+    --etat-texte-faible: var(--etat-texte) !important;
+    /* Une bordure discrète ne sert à rien quand on demande du contraste. */
+    --etat-bordure: var(--etat-texte-fort) !important;
+    --etat-bordure-forte: var(--etat-texte-fort) !important;
+  }
+
+  /* Le focus se voit de plus loin. */
+  :where(a, button, [role='button'], summary, input, select, textarea):focus-visible {
+    outline-width: 3px;
+  }
+
+  /*
+     PAS DE RÈGLE ATTRAPE-TOUT ICI, et c'est délibéré.
+
+     J'avais écrit « :where([class*='bg-']) { border-color: … } », pour que deux
+     cartes voisines cessent de se confondre. C'était une mauvaise idée : le
+     sélecteur attrape des centaines d'éléments, dont la plupart tirent leur
+     bordure de la palette de Tailwind et non de nos jetons, et il leur aurait
+     imposé une couleur sur tous les écrans à la fois. Repeindre largement pour
+     corriger un cas qu'on n'a pas mesuré, c'est la façon la plus sûre de casser
+     ailleurs. Le relèvement des jetons ci-dessus suffit à tout ce qui les
+     emploie ; si un écran se confond encore, il faudra le mesurer et le nommer.
+  */
+}
+
+@media (forced-colors: active) {
+  /*
+     Le focus revient, partout, y compris là où le gabarit l'avait annulé au
+     profit d'une ombre que ce mode supprime.
+  */
+  :where(a, button, [role='button'], summary, input, select, textarea):focus-visible {
+    outline: 3px solid Highlight !important;
+    outline-offset: 2px !important;
+  }
+
+  /*
+     Les pictogrammes suivent la couleur du texte au lieu de garder la leur,
+     qui pourrait tomber sur le fond imposé et disparaître.
+  */
+  svg {
+    fill: currentColor;
+    stroke: currentColor;
+  }
+
+  /*
+     Les marqueurs de correction n'ont RIEN à faire ici, et c'est le bénéfice
+     d'une règle posée dès le départ : chacun se distingue par sa FORME — ●, ○,
+     ◆, ✓, ▣, ✗ — et la couleur ne faisait que renforcer. Un mode qui remplace
+     toutes les couleurs les laisse donc parfaitement lisibles. C'était écrit
+     dans « vocabulaire.ts » avant d'être utile ; ça l'est devenu.
+  */
 }

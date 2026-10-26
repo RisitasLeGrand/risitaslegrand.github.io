@@ -10,7 +10,7 @@
  */
 import { readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
-import { nombreDecimal, nombreDuChamp } from '../src/lib/nombre-saisi.ts';
+import { nombreDecimal, nombreDuChamp, nombreEntier } from '../src/lib/nombre-saisi.ts';
 
 let rouges = 0;
 const v = (quoi: string, obtenu: unknown, attendu: unknown) => {
@@ -103,6 +103,65 @@ for (const [fichier, marque, avecMax] of ATTENDUS) {
     /data-min=/.test(balise!) && (!avecMax || /data-max=/.test(balise!)) &&
     !/\bmin\s*=/.test(balise!.replace(/data-min=/g, '')) &&
     !/\bmax\s*=/.test(balise!.replace(/data-max=/g, '')));
+}
+
+console.log('\nL’AUTRE MOITIÉ DE D4 : UN CHAMP ENTIER VIDE N’EST PAS UN ZÉRO');
+
+/*
+   La virgule n'était que la moitié du défaut. L'autre est que `Number('')`
+   vaut ZÉRO : un champ entier vidé écrivait un zéro au journal.
+
+   Trois champs étaient concernés le 25 octobre, et aucun n'a de zéro
+   innocent :
+     - « Séances par semaine » (programmes) — aucun formulaire, aucun
+       `required` : vider et enregistrer écrivait `parSemaine: 0` ;
+     - « Intensité, de 0 à 10 » (santé) — pas de `required`, et ici le zéro est
+       une valeur LÉGITIME, « aucune douleur » : l'absence de saisie devenait
+       une mesure, et rien ne distinguait plus les deux ;
+     - « Répétitions » (séance) — tenu par la seule validation native, ce que
+       le commentaire de M6 signalait déjà comme fragile.
+*/
+v('un champ entier vide ne vaut pas zéro', nombreEntier(''), null);
+v('ni un champ qui ne porte que des espaces', nombreEntier('   '), null);
+v('un entier se lit', nombreEntier('14'), 14);
+v('avec son signe', nombreEntier('-3'), -3);
+v('les espaces d’un copier-coller passent', nombreEntier('1 4'), 14);
+/*
+   LE NON-ENTIER EST REFUSÉ, ET NON ARRONDI. « 3,5 séances par semaine » n'est
+   pas une saisie à corriger en silence : c'est une saisie à reprendre.
+*/
+v('un décimal n’est pas un entier', nombreEntier('3,5'), null);
+v('ni avec un point', nombreEntier('3.5'), null);
+v('un zéro VRAIMENT saisi, lui, se lit', nombreEntier('0'), 0);
+v('et une saisie illisible ne vaut pas zéro', nombreEntier('abc'), null);
+/*
+   Les formes que `Number` accepte et que personne ne tape : l'analyseur
+   décimal les refuse déjà, et l'entier en hérite. Sans cette ligne, le jour où
+   `nombreEntier` cesserait de passer par lui, « 0x10 » vaudrait seize.
+*/
+v('ni une forme hexadécimale', nombreEntier('0x10'), null);
+v('ni une puissance de dix', nombreEntier('1e3'), null);
+
+console.log('\nET LES TROIS CHAMPS LISENT PAR L’ANALYSEUR, NON PAR « Number »');
+
+/*
+   Une sonde textuelle, et elle est ici le seul contrôle possible sans
+   navigateur : ce qui compte est qu'aucun de ces trois champs ne soit relu par
+   `Number(...)`, qui est précisément la forme qu'on recopie. Elle prouve que
+   la lecture passe par l'analyseur ; que le refus s'affiche au pied du champ
+   est mesuré par les essais d'écran de D2.
+*/
+const LECTURES: readonly [string, string][] = [
+  ['src/pages/sport/programmes.astro', 'par-semaine'],
+  ['src/pages/odyssee/sante.astro', 's-intensite'],
+  ['src/pages/sport/seance.astro', 'repetitions'],
+];
+for (const [fichier, champ] of LECTURES) {
+  const texte = readFileSync(fichier, 'utf8');
+  const parNumber = new RegExp(`Number\\(\\s*(?:\\(\\s*)?\\$\\(['"]${champ}['"]\\)`).test(texte) ||
+    new RegExp(`Number\\(valeur\\(['"]${champ}['"]\\)\\)`).test(texte);
+  vrai(`« ${champ} » n’est plus relu par Number(...)`, !parNumber);
+  vrai(`« ${champ} » passe par nombreEntier`, /nombreEntier\(/.test(texte));
 }
 
 console.log(rouges ? `\n\x1b[31m${rouges} rouge(s).\x1b[0m` : '\n\x1b[32mTout est vert.\x1b[0m');

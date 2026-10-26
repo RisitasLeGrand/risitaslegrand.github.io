@@ -826,42 +826,6 @@ export const racineEstPartagee = (racine: string): boolean =>
   parcoursServisParLaRacine(racine).length > 1;
 
 /**
- * Cette fiche est-elle servie à ce parcours ?
- *
- * ## Le défaut qu'elle corrige, et comment il s'est vu
- *
- * La séance choisissait ses fiches par le seul NOM DE LA MATIÈRE. Or
- * « Organisation de la DGFiP » est déclarée par DGFiP B **et** par DGFiP A —
- * délibérément, puisque c'est la même matière. Un samedi, la séance de B
- * proposait donc la fiche rangée sous `dgfip-a/`, et celle de A la fiche de
- * `dgfip-b/`. Rien ne rougissait : les deux fiches existaient, la matière
- * correspondait, et le manifeste portait déjà de quoi trancher sans que
- * personne le lise. Un essai de navigateur sur du contenu factice l'a montré
- * en deux rouges.
- *
- * ## Pourquoi `parcoursServis` plutôt que la racine
- *
- * Les deux voyagent dans le manifeste. La racine est un fait du rangement ; les
- * parcours servis sont ce que le registre en DÉDUIT, et c'est la question
- * posée ici. Repartir de la racine obligerait à refaire cette déduction côté
- * écran, c'est-à-dire à en avoir deux — et le jour où elles divergeraient, des
- * fiches changeraient de parcours sans que rien ne le dise.
- *
- * ## Une absence n'est pas un refus
- *
- * Un manifeste construit avant que le champ existe ne porte pas de parcours
- * servis. Refuser alors la fiche viderait la séance de qui n'a pas reconstruit
- * son contenu — un écran vide pour un champ manquant. L'absence se lit donc
- * « on ne sait pas », et la fiche passe. C'est la même convention que pour les
- * autres champs facultatifs du manifeste, et elle a un coût assumé : un vieux
- * manifeste n'est pas cloisonné. Le build, lui, écrit toujours le champ.
- */
-export const ficheServieAuParcours = (
-  fiche: { parcoursServis?: string[] },
-  idParcours: string,
-): boolean => fiche.parcoursServis === undefined || fiche.parcoursServis.includes(idParcours);
-
-/**
  * Les matières qui relèvent d'une ÉPREUVE, tous parcours confondus.
  *
  * Repliées en minuscules, comme `fichesDuTheme` compare les noms de matière :

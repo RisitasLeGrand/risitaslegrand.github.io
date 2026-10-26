@@ -1,5 +1,6 @@
 ---
 import Base from '../layouts/Base.astro';
+import Icone from '../components/Icone.astro';
 import { base } from '../lib/ui';
 ---
 
@@ -124,7 +125,7 @@ import { base } from '../lib/ui';
     </div>
 
     <p id="rien-a-faire" class="mt-6 hidden rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800 dark:border-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-200">
-      ✅ Rien à réviser aujourd'hui pour cette sélection. Vous pouvez tout de même réviser hors échéance.
+      Rien à réviser aujourd'hui pour cette sélection. Vous pouvez tout de même réviser hors échéance.
     </p>
   </section>
 
@@ -209,7 +210,15 @@ import { base } from '../lib/ui';
 
   <!-- Bilan -->
   <section id="bilan" class="hidden py-10 text-center">
-    <p class="text-5xl">🎉</p>
+    {/*
+       UNE ICÔNE SOBRE, ET NON UN DESSIN DE FÊTE.
+
+       L'écran de bilan s'ouvrait sur des confettis de cinq rem. La session est
+       terminée, ce que le titre dit juste en dessous ; les confettis n'y
+       ajoutaient qu'un ton, et un ton que personne n'a demandé après
+       quarante cartes. La liste cochée dit la même chose sans féliciter.
+    */}
+    <Icone nom="taches" taille={40} class="mx-auto text-indigo-600 dark:text-indigo-400" />
     <h2 class="mt-4 text-2xl font-bold text-slate-900 dark:text-white">Session terminée</h2>
     <p id="bilan-detail" class="mt-2 text-slate-500 dark:text-slate-400"></p>
     <div class="mt-6 flex flex-wrap justify-center gap-3">
@@ -365,7 +374,7 @@ import { base } from '../lib/ui';
 
     const gain = await gagnerXp(xp, { cartes: 1 });
     for (const badge of gain.nouveauxBadges) notifier(`${badge.icone} Succès : ${badge.nom}`, 'badge');
-    if (gain.monteeDeNiveau) notifier(`🎉 Niveau ${gain.niveau.niveau} !`, 'succes');
+    if (gain.monteeDeNiveau) notifier(`Niveau ${gain.niveau.niveau} atteint`, 'succes');
 
     // Une carte oubliée revient en fin de session. C'est « Oublié » et non
     // « Difficile » qui la ramène : depuis FSRS, « Difficile » est une réussite

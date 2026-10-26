@@ -4,10 +4,24 @@
  * Le contenu de la page n'est rendu qu'une fois la session déverrouillée.
  */
 import '../styles/global.css';
+/*
+   La feuille de KaTeX, servie depuis le site et jamais depuis un CDN.
+
+   Importée ici plutôt que recopiée dans « public/ » : Vite réécrit les URL de
+   polices, les empreinte et les dépose sous « /_astro/ », que le service
+   worker tient pour de la coquille immuable. Les polices sont donc locales,
+   versionnées avec le reste, et le hors-ligne marche dès qu'une page portant
+   une formule a été visitée une fois.
+
+   Le JavaScript de KaTeX, lui, ne part pas : les formules sont rendues à la
+   CONSTRUCTION et le navigateur ne reçoit que du MathML déjà calculé.
+*/
+import 'katex/dist/katex.min.css';
 import { THEMES, THEME_PAR_DEFAUT, modesDe, theme } from '../lib/themes';
 import Verrou from '../components/Verrou.astro';
 import CentreNotifications from '../components/CentreNotifications.astro';
 import CommutateurTheme from '../components/CommutateurTheme.astro';
+import Icone from '../components/Icone.astro';
 import BarreProgression from '../components/BarreProgression.astro';
 import PiedDePage from '../components/PiedDePage.astro';
 import SelecteurParcours from '../components/SelecteurParcours.astro';
@@ -206,8 +220,9 @@ const brancheCourante = brancheDuChemin(Astro.url.pathname);
 /*
    L'ordre des branches ne bouge **jamais** (N3).
 
-   Il bougeait : la branche courante passait en tête, donc Révisions affichait
-   🎓 🧭 🏋, Odyssée 🧭 🎓 🏋, Sport 🏋 🎓 🧭. Un même lien changeait de place
+   Il bougeait : la branche courante passait en tête, donc Révisions montrait
+   ses trois icônes dans un ordre, l'Odyssée dans un autre, le Sport dans un
+   troisième — chacune commençant par la sienne. Un même lien changeait de place
    d'une page à l'autre, ce qui défait la seule chose qu'une barre fixe
    apporte — qu'on finisse par viser sans lire. La branche courante est
    maintenant marquée, pas déplacée.
@@ -610,7 +625,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
           href={`${base}/`}
           class="mb-2 flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-100 dark:text-white dark:hover:bg-slate-800"
         >
-          <span aria-hidden="true">🏛️</span>
+          <Icone nom="menu" taille={18} />
           <span>{config.titre}</span>
         </a>
         <p class="etiquette px-3 pb-1 text-slate-500 dark:text-slate-400">
@@ -628,7 +643,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                 : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
             ]}
           >
-            <span aria-hidden="true">{o.icone}</span>
+            <Icone nom={o.icone} taille={20} />
             <span class="min-w-0 truncate">{o.nom}</span>
           </a>
         ))}
@@ -638,7 +653,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
             href={`${base}${o.chemin}`}
             class="flex items-center gap-2 rounded-lg px-3 py-2 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
           >
-            <span aria-hidden="true">{o.icone}</span>
+            <Icone nom={o.icone} taille={20} />
             <span class="min-w-0 truncate">{o.nom}</span>
           </a>
         ))}
@@ -738,7 +753,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                     title="Menu de Cyclades"
                     class="cible-tactile-pleine gap-2 rounded-lg px-1 transition hover:text-indigo-600 dark:hover:text-indigo-400"
                   >
-                    <span class="text-lg" aria-hidden="true">🗂️</span>
+                    <Icone nom="menu" taille={20} />
                     <span class="hidden sm:inline">{config.titre}</span>
                     <span class="sr-only">Menu de {config.titre}</span>
                   </a>
@@ -810,7 +825,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                         : 'text-slate-600 hover:bg-slate-100 hover:text-indigo-600 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-indigo-400',
                     ]}
                   >
-                    <span class="text-base" aria-hidden="true">{b.icone}</span>
+                    <Icone nom={b.icone} taille={18} />
                     <span class="hidden sm:inline">{b.libelle}</span>
                     <span class="sr-only">
                       {b.id === brancheCourante.id ? `${b.libelle} — branche courante` : `Aller dans ${b.libelle}`}
@@ -968,7 +983,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                               : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
                           ]}
                         >
-                          <span aria-hidden="true">{e.onglet.icone}</span>
+                          <Icone nom={e.onglet.icone} taille={20} />
                           <span>{e.onglet.nom}</span>
                         </a>
                       </span>
@@ -985,7 +1000,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                               : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
                           ]}
                         >
-                          <span aria-hidden="true">{e.groupe.icone}</span>
+                          <Icone nom={e.groupe.icone} taille={20} />
                           <span>{e.groupe.nom}</span>
                           <span aria-hidden="true" class="text-xs">▾</span>
                         </summary>
@@ -1003,7 +1018,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                                     : 'text-slate-700 hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800',
                                 ]}
                               >
-                                <span aria-hidden="true">{o.icone}</span>
+                                <Icone nom={o.icone} taille={20} />
                                 <span>{o.nom}</span>
                               </a>
                             </li>
@@ -1094,7 +1109,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                     class="cible-tactile-pleine list-none rounded-lg text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
                     title="Cet espace"
                   >
-                    <span aria-hidden="true">⚙️</span>
+                    <Icone nom="parametres" taille={18} />
                     <span class="sr-only">Cet espace — réglages et données</span>
                   </summary>
                   <ul class="absolute right-0 z-50 mt-1 min-w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
@@ -1105,7 +1120,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                           title={o.description ?? o.nom}
                           class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                         >
-                          <span aria-hidden="true">{o.icone}</span>
+                          <Icone nom={o.icone} taille={20} />
                           <span>{o.nom}</span>
                         </a>
                       </li>
@@ -1115,7 +1130,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                         href={`${base}/progression/`}
                         class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                       >
-                        <span aria-hidden="true">💾</span>
+                        <Icone nom="sauvegarde" taille={18} />
                         <span>Sauvegarde</span>
                       </a>
                     </li>
@@ -1125,7 +1140,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                         type="button"
                         class="cible-tactile w-full gap-2 rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                       >
-                        <span aria-hidden="true">🔒</span>
+                        <Icone nom="coffre-ferme" taille={18} />
                         <span>Verrouiller la session</span>
                       </button>
                     </li>
@@ -1159,13 +1174,13 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                   title={`Menu de ${config.titre}`}
                   class="flex h-11 shrink-0 items-center gap-2 rounded-lg px-1 font-semibold text-slate-900 transition hover:text-indigo-600 dark:text-white dark:hover:text-indigo-400"
                 >
-                  <span class="text-lg" aria-hidden="true">🗂️</span>
+                  <Icone nom="menu" taille={20} />
                   <span>{config.titre}</span>
                   <span class="sr-only">— revenir au menu</span>
                 </a>
               ) : (
                 <span class="flex h-11 shrink-0 items-center gap-2 font-semibold text-slate-900 dark:text-white">
-                  <span class="text-lg" aria-hidden="true">🗂️</span>
+                  <Icone nom="menu" taille={20} />
                   <span>{config.titre}</span>
                 </span>
               )}
@@ -1186,7 +1201,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                     class="cible-tactile-pleine list-none rounded-lg text-slate-500 transition hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800"
                     title="Cet espace"
                   >
-                    <span aria-hidden="true">⚙️</span>
+                    <Icone nom="parametres" taille={18} />
                     <span class="sr-only">Cet espace — réglages et données</span>
                   </summary>
                   <ul class="absolute right-0 z-50 mt-1 min-w-56 rounded-xl border border-slate-200 bg-white p-1 shadow-lg dark:border-slate-700 dark:bg-slate-900">
@@ -1197,7 +1212,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                           title={o.description ?? o.nom}
                           class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                         >
-                          <span aria-hidden="true">{o.icone}</span>
+                          <Icone nom={o.icone} taille={20} />
                           <span>{o.nom}</span>
                         </a>
                       </li>
@@ -1207,7 +1222,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                         href={`${base}/progression/`}
                         class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                       >
-                        <span aria-hidden="true">💾</span>
+                        <Icone nom="sauvegarde" taille={18} />
                         <span>Sauvegarde</span>
                       </a>
                     </li>
@@ -1217,7 +1232,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                         type="button"
                         class="cible-tactile w-full gap-2 rounded-lg px-3 text-left text-sm text-slate-700 transition hover:bg-slate-100 dark:text-slate-200 dark:hover:bg-slate-800"
                       >
-                        <span aria-hidden="true">🔒</span>
+                        <Icone nom="coffre-ferme" taille={18} />
                         <span>Verrouiller la session</span>
                       </button>
                     </li>
@@ -1265,7 +1280,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                   : 'text-slate-600 dark:text-slate-300',
               ]}
             >
-              <span class="text-lg leading-none" aria-hidden="true">{o.icone}</span>
+              <Icone nom={o.icone} taille={24} />
               <span>{nomCourt(o)}</span>
             </a>
           ))}
@@ -1316,7 +1331,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                         : 'text-slate-700 dark:text-slate-200',
                     ]}
                   >
-                    <span aria-hidden="true">{o.icone}</span>
+                    <Icone nom={o.icone} taille={20} />
                     <span>{o.nom}</span>
                   </a>
                 </li>
@@ -1330,7 +1345,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                     href={`${base}${b.racine}`}
                     class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 dark:text-slate-200"
                   >
-                    <span aria-hidden="true">{b.icone}</span>
+                    <Icone nom={b.icone} taille={20} />
                     <span>{b.libelle}</span>
                   </a>
                 </li>
@@ -1341,7 +1356,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                     href={`${base}${revueAilleurs.chemin}`}
                     class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 dark:text-slate-200"
                   >
-                    <span aria-hidden="true">{revueAilleurs.icone}</span>
+                    <Icone nom={revueAilleurs.icone} taille={20} />
                     <span>Revue du soir</span>
                   </a>
                 </li>
@@ -1360,7 +1375,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                   href={`${base}/`}
                   class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 dark:text-slate-200"
                 >
-                  <span aria-hidden="true">🗂️</span>
+                  <Icone nom="menu" taille={18} />
                   <span>Menu</span>
                 </a>
               </li>
@@ -1370,7 +1385,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
                     href={`${base}${o.chemin}`}
                     class="cible-tactile w-full gap-2 rounded-lg px-3 text-sm text-slate-700 dark:text-slate-200"
                   >
-                    <span aria-hidden="true">{o.icone}</span>
+                    <Icone nom={o.icone} taille={20} />
                     <span>{o.nom}</span>
                   </a>
                 </li>
@@ -1677,6 +1692,33 @@ const flecheVisible = !estLeMenu && !sansNavigation;
         await enregistrerLUsage();
       });
     </script>
+
+    {/*
+       L'ICÔNE D'ALERTE, EN MODÈLE À COPIER, POUR TOUTES LES PAGES.
+
+       Cinq écrans marquent une ligne anormale depuis leur script : les règles
+       rétrogradées, les deux tableaux de rapprochement, le relevé masqué, les
+       questions incertaines du QCM. Tous écrivaient le triangle d'alerte,
+       en émoji, dans une chaîne de caractères.
+
+       Le modèle est ICI et non dans chaque page : c'est un seul dessin, et
+       cinq copies du même « template » finiraient par ne plus être le même.
+       Les scripts le prennent par « iconeDuGabarit('gabarit-alerte') ».
+
+       Il reste muet pour les lecteurs d'écran — comme toute icône du site.
+       Ce que le symbole dit à l'œil, un MOT le dit à côté : « hors
+       tolérance », « d'un seul côté », la phrase du verdict. C'est la règle
+       de ces écrans — le symbole, le chiffre ET le mot, jamais la couleur
+       seule — et elle vaut aussi quand le symbole devient un dessin.
+    */}
+    <template id="gabarit-alerte"><Icone nom="alerte" taille={16} /></template>
+
+    {/*
+       Le casque, pour la même raison : deux écrans posent des cartes
+       « Reprendre l'écoute » ou des boutons « Écouter à partir d'ici » depuis
+       leur script — la fiche et le tableau de bord des révisions.
+    */}
+    <template id="gabarit-ecoute"><Icone nom="fiches-audio" taille={14} /></template>
   </body>
 </html>
 

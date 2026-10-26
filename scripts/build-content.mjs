@@ -17,6 +17,7 @@ import {
   idsPubliesEnDouble,
   frontMatterSchema,
   flashcardSchema,
+  organigrammeSchema,
   quizSchema,
   glossaireSchema,
 } from './lib/schema.mjs';
@@ -449,6 +450,27 @@ async function main() {
       );
     }
 
+    /*
+       LES ORGANIGRAMMES CONSULTABLES.
+
+       Même forme que les cartes et les questions — une liste YAML dans sa
+       section —, et même refus : un organigramme dont la date ou la source
+       manque arrête la construction. La page « Organigrammes » les affiche
+       hors de tout quiz, et c'est pourquoi ils doivent porter seuls ce que la
+       question portait pour eux.
+    */
+    const organigrammes = [];
+    for (const item of parserListeYaml(sections.organigrammes, `${relatif} (## Organigrammes)`)) {
+      const r = organigrammeSchema.safeParse(item);
+      if (!r.success) {
+        erreurs.push(
+          `${relatif} (## Organigrammes) : ${r.error.issues.map((i) => i.message).join(' ; ')}`,
+        );
+        continue;
+      }
+      organigrammes.push(r.data);
+    }
+
     const texteRecherche = [
       fm.data.titre,
       fm.data.tags.join(' '),
@@ -512,6 +534,7 @@ async function main() {
       quiz,
       pretest,
       texteRecherche,
+      organigrammes,
       motsCours: texteBrut(sections.cours).split(/\s+/).filter(Boolean).length,
       // Fiche audio, si « npm run podcasts » l'a déjà synthétisée.
       podcast: await audioDisponible(ficheId),
@@ -608,6 +631,12 @@ async function main() {
           tags: f.tags,
           nbFlashcards: f.flashcards.length,
           nbQuiz: f.quiz.length,
+          /*
+             Le COMPTE au manifeste, les données dans la fiche : la page des
+             organigrammes sait quoi proposer sans rien déchiffrer, et ne
+             déchiffre que ce qu'on ouvre. Même partage que « nbParties ».
+          */
+          nbOrganigrammes: f.organigrammes.length,
           nbMots: f.motsCours,
           aCours: Boolean(f.coursHtml),
           aFiche: Boolean(f.ficheHtml),
@@ -837,6 +866,7 @@ async function main() {
       flashcards: f.flashcards,
       quiz: f.quiz,
       pretest: f.pretest,
+      organigrammes: f.organigrammes,
       // Le lecteur a besoin de la durée et du poids AVANT de télécharger :
       // c'est ce qui permet d'annoncer « 12 min, 3 Mo » sur le bouton.
       podcast: f.podcast

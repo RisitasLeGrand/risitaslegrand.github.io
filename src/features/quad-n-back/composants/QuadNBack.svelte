@@ -556,7 +556,7 @@
     const gain = await gagnerXp(xpNBack(partie.meta.n, score.taux), { secondes: 0 });
     compteAvant = gain.xpGagne;
     for (const badge of gain.nouveauxBadges) notifier(`${badge.icone} Succès : ${badge.nom}`, 'badge');
-    if (gain.monteeDeNiveau) notifier(`🎉 Niveau ${gain.niveau.niveau} !`, 'succes');
+    if (gain.monteeDeNiveau) notifier(`Niveau ${gain.niveau.niveau} atteint`, 'succes');
 
     // Progression automatique : on relit l'historique, la partie qui vient
     // d'être jouée comprise, puis on pose un jalon si le niveau change — sans
@@ -1381,7 +1381,8 @@
       <!--
         L'EMOJI SEUL EST REMPLACÉ PAR UNE PHRASE (constat P8).
 
-        🎯 / 👍 / 💪 étaient le seul commentaire du résultat : trois images
+        La cible, le pouce et le bras musclé étaient le seul commentaire du
+        résultat : trois images
         qu'il fallait deviner, et dont la troisième — le bras musclé pour une
         partie manquée — ressemble à un encouragement de consolation. La
         phrase dit la même chose sans rien laisser à interpréter, et sans

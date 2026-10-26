@@ -165,7 +165,7 @@ function blocLienCours(
           class:
             'inline-flex min-h-11 max-w-full items-center gap-1 rounded-full bg-white px-3 py-1.5 text-xs font-medium text-indigo-700 ring-1 ring-indigo-200 transition hover:bg-indigo-100 dark:bg-slate-900 dark:text-indigo-300 dark:ring-indigo-800 dark:hover:bg-slate-800',
         })}
-           <span aria-hidden="true">📄</span><span class="texte-secable line-clamp-2 text-left">${echapper(fiche.titre)}</span>
+           <span class="texte-secable line-clamp-2 text-left">${echapper(fiche.titre)}</span>
          </a>`,
     )
     .join('');

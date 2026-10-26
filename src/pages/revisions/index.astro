@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import Icone from '../../components/Icone.astro';
 import LienReglages from '../../components/LienReglages.astro';
 import Section from '../../components/Section.astro';
 ---
@@ -62,7 +63,7 @@ import Section from '../../components/Section.astro';
       <div id="carte-streak" class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
         <p class="etiquette text-slate-500 dark:text-slate-400">Série en cours</p>
         <p class="mt-1 text-3xl font-bold text-slate-900 dark:text-white">
-          <span id="streak">—</span> <span class="text-xl">🔥</span>
+          <span id="streak">—</span> <Icone nom="serie" taille={22} />
         </p>
         <p id="streak-detail" class="mt-2 text-xs text-slate-500 dark:text-slate-400"></p>
         <!--
@@ -319,10 +320,12 @@ import Section from '../../components/Section.astro';
       <Section titre="Succès" grilleId="badges" grille="grid grid-cols-2 gap-2 sm:grid-cols-3" />
     </div>
   </div>
+
 </Base>
 
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
+  import { iconeDuGabarit } from '../../lib/icone-gabarit';
   import { construireVue } from '../../lib/agregats';
   import { lireProfil, lireReglagesSession, tousLesJours, jourISO, ajouterJours } from '../../lib/db';
   import { BADGES, calculerNiveau, statutStreak, vueLongTerme } from '../../lib/gamification';
@@ -517,7 +520,24 @@ import Section from '../../components/Section.astro';
         ? 'rounded-xl border border-amber-200 bg-amber-50 p-3 text-center dark:border-amber-800 dark:bg-amber-950/40'
         : 'rounded-xl border border-slate-200 bg-white p-3 text-center opacity-50 dark:border-slate-800 dark:bg-slate-900';
       element.title = badge.description;
-      element.innerHTML = `<div class="text-2xl">${acquis ? badge.icone : '🔒'}</div><p class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-300"></p>`;
+      /*
+         LE CADENAS RESTE UN ÉMOJI — ICI, ET NULLE PART AILLEURS.
+
+         J'avais passé ce cadenas au catalogue, puisque « pas encore obtenu »
+         est un état de l'interface et non du contenu. Le Pilote a tranché
+         l'inverse, et il a raison sur ce qu'on voit : les badges déclarent
+         leur pictogramme dans « gamification.ts », qui reste en émoji, et
+         cette grille les montre tous ensemble. Un cadenas dessiné au trait
+         parmi vingt-huit émojis colorés ne se lirait pas comme le même genre
+         de case : il se lirait comme une erreur d'affichage.
+
+         L'exemption est donc NOMMÉE pour cet endroit, et pour lui seul.
+         Partout ailleurs — l'en-tête, le coffre, l'Odyssée — le cadenas est
+         un SVG du catalogue.
+      */
+      element.innerHTML =
+        `<div class="text-2xl">${acquis ? badge.icone : '🔒'}</div>` +
+        `<p class="mt-1 text-xs font-medium text-slate-700 dark:text-slate-300"></p>`;
       element.querySelector('p')!.textContent = badge.nom;
       zoneBadges.appendChild(element);
     }
@@ -887,8 +907,12 @@ import Section from '../../components/Section.astro';
         'dark:hover:border-indigo-700';
 
       const etiquette = document.createElement('p');
-      etiquette.className = 'etiquette text-indigo-600 dark:text-indigo-400';
-      etiquette.textContent = '🎧 Reprendre l’écoute';
+      etiquette.className =
+        'etiquette flex items-center gap-1.5 text-indigo-600 dark:text-indigo-400';
+      etiquette.append(
+        iconeDuGabarit('gabarit-ecoute'),
+        document.createTextNode('Reprendre l’écoute'),
+      );
 
       const titre = document.createElement('p');
       titre.className = 'mt-1 font-semibold text-slate-900 dark:text-white';
@@ -910,11 +934,12 @@ import Section from '../../components/Section.astro';
       /*
          M9 — le nom accessible, en une phrase.
 
-         Sans lui, le nom se compose par concaténation : « 🎧 Reprendre
+         Sans lui, le nom se compose par concaténation : « Reprendre
          l'écoute La hiérarchie des normes Droit public · arrêté à 1:09 ·
-         reste 6 min » — l'émoji lu « casque audio », l'heure lue « un
-         deux-points zéro neuf », et aucune ponctuation pour séparer. On dit
-         donc la même chose en français, et le visible garde sa forme brève.
+         reste 6 min » — l'heure lue « un deux-points zéro neuf », et aucune
+         ponctuation pour séparer. On dit donc la même chose en français, et
+         le visible garde sa forme brève. Le casque, lui, est devenu un SVG
+         muet : il n'entre plus dans le nom, où il se lisait « casque audio ».
       */
       carte.setAttribute(
         'aria-label',

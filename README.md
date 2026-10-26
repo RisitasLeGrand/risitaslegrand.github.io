@@ -270,6 +270,27 @@ Le réglage se change dans Progression → « Contenus écartés ».
 
 ### Règles à connaître
 
+- **Les formules mathématiques** s'écrivent entre accents graves, avec le
+  préfixe `math:` au fil du texte et un bloc ` ```math ` pour une formule
+  détachée. Le contenu entre accents graves est du LaTeX, pris tel quel :
+
+  ````markdown
+  Le plus petit commun multiple vaut `math:\mathrm{ppcm}(12, 18) = 36`.
+
+  ```math
+  \sqrt{x^2 + y^2}
+  ```
+  ````
+
+  Les formules sont rendues **à la construction** : le site reçoit du MathML,
+  rien à charger pour les afficher, et un lecteur d'écran les lit. Une formule
+  qui ne compile pas **arrête la construction** en nommant le fichier et la
+  formule — `npm run check-content` la signale en quelques secondes.
+
+  N'écrivez pas `$…$` ni `\(…\)`. Le premier est déjà pris par les montants en
+  dollars du corpus (« 20 000 Md$ »), et le second est mangé par Markdown, où
+  `\(` est une échappée de caractère : il n'arriverait jamais jusqu'au rendu.
+  Les accents graves protègent au contraire le LaTeX sans rien échapper.
 - Les cinq titres reconnus sont `## Prétest`, `## Cours complet`,
   `## Fiche simplifiée`, `## Flashcards` et `## Quiz`. Un autre titre `##` est
   rattaché à la section en cours (utile pour un cours découpé en grandes
@@ -761,6 +782,40 @@ sans le savoir. `npm run essais:code-de-sortie` le garde par sabotage, y
 compris le cas qui avait trompé : un essai qui écrit sa croix et rend 0 quand
 même. Elle refuse en revanche de tourner sans mot de passe ou sans aperçu,
 parce qu'elle rendrait alors des rouges qui n'appartiennent pas au site.
+
+**Trois états, et non deux : « non mesurable ».** Deux essais ne peuvent rien
+dire sans le corpus réel — `essais:parcours-des-fiches` veut plus de cent
+fiches au manifeste, `essais:niveau:navigateur` la matière « Économie ». Dans
+un conteneur qui ne sert que `content-exemple/`, ils rendaient un rouge
+indistinguable d'un défaut du site, et rien ne disait pourquoi. Ils renoncent
+maintenant en le disant, avec le code de sortie de
+`scripts/lib/non-mesurable.mjs`, et la batterie les compte **à part** :
+
+```
+socle : 24 verts ; 0 rouges ; 2 non mesurables (12 min)
+non mesurables : essais:parcours-des-fiches essais:niveau:navigateur
+  essais:parcours-des-fiches — le corpus réel : plus de cent fiches au manifeste
+  essais:niveau:navigateur — le corpus réel : la matière « Économie »
+```
+
+La convention, en quatre points : **code de sortie 3** (0 reste vert, 1 rouge,
+tout autre code non nul rouge) ; **une ligne de marque obligatoire**,
+`⚠ NON MESURABLE : <raison>`, un code 3 sans elle comptant rouge ; la batterie
+les compte à part **avec leur raison** et ne les fait pas sortir en rouge ;
+et **personne ne recopie la ligne** — `nonMesurable(raison)` l'écrit et sort.
+
+Un refus ne devient jamais un vert : un essai vert affirme quelque chose,
+celui-là n'affirme rien. La batterie rend 0 — rien n'est cassé, et faire rendre
+1 interdirait de pousser depuis tout conteneur sans corpus réel —, mais son
+verdict le dit, et `npm run essais:code-de-sortie` garde la règle par
+sabotage : ramener ce code à 0 ou à 1 fait rougir le contrôle, et un code 3
+sans sa ligne de marque est compté rouge. Une croix l'emporte toujours : un
+essai qui renonce ET affiche une croix a mesuré quelque chose qui cloche.
+
+Pour rendre ces deux essais mesurables dans un conteneur neuf :
+`npm run recuperer:corpus` (voir
+[`docs/cyclades/recuperation-du-corpus.md`](docs/cyclades/recuperation-du-corpus.md)),
+puis reconstruire.
 
 L'exercice d'entraînement cognitif est écrit en **Svelte** (intégration
 `@astrojs/svelte`, installée avec le reste par `npm install`). Pour le tester :
