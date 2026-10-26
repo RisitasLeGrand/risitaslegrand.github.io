@@ -1,4 +1,5 @@
 ---
+import { base } from '../lib/ui';
 /**
  * L'invitation à installer Cyclades sur l'écran d'accueil.
  *
@@ -28,11 +29,40 @@
          pictogramme du partage change de dessin selon la version, et une
          consigne illustrée par une icône fausse est pire qu'une consigne en
          mots.
+
+         ET IL COMMENCE PAR LA SAUVEGARDE — point 0.4 du 43.
+
+         Ce qu'on sait : une application posée sur l'écran d'accueil peut
+         recevoir son PROPRE espace de stockage, séparé de celui de Safari.
+         Elle s'ouvrirait alors sur une base vide — pas de fiches, pas de
+         séances, pas de journal — et la personne croirait avoir perdu ses
+         données en suivant une consigne de Cyclades.
+
+         Ce qu'on NE SAIT PAS : si c'est le cas sur la version d'iOS de la
+         personne. Le comportement a changé plusieurs fois, et nous n'avons
+         pas d'iPhone pour le mesurer. D'où une phrase qui dit « peut », et
+         non une qui affirme : annoncer une perte certaine ferait renoncer à
+         l'installation, et promettre qu'il n'y en aura pas serait pire.
+
+         Le remède vaut dans les deux cas et coûte une minute. C'est la seule
+         étape de ce chemin qu'on ne peut pas rattraper APRÈS : une fois dans
+         l'application, si la base est vide, la sauvegarde qu'on n'a pas faite
+         n'existe plus nulle part. Elle passe donc en premier, et le reste
+         suit.
       */}
       <ol
         id="invitation-ios"
         class="mt-2 hidden list-decimal space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300"
       >
+        <li data-etape="sauvegarde">
+          <strong>Faites d’abord une sauvegarde</strong>, depuis
+          <a
+            href={`${base}/progression/#sauvegarde`}
+            class="cible-minimale underline text-indigo-700 dark:text-indigo-300"
+            >Sauvegarde</a
+          >, et gardez le fichier. L’application installée peut s’ouvrir sur une base vide :
+          vous la restaurerez dedans, et c’est la seule étape qu’on ne peut pas refaire après.
+        </li>
         <li>Touchez le bouton <strong>Partager</strong>, en bas de Safari.</li>
         <li>Faites défiler, puis choisissez <strong>Sur l’écran d’accueil</strong>.</li>
         <li>Validez par <strong>Ajouter</strong>.</li>
@@ -74,9 +104,15 @@
       }
 
       if (situation.quoi === 'manuelle') {
+        /*
+           « Trois gestes » était juste et ne l'est plus : il y a une étape
+           avant, et c'est la seule qui compte si elle manque. Le texte le dit
+           dans cet ordre-là.
+        */
         texte.textContent =
-          'Safari ne sait pas le faire tout seul : le chemin tient en trois gestes, et ' +
-          'Cyclades s’ouvrira ensuite en plein écran, sans barre d’adresse.';
+          'Safari ne sait pas le faire tout seul. Commencez par une sauvegarde — c’est ' +
+          'l’étape qu’on ne peut pas refaire ensuite —, puis trois gestes suffisent. ' +
+          'Cyclades s’ouvrira en plein écran, sans barre d’adresse.';
         chemin.classList.remove('hidden');
         installer.classList.add('hidden');
         zone.classList.remove('hidden');
