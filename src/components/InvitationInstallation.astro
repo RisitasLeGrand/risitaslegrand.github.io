@@ -55,7 +55,14 @@ import { base } from '../lib/ui';
         class="mt-2 hidden list-decimal space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300"
       >
         <li data-etape="sauvegarde">
-          <strong>Faites d’abord une sauvegarde</strong>, depuis
+          {/*
+             `{' '}` AVANT LE LIEN. Sans lui, le compilateur mange l'espace du
+             retour à la ligne et rend « depuis<a … » : essais:espaces l'a vu
+             dans dist/index.html. C'est le piège déjà payé plusieurs fois dans
+             ce dépôt — un espace entre une phrase et son lien ne se voit pas
+             dans la source, seulement dans le rendu.
+          */}
+          <strong>Faites d’abord une sauvegarde</strong>, depuis{' '}
           <a
             href={`${base}/progression/#sauvegarde`}
             class="cible-minimale underline text-indigo-700 dark:text-indigo-300"
