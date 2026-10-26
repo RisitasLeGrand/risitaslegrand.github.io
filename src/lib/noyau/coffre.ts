@@ -85,7 +85,7 @@ export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
   {
     magasin: 'annulationsEnAttente',
     pourquoi:
-      'Une intention d’action dit CE QU’ON S’APPRÊTE À FAIRE : « noter une prise » en est une, et son genre seul suffirait à révéler un traitement. Scellée dès sa création, comme la donnée qu’elle vise.',
+      'Une intention d’action dit CE QU’ON S’APPRÊTE À FAIRE : « noter une prise » en est une, et son genre seul suffirait à révéler un traitement. Scellée dès sa création, comme la donnée qu’elle vise — et le magasin porte un MÉLANGE assumé : les intentions d’un domaine en clair (supprimer une séance de sport) sont écrites en clair quand le coffre est fermé, celles des domaines scellés sont refusées plutôt qu’exposées. La frontière est celle que ce fichier pose déjà magasin par magasin ; voir GENRES_SENSIBLES.',
     /*
        RIEN QUE LA CLÉ, et elle est OPAQUE pour cette raison même.
 

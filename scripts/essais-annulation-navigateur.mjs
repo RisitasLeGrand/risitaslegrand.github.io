@@ -122,6 +122,26 @@ async function unExercice(page) {
   await page.waitForTimeout(800);
 }
 
+/**
+ * Attend que le bandeau soit là ET que l'intention soit en base.
+ *
+ * `aria-busy` est la POST-CONDITION du gestionnaire : il naît posé et n'est
+ * retiré qu'une fois l'intention écrite. Quitter l'écran avant ce moment ne
+ * prouverait rien — l'intention ne serait pas encore là, et l'essai
+ * mesurerait sa propre précipitation.
+ *
+ * `state: 'attached'` et non « visible » : ce qu'on attend est un attribut, et
+ * la visibilité du bandeau est exigée juste avant. C'est la leçon du centre de
+ * notifications, où un `div` vide n'était jamais « visible ».
+ */
+async function bandeauPret(page) {
+  await page.waitForSelector('#bandeau-annulation', { timeout: 10000 });
+  await page.waitForSelector('#bandeau-annulation:not([aria-busy="true"])', {
+    state: 'attached',
+    timeout: 10000,
+  });
+}
+
 /** Démarre une séance et y pose deux séries identiques. */
 async function uneSeanceDeDeuxSeries(page) {
   await unExercice(page);
@@ -161,7 +181,7 @@ console.log('\nLE BANDEAU PARAÎT, ET IL LAISSE LE TEMPS DE SE RATTRAPER');
   const t0 = Date.now();
   await page.click('#abandonner');
   const bandeau = page.locator('#bandeau-annulation');
-  await page.waitForSelector('#bandeau-annulation', { timeout: 10000 });
+  await bandeauPret(page);
 
   const dit = ((await bandeau.locator('.bandeau-annulation-texte').textContent()) ?? '').trim();
   v('il dit ce qui a été supprimé, et le nombre de séries', dit, 'Séance supprimée, avec ses 2 séries.');
@@ -208,7 +228,7 @@ console.log('\n« ANNULER » REND LA SÉANCE');
   const { ctx, page } = await unePage();
   v('deux séries avant', await uneSeanceDeDeuxSeries(page), 2);
   await page.click('#abandonner');
-  await page.waitForSelector('#bandeau-annulation', { timeout: 10000 });
+  await bandeauPret(page);
   await page.waitForTimeout(1500);
   await page.locator('#bandeau-annulation button:has-text("Annuler")').click();
   await page.waitForTimeout(800);
@@ -240,7 +260,7 @@ console.log('\nQUITTER N’ANNULE PAS');
   const { ctx, page } = await unePage();
   v('deux séries avant', await uneSeanceDeDeuxSeries(page), 2);
   await page.click('#abandonner');
-  await page.waitForSelector('#bandeau-annulation', { timeout: 10000 });
+  await bandeauPret(page);
 
   /*
      On quitte AVANT la fin du délai — c'est tout l'objet : si la sortie
@@ -262,6 +282,38 @@ console.log('\nQUITTER N’ANNULE PAS');
   );
   vrai('et l’écran propose d’en commencer une', await page.locator('#commencer').isVisible());
 
+  await ctx.close();
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   4. Un rechargement pendant le délai exécute aussi
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/*
+   POURQUOI CE CAS S'AJOUTE À LA SORTIE D'ÉCRAN.
+
+   Changer d'écran et recharger ne sont pas le même évènement, et ils ne
+   passaient pas par le même chemin : le premier démonte la page, le second la
+   remonte. Le remède — l'intention écrite au clic, appliquée au démarrage
+   avant toute lecture — doit couvrir les deux, et c'est cette application au
+   démarrage que ce cas mesure sans ambiguïté : rien d'autre ne peut l'avoir
+   faite, puisque la page qui tenait le minuteur n'existe plus.
+*/
+console.log('\nUN RECHARGEMENT PENDANT LE DÉLAI EXÉCUTE AUSSI');
+{
+  const { ctx, page } = await unePage();
+  v('deux séries avant', await uneSeanceDeDeuxSeries(page), 2);
+  await page.click('#abandonner');
+  await bandeauPret(page);
+  await page.waitForTimeout(800);
+  await page.reload({ waitUntil: 'networkidle' });
+  await deverrouiller(page);
+  await page.waitForSelector('#vue:not(.hidden)', { timeout: 30000 });
+  await page.waitForTimeout(1500);
+  vrai(
+    'la séance n’est pas revenue après le rechargement',
+    (await page.locator('#encours:not(.hidden)').count()) === 0,
+  );
   await ctx.close();
 }
 

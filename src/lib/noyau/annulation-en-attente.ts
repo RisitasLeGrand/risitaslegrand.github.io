@@ -61,6 +61,32 @@ export const GENRES_D_INTENTION = ['supprimer-seance', 'noter-creneau'] as const
 
 export type GenreDIntention = (typeof GENRES_D_INTENTION)[number];
 
+/**
+ * Les genres dont la charge ne doit JAMAIS être écrite en clair.
+ *
+ * ## Pourquoi tous les genres ne sont pas dans cette liste
+ *
+ * Mesuré le 26 octobre, et c'est la mesure qui a corrigé ma conception : sur
+ * « /sport/seance/ », le coffre est FERMÉ — « Le coffre est fermé :
+ * l'intention ne peut pas être scellée », relevé en console. Exiger le
+ * scellement pour toute intention revenait donc à ne jamais écrire celle de
+ * la suppression de séance, c'est-à-dire à ne pas corriger le défaut que ce
+ * lot corrige.
+ *
+ * La frontière juste n'est pas « toutes les intentions » : c'est celle que le
+ * dépôt pose déjà magasin par magasin. `sportSeances` n'est pas scellé —
+ * « j'ai supprimé une séance de sport » ne demande pas le coffre pour être
+ * lu, puisque la séance elle-même ne le demande pas. Les magasins de santé le
+ * sont, et une intention qui dit « noter une prise » révèle un traitement :
+ * elle est aussi sensible que ce qu'elle vise.
+ *
+ * Une intention sensible écrite coffre fermé est donc REFUSÉE, et non écrite
+ * en clair. En pratique l'écran de santé l'a ouvert — c'est lui qui le
+ * demande —, donc le refus ne se produit pas ; s'il se produisait, le
+ * comportement d'avant ce lot s'applique, et il est dit en console.
+ */
+export const GENRES_SENSIBLES: readonly GenreDIntention[] = ['noter-creneau'];
+
 export interface AnnulationEnAttente {
   /**
    * Un identifiant OPAQUE, en clair parce qu'il est la clé primaire.
