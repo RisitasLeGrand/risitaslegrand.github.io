@@ -69,10 +69,25 @@ magasin et déchiffre. Pendant cet await, l'essai lisait l'état d'avant.
 
 ### Le critère, en deux conditions
 
+*Élargi le 26 octobre : la première condition a deux formes, et le premier
+balayage n'en voyait qu'une.*
+
 Une attente n'est dangereuse que si **les deux** sont réunies :
 
-- **(a)** sa condition était **déjà vraie** avant le geste ;
-- **(b)** le gestionnaire **cède la main** — un `await` — avant de peindre.
+- **(a)** la condition attendue est vraie **avant que le gestionnaire n'ait
+  peint** ce que l'essai va lire ;
+- **(b)** le gestionnaire **cède la main** — un `await` — entre ce moment-là et
+  la peinture.
+
+La condition (a) se présente sous **deux formes**, et c'est tout l'élargissement :
+
+- **motif 1 — la condition était déjà vraie avant le geste.** Une phase
+  antérieure a laissé le panneau visible, et le clic ne change rien à ce que
+  l'attente regarde.
+- **motif 2 — le gestionnaire la rend vraie, puis cède la main.** Le panneau
+  était bien caché, la transition est réelle, et pourtant l'attente est
+  satisfaite à un instant où le contenu n'est pas là. Trouvé par B dans
+  `basculer()` du centre de notifications, le 25 octobre.
 
 **Sans (b), il n'y a rien à attraper.** Une peinture synchrone ne peut pas être
 surprise à mi-chemin : le navigateur ne rend pas la main entre deux
@@ -80,6 +95,19 @@ instructions, et l'observateur de Playwright ne voit l'état qu'une fois la
 fonction entière terminée. L'ordre entre « démasquer » et « remplir » n'y
 change donc rien — c'est le piège de raisonnement qu'il faut éviter ici, et
 dans lequel je suis tombé deux fois avant de mesurer.
+
+### Pourquoi le premier balayage ne pouvait pas voir le motif 2
+
+Son troisième resserrement écartait « les occurrences qu'un `goto`, un contexte
+neuf ou une fermeture explicite précède — le panneau y repart caché ». Ce
+resserrement est **exactement** ce qui jette le motif 2 : le panneau repart
+caché, donc la transition est vraie, donc l'occurrence paraît saine. Elle ne
+l'est pas, parce que la question n'est pas « la transition a-t-elle lieu ? »
+mais « a-t-elle lieu **avant ou après** la peinture ? ».
+
+`#resultat` de l'import bancaire le montre sans ambiguïté : `peindreApercu` le
+**re-cache** explicitement à chaque relevé, et l'essai attend `#apercu` avant
+de cliquer. Le premier balayage l'aurait donc écarté deux fois.
 
 ### Les deux exemples à garder en tête
 
@@ -109,6 +137,50 @@ qui en tirera ce qu'elle peut.
 Une temporisation à l'aveugle — `waitForTimeout(400)` — n'est pas une parade :
 elle réduit le risque sans le supprimer, et elle cède exactement là où elle
 était censée protéger. Celle de l'auxiliaire des créneaux a cédé sous 500 ms.
+
+### Le second balayage, du 26 octobre
+
+Partir de la source donne **66 occurrences** — un démasquage suivi d'un `await`
+dans les vingt-cinq lignes — dont presque aucune n'est en jeu. On part donc des
+**essais**, qui sont le petit côté : 294 attentes de visibilité relevées, 16
+retenues où l'élément attendu est démasqué avant un `await` et où l'essai lit
+un contenu juste après. Les 16 se lisent à la main, et il reste **deux sites de
+source**.
+
+Deux classes de faux positifs, et elles valent d'être connues :
+
+1. **l'`await` appartient à une autre fonction.** La fenêtre de lignes franchit
+   une accolade fermante, et ramasse l'`await` d'un gestionnaire voisin ou
+   imbriqué. Cinq des huit sites sont dans ce cas — `podcast.ts`, le bandeau de
+   proposition de l'accueil, le compte à rebours du tableau de bord, la
+   simulation de `qui-utilise-mon-age`, les deux erreurs du calendrier.
+2. **le contenu est écrit AVANT le démasquage**, et c'est l'ordre sain. Quatre
+   de ces cinq l'écrivent aussi : le texte est posé, puis l'élément paraît. Rien
+   à observer, quel que soit l'`await` d'après.
+
+#### Les deux cas confirmés, mesurés par un retard de 500 ms
+
+| Source | Essais | Ce qui casse |
+| --- | --- | --- |
+| `CentreNotifications.astro:527` — `panneau.hidden = !ouvrir`, puis `await faireLeMenage()` et `await dessiner()` | `essais-centre-navigateur` (3 attentes), `essais-centre-panne` | 7 assertions, dont « le panneau liste la question et le rappel » : lues sur un panneau vide |
+| `finances.astro:403` — `resultat.classList.remove('hidden')`, puis `await peindreEtat()` | `essais-finances-navigateur` (2 attentes), `essais-rapprocher-ecran` | la table d'état, écrite par `peindreEtat` : « 15 » au lieu de « 20 » |
+
+Le second est instructif : `#resultat` lui-même est rempli **synchroniquement**,
+juste après le démasquage — donc l'assertion qui le lit est saine. Ce qui casse
+est la table `[data-etat]`, que l'`await` d'après remplit. L'essai attend un
+élément et lit **un autre**, et c'est le second qui arrive en retard. Chercher
+le défaut dans l'élément attendu n'aurait rien donné.
+
+Les quatre essais repassent au vert le retard retiré.
+
+#### Un cas déjà réparé, qui donne la forme du remède
+
+`essais-cle-disparue.mjs:190` attend `#coffre-sans-cle:not(.hidden)` sur un
+`FormulaireCoffre` qui démasque puis attend `combienDeScellesIllisibles()`.
+L'essai porte déjà la parade **et son commentaire** : il enchaîne sur un
+`waitForFunction` qui exige que le compte soit écrit, « lire trop tôt mesurait
+l'ordre d'arrivée, pas le contenu ». C'est la post-condition écrite en dernier,
+et elle était là avant qu'on nomme le motif.
 
 ### Comment reconnaître le motif sans refaire le balayage
 

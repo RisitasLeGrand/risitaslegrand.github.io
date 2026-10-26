@@ -587,8 +587,8 @@
       reglages.n = resultat.n;
       notifier(
         resultat.decision === 'montee'
-          ? `⬆ Niveau n = ${resultat.n}`
-          : `⬇ Niveau n = ${resultat.n}`,
+          ? `↑ Niveau n = ${resultat.n}`
+          : `↓ Niveau n = ${resultat.n}`,
         resultat.decision === 'montee' ? 'succes' : 'info',
       );
     }
@@ -1372,8 +1372,7 @@
         Quand vous voudrez que cela compte, touchez « Commencer ».
       </p>
     {:else if bilan.cause !== 'terminee'}
-      <p class="text-4xl">⏸️</p>
-      <h2 class="mt-3 text-xl font-bold text-slate-900 dark:text-white">Session interrompue</h2>
+      <h2 class="text-xl font-bold text-slate-900 dark:text-white">Session interrompue</h2>
       <p class="mt-1 text-sm text-slate-500 dark:text-slate-400">
         Une session abandonnée n'est pas enregistrée.
       </p>

@@ -30,6 +30,17 @@ const vert = (t) => `\x1b[32m${t}\x1b[0m`;
 const rouge = (t) => `\x1b[31m${t}\x1b[0m`;
 const gras = (t) => `\x1b[1m${t}\x1b[0m`;
 
+/**
+ * La couleur de l'icône du verrou, sous couleurs imposées.
+ *
+ * Elle est relevée au point 1 et relue au point 3, dans un autre contexte de
+ * navigateur : c'est la COMPARAISON des deux qui prouve quelque chose. Prise
+ * seule, l'égalité « trait = couleur du texte » est vraie par construction —
+ * « currentColor » la garantit — et passerait même si l'émulation du système
+ * ne s'appliquait pas.
+ */
+let couleurImposeeDeLIcone = null;
+
 let echecs = 0;
 function verifier(quoi, vrai, detail = '') {
   if (vrai) {
@@ -44,6 +55,30 @@ const nav = await chromium.launch({
   executablePath: process.env.CHROMIUM ?? '/opt/pw-browsers/chromium',
   args: ['--no-sandbox'],
 });
+
+/**
+ * Ce qu'une icône du catalogue montre d'elle-même.
+ *
+ * On lit le trait et le remplissage CALCULÉS, et non les attributs : l'attribut
+ * dit « currentColor », et c'est justement la résolution de ce mot qu'on veut
+ * mesurer. Le trait doit valoir la couleur du texte, quoi qu'il arrive —
+ * c'est tout ce qui fait qu'une icône suit les quatorze thèmes sans qu'aucun
+ * soit nommé, et qu'elle survit aux couleurs imposées du système.
+ */
+const iconeDe = (page, selecteur) =>
+  page.evaluate((sel) => {
+    const svg = document.querySelector(sel);
+    if (!svg) return null;
+    const s = getComputedStyle(svg);
+    return {
+      trait: s.stroke,
+      remplissage: s.fill,
+      couleurDuTexte: s.color,
+      /* Et celle du parent : une icône qui aurait sa propre couleur passerait
+         le contrôle d'égalité ci-dessus en ne suivant rien. */
+      couleurDuParent: svg.parentElement ? getComputedStyle(svg.parentElement).color : null,
+    };
+  }, selecteur);
 
 /** Ce qu'on peut lire du focus d'un élément, une fois qu'il l'a. */
 const auFocus = (page, selecteur) =>
@@ -92,6 +127,45 @@ try {
         'le bouton de déverrouillage aussi',
         bouton.largeurContour >= 2 && bouton.styleContour !== 'none',
         `épaisseur ${bouton.largeurContour} px, style « ${bouton.styleContour} »`,
+      );
+    }
+
+    /* ── L'icône du verrou, sous couleurs imposées ────────────────── */
+    /*
+       H4. L'écran de déverrouillage porte un cadenas, et c'était un émoji :
+       en couleurs imposées, un émoji garde SES couleurs — le système ne
+       remplace que ce qui passe par les propriétés de couleur. Il devenait
+       donc une tache de couleur sur un fond qu'on a demandé contrasté, ou
+       disparaissait sur certaines implémentations.
+
+       Devenu un SVG au trait « currentColor », il suit la couleur du texte
+       imposée par le système, comme le libellé à côté de lui. C'est ce que
+       cette mesure établit, et elle serait impossible sur un émoji.
+    */
+    const icone = await iconeDe(page, '#ecran-verrou svg');
+    verifier('l’écran de verrou porte une icône du catalogue', icone !== null);
+    if (icone) {
+      couleurImposeeDeLIcone = icone.couleurDuTexte;
+      verifier(
+        'son trait suit la couleur du texte',
+        icone.trait === icone.couleurDuTexte && icone.trait !== 'none',
+        `trait « ${icone.trait} » · texte « ${icone.couleurDuTexte} »`,
+      );
+      verifier(
+        'et cette couleur est celle de ce qui l’entoure, pas une couleur propre',
+        icone.couleurDuParent === null || icone.couleurDuTexte === icone.couleurDuParent,
+        `icône « ${icone.couleurDuTexte} » · parent « ${icone.couleurDuParent} »`,
+      );
+      /*
+         Le remplissage reste absent : la forme est ouverte, et « global.css »
+         ne force « fill: currentColor » que pour les formes qui le supportent.
+         Un remplissage apparu ici serait un cadenas plein, donc un dessin
+         différent de celui des autres thèmes.
+      */
+      verifier(
+        'son remplissage reste ce que le catalogue a posé',
+        icone.remplissage === 'none' || icone.remplissage === icone.couleurDuTexte,
+        `remplissage « ${icone.remplissage} »`,
       );
     }
 
@@ -175,6 +249,37 @@ try {
       jetons.faible !== jetons.texte,
       `faible « ${jetons.faible} » · texte « ${jetons.texte} »`,
     );
+
+    /*
+       LE TÉMOIN DE L'ICÔNE, et il est le plus utile des trois.
+
+       Sans réglage, l'icône suit déjà la couleur du texte — c'est le propre de
+       « currentColor ». Le contrôle du point 1 passerait donc même si
+       l'émulation des couleurs imposées ne s'appliquait pas du tout. Ce qu'on
+       exige ici, c'est que la couleur AIT CHANGÉ entre les deux modes : c'est
+       la preuve que le système a bien substitué sa teinte, et que l'icône l'a
+       suivie au lieu de garder la sienne.
+    */
+    const iconeAuRepos = await iconeDe(page, '#ecran-verrou svg');
+    if (iconeAuRepos) {
+      verifier(
+        'au repos aussi, le trait de l’icône suit la couleur du texte',
+        iconeAuRepos.trait === iconeAuRepos.couleurDuTexte,
+        `trait « ${iconeAuRepos.trait} » · texte « ${iconeAuRepos.couleurDuTexte} »`,
+      );
+      /*
+         LA COMPARAISON, qui est le seul contrôle non trivial des trois : la
+         couleur de l'icône DIFFÈRE entre les deux modes. C'est elle qui dit que
+         le système a substitué sa teinte et que l'icône l'a suivie, au lieu de
+         garder la sienne comme le faisait l'émoji.
+      */
+      verifier(
+        'et sous couleurs imposées, cette couleur n’était pas la même',
+        couleurImposeeDeLIcone !== null &&
+          couleurImposeeDeLIcone !== iconeAuRepos.couleurDuTexte,
+        `imposée « ${couleurImposeeDeLIcone} » · au repos « ${iconeAuRepos.couleurDuTexte} »`,
+      );
+    }
     await contexte.close();
   }
 } catch (erreur) {
