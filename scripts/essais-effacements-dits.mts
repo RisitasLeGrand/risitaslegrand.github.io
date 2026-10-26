@@ -25,6 +25,7 @@
 import { chromium, type Page } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import { attendreLeCompte, devientVisible } from './lib/post-condition.mjs';
 
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
 const MDP = motDePasseEssais();
@@ -55,7 +56,8 @@ const deverrouiller = async (page: Page) => {
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
     await page.click('#bouton-verrou');
-    await page.waitForTimeout(1200);
+    /* Le départ du champ est la post-condition du déverrouillage. */
+    await devientVisible(page, '#champ-mdp', false, { delai: 30000 });
   }
 };
 
@@ -112,9 +114,8 @@ console.log('\n\x1b[1mEFFACER SA PROGRESSION : AVEC DES NOMBRES\x1b[0m\n');
   );
 
   await page.click('#reinitialiser');
-  await page.waitForTimeout(900);
+  const parue = await devientVisible(page, 'dialog.boite', true);
   const boite = page.locator('dialog.boite');
-  const parue = (await boite.count()) > 0 && (await boite.isVisible());
   v('la confirmation s’ouvre', parue, true);
   const dit = (parue ? ((await boite.textContent()) ?? '') : '').replace(/\s+/g, ' ');
 
@@ -162,8 +163,12 @@ console.log('\n\x1b[1mEFFACER SA PROGRESSION : AVEC DES NOMBRES\x1b[0m\n');
 
   const annuler = boite.locator('button', { hasText: /Annuler|Non|Fermer/ }).first();
   if (await annuler.count()) await annuler.click();
-  await page.waitForTimeout(400);
-  v('on en sort sans rien effacer', await boite.isVisible().catch(() => false), false);
+  /*
+     UNE ASSERTION DE NON-VISIBILITÉ est la plus traîtresse : lue trop tôt, elle
+     est vraie par hasard. On attend donc la disparition, bornée, et son
+     expiration devient le rouge.
+  */
+  v('on en sort sans rien effacer', await devientVisible(page, 'dialog.boite', false), true);
   await ctx.close();
 }
 
@@ -204,7 +209,7 @@ console.log('\n\x1b[1mEFFACER SON PROFIL : AVEC LES NOMS DES CHAMPS\x1b[0m\n');
   await page.waitForSelector('#effacer-profil', { timeout: 30000 });
 
   await page.click('#effacer-profil');
-  await page.waitForTimeout(900);
+  await attendreLeCompte(page, 'dialog', 1);
   const dialogues = page.locator('dialog');
   const combien = await dialogues.count();
   v('une boîte s’ouvre', combien > 0, true);
@@ -228,6 +233,14 @@ console.log('\n\x1b[1mEFFACER SON PROFIL : AVEC LES NOMS DES CHAMPS\x1b[0m\n');
   /* La boîte de redemande dit « Renoncer », pas « Annuler ». */
   const annuler2 = visible.locator('button', { hasText: /Renoncer|Annuler|Fermer/ }).first();
   if (await annuler2.count()) await annuler2.click();
+  /*
+     CELLE-CI ATTEND L'AIDE PARTAGÉE. La post-condition est « l'annonce est
+     écrite » — non vide —, et cette aide existe déjà DEUX fois dans le dépôt :
+     `annonceDe` dans « essais-effacement-navigateur », et sa jumelle que j'ai
+     écrite par mégarde dans « essais-sauvegarde-cyclades ». La promouvoir dans
+     `lib/post-condition.mjs` revient à A, qui tient ce module ; en recopier une
+     troisième serait la faute que ce chantier corrige.
+  */
   await page.waitForTimeout(600);
   const message = (await page.locator('#message-effacement').textContent()) ?? '';
   v('et un abandon le dit', /Rien n’a été supprimé/.test(message), true);
