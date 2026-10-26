@@ -17,6 +17,7 @@ import { ouvrir, sceller } from '../noyau/coffre';
 import { jourLogique } from '../noyau/jour-logique';
 import { ulid } from '../noyau/ulid';
 import { echelle, noter, type IdEchelle, type Passation, type Resultat } from './echelles';
+import { lireCeQuiSOuvre } from '../noyau/lecture-tolerante';
 
 const maintenant = () => new Date().toISOString();
 
@@ -73,7 +74,7 @@ export async function toutesLesPassations(): Promise<Passation[]> {
     string,
     unknown
   >[];
-  const ouvertes = await Promise.all(rangees.map((r) => ouvrir<Passation>(cle, r)));
+  const ouvertes = await lireCeQuiSOuvre(rangees, (r) => ouvrir<Passation>(cle, r));
   return ouvertes.sort((a, b) => b.jour.localeCompare(a.jour) || b.majLe.localeCompare(a.majLe));
 }
 

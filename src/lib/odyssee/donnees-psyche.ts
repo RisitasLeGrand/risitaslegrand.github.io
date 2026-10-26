@@ -21,6 +21,7 @@ import { ulid } from '../noyau/ulid';
 import { jourLogique } from '../noyau/jour-logique';
 import { exigerLeCoffre } from '../coffre';
 import { ouvrir, sceller } from '../noyau/coffre';
+import { lireCeQuiSOuvre } from '../noyau/lecture-tolerante';
 import {
   controlerCheckin,
   controlerEntree,
@@ -96,7 +97,7 @@ export async function ecrireCheckin(neuf: CheckinNeuf, le = new Date()): Promise
 export async function tousLesCheckins(): Promise<Checkin[]> {
   const cle = exigerLeCoffre();
   const rangees = (await (await db()).getAll('odysseeCheckins')) as unknown as Record<string, unknown>[];
-  const ouverts = await Promise.all(rangees.map((r) => ouvrir<Checkin>(cle, r)));
+  const ouverts = await lireCeQuiSOuvre(rangees, (r) => ouvrir<Checkin>(cle, r));
   return ouverts.sort((a, b) => a.jour.localeCompare(b.jour));
 }
 
@@ -144,7 +145,7 @@ export async function ecrireHebdo(
 export async function tousLesHebdos(): Promise<CheckinHebdo[]> {
   const cle = exigerLeCoffre();
   const rangees = (await (await db()).getAll('odysseeHebdos')) as unknown as Record<string, unknown>[];
-  const ouverts = await Promise.all(rangees.map((r) => ouvrir<CheckinHebdo>(cle, r)));
+  const ouverts = await lireCeQuiSOuvre(rangees, (r) => ouvrir<CheckinHebdo>(cle, r));
   return ouverts.sort((a, b) => b.semaine.localeCompare(a.semaine));
 }
 
@@ -177,7 +178,7 @@ export async function ecrireEntree(texte: string, le = new Date()): Promise<Entr
 export async function toutLeJournal(): Promise<Entree[]> {
   const cle = exigerLeCoffre();
   const rangees = (await (await db()).getAll('odysseeJournal')) as unknown as Record<string, unknown>[];
-  const ouverts = await Promise.all(rangees.map((r) => ouvrir<Entree>(cle, r)));
+  const ouverts = await lireCeQuiSOuvre(rangees, (r) => ouvrir<Entree>(cle, r));
   return ouverts.sort((a, b) => b.le.localeCompare(a.le));
 }
 

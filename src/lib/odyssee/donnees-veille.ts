@@ -32,6 +32,7 @@ import {
   type Rejeu,
 } from './rejeu-veille';
 import { syntheseMedecin, type Synthese } from './synthese-veille';
+import { lireCeQuiSOuvre } from '../noyau/lecture-tolerante';
 import {
   REGLAGES_PAR_DEFAUT,
   decider,
@@ -92,7 +93,7 @@ export async function tousLesSignaux(): Promise<SignalEnregistre[]> {
     string,
     unknown
   >[];
-  const ouverts = await Promise.all(rangees.map((r) => ouvrir<SignalEnregistre>(cle, r)));
+  const ouverts = await lireCeQuiSOuvre(rangees, (r) => ouvrir<SignalEnregistre>(cle, r));
   return ouverts.sort((a, b) => b.jour.localeCompare(a.jour));
 }
 

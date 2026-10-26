@@ -23,6 +23,7 @@ import { ulid } from '../noyau/ulid';
 import { jourLogique } from '../noyau/jour-logique';
 import { exigerLeCoffre } from '../coffre';
 import { ouvrir, sceller } from '../noyau/coffre';
+import { lireCeQuiSOuvre } from '../noyau/lecture-tolerante';
 import {
   controlerPrise,
   controlerStatut,
@@ -117,7 +118,7 @@ export async function toutesLesPrises(): Promise<Prise[]> {
     string,
     unknown
   >[];
-  return Promise.all(rangees.map((r) => ouvrir<Prise>(cle, r)));
+  return lireCeQuiSOuvre(rangees, (r) => ouvrir<Prise>(cle, r));
 }
 
 /**
@@ -180,7 +181,7 @@ export async function tousLesStatuts(): Promise<StatutHormonal[]> {
     string,
     unknown
   >[];
-  return Promise.all(rangees.map((r) => ouvrir<StatutHormonal>(cle, r)));
+  return lireCeQuiSOuvre(rangees, (r) => ouvrir<StatutHormonal>(cle, r));
 }
 
 export async function refermerStatut(id: string, le = new Date()): Promise<StatutHormonal | null> {

@@ -29,6 +29,7 @@ import { db } from '../db';
 import { dansLaFenetre } from './occurrences-de-la-fenetre';
 import { exigerLeCoffre, rangementDeLaBoite } from '../coffre';
 import { ouvrir, sceller } from '../noyau/coffre';
+import { lireCeQuiSOuvre } from '../noyau/lecture-tolerante';
 import {
   controlerEtapeCochee,
   controlerOccurrence,
@@ -249,7 +250,7 @@ export async function exceptionsScellees(): Promise<ExceptionScellee[]> {
     string,
     unknown
   >[];
-  return Promise.all(rangees.map((r) => ouvrir<ExceptionScellee>(cle, r)));
+  return lireCeQuiSOuvre(rangees, (r) => ouvrir<ExceptionScellee>(cle, r));
 }
 
 /** Écrit une exception sous scellé. **Lève si le coffre est fermé.** */

@@ -30,6 +30,7 @@ import { apercuSurLePasse, type Apercu, type OperationPointable } from './regles
 import { typeDe } from './taxonomie';
 import type { OperationBancaire } from './finances';
 import type { RegleDePointage, Vendeur } from './vendeurs';
+import { lireCeQuiSOuvre } from '../noyau/lecture-tolerante';
 import {
   CLEF_TAXONOMIE,
   type EtatDeLaTaxonomie,
@@ -76,7 +77,7 @@ async function ecrire<T extends { id: string }>(
 async function toutLire<T>(magasin: MagasinDePointage): Promise<T[]> {
   const cle = exigerLeCoffre();
   const rangees = (await (await db()).getAll(magasin)) as unknown as Record<string, unknown>[];
-  return Promise.all(rangees.map((r) => ouvrir<T>(cle, r)));
+  return lireCeQuiSOuvre(rangees, (r) => ouvrir<T>(cle, r));
 }
 
 async function ecrireEnLot<T extends { id: string }>(
