@@ -219,6 +219,17 @@ export const REGLAGES: Reglage[] = [
     ecran: '/profil/',
   },
   {
+    id: 'laterale',
+    libelle: 'Replier la barre latérale',
+    aQuoiCaSert:
+      'Sur un ordinateur, la navigation de gauche se réduit à une colonne d’icônes et rend sa place au contenu. Les entrées restent toutes atteignables, et le bouton de la barre fait la même chose.',
+    section: 'affichage',
+    portee: 'appareil',
+    stockage: 'localStorage::revinsp.laterale',
+    nature: interrupteur,
+    defaut: false,
+  },
+  {
     id: 'serie-xp',
     libelle: 'Afficher la série et l’XP',
     aQuoiCaSert:

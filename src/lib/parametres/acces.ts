@@ -52,6 +52,7 @@ import type { Acces } from './modele';
 export const CLE_THEME_SEANCE = 'revinsp.theme-seance';
 export const CLE_ECRAN_ALLUME = 'revinsp.ecran-allume';
 const CLE_ANIMATIONS = 'revinsp.animations';
+const CLE_LATERALE = 'revinsp.laterale';
 const CLE_VUE_FICHE = 'revinsp.vue-fiche';
 const CLE_TUTORIELS = 'revinsp:rr:tutoriels';
 
@@ -162,6 +163,23 @@ export const ACCES: Record<string, Acces> = {
       /* Le même geste que l'écran d'origine : l'attribut, tout de suite,
          sinon le réglage ne prendrait qu'à la page suivante. */
       document.documentElement.setAttribute('data-animations', valeur);
+    },
+  },
+  laterale: {
+    lire: async () => lireLocal(CLE_LATERALE) === 'rail',
+    ecrire: async (v) => {
+      /*
+         Deux valeurs écrites, et JAMAIS la clé retirée : « rail » ou
+         « deplie ». Mon premier jet retirait la clé pour dire « déplié »,
+         ce qui faisait DEUX façons de dire la même chose — l'absence et le
+         mot — et la seconde n'aurait pas survécu au premier qui l'oublie.
+      */
+      const valeur = v ? 'rail' : 'deplie';
+      ecrireLocal(CLE_LATERALE, valeur);
+      /* Le même geste que le bouton de la barre : l'attribut tout de suite,
+         sinon le réglage ne prendrait qu'à la page suivante. */
+      if (v) document.documentElement.setAttribute('data-laterale', 'rail');
+      else document.documentElement.removeAttribute('data-laterale');
     },
   },
   'serie-xp': {

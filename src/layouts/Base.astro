@@ -1615,8 +1615,10 @@ const flecheVisible = !estLeMenu && !sansNavigation;
           else racineHtml.removeAttribute('data-laterale');
           direLEtat(enRail);
           try {
-            if (enRail) localStorage.setItem('revinsp.laterale', 'rail');
-            else localStorage.removeItem('revinsp.laterale');
+            /* « deplie » et non le retrait de la clé : la page centrale des
+               réglages écrit ce mot, et deux façons de dire « déplié » —
+               l'absence et le mot — divergeraient au premier oubli. */
+            localStorage.setItem('revinsp.laterale', enRail ? 'rail' : 'deplie');
           } catch {
             /* Le repli vaut pour cette page ; il ne sera pas retenu, et c'est
                tout ce qu'on perd. */
