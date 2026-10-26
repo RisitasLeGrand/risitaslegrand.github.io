@@ -11,6 +11,7 @@
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { repondreALaBoite, repondreALaRedemande } from './lib/boite-essais.mjs';
+import { devientVisible } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -36,7 +37,9 @@ const connecter = async () => {
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
     await page.click('#bouton-verrou');
-    await page.waitForTimeout(3000);
+    /* La post-condition du déverrouillage est le DÉPART du champ, une vraie
+       transition : on ne vient ici que lorsqu'il est visible. */
+    await devientVisible(page, '#champ-mdp', false, { delai: 30000 });
   }
 };
 
@@ -115,7 +118,9 @@ await page.evaluate(
 // Passer par un écran qui lit la base, pour qu'elle soit créée au bon schéma.
 await page.goto(`${RACINE}/progression/`, { waitUntil: 'networkidle' });
 await connecter();
-await page.waitForTimeout(2500);
+/* L'écran de progression est debout : c'est tout ce qu'il faut avant d'écrire
+   nous-mêmes en base. */
+await page.waitForSelector('#etat-sauvegarde-titre', { timeout: 30000 });
 
 await page.evaluate(
   () =>
@@ -217,7 +222,6 @@ console.log('\n« COMPTER » NE TOUCHE À RIEN');
 await page.goto(`${RACINE}/stockage/`, { waitUntil: 'networkidle' });
 await connecter();
 await page.waitForSelector('#stockage', { state: 'visible', timeout: 60000 });
-await page.waitForTimeout(1500);
 
 await page.check('input[name="groupe-effacement"][value="cog-training"]');
 await page.fill('#depuis', '2025-01-01');
@@ -340,11 +344,15 @@ console.log('\nUNE PÉRIODE À L’ENVERS EST REFUSÉE');
 await page.check('input[name="groupe-effacement"][value="revisions"]');
 await page.fill('#depuis', '2026-12-31');
 await page.fill('#jusqua', '2026-01-01');
+/*
+   `recompter()` ne convient pas ici : il attend « Compté », et une période à
+   l'envers n'est jamais comptée. `annonceDe` attend qu'une annonce SOIT
+   ÉCRITE, quelle qu'elle soit — c'est la post-condition du refus.
+*/
 await page.click('#compter');
-await page.waitForTimeout(1000);
 v(
   'le message explique le problème',
-  /à l’envers/.test((await page.locator('#message-effacement').textContent()) ?? ''),
+  /à l’envers/.test(await annonceDe('#message-effacement')),
   true,
 );
 v('et le décompte reste fermé', await page.locator('#decompte').isVisible(), false);
@@ -375,8 +383,7 @@ v('le fichier commence par un BOM', contenu.charCodeAt(0), 0xfeff);
 v('le séparateur est le point-virgule', contenu.includes('id;ficheId'), true);
 v('les colonnes imbriquées sont aplaties', contenu.includes('fsrs.stability'), true);
 
-await page.waitForTimeout(1200);
-const msgExport = (await page.locator('#message-export').textContent()) ?? '';
+const msgExport = await annonceDe('#message-export');
 v('le message rappelle que ce n’est pas une sauvegarde', /ne se réimportent pas/.test(msgExport), true);
 
 /* ── Un magasin scellé dont la date est dedans ────────────────────────── */
@@ -468,7 +475,6 @@ console.log('\nUNE PÉRIODE QUI NE LE CONTIENT PAS L’ÉPARGNE');
 await page.goto(`${RACINE}/stockage/`, { waitUntil: 'networkidle' });
 await connecter();
 await page.waitForSelector('#stockage', { state: 'visible', timeout: 60000 });
-await page.waitForTimeout(1500);
 
 const compterLaPeriode = async (depuis, jusqua) => {
   /*
@@ -549,7 +555,6 @@ console.log('\nCOFFRE FERMÉ : LAISSÉ ENTIER, ET L’ÉCRAN DIT POURQUOI');
   await page.goto(`${RACINE}/stockage/`, { waitUntil: 'networkidle' });
   await connecter();
   await page.waitForSelector('#stockage', { state: 'visible', timeout: 60000 });
-  await page.waitForTimeout(1500);
 
   const d = await compterLaPeriode(HIER, AUJOURDHUI);
   v('le magasin est annoncé laissé entier', /odysseeCreneaux/.test(d.refus), true);
