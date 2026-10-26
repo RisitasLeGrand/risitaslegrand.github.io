@@ -20,6 +20,7 @@
  */
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import { devientVisible } from './lib/post-condition.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 
@@ -76,10 +77,53 @@ const deverrouiller = async () => {
   }
 };
 
+/**
+ * Le compteur de série a-t-il été peint ?
+ *
+ * Le gabarit l'écrit « — » et le script le remplace après avoir lu la base.
+ * Attendre que le tiret s'en aille est donc une post-condition de la peinture
+ * du TABLEAU DE BORD, et non de l'ouverture du coffre : ce sont deux chaînes
+ * différentes, et `aller` n'attend que la seconde. C'est le troisième piège,
+ * attendre une chose et en lire une autre, et il restait ici après la première
+ * passe de réparation — mesuré : quatre assertions tombaient encore sous un
+ * processeur bridé vingt fois.
+ *
+ * Aucun passage antérieur ne peut l'avoir rendue vraie : chaque `aller` est une
+ * navigation complète, et le tiret revient avec le gabarit.
+ */
+const attendreLeCompteur = async () =>
+  page
+    .waitForFunction(
+      () => {
+        const valeur = document.getElementById('streak')?.textContent?.trim();
+        return valeur !== undefined && valeur !== '' && valeur !== '—';
+      },
+      undefined,
+      { timeout: 20000 },
+    )
+    .catch(() => {});
+
 const aller = async (chemin) => {
   await page.goto(`${RACINE}${chemin}`, { waitUntil: 'networkidle' });
   await deverrouiller();
-  await page.waitForTimeout(400);
+  /*
+     APRÈS LE DÉVERROUILLAGE, ON ATTEND QUE L'APPLICATION SOIT LÀ.
+
+     Ces quatre cents millisecondes couvraient le déchiffrement et la première
+     peinture, sur CHAQUE navigation de l'essai — une quinzaine. L'écran de
+     verrou qui s'en va est la marque que le déchiffrement a abouti ; c'est
+     elle qu'on attend, et elle ne dépend pas de la charge de la machine.
+  */
+  await page
+    .waitForFunction(
+      () => {
+        const verrou = document.getElementById('ecran-verrou');
+        return verrou === null || verrou.classList.contains('hidden') || !verrou.offsetParent;
+      },
+      undefined,
+      { timeout: 20000 },
+    )
+    .catch(() => {});
 };
 
 /**
@@ -177,7 +221,7 @@ try {
      verts sur un écran qui ne montre simplement aucune série. */
   vrai(
     'le semis a pris : la série de sept jours est à l’écran',
-    (await page.locator('#streak').innerText().catch(() => '')).trim() === '7',
+    (await attendreLeCompteur(), await page.locator('#streak').innerText().catch(() => '')).trim() === '7',
   );
 
   let texte = await texteDeLaPage();
@@ -203,7 +247,7 @@ try {
   await aller('/revisions/');
   v(
     'un jour oublié, la série de sept jours est intacte',
-    (await page.locator('#streak').innerText().catch(() => '')).trim(),
+    (await attendreLeCompteur(), await page.locator('#streak').innerText().catch(() => '')).trim(),
     '7',
   );
 
@@ -219,7 +263,7 @@ try {
   await aller('/revisions/');
   v(
     'la grâce déjà consommée cette semaine : la série est rompue',
-    (await page.locator('#streak').innerText().catch(() => '')).trim(),
+    (await attendreLeCompteur(), await page.locator('#streak').innerText().catch(() => '')).trim(),
     '0',
   );
 
@@ -233,7 +277,7 @@ try {
   await aller('/revisions/');
   v(
     'la grâce d\u2019il y a neuf jours est de nouveau disponible',
-    (await page.locator('#streak').innerText().catch(() => '')).trim(),
+    (await attendreLeCompteur(), await page.locator('#streak').innerText().catch(() => '')).trim(),
     '7',
   );
 
@@ -242,7 +286,7 @@ try {
   await aller('/revisions/');
   v(
     'deux jours oubliés : la série est rompue, grâce ou non',
-    (await page.locator('#streak').innerText().catch(() => '')).trim(),
+    (await attendreLeCompteur(), await page.locator('#streak').innerText().catch(() => '')).trim(),
     '0',
   );
 
@@ -287,7 +331,25 @@ try {
 
   console.log('\nF2 — ÉTEINT, LES SCORES DISPARAISSENT DES ÉCRANS');
   await basculer();
-  await page.waitForTimeout(300);
+  /*
+     ON ATTEND L'ÉTAT QU'ON VA LIRE, et non trois cents millisecondes.
+
+     L'interrupteur écrit son réglage puis repeint son attribut : la bascule
+     est asynchrone. Sous un processeur bridé douze fois, la lecture arrivait
+     avant la peinture. L'attente est bornée, donc son expiration reste un
+     rouge — on n'a retiré que l'exigence que la peinture tienne en 300 ms,
+     qui mesurait la machine et non l'écran.
+  */
+  await page
+    .waitForFunction(
+      () =>
+        document
+          .querySelector('#reglage-serie-xp [role="switch"]')
+          ?.getAttribute('aria-checked') === 'false',
+      undefined,
+      { timeout: 10000 },
+    )
+    .catch(() => {});
   v('l\u2019interrupteur est éteint', await etatDe('#reglage-serie-xp [role="switch"]'), 'false');
 
   await aller('/revisions/');
@@ -321,7 +383,18 @@ try {
   console.log('\nF2 — RALLUMÉ, RIEN N\u2019A ÉTÉ PERDU');
   await aller('/parametres/#affichage');
   await basculer();
-  await page.waitForTimeout(300);
+  /* Le réglage doit être ÉCRIT avant qu'on quitte la page : une navigation
+     qui part trop tôt emporte l'ancien état, et l'écran d'après le montre. */
+  await page
+    .waitForFunction(
+      () =>
+        document
+          .querySelector('#reglage-serie-xp [role="switch"]')
+          ?.getAttribute('aria-checked') === 'true',
+      undefined,
+      { timeout: 10000 },
+    )
+    .catch(() => {});
   await aller('/revisions/');
   texte = await texteDeLaPage();
   vrai(
@@ -360,7 +433,16 @@ try {
     const ferme = page.locator('#liste details:not([open]) > summary').first();
     if (!(await ferme.count())) break;
     await ferme.click().catch(() => {});
-    await page.waitForTimeout(250);
+    /* Le dépliant ouvert est la post-condition du clic ; sans elle, la boucle
+       rouvrait le même quatre fois sous un processeur bridé. */
+    await ferme.evaluate((s) => s.parentElement?.hasAttribute('open')).catch(() => false);
+    await page
+      .waitForFunction(
+        () => document.querySelectorAll('#liste details[open]').length > 0,
+        undefined,
+        { timeout: 5000 },
+      )
+      .catch(() => {});
   }
   vrai('la bibliothèque offre une fiche', await premiereFicheVisible());
   const premiereFiche = page.locator('a[href*="/fiche/?id="]').first();
@@ -377,7 +459,15 @@ try {
     .waitFor({ timeout: 30_000 })
     .catch(() => {});
   await boutonLu.click({ timeout: 5000 }).catch(() => {});
-  await page.waitForTimeout(800);
+  /*
+     LE LIBELLÉ EST ÉCRIT APRÈS UNE ÉCRITURE EN BASE, et c'est lui qu'on lit.
+     Huit cents millisecondes le couvraient d'habitude ; sous charge, non.
+  */
+  await boutonLu
+    .filter({ hasText: 'Fiche lue' })
+    .first()
+    .waitFor({ timeout: 10000 })
+    .catch(() => {});
   v(
     'prémisse : la fiche est marquée lue',
     (await boutonLu.innerText().catch(() => '')).trim(),
@@ -412,7 +502,10 @@ try {
      voyait rien. Le premier essai cherchait donc ces phrases sur l'écran
      d'accueil, et rougissait sans qu'aucune faute soit du code. */
   await page.locator('#carte').click().catch(() => {});
-  await page.waitForTimeout(300);
+  /* Le bloc de notation VISIBLE est la post-condition du retournement, et
+     c'est exactement ce que « innerText » va lire — il ne rend que le
+     visible. */
+  await devientVisible(page, '#notation', true);
   const notation = (await page.locator('#notation').innerText().catch(() => '')).toLowerCase();
   vrai('« Oublié » dit ce qu\u2019il veut dire', notation.includes('vous ne saviez pas'));
   vrai('« Difficile » aussi', notation.includes('retrouvé, mais avec peine'));
@@ -433,14 +526,40 @@ try {
       inedites += 1;
     }
     await page.locator('#carte').click().catch(() => {});
-    await page.waitForTimeout(120);
+    /*
+       LE ROUGE MESURÉ ÉTAIT ICI, et il mentait doucement.
+
+       Cent vingt millisecondes après le retournement, la boucle regardait UNE
+       FOIS si le bouton « Facile » était là et SORTAIT sinon. Sous un
+       processeur bridé douze fois, il n'était pas encore peint au premier
+       tour : la boucle notait une carte au lieu de quatre, et l'assertion
+       d'après — « les 1 cartes rapportent 1 × 5 » — comparait un total juste
+       à un compte faux. Elle rougissait donc pour la bonne raison, sans que
+       rien ne dise laquelle.
+
+       L'attente bornée distingue les deux cas que la temporisation
+       confondait : le bouton tarde, ou il ne viendra pas. Seul le second
+       justifie de sortir.
+    */
     const bouton = page.locator('[data-note="facile"]');
-    if (!(await bouton.isVisible().catch(() => false))) break;
+    if (!(await devientVisible(page, '[data-note="facile"]', true, { delai: 8000 }))) break;
     await bouton.click();
     notees += 1;
-    await page.waitForTimeout(150);
+    /* La carte suivante est arrivée quand le bouton a disparu — ou quand le
+       bilan paraît, si c'était la dernière. */
+    await Promise.race([
+      page.waitForSelector('[data-note="facile"]', { state: 'hidden', timeout: 8000 }),
+      page.waitForSelector('#bilan:not(.hidden)', { timeout: 8000 }),
+    ]).catch(() => {});
   }
-  await page.waitForTimeout(400);
+  /* Le bilan non vide est la post-condition de la fin de session. */
+  await page
+    .waitForFunction(
+      () => (document.getElementById('bilan-detail')?.innerText ?? '').trim().length > 0,
+      undefined,
+      { timeout: 15000 },
+    )
+    .catch(() => {});
   const bilan = (await page.locator('#bilan-detail').innerText().catch(() => '')).trim();
   vrai('prémisse : des cartes ont été notées', notees > 0);
   vrai(
@@ -528,11 +647,15 @@ try {
     if (source.includes('nouvelle carte')) ineditesServies += 1;
     servies += 1;
     await page.locator('#carte').click().catch(() => {});
-    await page.waitForTimeout(120);
+    /* Même défaut que la boucle de F4, et même parade : l'attente bornée
+       distingue « le bouton tarde » de « il ne viendra pas ». */
     const bouton = page.locator('[data-note="correct"]');
-    if (!(await bouton.isVisible().catch(() => false))) break;
+    if (!(await devientVisible(page, '[data-note="correct"]', true, { delai: 8000 }))) break;
     await bouton.click();
-    await page.waitForTimeout(150);
+    await Promise.race([
+      page.waitForSelector('[data-note="correct"]', { state: 'hidden', timeout: 8000 }),
+      page.waitForSelector('#bilan:not(.hidden)', { timeout: 8000 }),
+    ]).catch(() => {});
   }
   vrai('prémisse : la session « sans cartes neuves » a servi des cartes', servies > 0);
   v('et aucune n\u2019était inédite', ineditesServies, 0);
@@ -548,7 +671,10 @@ try {
   await page.evaluate(() => {
     document.getElementById('proposition')?.classList.remove('hidden');
   });
-  await page.waitForTimeout(200);
+  /* Le démasquage est fait PAR l'essai, donc sa visibilité est la seule
+     post-condition dont il a besoin — et deux cents millisecondes de plus
+     n'ajoutaient rien qu'une chance de moins. */
+  await devientVisible(page, '#proposition', true);
 
   const styles = await page.evaluate(() =>
     ['proposition-oui', 'proposition-plus-tard', 'proposition-non'].map((id) => {
