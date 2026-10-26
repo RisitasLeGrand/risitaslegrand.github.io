@@ -513,6 +513,11 @@ export function tracesDe(centimes: Centimes): string[] {
     euros(-centimes),
     avecEspaceOrdinaire(centimes),
     avecEspaceOrdinaire(-centimes),
+    /*
+       nombre non affiché : forme MACHINE voulue. Cette liste énumère toutes
+       les écritures possibles d'un montant pour traquer celles qu'une vue
+       laisse fuir — lui retirer la forme brute affaiblirait le garde-fou.
+    */
     (centimes / 100).toFixed(2),
   ];
 }

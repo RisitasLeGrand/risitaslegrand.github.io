@@ -85,7 +85,20 @@ const SOCLE = [
   ['essais:structure', 'un titre de niveau 1 par écran, un titre d’onglet unique'],
   ['essais:espaces', 'aucun mot collé à une balise en ligne, dans le site construit'],
   ['essais:mots-colles:navigateur', 'les mêmes, mesurés dans la page vivante'],
-  ['essais:typographie', 'apostrophes, espaces insécables, accords sans « (s) »'],
+  /*
+     LA DESCRIPTION PROMETTAIT TROIS CHOSES, L'ESSAI N'EN TIENT QU'UNE. Elle
+     annonçait « apostrophes, espaces insécables, accords sans « (s) » » :
+     l'essai n'éprouve que « insecables() », et rien des apostrophes ni des
+     accords. Trouvé le 26 octobre en cherchant si un balayage des « (s) »
+     existait déjà — j'allais en écrire un second, ce qui est la faute que ce
+     lot dénonce par ailleurs.
+
+     Une description qui promet une garantie absente est pire qu'une absence de
+     description : on croit le point couvert, et personne ne va voir. Les
+     accords sans « (s) » sont tenus, mais par « essais:accords », qui les
+     balaye et les compte.
+  */
+  ['essais:typographie', 'les espaces insécables : ce qu’elles posent et ce qu’elles laissent'],
   /*
      Deux garanties que n'importe quelle retouche du rendu Markdown peut
      défaire sans qu'on la voie : les 158 « $ » monétaires et les 100 ellipses

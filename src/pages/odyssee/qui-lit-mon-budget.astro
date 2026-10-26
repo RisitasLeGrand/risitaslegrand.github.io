@@ -89,7 +89,7 @@ import LienReglages from '../../components/LienReglages.astro';
   import { poserLesYeux } from '../../lib/mot-de-passe-visible';
   import { jourISO } from '../../lib/db';
   import { messageDUneErreur } from '../../lib/agir';
-  import { accorde, pluriel } from '../../lib/noyau/accords';
+  import { accorde, nombreFr, pluriel } from '../../lib/noyau/accords';
   import { auDeverrouillage } from '../../lib/chargement';
   import { euros } from '../../lib/odyssee/finances';
   import { occurrences, TOLERANCE_PAR_DEFAUT } from '../../lib/odyssee/budget';
@@ -176,7 +176,7 @@ import LienReglages from '../../components/LienReglages.astro';
           `Épargne mensuelle prévue : ${euros(p.vue.epargneMensuelle)}.`,
           p.vue.tauxEpargne === null
             ? 'Taux d’épargne : inconnu, faute de ressource déclarée.'
-            : `Taux d’épargne : ${(p.vue.tauxEpargne * 100).toFixed(1).replace('.', ',')} %.`,
+            : `Taux d’épargne : ${nombreFr(p.vue.tauxEpargne * 100, 1)} %.`,
         ];
       case 'habitudes':
         return [
@@ -194,11 +194,11 @@ import LienReglages from '../../components/LienReglages.astro';
         return [
           p.vue.sortiesParJourRecent === null
             ? 'Cadence récente : pas assez de données.'
-            : `Cadence récente : ${p.vue.sortiesParJourRecent.toFixed(2).replace('.', ',')} ` +
+            : `Cadence récente : ${nombreFr(p.vue.sortiesParJourRecent, 2)} ` +
               `${accorde(p.vue.sortiesParJourRecent, 'sortie')} par jour.`,
           p.vue.sortiesParJourDeBase === null
             ? 'Base : pas assez d’historique.'
-            : `Base : ${p.vue.sortiesParJourDeBase.toFixed(2).replace('.', ',')} ` +
+            : `Base : ${nombreFr(p.vue.sortiesParJourDeBase, 2)} ` +
               `${accorde(p.vue.sortiesParJourDeBase, 'sortie')} par jour.`,
           'Aucun montant, et aucune comparaison au budget.',
         ];

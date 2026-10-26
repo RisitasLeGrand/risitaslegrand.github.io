@@ -385,6 +385,7 @@ const parDomaine = Object.keys(DOMAINES).map((d) => ({
 </Base>
 
 <script>
+  import { nombreFr } from '../../lib/noyau/accords';
   import { defilerVers } from '../../lib/defilement';
   import { auDeverrouillage } from '../../lib/chargement';
   import { coffreOuvert, ouvrirLeCoffre } from '../../lib/coffre';
@@ -505,8 +506,8 @@ const parDomaine = Object.keys(DOMAINES).map((d) => ({
       tr.dataset.repere = d.indicateur;
       for (const texte of [
         d.libelle,
-        `${d.ecarts.toFixed(2)} ÉAM`,
-        `${d.seuilApplique.toFixed(2)} ÉAM`,
+        `${nombreFr(d.ecarts, 2)} ÉAM`,
+        `${nombreFr(d.seuilApplique, 2)} ÉAM`,
         String(d.joursRetenus),
         d.contextes.length ? d.contextes.join(', ') : '—',
       ]) {

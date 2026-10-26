@@ -37,6 +37,7 @@
 import { dureeDuJourLogique, jourLogique, type ReglagesJourLogique } from '../noyau/jour-logique';
 import { resolutions, type ChargeResolution, type Issue, type Resolution } from '../noyau/corrections';
 import type { Operation } from '../noyau/operations';
+import { nombreFr } from '../noyau/accords';
 import type { Fait } from '../noyau/faits';
 
 /** Le préfixe du « type en conflit » d'une résolution de désaccord. */
@@ -250,7 +251,7 @@ export const REGLES_DESACCORD: readonly RegleDesaccord[] = [
           faits: trier(valeurs.map((v) => v.fait)),
           types: ['odyssee.poids'],
           branches: branchesDe(valeurs.map((v) => v.fait)),
-          resume: `Deux pesées du ${jour} s’écartent de ${(max - min).toFixed(1)} kg.`,
+          resume: `Deux pesées du ${jour} s’écartent de ${nombreFr(max - min, 1)} kg.`,
         },
       ];
     },

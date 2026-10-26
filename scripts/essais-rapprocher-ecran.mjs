@@ -311,8 +311,15 @@ await aller('/odyssee/rapprocher/', '#vue');
     await page.$$eval('[data-a-classer]', (e) => e.length), 16);
 
   const texte = await page.textContent('#coffre-ouvert');
+  /*
+     LE MOT, PAS SA PARENTHÈSE. Ces trois contrôles cherchaient « appliquée(s) »,
+     « opération(s) », « importée(s) » — c'est-à-dire la forme même que le lot 9
+     interdit, et ils ont rougi sur des phrases devenues JUSTES. Ce qu'ils
+     doivent tenir, c'est que l'écran DISE la chose : qu'elle soit appliquée
+     automatiquement, en quelque nombre que ce soit.
+  */
   vrai('les certaines sont annoncées comme appliquées',
-    texte.includes('appliquée(s) automatiquement'), texte.slice(0, 200));
+    /appliquées? automatiquement/.test(texte), texte.slice(0, 200));
   vrai('et le pied dit la ligne qu’elles ont rejointe',
     (await page.textContent('#certaines')).includes('VIR M DUPONT LOYER'),
     (await page.textContent('#certaines')).slice(0, 200));
@@ -430,7 +437,7 @@ console.log('\nLES VENDEURS INCONNUS, UN PAR LIGNE');
 
   const titre = await page.textContent('[data-inconnu] p');
   vrai('la ligne dit combien d’opérations et combien au total',
-    /\d+ opération\(s\).+€/.test(titre), titre);
+    /\d+ opérations?.+€/.test(titre), titre);
 }
 
 {
@@ -546,7 +553,7 @@ console.log('\nLE MODE AVANCÉ DE CRÉATION DE RÈGLE');
     await page.isDisabled('[data-geste="creer-avance"]'));
   const apercu = await page.textContent('[data-apercu-regle]');
   vrai('l’aperçu chiffre ce que la règle reclasserait',
-    /\d+ opération\(s\) déjà importée\(s\)/.test(apercu), apercu);
+    /\d+ opérations? déjà importées?/.test(apercu), apercu);
 }
 
 {

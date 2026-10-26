@@ -76,7 +76,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { accorde, nombreFr, pluriel } from '../src/lib/noyau/accords.ts';
-import { sitesInterdits } from './lib/accords-balayage.mjs';
+import { sitesDeToFixed, sitesInterdits } from './lib/accords-balayage.mjs';
 import { nonMesurable } from './lib/non-mesurable.mjs';
 
 let echecs = 0;
@@ -353,6 +353,96 @@ console.log('\n\u001b[1mLE BALAYAGE DES SOURCES\u001b[0m');
     console.log(
       `      Le remède : « pluriel(n, 'jour') » pour le nom, « accorde(n, 'suivie') »\n` +
         `      pour ce qui le suit, tous deux dans « lib/noyau/accords.ts ».`,
+    );
+  }
+}
+
+/* ══════════════════════════════════════════════════════════════════════════
+   4. « toFixed » — l'autre façon de mal écrire un nombre
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/*
+   MÊME FAMILLE QUE LES « (s) », MÊME TRAITEMENT. « toFixed » écrit un POINT
+   décimal — « 12.50 € » dans une phrase française — et n'espace pas les
+   milliers. Le dépôt portait le contournement « toFixed(2).replace('.', ',') »,
+   qui met la virgule et laisse les milliers collés : à moitié faux, donc plus
+   difficile à voir qu'une faute franche.
+
+   LA DIFFÉRENCE AVEC LES « (s) », et elle commande la forme de l'exemption :
+   un « (s) » se juge sur ce qu'il écrit, un « toFixed » sur l'USAGE qu'on en
+   fait. La même expression est une faute dans une phrase et la seule écriture
+   juste dans la valeur d'un champ que le code relit. Rien dans la ligne ne le
+   dit : il faut que quelqu'un l'ait su et l'ait écrit.
+
+   D'où une marque au site plutôt qu'une liste de lignes — qui aurait vieilli
+   au premier déplacement et rangé la raison loin du code qu'elle excuse.
+*/
+console.log('\n\u001b[1mLE BALAYAGE SE TROMPE-T-IL ? — « toFixed »\u001b[0m');
+const combienFixed = (source: string, fichier = '') => sitesDeToFixed(source, fichier).length;
+v('un « toFixed » affiché est vu', combienFixed('const t = `${n.toFixed(2)} €`;'), 1);
+v(
+  'un commentaire qui PARLE de « toFixed() » n’est pas une infraction',
+  combienFixed('/* on n’écrit plus n.toFixed(2) dans une phrase */\nconst n = 1;'),
+  0,
+);
+v(
+  'une marque sur la ligne même exempte',
+  combienFixed('const k = n.toFixed(2); // nombre non affiché : clé de recherche'),
+  0,
+);
+/*
+   LA MARQUE VIT DANS LE COMMENTAIRE ATTACHÉ, aussi long soit-il. La première
+   version admettait « la ligne ou l'une des trois précédentes », et elle ne
+   voyait pas une marque posée au style du dépôt — un `/*` seul, puis le texte.
+*/
+v(
+  'une marque dans le commentaire attaché exempte, même à cinq lignes',
+  combienFixed(
+    '    /*\n       nombre non affiché : valeur d’un champ que le code relit, et\n' +
+      '       « nombreFr » y mettrait une espace des milliers.\n    */\n' +
+      "    champ.value = n.toFixed(2);",
+  ),
+  0,
+);
+/*
+   ET C'EST LE CONTRÔLE QUI EMPÊCHE LA MARQUE DE VOYAGER : une ligne de CODE
+   entre la marque et le site arrête la remontée. Sans lui, une exemption
+   posée pour un site finirait par excuser son voisin, et le balayage se
+   viderait tout seul.
+*/
+v(
+  'une marque séparée du site par du code n’exempte pas',
+  combienFixed('/* nombre non affiché : clé */\nconst a = 1;\nconst t = `${n.toFixed(2)} €`;'),
+  1,
+);
+v(
+  'et un commentaire de balisage se lit avec le genre du fichier',
+  combienFixed("<p>Aujourd’hui</p>\n<!-- on n’écrit plus n.toFixed(2) ici -->", 'x.astro'),
+  0,
+);
+
+console.log('\n\u001b[1mLES « toFixed » AFFICHÉS DE « src/ »\u001b[0m');
+{
+  const trouves: { fichier: string; ligne: number; texte: string }[] = [];
+  for (const fichier of fichiersDe('src')) {
+    for (const t of sitesDeToFixed(readFileSync(fichier, 'utf8'), fichier)) {
+      trouves.push({ fichier, ...t });
+    }
+  }
+  v('aucun « toFixed » qui ne déclare pourquoi il n’est pas affiché', trouves.length, 0);
+  if (trouves.length) {
+    const parFichier = new Map<string, number>();
+    for (const t of trouves) parFichier.set(t.fichier, (parFichier.get(t.fichier) ?? 0) + 1);
+    console.log(
+      `      ${trouves.length} ${accorde(trouves.length, 'site')} dans ` +
+        `${pluriel(parFichier.size, 'fichier')} :`,
+    );
+    for (const [f, n] of [...parFichier.entries()].sort((a, b) => b[1] - a[1])) {
+      console.log(`      ${String(n).padStart(3)}  ${f}`);
+    }
+    console.log(
+      `      Le remède : « nombreFr(n, décimales) » pour un nombre, « euros(c) » pour un\n` +
+        `      montant. Un nombre qui n’est PAS affiché le déclare : « nombre non affiché : … ».`,
     );
   }
 }

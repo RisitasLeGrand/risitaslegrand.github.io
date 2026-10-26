@@ -293,7 +293,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
   /* Depuis le noyau et non depuis « lib/ui » : cette page n'importe pas « ui »,
      qui pose la zone des bulles à l'import. On ne tire pas un effet de bord
      pour deux fonctions pures. */
-  import { accorde, pluriel } from '../../lib/noyau/accords';
+  import { accorde, nombreFr, pluriel } from '../../lib/noyau/accords';
   import { auDeverrouillage } from '../../lib/chargement';
   import { centimesDe, euros, type OperationBancaire } from '../../lib/odyssee/finances';
   import { reconcilier } from '../../lib/odyssee/finances';
@@ -876,6 +876,11 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       montant.dataset.montantPartOccurrence = String(index);
       montant.className =
         'min-h-11 w-28 rounded-lg border border-slate-300 bg-white px-2 text-right text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950';
+      /*
+         nombre non affiché : VALEUR D'UN CHAMP, relue par « centimesDe ».
+         « nombreFr » y mettrait une espace des milliers, que la lecture
+         n'attend pas.
+      */
       montant.value = (part.centimes / 100).toFixed(2).replace('.', ',');
       montant.addEventListener('change', () => {
         const lu = centimesDe(montant.value);
@@ -1156,7 +1161,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       const droite = document.createElement('span');
       droite.className = 'tabular-nums text-slate-600 dark:text-slate-300';
       const relatif =
-        e.ecartRelatif === null ? '—' : `${(e.ecartRelatif * 100).toFixed(1).replace('.', ',')} %`;
+        e.ecartRelatif === null ? '—' : `${nombreFr(e.ecartRelatif * 100, 1)} %`;
       droite.textContent =
         `prévu ${euros(e.prevu)} · réel ${euros(e.reel)} · écart ${euros(e.ecart)} (${relatif})` +
         (alerte ? ' — hors tolérance' : '');
@@ -1852,6 +1857,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       .filter((o) => {
         if (o.libelle.toLowerCase().includes(net)) return true;
         if (!chiffres) return false;
+        /* nombre non affiché : CLÉ de recherche, comparée par « startsWith ». */
         const montant = Math.abs(o.centimes / 100).toFixed(2);
         return montant.startsWith(chiffres) || montant === chiffres;
       })
@@ -1982,6 +1988,11 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       montant.dataset.montantDeLaPart = String(index);
       montant.className =
         'min-h-11 w-28 rounded-lg border border-slate-300 bg-white px-2 text-right text-sm tabular-nums dark:border-slate-700 dark:bg-slate-950';
+      /*
+         nombre non affiché : VALEUR D'UN CHAMP, relue par « centimesDe ».
+         « nombreFr » y mettrait une espace des milliers, que la lecture
+         n'attend pas.
+      */
       montant.value = (part.centimes / 100).toFixed(2).replace('.', ',');
       /*
          Sur « change » et non sur « input » : relire à chaque frappe
@@ -2002,7 +2013,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       const pourcentage = document.createElement('span');
       pourcentage.dataset.pourcentage = String(index);
       pourcentage.className = 'w-14 text-right text-xs tabular-nums text-slate-500 dark:text-slate-400';
-      pourcentage.textContent = part100 === null ? '—' : `${part100.toFixed(0)} %`;
+      pourcentage.textContent = part100 === null ? '—' : `${nombreFr(part100)} %`;
 
       ligne.append(choix, montant, pourcentage);
       ligne.appendChild(bouton('Le reste ici', 'poser-le-reste', async () => {
@@ -2121,7 +2132,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
       droite.className = 'tabular-nums text-slate-600 dark:text-slate-300';
       const relatif = l.ecartRelatif === null
         ? '—'
-        : `${(l.ecartRelatif * 100).toFixed(1).replace('.', ',')} %`;
+        : `${nombreFr(l.ecartRelatif * 100, 1)} %`;
       /*
          LE MOT, ET PAS SEULEMENT LE SYMBOLE.
 

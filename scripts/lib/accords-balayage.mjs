@@ -396,3 +396,86 @@ export function sitesInterdits(source, fichier = '') {
   }
   return { sites, anomalies };
 }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   « toFixed » — l'autre façon de mal écrire un nombre
+   ══════════════════════════════════════════════════════════════════════════ */
+
+/**
+ * Un `toFixed` dont la ligne, ou l'une des trois précédentes, porte cette
+ * marque n'est pas compté.
+ *
+ * ## Pourquoi une MARQUE, et non une liste de lignes
+ *
+ * Les « (s) » s'exemptent par leur TEXTE, parce qu'un texte est ce qu'il est
+ * où qu'il aille. Un `toFixed` ne se juge pas sur ce qu'il écrit mais sur
+ * l'USAGE qu'on en fait : la même expression est une faute dans une phrase et
+ * la seule écriture juste dans la valeur d'un champ. Rien dans la ligne ne le
+ * dit ; il faut que quelqu'un l'ait su et l'ait écrit.
+ *
+ * Une liste de « fichier:ligne » aurait vieilli au premier déplacement, et
+ * elle aurait surtout rangé la raison LOIN du code qu'elle excuse. La marque
+ * vit au site : elle se lit en relisant la ligne, elle suit le code quand il
+ * bouge, et elle ne peut pas être « oubliée au fichier d'exemptions ».
+ *
+ * Les quatre usages légitimes rencontrés au 26 octobre :
+ *
+ * - la valeur d'un CHAMP que le code relit — `centimesDe(champ.value)`
+ *   n'attend pas d'espace des milliers, et `nombreFr` la lui donnerait ;
+ * - une CLÉ de recherche, comparée par `startsWith` ;
+ * - un libellé d'AXE de graphique, où la place manque ;
+ * - une forme MACHINE volontaire : `consommateurs.ts` énumère toutes les
+ *   écritures possibles d'un montant pour traquer celles qu'une vue laisse
+ *   fuir. Lui retirer la forme brute AFFAIBLIRAIT le garde-fou.
+ */
+export const MARQUE_NOMBRE_NON_AFFICHE = /nombre non affiché/i;
+
+/**
+ * La marque est cherchée dans le COMMENTAIRE ATTACHÉ au site, et nulle part
+ * ailleurs.
+ *
+ * Première version : « la ligne, ou l'une des trois précédentes ». Trop court
+ * pour le style du dépôt, dont les commentaires de bloc ouvrent sur un `/*`
+ * seul et portent leur texte à la ligne suivante : la marque se trouvait à
+ * quatre lignes du site et n'était pas vue. Allonger le nombre aurait été
+ * arbitraire dans l'autre sens — une marque posée pour un site aurait fini par
+ * en excuser un voisin.
+ *
+ * On remonte donc tant que la ligne est un commentaire, et on s'arrête à la
+ * première ligne de CODE. Un commentaire se reconnaît sans l'analyser : le
+ * blanchiment conserve les positions, donc une ligne vide après blanchiment et
+ * non vide dans la source est un commentaire, et rien d'autre.
+ */
+function marqueAttachee(brutes, propres, k) {
+  if (MARQUE_NOMBRE_NON_AFFICHE.test(brutes[k] ?? '')) return true;
+  for (let i = k - 1; i >= 0; i -= 1) {
+    const commentaire = (propres[i] ?? '').trim() === '' && (brutes[i] ?? '').trim() !== '';
+    if (!commentaire) return false;
+    if (MARQUE_NOMBRE_NON_AFFICHE.test(brutes[i])) return true;
+  }
+  return false;
+}
+
+/**
+ * Les `toFixed` d'une source qui ne déclarent pas pourquoi ils ne sont pas
+ * affichés.
+ *
+ * Les commentaires sont blanchis par la règle partagée, avec le GENRE du
+ * fichier — sans quoi un commentaire qui PARLE de `toFixed()` pour dire qu'on
+ * ne l'écrit plus compterait comme une infraction. La marque, elle, est
+ * cherchée dans la source BRUTE : c'est un commentaire, et un commentaire
+ * blanchi ne dirait plus rien.
+ */
+export function sitesDeToFixed(source, fichier = '') {
+  const genre = /\.(astro|svelte)$/.test(fichier) ? 'astro' : 'js';
+  const propres = sansCommentaires(source, genre);
+  const brutes = source.split('\n');
+  const sites = [];
+  propres.forEach((ligne, k) => {
+    if (marqueAttachee(brutes, propres, k)) return;
+    for (const _ of ligne.matchAll(/toFixed\s*\(/g)) {
+      sites.push({ ligne: k + 1, texte: (brutes[k] ?? '').trim().slice(0, 120) });
+    }
+  });
+  return sites;
+}

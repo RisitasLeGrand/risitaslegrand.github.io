@@ -39,7 +39,7 @@ import {
   type Occurrence,
   type Tolerance,
 } from './budget';
-import type { Centimes, OperationBancaire } from './finances';
+import { euros, type Centimes, type OperationBancaire } from './finances';
 
 /* ══════════════════════════════════════════════════════════════════════════
    Les motifs
@@ -141,8 +141,8 @@ export interface Critere {
 const joursEntre = (a: string, b: string) =>
   Math.round((Date.parse(`${b}T12:00:00.000Z`) - Date.parse(`${a}T12:00:00.000Z`)) / 86_400_000);
 
-const eurosCourt = (c: Centimes) =>
-  `${(Math.abs(c) / 100).toFixed(2).replace('.', ',')} €`;
+/* « Court » ne tient qu'à la valeur ABSOLUE : le reste est le format commun. */
+const eurosCourt = (c: Centimes) => euros(Math.abs(c));
 
 export function critereDeMontant(
   attendu: Centimes,

@@ -400,7 +400,7 @@ if (sansIntitule.length > 0) {
   import { confirmer } from '../lib/boite';
   import { messageDUneErreur } from '../lib/agir';
   import { auDeverrouillage } from '../lib/chargement';
-  import { accorde, lien, notifier, pluriel } from '../lib/ui';
+  import { accorde, lien, nombreFr, notifier, pluriel } from '../lib/ui';
   import {
     controlerIntegrite,
     demanderPersistance,
@@ -445,9 +445,9 @@ if (sansIntitule.length > 0) {
   const octets = (n: number | null) => {
     if (n === null) return 'inconnu';
     if (n < 1024) return `${n} o`;
-    if (n < 1048576) return `${(n / 1024).toFixed(1)} Ko`;
-    if (n < 1073741824) return `${(n / 1048576).toFixed(2)} Mo`;
-    return `${(n / 1073741824).toFixed(2)} Go`;
+    if (n < 1048576) return `${nombreFr(n / 1024, 1)} Ko`;
+    if (n < 1073741824) return `${nombreFr(n / 1048576, 2)} Mo`;
+    return `${nombreFr(n / 1073741824, 2)} Go`;
   };
 
   function definition(cible: string, paires: [string, string][]) {
@@ -468,7 +468,7 @@ if (sansIntitule.length > 0) {
     definition('occupation', [
       ['Occupé', octets(o.utilise)],
       ['Quota estimé', octets(o.quota)],
-      ['Part utilisée', o.part === null ? 'inconnue' : `${(o.part * 100).toFixed(1)} %`],
+      ['Part utilisée', o.part === null ? 'inconnue' : `${nombreFr(o.part * 100, 1)} %`],
     ]);
 
     const alerte = $('alerte-quota');
@@ -778,7 +778,7 @@ if (sansIntitule.length > 0) {
       ['Prise le', new Date(i.le).toLocaleString('fr-FR')],
       ['Version d’avant', String(i.deVersion)],
       ['Version actuelle', String(i.versVersion)],
-      ['Taille', `${(i.octets / 1024 / 1024).toFixed(2)} Mio`],
+      ['Taille', `${nombreFr(i.octets / 1024 / 1024, 2)} Mio`],
     ];
     $('migration-detail').innerHTML = lignes
       .map(
@@ -896,7 +896,8 @@ if (sansIntitule.length > 0) {
           `${d.enregistrementsTotal.toLocaleString('fr-FR')} enregistrements, ` +
           `${octets(d.serialiseTotal)} de données` +
           (d.rapportReel !== null
-            ? ` — soit ${d.rapportReel.toFixed(2)}× sur le disque. Moins de 1 : votre navigateur comprime les valeurs de lui-même.`
+            ? ` — soit ${nombreFr(d.rapportReel, 2)}× sur le disque. Moins de 1 : votre ` +
+              'navigateur comprime les valeurs de lui-même.'
             : '.');
         $('detail').classList.remove('hidden');
       } finally {

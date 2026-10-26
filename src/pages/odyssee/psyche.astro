@@ -244,7 +244,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
   import { unSeulGeste } from '../../lib/geste';
-  import { pluriel } from '../../lib/noyau/accords';
+  import { nombreFr, pluriel } from '../../lib/noyau/accords';
   import { jourLogique } from '../../lib/noyau/jour-logique';
   import {
     DIMENSIONS,
@@ -352,8 +352,9 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
         const signe = ecart.ecart > 0 ? '+' : '';
         dd.textContent =
           Math.abs(ecart.ecart) < ECART_NOTABLE
-            ? `Dans votre moyenne (${ecart.base.toFixed(1)}).`
-            : `${ecart.tendance} de votre moyenne : ${ecart.recent.toFixed(1)} contre ${ecart.base.toFixed(1)} (${signe}${ecart.ecart.toFixed(1)}).`;
+            ? `Dans votre moyenne (${nombreFr(ecart.base, 1)}).`
+            : `${ecart.tendance} de votre moyenne : ${nombreFr(ecart.recent, 1)} ` +
+              `contre ${nombreFr(ecart.base, 1)} (${signe}${nombreFr(ecart.ecart, 1)}).`;
         dd.dataset.tendance = ecart.tendance;
       }
       bloc.append(dt, dd);

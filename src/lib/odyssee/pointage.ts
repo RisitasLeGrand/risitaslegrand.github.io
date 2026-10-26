@@ -30,7 +30,7 @@
  * à mesurer sur l'usage. Ce qui est promis ici n'est pas qu'ils soient
  * justes, mais qu'ils soient **mesurés et publiés**, y compris mauvais.
  */
-import type { Centimes, OperationBancaire } from './finances';
+import { euros, type Centimes, type OperationBancaire } from './finances';
 import { TOUS_LES_TYPES, typeDe } from './taxonomie';
 import type { Certitude, Reconnaissance } from './vendeurs';
 
@@ -204,7 +204,7 @@ export function anomaliesDe(
       nature: 'montantInhabituel',
       phrase:
         `Montant inhabituel pour ce vendeur : vos ${h.montants.length} opérations tournent ` +
-        `autour de ${(habituel.mediane / 100).toFixed(2).replace('.', ',')} €.`,
+        `autour de ${euros(habituel.mediane)}.`,
     });
   }
 
@@ -248,8 +248,8 @@ export function anomaliesDe(
     sorties.push({
       nature: 'hausseDAbonnement',
       phrase:
-        `Cet abonnement coûte plus qu’avant : ${(montant / 100).toFixed(2).replace('.', ',')} € ` +
-        `contre ${(habituel.mediane / 100).toFixed(2).replace('.', ',')} € habituellement.`,
+        `Cet abonnement coûte plus qu’avant : ${euros(montant)} ` +
+        `contre ${euros(habituel.mediane)} habituellement.`,
     });
   }
   return sorties;
@@ -435,7 +435,7 @@ export function decider(
     return {
       statut: 'a-pointer',
       pourquoi:
-        `Au-dessus du plafond de ${(plafond / 100).toFixed(2).replace('.', ',')} €` +
+        `Au-dessus du plafond de ${euros(plafond)}` +
         (sansHistorique ? ', abaissé faute d’historique pour ce vendeur.' : '.'),
       anomalies,
       surLePlafondSansHistorique: sansHistorique,
@@ -447,7 +447,7 @@ export function decider(
     pourquoi:
       `${r.parQuoi ?? 'vendeur certain'} · ` +
       (sansHistorique
-        ? `première occurrence, sous le plafond de ${(plafond / 100).toFixed(2).replace('.', ',')} €`
+        ? `première occurrence, sous le plafond de ${euros(plafond)}`
         : `montant habituel (${contexte.historique.montants.length} opérations)`) +
       ` · type « ${type.libelle} » en automatique.`,
     anomalies,
