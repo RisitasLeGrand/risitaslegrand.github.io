@@ -131,9 +131,35 @@ import Icone from './Icone.astro';
     // peindre l'état « en cours » avant de la lancer.
     await new Promise((r) => setTimeout(r, 20));
 
-    const message = await deverrouiller(champ.value, memoriser.checked);
-    bouton.disabled = false;
-    bouton.textContent = 'Déverrouiller';
+    /*
+       LE BOUTON REVIENT, QUOI QU'IL ARRIVE — 0.1 du 43.
+
+       Ces deux lignes de remise en état étaient APRÈS l'appel, sans rien
+       autour. Le jour où `deverrouiller` a levé — hors ligne, paramètres
+       illisibles —, elles n'ont pas été exécutées : le bouton est resté sur
+       « Déchiffrement… », désactivé, et la personne n'avait plus aucun
+       recours. Mesuré en mode avion le 26 octobre.
+
+       La cause connue est désormais rendue comme un message par `auth.ts`,
+       où elle se nomme. Ce `finally` garde les causes qu'on ne connaît pas :
+       un bouton mort est un écran sans issue, et l'issue ne doit pas
+       dépendre de ce qui a échoué.
+    */
+    let message: string | null;
+    try {
+      message = await deverrouiller(champ.value, memoriser.checked);
+    } catch (e) {
+      /*
+         Dit, et non avalé. `messageDUneErreur` met la panne en français :
+         le texte brut d'une plate-forme est en anglais, et il ne dit rien à
+         qui le lit.
+      */
+      const { messageDUneErreur } = await import('../lib/agir');
+      message = `Le déverrouillage a échoué : ${messageDUneErreur(e)}`;
+    } finally {
+      bouton.disabled = false;
+      bouton.textContent = 'Déverrouiller';
+    }
 
     if (message) {
       echecChargement();

@@ -2,19 +2,24 @@
 /**
  * La batterie complète, ou le socle seul : les essais dans l'ordre, et un verdict.
  *
- *   npm run batterie   # tout ce qui commence par « essais » — 316 au 25 octobre
- *   npm run socle      # les 32 transversaux
+ *   npm run batterie   # tout ce qui commence par « essais » — 329 au 26 octobre
+ *   npm run socle      # les 40 transversaux, 18 minutes mesurées le 26 octobre
  *
- * CES DEUX NOMBRES SE PÉRIMENT, ET ILS S'ÉTAIENT PÉRIMÉS. Cette ligne
+ * CES DEUX NOMBRES SE PÉRIMENT, ET ILS SE SONT PÉRIMÉS DEUX FOIS. Cette ligne
  * annonçait « les 235 » et « les seize transversaux, onze minutes » alors que
- * la batterie en découvrait 315 et que le socle en comptait 31 : un en-tête
- * qui chiffre ce qu'il ne compte pas finit par mentir doucement. Le vrai
- * compte, lui, est imprimé par la commande elle-même au début de chaque
- * passage — c'est lui qui fait foi, et c'est là qu'il faut le lire.
+ * la batterie en découvrait 315 et que le socle en comptait 31 ; corrigée le
+ * 25 octobre à 316 et 32, elle était de nouveau fausse le 26 — 328 et 39 —
+ * parce que sept essais transversaux se sont ajoutés entre-temps. Un en-tête
+ * qui chiffre ce qu'il ne compte pas mentira donc encore : le vrai compte est
+ * imprimé par la commande elle-même au début de chaque passage, c'est lui qui
+ * fait foi, et c'est là qu'il faut le lire. Les chiffres ci-dessus portent
+ * leur date pour qu'on sache ce qu'ils valent.
  *
- * La durée du socle n'est plus écrite : « onze minutes » valait pour seize
- * essais, et personne ne l'a remesurée depuis qu'il y en a deux fois plus.
- * Mieux vaut pas de chiffre qu'un chiffre faux.
+ * La durée, elle, est de nouveau écrite — mais MESURÉE, et datée : dix-huit
+ * minutes le 26 octobre, pour trente-neuf essais, dont quatre de navigateur
+ * qui prennent à eux seuls dix minutes. « Onze minutes » avait traîné depuis
+ * l'époque des seize essais, et mieux vaut pas de chiffre qu'un chiffre faux :
+ * si celui-ci perd sa date, qu'on l'efface plutôt que de le croire.
  *
  * ## Pourquoi cette commande existe
  *
@@ -98,6 +103,15 @@ const SOCLE = [
      manquante : on relit le socle pour savoir ce qui est gardé.
   */
   ['essais:typographie', 'la fonction « insecables » : ce qu’elle pose, et ce qu’elle laisse tranquille — URL, anglais, code cité'],
+  /*
+     0.1 DU 43 — le seul essai qui garde la copie de secours des paramètres
+     publics, et le seul qui passe par `deverrouiller` sans réseau.
+     `essais:hors-ligne-usage`, son voisin, déverrouille EN LIGNE puis coupe :
+     il garde l'autre chemin, celui d'`obtenirCle`. Le défaut que celui-ci a
+     trouvé laissait le bouton du verrou mort pour toujours, sans message —
+     c'est-à-dire un site inutilisable hors ligne et sans recours.
+  */
+  ['essais:hors-ligne-a-froid', 'déverrouiller en mode avion, sans session, puis lire une donnée'],
   /*
      Deux garanties que n'importe quelle retouche du rendu Markdown peut
      défaire sans qu'on la voie : les 158 « $ » monétaires et les 100 ellipses
