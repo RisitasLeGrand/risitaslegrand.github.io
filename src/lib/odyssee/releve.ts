@@ -39,6 +39,7 @@
  * isolé dans la marge, **sans rien signaler** : 267 lignes plausibles
  * ressemblent exactement à 278 lignes plausibles. Seul le solde l'a dit.
  */
+import { accorde, pluriel } from '../noyau/accords';
 import { centimesDe, type Centimes } from './finances';
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -407,11 +408,13 @@ export function lireReleve(
     const repli = frontiereParEcart(sansFrontiere);
     refus =
       repli.x === null
-        ? `${sansFrontiere.length} opération(s) lues sans colonnes identifiables. ${repli.raison}`
+        ? `${pluriel(sansFrontiere.length, 'opération')} ` +
+          `${accorde(sansFrontiere.length, 'lue')} sans colonnes identifiables. ${repli.raison}`
         : null;
     if (repli.x !== null) {
       refus =
-        `${sansFrontiere.length} opération(s) précèdent tout en-tête de colonnes. ` +
+        `${pluriel(sansFrontiere.length, 'opération')} ` +
+        `${accorde(sansFrontiere.length, 'précède', 'précèdent')} tout en-tête de colonnes. ` +
         'Leur signe n’a pas pu être établi de façon sûre, et elles ont été écartées.';
     }
   }
@@ -452,7 +455,7 @@ function controler(c: CompteLu): ControleDeCompte {
     operations: c.operations.length,
     message:
       ecart === 0
-        ? `${c.operations.length} opération(s), solde exact.`
+        ? `${pluriel(c.operations.length, 'opération')}, solde exact.`
         : `Écart de ${(Math.abs(ecart) / 100).toFixed(2).replace('.', ',')} € : ` +
           'une opération manque, est en double, ou a été lue du mauvais côté.',
   };

@@ -13,6 +13,7 @@
  * corrects, et corriger l'un comme faux serait une erreur. Les moteurs
  * concernés rejettent donc le tirage plutôt que de poser la question.
  */
+import { accorde, pluriel } from '../../../lib/noyau/accords';
 import type { Instance, Modele, Systeme } from '../systemes/types';
 
 /** La matrice des relations d'une instance, indexée comme ses entités. */
@@ -178,7 +179,8 @@ export function reetiqueter(
     const oublies = Object.keys(instance.modele).filter((cle) => !traites.has(cle));
     if (oublies.length) {
       throw new Error(
-        `reetiqueter : champ(s) de modèle non réétiqueté(s) : ${oublies.join(', ')}. ` +
+        `reetiqueter : ${pluriel(oublies.length, 'champ')} de modèle non ` +
+          `${accorde(oublies.length, 'réétiqueté')} : ${oublies.join(', ')}. ` +
           'Ajoutez-les dans cette fonction, sinon la copie garde les anciens noms.',
       );
     }

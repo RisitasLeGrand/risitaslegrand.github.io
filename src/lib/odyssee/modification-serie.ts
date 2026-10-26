@@ -27,6 +27,7 @@
  * occurrences déjà pointées ne feront plus partie de la série » avant que la
  * personne confirme. Le fait survit ; ce qui change, c'est qu'on le sait.
  */
+import { accorde, pluriel } from '../noyau/accords';
 import { occurrences, prochaineOccurrence, scinderLaSerie, type Serie } from './repetition';
 import { decalerJourLogique } from '../noyau/jour-logique';
 import type { MotifNonFait, Occurrence, Tache } from './modele';
@@ -185,8 +186,12 @@ export function planifierModification(
     pointagesOrphelins: orphelins,
     avertissements: orphelins.length
       ? [
-          `${orphelins.length} occurrence(s) déjà pointée(s) ne feront plus partie de la série. ` +
-            'Elles restent dans l’historique ; elles n’y seront plus rattachées.',
+          `${pluriel(orphelins.length, 'occurrence')} déjà ` +
+            `${accorde(orphelins.length, 'pointée')} ne ` +
+            `${accorde(orphelins.length, 'fera', 'feront')} plus partie de la série. ` +
+            `${accorde(orphelins.length, 'Elle reste', 'Elles restent')} dans l’historique ; ` +
+            `${accorde(orphelins.length, 'elle n’y sera', 'elles n’y seront')} plus ` +
+            `${accorde(orphelins.length, 'rattachée')}.`,
         ]
       : [],
   };

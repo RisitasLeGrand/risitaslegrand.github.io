@@ -166,7 +166,7 @@ const regle: RegleDePointage = {
      règle qu'on croit comprendre.
   */
   verifier('3.5 et la phrase dit ce qui ne bougera pas',
-    a.phrase.includes('ne bougeront pas'), a.phrase);
+    /ne bouger(a|ont) pas/.test(a.phrase), a.phrase);
 }
 
 {

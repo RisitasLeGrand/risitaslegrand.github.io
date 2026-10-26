@@ -49,6 +49,7 @@
  * les journaux sont identiques et dont les rejeux divergent ont un vrai
  * problème, et c'est précisément ce qu'on veut pouvoir constater.
  */
+import { pluriel } from '../noyau/accords';
 import { empreinteLisible, memeEmpreinte } from '../noyau/empreinte';
 import { DEPUIS_LE_JOURNAL_DUSAGE } from './mesures-veille';
 import {
@@ -445,7 +446,7 @@ export function phraseDuRejeu(rejeu: Rejeu): string {
   }
   const duree =
     rejeu.jours >= 365
-      ? `${Math.round(rejeu.jours / 365.25)} an(s)`
+      ? pluriel(Math.round(rejeu.jours / 365.25), 'an')
       : `${Math.round(rejeu.jours / 30.44)} mois`;
   const nom = REGLAGES[rejeu.sensibilite].libelle.toLowerCase();
   if (!rejeu.reperes.length) {

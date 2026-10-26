@@ -54,6 +54,7 @@
  * sauvegarde est « suffisante » prendrait une responsabilité qu'Alexis s'est
  * réservée.
  */
+import { pluriel } from './accords';
 import { MAGASINS_SCELLES, ouvrir, sceller, type Scelle } from './coffre';
 
 /** La clé de journal, dans le magasin « etat ». */
@@ -327,7 +328,7 @@ export async function reprendreLeChiffrementDuCoffre(
   const ecarts = await relire(rangement, ancienne, neuve);
   if (ecarts.length > 0) {
     throw new Error(
-      `La relecture a trouvé ${ecarts.length} écart(s) ; rien n’a été effacé. ` +
+      `La relecture a trouvé ${pluriel(ecarts.length, 'écart')} ; rien n’a été effacé. ` +
         `Premier : ${ecarts[0]}`,
     );
   }

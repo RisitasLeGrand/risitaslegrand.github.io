@@ -61,6 +61,7 @@
  * manque des données, et lesquelles, parce qu'un écran vide se lit « tout va
  * bien » — ce qui est précisément ce qu'il ne faut pas laisser croire.
  */
+import { accorde, pluriel } from '../noyau/accords';
 import {
   CATALOGUE,
   DOMAINES,
@@ -415,7 +416,8 @@ export function evaluer(entree: Entree): Verdict {
       deviations: toutes.sort(parForce),
       domaines,
       pourquoi:
-        `${domaines.length} domaine(s) s’écartent de votre habitude, sur les ` +
+        `${pluriel(domaines.length, 'domaine')} ` +
+        `${accorde(domaines.length, 's’écarte', 's’écartent')} de votre habitude, sur les ` +
         `${reglage.k} qu’il en faut pour que ce soit signalé.`,
       baseArreteeAu,
     };

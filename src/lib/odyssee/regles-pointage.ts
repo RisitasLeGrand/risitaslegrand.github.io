@@ -24,6 +24,7 @@
  * lendemain n'est pas une erreur : c'est un vendeur multi-catégories. En
  * tirer une règle silencieuse ferait perdre l'une des deux intentions.
  */
+import { accorde, pluriel } from '../noyau/accords';
 import { normaliser } from './appariement';
 import { typeDe } from './taxonomie';
 import {
@@ -248,14 +249,20 @@ export function apercuSurLePasse(
      opérations-là, c'est votre propre pointage qui les retient. Sans le
      dire, on croit avoir écrit un motif qui rate sa cible, et on l'élargit.
   */
-  const phrase = touchees.length === 0
-    ? (protegees.length
-        ? `Cette règle n’en reclasserait aucune : les ${protegees.length} qu’elle attrape, ` +
-          'vous les avez pointées vous-même, et elles ne bougeront pas.'
+  const p = protegees.length;
+  const t = touchees.length;
+  const phrase = t === 0
+    ? (p
+        ? `Cette règle n’en reclasserait aucune : ` +
+          `${accorde(p, 'la seule qu’elle attrape, vous l’avez', `les ${p} qu’elle attrape, vous les avez`)} ` +
+          `${accorde(p, 'pointée')} vous-même, et ` +
+          `${accorde(p, 'elle ne bougera', 'elles ne bougeront')} pas.`
         : 'Cette règle ne touche aucune opération déjà importée.')
-    : `${touchees.length} opération(s) déjà importée(s) seraient reclassées`
-      + (protegees.length
-        ? `, et ${protegees.length} que vous avez pointée(s) vous-même ne bougeront pas.`
+    : `${pluriel(t, 'opération')} déjà ${accorde(t, 'importée')} ` +
+      `${accorde(t, 'serait', 'seraient')} ${accorde(t, 'reclassée')}`
+      + (p
+        ? `, et ${p} que vous avez ${accorde(p, 'pointée')} vous-même ne ` +
+          `${accorde(p, 'bougera', 'bougeront')} pas.`
         : '.');
   return { touchees, protegees, somme, phrase };
 }
@@ -337,7 +344,14 @@ export function controlerLesRegles(): string[] {
         'touche moins qu’elle ne semble, ou plus.',
     );
   }
-  if (!apercu.phrase.includes('ne bougeront pas')) {
+  /*
+     LA FORME DU VERBE N'EST PAS L'OBJET DU CONTRÔLE, et c'est la purge du
+     lot 9 qui l'a montré : la phrase accorde désormais « ne bougera » au
+     singulier, et ce garde-fou, qui cherchait « ne bougeront », a rougi sans
+     qu'aucune garantie ait bougé. Ce qu'il doit tenir, c'est que l'aperçu DISE
+     ce qui ne bougera pas — en quelque nombre que ce soit.
+  */
+  if (!/ne bouger(a|ont) pas/.test(apercu.phrase)) {
     problemes.push('L’aperçu ne dit pas ce qui ne bougera pas.');
   }
   return problemes;

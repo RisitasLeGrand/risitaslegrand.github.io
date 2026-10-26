@@ -40,6 +40,7 @@
  * de rejouer cinq ans d'historique en mémoire sans rien écrire.
  */
 import config from '../../../site.config.mjs';
+import { accorde, pluriel } from '../noyau/accords';
 import type { Fait } from '../noyau/faits';
 import { decalerJourLogique, ecartJoursLogiques } from '../noyau/jour-logique';
 
@@ -220,9 +221,14 @@ export const REGLES: readonly RegleXp[] = [
       XP.relationnelSession +
       nombre(f, 'reussis') *
         (XP.relationnelParItem + Math.max(0, nombre(f, 'echelonMoyen') - 1) * XP.relationnelParPhase),
-    pourquoi: (f) =>
-      `${XP.relationnelSession} pour la session, ${nombre(f, 'reussis')} item(s) réussi(s) à ` +
-      `${XP.relationnelParItem} + ${Math.max(0, nombre(f, 'echelonMoyen') - 1).toFixed(1)} × ${XP.relationnelParPhase} d’échelon`,
+    pourquoi: (f) => {
+      const reussis = nombre(f, 'reussis');
+      return (
+        `${XP.relationnelSession} pour la session, ${pluriel(reussis, 'item')} ` +
+        `${accorde(reussis, 'réussi')} à ${XP.relationnelParItem} + ` +
+        `${Math.max(0, nombre(f, 'echelonMoyen') - 1).toFixed(1)} × ${XP.relationnelParPhase} d’échelon`
+      );
+    },
   },
   {
     id: 'cog-veridical',
