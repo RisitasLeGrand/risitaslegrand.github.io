@@ -1023,6 +1023,40 @@ function ouvrirAuSchema(nom: string, version: number) {
        propriété sur laquelle repose le retour arrière — « ouvrir à la version N
        produit exactement le schéma de la version N » — était simplement
        fausse.
+
+       ════════════════════════════════════════════════════════════════════
+       LA RÈGLE DES NUMÉROS, validée par le pilote le 26 octobre.
+
+           Un palier ne se réserve que STRICTEMENT AU-DESSUS de la
+           « VERSION » de main au moment de la fusion.
+
+       Réserver un numéro dans un TROU situé sous la version en vigueur donne
+       un palier que personne d'ancien ne rejouera jamais. « vers(n) » exige
+       « ancienneVersion < n » : une base déjà montée à 42 ne redescend pas
+       chercher un bloc 39. Et une base déjà à la version courante qu'on
+       rouvre à la même version ne déclenche AUCUNE migration. Mesuré :
+
+           base neuve ouverte à 42      migration OUI, ancienne version 0
+           MÊME base rouverte à 42      migration NON
+           la même base ouverte à 43    migration OUI, ancienne version 42
+
+       Le magasin existerait donc chez qui installe le site aujourd'hui, et
+       jamais chez qui l'a déjà ouvert. Sans un mot, et sans un essai rouge :
+       un essai part d'un profil NEUF, qui va de zéro à la version courante
+       et rejoue tous les paliers, y compris ceux qui dorment. La seule base
+       qui révèle le défaut est une base ancienne, et aucun essai n'en a.
+
+       EN PRATIQUE. Un agent écrit dans sa branche le numéro provisoire qui
+       lui a été attribué ; le constructeur le DÉPLACE à la fusion, au-dessus
+       de la « VERSION » de main, et monte « VERSION » d'autant. C'est ce qui
+       a été fait pour la 34, la 35, puis pour la 39 devenue 43.
+
+       « npm run essais:migrations » tient cette règle, au socle, pour qu'elle
+       ne repose pas sur la mémoire : il compare les paliers de l'arbre
+       courant à ceux d'« origin/main », exige que tout palier neuf soit
+       au-dessus de la version publiée, et que « VERSION » soit égale au plus
+       haut palier.
+       ════════════════════════════════════════════════════════════════════
     */
     async upgrade(base, ancienneVersion, nouvelle, transaction) {
       const vers = (n: number) => ancienneVersion < n && (nouvelle ?? VERSION) >= n;

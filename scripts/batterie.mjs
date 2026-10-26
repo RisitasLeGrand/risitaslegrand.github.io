@@ -117,6 +117,17 @@ const SOCLE = [
   */
   ['essais:pictogrammes', 'aucun émoji dans « src/ », et les marques passent'],
   /*
+     Le palier de migration endormi. Une branche a posé un magasin au palier
+     39 quand la version valait 42 : le numéro était libre, et pourtant
+     inatteignable — « vers(n) » exige « ancienneVersion < n », et une base
+     déjà à 42 ne rejoue rien. Le magasin aurait existé chez les nouveaux
+     venus et JAMAIS chez les anciens, sans un mot. Et aucun essai n'aurait
+     rougi : tous partent d'un profil neuf, qui va de zéro à la version
+     courante et rejoue donc tout. La seule base qui révèle le défaut est une
+     base ancienne, et aucun essai n'en a.
+  */
+  ['essais:migrations', 'aucun palier de migration ne dort sous la version publiée'],
+  /*
      Les deux réglages d'accessibilité du système. Ils se défont sans bruit :
      il a suffi qu'une feuille de thème soit injectée APRÈS « global.css » pour
      que le relèvement des teintes faibles cesse d'agir, et rien ne le disait.
