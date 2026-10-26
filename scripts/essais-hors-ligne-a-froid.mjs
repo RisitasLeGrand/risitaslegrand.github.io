@@ -62,6 +62,41 @@
  * stockage plutôt que de fermer le navigateur, parce qu'un contexte fermé
  * emporterait aussi le cache, donc la page. Ce qui est éprouvé est bien le
  * chemin de la saisie, et c'est ce qui compte.
+ *
+ * ## Ce que les trois sabotages ont montré
+ *
+ * **La copie de secours neutralisée** — `parametresDeSecours()` écartée dans
+ * `contenu.ts` : cinq rouges, tous en section 4 ; la section 5 reste verte,
+ * puisqu'elle mesure la même privation. Un détail de ce verdict justifie à
+ * lui seul la double lecture de la donnée : « lue en base » reste VERTE —
+ * IndexedDB n'a pas besoin de la clé du site — tandis que « elle est à
+ * l'écran » rougit. Une seule des deux lectures aurait laissé passer la
+ * moitié du défaut.
+ *
+ * **Le message retiré de `auth.ts`**, le `finally` de l'écran gardé : trois
+ * rouges, et ce sont les bons. Le bouton revient, un message paraît — donc
+ * les deux garde-fous de l'écran agissent —, mais il dit « Le déverrouillage
+ * a échoué : Failed to fetch ». Il ne nomme pas la cause, ne dit pas quoi
+ * faire, et il est en anglais. Les deux couches sont donc mesurées
+ * séparément : le `finally` sauve l'écran, la phrase d'`auth.ts` le rend
+ * utile.
+ *
+ * **Les deux retirés** — l'état d'avant correction : cinq rouges, le message
+ * est vide, le bouton reste mort. C'est l'écran sans issue, tel qu'il était.
+ *
+ * ## Un défaut voisin, mesuré ici et laissé à qui le tient
+ *
+ * Le deuxième sabotage a fait passer « Failed to fetch » à l'écran EN
+ * ANGLAIS, par `messageDUneErreur` de `lib/agir.ts`. Ce n'est pas un hasard :
+ * son discriminant est documenté — une `DOMException` est une panne de
+ * plate-forme et se traduit, une `Error` ordinaire vient de l'application et
+ * son message est déjà français. Or un échec de `fetch` est un `TypeError`,
+ * donc une `Error` ordinaire, et son texte anglais traverse.
+ *
+ * Le chemin ne se produit plus ici — `auth.ts` nomme la cause avant —, mais
+ * le trou reste pour tout autre appelant. Il est signalé au Pilote plutôt
+ * que rebouché dans ce lot : `agir.ts` est tenu par tout le monde, et son
+ * discriminant mérite une décision, pas un rustine de passage.
  */
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
