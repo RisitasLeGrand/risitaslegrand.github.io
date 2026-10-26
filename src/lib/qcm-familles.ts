@@ -72,8 +72,9 @@ export const LIENS: LienDeQuestions[] = [
     type: 'doublon-franc',
     pourquoi:
       'Même réponse — la déflation —, énoncés quasi identiques à quelques mots près, ' +
-      'et jeux d’options largement communs. Les deux viennent d’annales différentes, ' +
-      'ce qui explique qu’elles aient échappé à la déduplication par énoncé exact.',
+      'et jeux d’options largement communs. Les deux viennent d’annales différentes. ' +
+      'La déduplication par énoncé exact ne rapproche que les énoncés identiques : ' +
+      'celles-ci lui échappent.',
   },
   {
     identifiants: ['a9679654c6dceaa3', 'fd33a95921fcd72f'],
