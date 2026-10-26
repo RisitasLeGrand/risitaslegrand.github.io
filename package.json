@@ -11,6 +11,7 @@
     "recuperer:corpus": "tsx scripts/recuperer-corpus.mts",
     "archiver:corpus": "tsx scripts/archiver-corpus.mts",
     "qcm:vers-source": "tsx scripts/qcm-dgfip-vers-source.mts",
+    "essais:ancres:navigateur": "node scripts/essais-ancres-navigateur.mjs",
     "essais:recuperation-corpus": "tsx scripts/essais-recuperation-corpus.mts",
     "essais:recuperation-invariants": "tsx scripts/essais-recuperation-invariants.mts",
     "essais:qcm-source": "tsx scripts/essais-qcm-dgfip-source.mts",

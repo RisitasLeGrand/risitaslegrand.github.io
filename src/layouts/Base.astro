@@ -353,7 +353,14 @@ const flecheVisible = !estLeMenu && !sansNavigation;
 ---
 
 <!doctype html>
-<html lang="fr">
+<!--
+  « data-entete » dit à la feuille de style LEQUEL des deux en-têtes cette page
+  porte, et c'est ce qui permet de ne réserver la marge d'ancre que là où elle
+  sert : l'en-tête complet est collant, le léger s'en va avec le contenu. La
+  décision est prise au rendu, donc vraie dès la première image — un script
+  l'aurait prise après, et un lien partagé vers une ancre saute avant lui.
+-->
+<html lang="fr" data-entete={enteteVoulu}>
   <head>
     <meta charset="utf-8" />
     <!--
@@ -1417,7 +1424,7 @@ const flecheVisible = !estLeMenu && !sansNavigation;
     <script>
       import { poserLeFiletDErreurs } from '../lib/agir';
       import { quandDeverrouille, verrouiller } from '../lib/auth';
-      import { brancherLeDefilement, masquerDebordement } from '../lib/defilement';
+      import { brancherLeDefilement, calerLaMargeDAncre, masquerDebordement } from '../lib/defilement';
       import { initGlossaireGlobal } from '../lib/glossaire';
       import { suivreTemps } from '../lib/temps';
       import { brancherLeVoile } from '../lib/voile';
@@ -1500,6 +1507,12 @@ const flecheVisible = !estLeMenu && !sansNavigation;
          et il n'y en a aucune qu'on puisse se permettre d'oublier.
       */
       brancherLeDefilement();
+
+      /*
+         LA MARGE D'ANCRE (E3). Ici et non dans chaque écran : toutes les pages
+         passent par ce gabarit, et c'est le gabarit qui porte l'en-tête.
+      */
+      calerLaMargeDAncre();
 
       initGlossaireGlobal();
 

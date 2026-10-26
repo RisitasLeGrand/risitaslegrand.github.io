@@ -136,7 +136,7 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
     <!-- ── Les trois blocs du socle ───────────────────────────────────── -->
     {
       BLOCS.map((bloc) => (
-        <section id={bloc.id} class="mt-10 scroll-mt-24">
+        <section id={bloc.id} class="mt-10">
           <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">{bloc.titre}</h2>
           <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">{bloc.propos}</p>
           {bloc.id === 'journee' && <LienReglages section="journee" class="mb-3" />}
@@ -204,7 +204,7 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
     </section>
 
     <!-- ── Ce que Cyclades en déduit (P4) ─────────────────────────────── -->
-    <section id="deductions" class="mt-10 scroll-mt-24">
+    <section id="deductions" class="mt-10">
       <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">
         Ce que Cyclades en déduit
       </h2>
@@ -228,7 +228,7 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
     </section>
 
     <!-- ── Confidentialité (P14) ──────────────────────────────────────── -->
-    <section id="confidentialite" class="mt-10 scroll-mt-24">
+    <section id="confidentialite" class="mt-10">
       <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">Confidentialité</h2>
       <div class="max-w-2xl space-y-2 text-sm text-slate-600 dark:text-slate-300">
         <p>
@@ -277,7 +277,7 @@ const branchesAvecChamps = BRANCHES.filter((b) =>
       écrit ici deviendrait une quatrième version d'un texte que personne n'a
       accepté.
     -->
-    <section id="observation" class="mt-10 scroll-mt-24">
+    <section id="observation" class="mt-10">
       <h2 class="mb-1 text-lg font-semibold text-slate-900 dark:text-white">
         Ce que Cyclades observe
       </h2>

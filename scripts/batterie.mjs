@@ -191,6 +191,23 @@ const SOCLE = [
   */
   ['essais:defilement', 'aucun écran ne contourne le module de défilement'],
   ['essais:graphiques', 'les deux histogrammes : ligne tracée, tableau, 3:1'],
+  /*
+     LES ANCRES, au socle dès son premier jour (E3).
+
+     La marge d'ancre est une seule déclaration, dans `global.css`, pour tout
+     le site. C'est sa force — elle vaut pour les cibles qui n'existent pas
+     encore — et c'est la raison de l'inscrire ici : une déclaration unique se
+     retire par distraction, et il ne resterait RIEN. Avant elle, trois ancres
+     sur cinq atterrissaient entièrement derrière l'en-tête, et le lien
+     « Aller au contenu » avec elles.
+
+     Il mesure aux deux largeurs, parce que l'en-tête fait 103 px à 390 et
+     119 px à 1280 — un nombre écrit à la main est faux à l'une des deux.
+
+     Avant la correction : 9 rouges, dont trois ancres entièrement couvertes.
+     Après : 0, aux deux largeurs, le glossaire restant à zéro pixel de jeu.
+  */
+  ['essais:ancres:navigateur', 'une ancre atterrit sous l’en-tête, ni derrière ni plus bas'],
   ['essais:themes-navigateur', 'les quatorze thèmes s’appliquent pour de vrai'],
   ['essais:themes-a-jour', 'le catalogue et les feuilles engendrées concordent'],
   ['essais:contrastes-themes', 'WCAG AA dans chaque thème'],

@@ -36,7 +36,7 @@ import Base from '../layouts/Base.astro';
   */}
   <div
     id="barre-index"
-    class="sticky z-30 -mx-4 mb-4 hidden items-center gap-2 border-b border-slate-200 bg-white/95 px-4 py-1.5 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95"
+    class="sous-entete sticky z-30 -mx-4 mb-4 hidden items-center gap-2 border-b border-slate-200 bg-white/95 px-4 py-1.5 backdrop-blur dark:border-slate-800 dark:bg-slate-900/95"
   >
     <div
       id="lettres"
@@ -70,23 +70,6 @@ import Base from '../layouts/Base.astro';
   let puces = new Map<string, HTMLAnchorElement>();
   /** La lettre actuellement marquée, pour ne pas réécrire à chaque image. */
   let courante = '';
-
-  /**
-   * Cale la bande collante sous l'en-tête, lui-même collant.
-   *
-   * L'en-tête n'a pas la même hauteur sur téléphone et sur grand écran, et
-   * l'écrire en dur aurait laissé un trou ou un recouvrement sur l'un des
-   * deux. On la mesure. La marge de défilement des sections suit : sans elle,
-   * un saut vers « R » placerait le R sous la bande.
-   */
-  function caler() {
-    const entete = document.querySelector('header');
-    const hautEntete = entete ? Math.round(entete.getBoundingClientRect().height) : 0;
-    const barre = $('barre-index');
-    barre.style.top = `${hautEntete}px`;
-    const hautBarre = Math.round(barre.getBoundingClientRect().height);
-    document.documentElement.style.setProperty('--saut-glossaire', `${hautEntete + hautBarre + 8}px`);
-  }
 
   /*
      Le modèle de hauteur d'une section, et pourquoi il est calibré.
@@ -229,7 +212,11 @@ import Base from '../layouts/Base.astro';
          fois ; sans elle, la barre de défilement sauterait à chaque section
          découverte.
       */
-      section.className = 'differe scroll-mt-[var(--saut-glossaire,6rem)]';
+      /* Plus de marge de défilement ici : la barre d'index porte
+         `sous-entete`, sa hauteur entre donc dans la bande réservée que
+         `global.css` pose sur la racine, et une marge de section s'y
+         AJOUTERAIT. */
+      section.className = 'differe';
       section.dataset.signes = String(groupe.reduce((n, t) => n + t.definition.length + t.terme.length, 0));
       section.style.containIntrinsicSize = `auto ${estimer(groupe.length, +section.dataset.signes)}px`;
       const titre = document.createElement('h2');
@@ -289,7 +276,6 @@ import Base from '../layouts/Base.astro';
     }
     $('barre-index').classList.remove('hidden');
     $('barre-index').classList.add('flex');
-    caler();
     requestAnimationFrame(() => {
       calibrer();
       suivre();
@@ -362,8 +348,7 @@ import Base from '../layouts/Base.astro';
       ($('filtre-glossaire') as HTMLInputElement).focus({ preventScroll: true });
     });
     window.addEventListener('resize', () => {
-      caler();
-      suivre();
+        suivre();
     });
     window.addEventListener('scroll', auDefilement, { passive: true });
     // Une ancre « #lettre-R » ouverte depuis un lien extérieur : même saut.
