@@ -12,6 +12,7 @@
 import { chromium } from 'playwright-core';
 import { readFile } from 'node:fs/promises';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { apresLeChangementDeTexte, devientVisible } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -36,9 +37,64 @@ const connecter = async () => {
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
     await page.click('#bouton-verrou');
-    await page.waitForTimeout(3000);
+    /*
+       LA POST-CONDITION DU DÉVERROUILLAGE EST LE DÉPART DU CHAMP, et non trois
+       secondes. C'est une vraie transition : le champ était là, il n'y est
+       plus, et aucun passage antérieur ne peut l'avoir rendue vraie puisqu'on
+       ne vient ici que lorsqu'il est visible.
+    */
+    await devientVisible(page, '#champ-mdp', false, { delai: 30000 });
   }
 };
+
+/*
+   « Le texte de cet élément n'est plus vide. »
+
+   Post-condition de ce qu'un écran écrit SANS geste de notre part — l'état de
+   sauvegarde est peint au chargement. `apresLeChangementDeTexte` ne convient
+   pas : il lui faut un geste et une valeur d'avant.
+
+   Les options de `waitForFunction` sont au TROISIÈME argument, le second étant
+   la valeur passée à la fonction. Une borne écrite au second serait ignorée en
+   silence, et c'est la faute que le relevé d'A a trouvée seize fois.
+*/
+const texteEcrit = (selecteur, delai = 30000) =>
+  page
+    .waitForFunction(
+      (sel) => (document.querySelector(sel)?.textContent ?? '').trim() !== '',
+      selecteur,
+      { timeout: delai },
+    )
+    .then(() => true)
+    .catch(() => false);
+
+/*
+   « Le travail annoncé est fini. »
+
+   Trouvé en me trompant : j'avais remplacé l'attente du refus de mot de passe
+   par `apresLeChangementDeTexte`, et deux assertions ont rougi. Le texte avait
+   bien CHANGÉ — pour « Déchiffrement et restauration en cours… »
+   (`progression.astro:758`) —, et je lisais cet état intermédiaire. C'est la
+   limite qu'`apresLeChangementDeTexte` documente, et elle se voit mal.
+
+   Cet écran annonce son travail puis le remplace, au succès comme à l'échec.
+   La post-condition est donc qu'il SORTE de « en cours », et elle ne présume
+   pas du verdict : ni le refus ni la réussite n'y sont nommés. Elle vaut
+   aussi pour une lecture de BASE après restauration, puisque la base est
+   écrite avant que le message final ne soit posé.
+*/
+const travailFini = (selecteur, delai = 30000) =>
+  page
+    .waitForFunction(
+      (sel) => {
+        const t = (document.querySelector(sel)?.textContent ?? '').trim();
+        return t !== '' && !/en cours/i.test(t);
+      },
+      selecteur,
+      { timeout: delai },
+    )
+    .then(() => true)
+    .catch(() => false);
 
 /** Le contenu d'un magasin, lu directement : aucun écran n'est interrogé. */
 const lire = (magasin) =>
@@ -103,7 +159,8 @@ await page.evaluate(
 );
 await page.goto(`${RACINE}/progression/`, { waitUntil: 'networkidle' });
 await connecter();
-await page.waitForTimeout(2000);
+/* L'écran est debout : son état de sauvegarde est présent. */
+await page.waitForSelector('#etat-sauvegarde-titre', { timeout: 30000 });
 
 await page.evaluate(
   async ({ seance, jour, carte }) => {
@@ -131,7 +188,7 @@ console.log('\nL’ÉTAT DE SAUVEGARDE S’AFFICHE, ET DIT LA VÉRITÉ');
 
 await page.reload({ waitUntil: 'networkidle' });
 await connecter();
-await page.waitForTimeout(2500);
+v('l’état de sauvegarde est peint', await texteEcrit('#etat-sauvegarde-titre'), true);
 v(
   'aucune sauvegarde n’a encore été faite',
   (await page.locator('#etat-sauvegarde-titre').textContent())?.trim(),
@@ -156,7 +213,7 @@ v(
   false,
 );
 
-await page.waitForTimeout(1500);
+v('l’écran a écrit son message', await texteEcrit('#message-sauvegarde'), true);
 /*
    A3 DU 43 — LA DATE N'EST NOTÉE QU'APRÈS CONFIRMATION.
 
@@ -180,8 +237,10 @@ v(
   (await page.locator('#etat-sauvegarde-titre').textContent())?.trim(),
   'Jamais sauvegardé',
 );
-await page.click('#sauvegarde-retrouvee');
-await page.waitForTimeout(1500);
+const titreABouge = await apresLeChangementDeTexte(page, '#etat-sauvegarde-titre', () =>
+  page.click('#sauvegarde-retrouvee'),
+);
+v('le titre de l’état change après la confirmation', titreABouge, true);
 v(
   'une fois le fichier retrouvé, l’écran note la sauvegarde',
   (await page.locator('#etat-sauvegarde-titre').textContent())?.trim(),
@@ -220,8 +279,7 @@ v('plus aucune carte', (await lire('cartes')).length, 0);
 console.log('\nVÉRIFIER AVANT D’APPLIQUER');
 
 await page.setInputFiles('#fichier-cyclades', chemin);
-await page.waitForTimeout(1500);
-v('l’aperçu s’affiche', await page.locator('#apercu-cyclades').isVisible(), true);
+v('l’aperçu s’affiche', await devientVisible(page, '#apercu-cyclades', true), true);
 v('rien n’a encore été appliqué', (await lire('seances')).length, 0);
 v(
   'le message dit que rien n’est appliqué',
@@ -257,7 +315,7 @@ const confirmerLeRemplacement = async () => {
 
 await page.click('#appliquer-cyclades');
 await confirmerLeRemplacement();
-await page.waitForTimeout(3000);
+v('l’écran a fini de déchiffrer', await travailFini('#message-cyclades'), true);
 const refus = (await page.locator('#message-cyclades').textContent()) ?? '';
 v('le refus est expliqué', /n’ouvre pas cette sauvegarde/i.test(refus), true);
 v('et il suggère l’ancien mot de passe', /ancien/i.test(refus), true);
@@ -268,7 +326,13 @@ console.log('\nRESTAURER');
 await page.fill('#mdp-restauration', MDP);
 await page.click('#appliquer-cyclades');
 await confirmerLeRemplacement();
-await page.waitForTimeout(6000);
+/*
+   SIX SECONDES POUR UNE LECTURE DE BASE, et je m'attendais à devoir laisser
+   celle-ci en attendant une aide partagée. Elle n'est pas nécessaire : cet
+   écran DIT quand il a fini, et la base est écrite avant son message final.
+   La post-condition d'écran suffit donc à rendre la lecture de base saine.
+*/
+v('la restauration est terminée', await travailFini('#message-cyclades'), true);
 
 const seances = await lire('seances');
 const cartes = await lire('cartes');
@@ -300,8 +364,9 @@ console.log('\nUN FICHIER QUI N’EST PAS UNE SAUVEGARDE EST REFUSÉ');
 const { writeFile } = await import('node:fs/promises');
 const intrus = '/tmp/pas-une-sauvegarde.cyclades';
 await writeFile(intrus, 'ceci n’est pas une sauvegarde\nni la seconde ligne\n');
-await page.setInputFiles('#fichier-cyclades', intrus);
-await page.waitForTimeout(1200);
+await apresLeChangementDeTexte(page, '#message-cyclades', () =>
+  page.setInputFiles('#fichier-cyclades', intrus),
+);
 v(
   'le refus est clair',
   /n’est pas une sauvegarde Cyclades/i.test((await page.locator('#message-cyclades').textContent()) ?? ''),
@@ -313,8 +378,9 @@ console.log('\nUN FICHIER TRONQUÉ EST REFUSÉ');
 
 const tronque = '/tmp/tronquee.cyclades';
 await writeFile(tronque, octets.subarray(0, octets.length - 50));
-await page.setInputFiles('#fichier-cyclades', tronque);
-await page.waitForTimeout(1200);
+await apresLeChangementDeTexte(page, '#message-cyclades', () =>
+  page.setInputFiles('#fichier-cyclades', tronque),
+);
 v(
   'la troncature est nommée',
   /incomplet ou abîmé/i.test((await page.locator('#message-cyclades').textContent()) ?? ''),
