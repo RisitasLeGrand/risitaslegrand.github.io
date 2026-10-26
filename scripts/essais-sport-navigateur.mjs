@@ -134,7 +134,12 @@ v(
 );
 
 await page.click('#ouvrir-ajout');
-await page.waitForTimeout(300);
+/* La fenêtre ouverte est la post-condition du clic, et c'est ce qu'on lit. */
+await page.waitForFunction(
+  () => document.getElementById('fenetre-ajout')?.open === true,
+  undefined,
+  { timeout: 10000 },
+);
 v(
   'le bouton « Ajouter un exercice » ouvre la fenêtre et donne le focus au nom',
   await page.evaluate(() => ({
@@ -223,7 +228,11 @@ v(
 await page.fill('#nom', 'Tirage essai');
 await page.fill('#equipement', 'poulie');
 await page.click('#ajout button[type="submit"]');
-await page.waitForTimeout(400);
+await page.waitForFunction(
+  () => document.getElementById('fenetre-ajout')?.open === false,
+  undefined,
+  { timeout: 10000 },
+);
 v(
   'enregistrer referme la fenêtre',
   await page.evaluate(() => document.getElementById('fenetre-ajout').open),
@@ -314,7 +323,11 @@ v(
 );
 
 await page.click('#liste [data-exercice] .menu-actions > summary');
-await page.waitForTimeout(200);
+await page.waitForFunction(
+  () => document.querySelector('#liste [data-supprimer]')?.checkVisibility() ?? false,
+  undefined,
+  { timeout: 10000 },
+).catch(() => {});
 v(
   'ouvrir le menu montre « Supprimer »',
   await page.evaluate(() =>
@@ -334,7 +347,13 @@ await page.click('#liste [data-supprimer]');
 /* La confirmation est la boîte commune depuis la section C du 43, plus une
    fenêtre native : on y répond par le verbe du bouton. « Annuler », ici. */
 await repondreALaBoite(page, 'Annuler');
-await page.waitForTimeout(600);
+/*
+   UN INVARIANT NÉGATIF ne s'attend pas : « rien n'a changé » est vrai tout de
+   suite et le resterait même si la suppression arrivait une seconde plus tard.
+   Ce qu'on peut attendre, c'est la post-condition du GESTE — la boîte qui se
+   referme —, après quoi la lecture du compte a un sens.
+*/
+await page.waitForSelector('dialog.boite[open]', { state: 'hidden', timeout: 10000 }).catch(() => {});
 v(
   'refuser la confirmation ne supprime rien',
   await page.evaluate(() => document.querySelectorAll('#liste [data-exercice]').length),
@@ -344,7 +363,15 @@ v(
 await page.click('#liste [data-exercice] .menu-actions > summary');
 await page.click('#liste [data-supprimer]');
 await repondreALaBoite(page, 'Supprimer cet exercice');
-await page.waitForTimeout(800);
+/* Là, au contraire, le compte DOIT baisser : on l'attend, et l'expiration
+   serait le rouge. */
+await page
+  .waitForFunction(
+    (n) => document.querySelectorAll('#liste [data-exercice]').length === n,
+    avantRefus - 1,
+    { timeout: 10000 },
+  )
+  .catch(() => {});
 v(
   'accepter supprime une ligne',
   await page.evaluate(() => document.querySelectorAll('#liste [data-exercice]').length),
@@ -364,11 +391,23 @@ await page.waitForSelector('#encours:not(.hidden)', { timeout: 15000 });
 
 async function serie(repetitions, charge) {
   /*
-     Ici l'attente reste nécessaire, et c'est voulu : deux séries de 8
-     répétitions à 60 kg portent EXACTEMENT les mêmes données. Le repos de
-     600 ms les prend donc pour un seul geste, ce qui est précisément son
-     objet depuis que l'empreinte le distingue des gestes différents. Une
-     main attend entre deux séries ; l'essai attend donc aussi.
+     LA SEULE TEMPORISATION À L'AVEUGLE QUI RESTE DANS CET ESSAI, et elle est
+     juste.
+
+     Deux séries de 8 répétitions à 60 kg portent EXACTEMENT les mêmes données.
+     Le repos de 600 ms du site les prend pour un seul geste — c'est l'objet de
+     l'empreinte, qui distingue un geste répété d'un geste différent. Une main
+     attend entre deux séries ; l'essai attend donc aussi.
+
+     C'est le cas que le balayage des temporisations cherchait sans le trouver :
+     une attente qui ne peut PAS se remplacer par une post-condition, parce que
+     ce qu'on attend est précisément qu'il ne se passe rien. Le site n'a aucune
+     marque à offrir pendant son repos, et lui en donner une reviendrait à
+     annoncer la déduplication qu'il est censé rendre invisible.
+
+     Les sept cents millisecondes gardent donc leur marge de cent sur le repos.
+     On la laisse, et on écrit pourquoi — c'est ce qui la distingue des trente
+     autres que ce lot a retirées.
   */
   await page.waitForTimeout(700);
   await page.fill('#charge', String(charge));

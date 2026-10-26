@@ -42,11 +42,46 @@ const lire = (magasin) =>
     });
   }, magasin);
 
+/**
+ * Attend que la base dise ce qu'on s'apprête à y lire.
+ *
+ * Deux assertions de cet essai lisent IndexedDB directement, sans passer par
+ * l'écran : l'amorce de calibrage, et les observations d'un quiz. Il n'y a donc
+ * aucune marque dans le DOM à attendre — mais la BASE est elle-même la
+ * post-condition, et on peut l'interroger jusqu'à ce qu'elle réponde.
+ *
+ * Mille deux cents millisecondes couvraient l'écriture ; sous une batterie
+ * chargée, elles ne la couvrent plus, et l'assertion lit l'état d'avant.
+ */
+const attendreEnBase = async (magasin, estSatisfait, delai = 15000) => {
+  const fin = Date.now() + delai;
+  for (;;) {
+    if (estSatisfait(await lire(magasin))) return true;
+    if (Date.now() > fin) return false;
+    await page.waitForTimeout(100);
+  }
+};
+
+/** L'écran de verrou a-t-il disparu ? C'est la marque du déchiffrement. */
+const attendreLApplication = async () =>
+  page
+    .waitForFunction(
+      () => {
+        const verrou = document.getElementById('ecran-verrou');
+        return verrou === null || verrou.classList.contains('hidden') || !verrou.offsetParent;
+      },
+      undefined,
+      { timeout: 30000 },
+    )
+    .catch(() => {});
+
 const connecter = async () => {
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
     await page.click('#bouton-verrou');
-    await page.waitForTimeout(3000);
+    /* Trois secondes couvraient le déchiffrement. L'écran de verrou qui s'en
+       va le dit, et ne dépend pas de la machine. */
+    await attendreLApplication();
   }
 };
 
@@ -61,7 +96,8 @@ await page.evaluate(
 console.log('\nUN QUIZ ALIMENTE LES TROIS GRANULARITÉS');
 await page.goto('http://localhost:4321/quiz/cours', { waitUntil: 'networkidle' });
 await connecter();
-await page.waitForTimeout(2000);
+/* Le bouton de lancement est la marque que l'écran du quiz est prêt. */
+await page.locator('#lancer-quiz').waitFor({ timeout: 30000 }).catch(() => {});
 // On fixe la matière : un tirage libre peut tomber sur le cas pratique ou sur
 // une fiche de méthodologie, que l'estimation écarte volontairement — l'essai
 // ne mesurerait alors plus rien, et échouerait sans qu'aucun défaut existe.
@@ -71,7 +107,19 @@ await page.waitForFunction(
   { timeout: 30000 },
 );
 await page.selectOption('#quiz-matiere', 'Économie');
-await page.waitForTimeout(800);
+/* Le choix d'une matière recharge le vivier : on attend que le bouton de
+   lancement soit de nouveau actif plutôt que de compter huit cents
+   millisecondes. */
+await page
+  .waitForFunction(
+    () => {
+      const b = document.getElementById('lancer-quiz');
+      return b !== null && !b.hasAttribute('disabled') && b.checkVisibility();
+    },
+    undefined,
+    { timeout: 20000 },
+  )
+  .catch(() => {});
 await page.locator('#lancer-quiz').click();
 /*
    Attendre la condition, et non un délai. Le 19 octobre, dans une batterie
@@ -91,10 +139,24 @@ for (let i = 0; i < 6; i += 1) {
   if (!(await option.isVisible().catch(() => false))) break;
   await option.click();
   repondues += 1;
-  await page.waitForTimeout(700);
+  /*
+     LA CORRECTION PARAÎT, PUIS LA QUESTION SUIVANTE : deux post-conditions,
+     et chacune remplace une temporisation de sept cents millisecondes.
+
+     « quiz-suivant » visible dit que la réponse a été prise en compte ; sa
+     disparition, ou l'arrivée d'une nouvelle option, dit que la question
+     suivante est servie. Attendre le clic au hasard faisait, sous charge,
+     cliquer dans le vide et compter une réponse qui n'avait pas été donnée.
+  */
   const suivant = page.locator('#quiz-suivant');
-  if (await suivant.isVisible().catch(() => false)) await suivant.click();
-  await page.waitForTimeout(700);
+  await suivant.waitFor({ timeout: 15000 }).catch(() => {});
+  if (await suivant.isVisible().catch(() => false)) {
+    await suivant.click();
+    await Promise.race([
+      page.locator('#quiz-suivant').waitFor({ state: 'hidden', timeout: 15000 }),
+      page.locator('#quiz-options button').first().waitFor({ timeout: 15000 }),
+    ]).catch(() => {});
+  }
 }
 let competences = await lire('competences');
 /*
@@ -114,7 +176,12 @@ v('les observations sont comptées', (matiere?.observations ?? 0) > 0, true);
 console.log('\nLE TABLEAU DE BORD RESTE PRUDENT');
 await page.goto('http://localhost:4321/statistiques', { waitUntil: 'networkidle' });
 await connecter();
-await page.waitForTimeout(2500);
+/* La liste des matières peinte : c'est elle que les trois assertions lisent. */
+await page
+  .waitForFunction(() => document.querySelectorAll('#niveaux details').length > 0, undefined, {
+    timeout: 30000,
+  })
+  .catch(() => {});
 const texte = await page.locator('#niveaux').textContent();
 v('les matières sont listées', (await page.locator('#niveaux details').count()) > 0, true);
 v(
@@ -131,9 +198,17 @@ const avantAmorce = (await lire('competences')).filter((c) => c.calibree).length
 await page.evaluate(() => {
   for (const d of document.querySelectorAll('#niveaux details')) d.open = true;
 });
-await page.waitForTimeout(400);
+/* Les dépliants ouverts à la main : leur bouton devient visible, et c'est lui
+   qu'on clique. */
+await page
+  .getByRole('button', { name: /^Je suis à l’aise$/ })
+  .first()
+  .waitFor({ timeout: 15000 })
+  .catch(() => {});
 await page.getByRole('button', { name: /^Je suis à l’aise$/ }).first().click();
-await page.waitForTimeout(1200);
+/* L'amorce est une ÉCRITURE EN BASE, sans marque à l'écran : on interroge donc
+   la base elle-même jusqu'à ce qu'elle réponde. */
+await attendreEnBase('competences', (tout) => tout.filter((c) => c.calibree).length > avantAmorce);
 const calibrees = (await lire('competences')).filter((c) => c.calibree);
 v('une amorce a été enregistrée', calibrees.length > avantAmorce, true);
 v('elle ne compte aucune observation', calibrees[0]?.observations, 0);
@@ -141,7 +216,14 @@ v('elle ne compte aucune observation', calibrees[0]?.observations, 0);
 console.log('\nLE RÉGLAGE DE SOURCE COUPE VRAIMENT L’ALIMENTATION');
 await page.goto('http://localhost:4321/progression', { waitUntil: 'networkidle' });
 await connecter();
-await page.waitForTimeout(2000);
+/* Les cases des sources peintes : l'assertion les compte. */
+await page
+  .waitForFunction(
+    () => document.querySelectorAll('#sources input[type=checkbox]').length > 0,
+    undefined,
+    { timeout: 30000 },
+  )
+  .catch(() => {});
 const cases = page.locator('#sources input[type=checkbox]');
 /*
  * Cinq, et non quatre : le prétest est devenu une source à part entière quand
@@ -151,21 +233,36 @@ const cases = page.locator('#sources input[type=checkbox]');
 v('cinq sources proposées', await cases.count(), 5);
 v('le QCM-DGFiP est décoché par défaut', await cases.nth(3).isChecked(), false);
 await cases.nth(0).uncheck();
-await page.waitForTimeout(800);
+/* Le décochage est écrit par le site : on attend que la case le DISE, plutôt
+   que de compter huit cents millisecondes avant de naviguer. */
+await page
+  .waitForFunction(
+    () => document.querySelectorAll('#sources input[type=checkbox]')[0]?.checked === false,
+    undefined,
+    { timeout: 15000 },
+  )
+  .catch(() => {});
 
 const avant = await lire('competences');
 await page.goto('http://localhost:4321/quiz/cours', { waitUntil: 'networkidle' });
-await page.waitForTimeout(2000);
+await page.locator('#lancer-quiz').waitFor({ timeout: 30000 }).catch(() => {});
 await page.locator('#lancer-quiz').click();
-await page.waitForTimeout(2500);
+/* La première question servie, et non deux secondes et demie. */
+await page.locator('#quiz-options button').first().waitFor({ timeout: 30000 }).catch(() => {});
 for (let i = 0; i < 4; i += 1) {
   const option = page.locator('#quiz-options button').first();
   if (!(await option.isVisible().catch(() => false))) break;
   await option.click();
-  await page.waitForTimeout(700);
+  /* Mêmes deux post-conditions que la boucle de l'estimation, plus haut. */
   const suivant = page.locator('#quiz-suivant');
-  if (await suivant.isVisible().catch(() => false)) await suivant.click();
-  await page.waitForTimeout(700);
+  await suivant.waitFor({ timeout: 15000 }).catch(() => {});
+  if (await suivant.isVisible().catch(() => false)) {
+    await suivant.click();
+    await Promise.race([
+      page.locator('#quiz-suivant').waitFor({ state: 'hidden', timeout: 15000 }),
+      page.locator('#quiz-options button').first().waitFor({ timeout: 15000 }),
+    ]).catch(() => {});
+  }
 }
 const apres = await lire('competences');
 const observationsAvant = avant.reduce((n, c) => n + c.observations, 0);
