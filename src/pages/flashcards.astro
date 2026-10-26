@@ -141,12 +141,48 @@ import { base } from '../lib/ui';
 
     <p id="source-carte" class="mb-2 text-center text-xs text-slate-400"></p>
 
-    <div class="carte-3d mx-auto max-w-2xl">
-      <div id="carte" class="min-h-[16rem] cursor-pointer rounded-2xl border border-slate-200 bg-white p-6 shadow-sm transition hover:shadow-md sm:min-h-[20rem] sm:p-10 dark:border-slate-800 dark:bg-slate-900">
-        <p class="mb-3 text-xs font-semibold tracking-wide text-slate-400 uppercase">Question</p>
-        <p id="question" class="text-lg leading-relaxed font-medium text-slate-900 sm:text-xl dark:text-white"></p>
+    <!--
+      E5 — LA CARTE EST UN BOUTON, ET LA RÉPONSE EST DEHORS.
 
-        <div id="zone-reponse" class="mt-6 hidden border-t border-slate-200 pt-5 dark:border-slate-800">
+      C'était un `div` avec un écouteur de clic : ni `tabindex`, ni `role`, ni
+      `aria-expanded`. Mesuré le 25 octobre : **jamais atteinte en vingt-cinq
+      tabulations**. Qui révise au clavier ne pouvait pas retourner une carte.
+
+      Un `<button>` donne tout d'un coup — l'ordre de tabulation, Entrée et
+      Espace natifs, le rôle annoncé — et `aria-expanded` dit si la réponse est
+      ouverte, ce que rien ne disait.
+
+      ET LA ZONE DE RÉPONSE SORT DU BOUTON. Elle héberge `#aide-carte`, qui
+      porte le bouton de l'assistant : un bouton dans un bouton est invalide et
+      casse précisément ce qu'on vient de réparer. La boîte visuelle reste donc
+      la carte ; le bouton en occupe le recto, la réponse le verso, et
+      `aria-controls` relie les deux.
+    -->
+    <div class="carte-3d mx-auto max-w-2xl">
+      <div class="min-h-[16rem] rounded-2xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md sm:min-h-[20rem] dark:border-slate-800 dark:bg-slate-900">
+        <button
+          type="button"
+          id="carte"
+          aria-expanded="false"
+          aria-controls="zone-reponse"
+          class="block w-full cursor-pointer rounded-2xl p-6 text-left sm:p-10"
+        >
+          <span class="mb-3 block text-xs font-semibold tracking-wide text-slate-400 uppercase">Question</span>
+          <span id="question" class="block text-lg leading-relaxed font-medium text-slate-900 sm:text-xl dark:text-white"></span>
+
+          <span id="indice-retourner" class="mt-8 block text-center text-sm text-slate-400">
+            {/*
+               `{' '}` AVANT LE SECOND `kbd` : sans lui, le compilateur mange
+               l'espace du retour à la ligne et rend « ou<kbd>Espace ».
+               `essais:espaces` l'a vu tout de suite — c'est le même piège que
+               l'espace entre une phrase et son lien, déjà payé dans ce dépôt.
+            */}
+            Appuyez sur <kbd class="rounded border px-1.5 py-0.5 text-xs">Entrée</kbd> ou{' '}
+            <kbd class="rounded border px-1.5 py-0.5 text-xs">Espace</kbd>, ou cliquez, pour voir la réponse
+          </span>
+        </button>
+
+        <div id="zone-reponse" class="mx-6 mt-6 hidden border-t border-slate-200 pb-6 pt-5 sm:mx-10 sm:pb-10 dark:border-slate-800">
           <p class="mb-3 text-xs font-semibold tracking-wide text-slate-400 uppercase">Réponse</p>
           <p id="reponse" class="text-base leading-relaxed whitespace-pre-line text-slate-700 dark:text-slate-200"></p>
           <!-- Le bouton d'assistance vit au verso, et nulle part ailleurs : le
@@ -154,10 +190,6 @@ import { base } from '../lib/ui';
                retourner la carte sans l'avoir cherchée. -->
           <div id="aide-carte" class="mt-5"></div>
         </div>
-
-        <p id="indice-retourner" class="mt-8 text-center text-sm text-slate-400">
-          Cliquez sur la carte ou appuyez sur <kbd class="rounded border px-1.5 py-0.5 text-xs">Espace</kbd> pour voir la réponse
-        </p>
       </div>
     </div>
 
@@ -331,6 +363,9 @@ import { base } from '../lib/ui';
     $('zone-reponse').classList.add('hidden');
     $('notation').classList.add('hidden');
     $('indice-retourner').classList.remove('hidden');
+    /* Et il se referme sur la carte suivante : un `aria-expanded` resté vrai
+       annoncerait une réponse ouverte devant une question. */
+    $('carte').setAttribute('aria-expanded', 'false');
     $('question').textContent = insecables(carte.question);
     $('reponse').textContent = insecables(carte.reponse);
     $('source-carte').textContent = `${carte.matiere} · ${carte.ficheTitre}${carte.neuve ? ' · nouvelle carte' : ''}`;
@@ -344,6 +379,9 @@ import { base } from '../lib/ui';
     reponseVisible = true;
     $('zone-reponse').classList.remove('hidden');
     $('indice-retourner').classList.add('hidden');
+    /* E5 : l'état est DIT, et pas seulement montré. Sans cette ligne, un
+       lecteur d'écran annonce un bouton dont rien ne change. */
+    $('carte').setAttribute('aria-expanded', 'true');
     poserBoutonAide();
     $('notation').classList.remove('hidden');
   }
@@ -676,13 +714,42 @@ import { base } from '../lib/ui';
       bouton.addEventListener('click', () => void annoter(bouton.dataset.note as Note));
     }
 
-    // Raccourcis clavier : Espace pour retourner, 1 à 4 pour noter.
+    /*
+       RACCOURCIS CLAVIER — et le défaut qu'ils cachaient.
+
+       Espace et Entrée étaient interceptés pour TOUT l'écran de session, avec
+       `preventDefault()`. Conséquence mesurée le 25 octobre : un bouton de
+       notation qui avait le focus ne s'activait **ni** à Entrée **ni** à
+       Espace — les deux touches étaient avalées avant de l'atteindre, et il ne
+       se passait rien. Les quatre notes n'étaient donc atteignables qu'aux
+       chiffres 1 à 4, et la carte, qui n'était pas un bouton, pas du tout.
+
+       Un raccourci global ne doit jamais marcher sur les touches qu'un
+       contrôle focalisé attend : on laisse passer dès que la touche vient d'un
+       bouton, d'un lien ou d'un champ, et l'activation natale fait le reste.
+       Le raccourci garde son office quand le focus est sur la page — c'est là
+       qu'il sert, et c'est tout ce qu'il doit faire.
+
+       Les chiffres, eux, restent interceptés partout SAUF dans un champ de
+       saisie : taper « 3 » dans une recherche ne doit pas noter une carte.
+    */
+    const DANS_UN_CONTROLE = 'button, a[href], input, select, textarea, [contenteditable="true"]';
     document.addEventListener('keydown', (e) => {
       if ($('session').classList.contains('hidden')) return;
+      const cible = e.target instanceof Element ? e.target.closest(DANS_UN_CONTROLE) : null;
       if (e.key === ' ' || e.key === 'Enter') {
+        /* Un contrôle focalisé a la priorité : Entrée et Espace lui
+           appartiennent, et c'est le navigateur qui les traduit en clic. */
+        if (cible) return;
         e.preventDefault();
         retourner();
       } else if (reponseVisible && ['1', '2', '3', '4'].includes(e.key)) {
+        const saisie =
+          cible instanceof HTMLInputElement ||
+          cible instanceof HTMLTextAreaElement ||
+          cible instanceof HTMLSelectElement ||
+          (cible instanceof HTMLElement && cible.isContentEditable);
+        if (saisie) return;
         e.preventDefault();
         void annoter(NOTES[Number(e.key) - 1]);
       }
