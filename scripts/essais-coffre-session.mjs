@@ -29,6 +29,7 @@
  */
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { devientVisible } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -153,7 +154,18 @@ console.log('\n  B — une note scellée par l’écran');
 
 await page.fill('#note', NOTE);
 await page.click('#enregistrer');
-await page.waitForTimeout(800);
+/*
+   LE BOUTON RENDU EST LA POST-CONDITION, et elle vaut pour tout le site :
+   `unSeulGeste` (`lib/geste.ts:192`) DÉSACTIVE le bouton avant le travail et
+   le rend après — 31 gestes dans 15 fichiers passent par là. Attendre qu'il
+   soit de nouveau actif, c'est attendre la fin de l'écriture scellée, et la
+   phase E ne retrouverait pas la note si le geste n'avait pas eu lieu.
+*/
+await page.waitForFunction(
+  (sel) => !document.querySelector(sel)?.disabled,
+  '#enregistrer',
+  { timeout: 30000 },
+);
 
 /* --- C. Naviguer et recharger ne redemandent rien ------------------------- */
 
@@ -161,22 +173,16 @@ console.log('\n  C — navigation et rechargement');
 
 await page.goto(`${RACINE}/odyssee/corps/`, { waitUntil: 'networkidle' });
 await ouvrirLaSession(page);
-await page.waitForTimeout(1000);
 v(
   'après navigation, le coffre n’est pas redemandé',
-  await page.locator('#mdp-coffre').isVisible().catch(() => false),
-  false,
+  await devientVisible(page, '#mdp-coffre', false),
+  true,
 );
 
 await page.goto(`${RACINE}/odyssee/psyche/`, { waitUntil: 'networkidle' });
 await page.reload({ waitUntil: 'networkidle' });
 await ouvrirLaSession(page);
-await page.waitForTimeout(1200);
-v(
-  'après rechargement non plus',
-  await page.locator('#mdp-coffre').isVisible().catch(() => false),
-  false,
-);
+v('après rechargement non plus', await devientVisible(page, '#mdp-coffre', false), true);
 
 /* --- D. Fermer efface les deux ------------------------------------------- */
 
@@ -184,7 +190,23 @@ console.log('\n  D — fermer efface le chiffré ET l’enveloppe');
 
 await page.click('#fermer-coffre');
 await page.locator('#coffre-ferme').waitFor({ state: 'visible', timeout: 10000 });
-await page.waitForTimeout(600);
+/*
+   Le panneau fermé paraît AVANT que le relais de session ne soit effacé : la
+   post-condition se lit donc là où la donnée vit, et non à l'écran. Bornée, et
+   son expiration devient un rouge nommé plutôt qu'une lecture trop tôt. La
+   seconde assertion, elle, porte sur l'enveloppe d'IndexedDB, que cette
+   attente ne regarde pas — elle garde donc tout son sens.
+*/
+v(
+  'le relais de session est effacé',
+  await page
+    .waitForFunction(() => !sessionStorage.getItem('cyclades.coffre'), undefined, {
+      timeout: 15000,
+    })
+    .then(() => true)
+    .catch(() => false),
+  true,
+);
 /*
    Rechargement avant de relever : sans lui, le champ garderait simplement ce
    qui y a été tapé, et le contrôle E mesurerait sa propre saisie plutôt que
@@ -206,7 +228,16 @@ console.log('\n  E — rouvrir, et retrouver ce qui a été scellé');
 await page.reload({ waitUntil: 'networkidle' });
 await ouvrirLaSession(page);
 v('le coffre redemande bien son mot de passe', await ouvrirLeCoffre(page), true);
-await page.waitForTimeout(1500);
+/*
+   La note est RÉINJECTÉE dans le champ après déchiffrement. `ouvrirLeCoffre`
+   n'attend que la fermeture du panneau, qui précède la relecture : la
+   post-condition est que le champ porte une valeur.
+*/
+await page
+  .waitForFunction((sel) => (document.querySelector(sel)?.value ?? '') !== '', '#note', {
+    timeout: 20000,
+  })
+  .catch(() => {});
 /*
    La note est relue DANS LE CHAMP, pas dans le corps de la page — l'écran la
    réinjecte depuis l'enregistrement déchiffré. Mon premier contrôle regardait
@@ -241,11 +272,10 @@ console.log('\n  F — la frontière de la session');
 const onglet = await ctx.newPage();
 await onglet.goto(`${RACINE}/odyssee/psyche/`, { waitUntil: 'networkidle' });
 await ouvrirLaSession(onglet);
-await onglet.waitForTimeout(2500);
 v(
   'un onglet neuf hérite de la session (relais, case cochée par défaut)',
-  await onglet.locator('#mdp-coffre').isVisible().catch(() => false),
-  false,
+  await devientVisible(onglet, '#mdp-coffre', false),
+  true,
 );
 await onglet.close();
 
@@ -254,10 +284,9 @@ const etranger = await nav.newContext({ viewport: { width: 1280, height: 900 } }
 const p3 = await etranger.newPage();
 await p3.goto(`${RACINE}/odyssee/psyche/`, { waitUntil: 'networkidle' });
 await ouvrirLaSession(p3);
-await p3.waitForTimeout(2500);
 v(
   'mais un contexte sans donneur redemande le coffre',
-  await p3.locator('#mdp-coffre').isVisible().catch(() => false),
+  await devientVisible(p3, '#mdp-coffre', true),
   true,
 );
 await etranger.close();
