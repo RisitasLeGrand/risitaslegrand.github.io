@@ -11,6 +11,10 @@
  * - **elles n'arrivent que page ouverte.** Cyclades n'a pas de serveur,
  *   donc pas de Web Push — ni vrai ni imité (décision du 11 octobre). Une
  *   notification ne part que depuis un onglet vivant ;
+ * - **et pas pendant qu'on regarde Cyclades** (0.8 du prompt 43). Dit ici
+ *   parce qu'autrement le réglage paraîtrait cassé : on active
+ *   « Synchronisation », on reste sur le site, et rien ne sonne. La cloche
+ *   de l'en-tête est ce qui s'annonce alors, et elle compte en direct ;
  * - **le réglage ne voyage pas.** Il vit sur cet appareil, parce qu'une
  *   notification est émise par un appareil ;
  * - **le texte ne dira jamais rien.** « Cyclades : un élément à voir »,
@@ -46,6 +50,13 @@ import LienReglages from '../components/LienReglages.astro';
     <p class="max-w-3xl text-sm leading-relaxed text-amber-900/90 dark:text-amber-200/90">
       <strong>Elles n’arrivent que pendant qu’une page de Cyclades est ouverte
       sur cet appareil.</strong> Pour un rappel à heure fixe, utilisez l’agenda.
+    </p>
+    <p class="mt-3 max-w-3xl text-sm leading-relaxed text-amber-900/90 dark:text-amber-200/90">
+      <strong>Et elles ne vous interrompent pas pendant que vous regardez
+      Cyclades.</strong> Ce qui arrive sous vos yeux s’annonce par la cloche de
+      l’en-tête, qui compte en direct : une notification du système par-dessus
+      n’apprendrait rien, et on finirait par les couper toutes. Elles servent
+      l’onglet laissé de côté.
     </p>
     <p class="mt-3 max-w-3xl text-sm leading-relaxed text-amber-900/90 dark:text-amber-200/90">
       Cyclades n’a pas de serveur : il ne peut donc pas vous envoyer une
@@ -193,7 +204,7 @@ import LienReglages from '../components/LienReglages.astro';
   */
   const EXPLICATIONS: Record<EtatPermission, string> = {
     accordee:
-      'Les sources que vous activez ci-dessous pourront donc s’afficher, tant qu’une page est ouverte.',
+      'Les sources que vous activez ci-dessous pourront donc s’afficher, tant qu’une page est ouverte, sauf pendant que vous la regardez.',
     refusee:
       'Vous avez refusé les notifications pour ce site. Cyclades ne peut pas revenir sur ce refus : il se lève dans les réglages de votre navigateur, à la ligne de ce site. Vos choix ci-dessous restent enregistrés et reprendront effet ensuite.',
     'a-demander':
