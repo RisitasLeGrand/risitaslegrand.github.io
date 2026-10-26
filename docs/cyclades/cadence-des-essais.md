@@ -83,12 +83,13 @@ La mise en place, qui est celle de la batterie :
 ```bash
 LABO=/tmp/labo-<lot>
 PORT=4322                       # l'arbre de travail garde 4321
-git worktree add --detach "$LABO" HEAD
+SHA=$(git rev-parse HEAD)       # fixé UNE fois : voir le point 4
+git worktree add --detach "$LABO" "$SHA"
 ln -s "$PWD/node_modules" "$LABO/node_modules"
 ln -s "$PWD/content" "$LABO/content"   # non suivi, et la construction en a besoin
 ```
 
-Trois points qu'on n'apprend qu'en les manquant :
+Quatre points qu'on n'apprend qu'en les manquant :
 
 1. **`content/` doit être lié.** Il n'est pas dans Git — c'est tout le point
    de la règle de confidentialité —, donc un arbre détaché naît sans lui et
@@ -100,7 +101,21 @@ Trois points qu'on n'apprend qu'en les manquant :
    suffit de la leur donner ;
 3. **le `.env.local` du laboratoire est à lui.** On l'y écrit, on l'y
    efface, et il ne faut pas compter sur celui de l'arbre de travail : le
-   mot de passe ne doit vivre que le temps de la commande, des deux côtés.
+   mot de passe ne doit vivre que le temps de la commande, des deux côtés ;
+4. **le commit se fixe une fois, et non à chaque tour.** `HEAD` se résout au
+   moment où l'arbre est créé. Or l'intérêt de la règle est précisément de
+   pouvoir continuer à travailler pendant la mesure — donc de changer de
+   branche. Un script qui écrit `git worktree add --detach "$LABO" HEAD`
+   dans sa boucle bâtit alors ses derniers sabotages sur une autre branche
+   que ses premiers, **sans rien dire**.
+
+   C'est arrivé le 26 octobre, et c'est pour cela que ce point existe : les
+   deux sabotages d'un décor ont été bâtis sans ce décor, l'un a annoncé
+   « 0 occurrence retirée » et l'autre s'est arrêté sur une section
+   introuvable. Deux faux verdicts, et c'était ma faute d'avoir changé de
+   branche pendant la mesure — ce que la règle encourage. On résout donc le
+   commit **avant la boucle**, et on l'imprime : un laboratoire qui dit sur
+   quoi il a été pris épargne ce diagnostic au suivant.
 
 Le nettoyage va dans un `trap` sur `EXIT INT TERM`, et il dit ce qu'il a
 fait : arrêter l'aperçu, retirer le `.env.local`, retirer le laboratoire,
