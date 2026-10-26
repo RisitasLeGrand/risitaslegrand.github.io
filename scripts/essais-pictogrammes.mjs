@@ -95,26 +95,29 @@ const POINTS_GARDES = new Set([
   0x2795, 0x2796, 0x2797, 0x27b0, 0x27bf, 0x2b50, 0x2b55,
 ]);
 
-/*
-   DEUX CARACTÈRES QUE J'AI CONVERTIS ET QUE LA GARDE NE PREND PAS.
-
-   Le triangle de lecture ▶ (25B6) et le « i » cerclé ⓘ (24D8). Je les ai
-   remplacés par des icônes du catalogue, parce qu'ils servaient de boutons et
-   que les plateformes les colorient. La garde, elle, les laisse passer, et ce
-   n'est pas un oubli :
-
-   — 25B6 vit dans le bloc des formes géométriques (25A0–25FF), avec ● ○ ◆ ▣
-     △ ▲ ■, qui sont toutes des marques tolérées employées en série. Le prendre
-     par une plage emporterait la série ; le prendre nommément ferait de lui un
-     cas à part parmi ses voisins, sans qu'on puisse dire pourquoi lui et non
-     ▲ ;
-   — 24D8 est dans les alphanumériques encerclés, et le Pilote ne l'a pas
-     nommé.
-
-   Ils sont donc signalés au Pilote plutôt qu'ajoutés de mon chef : une plage
-   élargie « pour attraper un émoji de plus » est exactement ce que le
-   contrôle du point 2 est là pour empêcher.
-*/
+/**
+ * LE SÉLECTEUR DE PRÉSENTATION ÉMOJI, REFUSÉ PARTOUT.
+ *
+ * C'est la décision du Pilote, et elle vaut mieux que ce que je proposais.
+ *
+ * J'avais buté sur deux caractères convertis que les plages ne prenaient pas :
+ * le triangle de lecture ▶ (25B6) et le « i » cerclé ⓘ (24D8). Les prendre par
+ * une plage aurait emporté ● ○ ◆ ▣ △ ▲ ■ — les marques tolérées, employées en
+ * série par trois écrans. Les nommer un par un aurait fait d'eux des cas
+ * particuliers sans qu'on puisse dire pourquoi eux et non ▲. Je les avais donc
+ * signalés et laissés passer.
+ *
+ * La bonne question n'était pas « lesquels », mais « à quoi tient la
+ * différence ». Ces caractères ont une présentation TEXTE par défaut ; ce qui
+ * en fait des émojis coloriés, c'est le sélecteur U+FE0F qui les suit. « ▶ »
+ * est une forme géométrique, « ▶️ » est un bouton de lecture.
+ *
+ * Refuser U+FE0F ferme donc le trou pour la série entière — formes
+ * géométriques, lettres encerclées, et tout ce qui viendra — sans toucher à
+ * une seule marque. Et il n'y en a aujourd'hui aucun hors des fichiers
+ * exemptés : la règle ne coûte rien et tient l'avenir.
+ */
+const SELECTEUR_EMOJI = 0xfe0f;
 
 /*
    LES MARQUES TOLÉRÉES DANS LES PLAGES.
@@ -203,9 +206,10 @@ function verifier(quoi, vrai, detail = '') {
   }
 }
 
-/** Le caractère est-il gardé — par une plage, ou nommément ? */
+/** Le caractère est-il gardé — par une plage, nommément, ou comme sélecteur ? */
 function estDansLesPlages(caractere) {
   const point = caractere.codePointAt(0);
+  if (point === SELECTEUR_EMOJI) return true;
   return POINTS_GARDES.has(point) || PLAGES.some(([bas, haut]) => point >= bas && point <= haut);
 }
 
@@ -266,7 +270,16 @@ for (const chemin of fichiers('src')) {
       exemptionsUtiles.add(chemin);
       continue;
     }
-    fautes.push(`${chemin}:${t.ligne} — « ${t.caractere} » dans : ${t.texte.slice(0, 70)}`);
+    /*
+       LE SÉLECTEUR EST INVISIBLE, donc il se nomme au lieu de s'afficher. La
+       première version imprimait « « » dans : ▶️ » — un caractère vide entre
+       des guillemets, qui n'apprenait rien à qui lisait le refus.
+    */
+    const dit =
+      t.caractere.codePointAt(0) === SELECTEUR_EMOJI
+        ? 'le sélecteur de présentation émoji U+FE0F'
+        : `« ${t.caractere} »`;
+    fautes.push(`${chemin}:${t.ligne} — ${dit} dans : ${t.texte.slice(0, 70)}`);
   }
 }
 
@@ -287,6 +300,11 @@ if (fautes.length > 0) {
   console.log(`      dans les plages gardées : ${[...MARQUES_TOLEREES].join(' ')}`);
   console.log(`      hors des plages : ${MARQUES_HORS_PLAGES.join(' ')}`);
   console.log('      « ★ » est dans la seconde plage : elle ne passe que par une exemption nommée.');
+  console.log('');
+  console.log(`  ${gras('ET LE SÉLECTEUR U+FE0F EST REFUSÉ PARTOUT')} : « ▶ » passe, « ▶️ » non.`);
+  console.log('      C’est lui qui fait d’une forme de texte un émoji colorié. Si une icône');
+  console.log('      vous manque, elle est au catalogue ou elle s’y ajoute — pas dans un');
+  console.log('      caractère suivi d’un sélecteur.');
   console.log(`      les flèches : ${FLECHES.join(' ')}`);
   console.log('');
   console.log(`  ${gras('LES FICHIERS EXEMPTÉS')}, et pourquoi :`);
@@ -380,9 +398,16 @@ const DOIVENT_ETRE_PRIS = [
    essai dira lesquels il vient d'emporter avec.
 */
 const DOIVENT_PASSER_MALGRE_TOUT = [
-  ['▶', '25B6, parmi les formes géométriques où vivent les marques tolérées'],
-  ['ⓘ', '24D8, non nommé par le Pilote'],
+  ['▶', '25B6 SEUL : une forme géométrique, à présentation texte'],
+  ['ⓘ', '24D8 seul : une lettre encerclée, à présentation texte'],
 ];
+
+/*
+   ET LES MÊMES, SUIVIS DU SÉLECTEUR, DOIVENT ÊTRE PRIS. C'est le contrôle qui
+   donne son sens au précédent : ce n'est pas le caractère qui est toléré, c'est
+   sa présentation texte. Suivi de U+FE0F, il devient un émoji et il est refusé.
+*/
+const AVEC_SELECTEUR = ['▶\ufe0f', 'ⓘ\ufe0f', '✂\ufe0f'];
 for (const [emoji, quoi] of DOIVENT_ETRE_PRIS) {
   const pris = pictogrammesDe(`texte = '${emoji} Bonjour';`);
   verifier(
@@ -402,6 +427,13 @@ for (const [c, quoi] of DOIVENT_PASSER_MALGRE_TOUT) {
   verifier(
     `« ${c} » passe, et c’est voulu (${quoi})`,
     pictogrammesDe(`const x = '${c}';`).length === 0,
+  );
+}
+for (const c of AVEC_SELECTEUR) {
+  const nu = c.replace('\ufe0f', '');
+  verifier(
+    `« ${nu} » suivi du sélecteur est pris`,
+    pictogrammesDe(`const x = '${c}';`).length > 0,
   );
 }
 
