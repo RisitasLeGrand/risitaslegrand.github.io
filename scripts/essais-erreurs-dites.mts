@@ -24,6 +24,25 @@
  * Le type est le seul discriminant fiable. Renifler le texte échouerait dès
  * qu’un navigateur parle une autre langue, et c’est la raison pour laquelle
  * cet essai éprouve le TYPE et jamais la chaîne.
+ *
+ * ## LA TROISIÈME BRANCHE, ajoutée le 26 octobre
+ *
+ * Les deux sortes ci-dessus n’épuisent pas ce qui arrive : **un échec de
+ * `fetch` est un `TypeError`**, donc ni une `DOMException`, ni un message de
+ * domaine. Il tombait dans la seconde branche et son texte anglais sortait
+ * mot pour mot.
+ *
+ * Trouvé par un sabotage du lot 0.1, qui a fait afficher « Le déverrouillage
+ * a échoué : **Failed to fetch** » — en anglais, par la fonction même qui
+ * doit l’empêcher. Le trou avait vécu tout ce temps parce qu’aucun essai ne
+ * passait un `TypeError` à `messageDUneErreur`, et parce que le balayage de
+ * source ne voit que du code : une panne de plate-forme, lui, il ne la
+ * provoque pas.
+ *
+ * La section « UN ÉCHEC DE RÉSEAU » le mesure avec un **vrai** `fetch` qui
+ * échoue, et non avec un `TypeError` fabriqué : ce qui est en jeu est
+ * justement la forme que le moteur donne à cette panne-là, et l’inventer
+ * reviendrait à éprouver ma propre idée de la panne.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
@@ -113,6 +132,61 @@ v(
 v('une valeur jetée qui n’est pas une erreur est encaissée', typeof messageDUneErreur(null), 'string');
 v('y compris une chaîne nue', messageDUneErreur('oups'), 'oups');
 
+console.log('\nUN ÉCHEC DE RÉSEAU EST DIT EN FRANÇAIS');
+
+/*
+   UN VRAI `fetch` QUI ÉCHOUE, et c'est la prémisse de toute la section.
+
+   On demande une adresse locale dont le port est fermé : le moteur rejette
+   avec ce qu'il rejette vraiment. Si un jour il rejetait autre chose qu'un
+   `TypeError`, la prémisse ci-dessous rougirait — et ce serait la bonne
+   nouvelle à recevoir, puisque la branche de `agir.ts` serait alors à revoir.
+*/
+const pannePourDeVrai = await fetch('http://127.0.0.1:1/rien').then(
+  () => null,
+  (erreur: unknown) => erreur,
+);
+v(
+  'prémisse : un fetch refusé rejette bien un TypeError',
+  pannePourDeVrai instanceof TypeError,
+  true,
+);
+const ditDuReseau = messageDUneErreur(pannePourDeVrai);
+console.log(`      message : « ${ditDuReseau} »`);
+v('son texte brut ne ressort pas', ditDuReseau === (pannePourDeVrai as Error)?.message, false);
+v('la phrase parle de la connexion', /connexion/i.test(ditDuReseau), true);
+v('elle dit quoi faire', /réessayez/i.test(ditDuReseau), true);
+/*
+   ET ELLE N'ACCUSE PAS LE RÉSEAU TOUT SEUL. Un `TypeError` est aussi la
+   forme d'un bogue de l'application — « x n'est pas une fonction » —, et
+   « messageDUneErreur » ne peut pas les distinguer sans renifler le texte,
+   ce que ce fichier refuse. La phrase doit donc rester vraie dans les deux
+   cas, et nommer la seconde lecture plutôt que d'envoyer quelqu'un vérifier
+   sa connexion pour un défaut de code.
+*/
+v('et elle nomme l’autre lecture possible', /défaut de l’application/i.test(ditDuReseau), true);
+v('avec où regarder', /console/i.test(ditDuReseau), true);
+/*
+   Le `TypeError` d'un bogue reçoit la même phrase, et c'est mesuré plutôt
+   que supposé : c'est la conséquence assumée de ne pas renifler le texte.
+*/
+v(
+  'un TypeError de code reçoit la même phrase, sans son texte anglais',
+  messageDUneErreur(new TypeError('x.foo is not a function')).includes('is not a function'),
+  false,
+);
+/*
+   ET LA FRONTIÈRE TIENT : une `Error` ordinaire n'est pas emportée par la
+   nouvelle branche. Sans ce contrôle, un `instanceof Error` mal placé
+   remplacerait les messages de domaine par la phrase du réseau, et la moitié
+   utile de G-13 tomberait sans bruit.
+*/
+v(
+  'une Error ordinaire n’est pas prise pour un échec de réseau',
+  messageDUneErreur(new Error('Ce fichier n’est pas une sauvegarde Cyclades.')),
+  'Ce fichier n’est pas une sauvegarde Cyclades.',
+);
+
 console.log('\nLA TABLE ELLE-MÊME');
 
 /*
@@ -121,7 +195,13 @@ console.log('\nLA TABLE ELLE-MÊME');
    parce qu’elles vivent dans un .ts et non dans un gabarit, là où
    essais:typographie regarde.
 */
-const toutes = [...NOMS_ATTENDUS.map((n) => messageDUneErreur(new DOMException(BRUT, n))), inconnue];
+const toutes = [
+  ...NOMS_ATTENDUS.map((n) => messageDUneErreur(new DOMException(BRUT, n))),
+  inconnue,
+  /* Et la phrase du réseau : elle est de la même famille, et les mêmes
+     règles la tiennent — apostrophe courbe, pas de « (s) », un point. */
+  ditDuReseau,
+];
 v('aucune apostrophe droite', toutes.filter((p) => p.includes("'")), []);
 v('aucun « (s) »', toutes.filter((p) => /\(s\)/.test(p)), []);
 v('chacune se termine par un point', toutes.filter((p) => !p.trim().endsWith('.')), []);
