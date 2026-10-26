@@ -79,9 +79,35 @@ const ongletNeuf = async () => {
 };
 
 const saisir = async (motDePasse) => {
+  /*
+     ON EFFACE L'ERREUR SOI-MÊME, et c'est la parade du § 3 de la cadence.
+     Cet essai enchaîne un bon mot de passe, deux faux, puis le bon : sans cet
+     effacement, le message du refus PRÉCÉDENT rendrait la post-condition vraie
+     d'avance, et la tentative suivante serait lue avant d'avoir été traitée.
+  */
+  await page.evaluate(() => {
+    const e = document.getElementById('erreur-coffre');
+    if (e) e.textContent = '';
+  });
   await page.fill('#mdp-coffre', motDePasse);
   await page.click('#ouvrir-coffre');
-  await page.waitForTimeout(2500);
+  /*
+     La post-condition ne présume PAS du verdict — c'est tout l'objet de cet
+     essai. La tentative a été traitée quand le formulaire s'en va (ouvert) OU
+     quand l'erreur est écrite (refusé), et l'un des deux arrive toujours.
+  */
+  await page
+    .waitForFunction(
+      () => {
+        const champ = document.getElementById('mdp-coffre');
+        const parti = champ === null || champ.getBoundingClientRect().height === 0;
+        const dit = (document.getElementById('erreur-coffre')?.textContent ?? '').trim() !== '';
+        return parti || dit;
+      },
+      undefined,
+      { timeout: 20000 },
+    )
+    .catch(() => {});
 };
 
 console.log('\nLA PRÉMISSE : DU CONTENU SCELLÉ, SANS QUOI IL N’Y A RIEN À REFUSER');
