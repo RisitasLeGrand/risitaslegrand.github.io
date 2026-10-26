@@ -227,22 +227,75 @@ try {
        s'est posée en vrai quand le déploiement a été réduit au woff2 seul — si
        une adresse pendait, ce contrôle-ci serait le seul à le voir.
 
-       « document.fonts.ready » attend la fin des chargements, puis « check »
-       dit si la fonte demandée est réellement disponible.
+       ## « document.fonts.ready » NE RÉPOND PAS À CETTE QUESTION
+
+       Cette mesure attendait `document.fonts.ready`, puis lisait `check` tout
+       de suite. Elle était verte seule et rouge sous la batterie, et le
+       constructeur l'a reproduite : « check=false · 0 face(s) », dans les deux
+       thèmes.
+
+       MESURÉ, dans un arbre de laboratoire : au moment où l'essai l'attend,
+       `document.fonts.ready` est **déjà résolu** — l'attente rend la main en
+       0 ms —, et à cet instant `check` est FAUX avec zéro face chargée.
+       Cinquante millisecondes plus tard, il est vrai.
+
+       La raison est dans le cycle de la page. `ready` se résout quand les
+       chargements en cours s'achèvent ; elle s'était donc résolue bien avant,
+       sur les fontes de l'interface, pendant que la fiche était encore
+       chiffrée. Les formules ne sont peintes qu'après le déchiffrement, et le
+       chargement des fontes KaTeX commence alors — APRÈS. Attendre à nouveau
+       une promesse déjà tenue ne coûte rien et n'attend rien.
+
+       Sur une machine au repos, le simple aller-retour de `page.evaluate`
+       suffisait à franchir la fenêtre de cinquante millisecondes. Sous une
+       batterie chargée, non. C'est la même famille que les attentes fragiles
+       du § 3 de « cadence-des-essais.md » : une lecture faite avant que l'état
+       mesuré n'existe, qui rend la bonne réponse quand la machine est libre.
+
+       ## LA PARADE
+
+       `waitForFunction` interroge `check` jusqu'à ce qu'il soit vrai. C'est
+       une post-condition : elle ne peut pas être satisfaite avant que la fonte
+       ne soit réellement disponible, et le délai la borne. Si la fonte manque
+       pour de bon — l'adresse pend, le fichier n'est pas déployé —, l'attente
+       expire et l'essai le dit, ce qui est exactement ce qu'on lui demande.
     */
-    const fonteChargee = await page.evaluate(async () => {
-      await document.fonts.ready;
-      const chargees = [...document.fonts].filter((f) => f.family.startsWith('KaTeX') && f.status === 'loaded');
-      return {
-        disponible: document.fonts.check('16px KaTeX_Main'),
-        combien: chargees.length,
-        familles: [...new Set(chargees.map((f) => f.family))].slice(0, 6),
-      };
-    });
+    let fonteChargee;
+    try {
+      fonteChargee = await page.waitForFunction(
+        () => {
+          const chargees = [...document.fonts].filter(
+            (f) => f.family.startsWith('KaTeX') && f.status === 'loaded',
+          );
+          if (!document.fonts.check('16px KaTeX_Main') || chargees.length === 0) return null;
+          return {
+            combien: chargees.length,
+            familles: [...new Set(chargees.map((f) => f.family))].slice(0, 6),
+          };
+        },
+        undefined,
+        { timeout: 30000 },
+      ).then((p) => p.jsonValue());
+    } catch {
+      /* L'expiration EST le verdict : on la rend lisible plutôt que de la
+         laisser remonter en panne du script entier. */
+      fonteChargee = await page.evaluate(() => {
+        const katex = [...document.fonts].filter((f) => f.family.startsWith('KaTeX'));
+        return {
+          combien: 0,
+          familles: [],
+          declarees: katex.length,
+          etats: [...new Set(katex.map((f) => f.status))],
+        };
+      });
+    }
     verifier(
       `${theme} · la fonte KaTeX est chargée pour de vrai`,
-      fonteChargee.disponible && fonteChargee.combien > 0,
-      `check=${fonteChargee.disponible} · ${fonteChargee.combien} face(s) : ${fonteChargee.familles.join(', ')}`,
+      fonteChargee.combien > 0,
+      fonteChargee.combien > 0
+        ? ''
+        : `aucune face chargée en 30 s — ${fonteChargee.declarees} déclarée(s), ` +
+          `états : ${(fonteChargee.etats ?? []).join(', ')}`,
     );
 
     const vu = await page.evaluate(() => {
