@@ -10,6 +10,29 @@
  */
 import Base from '../layouts/Base.astro';
 import LienReglages from '../components/LienReglages.astro';
+import { MAGASINS_SAUVEGARDES } from '../lib/db';
+import { magasinsSansIntitule } from '../lib/intitules-magasins';
+
+/*
+   UN MAGASIN SANS ÉTIQUETTE ARRÊTE LA CONSTRUCTION.
+
+   Ce frontmatter s'exécute à la construction du site, pas dans le navigateur :
+   le refus se voit donc tout de suite, et par celui qui a ajouté le magasin —
+   c'est-à-dire la seule personne qui sache comment l'appeler.
+
+   Sans lui, la ligne s'afficherait avec son nom technique, « odysseeEtapesCochees »
+   au milieu de soixante-quinze autres, et seule une relecture de l'écran
+   l'aurait vu. C'est le défaut même que les étiquettes corrigent : il n'a pas
+   à pouvoir revenir par la porte de derrière.
+*/
+const sansIntitule = magasinsSansIntitule(MAGASINS_SAUVEGARDES);
+if (sansIntitule.length > 0) {
+  const combien = sansIntitule.length;
+  throw new Error(
+    `Stockage : ${combien} ${combien > 1 ? 'magasins' : 'magasin'} sans intitulé — ` +
+      `${sansIntitule.join(', ')}. À ajouter dans « src/lib/intitules-magasins.ts ».`,
+  );
+}
 ---
 
 <Base titre="Stockage" actif="progression">
@@ -387,6 +410,7 @@ import LienReglages from '../components/LienReglages.astro';
     type Occupation,
   } from '../lib/stockage';
   import { GROUPES } from '../lib/sauvegarde/groupes';
+  import { groupeLisibleDuMagasin, intituleDuMagasin } from '../lib/intitules-magasins';
   import {
     comptesParGroupe,
     exporterGroupeCsv,
@@ -826,9 +850,32 @@ import LienReglages from '../components/LienReglages.astro';
         corps.replaceChildren();
         for (const m of d.magasins) {
           const tr = document.createElement('tr');
+          /*
+             L'identifiant technique reste en attribut, et il a deux usages :
+             les essais désignent une ligne sans dépendre de son libellé, et
+             qui lit le code sait de quel magasin il s'agit. Ce qui change est
+             qu'il n'est plus AFFICHÉ.
+          */
+          tr.dataset.magasin = m.nom;
           const nom = document.createElement('td');
-          nom.className = 'py-2 pr-4 font-medium text-slate-900 dark:text-white';
-          nom.textContent = m.nom;
+          nom.className = 'py-2 pr-4 align-top';
+          const intitule = document.createElement('span');
+          intitule.className = 'block font-medium text-slate-900 dark:text-white';
+          intitule.textContent = intituleDuMagasin(m.nom);
+          nom.appendChild(intitule);
+          /*
+             Le groupe SITUE la rubrique sans la nommer à sa place : quarante-
+             quatre lignes « Odyssée » ne diraient rien, mais « Odyssée » sous
+             « Prises de médicaments » dit où aller la chercher, et ce qu'un
+             effacement par domaine emporterait avec elle.
+          */
+          const groupe = groupeLisibleDuMagasin(m.nom);
+          if (groupe) {
+            const sous = document.createElement('span');
+            sous.className = 'block text-xs text-slate-500 dark:text-slate-400';
+            sous.textContent = groupe;
+            nom.appendChild(sous);
+          }
           const n = document.createElement('td');
           n.className = 'py-2 pr-4 text-right tabular-nums text-slate-600 dark:text-slate-300';
           n.textContent = m.enregistrements.toLocaleString('fr-FR');

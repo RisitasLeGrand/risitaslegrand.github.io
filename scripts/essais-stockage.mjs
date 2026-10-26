@@ -161,8 +161,43 @@ v('le détail est masqué au départ', await page.locator('#detail').isVisible()
 await page.click('#peser');
 await page.waitForSelector('#detail', { state: 'visible', timeout: 60000 });
 const detail = (await page.locator('#detail').textContent()) ?? '';
-v('les notes apparaissent dans le tableau', /notes/.test(detail), true);
-v('les séances aussi', /seances/.test(detail), true);
+/*
+   LA TABLE DIT LE NOM FRANÇAIS, PAS L'IDENTIFIANT.
+
+   Ces deux lignes cherchaient « notes » et « seances », c'est-à-dire les noms
+   techniques des magasins, qui étaient affichés tels quels. Elles cherchent
+   maintenant les étiquettes de « src/lib/intitules-magasins.ts ». Ce n'est pas
+   un assouplissement : l'essai mesurait l'ancien défaut et le déclarait
+   conforme.
+*/
+v('les notes de séance apparaissent dans le tableau', /Notes prises en séance/.test(detail), true);
+v('les séances de révision aussi', /Séances de révision/.test(detail), true);
+/*
+   Et le groupe les situe, en sous-titre. Sans ce contrôle, retirer le
+   sous-titre ne se verrait nulle part.
+*/
+v('le groupe est donné sous l’étiquette', /Séances et notes/.test(detail), true);
+/*
+   AUCUN IDENTIFIANT EN CASSE DE CHAMEAU. On ne peut pas exiger l'absence de
+   TOUS les noms techniques — « quiz » et « notes » sont aussi des mots
+   français, et des étiquettes les portent légitimement. Ceux-là, en revanche,
+   ne peuvent venir que du code.
+*/
+for (const technique of [
+  'odysseeEtapesCochees',
+  'vmSeuils',
+  'epreuveDgfipEnCours',
+  'podcastPositions',
+  'sportProgrammes',
+]) {
+  v(`« ${technique} » n’est pas affiché`, detail.includes(technique), false);
+}
+/* Et la ligne garde son identifiant en attribut, pour être désignée. */
+v(
+  'la ligne des notes porte son magasin en attribut',
+  await page.locator('[data-magasin="notes"]').count(),
+  1,
+);
 v('le rapport au disque est expliqué', /comprime/.test(detail), true);
 
 console.log('\nLE CONTRÔLE D’INTÉGRITÉ NOMME L’ANOMALIE');

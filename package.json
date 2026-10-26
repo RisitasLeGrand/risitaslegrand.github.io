@@ -369,6 +369,7 @@
     "essais:icones": "node scripts/essais-icones.mjs",
     "essais:migrations": "node scripts/essais-migrations.mjs",
     "essais:pictogrammes": "node scripts/essais-pictogrammes.mjs",
+    "essais:intitules-magasins": "node scripts/essais-intitules-magasins.mjs",
     "essais:maths-ecran": "node scripts/essais-maths-ecran-navigateur.mjs",
     "essais:contraste-impose": "node scripts/essais-contraste-impose-navigateur.mjs"
   },

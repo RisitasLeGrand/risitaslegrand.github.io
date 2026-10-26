@@ -128,6 +128,16 @@ const SOCLE = [
   */
   ['essais:migrations', 'aucun palier de migration ne dort sous la version publiée'],
   /*
+     La table « Peser chaque rubrique » affichait soixante-quinze noms
+     techniques, dans un écran dont le but est de décider quoi garder. Les
+     étiquettes françaises se défont de trois façons : un magasin ajouté sans
+     étiquette — le refus à la construction l'attrape, s'il est encore là —,
+     une étiquette laissée derrière un magasin disparu, et une étiquette qui
+     recopie l'identifiant, ce qui satisfait la couverture sans rien corriger.
+     Les trois sont tenues ici.
+  */
+  ['essais:intitules-magasins', 'chaque rubrique de données a un nom français'],
+  /*
      Les deux réglages d'accessibilité du système. Ils se défont sans bruit :
      il a suffi qu'une feuille de thème soit injectée APRÈS « global.css » pour
      que le relèvement des teintes faibles cesse d'agir, et rien ne le disait.
