@@ -115,6 +115,29 @@ const SOCLE = [
   ['essais:accessibilite:navigateur', 'rôles, noms accessibles, ordre de tabulation'],
   ['essais:mobile:navigateur', '360 px : aucun débordement, cibles atteignables'],
   ['essais:mouvement-reduit', 'le réglage d’animations existe, et il est respecté'],
+  /*
+     LE DÉFILEMENT ET LES GRAPHIQUES, au socle depuis le 26 octobre.
+
+     Les deux existaient et ne tournaient qu'à la batterie complète. Ils y
+     entrent parce qu'ils gardent chacun une règle qu'une retouche défait sans
+     bruit, et qu'ils ne coûtent rien : pas de navigateur, deux secondes.
+
+     - `essais:defilement` tient l'invariant qu'AUCUN écran ne contourne le
+       module : c'est la forme qu'on recopie en ajoutant un écran, et le
+       relevé balaie les `.astro`, les `.ts` ET les `.svelte` — l'extension
+       qui avait piégé le lot des voiles de dialogue.
+     - `essais:graphiques` mesure les teintes des deux histogrammes sur leur
+       fond, et vérifie que l'écran emploie BIEN celles qu'il mesure : une
+       mesure sur une table que le code n'utilise plus ne mesure rien.
+
+     Éprouvés avant de les inscrire, et pas seulement lus : cinq sabotages,
+     cinq rouges nommés — un septième défilement « smooth » hors du module,
+     la règle amputée du réglage de l'application, le trait d'objectif cessant
+     d'être pointillé, une tranche changeant de teinte sans que la table
+     bouge, et la ligne d'objectif poussée sous 3:1.
+  */
+  ['essais:defilement', 'aucun écran ne contourne le module de défilement'],
+  ['essais:graphiques', 'les deux histogrammes : ligne tracée, tableau, 3:1'],
   ['essais:themes-navigateur', 'les quatorze thèmes s’appliquent pour de vrai'],
   ['essais:themes-a-jour', 'le catalogue et les feuilles engendrées concordent'],
   ['essais:contrastes-themes', 'WCAG AA dans chaque thème'],
