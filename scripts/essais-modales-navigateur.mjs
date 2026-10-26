@@ -21,19 +21,22 @@
  * tiendrait que vers l'avant laisserait sortir par l'arrière, et c'est le
  * chemin que prend quelqu'un qui cherche à revenir.
  *
- * ## Ce qu'il NE mesure PAS, et pourquoi
+ * ## ET LE MENU DU CADENAS, QUI NE DOIT PAS ÊTRE PIÉGÉ
  *
- * Le menu du cadenas est un `role="menu"`, et piéger le focus dans un menu
- * serait une faute : un menu se ferme quand le focus le quitte. Le piège est
- * donc facultatif, et le troisième argument de `calqueOuvert` est absent à
- * son appel. Cet essai ne le vérifie pas dans le navigateur parce que le
- * cadenas ne paraît qu'avec le COFFRE ouvert — pas seulement la session
- * déverrouillée —, ce qui dépasse ce qu'il sait monter. C'est une lacune
- * connue, dite ici plutôt que tue.
+ * C'est la garantie NÉGATIVE de ce lot, et elle compte autant que les autres :
+ * le cadenas porte `role="menu"`, et piéger le focus dans un menu serait une
+ * faute — un menu se ferme quand le focus le quitte, il ne le retient pas. Le
+ * piège est donc facultatif, et le troisième argument de `calqueOuvert` est
+ * absent à son appel.
+ *
+ * Sans ce constat, rien ne dirait qu'on ne l'a pas piégé par commodité. Il
+ * demande d'ouvrir le COFFRE — pas seulement la session, qui ne suffit pas —,
+ * et c'est `lib/coffre-essais` qui le fait.
  */
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import { ouvrirLeCoffre } from './lib/coffre-essais.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
@@ -189,6 +192,80 @@ for (const [nom, declencheur, panneau] of DIALOGUES) {
   const attenduApresEchap = `button#${declencheur.slice(1)}`;
   const rendu = await place(panneau);
   verifier('et le focus revient au déclencheur', rendu.quoi, attenduApresEchap);
+}
+
+/* ── Le menu du cadenas : fermé par Échap, et JAMAIS piégé ─────────────── */
+
+console.log('\n── le menu du cadenas (un MENU, pas un dialogue)');
+
+{
+  /*
+     Le cadenas ne paraît qu'avec le coffre ouvert, et le coffre n'est pas la
+     session : la déverrouiller ne l'ouvre pas. On passe donc par un écran qui
+     porte le formulaire, et « finances » le porte sans activation préalable.
+  */
+  await page.goto(`${RACINE}/odyssee/finances/`, { waitUntil: 'networkidle' });
+  if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
+    await page.fill('#champ-mdp', MDP);
+    await page.click('#bouton-verrou');
+    await page.waitForTimeout(1200);
+  }
+  const ouvert = await ouvrirLeCoffre(page, MDP).catch(() => false);
+  vrai('prémisse : le coffre s’ouvre par l’écran', ouvert);
+
+  const cadenas = page.locator('#cadenas-coffre-bouton');
+  const visible = ouvert && (await cadenas.isVisible().catch(() => false));
+  vrai('prémisse : et le cadenas paraît alors dans l’en-tête', visible);
+
+  if (visible) {
+    await cadenas.click();
+    await page.waitForTimeout(400);
+    verifier(
+      'le menu s’annonce comme un menu, et non comme un dialogue',
+      await page.getAttribute('#cadenas-coffre-menu', 'role'),
+      'menu',
+    );
+
+    /*
+       LA GARANTIE NÉGATIVE : la tabulation DOIT pouvoir sortir. On tabule
+       au-delà du nombre d'entrées du menu ; si l'on tourne en rond, c'est
+       qu'on a piégé un menu.
+    */
+    const entrees = await page.locator('#cadenas-coffre-menu [role="menuitem"]:visible').count();
+    let sorti = false;
+    for (let i = 0; i < entrees + 3 && !sorti; i += 1) {
+      await page.keyboard.press('Tab');
+      sorti = !(await page.evaluate(() => {
+        const m = document.getElementById('cadenas-coffre-menu');
+        return Boolean(m && document.activeElement && m.contains(document.activeElement));
+      }));
+    }
+    vrai(`la tabulation peut SORTIR du menu (${entrees} entrées)`, sorti);
+
+    /* Et Échap le referme en rendant le focus, comme un menu le doit. */
+    if (await page.locator('#cadenas-coffre-menu').isVisible().catch(() => false)) {
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+    } else {
+      /* La tabulation l'a déjà refermé : on le réouvre pour éprouver Échap. */
+      await cadenas.click();
+      await page.waitForTimeout(300);
+      await page.keyboard.press('Escape');
+      await page.waitForTimeout(300);
+    }
+    vrai(
+      'Échap referme le menu',
+      await page.evaluate(() => {
+        const m = document.getElementById('cadenas-coffre-menu');
+        return !m || m.classList.contains('hidden');
+      }),
+    );
+    verifier(
+      'et rend le focus au cadenas',
+      await page.evaluate(() => document.activeElement?.id ?? ''),
+      'cadenas-coffre-bouton',
+    );
+  }
 }
 
 verifier('aucune erreur de page', erreurs.slice(0, 3), []);
