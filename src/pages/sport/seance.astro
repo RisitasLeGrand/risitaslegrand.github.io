@@ -58,7 +58,7 @@ import LienReglages from '../../components/LienReglages.astro';
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Programme</span>
             <select id="programme"
-              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+              class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950">
               <option value="">Sans programme</option>
             </select>
           </label>
@@ -88,7 +88,7 @@ import LienReglages from '../../components/LienReglages.astro';
               <label class="text-xs text-slate-500 dark:text-slate-400">
                 Cible
                 <input id="repos-cible" type="number" min="0" max="900" step="15" value="120"
-                  class="ml-1 min-h-11 w-20 rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950" />
+                  class="ml-1 min-h-11 w-20 rounded-lg border border-slate-400 bg-white px-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
                 s
               </label>
               <p id="repos-etat" class="mt-1 text-xs text-slate-500 dark:text-slate-400" role="status"></p>
@@ -128,7 +128,7 @@ import LienReglages from '../../components/LienReglages.astro';
           <label class="block text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Exercice</span>
             <select id="exercice" required
-              class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"></select>
+              class="mt-1 min-h-11 w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950"></select>
           </label>
 
           <p id="proposition" class="mt-3 hidden rounded-xl bg-indigo-50 px-4 py-3 text-sm text-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-100"></p>
@@ -143,17 +143,17 @@ import LienReglages from '../../components/LienReglages.astro';
             <label class="text-sm">
               <span class="block text-slate-700 dark:text-slate-200">Charge (kg)</span>
               <input id="charge" type="text" inputmode="decimal" data-min="0"
-                class="mt-1 min-h-12 w-28 rounded-lg border border-slate-300 bg-white px-3 text-lg tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+                class="mt-1 min-h-12 w-28 rounded-lg border border-slate-400 bg-white px-3 text-lg tabular-nums dark:border-slate-600 dark:bg-slate-950" />
             </label>
             <label class="text-sm">
               <span class="block text-slate-700 dark:text-slate-200">Répétitions</span>
               <input id="repetitions" type="number" min="0" max="200" inputmode="numeric" required
-                class="mt-1 min-h-12 w-24 rounded-lg border border-slate-300 bg-white px-3 text-lg tabular-nums dark:border-slate-700 dark:bg-slate-950" />
+                class="mt-1 min-h-12 w-24 rounded-lg border border-slate-400 bg-white px-3 text-lg tabular-nums dark:border-slate-600 dark:bg-slate-950" />
             </label>
             <label class="text-sm">
               <span class="block text-slate-700 dark:text-slate-200">En réserve</span>
               <select id="reserve"
-                class="mt-1 min-h-12 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950">
+                class="mt-1 min-h-12 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950">
                 <option value="">Non estimé</option>
                 <option value="0">0 — rien de plus</option>
                 <option value="1">1</option>
@@ -177,7 +177,7 @@ import LienReglages from '../../components/LienReglages.astro';
               class="min-h-12 rounded-lg bg-indigo-600 px-6 text-base font-medium text-white transition hover:bg-indigo-700"
               >Enregistrer la série</button>
             <button id="annuler-serie" type="button"
-              class="min-h-12 rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700"
+              class="min-h-12 rounded-lg border border-slate-400 px-4 text-sm dark:border-slate-600"
               >Annuler la dernière</button>
           </div>
         </form>
@@ -206,7 +206,7 @@ import LienReglages from '../../components/LienReglages.astro';
           <label class="mt-3 block text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Note</span>
             <textarea id="note" rows="2" maxlength="500"
-              class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"></textarea>
+              class="mt-1 w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950"></textarea>
           </label>
           <div class="mt-3 flex flex-wrap gap-3">
             <!--
@@ -215,7 +215,7 @@ import LienReglages from '../../components/LienReglages.astro';
               elle. Le thème choisi revient à la fin.
             -->
             <button id="variante-seance" type="button" hidden
-              class="cible-tactile min-h-11 rounded-lg border border-slate-300 px-4 text-sm text-slate-700 dark:border-slate-600 dark:text-slate-200"
+              class="cible-tactile min-h-11 rounded-lg border border-slate-400 px-4 text-sm text-slate-700 dark:border-slate-600 dark:text-slate-200"
             ></button>
             <button id="terminer" type="button"
               class="min-h-11 rounded-lg bg-emerald-700 px-5 text-sm font-medium text-white transition hover:bg-emerald-800"

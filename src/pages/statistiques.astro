@@ -742,8 +742,8 @@ import Base from '../layouts/Base.astro';
           const bouton = document.createElement('button');
           bouton.type = 'button';
           bouton.className =
-            'min-h-11 rounded-lg border border-slate-300 px-3 text-xs font-medium transition ' +
-            'hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800';
+            'min-h-11 rounded-lg border border-slate-400 px-3 text-xs font-medium transition ' +
+            'hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800';
           bouton.textContent = amorce.libelle;
           bouton.addEventListener('click', () => {
             void calibrer(matiere.nom, amorce.note).then(() => peindreNiveaux());

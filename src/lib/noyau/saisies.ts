@@ -62,16 +62,16 @@ export interface ClefLibellee {
 
 export const CLASSE_BASCULE =
   'min-h-11 rounded-lg border px-4 text-sm font-medium transition ' +
-  'border-slate-300 text-slate-700 hover:border-indigo-400 ' +
-  'dark:border-slate-700 dark:text-slate-200 dark:hover:border-indigo-600';
+  'border-slate-400 text-slate-700 hover:border-indigo-400 ' +
+  'dark:border-slate-600 dark:text-slate-200 dark:hover:border-indigo-600';
 export const CLASSE_BASCULE_ACTIVE =
   'min-h-11 rounded-lg border px-4 text-sm font-medium transition ' +
   'border-indigo-600 bg-indigo-50 text-indigo-800 ' +
   'dark:border-indigo-500 dark:bg-indigo-950/50 dark:text-indigo-200';
 
 const CLASSE_CHAMP =
-  'w-full rounded-lg border border-slate-300 px-3 py-2 text-slate-900 ' +
-  'dark:border-slate-700 dark:bg-slate-950 dark:text-white';
+  'w-full rounded-lg border border-slate-400 px-3 py-2 text-slate-900 ' +
+  'dark:border-slate-600 dark:bg-slate-950 dark:text-white';
 
 export function bascules(options: readonly Option[], retenues: unknown[]): Saisie {
   const choisies = new Set(retenues.map((v) => String(v)));
@@ -118,7 +118,7 @@ export function choixUnique(
       'w-full rounded-xl border px-4 py-3 text-left transition ' +
       (String(choisie) === String(option.valeur)
         ? 'border-indigo-600 bg-indigo-50 dark:border-indigo-500 dark:bg-indigo-950/50'
-        : 'border-slate-300 hover:border-indigo-400 dark:border-slate-700 dark:hover:border-indigo-600');
+        : 'border-slate-400 hover:border-indigo-400 dark:border-slate-600 dark:hover:border-indigo-600');
     const titre = document.createElement('span');
     titre.className = 'block font-medium text-slate-900 dark:text-white';
     titre.textContent = option.libelle;
@@ -265,8 +265,8 @@ export function heure(declare: ChampDeclare, defaut: string | null): Saisie {
   champ.setAttribute('aria-labelledby', 'question');
   champ.value = defaut ?? '';
   champ.className =
-    'rounded-lg border border-slate-300 px-3 py-2 text-slate-900 ' +
-    'dark:border-slate-700 dark:bg-slate-950 dark:text-white';
+    'rounded-lg border border-slate-400 px-3 py-2 text-slate-900 ' +
+    'dark:border-slate-600 dark:bg-slate-950 dark:text-white';
   const note = document.createElement('p');
   note.className = 'mt-2 text-xs text-slate-500 dark:text-slate-400';
   note.textContent = 'Laissez vide si vous ne savez pas.';
@@ -429,8 +429,8 @@ export function dates(
     const deja = defaut[clef];
     champ.value = typeof deja === 'string' ? deja : '';
     champ.className =
-      'mt-1 rounded-lg border border-slate-300 px-3 py-2 text-slate-900 ' +
-      'dark:border-slate-700 dark:bg-slate-950 dark:text-white';
+      'mt-1 rounded-lg border border-slate-400 px-3 py-2 text-slate-900 ' +
+      'dark:border-slate-600 dark:bg-slate-950 dark:text-white';
     champs.set(clef, champ);
     ligne.append(nom, champ);
     enveloppe.appendChild(ligne);

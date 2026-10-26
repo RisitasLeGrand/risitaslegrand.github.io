@@ -95,8 +95,8 @@ async function annoncerOrientation(
 }
 
 const CLASSE_OPTION =
-  'flex w-full items-start gap-2 rounded-lg border border-slate-300 px-3 py-2 text-left text-sm ' +
-  'transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800';
+  'flex w-full items-start gap-2 rounded-lg border border-slate-400 px-3 py-2 text-left text-sm ' +
+  'transition hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800';
 const CLASSE_CHOISIE =
   'flex w-full items-start gap-2 rounded-lg border border-indigo-500 bg-indigo-50 px-3 py-2 ' +
   'text-left text-sm dark:border-indigo-400 dark:bg-indigo-950/50';
@@ -185,8 +185,8 @@ export async function montrer(
     const passer = document.createElement('button');
     passer.type = 'button';
     passer.className =
-      'min-h-11 rounded-lg border border-slate-300 px-4 text-sm font-medium transition ' +
-      'hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800';
+      'min-h-11 rounded-lg border border-slate-400 px-4 text-sm font-medium transition ' +
+      'hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800';
     passer.textContent = 'Passer et lire le cours';
     actions.append(valider, passer);
     panneau.appendChild(actions);

@@ -82,7 +82,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
           <div id="dossier" class="mt-3 rounded-xl border border-slate-200 p-3 text-sm dark:border-slate-800">
             <div class="flex flex-wrap items-center gap-2">
               <button id="surveiller" type="button"
-                class="min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium dark:border-slate-700"
+                class="min-h-11 rounded-lg border border-slate-400 px-3 text-sm font-medium dark:border-slate-600"
                 >Surveiller un dossier…</button>
               <button id="oublier-dossier" type="button"
                 class="hidden min-h-11 rounded-lg px-3 text-xs text-slate-500 underline dark:text-slate-400"
@@ -120,7 +120,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
               class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-300 dark:disabled:bg-slate-700"
               >Enregistrer</button>
             <button id="annuler" type="button"
-              class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700"
+              class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm dark:border-slate-600"
               >Annuler</button>
           </div>
         </section>
@@ -496,7 +496,7 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
     const importer = document.createElement('button');
     importer.type = 'button';
     importer.dataset.geste = 'importer';
-    importer.className = 'min-h-11 rounded-lg border border-slate-300 px-3 text-xs dark:border-slate-700';
+    importer.className = 'min-h-11 rounded-lg border border-slate-400 px-3 text-xs dark:border-slate-600';
     importer.textContent = 'Lire';
     importer.addEventListener('click', () => {
       void (async () => {

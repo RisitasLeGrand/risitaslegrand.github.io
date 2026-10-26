@@ -97,8 +97,8 @@ export function poserLoeil(champ: HTMLInputElement): HTMLButtonElement | null {
   const bouton = document.createElement('button');
   bouton.type = 'button';
   bouton.className =
-    'cible-tactile-pleine shrink-0 rounded-lg border border-slate-300 text-slate-600 ' +
-    'transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 ' +
+    'cible-tactile-pleine shrink-0 rounded-lg border border-slate-400 text-slate-600 ' +
+    'transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 ' +
     'dark:hover:bg-slate-800';
   peindre(bouton, champ.type === 'text');
   bouton.addEventListener('click', () => {
