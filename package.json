@@ -135,6 +135,7 @@
     "essais:touch-action": "node scripts/essais-touch-action.mjs",
     "essais:taille-de-corps-systeme": "node scripts/essais-taille-de-corps-systeme.mjs",
     "essais:annulation:navigateur": "node scripts/essais-annulation-navigateur.mjs",
+    "essais:invitation-ios": "node scripts/essais-invitation-ios.mjs",
     "essais:couleurs-jetons": "node scripts/essais-couleurs-jetons.mjs",
     "inventaire:reglages": "node scripts/inventaire-reglages.mjs",
     "mesure:vitesse": "node scripts/mesure-vitesse.mjs",
