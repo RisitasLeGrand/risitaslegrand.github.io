@@ -3,17 +3,30 @@
  *
  * ## La règle, et pourquoi elle vit ici plutôt qu'à chaque sortie
  *
- * La clé du coffre n'est pas partagée entre appareils. Ce n'est pas une
- * crainte, c'est la conception, et `enveloppe-du-coffre.ts` le dit au-dessus
- * du sel : « un sel sert à ce que deux installations du même mot de passe ne
- * produisent pas la même clé ». Le sel est tiré au sort à la première pose et
- * gardé par appareil.
+ * La clé du coffre n'est pas partagée entre appareils, et ce n'est pas une
+ * crainte : c'est le trajet du sel qui en décide. La clé des données est
+ * dérivée du mot de passe ET de `coffre.sel`, tiré au sort à la première
+ * ouverture et rangé dans le magasin `etat` (`coffre.ts`, `selLocal`). Or un
+ * paquet de synchronisation emporte `operations` et `revisions`, jamais
+ * `etat` (`sync/service.ts`, `magasinsEnPlus`) : l'appareil d'en face ne
+ * reçoit pas ce sel, en tire un autre, et dérive une autre clé.
+ *
+ * MESURÉ LE 26 OCTOBRE, ET DANS L'AUTRE SENS — c'est ce qui en fait une
+ * preuve. Une SAUVEGARDE, elle, emporte `etat`, donc `coffre.sel` : restaurée
+ * sur un profil neuf, elle a rouvert le check-in scellé avec le même mot de
+ * passe, les quatre glissières à leur valeur. C'est donc bien la route du sel
+ * qui décide, et non le sceau.
+ *
+ * Une première version de cet en-tête citait, à l'appui de la même
+ * conclusion, le sel de l'ENVELOPPE (`coffre.sel-enveloppe`, dans
+ * `localStorage`). L'enveloppe emballe la clé pour la session ; elle ne la
+ * dérive pas. La conclusion tenait, la raison était fausse.
  *
  * Une opération dont la charge porte un enregistrement **scellé** est donc
- * illisible partout ailleurs qu'ici. L'envoyer ne transmet rien et fait du
- * dégât : l'appareil qui reçoit range une entrée qu'il ne peut pas ouvrir, et
- * ses lecteurs — en `Promise.all` — rendent du même coup illisibles ses
- * données LOCALES.
+ * illisible chez l'appareil qui la reçoit par paquet. L'envoyer ne transmet
+ * rien et fait du dégât : celui qui reçoit range une entrée qu'il ne peut pas
+ * ouvrir, et ses lecteurs — en `Promise.all` — rendent du même coup illisibles
+ * ses données LOCALES.
  *
  * Le constat B-2 du prompt 58 mesurait dix-sept magasins à la fois scellés et
  * journalisés. Ce n'était pas une perte qui « arriverait si on synchronisait

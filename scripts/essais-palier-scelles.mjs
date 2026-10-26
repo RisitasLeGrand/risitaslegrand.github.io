@@ -6,15 +6,25 @@
  * ## Ce que cette garde arrête, et ce n'est pas une hypothèse
  *
  * Constat B-2 du prompt 58 : la clé du coffre n'est pas partagée entre
- * appareils. Ce n'est pas une crainte, c'est la conception — et le code le dit
- * lui-même, au-dessus du sel de l'enveloppe :
+ * appareils. Ce n'est pas une crainte, et la raison est le TRAJET DU SEL.
  *
- *     « Un sel n'est pas un secret : il sert à ce que deux installations du
- *       même mot de passe ne produisent pas la même clé. »
+ * La clé des données est dérivée du mot de passe ET de `coffre.sel`, tiré au
+ * sort à la première ouverture et rangé dans le magasin `etat`
+ * (`src/lib/coffre.ts`, `selLocal`). Un paquet de synchronisation emporte
+ * `operations` et `revisions`, jamais `etat` (`sync/service.ts`,
+ * `magasinsEnPlus`) : l'appareil d'en face n'en reçoit donc pas le sel, en
+ * tire un autre, dérive une autre clé — et une entrée scellée par l'un ne
+ * s'ouvre pas chez l'autre.
  *
- * Le sel est tiré au sort à la première pose et gardé par appareil. Deux
- * appareils avec le MÊME mot de passe ont donc des clés différentes, et une
- * entrée scellée par l'un ne s'ouvre pas chez l'autre.
+ * MESURÉ LE 26 OCTOBRE, ET DANS L'AUTRE SENS, ce qui en fait une preuve et
+ * non une lecture : une SAUVEGARDE emporte `etat`, donc `coffre.sel`.
+ * Restaurée sur un profil neuf, elle a rouvert le check-in scellé avec le
+ * même mot de passe. C'est la route du sel qui décide, et non le sceau.
+ *
+ * Une première version de cet en-tête invoquait ici le sel de l'ENVELOPPE
+ * (`coffre.sel-enveloppe`, dans `localStorage`), qui n'est pas celui-là :
+ * l'enveloppe emballe la clé pour la session, elle ne la dérive pas. La
+ * conclusion tenait, la raison était fausse.
  *
  * Or dix-sept magasins étaient à la fois SCELLÉS et JOURNALISÉS : ils
  * partaient donc dans les paquets, et arrivaient illisibles en face. Ce
