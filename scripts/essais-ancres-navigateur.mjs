@@ -154,9 +154,31 @@ const ANCRES = [
   },
   {
     route: '/glossaire/',
-    trouver: () =>
-      document.querySelector('a[href^="#lettre-"]')?.getAttribute('href')?.slice(1) ?? null,
-    quoi: 'une lettre du glossaire (marge mesurée)',
+    /*
+       LE GLOSSAIRE NE PASSE PAS PAR LA BANDE, ET CETTE LIGNE GARDE AUTRE CHOSE.
+
+       Le sabotage D — la bande ne comptant plus les barres d'écran — laissait
+       cette ligne VERTE, et j'ai d'abord cru que l'essai mesurait mal. J'ai
+       ensuite lu l'écran : ses puces font `preventDefault()` et appellent
+       `allerA()`, qui calcule sa propre cible et appelle `window.scrollTo` en
+       visant le bas de la barre d'index, avec des rendez-vous successifs pour
+       absorber la mise en page différée de ses sections. Ni `scroll-padding` ni
+       `scroll-margin` n'entrent donc en jeu ici.
+
+       Son vert sous D était juste. Cette ligne ne garde pas la bande : elle
+       garde que CE SAUT-LÀ atterrit bien sous les deux barres. C'est ce que
+       doit éprouver le sabotage qui lui fait viser le HAUT de la barre d'index
+       au lieu de son bas — sans quoi cette ligne serait verte sans mesurer.
+
+       Elle vise une lettre du MILIEU de l'index : la première est si près du
+       haut du document que le saut s'écrête, et la dernière tombe en bout de
+       course, que l'essai refuse de mesurer.
+    */
+    trouver: () => {
+      const puces = [...document.querySelectorAll('a[href^="#lettre-"]')];
+      return puces[Math.floor(puces.length / 2)]?.getAttribute('href')?.slice(1) ?? null;
+    },
+    quoi: 'une lettre du glossaire (saut calculé par l’écran)',
   },
 ];
 
