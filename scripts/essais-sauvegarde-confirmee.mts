@@ -41,6 +41,10 @@ import { join } from 'node:path';
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import {
+  apresLeChangementDeTexte,
+  devientVisible,
+} from './lib/post-condition.mjs';
 
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
 const MDP = motDePasseEssais();
@@ -155,16 +159,31 @@ const nav = await chromium.launch({
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
     await page.click('#bouton-verrou');
-    await page.waitForTimeout(1200);
   }
+  /*
+     Aucune temporisation ici : le « waitForSelector » qui suit EST la
+     post-condition du déverrouillage, et les 1200 ms d'avant ne faisaient que
+     la précéder sans rien garantir de plus.
+  */
   await page.waitForSelector('#sauvegarder', { timeout: 30000 });
 
   const avant = (await page.locator('#etat-sauvegarde-texte').textContent()) ?? '';
   v('au départ, aucune sauvegarde n’est connue', /Aucune sauvegarde/.test(avant), true);
 
   await page.fill('#mdp-sauvegarde', MDP);
-  await page.click('#sauvegarder');
-  await page.waitForTimeout(4000);
+  /*
+     DEUX CHOSES ARRIVENT, ET CHACUNE A SA BORNE. Quatre secondes couvraient
+     les deux à l'aveugle : le téléchargement offert par le navigateur, et le
+     message écrit par l'écran. On arme donc l'attente de l'événement AVANT le
+     clic — armée après, elle manquerait un téléchargement déjà arrivé — et on
+     attend le changement de texte pour la seconde.
+  */
+  const premierFichier = page.waitForEvent('download', { timeout: 30000 }).catch(() => null);
+  const aParle = await apresLeChangementDeTexte(page, '#message-sauvegarde', () =>
+    page.click('#sauvegarder'),
+  );
+  await premierFichier;
+  v('l’écran répond au clic sur « Sauvegarder »', aParle, true);
 
   v('un fichier a bien été offert au navigateur', telechargements.length, 1);
 
@@ -184,8 +203,10 @@ const nav = await chromium.launch({
   );
 
   /* « Je ne le trouve pas » : rien n'est noté, et l'écran le dit. */
-  await page.click('#sauvegarde-introuvable');
-  await page.waitForTimeout(600);
+  const aDitLeRefus = await apresLeChangementDeTexte(page, '#message-sauvegarde', () =>
+    page.click('#sauvegarde-introuvable'),
+  );
+  v('l’écran répond à « Je ne le trouve pas »', aDitLeRefus, true);
   const refus = (await page.locator('#message-sauvegarde').textContent()) ?? '';
   v('un échec constaté le dit', /Rien n’a été confirmé/.test(refus), true);
   v(
@@ -196,10 +217,13 @@ const nav = await chromium.launch({
 
   /* Puis la confirmation, qui est la seule preuve disponible. */
   await page.fill('#mdp-sauvegarde', MDP);
-  await page.click('#sauvegarder');
-  await page.waitForTimeout(4000);
-  await page.click('#sauvegarde-retrouvee');
-  await page.waitForTimeout(1500);
+  const secondFichier = page.waitForEvent('download', { timeout: 30000 }).catch(() => null);
+  await apresLeChangementDeTexte(page, '#message-sauvegarde', () => page.click('#sauvegarder'));
+  await secondFichier;
+  const aConfirme = await apresLeChangementDeTexte(page, '#message-sauvegarde', () =>
+    page.click('#sauvegarde-retrouvee'),
+  );
+  v('l’écran répond à la confirmation', aConfirme, true);
 
   const apres = (await page.locator('#message-sauvegarde').textContent()) ?? '';
   v('une fois confirmée, l’écran le dit', /Sauvegarde confirmée/.test(apres), true);
@@ -232,16 +256,19 @@ const nav = await chromium.launch({
      qu'on mesure est le texte du choix, pas son effet.
   */
   await page.setInputFiles('#fichier-cyclades', '/tmp/essai-sauvegarde-2.cyclades');
-  await page.waitForTimeout(2500);
-  const apercuVu = await page.locator('#apercu-cyclades').isVisible().catch(() => false);
+  /*
+     L'aperçu est la post-condition de la relecture : le déchiffrement d'un
+     fichier n'a pas de durée connue, et 2500 ms n'en étaient qu'une moyenne.
+     L'attente est bornée, et son expiration devient le faux de l'assertion.
+  */
+  const apercuVu = await devientVisible(page, '#apercu-cyclades', true);
   v('le fichier relu est accepté et son aperçu s’affiche', apercuVu, true);
 
   if (apercuVu) {
     await page.fill('#mdp-restauration', MDP);
     await page.click('#appliquer-cyclades');
-    await page.waitForTimeout(900);
     const boite = page.locator('dialog.boite');
-    const parue = (await boite.count()) > 0 && (await boite.isVisible());
+    const parue = await devientVisible(page, 'dialog.boite', true);
     v('la confirmation s’ouvre', parue, true);
     const dit = (parue ? ((await boite.textContent()) ?? '') : '').replace(/\s+/g, ' ');
     v(
@@ -268,8 +295,13 @@ const nav = await chromium.launch({
     /* On annule : cet essai mesure le texte du choix, pas la restauration. */
     const annuler = boite.locator('button', { hasText: /Annuler|Non|Fermer/ }).first();
     if (await annuler.count()) await annuler.click();
-    await page.waitForTimeout(400);
-    v('et on peut en sortir sans rien restaurer', await boite.isVisible().catch(() => false), false);
+    /*
+       La fermeture d'une boîte est une TRANSITION, pas un état durable :
+       attendre qu'elle devienne cachée est la post-condition du clic, et
+       l'assertion garde son sens puisque l'attente est bornée.
+    */
+    const partie = await devientVisible(page, 'dialog.boite', false);
+    v('et on peut en sortir sans rien restaurer', partie, true);
   } else {
     for (const quoi of [
       'la confirmation s’ouvre',
