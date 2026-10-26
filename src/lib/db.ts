@@ -961,7 +961,7 @@ const NOM_BASE = 'revinsp';
    c'est 42, et cela reste vrai à mesure que les blocs 36 à 40 entrent dans
    le train.
 */
-const VERSION = 42;
+const VERSION = 43;
 
 let promesse: Promise<IDBPDatabase<SchemaRevinsp>> | null = null;
 
@@ -1836,12 +1836,36 @@ function ouvrirAuSchema(nom: string, version: number) {
         base.createObjectStore('odysseeSexe', { keyPath: 'id' });
       }
       /*
-         LES INTENTIONS D'ACTIONS ANNULABLES, version 39.
+         LES INTENTIONS D'ACTIONS ANNULABLES, version 43.
 
-         **La 39 m'est attribuée** : la convention de ce fichier réserve 37 à
-         40 à l'agent B, et 37 et 38 sont déjà pris. Rien à demander, et deux
-         migrations au même numéro ne se verraient ni en revue ni à
-         l'exécution.
+         **B l'avait écrite en 39, et c'est moi qui l'ai déplacée en 43**, à la
+         fusion. Le numéro 39 lui était bien attribué — la convention de ce
+         fichier réserve 37 à 40 à l'agent B, 37 et 38 étaient pris, et j'ai
+         balayé les 57 branches distantes : personne d'autre ne revendiquait
+         la 39. Le numéro était libre. Il était seulement INATTEIGNABLE.
+
+         POURQUOI. « vers(n) » vaut « ancienneVersion < n et nouvelle >= n ».
+         La version du schéma était déjà 42 : une base montée à 42 ne rejoue
+         donc jamais un palier 39. Et une base déjà à 42 qu'on rouvre à 42 ne
+         déclenche AUCUNE migration. Mesuré dans le navigateur, et non déduit :
+
+           base neuve ouverte à 42      migration OUI, ancienne version 0
+           MÊME base rouverte à 42      migration NON
+           la même base ouverte à 43    migration OUI, ancienne version 42
+
+         Le magasin aurait donc été créé chez qui installe le site aujourd'hui,
+         et JAMAIS chez qui l'a déjà ouvert — Alexis le premier. La fonction
+         aurait été absente sans un mot, et les essais seraient restés verts :
+         ils partent d'un profil neuf, qui va de 0 à 42 et rejoue tout.
+
+         C'est exactement le travail que la convention du palier 41 confie à
+         l'intégrateur — « c'est au constructeur de les ordonner à la fusion,
+         comme il l'a fait pour la 34 et la 35 ». La 39 et la 40 restent donc
+         libres pour qui en aura besoin SOUS une version future ; ce lot-ci,
+         lui, a besoin d'être au-dessus de 42.
+
+         Rien d'autre n'est touché : ni le magasin, ni sa clé, ni le
+         raisonnement de B ci-dessous, qui est le bon.
 
          POURQUOI UN MAGASIN, ET NON UNE CLÉ DE « etat ». Parce qu'il faut le
          SCELLER, et que `etat` ne l'est pas : une intention y écrirait en
@@ -1854,7 +1878,7 @@ function ouvrirAuSchema(nom: string, version: number) {
          Un magasin vide se lit « aucune action en attente », ce qui est la
          vérité.
       */
-      if (vers(39)) {
+      if (vers(43)) {
         base.createObjectStore('annulationsEnAttente', { keyPath: 'id' });
       }
       if (vers(41)) {
