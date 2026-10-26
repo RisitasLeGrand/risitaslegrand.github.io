@@ -43,8 +43,22 @@
  * - `attendreLeCompte` — une liste atteint un nombre d'éléments.
  * - `devientVisible` — un élément paraît ou s'en va.
  *
+ * - `travailFini` — l'écran annonce son travail puis son verdict ; on attend le
+ *   verdict, et non l'annonce.
+ * - `annonceDe` — un état peint sans geste : on attend qu'il soit écrit, et
+ *   l'on rend ce qu'il dit.
+ * - `boutonRendu` — la post-condition d'un geste passé par `unSeulGeste`.
  * - `attendreEnBase` — l'écriture n'a aucune marque à l'écran, et c'est la
  *   base elle-même qu'on interroge jusqu'à ce qu'elle réponde.
+ *
+ * ## L'ORDRE DANS LEQUEL ON CHERCHE
+ *
+ * **Avant de sonder la base, regarder si l'écran dit déjà qu'il a fini.** Dix
+ * messages dans six écrans suivent la convention « … en cours… » puis un
+ * verdict : `travailFini` les couvre tous, et il est plus exact qu'un sondage,
+ * puisqu'il rend la main à la seconde où l'écran parle. La base ne se sonde
+ * que lorsque l'écran ne dit rien — une tâche rangée, un rappel retiré, une
+ * migration.
  */
 
 /**
@@ -199,11 +213,17 @@ export async function apresLeRemplacement(page, zone, geste = null, { delai = 30
  * affirme : la valeur de départ est relevée avant le geste, et aucun passage
  * antérieur ne peut l'avoir rendue différente d'elle-même.
  *
- * ## La limite
+ * ## Les deux limites
  *
  * Un geste qui réécrit le même texte — choisir l'option déjà choisie — n'est
  * pas détectable ainsi, et l'attente expire. C'est voulu : un essai qui refait
  * deux fois le même choix mesure autre chose que ce qu'il annonce.
+ *
+ * Et surtout : **un écran qui ANNONCE son travail avant de le faire change
+ * deux fois de texte**, et le premier changement n'est pas le bon. « Ouverture
+ * du fichier… », puis le verdict ; « Fusion en cours… », puis le compte. Dans
+ * ce cas, `apresLeChangementDeTexte` rend la main sur l'annonce, et c'est
+ * `travailFini` qu'il faut prendre.
  *
  * @param page la page de Playwright
  * @param cible un sélecteur, ou un localisateur de Playwright
@@ -382,11 +402,123 @@ export async function attendreEnBase(page, magasin, estSatisfait, { delai = 3000
     if (contenu !== null && estSatisfait(contenu)) return contenu;
     if (Date.now() > fin) return null;
     /*
-       Cent millisecondes entre deux interrogations : ce n'est pas une
-       temporisation à l'aveugle mais le pas d'un sondage, et la condition est
-       vérifiée à chaque tour. Le § 4 de « cadence-des-essais.md » les
-       distingue.
+       LE PAS D'UN SONDAGE N'EST PAS UNE TEMPORISATION À L'AVEUGLE, et la
+       distinction est celle du § 4 de « cadence-des-essais.md ».
+
+       Une temporisation à l'aveugle parie sur une durée : elle rend la main
+       qu'il se soit passé quelque chose ou non. Une attente bouclée et bornée
+       relève, attend un pas, relit, et ne rend la main que lorsque la
+       condition est vraie — ou lorsque la borne est atteinte, ce qui est rendu
+       comme un faux. Les cent millisecondes ne sont pas le temps qu'on croit
+       nécessaire : c'est l'intervalle entre deux lectures.
+
+       `relever-temporisations.mjs` ne les compte donc pas, et `--bornes` ne
+       les cherche pas : ni l'un ni l'autre ne regarde ce module.
     */
     await page.waitForTimeout(100);
   }
+}
+
+/**
+ * ATTEND LE VERDICT D'UN ÉCRAN QUI ANNONCE SON TRAVAIL.
+ *
+ * ## La convention qu'elle suit
+ *
+ * Dix messages dans six écrans de Cyclades — appareils, apparier, progression,
+ * statistiques, stockage, veille — écrivent d'abord « … en cours… », puis leur
+ * verdict. « Fusion en cours… » puis le compte des doublons ; « Compression et
+ * chiffrement en cours… » puis le nom du fichier ; « Calcul en cours… » puis
+ * les courbes.
+ *
+ * Attendre un texte non vide rend donc la main sur l'ANNONCE, c'est-à-dire
+ * avant le travail. Attendre le motif du succès laisse un refus consommer la
+ * borne entière, puis lire un écran dont on ne sait rien.
+ *
+ * On attend donc : **non vide, et ne disant plus « en cours »**. Cette aide ne
+ * présume ni du refus ni de la réussite — c'est l'assertion qui tranche, et
+ * c'est bien son travail.
+ *
+ * @param page la page de Playwright
+ * @param zone le sélecteur de la zone de message
+ * @param options.delai en millisecondes, 30 000 par défaut
+ * @returns le texte du verdict, ou ce qu'on a trouvé à l'expiration
+ */
+export async function travailFini(page, zone, { delai = 30000 } = {}) {
+  await page
+    .waitForFunction(
+      (sel) => {
+        const texte = (document.querySelector(sel)?.textContent ?? '').trim();
+        return texte !== '' && !/en cours/i.test(texte);
+      },
+      zone,
+      { timeout: delai },
+    )
+    .catch(() => {});
+  return ((await page.textContent(zone).catch(() => null)) ?? '').trim();
+}
+
+/**
+ * ATTEND QU'UN ÉTAT SOIT ÉCRIT, ET REND CE QU'IL DIT.
+ *
+ * ## Pourquoi une chaîne vide doit faire expirer l'attente
+ *
+ * L'aide vient de `essais-effacement-navigateur`, avec sa raison : une zone de
+ * message part vide, et la lire tout de suite donne « » — que l'assertion
+ * suivante interprétera comme elle peut, souvent en passant. L'attente porte
+ * donc sur « non vide », et son expiration rend ce qu'elle a trouvé, pour que
+ * l'assertion le dise plutôt que de se taire.
+ *
+ * ## Quand la prendre, et quand prendre `travailFini`
+ *
+ * Celle-ci est pour un état peint SANS GESTE — un décompte que l'écran écrit
+ * en arrivant, une annonce de contexte. Dès que l'écran annonce son travail
+ * avant de le faire, c'est `travailFini` qu'il faut.
+ */
+export async function annonceDe(page, selecteur, { delai = 30000 } = {}) {
+  await page
+    .waitForFunction(
+      (sel) => (document.querySelector(sel)?.textContent ?? '').trim().length > 0,
+      selecteur,
+      { timeout: delai },
+    )
+    .catch(() => {});
+  return ((await page.textContent(selecteur).catch(() => null)) ?? '').trim();
+}
+
+/**
+ * ATTEND QU'UN GESTE PASSÉ PAR `unSeulGeste` SOIT TERMINÉ.
+ *
+ * ## Ce qu'elle lit, et pourquoi ce n'est pas vrai d'avance
+ *
+ * `src/lib/geste.ts` désactive le bouton AVANT d'appeler l'action, et le rend
+ * dans son `finally`, donc après. Appelée juste après le clic, cette aide ne
+ * peut donc pas être satisfaite par l'état de repos : Playwright ne rend la
+ * main qu'une fois l'événement distribué, et le gestionnaire a déjà désactivé
+ * le bouton à ce moment-là.
+ *
+ * Elle vaut pour les trente et un gestes du site qui passent par là, et elle
+ * dit ce que rien d'autre ne dit : que l'ACTION est finie, qu'elle ait abouti
+ * ou non. Ce que l'action a écrit, c'est aux autres aides de l'attendre.
+ *
+ * ## Les deux cas où elle ne convient pas
+ *
+ * Un contrôle qui n'est pas un `<button>` — `unSeulGeste` ne touche alors
+ * aucun bouton, et rien ne change. Et un bouton déjà désactivé avant le geste :
+ * le `finally` le remet désactivé, et l'attente expire. Dans ce dernier cas,
+ * c'est le message de l'écran qu'il faut attendre.
+ *
+ * @returns vrai si le bouton a été rendu dans le délai
+ */
+export function boutonRendu(page, selecteur, { delai = 30000 } = {}) {
+  return page
+    .waitForFunction(
+      (sel) => {
+        const bouton = document.querySelector(sel);
+        return bouton !== null && bouton.disabled === false;
+      },
+      selecteur,
+      { timeout: delai },
+    )
+    .then(() => true)
+    .catch(() => false);
 }
