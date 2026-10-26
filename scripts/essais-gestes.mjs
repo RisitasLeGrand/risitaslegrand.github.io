@@ -26,6 +26,7 @@ import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import {
   apresLesAnimations,
+  attendreEnBase,
   attendreLeCompte,
   devientVisible,
 } from './lib/post-condition.mjs';
@@ -126,40 +127,6 @@ async function remplir(page) {
 
 const combienDeSeries = (page) =>
   page.evaluate(() => document.getElementById('series')?.children.length ?? -1);
-
-/**
- * Interroge la base jusqu'à ce qu'elle réponde ce qu'on attend.
- *
- * Elle prend la page en argument : chaque sous-essai ouvre son propre
- * contexte, donc sa propre base, et une aide fermée sur une seule page lirait
- * celle du voisin.
- *
- * Nécessaire ici pour une raison précise : à l'expiration du bandeau, l'écran
- * était DÉJÀ vide, et la suppression ne change donc rien de visible. Il n'y a
- * aucune post-condition à l'écran — seulement dans le magasin.
- */
-const attendreEnBase = async (page, magasin, estSatisfait, delai = DELAI) => {
-  const lire = () =>
-    page.evaluate(
-      (nom) =>
-        new Promise((ok, rate) => {
-          const d = indexedDB.open('revinsp');
-          d.onerror = () => rate(d.error);
-          d.onsuccess = () => {
-            const r = d.result.transaction(nom).objectStore(nom).getAll();
-            r.onsuccess = () => ok(r.result);
-            r.onerror = () => rate(r.error);
-          };
-        }),
-      magasin,
-    );
-  const fin = Date.now() + delai;
-  for (;;) {
-    if (estSatisfait(await lire())) return true;
-    if (Date.now() > fin) return false;
-    await page.waitForTimeout(100);
-  }
-};
 
 /* ---- 1. Le double appui ------------------------------------------------ */
 

@@ -12,6 +12,7 @@
  */
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { attendreEnBase } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 
@@ -42,26 +43,12 @@ const lire = (magasin) =>
     });
   }, magasin);
 
-/**
- * Attend que la base dise ce qu'on s'apprête à y lire.
- *
- * Deux assertions de cet essai lisent IndexedDB directement, sans passer par
- * l'écran : l'amorce de calibrage, et les observations d'un quiz. Il n'y a donc
- * aucune marque dans le DOM à attendre — mais la BASE est elle-même la
- * post-condition, et on peut l'interroger jusqu'à ce qu'elle réponde.
- *
- * Mille deux cents millisecondes couvraient l'écriture ; sous une batterie
- * chargée, elles ne la couvrent plus, et l'assertion lit l'état d'avant.
- */
-const attendreEnBase = async (magasin, estSatisfait, delai = 15000) => {
-  const fin = Date.now() + delai;
-  for (;;) {
-    if (estSatisfait(await lire(magasin))) return true;
-    if (Date.now() > fin) return false;
-    await page.waitForTimeout(100);
-  }
-};
-
+/*
+   L'AIDE EST MAINTENANT PARTAGÉE. L'idiome est né ici, au pilote du chantier
+   des temporisations ; il vit depuis dans `scripts/lib/post-condition.mjs`,
+   avec sa raison et son essai, et deux agents s'en servent. La copie locale est
+   donc retirée plutôt que laissée à divergér.
+*/
 /** L'écran de verrou a-t-il disparu ? C'est la marque du déchiffrement. */
 const attendreLApplication = async () =>
   page
@@ -208,7 +195,7 @@ await page
 await page.getByRole('button', { name: /^Je suis à l’aise$/ }).first().click();
 /* L'amorce est une ÉCRITURE EN BASE, sans marque à l'écran : on interroge donc
    la base elle-même jusqu'à ce qu'elle réponde. */
-await attendreEnBase('competences', (tout) => tout.filter((c) => c.calibree).length > avantAmorce);
+await attendreEnBase(page, 'competences', (tout) => tout.filter((c) => c.calibree).length > avantAmorce);
 const calibrees = (await lire('competences')).filter((c) => c.calibree);
 v('une amorce a été enregistrée', calibrees.length > avantAmorce, true);
 v('elle ne compte aucune observation', calibrees[0]?.observations, 0);
