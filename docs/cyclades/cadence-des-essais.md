@@ -474,6 +474,39 @@ disait pas ce qu'elle avait vu : deux passages pour découvrir que l'écran
 montrait le cadenas. Elle liste maintenant les appuis visibles et le chemin.
 *Un rouge qui ne dit pas ce qu'il a vu se cherche à l'aveugle.*
 
+### Le cinquième lot : un magasin scellé, et le rebond une seconde fois
+
+*« positionnement-navigateur » (5 sites), « psyche-navigateur » (5),
+« bascule-coffre » (4).*
+
+**UN MAGASIN SCELLÉ NE S'INTERROGE PAS PAR SES CHAMPS.** La Psyché range ses
+points du jour chiffrés : un `getAll` n'en rend que l'identifiant, le jour et
+un bloc scellé. Attendre « un point du jour dont l'humeur vaut 9 » ne pouvait
+donc jamais aboutir, et la condition était fausse sans être absurde — c'est le
+genre d'erreur qu'on ne voit pas en relisant.
+
+Ce qu'on peut lire sans la clé, c'est que **le bloc a CHANGÉ** : réécrire
+scelle un nouveau contenu avec un nouveau vecteur. La post-condition est
+exacte, et elle n'ouvre rien — on ne lit pas ce qui a été écrit, seulement
+qu'il l'a été.
+
+**ET LE REBOND UNE SECONDE FOIS.** « Enregistrer » de la Psyché passe par
+`unSeulGeste`, et le même point du jour se corrige par un second appui sur le
+même bouton. Les 1 500 ms d'avant franchissaient le repos de 600 ms sans le
+savoir ; mes post-conditions, plus rapides, l'ont ramené dans la fenêtre. Le
+second appui était avalé, la correction n'atteignait jamais la base, et l'essai
+la relisait à sa valeur d'avant deux navigations plus loin — un rouge juste,
+sur une application saine. *Deux occurrences font une règle : avant de refaire
+le même geste sur le même contrôle, franchir le repos.*
+
+**Deux essais hors de portée du banc, et il faut le dire.**
+`essais:bibliographie:navigateur` refuse de tourner ici : le paquet
+« bibliographie.bin » n'est pas construit, et le construire demande une source
+que ce conteneur n'a pas. Sa conversion a donc été ANNULÉE plutôt que livrée
+sans mesure. Et `essais-bascule-coffre.mjs` n'a **aucun script dans
+`package.json`** : la batterie énumérant les scripts, ce fichier n'est jamais
+lancé par personne. Lancé à la main, il passe — quatorze constats, zéro rouge.
+
 ### Ce que coûte une conversion, mesuré
 
 Le pilote : **2 h 01 d'horloge pour 26 sites**, trois essais, un socle. À ce

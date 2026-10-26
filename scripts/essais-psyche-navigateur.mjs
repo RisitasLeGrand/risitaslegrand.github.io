@@ -21,6 +21,7 @@
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { attendreEnBase } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -82,7 +83,10 @@ await aller('/odyssee/corps/', '#vue');
     const groupe = page.locator('details:has(a[href$="/odyssee/psyche/"])').first();
     vrai('il est dans un groupe d’onglets, dont le libellé est visible', await groupe.locator('summary').first().isVisible());
     await groupe.locator('summary').first().click();
-    await page.waitForTimeout(200);
+    /* Le lien est dans le document dès le serveur : l'ouverture du repli le
+       rend visible synchroniquement, et le constat suivant attend de
+       lui-même. */
+    await lien.waitFor({ state: 'visible', timeout: DELAI }).catch(() => {});
   }
   vrai('un onglet « Psyché » est atteignable depuis une autre page d’Odyssée', await lien.isVisible());
 }
@@ -172,6 +176,21 @@ console.log('\nLA CHARGE PERÇUE SE FORME, PUIS SE DÉFAIT');
   await page.check('input[data-active="stress"]');
 }
 
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CET ESSAI, ET POURQUOI AUCUNE N'EST UNE DURÉE
+
+   `docs/cyclades/cadence-des-essais.md` § 3 et § 4. Cinq temporisations à
+   l'aveugle. L'enregistrement d'un point du jour se tient par l'ÉTAT du
+   check-in, que l'écran réécrit à chaque fois — « Noté à … » —, et la
+   correction par la valeur relue de l'humeur. Le journal se tient par sa
+   ligne, et la fermeture du coffre par l'écran du cadenas.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI = 30_000;
+
 console.log('\nENREGISTRER, PUIS CORRIGER');
 
 {
@@ -180,7 +199,21 @@ console.log('\nENREGISTRER, PUIS CORRIGER');
   await page.dispatchEvent('input[data-glissiere="humeur"]', 'input');
   await page.fill('#note', 'Première version.');
   await page.click('#enregistrer');
-  await page.waitForTimeout(1500);
+  /*
+     L'ÉTAT DU CHECK-IN EST ÉCRIT APRÈS L'ENREGISTREMENT, et c'est ce que
+     trois des cinq constats lisent. « Aucune erreur » est négatif : il ne
+     prouve quelque chose qu'une fois le geste abouti.
+  */
+  await page
+    .waitForFunction(
+      () => (document.getElementById('etat-checkin')?.textContent ?? '').includes('Noté à'),
+      undefined,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+  /* Et l'écriture, pour la même raison que la correction plus bas : l'état
+     peint vient de la mémoire, la relecture viendra de la base. */
+  await attendreEnBase(page, 'odysseeCheckins', (tout) => tout.length > 0, { delai: DELAI });
 
   faux('aucune erreur', await page.locator('#erreur').isVisible());
   vrai('l’écran dit l’heure du check-in', (await page.textContent('#etat-checkin')).includes('Noté à'));
@@ -195,8 +228,52 @@ console.log('\nENREGISTRER, PUIS CORRIGER');
   await page.fill('input[data-glissiere="humeur"]', '9');
   await page.dispatchEvent('input[data-glissiere="humeur"]', 'input');
   await page.fill('#note', 'Seconde version.');
+  /*
+     LA VALEUR PEINTE N'EST PAS L'ÉCRITURE, et ce point m'a pris deux fois.
+
+     J'avais d'abord attendu que l'affichage de l'humeur DIFFÈRE de « 6 / 10 » :
+     il diffère tout de suite, puisque l'écran repeint ce qu'il a en mémoire.
+     L'enregistrement, lui, part après — et deux navigations plus bas l'essai
+     relisait « 6 / 10 ». Rouge, et il avait raison.
+
+     J'ai ensuite attendu « un point du jour dont l'humeur vaut 9 » dans la
+     base. Faux aussi, et pour une raison qui vaut d'être dite : **le magasin
+     de la Psyché est SCELLÉ.** Un `getAll` n'y rend que l'identifiant, le jour
+     et un bloc chiffré ; « humeur » n'y est pas, et la condition ne pouvait
+     jamais être vraie.
+
+     Ce qu'on peut lire sans la clé, c'est que le bloc chiffré a CHANGÉ — la
+     réécriture scelle un nouveau contenu avec un nouveau vecteur. C'est une
+     post-condition exacte, et elle n'ouvre rien : on ne lit pas ce qui a été
+     écrit, seulement qu'il l'a été.
+  */
+  const scelleAvant = JSON.stringify(
+    (await attendreEnBase(page, 'odysseeCheckins', (tout) => tout.length > 0, { delai: DELAI })) ??
+      [],
+  );
+  /*
+     ET LE REPOS DU GARDE-FOU, SANS QUOI LA CORRECTION N'A PAS LIEU.
+
+     « Enregistrer » passe par `unSeulGeste` (psyche.astro, `surAppui`), et
+     l'empreinte d'un bouton sans champ est VIDE : deux appuis sur ce bouton
+     portent donc la même empreinte, et le second est pris pour un rebond s'il
+     arrive moins de 600 ms après la fin du premier.
+
+     Les temporisations d'avant — 1 500 ms après chaque enregistrement —
+     franchissaient ce repos sans le savoir. Mes post-conditions, plus rapides,
+     l'ont ramené dans la fenêtre : le second appui était avalé, la correction
+     n'atteignait jamais la base, et l'essai la relisait à « 6 / 10 » deux
+     navigations plus loin. C'est la deuxième fois que ce piège me prend dans
+     ce chantier, et c'est pour cela qu'il est au § 4 du document.
+  */
+  await page.waitForTimeout(700);
   await page.click('#enregistrer');
-  await page.waitForTimeout(1500);
+  await attendreEnBase(
+    page,
+    'odysseeCheckins',
+    (tout) => JSON.stringify(tout) !== scelleAvant,
+    { delai: DELAI },
+  );
   v('la correction a pris', (await page.textContent('#val-humeur')).trim(), '9 / 10');
 
   const combien = await page.evaluate(
@@ -246,7 +323,14 @@ console.log('\nLE JOURNAL');
 {
   await page.fill('#entree', 'Une entrée d’essai, qui ne doit jamais sortir d’ici.');
   await page.click('#ecrire');
-  await page.waitForTimeout(1500);
+  /* L'entrée paraît au journal : c'est le premier des trois constats. */
+  await page
+    .waitForFunction(
+      () => document.querySelectorAll('#journal [data-entree]').length === 1,
+      undefined,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
   const entrees = await page.$$eval('#journal [data-entree]', (els) => els.length);
   v('une entrée apparaît', entrees, 1);
   v('le champ est vidé', await page.inputValue('#entree'), '');
@@ -265,7 +349,11 @@ console.log('\nLA CLÉ SURVIT À UNE NAVIGATION, PAS À LA FERMETURE DE L’ONGL
   v('et le check-in du jour est relu', (await page.textContent('#val-humeur')).trim(), '9 / 10');
 
   await page.click('#fermer-coffre');
-  await page.waitForTimeout(1200);
+  /* L'écran du cadenas revient : c'est ce que le constat lit. */
+  await page
+    .locator('#coffre-ferme')
+    .waitFor({ state: 'visible', timeout: DELAI })
+    .catch(() => {});
   vrai('refermé à la demande', await page.locator('#coffre-ferme').isVisible());
   vrai('les ressources sont toujours là', await page.locator('#ressources').isVisible());
 }
