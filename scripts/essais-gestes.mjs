@@ -24,12 +24,30 @@
  */
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import {
+  apresLesAnimations,
+  attendreLeCompte,
+  devientVisible,
+} from './lib/post-condition.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
 const MDP = motDePasseEssais();
 /** Le plancher du 43. En dessous, le bandeau ne sert à rien. */
 const SECONDES_MINIMUM = 6;
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI = 30_000;
+/**
+ * LE REPOS DU SITE, ET LA MARGE QU'ON LUI LAISSE.
+ *
+ * `src/lib/geste.ts` refuse un geste répété à données identiques en moins de
+ * 600 ms. C'est l'objet de cet essai, donc les deux seules temporisations
+ * gardées ici franchissent ce repos — on ne peut pas les remplacer par une
+ * post-condition, puisque ce qu'on attend est qu'il ne se passe RIEN, et
+ * donner une marque à ce non-événement reviendrait à annoncer la
+ * déduplication que le site rend invisible.
+ */
+const REPOS_FRANCHI_MS = 700;
 
 let rouges = 0;
 const verifier = (quoi, obtenu, attendu) => {
@@ -65,14 +83,33 @@ async function seancePrete() {
   });
   const page = await ctx.newPage();
   await franchirInitialisation(page, RACINE, MDP);
+  /*
+     UNE PAGE VISITÉE POUR SON EFFET DE BORD A BESOIN DE SA POST-CONDITION, et
+     c'est la leçon que ce passage m'a coûtée. La bibliothèque se déchiffre sur
+     cet écran-ci ; « networkidle » dit que le réseau se tait, pas que le
+     déchiffrement est fini et rangé. Ma première conversion retirait les deux
+     fois 2 200 ms en croyant que l'attente du sélecteur, plus bas, suffisait :
+     mesuré à ×15 de bridage, le sélecteur restait vide et l'essai entier
+     tombait avant sa première assertion.
+
+     `#vue` ne paraît qu'une fois la bibliothèque lue : c'est la marque que
+     l'écran donne, et elle vaut mieux que deux secondes deux cents.
+  */
   await page.goto(`${RACINE}/sport/exercices/`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(2200);
+  await devientVisible(page, '#vue', true, { delai: DELAI });
   await page.goto(`${RACINE}/sport/seance/`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(2200);
   await page.click('#commencer');
+  /*
+     Et la borne est désormais à sa place. Elle était passée en DEUXIÈME
+     argument de `waitForFunction`, où Playwright attend la valeur à passer à
+     la fonction : les vingt secondes annoncées n'en étaient pas, et la borne
+     réelle était celle par défaut. Une borne qu'on croit avoir fixée est pire
+     qu'une borne absente.
+  */
   await page.waitForFunction(
     () => (document.getElementById('exercice')?.options.length ?? 0) > 0,
-    { timeout: 20000 },
+    undefined,
+    { timeout: DELAI },
   );
   return { ctx, page };
 }
@@ -85,11 +122,44 @@ async function remplir(page) {
   await page.selectOption('#exercice', exercice);
   await page.fill('#charge', '40');
   await page.fill('#repetitions', '10');
-  await page.waitForTimeout(300);
 }
 
 const combienDeSeries = (page) =>
   page.evaluate(() => document.getElementById('series')?.children.length ?? -1);
+
+/**
+ * Interroge la base jusqu'à ce qu'elle réponde ce qu'on attend.
+ *
+ * Elle prend la page en argument : chaque sous-essai ouvre son propre
+ * contexte, donc sa propre base, et une aide fermée sur une seule page lirait
+ * celle du voisin.
+ *
+ * Nécessaire ici pour une raison précise : à l'expiration du bandeau, l'écran
+ * était DÉJÀ vide, et la suppression ne change donc rien de visible. Il n'y a
+ * aucune post-condition à l'écran — seulement dans le magasin.
+ */
+const attendreEnBase = async (page, magasin, estSatisfait, delai = DELAI) => {
+  const lire = () =>
+    page.evaluate(
+      (nom) =>
+        new Promise((ok, rate) => {
+          const d = indexedDB.open('revinsp');
+          d.onerror = () => rate(d.error);
+          d.onsuccess = () => {
+            const r = d.result.transaction(nom).objectStore(nom).getAll();
+            r.onsuccess = () => ok(r.result);
+            r.onerror = () => rate(r.error);
+          };
+        }),
+      magasin,
+    );
+  const fin = Date.now() + delai;
+  for (;;) {
+    if (estSatisfait(await lire())) return true;
+    if (Date.now() > fin) return false;
+    await page.waitForTimeout(100);
+  }
+};
 
 /* ---- 1. Le double appui ------------------------------------------------ */
 
@@ -99,9 +169,17 @@ for (const ecart of [0, 60, 150, 300]) {
   await remplir(page);
   const bouton = page.locator('#saisie button[type=submit]');
   await bouton.click();
+  /* L'écart EST la mesure : c'est la variable de cet essai, pas une attente. */
   if (ecart) await page.waitForTimeout(ecart);
   await bouton.click().catch(() => {});
-  await page.waitForTimeout(2000);
+  /*
+     Deux temps, et ils ne sont pas interchangeables. D'abord la première
+     écriture, attendue par sa peinture — c'est une post-condition. Puis le
+     repos franchi, pour qu'une seconde écriture ait eu le temps de paraître
+     si elle devait venir : « rien ne s'est passé » ne s'attend pas autrement.
+  */
+  await attendreLeCompte(page, '#series > *', 1, { delai: DELAI });
+  await page.waitForTimeout(REPOS_FRANCHI_MS);
   verifier(`deux appuis à ${ecart} ms d’écart n’écrivent qu’une série`, await combienDeSeries(page), 1);
   await ctx.close();
 }
@@ -115,10 +193,12 @@ for (const ecart of [0, 60, 150, 300]) {
   const { ctx, page } = await seancePrete();
   await remplir(page);
   await page.locator('#saisie button[type=submit]').click();
-  await page.waitForTimeout(1200);
+  await attendreLeCompte(page, '#series > *', 1, { delai: DELAI });
+  /* Le repos franchi : la seconde série est VOULUE, et doit passer. */
+  await page.waitForTimeout(REPOS_FRANCHI_MS);
   await page.fill('#repetitions', '8');
   await page.locator('#saisie button[type=submit]').click();
-  await page.waitForTimeout(1500);
+  await attendreLeCompte(page, '#series > *', 2, { delai: DELAI });
   verifier('mais deux séries voulues, à une seconde d’écart, s’écrivent bien', await combienDeSeries(page), 2);
   await ctx.close();
 }
@@ -152,7 +232,7 @@ console.log('\n« SUPPRIMER CETTE SÉANCE » S’ANNULE, ET NE DEMANDE RIEN');
   const { ctx, page } = await seancePrete();
   await remplir(page);
   await page.locator('#saisie button[type=submit]').click();
-  await page.waitForTimeout(1500);
+  await attendreLeCompte(page, '#series > *', 1, { delai: DELAI });
   verifier('la prémisse — une série est enregistrée avant qu’on supprime', await combienDeSeries(page), 1);
 
   /* Aucune fenêtre ne doit s'ouvrir : ni native, ni la boîte commune. */
@@ -164,7 +244,23 @@ console.log('\n« SUPPRIMER CETTE SÉANCE » S’ANNULE, ET NE DEMANDE RIEN');
     };
   });
   await page.click('#abandonner');
-  await page.waitForTimeout(700);
+  /*
+     ICI L'ORDRE DU SITE EST L'INVERSE DE CELUI DE SANTÉ, et c'est pourquoi il
+     se lit plutôt que se suppose. Le gestionnaire d'« Abandonner » repeint
+     l'écran D'ABORD — `await peindre()` — et propose l'annulation ENSUITE.
+     Le bandeau est donc la peinture la PLUS TARDIVE : l'attendre couvre aussi
+     les lectures de l'état de l'écran qui suivent.
+  */
+  await devientVisible(page, '#bandeau-annulation', true, { delai: DELAI });
+  /*
+     ET L'ANIMATION FINIE, parce que trois de ces constats lisent une
+     GÉOMÉTRIE. Le bandeau porte `animation: boite-monte` : mesuré, son bas
+     passe de 708 à 684 px en cent cinquante millisecondes. Lu dès qu'il est
+     visible, il paraît vingt-quatre pixels sous la barre du bas, et
+     « au-dessus de la barre » tombe — sur du code sain. C'est ma première
+     conversion de ce fichier qui est tombée là.
+  */
+  await apresLesAnimations(page, '#bandeau-annulation');
 
   const vu = await page.evaluate(decrireLeBandeau);
   verifier('le bandeau paraît', vu.present, true);
@@ -196,13 +292,40 @@ console.log('\n« SUPPRIMER CETTE SÉANCE » S’ANNULE, ET NE DEMANDE RIEN');
 
   /* Annuler rend la séance ET ses séries : c'est la moitié qu'on oublie. */
   await page.click('.bandeau-annulation-bouton');
-  await page.waitForTimeout(1200);
+  /*
+     `defaire` retire le bandeau, puis rend la séance et repeint : la série
+     revenue est la dernière chose écrite, donc c'est elle qu'on attend.
+  */
+  await attendreLeCompte(page, '#series > *', 1, { delai: DELAI });
   verifier('annuler rend la séance avec sa série', await combienDeSeries(page), 1);
   verifier('et le bandeau s’en va', await page.evaluate(() => !document.getElementById('bandeau-annulation')), true);
 
+  /*
+     ET LE REPOS, AVANT DE REFAIRE LE MÊME GESTE — la leçon de ce lot.
+
+     « Abandonner » passe par `unSeulGeste`, et l'empreinte d'un bouton sans
+     champ est VIDE : deux appuis sur ce bouton portent donc la même empreinte,
+     et le second est pris pour un rebond s'il arrive moins de 600 ms après la
+     fin du premier. Les temporisations d'avant franchissaient ce repos sans le
+     savoir ; les post-conditions, plus rapides, le ramènent dans la fenêtre.
+
+     Mesuré : sans cette ligne, le second « Abandonner » est avalé, la séance
+     reste en cours, et deux assertions tombent — sur du code sain.
+  */
+  await page.waitForTimeout(REPOS_FRANCHI_MS);
+
   /* Et si l'on ne fait rien, la suppression part pour de bon. */
   await page.click('#abandonner');
-  await page.waitForTimeout(SECONDES_MINIMUM * 1000 + 1500);
+  /*
+     SEPT SECONDES ET DEMIE ATTENDAIENT SIX SECONDES DE BANDEAU, et le reste
+     était de la marge. L'expiration, elle, se lit dans le magasin : l'écran
+     s'était vidé au clic, et la suppression ne lui ajoute rien.
+  */
+  await attendreEnBase(
+    page,
+    'sportSeances',
+    (tout) => tout.filter((s) => s.statut === 'en-cours').length === 0,
+  );
   verifier(
     'laissé expirer, le bandeau part et l’écran reste vide',
     {
@@ -215,7 +338,12 @@ console.log('\n« SUPPRIMER CETTE SÉANCE » S’ANNULE, ET NE DEMANDE RIEN');
      rechargement. Sans cela, on ne distinguerait pas « supprimée » de
      « écran vidé, suppression jamais exécutée ». */
   await page.reload({ waitUntil: 'networkidle' });
-  await page.waitForTimeout(2500);
+  /*
+     Les deux sections partent `hidden` du serveur : « repos visible » est donc
+     une vraie transition, et non un état déjà acquis. C'est la peinture de
+     l'écran rechargé, et elle vaut mieux que deux secondes et demie.
+  */
+  await devientVisible(page, '#repos', true, { delai: DELAI });
   verifier('et la séance ne revient pas au rechargement', await etatDeLEcran(), {
     repos: true,
     enCours: false,

@@ -27,7 +27,10 @@
  */
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
-import { devientVisible as devientVisibleSur } from './lib/post-condition.mjs';
+import {
+  apresLeRemplacement,
+  devientVisible as devientVisibleSur,
+} from './lib/post-condition.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
@@ -167,31 +170,17 @@ const attendreLeTexte = (selecteur: string, nonVide = true) =>
  * Fait le geste, et attend que la commande du réglage soit RECONSTRUITE.
  *
  * `appliquer` écrit en base, puis rappelle `monter`, qui vide la zone et la
- * rebâtit. Marquer l'ancien enfant avant le geste et attendre un enfant sans
- * la marque est donc une post-condition qu'aucun passage antérieur ne peut
- * avoir rendue vraie — c'est la forme du compteur, appliquée à un nœud.
+ * rebâtit : le remplacement prouve donc l'écriture. La mécanique est celle de
+ * `apresLeRemplacement`, qui la tient pour tout le dépôt ; il ne reste ici que
+ * le sélecteur de la zone.
  *
  * Attendre « un champ qui vaut 42 » n'en serait pas une : le champ que l'essai
  * vient de remplir vaut déjà 42 avant le remontage.
  */
-async function apresLeRemontage(idReglage: string, geste: () => Promise<void>) {
-  const zone = `[data-reglage="${idReglage}"] [data-commande]`;
-  await page.evaluate(
-    (s) => document.querySelector(s)?.firstElementChild?.setAttribute('data-ancien', 'oui'),
-    zone,
-  );
-  await geste();
-  await page
-    .waitForFunction(
-      (s) => {
-        const premier = document.querySelector(s)?.firstElementChild;
-        return Boolean(premier) && !premier!.hasAttribute('data-ancien');
-      },
-      zone,
-      { timeout: DELAI },
-    )
-    .catch(() => {});
-}
+const apresLeRemontage = (idReglage: string, geste: () => Promise<void>) =>
+  apresLeRemplacement(page, `[data-reglage="${idReglage}"] [data-commande]`, geste, {
+    delai: DELAI,
+  });
 
 /**
  * Attend la fin du défilement — l'ÉVÉNEMENT du navigateur, pas une durée.

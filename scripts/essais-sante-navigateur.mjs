@@ -17,6 +17,12 @@
  */
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import {
+  apresLeChangementDeTexte,
+  apresLeRemplacement,
+  attendreLeCompte,
+  devientVisible,
+} from './lib/post-condition.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const MDP = motDePasseEssais();
@@ -63,6 +69,77 @@ page.on('request', (r) => {
 });
 
 await franchirInitialisation(page, RACINE, MDP);
+
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CET ESSAI, ET POURQUOI AUCUNE N'EST UNE DURÉE
+
+   Vingt-cinq temporisations à l'aveugle vivaient ici, dont deux de huit et
+   neuf secondes. `docs/cyclades/cadence-des-essais.md` § 3 dit le défaut :
+   une durée est une MOYENNE, elle cède sous une batterie chargée, et elle
+   cède là où elle était censée protéger.
+
+   TROIS MÉCANIQUES DU SITE commandent les remplacements, et elles ont été
+   lues dans « src/pages/odyssee/sante.astro » et « src/lib/annulation.ts »
+   plutôt que supposées :
+
+   1. `marquer()` pose l'attente, crée le bandeau d'annulation, PUIS repeint.
+      Le bandeau paraît donc AVANT la ligne : attendre le bandeau et lire la
+      ligne serait le troisième piège du § 3.
+   2. `partir()`, à l'expiration du bandeau, retire le bandeau PUIS écrit et
+      repeint. La disparition du bandeau ne dit donc rien de l'écriture — même
+      piège, dans l'autre sens.
+   3. `peindreLesCreneaux` fait `zone.replaceChildren()` : chaque ligne est un
+      nœud NEUF. On marque l'ancien et l'on attend un nœud sans la marque, ce
+      qui est la seule post-condition qu'aucun passage antérieur ne peut avoir
+      rendue vraie.
+
+   Et là où l'écriture n'a aucune marque à l'écran — le centre de
+   notifications qui décroît, une tâche rangée, une prise pointée —, c'est la
+   BASE qu'on interroge jusqu'à ce qu'elle réponde.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes. Large : elle rend un blocage lisible, elle ne
+    mesure pas la vitesse. */
+const DELAI = 30_000;
+
+/** Tout un magasin, lu comme une extension le lirait. */
+const lireLeMagasin = (magasin) =>
+  page.evaluate(
+    (nom) =>
+      new Promise((ok, rate) => {
+        const d = indexedDB.open('revinsp');
+        d.onerror = () => rate(d.error);
+        d.onsuccess = () => {
+          const r = d.result.transaction(nom).objectStore(nom).getAll();
+          r.onsuccess = () => ok(r.result);
+          r.onerror = () => rate(r.error);
+        };
+      }),
+    magasin,
+  );
+
+/**
+ * Interroge la base jusqu'à ce qu'elle réponde ce qu'on attend.
+ *
+ * L'idiome vient de `essais-niveau-navigateur.mjs`. Il sert aux écritures
+ * qu'aucune marque d'écran n'annonce : neuf secondes couvraient l'expiration
+ * d'un bandeau PUIS l'écriture, et il suffisait d'une machine chargée pour
+ * que l'assertion lise l'état d'avant.
+ */
+const attendreEnBase = async (magasin, estSatisfait, delai = DELAI) => {
+  const fin = Date.now() + delai;
+  for (;;) {
+    if (estSatisfait(await lireLeMagasin(magasin))) return true;
+    if (Date.now() > fin) return false;
+    await page.waitForTimeout(100);
+  }
+};
+
+/** La zone des créneaux du jour, repeinte en entier à chaque changement. */
+const apresLesCreneaux = (geste = null) =>
+  apresLeRemplacement(page, '#creneaux-du-jour', geste, { delai: DELAI });
 
 async function aller(chemin, selecteur) {
   await page.goto(`${RACINE}${chemin}`, { waitUntil: 'networkidle' });
@@ -142,7 +219,7 @@ console.log('\nCOFFRE OUVERT : LE BANDEAU, PUIS LA SAISIE');
   await page.fill('#t-nom', 'Exemple de traitement');
   await page.fill('#t-posologie', '1 le matin');
   await page.click('#form-traitement button[type="submit"]');
-  await page.waitForTimeout(1200);
+  await attendreLeCompte(page, '#traitements li', 1, { delai: DELAI });
   const lignes = await page.$$eval('#traitements li', (e) => e.map((x) => x.textContent));
   v('le traitement est rangé et relu', lignes.length, 1);
   vrai('avec son nom', lignes[0].includes('Exemple de traitement'));
@@ -159,7 +236,7 @@ console.log('\nCOFFRE OUVERT : LE BANDEAU, PUIS LA SAISIE');
   await page.fill('#s-intitule', 'Fatigue');
   await page.fill('#s-intensite', '7');
   await page.click('#form-symptome button[type="submit"]');
-  await page.waitForTimeout(1200);
+  await attendreLeCompte(page, '#symptomes li', 1, { delai: DELAI });
   const lignes = await page.$$eval('#symptomes li', (e) => e.map((x) => x.textContent));
   v('le symptôme est rangé', lignes.length, 1);
   vrai('et son intensité est dite déclarée', lignes[0].includes('intensité déclarée 7/10'));
@@ -230,7 +307,8 @@ console.log('\nLE SCHÉMA PRÉVU FAIT APPARAÎTRE LE CRÉNEAU DU JOUR');
   faux('rien de prévu : le bloc du jour ne s’affiche pas', await page.locator('#bloc-aujourdhui').isVisible());
 
   await page.click('#traitements details summary');
-  await page.waitForTimeout(300);
+  /* Rien à attendre : le `fill` qui suit attend déjà son champ, et le contenu
+     du repli vient du serveur. */
   await page.fill('#traitements details input[type="time"]', '08:00');
   await page.click('#traitements details button:has-text("Ajouter cette heure")');
   await page.fill('#traitements details input[type="text"]', '5 g');
@@ -252,8 +330,7 @@ console.log('\nLE SCHÉMA PRÉVU FAIT APPARAÎTRE LE CRÉNEAU DU JOUR');
 console.log('\n« PRIS » NOTE L’HEURE RÉELLE, APRÈS SIX SECONDES D’ANNULATION');
 
 {
-  await page.click('#creneaux-du-jour li button:has-text("Pris")');
-  await page.waitForTimeout(600);
+  await apresLesCreneaux(() => page.click('#creneaux-du-jour li button:has-text("Pris")'));
 
   /*
      Le bandeau ne défait rien : il RETARDE l'écriture de six secondes.
@@ -269,7 +346,12 @@ console.log('\n« PRIS » NOTE L’HEURE RÉELLE, APRÈS SIX SECONDES D’ANNULA
   v('et ne propose aucun autre chemin que le bandeau', pendant.boutons, []);
   vrai('le bandeau d’annulation est bien à l’écran', await visibleEnFixe('bandeau-annulation'));
 
-  await page.waitForTimeout(8000);
+  /*
+     L'EXPIRATION, ATTENDUE PAR SA PEINTURE ET NON PAR SA DURÉE. Six secondes
+     plus la marge faisaient huit ; on attend maintenant la repeinture que
+     `agir()` déclenche après l'écriture, ce qui est exact plutôt que généreux.
+  */
+  await apresLesCreneaux();
   const apres = await page.$eval('#creneaux-du-jour li', (li) => ({
     texte: li.textContent ?? '',
     etat: li.dataset.etat,
@@ -293,16 +375,20 @@ console.log('\n« PRIS » NOTE L’HEURE RÉELLE, APRÈS SIX SECONDES D’ANNULA
 console.log('\n« PAS AUJOURD’HUI » NE LAISSE AUCUNE MARQUE NÉGATIVE');
 
 {
-  await page.click('#creneaux-du-jour li button:has-text("Reprendre")');
-  await page.waitForTimeout(1500);
+  await apresLesCreneaux(() =>
+    page.click('#creneaux-du-jour li button:has-text("Reprendre")'),
+  );
   v(
     'reprendre rend le créneau à l’absence, et non à un troisième état',
     await page.$eval('#creneaux-du-jour li', (li) => li.dataset.etat),
     'prevu',
   );
 
-  await page.click('#creneaux-du-jour li button:has-text("Pas aujourd’hui")');
-  await page.waitForTimeout(8500);
+  await apresLesCreneaux(() =>
+    page.click('#creneaux-du-jour li button:has-text("Pas aujourd’hui")'),
+  );
+  /* Puis l'expiration, qui écrit et repeint à son tour. */
+  await apresLesCreneaux();
   const refus = await page.$eval('#creneaux-du-jour li', (li) => ({
     etat: li.dataset.etat,
     classes: li.className,
@@ -394,7 +480,8 @@ console.log('\nLE RÉGLAGE DE RAPPEL, ET CE QU’IL DIT DE SES LIMITES');
 
   const rappel = page.locator('#traitements details').nth(1);
   await rappel.locator('summary').click();
-  await page.waitForTimeout(300);
+  /* Le libellé du `summary` vient du serveur : la lecture qui suit attend
+     déjà son élément, et rien n'est peint entre-temps. */
   vrai(
     'le repli invite à régler un rappel, sans en avoir posé un',
     (await rappel.locator('summary').textContent()).includes('Me rappeler'),
@@ -409,7 +496,7 @@ console.log('\nLE RÉGLAGE DE RAPPEL, ET CE QU’IL DIT DE SES LIMITES');
   faux('et la voie n’est pas encore proposée', await rappel.locator('select').first().isVisible());
 
   await rappel.locator('input[type="checkbox"]').first().check();
-  await page.waitForTimeout(200);
+  await rappel.locator('select').first().waitFor({ state: 'visible', timeout: DELAI }).catch(() => {});
   vrai('cochée, elle découvre la voie', await rappel.locator('select').first().isVisible());
 
   /*
@@ -420,8 +507,17 @@ console.log('\nLE RÉGLAGE DE RAPPEL, ET CE QU’IL DIT DE SES LIMITES');
   vrai('l’agenda est annoncé comme la seule voie qui sonne fermé', ditAgenda.includes('seule voie'));
   vrai('et son angle mort est dit aussi', ditAgenda.includes('jamais en cas d’oubli'));
 
-  await rappel.locator('select').first().selectOption('notification');
-  await page.waitForTimeout(200);
+  /*
+     ON ATTEND QUE LE TEXTE AIT CHANGÉ, et non qu'il dise la phrase attendue :
+     la valeur de départ est relevée avant le geste, donc l'attente ne
+     présuppose rien de ce que les deux assertions affirment.
+  */
+  await apresLeChangementDeTexte(
+    page,
+    rappel.locator('p').first(),
+    () => rappel.locator('select').first().selectOption('notification'),
+    { delai: DELAI },
+  );
   const ditNotification = await rappel.locator('p').first().textContent();
   vrai('la notification dit ce qu’elle ne fait pas sur iPhone', ditNotification.includes('iPhone'));
   vrai('et qu’Android demande l’application installée', ditNotification.includes('installée'));
@@ -431,7 +527,7 @@ console.log('\nLE RÉGLAGE DE RAPPEL, ET CE QU’IL DIT DE SES LIMITES');
   const avertissement = rappel.locator('p', { hasText: 'synchronisé avec un service tiers' });
   faux('en libellé neutre, aucun avertissement à donner', await avertissement.isVisible());
   await rappel.locator('select').nth(1).selectOption('explicite');
-  await page.waitForTimeout(200);
+  await avertissement.waitFor({ state: 'visible', timeout: DELAI }).catch(() => {});
   vrai('le libellé explicite s’accompagne de son avertissement', await avertissement.isVisible());
   await rappel.locator('select').nth(1).selectOption('neutre');
 
@@ -439,8 +535,8 @@ console.log('\nLE RÉGLAGE DE RAPPEL, ET CE QU’IL DIT DE SES LIMITES');
   const oubliCase = rappel.locator('input[type="checkbox"]').nth(1);
   faux('le rappel d’oubli est éteint lui aussi', await oubliCase.isChecked());
   await oubliCase.check();
-  await page.waitForTimeout(200);
   const limite = rappel.locator('p', { hasText: 'coffre déverrouillé' });
+  await limite.waitFor({ state: 'visible', timeout: DELAI }).catch(() => {});
   vrai('et la limite réelle du rappel d’oubli est dite', await limite.isVisible());
   vrai(
     'y compris qu’elle vient du chiffrement, et non d’un manque de soin',
@@ -450,7 +546,7 @@ console.log('\nLE RÉGLAGE DE RAPPEL, ET CE QU’IL DIT DE SES LIMITES');
   v('le délai par défaut est de deux heures', await delai.inputValue(), '120');
 
   await rappel.locator('button[type="submit"]').click();
-  await page.waitForTimeout(1500);
+  await devientVisible(page, '#export-agenda', true, { delai: DELAI });
   vrai('réglé, le bouton d’export apparaît', await page.locator('#export-agenda').isVisible());
 }
 
@@ -533,26 +629,41 @@ console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
        ont établi sur le premier. */
     await page.fill('#t-nom', 'Traitement du matin');
     await page.click('#form-traitement button[type="submit"]');
-    await page.waitForTimeout(1200);
+    /* Deux traitements désormais : celui des essais d'au-dessus, et celui-ci. */
+    await attendreLeCompte(page, '#traitements li', 2, { delai: DELAI });
 
     const bloc = page.locator('#traitements li', { hasText: 'Traitement du matin' });
     await bloc.locator('details').first().locator('summary').click();
-    await page.waitForTimeout(300);
     await bloc.locator('input[type="time"]').fill(heure);
     await bloc.locator('button:has-text("Ajouter cette heure")').click();
-    await bloc.locator('details').first().locator('button[type="submit"]').click();
-    await page.waitForTimeout(1500);
+    /*
+       L'heure déclarée fait paraître un créneau du jour, puisqu'elle est
+       passée : la zone des créneaux est repeinte, et c'est elle qu'on attend.
+    */
+    await apresLesCreneaux(() =>
+      bloc.locator('details').first().locator('button[type="submit"]').click(),
+    );
 
     const reglage = bloc.locator('details').nth(1);
     await reglage.locator('summary').click();
-    await page.waitForTimeout(300);
+    /* Les cases découvrent ce qu'elles commandent ; on attend ce que chacune
+       découvre, et non deux cents millisecondes. */
     await reglage.locator('input[type="checkbox"]').first().check();
-    await page.waitForTimeout(200);
+    await reglage
+      .locator('select')
+      .first()
+      .waitFor({ state: 'visible', timeout: DELAI })
+      .catch(() => {});
     await reglage.locator('input[type="checkbox"]').nth(1).check();
-    await page.waitForTimeout(200);
+    await reglage
+      .locator('select')
+      .nth(2)
+      .waitFor({ state: 'visible', timeout: DELAI })
+      .catch(() => {});
     await reglage.locator('select').nth(2).selectOption('30');
-    await reglage.locator('button[type="submit"]').click();
-    await page.waitForTimeout(2000);
+    /* Le réglage enregistré, la ligne du créneau porte sa marque d'oubli :
+       la zone est repeinte une fois de plus. */
+    await apresLesCreneaux(() => reglage.locator('button[type="submit"]').click());
 
     const ligne = page.locator('#creneaux-du-jour li', { hasText: 'Traitement du matin' });
     const texte = await ligne.textContent();
@@ -591,40 +702,69 @@ console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
        genre y sont en clair. La source, la référence, donc le traitement et
        l'heure, sont dans le bloc chiffré.
     */
-    const centre = await page.evaluate(
-      () =>
-        new Promise((resoudre, rejeter) => {
-          const d = indexedDB.open('revinsp');
-          d.onerror = () => rejeter(d.error);
-          d.onsuccess = () => {
-            const tx = d.result.transaction('centreElements', 'readonly');
-            const tout = tx.objectStore('centreElements').getAll();
-            tout.onsuccess = () => resoudre(tout.result);
-            tout.onerror = () => rejeter(tout.error);
-          };
-        }),
-    );
-    v('un élément déposé au centre, et un seul', centre.length, 1);
-    vrai('sa clé est une empreinte, pas une référence lisible', /^[0-9a-f]{32}$/.test(centre[0].id));
     /*
-       Genre « à savoir » et non « à trancher » : une question à trancher ne
-       quitte jamais le compteur tant qu'elle n'est pas résolue, et une
-       prise sans réponse n'est pas une question — ne rien répondre est une
-       réponse. En faire une question aurait fabriqué le compteur d'oublis
-       que l'interdit § 1 n° 3 refuse.
+       LE DÉPÔT SE LIT DANS LE MAGASIN, et il arrive APRÈS la peinture des
+       créneaux : deux secondes couvraient les deux d'un coup, et ma première
+       conversion n'attendait que la peinture — le magasin était vide, et la
+       lecture suivante a cassé l'essai sur un « undefined ». Le recensement
+       du centre n'a aucune marque sur CET écran-ci.
     */
-    v('son genre ne compte pas dans la pastille', centre[0].genre, 'a-savoir');
-    v(
-      'et rien d’autre n’est lisible sans la clé',
-      Object.keys(centre[0]).filter((k) => !['id', 'genre', 'scelle', 'iv', 'majLe'].includes(k)),
-      [],
-    );
-    const brut = JSON.stringify(centre[0]);
-    v(
-      'ni le traitement, ni l’heure, ni le nom de la source',
-      ['Traitement du matin', heure, 'rappel-de-prise'].filter((m) => brut.includes(m)),
-      [],
-    );
+    await attendreEnBase('centreElements', (tout) => tout.length >= 1);
+    const centre = await lireLeMagasin('centreElements');
+    v('un élément déposé au centre, et un seul', centre.length, 1);
+    /*
+       UN ROUGE NE DOIT PAS EN CACHER QUINZE. Les cinq constats qui suivent
+       lisent `centre[0]`, et le magasin vide faisait une panne sur
+       « undefined.id » : l'essai s'arrêtait là, et les quinze assertions des
+       deux dernières sections — la tâche liée, le pointage, le dépointage —
+       n'étaient pas mesurées du tout. Elles passaient pour absentes, ce qui
+       est pire qu'un rouge.
+
+       Rien n'est assoupli : chacune reste rouge si l'élément manque, et le
+       premier constat l'a déjà dit. On se contente de ne pas mourir.
+    */
+    /*
+       LES CINQ CONSTATS QUI SUIVENT PORTENT SUR L'ÉLÉMENT DÉPOSÉ, et ils ne
+       veulent rien dire sans lui. Le magasin vide faisait une panne sur
+       « undefined.id » : l'essai s'arrêtait là, et les vingt-trois assertions
+       des sections suivantes — la tâche liée, le pointage, le dépointage —
+       n'étaient pas mesurées du tout. Elles passaient pour absentes, ce qui
+       est pire qu'un rouge.
+
+       Rien n'est assoupli, et la différence compte. Deux de ces constats
+       seraient des VERTS À VIDE sans élément — « rien d'autre n'est lisible »
+       est vrai d'un objet vide — et deux autres ne font que redire le rouge du
+       premier. On dit donc « non mesuré », et le dépôt manquant reste le seul
+       verdict de la section ; l'essai échoue toujours.
+    */
+    if (centre.length === 1) {
+      const depose = centre[0];
+      vrai('sa clé est une empreinte, pas une référence lisible', /^[0-9a-f]{32}$/.test(depose.id));
+      /*
+         Genre « à savoir » et non « à trancher » : une question à trancher ne
+         quitte jamais le compteur tant qu'elle n'est pas résolue, et une
+         prise sans réponse n'est pas une question — ne rien répondre est une
+         réponse. En faire une question aurait fabriqué le compteur d'oublis
+         que l'interdit § 1 n° 3 refuse.
+      */
+      v('son genre ne compte pas dans la pastille', depose.genre, 'a-savoir');
+      v(
+        'et rien d’autre n’est lisible sans la clé',
+        Object.keys(depose).filter((k) => !['id', 'genre', 'scelle', 'iv', 'majLe'].includes(k)),
+        [],
+      );
+      const brut = JSON.stringify(depose);
+      v(
+        'ni le traitement, ni l’heure, ni le nom de la source',
+        ['Traitement du matin', heure, 'rappel-de-prise'].filter((m) => brut.includes(m)),
+        [],
+      );
+    } else {
+      console.log(
+        '  \x1b[36m·\x1b[0m non mesuré : sans élément déposé, ce que le centre laisse en ' +
+          'clair ne se mesure pas — et « rien n’est lisible » serait vrai d’un objet vide.',
+      );
+    }
 
     /*
        RÉPONDRE RETIRE LE RAPPEL. C'est la seconde moitié du recensement,
@@ -632,21 +772,32 @@ console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
        un compteur qui ne redescend pas finit par ne plus être lu.
     */
     await ligne.locator('button:has-text("Pas aujourd’hui")').click();
-    await page.waitForTimeout(9000);
-    const apresReponse = await page.evaluate(
-      () =>
-        new Promise((resoudre, rejeter) => {
-          const d = indexedDB.open('revinsp');
-          d.onerror = () => rejeter(d.error);
-          d.onsuccess = () => {
-            const tx = d.result.transaction('centreElements', 'readonly');
-            const tout = tx.objectStore('centreElements').count();
-            tout.onsuccess = () => resoudre(tout.result);
-            tout.onerror = () => rejeter(tout.error);
-          };
-        }),
-    );
-    v('une réponse retire le rappel du centre', apresReponse, 0);
+    /*
+       NEUF SECONDES COUVRAIENT DEUX CHOSES : l'expiration du bandeau, puis
+       l'écriture et le retrait du rappel. Le centre n'en dit rien à l'écran
+       d'ici — on interroge donc son magasin jusqu'à ce qu'il soit vide.
+    */
+    await attendreEnBase('centreElements', (tout) => tout.length === 0);
+    const apresReponse = (await lireLeMagasin('centreElements')).length;
+    /*
+       ET LA PRÉMISSE EST DITE, parce que sans elle ce constat est un VERT À
+       VIDE : si rien n'a été déposé — ce qui est le cas aujourd'hui, le
+       premier constat de cette section le dit —, « le centre est vide » est
+       vrai sans que le retrait ait eu lieu. Un vert obtenu ainsi ne prouve
+       rien et ferait croire la seconde moitié du recensement tenue.
+
+       L'essai le dit donc « non mesuré », et le rouge du dépôt reste le seul
+       verdict de la section. L'idiome est celui de la mesure du créneau
+       passé, plus haut dans ce fichier.
+    */
+    if (centre.length === 1) {
+      v('une réponse retire le rappel du centre', apresReponse, 0);
+    } else {
+      console.log(
+        '  \x1b[36m·\x1b[0m non mesuré : rien n’a été déposé au centre, donc « le retrait ' +
+          'a eu lieu » serait vrai sans que rien ne soit retiré.',
+      );
+    }
   }
 }
 
@@ -697,7 +848,7 @@ console.log('\nLE LIEN TÂCHE ↔ PRISE — POINTER NOTE, DÉPOINTER RETIRE');
   /* Le champ « Lequel » n'apparaît que pour l'action qui en demande un. */
   faux('et le champ « Lequel » reste caché pour les autres', await page.locator('#ligne-cible').isVisible());
   await page.selectOption('#lien', 'odyssee.medicament');
-  await page.waitForTimeout(800);
+  await devientVisible(page, '#ligne-cible', true, { delai: DELAI });
   vrai('choisir Santé le découvre', await page.locator('#ligne-cible').isVisible());
   const cibles = await page.locator('#cible option').evaluateAll((o) =>
     o.map((e) => ({ valeur: e.value, texte: e.textContent })),
@@ -729,7 +880,13 @@ console.log('\nLE LIEN TÂCHE ↔ PRISE — POINTER NOTE, DÉPOINTER RETIRE');
     .locator('details', { hasText: 'Répéter' })
     .first()
     .evaluate((d) => d.setAttribute('open', ''));
-  await page.waitForTimeout(300);
+  /*
+     L'AVERTISSEMENT QUI TOMBE est un invariant négatif : il ne s'attend pas
+     en tant que tel, puisqu'il serait vrai même si l'écran mettait une
+     seconde à réagir. On attend donc sa disparition, bornée — l'expiration
+     est rendue comme un faux, et l'assertion garde son sens.
+  */
+  await devientVisible(page, '#lien-sans-repetition', false, { delai: DELAI });
   faux(
     'avec une répétition, l’avertissement tombe',
     await page.locator('#lien-sans-repetition').isVisible(),
@@ -737,7 +894,9 @@ console.log('\nLE LIEN TÂCHE ↔ PRISE — POINTER NOTE, DÉPOINTER RETIRE');
   await page.selectOption('#champs-serie select[data-regle]', 'jours');
   await page.locator('#champs-serie input[type="number"]').first().fill('1');
   await page.click('#ajouter');
-  await page.waitForTimeout(1200);
+  /* La tâche part en base sans que cet écran-ci n'en montre la preuve : on
+     attend le magasin, non l'écran. */
+  await attendreEnBase('odysseeTaches', (tout) => tout.length >= 1);
 
   const tache = await page.evaluate(
     () =>
@@ -770,7 +929,7 @@ console.log('\nLE LIEN TÂCHE ↔ PRISE — POINTER NOTE, DÉPOINTER RETIRE');
 
   /* ── Pointer ── */
   await page.locator(`[data-faire="${tache.id}"]`).click();
-  await page.waitForTimeout(2000);
+  await attendreEnBase('odysseeMedicaments', (tout) => tout.length === avant.length + 1);
 
   const apresPointage = await lirePrises();
   v('pointer la tâche note une prise, et une seule', apresPointage.length - avant.length, 1);
@@ -781,7 +940,7 @@ console.log('\nLE LIEN TÂCHE ↔ PRISE — POINTER NOTE, DÉPOINTER RETIRE');
   const defaire = page.locator(`[data-depointer="${tache.id}"]`);
   vrai('l’écran propose de défaire', await defaire.isVisible());
   await defaire.click();
-  await page.waitForTimeout(2000);
+  await attendreEnBase('odysseeMedicaments', (tout) => tout.length === avant.length);
 
   const apresRetrait = await lirePrises();
   v('défaire retire la prise qu’il avait créée', apresRetrait.length, avant.length);

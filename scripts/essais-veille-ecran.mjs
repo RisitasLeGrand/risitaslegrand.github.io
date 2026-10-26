@@ -146,7 +146,9 @@ console.log('\nLES TROIS SENSIBILITÉS, ET LA PAUSE');
   await page.click('[data-sensibilite="discrete"]');
   await page.waitForFunction(
     () => document.querySelector('[data-sensibilite="discrete"]').dataset.choisi === 'true',
-    { timeout: 15000 });
+    undefined,
+    { timeout: 15000 },
+  );
   v('le choix se retient', await choisi(), ['discrete']);
   /*
      Et le choix relance réellement l'évaluation. Il ne la relançait pas : la
@@ -162,11 +164,17 @@ console.log('\nLES TROIS SENSIBILITÉS, ET LA PAUSE');
   await page.fill('#pause-jusquau', '2030-01-01');
   await page.click('#poser-pause');
   await page.waitForFunction(
-    () => document.getElementById('statut').textContent.includes('pause'), { timeout: 15000 });
+    () => document.getElementById('statut').textContent.includes('pause'),
+    undefined,
+    { timeout: 15000 },
+  );
   vrai('la pause se pose et se dit', (await page.textContent('#statut')).includes('en pause'));
   await page.click('#lever-pause');
   await page.waitForFunction(
-    () => !document.getElementById('statut').textContent.includes('pause'), { timeout: 15000 });
+    () => !document.getElementById('statut').textContent.includes('pause'),
+    undefined,
+    { timeout: 15000 },
+  );
   faux('et se lève', (await page.textContent('#statut')).includes('en pause'));
 }
 
@@ -237,7 +245,10 @@ console.log('\nÉTEINDRE N’EFFACE RIEN ET NE RATTRAPE RIEN');
 
 await page.uncheck('#activer');
 await page.waitForFunction(
-  () => document.getElementById('statut').textContent.includes('désactivée'), { timeout: 15000 });
+  () => document.getElementById('statut').textContent.includes('désactivée'),
+  undefined,
+  { timeout: 15000 },
+);
 vrai('le message le dit explicitement',
   (await page.textContent('#reglages-dit')).includes('rien ne sera rattrapé'));
 await page.reload({ waitUntil: 'networkidle' });

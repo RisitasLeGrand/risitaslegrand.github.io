@@ -31,6 +31,21 @@
  *
  * Le relevé a lieu avant le geste, le geste ensuite, et l'attente après — cet
  * ordre est tout l'intérêt, et l'inverser ramène le défaut.
+ *
+ * ## Les cinq formes, et laquelle prendre
+ *
+ * - `apresLaPeinture` — la zone compte ses peintures dans `data-peint`. La
+ *   forme la plus sûre, et celle qui demande une marque au site.
+ * - `apresLeRemplacement` — la zone remplace ses enfants. Rien à demander au
+ *   site : on marque l'ancien nœud et l'on attend un nœud sans la marque.
+ * - `apresLeChangementDeTexte` — un texte est réécrit. On relève l'ancien et
+ *   l'on attend qu'il diffère, ce qui reste indépendant de ce qu'on affirme.
+ * - `attendreLeCompte` — une liste atteint un nombre d'éléments.
+ * - `devientVisible` — un élément paraît ou s'en va.
+ *
+ * Et quand rien de tout cela ne s'applique, parce que l'écriture n'a aucune
+ * marque à l'écran, c'est la BASE qu'on interroge jusqu'à ce qu'elle réponde :
+ * l'idiome `attendreEnBase` de `essais-niveau-navigateur.mjs`.
  */
 
 /**
@@ -110,4 +125,169 @@ export async function devientVisible(page, selecteur, visible, { delai = 10000 }
     .waitForSelector(selecteur, { state: visible ? 'visible' : 'hidden', timeout: delai })
     .then(() => true)
     .catch(() => false);
+}
+
+/**
+ * Fait le geste, et attend que la zone ait été REMPLACÉE.
+ *
+ * ## Le motif que cette aide couvre
+ *
+ * Beaucoup d'écrans repeignent une liste entière plutôt qu'une ligne :
+ * `zone.replaceChildren()`, puis les nouveaux enfants. Il n'y a donc aucun
+ * compteur à lire, et la valeur qu'on s'apprête à vérifier est souvent déjà
+ * présente — la ligne que l'essai vient de remplir porte déjà « 42 » avant
+ * que l'écran ne l'ait relue.
+ *
+ * On marque alors le premier enfant AVANT le geste, et l'on attend un premier
+ * enfant SANS la marque. Aucun passage antérieur ne peut avoir rendu cette
+ * condition vraie, puisqu'elle porte sur une marque posée après eux : c'est la
+ * forme du compteur monotone, appliquée à un nœud.
+ *
+ * ## Deux usages, et le second surprend
+ *
+ *     await apresLeRemplacement(page, '#liste', () => page.click('#ajouter'));
+ *
+ * et, sans geste du tout, pour attendre la PROCHAINE peinture — celle qu'un
+ * délai du site déclenchera tout seul, par exemple l'expiration d'un bandeau
+ * d'annulation :
+ *
+ *     await apresLeRemplacement(page, '#liste');
+ *
+ * Ce second usage remplace une temporisation calée sur la durée du délai, et
+ * il est exact plutôt que généreux : il rend la main quand l'écriture a eu
+ * lieu, non six ou huit secondes plus tard.
+ *
+ * ## Ce qu'elle ne sait pas faire
+ *
+ * Une zone qui ne remplace pas ses enfants mais les modifie en place ne
+ * déclenche rien ici : la marque survit, et l'attente expire. Dans ce cas,
+ * `apresLeChangementDeTexte` ou un compteur sur la zone conviennent.
+ *
+ * @param page la page de Playwright
+ * @param zone le conteneur dont les enfants sont remplacés
+ * @param geste ce qui déclenche la peinture — rien, pour attendre la suivante
+ * @param options.delai en millisecondes, 30 000 par défaut
+ */
+export async function apresLeRemplacement(page, zone, geste = null, { delai = 30000 } = {}) {
+  await page.evaluate(
+    (s) => document.querySelector(s)?.firstElementChild?.setAttribute('data-ancien', 'oui'),
+    zone,
+  );
+  if (geste) await geste();
+  await page
+    .waitForFunction(
+      (s) => {
+        const premier = document.querySelector(s)?.firstElementChild;
+        return Boolean(premier) && !premier.hasAttribute('data-ancien');
+      },
+      zone,
+      { timeout: delai },
+    )
+    .catch(() => {});
+}
+
+/**
+ * Fait le geste, et attend que le texte de l'élément ait CHANGÉ.
+ *
+ * ## Pourquoi « changé » et non « contient ceci »
+ *
+ * Le motif est partout : on choisit une option, et un paragraphe explique ce
+ * que cette option fait. Attendre que le paragraphe contienne la phrase
+ * attendue reviendrait à attendre l'assertion elle-même — bornée, donc
+ * honnête, mais elle n'apprend plus rien quand elle passe.
+ *
+ * Attendre un texte DIFFÉRENT de celui d'avant est indépendant de ce qu'on
+ * affirme : la valeur de départ est relevée avant le geste, et aucun passage
+ * antérieur ne peut l'avoir rendue différente d'elle-même.
+ *
+ * ## La limite
+ *
+ * Un geste qui réécrit le même texte — choisir l'option déjà choisie — n'est
+ * pas détectable ainsi, et l'attente expire. C'est voulu : un essai qui refait
+ * deux fois le même choix mesure autre chose que ce qu'il annonce.
+ *
+ * @param page la page de Playwright
+ * @param cible un sélecteur, ou un localisateur de Playwright
+ * @param geste ce qui déclenche le changement
+ * @param options.delai en millisecondes, 30 000 par défaut
+ * @returns vrai si le texte a changé dans le délai
+ */
+export async function apresLeChangementDeTexte(page, cible, geste, { delai = 30000 } = {}) {
+  /*
+     La cible est un SÉLECTEUR ou un localisateur. Le second est souvent le
+     seul possible : « le premier paragraphe du second repli de cette ligne »
+     s'écrit en localisateurs chaînés et n'a pas d'équivalent CSS honnête.
+  */
+  const lire =
+    typeof cible === 'string'
+      ? () => page.textContent(cible).catch(() => null)
+      : () => cible.textContent().catch(() => null);
+
+  const avant = await lire();
+  await geste();
+  const fin = Date.now() + delai;
+  for (;;) {
+    if ((await lire()) !== avant) return true;
+    if (Date.now() > fin) return false;
+    await page.waitForTimeout(50);
+  }
+}
+
+/**
+ * Attend que le nombre d'éléments atteigne ce compte.
+ *
+ * Le motif le plus simple du lot : on enregistre une fiche, et la liste en
+ * porte une de plus. L'attente est bornée et son expiration est rendue comme
+ * un faux, donc l'assertion qui suit garde son sens — ce qui disparaît, c'est
+ * seulement l'exigence que l'écriture et la relecture tiennent en mille deux
+ * cents millisecondes.
+ *
+ * @returns vrai si le compte a été atteint dans le délai
+ */
+export function attendreLeCompte(page, selecteur, combien, { delai = 30000 } = {}) {
+  return page
+    .waitForFunction(
+      ([s, n]) => document.querySelectorAll(s).length === n,
+      [selecteur, combien],
+      { timeout: delai },
+    )
+    .then(() => true)
+    .catch(() => false);
+}
+
+/**
+ * Attend que les animations de l'élément soient TERMINÉES.
+ *
+ * ## Quand il la faut
+ *
+ * Dès qu'une assertion lit une GÉOMÉTRIE — « le bandeau est au-dessus de la
+ * barre du bas », « la section est dans l'écran » — l'apparition de l'élément
+ * ne suffit pas : il peut encore être en train de monter. Mesuré sur le
+ * bandeau d'annulation, qui porte `animation: boite-monte` : son bas passe de
+ * 708 à 691 puis à 684 px en cent cinquante millisecondes. Lu dès qu'il est
+ * visible, il est encore vingt-quatre pixels trop bas, et l'assertion tombe —
+ * sur du code sain.
+ *
+ * C'est la même famille que `scrollend` pour une ancre : une animation se
+ * lit par sa FIN, jamais par une durée supposée.
+ *
+ * ## Comment
+ *
+ * `Element.getAnimations()` rend les animations en cours, chacune avec sa
+ * promesse `finished`. Une animation infinie ne finirait jamais : le délai
+ * borne l'attente, et son expiration ne fait pas échouer l'essai — l'assertion
+ * qui suit s'en charge, et dira ce qu'elle a vu.
+ */
+export async function apresLesAnimations(page, selecteur, { delai = 5000 } = {}) {
+  await Promise.race([
+    page.evaluate(
+      (s) => {
+        const e = document.querySelector(s);
+        if (!e) return null;
+        return Promise.all(e.getAnimations().map((a) => a.finished.catch(() => null)));
+      },
+      selecteur,
+    ),
+    new Promise((ok) => setTimeout(ok, delai)),
+  ]).catch(() => {});
 }

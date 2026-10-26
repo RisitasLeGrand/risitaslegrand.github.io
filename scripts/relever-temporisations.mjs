@@ -34,6 +34,7 @@
  *     node scripts/relever-temporisations.mjs
  *     node scripts/relever-temporisations.mjs --fenetre 20
  *     node scripts/relever-temporisations.mjs --amortissements
+ *     node scripts/relever-temporisations.mjs --bornes
  *
  * Le dernier relève les délais que le SITE s'impose, c'est-à-dire ce qui peut
  * légitimer une attente à l'aveugle dans un essai. Une sur vingt-six au
@@ -44,6 +45,13 @@
  *
  * **Un minuteur** — `setTimeout` — diffère une action. Il se cherche par son
  * nom, et c'est la forme à laquelle on pense.
+ *
+ * `--bornes` cherche une autre faute, trouvée le 26 octobre : le second
+ * argument de `waitForFunction` est la VALEUR passée à la fonction, et les
+ * options sont au troisième. Une borne écrite au second est donc ignorée, et
+ * la borne réelle est celle par défaut. Seize appels en portaient une. Une
+ * borne qu'on croit avoir fixée est pire qu'une borne absente, et les deux
+ * formes se ressemblent assez pour que rien ne se voie.
  *
  * **Un repos comparé à l'horloge** n'a aucun minuteur : le site garde l'instant
  * du dernier geste et refuse le suivant s'il arrive trop tôt. `src/lib/geste.ts`
@@ -62,6 +70,7 @@ const args = process.argv.slice(2);
 const iFenetre = args.indexOf('--fenetre');
 const FENETRE = iFenetre === -1 ? 12 : Number(args[iFenetre + 1]);
 const AMORTISSEMENTS = args.includes('--amortissements');
+const BORNES = args.includes('--bornes');
 
 if (!Number.isInteger(FENETRE) || FENETRE < 1) {
   console.error('La fenêtre se donne en lignes, par un entier positif.');
@@ -145,9 +154,80 @@ function amortissements(racine) {
   return { repos, minuteurs, constantes };
 }
 
+
+/* ── Les bornes au mauvais rang ───────────────────────────────────────── */
+
+/**
+ * Les arguments de premier niveau d'un appel, à partir de sa parenthèse.
+ *
+ * Écrit à la main plutôt que par une expression régulière : une fonction
+ * fléchée passée en argument contient ses propres parenthèses, ses accolades
+ * et parfois des virgules, et aucun motif plat ne les distingue des virgules
+ * de l'appel.
+ */
+function argumentsDePremierNiveau(texte, debut) {
+  let profondeur = 0;
+  let arg = '';
+  const args = [];
+  let chaine = null;
+  for (let i = debut; i < texte.length; i += 1) {
+    const c = texte[i];
+    if (chaine) {
+      if (c === chaine && texte[i - 1] !== '\\') chaine = null;
+      arg += c;
+      continue;
+    }
+    if (c === "'" || c === '"' || c === '`') {
+      chaine = c;
+      arg += c;
+      continue;
+    }
+    if ('([{'.includes(c)) profondeur += 1;
+    if (')]}'.includes(c)) {
+      profondeur -= 1;
+      if (profondeur === 0) {
+        args.push(arg.trim());
+        return args;
+      }
+    }
+    if (c === ',' && profondeur === 1) {
+      args.push(arg.trim());
+      arg = '';
+      continue;
+    }
+    if (!(profondeur === 1 && arg === '' && /\s/.test(c))) arg += c;
+  }
+  return null;
+}
+
+function bornesAuMauvaisRang() {
+  const fautes = [];
+  for (const f of readdirSync('scripts').sort()) {
+    if (!/\.(mjs|mts)$/.test(f)) continue;
+    const texte = readFileSync(`scripts/${f}`, 'utf8');
+    for (const m of texte.matchAll(/waitForFunction\(/g)) {
+      const args = argumentsDePremierNiveau(texte, m.index + 'waitForFunction'.length);
+      if (!args || args.length !== 2) continue;
+      if (!/^\(?\{[\s\S]*timeout\s*:/.test(args[1])) continue;
+      fautes.push({
+        fichier: `scripts/${f}`,
+        ligne: texte.slice(0, m.index).split('\n').length,
+        code: args[1].replace(/\s+/g, ' ').slice(0, 60),
+      });
+    }
+  }
+  return fautes;
+}
+
 /* ── Le rendu ─────────────────────────────────────────────────────────── */
 
-if (AMORTISSEMENTS) {
+if (BORNES) {
+  const fautes = bornesAuMauvaisRang();
+  console.log(`\n${fautes.length} borne(s) de « waitForFunction » au mauvais rang.\n`);
+  for (const f of fautes) console.log(`  ${f.fichier}:${f.ligne}  second argument : ${f.code}`);
+  console.log('');
+  process.exit(fautes.length === 0 ? 0 : 1);
+} else if (AMORTISSEMENTS) {
   const { repos, minuteurs, constantes } = amortissements('src');
   const dire = (titre, liste) => {
     console.log(`\n${titre} — ${liste.length}\n`);

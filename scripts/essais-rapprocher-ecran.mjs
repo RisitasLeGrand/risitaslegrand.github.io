@@ -516,7 +516,9 @@ console.log('\nLE MODE AVANCÉ DE CRÉATION DE RÈGLE');
   await page.locator('[data-champ-regle="motif"]').blur();
   await page.waitForFunction(
     () => !document.querySelector('[data-defauts-regle]').classList.contains('hidden'),
-    { timeout: 15000 });
+    undefined,
+    { timeout: 15000 },
+  );
   vrai('un motif trop court est refusé',
     (await page.textContent('[data-defauts-regle]')).includes('Allongez'),
     await page.textContent('[data-defauts-regle]'));
@@ -541,7 +543,9 @@ console.log('\nLE MODE AVANCÉ DE CRÉATION DE RÈGLE');
   await page.locator('[data-champ-regle="motif"]').blur();
   await page.waitForFunction(
     () => document.querySelector('[data-defauts-regle]').classList.contains('hidden'),
-    { timeout: 15000 });
+    undefined,
+    { timeout: 15000 },
+  );
   faux('un motif correct rouvre la création',
     await page.isDisabled('[data-geste="creer-avance"]'));
   const apercu = await page.textContent('[data-apercu-regle]');
@@ -606,7 +610,10 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
 
   await page.fill('#chercher-operation', 'PETIT MARCHE');
   await page.waitForFunction(
-    () => document.querySelectorAll('[data-fractionnable]').length > 0, { timeout: 15000 });
+    () => document.querySelectorAll('[data-fractionnable]').length > 0,
+    undefined,
+    { timeout: 15000 },
+  );
   const trouvees = await page.$$eval('[data-fractionnable]', (e) => e.length);
   v('les quatre achats au marché sont trouvés', trouvees, 4);
   vrai('et leur nombre est annoncé',
@@ -618,7 +625,10 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
   */
   await page.fill('#chercher-operation', '43,90');
   await page.waitForFunction(
-    () => document.querySelectorAll('[data-fractionnable]').length === 1, { timeout: 15000 });
+    () => document.querySelectorAll('[data-fractionnable]').length === 1,
+    undefined,
+    { timeout: 15000 },
+  );
   vrai('la recherche par montant trouve la bonne opération',
     (await page.textContent('[data-fractionnable]')).includes('43,90'));
 }
@@ -645,7 +655,9 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
   await page.locator('[data-montant-de-la-part="0"]').blur();
   await page.waitForFunction(
     () => document.querySelector('[data-reste]').textContent.includes('Il reste'),
-    { timeout: 15000 });
+    undefined,
+    { timeout: 15000 },
+  );
   /*
      L'opération fait 43,90 €, donc 21,95 € par part à l'ouverture. Ramener
      la première à 10,00 € laisse 11,95 € — et c'est ce chiffre-là que
@@ -663,7 +675,9 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
   await page.click('[data-part="1"] [data-geste="poser-le-reste"]');
   await page.waitForFunction(
     () => document.querySelector('[data-reste]').textContent.includes('Tout est réparti'),
-    { timeout: 15000 });
+    undefined,
+    { timeout: 15000 },
+  );
   faux('« Le reste ici » rend l’enregistrement possible',
     await page.isDisabled('[data-geste="valider-parts"]'));
 
@@ -700,7 +714,10 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
 
   await page.fill('#chercher-operation', '43,90');
   await page.waitForFunction(
-    () => document.querySelectorAll('[data-fractionnable]').length === 1, { timeout: 15000 });
+    () => document.querySelectorAll('[data-fractionnable]').length === 1,
+    undefined,
+    { timeout: 15000 },
+  );
   const etat = await page.textContent('[data-etat-pointage]');
   vrai('l’opération est annoncée fractionnée', etat.includes('Déjà fractionnée en 2 parts'), etat);
   vrai('et les deux parts sont nommées avec leur montant',
@@ -711,7 +728,10 @@ console.log('\nFRACTIONNER UNE OPÉRATION');
   await page.waitForTimeout(2500);
   await page.fill('#chercher-operation', '43,90');
   await page.waitForFunction(
-    () => document.querySelectorAll('[data-fractionnable]').length === 1, { timeout: 15000 });
+    () => document.querySelectorAll('[data-fractionnable]').length === 1,
+    undefined,
+    { timeout: 15000 },
+  );
   const apres = await page.textContent('[data-etat-pointage]');
   faux('défaire le fractionnement le retire', apres.includes('Déjà fractionnée'));
   vrai('et l’opération reste pointée, pas renvoyée à zéro',

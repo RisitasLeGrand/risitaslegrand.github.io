@@ -387,10 +387,68 @@ une par essai. L'estimation tenable est **20 à 22 heures**, dont 3 à 4 de
 batteries et 20 % de marge pour les conversions fausses — il y en aura, le § 3
 dit lesquelles.
 
-`scripts/lib/post-condition.mjs` tient les deux formes qui reviennent le plus :
+`scripts/lib/post-condition.mjs` tient les formes qui reviennent :
 `apresLaPeinture` pour une action répétable sur une zone qui compte ses
-peintures, `devientVisible` pour le « il part / il paraît » qui occupait la
-moitié des sites.
+peintures, `apresLeRemplacement` quand la zone refait ses enfants,
+`apresLeChangementDeTexte` quand une phrase est réécrite, `attendreLeCompte`
+pour une liste qui grandit, `apresLesAnimations` avant toute lecture de
+géométrie, et `devientVisible` pour le « il part / il paraît » qui occupait la
+moitié des sites. Quand rien de tout cela ne s'applique — l'écriture n'a
+aucune marque à l'écran —, c'est la base qu'on interroge : l'idiome
+`attendreEnBase`.
+
+### Ce que le premier lot a appris, et qui ne s'invente pas
+
+*Trois essais convertis le 26 octobre — « parametres-navigateur » (19 sites),
+« sante-navigateur » (25), « gestes » (11). Chacune de ces quatre leçons vient
+d'une assertion tombée, et aucune n'était prévisible depuis la source.*
+
+**Une animation se lit par sa FIN, jamais par une durée.** Deux fois dans ce
+lot. Une ancre défile par animation : `scrollend` le dit. Le bandeau
+d'annulation monte : son bas passe de 708 à 684 px en cent cinquante
+millisecondes, et trois constats de géométrie tombent si on le lit dès qu'il
+est visible. `apresLesAnimations` attend les promesses `finished` de
+`getAnimations()`, ce qui est exact et ne suppose aucune durée.
+
+**Une conversion ACCÉLÈRE l'essai, et peut le faire tomber dans le repos du
+site.** C'est la leçon la moins attendue, et la plus utile pour la suite.
+« Abandonner » passe par `unSeulGeste` ; l'empreinte d'un bouton sans champ
+est vide, donc deux appuis sur ce bouton portent la même empreinte, et le
+second est pris pour un rebond s'il arrive moins de 600 ms après le premier.
+Les temporisations d'avant franchissaient ce repos sans le savoir. Les
+post-conditions, plus rapides, l'ont ramené dans la fenêtre : deux assertions
+sont tombées sur du code sain. **Avant de refaire le même geste sur le même
+contrôle, il faut franchir le repos** — et c'est une des rares temporisations
+légitimes.
+
+**Un rouge ne doit pas en cacher vingt-trois.** Le dépôt au centre de
+notifications manque — défaut du site, présent avant ce lot, mesuré sur la
+version d'avant comme sur la nouvelle. La lecture qui suivait faisait une
+panne sur « undefined », et l'essai s'arrêtait là : les vingt-trois assertions
+des deux dernières sections n'étaient pas mesurées, ce qui se lisait comme
+leur absence. Elles tournent désormais.
+
+**Une page visitée pour son EFFET DE BORD a besoin de sa post-condition.**
+`essais:gestes` passe par l'écran des exercices uniquement pour que la
+bibliothèque se déchiffre, puis s'en va. J'ai retiré les 2 200 ms de ce
+passage en croyant que l'attente du sélecteur, sur l'écran suivant, suffisait :
+à ×15 de bridage, le sélecteur restait vide et l'essai tombait avant sa
+première assertion. « networkidle » dit que le réseau se tait, pas que le
+travail est fini. `#vue` ne paraît qu'une fois la bibliothèque lue : c'est la
+marque, et elle était là depuis le début.
+
+**Au passage, une borne qu'on croit avoir fixée.** Le même essai écrivait
+`waitForFunction(fn, { timeout: 20000 })` — or le second argument de
+`waitForFunction` est la VALEUR passée à la fonction, pas les options. Les
+vingt secondes annoncées n'en étaient pas, et la borne réelle était celle par
+défaut. À vérifier partout : c'est une erreur qui ne se voit jamais, puisque
+les deux valeurs se ressemblent.
+
+**Et un vert à vide se dit « non mesuré ».** Dans la même section, deux
+constats restaient verts sans l'élément déposé — « rien d'autre n'est lisible »
+est vrai d'un objet vide. Ce n'est pas un assouplissement : l'essai échoue
+toujours, pour la seule cause réelle, et les constats qui ne peuvent rien
+prouver le disent au lieu de rassurer.
 
 ## Ce qui reste hors d'atteinte ici
 
