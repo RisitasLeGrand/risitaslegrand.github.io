@@ -342,7 +342,7 @@ body {
    couvre un bouton d'en-tête ou un lien de liste.
 
    MESURÉ LE 25 OCTOBRE, pointeur fin, corpus réel : 64 cibles sous 24 px sur
-   « /parametres/ » seul, 29 sur l'accueil. Le 🔔 du centre de notifications
+   « /parametres/ » seul, 29 sur l'accueil. Le bouton du centre de notifications
    faisait 20 × 24, la flèche de retour 18 × 18, et les liens de liste
    214 × 23 — un pixel de trop peu, répété des dizaines de fois. Aucun essai ne
    le voyait : « essais:mobile:navigateur » déclare « hasTouch: true », donc il
