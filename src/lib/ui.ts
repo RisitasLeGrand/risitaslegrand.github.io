@@ -42,7 +42,7 @@ export function formaterDate(iso: string): string {
    mot accordé sans le nombre, pour ce qui SUIT le nom : « 2 cartes suivies ».
    La réexportation garde les dizaines d'appelants intacts.
 */
-export { accorde, pluriel } from './noyau/accords';
+export { accorde, nombreFr, pluriel } from './noyau/accords';
 
 /** Mélange un tableau (Fisher-Yates). */
 export function melanger<T>(tableau: T[]): T[] {

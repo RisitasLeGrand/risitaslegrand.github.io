@@ -24,6 +24,7 @@
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { nonMesurable } from './lib/non-mesurable.mjs';
 
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
 const MDP = motDePasseEssais();
@@ -76,12 +77,25 @@ const etat = await page.evaluate(() => ({
 }));
 
 if (etat.periodesChargees < 10) {
-  console.log(
-    `\n\x1b[31m${etat.periodesChargees} période(s) seulement.\x1b[0m Cet essai mesure la longueur de l'archive : ` +
-      'il lui faut les actualités réelles du dépôt.\n\n  npm run actualites:dist\n',
-  );
+  /*
+     CODE 3 ET NON 2, et la différence n'est pas cosmétique : la batterie
+     compte ROUGE tout code non nul qui n'est pas 3. Cet essai sortait donc en
+     rouge dans tout conteneur sans l'archive réelle — un rouge permanent, qui
+     masque les vrais, alors que rien n'est cassé. C'est exactement le défaut
+     que « nonMesurable » a été écrit pour corriger, et celui-ci lui avait
+     échappé.
+
+     Le navigateur se ferme AVANT l'appel : « nonMesurable » sort du processus
+     sans revenir, et un Chromium laissé ouvert tiendrait son port.
+  */
+  const combien = etat.periodesChargees;
   await nav.close();
-  process.exit(2);
+  nonMesurable(
+    'l’archive réelle des actualités : au moins dix périodes servies',
+    `${combien} ${combien >= 2 ? 'périodes' : 'période'} seulement — cet essai mesure la ` +
+      'LONGUEUR de l’archive, et le corpus d’exemple ne la fournit pas',
+    'npm run actualites:dist, puis reconstruisez',
+  );
 }
 
 mesure('hauteur de page à 1280 px', `${etat.hauteur} px`);

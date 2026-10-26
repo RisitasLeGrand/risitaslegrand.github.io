@@ -73,3 +73,43 @@ export function pluriel(n: number, singulier: string, plurielForme = `${singulie
 export function accorde(n: number, singulier: string, plurielForme = `${singulier}s`): string {
   return auPluriel(n) ? plurielForme : singulier;
 }
+
+/**
+ * Un nombre écrit en français : `nombreFr(1234.5, 1)` → « 1 234,5 ».
+ *
+ * ## Pourquoi ici, à côté des accords
+ *
+ * Parce que c'est la même question — comment ce nombre S'ÉCRIT en français —
+ * et parce que les deux se tiennent : `accorde()` n'existe que parce qu'un
+ * nombre mis en forme ne peut pas passer par `pluriel()`. Les avoir dans deux
+ * modules obligerait à importer deux fois pour écrire une seule phrase.
+ *
+ * ## Pourquoi un nombre EXACT de décimales, et non un maximum
+ *
+ * Parce que cette fonction remplace des `toFixed`, et qu'un remplacement doit
+ * montrer les mêmes chiffres. `maximumFractionDigits` seul écrirait « 12,5 € »
+ * là où « 12,50 € » était affiché : sur un montant, la décimale muette n'est
+ * pas du bruit, c'est la preuve qu'on parle de centimes. Qui veut un maximum
+ * passe par `toLocaleString` et le dit.
+ *
+ * ## Ce que `toFixed` faisait de mal, et que la règle G proscrit
+ *
+ * Deux choses, et la première est la pire : `toFixed` écrit un POINT décimal
+ * — « 12.50 € » dans une phrase française —, et il n'espace pas les milliers,
+ * donc « 4128,00 € » là où un œil attend « 4 128,00 € ». On trouvait dans le
+ * dépôt le contournement `toFixed(2).replace('.', ',')`, qui corrige la
+ * virgule et laisse les milliers collés : à moitié faux, donc plus difficile
+ * à voir.
+ *
+ * L'espace des milliers rendue par `Intl` est une espace FINE INSÉCABLE, et
+ * non une espace ordinaire. Un essai qui compare deux chaînes « identiques à
+ * l'œil » doit donc normaliser ses blancs — c'est l'assertion de
+ * `essais:accords` qui l'a appris, en rendant « obtenu "4 128", attendu
+ * "4 128" ».
+ */
+export function nombreFr(n: number, decimales = 0): string {
+  return n.toLocaleString('fr-FR', {
+    minimumFractionDigits: decimales,
+    maximumFractionDigits: decimales,
+  });
+}

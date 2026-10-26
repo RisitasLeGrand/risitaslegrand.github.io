@@ -378,11 +378,16 @@ function machine(source, base, ligneDepart) {
  * et le réécrire change l'instrument — ce qui n'est pas une correction de
  * typographie mais une décision de contenu, et elle n'est pas de mon ressort.
  *
- * La question est posée au Pilote : si le libellé canonique français du
- * PHQ-9 porte « difficile » au singulier, ces chaînes devraient le porter
- * aussi et l'exemption disparaîtra. Tant qu'elle n'est pas tranchée, mieux
- * vaut une exemption nommée qu'une réécriture silencieuse d'une échelle que
- * quelqu'un lit pour se situer.
+ * LA QUESTION EST TRANCHÉE — Pilote, 26 octobre 2026 : la version française
+ * de l'item de gêne porte bien la forme parenthésée, « ce(s) problème(s)
+ * a-t-il (ont-ils) rendu… difficile(s) », et les réponses « Pas du tout
+ * difficile(s) »… Le libellé d'un instrument validé reste MOT POUR MOT.
+ * L'exemption est donc définitive, et ce n'est pas une tolérance qu'on aurait
+ * oublié de lever : c'est la seule écriture juste de ces sept chaînes.
+ *
+ * Elle reste nommée par le TEXTE. Exempter le fichier aurait caché ses trois
+ * phrases calculées — « 3 réponse(s) manquante(s) » —, qui sont de vraies
+ * fautes, et qui sont corrigées.
  *
  * Les quatre réponses sont des chaînes entières, donc exemptées au mot près.
  * La question, elle, est du balisage sur trois lignes : on l'exempte par un

@@ -30,6 +30,7 @@
  * Tout le reste est repris mot pour mot, commentaires compris — ils portent
  * des défauts mesurés, et les réécrire les perdrait.
  */
+import { accorde, nombreFr } from './accords';
 import { DOMAINES } from './domaines';
 import {
   BORNES,
@@ -290,7 +291,8 @@ export function heure(declare: ChampDeclare, defaut: string | null): Saisie {
    passage.
 */
 export function curseur(declare: ChampDeclare, defaut: number | null): Saisie {
-  const bornes = BORNES[declare.champ] ?? { min: 0, max: 40, pas: 1, unite: '' };
+  const bornes =
+    BORNES[declare.champ] ?? { min: 0, max: 40, pas: 1, unite: { un: '', plusieurs: '' } };
   const enveloppe = document.createElement('div');
   const valeur = document.createElement('p');
   valeur.className = 'text-2xl font-semibold text-slate-900 dark:text-white';
@@ -315,7 +317,8 @@ export function curseur(declare: ChampDeclare, defaut: number | null): Saisie {
       return;
     }
     const n = Number(champ.value);
-    valeur.textContent = `${n.toLocaleString('fr-FR')} ${bornes.unite}${n > 1 && bornes.unite === 'séance' ? 's' : ''}`;
+    valeur.textContent =
+      `${nombreFr(n)} ${accorde(n, bornes.unite.un, bornes.unite.plusieurs)}`.trim();
     note.classList.add('hidden');
   };
   champ.addEventListener('input', () => {

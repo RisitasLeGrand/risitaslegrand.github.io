@@ -546,14 +546,29 @@ export interface Bornes {
   min: number;
   max: number;
   pas: number;
-  /** L'unité affichée après le nombre. */
-  unite: string;
+  /**
+     L'unité affichée après le nombre, dans ses DEUX formes.
+
+     Elle était une seule chaîne, et `saisies.ts` rattrapait le pluriel à la
+     main : « ${unite}${n > 1 && unite === 'séance' ? 's' : ''} ». Deux
+     défauts dans une ligne — le seuil `n > 1`, que le lot 9 a corrigé dans
+     `pluriel()` (le singulier vaut jusqu'à deux exclu), et la liste en dur
+     des unités qui s'accordent, où toute unité ajoutée serait muette.
+
+     La forme déclarée supprime les deux, et elle n'est pas une invention :
+     c'est celle que `ChampDeclare.unite` de `profil.ts` porte déjà. Une
+     unité invariable répète simplement sa forme — « h », « kg ».
+  */
+  unite: { un: string; plusieurs: string };
 }
 
 export const BORNES: Readonly<Record<string, Bornes>> = {
-  tempsParSemaine: { min: 0, max: 40, pas: 1, unite: 'h' },
-  heuresRevision: { min: 0, max: 40, pas: 1, unite: 'h' },
-  frequenceSouhaitee: { min: 1, max: 7, pas: 1, unite: 'séance' },
+  tempsParSemaine: { min: 0, max: 40, pas: 1, unite: { un: 'h', plusieurs: 'h' } },
+  heuresRevision: { min: 0, max: 40, pas: 1, unite: { un: 'h', plusieurs: 'h' } },
+  frequenceSouhaitee: {
+    min: 1, max: 7, pas: 1,
+    unite: { un: 'séance', plusieurs: 'séances' },
+  },
 };
 
 /**

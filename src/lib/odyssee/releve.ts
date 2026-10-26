@@ -39,7 +39,7 @@
  * isolé dans la marge, **sans rien signaler** : 267 lignes plausibles
  * ressemblent exactement à 278 lignes plausibles. Seul le solde l'a dit.
  */
-import { accorde, pluriel } from '../noyau/accords';
+import { accorde, nombreFr, pluriel } from '../noyau/accords';
 import { centimesDe, type Centimes } from './finances';
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -456,7 +456,7 @@ function controler(c: CompteLu): ControleDeCompte {
     message:
       ecart === 0
         ? `${pluriel(c.operations.length, 'opération')}, solde exact.`
-        : `Écart de ${(Math.abs(ecart) / 100).toFixed(2).replace('.', ',')} € : ` +
+        : `Écart de ${nombreFr(Math.abs(ecart) / 100, 2)} € : ` +
           'une opération manque, est en double, ou a été lue du mauvais côté.',
   };
 }

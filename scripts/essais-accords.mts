@@ -75,7 +75,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
-import { accorde, pluriel } from '../src/lib/noyau/accords.ts';
+import { accorde, nombreFr, pluriel } from '../src/lib/noyau/accords.ts';
 import { sitesInterdits } from './lib/accords-balayage.mjs';
 import { nonMesurable } from './lib/non-mesurable.mjs';
 
@@ -133,6 +133,31 @@ v(
   'y compris avec un nombre mis en forme',
   `${(4128).toLocaleString('fr-FR')} ${accorde(4128, 'enregistrement')}`.replace(/\s/g, ' '),
   '4 128 enregistrements',
+);
+
+console.log('\n\u001b[1mLE NOMBRE ÉCRIT EN FRANÇAIS\u001b[0m');
+/*
+   `nombreFr` remplace des `toFixed`, et c'est pour cela que les décimales
+   sont EXACTES et non maximales : « 12,50 € » ne doit pas devenir « 12,5 € ».
+   Les blancs sont normalisés dans chaque comparaison — l'espace des milliers
+   rendue par `Intl` est une espace fine insécable, et deux chaînes identiques
+   à l'œil ne le sont pas pour « === ».
+*/
+const sansBlancs = (t: string) => t.replace(/\s/g, ' ');
+v('les milliers prennent une espace', sansBlancs(nombreFr(4128)), '4 128');
+v('un entier n’invente pas de décimale', sansBlancs(nombreFr(12)), '12');
+v('la décimale est une virgule, jamais un point', sansBlancs(nombreFr(1234.5, 1)), '1 234,5');
+v('et la décimale muette est gardée', sansBlancs(nombreFr(12.5, 2)), '12,50');
+v('aucun point décimal ne sort d’ici', nombreFr(12.5, 2).includes('.'), false);
+/*
+   LE CAS QUI A FAIT NAÎTRE LA FONCTION : le dépôt écrivait
+   « toFixed(2).replace('.', ',') », qui met la virgule et laisse les milliers
+   collés — à moitié faux, donc plus difficile à voir qu'une faute franche.
+*/
+v(
+  'le contournement « toFixed puis replace » laissait les milliers collés',
+  sansBlancs(nombreFr(4128.5, 2)) === (4128.5).toFixed(2).replace('.', ','),
+  false,
 );
 
 /* ══════════════════════════════════════════════════════════════════════════
