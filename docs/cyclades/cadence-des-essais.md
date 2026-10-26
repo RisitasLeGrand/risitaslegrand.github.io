@@ -201,6 +201,52 @@ ne contrôle rien finit par rassurer, ce qui est pire que son absence.*
 
 ## Ce qui reste hors d'atteinte ici
 
+### La visibilité et le focus d'une page ne se pilotent pas (26 octobre, lot 0.8)
+
+Le lot 0.8 demande qu'aucune notification du système ne parte « quand la page
+est visible ». Avant d'écrire la règle, j'ai cherché un levier réel pour
+cacher une page dans ce conteneur. **Il n'y en a aucun**, et c'est mesuré,
+pas supposé : dans ce Chromium sans écran, piloté par Playwright, une page
+répond toujours `visibilityState = "visible"` et `hasFocus() = true`.
+
+Les quatre tentatives, dans l'ordre :
+
+| Levier | Résultat mesuré |
+|---|---|
+| ouvrir un second onglet devant | les deux pages restent `visible`, `hasFocus() = true` |
+| `page.bringToFront()` sur l'autre onglet | sans effet sur la première |
+| `Emulation.setFocusEmulationEnabled: false` par le protocole | accepté, sans effet |
+| `Emulation.setActiveAndFocused` | la commande n'existe pas |
+
+Reste l'écrasement de la propriété avant tout script de la page :
+
+```js
+await ctx.addInitScript(() => {
+  Object.defineProperty(Document.prototype, 'visibilityState', {
+    configurable: true,
+    get: () => 'hidden',
+  });
+  Object.defineProperty(Document.prototype, 'hidden', { configurable: true, get: () => true });
+});
+```
+
+**Ce que cela éprouve, et ce que cela n'éprouve pas.** Un essai écrit ainsi
+prouve que le code CONSULTE la visibilité et en tient compte ; il ne prouve
+pas que le navigateur la calcule juste. C'est le même rang de preuve que la
+permission accordée d'avance ou `showNotification` remplacé par un compteur,
+et il faut l'écrire dans l'en-tête de l'essai comme `essais:centre-m14` le
+fait désormais.
+
+**Le corollaire, qui est le piège.** Une page de navigateur étant toujours
+« visible » ici, un essai qui mesure une règle de la forme « rien ne part
+quand on regarde » obtient zéro **sans rien faire** — et zéro est aussi ce
+que donnerait une chaîne débranchée. Une telle passe ne vaut donc que
+doublée d'une passe où la page est cachée et où quelque chose part. Sans
+cela, on écrit un essai qui reste vert sur la suppression du code qu'il
+surveille.
+
+### `ffmpeg`
+
 `essais:fiches-audio` réclame `ffmpeg`. Il a été installé dans le conteneur
 du 19 octobre — mais le conteneur est éphémère, donc l'installation ne
 survivra pas. Tant que `ffmpeg` n'est pas dans le script de préparation de

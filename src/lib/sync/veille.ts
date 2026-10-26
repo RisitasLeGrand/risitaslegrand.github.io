@@ -41,52 +41,60 @@ export async function veiller(): Promise<Veille | null> {
       motDePasseEnMemoire: motDePasseRetenu() !== null,
     });
     if (!certifie) return null;
-    const [{ demarrer }, { avertir }, { lien }] = await Promise.all([
-      import('./arriere-plan'),
-      import('./notification'),
-      import('../ui'),
-    ]);
+    const { demarrer } = await import('./arriere-plan');
     courante = await demarrer({
       surFusion: async (rapport) => {
         const recu = rapport.recu;
         if (!recu.recues && !recu.revisionsRecues) return;
         /*
-           On n'avertit que d'une fusion qui a **apporté** quelque chose. Une
-           notification « 0 opération reçue » apprendrait à ignorer les
-           notifications, ce qui est le meilleur moyen de rater celle qui
-           compte.
+           On ne signale qu'une fusion qui a **apporté** quelque chose. Un
+           avis « 0 opération reçue » apprendrait à ignorer les avis, ce qui
+           est le meilleur moyen de rater celui qui compte.
         */
         /*
-           **Plus aucun nombre** — décision 5 du prompt 32.
+           UNE SEULE PORTE, ET CE N'EST PLUS CELLE-CI — 0.8 du prompt 43.
 
-           Le texte disait « Reçu : 1 opération et 0 révision ». Sur l'écran
-           verrouillé d'un téléphone, cela apprend qu'une seule saisie a été
-           faite sur l'autre appareil ce soir-là, et une saisie unique en dit
-           déjà long sur ce qu'on y a noté (6.5 du 30). Le volume reçu reste
-           consultable sur l'écran des appareils, où le coffre est ouvert.
+           Ce bloc appelait `avertir` directement, et c'était une seconde
+           porte vers le système, à côté de `notifications/emettre`. Elle
+           contournait tout ce que l'autre tient : le réglage par source du
+           § 3.4 — donc une notification partait alors que la personne
+           n'avait rien activé —, le plafond de cinq par jour, le verrou
+           entre onglets — donc trois onglets ouverts sonnaient trois fois —
+           et le libellé neutre de la décision 3, puisque celui-ci nommait
+           la synchronisation.
 
-           « Annulable pendant sept jours » reste : c'est un droit, pas une
-           donnée, et le perdre ferait croire la fusion définitive.
-        */
-        await avertir({
-          titre: 'Synchronisation effectuée',
-          corps: 'Annulable pendant sept jours.',
-          vers: lien('/appareils/'),
-          marque: `fusion-${recu.lot}`,
-        });
+           La fusion se contente donc de se DÉPOSER au centre, et c'est le
+           dépôt qui décide d'interrompre ou non, par la porte unique. Deux
+           conséquences, assumées et dites ici plutôt que découvertes :
 
-        /*
-           Et la fusion se dépose au centre, en plus de la notification du
-           système : celle-ci n'arrive que si une page est ouverte et que la
-           permission est accordée, donc elle se rate. Le centre, lui,
-           attend. Un échec de dépôt — coffre fermé — ne doit pas faire
-           échouer la fusion, qui, elle, a réussi.
+           1. le réglage « Synchronisation » étant éteint par défaut, aucune
+              notification du système ne part plus tant que personne ne l'a
+              activé. C'est exactement ce que le § 3.4 demande, et le centre,
+              lui, reçoit toujours ;
+           2. le libellé neutre ne dit plus « Annulable pendant sept
+              jours ». Le droit n'est pas perdu pour autant : l'écran des
+              appareils le dit trois fois et donne la date limite de chaque
+              lot, et c'est là que le centre mène.
+
+           **La décision 5 est mieux tenue qu'avant**, et non contournée :
+           elle exigeait qu'aucun nombre du rapport ne paraisse sur un écran
+           verrouillé. Le libellé est maintenant une constante, et seul le
+           numéro de lot — qui n'est pas un volume — traverse encore.
         */
         try {
           const { signalerUneFusion } = await import('../notifications/alimentation');
           await signalerUneFusion(recu.lot);
-        } catch {
-          /* Coffre fermé ou magasin absent : la fusion reste faite. */
+        } catch (erreur) {
+          /*
+             Dit, et non avalé. Le dépôt était déjà enveloppé ainsi quand il
+             DOUBLAIT la notification ; il est seul désormais, et un coffre
+             refermé entre-temps fait une fusion dont rien ne témoigne. La
+             fusion, elle, reste faite : c'est pour cela qu'on n'échoue pas.
+          */
+          console.warn(
+            'La fusion a réussi mais n’a pas pu être déposée au centre : rien ne la signalera.',
+            erreur,
+          );
         }
       },
     });
