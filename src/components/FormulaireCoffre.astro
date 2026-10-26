@@ -173,6 +173,7 @@ const cadre = nu
 
 <script>
   import { messageDUneErreur } from '../lib/agir';
+  import { accorde } from '../lib/noyau/accords';
   import { poserLesYeux } from '../lib/mot-de-passe-visible';
 
   /* D3 du 43 : « Afficher » sur le champ du coffre. Ce composant sert neuf
@@ -214,7 +215,8 @@ const cadre = nu
     const compte = document.getElementById('coffre-sans-cle-compte');
     if (compte) {
       compte.textContent =
-        `${combien.toLocaleString('fr-FR')} enregistrement(s) chiffré(s) sont dans ce cas.`;
+        `${combien.toLocaleString('fr-FR')} ${accorde(combien, 'enregistrement')} ` +
+        `${accorde(combien, 'chiffré')} ${accorde(combien, 'est', 'sont')} dans ce cas.`;
     }
 
     document.getElementById('coffre-recreer')?.addEventListener('click', () => {
@@ -225,7 +227,8 @@ const cadre = nu
           texte:
             'Les données chiffrées présentes sur cet appareil ne peuvent plus être lues : ' +
             `la clé qui les ouvre a disparu. Repartir d’un coffre neuf retire ces ` +
-            `${combien.toLocaleString('fr-FR')} enregistrement(s), définitivement. ` +
+            `${combien.toLocaleString('fr-FR')} ${accorde(combien, 'enregistrement')}, ` +
+            'définitivement. ' +
             'Si vous avez une sauvegarde, restaurez-la plutôt : elle contient la clé.',
           action: 'Repartir d’un coffre neuf',
           annuler: 'Annuler',
@@ -245,8 +248,9 @@ const cadre = nu
           const retires = await recreerLeCoffre(mdp);
           if (message) {
             message.textContent =
-              `Coffre neuf créé. ${retires.toLocaleString('fr-FR')} enregistrement(s) ` +
-              'illisibles ont été retirés.';
+              `Coffre neuf créé. ${retires.toLocaleString('fr-FR')} ` +
+              `${accorde(retires, 'enregistrement')} ${accorde(retires, 'illisible')} ` +
+              `${accorde(retires, 'a', 'ont')} été ${accorde(retires, 'retiré')}.`;
             message.classList.remove('hidden');
           }
           location.reload();

@@ -89,6 +89,7 @@ import LienReglages from '../../components/LienReglages.astro';
   import { poserLesYeux } from '../../lib/mot-de-passe-visible';
   import { jourISO } from '../../lib/db';
   import { messageDUneErreur } from '../../lib/agir';
+  import { accorde, pluriel } from '../../lib/noyau/accords';
   import { auDeverrouillage } from '../../lib/chargement';
   import { euros } from '../../lib/odyssee/finances';
   import { occurrences, TOLERANCE_PAR_DEFAUT } from '../../lib/odyssee/budget';
@@ -169,7 +170,7 @@ import LienReglages from '../../components/LienReglages.astro';
           .concat(e.length > 6 ? [`… et ${e.length - 6} de plus.`] : []);
       }
       case 'quoiMaintenant':
-        return [`${p.vue.aRapprocher} opération(s) à rapprocher.`];
+        return [`${pluriel(p.vue.aRapprocher, 'opération')} à rapprocher.`];
       case 'objectifs':
         return [
           `Épargne mensuelle prévue : ${euros(p.vue.epargneMensuelle)}.`,
@@ -181,8 +182,8 @@ import LienReglages from '../../components/LienReglages.astro';
         return [
           p.vue.joursDepuisLeDernierImport === null
             ? 'Aucun import encore.'
-            : `Dernier import il y a ${p.vue.joursDepuisLeDernierImport} jour(s).`,
-          `${p.vue.importsSurTroisMois} import(s) sur trois mois.`,
+            : `Dernier import il y a ${pluriel(p.vue.joursDepuisLeDernierImport, 'jour')}.`,
+          `${pluriel(p.vue.importsSurTroisMois, 'import')} sur trois mois.`,
           p.vue.partRapprochee === null
             ? 'Aucune échéance échue : rien à rapprocher pour l’instant.'
             : `${Math.round(p.vue.partRapprochee * 100)} % des échéances échues sont rapprochées.`,
@@ -193,10 +194,12 @@ import LienReglages from '../../components/LienReglages.astro';
         return [
           p.vue.sortiesParJourRecent === null
             ? 'Cadence récente : pas assez de données.'
-            : `Cadence récente : ${p.vue.sortiesParJourRecent.toFixed(2).replace('.', ',')} sortie(s) par jour.`,
+            : `Cadence récente : ${p.vue.sortiesParJourRecent.toFixed(2).replace('.', ',')} ` +
+              `${accorde(p.vue.sortiesParJourRecent, 'sortie')} par jour.`,
           p.vue.sortiesParJourDeBase === null
             ? 'Base : pas assez d’historique.'
-            : `Base : ${p.vue.sortiesParJourDeBase.toFixed(2).replace('.', ',')} sortie(s) par jour.`,
+            : `Base : ${p.vue.sortiesParJourDeBase.toFixed(2).replace('.', ',')} ` +
+              `${accorde(p.vue.sortiesParJourDeBase, 'sortie')} par jour.`,
           'Aucun montant, et aucune comparaison au budget.',
         ];
       case 'ia':

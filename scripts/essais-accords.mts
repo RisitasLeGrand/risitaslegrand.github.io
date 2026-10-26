@@ -70,6 +70,15 @@ v('zéro prend le singulier, comme en français', pluriel(0, 'jour'), '0 jour');
 v('un aussi', pluriel(1, 'jour'), '1 jour');
 v('deux prend le pluriel', pluriel(2, 'jour'), '2 jours');
 v('et la forme irrégulière se donne', pluriel(3, 'principal', 'principaux'), '3 principaux');
+/*
+   LE DÉCIMAL, et c'est lui qui a corrigé le seuil. « pluriel » s'écrivait
+   « n > 1 », donc mettait au pluriel dès 1,0001. Trouvé en accordant
+   « 1,25 sortie(s) par jour » sur l'écran du budget : une cadence est un
+   décimal, et le français garde le singulier jusqu'à deux exclu.
+*/
+v('un décimal sous deux reste au singulier', pluriel(1.25, 'sortie'), '1.25 sortie');
+v('et à deux il passe au pluriel', pluriel(2, 'sortie'), '2 sorties');
+v('accorde suit le même seuil', accorde(1.25, 'sortie'), 'sortie');
 
 console.log('\n\u001b[1mLE MOT QUI SUIT LE NOM\u001b[0m');
 /*

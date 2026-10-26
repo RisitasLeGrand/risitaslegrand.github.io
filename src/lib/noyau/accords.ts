@@ -26,16 +26,22 @@
  * ferait les deux obligerait à lui passer un nombre qu'elle n'afficherait
  * pas, et l'appelant finirait par le lui passer deux fois.
  *
- * ## Le seuil est 2, et il n'est pas discutable ici
+ * ## Le seuil est 2, et il se dit « moins de deux » et non « plus de un »
  *
- * En français, zéro et un prennent le singulier : « 0 jour », « 1 jour »,
- * « 2 jours ». C'est la règle de l'Académie, et c'est aussi ce que faisait
- * déjà `pluriel`. Elle est écrite une fois, ici, pour que les deux fonctions
- * ne puissent pas en avoir deux idées.
+ * En français, le singulier vaut jusqu'à DEUX exclu : « 0 jour », « 1 jour »,
+ * « 1,25 jour », « 2 jours ». C'est la règle de l'Académie, et la nuance n'est
+ * pas théorique : `pluriel` s'écrivait `n > 1`, ce qui met au pluriel dès
+ * 1,0001.
+ *
+ * Trouvé en corrigeant « 1,25 sortie(s) par jour » sur l'écran du budget —
+ * une cadence, donc un décimal. Avec `n > 1` il aurait dit « 1,25 sorties ».
+ * Le seuil est donc écrit `n >= 2`, ce qui ne change rien aux entiers et
+ * corrige les décimaux. Il est écrit une fois, ici, pour que les deux
+ * fonctions ne puissent pas en avoir deux idées.
  */
 
-/** Le singulier vaut jusqu'à 1 inclus : « 0 jour », « 1 jour », « 2 jours ». */
-const auPluriel = (n: number): boolean => n > 1;
+/** Le singulier vaut jusqu'à DEUX exclu : « 1,25 jour », « 2 jours ». */
+const auPluriel = (n: number): boolean => n >= 2;
 
 /**
  * Le nombre et son nom, accordés : `pluriel(2, 'jour')` → « 2 jours ».
