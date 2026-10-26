@@ -57,8 +57,34 @@ await franchirInitialisation(page, BASE, MDP);
    ══════════════════════════════════════════════════════════════════════════ */
 console.log('\nLE VOILE SUR L’ÉCRAN QUITTÉ');
 
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CET ESSAI, ET POURQUOI AUCUNE N'EST UNE DURÉE
+
+   `docs/cyclades/cadence-des-essais.md` § 3 et § 4. Sept temporisations à
+   l'aveugle. Le voile est posé et retiré par un gestionnaire SYNCHRONE —
+   « visibilitychange », « blur », « focus » — donc rien ne peut être surpris
+   à mi-chemin : l'élément existe ou n'existe pas dès que l'événement est
+   distribué. On attend donc sa présence ou son absence, bornée, plutôt qu'une
+   durée ; et la prémisse « elle n'est pas voilée » n'a rien à attendre du
+   tout, puisqu'aucun geste ne l'a précédée.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI = 30_000;
+
+/** Attend que le voile soit posé, ou retiré. */
+const attendreLeVoile = (pose, p = page) =>
+  p
+    .waitForFunction(
+      (veutPose) => Boolean(document.getElementById('voile-confidentialite')) === veutPose,
+      pose,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+
 await page.goto(`${BASE}/progression/`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(1000);
 
 const etatDuVoile = () =>
   page.evaluate(() => {
@@ -93,7 +119,7 @@ await page.evaluate(() => {
   Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
   document.dispatchEvent(new Event('visibilitychange'));
 });
-await page.waitForTimeout(400);
+await attendreLeVoile(true);
 
 const enArriere = await etatDuVoile();
 verifier('prémisse : la page se dit cachée', enArriere.visibilite, 'hidden');
@@ -109,7 +135,7 @@ await page.evaluate(() => {
   Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
   document.dispatchEvent(new Event('visibilitychange'));
 });
-await page.waitForTimeout(400);
+await attendreLeVoile(false);
 const auRetour = await etatDuVoile();
 verifier('au retour, la page se dit visible', auRetour.visibilite, 'visible');
 verifier('et le voile s’est retiré', auRetour.present, false);
@@ -121,10 +147,10 @@ verifier('et le voile s’est retiré', auRetour.present, false);
    ne couvre tous les systèmes.
 */
 await page.evaluate(() => window.dispatchEvent(new Event('blur')));
-await page.waitForTimeout(300);
+await attendreLeVoile(true);
 verifier('la perte de focus voile aussi', (await etatDuVoile()).present, true);
 await page.evaluate(() => window.dispatchEvent(new Event('focus')));
-await page.waitForTimeout(300);
+await attendreLeVoile(false);
 verifier('et le retour du focus dévoile', (await etatDuVoile()).present, false);
 
 /* ══════════════════════════════════════════════════════════════════════════
@@ -141,7 +167,17 @@ const ctxFerme = await nav.newContext({ viewport: { width: 1280, height: 900 } }
 const fermee = await ctxFerme.newPage();
 
 await fermee.goto(`${BASE}/`, { waitUntil: 'networkidle' });
-await fermee.waitForTimeout(1200);
+/* L'écran d'entrée est ce que la prémisse lit : on l'attend, borné. */
+await fermee
+  .waitForFunction(
+    () => {
+      const e = document.getElementById('ecran-verrou');
+      return Boolean(e) && !e.classList.contains('hidden');
+    },
+    undefined,
+    { timeout: DELAI },
+  )
+  .catch(() => {});
 verifier(
   'prémisse : sans mot de passe, l’écran d’entrée est bien affiché',
   await fermee.evaluate(() => {
@@ -162,7 +198,15 @@ verifier(
 
 await fermee.click('#ecran-verrou a');
 await fermee.waitForLoadState('networkidle');
-await fermee.waitForTimeout(1000);
+/*
+   LA FICHE EST UNE AUTRE PAGE : son titre vient du serveur, et il est là dès
+   que le document est analysé. Ce qu'on attend, c'est que le verrou de CETTE
+   page-ci ne la recouvre pas — c'est le second constat, et il est écrit par
+   le script de la page, donc après le titre.
+*/
+await fermee
+  .waitForFunction(() => document.querySelector('h1') !== null, undefined, { timeout: DELAI })
+  .catch(() => {});
 
 verifier(
   'la fiche s’ouvre sans qu’on ait saisi quoi que ce soit',

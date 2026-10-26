@@ -64,6 +64,41 @@ const ouvrirLaSession = async (p) => {
   }
 };
 
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CET ESSAI, ET POURQUOI AUCUNE N'EST UNE DURÉE
+
+   `docs/cyclades/cadence-des-essais.md` § 3 et § 4. Six temporisations à
+   l'aveugle, et quatre d'entre elles précédaient un constat NÉGATIF : « le
+   coffre n'est pas redemandé ». Un invariant négatif ne s'attend pas — il est
+   vrai tout de suite, et le resterait si le cadenas paraissait une seconde
+   plus tard.
+
+   On attend donc son COMPLÉMENT POSITIF, qui dit la même chose dans l'autre
+   sens : l'écran du coffre ouvert. Là où le cadenas DOIT paraître — le
+   contexte sans onglet donneur —, c'est lui qu'on attend.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI = 30_000;
+
+/** Attend que l'écran du coffre ouvert soit là, ou que le cadenas paraisse. */
+const attendreLeCoffre = (p, ouvert) =>
+  p
+    .waitForFunction(
+      (veutOuvert) => {
+        const vu = (id) => {
+          const e = document.getElementById(id);
+          return Boolean(e) && e.getBoundingClientRect().height > 0;
+        };
+        return veutOuvert ? vu('coffre-ouvert') : vu('mdp-coffre');
+      },
+      ouvert,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+
 const ouvrirLeCoffre = async (p) => {
   const champ = p.locator('#mdp-coffre');
   await champ.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
@@ -153,7 +188,16 @@ console.log('\n  B — une note scellée par l’écran');
 
 await page.fill('#note', NOTE);
 await page.click('#enregistrer');
-await page.waitForTimeout(800);
+/*
+   L'écran dit l'heure à laquelle il a noté, et il le dit APRÈS l'écriture
+   scellée : c'est la post-condition du geste, et c'est aussi ce que le
+   contrôle E relira plus bas.
+*/
+await page
+  .waitForFunction(() => /Noté à \d{2}:\d{2}/.test(document.body.textContent ?? ''), undefined, {
+    timeout: DELAI,
+  })
+  .catch(() => {});
 
 /* --- C. Naviguer et recharger ne redemandent rien ------------------------- */
 
@@ -161,7 +205,7 @@ console.log('\n  C — navigation et rechargement');
 
 await page.goto(`${RACINE}/odyssee/corps/`, { waitUntil: 'networkidle' });
 await ouvrirLaSession(page);
-await page.waitForTimeout(1000);
+await attendreLeCoffre(page, true);
 v(
   'après navigation, le coffre n’est pas redemandé',
   await page.locator('#mdp-coffre').isVisible().catch(() => false),
@@ -171,7 +215,7 @@ v(
 await page.goto(`${RACINE}/odyssee/psyche/`, { waitUntil: 'networkidle' });
 await page.reload({ waitUntil: 'networkidle' });
 await ouvrirLaSession(page);
-await page.waitForTimeout(1200);
+await attendreLeCoffre(page, true);
 v(
   'après rechargement non plus',
   await page.locator('#mdp-coffre').isVisible().catch(() => false),
@@ -184,7 +228,28 @@ console.log('\n  D — fermer efface le chiffré ET l’enveloppe');
 
 await page.click('#fermer-coffre');
 await page.locator('#coffre-ferme').waitFor({ state: 'visible', timeout: 10000 });
-await page.waitForTimeout(600);
+/*
+   L'ÉCRAN REVIENT AVANT QUE LES STOCKAGES NE SOIENT VIDÉS : six cents
+   millisecondes couvraient cet écart. Les deux constats qui suivent lisent
+   l'enveloppe et le relais, donc c'est leur disparition qu'on attend — dans
+   le stockage, qui n'a pas de marque à l'écran.
+*/
+await page
+  .waitForFunction(
+    () =>
+      new Promise((ok) => {
+        const d = indexedDB.open('revinsp');
+        d.onerror = () => ok(false);
+        d.onsuccess = () => {
+          const r = d.result.transaction('etat').objectStore('etat').get('coffre.enveloppe');
+          r.onsuccess = () => ok(r.result === undefined || r.result === null);
+          r.onerror = () => ok(false);
+        };
+      }),
+    undefined,
+    { timeout: DELAI },
+  )
+  .catch(() => {});
 /*
    Rechargement avant de relever : sans lui, le champ garderait simplement ce
    qui y a été tapé, et le contrôle E mesurerait sa propre saisie plutôt que
@@ -206,7 +271,18 @@ console.log('\n  E — rouvrir, et retrouver ce qui a été scellé');
 await page.reload({ waitUntil: 'networkidle' });
 await ouvrirLaSession(page);
 v('le coffre redemande bien son mot de passe', await ouvrirLeCoffre(page), true);
-await page.waitForTimeout(1500);
+/*
+   LA NOTE EST RÉINJECTÉE DANS LE CHAMP par l'écran, après déchiffrement : le
+   champ part vide d'un rechargement, donc « non vide » est une vraie
+   transition, et elle ne présuppose pas le contenu que l'assertion compare.
+*/
+await page
+  .waitForFunction(
+    () => (document.getElementById('note')?.value ?? '') !== '',
+    undefined,
+    { timeout: DELAI },
+  )
+  .catch(() => {});
 /*
    La note est relue DANS LE CHAMP, pas dans le corps de la page — l'écran la
    réinjecte depuis l'enregistrement déchiffré. Mon premier contrôle regardait
@@ -241,7 +317,8 @@ console.log('\n  F — la frontière de la session');
 const onglet = await ctx.newPage();
 await onglet.goto(`${RACINE}/odyssee/psyche/`, { waitUntil: 'networkidle' });
 await ouvrirLaSession(onglet);
-await onglet.waitForTimeout(2500);
+/* L'onglet neuf hérite : son écran de coffre ouvert est la marque positive. */
+await attendreLeCoffre(onglet, true);
 v(
   'un onglet neuf hérite de la session (relais, case cochée par défaut)',
   await onglet.locator('#mdp-coffre').isVisible().catch(() => false),
@@ -254,7 +331,9 @@ const etranger = await nav.newContext({ viewport: { width: 1280, height: 900 } }
 const p3 = await etranger.newPage();
 await p3.goto(`${RACINE}/odyssee/psyche/`, { waitUntil: 'networkidle' });
 await ouvrirLaSession(p3);
-await p3.waitForTimeout(2500);
+/* Ici le cadenas DOIT paraître : c'est lui qu'on attend, et son absence au
+   bout de la borne laisse l'assertion rougir. */
+await attendreLeCoffre(p3, false);
 v(
   'mais un contexte sans donneur redemande le coffre',
   await p3.locator('#mdp-coffre').isVisible().catch(() => false),

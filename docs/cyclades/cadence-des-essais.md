@@ -418,6 +418,33 @@ l'ont montré en disant que rien ne s'opposait au geste. **Quand on remplace un
 bloc, on vérifie que le geste y est encore** ; et un rouge cohérent n'est pas
 pour autant un rouge du site.
 
+### Et ce que le troisième lot a ajouté
+
+*« rapprocher-ecran » (16 sites), « coffre-session » (6), « voile-et-fiche »
+(7), « consommateurs-ecran » (6), « initialisation-sans-defaut » (7). Trois
+cent deux sites restent, contre 458 au départ.*
+
+**Le premier motif revient déguisé, et il faut l'attendre à chaque fois.** Une
+attente à deux issues compare souvent la seconde à un état, non à un
+changement : « le refus est affiché », « l'erreur est visible ». Or un message
+d'erreur qui reste d'un écran à l'autre rend cette condition vraie AVANT le
+geste — c'est le motif 1 du § 3, et il reprend la main aussitôt. Mesuré sur le
+parcours d'initialisation : cinq questions distinctes au lieu de la dizaine,
+l'essai relisant deux fois le même écran. La forme juste relève l'état
+d'avant — la question affichée ET l'erreur déjà visible — et attend qu'il
+diffère.
+
+**Un invariant négatif a souvent un complément positif, et c'est lui qu'on
+attend.** « Le coffre n'est pas redemandé » ne s'attend pas ; « l'écran du
+coffre ouvert est là » dit la même chose dans l'autre sens, et c'est une vraie
+transition. Quatre des six attentes de « coffre-session » tenaient à cela.
+
+**Et une aide se pose avant son premier usage.** Un `const` fléché employé
+plus haut dans le fichier ne lève pas à la lecture mais à l'exécution —
+« Cannot access before initialization » —, et l'essai s'arrête après ses
+premières assertions vertes, ce qui ressemble à tout sauf à une erreur de
+rangement.
+
 ### Ce que coûte une conversion, mesuré
 
 Le pilote : **2 h 01 d'horloge pour 26 sites**, trois essais, un socle. À ce
