@@ -239,6 +239,20 @@ export async function compterParGroupe(): Promise<CompteDeGroupe[]> {
  * Les groupes vides sont tus : « Sport : 0 » n'aide personne à décider, et
  * noyer douze lignes utiles dans vingt lignes à zéro revient à ne rien dire.
  * Le total, lui, est toujours écrit — c'est le seul nombre qu'on retient.
+ *
+ * ## L'accord est écrit à la main, et c'est voulu
+ *
+ * Cette phrase disait « soit N enregistrement(s) en tout », et le prompt 43
+ * interdit cette forme. `pluriel()` de `lib/ui.ts` ne convient pas ici : il
+ * rend le nombre BRUT, et celui-ci doit garder sa mise en forme française —
+ * « 4 128 » arrête une main que « 4128 » n'arrête pas, et c'est tout l'objet
+ * du paragraphe ci-dessus.
+ *
+ * Elle était la NEUVIÈME occurrence du relevé, et la plus coûteuse : elle
+ * n'est pas dans un écran mais dans cette bibliothèque, d'où elle entrait
+ * dans les deux confirmations les plus graves du site — remplacer toute la
+ * progression, et tout effacer. Corriger les écrans sans elle aurait laissé
+ * le « (s) » exactement là où on l'avait signalé.
  */
 export function direLesGroupes(comptes: readonly CompteDeGroupe[]): string {
   const pleins = comptes.filter((c) => c.vises > 0);
@@ -246,7 +260,8 @@ export function direLesGroupes(comptes: readonly CompteDeGroupe[]): string {
   if (!pleins.length) return 'aucun enregistrement';
   return (
     pleins.map((c) => `${c.libelle} ${c.vises.toLocaleString('fr-FR')}`).join(', ') +
-    ` — soit ${total.toLocaleString('fr-FR')} enregistrement(s) en tout`
+    ` — soit ${total.toLocaleString('fr-FR')} ` +
+    `${total > 1 ? 'enregistrements' : 'enregistrement'} en tout`
   );
 }
 

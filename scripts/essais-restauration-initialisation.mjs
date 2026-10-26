@@ -35,9 +35,24 @@ import path from 'node:path';
 
 import { chromium } from 'playwright-core';
 
-import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
-import { repondreALaBoite } from './lib/boite-essais.mjs';
+/*
+   LA CHAÎNE « FABRIQUER PUIS RESTAURER » VIT DANS `lib/`, ET PAS ICI.
+
+   Le 58 p2 doit mesurer la même chose — une sauvegarde d'un appareil A
+   restaurée sur un appareil B neuf —, et deux copies de cette chaîne
+   divergeraient : le jour où l'écran de sauvegarde change un identifiant,
+   l'une des deux resterait verte sur un chemin qui n'existe plus.
+
+   Ce qui reste ici est ce qui appartient à CE lot : quelle donnée la
+   sauvegarde porte, et ce qu'on en attend ensuite.
+*/
+import {
+  deverrouiller,
+  fabriquerUneSauvegarde,
+  restaurerDepuis,
+  unProfilNeuf,
+} from './lib/sauvegarde-essais.mjs';
 
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
 const MDP = motDePasseEssais();
@@ -69,35 +84,15 @@ const nav = await chromium.launch({
   args: ['--no-sandbox'],
 });
 
-/** Un contexte neuf : aucune base, aucun profil, rien de mémorisé. */
-async function unProfilNeuf() {
-  const ctx = await nav.newContext({
-    viewport: { width: 390, height: 844 },
-    hasTouch: true,
-    isMobile: true,
-    acceptDownloads: true,
-  });
-  return { ctx, page: await ctx.newPage() };
-}
-
-/** Rouvre le verrou du site si l'écran le redemande. */
-async function deverrouiller(page) {
-  if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
-    await page.fill('#champ-mdp', MDP);
-    await page.click('#bouton-verrou');
-    await page.waitForTimeout(1000);
-  }
-}
-
 /* ══════════════════════════════════════════════════════════════════════════
    1. La première question offre la restauration
    ══════════════════════════════════════════════════════════════════════════ */
 
 console.log('\nLA PREMIÈRE QUESTION OFFRE LA RESTAURATION');
 {
-  const { ctx, page } = await unProfilNeuf();
+  const { ctx, page } = await unProfilNeuf(nav);
   await page.goto(`${RACINE}/initialisation/`, { waitUntil: 'networkidle' });
-  await deverrouiller(page);
+  await deverrouiller(page, MDP);
   await page.waitForSelector('#question', { timeout: 30000 });
   await page.waitForTimeout(1200);
 
@@ -133,66 +128,75 @@ console.log('\nLA PREMIÈRE QUESTION OFFRE LA RESTAURATION');
 
 console.log('\nLA SAUVEGARDE SE FABRIQUE, PUIS SE RESTAURE SUR UN PROFIL NEUF');
 
-/** Fabrique une sauvegarde depuis l'écran, et rend son chemin sur le disque. */
-async function fabriquerUneSauvegarde(marque) {
-  const { ctx, page } = await unProfilNeuf();
-  await franchirInitialisation(page, RACINE, MDP);
-  /* Une donnée reconnaissable, pour savoir ensuite si elle est revenue. */
+/**
+ * Ce que la sauvegarde de CE lot porte : un poids, qui se reconnaît ensuite.
+ *
+ * C'est la part que le module partagé ne décide pas, et c'est voulu : le
+ * constructeur passera, par le même point d'entrée, l'ouverture du coffre et
+ * une donnée scellée d'Odyssée. Une fixture qui imposerait sa donnée
+ * promettrait à chaque essai ce qu'elle porte pour un seul.
+ */
+const poserUnPoids = (marque) => async (page) => {
   await page.goto(`${RACINE}/odyssee/corps/`, { waitUntil: 'networkidle' });
-  await deverrouiller(page);
+  await deverrouiller(page, MDP);
   await page.waitForTimeout(1500);
   await page.locator('#kg').fill(String(marque));
   await page.locator('#peser').click();
   await page.waitForTimeout(1200);
-
-  await page.goto(`${RACINE}/progression/`, { waitUntil: 'networkidle' });
-  await deverrouiller(page);
-  await page.waitForTimeout(1500);
-  await page.fill('#mdp-sauvegarde', MDP);
-  const attente = page.waitForEvent('download', { timeout: 60000 });
-  await page.click('#sauvegarder');
-  const telechargement = await attente;
-  const chemin = path.join(dossier, 'sauvegarde.cyclades');
-  await telechargement.saveAs(chemin);
-  await ctx.close();
-  return chemin;
-}
-
-/** Suit le chemin d'une personne qui restaure, et rend ce qu'elle a vu. */
-async function restaurerDepuis(page, chemin, motDePasse) {
-  await page.goto(`${RACINE}/progression/#restaurer`, { waitUntil: 'networkidle' });
-  await deverrouiller(page);
-  await page.waitForSelector('#fichier-cyclades', { timeout: 30000 });
-  await page.locator('#fichier-cyclades').setInputFiles(chemin);
-  await page.waitForTimeout(2500);
-  const verifie = (await page.locator('#apercu-cyclades:not(.hidden)').count()) > 0;
-  if (!verifie) {
-    return { verifie, message: ((await page.locator('#message-cyclades').textContent()) ?? '').trim() };
-  }
-  await page.fill('#mdp-restauration', motDePasse);
-  await page.locator('#avec-instantane').uncheck().catch(() => {});
-  await page.click('#appliquer-cyclades');
-  await page.waitForTimeout(800);
-  await repondreALaBoite(page, 'Remplacer').catch(() => {});
-  await page.waitForTimeout(4000);
-  return { verifie, message: ((await page.locator('#message-cyclades').textContent()) ?? '').trim() };
-}
+};
 
 const MARQUE = 77;
-const sauvegarde = await fabriquerUneSauvegarde(MARQUE);
+const sauvegarde = await fabriquerUneSauvegarde(nav, {
+  racine: RACINE,
+  motDePasseDuSite: MDP,
+  dossier,
+  poser: poserUnPoids(MARQUE),
+});
 {
-  const { ctx, page } = await unProfilNeuf();
-  const issue = await restaurerDepuis(page, sauvegarde, MDP);
+  const { ctx, page } = await unProfilNeuf(nav);
+  const issue = await restaurerDepuis(page, {
+    racine: RACINE,
+    chemin: sauvegarde,
+    motDePasseDuSite: MDP,
+    /*
+       LE MOT DE PASSE DU FICHIER, et c'est le point qui compte :
+       `restaurer()` relit la sauvegarde avec lui et ne touche pas au coffre.
+       Il vaut MDP ici parce que la sauvegarde a été faite avec le mot de
+       passe du site — ce qui rendait la confusion des deux indétectable, et
+       c'est pourquoi le module les sépare.
+    */
+    motDePasseDuFichier: MDP,
+  });
   vrai('le fichier est vérifié avant d’être appliqué', issue.verifie);
   vrai(
     `la restauration est faite, et elle le dit (« ${issue.message.slice(0, 60)} »)`,
     /Restauration faite/i.test(issue.message),
   );
 
+  /*
+     ET LES DEUX PHRASES S'ACCORDENT, parce qu'elles comptent.
+
+     Elles portaient « enregistrement(s) », « jour(s) », « magasin(s)
+     inconnu(s) » — une forme que le prompt 43 interdit, et que l'écran de
+     confirmation du remplacement montrait au moment le plus mal choisi : juste
+     avant d'écraser une base. `essais:typographie` ne les voyait pas, puisqu'il
+     n'éprouve que la fonction `insecables`.
+
+     On mesure ici les DEUX textes de ce chemin — la boîte qu'on lit avant, le
+     message qu'on lit après — et on les mesure par leur rendu, pas par leur
+     code : c'est ce que la personne lit.
+  */
+  v('la boîte de remplacement ne porte aucun « (s) »', /\(s\)|\(es\)/.test(issue.confirmation), false);
+  v('le message d’après non plus', /\(s\)|\(es\)/.test(issue.message), false);
+  vrai(
+    `et le pluriel est accordé (« ${issue.message.slice(0, 48)} »)`,
+    /\d+ enregistrements? écrits?/.test(issue.message),
+  );
+
   /* ── 3. L'initialisation est considérée comme faite ───────────────── */
   console.log('\nENSUITE, L’INITIALISATION N’EST PAS REDEMANDÉE');
   await page.goto(`${RACINE}/odyssee/corps/`, { waitUntil: 'networkidle' });
-  await deverrouiller(page);
+  await deverrouiller(page, MDP);
   await page.waitForTimeout(2500);
   const apres = await page.evaluate((marque) => ({
     questionnaire: Boolean(document.getElementById('question')),
@@ -214,9 +218,9 @@ const sauvegarde = await fabriquerUneSauvegarde(MARQUE);
 */
 console.log('\nET LE TÉMOIN : UN PROFIL NEUF, LUI, VOIT BIEN LE QUESTIONNAIRE');
 {
-  const { ctx, page } = await unProfilNeuf();
+  const { ctx, page } = await unProfilNeuf(nav);
   await page.goto(`${RACINE}/initialisation/`, { waitUntil: 'networkidle' });
-  await deverrouiller(page);
+  await deverrouiller(page, MDP);
   await page.waitForTimeout(2000);
   vrai(
     'un profil neuf voit le questionnaire',
@@ -231,9 +235,9 @@ console.log('\nET LE TÉMOIN : UN PROFIL NEUF, LUI, VOIT BIEN LE QUESTIONNAIRE')
 
 console.log('\nQUESTIONNAIRE COMMENCÉ : L’OFFRE PRÉVIENT');
 {
-  const { ctx, page } = await unProfilNeuf();
+  const { ctx, page } = await unProfilNeuf(nav);
   await page.goto(`${RACINE}/initialisation/`, { waitUntil: 'networkidle' });
-  await deverrouiller(page);
+  await deverrouiller(page, MDP);
   await page.waitForSelector('#question', { timeout: 30000 });
   await page.waitForTimeout(1200);
 
@@ -287,8 +291,13 @@ console.log('\nUN FICHIER ABÎMÉ EST REFUSÉ');
   const octets = await readFile(sauvegarde);
   await writeFile(abime, octets.subarray(0, Math.floor(octets.length / 2)));
 
-  const { ctx, page } = await unProfilNeuf();
-  const issue = await restaurerDepuis(page, abime, MDP);
+  const { ctx, page } = await unProfilNeuf(nav);
+  const issue = await restaurerDepuis(page, {
+    racine: RACINE,
+    chemin: abime,
+    motDePasseDuSite: MDP,
+    motDePasseDuFichier: MDP,
+  });
   vrai('le fichier tronqué n’est pas accepté', !issue.verifie);
   vrai(
     `et le refus est dit (« ${issue.message.slice(0, 70)} »)`,
@@ -297,7 +306,7 @@ console.log('\nUN FICHIER ABÎMÉ EST REFUSÉ');
 
   /* Et la base n'a rien reçu : le questionnaire est toujours à faire. */
   await page.goto(`${RACINE}/initialisation/`, { waitUntil: 'networkidle' });
-  await deverrouiller(page);
+  await deverrouiller(page, MDP);
   await page.waitForTimeout(2000);
   vrai(
     'rien n’a été appliqué : le questionnaire est toujours là',
