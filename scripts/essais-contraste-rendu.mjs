@@ -1,14 +1,20 @@
 /**
  * Le contraste **des pages rendues**, dans les deux thèmes.
  *
- * ## Ce que l'autre script ne pouvait pas dire
+ * ## Ce que l'autre essai ne peut pas dire
  *
- * « npm run contrastes » lit les jetons de `tokens.css` et contrôle une liste
- * de combinaisons écrite à la main. Il prouve que **la palette** est bonne. Il
- * ne prouve pas qu'aucune page n'a posé une couleur hors de cette palette, ni
- * qu'une superposition imprévue — un texte clair sur une carte claire — ne
- * s'est pas formée au rendu. C'est la réserve que l'audit portait au constat
- * C-027, et c'est ce que ce script-ci lève.
+ * `essais:contrastes-themes` demande au générateur la valeur de chaque jeton
+ * et éprouve une liste de couples, sur les quatorze thèmes et leurs vingt-cinq
+ * modes. Il prouve que **la palette** est bonne. Il ne prouve pas qu'aucune
+ * page n'a posé une couleur hors de cette palette, ni qu'une superposition
+ * imprévue — un texte clair sur une carte claire — ne s'est pas formée au
+ * rendu. C'est la réserve que l'audit portait au constat C-027, et c'est ce
+ * que ce script-ci lève.
+ *
+ * (Cette phrase nommait « npm run contrastes », retiré le 25 octobre : il
+ * lisait ses teintes dans un sélecteur de `tokens.css` que les couleurs
+ * avaient quitté, et comptait « teinte absente » comme « sous le seuil ». Ses
+ * combinaisons vivent désormais dans `essais:contrastes-themes`.)
  *
  * ## La méthode, et ses deux pièges
  *
@@ -192,9 +198,30 @@ for (const theme of ['clair', 'sombre']) {
      pas, et la première version de ce script a mesuré deux fois le thème
      sombre en croyant en mesurer deux. On écrit le choix.
   */
+  /*
+     ÉCRIRE LE CHOIX NE SUFFIT PAS NON PLUS : LA BASCULE JOUR/NUIT L'EMPORTE.
+
+     « lireBascule » vaut vrai tant que « revinsp.bascule-jour-nuit » ne vaut
+     pas « non » : elle est donc ACTIVE PAR DÉFAUT, et c'est la demande
+     d'Alexis. Le mode vient alors de l'HEURE, et non du choix enregistré —
+     cet essai était donc dépendant de l'heure : vert le jour, rouge la nuit.
+     Il a échoué à 21 h 43 sur « le thème demandé est clair, la page rend
+     sombre », et il aurait passé le matin, ce qui est pire qu'un rouge franc.
+
+     Mesuré à 21 h, sur l'accueil, avant de corriger :
+
+       bascule laissée par défaut   data-theme « sombre »   choix « bascule »
+       bascule éteinte              data-theme « clair »    choix « clair »
+
+     Ce n'est pas un assouplissement. L'objet de cet essai est le contraste
+     des pages RENDUES dans les deux modes : il doit donc MAÎTRISER le mode au
+     lieu de le subir. La garde qui suit reste entière — si le mode rendu
+     n'est pas celui demandé, l'essai s'arrête toujours.
+  */
   await ctx.addInitScript((t) => {
     try {
       localStorage.setItem('revinsp.theme', t);
+      localStorage.setItem('revinsp.bascule-jour-nuit', 'non');
     } catch {
       /* navigation privée */
     }

@@ -12,6 +12,7 @@
  */
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { nonMesurable } from './lib/non-mesurable.mjs';
 
 const MDP = motDePasseEssais();
 
@@ -62,15 +63,56 @@ console.log('\nUN QUIZ ALIMENTE LES TROIS GRANULARITÉS');
 await page.goto('http://localhost:4321/quiz/cours', { waitUntil: 'networkidle' });
 await connecter();
 await page.waitForTimeout(2000);
-// On fixe la matière : un tirage libre peut tomber sur le cas pratique ou sur
-// une fiche de méthodologie, que l'estimation écarte volontairement — l'essai
-// ne mesurerait alors plus rien, et échouerait sans qu'aucun défaut existe.
-await page.waitForFunction(
-  () => Boolean(document.querySelector('#quiz-matiere option[value="Économie"]')),
-  null,
-  { timeout: 30000 },
-);
-await page.selectOption('#quiz-matiere', 'Économie');
+/*
+   ON FIXE LA MATIÈRE, MAIS ON NE LA NOMME PLUS EN DUR.
+
+   Elle est fixée parce qu'un tirage libre peut tomber sur le cas pratique ou
+   sur une fiche de méthodologie, que l'estimation écarte volontairement :
+   l'essai ne mesurerait alors plus rien, et rougirait sans qu'aucun défaut
+   existe.
+
+   Elle était écrite « Économie », et cette matière n'existe QUE dans le corpus
+   réel. Sur le contenu d'exemple — Droit public, Questions internationales —
+   l'attente expirait au bout de trente secondes et l'essai LEVAIT : code 1,
+   aucune croix, aucun message. Le pire des trois cas, un rouge muet.
+
+   La réponse n'est pas de renoncer : les deux matières du contenu d'exemple
+   comptent dans l'estimation, donc l'essai PEUT mesurer. Il choisit donc —
+   « Économie » si elle est là, pour garder la matière éprouvée, sinon la
+   première qui ne soit pas le cas pratique. Un essai qui peut mesurer doit
+   mesurer ; le refus est pour ce qui ne se mesure pas, et cette porte-là reste
+   ouverte en dessous, au cas où aucune matière du corpus n'alimenterait
+   l'estimation.
+*/
+const matieresOffertes = await page
+  .waitForFunction(
+    () => {
+      const noms = [...document.querySelectorAll('#quiz-matiere option')]
+        .map((o) => o.value)
+        .filter(Boolean);
+      return noms.length ? noms : null;
+    },
+    null,
+    { timeout: 30000 },
+  )
+  .then((r) => r.jsonValue())
+  .catch(() => []);
+
+const matiereChoisie =
+  matieresOffertes.find((m) => m === 'Économie') ??
+  matieresOffertes.find((m) => m !== 'Cas pratique');
+
+if (!matiereChoisie) {
+  await nav.close();
+  nonMesurable(
+    'une matière que l’estimation accepte de mesurer : le cas pratique et les ' +
+      'fiches de méthodologie en sont écartés par construction, et un quiz tiré ' +
+      'là-dedans ne produirait aucune observation',
+    `matières servies : ${matieresOffertes.join(', ') || 'aucune'}`,
+  );
+}
+console.log(`  (matière mesurée : ${matiereChoisie})`);
+await page.selectOption('#quiz-matiere', matiereChoisie);
 await page.waitForTimeout(800);
 await page.locator('#lancer-quiz').click();
 /*

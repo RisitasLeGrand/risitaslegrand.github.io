@@ -21,6 +21,7 @@
  * n'existaient pas : une absence silencieuse se lirait comme un oubli.
  */
 import Base from '../../layouts/Base.astro';
+import Icone from '../../components/Icone.astro';
 import { MESURES, MOMENTS } from '../../lib/odyssee/corps';
 import { NATURES, VOIES } from '../../lib/odyssee/sensible';
 import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
@@ -312,8 +313,9 @@ import FormulaireCoffre from '../../components/FormulaireCoffre.astro';
 
       <!-- Ce qui passe par le coffre -->
       <section class="rounded-2xl border-2 border-slate-300 bg-slate-50 p-4 dark:border-slate-700 dark:bg-slate-900">
-        <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
-          🔒 Mes traitements et mon statut hormonal
+        <h2 class="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
+          <Icone nom="coffre-ferme" taille={20} />
+          <span>Mes traitements et mon statut hormonal</span>
         </h2>
         <p class="mt-1 text-sm text-slate-600 dark:text-slate-300">
           Ces deux-là sont <strong>chiffrés dans la base</strong> : illisibles sans le mot de passe,

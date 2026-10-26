@@ -234,7 +234,7 @@ import LienReglages from '../../components/LienReglages.astro';
   /* D4 du 43 : la charge se tape avec une virgule sur un clavier français ;
      l'analyseur commun la lit, et rend « null » sur une saisie illisible —
      exactement là où le code mettait « null » sur un champ vide. */
-  import { nombreDuChamp } from '../../lib/nombre-saisi';
+  import { nombreDuChamp, nombreEntier } from '../../lib/nombre-saisi';
   import { direLErreur, effacerLErreur, validerALaSortie } from '../../lib/erreur-de-champ';
   import { agirPuisPeindre, messageDUneErreur } from '../../lib/agir';
   import { proposerLAnnulation } from '../../lib/annulation';
@@ -448,8 +448,14 @@ import LienReglages from '../../components/LienReglages.astro';
 
   function direEstimation() {
     const charge = nombreDuChamp($('charge') as HTMLInputElement);
-    const reps = Number(($('repetitions') as HTMLInputElement).value);
-    const estimation = maximumEstime(charge, reps);
+    /*
+       Par l'analyseur ici aussi, et pas seulement à l'écriture : `Number('')`
+       vaut zéro, et `maximumEstime` refuse bien zéro répétition — mais le
+       refus venait alors d'un zéro inventé. Une absence de saisie est une
+       absence d'estimation, et c'est ce que dit ce `null`.
+    */
+    const reps = nombreEntier(($('repetitions') as HTMLInputElement).value);
+    const estimation = reps === null ? null : maximumEstime(charge, reps);
     if (!estimation) {
       $('estimation').textContent = '';
       return;
@@ -639,13 +645,34 @@ import LienReglages from '../../components/LienReglages.astro';
       return false;
     }
     effacerLErreur(champCharge);
+
+    /*
+       D4, seconde moitié : `Number('')` vaut ZÉRO, et une série à zéro
+       répétition n'est pas une série.
+
+       Ce champ n'était tenu que par la validation NATIVE — `required` sur un
+       vrai formulaire —, et le commentaire de M6 le disait déjà : « le jour où
+       l'on garderait les répétitions comme on garde déjà la charge, le double
+       appui aurait écrit deux séries en silence ». Le garde est maintenant
+       dans le code, où il se lit, plutôt que dans un attribut qu'un remaniement
+       de gabarit emporterait.
+    */
+    const champReps = $('repetitions') as HTMLInputElement;
+    const repetitions = nombreEntier(champReps.value);
+    if (repetitions === null || repetitions < 0 || repetitions > 200) {
+      direLErreur(champReps, 'Un nombre entier de répétitions, entre 0 et 200.');
+      champReps.focus();
+      return false;
+    }
+    effacerLErreur(champReps);
+
     const reserveBrute = ($('reserve') as HTMLSelectElement).value;
     const depuis = dernierInstant();
 
     const serie: Serie = {
       exerciceId,
       charge,
-      repetitions: Number(($('repetitions') as HTMLInputElement).value),
+      repetitions,
       echec: ($('echec') as HTMLInputElement).checked,
       reserve: reserveBrute === '' ? null : Number(reserveBrute),
       // Le repos **réel**, pris sur l'horloge, et nul avant la première série.

@@ -184,7 +184,7 @@ for (const ecran of ECRANS) {
    ══════════════════════════════════════════════════════════════════════════
 
    M2 couvre les douze écrans que la liste nomme, à une seule largeur. M5
-   couvre le site entier, à 360, 390 et 430 px.
+   couvre le site entier, à 360, 375, 390 et 430 px.
 
    LE COFFRE, ET L'AVEU QUI VA AVEC. Ce bloc portait depuis le 14 octobre un
    commentaire affirmant « il ouvre le coffre — sans quoi il ne mesurerait
@@ -210,10 +210,15 @@ for (const ecran of ECRANS) {
      suit une fois par mois, et à qui 44 px coûteraient trente pixels sur
      chaque tuile d'un tableau de bord qui en compte dix.
 
-   POURQUOI LES TROIS TAILLES. À 360 px, le libellé de plusieurs dépliants
+   POURQUOI QUATRE TAILLES. À 360 px, le libellé de plusieurs dépliants
    s'enroule sur deux lignes et la boîte dépasse 44 px par accident ; à 430
    il tient sur une ligne et retombe à 23. Mesurer à une seule largeur
    déclare conformes des cibles qui ne le sont pas.
+
+   375 px s'ajoute le 25 octobre : c'est la largeur des iPhone SE, 8, X, XS,
+   11 Pro, 12 mini et 13 mini, et elle tombe entre les deux premières. Elle ne
+   garde aucun défaut connu à ce jour — elle coûte un quart du temps de ce
+   bloc pour fermer un intervalle où personne n'avait regardé.
 */
 {
   const { readdirSync, statSync } = await import('node:fs');
@@ -229,7 +234,85 @@ for (const ecran of ECRANS) {
   parcourir('dist', '/');
   routes.sort();
 
-  for (const largeur of [360, 390, 430]) {
+  /* ════════════════════════════════════════════════════════════════════════
+     DEUX ÉCRANS QUI N'ONT RIEN À MONTRER SANS LEUR PARAMÈTRE
+     ════════════════════════════════════════════════════════════════════════
+
+     M5 visite bien les soixante-et-une routes de `dist/` — il les trouve en
+     parcourant le dossier, pas en les listant à la main, donc aucune ne
+     manque. Mais il les visite TOUJOURS SANS PARAMÈTRE, et neuf d'entre elles
+     en lisent un (`parametreUrl`). Deux ne montrent alors rien du tout :
+     `/fiche` reste au bloc « Déchiffrement de la fiche… », et
+     `/odyssee/molecule` à son écran d'attente. Elles étaient donc mesurées
+     VIDES, et une route couverte n'est pas une route éprouvée.
+
+     Le signalement venait d'une mesure de débordement sur `/fiche` que je n'ai
+     pas reproduite — page à la largeur de la fenêtre aux quatre largeurs, avec
+     et sans « Appliquer », sur la fiche au titre le plus long des 427. Le trou
+     de couverture, lui, était réel, et le voici fermé : ce qui est mesuré
+     maintenant est l'écran CHARGÉ.
+
+     L'identifiant de fiche est pris dans la bibliothèque, une seule fois et à
+     une largeur confortable : le coder en dur le ferait vieillir avec le
+     corpus, et le chercher à chaque largeur coûterait quatre fois le prix pour
+     la même réponse.
+  */
+  const cheminDUneFiche = await (async () => {
+    const ctx = await nav.newContext({ viewport: { width: 1280, height: 900 } });
+    const p = await ctx.newPage();
+    try {
+      await franchirInitialisation(p, RACINE, MDP);
+      await p.goto(`${RACINE}/bibliotheque/`, { waitUntil: 'networkidle' });
+
+      /*
+         DEUX PIÈGES, ET MES DEUX PREMIÈRES VERSIONS SONT TOMBÉES DEDANS.
+
+         Le premier : contrôler `#champ-mdp` juste après `networkidle` répond
+         « pas visible » alors que l'écran du verrou se peint un instant plus
+         tard — le corps de la page disait « Saisissez le mot de passe » quand
+         la sonde disait qu'il n'y avait pas de verrou. On attend donc que
+         l'une des deux choses apparaisse, et non un délai.
+
+         Le second : `waitForSelector` attend la VISIBILITÉ. Les liens de
+         fiches étaient déjà 425 dans le DOM — le journal de Playwright le
+         disait, « resolved to 425 elements » — et aucun n'était visible,
+         l'arbre de la bibliothèque étant replié. Or on ne veut qu'un `href` :
+         c'est la PRÉSENCE qui compte, pas la peinture.
+      */
+      await p.waitForFunction(
+        () =>
+          Boolean(document.querySelector('a[href*="/fiche"][href*="id="]')) ||
+          Boolean(document.getElementById('champ-mdp')),
+        null,
+        { timeout: 40000 },
+      );
+      if (await p.locator('#champ-mdp').isVisible().catch(() => false)) {
+        await p.fill('#champ-mdp', MDP);
+        await p.click('#bouton-verrou');
+        await p.waitForFunction(
+          () => Boolean(document.querySelector('a[href*="/fiche"][href*="id="]')),
+          null,
+          { timeout: 40000 },
+        );
+      }
+      return await p.$eval('a[href*="/fiche"][href*="id="]', (a) => a.getAttribute('href'));
+    } catch (erreur) {
+      /* La raison est DITE : un `catch` muet m'a coûté une exécution entière
+         de cet essai, qui dure six minutes. */
+      console.log(`      (repérage de la fiche : ${String(erreur?.message ?? erreur).slice(0, 120)})`);
+      return null;
+    } finally {
+      await ctx.close();
+    }
+  })();
+
+  verifier(
+    'M5ter — prémisse : une fiche du corpus est atteignable depuis la bibliothèque',
+    typeof cheminDUneFiche === 'string' && cheminDUneFiche.includes('id='),
+    true,
+  );
+
+  for (const largeur of [360, 375, 390, 430]) {
     const ctx = await nav.newContext({
       viewport: { width: largeur, height: 844 },
       hasTouch: true,
@@ -498,6 +581,138 @@ for (const ecran of ECRANS) {
       }
       if (largeur === 360) {
         verifier("M10bis — 360 px : l'en-tête collant ne grandit pas", trop, []);
+      }
+    }
+
+    /* ════════════════════════════════════════════════════════════════════
+       M5bis — L'EN-TÊTE AVEC « Appliquer » MONTRÉ
+       ════════════════════════════════════════════════════════════════════
+
+       Le balayage M5 ci-dessus visite toutes les routes, mais toujours dans le
+       même état : le parcours courant est celui qui vaut, donc
+       `#appliquer-parcours` reste `hidden` — il ne paraît qu'une fois un AUTRE
+       parcours choisi (point E6 : choisir n'est pas appliquer). Or c'est ce
+       bouton qui a fait déborder l'en-tête, et le commentaire de
+       `Base.astro` en garde la mesure : « fenêtre de mise en page 443, fenêtre
+       visuelle 390, le bord droit du bouton à 443 — cinquante-trois pixels
+       hors de l'écran ».
+
+       Le défaut est corrigé — par `flex-wrap` sur la rangée —, et rien ne
+       gardait la correction : aucun essai ne montrait jamais ce bouton. J'ai
+       vérifié les deux sens avant d'écrire ce bloc : aux quatre largeurs, et
+       sur cinq écrans, l'en-tête ne déborde pas ; `flex-wrap` retiré, il
+       redonne 443/390 et +53 px, exactement les chiffres du commentaire.
+
+       Le libellé le plus large est choisi quand il existe : la largeur du menu
+       suit l'option sélectionnée, et mesurer la plus courte mesurerait le cas
+       facile.
+    */
+    {
+      await p.goto(`${RACINE}/revisions/`, { waitUntil: 'networkidle' }).catch(() => {});
+      if (await p.locator('#champ-mdp').isVisible().catch(() => false)) {
+        await p.fill('#champ-mdp', MDP);
+        await p.click('#bouton-verrou');
+        await p.waitForTimeout(900);
+      }
+      await p.waitForTimeout(400);
+
+      const aSelecteur = await p.locator('#selecteur-parcours').isVisible().catch(() => false);
+      verifier(`M5bis — ${largeur} px : prémisse, le sélecteur de parcours est là`, aSelecteur, true);
+
+      if (aSelecteur) {
+        const options = await p
+          .locator('#selecteur-parcours option')
+          .evaluateAll((os) => os.map((o) => ({ valeur: o.value, texte: o.textContent ?? '' })));
+        const courant = await p.locator('#selecteur-parcours').inputValue();
+        const autres = options.filter((o) => o.valeur !== courant);
+        const plusLarge = autres.sort((x, y) => y.texte.length - x.texte.length)[0];
+        verifier(
+          `M5bis — ${largeur} px : prémisse, un autre parcours existe à choisir`,
+          Boolean(plusLarge),
+          true,
+        );
+
+        if (plusLarge) {
+          await p.locator('#selecteur-parcours').selectOption(plusLarge.valeur);
+          await p.waitForTimeout(400);
+          const m = await p.evaluate(() => {
+            const r = document.documentElement;
+            const bouton = document.getElementById('appliquer-parcours');
+            const boite = bouton?.getBoundingClientRect();
+            return {
+              montre: bouton ? !bouton.hidden && (boite?.width ?? 0) > 0 : false,
+              deborde: r.scrollWidth > r.clientWidth,
+              largeur: r.scrollWidth,
+              fenetre: r.clientWidth,
+              droite: boite ? Math.round(boite.right) : null,
+            };
+          });
+          verifier(
+            `M5bis — ${largeur} px : prémisse, « Appliquer » est bien montré`,
+            m.montre,
+            true,
+          );
+          verifier(
+            `M5bis — ${largeur} px : et l'en-tête ne déborde pas pour autant`,
+            m.deborde ? `${m.largeur}/${m.fenetre} px, bord droit du bouton à ${m.droite}` : 'non',
+            'non',
+          );
+          verifier(
+            `M5bis — ${largeur} px : le bouton tient dans l'écran`,
+            m.droite !== null && m.droite <= largeur,
+            true,
+          );
+        }
+      }
+    }
+
+    /* ── M5ter — les deux écrans, chargés ──────────────────────────────── */
+    {
+      const charges = [
+        ...(cheminDUneFiche ? [['une fiche du corpus', cheminDUneFiche]] : []),
+        /*
+           La molécule prend un NOM libre, pas un identifiant : on lui donne le
+           plus long du registre réel, parce qu'un nom long est le cas qui
+           pousse l'en-tête.
+        */
+        ['une molécule nommée', '/odyssee/molecule/?nom=Acide%20ac%C3%A9tylsalicylique'],
+      ];
+
+      for (const [quoi, chemin] of charges) {
+        await p.goto(`${RACINE}${chemin}`, { waitUntil: 'networkidle' }).catch(() => {});
+        if (await p.locator('#champ-mdp').isVisible().catch(() => false)) {
+          await p.fill('#champ-mdp', MDP);
+          await p.click('#bouton-verrou');
+          await p.waitForTimeout(1200);
+        }
+        await p.waitForTimeout(900);
+        const m = await p.evaluate(() => {
+          const r = document.documentElement;
+          const chargement = document.getElementById('chargement');
+          /* Qui dépasse, nommément : un débordement anonyme n'apprend rien. */
+          const coupables = [...document.querySelectorAll('body *')]
+            .filter((e) => {
+              const b = e.getBoundingClientRect();
+              return b.width > 0 && b.right > r.clientWidth + 1;
+            })
+            .slice(0, 4)
+            .map((e) => `${e.tagName.toLowerCase()}#${e.id || '-'}`);
+          return {
+            deborde: r.scrollWidth > r.clientWidth,
+            largeur: r.scrollWidth,
+            fenetre: r.clientWidth,
+            /* La prémisse : l'écran a VRAIMENT chargé. Sans elle, « ne déborde
+               pas » serait vrai d'un écran d'attente, et ne dirait rien. */
+            charge: !chargement || chargement.classList.contains('hidden'),
+            coupables,
+          };
+        });
+        verifier(`M5ter — ${largeur} px : ${quoi} a bien chargé`, m.charge, true);
+        verifier(
+          `M5ter — ${largeur} px : ${quoi} ne déborde pas`,
+          m.deborde ? `${m.largeur}/${m.fenetre} px (${m.coupables.join(', ')})` : 'non',
+          'non',
+        );
       }
     }
 

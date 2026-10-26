@@ -37,6 +37,7 @@
  * n'existent pas, et les lire les sortirait du coffre.
  */
 import Base from '../layouts/Base.astro';
+import Icone from '../components/Icone.astro';
 import { REGLAGES, SECTIONS, reglagesDe } from '../lib/parametres/catalogue';
 import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
 ---
@@ -73,7 +74,7 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
                 href={`#${s.id}`}
                 class="cible-tactile inline-flex items-center gap-1.5 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
               >
-                <span aria-hidden="true">{s.icone}</span>
+                <Icone nom={s.icone} taille={18} />
                 {s.titre}
               </a>
             </li>
@@ -86,8 +87,9 @@ import { DIRE_LA_PORTEE } from '../lib/parametres/modele';
     {
       SECTIONS.map((section) => (
         <section id={section.id} class="mt-10 scroll-mt-24" data-section>
-          <h2 class="text-lg font-semibold text-slate-900 dark:text-white">
-            <span aria-hidden="true">{section.icone}</span> {section.titre}
+          <h2 class="flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
+            <Icone nom={section.icone} taille={20} />
+            <span>{section.titre}</span>
           </h2>
           <p class="mb-3 max-w-2xl text-sm text-slate-500 dark:text-slate-400">{section.propos}</p>
           <!--

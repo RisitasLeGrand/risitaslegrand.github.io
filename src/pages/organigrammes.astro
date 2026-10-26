@@ -1,0 +1,257 @@
+---
+import Base from '../layouts/Base.astro';
+---
+
+{/*
+   LES ORGANIGRAMMES, CONSULTABLES SANS RÉPONDRE À UNE QUESTION.
+
+   ## Le défaut que cet écran corrige
+
+   Un organigramme ne vivait que dans la correction d'un QCM : pour revoir
+   celui d'une direction départementale, il fallait tomber sur la bonne
+   question, y répondre, puis déplier la correction. Un schéma de référence se
+   consulte — et ce qu'on ne trouve pas n'existe pas.
+
+   ## Référence, et non révision
+
+   Aucune question ici, et c'est une décision : les questions existent déjà
+   dans les quiz des fiches, et les dédoubler ferait deux vérités à tenir. Cet
+   écran montre, date et source ; il n'interroge pas.
+
+   ## Pourquoi chaque organigramme porte une date et une source
+
+   L'organisation d'une administration bouge, et un organigramme sans date est
+   une affirmation sans réserve. Celui d'une direction régionale vaut pour le
+   mois de sa publication ; celui d'une direction départementale pour l'annonce
+   qui l'a décrite. La construction refuse les deux absences — « lib/schema.mjs ».
+
+   ## Ce qui n'est déchiffré qu'à l'ouverture
+
+   Le manifeste porte le COMBIEN (`nbOrganigrammes`), les fiches portent les
+   données. La page sait donc où aller sans rien déchiffrer, et ne déchiffre la
+   fiche qu'au moment où l'on déplie son organigramme. Sur 427 fiches, c'est la
+   différence entre quarante mégaoctets et quelques kilo-octets.
+*/}
+
+<Base titre="Organigrammes" actif="organigrammes">
+  <h1 class="mb-1 text-2xl font-bold text-slate-900 dark:text-white">Organigrammes</h1>
+  <p class="mb-5 text-sm text-slate-500 dark:text-slate-400">
+    Les organigrammes de l’administration, chacun avec sa date et sa source. Dépliez-en un pour le
+    lire en détail, en squelette, ou en texte.
+  </p>
+
+  <div id="chargement" class="py-20 text-center text-slate-400">Déchiffrement du contenu…</div>
+
+  <div id="liste" class="hidden space-y-6"></div>
+
+  {/*
+     L'ÉTAT VIDE SE DIT, et il sera la règle pendant des mois : les
+     organigrammes arrivent fiche par fiche. Un écran blanc laisserait croire à
+     une panne, et c'est le défaut que les états vides du site corrigent
+     partout ailleurs.
+  */}
+  <p id="vide" class="hidden py-10 text-center text-sm text-slate-500 dark:text-slate-400">
+    Aucun organigramme n’est encore publié pour ce parcours. Ils arrivent fiche par fiche, et
+    chacun portera sa date et sa source.
+  </p>
+</Base>
+
+<script>
+  import { messageDUneErreur } from '../lib/agir';
+  import { auDeverrouillage } from '../lib/chargement';
+  import { chargerFiche, chargerManifeste, type Organigramme } from '../lib/contenu';
+  import { monterSchema } from '../features/correction/visuels/monter-schema';
+
+  const $ = (id: string) => document.getElementById(id)!;
+
+  /** Une entrée de la liste : la fiche, et combien d'organigrammes elle porte. */
+  interface Entree {
+    ficheId: string;
+    titre: string;
+    matiere: string;
+    fascicule: string;
+    combien: number;
+  }
+
+  /**
+   * La date d'un organigramme, écrite pour être lue.
+   *
+   * « 2025-07 » devient « juillet 2025 », « 2025-07-15 » le quinze juillet.
+   * `Intl` plutôt qu'un tableau de noms de mois : c'est la règle d'écriture du
+   * chantier, et elle évite d'avoir à se demander ce que fait une locale.
+   */
+  function direLaDate(date: string): { preposition: string; texte: string } {
+    const [annee, mois, jour] = date.split('-').map(Number);
+    const quand = new Date(Date.UTC(annee, (mois ?? 1) - 1, jour ?? 1));
+    const texte = new Intl.DateTimeFormat('fr-FR', {
+      ...(jour ? { day: 'numeric' } : {}),
+      month: 'long',
+      year: 'numeric',
+      timeZone: 'UTC',
+    }).format(quand);
+    /*
+       « État au 15 juillet 2025 » se dit ; « état au octobre 2026 » ne se dit
+       pas. La préposition suit donc la précision de la date, ce qui est la
+       seule raison pour laquelle cette fonction rend deux morceaux.
+    */
+    return { preposition: jour ? 'au' : 'en', texte };
+  }
+
+  /** Le bloc d'un organigramme : son titre, sa date, sa source, puis le dessin. */
+  function blocDUnOrganigramme(o: Organigramme): HTMLElement {
+    const bloc = document.createElement('article');
+    bloc.className = 'rounded-xl border border-slate-200 p-3 dark:border-slate-800';
+    bloc.dataset.organigramme = o.titre;
+
+    const titre = document.createElement('h3');
+    titre.className = 'text-sm font-medium text-slate-900 dark:text-white';
+    titre.textContent = o.titre;
+
+    /*
+       LA DATE ET LA SOURCE AU-DESSUS DU DESSIN, et non au-dessous.
+
+       Au-dessous, elles se lisent après avoir regardé — c'est-à-dire après
+       avoir pris le dessin pour l'état actuel. Un organigramme daté de 2015
+       doit s'annoncer avant d'être cru.
+    */
+    const quand = document.createElement('p');
+    quand.className = 'text-xs text-slate-500 dark:text-slate-400';
+    quand.dataset.dateOrganigramme = o.date;
+    const dit = direLaDate(o.date);
+    quand.textContent = `État ${dit.preposition} ${dit.texte} · ${o.source}`;
+
+    const dessin = document.createElement('div');
+    dessin.className = 'mt-2';
+
+    bloc.append(titre, quand, dessin);
+    monterSchema(dessin, { donnees: o.donnees, alt: o.alt, legende: o.legende });
+    return bloc;
+  }
+
+  /**
+   * Déplie une fiche : on déchiffre, puis on monte ses organigrammes.
+   *
+   * Le déchiffrement n'a lieu qu'une fois par fiche, et l'échec se dit à
+   * l'écran plutôt que de laisser un repli ouvert sur rien — c'est la règle
+   * « un échec est dit, jamais avalé ».
+   */
+  async function deplier(entree: Entree, dedans: HTMLElement): Promise<void> {
+    if (dedans.dataset.charge === 'oui') return;
+    dedans.dataset.charge = 'oui';
+    dedans.textContent = 'Déchiffrement de la fiche…';
+    try {
+      const fiche = await chargerFiche(entree.ficheId);
+      const organigrammes = fiche.organigrammes ?? [];
+      dedans.textContent = '';
+      if (organigrammes.length === 0) {
+        /*
+           Le manifeste annonçait au moins un organigramme et la fiche n'en
+           porte aucun : c'est un manifeste et une fiche qui se contredisent,
+           donc une publication incohérente. On le DIT, parce qu'un repli vide
+           passerait pour une lenteur.
+        */
+        dedans.textContent =
+          'Cette fiche annonçait un organigramme et n’en porte aucun : la publication est à refaire.';
+        return;
+      }
+      const grille = document.createElement('div');
+      grille.className = 'space-y-3';
+      for (const o of organigrammes) grille.append(blocDUnOrganigramme(o));
+      dedans.append(grille);
+    } catch (e) {
+      dedans.dataset.charge = 'non';
+      /*
+         L'ÉCHEC EST DIT, MAIS PAS AVEC LES MOTS DE L'ERREUR.
+
+         Première écriture : « ${(e as Error).message} ». La batterie l'a
+         refusée, et elle avait raison — c'est « essais:erreurs-dites » qui
+         l'a attrapée, pas les essais de cette page, parce qu'un lot mesure ce
+         qu'il promet et la batterie ce qu'il casse.
+
+         Le message brut d'une Error de plateforme est en anglais et ne dit
+         pas quoi faire : « The operation failed for reasons unrelated to the
+         database itself », pour une base verrouillée par un autre onglet.
+         « messageDUneErreur » rend la phrase française qui, elle, dit le
+         geste — fermer les autres onglets, libérer de la place, recommencer —
+         et laisse intact un message écrit pour être lu.
+      */
+      dedans.textContent = `Cette fiche n’a pas pu être déchiffrée : ${messageDUneErreur(e)}`;
+    }
+  }
+
+  function rendre(entrees: Entree[]): void {
+    const liste = $('liste');
+    liste.textContent = '';
+    if (entrees.length === 0) {
+      $('vide').classList.remove('hidden');
+      return;
+    }
+
+    /* Groupées par matière puis par fascicule, comme la bibliothèque. */
+    const parMatiere = new Map<string, Map<string, Entree[]>>();
+    for (const e of entrees) {
+      if (!parMatiere.has(e.matiere)) parMatiere.set(e.matiere, new Map());
+      const fascicules = parMatiere.get(e.matiere)!;
+      if (!fascicules.has(e.fascicule)) fascicules.set(e.fascicule, []);
+      fascicules.get(e.fascicule)!.push(e);
+    }
+
+    for (const [matiere, fascicules] of parMatiere) {
+      const section = document.createElement('section');
+      const h2 = document.createElement('h2');
+      h2.className = 'mb-2 text-lg font-semibold text-slate-900 dark:text-white';
+      h2.textContent = matiere;
+      section.append(h2);
+
+      for (const [fascicule, fiches] of fascicules) {
+        const h3 = document.createElement('p');
+        h3.className = 'mb-1 text-xs text-slate-400 dark:text-slate-500';
+        h3.textContent = fascicule;
+        section.append(h3);
+
+        for (const entree of fiches) {
+          const repli = document.createElement('details');
+          repli.className = 'mb-2 rounded-xl border border-slate-200 dark:border-slate-800';
+          repli.dataset.fiche = entree.ficheId;
+          const resume = document.createElement('summary');
+          resume.className = 'cible-tactile cursor-pointer px-3 py-2 text-sm';
+          resume.textContent =
+            entree.combien === 1
+              ? `${entree.titre} — 1 organigramme`
+              : `${entree.titre} — ${entree.combien} organigrammes`;
+          const dedans = document.createElement('div');
+          dedans.className = 'px-3 pb-3';
+          repli.append(resume, dedans);
+          repli.addEventListener('toggle', () => {
+            if (repli.open) void deplier(entree, dedans);
+          });
+          section.append(repli);
+        }
+      }
+      liste.append(section);
+    }
+    liste.classList.remove('hidden');
+  }
+
+  auDeverrouillage(async () => {
+    const manifeste = await chargerManifeste();
+    const entrees: Entree[] = [];
+    for (const matiere of manifeste.matieres) {
+      for (const fascicule of matiere.fascicules) {
+        for (const fiche of fascicule.fiches) {
+          if ((fiche.nbOrganigrammes ?? 0) > 0) {
+            entrees.push({
+              ficheId: fiche.id,
+              titre: fiche.titre,
+              matiere: matiere.nom,
+              fascicule: fascicule.nom,
+              combien: fiche.nbOrganigrammes ?? 0,
+            });
+          }
+        }
+      }
+    }
+    $('chargement').classList.add('hidden');
+    rendre(entrees);
+  });
+</script>

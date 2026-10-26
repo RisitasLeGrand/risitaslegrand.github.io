@@ -96,6 +96,11 @@ const ECARTES: Readonly<Record<string, string>> = {
   'src/lib/noyau/initialisation.ts': 'la façon de poser les questions ; il préremplit.',
   'src/pages/initialisation.astro': 'l’écran qui pose les questions.',
   'src/pages/profil.astro': 'l’écran qui affiche les champs.',
+  'src/lib/icones.ts':
+    'le catalogue des pictogrammes : ses clés nomment des DESSINS, pas des ' +
+    'champs de réglage. « concours » y est une icône, et le champ de réglage ' +
+    'qui porte le même mot est un autre objet — deux espaces de noms qui se ' +
+    'croisent sur une chaîne.',
 };
 
 /**
@@ -187,12 +192,33 @@ const parcourir = (dossier: string) => {
 };
 parcourir('src');
 
-/** Le code seul : les commentaires parlent des champs, et c'est leur métier. */
+/**
+ * Le code seul : les commentaires parlent des champs, et c'est leur métier.
+ *
+ * ## ET LA VALEUR D’UNE PROPRIÉTÉ « icone » N’EST PAS UN CHAMP
+ *
+ * Un pictogramme et un champ de réglage peuvent porter le même mot. Depuis
+ * que l’en-tête et les écrans sont passés au catalogue d’icônes, « concours »
+ * est à la fois le nom d’un champ et celui d’un dessin. La propriété qui
+ * désigne le dessin tombait donc dans la ceinture, et il aurait fallu l’y
+ * déclarer — c’est-à-dire mentir, puisque cette ligne-là ne parle pas du
+ * champ.
+ *
+ * Ce balayage ne lisait déjà que le CODE, et seulement les occurrences entre
+ * guillemets : la prose était hors de portée depuis le début, et « au format
+ * des sujets de concours » n’a jamais compté. Ce qui manquait n’était pas un
+ * filtre de plus sur la prose — c’était de savoir que cette propriété ouvre
+ * un AUTRE espace de noms.
+ *
+ * On efface la valeur, et non la ligne : ce qui l’entoure reste lisible, et
+ * un vrai champ cité ailleurs sur la même ligne serait toujours vu.
+ */
 const codeDe = (chemin: string) =>
   readFileSync(chemin, 'utf8')
     .replace(/\/\*[\s\S]*?\*\//g, '')
     .replace(/^\s*\*.*$/gm, '')
-    .replace(/\/\/.*$/gm, '');
+    .replace(/\/\/.*$/gm, '')
+    .replace(/\bicone:\s*(['"])[^'"]*\1/g, 'icone: ""');
 
 const lectures: string[] = [];
 const mentions: string[] = [];
@@ -216,7 +242,7 @@ const trier = (xs: readonly string[]) => [...xs].sort((a, b) => (a < b ? -1 : 1)
 
 console.log('\n1. LE CATALOGUE');
 v('aucun problème de déclaration', controlerChamps(BRANCHES.map((b) => b.id)), []);
-v('les quatre fichiers écartés sont nommés, avec leur raison', Object.keys(ECARTES).length, 4);
+v('les cinq fichiers écartés sont nommés, avec leur raison', Object.keys(ECARTES).length, 5);
 for (const chemin of Object.keys(ECARTES)) {
   vrai(`${chemin} existe toujours`, fichiers.includes(chemin));
 }
