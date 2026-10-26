@@ -18,6 +18,7 @@
 import { chromium } from 'playwright-core';
 import { readFile } from 'node:fs/promises';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { attendreEnBase, devientVisible } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 
@@ -105,8 +106,33 @@ await page.goto('http://localhost:4321/progression', { waitUntil: 'networkidle' 
 if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
   await page.fill('#champ-mdp', MDP);
   await page.click('#bouton-verrou');
-  await page.waitForTimeout(2500);
+  /*
+     LE DÉPART DU CHAMP N'EST PAS DÉCORATIF ICI, et c'est une erreur de ma part
+     qui l'a montré : je l'avais omis, et l'essai est tombé sur « aucune
+     session de flashcards à démarrer ». La page des flashcards, plus bas, ne
+     déverrouille PAS elle-même — elle compte sur la session établie ici. En
+     navigant avant qu'elle le soit, on y trouve le verrou et aucun bouton.
+
+     La post-condition de la migration ne suffit donc pas : la base peut être
+     migrée alors que la session n'est pas encore posée. Il en faut deux, et
+     elles ne disent pas la même chose.
+  */
+  await devientVisible(page, '#champ-mdp', false, { delai: 30000 });
 }
+/*
+   La post-condition de CETTE migration est le champ qu'elle pose : chaque
+   carte porte un état FSRS. Les champs SM-2 disparaissent dans la même
+   transaction, donc leur absence est garantie par la même attente.
+*/
+verifier(
+  'la migration a posé un état FSRS sur chaque carte',
+  (await attendreEnBase(
+    page,
+    'cartes',
+    (tout) => tout.length > 0 && tout.every((c) => c.fsrs !== null && typeof c.fsrs === 'object'),
+  )) !== null,
+  true,
+);
 
 const apres = await page.evaluate(async () => {
   const base = await new Promise((ok) => {
@@ -160,13 +186,21 @@ verifier('les champs SM-2 ont disparu', [c.facilite, c.repetitions], [undefined,
 
 console.log('\nUNE SESSION DE FLASHCARDS À QUATRE BOUTONS');
 await page.goto('http://localhost:4321/flashcards', { waitUntil: 'networkidle' });
-await page.waitForTimeout(1500);
 const demarrer = page.getByRole('button', { name: /Commencer|Démarrer|Réviser/i }).first();
+/* Le bouton de départ paraît quand la session est prête : c'est la
+   post-condition du chargement, et son absence reste traitée plus bas. */
+await demarrer.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
 if (await demarrer.isVisible().catch(() => false)) {
   await demarrer.click();
-  await page.waitForTimeout(1200);
-  await page.locator('#carte, #zone-question').first().click().catch(() => {});
-  await page.waitForTimeout(600);
+  /* La carte posée est la post-condition du départ ; les quatre boutons de
+     notation, celle de son retournement. */
+  const carte = page.locator('#carte, #zone-question').first();
+  await carte.waitFor({ state: 'visible', timeout: 20000 }).catch(() => {});
+  await carte.click().catch(() => {});
+  await page
+    .locator('[data-delai-correct]')
+    .waitFor({ state: 'visible', timeout: 20000 })
+    .catch(() => {});
   const notes = ['oublie', 'difficile', 'correct', 'facile'];
   const libelles = [];
   for (const note of notes) {
@@ -187,7 +221,16 @@ if (await demarrer.isVisible().catch(() => false)) {
     });
   });
   await page.getByRole('button', { name: /^Correct/ }).first().click();
-  await page.waitForTimeout(1200);
+  /*
+     La notation s'écrit en base sans marque d'écran : la post-condition est
+     qu'une carte y porte une révision. Ce qui suit cherche justement cette
+     carte-là.
+  */
+  await attendreEnBase(
+    page,
+    'cartes',
+    (tout) => tout.some((c) => c.id !== 'carte-heritee' && (c.revisions ?? 0) > 0),
+  );
   const notee = await page.evaluate(async () => {
     const base = await new Promise((ok) => {
       const r = indexedDB.open('revinsp');
