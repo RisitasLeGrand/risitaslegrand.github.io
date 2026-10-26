@@ -24,11 +24,21 @@
  * Le type est le seul discriminant fiable. Renifler le texte échouerait dès
  * qu’un navigateur parle une autre langue, et c’est la raison pour laquelle
  * cet essai éprouve le TYPE et jamais la chaîne.
+ *
+ * ## Le blanchiment des commentaires vient d’ailleurs, et c’est la correction
+ *
+ * Cet essai portait sa propre copie de la règle. Elle a divergé, exactement
+ * comme la règle partagée annonçait qu’une copie diverge : la version de
+ * `lib/sans-commentaires.mjs` sait depuis le 26 octobre qu’un `.astro` n’est
+ * pas du JavaScript, et celle-ci ne le savait pas. Elle est supprimée ; le
+ * module partagé est appelé avec le GENRE du fichier, et trois contrôles plus
+ * bas tiennent la différence par exécution.
  */
 import { readFileSync, readdirSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { estEspacePlein, messageDUneErreur } from '../src/lib/agir.ts';
+import { sansCommentaires } from './lib/sans-commentaires.mjs';
 
 let echecs = 0;
 const v = (titre: string, obtenu: unknown, attendu: unknown) => {
@@ -177,88 +187,18 @@ const ecrans = [...astroSous('src/pages'), ...astroSous('src/components')];
    code posé après la fermeture d’un commentaire, sur la même ligne, est bien
    rendu. Les deux sabotages plus bas l’éprouvent dans les deux sens.
 */
-function sansCommentaires(source: string): string[] {
-  const sortie: string[] = [];
-  let ligne = '';
-  let i = 0;
-  let bloc: false | 'js' | 'html' = false;
-  let chaine: false | string = false;
-
-  const pousser = (c: string) => {
-    if (c === '\n') {
-      sortie.push(ligne);
-      ligne = '';
-    } else ligne += c;
-  };
-
-  while (i < source.length) {
-    const c = source[i];
-    const deux = source.slice(i, i + 2);
-
-    if (bloc) {
-      const fin = bloc === 'js' ? deux === '*/' : source.slice(i, i + 3) === '-->';
-      if (fin) {
-        const n = bloc === 'js' ? 2 : 3;
-        for (let k = 0; k < n; k += 1) pousser(' ');
-        i += n;
-        bloc = false;
-        continue;
-      }
-      pousser(c === '\n' ? '\n' : ' ');
-      i += 1;
-      continue;
-    }
-
-    if (chaine) {
-      pousser(c);
-      if (c === '\\') {
-        if (source[i + 1] !== undefined) pousser(source[i + 1]);
-        i += 2;
-        continue;
-      }
-      if (c === chaine) chaine = false;
-      i += 1;
-      continue;
-    }
-
-    if (c === "'" || c === '"' || c === '`') {
-      chaine = c;
-      pousser(c);
-      i += 1;
-      continue;
-    }
-    if (deux === '/*') {
-      bloc = 'js';
-      pousser(' ');
-      pousser(' ');
-      i += 2;
-      continue;
-    }
-    if (source.slice(i, i + 4) === '<!--') {
-      bloc = 'html';
-      for (let k = 0; k < 4; k += 1) pousser(' ');
-      i += 4;
-      continue;
-    }
-    if (deux === '//') {
-      while (i < source.length && source[i] !== '\n') {
-        pousser(' ');
-        i += 1;
-      }
-      continue;
-    }
-    pousser(c);
-    i += 1;
-  }
-  sortie.push(ligne);
-  return sortie;
-}
-
 /** Les deux infractions d’un fichier, une fois ses commentaires blanchis. */
 function infractions(chemin: string, source: string) {
   const brutes: string[] = [];
   const nues: string[] = [];
-  const lignes = sansCommentaires(source);
+  /*
+     LE GENRE EST DÉDUIT DU NOM, et c'est ce qui manquait : une source de
+     balisage ne se lit pas comme du JavaScript. Les fixtures de cet essai
+     portent un nom sans extension et se lisent donc en `js` — ce sont des
+     bouts de `<script>`, c'est bien ce qu'il faut.
+  */
+  const genre = /\.(astro|svelte)$/.test(chemin) ? 'astro' : 'js';
+  const lignes = sansCommentaires(source, genre) as string[];
   lignes.forEach((ligne, i) => {
     if (/\w+ as Error\)\??\.message/.test(ligne) || /instanceof\s+Error\s*\?/.test(ligne))
       brutes.push(`${chemin}:${i + 1}`);
@@ -307,6 +247,61 @@ const ruse = `<script>
 </script>`;
 const r2 = infractions('fixture-ruse', ruse);
 v('du vrai code après la fermeture d’un commentaire est bien vu', r2.brutes, ['fixture-ruse:2']);
+
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   UN .ASTRO N'EST PAS DU JAVASCRIPT — 26 octobre, lot 9
+
+   Cet essai portait sa PROPRE COPIE de la règle de blanchiment. C'était la
+   copie de trop, et elle avait un angle mort que la version partagée a
+   corrigé depuis : hors frontmatter et hors `<script>`, l'apostrophe de
+   « Aujourd'hui » n'ouvre aucune chaîne — c'est une lettre. Lue comme un
+   guillemet, elle ouvrait une chaîne qui ne se refermait plus, et les
+   commentaires qui suivaient n'étaient PLUS BLANCHIS.
+
+   Le sens de la panne compte, et il n'est pas celui qu'on croirait : ce
+   balayage-ci ne MANQUAIT pas des infractions, il en INVENTAIT. Un
+   commentaire qui cite le défaut pour dire qu'il est corrigé redevenait une
+   infraction dès qu'une apostrophe traînait plus haut dans le balisage. C'est
+   la panne la pire pour un garde-fou, et cet essai l'écrit lui-même plus
+   haut : on apprend à l'ignorer, et le jour où il a raison personne ne
+   regarde.
+
+   Les trois contrôles ci-dessous le tiennent par exécution, et le second est
+   celui qui PROUVE que le module partagé change quelque chose : la même
+   source, lue comme du JavaScript, accuse encore.
+   ────────────────────────────────────────────────────────────────────────── */
+const apresUneApostrophe = `<p>Aujourd’hui, l’écran ne montre plus l'erreur brute.</p>
+<script>
+  /* Cet écran n’affiche plus (erreur as Error).message depuis le 58. */
+  const rien = 1;
+</script>`;
+const r3 = infractions('fixture-apostrophe.astro', apresUneApostrophe);
+v(
+  'une apostrophe de balisage n’invente plus une infraction dans le commentaire qui suit',
+  [...r3.brutes, ...r3.nues],
+  [],
+);
+/*
+   LA MÊME SOURCE, SOUS UN NOM SANS EXTENSION, est lue comme du JavaScript :
+   c'est l'ancien comportement, et il accuse. Si ce contrôle passait au vert,
+   c'est que le genre ne sert plus à rien — et que la correction a été perdue.
+*/
+const r4 = infractions('fixture-apostrophe-lue-comme-du-js', apresUneApostrophe);
+v('et lue comme du JavaScript, elle accusait — c’était le défaut', r4.brutes, [
+  'fixture-apostrophe-lue-comme-du-js:3',
+]);
+/*
+   ET LE SILENCE NE S'ACHÈTE PAS : une VRAIE infraction posée après la même
+   apostrophe doit rester vue. Sans ce troisième contrôle, blanchir plus
+   pourrait aussi blanchir trop, et les deux premiers n'y verraient rien.
+*/
+const vraieApresApostrophe = `<p>Aujourd’hui</p>
+<script>
+  const fuite = (erreur as Error).message;
+</script>`;
+const r5 = infractions('fixture-vraie.astro', vraieApresApostrophe);
+v('une vraie infraction après la même apostrophe reste vue', r5.brutes, ['fixture-vraie.astro:3']);
 
 console.log(
   echecs === 0 ? '\n\u001b[32m✓ tout passe\u001b[0m' : `\n\u001b[31m✗ ${echecs} contrôles en échec\u001b[0m`,

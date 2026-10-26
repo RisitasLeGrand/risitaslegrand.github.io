@@ -36,7 +36,7 @@
  *    DÉSYNCHRONISATIONS — pile non refermée, fermeture sans ouverture —, et
  *    l'essai les refuse au lieu de les compter vertes.
  */
-import { AVANT_UNE_REGEX, finDUneRegex, sansCommentaires } from './sans-commentaires.mjs';
+import { AVANT_UNE_REGEX, finDUneRegex, regions, sansCommentaires } from './sans-commentaires.mjs';
 
 /** Une lettre collée à « (s) » ou « (es) » : `jour(s)`, `écrit(es)`. */
 export const COLLE = /\p{L}\((s|es)\)/gu;
@@ -48,65 +48,6 @@ export const COLLE = /\p{L}\((s|es)\)/gu;
  * assemble la forme à l'exécution, et le premier motif n'y verrait rien.
  */
 export const SEULE = /^\s*\((s|es)\)\s*$/;
-
-/* ══════════════════════════════════════════════════════════════════════════
-   Les grandes régions d'une source
-   ══════════════════════════════════════════════════════════════════════════ */
-
-/**
- * Découper un `.astro` ou un `.svelte` en régions.
- *
- * Trois genres, et le troisième est celui qu'on oublie :
- *
- * - `js` — le frontmatter entre les deux clôtures `---`, et le contenu des
- *   `<script>`. Du JavaScript franc, où un guillemet est un guillemet ;
- * - `balisage` — tout le reste, où une apostrophe est une lettre ;
- * - `ignore` — le contenu des `<style>`. Une feuille de style ne parle à
- *   personne, et ses accolades troubleraient la machine pour rien.
- */
-function regions(source) {
-  const sortie = [];
-  let i = 0;
-
-  const front = /^\s*---\r?\n/.exec(source);
-  if (front) {
-    const fin = source.indexOf('\n---', front[0].length);
-    const bout = fin === -1 ? source.length : fin;
-    sortie.push({ genre: 'js', debut: front[0].length, fin: bout });
-    i = fin === -1 ? source.length : source.indexOf('\n', fin + 1) + 1 || source.length;
-  }
-
-  const OUVRE = /<(script|style)\b[^>]*>/i;
-  let depart = i;
-  let curseur = i;
-  while (curseur < source.length) {
-    const ouvre = OUVRE.exec(source.slice(curseur));
-    if (!ouvre) break;
-    const debutOuvre = curseur + ouvre.index;
-    const apresOuvre = debutOuvre + ouvre[0].length;
-    /*
-       UN ÉLÉMENT AUTOPORTEUR N'A PAS DE CONTENU, et c'est le détecteur qui l'a
-       dit : `<style is:inline set:html={CSS_TRANSITIONS} />`, dans une
-       expression de `Base.astro`, passait pour l'ouverture d'une feuille de
-       style. On cherchait alors un `</style>` qui ne venait pas, et trois
-       cents lignes de balisage étaient classées « à ignorer ».
-    */
-    if (ouvre[0].endsWith('/>')) {
-      curseur = apresOuvre;
-      continue;
-    }
-    const nom = ouvre[1].toLowerCase();
-    const ferme = new RegExp(`</${nom}\\s*>`, 'i').exec(source.slice(apresOuvre));
-    const finContenu = ferme ? apresOuvre + ferme.index : source.length;
-
-    if (debutOuvre > depart) sortie.push({ genre: 'balisage', debut: depart, fin: debutOuvre });
-    sortie.push({ genre: nom === 'script' ? 'js' : 'ignore', debut: apresOuvre, fin: finContenu });
-    curseur = ferme ? finContenu + ferme[0].length : source.length;
-    depart = curseur;
-  }
-  if (depart < source.length) sortie.push({ genre: 'balisage', debut: depart, fin: source.length });
-  return sortie;
-}
 
 /* ══════════════════════════════════════════════════════════════════════════
    La machine : du texte, du code, et la frontière entre les deux
@@ -431,27 +372,12 @@ export function sitesInterdits(source, fichier = '') {
   };
 
   if (/\.(astro|svelte)$/.test(fichier)) {
-    /*
-       L'ORDRE COMPTE, et il se lit à l'envers de l'intuition :
-       1. les `<!-- -->` d'abord, sur toute la source. Ils peuvent cacher
-          n'importe quoi, un `<script>` compris, et fausseraient le découpage ;
-       2. le découpage ensuite, qui dit où est le JavaScript ;
-       3. les commentaires de JavaScript enfin, et SEULEMENT dans ces régions.
-          Les blanchir partout était la faute : dans du balisage, `//` est
-          souvent le milieu d'une adresse, et une apostrophe une lettre.
-    */
-    const sansHtml = sansCommentaires(source, 'balisage').join('\n');
-    for (const { genre, debut, fin } of regions(sansHtml)) {
+    /* Le blanchiment d'un balisage est une composition : elle vit chez lui. */
+    const propre = sansCommentaires(source, 'astro').join('\n');
+    for (const { genre, debut, fin } of regions(propre)) {
       if (genre === 'ignore') continue;
-      const avant = sansHtml.slice(0, debut).match(/\n/g)?.length ?? 0;
-      const tranche = sansHtml.slice(debut, fin);
-      retenir(
-        machine(
-          genre === 'js' ? sansCommentaires(tranche, 'js').join('\n') : tranche,
-          genre === 'js' ? 'js' : 'texte',
-          avant + 1,
-        ),
-      );
+      const avant = propre.slice(0, debut).match(/\n/g)?.length ?? 0;
+      retenir(machine(propre.slice(debut, fin), genre === 'js' ? 'js' : 'texte', avant + 1));
     }
   } else {
     retenir(machine(sansCommentaires(source, 'js').join('\n'), 'js', 1));

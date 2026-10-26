@@ -82,7 +82,89 @@ export function finDUneRegex(source, debut) {
   return -1;
 }
 
+/**
+ * Découper un `.astro` ou un `.svelte` en régions.
+ *
+ * Trois genres, et le troisième est celui qu'on oublie :
+ *
+ * - `js` — le frontmatter entre les deux clôtures `---`, et le contenu des
+ *   `<script>`. Du JavaScript franc, où un guillemet est un guillemet ;
+ * - `balisage` — tout le reste, où une apostrophe est une lettre ;
+ * - `ignore` — le contenu des `<style>`. Une feuille de style ne parle à
+ *   personne, et ses accolades troubleraient la machine pour rien.
+ */
+export function regions(source) {
+  const sortie = [];
+  let i = 0;
+
+  const front = /^\s*---\r?\n/.exec(source);
+  if (front) {
+    const fin = source.indexOf('\n---', front[0].length);
+    const bout = fin === -1 ? source.length : fin;
+    sortie.push({ genre: 'js', debut: front[0].length, fin: bout });
+    i = fin === -1 ? source.length : source.indexOf('\n', fin + 1) + 1 || source.length;
+  }
+
+  const OUVRE = /<(script|style)\b[^>]*>/i;
+  let depart = i;
+  let curseur = i;
+  while (curseur < source.length) {
+    const ouvre = OUVRE.exec(source.slice(curseur));
+    if (!ouvre) break;
+    const debutOuvre = curseur + ouvre.index;
+    const apresOuvre = debutOuvre + ouvre[0].length;
+    /*
+       UN ÉLÉMENT AUTOPORTEUR N'A PAS DE CONTENU, et c'est le détecteur qui l'a
+       dit : `<style is:inline set:html={CSS_TRANSITIONS} />`, dans une
+       expression de `Base.astro`, passait pour l'ouverture d'une feuille de
+       style. On cherchait alors un `</style>` qui ne venait pas, et trois
+       cents lignes de balisage étaient classées « à ignorer ».
+    */
+    if (ouvre[0].endsWith('/>')) {
+      curseur = apresOuvre;
+      continue;
+    }
+    const nom = ouvre[1].toLowerCase();
+    const ferme = new RegExp(`</${nom}\\s*>`, 'i').exec(source.slice(apresOuvre));
+    const finContenu = ferme ? apresOuvre + ferme.index : source.length;
+
+    if (debutOuvre > depart) sortie.push({ genre: 'balisage', debut: depart, fin: debutOuvre });
+    sortie.push({ genre: nom === 'script' ? 'js' : 'ignore', debut: apresOuvre, fin: finContenu });
+    curseur = ferme ? finContenu + ferme[0].length : source.length;
+    depart = curseur;
+  }
+  if (depart < source.length) sortie.push({ genre: 'balisage', debut: depart, fin: source.length });
+  return sortie;
+}
+
 export function sansCommentaires(source, genre = 'js') {
+  /*
+     LE GENRE « astro » EST UNE COMPOSITION, et l'ordre en est tout le sens :
+
+     1. les `<!-- -->` d'abord, sur toute la source. Ils peuvent cacher
+        n'importe quoi, un `<script>` compris, et fausseraient le découpage ;
+     2. le découpage ensuite, qui dit où est le JavaScript ;
+     3. les commentaires de JavaScript enfin, et SEULEMENT dans ces régions.
+        Les blanchir partout était la faute : dans du balisage, un `//` est le
+        plus souvent le milieu d'une adresse, et une apostrophe une lettre.
+
+     Elle vit ici plutôt que chez ses appelants parce qu'ils sont deux —
+     `essais:accords` et `essais:erreurs-dites` — et que c'est précisément la
+     copie entre ces deux-là qui avait laissé le second aveugle. Les positions
+     sont conservées : le blanchiment ne change pas la longueur.
+  */
+  if (genre === 'astro') {
+    const lignes = sansCommentaires(source, 'balisage');
+    const texte = lignes.join('\n');
+    let sortie = texte;
+    for (const { genre: g, debut, fin } of regions(texte)) {
+      if (g !== 'js') continue;
+      const propre = sansCommentaires(texte.slice(debut, fin), 'js').join('\n');
+      sortie = sortie.slice(0, debut) + propre + sortie.slice(debut + propre.length);
+    }
+    return sortie.split('\n');
+  }
+
   const sortie = [];
   let ligne = '';
   let i = 0;
