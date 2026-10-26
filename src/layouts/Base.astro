@@ -1660,16 +1660,34 @@ const flecheVisible = !estLeMenu && !sansNavigation;
          précédente — voir l'en-tête de « public/sw.js ».
       */
       quandDeverrouille(async () => {
-        const [{ enregistrerServiceWorker }, { annoncerLaPublication }, { chargerParametresCle }] =
-          await Promise.all([
-            import('../lib/sync/notification'),
-            import('../lib/hors-ligne'),
-            import('../lib/contenu'),
-          ]);
+        const [
+          { enregistrerServiceWorker },
+          { annoncerLaPublication },
+          { chargerParametresCle },
+          { surveillerLaPublication },
+        ] = await Promise.all([
+          import('../lib/sync/notification'),
+          import('../lib/hors-ligne'),
+          import('../lib/contenu'),
+          import('../lib/publication'),
+        ]);
         try {
           await enregistrerServiceWorker(import.meta.env.BASE_URL);
           const { version } = await chargerParametresCle();
           if (version) await annoncerLaPublication(version);
+          /*
+             B5 DU 43 — ET ON SURVEILLE CETTE VERSION-LÀ.
+
+             C'est ici, et nulle part ailleurs, parce que c'est le seul
+             endroit du site qui tient la version du CHARGEMENT. La
+             surveillance la compare à celle que le site publie au retour sur
+             l'onglet : une page statique garde la sienne aussi longtemps
+             qu'elle vit, et rien ne le disait à la personne.
+
+             Posée même sans `version` ? Non : sans elle il n'y a rien à
+             comparer, et la fonction refuserait de toute façon.
+          */
+          if (version) surveillerLaPublication(version);
         } catch {
           /* Hors ligne, worker refusé : le site marche sans cache. */
         }

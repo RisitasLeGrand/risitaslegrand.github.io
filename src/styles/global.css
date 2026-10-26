@@ -1809,6 +1809,71 @@ button:not(:disabled):active,
   background: color-mix(in srgb, currentColor 15%, transparent);
 }
 
+/* Le bandeau de publication (B5 du 43)
+   ---------------------------------------------------------------------------
+   Même grammaire visuelle que le bandeau d'annulation, et même place : en bas,
+   au-dessus de la barre de navigation, là où le pouce est.
+
+   Son `z-index` est **inférieur** à celui de l'annulation (60), et c'est un
+   choix : si les deux coïncident, l'annulation gagne. Elle est à la fois plus
+   urgente — six secondes pour revenir sur une suppression — et plus fugace.
+   Celui-ci peut attendre son départ, et il attend. */
+.bandeau-publication {
+  position: fixed;
+  left: 0;
+  right: 0;
+  /* 3,5 rem : la barre du bas. Au-dessus de 640 px elle n'existe plus. */
+  bottom: 3.5rem;
+  z-index: 55;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  margin: 0 auto;
+  max-width: 32rem;
+  padding: 0.5rem 1rem;
+  border-radius: var(--radius-xl);
+  background: var(--etat-texte-fort);
+  color: var(--etat-fond-eleve);
+  box-shadow: 0 10px 25px -10px color-mix(in srgb, var(--etat-ombre) 45%, transparent);
+  animation: boite-monte var(--duree-moyenne) var(--courbe-entree);
+}
+
+@media (min-width: 640px) {
+  .bandeau-publication {
+    bottom: 1rem;
+  }
+}
+
+/* `flex-wrap` plus haut, et une base de 100 % ici : à 360 px, la phrase et
+   les deux boutons ne tiennent pas sur une ligne, et les comprimer donnerait
+   des cibles de quelques pixels. Le texte prend donc sa ligne, les boutons la
+   suivante. */
+.bandeau-publication-texte {
+  flex: 1 1 100%;
+  min-width: 0;
+  font-size: 0.875rem;
+}
+
+.bandeau-publication-bouton {
+  flex: none;
+  padding: 0 0.75rem;
+  border-radius: var(--radius-lg);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.bandeau-publication-bouton:hover {
+  /* Posé sur « --etat-texte-fort » et écrit en « --etat-fond-eleve » : son
+     survol se teinte de sa propre couleur de texte, et suit donc le thème
+     sans rien connaître de lui. */
+  background: color-mix(in srgb, currentColor 15%, transparent);
+}
+
 /* ──────────────────────────────────────────────────────────────────────────
    LES FORMULES MATHÉMATIQUES (point e du 60)
 
