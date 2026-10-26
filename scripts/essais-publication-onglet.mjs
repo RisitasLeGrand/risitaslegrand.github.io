@@ -39,6 +39,32 @@
  * navigateur sans écran, une page répond toujours `visibilityState = "visible"`
  * (voir `docs/cyclades/cadence-des-essais.md`), donc le garde de l'écouteur
  * passe, et c'est bien le chemin réel qui est éprouvé.
+ *
+ * ## Ce que les trois sabotages ont montré
+ *
+ * Mesurés dans un arbre de travail séparé, l'arbre de travail restant propre
+ * — la règle est au § 2 du document cité plus haut.
+ *
+ * **La surveillance retirée** de la mise en page : douze rouges, et aucune
+ * panne. Les sept contrôles du bandeau rougissent, les deux sections qui
+ * cliquent disent « la suite n'est pas mesurée » au lieu de mourir sur un
+ * bouton absent, et les deux dernières sections tournent quand même — celle
+ * du contraste, qui fabrique son bandeau elle-même, reste verte, ce qui est
+ * juste.
+ *
+ * C'est ce sabotage qui a trouvé le défaut de cet essai : avant les gardes,
+ * il mourait sur un « page.click: Timeout 30000ms exceeded » et emportait
+ * trois sections avec lui, dont une qui n'avait rien à voir.
+ *
+ * **Le cri au loup** — le bandeau posé même quand la version n'a pas changé :
+ * **exactement un rouge**, « au retour sur l'onglet non plus », l'assertion
+ * de la section 1 qui n'existe que pour cela. Sans elle, un module qui
+ * annoncerait une republication à chaque coup d'œil passerait pour une
+ * détection.
+ *
+ * **La conclusion tirée hors ligne** — le bandeau posé quand la lecture
+ * échoue : **exactement un rouge**, « aucun bandeau sur une lecture
+ * impossible ».
  */
 import { writeFileSync } from 'node:fs';
 import { readFile, writeFile } from 'node:fs/promises';
