@@ -18,6 +18,7 @@
  */
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { devientVisible } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -64,8 +65,18 @@ await a.locator('#coffre-ferme').waitFor({ state: 'hidden', timeout: 25000 });
 const b = await ctx.newPage();
 await b.goto(`${RACINE}/odyssee/psyche/`, { waitUntil: 'networkidle' });
 await session(b);
-await b.waitForTimeout(2500);
-v('le second onglet n’a pas demandé le mot de passe', await coffreDemande(b), false);
+/*
+   UNE ASSERTION DE NON-VISIBILITÉ, et c'est la plus traîtresse du lot : lue
+   trop tôt, elle est vraie par hasard — le formulaire n'a simplement pas
+   encore paru. L'attente bornée rend son expiration en faux, donc l'assertion
+   garde son sens, et ce qui disparaît est l'exigence que le relais de session
+   tienne en 2500 ms.
+*/
+v(
+  'le second onglet n’a pas demandé le mot de passe',
+  await devientVisible(b, '#mdp-coffre', false, { delai: 30000 }),
+  true,
+);
 /*
    Attente tolérante, et la raison vaut d'être écrite : un sabotage de contrôle
    a montré que ce `waitFor` faisait **planter** l'essai au lieu de l'échouer,
@@ -92,8 +103,11 @@ const seul = await nav.newContext({ viewport: { width: 1280, height: 900 } });
 const c = await seul.newPage();
 await c.goto(`${RACINE}/odyssee/psyche/`, { waitUntil: 'networkidle' });
 await session(c);
-await c.waitForTimeout(2500);
-v('un contexte sans donneur redemande le mot de passe', await coffreDemande(c), true);
+v(
+  'un contexte sans donneur redemande le mot de passe',
+  await devientVisible(c, '#mdp-coffre', true, { delai: 30000 }),
+  true,
+);
 await seul.close();
 
 /* --- C. Fermer dans un onglet ferme dans l'autre ------------------------- */
@@ -102,10 +116,13 @@ console.log('\n  C — fermer ici ferme là-bas');
 
 await a.bringToFront();
 await a.click('#temoin-coffre-fermer');
-await a.waitForTimeout(1200);
-v('l’onglet qui a fermé est fermé', await a.isVisible('#temoin-coffre'), false);
-await b.waitForTimeout(800);
-v('et l’autre onglet aussi', await b.isVisible('#temoin-coffre'), false);
+/*
+   La fermeture se propage d'un onglet à l'autre : deux post-conditions, une
+   par onglet, et c'est celle du SECOND qui porte la garantie — l'autre onglet
+   n'a pas été touché, il a été prévenu.
+*/
+v('l’onglet qui a fermé est fermé', await devientVisible(a, '#temoin-coffre', false), true);
+v('et l’autre onglet aussi', await devientVisible(b, '#temoin-coffre', false), true);
 v(
   'sa clé d’onglet a disparu',
   await b.evaluate(() => sessionStorage.getItem('cyclades.coffre')),
@@ -129,8 +146,11 @@ await d.locator('#coffre-ferme').waitFor({ state: 'hidden', timeout: 25000 });
 const e = await seul2.newPage();
 await e.goto(`${RACINE}/odyssee/psyche/`, { waitUntil: 'networkidle' });
 await session(e);
-await e.waitForTimeout(2500);
-v('un onglet neuf redemande le mot de passe', await coffreDemande(e), true);
+v(
+  'un onglet neuf redemande le mot de passe',
+  await devientVisible(e, '#mdp-coffre', true, { delai: 30000 }),
+  true,
+);
 await seul2.close();
 
 await nav.close();
