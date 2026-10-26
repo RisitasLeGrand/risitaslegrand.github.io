@@ -445,6 +445,35 @@ plus haut dans le fichier ne lève pas à la lecture mais à l'exécution —
 premières assertions vertes, ce qui ressemble à tout sauf à une erreur de
 rangement.
 
+### Deux leçons du quatrième lot, et l'une n'était pas la cause
+
+*« pretest » (6 sites), « parcours-validation » (6), « consentement-ecran »
+(5), « calendrier-occurrences » (5), « migration-fsrs » (5),
+« piles-navigateur » (5). Deux cent quatre-vingts sites restent.*
+
+**L'ORDRE DE DEUX POST-CONDITIONS COMPTE.** `essais:migration` déverrouille la
+session, puis attend que la base ait migré. J'ai remplacé les 2 500 ms par la
+seule attente de la migration — or le magasin des cartes se lit SANS la clé :
+la condition était donc satisfaite pendant que le déverrouillage courait
+encore. L'essai partait sur « /flashcards » avant que la session n'existe, et
+retombait sur l'écran d'entrée. Rouge : « aucune session de flashcards à
+démarrer », sur une application saine, et huit assertions non mesurées
+derrière. Il faut les deux attentes, dans l'ordre : le verrou qui s'en va, puis
+la migration.
+
+**ET UNE CORRECTION QUI N'ÉTAIT PAS LA CAUSE, mais qu'il fallait faire.** En
+cherchant le défaut, j'ai vu que `attendreEnBase` ouvrait une connexion à la
+base à chaque tour de sondage et **ne la refermait jamais**. Or une connexion
+ouverte BLOQUE un changement de version : un sondage de ce genre peut empêcher
+la migration qu'il est censé attendre. Corrigé — et mesuré : cela ne
+réparait pas ce rouge-ci. Les deux faits valent d'être dits ensemble, parce que
+la tentation est de s'arrêter à la première explication plausible.
+
+**Enfin, le diagnostic muet.** La branche « rien à démarrer » de cet essai ne
+disait pas ce qu'elle avait vu : deux passages pour découvrir que l'écran
+montrait le cadenas. Elle liste maintenant les appuis visibles et le chemin.
+*Un rouge qui ne dit pas ce qu'il a vu se cherche à l'aveugle.*
+
 ### Ce que coûte une conversion, mesuré
 
 Le pilote : **2 h 01 d'horloge pour 26 sites**, trois essais, un socle. À ce
