@@ -55,7 +55,15 @@ import { base } from '../lib/ui';
         class="mt-2 hidden list-decimal space-y-1 pl-5 text-sm text-slate-600 dark:text-slate-300"
       >
         <li data-etape="sauvegarde">
-          <strong>Faites d’abord une sauvegarde</strong>, depuis
+          {/*
+             `{' '}` ET NON UN SAUT DE LIGNE. Astro supprime le saut qui sépare
+             un nœud de texte d'une balise en ligne : « depuis » et le lien se
+             collaient dans le HTML construit, et à l'écran la phrase disait
+             « depuisSauvegarde ». Le défaut ne se voit pas en relisant ce
+             gabarit — il naît à la construction, et c'est « essais:espaces »,
+             qui lit « dist/ », qui l'a trouvé.
+          */}
+          <strong>Faites d’abord une sauvegarde</strong>, depuis{' '}
           <a
             href={`${base}/progression/#sauvegarde`}
             class="cible-minimale underline text-indigo-700 dark:text-indigo-300"
