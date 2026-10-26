@@ -596,17 +596,30 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
       cle,
       etat === 'pris' ? { etat: 'pris', le: le.toISOString() } : { etat: 'pas-aujourdhui' },
     );
-    proposerLAnnulation({
+    await proposerLAnnulation({
       texte: etat === 'pris' ? 'Prise notée' : 'Noté : pas aujourd’hui',
-      agir: async () => {
-        try {
-          await noterLeCreneau(traitement, creneau.jour, creneau.heure, etat, { le });
-        } finally {
-          /* Vidé même en cas d'échec : laisser la ligne annoncer une écriture
-             qui n'a pas eu lieu serait le pire des deux états. L'erreur, elle,
-             s'affiche. */
-          enAttente.delete(cle);
-        }
+      /*
+         L'ÉCRAN DÉCLARE SON INTENTION, il n'appelle plus l'écriture.
+
+         Le registre rappellera `noterLeCreneau` à l'échéance, ou au prochain
+         démarrage si l'on quitte pendant le délai. La charge porte
+         l'IDENTIFIANT du traitement et non le traitement : le registre le
+         relit, et refuse si entre-temps il a été supprimé — écrire une prise
+         sur un traitement disparu serait une note sur rien.
+      */
+      genre: 'noter-creneau',
+      charge: {
+        traitementId: traitement.id,
+        jour: creneau.jour,
+        heure: creneau.heure,
+        etat,
+        le: le.toISOString(),
+      },
+      /* Vidé même en cas d'échec — le module l'appelle dans un `finally` :
+         laisser la ligne annoncer une écriture qui n'a pas eu lieu serait le
+         pire des deux états. L'erreur, elle, s'affiche. */
+      apres: async () => {
+        enAttente.delete(cle);
         await peindre();
       },
       defaire: () => {

@@ -874,15 +874,24 @@ import LienReglages from '../../components/LienReglages.astro';
           arreterLeTheme();
           await rendreLeVerrou();
           await peindre();
-          proposerLAnnulation({
+          await proposerLAnnulation({
             texte:
               combien === 0
                 ? 'Séance supprimée.'
                 : combien === 1
                   ? 'Séance supprimée, avec sa série.'
                   : `Séance supprimée, avec ses ${combien} séries.`,
-            agir: async () => {
-              await supprimerSeance(condamnee.id);
+            /*
+               L'ÉCRAN NE DIT PLUS COMMENT SUPPRIMER, IL DIT QUOI SUPPRIMER.
+
+               C'est le registre des intentions qui appelle `supprimerSeance`,
+               à l'échéance comme au prochain démarrage si l'on quitte entre
+               temps. Deux chemins pour la même suppression finiraient par
+               diverger, et la divergence se verrait là où elle coûte le plus.
+            */
+            genre: 'supprimer-seance',
+            charge: { id: condamnee.id },
+            apres: async () => {
               /* Une fois la suppression partie, relire le magasin est sûr —
                  et c'est ce qui remet les dernières séances à jour. */
               if (seance === null) await recharger();

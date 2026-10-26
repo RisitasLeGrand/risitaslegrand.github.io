@@ -83,6 +83,27 @@ export interface MagasinScelle {
 
 export const MAGASINS_SCELLES: readonly MagasinScelle[] = [
   {
+    magasin: 'annulationsEnAttente',
+    pourquoi:
+      'Une intention d’action dit CE QU’ON S’APPRÊTE À FAIRE : « noter une prise » en est une, et son genre seul suffirait à révéler un traitement. Scellée dès sa création, comme la donnée qu’elle vise — et le magasin porte un MÉLANGE assumé : les intentions d’un domaine en clair (supprimer une séance de sport) sont écrites en clair quand le coffre est fermé, celles des domaines scellés sont refusées plutôt qu’exposées. La frontière est celle que ce fichier pose déjà magasin par magasin ; voir GENRES_SENSIBLES.',
+    /*
+       RIEN QUE LA CLÉ, et elle est OPAQUE pour cette raison même.
+
+       Une clé primaire ne peut pas être scellée — c'est la limite que le
+       magasin des exceptions reconnaît plus bas. Ici on la contourne au lieu
+       de la subir : l'identifiant d'une intention est tiré au hasard et ne
+       porte ni le genre, ni la cible, ni l'horodatage. Pas d'ULID, dont les
+       premiers caractères diraient l'instant du geste — et pour une prise
+       notée chaque matin à la même heure, l'instant EST une partie de
+       l'information.
+
+       Ce qui reste lisible sans coffre, et qu'aucune précaution n'enlève :
+       qu'une action est en attente. C'est dit dans
+       `noyau/annulation-en-attente.ts`.
+    */
+    clairs: ['id'],
+  },
+  {
     magasin: 'odysseeCheckins',
     pourquoi: 'Psyché : un état intérieur quotidien, lu par un tiers, fait un dommage.',
     clairs: ['id', 'jour', 'majLe'],
