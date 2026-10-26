@@ -253,7 +253,7 @@ export const BRANCHES: Branche[] = [
         /*
            L'ÉMOJI DEVIENT UN NOM DU CATALOGUE, et le nom est à revoir d'un mot.
 
-           Cette entrée portait « 🗂️ », une boîte à fiches. Le catalogue de
+           Cette entrée portait un émoji de boîte à fiches. Le catalogue de
            A ne nomme aucun « organigramme » ; « ranger » est le sens
            littéral de l'émoji choisi, donc le plus proche de l'intention.
            Si A ou B préfère autre chose, c'est un mot à changer ici.
