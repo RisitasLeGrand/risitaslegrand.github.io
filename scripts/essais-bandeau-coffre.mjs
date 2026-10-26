@@ -26,6 +26,7 @@ import { readdirSync, statSync } from 'node:fs';
 import { dirname, join, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import { devientVisible } from './lib/post-condition.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const ICI = dirname(fileURLToPath(import.meta.url));
@@ -78,8 +79,25 @@ const ouvrirLeCoffre = async () => {
     await page.fill('#mdp-coffre', MDP);
     await page.click('#ouvrir-coffre');
   }
-  await page.waitForSelector('#temoin-coffre', { timeout: 40000 }).catch(() => {});
-  await page.waitForTimeout(600);
+  /*
+     ON ATTEND LE CADENAS, ET NON LE BANDEAU.
+
+     Les deux sont peints par DEUX chaînes asynchrones indépendantes :
+     « surCoffre » les notifie tous les deux, et chacun lit son propre réglage.
+     Attendre l'un ne dit rien de l'autre, et c'est une temporisation de 600 ms
+     qui couvrait l'écart. Mesuré : la peinture du cadenas retardée d'une
+     seconde, deux assertions tombent.
+
+     Le cadenas est le bon témoin de l'ouverture, parce qu'il paraît CHAQUE
+     fois que le coffre s'ouvre. Le bandeau, lui, peut rester masqué — c'est
+     précisément ce que la moitié de cet essai mesure —, et l'attendre ici
+     ferait expirer l'aide dans les cas où son absence est la bonne réponse.
+
+     L'échec de l'attente n'est plus avalé par un « catch » vide : il était
+     muet, et l'assertion d'après rendait un faux sans dire que l'élément
+     n'était jamais venu.
+  */
+  await page.waitForSelector('#cadenas-coffre', { timeout: 40000 });
 };
 
 await ouvrirLeCoffre();
@@ -88,12 +106,12 @@ await ouvrirLeCoffre();
 
 verifier(
   'le bandeau est visible tant qu’on ne l’a pas masqué',
-  await page.locator('#temoin-coffre').isVisible(),
+  await devientVisible(page, '#temoin-coffre', true),
   true,
 );
 verifier(
   'et le cadenas compact l’accompagne dès l’ouverture',
-  await page.locator('#cadenas-coffre').isVisible(),
+  await devientVisible(page, '#cadenas-coffre', true),
   true,
 );
 
@@ -121,11 +139,14 @@ const hauteurAvant = await placeAvantLeContenu();
 /* ── « Masquer » : l’onglet, et pas au-delà ────────────────────────── */
 
 await page.click('#temoin-coffre-masquer');
-await page.waitForTimeout(300);
-verifier('« Masquer » retire le bandeau', await page.locator('#temoin-coffre').isVisible(), false);
+verifier(
+  '« Masquer » retire le bandeau',
+  await devientVisible(page, '#temoin-coffre', false),
+  true,
+);
 verifier(
   'mais pas le cadenas, qui porte le geste',
-  await page.locator('#cadenas-coffre').isVisible(),
+  await devientVisible(page, '#cadenas-coffre', true),
   true,
 );
 
@@ -174,15 +195,36 @@ verifier(
     if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
       await page.fill('#champ-mdp', MDP);
       await page.click('#bouton-verrou');
-      await page.waitForTimeout(800);
+      /* Le champ qui s'en va est la post-condition du déverrouillage. */
+      await devientVisible(page, '#champ-mdp', false);
     }
-    await page.waitForTimeout(250);
-    const offert = await page.evaluate(() => {
-      const zone = document.getElementById('cadenas-coffre');
-      const visible = zone !== null && !zone.classList.contains('hidden');
-      const fermer = document.getElementById('cadenas-fermer');
-      return visible && fermer !== null;
-    });
+    /*
+       L'ATTENTE PORTE LA QUESTION, et c'est ce qui la rend juste.
+
+       Deux temporisations à l'aveugle couvraient le déverrouillage et la
+       peinture du cadenas : 800 et 250 ms, sur soixante routes. Sous une
+       batterie chargée, une route lente était comptée comme une route SANS
+       « Fermer le coffre » — c'est-à-dire comme une violation de l'interdit 6,
+       alors que rien n'y manquait.
+
+       L'attente bornée dit exactement ce que la boucle veut savoir : le
+       cadenas vient-il, oui ou non, dans un délai raisonnable ? Son expiration
+       est la réponse « non », pas un accident de mesure. Une route qui ne
+       l'offre vraiment jamais est toujours comptée — après dix secondes au
+       lieu d'une.
+    */
+    const offert = await page
+      .waitForFunction(
+        () => {
+          const zone = document.getElementById('cadenas-coffre');
+          const visible = zone !== null && !zone.classList.contains('hidden');
+          return visible && document.getElementById('cadenas-fermer') !== null;
+        },
+        undefined,
+        { timeout: 10000 },
+      )
+      .then(() => true)
+      .catch(() => false);
     if (!offert && !exceptee(r)) sans.push(r);
   }
   verifier(
@@ -245,65 +287,79 @@ verifier(
 /* ── « Masquer indéfiniment » : il survit au rechargement ──────────── */
 
 await page.click('#cadenas-coffre-bouton');
-await page.waitForTimeout(200);
 verifier(
   'mais le menu du cadenas le porte',
-  await page.locator('#cadenas-masquer-toujours').isVisible(),
+  await devientVisible(page, '#cadenas-masquer-toujours', true),
   true,
 );
 await page.click('#cadenas-masquer-toujours');
-await page.waitForTimeout(300);
-verifier(
-  'le réglage durable est écrit sur l’appareil',
-  await page.evaluate(() => localStorage.getItem('cyclades.affichage.bandeau-coffre')),
-  'masque',
-);
+/*
+   LA POST-CONDITION EST LA CLÉ ELLE-MÊME, et non la disparition du bandeau.
+
+   À ce point de l'essai, le bandeau est déjà masqué par le geste de session :
+   attendre qu'il disparaisse serait déjà vrai avant le clic — le premier motif
+   d'attente fragile. La clé durable, elle, est écrite PAR ce geste et par lui
+   seul. L'attente est bornée, donc son expiration est un rouge et non un vert
+   à vide.
+*/
+const durableEcrit = await page
+  .waitForFunction(
+    () => localStorage.getItem('cyclades.affichage.bandeau-coffre') === 'masque',
+    undefined,
+    { timeout: 10000 },
+  )
+  .then(() => true)
+  .catch(() => false);
+verifier('le réglage durable est écrit sur l’appareil', durableEcrit, true);
 
 await ouvrirLeCoffre();
 verifier(
   'et le bandeau ne revient pas à la réouverture du coffre',
-  await page.locator('#temoin-coffre').isVisible(),
-  false,
+  await devientVisible(page, '#temoin-coffre', false),
+  true,
 );
 verifier(
   'le cadenas, lui, est toujours là',
-  await page.locator('#cadenas-coffre').isVisible(),
+  await devientVisible(page, '#cadenas-coffre', true),
   true,
 );
 
 /* ── Le rétablissement, depuis le menu du cadenas ──────────────────── */
 
 await page.click('#cadenas-coffre-bouton');
-await page.waitForTimeout(200);
 verifier(
   '« Afficher le bandeau » n’est proposé que lorsqu’il est masqué',
-  await page.locator('#cadenas-afficher-bandeau').isVisible(),
+  await devientVisible(page, '#cadenas-afficher-bandeau', true),
   true,
 );
 await page.click('#cadenas-afficher-bandeau');
-await page.waitForTimeout(300);
-verifier('il revient aussitôt', await page.locator('#temoin-coffre').isVisible(), true);
-verifier(
-  'et le réglage durable est levé',
-  await page.evaluate(() => localStorage.getItem('cyclades.affichage.bandeau-coffre')),
-  null,
-);
+verifier('il revient aussitôt', await devientVisible(page, '#temoin-coffre', true), true);
+/* Là encore, la clé est écrite par ce geste : on attend sa levée. */
+const durableLeve = await page
+  .waitForFunction(
+    () => localStorage.getItem('cyclades.affichage.bandeau-coffre') === null,
+    undefined,
+    { timeout: 10000 },
+  )
+  .then(() => true)
+  .catch(() => false);
+verifier('et le réglage durable est levé', durableLeve, true);
 
 /* ── Le clavier ────────────────────────────────────────────────────── */
 
 await page.click('#cadenas-coffre-bouton');
-await page.waitForTimeout(200);
+/* Le menu ouvert est la post-condition du clic ; l'attribut se lit après. */
+await devientVisible(page, '#cadenas-coffre-menu', true);
 verifier(
   'le menu s’ouvre et le dit',
   await page.getAttribute('#cadenas-coffre-bouton', 'aria-expanded'),
   'true',
 );
 await page.keyboard.press('Escape');
-await page.waitForTimeout(200);
 verifier(
   'Échap le referme',
-  await page.locator('#cadenas-coffre-menu').isVisible(),
-  false,
+  await devientVisible(page, '#cadenas-coffre-menu', false),
+  true,
 );
 verifier(
   'et rend le focus au cadenas plutôt qu’au corps de la page',
@@ -314,15 +370,18 @@ verifier(
 /* ── Coffre fermé, le cadenas disparaît comme le bandeau ───────────── */
 
 await page.click('#cadenas-coffre-bouton');
-await page.waitForTimeout(200);
+await devientVisible(page, '#cadenas-coffre-menu', true);
 await page.click('#cadenas-fermer');
-await page.waitForTimeout(600);
 verifier(
   'coffre fermé, le cadenas s’efface',
-  await page.locator('#cadenas-coffre').isVisible(),
-  false,
+  await devientVisible(page, '#cadenas-coffre', false),
+  true,
 );
-verifier('et le bandeau aussi', await page.locator('#temoin-coffre').isVisible(), false);
+verifier(
+  'et le bandeau aussi',
+  await devientVisible(page, '#temoin-coffre', false),
+  true,
+);
 
 await contexte.close();
 await nav.close();
