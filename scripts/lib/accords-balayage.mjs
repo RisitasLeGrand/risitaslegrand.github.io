@@ -113,10 +113,41 @@ function morceauxDeTexte(source) {
   return morceaux;
 }
 
+/**
+ * Les textes exemptés, et pourquoi — un par un, jamais un fichier entier.
+ *
+ * ## Pourquoi par le TEXTE et non par le fichier
+ *
+ * Exempter « echelles.astro » aurait aussi caché ses trois phrases calculées
+ * — « 3 réponse(s) manquante(s) » —, qui sont de vraies fautes et qui sont
+ * corrigées. Une exemption de fichier dispense de regarder ; une exemption de
+ * texte dit exactement ce qu'elle laisse passer.
+ *
+ * ## Ce qui est exempté, et la question que cela pose
+ *
+ * Les quatre réponses de l'item de GÊNE du PHQ-9. Ce ne sont pas des phrases
+ * du site : ce sont les **options d'un instrument clinique validé**, et les
+ * réécrire change l'instrument — ce qui n'est pas une correction de
+ * typographie mais une décision de contenu, et elle n'est pas de mon ressort.
+ *
+ * La question est posée au Pilote : si le libellé canonique français du
+ * PHQ-9 porte « difficile » au singulier, ces quatre chaînes devraient le
+ * porter aussi et l'exemption disparaîtra. Tant qu'elle n'est pas tranchée,
+ * mieux vaut une exemption nommée qu'une réécriture silencieuse d'une échelle
+ * que quelqu'un lit pour se situer.
+ */
+export const TEXTES_EXEMPTES = new Set([
+  'Pas du tout difficile(s)',
+  'Assez difficile(s)',
+  'Très difficile(s)',
+  'Extrêmement difficile(s)',
+]);
+
 /** Les sites de la forme interdite, dans le TEXTE d'une source. */
 export function sitesInterdits(source) {
   const sites = [];
   for (const { ligne, texte } of morceauxDeTexte(sansCommentaires(source).join('\n'))) {
+    if (TEXTES_EXEMPTES.has(texte.trim())) continue;
     const combien = [...texte.matchAll(COLLE)].length + (SEULE.test(texte) ? 1 : 0);
     for (let k = 0; k < combien; k += 1) {
       sites.push({ ligne, texte: texte.replace(/\s+/g, ' ').trim().slice(0, 120) });
