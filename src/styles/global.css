@@ -245,6 +245,63 @@ body {
    Un contrôle le vérifie dans « essais:mobile » : un lien de phrase qui
    porterait cette classe passe au rouge.
 */
+/*
+   LE TÉMOIN DE SYNCHRONISATION : UNE FORME PAR ÉTAT (E2 du prompt 43).
+
+   Mesuré le 25 octobre : les trois états étaient le MÊME point de 8 px et ne
+   différaient que par la teinte — emerald, indigo, amber. Deux objections, et
+   chacune suffit :
+
+   - vert contre orange est le couple que la deutéranopie confond, et c'est
+     « tout va bien » contre « la dernière synchronisation a échoué » ;
+   - mesurés sur le fond clair, emerald-500 donnait 2,54:1 et amber-500
+     2,15:1, sous le 3:1 que WCAG 1.4.11 demande à une marque porteuse de sens.
+
+   Le `sr-only` disait déjà l'état en toutes lettres : le lecteur d'écran était
+   servi, l'œil non.
+
+   TROIS SILHOUETTES, qui se distinguent en noir et blanc comme en couleur :
+   le disque veille, l'ANNEAU échange, le TRIANGLE alerte. Un anneau plutôt
+   qu'un disque plus clair, parce qu'une différence de clarté est ce qui
+   disparaît le premier au soleil ou sur un écran mal réglé.
+
+   LES TEINTES SONT DES JETONS DE RÔLE, et non trois hexadécimaux : `--etat-
+   succes`, `--etat-action` et `--etat-alerte` sont déjà garantis à 4,5:1 sur
+   le fond dans les quatorze thèmes et leurs vingt-cinq modes, par
+   `essais:contrastes-themes`. Trois couleurs écrites ici auraient demandé leur
+   propre table, à tenir à jour à chaque thème ajouté.
+
+   Dix pixels et non huit : à huit, un triangle n'est plus un triangle.
+*/
+.pastille-sync {
+  display: block;
+  width: 0.625rem;
+  height: 0.625rem;
+  border-radius: 9999px;
+  background-color: var(--etat-texte-faible);
+}
+
+.pastille-sync[data-etat='en-veille'] {
+  background-color: var(--etat-succes);
+}
+
+/* L'anneau : le fond se retire, et c'est la bordure qui dessine. */
+.pastille-sync[data-etat='en-cours'] {
+  background-color: transparent;
+  border: 2px solid var(--etat-action);
+}
+
+/*
+   Le triangle, par découpe plutôt que par la ruse des bordures : la ruse
+   impose la couleur dans une propriété de bordure, et l'on ne peut plus la
+   tenir d'un jeton sans réécrire les quatre côtés.
+*/
+.pastille-sync[data-etat='echec'] {
+  background-color: var(--etat-alerte);
+  border-radius: 0;
+  clip-path: polygon(50% 0%, 100% 100%, 0% 100%);
+}
+
 .cible-tactile {
   @apply inline-flex items-center;
 }

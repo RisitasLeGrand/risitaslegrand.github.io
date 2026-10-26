@@ -353,7 +353,8 @@
     "essais:effacements-dits": "tsx scripts/essais-effacements-dits.mts",
     "essais:base-concurrente": "tsx scripts/essais-base-concurrente.mts",
     "essais:404-hors-ligne": "tsx scripts/essais-404-hors-ligne.mts",
-    "essais:fusion-interrompue": "node scripts/essais-fusion-interrompue.mjs"
+    "essais:fusion-interrompue": "node scripts/essais-fusion-interrompue.mjs",
+    "essais:temoin-sync:navigateur": "node scripts/essais-temoin-sync-navigateur.mjs"
   },
   "repository": {
     "type": "git",
