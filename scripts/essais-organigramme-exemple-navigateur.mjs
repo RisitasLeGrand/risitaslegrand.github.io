@@ -231,7 +231,30 @@ try {
       v('le détail dessine les six boîtes', detail, 6);
 
       const appuis = bloc.locator('[role="group"] button');
-      v('les deux appuis de lecture sont offerts', await appuis.count(), 2);
+      const combienDAppuis = await appuis.count();
+      v('les deux appuis de lecture sont offerts', combienDAppuis, 2);
+
+      /*
+         ON S'ARRÊTE SI LA BASCULE N'EST PAS LÀ, et c'est un sabotage qui l'a
+         appris — le quatrième de la journée à donner la même leçon. Les nœuds
+         essentiels retirés du décor, la bascule disparaît, et « click »
+         attendait trente secondes un bouton inexistant avant de tuer l'essai :
+         le reste des sections n'était plus mesuré, et la panne ne disait pas
+         laquelle des deux promesses avait cédé.
+
+         Une panne n'est pas un rouge. Un geste qui dépend d'un élément absent
+         ne se tente pas.
+      */
+      if (combienDAppuis !== 2) {
+        console.log(
+          `  ${rouge('✗')} la suite n’est pas mesurée : sans bascule, il n’y a pas de lecture à changer`,
+        );
+        rouges += 1;
+        await nav.close();
+        nettoyer();
+        console.log(`\n${rouge(`✗ ${rouges} rouges`)}\n`);
+        process.exit(1);
+      }
 
       await appuis.nth(1).click();
       await page.waitForTimeout(800);
