@@ -143,6 +143,40 @@ Chercher le défaut dans l'élément attendu n'aurait rien donné. **L'attente
 doit porter sur ce qu'on va LIRE**, pas sur ce qui annonce que quelque chose
 s'est passé.
 
+### Le quatrième piège : une post-condition que le NAVIGATEUR pose
+
+*Ajouté le 26 octobre, après une conversion fausse du chantier des
+temporisations.*
+
+Les trois premiers pièges se voient dans l'essai : le moment de l'attente, puis
+son objet. Celui-ci se voit ailleurs — dans le **partage du travail entre le
+navigateur et le script**. La marque attendue est propre au geste, elle ne peut
+pas rester d'un passage antérieur, elle a tout d'une post-condition. Elle est
+seulement posée par quelqu'un d'autre que celui dont on attend la peinture.
+
+Le dépliant d'une carte d'actualité est un `<details>`. J'ai converti sa
+temporisation en attente de `details[open]`, et les deux assertions qui
+suivaient sont tombées à la mesure. **`open` est posé par le navigateur au
+clic** — donc avant que le gestionnaire `toggle` n'ait tourné. Le résumé qui
+perd sa coupe à trois lignes et le bouton « Préparer une question » sont peints
+après lui. La post-condition juste est le bouton visible, qui est écrit en
+dernier ; `scripts/essais-actualites-navigateur.mjs` porte le cas en clair, à
+l'endroit où je m'étais trompé.
+
+La mise en garde vaut pour tout ce que le navigateur tient lui-même : `open`
+d'un `<details>`, `checked` d'une case, la valeur d'un champ, le focus, le
+fragment de l'adresse. Tous changent avant le gestionnaire, et aucun ne dit que
+l'écran a été repeint.
+
+Le contrôle tient en une question : **qui écrit cette marque ?** Le navigateur,
+et elle date du geste et non de la peinture. Le script, et il reste à vérifier
+qu'il l'écrit en DERNIER — ce qui ramène au troisième piège.
+
+Autrement dit : **une post-condition plausible n'est pas une post-condition.**
+Celle-ci l'était assez pour que je la croie sans la mesurer. C'est la mesure
+qui a tranché, et c'est elle qu'il faut faire avant d'annoncer une conversion,
+pas après.
+
 ### `aria-busy` ou un compteur : ce qui les sépare
 
 `aria-busy` posé avant le premier `await` et retiré dans un `finally` est une
@@ -242,6 +276,92 @@ resserrements successifs, chacun sur une classe de faux positifs constatée :
 Il reste **dix** cas, qu'on lit à la main en vérifiant (b) dans l'écran. Neuf
 étaient sains. Un relevé de 73 entrées n'aurait rien appris : *un contrôle qui
 ne contrôle rien finit par rassurer, ce qui est pire que son absence.*
+
+## 4. Le chantier des temporisations
+
+*Ouvert le 26 octobre. Le § 3 dit pourquoi une attente peut n'attendre rien ;
+celui-ci dit ce qu'on fait des temporisations à l'aveugle qui restent, et ce
+que le pilote de trois essais a appris.*
+
+### Le chiffre, ce qu'il vaut, et deux corrections
+
+`scripts/relever-temporisations.mjs` en tient le compte, et il est au dépôt
+pour que le chiffre soit vérifiable plutôt qu'annoncé. Sur l'arbre d'avant le
+pilote : **576 temporisations, dont 458 — réparties sur 112 essais — ont une
+lecture derrière**, un `isVisible`, un `textContent`, un `count()`, un
+`evaluate`, une assertion. Ce sont celles-là qui comptent : une temporisation
+suivie de rien ne ment pas sur l'écran, elle ne fait que ralentir la batterie.
+Après le pilote : 546 et 433 dans 110 essais.
+
+**C'est une estimation, et il faut savoir de quoi elle dépend.** La fenêtre de
+douze lignes est un choix. À vingt, le même script rend **478** sites au lieu
+de 433 sur le même arbre : l'élargir ramasse des lectures qui appartiennent au
+geste suivant, la rétrécir manque celles qu'un bloc `waitForFunction` sépare de
+leur temporisation. *Deux relevés qui ne disent pas leur fenêtre ne sont pas
+comparables.*
+
+**Première correction : le motif sous-comptait d'un quart.** Il cherchait
+`isVisible`, `textContent`, `getAttribute`, `$$eval`, `count()` et les appels
+d'assertion — mais pas **`evaluate(`**, qui est la façon la plus courante de
+lire l'écran dans ces essais. Trois sites d'un seul fichier passaient dessous,
+et je ne les ai vus qu'en comptant les restes après conversion. *Un motif de
+mesure se vérifie sur un fichier déjà traité, où le reste doit être zéro.*
+
+**Seconde correction, sur la première : le « 488 dans 116 essais » que j'ai
+annoncé au Pilote ne se reproduisait pas.** Il venait d'une mesure à la main
+dont je n'avais pas noté la fenêtre — la valeur s'explique par une fenêtre
+large, celle de vingt lignes en rendant 478. L'ordre de grandeur et la charge
+de travail n'en bougent pas ; ce qui change, c'est qu'un chiffre de ce chantier
+se donne désormais avec le script et la fenêtre qui le produisent.
+
+### Une temporisation légitime existe, et elle est rare
+
+Une sur vingt-six, dans le pilote. Deux séries de 8 répétitions à 60 kg portent
+exactement les mêmes données : le **repos de 600 ms** du site les prend pour un
+seul geste, et c'est l'objet de son empreinte. L'essai attend 700 ms pour
+franchir ce repos.
+
+Elle ne se remplace pas par une post-condition, et la raison est de principe :
+ce qu'on attend est précisément **qu'il ne se passe rien**. Donner une marque à
+ce non-événement reviendrait à faire annoncer par l'écran une déduplication
+qu'il rend invisible — on ajouterait à la page une trace pour l'essai seul.
+
+La classe se reconnaît à un **amortissement dans la source** : un `setTimeout`
+dans un gestionnaire d'entrée côté site. C'est cherchable, donc relevable avant
+d'attaquer un lot, ce qui évite de « réparer » ce qui n'est pas cassé.
+
+### Trois choses apprises au pilote
+
+**Les écritures en base sans marque à l'écran** — l'amorce de calibrage, le
+décochage d'une source — se tiennent en interrogeant **la base elle-même**
+jusqu'à ce qu'elle réponde, et non l'écran. `attendreEnBase(magasin,
+estSatisfait, delai)` de `essais-niveau-navigateur.mjs` fait cela par le `lire()`
+que l'essai possède déjà.
+
+**Les invariants négatifs ne s'attendent pas.** « Refuser la confirmation ne
+supprime rien » est vrai tout de suite, et le resterait si la suppression
+arrivait une seconde plus tard. On attend la post-condition du GESTE — la boîte
+qui se referme —, après quoi la lecture a un sens.
+
+**Certains essais ont des préalables.** `essais:actualites` exige
+`npm run actualites:dist`, et son propre garde le dit. Une batterie lancée sans
+eux rend des rouges qui n'en sont pas : à connaître avant de conclure quoi que
+ce soit d'un lot.
+
+### Ce que coûte une conversion, mesuré
+
+Le pilote : **2 h 01 d'horloge pour 26 sites**, trois essais, un socle. À ce
+rythme exact, les 458 demanderaient 36 heures — mais le pilote a payé trois
+passages individuels PLUS un socle pour trois essais seulement. En lot, la
+vérification se mutualise : une batterie pour trente essais convertis, et non
+une par essai. L'estimation tenable est **20 à 22 heures**, dont 3 à 4 de
+batteries et 20 % de marge pour les conversions fausses — il y en aura, le § 3
+dit lesquelles.
+
+`scripts/lib/post-condition.mjs` tient les deux formes qui reviennent le plus :
+`apresLaPeinture` pour une action répétable sur une zone qui compte ses
+peintures, `devientVisible` pour le « il part / il paraît » qui occupait la
+moitié des sites.
 
 ## Ce qui reste hors d'atteinte ici
 
