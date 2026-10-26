@@ -83,6 +83,30 @@ const saboterLesEcritures = (nomDErreur: string | null, message?: string) => `
   })();
 `;
 
+/**
+ * Fait échouer toute écriture par un `TypeError`, comme un `fetch` refusé.
+ *
+ * Un helper à part, et non un quatrième mode du précédent : celui-ci ne
+ * fabrique pas une `DOMException` et n'a ni nom ni code à porter. Les mêler
+ * aurait donné une fonction à trois branches dont deux arguments ne servent
+ * qu'à une, et c'est ainsi qu'on finit par appeler la mauvaise.
+ *
+ * Le message est **celui du navigateur** — « Failed to fetch » —, parce que
+ * c'est lui qui ne doit pas atteindre l'écran. L'inventer en français aurait
+ * vidé le contrôle de son objet.
+ */
+const saboterParUnTypeError = (message: string) => `
+  (() => {
+    const refuser = function () {
+      throw new TypeError(${JSON.stringify(message)});
+    };
+    IDBObjectStore.prototype.put = refuser;
+    IDBObjectStore.prototype.delete = refuser;
+    IDBObjectStore.prototype.add = refuser;
+    'posé'
+  })();
+`;
+
 const ouvrir = async () => {
   const ctx = await nav.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
   const page = await ctx.newPage();
@@ -392,6 +416,49 @@ console.log('\nET LA PHRASE N’EST PAS UN PASSE-PARTOUT');
     'mais elle ne parle pas des autres onglets',
     /autres onglets/i.test(dit),
     false,
+  );
+  await ctx.close();
+}
+
+/* ── Le `TypeError`, troisième branche de G-13 ────────────────────────────── */
+
+/*
+   POURQUOI CETTE SECTION EXISTE.
+
+   Le discriminant de « messageDUneErreur » opposait deux sortes d'erreurs :
+   la `DOMException`, panne de plate-forme à traduire, et l'`Error` ordinaire,
+   message de domaine écrit pour être lu. Un échec de `fetch` n'est ni l'un ni
+   l'autre : c'est un `TypeError`. Il tombait donc dans la seconde branche, et
+   son texte anglais sortait mot pour mot.
+
+   Trouvé par un sabotage du lot 0.1 — « Le déverrouillage a échoué : Failed
+   to fetch », en anglais, par la fonction même qui doit l'empêcher. La preuve
+   par exécution de la phrase pure est dans `essais:erreurs-dites`, avec un
+   vrai `fetch` refusé ; ce qui se mesure ICI est l'autre moitié : que la
+   phrase traverse jusqu'à l'écran d'une vraie page, par la porte commune.
+*/
+console.log('\nUN TypeError NE MONTRE PAS SON TEXTE ANGLAIS');
+{
+  const BRUT_DU_NAVIGATEUR = 'Failed to fetch';
+  const { ctx, page } = await ouvrir();
+  await page.goto(`${RACINE}/odyssee/corps/`, { waitUntil: 'networkidle' });
+  await page.waitForTimeout(1200);
+  await page.evaluate(saboterParUnTypeError(BRUT_DU_NAVIGATEUR));
+  await page.locator('#kg').fill('74');
+  await page.locator('#peser').click();
+  await page.waitForTimeout(1500);
+
+  const visible = page.locator('#echec-de-page:visible, [role="alert"]:visible').first();
+  const parue = (await visible.count()) > 0;
+  verifier('l’échec est dit', parue, true);
+  const dit = (parue ? ((await visible.textContent()) ?? '') : '').replace(/\s+/g, ' ');
+  verifier('et non par le texte anglais du navigateur', dit.includes(BRUT_DU_NAVIGATEUR), false);
+  verifier('la phrase parle de la connexion', /connexion/i.test(dit), true);
+  verifier('et elle dit quoi faire', /réessayez/i.test(dit), true);
+  verifier(
+    'la zone s’annonce (role="alert")',
+    parue ? await visible.getAttribute('role') : null,
+    'alert',
   );
   await ctx.close();
 }
