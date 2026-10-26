@@ -25,7 +25,6 @@
 import { db, lireAppareil, toutesLesOperations } from '../db';
 import { signalerEcriture } from './signal-ecriture';
 import { prochaineHlc } from './horloge-locale';
-import { estScelle } from '../noyau/coffre';
 import { decoderHlc } from '../noyau/hlc';
 import { operation, SANS_LOT, type Operation } from '../noyau/operations';
 import { TYPE_SUPPRESSION } from '../noyau/fusion';
@@ -54,41 +53,6 @@ export async function journaliserEnregistrement(
 ): Promise<Operation | null> {
   const declare = magasinJournalise(magasin);
   if (!declare) return null;
-  /*
-     LE PALIER B-2 : UN MAGASIN SCELLÉ NE PART PAS, TANT QUE LA CLÉ N'EST PAS
-     PARTAGÉE.
-
-     La clé du coffre n'est pas partagée entre appareils, et ce n'est pas une
-     crainte : c'est la conception. « enveloppe-du-coffre.ts » le dit au-dessus
-     du sel — « un sel sert à ce que deux installations du même mot de passe ne
-     produisent pas la même clé ». Le sel est tiré au sort à la première pose
-     et gardé par appareil.
-
-     Or la charge d'une opération porte l'enregistrement TEL QU'IL EST RANGÉ,
-     donc scellé. Dix-sept magasins étaient à la fois scellés et journalisés :
-     leurs opérations partaient dans les paquets et arrivaient illisibles en
-     face. Ce n'était pas une perte qui « arriverait si on synchronisait un
-     jour » — elle avait lieu, et elle rendait du même coup illisibles les
-     données LOCALES de l'appareil qui reçoit, les lecteurs étant en
-     « Promise.all ».
-
-     CE QUE CE REFUS NE COÛTE PAS, et je l'ai mesuré avant de l'écrire : rien
-     localement. L'écriture du magasin précède cet appel et en est indépendante
-     — « ranger() » fait « put(magasin, scelle) » PUIS « journaliser() », et la
-     journalisation est déjà silencieuse en cas d'échec. L'historique d'Alexis
-     vit dans son magasin, qui est ce que les écrans lisent ; « operations »
-     est le registre de la synchronisation, pas sa mémoire.
-
-     RIEN N'EST SUPPRIMÉ. La règle du lot est « isoler, c'est écarter, compter
-     et dire ; jamais supprimer ». Les opérations déjà parties restent où elles
-     sont et redeviendront lisibles le jour où la clé sera partagée. Celle-ci
-     n'entre simplement pas.
-
-     Le jour où la clé sera partagée, ce bloc disparaît et les dix-sept
-     repartent sans qu'on touche à leurs déclarations : elles n'ont pas bougé.
-     « essais:palier-scelles » tient l'invariant en attendant.
-  */
-  if (estScelle(magasin)) return null;
   const clef = enregistrement[declare.clef];
   if (typeof clef !== 'string' || !clef) return null;
   try {

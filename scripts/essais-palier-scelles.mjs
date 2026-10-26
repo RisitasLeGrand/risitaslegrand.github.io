@@ -47,6 +47,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { MAGASINS_SCELLES, estScelle } from '../src/lib/noyau/coffre';
+import { operationsTransportables } from '../src/lib/noyau/transportable';
 import { sansCommentaires } from './lib/sans-commentaires.mjs';
 
 const racine = path.resolve(import.meta.dirname, '..');
@@ -82,64 +83,91 @@ console.log(`  (${scelles.size} scellés · ${journalises.size} journalisés)`);
    contrôle qui passe parce qu'il ne mesure plus rien.
 */
 
-console.log('\n2. CEUX QUI SONT LES DEUX SONT REFUSÉS AU DÉPART');
+console.log('\n2. CE QUI PART N’EMPORTE AUCUN MAGASIN SCELLÉ');
 
 /*
-   POURQUOI LES DÉCLARATIONS RESTENT, ET CE QUE CETTE GARDE MESURE DONC.
+   ON ÉPROUVE CE QUI PART, PAS UN MODULE.
 
-   Une première version de cet essai exigeait que les deux ensembles ne se
-   recoupent pas, c'est-à-dire que les dix-sept sortent de
-   « MAGASINS_JOURNALISES ». Ce serait jeter leurs déclarations — type, clef,
-   libellé, règle de fusion — qu'il faudrait réécrire à l'identique le jour où
-   la clé sera partagée. Le palier doit se LEVER en une ligne, pas se défaire
-   en dix-sept.
+   Une première version de cette garde exigeait que les deux ensembles ne se
+   recoupent pas, puis une seconde regardait un module. Ni l'une ni l'autre ne
+   mesurait la chose qui compte : le CONTENU de ce qui quitte l'appareil.
 
-   Le refus est donc posé au seul point d'étranglement, dans
-   « journaliserEnregistrement », et c'est lui que cette garde mesure : le
-   prédicat qui décide, et le fait qu'il soit bien consulté.
-
-   « estScelle » est le prédicat que le code appelle — le même objet, pas une
-   copie. L'éprouver, c'est éprouver la décision ; c'est la leçon des cinq
-   lecteurs du mot de passe, et des deux prédicats de parcours.
+   « operationsTransportables » est la fonction que le paquet appelle — le même
+   objet, pas une copie. L'éprouver, c'est éprouver ce qui part.
 */
+const operationDe = (magasin) => ({
+  id: 'faux',
+  charge: { magasin, enregistrement: { id: 'x' } },
+});
+
+const sortant = operationsTransportables([
+  ...lesDeux.map(operationDe),
+  operationDe('quiz'),
+  operationDe('nback'),
+  { id: 'sans-magasin', charge: { autre: 1 } },
+]);
 
 v(
-  'le prédicat du refus classe exactement les magasins scellés',
-  [...journalises].filter((m) => estScelle(m)).sort(),
-  lesDeux,
+  'aucune opération de magasin scellé ne part',
+  sortant.map((o) => o.charge?.magasin).filter((m) => m && estScelle(m)),
+  [],
 );
-console.log(`  (${lesDeux.length} magasins journalisés sont scellés, donc refusés au départ)`);
+v(
+  'et ce qui n’est pas scellé part toujours',
+  sortant.map((o) => o.charge?.magasin ?? '(sans magasin)').sort(),
+  ['(sans magasin)', 'nback', 'quiz'],
+);
+console.log(`  (${lesDeux.length} magasins scellés et journalisés, tous retenus au départ)`);
+
+console.log('\n3. LE PRÉDICAT EST DÉRIVÉ, ET NON UNE LISTE DES DIX-SEPT');
 
 /*
-   Et la ceinture : le prédicat ne sert à rien s'il n'est pas appelé. On lit la
-   source du point d'étranglement, commentaires écartés, pour que le refus ne
-   puisse pas disparaître en silence — c'est exactement ce qui est arrivé au
-   nombre « SCHEMA_REVISIONS », juste quand personne ne regardait.
+   LE SABOTAGE QUE LE PILOTE A DEMANDÉ, et il se fait sans toucher au code :
+   on prend un magasin scellé qui n'est PAS dans les dix-sept — il y en a
+   seize — et l'on vérifie qu'il est écarté quand même. Si le filtre tenait
+   une liste des dix-sept, celui-là passerait.
+
+   C'est le dix-huitième magasin de demain, joué aujourd'hui.
 */
-const source = sansCommentaires(
+const scellesHorsDesDixSept = [...scelles].filter((m) => !journalises.has(m)).sort();
+vrai('il existe des magasins scellés hors des dix-sept', scellesHorsDesDixSept.length > 0);
+v(
+  'et un tel magasin est écarté lui aussi, par calcul',
+  operationsTransportables(scellesHorsDesDixSept.map(operationDe)),
+  [],
+);
+console.log(`  (${scellesHorsDesDixSept.length} magasins scellés non journalisés, écartés sans qu’aucune liste les nomme)`);
+
+console.log('\n4. LE JOURNAL LOCAL, LUI, EST BIEN ÉCRIT');
+
+/*
+   Le point que ma première correction avait cassé, et que le pilote a fait
+   rétablir : l'opération entre au journal local comme avant. L'appareil garde
+   la mémoire de ses propres écritures — la compaction et la reprise s'en
+   servent — et seul le DÉPART est retenu.
+
+   On le mesure à la source du point d'écriture : il ne doit plus consulter
+   « estScelle » du tout.
+*/
+const ecriture = sansCommentaires(
   readFileSync(path.join(racine, 'src/lib/sync/faits-domaine.ts'), 'utf8'),
 ).join('\n');
-const corps = source.slice(source.indexOf('export async function journaliserEnregistrement'));
-const avantEcriture = corps.slice(0, corps.indexOf("put('operations'"));
-
-vrai(
-  'le point d’étranglement consulte bien ce prédicat',
-  /estScelle\s*\(/.test(avantEcriture),
+const corpsEcriture = ecriture.slice(
+  ecriture.indexOf('export async function journaliserEnregistrement'),
 );
-vrai(
-  'et il le consulte AVANT d’écrire au registre',
-  avantEcriture.length > 0 && corps.includes("put('operations'"),
-);
+const avantPut = corpsEcriture.slice(0, corpsEcriture.indexOf("put('operations'"));
+v('le point d’écriture ne refuse plus rien de scellé', /estScelle/.test(avantPut), false);
+vrai('et il écrit bien au registre', corpsEcriture.includes("put('operations'"));
 
-if (lesDeux.length > 0) {
-  console.log(
-    `\n  Sans ce refus, ces ${lesDeux.length} magasins partiraient chiffrés avec une\n` +
-      '  clé que l’appareil qui reçoit ne possède pas, et y arriveraient\n' +
-      '  illisibles — rendant du même coup illisibles ses données LOCALES,\n' +
-      '  les lecteurs étant en « Promise.all » :\n',
-  );
-  for (const m of lesDeux) console.log(`    ${m}`);
-}
+console.log('\n5. ET LE FILTRE EST POSÉ LÀ OÙ LE PAQUET SE REMPLIT');
+
+const service = sansCommentaires(
+  readFileSync(path.join(racine, 'src/lib/sync/service.ts'), 'utf8'),
+).join('\n');
+vrai(
+  'le paquet passe par « operationsTransportables »',
+  /operationsTransportables\s*\(/.test(service),
+);
 
 console.log(
   echecs === 0
