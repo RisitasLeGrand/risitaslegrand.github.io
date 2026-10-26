@@ -445,6 +445,14 @@ const EN_LABORATOIRE = new Set([
      elle bâtit son `content/` et l'efface.
   */
   'essais:correction-ecran',
+  /*
+     61 du prompt. Les deux lectures d'un organigramme ne s'éprouvaient que sur
+     le corpus réel, qui n'est pas dans Git : sur un conteneur neuf, l'essai
+     retombait sur son refus « non mesurable » et la bascule redevenait non
+     gardée sans que rien ne rougisse. Celui-ci pose son propre organigramme
+     FICTIF dans le contenu d'exemple, ce qui exige un arbre à part.
+  */
+  'essais:organigramme-exemple',
 ]);
 
 /*

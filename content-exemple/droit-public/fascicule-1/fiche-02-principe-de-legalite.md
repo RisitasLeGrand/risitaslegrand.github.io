@@ -75,3 +75,47 @@ d'interprétation stricte.
 - question: "L'arrêt consacrant les principes généraux du droit est :"
   options: ["Blanco, 1873", "Aramu, 1945", "Nicolo, 1989", "Heyriès, 1918"]
   reponse: "Aramu, 1945"
+
+## Organigrammes
+
+- titre: "L’Office d’exemple des contrôles — ORGANIGRAMME FICTIF"
+  date: "2026-10"
+  source: "Aucune : organigramme INVENTÉ pour les essais de Cyclades. Il ne décrit aucune administration réelle, et ne doit pas être appris."
+  alt: "Un organigramme fictif en trois rangs : la direction de l’Office, puis deux services — contrôle et recours — et une mission d’appui rattachée à la direction ; au rang suivant, deux unités que le service du contrôle suit."
+  legende: "Organigramme FICTIF, posé pour que les deux lectures d’un organigramme soient mesurables sans le corpus réel. Le squelette garde la direction et ses deux services ; le détail ajoute la mission d’appui et les deux unités."
+  donnees:
+    noeuds:
+      - id: direction
+        libelle: "Direction de l’Office d’exemple"
+        niveau: 0
+        essentiel: true
+      - id: controle
+        libelle: "Service du contrôle"
+        niveau: 1
+        essentiel: true
+      - id: recours
+        libelle: "Service des recours"
+        niveau: 1
+        essentiel: true
+      - id: appui
+        libelle: "Mission d’appui"
+        niveau: 1
+      - id: unite-a
+        libelle: "Unité A"
+        niveau: 2
+      - id: unite-b
+        libelle: "Unité B"
+        niveau: 2
+    liens:
+      - de: direction
+        a: controle
+      - de: direction
+        a: recours
+      - de: direction
+        a: appui
+        libelle: "rattachement direct"
+      - de: controle
+        a: unite-a
+        libelle: "suit l’activité"
+      - de: controle
+        a: unite-b
