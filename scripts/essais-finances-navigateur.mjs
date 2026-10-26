@@ -14,6 +14,7 @@ import { writeFileSync } from 'node:fs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { pdfMinimal, relevePdfDEssai } from './lib/pdf-minimal.mjs';
+import { apresLaPeinture } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -115,8 +116,18 @@ await page.waitForSelector('#apercu:not(.hidden)', { timeout: 60000 });
   vrai('le gabarit est annoncé', (await page.textContent('#gabarit')).includes('Debit EUROS@409'));
 }
 
-await page.click('#enregistrer');
-await page.waitForSelector('#resultat:not(.hidden)', { timeout: 30000 });
+/*
+   ON ATTEND LA PEINTURE DE LA TABLE D'ÉTAT, et non l'apparition du message.
+
+   « #resultat » paraît AVANT que « peindreEtat() » n'ait tourné : la phrase
+   « 3 opérations enregistrées » est écrite synchroniquement, mais les trois
+   chiffres de « [data-etat] » arrivent après un « await ». Mesuré, avec un
+   retard de 500 ms injecté : la table annonçait 15 opérations au lieu de 20.
+
+   Le piège est qu'on attendait un élément et qu'on en lisait UN AUTRE. Chercher
+   le défaut dans l'élément attendu n'aurait rien donné : il était juste.
+*/
+await apresLaPeinture(page, '#etat', () => page.click('#enregistrer'));
 
 {
   vrai('trois opérations enregistrées', (await page.textContent('#resultat')).includes('3 opération'));
@@ -128,8 +139,7 @@ console.log('\nLE MÊME RELEVÉ DEUX FOIS NE DOUBLE RIEN');
 
 await page.setInputFiles('#fichier', BON);
 await page.waitForSelector('#apercu:not(.hidden)', { timeout: 60000 });
-await page.click('#enregistrer');
-await page.waitForSelector('#resultat:not(.hidden)', { timeout: 30000 });
+await apresLaPeinture(page, '#etat', () => page.click('#enregistrer'));
 {
   vrai('tout est déjà là', (await page.textContent('#resultat')).includes('3 déjà présente'));
   v('et le compte des opérations n’a pas bougé', (await page.textContent('[data-etat="Opérations"] dd')).trim(), '3');
