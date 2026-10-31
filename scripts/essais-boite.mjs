@@ -276,11 +276,31 @@ console.log('\nLA FEUILLE, À 360 × 740');
     { restante: true, efface: false },
   );
   /*
-     Celle-ci se retire sans rien mettre à la place : ce qui suit est un
-     `goto` — `ouvrirLaBoite` recharge l'écran —, et rien n'est lu entre les
-     deux. Une temporisation suivie d'une navigation ne garde rien.
+     J'AI CRU POUVOIR RETIRER CELLE-CI SANS RIEN METTRE À LA PLACE, et un
+     passage à vitesse NORMALE m'a détrompé : le `goto` qui suit tombait en
+     `net::ERR_ABORTED`. La leçon est que « une temporisation suivie d'une
+     navigation ne garde aucune lecture » est vrai, et insuffisant — elle
+     gardait une COURSE.
+
+     Fermer la feuille passe par `calqueFerme`, qui appelle `history.back()`
+     pour ranger l'entrée empilée à l'ouverture (M5). C'est une navigation, et
+     elle est asynchrone : le `goto` lancé aussitôt la concurrence, et l'un des
+     deux est abandonné. Attendre le seul détachement du dialogue ne suffit pas
+     non plus — `calqueFerme` est appelé AVANT `boite.remove()`, donc le
+     détachement précède le rangement.
+
+     La post-condition est donc la marque d'historique rangée : `calques.ts`
+     pose `cycladesCalque` dans `history.state` à l'ouverture, et le retour la
+     retire. Quand elle n'y est plus, la navigation est finie et la place est
+     libre.
   */
   await page.keyboard.press('Escape');
+  await page.waitForFunction(
+    () =>
+      !(typeof history.state === 'object' && history.state && 'cycladesCalque' in history.state),
+    undefined,
+    { timeout: DELAI },
+  );
 
   /* Le retour arrière referme la feuille, et ne quitte pas l'écran (M5). */
   await ouvrirLaBoite(page);
