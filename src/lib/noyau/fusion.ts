@@ -209,25 +209,35 @@ export const TYPES_A_CONFLIT_EXPLICITE: readonly string[] = [
 export const TYPES_TEXTE_A_CONFLIT: readonly string[] = [
   'revision.note-seance',
   /*
-     Trois textes rédigés et NON sensibles, ajoutés le 31 octobre.
+     Un texte rédigé et non sensible, ajouté le 31 octobre : `sport.phase`, déjà
+     de nature « texte » au catalogue et absent des deux listes. Omission, non
+     élargissement.
 
-       sport.phase     déjà de nature « texte » au catalogue, et absent des deux
-                       listes. Omission, non élargissement.
+     ══ CE QUI N'A PAS PU ENTRER, ET POURQUOI ══
 
-       odyssee.revue   sa nature était « aucune », ce qui était FAUX : une revue
-                       porte trois réponses en texte libre — « ce qui compte »,
-                       « l'obstacle », « demain » —, dont deux saisies en
-                       `<textarea>`. Le catalogue a été corrigé (voir `faits.ts`).
+     `odyssee.revue` et `odyssee.tache` portent bien du texte rédigé — trois
+     réponses libres pour l'une, un titre et une note pour l'autre — et leurs
+     magasins se mettent à jour en place. Ils devraient relever de la décision 5.
 
-       odyssee.tache   même correction. Un `Tache` porte un `titre` rédigé et une
-                       `note` « texte libre, jamais obligatoire », et le magasin
-                       `odysseeTaches` est journalisé tout entier sous ce type :
-                       un dernier-écrivain-gagne y effacerait un titre et une
-                       note écrits à la main.
+     Ils ne peuvent pourtant pas entrer ici, et la raison est que l'invariant de
+     cette liste exige `nature === 'texte'`. Or la nature décrit ce que porte la
+     VALEUR D'UN FAIT, et le fait `odyssee.revue` ne porte aucune valeur : il dit
+     « une revue a été tenue », avec pour détails son type et le NOMBRE de
+     réponses. Le texte, lui, vit dans l'enregistrement journalisé du magasin,
+     qui est un autre objet portant le même identifiant de type.
+
+     J'ai d'abord changé ces deux natures en « texte », et `essais:noyau` l'a
+     refusé : un validateur de `faits.ts` réclame une valeur dès que la nature
+     n'est plus « aucune ». Il avait raison, et mon relevé des lecteurs de la
+     nature était fautif — il EXCLUAIT `faits.ts`, que j'avais pris pour un
+     simple catalogue alors qu'il valide aussi.
+
+     Ce que cela demande n'est donc pas un ajout mais une DÉCISION : la liste des
+     textes à conflit porte sur ce qu'un enregistrement journalisé transporte, et
+     non sur la valeur d'un fait. Sa déclaration devrait vivre avec les magasins
+     journalisés, pas avec le catalogue des faits. Remonté au pilote le 31/10.
   */
   'sport.phase',
-  'odyssee.revue',
-  'odyssee.tache',
 ];
 
 /** Les deux listes réunies : ce dont un désaccord doit être montré. */

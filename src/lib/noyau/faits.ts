@@ -306,24 +306,12 @@ export const TYPES: readonly TypeDeFait[] = [
     proprietaire: 'odyssee',
     domaine: 'ordre',
     /*
-     * Même correction que pour la revue, et la même raison : le magasin
-     * `odysseeTaches` est journalisé TOUT ENTIER sous ce type, et un `Tache`
-     * porte un `titre` rédigé à la main et une `note` « texte libre, jamais
-     * obligatoire ».
-     *
-     * La description ne disait que « son domaine et son échéance », ce qui est
-     * ce que le SUIVI en retient — pas ce que le journal transporte. C'est
-     * l'écart entre les deux qui laissait un titre et une note s'effacer en
-     * silence à la synchronisation.
-     *
-     * « texte » est ici une simplification assumée : la valeur est un
-     * enregistrement, dont le titre et la note sont les parts irremplaçables.
-     * Le mot désigne ce qu'on ne doit pas écraser, et c'est à cela que la
-     * nature sert — à un seul endroit, la fusion.
+     * « aucune », pour la même raison que la revue ci-dessus : le fait dit
+     * qu'une tâche a été close, et ne porte pas de valeur. Le titre rédigé et la
+     * note libre vivent dans l'enregistrement journalisé de `odysseeTaches`.
      */
-    nature: 'texte',
-    description:
-      'Une tâche terminée, avec son domaine, son échéance, son titre et sa note rédigés.',
+    nature: 'aucune',
+    description: 'Une tâche terminée, avec son domaine et son échéance.',
   }),
   T({
     id: 'odyssee.occurrence',
@@ -627,22 +615,23 @@ export const TYPES: readonly TypeDeFait[] = [
     proprietaire: 'odyssee',
     domaine: 'psyche',
     /*
-     * « aucune » ÉTAIT FAUX, et la mesure l'a dit : une revue porte trois
-     * réponses en TEXTE LIBRE — « ce qui compte », « l'obstacle », « demain » —,
-     * dont deux saisies en `<textarea>` (`pages/odyssee/revue.astro`). Son
-     * magasin est journalisé tout entier sous ce type, de sorte qu'un
-     * dernier-écrivain-gagne y effaçait des pages écrites à la main.
+     * « aucune », ET C'EST JUSTE — j'ai essayé « texte » et je me suis trompé.
      *
-     * La nature d'un type de fait est lue à UN SEUL endroit dans tout le dépôt :
-     * `controlerTypesAConflit`, dans `fusion.ts`. Vérifié type par type — le
-     * `switch (declare.nature)` de `profil.ts` porte sur un champ de PROFIL, pas
-     * sur un fait, et ni `permissions.ts`, ni `enregistrements.ts`, ni aucun
-     * graphique ne la lisent. Ce changement n'a donc qu'un effet : rendre ce
-     * type éligible à la liste des textes à conflit.
+     * La nature décrit ce que porte la VALEUR D'UN FAIT. Or ce fait-ci n'en
+     * porte aucune : il dit « une revue a été tenue », avec pour détails son
+     * type et le NOMBRE de réponses (`faits-odyssee.ts`). Le texte rédigé — les
+     * trois réponses libres — vit dans l'enregistrement journalisé du magasin
+     * `odysseeRevues`, qui est un autre objet portant le même identifiant de
+     * type.
+     *
+     * Mettre « texte » ici a fait rougir `essais:noyau` : un validateur de ce
+     * fichier réclame une valeur dès que la nature n'est plus « aucune », et il
+     * avait raison. Conséquence : ce type ne peut pas entrer dans
+     * `TYPES_TEXTE_A_CONFLIT`, dont l'invariant exige « texte ». Voir
+     * `fusion.ts` : c'est une décision à prendre, pas une ligne à ajouter.
      */
-    nature: 'texte',
-    description:
-      'Une revue hebdomadaire, mensuelle, trimestrielle ou annuelle, tenue — avec ses réponses rédigées.',
+    nature: 'aucune',
+    description: 'Une revue hebdomadaire, mensuelle, trimestrielle ou annuelle, tenue.',
   }),
 ];
 

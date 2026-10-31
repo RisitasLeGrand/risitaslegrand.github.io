@@ -61,7 +61,7 @@
  * des deux côtés, et le dit. C'est exactement ce qu'on veut qu'il arrive.
  */
 import { typeDeFait } from './faits';
-import { TYPE_SUPPRESSION } from './fusion';
+import { TYPE_SUPPRESSION, typeAConflitExplicite } from './fusion';
 import { comparerOperations, operation, SANS_LOT, type Operation } from './operations';
 import { decoderHlc, encoderHlc, HLC_ZERO } from './hlc';
 
@@ -608,6 +608,21 @@ export interface Materialisation {
   aEffacer: AEffacer[];
   /** Les opérations d'enregistrement illisibles, qui ne sont pas appliquées. */
   illisibles: { id: string; cible: string; motif: string }[];
+  /**
+   * Les suppressions ÉCARTÉES au profit d'une version modifiée — G-4.
+   *
+   * Le plan ne se contente pas de garder la version : il le DIT. Une suppression
+   * qui ne prend pas effet sans que personne ne l'apprenne serait un deuxième
+   * défaut à la place du premier — on croirait avoir jeté quelque chose qui est
+   * toujours là.
+   */
+  suppressionsEcartees: {
+    cible: string;
+    /** L'appareil qui avait supprimé. */
+    appareilQuiSupprime: string;
+    /** L'appareil dont la modification est gardée. */
+    appareilQuiModifie: string;
+  }[];
 }
 
 export interface OptionsMaterialisation {
@@ -675,6 +690,7 @@ export function materialiser(
   const aEcrire: AEcrire[] = [];
   const aEffacer: AEffacer[] = [];
   const illisibles: Materialisation['illisibles'] = [];
+  const suppressionsEcartees: Materialisation['suppressionsEcartees'] = [];
 
   /*
      Une cible demandée dont le journal ne dit **plus rien** doit disparaître du
@@ -699,9 +715,82 @@ export function materialiser(
     const ordonnees = [...parCible.get(cible)!].sort(comparerOperations);
     const derniere = ordonnees[ordonnees.length - 1];
 
+    /*
+       G-4 — FACE À UNE SUPPRESSION, LA VERSION MODIFIÉE EST GARDÉE.
+
+       Décision 5 d'Alexis (19/10), arbitrage du pilote du 31/10.
+
+       Deux appareils hors de portée l'un de l'autre : sur l'un on supprime une
+       note de séance, sur l'autre on la complète. La suppression gagnait parce
+       qu'elle était la DERNIÈRE dans l'ordre de l'horloge logique, et deux pages
+       rédigées disparaissaient sans un mot.
+
+       Deux bornes à cette règle, et chacune évite un défaut symétrique :
+
+       ELLE NE VAUT QUE POUR LES TYPES DÉJÀ DÉCLARÉS À CONFLIT. Ce sont ceux dont
+       le projet a établi qu'ils ne doivent pas être écrasés en silence, et
+       réutiliser cette déclaration vaut mieux qu'en inventer une troisième.
+       Partout ailleurs — les coches, les compteurs — le dernier gagne comme
+       avant : garder une coche contre une suppression ferait réapparaître ce
+       qu'on a voulu jeter, pour un contenu qui se recoche en un geste.
+
+       ELLE NE PROTÈGE QUE CE QUE LE SUPPRIMEUR N'AVAIT PAS VU. Qui supprime sur
+       SON appareil ce qu'il venait d'y écrire a changé d'avis, et le lui refuser
+       serait absurde. Mais la borne est plus fine que « deux appareils », et
+       c'est un essai existant qui l'a montré : quand l'appareil qui supprime a
+       lui-même écrit APRÈS la version de l'autre, sa suppression est INFORMÉE —
+       il a dépassé cette version avant de jeter l'objet, et elle doit partir
+       avec lui.
+
+       On compare donc à la dernière écriture DU SUPPRIMEUR : seule une
+       modification venue d'ailleurs et POSTÉRIEURE à celle-là est une
+       modification qu'il n'a pas vue. C'est la même distinction que `conflits()`
+       applique aux valeurs divergentes — deux écritures du même appareil sont
+       une correction, pas un désaccord — mais poussée jusqu'à l'ordre des
+       écritures, parce qu'une suppression dit quelque chose de plus qu'une
+       valeur : elle dit « plus rien ».
+    */
+    let effectives = ordonnees;
     if (derniere.type === TYPE_SUPPRESSION) {
-      aEffacer.push({ magasin: magasin.magasin, clef: defaite.clef, cible });
-      continue;
+      let dernierRangDuSupprimeur = -1;
+      for (let i = 0; i < ordonnees.length; i += 1) {
+        const op = ordonnees[i];
+        if (op.type !== TYPE_SUPPRESSION && op.appareil === derniere.appareil) {
+          dernierRangDuSupprimeur = i;
+        }
+      }
+      /*
+         UNE SEULE CONDITION DE RANG, ET PAS DE CLAUSE SUR L'APPAREIL.
+
+         J'avais écrit en plus `op.appareil !== derniere.appareil`, et un
+         sabotage l'a retirée sans qu'aucun essai ne rougisse : elle était MORTE.
+         Le rang suffit — `dernierRangDuSupprimeur` est le rang de la DERNIÈRE
+         écriture du supprimeur, donc aucune de ses écritures ne peut être
+         au-delà. Une clause qui ne retire rien est une clause dont l'auteur ne
+         sait pas ce qu'elle fait, et elle ferait croire à une protection de plus.
+      */
+      const modifieeAilleurs = ordonnees.find(
+        (op, i) => op.type !== TYPE_SUPPRESSION && i > dernierRangDuSupprimeur,
+      );
+      if (!typeAConflitExplicite(magasin.type) || !modifieeAilleurs) {
+        aEffacer.push({ magasin: magasin.magasin, clef: defaite.clef, cible });
+        continue;
+      }
+      suppressionsEcartees.push({
+        cible,
+        appareilQuiSupprime: derniere.appareil,
+        appareilQuiModifie: modifieeAilleurs.appareil,
+      });
+      /*
+         Les suppressions qui SUIVENT la dernière écriture sont écartées, non
+         honorées. Celles qui la précèdent gardent leur effet : un objet
+         supprimé puis recréé repart bien de zéro.
+      */
+      let dernierEcrit = -1;
+      for (let i = 0; i < ordonnees.length; i += 1) {
+        if (ordonnees[i].type !== TYPE_SUPPRESSION) dernierEcrit = i;
+      }
+      effectives = ordonnees.slice(0, dernierEcrit + 1);
     }
 
     /*
@@ -710,10 +799,33 @@ export function materialiser(
        ressusciterait ce que la suppression avait écarté.
     */
     let depuis = -1;
-    for (let i = 0; i < ordonnees.length; i += 1) {
-      if (ordonnees[i].type === TYPE_SUPPRESSION) depuis = i;
+    for (let i = 0; i < effectives.length; i += 1) {
+      if (effectives[i].type === TYPE_SUPPRESSION) depuis = i;
     }
-    const utiles = ordonnees.slice(depuis + 1);
+    const utiles = effectives.slice(depuis + 1);
+
+    /*
+       RIEN À ÉCRIRE ICI EST UN ÉTAT QUE LE CODE NE SAIT PAS DIRE.
+
+       Par construction, `utiles` porte au moins une écriture : on n'arrive ici
+       qu'après avoir écarté le cas où la dernière opération est une suppression,
+       ou après avoir retiré les suppressions qui suivent la dernière écriture.
+
+       Un sabotage l'a pourtant fait arriver — en honorant les suppressions
+       finales malgré la décision de garder —, et le code en aval a levé un
+       `TypeError` sur une liste vide. Il le DIT maintenant, au lieu de planter :
+       un plantage dans le moteur de fusion arrête la matérialisation entière,
+       c'est-à-dire qu'il transforme une cible incohérente en base entièrement
+       non appliquée.
+    */
+    if (!utiles.length) {
+      illisibles.push({
+        id: derniere.id,
+        cible,
+        motif: 'Aucune écriture à appliquer après le tri des suppressions.',
+      });
+      continue;
+    }
 
     /** Lit la charge d'une opération, ou la signale illisible. */
     const charge = (op: Operation) => {
@@ -792,7 +904,7 @@ export function materialiser(
     });
   }
 
-  return { aEcrire, aEffacer, illisibles };
+  return { aEcrire, aEffacer, illisibles, suppressionsEcartees };
 }
 
 /* ══════════════════════════════════════════════════════════════════════════

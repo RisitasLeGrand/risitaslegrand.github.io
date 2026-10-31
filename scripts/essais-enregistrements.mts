@@ -122,25 +122,23 @@ v(
 
    Décision 5 d'Alexis (19/10) : montrer le conflit pour les textes rédigés.
 
-   Trois types ajoutés, et la mesure qui les a retenus : chacun est de nature
-   « texte », non sensible, ET son magasin se MET À JOUR EN PLACE — c'est cette
-   dernière propriété qui décide, et non les deux premières.
+   UN type ajouté : `sport.phase`. De nature « texte », non sensible, et son
+   magasin `sportProgrammes` se met à jour en place — `put` sur un programme
+   existant, et sur sa version éteinte. C'est cette dernière propriété qui
+   décide, et non les deux premières.
 
-     sport.phase     `sportProgrammes` : `put` sur un programme existant, et sur
-                     sa version éteinte.
-     odyssee.revue   `odysseeRevues` : identifiant DÉTERMINISTE `type:jour`, et
-                     le code dit pourquoi — « rouvrir l'écran pour compléter une
-                     réponse doit modifier la revue existante ».
-     odyssee.tache   `odysseeTaches` : `put` sur l'id existant à chaque clôture,
-                     réouverture ou abandon.
+   Deux candidats ont été ÉCARTÉS parce que leur magasin ne se met PAS à jour en
+   place : `odyssee.journal`, dont chaque écriture tire un ULID neuf et qu'aucune
+   fonction ne modifie, et `odyssee.fenetre-de-cycle`, qu'aucun magasin
+   journalisé ne porte.
 
-   Deux candidats ont été ÉCARTÉS par la même mesure, et c'est elle qui vaut
-   d'être retenue : `odyssee.journal`, dont chaque écriture tire un ULID neuf et
-   qu'aucune fonction ne modifie, et `odyssee.fenetre-de-cycle`, qu'aucun magasin
-   journalisé ne porte. Ni la nature ni la sensibilité ne décident : état ou
-   événement décide.
+   Et deux autres sont EN ATTENTE D'UNE DÉCISION : `odyssee.revue` et
+   `odyssee.tache` portent du texte rédigé dans des magasins mis à jour en place,
+   mais l'invariant de la liste exige `nature === 'texte'`, et la nature décrit
+   ce que porte la valeur d'un FAIT — or ces deux faits n'en portent aucune. Voir
+   `fusion.ts`.
 */
-for (const type of ['sport.phase', 'odyssee.revue', 'odyssee.tache']) {
+for (const type of ['sport.phase']) {
   v(`« ${type} » est un texte à conflit`, TYPES_TEXTE_A_CONFLIT.includes(type), true);
   v(`et il n’est pas dans la liste des sensibles`, TYPES_A_CONFLIT_EXPLICITE.includes(type), false);
   const declare = typeDeFait(type);
@@ -420,6 +418,142 @@ console.log('\nLA MATÉRIALISATION DIT CE QUE DIT LE JOURNAL');
   ]);
   v('une suppression postérieure efface', plan.aEffacer.map((e) => e.clef), ['Q1']);
   v('et rien n’est écrit', plan.aEcrire, []);
+}
+
+console.log('\nG-4 — FACE À UNE SUPPRESSION, LA VERSION MODIFIÉE EST GARDÉE');
+
+/*
+   Décision 5 d'Alexis (19/10) : « garder la version modifiée face à une
+   suppression ». Arbitrage du pilote du 31/10.
+
+   ## Ce que la règle vise, et ce qu'elle ne vise pas
+
+   Deux appareils, hors de portée l'un de l'autre. Sur l'un, on supprime une
+   note de séance ; sur l'autre, on la complète. À la rencontre, la suppression
+   gagnait parce qu'elle était la DERNIÈRE dans l'ordre de l'horloge logique —
+   et deux pages rédigées disparaissaient sans un mot.
+
+   La règle ne s'applique qu'aux types DÉJÀ déclarés à conflit, dans l'une ou
+   l'autre des deux listes. Ce sont ceux dont le projet a établi qu'ils ne
+   doivent jamais être écrasés en silence, et réutiliser cette déclaration vaut
+   mieux qu'en inventer une troisième. Partout ailleurs, et notamment pour les
+   coches et les compteurs, LE DERNIER GAGNE comme avant : garder une coche
+   contre une suppression ferait réapparaître ce qu'on a voulu jeter, pour un
+   contenu qui se recoche en un geste.
+
+   ## Et deux écritures du même appareil ne sont pas un désaccord
+
+   La personne qui supprime sur SON appareil ce qu'elle venait d'y écrire a
+   changé d'avis ; le lui refuser serait absurde. Seule une modification venue
+   d'un AUTRE appareil l'emporte — exactement la règle que `conflits()` applique
+   déjà aux valeurs divergentes.
+*/
+{
+  const plan = materialiser([
+    ecriture('notes', 'S1', { texte: 'deux pages rédigées' }, 10, 'portable'),
+    suppression('notes', 'S1', 20, 'telephone'),
+  ]);
+  v(
+    'une suppression d’un AUTRE appareil n’efface pas un texte modifié',
+    plan.aEffacer.map((e) => e.clef),
+    [],
+  );
+  v(
+    'et la version modifiée est gardée',
+    plan.aEcrire.map((e) => (e.enregistrement as { texte?: string }).texte),
+    ['deux pages rédigées'],
+  );
+  v('et le plan le SIGNALE', plan.suppressionsEcartees.map((x) => x.cible), [
+    cibleDe('notes', 'S1'),
+  ]);
+}
+
+{
+  const plan = materialiser([
+    ecriture('notes', 'S1', { texte: 'un brouillon' }, 10, 'portable'),
+    suppression('notes', 'S1', 20, 'portable'),
+  ]);
+  v(
+    'le MÊME appareil qui se ravise efface bien',
+    plan.aEffacer.map((e) => e.clef),
+    ['S1'],
+  );
+  v('et rien n’est signalé : ce n’est pas un désaccord', plan.suppressionsEcartees, []);
+}
+
+{
+  /* Coches et compteurs : le dernier gagne, inchangé. `quiz` n'est dans aucune
+     des deux listes à conflit. */
+  const plan = materialiser([
+    ecriture('quiz', 'Q1', { bonnes: 7 }, 10, 'portable'),
+    suppression('quiz', 'Q1', 20, 'telephone'),
+  ]);
+  v(
+    'un compteur garde « le dernier gagne », même entre deux appareils',
+    plan.aEffacer.map((e) => e.clef),
+    ['Q1'],
+  );
+  v('et rien n’est signalé', plan.suppressionsEcartees, []);
+}
+
+{
+  /*
+     UNE SUPPRESSION INFORMÉE L'EMPORTE, et c'est un essai EXISTANT qui me l'a
+     appris : ma première règle disait « une modification d'un autre appareil
+     gagne », et elle cassait « une suppression postérieure à la réponse
+     l'emporte sur elle ».
+
+     Ici le téléphone écrit APRÈS la version du portable, puis supprime. Il a
+     donc dépassé cette version avant de jeter l'objet : sa suppression n'est pas
+     ignorante, et la version qu'elle emporte n'est pas une version qu'il n'avait
+     pas vue.
+  */
+  const plan = materialiser([
+    ecriture('notes', 'S1', { texte: 'version portable' }, 10, 'portable'),
+    ecriture('notes', 'S1', { texte: 'version téléphone' }, 20, 'telephone'),
+    suppression('notes', 'S1', 30, 'telephone'),
+  ]);
+  v(
+    'un supprimeur qui a écrit APRÈS l’autre efface bien',
+    plan.aEffacer.map((e) => e.clef),
+    ['S1'],
+  );
+  v('et rien n’est signalé : sa suppression était informée', plan.suppressionsEcartees, []);
+}
+
+{
+  /* Et l'inverse : le portable écrit APRÈS l'écriture du téléphone, qui
+     supprime ensuite sans l'avoir vue. Là, on garde. */
+  const plan = materialiser([
+    ecriture('notes', 'S1', { texte: 'version téléphone' }, 10, 'telephone'),
+    ecriture('notes', 'S1', { texte: 'version portable' }, 20, 'portable'),
+    suppression('notes', 'S1', 30, 'telephone'),
+  ]);
+  v(
+    'mais une modification postérieure à SA dernière écriture est gardée',
+    plan.aEcrire.map((e) => (e.enregistrement as { texte?: string }).texte),
+    ['version portable'],
+  );
+  v(
+    'et elle est signalée, avec les deux appareils',
+    plan.suppressionsEcartees.map((x) => [x.appareilQuiSupprime, x.appareilQuiModifie]),
+    [['telephone', 'portable']],
+  );
+}
+
+{
+  /* Et l'ordre inverse ne change rien : ce n'est pas « la dernière gagne »,
+     c'est « la modification d'un autre appareil gagne ». */
+  const plan = materialiser([
+    suppression('notes', 'S1', 10, 'telephone'),
+    ecriture('notes', 'S1', { texte: 'rédigé après' }, 20, 'portable'),
+  ]);
+  v(
+    'une modification postérieure existe de toute façon',
+    plan.aEcrire.map((e) => (e.enregistrement as { texte?: string }).texte),
+    ['rédigé après'],
+  );
+  v('et rien à signaler : la suppression était déjà dépassée', plan.suppressionsEcartees, []);
 }
 
 {
