@@ -71,7 +71,22 @@ const SOCLE = [
   ['essais:structure', 'un titre de niveau 1 par écran, un titre d’onglet unique'],
   ['essais:espaces', 'aucun mot collé à une balise en ligne, dans le site construit'],
   ['essais:mots-colles:navigateur', 'les mêmes, mesurés dans la page vivante'],
-  ['essais:typographie', 'apostrophes, espaces insécables, accords sans « (s) »'],
+  /*
+     LE LIBELLÉ A ÉTÉ CORRIGÉ LE 31 OCTOBRE, et la correction mérite sa raison.
+
+     Il annonçait « accords sans « (s) » ». Cet essai ne fait rien de tel : il
+     éprouve `insecables` sur onze cas, et ne lit aucune source. Mesuré le même
+     jour, `src/` porte **246 « (s) »** dans 47 fichiers — 48 dans
+     `appareils.astro` — et le socle était vert.
+
+     Un libellé qui promet un garde-fou absent est pire qu'un silence : on le
+     lit, on le croit, et l'on cherche ailleurs. C'est le mot de la doctrine sur
+     le chemin du navigateur, et il s'applique aussi aux descriptions de cette
+     liste-ci. Le balayage des accords reste à écrire, et il est remonté au
+     pilote : il rougirait 246 fois, donc son entrée au socle suppose que les
+     246 soient traitées d'abord.
+  */
+  ['essais:typographie', 'ce que « insecables » pose, et ce qu’elle laisse tranquille'],
   /*
      Deux garanties que n'importe quelle retouche du rendu Markdown peut
      défaire sans qu'on la voie : les 158 « $ » monétaires et les 100 ellipses
