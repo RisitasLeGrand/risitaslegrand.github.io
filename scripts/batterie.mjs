@@ -215,6 +215,30 @@ const SOCLE = [
      d'être pointillé, une tranche changeant de teinte sans que la table
      bouge, et la ligne d'objectif poussée sous 3:1.
   */
+  /*
+     LE MOTEUR DE PCCT, au socle dès son premier jour (prompt 64, L1).
+
+     Il ne coûte rien — pas de navigateur, deux secondes — et il tient sept
+     invariants qu'une retouche défait sans bruit : la division qui tombe juste à
+     toute plage, l'échauffement qui ne note rien, les bornes du rythme, le bloc
+     de cinq qui exige quatre justes, l'ajustement borné de la précision cible,
+     une consigne échue qui n'en fait pas manquer une autre, et la programmation
+     des consignes qui ne se verrouille jamais.
+
+     Éprouvé par neuf sabotages avant d'y entrer, chacun rendant un rouge NOMMÉ :
+     1 rouge pour la divisibilité, 9 pour l'échauffement, 8 pour les bornes, 1
+     pour le bloc, 1 pour l'ajustement, 4 pour les consignes simultanées, 1 pour
+     la programmation verrouillée, 1 pour la copie superficielle des défauts, 1
+     pour la séance close deux fois.
+
+     Deux de ces neuf ont d'abord passé au VERT, et les deux fois la garde était
+     vide : celle de la copie en profondeur portait sur un nombre, où une copie
+     superficielle est indiscernable d'une copie profonde ; celle de la
+     programmation comparait deux états neufs, ce qui ne montre pas qu'un refus
+     ne verrouille pas. Un vert ne prouve rien tant qu'un sabotage ne sait pas
+     le faire rougir.
+  */
+  ['essais:pcct', 'le moteur de PCCT : tirage, calcul, rythme, mémoire prospective'],
   ['essais:defilement', 'aucun écran ne contourne le module de défilement'],
   ['essais:graphiques', 'les deux histogrammes : ligne tracée, tableau, 3:1'],
   ['essais:themes-navigateur', 'les quatorze thèmes s’appliquent pour de vrai'],
