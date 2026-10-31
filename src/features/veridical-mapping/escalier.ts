@@ -2,24 +2,46 @@
  * L'escalier adaptatif : un seuil de discrimination par paire, plutôt qu'un
  * pourcentage de bonnes réponses.
  *
- * Procédure **2-down-1-up** : deux réponses justes de suite resserrent l'écart
+ * Procédure **3-down-1-up** : TROIS réponses justes de suite resserrent l'écart
  * entre les deux candidats, une erreur l'élargit. Elle converge vers le point
- * où la personne réussit 70,7 % des essais, ce qui est la valeur classique de
- * cette règle en choix forcé à deux alternatives — bien au-dessus du hasard, qui
- * est ici de 50 %.
+ * où la personne réussit **79,4 %** des essais — 0,5 à la puissance un tiers —
+ * bien au-dessus du hasard, qui est ici de 50 %.
  *
- * Le pas est **géométrique** et se resserre à mesure que l'escalier tourne :
- * facteur 2 au départ, 1,41 après deux inversions, 1,19 après quatre. On
- * approche vite, puis on affine.
+ * ## Ce qui a changé le 31 octobre, et pourquoi
  *
- * Le seuil est la moyenne géométrique des écarts aux six dernières inversions,
- * et il faut au moins huit inversions pour qu'il soit rendu : les premières
- * servent à descendre depuis l'écart initial et ne disent rien du seuil.
+ * Cette procédure était **2-down-1-up**, convergeant vers 70,7 %, avec un pas
+ * géométrique qui se resserrait par paliers — facteur 2, puis 1,41 après deux
+ * inversions, puis 1,19 après quatre. Le prompt 63 aligne le moteur sur la
+ * référence de comportement : 3-down, et des facteurs **constants et
+ * asymétriques**.
  *
- * Ces valeurs sont miennes et non reprises d'un outil existant : la politique
- * réseau de l'environnement interdisant l'accès à l'outil de référence, elles
- * viennent de la pratique psychophysique courante. Elles sont rassemblées ici
- * pour être ajustées d'un seul endroit.
+ * **L'asymétrie est le point qui se remarque le moins et qui compte le plus.**
+ * L'ancienne version appliquait le MÊME facteur dans les deux sens — on
+ * divisait pour resserrer, on multipliait pour élargir. Désormais on resserre
+ * de 13 % et l'on élargit de 20 % : une erreur coûte plus qu'une réussite ne
+ * rapporte, ce qui est ce qui empêche l'escalier de s'installer trop bas quand
+ * la personne devine juste deux fois de suite.
+ *
+ * **Un seuil est rendu dès quatre inversions** — il en fallait huit. Les
+ * premières servent à descendre depuis l'écart initial, mais quatre suffisent
+ * à encadrer : attendre huit faisait payer une séance entière avant le premier
+ * chiffre. La convergence, elle, demande **six inversions**.
+ *
+ * ## Ce que la convergence ne mesure plus, et il faut le dire
+ *
+ * Elle reposait sur la dispersion du log des dernières inversions, plafonnée à
+ * 0,1. Le prompt 63 la place sur le NOMBRE d'inversions, et `dispersion`
+ * reste exportée parce que le tableau de bord la montre — mais elle ne
+ * gouverne plus le statut. C'est un assouplissement, et il est volontaire :
+ * une dispersion faible sur six inversions peut venir d'un escalier coincé
+ * contre sa borne, ce qui se lit « stabilisé » alors que rien ne l'est.
+ *
+ * ## L'échelle
+ *
+ * Les écarts sont ici **en pas**, sur l'échelle `PAS` de `dimensions.ts`. Le
+ * passage à `z ∈ [0 ; 1]` est le second temps du L1 : il touche le tirage des
+ * stimuli autant que l'escalier, et les mêler aurait rendu un rouge muet sur
+ * sa cause.
  */
 import { PAS } from './dimensions';
 
@@ -28,18 +50,25 @@ export const REGLAGES = {
   departDelta: 36,
   deltaMinimum: 1,
   deltaMaximum: Math.floor(PAS / 2),
-  /** Facteur appliqué à l'écart, selon le nombre d'inversions déjà faites. */
-  facteurs: [
-    { apres: 0, facteur: 2 },
-    { apres: 2, facteur: 1.41 },
-    { apres: 4, facteur: 1.19 },
-  ],
+  /** Bonnes réponses consécutives avant de resserrer. Trois : « 3-down ». */
+  bonnesRequises: 3,
+  /**
+   * Les deux facteurs, et ils ne sont pas inverses l'un de l'autre.
+   *
+   * On resserre de 13 %, on élargit de 20 %. Une erreur coûte donc plus qu'une
+   * réussite ne rapporte, et c'est ce qui empêche l'escalier de s'installer
+   * trop bas sur une série de devinettes heureuses. Les écrire tous les deux
+   * plutôt qu'un seul facteur et son inverse est ce qui rend l'asymétrie
+   * visible à la relecture.
+   */
+  facteurResserre: 0.87,
+  facteurElargit: 1.2,
   /** Inversions retenues pour le calcul du seuil. */
   inversionsRetenues: 6,
   /** Inversions nécessaires avant de rendre un seuil. */
-  inversionsRequises: 8,
-  /** Écart-type maximal du log des dernières inversions, pour la convergence. */
-  dispersionMaximale: 0.1,
+  inversionsRequises: 4,
+  /** Inversions nécessaires pour dire l'escalier stabilisé. */
+  inversionsPourConverger: 6,
 } as const;
 
 export type Statut = 'jamais' | 'en-cours' | 'converge';
@@ -68,12 +97,6 @@ export function escalierNeuf(): EtatEscalier {
   };
 }
 
-function facteurCourant(inversions: number): number {
-  let facteur: number = REGLAGES.facteurs[0].facteur;
-  for (const palier of REGLAGES.facteurs) if (inversions >= palier.apres) facteur = palier.facteur;
-  return facteur;
-}
-
 /**
  * Enregistre une réponse et rend le nouvel état.
  *
@@ -91,26 +114,20 @@ export function repondre(etat: EtatEscalier, juste: boolean): EtatEscalier {
 
   if (juste) {
     suivant.bonnesDeSuite = etat.bonnesDeSuite + 1;
-    // Deux bonnes de suite avant de resserrer : c'est ce qui fait la règle
-    // « 2-down » et place le point de convergence à 70,7 %.
-    if (suivant.bonnesDeSuite < 2) return suivant;
+    // Trois bonnes de suite avant de resserrer : c'est ce qui fait la règle
+    // « 3-down » et place le point de convergence à 79,4 %.
+    if (suivant.bonnesDeSuite < REGLAGES.bonnesRequises) return suivant;
     suivant.bonnesDeSuite = 0;
     if (etat.derniereDirection === 'elargit') suivant.inversions.push(etat.delta);
     suivant.derniereDirection = 'resserre';
-    suivant.delta = Math.max(
-      REGLAGES.deltaMinimum,
-      etat.delta / facteurCourant(suivant.inversions.length),
-    );
+    suivant.delta = Math.max(REGLAGES.deltaMinimum, etat.delta * REGLAGES.facteurResserre);
     return suivant;
   }
 
   suivant.bonnesDeSuite = 0;
   if (etat.derniereDirection === 'resserre') suivant.inversions.push(etat.delta);
   suivant.derniereDirection = 'elargit';
-  suivant.delta = Math.min(
-    REGLAGES.deltaMaximum,
-    etat.delta * facteurCourant(suivant.inversions.length),
-  );
+  suivant.delta = Math.min(REGLAGES.deltaMaximum, etat.delta * REGLAGES.facteurElargit);
   return suivant;
 }
 
@@ -144,14 +161,13 @@ export function dispersion(etat: EtatEscalier): number | null {
 
 export function statut(etat: EtatEscalier): Statut {
   if (!etat.essais) return 'jamais';
-  const ecart = dispersion(etat);
-  if (
-    etat.inversions.length >= REGLAGES.inversionsRequises &&
-    ecart !== null &&
-    ecart <= REGLAGES.dispersionMaximale
-  ) {
-    return 'converge';
-  }
+  /*
+     SIX INVERSIONS, ET RIEN D'AUTRE. La dispersion ne gouverne plus le statut
+     — voir l'en-tête : une dispersion faible peut venir d'un escalier coincé
+     contre sa borne, ce qui se lirait « stabilisé » alors que rien ne l'est.
+     `dispersion` reste exportée, et le tableau de bord la montre.
+  */
+  if (etat.inversions.length >= REGLAGES.inversionsPourConverger) return 'converge';
   return 'en-cours';
 }
 

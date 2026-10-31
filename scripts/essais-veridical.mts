@@ -94,12 +94,39 @@ console.log('\nESCALIER — mécanique');
   etat = repondre(etat, true);
   verifier('une seule bonne réponse ne resserre pas', etat.delta, REGLAGES.departDelta);
   etat = repondre(etat, true);
-  verifier('deux bonnes de suite resserrent', etat.delta < REGLAGES.departDelta, true);
+  /*
+     DEUX NE SUFFISENT PLUS, et ce contrôle-ci est le seul qui distingue la
+     nouvelle règle de l'ancienne sans passer par l'observateur simulé. Sans
+     lui, un retour accidentel au 2-down resterait vert partout ailleurs.
+  */
+  verifier('deux bonnes de suite ne resserrent pas : la règle est 3-down', etat.delta, REGLAGES.departDelta);
+  etat = repondre(etat, true);
+  verifier('trois bonnes de suite resserrent', etat.delta < REGLAGES.departDelta, true);
+  /* L'asymétrie, en clair : on resserre de 13 %, on élargit de 20 %. */
+  verifier(
+    'le resserrement vaut le facteur annoncé',
+    Number(etat.delta.toFixed(6)),
+    Number((REGLAGES.departDelta * REGLAGES.facteurResserre).toFixed(6)),
+  );
+  {
+    const avant = etat.delta;
+    const elargi = repondre(etat, false);
+    verifier(
+      'et l’élargissement vaut l’autre facteur, qui n’est pas son inverse',
+      Number(elargi.delta.toFixed(6)),
+      Number((avant * REGLAGES.facteurElargit).toFixed(6)),
+    );
+    verifier(
+      'les deux facteurs ne sont pas inverses',
+      Math.abs(REGLAGES.facteurResserre * REGLAGES.facteurElargit - 1) > 0.01,
+      true,
+    );
+  }
   const apres = etat.delta;
   etat = repondre(etat, false);
   verifier('une erreur élargit', etat.delta > apres, true);
   verifier('une inversion relevée', etat.inversions.length, 1);
-  verifier('pas de seuil avant huit inversions', seuil(etat), null);
+  verifier('pas de seuil avant quatre inversions', seuil(etat), null);
   verifier('statut en cours', statut(etat), 'en-cours');
   verifier('statut initial', statut(escalierNeuf()), 'jamais');
 }
@@ -145,12 +172,43 @@ for (const seuilVrai of [3, 8, 20]) {
     `  seuil vrai ${seuilVrai} pas → estimé ${moyenne.toFixed(2)} ` +
       `(rapport ${biais.toFixed(2)}), ${estimations.length}/60 estimés, ${convergences}/60 stabilisés`,
   );
-  // La règle 2-down-1-up converge vers le point à 70,7 % de la courbe. Pour une
-  // Weibull de pente 3, ce point vaut (−ln(2 × 0,293))^(1/3) ≈ 0,811 fois le
-  // paramètre d'échelle. L'escalier ne doit donc PAS retrouver le paramètre
-  // lui-même : c'est ce rapport-là qu'on vérifie, et l'écart à ce rapport
-  // trahirait une erreur de règle qu'un intervalle large laisserait passer.
-  const attendu = Math.cbrt(-Math.log(2 * 0.293));
+  /*
+     LE RAPPORT ATTENDU SE DÉRIVE DE LA RÈGLE, et ne se constate pas.
+
+     Une règle « n-down-1-up » converge vers le point où la probabilité de
+     réussite vaut 0,5^(1/n) : 70,7 % pour 2-down, **79,4 % pour 3-down**. Pour
+     la Weibull de pente 3 de l'observateur ci-dessus, le rapport entre le seuil
+     estimé et le paramètre d'échelle est donc
+
+         (−ln(2 × (1 − 0,5^(1/n))))^(1/3)
+
+     soit 0,812 en 2-down et **0,960 en 3-down**. L'escalier ne doit PAS
+     retrouver le paramètre lui-même : c'est ce rapport-là qu'on vérifie.
+
+     Et c'est écrit avec `REGLAGES.bonnesRequises` plutôt qu'avec un 3 en dur :
+     le jour où la règle changerait encore, l'attendu suivrait, et le contrôle
+     continuerait de mesurer la règle au lieu de mesurer un souvenir. Un nombre
+     recopié à la main se décorrèle sans que rien ne lève.
+  */
+  const pointDeConvergence = Math.pow(0.5, 1 / REGLAGES.bonnesRequises);
+  const attendu = Math.cbrt(-Math.log(2 * (1 - pointDeConvergence)));
+  /*
+     ET LE DÉCALAGE MESURÉ N'EST PAS DU BRUIT — c'est de l'arithmétique.
+
+     Les rapports relevés valent 1,02 à 1,04 contre 0,960 attendu, soit un
+     excès d'environ 4 %. L'explication est dans les facteurs eux-mêmes :
+     0,87 × 1,2 = **1,044**. Un cycle « resserrer puis élargir » ne revient pas
+     à son point de départ, il remonte de 4,4 %, et les points de
+     rebroussement s'installent donc légèrement AU-DESSUS du point de
+     convergence théorique. La moyenne géométrique des inversions hérite de ce
+     décalage.
+
+     C'est écrit ici parce qu'un écart inexpliqué dans un contrôle statistique
+     finit par s'élargir sans que personne sache s'il a toujours été là. La
+     tolérance de 0,1 en absorbe 0,06 à 0,08 : il reste de la marge, mais elle
+     n'est plus large, et une dérive future se lira au lieu de se confondre
+     avec celle-ci.
+  */
   verifier(
     `seuil ${seuilVrai} : rapport conforme au point de convergence (${attendu.toFixed(3)})`,
     Math.abs(biais - attendu) < 0.1,
