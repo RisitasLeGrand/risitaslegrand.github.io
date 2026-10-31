@@ -204,6 +204,7 @@ console.log('\n\x1b[1m4. À L’OUVERTURE DU COFFRE, LE PLI EST REJOUÉ\x1b[0m')
     plis = await compter('odysseeReports');
     exceptions = await compter('odysseeExceptionsScellees');
     if (plis === 0 && exceptions > 0) break;
+    /* Pas de scrutation borné dans une boucle qui re-teste : pas un pari. */
     await page.waitForTimeout(400);
   }
   v('le pli a disparu de la file', plis, 0);
@@ -213,6 +214,33 @@ console.log('\n\x1b[1m4. À L’OUVERTURE DU COFFRE, LE PLI EST REJOUÉ\x1b[0m')
 console.log('\n\x1b[1m5. RIEN NE RESTE À SIGNALER\x1b[0m');
 {
   await aller('/odyssee/', '#vue:not(.hidden)');
+  /*
+     CETTE ATTENTE-CI NE SE CONVERTIT PAS, ET IL FAUT DIRE POURQUOI.
+
+     C'est une fenêtre d'observation : on attend de voir qu'une chose NE SE
+     PRODUIT PAS. Le § 4 de la cadence des essais en admet le principe. Mais
+     le défaut est plus profond qu'une temporisation, et le relever sans le
+     dire serait pire que la laisser.
+
+     `#gestes-en-attente` naît avec la classe `hidden`
+     (odyssee/index.astro:62) et, dans le cas qui passe, le gestionnaire la
+     lui REMET (index.astro:813). L'état attendu est donc identique à l'état
+     d'avant : rien ne distingue « le gestionnaire a tourné et a décidé de
+     cacher » de « le gestionnaire n'a jamais tourné ». L'assertion est vert
+     à vide par construction, et les 3000 ms sont la seule chose qui la rende
+     à peu près plausible. Lui donner une post-condition la rendrait vraie
+     instantanément : ce serait convertir une attente en masquant le défaut
+     qu'elle cachait.
+
+     Ce qui lui rendrait son objet est un cas POSITIF — semer un report qui
+     ne peut pas être rejoué, constater que la mention PARAÎT, puis rejouer
+     et constater qu'elle s'en va. Le complément positif existe donc ; il
+     demande une assertion et un sabotage de plus dans un essai que je n'ai
+     pas écrit. Question portée au Pilote plutôt que tranchée ici.
+
+     Dans l'intervalle : rien n'est affaibli, rien n'est retiré, et la
+     limite est écrite à l'endroit où on la lira.
+  */
   await page.waitForTimeout(3000);
   /*
      La mention ne paraît que s'il reste quelque chose. Tout ayant été
