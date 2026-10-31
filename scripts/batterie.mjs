@@ -292,6 +292,32 @@ const SOCLE = [
   */
   ['essais:chemin-du-navigateur', 'le navigateur se trouve, et son absence refuse au lieu de se taire'],
   /*
+     L'ESSAI DES AIDES, ajouté au socle le 31 octobre avec l'accord du pilote.
+
+     Les aides de `scripts/lib/post-condition.mjs` sont devenues l'outil par
+     lequel une cinquantaine d'essais attendent quelque chose. Une aide qui se
+     défait ne rend pas une erreur : elle rend la main trop tôt, et les essais
+     qui s'appuient sur elle deviennent des verts qui ne mesurent plus rien.
+     C'est le défaut le plus silencieux que ce dépôt puisse produire, et c'est
+     pourquoi il entre ici plutôt qu'en batterie complète.
+
+     Dix aides sur cette branche, mesuré et non supposé ; une onzième,
+     `quandCelaSeFixe`, arrive avec `claude/a-temporisations`. Le libellé ne
+     porte donc aucun compte : un nombre inscrit ici vieillirait au premier
+     ajout, et un libellé qui annonce un compte faux est précisément ce que la
+     correction du libellé de `essais:typographie` a appris aujourd'hui.
+
+     Il les éprouve SATISFAITES et EXPIRÉES — une attente qui ne sait pas
+     expirer est un faux garde-fou —, y compris les limites qu'elles s'avouent.
+     `attendreEnBase` referme sa connexion, et c'est mesuré par ce qui en
+     dépend : une montée de version qu'une connexion ouverte bloquerait.
+
+     Il ne demande ni aperçu ni mot de passe — ses pages sont fabriquées et
+     servies depuis une origine interceptée, parce que « about:blank » refuse
+     IndexedDB. Six secondes.
+  */
+  ['essais:post-condition', 'les aides d’attente tiennent, satisfaites comme expirées'],
+  /*
      M5c entre au socle parce qu'il a trouvé un VRAI défaut du site le 25
      octobre — la position de défilement était lue à `pagehide`, après que
      le navigateur l'avait rabattue — et parce que sa tolérance de 80 px
