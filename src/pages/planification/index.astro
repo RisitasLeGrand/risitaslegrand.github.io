@@ -356,7 +356,7 @@ import Section from '../../components/Section.astro';
 
         const selecteur = document.createElement('select');
         selecteur.className =
-          'min-h-11 min-w-0 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100';
+          'min-h-11 min-w-0 flex-1 rounded-lg border border-slate-400 bg-white px-2 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100';
         selecteur.setAttribute('aria-label', `Matière du ${dateCourte.format(enDate(entree.jour))}`);
         peuplerLeMenuDesThemes(selecteur, entree.themeId ?? SANS_THEME);
         selecteur.addEventListener('change', async () => {
@@ -369,7 +369,11 @@ import Section from '../../components/Section.astro';
           const decaler = document.createElement('button');
           decaler.type = 'button';
           decaler.className =
-            'min-h-11 rounded-lg border border-slate-300 px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800';
+            /* Cran 500 : ce bouton est posé sur une carte teintée, où la
+               bordure forte du thème ne donne que 2,77:1 — mesuré, et
+               signalé au Pilote, le jeton n'étant dérivé que contre les
+               surfaces neutres. */
+            'min-h-11 rounded-lg border border-slate-500 px-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800';
           decaler.textContent = 'Décaler ↓';
           decaler.title = 'Échanger cette séance avec celle du lendemain';
           decaler.addEventListener('click', async () => {
@@ -455,7 +459,7 @@ import Section from '../../components/Section.astro';
       const selecteur = document.createElement('select');
       selecteur.id = `rotation-${index}`;
       selecteur.className =
-        'mt-2 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-2 text-sm text-slate-800 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100';
+        'mt-2 min-h-11 w-full rounded-lg border border-slate-400 bg-white px-2 text-sm text-slate-800 dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100';
       peuplerLeMenuDesThemes(selecteur, reglages.rotation[index] ?? SANS_THEME);
       selecteur.addEventListener('change', async () => {
         const rotation = [...(await lireReglages()).rotation];

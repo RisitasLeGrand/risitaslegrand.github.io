@@ -159,7 +159,31 @@ function echelle(ancres: Map<number, Lch>, ecrases?: number[]): Record<number, s
 /** Les valeurs dérivées des douze rôles : ce que le thème ne dit pas. */
 export function derivees(r: Roles, mode: Mode) {
   const sombre = mode === 'sombre';
-  const bordureForte = renforcer(r.bordure, r.fond, 3);
+  /*
+     LA BORDURE FORTE TIENT 3:1 SUR LES DEUX FONDS, et non sur le seul fond du
+     corps (E2 du prompt 43).
+
+     Mesuré le 25 octobre sur le thème par défaut : `--etat-bordure-forte`
+     donnait 3,01:1 en clair et 3,08:1 en sombre sur `--etat-fond` — conforme,
+     et c'est ce que l'essai des thèmes éprouvait — mais **2,72:1 en sombre sur
+     `--etat-fond-eleve`**. Or un champ bordé vit aussi sur une carte
+     surélevée : onze contrôles des paramètres et de l'entraînement cognitif y
+     étaient, et un relevé sur les soixante et une routes les a trouvés.
+
+     Deux renforcements enchaînés, et l'ordre est sans effet dans le cas
+     ordinaire : `renforcer` pousse vers le sombre quand le fond est clair et
+     vers le clair sinon, donc tant que les deux fonds sont du même côté — ce
+     qui est le cas de tous les thèmes livrés —, le second appel continue dans
+     la direction du premier et ne peut pas le défaire. Un thème dont le fond
+     et le fond élevé se trouveraient de part et d'autre du milieu ferait
+     échouer le couple ajouté à `essais:contrastes-themes`, ce qui est
+     exactement ce qu'on veut : dit par un rouge, et non deviné ici.
+
+     CONSÉQUENCE À CONNAÎTRE : la barre de défilement se dérive de cette
+     valeur, quelques lignes plus bas. Elle s'éclaircit donc d'autant en
+     sombre, ce qui va dans le même sens — une barre plus visible.
+  */
+  const bordureForte = renforcer(renforcer(r.bordure, r.fond, 3), r.fondEleve, 3);
   const texteFort = sombre
     ? clarte(r.texte, oklch(r.texte).L + (1 - oklch(r.texte).L) * 0.85)
     : clarte(r.texte, oklch(r.texte).L * 0.55);

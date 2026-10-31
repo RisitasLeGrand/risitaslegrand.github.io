@@ -45,6 +45,14 @@
  * Sans l'API — vieux navigateur —, on n'émet pas plutôt que d'émettre en
  * triple. Rater une notification est un désagrément ; en recevoir trois
  * apprend à toutes les ignorer, y compris celle qui comptait.
+ *
+ * ## Et rien quand la page est regardée (0.8 du prompt 43)
+ *
+ * Même raisonnement, un cran plus loin : interrompre quelqu'un pour lui
+ * annoncer ce que la cloche de l'en-tête lui montre déjà ne lui apprend
+ * rien. Le refus est donc posé entre la permission et le plafond, et le
+ * centre, lui, reçoit toujours — c'est le droit d'interrompre qui est
+ * retenu, jamais l'élément. Voir `pageRegardee` pour la limite assumée.
  */
 import { suitLaSensibiliteDuCycle } from './filtre-cycle';
 import { peutNotifier } from './sources';
@@ -208,17 +216,55 @@ export type RefusDEmission =
   | 'source-muette'
   | 'source-inactive'
   | 'cycle'
+  /** La page est sous les yeux de la personne : la cloche suffit. */
+  | 'page-regardee'
   | 'permission'
   | 'plafond'
   | 'autre-onglet'
   | 'sans-verrou';
+
+/**
+ * La page est-elle sous les yeux de la personne ?
+ *
+ * ## Pourquoi ce refus existe (0.8 du prompt 43)
+ *
+ * Une notification du système est une INTERRUPTION. Interrompre quelqu'un
+ * pour lui annoncer ce qu'il a déjà sous les yeux — la cloche de l'en-tête,
+ * qui compte en direct, et le centre qui s'ouvre d'un clic — ne lui apprend
+ * rien et lui apprend à les couper. C'est le même raisonnement que le
+ * plafond du jour, un cran plus tôt : ce qui est plafonné, c'est le droit
+ * d'interrompre, jamais le centre.
+ *
+ * ## La limite, et elle est assumée
+ *
+ * `visibilityState` dit que cet onglet est celui que sa fenêtre affiche —
+ * pas que cette fenêtre est devant les autres sur l'écran. Une fenêtre de
+ * Cyclades posée derrière un traitement de texte se dit donc « visible », et
+ * aucune notification n'en partira. `document.hasFocus()` ferait la
+ * différence —
+ * et le choix est délibérément celui-là, parce que le coût des deux erreurs
+ * n'est pas le même : un avis manqué reste au centre, qui attend, et la
+ * personne le trouve en ouvrant Cyclades ; une interruption en trop
+ * s'apprend et se coupe en entier, et emporte avec elle celles qui
+ * comptaient.
+ *
+ * ## Hors d'une page
+ *
+ * Sans `document` — un *service worker* réveillé, un essai pur —, la
+ * réponse est « non regardée » : il n'y a alors aucun écran où la cloche
+ * pourrait se voir, et c'est précisément le cas où la notification est
+ * utile.
+ */
+function pageRegardee(): boolean {
+  return typeof document !== 'undefined' && document.visibilityState === 'visible';
+}
 
 export type Emission = { quoi: 'emise' } | { quoi: 'refusee'; pourquoi: RefusDEmission };
 
 /**
  * Émet la notification d'un élément, ou dit précisément pourquoi non.
  *
- * Six raisons de refuser, et **chacune est une valeur, pas une exception** :
+ * Sept raisons de refuser, et **chacune est une valeur, pas une exception** :
  * un appelant qui doit envelopper chaque émission dans un `try` finit par
  * l'envelopper dans un `catch` vide, et c'est là que les refus deviennent
  * invisibles.
@@ -260,6 +306,19 @@ export async function emettre(element: ElementDuCentre, jour: string): Promise<E
   */
   if (!sourceActivee(element.source)) return { quoi: 'refusee', pourquoi: 'source-inactive' };
   if (etatPermission() !== 'accordee') return { quoi: 'refusee', pourquoi: 'permission' };
+  /*
+     Puis la page elle-même, et AVANT le plafond : une émission retenue
+     parce qu'on regardait l'écran n'est pas une interruption, et ne doit
+     donc pas consommer une des cinq du jour. Cinq coups d'œil au site le
+     matin feraient taire les cinq vraies notifications de la journée.
+
+     C'est l'ORDRE qui le garantit, et il est mesuré. On pourrait s'en
+     remettre à `noterUneEmission`, qui ne compte qu'une émission faite —
+     mais ce serait faire tenir une règle de produit par un détail du
+     compteur, que la prochaine réécriture déplacerait sans savoir ce
+     qu'elle emporte.
+  */
+  if (pageRegardee()) return { quoi: 'refusee', pourquoi: 'page-regardee' };
   if (compteDuJour(jour).emises >= PLAFOND_PAR_JOUR) {
     return { quoi: 'refusee', pourquoi: 'plafond' };
   }

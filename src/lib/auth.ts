@@ -144,6 +144,38 @@ export async function deverrouiller(motDePasse: string, persistant: boolean): Pr
   if (!motDePasse) return 'Saisissez le mot de passe.';
 
   /*
+     LES PARAMÈTRES D'ABORD, ET LEUR ABSENCE EST UNE RÉPONSE — 0.1 du 43.
+
+     `params()` lit `cle.json` par le réseau, avec la copie de secours de
+     `contenu.ts` en second. Quand les deux manquent — hors ligne sur un
+     appareil dont le stockage local a été vidé mais dont le cache tient
+     encore —, elle LÈVE. Et cette exception traversait tout : l'écran du
+     verrou ne la rattrapait pas, son bouton restait sur « Déchiffrement… »,
+     désactivé, **définitivement**.
+
+     Mesuré le 26 octobre, mode avion, worker arrêté : la page s'ouvre en 200,
+     le verrou s'affiche, on tape le mot de passe, et le bouton meurt. Aucun
+     message, aucun recours, et dans la console un « Failed to fetch » que
+     personne ne lit. C'est le pire des échecs : celui qui ressemble à une
+     attente.
+
+     Le cas est donc traité ICI, où la cause est connue, et rendu comme les
+     autres refus — une valeur, pas une exception. Un `catch` dans l'écran
+     aurait dû deviner la cause pour écrire la phrase, et aurait fini par
+     attribuer au réseau un défaut de chiffrement.
+  */
+  let p: ParametresCle;
+  try {
+    p = await params();
+  } catch {
+    return (
+      'Les paramètres de chiffrement du site n’ont pas pu être lus, et cet appareil n’en a pas ' +
+      'de copie. Reconnectez-vous une fois à Internet : la copie sera gardée, et les ' +
+      'déverrouillages suivants marcheront en mode avion.'
+    );
+  }
+
+  /*
      Une seule vérification, et c'est la vraie : dériver la clé, puis tenter
      d'ouvrir le témoin chiffré publié avec le contenu.
 
@@ -152,7 +184,6 @@ export async function deverrouiller(motDePasse: string, persistant: boolean): Pr
      que rendait l'empreinte publiée, et il ne valait pas son prix. Le message
      dit donc les deux possibilités, au lieu de faire semblant de trancher.
   */
-  const p = await params();
   const cle = await deriverCle(motDePasse, p);
   if (!(await cleValide(cle, p))) {
     return (

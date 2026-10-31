@@ -85,8 +85,8 @@ export function redemanderLeMotDePasse(demande: Redemande): Promise<boolean> {
     champ.type = 'password';
     champ.autocomplete = 'current-password';
     champ.className =
-      'cible-tactile w-full rounded-lg border border-slate-300 px-3 text-sm ' +
-      'dark:border-slate-700 dark:bg-slate-950';
+      'cible-tactile w-full rounded-lg border border-slate-400 px-3 text-sm ' +
+      'dark:border-slate-600 dark:bg-slate-950';
     etiquette.append(legende, champ);
     /* D3 du 43 : la redemande du mot de passe est un champ de mot de passe
        comme les autres, et c'est même celui où une faute coûte le plus cher —
@@ -105,8 +105,8 @@ export function redemanderLeMotDePasse(demande: Redemande): Promise<boolean> {
     const renoncer = document.createElement('button');
     renoncer.type = 'button';
     renoncer.className =
-      'cible-tactile rounded-lg border border-slate-300 px-4 text-sm font-medium ' +
-      'transition hover:bg-slate-100 dark:border-slate-700 dark:hover:bg-slate-800';
+      'cible-tactile rounded-lg border border-slate-400 px-4 text-sm font-medium ' +
+      'transition hover:bg-slate-100 dark:border-slate-600 dark:hover:bg-slate-800';
     renoncer.textContent = 'Renoncer';
 
     const confirmer = document.createElement('button');

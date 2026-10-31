@@ -13,7 +13,7 @@ import Icone from '../components/Icone.astro';
         type="search"
         placeholder="Mot-clé, notion, arrêt, date…"
         autocomplete="off"
-        class="w-full rounded-xl border border-slate-300 bg-white py-3 pr-4 pl-11 text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-700 dark:bg-slate-900 dark:text-white dark:focus:ring-indigo-900"
+        class="w-full rounded-xl border border-slate-400 bg-white py-3 pr-4 pl-11 text-slate-900 placeholder:text-slate-400 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-600 dark:bg-slate-900 dark:text-white dark:focus:ring-indigo-900"
       />
       <span class="absolute top-1/2 left-4 -translate-y-1/2 text-slate-400" aria-hidden="true">
         <Icone nom="recherche" taille={18} />
@@ -21,10 +21,10 @@ import Icone from '../components/Icone.astro';
     </div>
 
     <div class="flex flex-wrap gap-2">
-      <select id="recherche-matiere" aria-label="Filtrer par matière" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+      <select id="recherche-matiere" aria-label="Filtrer par matière" class="rounded-lg border border-slate-400 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900">
         <option value="">Toutes les matières</option>
       </select>
-      <select id="recherche-statut" aria-label="Filtrer par statut" class="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-900">
+      <select id="recherche-statut" aria-label="Filtrer par statut" class="rounded-lg border border-slate-400 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-900">
         <option value="">Tous les niveaux de maîtrise</option>
         <option value="faible">Maîtrise &lt; 50 %</option>
         <option value="moyenne">Maîtrise 50–80 %</option>
@@ -165,7 +165,7 @@ import Icone from '../components/Icone.astro';
       const bouton = document.createElement('button');
       bouton.type = 'button';
       bouton.className =
-        'rounded-full border border-slate-300 px-3 py-1 text-xs text-slate-600 transition hover:bg-slate-100 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800';
+        'rounded-full border border-slate-400 px-3 py-1 text-xs text-slate-600 transition hover:bg-slate-100 dark:border-slate-600 dark:text-slate-300 dark:hover:bg-slate-800';
       bouton.textContent = tag;
       bouton.addEventListener('click', () => {
         tagActif = tagActif === tag ? '' : tag;

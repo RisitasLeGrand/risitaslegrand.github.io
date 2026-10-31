@@ -373,6 +373,20 @@ console.log('\nLA PHRASE QUI DIT LES RUBRIQUES (G-5 ET G-6 DU 58)');
   v('un groupe plein est nommé avec son compte', /Révisions 17/.test(phrase), true);
   v('les grands nombres sont lisibles', /Odyssée 4\u202f128|Odyssée 4 128/.test(phrase), true);
   v('le total est toujours écrit', /4\u202f145|4 145/.test(phrase), true);
+  /*
+     ET LA PHRASE S'ACCORDE. Elle disait « soit N enregistrement(s) en tout »,
+     et elle entrait par `direLesGroupes` dans les deux confirmations les plus
+     graves du site : remplacer toute la progression, tout effacer. Le contrôle
+     est ici, et non dans l'écran, parce que c'est ici que la phrase se
+     fabrique — l'écran ne fait que la poser.
+  */
+  v('et elle ne porte aucun « (s) »', /\(s\)|\(es\)/.test(phrase), false);
+  v('le pluriel est accordé sur le total', /enregistrements en tout/.test(phrase), true);
+  v(
+    'et le singulier aussi, quand il n’y en a qu’un',
+    direLesGroupes([{ id: 'revisions', libelle: 'Révisions', vises: 1 }]),
+    'Révisions 1 — soit 1 enregistrement en tout',
+  );
 }
 /*
  * Le cas vide mérite son contrôle : une base neuve ne doit pas produire

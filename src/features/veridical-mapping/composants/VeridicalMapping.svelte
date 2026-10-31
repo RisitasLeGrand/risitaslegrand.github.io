@@ -617,8 +617,8 @@
       <button
         type="button"
         onclick={() => (tableauOuvert = !tableauOuvert)}
-        class="rounded-lg border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700
-          hover:border-indigo-300 dark:border-slate-700 dark:text-slate-200"
+        class="rounded-lg border border-slate-400 px-3 py-1.5 text-sm font-medium text-slate-700
+          hover:border-indigo-300 dark:border-slate-600 dark:text-slate-200"
       >{tableauOuvert ? 'Masquer mes seuils' : 'Mes seuils'}</button>
     </div>
 
@@ -660,7 +660,7 @@
               disabled:opacity-40
               {reglages.tache === tache.id
                 ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300'
-                : 'border-slate-200 text-slate-700 dark:border-slate-800 dark:text-slate-300'}"
+                : 'border-slate-400 text-slate-700 dark:border-slate-600 dark:text-slate-300'}"
           >{tache.nom}</button>
         {/each}
       </div>
@@ -680,7 +680,7 @@
               class="rounded-lg border px-3 py-2 text-sm font-medium
                 {reglages.mode === valeur
                   ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300'
-                  : 'border-slate-200 text-slate-700 dark:border-slate-800 dark:text-slate-300'}"
+                  : 'border-slate-400 text-slate-700 dark:border-slate-600 dark:text-slate-300'}"
             >{nom}</button>
           {/each}
         </div>
@@ -696,7 +696,7 @@
               class="rounded-lg border px-3 py-2 text-sm font-medium
                 {reglages.essais === n
                   ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300'
-                  : 'border-slate-200 text-slate-700 dark:border-slate-800 dark:text-slate-300'}"
+                  : 'border-slate-400 text-slate-700 dark:border-slate-600 dark:text-slate-300'}"
             >{n}</button>
           {/each}
         </div>
@@ -725,7 +725,7 @@
             class="min-h-11 min-w-11 rounded-lg border px-3 py-2 text-sm font-medium
               {reglages.charge === n
                 ? 'border-indigo-500 bg-indigo-50 text-indigo-700 dark:bg-indigo-950/40 dark:text-indigo-300'
-                : 'border-slate-200 text-slate-700 dark:border-slate-800 dark:text-slate-300'}"
+                : 'border-slate-400 text-slate-700 dark:border-slate-600 dark:text-slate-300'}"
           >{n}</button>
         {/each}
       </div>
@@ -801,7 +801,7 @@
       <button
         type="button"
         onclick={commencerLaDecouverte}
-        class="rounded-lg border border-slate-300 px-5 py-2.5 text-sm font-semibold text-slate-700
+        class="rounded-lg border border-slate-400 px-5 py-2.5 text-sm font-semibold text-slate-700
           hover:bg-slate-100 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-800"
       >Essayer d'abord ({DECOUVERTE.essais} essais, sans son)</button>
     </div>
@@ -826,8 +826,8 @@
       <button
         type="button"
         onclick={() => (consigneOuverte = true)}
-        class="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-medium text-slate-600
-          hover:border-indigo-300 dark:border-slate-700 dark:text-slate-300"
+        class="rounded-lg border border-slate-400 px-2.5 py-1 text-xs font-medium text-slate-600
+          hover:border-indigo-300 dark:border-slate-600 dark:text-slate-300"
       >Revoir la consigne</button>
       <p class="text-xs text-slate-500 dark:text-slate-400">
         {faits} / {enJeu.essais} · écart {essai.delta} pas
@@ -974,9 +974,9 @@
                     disabled={retour === 'corrige'}
                     aria-pressed={choix[i] === j}
                     aria-label="Choisir la proposition {j + 1}"
-                    class="mt-2 w-full rounded border border-slate-200 py-1.5 text-xs font-medium
+                    class="mt-2 w-full rounded border border-slate-400 py-1.5 text-xs font-medium
                       text-slate-700 hover:border-indigo-300 disabled:opacity-50
-                      dark:border-slate-700 dark:text-slate-200"
+                      dark:border-slate-600 dark:text-slate-200"
                   >Choisir</button>
                 </div>
               {:else}
@@ -1052,8 +1052,8 @@
           <button
             type="button"
             onclick={demanderALIA}
-            class="rounded-lg border border-slate-300 bg-white px-3 py-1.5 text-sm font-medium
-              text-slate-700 hover:border-indigo-400 hover:text-indigo-700 dark:border-slate-700
+            class="rounded-lg border border-slate-400 bg-white px-3 py-1.5 text-sm font-medium
+              text-slate-700 hover:border-indigo-400 hover:text-indigo-700 dark:border-slate-600
               dark:bg-slate-900 dark:text-slate-200 dark:hover:border-indigo-600
               dark:hover:text-indigo-300"
           >Préparer une question pour une IA</button>

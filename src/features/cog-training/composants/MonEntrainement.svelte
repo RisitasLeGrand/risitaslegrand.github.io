@@ -112,16 +112,16 @@
   <div class="mt-3 flex flex-wrap items-center gap-2">
     <button
       type="button"
-      class="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700
-        dark:border-slate-700 dark:text-slate-200"
+      class="rounded-md border border-slate-400 px-2.5 py-1 text-xs font-medium text-slate-700
+        dark:border-slate-600 dark:text-slate-200"
       onclick={() => appliquer(selectionnables.map((u) => u.id))}>Tout</button
     >
     {#each groupes as groupe (groupe.id)}
       {@const ids = groupe.unites.filter((u) => u.debloque || selection.modeLibre).map((u) => u.id)}
       <button
         type="button"
-        class="rounded-md border border-slate-300 px-2.5 py-1 text-xs font-medium text-slate-700
-          disabled:opacity-40 dark:border-slate-700 dark:text-slate-200"
+        class="rounded-md border border-slate-400 px-2.5 py-1 text-xs font-medium text-slate-700
+          disabled:opacity-40 dark:border-slate-600 dark:text-slate-200"
         disabled={ids.length === 0}
         onclick={() => appliquer(ids)}>{groupe.nom}</button
       >
@@ -138,8 +138,8 @@
         type="search"
         bind:value={recherche}
         placeholder="Rechercher…"
-        class="w-36 rounded-md border border-slate-300 px-2 py-1 text-xs
-          dark:border-slate-700 dark:bg-slate-900"
+        class="w-36 rounded-md border border-slate-400 px-2 py-1 text-xs
+          dark:border-slate-600 dark:bg-slate-900"
       />
     </label>
   </div>
@@ -198,8 +198,8 @@
         min="3"
         max="60"
         value={selection.items}
-        class="w-20 rounded-md border border-slate-300 px-2 py-1 text-sm
-          dark:border-slate-700 dark:bg-slate-900"
+        class="w-20 rounded-md border border-slate-400 px-2 py-1 text-sm
+          dark:border-slate-600 dark:bg-slate-900"
         oninput={(e) => modifier({ items: Number((e.currentTarget as HTMLInputElement).value) })}
       />
     </label>

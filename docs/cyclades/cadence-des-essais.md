@@ -28,7 +28,7 @@ secondes de plus, et il vous dira tout de suite si votre magasin ou votre clé
 nouvelle manque une déclaration. C'est moins cher que de l'apprendre à la
 fusion.
 
-## 2. Cinq essais tournent dans un arbre de travail séparé
+## 2. L'arbre de travail séparé : cinq essais, et tout sabotage
 
 `essais:acces-m9`, `essais:lecteur-parties`,
 `essais:seances-parties:navigateur`, `essais:parties-client` et
@@ -53,6 +53,86 @@ dans Git, et toute perte de donnée réelle est réservée à Alexis.
 est que `.git` y est un *fichier* et non un dossier. Une première version
 regardait seulement s'il existait : il existe des deux côtés, et la détection
 ne détectait rien.
+
+### Et tout sabotage s'y fait aussi — règle du 26 octobre
+
+*Arbitré par le Pilote après trois lots où elle a manqué.*
+
+**Un sabotage ne se pose plus dans l'arbre de travail.** Il se pose dans un
+arbre séparé, sur le même commit, et l'arbre de travail reste propre.
+
+La raison n'est pas l'élégance. Un sabotage se mesure en reconstruisant le
+site et en relançant un essai de navigateur : trois à cinq minutes par
+sabotage, et trois sabotages par lot. Pendant tout ce temps, l'arbre de
+travail porte un défaut volontaire — donc il ne peut pas être commité, et
+il ne doit surtout pas l'être. Le 26 octobre, le crochet de fin de tour a
+réclamé trois fois de suite un commit qui était impossible, et chaque fois
+le choix était le même : arrêter la mesure en cours, ou laisser le dépôt
+sale. Les deux sont mauvais. Avec un arbre séparé, la question ne se pose
+plus : on commite le lot pendant que le sabotage se mesure à côté.
+
+Le second gain est plus discret et vaut autant : **un sabotage interrompu
+ne laisse rien derrière lui.** Un conteneur qui redémarre au milieu d'une
+construction sabotée laissait, dans l'arbre de travail, un fichier
+volontairement cassé qu'il fallait penser à restaurer — et dont le prochain
+commit aurait emporté le défaut. Le laboratoire, lui, se retire d'un
+`git worktree remove --force`, et ce qui y reste n'est pas suivi.
+
+La mise en place, qui est celle de la batterie :
+
+```bash
+LABO=/tmp/labo-<lot>
+PORT=4322                       # l'arbre de travail garde 4321
+SHA=$(git rev-parse HEAD)       # fixé UNE fois : voir le point 4
+git worktree add --detach "$LABO" "$SHA"
+ln -s "$PWD/node_modules" "$LABO/node_modules"
+ln -s "$PWD/content" "$LABO/content"   # non suivi, et la construction en a besoin
+```
+
+Quatre points qu'on n'apprend qu'en les manquant :
+
+1. **`content/` doit être lié.** Il n'est pas dans Git — c'est tout le point
+   de la règle de confidentialité —, donc un arbre détaché naît sans lui et
+   `build-content.mjs` s'arrête. Le lien ne copie rien et ne risque rien :
+   la construction lit, elle n'écrit pas dedans ;
+2. **un port à part**, sinon l'aperçu du laboratoire et celui de l'arbre de
+   travail se disputent le 4321, et l'essai mesure le mauvais site sans
+   jamais le dire. Les essais prennent `RACINE` dans l'environnement : il
+   suffit de la leur donner ;
+3. **le `.env.local` du laboratoire est à lui.** On l'y écrit, on l'y
+   efface, et il ne faut pas compter sur celui de l'arbre de travail : le
+   mot de passe ne doit vivre que le temps de la commande, des deux côtés ;
+4. **le commit se fixe une fois, et non à chaque tour.** `HEAD` se résout au
+   moment où l'arbre est créé. Or l'intérêt de la règle est précisément de
+   pouvoir continuer à travailler pendant la mesure — donc de changer de
+   branche. Un script qui écrit `git worktree add --detach "$LABO" HEAD`
+   dans sa boucle bâtit alors ses derniers sabotages sur une autre branche
+   que ses premiers, **sans rien dire**.
+
+   C'est arrivé le 26 octobre, et c'est pour cela que ce point existe : les
+   deux sabotages d'un décor ont été bâtis sans ce décor, l'un a annoncé
+   « 0 occurrence retirée » et l'autre s'est arrêté sur une section
+   introuvable. Deux faux verdicts, et c'était ma faute d'avoir changé de
+   branche pendant la mesure — ce que la règle encourage. On résout donc le
+   commit **avant la boucle**, et on l'imprime : un laboratoire qui dit sur
+   quoi il a été pris épargne ce diagnostic au suivant.
+
+Le nettoyage va dans un `trap` sur `EXIT INT TERM`, et il dit ce qu'il a
+fait : arrêter l'aperçu, retirer le `.env.local`, retirer le laboratoire,
+puis **imprimer `git status --porcelain` de l'arbre de travail**. Cette
+dernière ligne est la seule preuve que la mesure n'a rien laissé derrière
+elle, et elle coûte un caractère.
+
+**Ce qui reste à l'arbre de travail** : l'essai sur le code sain. C'est là
+qu'il doit être vert, et c'est là qu'on le commite.
+
+**Ce que cette règle ne dit pas** : qu'un essai de laboratoire remplace un
+sabotage dans l'arbre de travail quand le lot ne touche pas au site
+construit. Un sabotage purement textuel — une phrase retirée d'un module
+qu'un essai pur relit — se mesure en quelques secondes, sans construction,
+et ouvrir un arbre pour cela coûterait plus que le risque. La règle vise
+ce qui demande une construction, c'est-à-dire tout sabotage que mesure un
+essai de navigateur.
 
 ## 3. Quand une attente de navigateur n'attend rien
 
@@ -244,6 +324,52 @@ Il reste **dix** cas, qu'on lit à la main en vérifiant (b) dans l'écran. Neuf
 ne contrôle rien finit par rassurer, ce qui est pire que son absence.*
 
 ## Ce qui reste hors d'atteinte ici
+
+### La visibilité et le focus d'une page ne se pilotent pas (26 octobre, lot 0.8)
+
+Le lot 0.8 demande qu'aucune notification du système ne parte « quand la page
+est visible ». Avant d'écrire la règle, j'ai cherché un levier réel pour
+cacher une page dans ce conteneur. **Il n'y en a aucun**, et c'est mesuré,
+pas supposé : dans ce Chromium sans écran, piloté par Playwright, une page
+répond toujours `visibilityState = "visible"` et `hasFocus() = true`.
+
+Les quatre tentatives, dans l'ordre :
+
+| Levier | Résultat mesuré |
+|---|---|
+| ouvrir un second onglet devant | les deux pages restent `visible`, `hasFocus() = true` |
+| `page.bringToFront()` sur l'autre onglet | sans effet sur la première |
+| `Emulation.setFocusEmulationEnabled: false` par le protocole | accepté, sans effet |
+| `Emulation.setActiveAndFocused` | la commande n'existe pas |
+
+Reste l'écrasement de la propriété avant tout script de la page :
+
+```js
+await ctx.addInitScript(() => {
+  Object.defineProperty(Document.prototype, 'visibilityState', {
+    configurable: true,
+    get: () => 'hidden',
+  });
+  Object.defineProperty(Document.prototype, 'hidden', { configurable: true, get: () => true });
+});
+```
+
+**Ce que cela éprouve, et ce que cela n'éprouve pas.** Un essai écrit ainsi
+prouve que le code CONSULTE la visibilité et en tient compte ; il ne prouve
+pas que le navigateur la calcule juste. C'est le même rang de preuve que la
+permission accordée d'avance ou `showNotification` remplacé par un compteur,
+et il faut l'écrire dans l'en-tête de l'essai comme `essais:centre-m14` le
+fait désormais.
+
+**Le corollaire, qui est le piège.** Une page de navigateur étant toujours
+« visible » ici, un essai qui mesure une règle de la forme « rien ne part
+quand on regarde » obtient zéro **sans rien faire** — et zéro est aussi ce
+que donnerait une chaîne débranchée. Une telle passe ne vaut donc que
+doublée d'une passe où la page est cachée et où quelque chose part. Sans
+cela, on écrit un essai qui reste vert sur la suppression du code qu'il
+surveille.
+
+### `ffmpeg`
 
 `essais:fiches-audio` réclame `ffmpeg`. Il a été installé dans le conteneur
 du 19 octobre — mais le conteneur est éphémère, donc l'installation ne

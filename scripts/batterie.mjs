@@ -2,19 +2,24 @@
 /**
  * La batterie complète, ou le socle seul : les essais dans l'ordre, et un verdict.
  *
- *   npm run batterie   # tout ce qui commence par « essais » — 316 au 25 octobre
- *   npm run socle      # les 32 transversaux
+ *   npm run batterie   # tout ce qui commence par « essais » — 329 au 26 octobre
+ *   npm run socle      # les 40 transversaux, 18 minutes mesurées le 26 octobre
  *
- * CES DEUX NOMBRES SE PÉRIMENT, ET ILS S'ÉTAIENT PÉRIMÉS. Cette ligne
+ * CES DEUX NOMBRES SE PÉRIMENT, ET ILS SE SONT PÉRIMÉS DEUX FOIS. Cette ligne
  * annonçait « les 235 » et « les seize transversaux, onze minutes » alors que
- * la batterie en découvrait 315 et que le socle en comptait 31 : un en-tête
- * qui chiffre ce qu'il ne compte pas finit par mentir doucement. Le vrai
- * compte, lui, est imprimé par la commande elle-même au début de chaque
- * passage — c'est lui qui fait foi, et c'est là qu'il faut le lire.
+ * la batterie en découvrait 315 et que le socle en comptait 31 ; corrigée le
+ * 25 octobre à 316 et 32, elle était de nouveau fausse le 26 — 328 et 39 —
+ * parce que sept essais transversaux se sont ajoutés entre-temps. Un en-tête
+ * qui chiffre ce qu'il ne compte pas mentira donc encore : le vrai compte est
+ * imprimé par la commande elle-même au début de chaque passage, c'est lui qui
+ * fait foi, et c'est là qu'il faut le lire. Les chiffres ci-dessus portent
+ * leur date pour qu'on sache ce qu'ils valent.
  *
- * La durée du socle n'est plus écrite : « onze minutes » valait pour seize
- * essais, et personne ne l'a remesurée depuis qu'il y en a deux fois plus.
- * Mieux vaut pas de chiffre qu'un chiffre faux.
+ * La durée, elle, est de nouveau écrite — mais MESURÉE, et datée : dix-huit
+ * minutes le 26 octobre, pour trente-neuf essais, dont quatre de navigateur
+ * qui prennent à eux seuls dix minutes. « Onze minutes » avait traîné depuis
+ * l'époque des seize essais, et mieux vaut pas de chiffre qu'un chiffre faux :
+ * si celui-ci perd sa date, qu'on l'efface plutôt que de le croire.
  *
  * ## Pourquoi cette commande existe
  *
@@ -86,19 +91,28 @@ const SOCLE = [
   ['essais:espaces', 'aucun mot collé à une balise en ligne, dans le site construit'],
   ['essais:mots-colles:navigateur', 'les mêmes, mesurés dans la page vivante'],
   /*
-     LA DESCRIPTION PROMETTAIT TROIS CHOSES, L'ESSAI N'EN TIENT QU'UNE. Elle
-     annonçait « apostrophes, espaces insécables, accords sans « (s) » » :
-     l'essai n'éprouve que « insecables() », et rien des apostrophes ni des
-     accords. Trouvé le 26 octobre en cherchant si un balayage des « (s) »
-     existait déjà — j'allais en écrire un second, ce qui est la faute que ce
-     lot dénonce par ailleurs.
+     LA DESCRIPTION PROMETTAIT TROIS CHOSES, L'ESSAI N'EN TENAIT QU'UNE.
 
-     Une description qui promet une garantie absente est pire qu'une absence de
-     description : on croit le point couvert, et personne ne va voir. Les
-     accords sans « (s) » sont tenus, mais par « essais:accords », qui les
-     balaye et les compte.
+     Elle annonçait « apostrophes, espaces insécables, accords sans "(s)" ».
+     L'essai éprouve la seule fonction « insecables », sur onze cas, et ne
+     regarde aucune page : ni les apostrophes, ni les accords.
+
+     Le constat a été fait DEUX FOIS ce jour-là, de deux côtés, et la fusion
+     des deux versions a montré les deux moitiés d'une même chose. L'autre
+     relevé disait pourquoi cela coûtait : « c'est ainsi que quatre phrases de
+     progression.astro ont porté des "(s)" sous un socle vert ». Le mien
+     disait que j'avais failli écrire un second balayage, faute de savoir que
+     le premier n'existait pas — la faute même que ce lot dénonce par
+     ailleurs. Les deux sont gardés.
+
+     Une description qui promet une garantie absente est pire qu'une absence
+     de description : on croit le point couvert, et personne ne va voir.
+
+     Les accords sans « (s) » sont désormais tenus, mais par « essais:accords »
+     — qui les balaye, les compte, et refuse de mesurer quand son analyseur
+     perd le fil. La ligne ci-dessous ne promet donc plus que ce qu'elle tient.
   */
-  ['essais:typographie', 'les espaces insécables : ce qu’elles posent et ce qu’elles laissent'],
+  ['essais:typographie', 'la fonction « insecables » : ce qu’elle pose, et ce qu’elle laisse tranquille — URL, anglais, code cité'],
   /*
      Deux garanties que n'importe quelle retouche du rendu Markdown peut
      défaire sans qu'on la voie : les 158 « $ » monétaires et les 100 ellipses
@@ -181,6 +195,29 @@ const SOCLE = [
   */
   ['essais:cibles-souris:navigateur', 'à la souris, aucune cible sous 24 px'],
   ['essais:mouvement-reduit', 'le réglage d’animations existe, et il est respecté'],
+  /*
+     LE DÉFILEMENT ET LES GRAPHIQUES, au socle depuis le 26 octobre.
+
+     Les deux existaient et ne tournaient qu'à la batterie complète. Ils y
+     entrent parce qu'ils gardent chacun une règle qu'une retouche défait sans
+     bruit, et qu'ils ne coûtent rien : pas de navigateur, deux secondes.
+
+     - `essais:defilement` tient l'invariant qu'AUCUN écran ne contourne le
+       module : c'est la forme qu'on recopie en ajoutant un écran, et le
+       relevé balaie les `.astro`, les `.ts` ET les `.svelte` — l'extension
+       qui avait piégé le lot des voiles de dialogue.
+     - `essais:graphiques` mesure les teintes des deux histogrammes sur leur
+       fond, et vérifie que l'écran emploie BIEN celles qu'il mesure : une
+       mesure sur une table que le code n'utilise plus ne mesure rien.
+
+     Éprouvés avant de les inscrire, et pas seulement lus : cinq sabotages,
+     cinq rouges nommés — un septième défilement « smooth » hors du module,
+     la règle amputée du réglage de l'application, le trait d'objectif cessant
+     d'être pointillé, une tranche changeant de teinte sans que la table
+     bouge, et la ligne d'objectif poussée sous 3:1.
+  */
+  ['essais:defilement', 'aucun écran ne contourne le module de défilement'],
+  ['essais:graphiques', 'les deux histogrammes : ligne tracée, tableau, 3:1'],
   ['essais:themes-navigateur', 'les quatorze thèmes s’appliquent pour de vrai'],
   ['essais:themes-a-jour', 'le catalogue et les feuilles engendrées concordent'],
   ['essais:contrastes-themes', 'WCAG AA dans chaque thème'],
@@ -468,6 +505,14 @@ const EN_LABORATOIRE = new Set([
      elle bâtit son `content/` et l'efface.
   */
   'essais:correction-ecran',
+  /*
+     61 du prompt. Les deux lectures d'un organigramme ne s'éprouvaient que sur
+     le corpus réel, qui n'est pas dans Git : sur un conteneur neuf, l'essai
+     retombait sur son refus « non mesurable » et la bascule redevenait non
+     gardée sans que rien ne rougisse. Celui-ci pose son propre organigramme
+     FICTIF dans le contenu d'exemple, ce qui exige un arbre à part.
+  */
+  'essais:organigramme-exemple',
 ]);
 
 /*

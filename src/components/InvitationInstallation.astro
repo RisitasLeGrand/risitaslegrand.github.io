@@ -56,11 +56,12 @@ import { base } from '../lib/ui';
       >
         <li data-etape="sauvegarde">
           {/*
-             `{' '}` AVANT LE LIEN. Sans lui, le compilateur mange l'espace du
-             retour à la ligne et rend « depuis<a … » : essais:espaces l'a vu
-             dans dist/index.html. C'est le piège déjà payé plusieurs fois dans
-             ce dépôt — un espace entre une phrase et son lien ne se voit pas
-             dans la source, seulement dans le rendu.
+             `{' '}` ET NON UN SAUT DE LIGNE. Astro supprime le saut qui sépare
+             un nœud de texte d'une balise en ligne : « depuis » et le lien se
+             collaient dans le HTML construit, et à l'écran la phrase disait
+             « depuisSauvegarde ». Le défaut ne se voit pas en relisant ce
+             gabarit — il naît à la construction, et c'est « essais:espaces »,
+             qui lit « dist/ », qui l'a trouvé.
           */}
           <strong>Faites d’abord une sauvegarde</strong>, depuis{' '}
           <a

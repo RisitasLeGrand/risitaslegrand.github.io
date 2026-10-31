@@ -45,21 +45,21 @@ import Base from '../../layouts/Base.astro';
               type="text"
               required
               maxlength="200"
-              class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+              class="mt-1 min-h-11 w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950"
             />
           </label>
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Domaine</span>
             <select
               id="domaine"
-              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+              class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950"
             ></select>
           </label>
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Cadence</span>
             <select
               id="cadence"
-              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+              class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950"
             >
               <option value="jour">Chaque jour</option>
               <option value="semaine">Chaque semaine</option>
@@ -191,7 +191,7 @@ import Base from '../../layouts/Base.astro';
         'size-7 rounded-md border text-xs leading-7 transition ' +
         (tenues.has(jour)
           ? 'border-indigo-600 bg-indigo-500 text-white'
-          : 'border-slate-300 text-slate-400 hover:border-indigo-400 dark:border-slate-700');
+          : 'border-slate-400 text-slate-400 hover:border-indigo-400 dark:border-slate-600');
       case_.textContent = jour.slice(8);
       case_.addEventListener('click', () =>
         void agir(() => tenir(quete.id, !tenues.has(jour), new Date(`${jour}T12:00:00.000Z`))),
@@ -211,8 +211,8 @@ import Base from '../../layouts/Base.astro';
       b.type = 'button';
       b.dataset.action = libelle === 'Supprimer' ? 'supprimer' : 'basculer';
       b.className =
-        'min-h-11 rounded-lg border border-slate-300 px-3 text-sm transition ' +
-        'hover:border-indigo-400 dark:border-slate-700' +
+        'min-h-11 rounded-lg border border-slate-400 px-3 text-sm transition ' +
+        'hover:border-indigo-400 dark:border-slate-600' +
         (libelle === 'Supprimer' ? ' text-rose-700 dark:text-rose-300' : '');
       b.textContent = libelle;
       b.addEventListener('click', () => void agir(action));

@@ -100,7 +100,7 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
           </span>
           <select
             id="equipement-modeles"
-            class="mt-1 min-h-11 w-full max-w-[26rem] rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+            class="mt-1 min-h-11 w-full max-w-[26rem] rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950"
           >
             {
               EQUIPEMENTS.map((e) => (
@@ -249,12 +249,12 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
           <label class="min-w-48 flex-1 text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Nom</span>
             <input id="nom" type="text" maxlength="120"
-              class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              class="mt-1 min-h-11 w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Séances par semaine</span>
             <input id="par-semaine" type="number" min="1" max="14" value="3"
-              class="mt-1 min-h-11 w-28 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950" />
+              class="mt-1 min-h-11 w-28 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950" />
           </label>
           <label class="flex min-h-11 items-center gap-2 text-sm text-slate-700 dark:text-slate-200">
             <input id="actif" type="checkbox" class="size-5 rounded" />
@@ -265,13 +265,13 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
         <label class="mt-3 block text-sm">
           <span class="block text-slate-700 dark:text-slate-200">Description</span>
           <textarea id="description" rows="2" maxlength="500"
-            class="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950"></textarea>
+            class="mt-1 w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950"></textarea>
         </label>
 
         <h3 class="mt-5 text-sm font-semibold text-slate-900 dark:text-white">Séances types</h3>
         <div id="seances" class="mt-2 space-y-4"></div>
         <button id="ajouter-seance" type="button"
-          class="mt-3 min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700"
+          class="mt-3 min-h-11 rounded-lg border border-slate-400 px-3 text-sm dark:border-slate-600"
           >Ajouter une séance type</button>
 
         <h3 class="mt-6 text-sm font-semibold text-slate-900 dark:text-white">
@@ -286,7 +286,7 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
             <label class="flex items-center justify-between gap-2 text-xs">
               <span class="text-slate-700 dark:text-slate-200">{m.libelle}</span>
               <input type="text" inputmode="decimal" data-min="0" data-max="40" data-cible={m.id} placeholder="—"
-                class="min-h-11 w-20 rounded-lg border border-slate-300 bg-white px-2 text-xs dark:border-slate-700 dark:bg-slate-950" />
+                class="min-h-11 w-20 rounded-lg border border-slate-400 bg-white px-2 text-xs dark:border-slate-600 dark:bg-slate-950" />
             </label>
           ))}
         </div>
@@ -299,7 +299,7 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
             class="min-h-11 rounded-lg bg-indigo-600 px-4 text-sm font-medium text-white transition hover:bg-indigo-700"
             >Enregistrer</button>
           <button id="annuler" type="button"
-            class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700"
+            class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm dark:border-slate-600"
             >Annuler</button>
         </div>
       </section>
@@ -327,7 +327,7 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
         <label class="mt-2 block text-sm">
           <span class="block text-slate-700 dark:text-slate-200">Réalisé sur</span>
           <select id="fenetre"
-            class="mt-1 min-h-11 max-w-full rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950">
+            class="mt-1 min-h-11 max-w-full rounded-lg border border-slate-400 bg-white px-2 text-sm dark:border-slate-600 dark:bg-slate-950">
             <option value="7">7 derniers jours</option>
             <option value="14">14 derniers jours</option>
             <option value="28" selected>28 derniers jours</option>
@@ -480,7 +480,7 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
   function choixExercice(selectionne: string): HTMLSelectElement {
     const select = document.createElement('select');
     select.className =
-      'min-h-11 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950';
+      'min-h-11 flex-1 rounded-lg border border-slate-400 bg-white px-2 text-sm dark:border-slate-600 dark:bg-slate-950';
     select.setAttribute('aria-label', 'Exercice');
     for (const e of [...exercices].sort((a, b) => a.nom.localeCompare(b.nom, 'fr'))) {
       const option = document.createElement('option');
@@ -509,7 +509,7 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
     champ.min = String(options.min ?? 0);
     if (options.pas) champ.step = String(options.pas);
     champ.value = valeur === null ? '' : String(valeur);
-    champ.className = `mt-0.5 min-h-11 ${largeur} rounded-lg border border-slate-300 bg-white px-2 text-sm dark:border-slate-700 dark:bg-slate-950`;
+    champ.className = `mt-0.5 min-h-11 ${largeur} rounded-lg border border-slate-400 bg-white px-2 text-sm dark:border-slate-600 dark:bg-slate-950`;
     champ.addEventListener('input', () => {
       poser(champ.value === '' ? null : Number(champ.value));
       direLesAbsents();
@@ -536,7 +536,7 @@ const coefficient = COEFFICIENT_SECONDAIRE.toLocaleString('fr-FR');
       nom.value = seance.nom;
       nom.setAttribute('aria-label', 'Nom de la séance type');
       nom.className =
-        'min-h-11 flex-1 rounded-lg border border-slate-300 bg-white px-2 text-sm font-medium dark:border-slate-700 dark:bg-slate-950';
+        'min-h-11 flex-1 rounded-lg border border-slate-400 bg-white px-2 text-sm font-medium dark:border-slate-600 dark:bg-slate-950';
       nom.addEventListener('input', () => {
         seance.nom = nom.value;
       });

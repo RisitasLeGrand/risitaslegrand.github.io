@@ -176,6 +176,43 @@ try {
      l'héritage pourrait être remplacé par une teinte figée qui se trouve être
      la bonne dans le thème clair.
   */
+  /**
+   * Les faces KaTeX réellement chargées, attendues jusqu'au délai.
+   *
+   * Rend « { combien, familles } » quand la fonte est là, et
+   * « { combien: 0, declarees, etats } » quand elle ne vient pas : l'expiration
+   * EST le verdict, et on la rend lisible plutôt que de la laisser remonter en
+   * panne du script entier.
+   */
+  const mesurerLaFonte = async (page, delai) =>
+    page
+      .waitForFunction(
+        () => {
+          const chargees = [...document.fonts].filter(
+            (f) => f.family.startsWith('KaTeX') && f.status === 'loaded',
+          );
+          if (!document.fonts.check('16px KaTeX_Main') || chargees.length === 0) return null;
+          return {
+            combien: chargees.length,
+            familles: [...new Set(chargees.map((f) => f.family))].slice(0, 6),
+          };
+        },
+        undefined,
+        { timeout: delai },
+      )
+      .then((p) => p.jsonValue())
+      .catch(() =>
+        page.evaluate(() => {
+          const katex = [...document.fonts].filter((f) => f.family.startsWith('KaTeX'));
+          return {
+            combien: 0,
+            familles: [],
+            declarees: katex.length,
+            etats: [...new Set(katex.map((f) => f.status))],
+          };
+        }),
+      );
+
   const mesures = {};
   for (const theme of ['clair', 'sombre']) {
     console.log(`\n${gras(`LE THÈME ${theme.toUpperCase()}, À 390 PX`)}\n`);
@@ -260,35 +297,7 @@ try {
        pour de bon — l'adresse pend, le fichier n'est pas déployé —, l'attente
        expire et l'essai le dit, ce qui est exactement ce qu'on lui demande.
     */
-    let fonteChargee;
-    try {
-      fonteChargee = await page.waitForFunction(
-        () => {
-          const chargees = [...document.fonts].filter(
-            (f) => f.family.startsWith('KaTeX') && f.status === 'loaded',
-          );
-          if (!document.fonts.check('16px KaTeX_Main') || chargees.length === 0) return null;
-          return {
-            combien: chargees.length,
-            familles: [...new Set(chargees.map((f) => f.family))].slice(0, 6),
-          };
-        },
-        undefined,
-        { timeout: 30000 },
-      ).then((p) => p.jsonValue());
-    } catch {
-      /* L'expiration EST le verdict : on la rend lisible plutôt que de la
-         laisser remonter en panne du script entier. */
-      fonteChargee = await page.evaluate(() => {
-        const katex = [...document.fonts].filter((f) => f.family.startsWith('KaTeX'));
-        return {
-          combien: 0,
-          familles: [],
-          declarees: katex.length,
-          etats: [...new Set(katex.map((f) => f.status))],
-        };
-      });
-    }
+    const fonteChargee = await mesurerLaFonte(page, 30000);
     verifier(
       `${theme} · la fonte KaTeX est chargée pour de vrai`,
       fonteChargee.combien > 0,
@@ -384,6 +393,76 @@ try {
     );
 
     mesures[theme] = vu;
+    await contexte.close();
+  }
+
+  /* ── LE TÉMOIN DU CONTRÔLE DE FONTE ──────────────────────────────── */
+  {
+    console.log(`\n${gras('LE TÉMOIN : SI LA FONTE MANQUE, LE CONTRÔLE LE DIT')}\n`);
+    /*
+       POURQUOI CE PASSAGE EXISTE.
+
+       Le contrôle des deux thèmes attend que la fonte soit chargée. Une
+       attente qui se résout toujours ne prouverait rien : il faut montrer
+       qu'elle ne se résout PAS quand la fonte manque — c'est la raison d'être
+       de ce contrôle, « si une adresse pendait, ce serait le seul à le voir ».
+
+       POURQUOI « serviceWorkers: block ».
+
+       J'ai d'abord essayé d'abandonner les requêtes de fonte par
+       « page.route » dans un contexte ordinaire : la route n'a JAMAIS été
+       déclenchée — zéro interception — alors que « page.on('request') » voyait
+       bien passer les deux requêtes. Le site enregistre un service worker
+       (« public/sw.js », depuis « lib/hors-ligne.ts »), et Playwright
+       n'intercepte pas ce qui passe par lui. Hypothèse du Pilote, vérifiée :
+       le service worker bloqué, la route mord — deux interceptions par
+       passage — et le contrôle rougit comme il doit.
+
+       Le blocage ne vaut QUE pour ce témoin : les deux passages de thème
+       tournent avec le service worker, comme le site réel.
+
+       Le délai est court — six secondes au lieu de trente — parce qu'on attend
+       ici un échec, et qu'il n'y a rien à gagner à l'attendre longtemps.
+    */
+    const contexte = await nav.newContext({
+      viewport: { width: 390, height: 844 },
+      serviceWorkers: 'block',
+    });
+    const page = await contexte.newPage();
+    let interceptions = 0;
+    await page.route('**/KaTeX_*', (route) => {
+      interceptions += 1;
+      return route.abort();
+    });
+    await page.goto(`${ADRESSE}/fiche?id=${encodeURIComponent(idDeLaFiche)}`, {
+      waitUntil: 'networkidle',
+    });
+    if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
+      await page.fill('#champ-mdp', MOT_DE_PASSE);
+      await page.click('#bouton-verrou');
+    }
+    await page
+      .waitForFunction(() => document.querySelectorAll('.maths math').length >= 2, undefined, {
+        timeout: 60000,
+      })
+      .catch(() => {});
+
+    const sansFonte = await mesurerLaFonte(page, 6000);
+    verifier(
+      'les fontes refusées sont bien refusées',
+      interceptions > 0,
+      `${interceptions} interception(s) — sans elles, ce témoin ne prouverait rien`,
+    );
+    verifier(
+      'et le contrôle de fonte le voit : aucune face chargée',
+      sansFonte.combien === 0,
+      `${sansFonte.combien} face(s) chargée(s) alors que la fonte était refusée`,
+    );
+    verifier(
+      'les faces restent DÉCLARÉES : c’est bien le fichier qui manque, pas la feuille',
+      (sansFonte.declarees ?? 0) > 0,
+      `${sansFonte.declarees ?? 0} déclarée(s) — états : ${(sansFonte.etats ?? []).join(', ')}`,
+    );
     await contexte.close();
   }
 

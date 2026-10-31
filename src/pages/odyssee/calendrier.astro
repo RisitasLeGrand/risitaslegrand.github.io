@@ -44,19 +44,19 @@ import Base from '../../layouts/Base.astro';
         <button
           id="precedent"
           type="button"
-          class="cible-tactile-pleine min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700"
+          class="cible-tactile-pleine min-h-11 rounded-lg border border-slate-400 px-3 text-sm dark:border-slate-600"
           aria-label="Période précédente">←</button
         >
         <button
           id="aujourdhui"
           type="button"
-          class="min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700"
+          class="min-h-11 rounded-lg border border-slate-400 px-3 text-sm dark:border-slate-600"
           >Aujourd’hui</button
         >
         <button
           id="suivant"
           type="button"
-          class="cible-tactile-pleine min-h-11 rounded-lg border border-slate-300 px-3 text-sm dark:border-slate-700"
+          class="cible-tactile-pleine min-h-11 rounded-lg border border-slate-400 px-3 text-sm dark:border-slate-600"
           aria-label="Période suivante">→</button
         >
       </div>
@@ -88,14 +88,14 @@ import Base from '../../layouts/Base.astro';
               type="text"
               required
               maxlength="200"
-              class="mt-1 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+              class="mt-1 min-h-11 w-full rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950"
             />
           </label>
           <label class="text-sm">
             <span class="block text-slate-700 dark:text-slate-200">Domaine</span>
             <select
               id="domaine"
-              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+              class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950"
             ></select>
           </label>
           <label class="text-sm">
@@ -103,7 +103,7 @@ import Base from '../../layouts/Base.astro';
             <input
               id="debut"
               type="datetime-local"
-              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+              class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950"
             />
           </label>
           <label class="text-sm">
@@ -111,7 +111,7 @@ import Base from '../../layouts/Base.astro';
             <input
               id="fin"
               type="datetime-local"
-              class="mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm dark:border-slate-700 dark:bg-slate-950"
+              class="mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm dark:border-slate-600 dark:bg-slate-950"
             />
           </label>
           <button
@@ -140,7 +140,7 @@ import Base from '../../layouts/Base.astro';
           <button
             id="exporter"
             type="button"
-            class="min-h-11 rounded-lg border border-slate-300 px-4 text-sm dark:border-slate-700"
+            class="min-h-11 rounded-lg border border-slate-400 px-4 text-sm dark:border-slate-600"
             >Exporter tout en .ics</button
           >
         </div>
@@ -158,15 +158,17 @@ import Base from '../../layouts/Base.astro';
     padding-inline: 1rem;
     font-size: 0.875rem;
     font-weight: 500;
-    border-color: var(--color-slate-300);
+    /* Le jeton, et non le cran : `--etat-bordure-forte` tient 3:1 sur le fond
+       ET sur une carte, dans les quatorze thèmes, et il est déjà sensible au
+       mode — la surcharge sombre qui suivait n'a donc plus d'objet. Le cran
+       300 donnait 1,97:1, et c'est cette bordure seule qui délimite ces
+       boutons (E2, WCAG 1.4.11). */
+    border-color: var(--etat-bordure-forte);
   }
   .vue[aria-pressed='true'] {
     border-color: var(--color-indigo-600);
     background: var(--color-indigo-50);
     color: var(--color-indigo-800);
-  }
-  :global(.dark) .vue {
-    border-color: var(--color-slate-700);
   }
   :global(.dark) .vue[aria-pressed='true'] {
     background: color-mix(in srgb, var(--color-indigo-950) 50%, transparent);
@@ -356,8 +358,8 @@ import Base from '../../layouts/Base.astro';
     bloc.className = 'mt-2 hidden';
     const select = document.createElement('select');
     select.className =
-      'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm ' +
-      'dark:border-slate-700 dark:bg-slate-950';
+      'min-h-11 w-full rounded-lg border border-slate-400 bg-white px-3 text-sm ' +
+      'dark:border-slate-600 dark:bg-slate-950';
     select.setAttribute('aria-label', 'Pourquoi');
     const vide = document.createElement('option');
     vide.value = '';
@@ -374,8 +376,8 @@ import Base from '../../layouts/Base.astro';
     libre.type = 'text';
     libre.placeholder = 'En deux mots, si vous voulez';
     libre.className =
-      'mt-2 min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm ' +
-      'dark:border-slate-700 dark:bg-slate-950';
+      'mt-2 min-h-11 w-full rounded-lg border border-slate-400 bg-white px-3 text-sm ' +
+      'dark:border-slate-600 dark:bg-slate-950';
     const valider = document.createElement('button');
     valider.type = 'button';
     valider.className =
@@ -393,8 +395,8 @@ import Base from '../../layouts/Base.astro';
       b.type = 'button';
       b.dataset.reponse = valeur;
       b.className =
-        'min-h-11 rounded-lg border border-slate-300 px-3 text-sm transition ' +
-        'hover:border-indigo-400 dark:border-slate-700';
+        'min-h-11 rounded-lg border border-slate-400 px-3 text-sm transition ' +
+        'hover:border-indigo-400 dark:border-slate-600';
       b.textContent = libelle;
       b.addEventListener('click', () => {
         if (valeur === 'fait') {
@@ -504,8 +506,8 @@ import Base from '../../layouts/Base.astro';
     bouton.dataset.compacteTaches = jour;
     bouton.className =
       'mt-1 flex min-h-11 w-full items-center gap-2 rounded-lg border border-dashed ' +
-      'border-slate-300 px-3 text-left text-xs text-slate-600 transition ' +
-      'hover:border-indigo-400 dark:border-slate-700 dark:text-slate-300';
+      'border-slate-400 px-3 text-left text-xs text-slate-600 transition ' +
+      'hover:border-indigo-400 dark:border-slate-600 dark:text-slate-300';
 
     const compte = document.createElement('span');
     compte.textContent = `${duJour.length} tâche${duJour.length > 1 ? 's' : ''}`;
@@ -613,8 +615,8 @@ import Base from '../../layouts/Base.astro';
       defaire.type = 'button';
       defaire.dataset.depointer = `${o.tacheId}:${o.jour}`;
       defaire.className =
-        'min-h-11 rounded-lg border border-slate-300 px-3 text-sm transition ' +
-        'hover:border-indigo-400 dark:border-slate-700';
+        'min-h-11 rounded-lg border border-slate-400 px-3 text-sm transition ' +
+        'hover:border-indigo-400 dark:border-slate-600';
       defaire.textContent = geste === 'ecrire-un-depointage' ? 'Ce n’était pas ça' : 'Pas finalement';
       if (geste === 'ecrire-un-depointage') {
         /*
@@ -679,8 +681,8 @@ import Base from '../../layouts/Base.astro';
     renoncer.type = 'button';
     renoncer.dataset.renoncer = `${o.tacheId}:${o.jour}`;
     renoncer.className =
-      'min-h-11 rounded-lg border border-slate-300 px-3 text-sm transition ' +
-      'hover:border-indigo-400 dark:border-slate-700';
+      'min-h-11 rounded-lg border border-slate-400 px-3 text-sm transition ' +
+      'hover:border-indigo-400 dark:border-slate-600';
     renoncer.textContent = 'J’y renonce';
 
     const choix = document.createElement('div');
@@ -690,8 +692,8 @@ import Base from '../../layouts/Base.astro';
     const select = document.createElement('select');
     select.dataset.motif = `${o.tacheId}:${o.jour}`;
     select.className =
-      'min-h-11 w-full rounded-lg border border-slate-300 bg-white px-3 text-sm ' +
-      'dark:border-slate-700 dark:bg-slate-950';
+      'min-h-11 w-full rounded-lg border border-slate-400 bg-white px-3 text-sm ' +
+      'dark:border-slate-600 dark:bg-slate-950';
     const vide = document.createElement('option');
     vide.value = '';
     vide.textContent = 'Pourquoi y renoncez-vous ? (obligatoire)';
@@ -744,8 +746,8 @@ import Base from '../../layouts/Base.astro';
     confirmer.type = 'button';
     confirmer.dataset.confirmer = `${o.tacheId}:${o.jour}`;
     confirmer.className =
-      'mt-2 min-h-11 rounded-lg border border-slate-300 px-3 text-sm transition ' +
-      'hover:border-indigo-400 dark:border-slate-700';
+      'mt-2 min-h-11 rounded-lg border border-slate-400 px-3 text-sm transition ' +
+      'hover:border-indigo-400 dark:border-slate-600';
     confirmer.textContent = 'Confirmer le renoncement';
     confirmer.addEventListener('click', () => {
       if (!select.value) {
@@ -792,9 +794,9 @@ import Base from '../../layouts/Base.astro';
     const retour = encodeURIComponent(`${base}/odyssee/calendrier/?jour=${jour}`);
     lien.href = `${base}/odyssee/taches/?jour=${jour}&serie=1&retour=${retour}`;
     lien.className =
-      'mt-2 inline-flex min-h-11 items-center rounded-lg border border-slate-300 px-3 ' +
+      'mt-2 inline-flex min-h-11 items-center rounded-lg border border-slate-400 px-3 ' +
       'text-xs text-slate-600 transition hover:border-indigo-400 ' +
-      'dark:border-slate-700 dark:text-slate-300';
+      'dark:border-slate-600 dark:text-slate-300';
     lien.textContent = 'Programmer une tâche répétée ce jour-là';
     return lien;
   }

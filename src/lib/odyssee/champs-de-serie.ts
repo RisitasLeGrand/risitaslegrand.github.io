@@ -78,8 +78,8 @@ export function champsDeSerie(
   };
 
   const CLASSE_CHAMP =
-    'mt-1 min-h-11 rounded-lg border border-slate-300 bg-white px-3 text-sm ' +
-    'dark:border-slate-700 dark:bg-slate-950';
+    'mt-1 min-h-11 rounded-lg border border-slate-400 bg-white px-3 text-sm ' +
+    'dark:border-slate-600 dark:bg-slate-950';
 
   /* --- Le rythme --- */
   const labelRegle = etiquette('Rythme');
@@ -133,7 +133,7 @@ export function champsDeSerie(
     const label = document.createElement('label');
     label.className =
       'flex min-h-11 w-11 cursor-pointer items-center justify-center rounded-lg ' +
-      'border border-slate-300 text-sm dark:border-slate-700';
+      'border border-slate-400 text-sm dark:border-slate-600';
     label.title = COMPLETS[j];
     const caseJour = document.createElement('input');
     caseJour.type = 'checkbox';

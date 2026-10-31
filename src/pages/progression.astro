@@ -28,12 +28,12 @@ import LienReglages from '../components/LienReglages.astro';
       <label class="block">
         <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Cartes par session de flashcards</span>
         <input id="plafond-cartes" type="number" inputmode="numeric" min="5" max="200" step="5"
-          class="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-indigo-900" />
+          class="mt-1.5 w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-indigo-900" />
       </label>
       <label class="block">
         <span class="text-sm font-medium text-slate-700 dark:text-slate-200">Questions par QCM</span>
         <input id="plafond-questions" type="number" inputmode="numeric" min="5" max="200" step="5"
-          class="mt-1.5 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-indigo-900" />
+          class="mt-1.5 w-full rounded-lg border border-slate-400 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200 focus:outline-none dark:border-slate-600 dark:bg-slate-950 dark:text-slate-100 dark:focus:ring-indigo-900" />
       </label>
     </div>
     <p class="mt-3 text-xs text-slate-500 dark:text-slate-400">
@@ -96,7 +96,7 @@ import LienReglages from '../components/LienReglages.astro';
           Mot de passe du site
         </span>
         <input id="mdp-sauvegarde" type="password" autocomplete="current-password"
-          class="w-full max-w-sm rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          class="w-full max-w-sm rounded-lg border border-slate-400 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
         <span class="mt-1 block text-xs text-slate-400">
           Il n'est pas conservé : la clé de session ne permet pas de le retrouver.
         </span>
@@ -183,7 +183,7 @@ import LienReglages from '../components/LienReglages.astro';
           Mot de passe de cette sauvegarde
         </span>
         <input id="mdp-restauration" type="password" autocomplete="off"
-          class="w-full max-w-sm rounded-lg border border-slate-300 px-3 py-2 text-sm dark:border-slate-700 dark:bg-slate-950" />
+          class="w-full max-w-sm rounded-lg border border-slate-400 px-3 py-2 text-sm dark:border-slate-600 dark:bg-slate-950" />
         <span class="mt-1 block text-xs text-slate-400">
           Si elle est antérieure à un changement de mot de passe, c'est{' '}
           <strong>l'ancien</strong> qu'il faut : une sauvegarde garde celui qu'elle
@@ -273,7 +273,7 @@ import LienReglages from '../components/LienReglages.astro';
       <button id="reinitialiser" class="cible-tactile rounded-lg border border-red-300 bg-white px-4 py-2 text-sm font-medium text-red-700 transition hover:bg-red-100 dark:border-red-800 dark:bg-transparent dark:text-red-300">
         Tout effacer sur cet appareil
       </button>
-      <button id="delier-appareil" class="cible-tactile hidden rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-700 dark:bg-transparent dark:text-slate-200">
+      <button id="delier-appareil" class="cible-tactile hidden rounded-lg border border-slate-400 bg-white px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 dark:border-slate-600 dark:bg-transparent dark:text-slate-200">
         Délier cet appareil
       </button>
     </div>
@@ -386,7 +386,7 @@ import LienReglages from '../components/LienReglages.astro';
       const case_ = document.createElement('input');
       case_.type = 'checkbox';
       case_.checked = reglages[contenu.id];
-      case_.className = 'mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500';
+      case_.className = 'mt-1 h-4 w-4 rounded border-slate-400 text-indigo-600 focus:ring-indigo-500';
       case_.addEventListener('change', () => {
         void (async () => {
           const courants = await lireReglagesContenu();
@@ -419,7 +419,7 @@ import LienReglages from '../components/LienReglages.astro';
       const case_ = document.createElement('input');
       case_.type = 'checkbox';
       case_.checked = reglages[source.id];
-      case_.className = 'mt-1 h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500';
+      case_.className = 'mt-1 h-4 w-4 rounded border-slate-400 text-indigo-600 focus:ring-indigo-500';
       case_.addEventListener('change', () => {
         void (async () => {
           const courants = await lireReglagesNiveau();
@@ -559,7 +559,7 @@ import LienReglages from '../components/LienReglages.astro';
   const TONS = {
     jamais: 'border-red-300 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200',
     ancienne: 'border-amber-300 bg-amber-50 text-amber-900 dark:border-amber-800 dark:bg-amber-950/40 dark:text-amber-200',
-    'a-faire': 'border-slate-300 bg-slate-50 text-slate-800 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200',
+    'a-faire': 'border-slate-400 bg-slate-50 text-slate-800 dark:border-slate-600 dark:bg-slate-900 dark:text-slate-200',
     recente: 'border-emerald-300 bg-emerald-50 text-emerald-900 dark:border-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200',
   } as const;
 
@@ -735,15 +735,16 @@ import LienReglages from '../components/LienReglages.astro';
       titre: 'Remplacer toute la progression de ce navigateur ?',
       texte:
         `La sauvegarde a été faite le ${quandLaSauvegarde}` +
-        (ageEnJours !== null && ageEnJours > 0 ? `, il y a ${ageEnJours} jour(s)` : '') +
+        (ageEnJours !== null && ageEnJours > 0 ? `, il y a ${pluriel(ageEnJours, 'jour')}` : '') +
         (combienDansLaSauvegarde !== null
-          ? ` et porte ${combienDansLaSauvegarde} enregistrement(s).`
+          ? ` et porte ${pluriel(combienDansLaSauvegarde, 'enregistrement')}.`
           : '.') +
         ` Ce navigateur en porte aujourd’hui ${combienIci.toLocaleString('fr-FR')}, ` +
         `rubrique par rubrique : ${direLesGroupes(groupesIci)}` +
         (cartesIci.length || quizIci.length || joursIci.length
-          ? `, dont ${cartesIci.length} carte(s) suivie(s), ${quizIci.length} quiz et ` +
-            `${joursIci.length} journée(s) de temps passé`
+          ? `, dont ${pluriel(cartesIci.length, 'carte')} ` +
+            `${cartesIci.length > 1 ? 'suivies' : 'suivie'}, ${quizIci.length} quiz et ` +
+            `${pluriel(joursIci.length, 'journée')} de temps passé`
           : '') +
         '. Tout cela sera écrasé. ' +
         (avecInstantane
@@ -776,9 +777,16 @@ import LienReglages from '../components/LienReglages.astro';
       const total = Object.values(r.ecrits).reduce((s, n) => s + n, 0);
       dire(
         'message-cyclades',
-        `Restauration faite : ${total} enregistrement(s) écrits` +
-          (r.inconnus.length ? `, ${r.inconnus.length} magasin(s) inconnu(s) laissés de côté` : '') +
-          (r.relecture.lignesIllisibles ? `, ${r.relecture.lignesIllisibles} ligne(s) illisible(s)` : '') +
+        `Restauration faite : ${pluriel(total, 'enregistrement')} ` +
+          `${total > 1 ? 'écrits' : 'écrit'}` +
+          (r.inconnus.length
+            ? `, ${pluriel(r.inconnus.length, 'magasin')} ` +
+              `${r.inconnus.length > 1 ? 'inconnus laissés' : 'inconnu laissé'} de côté`
+            : '') +
+          (r.relecture.lignesIllisibles
+            ? `, ${pluriel(r.relecture.lignesIllisibles, 'ligne')} ` +
+              `${r.relecture.lignesIllisibles > 1 ? 'illisibles' : 'illisible'}`
+            : '') +
           '.',
         'succes',
       );
@@ -991,14 +999,15 @@ import LienReglages from '../components/LienReglages.astro';
         texte:
           `Partent, rubrique par rubrique : ${direLesGroupes(groupesA)}. ` +
           /*
-             « Dont 0 carte(s) suivie(s), 0 quiz et 0 journée(s) » : la phrase
+             « Dont 0 carte suivie, 0 quiz et 0 journée » : la phrase
              le disait, sur une base qui ne portait qu'Odyssée. Trois zéros
              n'apprennent rien et font douter du reste. Le détail ne paraît
              donc que s'il a quelque chose à détailler.
           */
           (cartesA.length || quizA.length || joursA.length
-            ? `Dont ${cartesA.length} carte(s) suivie(s), ${quizA.length} quiz et ` +
-              `${joursA.length} journée(s) de temps passé. `
+            ? `Dont ${pluriel(cartesA.length, 'carte')} ` +
+              `${cartesA.length > 1 ? 'suivies' : 'suivie'}, ${quizA.length} quiz et ` +
+              `${pluriel(joursA.length, 'journée')} de temps passé. `
             : '') +
           'Partent aussi : les réglages de ' +
           'ce navigateur, les pages gardées pour la lecture hors ligne, les instantanés ' +
@@ -1012,7 +1021,7 @@ import LienReglages from '../components/LienReglages.astro';
             : '') +
           (etat.derniere
             ? `Votre dernière sauvegarde confirmée date du ${new Date(etat.derniere).toLocaleString('fr-FR')}` +
-              (etat.jours !== null && etat.jours > 0 ? `, il y a ${etat.jours} jour(s).` : '.')
+              (etat.jours !== null && etat.jours > 0 ? `, il y a ${pluriel(etat.jours, 'jour')}.` : '.')
             : 'ATTENTION : aucune sauvegarde n’a jamais été confirmée depuis ce navigateur, ' +
               'donc rien de tout cela n’existe ailleurs.') +
           ' Cette action est irréversible.',
@@ -1024,9 +1033,12 @@ import LienReglages from '../components/LienReglages.astro';
       await afficherResume();
       dire(
         'message-effacement-total',
-        `${releve.enregistrements.toLocaleString('fr-FR')} enregistrement(s), ` +
-          `${releve.clefsLocales} réglage(s) de ce navigateur, ${releve.caches} cache(s) ` +
-          `hors ligne et ${releve.bases.length} base(s) annexe(s) ont été effacés.` +
+        `${releve.enregistrements.toLocaleString('fr-FR')} ` +
+          `${releve.enregistrements > 1 ? 'enregistrements' : 'enregistrement'}, ` +
+          `${pluriel(releve.clefsLocales, 'réglage')} de ce navigateur, ` +
+          `${pluriel(releve.caches, 'cache')} hors ligne et ` +
+          `${pluriel(releve.bases.length, 'base')} ` +
+          `${releve.bases.length > 1 ? 'annexes' : 'annexe'} ont été effacés.` +
           (appairage
             ? ' Cet appareil reste appairé : les autres appareils liés gardent leurs données.'
             : ''),

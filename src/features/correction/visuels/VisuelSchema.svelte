@@ -156,7 +156,7 @@
     <button
       type="button"
       class="cible-tactile rounded-lg border px-3 py-1 text-xs {squelette
-        ? 'border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300'
+        ? 'border-slate-400 text-slate-600 dark:border-slate-600 dark:text-slate-300'
         : 'border-indigo-600 bg-indigo-50 font-medium text-indigo-800 dark:bg-indigo-950 dark:text-indigo-100'}"
       aria-pressed={!squelette}
       onclick={() => (squelette = false)}>Voir le détail</button
@@ -165,7 +165,7 @@
       type="button"
       class="cible-tactile rounded-lg border px-3 py-1 text-xs {squelette
         ? 'border-indigo-600 bg-indigo-50 font-medium text-indigo-800 dark:bg-indigo-950 dark:text-indigo-100'
-        : 'border-slate-300 text-slate-600 dark:border-slate-700 dark:text-slate-300'}"
+        : 'border-slate-400 text-slate-600 dark:border-slate-600 dark:text-slate-300'}"
       aria-pressed={squelette}
       onclick={() => (squelette = true)}>Voir le squelette</button
     >
