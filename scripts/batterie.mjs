@@ -189,6 +189,20 @@ const SOCLE = [
      d'être pointillé, une tranche changeant de teinte sans que la table
      bouge, et la ligne d'objectif poussée sous 3:1.
   */
+  /*
+     LES CURSEURS DU QUAD N-BACK, inscrits au socle le 31 octobre.
+
+     L'essai existait et ne tournait DANS AUCUNE batterie : il était absent de ce
+     fichier, donc il ne gardait rien — un essai qu'on ne lance pas est une
+     garantie qu'on croit avoir. Relevé par le pilote sur mon propre lot.
+
+     Il tient deux invariants que l'écran défait sans bruit : les neuf curseurs
+     avancent d'UN cran au doigt comme au clavier — la délégation à `stepUp` et
+     `stepDown` du navigateur, et non un calcul à la main qui redériverait la
+     grille —, et le maximum du curseur de n est celui du MOTEUR, faute de quoi
+     une partie montée par progression s'afficherait au plafond du curseur.
+  */
+  ['essais:curseurs-pas:navigateur', 'les neuf curseurs avancent d’un cran, et n monte jusqu’au moteur'],
   ['essais:defilement', 'aucun écran ne contourne le module de défilement'],
   ['essais:graphiques', 'les deux histogrammes : ligne tracée, tableau, 3:1'],
   ['essais:themes-navigateur', 'les quatorze thèmes s’appliquent pour de vrai'],

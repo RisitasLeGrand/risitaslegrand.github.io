@@ -262,87 +262,44 @@ verifier(
 
 verifier('aucune erreur de page', erreurs.slice(0, 3), []);
 
-/* ── La divergence entre le réglage enregistré et le curseur ───────────── */
-
-console.log('\nLE RÉGLAGE ENREGISTRÉ ET LE CURSEUR NE DIVERGENT PLUS');
+/* ── Ce que cet essai NE mesure plus, et pourquoi ──────────────────────── */
 
 /*
-   DEUX FOIS JE ME SUIS TROMPÉ SUR CE DÉFAUT, et les deux fois c'est la mesure
-   qui l'a dit — ce constat est le troisième essai.
+   LA DIVERGENCE ENTRE LE RÉGLAGE ENREGISTRÉ ET LE CURSEUR A ÉTÉ RETIRÉE D'ICI.
 
-   1. Le défaut m'avait été décrit comme « une valeur qui reste hors grille ».
-      Or un `input[type=range]` ASSAINIT la valeur qu'on lui assigne : la
-      spécification lui fait arrondir au cran le plus proche. Poser 11 sur un
-      curseur de pas 2 donne 12, et une valeur hors grille ne peut pas exister
-      DANS le curseur.
-   2. J'ai alors voulu mesurer la divergence en posant 11 sur le curseur puis
-      en signalant l'événement « input ». Mais c'est cet événement qui fait
-      lire la valeur au composant : il lisait donc 12, l'état s'accordait au
-      curseur, et la divergence ne naissait jamais. Le sabotage — le retour à
-      mon ancien calcul — passait au VERT. Mon essai prétendait garder une
-      garantie qu'il ne mesurait pas.
+   Elle y a vécu trois versions, dont deux fausses, et la mesure a eu le dernier
+   mot chaque fois :
 
-   LE SEUL CHEMIN RÉEL est un réglage ENREGISTRÉ hors grille, lu au montage :
-   `chargerReglages` restaure le contenu de `localStorage` tel quel, sans le
-   confronter au pas ni aux bornes. L'état vaut alors 11, le curseur affiche
-   12, et aucun événement ne les réconcilie.
+   1. le défaut m'avait été décrit comme « une valeur qui reste hors grille ».
+      Or un `input[type=range]` ASSAINIT la valeur qu'on lui assigne — la
+      spécification lui fait arrondir au cran le plus proche —, de sorte qu'une
+      valeur hors grille ne peut pas exister DANS le curseur ;
+   2. j'ai alors voulu faire naître la divergence en posant 11 puis en signalant
+      l'événement « input ». Mais c'est cet événement qui fait lire la valeur au
+      composant : il lisait donc 12, et la divergence ne naissait jamais. Le
+      sabotage passait au VERT, et mon essai prétendait garder une garantie
+      qu'il ne mesurait pas ;
+   3. le seul chemin réel était un réglage ENREGISTRÉ hors grille, lu au
+      montage : `chargerReglages` restituait `localStorage` tel quel, sans le
+      confronter au pas ni aux bornes.
 
-   C'est pire qu'une valeur hors grille : le réglage AFFICHÉ et le réglage
-   ENREGISTRÉ cessent durablement de dire la même chose, et c'est l'état qui
-   part au moteur.
+   CE CHEMIN EST FERMÉ. `chargerReglages` confronte désormais chaque réglage à
+   son type, à ses bornes et à son pas, et la prémisse de cette section — « l'état
+   a gardé la valeur hors grille » — décrivait précisément le défaut qui vient
+   d'être réparé. La laisser aurait demandé d'écrire 12 où elle attendait 11,
+   c'est-à-dire de rendre verts des contrôles qui ne mesureraient plus rien.
+
+   IL N'EN RESTE AUCUN AUTRE, et c'est mesuré, non supposé : le composant
+   n'écoute ni `storage` ni aucun autre événement, `reglages` n'est assigné qu'à
+   ses défauts et par `validerLesReglages`, et `chargerReglages` n'est appelé
+   qu'une fois, au montage. Rien ne peut donc injecter une valeur hors grille
+   après coup.
+
+   Le terrain est tenu par `essais:reglages-restaures:navigateur`, qui sème un
+   stockage abîmé de toutes les façons qui comptent — hors bornes, hors grille,
+   d'un type faux — et vérifie en plus que le disque N'EST PAS RÉÉCRIT avant le
+   premier geste.
 */
-{
-  const ctx2 = await nav.newContext({ viewport: { width: 1280, height: 1000 } });
-  const p2 = await ctx2.newPage();
-  await p2.addInitScript(() => {
-    try {
-      const brut = localStorage.getItem('revinsp.nback.reglages');
-      const r = brut ? JSON.parse(brut) : {};
-      /* Hors grille : le curseur a min 10 et pas 2. */
-      localStorage.setItem('revinsp.nback.reglages', JSON.stringify({ ...r, epreuves: 11 }));
-    } catch {
-      /* La prémisse ci-dessous le dira. */
-    }
-  });
-  await franchirInitialisation(p2, RACINE, MDP);
-  await p2.goto(`${RACINE}/cog-training/quad-n-back/`, { waitUntil: 'networkidle' });
-  if (await p2.locator('#champ-mdp').isVisible().catch(() => false)) {
-    await p2.fill('#champ-mdp', MDP);
-    await p2.click('#bouton-verrou');
-  }
-  await p2.waitForSelector('#nb-epreuves', { timeout: 40000, state: 'attached' }).catch(() => {});
-  const replis2 = await p2.locator('details:not([open]) summary').count();
-  for (let i = 0; i < replis2; i += 1) {
-    await p2.locator('details:not([open]) summary').first().click({ timeout: 2000 }).catch(() => {});
-  }
-  await p2.waitForTimeout(600);
-
-  const lire = async () => ({
-    curseur: Number(await p2.locator('#nb-epreuves').inputValue()),
-    /* L'étiquette affiche l'ÉTAT du composant : c'est lui qui part au moteur,
-       et comparer le curseur à lui-même ne prouverait rien. */
-    etiquette: Number((await p2.locator('label[for="nb-epreuves"] strong').innerText()).trim()),
-  });
-
-  const auMontage = await lire();
-  verifier('prémisse : le curseur assainit le réglage semé', auMontage.curseur, 12);
-  verifier(
-    `prémisse : et l’état, lui, a gardé la valeur hors grille (${auMontage.etiquette})`,
-    auMontage.etiquette,
-    11,
-  );
-
-  await p2.locator('[data-pas="1"][data-pour="nb-epreuves"]').click();
-  await p2.waitForTimeout(300);
-  const apres = await lire();
-  verifier(
-    `un appui réconcilie les deux (étiquette ${apres.etiquette}, curseur ${apres.curseur})`,
-    apres.etiquette,
-    apres.curseur,
-  );
-  verifier(`et la valeur est sur la grille (${apres.curseur})`, (apres.curseur - 10) % 2, 0);
-  await ctx2.close();
-}
 
 await nav.close();
 console.log(
