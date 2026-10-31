@@ -639,6 +639,94 @@ est vrai d'un objet vide. Ce n'est pas un assouplissement : l'essai échoue
 toujours, pour la seule cause réelle, et les constats qui ne peuvent rien
 prouver le disent au lieu de rassurer.
 
+## 5. Un balayage de source qui ne trouve rien a deux raisons de se taire
+
+Cette section est écrite le 31 octobre, après que le garde-fou des bornes de
+`waitForFunction` est entré au socle. Elle ne parle pas des temporisations :
+elle parle de **ce que vaut un balayage de source**, et elle vaut pour les
+vingt-huit qui sont au socle.
+
+### La faute que le balayage cherchait
+
+`waitForFunction(fonction, valeur, options)`. Le second argument est la valeur
+passée à la fonction ; les options — dont `timeout` — sont au troisième. Une
+borne écrite au second rang part donc comme valeur, la fonction ne la lit pas,
+et l'attente retombe sur les **trente secondes par défaut** de Playwright.
+
+Une borne qu'on croit avoir fixée est **pire qu'une borne absente**. Absente,
+elle se voit à la relecture ; au mauvais rang, elle se lit comme fixée. Et son
+effet n'est pas seulement une durée : un essai annoncé « vingt secondes au
+plus » fait durer son rouge trente secondes, et l'on cherche la cause dans le
+site.
+
+### Le trou, et comment il a été trouvé
+
+Le balayage du 26 octobre annonçait **seize** sites, et il les avait tous
+corrigés. Le 31, en lui écrivant un essai, il en est apparu **trente-quatre
+autres**, dans huit essais — `suivi` en portait quatorze, `tendances` huit,
+`initialisation` cinq.
+
+La cause tient en une virgule. Un appel écrit sur plusieurs lignes porte, après
+son dernier argument, la virgule que le formateur pose partout dans ce dépôt :
+
+```js
+await page.waitForFunction(
+  () => document.getElementById('x') !== null,
+  { timeout: 20000 },   // ← la virgule finale
+);
+```
+
+Le découpage rendait donc **trois** arguments, dont un vide. La condition
+« exactement deux arguments » ne s'appliquait plus, et la faute passait. Le
+balayage ne voyait que la forme écrite sur une ligne — c'est-à-dire la moins
+courante des deux.
+
+### Ce qu'il faut en retenir, et qui dépasse ce cas
+
+**Un analyseur cassé ne lève pas : il rend zéro.** Et zéro est exactement ce
+que rend un dépôt propre. Les deux verdicts sont indiscernables à la lecture de
+la sortie, ce qui place ce genre de défaut dans la même famille que les trois
+pannes du chemin du navigateur (§ 1 de la doctrine du socle) : *ne rien
+trouver ne levait pas*.
+
+Trois règles en découlent, pour tout balayage de source qui entre au socle.
+
+1. **Son essai éprouve les deux sens.** Ce qu'il doit voir, et ce qu'il ne doit
+   pas voir. Un essai qui ne vérifie que l'absence de faux positifs reste vert
+   avec un analyseur qui ne trouve plus jamais rien. Dans `essais-bornes.mjs`,
+   le premier contrôle de la liste est la forme exacte de la faute, parce que
+   c'est le seul qui prouve que les autres mesurent encore quelque chose.
+2. **Il refuse quand il n'a rien lu.** Zéro faute et zéro appel rencontré se
+   rendaient de la même façon. Un dossier renommé, une extension oubliée, un
+   argument mal orthographié rendraient donc le vert d'une mesure qui n'a rien
+   mesuré — devant un `&&` que personne ne relit. `--bornes` refuse maintenant
+   avec le code 2 lorsqu'il ne rencontre aucun appel, et son essai éprouve les
+   **trois** codes de sortie sur des dossiers d'essai.
+3. **Une exclusion se garde.** L'essai d'un balayage contient par nature la
+   faute écrite exprès, donc le balayage doit passer ce fichier. Une tache
+   aveugle non gardée s'élargit : l'essai vérifie qu'elle ne compte qu'un
+   fichier, et que **sans** l'exclusion le balayage signale bien ces exemples
+   — faute de quoi elle cacherait autre chose.
+
+### Et ce que les sabotages ont appris, qui n'était pas prévu
+
+Quatre sabotages, chacun dans un arbre de travail détaché sur le commit (§ 2) :
+une borne remise au mauvais rang dans un vrai essai ; la virgule finale cessant
+d'être traitée ; le refus du balayage muet retiré ; l'analyseur cessant de
+suivre les chaînes. Les quatre ont rougi, et chacun a nommé son site.
+
+Le second est le plus parlant : avec le trou remis, **la ligne de commande
+seule annonce « 0 borne au mauvais rang » et sort avec le code 0**. C'est
+précisément le faux vert qui a vécu cinq jours, et c'est l'essai — non le
+balayage — qui l'attrape.
+
+Le premier a appris autre chose. Deux contrôles ont rougi au lieu d'un : celui
+qui gardait l'exclusion affirmait que, sans elle, *toutes* les fautes vues
+appartiennent au fichier d'exemples. Une vraie faute ailleurs le rendait faux
+lui aussi, et il **désignait donc l'exclusion là où le défaut était dans le
+dépôt**. Un garde-fou qui rougit pour la mauvaise cause coûte le temps qu'il
+prétend économiser ; il ne parle plus que de son propre fichier.
+
 ## Ce qui reste hors d'atteinte ici
 
 `essais:fiches-audio` réclame `ffmpeg`. Il a été installé dans le conteneur
