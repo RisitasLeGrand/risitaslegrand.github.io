@@ -32,6 +32,24 @@ export interface EtatSeance {
   intervalles: number[];
   /** Les temps de réaction des essais notés et répondus. */
   reactions: number[];
+  /**
+   * Le résultat ATTENDU de l'essai précédent, réussi ou non.
+   *
+   * C'est la référence du module de comparaison des sommes, et la décision du
+   * Pilote est explicite : on compare à la somme attendue de l'essai précédent,
+   * QUE CELUI-CI AIT ÉTÉ RÉUSSI OU NON.
+   *
+   * La référence fait autrement, et c'est un défaut : sa variable n'est réécrite
+   * que dans la branche des essais réussis. Après un essai manqué, la
+   * comparaison porte donc sur une somme plus ancienne que la précédente — et
+   * rien à l'écran ne dit laquelle. La personne compare de bonne foi au nombre
+   * qu'elle vient d'entendre, et se voit compter faux.
+   *
+   * `null` pendant l'échauffement, où il n'y a pas d'attendu : la comparaison
+   * n'est alors pas possible, et le module devra s'en abstenir plutôt que de
+   * traiter l'absence comme un zéro.
+   */
+  attenduPrecedent: number | null;
 }
 
 export function seanceNeuve(reglages: Reglages): EtatSeance {
@@ -44,6 +62,7 @@ export function seanceNeuve(reglages: Reglages): EtatSeance {
     comptes: { notes: 0, justes: 0 },
     intervalles: [],
     reactions: [],
+    attenduPrecedent: null,
   };
 }
 
@@ -57,6 +76,11 @@ export function seanceNeuve(reglages: Reglages): EtatSeance {
  * pour des essais auxquels personne ne pouvait répondre.
  */
 export function poserEssai(etat: EtatSeance, hasard: Hasard): Essai {
+  /* L'attendu de l'essai qui s'achève devient la référence du suivant. Ici, et
+     non dans `noter` : `noter` ne court pas pour un essai d'échauffement, et ne
+     courrait pas non plus si la personne ne répondait rien. Le poser au moment
+     où l'essai suivant paraît, c'est le poser à chaque fois. */
+  etat.attenduPrecedent = etat.courant?.attendu ?? null;
   const { n, operation, nombreMin, nombreMax } = etat.reglages;
   const reference = etat.presentes.length >= n ? etat.presentes[etat.presentes.length - n] : null;
   const nombre = prochainNombre(hasard, operation, reference, nombreMin, nombreMax);

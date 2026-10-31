@@ -129,6 +129,16 @@ console.log('\nGARDE 1 — LA DIVISION TOMBE JUSTE, À TOUTE PLAGE');
       }
     }
   }
+  /*
+     UN BALAYAGE QUI N'A RIEN LU REND ZÉRO, COMME UN MOTEUR PARFAIT.
+
+     `entiers === total` est vrai quand les deux valent zéro. Si les bornes de
+     boucle changeaient, ou si le tirage levait, ce constat passerait au VERT en
+     n'ayant rien mesuré. La prémisse pose donc un PLANCHER explicite : moins de
+     trois mille essais balayés, et l'essai refuse de conclure. La règle vient
+     d'A, qui l'a payée sur un analyseur de source.
+  */
+  verifier('prémisse — le balayage a bien lu des milliers de plages', total >= 3000, true);
   verifier(`${total} essais de quotient, tous entiers`, entiers, total);
   verifier('aucune plage ne laisse l’ensemble des diviseurs vide', videTrouve, false);
   verifier('zéro n’est jamais le diviseur', prochainNombre(hasardFixe(7), 'quotient', 6, 0, 6) !== 0, true);
@@ -325,6 +335,44 @@ console.log('\nGARDE 7 — L’HORIZON COURT N’ARRÊTE PAS LA PROGRAMMATION');
   verifier('la consigne est visible pendant son affichage', consigneVisible(consigne, 7000, reglages), true);
   verifier('et plus du tout ensuite', consigneVisible(consigne, 7501, reglages), false);
   verifier('RIEN n’est rappelé à l’échéance', consigneVisible(consigne, 20000, reglages), false);
+}
+
+console.log('\nLA SOMME DE RÉFÉRENCE EST L’ATTENDU PRÉCÉDENT, RÉUSSI OU NON');
+{
+  /*
+     La décision du Pilote, et le défaut de la référence qu'elle écarte : celle-ci
+     ne retient l'attendu que des essais RÉUSSIS, de sorte qu'après un essai
+     manqué la comparaison porte sur une somme plus ancienne que la précédente.
+     On joue donc une suite où l'essai du milieu est MANQUÉ, et on regarde à quoi
+     l'essai suivant se réfère.
+  */
+  const etat = seanceNeuve(avec({ n: 1, operation: 'somme' }));
+  const depot = new DepotEnMemoire();
+  const hasard = hasardFixe(11);
+
+  poserEssai(etat, hasard);
+  verifier('prémisse — rien à comparer au premier essai', etat.attenduPrecedent, null);
+  await noter(etat, { donne: 0, reaction: 200, aide: null }, depot);
+
+  const deuxieme = poserEssai(etat, hasard);
+  verifier('prémisse — le deuxième essai a bien un attendu', typeof deuxieme.attendu, 'number');
+  /* ON LE MANQUE EXPRÈS. */
+  const manque = await noter(etat, { donne: deuxieme.attendu! + 1, reaction: 250, aide: null }, depot);
+  verifier('prémisse — il est bien compté manqué', manque?.juste, false);
+
+  const troisieme = poserEssai(etat, hasard);
+  verifier(
+    'l’attendu de référence est celui de l’essai MANQUÉ, non d’un plus ancien',
+    etat.attenduPrecedent,
+    deuxieme.attendu,
+  );
+  verifier('et il diffère de l’attendu courant', etat.attenduPrecedent !== troisieme.attendu, true);
+
+  /* Et il se décale encore après un essai réussi, pour que la garde ne soit pas
+     vraie par accident sur une suite où rien ne bouge. */
+  await noter(etat, { donne: troisieme.attendu, reaction: 250, aide: null }, depot);
+  poserEssai(etat, hasard);
+  verifier('après un essai réussi, la référence suit aussi', etat.attenduPrecedent, troisieme.attendu);
 }
 
 console.log('\nNOTATION — « null » n’est pas zéro');
