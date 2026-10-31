@@ -43,6 +43,7 @@
  * dans IndexedDB.
  */
 import { chromium } from 'playwright-core';
+import { quandCelaSeFixe } from './lib/post-condition.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
@@ -126,32 +127,6 @@ const coffreDitOuvert = () =>
     )
     .then(() => true, () => false);
 
-/**
- * RELIT JUSQU'À DEUX LECTURES IDENTIQUES, et rend la dernière.
- *
- * Attente bornée par RELECTURE, et non durée pariée : elle rend la main dès
- * que la valeur a cessé de bouger. C'est la forme qui convient quand ce qu'on
- * mesure peut encore changer après être devenu juste — une liste qu'une
- * synchronisation pourrait doubler, par exemple : attendre « elle contient
- * notre titre » masquerait le doublement qui arrive après.
- */
-async function quandCelaNeBougePlus(lire) {
-  let precedent = JSON.stringify(await lire());
-  const limite = Date.now() + DELAI;
-  while (Date.now() < limite) {
-    /*
-       Le pas de relecture est une CADENCE, non un pari sur l'écran : il vit
-       donc du côté de l'essai et non dans la page. Écrit en
-       `page.waitForTimeout`, il serait compté par le relevé des attentes à
-       l'aveugle, et il n'en est pas une.
-    */
-    await new Promise((fini) => setTimeout(fini, 150));
-    const maintenant = JSON.stringify(await lire());
-    if (maintenant === precedent) return JSON.parse(precedent);
-    precedent = maintenant;
-  }
-  return JSON.parse(precedent);
-}
 
 const cleMemorisee = () =>
   page.evaluate(() => {
@@ -299,7 +274,7 @@ for (const chemin of AUTRES) {
      jusqu'à ce qu'il cesse de croître, et l'assertion garde son seuil : un
      écran resté vide se stabilise à zéro, et rougit.
   */
-  await quandCelaNeBougePlus(() =>
+  await quandCelaSeFixe(() =>
     page.evaluate(() => (document.querySelector('main')?.innerText || '').trim().length),
   );
   const rendu = await page.evaluate(() => ({
@@ -338,7 +313,7 @@ if (!(await champ.isVisible().catch(() => false))) {
      cesse de changer. Attendre « il y en a une de plus » serait attendre
      l'assertion ; attendre la stabilité ne présume rien du nombre obtenu.
   */
-  const apres = await quandCelaNeBougePlus(taches);
+  const apres = await quandCelaSeFixe(taches);
   verifier('une tâche écrite hors ligne est enregistrée', (apres?.length ?? -1) - n, 1);
   verifier('et c’est bien la nôtre', apres?.includes(TITRE), true);
 }
@@ -357,7 +332,7 @@ await coffreDitOuvert();
    masquerait le second, qu'une synchronisation ajouterait un instant plus
    tard. On attend que la liste ait cessé de bouger.
 */
-const final = await quandCelaNeBougePlus(taches);
+const final = await quandCelaSeFixe(taches);
 verifier('la tâche écrite hors ligne est toujours là', final?.includes(TITRE), true);
 /*
    Ni perdue, ni doublée : le prompt demande les deux, et c'est le
