@@ -8,6 +8,7 @@
  * comprendre une erreur de restauration.
  */
 import config from '../../../site.config.mjs';
+import { versionDeLApplication } from '../version';
 import {
   MAGASINS_PROGRESSION,
   MAGASINS_SAUVEGARDES,
@@ -110,7 +111,13 @@ export async function fabriquer(motDePasse: string | null): Promise<ResultatSauv
        l'aperçu de restauration faux.
     */
     branches: [{ ...brancheRevisions(), magasins: [...emportes] }],
-    versionApplication: (config as { version?: string }).version ?? 'inconnue',
+    /*
+       LA VRAIE VERSION — B4. Cette ligne cherchait un champ `version` dans
+       `site.config.mjs`, qui n'en porte aucun : toute sauvegarde annonçait
+       donc « inconnue », dans le seul champ qui permette de retrouver le code
+       ayant écrit un fichier. Elle est maintenant injectée à l'assemblage.
+    */
+    versionApplication: versionDeLApplication(),
     portee: {
       branches: BRANCHES.filter((b) => b.disponible).map((b) => b.id),
       parcours: PARCOURS.map((p) => p.id),

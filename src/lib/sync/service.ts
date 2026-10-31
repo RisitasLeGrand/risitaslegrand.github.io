@@ -35,6 +35,7 @@ import {
   lireAppareil,
 } from '../db';
 import { signalerEcriture } from './signal-ecriture';
+import { versionDeLApplication } from '../version';
 import type { EntreeRevision } from '../noyau/revisions';
 import type { Operation } from '../noyau/operations';
 import { operationsTransportables } from '../noyau/transportable';
@@ -266,7 +267,15 @@ export async function fabriquerPaquet(
     // Ce qu'on détient de chacun : c'est ce qui autorisera l'autre à compacter.
     recuDe: await detenuParAppareil(),
     motDePasse,
-    versionApplication: 'cyclades',
+    /*
+       CE CHAMP PORTAIT LE NOM DU PRODUIT — B4. « cyclades » n'est pas une
+       version fausse : c'est le nom du site écrit à la place d'une version,
+       dans le champ qu'un appareil lit pour savoir de quel code vient un
+       paquet. L'en-tête d'un paquet et celui d'une sauvegarde partagent
+       délibérément tout ce qui est délicat ; ils partagent maintenant aussi
+       leur idée de ce qu'est une version.
+    */
+    versionApplication: versionDeLApplication(),
     iterations: options.iterations,
   });
 
