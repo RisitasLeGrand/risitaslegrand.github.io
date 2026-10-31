@@ -592,9 +592,14 @@ import { DOMAINES } from '../../lib/noyau/domaines';
           import('../../lib/notifications/alimentation'),
           import('../../lib/noyau/jour-logique'),
         ]);
-        await recenserLesTrajectoires(lesTrajectoires, jourLogique());
-      } catch {
-        /* Le centre n'est jamais une raison de casser l'écran d'origine. */
+        const { recenserEtConsigner } = await import('../../lib/notifications/alimentation');
+        /* Le centre n'est jamais une raison de casser l'écran, mais ce qu'il
+           écarte ou ce sur quoi il échoue est consigné. */
+        await recenserEtConsigner('les trajectoires', () =>
+          recenserLesTrajectoires(lesTrajectoires, jourLogique()),
+        );
+      } catch (erreur) {
+        console.warn('Centre : le recensement des trajectoires est hors d’atteinte.', erreur);
       }
     })();
 

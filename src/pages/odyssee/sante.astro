@@ -1214,13 +1214,30 @@ const base = import.meta.env.BASE_URL.replace(/\/$/, '');
     const oublies = creneauxOublies(traitements, marques, new Date(), AUJOURDHUI);
     peindreLesCreneaux(traitements, marques, oublies.map((o) => `${o.traitementId}|${o.jour}|${o.heure}`));
     peindreLExport(traitements);
+    /*
+       LE SIGNAL PART SANS BLOQUER L'ÉCRAN, MAIS PLUS SANS TRACE.
+
+       L'écran a déjà tout montré : une notification qui ne part pas coûte un
+       signal, un écran qui plante pour cela coûte la page entière. Cette
+       moitié-là ne change pas.
+
+       Ce qui change, c'est que le `catch` vide est remplacé par
+       `recenserEtConsigner` : une panne, un écart du filtre ou un coffre
+       fermé sont désormais écrits à la console, avec leur raison. C'est ce
+       qui manquait le 26 octobre, quand le rappel de prise n'entrait jamais
+       au centre et qu'il a fallu lire trois modules pour comprendre pourquoi.
+    */
     void (async () => {
-      const { recenserLesOublis } = await import('../../lib/notifications/alimentation');
-      await recenserLesOublis(oublies.map((o) => o.ref));
-    })().catch(() => {
-      /* Le centre est hors d'atteinte : l'écran, lui, a déjà tout montré.
-         Une notification qui ne part pas coûte un signal ; un écran qui
-         plante pour cela coûte la page entière. */
+      const { recenserLesOublis, recenserEtConsigner } = await import(
+        '../../lib/notifications/alimentation'
+      );
+      await recenserEtConsigner('les oublis de prise', () =>
+        recenserLesOublis(oublies.map((o) => o.ref)),
+      );
+    })().catch((erreur) => {
+      /* Le module lui-même n'a pas pu être chargé : hors ligne, ou paquet
+         absent. Rien à faire pour l'écran, mais on le dit. */
+      console.warn('Centre : le recensement des oublis est hors d’atteinte.', erreur);
     });
 
     const zoneT = $('traitements');

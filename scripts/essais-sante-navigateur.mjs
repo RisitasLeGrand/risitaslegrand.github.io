@@ -58,7 +58,18 @@ const mesure = (quoi, valeur) => console.log(`  \x1b[36m·\x1b[0m ${quoi} : ${va
 const contexte = await nav.newContext();
 const page = await contexte.newPage();
 page.on('pageerror', (e) => console.log('PAGEERROR:', e.message.slice(0, 250)));
+/*
+   TOUTES LES LIGNES DE CONSOLE SONT RELEVÉES, et non seulement les erreurs.
+
+   Le recensement du centre ne touche pas l'écran : il ne doit pas le faire
+   tomber, et il n'a pas de zone où parler. Depuis le 31 octobre, il CONSIGNE
+   donc ce qu'il écarte et ce sur quoi il échoue — « recenserEtConsigner » —, et
+   c'est cette ligne que l'essai lit plus bas. Sans ce relevé, la garantie
+   « un écart est dit » n'aurait aucun témoin.
+*/
+const consoleDeLaPage = [];
 page.on('console', (m) => {
+  consoleDeLaPage.push(m.text());
   if (m.type() === 'error') console.log('CONSOLE:', m.text().slice(0, 250));
 });
 
@@ -696,6 +707,26 @@ console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
     await attendreEnBase(page, 'centreElements', (tout) => tout.length >= 1);
     const centre = await lireLeMagasin('centreElements');
     v('un élément déposé au centre, et un seul', centre.length, 1);
+    /*
+       ET SI RIEN N'EST DÉPOSÉ, LA RAISON EST DITE. C'est la garantie du
+       31 octobre, et elle vaut quelle que soit l'issue : un dépôt réussi n'a
+       rien à expliquer, un écart doit s'expliquer.
+
+       Le constat d'au-dessus est rouge aujourd'hui, et pour une raison qui est
+       une DÉCISION et non une panne : « filtre-cycle.ts » déclare
+       « rappel-de-prise » avec « exigeUneClasse », et aucune molécule n'a de
+       classe — « option (a), 19 octobre ». Tant que cette décision tient,
+       aucun rappel de prise n'entre au centre. Ce que l'essai exige désormais,
+       c'est qu'on puisse le SAVOIR sans lire trois modules.
+    */
+    if (centre.length === 0) {
+      const dit = consoleDeLaPage.filter((l) => /^Centre : /.test(l));
+      vrai(
+        'et faute de dépôt, le centre dit pourquoi il a écarté',
+        dit.some((l) => /écarté|coffre est fermé|n’a pas pu être recensé/.test(l)),
+      );
+      for (const l of dit.slice(0, 3)) mesure('consigné', l.slice(0, 160));
+    }
     /*
        UN ROUGE NE DOIT PAS EN CACHER QUINZE. Les cinq constats qui suivent
        lisent `centre[0]`, et le magasin vide faisait une panne sur
