@@ -40,6 +40,65 @@ import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
 const MDP = motDePasseEssais();
+const DELAI = 30_000;
+
+/**
+ * OUVRE LE COFFRE SI L'ÉCRAN LE DEMANDE, ET ATTEND QUE L'OUVERTURE SOIT DITE.
+ *
+ * Les quatre passages de cet essai portaient le même couple d'attentes à
+ * l'aveugle : 900 ms après le clic sur le verrou, puis 300 ou 400 ms de plus.
+ * Les voici remplacés une fois pour les quatre.
+ *
+ * La marque est celle que le site pose lui-même : `signalerDeverrouillage`
+ * écrit `data-verrou="ouvert"` sur `<html>`, et c'est précisément ce que les
+ * écrans attendent pour charger leur contenu déchiffré. Attendre cela, c'est
+ * attendre la fin de la dérivation PBKDF2 — volontairement lente — sans parier
+ * sur sa durée.
+ */
+async function ouvrirLeCoffreSiDemande(p) {
+  if (!(await p.locator('#champ-mdp').isVisible().catch(() => false))) return;
+  await p.fill('#champ-mdp', MDP);
+  await p.click('#bouton-verrou');
+  await p.waitForFunction(
+    () => document.documentElement.dataset.verrou === 'ouvert',
+    undefined,
+    { timeout: DELAI },
+  );
+}
+
+/**
+ * ATTEND QUE L'ÉCRAN SOIT MESURABLE : polices chargées, ancre présente, et
+ * une image peinte depuis.
+ *
+ * **Ce que cette aide ne sait pas faire, et il faut le dire.** Les polices
+ * sont une post-condition exacte — `document.fonts.ready` —, et elles comptent
+ * ici : toutes les mesures de cet essai sont des géométries, et un texte
+ * repeint dans une autre police change une largeur. L'ancre aussi est exacte.
+ *
+ * En revanche, « le contenu déchiffré de cet écran est peint » n'a aucune
+ * marque générale : chaque écran peint dans son propre rappel de
+ * `auDeverrouillage`, et aucun ne le signale. Faute de marque, on sonde la
+ * STABILITÉ de ce que la mesure lit — le nombre d'éléments du corps — jusqu'à
+ * deux lectures identiques. C'est une attente bornée par relecture, non une
+ * durée pariée : elle rend la main dès que l'écran a cessé de bouger, et elle
+ * s'allonge d'elle-même quand il est lent. Une marque par écran la rendrait
+ * exacte, et c'est remonté au pilote.
+ */
+async function ecranMesurable(p, ancre = null) {
+  await p.evaluate(() => document.fonts.ready.then(() => undefined)).catch(() => {});
+  if (ancre) await p.waitForSelector(ancre, { timeout: DELAI }).catch(() => null);
+  const compter = () => p.evaluate(() => document.body.getElementsByTagName('*').length);
+  let precedent = await compter().catch(() => -1);
+  const limite = Date.now() + DELAI;
+  while (Date.now() < limite) {
+    await p.evaluate(
+      () => new Promise((fini) => requestAnimationFrame(() => requestAnimationFrame(fini))),
+    ).catch(() => {});
+    const maintenant = await compter().catch(() => precedent);
+    if (maintenant === precedent) return;
+    precedent = maintenant;
+  }
+}
 const PLANCHER = 24;
 const CONFORT = 44;
 
@@ -109,12 +168,13 @@ let cibles = 0;
 
 for (const ecran of ECRANS) {
   await page.goto(`${RACINE}${ecran}`, { waitUntil: 'networkidle' });
-  if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
-    await page.fill('#champ-mdp', MDP);
-    await page.click('#bouton-verrou');
-    await page.waitForTimeout(1200);
-  }
-  await page.waitForTimeout(800);
+  await ouvrirLeCoffreSiDemande(page);
+  /*
+     Ici la mesure n'est pas une géométrie mais un COMPTE de liens dans des
+     phrases : c'est le cas où la stabilité du corps est la bonne sonde, parce
+     que c'est exactement ce que la lecture parcourt.
+  */
+  await ecranMesurable(page);
 
   liensDePhrase.push(
     ...(await page.evaluate((ecran) => {
@@ -260,12 +320,8 @@ for (const ecran of ECRANS) {
     let champsMesures = 0;
     for (const r of routes) {
       await p.goto(`${RACINE}${r}`, { waitUntil: 'networkidle', timeout: 25000 }).catch(() => {});
-      if (await p.locator('#champ-mdp').isVisible().catch(() => false)) {
-        await p.fill('#champ-mdp', MDP);
-        await p.click('#bouton-verrou');
-        await p.waitForTimeout(900);
-      }
-      await p.waitForTimeout(400);
+      await ouvrirLeCoffreSiDemande(p);
+      await ecranMesurable(p);
       const m = await p.evaluate((confort) => {
         const racine = document.documentElement;
         const coupables = [...document.querySelectorAll('body *')]
@@ -368,12 +424,8 @@ for (const ecran of ECRANS) {
        haut, 34 px pour la poignée. */
     {
       await p.goto(`${RACINE}/odyssee/`, { waitUntil: 'networkidle' }).catch(() => {});
-      if (await p.locator('#champ-mdp').isVisible().catch(() => false)) {
-        await p.fill('#champ-mdp', MDP);
-        await p.click('#bouton-verrou');
-        await p.waitForTimeout(900);
-      }
-      await p.waitForTimeout(400);
+      await ouvrirLeCoffreSiDemande(p);
+      await ecranMesurable(p, '#barre-du-bas');
 
       const avant = await p.evaluate(() => {
         const barre = document.getElementById('barre-du-bas');
@@ -481,12 +533,8 @@ for (const ecran of ECRANS) {
       const trop = [];
       for (const [route, plafond] of Object.entries(PLAFONDS)) {
         await p.goto(`${RACINE}${route}`, { waitUntil: 'networkidle' }).catch(() => {});
-        if (await p.locator('#champ-mdp').isVisible().catch(() => false)) {
-          await p.fill('#champ-mdp', MDP);
-          await p.click('#bouton-verrou');
-          await p.waitForTimeout(800);
-        }
-        await p.waitForTimeout(300);
+        await ouvrirLeCoffreSiDemande(p);
+        await ecranMesurable(p, '#entete-principal');
         const h = await p.evaluate(
           () =>
             Math.round(

@@ -196,6 +196,7 @@ await aller('/odyssee/corps/', '#mdp-coffre');
   await page.click('#reponses-sexe button[data-sexe="masculin"]');
   await page.waitForFunction(
     () => document.getElementById('sexe-dit')?.textContent?.includes('Masculin') === true,
+    undefined,
     { timeout: 20000 },
   );
   faux('réponse masculine : aucune ligne', await page.locator('#ligne-du-suivi').isVisible());
@@ -204,6 +205,7 @@ await aller('/odyssee/corps/', '#mdp-coffre');
   await page.click('#reponses-sexe button[data-sexe="sans-reponse"]');
   await page.waitForFunction(
     () => document.getElementById('sexe-dit')?.textContent?.includes('préfère') === true,
+    undefined,
     { timeout: 20000 },
   );
   faux('refus de répondre : aucune ligne', await page.locator('#ligne-du-suivi').isVisible());
@@ -221,6 +223,7 @@ await aller('/odyssee/corps/', '#mdp-coffre');
   await page.click('#reponses-sexe button[data-sexe="feminin"]');
   await page.waitForFunction(
     () => document.getElementById('ligne-du-suivi')?.classList.contains('hidden') === false,
+    undefined,
     { timeout: 20000 },
   );
   vrai('réponse féminine : la ligne paraît', await page.locator('#ligne-du-suivi').isVisible());
@@ -253,6 +256,7 @@ await aller('/odyssee/corps/', '#reponses-sexe');
 await page.click('#reponses-sexe button[data-sexe="masculin"]');
 await page.waitForFunction(
   () => document.getElementById('ligne-du-suivi')?.classList.contains('hidden') === true,
+  undefined,
   { timeout: 20000 },
 );
 vrai(
@@ -410,6 +414,7 @@ await page.waitForSelector('#reponses-sexe', { state: 'visible', timeout: 20000 
 await page.click('#reponses-sexe button[data-sexe="feminin"]');
 await page.waitForFunction(
   () => document.getElementById('ligne-du-suivi')?.classList.contains('hidden') === false,
+  undefined,
   { timeout: 20000 },
 );
 await aller(PAGE, '#dans-la-portee');
@@ -480,6 +485,7 @@ console.log('\n7. DEUX APPUIS DEPUIS L’OUVERTURE DU MODULE (MAQUETTE 8.2)');
   appuis += 1;
   await page.waitForFunction(
     () => (document.getElementById('confirmation')?.textContent ?? '').length > 0,
+    undefined,
     { timeout: 20000 },
   );
 
@@ -499,6 +505,7 @@ console.log('\n7. DEUX APPUIS DEPUIS L’OUVERTURE DU MODULE (MAQUETTE 8.2)');
   await page.click('#niveaux button[data-niveau="traces"]');
   await page.waitForFunction(
     () => document.querySelector('#niveaux button[data-niveau="traces"]')?.getAttribute('aria-pressed') === 'true',
+    undefined,
     { timeout: 20000 },
   );
   v(
@@ -665,6 +672,7 @@ console.log('\n9. L’EFFACEMENT PAR PÉRIODE EST UNE PURGE PHYSIQUE');
   await page.click('#effacer-periode');
   await page.waitForFunction(
     () => (document.getElementById('effacement-dit')?.textContent ?? '').includes('effacée'),
+    undefined,
     { timeout: 20000 },
   );
   v(
@@ -691,6 +699,7 @@ console.log('\n9. L’EFFACEMENT PAR PÉRIODE EST UNE PURGE PHYSIQUE');
   await page.click('#compter-periode');
   await page.waitForFunction(
     () => (document.getElementById('effacement-dit')?.textContent ?? '').length > 0,
+    undefined,
     { timeout: 20000 },
   );
   v(
@@ -734,6 +743,7 @@ console.log('\n10. CHANGER DE RÉPONSE MASQUE, SANS RIEN EFFACER');
     () =>
       document.querySelector('#niveaux button[data-niveau="moyen"]')?.getAttribute('aria-pressed') ===
       'true',
+    undefined,
     { timeout: 20000 },
   );
 
@@ -763,6 +773,7 @@ console.log('\n10. CHANGER DE RÉPONSE MASQUE, SANS RIEN EFFACER');
   await page.click('#reponses-sexe button[data-sexe="masculin"]');
   await page.waitForFunction(
     () => document.getElementById('ligne-du-suivi')?.classList.contains('hidden') === true,
+    undefined,
     { timeout: 20000 },
   );
   faux('la ligne de Corps disparaît', await page.locator('#ligne-du-suivi').isVisible());
@@ -777,6 +788,7 @@ console.log('\n10. CHANGER DE RÉPONSE MASQUE, SANS RIEN EFFACER');
   await page.click('#effacer-sexe');
   await page.waitForFunction(
     () => document.getElementById('sexe-dit')?.textContent === 'Réponse effacée.',
+    undefined,
     { timeout: 20000 },
   );
   v('effacer la réponse n’efface pas la saisie', await combien(), 1);
@@ -786,6 +798,7 @@ console.log('\n10. CHANGER DE RÉPONSE MASQUE, SANS RIEN EFFACER');
   await page.click('#reponses-sexe button[data-sexe="feminin"]');
   await page.waitForFunction(
     () => document.getElementById('ligne-du-suivi')?.classList.contains('hidden') === false,
+    undefined,
     { timeout: 20000 },
   );
   await aller(PAGE, '#dans-la-portee');
@@ -803,6 +816,7 @@ console.log('\n10. CHANGER DE RÉPONSE MASQUE, SANS RIEN EFFACER');
   await page.click('#fermer-coffre');
   await page.waitForFunction(
     () => document.getElementById('ligne-du-suivi')?.classList.contains('hidden') === true,
+    undefined,
     { timeout: 20000 },
   );
   faux('coffre refermé, la ligne disparaît', await page.locator('#ligne-du-suivi').isVisible());

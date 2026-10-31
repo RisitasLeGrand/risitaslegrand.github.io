@@ -208,6 +208,7 @@ faux(
 await A.page.goto(`${RACINE}/profil/`, { waitUntil: 'networkidle' });
 await A.page.waitForFunction(
   () => !document.getElementById('adaptation-etat')?.textContent?.includes('Chargement'),
+  undefined,
   { timeout: 40000 },
 );
 {
@@ -298,6 +299,7 @@ const lireChamp = async (page) => {
 
 await B.page.waitForFunction(
   () => !document.getElementById('adaptation-etat')?.textContent?.includes('Chargement'),
+  undefined,
   { timeout: 40000 },
 );
 await B.page.click('#reinitialiser-adaptation');

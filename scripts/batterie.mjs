@@ -71,7 +71,22 @@ const SOCLE = [
   ['essais:structure', 'un titre de niveau 1 par écran, un titre d’onglet unique'],
   ['essais:espaces', 'aucun mot collé à une balise en ligne, dans le site construit'],
   ['essais:mots-colles:navigateur', 'les mêmes, mesurés dans la page vivante'],
-  ['essais:typographie', 'apostrophes, espaces insécables, accords sans « (s) »'],
+  /*
+     LE LIBELLÉ A ÉTÉ CORRIGÉ LE 31 OCTOBRE, et la correction mérite sa raison.
+
+     Il annonçait « accords sans « (s) » ». Cet essai ne fait rien de tel : il
+     éprouve `insecables` sur onze cas, et ne lit aucune source. Mesuré le même
+     jour, `src/` porte **246 « (s) »** dans 47 fichiers — 48 dans
+     `appareils.astro` — et le socle était vert.
+
+     Un libellé qui promet un garde-fou absent est pire qu'un silence : on le
+     lit, on le croit, et l'on cherche ailleurs. C'est le mot de la doctrine sur
+     le chemin du navigateur, et il s'applique aussi aux descriptions de cette
+     liste-ci. Le balayage des accords reste à écrire, et il est remonté au
+     pilote : il rougirait 246 fois, donc son entrée au socle suppose que les
+     246 soient traitées d'abord.
+  */
+  ['essais:typographie', 'ce que « insecables » pose, et ce qu’elle laisse tranquille'],
   /*
      Deux garanties que n'importe quelle retouche du rendu Markdown peut
      défaire sans qu'on la voie : les 158 « $ » monétaires et les 100 ellipses
@@ -195,6 +210,25 @@ const SOCLE = [
      du site. Celui-ci coûte une seconde et ne demande pas d'aperçu.
   */
   ['essais:chemin-du-navigateur', 'le navigateur se trouve, et son absence refuse au lieu de se taire'],
+  /*
+     Celui-ci entre parce que la faute qu'il garde est INVISIBLE à la
+     relecture. `waitForFunction(fonction, valeur, options)` : une borne écrite
+     au second rang part comme valeur, la fonction ne la lit pas, et l'attente
+     retombe sur les trente secondes par défaut. Les deux formes se
+     ressemblent assez pour que personne ne les distingue, et une borne qu'on
+     croit avoir fixée est pire qu'une borne absente — absente, elle se voit.
+
+     Et il garde une seconde chose, qui est la raison de son volume : le
+     balayage découpe les arguments à la main, parce qu'une fonction fléchée
+     passée en premier porte ses propres virgules. Or un analyseur cassé ne
+     lève pas, il rend ZÉRO FAUTE — ce qu'un dépôt propre rend aussi. L'essai
+     l'éprouve donc dans les deux sens, et il refuse de se taire quand il ne
+     lit aucun appel. Cela s'est payé le jour même : la forme sur plusieurs
+     lignes n'était pas vue, et trente-quatre bornes étaient au mauvais rang
+     dans huit essais derrière un « 0 borne ». Il coûte trois secondes et ne
+     demande ni navigateur ni aperçu.
+  */
+  ['essais:bornes', 'les bornes de « waitForFunction » au bon rang, et le balayage qui le voit'],
 ];
 
 /**

@@ -240,6 +240,7 @@ v(
 );
 await page.waitForFunction(
   () => [...document.querySelectorAll('#liste p')].some((p) => p.textContent.includes('Tirage essai')),
+  undefined,
   { timeout: 15000 },
 );
 vrai('l’exercice saisi au clavier est enregistré', true);
@@ -481,6 +482,7 @@ await page.check('[data-muscle="pectoraux"]');
 await page.click('#declarer');
 await page.waitForFunction(
   () => document.querySelectorAll('#ouvertes [data-blessure]').length > 0,
+  undefined,
   { timeout: 15000 },
 );
 v(

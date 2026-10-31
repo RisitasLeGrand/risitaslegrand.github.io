@@ -133,6 +133,7 @@ await page.fill('#kg', '78.4');
 await page.click('#peser');
 await page.waitForFunction(
   () => document.querySelectorAll('#pesees tr').length > 0,
+  undefined,
   { timeout: 15000 },
 );
 v('une pesée ordinaire est enregistrée', await page.$$eval('#pesees tr', (l) => l.length), 1);
@@ -150,6 +151,7 @@ await page.fill('#intitule', 'Café');
 await page.click('#manger');
 await page.waitForFunction(
   () => document.querySelectorAll('#repas li').length > 0,
+  undefined,
   { timeout: 15000 },
 );
 v(
@@ -166,12 +168,14 @@ vrai(
 await page.click('[data-verre="500"]');
 await page.waitForFunction(
   () => document.getElementById('aujourdhui').textContent.includes('0,5 L'),
+  undefined,
   { timeout: 15000 },
 );
 vrai('un demi-litre est compté', true);
 await page.click('#annuler-verre');
 await page.waitForFunction(
   () => !document.getElementById('aujourdhui').textContent.includes('0,5 L'),
+  undefined,
   { timeout: 15000 },
 );
 vrai('et s’annule', true);
@@ -183,6 +187,7 @@ await page.check('#empeche');
 await page.click('#declarer-sante');
 await page.waitForFunction(
   () => document.querySelectorAll('#sante-ouverte [data-sante]').length > 0,
+  undefined,
   { timeout: 15000 },
 );
 v(
@@ -214,6 +219,7 @@ await page.fill('#motif-prise', 'Mal de tête');
 await page.click('#noter-prise');
 await page.waitForFunction(
   () => document.querySelectorAll('#prises li').length > 0,
+  undefined,
   { timeout: 15000 },
 );
 vrai('la prise est enregistrée', true);
@@ -409,11 +415,13 @@ v('il y en a toujours trois', await page.$$eval('[data-trajectoire]', (l) => l.l
 await page.click('[data-trajectoire] [data-vers="atteinte"]');
 await page.waitForFunction(
   () => document.querySelectorAll('[data-trajectoire][data-statut="active"]').length === 2,
+  undefined,
   { timeout: 15000 },
 );
 await ouvrir('Une quatrième');
 await page.waitForFunction(
   () => document.querySelectorAll('[data-trajectoire][data-statut="active"]').length === 3,
+  undefined,
   { timeout: 15000 },
 );
 vrai('une clôture libère la place', true);
