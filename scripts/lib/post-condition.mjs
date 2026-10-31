@@ -522,3 +522,72 @@ export function boutonRendu(page, selecteur, { delai = 30000 } = {}) {
     .then(() => true)
     .catch(() => false);
 }
+
+/**
+ * RELIT JUSQU'À CE QUE LA VALEUR AIT CESSÉ DE CHANGER, ET REND LA DERNIÈRE.
+ *
+ * ## Ce que cette forme est, et ce qu'elle n'est pas
+ *
+ * C'est une attente bornée **par relecture** : lire, laisser passer un pas,
+ * relire, et rendre la main dès que deux lectures coïncident. Ce n'est donc
+ * pas une durée pariée — elle s'abrège quand l'écran est prompt et s'allonge
+ * quand il traîne —, mais ce n'est pas non plus une post-condition exacte :
+ * elle ne sait pas CE QU'ELLE ATTEND, seulement que cela ne bouge plus.
+ *
+ * **Elle vient donc en dernier**, après les quatre questions de l'ordre de
+ * recherche : ce que l'assertion lit, sinon la marque du geste, sinon le
+ * verdict de l'écran, sinon la base. Quand l'une des quatre répond, c'est
+ * elle qu'il faut.
+ *
+ * ## Les deux cas où elle vaut MIEUX qu'une post-condition exacte
+ *
+ * Le premier : **ce qu'on affirme est une absence.** « La tâche est là et
+ * elle n'est pas doublée » ne se garde pas en attendant qu'elle soit là —
+ * cela rendrait la main au premier exemplaire et masquerait le second,
+ * qu'une synchronisation ajoute un instant plus tard.
+ *
+ * Le second : **la valeur se pose en deux temps.** Un compteur peint d'abord
+ * une estimation puis le nombre exact ; un défilement restauré passe par
+ * zéro avant sa position. Attendre « ce n'est plus vide » rend la main au
+ * premier temps, et c'est le second qui compte.
+ *
+ * ## Le pas vit du côté de l'essai, et c'est voulu
+ *
+ * Le pas est un `setTimeout` de Node et non un `page.waitForTimeout` : c'est
+ * une cadence de relecture, pas une attente sur l'écran. Écrit dans la page,
+ * il serait compté par `relever-temporisations.mjs` comme une attente à
+ * l'aveugle, ce qu'il n'est pas.
+ *
+ * ## Sa limite, et elle est réelle
+ *
+ * Une valeur qui n'a pas encore COMMENCÉ à changer est stable elle aussi :
+ * deux lectures prises avant que le geste n'ait pris effet coïncident, et
+ * l'aide rend la valeur d'avant. C'est le premier piège, sous une autre
+ * forme. Quand le geste a une marque, on l'attend d'abord, et l'on se sert
+ * de cette aide ensuite pour la valeur qui se pose en deux temps.
+ *
+ * ## Pourquoi elle ne prend pas la page
+ *
+ * Les dix autres aides reçoivent `page` en premier argument. Celle-ci non,
+ * et c'est délibéré : elle ne touche jamais à la page, elle rappelle la
+ * fonction qu'on lui donne. Garder le paramètre pour la symétrie ferait
+ * croire qu'elle sait lire l'écran, et une lecture de base lui convient tout
+ * autant — c'est même son usage le plus fréquent.
+ *
+ * @param lire une fonction sans argument qui rend la valeur à surveiller
+ * @param options.pas le pas de relecture en millisecondes, 150 par défaut
+ * @param options.delai la borne au-delà de laquelle on rend la dernière
+ *   lecture quoi qu'il arrive, 30 000 par défaut
+ * @returns la dernière valeur lue
+ */
+export async function quandCelaSeFixe(lire, { pas = 150, delai = 30000 } = {}) {
+  let precedent = JSON.stringify(await lire());
+  const limite = Date.now() + delai;
+  while (Date.now() < limite) {
+    await new Promise((fini) => setTimeout(fini, pas));
+    const maintenant = JSON.stringify(await lire());
+    if (maintenant === precedent) break;
+    precedent = maintenant;
+  }
+  return precedent === undefined ? undefined : JSON.parse(precedent);
+}

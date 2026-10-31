@@ -35,7 +35,11 @@
  */
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import { quandCelaSeFixe } from './lib/post-condition.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+
+/* La borne des attentes, et non la mesure. */
+const DELAI = 30_000;
 
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
 const MDP = motDePasseEssais();
@@ -118,8 +122,24 @@ const courtes = [];
 console.log('\n  LISTE                 hauteur  descendu  revenu');
 for (const route of LISTES) {
   await page.goto(`${RACINE}${route}`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(2000);
-  const hauteur = await page.evaluate(() => document.documentElement.scrollHeight);
+  /*
+     LA HAUTEUR EST CE QUI DÉCIDE DE TOUT ICI : une liste trop courte est
+     écartée de la mesure. Lue trop tôt, elle écarterait une liste qui n'avait
+     pas fini de se peindre — et l'essai se tairait sur elle au lieu de la
+     mesurer. On attend donc la marque d'ouverture, les polices, puis que la
+     hauteur cesse de croître.
+  */
+  await page
+    .waitForFunction(
+      () => document.documentElement.dataset.verrou === 'ouvert',
+      undefined,
+      { timeout: DELAI },
+    )
+    .catch(() => {});
+  await page.evaluate(() => document.fonts.ready.then(() => undefined)).catch(() => {});
+  const hauteur = await quandCelaSeFixe(() =>
+    page.evaluate(() => document.documentElement.scrollHeight),
+  );
   // Une liste qui tient dans l'écran n'a pas de position à rendre : la
   // mesurer renverrait toujours zéro, et zéro égale zéro prouve zéro.
   if (hauteur < DESCENTE + 740) {
@@ -130,8 +150,13 @@ for (const route of LISTES) {
     document.documentElement.style.scrollBehavior = 'auto';
     window.scrollTo(0, y);
   }, DESCENTE);
-  await page.waitForTimeout(400);
-  const descendu = await page.evaluate(() => Math.round(window.scrollY));
+  /*
+     Le défilement est demandé en `scrollBehavior: 'auto'`, donc sans
+     animation — mais la position se pose quand même en deux temps si la page
+     est plus courte que demandé. C'est `scrollY` qui est relevé : c'est
+     `scrollY` qu'on laisse se fixer.
+  */
+  const descendu = await quandCelaSeFixe(() => page.evaluate(() => Math.round(window.scrollY)));
   const vers =
     (await page.evaluate(() => {
       for (const a of document.querySelectorAll('#contenu-principal a[href]')) {
@@ -143,10 +168,20 @@ for (const route of LISTES) {
       return null;
     })) ?? REPLI;
   await page.goto(`${RACINE}${vers}`, { waitUntil: 'networkidle' });
-  await page.waitForTimeout(900);
+  /*
+     ON S'EN VA, PUIS ON REVIENT, et ce qui est mesuré est la position RENDUE
+     au retour. Deux attentes étaient pariées là : 900 ms pour que l'écran
+     visité s'installe — sans quoi l'entrée d'historique n'est pas celle qu'on
+     croit — et 1 800 ms pour la restauration.
+
+     La seconde est le cas d'école de la valeur qui se pose en deux temps : la
+     page revient d'abord à zéro, puis le navigateur rend la position. Attendre
+     « ce n'est plus zéro » serait attendre l'assertion, et une restauration en
+     deux sauts tromperait la mesure. On attend que `scrollY` cesse de bouger.
+  */
+  await quandCelaSeFixe(() => page.evaluate(() => document.documentElement.scrollHeight));
   await page.goBack({ waitUntil: 'networkidle' });
-  await page.waitForTimeout(1800);
-  const revenu = await page.evaluate(() => Math.round(window.scrollY));
+  const revenu = await quandCelaSeFixe(() => page.evaluate(() => Math.round(window.scrollY)));
   const ok = Math.abs(revenu - descendu) <= TOLERANCE;
   console.log(
     `  ${ok ? ' ' : '\x1b[31m!\x1b[0m'} ${route.padEnd(20)} ${String(hauteur).padStart(7)}  ` +

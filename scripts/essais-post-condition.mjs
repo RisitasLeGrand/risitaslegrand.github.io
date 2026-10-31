@@ -37,6 +37,7 @@ import {
   attendreLeCompte,
   boutonRendu,
   devientVisible,
+  quandCelaSeFixe,
   travailFini,
 } from './lib/post-condition.mjs';
 
@@ -382,6 +383,68 @@ console.log(`\n${gras('attendreEnBase — la base est la post-condition')}`);
       }),
   );
   v('le sondage n’a laissé aucune connexion ouverte', montee, 'passée');
+}
+
+/* ── quandCelaSeFixe ────────────────────────────────────────────────────── */
+
+console.log(`\n${gras('quandCelaSeFixe — une valeur qui se pose en deux temps')}`);
+{
+  /*
+     LE CAS QUI JUSTIFIE L'AIDE : la valeur devient d'abord « 7 », puis « 42 ».
+     Une attente du genre « ce n'est plus vide » rendrait 7, qui est le premier
+     temps ; c'est le second qui compte.
+  */
+  await poser('<p id="compte"></p>');
+  await page.evaluate(() => {
+    setTimeout(() => {
+      document.getElementById('compte').textContent = '7';
+    }, 60);
+    setTimeout(() => {
+      document.getElementById('compte').textContent = '42';
+    }, 220);
+  });
+  v(
+    'elle rend la valeur du SECOND temps',
+    await quandCelaSeFixe(() => page.textContent('#compte')),
+    '42',
+  );
+
+  /* Une valeur qui ne bouge jamais est stable : elle rend tout de suite. */
+  await poser('<p id="fixe">déjà là</p>');
+  const avant = Date.now();
+  v('une valeur immobile est rendue', await quandCelaSeFixe(() => page.textContent('#fixe')), 'déjà là');
+  v('et sans attendre la borne', Date.now() - avant < 2000, true);
+
+  /*
+     ET SA LIMITE, ÉPROUVÉE PLUTÔT QUE SEULEMENT ÉCRITE. Une valeur qui n'a pas
+     encore COMMENCÉ à changer est stable elle aussi : deux lectures prises
+     avant que le geste n'ait pris effet coïncident, et l'aide rend la valeur
+     d'avant. C'est le premier piège, sous une autre forme, et c'est pourquoi
+     la marque du geste s'attend D'ABORD quand il y en a une.
+  */
+  await poser('<p id="tardif">avant</p>');
+  await page.evaluate(() => {
+    setTimeout(() => {
+      document.getElementById('tardif').textContent = 'après';
+    }, 900);
+  });
+  v(
+    'une valeur qui n’a pas encore bougé est rendue telle quelle — la limite',
+    await quandCelaSeFixe(() => page.textContent('#tardif'), { pas: 40 }),
+    'avant',
+  );
+
+  /* La borne rend la dernière lecture au lieu de lever. */
+  await poser('<p id="agite">0</p>');
+  await page.evaluate(() => {
+    let n = 0;
+    setInterval(() => {
+      n += 1;
+      document.getElementById('agite').textContent = String(n);
+    }, 30);
+  });
+  const bornee = await quandCelaSeFixe(() => page.textContent('#agite'), { pas: 50, delai: 400 });
+  v('une valeur qui ne se fixe jamais rend quand même une lecture', typeof bornee, 'string');
 }
 
 await nav.close();

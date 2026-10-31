@@ -43,6 +43,7 @@
  * dans IndexedDB.
  */
 import { chromium } from 'playwright-core';
+import { quandCelaSeFixe } from './lib/post-condition.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 
@@ -77,19 +78,55 @@ const nav = await chromium.launch({
 const ctx = await nav.newContext({ viewport: { width: 360, height: 740 }, hasTouch: true, isMobile: true });
 const page = await ctx.newPage();
 
+const DELAI = 30_000;
+
 const taches = () =>
   page.evaluate(
     () =>
       new Promise((ok) => {
         const r = indexedDB.open('revinsp');
         r.onsuccess = () => {
-          const q = r.result.transaction('odysseeTaches').objectStore('odysseeTaches').getAll();
-          q.onsuccess = () => ok(q.result.map((t) => t.titre));
-          q.onerror = () => ok(null);
+          const base = r.result;
+          const q = base.transaction('odysseeTaches').objectStore('odysseeTaches').getAll();
+          /*
+             LA CONNEXION SE FERME SUR LES TROIS ISSUES. Une connexion laissée
+             ouverte BLOQUE une montée de version — c'est mesuré, et c'est la
+             leçon de « attendreEnBase ». Cet essai en ouvrait une par lecture,
+             et il en fait plus de dix.
+          */
+          q.onsuccess = () => {
+            const titres = q.result.map((t) => t.titre);
+            base.close();
+            ok(titres);
+          };
+          q.onerror = () => {
+            base.close();
+            ok(null);
+          };
         };
         r.onerror = () => ok(null);
       }),
   );
+
+/**
+ * ATTEND QUE LE COFFRE SOIT DIT OUVERT.
+ *
+ * `signalerDeverrouillage` écrit `data-verrou="ouvert"` sur `<html>`, et c'est
+ * ce que les écrans guettent pour charger leur contenu déchiffré. Hors ligne,
+ * c'est aussi le mécanisme même que cet essai éprouve : la clé mémorisée
+ * rouvre le coffre sans réseau. On attend donc la marque, et les assertions
+ * qui suivent gardent tout leur sens — elles portent sur ce que l'écran a
+ * fait de cette ouverture, pas sur le fait qu'elle ait eu lieu.
+ */
+const coffreDitOuvert = () =>
+  page
+    .waitForFunction(
+      () => document.documentElement.dataset.verrou === 'ouvert',
+      undefined,
+      { timeout: DELAI },
+    )
+    .then(() => true, () => false);
+
 
 const cleMemorisee = () =>
   page.evaluate(() => {
@@ -100,84 +137,27 @@ const cleMemorisee = () =>
     }
   });
 
-/**
- * Attend une condition, et REND ce qu'elle a trouvé — en vrai ou en faux.
- *
- * ## La distinction qui rend cette aide nécessaire
- *
- * Plusieurs assertions de ce fichier lisent exactement ce qu'il faudrait
- * attendre : « la clé est mémorisée », « la tâche est enregistrée ».
- * Attendre la condition avec un `waitForFunction` rendrait l'assertion
- * incapable d'échouer — elle ne pourrait plus que lever, en panne et non en
- * rouge nommé, loin de la ligne qui aurait dû accuser.
- *
- * Une boucle qui RAPPORTE son échec, en revanche, n'est pas une tautologie :
- * si la borne est atteinte sans que la condition soit vraie, elle rend faux,
- * l'assertion lit faux, et le rouge tombe à sa place avec son intitulé. La
- * borne remplace le pari ; elle ne remplace pas le verdict.
- *
- * C'est la même forme que `devientVisible` dans `lib/post-condition.mjs`, et
- * c'est pour la même raison.
- */
-const attendreQue = async (lire, { delai = 15000, pas = 100 } = {}) => {
-  const fin = Date.now() + delai;
-  for (;;) {
-    if (await lire()) return true;
-    if (Date.now() > fin) return false;
-    await page.waitForTimeout(pas);
-  }
-};
-
-/** Le volume de texte rendu dans `main` : zéro tant que l'écran est vide. */
-const signesDuMain = () =>
-  page.evaluate(
-    () => (document.querySelector('main')?.innerText || '').replace(/\s+/g, ' ').trim().length,
-  );
-
-/**
- * Attend que `main` ait FINI de se garnir — deux mesures égales de suite.
- *
- * ## Pourquoi pas un seuil, et pourquoi pas « plus de zéro »
- *
- * Mon premier essai attendait « plus de zéro signe ». Trois écrans sont
- * tombés : ils peignent leur coquille d'abord, se garnissent ensuite, et
- * l'attente rendait la main sur la coquille. L'assertion, qui exige plus de
- * cent signes, lisait donc un écran à moitié peint et accusait le site d'un
- * défaut qu'il n'a pas.
- *
- * Attendre « plus de cent signes » aurait été le symétrique fautif : c'est
- * exactement la moitié de ce que l'assertion vérifie, et l'attendre revient
- * à la garantir. Il ne resterait à l'assertion que le verrou à contrôler.
- *
- * Ce qui se laisse attendre sans rien décider, c'est la STABILITÉ : le texte
- * a cessé de changer. Un écran qui finirait à vingt signes se stabiliserait à
- * vingt, et l'assertion tomberait — correctement. L'attente dit « c'est
- * fini », l'assertion dit « et voilà ce que ça vaut ».
- */
-const garnissageFini = async ({ delai = 15000, pas = 150 } = {}) => {
-  const fin = Date.now() + delai;
-  let precedent = -1;
-  for (;;) {
-    const ici = await signesDuMain();
-    if (ici > 0 && ici === precedent) return ici;
-    if (Date.now() > fin) return ici;
-    precedent = ici;
-    await page.waitForTimeout(pas);
-  }
-};
-
 /* ---- 1. En ligne : on déverrouille et on mémorise ----------------------- */
 
 console.log('\nEN LIGNE');
 await franchirInitialisation(page, RACINE, MDP);
 await page.goto(`${RACINE}/odyssee/taches/`, { waitUntil: 'networkidle' });
 /*
-   L'écran rendu d'abord : sans cela, « la clé est mémorisée » se lirait
-   avant que les scripts de la page aient tourné, et dirait faux d'une
-   installation parfaitement saine.
+   DEUX POST-CONDITIONS, parce que la suite lit deux choses indépendantes.
+
+   Le coffre dit ouvert : sans quoi l'écran n'a pas chargé son contenu.
+   Et l'ENREGISTREMENT du service worker présent — non pas « actif », qui est
+   justement ce que le contrôle d'après a la charge de vérifier : un
+   enregistrement peut exister avec un worker en cours d'installation.
 */
-await garnissageFini();
-await attendreQue(cleMemorisee);
+await coffreDitOuvert();
+await page
+  .waitForFunction(
+    () => navigator.serviceWorker.getRegistration().then((r) => Boolean(r)),
+    undefined,
+    { timeout: DELAI },
+  )
+  .catch(() => {});
 /*
    La prémisse, et elle est tout sauf décorative : si la clé n'est pas
    mémorisée en ligne, la suite mesurerait la disparition d'une chose qui
@@ -241,12 +221,15 @@ if (reponse !== 200) {
   process.exit(1);
 }
 /*
-   DEUX FAITS APRÈS LE RECHARGEMENT HORS LIGNE : l'écran se rend depuis le
-   cache, et la clé doit avoir survécu. Les 4000 ms couvraient les deux sans
-   le dire.
-*/
-await garnissageFini();
-await attendreQue(cleMemorisee);
+     LE MÉCANISME MÊME QU'ON ÉPROUVE EST LA POST-CONDITION, et il faut dire
+     pourquoi ce n'est pas circulaire : la clé mémorisée rouvre le coffre sans
+     réseau, et `data-verrou="ouvert"` le dit. Les trois contrôles qui suivent
+     portent sur ce que l'écran fait de cette ouverture — la clé est encore en
+     mémoire, la vue est rendue, le verrou reste masqué —, et non sur le fait
+     qu'elle ait eu lieu. Si elle n'a pas lieu, l'attente expire et les trois
+     rougissent, ce qui est le verdict juste.
+  */
+await coffreDitOuvert();
 
 verifier('et la clé mémorisée a SURVÉCU au passage hors ligne', await cleMemorisee(), true);
 
@@ -284,13 +267,16 @@ for (const chemin of AUTRES) {
     rouges += 1;
     continue;
   }
+  await coffreDitOuvert();
   /*
-     On attend que `main` porte DU texte ; l'assertion, elle, exige plus de
-     cent signes. L'attente est donc strictement plus faible que ce qui est
-     affirmé : un écran qui s'ouvrirait presque vide ferait tomber
-     l'assertion au lieu de faire expirer l'attente.
+     Le contenu de ces huit écrans est peint APRÈS l'ouverture, dans le rappel
+     de chacun, et aucun ne le signale. On relit donc le volume de texte
+     jusqu'à ce qu'il cesse de croître, et l'assertion garde son seuil : un
+     écran resté vide se stabilise à zéro, et rougit.
   */
-  await garnissageFini();
+  await quandCelaSeFixe(() =>
+    page.evaluate(() => (document.querySelector('main')?.innerText || '').trim().length),
+  );
   const rendu = await page.evaluate(() => ({
     verrou: Boolean(document.getElementById('champ-mdp')?.offsetParent),
     /* Le volume du texte rendu : un écran vide s'ouvrirait sans rien dire. */
@@ -304,12 +290,14 @@ for (const chemin of AUTRES) {
 
 /* On revient à l'écran des tâches pour y écrire. */
 await page.goto(`${RACINE}/odyssee/taches/`, { waitUntil: 'load', timeout: 60000 }).catch(() => {});
+await coffreDitOuvert();
 /*
-   Le champ d'ajout EST ce que la ligne suivante cherche, et son absence est
-   un rouge nommé juste en dessous : on l'attend donc par une boucle qui
-   rapporte, et non par une attente qui lèverait.
+   On attend le champ, et l'absence reste un ROUGE : l'attente est bornée et
+   son expiration ne lève pas, donc le contrôle d'après garde la main et dit
+   « rien n'a pu être écrit ». C'est ce qui sépare une attente d'un
+   assouplissement.
 */
-await attendreQue(() => page.locator('#titre').isVisible().catch(() => false));
+await page.waitForSelector('#titre', { state: 'visible', timeout: DELAI }).catch(() => null);
 
 /* L'écriture, qui est la moitié oubliée de « s'ouvrir hors ligne ». */
 const champ = page.locator('#titre');
@@ -321,12 +309,11 @@ if (!(await champ.isVisible().catch(() => false))) {
   await champ.fill(TITRE);
   await page.locator('#ajout button[type=submit]').click();
   /*
-     L'écriture en base est le fait attendu, et c'est la base que les deux
-     assertions lisent. On attend qu'une tâche de plus y soit — sans dire
-     laquelle : l'assertion suivante dit que c'est la nôtre.
+     L'écriture va en base : c'est donc la base qu'on relit, jusqu'à ce qu'elle
+     cesse de changer. Attendre « il y en a une de plus » serait attendre
+     l'assertion ; attendre la stabilité ne présume rien du nombre obtenu.
   */
-  await attendreQue(async () => ((await taches())?.length ?? -1) > n);
-  const apres = await taches();
+  const apres = await quandCelaSeFixe(taches);
   verifier('une tâche écrite hors ligne est enregistrée', (apres?.length ?? -1) - n, 1);
   verifier('et c’est bien la nôtre', apres?.includes(TITRE), true);
 }
@@ -336,18 +323,16 @@ if (!(await champ.isVisible().catch(() => false))) {
 console.log('\nAU RETOUR DU RÉSEAU');
 await ctx.setOffline(false);
 await page.goto(`${RACINE}/odyssee/taches/`, { waitUntil: 'networkidle' });
+await coffreDitOuvert();
 /*
-   AU RETOUR DU RÉSEAU, trois assertions portent sur la base : la tâche est
-   toujours là, elle n'est pas doublée, la clé tient. La seconde est de celles
-   qui ne peuvent pas s'attendre — un doublement est une chose qui NE DOIT PAS
-   arriver —, mais les deux autres sont des faits positifs. On attend donc que
-   l'écran soit rendu et que la base porte la tâche ; le doublement, s'il
-   devait survenir, surviendrait dans cet intervalle, puisque c'est la
-   synchronisation du retour en ligne qui le produirait.
+   ICI LA STABILITÉ EST LE SEUL CHOIX JUSTE, et c'est le passage où elle vaut
+   mieux qu'une post-condition exacte. Les deux contrôles qui suivent
+   demandent que la tâche soit là ET qu'elle ne soit pas DOUBLÉE. Attendre
+   « la liste contient notre titre » rendrait la main au premier exemplaire et
+   masquerait le second, qu'une synchronisation ajouterait un instant plus
+   tard. On attend que la liste ait cessé de bouger.
 */
-await garnissageFini();
-await attendreQue(async () => Boolean((await taches())?.includes(TITRE)));
-const final = await taches();
+const final = await quandCelaSeFixe(taches);
 verifier('la tâche écrite hors ligne est toujours là', final?.includes(TITRE), true);
 /*
    Ni perdue, ni doublée : le prompt demande les deux, et c'est le
