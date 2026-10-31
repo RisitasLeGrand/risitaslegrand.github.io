@@ -32,6 +32,7 @@
  */
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
+import { annonceDe, travailFini } from './lib/post-condition.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { repondreALaBoite } from './lib/boite-essais.mjs';
 
@@ -99,16 +100,28 @@ const ctx = await nav.newContext({
 const page = await ctx.newPage();
 await franchirInitialisation(page, RACINE, MDP);
 await page.goto(`${RACINE}/progression/`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(1500);
+/* Le formulaire d'import est là : l'écran est debout. */
+await page.waitForSelector('#fichier', { timeout: 30000 });
 
 const restaurer = async (contenu: string) => {
   await page.locator('input[name="mode"][value="remplacement"]').check();
+  /*
+     ON EFFACE LE MESSAGE SOI-MÊME, et c'est la parade du § 3 : cet essai
+     importe DEUX fois, et le message du premier import rendrait l'attente
+     vraie d'avance. L'écran écrit son verdict en une seule fois — succès ou
+     « impossible » —, donc il n'y a pas d'état intermédiaire à franchir ici,
+     seulement un message d'avant à retirer.
+  */
+  await page.evaluate(() => {
+    const e = document.getElementById('message-import');
+    if (e) e.textContent = '';
+  });
   await page.locator('#fichier').setInputFiles({
     name: 'essai.json',
     mimeType: 'application/json',
     buffer: Buffer.from(contenu, 'utf8'),
   });
-  await page.waitForTimeout(1800);
+  await annonceDe(page, '#message-import');
 };
 
 const cartesEnBase = () =>
@@ -195,7 +208,8 @@ console.log('\nLE CHEMIN « .CYCLADES » — UNE VRAIE SAUVEGARDE');
 // On repart d'une base saine : la coupure précédente a été posée sur le
 // prototype, et elle resterait armée pour la suite.
 await page.reload({ waitUntil: 'networkidle' });
-await page.waitForTimeout(1500);
+/* Le formulaire d'import est là : l'écran est debout. */
+await page.waitForSelector('#fichier', { timeout: 30000 });
 
 const cartesAvant = await cartesEnBase();
 verifier('la base porte bien l’état d’avant', cartesAvant, ['avant-1', 'avant-2']);
@@ -260,7 +274,13 @@ const restaurerCyclades = async () => {
     true,
   );
   await repondreALaBoite(page, 'Remplacer', { delai: 20000 });
-  await page.waitForTimeout(5000);
+  /*
+     Cet écran-ci écrit « Déchiffrement et restauration en cours… » AVANT de
+     travailler : `travailFini` attend qu'il en SORTE, et la base est écrite
+     avant que le message final ne soit posé. Cinq secondes étaient le pari
+     qui couvrait les deux.
+  */
+  await travailFini(page, '#message-cyclades');
 };
 
 const compteur = async () =>
@@ -288,14 +308,15 @@ console.log(`      la coupure sera armée à l’écriture n° ${seuil}`);
 /* L'état d'APRÈS : c'est lui qu'une restauration coupée ne doit pas abîmer. */
 console.log('\nUN ÉTAT DIFFÉRENT, QUE LA COUPURE NE DOIT PAS ABÎMER');
 await page.reload({ waitUntil: 'networkidle' });
-await page.waitForTimeout(1500);
+/* Le formulaire d'import est là : l'écran est debout. */
+await page.waitForSelector('#fichier', { timeout: 30000 });
 await page.locator('input[name="mode"][value="remplacement"]').check();
 await page.locator('#fichier').setInputFiles({
   name: 'essai.json',
   mimeType: 'application/json',
   buffer: Buffer.from(sauvegarde(['pendant-1', 'pendant-2']), 'utf8'),
 });
-await page.waitForTimeout(1800);
+await annonceDe(page, '#message-import');
 verifier('la base porte l’état intermédiaire', await cartesEnBase(), ['pendant-1', 'pendant-2']);
 
 console.log('\nLA COUPURE AU MILIEU DE LA RESTAURATION');
