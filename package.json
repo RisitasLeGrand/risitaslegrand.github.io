@@ -105,6 +105,7 @@
     "essais:filtre-parcours": "tsx scripts/essais-filtre-parcours.mts",
     "essais:filtre-parcours:navigateur": "node scripts/essais-filtre-parcours-navigateur.mjs",
     "essais:organigramme": "tsx scripts/essais-organigramme.mts",
+    "essais:organigramme-exemple": "node scripts/essais-organigramme-exemple-navigateur.mjs",
     "essais:organigramme:navigateur": "node scripts/essais-organigramme-navigateur.mjs",
     "essais:parcours-planifiables:navigateur": "node scripts/essais-parcours-planifiables-navigateur.mjs",
     "essais:page-organigrammes": "tsx scripts/essais-page-organigrammes.mts",

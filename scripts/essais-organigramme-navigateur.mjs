@@ -205,23 +205,37 @@ async function trouverLOrganigramme(largeur) {
 const large = await trouverLOrganigramme(1200);
 
 /*
-   CE QUI MANQUE N'EST PAS DU CODE, C'EST DU CONTENU, ET L'ESSAI DOIT LE DIRE.
+   CE QUI MANQUAIT N'ÉTAIT PAS DU CODE, C'ÉTAIT DU CONTENU — ET C'EST ARRIVÉ.
 
-   Cet essai affirmait « un organigramme à deux lectures est atteignable »,
-   et il rougissait. Diagnostiqué : ce n'est pas la faute du code. La bascule
-   ne s'affiche que si « offreDeuxLectures » est vraie, c'est-à-dire si au
-   moins DEUX nœuds du schéma portent « essentiel: true » et qu'il en reste.
-   Or sur les 49 visuels de type « schema » du corpus réel, AUCUN ne marque un
-   seul nœud essentiel.
+   Cet essai affirmait « un organigramme à deux lectures est atteignable », et
+   il rougissait. Diagnostiqué à l'époque : ce n'était pas la faute du code.
+   La bascule ne s'affiche que si « offreDeuxLectures » est vraie, c'est-à-dire
+   si au moins DEUX nœuds du schéma portent « essentiel: true » et qu'il en
+   reste au moins un qui ne le porte pas. Or aucun visuel du corpus ne marquait
+   alors un seul nœud essentiel. Un rouge aurait désigné le code, qui n'avait
+   rien ; un vert aurait menti. L'essai disait donc NON MESURÉ, avec la raison
+   et le geste qui le lèverait.
 
-   « essais:organigramme » éprouve donc bien le moteur, en Node, et il est
-   vert. Ce qui n'existe pas encore est la déclaration dans les fiches.
+   **LE GESTE A ÉTÉ FAIT, et cette note le disait encore faux.** Mesuré le
+   26 octobre : le corpus porte SIX déclarations « essentiel: true », toutes
+   dans « content/commun/organisation-dgfip/fiche-03-la-direction-departementale-type.md »
+   — trois dans un organigramme de la section « ## Organigrammes » (trois nœuds
+   sur sept) et trois dans la correction d'un quiz (trois sur cinq). Les deux
+   satisfont donc « offreDeuxLectures », et tout ce qui suit se mesure
+   vraiment : la bascule, le redessin, le texte qui suit la lecture affichée,
+   et les 390 points.
 
-   Un rouge aurait désigné le code, qui n'a rien ; un vert aurait menti. On
-   dit donc NON MESURÉ, avec la raison et le geste qui le lèvera — c'est la
-   forme déjà employée ailleurs dans cette batterie pour un corpus qui ne
-   porte pas le cas. Le jour où une fiche marquera ses nœuds essentiels, tout
-   ce qui suit se mesurera sans qu'on y touche.
+   La note est corrigée plutôt que retirée, parce qu'elle explique encore
+   pourquoi le refus ci-dessous existe. Et le chiffre qu'elle portait —
+   « 49 visuels de type schema » — valait pour le corpus d'alors : il y en a
+   72 au 26 octobre. Un chiffre sans date se périme sans bruit ; celui-là
+   porte la sienne.
+
+   LE REFUS RESTE, ET IL GARDE AUTRE CHOSE. « content/ » n'est pas dans Git :
+   un conteneur neuf, ou un laboratoire bâti depuis « content-exemple/ », n'a
+   pas cette fiche. Le refus est donc ce qui distingue « le site est cassé » de
+   « ce corpus-ci ne porte pas le cas », et il reste utile tant que la
+   déclaration ne vit que dans le corpus réel.
 */
 if (!large.trouve) {
   /*
