@@ -195,6 +195,25 @@ const SOCLE = [
      du site. Celui-ci coûte une seconde et ne demande pas d'aperçu.
   */
   ['essais:chemin-du-navigateur', 'le navigateur se trouve, et son absence refuse au lieu de se taire'],
+  /*
+     Celui-ci entre parce que la faute qu'il garde est INVISIBLE à la
+     relecture. `waitForFunction(fonction, valeur, options)` : une borne écrite
+     au second rang part comme valeur, la fonction ne la lit pas, et l'attente
+     retombe sur les trente secondes par défaut. Les deux formes se
+     ressemblent assez pour que personne ne les distingue, et une borne qu'on
+     croit avoir fixée est pire qu'une borne absente — absente, elle se voit.
+
+     Et il garde une seconde chose, qui est la raison de son volume : le
+     balayage découpe les arguments à la main, parce qu'une fonction fléchée
+     passée en premier porte ses propres virgules. Or un analyseur cassé ne
+     lève pas, il rend ZÉRO FAUTE — ce qu'un dépôt propre rend aussi. L'essai
+     l'éprouve donc dans les deux sens, et il refuse de se taire quand il ne
+     lit aucun appel. Cela s'est payé le jour même : la forme sur plusieurs
+     lignes n'était pas vue, et trente-quatre bornes étaient au mauvais rang
+     dans huit essais derrière un « 0 borne ». Il coûte trois secondes et ne
+     demande ni navigateur ni aperçu.
+  */
+  ['essais:bornes', 'les bornes de « waitForFunction » au bon rang, et le balayage qui le voit'],
 ];
 
 /**

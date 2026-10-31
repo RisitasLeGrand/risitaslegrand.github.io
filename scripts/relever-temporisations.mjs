@@ -35,6 +35,7 @@
  *     node scripts/relever-temporisations.mjs --fenetre 20
  *     node scripts/relever-temporisations.mjs --amortissements
  *     node scripts/relever-temporisations.mjs --bornes
+ *     node scripts/relever-temporisations.mjs --bornes --dans <dossier>
  *     node scripts/relever-temporisations.mjs --pour 'coffre|sauvegarde'
  *
  * Le dernier relève les délais que le SITE s'impose, c'est-à-dire ce qui peut
@@ -60,6 +61,22 @@
  * borne qu'on croit avoir fixée est pire qu'une borne absente, et les deux
  * formes se ressemblent assez pour que rien ne se voie.
  *
+ * Ce balayage-là est AU SOCLE, par `npm run essais:bornes` — qui lance
+ * `scripts/essais-bornes.mjs`, lequel éprouve la reconnaissance elle-même
+ * avant de balayer le dépôt. Il REFUSE — code 2 — s'il ne lit aucun appel du
+ * tout : un dossier renommé rendrait sinon le vert d'une mesure qui n'a rien
+ * mesuré. `--dans <dossier>` sert à le braquer ailleurs, ce dont son essai se
+ * sert pour éprouver ses trois codes de sortie. La reconnaissance vit dans
+ * `scripts/lib/bornes-de-waitforfunction.mjs`, pour que l'essai puisse
+ * l'appeler sans lancer cette ligne de commande.
+ *
+ * **Ce que ce balayage ne voyait pas, et que son essai a trouvé** : la forme
+ * sur plusieurs lignes. La virgule que le formateur pose après le dernier
+ * argument rendait un troisième argument vide, l'appel n'en avait donc plus
+ * deux, et la faute passait. Trente-quatre bornes étaient au mauvais rang
+ * dans huit essais, derrière un « 0 borne » qui se lisait comme un verdict.
+ * Les seize du 26 octobre n'étaient que la forme sur une ligne.
+ *
  * **Un repos comparé à l'horloge** n'a aucun minuteur : le site garde l'instant
  * du dernier geste et refuse le suivant s'il arrive trop tôt. `src/lib/geste.ts`
  * fait cela — `performance.now() - derniere < repos`, 600 ms par défaut, pour
@@ -70,6 +87,8 @@
  */
 import { readdirSync, readFileSync } from 'node:fs';
 
+import { bornesAuMauvaisRang } from './lib/bornes-de-waitforfunction.mjs';
+
 const LECTURE =
   /isVisible|textContent|innerText|innerHTML|getAttribute|\$\$eval|\$eval|\.count\(\)|evaluate\(|verifier\(|verifierPresque\(|inputValue|checkVisibility/;
 
@@ -78,6 +97,8 @@ const iFenetre = args.indexOf('--fenetre');
 const FENETRE = iFenetre === -1 ? 12 : Number(args[iFenetre + 1]);
 const AMORTISSEMENTS = args.includes('--amortissements');
 const BORNES = args.includes('--bornes');
+const iDans = args.indexOf('--dans');
+const DANS = iDans === -1 ? 'scripts' : args[iDans + 1];
 const iPour = args.indexOf('--pour');
 const POUR = iPour === -1 ? null : args[iPour + 1];
 
@@ -164,70 +185,6 @@ function amortissements(racine) {
 }
 
 
-/* ── Les bornes au mauvais rang ───────────────────────────────────────── */
-
-/**
- * Les arguments de premier niveau d'un appel, à partir de sa parenthèse.
- *
- * Écrit à la main plutôt que par une expression régulière : une fonction
- * fléchée passée en argument contient ses propres parenthèses, ses accolades
- * et parfois des virgules, et aucun motif plat ne les distingue des virgules
- * de l'appel.
- */
-function argumentsDePremierNiveau(texte, debut) {
-  let profondeur = 0;
-  let arg = '';
-  const args = [];
-  let chaine = null;
-  for (let i = debut; i < texte.length; i += 1) {
-    const c = texte[i];
-    if (chaine) {
-      if (c === chaine && texte[i - 1] !== '\\') chaine = null;
-      arg += c;
-      continue;
-    }
-    if (c === "'" || c === '"' || c === '`') {
-      chaine = c;
-      arg += c;
-      continue;
-    }
-    if ('([{'.includes(c)) profondeur += 1;
-    if (')]}'.includes(c)) {
-      profondeur -= 1;
-      if (profondeur === 0) {
-        args.push(arg.trim());
-        return args;
-      }
-    }
-    if (c === ',' && profondeur === 1) {
-      args.push(arg.trim());
-      arg = '';
-      continue;
-    }
-    if (!(profondeur === 1 && arg === '' && /\s/.test(c))) arg += c;
-  }
-  return null;
-}
-
-function bornesAuMauvaisRang() {
-  const fautes = [];
-  for (const f of readdirSync('scripts').sort()) {
-    if (!/\.(mjs|mts)$/.test(f)) continue;
-    const texte = readFileSync(`scripts/${f}`, 'utf8');
-    for (const m of texte.matchAll(/waitForFunction\(/g)) {
-      const args = argumentsDePremierNiveau(texte, m.index + 'waitForFunction'.length);
-      if (!args || args.length !== 2) continue;
-      if (!/^\(?\{[\s\S]*timeout\s*:/.test(args[1])) continue;
-      fautes.push({
-        fichier: `scripts/${f}`,
-        ligne: texte.slice(0, m.index).split('\n').length,
-        code: args[1].replace(/\s+/g, ' ').slice(0, 60),
-      });
-    }
-  }
-  return fautes;
-}
-
 /* ── Le rendu ─────────────────────────────────────────────────────────── */
 
 if (POUR) {
@@ -265,8 +222,29 @@ if (POUR) {
   }
   console.log(`  ${combien} site(s) dans ${concernes.length} essai(s) du périmètre.\n`);
 } else if (BORNES) {
-  const fautes = bornesAuMauvaisRang();
-  console.log(`\n${fautes.length} borne(s) de « waitForFunction » au mauvais rang.\n`);
+  const { fautes, appels, fichiers } = bornesAuMauvaisRang(DANS);
+  /*
+     LE REFUS QUI MANQUAIT. Zéro faute et zéro appel lu se rendaient de la même
+     façon : « 0 borne au mauvais rang », et l'enchaînement continuait. Or ce
+     passage entre au socle, c'est-à-dire devant un `&&` : un dossier renommé,
+     un `--dans` mal orthographié ou une extension oubliée rendraient le vert
+     d'un balayage qui n'a rien lu. C'est la leçon du chemin du navigateur —
+     ne rien trouver doit lever — et elle vaut aussi pour les balayages de
+     source.
+  */
+  if (appels === 0) {
+    console.error(
+      `\n✗ REFUS — aucun appel à « waitForFunction » dans « ${DANS} » ` +
+        `(${fichiers} fichier(s) lu(s)).\n` +
+        '  Ce dépôt en porte plus de deux cents : un balayage qui n’en lit aucun\n' +
+        '  ne mesure rien, et son silence ne vaut pas un verdict.\n',
+    );
+    process.exit(2);
+  }
+  console.log(
+    `\n${fautes.length} borne(s) de « waitForFunction » au mauvais rang ` +
+      `(${appels} appels lus dans ${fichiers} fichiers de « ${DANS} »).\n`,
+  );
   for (const f of fautes) console.log(`  ${f.fichier}:${f.ligne}  second argument : ${f.code}`);
   console.log('');
   process.exit(fautes.length === 0 ? 0 : 1);

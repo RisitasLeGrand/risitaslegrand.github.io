@@ -128,6 +128,7 @@ console.log('\nACTIVER NE SUFFIT PAS : IL FAUT DES DONNÉES');
 await page.check('#activer');
 await page.waitForFunction(
   () => !document.getElementById('reglages-actifs').classList.contains('hidden'),
+  undefined,
   { timeout: 15000 },
 );
 vrai('les réglages fins apparaissent', await page.locator('#reglages-actifs').isVisible());
