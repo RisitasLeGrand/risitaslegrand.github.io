@@ -27,6 +27,7 @@ import {
   SOURCES_NON_BRANCHEES,
   SOURCE_RAPPEL_DE_PRISE,
   recenserLesOublis,
+  intentionsDOubli,
   SOURCE_APPRENTISSAGE,
   SOURCE_AVERTISSEMENT,
   SOURCE_CONFLITS,
@@ -389,6 +390,54 @@ console.log('\x1b[1m\n12. LA SOURCE QU’ON NE BRANCHE PAS — MANQUE NOMMÉ\x1b
   */
   v('et le rappel de prise, lui, est branché', SOURCE_RAPPEL_DE_PRISE, 'rappel-de-prise');
   v('par un recenseur qui existe', typeof recenserLesOublis, 'function');
+
+  /*
+     CE QUE PORTE UNE INTENTION D'OUBLI — et c'est un contrôle qui manquait.
+
+     L'assertion juste au-dessus dit que `recenserLesOublis` est « une
+     fonction ». C'est vrai de n'importe quoi, et cela ne prouve rien : le
+     rappel de prise n'entrait pas au centre et cette ligne restait verte.
+     Un producteur pur a donc été dégagé, et c'est lui qu'on interroge.
+  */
+  const sansClasse = intentionsDOubli(['prise:matin']);
+  v('une référence nue fait une intention', sansClasse.length, 1);
+  v('qui porte la référence', sansClasse[0].refSource, 'prise:matin');
+  v('du genre « à savoir » et non « à trancher »', sansClasse[0].genre, 'a-savoir');
+  v('sans regroupement', sansClasse[0].regroupement, null);
+  /*
+     Classe NULLE et non absente : le filtre exige de la connaître, et
+     `undefined` comme `null` valent ignorance. On fixe la forme pour que la
+     frontière entre les deux ne dépende pas du hasard d'écriture.
+  */
+  v('et sans classe, puisqu’on ne lui en a pas donné', sansClasse[0].classeMolecule, null);
+
+  const avecClasse = intentionsDOubli([
+    { refSource: 'prise:soir', classeMolecule: 'antalgique' },
+  ]);
+  v('un objet transmet la classe', avecClasse[0].classeMolecule, 'antalgique');
+  v('et garde la référence', avecClasse[0].refSource, 'prise:soir');
+
+  /*
+     LES DEUX FORMES COHABITENT, et ce n'est pas une facilité : `sante.astro`
+     appelle avec des chaînes, cet écran appartient à un autre lot, et casser
+     son appel pour une classe qu'il ne sait pas encore fournir ferait tomber
+     un écran de santé en échange de rien.
+  */
+  const melange = intentionsDOubli(['prise:midi', { refSource: 'prise:nuit', classeMolecule: 'contraceptif' }]);
+  v('les deux formes se mélangent sans se gêner', melange.map((i) => i.refSource), ['prise:midi', 'prise:nuit']);
+  v('et chacune garde sa classe, ou son absence', melange.map((i) => i.classeMolecule), [null, 'contraceptif']);
+
+  /*
+     ET RIEN DE PLUS. Le § 2.3 veut un élément sans contenu, et une intention
+     qui porterait un libellé ou un degré d'insistance le ferait entrer par la
+     porte de service. Les quatre champs sont nommés un par un : un cinquième
+     qui apparaîtrait sans décision fera tomber cette ligne.
+  */
+  v(
+    'une intention d’oubli ne porte que ces quatre champs',
+    Object.keys(avecClasse[0]).sort(),
+    ['classeMolecule', 'genre', 'refSource', 'regroupement'],
+  );
   /*
      Et le compte boucle : douze sources déclarées, onze branchées, une
      nommée comme impossible. Un écart ici veut dire qu'une source a
