@@ -23,6 +23,7 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { apresLeChangementDeTexte } from './lib/post-condition.mjs';
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -121,7 +122,26 @@ page.on('download', async (d) => {
 });
 await page.click('#telecharger');
 await page.waitForSelector('#message-export:not(.hidden)', { timeout: 30000 });
-await page.waitForTimeout(1500);
+/*
+   LES FICHIERS ARRIVENT DANS NODE, PAS DANS LA PAGE : c'est un gestionnaire
+   d'événements qui remplit `contenus`, et aucune aide de
+   `lib/post-condition.mjs` ne peut voir cet état — elles sondent toutes la
+   page. La post-condition est donc sondée ici, avec sa borne explicite ; le
+   pas de cent millisecondes n'est pas une temporisation à l'aveugle mais le
+   pas d'un sondage, et la condition est vérifiée à chaque tour.
+*/
+const fichiersArrives = async (noms, delai = 30000) => {
+  const fin = Date.now() + delai;
+  while (!noms.every((n) => contenus.has(n))) {
+    if (Date.now() > fin) return false;
+    await page.waitForTimeout(100);
+  }
+  return true;
+};
+vrai(
+  'l’export a produit son manifeste et ses indicateurs',
+  await fichiersArrives(['manifest.json', 'indicateurs.json']),
+);
 
 const manifeste = JSON.parse(contenus.get('manifest.json') ?? '{}');
 const indicateurs = JSON.parse(contenus.get('indicateurs.json') ?? '{}');
@@ -357,14 +377,19 @@ await soumettre(JSON.stringify(analyse()));
   vrai('« Conserver » est actif', await page.locator('#conserver').isEnabled());
 
   await page.click('[data-sort-proposition="p1:adoptee"]');
-  await page.click('[data-sort-constat="c1:ecarte"]');
-  await page.waitForTimeout(200);
+  /* Le motif qui change est la post-condition du tri : deux cents
+     millisecondes étaient le temps qu'on espérait suffisant. */
+  await apresLeChangementDeTexte(page, '#motifs-tri', () =>
+    page.click('[data-sort-constat="c1:ecarte"]'),
+  );
   faux('adopter une action dont le constat est écarté désactive « Conserver »', await page.locator('#conserver').isEnabled());
   const motifs = (await page.locator('#motifs-tri').textContent()) ?? '';
   vrai('et le motif l’explique', motifs.includes('sans justification'));
 
-  await page.click('[data-sort-constat="c1:garde"]');
-  await page.waitForTimeout(200);
+  /* La même post-condition pour le geste inverse. */
+  await apresLeChangementDeTexte(page, '#motifs-tri', () =>
+    page.click('[data-sort-constat="c1:garde"]'),
+  );
   vrai('garder le constat rétablit « Conserver »', await page.locator('#conserver').isEnabled());
 }
 
