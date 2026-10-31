@@ -193,17 +193,54 @@ console.log('\n\x1b[1mEFFACER SON PROFIL : AVEC LES NOMS DES CHAMPS\x1b[0m\n');
   */
   await page.goto(`${RACINE}/initialisation/`, { waitUntil: 'networkidle' });
   await deverrouiller(page);
-  await page.waitForTimeout(800);
+  /*
+     LE TÉMOIN EST POSITIF, ET C'EST UNE DISJONCTION. Cet écran a deux
+     entrées : `#allegee` et son bouton « Commencer » quand l'installation
+     porte déjà de l'usage, sinon `#parcours` et sa première question
+     directement. Les deux branches qui suivaient lisaient chacune leur
+     visibilité avec `.catch(() => false)`, derrière une attente aveugle de
+     800 ms. Cette tolérance ne rend pas l'essai rouge quand l'attente est
+     trop courte : elle le fait mesurer AUTRE CHOSE. Le prénom n'est pas
+     renseigné, la boîte répond — à juste titre — « Aucun champ n'est
+     renseigné », et c'est exactement le faux rouge que le commentaire
+     ci-dessus raconte. Une attente aveugle devant une lecture tolérante au
+     négatif ne risque pas un rouge : elle risque un vert sur le mauvais cas.
+
+     On attend donc que l'une des deux entrées soit peinte. L'attente décrit
+     un changement — l'écran affichait « Préparation… » — et les branches qui
+     suivent ne choisissent plus dans le vide. Après quoi `#saisie-prenom`
+     est acquis dans les deux chemins : le remplissage n'a plus à se
+     protéger, et s'il échoue un jour il le dira au lieu de se taire.
+
+     Les options de `waitForFunction` sont le TROISIÈME argument ; le second
+     est la valeur passée à la fonction. Écrites au second, elles sont
+     ignorées sans bruit et le délai n'existe pas.
+
+     ET AUCUNE FONCTION NOMMÉE NE TRAVERSE CETTE FRONTIÈRE. J'avais d'abord
+     écrit un `const peint = (id: string) => …` à l'intérieur du corps : le
+     transpileur de ce dépôt conserve les noms et enveloppe donc la fonction
+     dans un `__name(…)` qui n'existe que côté Node. Le navigateur a répondu
+     « __name is not defined » et l'essai est tombé en panne — pas en rouge,
+     en panne, ce qui est au moins franc. Une lambda anonyme passée en
+     argument n'est pas nommée, donc rien ne l'enveloppe. Les deux constantes
+     voisines de `essais-initialisation-sans-defaut.mts` échappent au piège
+     autrement : ce sont des chaînes gabarit, que le transpileur ne lit pas.
+  */
+  await page.waitForFunction(
+    () =>
+      ['commencer', 'saisie-prenom'].some((id) => {
+        const e = document.getElementById(id);
+        return !!e && e.getClientRects().length > 0;
+      }),
+    undefined,
+    { timeout: 30000 },
+  );
   if (await page.locator('#commencer').isVisible().catch(() => false)) {
     await page.click('#commencer');
-    await page.waitForTimeout(400);
+    await devientVisible(page, '#saisie-prenom', true, { delai: 30000 });
   }
-  if (await page.locator('#saisie-prenom').isVisible().catch(() => false)) {
-    await page.fill('#saisie-prenom', 'Essai');
-    await page.click('#valider');
-  }
-  /* Aucune temporisation pour ce parcours d'entrée : le `goto` puis le
-     `waitForSelector` qui suivent en sont la post-condition. */
+  await page.fill('#saisie-prenom', 'Essai');
+  await page.click('#valider');
 
   await page.goto(`${RACINE}/profil/`, { waitUntil: 'networkidle' });
   await deverrouiller(page);
