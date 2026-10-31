@@ -25,7 +25,7 @@
 import { chromium, type Page } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
-import { attendreLeCompte, devientVisible } from './lib/post-condition.mjs';
+import { annonceDe, attendreLeCompte, devientVisible } from './lib/post-condition.mjs';
 
 const RACINE = process.env.RACINE ?? 'http://localhost:4321';
 const MDP = motDePasseEssais();
@@ -201,8 +201,9 @@ console.log('\n\x1b[1mEFFACER SON PROFIL : AVEC LES NOMS DES CHAMPS\x1b[0m\n');
   if (await page.locator('#saisie-prenom').isVisible().catch(() => false)) {
     await page.fill('#saisie-prenom', 'Essai');
     await page.click('#valider');
-    await page.waitForTimeout(600);
   }
+  /* Aucune temporisation pour ce parcours d'entrée : le `goto` puis le
+     `waitForSelector` qui suivent en sont la post-condition. */
 
   await page.goto(`${RACINE}/profil/`, { waitUntil: 'networkidle' });
   await deverrouiller(page);
@@ -230,18 +231,35 @@ console.log('\n\x1b[1mEFFACER SON PROFIL : AVEC LES NOMS DES CHAMPS\x1b[0m\n');
   );
   v('elle redemande le mot de passe', /mot de passe/i.test(dit), true);
 
+  /*
+     L'AIDE EST ARRIVÉE. J'avais laissé cette attente marquée, en disant que
+     `annonceDe` existait deux fois dans le dépôt et qu'en recopier une
+     troisième serait la faute que ce chantier corrige. A l'a promue dans
+     `lib/post-condition.mjs` ; elle est ici.
+
+     Mais elle attend une zone NON VIDE, et cet écran a déjà parlé plus haut.
+     On efface donc la zone soi-même, sinon l'annonce d'avant rendrait
+     l'attente vraie d'avance — la parade du § 3, pour la troisième fois de
+     ce lot.
+
+     ET L'EFFACEMENT PASSE AVANT LE CLIC. Ma première version le plaçait
+     après, en se justifiant ainsi : « le message qu'on attend est celui que
+     ce clic provoque ». La phrase est vraie et la conclusion fausse. Le
+     gestionnaire écrit sa réponse sans me demander mon tour : s'il a déjà
+     écrit quand mon `evaluate` arrive, j'effleure la réponse même que
+     j'attends ensuite, et l'attente ne voit plus rien venir. C'est le rouge
+     que j'ai constaté. L'ordre de la parade — effacer, agir, attendre — n'est
+     pas une présentation : c'est la seule séquence où la fenêtre entre
+     l'effacement et l'écriture ne m'appartient pas.
+  */
+  await page.evaluate(() => {
+    const e = document.getElementById('message-effacement');
+    if (e) e.textContent = '';
+  });
   /* La boîte de redemande dit « Renoncer », pas « Annuler ». */
   const annuler2 = visible.locator('button', { hasText: /Renoncer|Annuler|Fermer/ }).first();
   if (await annuler2.count()) await annuler2.click();
-  /*
-     CELLE-CI ATTEND L'AIDE PARTAGÉE. La post-condition est « l'annonce est
-     écrite » — non vide —, et cette aide existe déjà DEUX fois dans le dépôt :
-     `annonceDe` dans « essais-effacement-navigateur », et sa jumelle que j'ai
-     écrite par mégarde dans « essais-sauvegarde-cyclades ». La promouvoir dans
-     `lib/post-condition.mjs` revient à A, qui tient ce module ; en recopier une
-     troisième serait la faute que ce chantier corrige.
-  */
-  await page.waitForTimeout(600);
+  await annonceDe(page, '#message-effacement');
   const message = (await page.locator('#message-effacement').textContent()) ?? '';
   v('et un abandon le dit', /Rien n’a été supprimé/.test(message), true);
   await ctx.close();
