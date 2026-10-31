@@ -39,6 +39,8 @@ import {
 import { mediane, p90, scores } from '../src/features/pcct/moteur/notation';
 import { DepotEnMemoire } from '../src/features/pcct/moteur/depot';
 import { noter, poserEssai, resumer, seanceNeuve } from '../src/features/pcct/moteur/seance';
+import { attribuer } from '../src/features/pcct/moteur/grace';
+import { examinerLesVoix } from '../src/features/pcct/voix';
 
 let echecs = 0;
 function verifier(titre: string, obtenu: unknown, attendu: unknown) {
@@ -384,6 +386,70 @@ verifier('médiane d’une série paire', mediane([100, 200, 300, 400]), 250);
 verifier('médiane d’une série impaire', mediane([300, 100, 200]), 200);
 verifier('médiane d’une série vide', mediane([]), null);
 verifier('le p90 de dix valeurs', p90([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]), 9);
+
+console.log('\nGARDE 8 — LE DÉLAI DE GRÂCE RATTRAPE, ET NE SERT PAS DEUX FOIS');
+{
+  /*
+     La référence porte une fenêtre de grâce qui ne sert JAMAIS : la branche qui
+     note l'essai courant vient avant celle qui note la fenêtre, et consomme la
+     frappe. L'ordre des cas est donc la règle, et le sabotage l'inverse.
+  */
+  const base = {
+    delaiDeGrace: 150,
+    courantEnAttente: true,
+    precedentSansReponse: true,
+  };
+  verifier('dans la fenêtre, la frappe rattrape l’essai précédent', attribuer({ ...base, depuisLApparition: 100 }), 'precedent');
+  verifier('à la limite exacte, elle rattrape encore', attribuer({ ...base, depuisLApparition: 150 }), 'precedent');
+  verifier('un pas au-delà, elle va au courant', attribuer({ ...base, depuisLApparition: 151 }), 'courant');
+  verifier(
+    'si le précédent a été répondu, rien à rattraper : le courant',
+    attribuer({ ...base, depuisLApparition: 50, precedentSansReponse: false }),
+    'courant',
+  );
+  verifier(
+    'l’aide éteinte ne rattrape rien',
+    attribuer({ ...base, depuisLApparition: 50, delaiDeGrace: 0 }),
+    'courant',
+  );
+  verifier(
+    'le courant déjà noté, hors fenêtre : la frappe est perdue, non comptée deux fois',
+    attribuer({ ...base, depuisLApparition: 500, courantEnAttente: false }),
+    'perdue',
+  );
+  verifier(
+    'mais dans la fenêtre, elle rattrape même si le courant est noté',
+    attribuer({ ...base, depuisLApparition: 50, courantEnAttente: false }),
+    'precedent',
+  );
+}
+
+console.log('\nGARDE 9 — LA VOIX EST FRANÇAISE ET LOCALE, OU L’ÉCRAN LE DIT');
+{
+  const v = (nom: string, lang: string, localService: boolean) =>
+    ({ name: nom, lang, localService, default: false, voiceURI: nom }) as SpeechSynthesisVoice;
+
+  const aucune = examinerLesVoix([]);
+  verifier('aucune voix : en visuel', [aucune.enVisuel, aucune.voix], [true, null]);
+  verifier('et la raison est dite', aucune.raison.length > 20, true);
+
+  const distante = examinerLesVoix([v('Céleste', 'fr-FR', false)]);
+  verifier('une voix française DISTANTE est refusée', [distante.enVisuel, distante.voix], [true, null]);
+  verifier('et la raison nomme le réseau', distante.raison.includes('réseau'), true);
+
+  const anglaiseLocale = examinerLesVoix([v('Daniel', 'en-GB', true)]);
+  verifier('une voix locale ANGLAISE est refusée', anglaiseLocale.enVisuel, true);
+  verifier('et la raison ne parle pas de réseau', anglaiseLocale.raison.includes('réseau'), false);
+
+  const bonne = examinerLesVoix([v('Daniel', 'en-GB', true), v('Thomas', 'fr-FR', true)]);
+  verifier('une voix locale française est retenue', bonne.voix?.name, 'Thomas');
+  verifier('et la séance n’est pas en visuel', bonne.enVisuel, false);
+  verifier('et la raison la nomme', bonne.raison.includes('Thomas'), true);
+
+  const canadienne = examinerLesVoix([v('Amélie', 'fr-CA', true)]);
+  verifier('« fr-CA » est bien du français', canadienne.voix?.name, 'Amélie');
+  verifier('mais « frison » ne l’est pas', examinerLesVoix([v('X', 'fry-NL', true)]).voix, null);
+}
 
 console.log('\nLE DÉPÔT — une séance ne se clôt qu’une fois');
 {
