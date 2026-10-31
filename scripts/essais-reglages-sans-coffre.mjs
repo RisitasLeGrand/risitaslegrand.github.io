@@ -31,6 +31,7 @@
  */
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { devientVisible } from './lib/post-condition.mjs';
 import { repondreALaRedemande } from './lib/boite-essais.mjs';
 import {
   CLEFS_ODYSSEE_ETAT,
@@ -123,7 +124,8 @@ const connecter = async () => {
   if (await page.locator('#champ-mdp').isVisible().catch(() => false)) {
     await page.fill('#champ-mdp', MDP);
     await page.click('#bouton-verrou');
-    await page.waitForTimeout(3000);
+    /* Le départ du champ est la post-condition du déverrouillage. */
+    await devientVisible(page, '#champ-mdp', false, { delai: 30000 });
   }
 };
 
