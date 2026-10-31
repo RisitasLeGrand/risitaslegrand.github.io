@@ -615,6 +615,15 @@
           <span class="mt-1 block text-xs text-slate-500 dark:text-slate-400">
             Une réponse tombée juste après l’apparition du nombre suivant est rendue à l’essai
             qu’elle visait. Zéro éteint l’aide.
+            <!--
+              L'INSCRIPTION EST DEMANDÉE, et elle dit vrai : la référence porte
+              bien une fenêtre de grâce, mais sa branche de notation la
+              consomme avant qu'elle serve. Aucune valeur n'y a donc jamais été
+              mise à l'épreuve, et 300 ms est le temps d'un doigt qui descend —
+              un raisonnement, pas une mesure. L'écrire évite qu'on prenne ce
+              défaut pour un réglage hérité.
+            -->
+            <strong class="font-medium">Valeur par défaut choisie, non éprouvée.</strong>
           </span>
         </label>
 
