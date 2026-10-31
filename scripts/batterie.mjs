@@ -58,6 +58,7 @@ import {
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import {
   CODE_NON_MESURABLE,
@@ -450,6 +451,77 @@ if (!sert) {
       '  les essais de navigateur expirent sans dire pourquoi.\n' +
       '  Un aperçu d’un AUTRE répertoire de travail répondrait aussi : vérifiez\n' +
       '  qu’il sert bien le « dist/ » que vous venez de construire.',
+  );
+  process.exit(1);
+}
+
+/*
+   ET IL FAUT QUE CE SOIT CE « dist/ »-CI, CE QUE LE REFUS CI-DESSUS NE
+   VÉRIFIAIT PAS.
+
+   Le contrôle sondait `robots.txt`. Il répondait donc à une seule question —
+   « quelque chose écoute-t-il sur ce port » — et jamais à celle qui compte.
+   L'avertissement était écrit juste au-dessus, en prose, à l'intention d'un
+   humain : « un aperçu d'un AUTRE répertoire de travail répondrait aussi ».
+   Une mise en garde qui n'est pas mesurée ne garde rien.
+
+   Elle a coûté un socle entier. Treize minutes de mesure, pendant lesquelles
+   l'arbre de travail est passé sur une autre branche et « dist/ » a été
+   reconstruit : les trente-huit premiers essais ont mesuré un arbre, les cinq
+   derniers un autre, et le récapitulatif a rendu « cinq rouges » sans
+   distinguer les deux. C'est la pire sortie possible, parce qu'un verdict faux
+   a exactement la même forme qu'un verdict vrai — et que celui-là se lit comme
+   la preuve qu'il y avait quelque chose à trouver.
+
+   L'EMPREINTE EST CELLE DU DISQUE CONTRE CELLE DU RÉSEAU, et non une valeur
+   qu'on s'attendrait à trouver : on lit « dist/index.html », on demande « / »
+   à l'aperçu, et on compare les deux. Rien n'est supposé de ce que le fichier
+   contient, donc rien à maintenir le jour où il change. Et les deux états
+   diffèrent — c'est tout ce qu'on demande à une post-condition. Mesuré :
+   l'aperçu rend ce fichier à l'octet près, compressé ou non.
+
+   ON LA REPREND À L'ARRIVÉE, parce que le départ ne dit rien de la suite :
+   c'est précisément en cours de route que l'arbre avait changé. Si elle a
+   bougé, le récapitulatif ne rend plus un verdict — il dit que la mesure est
+   nulle, et pourquoi.
+*/
+
+const TEMOIN_DU_DISQUE = join('dist', 'index.html');
+
+function empreinteDuDisque() {
+  try {
+    return createHash('sha256').update(readFileSync(TEMOIN_DU_DISQUE)).digest('hex');
+  } catch {
+    return null;
+  }
+}
+
+async function empreinteServie() {
+  try {
+    const reponse = await fetch(`${ADRESSE}/`, { signal: AbortSignal.timeout(20_000) });
+    if (!reponse.ok) return null;
+    return createHash('sha256')
+      .update(Buffer.from(await reponse.arrayBuffer()))
+      .digest('hex');
+  } catch {
+    return null;
+  }
+}
+
+const empreinteAttendue = empreinteDuDisque();
+if (empreinteAttendue === null || (await empreinteServie()) !== empreinteAttendue) {
+  console.error(
+    `✗ REFUS — ${ADRESSE} répond, mais ne sert pas le « dist/ » de cet arbre.\n` +
+      (empreinteAttendue === null
+        ? '  « dist/index.html » n’existe pas : rien n’a encore été construit ici.\n'
+        : '  L’aperçu sert un AUTRE « dist/ » — un autre répertoire de travail, ou\n' +
+          '  une construction antérieure à vos derniers changements.\n') +
+      '  Construisez, puis relancez l’aperçu sur CE répertoire :\n' +
+      '    node scripts/build-content.mjs            (le manifeste chiffré)\n' +
+      '    REVINSP_SANS_PODCAST=1 npx astro build    (avec .env.local, puis effacé)\n' +
+      '    npx astro preview stop && npx astro preview --port 4321\n' +
+      '  Sans cela la batterie mesure un site qui n’est pas le vôtre, et ses\n' +
+      '  rouges comme ses verts ne disent rien de vos changements.',
   );
   process.exit(1);
 }
@@ -867,11 +939,35 @@ if (nonMesurables.length > 0) {
       'verts ne les porte pas.',
   );
 }
+/*
+   L'EMPREINTE, REPRISE : la mesure valait-elle encore à l'arrivée ?
+
+   On regarde les deux côtés, parce qu'ils se perdent séparément — l'aperçu peut
+   mourir ou être relancé sur un autre arbre, et « dist/ » peut être reconstruit
+   sous un aperçu qui, lui, n'a pas bougé.
+*/
+const mesureNulle =
+  (await empreinteServie()) !== empreinteAttendue ||
+  empreinteDuDisque() !== empreinteAttendue;
+
 if (rouges.length > 0) {
   console.log(`rouges : ${rouges.join(' ')}`);
+  if (!mesureNulle) {
+    console.log(
+      'À comparer au tableau des anomalies avant toute poussée : un rouge qui n’y\n' +
+        'figure pas est un rouge NOUVEAU, et il se corrige avant de pousser.',
+    );
+  }
+}
+if (mesureNulle) {
   console.log(
-    'À comparer au tableau des anomalies avant toute poussée : un rouge qui n’y\n' +
-      'figure pas est un rouge NOUVEAU, et il se corrige avant de pousser.',
+    '✗ MESURE NULLE — l’aperçu ou « dist/ » a changé PENDANT la course.\n' +
+      '  Les premiers essais ont mesuré un arbre, les derniers un autre, et rien\n' +
+      '  ici ne dit où la bascule s’est faite. Les croix ci-dessus ne sont donc\n' +
+      '  pas des rouges : ce sont des mesures perdues, et le compte des verts ne\n' +
+      '  vaut pas davantage.\n' +
+      '  Ne comparez rien au tableau des anomalies. Recommencez sans toucher à\n' +
+      '  l’arbre de travail, à « dist/ », ni au port, pendant la course.',
   );
 }
 console.log(`Journaux conservés : ${journal}\n`);
@@ -900,4 +996,4 @@ fermerLeLaboratoire();
    un code non nul, et une croix avec un code nul, qui est celui qui a
    trompé.
 */
-process.exit(rouges.length > 0 ? 1 : 0);
+process.exit(rouges.length > 0 || mesureNulle ? 1 : 0);
