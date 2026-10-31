@@ -33,7 +33,7 @@
  * dernier étant le cas qui rendrait un vert sans avoir mesuré.
  */
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import {
@@ -279,11 +279,19 @@ verifier(`plus de cent appels lus (${appels})`, appels > 100, true);
    exemples mais quelque chose d'autre.
 */
 verifier('un seul fichier est porteur d’exemples', PORTEURS_D_EXEMPLES, ['essais-bornes.mjs']);
+/*
+   CELLE-CI NE PARLE QUE DU FICHIER D'EXEMPLES, et c'est un sabotage qui l'a
+   appris : écrite « toutes les fautes vues sans l'exclusion sont dans ce
+   fichier », elle rougissait AUSSI quand une vraie faute apparaissait
+   ailleurs. Deux contrôles disaient alors la même chose, et le second
+   n'apprenait rien — pire, il désignait l'exclusion là où le défaut était
+   dans le dépôt.
+*/
 verifier(
   'sans l’exclusion, le balayage signale bien les exemples de cet essai',
-  bornesAuMauvaisRang(dossier, { ignorer: [] })
-    .fautes.every((f) => f.fichier.endsWith('essais-bornes.mjs')) &&
-    bornesDansLeTexte(readFileSync(path.join(dossier, 'essais-bornes.mjs'), 'utf8')).fautes.length >= 8,
+  bornesAuMauvaisRang(dossier, { ignorer: [] }).fautes.filter((f) =>
+    f.fichier.endsWith('essais-bornes.mjs'),
+  ).length >= 8,
   true,
 );
 
