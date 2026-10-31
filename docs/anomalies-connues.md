@@ -39,6 +39,53 @@ en est une. Une ligne sans mesure est une permission de ne pas regarder.
 | **Statut** | signalé au pilote ; ni réparé ni désactivé |
 | **Ce qui n'est pas vérifié** | je ne l'ai pas rejoué moi-même. Cette ligne porte la mesure de B, et elle le dit. Quiconque la confirme peut retirer cette dernière case. |
 
+## Ce qui est VOULU, et qu'il ne faut pas prendre pour un défaut
+
+Ces lignes ne sont pas des anomalies. Elles sont ici parce qu'elles
+ressemblent à des défauts et que quelqu'un, un jour, essaiera de les
+« corriger ».
+
+### Aucun rappel de prise n'entre au centre tant que le registre n'est pas classé
+
+**Tant que le registre ne porte aucune classe (contenu, phase C), aucun rappel
+de prise n'entre au centre ; c'est voulu (D2).**
+
+`filtre-cycle.ts` déclare `rappel-de-prise` avec `exigeUneClasse`, et le filtre
+écarte tout signal dont la classe de molécule est inconnue — option (a),
+arbitrée le 19 octobre. La raison n'est pas une prudence de principe : une
+molécule dont la classe est inconnue PEUT être liée au cycle, et le centre ne
+porte rien qui y touche (interdit 1 n° 3). C'est une fonction en moins, visible,
+plutôt qu'une fuite invisible.
+
+Les cinq molécules du catalogue ne portent aucune classe au 31 octobre 2026.
+L'infrastructure, elle, est en place et **mesurée** : le champ `classe` et sa
+source dans `EntreeRegistre`, le vocabulaire clos de `classes-de-molecules.ts`,
+la garde dans `verifier:registre-molecules`, le chemin depuis `sante.astro`, et
+les deux issues éprouvées au navigateur sur une entrée de registre d'essai —
+classe hors cycle, le rappel paraît ; classe du cycle, il est écarté, avec sa
+raison consignée.
+
+Le renseignement des classes depuis les RCP est en phase C, chez l'agent des
+fiches. **Ne pas lever `exigeUneClasse` pour faire paraître les rappels** :
+cela trancherait à l'envers un arbitrage qui porte sur des données de santé.
+
+#### Comment mesurer soi-même le chemin « admis »
+
+    npm run registre:essai     # écrit la fixture, et REFUSE d'écraser un registre réel
+    npm run contenu            # pour qu'elle atteigne le site construit
+    npm run essais:sante:navigateur
+
+`essais:sante:navigateur` est valide **dans les deux cas** : il choisit la
+molécule d'essai si le menu l'offre, retombe sur une saisie libre sinon, et dit
+dans sa sortie laquelle des deux issues il a mesurée — ligne « la molécule du
+traitement ». Il n'y a donc aucune préparation à câbler dans la batterie, et
+aucun essai qui refuserait faute de fixture.
+
+**La contrepartie est à dire** : sur une machine sans fixture, la batterie ne
+mesure que l'issue « écarté ». L'issue « admis » est alors couverte par
+`essais:filtre-cycle` (au module, avec sabotage) et par ce passage-ci, à la
+main. Pour l'ôter : supprimer `content/sante/molecules.json` et reconstruire.
+
 ## Ce qui dépend du conteneur, et non du site
 
 Ces essais-là ne sont pas rouges par la faute du dépôt : ils réclament quelque

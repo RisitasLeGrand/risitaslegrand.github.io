@@ -43,6 +43,8 @@ import { populationNonLue } from '../noyau/population';
  * La liste est triée alphabétiquement par Cyclades : toute autre règle de tri
  * serait un classement de popularité déguisé.
  */
+import { IDENTIFIANTS_DE_CLASSE } from './classes-de-molecules';
+
 export interface EntreeRegistre {
   id: string;
   nom: string;
@@ -61,6 +63,37 @@ export interface EntreeRegistre {
    * qu'elle prend.
    */
   identiteVerifiee: boolean;
+  /**
+   * La classe pharmacologique, quand une source la donne.
+   *
+   * **Facultative, et absente se lit « non classée »** — jamais « sans
+   * classe ». Les cinq molécules du catalogue n'en portent aucune au
+   * 31 octobre 2026, et c'est attendu : le renseignement vient de la phase C,
+   * depuis les RCP.
+   *
+   * Sa conséquence est ailleurs et il faut la dire : `filtre-cycle.ts` écarte
+   * du centre de notifications tout rappel de prise dont la classe est
+   * inconnue (option (a), 19 octobre). Tant que ce champ est vide, aucun
+   * rappel de prise ne paraît au centre, et c'est voulu.
+   *
+   * Le vocabulaire est CLOS : `classes-de-molecules.ts` en est la seule
+   * autorité, et `controlerRegistre` refuse toute autre valeur. Ce n'est pas
+   * une `categorie` — champ interdit plus bas, et il le reste : une catégorie
+   * range selon une grille que personne n'a publiée, une classe est un fait
+   * d'une source officielle, et elle porte cette source.
+   */
+  classe?: string | null;
+  /**
+   * Le document qui classe CETTE molécule ainsi.
+   *
+   * Exigé dès que `classe` est renseignée, et c'est ce qui sépare une classe
+   * d'une catégorie : sans source, la valeur n'a pas d'autorité, et la garde
+   * la refuse. Ce n'est pas la `provenance` interdite plus bas — celle-là
+   * disait de quelle liste l'entrée avait été reprise, ce qui aurait fait du
+   * registre une copie de la bibliothèque. Celle-ci dit quel document emploie
+   * ce nom de classe pour cette molécule-là.
+   */
+  classeSource?: string | null;
 }
 
 /** Les champs admis dans une entrée. Tout autre champ fait échouer le contrôle. */
@@ -71,6 +104,8 @@ const CHAMPS_REGISTRE = new Set([
   'nomenclature',
   'fiche',
   'identiteVerifiee',
+  'classe',
+  'classeSource',
 ]);
 
 /**
@@ -120,6 +155,34 @@ export function controlerRegistre(entrees: readonly EntreeRegistre[]): string[] 
     vus.add(e.id);
     if (e.nomenclature === null && e.identiteVerifiee) {
       problemes.push(`« ${e.nom} » se dit vérifiée sans identifiant de nomenclature.`);
+    }
+    /*
+       LA CLASSE, ET LES TROIS FAÇONS DONT ELLE SE DÉFERAIT.
+
+       Une valeur hors vocabulaire : c'est une catégorie déguisée, et le
+       vocabulaire clos est la seule chose qui sépare les deux.
+
+       Une classe sans source : elle n'a plus d'autorité, et le registre
+       redevient une liste de rangements. C'est l'exigence qui fait tout le
+       travail — l'inscription seule ne prouve rien, c'est la raison écrite
+       ailleurs dans ce dépôt pour les semis des essais.
+
+       Une source sans classe : rien n'est classé, et un lecteur croirait le
+       contraire en voyant le champ rempli. Un champ qui ne documente rien se
+       lit comme un oubli, ou comme une classification perdue.
+    */
+    if (e.classe != null && e.classe !== '') {
+      if (!IDENTIFIANTS_DE_CLASSE.includes(e.classe)) {
+        problemes.push(
+          `« ${e.nom || e.id} » porte la classe inconnue « ${e.classe} ». ` +
+            `Admises : ${IDENTIFIANTS_DE_CLASSE.join(', ')}.`,
+        );
+      }
+      if (e.classeSource == null || e.classeSource.trim() === '') {
+        problemes.push(`« ${e.nom || e.id} » est classée sans dire par quel document.`);
+      }
+    } else if (e.classeSource != null && e.classeSource.trim() !== '') {
+      problemes.push(`« ${e.nom || e.id} » porte une source de classe sans porter de classe.`);
     }
   }
 

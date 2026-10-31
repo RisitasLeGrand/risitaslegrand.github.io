@@ -622,12 +622,41 @@ console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
   } else {
     /* Un second traitement, pour ne pas défaire ce que les essais d'au-dessus
        ont établi sur le premier. */
-    await page.fill('#t-nom', 'Traitement du matin');
+    /*
+       LA MOLÉCULE EST CHOISIE DANS LE MENU, quand le registre en offre une.
+
+       C'est le seul geste qui renseigne `Traitement.moleculeId`, et c'est par
+       cet identifiant que la classe de la molécule se lit. Sans lui, la classe
+       est inconnue, et `filtre-cycle.ts` écarte le rappel du centre — l'issue
+       qui protège, et la seule que ce bloc pouvait mesurer avant ce lot.
+
+       La fixture `preparer-registre-dessai.mjs` offre « Essai — classe hors
+       cycle ». Si elle est absente — un registre réel est là, ou aucun
+       registre —, le choix ne se fait pas, et le bloc ci-dessous mesure
+       l'autre issue. L'essai reste donc valide dans les deux cas, et dit
+       lequel il a mesuré.
+    */
+    let classeChoisie = null;
+    await page.fill('#t-chercher', 'Essai');
+    const propositions = page.locator('#suggestions li button', { hasText: 'classe hors cycle' });
+    if (await propositions.count().catch(() => 0)) {
+      await propositions.first().click();
+      classeChoisie = 'hors-cycle';
+      /* Le menu écrit le nom lui-même : on ne le réécrit pas, car une saisie
+         à la main efface le choix — c'est la garde posée dans l'écran. */
+    } else {
+      await page.fill('#t-chercher', '');
+      await page.fill('#t-nom', 'Traitement du matin');
+    }
+    const nomDuTraitement = classeChoisie
+      ? 'Essai — classe hors cycle'
+      : 'Traitement du matin';
+    mesure('la molécule du traitement', classeChoisie ?? 'aucune (saisie libre)');
     await page.click('#form-traitement button[type="submit"]');
     /* Deux traitements désormais : celui des essais d'au-dessus, et celui-ci. */
     await attendreLeCompte(page, '#traitements li', 2, { delai: DELAI });
 
-    const bloc = page.locator('#traitements li', { hasText: 'Traitement du matin' });
+    const bloc = page.locator('#traitements li', { hasText: nomDuTraitement });
     await bloc.locator('details').first().locator('summary').click();
     await bloc.locator('input[type="time"]').fill(heure);
     await bloc.locator('button:has-text("Ajouter cette heure")').click();
@@ -660,7 +689,7 @@ console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
        la zone est repeinte une fois de plus. */
     await apresLesCreneaux(() => reglage.locator('button[type="submit"]').click());
 
-    const ligne = page.locator('#creneaux-du-jour li', { hasText: 'Traitement du matin' });
+    const ligne = page.locator('#creneaux-du-jour li', { hasText: nomDuTraitement });
     const texte = await ligne.textContent();
     mesure('la ligne du créneau oublié', JSON.stringify(texte));
     /*
@@ -739,7 +768,39 @@ console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
     */
     await attendreEnBase(page, 'centreElements', (tout) => tout.length >= 1);
     const centre = await lireLeMagasin('centreElements');
-    v('un élément déposé au centre, et un seul', centre.length, 1);
+    /*
+       LES DEUX SENS, ET C'EST LA REPRISE QUE CE BLOC ANNONÇAIT.
+
+       Le commentaire ci-dessus disait : « le jour où une molécule aura une
+       classe sourcée, ce bloc doit être repris dans l'autre sens ». Ce jour
+       est venu le 31 octobre — la classe a son champ, sa garde et son chemin,
+       et la fixture d'essai en offre une hors cycle.
+
+       L'attendu dépend donc de ce que l'essai a RÉELLEMENT pu monter, et non
+       d'un souhait : classe hors cycle choisie au menu, le rappel paraît ;
+       pas de classe, il est écarté. Écrire un seul attendu rendrait l'essai
+       rouge sur la moitié des machines, et le faire dépendre du résultat
+       observé le rendrait vert sur tout. Il dépend de l'ENTRÉE.
+    */
+    if (classeChoisie === 'hors-cycle') {
+      v('la classe étant hors cycle, le rappel paraît au centre', centre.length, 1);
+      /*
+         ET IL NE NOMME NI LA MOLÉCULE NI SA CLASSE. La règle du pilote, sur
+         le vrai chemin cette fois : `essais:rappel-de-prise-muet` garde la
+         composition de la référence, celui-ci garde ce qui a RÉELLEMENT été
+         écrit en base.
+
+         Les champs en clair sont lus tels quels : le corps est scellé, donc
+         une classe rangée dedans serait invisible ici — c'est le vert à vide
+         que B avait repéré, et la garde qui tient vraiment est que
+         `ElementDuCentre` est une interface fermée.
+      */
+      const enClair = JSON.stringify(centre);
+      faux('le dépôt ne nomme pas la molécule', /essai|hors cycle/i.test(enClair));
+      faux('et ne nomme pas sa classe', /androgen/i.test(enClair));
+    } else {
+      v('faute de classe connue, aucun rappel n’entre au centre', centre.length, 0);
+    }
     /*
        ET SI RIEN N'EST DÉPOSÉ, LA RAISON EST DITE. C'est la garantie du
        31 octobre, et elle vaut quelle que soit l'issue : un dépôt réussi n'a
