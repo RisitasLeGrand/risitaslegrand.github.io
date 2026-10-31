@@ -206,6 +206,19 @@ const SOCLE = [
 
      Avant la correction : 9 rouges, dont trois ancres entièrement couvertes.
      Après : 0, aux deux largeurs, le glossaire restant à zéro pixel de jeu.
+
+     Éprouvé par six sabotages avant d'y entrer, et chacun nomme ses rouges :
+
+       A  la bande d'ancre retirée                              7 rouges
+       B  la hauteur rendue à six rem écrits à la main          5 rouges
+       C  la bande posée aussi là où l'en-tête n'est pas collant 2 rouges
+       D  les barres d'écran retirées de la bande                2 rouges
+       E  le panneau « Sommaire » recalé sur un nombre           1 rouge
+       F  le saut du glossaire visant le HAUT de son index       2 rouges
+
+     B mérite d'être lu : la cible arrive alors à 104 px, soit UN pixel de trop
+     à 390 et quinze à 1280. Le nombre écrit à la main n'était juste que par
+     accident, et c'est ce genre de marge qui rend un faux vert durable.
   */
   ['essais:ancres:navigateur', 'une ancre atterrit sous l’en-tête, ni derrière ni plus bas'],
   ['essais:themes-navigateur', 'les quatorze thèmes s’appliquent pour de vrai'],

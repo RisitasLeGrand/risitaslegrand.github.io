@@ -314,10 +314,10 @@ const releve = (frag) => {
 
      Or la question n'a jamais été de reconstituer une pile. Elle est : QU'EST-CE
      QUI EST DEVANT LA CIBLE ? Tout élément collé ou fixe qui COMMENCE au-dessus
-     du haut de la cible, OU AU MÊME NIVEAU QU'ELLE, est devant elle ; le plus
-     bas de ces bas est le repère. Le « au même niveau » n'est pas un détail :
-     sans lui, une cible entièrement couverte passait au vert, et c'est le
-     sabotage qui l'a dit.
+     du haut de la cible, ou au même niveau qu'elle à un pixel près, est devant
+     elle ; le plus bas de ces bas est le repère. Ce « au même niveau » n'est pas
+     un détail : sans lui, une cible entièrement couverte passait au vert, et ce
+     sont deux sabotages qui l'ont dit, jamais ma relecture.
 
      Le filtre garde une position collante ou fixe, une hauteur et un bas
      positifs, et une largeur qui barre la fenêtre. Cette dernière condition
@@ -337,18 +337,27 @@ const releve = (frag) => {
     if (r.height <= 0 || r.bottom <= 0) continue;
     if (r.width < window.innerWidth * 0.6) continue;
     /*
-       « AU-DESSUS OU AU MÊME NIVEAU », ET NON « STRICTEMENT AU-DESSUS ».
+       « AU-DESSUS OU AU MÊME NIVEAU », À UN PIXEL PRÈS.
 
-       J'avais écrit `>=`, et le premier sabotage — la déclaration retirée — a
-       montré ce que cela coûtait : la cible atterrit alors EXACTEMENT à 0, et
-       l'en-tête collé est lui aussi à 0 ; il était donc exclu, l'essai
-       concluait « rien devant la cible », et le constat passait au VERT sur
-       le cas le plus grave qu'il existe — un titre entièrement couvert.
+       Cette frontière m'a pris deux sabotages, et les deux fois elle rendait un
+       VERT sur un cas couvert.
 
-       Un élément qui commence au même niveau que la cible et descend plus bas
-       qu'elle est devant elle. C'est tout ce que ce `>` dit.
+       D'abord un `>=` au lieu d'un `>` : avec la bande retirée, la cible
+       atterrit EXACTEMENT à 0, l'en-tête collé est lui aussi à 0, il était donc
+       exclu, et l'essai concluait « rien devant la cible » sur le cas le plus
+       grave qui existe — un titre entièrement couvert.
+
+       Puis la même frontière en FLOTTANT. Avec le saut du glossaire visant le
+       haut de sa barre d'index, le rouge tombait à 390 px et pas à 1280 : la
+       barre y commence à 119,0 et la cible à 118,6, ce que l'arrondi affiche
+       comme deux fois 119. Un écart sous le pixel suffisait à écarter la barre
+       qui couvrait la cible.
+
+       Le pixel de jeu ferme les deux cas. Il ne peut pas CACHER un défaut : au
+       pire il compte comme devant la cible un élément qui commence un pixel
+       sous elle, ce qui ajoute un rouge et n'en retire jamais.
     */
-    if (r.top > c.top) continue;
+    if (r.top > c.top + 1) continue;
     occulteurs.push({
       nom: el.id ? `#${el.id}` : el.tagName.toLowerCase(),
       bas: Math.round(r.bottom),
