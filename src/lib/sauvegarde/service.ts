@@ -20,6 +20,7 @@ import {
 import { VERSION as VERSION_DE_LA_BASE } from '../db';
 import { BRANCHES, ID_BRANCHE_PAR_DEFAUT } from '../branches';
 import { PARCOURS } from '../parcours/registre';
+import { estScelle } from '../noyau/coffre';
 import {
   ecrire,
   nomDeFichier,
@@ -101,6 +102,20 @@ export async function fabriquer(motDePasse: string | null): Promise<ResultatSauv
   */
   const emportes = magasinsDUneSauvegarde(motDePasse !== null);
   const magasins = await exporterMagasins(emportes);
+  /*
+     QUELS MAGASINS SONT SCELLÉS — M-2, et c'est ici qu'on le sait.
+
+     `format.ts` est pur : il ne connaît aucune liste de magasins, et importer
+     le registre du coffre lui ferait connaître IndexedDB par la bande. C'est
+     donc cette couche-ci, qui touche déjà la base, qui le lui dit — comme
+     `magasinsDUneSauvegarde` décide déjà de ce qui part.
+
+     Le critère est celui du dépôt, pas un nouveau : un magasin scellé est un
+     magasin dont le contenu a été jugé devoir être chiffré. Annoncer son
+     compte dans un en-tête en clair revient à dire combien il en contient à
+     qui ouvre le fichier dans un éditeur de texte.
+  */
+  const magasinsScelles = emportes.filter((nom) => estScelle(nom));
   const maintenant = new Date();
   const sauvegarde = await ecrire({
     magasins,
@@ -110,6 +125,7 @@ export async function fabriquer(motDePasse: string | null): Promise<ResultatSauv
        l'aperçu de restauration faux.
     */
     branches: [{ ...brancheRevisions(), magasins: [...emportes] }],
+    magasinsScelles,
     versionApplication: (config as { version?: string }).version ?? 'inconnue',
     portee: {
       branches: BRANCHES.filter((b) => b.disponible).map((b) => b.id),

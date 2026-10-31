@@ -92,7 +92,73 @@ export type Genre = typeof LIGNE_RECONNAISSANCE | typeof LIGNE_PAQUET;
  * une version future peut avoir changé le sens d'un champ, et deviner serait la
  * pire des réponses. Un fichier de version inférieure reste lisible.
  */
-export const VERSION_FORMAT = 1;
+export const VERSION_FORMAT = 2;
+
+/**
+ * Ce que la version 2 change, et pourquoi les deux restent lisibles.
+ *
+ * ## M-1 — l'en-tête est AUTHENTIFIÉ
+ *
+ * La version 1 chiffrait sans données associées. L'en-tête n'était donc
+ * authentifié par rien : `creeLe`, `branches`, `versionApplication` et les
+ * comptes par magasin pouvaient être modifiés dans un éditeur de texte sans
+ * que le déchiffrement bronche. La somme de contrôle ne couvre que la charge
+ * utile — c'est voulu, et le commentaire en tête de ce module dit pourquoi
+ * elle ne doit pas couvrir le clair — mais personne ne couvrait l'en-tête.
+ *
+ * Un en-tête falsifiable n'est pas une curiosité : il annonce ce qu'un fichier
+ * contient, et c'est sur lui que l'écran décide quoi proposer. Changer
+ * `branches` revient à faire restaurer une sauvegarde en annonçant qu'elle
+ * porte autre chose.
+ *
+ * ## LA CIRCULARITÉ, ET COMMENT ELLE EST DÉNOUÉE
+ *
+ * L'en-tête contient la somme de la charge utile, qu'on ne connaît qu'APRÈS
+ * avoir chiffré. Il ne peut donc pas servir tel quel de données associées.
+ *
+ * On authentifie donc la ligne d'en-tête EXACTE, avec la valeur de la somme
+ * remplacée par soixante-quatre zéros. Les deux côtés reconstruisent les
+ * mêmes octets par la même substitution, et c'est tout ce qu'il faut : la
+ * somme, elle, est vérifiée séparément, et elle porte sur le chiffré qu'AES-GCM
+ * authentifie déjà.
+ *
+ * Le choix d'authentifier les OCTETS RÉELS du fichier plutôt qu'une
+ * re-sérialisation est délibéré. Deux sérialisations qui doivent coïncider à
+ * l'octet près sont une divergence en attente : l'ordre des clés d'un JSON
+ * relu n'est garanti par rien, et le jour où une clé change de place, tous les
+ * fichiers deviennent illisibles d'un coup.
+ *
+ * ## M-2 — les comptes des magasins SCELLÉS quittent le clair
+ *
+ * L'en-tête annonçait `magasins`, un compte par magasin, pour TOUS les
+ * magasins. Dans un fichier chiffré, cela veut dire qu'un éditeur de texte
+ * lisait combien d'entrées de cycle et combien de prises de traitement le
+ * fichier contient, sans aucun mot de passe.
+ *
+ * Le dépôt énonce déjà le principe ailleurs, à propos des fichiers en clair :
+ * « un fichier qui porte un magasin nommé `odysseeSexe` avec un seul
+ * enregistrement dit déjà que la personne a répondu, avant tout contenu »
+ * (`db.ts`, `MAGASINS_HORS_SAUVEGARDE_EN_CLAIR`). Il vaut autant pour l'en-tête
+ * en clair d'un fichier chiffré.
+ *
+ * Les comptes des magasins scellés sont donc remplacés par un TOTAL unique.
+ * L'en-tête reste utile — on sait combien d'enregistrements le fichier porte
+ * — sans dire de quoi. Ce qui reste à dire, et qui n'est pas rien : ce total
+ * renseigne encore sur l'ORDRE DE GRANDEUR de ce qui est scellé. Le faire
+ * disparaître tout à fait coûterait la vérification à blanc, qui est la raison
+ * d'être de l'en-tête ; l'arbitrage appartient au pilote, et la limite est
+ * écrite ici plutôt que tue.
+ *
+ * ## Pourquoi la v1 reste lisible
+ *
+ * Parce que les sauvegardes déjà faites sont, par construction, celles dont on
+ * a besoin le jour où quelque chose a été perdu. Une version qui ne relirait
+ * plus ses propres fichiers d'hier serait un défaut, pas une amélioration.
+ */
+export const VERSION_SANS_EN_TETE_AUTHENTIFIE = 1;
+
+/** La valeur de somme écrite au moment du chiffrement, puis remplacée. */
+const SOMME_EN_ATTENTE = '0'.repeat(64);
 
 /** Déclaration d'une branche présente dans la sauvegarde. */
 export interface BrancheSauvegardee {
@@ -119,8 +185,23 @@ export interface EnTeteSauvegarde {
   versionApplication: string;
   creeLe: string;
   branches: BrancheSauvegardee[];
-  /** Nombre d'enregistrements par magasin, pour la vérification à blanc. */
+  /**
+   * Nombre d'enregistrements par magasin — **les scellés exceptés** (M-2).
+   *
+   * En version 1, tous les magasins y figuraient, y compris ceux du cycle et
+   * de la santé : leur compte se lisait dans un éditeur de texte sans mot de
+   * passe. Depuis la version 2, les magasins scellés n'y sont plus, et leur
+   * total est rendu à part.
+   */
   magasins: Record<string, number>;
+  /**
+   * Ce que portent les magasins SCELLÉS, en un seul nombre (version 2 et plus).
+   *
+   * Absent d'un fichier de version 1, où les scellés étaient comptés un par un
+   * dans `magasins`. Sa présence ne dit donc pas seulement combien : elle dit
+   * aussi que ce fichier vient d'une version qui sait se taire.
+   */
+  scelles?: { total: number };
   /** `null` quand la personne a explicitement désactivé le chiffrement. */
   chiffrement: ParametresChiffrement | null;
   compression: 'gzip' | null;
@@ -259,6 +340,42 @@ export interface OptionsEcriture {
   versionApplication: string;
   portee: EnTeteSauvegarde['portee'];
   /**
+   * Les magasins SCELLÉS, pour que leurs comptes quittent le clair (M-2).
+   *
+   * Donnés par l'appelant, et non lus ici : ce module est PUR, et importer le
+   * registre du coffre lui ferait connaître IndexedDB par la bande. C'est la
+   * même raison qui fait qu'il ne connaît aucune liste de magasins — il n'a
+   * accès qu'à ce qu'on lui passe, et c'est ce qui rend démontrable qu'il ne
+   * peut pas emporter de secret.
+   *
+   * Omise, aucun magasin n'est traité comme scellé : un appelant qui n'en sait
+   * rien écrit un fichier de version 2 dont tous les comptes sont en clair,
+   * ce qui est le comportement de la version 1 et ne surprend personne.
+   */
+  magasinsScelles?: readonly string[];
+  /**
+   * Écrire dans une version ANTÉRIEURE du format. Par défaut, la courante.
+   *
+   * ## Pourquoi cette porte existe, et ce qu'elle garde
+   *
+   * La version 2 promet de relire les fichiers de version 1. Une promesse de
+   * compatibilité qui n'est pas MESURÉE est une promesse qui n'existe pas : on
+   * la croit tenue jusqu'au jour où quelqu'un a besoin d'une sauvegarde
+   * ancienne, c'est-à-dire le jour où il a déjà perdu quelque chose.
+   *
+   * Or un essai ne peut pas fabriquer un fichier de version 1 sans ce
+   * paramètre : la dérivation de clé n'est pas exportée, et la réécrire dans
+   * l'essai serait exactement la duplication que ce module refuse pour le
+   * chiffrement — « deux chaînes de chiffrement, dont une moins relue, et un
+   * bogue qui n'apparaîtrait que dans l'une des deux ».
+   *
+   * Elle sert donc à éprouver la relecture des anciens fichiers avec de VRAIS
+   * anciens fichiers. Rien dans l'application ne la passe, et le défaut vaut
+   * la version courante : personne n'écrit une version périmée par
+   * inadvertance.
+   */
+  versionFormat?: number;
+  /**
    * Le mot de passe du site. `null` désactive explicitement le chiffrement —
    * l'appelant doit alors avoir averti la personne.
    */
@@ -282,26 +399,87 @@ export interface Sauvegarde {
   tailleFichier: number;
 }
 
+/**
+ * La ligne d'en-tête telle qu'elle sera écrite, et les octets à authentifier.
+ *
+ * Les deux ne diffèrent que par la valeur de la somme : les données associées
+ * la portent en zéros, puisqu'on ne la connaît pas encore au moment de
+ * chiffrer. La relecture refait exactement la même substitution sur la ligne
+ * LUE DANS LE FICHIER, ce qui garantit que les deux côtés authentifient les
+ * mêmes octets sans jamais re-sérialiser.
+ */
+function donneesAssociees(ligne: string): Uint8Array {
+  return encodeur.encode(ligne);
+}
+
+/** Remplace la valeur de la somme par des zéros, dans une ligne d'en-tête. */
+function sommeEnZeros(ligne: string): string {
+  return ligne.replace(
+    /("valeur":")[0-9a-f]{64}(")/,
+    (_tout, avant: string, apres: string) => `${avant}${SOMME_EN_ATTENTE}${apres}`,
+  );
+}
+
 export async function ecrire(options: OptionsEcriture): Promise<Sauvegarde> {
   const maintenant = options.maintenant ?? new Date();
 
   const clair = serialiser(options.magasins);
   const compresse = compressionDisponible() ? await comprimer(clair) : clair;
 
+  /*
+     LES COMPTES SE SÉPARENT AVANT TOUT LE RESTE — M-2. Ce qui est scellé n'est
+     compté qu'en bloc ; ce qui ne l'est pas garde son compte nommé, parce que
+     c'est ce qui rend la vérification à blanc utile.
+  */
+  const scelles = new Set(options.magasinsScelles ?? []);
+  const comptes = Object.entries(options.magasins).map(
+    ([nom, v]) => [nom, v.length] as const,
+  );
+  const magasinsEnClair = Object.fromEntries(comptes.filter(([nom]) => !scelles.has(nom)));
+  const totalScelle = comptes
+    .filter(([nom]) => scelles.has(nom))
+    .reduce((somme, [, n]) => somme + n, 0);
+
   let chargeUtile: Octets = compresse;
   let chiffrement: ParametresChiffrement | null = null;
+  /*
+     L'EN-TÊTE EST CONSTRUIT AVANT LE CHIFFREMENT, et c'est tout le dessin de
+     M-1 : il doit exister pour servir de données associées. Sa somme n'est pas
+     encore connue — elle porte sur le chiffré — donc elle part en zéros et
+     sera remplacée après.
+  */
+  const version = options.versionFormat ?? VERSION_FORMAT;
+  const enTeteSansSomme = (parametres: ParametresChiffrement | null) => ({
+    format: 'cyclades-sauvegarde' as const,
+    versionFormat: version,
+    versionApplication: options.versionApplication,
+    creeLe: maintenant.toISOString(),
+    branches: options.branches,
+    /*
+       EN VERSION 1, TOUS LES COMPTES SONT EN CLAIR — c'est précisément ce que
+       M-2 corrige, et un fichier écrit en version 1 doit l'être comme un
+       vrai, sans quoi l'essai de compatibilité éprouverait un fichier qui n'a
+       jamais existé.
+    */
+    magasins: version > VERSION_SANS_EN_TETE_AUTHENTIFIE
+      ? magasinsEnClair
+      : Object.fromEntries(comptes),
+    ...(version > VERSION_SANS_EN_TETE_AUTHENTIFIE ? { scelles: { total: totalScelle } } : {}),
+    chiffrement: parametres,
+    compression: compressionDisponible() ? ('gzip' as const) : null,
+    sommeDeControle: {
+      algorithme: 'SHA-256' as const,
+      porte: 'octets-de-la-charge-utile' as const,
+      valeur: SOMME_EN_ATTENTE,
+    },
+    portee: options.portee,
+  });
 
   if (options.motDePasse !== null) {
     const iterations = options.iterations ?? ITERATIONS_PAR_DEFAUT;
     const sel = aleatoires(16);
     const iv = aleatoires(12);
     const cle = await deriver(options.motDePasse, sel, iterations);
-    const chiffre = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv: iv as BufferSource },
-      cle,
-      compresse as BufferSource,
-    );
-    chargeUtile = new Uint8Array(chiffre);
     chiffrement = {
       kdf: 'PBKDF2-SHA256',
       iterations,
@@ -309,23 +487,41 @@ export async function ecrire(options: OptionsEcriture): Promise<Sauvegarde> {
       chiffrement: 'AES-GCM',
       iv: octetsVersBase64(iv),
     };
+    /*
+       Les données associées sont la ligne d'en-tête COMPLÈTE, paramètres de
+       chiffrement compris. Le sel et le vecteur d'initialisation sont donc
+       authentifiés eux aussi : les changer ferait échouer le déchiffrement au
+       lieu de produire du bruit.
+    */
+    const aad =
+      version > VERSION_SANS_EN_TETE_AUTHENTIFIE
+        ? donneesAssociees(JSON.stringify(enTeteSansSomme(chiffrement)))
+        : undefined;
+    const chiffre = await crypto.subtle.encrypt(
+      {
+        name: 'AES-GCM',
+        iv: iv as BufferSource,
+        ...(aad ? { additionalData: aad as BufferSource } : {}),
+      },
+      cle,
+      compresse as BufferSource,
+    );
+    chargeUtile = new Uint8Array(chiffre);
   }
 
   const somme = await sha256(chargeUtile);
 
-  const entete: EnTeteSauvegarde = {
-    format: 'cyclades-sauvegarde',
-    versionFormat: VERSION_FORMAT,
-    versionApplication: options.versionApplication,
-    creeLe: maintenant.toISOString(),
-    branches: options.branches,
-    magasins: Object.fromEntries(
-      Object.entries(options.magasins).map(([nom, v]) => [nom, v.length]),
-    ),
-    chiffrement,
-    compression: compressionDisponible() ? 'gzip' : null,
-    sommeDeControle: { algorithme: 'SHA-256', porte: 'octets-de-la-charge-utile', valeur: somme },
-    portee: options.portee,
+  /*
+     LA SOMME PREND SA PLACE, et la ligne écrite ne diffère de celle qui a
+     servi de données associées que par ces soixante-quatre signes. La
+     relecture n'a donc qu'à les remettre en zéros pour retrouver les mêmes
+     octets — sans re-sérialiser, et sans dépendre de l'ordre des clés.
+  */
+  const entete: EnTeteSauvegarde = { ...enTeteSansSomme(chiffrement) };
+  entete.sommeDeControle = {
+    algorithme: 'SHA-256',
+    porte: 'octets-de-la-charge-utile',
+    valeur: somme,
   };
 
   const octets = concatener([
@@ -384,6 +580,23 @@ export class SauvegardeRefusee extends Error {
  * ce que contient un fichier avant de demander quoi que ce soit à la personne,
  * et avant d'appliquer quoi que ce soit.
  */
+/**
+ * La ligne d'en-tête telle qu'elle est écrite dans le fichier, non reparsée.
+ *
+ * Elle sert aux données associées de la version 2 : ce sont les OCTETS RÉELS
+ * qui ont été authentifiés, et les retrouver par une re-sérialisation serait
+ * parier sur l'ordre des clés d'un JSON relu — que rien ne garantit.
+ */
+export function ligneDEnTete(octets: Octets): string {
+  const sautLigne = 10;
+  const premier = octets.indexOf(sautLigne);
+  const second = premier < 0 ? -1 : octets.indexOf(sautLigne, premier + 1);
+  if (premier < 0 || second < 0) {
+    throw new SauvegardeRefusee('entete-illisible', 'L’en-tête de la sauvegarde est tronqué.');
+  }
+  return decodeur.decode(octets.subarray(premier + 1, second));
+}
+
 export function lireEnTete(octets: Octets, genreAttendu?: Genre): EnTeteSauvegarde {
   const sautLigne = 10;
   const premier = octets.indexOf(sautLigne);
@@ -521,14 +734,46 @@ export async function relire(
       base64VersOctets(entete.chiffrement.sel),
       entete.chiffrement.iterations,
     );
+    /*
+       LES DONNÉES ASSOCIÉES, POUR LA VERSION 2 ET AU-DELÀ — M-1.
+
+       On reprend la ligne d'en-tête TELLE QU'ELLE EST DANS LE FICHIER et on y
+       remet la somme en zéros : ce sont exactement les octets que l'écriture a
+       authentifiés. Un en-tête modifié — une date, une branche, un compte, le
+       sel lui-même — fait échouer le déchiffrement, là où la version 1 le
+       laissait passer sans un mot.
+
+       Un fichier de version 1 n'a pas été écrit avec données associées : lui
+       en passer le rendrait illisible. C'est la version du fichier qui décide,
+       jamais la version de ce code, et c'est ce qui permet de relire les
+       sauvegardes d'hier — celles dont on a justement besoin le jour où
+       quelque chose a été perdu.
+    */
+    const aad =
+      entete.versionFormat > VERSION_SANS_EN_TETE_AUTHENTIFIE
+        ? donneesAssociees(sommeEnZeros(ligneDEnTete(octets)))
+        : undefined;
     try {
       const clair = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: base64VersOctets(entete.chiffrement.iv) as BufferSource },
+        {
+          name: 'AES-GCM',
+          iv: base64VersOctets(entete.chiffrement.iv) as BufferSource,
+          ...(aad ? { additionalData: aad as BufferSource } : {}),
+        },
         cle,
         chargeUtile as BufferSource,
       );
       chargeUtile = new Uint8Array(clair);
     } catch {
+      /*
+         DEUX CAUSES, UN SEUL MESSAGE, ET C'EST DÉLIBÉRÉ. Depuis la version 2,
+         cet échec peut venir d'un mot de passe qui n'ouvre pas, ou d'un
+         en-tête modifié. Les distinguer demanderait de réessayer sans les
+         données associées pour voir — c'est-à-dire d'accepter une fois ce
+         qu'on refuse, et de le dire à qui a modifié le fichier. Le message
+         reste donc celui du mot de passe, qui est la cause de loin la plus
+         probable et la seule que la personne puisse corriger.
+      */
       throw new SauvegardeRefusee(
         'mot-de-passe',
         'Ce mot de passe n’ouvre pas cette sauvegarde. Si elle est antérieure à un ' +

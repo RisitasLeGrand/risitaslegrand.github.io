@@ -266,6 +266,28 @@ export async function fabriquerPaquet(
     // Ce qu'on détient de chacun : c'est ce qui autorisera l'autre à compacter.
     recuDe: await detenuParAppareil(),
     motDePasse,
+    /*
+       PAS DE `magasinsScelles` ICI, ET C'EST MESURÉ PLUTÔT QUE SUPPOSÉ — M-2.
+
+       Un paquet emporte `operations` et `revisions`, et aucun des deux n'est
+       au registre des magasins scellés (`noyau/coffre.ts`) : il n'y a donc
+       aucun compte sensible à retirer de l'en-tête d'un paquet. Ce que les
+       opérations portent de scellé l'est enregistrement par enregistrement, et
+       voyage chiffré.
+
+       M-1, en revanche, s'applique au paquet SANS RIEN CHANGER ICI : l'en-tête
+       d'un paquet passe par le même `ecrire`, donc il est authentifié comme
+       celui d'une sauvegarde. C'est le bénéfice d'avoir une seule chaîne de
+       chiffrement pour les deux, et la raison pour laquelle le module le dit
+       en tête — « écrire une seconde implémentation de cette discipline serait
+       la vraie faute de ce chantier ».
+
+       CE QU'IL FAUT SAVOIR DE LA COMPATIBILITÉ : un paquet de version 2 envoyé
+       à un appareil restant en version 1 est REFUSÉ par `lireEnTete`, avec le
+       message « mettez Cyclades à jour ». C'est le bon comportement — deviner
+       le sens d'un champ inconnu ferait plus de dégâts — mais cela veut dire
+       que deux appareils doivent monter de version pour continuer d'échanger.
+    */
     versionApplication: 'cyclades',
     iterations: options.iterations,
   });
