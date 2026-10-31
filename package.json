@@ -383,7 +383,8 @@
     "essais:contraste-impose": "node scripts/essais-contraste-impose-navigateur.mjs",
     "essais:temoin-sync:navigateur": "node scripts/essais-temoin-sync-navigateur.mjs",
     "essais:contours:navigateur": "node scripts/essais-contours-de-controle-navigateur.mjs",
-    "essais:laterale:navigateur": "node scripts/essais-barre-laterale-navigateur.mjs"
+    "essais:laterale:navigateur": "node scripts/essais-barre-laterale-navigateur.mjs",
+    "essais:pcct:navigateur": "node scripts/essais-pcct-navigateur.mjs"
   },
   "repository": {
     "type": "git",

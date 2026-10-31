@@ -43,6 +43,21 @@ export interface Reglages {
   /** Plage des nombres présentés. */
   nombreMin: number;
   nombreMax: number;
+  /**
+   * La fenêtre du délai de grâce, en millisecondes. Zéro éteint l'aide.
+   *
+   * Le réglage est ici, avec les autres, parce qu'il se valide, se borne et se
+   * met par défaut comme eux ; la RÈGLE qu'il commande est dans `grace.ts`.
+   */
+  delaiDeGrace: number;
+  /**
+   * L'ordre d'affichage du pavé de réponse.
+   *
+   * « melange » le remélange À CHAQUE ESSAI — c'est `paveDeLEssai` qui le
+   * tient, en semant sur le rang de l'essai. La référence porte le même
+   * réglage et ne mélange qu'une fois par séance.
+   */
+  ordrePave: 'croissant' | 'decroissant' | 'melange';
   /** Mémoire prospective. */
   prospectiveActive: boolean;
   /** Fenêtre de réponse d'une consigne, en millisecondes. */
@@ -83,6 +98,7 @@ export const BORNES = {
   precisionCible: { min: 50, max: 99, pas: 1 },
   nombreMin: { min: 0, max: 99, pas: 1 },
   nombreMax: { min: 1, max: 99, pas: 1 },
+  delaiDeGrace: { min: 0, max: 600, pas: 50 },
   prospectiveFenetre: { min: 500, max: 10000, pas: 100 },
   prospectiveEnAttente: { min: 1, max: 5, pas: 1 },
   prospectiveHorizon: { min: 10000, max: 180000, pas: 1000 },
@@ -109,6 +125,16 @@ export const DEFAUTS: Readonly<Reglages> = Object.freeze({
   precisionCible: 85,
   nombreMin: 1,
   nombreMax: 9,
+  /*
+     Trois cents millisecondes, et c'est MON choix, non une valeur relevée dans
+     la référence — dont la fenêtre existe mais ne sert jamais, de sorte
+     qu'aucune valeur n'y a été éprouvée. Trois cents est le temps d'un doigt
+     qui descend : assez pour rattraper une frappe partie trop tard, trop court
+     pour qu'on puisse répondre deux fois au même nombre. À reprendre si
+     l'usage le démentait.
+  */
+  delaiDeGrace: 300,
+  ordrePave: 'melange',
   prospectiveActive: true,
   prospectiveFenetre: 3000,
   prospectiveEnAttente: 2,

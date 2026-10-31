@@ -1,0 +1,86 @@
+---
+/**
+ * Exercice PCCT — calcul cadencé et mémoire prospective.
+ *
+ * Aucune donnée du concours : la page n'est pas chiffrée, mais elle reste
+ * derrière l'écran de connexion comme le reste du site.
+ */
+import Base from '../../layouts/Base.astro';
+import PCCT from '../../features/pcct/composants/PCCT.svelte';
+---
+
+<Base titre="PCCT" actif="pcct">
+  <header class="mb-5">
+    <a
+      id="retour"
+      href="../"
+      class="cible-tactile text-sm font-medium text-indigo-600 hover:underline dark:text-indigo-400"
+      >← Entraînement cognitif</a
+    >
+    <h1 class="mt-1 text-2xl font-bold text-slate-900 dark:text-white">
+      Calcul cadencé et mémoire prospective
+    </h1>
+    <p class="text-sm font-medium text-slate-500 dark:text-slate-400">PCCT</p>
+    <p class="mt-1 max-w-3xl text-sm text-slate-500 dark:text-slate-400">
+      Des nombres paraissent l'un après l'autre, à cadence qui s'ajuste. À chacun, il s'agit de
+      l'opérer avec celui d'il y a <em>n</em> positions — une somme, une différence, un produit, un
+      quotient — et de répondre avant le suivant. Le premier nombre ne se calcule pas : il n'a rien
+      derrière lui.
+    </p>
+
+    <details class="mt-3 max-w-3xl text-sm">
+      <summary class="cursor-pointer text-indigo-600 hover:underline dark:text-indigo-400">
+        Ce que mesure l'exercice, ce qu'il ne promet pas, et d'où il vient
+      </summary>
+      <div class="mt-2 space-y-3 text-slate-500 dark:text-slate-400">
+        <p>
+          <strong>Deux choses à la fois, et c'est le sujet.</strong> Le calcul occupe l'attention ;
+          la mémoire prospective demande de retenir une intention — « quand telle chose paraîtra,
+          appuyer sur telle touche » — et de la retrouver au bon moment, sans que rien ne la
+          rappelle. C'est cette seconde partie qui est rare dans les exercices d'entraînement, et
+          elle ne se mesure qu'en la posant par-dessus une tâche qui occupe déjà.
+        </p>
+        <p>
+          <strong>La cadence s'ajuste, et de trois façons.</strong> « Standard » demande quatre
+          justes sur cinq avant d'accélérer ; « douce » ajuste à chaque essai, d'un pas court ;
+          « precision » vise un pourcentage et borne son ajustement, afin de ne pas osciller.
+          L'intervalle atteint est donc une mesure, et c'est elle que le bilan garde.
+        </p>
+        <p>
+          <strong>La découverte n'enregistre rien.</strong> Une minute pour comprendre la tâche :
+          ni essai, ni séance, ni expérience. Un premier passage où l'on cherche les règles n'est
+          pas une mesure, et le compter abîmerait la seule courbe qui servira.
+        </p>
+        <p>
+          <strong>Ce que ce n'est pas.</strong> C'est un entraînement. Ce n'est ni un test
+          clinique, ni un diagnostic, et
+          <strong>rien ne garantit que s'y entraîner améliore quoi que ce soit ailleurs</strong> :
+          le transfert d'un entraînement cognitif vers des tâches non entraînées reste une question
+          ouverte. C'est de l'exercice sur une tâche difficile.
+        </p>
+      </div>
+    </details>
+  </header>
+
+  <div id="chargement" class="py-20 text-center text-slate-400">Chargement de l'exercice…</div>
+
+  <div id="exercice" class="hidden">
+    <!--
+      client:only : la synthèse vocale et la minuterie ne sont chargées que sur
+      cette page, jamais au chargement des autres pages du site.
+    -->
+    <PCCT client:only="svelte" />
+  </div>
+</Base>
+
+<script>
+  import { auDeverrouillage } from '../../lib/chargement';
+  import { lien } from '../../lib/ui';
+
+  document.getElementById('retour')!.setAttribute('href', lien('/cog-training/'));
+
+  auDeverrouillage(() => {
+    document.getElementById('chargement')!.classList.add('hidden');
+    document.getElementById('exercice')!.classList.remove('hidden');
+  });
+</script>
