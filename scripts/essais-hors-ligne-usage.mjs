@@ -100,12 +100,84 @@ const cleMemorisee = () =>
     }
   });
 
+/**
+ * Attend une condition, et REND ce qu'elle a trouvé — en vrai ou en faux.
+ *
+ * ## La distinction qui rend cette aide nécessaire
+ *
+ * Plusieurs assertions de ce fichier lisent exactement ce qu'il faudrait
+ * attendre : « la clé est mémorisée », « la tâche est enregistrée ».
+ * Attendre la condition avec un `waitForFunction` rendrait l'assertion
+ * incapable d'échouer — elle ne pourrait plus que lever, en panne et non en
+ * rouge nommé, loin de la ligne qui aurait dû accuser.
+ *
+ * Une boucle qui RAPPORTE son échec, en revanche, n'est pas une tautologie :
+ * si la borne est atteinte sans que la condition soit vraie, elle rend faux,
+ * l'assertion lit faux, et le rouge tombe à sa place avec son intitulé. La
+ * borne remplace le pari ; elle ne remplace pas le verdict.
+ *
+ * C'est la même forme que `devientVisible` dans `lib/post-condition.mjs`, et
+ * c'est pour la même raison.
+ */
+const attendreQue = async (lire, { delai = 15000, pas = 100 } = {}) => {
+  const fin = Date.now() + delai;
+  for (;;) {
+    if (await lire()) return true;
+    if (Date.now() > fin) return false;
+    await page.waitForTimeout(pas);
+  }
+};
+
+/** Le volume de texte rendu dans `main` : zéro tant que l'écran est vide. */
+const signesDuMain = () =>
+  page.evaluate(
+    () => (document.querySelector('main')?.innerText || '').replace(/\s+/g, ' ').trim().length,
+  );
+
+/**
+ * Attend que `main` ait FINI de se garnir — deux mesures égales de suite.
+ *
+ * ## Pourquoi pas un seuil, et pourquoi pas « plus de zéro »
+ *
+ * Mon premier essai attendait « plus de zéro signe ». Trois écrans sont
+ * tombés : ils peignent leur coquille d'abord, se garnissent ensuite, et
+ * l'attente rendait la main sur la coquille. L'assertion, qui exige plus de
+ * cent signes, lisait donc un écran à moitié peint et accusait le site d'un
+ * défaut qu'il n'a pas.
+ *
+ * Attendre « plus de cent signes » aurait été le symétrique fautif : c'est
+ * exactement la moitié de ce que l'assertion vérifie, et l'attendre revient
+ * à la garantir. Il ne resterait à l'assertion que le verrou à contrôler.
+ *
+ * Ce qui se laisse attendre sans rien décider, c'est la STABILITÉ : le texte
+ * a cessé de changer. Un écran qui finirait à vingt signes se stabiliserait à
+ * vingt, et l'assertion tomberait — correctement. L'attente dit « c'est
+ * fini », l'assertion dit « et voilà ce que ça vaut ».
+ */
+const garnissageFini = async ({ delai = 15000, pas = 150 } = {}) => {
+  const fin = Date.now() + delai;
+  let precedent = -1;
+  for (;;) {
+    const ici = await signesDuMain();
+    if (ici > 0 && ici === precedent) return ici;
+    if (Date.now() > fin) return ici;
+    precedent = ici;
+    await page.waitForTimeout(pas);
+  }
+};
+
 /* ---- 1. En ligne : on déverrouille et on mémorise ----------------------- */
 
 console.log('\nEN LIGNE');
 await franchirInitialisation(page, RACINE, MDP);
 await page.goto(`${RACINE}/odyssee/taches/`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(3000);
+/*
+   L'écran rendu d'abord : sans cela, « la clé est mémorisée » se lirait
+   avant que les scripts de la page aient tourné, et dirait faux d'une
+   installation parfaitement saine.
+*/
+await garnissageFini();
+await attendreQue(cleMemorisee);
 /*
    La prémisse, et elle est tout sauf décorative : si la clé n'est pas
    mémorisée en ligne, la suite mesurerait la disparition d'une chose qui
@@ -168,7 +240,13 @@ if (reponse !== 200) {
   console.log(`\n\x1b[31m${rouges} rouge(s).\x1b[0m`);
   process.exit(1);
 }
-await page.waitForTimeout(4000);
+/*
+   DEUX FAITS APRÈS LE RECHARGEMENT HORS LIGNE : l'écran se rend depuis le
+   cache, et la clé doit avoir survécu. Les 4000 ms couvraient les deux sans
+   le dire.
+*/
+await garnissageFini();
+await attendreQue(cleMemorisee);
 
 verifier('et la clé mémorisée a SURVÉCU au passage hors ligne', await cleMemorisee(), true);
 
@@ -206,7 +284,13 @@ for (const chemin of AUTRES) {
     rouges += 1;
     continue;
   }
-  await page.waitForTimeout(3000);
+  /*
+     On attend que `main` porte DU texte ; l'assertion, elle, exige plus de
+     cent signes. L'attente est donc strictement plus faible que ce qui est
+     affirmé : un écran qui s'ouvrirait presque vide ferait tomber
+     l'assertion au lieu de faire expirer l'attente.
+  */
+  await garnissageFini();
   const rendu = await page.evaluate(() => ({
     verrou: Boolean(document.getElementById('champ-mdp')?.offsetParent),
     /* Le volume du texte rendu : un écran vide s'ouvrirait sans rien dire. */
@@ -220,7 +304,12 @@ for (const chemin of AUTRES) {
 
 /* On revient à l'écran des tâches pour y écrire. */
 await page.goto(`${RACINE}/odyssee/taches/`, { waitUntil: 'load', timeout: 60000 }).catch(() => {});
-await page.waitForTimeout(3000);
+/*
+   Le champ d'ajout EST ce que la ligne suivante cherche, et son absence est
+   un rouge nommé juste en dessous : on l'attend donc par une boucle qui
+   rapporte, et non par une attente qui lèverait.
+*/
+await attendreQue(() => page.locator('#titre').isVisible().catch(() => false));
 
 /* L'écriture, qui est la moitié oubliée de « s'ouvrir hors ligne ». */
 const champ = page.locator('#titre');
@@ -231,7 +320,12 @@ if (!(await champ.isVisible().catch(() => false))) {
   const n = (await taches())?.length ?? -1;
   await champ.fill(TITRE);
   await page.locator('#ajout button[type=submit]').click();
-  await page.waitForTimeout(2500);
+  /*
+     L'écriture en base est le fait attendu, et c'est la base que les deux
+     assertions lisent. On attend qu'une tâche de plus y soit — sans dire
+     laquelle : l'assertion suivante dit que c'est la nôtre.
+  */
+  await attendreQue(async () => ((await taches())?.length ?? -1) > n);
   const apres = await taches();
   verifier('une tâche écrite hors ligne est enregistrée', (apres?.length ?? -1) - n, 1);
   verifier('et c’est bien la nôtre', apres?.includes(TITRE), true);
@@ -242,7 +336,17 @@ if (!(await champ.isVisible().catch(() => false))) {
 console.log('\nAU RETOUR DU RÉSEAU');
 await ctx.setOffline(false);
 await page.goto(`${RACINE}/odyssee/taches/`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(3500);
+/*
+   AU RETOUR DU RÉSEAU, trois assertions portent sur la base : la tâche est
+   toujours là, elle n'est pas doublée, la clé tient. La seconde est de celles
+   qui ne peuvent pas s'attendre — un doublement est une chose qui NE DOIT PAS
+   arriver —, mais les deux autres sont des faits positifs. On attend donc que
+   l'écran soit rendu et que la base porte la tâche ; le doublement, s'il
+   devait survenir, surviendrait dans cet intervalle, puisque c'est la
+   synchronisation du retour en ligne qui le produirait.
+*/
+await garnissageFini();
+await attendreQue(async () => Boolean((await taches())?.includes(TITRE)));
 const final = await taches();
 verifier('la tâche écrite hors ligne est toujours là', final?.includes(TITRE), true);
 /*
