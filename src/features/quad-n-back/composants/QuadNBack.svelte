@@ -57,6 +57,73 @@
     touches: { ...TOUCHES_DEFAUT },
   };
 
+  /*
+     LES BORNES, EN UN SEUL ENDROIT.
+
+     Elles vivaient dans les attributs du balisage, et nulle part ailleurs.
+     `chargerReglages` restaurait donc `localStorage` TEL QUEL, sans jamais le
+     confronter ni au type, ni aux bornes, ni au pas : un réglage enregistré
+     par une version antérieure, ou un stockage retouché, entrait dans l'état
+     et partait au moteur. Rien ne le corrigeait avant un appui sur un bouton.
+
+     Écrire un validateur qui répéterait ces nombres en aurait fait une
+     TROISIÈME source. Cette table est donc lue par les deux : le balisage des
+     curseurs en bas de ce fichier, et le validateur juste dessous.
+
+     `n` monte jusqu'à `N_MAXIMAL`, la constante du moteur — c'est elle qui
+     décide jusqu'où la progression automatique peut aller.
+  */
+  const BORNES = {
+    n: { min: 1, max: N_MAXIMAL, pas: 1 },
+    epreuves: { min: 10, max: 60, pas: 2 },
+    dureeEpreuve: { min: 1500, max: 5000, pas: 250 },
+    tauxCorrespondance: { min: 10, max: 50, pas: 5 },
+    interference: { min: 0, max: 60, pas: 5 },
+  };
+  const BORNES_PROGRESSION = {
+    seuilMontee: { min: 50, max: 100, pas: 5 },
+    partiesMontee: { min: 1, max: 5, pas: 1 },
+    seuilDescente: { min: 10, max: 80, pas: 5 },
+    partiesDescente: { min: 1, max: 5, pas: 1 },
+  };
+
+  /**
+   * Ramène une valeur sur sa grille et dans ses bornes, ou rend le défaut.
+   *
+   * Ce qui n'est pas un nombre fini — une chaîne, `null`, `NaN`, un objet —
+   * retombe sur la valeur par défaut : on ne devine pas ce qu'un stockage
+   * abîmé voulait dire. Ce qui EST un nombre est ramené, parce qu'une valeur
+   * de 11 là où le pas est de 2 dit clairement 10 ou 12.
+   *
+   * On borne AVANT de ramener sur la grille, puis on redescend d'un cran si
+   * l'arrondi a dépassé le maximum : l'ordre inverse pourrait rendre une
+   * valeur hors bornes si un maximum n'était pas lui-même sur la grille.
+   */
+  function valeurValide(brut, bornes, defaut) {
+    /*
+       LE TYPE, ET NON LA COERCITION. `Number(null)` vaut 0, `Number('')`
+       vaut 0, `Number([])` vaut 0 : passer par `Number` ferait de trois
+       valeurs qui ne sont pas des nombres une valeur numérique parfaitement
+       valide, et `interference: null` deviendrait 0 — son minimum — au lieu
+       de retrouver son défaut.
+
+       On exige donc un nombre, et un nombre fini. Une valeur enregistrée en
+       CHAÎNE par une version antérieure retombe sur le défaut : c'est plus
+       sûr que de deviner, et le défaut est une valeur que l'écran sait
+       représenter.
+    */
+    if (typeof brut !== 'number' || !Number.isFinite(brut)) return defaut;
+    const pas = bornes.pas ?? 1;
+    const bornee = Math.min(bornes.max, Math.max(bornes.min, brut));
+    const crans = Math.round((bornee - bornes.min) / pas);
+    const surGrille = bornes.min + crans * pas;
+    return surGrille > bornes.max ? bornes.min + (crans - 1) * pas : surGrille;
+  }
+
+  /** Les clés de dimension et de motif que le moteur connaît. */
+  const CLES_DIMENSIONS = new Set(DIMENSIONS.map((d) => d.cle));
+  const CLES_MOTIF = new Set(SOURCES_MOTIF.map((m) => m.cle));
+
   /** Touches réservées par l'interface, qu'on refuse d'affecter à une dimension. */
   const TOUCHES_RESERVEES = new Set(['escape', 'tab', 'enter', ' ', 'f5']);
 
@@ -235,6 +302,50 @@
   let erreurHistorique = $state('');
 
   // --- Réglages mémorisés -------------------------------------------------
+  /**
+   * Confronte des réglages restaurés au type, aux bornes et au pas.
+   *
+   * Les cinq curseurs principaux et les quatre de la progression passent par
+   * `valeurValide`. Le reste est contrôlé par son TYPE, et non par sa valeur :
+   *
+   * - `dimensions` doit être une liste non vide de clés que le moteur
+   *   connaît. Une dimension inconnue ferait une partie qu'il ne sait pas
+   *   construire ; une liste vide, une partie sans rien à comparer ;
+   * - `sourceMotif` doit être l'une des sources déclarées ;
+   * - les deux interrupteurs doivent être des booléens, et non « true » en
+   *   chaîne, qui est vrai par coercition et dit autre chose ;
+   * - `progression.active` de même.
+   *
+   * `touches` n'est pas validé ici : la fusion profonde lui a déjà rendu les
+   * touches par défaut pour toute dimension absente, et l'écran refuse déjà
+   * les touches réservées au moment où on les affecte.
+   */
+  function validerLesReglages(r) {
+    const valide = { ...r };
+    for (const [cle, bornes] of Object.entries(BORNES)) {
+      valide[cle] = valeurValide(r[cle], bornes, REGLAGES_DEFAUT[cle]);
+    }
+    const progression = { ...r.progression };
+    for (const [cle, bornes] of Object.entries(BORNES_PROGRESSION)) {
+      progression[cle] = valeurValide(r.progression?.[cle], bornes, PROGRESSION_DEFAUT[cle]);
+    }
+    progression.active =
+      typeof r.progression?.active === 'boolean' ? r.progression.active : PROGRESSION_DEFAUT.active;
+    valide.progression = progression;
+
+    const dimensions = Array.isArray(r.dimensions)
+      ? r.dimensions.filter((d) => CLES_DIMENSIONS.has(d))
+      : [];
+    valide.dimensions = dimensions.length > 0 ? dimensions : [...REGLAGES_DEFAUT.dimensions];
+    valide.sourceMotif = CLES_MOTIF.has(r.sourceMotif)
+      ? r.sourceMotif
+      : REGLAGES_DEFAUT.sourceMotif;
+    for (const cle of ['grille3D', 'retourImmediat']) {
+      valide[cle] = typeof r[cle] === 'boolean' ? r[cle] : REGLAGES_DEFAUT[cle];
+    }
+    return valide;
+  }
+
   function chargerReglages() {
     try {
       const brut = localStorage.getItem(CLE_REGLAGES);
@@ -242,12 +353,22 @@
         const enregistre = JSON.parse(brut);
         // Fusion en profondeur pour « touches » : une dimension ajoutée plus
         // tard doit garder sa touche par défaut plutôt que de disparaître.
-        reglages = {
+        const fusionne = {
           ...REGLAGES_DEFAUT,
           ...enregistre,
           touches: { ...TOUCHES_DEFAUT, ...(enregistre.touches ?? {}) },
           progression: { ...PROGRESSION_DEFAUT, ...(enregistre.progression ?? {}) },
         };
+        /*
+           ET ON LE CONFRONTE À CE QUI EST POSSIBLE.
+
+           Rien n'est réécrit dans le stockage ici : la correction vaut pour
+           l'état, et le stockage ne change qu'au premier geste réel —
+           `memoriserReglages` n'est appelée que depuis les gestes. Réécrire
+           au chargement effacerait en silence un réglage qu'une version
+           ultérieure saurait peut-être relire.
+        */
+        reglages = validerLesReglages(fusionne);
       }
     } catch {
       /* navigation privée */
@@ -866,8 +987,9 @@
           -->
           <CurseurRegle
             id="niveau-n"
-            min="1"
-            max={N_MAXIMAL}
+            min={BORNES.n.min}
+            max={BORNES.n.max}
+            pas={BORNES.n.pas}
             libelle="le nombre de tours en arrière"
             classe="accent-indigo-600"
             bind:value={reglages.n}
@@ -883,9 +1005,9 @@
           </label>
           <CurseurRegle
             id="nb-epreuves"
-            min="10"
-            max="60"
-            pas="2"
+            min={BORNES.epreuves.min}
+            max={BORNES.epreuves.max}
+            pas={BORNES.epreuves.pas}
             libelle="le nombre d’épreuves"
             classe="accent-indigo-600"
             bind:value={reglages.epreuves}
@@ -907,9 +1029,9 @@
           </label>
           <CurseurRegle
             id="duree"
-            min="1500"
-            max="5000"
-            pas="250"
+            min={BORNES.dureeEpreuve.min}
+            max={BORNES.dureeEpreuve.max}
+            pas={BORNES.dureeEpreuve.pas}
             libelle="la durée d’une épreuve"
             classe="accent-indigo-600"
             bind:value={reglages.dureeEpreuve}
@@ -922,9 +1044,9 @@
           </label>
           <CurseurRegle
             id="taux-corr"
-            min="10"
-            max="50"
-            pas="5"
+            min={BORNES.tauxCorrespondance.min}
+            max={BORNES.tauxCorrespondance.max}
+            pas={BORNES.tauxCorrespondance.pas}
             libelle="le taux de correspondance"
             classe="accent-indigo-600"
             bind:value={reglages.tauxCorrespondance}
@@ -938,9 +1060,9 @@
           </label>
           <CurseurRegle
             id="interf"
-            min="0"
-            max="60"
-            pas="5"
+            min={BORNES.interference.min}
+            max={BORNES.interference.max}
+            pas={BORNES.interference.pas}
             libelle="le taux d’interférence"
             classe="accent-indigo-600"
             bind:value={reglages.interference}
@@ -1093,9 +1215,9 @@
               </label>
               <CurseurRegle
                 id="seuil-montee"
-                min="50"
-                max="100"
-                pas="5"
+                min={BORNES_PROGRESSION.seuilMontee.min}
+                max={BORNES_PROGRESSION.seuilMontee.max}
+                pas={BORNES_PROGRESSION.seuilMontee.pas}
                 libelle="le seuil de montée"
                 classe="accent-emerald-600"
                 bind:value={reglages.progression.seuilMontee}
@@ -1103,8 +1225,9 @@
               <CurseurRegle
                 id="parties-montee"
                 nom="Nombre de parties requises pour monter"
-                min="1"
-                max="5"
+                min={BORNES_PROGRESSION.partiesMontee.min}
+                max={BORNES_PROGRESSION.partiesMontee.max}
+                pas={BORNES_PROGRESSION.partiesMontee.pas}
                 libelle="le nombre de parties requises pour monter"
                 classe="mt-1 accent-emerald-600"
                 bind:value={reglages.progression.partiesMontee}
@@ -1118,9 +1241,9 @@
               </label>
               <CurseurRegle
                 id="seuil-descente"
-                min="10"
-                max="80"
-                pas="5"
+                min={BORNES_PROGRESSION.seuilDescente.min}
+                max={BORNES_PROGRESSION.seuilDescente.max}
+                pas={BORNES_PROGRESSION.seuilDescente.pas}
                 libelle="le seuil de descente"
                 classe="accent-amber-600"
                 bind:value={reglages.progression.seuilDescente}
@@ -1128,8 +1251,9 @@
               <CurseurRegle
                 id="parties-descente"
                 nom="Nombre de parties requises pour descendre"
-                min="1"
-                max="5"
+                min={BORNES_PROGRESSION.partiesDescente.min}
+                max={BORNES_PROGRESSION.partiesDescente.max}
+                pas={BORNES_PROGRESSION.partiesDescente.pas}
                 libelle="le nombre de parties requises pour descendre"
                 classe="mt-1 accent-amber-600"
                 bind:value={reglages.progression.partiesDescente}
