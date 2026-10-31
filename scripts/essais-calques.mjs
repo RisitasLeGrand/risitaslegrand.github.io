@@ -22,6 +22,7 @@ import { chromium } from 'playwright-core';
 import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import { cheminDuNavigateur } from './lib/chromium-essais.mjs';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
+import { devientVisible } from './lib/post-condition.mjs';
 
 const BASE = 'http://localhost:4321';
 const MDP = motDePasseEssais();
@@ -70,30 +71,56 @@ console.log('\nLA FEUILLE « PLUS » : LE RETOUR LA FERME, SANS QUITTER L’ÉCR
 /* Deux pages d'historique, pour que « quitter » ait un sens observable. */
 await page.goto(`${BASE}/odyssee/`, { waitUntil: 'networkidle' });
 await page.goto(`${BASE}/odyssee/calendrier/`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(900);
+/*
+   CE QUE CES NEUF ATTENTES COUVRAIENT, ET CE QUI LES REMPLACE.
+
+   Ce fichier mesure l'historique, et c'est ce qui rendait ses attentes
+   délicates : la moitié de ses assertions sont NÉGATIVES — « la page n'a
+   pas bougé ». Une attente trop courte les rendrait vraies d'avance, et
+   c'est le pire cas possible ici, puisque le défaut que l'essai traque est
+   précisément un historique qui bouge quand il ne devrait pas.
+
+   La clé est que `page.goBack()` est ATTENDU : quand il rend la main, le
+   déplacement dans l'historique est accompli et `page.url()` est à jour,
+   que le retour ait changé de document ou seulement défait un `pushState`.
+   Il ne reste donc rien à attendre du côté du chemin — et tout du côté du
+   calque, qui réagit au `popstate` dans son propre temps.
+
+   Chaque assertion négative sur le chemin est ainsi gardée par un
+   complément POSITIF sur le calque : le calque était visible, on attend
+   qu'il ne le soit plus. Et si un retour quittait l'écran par erreur, le
+   calque disparaîtrait aussi — mais le chemin, lu ensuite, accuserait. Les
+   deux assertions se tiennent l'une l'autre.
+*/
+await page.locator('#ouvrir-plus').waitFor({ state: 'visible', timeout: 30000 });
 verifier('prémisse : on est sur le calendrier', chemin(), '/odyssee/calendrier/');
 
 await page.click('#ouvrir-plus');
-await page.waitForTimeout(500);
+await devientVisible(page, '#feuille-plus', true, { delai: 30000 });
 verifier('la feuille est ouverte', await visible('feuille-plus'), true);
 
 await page.goBack();
-await page.waitForTimeout(700);
+await devientVisible(page, '#feuille-plus', false, { delai: 30000 });
 verifier('le retour la referme', await visible('feuille-plus'), false);
 verifier('et la page n’a pas bougé', chemin(), '/odyssee/calendrier/');
 
 console.log('\nET FERMER PAR LE BOUTON NE LAISSE PAS D’ENTRÉE FANTÔME');
 
 await page.click('#ouvrir-plus');
-await page.waitForTimeout(500);
+await devientVisible(page, '#feuille-plus', true, { delai: 30000 });
 verifier('prémisse : la feuille est rouverte', await visible('feuille-plus'), true);
 await page.click('#fermer-plus');
-await page.waitForTimeout(700);
+await devientVisible(page, '#feuille-plus', false, { delai: 30000 });
 verifier('le bouton la referme', await visible('feuille-plus'), false);
 verifier('la page n’a toujours pas bougé', chemin(), '/odyssee/calendrier/');
 
+/*
+   CELLE-CI EST POSITIVE, et c'est la seule du fichier : le retour doit
+   VRAIMENT quitter l'écran. On attend donc le chemin d'arrivée, ce qui est
+   un changement, et non un délai.
+*/
 await page.goBack();
-await page.waitForTimeout(900);
+await page.waitForURL(`${BASE}/odyssee/`, { timeout: 30000 }).catch(() => {});
 verifier(
   'le retour suivant quitte vraiment l’écran, il n’est pas avalé',
   chemin(),
@@ -103,12 +130,12 @@ verifier(
 console.log('\nLE CENTRE DE NOTIFICATIONS, MÊME RÈGLE');
 
 await page.goto(`${BASE}/odyssee/calendrier/`, { waitUntil: 'networkidle' });
-await page.waitForTimeout(900);
+await page.locator('#centre-bouton').waitFor({ state: 'visible', timeout: 30000 });
 await page.click('#centre-bouton');
-await page.waitForTimeout(600);
+await devientVisible(page, '#centre-panneau', true, { delai: 30000 });
 verifier('le panneau est ouvert', await visible('centre-panneau'), true);
 await page.goBack();
-await page.waitForTimeout(700);
+await devientVisible(page, '#centre-panneau', false, { delai: 30000 });
 verifier('le retour le referme', await visible('centre-panneau'), false);
 verifier('et la page reste', chemin(), '/odyssee/calendrier/');
 
