@@ -381,7 +381,8 @@
     "essais:maths-ecran": "node scripts/essais-maths-ecran-navigateur.mjs",
     "essais:contraste-impose": "node scripts/essais-contraste-impose-navigateur.mjs",
     "essais:temoin-sync:navigateur": "node scripts/essais-temoin-sync-navigateur.mjs",
-    "essais:contours:navigateur": "node scripts/essais-contours-de-controle-navigateur.mjs"
+    "essais:contours:navigateur": "node scripts/essais-contours-de-controle-navigateur.mjs",
+    "essais:laterale:navigateur": "node scripts/essais-barre-laterale-navigateur.mjs"
   },
   "repository": {
     "type": "git",
