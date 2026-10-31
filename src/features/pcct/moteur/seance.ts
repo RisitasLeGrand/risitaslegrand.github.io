@@ -109,7 +109,28 @@ export async function noter(
   reponse: Reponse,
   depot: DepotPcct,
 ): Promise<EssaiJoue | null> {
-  const essai = etat.courant;
+  return noterLEssai(etat, etat.courant, reponse, depot);
+}
+
+/**
+ * Note la réponse à UN essai nommé, qui n'est pas forcément le courant.
+ *
+ * C'est ce que demande le délai de grâce : une frappe tombée dans la fenêtre
+ * appartient à l'essai PRÉCÉDENT, et c'est à son attendu qu'il faut la
+ * comparer. `noter` comparait au courant, et une réponse rattrapée aurait donc
+ * été jugée contre le mauvais nombre — l'aide aurait produit la faute qu'elle
+ * existe pour empêcher.
+ *
+ * La fonction vit ici et non dans l'écran pour la même raison que
+ * `grace.attribuer` : l'attribution est une règle, et une règle s'éprouve en
+ * millisecondes. L'écran n'a qu'à dire de quel essai il parle.
+ */
+export async function noterLEssai(
+  etat: EtatSeance,
+  essai: Essai | null,
+  reponse: Reponse,
+  depot: DepotPcct,
+): Promise<EssaiJoue | null> {
   if (!essai || essai.attendu === null) return null;
 
   const juste = reponse.donne === essai.attendu;

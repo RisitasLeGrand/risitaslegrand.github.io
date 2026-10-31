@@ -38,7 +38,13 @@ import {
 } from '../src/features/pcct/moteur/prospective';
 import { mediane, p90, scores } from '../src/features/pcct/moteur/notation';
 import { DepotEnMemoire } from '../src/features/pcct/moteur/depot';
-import { noter, poserEssai, resumer, seanceNeuve } from '../src/features/pcct/moteur/seance';
+import {
+  noter,
+  noterLEssai,
+  poserEssai,
+  resumer,
+  seanceNeuve,
+} from '../src/features/pcct/moteur/seance';
 import { attribuer } from '../src/features/pcct/moteur/grace';
 import { melanger, paveDeLEssai, reponsesPossibles } from '../src/features/pcct/moteur/pave';
 import { examinerLesVoix } from '../src/features/pcct/voix';
@@ -423,6 +429,44 @@ console.log('\nGARDE 8 — LE DÉLAI DE GRÂCE RATTRAPE, ET NE SERT PAS DEUX FOI
     attribuer({ ...base, depuisLApparition: 50, courantEnAttente: false }),
     'precedent',
   );
+
+  /*
+     ET LA FRAPPE RATTRAPÉE EST JUGÉE CONTRE LE PRÉCÉDENT, non contre le
+     courant. Décider à quel essai elle appartient ne sert à rien si elle est
+     ensuite comparée au mauvais nombre : l'aide produirait la faute qu'elle
+     existe pour empêcher. D'où `noterLEssai`, qui prend l'essai dont on parle.
+  */
+  const reglages = avec({ n: 1, nombreMin: 1, nombreMax: 9, operation: 'somme' });
+  const etat = seanceNeuve(reglages);
+  const depot = new DepotEnMemoire();
+  /* Un seul hasard pour les trois tirages : deux appels à une graine neuve
+     rendraient le même nombre, et les deux attendus seraient égaux — la mesure
+     qui suit ne séparerait alors plus rien. */
+  const h = hasardFixe(4242);
+  poserEssai(etat, h);                       /* échauffement : pas d'attendu */
+  const precedent = poserEssai(etat, h);
+  const courant = poserEssai(etat, h);
+  verifier('prémisse — les deux essais ont un attendu', [precedent.attendu !== null, courant.attendu !== null], [true, true]);
+  verifier('prémisse — et les deux attendus diffèrent', precedent.attendu === courant.attendu, false);
+
+  const juge = await noterLEssai(
+    etat,
+    precedent,
+    { donne: precedent.attendu, reaction: 120, aide: 'delai-de-grace' },
+    depot,
+  );
+  verifier('la frappe rattrapée est juste contre l’attendu du PRÉCÉDENT', juge?.juste, true);
+  verifier('et c’est bien l’essai précédent qui part au dépôt', depot.essais.at(-1)?.essai.rang, precedent.rang);
+
+  /* Et la même valeur, comparée au courant, serait fausse : c'est ce qui rend
+     la mesure concluante plutôt que tautologique. */
+  const contreLeCourant = await noterLEssai(
+    etat,
+    courant,
+    { donne: precedent.attendu, reaction: 120, aide: 'delai-de-grace' },
+    depot,
+  );
+  verifier('la même valeur contre le courant serait fausse', contreLeCourant?.juste, false);
 }
 
 console.log('\nGARDE 9 — LA VOIX EST FRANÇAISE ET LOCALE, OU L’ÉCRAN LE DIT');
