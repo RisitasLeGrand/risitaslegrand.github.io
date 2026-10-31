@@ -114,6 +114,25 @@ const SOCLE = [
   */
   ['essais:typographie', 'la fonction « insecables » : ce qu’elle pose, et ce qu’elle laisse tranquille — URL, anglais, code cité'],
   /*
+     IL ENTRE AU SOCLE MAINTENANT, ET PAS PLUS TÔT — condition posée par le
+     pilote le 31 octobre : « il entre au socle quand le compte est à 0, à la
+     fin du lot 9 ».
+
+     La raison de cette condition vaut d'être écrite, parce qu'elle ne va pas
+     de soi. Un essai qui entre au socle en étant ROUGE rend le socle rouge, et
+     un socle rouge en permanence cesse d'être lu : on apprend à passer outre,
+     et le jour où il rougit pour une vraie raison, personne ne s'arrête. Le
+     balayage a donc vécu hors du socle le temps du lot, pendant que le compte
+     descendait de 246 sites dans 47 fichiers à zéro.
+
+     Ce qu'il tient désormais : aucune forme parenthésée — « jour(s) » — dans
+     une chaîne de `src/`, et aucun `toFixed` affiché qui ne déclare pourquoi
+     il ne l'est pas. Et il REFUSE DE MESURER quand son analyseur perd le fil,
+     plutôt que de rendre zéro : un analyseur cassé rend zéro, ce qui ressemble
+     en tout point à un dépôt propre.
+  */
+  ['essais:accords', 'aucun « (s) » et aucun « toFixed » affiché dans « src/ » — et l’analyseur refuse de mesurer s’il perd le fil'],
+  /*
      Deux garanties que n'importe quelle retouche du rendu Markdown peut
      défaire sans qu'on la voie : les 158 « $ » monétaires et les 100 ellipses
      « \[…\] » du contenu ne doivent jamais devenir des formules, et le HTML
@@ -813,9 +832,23 @@ for (const [index, nom] of noms.entries()) {
 
 const minutes = ((Date.now() - debut) / 60_000).toFixed(0);
 console.log(
-  `\n${SOCLE_SEUL ? 'socle' : 'batterie complète'} : ${verts} verts ; ` +
-    `${rouges.length} rouges` +
-    (nonMesurables.length ? ` ; ${nonMesurables.length} non mesurables` : '') +
+  /*
+     LE RÉSUMÉ DU SOCLE S'ACCORDE, ET IL NE LE FAISAIT PAS : « 42 verts ;
+     1 rouges ». C'est la sortie d'un outil, donc le balayage des accords ne la
+     voit pas — il ne lit que `src/`. Raison de plus pour la corriger à la main,
+     puisque rien ne le fera à ma place, et que c'est la ligne la plus relue de
+     tout le dépôt : celle qu'on regarde avant chaque poussée.
+
+     Un accord local plutôt qu'un import : la batterie est un script sans
+     dépendance vers `src/`, et lui en donner une pour trois mots serait un
+     mauvais échange. Le seuil est le même — singulier jusqu'à deux exclu.
+  */
+  `\n${SOCLE_SEUL ? 'socle' : 'batterie complète'} : ` +
+    `${verts} ${verts > 1 ? 'verts' : 'vert'} ; ` +
+    `${rouges.length} ${rouges.length > 1 ? 'rouges' : 'rouge'}` +
+    (nonMesurables.length
+      ? ` ; ${nonMesurables.length} non ${nonMesurables.length > 1 ? 'mesurables' : 'mesurable'}`
+      : '') +
     ` (${minutes} min)`,
 );
 if (nonMesurables.length > 0) {

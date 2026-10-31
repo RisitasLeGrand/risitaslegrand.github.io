@@ -415,6 +415,37 @@ v(
   combienFixed('/* nombre non affiché : clé */\nconst a = 1;\nconst t = `${n.toFixed(2)} €`;'),
   1,
 );
+/*
+   UNE LIGNE VIDE DANS LE COMMENTAIRE NE DOIT PAS ROMPRE L'ATTACHE, et cette
+   assertion garde un faux positif que j'ai provoqué moi-même.
+
+   La remontée traitait une ligne vide comme une ligne de code — blanche des
+   deux côtés, donc « pas un commentaire », donc fin de la remontée. Or un
+   commentaire de plusieurs paragraphes en contient forcément. Constaté en
+   résolvant une fusion : j'avais ajouté un paragraphe SOUS la marque, avec une
+   ligne vide entre les deux, et la marque a cessé d'exempter un site
+   parfaitement déclaré. C'est la pire sorte de faux positif, celle qui pousse
+   à défaire une bonne chose.
+*/
+v(
+  'une ligne vide dans le commentaire ne rompt pas l’attache',
+  combienFixed(
+    '/*\n   nombre non affiché : clé de recherche.\n\n   (une seconde remarque, après une ligne vide)\n*/\nconst t = `${n.toFixed(2)} €`;',
+  ),
+  0,
+);
+/*
+   ET CE QUI DOIT ARRÊTER ARRÊTE TOUJOURS. L'élargissement ci-dessus ne vaut
+   que pour les lignes vides : du code entre la marque et le site rompt
+   l'attache, même si des lignes vides l'entourent.
+*/
+v(
+  'mais du code entre les deux rompt l’attache, lignes vides comprises',
+  combienFixed(
+    '/* nombre non affiché : clé */\n\nconst a = 1;\n\nconst t = `${n.toFixed(2)} €`;',
+  ),
+  1,
+);
 v(
   'et un commentaire de balisage se lit avec le genre du fichier',
   combienFixed("<p>Aujourd’hui</p>\n<!-- on n’écrit plus n.toFixed(2) ici -->", 'x.astro'),
@@ -447,7 +478,78 @@ console.log('\n\u001b[1mLES « toFixed » AFFICHÉS DE « src/ »\u001b[0m');
   }
 }
 
+console.log('\n\x1b[1mLA MENTION DES GESTES EN ATTENTE — 1 ET 2\x1b[0m');
+{
+  /*
+     CE QUI EST MESURÉ ICI, ET CE QUI EST MESURÉ AILLEURS.
+
+     Cette phrase d'`odyssee/index.astro` portait un pronom faux — « 1 geste
+     en attente n'a pas pu être reporté. ILS sont gardés » — et trois ternaires
+     à la main dans une seule phrase. Le Pilote a demandé un essai sur 1 et sur
+     2 gestes.
+
+     Ici, deux choses se mesurent sans navigateur : que la phrase ne porte plus
+     de seuil recopié, et que les aides rendent le bon français sur les mots
+     exacts qu'elle emploie. Ce qui ne se mesure PAS ici est la phrase telle
+     qu'elle paraît : elle est composée dans la page, et seul un parcours qui
+     fait apparaître la mention peut la lire. Ce parcours existe — c'est le cas
+     positif de `essais:rejeu:navigateur`, qui sème un pli illisible puis deux
+     et lit le texte affiché — mais il vit sur la branche des temporisations.
+     Les deux branches se complètent ; aucune ne couvre tout seule, et je
+     préfère l'écrire que de laisser croire au contraire.
+  */
+  /*
+     ON CHERCHE DANS LE FICHIER ENTIER, et non dans une fenêtre autour de la
+     phrase. Ma première version découpait quatre cents signes avant
+     « en attente » — mais cette expression paraît plus tôt dans le fichier, et
+     la fenêtre tombait à côté. L'assertion disait « elle ne passe pas par les
+     aides » d'une phrase qui y passait.
+
+     Sur le fichier entier, l'absence est d'ailleurs plus forte : AUCUN seuil
+     recopié sur `restants`, où que ce soit.
+  */
+  const source = readFileSync(
+    new URL('../src/pages/odyssee/index.astro', import.meta.url),
+    'utf8',
+  );
+  v('aucun seuil recopié sur « restants »', /restants > 1 \?/.test(source), false);
+  v('la phrase passe par les aides', /pluriel\(restants, 'geste'\)/.test(source), true);
+  v(
+    'le pronom et son verbe s’accordent par une aide',
+    /accorde\(restants, 'Il est gardé', 'Ils sont gardés'\)/.test(source),
+    true,
+  );
+
+  /* Et les aides rendent bien ce que la phrase attend, sur ses mots. */
+  v('un geste : le nom', pluriel(1, 'geste'), '1 geste');
+  v('deux gestes : le nom', pluriel(2, 'geste'), '2 gestes');
+  v('un geste : le verbe', accorde(1, 'n’a', 'n’ont'), 'n’a');
+  v('deux gestes : le verbe', accorde(2, 'n’a', 'n’ont'), 'n’ont');
+  v('un geste : le participe', accorde(1, 'reporté'), 'reporté');
+  v('deux gestes : le participe', accorde(2, 'reporté'), 'reportés');
+  /*
+     LE PRONOM, qui était la faute visible. « Ils sont gardés » pour un seul
+     geste se lisait dès qu'un seul pli attendait — c'est-à-dire presque
+     toujours, un pli illisible arrivant rarement par paires.
+  */
+  v('un geste : le pronom et son verbe', accorde(1, 'Il est gardé', 'Ils sont gardés'), 'Il est gardé');
+  v('deux gestes : le pronom et son verbe', accorde(2, 'Il est gardé', 'Ils sont gardés'), 'Ils sont gardés');
+  v('un geste : le possessif', accorde(1, 'son', 'leur'), 'son');
+  v('deux gestes : le possessif', accorde(2, 'son', 'leur'), 'leur');
+  v('un geste : le pronom objet', accorde(1, 'le', 'les'), 'le');
+  v('deux gestes : le pronom objet', accorde(2, 'le', 'les'), 'les');
+}
+
+/*
+   SON PROPRE RÉSUMÉ S'ACCORDE, ET IL NE LE FAISAIT PAS. « ✗ 1 échecs » —
+   dans l'essai consacré aux accords, et sous mes yeux pendant tout ce lot.
+   C'est la sortie d'un outil et non un écran, donc le balayage ne la voit
+   pas : il ne lit que `src/`. Raison de plus pour la corriger à la main ici,
+   puisque rien ne le fera à ma place.
+*/
 console.log(
-  echecs === 0 ? '\n\u001b[32m✓ tout passe\u001b[0m\n' : `\n\u001b[31m✗ ${echecs} échecs\u001b[0m\n`,
+  echecs === 0
+    ? '\n\u001b[32m✓ tout passe\u001b[0m\n'
+    : `\n\u001b[31m✗ ${pluriel(echecs, 'échec')}\u001b[0m\n`,
 );
 process.exit(echecs === 0 ? 0 : 1);

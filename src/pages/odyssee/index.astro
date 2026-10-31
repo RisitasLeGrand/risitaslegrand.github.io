@@ -204,6 +204,7 @@ import Base from '../../layouts/Base.astro';
 <script>
   import { auDeverrouillage } from '../../lib/chargement';
   import { unSeulGeste } from '../../lib/geste';
+  import { accorde, pluriel } from '../../lib/noyau/accords';
   import { etatDuJour, type EtatDuJour } from '../../lib/odyssee-jour';
   import { ajouterFocus, relever, tenir } from '../../lib/odyssee/donnees';
   import { regle } from '../../lib/odyssee/jour';
@@ -806,10 +807,32 @@ import Base from '../../layouts/Base.astro';
             'Les gestes gardés hors coffre n’ont pas pu être relus. Rien n’est perdu : ' +
             'rouvrez le coffre pour réessayer.';
         } else if (restants > 0) {
+          /*
+             TROIS TERNAIRES À LA MAIN, ET UN PRONOM FAUX — trouvés en écrivant
+             le cas positif de `essais:rejeu:navigateur`, qui a fini par
+             afficher cette phrase pour un seul geste.
+
+             Le pronom d'abord, parce qu'il se voyait : « 1 geste en attente
+             n'a pas pu être reporté. ILS sont gardés » — pluriel pour un sujet
+             singulier, et c'est le cas le plus probable, puisqu'un pli
+             illisible arrive rarement par paires. « leur contenu » suivait la
+             même pente.
+
+             Les trois ternaires ensuite. Le seuil employé était juste
+             (`> 1`), mais recopié trois fois dans une seule phrase : trois
+             occasions de le recopier mal, et trois endroits à corriger le jour
+             où la règle changerait. « Singulier jusqu'à deux exclu » est codé
+             une fois pour toutes dans `noyau/accords.ts`, et c'est tout
+             l'objet du lot 9.
+          */
           zone.textContent =
-            `${restants} geste${restants > 1 ? 's' : ''} en attente n’${restants > 1 ? 'ont' : 'a'} pas pu être ` +
-            'reporté' + (restants > 1 ? 's' : '') + '. Ils sont gardés, pas effacés : ' +
-            'un mot de passe changé rend leur contenu illisible, et c’est à vous de décider de les jeter.';
+            `${pluriel(restants, 'geste')} en attente ` +
+            `${accorde(restants, 'n’a', 'n’ont')} pas pu être ` +
+            `${accorde(restants, 'reporté')}. ` +
+            `${accorde(restants, 'Il est gardé', 'Ils sont gardés')}, pas ` +
+            `${accorde(restants, 'effacé')} : un mot de passe changé rend ` +
+            `${accorde(restants, 'son', 'leur')} contenu illisible, et c’est à vous ` +
+            `de décider de ${accorde(restants, 'le', 'les')} jeter.`;
         } else {
           zone.classList.add('hidden');
           return;

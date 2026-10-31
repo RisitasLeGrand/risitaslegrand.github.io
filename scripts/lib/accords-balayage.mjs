@@ -446,10 +446,39 @@ export const MARQUE_NOMBRE_NON_AFFICHE = /nombre non affiché/i;
  * blanchiment conserve les positions, donc une ligne vide après blanchiment et
  * non vide dans la source est un commentaire, et rien d'autre.
  */
+/**
+ * La marque est-elle sur le site, ou dans le commentaire qui lui est attaché ?
+ *
+ * ## La remontée, et ce qui l'arrête
+ *
+ * On monte depuis le site tant que la ligne est un COMMENTAIRE — c'est-à-dire
+ * blanche après blanchiment et non blanche dans la source. La première ligne de
+ * CODE arrête tout : c'est ce qui empêche une marque d'exempter son voisin.
+ *
+ * ## UNE LIGNE VIDE DANS LE COMMENTAIRE NE L'ARRÊTE PLUS, et ce défaut-ci
+ * s'est révélé sur mon propre travail
+ *
+ * Ma première version traitait une ligne vide comme une ligne de code : blanche
+ * des deux côtés, donc « pas un commentaire », donc fin de la remontée. Or un
+ * commentaire de plusieurs paragraphes en contient forcément. Constaté en
+ * résolvant une fusion : j'avais ajouté un paragraphe sous la marque, avec une
+ * ligne vide entre les deux, et la marque a cessé d'exempter. Le balayage
+ * accusait un site parfaitement déclaré, et c'est la pire sorte de faux
+ * positif — celle qui pousse à défaire une bonne chose.
+ *
+ * Les lignes vides sont donc TRAVERSÉES. Ce qui arrête reste ce qui doit
+ * arrêter : du code. Et l'élargissement est borné — une marque séparée du site
+ * par des lignes vides seules reste au-dessus du même site, puisqu'un site est
+ * du code et qu'un site intermédiaire arrêterait la remontée.
+ */
 function marqueAttachee(brutes, propres, k) {
   if (MARQUE_NOMBRE_NON_AFFICHE.test(brutes[k] ?? '')) return true;
   for (let i = k - 1; i >= 0; i -= 1) {
-    const commentaire = (propres[i] ?? '').trim() === '' && (brutes[i] ?? '').trim() !== '';
+    const brute = (brutes[i] ?? '').trim();
+    const propre = (propres[i] ?? '').trim();
+    /* Une ligne vide : on la traverse sans décider. */
+    if (brute === '') continue;
+    const commentaire = propre === '' && brute !== '';
     if (!commentaire) return false;
     if (MARQUE_NOMBRE_NON_AFFICHE.test(brutes[i])) return true;
   }
