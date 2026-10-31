@@ -49,6 +49,33 @@ gardes sont satisfaites sans qu'on touche à rien.
 faire de la place. Ces essais le suppriment en fin de course, il n'est pas
 dans Git, et toute perte de donnée réelle est réservée à Alexis.
 
+### Et tout sabotage se fait dans un arbre séparé
+
+*Règle commune, posée par B le 26 octobre, à appliquer par tous.*
+
+Un sabotage éprouve un contrôle en cassant ce qu'il surveille : on retire une
+ligne du site ou d'une aide, et l'on vérifie que l'essai rougit. C'est la seule
+façon de savoir qu'un vert dit quelque chose — mais c'est aussi une
+modification qu'on ne veut ni commiter, ni oublier, ni voir écraser par le
+travail d'un autre agent sur le même dépôt.
+
+Il se fait donc dans un **`git worktree --detach`** sur le commit en cours,
+avec `node_modules` lié plutôt que réinstallé, et l'arbre est retiré à la fin.
+L'arbre de travail principal ne bouge pas, et un `git status` oublié ne montre
+jamais un sabotage.
+
+    git worktree add --detach /tmp/labo-sabotage HEAD
+    ln -s "$PWD/node_modules" /tmp/labo-sabotage/node_modules
+    # … casser, lancer l'essai, lire le rouge …
+    git worktree remove --force /tmp/labo-sabotage
+
+Mesuré sur `essais:post-condition` le 26 octobre : trois sabotages, trois
+rouges nommés. `travailFini` réduit à « non vide » rend « Fusion en cours… »
+au lieu du verdict ; `boutonRendu` qui ne lit plus l'état du bouton rend vrai
+sur un bouton resté désactivé ; et le sondage de la base qui ne referme plus
+sa connexion fait répondre « bloquée » à la montée de version. Sans ces trois
+passages, les trois aides seraient vertes sur parole.
+
 **Une batterie lancée dans un laboratoire n'en crée pas un second.** Le signe
 est que `.git` y est un *fichier* et non un dossier. Une première version
 regardait seulement s'il existait : il existe des deux côtés, et la détection
@@ -506,6 +533,38 @@ que ce conteneur n'a pas. Sa conversion a donc été ANNULÉE plutôt que livré
 sans mesure. Et `essais-bascule-coffre.mjs` n'a **aucun script dans
 `package.json`** : la batterie énumérant les scripts, ce fichier n'est jamais
 lancé par personne. Lancé à la main, il passe — quatorze constats, zéro rouge.
+
+### Avant de sonder la base, regarder si l'écran dit qu'il a fini
+
+*Règle ajoutée le 26 octobre, après le relevé de B.*
+
+Dix messages dans six écrans — appareils, apparier, progression, statistiques,
+stockage, veille — suivent la même convention : « … en cours… », puis un
+verdict. `travailFini` les couvre tous, et il vaut mieux qu'un sondage de la
+base : il rend la main à la seconde où l'écran parle, et il ne présume ni du
+refus ni de la réussite.
+
+La base ne se sonde donc que **lorsque l'écran ne dit rien** — une tâche
+rangée, un rappel retiré du centre, une migration, un réglage enregistré sans
+annonce. L'ordre de recherche est : ce que l'assertion lit ; sinon la marque du
+geste ; sinon le verdict de l'écran ; sinon la base.
+
+**Et une attente bouclée et bornée n'est pas une temporisation à l'aveugle.**
+Elle relève, attend un pas, relit, et ne rend la main que lorsque la condition
+est vraie — ou à la borne, ce qui est rendu comme un faux. Les cent
+millisecondes de `attendreEnBase` ne sont pas une durée supposée nécessaire :
+c'est l'intervalle entre deux lectures. Ni `relever-temporisations.mjs` ni
+`--bornes` ne les comptent.
+
+### Deux portes, deux aides, une seule copie de chacune
+
+Le coffre et le verrou du site sont deux portes différentes, et chacune a son
+aide, tenue par l'agent qui l'a écrite : **`sauvegarde-essais.mjs`** de B pour
+le verrou du site, la sauvegarde et la restauration, et **`coffre-essais.mjs`**
+de C pour l'ouverture du coffre et `#coffre-ouvert`. Les attentes de ce § 4
+sont tenues dans **`scripts/lib/post-condition.mjs`**, que je suis seul à
+modifier : qui a besoin d'une forme nouvelle la demande plutôt que de la
+recopier.
 
 ### Ce que coûte une conversion, mesuré
 

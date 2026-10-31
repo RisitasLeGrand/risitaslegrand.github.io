@@ -20,6 +20,7 @@ import { franchirInitialisation } from './lib/franchir-initialisation.mjs';
 import {
   apresLeChangementDeTexte,
   apresLeRemplacement,
+  attendreEnBase,
   attendreLeCompte,
   devientVisible,
 } from './lib/post-condition.mjs';
@@ -119,23 +120,6 @@ const lireLeMagasin = (magasin) =>
       }),
     magasin,
   );
-
-/**
- * Interroge la base jusqu'à ce qu'elle réponde ce qu'on attend.
- *
- * L'idiome vient de `essais-niveau-navigateur.mjs`. Il sert aux écritures
- * qu'aucune marque d'écran n'annonce : neuf secondes couvraient l'expiration
- * d'un bandeau PUIS l'écriture, et il suffisait d'une machine chargée pour
- * que l'assertion lise l'état d'avant.
- */
-const attendreEnBase = async (magasin, estSatisfait, delai = DELAI) => {
-  const fin = Date.now() + delai;
-  for (;;) {
-    if (estSatisfait(await lireLeMagasin(magasin))) return true;
-    if (Date.now() > fin) return false;
-    await page.waitForTimeout(100);
-  }
-};
 
 /** La zone des créneaux du jour, repeinte en entier à chaque changement. */
 const apresLesCreneaux = (geste = null) =>
@@ -709,7 +693,7 @@ console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
        lecture suivante a cassé l'essai sur un « undefined ». Le recensement
        du centre n'a aucune marque sur CET écran-ci.
     */
-    await attendreEnBase('centreElements', (tout) => tout.length >= 1);
+    await attendreEnBase(page, 'centreElements', (tout) => tout.length >= 1);
     const centre = await lireLeMagasin('centreElements');
     v('un élément déposé au centre, et un seul', centre.length, 1);
     /*
@@ -777,7 +761,7 @@ console.log('\nLE RAPPEL D’OUBLI, ET CE QU’IL DÉPOSE AU CENTRE');
        l'écriture et le retrait du rappel. Le centre n'en dit rien à l'écran
        d'ici — on interroge donc son magasin jusqu'à ce qu'il soit vide.
     */
-    await attendreEnBase('centreElements', (tout) => tout.length === 0);
+    await attendreEnBase(page, 'centreElements', (tout) => tout.length === 0);
     const apresReponse = (await lireLeMagasin('centreElements')).length;
     /*
        ET LA PRÉMISSE EST DITE, parce que sans elle ce constat est un VERT À
@@ -896,7 +880,7 @@ console.log('\nLE LIEN TÂCHE ↔ PRISE — POINTER NOTE, DÉPOINTER RETIRE');
   await page.click('#ajouter');
   /* La tâche part en base sans que cet écran-ci n'en montre la preuve : on
      attend le magasin, non l'écran. */
-  await attendreEnBase('odysseeTaches', (tout) => tout.length >= 1);
+  await attendreEnBase(page, 'odysseeTaches', (tout) => tout.length >= 1);
 
   const tache = await page.evaluate(
     () =>
@@ -929,7 +913,7 @@ console.log('\nLE LIEN TÂCHE ↔ PRISE — POINTER NOTE, DÉPOINTER RETIRE');
 
   /* ── Pointer ── */
   await page.locator(`[data-faire="${tache.id}"]`).click();
-  await attendreEnBase('odysseeMedicaments', (tout) => tout.length === avant.length + 1);
+  await attendreEnBase(page, 'odysseeMedicaments', (tout) => tout.length === avant.length + 1);
 
   const apresPointage = await lirePrises();
   v('pointer la tâche note une prise, et une seule', apresPointage.length - avant.length, 1);
@@ -940,7 +924,7 @@ console.log('\nLE LIEN TÂCHE ↔ PRISE — POINTER NOTE, DÉPOINTER RETIRE');
   const defaire = page.locator(`[data-depointer="${tache.id}"]`);
   vrai('l’écran propose de défaire', await defaire.isVisible());
   await defaire.click();
-  await attendreEnBase('odysseeMedicaments', (tout) => tout.length === avant.length);
+  await attendreEnBase(page, 'odysseeMedicaments', (tout) => tout.length === avant.length);
 
   const apresRetrait = await lirePrises();
   v('défaire retire la prise qu’il avait créée', apresRetrait.length, avant.length);

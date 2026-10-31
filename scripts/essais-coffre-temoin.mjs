@@ -27,25 +27,6 @@
  */
 import { chromium } from 'playwright-core';
 import { motDePasseEssais } from './lib/mot-de-passe-essais.mjs';
-import { devientVisible } from './lib/post-condition.mjs';
-
-/*
-   « Cette clé de stockage a disparu. »
-
-   Post-condition de ce qu'un geste efface SANS marque d'écran. Les options de
-   `waitForFunction` sont au TROISIÈME argument, le second étant la valeur
-   passée à la fonction : une borne écrite au second serait ignorée en silence,
-   et le relevé d'A en a trouvé seize dans ce cas.
-*/
-const clePartie = (ou, cle, delai = 15000) =>
-  page
-    .waitForFunction(
-      ([magasin, nom]) => !(magasin === 'local' ? localStorage : sessionStorage).getItem(nom),
-      [ou, cle],
-      { timeout: delai },
-    )
-    .then(() => true)
-    .catch(() => false);
 
 const MDP = motDePasseEssais();
 const RACINE = 'http://localhost:4321';
@@ -127,6 +108,44 @@ v(
 );
 v('et il n’offre pas « Oublier » puisqu’il n’y a rien à oublier', await page.isVisible('#temoin-coffre-oublier'), false);
 
+/*
+   ──────────────────────────────────────────────────────────────────────────
+   LES ATTENTES DE CET ESSAI, ET POURQUOI AUCUNE N'EST UNE DURÉE
+
+   `docs/cyclades/cadence-des-essais.md` § 3 et § 4. Quatre temporisations à
+   l'aveugle. Le témoin du coffre, que ce fichier attend déjà ailleurs, est la
+   post-condition de chaque geste : il paraît, il s'en va, et son libellé dit
+   la portée.
+
+   Deux gestes écrivent AILLEURS QU'À L'ÉCRAN — « Fermer » retire la clé de
+   l'onglet, « Oublier » retire la mémorisation de l'appareil —, et les
+   constats les lisent dans le stockage. Ce sont donc ces clés qu'on attend
+   disparues, non une durée.
+   ──────────────────────────────────────────────────────────────────────────
+*/
+
+/** La borne des attentes : elle rend un blocage lisible, elle ne mesure rien. */
+const DELAI = 30_000;
+
+/**
+ * Attend qu'une clé du stockage soit absente, et DIT si elle l'est devenue.
+ *
+ * Le booléen est l'ajout de B sur la version d'A, et il tient à une règle que
+ * ce chantier répète : une attente qui ne devient pas une assertion ne dit
+ * rien quand elle expire. Ici son expiration serait un effacement qui n'a pas
+ * eu lieu — c'est-à-dire une clé du coffre restée dans le stockage —, et cela
+ * doit être un rouge nommé, non une seconde perdue en silence.
+ */
+const attendreLaCleAbsente = (ou, cle) =>
+  page
+    .waitForFunction(
+      ([quel, nom]) => (quel === 'session' ? sessionStorage : localStorage).getItem(nom) === null,
+      [ou, cle],
+      { timeout: DELAI },
+    )
+    .then(() => true)
+    .catch(() => false);
+
 /* LE cas que l'ancienne disposition ne couvrait pas. */
 await page.goto(`${RACINE}/glossaire/`, { waitUntil: 'networkidle' });
 await session(page);
@@ -137,14 +156,11 @@ v(
   true,
 );
 
-/*
-   DEUX FAITS, DEUX POST-CONDITIONS : le témoin se cache, et la clé de l'onglet
-   s'efface. Une temporisation les couvrait tous deux par accident ; en la
-   retirant, il faut nommer chacun.
-*/
 await page.click('#temoin-coffre-fermer');
-v('fermer depuis cette page cache le témoin', await devientVisible(page, '#temoin-coffre', false), true);
-v('et la clé de l’onglet s’efface', await clePartie('session', 'cyclades.coffre'), true);
+/* Le témoin s'en va, et la clé de l'onglet avec : les deux constats. */
+await page.locator('#temoin-coffre').waitFor({ state: 'hidden', timeout: DELAI }).catch(() => {});
+v('la clé de l’onglet s’efface', await attendreLaCleAbsente('session', 'cyclades.coffre'), true);
+v('fermer depuis cette page cache le témoin', await page.isVisible('#temoin-coffre'), false);
 v(
   'et la clé de l’onglet a disparu',
   await page.evaluate(() => sessionStorage.getItem('cyclades.coffre')),
@@ -189,13 +205,14 @@ v('mais ce n’est pas une clé utilisable : interdit 2 tenu', utilisable, false
 
 console.log('\n  D — fermer n’est pas oublier');
 
-/*
-   La post-condition est l'effet VISIBLE du clic — le témoin s'en va. Ce qui
-   suit affirme qu'une chose N'A PAS bougé, et aucune attente ne peut le
-   prouver : il faut seulement s'assurer que le geste a eu lieu avant de lire.
-*/
 await page.click('#temoin-coffre-fermer');
-await devientVisible(page, '#temoin-coffre', false);
+/*
+   ICI LE CONSTAT EST NÉGATIF — « la mémorisation est TOUJOURS là » — et il
+   serait vrai même si « Fermer » l'effaçait une seconde plus tard. On attend
+   donc la post-condition du geste : le témoin parti, c'est-à-dire le coffre
+   refermé. Après quoi la mémorisation conservée a un sens.
+*/
+await page.locator('#temoin-coffre').waitFor({ state: 'hidden', timeout: DELAI }).catch(() => {});
 v(
   'après « Fermer », la mémorisation est toujours là',
   Boolean(await page.evaluate(() => localStorage.getItem('cyclades.coffre.appareil'))),
@@ -204,15 +221,23 @@ v(
 
 await page.reload({ waitUntil: 'networkidle' });
 await session(page);
+/*
+   LE COFFRE SE ROUVRE SEUL, puisque l'appareil s'en souvient : le témoin
+   reparu est le complément positif de « le cadenas n'est pas demandé », et
+   c'est aussi ce que le geste suivant — « Oublier » — va chercher.
+*/
+await page.locator('#temoin-coffre').waitFor({ state: 'visible', timeout: DELAI }).catch(() => {});
 v(
   'et le coffre se rouvre SANS mot de passe',
-  await devientVisible(page, '#mdp-coffre', false, { delai: 30000 }),
-  true,
+  await page.locator('#mdp-coffre').isVisible().catch(() => false),
+  false,
 );
 
 await page.locator('#temoin-coffre-oublier').waitFor({ state: 'visible', timeout: 10000 });
 await page.click('#temoin-coffre-oublier');
-v('« Oublier » efface la mémorisation', await clePartie('local', 'cyclades.coffre.appareil'), true);
+/* La mémorisation retirée est ce que le constat lit, et le témoin s'en va. */
+v('la mémorisation de l’appareil s’efface', await attendreLaCleAbsente('local', 'cyclades.coffre.appareil'), true);
+await page.locator('#temoin-coffre').waitFor({ state: 'hidden', timeout: DELAI }).catch(() => {});
 v(
   'après « Oublier », plus rien n’est mémorisé',
   await page.evaluate(() => localStorage.getItem('cyclades.coffre.appareil')),

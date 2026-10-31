@@ -35,6 +35,7 @@
  *     node scripts/relever-temporisations.mjs --fenetre 20
  *     node scripts/relever-temporisations.mjs --amortissements
  *     node scripts/relever-temporisations.mjs --bornes
+ *     node scripts/relever-temporisations.mjs --pour 'coffre|sauvegarde'
  *
  * Le dernier relève les délais que le SITE s'impose, c'est-à-dire ce qui peut
  * légitimer une attente à l'aveugle dans un essai. Une sur vingt-six au
@@ -45,6 +46,12 @@
  *
  * **Un minuteur** — `setTimeout` — diffère une action. Il se cherche par son
  * nom, et c'est la forme à laquelle on pense.
+ *
+ * `--pour <motif>` rend la LISTE, fichier par fichier et ligne par ligne, des
+ * sites dont le nom d'essai correspond au motif. C'est de quoi confier un
+ * périmètre à quelqu'un d'autre sans lui faire refaire le relevé, et chaque
+ * ligne porte la durée pariée et la lecture qui suit — de quoi décider du
+ * remède avant d'ouvrir le fichier.
  *
  * `--bornes` cherche une autre faute, trouvée le 26 octobre : le second
  * argument de `waitForFunction` est la VALEUR passée à la fonction, et les
@@ -71,6 +78,8 @@ const iFenetre = args.indexOf('--fenetre');
 const FENETRE = iFenetre === -1 ? 12 : Number(args[iFenetre + 1]);
 const AMORTISSEMENTS = args.includes('--amortissements');
 const BORNES = args.includes('--bornes');
+const iPour = args.indexOf('--pour');
+const POUR = iPour === -1 ? null : args[iPour + 1];
 
 if (!Number.isInteger(FENETRE) || FENETRE < 1) {
   console.error('La fenêtre se donne en lignes, par un entier positif.');
@@ -221,7 +230,41 @@ function bornesAuMauvaisRang() {
 
 /* ── Le rendu ─────────────────────────────────────────────────────────── */
 
-if (BORNES) {
+if (POUR) {
+  /*
+     LA LISTE D'UN PÉRIMÈTRE, pour la confier. On rend la ligne du site, la
+     durée pariée, et la première lecture qui suit dans la fenêtre : c'est ce
+     qui dit le remède — une lecture d'écran, une lecture de base, ou la
+     cadence d'un geste.
+  */
+  const motif = new RegExp(POUR);
+  let combien = 0;
+  const concernes = essais.filter((f) => motif.test(f));
+  console.log(`\nSites dont le nom d'essai correspond à « ${POUR} », fenêtre de ${FENETRE} lignes.\n`);
+  for (const f of concernes) {
+    const lignes = readFileSync(`scripts/${f}`, 'utf8').split('\n');
+    const siens = [];
+    lignes.forEach((l, i) => {
+      if (!/waitForTimeout\(/.test(l)) return;
+      const fenetre = lignes.slice(i + 1, i + 1 + FENETRE);
+      const lue = fenetre.find((x) => LECTURE.test(x));
+      if (!lue) return;
+      siens.push({
+        ligne: i + 1,
+        duree: (l.match(/waitForTimeout\(([^)]*)\)/) ?? [, '?'])[1],
+        lecture: lue.trim().slice(0, 66),
+      });
+    });
+    if (siens.length === 0) continue;
+    combien += siens.length;
+    console.log(`  scripts/${f} — ${siens.length} site(s)`);
+    for (const s of siens) {
+      console.log(`      l. ${String(s.ligne).padStart(4)} · ${String(s.duree).padStart(7)} → ${s.lecture}`);
+    }
+    console.log('');
+  }
+  console.log(`  ${combien} site(s) dans ${concernes.length} essai(s) du périmètre.\n`);
+} else if (BORNES) {
   const fautes = bornesAuMauvaisRang();
   console.log(`\n${fautes.length} borne(s) de « waitForFunction » au mauvais rang.\n`);
   for (const f of fautes) console.log(`  ${f.fichier}:${f.ligne}  second argument : ${f.code}`);
