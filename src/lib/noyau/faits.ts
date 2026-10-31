@@ -305,8 +305,25 @@ export const TYPES: readonly TypeDeFait[] = [
     libelle: 'Tâche close',
     proprietaire: 'odyssee',
     domaine: 'ordre',
-    nature: 'aucune',
-    description: 'Une tâche terminée, avec son domaine et son échéance.',
+    /*
+     * Même correction que pour la revue, et la même raison : le magasin
+     * `odysseeTaches` est journalisé TOUT ENTIER sous ce type, et un `Tache`
+     * porte un `titre` rédigé à la main et une `note` « texte libre, jamais
+     * obligatoire ».
+     *
+     * La description ne disait que « son domaine et son échéance », ce qui est
+     * ce que le SUIVI en retient — pas ce que le journal transporte. C'est
+     * l'écart entre les deux qui laissait un titre et une note s'effacer en
+     * silence à la synchronisation.
+     *
+     * « texte » est ici une simplification assumée : la valeur est un
+     * enregistrement, dont le titre et la note sont les parts irremplaçables.
+     * Le mot désigne ce qu'on ne doit pas écraser, et c'est à cela que la
+     * nature sert — à un seul endroit, la fusion.
+     */
+    nature: 'texte',
+    description:
+      'Une tâche terminée, avec son domaine, son échéance, son titre et sa note rédigés.',
   }),
   T({
     id: 'odyssee.occurrence',
@@ -609,8 +626,23 @@ export const TYPES: readonly TypeDeFait[] = [
     libelle: 'Revue périodique',
     proprietaire: 'odyssee',
     domaine: 'psyche',
-    nature: 'aucune',
-    description: 'Une revue hebdomadaire, mensuelle, trimestrielle ou annuelle, tenue.',
+    /*
+     * « aucune » ÉTAIT FAUX, et la mesure l'a dit : une revue porte trois
+     * réponses en TEXTE LIBRE — « ce qui compte », « l'obstacle », « demain » —,
+     * dont deux saisies en `<textarea>` (`pages/odyssee/revue.astro`). Son
+     * magasin est journalisé tout entier sous ce type, de sorte qu'un
+     * dernier-écrivain-gagne y effaçait des pages écrites à la main.
+     *
+     * La nature d'un type de fait est lue à UN SEUL endroit dans tout le dépôt :
+     * `controlerTypesAConflit`, dans `fusion.ts`. Vérifié type par type — le
+     * `switch (declare.nature)` de `profil.ts` porte sur un champ de PROFIL, pas
+     * sur un fait, et ni `permissions.ts`, ni `enregistrements.ts`, ni aucun
+     * graphique ne la lisent. Ce changement n'a donc qu'un effet : rendre ce
+     * type éligible à la liste des textes à conflit.
+     */
+    nature: 'texte',
+    description:
+      'Une revue hebdomadaire, mensuelle, trimestrielle ou annuelle, tenue — avec ses réponses rédigées.',
   }),
 ];
 

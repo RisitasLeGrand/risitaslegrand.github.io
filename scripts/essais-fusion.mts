@@ -432,7 +432,7 @@ propriete(
 
 {
   const problemes = controlerTypesAConflit();
-  v('les types à conflit sont au catalogue et sensibles', problemes, []);
+  v('les huit types à conflit sont au catalogue et sensibles', problemes, []);
 
   /*
      La liste est **épinglée**, et c'est voulu. La décision 6 demandait de
@@ -440,37 +440,26 @@ propriete(
      et une décision se prend en voyant cet essai échouer, pas en découvrant six
      mois plus tard qu'un type a glissé dans la liste au passage d'un refactor.
 
-     ══ DEUX AJOUTS, LE 31 OCTOBRE ══
+     ══ DEUX CANDIDATS ÉCARTÉS, LE 31 OCTOBRE ══
 
-     Décision 5 d'Alexis (19/10) : « Montrer le conflit pour les textes rédigés,
-     garder la version modifiée face à une suppression. » Arbitrage du pilote du
-     31/10, après relevé du catalogue.
+     `odyssee.journal` et `odyssee.fenetre-de-cycle` ont été proposés pour cette
+     liste, au motif qu'ils sont de nature « texte » et sensibles. La mesure les
+     a écartés, et cet essai avait raison avant elle :
 
-       odyssee.journal           de nature « texte » et SENSIBLE. Un journal est
-                                 rédigé à la main, et deux appareils qui l'ont
-                                 tenu le même jour ne doivent pas en perdre un.
-                                 Sensible, donc ici et non dans la liste des
-                                 textes : le vérificateur l'impose, sans quoi son
-                                 conflit serait signalé deux fois.
+       le journal n'offre que `ecrireEntree` — un ULID NEUF à chaque écriture —
+       et `supprimerEntree`. Rien ne modifie une entrée, donc deux appareils ne
+       peuvent pas écrire deux valeurs sous la même cible ;
 
-       odyssee.fenetre-de-cycle  de nature « texte » et SENSIBLE. Le cycle n'est
-                                 pas synchronisé par défaut (décision 7) — mais
-                                 quand l'interrupteur est ouvert, un désaccord
-                                 sur son texte doit se voir comme les autres.
-                                 L'absence de synchronisation par défaut n'est
-                                 pas une raison de ne rien montrer quand elle a
-                                 lieu.
+       la fenêtre de cycle n'est portée par AUCUN magasin journalisé : aucune
+       opération n'est jamais émise sous ce type.
 
-     Les deux manquaient aux DEUX listes, alors que leur nature et leur
-     sensibilité les y destinaient : ce n'est pas un ajout de périmètre, c'est
-     une omission réparée.
+     Ce qui décide n'est donc ni la nature ni la sensibilité, mais état ou
+     événement. L'épingle reste à huit.
   */
   v(
-    'et la liste est exactement celle qu’ont validée la décision 6 et l’arbitrage du 31/10',
+    'et la liste est exactement celle que la décision 6 a validée',
     [...TYPES_A_CONFLIT_EXPLICITE].sort(),
     [
-      'odyssee.fenetre-de-cycle',
-      'odyssee.journal',
       'odyssee.medicament',
       'odyssee.mesure',
       'odyssee.operation',

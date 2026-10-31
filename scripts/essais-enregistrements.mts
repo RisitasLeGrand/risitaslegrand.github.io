@@ -117,6 +117,54 @@ v(
   [],
 );
 
+/*
+   ══ LES TEXTES RÉDIGÉS, LE 31 OCTOBRE ══
+
+   Décision 5 d'Alexis (19/10) : montrer le conflit pour les textes rédigés.
+
+   Trois types ajoutés, et la mesure qui les a retenus : chacun est de nature
+   « texte », non sensible, ET son magasin se MET À JOUR EN PLACE — c'est cette
+   dernière propriété qui décide, et non les deux premières.
+
+     sport.phase     `sportProgrammes` : `put` sur un programme existant, et sur
+                     sa version éteinte.
+     odyssee.revue   `odysseeRevues` : identifiant DÉTERMINISTE `type:jour`, et
+                     le code dit pourquoi — « rouvrir l'écran pour compléter une
+                     réponse doit modifier la revue existante ».
+     odyssee.tache   `odysseeTaches` : `put` sur l'id existant à chaque clôture,
+                     réouverture ou abandon.
+
+   Deux candidats ont été ÉCARTÉS par la même mesure, et c'est elle qui vaut
+   d'être retenue : `odyssee.journal`, dont chaque écriture tire un ULID neuf et
+   qu'aucune fonction ne modifie, et `odyssee.fenetre-de-cycle`, qu'aucun magasin
+   journalisé ne porte. Ni la nature ni la sensibilité ne décident : état ou
+   événement décide.
+*/
+for (const type of ['sport.phase', 'odyssee.revue', 'odyssee.tache']) {
+  v(`« ${type} » est un texte à conflit`, TYPES_TEXTE_A_CONFLIT.includes(type), true);
+  v(`et il n’est pas dans la liste des sensibles`, TYPES_A_CONFLIT_EXPLICITE.includes(type), false);
+  const declare = typeDeFait(type);
+  v(`et le catalogue le déclare « texte »`, declare?.nature, 'texte');
+  v(`et non sensible`, declare?.sensible ?? false, false);
+}
+
+/*
+   LA GARDE QU'UNE ERREUR A ENSEIGNÉE : un type à conflit doit avoir un magasin
+   journalisé. Sans lui, aucune opération n'est émise sous ce type, et la
+   promesse de montrer son désaccord ne peut pas être tenue. C'est ce contrôle
+   qui aurait écarté `odyssee.fenetre-de-cycle` sans qu'on ait à le mesurer à la
+   main.
+*/
+{
+  const portes = new Set(MAGASINS_JOURNALISES.map((m) => m.type));
+  v('chaque type à conflit a un magasin journalisé', controlerTypesAConflit(portes), []);
+  v(
+    'prémisse — le relevé des magasins journalisés n’est pas vide',
+    MAGASINS_JOURNALISES.length > 10,
+    true,
+  );
+}
+
 v('aucun problème de catalogue', controlerMagasins(), []);
 v(
   'chaque magasin annonce un type déclaré',

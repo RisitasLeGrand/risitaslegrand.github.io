@@ -148,6 +148,32 @@ export const supprimees = (operations: Iterable<Operation>): Set<string> => {
  * plus récente est affichée en attendant, marquée « à vérifier », et la
  * fiabilité des indicateurs qui s'en servent est dégradée jusqu'à la réponse.
  */
+/*
+   CE QUI DÉCIDE N'EST NI LA NATURE NI LA SENSIBILITÉ : C'EST ÉTAT OU ÉVÉNEMENT.
+
+   Le 31 octobre, deux candidats ont été proposés pour cette liste parce qu'ils
+   sont de nature « texte » et sensibles : `odyssee.journal` et
+   `odyssee.fenetre-de-cycle`. La mesure les a tous deux écartés, et elle a
+   confirmé le raisonnement que la décision 6 avait déjà consigné.
+
+   `odyssee.journal` : son magasin n'offre que `ecrireEntree`, qui tire un ULID
+   NEUF à chaque écriture, et `supprimerEntree`. Aucune fonction ne modifie une
+   entrée. Deux appareils ne peuvent donc jamais écrire deux valeurs
+   différentes sous la même cible : c'est un journal au sens propre, et les
+   entrées s'unissent par identifiant.
+
+   `odyssee.fenetre-de-cycle` : aucun magasin journalisé ne porte ce type.
+   Aucune opération n'est jamais émise sous lui, donc aucun conflit ne peut y
+   naître.
+
+   L'ajouter l'un ou l'autre aurait fabriqué une notification pour un désaccord
+   impossible — et c'est ce que `essais-fusion` dit depuis le premier jour.
+
+   La règle à retenir, pour la prochaine fois : un type n'entre dans l'une des
+   deux listes que si son magasin se MET À JOUR en place. Un identifiant
+   déterministe ou un `put` sur une clé existante font un état ; un ULID neuf à
+   chaque écriture fait un événement.
+*/
 export const TYPES_A_CONFLIT_EXPLICITE: readonly string[] = [
   'odyssee.poids',
   'odyssee.mesure',
@@ -180,7 +206,29 @@ export const TYPES_A_CONFLIT_EXPLICITE: readonly string[] = [
  * L'invariant de celle-ci : le type est déclaré au catalogue, sa nature est
  * `texte`, et il n'est **pas** sensible — sans quoi il irait dans l'autre.
  */
-export const TYPES_TEXTE_A_CONFLIT: readonly string[] = ['revision.note-seance'];
+export const TYPES_TEXTE_A_CONFLIT: readonly string[] = [
+  'revision.note-seance',
+  /*
+     Trois textes rédigés et NON sensibles, ajoutés le 31 octobre.
+
+       sport.phase     déjà de nature « texte » au catalogue, et absent des deux
+                       listes. Omission, non élargissement.
+
+       odyssee.revue   sa nature était « aucune », ce qui était FAUX : une revue
+                       porte trois réponses en texte libre — « ce qui compte »,
+                       « l'obstacle », « demain » —, dont deux saisies en
+                       `<textarea>`. Le catalogue a été corrigé (voir `faits.ts`).
+
+       odyssee.tache   même correction. Un `Tache` porte un `titre` rédigé et une
+                       `note` « texte libre, jamais obligatoire », et le magasin
+                       `odysseeTaches` est journalisé tout entier sous ce type :
+                       un dernier-écrivain-gagne y effacerait un titre et une
+                       note écrits à la main.
+  */
+  'sport.phase',
+  'odyssee.revue',
+  'odyssee.tache',
+];
 
 /** Les deux listes réunies : ce dont un désaccord doit être montré. */
 export const typeAConflitExplicite = (type: string): boolean =>
@@ -513,8 +561,34 @@ export function annulerLot(etat: EtatSynchronisable, lot: string): ResultatAnnul
  * sortirait silencieusement de la liste, et son conflit cesserait d'être montré
  * sans que rien ne le signale. Ce contrôle est appelé par les essais.
  */
-export function controlerTypesAConflit(): string[] {
+export function controlerTypesAConflit(magasinsParType?: ReadonlySet<string>): string[] {
   const problemes: string[] = [];
+
+  /*
+     UN TYPE SANS MAGASIN JOURNALISÉ NE PEUT PAS ENTRER EN CONFLIT.
+
+     Garde ajoutée le 31 octobre, et c'est une erreur qui l'a enseignée :
+     `odyssee.fenetre-de-cycle` a été proposé pour la liste des sensibles parce
+     qu'il est de nature « texte » et sensible. Or aucun magasin journalisé ne
+     porte ce type — aucune opération n'est jamais émise sous lui, donc aucun
+     désaccord ne peut y naître. L'y mettre aurait promis une notification pour
+     un conflit impossible.
+
+     L'ensemble des types journalisés est passé en paramètre plutôt qu'importé :
+     `enregistrements.ts` importe déjà ce module, et l'importer en retour
+     fermerait le cycle. L'appelant qui connaît les deux le fournit ; sans lui,
+     ce contrôle-là ne s'exécute pas, et c'est dit.
+  */
+  if (magasinsParType) {
+    for (const type of [...TYPES_A_CONFLIT_EXPLICITE, ...TYPES_TEXTE_A_CONFLIT]) {
+      if (!magasinsParType.has(type)) {
+        problemes.push(
+          `« ${type} » est à conflit mais aucun magasin journalisé ne porte ce type : ` +
+            'aucune opération n’y est jamais émise, donc aucun conflit ne peut y naître.',
+        );
+      }
+    }
+  }
 
   /*
      La seconde liste a son propre invariant : du texte, déclaré, et non
