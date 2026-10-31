@@ -259,9 +259,21 @@ const nav = await chromium.launch({
       /navigateur en porte aujourd’hui \d+/.test(dit),
       true,
     );
+    /*
+       LES ACCORDS, ET NON LE « (s) » — rendu juste par le lot B1 (1e0715ed).
+       La phrase disait « 3 carte(s) suivie(s), 2 quiz et 1 journée(s) » ; elle
+       dit maintenant « 3 cartes suivies, 2 quiz et 1 journée ». Cet essai
+       attendait le littéral parenthésé et rougissait sur une phrase DEVENUE
+       correcte — un nombre recopié dans un essai se périme en silence, comme
+       un nombre recopié dans une prose.
+
+       Le motif accepte les deux accords, mais exige toujours les trois
+       rubriques ET un nombre devant chacune : il ne peut pas passer sur une
+       phrase tronquée ni sur une chaîne vide, qui est ce qu'il garde.
+    */
     v(
       'et elle détaille en cartes, quiz et journées',
-      /carte\(s\) suivie\(s\)[\s\S]*quiz[\s\S]*journée\(s\)/.test(dit),
+      /\d+ cartes? suivies?[\s\S]*\d+ quiz[\s\S]*\d+ journées?/.test(dit),
       true,
     );
     v('elle parle de l’instantané', /instantané/.test(dit), true);
